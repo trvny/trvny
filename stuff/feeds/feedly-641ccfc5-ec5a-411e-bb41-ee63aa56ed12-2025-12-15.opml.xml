@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<opml version="1.0">
+    <head>
+        <title>tra subscriptions in feedly Cloud</title>
+    </head>
+    <body>
+        <outline text="Gry" title="Gry">
+            <outline type="rss" text="IGN Polska" title="IGN Polska" xmlUrl="http://pl.ign.com/feed.xml" htmlUrl="https://pl.ign.com"/>
+            <outline type="rss" text="GRY-OnLine Newsroom" title="GRY-OnLine Newsroom" xmlUrl="http://www.gry-online.pl/rss/news.xml" htmlUrl="https://www.gry-online.pl/newsroom/news/"/>
+            <outline type="rss" text="CD-ACTION bridge" title="CD-ACTION bridge" xmlUrl="http://cdaction.toadres.pl/?action=display&amp;bridge=Cdaction&amp;format=Atom" htmlUrl="https://cdaction.pl"/>
+        </outline>
+        <outline text="wiki" title="wiki">
+            <outline type="rss" text="Wikipedia &quot;Did you know?&quot;" title="Wikipedia &quot;Did you know?&quot;" xmlUrl="https://feeds.feedburner.com/enwp/DidYouKnow" htmlUrl="https://en.wikipedia.org/wiki/Wikipedia:Did_you_know"/>
+            <outline type="rss" text="Wikipedii o nowych artykułach" title="Wikipedii o nowych artykułach" xmlUrl="https://pl.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=dyk&amp;feedformat=atom" htmlUrl="https://pl.wikipedia.org/wiki/Wikipedia:Strona_g%C5%82%C3%B3wna"/>
+            <outline type="rss" text="Wikicytaty" title="Wikicytaty" xmlUrl="https://pl.wikiquote.org/w/index.php?title=Specjalna:Nowe_strony&amp;feed=atom" htmlUrl="https://pl.wikiquote.org/wiki/Specjalna:Nowe_strony"/>
+            <outline type="rss" text="Wikipedia Tego dnia" title="Wikipedia Tego dnia" xmlUrl="https://pl.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=onthisday&amp;feedformat=atom" htmlUrl="https://pl.wikipedia.org/wiki/Wikipedia:Strona_g%C5%82%C3%B3wna"/>
+            <outline type="rss" text="Wikipedia wyróżnione" title="Wikipedia wyróżnione" xmlUrl="https://pl.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=featured&amp;feedformat=atom" htmlUrl="https://pl.wikipedia.org/wiki/Wikipedia:Strona_g%C5%82%C3%B3wna"/>
+            <outline type="rss" text="Wikimedia Polska" title="Wikimedia Polska" xmlUrl="https://wikimedia.pl/feed/" htmlUrl="https://wikimedia.pl/"/>
+            <outline type="rss" text="Wikipedia featured articles" title="Wikipedia featured articles" xmlUrl="https://en.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=featured&amp;feedformat=atom" htmlUrl="https://en.wikipedia.org/wiki/Main_Page"/>
+            <outline type="rss" text="Wikipedia picture of the day" title="Wikipedia picture of the day" xmlUrl="https://en.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=potd&amp;feedformat=atom" htmlUrl="https://en.wikipedia.org/wiki/Main_Page"/>
+            <outline type="rss" text="Wikinews - Nowe strony [pl]" title="Wikinews - Nowe strony [pl]" xmlUrl="https://pl.wikinews.org/wiki/Specjalna:Nowe_strony?feed=rss" htmlUrl="https://pl.wikinews.org/wiki/Specjalna:Nowe_strony"/>
+            <outline type="rss" text="Wikinews (polski)" title="Wikinews (polski)" xmlUrl="https://pl.wikinews.org/w/index.php?title=Specjalna:Mapa_strony_dla_Google_News&amp;feed=rss&amp;categories=Polska" htmlUrl="https://pl.wikinews.org/wiki/Strona_g%C5%82%C3%B3wna"/>
+        </outline>
+        <outline text="kch" title="kch">
+            <outline type="rss" text="Fakty Oświęcim » Kanał z wpisami zaszufladkowanymi do kategorii Na sygnale" title="Fakty Oświęcim » Kanał z wpisami zaszufladkowanymi do kategorii Na sygnale" xmlUrl="https://faktyoswiecim.pl/na-sygnale/feed/" htmlUrl="https://faktyoswiecim.pl"/>
+            <outline type="rss" text="Gazeta Krakowska" title="Gazeta Krakowska" xmlUrl="https://gazetakrakowska.pl/rss/gazetakrakowska.xml" htmlUrl="https://gazetakrakowska.pl/"/>
+            <outline type="rss" text="Google News - Chrzanów" title="Google News - Chrzanów" xmlUrl="https://news.google.com/atom/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE/sections/CAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE?hl=pl&amp;gl=PL&amp;ceid=PL%3Apl&amp;oc=11" htmlUrl="https://news.google.com/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE/sections/CAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE?hl=pl&amp;gl=PL&amp;ceid=PL:pl&amp;oc=11"/>
+            <outline type="rss" text="MCKiS" title="MCKiS" xmlUrl="https://www.mckis.chrzanow.pl/feed/" htmlUrl="https://www.mckis.chrzanow.pl"/>
+            <outline type="rss" text="Policja Małopolska" title="Policja Małopolska" xmlUrl="https://malopolska.policja.gov.pl/dokumenty/rss/386-rss-157.rss" htmlUrl="http://malopolska.policja.gov.pl/krk/"/>
+        </outline>
+        <outline text="LIN" title="LIN">
+            <outline type="rss" text="DistroWatch: News" title="DistroWatch: News" xmlUrl="https://distrowatch.com/news/dw.xml" htmlUrl="https://distrowatch.com/"/>
+            <outline type="rss" text="GParted News" title="GParted News" xmlUrl="https://gparted.org/news_rss20.php" htmlUrl="https://gparted.org/news.php"/>
+            <outline type="rss" text="Planet Gentoo" title="Planet Gentoo" xmlUrl="https://planet.gentoo.org/atom.xml" htmlUrl="https://planet.gentoo.org/"/>
+            <outline type="rss" text="openSUSE News" title="openSUSE News" xmlUrl="https://news.opensuse.org/feed.xml" htmlUrl="https://news.opensuse.org"/>
+            <outline type="rss" text="Xfce" title="Xfce" xmlUrl="https://xfce.org/feed?lang=pl" htmlUrl="https://xfce.org/about/news"/>
+            <outline type="rss" text="Zorin Blog" title="Zorin Blog" xmlUrl="https://blog.zorin.com/index.xml" htmlUrl="https://blog.zorin.com/"/>
+            <outline type="rss" text="Linux Channel" title="Linux Channel" xmlUrl="https://linuxchannel.org/feed/" htmlUrl="https://linuxchannel.org"/>
+            <outline type="rss" text="MX Linux" title="MX Linux" xmlUrl="https://mxlinux.org/category/blog/feed/" htmlUrl="https://mxlinux.org"/>
+            <outline type="rss" text="Fedora Magazine" title="Fedora Magazine" xmlUrl="https://fedoramagazine.org/feed/" htmlUrl="https://fedoramagazine.org/"/>
+            <outline type="rss" text="Kali Linux" title="Kali Linux" xmlUrl="https://www.kali.org/rss.xml" htmlUrl="https://www.kali.org/"/>
+            <outline type="rss" text="Ubuntu blog" title="Ubuntu blog" xmlUrl="https://ubuntu.com/blog/feed" htmlUrl="https://ubuntu.com//blog/feed"/>
+            <outline type="rss" text="Red Hat Blog" title="Red Hat Blog" xmlUrl="https://www.redhat.com/en/rss/blog" htmlUrl="https://www.redhat.com/en/rss/blog"/>
+            <outline type="rss" text="linuxnews.pl » Kanał z wpisami" title="linuxnews.pl » Kanał z wpisami" xmlUrl="https://linuxnews.pl/feed/" htmlUrl="https://linuxnews.pl"/>
+            <outline type="rss" text="Debiana Wiadomości " title="Debiana Wiadomości " xmlUrl="https://www.debian.org/News/news" htmlUrl="https://www.debian.org/News/"/>
+            <outline type="rss" text="Arch Linux Releases" title="Arch Linux Releases" xmlUrl="https://archlinux.org/feeds/releases/" htmlUrl="https://archlinux.org/download/"/>
+        </outline>
+        <outline text="WIN" title="WIN">
+            <outline type="rss" text="UUP (version 2.1)" title="UUP (version 2.1)" xmlUrl="https://uup.rg-adguard.net/rss" htmlUrl="https://uup.rg-adguard.net"/>
+            <outline type="rss" text="NTLite Forums" title="NTLite Forums" xmlUrl="https://www.ntlite.com/community/index.php?forums/-/index.rss" htmlUrl="https://www.ntlite.com/community/index.php"/>
+            <outline type="rss" text="Ventoy Forums" title="Ventoy Forums" xmlUrl="https://forums.ventoy.net/syndication.php?limit=15" htmlUrl="https://forums.ventoy.net/"/>
+            <outline type="rss" text="Windows 8" title="Windows 8" xmlUrl="https://www.eightforums.com/forums/-/index.rss" htmlUrl="https://www.eightforums.com/"/>
+            <outline type="rss" text="WinISO.pl" title="WinISO.pl" xmlUrl="https://winiso.pl/feed.php?ns=" htmlUrl="https://winiso.pl/"/>
+            <outline type="rss" text="Windows Latest " title="Windows Latest " xmlUrl="https://www.windowslatest.com/feed/" htmlUrl="https://www.windowslatest.com/"/>
+            <outline type="rss" text="Sergei Strelec" title="Sergei Strelec" xmlUrl="https://sergeistrelec.name/rss.xml" htmlUrl="https://sergeistrelec.name/"/>
+        </outline>
+        <outline text="yt.2be" title="yt.2be">
+            <outline type="rss" text="FX Networks" title="FX Networks" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UC2dIDJBf9W88PxGm-uHZPaQ" htmlUrl="https://www.youtube.com/channel/UC2dIDJBf9W88PxGm-uHZPaQ"/>
+            <outline type="rss" text="The Witcher" title="The Witcher" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCzybXLxv08IApdjdN0mJhEg" htmlUrl="https://www.youtube.com/channel/UCzybXLxv08IApdjdN0mJhEg"/>
+            <outline type="rss" text="Rockstar Games" title="Rockstar Games" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UC6VcWc1rAoWdBCM0JxrRQ3A" htmlUrl="https://www.youtube.com/channel/UC6VcWc1rAoWdBCM0JxrRQ3A"/>
+            <outline type="rss" text="Netflix Polska" title="Netflix Polska" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCwAiG5lj7w24SbgPy6eiYvg" htmlUrl="https://www.youtube.com/channel/UCwAiG5lj7w24SbgPy6eiYvg"/>
+            <outline type="rss" text="IGN" title="IGN" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCKy1dAqELo0zrOtPkf0eTMw" htmlUrl="https://www.youtube.com/channel/UCKy1dAqELo0zrOtPkf0eTMw"/>
+            <outline type="rss" text="Kane Pixels" title="Kane Pixels" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UC8X4WT5_lUXqMjeN8bGFk9w" htmlUrl="https://www.youtube.com/channel/UC8X4WT5_lUXqMjeN8bGFk9w"/>
+            <outline type="rss" text="Prime Video Polska" title="Prime Video Polska" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCpTO7UgWBeiuXtA5ksSkjYg" htmlUrl="https://www.youtube.com/channel/UCpTO7UgWBeiuXtA5ksSkjYg"/>
+            <outline type="rss" text="GameSpot" title="GameSpot" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCbu2SsF-Or3Rsn3NxqODImw" htmlUrl="https://www.youtube.com/channel/UCbu2SsF-Or3Rsn3NxqODImw"/>
+            <outline type="rss" text="Apple TV" title="Apple TV" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UC1Myj674wRVXB9I4c6Hm5zA" htmlUrl="https://www.youtube.com/channel/UC1Myj674wRVXB9I4c6Hm5zA"/>
+            <outline type="rss" text="GSC Game World" title="GSC Game World" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCk96JambgW5zsOBquR63iEQ" htmlUrl="https://www.youtube.com/channel/UCk96JambgW5zsOBquR63iEQ"/>
+            <outline type="rss" text="CD PROJEKT RED" title="CD PROJEKT RED" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCuCtanBJXOPAEIAUXf9944g" htmlUrl="https://www.youtube.com/channel/UCuCtanBJXOPAEIAUXf9944g"/>
+            <outline type="rss" text="2020" title="2020" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCJmMwjGoRDZSZY5EXEUUu4Q" htmlUrl="https://www.youtube.com/channel/UCJmMwjGoRDZSZY5EXEUUu4Q"/>
+            <outline type="rss" text="Jon Lajoie / Wolfie’s Just Fine" title="Jon Lajoie / Wolfie’s Just Fine" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UC-716wgP94vhil91RVJwaIQ" htmlUrl="https://www.youtube.com/channel/UC-716wgP94vhil91RVJwaIQ"/>
+            <outline type="rss" text="Max Polska" title="Max Polska" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCxI9R2o15s4vnGP_Arh575Q" htmlUrl="https://www.youtube.com/channel/UCxI9R2o15s4vnGP_Arh575Q"/>
+        </outline>
+        <outline text="Moto" title="Moto">
+            <outline type="rss" text="Auto Świat www.auto-swiat.pl" title="Auto Świat www.auto-swiat.pl" xmlUrl="http://www.auto-swiat.pl/.feed" htmlUrl="https://www.auto-swiat.pl/"/>
+            <outline type="rss" text="AutoCentrum" title="AutoCentrum" xmlUrl="http://www.autocentrum.pl/rss/aktualnosci.xml" htmlUrl="https://www.autocentrum.pl"/>
+        </outline>
+        <outline text="Geek" title="Geek"/>
+        <outline text="ms🪟" title="ms🪟">
+            <outline type="rss" text="Pomoc techniczna Microsoft Windows 8.1" title="Pomoc techniczna Microsoft Windows 8.1" xmlUrl="https://support.microsoft.com/pl-pl/feed/rss/b905caa1-d413-c90c-bed3-20aead901092"/>
+            <outline type="rss" text="Microsoft for Developers" title="Microsoft for Developers" xmlUrl="https://devblogs.microsoft.com/landing" htmlUrl="https://devblogs.microsoft.com/landing"/>
+            <outline type="rss" text="Pomoc techniczna Microsoft Windows 11" title="Pomoc techniczna Microsoft Windows 11" xmlUrl="https://support.microsoft.com/pl-pl/feed/rss/4ec863cc-2ecd-e187-6cb3-b50c6545db92"/>
+            <outline type="rss" text="Windows CommandLine" title="Windows CommandLine" xmlUrl="https://devblogs.microsoft.com/commandline/feed/" htmlUrl="https://devblogs.microsoft.com/commandline/"/>
+            <outline type="rss" text="Sysinternals" title="Sysinternals" xmlUrl="https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Sysinternals-Blog" htmlUrl="https://techcommunity.microsoft.com/t5/sysinternals-blog/bg-p/Sysinternals-Blog"/>
+            <outline type="rss" text="Microsoft Learn adk" title="Microsoft Learn adk" xmlUrl="https://learn.microsoft.com/api/search/rss?search=adk&amp;locale=pl-pl&amp;%24filter=%28category+eq+%27Documentation%27%29" htmlUrl="https://learn.microsoft.com"/>
+            <outline type="rss" text="Bing Blogs" title="Bing Blogs" xmlUrl="https://blogs.bing.com/feed/" htmlUrl="https://blogs.bing.com/Feed"/>
+            <outline type="rss" text="Windows Blog" title="Windows Blog" xmlUrl="https://blogs.windows.com/feed" htmlUrl="https://blogs.windows.com/"/>
+        </outline>
+        <outline text="0" title="0">
+            <outline type="rss" text="wPolsce24" title="wPolsce24" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCPiu4CZlknkTworskK79CPg" htmlUrl="https://www.youtube.com/channel/UCPiu4CZlknkTworskK79CPg"/>
+            <outline type="rss" text="ANDROID.COM.PL" title="ANDROID.COM.PL" xmlUrl="http://android.com.pl/feed/" htmlUrl="https://android.com.pl"/>
+            <outline type="rss" text="przelom.pl" title="przelom.pl" xmlUrl="https://przelom.pl/pl/rss.xml" htmlUrl="https://przelom.pl/pl/"/>
+            <outline type="rss" text="Reddit Top" title="Reddit Top" xmlUrl="https://api.reddit.com/top/me/641ccfc5-ec5a-411e-bb41-ee63aa56ed12" htmlUrl="https://www.reddit.com/top?t=day"/>
+            <outline type="rss" text="www.rp.pl" title="www.rp.pl" xmlUrl="http://www.rp.pl/rss/1019" htmlUrl="https://www.rp.pl/"/>
+            <outline type="rss" text="r/Polska" title="r/Polska" xmlUrl="https://api.reddit.com/subreddit/Polska;top" htmlUrl="https://www.reddit.com/r/Polska/top?t=day"/>
+            <outline type="rss" text="Popkiller" title="Popkiller" xmlUrl="http://www.popkiller.pl/rss.xml" htmlUrl="https://www.popkiller.pl/frontpage/8945/artykuly"/>
+            <outline type="rss" text="National Geographic" title="National Geographic" xmlUrl="https://www.national-geographic.pl/feed/atom" htmlUrl="https://www.national-geographic.pl"/>
+            <outline type="rss" text="r/all" title="r/all" xmlUrl="https://api.reddit.com/subreddit/all;top" htmlUrl="https://www.reddit.com/r/all/top?t=day"/>
+            <outline type="rss" text="ModDB" title="ModDB" xmlUrl="http://rss.moddb.com/headlines/feed/rss.xml" htmlUrl="https://www.moddb.com/headlines"/>
+            <outline type="rss" text="Gazeta Krakowska" title="Gazeta Krakowska" xmlUrl="http://www.gazetakrakowska.pl/rss/gazetakrakowska.xml" htmlUrl="https://gazetakrakowska.pl/"/>
+            <outline type="rss" text="Feedly Blog" title="Feedly Blog" xmlUrl="https://feedly.com/blog/feed.xml" htmlUrl="https://feedly.com/resources"/>
+            <outline type="rss" text="Lemmy.World - All" title="Lemmy.World - All" xmlUrl="https://lemmy.world/feeds/all.xml?sort=TopMonth" htmlUrl="https://lemmy.world"/>
+            <outline type="rss" text="naszemiasto.pl" title="naszemiasto.pl" xmlUrl="https://chrzanow.naszemiasto.pl/rss/artykuly/1.xml" htmlUrl="https://chrzanow.naszemiasto.pl/"/>
+            <outline type="rss" text="DistroWatch.com: News" title="DistroWatch.com: News" xmlUrl="http://distrowatch.com/news/dw.xml" htmlUrl="https://distrowatch.com/"/>
+            <outline type="rss" text="Windows 11 Forum" title="Windows 11 Forum" xmlUrl="https://www.elevenforum.com/questions/-/index.rss" htmlUrl="https://www.elevenforum.com/"/>
+            <outline type="rss" text="Twoje wiadomości lokalne - Google News" title="Twoje wiadomości lokalne - Google News" xmlUrl="https://news.google.com/atom/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE/sections/CAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE?hl=pl&amp;amp;gl=PL&amp;amp;ceid=PL:pl&amp;amp;oc=11&amp;gl=PL&amp;ceid=PL:pl" htmlUrl="https://news.google.com/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE/sections/CAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE?hl=pl&amp;amp;gl=PL&amp;amp;ceid=PL:pl&amp;amp;oc=11&amp;gl=PL&amp;ceid=PL:pl"/>
+            <outline type="rss" text="Portal i.pl" title="Portal i.pl" xmlUrl="https://i.pl/rss" htmlUrl="https://i.pl/"/>
+            <outline type="rss" text="Zaufana Trzecia Strona" title="Zaufana Trzecia Strona" xmlUrl="http://zaufanatrzeciastrona.pl/feed/" htmlUrl="https://zaufanatrzeciastrona.pl"/>
+            <outline type="rss" text="Reddit my" title="Reddit my" xmlUrl="https://api.reddit.com/timeline/me/641ccfc5-ec5a-411e-bb41-ee63aa56ed12" htmlUrl="https://www.reddit.com/"/>
+            <outline type="rss" text="SWTOR" title="SWTOR" xmlUrl="http://www.swtor.com/feed/news" htmlUrl="https://www.swtor.com/feed/news/%2A"/>
+            <outline type="rss" text="Focus.pl" title="Focus.pl" xmlUrl="http://www.focus.pl/rss/" htmlUrl="https://www.focus.pl"/>
+            <outline type="rss" text="All About Music" title="All About Music" xmlUrl="http://allaboutmusic.pl/feed/" htmlUrl="https://allaboutmusic.pl"/>
+            <outline type="rss" text="Wikinews Polska" title="Wikinews Polska" xmlUrl="http://tools.wikimedia.pl/~derbeth/wikinews.xml" htmlUrl="http://pl.wikinews.org/"/>
+            <outline type="rss" text="Prezydent RP" title="Prezydent RP" xmlUrl="https://www.youtube.com/feeds/videos.xml?channel_id=UCaTXcCfYQd_G5VZeNwsYzPg" htmlUrl="https://www.youtube.com/channel/UCaTXcCfYQd_G5VZeNwsYzPg"/>
+            <outline type="rss" text="Spider's Web" title="Spider's Web" xmlUrl="http://www.spidersweb.pl/feed" htmlUrl="https://spidersweb.pl"/>
+            <outline type="rss" text="Polsat News" title="Polsat News" xmlUrl="http://www.polsatnews.pl/rss/wszystkie.xml" htmlUrl="https://www.polsatnews.pl/"/>
+            <outline type="rss" text="Niebezpiecznik.pl" title="Niebezpiecznik.pl" xmlUrl="http://feeds.feedburner.com/niebezpiecznik/" htmlUrl="https://niebezpiecznik.pl"/>
+            <outline type="rss" text="MajorGeeks.Com" title="MajorGeeks.Com" xmlUrl="https://www.majorgeeks.com/files/rss" htmlUrl="https://www.majorgeeks.com"/>
+            <outline type="rss" text="Reddit Best" title="Reddit Best" xmlUrl="https://api.reddit.com/best/me/641ccfc5-ec5a-411e-bb41-ee63aa56ed12" htmlUrl="https://www.reddit.com/best"/>
+            <outline type="rss" text="Windows Blog" title="Windows Blog" xmlUrl="http://blogs.windows.com/feed/" htmlUrl="https://blogs.windows.com/"/>
+            <outline type="rss" text="AntyWeb" title="AntyWeb" xmlUrl="http://feeds.feedburner.com/Antyweb" htmlUrl="https://antyweb.pl/feed"/>
+            <outline type="rss" text="Filmweb News" title="Filmweb News" xmlUrl="http://www.filmweb.pl/rss/news" htmlUrl="https://www.filmweb.pl/news"/>
+            <outline type="rss" text="APOD" title="APOD" xmlUrl="https://apod.com/feed.rss" htmlUrl="https://apod.nasa.gov/"/>
+        </outline>
+        <outline text="reddit" title="reddit">
+            <outline type="rss" text="reddit: the front page of the internet" title="reddit: the front page of the internet" xmlUrl="https://old.reddit.com/.rss?feed=c110b7aa070187d45da06131c829fcddb5416768&amp;user=travny" htmlUrl="https://old.reddit.com/?feed=c110b7aa070187d45da06131c829fcddb5416768&amp;user=travny"/>
+            <outline type="rss" text="reddit" title="reddit" xmlUrl="http://www.reddit.com/.rss" htmlUrl="https://www.reddit.com/"/>
+        </outline>
+    </body>
+</opml>

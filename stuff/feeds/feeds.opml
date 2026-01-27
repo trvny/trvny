@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<opml version="2.0">
+  <head>
+    <title>Your feeds managed by the Feed Reader Bot - https://t.me/TheFeedReaderBot</title>
+    <dateCreated>Wed, 10 Dec 2025 09:40:01 GMT</dateCreated>
+    <docs>http://www.opml.org/spec2</docs>
+  </head>
+  <body>
+    <outline text="&quot;polska&quot; - Google News" type="rss" xmlUrl="http://news.google.com/news?hl=en&amp;gl=us&amp;q=polska&amp;um=1&amp;ie=UTF-8&amp;output=rss" />
+    <outline text="APOD" type="rss" xmlUrl="http://apod.nasa.gov/apod.rss" />
+    <outline text="GRY-OnLine Newsroom" type="rss" xmlUrl="http://www.gry-online.pl/rss/news.xml" />
+    <outline text="Niebezpiecznik.pl" type="rss" xmlUrl="http://feeds.feedburner.com/niebezpiecznik/" />
+    <outline text="Polsat News - Wiadomości" type="rss" xmlUrl="http://www.polsatnews.pl/rss/wszystkie.xml" />
+    <outline text="Private Feed for travino" type="rss" xmlUrl="https://github.com/travino.private.atom?token=A4YYN5L7YRCMJIEQJ2R4FJGHDAWYQ" />
+    <outline text="przelom.pl" type="rss" xmlUrl="https://przelom.pl/pl/rss.xml" />
+    <outline text="reddit: the front page of the internet" type="rss" xmlUrl="https://reddit.com/.rss?feed=c110b7aa070187d45da06131c829fcddb5416768&amp;user=travny/.rss" />
+    <outline text="Twoje wiadomości lokalne - Chrzanów - Google News" type="rss" xmlUrl="https://news.google.com/atom/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE/sections/CAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE?hl=pl&amp;amp;gl=PL&amp;amp;ceid=PL:pl&amp;amp;oc=11" />
+    <outline text="Wiadomości - Chrzanów - naszemiasto.pl" type="rss" xmlUrl="https://chrzanow.naszemiasto.pl/rss/artykuly/1.xml" />
+  </body>
+</opml>

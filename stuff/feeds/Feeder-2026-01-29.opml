@@ -2,7 +2,7 @@
 <opml version="1.0">
   <head>
     <title>Feeder - RSS Feed Reader</title>
-    <dateCreated>2026-01-29T16:10:06Z</dateCreated>
+    <dateCreated>2026-01-29T16:48:27Z</dateCreated>
   </head>
   <body>
     <outline text="Google News" title="Google News" type="rss" xmlUrl="https://news.google.com/rss?hl=pl&amp;gl=PL&amp;ceid=PL:pl" htmlUrl="https://news.google.com/?hl=pl&amp;gl=PL&amp;ceid=PL:pl" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/news.google.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
@@ -226,6 +226,7 @@
       <outline text="rgadguard" title="rgadguard" type="rss" xmlUrl="https://forum.rg-adguard.net/forums/-/index.rss" htmlUrl="https://forum.rg-adguard.net/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/forum.rg-adguard.net" rssfr-useNotifications="0" rssfr-updateInterval=""/>
       <outline text="Pesky" title="Pesky" type="rss" xmlUrl="https://rss-bridge.org/bridge01/?action=display&amp;bridge=FeedMergeBridge&amp;feed_name=Pesky&amp;feed_1=https%3A%2F%2Fblog.pesky.moe%2Findex.xml&amp;feed_2=https%3A%2F%2Fpesky.moe%2Flinks%2Findex.xml&amp;feed_3=&amp;feed_4=&amp;feed_5=&amp;feed_6=&amp;feed_7=&amp;feed_8=&amp;feed_9=&amp;feed_10=&amp;limit=50&amp;format=Atom" htmlUrl="https://pesky.moe/links/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/pesky.moe" rssfr-useNotifications="0" rssfr-updateInterval=""/>
       <outline text="PortableApps.com" title="PortableApps.com" type="rss" xmlUrl="https://portableapps.com/feeds/general" htmlUrl="https://portableapps.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/portableapps.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+      <outline text="Avast Blog | EN" title="Avast Blog | EN" type="rss" xmlUrl="https://blog.avast.com/rss.xml" htmlUrl="https://blog.avast.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/blog.avast.com" rssfr-useNotifications="0" rssfr-updateInterval="7200000"/>
     </outline>
     <outline title="Stack" text="Stack">
       <outline text="Stack Exchange" title="Stack Exchange" type="rss" xmlUrl="https://stackexchange.com/feeds" htmlUrl="https://stackexchange.com/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/stackexchange.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>

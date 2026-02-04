@@ -1,7 +1,6 @@
 #EXTM3U
 #EXTINF:-1 tvg-id="TVP1.pl@SD" tvg-logo="https://i.imgur.com/ewpSjBs.png" group-title="Undefined",TVP1 (1080p) https://ec06-krk3.cache.orange.pl/dai4/org1/vb/104/tvp1hd/index.m3u8
-#EXTINF:-1 tvg-id="TVP1.pl@SD",TVP1 (1080i) [Geo-blocked] tvg-logo="https://i.imgur.com/ewpSjBs.png" group-title="Undefined",TVP1 (1080i)
-https://liveovh009.cda.pl/enc129/tvp1hdraw/tvp1hdraw.m3u8
+#EXTINF:-1 tvg-id="TVP1.pl@SD",TVP1 (1080i) [Geo-blocked] tvg-logo="https://i.imgur.com/ewpSjBs.png" group-title="Undefined",TVP1 (1080i) https://liveovh009.cda.pl/enc129/tvp1hdraw/tvp1hdraw.m3u8
 #EXTINF:-1 tvg-id="TVP1.pl@SD" tvg-logo="https://i.imgur.com/ewpSjBs.png" group-title="Undefined",TVP1 (1080i) https://liveovh009.cda.pl/enc129/tvp1hdraw/tvp1hdraw.mpd
 #EXTINF:-1 tvg-id="TVP2.pl@SD" tvg-logo="https://i.imgur.com/XxCc32B.png" tvg-name="TVP2 (1080p) [Geo-blocked]" group-title="Undefined",TVP2 (1080p) [Geo-blocked] https://liveovh011.cda.pl/enc115/tvp2hdraw/tvp2hdraw.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/XxCc32B.png" tvg-name="TVP2 (1080i) [Geo-blocked]" group-title="Undefined",TVP2 (1080i) [Geo-blocked] https://cdndai.pl/tvp2hd/index.m3u8
@@ -32,3 +31,4 @@ https://liveovh009.cda.pl/enc129/tvp1hdraw/tvp1hdraw.m3u8
 #EXTINF:-1 tvg-id="Channel4.uk@UKHD",Channel 4 UK HD https://viamotionhsi.netplus.ch/live/eds/channel4/browser-dash/channel4.mpd
 #EXTINF:-1 tvg-id="RadioHit.ru@SD" tvg-logo="https://i.imgur.com/5xKqV1s.png" group-title="Music",Радио Хит (Орск) (720p) http://lova.me/hls/hithd.m3u8
 #EXTINF:-1 tvg-id="Russia1.ru@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg/512px-11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg.png" group-title="General",Россия 1 https://vgtrkregion-reg.cdnvideo.ru/vgtrk/0/russia1-hd/index.m3u8
+

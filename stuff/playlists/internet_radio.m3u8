@@ -22,10 +22,13 @@ http://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bb
 http://as-hls-ww-live.akamaized.net/pool_81827798/live/ww/bbc_6music/bbc_6music.isml/bbc_6music-audio%3d96000.norewind.m3u8
 http://stream3.polskieradio.pl:8950/;.mp3
 http://mp3.polskieradio.pl:8952/;
+#EXTINF:-1, PR Trójka
 http://41.dktr.pl:8000/trojka2.ogg
+#EXTINF:-1, PR Czwórka
 http://mp3.polskieradio.pl:8956/;
 http://stream3.polskieradio.pl:8906/;stream
 http://zet-net-01.cdn.eurozet.pl:8400/
+#EXTINF:-1, Radio Plus Kraków
 https://ic2.smcdn.pl/4070-1.mp3
 https://pl05.cdn.eurozet.pl/plu-gdn.mp3
 https://ml.cdn.eurozet.pl/mel-net.mp3
@@ -36,8 +39,7 @@ https://rs6-krk2.rmfstream.pl/rmf_maxxx
 https://redir.atmcdn.pl/sc/o2/Eurozet/live/antyradio.livx
 http://stream3.nadaje.com:9128/radiokrakow
 https://waw.ic.smcdn.pl/2330-1.mp3
-https://stream4.nadaje.com:10125/kaszebe128
-https://ssl-1.radiohost.pl:8018/stream
+https://stream4.nadaje.com:10125/kaszebe128
 https://rs103-krk-cyfronet.rmfstream.pl/sizeer_fm
 https://radio.pejpal.cloud/stream
 http://s3.slotex.pl:7240/stream
@@ -48,6 +50,7 @@ http://s02.toksyna.fm:8000/;
 http://s02.toksyna.fm:8040/;
 http://s02.toksyna.fm:8010/;
 http://s0.radiohost.pl:8018/Italo4you
+https://ssl-1.radiohost.pl:8018/stream
 http://radio.el-stacja.pl:8000/elstacjaap320.ogg
 http://stream2.nadaje.com:8060/;
 https://ic1.smcdn.pl/2070-1.mp3

@@ -22,13 +22,15 @@ http://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bb
 http://as-hls-ww-live.akamaized.net/pool_81827798/live/ww/bbc_6music/bbc_6music.isml/bbc_6music-audio%3d96000.norewind.m3u8
 http://stream3.polskieradio.pl:8950/;.mp3
 http://mp3.polskieradio.pl:8952/;
-http://41.dktr.pl:8000/trojka.ogg
+http://41.dktr.pl:8000/trojka2.ogg
 http://mp3.polskieradio.pl:8956/;
 http://stream3.polskieradio.pl:8906/;stream
 http://zet-net-01.cdn.eurozet.pl:8400/
 https://ic2.smcdn.pl/4070-1.mp3
 https://pl05.cdn.eurozet.pl/plu-gdn.mp3
 https://ml.cdn.eurozet.pl/mel-net.mp3
+https://rs201-krk.rmfstream.pl/rmf_fm
+https://rs201-krk.rmfstream.pl/rmf_maxxx
 http://195.150.20.7/rmf_maxxx
 https://rs6-krk2.rmfstream.pl/rmf_maxxx
 https://redir.atmcdn.pl/sc/o2/Eurozet/live/antyradio.livx
@@ -41,6 +43,14 @@ https://radio.pejpal.cloud/stream
 http://s3.slotex.pl:7240/stream
 https://waw.ic.smcdn.pl/3990-1.mp3
 https://stream.radioimperium.pl:8443/stream
+https://n-11-25.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx
+http://s02.toksyna.fm:8000/;
+http://s02.toksyna.fm:8040/;
+http://s02.toksyna.fm:8010/;
+http://s0.radiohost.pl:8018/Italo4you
+http://radio.el-stacja.pl:8000/elstacjaap320.ogg
+http://stream2.nadaje.com:8060/;
+https://ic1.smcdn.pl/2070-1.mp3
 https://secureonair.krone.at/kronehit-ultra-hd.aac
 https://s2.audiostream.hu/roxy_192k
 http://admin.biasradio.com:8000/live?&_ic2=1
@@ -51,9 +61,12 @@ https://54house.fm:9013/stream
 #EXTPOS:0,-1
 http://stream.radioitalopower.com:10018/italopower
 http://54.36.89.71:8102/stream
+#EXTINF:-1, Radio Paradise Main Mix
 http://stream.radioparadise.com/ogg-192m
 http://stream.radioparadise.com/rock-320
 http://stream.radioparadise.com/global-320
+#EXTINF:1, Radio Paradise Main Mix (EU) 320k AAC
+http://stream-uk1.radioparadise.com/aac-320
 https://streamer.radio.co/s2c3cc784b/listen
 https://stream.laut.fm/electro-swing
 http://213.141.131.10:8000/electroswing
@@ -85,7 +98,6 @@ https://strm112.1.fm/deephouse_mobile_mp3
 https://streaming04.liveboxstream.uk/proxy/jlofth00?mp=/stream
 http://67.212.166.178:7024/;
 http://79.111.119.111:9063/;
-http://radio.el-stacja.pl:8000/elstacja320.ogg
 http://radioo.eu:9900/
 https://stream.electroradio.fm:26630/192k
 https://waw.ic.smcdn.pl/6130-1.mp3

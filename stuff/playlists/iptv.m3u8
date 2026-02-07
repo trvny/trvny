@@ -53,8 +53,6 @@ https://lb2-e2-19.pluscdn.pl/ch/1502600/308/hls/b399c955/masterlist.m3u8
 https://cdn-s-lb2.pluscdn.pl/lv/1517830/349/hls/f03a76f3/masterlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/sx1yPuc.png" tvg-name="Polsat News (720p) [Geo-blocked]" group-title="News",Polsat News (720p) [Geo-blocked]
 http://cdn-s-lb2.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd
-#EXTINF:-1 tvg-name="PR Trójka" group-title="Music",PR Trójka
-http://41.dktr.pl:8000/trojka2.ogg
 #EXTINF:-1 tvg-logo="https://i.imgur.com/VAtxF7k.png" tvg-name="Radio Czwórka (1080p)" group-title="Entertainment",Radio Czwórka (1080p)
 https://stream14.polskieradio.pl/pr4_video/video_pr4.stream/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/AbvCnoH.png" tvg-name="Reuters TV" group-title="News",Reuters TV

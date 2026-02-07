@@ -24,6 +24,8 @@ http://stream3.polskieradio.pl:8950/;.mp3
 http://mp3.polskieradio.pl:8952/;
 #EXTINF:-1, PR Trójka
 http://41.dktr.pl:8000/trojka2.ogg
+#EXTINF:-1, PR Trójka
+http://41.dktr.pl:8000/trojka.ogg
 #EXTINF:-1, PR Czwórka
 http://mp3.polskieradio.pl:8956/;
 http://stream3.polskieradio.pl:8906/;stream

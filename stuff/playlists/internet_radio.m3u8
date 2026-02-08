@@ -25,9 +25,11 @@ http://stream3.polskieradio.pl:8950/;.mp3
 #EXTPOS:0,-1
 http://mp3.polskieradio.pl:8952/;
 #EXTPOS:0,-1
+http://41.dktr.pl:8000/trojka.ogg
+#EXTPOS:0,-1
 http://41.dktr.pl:8000/trojka2.ogg
 #EXTPOS:0,-1
-http://41.dktr.pl:8000/trojka.ogg
+http://stream3.polskieradio.pl:8954/listen.pls
 #EXTPOS:0,-1
 http://mp3.polskieradio.pl:8956/;
 #EXTPOS:0,-1
@@ -40,6 +42,7 @@ https://ic2.smcdn.pl/4070-1.mp3
 https://pl05.cdn.eurozet.pl/plu-gdn.mp3
 #EXTPOS:0,-1
 https://ml.cdn.eurozet.pl/mel-net.mp3
+#EXTINF:-1, RMF FM
 #EXTPOS:0,-1
 http://195.150.20.242:8000/rmf_fm
 #EXTPOS:0,-1
@@ -94,6 +97,7 @@ http://ep256.hostingradio.ru:8052/europaplus256.mp3
 https://s2.audiostream.hu/roxy_192k
 #EXTPOS:0,-1
 http://admin.biasradio.com:8000/live?&_ic2=1
+#EXTINF:-1, Minimal Mix
 #EXTPOS:0,-1
 http://orion.shoutca.st:8750/
 #EXTPOS:0,-1
@@ -104,6 +108,7 @@ https://54house.fm:9013/stream
 http://stream.radioitalopower.com:10018/italopower
 #EXTPOS:0,-1
 http://54.36.89.71:8102/stream
+#EXTINF:-1, Radio Paradise Main Mix
 #EXTPOS:0,-1
 http://stream.radioparadise.com/ogg-192m
 #EXTPOS:0,-1

@@ -1,14 +1,12 @@
 #EXTM3U
 #EXTINF:-1 tvg-logo="https://i.imgur.com/rI1wo2l.png" tvg-name="4 Fun TV (576i) [Not 24/7]" group-title="Music",4 Fun TV (576i) [Not 24/7]
 https://stream.4fun.tv:8888/hls/4f_high/index.m3u8
-#EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSYypjtunrM5_AFsS6LQmU1cytCvfG-uODFr4tC2PAuLQ&s=10" tvg-name="ABC News Live 1 (720p)" group-title="News",ABC News Live 1 (720p)
-https://abcnews-streams.akamaized.net/hls/live/2023560/abcnewshudson1/master_4000.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/nGSsUd4.png" tvg-name="BBC Earth" group-title="Uncategorized",BBC Earth
 https://amg00793-amg00793c6-xumo-us-2669.playouts.now.amagi.tv/BBCStudios-BBCEarthA-hls/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRVWncEaewJ3E_qUdwsCjJYePp5cKkimAecVoUR0e8rUg&s=10" tvg-name="BBC News Europe" group-title="News",BBC News Europe
 https://dash2.antik.sk/live/test_bbc_world/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://experiencersinternational.github.io/tvsetup/tvg-ico/bbcrd1-epg.png" tvg-name="BBC Radio 1" group-title="Music",BBC Radio 1
-http://as-hls-ww-live.akamaized.net/pool_904/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8
+http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one&bitrate=96000
 #EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one_dance/blocks-colour_600x600.png" tvg-name="BBC Radio 1 Dance" group-title="Music",BBC Radio 1 Dance
 http://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bbc_radio_one_dance.isml/bbc_radio_one_dance-audio%3d96000.norewind.m3u8
 #EXTINF:-1 tvg-logo="https://experiencersinternational.github.io/tvsetup/tvg-ico/bbcrd6-epg.png" tvg-name="BBC Radio 6 Music" group-title="Music",BBC Radio 6 Music
@@ -29,8 +27,6 @@ https://viamotionhsi.netplus.ch/live/eds/channel4/browser-HLS8/channel4.m3u8
 https://streaming.thestream.cyou/live/210.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Comedy_Central_2018.svg/512px-Comedy_Central_2018.svg.png" tvg-name="Comedy Central (1080p)" group-title="Comedy",Comedy Central (1080p)
 https://cdn.kinoteka.cc/weebtv/gen.m3u8.php?id=comedycentralpl
-#EXTINF:-1 tvg-logo="http://logo.plusx.tv/logo/Comedy%20Central%20HD.png" tvg-name="Comedy Central Polska" group-title="Comedy",Comedy Central Polska
-https://liveovh010.cda.pl/enc006/comedycentralhdraw/comedycentralhdraw.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/N0eH0Cg.png" tvg-name="Eska TV (1080p)" group-title="Music",Eska TV (1080p)
 https://cdn.kinoteka.cc/weebtv/gen.m3u8.php?id=eska__tvmusic
 #EXTINF:-1 tvg-logo="https://i.postimg.cc/qRmRrWLW/euronews.png" tvg-name="Euronews" group-title="News",Euronews
@@ -57,26 +53,16 @@ http://cdn-s-lb2.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd
 https://stream14.polskieradio.pl/pr4_video/video_pr4.stream/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/AbvCnoH.png" tvg-name="Reuters TV" group-title="News",Reuters TV
 https://amg00453-reuters-amg00453c1-rakuten-uk-2110.playouts.now.amagi.tv/playlist/amg00453-reuters-reuters-rakutenuk/playlist.m3u8
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Russia-today-logo.svg/512px-Russia-today-logo.svg.png" tvg-name="Russia Today Ⓖ" group-title="News",Russia Today Ⓖ
-https://rt-glb.rttv.com/live/rtnews/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/HuIsALV.png" tvg-name="Super Express TV (1080i)" group-title="News",Super Express TV (1080i)
 https://s-pl-01.mediatool.tv/playout/sepl-abr/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ljpK6dZ.png" tvg-name="TV Republika" group-title="News",TV Republika
 https://cdn.kinoteka.cc/weebtv/gen.m3u8.php?id=jtv6
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/TVP_Info_logo.svg/512px-TVP_Info_logo.svg.png" tvg-name="TVP Info" group-title="News",TVP Info
 https://dash4.antik.sk/live/test_tvp_info/playlist.m3u8
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/TVP_Info_logo.svg/512px-TVP_Info_logo.svg.png" tvg-name="TVP Info (1080p)" group-title="News",TVP Info (1080p)
-https://turbotv.tv/play/link/8e4dcd78-bdc3-4d41-b361-13c8e8ae0efc/eyJpdiI6IlJmaEs3c2orL2JvblhSeU9oNTh6QlE9PSIsInZhbHVlIjoiMm5JOWNzYll1MXc3Mk1PNnFsTk5MR3VrRUlPQXZNWDJaT3BKcTY3UThkVWZTQjdBZm03NklVVjhpS1lLN3E2VjBoT25MYzhPL09kdnRJUGRNR3EzWVpubHlDNXNGOWh2Mlk3Rzd2TGhLbVE9IiwibWFjIjoiZmY1MTNiYzc1MDkxOWIwYWM4NWU4Y2U4YTFiZmM1MzMwMDhhMDcwYmRhMWEwYWIwNDM5YjEwNGQ3ZmE1YTgyYyIsInRhZyI6IiJ9.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/MuRtvXk.png" tvg-name="TVP Seriale (1080p)" group-title="Series",TVP Seriale (1080p)
-https://turbotv.tv/play/link/f1314272-bb13-4b53-bdee-d265a3627a8e/eyJpdiI6InZNakpxclQyeXNIaG9XWmg2b3RjZlE9PSIsInZhbHVlIjoiNmUvMitoYlYydm40VVNCaS82Mmlub08zazQ0d3FXakE0aWp6YWdXTHpIaDFGZEQycW45RkJKR2pXeHVkZEJYUXgyWkM3em5wTUJLaHU3QTJTMUNIWlR3blFaUm1VNm5WaENzNnN4WTZGOUE9IiwibWFjIjoiNTM2ZTdiZWE4MDcwNjhkNWM0NWExZmI3NWZiMjBhYzIxOTY5NGVjYjI5OGU1OGQwZDMzMDk2OGU1NmMyOGEyMiIsInRhZyI6IiJ9.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/JUZDOCO.png" tvg-name="TVP Sport (1080p)" group-title="Sports",TVP Sport (1080p)
-https://turbotv.tv/play/link/c28f5f5d-8830-4768-9452-733a1d80646f/eyJpdiI6Ik02dExRMUpoVThnUUFDYXZnSm5QbXc9PSIsInZhbHVlIjoiR2E3cysyRTJnQXVUanhsR3hxdXdHUGlkSzZsZFJiSkZ5b00xdjVTckIwTDV5cW53OE03WW9tRmg2RGxDZWZtTm9BSXZsVnVwSHpRK0Y1UnlnK3hOZGUxSVN6azlBNzI2N2FvdHBUQnlXUFk9IiwibWFjIjoiYzRhOTZhY2Y1ZjBmMzFkMWQzODJlNGY0ZjIzYWFmMjVlNDBmNjhjYmM1YzJhODQxNGY4ZjNmZTJmOTFhZTU1MiIsInRhZyI6IiJ9.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/JUZDOCO.png" tvg-name="TVP Sport (1080p)" group-title="Sports",TVP Sport (1080p)
 https://cdn.kinoteka.cc/weebtv/gen.m3u8.php?id=sportTVP_channeed
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ewpSjBs.png" tvg-name="TVP1 (1080i)" group-title="General",TVP1 (1080i)
 https://liveovh009.cda.pl/enc129/tvp1hdraw/tvp1hdraw.mpd
-#EXTINF:-1 tvg-logo="https://i.imgur.com/ewpSjBs.png" tvg-name="TVP1 (1080i)" group-title="General",TVP1 (1080i)
-https://liveovh009.cda.pl/enc129/tvp1hdraw/tvp1hdraw.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ewpSjBs.png" tvg-name="TVP1 (1080p)" group-title="General",TVP1 (1080p)
 https://ec06-krk3.cache.orange.pl/dai4/org1/vb/104/tvp1hd/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/XxCc32B.png" tvg-name="TVP2 (1080i) [Geo-blocked]" group-title="General",TVP2 (1080i) [Geo-blocked]
@@ -93,7 +79,7 @@ https://d1s6jz7jeei17.cloudfront.net/playlist/amg00056-vevotv-vevo2kau-samsungau
 https://d3mzlmrngyf08j.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-55k4m9whplndi/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/dZHktKR.png" tvg-name="Vevo Pop" group-title="Music",Vevo Pop
 https://amg00056-vevotv-vevopopau-samsungnz-wa3bw.amagi.tv/playlist/amg00056-vevotv-vevopopau-samsungnz/playlist.m3u8
-#EXTINF:-1 tvg-logo="https://images.samsung.com/is/image/samsung/assets/nz/tvs/smart-tv/samsung-tv-plus/all-channels/1000x1000_Vevo-pop.png?$296_164_PNG$" tvg-name="Vevo Pop (1080p)" group-title="Music",Vevo Pop (1080p)
+#EXTINF:-1 tvg-logo="https://images.samsung.com/is/image/samsung/assets/nz/tvs/smart-tv/samsung-tv-plus/all-channels/1000x1000_Vevo-pop.png?$296_164_PNG$" tvg-name="Vevo Pop" group-title="Music",Vevo Pop
 https://jmp2.uk/stvp-GBBC19000017V
 #EXTINF:-1 tvg-logo="https://i.imgur.com/owUXUih.png" tvg-name="Vevo True School Hip-Hop" group-title="Music",Vevo True School Hip-Hop
 http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/61d4c2817a823d00070ba53e/master.m3u8?appName=web&appVersion=unknown&clientTime=0&deviceDNT=0&deviceId=6c2ce918-30d3-11ef-9cf5-e9ddff8ff496&deviceMake=Chrome&deviceModel=web&deviceType=web&deviceVersion=unknown&includeExtendedEvents=false&serverSideAds=false&sid=90c1dbc6-366d-4ba4-913a-7ff94babe33e
@@ -101,7 +87,7 @@ http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/61
 http://31.148.48.15/Muzika_Pervogo/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/4KiYSln.png" tvg-name="Победа" group-title="Uncategorized",Победа
 https://streaming.thestream.cyou/live/43.m3u8
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg/512px-11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg.png" tvg-name="Россия 1" group-title="News",Россия 1
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg/512px-11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg.png" tvg-name="Россия 1" group-title="General",Россия 1
 https://vgtrkregion-reg.cdnvideo.ru/vgtrk/0/russia1-hd/index.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Rossiya-24_Logo.svg/512px-Rossiya-24_Logo.svg.png" tvg-name="Россия 24 (576p) [Not 24/7]" group-title="News",Россия 24 (576p) [Not 24/7]
 https://uiptv.do.am/1ufc/000000006/playlist.m3u8

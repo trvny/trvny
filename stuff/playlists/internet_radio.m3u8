@@ -34,6 +34,7 @@ http://zet-net-01.cdn.eurozet.pl:8400/
 https://ic2.smcdn.pl/4070-1.mp3
 https://pl05.cdn.eurozet.pl/plu-gdn.mp3
 https://ml.cdn.eurozet.pl/mel-net.mp3
+http://195.150.20.242:8000/rmf_fm
 https://rs201-krk.rmfstream.pl/rmf_fm
 https://rs201-krk.rmfstream.pl/rmf_maxxx
 http://195.150.20.7/rmf_maxxx
@@ -57,6 +58,8 @@ http://radio.el-stacja.pl:8000/elstacjaap320.ogg
 http://stream2.nadaje.com:8060/;
 https://ic1.smcdn.pl/2070-1.mp3
 https://secureonair.krone.at/kronehit-ultra-hd.aac
+https://orf-live.ors-shoutcast.at/oe3-q2a
+http://ep256.hostingradio.ru:8052/europaplus256.mp3
 https://s2.audiostream.hu/roxy_192k
 http://admin.biasradio.com:8000/live?&_ic2=1
 http://orion.shoutca.st:8750/
@@ -130,3 +133,4 @@ https://stream.laut.fm/spotify
 https://playerservices.streamtheworld.com/api/livestream-redirect/ARN_IHRT16AAC.aac
 https://drive.uber.radio/uber/ttthrowbacks/icecast.audio
 http://c16.radioboss.fm:8026/autodj
+

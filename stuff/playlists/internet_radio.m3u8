@@ -24,22 +24,16 @@ http://as-hls-ww-live.akamaized.net/pool_81827798/live/ww/bbc_6music/bbc_6music.
 http://stream3.polskieradio.pl:8950/;.mp3
 #EXTPOS:0,-1
 http://mp3.polskieradio.pl:8952/;
-#EXTINF:-1, PR3 Trójka
 #EXTPOS:0,-1
 http://41.dktr.pl:8000/trojka.ogg
-#EXTINF:-1, Polskie Radio Trójka
 #EXTPOS:0,-1
 http://41.dktr.pl:8000/trojka2.ogg
-#EXTINF:-1, PR4 Czwórka
 #EXTPOS:0,-1
 http://mp3.polskieradio.pl:8956/;
-#EXTINF:-1, Polskie Radio Czwórka (Program 4)
 #EXTPOS:0,-1
 http://stream3.polskieradio.pl:8906/;stream
-#EXTINF:-1, Radio Zet
 #EXTPOS:0,-1
 http://zet-net-01.cdn.eurozet.pl:8400/
-#EXTINF:-1, Radio Plus
 #EXTPOS:0,-1
 https://pl05.cdn.eurozet.pl/plu-gdn.mp3
 #EXTPOS:0,-1
@@ -48,7 +42,6 @@ https://ic2.smcdn.pl/4070-1.mp3
 https://ml.cdn.eurozet.pl/mel-net.mp3
 #EXTPOS:0,-1
 https://redir.atmcdn.pl/sc/o2/Eurozet/live/antyradio.livx
-#EXTINF:-1, RMF FM
 #EXTPOS:0,-1
 http://195.150.20.242:8000/rmf_fm
 #EXTPOS:0,-1
@@ -88,14 +81,11 @@ http://s02.toksyna.fm:8040/;
 #EXTPOS:0,-1
 http://s02.toksyna.fm:8010/;
 #EXTPOS:0,-1
-http://s0.radiohost.pl:8018/Italo4you
-#EXTPOS:0,-1
 https://ssl-1.radiohost.pl:8018/stream
 #EXTPOS:0,-1
 http://radio.el-stacja.pl:8000/elstacjaap320.ogg
 #EXTPOS:0,-1
 https://ic1.smcdn.pl/2070-1.mp3
-#EXTINF:-1, Kronehit
 #EXTPOS:0,-1
 https://secureonair.krone.at/kronehit-ultra-hd.aac
 #EXTPOS:0,-1
@@ -104,7 +94,6 @@ https://orf-live.ors-shoutcast.at/oe3-q2a
 http://ep256.hostingradio.ru:8052/europaplus256.mp3
 #EXTPOS:0,-1
 https://s2.audiostream.hu/roxy_192k
-#EXTINF:-1, Radio Bias
 #EXTPOS:0,-1
 http://admin.biasradio.com:8000/live?&_ic2=1
 #EXTPOS:0,-1
@@ -117,16 +106,12 @@ https://54house.fm:9013/stream
 http://stream.radioitalopower.com:10018/italopower
 #EXTPOS:0,-1
 http://54.36.89.71:8102/stream
-#EXTINF:-1, Radio Paradise Main Mix (EU)
 #EXTPOS:0,1000
 http://stream-uk1.radioparadise.com/aac-320
-#EXTINF:-1, Radio Paradise Main Mix
 #EXTPOS:0,-1
 http://stream.radioparadise.com/ogg-192m
-#EXTINF:-1, Radio Paradise Rock Mix
 #EXTPOS:0,-1
 http://stream.radioparadise.com/rock-320
-#EXTINF:-1, Radio Paradise Global Mix
 #EXTPOS:0,-1
 http://stream.radioparadise.com/global-320
 #EXTPOS:0,-1
@@ -211,7 +196,6 @@ http://79.111.119.111:8004/italodisco
 http://79.111.14.76:8004/triphop
 #EXTPOS:0,-1
 http://79.120.77.11:8004/witchhouse
-#EXTINF:-1, GTA Classics
 #EXTPOS:0,-1
 https://stream.laut.fm/gta-classics
 #EXTPOS:0,-1

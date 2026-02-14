@@ -23,8 +23,6 @@ https://panel.btb.j00r.us/memfs/ebaffae6-0086-49d7-843d-57f2c561de86.m3u8
 https://cbsn-us.cbsnstream.cbsnews.com/out/v1/55a8648e8f134e82a470f83d562deeca/master.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/en/thumb/7/7b/New_Channel_4_News_logo.svg/960px-New_Channel_4_News_logo.svg.png" tvg-name="Channel 4 UK (1080p)" group-title="News",Channel 4 UK (1080p)
 https://viamotionhsi.netplus.ch/live/eds/channel4/browser-HLS8/channel4.m3u8
-#EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTC8HOhlfSIQh_3dWjVU3CxJW2xYk25_JYwCj1RzgmkvQ&s" tvg-name="Channel One" group-title="General",Channel One
-https://streaming.thestream.cyou/live/210.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Comedy_Central_2018.svg/512px-Comedy_Central_2018.svg.png" tvg-name="Comedy Central (1080p)" group-title="Comedy",Comedy Central (1080p)
 https://cdn.kinoteka.cc/weebtv/gen.m3u8.php?id=comedycentralpl
 #EXTINF:-1 tvg-logo="https://i.postimg.cc/X7rWGrjZ/echo24.png" tvg-name="Echo24" group-title="General",Echo24
@@ -37,11 +35,9 @@ https://7060743b4b224241b86325460b14d152.mediatailor.eu-west-1.amazonaws.com/v1/
 https://stream.livenewsplay.com:9443/hls/foxnews/foxsd.m3u8
 #EXTINF:-1 tvg-logo="https://motowizja.pl/wp-content/uploads/2022/01/logo_motowizja_transparent.png" tvg-name="Motowizja (1080p)" group-title="Auto",Motowizja (1080p)
 https://liveovh009.cda.pl/enc116/motowizjahdraw/motowizjahdraw.m3u8
-#EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRyN14NgigtUnImvVp9DqgbKY5c9Nsl-EqLkPX7PzYcl924yK77GycmSj2E&s=10" tvg-name="Music Box Polska" group-title="Music",Music Box Polska
-https://vs2131.vcdn.biz/7c9ec24eb8edee7c3d3b96d9f3135f48_megogo/live/hls/b/700_2490_4000/u_sid/0/o/156751011/rsid/75909724-61e8-406f-9c58-f0491247f2a6/u_uid/0/u_vod/0/u_device/cms_html5/u_devicekey/_site/lip/91.226.196.37*asn/u_srvc/81255/u_did/web_duMuKipCoyWU9tWH3VWiK9eX5ZPorcR6/type.live/chunklist-sid750262562196381400-b4000000.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/JZt2qh5.png" tvg-name="NBC News NOW" group-title="News",NBC News NOW
 https://d1bl6tskrpq9ze.cloudfront.net/hls/master.m3u8?ads.xumo_channelId=99984003
-#EXTINF:-1 tvg-logo="https://i.imgur.com/YyPnMeB.png" tvg-name="Now 80s" group-title="Music",Now 80s
+#EXTINF:-1 tvg-logo="https://i.imgur.com/YyPnMeB.png" tvg-name="NOW 80s" group-title="Music",NOW 80s
 https://lightning-now80s-rakuten.amagi.tv/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://images.samsung.com/is/image/samsung/assets/nz/tvs/smart-tv/samsung-tv-plus/all-channels/Now-90s-A-B-1000px-Circle1.png?$296_164_PNG$" tvg-name="NOW 90s00s" group-title="Music",NOW 90s00s
 https://amg01076-amg01076c19-rakuten-gb-8653.playouts.now.amagi.tv/playlist/amg01076-lightning-now90s00s-rakutengb/playlist.m3u8
@@ -59,8 +55,6 @@ https://amg00378-mavtv-amg00378c2-rakuten-us-1048.playouts.now.amagi.tv/playlist
 https://stream14.polskieradio.pl/pr4_video/video_pr4.stream/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://radioram.pl/img/layout/logo.svg" tvg-name="Radio RAM" group-title="Music",Radio RAM
 https://1888165924.rsc.cdn77.org/live/RadioRAM/playlist.m3u8
-#EXTINF:-1 tvg-logo="https://miro.medium.com/v2/resize:fit:2473/1%2AQORJhPwJLxvJYg6igAaX1w.png" tvg-name="RakutenViki" group-title="General",RakutenViki
-https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/AbvCnoH.png" tvg-name="Reuters TV" group-title="News",Reuters TV
 https://amg00453-reuters-amg00453c1-rakuten-uk-2110.playouts.now.amagi.tv/playlist/amg00453-reuters-reuters-rakutenuk/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Russia-today-logo.svg/512px-Russia-today-logo.svg.png" tvg-name="RT" group-title="News",RT
@@ -73,14 +67,14 @@ https://vefgpbwcjjjbxfng.naszatv.pl/tracks-v1a1/mono.ts.m3u8
 https://cdn.kinoteka.cc/weebtv/gen.m3u8.php?id=jtv6
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/d/d4/TV4Polska.png" tvg-name="TV4" group-title="General",TV4
 https://lb2-e2-32.pluscdn.pl/ch/1502601/309/hls/84c3557b/masterlist.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/Bc4QZiy.png" tvg-name="TVP Historia" group-title="Documentary",TVP Historia
-https://lowa8026-cmyk.github.io/tvpvod/399702.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/TVP_Info_logo.svg/512px-TVP_Info_logo.svg.png" tvg-name="TVP Info" group-title="News",TVP Info
 https://dash4.antik.sk/live/test_tvp_info/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/TVP_Info_logo.svg/512px-TVP_Info_logo.svg.png" tvg-name="TVP Info (1080p)" group-title="News",TVP Info (1080p)
 https://lowa8026-cmyk.github.io/tvpvod/399699.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/JUZDOCO.png" tvg-name="TVP Sport (1080p)" group-title="Sports",TVP Sport (1080p)
 https://cdn.kinoteka.cc/weebtv/gen.m3u8.php?id=sportTVP_channeed
+#EXTINF:-1 tvg-logo="https://i.imgur.com/lB4MgRI.png" tvg-name="TVP World" group-title="News",TVP World
+https://dash2.antik.sk/live/test_tvp_world/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ewpSjBs.png" tvg-name="TVP1 (1080p)" group-title="General",TVP1 (1080p)
 https://ec06-krk3.cache.orange.pl/dai4/org1/vb/104/tvp1hd/index.m3u8
 #EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZnpVC_Aie2gK9REjpSsrCjdrnkauNbqNzBg&s" tvg-name="TVP1 (1080p)" group-title="General",TVP1 (1080p)
@@ -107,11 +101,13 @@ https://amg00056-amg00056c13-rakuten-es-3246.playouts.now.amagi.tv/playlist.m3u8
 https://amg00056-vevotv-vevopopau-samsungnz-wa3bw.amagi.tv/playlist/amg00056-vevotv-vevopopau-samsungnz/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/owUXUih.png" tvg-name="Vevo True School Hip-Hop" group-title="Music",Vevo True School Hip-Hop
 http://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv/stitch/hls/channel/61d4c2817a823d00070ba53e/master.m3u8?appName=web&appVersion=unknown&clientTime=0&deviceDNT=0&deviceId=6c2ce918-30d3-11ef-9cf5-e9ddff8ff496&deviceMake=Chrome&deviceModel=web&deviceType=web&deviceVersion=unknown&includeExtendedEvents=false&serverSideAds=false&sid=90c1dbc6-366d-4ba4-913a-7ff94babe33e
+#EXTINF:-1 tvg-logo="https://miro.medium.com/v2/resize:fit:2473/1%2AQORJhPwJLxvJYg6igAaX1w.png" tvg-name="Viki" group-title="General",Viki
+https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/U0vKj3P.png" tvg-name="Музыка Первого" group-title="Music",Музыка Первого
 http://31.148.48.15/Muzika_Pervogo/index.m3u8
+#EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTC8HOhlfSIQh_3dWjVU3CxJW2xYk25_JYwCj1RzgmkvQ&s" tvg-name="Первый канал" group-title="General",Первый канал
+https://streaming.thestream.cyou/live/210.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/4KiYSln.png" tvg-name="Победа" group-title="General",Победа
 https://streaming.thestream.cyou/live/43.m3u8
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Rossiya-24_Logo.svg/512px-Rossiya-24_Logo.svg.png" tvg-name="Россия-24 (576p) [Not 24/7]" group-title="News",Россия-24 (576p) [Not 24/7]
-https://uiptv.do.am/1ufc/000000006/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg/512px-11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg.png" tvg-name="Россия-1" group-title="General",Россия-1
 https://vgtrkregion-reg.cdnvideo.ru/vgtrk/0/russia1-hd/index.m3u8

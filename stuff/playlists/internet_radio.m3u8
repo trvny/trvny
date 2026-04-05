@@ -1,25 +1,25 @@
 ﻿#EXTM3U
 #EXTINF:-1, BBC - Radio 1
 #EXTPOS:0,-1
-http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one&bitrate=96000
+https://lsn.lv/bbcradio.m3u8?station=bbc_radio_one&bitrate=96000
 #EXTINF:-1, BBC - Radio 1Dance
 #EXTPOS:0,-1
-http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one_dance&bitrate=96000
+https://lsn.lv/bbcradio.m3u8?station=bbc_radio_one_dance&bitrate=96000
 #EXTINF:-1, BBC - Radio 1Anthems
 #EXTPOS:0,-1
-http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one_anthems&bitrate=96000
+https://lsn.lv/bbcradio.m3u8?station=bbc_radio_one_anthems&bitrate=96000
 #EXTINF:-1, BBC - Radio 6
 #EXTPOS:0,-1
-http://lsn.lv/bbcradio.m3u8?station=bbc_6music&bitrate=96000
+https://lsn.lv/bbcradio.m3u8?station=bbc_6music&bitrate=96000
 #EXTINF:-1, BBC - Radio 1
 #EXTPOS:0,-1
-http://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d96000.norewind.m3u8
+https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d128000.norewind.m3u8
 #EXTINF:-1, BBC - Radio 1Dance
 #EXTPOS:0,-1
-http://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bbc_radio_one_dance.isml/bbc_radio_one_dance-audio%3d96000.norewind.m3u8
+https://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bbc_radio_one_dance.isml/bbc_radio_one_dance-audio%3d128000.norewind.m3u8
 #EXTINF:-1, BBC - Radio 6
 #EXTPOS:0,-1
-http://as-hls-ww-live.akamaized.net/pool_81827798/live/ww/bbc_6music/bbc_6music.isml/bbc_6music-audio%3d96000.norewind.m3u8
+https://as-hls-ww-live.akamaized.net/pool_81827798/live/ww/bbc_6music/bbc_6music.isml/bbc_6music-audio%3d128000.norewind.m3u8
 #EXTPOS:0,-1
 http://stream3.polskieradio.pl:8950/;.mp3
 #EXTPOS:0,-1

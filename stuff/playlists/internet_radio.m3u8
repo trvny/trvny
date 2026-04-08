@@ -69,12 +69,19 @@ https://rs201-krk.rmfstream.pl/rmf_maxxx
 https://rs6-krk2.rmfstream.pl/rmf_top4
 #EXTPOS:0,-1
 https://rs202-krk.rmfstream.pl/rmf_muzyka_filmowa
-#EXTPOS:0,-1
-http://stream3.nadaje.com:9128/radiokrakow
-#EXTPOS:0,-1
-https://waw.ic.smcdn.pl/2330-1.mp3
+#EXTINF:-1, rmfon - RMF Ziom
+#EXTALB:rmfon
+https://rs6-krk2.rmfstream.pl/rmf_ziom
+#EXTINF:-1, rmfon - RMF Depeche Mode
+#EXTALB:rmfon
+https://rs7-krk2.rmfstream.pl/DEPECHEMODE
+#EXTINF:-1, radiokaszebe - Radio Kaszëbë
+#EXTALB:radiokaszebe
+http://x.radiokaszebe.pl:9000/;
 #EXTPOS:0,-1
 https://stream4.nadaje.com:10125/kaszebe128
+#EXTPOS:0,-1
+http://stream3.nadaje.com:9128/radiokrakow
 #EXTPOS:0,-1
 https://rs103-krk-cyfronet.rmfstream.pl/sizeer_fm
 #EXTPOS:0,-1
@@ -259,4 +266,5 @@ http://fallout.fm:8000/falloutfm10.ogg
 http://listen.nolife-radio.com
 #EXTINF:-1, streamingsoundtracks.com - StreamingSoundtracks
 #EXTALB:streamingsoundtracks.com
+#EXTPOS:0,-1
 http://lo4.streamingsoundtracks.com/;

@@ -35,7 +35,6 @@ http://mp3.polskieradio.pl:8956/;
 http://stream3.polskieradio.pl:8906/;stream
 #EXTPOS:0,-1
 http://zet-net-01.cdn.eurozet.pl:8400/
-#EXTINF:-1, Radio Zet
 #EXTPOS:0,-1
 https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx
 #EXTPOS:0,-1
@@ -76,10 +75,9 @@ https://s1.slotex.pl:7474/;
 https://waw.ic.smcdn.pl/3990-1.mp3
 #EXTPOS:0,-1
 https://stream.radioimperium.pl:8443/stream
-#EXTPOS:0,-1
-https://n-11-25.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx
 #EXTINF:-1, radio357.pl - Radio 357
 #EXTALB:radio357.pl
+#EXTPOS:0,-1
 https://n-11-21.dcs.redcdn.pl/sc/o2/radio357/live/radio357_pr.livx?preroll=0
 #EXTPOS:0,-1
 http://s02.toksyna.fm:8000/;
@@ -144,11 +142,11 @@ https://listen.radioking.com/radio/422/stream/62785
 #EXTPOS:0,-1
 https://stream.laut.fm/soundtracksfm
 #EXTPOS:0,-1
-https://stream.laut.fm/soundtrack
-#EXTPOS:0,-1
 https://quincy.torontocast.com:2410/stream
 #EXTPOS:0,-1
 http://radio.vgmradio.com:8040/autodj
+#EXTPOS:0,-1
+https://stream.laut.fm/soundtrack
 #EXTPOS:0,-1
 https://substream.top100station.com/topmoviestation.mp3
 #EXTPOS:0,-1
@@ -166,8 +164,6 @@ https://streaming04.liveboxstream.uk/proxy/jlofth00?mp=/stream
 #EXTPOS:0,-1
 http://67.212.166.178:7024/;
 #EXTPOS:0,-1
-http://79.111.119.111:9063/;
-#EXTPOS:0,-1
 http://radioo.eu:9900/
 #EXTPOS:0,-1
 https://stream.electroradio.fm:26630/192k
@@ -184,19 +180,17 @@ http://77.51.212.205:8005/live192
 #EXTPOS:0,-1
 http://79.120.39.202:8000/balkan
 #EXTPOS:0,-1
-http://79.120.39.202:9051/;
-#EXTPOS:0,-1
 http://79.120.39.202:8000/musicgame
 #EXTPOS:0,-1
-http://79.120.77.11:8000/disco
-#EXTPOS:0,-1
 http://79.111.119.111:8000/electroindustrial
-#EXTPOS:0,-1
-http://79.120.77.11:8000/pop
 #EXTPOS:0,-1
 http://79.120.39.202:8004/futurepop
 #EXTPOS:0,-1
 http://79.120.77.11:8000/instrumental
+#EXTPOS:0,-1
+http://79.120.77.11:8000/pop
+#EXTPOS:0,-1
+http://79.120.77.11:8000/disco
 #EXTPOS:0,-1
 http://79.111.119.111:8004/italodisco
 #EXTPOS:0,-1

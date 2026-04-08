@@ -1,4 +1,12 @@
 ﻿#EXTM3U
+#EXTINF:-1, bbc_radio_one - BBC Radio 1
+#EXTALB:bbc_radio_one
+#EXTPOS:0,-1
+https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/audio_syndication_low_sbr_v1/aks/bbc_radio_one.m3u8
+#EXTINF:-1, bbc_radio_one - BBC Radio 1
+#EXTALB:bbc_radio_one
+#EXTPOS:0,-1
+http://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8
 #EXTINF:-1, BBC - Radio 1
 #EXTALB:https://www.bbc.co.uk/sounds/play/live/bbc_radio_one
 #EXTPOS:0,-1
@@ -22,17 +30,21 @@ http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one_anthems&bitrate=320000
 #EXTPOS:0,-1
 http://lsn.lv/bbcradio.m3u8?station=bbc_6music&bitrate=320000
 #EXTPOS:0,-1
-http://stream3.polskieradio.pl:8950/;.mp3
-#EXTPOS:0,-1
-http://mp3.polskieradio.pl:8952/;
-#EXTPOS:0,-1
 http://41.dktr.pl:8000/trojka.ogg
 #EXTPOS:0,-1
 http://41.dktr.pl:8000/trojka2.ogg
+#EXTINF:-1, trojka.polskieradio.pl - PR3 Trójka
+#EXTALB:trojka.polskieradio.pl
+#EXTPOS:0,-1
+https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8
 #EXTPOS:0,-1
 http://mp3.polskieradio.pl:8956/;
 #EXTPOS:0,-1
 http://stream3.polskieradio.pl:8906/;stream
+#EXTINF:-1, pr4 - PR4 Czwórka
+#EXTALB:pr4
+#EXTPOS:0,-1
+https://stream14.polskieradio.pl/pr4/pr4.sdp/playlist.m3u8
 #EXTPOS:0,-1
 http://zet-net-01.cdn.eurozet.pl:8400/
 #EXTPOS:0,-1
@@ -221,12 +233,14 @@ http://radio.promodj.com/top100-192
 http://radio.promodj.com/klubb-192
 #EXTPOS:0,-1
 http://radio.promodj.com/yo-192
+#EXTINF:-1, fallout.fm - Fallout.fm
+#EXTALB:fallout.fm
+#EXTPOS:0,-1
+http://fallout.fm:8000/falloutfm1.ogg
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm4.ogg
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm5.ogg
-#EXTPOS:0,-1
-http://fallout.fm:8000/falloutfm1.ogg
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm2.ogg
 #EXTPOS:0,-1
@@ -243,3 +257,6 @@ http://fallout.fm:8000/falloutfm9.ogg
 http://fallout.fm:8000/falloutfm10.ogg
 #EXTPOS:0,-1
 http://listen.nolife-radio.com
+#EXTINF:-1, streamingsoundtracks.com - StreamingSoundtracks
+#EXTALB:streamingsoundtracks.com
+http://lo4.streamingsoundtracks.com/;

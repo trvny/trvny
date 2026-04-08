@@ -1,4 +1,7 @@
 ﻿#EXTM3U
+#EXTINF:-1, https://www.bbc.co.uk/sounds/play/live/bbc_radio_one - BBC Radio 1
+#EXTALB:https://www.bbc.co.uk/sounds/play/live/bbc_radio_one
+https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio=320000.norewind.m3u8
 #EXTINF:-1, BBC - Radio 1
 #EXTPOS:0,-1
 https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d128000.norewind.m3u8
@@ -34,6 +37,7 @@ http://mp3.polskieradio.pl:8956/;
 http://stream3.polskieradio.pl:8906/;stream
 #EXTPOS:0,-1
 http://zet-net-01.cdn.eurozet.pl:8400/
+https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx
 #EXTPOS:0,-1
 https://pl05.cdn.eurozet.pl/plu-gdn.mp3
 #EXTPOS:0,-1
@@ -80,6 +84,12 @@ http://s02.toksyna.fm:8000/;
 http://s02.toksyna.fm:8040/;
 #EXTPOS:0,-1
 http://s02.toksyna.fm:8010/;
+#EXTINF:-1, ITALOPOWER! - ITALOPOWER! - Italo Disco Hits and Rarities
+#EXTALB:ITALOPOWER!
+#EXTPOS:0,-1
+http://stream.radioitalopower.com:10018/italopower
+#EXTPOS:0,-1
+http://54.36.89.71:8102/stream
 #EXTPOS:0,-1
 https://ssl-1.radiohost.pl:8018/stream
 #EXTPOS:0,-1
@@ -100,12 +110,6 @@ http://admin.biasradio.com:8000/live?&_ic2=1
 http://orion.shoutca.st:8750/
 #EXTPOS:0,-1
 https://54house.fm:9013/stream
-#EXTINF:-1, ITALOPOWER! - ITALOPOWER! - Italo Disco Hits and Rarities
-#EXTALB:ITALOPOWER!
-#EXTPOS:0,-1
-http://stream.radioitalopower.com:10018/italopower
-#EXTPOS:0,-1
-http://54.36.89.71:8102/stream
 #EXTPOS:0,1000
 http://stream-uk1.radioparadise.com/aac-320
 #EXTPOS:0,-1
@@ -240,3 +244,5 @@ http://fallout.fm:8000/falloutfm8.ogg
 http://fallout.fm:8000/falloutfm9.ogg
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm10.ogg
+#EXTPOS:0,-1
+http://listen.nolife-radio.com

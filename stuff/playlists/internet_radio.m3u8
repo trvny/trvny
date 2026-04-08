@@ -8,7 +8,7 @@ https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/s
 #EXTPOS:0,-1
 http://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8
 #EXTINF:-1, BBC - Radio 1
-#EXTALB:https://www.bbc.co.uk/sounds/play/live/bbc_radio_one
+#EXTALB:bbc_radio_one
 #EXTPOS:0,-1
 https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio=320000.norewind.m3u8
 #EXTINF:-1, BBC - Radio 1Dance
@@ -34,7 +34,7 @@ http://41.dktr.pl:8000/trojka.ogg
 #EXTPOS:0,-1
 http://41.dktr.pl:8000/trojka2.ogg
 #EXTINF:-1, trojka.polskieradio.pl - PR3 Trójka
-#EXTALB:trojka.polskieradio.pl
+#EXTALB:pr3
 #EXTPOS:0,-1
 https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8
 #EXTPOS:0,-1

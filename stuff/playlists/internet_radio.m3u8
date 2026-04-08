@@ -35,6 +35,7 @@ http://mp3.polskieradio.pl:8956/;
 http://stream3.polskieradio.pl:8906/;stream
 #EXTPOS:0,-1
 http://zet-net-01.cdn.eurozet.pl:8400/
+#EXTINF:-1, Radio Zet
 #EXTPOS:0,-1
 https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx
 #EXTPOS:0,-1

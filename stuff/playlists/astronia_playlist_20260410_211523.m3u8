@@ -75,9 +75,9 @@ https://cdn-s-lb2.pluscdn.pl/lv/1517830/349/hls/f03a76f3/masterlist.m3u8
 http://cdn-s-lb2.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd
 #EXTINF:-1 group-title="Sports" tvg-logo="https://ipla-e1-100.pluscdn.pl/p/cms_thumbnails/q1/q12c419v7zmd5o3hpa1f1f45kujpr8js.png",Polsat Sport 1 (1080p) [Geo-blocked]
 http://cdn-s-lb2.pluscdn.pl/lv/1544303/939/dash/7f74b079/live.mpd
-#EXTINF:-1 tvg-id="PolsatFilm.pl@SD" tvg-logo="https://i.imgur.com/wGH6shZ.png" group-title="Movies",Polsat Film (1080p)
+#EXTINF:-1 tvg-id="PolsatFilm.pl@SD" tvg-logo="https://i.imgur.com/wGH6shZ.png" group-title="General",Polsat Film (1080p)
 http://c3921155.edmonst.net/iptv/42L7TCH8YYKLBRHNPV52HBRN/6086/index.m3u8
-#EXTINF:-1 tvg-id="PolsatSeriale.pl@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Polsat_Seriale_2021_gradient.svg/500px-Polsat_Seriale_2021_gradient.svg.png" group-title="Series",Polsat Seriale (1080p)
+#EXTINF:-1 tvg-id="PolsatSeriale.pl@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Polsat_Seriale_2021_gradient.svg/500px-Polsat_Seriale_2021_gradient.svg.png" group-title="General",Polsat Seriale (1080p)
 http://78.130.250.2:8023/play/a06h/index.m3u8
 #EXTINF:-1 group-title="News" tvg-logo="https://i.imgur.com/AbvCnoH.png",Reuters TV
 https://amg00453-reuters-amg00453c1-rakuten-uk-2110.playouts.now.amagi.tv/playlist/amg00453-reuters-reuters-rakutenuk/playlist.m3u8
@@ -147,7 +147,7 @@ https://d2lyea6if8kkz9.cloudfront.net/playlist/amg00056-vevotv-vevoretrorockau-s
 https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8
 #EXTINF:-1 group-title="News" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Russia-today-logo.svg/330px-Russia-today-logo.svg.png",RT
 https://rumble.com/live-hls-dvr/33aw1a/playlist.m3u8
-#EXTINF:-1 group-title="General" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg/512px-11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg.png",Россия-1
+#EXTINF:-1 group-title="General" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Rossiya-1_Logo.svg/1280px-Rossiya-1_Logo.svg.png",Россия-1
 https://vgtrkregion-reg.cdnvideo.ru/vgtrk/0/russia1-hd/index.m3u8
 #EXTINF:-1 group-title="General" tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTC8HOhlfSIQh_3dWjVU3CxJW2xYk25_JYwCj1RzgmkvQ&s",Первый канал Европа
 https://streaming.thestream.cyou/live/210.m3u8

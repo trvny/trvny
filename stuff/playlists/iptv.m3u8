@@ -11,8 +11,6 @@ https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc113/bbcfirs
 https://dash2.antik.sk/live/test_bbc_world/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png" tvg-name="BBC Radio 1" group-title="Music",BBC Radio 1
 http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one&bitrate=96000
-#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one_dance/blocks-colour_600x600.png" tvg-name="BBC Radio 1 Dance" group-title="Music",BBC Radio 1 Dance
-http://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bbc_radio_one_dance.isml/bbc_radio_one_dance-audio%3d96000.norewind.m3u8
 #EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_6music/blocks-colour_600x600.png" tvg-name="BBC Radio 6 Music" group-title="Music",BBC Radio 6 Music
 http://lsn.lv/bbcradio.m3u8?station=bbc_6music&bitrate=96000
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/BBC_Three_2022.svg/1920px-BBC_Three_2022.svg.png" tvg-name="BBC Three" group-title="General",BBC Three
@@ -23,8 +21,6 @@ https://streamer.nexyl.uk/69ef899e-8ca9-4537-9f1a-fe8b4216afbb.m3u8
 http://31.148.48.15/Bridge_TV/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/U8mcRal.png" tvg-name="BTB HD (1080p)" group-title="General",BTB HD (1080p)
 https://fa723fc1b171.us-west-2.playback.live-video.net/api/video/v1/us-west-2.196233775518.channel.tm5ELzwtPY6t.m3u8
-#EXTINF:-1 tvg-logo="https://kononopedia.ru/lib/exe/fetch.php?cache=&w=700&h=700&tok=dbc35d&media=kanaly:btbinternational.png" tvg-name="BTB International" group-title="Uncategorized",BTB International
-https://emisja.btb.j00r.us/iptv/channel/2.m3u8
 #EXTINF:-1 tvg-logo="https://btb.j00r.us/images/logo_BTBMusic.webp" tvg-name="BTB Music (1080p)" group-title="Music",BTB Music (1080p)
 https://panel.btb.j00r.us/memfs/ebaffae6-0086-49d7-843d-57f2c561de86.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/b/b0/CBS_News_247_logo.svg" tvg-name="CBS News 24/7 (720p)" group-title="News",CBS News 24/7 (720p)
@@ -71,12 +67,16 @@ http://cdn-s-lb2.pluscdn.pl/ch/1502600/308/dash/20a18c30/live.mpd
 https://cdn-s-lb2.pluscdn.pl/ch/1502600/308/hls/b399c955/masterlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/xff6zGN.png" tvg-name="Polsat (1080p) [Geo-blocked]" group-title="General",Polsat (1080p) [Geo-blocked]
 https://cdn-s-playnow-live.pluscdn.pl/ch/1502600/308/dash/20a18c30/live.mpd
+#EXTINF:-1 tvg-logo="https://i.imgur.com/wGH6shZ.png" tvg-name="Polsat Film (1080p)" group-title="General",Polsat Film (1080p)
+http://c3921155.edmonst.net/iptv/42L7TCH8YYKLBRHNPV52HBRN/6086/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/sx1yPuc.png" tvg-name="Polsat News (1080p) [Geo-blocked]" group-title="News",Polsat News (1080p) [Geo-blocked]
 https://cdn-s-playnow-live.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd
 #EXTINF:-1 tvg-logo="https://i.imgur.com/sx1yPuc.png" tvg-name="Polsat News (720p)" group-title="News",Polsat News (720p)
 https://cdn-s-lb2.pluscdn.pl/lv/1517830/349/hls/f03a76f3/masterlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/sx1yPuc.png" tvg-name="Polsat News (720p) [Geo-blocked]" group-title="News",Polsat News (720p) [Geo-blocked]
 http://cdn-s-lb2.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Polsat_Seriale_2021_gradient.svg/500px-Polsat_Seriale_2021_gradient.svg.png" tvg-name="Polsat Seriale (1080p)" group-title="General",Polsat Seriale (1080p)
+http://78.130.250.2:8023/play/a06h/index.m3u8
 #EXTINF:-1 tvg-logo="https://ipla-e1-100.pluscdn.pl/p/cms_thumbnails/q1/q12c419v7zmd5o3hpa1f1f45kujpr8js.png" tvg-name="Polsat Sport 1 (1080p) [Geo-blocked]" group-title="Sports",Polsat Sport 1 (1080p) [Geo-blocked]
 http://cdn-s-lb2.pluscdn.pl/lv/1544303/939/dash/7f74b079/live.mpd
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/en/7/74/Racer_Network.jpg" tvg-name="RACER International" group-title="Auto",RACER International
@@ -151,5 +151,5 @@ http://31.148.48.15/Muzika_Pervogo/index.m3u8
 https://streaming.thestream.cyou/live/210.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/4KiYSln.png" tvg-name="Победа" group-title="General",Победа
 https://streaming.thestream.cyou/live/43.m3u8
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg/512px-11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg.png" tvg-name="Россия-1" group-title="General",Россия-1
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Rossiya-1_Logo.svg/1280px-Rossiya-1_Logo.svg.png" tvg-name="Россия-1" group-title="General",Россия-1
 https://vgtrkregion-reg.cdnvideo.ru/vgtrk/0/russia1-hd/index.m3u8

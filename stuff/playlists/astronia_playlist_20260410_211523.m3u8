@@ -1,0 +1,157 @@
+#EXTM3U
+#EXTINF:-1 group-title="Entertainment" tvg-logo="https://i.imgur.com/VAtxF7k.png",Radio Czwórka (1080p)
+https://stream14.polskieradio.pl/pr4_video/video_pr4.stream/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://radioram.pl/img/layout/logo.svg",Radio RAM
+https://1888165924.rsc.cdn77.org/live/RadioRAM/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://i.imgur.com/rI1wo2l.png",4 Fun TV (576i) [Not 24/7]
+https://stream.4fun.tv:8888/hls/4f_high/index.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://i.postimg.cc/qRmRrWLW/euronews.png",Euronews
+https://7060743b4b224241b86325460b14d152.mediatailor.eu-west-1.amazonaws.com/v1/master/0547f18649bd788bec7b67b746e47670f558b6b2/production-LiveChannel-6769/bitok/eyJzdGlkIjoiMTE3OTllNGEtYmU1OC00ZjQyLTkxOTYtY2VlYWQzZGU2MDJjIiwibWt0IjoicGwiLCJjaCI6Njc2OSwicHRmIjo1fQ==/26235/euronews-pl.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/BBC_First_2022.svg/960px-BBC_First_2022.svg.png",BBC First (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc113/bbcfirsthdraw/bbcfirsthdraw.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRrzO14ty7Zqt3PKjhbPPGP4PvgM7lwXGdV37Tcy2pmAQ&s=10",BBC Two HD (720p)
+https://streamer.nexyl.uk/69ef899e-8ca9-4537-9f1a-fe8b4216afbb.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/BBC_Three_2022.svg/1920px-BBC_Three_2022.svg.png",BBC Three
+https://streamer.nexyl.uk/39290a19-b8dd-43ea-b8dc-081c37790f24.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://calama.bbcstudios.com//api/assets/0f6731cf-4e58-47ea-ae0e-8ec7a55454db",BBC Brit
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc116/bbcbrithdraw/bbcbrithdraw.m3u8
+#EXTINF:-1 group-title="Documentary" tvg-logo="https://i.imgur.com/nGSsUd4.png",BBC Earth
+https://amg00793-amg00793c6-xumo-us-2669.playouts.now.amagi.tv/BBCStudios-BBCEarthA-hls/playlist.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRVWncEaewJ3E_qUdwsCjJYePp5cKkimAecVoUR0e8rUg&s=10",BBC News Europe
+https://dash2.antik.sk/live/test_bbc_world/playlist.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://upload.wikimedia.org/wikipedia/en/thumb/7/7b/New_Channel_4_News_logo.svg/960px-New_Channel_4_News_logo.svg.png",Channel 4 UK (1080p)
+https://viamotionhsi.netplus.ch/live/eds/channel4/browser-HLS8/channel4.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png",BBC Radio 1
+http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one&bitrate=96000
+#EXTINF:-1 group-title="Music" tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_6music/blocks-colour_600x600.png",BBC Radio 6 Music
+http://lsn.lv/bbcradio.m3u8?station=bbc_6music&bitrate=96000
+#EXTINF:-1 group-title="Music" tvg-logo="https://i.imgur.com/qYObfrG.png",BRIDGE
+http://31.148.48.15/Bridge_TV/index.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://i.imgur.com/U8mcRal.png",BTB HD (1080p)
+https://fa723fc1b171.us-west-2.playback.live-video.net/api/video/v1/us-west-2.196233775518.channel.tm5ELzwtPY6t.m3u8
+#EXTINF:-1 group-title="Uncategorized" tvg-logo="https://kononopedia.ru/lib/exe/fetch.php?cache=&w=700&h=700&tok=dbc35d&media=kanaly:btbinternational.png",BTB International
+https://emisja.btb.j00r.us/iptv/channel/2.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://btb.j00r.us/images/logo_BTBMusic.webp",BTB Music (1080p)
+https://panel.btb.j00r.us/memfs/ebaffae6-0086-49d7-843d-57f2c561de86.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/b/b0/CBS_News_247_logo.svg",CBS News 24/7 (720p)
+https://cbsn-us.cbsnstream.cbsnews.com/out/v1/55a8648e8f134e82a470f83d562deeca/master.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://i.imgur.com/JZt2qh5.png",NBC News NOW
+https://d1bl6tskrpq9ze.cloudfront.net/hls/master.m3u8?ads.xumo_channelId=99984003
+#EXTINF:-1 group-title="Comedy" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/a/aa/Comedy_Central_2018.svg",Comedy Central (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc006/comedycentralhdraw/comedycentralhdraw.m3u8
+#EXTINF:-1 group-title="Uncategorized" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/2024_Disney_Channel_text_logo.svg/1920px-2024_Disney_Channel_text_logo.svg.png",Disney Channel (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc103/disneychannelhdraw/disneychannelhdraw.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://i.postimg.cc/X7rWGrjZ/echo24.png",Echo24
+https://echo24new.pl/LiveAppStreamECHO24/streams/GL0VksiIgQUS1672825288490.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://i.imgur.com/GLc4qrc.png",Europa Plus TV (1080p)
+http://31.148.48.15/Europa_Plus_HD/index.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://i.imgur.com/tXABQDE.png",FON Music (1080p)
+https://cdn-01.bonus-tv.ru/tntmusic/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Music_Box_UA_%282018%29.svg/1280px-Music_Box_UA_%282018%29.svg.png",Music Box Polska (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc027/musicboxpolskahdraw/musicboxpolskahdraw.m3u8
+#EXTINF:-1 group-title="Uncategorized" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/e/e4/Kapitan_Bomba_%E2%80%93_logo.png",Kapitan Bomba TV
+https://liveovh011.cda.pl/2SHZi_SkX4h0MDflza1PPw/1753748478/3480440/enc127/kapitanbombaraw/kapitanbombaraw.mpd
+#EXTINF:-1 group-title="Auto" tvg-logo="https://motowizja.pl/wp-content/uploads/2022/01/logo_motowizja_transparent.png",Motowizja (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc116/motowizjahdraw/motowizjahdraw.m3u8
+#EXTINF:-1 group-title="Documentary" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/National-Geographic-Logo.svg/1280px-National-Geographic-Logo.svg.png",National Geographic (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc103/nationalgeographichdraw/nationalgeographichdraw.m3u8
+#EXTINF:-1 group-title="Documentary" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/National_Geographic_Wild_Logo_2019.svg/1280px-National_Geographic_Wild_Logo_2019.svg.png",National Geographic Wild (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc104/nationalgeographicwildhdraw/nationalgeographicwildhdraw.m3u8
+#EXTINF:-1 group-title="Documentary" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/New_NatGeo_People_logo.svg/960px-New_NatGeo_People_logo.svg.png",Nat Geo People
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc024/natgeopeoplehdraw/natgeopeoplehdraw.m3u8
+#EXTINF:-1 group-title="Uncategorized" tvg-logo="https://i.imgur.com/MsIx7Ax.png",People Are Awesome (720p)
+https://3ab76e42.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X1Blb3BsZUFyZUF3ZXNvbWVfSExT/playlist.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://i.imgur.com/xff6zGN.png",Polsat (1080p) [Geo-blocked]
+http://cdn-s-lb2.pluscdn.pl/ch/1502600/308/dash/20a18c30/live.mpd
+#EXTINF:-1 group-title="General" tvg-logo="https://i.imgur.com/xff6zGN.png",Polsat (1080p) [Geo-blocked]
+https://cdn-s-lb2.pluscdn.pl/ch/1502600/308/hls/b399c955/masterlist.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://i.imgur.com/xff6zGN.png",Polsat (1080p) [Geo-blocked]
+https://cdn-s-playnow-live.pluscdn.pl/ch/1502600/308/dash/20a18c30/live.mpd
+#EXTINF:-1 group-title="News" tvg-logo="https://i.imgur.com/sx1yPuc.png",Polsat News (1080p) [Geo-blocked]
+https://cdn-s-playnow-live.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd
+#EXTINF:-1 group-title="News" tvg-logo="https://i.imgur.com/sx1yPuc.png",Polsat News (720p)
+https://cdn-s-lb2.pluscdn.pl/lv/1517830/349/hls/f03a76f3/masterlist.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://i.imgur.com/sx1yPuc.png",Polsat News (720p) [Geo-blocked]
+http://cdn-s-lb2.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd
+#EXTINF:-1 group-title="Sports" tvg-logo="https://ipla-e1-100.pluscdn.pl/p/cms_thumbnails/q1/q12c419v7zmd5o3hpa1f1f45kujpr8js.png",Polsat Sport 1 (1080p) [Geo-blocked]
+http://cdn-s-lb2.pluscdn.pl/lv/1544303/939/dash/7f74b079/live.mpd
+#EXTINF:-1 tvg-id="PolsatFilm.pl@SD" tvg-logo="https://i.imgur.com/wGH6shZ.png" group-title="Movies",Polsat Film (1080p)
+http://c3921155.edmonst.net/iptv/42L7TCH8YYKLBRHNPV52HBRN/6086/index.m3u8
+#EXTINF:-1 tvg-id="PolsatSeriale.pl@SD" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Polsat_Seriale_2021_gradient.svg/500px-Polsat_Seriale_2021_gradient.svg.png" group-title="Series",Polsat Seriale (1080p)
+http://78.130.250.2:8023/play/a06h/index.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://i.imgur.com/AbvCnoH.png",Reuters TV
+https://amg00453-reuters-amg00453c1-rakuten-uk-2110.playouts.now.amagi.tv/playlist/amg00453-reuters-reuters-rakutenuk/playlist.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/c/ca/Stopklatka-tv-logo-czarne-RGB.png",Stopklatka TV (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc102/stopklatkatvhdraw/stopklatkatvhdraw.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://i.imgur.com/HuIsALV.png",Super Express TV (1080i)
+https://s-pl-01.mediatool.tv/playout/sepl-abr/index.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://www.szlagiertv.com/templates/szlagieromania/images/szlagiertv.png",Szlagier TV
+https://vefgpbwcjjjbxfng.naszatv.pl/tracks-v1a1/mono.ts.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://i.imgur.com/ljpK6dZ.png",TV Republika
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc120/tvrepublikahdraw/tvrepublikahdraw.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/c/cf/Logo_Telewizji_Republiki.png",TV Republika Plus
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc010/telewizjarepublikaraw/telewizjarepublikaraw.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://i.imgur.com/ewpSjBs.png",TVP1 (1080p)
+https://ec06-krk3.cache.orange.pl/dai4/org1/vb/104/tvp1hd/index.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZnpVC_Aie2gK9REjpSsrCjdrnkauNbqNzBg&s",TVP1 (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/278259/enc129/tvp1hdraw/tvp1hdraw.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://s8.vcdn.biz/static/f/5717562461/image.jpg",TVP2 (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/278259/enc115/tvp2hdraw/tvp2hdraw.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://i.imgur.com/XxCc32B.png",TVP2 (1080i) [Geo-blocked]
+https://estreams.tv.nej.cz/dash/CH_TVP2_Portable.ism/playlist.mpd
+#EXTINF:-1 group-title="News" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Tvp-info-nowe-logo.svg/960px-Tvp-info-nowe-logo.svg.png",TVP Info (1080p)
+https://lowa8026-cmyk.github.io/tvpvod/399699.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/c/ce/TVP_Info_logo.svg",TVP Info
+https://dash4.antik.sk/live/test_tvp_info/playlist.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/c/ce/TVP_Info_logo.svg",TVP Info (1080p)
+http://78.130.250.2:8023/play/a03b/index.m3u8
+#EXTINF:-1 group-title="Sports" tvg-logo="https://i.imgur.com/JUZDOCO.png",TVP Sport (1080p)
+https://estreams.tv.nej.cz/dash/CH_TVP_SPORT_Portable.ism/playlist.mpd
+#EXTINF:-1 group-title="News" tvg-logo="https://i.imgur.com/lB4MgRI.png",TVP World
+https://dash2.antik.sk/live/test_tvp_world/playlist.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://portalmedialny.pl/media/images/thumbnail/md5/7/7/77f62a3724622c2bd23627863de44081/w_polsce_24.jpg",W Polsce PL (720p)
+https://str.onnetwork.tv/hls/onnet-358726_hi/index.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/WPolsce24_logo_main.svg/960px-WPolsce24_logo_main.svg.png",W Polsce PL (1080p)
+https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc015/wpolsceplhdraw/wpolsceplhdraw.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/d/d4/TV4Polska.png",TV4
+https://cdn-s-playnow-live.pluscdn.pl/ch/1502601/309/dash/e25c2c93/live.mpd
+#EXTINF:-1 group-title="Auto" tvg-logo="https://upload.wikimedia.org/wikipedia/en/7/74/Racer_Network.jpg",RACER International
+https://amg00378-mavtv-amg00378c2-rakuten-us-1048.playouts.now.amagi.tv/playlist/amg00378-mavtvfast-motorsportsnetwork-rakutenus/playlist.m3u8
+#EXTINF:-1 group-title="Auto" tvg-logo="https://i.imgur.com/7zYIbU1.png",TVS Turbo
+https://rpn.bozztv.com/gusa/gusa-tvsturbo/index.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://i.imgur.com/qiCCX5X.png",NOW 70s
+https://lightning-now70s-samsungnz.amagi.tv/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://i.imgur.com/YyPnMeB.png",NOW 80s
+https://lightning-now80s-rakuten.amagi.tv/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://images.samsung.com/is/image/samsung/assets/nz/tvs/smart-tv/samsung-tv-plus/all-channels/Now-90s-A-B-1000px-Circle1.png?$296_164_PNG$",NOW 90s00s
+https://amg01076-amg01076c19-rakuten-gb-8653.playouts.now.amagi.tv/playlist/amg01076-lightning-now90s00s-rakutengb/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://images.samsung.com/is/image/samsung/assets/nz/tvs/smart-tv/samsung-tv-plus/all-channels/SamsungTV_Vevo_2K_1000x1000_Circle.png?$296_164_PNG$",Vevo 2K
+https://d1s6jz7jeei17.cloudfront.net/playlist/amg00056-vevotv-vevo2kau-samsungau/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://images.samsung.com/is/image/samsung/assets/nz/tvs/smart-tv/samsung-tv-plus/all-channels/Vevo-70s_1837.png?$212_119_PNG$",Vevo '70s
+https://amg00056-vevotv-vevo70saunz-samsungau-xzszd.amagi.tv/playlist/amg00056-vevotv-vevo70saunz-samsungau/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://images.samsung.com/is/image/samsung/assets/nz/tvs/smart-tv/samsung-tv-plus/all-channels/Vevo-80s_1838.png?$296_164_PNG$",Vevo '80s
+https://amg00056-vevotv-vevo80saunz-samsungau-rp5e3.amagi.tv/playlist/amg00056-vevotv-vevo80saunz-samsungau/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://images.samsung.com/is/image/samsung/assets/nz/tvs/smart-tv/samsung-tv-plus/all-channels/Vevo-90s_1839.png?$296_164_PNG$",Vevo '90s
+https://amg00056-vevotv-vevo90saunz-samsungau-n6a0d.amagi.tv/playlist/amg00056-vevotv-vevo90saunz-samsungau/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://images.samsung.com/is/image/samsung/assets/nz/tvs/smart-tv/samsung-tv-plus/all-channels/1000x1000_Vevo-pop.png?$296_164_PNG$",Vevo Pop
+https://amg00056-vevotv-vevopopau-samsungnz-wa3bw.amagi.tv/playlist/amg00056-vevotv-vevopopau-samsungnz/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLPR0_XisgFYoEFXHR8l_2dmcX3DbYphW_H5jjHJaxtg&s",Vevo Hip-Hop
+https://d3vgs3ro3x6v8a.cloudfront.net/Vevo_Hip_Hop.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://i.imgur.com/D7SwmuB.png",Vevo Latino
+https://amg00056-amg00056c13-rakuten-es-3246.playouts.now.amagi.tv/playlist.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxZ0Sh4JucjI3BqAjvCj6O6HlpwyvifPRUAg&s",Vevo R&B
+https://jmp2.uk/plu-5da0d83f66c9700009b96d0e.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://i.imgur.com/H1Aap4E.png",Vevo Retro Rock
+https://d2lyea6if8kkz9.cloudfront.net/playlist/amg00056-vevotv-vevoretrorockau-samsungau/playlist.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://miro.medium.com/v2/resize:fit:2473/1%2AQORJhPwJLxvJYg6igAaX1w.png",Viki
+https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8
+#EXTINF:-1 group-title="News" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Russia-today-logo.svg/330px-Russia-today-logo.svg.png",RT
+https://rumble.com/live-hls-dvr/33aw1a/playlist.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg/512px-11-%D0%B9_%D0%BB%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F-1.svg.png",Россия-1
+https://vgtrkregion-reg.cdnvideo.ru/vgtrk/0/russia1-hd/index.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTC8HOhlfSIQh_3dWjVU3CxJW2xYk25_JYwCj1RzgmkvQ&s",Первый канал Европа
+https://streaming.thestream.cyou/live/210.m3u8
+#EXTINF:-1 group-title="General" tvg-logo="https://i.imgur.com/4KiYSln.png",Победа
+https://streaming.thestream.cyou/live/43.m3u8
+#EXTINF:-1 group-title="Music" tvg-logo="https://i.imgur.com/U0vKj3P.png",Музыка Первого
+http://31.148.48.15/Muzika_Pervogo/index.m3u8

@@ -1,5 +1,12 @@
 ### AppleStore
 * [adguard](https://apps.apple.com/pl/app/adguard-adblock-privacy/id1047223162?l=pl)
+* [adguard](https://apps.apple.com/pl/app/adguard-adblock-privacy-dns/id1047223162?l=pl)
 * [ublock](https://apps.apple.com/pl/app/ublock-origin-lite/id6745342698?l=pl)
 * [garmin-iq](https://apps.apple.com/pl/app/garmin-connect-iq/id1317652970?l=pl)
 * [garmin-connect](https://apps.apple.com/pl/app/garmin-connect/id583446403?l=pl)
+* [brave](https://apps.apple.com/pl/app/brave-browser-private-web/id1052879175?l=pl)
+* [vivaldi](https://apps.apple.com/pl/app/vivaldi-powerful-web-browser/id1633234600?l=pl)
+* [firefox-focus](https://apps.apple.com/pl/app/firefox-focus-privacy-browser/id1055677337?l=pl)
+* [opendocument](https://apps.apple.com/pl/app/opendocument-reader-view-odt/id1510195065?l=pl)
+* [onlyoffice](https://apps.apple.com/pl/app/onlyoffice-documents/id944896972?l=pl)
+* [ao-office](https://apps.apple.com/pl/app/ao-office/id1177936371?l=pl)

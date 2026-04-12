@@ -71,12 +71,15 @@ https://rs6-krk2.rmfstream.pl/rmf_top4
 https://rs202-krk.rmfstream.pl/rmf_muzyka_filmowa
 #EXTINF:-1, RMF - Ziom
 #EXTALB:rmfon
+#EXTPOS:0,-1
 https://rs6-krk2.rmfstream.pl/rmf_ziom
 #EXTINF:-1, RMF - Depeche Mode
 #EXTALB:rmfon
+#EXTPOS:0,-1
 https://rs7-krk2.rmfstream.pl/DEPECHEMODE
 #EXTINF:-1, Radio Kaszëbë - Kaszëbë
 #EXTALB:radiokaszebe
+#EXTPOS:0,-1
 http://x.radiokaszebe.pl:9000/;
 #EXTPOS:0,-1
 https://stream4.nadaje.com:10125/kaszebe128
@@ -127,6 +130,8 @@ https://s2.audiostream.hu/roxy_192k
 #EXTPOS:0,-1
 http://admin.biasradio.com:8000/live?&_ic2=1
 #EXTPOS:0,-1
+https://stream.laut.fm/gta-classics
+#EXTPOS:0,-1
 http://orion.shoutca.st:8750/
 #EXTPOS:0,-1
 https://54house.fm:9013/stream
@@ -138,6 +143,7 @@ http://stream.radioparadise.com/ogg-192m
 http://stream.radioparadise.com/rock-320
 #EXTPOS:0,-1
 http://stream.radioparadise.com/global-320
+#EXTINF:-1, Electro Swing Radio - No. 1 Electro Swing Radio worldwide!
 #EXTPOS:0,-1
 https://streamer.radio.co/s2c3cc784b/listen
 #EXTPOS:0,-1
@@ -149,19 +155,19 @@ https://jazz-wr04.ice.infomaniak.ch/jazz-wr04-128.mp3
 #EXTPOS:0,-1
 https://icy.unitedradio.it/um062.mp3
 #EXTPOS:0,-1
+https://strm112.1.fm/moviesoundtracks_mobile_mp3
+#EXTPOS:0,-1
 https://gb25.streamgates.net/radios-audio/100Movies/icecast.audio
 #EXTPOS:0,-1
 https://gb25.streamgates.net/radios-audio/100Gamer/icecast.audio
 #EXTPOS:0,-1
-https://strm112.1.fm/moviesoundtracks_mobile_mp3
-#EXTPOS:0,-1
 https://kathy.torontocast.com:1190/stream
+#EXTPOS:0,-1
+https://quincy.torontocast.com:2410/stream
 #EXTPOS:0,-1
 https://listen.radioking.com/radio/422/stream/62785
 #EXTPOS:0,-1
 https://stream.laut.fm/soundtracksfm
-#EXTPOS:0,-1
-https://quincy.torontocast.com:2410/stream
 #EXTPOS:0,-1
 http://radio.vgmradio.com:8040/autodj
 #EXTPOS:0,-1
@@ -216,8 +222,6 @@ http://79.111.119.111:8004/italodisco
 http://79.111.14.76:8004/triphop
 #EXTPOS:0,-1
 http://79.120.77.11:8004/witchhouse
-#EXTPOS:0,-1
-https://stream.laut.fm/gta-classics
 #EXTPOS:0,-1
 https://ic1.smcdn.pl/6030-1.mp3
 #EXTPOS:0,-1

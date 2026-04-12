@@ -77,7 +77,7 @@ https://rs6-krk2.rmfstream.pl/rmf_ziom
 #EXTALB:rmfon
 #EXTPOS:0,-1
 https://rs7-krk2.rmfstream.pl/DEPECHEMODE
-#EXTINF:-1, Radio Kaszëbë - Kaszëbë
+#EXTINF:-1, Radio Kaszëbë
 #EXTALB:radiokaszebe
 #EXTPOS:0,-1
 http://x.radiokaszebe.pl:9000/;

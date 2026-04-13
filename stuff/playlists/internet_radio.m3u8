@@ -2,15 +2,15 @@
 #EXTINF:-1, BBC - Radio 1
 #EXTALB:bbc_radio_one
 #EXTPOS:0,-1
+https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio=320000.norewind.m3u8
+#EXTINF:-1, BBC - Radio 1
+#EXTALB:bbc_radio_one
+#EXTPOS:0,-1
 https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/audio_syndication_low_sbr_v1/aks/bbc_radio_one.m3u8
 #EXTINF:-1, BBC - Radio 1
 #EXTALB:bbc_radio_one
 #EXTPOS:0,-1
 http://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8
-#EXTINF:-1, BBC - Radio 1
-#EXTALB:bbc_radio_one
-#EXTPOS:0,-1
-https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio=320000.norewind.m3u8
 #EXTINF:-1, BBC - Radio 1Dance
 #EXTPOS:0,-1
 https://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bbc_radio_one_dance.isml/bbc_radio_one_dance-audio%3d320000.norewind.m3u8
@@ -77,7 +77,6 @@ https://rs6-krk2.rmfstream.pl/rmf_ziom
 #EXTALB:rmfon
 #EXTPOS:0,-1
 https://rs7-krk2.rmfstream.pl/DEPECHEMODE
-#EXTINF:-1, Radio Kaszëbë
 #EXTALB:radiokaszebe
 #EXTPOS:0,-1
 http://x.radiokaszebe.pl:9000/;
@@ -244,6 +243,10 @@ http://radio.promodj.com/top100-192
 http://radio.promodj.com/klubb-192
 #EXTPOS:0,-1
 http://radio.promodj.com/yo-192
+#EXTPOS:0,-1
+http://radio.promodj.com/oldschool-192
+#EXTPOS:0,-1
+http://radio.promodj.com/vata-192
 #EXTINF:-1, fallout.fm - falloutfm1
 #EXTALB:fallout.fm
 #EXTPOS:0,-1

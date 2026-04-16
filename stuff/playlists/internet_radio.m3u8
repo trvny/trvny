@@ -110,6 +110,18 @@ http://s02.toksyna.fm:8010/;
 #EXTALB:ITALOPOWER!
 #EXTPOS:0,-1
 http://stream.radioitalopower.com:10018/italopower
+#EXTALB:Maxi Italo
+#EXTPOS:0,-1
+https://ams-pioneer02.dedicateware.com:2485/stream
+#EXTALB:Maxi Italo
+#EXTPOS:0,-1
+https://ams-pioneer02.dedicateware.com:2545/stream
+#EXTALB:Maxi Italo
+#EXTPOS:0,-1
+https://ams-pioneer02.dedicateware.com:2765/stream
+#EXTALB:Maxi Italo
+#EXTPOS:0,-1
+https://ams-pioneer02.dedicateware.com:2655/stream
 #EXTPOS:0,-1
 http://54.36.89.71:8102/stream
 #EXTPOS:0,-1

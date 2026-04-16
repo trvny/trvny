@@ -1,5 +1,5 @@
 #EXTM3U
-#EXTINF:-1 tvg-id="4FunTV.pl@SD" tvg-logo="https://i.imgur.com/rI1wo2l.png" tvg-name="4 Fun TV (576i) [Not 24/7]" group-title="Music",4 Fun TV (576i) [Not 24/7]
+#EXTINF:-1 tvg-logo="https://i.imgur.com/rI1wo2l.png" tvg-name="4 Fun TV (576i) [Not 24/7]" group-title="Music",4 Fun TV (576i) [Not 24/7]
 https://stream.4fun.tv:8888/hls/4f_high/index.m3u8
 #EXTINF:-1 tvg-logo="https://calama.bbcstudios.com//api/assets/0f6731cf-4e58-47ea-ae0e-8ec7a55454db" tvg-name="BBC Brit" group-title="General",BBC Brit
 https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc116/bbcbrithdraw/bbcbrithdraw.m3u8
@@ -16,7 +16,7 @@ https://dash2.antik.sk/live/test_bbc_world/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png" tvg-name="BBC Radio 1" group-title="Music",BBC Radio 1
 http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one&bitrate=320000
 #EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_6music/blocks-colour_600x600.png" tvg-name="BBC Radio 6 Music" group-title="Music",BBC Radio 6 Music
-http://lsn.lv/bbcradio.m3u8?station=bbc_6music&bitrate=32000
+http://lsn.lv/bbcradio.m3u8?station=bbc_6music&bitrate=320000
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/BBC_Three_2022.svg/1920px-BBC_Three_2022.svg.png" tvg-name="BBC Three" group-title="General",BBC Three
 https://streamer.nexyl.uk/39290a19-b8dd-43ea-b8dc-081c37790f24.m3u8
 #EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRrzO14ty7Zqt3PKjhbPPGP4PvgM7lwXGdV37Tcy2pmAQ&s=10" tvg-name="BBC Two HD (720p)" group-title="General",BBC Two HD (720p)
@@ -41,7 +41,7 @@ https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc006/comedyc
 https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc103/disneychannelhdraw/disneychannelhdraw.m3u8
 #EXTINF:-1 tvg-logo="https://i.postimg.cc/X7rWGrjZ/echo24.png" tvg-name="Echo24" group-title="General",Echo24
 https://echo24new.pl/LiveAppStreamECHO24/streams/GL0VksiIgQUS1672825288490.m3u8
-#EXTINF:-1 tvg-id="Euronews.pl@FAST" tvg-logo="https://i.postimg.cc/qRmRrWLW/euronews.png" tvg-name="Euronews" group-title="News",Euronews
+#EXTINF:-1 tvg-logo="https://i.postimg.cc/qRmRrWLW/euronews.png" tvg-name="Euronews" group-title="News",Euronews
 https://7060743b4b224241b86325460b14d152.mediatailor.eu-west-1.amazonaws.com/v1/master/0547f18649bd788bec7b67b746e47670f558b6b2/production-LiveChannel-6769/bitok/eyJzdGlkIjoiMTE3OTllNGEtYmU1OC00ZjQyLTkxOTYtY2VlYWQzZGU2MDJjIiwibWt0IjoicGwiLCJjaCI6Njc2OSwicHRmIjo1fQ==/26235/euronews-pl.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/GLc4qrc.png" tvg-name="Europa Plus TV (1080p)" group-title="Music",Europa Plus TV (1080p)
 http://31.148.48.15/Europa_Plus_HD/index.m3u8
@@ -171,8 +171,8 @@ https://d1hf773q57zx9s.cloudfront.net/Vevo_R_B.m3u8
 https://d2lyea6if8kkz9.cloudfront.net/playlist/amg00056-vevotv-vevoretrorockau-samsungau/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://miro.medium.com/v2/resize:fit:2473/1%2AQORJhPwJLxvJYg6igAaX1w.png" tvg-name="Viki" group-title="General",Viki
 https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/master/04fd913bb278d8775298c26fdca9d9841f37601f/RakutenTV-eu_RakutenViki-1/playlist.m3u8
-#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/WPolsce24_logo_main.svg/960px-WPolsce24_logo_main.svg.png" tvg-name="W Polsce PL (1080p)" group-title="News",W Polsce PL (1080p)
-https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc015/wpolsceplhdraw/wpolsceplhdraw.m3u8
+#EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/WPolsce24_logo_main.svg/960px-WPolsce24_logo_main.svg.png" tvg-name="W Polsce PL" group-title="News",W Polsce PL
+https://lowa8026-cmyk.github.io/WPolscePL.m3u8
 #EXTINF:-1 tvg-logo="https://portalmedialny.pl/media/images/thumbnail/md5/7/7/77f62a3724622c2bd23627863de44081/w_polsce_24.jpg" tvg-name="W Polsce PL (720p)" group-title="News",W Polsce PL (720p)
 https://str.onnetwork.tv/hls/onnet-358726_hi/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/U0vKj3P.png" tvg-name="Музыка Первого" group-title="Music",Музыка Первого

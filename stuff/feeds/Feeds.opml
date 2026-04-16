@@ -1,10 +1,10 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <opml version="1.0">
   <head>
-    <title>Exported from XmlClients at 2026.04.16 13:51:01</title>
+    <title>Exported from XmlClients at 2026.04.16 21:46:52</title>
   </head>
   <body>
-    <outline text="Feeds" title="Feeds">
+    <outline text="FeedDesk" title="FeedDesk">
       <outline text="News" title="News">
         <outline type="rss" text="Google News - Nagłówki" title="Google News - Nagłówki" xmlUrl="https://news.google.com/atom/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFZxYUdjU0FuQnNHZ0pRVENnQVAB?hl=pl&amp;gl=PL&amp;ceid=PL%3Apl" htmlUrl="https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFZxYUdjU0FuQnNHZ0pRVENnQVAB?hl=pl&amp;gl=PL&amp;ceid=PL:pl" />
         <outline type="rss" text="Polsat News" title="Polsat News" xmlUrl="https://www.polsatnews.pl/rss/wszystkie.xml" htmlUrl="https://www.polsatnews.pl/" />
@@ -23,7 +23,6 @@
         <outline type="rss" text="Google News - Twoje wiadomości lokalne" title="Google News - Twoje wiadomości lokalne" xmlUrl="https://news.google.com/atom/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE/sections/CAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE?hl=pl&amp;gl=PL&amp;ceid=PL%3Apl&amp;oc=11" htmlUrl="https://news.google.com/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE/sections/CAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE?hl=pl&amp;gl=PL&amp;ceid=PL:pl&amp;oc=11" />
         <outline type="rss" text="MCKiS" title="MCKiS" xmlUrl="https://www.mckis.chrzanow.pl/feed/" htmlUrl="https://www.mckis.chrzanow.pl/" />
         <outline type="rss" text="Gazeta Krakowska" title="Gazeta Krakowska" xmlUrl="https://gazetakrakowska.pl/rss/gazetakrakowska.xml" htmlUrl="https://gazetakrakowska.pl/" />
-        <outline type="rss" text="krakow.pl" title="krakow.pl" xmlUrl="https://www.krakow.pl/feeds/rss/komunikaty/26" htmlUrl="https://www.krakow.pl/" />
         <outline type="rss" text="Policja Małopolska" title="Policja Małopolska" xmlUrl="https://malopolska.policja.gov.pl/dokumenty/rss/386-rss-157.rss" htmlUrl="https://malopolska.policja.gov.pl/krk/" />
         <outline type="rss" text="chrzanowcity" title="chrzanowcity" xmlUrl="https://chrzanowcity.pl/feed/" htmlUrl="https://chrzanowcity.pl/" />
         <outline type="rss" text="Chrzanowska Telewizja Lokalna" title="Chrzanowska Telewizja Lokalna" xmlUrl="https://chtvl.chrzanow.pl/feed/" htmlUrl="https://chtvl.chrzanow.pl/" />
@@ -62,7 +61,6 @@
         <outline type="rss" text="Gentoo" title="Gentoo" xmlUrl="https://planet.gentoo.org/universe/atom.xml" htmlUrl="https://planet.gentoo.org/" />
         <outline type="rss" text="Kali Linux" title="Kali Linux" xmlUrl="https://www.kali.org/rss.xml" htmlUrl="https://www.kali.org/" />
         <outline type="rss" text="Ubuntu blog" title="Ubuntu blog" xmlUrl="https://ubuntu.com/blog/feed" htmlUrl="https://ubuntu.com//blog/feed" />
-        <outline type="rss" text="Ubuntu Studio" title="Ubuntu Studio" xmlUrl="https://ubuntustudio.org/feed/" htmlUrl="https://ubuntustudio.org/" />
         <outline type="rss" text="Xfce" title="Xfce" xmlUrl="https://xfce.org/feed?lang=pl" htmlUrl="https://xfce.org/about/news" />
         <outline type="rss" text="GParted" title="GParted" xmlUrl="https://gparted.org/news_rss20.php" htmlUrl="https://gparted.org/news.php" />
         <outline type="rss" text="Zorin" title="Zorin" xmlUrl="https://blog.zorin.com/index.xml" htmlUrl="https://blog.zorin.com/" />
@@ -70,24 +68,23 @@
         <outline type="rss" text="Tails" title="Tails" xmlUrl="https://tails.net/news/index.en.atom" htmlUrl="https://tails.net/news/index.en.html" />
       </outline>
       <outline text="WIN" title="WIN">
-        <outline type="rss" text="NTLite" title="NTLite" xmlUrl="https://www.ntlite.com/community/index.php?forums/-/index.rss" htmlUrl="https://www.ntlite.com/community/index.php" />
         <outline type="rss" text="Windows11 ElevenForum" title="Windows11 ElevenForum" xmlUrl="https://www.elevenforum.com/questions/-/index.rss" htmlUrl="https://www.elevenforum.com/" />
         <outline type="rss" text="Windows8 EightForums" title="Windows8 EightForums" xmlUrl="https://www.eightforums.com/forums/-/index.rss" htmlUrl="https://www.eightforums.com/" />
         <outline type="rss" text="Windows Latest " title="Windows Latest " xmlUrl="https://www.windowslatest.com/feed/" htmlUrl="https://www.windowslatest.com/" />
         <outline type="rss" text="Windows Central " title="Windows Central " xmlUrl="https://www.windowscentral.com/feeds.xml" htmlUrl="https://www.windowscentral.com/feeds.xml" />
         <outline type="rss" text="The Windows Club" title="The Windows Club" xmlUrl="https://www.thewindowsclub.com/feed" htmlUrl="https://www.thewindowsclub.com/" />
         <outline type="rss" text="WinISO.pl" title="WinISO.pl" xmlUrl="https://winiso.pl/feed.php?ns=" htmlUrl="https://winiso.pl/" />
+        <outline type="rss" text="NTLite" title="NTLite" xmlUrl="https://www.ntlite.com/community/index.php?forums/-/index.rss" htmlUrl="https://www.ntlite.com/community/index.php" />
         <outline type="rss" text="UUP (version 2.1)" title="UUP (version 2.1)" xmlUrl="https://uup.rg-adguard.net/rss" htmlUrl="https://uup.rg-adguard.net/" />
       </outline>
       <outline text="Microsoft" title="Microsoft">
+        <outline type="rss" text="Microsoft Support Bridge" title="Microsoft Support Bridge" xmlUrl="https://rss-bridge.org/bridge01/?action=display&amp;bridge=FeedMergeBridge&amp;feed_name=Microsoft+Support+Bridge&amp;feed_1=https%3A%2F%2Fsupport.microsoft.com%2Fpl-pl%2Ffeed%2Fatom%2F4ec863cc-2ecd-e187-6cb3-b50c6545db92&amp;feed_2=https%3A%2F%2Fsupport.microsoft.com%2Fpl-pl%2Ffeed%2Fatom%2Fb905caa1-d413-c90c-bed3-20aead901092&amp;feed_3=https%3A%2F%2Fsupport.microsoft.com%2Fpl-pl%2Ffeed%2Fatom%2F7ebec7c8-1b8a-c547-bea4-cd285c103fd3&amp;feed_4=https%3A%2F%2Fsupport.microsoft.com%2Fpl-pl%2Ffeed%2Fatom%2F19325ec8-f00e-43fa-15c1-14473aff70b9&amp;feed_5=https%3A%2F%2Fsupport.microsoft.com%2Fpl-pl%2Ffeed%2Fatom%2Fe9323f40-7ca8-4ecd-621d-fcf6c96a2eb0&amp;feed_6=https%3A%2F%2Fsupport.microsoft.com%2Fpl-pl%2Ffeed%2Fatom%2Fa77ee9b7-b6b6-aa08-d7b9-887ebe228207&amp;feed_7=&amp;feed_8=&amp;feed_9=&amp;feed_10=&amp;limit=99&amp;format=Atom" />
+        <outline type="rss" text="Microsoft Learn Bridge" title="Microsoft Learn Bridge" xmlUrl="https://rss-bridge.org/bridge01/?action=display&amp;bridge=FeedMergeBridge&amp;feed_name=Microsoft+Learn+Bridge&amp;feed_1=https%3A%2F%2Flearn.microsoft.com%2Fapi%2Fsearch%2Frss%3Fsearch%3D*%26locale%3Dpl-pl%26%2524filter%3D%2528%2528%2528products%252Fany%2528p%253A%2Bp%2Beq%2B%2527%252Fdevrel%252Fe93f3d5f-c77d-4365-a7fb-c9f2234416c7%2527%2529%2529%2529%2529%2Band%2B%2528category%2Beq%2B%2527Documentation%2527%2529&amp;feed_2=https%3A%2F%2Flearn.microsoft.com%2Fapi%2Fsearch%2Frss%3Fsearch%3D*%26locale%3Dpl-pl%26%2524filter%3D%2528%2528%2528products%252Fany%2528p%253A%2Bp%2Beq%2B%2527%252FDevRelOfferingOntology%252F19ec6774-09b8-473e-a17e-b17b518bbad7%2527%2529%2529%2529%2529%2Band%2B%2528category%2Beq%2B%2527Documentation%2527%2529&amp;feed_3=https%3A%2F%2Flearn.microsoft.com%2Fapi%2Fsearch%2Frss%3Fsearch%3Dpowershell%26locale%3Dpl-pl%26%2524filter%3D&amp;feed_4=&amp;feed_5=&amp;feed_6=&amp;feed_7=&amp;feed_8=&amp;feed_9=&amp;feed_10=&amp;limit=99&amp;format=Atom" htmlUrl="https://learn.microsoft.com/" />
+        <outline type="rss" text="Microsoft Blog" title="Microsoft Blog" xmlUrl="https://blogs.microsoft.com/feed/" htmlUrl="https://blogs.microsoft.com/" />
         <outline type="rss" text="Windows Blog" title="Windows Blog" xmlUrl="https://blogs.windows.com/feed" htmlUrl="https://blogs.windows.com/" />
         <outline type="rss" text="Microsoft Developers" title="Microsoft Developers" xmlUrl="https://devblogs.microsoft.com/landing" htmlUrl="https://devblogs.microsoft.com/landing" />
-        <outline type="rss" text="Windows IT Pro Blog" title="Windows IT Pro Blog" xmlUrl="https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Windows-ITPro-blog" htmlUrl="https://techcommunity.microsoft.com/t5/windows-it-pro-blog/bg-p/Windows-ITPro-blog" />
-        <outline type="rss" text="Sysinternals" title="Sysinternals" xmlUrl="https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Sysinternals-Blog" htmlUrl="https://techcommunity.microsoft.com/t5/sysinternals-blog/bg-p/Sysinternals-Blog" />
-        <outline type="rss" text="Windows CommandLine" title="Windows CommandLine" xmlUrl="https://devblogs.microsoft.com/commandline/feed/" htmlUrl="https://devblogs.microsoft.com/commandline/" />
+        <outline type="rss" text="Microsoft Community Hub" title="Microsoft Community Hub" xmlUrl="https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/Community?interaction.style=blog&amp;feeds.replies=false" htmlUrl="https://techcommunity.microsoft.com/t5/" />
         <outline type="rss" text="Bing Blogs" title="Bing Blogs" xmlUrl="https://blogs.bing.com/feed/" htmlUrl="https://blogs.bing.com/Feed" />
-        <outline type="rss" text="Microsoft Learn" title="Microsoft Learn" xmlUrl="https://rss-bridge.org/bridge01/?action=display&amp;bridge=FeedMergeBridge&amp;feed_name=Microsoft+Learn&amp;feed_1=https%3A%2F%2Flearn.microsoft.com%2Fapi%2Fsearch%2Frss%3Fsearch%3D*%26locale%3Dpl-pl%26%2524filter%3D%2528category%2Beq%2B%2527Documentation%2527%2529&amp;feed_2=https%3A%2F%2Flearn.microsoft.com%2Fapi%2Fsearch%2Frss%3Fsearch%3D*%26locale%3Dpl-pl%26%2524filter%3D%2528%2528%2528products%252Fany%2528p%253A%2Bp%2Beq%2B%2527%252FDevRelOfferingOntology%252F19ec6774-09b8-473e-a17e-b17b518bbad7%2527%2529%2529%2529%2529%2Band%2B%2528category%2Beq%2B%2527Documentation%2527%2529&amp;feed_3=https%3A%2F%2Fsupport.microsoft.com%2Fpl-pl%2Ffeed%2Frss%2F4ec863cc-2ecd-e187-6cb3-b50c6545db92&amp;feed_4=https%3A%2F%2Fsupport.microsoft.com%2Fpl-pl%2Ffeed%2Frss%2Fb905caa1-d413-c90c-bed3-20aead901092&amp;feed_5=https%3A%2F%2Fsupport.microsoft.com%2Fpl-pl%2Ffeed%2Fatom%2F19325ec8-f00e-43fa-15c1-14473aff70b9&amp;feed_6=&amp;feed_7=&amp;feed_8=&amp;feed_9=&amp;feed_10=&amp;limit=99&amp;format=Atom" />
-        <outline type="rss" text="Microsoft Blog" title="Microsoft Blog" xmlUrl="https://blogs.microsoft.com/feed/" htmlUrl="https://blogs.microsoft.com/" />
       </outline>
       <outline text="Geek" title="Geek">
         <outline type="rss" text="MajorGeeks" title="MajorGeeks" xmlUrl="https://www.majorgeeks.com/news/rss" htmlUrl="https://www.majorgeeks.com/" />
@@ -266,16 +263,16 @@
         <outline type="rss" text="Letem světem Applem" title="Letem světem Applem" xmlUrl="https://www.letemsvetemapplem.eu/pl/feed/" htmlUrl="https://www.letemsvetemapplem.eu/" />
         <outline type="rss" text="Android Developers Blog" title="Android Developers Blog" xmlUrl="https://android-developers.googleblog.com/atom.xml" htmlUrl="https://android-developers.googleblog.com/" />
         <outline type="rss" text="SmartThings Community" title="SmartThings Community" xmlUrl="https://community.smartthings.com/top.rss?period=yearly" htmlUrl="https://community.smartthings.com/top" />
-        <outline type="rss" text="wimlib" title="wimlib" xmlUrl="https://wimlib.net/forums/app.php/feed" htmlUrl="https://wimlib.net/forums/index.php" />
         <outline type="rss" text="Delightly Linux" title="Delightly Linux" xmlUrl="https://delightlylinux.wordpress.com/feed/" htmlUrl="https://delightlylinux.wordpress.com/" />
+        <outline type="rss" text="Nextcloud" title="Nextcloud" xmlUrl="https://nextcloud.com/feed/" htmlUrl="https://nextcloud.com/" />
       </outline>
       <outline text="Git" title="Git">
         <outline type="rss" text="Github" title="Github" xmlUrl="https://github.com/travino.private.atom?token=A4YYN5INU2EB7NXKJWDLIUGH5NR3Y" htmlUrl="https://github.com/travino" />
-        <outline type="rss" text="Github trending bridge" title="Github trending bridge" xmlUrl="https://rss-bridge.org/bridge01/?action=display&amp;bridge=FeedMergeBridge&amp;feed_name=Github+trending+bridge&amp;feed_1=https%3A%2F%2Fmshibanami.github.io%2FGitHubTrendingRSS%2Fdaily%2Fbatchfile.xml&amp;feed_2=https%3A%2F%2Fmshibanami.github.io%2FGitHubTrendingRSS%2Fmonthly%2Fpowershell.xml&amp;feed_3=https%3A%2F%2Fmshibanami.github.io%2FGitHubTrendingRSS%2Fweekly%2Fshell.xml&amp;feed_4=https%3A%2F%2Fmshibanami.github.io%2FGitHubTrendingRSS%2Fweekly%2Fpython.xml&amp;feed_5=&amp;feed_6=&amp;feed_7=&amp;feed_8=&amp;feed_9=&amp;feed_10=&amp;limit=99&amp;format=Atom" htmlUrl="http://mshibanami.github.io/GitHubTrendingRSS" />
         <outline type="rss" text="GitHub Blog" title="GitHub Blog" xmlUrl="https://github.blog/feed/" htmlUrl="https://github.blog/" />
         <outline type="rss" text="GitLab" title="GitLab" xmlUrl="https://about.gitlab.com/atom.xml" htmlUrl="https://about.gitlab.com/blog" />
         <outline type="rss" text="Track Awesome List" title="Track Awesome List" xmlUrl="https://www.trackawesomelist.com/week/rss.xml" htmlUrl="https://www.trackawesomelist.com/week/" />
         <outline type="rss" text="UUP dump" title="UUP dump" xmlUrl="https://git.uupdump.net/uup-dump.rss" htmlUrl="https://git.uupdump.net/uup-dump" />
+        <outline type="rss" text="GitHubTrending_bridge" title="GitHubTrending_bridge" xmlUrl="https://rss-bridge.org/bridge01/?action=display&amp;bridge=FeedMergeBridge&amp;feed_name=GitHubTrending_bridge&amp;feed_1=https%3A%2F%2Fmshibanami.github.io%2FGitHubTrendingRSS%2Fdaily%2Fall.xml&amp;feed_2=https%3A%2F%2Fmshibanami.github.io%2FGitHubTrendingRSS%2Fmonthly%2Fmarkdown.xml&amp;feed_3=https%3A%2F%2Fmshibanami.github.io%2FGitHubTrendingRSS%2Fmonthly%2Fpowershell.xml&amp;feed_4=https%3A%2F%2Fmshibanami.github.io%2FGitHubTrendingRSS%2Fmonthly%2Fshell.xml&amp;feed_5=https%3A%2F%2Fmshibanami.github.io%2FGitHubTrendingRSS%2Fweekly%2Fbatchfile.xml&amp;feed_6=&amp;feed_7=&amp;feed_8=&amp;feed_9=&amp;feed_10=&amp;limit=99&amp;format=Atom" htmlUrl="http://mshibanami.github.io/GitHubTrendingRSS" />
       </outline>
       <outline text="Stack" title="Stack">
         <outline type="rss" text="Stack Exchange" title="Stack Exchange" xmlUrl="https://stackexchange.com/feeds" htmlUrl="https://stackexchange.com/" />
@@ -380,7 +377,7 @@
       <outline type="rss" text="DoRzeczy" title="DoRzeczy" xmlUrl="https://dorzeczy.pl/feed/" htmlUrl="https://dorzeczy.pl/" />
       <outline type="rss" text="Fakt" title="Fakt" xmlUrl="https://www.fakt.pl/rss-articles.xml" htmlUrl="https://www.fakt.pl/" />
       <outline type="rss" text="Media2.pl" title="Media2.pl" xmlUrl="https://feeds.feedburner.com/media2" htmlUrl="https://media2.pl/" />
-      <outline type="rss" text="Hacker News" title="Hacker News" xmlUrl="https://hnrss.org/frontpage.atom" htmlUrl="https://news.ycombinator.com/" />
+      <outline type="rss" text="Hacker News" title="Hacker News" xmlUrl="https://hnrss.org/frontpage.atom" />
       <outline type="rss" text="HaveIBeenPwned" title="HaveIBeenPwned" xmlUrl="https://feeds.feedburner.com/HaveIBeenPwnedLatestBreaches" htmlUrl="https://haveibeenpwned.com/" />
       <outline type="rss" text="sejm.gov" title="sejm.gov" xmlUrl="https://www.sejm.gov.pl/rss.nsf/feed.xsp?symbol=NEWS" htmlUrl="https://sejm.gov.pl/sejm10.nsf/" />
       <outline type="rss" text="TechFormator" title="TechFormator" xmlUrl="https://techformator.pl/ciekawostki-technologiczne-aktualnosci-marketingowe/feed/" htmlUrl="https://techformator.pl/" />
@@ -463,7 +460,7 @@
       <outline type="rss" text="Billboard" title="Billboard" xmlUrl="https://www.billboard.com/feed/" htmlUrl="https://www.billboard.com/" />
       <outline type="rss" text="Space.com " title="Space.com " xmlUrl="https://www.space.com/feeds.xml" htmlUrl="https://www.space.com/feeds.xml" />
       <outline type="rss" text="Checkiday" title="Checkiday" xmlUrl="https://api.checkiday.com/rss?tz=Europe/Warsaw&amp;adult=true" htmlUrl="https://www.checkiday.com/" />
-      <outline type="rss" text="Popkiller" title="Popkiller" xmlUrl="https://www.popkiller.pl/rss.xml" htmlUrl="https://www.popkiller.pl/frontpage/49/artykuly" />
+      <outline type="rss" text="Popkiller" title="Popkiller" xmlUrl="https://www.popkiller.pl/rss.xml" htmlUrl="https://www.popkiller.pl/" />
       <outline type="rss" text="Radio Times" title="Radio Times" xmlUrl="https://www.radiotimes.com/feed/atom" htmlUrl="https://www.radiotimes.com/" />
       <outline type="rss" text="Geex" title="Geex" xmlUrl="https://geex.x-kom.pl//feed" htmlUrl="https://geex.x-kom.pl/" />
       <outline type="rss" text="Going.MORE" title="Going.MORE" xmlUrl="https://goingapp.pl/more/feed/" htmlUrl="https://goingapp.pl/more" />
@@ -502,7 +499,7 @@
       <outline type="rss" text="Zerkaj.pl" title="Zerkaj.pl" xmlUrl="https://zerkaj.pl/feed.rss" htmlUrl="https://zerkaj.pl/" />
       <outline type="rss" text="Wykopalisko" title="Wykopalisko" xmlUrl="https://wykop.pl/rss/upcoming" htmlUrl="http://wykop.pl/" />
       <outline type="rss" text="EE Times" title="EE Times" xmlUrl="https://www.eetimes.com/feed/" htmlUrl="https://www.eetimes.com/" />
-      <outline type="rss" text="news.com.au" title="news.com.au" xmlUrl="https://www.news.com.au/content-feeds/latest-news-world/" htmlUrl="https://www.news.com.au/" />
+      <outline type="rss" text="News AU" title="News AU" xmlUrl="https://www.news.com.au/content-feeds/latest-news-world/" htmlUrl="https://www.news.com.au/" />
       <outline type="rss" text="Vox" title="Vox" xmlUrl="https://www.vox.com/rss/index.xml" htmlUrl="https://www.vox.com/" />
       <outline type="rss" text="Vevo" title="Vevo" xmlUrl="https://www.hq.vevo.com/blog-feed.xml" htmlUrl="https://www.hq.vevo.com/blog" />
       <outline type="rss" text="LE BLOG DE CHIEF DUNDEE" title="LE BLOG DE CHIEF DUNDEE" xmlUrl="http://chiefdundee.blogspot.com/feeds/posts/default" htmlUrl="http://chiefdundee.blogspot.com/" />
@@ -512,6 +509,10 @@
       <outline type="rss" text="NoPaper Records" title="NoPaper Records" xmlUrl="https://www.nopaperrecords.com/?feed=rss2" htmlUrl="https://www.nopaperrecords.com/" />
       <outline type="rss" text="Intel Newsroom" title="Intel Newsroom" xmlUrl="https://newsroom.intel.com/feed" htmlUrl="https://newsroom.intel.com/" />
       <outline type="rss" text="NVIDIA Newsroom" title="NVIDIA Newsroom" xmlUrl="https://nvidianews.nvidia.com/rss.xml" htmlUrl="http://nvidianews.nvidia.com/" />
+      <outline type="rss" text="Radio Maxi Italo" title="Radio Maxi Italo" xmlUrl="https://radiomaxitalo.com/feed/" htmlUrl="https://radiomaxitalo.com/" />
+      <outline type="rss" text="Psychology Blog" title="Psychology Blog" xmlUrl="https://www.all-about-psychology.com/psychology.xml" htmlUrl="https://www.all-about-psychology.com/psychology-blog.html" />
+      <outline type="rss" text="Psychology Headlines" title="Psychology Headlines" xmlUrl="http://feeds.socialpsychology.org/psychology-headlines" htmlUrl="http://www.socialpsychology.org/" />
+      <outline type="rss" text="Psychology Today" title="Psychology Today" xmlUrl="https://www.psychologytoday.com/us/front/feed" htmlUrl="https://www.psychologytoday.com/us" />
     </outline>
   </body>
 </opml>

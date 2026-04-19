@@ -2,7 +2,7 @@
 <opml version="1.0">
   <head>
     <title>Feeder - RSS Feed Reader</title>
-    <dateCreated>2026-04-19T18:01:07Z</dateCreated>
+    <dateCreated>2026-04-19T18:25:42Z</dateCreated>
   </head>
   <body>
     <outline title="News" text="News">
@@ -486,7 +486,6 @@
     <outline text="TIME" title="TIME" type="rss" xmlUrl="https://time.com/feed/" htmlUrl="https://time.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/time.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="Men's Health" title="Men's Health" type="rss" xmlUrl="https://www.menshealth.com/rss/all.xml/" htmlUrl="https://www.menshealth.com/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.menshealth.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="The Daily WTF" title="The Daily WTF" type="rss" xmlUrl="https://feeds.feedburner.com/TheDailyWtf" htmlUrl="http://thedailywtf.com/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/thedailywtf.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
-    <outline text="Pitchfork" title="Pitchfork" type="rss" xmlUrl="https://pitchfork.com/feed/feed-news/rss" htmlUrl="https://pitchfork.com/feed-news" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/pitchfork.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="Mixmag" title="Mixmag" type="rss" xmlUrl="https://mixmag.net/rss.xml" htmlUrl="https://mixmag.net/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/mixmag.net" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="Mixmag" title="Mixmag" type="rss" xmlUrl="https://mixmag.com.pl/rss.xml" htmlUrl="https://mixmag.com.pl/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/mixmag.com.pl" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="DJ Mag" title="DJ Mag" type="rss" xmlUrl="https://feeds.feedburner.com/DJmag-LatestNews" htmlUrl="https://djmag.com/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/djmag.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>

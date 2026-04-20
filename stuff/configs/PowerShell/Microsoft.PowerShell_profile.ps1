@@ -1,3 +1,5 @@
+using namespace System.Management.Automation
+using namespace System.Management.Automation.Language
 function prompt {
     $color = Get-Random -Min 1 -Max 16
     Write-Host ("PS " + $(Get-Location) +">") -NoNewLine -ForegroundColor $Color

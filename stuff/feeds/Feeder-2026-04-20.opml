@@ -2,7 +2,7 @@
 <opml version="1.0">
   <head>
     <title>Feeder - RSS Feed Reader</title>
-    <dateCreated>2026-04-20T13:40:01Z</dateCreated>
+    <dateCreated>2026-04-20T15:52:12Z</dateCreated>
   </head>
   <body>
     <outline title="News" text="News">
@@ -272,8 +272,8 @@
       <outline text="BleepingComputer" title="BleepingComputer" type="rss" xmlUrl="https://www.bleepingcomputer.com/feed/" htmlUrl="https://www.bleepingcomputer.com/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.bleepingcomputer.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
       <outline text="KeePassXC Blog" title="KeePassXC Blog" type="rss" xmlUrl="https://keepassxc.org/blog/index.xml" htmlUrl="https://keepassxc.org/blog/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/keepassxc.org" rssfr-useNotifications="0" rssfr-updateInterval=""/>
       <outline text="Android Headlines" title="Android Headlines" type="rss" xmlUrl="https://www.androidheadlines.com/feed" htmlUrl="https://www.androidheadlines.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.androidheadlines.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+      <outline text="Mp3tag" title="Mp3tag" type="rss" xmlUrl="https://community.mp3tag.de/c/announcements/23.rss" htmlUrl="https://community.mp3tag.de/c/announcements/23" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/community.mp3tag.de" rssfr-useNotifications="0" rssfr-updateInterval=""/>
       <outline text="Do it PowerShell way :)" title="Do it PowerShell way :)" type="rss" xmlUrl="https://doitpshway.com/rss.xml" htmlUrl="https://doitpshway.com/rss.xml" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
-      <outline text="MediaExpert Poradniki Eksperta" title="MediaExpert Poradniki Eksperta" type="rss" xmlUrl="https://www.mediaexpert.pl/poradniki/feed.xml" htmlUrl="https://www.mediaexpert.pl/poradniki/feed.xml" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     </outline>
     <outline title="Git" text="Git">
       <outline text="Github" title="Github" type="rss" xmlUrl="https://github.com/travino.private.atom?token=A4YYN5INU2EB7NXKJWDLIUGH5NR3Y" htmlUrl="https://github.com/travino" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/github.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
@@ -548,5 +548,6 @@
     <outline text="9GAG" title="9GAG" type="rss" xmlUrl="https://9gagrss.com/feed/" htmlUrl="http://9gagrss.com/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/9gagrss.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="Dancing Astronaut" title="Dancing Astronaut" type="rss" xmlUrl="https://dancingastronaut.com/feed/" htmlUrl="https://dancingastronaut.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/dancingastronaut.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="EDMTunes" title="EDMTunes" type="rss" xmlUrl="https://www.edmtunes.com/feed/" htmlUrl="https://www.edmtunes.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.edmtunes.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+    <outline text="foobar2000.club" title="foobar2000.club" type="rss" xmlUrl="https://foobar2000.club/forum/feed.php?f=20" htmlUrl="https://foobar2000.club/forum/index.php" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/foobar2000.club" rssfr-useNotifications="0" rssfr-updateInterval=""/>
   </body>
 </opml>

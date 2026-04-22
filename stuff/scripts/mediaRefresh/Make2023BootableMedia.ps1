@@ -1,3 +1,23 @@
+<#
+.SYNOPSIS
+    Microsoft 'Windows UEFI CA 2023' Media Update Script
+
+.DESCRIPTION
+    This script updates Windows media to use boot binaries signed with the 'Windows UEFI CA 2023' certificate.
+
+.NOTES
+    File Name  : Make2023BootableMedia.ps1
+    Author     : Microsoft Corporation
+    Version    : 1.4
+    Date       : 2026-03-13
+
+.LICENSE
+    Licensed under the BSD License. See License.txt in the project root for full license information.
+
+.COPYRIGHT
+    Copyright (c) Microsoft Corporation. All rights reserved.
+#>
+
 param (
 
     [Parameter(Position=0,mandatory=$true)]
@@ -20,7 +40,10 @@ param (
     [string] $NewMediaPath,
 
     [Parameter(Position = 6, Mandatory=$false)]
-    [string] $StagingDir
+    [string] $StagingDir,
+
+    [Parameter(Position = 7, Mandatory=$false)]
+    [bool] $DebugOn = $false
 )
 
 function Get-TS { return "{0:HH:mm:ss}" -f [DateTime]::Now }
@@ -53,9 +76,71 @@ function Show-Usage {
 }
 
 function Show-ADK-Req {
-    Write-Host "This script requires the Windows ADK be installed on the system. Avalable at http://aka.ms/adk" -ForegroundColor Red
+    Write-Host "The Windows ADK must be installed on the system if trying to create ISO media. Available at https://aka.ms/adk" -ForegroundColor Red
     Write-Host "After install, open an admin-elevated 'Deploy and Imaging Tools Environment' command prompt provided with the ADK." -ForegroundColor Red
     Write-Host "Then run PowerShell from this command prompt and you should be good to go.`r`n" -ForegroundColor Red
+}
+
+function Download-Oscdimg {
+    <#
+    .SYNOPSIS
+        Downloads oscdimg.exe from the Microsoft public symbol server for the current architecture. These are not signed so 
+        they are validated against known SHA256 hashes before being used. 
+    .OUTPUTS
+        The file path to the downloaded oscdimg.exe, or $null on failure.
+    #>
+
+    $archUrls = @{
+        "AMD64" = "https://msdl.microsoft.com/download/symbols/oscdimg.exe/9F01AFB765000/oscdimg.exe"
+        "ARM64" = "https://msdl.microsoft.com/download/symbols/oscdimg.exe/2267BF2C66000/oscdimg.exe"
+        "x86"   = "https://msdl.microsoft.com/download/symbols/oscdimg.exe/CFBCC93A60000/oscdimg.exe"
+    }
+
+    $arch = $env:PROCESSOR_ARCHITECTURE
+    if (-not $archUrls.ContainsKey($arch)) {
+        Write-Host "Unsupported architecture [$arch] for oscdimg download." -ForegroundColor Red
+        return $null
+    }
+
+    $url = $archUrls[$arch]
+    $expectedHash = $global:oscdimg_known_hashes[$arch]
+    $destPath = Join-Path -Path $env:TEMP -ChildPath "oscdimg.exe"
+
+    Write-Host "Downloading oscdimg.exe for [$arch] from Microsoft symbol server..." -ForegroundColor Blue
+    Write-Dbg-Host "Download URL: $url"
+    Write-Dbg-Host "Destination: $destPath"
+
+    $tmpDownloadPath = "$destPath.download"
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $tmpDownloadPath -UseBasicParsing -ErrorAction Stop
+    } catch {
+        Write-Host "Failed to download oscdimg.exe: $($_.Exception.Message)" -ForegroundColor Red
+        Remove-Item -Path $tmpDownloadPath -Force -ErrorAction SilentlyContinue
+        return $null
+    }
+
+    if (-not (Test-Path $tmpDownloadPath)) {
+        Write-Host "Download appeared to succeed but file not found at [$tmpDownloadPath]." -ForegroundColor Red
+        return $null
+    }
+
+    # Validate downloaded file against known SHA256 hash
+    $actualHash = (Get-FileHash -Path $tmpDownloadPath -Algorithm SHA256).Hash
+    if ($actualHash -ne $expectedHash) {
+        Write-Host "Downloaded oscdimg.exe failed integrity check." -ForegroundColor Red
+        Write-Host "Expected SHA256: $expectedHash" -ForegroundColor Red
+        Write-Host "Actual SHA256:   $actualHash" -ForegroundColor Red
+        Remove-Item -Path $tmpDownloadPath -Force -ErrorAction SilentlyContinue
+        return $null
+    }
+    Write-Dbg-Host "SHA256 hash verified: $actualHash"
+
+    # Move validated file into place
+    Move-Item -Path $tmpDownloadPath -Destination $destPath -Force
+
+    $fileSize = (Get-Item $destPath).Length
+    Write-Host "Successfully downloaded oscdimg.exe ($fileSize bytes) to [$destPath]" -ForegroundColor Green
+    return $destPath
 }
 
 function Debug-Pause {
@@ -69,7 +154,7 @@ function Debug-Pause {
 
 # Routine to help with script debugging
 function Write-Dbg-Host {
-    if ($global:Dbg_Ouput) {
+    if ($global:Dbg_Output) {
         Write-Host "$(Get-TS): [DBG] $args" -ForegroundColor DarkMagenta
     }
 }
@@ -82,9 +167,16 @@ function Execute-Cleanup {
     Write-Dbg-Host "Cleaning up"
 
     if ($global:WIM_Mount_Path) {
-        Write-Dbg-Host "`r`nDismounting $global:WIM_Mount_Path"
+        Write-Dbg-Host "Dismounting [$global:WIM_Mount_Path]"
         try {
             Dismount-WindowsImage -Path $global:WIM_Mount_Path -Discard -ErrorAction stop | Out-Null
+            try {
+                Write-Dbg-Host "Removing WIM mount path [$global:WIM_Mount_Path]"
+                Remove-Item -Path $global:WIM_Mount_Path -Recurse -Force -ErrorAction stop | Out-Null
+            } catch {
+                Write-Host "Failed to remove WIM mount path [$global:WIM_Mount_Path]" -ForegroundColor Red
+                Write-Host $_.Exception.Message -ForegroundColor Red
+            }
         } catch {
             Write-Host "Failed to dismount WIM [$global:WIM_Mount_Path]" -ForegroundColor Red
             Write-Host $_.Exception.Message -ForegroundColor Red
@@ -92,7 +184,7 @@ function Execute-Cleanup {
     }
 
     if ($global:ISO_Mount_Path) {
-        Write-Dbg-Host "Dismounting $global:ISO_Mount_Path"
+        Write-Dbg-Host "Dismounting [$global:ISO_Mount_Path]"
 
         try {
             Dismount-DiskImage -ImagePath $global:ISO_Mount_Path -ErrorAction stop | Out-Null
@@ -100,67 +192,142 @@ function Execute-Cleanup {
             Write-Host "Failed to dismount ISO [$global:ISO_Mount_Path]" -ForegroundColor Red
             Write-Host $_.Exception.Message -ForegroundColor Red
         }
-
     }
 
     if ($global:StagingDir_Created -eq $true) {
-        Write-Dbg-Host "Removing staging directory final: $global:Staging_Directory_Path"
+        Write-Dbg-Host "Removing staging directory [$global:Staging_Directory_Path]"
         try {
             Remove-Item -Path $global:Staging_Directory_Path -Recurse -Force -ErrorAction stop | Out-Null
         } catch {
-            Write-Host "Failed to remove $global:Staging_Directory_Path" -ForegroundColor Red
+            Write-Host "Failed to remove [$global:Staging_Directory_Path]" -ForegroundColor Red
             Write-Host $_.Exception.Message -ForegroundColor Red
         }
     }
 }
 
 function Validate-Requirements {
+    param (
+        [string] $TargetType
+    )
 
-    Write-Host "Checking for required support tools" -ForegroundColor Blue
-    # Check if the script is running with administrative privileges
-    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-        Write-Host "You do not have Administrator rights to run this script.`nPlease re-run this script as an Administrator." -ForegroundColor Red
-        exit
-    }
-    # Look for the oscdimg.exe tool in the commonly used install path for the ADK.
-    $adkOsCdImgPath = "\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe"
-    $progFilesPath = Get-ChildItem "Env:ProgramFiles(x86)"
-    if ($progFilesPath -ne $null) {
-        $executablePath = Join-Path -Path $progFilesPath.Value -ChildPath $adkOsCdImgPath
-        if (Test-Path -Path $executablePath) {
-            Write-Dbg-Host "Found oscdimg.exe in: $executablePath"
-            $global:oscdimg_exe = $executablePath
-            return $true
-        }
-        Write-Dbg-Host "oscdimg.exe not found in $executablePath"
-    }
-    # Final attempt to find oscdimg.exe in the system PATH
-    $executablePath = (where.exe oscdimg.exe 2>$null)
-    if ($null -eq $executablePath) {
-        # See if oscdimg.exe exists in the current working directory
-        $executablePath = Join-Path -Path $PWD.Path -ChildPath "oscdimg.exe"
-        if (-not (Test-Path -Path $executablePath)) {
-            Write-Host "`r`nRequired support tools not found!" -ForegroundColor Red
-            Write-Dbg-Host "oscdimg.exe not found in $PWD or in the system PATH!"
-            Show-ADK-Req
-            return $false
-        }
-    }
+    # If the target type is ISO, check for the required support tools from the ADK
+    if ($TargetType -eq "ISO") {
 
-    Write-Dbg-Host "oscdimg.exe found in: $executablePath"
-    $global:oscdimg_exe = $executablePath
+        Write-Host "Checking for required support tools" -ForegroundColor Blue
+        # Check if the script is running with administrative privileges
+        if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+            Write-Host "You do not have Administrator rights to run this script.`nPlease re-run this script as an Administrator." -ForegroundColor Red
+            exit
+        }
+        # Look for the oscdimg.exe tool in the commonly used install path for the ADK.
+        $adkOsCdImgPath = "\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe"
+        $progFilesPath = Get-ChildItem "Env:ProgramFiles(x86)"
+        if ($progFilesPath -ne $null) {
+            $executablePath = Join-Path -Path $progFilesPath.Value -ChildPath $adkOsCdImgPath
+            if (Test-Path -Path $executablePath) {
+                Write-Dbg-Host "Found [oscdimg.exe] in [$executablePath]"
+                $global:oscdimg_exe = $executablePath
+                return $true
+            }
+            Write-Dbg-Host "[oscdimg.exe] not found in [$executablePath]"
+        }
+        # Final attempt to find oscdimg.exe in the system PATH
+        $executablePath = (where.exe oscdimg.exe 2>$null)
+        if ($null -eq $executablePath) {
+            # See if oscdimg.exe exists in the current working directory
+            $executablePath = Join-Path -Path $PWD.Path -ChildPath "oscdimg.exe"
+            if (-not (Test-Path -Path $executablePath)) {
+                Write-Dbg-Host "[oscdimg.exe] not found in [$PWD] or in the system PATH!"
+
+                # Check if oscdimg.exe was previously downloaded to the temp directory
+                $tempOscdimg = Join-Path -Path $env:TEMP -ChildPath "oscdimg.exe"
+                if (Test-Path -Path $tempOscdimg) {
+                    # Validate hash before trusting a cached copy from user-writable temp dir
+                    $expectedHash = $global:oscdimg_known_hashes[$env:PROCESSOR_ARCHITECTURE]
+                    $actualHash = (Get-FileHash -Path $tempOscdimg -Algorithm SHA256).Hash
+                    if ($expectedHash -and $actualHash -eq $expectedHash) {
+                        Write-Dbg-Host "Found previously downloaded [oscdimg.exe] in [$tempOscdimg] with valid hash"
+                        Write-Host "Using previously downloaded oscdimg.exe from [$tempOscdimg]" -ForegroundColor Green
+                        $global:oscdimg_exe = $tempOscdimg
+                        return $true
+                    } else {
+                        Write-Dbg-Host "Cached [oscdimg.exe] at [$tempOscdimg] failed integrity check. Removing."
+                        Remove-Item -Path $tempOscdimg -Force -ErrorAction SilentlyContinue
+                    }
+                }
+
+                # Offer to download oscdimg.exe from the Microsoft public symbol server
+                Write-Host "`r`noscdimg.exe is required for ISO media creation and was not found on this system." -ForegroundColor Yellow
+                Write-Host "It can be downloaded directly from the Microsoft public symbol server (~450 KB)." -ForegroundColor Yellow
+                Write-Host "Alternatively, it is included with an install of the full Windows ADK (https://aka.ms/adk).`r`n" -ForegroundColor Yellow
+                $response = Read-Host "Download oscdimg.exe from Microsoft? (Y/N)"
+                if ($response -match '^[Yy]') {
+                    $downloadedPath = Download-Oscdimg
+                    if ($null -ne $downloadedPath) {
+                        $global:oscdimg_exe = $downloadedPath
+                        return $true
+                    }
+                    Write-Host "Download failed. Please install the Windows ADK instead." -ForegroundColor Red
+                }
+
+                Show-ADK-Req
+                return $false
+            }
+        }
+
+        Write-Dbg-Host "[oscdimg.exe] found in [$executablePath]"
+        $global:oscdimg_exe = $executablePath
+    }
     return $true
 }
 
 function Initialize-MediaPaths {
     param (
          [string] $MediaPath,
-         [string] $NewMediaPath
+         [string] $NewMediaPath,
+         [string] $StagingDir
      )
 
     $isUNCPath = $false
     $localMediaPath = $MediaPath
     $mountResult = $null
+
+    # If NewMediaPath is provided, use it as the staging directory
+    if ($NewMediaPath) {
+        try {
+            $tmpPath = ConvertTo-AbsolutePath -Path $NewMediaPath
+        }
+        catch {
+            Write-Host "Error processing [$NewMediaPath] -> Error: $($_.Exception.Message)" -ForegroundColor Red
+            return $false
+        }
+
+        if ($NewMediaPath -match "^[a-zA-Z]:$") {
+            $tmpPath = "$NewMediaPath\"
+        }
+
+        $global:Temp_Media_To_Update_Path = $tmpPath
+        $global:Staging_Directory_Path = $tmpPath
+
+    } else {
+
+        # If NewMediaPath is not provided, use the StagingDir as the staging directory
+        $result = Initialize-StagingDirectory $StagingDir
+        if ($result -eq $false) {
+            return $false
+        }
+        $global:Temp_Media_To_Update_Path = $global:Staging_Directory_Path + "\MediaToUpdate"
+    }
+
+    if (-not (Test-Path -Path $global:Temp_Media_To_Update_Path)) {
+        try {
+            New-Item -ItemType Directory -Path $global:Temp_Media_To_Update_Path  -Force | Out-Null
+            Write-Dbg-Host "[$global:Temp_Media_To_Update_Path] created"
+        } catch {
+            Write-Host $_.Exception.Message -ForegroundColor Red
+            return $false
+        }
+    }
 
     Write-Host "Staging media" -ForegroundColor Blue
     $global:Src_Media_Path = $MediaPath
@@ -173,7 +340,7 @@ function Initialize-MediaPaths {
     # Now determine if this is an ISO
     if ($MediaPath -match "\.iso$") {
 
-        Write-Dbg-Host "$MediaPath is an ISO file"
+        Write-Dbg-Host "[$MediaPath] is an ISO file"
         if ($isUNCPath) {
 
             $localIsoPath = $global:Staging_Directory_Path + "\$((Get-Item -Path $global:Src_Media_Path).Name)"
@@ -195,8 +362,8 @@ function Initialize-MediaPaths {
             $localIsoPath = $global:Src_Media_Path
         }
 
-        Write-Host "--->Mounting ISO from staged media"
-        Write-Dbg-Host "Mounting ISO: $localIsoPath"
+        Write-Host "Mounting ISO from staged media" -ForegroundColor Blue
+        Write-Dbg-Host "Mounting ISO [$localIsoPath]"
         $mountResult = Mount-DiskImage -ImagePath $localIsoPath -PassThru -ErrorAction stop
         if ($mountResult -eq $null) {
             Write-Host "Failed to mount $localIsoPath" -ForegroundColor Red
@@ -207,15 +374,17 @@ function Initialize-MediaPaths {
         $localMediaPath = ($mountResult | Get-Volume).DriveLetter + ":"
 
         # Retrieve the volume label from the mounted ISO to be used later if a new ISO is created
-        $global:ISO_Lable = (Get-Volume -DriveLetter ($mountResult | Get-Volume).DriveLetter).FileSystemLabel
+        $global:ISO_Label = (Get-Volume -DriveLetter ($mountResult | Get-Volume).DriveLetter).FileSystemLabel
 
     } else {
 
-        Write-Dbg-Host "[$MediaPath] is a folder"
-        $tmpPath = $MediaPath
-        if ($MediaPath[-1] -eq "\") {
-            $tmpPath = $MediaPath.Substring(0, $MediaPath.Length - 1)
-            Write-Dbg-Host "tmpPath: $tmpPath"
+        Write-Dbg-Host "[$MediaPath] is a directory"
+        try {
+            $tmpPath = ConvertTo-AbsolutePath -Path $MediaPath -AllowUNC $true
+        }
+        catch {
+            Write-Host "Error processing [$MediaPath] -> Error: $($_.Exception.Message)" -ForegroundColor Red
+            return $false
         }
 
         $global:Src_Media_Path = $tmpPath
@@ -235,37 +404,9 @@ function Initialize-MediaPaths {
     # If the WIM MOUNT directory does not exist, create it
     if (-not (Test-Path -Path $global:WIM_Mount_Path)) {
         New-Item -ItemType Directory -Path $global:WIM_Mount_Path -Force | Out-Null
-        Write-Dbg-Host "Creating $global:WIM_Mount_Path"
+        Write-Dbg-Host "Creating mount path [$global:WIM_Mount_Path]"
     }else{
-        Write-Dbg-Host "$global:WIM_Mount_Path already exists"
-    }
-
-    # Create a new folder to stage the updated media content
-    if ($NewMediaPath){
-        Write-Dbg-Host "[$NewMediaPath] provided"
-        $tmpPath = $NewMediaPath
-
-        if ($NewMediaPath -match "^[a-zA-Z]:$") {
-            $tmpPath = "$NewMediaPath\"
-        } else {
-            if ($NewMediaPath[-1] -eq "\") {
-                $tmpPath = $NewMediaPath.Substring(0, $tmpPath.Length - 1)
-            }
-        }
-        Write-Dbg-Host "tmpPath: $tmpPath"
-        $global:Temp_Media_To_Update_Path = $tmpPath
-    } else{
-        $global:Temp_Media_To_Update_Path = $global:Staging_Directory_Path + "\MediaToUpdate"
-    }
-
-    if (-not (Test-Path -Path $global:Temp_Media_To_Update_Path)) {
-        try {
-            New-Item -ItemType Directory -Path $global:Temp_Media_To_Update_Path  -Force | Out-Null
-            Write-Dbg-Host "[$global:Temp_Media_To_Update_Path] created"
-        } catch {
-            Write-Host $_.Exception.Message -ForegroundColor Red
-            return $false
-        }
+        Write-Dbg-Host "Mount path [$global:WIM_Mount_Path] already exists"
     }
 
     Write-Dbg-Host "Copying [$localMediaPath] --> [$global:Temp_Media_To_Update_Path]"
@@ -302,42 +443,83 @@ function Initialize-StagingDirectory {
 
     if (-not $StagingDir) {
         $global:Staging_Directory_Path = [System.IO.Path]::GetTempPath() + ([System.IO.Path]::GetRandomFileName()).Replace(".", "")
-        Write-Dbg-Host "Using default staging directory: $global:Staging_Directory_Path"
+        Write-Dbg-Host "Using default staging directory [$global:Staging_Directory_Path]"
         New-Item -ItemType Directory -Path $global:Staging_Directory_Path -Force | Out-Null
         $global:StagingDir_Created = $true
     } else {
-        Write-Dbg-Host "Using provided staging directory: $StagingDir"
+        Write-Dbg-Host "Using provided staging directory [$StagingDir]"
 
-        $global:Staging_Directory_Path = $StagingDir
-        if ($StagingDir[-1] -eq "\") {
-            $global:Staging_Directory_Path = $StagingDir.Substring(0, $StagingDir.Length - 1)
+        try {
+            $tmpPath = ConvertTo-AbsolutePath -Path $StagingDir
+            Write-Dbg-Host "StagingDir [$StagingDir] -> [$tmpPath]"
+        }
+        catch {
+            Write-Host "Staging failure -> Error: $($_.Exception.Message) [$StagingDir]" -ForegroundColor Red
+            return $false
         }
 
-        # If the provided staging directory is the root of a drive, and in the format of "D:" or "D:\", append a random subfolder to it
-        if ($global:Staging_Directory_Path -match "^[a-zA-Z]:$") {
+        $global:Staging_Directory_Path = $tmpPath
+
+        $driveLetter = (Split-Path -Qualifier $global:Staging_Directory_Path).TrimEnd(':')
+        try {
+            $fs = (Get-Volume -DriveLetter $driveLetter -ErrorAction Stop).FileSystem
+        } catch {
+            Write-Host "Drive [$driveLetter`:] does not exist or is not accessible." -ForegroundColor Red
+            return $false
+        }
+
+        # Make sure the staging directory is on an NTFS formatted file system. This is required for WIM mounting
+        # which uses reparse points not fully supported on ReFS or other file systems.
+        if ($fs -ne "NTFS") {
+            Write-Host "`r`nStagingDir [$global:Staging_Directory_Path] must target an NTFS formatted file system (required for WIM mounting).`r`n" -ForegroundColor Red
+
+            if ($global:StagingDir_Created -eq $true) {
+                Write-Dbg-Host "Removing staging directory [$global:Staging_Directory_Path]"
+                Remove-Item -Path $global:Staging_Directory_Path -Recurse -Force | Out-Null
+                $global:StagingDir_Created = $false
+            }
+            return $false
+        }
+
+        $drive = Get-PSDrive -Name $driveLetter -PSProvider FileSystem
+        if ($drive.Free -lt 10GB) {
+            Write-Host "Drive [$drive] used for temp file staging does not not have enough free disk space! (10GB required)" -ForegroundColor Red
+            Write-Dbg-Host "Drive [$drive] free disk space: $($drive.Free / 1GB)GB"
+
+            if ($global:StagingDir_Created -eq $true) {
+                Write-Dbg-Host "Removing staging directory [$global:Staging_Directory_Path]"
+                Remove-Item -Path $global:Staging_Directory_Path -Recurse -Force | Out-Null
+            }
+            return $false
+        }
+
+        if (Test-Path -Path "$global:Staging_Directory_Path\") {
+            # Provided staging directory already exists, ask the user if they want to overwrite it
+            Write-Dbg-Host "Staging directory [$global:Staging_Directory_Path] already exists."
+            Write-Dbg-Host "Appending random subfolder to staging directory [$global:Staging_Directory_Path]"
             $global:Staging_Directory_Path = "$global:Staging_Directory_Path\" + ([System.IO.Path]::GetRandomFileName()).Replace(".", "")
-            Write-Dbg-Host "Appending random subfolder to staging directory: $global:Staging_Directory_Path"
-            New-Item -ItemType Directory -Path $global:Staging_Directory_Path -Force | Out-Null
-            $global:StagingDir_Created = $true
-        } elseif (-not (Test-Path -Path $global:Staging_Directory_Path)) {
-            # Provided staging directory does not exist, ask the user if they want to create it
-            Write-Host "Staging directory [$global:Staging_Directory_Path] does not exist. Do you want to create it? (Y/N)" -ForegroundColor Yellow
-            $response = Read-Host
-            if ($response -ne "Y") {
-                Write-Host "Aborting execution`r`n" -ForegroundColor Red
+
+            try {
+                New-Item -ItemType Directory -Path $global:Staging_Directory_Path -Force | Out-Null
+                $global:StagingDir_Created = $true
+            } catch {
+                Write-Host "Failed to create staging directory [$global:Staging_Directory_Path]" -ForegroundColor Red
+                Write-Host $_.Exception.Message -ForegroundColor Red
                 return $false
-            } else {
+            }
+        } else {
+            # Provided staging directory does not exist, create it
+            try {
                 New-Item -ItemType Directory -Path $global:Staging_Directory_Path -Force | Out-Null
                 $global:StagingDir_Created = $true
                 Write-Dbg-Host "[$global:Staging_Directory_Path] created"
             }
+            catch {
+                Write-Host "Failed to create staging directory [$global:Staging_Directory_Path]" -ForegroundColor Red
+                Write-Host $_.Exception.Message -ForegroundColor Red
+                return $false
+            }
         }
-    }
-    $drive = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -eq $global:Staging_Directory_Path.Substring(0, 3) }
-    Write-Dbg-Host "Drive [$drive] free disk space: $($drive.Free / 1GB)GB"
-    if ($drive.Free -lt 10GB) {
-        Write-Host "Drive [$drive] used for temp file staging does not not have enough free disk space! (10GB required)" -ForegroundColor Red
-        return $false
     }
 
     return $true
@@ -351,17 +533,6 @@ function Validate-Parameters {
         [string] $FileSystem,
         [string] $StagingDir
      )
-
-
-    if ($StagingDir){
-        $driveLetter = $StagingDir.SubString(0,1)
-        $fs = (Get-Volume -DriveLetter $driveLetter).FileSystem
-
-        if ($fs -ne "NTFS" -and $fs -ne "ReFS") {
-            Write-Host "`r`n-StagingDir [$StagingDir] must target an NTFS or ReFS based file system`r`n" -ForegroundColor Red
-            return $false
-        }
-    }
 
     if (-not $TargetType) {
         Write-Host "`r`n-TargetType parameter required`r`n" -ForegroundColor Red
@@ -393,9 +564,20 @@ function Validate-Parameters {
 
             if (-not ($ISOPath -match "\.iso$")) {
                 Write-Host "`r`n-ISOPath must specify a *.ISO file.`r`n" -ForegroundColor Red
-                Write-Dbg-Host "Invalid ISOPath: $ISOPath"
+                Write-Dbg-Host "Invalid ISOPath [$ISOPath]"
                 return $false
             }
+
+            # Normalize ISOPath to an absolute path
+            try {
+                $script:ISOPath = ConvertTo-AbsolutePath -Path $ISOPath
+                Write-Dbg-Host "ISOPath: [$ISOPath] -> [$script:ISOPath]"
+                $ISOPath = $script:ISOPath
+            } catch {
+                Write-Host "Invalid -ISOPath '$ISOPath': $($_.Exception.Message)" -ForegroundColor Red
+                return $false
+            }
+
             # if $ISOPath exists, ask the user if they want to overwrite it, otherwise abort
             if (Test-Path -Path $ISOPath) {
                 Write-Host "ISO [$ISOPath] already exists. Do you want to overwrite it? (Y/N)" -ForegroundColor Yellow
@@ -409,7 +591,7 @@ function Validate-Parameters {
                 }
             }
 
-            Write-Dbg-Host "ISOPath: $ISOPath"
+            Write-Dbg-Host "ISOPath [$ISOPath]"
         }
         "USB" {
 
@@ -425,8 +607,7 @@ function Validate-Parameters {
 
             if ($FileSystem -and
                 ($FileSystem -ne "FAT32" -and $FileSystem -ne "ExFAT")) {
-                Write-Host "`r`n-FileSystem must be FAT32 or ExFAT to boot on most UEFI systems." -ForegroundColor Red
-                Write-Host "`r`nNOTE: FAT32 does not support files larger than 4GB and may cause media creation failures on newer OS media.`r`n" -ForegroundColor Red
+                Write-Host "`r`n-FileSystem must be FAT32 to boot on most UEFI systems." -ForegroundColor Red
                 return $false
             }
 
@@ -444,6 +625,18 @@ function Validate-Parameters {
                 if ($response -ne "Y") {
                     Write-Host "Aborting execution`r`n" -ForegroundColor Red
                     exit
+                }
+                # Make sure the drive can support FAT32 if that is the target/default file system.
+                Write-Dbg-Host "Checking drive [$USBDrive] file system"
+                if (-not $FileSystem -or $FileSystem -ne "ExFAT") {
+                    $partition = Get-Partition -DriveLetter $USBDrive.TrimEnd(':')
+                    Write-Dbg-Host "Partition: $partition"
+                    Write-Dbg-Host "Partition size: $($partition.Size / 1GB)GB"
+                    if ($partition.Size -gt 32GB) {
+                        Write-Host "Target drive partition is larger than 32GB and cannot be formatted as FAT32. " -ForegroundColor Red
+                        Write-Host "Create a partition smaller than 32GB and try again (or use ExFAT)." -ForegroundColor Red
+                        return $false
+                    }
                 }
             }
         }
@@ -469,49 +662,39 @@ function Validate-Parameters {
                 return $false
             }
 
-            $tmpPath = $NewMediaPath
-            if ($NewMediaPath -match "^[a-zA-Z]:$" -or $NewMediaPath -match "^[a-zA-Z]:\\$") {
-                $isRoot = $true
-                $tmpPath = "$($NewMediaPath.Substring(0, 2))\"
+            if ($StagingDir) {
+                Write-Host "`r`n-StagingDir parameter ignored for TargetType LOCAL.`r`n" -ForegroundColor Yellow
             }
 
-            $driveLetter = $tmpPath.SubString(0,1)
-            $fs = (Get-Volume -DriveLetter $driveLetter).FileSystem
-
-            if ($fs -ne "NTFS" -and $fs -ne "ReFS") {
-                Write-Host "`r`n-NewMediaPath [$tmpPath] must target an NTFS or ReFS based file system`r`n" -ForegroundColor Red
+            try {
+                $tmpPath = ConvertTo-AbsolutePath -Path $NewMediaPath
+                Write-Dbg-Host "NewMediaPath: [$NewMediaPath] -> [$tmpPath]"
+            }
+            catch {
+                Write-Host "-$NewMediaPath' -> Error: $($_.Exception.Message)" -ForegroundColor Red
                 return $false
             }
 
-            $drive = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -eq $tmpPath.Substring(0, 3) }
+            $driveLetter = (Split-Path -Qualifier $tmpPath).TrimEnd(':')
+            try {
+                $fs = (Get-Volume -DriveLetter $driveLetter -ErrorAction Stop).FileSystem
+            } catch {
+                Write-Host "Drive [$driveLetter`:] does not exist or is not accessible." -ForegroundColor Red
+                return $false
+            }
+
+            # Make sure the target drive is NTFS. This is required for WIM mounting which uses
+            # reparse points not fully supported on ReFS or other file systems.
+            if ($fs -ne "NTFS") {
+                Write-Host "`r`n-NewMediaPath [$tmpPath] must target an NTFS formatted file system (required for WIM mounting).`r`n" -ForegroundColor Red
+                return $false
+            }
+
+            $drive = Get-PSDrive -Name $driveLetter -PSProvider FileSystem
             if ($drive.Free -lt 10GB) {
-                Write-Host "$NewMediaPath does not have enough free space! (10GB required)" -ForegroundColor Red
+                Write-Host "[$tmpPath] does not have enough free space! (10GB required)" -ForegroundColor Red
+                Write-Dbg-Host "Drive [$drive] free disk space: $($drive.Free / 1GB)GB"
                 return $false
-            }
-
-            if ($isRoot){
-                return $true
-            }
-
-            if (-not (Test-Path -Path $NewMediaPath)) {
-                Write-Host "NewMediaPath [$NewMediaPath] does not exist! Create it? (Y/N)" -ForegroundColor Yellow
-                $response = Read-Host
-                if ($response -ne "Y") {
-                    Write-Host "Aborting execution`r`n" -ForegroundColor Red
-                    exit
-                } else {
-                    New-Item -ItemType Directory -Path $NewMediaPath -Force | Out-Null
-                }
-            } else {
-                Write-Host "NewMediaPath [$NewMediaPath] already exists. Do you want to overwrite it? (Y/N)" -ForegroundColor Yellow
-                $response = Read-Host
-                if ($response -ne "Y") {
-                    Write-Host "Aborting execution`r`n" -ForegroundColor Red
-                    exit
-                } else {
-                    Write-Dbg-Host "Deleting [$NewMediaPath]"
-                    Remove-Item -Path $NewMediaPath -Recurse -Force
-                }
             }
         }
         default {
@@ -523,13 +706,53 @@ function Validate-Parameters {
     return $true
 }
 
+function ConvertTo-AbsolutePath {
+    param(
+        [string]$Path,
+        [bool] $AllowUNC = $false
+        )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw "Path cannot be null or empty"
+    }
+
+    # Reject UNC paths
+    if (-not $AllowUNC) {
+        if ($Path -match "^\\\\") {
+            throw "Network (UNC) path not allowed"
+        }
+    }
+
+    $tmpPath = $Path.TrimEnd('\')
+
+    # If a root drive path (C:\), return as-is
+    if ($tmpPath -match "^[a-zA-Z]:") {
+        return $tmpPath
+    }
+
+    # Handle rooted but not fully qualified paths (\rootdir)
+    if ($tmpPath -match "^\\[^\\]") {
+        # Combine with current drive
+        $currentDrive = (Get-Location).Drive.Name + ":"
+        return [System.IO.Path]::GetFullPath($currentDrive + $tmpPath)
+    }
+
+    # Handle relative paths (.\subdir, ..\parent, subdir)
+    if (-not [System.IO.Path]::IsPathRooted($tmpPath)) {
+        return [System.IO.Path]::GetFullPath((Join-Path -Path $PWD.Path -ChildPath $tmpPath))
+    }
+
+    # For any other case, try to get full path
+    return [System.IO.Path]::GetFullPath($tmpPath)
+}
+
 function Copy-FilesWithProgress {
     param (
         [string] $SourcePath,
         [string] $DestinationPath
     )
 
-    $files = Get-ChildItem -Path $SourcePath -Recurse
+    $files = Get-ChildItem -Path $SourcePath -Recurse -File
     $totalFiles = $files.Count
     $currentFile = 0
 
@@ -613,12 +836,12 @@ function Copy-2023BootBins {
     }
     $bootWimMount = $global:WIM_Mount_Path
     Write-Dbg-Host "Mounting [$bootWimPath]"
-    Write-Host "--->Mounting boot.wim from staged media"
+    Write-Host "Mounting boot.wim from staged media" -ForegroundColor Blue
     try {
         $mountedImage = Mount-WindowsImage -ImagePath $bootWimPath -Index 1 -Path $bootWimMount -ReadOnly -ErrorAction stop | Out-Null
         Write-Dbg-Host "Mounted [$bootWimPath] --> [$bootWimMount]"
     } catch {
-        Write-Host "Failed to mount boot.wim of the source media!`r`nMake sure -StagingDir and -NewMediaPath are targetting an NTFS or ReFS based filesystem." -ForegroundColor Red
+        Write-Host "Failed to mount boot.wim of the source media!`r`nMake sure -StagingDir is targeting an NTFS formatted file system (ReFS is not supported for WIM mounting)." -ForegroundColor Red
         Write-Host $_.Exception.Message -ForegroundColor Red
         return $false
     }
@@ -640,34 +863,58 @@ function Copy-2023BootBins {
     Write-Host "Updating staged media to use boot binaries signed with 'Windows UEFI CA 2023' certificate" -ForegroundColor Blue
 
     try {
-        #Copy  $ex_bins_path\bootmgr_EX.efi to $global:Temp_Media_To_Update_Path\bootmgr.efi
-        Write-Dbg-Host "Copying $ex_bins_path\bootmgr_EX.efi to $global:Temp_Media_To_Update_Path\bootmgr.efi"
-        Copy-Item -Path $ex_bins_path"\bootmgr_EX.efi" -Destination $global:Temp_Media_To_Update_Path"\bootmgr.efi" -Force -ErrorAction stop | Out-Null
+        # Special case the architecture specific binary name
+        $bootmgr_archver = "bootx64.efi"
+        if (Test-Path -Path $global:Temp_Media_To_Update_Path\efi\boot\bootaa64.efi) {
+            $bootmgr_archver = "bootaa64.efi" # ARM64
+        }
 
         # Copy $ex_bins_path\bootmgrfw_EX.efi to $global:Temp_Media_To_Update_Path\efi\boot\bootx64.efi
-        Write-Dbg-Host "Copying $ex_bins_path\bootmgfw_EX.efi to $global:Temp_Media_To_Update_Path\efi\boot\bootx64.efi"
-        Copy-Item -Path $ex_bins_path"\bootmgfw_EX.efi" -Destination $global:Temp_Media_To_Update_Path"\efi\boot\bootx64.efi" -Force -ErrorAction stop | Out-Null
+        Write-Dbg-Host "Copying [$ex_bins_path\bootmgfw_EX.efi] to [$global:Temp_Media_To_Update_Path\efi\boot\$bootmgr_archver]"
+        Copy-Item -Path $ex_bins_path"\bootmgfw_EX.efi" -Destination $global:Temp_Media_To_Update_Path"\efi\boot\"$bootmgr_archver -Force -ErrorAction stop | Out-Null
+
+        # Copy $ex_bins_path\bootmgr_EX.efi to $global:Temp_Media_To_Update_Path\bootmgr.efi (but only if it exists)
+        # Note that this file technically is not signed with the 'Windows UEFI CA 2023' certificate, but if present in the update, it should be copied.
+        if ((Test-Path -Path $ex_bins_path"\bootmgr_EX.efi")) {
+             # Copy  $ex_bins_path\bootmgr_EX.efi to $global:Temp_Media_To_Update_Path\bootmgr.efi
+            Write-Dbg-Host "Copying [$ex_bins_path\bootmgr_EX.efi] to [$global:Temp_Media_To_Update_Path\bootmgr.efi]"
+            Copy-Item -Path $ex_bins_path"\bootmgr_EX.efi" -Destination $global:Temp_Media_To_Update_Path"\bootmgr.efi" -Force -ErrorAction stop | Out-Null
+        } else {
+            Write-Dbg-Host "[$ex_bins_path\bootmgr_EX.efi] does not exist. Skipping."
+        }
 
         # Copy $ex_dvd_path\EFI\en-US\efisys_EX.bin to $global:Temp_Media_To_Update_Path\efi\microsoft\boot\
-        Write-Dbg-Host "Copying $ex_dvd_path\EFI\en-US\efisys_EX.bin to $global:Temp_Media_To_Update_Path\efi\microsoft\boot\efisys_ex.bin"
+        Write-Dbg-Host "Copying [$ex_dvd_path\EFI\en-US\efisys_EX.bin] to [$global:Temp_Media_To_Update_Path\efi\microsoft\boot\efisys_ex.bin]"
         Copy-Item -Path $ex_dvd_path"\EFI\en-US\efisys_EX.bin" -Destination $global:Temp_Media_To_Update_Path"\efi\microsoft\boot\efisys_ex.bin" -Force -ErrorAction stop | Out-Null
 
         # Copy $ex_fonts_path\* to $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex
-        Write-Dbg-Host "Copying $ex_fonts_path\* to $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex"
+        Write-Dbg-Host "Copying [$ex_fonts_path\*] to [$global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex]"
         New-Item -ItemType Directory -Path $global:Temp_Media_To_Update_Path"\efi\microsoft\boot\fonts_ex" -Force | Out-Null
         Copy-Item -Path $ex_fonts_path"\*" -Destination $global:Temp_Media_To_Update_Path"\efi\microsoft\boot\fonts_ex\" -Force -ErrorAction stop | Out-Null
 
-        # rename $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex\*_EX.ttf to *.ttf
-        Write-Dbg-Host "Renaming $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex\*_EX.ttf to *.ttf"
+        # Rename $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex\*_EX.ttf to *.ttf
+        Write-Dbg-Host "Renaming [$global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex\*_EX.ttf] to [*.ttf]"
         Get-ChildItem -Path $global:Temp_Media_To_Update_Path"\efi\microsoft\boot\fonts_ex" -Filter "*_EX.ttf" | Rename-Item -NewName { $_.Name -replace '_EX', '' } -Force -ErrorAction stop
 
         # Copy $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex\* to $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts
-        Write-Dbg-Host "Copying $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex\* to $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts"
+        Write-Dbg-Host "Copying [$global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex\*] to [$global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts]"
         Copy-Item -Path $global:Temp_Media_To_Update_Path"\efi\microsoft\boot\fonts_ex\*" -Destination $global:Temp_Media_To_Update_Path"\efi\microsoft\boot\fonts" -Force -ErrorAction stop | Out-Null
 
-        # remove $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex
-        Write-Dbg-Host "Removing $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex"
+        # Remove $global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex
+        Write-Dbg-Host "Removing [$global:Temp_Media_To_Update_Path\efi\microsoft\boot\fonts_ex]"
         Remove-Item -Path $global:Temp_Media_To_Update_Path"\efi\microsoft\boot\fonts_ex" -Recurse -Force -ErrorAction stop | Out-Null
+
+        # Copy boot.stl from the mounted boot.wim to the staged media if not already present
+        $bootStlSource = $bootWimMount + "\Windows\Boot\EFI\boot.stl"
+        $bootStlDest = $global:Temp_Media_To_Update_Path + "\EFI\Microsoft\Boot\boot.stl"
+        if (-not (Test-Path -Path $bootStlSource)) {
+            Write-Dbg-Host "[boot.stl] not found in mounted boot.wim at [$bootStlSource]. Skipping."
+        } elseif (Test-Path -Path $bootStlDest) {
+            Write-Dbg-Host "[boot.stl] already exists at [$bootStlDest]. Preserving existing file."
+        } else {
+            Write-Dbg-Host "Copying [$bootStlSource] to [$bootStlDest]"
+            Copy-Item -Path $bootStlSource -Destination $bootStlDest -Force -ErrorAction stop | Out-Null
+        }
 
     } catch {
         Write-Host "$_" -ForegroundColor Red
@@ -675,10 +922,17 @@ function Copy-2023BootBins {
     }
 
     if ($global:WIM_Mount_Path) {
-        Write-Dbg-Host "`r`nDismounting $global:WIM_Mount_Path"
+        Write-Dbg-Host "Dismounting [$global:WIM_Mount_Path]"
         try {
             Dismount-WindowsImage -Path $global:WIM_Mount_Path -Discard -ErrorAction stop | Out-Null
-            $global:WIM_Mount_Path = $null
+            try {
+                Write-Dbg-Host "Removing WIM mount path [$global:WIM_Mount_Path]"
+                Remove-Item -Path $global:WIM_Mount_Path -Recurse -Force -ErrorAction stop | Out-Null
+                $global:WIM_Mount_Path = $null
+            } catch {
+                Write-Host "Failed to remove WIM mount path [$global:WIM_Mount_Path]" -ForegroundColor Red
+                Write-Host $_.Exception.Message -ForegroundColor Red
+            }
         } catch {
             Write-Host "Failed to dismount WIM [$global:WIM_Mount_Path]" -ForegroundColor Red
             Write-Host $_.Exception.Message -ForegroundColor Red
@@ -694,35 +948,32 @@ function Create-ISOMedia {
 
      Write-Host "Writing 'Windows UEFI CA 2023' bootable ISO media at location [$ISOPath]" -ForegroundColor Blue
 
-     # If $ISOLable is not set, then defualt to "WINDOWS2023PCAISO"
-    if (-not $global:ISO_Lable) {
-        $global:ISO_Lable = "WINDOWS2023PCAISO"
+     # If $ISOLabel is not set, then default to "WINDOWS2023PCAISO"
+    if (-not $global:ISO_Label) {
+        $global:ISO_Label = "WIN2023PCAISO"
     }
 
     # Generate a timestamp string in the following format: mm/dd/yyyy,hh:mm:ss
     $timestamp = Get-Date -Format "MM/dd/yyyy,HH:mm:ss"
 
-    $runCommand = "-l$global:ISO_Lable -t$timestamp -bootdata:2#p0,e,b$global:Temp_Media_To_Update_Path\boot\etfsboot.com#pEF,e,b$global:Temp_Media_To_Update_Path\efi\microsoft\boot\efisys_ex.bin -u2 -udfver102 -o $global:Temp_Media_To_Update_Path $ISOPath"
+    $runCommand = "-l$global:ISO_Label -t$timestamp -bootdata:2#p0,e,b$global:Temp_Media_To_Update_Path\boot\etfsboot.com#pEF,e,b$global:Temp_Media_To_Update_Path\efi\microsoft\boot\efisys_ex.bin -u2 -udfver102 -o $global:Temp_Media_To_Update_Path `"$($ISOPath)`""
 
-    Write-Dbg-Host "Running: $global:oscdimg_exe $runCommand"
+    Write-Dbg-Host "Running [$global:oscdimg_exe $runCommand]"
     try {
 
-        # strip the file name from $ISOPath
-        $isoDirPath = $ISOPath.Substring(0, $ISOPath.LastIndexOf("\"))
+        # Extract the directory portion of $ISOPath
+        $isoDirPath = Split-Path -Parent $ISOPath
 
         # Make sure ISO path is valid or the call to oscdimg.exe will fail
         if (-not (Test-Path $isoDirPath)) {
-            Write-Dbg-Host "ISOPath: $isoDirPath not valid, creating it" -ForegroundColor Red
+            Write-Dbg-Host "ISOPath [$isoDirPath] not valid. Creating it."
             New-Item -ItemType Directory -Path $isoDirPath -Force | Out-Null
         }
 
-        # $stdoutFile = "$Staging_Directory_Path\" + ([System.IO.Path]::GetRandomFileName()).Replace(".", "")
-        # $stderrFile = "$Staging_Directory_Path\" + ([System.IO.Path]::GetRandomFileName()).Replace(".", "")
         Write-Dbg-Host "Writing [$ISOPath]"
-        # Start-Process -FilePath $global:oscdimg_exe -ArgumentList $runCommand -Wait -NoNewWindow -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile -ErrorAction Stop | Out-Null
         Start-Process -FilePath $global:oscdimg_exe -ArgumentList $runCommand -Wait -NoNewWindow -ErrorAction Stop | Out-Null
     } catch {
-        Write-Host "Failed to create ISO: $ISOPath" -ForegroundColor Red
+        Write-Host "Failed to create ISO [$ISOPath]" -ForegroundColor Red
         Write-Host $_.Exception.Message -ForegroundColor Red
         return $false
     }
@@ -751,7 +1002,8 @@ function Create-USBMedia {
 
     # Format the drive using the existing label
     try {
-        Format-Volume -DriveLetter $USBDrive.TrimEnd(':') -FileSystem $fileSystem -NewFileSystemLabel $currentLabel -Force
+        Write-Dbg-Host "Formatting drive [$USBDrive] as $fileSystem"
+        Format-Volume -DriveLetter $USBDrive.TrimEnd(':') -FileSystem $fileSystem -NewFileSystemLabel $currentLabel -Force -ErrorAction stop | Out-Null
     } catch {
         Write-Host "Failed to format drive [$USBDrive] as $fileSystem" -ForegroundColor Red
         Write-Host $_.Exception.Message -ForegroundColor Red
@@ -759,6 +1011,22 @@ function Create-USBMedia {
     }
 
     try {
+        # If FAT32 and install.wim is larger than 4GB then split it
+        if ($fileSystem -eq "FAT32") {
+            $installWimPath = $global:Temp_Media_To_Update_Path + "\sources\install.wim"
+            if ((Test-Path -Path $installWimPath) -and ((Get-Item -Path $installWimPath).Length -gt 4GB)) {
+
+                Write-Dbg-Host "[$installWimPath] is larger than 4GB, splitting it"
+                $installSwmPath = $global:Temp_Media_To_Update_Path + "\sources\install.swm"
+                $installSwmSize = 4000
+                Write-Host "Updating Media to be FAT32 compatible" -ForegroundColor Blue
+                Split-WindowsImage -ImagePath $installWimPath -SplitImagePath $installSwmPath -FileSize $installSwmSize -ErrorAction stop | Out-Null
+
+                # Remove the original install.wim
+                Remove-Item -Path $installWimPath -Force -ErrorAction stop | Out-Null
+            }
+        }
+
         Write-Dbg-Host "Copying media to USB drive [$USBDrive\]"
         Copy-FilesWithProgress -SourcePath "$global:Temp_Media_To_Update_Path" -DestinationPath "$USBDrive\"
     } catch {
@@ -775,6 +1043,8 @@ function Update-LocalMedia {
     return $true
 }
 
+Set-StrictMode -Version Latest
+
 # Global variables
 $global:ScriptName = Split-Path -Leaf $PSCommandPath
 $global:Src_Media_Path = $null
@@ -785,120 +1055,123 @@ $global:WIM_Mount_Path = $null
 $global:ISO_Mount_Path = $null
 $global:ISO_Label = $null
 $global:oscdimg_exe = $null
+$global:oscdimg_known_hashes = @{
+    "AMD64" = "ABCD07318EBD8CDBE274B46C9DE78820DCA9709D558CDBC1F5D1730924264D07"
+    "ARM64" = "CDAE3649F6A6DE45F50A0B5FB5E2BBC098503B9EEFB1AE6A398FC955B434F579"
+    "x86"   = "85AC2DDD96239D037560E5336727F9A8BE2B902734B9DD88264DD7DB5612EFB9"
+}
 $global:Dbg_Pause = $false
-$global:Dbg_Ouput = $false
+$global:Dbg_Output = $DebugOn
 
-Write-Host "`r`n`r`nMicrosoft 'Windows UEFI CA 2023' Media Update Script - Version 1.2`r`n" -ForegroundColor DarkYellow
+try {
+    Write-Host "`r`n`r`nMicrosoft 'Windows UEFI CA 2023' Media Update Script - Version 1.4`r`n" -ForegroundColor DarkYellow
 
-# First validate that the required tools/environment exist
-$result = Validate-Parameters -TargetType $TargetType -ISOPath $ISOPath -USBDrive $USBDrive -NewMediaPath $NewMediaPath -FileSystem $FileSystem -StagingDir $StagingDir
-if (-not $result) {
-    Write-Dbg-Host "Validate-Parameters failed"
-    Show-Usage
-    exit
-}
+    # First validate that the required tools/environment exist
+    $result = Validate-Parameters -TargetType $TargetType -ISOPath $ISOPath -USBDrive $USBDrive -NewMediaPath $NewMediaPath -FileSystem $FileSystem -StagingDir $StagingDir
+    if (-not $result) {
+        Write-Dbg-Host "Validate-Parameters failed"
+        Show-Usage
+        exit
+    }
 
-# validate params
-$result = Validate-Requirements
-if (-not $result) {
-    Write-Dbg-Host "Validate-Requirements failed"
-    exit
-}
+    # validate params
+    $result = Validate-Requirements -TargetType $TargetType
+    if (-not $result) {
+        Write-Dbg-Host "Validate-Requirements failed"
+        exit
+    }
 
-# Now setup the staging infra
-$result = Initialize-StagingDirectory -StagingDir $StagingDir
-if (-not $result) {
-    Write-Dbg-Host "Initialize-StagingDirectory failed"
-    Execute-Cleanup
-    exit
-}
+    # Now initialize media path requirements
+    $result = Initialize-MediaPaths -MediaPath $MediaPath -NewMediaPath $NewMediaPath -StagingDir $StagingDir
+    if (-not $result) {
+        Write-Dbg-Host "Initialize-MediaPath failed"
+        Execute-Cleanup
+        exit
+    }
 
-# Now initialize media path requirements
-$result = Initialize-MediaPaths -MediaPath $MediaPath -NewMediaPath $NewMediaPath
-if (-not $result) {
-    Write-Dbg-Host "Initialize-MediaPath failed"
-    Execute-Cleanup
-    exit
-}
+    $result = Copy-2023BootBins
+    if (-not $result) {
+        Write-Dbg-Host "Copy-2023BootBins failed"
+        Execute-Cleanup
+        exit
+    }
 
-$result = Copy-2023BootBins
-if (-not $result) {
-    Write-Dbg-Host "Copy-2023BootBins failed"
-    Execute-Cleanup
-    exit
-}
-
-switch ($TargetType) {
-    "ISO" {
-        $result = Create-ISOMedia -ISOPath $ISOPath
-        if (-not $result) {
-            Write-Host "ISO media creation failed" -ForegroundColor Red
-        } else {
-            if (Test-Path -Path $ISOPath){
-                Write-Host "Successfully created ISO [$ISOPath]" -ForegroundColor Green
+    switch ($TargetType) {
+        "ISO" {
+            $result = Create-ISOMedia -ISOPath $ISOPath
+            if (-not $result) {
+                Write-Host "ISO media creation failed" -ForegroundColor Red
+            } else {
+                if (Test-Path -Path $ISOPath){
+                    Write-Host "Successfully created ISO [$ISOPath]" -ForegroundColor Green
+                }
             }
         }
-    }
-    "USB" {
-        $result = Create-USBMedia -USBDrive $USBDrive -FileSystem $FileSystem
-        if (-not $result) {
-            Write-Host "USB media creation failed!" -ForegroundColor Red
+        "USB" {
+            $result = Create-USBMedia -USBDrive $USBDrive -FileSystem $FileSystem
+            if (-not $result) {
+                Write-Host "USB media creation failed!" -ForegroundColor Red
+                break
+            }
+            Write-Host "Successfully created media on drive [$USBDrive]" -ForegroundColor Green
             break
         }
-        Write-Host "Successfully created media on USB drive [$USBDrive]" -ForegroundColor Green
-        break
-    }
-    "LOCAL" {
+        "LOCAL" {
 
-        $result = Update-LocalMedia
-        if (-not $result) {
-            Write-Host "Local media update failed!" -ForegroundColor Red
+            $result = Update-LocalMedia
+            if (-not $result) {
+                Write-Host "Local media update failed!" -ForegroundColor Red
+                break
+            }
+            Write-Host "Local media updated successfully at location [$global:Temp_Media_To_Update_Path]" -ForegroundColor Green
             break
         }
-        Write-Host "Local media updated successfully at location [$global:Temp_Media_To_Update_Path]" -ForegroundColor Green
-        break
+        default {
+            Write-Host "Invalid TargetType: $TargetType" -ForegroundColor Red
+            Show-Usage
+            break
+        }
     }
-    default {
-        Write-Host "Invalid TargetType: $TargetType" -ForegroundColor Red
-        Show-Usage
-        break
-    }
+}
+catch {
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 Execute-Cleanup
 exit
+
 # SIG # Begin signature block
-# MIIlrwYJKoZIhvcNAQcCoIIloDCCJZwCAQExDzANBglghkgBZQMEAgEFADB5Bgor
+# MIIllQYJKoZIhvcNAQcCoIIlhjCCJYICAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCByZXaVuh0R0FMP
-# psduKzOQj+g3KXiiyFX1DcYidYBwtaCCCtkwggT6MIID4qADAgECAhMzAAAEqILm
-# uKwcXV/wAAAAAASoMA0GCSqGSIb3DQEBCwUAMIGEMQswCQYDVQQGEwJVUzETMBEG
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCD+ZxVimyub9RNg
+# jt2EszzfQF/nnKB/U4bZIgTZNBqoRaCCCtkwggT6MIID4qADAgECAhMzAAAFGdrd
+# qovcRLKSAAAAAAUZMA0GCSqGSIb3DQEBCwUAMIGEMQswCQYDVQQGEwJVUzETMBEG
 # A1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWlj
 # cm9zb2Z0IENvcnBvcmF0aW9uMS4wLAYDVQQDEyVNaWNyb3NvZnQgV2luZG93cyBQ
-# cm9kdWN0aW9uIFBDQSAyMDExMB4XDTI0MDkxMjIwMDQwN1oXDTI1MDkxMTIwMDQw
-# N1owcDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcT
+# cm9kdWN0aW9uIFBDQSAyMDExMB4XDTI1MDYxOTE4MTE0NFoXDTI2MDYxNzE4MTE0
+# NFowcDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcT
 # B1JlZG1vbmQxHjAcBgNVBAoTFU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEaMBgGA1UE
 # AxMRTWljcm9zb2Z0IFdpbmRvd3MwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
-# AoIBAQDliiA2nsvDibvZwdp6WaqHm4sM0FcA6wPCxkNkFP70YMrZwPWIAHGPpJbZ
-# C8gtOaaqMtfMVQa0Gb8YRiloLrUptSNGjgAo5M3wYj3ChWW/SYWIw0+wNvssyNdd
-# UsKrixU+cNs8zGN+tKTtPTWXz/cmMPvqJFtvRvMOaG+n/4pXoccJVk7Xy563xhQl
-# recMXGhyodzJMXP0jMHxXSFeUy2IjZN7vkzEJM9IbzPRfj2GkKy5qWFZ3GDH7PJX
-# pHpcUVdA79fqwFQGJBxwo5mZaWtoFRo3wfWwjuft6P1UIQTM4EgkZ07SIrRdBDfI
-# NsyLhr4RTBGKKrdS8iuNIHIw+UL5AgMBAAGjggF2MIIBcjAfBgNVHSUEGDAWBgor
-# BgEEAYI3CgMGBggrBgEFBQcDAzAdBgNVHQ4EFgQU8nJKLNX1/bGcEvXjHu9nuZj9
-# hcYwRQYDVR0RBD4wPKQ6MDgxHjAcBgNVBAsTFU1pY3Jvc29mdCBDb3Jwb3JhdGlv
-# bjEWMBQGA1UEBRMNMjI5ODc5KzUwMjk1NzAfBgNVHSMEGDAWgBSpKQI5jhbEl3jN
+# AoIBAQCZDMq7dDmGKUNA27gASKX04wCVoYWGXif+YkSjXbDCGjDYwgMNz8tke7Sa
+# EFHAw+RsHFLu0kuXJPlCUi+NrU6FC1mzGr0CwtDCanbiuS0YRSh0jk46E0yifLgl
+# UOM8wlO7u46aBHateelW3IeGVotvGYd0kC61ThrUmkNo5spbbdf2gFPHocVhLmyP
+# TbknaEcWdlDg6GiTTLh9atBO4AgAMwYn2C7gnSvjqbFD3o5jxMqt2FzoT98fEW76
+# H7b2r2j1p3xnb1YfF2MdT4Y6JJ2WsypuyzFIOjJKb1Sy2/oTYIhZOCHL96Sn2j1r
+# wsjJOTiIYjULVNT348tItL5I2IQFAgMBAAGjggF2MIIBcjAfBgNVHSUEGDAWBgor
+# BgEEAYI3CgMGBggrBgEFBQcDAzAdBgNVHQ4EFgQUFeA5BFr8G6fQq5LRBOaHXjkh
+# u80wRQYDVR0RBD4wPKQ6MDgxHjAcBgNVBAsTFU1pY3Jvc29mdCBDb3Jwb3JhdGlv
+# bjEWMBQGA1UEBRMNMjI5ODc5KzUwNTMyNjAfBgNVHSMEGDAWgBSpKQI5jhbEl3jN
 # kPmeT5rhfFWvUzBXBgNVHR8EUDBOMEygSqBIhkZodHRwOi8vd3d3Lm1pY3Jvc29m
 # dC5jb20vcGtpb3BzL2NybC9NaWNXaW5Qcm9QQ0EyMDExXzIwMTEtMTAtMTkuY3Js
 # JTIwMGEGCCsGAQUFBwEBBFUwUzBRBggrBgEFBQcwAoZFaHR0cDovL3d3dy5taWNy
 # b3NvZnQuY29tL3BraW9wcy9jZXJ0cy9NaWNXaW5Qcm9QQ0EyMDExXzIwMTEtMTAt
-# MTkuY3J0MAwGA1UdEwEB/wQCMAAwDQYJKoZIhvcNAQELBQADggEBAMdVC2g+Ccpe
-# qEMRygbEfPhNJDU31uGk8AHdo9Q7tCKAD5sAvvelHdbTFbguEuJwtPJbjIH4w9Zc
-# 7OY3QVeolhAFrfByH+5glDg08IOobRIPhCPTmS26e6aSZqis1FL4NlVg7N+3H+T+
-# tHKWR9R4yeUD0j7MJQZjarJROckKeBqxk96j6UN7pDJEh7YGvc9XanVPoy1bB81A
-# askt5/wU9JOsUi7wa9VbA81VUeAlxBJ8KAaipSbC1c6q6AMljuRUBoi6qb1B4P2f
-# 5OZq1aaUJ11n0jcXovqw/S86MYlIgzoZsL8Oq+e6+emwbnEe68HCiVGVRfrxbNgR
-# zXA8v5/hMuswggXXMIIDv6ADAgECAgphB3ZWAAAAAAAIMA0GCSqGSIb3DQEBCwUA
+# MTkuY3J0MAwGA1UdEwEB/wQCMAAwDQYJKoZIhvcNAQELBQADggEBAJdoeu54uGlY
+# x7NxqBMJABhMXaVJWeLoHLOzWHGm0lD+5w+SSQGlCmdWfnEUX+JSNQfp2bN/zik7
+# sgmh4yOCIG8uSp1A0ySh1xobM2+JOAMPTm5NZZZiyo0J3cQgQMDMBPbLQlYARkx0
+# m4Ax9gbd2E0zyTRFr3CkYiqqpnEJsrddEOGQE0Zlxw6dXfF9xuNuswFzYrvqmRdI
+# BCwLesitK+Rp+JQDnitRIpFWlHR9oLXbPxATwqWH/oLJcmwV6J7gE17V8r5OqAxN
+# EJwEJnNj68kdHG6pYKLUk81siK31OULzVfxLxsHpH97xF8QX7gKNcz+PfqiD5vL1
+# FAFzznp3K2EwggXXMIIDv6ADAgECAgphB3ZWAAAAAAAIMA0GCSqGSIb3DQEBCwUA
 # MIGIMQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMH
 # UmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMTIwMAYDVQQD
 # EylNaWNyb3NvZnQgUm9vdCBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkgMjAxMDAeFw0x
@@ -929,145 +1202,144 @@ exit
 # 5T8k4jWiCnUG9hhWmdR4LNEFG+vQiAGdqhDxBd+6fixjtwabIyHE+Xhs4lgXBjYr
 # kRIDzKTZ8i26+ZSdQO0YRfHOilxrPqsD03AYKgpq4F9H0dVjCjLyr9c2HypwWuVC
 # WQhxS1e6foOB8CE89BzBxbmQkw6IRZOG6bEgmb6Yy8WVpF1i1qBjCCC9dRB3fT3z
-# Rbmfl5/LV4BvM6kEz3ekYhxZfjGCGiwwghooAgEBMIGcMIGEMQswCQYDVQQGEwJV
+# Rbmfl5/LV4BvM6kEz3ekYhxZfjGCGhIwghoOAgEBMIGcMIGEMQswCQYDVQQGEwJV
 # UzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UE
 # ChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMS4wLAYDVQQDEyVNaWNyb3NvZnQgV2lu
-# ZG93cyBQcm9kdWN0aW9uIFBDQSAyMDExAhMzAAAEqILmuKwcXV/wAAAAAASoMA0G
+# ZG93cyBQcm9kdWN0aW9uIFBDQSAyMDExAhMzAAAFGdrdqovcRLKSAAAAAAUZMA0G
 # CWCGSAFlAwQCAQUAoIGwMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMC8GCSqGSIb3DQEJBDEiBCAsFlM+tDbR
-# W+i/XZ15O0sFm1q7wUhwWsCEtsMksC12pTBEBgorBgEEAYI3AgEMMTYwNKAUgBIA
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMC8GCSqGSIb3DQEJBDEiBCCJgyOcK6IS
+# 6Btoux/fEFsdbD7ufZG3p8Cc9RWtTt9ecDBEBgorBgEEAYI3AgEMMTYwNKAUgBIA
 # TQBpAGMAcgBvAHMAbwBmAHShHIAaaHR0cHM6Ly93d3cubWljcm9zb2Z0LmNvbSAw
-# DQYJKoZIhvcNAQEBBQAEggEAmgAycphxKKbO0Sed8HgpNSzaVz/2Tgz1F0Mg6/5P
-# p0/oukoAGVKjfbQoeJTA6mcTugfd1YBGguwDomGsF5lDrQ2Ha8oJ76QBZjnVtSih
-# x2B1Yxo63SobL+wAH/hw62UT16JL7I7NVG3OHKG4SPNiduUhzo1VP/bB2PsIEJlt
-# 9s3VAbbjMjLwnyG9PDUfbg1GgiMkjr7Od7sEGL01vLJqncWDqzxhyXovQ6rLl1uD
-# XktZLJDDjzdPMM9pCi+NtVRUHOAJRnMZH6hIpAyF8zWRDRpX7KXwwaIfjQyi925j
-# HNwsJxGtbotNXIQc1JQq+n1U6D2g4eoB6akq5iTCgWhDq6GCF60wghepBgorBgEE
-# AYI3AwMBMYIXmTCCF5UGCSqGSIb3DQEHAqCCF4YwgheCAgEDMQ8wDQYJYIZIAWUD
-# BAIBBQAwggFaBgsqhkiG9w0BCRABBKCCAUkEggFFMIIBQQIBAQYKKwYBBAGEWQoD
-# ATAxMA0GCWCGSAFlAwQCAQUABCCR+WGP+9Tlwf7oT/VrI/TpbrPRLDxreG0Ru/Of
-# PjNRGQIGZ7Y1nZ4dGBMyMDI1MDMxMTE5MjUwOS4wMzVaMASAAgH0oIHZpIHWMIHT
-# MQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVk
-# bW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMS0wKwYDVQQLEyRN
-# aWNyb3NvZnQgSXJlbGFuZCBPcGVyYXRpb25zIExpbWl0ZWQxJzAlBgNVBAsTHm5T
-# aGllbGQgVFNTIEVTTjoyQTFBLTA1RTAtRDk0NzElMCMGA1UEAxMcTWljcm9zb2Z0
-# IFRpbWUtU3RhbXAgU2VydmljZaCCEfswggcoMIIFEKADAgECAhMzAAAB+R9njXWr
-# pPGxAAEAAAH5MA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAlVTMRMwEQYDVQQI
-# EwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNyb3Nv
-# ZnQgQ29ycG9yYXRpb24xJjAkBgNVBAMTHU1pY3Jvc29mdCBUaW1lLVN0YW1wIFBD
-# QSAyMDEwMB4XDTI0MDcyNTE4MzEwOVoXDTI1MTAyMjE4MzEwOVowgdMxCzAJBgNV
-# BAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4w
-# HAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xLTArBgNVBAsTJE1pY3Jvc29m
-# dCBJcmVsYW5kIE9wZXJhdGlvbnMgTGltaXRlZDEnMCUGA1UECxMeblNoaWVsZCBU
-# U1MgRVNOOjJBMUEtMDVFMC1EOTQ3MSUwIwYDVQQDExxNaWNyb3NvZnQgVGltZS1T
-# dGFtcCBTZXJ2aWNlMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAtD1M
-# H3yAHWHNVslC+CBTj/Mpd55LDPtQrhN7WeqFhReC9xKXSjobW1ZHzHU8V2BOJUiY
-# g7fDJ2AxGVGyovUtgGZg2+GauFKk3ZjjsLSsqehYIsUQrgX+r/VATaW8/ONWy6lO
-# yGZwZpxfV2EX4qAh6mb2hadAuvdbRl1QK1tfBlR3fdeCBQG+ybz9JFZ45LN2ps8N
-# c1xr41N8Qi3KVJLYX0ibEbAkksR4bbszCzvY+vdSrjWyKAjR6YgYhaBaDxE2KDJ2
-# sQRFFF/egCxKgogdF3VIJoCE/Wuy9MuEgypea1Hei7lFGvdLQZH5Jo2QR5uN8hiM
-# c8Z47RRJuIWCOeyIJ1YnRiiibpUZ72+wpv8LTov0yH6C5HR/D8+AT4vqtP57ITXs
-# D9DPOob8tjtsefPcQJebUNiqyfyTL5j5/J+2d+GPCcXEYoeWZ+nrsZSfrd5DHM4o
-# vCmD3lifgYnzjOry4ghQT/cvmdHwFr6yJGphW/HG8GQd+cB4w7wGpOhHVJby44kG
-# VK8MzY9s32Dy1THnJg8p7y1sEGz/A1y84Zt6gIsITYaccHhBKp4cOVNrfoRVUx2G
-# /0Tr7Dk3fpCU8u+5olqPPwKgZs57jl+lOrRVsX1AYEmAnyCyGrqRAzpGXyk1HvNI
-# BpSNNuTBQk7FBvu+Ypi6A7S2V2Tj6lzYWVBvuGECAwEAAaOCAUkwggFFMB0GA1Ud
-# DgQWBBSJ7aO6nJXJI9eijzS5QkR2RlngADAfBgNVHSMEGDAWgBSfpxVdAF5iXYP0
-# 5dJlpxtTNRnpcjBfBgNVHR8EWDBWMFSgUqBQhk5odHRwOi8vd3d3Lm1pY3Jvc29m
-# dC5jb20vcGtpb3BzL2NybC9NaWNyb3NvZnQlMjBUaW1lLVN0YW1wJTIwUENBJTIw
-# MjAxMCgxKS5jcmwwbAYIKwYBBQUHAQEEYDBeMFwGCCsGAQUFBzAChlBodHRwOi8v
-# d3d3Lm1pY3Jvc29mdC5jb20vcGtpb3BzL2NlcnRzL01pY3Jvc29mdCUyMFRpbWUt
-# U3RhbXAlMjBQQ0ElMjAyMDEwKDEpLmNydDAMBgNVHRMBAf8EAjAAMBYGA1UdJQEB
-# /wQMMAoGCCsGAQUFBwMIMA4GA1UdDwEB/wQEAwIHgDANBgkqhkiG9w0BAQsFAAOC
-# AgEAZiAJgFbkf7jfhx/mmZlnGZrpae+HGpxWxs8I79vUb8GQou50M1ns7iwG2Ccd
-# oXaq7VgpVkNf1uvIhrGYpKCBXQ+SaJ2O0BvwuJR7UsgTaKN0j/yf3fpHD0ktH+Ek
-# EuGXs9DBLyt71iutVkwow9iQmSk4oIK8S8ArNGpSOzeuu9TdJjBjsasmuJ+2q5Tj
-# mrgEKyPe3TApAio8cdw/b1cBAmjtI7tpNYV5PyRI3K1NhuDgfEj5kynGF/uizP1N
-# uHSxF/V1ks/2tCEoriicM4k1PJTTA0TCjNbkpmBcsAMlxTzBnWsqnBCt9d+Ud9Va
-# 3Iw9Bs4ccrkgBjLtg3vYGYar615ofYtU+dup+LuU0d2wBDEG1nhSWHaO+u2y6Si3
-# AaNINt/pOMKU6l4AW0uDWUH39OHH3EqFHtTssZXaDOjtyRgbqMGmkf8KI3qIVBZJ
-# 2XQpnhEuRbh+AgpmRn/a410Dk7VtPg2uC422WLC8H8IVk/FeoiSS4vFodhncFetJ
-# 0ZK36wxAa3FiPgBebRWyVtZ763qDDzxDb0mB6HL9HEfTbN+4oHCkZa1HKl8B0s8R
-# iFBMf/W7+O7EPZ+wMH8wdkjZ7SbsddtdRgRARqR8IFPWurQ+sn7ftEifaojzuCEa
-# hSAcq86yjwQeTPN9YG9b34RTurnkpD+wPGTB1WccMpsLlM0wggdxMIIFWaADAgEC
-# AhMzAAAAFcXna54Cm0mZAAAAAAAVMA0GCSqGSIb3DQEBCwUAMIGIMQswCQYDVQQG
-# EwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwG
-# A1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMTIwMAYDVQQDEylNaWNyb3NvZnQg
-# Um9vdCBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkgMjAxMDAeFw0yMTA5MzAxODIyMjVa
-# Fw0zMDA5MzAxODMyMjVaMHwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5n
+# DQYJKoZIhvcNAQEBBQAEggEAkuoQ40eGbSXywJA1UmEmzNn4nzqPzl17duZ4mp+G
+# rdxcQ2VUKdFWbirWxL4gtxMbQNvda4z4GAHOZGh6FNKvvnzUx2RG6KrBSZXH3IuT
+# SXv8F/lcLb60rjv9qLI5Vb1B3xO8APn/DDtlqJAateGAUsccNQRiaUFzo53R0+Jn
+# MhL5AmIwarXY0Hg4K8jnQo2cANIWLSuuKleTs0Mw18TI71KS2I4oIY5fxFBXb2Zd
+# JYAKe/k43YLHAPsnXdAntRHAH57e/4ikhBFSaKsiirgAWwL6u2QV5/buR+se90en
+# eOVCpIa1tKaL2aPoTtUs2akRkVO0z0njGv2hbRdeqX7qqKGCF5MwghePBgorBgEE
+# AYI3AwMBMYIXfzCCF3sGCSqGSIb3DQEHAqCCF2wwghdoAgEDMQ8wDQYJYIZIAWUD
+# BAIBBQAwggFRBgsqhkiG9w0BCRABBKCCAUAEggE8MIIBOAIBAQYKKwYBBAGEWQoD
+# ATAxMA0GCWCGSAFlAwQCAQUABCCkYtXjTekSt8ijMrDnHZVPc05qkI70G0DJeLOr
+# MkCMFgIGaaySCVXHGBIyMDI2MDMxNDIxMzAxNS4zNFowBIACAfSggdGkgc4wgcsx
+# CzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRt
+# b25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xJTAjBgNVBAsTHE1p
+# Y3Jvc29mdCBBbWVyaWNhIE9wZXJhdGlvbnMxJzAlBgNVBAsTHm5TaGllbGQgVFNT
+# IEVTTjo3RjAwLTA1RTAtRDk0NzElMCMGA1UEAxMcTWljcm9zb2Z0IFRpbWUtU3Rh
+# bXAgU2VydmljZaCCEeowggcgMIIFCKADAgECAhMzAAACBte8UTiYI+wsAAEAAAIG
+# MA0GCSqGSIb3DQEBCwUAMHwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5n
 # dG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9y
-# YXRpb24xJjAkBgNVBAMTHU1pY3Jvc29mdCBUaW1lLVN0YW1wIFBDQSAyMDEwMIIC
-# IjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA5OGmTOe0ciELeaLL1yR5vQ7V
-# gtP97pwHB9KpbE51yMo1V/YBf2xK4OK9uT4XYDP/XE/HZveVU3Fa4n5KWv64NmeF
-# RiMMtY0Tz3cywBAY6GB9alKDRLemjkZrBxTzxXb1hlDcwUTIcVxRMTegCjhuje3X
-# D9gmU3w5YQJ6xKr9cmmvHaus9ja+NSZk2pg7uhp7M62AW36MEBydUv626GIl3GoP
-# z130/o5Tz9bshVZN7928jaTjkY+yOSxRnOlwaQ3KNi1wjjHINSi947SHJMPgyY9+
-# tVSP3PoFVZhtaDuaRr3tpK56KTesy+uDRedGbsoy1cCGMFxPLOJiss254o2I5Jas
-# AUq7vnGpF1tnYN74kpEeHT39IM9zfUGaRnXNxF803RKJ1v2lIH1+/NmeRd+2ci/b
-# fV+AutuqfjbsNkz2K26oElHovwUDo9Fzpk03dJQcNIIP8BDyt0cY7afomXw/TNuv
-# XsLz1dhzPUNOwTM5TI4CvEJoLhDqhFFG4tG9ahhaYQFzymeiXtcodgLiMxhy16cg
-# 8ML6EgrXY28MyTZki1ugpoMhXV8wdJGUlNi5UPkLiWHzNgY1GIRH29wb0f2y1BzF
-# a/ZcUlFdEtsluq9QBXpsxREdcu+N+VLEhReTwDwV2xo3xwgVGD94q0W29R6HXtqP
-# nhZyacaue7e3PmriLq0CAwEAAaOCAd0wggHZMBIGCSsGAQQBgjcVAQQFAgMBAAEw
-# IwYJKwYBBAGCNxUCBBYEFCqnUv5kxJq+gpE8RjUpzxD/LwTuMB0GA1UdDgQWBBSf
-# pxVdAF5iXYP05dJlpxtTNRnpcjBcBgNVHSAEVTBTMFEGDCsGAQQBgjdMg30BATBB
-# MD8GCCsGAQUFBwIBFjNodHRwOi8vd3d3Lm1pY3Jvc29mdC5jb20vcGtpb3BzL0Rv
-# Y3MvUmVwb3NpdG9yeS5odG0wEwYDVR0lBAwwCgYIKwYBBQUHAwgwGQYJKwYBBAGC
-# NxQCBAweCgBTAHUAYgBDAEEwCwYDVR0PBAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8w
-# HwYDVR0jBBgwFoAU1fZWy4/oolxiaNE9lJBb186aGMQwVgYDVR0fBE8wTTBLoEmg
-# R4ZFaHR0cDovL2NybC5taWNyb3NvZnQuY29tL3BraS9jcmwvcHJvZHVjdHMvTWlj
-# Um9vQ2VyQXV0XzIwMTAtMDYtMjMuY3JsMFoGCCsGAQUFBwEBBE4wTDBKBggrBgEF
-# BQcwAoY+aHR0cDovL3d3dy5taWNyb3NvZnQuY29tL3BraS9jZXJ0cy9NaWNSb29D
-# ZXJBdXRfMjAxMC0wNi0yMy5jcnQwDQYJKoZIhvcNAQELBQADggIBAJ1VffwqreEs
-# H2cBMSRb4Z5yS/ypb+pcFLY+TkdkeLEGk5c9MTO1OdfCcTY/2mRsfNB1OW27DzHk
-# wo/7bNGhlBgi7ulmZzpTTd2YurYeeNg2LpypglYAA7AFvonoaeC6Ce5732pvvinL
-# btg/SHUB2RjebYIM9W0jVOR4U3UkV7ndn/OOPcbzaN9l9qRWqveVtihVJ9AkvUCg
-# vxm2EhIRXT0n4ECWOKz3+SmJw7wXsFSFQrP8DJ6LGYnn8AtqgcKBGUIZUnWKNsId
-# w2FzLixre24/LAl4FOmRsqlb30mjdAy87JGA0j3mSj5mO0+7hvoyGtmW9I/2kQH2
-# zsZ0/fZMcm8Qq3UwxTSwethQ/gpY3UA8x1RtnWN0SCyxTkctwRQEcb9k+SS+c23K
-# jgm9swFXSVRk2XPXfx5bRAGOWhmRaw2fpCjcZxkoJLo4S5pu+yFUa2pFEUep8beu
-# yOiJXk+d0tBMdrVXVAmxaQFEfnyhYWxz/gq77EFmPWn9y8FBSX5+k77L+DvktxW/
-# tM4+pTFRhLy/AsGConsXHRWJjXD+57XQKBqJC4822rpM+Zv/Cuk0+CQ1ZyvgDbjm
-# jJnW4SLq8CdCPSWU5nR0W2rRnj7tfqAxM328y+l7vzhwRNGQ8cirOoo6CGJ/2XBj
-# U02N7oJtpQUQwXEGahC0HVUzWLOhcGbyoYIDVjCCAj4CAQEwggEBoYHZpIHWMIHT
+# YXRpb24xJjAkBgNVBAMTHU1pY3Jvc29mdCBUaW1lLVN0YW1wIFBDQSAyMDEwMB4X
+# DTI1MDEzMDE5NDI1MFoXDTI2MDQyMjE5NDI1MFowgcsxCzAJBgNVBAYTAlVTMRMw
+# EQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVN
+# aWNyb3NvZnQgQ29ycG9yYXRpb24xJTAjBgNVBAsTHE1pY3Jvc29mdCBBbWVyaWNh
+# IE9wZXJhdGlvbnMxJzAlBgNVBAsTHm5TaGllbGQgVFNTIEVTTjo3RjAwLTA1RTAt
+# RDk0NzElMCMGA1UEAxMcTWljcm9zb2Z0IFRpbWUtU3RhbXAgU2VydmljZTCCAiIw
+# DQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAOlEhZsgzdGWvf3tyMdpjHzmXsj5
+# lVYYwIEIz3XUGlTr4gZYKqSyqCp59kUSMrM1UNgL1hyAhMDPbvo0aC8QKbhl82/8
+# U/BxpIPPvFsNuw6jFvBCgdQ1Guj7Hm5tmFPpYl5T3sXTr68OMDD9i3W9Y6BFOqY/
+# 902v2iohsTmgIth0ffAj+ehiawlVzv3rqf4HtQAYBZTax7cvP7F3Gc2w1fgJHrMg
+# xUlNJ7M//ZJM1zElO72TayXv+/M6HEmEJDfyt1oSiqEYeteuZWQSFK/5LTQMwlzU
+# 4hfGp9vA+MyoRWnsreSZzMKRu6bUE4gnbC4MBsq4l6Wm141mP9Lnw1JDDqSF+4kC
+# W6ocreKCRL867Hj2pM/6tT49B424P4a2sKikW5xGZqdC/EhIY2jGcGrdR4NOqmGb
+# pojsYwe0UPoM6MmWWUfWBVZc9PKK9/7i03xOY7rIiAHi4/TRsf2Of93LLFKPE9Da
+# ca9m2C2qe+reHdNGNGeRz57VcHW5q0NrXNRxLuveKh1OnIBN7aGCRVfebgOFHMjo
+# DhInp9skz2KwsfwAYpzKaKwrNi6kB4VJMnXQkQVroyMdBhiiGgIXvtHQILAw2O8T
+# hd8se76oo9jwZB+xl2KBD1yVQCLJ0WZW3rWHK2jFk/suZdvOMPRV5zLNmgvgSq7V
+# ezMGy6UCvkt3YrBzAgMBAAGjggFJMIIBRTAdBgNVHQ4EFgQU7TCwsp0MalP3tzHc
+# jKbKj9IGbhIwHwYDVR0jBBgwFoAUn6cVXQBeYl2D9OXSZacbUzUZ6XIwXwYDVR0f
+# BFgwVjBUoFKgUIZOaHR0cDovL3d3dy5taWNyb3NvZnQuY29tL3BraW9wcy9jcmwv
+# TWljcm9zb2Z0JTIwVGltZS1TdGFtcCUyMFBDQSUyMDIwMTAoMSkuY3JsMGwGCCsG
+# AQUFBwEBBGAwXjBcBggrBgEFBQcwAoZQaHR0cDovL3d3dy5taWNyb3NvZnQuY29t
+# L3BraW9wcy9jZXJ0cy9NaWNyb3NvZnQlMjBUaW1lLVN0YW1wJTIwUENBJTIwMjAx
+# MCgxKS5jcnQwDAYDVR0TAQH/BAIwADAWBgNVHSUBAf8EDDAKBggrBgEFBQcDCDAO
+# BgNVHQ8BAf8EBAMCB4AwDQYJKoZIhvcNAQELBQADggIBAHbcZk5971OFNS8Pb2Li
+# 3qUOnEmGlVEyZ75RvJmEEUJmGgZO2MN2mEACtTZDrVZiDdhVyXZF0mbk9RtnZsDv
+# vOT6q0vEL7d03FWxNx23E8NJJaDAEfFOPqkKagM1eiUBixam8dAUIcOoR8CIHFfV
+# 2ZpduJM/V3Rd9++BHp2yFRypof+YV+MNkDEtTWzodxWAK8FAmUnvEQbmMUp22pqk
+# pZxtQfBNWpdAZsiUdUKU0nfKpbpndQkf8IVxiItX97ry6tOYa2JnEZJhvhIFI8Ct
+# OtNh4c6VAiP/uWhVaZ9ZfbLgAZX8P4zPJkzK8XDhXIvRWCr3oTNArK16JV4FpUSP
+# FAqjcBw9QtEXhTPP3w/a0IzldsVndCiP08uDeuAVevSgkSF+Ha2pSuFMl3Xf6Lj9
+# 96T3NaJyiyGXBeAW7TTZlYFXMBIQW6oQPjyrK6Vn/aMYkFy1r4V2TaWg/YrehKPg
+# 9BB7UzPNVk7nYBc7jYweWGbdIejf9GFD4jUDQ3L724B6GRAfouvGStU29kbh/Q8A
+# oxupRxcbvHOconTHQdivlrJYZscplFw5tT7/fhmkv02tc551UNeZJ3bKUpKX+++L
+# VDA0mpcmX/6AmRAR62qYcBQVCQW16aLwxRdAbbD9EMddfBYCMT6ogNktD+TjPZnb
+# Xq1ZpHpEMocaTB4KgO1C3OQdMIIHcTCCBVmgAwIBAgITMwAAABXF52ueAptJmQAA
+# AAAAFTANBgkqhkiG9w0BAQsFADCBiDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCldh
+# c2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNVBAoTFU1pY3Jvc29mdCBD
+# b3Jwb3JhdGlvbjEyMDAGA1UEAxMpTWljcm9zb2Z0IFJvb3QgQ2VydGlmaWNhdGUg
+# QXV0aG9yaXR5IDIwMTAwHhcNMjEwOTMwMTgyMjI1WhcNMzAwOTMwMTgzMjI1WjB8
 # MQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVk
-# bW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMS0wKwYDVQQLEyRN
-# aWNyb3NvZnQgSXJlbGFuZCBPcGVyYXRpb25zIExpbWl0ZWQxJzAlBgNVBAsTHm5T
-# aGllbGQgVFNTIEVTTjoyQTFBLTA1RTAtRDk0NzElMCMGA1UEAxMcTWljcm9zb2Z0
-# IFRpbWUtU3RhbXAgU2VydmljZaIjCgEBMAcGBSsOAwIaAxUAqs5WjWO7zVAKmIcd
-# whqgZvyp6UaggYMwgYCkfjB8MQswCQYDVQQGEwJVUzETMBEGA1UECBMKV2FzaGlu
-# Z3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBv
-# cmF0aW9uMSYwJAYDVQQDEx1NaWNyb3NvZnQgVGltZS1TdGFtcCBQQ0EgMjAxMDAN
-# BgkqhkiG9w0BAQsFAAIFAOt6Z7swIhgPMjAyNTAzMTEwNzQxNDdaGA8yMDI1MDMx
-# MjA3NDE0N1owdDA6BgorBgEEAYRZCgQBMSwwKjAKAgUA63pnuwIBADAHAgEAAgII
-# UjAHAgEAAgITCTAKAgUA63u5OwIBADA2BgorBgEEAYRZCgQCMSgwJjAMBgorBgEE
-# AYRZCgMCoAowCAIBAAIDB6EgoQowCAIBAAIDAYagMA0GCSqGSIb3DQEBCwUAA4IB
-# AQCrk0K7hxJgzTIFkasihyOcwb6n1BBFcmkIdRBdr7lxi3+A+3UzK1xQoaHIL3Mg
-# kEqLK81SRl43iqF4rtTZI8WMW7SvSCdUEzWHJvtE+KsvZVgW++S2gy+iS9/46UV9
-# YNqz5gEWHvfso+ldhmLoEHAUD65ZD0XQfbPV9ItpGRFqgPc89NxpLs8PZGr0nq4Z
-# Ouj6ELUhFHcUQYt7c90v6m8WJi6iTHKLDzg5MQYysjJn0Q3sPJh7uyBmPXC7pPAL
-# AbWZLP/BEYw+AmTo2+5QQn7vrjf4YimkMCtsRySYHTZZU+jefWqvJzyQfp6NSGF9
-# Wv0X5WuwPYeXw3xZODrnDd1OMYIEDTCCBAkCAQEwgZMwfDELMAkGA1UEBhMCVVMx
-# EzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAcBgNVBAoT
-# FU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEmMCQGA1UEAxMdTWljcm9zb2Z0IFRpbWUt
-# U3RhbXAgUENBIDIwMTACEzMAAAH5H2eNdauk8bEAAQAAAfkwDQYJYIZIAWUDBAIB
-# BQCgggFKMBoGCSqGSIb3DQEJAzENBgsqhkiG9w0BCRABBDAvBgkqhkiG9w0BCQQx
-# IgQgXpKzSvncV21QxUSfCKLDQrKLuIIubLBxAWVDtIbrSzAwgfoGCyqGSIb3DQEJ
-# EAIvMYHqMIHnMIHkMIG9BCA5I4zIHvCN+2T66RUOLCZrUEVdoKlKl8VeCO5SbGLY
-# EDCBmDCBgKR+MHwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAw
-# DgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24x
-# JjAkBgNVBAMTHU1pY3Jvc29mdCBUaW1lLVN0YW1wIFBDQSAyMDEwAhMzAAAB+R9n
-# jXWrpPGxAAEAAAH5MCIEIJ4UtdAF3wp4raeL0IRHMxULFwajeUWpNW9qjbJY3CrV
-# MA0GCSqGSIb3DQEBCwUABIICACQeSEE2jIoY3hSAE3YIgwqqH1RJ1HT7AgzIclLK
-# KNFppT3xE+ec9zeB9FArv37hwi+7jvn7hvCbD/JpPqbRUCYaz3ydbmOgkyWNdvcu
-# ewCs175tyae3FN6UL26dRJrqz+MxdwfgNSs5Awl+TppiNQ3nFSmonj6wqJJWd1+t
-# qg2Kgvl2b5K1Cizvaec35m88kqFoIleZCO7Olv+Wu++FO9+PqwkJ7wz3HQ+GgFsi
-# mgQQxcraJaaee42nZkwyb1uzJXiSnARkRuQkIVsh25V/IqMxNJtSGnEydWTmD3hK
-# iIs4nW3idtVF2xK3+7J/Y14OBwZmZq5qLi7wVCmEclRzLbkLxOVSQRvq+UIUbRSL
-# Cp3Ri0DAEuNMV6C0+TjeyFVwF+YY4GSxHCe9h5cl5ZnvWKrecdc+2hgN5+MZifMh
-# FWENUoz/48DKdB75wV5bTb3eZ8fwMKx/tZSjT/91YZVpaC9Tpb7Zhm3Civc7VIyT
-# BRLDjoKtVRFuqSFU+nbdGGu6qE4WnWtMuhfhKi7IngyJgaro5DPBz1BUnhctYtdo
-# myB0feKpVySrdrEjWx2uwJkr8ffyJLyQ4+YvzwzZytisSbyRO5cNk7cy+e8IGKAX
-# rAis8V0clYvYS4ePViNG/ddQTIrmUi0LUXFJ/nXWO2TYphfOC630NFnXBvuDGStc
-# XPYB
+# bW9uZDEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9uMSYwJAYDVQQDEx1N
+# aWNyb3NvZnQgVGltZS1TdGFtcCBQQ0EgMjAxMDCCAiIwDQYJKoZIhvcNAQEBBQAD
+# ggIPADCCAgoCggIBAOThpkzntHIhC3miy9ckeb0O1YLT/e6cBwfSqWxOdcjKNVf2
+# AX9sSuDivbk+F2Az/1xPx2b3lVNxWuJ+Slr+uDZnhUYjDLWNE893MsAQGOhgfWpS
+# g0S3po5GawcU88V29YZQ3MFEyHFcUTE3oAo4bo3t1w/YJlN8OWECesSq/XJprx2r
+# rPY2vjUmZNqYO7oaezOtgFt+jBAcnVL+tuhiJdxqD89d9P6OU8/W7IVWTe/dvI2k
+# 45GPsjksUZzpcGkNyjYtcI4xyDUoveO0hyTD4MmPfrVUj9z6BVWYbWg7mka97aSu
+# eik3rMvrg0XnRm7KMtXAhjBcTyziYrLNueKNiOSWrAFKu75xqRdbZ2De+JKRHh09
+# /SDPc31BmkZ1zcRfNN0Sidb9pSB9fvzZnkXftnIv231fgLrbqn427DZM9ituqBJR
+# 6L8FA6PRc6ZNN3SUHDSCD/AQ8rdHGO2n6Jl8P0zbr17C89XYcz1DTsEzOUyOArxC
+# aC4Q6oRRRuLRvWoYWmEBc8pnol7XKHYC4jMYctenIPDC+hIK12NvDMk2ZItboKaD
+# IV1fMHSRlJTYuVD5C4lh8zYGNRiER9vcG9H9stQcxWv2XFJRXRLbJbqvUAV6bMUR
+# HXLvjflSxIUXk8A8FdsaN8cIFRg/eKtFtvUeh17aj54WcmnGrnu3tz5q4i6tAgMB
+# AAGjggHdMIIB2TASBgkrBgEEAYI3FQEEBQIDAQABMCMGCSsGAQQBgjcVAgQWBBQq
+# p1L+ZMSavoKRPEY1Kc8Q/y8E7jAdBgNVHQ4EFgQUn6cVXQBeYl2D9OXSZacbUzUZ
+# 6XIwXAYDVR0gBFUwUzBRBgwrBgEEAYI3TIN9AQEwQTA/BggrBgEFBQcCARYzaHR0
+# cDovL3d3dy5taWNyb3NvZnQuY29tL3BraW9wcy9Eb2NzL1JlcG9zaXRvcnkuaHRt
+# MBMGA1UdJQQMMAoGCCsGAQUFBwMIMBkGCSsGAQQBgjcUAgQMHgoAUwB1AGIAQwBB
+# MAsGA1UdDwQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB8GA1UdIwQYMBaAFNX2VsuP
+# 6KJcYmjRPZSQW9fOmhjEMFYGA1UdHwRPME0wS6BJoEeGRWh0dHA6Ly9jcmwubWlj
+# cm9zb2Z0LmNvbS9wa2kvY3JsL3Byb2R1Y3RzL01pY1Jvb0NlckF1dF8yMDEwLTA2
+# LTIzLmNybDBaBggrBgEFBQcBAQROMEwwSgYIKwYBBQUHMAKGPmh0dHA6Ly93d3cu
+# bWljcm9zb2Z0LmNvbS9wa2kvY2VydHMvTWljUm9vQ2VyQXV0XzIwMTAtMDYtMjMu
+# Y3J0MA0GCSqGSIb3DQEBCwUAA4ICAQCdVX38Kq3hLB9nATEkW+Geckv8qW/qXBS2
+# Pk5HZHixBpOXPTEztTnXwnE2P9pkbHzQdTltuw8x5MKP+2zRoZQYIu7pZmc6U03d
+# mLq2HnjYNi6cqYJWAAOwBb6J6Gngugnue99qb74py27YP0h1AdkY3m2CDPVtI1Tk
+# eFN1JFe53Z/zjj3G82jfZfakVqr3lbYoVSfQJL1AoL8ZthISEV09J+BAljis9/kp
+# icO8F7BUhUKz/AyeixmJ5/ALaoHCgRlCGVJ1ijbCHcNhcy4sa3tuPywJeBTpkbKp
+# W99Jo3QMvOyRgNI95ko+ZjtPu4b6MhrZlvSP9pEB9s7GdP32THJvEKt1MMU0sHrY
+# UP4KWN1APMdUbZ1jdEgssU5HLcEUBHG/ZPkkvnNtyo4JvbMBV0lUZNlz138eW0QB
+# jloZkWsNn6Qo3GcZKCS6OEuabvshVGtqRRFHqfG3rsjoiV5PndLQTHa1V1QJsWkB
+# RH58oWFsc/4Ku+xBZj1p/cvBQUl+fpO+y/g75LcVv7TOPqUxUYS8vwLBgqJ7Fx0V
+# iY1w/ue10CgaiQuPNtq6TPmb/wrpNPgkNWcr4A245oyZ1uEi6vAnQj0llOZ0dFtq
+# 0Z4+7X6gMTN9vMvpe784cETRkPHIqzqKOghif9lwY1NNje6CbaUFEMFxBmoQtB1V
+# M1izoXBm8qGCA00wggI1AgEBMIH5oYHRpIHOMIHLMQswCQYDVQQGEwJVUzETMBEG
+# A1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMVTWlj
+# cm9zb2Z0IENvcnBvcmF0aW9uMSUwIwYDVQQLExxNaWNyb3NvZnQgQW1lcmljYSBP
+# cGVyYXRpb25zMScwJQYDVQQLEx5uU2hpZWxkIFRTUyBFU046N0YwMC0wNUUwLUQ5
+# NDcxJTAjBgNVBAMTHE1pY3Jvc29mdCBUaW1lLVN0YW1wIFNlcnZpY2WiIwoBATAH
+# BgUrDgMCGgMVAARrR/XXxccz9U12ooGzhBfE2c33oIGDMIGApH4wfDELMAkGA1UE
+# BhMCVVMxEzARBgNVBAgTCldhc2hpbmd0b24xEDAOBgNVBAcTB1JlZG1vbmQxHjAc
+# BgNVBAoTFU1pY3Jvc29mdCBDb3Jwb3JhdGlvbjEmMCQGA1UEAxMdTWljcm9zb2Z0
+# IFRpbWUtU3RhbXAgUENBIDIwMTAwDQYJKoZIhvcNAQELBQACBQDtYEnxMCIYDzIw
+# MjYwMzE0MjA1NjE3WhgPMjAyNjAzMTUyMDU2MTdaMHQwOgYKKwYBBAGEWQoEATEs
+# MCowCgIFAO1gSfECAQAwBwIBAAICP4wwBwIBAAICD8wwCgIFAO1hm3ECAQAwNgYK
+# KwYBBAGEWQoEAjEoMCYwDAYKKwYBBAGEWQoDAqAKMAgCAQACAwehIKEKMAgCAQAC
+# AwGGoDANBgkqhkiG9w0BAQsFAAOCAQEAe25d8hEzbmrAWzta/qVQX4uBCqf499/Q
+# lCHmQFrpkcn+P8mNHoODsVyTJTWUWR3Ar9L+651v9BrykeWWvZ07sgm6lsnVDAN8
+# bbHb3/CEzC0RRMer7zpCDtSurffNRRW1xgwbsy5MG3oDXahRlqqcMoypMIpMygcn
+# DGJeLY55g8tnAMxa5mB/daEb0ui2jyo/OSRvCekdvveUbUYZAsuwjP2m4svPQKoP
+# ociJPIfVitkvZFkW0C9X3KLhFLn6MzZy1ALJ9tmRapTp5ga8mlFnpocktA00FZ2u
+# +KctLJE8giCq/CtUbhZuvDFVDHzPGwrQhsZc8mi6pa5xaclxK+vR8DGCBA0wggQJ
+# AgEBMIGTMHwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpXYXNoaW5ndG9uMRAwDgYD
+# VQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29ycG9yYXRpb24xJjAk
+# BgNVBAMTHU1pY3Jvc29mdCBUaW1lLVN0YW1wIFBDQSAyMDEwAhMzAAACBte8UTiY
+# I+wsAAEAAAIGMA0GCWCGSAFlAwQCAQUAoIIBSjAaBgkqhkiG9w0BCQMxDQYLKoZI
+# hvcNAQkQAQQwLwYJKoZIhvcNAQkEMSIEIHOXyPfRmT1h+RhG/uD7v4it3HzwDZBu
+# 02yarhwg8KjWMIH6BgsqhkiG9w0BCRACLzGB6jCB5zCB5DCBvQQg4Oj1lIiRnp1W
+# 0pP4T+5nHZYDLsqJczlHUkg6E0l/S9IwgZgwgYCkfjB8MQswCQYDVQQGEwJVUzET
+# MBEGA1UECBMKV2FzaGluZ3RvbjEQMA4GA1UEBxMHUmVkbW9uZDEeMBwGA1UEChMV
+# TWljcm9zb2Z0IENvcnBvcmF0aW9uMSYwJAYDVQQDEx1NaWNyb3NvZnQgVGltZS1T
+# dGFtcCBQQ0EgMjAxMAITMwAAAgbXvFE4mCPsLAABAAACBjAiBCDOXA2RgXULQgRU
+# 4ul7Wep3sN5k7ERISh1IlMnc4ecZCzANBgkqhkiG9w0BAQsFAASCAgARRpI1rRsW
+# ullYQ9stoQzVTKmbZXcYGraZEsJakxAmRYtZFlZo0VVu5lao0d/b1wKENu9Ox68T
+# GyFEaJ0J58aE8JVY1XEwbBWiOYAxpeH3VvjakPG8OPKvzTjS0dZY3Hi8NE5Ot1TS
+# oOd6zXacBHBUutzxqDMTSr+AcIlFyZqEuzAygfgNDzXXJ7whhHhbLnQ6k+JBTcjO
+# 2Pu1I1osUbUb4XoLZ5oQzlZgQ2NsdQQ0xFggpzm/juCoxlDRrukPDzy5XJUFI8y4
+# E+lx3efzeLqktXF7Uu6+uoFIbUISjklSc73BMCWN2+JSPL+eLuy9cK6QBSIawmmT
+# Hg5ab5t1UGY8E5uqZ2vv+QpoyFjBAsLCCsXiNrMm2Y1qz4dn61rf0BbKbU0Pibxn
+# LjraXuhsemFsGkH81NmTR+03/ZM+bFL5DBPPki92dywNGdxxyKqRcNTe7bLKkzMo
+# 13Mvet+9Bkzna9wNyNqCcVBAzNCDFUuXvuUX418TlqKd732SgsFKwV/9iljblcAB
+# B1wLwuNnUWG33CRqvkpTJNrXbQjmR/QjUKByHP2XVZoU6ln6pwk4UlYaE0Hbdv1S
+# zqABDxDawgIn+XmVmtYpA/92nP619iZ1+pxm/lGI/HcrsGlmf0ZpnU+bRjw8DTVh
+# 2USJUCbMZlF9BXKtQyeWuedos+KNtkG10Q==
 # SIG # End signature block

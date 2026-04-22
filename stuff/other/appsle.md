@@ -1,3 +1,4 @@
+### ![AppleStore](https://apps.apple.com/assets/favicon/favicon-180.png)
 ### AppleStore
 * [adguard](https://apps.apple.com/pl/app/adguard-adblock-privacy/id1047223162?l=pl)
 * [ublock](https://apps.apple.com/pl/app/ublock-origin-lite/id6745342698?l=pl)

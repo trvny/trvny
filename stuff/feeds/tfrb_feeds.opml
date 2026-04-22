@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<opml version="2.0">
+  <head>
+    <title>Your feeds managed by the Feed Reader Bot - https://t.me/TheFeedReaderBot</title>
+    <dateCreated>Fri, 17 Apr 2026 00:04:41 GMT</dateCreated>
+    <docs>http://www.opml.org/spec2</docs>
+  </head>
+  <body>
+    <outline text="9GAG - Hot" type="rss" xmlUrl="http://bridge.thefeedreaderbot.com/?action=display&amp;bridge=NineGagBridge&amp;context=Popular&amp;d=hot&amp;video=none&amp;p=3&amp;format=Atom" />
+    <outline text="Bridge" type="rss" xmlUrl="http://bridge.thefeedreaderbot.com/?action=display&amp;bridge=FeedMergeBridge&amp;feed_name=Bridge&amp;feed_1=http:%2F%2Fapod.nasa.gov%2Fapod.rss&amp;feed_2=http:%2F%2Fwww.gry-online.pl%2Frss%2Fnews.xml&amp;feed_3=http:%2F%2Ffeeds.feedburner.com%2Fniebezpiecznik%2F&amp;feed_4=http:%2F%2Fwww.polsatnews.pl%2Frss%2Fwszystkie.xml&amp;feed_5=https:%2F%2Fprzelom.pl%2Fpl%2Frss.xml&amp;feed_6=https:%2F%2Fspidersweb.pl%2Ffeed&amp;feed_7=https:%2F%2Fnews.google.com%2Fatom%2Ftopics%2FCAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE%2Fsections%2FCAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE%3Fhl%3Dpl%26gl%3DPL%26ceid%3DPL%253Apl%26oc%3D11&amp;feed_8=&amp;feed_9=&amp;feed_10=&amp;limit=99&amp;format=RSS" />
+    <outline text="Did you know? - articles from en.wikipedia.org" type="rss" xmlUrl="http://bridge.thefeedreaderbot.com/?action=display&amp;bridge=WikipediaBridge&amp;language=en&amp;subject=dyk&amp;format=Atom" />
+    <outline text="F-Droid Bridge" type="rss" xmlUrl="http://bridge.thefeedreaderbot.com/?action=display&amp;bridge=FDroidBridge&amp;u=added&amp;format=Atom" />
+    <outline text="Have I Been Pwned (HIBP) Bridge" type="rss" xmlUrl="http://bridge.thefeedreaderbot.com/?action=display&amp;bridge=HaveIBeenPwnedBridge&amp;order=dateAdded&amp;item_limit=30&amp;format=Atom" />
+    <outline text="HDWallpapers - latest wallpapers [HD]" type="rss" xmlUrl="http://bridge.thefeedreaderbot.com/?action=display&amp;bridge=HDWallpapersBridge&amp;c=latest_wallpapers&amp;m=33&amp;r=HD&amp;format=Atom" />
+    <outline text="One Fortune a Day" type="rss" xmlUrl="http://bridge.thefeedreaderbot.com/?action=display&amp;bridge=OneFortuneADayBridge&amp;time=0&amp;lucky=&amp;format=Atom" />
+    <outline text="Today's featured article from en.wikipedia.org" type="rss" xmlUrl="http://bridge.thefeedreaderbot.com/?action=display&amp;bridge=WikipediaBridge&amp;language=en&amp;subject=tfa&amp;fullarticle=on&amp;format=RSS" />
+    <outline text="Unsplash Bridge" type="rss" xmlUrl="http://bridge.thefeedreaderbot.com/?action=display&amp;bridge=UnsplashBridge&amp;u=&amp;m=20&amp;prev_q=regular&amp;w=1920&amp;jpg_q=&amp;format=Atom" />
+  </body>
+</opml>

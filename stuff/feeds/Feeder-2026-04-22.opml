@@ -2,7 +2,7 @@
 <opml version="1.0">
   <head>
     <title>Feeder - RSS Feed Reader</title>
-    <dateCreated>2026-04-22T10:18:18Z</dateCreated>
+    <dateCreated>2026-04-22T13:44:19Z</dateCreated>
   </head>
   <body>
     <outline title="News" text="News">
@@ -324,6 +324,8 @@
       <outline text="GamerPower" title="GamerPower" type="rss" xmlUrl="https://www.gamerpower.com/rss/giveaways" htmlUrl="http://www.gamerpower.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.gamerpower.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
       <outline text="Epic Bundle" title="Epic Bundle" type="rss" xmlUrl="https://www.epicbundle.com/feed/" htmlUrl="https://www.epicbundle.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.epicbundle.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
       <outline text="News – Video Game News, Reviews, Walkthroughs And Guides | GamingBolt" title="News – Video Game News, Reviews, Walkthroughs And Guides | GamingBolt" type="rss" xmlUrl="https://gamingbolt.com/category/news/feed" htmlUrl="https://gamingbolt.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/gamingbolt.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+      <outline text="GTANetcom" title="GTANetcom" type="rss" xmlUrl="https://gtaforums.com/rss/4-gtanetcom.xml/" htmlUrl="https://gtaforums.com/rss/4-gtanetcom.xml/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+      <outline text="No Mutants Allowed" title="No Mutants Allowed" type="rss" xmlUrl="https://www.nma-fallout.com/ewr-porta/index.rss" htmlUrl="https://www.nma-fallout.com/ewr-porta/index.rss" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     </outline>
     <outline title="Stack" text="Stack">
       <outline text="Stack Exchange" title="Stack Exchange" type="rss" xmlUrl="https://stackexchange.com/feeds" htmlUrl="https://stackexchange.com/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/stackexchange.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
@@ -456,6 +458,7 @@
       <outline text="Lemmy.org" title="Lemmy.org" type="rss" xmlUrl="https://lemmy.org/feeds/all.xml?sort=Hot" htmlUrl="https://lemmy.org" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/lemmy.org" rssfr-useNotifications="0" rssfr-updateInterval=""/>
       <outline text="lemmus.org" title="lemmus.org" type="rss" xmlUrl="https://lemmus.org/feeds/all.xml?sort=Active" htmlUrl="https://lemmus.org/feeds/all.xml?sort=Active" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
       <outline text="szmer" title="szmer" type="rss" xmlUrl="https://szmer.info/feeds/local.xml?sort=Hot" htmlUrl="https://szmer.info" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/szmer.info" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+      <outline text="lemmus.org" title="lemmus.org" type="rss" xmlUrl="https://lemmus.org/feeds/all.xml?sort=Active" htmlUrl="https://lemmus.org/feeds/all.xml?sort=Active" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     </outline>
     <outline text="AutoŚwiat" title="AutoŚwiat" type="rss" xmlUrl="https://www.auto-swiat.pl/.feed" htmlUrl="https://www.auto-swiat.pl/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.auto-swiat.pl" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="motogratka" title="motogratka" type="rss" xmlUrl="https://motogratka.pl/blog/feed/" htmlUrl="https://motogratka.pl/blog/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/motogratka.pl" rssfr-useNotifications="0" rssfr-updateInterval=""/>
@@ -560,6 +563,12 @@
     <outline text="Toyota Global" title="Toyota Global" type="rss" xmlUrl="https://global.toyota/export/en/allnews_rss.xml" htmlUrl="https://global.toyota/en/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/global.toyota" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="Lexus Newsroom" title="Lexus Newsroom" type="rss" xmlUrl="https://pressroom.lexus.com/feed/atom/" htmlUrl="https://pressroom.lexus.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/pressroom.lexus.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
     <outline text="Wallpaper " title="Wallpaper " type="rss" xmlUrl="https://www.wallpaper.com/feeds.xml" htmlUrl="https://www.wallpaper.com" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.wallpaper.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
-    <outline text="Cars Archive - WSupercars" title="Cars Archive - WSupercars" type="rss" xmlUrl="https://www.wsupercars.com/wallpapers/feed/" htmlUrl="https://www.wsupercars.com/wallpapers/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.wsupercars.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+    <outline text="WSupercars" title="WSupercars" type="rss" xmlUrl="https://www.wsupercars.com/wallpapers/feed/" htmlUrl="https://www.wsupercars.com/wallpapers/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/www.wsupercars.com" rssfr-useNotifications="0" rssfr-updateInterval="7200000"/>
+    <outline text="Aphyr" title="Aphyr" type="rss" xmlUrl="https://aphyr.com/posts.atom" htmlUrl="http://aphyr.com/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/aphyr.com" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+    <outline text="All About Music" title="All About Music" type="rss" xmlUrl="https://allaboutmusic.pl/feed/" htmlUrl="https://allaboutmusic.pl/feed/" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+    <outline text="Sony Music Poland Newsroom" title="Sony Music Poland Newsroom" type="rss" xmlUrl="https://newsroom.sonymusic.pl/rss" htmlUrl="https://newsroom.sonymusic.pl/rss" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+    <outline text="Samsung Community" title="Samsung Community" type="rss" xmlUrl="https://eu.community.samsung.com/bgros26334/rss/Category?category.id=pl&amp;interaction.style=blog" htmlUrl="https://eu.community.samsung.com/bgros26334/rss/Category?category.id=pl&amp;interaction.style=blog" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+    <outline text="Ministerstwo Cyfryzacji | Facebook" title="Ministerstwo Cyfryzacji | Facebook" type="rss" xmlUrl="https://www.facebook.com/MinisterstwoCyfryzacji" htmlUrl="https://www.facebook.com/MinisterstwoCyfryzacji" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
+    <outline text="Geex" title="Geex" type="rss" xmlUrl="https://geex.x-kom.pl//feed" htmlUrl="https://geex.x-kom.pl//feed" rssfr-numPosts="0" rssfr-favicon="https://icons.feedercdn.com/h" rssfr-useNotifications="0" rssfr-updateInterval=""/>
   </body>
 </opml>

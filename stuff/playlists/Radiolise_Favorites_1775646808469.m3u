@@ -1,0 +1,81 @@
+#EXTM3U
+#EXTINF:-1,(1) Polskie Radio Trójka
+https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8
+#EXTINF:-1,(2) PR3 Trójka
+http://41.dktr.pl:8000/trojka.ogg
+#EXTINF:-1,(3) Polskie Radio Czwórka
+https://stream14.polskieradio.pl/pr4/pr4.sdp/playlist.m3u8
+#EXTINF:-1,(4) Polskie Radio Czwórka (Program 4)
+http://mp3.polskieradio.pl:8956/;
+#EXTINF:-1,(5) Radio RMF FM
+http://www.rmfon.pl/n/rmffm.pls
+#EXTINF:-1,(6) Radio ZET
+https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx?audio=5
+#EXTINF:-1,(7) Radio ZET
+https://zt01.cdn.eurozet.pl/zet-net.mp3?redirected=01
+#EXTINF:-1,(8) Radio Plus
+https://pl05.cdn.eurozet.pl/plu-gdn.mp3
+#EXTINF:-1,(9) Meloradio FM
+https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/meloradio.livx?audio=5
+#EXTINF:-1,(10) Radio Kaszëbë
+https://stream4.nadaje.com:10125/kaszebe128
+#EXTINF:-1,(11) BBC Radio 1
+http://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d320000.norewind.m3u
+#EXTINF:-1,(12) BBC Radio One
+https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/audio_syndication_low_sbr_v1/aks/bbc_radio_one.m3u8
+#EXTINF:-1,(13) BBC Radio 1 Anthems
+http://as-hls-ww-live.akamaized.net/pool_11351741/live/ww/bbc_radio_one_anthems/bbc_radio_one_anthems.isml/bbc_radio_one_anthems-audio%3d320000.norewind.m3u8
+#EXTINF:-1,(14) BBC Radio 1 Dance
+http://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bbc_radio_one_dance.isml/bbc_radio_one_dance-audio%3d320000.norewind.m3u8
+#EXTINF:-1,(15) BBC Radio 6 Music
+http://as-hls-ww-live.akamaized.net/pool_81827798/live/ww/bbc_6music/bbc_6music.isml/bbc_6music-audio%3d320000.norewind.m3u8
+#EXTINF:-1,(16) KroneHit
+https://secureonair.krone.at/kronehit-ultra-hd.aac
+#EXTINF:-1,(17) Radio Paradise Main Mix (EU) 320k AAC
+http://stream-uk1.radioparadise.com/aac-320
+#EXTINF:-1,(18) Radio Paradise Main Mix
+http://stream.radioparadise.com/ogg-192m
+#EXTINF:-1,(19) Promodj Top100
+http://radio.promodj.com/top100-192
+#EXTINF:-1,(20) Minimal Mix Radio
+https://www.minimalmix.com/minimalmixradio.pls
+#EXTINF:-1,(21) EL Stacja
+http://radio.el-stacja.pl:8000/elstacja320.ogg
+#EXTINF:-1,(22) Radio Bias
+https://admin.biasradio.com/public/bias_radio/playlist.pls
+#EXTINF:-1,(23) Roxy Radio
+https://s2.audiostream.hu/roxy_192k
+#EXTINF:-1,(24) Gta Classics
+http://stream.laut.fm/gta-classics
+#EXTINF:-1,(25) Radio Italo4you
+https://ssl-1.radiohost.pl:8018/stream
+#EXTINF:-1,(26) Italoradio.fm
+http://cc6.beheerstream.com:8102/stream
+#EXTINF:-1,(27) Radio ItaloPower!
+http://www.italopower.com/stream/italopower.m3u
+#EXTINF:-1,(28) Fallout 1 OST Fallout.fm
+http://fallout.fm:8000/falloutfm5.ogg
+#EXTINF:-1,(29) Fallout 2 OST Fallout.fm
+http://fallout.fm:8000/falloutfm4.ogg
+#EXTINF:-1,(30) Fallout 3 Galaxy News Radio Fallout.fm
+http://fallout.fm:8000/falloutfm2.ogg
+#EXTINF:-1,(31) Fallout NV Radio New Vegas Fallout.fm
+http://fallout.fm:8000/falloutfm3.ogg
+#EXTINF:-1,(32) Fallout 4 Diamond City Radio Fallout.fm
+http://fallout.fm:8000/falloutfm6.ogg
+#EXTINF:-1,(33) Fallout 4 Classical Radio Fallout.gm
+http://fallout.fm:8000/falloutfm7.ogg
+#EXTINF:-1,(34) Fallout 76 Classical Fallout.fm
+http://fallout.fm:8000/falloutfm9.ogg
+#EXTINF:-1,(35) Fallout 76 General Fallout.fm
+http://fallout.fm:8000/falloutfm10.ogg
+#EXTINF:-1,(36) Gamesboro Radio VGM 24/7
+https://radio.gamesboro.org/listen/gamesboro_radio/radio.mp3
+#EXTINF:-1,(37) StreamingSoundtracks.com
+http://lo4.streamingsoundtracks.com/;
+#EXTINF:-1,(38) EBS | Movie Soundtracks
+https://azura.ebsmedia.ro/listen/movies/movies128.mp3
+#EXTINF:-1,(39) Soundtrack Radio Station
+http://quincy.torontocast.com:2410/stream
+#EXTINF:-1,(40) 1.FM Movie Soundtrack
+http://strm112.1.fm/moviesoundtracks_mobile_mp3

@@ -28,5 +28,3 @@ Set-PSReadLineKeyHandler -Chord 'Ctrl+Spacebar' -Function Complete
 Set-PSReadLineKeyHandler -Chord 'Ctrl+RightArrow' -Function ForwardWord
 Set-PSReadLineKeyHandler -Chord 'Ctrl+Backspace' -Function BackwardDeleteWord
 Set-PSReadLineKeyHandler -Chord 'Shift+RightArrow' -Function AcceptNextSuggestionWord
-Invoke-Expression -Command $(gh completion -s powershell | Out-String)
-#fnm env --use-on-cd | Out-String | Invoke-Expression

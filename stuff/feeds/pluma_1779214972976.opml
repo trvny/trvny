@@ -1,0 +1,270 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no' ?>
+<opml version="2.0">
+<head>
+   <title>Pluma Subscribed feeds</title>
+    <dateCreated>19 maj 2026 20:22:52</dateCreated>
+   </head>
+<body>
+<outline title="Tech" type="rss">
+    <outline xmlUrl="http://www.softpedia.com/backend.xml" title="Softpedia Windows / All" text="A library of over 200,000 free and free-to-try applications and updates for Windows" />
+    <outline xmlUrl="http://www.androidpolice.com/feed/" title="Android Police" text="All the latest mobile tech news, deals, reviews, guides, editorials, and more. Embracing the green bubble since 2009." />
+    <outline xmlUrl="https://www.xda-developers.com/feed/" title=" XDA " text="The world’s best source for computing news, reviews, editorials guides, and more." />
+    <outline xmlUrl="https://linuxnews.pl/feed/" title="linuxnews.pl" text="" />
+    <outline xmlUrl="https://www.gimp.org/feeds/atom.xml" title="GIMP" text="" />
+    <outline xmlUrl="https://blog.documentfoundation.org/feed/" title="TDF Community Blog" text="" />
+    <outline xmlUrl="https://superuser.com/feeds/hot" title="Super User" text="most recent 30 from superuser.com" />
+    <outline xmlUrl="http://feeds.howtogeek.com/HowToGeek" title="How-To Geek" text="We explain technology. Learn more with our articles, reviews, tips, and the best answers to your most pressing tech questions." />
+    <outline xmlUrl="https://hackaday.com/blog/feed/" title="Hackaday" text="Fresh hacks every day" />
+    <outline xmlUrl="https://www.mediaexpert.pl/poradniki/feed.xml" title="Poradniki Eksperta  Media Expert" text="Kanał RSS Poradniki Eksperta  Media Expert" />
+    <outline xmlUrl="http://www.droid-life.com/feed/" title="Droid Life | Opinionated Android news." text="We write about the happenings in the Android world, most of which involves Google. We do reviews too, so we got you covered, Samsung guy." />
+    <outline xmlUrl="http://www.spidersweb.pl/feed" title="Spider's Web" text="Spider's Web to największy niezależny technologiczno-lifestylowy blog w Polsce. Kilkunastu blogerów regularnie tworzy felietony, opiniotwórcze teksty, tłumaczy zagadnienia ze świata nauki i doradza w zakupach elektroniki." />
+    <outline xmlUrl="https://www.komputronik.pl/informacje//feed" title="Komputronik doradzamy" text="Komputronik doradzamy to poradniki i treści edukacyjne dla Klientów sklepu Komputronik.pl" />
+    <outline xmlUrl="http://dobreprogramy.pl/rss/rss_news.xml" title="dobreprogramy - najnowsze artykuły" text="Największy polski serwis o nowych technologiach - aktualności, oprogramowanie, publikacje, demonstracje, wideo, testy sprzętu i nie tylko..." />
+    <outline xmlUrl="https://www.androidpolice.com/feed" title="Android Police " text="All the latest mobile tech news, deals, reviews, guides, editorials, and more. Embracing the green bubble since 2009." />
+    <outline xmlUrl="http://www.thewindowsclub.com/feed" title="The Windows Club" text="TheWindowsClub covers authentic Windows 11, Windows 10 tips, tutorials, how-to's, features, freeware. Created by Anand Khanse, MVP." />
+    <outline xmlUrl="https://support.microsoft.com/pl-pl/feed/rss/4ec863cc-2ecd-e187-6cb3-b50c6545db92" title="Windows 11" text="Pomoc techniczna firmy Microsoft" />
+    <outline xmlUrl="http://distrowatch.com/news/dw.xml" title="DistroWatch.com: News" text="Latest news on Linux distributions and BSD projects" />
+    <outline xmlUrl="http://feeds.feedburner.com/Antyweb" title="AntyWeb" text="Antyweb to jeden z najpopularniejszych w Polsce blogów o internecie, nowych technologiach. Powstał w 2006 roku. Autorem bloga jest Grzegorz Marczak" />
+    <outline xmlUrl="https://myapple.pl/posts.atom" title="Wiadomości z MyApple.pl" text="" />
+    <outline xmlUrl="https://miuipolska.pl/forum/rss/1-co-nowego.xml/?member_id=84245&amp;key=76b2c9aa11f9a335d8084be908c12531" title="Co nowego?" text="Co nowego" />
+    <outline xmlUrl="https://blogs.opera.com/news//feed" title="Opera News" text="" />
+    <outline xmlUrl="http://www.programosy.pl/rss.php" title="Programosy.pl - Najnowsze Programy" text="Baza posegregowana tematycznie na programy instalacyjne oraz programy portable i spolszczenia. Programosy.pl - codzienna dawka programów." />
+    <outline xmlUrl="http://www.androidcentral.com/feed" title="Android Central" text="Your buyer’s guide for the best Android phones, deals, news, and reviews! Android Central covers smartphones, watches, tablets, ChromeOS devices, Google Home, and all compatible peripherals in this smart world we're living in. Read all this and more on Android Central." />
+    <outline xmlUrl="https://vivaldi.com/feed/" title="Vivaldi Browser" text="Fast &amp; Fully Customizable Web Browser" />
+    <outline xmlUrl="http://feeds.feedburner.com/techspot/downloads" title="TechSpot Downloads" text="1000s of Free Downloads and Utilities, updated daily" />
+    <outline xmlUrl="http://feeds.feedburner.com/techradar/allnews" title="Techradar - All the latest technology news" text="Get all the latest tech news from Techradar.com" />
+    <outline xmlUrl="http://feeds.feedburner.com/ItsFoss" title="It's FOSS" text="Making You a Better Linux User" />
+    <outline xmlUrl="https://linuxiarze.pl/feed/" title="Linuxiarze.pl" text="Linux dla ludzi" />
+    <outline xmlUrl="https://www.slashgear.com/feed/" title="SlashGear - Tech, Cars, Gaming, Science, &amp; Reviews" text="The latest news and reviews in the world of tech, automotive, gaming, science, and entertainment - since 2005." />
+    <outline xmlUrl="https://variatkowo.pl/feed/" title="Variatkowo.pl" text="Blog komputerowych maniaków" />
+    <outline xmlUrl="https://lichess.org/blog/community.atom" title="Lichess community blogs" text="" />
+    <outline xmlUrl="http://handbrake.fr/rss.php" title="HandBrake" text="HandBrake is an open-source, GPL-licensed, multiplatform, multithreaded video transcoder." />
+    <outline xmlUrl="https://mxlinux.org/feed/" title="MX Linux" text="Midweight Simple Stable Desktop OS" />
+    <outline xmlUrl="https://feeds.feedburner.com/FandomBase" title="Geek Universe" text="Magical memes and gifs that only a true geek could appreciate and laugh at." />
+    <outline xmlUrl="http://rss.slashdot.org/Slashdot/slashdot" title="Slashdot" text="Slashdot: News for nerds, stuff that matters. Timely news source for technology related news with a heavy slant towards Linux and Open Source issues." />
+    <outline xmlUrl="https://www.makeuseof.com/feed/" title="MakeUseOf " text="MUO is your guide to modern tech. Learn how to make use of the tech and gadgets around you, and discover cool stuff on the internet." />
+    <outline xmlUrl="http://feeds.feedburner.com/wmexperts" title="Windows Central" text="The center of the Windows Universe - featuring news, reviews, help &amp; tips, buyer guides, forums &amp; accessories. Buyer's guides to help you find the best accessories for you. Jump in for a review of upcoming Xbox games or consoles. Troubleshooting issues you may run into with Windows 10 or Windows 11, no matter how small or difficult." />
+    <outline xmlUrl="https://kapitanhack.pl/feed/" title="Kapitan Hack" text="Bezpieczeństwo IT" />
+    <outline xmlUrl="http://www.appleworld.pl/feed/" title="AppleWorld – wszystko ze świata Apple – plotki, nowości" text="Plotki związane z Apple, nowości, zapowiedzi, ciekawostki. Wszystko dla fana Apple" />
+    <outline xmlUrl="https://www.instalki.pl/feed/" title="INSTALKI" text="technologie, sprzęt, recenzje, programy" />
+    <outline xmlUrl="http://rmprepusb.blogspot.com/feeds/posts/default" title="RMPrepUSB, Easy2Boot and USB booting" text="Steve's blog about RMPrepUSB, Easy2Boot and USB booting and sometimes other stuff too! Visit www.rmprepusb.com for over 140 Tutorials on USB booting or www.easy2boot.xyz for a unique USB multiboot solution. Don't forget to Subscribe! PDF eBooks here" />
+    <outline xmlUrl="http://feeds.feedburner.com/niebezpiecznik/" title="Niebezpiecznik.pl" text="Piszemy o bezpieczeństwie i nie. Szkolimy programistów i administratorów oraz zwykłe Panie Halinki. No i znamy Twój PIN!" />
+    <outline xmlUrl="https://www.tecmint.com/category/linux-commands/feed/" title="Linux Commands" text="Tecmint - Linux Howtos, Tutorials, Guides, News, Tips and Tricks." />
+    <outline xmlUrl="https://blog.nightly.mozilla.org/feed/" title="Firefox Nightly News" text="Let's improve quality, build after build!" />
+    <outline xmlUrl="http://www.commandlinefu.com/commands/browse/sort-by-votes/rss" title="All commands sorted by votes" text="A repository for the most elegant and useful UNIX commands. Great commands can be shared, discussed and voted on to provide a comprehensive resource for working from the command-line" />
+    <outline xmlUrl="https://www.qbittorrent.org/news_feed.atom" title="qBittorrent News" text="" />
+    <outline xmlUrl="https://blog.yuo.be/rss.xml" title="Reupen’s blog" text="A blog about computing, tech, programming, photography and more." />
+    <outline xmlUrl="https://blogs.windows.com/feed/" title="Windows Blog" text="" />
+    <outline xmlUrl="http://uk.pcmag.com/feed.xml" title="PCMag UK" text="PC Magazine is your complete guide to computers, phones, tablets, peripherals and more. We test and review the latest gadgets, products and services, report technology news and trends, and provide shopping advice and price comparisons." />
+    <outline xmlUrl="https://thehackernews.com/feeds/posts/default" title="The Hacker News" text="Most trusted, widely-read independent cybersecurity news source for everyone; supported by hackers and IT professionals — Send TIPs to admin@thehackernews.com" />
+    <outline xmlUrl="https://www.terazmuzyka.pl/feed/" title="Teraz Muzyka" text="Newsy, koncerty, recenzje, filmy i seriale |" />
+    <outline xmlUrl="https://www.windowslatest.com/feed/" title="Windows Latest" text="Your Premier Source for Microsoft News" />
+    <outline xmlUrl="https://devblogs.microsoft.com/landing" title="Microsoft for Developers" text="Get the latest information, insights, and news from Microsoft." />
+    <outline xmlUrl="https://brave.com/pl/index.xml" title="Przeglądarka, która stawia użytkownika na pierwszym miejscu on Brave" text="Recent content in Przeglądarka, która stawia użytkownika na pierwszym miejscu on Brave" />
+    <outline xmlUrl="https://www.kaspersky.com/blog/feed" title="Kaspersky official blog" text="The Official Blog from Kaspersky covers information to help protect you against viruses, spyware, hackers, spam &amp; other forms of malware." />
+    <outline xmlUrl="http://www.slashgear.com/feed/" title="SlashGear - Tech, Cars, Gaming, Science, &amp; Reviews" text="The latest news and reviews in the world of tech, automotive, gaming, science, and entertainment - since 2005." />
+    <outline xmlUrl="https://www.androidauthority.com/feed/" title="Android Authority" text="Android News, Reviews, How To" />
+    <outline xmlUrl="https://stackoverflow.blog/feed" title="Stack Overflow Blog" text="Essays, opinions, and advice on the act of computer programming from Stack Overflow." />
+    <outline xmlUrl="https://www.androidauthority.com/feed" title="Android Authority" text="Android News, Reviews, How To" />
+    <outline xmlUrl="https://learn.microsoft.com/api/search/rss?search=adk&amp;locale=pl-pl&amp;%24filter=%28category+eq+%27Documentation%27%29" title='Microsoft Learn - "adk"' text='The latest updates from Microsoft Learn on "adk"' />
+    <outline xmlUrl="https://www.apple.com/pl/newsroom/rss-feed.rss" title="Apple Newsroom" text="" />
+    <outline xmlUrl="https://blog.google/intl/pl-pl/rss/" title="Google Poland Blog" text="Google Poland Blog" />
+    <outline xmlUrl="https://android.com.pl/feed/" title="ANDROID.COM.PL – społeczność entuzjastów technologii" text="Najlepsze źródło informacji i wiedzy o nowych technologiach. Znajdziesz tu testy sprzętu i aplikacji, poradniki oraz wsparcie techniczne." />
+    <outline xmlUrl="https://uup.rg-adguard.net/rss" title="UUP (version 2.1)" text="Automatic generation of an RSS feed when new build are found, or new UpdateID." />
+    <outline xmlUrl="https://rssbridge.prenghy.org/?action=display&amp;bridge=FeedMergeBridge&amp;feed_name=Mozilla&amp;feed_1=https%3A%2F%2Fblog.mozilla.org%2Fen%2Ffeed%2F&amp;feed_2=https%3A%2F%2Fblog.nightly.mozilla.org%2Ffeed%2F&amp;feed_3=https%3A%2F%2Fblog.mozilla.org%2Faddons%2Ffeed%2F&amp;feed_4=https%3A%2F%2Fdeveloper.mozilla.org%2Fen-US%2Fblog%2Frss.xml&amp;feed_5=&amp;feed_6=&amp;feed_7=&amp;feed_8=&amp;feed_9=&amp;feed_10=&amp;limit=99&amp;format=Atom" title="Mozilla" text="" />
+    <outline xmlUrl="https://news.samsung.com/global/feed" title="Samsung Global Newsroom" text="What's New on Samsung Newsroom" />
+    <outline xmlUrl="https://blog.brave.com/rss/" title="Brave’s latest news on Brave" text="The Brave browser is a fast, private and secure web browser for PC, Mac and mobile. Download now to enjoy a faster ad-free browsing experience that saves data and battery life by blocking tracking software." />
+    <outline xmlUrl="http://blog.mozilla.com/feed/" title="The Mozilla Blog" text="News and Updates about Mozilla" />
+    <outline xmlUrl="https://www.cybermania.ws/feed/" title="CyberMania" text="" />
+    <outline xmlUrl="https://nullprogram.com/feed/" title="null program" text="" />
+    <outline xmlUrl="https://medium.com/feed/topic/technology" title="Technology on Medium" text="Read stories about Technology on Medium. Discover smart, unique perspectives on Technology and the topics that matter most to you like Programming, Tech, Startup, Artificial Intelligence, Blockchain, Business, Software Development, Cryptocurrency, and Innovation." />
+    <outline xmlUrl="https://android.com.pl//feed" title="ANDROID.COM.PL – społeczność entuzjastów technologii" text="Najlepsze źródło informacji i wiedzy o nowych technologiach. Znajdziesz tu testy sprzętu i aplikacji, poradniki oraz wsparcie techniczne." />
+    <outline xmlUrl="http://lineageos.org/feed.xml" title="LineageOS" text="LineageOS Android Dstribution - Blog" />
+    <outline xmlUrl="https://feeds.feedburner.com/androidfreeware" title="AndroidFreeware" text="Download APK files with verified security for free, protect your mobile phone privacy the best open source apps for Android." />
+</outline>
+<outline title="Nauka" type="rss">
+    <outline xmlUrl="https://dzienniknaukowy.pl/feed/" title="Dziennik Naukowy" text="Wiadomości i ciekawostki ze świata nauki" />
+    <outline xmlUrl="https://naukawpolsce.pl/all/rss.xml" title="Nauka w Polsce Popularyzacja" text="" />
+    <outline xmlUrl="http://www.national-geographic.pl/rss" title="National Geographic" text="Odwiedź National Geographic Polska - światowego lidera w dziedzinie nauki i eksploracji. Razem z nami odkrywaj historię, ludzi, przyrodę, zgłębiaj naukę o świecie i kosmosie." />
+    <outline xmlUrl="http://www.universetoday.com/universetoday.xml" title="Universe Today" text="Space and Astronomy News from Universe Today" />
+    <outline xmlUrl="http://www.physorg.com/rss-feed/" title="Phys.org" text="Phys.org internet news portal provides the latest news on science including: Physics, Nanotechnology, Life Sciences, Space Science, Earth Science, Environment, Health and Medicine." />
+    <outline xmlUrl="http://www.nasa.gov/rss/image_of_the_day.rss" title="NASA Image of the Day" text="NASA.gov brings you the latest news, images and videos from America's space agency, pioneering the future in space exploration, scientific discovery and aeronautics research." />
+    <outline xmlUrl="https://www.quantamagazine.org/feed/" title="Quanta Magazine" text="Illuminating science" />
+</outline>
+<outline title="Reddit" type="rss">
+    <outline xmlUrl="https://old.reddit.com/.rss?feed=c110b7aa070187d45da06131c829fcddb5416768&amp;amp;user=travny" title="reddit: the front page of the internet" text="Reddit is a network of communities where people can dive into their interests, hobbies and passions. There's a community for whatever you're interested in on Reddit." />
+    <outline xmlUrl="https://www.reddit.com/r/bestof+popular/.rss" title="r/subreddits" text="" />
+    <outline xmlUrl="https://www.reddit.com/r/1337x+2137+4chan+ACMilan+Adguard+AmazonFC+AmazonPrimeVideo+Amd+analogygifs+Android+androidafterlife+androidapps+AndroidQuestions+androidthemes+anxietymemes+ApksApps+archlinux+ArtefactPorn+AskElectricians+AskReddit+asoiaf+asoiafcirclejerk+aSongOfMemesAndRage+Astronomy+audacity+audio+Audiomemes+audiophile+australia+Autos+avporn+aww+BaldursGate3+Barca+bash+Batch+Beatmatch+bestof+biology+blursedimages+books+Borderlands+brave_browser+breakingbad+browsers+BudgetAudiophile+Calibre+CarAV+carmemes+cars+carscirclejerk+cats+CentralEurope_irl+ChatGPT+Chromecast+chrzanow+CityPorn+CK2GameOfthrones+ck2gotchallenges+CK3AGOT+CLI+commandline+coolguides+copypasta+Coronavirus+countablepixels+CrackWatch+CrazyFuckingVideos+creepy+CrusaderKings+cukiernictwo_wypieki+curiosityrover+Cyberpunk2077_R34+Cyberpunk_Music+cyberpunkgame+Damnthatsinteresting+dankmemes+DarthJarJar+DataHoarder+dataisbeautiful+dating_advice+debian+depressionmemes+digitalminimalism+DiscoElysium+DISMTools+DisneyPlus+DnB+dragonage+Dreadfort+Drugs+Drugs_+drugtesthelp+dune+EarthPorn+EDM+EDMmixes+eFreebies+ElderScrolls+electronicmusic+emacs+esa+europe+explainlikeimfive+Fallout+FalloutMemes+falloutnewvegas+familyguy+Fedora+ffmpeg+firefox+fnv+fo3+fonts+foobar2000+football+footballhighlights+footballmanagergames+fossdroid+Fossify+freefolk+FreeGameFindings+Freegamestuff+fulltvshowsonvimeo+funny+Funnymemes+futurama+gameofthrones+Games+gaming+Gamingcirclejerk+gardening+gifs+GIMP+gog+Gomorrah+google+gottheories+GrandTheftAutoV_PC+greentext+GTA+hacking+Hacking_Tutorials+HalfLife+handbrake+hbo+help+HistoryMemes+HistoryPorn+HolUp+homedefense+HomeImprovement+Homescreens+howto+HowToHack+ImaginaryCastles+ImaginaryCityscapes+ImaginaryHorrors+ImaginaryJedi+ImaginaryLeviathans+ImaginaryStarscapes+ImaginaryStarships+ImaginaryWesteros+ImaginaryWorldEaters+Infosec+interestingasfuck+IronThroneRP+ISO8601+joker+Jokes+JP2GMD+kanapki+KomputronikDoradzamy+ksiazki+kustom+LawnchairLauncher+learnprogramming+LegalAdviceEurope+Lenovo+LenovoLegion+Lexus+libreoffice+lifehacks+LineageOS+linguistics+linux+linux4noobs+linux_gaming+linuxmemes+linuxquestions+listentothis+lobotomyposting+Lovecraft+macrodroid+Magisk+MaliciousCompliance+MapPorn+MAS_Activator+masseffect+math+MechanicAdvice+memes+MemyPolskaa+MicroG+microsoft+MicrosoftEdge+mildlycreepy+mildlydepressing+mildlyinconvenient+mildlyinfuriating+mildlyinteresting+mildlyweird+minimal+MinimalWallpaper+ModDB+moddedandroidapps+Morrowind+mountandblade+moviemusic+movies+mpv+Music+musichoarder+MusicNews+MXLinux+MySummerCar+nasa+netflix+NetflixBestOf+netflixwitcher+netsec+news+nexusmods+NKWinsTheThrone+NoStupidQuestions+notepadplusplus+notinteresting+NovaLauncher+NovaVideoPlayer+nsfw+NSFW_GIF+NSFW_Polska+nutrition+nvidia+oblivion+ObscureDrugs+ObsidianMD+oddlysatisfying+oddlyterrifying+okkolegauposledzony+OnlyOffice+opensource+openSUSE+opsec+OTMemes+paintdotnet+paradoxplaza+pcmasterrace+pdf+perfectloops+PerseveranceRover+PeterExplainsTheJoke+philosophy+PhilosophyMemes+phonewallpapers+physicsmemes+pics+PinePhoneOfficial+Piracy+PiracyBackup+PiratedGames+plantclinic+podcasts+poland+politics+Polska+Polska_wpz+PolskaNaLuzie+PolskaPolityka+PornhubComments+PowerShell+praca+PrequelMemes+privacy+ProgrammerHumor+PublicFreakout+pureasoiaf+qBittorrent+quotes+radditplaylists+reactiongifs+ReadEra+recipes+reddit+redditmobile+RepackWatchers+revancedapp+revancedextended+reviveWindows8+rickandmorty+RiseofMordor+rockstar+RoughRomanMemes+rss+rule34+Satisfyingasfuck+science+SecretSubreddit+SequelMemes+shitposting+ShittyWesteros+SinfulCK2Mods+SipsTea+slutsofsnapchat+SluttyConfessions+smartlauncher+Smartphones+snapleaks+soccer+soccercirclejerk+software+sony+SonyXperia+space+spaceporn+spotify+spotted+squidboard+StacherIO+stalker+stalker_ANOMALY+starterpacks+StartpageSearch+StarWars+StarWarsCantina+starwarscollecting+StarWarsLeaks+starwarsspeculation+StarWarsTheory+StopDoingScience+StrangeAndFunny+succulents+swtor+tails+Techno+technology+Telegram+television+terminal_porn+termux+TerrifyingAsFuck+TheBoys+thepiratebay+todayilearned+TopGear+torrents+totalwar+trap+TrueDetective+tumblr+typography+u_AutoModerator+u_autotldr+u_reddit+uBlockOrigin+Unicode+unpopularopinion+UnusualVideos+vcmi+Ventoy+videogames+videos+vitahacks+vivaldibrowser+wallpaper+wallpaperdump+wavepool+weather+WEPES+whatcarshouldIbuy+whatisthisplant+whatisthisthing+wholesomegreentext+wholesomememes+wiedzmin+windows+Windows11+windows8+WindowsHelp+wine_gaming+Winsides+Wiseposting+witcher+Witcher3+WitcherMemes+WoahTunes+worldnews+worldpolitics+WriteStreakPolish+XDA_developers+Xiaomi+xManagerApp+YouShouldKnow+YouShouldKnow+youtube+youtubedl+YUROP/.rss" title="r/multi" text="" />
+</outline>
+<outline title="Github" type="rss">
+    <outline xmlUrl="https://github.com/travino.private.atom?token=A4YYN5MCPDAS3STZKOJZCPGHTQOTY" title="Private Feed for travino" text="" />
+    <outline xmlUrl="https://github.com/blog/all.atom" title="The GitHub Blog" text="Updates, ideas, and inspiration from GitHub to help developers build and design software." />
+    <outline xmlUrl="https://blog.github.com/changelog/all.atom" title="Archive: 2026 - GitHub Changelog" text="Updates, ideas, and inspiration from GitHub to help developers build and design software." />
+</outline>
+<outline title="News" type="rss">
+    <outline xmlUrl="http://feeds.feedburner.com/FandomBase" title="Geek Universe" text="Magical memes and gifs that only a true geek could appreciate and laugh at." />
+    <outline xmlUrl="https://pap-mediaroom.pl/rss.xml" title="pap" text="" />
+    <outline xmlUrl="http://tass.com/rss/v2.xml" title="TASS" text="Since 1904 TASS has been Russia’s leading news agency. For more than 113 years, TASS has ceaselessly strived to deliver the latest and most accurate news from around the world" />
+    <outline xmlUrl="https://nextdraft.com/archives/feed/" title="NextDraft: The Day's Most Fascinating News" text="Real News Daily by Dave Pell, Managing Editor, Internet" />
+    <outline xmlUrl="http://www.mixmag.net/rss.xml" title="Mixmag" text="Get the latest dance news and videos from Mixmag - the world's biggest dance music and clubbing destination" />
+    <outline xmlUrl="https://wykop.pl/rss/upcoming" title="Wykop.pl - Wykopalisko" text="Wykop - serwis tworzony przez użytkowników" />
+    <outline xmlUrl="https://www.theonion.com/feed" title="The Onion" text="America’s Finest News Source" />
+    <outline xmlUrl="https://www.google.com/news?output=rss&amp;topic=h&amp;ned=pl_pl&amp;cf=all&amp;num=20" title="Najważniejsze artykuły - Google News" text="Kompletne i aktualne wiadomości zebrane w Wiadomościach Google ze źródeł na całym świecie." />
+    <outline xmlUrl="http://defected.com/news/rss/" title="Defected" text="Defected Records is a UK record label specialising in house music recordings, events, artist booking and management." />
+    <outline xmlUrl="http://pitchfork.com/rss/news/" title="Pitchfork" text="The most trusted voice in music." />
+    <outline xmlUrl="https://zerkaj.pl/feed.rss" title="Zerkaj.pl" text="Polska platforma do dzielenia się i dyskutowania o najciekawszych wiadomościach z internetu. Odkrywaj, głosuj i komentuj najlepsze treści." />
+    <outline xmlUrl="https://spidersweb.pl/autoblog/feed/" title="Autoblog.pl - blog motoryzacyjny - powered by Spider's Web" text="" />
+    <outline xmlUrl="http://feeds2.feedburner.com/media2" title="Media2.pl" text="Wszystkie wiadomości" />
+    <outline xmlUrl="http://www.wykop.pl/rss/" title="Wykop.pl - Strona Główna" text="Wykop jest miejscem, gdzie gromadzimy najciekawsze informacje z Sieci: newsy, artykuły, linki. O treści serwisu decydują tylko i wyłącznie nasi użytkownicy, dodając newsy, komentując i głosując na nie." />
+    <outline xmlUrl="http://www.buzzfeed.com/index.xml" title="BuzzFeed - Latest" text="BuzzFeed has breaking news, vital journalism, quizzes, videos, celeb news, Tasty food videos, recipes, DIY hacks, and all the trending buzz you’ll want to share with your friends. Copyright BuzzFeed, Inc. All rights reserved." />
+    <outline xmlUrl="http://www.auto-swiat.pl/.feed" title="Auto Świat www.auto-swiat.pl" text="Auto Świat www.auto-swiat.pl" />
+    <outline xmlUrl="https://time.com/feed" title="TIME" text="Breaking news and analysis from TIME.com. Politics, world news, photos, video, tech reviews, health, science and entertainment news." />
+    <outline xmlUrl="http://www.gazetakrakowska.pl/rss/gazetakrakowska.xml" title="Gazeta Krakowska" text="Materiały z działu Gazeta Krakowska" />
+    <outline xmlUrl="http://www.policja.pl/dokumenty/rss/1-rss-1.rss" title="Policja.pl - Aktualności" text="Oficjalny profil polskiej Policji. Zachęcamy również do odwiedzenia Facebooka. Podstawowym źródłem informacji i aktualności jest strona https://t.co/H0m49jJXVF" />
+    <outline xmlUrl="https://europeannewsroom.com/feed/" title="European Newsroom" text="" />
+    <outline xmlUrl="https://www.mckis.chrzanow.pl/feed/" title="MCKiS" text="Chrzanów" />
+    <outline xmlUrl="https://news.google.com/rss/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE/sections/CAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE?hl=pl&amp;gl=PL&amp;ceid=PL%3Apl&amp;oc=11=PL%3Apl&amp;oc=11" title="Twoje wiadomości lokalne - Chrzanów - Google News" text="Google News" />
+    <outline xmlUrl="https://news.yahoo.com/rss/mostviewed" title="Yahoo News - Latest News &amp; Headlines" text="The latest news and headlines from Yahoo! News. Get breaking news stories and in-depth coverage with videos and photos." />
+    <outline xmlUrl="https://www.euronews.com/rss?format=mrss" title="Euronews RSS" text="Latest news from Euronews" />
+    <outline xmlUrl="https://feeds.bbci.co.uk/news/world/rss.xml" title="BBC News" text="BBC News - World" />
+    <outline xmlUrl="https://lowcyburz.pl/feed/" title="Polscy Łowcy Burz – Skywarn Polska" text="Burze i ekstremalne zjawiska meteorologiczne. Prognozy, ostrzeżenia i informacje." />
+    <outline xmlUrl="https://feeds.bbci.co.uk/polska/rss.xml" title="BBC News Polska" text="BBC News Polska - Strona główna - BBC News Polska" />
+    <outline xmlUrl="https://dorzeczy.pl/feed/" title="DoRzeczy" text="Kalejdoskop DoRzeczy" />
+    <outline xmlUrl="https://feeds.feedburner.com/TheDailyWtf" title="The Daily WTF" text="Curious Perversions in Information Technology" />
+    <outline xmlUrl="https://przelom.pl/pl/rss.xml" title="przelom.pl" text="Portal Internetowy przelom.pl" />
+    <outline xmlUrl="http://www.star-wars.pl/Bastion/RSS" title="Bastion Polskich Fanów Star Wars" text="Najnowsze informacje na temat filmów, książek, gier i komiksów ze świata Star Wars. Newsy, artykuły, recenzje, galerie i wiele innych!" />
+    <outline xmlUrl="https://djmag.com/rss.xml" title="DJ Mag" text="" />
+    <outline xmlUrl="https://defence24.pl/_RSS" title="Defence24" text="Najnowsze artykuły portalu" />
+    <outline xmlUrl="http://www.polsatnews.pl/rss/wszystkie.xml" title="Polsat News - Wiadomości" text="Portal informacyjny Polsat News to najnowsze informacje i wiadomości dotyczące gospodarki, sportu, nauki, biznesu oraz wydarzeń z kraju i ze świata." />
+    <outline xmlUrl="http://www.meczyki.pl/newsy/rss.xml" title="Newsy Sportowe - Meczyki.pl" text="Śledź informacje sportowe na bieżąco z Meczyki.pl" />
+    <outline xmlUrl="https://chrzanow.naszemiasto.pl/rss/artykuly/1.xml" title="Wiadomości - Chrzanów - naszemiasto.pl" text="Artykuły w kategorii: Wiadomości - Chrzanów - naszemiasto.pl" />
+    <outline xmlUrl="http://www.cosmopolitan.com/rss/" title="Latest Content - Cosmopolitan" text="RSS feed for Latest Content - Cosmopolitan" />
+    <outline xmlUrl="http://georgerrmartin.com/notablog/feed/" title="Not a Blog" text="George R.R. Martin" />
+    <outline xmlUrl="https://feeds.feedburner.com/wPolscepl" title="wPolsce24.tv" text="Nowa inicjatywa Grupy Medialnej Fratria. Telewizja internetowa, dzięki której będziemy jeszcze bliżej Was i spraw, które poruszają Polaków." />
+    <outline xmlUrl="https://www.war.gov/DesktopModules/ArticleCS/RSS.ashx?max=10&amp;ContentType=1&amp;Site=945" title="Department of War News Feed" text="Stories from around the Department of War." />
+    <outline xmlUrl="http://www.severe-weather.eu/?feed=rss2" title="Severe Weather Europe" text="Global Weather News and Forecasts, covering the United States, Canada and Europe" />
+    <outline xmlUrl="http://knowyourmeme.com/newsfeed.rss" title="Know Your Meme Newsfeed" text="Know Your Meme is a website dedicated to documenting Internet phenomena: viral videos, image macros, catchphrases, web celebs and more." />
+</outline>
+<outline title="Kuchnia" type="rss">
+    <outline xmlUrl="https://przepisyjoli.com/feed/" title="przepisyjoli.com" text="przepisyjoli.com" />
+    <outline xmlUrl="http://www.olgasmile.com/feed" title="Przepisy kulinarne Olga Smile" text="Przepisy kulinarne Olga Smile. Przepisy bezglutenowe, tradycyjne, przepisy wegetariańskie i wegańskie, sałatki, kluski, placki, zupy, kotlety i makaron." />
+    <outline xmlUrl="https://aniagotuje.pl/rss.xml" title="Ania Gotuje | Tylko najlepsze przepisy" text="Blog kulinarny Ania Gotuje. Przepisy na pyszne i proste ciasta, serniki i desery. Pomysły na obiady i zdrowe przekąski. Sprawdzone przepisy na naleśniki czy pizzę. Ponad 10.000.000 Czytelników miesięcznie!" />
+    <outline xmlUrl="http://kulinarne.info/feed" title="Przepisy kulinarne ze zdjęciami" text="Przepisy kulinarne ze zdjęciami. Blog kulinarny Oli z przepisami na ciasta i desery, smaczne i szybkie obiady, sałatki, zupy i przekąski. Porady i sprawdzone przepisy kulinarne. Stylizacja żywności i potraw we Wrocławiu. Fotografia kulinarna i sprzedaż zdjęć kulinarnych." />
+    <outline xmlUrl="http://www.przepisownia.pl/rss.xml" title="Recipe of the week List" text="Przepisownia jest oficjalnym portalem społecznościowym Thermomix ®. Wyszukaj swoje ulubione przepisy wśród ponad 6 000 dostępnych przepisów." />
+</outline>
+<outline title="Wiki" type="rss">
+    <outline xmlUrl="https://pl.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=featured&amp;feedformat=atom" title="Wikipedia wyróżnione" text="Najlepsze artykuły, jakie oferuje Wikipedia" />
+    <outline xmlUrl="https://pl.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=onthisday&amp;feedformat=atom" title="Wikipedia o wybranych rocznicach" text="Rocznice wydarzeń historycznych" />
+    <outline xmlUrl="http://en.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=featured&amp;feedformat=atom" title="Wikipedia featured articles feed" text="Best articles Wikipedia has to offer" />
+    <outline xmlUrl="https://pl.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=potd&amp;feedformat=atom" title="Wikipedia o ilustracjach na medal" text="Najlepsze ilustracje z Wikipedii" />
+    <outline xmlUrl="http://en.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=onthisday&amp;feedformat=atom" title='Wikipedia "On this day..." feed' text="Historical events on this day" />
+    <outline xmlUrl="https://en.wiktionary.org/w/api.php?action=featuredfeed&amp;feed=wotd" title="Wiktionary Word of the day" text="English Wiktionary Word of the day" />
+    <outline xmlUrl="http://en.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=potd&amp;feedformat=atom" title="Wikipedia picture of the day feed" text="Some of the finest images on Wikipedia" />
+    <outline xmlUrl="https://feeds.feedburner.com/enwp/DidYouKnow" title='Wikipedia&apos;s latest "Did you know?" entries' text='Latest "Did you know?" entries written by English Wikipedia contributors' />
+    <outline xmlUrl="https://pl.wikipedia.org/w/api.php?action=featuredfeed&amp;feed=dyk&amp;feedformat=atom" title="Wikipedia Czy wiesz" text="Z nowych artykułów w Wikipedii" />
+</outline>
+<outline title="Uncategorized" type="rss">
+    <outline xmlUrl="https://medium.com/feed/topic/philosophy" title="Philosophy on Medium" text="Latest stories tagged with Philosophy on Medium" />
+    <outline xmlUrl="https://f-droid.org/feed.xml" title="F-Droid - Free and Open Source Android App Repository" text="F-Droid is the app distribution ecosystem for Android where your user freedom comes first. Discover our app store, explore the world of free and open source (FOSS) apps and [learn](https://f-droid.org/about/) about our app distribution tools." />
+    <outline xmlUrl="http://allaboutmusic.pl/feed/" title="All About Music" text="Twoja codzienna dawka wiadomości muzycznych" />
+    <outline xmlUrl="https://rss-bridge.org/bridge01/?action=display&amp;bridge=InstituteForTheStudyOfWarBridge&amp;searchURL=https%3A%2F%2Funderstandingwar.org%2Fresearch%2F&amp;limit=5&amp;format=Atom" title="Institute for the Study of War" text="" />
+    <outline xmlUrl="https://jeszczenie.pl/feed/" title="Jeszcze tego nie słyszałeś" text="Stare i nowe polecanki płytowe." />
+    <outline xmlUrl="http://www.nasa.gov/rss/breaking_news.rss" title="NASA" text="Official National Aeronautics and Space Administration Website" />
+    <outline xmlUrl="https://naekranie.pl/feed/all.xml" title="wszystkie newsy i recenzje" text="naEKRANIE.pl - Od fanów dla fanów" />
+    <outline xmlUrl="https://geex.x-kom.pl//feed" title="Geex" text="Recenzje technologii. Technologia po prostu." />
+    <outline xmlUrl="https://theporndude.com/blog/feed" title="Porn Dude – Blog" text="ThePornDude writes about porn sites, sex videos and more." />
+    <outline xmlUrl="https://www.wired.com/feed/rss" title="WIRED" text="The latest from www.wired.com" />
+    <outline xmlUrl="https://www.newscientist.com/feed/home/" title="New Scientist - Home" text="New Scientist - Home" />
+    <outline xmlUrl="http://www.autocentrum.pl/rss/aktualnosci.xml" title="AutoCentrum" text="W AutoCentrum.pl wiemy wszystko o Twoim aucie. Od opinii i raportów spalania po listę jego słabych punktów i przypomnienie o wymianie oleju. Od zdjęć i filmów po prognozę usterek i dane techniczne. Od porad i testów po dyskusje na forach i w społeczności kierowców. Od cen nowych po oferty używanych. Zapraszamy!" />
+    <outline xmlUrl="http://www.filmweb.pl/rss/news" title="Filmweb News" text="Filmweb – Newsy - Informacje o najnowszych filmach, serialach, festiwalach, nagrodach, premierach." />
+    <outline xmlUrl="https://www.esa.int/rssfeed/Our_Activities" title="ESA Top News" text="ESA Top News" />
+    <outline xmlUrl="https://www.allmusic.com/rss" title="AllMusic Blog" text="AllMusic is a comprehensive and in-depth resource for finding out more about the albums, bands, musicians and songs you love. Subscribe to the AllMusic Blog's RSS feed to get the latest info about new releases, read interviews and other special features, enter to win music-related prizes, and hear exclusive streams of albums before they're released." />
+    <outline xmlUrl="https://trzynasty-schron.net/rss.xml" title="Trzynasty Schron - Postapokalipsa i Fallout" text="Strona o postapokalipsie i serii Fallout" />
+    <outline xmlUrl="http://filmmusicdaily.com/feed/" title="Soundtracks, Scores and More!" text="The Best In Soundtracks, Scores and More!" />
+    <outline xmlUrl="https://glamrap.pl/feed/" title="GlamRap.pl" text="Największy portal hip-hopowy, nowoście ze sceny polskiej i zagranicznej. Newsy, recenzje, wywiady, płyty, felietony, teledyski, utwory, wideo." />
+    <outline xmlUrl="https://feeds.feedburner.com/hubble_news/" title="ESAHubble News" text="The ESAHubble News feed delivers the latest updates and discoveries from the NASA/ESA/CSA James Webb Space Telescope. &#10;    Stay informed about groundbreaking scientific findings, mission progress, and important announcements." />
+    <outline xmlUrl="https://feeds.arstechnica.com/arstechnica/index" title="Ars Technica - All content" text="All Ars Technica stories" />
+    <outline xmlUrl="https://feeds.feedburner.com/SpanishWordOfTheDay" title="Spanish Word of the Day" text="Transparent Language" />
+    <outline xmlUrl="https://www.radiotimes.com/feed/atom" title="Radio Times" text="" />
+    <outline xmlUrl="https://www.rp.pl/rss_main" title="www.rp.pl" text="www.rp.pl" />
+    <outline xmlUrl="https://hnrss.org/frontpage.atom" title="Hacker News: Front Page" text="" />
+    <outline xmlUrl="http://hbowatch.com/feed/" title="HBO Watch" text="The Latest HBO Max News, Reviews, and Discussions" />
+    <outline xmlUrl="http://netflixlife.com/feed/" title="Netflix Life Feed" text="The ultimate home for the best and the latest Netflix news, original series, movies, television shows, commentary and Netflix new releases &amp; stories" />
+    <outline xmlUrl="https://variety.com/feed/" title="Variety" text="Entertainment news, film reviews, awards, film festivals, box office, entertainment industry conferences" />
+    <outline xmlUrl="https://www.sciencedaily.com/rss/top.xml" title="ScienceDaily" text="Breaking science news and articles on global warming, extrasolar planets, stem cells, bird flu, autism, nanotechnology, dinosaurs, evolution -- the latest discoveries in astronomy, anthropology, biology, chemistry, climate and environment, computers, engineering, health and medicine, math, physics, psychology, technology, and more -- from the world's leading universities and research organizations." />
+    <outline xmlUrl="http://autokult.pl/feed/rss2" title="Autokult.pl - aktualności ze świata motoryzacji" text="Autokult.pl - samochody, testy, opinie" />
+    <outline xmlUrl="https://www.majorgeeks.com/news/rss" title="MajorGeeks.Com" text="MajorGeeks offers only 4-star or better geek-tested and reviewed software for Windows along with tutorials and videos when you need help with your computer." />
+    <outline xmlUrl="https://electro-swing.com/feed/" title="Electro Swing Thing" text="Blog, Label &amp; Electro Swing Community" />
+    <outline xmlUrl="https://bezprawnik.pl/feed" title="Bezprawnik - prawo, biznes, finanse, eCommerce" text="Najnowsze informacje, opinie i analizy na temat zmian prawa i podatków, prowadzenia biznesu oraz finansów osobistych" />
+    <outline xmlUrl="https://feeds.feedburner.com/FrenchWord" title="French Word of the Day" text="Transparent Language" />
+    <outline xmlUrl="https://www.forbes.pl/.feed" title="Forbes Polska" text="Wiadomości forbes.pl" />
+    <outline xmlUrl="http://film.org.pl/feed/" title="film.org.pl" text="film.org.pl to niezależny portal o zajmujący się tematyką filmową i serialami. Znajdziesz tu recenzje, rankingi, plebiscyty czytelnicze i publicystykę filmową" />
+    <outline xmlUrl="https://game.giveawayoftheday.com/feed/" title="Game Giveaway of the Day" text="" />
+    <outline xmlUrl="https://feeds.feedburner.com/HaveIBeenPwnedLatestBreaches" title="Have I Been Pwned latest breaches" text="The latest publicly leaked data breaches to hit Have I Been Pwned" />
+    <outline xmlUrl="http://swiatstarwars.blogspot.com/feeds/posts/default?alt=rss" title="Świat Star Wars" text="Twój przewodnik po świecie Star Wars – nowości, ciekawostki i recenzje! Odkrywaj z nami Gwiezdne wojny!" />
+    <outline xmlUrl="http://www.starwars7news.com/feeds/posts/default" title="Star Wars News Net" text="Star Wars News Net is your source for news - Covering everything from the films, TV shows, novels, comics and more. SWNN - A Force for News!" />
+    <outline xmlUrl="http://www.music-news.com/rss/news.asp" title="Music News RSS feed" text="The Number One music magazine feat. band &amp; artist news, reviews, interviews, videos &amp; gossip UK &amp; worldwide." />
+    <outline xmlUrl="https://www.popkiller.pl/rss.xml" title="Popkiller" text="" />
+    <outline xmlUrl="https://fallout-corner.pl/feed/" title="Fallout Corner" text="Najstarszy polski fansite poświęcony wyłącznie grom z serii Fallout" />
+    <outline xmlUrl="https://www.focus.pl/feed" title="Focus.pl" text="Nauka zmienia świat" />
+    <outline xmlUrl="https://techformator.pl/ciekawostki-technologiczne-aktualnosci-marketingowe/feed/" title="Ciekawostki technologiczne i aktualności marketingowe - TechFormator" text="" />
+    <outline xmlUrl="https://www.sciencealert.com/feed" title="ScienceAlert" text="The Best in Science News and Amazing Breakthroughs" />
+    <outline xmlUrl="http://plato.stanford.edu/rss/sep.xml" title="Stanford Encyclopedia of Philosophy" text="This channel provides information about new and revised entries as they are published in the Stanford Encyclopedia of Philosophy." />
+    <outline xmlUrl="https://www.billboard.com/feed/" title="Billboard" text="Music Charts, News, Photos &amp; Video" />
+    <outline xmlUrl="https://www.theverge.com/rss/index.xml" title="The Verge" text="The Verge is about technology and how it makes us feel. Founded in 2011, we offer our audience everything from breaking news to reviews to award-winning features and investigations, on our site, in video, and in podcasts." />
+    <outline xmlUrl="https://www.spin.com/news/feed/" title="SPIN" text="Music News, Album Reviews, Concert Photos, Videos and More" />
+    <outline xmlUrl="http://whats-on-netflix.com/feed/" title="What's on Netflix" text="Netflix News, New Releases, and What to Watch" />
+    <outline xmlUrl="https://www.popsci.com/feed/" title="Popular Science" text="Awe-inspiring science reporting, technology news, and DIY projects. Skunks to space robots, primates to climates. That&amp;#039;s Popular Science, 150 years strong." />
+    <outline xmlUrl="https://feeds.feedburner.com/ItalianWordOfTheDay" title="Italian Word of the Day" text="Transparent Language" />
+    <outline xmlUrl="https://www.webcal.guru/pl-PL/rss" title="Dzisiaj" text="Jaki jest dzisiaj dzień? Kompleksowa lista wydarzeń krajowych, międzynarodowych, astronomicznych i pogodowych na dziś, jutro lub na każdy inny dzień." />
+    <outline xmlUrl="https://news.google.com/rss" title="Top stories - Google News" text="Google News" />
+    <outline xmlUrl="https://goingapp.pl/more/feed/" title="Going. MORE – muzyka, kultura, lifestyle" text="Magazyn Going. MORE - z nami wiesz WIĘCEJ" />
+    <outline xmlUrl="http://www.debian.org/News/news" title="Debian News" text="Debian Latest News" />
+    <outline xmlUrl="https://1techno.org/rss.xml" title="1Techno.org mp3 download zippyshare torrent" text="Official site 1techno deep techno, minimal, tech house, download descargar télécharger techno music secure, free and fast, new and fresh recent Techno scene releases, starting from 2018 till 2022" />
+    <outline xmlUrl="https://api.checkiday.com/rss?tz=Europe/Warsaw&amp;adult=true" title="Checkiday.com" text="A daily updated list of holidays, most of which you won't find on a calendar! This feed is for personal use only. For other uses, please email us at checkiday@checkiday.com." />
+    <outline xmlUrl="https://www.rollingstone.com/feed/rss/" title="Rolling Stone" text="Music, Film, TV and Political News Coverage" />
+    <outline xmlUrl="https://www.nme.com/feed" title="NME" text="NME brings you the latest music and pop culture news and reviews, along with videos and galleries, band features, concert tickets, magazine, radio and more." />
+    <outline xmlUrl="https://www.giveawayoftheday.com/feed/" title="Giveaway of the Day" text="free licensed software daily" />
+    <outline xmlUrl="https://www.merriam-webster.com/word/index.xml" title="Merriam-Webster's Word of the Day" text="Free daily dose of word power from Merriam-Webster's experts" />
+</outline>
+<outline title="Quotes" type="rss">
+    <outline xmlUrl="https://feeds.feedburner.com/quotationspage/qotd" title="Quotes of the Day" text="Four humorous quotations each day from The Quotations Page" />
+    <outline xmlUrl="https://www.thefreedictionary.com/_/WoD/rss.aspx?type=quote" title="Quote of the Day" text="Quote of the Day is a free service of TheFreeDictionary.com" />
+    <outline xmlUrl="https://q4td.blogspot.com/feeds/posts/default" title="Quote for the Day" text="Get one quote per day." />
+    <outline xmlUrl="http://quotes4all.net/rss/440010300/quotes.xml" title="Quotes4all.net - Quote of the Day" text="A new Quote Every Day · From the World's Most Impressive Minds · A Colorful Mix - Motivating, Encouraging, Thoughtful, Inspiring, Profound · Enjoy Reading!" />
+    <outline xmlUrl="http://www.thefreedictionary.com/_/WoD/rss.aspx?type=quote" title="Quote of the Day" text="The World's most comprehensive free online dictionary, thesaurus, and encyclopedia with synonyms, definitions, idioms, abbreviations, and medical, financial, legal specialized dictionaries" />
+</outline>
+<outline title="Lemmy" type="rss">
+    <outline xmlUrl="https://szmer.info/feeds/local.xml?sort=Hot" title="szmer - Local" text="Największa polskojęzyczna instancja Lemmiego." />
+    <outline xmlUrl="https://lemmy.org/feeds/all.xml?sort=Hot" title="Lemmy.org - All" text="General purpose Lemmy instance." />
+    <outline xmlUrl="https://lemmy.world/feeds/all.xml?sort=TopMonth" title="Lemmy.World - All" text="A generic Lemmy server for everyone to use." />
+</outline>
+<outline title="Gry" type="rss">
+    <outline xmlUrl="http://stalker.pl/index.php/feed/" title="Stalker.pl" text="Serwis poświęcony grze S.T.A.L.K.E.R.: Cień Czarnobyla, Czyste Niebo, Zew Prypeci, S.T.A.L.K.E.R. 2 oraz innym grom post-apo. Aktualności, wywiady, relacje z kraju i ze świata. Atrakcyjne pliki w dziale download oraz potężna galeria." />
+    <outline xmlUrl="https://www.gamespot.com/feeds/mashup" title="GameSpot - All Content" text="GameSpot's Everything Feed! All the latest from GameSpot" />
+    <outline xmlUrl="https://vulkk.com/category/swtor/feed/" title="Star Wars: The Old Republic News and Guides - VULKK.com" text="Your Daily Dose of Video Games and Movies" />
+    <outline xmlUrl="https://gameinformer.com/rss.xml" title="Game Informer" text="Game Informer is your source for the latest in video game news, reviews, previews, podcasts, and features." />
+    <outline xmlUrl="http://www.gry-online.pl/rss/news.xml" title="GRY-OnLine Newsroom" text="Newsroom GRY-OnLine to wiadomości, wideo, analizy, raporty, zestawienia i informacje prasowe na temat gier komputerowych i konsolowych, technologii, filmów i seriali." />
+    <outline xmlUrl="https://swtorista.com/articles/feed/" title="Swtorista" text="Ready to learn about Star Wars: The Old Republic? Get up to speed with tips, tricks, videos and written guides about SWTOR for beginners and max-level players! We've covered everything from pvp to levelling." />
+    <outline xmlUrl="http://www.vg247.com/feed/" title="VG247 Latest Articles Feed" text="This is a feed of the latest articles from VG247." />
+    <outline xmlUrl="http://www.gog.com/en/frontpage/rss" title="GOG.com News" text="Download the best classic and new games on Windows, Mac &amp; Linux. A vast selection of titles, DRM-free, with free goodies and 30-day money-back guarantee." />
+    <outline xmlUrl="https://www.eurogamer.pl/feed" title="Eurogamer.pl Latest Articles Feed" text="This is a feed of the latest articles from Eurogamer.pl." />
+    <outline xmlUrl="http://store.steampowered.com/feeds/weeklytopsellers.xml" title="Steam Weekly Top Sellers" text="The top ten products on Steam by revenue for the week, updated every Tuesday. Check out https://store.steampowered.com/charts for a listing of the top 100 sellers of the week as well as top played charts and more." />
+    <outline xmlUrl="https://rss.moddb.com/headlines/feed/rss.xml" title="ModDB" text="Subscribe to the ModDB  headlines feed, and get the latest updates as they happen." />
+    <outline xmlUrl="https://fitgirl-repacks.site/feed/" title="FitGirl Repacks" text="The ONLY official site for FitGirl Repacks. Every single FG repack installer has a link inside, which leads here. Do not fall for fake and scam sites, which are using my name." />
+    <outline xmlUrl="https://todayintor.com/feed/" title="Today in TOR" text="Today in TOR" />
+    <outline xmlUrl="https://rss-bridge.org/bridge01/?action=display&amp;bridge=FeedMergeBridge&amp;feed_name=EpicGamesBridge&amp;feed_1=https%3A%2F%2Frss-bridge.org%2Fbridge01%2F%3Faction%3Ddisplay%26bridge%3DEpicgamesBridge%26postcount%3D50%26language%3Dpl%26format%3DAtom&amp;feed_2=https%3A%2F%2Frss-bridge.org%2Fbridge01%2F%3Faction%3Ddisplay%26bridge%3DEpicGamesFreeBridge%26locale%3Dpl%26country%3DPL%26format%3DAtom&amp;limit=99&amp;format=Atom" title="EpicGamesBridge" text="" />
+    <outline xmlUrl="https://www.epicgames.com/news/rss/" title="Epic Games Store News" text="Get the latest Epic Games Store News about upcoming games, sales and more. Your best source of information for PC gaming." />
+    <outline xmlUrl="https://www.swtor.com/feed/news/all/" title="Star Wars: The Old Republic" text="" />
+    <outline xmlUrl="http://pl.ign.com/feed.xml" title="IGN Polska" text="IGN jest stroną dla gier na Xbox One, PS4, PC, Wii-U, Xbox 360, PS3, Wii, 3DS, PS Vita &amp; iPhone z profesjonalnymi  recenzjami, wiadomościami, zapowiedziami, trailerami, kodami, wiki ..." />
+    <outline xmlUrl="https://feed.phenx.de/lootscraper_epic_game.xml" title="Free Epic Games Games (PC)" text="" />
+    <outline xmlUrl="https://swtorstrategies.com/feed" title="Star Wars Gaming News" text="Star Wars Gaming News" />
+    <outline xmlUrl="https://stalker.pl/feed/" title="Stalker.pl" text="Największa polska społeczność gry S.T.A.L.K.E.R." />
+    <outline xmlUrl="https://vulkk.com/feed/" title="VULKK.com" text="Your Daily Dose of Video Games and Movies" />
+    <outline xmlUrl="http://feeds.feedburner.com/theoldrepublic2" title="Star Wars Gaming News" text="Star Wars Gaming News" />
+    <outline xmlUrl="http://steamcommunity.com/games/593110/rss/" title="Steam News RSS Feed" text="Events and Announcements for Steam News" />
+    <outline xmlUrl="https://www.pcgamer.com/feeds.xml" title="PC Gamer " text=" All the latest content from the PC Gamer team " />
+    <outline xmlUrl="http://cdaction.toadres.pl/?action=display&amp;bridge=Cdaction&amp;format=Atom" title="CD-ACTION bridge" text="" />
+</outline>
+  </body>
+</opml>

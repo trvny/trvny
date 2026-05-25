@@ -3,8 +3,9 @@ name: workflow
 # Controls when the action will run. Workflow runs when manually triggered using the UI
 # or API.
 on:
-  schedule:
-#    - cron: "*/30 * * * *"
+ # schedule:
+ # - cron: "*/30 * * * *"
+  workflow_call:
   workflow_dispatch:
     # Inputs the workflow accepts.
     inputs:
@@ -20,6 +21,9 @@ on:
 permissions:
   contents: write
   actions: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "greet"

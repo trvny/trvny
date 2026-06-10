@@ -2,6 +2,7 @@
 title: rss feeds
 tags:
   - rss
+  - feed
 ---
 ## ![PAP|40](https://pap-mediaroom.pl/themes/custom/centrumprasowe/favicon.ico)
 - [pap-mediaroom.pl/rss](https://pap-mediaroom.pl/rss.xml)
@@ -19,6 +20,8 @@ tags:
 - https://brave.com/blog/index.xml
 - https://brave.com/whats-new/index.xml
 - https://brave.com/latest/index.xml
+- [brave.com/learn/index.xml](https://brave.com/learn/index.xml)
+- [brave.com/research/index.xml](https://brave.com/research/index.xml)
 - https://brave.com/pl/index.xml
 - https://brave.com/pl/blog/index.xml
 ## ![vivaldi|25](https://vivaldi.com/wp-content/uploads/cropped-favicon-32x32.png)
@@ -63,12 +66,17 @@ tags:
 - [featured](https://en.wikipedia.org/w/api.php?action=featuredfeed&feed=featured&feedformat=atom)
 - [onthisday](https://en.wikipedia.org/w/api.php?action=featuredfeed&feed=onthisday&feedformat=atom)
 - [potd](https://en.wikipedia.org/w/api.php?action=featuredfeed&feed=potd&feedformat=atom)
-- [DidYouKnow](https://feeds.feedburner.com/enwp/DidYouKnow)
+- [dyk](https://feeds.feedburner.com/enwp/DidYouKnow)
 - [wotd](https://en.wiktionary.org/w/api.php?action=featuredfeed&feed=wotd&feedformat=atom)
+- [fwotd](https://en.wiktionary.org/w/api.php?action=featuredfeed&feed=fwotd&feedformat=atom)
 - [pl.wikipedia.org/w/api.php?action=featuredfeed&feed=featured&feedformat=atom](https://pl.wikipedia.org/w/api.php?action=featuredfeed&feed=featured&feedformat=atom)
 - [pl.wikipedia.org/w/api.php?action=featuredfeed&feed=potd&feedformat=atom](https://pl.wikipedia.org/w/api.php?action=featuredfeed&feed=potd&feedformat=atom)
 - [pl.wikipedia.org/w/api.php?action=featuredfeed&feed=onthisday&feedformat=atom](https://pl.wikipedia.org/w/api.php?action=featuredfeed&feed=onthisday&feedformat=atom)
 - [pl.wikipedia.org/w/api.php?action=featuredfeed&feed=dyk&feedformat=atom](https://pl.wikipedia.org/w/api.php?action=featuredfeed&feed=dyk&feedformat=atom)
+- [commons.wikimedia.org/w/api.php?action=featuredfeed&feed=potd&feedformat=atom&language=pl](https://commons.wikimedia.org/w/api.php?action=featuredfeed&feed=potd&feedformat=atom&language=pl)
+- [commons.wikimedia.org/w/api.php?action=featuredfeed&feed=motd&feedformat=atom&language=pl](https://commons.wikimedia.org/w/api.php?action=featuredfeed&feed=motd&feedformat=atom&language=pl)
+- [diff.wikimedia.org/pl/feed/](https://diff.wikimedia.org/pl/feed/)
+- [wikimedia.pl/feed/](https://wikimedia.pl/feed/)
 
 ## ![Mozilla|30](https://www.firefox.com/media/img/favicons/firefox/browser/favicon-196x196.59e3822720be.png)
 - [blog.mozilla.org/feed/](https://blog.mozilla.org/feed/)
@@ -77,6 +85,7 @@ tags:
 - [hacks.mozilla.org/feed/](https://hacks.mozilla.org/feed/)
 - [blog.thunderbird.net/feed/](https://blog.thunderbird.net/feed/)
 - [planet.mozilla.org/atom.xml](https://planet.mozilla.org/atom.xml)
+- [firefox.com/en-US/firefox/nightly/notes/feed/](https://www.firefox.com/en-US/firefox/nightly/notes/feed/)
 
 ## ![spidersweb](https://cdn-sw.spidersweb.pl/2021/03/32x32px-1.png?v=0)
 - [spidersweb.pl/feed](https://spidersweb.pl/api/post/feed/feed-gn)
@@ -90,4 +99,69 @@ tags:
 - [wpolsce24.tv/rss/wiadomosci-wpolsce24.xml](https://wpolsce24.tv/rss/wiadomosci-wpolsce24.xml)
 - [wpolsce24.tv/rss/rozrywka.xml](https://wpolsce24.tv/rss/rozrywka.xml)
 - [wpolsce24.tv/rss/publicystyka.xml](https://wpolsce24.tv/rss/publicystyka.xml)
+
+## ![rh|33](https://www.redhat.com/favicon.ico)
+- https://www.redhat.com/en/rss/blog
+- [developers.redhat.com/blog/feed](https://developers.redhat.com/blog/feed)
+- https://www.redhat.com/en/rss/feed
+
+## ![debian](https://www.debian.org/favicon.ico)
+- [debian.org/News/news](https://www.debian.org/News/news)
+- [micronews.debian.org/feeds/atom.xml](https://micronews.debian.org/feeds/atom.xml)
+- [planet.debian.org/atom.xml](https://planet.debian.org/atom.xml)
+
+## ![interia|33](https://www.interia.pl/favicon.ico)
+- [wydarzenia.interia.pl/feed](https://wydarzenia.interia.pl/feed)
+- [muzyka.interia.pl/feed](https://muzyka.interia.pl/feed)
+- [motoryzacja.interia.pl/feed](https://motoryzacja.interia.pl/feed)
+- [terazgotuje.pl/feed](https://terazgotuje.pl/feed)
+- [geekweek.interia.pl/feed](https://geekweek.interia.pl/feed)
+- [top.pl/feed](https://top.pl/feed)
+
+## ![polsat|33](https://www.polsat.pl/favicon-194x194.png?v=1.2)
+- [polsatnews.pl/rss/wszystkie.xml](https://www.polsatnews.pl/rss/wszystkie.xml)
+- [polsatsport.pl/rss/wszystkie.xml](https://www.polsatsport.pl/rss/wszystkie.xml)
+- [twojapogoda.pl/rss/wszystkie.xml](https://www.twojapogoda.pl/rss/wszystkie.xml)
+
+![komputronik|32](https://front.komputronik.pl/front-static/favicon/favicon-32x32.png)
+- [komputronik.pl/informacje/feed/](https://www.komputronik.pl/informacje/feed/)
+- https://www.komputronik.pl/informacje/aktualnosci/feed/
+- [nano.komputronik.pl/feed/](https://nano.komputronik.pl/feed/)
+- [gaming.komputronik.pl/feed/](https://gaming.komputronik.pl/feed/)
+
+![cloudflare|33](https://www.cloudflare.com/favicon.ico)
+- [blog.cloudflare.com/rss](https://blog.cloudflare.com/rss)
+- [developers.cloudflare.com/changelog/rss/index.xml](https://developers.cloudflare.com/changelog/rss/index.xml)
+- [community.cloudflare.com/top.rss](https://community.cloudflare.com/top.rss)
+
+![google](https://www.gstatic.com/images/branding/searchlogo/ico/favicon.ico)
+- [blog.google/rss/](https://blog.google/rss/)
+- [blog.google/intl/pl-pl/rss/](https://blog.google/intl/pl-pl/rss/)
+- [workspace](https://workspaceupdates.googleblog.com/atom.xml)
+- [developers.googleblog.com/feed/](https://developers.googleblog.com/feed/)
+- [android-developers.googleblog.com/atom.xml](https://android-developers.googleblog.com/atom.xml)
+- [developer.chrome.com/static/blog/feed.xml](https://developer.chrome.com/static/blog/feed.xml)
+- [blog.chromium.org/atom.xml](https://blog.chromium.org/atom.xml)
+- [feeds.feedburner.com/blogspot/amDG](https://feeds.feedburner.com/blogspot/amDG)
+- [blog.google/waze/rss/](https://blog.google/waze/rss/)
+- [research.google/blog/rss/](https://research.google/blog/rss/)
+- [deepmind.google/blog/rss.xml](https://deepmind.google/blog/rss.xml)
+- [cloudblog.withgoogle.com/rss/](https://cloudblog.withgoogle.com/rss/)
+
+![apple|33](https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg)
+- [apple.com/pl/newsroom/rss-feed.rss](https://www.apple.com/pl/newsroom/rss-feed.rss)
+- [developer.apple.com/news/rss/news.rss](https://developer.apple.com/news/rss/news.rss)
+- [developer.apple.com/news/releases/rss/releases.rss](https://developer.apple.com/news/releases/rss/releases.rss)
+- [developer.apple.com/news/site-updates/rss/site-updates.rss](https://developer.apple.com/news/site-updates/rss/site-updates.rss)
+
+![nvidia](https://www.google.com/s2/favicons?domain=nvidia.com&sz=32)
+- [nvidianews.nvidia.com/rss.xml](https://nvidianews.nvidia.com/rss.xml)
+- [blogs.nvidia.com/feed/](https://blogs.nvidia.com/feed/)
+- [developer.nvidia.com/blog/feed](https://developer.nvidia.com/blog/feed)
+
+![openai|35](https://openai.com/favicon.svg)
+- [openai.com/news/rss.xml](https://openai.com/news/rss.xml)
+- [openai.com/news/engineering/rss.xml](https://openai.com/news/engineering/rss.xml)
+- [developers.openai.com/rss.xml](https://developers.openai.com/rss.xml)
+- [openai.com/products/release-notes/rss.xml](https://openai.com/products/release-notes/rss.xml)
 

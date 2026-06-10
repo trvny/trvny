@@ -1,5 +1,15 @@
+---
+title: loga
+tags:
+  - logo
+  - icon
+---
+```
+https://www.google.com/s2/favicons?domain=
+https://icons.duckduckgo.com/ip3/.ico
+```
 - [Logotyp Polskiego Radia](https://upload.wikimedia.org/wikipedia/commons/7/75/Polskie_Radio_logotyp_2017.svg)
-- [Logotyp_programu_trzeciego_Polskiego_Radia.svg](https://upload.wikimedia.org/wikipedia/commons/8/86/Logotyp_programu_trzeciego_Polskiego_Radia.svg)
+- [trojka](https://trojka.polskieradio.pl/assets/favicon-32x32.png)
 - [program3trojka.jpeg](https://www.radio.pl/175/program3trojka.jpeg)
 - [trojka.polskieradio.pl/logo_trojka.svg](https://trojka.polskieradio.pl/logo_trojka.svg)
 - [Czwórka_Polskie_Radio_logo.jpg](https://upload.wikimedia.org/wikipedia/commons/2/2c/Czw%C3%B3rka_Polskie_Radio_logo.jpg)
@@ -26,15 +36,15 @@
 - [tvp.pl/favicon.ico](https://s.tvp.pl/favicon.ico)
 - [tvp1](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZnpVC_Aie2gK9REjpSsrCjdrnkauNbqNzBg&s)
 - [tvp2](https://s8.vcdn.biz/static/f/5717562461/image.jpg)
-- [tvp](https://s.tvp.pl/images/images/e/a/1/uid_ea1d3a165cb646eba158738a3d0aabdd_width_100_play_0_pos_0_gs_0_height_100.png)
+- [tvp1](https://s.tvp.pl/images/images/e/a/1/uid_ea1d3a165cb646eba158738a3d0aabdd_width_100_play_0_pos_0_gs_0_height_100.png)
 - [tvp1](https://s.tvp.pl/images/images/a/8/9/uid_a89e60e8041e4e4bb367c0e091759d69_width_1200_play_0_pos_0_gs_0_height_630.png)
 - [TVP1_NOWE_LOGO_prototyp.png](https://upload.wikimedia.org/wikipedia/commons/f/f6/TVP1_NOWE_LOGO_prototyp.png)
 - [TVP1_2021_box-1.svg.png](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/TVP1_2021_box-1.svg/1280px-TVP1_2021_box-1.svg.png)
 - [Tvp1.png](https://upload.wikimedia.org/wikipedia/commons/e/ec/Tvp1.png)
 - [tvpsport](https://s4.tvp.pl/repository/images/4/7/a/47a65907941c9f20de7275bbce3d83161645537592517.svg)
-- [tvp-info](https://s.tvp.pl/files/portale-v4/tvp-info-v2/assets/images/tvp_info-2024.feb2d591.svg)
-- [960px-Tvp-info-nowe-logo.svg.png](https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Tvp-info-nowe-logo.svg/960px-Tvp-info-nowe-logo.svg.png)
 - [tvp.pl/sport-tvp-pl/images/logotype/logo_normal.svg](https://s.tvp.pl/files/portale-v4/sport-tvp-pl/images/logotype/logo_normal.svg)
+- [tvp-info](https://s.tvp.pl/files/portale-v4/tvp-info-v2/assets/images/tvp_info-2024.feb2d591.svg)
+- [Tvp-info-nowe-logo.png](https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Tvp-info-nowe-logo.svg/960px-Tvp-info-nowe-logo.svg.png)
 - [polsat-favicon-194x194.png](https://www.polsat.pl/favicon-194x194.png?v=1.2)
 - [polsat-apple-touch-icon.png](https://www.polsat.pl/apple-touch-icon.png)
 - [polsat](https://www.polsat.pl/bin/597c6cbdba9449e3cd9d853f517cbbea.svg)
@@ -83,4 +93,8 @@
 - [claude-ai](https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg)
 - [claude_app_icon.png](https://claude.ai/images/claude_app_icon.png)
 - [claude](https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/c129d018a-jJjJELY8.png)
-- 
+- [openlogo-nd-75.png](https://bits.debian.org/theme/images/openlogo-nd-75.png)
+- [openlogo-50.png](https://planet.debian.org/common/Pics/openlogo-50.png)
+- [wikipedia.ico](https://www.wikipedia.org/static/favicon/wikipedia.ico)
+- [Wikipedia-logo-v2@2x.png](https://www.wikipedia.org/portal/wikipedia.org/assets/img/Wikipedia-logo-v2@2x.png)
+- [wikipedia.png](https://www.wikipedia.org/static/apple-touch/wikipedia.png)

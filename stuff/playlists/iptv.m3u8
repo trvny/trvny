@@ -1,4 +1,8 @@
 #EXTM3U
+#EXTINF:-1 tvg-logo="https://4fun.tv/apple-touch-icon-152x152.png" tvg-name="4 Fun TV" group-title="Music",4 Fun TV
+https://stream.4fun.tv:8888/hls/4f.m3u8
+#EXTINF:-1 tvg-logo="https://4fun.tv/assets/images/4fun-tv.jpg" tvg-name="4 Fun TV" group-title="Music",4 Fun TV
+https://de1.dstv.cx/4FunTV/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/rI1wo2l.png" tvg-name="4 Fun TV (576i) [Not 24/7]" group-title="Music",4 Fun TV (576i) [Not 24/7]
 https://stream.4fun.tv:8888/hls/4f_high/index.m3u8
 #EXTINF:-1 tvg-logo="https://calama.bbcstudios.com//api/assets/0f6731cf-4e58-47ea-ae0e-8ec7a55454db" tvg-name="BBC Brit" group-title="General",BBC Brit
@@ -43,7 +47,7 @@ https://viamotionhsi.netplus.ch/live/eds/channel4/browser-HLS8/channel4.m3u8
 https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc006/comedycentralhdraw/comedycentralhdraw.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/2024_Disney_Channel_text_logo.svg/1920px-2024_Disney_Channel_text_logo.svg.png" tvg-name="Disney Channel (1080p)" group-title="Uncategorized",Disney Channel (1080p)
 https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc103/disneychannelhdraw/disneychannelhdraw.m3u8
-#EXTINF:-1 tvg-logo="https://i.postimg.cc/X7rWGrjZ/echo24.png" tvg-name="Echo24" group-title="General",Echo24
+#EXTINF:-1 tvg-logo="https://echo24.tv/logo/logo.svg" tvg-name="Echo24" group-title="General",Echo24
 https://echo24new.pl/LiveAppStreamECHO24/streams/GL0VksiIgQUS1672825288490.m3u8
 #EXTINF:-1 tvg-logo="https://i.postimg.cc/qRmRrWLW/euronews.png" tvg-name="Euronews" group-title="News",Euronews
 https://7060743b4b224241b86325460b14d152.mediatailor.eu-west-1.amazonaws.com/v1/master/0547f18649bd788bec7b67b746e47670f558b6b2/production-LiveChannel-6769/bitok/eyJzdGlkIjoiMTE3OTllNGEtYmU1OC00ZjQyLTkxOTYtY2VlYWQzZGU2MDJjIiwibWt0IjoicGwiLCJjaCI6Njc2OSwicHRmIjo1fQ==/26235/euronews-pl.m3u8
@@ -77,19 +81,19 @@ https://amg01076-amg01076c19-rakuten-gb-8653.playouts.now.amagi.tv/playlist/amg0
 https://3ab76e42.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmFrdXRlblRWLWV1X1Blb3BsZUFyZUF3ZXNvbWVfSExT/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/a/a8/Polsat_2021_gradient.svg" tvg-name="Polsat" group-title="General",Polsat
 https://image.candyeis5.store/https://cdn-s-playnow-live.pluscdn.pl/ch/1502600/308/dash/20a18c30/live.mpd
-#EXTINF:-1 tvg-logo="https://i.imgur.com/xff6zGN.png" tvg-name="Polsat" group-title="General",Polsat
+#EXTINF:-1 tvg-logo="https://www.polsat.pl/bin/597c6cbdba9449e3cd9d853f517cbbea.svg" tvg-name="Polsat" group-title="General",Polsat
 https://srv7.flussonic111.com/PL_POLSAT_HD/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/xff6zGN.png" tvg-name="Polsat (1080p) [Geo-blocked]" group-title="General",Polsat (1080p) [Geo-blocked]
+#EXTINF:-1 tvg-logo="https://www.polsat.pl/bin/597c6cbdba9449e3cd9d853f517cbbea.svg" tvg-name="Polsat (1080p) [Geo-blocked]" group-title="General",Polsat (1080p) [Geo-blocked]
 http://cdn-s-lb2.pluscdn.pl/ch/1502600/308/dash/20a18c30/live.mpd
-#EXTINF:-1 tvg-logo="https://i.imgur.com/xff6zGN.png" tvg-name="Polsat (1080p) [Geo-blocked]" group-title="General",Polsat (1080p) [Geo-blocked]
+#EXTINF:-1 tvg-logo="https://www.polsat.pl/bin/597c6cbdba9449e3cd9d853f517cbbea.svg" tvg-name="Polsat (1080p) [Geo-blocked]" group-title="General",Polsat (1080p) [Geo-blocked]
 https://cdn-s-lb2.pluscdn.pl/ch/1502600/308/hls/b399c955/masterlist.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/xff6zGN.png" tvg-name="Polsat (1080p) [Geo-blocked]" group-title="General",Polsat (1080p) [Geo-blocked]
+#EXTINF:-1 tvg-logo="https://www.polsat.pl/bin/597c6cbdba9449e3cd9d853f517cbbea.svg" tvg-name="Polsat (1080p) [Geo-blocked]" group-title="General",Polsat (1080p) [Geo-blocked]
 https://cdn-s-playnow-live.pluscdn.pl/ch/1502600/308/dash/20a18c30/live.mpd
 #EXTINF:-1 tvg-logo="https://i.imgur.com/wGH6shZ.png" tvg-name="Polsat Film (1080p)" group-title="General",Polsat Film (1080p)
 http://c3921155.edmonst.net/iptv/42L7TCH8YYKLBRHNPV52HBRN/6086/index.m3u8
-#EXTINF:-1 tvg-logo="https://i.imgur.com/sx1yPuc.png" tvg-name="Polsat News (1080p) [Geo-blocked]" group-title="News",Polsat News (1080p) [Geo-blocked]
+#EXTINF:-1 tvg-logo="https://www.polsat.pl/bin/4b0e16ebf41540632506771f0c9c9d38.svg" tvg-name="Polsat News (1080p) [Geo-blocked]" group-title="News",Polsat News (1080p) [Geo-blocked]
 https://cdn-s-playnow-live.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd
-#EXTINF:-1 tvg-logo="https://i.imgur.com/sx1yPuc.png" tvg-name="Polsat News (720p)" group-title="News",Polsat News (720p)
+#EXTINF:-1 tvg-logo="https://www.polsat.pl/bin/4b0e16ebf41540632506771f0c9c9d38.svg" tvg-name="Polsat News (720p)" group-title="News",Polsat News (720p)
 https://cdn-s-lb2.pluscdn.pl/lv/1517830/349/hls/f03a76f3/masterlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/sx1yPuc.png" tvg-name="Polsat News (720p) [Geo-blocked]" group-title="News",Polsat News (720p) [Geo-blocked]
 http://cdn-s-lb2.pluscdn.pl/lv/1517830/349/dash/81ec4c32/live.mpd
@@ -127,24 +131,42 @@ https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc120/tvrepub
 https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/2782059/enc010/telewizjarepublikaraw/telewizjarepublikaraw.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/d/d4/TV4Polska.png" tvg-name="TV4" group-title="General",TV4
 https://cdn-s-playnow-live.pluscdn.pl/ch/1502601/309/dash/e25c2c93/live.mpd
+#EXTINF:-1 tvg-logo="https://s.tvp.pl/files/tvp.pl/images/vod-logo-header.png" tvg-name="TVP 1" group-title="General",TVP 1
+https://tvpi.travny.workers.dev/tvp1.m3u8
+#EXTINF:-1 tvg-logo="https://s10.tvp.pl/repository/images/0/f/d/0fdc717a2a71729f21a56777e613528e1637921595571.svg" tvg-name="TVP 2" group-title="General",TVP 2
+https://tvpi.travny.workers.dev/tvp2.m3u8
+#EXTINF:-1 tvg-logo="https://s3.tvp.pl/repository/images/c/4/c/c4cc05cfd43809f4a20f8b577be08f861645538538073.svg" tvg-name="TVP DOKUMENT" group-title="Documentary",TVP DOKUMENT
+https://tvpi.travny.workers.dev/tvpdokument.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/TVP_HD_logo.svg/960px-TVP_HD_logo.svg.png" tvg-name="TVP HD" group-title="General",TVP HD
 http://78.130.250.2:8023/play/a03a/index.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/c/ce/TVP_Info_logo.svg" tvg-name="TVP Info" group-title="News",TVP Info
 https://dash4.antik.sk/live/test_tvp_info/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://s.tvp.pl/files/portale-v4/tvp-info-v2/assets/images/tvp_info-2024.feb2d591.svg" tvg-name="TVP INFO" group-title="News",TVP INFO
+https://tvpi.travny.workers.dev/tvpinfo.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Tvp-info-nowe-logo.svg/960px-Tvp-info-nowe-logo.svg.png" tvg-name="TVP Info (1080p)" group-title="News",TVP Info (1080p)
 https://lowa8026-cmyk.github.io/tvpvod/399699.m3u8
 #EXTINF:-1 tvg-logo="https://upload.wikimedia.org/wikipedia/commons/c/ce/TVP_Info_logo.svg" tvg-name="TVP Info (1080p)" group-title="News",TVP Info (1080p)
 http://78.130.250.2:8023/play/a03b/index.m3u8
+#EXTINF:-1 tvg-logo="https://s.tvp.pl/files/portale-v4/tvp-pl/default/assets/images/logos/stations/logotypy_1920k_tvpnauka.svg" tvg-name="TVP NAUKA" group-title="Documentary",TVP NAUKA
+https://tvpi.travny.workers.dev/tvpnauka.m3u8
+#EXTINF:-1 tvg-logo="https://s.tvp.pl/files/portale-v4/sport-tvp-pl/images/logotype/logo-20lat.svg" tvg-name="TVP SPORT" group-title="Sports",TVP SPORT
+https://tvpi.travny.workers.dev/tvpsport.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/JUZDOCO.png" tvg-name="TVP Sport (1080p)" group-title="Sports",TVP Sport (1080p)
 https://estreams.tv.nej.cz/dash/CH_TVP_SPORT_Portable.ism/playlist.mpd
 #EXTINF:-1 tvg-logo="https://i.imgur.com/lB4MgRI.png" tvg-name="TVP World" group-title="News",TVP World
 https://dash2.antik.sk/live/test_tvp_world/playlist.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ewpSjBs.png" tvg-name="TVP1" group-title="General",TVP1
 https://estreams.tv.nej.cz/dash/CH_TVP1_Portable.ism/playlist.mpd
+#EXTINF:-1 tvg-logo="https://s9.tvp.pl/repository/images/9/1/6/916a3051f514d1c114398b38baf157fd1637921517769.svg" tvg-name="TVP1" group-title="General",TVP1
+https://redir.cache.orange.pl/dai4/org1/vb/104/tvp1hd/manifest.mpd
+#EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZnpVC_Aie2gK9REjpSsrCjdrnkauNbqNzBg&s" tvg-name="TVP1" group-title="General",TVP1
+https://srv7.flussonic111.com/PL_TVP1_HD/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/ewpSjBs.png" tvg-name="TVP1 (1080p)" group-title="General",TVP1 (1080p)
 https://ec06-krk3.cache.orange.pl/dai4/org1/vb/104/tvp1hd/index.m3u8
 #EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZnpVC_Aie2gK9REjpSsrCjdrnkauNbqNzBg&s" tvg-name="TVP1 (1080p)" group-title="General",TVP1 (1080p)
 https://liveovh010.cda.pl/zkr7GNESGht4_0Wk12c78A/17538736/278259/enc129/tvp1hdraw/tvp1hdraw.m3u8
+#EXTINF:-1 tvg-logo="https://s10.tvp.pl/repository/images/0/f/d/0fdc717a2a71729f21a56777e613528e1637921595571.svg" tvg-name="TVP2" group-title="General",TVP2
+https://srv7.flussonic111.com/PL_TVP2_HD/index.m3u8
 #EXTINF:-1 tvg-logo="https://i.imgur.com/XxCc32B.png" tvg-name="TVP2 (1080i) [Geo-blocked]" group-title="General",TVP2 (1080i) [Geo-blocked]
 https://estreams.tv.nej.cz/dash/CH_TVP2_Portable.ism/playlist.mpd
 #EXTINF:-1 tvg-logo="https://s8.vcdn.biz/static/f/5717562461/image.jpg" tvg-name="TVP2 (1080p)" group-title="General",TVP2 (1080p)
@@ -185,6 +207,8 @@ https://fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com/v1/
 https://lowa8026-cmyk.github.io/WPolscePL.m3u8
 #EXTINF:-1 tvg-logo="https://portalmedialny.pl/media/images/thumbnail/md5/7/7/77f62a3724622c2bd23627863de44081/w_polsce_24.jpg" tvg-name="W Polsce PL (720p)" group-title="News",W Polsce PL (720p)
 https://str.onnetwork.tv/hls/onnet-358726_hi/index.m3u8
+#EXTINF:-1 tvg-logo="https://images-3.rakuten.tv/storage/global-live-channel/translation/artwork/0ba18c3b-b319-4ea9-bdad-dfba2c348ce3-width200-quality90.jpeg" tvg-name="wedotv Auta" group-title="Auto",wedotv Auta
+https://amg00735-amg00735c57-rakuten-de-10677.playouts.now.amagi.tv/ts-eu-w1-n2/beacon/amg00735-videosolutionsagfast-wedotvauta-rakutende/cb553d1e726c678e9cd43d67d3ef42a0df2416fc087a8d6933fb4b926bc10f41f4e2a581b212bb785d9914ce1c553f080132c0099c3a0bc6da73b6512d6c6021c9c3ed64d89d1b17b2c8797368e62c4119e10f11d93b53309dbb1858dd68ec2b005ebb0d6f577fdcec0fac6b5ac58402967a7c82fc8e68312f5e56cd543fa29a7c9b1f0f5d65e94693d1605aa34f1abbd31c9df63d81b2a13ebedf52bbc33eabe7b5c98c50d7acad5b3ef4ac466f6f236f8a816ed1b835750fce1b5bcd2552213354fcac85f74f76ee2d250ca9b29fe635ad50a6fd540358406cb1d865a44989e5902bf9691a80e7d6fa575336b4c1145626b2f6a19dc1d352d742d6adf3d47f7098b94136178925f92c2f2a9ff4cf54d5954ed69b2c87bd651863808353c1cce6daa1e0c40abb20c9ccfbd76c16172d5442a054b09f6bd4319229fc975d712e202ecabb5bc094d65734102dd7d6249b797c8cd5808dd01935b0163c5fe665cb52062ced3a686eea24fdda11638b2f06807751d65737894ef9f81cfda8d5e00c58e48e91a29ebd7f4ba5b486210eed8f29b009af85251fe39768f8/426x240_611520?bcn=1&ca=0&cid=lhCReFYgPnrq&dur=6.000000&media_type=C&redirect_url=https%3A%2F%2Famg00735-amg00735c57-rakuten-de-10677.playouts.now.amagi.tv%2F240p-vtt%2Fseg_0086622.ts&seen-ad=1&seg_id=86622&user_id=2b08592e-3daa-11f1-8048-5e9ac98b49b9
 #EXTINF:-1 tvg-logo="https://i.imgur.com/U0vKj3P.png" tvg-name="Музыка Первого" group-title="Music",Музыка Первого
 http://31.148.48.15/Muzika_Pervogo/index.m3u8
 #EXTINF:-1 tvg-logo="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTC8HOhlfSIQh_3dWjVU3CxJW2xYk25_JYwCj1RzgmkvQ&s" tvg-name="Первый канал Европа" group-title="General",Первый канал Европа

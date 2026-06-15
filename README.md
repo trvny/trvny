@@ -7,3 +7,6 @@
 * [other](https://github.com/travino/travino/tree/main/stuff/other)
 
 ### [quotes.json](https://gist.github.com/travino/167d2271e3cf7d21e118aa7d906a7d2c)
+
+### [tvpi](https://tvpi.pages.dev)
+### [feeds](https://travino.github.io/feeds)

@@ -8,14 +8,24 @@
  * point is a single tool invocation, not three — the heavy fetching/parsing
  * happens here at the edge and the model gets a compact roll-up.
  *
- * All reads are unauthenticated and free: project Workers, raw GitHub, and
- * Actions status-badge SVGs (CDN, not the rate-limited API). No bindings, no
- * token — stays on the Workers free tier.
+ * tvpi and autka are same-account Workers reached via service bindings; feeds
+ * reads GitHub (raw + badge SVG + best-effort contents API). No token — free.
  */
 
 const PROTOCOL_VERSION = "2025-06-18";
 const SERVER_INFO = { name: "status-mcp", version: "1.0.0" };
 const FETCH_TIMEOUT_MS = 9_000;
+
+/**
+ * Service bindings to the two same-account Workers. A public workers.dev fetch
+ * from one Worker to another on the same account hairpins and fails, so tvpi
+ * and autka are reached via internal bindings instead. feeds is GitHub
+ * (external), so it stays on plain fetch.
+ */
+interface Env {
+  TVPI: Fetcher;
+  AUTKA: Fetcher;
+}
 
 const timeout = (ms: number) => AbortSignal.timeout(ms);
 const UA = "status-mcp (+https://github.com/travino/status-mcp)";
@@ -59,10 +69,9 @@ interface ProjectResult {
 }
 
 // ===========================================================================
-// tvpi — read the Worker's X-Source-* headers in one request
+// tvpi — read the Worker's X-Source-* headers in one request (service binding)
 // ===========================================================================
 
-const TVPI_BASE = "https://tvpi.travny.workers.dev";
 const TVPI_SLUGS = ["tvp1", "tvp2", "tvpinfo", "tvpsport", "tvpdokument", "tvpnauka", "tvprozrywka", "tvphistoria"];
 type TvpiSource = "cache" | "live" | "kv" | "raw" | "r2" | "unknown";
 
@@ -76,18 +85,18 @@ function parseTvpiHeaders(headers: Headers): Map<string, TvpiSource> {
   return map;
 }
 
-async function probeTvpi(slug: string): Promise<boolean> {
+async function probeTvpi(env: Env, slug: string): Promise<boolean> {
   try {
-    const r = await fetch(`${TVPI_BASE}/${slug}.m3u8`, { method: "GET", redirect: "manual", signal: timeout(FETCH_TIMEOUT_MS) });
+    const r = await env.TVPI.fetch(`https://tvpi/${slug}.m3u8`, { method: "GET", redirect: "manual", signal: timeout(FETCH_TIMEOUT_MS) });
     return r.status === 302 && !!r.headers.get("Location");
   } catch {
     return false;
   }
 }
 
-async function checkTvpi(deep: boolean): Promise<ProjectResult> {
+async function checkTvpi(env: Env, deep: boolean): Promise<ProjectResult> {
   try {
-    const res = await fetch(`${TVPI_BASE}/playlist.m3u`, { signal: timeout(FETCH_TIMEOUT_MS) });
+    const res = await env.TVPI.fetch("https://tvpi/playlist.m3u", { signal: timeout(FETCH_TIMEOUT_MS) });
     const sources = res.ok ? parseTvpiHeaders(res.headers) : new Map<string, TvpiSource>();
     const slugs = Array.from(new Set([...TVPI_SLUGS, ...sources.keys()])).sort();
 
@@ -96,7 +105,7 @@ async function checkTvpi(deep: boolean): Promise<ProjectResult> {
       const live = src === "live" || src === "cache";
       const fallback = src === "kv" || src === "raw" || src === "r2";
       const v: Verdict = live ? "ok" : fallback ? "degraded" : "down";
-      const probe = deep && v !== "down" ? await probeTvpi(slug) : undefined;
+      const probe = deep && v !== "down" ? await probeTvpi(env, slug) : undefined;
       return { slug, source: src, verdict: v, probe };
     });
 
@@ -205,20 +214,19 @@ async function checkFeeds(): Promise<ProjectResult> {
 }
 
 // ===========================================================================
-// autka — backend /health + /offers count + /sources, plus CI badge
+// autka — backend /health + /offers count + /sources (service binding) + CI badge
 // ===========================================================================
 
-const AUTKA_BASE = "https://cargate-backend.travny.workers.dev";
 const AUTKA_OWNER = "travino";
 const AUTKA_REPO = "autka";
 const AUTKA_WORKFLOW = "android-ci.yml";
 
-async function checkAutka(): Promise<ProjectResult> {
+async function checkAutka(env: Env): Promise<ProjectResult> {
   try {
     const [healthRes, offersRes, sourcesRes, ci] = await Promise.all([
-      fetch(`${AUTKA_BASE}/health`, { signal: timeout(FETCH_TIMEOUT_MS) }).catch(() => null),
-      fetch(`${AUTKA_BASE}/offers?limit=1`, { signal: timeout(FETCH_TIMEOUT_MS) }).catch(() => null),
-      fetch(`${AUTKA_BASE}/sources`, { signal: timeout(FETCH_TIMEOUT_MS) }).catch(() => null),
+      env.AUTKA.fetch("https://autka/health", { signal: timeout(FETCH_TIMEOUT_MS) }).catch(() => null),
+      env.AUTKA.fetch("https://autka/offers?limit=1", { signal: timeout(FETCH_TIMEOUT_MS) }).catch(() => null),
+      env.AUTKA.fetch("https://autka/sources", { signal: timeout(FETCH_TIMEOUT_MS) }).catch(() => null),
       badgeStatus(AUTKA_OWNER, AUTKA_REPO, AUTKA_WORKFLOW),
     ]);
 
@@ -263,12 +271,12 @@ function errorResult(project: string, e: unknown): ProjectResult {
 const ALL = ["tvpi", "feeds", "autka"] as const;
 type Project = (typeof ALL)[number];
 
-async function runStatus(project: Project | undefined, deep: boolean): Promise<{ text: string; structured: object }> {
+async function runStatus(env: Env, project: Project | undefined, deep: boolean): Promise<{ text: string; structured: object }> {
   const wanted: Project[] = project ? [project] : [...ALL];
   const runners: Record<Project, () => Promise<ProjectResult>> = {
-    tvpi: () => checkTvpi(deep),
+    tvpi: () => checkTvpi(env, deep),
     feeds: () => checkFeeds(),
-    autka: () => checkAutka(),
+    autka: () => checkAutka(env),
   };
   const results = await Promise.all(wanted.map((p) => runners[p]()));
 
@@ -320,7 +328,7 @@ interface RpcRequest { jsonrpc: "2.0"; id?: string | number | null; method: stri
 const ok = (id: RpcRequest["id"], result: unknown) => ({ jsonrpc: "2.0" as const, id, result });
 const err = (id: RpcRequest["id"], code: number, message: string) => ({ jsonrpc: "2.0" as const, id, error: { code, message } });
 
-async function handleRpc(req: RpcRequest): Promise<object | null> {
+async function handleRpc(req: RpcRequest, env: Env): Promise<object | null> {
   switch (req.method) {
     case "initialize":
       return ok(req.id, { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} }, serverInfo: SERVER_INFO });
@@ -336,7 +344,7 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
       const args = (req.params?.arguments as Record<string, unknown>) ?? {};
       if (name !== "status") return err(req.id, -32602, `Unknown tool: ${name}`);
       try {
-        const { text, structured } = await runStatus(args.project as Project | undefined, args.deep === true);
+        const { text, structured } = await runStatus(env, args.project as Project | undefined, args.deep === true);
         return ok(req.id, { content: [{ type: "text", text }], structuredContent: structured, isError: false });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -351,7 +359,7 @@ async function handleRpc(req: RpcRequest): Promise<object | null> {
 const JSON_HEADERS = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
 
 export default {
-  async fetch(request: Request): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "OPTIONS") {
       return new Response(null, {
         headers: {
@@ -376,10 +384,10 @@ export default {
     }
 
     if (Array.isArray(payload)) {
-      const responses = (await Promise.all(payload.map((p) => handleRpc(p as RpcRequest)))).filter((r): r is object => r !== null);
+      const responses = (await Promise.all(payload.map((p) => handleRpc(p as RpcRequest, env)))).filter((r): r is object => r !== null);
       return new Response(responses.length ? JSON.stringify(responses) : "", { status: responses.length ? 200 : 202, headers: JSON_HEADERS });
     }
-    const response = await handleRpc(payload as RpcRequest);
+    const response = await handleRpc(payload as RpcRequest, env);
     return new Response(response ? JSON.stringify(response) : "", { status: response ? 200 : 202, headers: JSON_HEADERS });
   },
-} satisfies ExportedHandler;
+} satisfies ExportedHandler<Env>;

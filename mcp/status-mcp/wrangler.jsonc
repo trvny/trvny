@@ -3,6 +3,11 @@
   "name": "status-mcp",
   "main": "src/index.ts",
   "compatibility_date": "2025-06-01",
-  "observability": { "enabled": true }
-  // No bindings: pure outbound fetch, stays on the Workers free tier.
+  "observability": { "enabled": true },
+  // Same-account Workers reached via internal service bindings (a public
+  // workers.dev fetch between same-account Workers hairpins and fails).
+  "services": [
+    { "binding": "TVPI", "service": "tvpi" },
+    { "binding": "AUTKA", "service": "cargate-backend" }
+  ]
 }

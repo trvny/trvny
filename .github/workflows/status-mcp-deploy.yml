@@ -8,6 +8,10 @@ on:
       - ".github/workflows/status-mcp-deploy.yml"
   workflow_dispatch:
 
+concurrency:
+  group: deploy-status-mcp
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -24,8 +28,10 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: mcp/status-mcp/package-lock.json
 
-      - run: npm install
+      - run: npm ci
 
       - name: Type check
         run: npm run typecheck

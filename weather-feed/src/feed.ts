@@ -5,7 +5,6 @@ import type {
 } from "./types";
 
 const FEED_ID = "tag:travino,2026:weather:koscielec";
-const SELF = "https://weather.travny.workers.dev";
 
 // ── change detection ─────────────────────────────────────────────────────────
 // Compare against the last *published* baseline (not the last run) so small
@@ -99,7 +98,9 @@ export function warningEntries(prev: Warning[], next: Warning[]): FeedEntry[] {
 }
 
 // ── Atom rendering ───────────────────────────────────────────────────────────
-export function renderAtom(entries: readonly FeedEntry[], title: string): string {
+// `origin` is passed from the request so the self link matches the host actually
+// serving the feed (workers.dev or a custom domain), instead of a hard-coded URL.
+export function renderAtom(entries: readonly FeedEntry[], title: string, origin: string): string {
   const updated = entries[0]?.published ?? new Date().toISOString();
   const items = entries.map((e) => `  <entry>
     <title>${esc(e.title)}</title>
@@ -115,14 +116,15 @@ export function renderAtom(entries: readonly FeedEntry[], title: string): string
   <title>${esc(title)}</title>
   <id>${FEED_ID}</id>
   <updated>${updated}</updated>
-  <link rel="self" href="${SELF}/feed.atom"/>
+  <link rel="self" href="${origin}/feed.atom"/>
+  <link rel="alternate" href="${origin}/"/>
   <author><name>travino weather aggregator</name></author>
   <generator>cloudflare-worker</generator>
 ${items}
 </feed>`;
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────────
 function delta(a: number | null, b: number | null): number | null {
   return a === null || b === null ? null : Math.round((b - a) * 10) / 10;
 }

@@ -1,5 +1,5 @@
 import { CONFIG } from "./config";
-import { PAGE } from "./page";
+import { renderPage } from "./page";
 import { buildDayEnsembles, buildEnsemble } from "./ensemble";
 import {
   currentChange, forecastRevision, renderAtom, warningEntries,
@@ -103,24 +103,40 @@ function asNull(source: string) {
 // ── HTTP: serve pre-built entries from KV (read-only, no upstream fan-out) ───
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
-    const { pathname } = new URL(req.url);
+    const url = new URL(req.url);
+    const { pathname, origin } = url;
     const entries = (await load<FeedEntry[]>(env, K.entries)) ?? [];
 
     switch (pathname) {
       case "/feed.atom":
-        return atom(renderAtom(entries, `Pogoda — ${CONFIG.place}`));
+        return atom(renderAtom(entries, `Pogoda — ${CONFIG.place}`, origin));
       case "/warnings.atom":
         return atom(renderAtom(
           entries.filter((e) => e.kind === "warning_new" || e.kind === "warning_lifted"),
-          `Ostrzeżenia IMGW — ${CONFIG.place}`));
+          `Ostrzeżenia IMGW — ${CONFIG.place}`, origin));
       case "/state.json": {
         const state = await load<CurrentState>(env, K.current);
         return json({ place: CONFIG.place, ...state, entryCount: entries.length });
       }
       case "/healthz":
         return json({ ok: true, entries: entries.length });
+      case "/robots.txt":
+        return new Response(
+          `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`,
+          { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "max-age=86400" } },
+        );
+      case "/sitemap.xml":
+        return new Response(
+          `<?xml version="1.0" encoding="utf-8"?>\n`
+          + `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`
+          + `  <url><loc>${origin}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>\n`
+          + `  <url><loc>${origin}/feed.atom</loc><changefreq>hourly</changefreq></url>\n`
+          + `  <url><loc>${origin}/warnings.atom</loc><changefreq>hourly</changefreq></url>\n`
+          + `</urlset>\n`,
+          { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "max-age=86400" } },
+        );
       case "/":
-        return new Response(PAGE, {
+        return new Response(renderPage(origin), {
           headers: { "content-type": "text/html; charset=utf-8", "cache-control": "max-age=3600" },
         });
       default:

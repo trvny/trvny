@@ -11,7 +11,7 @@ const FAVICON =
       '<path fill="#4a6fa5" d="M9 22a6 6 0 0 1-.6-11.97A8 8 0 0 1 24 11.2 5.4 5.4 0 0 1 23 22z"/>' +
       '<g stroke="#d4e4f7" stroke-width="2" stroke-linecap="round">' +
       '<line x1="12" y1="26" x2="11" y2="29"/><line x1="17" y1="26" x2="16" y2="30"/>' +
-      '<line x1="22" y1="26" x2="21" y2="30"/></g></svg>',
+      '<line x1="22" y1="26" x2="21" y2="29"/></g></svg>',
   );
 
 export function renderPage(origin: string): string {
@@ -20,6 +20,7 @@ export function renderPage(origin: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google-site-verification" content="Qu5-7v2tWoKtUYUVlQXisaFkGGVEImYlmycKDUg0QBw" />
 <title>Pogoda — Kościelec (Chrzanów)</title>
 <link rel="icon" href="${FAVICON}">
 <link rel="alternate" type="application/atom+xml" title="Pogoda — zmiany" href="/feed.atom">

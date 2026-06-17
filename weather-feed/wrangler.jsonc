@@ -3,6 +3,7 @@
   "name": "weather",
   "main": "src/index.ts",
   "compatibility_date": "2025-06-01",
+  "assets": { "directory": "./public" },
   "observability": {
     "logs": {
       "enabled": true,

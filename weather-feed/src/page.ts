@@ -2,17 +2,8 @@
 // Theme: Arctic Frost (theme-factory) — steel/ice palette; amber/red added for
 // warning severity (the theme has no alert colour). Live data is fetched
 // client-side from /state.json and /feed.atom (same origin), so the HTML stays
-// static and the Worker request path stays read-only.
-
-const FAVICON =
-  "data:image/svg+xml," +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
-      '<path fill="#4a6fa5" d="M9 22a6 6 0 0 1-.6-11.97A8 8 0 0 1 24 11.2 5.4 5.4 0 0 1 23 22z"/>' +
-      '<g stroke="#d4e4f7" stroke-width="2" stroke-linecap="round">' +
-      '<line x1="12" y1="26" x2="11" y2="29"/><line x1="17" y1="26" x2="16" y2="30"/>' +
-      '<line x1="22" y1="26" x2="21" y2="29"/></g></svg>',
-  );
+// static and the Worker request path stays read-only. Icons are static files
+// served from /public via the assets binding.
 
 export function renderPage(origin: string): string {
   return `<!doctype html>
@@ -22,7 +13,9 @@ export function renderPage(origin: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="google-site-verification" content="Qu5-7v2tWoKtUYUVlQXisaFkGGVEImYlmycKDUg0QBw" />
 <title>Pogoda — Kościelec (Chrzanów)</title>
-<link rel="icon" href="${FAVICON}">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="alternate" type="application/atom+xml" title="Pogoda — zmiany" href="/feed.atom">
 <link rel="alternate" type="application/atom+xml" title="Ostrzeżenia IMGW" href="/warnings.atom">
 <meta name="description" content="Pogoda dla Kościelca (Chrzanów) z mediany wielu źródeł, ostrzeżenia IMGW (meteo i hydro) oraz feed Atom z samymi zmianami.">

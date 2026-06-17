@@ -11,7 +11,7 @@ const FAVICON =
       '<path fill="#4a6fa5" d="M9 22a6 6 0 0 1-.6-11.97A8 8 0 0 1 24 11.2 5.4 5.4 0 0 1 23 22z"/>' +
       '<g stroke="#d4e4f7" stroke-width="2" stroke-linecap="round">' +
       '<line x1="12" y1="26" x2="11" y2="29"/><line x1="17" y1="26" x2="16" y2="30"/>' +
-      '<line x1="22" y1="26" x2="21" y2="29"/></g></svg>',
+      '<line x1="22" y1="26" x2="21" y2="30"/></g></svg>',
   );
 
 export function renderPage(origin: string): string {
@@ -32,9 +32,14 @@ export function renderPage(origin: string): string {
 <meta property="og:title" content="Pogoda — Kościelec (Chrzanów)">
 <meta property="og:description" content="Agregat wielu źródeł + ostrzeżenia IMGW. Feed Atom ze zmianami.">
 <meta property="og:url" content="${origin}/">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="${origin}/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pogoda — Kościelec (Chrzanów)">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Pogoda — Kościelec (Chrzanów)">
 <meta name="twitter:description" content="Agregat wielu źródeł + ostrzeżenia IMGW. Feed Atom ze zmianami.">
+<meta name="twitter:image" content="${origin}/og.png">
 <style>
   :root{
     --ice:#d4e4f7; --steel:#4a6fa5; --steel-dark:#33507a; --silver:#c0c0c0;

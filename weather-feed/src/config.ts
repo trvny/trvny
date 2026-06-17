@@ -1,0 +1,39 @@
+// All location- and policy-specific knobs in one place.
+
+export const CONFIG = {
+  place: "Kościelec (Chrzanów)",
+  lat: 50.14,
+  lon: 19.42,
+  tz: "Europe/Warsaw",
+
+  // powiat chrzanowski — IMGW *meteo* warnings are issued per powiat TERYT.
+  terytPowiat: "1203",
+  // IMGW *hydro* warnings carry no TERYT (scoped by catchment/voivodeship),
+  // so they can only be filtered to the voivodeship. Chrzanów = małopolskie.
+  wojewodztwo: "małopolskie",
+
+  // Nearest IMGW synop station (~30 km). Shown as reference context only;
+  // NOT blended into the point ensemble, since it's a different location.
+  imgwStation: "Kraków",
+
+  forecastDays: 7,
+
+  // Change-detection thresholds. Entries are emitted only when the new reading
+  // crosses one of these vs the last *published* baseline (hysteresis — avoids
+  // drift spam). Tune to taste.
+  thresholds: {
+    currentTempC: 3,        // |Δ ensemble median temp| since last entry
+    precipOnsetMm: 0.1,     // current precip starts/stops across this
+    forecastTMaxC: 3,       // per-day |Δ tmax| to flag a revision
+    forecastPrecipProb: 50, // per-day precip prob crossing this → revision
+  },
+
+  maxEntries: 60,           // Atom ring-buffer length
+  sourceTimeoutMs: 8000,
+} as const;
+
+export const SOURCE_LABEL: Record<string, string> = {
+  openmeteo: "Open-Meteo",
+  openweather: "OpenWeather",
+  visualcrossing: "Visual Crossing",
+};

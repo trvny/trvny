@@ -14,7 +14,8 @@ const FAVICON =
       '<line x1="22" y1="26" x2="21" y2="29"/></g></svg>',
   );
 
-export const PAGE = `<!doctype html>
+export function renderPage(origin: string): string {
+  return `<!doctype html>
 <html lang="pl">
 <head>
 <meta charset="utf-8">
@@ -23,6 +24,17 @@ export const PAGE = `<!doctype html>
 <link rel="icon" href="${FAVICON}">
 <link rel="alternate" type="application/atom+xml" title="Pogoda — zmiany" href="/feed.atom">
 <link rel="alternate" type="application/atom+xml" title="Ostrzeżenia IMGW" href="/warnings.atom">
+<meta name="description" content="Pogoda dla Kościelca (Chrzanów) z mediany wielu źródeł, ostrzeżenia IMGW (meteo i hydro) oraz feed Atom z samymi zmianami.">
+<link rel="canonical" href="${origin}/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pl_PL">
+<meta property="og:site_name" content="Pogoda Kościelec">
+<meta property="og:title" content="Pogoda — Kościelec (Chrzanów)">
+<meta property="og:description" content="Agregat wielu źródeł + ostrzeżenia IMGW. Feed Atom ze zmianami.">
+<meta property="og:url" content="${origin}/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Pogoda — Kościelec (Chrzanów)">
+<meta name="twitter:description" content="Agregat wielu źródeł + ostrzeżenia IMGW. Feed Atom ze zmianami.">
 <style>
   :root{
     --ice:#d4e4f7; --steel:#4a6fa5; --steel-dark:#33507a; --silver:#c0c0c0;
@@ -194,3 +206,4 @@ export const PAGE = `<!doctype html>
 </script>
 </body>
 </html>`;
+}

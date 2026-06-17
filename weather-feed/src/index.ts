@@ -1,4 +1,5 @@
 import { CONFIG } from "./config";
+import { PAGE } from "./page";
 import { buildDayEnsembles, buildEnsemble } from "./ensemble";
 import {
   currentChange, forecastRevision, renderAtom, warningEntries,
@@ -119,9 +120,8 @@ export default {
       case "/healthz":
         return json({ ok: true, entries: entries.length });
       case "/":
-        return json({
-          place: CONFIG.place, lat: CONFIG.lat, lon: CONFIG.lon,
-          feeds: ["/feed.atom", "/warnings.atom", "/state.json"],
+        return new Response(PAGE, {
+          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "max-age=3600" },
         });
       default:
         return new Response("not found", { status: 404 });

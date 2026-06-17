@@ -69,3 +69,14 @@ on Open-Meteo alone (degraded ensemble, n=1). CI deploy needs repo secrets
 - Free-tier quotas are the binding constraint — Visual Crossing 1000 records/day
   and OpenWeather call caps. At 12 current + 1 forecast cycles/day you're far
   under, but check before raising frequency.
+
+## Future ideas
+
+- **CAP / Meteoalarm via [alerts.kde.org](https://alerts.kde.org)** (FOSS Public
+  Alert Server). *Evaluated, not adopted:* its Poland source (`pl-imgw-xx`) is
+  just the Meteoalarm relay of IMGW — same authority, but coarser (≈voivodeship
+  NUTS regions), **meteo-only (no hydro)**, with awareness-level colour codes and
+  standard CAP polygons. For Kościelec the direct IMGW API is strictly better
+  (powiat precision + hydro). Worth revisiting only if this goes multi-region,
+  wants an English-language CAP feed, or needs polygons for a map — then one
+  documented endpoint beats wiring 200+ national feeds by hand.

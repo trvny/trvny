@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "weather-feed",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+  "observability": { "enabled": true },
+
+  "triggers": {
+    "crons": [
+      "0 */2 * * *",
+      "0 5 * * *"
+    ]
+  },
+
+  "kv_namespaces": [
+    {
+      "binding": "WEATHER_KV",
+      "id": "d1b80a523eb2464b8501a15b6b40f85d"
+    }
+  ]
+}

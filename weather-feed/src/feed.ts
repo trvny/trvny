@@ -1,12 +1,12 @@
-import { CONFIG } from "./config";
+import { CONFIG, POLLEN_PL } from "./config";
 import { CONDITION_PL } from "./ensemble";
 import type {
-  DayEnsemble, Ensemble, FeedEntry, Warning,
+  AirQuality, DayEnsemble, Ensemble, FeedEntry, Warning,
 } from "./types";
 
 const FEED_ID = "tag:travino,2026:weather:koscielec";
 
-// ── change detection ─────────────────────────────────────────────────────────
+// ── change detection ────────────────────────────────────────────────────────
 // Compare against the last *published* baseline (not the last run) so small
 // drift doesn't accumulate into spurious entries.
 
@@ -25,6 +25,7 @@ export function currentChange(prev: Ensemble | null, next: Ensemble): FeedEntry 
   }
   if (reasons.length === 0) return null;
 
+  const uv = next.uv.median !== null ? `, UV ${fmt(next.uv.median)}` : "";
   const now = new Date().toISOString();
   return {
     id: `${FEED_ID}:current:${now}`,
@@ -33,7 +34,7 @@ export function currentChange(prev: Ensemble | null, next: Ensemble): FeedEntry 
     summary: `${reasons.join("; ")}. `
       + `Mediana ${next.sources.length} źródeł: ${fmt(next.tempC.median)}°C `
       + `(rozrzut ${fmt(next.tempC.min)}–${fmt(next.tempC.max)}°C), `
-      + `wiatr ${fmt(next.windMs.median)} m/s, wilgotność ${fmt(next.humidity.median)}%.`,
+      + `wiatr ${fmt(next.windMs.median)} m/s, wilgotność ${fmt(next.humidity.median)}%${uv}.`,
     published: now,
   };
 }
@@ -95,6 +96,43 @@ export function warningEntries(prev: Warning[], next: Warning[]): FeedEntry[] {
     });
   }
   return out;
+}
+
+// ── air quality (single-source: Open-Meteo / CAMS) ───────────────────────────
+// Entry only when the European AQI *band* changes — the bands are official and
+// well-separated, so this won't flutter the way a raw threshold would. Pollen
+// rides along in the summary but never triggers on its own (no clean band).
+const AQI_BANDS: { max: number; pl: string }[] = [
+  { max: 20, pl: "bardzo dobra" },
+  { max: 40, pl: "dobra" },
+  { max: 60, pl: "umiarkowana" },
+  { max: 80, pl: "zła" },
+  { max: 100, pl: "bardzo zła" },
+  { max: Infinity, pl: "ekstremalnie zła" },
+];
+function aqiBandIndex(aqi: number): number {
+  return AQI_BANDS.findIndex((b) => aqi <= b.max);
+}
+
+export function airQualityChange(prev: AirQuality | null, next: AirQuality | null): FeedEntry | null {
+  if (!next || next.europeanAqi === null) return null;
+  const nextIdx = aqiBandIndex(next.europeanAqi);
+  const prevIdx = prev && prev.europeanAqi !== null ? aqiBandIndex(prev.europeanAqi) : -1;
+  if (prevIdx === nextIdx) return null; // same band → no entry
+
+  const label = AQI_BANDS[nextIdx]?.pl ?? "—";
+  const pollen = next.topPollen
+    ? ` Dominujący pyłek: ${POLLEN_PL[next.topPollen.species] ?? next.topPollen.species} (${next.topPollen.grains} ziaren/m³).`
+    : " Brak istotnych pyłków.";
+  const now = new Date().toISOString();
+  return {
+    id: `${FEED_ID}:air:${now}`,
+    kind: "air_quality_change",
+    title: `${CONFIG.place}: jakość powietrza — ${label} (AQI ${Math.round(next.europeanAqi)})`,
+    summary: `Europejski indeks AQI ${Math.round(next.europeanAqi)} (${label}). `
+      + `PM2.5 ${fmt(next.pm25)} µg/m³, PM10 ${fmt(next.pm10)} µg/m³.${pollen}`,
+    published: now,
+  };
 }
 
 // ── Atom rendering ───────────────────────────────────────────────────────────

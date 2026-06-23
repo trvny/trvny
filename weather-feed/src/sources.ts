@@ -1,5 +1,7 @@
 import { CONFIG } from "./config";
-import type { Condition, DayForecast, Reading, Warning } from "./types";
+import type {
+  AirQuality, Condition, DayForecast, PollenReading, Reading, Warning,
+} from "./types";
 
 export interface Env {
   WEATHER_KV: KVNamespace;
@@ -27,7 +29,7 @@ function isObj(v: unknown): v is Record<string, unknown> {
 // Drop-in upgrade per the typescript-resilient-fetch skill: replace each parse
 // block with a Zod `safeParse` so an upstream shape change fails cleanly here.
 
-// ── condition normalization ──────────────────────────────────────────────────
+// ── condition normalization ─────────────────────────────────────────────
 function wmo(code: number | null): Condition {
   if (code === null) return "unknown";
   if (code === 0) return "clear";
@@ -63,7 +65,7 @@ function vcCond(icon: unknown): Condition {
   return "unknown";
 }
 
-// ── Open-Meteo (no key) ──────────────────────────────────────────────────────
+// ── Open-Meteo (no key) ───────────────────────────────────────────────
 export async function fetchOpenMeteo(): Promise<{ current: Reading | null; days: DayForecast[] }> {
   const u = new URL("https://api.open-meteo.com/v1/forecast");
   u.searchParams.set("latitude", String(CONFIG.lat));
@@ -72,9 +74,9 @@ export async function fetchOpenMeteo(): Promise<{ current: Reading | null; days:
   u.searchParams.set("wind_speed_unit", "ms");
   u.searchParams.set("forecast_days", String(CONFIG.forecastDays));
   u.searchParams.set("current",
-    "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl");
+    "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,pressure_msl,uv_index");
   u.searchParams.set("daily",
-    "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code");
+    "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,uv_index_max,weather_code");
 
   const data = await getJson(u.toString());
   if (!isObj(data)) return { current: null, days: [] };
@@ -91,6 +93,7 @@ export async function fetchOpenMeteo(): Promise<{ current: Reading | null; days:
       windMs: num(c["wind_speed_10m"]),
       windDir: num(c["wind_direction_10m"]),
       precipMm: num(c["precipitation"]),
+      uvIndex: num(c["uv_index"]),
       condition: wmo(num(c["weather_code"])),
       observedAt: typeof c["time"] === "string" ? c["time"] : new Date().toISOString(),
     };
@@ -104,6 +107,7 @@ export async function fetchOpenMeteo(): Promise<{ current: Reading | null; days:
     const tmin = (d["temperature_2m_min"] ?? []) as unknown[];
     const psum = (d["precipitation_sum"] ?? []) as unknown[];
     const pprob = (d["precipitation_probability_max"] ?? []) as unknown[];
+    const uvmax = (d["uv_index_max"] ?? []) as unknown[];
     const code = (d["weather_code"] ?? []) as unknown[];
     for (let i = 0; i < time.length; i++) {
       days.push({
@@ -111,6 +115,7 @@ export async function fetchOpenMeteo(): Promise<{ current: Reading | null; days:
         date: String(time[i]),
         tMaxC: num(tmax[i]), tMinC: num(tmin[i]),
         precipMm: num(psum[i]), precipProb: num(pprob[i]),
+        uvIndexMax: num(uvmax[i]),
         condition: wmo(num(code[i])),
       });
     }
@@ -118,7 +123,9 @@ export async function fetchOpenMeteo(): Promise<{ current: Reading | null; days:
   return { current, days };
 }
 
-// ── OpenWeather (key; free /data/2.5) ────────────────────────────────────────
+// ── OpenWeather (key; free /data/2.5) ───────────────────────────────────
+// No UV on the free /data/2.5 tier (it lived in the deprecated One Call), so
+// uvIndex/uvIndexMax are null here — the ensemble just blends the other two.
 export async function fetchOpenWeather(env: Env): Promise<{ current: Reading | null; days: DayForecast[] }> {
   const key = env.OPENWEATHER_KEY;
   if (!key) return { current: null, days: [] };
@@ -137,6 +144,7 @@ export async function fetchOpenWeather(env: Env): Promise<{ current: Reading | n
       humidity: num(m["humidity"]), pressureHpa: num(m["pressure"]),
       windMs: num(wind["speed"]), windDir: num(wind["deg"]),
       precipMm: num(rain["1h"]) ?? 0,
+      uvIndex: null,
       condition: owmCond(num(wx?.["id"])),
       observedAt: new Date((num(w["dt"]) ?? Date.now() / 1000) * 1000).toISOString(),
     };
@@ -172,6 +180,7 @@ export async function fetchOpenWeather(env: Env): Promise<{ current: Reading | n
         tMinC: b.min === Infinity ? null : Math.round(b.min * 10) / 10,
         precipMm: Math.round(b.precip * 10) / 10,
         precipProb: Math.round(b.prob),
+        uvIndexMax: null,
         condition: b.conds[0] ?? "unknown",
       });
     }
@@ -200,6 +209,7 @@ export async function fetchVisualCrossing(env: Env): Promise<{ current: Reading 
       windMs: windKmh === null ? null : Math.round((windKmh / 3.6) * 10) / 10,
       windDir: num(cc["winddir"]),
       precipMm: num(cc["precip"]) ?? 0,
+      uvIndex: num(cc["uvindex"]),
       condition: vcCond(cc["icon"]),
       observedAt: typeof cc["datetimeEpoch"] === "number"
         ? new Date(cc["datetimeEpoch"] * 1000).toISOString() : new Date().toISOString(),
@@ -215,6 +225,7 @@ export async function fetchVisualCrossing(env: Env): Promise<{ current: Reading 
         date: String(d["datetime"]),
         tMaxC: num(d["tempmax"]), tMinC: num(d["tempmin"]),
         precipMm: num(d["precip"]) ?? 0, precipProb: num(d["precipprob"]),
+        uvIndexMax: num(d["uvindex"]),
         condition: vcCond(d["icon"]),
       });
     }
@@ -222,7 +233,40 @@ export async function fetchVisualCrossing(env: Env): Promise<{ current: Reading 
   return { current, days };
 }
 
-// ── IMGW: official warnings (high-value, event-shaped) ───────────────────────
+// ── Open-Meteo Air Quality (no key; CAMS European domain) ────────────────────
+// Single provider — not blended. European AQI + PM + tree/grass/weed pollen.
+// Pollen is CAMS-Europe only, which covers PL fine.
+export async function fetchOpenMeteoAirQuality(): Promise<AirQuality | null> {
+  const u = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");
+  u.searchParams.set("latitude", String(CONFIG.lat));
+  u.searchParams.set("longitude", String(CONFIG.lon));
+  u.searchParams.set("timezone", CONFIG.tz);
+  const pollenParams = CONFIG.pollenSpecies.map((s) => `${s}_pollen`).join(",");
+  u.searchParams.set("current", `european_aqi,pm2_5,pm10,${pollenParams}`);
+
+  const data = await getJson(u.toString());
+  if (!isObj(data)) return null;
+  const c = data["current"];
+  if (!isObj(c)) return null;
+
+  const pollen: PollenReading[] = [];
+  for (const s of CONFIG.pollenSpecies) {
+    const g = num(c[`${s}_pollen`]);
+    if (g !== null && g > 0) pollen.push({ species: s, grains: Math.round(g) });
+  }
+  pollen.sort((a, b) => b.grains - a.grains);
+
+  return {
+    observedAt: typeof c["time"] === "string" ? c["time"] : new Date().toISOString(),
+    europeanAqi: num(c["european_aqi"]),
+    pm25: num(c["pm2_5"]),
+    pm10: num(c["pm10"]),
+    pollen,
+    topPollen: pollen[0] ?? null,
+  };
+}
+
+// ── IMGW: official warnings (high-value, event-shaped) ──────────────────────
 // Two endpoints, same record shape (confirmed live against warningshydro):
 //   zdarzenie, stopien (the live key is "stopień" with the diacritic),
 //   prawdopodobienstwo, data_od, data_do, numer, przebieg/komentarz, obszary[].
@@ -300,7 +344,7 @@ export async function fetchImgwStation(name: string): Promise<Reading | null> {
     tempC: num(s["temperatura"]), feelsC: null,
     humidity: num(s["wilgotnosc_wzgledna"]), pressureHpa: num(s["cisnienie"]),
     windMs: num(s["predkosc_wiatru"]), windDir: num(s["kierunek_wiatru"]),
-    precipMm: num(s["suma_opadu"]), condition: "unknown",
+    precipMm: num(s["suma_opadu"]), uvIndex: null, condition: "unknown",
     observedAt: at,
   };
 }

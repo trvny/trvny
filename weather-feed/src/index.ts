@@ -2,14 +2,14 @@ import { CONFIG } from "./config";
 import { renderPage } from "./page";
 import { buildDayEnsembles, buildEnsemble } from "./ensemble";
 import {
-  currentChange, forecastRevision, renderAtom, warningEntries,
+  airQualityChange, currentChange, forecastRevision, renderAtom, warningEntries,
 } from "./feed";
 import {
-  type Env, fetchImgwStation, fetchImgwWarnings,
-  fetchOpenMeteo, fetchOpenWeather, fetchVisualCrossing,
+  type Env, fetchImgwStation, fetchImgwWarnings, fetchOpenMeteo,
+  fetchOpenMeteoAirQuality, fetchOpenWeather, fetchVisualCrossing,
 } from "./sources";
 import type {
-  CurrentState, DayEnsemble, Ensemble, FeedEntry, Reading, Warning,
+  AirQuality, CurrentState, DayEnsemble, Ensemble, FeedEntry, Reading, Warning,
 } from "./types";
 
 // KV keys. Writes happen ONLY in scheduled() — request path is read-only,
@@ -18,6 +18,7 @@ const K = {
   entries: "entries",
   baselineCurrent: "baseline:current",
   baselineForecast: "baseline:forecast",
+  baselineAir: "baseline:air",
   warnings: "warnings:active",
   current: "state:current",
 } as const;
@@ -38,12 +39,13 @@ async function pushEntries(env: Env, fresh: FeedEntry[]): Promise<void> {
   log("info", { msg: "entries appended", added: fresh.length, total: merged.length });
 }
 
-// ── current cycle: every 2h. Point ensemble + IMGW warnings + change detect ──
+// ── current cycle: every 2h. Point ensemble + air quality + IMGW warnings ────
 async function runCurrent(env: Env): Promise<void> {
-  const [om, ow, vc, warnings, station] = await Promise.all([
+  const [om, ow, vc, air, warnings, station] = await Promise.all([
     fetchOpenMeteo().catch(asNull("openmeteo")),
     fetchOpenWeather(env).catch(asNull("openweather")),
     fetchVisualCrossing(env).catch(asNull("visualcrossing")),
+    fetchOpenMeteoAirQuality().catch(asNull("airquality")),
     fetchImgwWarnings().catch(() => [] as Warning[]),
     fetchImgwStation(CONFIG.imgwStation).catch(() => null),
   ]);
@@ -53,22 +55,41 @@ async function runCurrent(env: Env): Promise<void> {
   log("info", { msg: "current sources", n: readings.length, sources: readings.map((r) => r.source) });
 
   const fresh: FeedEntry[] = [];
+  let ensemble: Ensemble | null = null;
 
   if (readings.length > 0) {
-    const ensemble = buildEnsemble(readings);
+    ensemble = buildEnsemble(readings);
     const prev = await load<Ensemble>(env, K.baselineCurrent);
     const entry = currentChange(prev, ensemble);
     if (entry) {
       fresh.push(entry);
       await env.WEATHER_KV.put(K.baselineCurrent, JSON.stringify(ensemble)); // bump baseline only on emit
     }
-    const state: CurrentState = { ensemble, warnings, imgwStation: station };
-    await env.WEATHER_KV.put(K.current, JSON.stringify(state));
+  }
+
+  // Air quality: emit only on AQI band change, baseline bumped on emit.
+  if (air) {
+    const prevAir = await load<AirQuality>(env, K.baselineAir);
+    const entry = airQualityChange(prevAir, air);
+    if (entry) {
+      fresh.push(entry);
+      await env.WEATHER_KV.put(K.baselineAir, JSON.stringify(air));
+    }
   }
 
   const prevWarnings = (await load<Warning[]>(env, K.warnings)) ?? [];
   fresh.push(...warningEntries(prevWarnings, warnings));
   await env.WEATHER_KV.put(K.warnings, JSON.stringify(warnings));
+
+  // Persist the latest snapshot for the page / state.json. Keep a prior ensemble
+  // if this cycle somehow had no point readings, so the page never goes blank.
+  if (ensemble) {
+    const state: CurrentState = { ensemble, warnings, airQuality: air, imgwStation: station };
+    await env.WEATHER_KV.put(K.current, JSON.stringify(state));
+  } else if (air) {
+    const prevState = await load<CurrentState>(env, K.current);
+    if (prevState) await env.WEATHER_KV.put(K.current, JSON.stringify({ ...prevState, warnings, airQuality: air }));
+  }
 
   await pushEntries(env, fresh);
 }

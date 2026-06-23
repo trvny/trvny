@@ -114,6 +114,9 @@ export function renderPage(origin: string): string {
     <div class="src" id="src"></div>
   </div>
 
+  <h2>Powietrze i pyłki</h2>
+  <div class="card" id="airCard"><p class="empty">—</p></div>
+
   <h2>Aktywne ostrzeżenia</h2>
   <div id="warnings"><p class="empty">—</p></div>
 
@@ -121,7 +124,7 @@ export function renderPage(origin: string): string {
   <div class="card" id="entries"><p class="empty">—</p></div>
 
   <footer>
-    Źródła: Open-Meteo · OpenWeather · Visual Crossing · IMGW-PIB.
+    Źródła: Open-Meteo · OpenWeather · Visual Crossing · IMGW-PIB · Open-Meteo Air Quality (CAMS).
     Aktualizacja co 2 h (pogoda) i raz dziennie (prognoza).
   </footer>
 </main>
@@ -158,7 +161,8 @@ export function renderPage(origin: string): string {
     el("metrics").innerHTML =
       "<span>wiatr <b>"+fmt(e.windMs.median)+"</b> m/s</span>"+
       "<span>wilgotność <b>"+fmt(e.humidity.median)+"</b>%</span>"+
-      "<span>ciśnienie <b>"+fmt(e.pressureHpa.median)+"</b> hPa</span>";
+      "<span>ciśnienie <b>"+fmt(e.pressureHpa.median)+"</b> hPa</span>"+
+      (e.uv && e.uv.median!=null ? "<span>UV <b>"+fmt(e.uv.median)+"</b></span>" : "");
     var names=(e.sources||[]).map(function(x){return SRC[x]||x;}).join(", ");
     var when = e.observedAt ? new Date(e.observedAt).toLocaleString("pl-PL") : "";
     el("src").textContent = (names?("Źródła: "+names):"")+(when?(" · "+when):"");
@@ -180,6 +184,27 @@ export function renderPage(origin: string): string {
     }).join("");
   }
 
+  function renderAir(aq){
+    var wrap=el("airCard");
+    if(!aq){ wrap.innerHTML='<p class="empty">Brak danych o jakości powietrza.</p>'; return; }
+    var bands=[[20,"bardzo dobra","#10b981"],[40,"dobra","#84cc16"],[60,"umiarkowana","#f59e0b"],[80,"zła","#f97316"],[100,"bardzo zła","#ef4444"],[1e9,"ekstremalnie zła","#7f1d1d"]];
+    var aqi=aq.europeanAqi, label="—", color="var(--muted)";
+    if(aqi!=null){ for(var i=0;i<bands.length;i++){ if(aqi<=bands[i][0]){ label=bands[i][1]; color=bands[i][2]; break; } } }
+    var html='<div class="now"><span class="temp" style="color:'+color+'">'+(aqi!=null?Math.round(aqi):"—")+'</span>'+
+      '<span><span class="cond" style="color:'+color+'">AQI — '+esc(label)+'</span><br>'+
+      '<span class="spread">PM2.5 '+fmt(aq.pm25)+' · PM10 '+fmt(aq.pm10)+' µg/m³</span></span></div>';
+    var P={alder:"olcha",birch:"brzoza",grass:"trawy",mugwort:"bylica",ragweed:"ambrozja"};
+    if(aq.pollen && aq.pollen.length){
+      html+='<div class="metrics">'+aq.pollen.map(function(p){
+        return "<span>"+esc(P[p.species]||p.species)+" <b>"+p.grains+"</b> ziaren/m³</span>";
+      }).join("")+'</div>';
+      html+='<div class="src">Pyłki orientacyjnie (CAMS, ziarna/m³); europejski indeks AQI.</div>';
+    } else {
+      html+='<div class="src">Brak istotnych pyłków; europejski indeks AQI.</div>';
+    }
+    wrap.innerHTML=html;
+  }
+
   function renderEntries(xmlText){
     var wrap=el("entries");
     try{
@@ -196,7 +221,7 @@ export function renderPage(origin: string): string {
   }
 
   fetch("/state.json").then(function(r){return r.json();}).then(function(s){
-    renderNow(s); renderWarnings(s && s.warnings);
+    renderNow(s); renderWarnings(s && s.warnings); renderAir(s && s.airQuality);
   }).catch(function(){ el("cond").textContent="nie udało się wczytać danych"; });
 
   fetch("/feed.atom").then(function(r){return r.text();}).then(renderEntries)

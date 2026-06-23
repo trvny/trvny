@@ -17,6 +17,7 @@ export interface Reading {
   windMs: number | null;
   windDir: number | null;      // degrees
   precipMm: number | null;     // last hour
+  uvIndex: number | null;      // 0–11+
   condition: Condition;
   observedAt: string;          // ISO
 }
@@ -28,6 +29,7 @@ export interface DayForecast {
   tMinC: number | null;
   precipMm: number | null;
   precipProb: number | null;   // %
+  uvIndexMax: number | null;   // 0–11+
   condition: Condition;
 }
 
@@ -46,6 +48,7 @@ export interface Ensemble {
   pressureHpa: Stat;
   windMs: Stat;
   precipMm: Stat;
+  uv: Stat;
   condition: Condition;        // majority vote, severity tie-break
   sources: SourceId[];
 }
@@ -56,6 +59,7 @@ export interface DayEnsemble {
   tMinC: Stat;
   precipMm: Stat;
   precipProb: Stat;
+  uvMax: Stat;
   condition: Condition;
   sources: SourceId[];
 }
@@ -73,9 +77,25 @@ export interface Warning {
   content: string;
 }
 
+// Single-source (Open-Meteo / CAMS) air-quality + pollen snapshot. NOT an
+// ensemble — only one provider exposes CAMS, so there's nothing to blend.
+export interface PollenReading {
+  species: string;             // key: alder|birch|grass|mugwort|ragweed
+  grains: number;              // grains/m³
+}
+export interface AirQuality {
+  observedAt: string;
+  europeanAqi: number | null;  // 0–100+ (banded)
+  pm25: number | null;         // µg/m³
+  pm10: number | null;         // µg/m³
+  pollen: PollenReading[];     // species with a positive concentration
+  topPollen: PollenReading | null;
+}
+
 export type EntryKind =
   | "warning_new" | "warning_lifted"
-  | "current_change" | "forecast_revision";
+  | "current_change" | "forecast_revision"
+  | "air_quality_change";
 
 export interface FeedEntry {
   id: string;                  // stable tag: URI
@@ -88,5 +108,6 @@ export interface FeedEntry {
 export interface CurrentState {
   ensemble: Ensemble;
   warnings: Warning[];
+  airQuality: AirQuality | null;
   imgwStation: Reading | null; // nearest synop, reference only
 }

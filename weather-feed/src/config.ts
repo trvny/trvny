@@ -18,6 +18,10 @@ export const CONFIG = {
 
   forecastDays: 7,
 
+  // Pollen species fetched from the Open-Meteo Air Quality API (CAMS European
+  // domain). Olive omitted — Mediterranean, irrelevant at this latitude.
+  pollenSpecies: ["alder", "birch", "grass", "mugwort", "ragweed"] as const,
+
   // Change-detection thresholds. Entries are emitted only when the new reading
   // crosses one of these vs the last *published* baseline (hysteresis — avoids
   // drift spam). Tune to taste.
@@ -26,6 +30,10 @@ export const CONFIG = {
     precipOnsetMm: 0.1,     // current precip starts/stops across this
     forecastTMaxC: 3,       // per-day |Δ tmax| to flag a revision
     forecastPrecipProb: 50, // per-day precip prob crossing this → revision
+    // UV and pollen are shown on the page/state but do NOT emit entries:
+    // UV swings 0↔high every day/night and pollen has no clean band, so
+    // triggering on them would flood the feed. Air quality DOES emit, keyed
+    // on the European AQI band changing (clean, well-defined boundaries).
   },
 
   maxEntries: 60,           // Atom ring-buffer length
@@ -36,4 +44,8 @@ export const SOURCE_LABEL: Record<string, string> = {
   openmeteo: "Open-Meteo",
   openweather: "OpenWeather",
   visualcrossing: "Visual Crossing",
+};
+
+export const POLLEN_PL: Record<string, string> = {
+  alder: "olcha", birch: "brzoza", grass: "trawy", mugwort: "bylica", ragweed: "ambrozja",
 };

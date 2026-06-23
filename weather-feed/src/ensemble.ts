@@ -45,6 +45,7 @@ export function buildEnsemble(readings: readonly Reading[]): Ensemble {
     pressureHpa: stat(readings.map((r) => r.pressureHpa)),
     windMs: stat(readings.map((r) => r.windMs)),
     precipMm: stat(readings.map((r) => r.precipMm)),
+    uv: stat(readings.map((r) => r.uvIndex)),
     condition: majority(readings.map((r) => r.condition)),
     sources,
   };
@@ -67,6 +68,7 @@ export function buildDayEnsembles(perSource: readonly DayForecast[][]): DayEnsem
       tMinC: stat(days.map((d) => d.tMinC)),
       precipMm: stat(days.map((d) => d.precipMm)),
       precipProb: stat(days.map((d) => d.precipProb)),
+      uvMax: stat(days.map((d) => d.uvIndexMax)),
       condition: majority(days.map((d) => d.condition)),
       sources: [...new Set(days.map((d) => d.source))] as SourceId[],
     }));

@@ -9,7 +9,7 @@ import {
   fetchOpenMeteoAirQuality, fetchOpenWeather, fetchVisualCrossing,
 } from "./sources";
 import type {
-  AirQuality, CurrentState, DayEnsemble, Ensemble, FeedEntry, Reading, Warning,
+  AirQuality, CurrentState, DayEnsemble, Ensemble, FeedEntry, Reading, SourceId, Warning,
 } from "./types";
 
 // KV keys. Writes happen ONLY in scheduled() — request path is read-only,
@@ -21,7 +21,13 @@ const K = {
   baselineAir: "baseline:air",
   warnings: "warnings:active",
   current: "state:current",
+  lastGood: "lastgood:current",
 } as const;
+
+// Point sources eligible for the last-good fallback (keyless OM rarely drops;
+// the keyed two are the ones that blip out — see runCurrent).
+const POINT_SOURCES: readonly SourceId[] = ["openmeteo", "openweather", "visualcrossing"];
+type LastGood = Partial<Record<SourceId, { reading: Reading; storedAt: number }>>;
 
 async function load<T>(env: Env, key: string): Promise<T | null> {
   return env.WEATHER_KV.get(key, "json") as Promise<T | null>;
@@ -50,8 +56,30 @@ async function runCurrent(env: Env): Promise<void> {
     fetchImgwStation(CONFIG.imgwStation).catch(() => null),
   ]);
 
-  const readings = [om?.current, ow?.current, vc?.current]
+  const liveReadings = [om?.current, ow?.current, vc?.current]
     .filter((r): r is Reading => r != null);
+
+  // Last-good fallback: for any point source that failed THIS tick, reuse its
+  // previous reading from KV (when fresh enough) so a single blip doesn't shrink
+  // the median. Live readings refresh the cache; cached fill-ins don't, so a
+  // persistently-dead source ages out of the cache and drops. See
+  // CONFIG.lastGoodMaxAgeMs.
+  const now = Date.now();
+  const cache = (await load<LastGood>(env, K.lastGood)) ?? {};
+  const readings: Reading[] = [...liveReadings];
+  for (const id of POINT_SOURCES) {
+    if (readings.some((r) => r.source === id)) continue;
+    const hit = cache[id];
+    if (hit && now - hit.storedAt <= CONFIG.lastGoodMaxAgeMs) {
+      readings.push(hit.reading);
+      log("info", { msg: "source from cache", source: id, ageMs: now - hit.storedAt });
+    }
+  }
+  if (liveReadings.length > 0) {
+    const next: LastGood = { ...cache };
+    for (const r of liveReadings) next[r.source] = { reading: r, storedAt: now };
+    await env.WEATHER_KV.put(K.lastGood, JSON.stringify(next));
+  }
   log("info", { msg: "current sources", n: readings.length, sources: readings.map((r) => r.source) });
 
   const fresh: FeedEntry[] = [];

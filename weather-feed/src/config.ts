@@ -44,6 +44,11 @@ export const CONFIG = {
   // the median for the whole 2h window. Does NOT rescue a blown daily quota.
   sourceRetries: 1,
   retryBaseMs: 300,         // backoff base; wait ≈ retryBaseMs * 2^(n-1) + jitter
+
+  // Last-good cache: if a point source fails a tick, reuse its previous reading
+  // from KV (when newer than this) so the median keeps all three. 3h covers one
+  // missed 2h cycle with margin; a source down longer legitimately drops out.
+  lastGoodMaxAgeMs: 3 * 60 * 60 * 1000,
 } as const;
 
 export const SOURCE_LABEL: Record<string, string> = {

@@ -9,13 +9,31 @@ export interface Env {
   VISUALCROSSING_KEY?: string;
 }
 
-// ── shared fetch helper (resilient: timeout + status check) ──────────────────
-// Throws on transport failure (so a retry layer could see it); returns null on
-// reached-but-unusable. JSON is validated per-source below, not blindly cast.
+// ── shared fetch helper (resilient: timeout + retry/backoff + status check) ──
+// Retries transient failures (timeout / 5xx / 429) up to CONFIG.sourceRetries
+// with exponential backoff + jitter. Returns null on reached-but-unusable
+// (e.g. 401/404 — won't fix itself within a tick); throws after exhausting
+// retries so the caller's asNull() logs which source failed and why. JSON is
+// validated per-source below, not blindly cast.
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
 async function getJson(url: string): Promise<unknown | null> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(CONFIG.sourceTimeoutMs) });
-  if (!res.ok) return null;
-  return res.json();
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= CONFIG.sourceRetries; attempt++) {
+    if (attempt > 0) {
+      await sleep(CONFIG.retryBaseMs * 2 ** (attempt - 1) + Math.floor(Math.random() * CONFIG.retryBaseMs));
+    }
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(CONFIG.sourceTimeoutMs) });
+      if (res.ok) return res.json();
+      if (RETRYABLE_STATUS.has(res.status)) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+      return null; // reached but unusable — no point retrying
+    } catch (e) {
+      lastErr = e; // timeout / transport — retry if attempts remain
+    }
+  }
+  throw lastErr ?? new Error(`getJson exhausted: ${url}`);
 }
 
 function num(v: unknown): number | null {

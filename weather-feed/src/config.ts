@@ -38,6 +38,12 @@ export const CONFIG = {
 
   maxEntries: 60,           // Atom ring-buffer length
   sourceTimeoutMs: 8000,
+
+  // One retry on transient failure (timeout / 5xx / 429). Rescues a slow or
+  // briefly-unavailable upstream so a single blip doesn't drop a source from
+  // the median for the whole 2h window. Does NOT rescue a blown daily quota.
+  sourceRetries: 1,
+  retryBaseMs: 300,         // backoff base; wait ≈ retryBaseMs * 2^(n-1) + jitter
 } as const;
 
 export const SOURCE_LABEL: Record<string, string> = {

@@ -73,11 +73,11 @@ interface ProjectResult {
 // ===========================================================================
 
 const TVPI_SLUGS = ["tvp1", "tvp2", "tvpinfo", "tvpsport", "tvpdokument", "tvpnauka", "tvprozrywka", "tvphistoria"];
-type TvpiSource = "cache" | "live" | "kv" | "raw" | "r2" | "unknown";
+type TvpiSource = "cache" | "live" | "d1" | "kv" | "raw" | "r2" | "unknown";
 
 function parseTvpiHeaders(headers: Headers): Map<string, TvpiSource> {
   const map = new Map<string, TvpiSource>();
-  for (const layer of ["cache", "live", "kv", "raw", "r2"] as TvpiSource[]) {
+  for (const layer of ["cache", "live", "d1", "kv", "raw", "r2"] as TvpiSource[]) {
     const raw = headers.get(`X-Source-${layer[0].toUpperCase()}${layer.slice(1)}`);
     if (!raw || raw === "none") continue;
     for (const slug of raw.split(",").map((s) => s.trim()).filter(Boolean)) map.set(slug, layer);
@@ -103,7 +103,7 @@ async function checkTvpi(env: Env, deep: boolean): Promise<ProjectResult> {
     const channels = await mapWithConcurrency(slugs, 4, async (slug) => {
       const src = sources.get(slug) ?? "unknown";
       const live = src === "live" || src === "cache";
-      const fallback = src === "kv" || src === "raw" || src === "r2";
+      const fallback = src === "d1" || src === "kv" || src === "raw" || src === "r2";
       const v: Verdict = live ? "ok" : fallback ? "degraded" : "down";
       const probe = deep && v !== "down" ? await probeTvpi(env, slug) : undefined;
       return { slug, source: src, verdict: v, probe };

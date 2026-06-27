@@ -11,4 +11,4 @@
 ### [![tvpi](https://s.tvp.pl/files/tvp.pl/images/vod-logo-header.png)](https://tvpi.pages.dev)
 ### [![feeds](http://www.feedicons.com/images/feed-icon-28x28.png)](https://travino.github.io/feeds)
 [feedseek](https://github.com/travino/feeds/tree/main/feedseek)
-### [weather](https://weather.travny.workers.dev)
+### [![weather](https://github.com/mrdarrengriffin/google-weather-icons/blob/main/sets/set-1/partly_cloudy.png)](https://weather.travny.workers.dev)

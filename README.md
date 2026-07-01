@@ -25,6 +25,8 @@
 | 🤖 | **[skills](.claude/skills)** | the Claude skill library that drives all of the above |
 | 💬 | **[quotes.json](https://gist.github.com/travino/167d2271e3cf7d21e118aa7d906a7d2c)** | rotating quote source |
 
+[📰](https://travino.github.io/feeds/reader)
+
 ### stuff/
 
 [`playlists`](/stuff/playlists) · [`configs`](/stuff/configs) · [`scripts`](/stuff/scripts) · [`feeds`](/stuff/feeds) · [`quotes`](/stuff/quotes) · [`other`](/stuff/other)

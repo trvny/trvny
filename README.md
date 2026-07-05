@@ -9,7 +9,7 @@
 [![feeds](https://img.shields.io/badge/feeds-live-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feeds)
 [![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://tvpi.pages.dev)
 [![weather](https://img.shields.io/badge/weather-worker-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.travny.workers.dev)
-[![skills](https://img.shields.io/badge/skills-claude-d97757?style=for-the-badge&logo=anthropic&logoColor=white)](.claude/skills)
+[![skills](https://img.shields.io/badge/skills-claude-d97757?style=for-the-badge&logo=anthropic&logoColor=white)](.claude)
 
 </div>
 

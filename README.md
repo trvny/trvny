@@ -13,6 +13,8 @@
 
 </div>
 
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=fff&style=for-the-badge)
+
 ---
 
 ### Live

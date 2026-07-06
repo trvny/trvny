@@ -31,6 +31,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: weather-feed/package-lock.json
       - run: npm install
       - name: Type check
         run: npm run typecheck
@@ -48,6 +50,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: weather-feed/package-lock.json
       - run: npm install
       - name: Deploy
         run: npx wrangler deploy

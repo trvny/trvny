@@ -27,6 +27,8 @@
 | 🤖 | **[skills](.claude/skills)** | the Claude skill library that drives all of the above |
 | 💬 | **[quotes.json](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)** | rotating quote source |
 
+![quotes](https://gists-readme.yizack.com/api/pin?user=trvny&id=167d2271e3cf7d21e118aa7d906a7d2c&owner=true)
+
 #### [![reader-📰](https://img.shields.io/badge/reader-📰-blueviolet?logo=rss)](https://trvny.github.io/feeds/reader)
 
 ### stuff/

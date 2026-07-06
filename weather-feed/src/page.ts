@@ -125,7 +125,8 @@ export function renderPage(origin: string): string {
 
   <footer>
     Źródła: Open-Meteo · OpenWeather · Visual Crossing · IMGW-PIB · Open-Meteo Air Quality (CAMS).
-    Aktualizacja co 2 h (pogoda) i raz dziennie (prognoza).
+    Aktualizacja co 2 h (pogoda) i raz dziennie (prognoza).<br>
+    <a href="https://tvpi.pages.dev/">tvpi ↗</a>
   </footer>
 </main>
 <div class="toast" id="toast"></div>

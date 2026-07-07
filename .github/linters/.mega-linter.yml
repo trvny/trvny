@@ -1,7 +1,7 @@
 # MegaLinter configuration
 # Docs: https://megalinter.io/latest/config-file/
 ---
-APPLY_FIXES: none
+APPLY_FIXES: all
 
 # REPOSITORY: secret/SAST scanning - GitHub secret scanning + Dependabot
 #   already cover this here
@@ -32,3 +32,4 @@ DISABLE_ERRORS_LINTERS:
 # stuff/: personal scratch dir (old scripts, quote/feed dumps, configs) -
 #   not maintained project code
 FILTER_REGEX_EXCLUDE: "(package-lock\\.json|\\.claude/|stuff/)"
+FLAVOR_SUGGESTIONS: false

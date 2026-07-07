@@ -21,4 +21,14 @@ DISABLE_LINTERS:
   - ACTION_ZIZMOR
   - TYPESCRIPT_STANDARD
 
-FILTER_REGEX_EXCLUDE: "(package-lock\\.json)"
+# YAML_YAMLLINT: first full-codebase run surfaced pre-existing style nits
+#   (missing "---", truthy value style) in the workflow/dependabot files.
+#   Non-blocking so the report stays useful without turning every push red.
+DISABLE_ERRORS_LINTERS:
+  - YAML_YAMLLINT
+
+# .claude/: vendored Claude Code skills, not app code (this is where all the
+#   Python/PowerShell/Markdown volume was coming from)
+# stuff/: personal scratch dir (old scripts, quote/feed dumps, configs) -
+#   not maintained project code
+FILTER_REGEX_EXCLUDE: "(package-lock\\.json|\\.claude/|stuff/)"

@@ -13,7 +13,7 @@
 
 </div>
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff&style=flat)](https://www.typescriptlang.org) [![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=fff&style=flat)](https://www.python.org) [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=fff&style=flat)](https://kotlinlang.org) [![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=fff&style=flat)](https://www.cloudflare.com) [![JSON](https://img.shields.io/badge/JSON-000?logo=json&logoColor=fff&style=flat)](https://json.org) ![Claude](https://img.shields.io/badge/Claude-D97757?logo=claudecode&logoColor=fff&style=flat)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=fff&style=flat)](https://www.typescriptlang.org) [![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=fff&style=flat)](https://www.python.org) [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=fff&style=flat)](https://kotlinlang.org) [![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=fff&style=flat)](https://www.cloudflare.com) [![JSON](https://img.shields.io/badge/JSON-000?logo=json&logoColor=fff&style=flat)](https://json.org) ![Claude](https://img.shields.io/badge/Claude-D97757?logo=claudecode&logoColor=fff&style=flat) [![npm](https://img.shields.io/badge/npm-CB3837?logo=npm&logoColor=fff&style=flat)](https://www.npmjs.com)
 
 ---
 

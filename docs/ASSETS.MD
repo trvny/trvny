@@ -1,1 +1,1 @@
-![MIT License](../assets/legal-license-mit.svg)
+![MIT License](../assets/legal-license-mit.svg) ![CreativeCommons](https://img.shields.io/badge/Creative%20Commons-ED592F?logo=creativecommons&logoColor=fff&style=for-the-badge) ![Unlicense](https://img.shields.io/badge/Unlicense-808080?logo=unlicense&logoColor=fff&style=for-the-badge)

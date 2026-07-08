@@ -1,1 +1,5 @@
-![MIT License](../assets/legal-license-mit.svg) ![CreativeCommons](https://img.shields.io/badge/Creative%20Commons-ED592F?logo=creativecommons&logoColor=fff&style=for-the-badge) ![Unlicense](https://img.shields.io/badge/Unlicense-808080?logo=unlicense&logoColor=fff&style=for-the-badge)
+![MIT License](../assets/legal-license-mit.svg)
+![CreativeCommons](https://img.shields.io/badge/Creative%20Commons-ED592F?logo=creativecommons&logoColor=fff&style=for-the-badge)
+[![License: CC0-1.0](https://licensebuttons.net/l/zero/1.0/80x15.png)](http://creativecommons.org/publicdomain/zero/1.0/)
+[![License: CC BY 4.0](https://licensebuttons.net/l/by/4.0/80x15.png)](https://creativecommons.org/licenses/by/4.0/)
+![Unlicense](https://img.shields.io/badge/Unlicense-808080?logo=unlicense&logoColor=fff&style=for-the-badge)

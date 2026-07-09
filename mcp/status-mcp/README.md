@@ -15,10 +15,10 @@ roll-up — a morning check in a single invocation.
 
 ### `status`
 
-| arg | type | default | meaning |
-|---|---|---|---|
-| `project` | `tvpi`\|`feeds`\|`autka` | — | scope to one; omit for all three |
-| `deep` | boolean | `false` | tvpi only: also probe each channel's `.m3u8` redirect |
+| arg       | type                     | default | meaning                                               |
+|-----------|--------------------------|---------|-------------------------------------------------------|
+| `project` | `tvpi`\|`feeds`\|`autka` | —       | scope to one; omit for all three                      |
+| `deep`    | boolean                  | `false` | tvpi only: also probe each channel's `.m3u8` redirect |
 
 - **tvpi** — reads `/playlist.m3u`'s `X-Source-*` headers: `live`/`cache` = ok,
   `kv`/`raw`/`r2` = degraded, absent = down.

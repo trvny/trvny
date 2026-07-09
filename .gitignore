@@ -660,6 +660,7 @@ yarn-error.log*
 ~$*.doc*
 ~$*.ppt*
 ~$*.xls*
+megalinter-reports/
 
 # --- negations/keep-rules --- (!) kept at the end so they win on last-match
 !**/[Pp]ackages/build/

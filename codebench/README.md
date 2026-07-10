@@ -1,27 +1,37 @@
-# Code Bench — deploy
+# Code Bench — QR & Barcode Studio
 
-Static, client-side QR & barcode studio. One HTML file in `public/`. No build step, no backend.
+Static, client-side app. One HTML file in `public/`, no backend. The three runtime
+libraries (qr-code-styling, bwip-js, ZXing) are pulled from npm at build time into
+`public/vendor/` — so the deployed site loads nothing from a CDN and works offline.
 
-## Cloudflare Workers (recommended)
+## Deploy via Cloudflare Workers Builds (CI, recommended)
 
-Assets-only Worker — no server code. Lands on `https://codebench.<your-subdomain>.workers.dev`, which gives you the https the camera scanner needs.
+This lives in the `trvny/trvny` monorepo under `codebench/`. One-time dashboard setup:
 
-```bash
-npx wrangler deploy
-```
+1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Import a repository**.
+2. Connect the GitHub account and pick **trvny/trvny**.
+3. Configure the build:
+   - **Worker name:** `codebench`
+   - **Root directory:** `codebench`
+   - **Build command:** `npm run build`
+   - **Deploy command:** `npx wrangler deploy`
+   (install runs automatically)
+4. **Save and Deploy.**
 
-First run opens a browser to authorize your Cloudflare account. That's it.
+Lands on `https://codebench.<your-subdomain>.workers.dev` (https — the camera scanner needs it).
+Every push that touches `codebench/**` on `main` redeploys. To avoid rebuilds on unrelated
+monorepo changes, set **Build watch paths** to `codebench/*` in the build settings.
 
-- Local preview: `npx wrangler dev`
-- Rename the deployment: edit `name` in `wrangler.jsonc`.
-- Custom domain: Workers dashboard → your Worker → Settings → Domains & Routes → add a domain on a zone you control.
+## Deploy from your machine (no dashboard)
 
-## Alternatives
+    cd codebench
+    npm install
+    npm run deploy      # runs the vendor build, then `wrangler deploy`
 
-**Cloudflare Pages** (drag-and-drop, no CLI): dashboard → Workers & Pages → Create → Pages → upload the `public/` folder.
+`npm run dev` for a local preview at localhost.
 
-**Anything else static** (Netlify, GitHub Pages, Vercel, an S3 bucket, your own nginx): just serve the `public/` folder over https. Fully self-contained — the three libraries (qr-code-styling, bwip-js, ZXing) are vendored in `public/vendor/`, so nothing loads from a CDN and it works offline / on locked-down networks.
+## Notes
 
-## Note on the camera
-
-Camera scanning requires a secure context (https or `localhost`). Any of the options above satisfy that. Opening the file directly from disk (`file://`) will not.
+- `public/vendor/` and `node_modules/` are gitignored; the build regenerates vendor/.
+- Bump a library by editing its version in `package.json` — next build picks it up.
+- Camera scanning needs a secure context (https or localhost); `file://` won't work.

@@ -1,0 +1,13 @@
+{
+  "name": "codebench",
+  "private": true,
+  "version": "1.0.0",
+  "description": "QR & Barcode Studio — static, client-side.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

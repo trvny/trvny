@@ -13,14 +13,20 @@ DISABLE:
   - SPELL
   - COPYPASTE
 
-# ACTION_ZIZMOR: same as autka/tvpi - real workflow-security debt, worth its
-#   own pass, not blocking this rollout.
+# ACTION_ZIZMOR: now enabled and green (see below + .github/zizmor.yml).
+#   Runs offline; unpinned-uses waived to ref-pin; artipacked fixed via
+#   persist-credentials on the read-only deploy checkouts.
 # TYPESCRIPT_STANDARD: can't locate tsconfig.json from repo root - two
 #   independent TS projects (weather-feed/, mcp/status-mcp/); revisit with
 #   explicit --project args if you want this back.
 DISABLE_LINTERS:
-  - ACTION_ZIZMOR
   - TYPESCRIPT_STANDARD
+
+# ACTION_ZIZMOR: run offline (no GitHub API -> no ref-confusion crash) and
+#   fail CI only on low+ severity. See .github/zizmor.yml for the ref-pin policy.
+ACTION_ZIZMOR_ARGUMENTS:
+  - "--offline"
+  - "--min-severity=low"
 
 # YAML_YAMLLINT: first full-codebase run surfaced pre-existing style nits
 #   (missing "---", truthy value style) in the workflow/dependabot files.

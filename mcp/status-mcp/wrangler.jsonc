@@ -4,7 +4,16 @@
   "main": "src/index.ts",
   "compatibility_date": "2025-06-01",
   "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true },
+  "observability": { "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 0.5,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false
+    }
+  }
   // Same-account Workers reached via internal service bindings (a public
   // workers.dev fetch between same-account Workers hairpins and fails).
   "services": [

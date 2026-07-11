@@ -13,7 +13,7 @@
     "traces": {
       "enabled": false
     }
-  }
+  },
   // Same-account Workers reached via internal service bindings (a public
   // workers.dev fetch between same-account Workers hairpins and fails).
   "services": [

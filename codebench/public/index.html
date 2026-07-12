@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="vendor/qr-code-styling.js"></script>
 <script src="vendor/bwip-js-min.js"></script>
-<script src="vendor/zxing.min.js"></script>
+<script src="vendor/zxing-wasm-reader.js"></script>
 <style>
   :root{
     --paper:#F1EFE8; --ink:#16150F; --accent:#DA2B1F; --accent-ink:#B21E14;
@@ -490,12 +490,15 @@ $$(".tab").forEach(t=>t.addEventListener("click",()=>{
 function goTab(id){$$(".tab").forEach(t=>t.click&&(t.dataset.tab===id&&t.click()));}
 
 /* ======================================================
-   SCAN / READ  (ZXing)
+   SCAN / READ  (ZXing-C++ WASM — zxing-wasm)
 ====================================================== */
-const ZX=window.ZXing;
-const fmtName=(f)=>{try{return Object.keys(ZX.BarcodeFormat).find(k=>ZX.BarcodeFormat[k]===f)||"UNKNOWN";}catch(e){return"?";}};
-function readerHints(){const h=new Map();h.set(ZX.DecodeHintType.TRY_HARDER,true);return h;}
-const imgReader=new ZX.BrowserMultiFormatReader(readerHints());
+const ZXW=window.ZXingWASM;
+const SCAN_OPTS={tryHarder:true,tryRotate:true,tryInvert:true,tryDownscale:true,maxNumberOfSymbols:1};
+if(ZXW&&ZXW.setZXingModuleOverrides)ZXW.setZXingModuleOverrides({locateFile:(p,pre)=>p.endsWith(".wasm")?"vendor/zxing_reader.wasm":(pre||"")+p});
+let _zxReady=null;
+function zxReady(){if(!_zxReady&&ZXW&&ZXW.prepareZXingModule)_zxReady=ZXW.prepareZXingModule({fireImmediately:true}).catch(()=>{});return _zxReady;}
+const scanCanvas=document.createElement("canvas");
+const sctx=scanCanvas.getContext("2d",{willReadFrequently:true});
 
 function showResult(text,format){
   $("#resVal").textContent=text;
@@ -525,47 +528,71 @@ fileInput.onchange=e=>{const f=e.target.files[0];if(f)decodeFile(f);};
 async function decodeFile(file){
   $("#fileErr").classList.add("hidden");
   if(!file.type.startsWith("image/")){$("#fileErr").textContent="That's not an image file.";$("#fileErr").classList.remove("hidden");return;}
-  const url=URL.createObjectURL(file);
-  try{
-    const res=await imgReader.decodeFromImageUrl(url);
-    showResult(res.getText(),fmtName(res.getBarcodeFormat()));
-    toast("Decoded");
-  }catch(err){
-    $("#fileErr").textContent="No code found in that image. Try a sharper, better-lit, or more tightly cropped shot.";
-    $("#fileErr").classList.remove("hidden");
-  }finally{URL.revokeObjectURL(url);}
+  if(!ZXW){$("#fileErr").textContent="Scanner failed to load — try reloading.";$("#fileErr").classList.remove("hidden");return;}
+  let results;
+  try{results=await ZXW.readBarcodes(file,SCAN_OPTS);}
+  catch(e){$("#fileErr").textContent="Couldn't decode that image: "+(e.message||e);$("#fileErr").classList.remove("hidden");return;}
+  const r=results&&results.find(x=>x.isValid&&x.text);
+  if(r){showResult(r.text,r.format);toast("Decoded");}
+  else{$("#fileErr").textContent="No code found in that image. Try a sharper, better-lit, or more tightly cropped shot.";$("#fileErr").classList.remove("hidden");}
 }
 
-/* camera */
-let camReader=null,camDevices=[],camIdx=0;
+/* camera (manual frame loop -> zxing-wasm readBarcodes) */
+let camStream=null,camDevices=[],camIdx=0,scanTimer=null,scanBusy=false,lastHit="";
+async function refreshCamList(){try{const ds=await navigator.mediaDevices.enumerateDevices();camDevices=ds.filter(d=>d.kind==="videoinput");}catch(e){camDevices=[];}}
+async function openStream(){
+  const dev=camDevices[camIdx];
+  const constraints=dev&&dev.deviceId?{video:{deviceId:{exact:dev.deviceId}}}:{video:{facingMode:{ideal:"environment"}}};
+  camStream=await navigator.mediaDevices.getUserMedia(constraints);
+  const v=$("#video");v.srcObject=camStream;await v.play();
+}
 async function startCam(){
   $("#camErr").classList.add("hidden");
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    camErr("This browser has no camera access. A page served over https or localhost is required.");return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){camErr("This browser has no camera access. A page served over https or localhost is required.");return;}
+  if(!ZXW){camErr("Scanner failed to load — try reloading.");return;}
   try{
-    camReader=new ZX.BrowserMultiFormatReader(readerHints());
-    camDevices=await camReader.listVideoInputDevices();
-    if(!camDevices.length){camErr("No camera found on this device.");return;}
-    // prefer a back/rear camera
-    let i=camDevices.findIndex(d=>/back|rear|environment/i.test(d.label));
-    camIdx=i>=0?i:camDevices.length-1;
-    await runCam();
+    zxReady();
+    await refreshCamList();
+    const i=camDevices.findIndex(d=>/back|rear|environment/i.test(d.label));
+    camIdx=i>=0?i:0;
+    await openStream();
+    await refreshCamList();
     $("#video").style.display="block";
     $("#camStart").disabled=true;$("#camStop").disabled=false;
     $("#camSwitch").disabled=camDevices.length<2;
+    lastHit="";startLoop();
   }catch(e){camErr("Couldn't open the camera: "+(e.message||e.name||e));}
 }
-async function runCam(){
-  await camReader.decodeFromVideoDevice(camDevices[camIdx].deviceId,$("#video"),(result,err)=>{
-    if(result)showResult(result.getText(),fmtName(result.getBarcodeFormat()));
-  });
+function startLoop(){stopLoop();scanTimer=setInterval(scanFrame,220);}
+function stopLoop(){if(scanTimer){clearInterval(scanTimer);scanTimer=null;}scanBusy=false;}
+async function scanFrame(){
+  if(scanBusy||!ZXW)return;
+  const v=$("#video");if(!v.videoWidth)return;
+  const scale=Math.min(1,640/v.videoWidth);
+  const w=Math.max(1,Math.round(v.videoWidth*scale)),h=Math.max(1,Math.round(v.videoHeight*scale));
+  if(scanCanvas.width!==w||scanCanvas.height!==h){scanCanvas.width=w;scanCanvas.height=h;}
+  sctx.drawImage(v,0,0,w,h);
+  let img;try{img=sctx.getImageData(0,0,w,h);}catch(e){return;}
+  scanBusy=true;
+  try{
+    const results=await ZXW.readBarcodes(img,SCAN_OPTS);
+    const r=results&&results.find(x=>x.isValid&&x.text);
+    if(r&&r.text!==lastHit){lastHit=r.text;showResult(r.text,r.format);toast("Decoded");}
+  }catch(e){}finally{scanBusy=false;}
 }
-function stopCam(){if(camReader){camReader.reset();camReader=null;}$("#video").style.display="none";
+function stopStream(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}}
+function stopCam(){stopLoop();stopStream();$("#video").style.display="none";
   $("#camStart").disabled=false;$("#camStop").disabled=true;$("#camSwitch").disabled=true;}
 function camErr(m){$("#camErr").textContent=m;$("#camErr").classList.remove("hidden");}
 $("#camStart").onclick=startCam;
 $("#camStop").onclick=stopCam;
-$("#camSwitch").onclick=async()=>{if(!camReader)return;camReader.reset();camIdx=(camIdx+1)%camDevices.length;await runCam();};
+$("#camSwitch").onclick=async()=>{
+  if(!camDevices.length)return;
+  stopLoop();stopStream();
+  camIdx=(camIdx+1)%camDevices.length;
+  try{await openStream();lastHit="";startLoop();}
+  catch(e){camErr("Couldn't switch camera: "+(e.message||e.name||e));}
+};
 
 /* ======================================================
    QR GENERATOR  (qr-code-styling)
@@ -678,7 +705,7 @@ $("#qLogo").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new File
 $("#qLogoRemove").onclick=()=>{qrLogoData=null;$("#qLogo").value="";$("#qLogoRemove").style.display="none";renderQR();};
 $("#qrPng").onclick=async()=>{if(!qr)return;if($("#qFrame").checked){const b=await framedPngBlob();if(b)download(b,"qr-"+qrType+".png");}else qr.download({name:"qr-"+qrType,extension:"png"});};
 $("#qrSvg").onclick=async()=>{if(!qr)return;if($("#qFrame").checked){const bare=await qrBareSVG();if(bare)download(new Blob([frameSVG(bare,frameOpts())],{type:"image/svg+xml"}),"qr-"+qrType+".svg");}else qr.download({name:"qr-"+qrType,extension:"svg"});};
-$("#qrCopy").onclick=async()=>{if($("#qFrame").checked){const b=await framedPngBlob();if(b){try{await navigator.clipboard.write([new ClipboardItem({"image/png":b})]);toast("PNG copied to clipboard");}catch(e){toast("Copy not supported here \u2014 use Download");}}else toast("Render first");return;}const c=$("#qrHost").querySelector("canvas");if(c)copyCanvasPng(c);else toast("Render first");};
+$("#qrCopy").onclick=async()=>{if($("#qFrame").checked){const b=await framedPngBlob();if(b){try{await navigator.clipboard.write([new ClipboardItem({"image/png":b})]);toast("PNG copied to clipboard");}catch(e){toast("Copy not supported here — use Download");}}else toast("Render first");return;}const c=$("#qrHost").querySelector("canvas");if(c)copyCanvasPng(c);else toast("Render first");};
 
 /* ---- QR frame & caption (custom, zero-dep) ---- */
 function escXml(x){return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
@@ -874,6 +901,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#printModal").cl
 window.addEventListener("DOMContentLoaded",()=>{
   pickTemplate("url");
   updBHint();renderBar();
+  zxReady();
 });
 window.addEventListener("beforeunload",stopCam);
 </script>

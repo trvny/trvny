@@ -163,6 +163,9 @@
     body.printing #printRoot{display:block!important;position:static;overflow:visible}
     #printRoot .sheet{box-shadow:none!important;margin:0!important}
   }
+  #qrFramed{width:100%}
+  #qrFramed>svg{display:block;max-width:100%;height:auto;margin:0 auto}
+  #qrFramed>svg svg{max-width:none}
 </style>
 </head>
 <body>
@@ -299,6 +302,22 @@
               <label class="toggle" style="align-self:end;margin-bottom:14px"><input type="checkbox" id="qLogoClear" checked> Clear dots behind</label>
             </div>
             <button class="btn ghost" id="qLogoRemove" style="display:none">Remove logo</button>
+          </fieldset>
+          <fieldset>
+            <legend>Frame &amp; caption</legend>
+            <label class="toggle"><input type="checkbox" id="qFrame"> Add frame around the QR</label>
+            <div id="qFrameOpts" style="display:none">
+              <label class="f"><span>Caption text</span><input type="text" id="qFrameText" value="SCAN ME"></label>
+              <label class="f"><span>Caption side</span><select id="qFrameSide"><option value="bottom" selected>Bottom</option><option value="top">Top</option><option value="both">Both</option><option value="none">None (border only)</option></select></label>
+              <div class="row">
+                <label class="f"><span>Thickness</span><input type="range" id="qFrameThick" min="1" max="12" step="1" value="5"></label>
+                <label class="f"><span>Corner round</span><input type="range" id="qFrameRound" min="0" max="24" step="1" value="8"></label>
+              </div>
+              <div class="row">
+                <label class="f"><span>Frame color</span><input type="color" id="qFrameColor" value="#16150f"></label>
+                <label class="f"><span>Caption color</span><input type="color" id="qFrameTextColor" value="#ffffff"></label>
+              </div>
+            </div>
           </fieldset>
         </div>
       </div>
@@ -633,6 +652,7 @@ function renderQR(){
   if(!qr){qr=new QRCodeStyling(o);qr.append($("#qrHost"));}
   else qr.update(o);
   $("#qrStat").textContent=`QR · ${qrType} · EC ${$("#qEc").value}`;
+  updateFramed();
 }
 // gradient toggle UI
 $("#qGrad").onchange=e=>{$("#qFg2Wrap").style.display=e.target.checked?"":"none";$("#qFgLabel").textContent=e.target.checked?"Dots 1":"Dots";renderQR();};
@@ -640,9 +660,54 @@ $("#qTransparent").onchange=e=>{$("#qBg").disabled=e.target.checked;renderQR();}
 ["qDot","qCornerSq","qCornerDot","qEc","qFg","qFg2","qBg","qSize","qMargin","qLogoSize","qLogoClear"].forEach(id=>{$("#"+id).addEventListener("input",renderQR);});
 $("#qLogo").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{qrLogoData=r.result;$("#qLogoRemove").style.display="";renderQR();};r.readAsDataURL(f);};
 $("#qLogoRemove").onclick=()=>{qrLogoData=null;$("#qLogo").value="";$("#qLogoRemove").style.display="none";renderQR();};
-$("#qrPng").onclick=()=>qr&&qr.download({name:"qr-"+qrType,extension:"png"});
-$("#qrSvg").onclick=()=>qr&&qr.download({name:"qr-"+qrType,extension:"svg"});
-$("#qrCopy").onclick=async()=>{const c=$("#qrHost").querySelector("canvas");if(c)copyCanvasPng(c);else toast("Render first");};
+$("#qrPng").onclick=async()=>{if(!qr)return;if($("#qFrame").checked){const b=await framedPngBlob();if(b)download(b,"qr-"+qrType+".png");}else qr.download({name:"qr-"+qrType,extension:"png"});};
+$("#qrSvg").onclick=async()=>{if(!qr)return;if($("#qFrame").checked){const bare=await qrBareSVG();if(bare)download(new Blob([frameSVG(bare,frameOpts())],{type:"image/svg+xml"}),"qr-"+qrType+".svg");}else qr.download({name:"qr-"+qrType,extension:"svg"});};
+$("#qrCopy").onclick=async()=>{if($("#qFrame").checked){const b=await framedPngBlob();if(b){try{await navigator.clipboard.write([new ClipboardItem({"image/png":b})]);toast("PNG copied to clipboard");}catch(e){toast("Copy not supported here \u2014 use Download");}}else toast("Render first");return;}const c=$("#qrHost").querySelector("canvas");if(c)copyCanvasPng(c);else toast("Render first");};
+
+/* ---- QR frame & caption (custom, zero-dep) ---- */
+function escXml(x){return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function qrSvgSize(svg){let m=/viewBox="[\d.]+ [\d.]+ ([\d.]+) [\d.]+"/i.exec(svg);if(m)return +m[1];let w=/\bwidth="([\d.]+)/i.exec(svg);return w?+w[1]:600;}
+function frameOpts(){return{text:$("#qFrameText").value,side:$("#qFrameSide").value,thick:+$("#qFrameThick").value||5,round:+$("#qFrameRound").value||0,color:$("#qFrameColor").value,textColor:$("#qFrameTextColor").value};}
+function frameSVG(bare,o){
+  const S=qrSvgSize(bare);
+  const B=Math.max(2,Math.round(S*o.thick/100));
+  const band=Math.round(S*0.15);
+  const hasTop=(o.side==="top"||o.side==="both")&&o.text.trim()!=="";
+  const hasBot=(o.side==="bottom"||o.side==="both")&&o.text.trim()!=="";
+  const topPad=hasTop?Math.max(B,band):B, botPad=hasBot?Math.max(B,band):B;
+  const W=S+2*B, H=topPad+S+botPad, rnd=Math.round(S*o.round/100), t=escXml(o.text);
+  const font="font-family=\"'Space Grotesk',system-ui,sans-serif\" font-weight=\"700\"";
+  let caps="";
+  if(hasTop){const fs=Math.max(10,Math.round(topPad*0.42));caps+=`<text x="${W/2}" y="${topPad/2}" text-anchor="middle" dominant-baseline="central" ${font} font-size="${fs}" fill="${o.textColor}">${t}</text>`;}
+  if(hasBot){const fs=Math.max(10,Math.round(botPad*0.42));caps+=`<text x="${W/2}" y="${topPad+S+botPad/2}" text-anchor="middle" dominant-baseline="central" ${font} font-size="${fs}" fill="${o.textColor}">${t}</text>`;}
+  const inner=bare.replace(/^\s*(?:<\?xml[^>]*>\s*)?<svg\b[^>]*>/i,`<svg x="${B}" y="${topPad}" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}" preserveAspectRatio="xMidYMid meet">`);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="0" y="0" width="${W}" height="${H}" rx="${rnd}" ry="${rnd}" fill="${o.color}"/>${caps}${inner}</svg>`;
+}
+async function qrBareSVG(){if(!qr)return null;try{const b=await qr.getRawData("svg");return typeof b==="string"?b:await b.text();}catch(e){return null;}}
+async function updateFramed(){
+  const on=$("#qFrame")&&$("#qFrame").checked;
+  const canvas=$("#qrHost").querySelector("canvas");
+  let host=$("#qrFramed");
+  if(!on){if(host)host.style.display="none";if(canvas)canvas.style.display="";return;}
+  if(canvas)canvas.style.display="none";
+  if(!host){host=document.createElement("div");host.id="qrFramed";$("#qrHost").appendChild(host);}
+  host.style.display="";
+  const bare=await qrBareSVG();
+  host.innerHTML=bare?frameSVG(bare,frameOpts()):"";
+}
+async function framedPngBlob(){
+  const bare=await qrBareSVG();if(!bare)return null;
+  const svg=frameSVG(bare,frameOpts());
+  const wM=/width="([\d.]+)"/.exec(svg),hM=/height="([\d.]+)"/.exec(svg);
+  const W=wM?+wM[1]:600,H=hM?+hM[1]:600,scale=2;
+  const img=new Image();
+  await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=svgURL(svg);});
+  const c=document.createElement("canvas");c.width=Math.round(W*scale);c.height=Math.round(H*scale);
+  const ctx=c.getContext("2d");ctx.setTransform(scale,0,0,scale,0,0);ctx.drawImage(img,0,0,W,H);
+  return await new Promise(r=>c.toBlob(r,"image/png"));
+}
+$("#qFrame").onchange=e=>{$("#qFrameOpts").style.display=e.target.checked?"":"none";updateFramed();};
+["qFrameText","qFrameSide","qFrameThick","qFrameRound","qFrameColor","qFrameTextColor"].forEach(id=>{const el=$("#"+id);if(el)el.addEventListener("input",updateFramed);});
 
 /* ======================================================
    BARCODE / 2D  (bwip-js)
@@ -707,7 +772,7 @@ function svgAspect(svg){
 async function currentSVG(){
   if(printSrc==="qr"){
     if(!qr)return null;
-    try{const b=await qr.getRawData("svg");return typeof b==="string"?b:await b.text();}
+    try{const b=await qr.getRawData("svg");let sv=typeof b==="string"?b:await b.text();return ($("#qFrame")&&$("#qFrame").checked)?frameSVG(sv,frameOpts()):sv;}
     catch(e){
       const c=$("#qrHost").querySelector("canvas");
       if(!c)return null;

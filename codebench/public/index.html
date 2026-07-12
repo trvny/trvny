@@ -351,6 +351,9 @@
                 <option value="azteccode">Aztec</option>
                 <option value="pdf417">PDF417</option>
                 <option value="qrcode">QR Code (plain)</option>
+                <option value="microqrcode">Micro QR</option>
+                <option value="gs1datamatrix">GS1 DataMatrix</option>
+                <option value="maxicode">MaxiCode</option>
               </optgroup>
               <optgroup label="1D linear">
                 <option value="code128" selected>Code 128</option>
@@ -365,6 +368,19 @@
                 <option value="code93">Code 93</option>
                 <option value="msi">MSI</option>
                 <option value="pharmacode">Pharmacode</option>
+                <option value="gs1-128">GS1-128</option>
+                <option value="code11">Code 11</option>
+                <option value="isbn">ISBN</option>
+                <option value="pzn">PZN (pharma)</option>
+                <option value="telepen">Telepen</option>
+              </optgroup>
+              <optgroup label="Postal">
+                <option value="postnet">POSTNET (US)</option>
+                <option value="onecode">USPS Intelligent Mail</option>
+                <option value="royalmail">Royal Mail (UK)</option>
+                <option value="kix">Dutch KIX</option>
+                <option value="auspost">Australia Post</option>
+                <option value="japanpost">Japan Post</option>
               </optgroup>
             </select>
           </label>
@@ -677,9 +693,11 @@ function frameSVG(bare,o){
   const topPad=hasTop?Math.max(B,band):B, botPad=hasBot?Math.max(B,band):B;
   const W=S+2*B, H=topPad+S+botPad, rnd=Math.round(S*o.round/100), t=escXml(o.text);
   const font="font-family=\"'Space Grotesk',system-ui,sans-serif\" font-weight=\"700\"";
+  const availW=Math.round(W*0.9), tlen=o.text.trim().length;
+  const fit=fs=>tlen*fs*0.6>availW?` textLength="${availW}" lengthAdjust="spacingAndGlyphs"`:"";
   let caps="";
-  if(hasTop){const fs=Math.max(10,Math.round(topPad*0.42));caps+=`<text x="${W/2}" y="${topPad/2}" text-anchor="middle" dominant-baseline="central" ${font} font-size="${fs}" fill="${o.textColor}">${t}</text>`;}
-  if(hasBot){const fs=Math.max(10,Math.round(botPad*0.42));caps+=`<text x="${W/2}" y="${topPad+S+botPad/2}" text-anchor="middle" dominant-baseline="central" ${font} font-size="${fs}" fill="${o.textColor}">${t}</text>`;}
+  if(hasTop){const fs=Math.max(10,Math.round(topPad*0.42));caps+=`<text x="${W/2}" y="${topPad/2}" text-anchor="middle" dominant-baseline="central" ${font} font-size="${fs}"${fit(fs)} fill="${o.textColor}">${t}</text>`;}
+  if(hasBot){const fs=Math.max(10,Math.round(botPad*0.42));caps+=`<text x="${W/2}" y="${topPad+S+botPad/2}" text-anchor="middle" dominant-baseline="central" ${font} font-size="${fs}"${fit(fs)} fill="${o.textColor}">${t}</text>`;}
   const inner=bare.replace(/^\s*(?:<\?xml[^>]*>\s*)?<svg\b[^>]*>/i,`<svg x="${B}" y="${topPad}" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}" preserveAspectRatio="xMidYMid meet">`);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect x="0" y="0" width="${W}" height="${H}" rx="${rnd}" ry="${rnd}" fill="${o.color}"/>${caps}${inner}</svg>`;
 }
@@ -712,8 +730,8 @@ $("#qFrame").onchange=e=>{$("#qFrameOpts").style.display=e.target.checked?"":"no
 /* ======================================================
    BARCODE / 2D  (bwip-js)
 ====================================================== */
-const twoD=new Set(["datamatrix","azteccode","pdf417","qrcode"]);
-const bHints={code128:"Any ASCII text or numbers.",ean13:"Exactly 12 digits (13th is auto check digit).",ean8:"Exactly 7 digits.",upca:"Exactly 11 digits.",upce:"6 digits.",code39:"Uppercase A–Z, 0–9, and - . $ / + % space.",itf14:"14 digits (13 + check).",interleaved2of5:"Even number of digits.",codabar:"Digits and - $ : / . +, wrapped in A–D start/stop.",code93:"Uppercase alphanumeric.",msi:"Digits only.",pharmacode:"Number 3–131070.",datamatrix:"Any text — compact 2D matrix.",azteccode:"Any text — no quiet zone needed.",pdf417:"Any text — stacked 2D, holds a lot.",qrcode:"Any text (plain QR — use tab 02 for styled QR)."};
+const twoD=new Set(["datamatrix","azteccode","pdf417","qrcode","microqrcode","gs1datamatrix","maxicode","postnet","onecode","royalmail","kix","auspost","japanpost"]);
+const bHints={code128:"Any ASCII text or numbers.",ean13:"Exactly 12 digits (13th is auto check digit).",ean8:"Exactly 7 digits.",upca:"Exactly 11 digits.",upce:"6 digits.",code39:"Uppercase A–Z, 0–9, and - . $ / + % space.",itf14:"14 digits (13 + check).",interleaved2of5:"Even number of digits.",codabar:"Digits and - $ : / . +, wrapped in A–D start/stop.",code93:"Uppercase alphanumeric.",msi:"Digits only.",pharmacode:"Number 3–131070.",datamatrix:"Any text — compact 2D matrix.",azteccode:"Any text — no quiet zone needed.",pdf417:"Any text — stacked 2D, holds a lot.",qrcode:"Any text (plain QR — use tab 02 for styled QR).",microqrcode:"Small QR — short payloads only.",gs1datamatrix:"GS1 AI syntax, e.g. (01)09521234543213.",maxicode:"UPS structured carrier data.","gs1-128":"GS1-128 — AI syntax, e.g. (01)0952...(3103)000123.",code11:"Digits and dashes.",isbn:"ISBN-13, e.g. 978-1-56581-231-4.",pzn:"German pharma number — up to 7 digits.",telepen:"Any ASCII (Telepen).",postnet:"US ZIP digits.",onecode:"USPS Intelligent Mail — 20/25/29/31 digits.",royalmail:"UK postal alphanumeric (RM4SCC).",kix:"Dutch KIX alphanumeric.",auspost:"Australia Post routing code.",japanpost:"Japan Post alphanumeric."};
 function updBHint(){const t=$("#bType").value;$("#bHint").textContent=bHints[t]||"";$("#bHeightWrap").style.display=twoD.has(t)?"none":"";}
 
 function renderBar(){

@@ -141,6 +141,28 @@
   .toggle{display:flex; align-items:center; gap:8px; font:600 12px "Space Grotesk"; margin-bottom:12px; cursor:pointer}
   .toggle input{width:auto}
   footer{padding:24px clamp(16px,4vw,40px); border-top:1px solid var(--line); font:400 11px/1.5 "Space Mono",monospace; color:var(--muted); text-align:center}
+  /* ---- print / modal ---- */
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .modal{position:fixed;inset:0;background:rgba(22,21,15,.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+  .modal.show{display:flex}
+  .modal-card{background:var(--paper);border:1px solid var(--ink);border-radius:2px;width:min(780px,100%);max-height:92vh;display:flex;flex-direction:column}
+  .modal-h{background:var(--ink);color:var(--paper);padding:12px 16px;font:700 11px/1 "Space Mono",monospace;letter-spacing:.14em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+  .modal-h button{background:none;border:0;color:var(--paper);font-size:20px;cursor:pointer;line-height:1}
+  .modal-body{padding:16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;overflow:auto}
+  @media(max-width:640px){.modal-body{grid-template-columns:1fr}}
+  .print-preview{background:var(--panel-2);border:1px solid var(--line);border-radius:2px;display:flex;align-items:center;justify-content:center;min-height:320px;overflow:hidden;padding:10px}
+  .print-scale{transform-origin:center center}
+  .modal-foot{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+  .sheet{position:relative;background:#fff;box-sizing:border-box;box-shadow:0 1px 8px rgba(0,0,0,.18)}
+  .sheet .code{display:block}
+  #printRoot{position:fixed;inset:0;background:#fff;z-index:9999;display:none;overflow:auto}
+  body.printing #printRoot{display:block}
+  @media print{
+    @page{margin:0}
+    body.printing>*{display:none!important}
+    body.printing #printRoot{display:block!important;position:static;overflow:visible}
+    #printRoot .sheet{box-shadow:none!important;margin:0!important}
+  }
 </style>
 </head>
 <body>
@@ -292,6 +314,7 @@
         <button class="btn accent" id="qrPng">Download PNG</button>
         <button class="btn" id="qrSvg">Download SVG</button>
         <button class="btn ghost" id="qrCopy">Copy PNG</button>
+        <button class="btn ghost" id="qrPrint">Print…</button>
       </div>
     </div>
   </section>
@@ -359,12 +382,54 @@
         <button class="btn accent" id="bPng">Download PNG</button>
         <button class="btn" id="bSvg">Download SVG</button>
         <button class="btn ghost" id="bCopy">Copy PNG</button>
+        <button class="btn ghost" id="bPrint">Print…</button>
       </div>
     </div>
   </section>
 </main>
 
 <footer>Code Bench — a local, offline-capable studio. Built with qr-code-styling, bwip-js &amp; ZXing.</footer>
+<div class="modal" id="printModal" role="dialog" aria-modal="true" aria-label="Print">
+  <div class="modal-card">
+    <div class="modal-h"><span>Print — size &amp; position</span><button id="printClose" aria-label="Close">×</button></div>
+    <div class="modal-body">
+      <div class="print-controls">
+        <label class="f"><span>Paper</span>
+          <select id="pPage"><option>A4</option><option>Letter</option><option>Label 100×150</option><option value="custom">Custom…</option></select></label>
+        <div class="g2 hidden" id="pCustomWrap">
+          <label class="f"><span>Page W <small>(mm)</small></span><input type="number" id="pPw" value="100" min="10" max="1000"></label>
+          <label class="f"><span>Page H <small>(mm)</small></span><input type="number" id="pPh" value="150" min="10" max="1000"></label>
+        </div>
+        <label class="f"><span>Orientation</span>
+          <select id="pOrient"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
+        <label class="f"><span>Layout</span>
+          <select id="pLayout"><option value="single">Single code</option><option value="tile">Tile / label sheet</option></select></label>
+        <label class="f"><span>Code width <small>(mm)</small></span><input type="number" id="pW" value="40" min="5" max="500" step="1"></label>
+        <div id="pSingleWrap">
+          <label class="f"><span>Position</span>
+            <select id="pAlign">
+              <option value="tl">Top left</option><option value="tc">Top center</option><option value="tr">Top right</option>
+              <option value="cl">Middle left</option><option value="cc" selected>Center</option><option value="cr">Middle right</option>
+              <option value="bl">Bottom left</option><option value="bc">Bottom center</option><option value="br">Bottom right</option>
+            </select></label>
+          <label class="f"><span>Page margin <small>(mm)</small></span><input type="number" id="pMargin" value="10" min="0" max="100"></label>
+        </div>
+        <div id="pTileWrap" class="hidden">
+          <label class="f"><span>Gap <small>(mm)</small></span><input type="number" id="pGap" value="4" min="0" max="50"></label>
+          <label class="f"><span>Sheet margin <small>(mm)</small></span><input type="number" id="pTileMargin" value="8" min="0" max="100"></label>
+          <p class="hint" id="pTileInfo"></p>
+        </div>
+      </div>
+      <div class="print-preview"><div class="print-scale"><div class="sheet" id="printSheet"></div></div></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="printCancel">Cancel</button>
+      <button class="btn accent" id="printGo">Print</button>
+    </div>
+  </div>
+</div>
+<div id="printRoot" aria-hidden="true"></div>
+<style id="printPageStyle"></style>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -617,6 +682,110 @@ $("#bSvg").onclick=()=>{
   try{const svg=bwipjs.toSVG(opts);download(new Blob([svg],{type:"image/svg+xml"}),"barcode-"+t+".svg");}
   catch(e){toast("Fix the data first");}
 };
+
+/* ======================================================
+   PRINT  (vector; window.print with real mm @page)
+====================================================== */
+const P_PAGES={A4:[210,297],Letter:[215.9,279.4],"Label 100\u00d7150":[100,150]};
+const MMPX=96/25.4;
+let printSrc="qr",_printSVG=null;
+
+function currentBarcodeSVG(){
+  const t=$("#bType").value,is2d=twoD.has(t);
+  const opts={bcid:t,text:$("#bData").value||" ",scale:+$("#bScale").value,includetext:$("#bText").checked,textxalign:"center",barcolor:$("#bFg").value.slice(1)};
+  if(!$("#bTransparent").checked)opts.backgroundcolor=$("#bBg").value.slice(1);
+  if(!is2d)opts.height=+$("#bHeight").value;
+  try{return bwipjs.toSVG(opts);}catch(e){return null;}
+}
+function svgAspect(svg){
+  let m=/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/i.exec(svg);
+  if(m){const a=(+m[1])/(+m[2]);if(a>0)return a;}
+  const w=/\bwidth="([\d.]+)/i.exec(svg),h=/\bheight="([\d.]+)/i.exec(svg);
+  if(w&&h){const a=(+w[1])/(+h[1]);if(a>0)return a;}
+  return 1;
+}
+async function currentSVG(){
+  if(printSrc==="qr"){
+    if(!qr)return null;
+    try{const b=await qr.getRawData("svg");return typeof b==="string"?b:await b.text();}
+    catch(e){
+      const c=$("#qrHost").querySelector("canvas");
+      if(!c)return null;
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><image href="'+c.toDataURL("image/png")+'" width="100" height="100"/></svg>';
+    }
+  }
+  return currentBarcodeSVG();
+}
+function svgURL(svg){return "data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg);}
+function pageDims(){
+  let w,h;const sel=$("#pPage").value;
+  if(sel==="custom"){w=+$("#pPw").value||100;h=+$("#pPh").value||150;}
+  else{const p=P_PAGES[sel]||P_PAGES.A4;w=p[0];h=p[1];}
+  if($("#pOrient").value==="landscape"){const t=w;w=h;h=t;}
+  return [w,h];
+}
+function buildSheet(svg){
+  const d=pageDims(),pw=d[0],ph=d[1];
+  const aspect=svgAspect(svg);
+  const cw=Math.max(1,Math.min(+$("#pW").value||40,pw,ph*aspect));
+  const ch=cw/aspect;
+  const url=svgURL(svg);
+  const img='<img class="code" src="'+url+'" style="width:'+cw+'mm;height:'+ch+'mm">';
+  const sheet=document.createElement("div");
+  sheet.className="sheet";
+  sheet.style.width=pw+"mm";sheet.style.height=ph+"mm";
+  if($("#pLayout").value==="tile"){
+    const gap=+$("#pGap").value||0,m=+$("#pTileMargin").value||0;
+    const cols=Math.max(1,Math.floor((pw-2*m+gap)/(cw+gap)));
+    const rows=Math.max(1,Math.floor((ph-2*m+gap)/(ch+gap)));
+    const n=Math.min(cols*rows,600);
+    sheet.style.cssText+=";display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:"+gap+"mm;padding:"+m+"mm";
+    sheet.innerHTML=img.repeat(n);
+    const info=$("#pTileInfo");if(info)info.textContent=cols+" \u00d7 "+rows+" = "+(cols*rows)+" per sheet";
+  }else{
+    const m=+$("#pMargin").value||0,a=$("#pAlign").value;
+    const jV={t:"flex-start",c:"center",b:"flex-end"}[a[0]]||"center";
+    const jH={l:"flex-start",c:"center",r:"flex-end"}[a[1]]||"center";
+    sheet.style.cssText+=";display:flex;align-items:"+jV+";justify-content:"+jH+";padding:"+m+"mm";
+    sheet.innerHTML=img;
+  }
+  return sheet;
+}
+async function refreshPrint(){
+  $("#pCustomWrap").classList.toggle("hidden",$("#pPage").value!=="custom");
+  const tile=$("#pLayout").value==="tile";
+  $("#pTileWrap").classList.toggle("hidden",!tile);
+  $("#pSingleWrap").classList.toggle("hidden",tile);
+  _printSVG=await currentSVG();
+  const host=$(".print-scale");
+  if(!_printSVG){host.style.transform="none";host.innerHTML='<p class="stage-empty">Nothing to print yet \u2014 render a code first.</p>';return;}
+  const sheet=buildSheet(_printSVG);sheet.id="printSheet";
+  const box=$(".print-preview").getBoundingClientRect();
+  const d=pageDims();
+  const scale=Math.min((box.width-24)/(d[0]*MMPX),(box.height-24)/(d[1]*MMPX),1);
+  host.innerHTML="";host.appendChild(sheet);
+  host.style.transform="scale("+(scale>0?scale:0.2)+")";
+}
+function openPrint(src){printSrc=src;$("#printModal").classList.add("show");refreshPrint();}
+function closePrint(){$("#printModal").classList.remove("show");}
+function doPrint(){
+  if(!_printSVG){toast("Render a code first");return;}
+  const sheet=buildSheet(_printSVG);
+  const d=pageDims();
+  $("#printPageStyle").textContent="@page{size:"+d[0]+"mm "+d[1]+"mm;margin:0}";
+  const root=$("#printRoot");root.innerHTML="";root.appendChild(sheet);
+  document.body.classList.add("printing");
+  const done=()=>{document.body.classList.remove("printing");root.innerHTML="";window.removeEventListener("afterprint",done);};
+  window.addEventListener("afterprint",done);
+  setTimeout(()=>window.print(),80);
+}
+$("#qrPrint").onclick=()=>openPrint("qr");
+$("#bPrint").onclick=()=>openPrint("bar");
+$("#printClose").onclick=closePrint;$("#printCancel").onclick=closePrint;
+$("#printGo").onclick=doPrint;
+$("#printModal").addEventListener("click",e=>{if(e.target.id==="printModal")closePrint();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#printModal").classList.contains("show"))closePrint();});
+["pPage","pPw","pPh","pOrient","pLayout","pW","pAlign","pMargin","pGap","pTileMargin"].forEach(id=>{const el=$("#"+id);if(el)el.addEventListener("input",refreshPrint);});
 
 /* ---------- boot ---------- */
 window.addEventListener("DOMContentLoaded",()=>{

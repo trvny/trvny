@@ -1,3 +1,4 @@
+[![codebench](https://codebench.travny.workers.dev)](**/public/favicon.svg)
 # Code Bench — QR & Barcode Studio
 
 Static, client-side app. One HTML file in `public/`, no backend. The three runtime

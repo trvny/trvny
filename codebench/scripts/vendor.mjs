@@ -2,7 +2,7 @@ import { mkdirSync, copyFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Copies the three runtime libraries out of node_modules into public/vendor/
+// Copies the runtime libraries out of node_modules into public/vendor/
 // so the app is served fully self-contained (no CDN, works offline).
 // Run automatically by Cloudflare Workers Builds via `npm run build`.
 
@@ -13,7 +13,8 @@ mkdirSync(out, { recursive: true });
 const files = [
   ["qr-code-styling/lib/qr-code-styling.js", "qr-code-styling.js"],
   ["bwip-js/dist/bwip-js-min.js", "bwip-js-min.js"],
-  ["@zxing/library/umd/index.min.js", "zxing.min.js"],
+  ["zxing-wasm/dist/iife/reader/index.js", "zxing-wasm-reader.js"],
+  ["zxing-wasm/dist/reader/zxing_reader.wasm", "zxing_reader.wasm"],
 ];
 
 for (const [from, to] of files) {

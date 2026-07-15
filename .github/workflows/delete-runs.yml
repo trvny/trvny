@@ -5,6 +5,9 @@ on:
     - cron: "0 0 1 * *" # Monthly at 00:00 on the 1st
 jobs:
   delete-runs:
+    strategy:
+     matrix:
+        repository: [ "trvny/trvny", "trvny/feeds", "trvny/tvpi", "trvny/autka" ]
     runs-on: ubuntu-slim
     permissions:
       actions: write
@@ -14,6 +17,6 @@ jobs:
         uses: Mattraks/delete-workflow-runs@v2
         with:
           token: ${{ github.token }}
-          repository: ${{ github.repository }}
+          repository: ${{ matrix.repository }}
           retain_days: 15
           keep_minimum_runs: 5

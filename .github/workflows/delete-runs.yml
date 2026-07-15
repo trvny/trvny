@@ -6,6 +6,7 @@ on:
 jobs:
   delete-runs:
     strategy:
+     fail-fast: false
      matrix:
         repository: [ "trvny/trvny", "trvny/feeds", "trvny/tvpi", "trvny/autka" ]
     runs-on: ubuntu-slim

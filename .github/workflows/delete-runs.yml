@@ -3,19 +3,27 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 0 1 * *" # Monthly at 00:00 on the 1st
+
+# The action authenticates with GH_PAT for cross-repo calls, so the
+# job's GITHUB_TOKEN needs nothing. Least privilege at the top.
+permissions: {}
+
+concurrency:
+  group: delete-runs
+  cancel-in-progress: false
+
 jobs:
   delete-runs:
     strategy:
-     fail-fast: false
-     matrix:
+      fail-fast: false
+      matrix:
         repository: [ "trvny/trvny", "trvny/feeds", "trvny/tvpi", "trvny/autka" ]
     runs-on: ubuntu-slim
-    permissions:
-      actions: write
-      contents: read
+    timeout-minutes: 5
+    permissions: {}
     steps:
       - name: Delete workflow runs
-        uses: Mattraks/delete-workflow-runs@v2
+        uses: Mattraks/delete-workflow-runs@0cf693bc9909e5e867ee8f27b813224ba862939c # v2
         with:
           token: ${{ secrets.GH_PAT }}
           repository: ${{ matrix.repository }}

@@ -1,6 +1,6 @@
 ---
 name: python-scraping-feeds
-description: Write Python for fetching web pages and APIs, parsing HTML and JSON, and emitting structured artifacts like RSS/Atom feeds or M3U playlists. Use whenever a task involves HTTP fetching (requests, httpx, curl-cffi, aiohttp), HTML/JSON parsing (BeautifulSoup, lxml, selectolax, parsel), reading or writing feeds (feedgen, feedparser), data validation (Pydantic, dataclasses), timezone-aware datetimes, retry/backoff, caching, or scheduled scrapers in CI. Also use for the travino/feeds feed generators and travino/tvpi generate.py, or any "scraper", "feed generator", "playlist generator", "ETL", or "fetch then parse then write a file" Python task, even when specific libraries are not named.
+description: Write Python for fetching pages/APIs, parsing HTML/JSON, and emitting structured artifacts like RSS/Atom feeds or M3U playlists. Use for HTTP fetching (requests, httpx, curl-cffi, aiohttp), HTML/JSON parsing (BeautifulSoup, lxml, selectolax, parsel), feeds (feedgen, feedparser), validation (Pydantic), tz-aware datetimes, retry/backoff, caching, or scheduled scrapers in CI. Also trvny/feeds generators and tvpi generate.py, or any "scraper", "feed generator", "playlist generator", "ETL", or "fetch then parse then write" task.
 license: MIT
 ---
 
@@ -11,7 +11,7 @@ The shape of the task: a scheduled job **fetches** from a flaky upstream,
 durably enough that one transient failure never wipes good output.
 
 This skill covers the wider toolbox and the tradeoffs between choices, then
-points at the `travino/feeds` + `travino/tvpi` code as one concrete
+points at the `trvny/feeds` + `trvny/tvpi` code as one concrete
 instantiation. Pick tools to fit the job; don't cargo-cult a single stack.
 Target Python is **3.11+**.
 
@@ -139,7 +139,7 @@ Naive datetimes corrupt ordering and `pubDate`. Rules:
 
 ## Project example (one instantiation)
 
-`travino/feeds` + `travino/tvpi` implement the above with a deliberately small
+`trvny/feeds` + `trvny/tvpi` implement the above with a deliberately small
 stack (requests, feedgen, pydantic, pytz, stdlib). Worth knowing if you touch
 those repos — but treat it as *an* example, not the only shape:
 

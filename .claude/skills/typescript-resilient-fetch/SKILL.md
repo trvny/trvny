@@ -1,6 +1,6 @@
 ---
 name: typescript-resilient-fetch
-description: Write robust, type-safe TypeScript for network and I/O code — typed fetch with timeouts, retry-and-backoff, fallback chains, runtime validation of untrusted JSON (Zod/valibot), discriminated unions and Result types, exhaustive handling, type predicates, and readonly/as const/satisfies for compile-time safety. Use whenever writing or reviewing TypeScript that fetches from APIs or upstreams, layers caches and fallbacks, parses external JSON, models multi-source resolution, or needs strict typing of handlers and responses, in any runtime (Node, Deno, Bun, Workers, browser), including the travino/tvpi Worker. Also use for any "type-safe fetch", "add a timeout or retry", "validate this API response", "handle this safely", or "tighten the types" task, even when patterns are not named. Language-level; pair with cloudflare / workers-best-practices skills for Workers runtime specifics.
+description: Write or review robust, type-safe TypeScript for network/IO — typed fetch with timeouts, retry/backoff, fallback chains, runtime validation of untrusted JSON (Zod/valibot), Result types, discriminated unions, exhaustive handling, readonly/as const/satisfies. Use for fetching APIs, layering caches/fallbacks, parsing external JSON, multi-source resolution, or strict typing of handlers/responses, in any runtime (Node, Deno, Bun, Workers, browser) including trvny/tvpi. Also "type-safe fetch", "add a timeout/retry", "validate this response", "tighten the types". Pair with cloudflare for Workers specifics.
 license: MIT
 ---
 
@@ -10,9 +10,9 @@ The recurring problem: TypeScript that talks to a **flaky upstream** and must
 stay **correct under failure** — bounded, validated, narrowly typed. This is
 language-level and runtime-agnostic (Node, Deno, Bun, Workers, browser all have
 `fetch` + `AbortSignal`). For a specific runtime's primitives (KV, Cache API,
-bindings, `wrangler`), defer to `cloudflare` / `workers-best-practices`.
+bindings, `wrangler`), defer to the `cloudflare` skill.
 
-The repo (`travino/tvpi`) appears as one worked example, not the only shape.
+The repo (`trvny/tvpi`) appears as one worked example, not the only shape.
 
 ---
 
@@ -147,10 +147,10 @@ production failures are diagnosable.
 
 ## Project example (one instantiation)
 
-`travino/tvpi` `worker/src/index.ts` implements §1, §3–§6, §8 with native `fetch`
+`trvny/tvpi` `worker/src/index.ts` implements §1, §3–§6, §8 with native `fetch`
 + hand-rolled helpers and no dependencies. Annotated extracts:
 `references/worker-patterns.md`. Runtime rules (KV write policy, TTL vs token
-lifetime, fallback order) live in `cmd-tvpi-review` / `tvpi-channel-fix`.
+lifetime, fallback order) live in the `tvpi` skill.
 
 **Ideas it could adopt** (the outside perspective): replace the `as TvpPlaylist`
 cast with a **Zod `safeParse`** so a TVP API shape change fails cleanly at the

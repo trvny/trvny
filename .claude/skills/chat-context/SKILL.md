@@ -1,6 +1,6 @@
 ---
 name: chat-context
-description: Keep long claude.ai conversations sharp and avoid burning through usage limits -- when to start a fresh chat vs keep going, how to use Projects for persistent context, setting durable preferences and styles instead of repeating yourself, attaching only what's relevant, and the summarize-and-handoff move when a thread gets bloated or starts forgetting earlier details. Use when a chat feels sluggish, repetitive, or forgetful, when starting a big multi-step task, or when the user asks how to make claude.ai sessions more efficient. For claude.ai chat (not Claude Code -- there are no slash commands or settings files here).
+description: Keep long claude.ai conversations sharp and avoid burning usage limits — when to start a fresh chat vs keep going, using Projects for persistent context, setting durable preferences and styles instead of repeating yourself, attaching only what's relevant, and the summarize-and-handoff move when a thread gets bloated or forgetful. Use when a chat feels sluggish, repetitive, or forgetful, when starting a big multi-step task, or when the user asks how to make claude.ai sessions more efficient. For claude.ai chat, not Claude Code (no slash commands or settings files here).
 ---
 
 # Chat Context

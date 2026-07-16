@@ -1,6 +1,6 @@
 ---
 name: github-ops
-description: Operate on any GitHub repo correctly through either the MCP github:* tools or the gh CLI — choosing the right path, reading/writing files with correct commit semantics, opening PRs, dispatching and debugging Actions, and verifying the result. Use whenever a task involves GitHub beyond a one-line read — committing or editing files in a repo, opening or reviewing a pull request, triggering or debugging a workflow run, cutting a release, or any time you're about to reach for github:* tools or gh. Covers both the authenticated-connector path and the CLI path and when each one wins.
+description: Operate on any GitHub repo correctly via github:* tools or the gh CLI — picking the right path, read/write with correct commit semantics, opening/reviewing PRs, dispatching and debugging Actions, cutting releases. Use whenever a task touches GitHub beyond a one-line read, or you reach for github:*/gh. Covers the pre-merge gate (review-thread resolution, rulesets, CI annotations, signed-commit/rebase merges, force-with-lease recovery) — use before merging any PR or when a merge is BLOCKED with everything apparently green.
 ---
 
 # GitHub Ops
@@ -8,7 +8,7 @@ description: Operate on any GitHub repo correctly through either the MCP github:
 Two ways to act on a repo. Pick deliberately — they have different auth, different strengths, and different failure modes.
 
 - **MCP `github:*` tools** — authenticated through the connector, structured JSON in/out, no shell or token needed. **Default** for reading files, committing, PRs, issues, search, releases.
-- **`gh` CLI** — needs a token (`gh auth login`, or `GH_TOKEN`/`GITHUB_TOKEN`; CI provides the latter). Use for what the MCP tools don't cover or do awkwardly: **Actions run logs, `workflow_dispatch`, secrets, and shell piping**.
+- **`gh` CLI** — needs a token (`gh auth login`, or `GH_TOKEN`/`GITHUB_TOKEN`; CI provides the latter). With the `/x/all` connector toolset (the default here, ~90 tools) MCP now covers most Actions work too — see below. Reach for `gh` only for what MCP still can't do: **setting secrets (`gh secret set`), creating a release with notes, live `run watch` streaming, and shell piping / `-q` jq**.
 
 Hard rule learned the hard way: **never hit `api.github.com` unauthenticated** (plain `curl`, or `gh` with no token). It's rate-limited to ~60/hr per IP and datacenter/CI IPs are usually already exhausted — you get a `{"message": "API rate limit exceeded…"}` dict, not data. Route through the connector (authed) or an authed `gh`.
 
@@ -21,13 +21,14 @@ Hard rule learned the hard way: **never hit `api.github.com` unauthenticated** (
 | Commit several files together (atomic) | MCP `push_files` |
 | Open / update / merge a PR; review | MCP `create_pull_request` / `pull_request_*` |
 | Search code / repos / issues / PRs | MCP `search_*` |
-| **Read Actions run logs / debug a failed run** | `gh run list` / `gh run view --log` |
-| **Trigger a workflow** | `gh workflow run <file> -R owner/repo` |
-| **Set a secret** | `gh secret set NAME -R owner/repo` |
-| **Cut a release with notes** | `gh release create` (or MCP `list_releases`/`get_latest_release` to read) |
+| **Read Actions run logs** | MCP `get_job_logs` (or `gh run view --log` for live tail) |
+| List / inspect workflow runs | MCP `actions_list` / `actions_get` |
+| **Trigger a workflow** | MCP `actions_run_trigger` (or `gh workflow run`) |
+| **Set a secret** | `gh secret set NAME -R owner/repo` (no MCP write) |
+| **Cut a release with notes** | `gh release create` (MCP `list_releases`/`get_latest_release` are read-only) |
 | Anything needing a pipe / `-q` jq / scripting | `gh` |
 
-In a sandbox where the connector is authed but no token is reachable (common here), **prefer MCP for everything it covers** and only reach for `gh` when the task is in its column above — then check whether a token actually exists first.
+In a sandbox where the connector is authed but no token is reachable (common here), **prefer MCP for everything it covers** — including Actions logs and dispatch — and only reach for `gh` when the task is genuinely in its shrunken column (secrets, release notes, live `run watch`, piping); then check whether a token actually exists first.
 
 ## MCP path: commit semantics
 
@@ -46,7 +47,7 @@ Other MCP tools: `create_branch`, `delete_file`, `merge_pull_request`, `pull_req
   curl -sL "https://github.com/cli/cli/releases/download/v${tag}/gh_${tag}_linux_amd64.tar.gz" -o /tmp/gh.tgz
   tar -xzf /tmp/gh.tgz -C /tmp && cp /tmp/gh_${tag}_linux_amd64/bin/gh /usr/local/bin/gh && gh --version
   ```
-- **Actions debugging** (gh's killer feature, no MCP equivalent): `gh run list -R owner/repo`, `gh run view <id> --log` (or `--log-failed`), `gh run watch <id>`. Distinguish a *code* failure (a step errored) from a *GitHub-side* delay/skip (scheduled runs get throttled on low-activity repos — the run simply never started; the fix is `gh workflow run`, not a code change).
+- **Actions debugging.** MCP `get_job_logs` pulls job logs without a token — use it first. `gh` still wins for a *live* tail: `gh run watch <id>`, `gh run view <id> --log-failed`. List via MCP `actions_list` or `gh run list -R owner/repo`. Distinguish a *code* failure (a step errored) from a *GitHub-side* delay/skip (scheduled runs get throttled on low-activity repos — the run simply never started; the fix is `actions_run_trigger`/`gh workflow run`, not a code change).
 
 ## Commit & PR conventions
 
@@ -60,8 +61,12 @@ Other MCP tools: `create_branch`, `delete_file`, `merge_pull_request`, `pull_req
 A write isn't done when the tool returns 200 — it's done when you've confirmed the effect:
 
 1. **Commit landed** — use the returned commit SHA, or re-read with `get_file_contents`.
-2. **Triggered workflows actually pass.** If the changed path matches a workflow trigger (e.g. a deploy on `worker/**`, an hourly build), watch it: `gh run watch` if `gh` is authed, otherwise check the Actions tab / `list_commits` for the bot's follow-up commit. Don't assume a push that compiles locally also deployed.
+2. **Triggered workflows actually pass.** If the changed path matches a workflow trigger (e.g. a deploy on `worker/**`, an hourly build), watch it: `gh run watch` if `gh` is authed, else poll MCP `get_job_logs`/`actions_list` or check `list_commits` for the bot's follow-up commit. Don't assume a push that compiles locally also deployed.
 3. **Report the SHA / PR URL / run conclusion**, not just "done."
+
+## Merging a PR
+
+Don't just call `merge_pull_request`/`gh pr merge`. Run the gate first: threads resolved, `reviewDecision APPROVED`, `mergeStateStatus CLEAN`, every check green, no CI annotations, rulesets satisfied, commits signed if required. The trap that bites: `gh pr view` exits 0 regardless of what it reports, and `CLEAN` does **not** imply threads are resolved — so query the gate, *read* it, then merge as a separate command; never `gate && merge`. A `BLOCKED` with empty `reviewDecision` and all checks green is usually a repository **ruleset** (invisible to `gh pr view` and classic branch protection). Connector-only chat can't verify threads/rulesets — say so rather than claiming a gate you couldn't run. Full recipes, signed-rebase ff-only merge, and `--force-with-lease` "stale info" recovery: `references/pr-merge-gate.md`.
 
 ## Gotchas
 

@@ -1,6 +1,6 @@
 # Worker patterns — annotated extracts
 
-Reference extracts from `travino/tvpi` `worker/src/index.ts`. These illustrate
+Reference extracts from `trvny/tvpi` `worker/src/index.ts`. These illustrate
 the language-level patterns; for the Cloudflare runtime rules they sit inside
 (KV write policy, cache TTLs, fallback order), see the `cmd-tvpi-review` and
 `tvpi-channel-fix` skills.
@@ -126,4 +126,3 @@ export default {
     ctx.waitUntil(refreshAllStreams(env));
   },
 } satisfies ExportedHandler<Env>;
-```

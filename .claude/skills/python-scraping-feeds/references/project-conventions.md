@@ -1,6 +1,6 @@
 # Project conventions — annotated patterns
 
-Concrete, copy-ready patterns drawn from `travino/feeds` and `travino/tvpi`.
+Concrete, copy-ready patterns drawn from `trvny/feeds` and `trvny/tvpi`.
 Prefer importing the shared helpers over reimplementing them.
 
 ## Table of contents
@@ -82,7 +82,7 @@ def sort_posts_for_feed(posts, date_field="date") -> list[dict]:
 
 `REPO_SLUG` resolves from env so the self-link is correct in CI:
 ```python
-REPO_SLUG = os.getenv("RSS_REPO_SLUG") or os.getenv("GITHUB_REPOSITORY") or "travino/feeds"
+REPO_SLUG = os.getenv("RSS_REPO_SLUG") or os.getenv("GITHUB_REPOSITORY") or "trvny/feeds"
 ```
 
 ## Validate-and-skip registry loader (`models.py`)

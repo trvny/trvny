@@ -202,11 +202,18 @@ export default {
 
 function atom(body: string): Response {
   return new Response(body, {
-    headers: { "content-type": "application/atom+xml; charset=utf-8", "cache-control": "max-age=600" },
+    headers: {
+      "content-type": "application/atom+xml; charset=utf-8",
+      "cache-control": "max-age=600",
+      "access-control-allow-origin": "*",
+    },
   });
 }
 function json(data: unknown): Response {
   return new Response(JSON.stringify(data, null, 2), {
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "access-control-allow-origin": "*",
+    },
   });
 }

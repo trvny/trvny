@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Code Bench — QR & Barcode Studio</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="mask-icon" href="/favicon.svg" color="#DA2B1F">
 <meta name="theme-color" content="#16150F">
+<meta name="google-site-verification" content="Qu5-7v2tWoKtUYUVlQXisaFkGGVEImYlmycKDUg0QBw" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -487,7 +489,7 @@ $$(".tab").forEach(t=>t.addEventListener("click",()=>{
   $("#tab-qr").classList.toggle("hidden",id!=="qr");
   $("#tab-bar").classList.toggle("hidden",id!=="bar");
 }));
-function goTab(id){$$(".tab").forEach(t=>t.click&&(t.dataset.tab===id&&t.click()));}
+function goTab(id){$$(".tab").forEach(t=>t.dataset.tab===id&&t.click());}
 
 /* ======================================================
    SCAN / READ  (ZXing-C++ WASM — zxing-wasm)

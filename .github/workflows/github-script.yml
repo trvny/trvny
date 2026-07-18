@@ -1,15 +1,19 @@
 on: 
   workflow_dispatch: 
 jobs:
-
   Run-Script:
     runs-on: windows-latest
     steps:
-    #  - name: Run inline script - single line
-    #    uses: PSModule/GitHub-Script@v1
-     #   with:
-     #     Script: Get-GitHubPullRequest
-
+      - uses: actions/checkout@v6
+      - name: Install PowerShell
+        uses: PSModule/install-powershell@v1
+        with:
+          Version: 7.6.3
+      - name: Install  module
+        shell: pwsh
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module PSReadline -ErrorAction Stop
       - name: Run inline script - multiline
         uses: PSModule/GitHub-Script@v1
         with:

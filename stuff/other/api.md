@@ -121,3 +121,6 @@ kno_live_XFvWmy6KKK0PtT1Y5xPuEif98JNLEXY8
 
 ## hebbrix
 mem_sk_a435951a74922329116f8842d3a9ed14878873fc9ef70d53fe549a215d521c63
+
+## promptchat
+pchat_c4d772e956d2bdd4f5b99efc675adfe61e9620098db8fa92f5adc5b42efc874e

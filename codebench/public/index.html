@@ -529,12 +529,45 @@ drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();fileInput
 drop.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)decodeFile(f);});
 fileInput.onchange=e=>{const f=e.target.files[0];if(f)decodeFile(f);};
 
+/* rasterize SVG files client-side before handing to zxing-wasm — createImageBitmap()
+   support for SVG blobs is inconsistent across browsers (esp. without explicit
+   width/height on the root <svg>), so we always draw it to a canvas ourselves */
+async function svgToPngBlob(file){
+  const text=await file.text();
+  let w=0,h=0;
+  const wm=/<svg[^>]*\bwidth="([\d.]+)/i.exec(text), hm=/<svg[^>]*\bheight="([\d.]+)/i.exec(text);
+  if(wm)w=+wm[1]; if(hm)h=+hm[1];
+  if(!w||!h){
+    const vb=/<svg[^>]*\bviewBox="[\s]*[\d.\-]+[\s,]+[\d.\-]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
+    if(vb){w=w||+vb[1];h=h||+vb[2];}
+  }
+  if(!w||!h){w=1000;h=1000;}
+  const scale=Math.min(4,Math.max(1,1200/Math.max(w,h)));
+  const cw=Math.max(1,Math.round(w*scale)),ch=Math.max(1,Math.round(h*scale));
+  const url=URL.createObjectURL(new Blob([text],{type:"image/svg+xml"}));
+  try{
+    const img=new Image();
+    await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("Couldn't rasterize that SVG."));img.src=url;});
+    const canvas=document.createElement("canvas");
+    canvas.width=cw;canvas.height=ch;
+    const ctx=canvas.getContext("2d");
+    ctx.fillStyle="#fff";ctx.fillRect(0,0,cw,ch);
+    ctx.drawImage(img,0,0,cw,ch);
+    const blob=await new Promise(r=>canvas.toBlob(r,"image/png"));
+    if(!blob)throw new Error("Couldn't rasterize that SVG.");
+    return blob;
+  }finally{URL.revokeObjectURL(url);}
+}
+
 async function decodeFile(file){
   $("#fileErr").classList.add("hidden");
   if(!file.type.startsWith("image/")){$("#fileErr").textContent="That's not an image file.";$("#fileErr").classList.remove("hidden");return;}
   if(!ZXW){$("#fileErr").textContent="Scanner failed to load — try reloading.";$("#fileErr").classList.remove("hidden");return;}
   let results;
-  try{results=await ZXW.readBarcodes(file,SCAN_OPTS);}
+  try{
+    const input=file.type==="image/svg+xml"?await svgToPngBlob(file):file;
+    results=await ZXW.readBarcodes(input,SCAN_OPTS);
+  }
   catch(e){$("#fileErr").textContent="Couldn't decode that image: "+(e.message||e);$("#fileErr").classList.remove("hidden");return;}
   const r=results&&results.find(x=>x.isValid&&x.text);
   if(r){showResult(r.text,r.format);toast("Decoded");}

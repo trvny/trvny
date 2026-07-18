@@ -4,10 +4,11 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-07-14",
   "compatibility_flags": ["nodejs_compat"],
+  "preview_urls": false,
   "observability": { "enabled": true,
     "logs": {
       "enabled": true,
-      "head_sampling_rate": 0.5,
+      "head_sampling_rate": 0.01,
       "invocation_logs": true
     },
     "traces": {

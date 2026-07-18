@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.svg" alt="travino" width="100%">
+<img src="assets/banner.svg" alt="trvny" width="100%">
 
 **A self-updating ecosystem of feeds, streams and scripts — wired together and left to run.**
 
@@ -29,7 +29,7 @@
 | 🤖 | **[skills](.claude/skills)** | the Claude skill library that drives all of the above |
 | 💬 | **[quotes.json](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)** | rotating quote source |
 
-#### <img src="https://icons.iconarchive.com/icons/pictogrammers/material/48/qrcode-plus-icon.png" width="48" height="48">
+#### [<img src="https://icons.iconarchive.com/icons/pictogrammers/material/48/qrcode-plus-icon.png" width="48" height="48">](https://codebench.travny.workers.dev)
 
 ![quotes](https://gists-readme.yizack.com/api/pin?user=trvny&id=167d2271e3cf7d21e118aa7d906a7d2c&owner=true)
 

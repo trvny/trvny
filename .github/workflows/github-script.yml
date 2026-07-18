@@ -1,0 +1,26 @@
+on: 
+  workflow_dispatch: 
+jobs:
+
+  Run-Script:
+    runs-on: windows-latest
+    steps:
+    #  - name: Run inline script - single line
+    #    uses: PSModule/GitHub-Script@v1
+     #   with:
+     #     Script: Get-GitHubPullRequest
+
+      - name: Run inline script - multiline
+        uses: PSModule/GitHub-Script@v1
+        with:
+          Script: |
+            LogGroup 'Get-GitHubPullRequest' {
+              Get-GitHubPullRequest
+            }
+
+    #  - name: Run script file - Local repository
+    #    uses: PSModule/GitHub-Script@v1
+     #   with:
+   #       Script: ./scripts/main.ps1
+
+    

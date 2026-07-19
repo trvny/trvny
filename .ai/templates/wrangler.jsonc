@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "trvny-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-19",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "APP_ENV": "development"
+  }
+
+  // Add bindings only when the project uses them.
+  // Keep secret values out of this file. Set them with Wrangler secrets or
+  // the Cloudflare dashboard, and document only their names in `.dev.vars.example`.
+  //
+  // "kv_namespaces": [
+  //   { "binding": "CACHE", "id": "replace-me" }
+  // ],
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "replace-me",
+  //     "database_id": "replace-me"
+  //   }
+  // ],
+  // "r2_buckets": [
+  //   { "binding": "BUCKET", "bucket_name": "replace-me" }
+  // ]
+}

@@ -19,7 +19,7 @@ jobs:
       matrix:
         repository: [ "trvny/trvny", "trvny/feeds", "trvny/tvpi", "trvny/autka" ]
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions: {}
     steps:
       - name: Delete workflow runs

@@ -1,0 +1,23 @@
+# Local development secrets for Cloudflare Workers and small AI tools.
+# Copy this file to `.dev.vars` and fill values locally.
+# Never commit `.dev.vars`.
+
+# OpenAI
+OPENAI_API_KEY=
+
+# Cloudflare
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ACCOUNT_ID=
+
+# GitHub, only when a local script genuinely needs it
+GITHUB_TOKEN=
+
+# Microsoft / Azure, optional
+AZURE_TENANT_ID=
+AZURE_CLIENT_ID=
+AZURE_CLIENT_SECRET=
+AZURE_SUBSCRIPTION_ID=
+
+# Application-specific values
+# APP_ENV=development
+# LOG_LEVEL=info

@@ -28,13 +28,13 @@ Recommended repository layout:
 llm-styles/
 ├── docs/
 │   ├── styles-pl.md
-│   ├── styles-en.md
-│   └── styles-schema.md
+│   └── styles-en.md
 ├── instructions/
 │   ├── instructions-pl.md
 │   └── instructions-en.md
 ├── schema/
-│   └── style-profile.schema.json
+│   ├── style-profile.schema.json
+│   └── styles-schema.md
 ├── profiles/
 │   ├── everyday.pl.yaml
 │   └── everyday.en.yaml

@@ -16,7 +16,7 @@
 
 # Primary model used by Codex. Recommended example for most users: "gpt-5.6".
 
-# model = "gpt-5.6"
+model = "gpt-5.6"
 
 # Communication style for supported models. Allowed values: none | friendly | pragmatic
 
@@ -26,7 +26,7 @@ personality = "pragmatic"
 
 # review_model = "gpt-5.6"
 
-# model_provider = "openai"
+model_provider = "openai"
 
 # Default OSS provider for --oss sessions. When unset, Codex prompts. Default: unset.
 
@@ -62,15 +62,15 @@ personality = "pragmatic"
 
 # Reasoning effort: minimal | low | medium | high | xhigh
 
-# model_reasoning_effort = "medium"
+model_reasoning_effort = "medium"
 
 # Optional override used when Codex runs in plan mode: none | minimal | low | medium | high | xhigh
 
-# plan_mode_reasoning_effort = "high"
+plan_mode_reasoning_effort = "high"
 
 # Reasoning summary: auto | concise | detailed | none
 
-# model_reasoning_summary = "auto"
+model_reasoning_summary = "auto"
 
 # Text verbosity for GPT-5 family (Responses API): low | medium | high
 
@@ -164,7 +164,7 @@ allow_login_shell = true
 
 # - danger-full-access (no sandbox; extremely risky)
 
-sandbox_mode = "read-only"
+sandbox_mode = "workspace-write"
 
 # Named permissions profile to apply by default. Built-ins:
 
@@ -172,7 +172,7 @@ sandbox_mode = "read-only"
 
 # Use a custom name such as "workspace" only when you also define [permissions.workspace].
 
-# default_permissions = ":workspace"
+default_permissions = ":workspace"
 
 ################################################################################
 
@@ -256,7 +256,7 @@ file_opener = "none"
 
 # Suppress internal reasoning events from output. Default: false
 
-hide_agent_reasoning = false
+hide_agent_reasoning = true
 
 # Show raw reasoning content when available. Default: false
 
@@ -268,9 +268,7 @@ disable_paste_burst = false
 
 # Track Windows onboarding acknowledgement (Windows only). Default: false
 
-windows_wsl_setup_acknowledged = false
-
-# Check for updates on startup. Default: true
+windows_wsl_setup_acknowledged = true
 
 check_for_update_on_startup = true
 
@@ -281,24 +279,17 @@ check_for_update_on_startup = true
 ################################################################################
 
 # Web search mode: disabled | cached | indexed | live. Default: "cached"
-
 # cached serves results from a web search cache (an OpenAI-maintained index).
-
 # cached returns pre-indexed results; indexed gates external web access through
-
 # the search index; live fetches the most recent data.
-
 # If you use --yolo or another full access sandbox setting, web search defaults to live.
 
 web_search = "cached"
 
 # Config profiles are separate files under CODEX_HOME.
-
 # Example: ~/.codex/ci.config.toml, selected with codex --profile ci.
 
-# Suppress the warning shown when under-development feature flags are enabled.
-
-# suppress_unstable_features_warning = true
+suppress_unstable_features_warning = true
 
 ################################################################################
 
@@ -418,19 +409,13 @@ experimental_use_profile = false
 
 # domains = { "api.openai.com" = "allow", "example.com" = "deny" }
 
-#
-
 # Exact hosts match only themselves.
-
 # "*.example.com" matches subdomains only; "**.example.com" matches the apex plus subdomains.
-
 # "*" allows any public host that is not denied, so prefer scoped rules when possible.
 
 # `allow_local_binding = false` blocks loopback and private destinations by default.
 
 # Add an exact local IP literal or `localhost` allow rule for one target, or set it to true only when broader local access is required.
-
-#
 
 # Set `default_permissions = "workspace"` before enabling this profile.
 
@@ -443,8 +428,6 @@ experimental_use_profile = false
 # "~/code/app" = true
 
 # "~/code/shared-lib" = true
-
-#
 
 # Example filesystem profile. Use `"deny"` to deny reads for exact paths or
 
@@ -488,15 +471,11 @@ experimental_use_profile = false
 
 # allow_local_binding = false
 
-#
-
 # [permissions.workspace.network.domains]
 
 # "api.openai.com" = "allow"
 
 # "example.com" = "deny"
-
-#
 
 # [permissions.workspace.network.unix_sockets]
 
@@ -550,7 +529,7 @@ show_tooltips = true
 
 # Control alternate screen usage (auto skips it in Zellij to preserve scrollback).
 
-# alternate_screen = "auto"
+alternate_screen = "auto"
 
 # Ordered list of footer status-line item IDs. When unset, Codex uses:
 
@@ -638,9 +617,9 @@ enabled = true
 
 # Leave this table empty to accept defaults. Set explicit booleans to opt in/out.
 
-# shell_tool = true
+shell_tool = true
 
-# apps = true
+apps = true
 
 # hooks = false
 
@@ -652,23 +631,23 @@ enabled = true
 
 # remote_plugin = true
 
-# personality = true
+personality = true
 
 # network_proxy = false
 
 fast_mode = false
 
-# enable_request_compression = true
+enable_request_compression = true
 
-# skill_mcp_dependency_install = true
+skill_mcp_dependency_install = true
 
 # prevent_idle_sleep = false
 
 # Code mode namespaces. This feature is under development and off by default.
 
-# [features.code_mode]
+[features.code_mode]
 
-# enabled = true
+enabled = true
 
 # excluded_tool_namespaces = ["mcp__codex_apps"]
 
@@ -702,11 +681,12 @@ fast_mode = false
 
 # Enable memories with [features].memories, then tune memory behavior here.
 
-# [memories]
+[features].memories
+enabled = true
 
-# generate_memories = true
+generate_memories = true
 
-# use_memories = true
+use_memories = true
 
 # disable_on_external_context = false # legacy alias: no_memories_if_mcp_or_web_search
 
@@ -1044,7 +1024,7 @@ fast_mode = false
 
 [tools]
 
-# view_image = true
+view_image = true
 
 ################################################################################
 

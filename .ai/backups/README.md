@@ -1,7 +1,5 @@
 # LLM style documents backup
 
-To jest dokładny backup plików przygotowanych wcześniej w rozmowie:
-
 - `styles-pl.md`
 - `instructions-pl.md`
 - `styles-en.md`
@@ -9,11 +7,7 @@ To jest dokładny backup plików przygotowanych wcześniej w rozmowie:
 - `styles-schema.md`
 - `style-profile.schema.json`
 
-Archiwum jest zapisane jako Base64 w czterech częściach, ponieważ connector GitHub zapisuje pliki tekstowe, a nie binarne załączniki.
-
 ## Odtworzenie
-
-Z katalogu głównego repozytorium:
 
 ```bash
 cat .ai/backups/llm-styles-backup.tar.gz.b64.part* \
@@ -43,5 +37,3 @@ Wynik:
 ```bash
 tar -tzf /tmp/llm-styles-backup.tar.gz
 ```
-
-Archiwum zawiera wyłącznie wymienione dokumenty i schemat. Nie zawiera sekretów ani plików środowiskowych.

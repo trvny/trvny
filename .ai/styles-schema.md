@@ -26,7 +26,7 @@ Recommended repository layout:
 
 ```text
 llm-styles/
-├── docs/
+├── styles/
 │   ├── styles-pl.md
 │   └── styles-en.md
 ├── instructions/

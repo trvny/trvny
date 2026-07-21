@@ -32,9 +32,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Check generated GitHub instructions
-        run: python .ai/tools/sync_github_instructions.py --check
-
       - name: MegaLinter
         uses: oxsecurity/megalinter/flavors/formatters@v9
         env:

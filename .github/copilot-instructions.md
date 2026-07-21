@@ -1,5 +1,3 @@
-<!-- Generated from `.ai/github/copilot-instructions.md`. Edit the source and run the sync tool. -->
-
 # GitHub Copilot adapter
 
 Use `AGENTS.md` as the repository-wide source of truth. Apply the nearest

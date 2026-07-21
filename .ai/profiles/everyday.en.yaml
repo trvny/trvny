@@ -1,7 +1,7 @@
+# yaml-language-server: $schema=../schema/style-profile.schema.json
 schemaVersion: "0.1"
 id: trvny-everyday-en
 locale: en-US
-namespace: github.com/trvny
 
 style:
   base: friendly
@@ -51,3 +51,7 @@ output:
   tables: whenUseful
   codeExamples: runnable
   citations: platformDefault
+
+extensions:
+  trvny:
+    namespace: github.com/trvny

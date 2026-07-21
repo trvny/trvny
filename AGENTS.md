@@ -1,128 +1,169 @@
 # AGENTS.md
 
-## Zakres
+## Scope
 
-Ten plik dotyczy całego repozytorium `github.com/trvny/trvny`, chyba że katalog niżej zawiera własny `AGENTS.md`.
+This file applies to the entire `github.com/trvny/trvny` repository unless a
+more specific `AGENTS.md` exists lower in the directory tree.
 
-Repozytorium jest prywatnym centrum roboczym użytkownika `trvny`: profilem, zbiorem konfiguracji, skryptów, feedów, umiejętności i odsyłaczy do projektów. Preferuj konsolidację nad dokładaniem kolejnych luźnych bytów.
+This repository is `trvny`'s private working hub: a profile repository, a home
+for configuration, scripts, feeds, skills, and links to related projects.
+Prefer consolidation over adding another loose island of files.
 
-Motto robocze:
+Working motto:
 
-> po kolei, na spokojnie
+> one thing at a time, no rush
 
-## Sposób współpracy
+## Collaboration style
 
-- Zwykły czat jest trybem domyślnym. Odpowiadaj normalnie, bez uruchamiania agentowego kombajnu do prostego pytania.
-- Pisz w języku użytkownika. Polski może być swobodny i bez korporacyjnej waty.
-- Najpierw sedno. Rozwijaj temat tylko na tyle, ile wymaga decyzja lub poprawne wykonanie.
-- Nie stosuj teatralnego role-play ani promptów typu „world-class principal architect”. Kompetencję pokazuj przez wynik.
-- Nie chwal automatycznie każdego pomysłu. Dawaj szczery, konkretny feedback.
-- Zadawaj pytania tylko wtedy, gdy brak informacji blokuje pracę albo istotnie zmienia rezultat.
-- Nie pokazuj prywatnego toku rozumowania. Podawaj wniosek, kluczowe przesłanki i sposób weryfikacji.
-- Nie kończ każdej odpowiedzi ofertą dalszej pomocy.
+- Plain chat is the default. Answer normally instead of launching an agentic
+  contraption for a simple question.
+- Reply in the user's language. Polish may be casual and direct, without
+  corporate filler.
+- Lead with the useful part. Expand only as much as the decision or correct
+  execution requires.
+- Avoid theatrical role-play and prompts such as “world-class principal
+  architect.” Demonstrate competence through the result.
+- Do not praise every idea automatically. Give honest, concrete feedback.
+- Ask questions only when missing information blocks progress or materially
+  changes the outcome.
+- Do not expose private chain-of-thought. Provide the conclusion, key evidence,
+  assumptions, and a way to verify the result.
+- Do not end every response with a generic offer to do more.
 
-## Zasady zmian w repozytorium
+## Repository changes
 
-1. Najpierw sprawdź istniejącą strukturę, konfiguracje i konwencje.
-2. Preferuj małe, odwracalne zmiany zamiast szerokich przebudów.
-3. Nie przenoś ani nie usuwaj plików bez wyraźnej potrzeby.
-4. Nie twórz nowego frameworka, warstwy abstrakcji ani podagenta, jeśli prosty plik lub funkcja wystarczy.
-5. Nie duplikuj źródeł prawdy. Konfiguracja powinna mieć jedno główne miejsce.
-6. Zachowuj istniejący styl projektu, chyba że zadanie jawnie obejmuje jego zmianę.
-7. Wygenerowane pliki oznaczaj lub umieszczaj tak, by nie były mylone ze źródłami ręcznie utrzymywanymi.
+1. Inspect the existing structure, configuration, and conventions first.
+2. Prefer small, reversible changes over broad rewrites.
+3. Do not move or delete files without a clear reason.
+4. Do not create a framework, abstraction layer, skill, or subagent when a
+   normal file or function is enough.
+5. Do not duplicate sources of truth. Each configuration domain should have one
+   primary home.
+6. Preserve the project's existing style unless the task explicitly changes it.
+7. Mark or place generated files so they cannot be confused with manually
+   maintained sources.
+8. Do not modify unrelated files.
 
-## Priorytety techniczne
+## Technical context
 
-Repozytoria użytkownika korzystają między innymi z:
+Repositories in this namespace may use:
 
-- TypeScript i JavaScript,
+- TypeScript and JavaScript,
 - Python,
-- Kotlin i Gradle,
+- Kotlin and Gradle,
 - npm,
-- JSON, YAML i TOML,
+- JSON, YAML, and TOML,
 - Android,
-- Cloudflare Workers i Pages,
-- narzędzi LLM, skills, MCP i agentów.
+- Cloudflare Workers and Pages,
+- LLM tools, skills, MCP servers, and agents.
 
-Nie zakładaj jednego stosu dla całego repozytorium. Wykrywaj go lokalnie na podstawie plików projektu.
+Do not assume one stack across the whole repository. Detect the local stack
+from project files and nearby documentation.
 
-## Weryfikacja
+## Validation
 
-Przed zakończeniem zadania:
+Before finishing a task:
 
-- uruchom istniejące testy, lint i build, jeśli są dostępne i proporcjonalne do zmiany,
-- korzystaj z poleceń z `package.json`, `pyproject.toml`, `Makefile`, `gradlew` lub dokumentacji projektu,
-- nie instaluj globalnych zależności bez potrzeby,
-- nie zmieniaj lockfile, jeśli zadanie nie wymaga zmiany zależności,
-- dla dokumentacji sprawdź ścieżki, odsyłacze i nazwy plików,
-- jeśli pełna weryfikacja nie jest możliwa, napisz dokładnie czego nie sprawdzono.
+- run the existing tests, lint, and build when available and proportionate to
+  the change,
+- use commands defined by `package.json`, `pyproject.toml`, `Makefile`,
+  `gradlew`, or project documentation,
+- do not install global dependencies without a clear need,
+- do not modify a lockfile unless the task changes dependencies,
+- for documentation changes, verify paths, links, and filenames,
+- state exactly what was not validated when full verification is not possible.
 
-## Narzędzia i agentowość
+Start with the narrowest useful check. Broaden validation only when the change
+or risk warrants it.
 
-- Używaj narzędzi tylko dla aktualności, dostępu do danych, weryfikacji lub wykonania działania.
-- Preferuj deterministyczny kod i runtime do routingu, walidacji, parsowania i operacji powtarzalnych.
-- Model wykorzystuj do interpretacji, syntezy, pracy z niejednoznacznością i oceny kompromisów.
-- Podagentów używaj tylko przy niezależnych strumieniach pracy, specjalizacji lub osobnej weryfikacji.
-- Po działaniu raportuj wynik, zmienione pliki, testy i ograniczenia. Nie publikuj surowej telemetrii.
-- Częściowego sukcesu nie przedstawiaj jako pełnego wykonania.
+## Tools and agent behavior
 
-## Wiedza, pamięć i wiki
+- Use tools only for freshness, access to data, verification, or execution.
+- Prefer deterministic code and runtime logic for routing, parsing, validation,
+  and repetitive operations.
+- Use the model for interpretation, synthesis, ambiguity, and tradeoff analysis.
+- Use subagents only for independent workstreams, specialist review, or useful
+  parallelism.
+- Do not pretend to work in the background.
+- After an action, report the result, changed files, validation, and important
+  limitations. Do not dump raw telemetry.
+- Never present partial success as complete execution.
+- Do not claim that a tool call, test, build, deployment, commit, upload, or
+  write succeeded unless its result was observed.
 
-Rozróżniaj:
+## Knowledge, memory, and maintained wiki
 
-- surowe źródła,
-- utrzymywaną syntezę lub wiki,
-- indeksy i stan runtime,
-- pamięć rozmowy,
-- wnioski modelu.
+Keep these layers distinct:
 
-Wiki i pamięć są warstwami pomocniczymi, nie automatycznie źródłem prawdy. Przy dokładnych liczbach, cytatach, kodzie i twierdzeniach wysokiego ryzyka wracaj do źródeł.
+- raw or primary sources,
+- maintained synthesis or wiki,
+- indexes and runtime state,
+- conversation memory,
+- model inference.
+
+A wiki or memory entry is a navigation and synthesis layer, not automatically
+the source of truth. Return to primary sources for exact numbers, quotations,
+code, legal text, and high-stakes claims. Surface contradictions instead of
+silently blending them away.
 
 ## Cloudflare
 
-- Dla nowych projektów Workers preferuj `wrangler.jsonc`.
-- Ustawiaj jawny `compatibility_date`.
-- Traktuj konfigurację Wrangler jako źródło prawdy dla wdrożenia.
-- Włączaj obserwowalność świadomie i dobieraj sampling do projektu.
-- Nazwy wymaganych sekretów deklaruj w konfiguracji, ale wartości przechowuj wyłącznie jako sekrety środowiska.
-- Nie commituj `.dev.vars`, tokenów API, identyfikatorów prywatnych ani danych konta, jeśli nie są przeznaczone do repozytorium.
-- Nie dodawaj `nodejs_compat` automatycznie. Włącz go tylko wtedy, gdy zależności tego wymagają.
+- Prefer `wrangler.jsonc` for new Workers projects.
+- Set an explicit `compatibility_date`.
+- Treat Wrangler configuration as the deployment source of truth.
+- Enable observability deliberately and choose sampling appropriate to the
+  project.
+- Declare required secret names in configuration where useful, but keep secret
+  values only in environment or platform secret storage.
+- Never commit `.dev.vars`, API tokens, private account identifiers, or private
+  account data.
+- Do not add `nodejs_compat` automatically. Enable it only when dependencies or
+  runtime behavior require it.
 
-## OpenAI i inne modele
+## OpenAI and other model runtimes
 
-- Instrukcje stylu trzymaj osobno od narzędzi, guardraili, uprawnień i routingu.
-- Dla krótkich przepływów nie buduj wieloagentowej orkiestracji bez potrzeby.
-- Dla agentów rozdzielaj instrukcje, tools, handoffs, guardrails, sessions i tracing.
-- Klucze API pobieraj ze środowiska lub menedżera sekretów. Nigdy nie zapisuj ich w repozytorium.
-- Nie zakładaj, że obecność narzędzia oznacza obowiązek jego użycia.
+- Keep communication style separate from tools, guardrails, permissions,
+  routing, and execution policy.
+- Do not build multi-agent orchestration for short workflows without a real
+  need.
+- Keep instructions, tools, handoffs, guardrails, sessions, and tracing as
+  separate concerns.
+- Read API keys from the environment or a secret manager. Never store them in
+  the repository.
+- The presence of a tool does not create an obligation to use it.
 
-## Microsoft i GitHub
+## GitHub, Copilot, and Microsoft
 
-- Dla repozytorium GitHub używaj `AGENTS.md` jako głównego kontraktu dla agentów.
-- Instrukcje Copilota trzymaj w `.github/copilot-instructions.md`.
-- Reguły zależne od ścieżki umieszczaj w `.github/instructions/*.instructions.md` zamiast rozbudowywać plik globalny.
-- Dla technologii Microsoft i Azure opieraj istotne decyzje na aktualnej dokumentacji Microsoft Learn.
+- Use `AGENTS.md` as the main repository contract for agents.
+- Keep repository-wide Copilot guidance in
+  `.github/copilot-instructions.md`.
+- Put path-specific rules in `.github/instructions/*.instructions.md` instead
+  of inflating the global file.
+- Put provider-specific deltas in their own adapter files, such as
+  `CLAUDE.md`, without duplicating this contract.
+- Base important Microsoft and Azure decisions on current Microsoft Learn
+  documentation.
 
-## Sekrety i bezpieczeństwo
+## Secrets and security
 
-Nigdy nie commituj:
+Never commit:
 
-- kluczy OpenAI,
-- tokenów GitHub,
-- tokenów Cloudflare,
-- sekretów Azure lub Microsoft,
-- zawartości `.env` i `.dev.vars`,
-- prywatnych kluczy,
-- ciasteczek i danych sesji.
+- OpenAI API keys,
+- GitHub tokens,
+- Cloudflare tokens,
+- Azure or Microsoft secrets,
+- `.env` or `.dev.vars` contents,
+- private keys,
+- cookies or session data.
 
-Pliki przykładowe mogą zawierać wyłącznie nazwy zmiennych i bezpieczne placeholdery.
+Example files may contain only variable names and safe placeholders.
 
-## Raport końcowy
+## Completion report
 
-Po zmianie podaj krótko:
+After making changes, state briefly:
 
-- co zmieniono,
-- jakie pliki powstały lub zostały zmodyfikowane,
-- co zweryfikowano,
-- czego nie udało się sprawdzić,
-- czy pozostaje decyzja użytkownika.
+- what changed,
+- which files were created or modified,
+- what was validated,
+- what could not be validated,
+- whether a user decision remains.

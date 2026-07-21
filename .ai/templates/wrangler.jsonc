@@ -4,8 +4,8 @@
   "main": "src/index.ts",
   "compatibility_date": "YYYY-MM-DD",
   "observability": {
-    "enabled": true
-  }
+    "enabled": true,
+  },
 
   // Replace the compatibility date when creating the project.
   // Add bindings only when the project uses them.

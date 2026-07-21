@@ -1,85 +1,91 @@
 # Private AI scaffold
 
-Ten katalog przechowuje mały, prywatny kontrakt zachowania dla narzędzi AI używanych przez `trvny`.
+This directory contains a small, private behavior and configuration layer for
+AI tools used by `trvny`. It is not a framework and does not replace the
+runtime settings of any provider.
 
-Nie jest to framework ani próba zastąpienia ustawień konkretnych produktów. To cienka warstwa wspólnych preferencji, z której adaptery i narzędzia mogą korzystać bez kopiowania wielkiego promptu do każdego miejsca.
+## Source of truth
 
-## Pliki
+- `/AGENTS.md` is the shared repository contract.
+- `/CLAUDE.md` contains only the Claude Code-specific delta.
+- `/.github/copilot-instructions.md` contains only the GitHub Copilot-specific
+  delta.
+- `.ai/profile.yaml` is the primary personal style profile.
+- `.ai/schema/style-profile.schema.json` validates portable style profiles.
 
-- `profile.yaml` — przenośny profil zachowania i preferencji platformowych.
-- `/AGENTS.md` — główne instrukcje dla agentów pracujących w repozytorium.
-- `/.github/copilot-instructions.md` — zwięzłe instrukcje repozytoryjne dla GitHub Copilot.
-- `/.github/agents/trvny-maintainer.md` — wyspecjalizowany profil maintenera dla Copilot cloud agent i CLI.
+Provider files should refer to the shared contract instead of copying it.
 
-## Założenia
-
-- Zwykły czat pozostaje trybem domyślnym.
-- Narzędzia są używane dla dostępu, aktualności, weryfikacji lub wykonania działania.
-- Styl komunikacji nie steruje uprawnieniami, bezpieczeństwem ani routingiem.
-- Konfiguracje deterministyczne należą do runtime'u.
-- Model służy głównie do interpretacji, syntezy i pracy z niejednoznacznością.
-- Surowe źródła, wiki, pamięć i wnioski modelu są oddzielnymi warstwami.
-
-## OpenAI
-
-Dla krótkiego przepływu z własną pętlą aplikacji preferuj Responses API. Agents SDK ma sens, gdy potrzebne są zarządzane narzędzia, handoffy, guardraile, sesje, tracing lub praca wieloetapowa.
-
-Sekrety:
+## Directory map
 
 ```text
-OPENAI_API_KEY
+.ai/
+├── profile.yaml              primary Polish personal profile
+├── profiles/                 additional portable profiles
+├── schema/                   schema and schema documentation
+├── templates/                small starter files and renderer
+├── styles/                   long-form style specifications
+├── instructions/             paste-ready instruction libraries
+└── backups/                  archival copies, not active configuration
 ```
 
-Wartość ma pochodzić ze środowiska lub menedżera sekretów. Nie zapisuj jej w Git.
+## Canonical documentation names
 
-## Cloudflare
-
-Dla nowego projektu Workers preferowany jest `wrangler.jsonc` z jawnym `compatibility_date`.
-
-Przykładowy minimalny kształt:
-
-```jsonc
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "replace-me",
-  "main": "src/index.ts",
-  "compatibility_date": "YYYY-MM-DD",
-  "observability": {
-    "enabled": true
-  }
-}
-```
-
-Nie kopiuj tego pliku ślepo. Data zgodności, obserwowalność, bindingi i flagi kompatybilności muszą odpowiadać konkretnemu Workerowi.
-
-Wartości sekretów przechowuj przez mechanizmy Cloudflare lub lokalnie w ignorowanym `.dev.vars`.
-
-## GitHub i Copilot
-
-GitHub obsługuje kilka zakresów instrukcji:
-
-- `.github/copilot-instructions.md` — cały repozytorium,
-- `.github/instructions/*.instructions.md` — reguły zależne od ścieżki,
-- `AGENTS.md` — instrukcje agentowe, z możliwością zagnieżdżania,
-- `.github/agents/*.md` — profile agentów specjalistycznych,
-- `.github/prompts/*.prompt.md` — jawnie uruchamiane workflowy.
-
-Nie wkładaj wszystkiego do jednego pliku. Globalne zasady mają być krótkie, a techniczne wyjątki powinny mieszkać blisko kodu, którego dotyczą.
-
-## Microsoft
-
-Dla Azure, .NET, PowerShell, Windows, GitHub integration i pozostałych technologii Microsoft sprawdzaj aktualny stan w Microsoft Learn. Nie utrwalaj w profilu szczegółów, które mogą szybko się zestarzeć.
-
-## Co można dodać później
-
-Dopiero gdy pojawi się realna potrzeba:
+Use the neutral filenames as the current English editions:
 
 ```text
-.ai/profiles/
-.ai/adapters/
-.github/instructions/
-.github/prompts/
-.github/agents/reviewer.md
+.ai/styles/styles.md
+.ai/instructions/instructions.md
 ```
 
-Najpierw kilka plików, które faktycznie są używane. Reszta niech nie wyrasta jak paprotka z dashboardu SaaS.
+The `_en.md` files are retained as alternative earlier editions. They are not
+loaded automatically and should not be treated as a second source of truth.
+Polish editions use the `-pl.md` suffix.
+
+## Profiles
+
+Profiles describe communication behavior. They do not grant permissions or
+control tools, network access, sandboxing, deployment, or secret handling.
+
+Validate profiles against:
+
+```text
+.ai/schema/style-profile.schema.json
+```
+
+Vendor-specific metadata belongs under the `extensions` namespace so the core
+profile remains portable.
+
+## Templates
+
+The templates are intentionally small:
+
+- `openai-agent.py` starts with one agent and no tools,
+- `render_profile.py` renders a compact instruction block,
+- `wrangler.jsonc` requires project-specific values before use,
+- `.dev.vars.example` contains variable names only.
+
+Review every template before copying it into a real project. A template is a
+starting line, not a deployment oracle.
+
+## Security
+
+Never commit real values from:
+
+```text
+.env
+.dev.vars
+*.pem
+*.key
+```
+
+Use environment variables, provider secret storage, or a secret manager.
+Example files may contain only names and inert placeholders.
+
+## Maintenance rules
+
+- Prefer one source of truth per concern.
+- Keep generated output separate from maintained files.
+- Keep provider adapters thin.
+- Use tools only for access, freshness, verification, or execution.
+- Add subagents only when work genuinely separates.
+- Preserve raw sources separately from synthesized notes or wiki content.

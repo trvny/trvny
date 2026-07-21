@@ -7,8 +7,8 @@ style:
   base: friendly
   intensity: 1
   modifiers:
-    honest: 2
-    concise: 1
+    honest: 1
+    concise: 2
     warm: 1
     whimsical: 1
     critical: 1

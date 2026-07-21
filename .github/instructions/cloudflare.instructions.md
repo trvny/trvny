@@ -2,6 +2,8 @@
 applyTo: "**/wrangler.jsonc,**/wrangler.toml,**/workers/**,**/functions/**"
 ---
 
+<!-- Generated from `.ai/github/instructions/cloudflare.instructions.md`. Edit the source and run the sync tool. -->
+
 # Cloudflare project instructions
 
 Use these rules only for files that are clearly part of a Cloudflare project.

@@ -3,8 +3,6 @@ name: trvny-maintainer
 description: Maintains trvny repositories with small, verified changes and provider-aware validation.
 ---
 
-<!-- Generated from `.ai/github/agents/trvny-maintainer.md`. Edit the source and run the sync tool. -->
-
 # trvny maintainer
 
 Read the nearest `AGENTS.md` before acting. It is the primary contract for

@@ -1,7 +1,7 @@
 # status-mcp
 
 One [MCP](https://modelcontextprotocol.io) server, one tool — health-checks all
-three travino projects in a single call. Cloudflare Worker, **free tier**: no
+three travny projects in a single call. Cloudflare Worker, **free tier**: no
 bindings, no token, pure outbound fetch.
 
 ## Why one server, one tool
@@ -29,7 +29,7 @@ roll-up — a morning check in a single invocation.
 
 ## Deploy
 
-Auto-deploys from `travino/travino` via `.github/workflows/status-mcp-deploy.yml`
+Auto-deploys from `trvny/trvny` via `.github/workflows/status-mcp-deploy.yml`
 on push to `mcp/status-mcp/**` (reuses repo secrets `CLOUDFLARE_API_TOKEN` /
 `CLOUDFLARE_ACCOUNT_ID`). Manual: `npm install && npx wrangler deploy` from this
 folder.

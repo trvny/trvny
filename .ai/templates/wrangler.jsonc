@@ -1,19 +1,16 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "trvny-worker",
+  "name": "replace-me",
   "main": "src/index.ts",
-  "compatibility_date": "2026-07-19",
-  "workers_dev": true,
+  "compatibility_date": "YYYY-MM-DD",
   "observability": {
     "enabled": true
-  },
-  "vars": {
-    "APP_ENV": "development"
   }
 
+  // Replace the compatibility date when creating the project.
   // Add bindings only when the project uses them.
-  // Keep secret values out of this file. Set them with Wrangler secrets or
-  // the Cloudflare dashboard, and document only their names in `.dev.vars.example`.
+  // Keep secret values out of this file. Store them with Wrangler secrets or
+  // the Cloudflare dashboard, and document names only in `.dev.vars.example`.
   //
   // "kv_namespaces": [
   //   { "binding": "CACHE", "id": "replace-me" }

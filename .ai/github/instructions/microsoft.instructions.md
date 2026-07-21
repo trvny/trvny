@@ -2,8 +2,6 @@
 applyTo: "**/*.cs,**/*.csproj,**/*.sln,**/*.bicep,**/azure.yaml,**/host.json,**/local.settings.json,**/.github/workflows/*azure*.yml,**/.github/workflows/*azure*.yaml,**/.github/workflows/*dotnet*.yml,**/.github/workflows/*dotnet*.yaml"
 ---
 
-<!-- Generated from `.ai/github/instructions/microsoft.instructions.md`. Edit the source and run the sync tool. -->
-
 # Microsoft and Azure instructions
 
 - Base important .NET, Azure, PowerShell, Windows, and GitHub Actions decisions

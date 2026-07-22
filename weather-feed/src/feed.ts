@@ -4,7 +4,7 @@ import type {
   AirQuality, DayEnsemble, Ensemble, FeedEntry, Warning,
 } from "./types";
 
-const FEED_ID = "tag:travino,2026:weather:koscielec";
+const FEED_ID = "tag:travny,2026:weather:koscielec";
 
 // ── change detection ────────────────────────────────────────────────────────
 // Compare against the last *published* baseline (not the last run) so small
@@ -156,7 +156,7 @@ export function renderAtom(entries: readonly FeedEntry[], title: string, origin:
   <updated>${updated}</updated>
   <link rel="self" href="${origin}/feed.atom"/>
   <link rel="alternate" href="${origin}/"/>
-  <author><name>travino weather aggregator</name></author>
+  <author><name>travny weather aggregator</name></author>
   <generator>cloudflare-worker</generator>
 ${items}
 </feed>`;

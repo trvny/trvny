@@ -1,5 +1,5 @@
 /**
- * status-mcp — one MCP tool that health-checks all three travino projects in a
+ * status-mcp — one MCP tool that health-checks all three trvny projects in a
  * single call: tvpi (IPTV Worker), feeds (hourly RSS/Atom generators), and
  * autka (used-car aggregator backend).
  *
@@ -28,7 +28,7 @@ interface Env {
 }
 
 const timeout = (ms: number) => AbortSignal.timeout(ms);
-const UA = "status-mcp (+https://github.com/travino/status-mcp)";
+const UA = "status-mcp (+https://github.com/trvny/status-mcp)";
 
 async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -134,7 +134,7 @@ async function checkTvpi(env: Env, deep: boolean): Promise<ProjectResult> {
 // feeds — pipeline badge + best-effort directory cross-check
 // ===========================================================================
 
-const FEEDS_OWNER = "travino";
+const FEEDS_OWNER = "trvny";
 const FEEDS_REPO = "feeds";
 // Feed generators + registry + output XML all live under this subdir.
 const FEEDS_SUBDIR = "feedseek";
@@ -219,7 +219,7 @@ async function checkFeeds(): Promise<ProjectResult> {
 // autka — backend /health + /offers count + /sources (service binding) + CI badge
 // ===========================================================================
 
-const AUTKA_OWNER = "travino";
+const AUTKA_OWNER = "trvny";
 const AUTKA_REPO = "autka";
 const AUTKA_WORKFLOW = "android-ci.yml";
 
@@ -304,7 +304,7 @@ const TOOLS = [
   {
     name: "status",
     description:
-      "Health-check the travino projects in one call. Omit project to check " +
+      "Health-check the trvny projects in one call. Omit project to check " +
       "ALL THREE in parallel (tvpi IPTV playlist, feeds RSS/Atom pipeline, " +
       "autka car-aggregator backend) and get a compact roll-up — use this for " +
       "a morning check instead of invoking three separate tools. Pass project " +

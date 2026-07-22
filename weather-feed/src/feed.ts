@@ -4,12 +4,10 @@ import type {
   AirQuality, DayEnsemble, Ensemble, FeedEntry, Warning,
 } from "./types";
 
-const FEED_ID = "tag:travny,2026:weather:koscielec";
+export const FEED_ID = "tag:travny,2026:weather:koscielec";
 
-// ── change detection ────────────────────────────────────────────────────────
 // Compare against the last *published* baseline (not the last run) so small
 // drift doesn't accumulate into spurious entries.
-
 export function currentChange(prev: Ensemble | null, next: Ensemble): FeedEntry | null {
   const reasons: string[] = [];
   if (prev) {
@@ -98,10 +96,6 @@ export function warningEntries(prev: Warning[], next: Warning[]): FeedEntry[] {
   return out;
 }
 
-// ── air quality (single-source: Open-Meteo / CAMS) ───────────────────────────
-// Entry only when the European AQI *band* changes — the bands are official and
-// well-separated, so this won't flutter the way a raw threshold would. Pollen
-// rides along in the summary but never triggers on its own (no clean band).
 const AQI_BANDS: { max: number; pl: string }[] = [
   { max: 20, pl: "bardzo dobra" },
   { max: 40, pl: "dobra" },
@@ -118,7 +112,7 @@ export function airQualityChange(prev: AirQuality | null, next: AirQuality | nul
   if (!next || next.europeanAqi === null) return null;
   const nextIdx = aqiBandIndex(next.europeanAqi);
   const prevIdx = prev && prev.europeanAqi !== null ? aqiBandIndex(prev.europeanAqi) : -1;
-  if (prevIdx === nextIdx) return null; // same band → no entry
+  if (prevIdx === nextIdx) return null;
 
   const label = AQI_BANDS[nextIdx]?.pl ?? "—";
   const pollen = next.topPollen
@@ -135,10 +129,13 @@ export function airQualityChange(prev: AirQuality | null, next: AirQuality | nul
   };
 }
 
-// ── Atom rendering ───────────────────────────────────────────────────────────
-// `origin` is passed from the request so the self link matches the host actually
-// serving the feed (workers.dev or a custom domain), instead of a hard-coded URL.
-export function renderAtom(entries: readonly FeedEntry[], title: string, origin: string): string {
+export function renderAtom(
+  entries: readonly FeedEntry[],
+  title: string,
+  origin: string,
+  selfPath = "/feed.atom",
+  feedId = FEED_ID,
+): string {
   const updated = entries[0]?.published ?? new Date().toISOString();
   const items = entries.map((e) => `  <entry>
     <title>${esc(e.title)}</title>
@@ -152,17 +149,16 @@ export function renderAtom(entries: readonly FeedEntry[], title: string, origin:
   return `<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>${esc(title)}</title>
-  <id>${FEED_ID}</id>
+  <id>${esc(feedId)}</id>
   <updated>${updated}</updated>
-  <link rel="self" href="${origin}/feed.atom"/>
-  <link rel="alternate" href="${origin}/"/>
+  <link rel="self" href="${esc(origin + selfPath)}"/>
+  <link rel="alternate" href="${esc(origin + "/")}"/>
   <author><name>travny weather aggregator</name></author>
   <generator>cloudflare-worker</generator>
 ${items}
 </feed>`;
 }
 
-// ── helpers ──────────────────────────────────────────────────────────────
 function delta(a: number | null, b: number | null): number | null {
   return a === null || b === null ? null : Math.round((b - a) * 10) / 10;
 }

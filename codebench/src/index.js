@@ -1,3 +1,8 @@
+const SITE_URL = "https://codebench.travny.workers.dev/";
+const TITLE = "Code Bench — QR Code Generator, Barcode Maker & Scanner";
+const DESCRIPTION =
+  "Free browser-based QR code generator, barcode maker and scanner. Create styled QR codes, Code 128, EAN, Data Matrix, Aztec, PDF417 and more without uploading your data.";
+
 const SECURITY_HEADERS = {
   "content-security-policy": [
     "default-src 'self'",
@@ -19,12 +24,53 @@ const SECURITY_HEADERS = {
   "permissions-policy": "camera=(self), microphone=(), geolocation=()",
 };
 
+const SCHEMA = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Code Bench",
+  url: SITE_URL,
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "Any",
+  browserRequirements: "Requires a modern browser; camera scanning requires HTTPS.",
+  description: DESCRIPTION,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  featureList: [
+    "QR code generator",
+    "QR and barcode scanner",
+    "Barcode generator",
+    "PNG and SVG export",
+    "Client-side private processing",
+  ],
+}).replaceAll("<", "\\u003c");
+
 class RemoveElement {
   element(element) { element.remove(); }
 }
+class SetText {
+  constructor(value) { this.value = value; }
+  element(element) { element.setInnerContent(this.value); }
+}
 class InjectHead {
   element(element) {
-    element.append('<link rel="stylesheet" href="/fonts.css">', { html: true });
+    element.append(
+      `<meta name="description" content="${DESCRIPTION}">`
+      + '<meta name="robots" content="index,follow,max-image-preview:large">'
+      + `<link rel="canonical" href="${SITE_URL}">`
+      + '<link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png">'
+      + '<link rel="shortcut icon" type="image/png" href="/apple-touch-icon.png">'
+      + '<meta property="og:type" content="website">'
+      + '<meta property="og:locale" content="en_US">'
+      + `<meta property="og:title" content="${TITLE}">`
+      + `<meta property="og:description" content="${DESCRIPTION}">`
+      + `<meta property="og:url" content="${SITE_URL}">`
+      + '<meta property="og:image" content="https://codebench.travny.workers.dev/apple-touch-icon.png">'
+      + '<meta name="twitter:card" content="summary">'
+      + `<meta name="twitter:title" content="${TITLE}">`
+      + `<meta name="twitter:description" content="${DESCRIPTION}">`
+      + `<script type="application/ld+json">${SCHEMA}</script>`
+      + '<link rel="stylesheet" href="/fonts.css">',
+      { html: true },
+    );
   }
 }
 class InjectBody {
@@ -33,8 +79,47 @@ class InjectBody {
   }
 }
 
+function textResponse(body, contentType, cacheControl = "public, max-age=3600") {
+  return new Response(body, {
+    headers: {
+      "content-type": contentType,
+      "cache-control": cacheControl,
+    },
+  });
+}
+
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/favicon.ico") {
+      const iconRequest = new Request(new URL("/apple-touch-icon.png", url), request);
+      const icon = await env.ASSETS.fetch(iconRequest);
+      const headers = new Headers(icon.headers);
+      headers.set("content-type", "image/png");
+      headers.set("cache-control", "public, max-age=86400, stale-while-revalidate=604800");
+      return new Response(icon.body, { status: icon.status, headers });
+    }
+
+    if (url.pathname === "/robots.txt") {
+      return textResponse(
+        `User-agent: *\nAllow: /\nSitemap: ${SITE_URL}sitemap.xml\n`,
+        "text/plain; charset=utf-8",
+        "public, max-age=86400",
+      );
+    }
+
+    if (url.pathname === "/sitemap.xml") {
+      return textResponse(
+        `<?xml version="1.0" encoding="UTF-8"?>\n`
+          + '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+          + `  <url><loc>${SITE_URL}</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>\n`
+          + '</urlset>\n',
+        "application/xml; charset=utf-8",
+        "public, max-age=86400",
+      );
+    }
+
     const asset = await env.ASSETS.fetch(request);
     const headers = new Headers(asset.headers);
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
@@ -48,6 +133,7 @@ export default {
     if (!type.includes("text/html")) return response;
 
     return new HTMLRewriter()
+      .on("title", new SetText(TITLE))
       .on('link[href^="https://fonts.googleapis.com"]', new RemoveElement())
       .on('link[href^="https://fonts.gstatic.com"]', new RemoveElement())
       .on("head", new InjectHead())

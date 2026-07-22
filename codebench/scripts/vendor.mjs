@@ -2,22 +2,26 @@ import { mkdirSync, copyFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Copies the runtime libraries out of node_modules into public/vendor/
-// so the app is served fully self-contained (no CDN, works offline).
-// Run automatically by Cloudflare Workers Builds via `npm run build`.
-
+// Copy runtime libraries and fonts out of node_modules so production performs
+// no third-party CDN requests and remains usable offline after assets are cached.
 const root = dirname(fileURLToPath(import.meta.url)) + "/..";
-const out = `${root}/public/vendor`;
-mkdirSync(out, { recursive: true });
 
 const files = [
-  ["qr-code-styling/lib/qr-code-styling.js", "qr-code-styling.js"],
-  ["bwip-js/dist/bwip-js-min.js", "bwip-js-min.js"],
-  ["zxing-wasm/dist/iife/reader/index.js", "zxing-wasm-reader.js"],
-  ["zxing-wasm/dist/reader/zxing_reader.wasm", "zxing_reader.wasm"],
+  ["qr-code-styling/lib/qr-code-styling.js", "public/vendor/qr-code-styling.js"],
+  ["bwip-js/dist/bwip-js-min.js", "public/vendor/bwip-js-min.js"],
+  ["zxing-wasm/dist/iife/reader/index.js", "public/vendor/zxing-wasm-reader.js"],
+  ["zxing-wasm/dist/reader/zxing_reader.wasm", "public/vendor/zxing_reader.wasm"],
+  ["@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2", "public/fonts/space-grotesk-latin.woff2"],
+  ["@fontsource-variable/space-grotesk/files/space-grotesk-latin-ext-wght-normal.woff2", "public/fonts/space-grotesk-latin-ext.woff2"],
+  ["@fontsource/space-mono/files/space-mono-latin-400-normal.woff2", "public/fonts/space-mono-latin-400.woff2"],
+  ["@fontsource/space-mono/files/space-mono-latin-ext-400-normal.woff2", "public/fonts/space-mono-latin-ext-400.woff2"],
+  ["@fontsource/space-mono/files/space-mono-latin-700-normal.woff2", "public/fonts/space-mono-latin-700.woff2"],
+  ["@fontsource/space-mono/files/space-mono-latin-ext-700-normal.woff2", "public/fonts/space-mono-latin-ext-700.woff2"],
 ];
 
 for (const [from, to] of files) {
-  copyFileSync(`${root}/node_modules/${from}`, `${out}/${to}`);
+  const output = `${root}/${to}`;
+  mkdirSync(dirname(output), { recursive: true });
+  copyFileSync(`${root}/node_modules/${from}`, output);
   console.log("vendored", to);
 }

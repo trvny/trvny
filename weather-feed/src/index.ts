@@ -223,10 +223,15 @@ export default {
           + `</urlset>\n`,
           { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "max-age=86400" } },
         );
-      case "/":
-        return new Response(renderPage(origin), {
-          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "max-age=3600" },
+      case "/": {
+        const state = await load<CurrentState>(env, K.current);
+        return new Response(renderPage(origin, state, entries), {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "public, max-age=300, stale-while-revalidate=600",
+          },
         });
+      }
       default:
         return new Response("not found", { status: 404 });
     }

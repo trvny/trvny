@@ -1,6 +1,6 @@
 import { CONFIG } from "./config";
 import type {
-  AirQuality, Condition, DayForecast, PollenReading, Reading, Warning,
+  AirQuality, Condition, DayForecast, PollenReading, Reading, StationReading, Warning,
 } from "./types";
 
 export interface Env {
@@ -324,7 +324,7 @@ function matchesArea(w: Record<string, unknown>): boolean {
 }
 
 function parseWarnings(data: unknown, category: WarningCategory): Warning[] {
-  if (!Array.isArray(data)) return []; // IMGW uses {status:false} for none active.
+  if (!Array.isArray(data)) return [];
   const out: Warning[] = [];
   for (const w of data) {
     if (!isObj(w) || !matchesArea(w)) continue;
@@ -368,7 +368,7 @@ export async function fetchImgwWarnings(): Promise<WarningFetchResult> {
 }
 
 // Nearest synop station — reference context only, not blended into the ensemble.
-export async function fetchImgwStation(name: string): Promise<Reading | null> {
+export async function fetchImgwStation(name: string): Promise<StationReading | null> {
   const data = await getJson("https://danepubliczne.imgw.pl/api/data/synop");
   if (!Array.isArray(data)) return null;
   const s = (data as unknown[]).find(
@@ -377,7 +377,7 @@ export async function fetchImgwStation(name: string): Promise<Reading | null> {
   if (!isObj(s)) return null;
   const at = `${String(s["data_pomiaru"])}T${String(s["godzina_pomiaru"]).padStart(2, "0")}:00:00`;
   return {
-    source: "openmeteo", // typed placeholder; station is shown separately and never blended.
+    source: "imgw",
     tempC: num(s["temperatura"]), feelsC: null,
     humidity: num(s["wilgotnosc_wzgledna"]), pressureHpa: num(s["cisnienie"]),
     windMs: num(s["predkosc_wiatru"]), windDir: num(s["kierunek_wiatru"]),

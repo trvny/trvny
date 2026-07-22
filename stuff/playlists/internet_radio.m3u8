@@ -234,40 +234,29 @@ https://waw.ic.smcdn.pl/6130-1.mp3
 http://djmixes.radioparty.pl:8025/energy2000
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radia.cz&sz=64",Radia.cz - Depeche
 https://ice2.radia.cz/depeche128.aac
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Synthpop
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.120.77.11/synthpop)
 http://79.120.77.11:8000/synthpop
 #EXTINF:-1,Radio (77.51.212.205)
 http://77.51.212.205:8005/live192
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Balkan
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.120.39.202/balkan)
 http://79.120.39.202:8000/balkan
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Music & Games
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.120.39.202/musicgame)
 http://79.120.39.202:8000/musicgame
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Electro-Industrial
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.111.119.111/electroindustrial)
 http://79.111.119.111:8000/electroindustrial
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Futurepop
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.120.39.202/futurepop)
 http://79.120.39.202:8004/futurepop
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Instrumental
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.120.77.11/instrumental)
 http://79.120.77.11:8000/instrumental
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Pop
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.120.77.11/pop)
 http://79.120.77.11:8000/pop
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Disco
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.120.77.11/disco)
 http://79.120.77.11:8000/disco
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Italo Disco
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.111.119.111/italodisco)
 http://79.111.119.111:8004/italodisco
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Trip-Hop
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.111.14.76/triphop)
 http://79.111.14.76:8004/triphop
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Witch House
-#EXTALB:myl2mr
+#EXTINF:-1,Radio (79.120.77.11/witchhouse)
 http://79.120.77.11:8004/witchhouse
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA Impreska
 #EXTALB:ESKA

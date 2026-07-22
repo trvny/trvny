@@ -1,38 +1,46 @@
 [![codebench](public/favicon.svg)](https://codebench.travny.workers.dev)
 # Code Bench — QR & Barcode Studio
 
-Static, client-side app. One HTML file in `public/`, no backend. The three runtime
-libraries (qr-code-styling, bwip-js, ZXing) are pulled from npm at build time into
-`public/vendor/` — so the deployed site loads nothing from a CDN and works offline.
+Client-side QR and barcode studio. The UI remains a single HTML document, while a
+small Cloudflare Worker wraps static assets with security headers, local font
+injection, and a focused hardening module. Scanned and generated values never
+leave the browser.
 
-## Deploy via Cloudflare Workers Builds (CI, recommended)
+Runtime libraries and fonts are copied from pinned npm packages into `public/`
+during the build. Production performs no Google Fonts or other third-party CDN
+requests.
 
-This lives in the `trvny/trvny` monorepo under `codebench/`. One-time dashboard setup:
+## Deploy via Cloudflare Workers Builds
+
+This lives in the `trvny/trvny` monorepo under `codebench/`.
 
 1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Import a repository**.
-2. Connect the GitHub account and pick **trvny/trvny**.
-3. Configure the build:
+2. Connect GitHub and select **trvny/trvny**.
+3. Configure:
    - **Worker name:** `codebench`
    - **Root directory:** `codebench`
    - **Build command:** `npm run build`
    - **Deploy command:** `npx wrangler deploy`
-   (install runs automatically)
-4. **Save and Deploy.**
+4. Set **Build watch paths** to `codebench/*` and deploy.
 
-Lands on `https://codebench.<your-subdomain>.workers.dev` (https — the camera scanner needs it).
-Every push that touches `codebench/**` on `main` redeploys. To avoid rebuilds on unrelated
-monorepo changes, set **Build watch paths** to `codebench/*` in the build settings.
+The camera scanner needs HTTPS or localhost.
 
-## Deploy from your machine (no dashboard)
+## Local
 
-    cd codebench
-    npm install
-    npm run deploy      # runs the vendor build, then `wrangler deploy`
+```sh
+cd codebench
+npm install
+npm run dev
+```
 
-`npm run dev` for a local preview at localhost.
+`npm run deploy` builds vendored assets and deploys them.
 
-## Notes
+## Layout
 
-- `public/vendor/` and `node_modules/` are gitignored; the build regenerates vendor/.
-- Bump a library by editing its version in `package.json` — next build picks it up.
-- Camera scanning needs a secure context (https or localhost); `file://` won't work.
+- `public/index.html` — UI and original application logic;
+- `public/hardening.js` — validation, safe exports, bounded image work, print fixes;
+- `public/fonts.css` — self-hosted Space Grotesk and Space Mono declarations;
+- `src/index.js` — static-asset Worker, HTML injection, and security headers;
+- `scripts/vendor.mjs` — copies pinned libraries and WOFF2 files from `node_modules`.
+
+Generated `public/vendor/`, `public/fonts/`, and `node_modules/` remain gitignored.

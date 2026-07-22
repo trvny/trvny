@@ -12,24 +12,30 @@ export interface Reading {
   source: SourceId;
   tempC: number | null;
   feelsC: number | null;
-  humidity: number | null;     // %
-  pressureHpa: number | null;  // sea-level
+  humidity: number | null;
+  pressureHpa: number | null;
   windMs: number | null;
-  windDir: number | null;      // degrees
-  precipMm: number | null;     // last hour
-  uvIndex: number | null;      // 0–11+
+  windDir: number | null;
+  precipMm: number | null;
+  uvIndex: number | null;
   condition: Condition;
-  observedAt: string;          // ISO
+  observedAt: string;
+}
+
+// Reference-only station reading. It cannot accidentally enter a point ensemble
+// because its source is not a SourceId.
+export interface StationReading extends Omit<Reading, "source"> {
+  source: "imgw";
 }
 
 export interface DayForecast {
   source: SourceId;
-  date: string;                // YYYY-MM-DD (local)
+  date: string;
   tMaxC: number | null;
   tMinC: number | null;
   precipMm: number | null;
-  precipProb: number | null;   // %
-  uvIndexMax: number | null;   // 0–11+
+  precipProb: number | null;
+  uvIndexMax: number | null;
   condition: Condition;
 }
 
@@ -37,7 +43,7 @@ export interface Stat {
   median: number | null;
   min: number | null;
   max: number | null;
-  n: number;                   // how many sources contributed
+  n: number;
 }
 
 export interface Ensemble {
@@ -49,7 +55,7 @@ export interface Ensemble {
   windMs: Stat;
   precipMm: Stat;
   uv: Stat;
-  condition: Condition;        // majority vote, severity tie-break
+  condition: Condition;
   sources: SourceId[];
 }
 
@@ -64,31 +70,27 @@ export interface DayEnsemble {
   sources: SourceId[];
 }
 
-// IMGW official warning (meteo = powiat-scoped, hydro = voivodeship-scoped).
-// The high-value, event-shaped feed.
 export interface Warning {
   id: string;
   category: "meteo" | "hydro";
   event: string;
-  level: number | null;        // stopień 1–3
-  probability: number | null;  // %
-  from: string | null;         // ISO
-  to: string | null;           // ISO
+  level: number | null;
+  probability: number | null;
+  from: string | null;
+  to: string | null;
   content: string;
 }
 
-// Single-source (Open-Meteo / CAMS) air-quality + pollen snapshot. NOT an
-// ensemble — only one provider exposes CAMS, so there's nothing to blend.
 export interface PollenReading {
-  species: string;             // key: alder|birch|grass|mugwort|ragweed
-  grains: number;              // grains/m³
+  species: string;
+  grains: number;
 }
 export interface AirQuality {
   observedAt: string;
-  europeanAqi: number | null;  // 0–100+ (banded)
-  pm25: number | null;         // µg/m³
-  pm10: number | null;         // µg/m³
-  pollen: PollenReading[];     // species with a positive concentration
+  europeanAqi: number | null;
+  pm25: number | null;
+  pm10: number | null;
+  pollen: PollenReading[];
   topPollen: PollenReading | null;
 }
 
@@ -98,16 +100,16 @@ export type EntryKind =
   | "air_quality_change";
 
 export interface FeedEntry {
-  id: string;                  // stable tag: URI
+  id: string;
   kind: EntryKind;
   title: string;
   summary: string;
-  published: string;           // ISO
+  published: string;
 }
 
 export interface CurrentState {
   ensemble: Ensemble;
   warnings: Warning[];
   airQuality: AirQuality | null;
-  imgwStation: Reading | null; // nearest synop, reference only
+  imgwStation: StationReading | null;
 }

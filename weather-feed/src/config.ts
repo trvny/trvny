@@ -22,33 +22,22 @@ export const CONFIG = {
   // domain). Olive omitted — Mediterranean, irrelevant at this latitude.
   pollenSpecies: ["alder", "birch", "grass", "mugwort", "ragweed"] as const,
 
-  // Change-detection thresholds. Entries are emitted only when the new reading
-  // crosses one of these vs the last *published* baseline (hysteresis — avoids
-  // drift spam). Tune to taste.
   thresholds: {
-    currentTempC: 3,        // |Δ ensemble median temp| since last entry
-    precipOnsetMm: 0.1,     // current precip starts/stops across this
-    forecastTMaxC: 3,       // per-day |Δ tmax| to flag a revision
-    forecastPrecipProb: 50, // per-day precip prob crossing this → revision
-    // UV and pollen are shown on the page/state but do NOT emit entries:
-    // UV swings 0↔high every day/night and pollen has no clean band, so
-    // triggering on them would flood the feed. Air quality DOES emit, keyed
-    // on the European AQI band changing (clean, well-defined boundaries).
+    currentTempC: 3,
+    precipOnsetMm: 0.1,
+    forecastTMaxC: 3,
+    forecastPrecipProb: 50,
   },
 
-  maxEntries: 60,           // Atom ring-buffer length
+  maxEntries: 60,
   sourceTimeoutMs: 15000,
-
-  // One retry on transient failure (timeout / 5xx / 429). Rescues a slow or
-  // briefly-unavailable upstream so a single blip doesn't drop a source from
-  // the median for the whole 2h window. Does NOT rescue a blown daily quota.
   sourceRetries: 1,
-  retryBaseMs: 300,         // backoff base; wait ≈ retryBaseMs * 2^(n-1) + jitter
+  retryBaseMs: 300,
 
-  // Last-good cache: if a point source fails a tick, reuse its previous reading
-  // from KV (when newer than this) so the median keeps all three. 3h covers one
-  // missed 2h cycle with margin; a source down longer legitimately drops out.
+  // Covers one missed 2h cycle with margin.
   lastGoodMaxAgeMs: 3 * 60 * 60 * 1000,
+  // Health fails after two missed cycles plus margin.
+  currentStaleAfterMs: 5 * 60 * 60 * 1000,
 } as const;
 
 export const SOURCE_LABEL: Record<string, string> = {

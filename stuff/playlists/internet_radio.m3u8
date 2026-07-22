@@ -53,8 +53,6 @@ https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioplus.pl&sz=64",Radio Plus
 #EXTALB:Eurozet
 https://pl05.cdn.eurozet.pl/plu-gdn.mp3
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA (smcdn 4070)
-#EXTALB:ESKA
 https://ic2.smcdn.pl/4070-1.mp3
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=meloradio.pl&sz=64",Meloradio
 #EXTALB:Eurozet
@@ -98,14 +96,9 @@ http://stream3.nadaje.com:9128/radiokrakow
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=sizeer.com&sz=64",Sizeer FM
 #EXTALB:rmfon
 https://rs103-krk-cyfronet.rmfstream.pl/sizeer_fm
-#EXTINF:-1,Radio (pejpal.cloud)
 https://radio.pejpal.cloud/stream
-#EXTINF:-1,Radio (slotex.pl)
 http://s3.slotex.pl:7240/stream
-#EXTINF:-1,Radio (slotex.pl)
 https://s1.slotex.pl:7474/;
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA (smcdn 3990)
-#EXTALB:ESKA
 https://waw.ic.smcdn.pl/3990-1.mp3
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioimperium.pl&sz=64",Radio Imperium
 https://stream.radioimperium.pl:8443/stream
@@ -136,9 +129,7 @@ https://ams-pioneer02.dedicateware.com:2765/stream
 #EXTINF:-1,Maxi Italo
 #EXTALB:Maxi Italo
 https://ams-pioneer02.dedicateware.com:2655/stream
-#EXTINF:-1,Radio (54.36.89.71)
 http://54.36.89.71:8102/stream
-#EXTINF:-1,Radio (radiohost.pl)
 https://ssl-1.radiohost.pl:8018/stream
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=el-stacja.pl&sz=64",El-Stacja
 http://radio.el-stacja.pl:8000/elstacjaap320.ogg
@@ -158,7 +149,6 @@ http://admin.biasradio.com:8000/live?&_ic2=1
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=laut.fm&sz=64",GTA Classics
 #EXTALB:laut.fm
 https://stream.laut.fm/gta-classics
-#EXTINF:-1,Radio (orion.shoutca.st)
 http://orion.shoutca.st:8750/
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=54house.fm&sz=64",54 House FM
 https://54house.fm:9013/stream
@@ -179,11 +169,9 @@ https://streamer.radio.co/s2c3cc784b/listen
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=laut.fm&sz=64",Electro Swing
 #EXTALB:laut.fm
 https://stream.laut.fm/electro-swing
-#EXTINF:-1,Electro Swing
 http://213.141.131.10:8000/electroswing
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=jazzradio.fr&sz=64",Jazz Radio (FR)
 https://jazz-wr04.ice.infomaniak.ch/jazz-wr04-128.mp3
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=unitedradio.it&sz=64",United Radio (um062)
 https://icy.unitedradio.it/um062.mp3
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=1.fm&sz=64",1.FM - Movie Soundtracks
 #EXTALB:1.FM
@@ -192,11 +180,8 @@ https://strm112.1.fm/moviesoundtracks_mobile_mp3
 https://gb25.streamgates.net/radios-audio/100Movies/icecast.audio
 #EXTINF:-1,100Gamer
 https://gb25.streamgates.net/radios-audio/100Gamer/icecast.audio
-#EXTINF:-1,Radio (torontocast)
 https://kathy.torontocast.com:1190/stream
-#EXTINF:-1,Radio (torontocast)
 https://quincy.torontocast.com:2410/stream
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioking.com&sz=64",RadioKing (422)
 https://listen.radioking.com/radio/422/stream/62785
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=laut.fm&sz=64",SoundtracksFM
 #EXTALB:laut.fm
@@ -210,59 +195,38 @@ https://stream.laut.fm/soundtrack
 https://substream.top100station.com/topmoviestation.mp3
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=technolovers.fm&sz=64",Technolovers - Melodic House & Techno
 https://stream.technolovers.fm/melodic-house-techno
-#EXTINF:-1,Loca - Melodic House
 https://s2.we4stream.com/listen/loca_melodic_house/live
-#EXTINF:-1,Melodic House
 http://79.120.12.130:8000/melodichouse
-#EXTINF:-1,Radio (novahost.bg)
 http://meg.novahost.bg:8014/autodj
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=1.fm&sz=64",1.FM - Deep House
 #EXTALB:1.FM
 https://strm112.1.fm/deephouse_mobile_mp3
-#EXTINF:-1,Radio (liveboxstream)
 https://streaming04.liveboxstream.uk/proxy/jlofth00?mp=/stream
-#EXTINF:-1,Radio (67.212.166.178)
 http://67.212.166.178:7024/;
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioo.eu&sz=64",Radioo.eu
 http://radioo.eu:9900/
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=electroradio.fm&sz=64",Electro Radio FM
 https://stream.electroradio.fm:26630/192k
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA (smcdn 6130)
-#EXTALB:ESKA
 https://waw.ic.smcdn.pl/6130-1.mp3
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioparty.pl&sz=64",RadioParty - Energy 2000
 http://djmixes.radioparty.pl:8025/energy2000
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radia.cz&sz=64",Radia.cz - Depeche
 https://ice2.radia.cz/depeche128.aac
-#EXTINF:-1,Radio (79.120.77.11/synthpop)
 http://79.120.77.11:8000/synthpop
-#EXTINF:-1,Radio (77.51.212.205)
 http://77.51.212.205:8005/live192
-#EXTINF:-1,Radio (79.120.39.202/balkan)
 http://79.120.39.202:8000/balkan
-#EXTINF:-1,Radio (79.120.39.202/musicgame)
 http://79.120.39.202:8000/musicgame
-#EXTINF:-1,Radio (79.111.119.111/electroindustrial)
 http://79.111.119.111:8000/electroindustrial
-#EXTINF:-1,Radio (79.120.39.202/futurepop)
 http://79.120.39.202:8004/futurepop
-#EXTINF:-1,Radio (79.120.77.11/instrumental)
 http://79.120.77.11:8000/instrumental
-#EXTINF:-1,Radio (79.120.77.11/pop)
 http://79.120.77.11:8000/pop
-#EXTINF:-1,Radio (79.120.77.11/disco)
 http://79.120.77.11:8000/disco
-#EXTINF:-1,Radio (79.111.119.111/italodisco)
 http://79.111.119.111:8004/italodisco
-#EXTINF:-1,Radio (79.111.14.76/triphop)
 http://79.111.14.76:8004/triphop
-#EXTINF:-1,Radio (79.120.77.11/witchhouse)
 http://79.120.77.11:8004/witchhouse
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA Impreska
 #EXTALB:ESKA
 https://ic1.smcdn.pl/6030-1.mp3
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA (smcdn 1380)
-#EXTALB:ESKA
 https://ic1.smcdn.pl/1380-1.mp3
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA Tarnów
 #EXTALB:ESKA
@@ -270,11 +234,9 @@ https://ic1.smcdn.pl/2330-1.mp3
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=laut.fm&sz=64",laut.fm - spotify
 #EXTALB:laut.fm
 https://stream.laut.fm/spotify
-#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=iheart.com&sz=64",iHeartRadio (ARN_IHRT16)
 https://playerservices.streamtheworld.com/api/livestream-redirect/ARN_IHRT16AAC.aac
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=uber.radio&sz=64",Uber Radio - Throwbacks
 https://drive.uber.radio/uber/ttthrowbacks/icecast.audio
-#EXTINF:-1,Radio (radioboss.fm)
 http://c16.radioboss.fm:8026/autodj
 #EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=promodj.com&sz=64",PromoDJ - Channel 5
 #EXTALB:PromoDJ

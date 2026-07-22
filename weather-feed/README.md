@@ -1,82 +1,67 @@
 # weather-feed
 
-Multi-source weather aggregator for **Kościelec (Chrzanów)**, 50.14 N / 19.42 E,
-served as an Atom feed of *changes* — not a firehose of identical readings.
+Multi-source weather aggregator for **Kościelec (Chrzanów)**,
+50.14 N / 19.42 E, served as an Atom feed of changes rather than a firehose
+of identical readings.
 
 ## What it does
 
-- **Ensemble**, not concatenation. Three point sources (Open-Meteo, OpenWeather,
-  Visual Crossing) are normalized to common units, then reduced to a **median +
-  spread** per variable. The spread is the signal: "all three say 18°" vs
-  "range 14–22°" is the thing no single API tells you.
-- **IMGW warnings** are the high-value, genuinely event-shaped content — new and
-  lifted warnings each get an entry. Two endpoints:
-  - **meteo** — filtered precisely to powiat chrzanowski (TERYT `1203`);
-  - **hydro** — carries no TERYT, so filtered to voivodeship (małopolskie). These
-    are regional by nature (drought/flood per catchment), so a małopolskie
-    drought warning will surface even if its catchment isn't right at Chrzanów.
-- **Entries only on change.** Hysteresis vs the last *published* baseline, so
-  small drift doesn't spam the feed:
-  - current: condition flips, |Δtemp| ≥ 3 °C, or precip starts/stops;
-  - forecast: a day's max moves ≥ 3 °C or precip-prob crosses 50 %.
-- IMGW's nearest synop (Kraków, ~30 km) is shown in `/state.json` as reference
-  context but **not** blended into the point ensemble — wrong location.
+- Three point sources are normalized and reduced to median + spread.
+- IMGW meteo warnings are filtered to powiat chrzanowski (TERYT `1203`);
+  hydro warnings are filtered to małopolskie.
+- A partial IMGW outage preserves the last known warnings for the failed
+  category, so a timeout cannot manufacture false “warning lifted” entries.
+- Preserved warnings expire at their IMGW end time. Records without a usable
+  end time remain until that IMGW category responds again.
+- Current entries use condition changes, |Δ temperature| ≥ 3 °C, or
+  precipitation start/stop. Forecast entries use max-temperature revisions
+  or a 50% rain-probability crossing.
+- OpenWeather three-hour slots are bucketed into `Europe/Warsaw` days.
+- The nearest IMGW station is reference context only and is not blended.
 
 ## Schedule
 
 | cron | cycle |
-|---|---|
-| `0 */2 * * *` | current conditions + IMGW warnings |
-| `0 5 * * *`   | daily forecast revision check |
+| --- | --- |
+| `0 */2 * * *` | current conditions, air quality, and IMGW warnings |
+| `0 5 * * *` | daily forecast revision check |
 
 ## Endpoints
 
 - `GET /feed.atom` — all change entries
-- `GET /warnings.atom` — IMGW warnings only
-- `GET /state.json` — latest ensemble + active warnings + synop reference
-- `GET /healthz`, `GET /`
+- `GET /warnings.atom` — IMGW warning entries with their own Atom ID
+  and self URL
+- `GET /state.json` — latest ensemble, active warnings, air quality,
+  and station reference
+- `GET /healthz` — returns 503 when the current cycle is stale or unhealthy
+- `GET /`
 
-Served read-only from KV; KV is written **only** by the cron (tvpi free-tier
-write discipline).
+The request path is read-only. KV writes happen only during scheduled cycles.
 
 ## Setup
 
 ```sh
 npm install
-wrangler kv namespace create WEATHER_KV     # paste id into wrangler.jsonc
+wrangler kv namespace create WEATHER_KV
 wrangler secret put OPENWEATHER_KEY
 wrangler secret put VISUALCROSSING_KEY
-npm run typecheck
+npm run check
 wrangler deploy
 ```
 
-Open-Meteo and IMGW need no key. Without the two secrets the worker still runs
-on Open-Meteo alone (degraded ensemble, n=1). CI deploy needs repo secrets
-`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (already used by status-mcp).
+Open-Meteo and IMGW need no key. Without keyed providers the Worker continues
+in degraded single-source mode.
 
-## Known caveats (flagged, not hidden)
+## Tests
 
-- **OpenWeather free forecast** is 5-day/3-hour bucketed to **UTC** days, so its
-  daily max/min are off by the UTC↔Warsaw offset. Acceptable for a 3-source
-  median; fix by bucketing on `Europe/Warsaw` if it matters.
-- **IMGW warning field names** — the hydro shape is confirmed live (`zdarzenie`,
-  `stopień`, `data_od/do`, `obszary[]`). Meteo shares it but had no active
-  warning to confirm against; the parser reads keys with fallbacks. Verify
-  meteo's `obszary[].teryt` against a live stopień-2 event and tighten if needed.
-- **Validation** is hand-rolled guards (zero-dep, tvpi style). Upgrade per the
-  `typescript-resilient-fetch` skill: swap each parse block for a Zod
-  `safeParse` so an upstream shape change fails cleanly at the edge.
-- Free-tier quotas are the binding constraint — Visual Crossing 1000 records/day
-  and OpenWeather call caps. At 12 current + 1 forecast cycles/day you're far
-  under, but check before raising frequency.
+`npm test` covers partial and total IMGW outages, warning expiry,
+Warsaw timestamp handling, and Atom feed identity. CI runs `npm run check`,
+combining TypeScript validation and tests.
 
-## Future ideas
+## Known caveats
 
-- **CAP / Meteoalarm via [alerts.kde.org](https://alerts.kde.org)** (FOSS Public
-  Alert Server). *Evaluated, not adopted:* its Poland source (`pl-imgw-xx`) is
-  just the Meteoalarm relay of IMGW — same authority, but coarser (≈voivodeship
-  NUTS regions), **meteo-only (no hydro)**, with awareness-level colour codes and
-  standard CAP polygons. For Kościelec the direct IMGW API is strictly better
-  (powiat precision + hydro). Worth revisiting only if this goes multi-region,
-  wants an English-language CAP feed, or needs polygons for a map — then one
-  documented endpoint beats wiring 200+ national feeds by hand.
+- IMGW meteo field fallbacks should still be verified against the next live
+  stopień-2 event and tightened if its shape differs.
+- Upstream validation remains hand-written and zero-dependency. Zod-style
+  schemas would make future API-shape changes easier to diagnose.
+- Free-tier quotas remain the binding constraint before increasing frequency.

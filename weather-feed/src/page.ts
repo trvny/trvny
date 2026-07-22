@@ -1,39 +1,224 @@
-// Landing page served at GET /. Self-contained: theme + live data + Atom buttons.
-// Theme: Arctic Frost (theme-factory) — steel/ice palette; amber/red added for
-// warning severity (the theme has no alert colour). Live data is fetched
-// client-side from /state.json and /feed.atom (same origin), so the HTML stays
-// static and the Worker request path stays read-only. Icons are static files
-// served from /public via the assets binding.
+import type { AirQuality, CurrentState, FeedEntry, Warning } from "./types";
 
-export function renderPage(origin: string): string {
+// Landing page served at GET /. The current KV snapshot is rendered into HTML
+// for users and crawlers; the small client script still refreshes it in place.
+
+const CONDITION_LABELS: Record<string, string> = {
+  clear: "bezchmurnie",
+  clouds: "zachmurzenie",
+  fog: "mgła",
+  drizzle: "mżawka",
+  rain: "deszcz",
+  snow: "śnieg",
+  storm: "burza",
+  unknown: "brak danych",
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  openmeteo: "Open-Meteo",
+  openweather: "OpenWeather",
+  visualcrossing: "Visual Crossing",
+};
+
+const POLLEN_LABELS: Record<string, string> = {
+  alder: "olcha",
+  birch: "brzoza",
+  grass: "trawy",
+  mugwort: "bylica",
+  ragweed: "ambrozja",
+};
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function fmt(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return String(Math.round(value * 10) / 10);
+}
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("pl-PL", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Europe/Warsaw",
+  }).format(date);
+}
+
+function renderNow(state: CurrentState | null): {
+  temp: string;
+  condition: string;
+  spread: string;
+  metrics: string;
+  source: string;
+} {
+  if (!state?.ensemble) {
+    return {
+      temp: "—",
+      condition: "brak danych — czekam na pierwszy cykl",
+      spread: "",
+      metrics: "",
+      source: "Dane odświeżają się automatycznie.",
+    };
+  }
+
+  const ensemble = state.ensemble;
+  const condition = CONDITION_LABELS[ensemble.condition] ?? ensemble.condition;
+  const spread = ensemble.tempC.n > 1
+    ? `rozrzut ${fmt(ensemble.tempC.min)}–${fmt(ensemble.tempC.max)}° · ${ensemble.tempC.n} źródła`
+    : "1 źródło";
+  const metrics = [
+    `<span>wiatr <b>${fmt(ensemble.windMs.median)}</b> m/s</span>`,
+    `<span>wilgotność <b>${fmt(ensemble.humidity.median)}</b>%</span>`,
+    `<span>ciśnienie <b>${fmt(ensemble.pressureHpa.median)}</b> hPa</span>`,
+    ensemble.uv?.median != null ? `<span>UV <b>${fmt(ensemble.uv.median)}</b></span>` : "",
+  ].join("");
+
+  const names = (ensemble.sources ?? []).map((source) => SOURCE_LABELS[source] ?? source).join(", ");
+  const observed = formatDate(ensemble.observedAt);
+  let source = names ? `Źródła: ${escapeHtml(names)}` : "";
+  if (observed) {
+    source += `${source ? " · " : ""}<time datetime="${escapeHtml(ensemble.observedAt)}">${escapeHtml(observed)}</time>`;
+  }
+  if (state.imgwStation?.tempC != null) {
+    source += ` · stacja IMGW (ref.): ${fmt(state.imgwStation.tempC)}°`;
+  }
+
+  return {
+    temp: `${fmt(ensemble.tempC.median)}°`,
+    condition: escapeHtml(condition),
+    spread: escapeHtml(spread),
+    metrics,
+    source,
+  };
+}
+
+function renderWarnings(warnings: Warning[] | null | undefined): string {
+  if (!warnings?.length) return '<p class="empty">Brak aktywnych ostrzeżeń.</p>';
+  return warnings.map((warning) => {
+    const cls = warning.category === "hydro" ? "hydro" : warning.level != null && warning.level >= 3 ? "alarm" : "";
+    const level = warning.level != null && warning.level >= 1 ? ` (stopień ${warning.level})` : "";
+    const tag = warning.category === "hydro" ? "IMGW hydro" : "IMGW";
+    const range = `${warning.from ?? "?"} → ${warning.to ?? "?"}`;
+    return `<div class="warn ${cls}"><div class="wt">${escapeHtml(`${tag}: ${warning.event}${level}`)}</div>`
+      + `<div class="wm">${escapeHtml(warning.content)}<br>${escapeHtml(range)}</div></div>`;
+  }).join("");
+}
+
+function aqiBand(value: number | null): { label: string; color: string } {
+  if (value == null || !Number.isFinite(value)) return { label: "—", color: "var(--muted)" };
+  const bands: Array<[number, string, string]> = [
+    [20, "bardzo dobra", "#10b981"],
+    [40, "dobra", "#84cc16"],
+    [60, "umiarkowana", "#f59e0b"],
+    [80, "zła", "#f97316"],
+    [100, "bardzo zła", "#ef4444"],
+    [Number.POSITIVE_INFINITY, "ekstremalnie zła", "#7f1d1d"],
+  ];
+  const match = bands.find(([limit]) => value <= limit) ?? bands[bands.length - 1];
+  return { label: match[1], color: match[2] };
+}
+
+function renderAir(air: AirQuality | null | undefined): string {
+  if (!air) return '<p class="empty">Brak danych o jakości powietrza.</p>';
+  const band = aqiBand(air.europeanAqi);
+  let html = `<div class="now"><span class="temp" style="color:${band.color}">${air.europeanAqi == null ? "—" : Math.round(air.europeanAqi)}</span>`
+    + `<span><span class="cond" style="color:${band.color}">AQI — ${escapeHtml(band.label)}</span><br>`
+    + `<span class="spread">PM2.5 ${fmt(air.pm25)} · PM10 ${fmt(air.pm10)} µg/m³</span></span></div>`;
+  if (air.pollen?.length) {
+    html += `<div class="metrics">${air.pollen.map((item) =>
+      `<span>${escapeHtml(POLLEN_LABELS[item.species] ?? item.species)} <b>${escapeHtml(item.grains)}</b> ziaren/m³</span>`,
+    ).join("")}</div>`;
+    html += '<div class="src">Pyłki orientacyjnie (CAMS, ziarna/m³); europejski indeks AQI.</div>';
+  } else {
+    html += '<div class="src">Brak istotnych pyłków; europejski indeks AQI.</div>';
+  }
+  return html;
+}
+
+function renderEntries(entries: FeedEntry[]): string {
+  const recent = entries.slice(0, 8);
+  if (!recent.length) return '<p class="empty">Brak wpisów — czekam na pierwszą zmianę.</p>';
+  return recent.map((entry) => {
+    const when = formatDate(entry.published);
+    return `<div class="entry"><div class="et">${escapeHtml(entry.title)}</div>`
+      + `<div class="em">${escapeHtml(entry.summary)}</div>`
+      + `<time datetime="${escapeHtml(entry.published)}">${escapeHtml(when)}</time></div>`;
+  }).join("");
+}
+
+export function renderPage(
+  origin: string,
+  state: CurrentState | null = null,
+  entries: FeedEntry[] = [],
+): string {
+  const now = renderNow(state);
+  const condition = state?.ensemble
+    ? CONDITION_LABELS[state.ensemble.condition] ?? state.ensemble.condition
+    : null;
+  const liveLead = state?.ensemble?.tempC.median != null
+    ? `Aktualnie ${fmt(state.ensemble.tempC.median)}°C, ${condition}. `
+    : "";
+  const title = "Pogoda Chrzanów i Kościelec: temperatura, powietrze, IMGW";
+  const description = `${liveLead}Pogoda dla Chrzanowa i Kościelca z mediany wielu źródeł, jakość powietrza, pyłki oraz ostrzeżenia IMGW.`;
+  const schema = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: title,
+    description,
+    url: `${origin}/`,
+    inLanguage: "pl-PL",
+    dateModified: state?.ensemble?.observedAt,
+    spatialCoverage: {
+      "@type": "Place",
+      name: "Kościelec, Chrzanów",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Chrzanów",
+        addressRegion: "małopolskie",
+        addressCountry: "PL",
+      },
+    },
+  }).replaceAll("<", "\\u003c");
+
   return `<!doctype html>
 <html lang="pl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="google-site-verification" content="Qu5-7v2tWoKtUYUVlQXisaFkGGVEImYlmycKDUg0QBw" />
-<title>Pogoda — Kościelec (Chrzanów)</title>
+<meta name="google-site-verification" content="Qu5-7v2tWoKtUYUVlQXisaFkGGVEImYlmycKDUg0QBw">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<title>${escapeHtml(title)}</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="alternate" type="application/atom+xml" title="Pogoda — zmiany" href="/feed.atom">
 <link rel="alternate" type="application/atom+xml" title="Ostrzeżenia IMGW" href="/warnings.atom">
-<meta name="description" content="Pogoda dla Kościelca (Chrzanów) z mediany wielu źródeł, ostrzeżenia IMGW (meteo i hydro) oraz feed Atom z samymi zmianami.">
-<link rel="canonical" href="${origin}/">
+<meta name="description" content="${escapeHtml(description)}">
+<link rel="canonical" href="${escapeHtml(origin)}/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="pl_PL">
-<meta property="og:site_name" content="Pogoda Kościelec">
-<meta property="og:title" content="Pogoda — Kościelec (Chrzanów)">
-<meta property="og:description" content="Agregat wielu źródeł + ostrzeżenia IMGW. Feed Atom ze zmianami.">
-<meta property="og:url" content="${origin}/">
-<meta property="og:image" content="${origin}/og.png">
+<meta property="og:site_name" content="Pogoda Chrzanów">
+<meta property="og:title" content="${escapeHtml(title)}">
+<meta property="og:description" content="${escapeHtml(description)}">
+<meta property="og:url" content="${escapeHtml(origin)}/">
+<meta property="og:image" content="${escapeHtml(origin)}/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Pogoda — Kościelec (Chrzanów)">
+<meta property="og:image:alt" content="Pogoda dla Chrzanowa i Kościelca">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Pogoda — Kościelec (Chrzanów)">
-<meta name="twitter:description" content="Agregat wielu źródeł + ostrzeżenia IMGW. Feed Atom ze zmianami.">
-<meta name="twitter:image" content="${origin}/og.png">
+<meta name="twitter:title" content="${escapeHtml(title)}">
+<meta name="twitter:description" content="${escapeHtml(description)}">
+<meta name="twitter:image" content="${escapeHtml(origin)}/og.png">
+<script type="application/ld+json">${schema}</script>
 <style>
   :root{
     --ice:#d4e4f7; --steel:#4a6fa5; --steel-dark:#33507a; --silver:#c0c0c0;
@@ -49,6 +234,7 @@ export function renderPage(origin: string): string {
   }
   main{max-width:680px; margin:0 auto; padding:32px 20px 56px}
   header h1{font-size:1.7rem; margin:0 0 2px; letter-spacing:-.01em}
+  header h1 span{color:var(--muted);font-weight:400}
   header p{margin:0 0 22px; color:var(--muted); font-size:.95rem}
   .card{background:#fff; border:1px solid #e3eaf3; border-radius:14px; padding:20px 22px; margin:14px 0;
     box-shadow:0 1px 2px rgba(26,35,51,.04)}
@@ -92,8 +278,8 @@ export function renderPage(origin: string): string {
 <body>
 <main>
   <header>
-    <h1>Kościelec <span style="color:var(--muted);font-weight:400">(Chrzanów)</span></h1>
-    <p>Pogoda z mediany wielu źródeł · ostrzeżenia IMGW · feed zmian</p>
+    <h1>Pogoda Chrzanów <span>· Kościelec</span></h1>
+    <p>Mediana wielu źródeł · jakość powietrza i pyłki · ostrzeżenia IMGW · feed zmian</p>
   </header>
 
   <div class="btns">
@@ -102,26 +288,26 @@ export function renderPage(origin: string): string {
     <button class="btn ghost" id="copy">Kopiuj URL feedu</button>
   </div>
 
-  <div class="card" id="nowCard">
+  <div class="card" id="nowCard" aria-live="polite">
     <div class="now">
-      <span class="temp" id="temp">—</span>
+      <span class="temp" id="temp">${now.temp}</span>
       <span>
-        <span class="cond" id="cond">ładowanie…</span><br>
-        <span class="spread" id="spread"></span>
+        <span class="cond" id="cond">${now.condition}</span><br>
+        <span class="spread" id="spread">${now.spread}</span>
       </span>
     </div>
-    <div class="metrics" id="metrics"></div>
-    <div class="src" id="src"></div>
+    <div class="metrics" id="metrics">${now.metrics}</div>
+    <div class="src" id="src">${now.source}</div>
   </div>
 
   <h2>Powietrze i pyłki</h2>
-  <div class="card" id="airCard"><p class="empty">—</p></div>
+  <div class="card" id="airCard">${renderAir(state?.airQuality)}</div>
 
   <h2>Aktywne ostrzeżenia</h2>
-  <div id="warnings"><p class="empty">—</p></div>
+  <div id="warnings">${renderWarnings(state?.warnings)}</div>
 
   <h2>Ostatnie zmiany</h2>
-  <div class="card" id="entries"><p class="empty">—</p></div>
+  <div class="card" id="entries">${renderEntries(entries)}</div>
 
   <footer>
     Źródła: Open-Meteo · OpenWeather · Visual Crossing · IMGW-PIB · Open-Meteo Air Quality (CAMS).
@@ -221,12 +407,12 @@ export function renderPage(origin: string): string {
     }catch(_){ wrap.innerHTML='<p class="empty">Nie udało się wczytać feedu.</p>'; }
   }
 
-  fetch("/state.json").then(function(r){return r.json();}).then(function(s){
+  fetch("/state.json",{cache:"no-store"}).then(function(r){return r.json();}).then(function(s){
     renderNow(s); renderWarnings(s && s.warnings); renderAir(s && s.airQuality);
-  }).catch(function(){ el("cond").textContent="nie udało się wczytać danych"; });
+  }).catch(function(){ el("cond").textContent="nie udało się odświeżyć danych"; });
 
-  fetch("/feed.atom").then(function(r){return r.text();}).then(renderEntries)
-    .catch(function(){ el("entries").innerHTML='<p class="empty">Nie udało się wczytać feedu.</p>'; });
+  fetch("/feed.atom",{cache:"no-store"}).then(function(r){return r.text();}).then(renderEntries)
+    .catch(function(){ /* SSR content stays visible when refresh fails. */ });
 })();
 </script>
 </body>

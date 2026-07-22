@@ -51,7 +51,6 @@ async function pushEntries(env: Env, fresh: FeedEntry[]): Promise<void> {
   log("info", { msg: "entries appended", added: fresh.length, total: merged.length });
 }
 
-// ── current cycle: every 2h. Point ensemble + air quality + IMGW warnings ────
 async function runCurrent(env: Env): Promise<void> {
   const [om, ow, vc, air, warningFetch, station] = await Promise.all([
     fetchOpenMeteo().catch(asNull("openmeteo")),
@@ -115,8 +114,6 @@ async function runCurrent(env: Env): Promise<void> {
     log("warn", { msg: "IMGW warnings unavailable; preserving previous state" });
   }
 
-  // Always refresh the page snapshot when one already exists. This lets fresh
-  // warning data reach state.json even during a total point-weather outage.
   const prevState = await load<CurrentState>(env, K.current);
   if (ensemble) {
     const state: CurrentState = {
@@ -138,7 +135,7 @@ async function runCurrent(env: Env): Promise<void> {
 
   await pushEntries(env, fresh);
   const status: CycleStatus = {
-    ok: liveReadings.length > 0 || Boolean(air) || Boolean(warningFetch?.succeeded.length),
+    ok: liveReadings.length > 0,
     completedAt: new Date().toISOString(),
     sources: liveReadings.map((reading) => reading.source),
     warningsFresh: warningFetch?.succeeded ?? [],
@@ -146,7 +143,6 @@ async function runCurrent(env: Env): Promise<void> {
   await env.WEATHER_KV.put(K.statusCurrent, JSON.stringify(status));
 }
 
-// ── forecast cycle: once a day. Daily ensemble + revision detect ─────────────
 async function runForecast(env: Env): Promise<void> {
   const [om, ow, vc] = await Promise.all([
     fetchOpenMeteo().catch(asNull("openmeteo")),
@@ -182,7 +178,6 @@ function asNull(source: string) {
   };
 }
 
-// ── HTTP: serve pre-built entries from KV (read-only, no upstream fan-out) ───
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);

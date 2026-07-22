@@ -1,289 +1,469 @@
-﻿#EXTM3U
-#EXTINF:-1, BBC - Radio 1
-#EXTALB:bbc_radio_one
+#EXTM3U
+#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png",BBC Radio 1
+#EXTALB:BBC
 #EXTPOS:0,-1
 https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio=320000.norewind.m3u8
-#EXTINF:-1, BBC - Radio 1
-#EXTALB:bbc_radio_one
+#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png",BBC Radio 1
+#EXTALB:BBC
 #EXTPOS:0,-1
 https://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/audio_syndication_low_sbr_v1/aks/bbc_radio_one.m3u8
-#EXTINF:-1, BBC - Radio 1
-#EXTALB:bbc_radio_one
+#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png",BBC Radio 1
+#EXTALB:BBC
 #EXTPOS:0,-1
 http://a.files.bbci.co.uk/ms6/live/3441A116-B12E-4D2F-ACA8-C1984642FA4B/audio/simulcast/hls/nonuk/pc_hd_abr_v2/ak/bbc_radio_one.m3u8
-#EXTINF:-1, BBC - Radio 1Dance
+#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png",BBC Radio 1 Dance
+#EXTALB:BBC
 #EXTPOS:0,-1
 https://as-hls-ww-live.akamaized.net/pool_62063831/live/ww/bbc_radio_one_dance/bbc_radio_one_dance.isml/bbc_radio_one_dance-audio%3d320000.norewind.m3u8
-#EXTINF:-1, BBC - Radio 6
+#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_6music/blocks-colour_600x600.png",BBC Radio 6 Music
+#EXTALB:BBC
 #EXTPOS:0,-1
 https://as-hls-ww-live.akamaized.net/pool_81827798/live/ww/bbc_6music/bbc_6music.isml/bbc_6music-audio%3d320000.norewind.m3u8
-#EXTINF:-1, BBC - Radio 1
+#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png",BBC Radio 1
+#EXTALB:BBC
 #EXTPOS:0,-1
 http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one&bitrate=320000
-#EXTINF:-1, BBC - Radio 1Dance
+#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png",BBC Radio 1 Dance
+#EXTALB:BBC
 #EXTPOS:0,-1
 http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one_dance&bitrate=320000
-#EXTINF:-1, BBC - Radio 1Anthems
+#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_radio_one/blocks-colour_600x600.png",BBC Radio 1 Anthems
+#EXTALB:BBC
 #EXTPOS:0,-1
 http://lsn.lv/bbcradio.m3u8?station=bbc_radio_one_anthems&bitrate=320000
-#EXTINF:-1, BBC - Radio 6
+#EXTINF:-1 tvg-logo="https://sounds.files.bbci.co.uk/3.9.4/networks/bbc_6music/blocks-colour_600x600.png",BBC Radio 6 Music
+#EXTALB:BBC
 #EXTPOS:0,-1
 http://lsn.lv/bbcradio.m3u8?station=bbc_6music&bitrate=320000
+#EXTINF:-1 tvg-logo="https://trojka.polskieradio.pl/assets/favicon-32x32.png",Polskie Radio - PR3 Trójka
+#EXTALB:trojka.polskieradio.pl
 #EXTPOS:0,-1
 http://41.dktr.pl:8000/trojka.ogg
+#EXTINF:-1 tvg-logo="https://trojka.polskieradio.pl/assets/favicon-32x32.png",Polskie Radio - PR3 Trójka
+#EXTALB:trojka.polskieradio.pl
 #EXTPOS:0,-1
 http://41.dktr.pl:8000/trojka2.ogg
-#EXTINF:-1, Polskie Radio - PR3 Trójka
+#EXTINF:-1 tvg-logo="https://trojka.polskieradio.pl/assets/favicon-32x32.png",Polskie Radio - PR3 Trójka
 #EXTALB:trojka.polskieradio.pl
 #EXTPOS:0,-1
 https://stream13.polskieradio.pl/pr3/pr3.sdp/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://trojka.polskieradio.pl/assets/favicon-32x32.png",Polskie Radio - PR3 Trójka
+#EXTALB:trojka.polskieradio.pl
 #EXTPOS:0,-1
 http://mp3.polskieradio.pl:8956/;
+#EXTINF:-1 tvg-logo="https://trojka.polskieradio.pl/assets/favicon-32x32.png",Polskie Radio - PR3 Trójka
+#EXTALB:trojka.polskieradio.pl
 #EXTPOS:0,-1
 http://stream3.polskieradio.pl:8906/;stream
-#EXTINF:-1, Polskie Radio - PR4 Czwórka
+#EXTINF:-1 tvg-logo="https://static.mytuner.mobi/media/tvos_radios/261/polskie-radio-czworka.a7062b22.png",Polskie Radio - PR4 Czwórka
 #EXTALB:pr4
 #EXTPOS:0,-1
 https://stream14.polskieradio.pl/pr4/pr4.sdp/playlist.m3u8
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radiozet.pl&sz=64",Radio ZET
+#EXTALB:Eurozet
 #EXTPOS:0,-1
 http://zet-net-01.cdn.eurozet.pl:8400/
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radiozet.pl&sz=64",Radio ZET
+#EXTALB:Eurozet
 #EXTPOS:0,-1
 https://r.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioplus.pl&sz=64",Radio Plus
+#EXTALB:Eurozet
 #EXTPOS:0,-1
 https://pl05.cdn.eurozet.pl/plu-gdn.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA (smcdn 4070)
+#EXTALB:ESKA
 #EXTPOS:0,-1
 https://ic2.smcdn.pl/4070-1.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=meloradio.pl&sz=64",Meloradio
+#EXTALB:Eurozet
 #EXTPOS:0,-1
 https://ml.cdn.eurozet.pl/mel-net.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=antyradio.pl&sz=64",Antyradio
+#EXTALB:Eurozet
 #EXTPOS:0,-1
 https://redir.atmcdn.pl/sc/o2/Eurozet/live/antyradio.livx
+#EXTINF:-1 tvg-logo="https://www.rmfon.pl/assets/images/loga/200/rmffm.jpg",RMF FM
+#EXTALB:RMF
 #EXTPOS:0,-1
 http://195.150.20.242:8000/rmf_fm
+#EXTINF:-1 tvg-logo="https://www.rmfon.pl/assets/images/loga/200/rmffm.jpg",RMF FM
+#EXTALB:RMF
 #EXTPOS:0,-1
 https://rs201-krk.rmfstream.pl/rmf_fm
+#EXTINF:-1 tvg-logo="https://www.rmfon.pl/assets/images/loga/200/rmfmaxx.jpg",RMF MAXXX
+#EXTALB:RMF
 #EXTPOS:0,-1
 http://195.150.20.7/rmf_maxxx
+#EXTINF:-1 tvg-logo="https://www.rmfon.pl/assets/images/loga/200/rmfmaxx.jpg",RMF MAXXX
+#EXTALB:RMF
 #EXTPOS:0,-1
 https://rs201-krk.rmfstream.pl/rmf_maxxx
+#EXTINF:-1 tvg-logo="https://www.rmfon.pl/assets/images/black/logo.png",RMF - Top
+#EXTALB:rmfon
 #EXTPOS:0,-1
 https://rs6-krk2.rmfstream.pl/rmf_top4
+#EXTINF:-1 tvg-logo="https://www.rmfon.pl/assets/images/black/logo.png",RMF - Muzyka Filmowa
+#EXTALB:rmfon
 #EXTPOS:0,-1
 https://rs202-krk.rmfstream.pl/rmf_muzyka_filmowa
-#EXTINF:-1, RMF - Ziom
+#EXTINF:-1 tvg-logo="https://www.rmfon.pl/assets/images/black/logo.png",RMF - Ziom
 #EXTALB:rmfon
 #EXTPOS:0,-1
 https://rs6-krk2.rmfstream.pl/rmf_ziom
-#EXTINF:-1, RMF - Depeche Mode
+#EXTINF:-1 tvg-logo="https://www.rmfon.pl/assets/images/black/logo.png",RMF - Depeche Mode
 #EXTALB:rmfon
 #EXTPOS:0,-1
 https://rs7-krk2.rmfstream.pl/DEPECHEMODE
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radiokaszebe.pl&sz=64",Radio Kaszëbë
 #EXTALB:radiokaszebe
 #EXTPOS:0,-1
 http://x.radiokaszebe.pl:9000/;
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radiokaszebe.pl&sz=64",Radio Kaszëbë
+#EXTALB:radiokaszebe
 #EXTPOS:0,-1
 https://stream4.nadaje.com:10125/kaszebe128
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radiokrakow.pl&sz=64",Radio Kraków
+#EXTALB:radiokrakow
 #EXTPOS:0,-1
 http://stream3.nadaje.com:9128/radiokrakow
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=sizeer.com&sz=64",Sizeer FM
+#EXTALB:rmfon
 #EXTPOS:0,-1
 https://rs103-krk-cyfronet.rmfstream.pl/sizeer_fm
+#EXTINF:-1, Radio (pejpal.cloud)
 #EXTPOS:0,-1
 https://radio.pejpal.cloud/stream
+#EXTINF:-1, Radio (slotex.pl)
 #EXTPOS:0,-1
 http://s3.slotex.pl:7240/stream
+#EXTINF:-1, Radio (slotex.pl)
 #EXTPOS:0,-1
 https://s1.slotex.pl:7474/;
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA (smcdn 3990)
+#EXTALB:ESKA
 #EXTPOS:0,-1
 https://waw.ic.smcdn.pl/3990-1.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioimperium.pl&sz=64",Radio Imperium
 #EXTPOS:0,-1
 https://stream.radioimperium.pl:8443/stream
-#EXTINF:-1, radio357.pl - Radio 357
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radio357.pl&sz=64",Radio 357
 #EXTALB:radio357.pl
 #EXTPOS:0,-1
 https://n-11-21.dcs.redcdn.pl/sc/o2/radio357/live/radio357_pr.livx?preroll=0
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=toksyna.fm&sz=64",Toksyna FM
+#EXTALB:toksyna.fm
 #EXTPOS:0,-1
 http://s02.toksyna.fm:8000/;
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=toksyna.fm&sz=64",Toksyna FM - kanał 2
+#EXTALB:toksyna.fm
 #EXTPOS:0,-1
 http://s02.toksyna.fm:8040/;
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=toksyna.fm&sz=64",Toksyna FM - kanał 3
+#EXTALB:toksyna.fm
 #EXTPOS:0,-1
 http://s02.toksyna.fm:8010/;
-#EXTINF:-1, ITALOPOWER! - ITALOPOWER! - Italo Disco Hits and Rarities
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioitalopower.com&sz=64",ITALOPOWER! - Italo Disco Hits & Rarities
 #EXTALB:ITALOPOWER!
 #EXTPOS:0,-1
 http://stream.radioitalopower.com:10018/italopower
+#EXTINF:-1, Maxi Italo
 #EXTALB:Maxi Italo
 #EXTPOS:0,-1
 https://ams-pioneer02.dedicateware.com:2485/stream
+#EXTINF:-1, Maxi Italo
 #EXTALB:Maxi Italo
 #EXTPOS:0,-1
 https://ams-pioneer02.dedicateware.com:2545/stream
+#EXTINF:-1, Maxi Italo
 #EXTALB:Maxi Italo
 #EXTPOS:0,-1
 https://ams-pioneer02.dedicateware.com:2765/stream
+#EXTINF:-1, Maxi Italo
 #EXTALB:Maxi Italo
 #EXTPOS:0,-1
 https://ams-pioneer02.dedicateware.com:2655/stream
+#EXTINF:-1, Radio (54.36.89.71)
 #EXTPOS:0,-1
 http://54.36.89.71:8102/stream
+#EXTINF:-1, Radio (radiohost.pl)
 #EXTPOS:0,-1
 https://ssl-1.radiohost.pl:8018/stream
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=el-stacja.pl&sz=64",El-Stacja
 #EXTPOS:0,-1
 http://radio.el-stacja.pl:8000/elstacjaap320.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA Kraków
+#EXTALB:ESKA
 #EXTPOS:0,-1
 https://ic1.smcdn.pl/2070-1.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=kronehit.at&sz=64",KroneHit
 #EXTPOS:0,-1
 https://secureonair.krone.at/kronehit-ultra-hd.aac
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=oe3.orf.at&sz=64",Ö3 (ORF)
 #EXTPOS:0,-1
 https://orf-live.ors-shoutcast.at/oe3-q2a
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=europaplus.ru&sz=64",Europa Plus
 #EXTPOS:0,-1
 http://ep256.hostingradio.ru:8052/europaplus256.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=roxyradio.hu&sz=64",Roxy Rádió
 #EXTPOS:0,-1
 https://s2.audiostream.hu/roxy_192k
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=biasradio.com&sz=64",BIAS Radio
 #EXTPOS:0,-1
 http://admin.biasradio.com:8000/live?&_ic2=1
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=laut.fm&sz=64",GTA Classics
+#EXTALB:laut.fm
 #EXTPOS:0,-1
 https://stream.laut.fm/gta-classics
+#EXTINF:-1, Radio (orion.shoutca.st)
 #EXTPOS:0,-1
 http://orion.shoutca.st:8750/
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=54house.fm&sz=64",54 House FM
 #EXTPOS:0,-1
 https://54house.fm:9013/stream
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioparadise.com&sz=64",Radio Paradise - Main
+#EXTALB:Radio Paradise
 #EXTPOS:0,1000
 http://stream-uk1.radioparadise.com/aac-320
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioparadise.com&sz=64",Radio Paradise - Mellow
+#EXTALB:Radio Paradise
 #EXTPOS:0,-1
 http://stream.radioparadise.com/ogg-192m
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioparadise.com&sz=64",Radio Paradise - Rock
+#EXTALB:Radio Paradise
 #EXTPOS:0,-1
 http://stream.radioparadise.com/rock-320
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioparadise.com&sz=64",Radio Paradise - Global
+#EXTALB:Radio Paradise
 #EXTPOS:0,-1
 http://stream.radioparadise.com/global-320
-#EXTINF:-1, Electro Swing Radio - No. 1 Electro Swing Radio worldwide!
+#EXTINF:-1, Electro Swing Radio
 #EXTPOS:0,-1
 https://streamer.radio.co/s2c3cc784b/listen
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=laut.fm&sz=64",Electro Swing
+#EXTALB:laut.fm
 #EXTPOS:0,-1
 https://stream.laut.fm/electro-swing
+#EXTINF:-1, Electro Swing
 #EXTPOS:0,-1
 http://213.141.131.10:8000/electroswing
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=jazzradio.fr&sz=64",Jazz Radio (FR)
 #EXTPOS:0,-1
 https://jazz-wr04.ice.infomaniak.ch/jazz-wr04-128.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=unitedradio.it&sz=64",United Radio (um062)
 #EXTPOS:0,-1
 https://icy.unitedradio.it/um062.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=1.fm&sz=64",1.FM - Movie Soundtracks
+#EXTALB:1.FM
 #EXTPOS:0,-1
 https://strm112.1.fm/moviesoundtracks_mobile_mp3
+#EXTINF:-1, 100Movies
 #EXTPOS:0,-1
 https://gb25.streamgates.net/radios-audio/100Movies/icecast.audio
+#EXTINF:-1, 100Gamer
 #EXTPOS:0,-1
 https://gb25.streamgates.net/radios-audio/100Gamer/icecast.audio
+#EXTINF:-1, Radio (torontocast)
 #EXTPOS:0,-1
 https://kathy.torontocast.com:1190/stream
+#EXTINF:-1, Radio (torontocast)
 #EXTPOS:0,-1
 https://quincy.torontocast.com:2410/stream
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioking.com&sz=64",RadioKing (422)
 #EXTPOS:0,-1
 https://listen.radioking.com/radio/422/stream/62785
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=laut.fm&sz=64",SoundtracksFM
+#EXTALB:laut.fm
 #EXTPOS:0,-1
 https://stream.laut.fm/soundtracksfm
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=vgmradio.com&sz=64",VGM Radio
 #EXTPOS:0,-1
 http://radio.vgmradio.com:8040/autodj
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=laut.fm&sz=64",Soundtrack
+#EXTALB:laut.fm
 #EXTPOS:0,-1
 https://stream.laut.fm/soundtrack
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=top100station.com&sz=64",Top Movie Station
 #EXTPOS:0,-1
 https://substream.top100station.com/topmoviestation.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=technolovers.fm&sz=64",Technolovers - Melodic House & Techno
 #EXTPOS:0,-1
 https://stream.technolovers.fm/melodic-house-techno
+#EXTINF:-1, Loca - Melodic House
 #EXTPOS:0,-1
 https://s2.we4stream.com/listen/loca_melodic_house/live
+#EXTINF:-1, Melodic House
 #EXTPOS:0,-1
 http://79.120.12.130:8000/melodichouse
+#EXTINF:-1, Radio (novahost.bg)
 #EXTPOS:0,-1
 http://meg.novahost.bg:8014/autodj
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=1.fm&sz=64",1.FM - Deep House
+#EXTALB:1.FM
 #EXTPOS:0,-1
 https://strm112.1.fm/deephouse_mobile_mp3
+#EXTINF:-1, Radio (liveboxstream)
 #EXTPOS:0,-1
 https://streaming04.liveboxstream.uk/proxy/jlofth00?mp=/stream
+#EXTINF:-1, Radio (67.212.166.178)
 #EXTPOS:0,-1
 http://67.212.166.178:7024/;
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioo.eu&sz=64",Radioo.eu
 #EXTPOS:0,-1
 http://radioo.eu:9900/
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=electroradio.fm&sz=64",Electro Radio FM
 #EXTPOS:0,-1
 https://stream.electroradio.fm:26630/192k
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA
+#EXTALB:ESKA
 #EXTPOS:0,-1
 https://waw.ic.smcdn.pl/6130-1.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radioparty.pl&sz=64",RadioParty - Energy 2000
 #EXTPOS:0,-1
 http://djmixes.radioparty.pl:8025/energy2000
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=radia.cz&sz=64",Radia.cz - Depeche
 #EXTPOS:0,-1
 https://ice2.radia.cz/depeche128.aac
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Synthpop
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.120.77.11:8000/synthpop
+#EXTINF:-1, Radio (77.51.212.205)
 #EXTPOS:0,-1
 http://77.51.212.205:8005/live192
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Balkan
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.120.39.202:8000/balkan
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Music & Games
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.120.39.202:8000/musicgame
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Electro-Industrial
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.111.119.111:8000/electroindustrial
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Futurepop
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.120.39.202:8004/futurepop
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Instrumental
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.120.77.11:8000/instrumental
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Pop
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.120.77.11:8000/pop
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Disco
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.120.77.11:8000/disco
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Italo Disco
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.111.119.111:8004/italodisco
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Trip-Hop
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.111.14.76:8004/triphop
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=myl2mr.com&sz=64",Futurepop&Synthpop - Witch House
+#EXTALB:myl2mr
 #EXTPOS:0,-1
 http://79.120.77.11:8004/witchhouse
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA Impreska
+#EXTALB:ESKA
 #EXTPOS:0,-1
 https://ic1.smcdn.pl/6030-1.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA (smcdn 1380)
+#EXTALB:ESKA
 #EXTPOS:0,-1
 https://ic1.smcdn.pl/1380-1.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=eska.pl&sz=64",ESKA Tarnów
+#EXTALB:ESKA
 #EXTPOS:0,-1
 https://ic1.smcdn.pl/2330-1.mp3
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=laut.fm&sz=64",Spotify Hits (laut.fm)
+#EXTALB:laut.fm
 #EXTPOS:0,-1
 https://stream.laut.fm/spotify
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=iheart.com&sz=64",iHeartRadio (ARN_IHRT16)
 #EXTPOS:0,-1
 https://playerservices.streamtheworld.com/api/livestream-redirect/ARN_IHRT16AAC.aac
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=uber.radio&sz=64",Uber Radio - Throwbacks
 #EXTPOS:0,-1
 https://drive.uber.radio/uber/ttthrowbacks/icecast.audio
+#EXTINF:-1, Radio (radioboss.fm)
 #EXTPOS:0,-1
 http://c16.radioboss.fm:8026/autodj
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=promodj.com&sz=64",PromoDJ - Channel 5
+#EXTALB:PromoDJ
 #EXTPOS:0,-1
 http://radio.promodj.com/channel5-192
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=promodj.com&sz=64",PromoDJ - Top 100
+#EXTALB:PromoDJ
 #EXTPOS:0,-1
 http://radio.promodj.com/top100-192
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=promodj.com&sz=64",PromoDJ - Klubb
+#EXTALB:PromoDJ
 #EXTPOS:0,-1
 http://radio.promodj.com/klubb-192
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=promodj.com&sz=64",PromoDJ - Yo!
+#EXTALB:PromoDJ
 #EXTPOS:0,-1
 http://radio.promodj.com/yo-192
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=promodj.com&sz=64",PromoDJ - Oldschool
+#EXTALB:PromoDJ
 #EXTPOS:0,-1
 http://radio.promodj.com/oldschool-192
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=promodj.com&sz=64",PromoDJ - Vata
+#EXTALB:PromoDJ
 #EXTPOS:0,-1
 http://radio.promodj.com/vata-192
-#EXTINF:-1, fallout.fm - falloutfm1
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - Galaxy News Radio
 #EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm1.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - FM4
+#EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm4.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - FM5
+#EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm5.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - Radio New Vegas
+#EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm2.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - FM3
+#EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm3.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - FM6
+#EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm6.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - FM7
+#EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm7.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - FM8
+#EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm8.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - FM9
+#EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm9.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=fallout.fm&sz=64",Fallout.fm - FM10
+#EXTALB:fallout.fm
 #EXTPOS:0,-1
 http://fallout.fm:8000/falloutfm10.ogg
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=nolife-radio.com&sz=64",Nolife Radio
 #EXTPOS:0,-1
 http://listen.nolife-radio.com
-#EXTINF:-1, streamingsoundtracks.com - StreamingSoundtracks
+#EXTINF:-1 tvg-logo="https://www.google.com/s2/favicons?domain=streamingsoundtracks.com&sz=64",StreamingSoundtracks
 #EXTALB:streamingsoundtracks.com
 #EXTPOS:0,-1
 http://lo4.streamingsoundtracks.com/;

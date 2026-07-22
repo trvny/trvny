@@ -19,8 +19,6 @@ function round(x: number): number {
   return Math.round(x * 10) / 10;
 }
 
-// Majority vote; ties resolved toward the more severe condition (safer for a
-// weather feed — we'd rather flag "storm" than hide it behind a tie).
 function majority(conds: readonly Condition[]): Condition {
   const counts = new Map<Condition, number>();
   for (const c of conds) counts.set(c, (counts.get(c) ?? 0) + 1);
@@ -35,10 +33,20 @@ function majority(conds: readonly Condition[]): Condition {
   return best;
 }
 
+function oldestObservation(readings: readonly Reading[]): string {
+  const dated = readings
+    .map((reading) => ({ value: reading.observedAt, time: Date.parse(reading.observedAt) }))
+    .filter((item) => Number.isFinite(item.time))
+    .sort((a, b) => a.time - b.time);
+  return dated[0]?.value ?? new Date().toISOString();
+}
+
 export function buildEnsemble(readings: readonly Reading[]): Ensemble {
   const sources = readings.map((r) => r.source);
   return {
-    observedAt: new Date().toISOString(),
+    // Conservative timestamp: the age of the oldest contributing source. A
+    // cached fallback therefore cannot make the ensemble look freshly observed.
+    observedAt: oldestObservation(readings),
     tempC: stat(readings.map((r) => r.tempC)),
     feelsC: stat(readings.map((r) => r.feelsC)),
     humidity: stat(readings.map((r) => r.humidity)),

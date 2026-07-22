@@ -8,16 +8,17 @@ on:
       - ".github/workflows/sharp-lock-refresh-temp.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   lockfiles:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-slim
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7.0.0
         with:
-          persist-credentials: false
+          ref: ${{ github.head_ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -30,10 +31,10 @@ jobs:
       - name: Verify patched sharp tree
         run: |
           node -e 'for (const p of ["weather-feed/package-lock.json", "mcp/status-mcp/package-lock.json"]) { const l=require("./"+p); const s=l.packages["node_modules/sharp"]?.version; const v=l.packages["node_modules/@img/sharp-libvips-linux-x64"]?.version; if(s!=="0.35.3"||v!=="1.3.2") throw new Error(`${p}: sharp=${s}, libvips package=${v}`); console.log(`${p}: sharp ${s}, @img/sharp-libvips ${v}`) }'
-      - uses: actions/upload-artifact@v6
-        with:
-          name: patched-lockfiles
-          path: |
-            weather-feed/package-lock.json
-            mcp/status-mcp/package-lock.json
-          if-no-files-found: error
+      - name: Commit refreshed lockfiles
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add weather-feed/package-lock.json mcp/status-mcp/package-lock.json
+          git diff --cached --quiet || git commit -m "security: refresh sharp lockfiles"
+          git push

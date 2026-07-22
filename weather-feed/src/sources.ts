@@ -10,11 +10,6 @@ export interface Env {
 }
 
 // ── shared fetch helper (resilient: timeout + retry/backoff + status check) ──
-// Retries transient failures (timeout / 5xx / 429) up to CONFIG.sourceRetries
-// with exponential backoff + jitter. Returns null on reached-but-unusable
-// (e.g. 401/404 — won't fix itself within a tick); throws after exhausting
-// retries so the caller's asNull() logs which source failed and why. JSON is
-// validated per-source below, not blindly cast.
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
@@ -28,9 +23,9 @@ async function getJson(url: string): Promise<unknown | null> {
       const res = await fetch(url, { signal: AbortSignal.timeout(CONFIG.sourceTimeoutMs) });
       if (res.ok) return res.json();
       if (RETRYABLE_STATUS.has(res.status)) { lastErr = new Error(`HTTP ${res.status}`); continue; }
-      return null; // reached but unusable — no point retrying
+      return null;
     } catch (e) {
-      lastErr = e; // timeout / transport — retry if attempts remain
+      lastErr = e;
     }
   }
   throw lastErr ?? new Error(`getJson exhausted: ${url}`);
@@ -43,9 +38,6 @@ function num(v: unknown): number | null {
 function isObj(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
-// NOTE: these are hand-rolled guards to stay zero-dependency (tvpi house style).
-// Drop-in upgrade per the typescript-resilient-fetch skill: replace each parse
-// block with a Zod `safeParse` so an upstream shape change fails cleanly here.
 
 // ── condition normalization ─────────────────────────────────────────────
 function wmo(code: number | null): Condition {
@@ -81,6 +73,23 @@ function vcCond(icon: unknown): Condition {
   if (s.includes("cloud") || s === "wind") return "clouds";
   if (s.includes("clear")) return "clear";
   return "unknown";
+}
+
+const CONDITION_SEVERITY: Record<Condition, number> = {
+  storm: 7, snow: 6, rain: 5, drizzle: 4, fog: 3, clouds: 2, clear: 1, unknown: 0,
+};
+function majorityCondition(conditions: readonly Condition[]): Condition {
+  const counts = new Map<Condition, number>();
+  for (const condition of conditions) counts.set(condition, (counts.get(condition) ?? 0) + 1);
+  let best: Condition = "unknown";
+  let bestCount = -1;
+  for (const [condition, count] of counts) {
+    if (count > bestCount || (count === bestCount && CONDITION_SEVERITY[condition] > CONDITION_SEVERITY[best])) {
+      best = condition;
+      bestCount = count;
+    }
+  }
+  return best;
 }
 
 // ── Open-Meteo (no key) ───────────────────────────────────────────────
@@ -142,8 +151,6 @@ export async function fetchOpenMeteo(): Promise<{ current: Reading | null; days:
 }
 
 // ── OpenWeather (key; free /data/2.5) ───────────────────────────────────
-// No UV on the free /data/2.5 tier (it lived in the deprecated One Call), so
-// uvIndex/uvIndexMax are null here — the ensemble just blends the other two.
 export async function fetchOpenWeather(env: Env): Promise<{ current: Reading | null; days: DayForecast[] }> {
   const key = env.OPENWEATHER_KEY;
   if (!key) return { current: null, days: [] };
@@ -168,16 +175,23 @@ export async function fetchOpenWeather(env: Env): Promise<{ current: Reading | n
     };
   }
 
-  // Free forecast = 5-day / 3-hour. Roll up to daily.
-  // CAVEAT: dt_txt is UTC, so daily buckets are UTC days, not Europe/Warsaw.
+  // Free forecast = 5-day / 3-hour. Roll up to local Europe/Warsaw days.
   const days: DayForecast[] = [];
   const f = await getJson(`https://api.openweathermap.org/data/2.5/forecast?${q}`);
   if (isObj(f) && Array.isArray(f["list"])) {
     type Bucket = { max: number; min: number; precip: number; prob: number; conds: Condition[] };
     const byDay = new Map<string, Bucket>();
+    const dateFormatter = new Intl.DateTimeFormat("en", {
+      timeZone: CONFIG.tz, year: "numeric", month: "2-digit", day: "2-digit",
+    });
+    const localDate = (date: Date): string => {
+      const parts = Object.fromEntries(dateFormatter.formatToParts(date).map((part) => [part.type, part.value]));
+      return `${parts["year"]}-${parts["month"]}-${parts["day"]}`;
+    };
     for (const slot of f["list"] as unknown[]) {
       if (!isObj(slot)) continue;
-      const date = String(slot["dt_txt"] ?? "").slice(0, 10);
+      const epoch = num(slot["dt"]);
+      const date = epoch === null ? "" : localDate(new Date(epoch * 1000));
       if (!date) continue;
       const m = isObj(slot["main"]) ? slot["main"] : {};
       const wx = Array.isArray(slot["weather"]) ? (slot["weather"][0] as Record<string, unknown>) : undefined;
@@ -199,14 +213,14 @@ export async function fetchOpenWeather(env: Env): Promise<{ current: Reading | n
         precipMm: Math.round(b.precip * 10) / 10,
         precipProb: Math.round(b.prob),
         uvIndexMax: null,
-        condition: b.conds[0] ?? "unknown",
+        condition: majorityCondition(b.conds),
       });
     }
   }
   return { current, days };
 }
 
-// ── Visual Crossing (key; one call gives current + days) ─────────────────────
+// ── Visual Crossing (key; one call gives current + days) ─────────────────
 export async function fetchVisualCrossing(env: Env): Promise<{ current: Reading | null; days: DayForecast[] }> {
   const key = env.VISUALCROSSING_KEY;
   if (!key) return { current: null, days: [] };
@@ -219,7 +233,7 @@ export async function fetchVisualCrossing(env: Env): Promise<{ current: Reading 
   let current: Reading | null = null;
   const cc = data["currentConditions"];
   if (isObj(cc)) {
-    const windKmh = num(cc["windspeed"]); // metric = km/h
+    const windKmh = num(cc["windspeed"]);
     current = {
       source: "visualcrossing",
       tempC: num(cc["temp"]), feelsC: num(cc["feelslike"]),
@@ -251,9 +265,7 @@ export async function fetchVisualCrossing(env: Env): Promise<{ current: Reading 
   return { current, days };
 }
 
-// ── Open-Meteo Air Quality (no key; CAMS European domain) ────────────────────
-// Single provider — not blended. European AQI + PM + tree/grass/weed pollen.
-// Pollen is CAMS-Europe only, which covers PL fine.
+// ── Open-Meteo Air Quality (no key; CAMS European domain) ───────────────
 export async function fetchOpenMeteoAirQuality(): Promise<AirQuality | null> {
   const u = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");
   u.searchParams.set("latitude", String(CONFIG.lat));
@@ -284,15 +296,12 @@ export async function fetchOpenMeteoAirQuality(): Promise<AirQuality | null> {
   };
 }
 
-// ── IMGW: official warnings (high-value, event-shaped) ──────────────────────
-// Two endpoints, same record shape (confirmed live against warningshydro):
-//   zdarzenie, stopien (the live key is "stopień" with the diacritic),
-//   prawdopodobienstwo, data_od, data_do, numer, przebieg/komentarz, obszary[].
-//   None-active → { status:false }.
-// Geographic scope differs:
-//   meteo → obszary[].teryt[] powiat codes (precise to Chrzanów = 1203)
-//   hydro → no teryt; obszary[].wojewodztwo only (regional, małopolskie)
-type WarnCat = "meteo" | "hydro";
+// ── IMGW: official warnings ─────────────────────────────────────────────
+export type WarningCategory = "meteo" | "hydro";
+export interface WarningFetchResult {
+  warnings: Warning[];
+  succeeded: WarningCategory[];
+}
 
 function matchesArea(w: Record<string, unknown>): boolean {
   const teryts: string[] = [];
@@ -309,15 +318,13 @@ function matchesArea(w: Record<string, unknown>): boolean {
     }
   }
   if (w["wojewodztwo"] != null) wojs.push(String(w["wojewodztwo"]));
-  // Precise powiat match when TERYT exists (meteo); voivodeship fallback only
-  // when there is no TERYT at all (hydro).
   if (teryts.some((c) => c.startsWith(CONFIG.terytPowiat))) return true;
   if (teryts.length === 0 && wojs.some((v) => v.toLowerCase() === CONFIG.wojewodztwo.toLowerCase())) return true;
   return false;
 }
 
-function parseWarnings(data: unknown, category: WarnCat): Warning[] {
-  if (!Array.isArray(data)) return []; // {status:false} object → none active
+function parseWarnings(data: unknown, category: WarningCategory): Warning[] {
+  if (!Array.isArray(data)) return []; // IMGW uses {status:false} for none active.
   const out: Warning[] = [];
   for (const w of data) {
     if (!isObj(w) || !matchesArea(w)) continue;
@@ -339,13 +346,25 @@ function parseWarnings(data: unknown, category: WarnCat): Warning[] {
   return out;
 }
 
-export async function fetchImgwWarnings(): Promise<Warning[]> {
+export async function fetchImgwWarnings(): Promise<WarningFetchResult> {
   const base = "https://danepubliczne.imgw.pl/api/data/";
-  const [meteo, hydro] = await Promise.all([
-    getJson(`${base}warningsmeteo`).then((d) => parseWarnings(d, "meteo")).catch(() => []),
-    getJson(`${base}warningshydro`).then((d) => parseWarnings(d, "hydro")).catch(() => []),
-  ]);
-  return [...meteo, ...hydro];
+  const endpoints: readonly [WarningCategory, string][] = [
+    ["meteo", `${base}warningsmeteo`],
+    ["hydro", `${base}warningshydro`],
+  ];
+  const results = await Promise.all(endpoints.map(async ([category, url]) => {
+    try {
+      const data = await getJson(url);
+      if (data === null) throw new Error("IMGW returned an unusable HTTP response");
+      return { category, ok: true as const, warnings: parseWarnings(data, category) };
+    } catch {
+      return { category, ok: false as const, warnings: [] as Warning[] };
+    }
+  }));
+  return {
+    warnings: results.flatMap((result) => result.warnings),
+    succeeded: results.filter((result) => result.ok).map((result) => result.category),
+  };
 }
 
 // Nearest synop station — reference context only, not blended into the ensemble.
@@ -358,7 +377,7 @@ export async function fetchImgwStation(name: string): Promise<Reading | null> {
   if (!isObj(s)) return null;
   const at = `${String(s["data_pomiaru"])}T${String(s["godzina_pomiaru"]).padStart(2, "0")}:00:00`;
   return {
-    source: "openmeteo", // placeholder tag; station is shown separately, never blended
+    source: "openmeteo", // typed placeholder; station is shown separately and never blended.
     tempC: num(s["temperatura"]), feelsC: null,
     humidity: num(s["wilgotnosc_wzgledna"]), pressureHpa: num(s["cisnienie"]),
     windMs: num(s["predkosc_wiatru"]), windDir: num(s["kierunek_wiatru"]),

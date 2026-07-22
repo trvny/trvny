@@ -24,7 +24,7 @@ class RemoveElement {
 }
 class InjectHead {
   element(element) {
-    element.prepend('<link rel="stylesheet" href="/fonts.css">', { html: true });
+    element.append('<link rel="stylesheet" href="/fonts.css">', { html: true });
   }
 }
 class InjectBody {

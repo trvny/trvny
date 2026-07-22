@@ -37,7 +37,7 @@ export const CONFIG = {
   },
 
   maxEntries: 60,           // Atom ring-buffer length
-  sourceTimeoutMs: 8000,
+  sourceTimeoutMs: 15000,
 
   // One retry on transient failure (timeout / 5xx / 429). Rescues a slow or
   // briefly-unavailable upstream so a single blip doesn't drop a source from

@@ -39,12 +39,16 @@
     .replace(/\r?\n/g, "\\n")
     .replace(/;/g, "\\;")
     .replace(/,/g, "\\,");
+  const escapeSingleLine = (input) => String(input ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "");
   const formatLocalDateTime = (input) => input
     ? input.replace(/[-:]/g, "").replace("T", "T") + "00"
     : "";
   const formatUtcDateTime = (date) => date.toISOString()
     .replace(/[-:]/g, "")
     .replace(/\.\d{3}Z$/, "Z");
+  const calendarStamp = formatUtcDateTime(new Date());
   const hash = (input) => {
     let result = 2166136261;
     for (const character of input) {
@@ -64,9 +68,9 @@
           `FN:${escapeStructuredText(value("fn"))}`,
           value("org") && `ORG:${escapeStructuredText(value("org"))}`,
           value("title") && `TITLE:${escapeStructuredText(value("title"))}`,
-          value("phone") && `TEL:${escapeStructuredText(value("phone"))}`,
-          value("email") && `EMAIL:${escapeStructuredText(value("email"))}`,
-          value("url") && `URL:${escapeStructuredText(value("url"))}`,
+          value("phone") && `TEL:${escapeSingleLine(value("phone"))}`,
+          value("email") && `EMAIL:${escapeSingleLine(value("email"))}`,
+          value("url") && `URL:${escapeSingleLine(value("url"))}`,
           value("adr") && `ADR:;;${escapeStructuredText(value("adr"))};;;;`,
           "END:VCARD",
         ].filter(Boolean).join("\r\n");
@@ -80,7 +84,7 @@
           "CALSCALE:GREGORIAN",
           "BEGIN:VEVENT",
           `UID:codebench-${hash(identity)}@local`,
-          `DTSTAMP:${formatUtcDateTime(new Date())}`,
+          `DTSTAMP:${calendarStamp}`,
           `SUMMARY:${escapeStructuredText(value("title"))}`,
           value("loc") && `LOCATION:${escapeStructuredText(value("loc"))}`,
           value("start") && `DTSTART:${formatLocalDateTime(value("start"))}`,

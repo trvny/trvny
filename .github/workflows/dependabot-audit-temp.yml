@@ -6,6 +6,9 @@ on:
       - chore/dependabot-audit
     paths:
       - ".github/workflows/dependabot-audit-temp.yml"
+  pull_request:
+    paths:
+      - ".github/workflows/dependabot-audit-temp.yml"
   workflow_dispatch:
 
 permissions:

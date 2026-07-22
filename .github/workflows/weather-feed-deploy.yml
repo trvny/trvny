@@ -36,8 +36,8 @@ jobs:
           cache: npm
           cache-dependency-path: weather-feed/package-lock.json
       - run: npm install
-      - name: Type check
-        run: npm run typecheck
+      - name: Type check and test
+        run: npm run check
 
   deploy:
     needs: check

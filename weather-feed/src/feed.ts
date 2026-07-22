@@ -3,6 +3,7 @@ import { CONDITION_PL } from "./ensemble";
 import type {
   AirQuality, DayEnsemble, Ensemble, FeedEntry, Warning,
 } from "./types";
+import { warningIsExpired } from "./warnings";
 
 export const FEED_ID = "tag:travny,2026:weather:koscielec";
 
@@ -67,6 +68,7 @@ export function warningEntries(prev: Warning[], next: Warning[]): FeedEntry[] {
   const nextIds = new Set(next.map((w) => w.id));
   const out: FeedEntry[] = [];
   const now = new Date().toISOString();
+  const nowMs = Date.parse(now);
 
   for (const w of next) {
     if (prevIds.has(w.id)) continue;
@@ -85,11 +87,14 @@ export function warningEntries(prev: Warning[], next: Warning[]): FeedEntry[] {
   for (const w of prev) {
     if (nextIds.has(w.id)) continue;
     const tag = w.category === "hydro" ? "IMGW hydro" : "IMGW";
+    const expired = warningIsExpired(w, nowMs);
     out.push({
       id: `${FEED_ID}:warn:${w.id}:lifted`,
       kind: "warning_lifted",
-      title: `✓ ${tag}: odwołano — ${w.event}`,
-      summary: `Ostrzeżenie „${w.event}" nie jest już aktywne.`,
+      title: `✓ ${tag}: ${expired ? "wygasło" : "odwołano"} — ${w.event}`,
+      summary: expired
+        ? `Upłynął termin ostrzeżenia „${w.event}".`
+        : `Ostrzeżenie „${w.event}" nie jest już aktywne.`,
       published: now,
     });
   }

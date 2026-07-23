@@ -1,0 +1,7 @@
+interface:
+  display_name: "Review Autka"
+  short_description: "Audit Autka app and backend invariants"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#DF7757"
+  default_prompt: "Use $cmd-autka-review to review this Autka change against its core invariants."

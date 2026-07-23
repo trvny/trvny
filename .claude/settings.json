@@ -6,11 +6,8 @@
       "Read(*)",
       "Glob",
       "Grep",
-      "LS",
       "WebFetch",
       "WebSearch",
-      "Search(*)",
-      "Bash",
       "Bash(npm run *)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
@@ -27,7 +24,7 @@
       "Bash(git remote:*)",
       "Bash(git reset:*)",
       "Bash(git restore:*)",
-      "Edit(/src/**/*.ts)",
+      "Edit(./src/**/*.ts)",
       "mcp__gitlab__create_merge_request",
       "mcp__gitlab__get_job_trace",
       "mcp__gitlab__get_latest_pipeline",
@@ -48,28 +45,23 @@
   },
   "env": {
     "CLAUDE_CODE_EFFORT_LEVEL": "auto"
-  }
-  "extraKnownMarketplaces": [
-    "https://github.com/anthropics/claude-plugins-official",
-    "https://github.com/anthropics/claude-plugins-community"
-  ],
+  },
   "extraKnownMarketplaces": {
-    "claude-plugins-official": {
-      "source": { "source": "github", "repo": "anthropics/claude-plugins-official" }
-    },
-    "claude-plugins-community": {
-      "source": { "source": "github", "repo": "anthropics/claude-plugins-community" }
+    "claude-community": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-community"
+      },
+      "autoUpdate": true
     }
-    },
+  },
   "cleanupPeriodDays": 14,
   "companyAnnouncements": [
     "kurde"
   ],
   "showTurnDuration": false,
-  "outputStyle": "Proactive",
   "attribution": {
     "commit": "",
-    "pr": "",
-    "sessionUrl": "false"
+    "pr": ""
   }
 }

@@ -75,7 +75,10 @@ class InjectHead {
 }
 class InjectBody {
   element(element) {
-    element.append('<script src="/hardening.js"></script>', { html: true });
+    element.append(
+      '<script src="/hardening.js"></script><script src="/scanner-compat.js"></script>',
+      { html: true },
+    );
   }
 }
 

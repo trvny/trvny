@@ -52,3 +52,16 @@ updates:
       actions:
         patterns:
           - "*"
+  - package-ecosystem: "pre-commit"
+    directory: "/.github"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Warsaw"
+    commit-message:
+      prefix: "ci"
+    groups:
+      hooks:
+        patterns:
+          - "*"

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Token Efficiency"
+  short_description: "Cut verbosity, loops, and avoidable tool work"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#DF7757"
+  default_prompt: "Use $token-efficiency to complete this task with minimal tokens and rework."

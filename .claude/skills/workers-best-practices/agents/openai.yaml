@@ -1,0 +1,7 @@
+interface:
+  display_name: "Workers Best Practices"
+  short_description: "Review Cloudflare Workers for production readiness"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#F38020"
+  default_prompt: "Use $workers-best-practices to review this Worker for production issues."

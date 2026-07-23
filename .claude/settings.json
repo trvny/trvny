@@ -6,12 +6,9 @@
       "Read(*)",
       "Glob",
       "Grep",
-      "Bash",
       "WebFetch",
+      "Bash",
       "Bash(npm run *)",
-      "Bash(git commit * main)",
-      "Bash(git pull origin main)",
-      "Bash(git push origin main)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git add:*)",
@@ -21,12 +18,12 @@
       "Bash(git fetch:*)",
       "Bash(git log:*)",
       "Bash(git mv:*)",
+      "Bash(git pull:*)",
       "Bash(git push:*)",
       "Bash(git rebase:*)",
       "Bash(git remote:*)",
       "Bash(git reset:*)",
       "Bash(git restore:*)",
-      "Edit",
       "Edit(/src/**/*.ts)",
       "mcp__gitlab__create_merge_request",
       "mcp__gitlab__get_job_trace",
@@ -35,6 +32,27 @@
       "mcp__gitlab__list_pipeline_jobs",
       "mcp__gitlab__list_pipelines"
     ],
+    "deny": [
+      "Bash(chmod 777:*)",
+      "Bash(dd:*)",
+      "Bash(rm -rf:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./.dev.vars)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)"
+    ]
+  },
+  "extraKnownMarketplaces": [
+    "https://github.com/anthropics/claude-plugins-official",
+    "https://github.com/anthropics/claude-plugins-community"
+  ],
+  "cleanupPeriodDays": 14,
+  "companyAnnouncements": [
+    "kurde"
+  ],
+  "showTurnDuration": false
+}    ],
     "deny": [
       "Bash(chmod 777:*)",
       "Bash(dd:*)",

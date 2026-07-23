@@ -30,9 +30,8 @@
   }
 
   function normalizeImageType(file) {
-    if (file.type?.startsWith("image/")) return file;
     const type = MIME_BY_EXTENSION[extension(file)];
-    if (!type) return file;
+    if (!type || file.type === type) return file;
     try {
       return new File([file], file.name || `code.${extension(file)}`, {
         type,
@@ -44,7 +43,9 @@
   }
 
   async function normalizeGeneratedPng(file) {
-    if (!/^\s*(qr|barcode)-.+\.png$/i.test(file.name || "") || !("createImageBitmap" in window)) {
+    if (file.size > 20 * 1024 * 1024
+      || !/^\s*(qr|barcode)-.+\.png$/i.test(file.name || "")
+      || !("createImageBitmap" in window)) {
       return file;
     }
 

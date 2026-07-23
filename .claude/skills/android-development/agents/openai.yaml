@@ -1,7 +1,0 @@
-interface:
-  display_name: "Android Development"
-  short_description: "Build and review Kotlin and Jetpack Compose apps"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#DF7757"
-  default_prompt: "Use $android-development to implement this Android change in the existing architecture."

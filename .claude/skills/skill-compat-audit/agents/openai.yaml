@@ -1,0 +1,7 @@
+interface:
+  display_name: "Skill Compatibility Audit"
+  short_description: "Audit skills for chat and packaged compatibility"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#DF7757"
+  default_prompt: "Use $skill-compat-audit to validate and repair this skill package."

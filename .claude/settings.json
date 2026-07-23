@@ -26,8 +26,6 @@
       "Bash(git remote:*)",
       "Bash(git reset:*)",
       "Bash(git restore:*)",
-      "Bash(git status:*)",
-      "Bash(git log:*)",
       "Edit",
       "Edit(/src/**/*.ts)",
       "mcp__gitlab__create_merge_request",

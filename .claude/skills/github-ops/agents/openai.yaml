@@ -1,0 +1,7 @@
+interface:
+  display_name: "GitHub Ops"
+  short_description: "Operate repositories, PRs, Actions, and releases"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#DF7757"
+  default_prompt: "Use $github-ops to complete this GitHub task safely and verify the result."

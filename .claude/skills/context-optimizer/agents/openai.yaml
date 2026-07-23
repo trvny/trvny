@@ -1,0 +1,7 @@
+interface:
+  display_name: "Context Optimizer"
+  short_description: "Reduce Claude Code context pressure and slowdown"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#DF7757"
+  default_prompt: "Use $context-optimizer to diagnose and reduce this session's context pressure."

@@ -1,7 +1,0 @@
-interface:
-  display_name: "RSS Feed Fix"
-  short_description: "Repair broken, empty, or stale feed generators"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#F26522"
-  default_prompt: "Use $rss-feed-fix to diagnose and repair this broken feed generator."

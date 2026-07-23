@@ -1,7 +1,0 @@
-interface:
-  display_name: "Compose Edge-to-Edge"
-  short_description: "Fix Android system bar, inset, and IME issues"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#DF7757"
-  default_prompt: "Use $edge-to-edge to migrate or repair this Compose screen's insets."

@@ -6,7 +6,9 @@
       "Read(*)",
       "Glob",
       "Grep",
+      "LS",
       "WebFetch",
+      "WebSearch",
       "Search(*)",
       "Bash",
       "Bash(npm run *)",
@@ -48,7 +50,7 @@
     "https://github.com/anthropics/claude-plugins-official",
     "https://github.com/anthropics/claude-plugins-community"
   ],
-    "extraKnownMarketplaces": {
+  "extraKnownMarketplaces": {
     "claude-plugins-official": {
       "source": { "source": "github", "repo": "anthropics/claude-plugins-official" }
     },

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Skill Builder"
+  short_description: "Build AI skills from docs, repos, PDFs, or video"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#DF7757"
+  default_prompt: "Use $skill-builder to turn this source into a reusable AI skill."

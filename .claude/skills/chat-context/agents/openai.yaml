@@ -1,0 +1,7 @@
+interface:
+  display_name: "Chat Context"
+  short_description: "Keep long chat sessions focused and efficient"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#DF7757"
+  default_prompt: "Use $chat-context to streamline this long conversation and preserve key context."

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Cloudflare Platform"
+  short_description: "Build across Workers, Pages, storage, AI, and security"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#F38020"
+  default_prompt: "Use $cloudflare to design or implement this Cloudflare platform task."

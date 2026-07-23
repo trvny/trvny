@@ -46,6 +46,9 @@
       "Read(./**/*.key)"
     ]
   },
+  "env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "auto"
+  }
   "extraKnownMarketplaces": [
     "https://github.com/anthropics/claude-plugins-official",
     "https://github.com/anthropics/claude-plugins-community"

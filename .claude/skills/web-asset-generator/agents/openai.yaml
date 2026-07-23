@@ -1,7 +1,0 @@
-interface:
-  display_name: "Web Asset Generator"
-  short_description: "Create favicons, app icons, and social images"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#DF7757"
-  default_prompt: "Use $web-asset-generator to create the required web and social assets."

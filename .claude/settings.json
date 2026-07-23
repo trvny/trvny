@@ -3,22 +3,20 @@
   "permissions": {
     "defaultMode": "default",
     "allow": [
-      "Read",
+      "Read(*)",
       "Glob",
       "Grep",
       "Bash",
       "WebFetch",
-      "Bash(npm run build)",
-      "Bash(git commit *)",
       "Bash(npm run *)",
-      "Bash(ls*)",
-      "Bash(git * main)",
-      "Edit",
-      "Edit(/src/**/*.ts)",
-      "Read(*)",
+      "Bash(git commit * main)",
+      "Bash(git pull origin main)",
+      "Bash(git push origin main)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Edit",
+      "Edit(/src/**/*.ts)"
     ],
     "deny": [
       "Read(./.env)",

@@ -66,5 +66,10 @@
     "kurde"
   ],
   "showTurnDuration": false,
-  "outputStyle": "Proactive"
+  "outputStyle": "Proactive",
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": "false"
+  }
 }

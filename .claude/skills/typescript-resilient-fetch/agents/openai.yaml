@@ -1,7 +1,0 @@
-interface:
-  display_name: "Resilient TypeScript Fetch"
-  short_description: "Build typed fetch, retries, validation, and fallbacks"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#DF7757"
-  default_prompt: "Use $typescript-resilient-fetch to make this TypeScript I/O path robust."

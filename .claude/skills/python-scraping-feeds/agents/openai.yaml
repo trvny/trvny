@@ -1,7 +1,0 @@
-interface:
-  display_name: "Python Feeds & Scraping"
-  short_description: "Build robust scrapers, parsers, feeds, and playlists"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#F26522"
-  default_prompt: "Use $python-scraping-feeds to implement this fetch, parse, and feed pipeline."

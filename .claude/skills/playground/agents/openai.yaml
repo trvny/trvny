@@ -1,7 +1,0 @@
-interface:
-  display_name: "Playground Builder"
-  short_description: "Build interactive single-file HTML playgrounds"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#DF7757"
-  default_prompt: "Use $playground to build an interactive HTML explorer for this topic."

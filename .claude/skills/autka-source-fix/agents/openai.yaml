@@ -1,0 +1,7 @@
+interface:
+  display_name: "Autka Source Fix"
+  short_description: "Repair dead, empty, or stale marketplace sources"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#DF7757"
+  default_prompt: "Use $autka-source-fix to diagnose and repair this failing Autka source."

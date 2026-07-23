@@ -1,0 +1,7 @@
+interface:
+  display_name: "Kanarek"
+  short_description: "Develop and review the Kanarek Android and Worker app"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#DF7757"
+  default_prompt: "Use $kanarek to work on this Kanarek app or backend change."

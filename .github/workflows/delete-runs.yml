@@ -1,4 +1,5 @@
 name: Delete old runs
+
 on:
   workflow_dispatch:
   schedule:
@@ -14,18 +15,62 @@ concurrency:
 
 jobs:
   delete-runs:
-    strategy:
-      fail-fast: false
-      matrix:
-        repository: [ "trvny/trvny", "trvny/feeds", "trvny/tvpi", "trvny/autka" ]
     runs-on: ubuntu-slim
     timeout-minutes: 20
     permissions: {}
     steps:
-      - name: Delete workflow runs
+      - name: Delete runs in trvny/trvny
+        id: trvny
+        continue-on-error: true
         uses: Mattraks/delete-workflow-runs@0cf693bc9909e5e867ee8f27b813224ba862939c # v2
         with:
           token: ${{ secrets.GH_PAT }}
-          repository: ${{ matrix.repository }}
+          repository: trvny/trvny
           retain_days: 14
           keep_minimum_runs: 6
+
+      - name: Delete runs in trvny/feeds
+        id: feeds
+        continue-on-error: true
+        uses: Mattraks/delete-workflow-runs@0cf693bc9909e5e867ee8f27b813224ba862939c # v2
+        with:
+          token: ${{ secrets.GH_PAT }}
+          repository: trvny/feeds
+          retain_days: 14
+          keep_minimum_runs: 6
+
+      - name: Delete runs in trvny/tvpi
+        id: tvpi
+        continue-on-error: true
+        uses: Mattraks/delete-workflow-runs@0cf693bc9909e5e867ee8f27b813224ba862939c # v2
+        with:
+          token: ${{ secrets.GH_PAT }}
+          repository: trvny/tvpi
+          retain_days: 14
+          keep_minimum_runs: 6
+
+      - name: Delete runs in trvny/autka
+        id: autka
+        continue-on-error: true
+        uses: Mattraks/delete-workflow-runs@0cf693bc9909e5e867ee8f27b813224ba862939c # v2
+        with:
+          token: ${{ secrets.GH_PAT }}
+          repository: trvny/autka
+          retain_days: 14
+          keep_minimum_runs: 6
+
+      - name: Apply cleanup gate
+        if: always()
+        env:
+          TRVNY_OUTCOME: ${{ steps.trvny.outcome }}
+          FEEDS_OUTCOME: ${{ steps.feeds.outcome }}
+          TVPI_OUTCOME: ${{ steps.tvpi.outcome }}
+          AUTKA_OUTCOME: ${{ steps.autka.outcome }}
+        run: |
+          failed=0
+          for outcome in "$TRVNY_OUTCOME" "$FEEDS_OUTCOME" "$TVPI_OUTCOME" "$AUTKA_OUTCOME"; do
+            if [ "$outcome" != "success" ]; then
+              failed=1
+            fi
+          done
+          exit "$failed"

@@ -151,8 +151,6 @@ silently blending them away.
 - Use `AGENTS.md` as the main repository contract for agents.
 - Keep repository-wide Copilot guidance in
   `.github/copilot-instructions.md`.
-- Put path-specific rules in `.github/instructions/*.instructions.md` instead
-  of inflating the global file.
 - Put provider-specific deltas in their own adapter files, such as
   `CLAUDE.md`, without duplicating this contract.
 - Base important Microsoft and Azure decisions on current Microsoft Learn

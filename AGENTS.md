@@ -181,3 +181,7 @@ After making changes, state briefly:
 - what was validated,
 - what could not be validated,
 - whether a user decision remains.
+
+## Code Review Rules
+
+- No comment while out of usage unless called (@codex)

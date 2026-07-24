@@ -6,10 +6,15 @@ on:
     paths:
       - "mcp/status-mcp/**"
       - ".github/workflows/status-mcp-deploy.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mcp/status-mcp/**"
+      - ".github/workflows/status-mcp-deploy.yml"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-status-mcp
+  group: deploy-status-mcp-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -39,6 +44,7 @@ jobs:
         run: npm run typecheck
 
       - name: Deploy
+        if: github.event_name != 'pull_request'
         run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

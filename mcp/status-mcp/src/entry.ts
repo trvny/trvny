@@ -78,8 +78,8 @@ function rebuildRequest(request: Request, body: string): Request {
   });
 }
 
-async function runInner(request: Request, body: string, env: Env, ctx: ExecutionContext): Promise<Response> {
-  return worker.fetch(rebuildRequest(request, body), env, ctx);
+async function runInner(request: Request, body: string, env: Env): Promise<Response> {
+  return worker.fetch(rebuildRequest(request, body), env);
 }
 
 async function getStatusResult(
@@ -99,7 +99,7 @@ async function getStatusResult(
   if (existing) return existing;
 
   const work = (async () => {
-    const response = await runInner(request, body, env, ctx);
+    const response = await runInner(request, body, env);
     if (!response.ok) return null;
 
     const payload = (await response.json()) as { result?: unknown };
@@ -122,7 +122,7 @@ async function getStatusResult(
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    if (request.method !== "POST") return worker.fetch(request, env, ctx);
+    if (request.method !== "POST") return worker.fetch(request, env);
 
     const declaredLength = Number(request.headers.get("Content-Length") || 0);
     if (declaredLength > MAX_BODY_BYTES) return json(rpcError(null, -32600, "Request too large"), 413);
@@ -141,22 +141,22 @@ export default {
     try {
       payload = JSON.parse(body);
     } catch {
-      return runInner(request, body, env, ctx);
+      return runInner(request, body, env);
     }
 
     if (Array.isArray(payload)) {
       if (payload.length > MAX_BATCH_SIZE) return json(rpcError(null, -32600, "Batch too large"), 413);
-      return runInner(request, body, env, ctx);
+      return runInner(request, body, env);
     }
 
-    if (!payload || typeof payload !== "object") return runInner(request, body, env, ctx);
+    if (!payload || typeof payload !== "object") return runInner(request, body, env);
 
     const rpc = payload as RpcRequest;
     const status = statusKey(rpc);
-    if (!status) return runInner(request, body, env, ctx);
+    if (!status) return runInner(request, body, env);
 
     const result = await getStatusResult(status.key, status.ttl, request, body, env, ctx);
-    if (result === null) return runInner(request, body, env, ctx);
+    if (result === null) return runInner(request, body, env);
     return json({ jsonrpc: "2.0", id: rpc.id, result });
   },
 } satisfies ExportedHandler<Env>;

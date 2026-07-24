@@ -184,4 +184,4 @@ After making changes, state briefly:
 
 ## Code Review Rules
 
-- No comment while out of usage unless called (@codex)
+- No commentary when out of credits/usage (unless explicitly called @codex) until Code Reviews can resume

@@ -11,7 +11,7 @@ const SECURITY_HEADERS = {
     "font-src 'self'",
     "img-src 'self' data: blob:",
     "media-src 'self' blob:",
-    "connect-src 'self'",
+    "connect-src 'self' https:",
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'none'",

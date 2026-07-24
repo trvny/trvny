@@ -34,6 +34,7 @@
   function clearRemote(clearInput = true) {
     requestGeneration += 1;
     remoteLogoData = null;
+    loadButton.disabled = false;
     if (clearInput) urlInput.value = "";
     setStatus(defaultStatus);
   }

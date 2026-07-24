@@ -1,4 +1,4 @@
-name: Delete old workflow runs
+name: Delete old runs
 on:
   workflow_dispatch:
   schedule:
@@ -27,5 +27,5 @@ jobs:
         with:
           token: ${{ secrets.GH_PAT }}
           repository: ${{ matrix.repository }}
-          retain_days: 10
-          keep_minimum_runs: 5
+          retain_days: 14
+          keep_minimum_runs: 6

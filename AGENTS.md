@@ -30,7 +30,20 @@ Working motto:
   assumptions, and a way to verify the result.
 - Do not end every response with a generic offer to do more.
 
-## Repository changes
+## Persistence
+
+- Never stop at uncertainty — research or deduce the most reasonable approach and continue.
+- Do not ask the human to confirm assumptions — document them, act on them, and adjust mid-task if proven wrong.
+
+
+## Exploration
+
+- If you are not sure about file content or codebase structure pertaining to the user’s request, use your tools to read files and gather the relevant information: do NOT make up an answer.
+Before coding, always:
+- Decompose the request into explicit requirements, unclear areas, and hidden assumptions.
+- Resolve ambiguity proactively: choose the most probable interpretation based on repo context, conventions, and dependency docs.
+
+  ## Repository changes
 
 1. Inspect the existing structure, configuration, and conventions first.
 2. Prefer small, reversible changes over broad rewrites.
@@ -90,6 +103,7 @@ or risk warrants it.
 - Never present partial success as complete execution.
 - Do not claim that a tool call, test, build, deployment, commit, upload, or
   write succeeded unless its result was observed.
+- Use \`apply_patch\` tool
 
 ## Knowledge, memory, and maintained wiki
 

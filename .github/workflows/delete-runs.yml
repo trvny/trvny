@@ -10,7 +10,7 @@ permissions: {}
 
 concurrency:
   group: delete-runs
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   delete-runs:
@@ -27,5 +27,5 @@ jobs:
         with:
           token: ${{ secrets.GH_PAT }}
           repository: ${{ matrix.repository }}
-          retain_days: 15
+          retain_days: 10
           keep_minimum_runs: 5

@@ -23,6 +23,12 @@
       content: '<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/>'
         + '<path d="M5 12.86a10 10 0 0 1 14 0"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/>',
     },
+    briefcase: {
+      label: "vCard",
+      content: '<rect width="20" height="14" x="2" y="6" rx="2"/>'
+        + '<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
+        + '<path d="M2 13a18.15 18.15 0 0 0 20 0"/><path d="M12 12h.01"/>',
+    },
     contact: {
       label: "Contact",
       content: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
@@ -64,7 +70,7 @@
     url: "link",
     text: "type",
     wifi: "wifi",
-    vcard: "contact",
+    vcard: "briefcase",
     email: "mail",
     sms: "message",
     tel: "phone",
@@ -80,7 +86,7 @@
   presetField.className = "f";
   presetField.style.marginTop = "12px";
   presetField.innerHTML = '<span>Built-in icon</span><div class="chips" id="qLogoPresets" style="margin-bottom:0"></div>'
-    + '<p class="hint" style="margin:6px 0 0">Auto picks an icon for the selected content type.</p>';
+    + '<p class="hint" style="margin:6px 0 0">Standard picks an icon for the selected content type.</p>';
   fileInput.insertAdjacentElement("afterend", presetField);
 
   const field = document.createElement("label");
@@ -166,7 +172,7 @@
   }
 
   const presetButtons = [
-    ["auto", "Auto", ""],
+    ["auto", "Standard", ""],
     ["none", "None", ""],
     ...Object.entries(icons).map(([name, icon]) => [name, icon.label, buttonIcon(name)]),
   ];

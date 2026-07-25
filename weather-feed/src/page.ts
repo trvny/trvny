@@ -195,6 +195,7 @@ export function renderPage(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="google-site-verification" content="Qu5-7v2tWoKtUYUVlQXisaFkGGVEImYlmycKDUg0QBw">
+<meta name="msvalidate.01" content="23A368B2C5F4DF3471A67EA6CB057149">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <title>${escapeHtml(title)}</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">

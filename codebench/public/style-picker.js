@@ -12,6 +12,10 @@
         ["extra-rounded", "Extra rounded"],
         ["classy", "Classy"],
         ["classy-rounded", "Classy rounded"],
+        ["heart", "Heart"],
+        ["star", "Star"],
+        ["diamond", "Diamond"],
+        ["plus", "Plus"],
       ],
     },
     {
@@ -113,6 +117,32 @@
     if (type === "classy-rounded") {
       const flip = index % 2 ? -1 : 1;
       return `<rect x="${x + size * 0.04}" y="${y + size * 0.04}" width="${size * 0.92}" height="${size * 0.92}" rx="${size * 0.32}" transform="rotate(${flip * 12} ${cx} ${cy})"/>`;
+    }
+    if (type === "diamond") {
+      return `<path d="M${cx} ${y + size * 0.08}L${x + size * 0.92} ${cy}L${cx} ${y + size * 0.92}L${x + size * 0.08} ${cy}Z"/>`;
+    }
+    if (type === "plus") {
+      const a = size * 0.34;
+      const b = size * 0.66;
+      const inset = size * 0.08;
+      return `<path d="M${x + a} ${y + inset}H${x + b}V${y + a}H${x + size - inset}V${y + b}`
+        + `H${x + b}V${y + size - inset}H${x + a}V${y + b}H${x + inset}V${y + a}H${x + a}Z"/>`;
+    }
+    if (type === "star") {
+      const points = [];
+      for (let point = 0; point < 10; point += 1) {
+        const radius = point % 2 === 0 ? size * 0.46 : size * 0.21;
+        const angle = -Math.PI / 2 + point * Math.PI / 5;
+        points.push(`${cx + Math.cos(angle) * radius},${cy + Math.sin(angle) * radius}`);
+      }
+      return `<path d="M${points.join("L")}Z"/>`;
+    }
+    if (type === "heart") {
+      return `<path d="M${cx} ${y + size * 0.92}`
+        + `C${x + size * 0.2} ${y + size * 0.72},${x + size * 0.05} ${y + size * 0.52},${x + size * 0.08} ${y + size * 0.3}`
+        + `C${x + size * 0.11} ${y + size * 0.1},${x + size * 0.36} ${y + size * 0.08},${cx} ${y + size * 0.3}`
+        + `C${x + size * 0.64} ${y + size * 0.08},${x + size * 0.89} ${y + size * 0.1},${x + size * 0.92} ${y + size * 0.3}`
+        + `C${x + size * 0.95} ${y + size * 0.52},${x + size * 0.8} ${y + size * 0.72},${cx} ${y + size * 0.92}Z"/>`;
     }
     return `<rect x="${x}" y="${y}" width="${size}" height="${size}"/>`;
   }

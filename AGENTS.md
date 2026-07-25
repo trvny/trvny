@@ -181,5 +181,3 @@ After making changes, state briefly:
 - whether a user decision remains.
 
 ## Code Review Rules
-
-- No commentary when out of credits/usage (unless explicitly called @codex) until Code Reviews can resume

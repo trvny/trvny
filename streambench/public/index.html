@@ -8,6 +8,7 @@
   <title>Streambench</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/playlist-workspace.css">
+  <link rel="stylesheet" href="/workspace-layout.css">
   <link rel="stylesheet" href="/mobile-workspace.css">
 </head>
 <body>
@@ -32,7 +33,7 @@
       <button type="button" data-mobile-view-target="tools" aria-pressed="false">Narzędzia</button>
     </nav>
 
-    <section class="workspace" aria-label="Odtwarzacz i źródła">
+    <section class="workspace" aria-label="Odtwarzacz i aktualna playlista">
       <div class="panel player-panel">
         <div class="panel-heading">
           <div>
@@ -64,142 +65,166 @@
           </div>
           <p id="streamHint" class="hint">HLS działa przez lokalnie dostarczony hls.js, a obsługiwane formaty bezpośrednie przez przeglądarkę.</p>
         </form>
-
-        <section class="diagnostics-panel" aria-labelledby="diagnosticsHeading">
-          <div class="diagnostics-heading">
-            <div>
-              <p class="eyebrow">Lokalnie w przeglądarce</p>
-              <h3 id="diagnosticsHeading">Diagnostyka</h3>
-            </div>
-            <span>bez proxy</span>
-          </div>
-          <dl class="diagnostics-grid">
-            <div><dt>Adres</dt><dd id="diagnosticAddress">Brak źródła</dd></div>
-            <div><dt>Typ</dt><dd id="diagnosticType">Brak danych</dd></div>
-            <div><dt>Bezpieczeństwo</dt><dd id="diagnosticSecurity">Brak danych</dd></div>
-            <div><dt>HLS</dt><dd id="diagnosticHls">Nie dotyczy</dd></div>
-            <div><dt>Media</dt><dd id="diagnosticMedia">Brak danych odtwarzacza</dd></div>
-            <div><dt>Ostatni błąd</dt><dd id="diagnosticError">Brak</dd></div>
-          </dl>
-        </section>
-
-        <section class="epg-panel" aria-labelledby="epgHeading">
-          <div class="diagnostics-heading">
-            <div>
-              <p class="eyebrow">XMLTV</p>
-              <h3 id="epgHeading">Program teraz i następnie</h3>
-            </div>
-            <span id="epgStatus" data-state="idle">Brak EPG</span>
-          </div>
-          <div class="epg-import">
-            <label class="file-button" for="epgFile">
-              <span>Otwórz plik XMLTV</span>
-              <input id="epgFile" type="file" accept=".xml,.xmltv,application/xml,text/xml">
-            </label>
-            <details class="paste-box">
-              <summary>Lub wklej XMLTV</summary>
-              <textarea id="epgText" rows="5" spellcheck="false" placeholder="&lt;tv&gt;&#10;  &lt;programme channel=&quot;channel.id&quot; start=&quot;20260726120000 +0200&quot;&gt;...&#10;&lt;/tv&gt;"></textarea>
-              <button id="loadEpgText" type="button" class="secondary">Wczytaj XMLTV</button>
-            </details>
-          </div>
-          <dl class="epg-grid">
-            <div><dt>Teraz</dt><dd id="epgNow">Wczytaj XMLTV i wybierz kanał</dd></div>
-            <div><dt>Następnie</dt><dd id="epgNext">Brak danych</dd></div>
-          </dl>
-        </section>
       </div>
 
       <aside class="panel source-panel">
         <div class="panel-heading compact">
           <div>
-            <p class="eyebrow">Źródła</p>
-            <h2>Katalog i M3U</h2>
+            <p class="eyebrow">Playlista</p>
+            <h2>Aktualna playlista</h2>
           </div>
           <span id="entryCount" class="count">0</span>
         </div>
 
-        <section class="provider-box" aria-labelledby="providerHeading">
-          <div class="provider-heading">
-            <div>
-              <p class="eyebrow">Publiczny katalog</p>
-              <h3 id="providerHeading">Ładowanie…</h3>
-            </div>
-            <a id="providerLink" href="https://example.invalid" target="_blank" rel="noopener noreferrer" hidden>GitHub ↗</a>
-          </div>
-          <div class="provider-controls">
-            <label for="providerName">
-              Źródło
-              <select id="providerName" disabled>
-                <option>Ładowanie…</option>
-              </select>
-            </label>
-            <label for="providerScope">
-              Widok
-              <select id="providerScope" disabled></select>
-            </label>
-            <label for="providerValue">
-              Playlista
-              <select id="providerValue" disabled></select>
-            </label>
-            <button id="loadProvider" type="button" disabled>Wczytaj</button>
-          </div>
-          <p id="providerStatus" class="provider-status" data-state="loading">Pobieranie źródeł…</p>
-        </section>
-
-        <div class="source-divider"><span>lub własna playlista</span></div>
-
-        <label class="file-button" for="playlistFile">
-          <span>Otwórz plik M3U</span>
-          <input id="playlistFile" type="file" accept=".m3u,.m3u8,application/x-mpegURL,audio/x-mpegurl,text/plain">
-        </label>
-
-        <details class="paste-box">
-          <summary>Lub wklej treść playlisty</summary>
-          <textarea id="playlistText" rows="6" spellcheck="false" placeholder="#EXTM3U&#10;#EXTINF:-1,Przykładowy kanał&#10;https://example.com/live.m3u8"></textarea>
-          <button id="parsePlaylist" type="button" class="secondary">Wczytaj tekst</button>
-        </details>
-
-        <section class="playlist-tools" aria-label="Edycja i eksport playlisty">
-          <div>
-            <strong>Edycja i eksport</strong>
-            <span id="workspaceStatus" data-state="idle">Wczytaj playlistę</span>
-          </div>
-          <label class="compact-check"><input id="dedupeExport" type="checkbox" checked> Usuń identyczne URL-e</label>
-          <div class="playlist-tool-buttons">
-            <button id="exportPlaylist" type="button" class="secondary">Eksportuj M3U</button>
-            <button id="copyPlaylist" type="button" class="secondary">Kopiuj</button>
-          </div>
-        </section>
-
-        <label class="search-label" for="playlistSearch">Filtruj po nazwie, metadanych lub oznaczeniach</label>
+        <label class="search-label" for="playlistSearch">Szukaj po nazwie, metadanych lub oznaczeniach</label>
         <input id="playlistSearch" type="search" autocomplete="off" placeholder="np. HLS, HD, Polska, HTTPS" disabled>
 
         <div id="playlistEmpty" class="playlist-empty">
-          <p>Jeszcze pusto. Wczytaj katalog albo wrzuć własną playlistę.</p>
+          <p>Jeszcze pusto. Otwórz Narzędzia i wczytaj katalog albo własną playlistę.</p>
         </div>
         <ol id="playlistEntries" class="playlist-entries" aria-live="polite"></ol>
-
-        <section class="library-box" aria-labelledby="libraryHeading">
-          <div class="library-heading">
-            <div>
-              <p class="eyebrow">Tylko na tym urządzeniu</p>
-              <h3 id="libraryHeading">Biblioteka</h3>
-            </div>
-            <span id="libraryCount" class="count">0</span>
-          </div>
-          <div class="library-controls">
-            <select id="libraryView" aria-label="Widok biblioteki">
-              <option value="favorites">Ulubione</option>
-              <option value="recent">Ostatnie</option>
-              <option value="hidden">Ukryte</option>
-            </select>
-            <button id="clearRecent" type="button" class="secondary" hidden>Wyczyść</button>
-          </div>
-          <p id="libraryEmpty" class="library-empty">Ten widok jest pusty.</p>
-          <ol id="libraryEntries" class="library-entries"></ol>
-        </section>
       </aside>
     </section>
+
+    <details id="toolsPanel" class="panel tools-panel">
+      <summary class="tools-summary">
+        <div>
+          <p class="eyebrow">Narzędzia</p>
+          <h2>Źródła, edycja, diagnostyka i EPG</h2>
+        </div>
+        <span>Rozwiń panel</span>
+      </summary>
+
+      <div class="tools-content">
+        <div class="tools-grid">
+          <section class="tool-section source-tools" aria-labelledby="providerHeading">
+            <div class="tool-heading">
+              <div>
+                <p class="eyebrow">Źródła</p>
+                <h3>Katalog i własne M3U</h3>
+              </div>
+              <span id="workspaceStatus" data-state="idle">Wczytaj playlistę</span>
+            </div>
+
+            <section class="provider-box" aria-labelledby="providerHeading">
+              <div class="provider-heading">
+                <div>
+                  <p class="eyebrow">Publiczny katalog</p>
+                  <h3 id="providerHeading">Ładowanie…</h3>
+                </div>
+                <a id="providerLink" href="https://example.invalid" target="_blank" rel="noopener noreferrer" hidden>GitHub ↗</a>
+              </div>
+              <div class="provider-controls">
+                <label for="providerName">
+                  Źródło
+                  <select id="providerName" disabled>
+                    <option>Ładowanie…</option>
+                  </select>
+                </label>
+                <label for="providerScope">
+                  Widok
+                  <select id="providerScope" disabled></select>
+                </label>
+                <label for="providerValue">
+                  Playlista
+                  <select id="providerValue" disabled></select>
+                </label>
+                <button id="loadProvider" type="button" disabled>Wczytaj</button>
+              </div>
+              <p id="providerStatus" class="provider-status" data-state="loading">Pobieranie źródeł…</p>
+            </section>
+
+            <div class="source-divider"><span>lub własna playlista</span></div>
+
+            <label class="file-button" for="playlistFile">
+              <span>Otwórz plik M3U</span>
+              <input id="playlistFile" type="file" accept=".m3u,.m3u8,application/x-mpegURL,audio/x-mpegurl,text/plain">
+            </label>
+
+            <details class="paste-box">
+              <summary>Lub wklej treść playlisty</summary>
+              <textarea id="playlistText" rows="6" spellcheck="false" placeholder="#EXTM3U&#10;#EXTINF:-1,Przykładowy kanał&#10;https://example.com/live.m3u8"></textarea>
+              <button id="parsePlaylist" type="button" class="secondary">Wczytaj tekst</button>
+            </details>
+
+            <section class="playlist-tools" aria-label="Edycja i eksport playlisty">
+              <div>
+                <strong>Edycja i eksport</strong>
+                <span>lokalnie</span>
+              </div>
+              <label class="compact-check"><input id="dedupeExport" type="checkbox" checked> Usuń identyczne URL-e</label>
+              <div class="playlist-tool-buttons">
+                <button id="exportPlaylist" type="button" class="secondary">Eksportuj M3U</button>
+                <button id="copyPlaylist" type="button" class="secondary">Kopiuj</button>
+              </div>
+            </section>
+          </section>
+
+          <section class="diagnostics-panel" aria-labelledby="diagnosticsHeading">
+            <div class="diagnostics-heading">
+              <div>
+                <p class="eyebrow">Lokalnie w przeglądarce</p>
+                <h3 id="diagnosticsHeading">Diagnostyka</h3>
+              </div>
+              <span>bez proxy</span>
+            </div>
+            <dl class="diagnostics-grid">
+              <div><dt>Adres</dt><dd id="diagnosticAddress">Brak źródła</dd></div>
+              <div><dt>Typ</dt><dd id="diagnosticType">Brak danych</dd></div>
+              <div><dt>Bezpieczeństwo</dt><dd id="diagnosticSecurity">Brak danych</dd></div>
+              <div><dt>HLS</dt><dd id="diagnosticHls">Nie dotyczy</dd></div>
+              <div><dt>Media</dt><dd id="diagnosticMedia">Brak danych odtwarzacza</dd></div>
+              <div><dt>Ostatni błąd</dt><dd id="diagnosticError">Brak</dd></div>
+            </dl>
+          </section>
+
+          <section class="epg-panel" aria-labelledby="epgHeading">
+            <div class="diagnostics-heading">
+              <div>
+                <p class="eyebrow">XMLTV</p>
+                <h3 id="epgHeading">Program teraz i następnie</h3>
+              </div>
+              <span id="epgStatus" data-state="idle">Brak EPG</span>
+            </div>
+            <div class="epg-import">
+              <label class="file-button" for="epgFile">
+                <span>Otwórz plik XMLTV</span>
+                <input id="epgFile" type="file" accept=".xml,.xmltv,application/xml,text/xml">
+              </label>
+              <details class="paste-box">
+                <summary>Lub wklej XMLTV</summary>
+                <textarea id="epgText" rows="5" spellcheck="false" placeholder="&lt;tv&gt;&#10;  &lt;programme channel=&quot;channel.id&quot; start=&quot;20260726120000 +0200&quot;&gt;...&#10;&lt;/tv&gt;"></textarea>
+                <button id="loadEpgText" type="button" class="secondary">Wczytaj XMLTV</button>
+              </details>
+            </div>
+            <dl class="epg-grid">
+              <div><dt>Teraz</dt><dd id="epgNow">Wczytaj XMLTV i wybierz kanał</dd></div>
+              <div><dt>Następnie</dt><dd id="epgNext">Brak danych</dd></div>
+            </dl>
+          </section>
+
+          <section class="library-box" aria-labelledby="libraryHeading">
+            <div class="library-heading">
+              <div>
+                <p class="eyebrow">Tylko na tym urządzeniu</p>
+                <h3 id="libraryHeading">Biblioteka</h3>
+              </div>
+              <span id="libraryCount" class="count">0</span>
+            </div>
+            <div class="library-controls">
+              <select id="libraryView" aria-label="Widok biblioteki">
+                <option value="favorites">Ulubione</option>
+                <option value="recent">Ostatnie</option>
+                <option value="hidden">Ukryte</option>
+              </select>
+              <button id="clearRecent" type="button" class="secondary" hidden>Wyczyść</button>
+            </div>
+            <p id="libraryEmpty" class="library-empty">Ten widok jest pusty.</p>
+            <ol id="libraryEntries" class="library-entries"></ol>
+          </section>
+        </div>
+      </div>
+    </details>
   </main>
 
   <dialog id="editChannelDialog" class="edit-dialog">

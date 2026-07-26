@@ -7,6 +7,7 @@
   <meta name="description" content="Lokalny tester streamów IPTV, radia i playlist M3U.">
   <title>Streambench</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/playlist-workspace.css">
 </head>
 <body>
   <header class="site-header">
@@ -151,6 +152,18 @@
           <button id="parsePlaylist" type="button" class="secondary">Wczytaj tekst</button>
         </details>
 
+        <section class="playlist-tools" aria-label="Edycja i eksport playlisty">
+          <div>
+            <strong>Edycja i eksport</strong>
+            <span id="workspaceStatus" data-state="idle">Wczytaj playlistę</span>
+          </div>
+          <label class="compact-check"><input id="dedupeExport" type="checkbox" checked> Usuń identyczne URL-e</label>
+          <div class="playlist-tool-buttons">
+            <button id="exportPlaylist" type="button" class="secondary">Eksportuj M3U</button>
+            <button id="copyPlaylist" type="button" class="secondary">Kopiuj</button>
+          </div>
+        </section>
+
         <label class="search-label" for="playlistSearch">Filtruj po nazwie, metadanych lub oznaczeniach</label>
         <input id="playlistSearch" type="search" autocomplete="off" placeholder="np. HLS, HD, Polska, HTTPS" disabled>
 
@@ -158,17 +171,64 @@
           <p>Jeszcze pusto. Wczytaj katalog albo wrzuć własną playlistę.</p>
         </div>
         <ol id="playlistEntries" class="playlist-entries" aria-live="polite"></ol>
+
+        <section class="library-box" aria-labelledby="libraryHeading">
+          <div class="library-heading">
+            <div>
+              <p class="eyebrow">Tylko na tym urządzeniu</p>
+              <h3 id="libraryHeading">Biblioteka</h3>
+            </div>
+            <span id="libraryCount" class="count">0</span>
+          </div>
+          <div class="library-controls">
+            <select id="libraryView" aria-label="Widok biblioteki">
+              <option value="favorites">Ulubione</option>
+              <option value="recent">Ostatnie</option>
+              <option value="hidden">Ukryte</option>
+            </select>
+            <button id="clearRecent" type="button" class="secondary" hidden>Wyczyść</button>
+          </div>
+          <p id="libraryEmpty" class="library-empty">Ten widok jest pusty.</p>
+          <ol id="libraryEntries" class="library-entries"></ol>
+        </section>
       </aside>
     </section>
   </main>
 
+  <dialog id="editChannelDialog" class="edit-dialog">
+    <form id="editChannelForm" method="dialog">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">Lokalna nakładka</p>
+          <h2>Edytuj pozycję</h2>
+        </div>
+        <button id="cancelChannelEdit" type="button" class="icon-button" aria-label="Zamknij">×</button>
+      </div>
+      <label>Nazwa<input id="editTitle" required maxlength="180"></label>
+      <label>URL<input id="editUrl" type="url" required></label>
+      <div class="edit-grid">
+        <label>Grupa<input id="editGroup" maxlength="120"></label>
+        <label>tvg-id<input id="editId" maxlength="180"></label>
+        <label>Kraj<input id="editCountry" maxlength="40"></label>
+        <label>Język<input id="editLanguage" maxlength="100"></label>
+      </div>
+      <label>Logo<input id="editLogo" type="url"></label>
+      <label class="compact-check"><input id="editRadio" type="checkbox"> Traktuj jako radio</label>
+      <div class="dialog-actions">
+        <button id="resetChannelEdit" type="button" class="secondary">Przywróć oryginał</button>
+        <button type="submit">Zapisz</button>
+      </div>
+    </form>
+  </dialog>
+
   <footer>
-    <span>Streambench 0.8</span>
-    <span>Publiczne katalogi pobiera Worker; własne M3U i XMLTV nie opuszczają urządzenia.</span>
+    <span>Streambench 0.9</span>
+    <span>Publiczne katalogi pobiera Worker; własne M3U, XMLTV i biblioteka nie opuszczają urządzenia.</span>
   </footer>
 
   <script src="/vendor/hls.min.js"></script>
   <script type="module" src="/epg-ui.js"></script>
+  <script type="module" src="/playlist-workspace.js"></script>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

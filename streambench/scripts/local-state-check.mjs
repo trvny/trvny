@@ -27,11 +27,20 @@ const channel = {
 };
 assert(itemKey(channel) === "provider:channel.one|https://example.com/live.m3u8", "stable item key mismatch");
 
+const longPrefix = "x".repeat(400);
+const longOne = { ...channel, id: "", url: `https://example.com/live?token=${longPrefix}one` };
+const longTwo = { ...channel, id: "", url: `https://example.com/live?token=${longPrefix}two` };
+assert(itemKey(longOne) !== itemKey(longTwo), "long signed URLs collided");
+assert(itemKey({ ...longOne, stateKey: itemKey(longOne) }) === itemKey(longOne), "full stored key was not preserved");
+
 const storage = memoryStorage();
 const library = createLocalState(storage);
 assert(library.toggleFavorite(channel), "favorite was not added");
 assert(library.isFavorite(channel), "favorite lookup failed");
 assert(!library.toggleFavorite(channel), "favorite was not removed");
+assert(library.toggleFavorite(longOne), "first long favorite was not added");
+assert(library.toggleFavorite(longTwo), "second long favorite was not added");
+assert(library.items("favorites").length === 2, "long favorites were merged");
 
 library.addRecent(channel);
 library.addRecent({ ...channel, title: "Updated title" });

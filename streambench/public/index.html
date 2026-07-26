@@ -14,14 +14,14 @@
       <span class="brand-mark" aria-hidden="true">▶</span>
       <span>Streambench</span>
     </a>
-    <span class="privacy-note">Playlisty są przetwarzane lokalnie</span>
+    <span class="privacy-note">Własne playlisty są przetwarzane lokalnie</span>
   </header>
 
   <main>
     <section class="hero">
       <p class="eyebrow">IPTV · radio · HLS</p>
       <h1>Warsztat do streamów.</h1>
-      <p>Wklej adres, otwórz playlistę M3U i sprawdź, co faktycznie gra.</p>
+      <p>Wklej adres, otwórz playlistę M3U albo zajrzyj do publicznego katalogu iptv-org.</p>
     </section>
 
     <section class="workspace" aria-label="Odtwarzacz i źródła">
@@ -61,11 +61,40 @@
       <aside class="panel source-panel">
         <div class="panel-heading compact">
           <div>
-            <p class="eyebrow">Playlista</p>
-            <h2>Import M3U</h2>
+            <p class="eyebrow">Źródła</p>
+            <h2>Katalog i M3U</h2>
           </div>
           <span id="entryCount" class="count">0</span>
         </div>
+
+        <section class="provider-box" aria-labelledby="iptvOrgHeading">
+          <div class="provider-heading">
+            <div>
+              <p class="eyebrow">Publiczny katalog</p>
+              <h3 id="iptvOrgHeading">iptv-org</h3>
+            </div>
+            <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+          </div>
+          <div class="provider-controls">
+            <label for="providerScope">
+              Widok
+              <select id="providerScope">
+                <option value="country">Kraj</option>
+                <option value="category">Kategoria</option>
+              </select>
+            </label>
+            <label for="providerValue">
+              Playlista
+              <select id="providerValue" disabled>
+                <option>Ładowanie…</option>
+              </select>
+            </label>
+            <button id="loadProvider" type="button" disabled>Wczytaj</button>
+          </div>
+          <p id="providerStatus" class="provider-status" data-state="loading">Pobieranie katalogu…</p>
+        </section>
+
+        <div class="source-divider"><span>lub własna playlista</span></div>
 
         <label class="file-button" for="playlistFile">
           <span>Otwórz plik M3U</span>
@@ -78,11 +107,11 @@
           <button id="parsePlaylist" type="button" class="secondary">Wczytaj tekst</button>
         </details>
 
-        <label class="search-label" for="playlistSearch">Filtruj po nazwie lub grupie</label>
-        <input id="playlistSearch" type="search" autocomplete="off" placeholder="np. sport, radio, Polska" disabled>
+        <label class="search-label" for="playlistSearch">Filtruj po nazwie, grupie, kraju lub języku</label>
+        <input id="playlistSearch" type="search" autocomplete="off" placeholder="np. sport, Polska, English" disabled>
 
         <div id="playlistEmpty" class="playlist-empty">
-          <p>Jeszcze pusto. Wrzuć playlistę, a kanały pojawią się tutaj.</p>
+          <p>Jeszcze pusto. Wczytaj katalog albo wrzuć własną playlistę.</p>
         </div>
         <ol id="playlistEntries" class="playlist-entries" aria-live="polite"></ol>
       </aside>
@@ -90,8 +119,8 @@
   </main>
 
   <footer>
-    <span>Streambench 0.1</span>
-    <span>Bez proxy i bez wysyłania playlist na serwer.</span>
+    <span>Streambench 0.2</span>
+    <span>Publiczne katalogi pobiera Worker; własne playlisty nie opuszczają urządzenia.</span>
   </footer>
 
   <script src="/vendor/hls.min.js"></script>

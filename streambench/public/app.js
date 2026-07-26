@@ -1,27 +1,5 @@
 "use strict";
 
-const PROVIDERS = {
-  "free-tv": {
-    label: "Free-TV Lite",
-    link: "https://github.com/Free-TV/IPTV",
-    catalog: "/api/providers/free-tv/catalog",
-    playlist: "/api/providers/free-tv/playlist",
-    scopes: [{ id: "country", label: "Kraj" }],
-    defaults: { country: "PL" },
-  },
-  "iptv-org": {
-    label: "iptv-org",
-    link: "https://github.com/iptv-org/iptv",
-    catalog: "/api/providers/iptv-org/catalog",
-    playlist: "/api/providers/iptv-org/playlist",
-    scopes: [
-      { id: "country", label: "Kraj" },
-      { id: "category", label: "Kategoria" },
-    ],
-    defaults: { country: "PL", category: "news" },
-  },
-};
-
 const ui = {
   form: document.querySelector("#streamForm"),
   url: document.querySelector("#streamUrl"),
@@ -49,6 +27,7 @@ const ui = {
 };
 
 let playlist = [];
+const providers = new Map();
 const providerCatalogs = new Map();
 let providerRequest = null;
 let hls = null;
@@ -65,7 +44,7 @@ function setProviderStatus(label, state = "idle") {
 }
 
 function currentProvider() {
-  return PROVIDERS[ui.providerName.value];
+  return providers.get(ui.providerName.value) || null;
 }
 
 function cancelProviderRequest(showStatus = true) {
@@ -316,28 +295,25 @@ function loadPlaylist(source, label, {
   return playlist.length;
 }
 
-function catalogEntries(catalog, scope) {
-  if (scope === "country") return catalog?.countries;
-  if (scope === "category") return catalog?.categories;
-  return null;
+function currentScope(provider = currentProvider()) {
+  return provider?.scopes.find((scope) => scope.id === ui.providerScope.value) || null;
 }
 
 function renderProviderValues() {
   const provider = currentProvider();
-  const catalog = providerCatalogs.get(ui.providerName.value);
-  const scope = ui.providerScope.value;
-  const entries = catalogEntries(catalog, scope);
-  const preferred = provider.defaults[scope];
+  const scope = currentScope(provider);
+  const catalog = providerCatalogs.get(provider?.id);
+  const entries = scope ? catalog?.[scope.values] : null;
 
   ui.providerValue.replaceChildren(...(entries || []).map((entry) => {
     const option = document.createElement("option");
-    option.value = scope === "country" ? entry.code : entry.id;
-    option.textContent = scope === "country" ? `${entry.flag || "🌐"} ${entry.name}` : entry.name;
+    option.value = scope.values === "countries" ? entry.code : entry.id;
+    option.textContent = scope.values === "countries" ? `${entry.flag || "🌐"} ${entry.name}` : entry.name;
     return option;
   }));
 
-  if ([...ui.providerValue.options].some((option) => option.value === preferred)) {
-    ui.providerValue.value = preferred;
+  if ([...ui.providerValue.options].some((option) => option.value === scope?.default)) {
+    ui.providerValue.value = scope.default;
   }
   ui.providerValue.disabled = !entries?.length;
   ui.providerLoad.disabled = !entries?.length;
@@ -345,29 +321,31 @@ function renderProviderValues() {
 
 function renderProviderScopes() {
   const provider = currentProvider();
-  ui.providerScope.replaceChildren(...provider.scopes.map((scope) => {
+  ui.providerScope.replaceChildren(...(provider?.scopes || []).map((scope) => {
     const option = document.createElement("option");
     option.value = scope.id;
     option.textContent = scope.label;
     return option;
   }));
-  ui.providerScope.disabled = provider.scopes.length <= 1;
+  ui.providerScope.disabled = !provider || provider.scopes.length <= 1;
   renderProviderValues();
 }
 
 async function loadProviderCatalog(providerId) {
-  const provider = PROVIDERS[providerId];
+  const provider = providers.get(providerId);
+  if (!provider) return;
+
   if (providerCatalogs.has(providerId)) {
     if (ui.providerName.value === providerId) {
       renderProviderScopes();
-      setProviderStatus(providerId === "free-tv" ? "HTTPS · direct · bez Geo" : "Katalog gotowy");
+      setProviderStatus(provider.status || "Katalog gotowy");
     }
     return;
   }
 
   setProviderStatus("Pobieranie katalogu…", "loading");
   try {
-    const response = await fetch(provider.catalog, {
+    const response = await fetch(provider.endpoints.catalog, {
       headers: { accept: "application/json" },
       credentials: "same-origin",
     });
@@ -375,7 +353,7 @@ async function loadProviderCatalog(providerId) {
     providerCatalogs.set(providerId, await response.json());
     if (ui.providerName.value !== providerId) return;
     renderProviderScopes();
-    setProviderStatus(providerId === "free-tv" ? "HTTPS · direct · bez Geo" : "Katalog gotowy");
+    setProviderStatus(provider.status || "Katalog gotowy");
   } catch {
     if (ui.providerName.value !== providerId) return;
     ui.providerValue.disabled = true;
@@ -386,31 +364,68 @@ async function loadProviderCatalog(providerId) {
 
 function selectProvider() {
   cancelProviderRequest(false);
-  const providerId = ui.providerName.value;
-  const provider = PROVIDERS[providerId];
+  const provider = currentProvider();
+  if (!provider) return;
+
   ui.providerHeading.textContent = provider.label;
   ui.providerLink.href = provider.link;
+  ui.providerLink.hidden = false;
   ui.providerScope.disabled = true;
   ui.providerValue.disabled = true;
   ui.providerLoad.disabled = true;
   ui.providerScope.replaceChildren();
   ui.providerValue.replaceChildren();
-  loadProviderCatalog(providerId);
+  loadProviderCatalog(provider.id);
+}
+
+async function loadProviders() {
+  setProviderStatus("Pobieranie źródeł…", "loading");
+  try {
+    const response = await fetch("/api/providers", {
+      headers: { accept: "application/json" },
+      credentials: "same-origin",
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const body = await response.json();
+    if (!Array.isArray(body.providers) || body.providers.length === 0) throw new Error("empty provider manifest");
+
+    providers.clear();
+    for (const provider of body.providers) {
+      if (!provider?.id || !provider?.label || !provider?.endpoints?.catalog || !provider?.endpoints?.playlist) continue;
+      providers.set(provider.id, provider);
+    }
+    if (providers.size === 0) throw new Error("invalid provider manifest");
+
+    ui.providerName.replaceChildren(...[...providers.values()].map((provider) => {
+      const option = document.createElement("option");
+      option.value = provider.id;
+      option.textContent = provider.label;
+      return option;
+    }));
+    ui.providerName.value = providers.has("free-tv") ? "free-tv" : providers.keys().next().value;
+    ui.providerName.disabled = false;
+    selectProvider();
+  } catch {
+    ui.providerName.disabled = true;
+    ui.providerScope.disabled = true;
+    ui.providerValue.disabled = true;
+    ui.providerLoad.disabled = true;
+    setProviderStatus("Nie udało się pobrać listy źródeł.", "error");
+  }
 }
 
 async function loadProviderPlaylist() {
-  const providerId = ui.providerName.value;
-  const provider = PROVIDERS[providerId];
+  const provider = currentProvider();
   const type = ui.providerScope.value;
   const id = ui.providerValue.value;
   const selection = ui.providerValue.selectedOptions[0]?.textContent?.trim() || id;
-  if (!id) return;
+  if (!provider || !id) return;
 
   cancelProviderRequest(false);
   const controller = new AbortController();
   providerRequest = controller;
 
-  const url = new URL(provider.playlist, location.origin);
+  const url = new URL(provider.endpoints.playlist, location.origin);
   url.searchParams.set("type", type);
   url.searchParams.set("id", id);
 
@@ -467,4 +482,4 @@ ui.file.addEventListener("change", async () => {
 ui.parse.addEventListener("click", () => loadPlaylist(ui.text.value, "Wklejony tekst"));
 ui.search.addEventListener("input", renderPlaylist);
 
-selectProvider();
+loadProviders();

@@ -1,6 +1,7 @@
 # GEMINI.md
 
 AGENTS.md
+
 @./AGENTS.md
 
 ## Gemini CLI adapter

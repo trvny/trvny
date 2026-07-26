@@ -10,7 +10,8 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 - playlist filtering and entry selection,
 - Cloudflare Worker static asset delivery with security headers.
 
-Playlists are parsed in the browser. This version has no stream proxy, remote playlist import, persistence or provider integrations.
+Playlists are parsed in the browser. This version has no stream proxy, remote
+playlist import, persistence or provider integrations.
 
 ## Development
 

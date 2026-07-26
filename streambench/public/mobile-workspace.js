@@ -10,10 +10,16 @@ function updateCount() {
   if (playlistCount && entryCount) playlistCount.textContent = entryCount.textContent.trim() || "0";
 }
 
+function syncToolsDrawer() {
+  if (mediaQuery.matches && document.body.dataset.mobileView === "tools" && toolsPanel) {
+    toolsPanel.open = true;
+  }
+}
+
 function setView(view, { scroll = false } = {}) {
   if (!buttons.some((button) => button.dataset.mobileViewTarget === view)) return;
   document.body.dataset.mobileView = view;
-  if (view === "tools" && mediaQuery.matches && toolsPanel) toolsPanel.open = true;
+  syncToolsDrawer();
   for (const button of buttons) {
     button.setAttribute("aria-pressed", String(button.dataset.mobileViewTarget === view));
   }
@@ -24,6 +30,7 @@ for (const button of buttons) {
   button.addEventListener("click", () => setView(button.dataset.mobileViewTarget, { scroll: true }));
 }
 
+mediaQuery.addEventListener("change", syncToolsDrawer);
 new MutationObserver(updateCount).observe(entryCount, { childList: true, subtree: true, characterData: true });
 new MutationObserver(() => {
   if (status.textContent.trim() !== "Playlista gotowa") return;

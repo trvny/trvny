@@ -20,6 +20,10 @@ function safeText(value, maxLength = 220) {
   return String(value || "").replace(/[\r\n\t]+/g, " ").trim().slice(0, maxLength);
 }
 
+function safeStateKey(value) {
+  return String(value || "").replace(/[\u0000\r\n\t]/g, "");
+}
+
 function safeUrl(value) {
   try {
     const url = new URL(String(value || ""));
@@ -30,7 +34,7 @@ function safeUrl(value) {
 }
 
 export function itemKey(item) {
-  const storedKey = safeText(item?.stateKey, 320);
+  const storedKey = safeStateKey(item?.stateKey);
   if (storedKey) return storedKey;
   const provider = safeText(item?.providerId || "local", 60) || "local";
   const url = safeUrl(item?.url);
@@ -43,7 +47,7 @@ export function itemSnapshot(item) {
   const url = safeUrl(item?.url);
   if (!url) return null;
   return {
-    stateKey: safeText(item.stateKey, 320),
+    stateKey: safeStateKey(item.stateKey),
     id: safeText(item.id, 180),
     url,
     title: safeText(item.title, 180) || new URL(url).hostname,
@@ -67,7 +71,7 @@ function normalizeItems(value, { edits = false } = {}) {
   const result = {};
   if (!value || typeof value !== "object" || Array.isArray(value)) return result;
   for (const [rawKey, item] of Object.entries(value).slice(0, MAX_ITEMS)) {
-    const key = safeText(rawKey, 320);
+    const key = safeStateKey(rawKey);
     const snapshot = itemSnapshot({ ...item, stateKey: edits ? key : item?.stateKey });
     if (!key || !snapshot) continue;
     if (edits || itemKey(snapshot) === key) {

@@ -59,7 +59,10 @@ await checkJson("/api/providers/iptv-org/catalog", (body) => {
 const playlistPath = "/api/providers/free-tv/playlist?type=country&id=PL";
 const playlistResponse = await request(playlistPath, "audio/x-mpegurl,text/plain");
 const playlist = await playlistResponse.text();
+const liteCount = Number(playlistResponse.headers.get("x-streambench-lite-count"));
 assert(playlist.trimStart().startsWith("#EXTM3U"), "Free-TV playlist is not M3U");
 assert(playlistResponse.headers.get("x-streambench-source") === "free-tv", "unexpected playlist source header");
+assert(Number.isInteger(liteCount) && liteCount > 0, "Free-TV Lite playlist is empty");
+assert(playlist.includes("#EXTINF:"), "Free-TV Lite playlist has no entries");
 console.log(`ok ${playlistPath}`);
 console.log(`smoke passed ${baseUrl.origin}`);

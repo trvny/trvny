@@ -37,6 +37,10 @@ jobs:
       - name: Build vendored assets
         run: npm run build
       - name: Check JavaScript syntax
-        run: node --check src/index.js && node --check public/hardening.js && node --check public/scanner-compat.js
+        run: |
+          node --check src/index.js
+          for file in public/*.js scripts/*.mjs; do node --check "$file"; done
+      - name: Check privacy invariants
+        run: node scripts/privacy-check.mjs
       - name: Check Worker bundle
         run: npx wrangler deploy --dry-run

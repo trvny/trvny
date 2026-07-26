@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101318">
+  <meta name="description" content="Lokalny tester streamów IPTV, radia i playlist M3U.">
+  <title>Streambench</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Streambench">
+      <span class="brand-mark" aria-hidden="true">▶</span>
+      <span>Streambench</span>
+    </a>
+    <span class="privacy-note">Playlisty są przetwarzane lokalnie</span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">IPTV · radio · HLS</p>
+      <h1>Warsztat do streamów.</h1>
+      <p>Wklej adres, otwórz playlistę M3U i sprawdź, co faktycznie gra.</p>
+    </section>
+
+    <section class="workspace" aria-label="Odtwarzacz i źródła">
+      <div class="panel player-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Odtwarzacz</p>
+            <h2 id="nowPlaying">Brak wybranego streamu</h2>
+          </div>
+          <span id="status" class="status" data-state="idle">Gotowy</span>
+        </div>
+
+        <div class="media-shell">
+          <video id="videoPlayer" controls playsinline></video>
+          <audio id="audioPlayer" controls></audio>
+          <div id="mediaPlaceholder" class="media-placeholder">
+            <span aria-hidden="true">⌁</span>
+            <p>Podaj bezpośredni URL albo wybierz pozycję z playlisty.</p>
+          </div>
+        </div>
+
+        <form id="streamForm" class="stream-form">
+          <label for="streamUrl">Adres streamu</label>
+          <div class="input-row">
+            <input id="streamUrl" name="streamUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com/live/index.m3u8" required>
+            <select id="mediaMode" name="mediaMode" aria-label="Rodzaj odtwarzacza">
+              <option value="auto">Auto</option>
+              <option value="video">Wideo</option>
+              <option value="audio">Audio</option>
+            </select>
+            <button type="submit">Odtwórz</button>
+          </div>
+          <p id="streamHint" class="hint">HLS działa przez lokalnie dostarczony hls.js, a obsługiwane formaty bezpośrednie przez przeglądarkę.</p>
+        </form>
+      </div>
+
+      <aside class="panel source-panel">
+        <div class="panel-heading compact">
+          <div>
+            <p class="eyebrow">Playlista</p>
+            <h2>Import M3U</h2>
+          </div>
+          <span id="entryCount" class="count">0</span>
+        </div>
+
+        <label class="file-button" for="playlistFile">
+          <span>Otwórz plik M3U</span>
+          <input id="playlistFile" type="file" accept=".m3u,.m3u8,application/x-mpegURL,audio/x-mpegurl,text/plain">
+        </label>
+
+        <details class="paste-box">
+          <summary>Lub wklej treść playlisty</summary>
+          <textarea id="playlistText" rows="6" spellcheck="false" placeholder="#EXTM3U&#10;#EXTINF:-1,Przykładowy kanał&#10;https://example.com/live.m3u8"></textarea>
+          <button id="parsePlaylist" type="button" class="secondary">Wczytaj tekst</button>
+        </details>
+
+        <label class="search-label" for="playlistSearch">Filtruj po nazwie lub grupie</label>
+        <input id="playlistSearch" type="search" autocomplete="off" placeholder="np. sport, radio, Polska" disabled>
+
+        <div id="playlistEmpty" class="playlist-empty">
+          <p>Jeszcze pusto. Wrzuć playlistę, a kanały pojawią się tutaj.</p>
+        </div>
+        <ol id="playlistEntries" class="playlist-entries" aria-live="polite"></ol>
+      </aside>
+    </section>
+  </main>
+
+  <footer>
+    <span>Streambench 0.1</span>
+    <span>Bez proxy i bez wysyłania playlist na serwer.</span>
+  </footer>
+
+  <script src="/vendor/hls.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

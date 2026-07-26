@@ -351,6 +351,7 @@ function renderProviderScopes() {
     option.textContent = scope.label;
     return option;
   }));
+  ui.providerScope.disabled = provider.scopes.length <= 1;
   renderProviderValues();
 }
 

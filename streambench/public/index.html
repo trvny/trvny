@@ -8,6 +8,7 @@
   <title>Streambench</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/playlist-workspace.css">
+  <link rel="stylesheet" href="/mobile-workspace.css">
 </head>
 <body>
   <header class="site-header">
@@ -24,6 +25,12 @@
       <h1>Warsztat do streamów.</h1>
       <p>Wklej adres, otwórz M3U albo wybierz źródło z katalogu Streambencha.</p>
     </section>
+
+    <nav id="mobileWorkspaceNav" class="mobile-workspace-nav" aria-label="Widok Streambencha">
+      <button type="button" data-mobile-view-target="player" aria-pressed="true">Odtwarzacz</button>
+      <button type="button" data-mobile-view-target="playlist" aria-pressed="false">Playlista <span id="mobilePlaylistCount" class="mobile-count">0</span></button>
+      <button type="button" data-mobile-view-target="tools" aria-pressed="false">Narzędzia</button>
+    </nav>
 
     <section class="workspace" aria-label="Odtwarzacz i źródła">
       <div class="panel player-panel">
@@ -229,6 +236,7 @@
   <script src="/vendor/hls.min.js"></script>
   <script type="module" src="/epg-ui.js"></script>
   <script type="module" src="/playlist-workspace.js"></script>
+  <script type="module" src="/mobile-workspace.js"></script>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

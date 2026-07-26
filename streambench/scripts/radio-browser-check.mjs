@@ -39,6 +39,13 @@ const playlist = radioBrowserStationsToM3u([
     lastcheckok: 1,
   },
   {
+    stationuuid: "hls",
+    name: "Hidden HLS",
+    url_resolved: "https://radio.example/live",
+    hls: 1,
+    lastcheckok: 1,
+  },
+  {
     stationuuid: "one",
     name: "Duplicate",
     url_resolved: "https://radio.example/duplicate.mp3",
@@ -51,9 +58,11 @@ const playlist = radioBrowserStationsToM3u([
     lastcheckok: 0,
   },
 ]);
-assert(playlist.count === 1, "station filtering or deduplication failed");
+assert(playlist.count === 2, "station filtering or deduplication failed");
 assert(playlist.body.includes('radio="true"'), "radio marker is missing");
 assert(playlist.body.includes('tvg-country="PL"'), "country metadata is missing");
 assert(playlist.body.includes("https://radio.example/live.mp3"), "resolved stream URL is missing");
+assert(playlist.body.includes('hls="true"'), "HLS metadata is missing");
+assert(playlist.body.includes("https://radio.example/live#streambench-hls=.m3u8"), "extensionless HLS marker is missing");
 
 console.log("Radio Browser checks passed");

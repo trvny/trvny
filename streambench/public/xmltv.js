@@ -1,4 +1,5 @@
 const MAX_PROGRAMMES = 100_000;
+const MAX_OPEN_PROGRAMME_MS = 6 * 60 * 60 * 1_000;
 
 export function parseXmltvDate(rawValue) {
   const value = String(rawValue || "").trim();
@@ -89,7 +90,9 @@ export function scheduleForChannel(programmes, channelId, now = Date.now()) {
 
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index];
-    const inferredStop = entry.stop ?? entries[index + 1]?.start ?? Number.POSITIVE_INFINITY;
+    const inferredStop = entry.stop
+      ?? entries[index + 1]?.start
+      ?? entry.start + MAX_OPEN_PROGRAMME_MS;
     if (entry.start <= now && now < inferredStop) current = entry;
     if (entry.start > now) {
       next = entry;

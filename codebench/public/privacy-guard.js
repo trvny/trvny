@@ -69,11 +69,38 @@
     fields.querySelectorAll("input,textarea").forEach(hardenField);
   }
 
+  function clearSensitiveQrState() {
+    const password = document.querySelector("#f_pass");
+    if (!password) return false;
+
+    password.value = "";
+    password.type = "password";
+    if (typeof qr !== "undefined") qr = null;
+    if (typeof _printSVG !== "undefined") _printSVG = null;
+
+    document.querySelector("#qrHost")?.replaceChildren();
+    document.querySelector(".print-scale")?.replaceChildren();
+    document.querySelector("#printRoot")?.replaceChildren();
+    document.querySelector("#printModal")?.classList.remove("show");
+
+    const testStatus = document.querySelector("#qrTestStatus");
+    if (testStatus) {
+      testStatus.dataset.state = "idle";
+      testStatus.innerHTML = "<b>Not tested</b><span>The Wi-Fi password was cleared.</span>";
+    }
+    return true;
+  }
+
   new MutationObserver(hardenFields).observe(fields, { childList: true, subtree: true });
   hardenFields();
 
+  let clearedForPageExit = false;
   window.addEventListener("pagehide", () => {
-    const password = document.querySelector("#f_pass");
-    if (password) password.value = "";
+    clearedForPageExit = clearSensitiveQrState();
+  });
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted || !clearedForPageExit) return;
+    clearedForPageExit = false;
+    if (typeof renderQR === "function") renderQR();
   });
 })();

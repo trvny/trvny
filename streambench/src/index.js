@@ -1,4 +1,5 @@
 import { FREE_TV_COUNTRIES, filterFreeTvPlaylist } from "./providers/free-tv.js";
+import { providerById, providerManifest } from "./providers/registry.js";
 
 const IPTV_ORG_API = "https://iptv-org.github.io/api/";
 const IPTV_ORG_PLAYLISTS = "https://iptv-org.github.io/iptv/";
@@ -152,7 +153,7 @@ function freeTvCatalog() {
     {
       provider: "free-tv",
       countries: FREE_TV_COUNTRIES,
-      filters: ["https", "direct", "no-geo"],
+      filters: providerById("free-tv").filters,
     },
     200,
     "public, max-age=86400, stale-while-revalidate=604800",
@@ -185,12 +186,54 @@ async function freeTvPlaylist(url) {
   });
 }
 
+function providersResponse() {
+  return json(
+    { providers: providerManifest() },
+    200,
+    "public, max-age=86400, stale-while-revalidate=604800",
+  );
+}
+
+async function catalogResponse(providerId) {
+  if (providerId === "free-tv") return freeTvCatalog();
+  if (providerId === "iptv-org") return iptvOrgCatalog();
+  return json({ error: "unknown_provider" }, 400);
+}
+
+async function playlistResponse(providerId, url) {
+  if (providerId === "free-tv") return freeTvPlaylist(url);
+  if (providerId === "iptv-org") return iptvOrgPlaylist(url);
+  return json({ error: "unknown_provider" }, 400);
+}
+
+function legacyProviderRoute(pathname) {
+  const match = pathname.match(/^\/api\/providers\/([a-z0-9-]+)\/(catalog|playlist)$/);
+  return match ? { providerId: match[1], resource: match[2] } : null;
+}
+
 async function providerResponse(url) {
-  if (url.pathname === "/api/providers/iptv-org/catalog") return iptvOrgCatalog();
-  if (url.pathname === "/api/providers/iptv-org/playlist") return iptvOrgPlaylist(url);
-  if (url.pathname === "/api/providers/free-tv/catalog") return freeTvCatalog();
-  if (url.pathname === "/api/providers/free-tv/playlist") return freeTvPlaylist(url);
-  return json({ error: "not_found" }, 404);
+  if (url.pathname === "/api/providers") return providersResponse();
+
+  if (url.pathname === "/api/catalog" || url.pathname === "/api/playlist") {
+    const providerId = url.searchParams.get("provider") || "";
+    if (!providerById(providerId)) return json({ error: "unknown_provider" }, 400);
+    return url.pathname === "/api/catalog"
+      ? catalogResponse(providerId)
+      : playlistResponse(providerId, url);
+  }
+
+  const legacy = legacyProviderRoute(url.pathname);
+  if (!legacy || !providerById(legacy.providerId)) return json({ error: "not_found" }, 404);
+  return legacy.resource === "catalog"
+    ? catalogResponse(legacy.providerId)
+    : playlistResponse(legacy.providerId, url);
+}
+
+function isProviderRoute(pathname) {
+  return pathname === "/api/providers"
+    || pathname === "/api/catalog"
+    || pathname === "/api/playlist"
+    || pathname.startsWith("/api/providers/");
 }
 
 export default {
@@ -201,7 +244,7 @@ export default {
       return withSecurityHeaders(json({ status: "ok", service: "streambench" }));
     }
 
-    if (url.pathname.startsWith("/api/providers/")) {
+    if (isProviderRoute(url.pathname)) {
       if (request.method !== "GET") {
         return withSecurityHeaders(json({ error: "method_not_allowed" }, 405));
       }

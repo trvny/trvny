@@ -6,7 +6,9 @@ function assert(condition, message) {
 
 assert(parseXmltvDate("20260726120000 +0200") === Date.UTC(2026, 6, 26, 10, 0, 0), "positive XMLTV offset mismatch");
 assert(parseXmltvDate("20260726120000 -0500") === Date.UTC(2026, 6, 26, 17, 0, 0), "negative XMLTV offset mismatch");
-assert(parseXmltvDate("bad") === null, "invalid XMLTV date was accepted");
+for (const invalid of ["bad", "20261301120000 +0200", "20260230120000 +0200", "20260726250000 +0200", "20260726120000 +2460"]) {
+  assert(parseXmltvDate(invalid) === null, `invalid XMLTV date was accepted: ${invalid}`);
+}
 
 const programmes = new Map([["channel.one", [
   { channel: "channel.one", start: 1_000, stop: 2_000, title: "Now" },

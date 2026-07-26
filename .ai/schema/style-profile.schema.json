@@ -23,7 +23,15 @@
         "required": [
           "personality",
           "collaboration"
-        ]
+        ],
+        "not": {
+          "anyOf": [
+            {"required": ["style"]},
+            {"required": ["adaptation"]},
+            {"required": ["chat"]},
+            {"required": ["agent"]}
+          ]
+        }
       }
     },
     {
@@ -37,7 +45,13 @@
       "then": {
         "required": [
           "style"
-        ]
+        ],
+        "not": {
+          "anyOf": [
+            {"required": ["personality"]},
+            {"required": ["collaboration"]}
+          ]
+        }
       }
     }
   ],

@@ -8,7 +8,8 @@ let pendingProviderSource = null;
 
 function providerRequestMeta(input) {
   try {
-    const requestUrl = new URL(typeof input === "string" ? input : input.url, location.origin);
+    const rawUrl = input instanceof URL ? input.href : typeof input === "string" ? input : input?.url;
+    const requestUrl = new URL(rawUrl, location.origin);
     if (requestUrl.pathname === "/api/playlist") {
       return { providerId: requestUrl.searchParams.get("provider") || "provider" };
     }
@@ -41,6 +42,7 @@ let sourceLabel = "";
 let activeEditKey = "";
 let restoredProvider = false;
 let observer = null;
+let submittingWorkspaceItem = false;
 
 const ui = {
   form: document.querySelector("#streamForm"),
@@ -176,11 +178,12 @@ function enhanceRows() {
   observer.disconnect();
   itemByKey.clear();
   const queues = queueBySourceTitle();
+  const baseByKey = new Map(sourceItems.map((entry) => [itemKey(entry), entry]));
 
   for (const row of ui.entries.querySelectorAll(".playlist-entry")) {
     const existingKey = row.dataset.workspaceKey || "";
     const originalTitle = row.querySelector(".channel-name")?.textContent?.trim() || "";
-    const base = sourceItems.find((entry) => itemKey(entry) === existingKey)
+    const base = (existingKey ? baseByKey.get(existingKey) : null)
       || queues.get(originalTitle)?.shift();
     if (!base) continue;
     const item = effectiveItem(base);
@@ -228,7 +231,9 @@ function playItem(item) {
   const previousMode = ui.mode.value;
   if (item.radio) ui.mode.value = "audio";
   ui.url.value = targetUrl;
+  submittingWorkspaceItem = true;
   ui.form.requestSubmit();
+  submittingWorkspaceItem = false;
   ui.mode.value = previousMode;
   ui.title.textContent = item.title;
   window.dispatchEvent(new CustomEvent("streambench:channel", {
@@ -404,7 +409,7 @@ ui.editForm.addEventListener("submit", (event) => {
       country: ui.editCountry.value.trim(),
       language: ui.editLanguage.value.trim(),
       radio: ui.editRadio.checked,
-      hls: item.hls || /\.m3u8(?:$|[?#])/i.test(url.href),
+      hls: /\.m3u8(?:$|[?#])/i.test(url.href) || (item.hls && url.href === item.url),
     });
     closeEditor();
     enhanceRows();
@@ -466,11 +471,16 @@ ui.parse.addEventListener("click", () => {
 }, true);
 
 ui.form.addEventListener("submit", () => {
+  if (submittingWorkspaceItem) return;
   const url = ui.url.value.trim();
   if (!url) return;
+  let title = "Własny adres";
+  try {
+    title = new URL(url).hostname;
+  } catch {}
   const item = classifyItem({
     url,
-    title: ui.title.textContent || "Własny adres",
+    title,
     group: "Własny adres",
     providerId: "direct",
     providerLabel: "Bezpośredni URL",

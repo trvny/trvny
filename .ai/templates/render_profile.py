@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Render a compact instruction block from a trvny style profile.
+"""Render compact instructions from a trvny LLM style profile.
 
-This is intentionally a small renderer, not a prompt framework. It supports
-YAML profiles used in `.ai/` and emits plain text suitable for Custom
-Instructions or an agent instruction field.
+Schema 0.2 separates personality (voice) from collaboration (working behavior).
+Legacy 0.1 profiles remain readable so older backups do not break.
 """
 
 from __future__ import annotations
@@ -72,25 +71,84 @@ MODIFIER_TEXT: dict[str, dict[str, str]] = {
     },
 }
 
-COMMON_TEXT: dict[str, list[str]] = {
-    "pl": [
-        "Najpierw odpowiedz na główną potrzebę użytkownika.",
-        "Traktuj zwykły czat jako tryb domyślny; nie uruchamiaj narzędzi ani agentowego workflow bez potrzeby.",
-        "Dostosuj długość do zadania i nie skracaj kosztem ważnych warunków, ryzyka lub wyjątków.",
-        "Styl tworzonego artefaktu ma pierwszeństwo przed osobowością rozmówcy.",
-        "Nie pokazuj prywatnego toku rozumowania; podawaj wniosek, kluczowe przesłanki i sposób weryfikacji.",
-        "Po wykonaniu działania podaj wynik, zmienione artefakty, ograniczenia i częściowe niepowodzenia.",
-        "Nie kończ każdej odpowiedzi automatyczną ofertą dalszej pomocy.",
-    ],
-    "en": [
-        "Address the user's main need first.",
-        "Treat plain chat as the default; do not launch tools or an agent workflow without need.",
-        "Match length to the task and do not shorten away important constraints, risks, or exceptions.",
-        "The requested artifact style outranks the assistant's conversational personality.",
-        "Do not expose private chain-of-thought; provide the conclusion, key reasons, and a way to verify it.",
-        "After an action, report the result, changed artifacts, limitations, and partial failures.",
-        "Do not end every answer with an automatic offer of further help.",
-    ],
+COLLABORATION_TEXT: dict[str, dict[str, dict[str, str]]] = {
+    "pl": {
+        "preamble": {
+            "off": "Nie zapowiadaj pracy przed odpowiedzią.",
+            "multiStepOnly": "Krótko zapowiadaj plan tylko przed wieloetapową pracą lub działaniem zmieniającym stan.",
+            "always": "Przed działaniem krótko zapowiadaj plan.",
+        },
+        "initiative": {
+            "conservative": "Nie rozszerzaj zadania poza to, o co poproszono.",
+            "balanced": "Samodzielnie wykonuj oczywiste kroki, ale nie poszerzaj zakresu bez powodu.",
+            "proactive": "Aktywnie wychwytuj powiązane problemy i proponuj użyteczne ulepszenia.",
+        },
+        "verification": {
+            "light": "Sprawdzaj podstawową spójność i widoczne błędy.",
+            "normal": "Weryfikuj ważne twierdzenia, wyniki i wykonane działania proporcjonalnie do ryzyka.",
+            "strict": "Wymagaj mocnych dowodów i pełnej walidacji przed stanowczym wnioskiem.",
+        },
+        "questionPolicy": {
+            "blockingOnly": "Pytaj tylko wtedy, gdy brak informacji blokuje bezpieczny lub sensowny postęp.",
+            "materialAmbiguity": "Pytaj także wtedy, gdy niejasność może istotnie zmienić rezultat.",
+            "earlyAlignment": "Przy większych zadaniach wcześnie uzgadniaj cel, zakres i kryteria sukcesu.",
+        },
+        "assumptionPolicy": {
+            "cautious": "Unikaj założeń; oznacz je i potwierdzaj, gdy mogą zmienić wynik.",
+            "balanced": "Przyjmuj rozsądne, odwracalne założenia i jasno je zaznaczaj.",
+            "decisive": "Podejmuj rozsądne decyzje samodzielnie, chyba że ryzyko jest istotne.",
+        },
+    },
+    "en": {
+        "preamble": {
+            "off": "Do not announce work before answering.",
+            "multiStepOnly": "Use a brief preamble only before multi-step work or state-changing actions.",
+            "always": "Briefly state the plan before acting.",
+        },
+        "initiative": {
+            "conservative": "Do not expand the task beyond what was requested.",
+            "balanced": "Take obvious steps independently without broadening scope without reason.",
+            "proactive": "Actively surface related problems and useful improvements.",
+        },
+        "verification": {
+            "light": "Check basic consistency and visible errors.",
+            "normal": "Verify important claims, results, and completed actions in proportion to risk.",
+            "strict": "Require strong evidence and thorough validation before a firm conclusion.",
+        },
+        "questionPolicy": {
+            "blockingOnly": "Ask only when missing information blocks safe or useful progress.",
+            "materialAmbiguity": "Also ask when ambiguity could materially change the result.",
+            "earlyAlignment": "For larger tasks, align early on goal, scope, and success criteria.",
+        },
+        "assumptionPolicy": {
+            "cautious": "Avoid assumptions; label and confirm them when they may change the outcome.",
+            "balanced": "Make reasonable, reversible assumptions and state them clearly.",
+            "decisive": "Make reasonable decisions independently unless the risk is material.",
+        },
+    },
+}
+
+BOOLEAN_TEXT: dict[str, dict[str, str]] = {
+    "pl": {
+        "answerFirst": "Najpierw podaj odpowiedź, wynik lub decyzję.",
+        "plainChatIsDefault": "Zwykły czat jest trybem domyślnym; narzędzia i agentowe workflow uruchamiaj tylko z realnej potrzeby.",
+        "respectExplicitTurnInstructions": "Jawne polecenie z bieżącej wiadomości ma pierwszeństwo przed domyślnym stylem.",
+        "avoidRoutinePraise": "Nie zaczynaj automatycznie od pochwał.",
+        "avoidRoutineFollowUpOffer": "Nie kończ każdej odpowiedzi rutynową ofertą dalszej pomocy.",
+        "announceOnlyMaterialActions": "Aktualizacje postępu podawaj tylko przy istotnych etapach, ryzyku lub zmianie stanu.",
+        "reportPartialFailures": "Wyraźnie odróżniaj pełny sukces, częściowy sukces i niepowodzenie.",
+        "preferResultOverProcess": "Pokazuj wynik przed opisem procesu.",
+    },
+    "en": {
+        "answerFirst": "Lead with the answer, result, or decision.",
+        "plainChatIsDefault": "Plain chat is the default; use tools or agent workflows only when genuinely needed.",
+        "respectExplicitTurnInstructions": "Explicit instructions in the current turn override style defaults.",
+        "avoidRoutinePraise": "Do not open with automatic praise.",
+        "avoidRoutineFollowUpOffer": "Do not end every response with a routine offer of more help.",
+        "announceOnlyMaterialActions": "Give progress updates only for material stages, risk, or state changes.",
+        "reportPartialFailures": "Clearly distinguish complete success, partial success, and failure.",
+        "preferResultOverProcess": "Present the result before the process.",
+    },
 }
 
 
@@ -110,7 +168,6 @@ def parse_args() -> argparse.Namespace:
 def load_profile(path: Path) -> dict[str, Any]:
     if not path.is_file():
         raise SystemExit(f"Profile not found: {path}")
-
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise SystemExit("Profile root must be a YAML mapping")
@@ -132,36 +189,112 @@ def intensity(value: Any, field: str) -> int:
     return value
 
 
-def render(profile: dict[str, Any], language: str) -> str:
+def normalize(profile: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    personality = profile.get("personality")
+    collaboration = profile.get("collaboration")
+
+    if personality is not None or collaboration is not None:
+        if not isinstance(personality, dict):
+            raise SystemExit("Missing `personality` mapping")
+        if not isinstance(collaboration, dict):
+            raise SystemExit("Missing `collaboration` mapping")
+        return personality, collaboration
+
     style = profile.get("style")
     if not isinstance(style, dict):
-        raise SystemExit("Missing `style` mapping")
+        raise SystemExit("Missing `personality` mapping (or legacy `style` mapping)")
 
-    base = style.get("base", "default")
+    legacy_adaptation = profile.get("adaptation", {})
+    legacy_chat = profile.get("chat", {})
+    legacy_agent = profile.get("agent", {})
+    if not isinstance(legacy_adaptation, dict):
+        legacy_adaptation = {}
+    if not isinstance(legacy_chat, dict):
+        legacy_chat = {}
+    if not isinstance(legacy_agent, dict):
+        legacy_agent = {}
+
+    personality = dict(style)
+    personality["adaptation"] = {
+        "followUserRegister": legacy_adaptation.get("followUserRegister", True),
+        "preserveRequestedArtifactStyle": legacy_adaptation.get(
+            "preserveRequestedArtifactStyle", True
+        ),
+        "reduceHumorInSeriousContexts": legacy_adaptation.get(
+            "reduceHumorInSeriousContexts", True
+        ),
+        "mirrorLanguage": legacy_chat.get("mirrorLanguage", True),
+        "allowCasualProfanity": legacy_chat.get("allowCasualProfanity", False),
+    }
+    collaboration = {
+        "preamble": (
+            "multiStepOnly"
+            if legacy_agent.get("announceOnlyMaterialActions", True)
+            else "always"
+        ),
+        "initiative": "balanced",
+        "verification": "normal",
+        "questionPolicy": (
+            "blockingOnly"
+            if legacy_chat.get("askOnlyBlockingQuestions", True)
+            else "materialAmbiguity"
+        ),
+        "assumptionPolicy": "balanced",
+        "answerFirst": legacy_chat.get("answerFirst", True),
+        "plainChatIsDefault": legacy_adaptation.get("plainChatIsDefault", True),
+        "respectExplicitTurnInstructions": legacy_adaptation.get(
+            "respectExplicitTurnInstructions", True
+        ),
+        "avoidRoutinePraise": legacy_chat.get("avoidRoutinePraise", True),
+        "avoidRoutineFollowUpOffer": legacy_chat.get(
+            "avoidRoutineFollowUpOffer", True
+        ),
+        "announceOnlyMaterialActions": legacy_agent.get(
+            "announceOnlyMaterialActions", True
+        ),
+        "reportPartialFailures": legacy_agent.get("reportPartialFailures", True),
+        "preferResultOverProcess": legacy_agent.get("preferResultOverProcess", True),
+    }
+    return personality, collaboration
+
+
+def render(profile: dict[str, Any], language: str) -> str:
+    personality, collaboration = normalize(profile)
+
+    base = personality.get("base", "default")
     if base not in BASE_STYLE_TEXT[language]:
         allowed = ", ".join(sorted(BASE_STYLE_TEXT[language]))
         raise SystemExit(f"Unsupported base style `{base}`. Allowed: {allowed}")
 
-    base_intensity = intensity(style.get("intensity", 1), "style.intensity")
-    modifiers = style.get("modifiers", {})
+    base_intensity = intensity(personality.get("intensity", 1), "personality.intensity")
+    modifiers = personality.get("modifiers", {})
+    adaptation = personality.get("adaptation", {})
     if not isinstance(modifiers, dict):
-        raise SystemExit("style.modifiers must be a mapping")
+        raise SystemExit("personality.modifiers must be a mapping")
+    if not isinstance(adaptation, dict):
+        raise SystemExit("personality.adaptation must be a mapping")
 
-    title = "Instrukcje komunikacji" if language == "pl" else "Communication instructions"
-    lines = [title, "", BASE_STYLE_TEXT[language][base]]
+    title = "Profil komunikacji" if language == "pl" else "Communication profile"
+    personality_title = "Osobowość" if language == "pl" else "Personality"
+    collaboration_title = "Współpraca" if language == "pl" else "Collaboration"
+    boundaries_title = "Granice" if language == "pl" else "Boundaries"
 
+    lines = [
+        title,
+        "",
+        f"{personality_title}:",
+        f"- {BASE_STYLE_TEXT[language][base]}",
+    ]
     if base_intensity >= 2:
         lines.append(
-            "Wybrany styl powinien być wyraźny, ale nadal podporządkowany treści i kontekstowi."
+            "- Wybrany styl ma być wyraźny, ale nadal podporządkowany treści i kontekstowi."
             if language == "pl"
-            else "Make the selected style clearly visible, while keeping it subordinate to content and context."
+            else "- Make the selected style visible while keeping it subordinate to content and context."
         )
-
-    lines.extend(COMMON_TEXT[language])
 
     active: list[tuple[str, int]] = []
     for name, raw_value in modifiers.items():
-        level = intensity(raw_value, f"style.modifiers.{name}")
+        level = intensity(raw_value, f"personality.modifiers.{name}")
         if level > 0:
             active.append((name, level))
 
@@ -169,29 +302,77 @@ def render(profile: dict[str, Any], language: str) -> str:
     if unknown:
         raise SystemExit("Unsupported modifiers: " + ", ".join(sorted(unknown)))
 
-    if active:
-        lines.append("")
-        lines.append("Dodatkowe preferencje:" if language == "pl" else "Additional preferences:")
-        for name, level in sorted(active, key=lambda item: (-item[1], item[0])):
-            text = MODIFIER_TEXT[language][name]
-            lines.append(f"- {text}")
+    for name, _level in sorted(active, key=lambda item: (-item[1], item[0])):
+        lines.append(f"- {MODIFIER_TEXT[language][name]}")
 
-    adaptation = profile.get("adaptation", {})
-    chat = profile.get("chat", {})
-
-    if isinstance(adaptation, dict) and adaptation.get("followUserRegister", False):
+    if adaptation.get("followUserRegister", False):
         lines.append(
-            "- Dopasuj rejestr języka do użytkownika bez kopiowania błędów ani agresji."
+            "- Dopasuj rejestr do użytkownika bez kopiowania błędów ani agresji."
             if language == "pl"
             else "- Match the user's register without copying mistakes or aggression."
         )
-
-    if isinstance(chat, dict) and chat.get("allowCasualProfanity", False):
+    if adaptation.get("preserveRequestedArtifactStyle", False):
         lines.append(
-            "- W luźnym czacie możesz naturalnie używać łagodnych przekleństw; nie przenoś ich automatycznie do formalnych artefaktów."
+            "- Styl zamawianego artefaktu ma pierwszeństwo przed osobowością rozmowy."
+            if language == "pl"
+            else "- The requested artifact style outranks conversational personality."
+        )
+    if adaptation.get("reduceHumorInSeriousContexts", False):
+        lines.append(
+            "- Ogranicz humor w kontekstach poważnych, ryzykownych lub wrażliwych."
+            if language == "pl"
+            else "- Reduce humor in serious, risky, or sensitive contexts."
+        )
+    if adaptation.get("mirrorLanguage", False):
+        lines.append(
+            "- Odpowiadaj w języku użytkownika, chyba że poprosi inaczej."
+            if language == "pl"
+            else "- Reply in the user's language unless asked otherwise."
+        )
+    if adaptation.get("allowCasualProfanity", False):
+        lines.append(
+            "- W luźnym czacie dopuszczalne są naturalne, łagodne przekleństwa; nie przenoś ich automatycznie do formalnych artefaktów."
             if language == "pl"
             else "- Mild profanity may be used naturally in casual chat; do not carry it automatically into formal artifacts."
         )
+
+    lines.extend(["", f"{collaboration_title}:"])
+    for field in (
+        "preamble",
+        "initiative",
+        "verification",
+        "questionPolicy",
+        "assumptionPolicy",
+    ):
+        value = collaboration.get(field)
+        choices = COLLABORATION_TEXT[language][field]
+        if value not in choices:
+            raise SystemExit(
+                f"Unsupported collaboration.{field} `{value}`. Allowed: "
+                + ", ".join(choices)
+            )
+        lines.append(f"- {choices[value]}")
+
+    for field, text in BOOLEAN_TEXT[language].items():
+        if collaboration.get(field, False):
+            lines.append(f"- {text}")
+
+    lines.extend(
+        [
+            "",
+            f"{boundaries_title}:",
+            (
+                "- Ten profil opisuje głos i sposób współpracy. Nie przyznaje narzędzi, uprawnień, dostępu do sieci ani prawa do zmiany zewnętrznego stanu."
+                if language == "pl"
+                else "- This profile describes voice and collaboration. It does not grant tools, permissions, network access, or authority to change external state."
+            ),
+            (
+                "- Nie pokazuj prywatnego toku rozumowania; podawaj wniosek, kluczowe przesłanki i sposób weryfikacji."
+                if language == "pl"
+                else "- Do not expose private chain-of-thought; provide the conclusion, key reasons, and a way to verify it."
+            ),
+        ]
+    )
 
     return "\n".join(lines).strip() + "\n"
 

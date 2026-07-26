@@ -31,7 +31,7 @@ new MutationObserver(() => {
 }).observe(status, { childList: true, subtree: true, characterData: true });
 
 window.addEventListener("streambench:channel", (event) => {
-  if (mediaQuery.matches && event.detail?.title) setView("player", { scroll: true });
+  if (event.detail?.title) setView("player", { scroll: mediaQuery.matches });
 });
 
 setView("player");

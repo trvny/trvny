@@ -28,6 +28,24 @@ export function providerById(id) {
   return PROVIDERS.find((provider) => provider.id === id) || null;
 }
 
+export function bindProviderHandlers(handlers) {
+  for (const provider of PROVIDERS) {
+    const handler = handlers[provider.id];
+    if (typeof handler?.catalog !== "function" || typeof handler?.playlist !== "function") {
+      throw new Error(`missing provider handlers: ${provider.id}`);
+    }
+  }
+
+  for (const handlerId of Object.keys(handlers)) {
+    if (!providerById(handlerId)) throw new Error(`unknown provider handlers: ${handlerId}`);
+  }
+
+  return new Map(PROVIDERS.map((provider) => [
+    provider.id,
+    { provider, ...handlers[provider.id] },
+  ]));
+}
+
 export function providerManifest() {
   return PROVIDERS.map((provider) => ({
     ...provider,

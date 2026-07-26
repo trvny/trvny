@@ -1,7 +1,21 @@
-import { PROVIDERS, providerById, providerManifest } from "../src/providers/registry.js";
+import {
+  PROVIDERS,
+  bindProviderHandlers,
+  providerById,
+  providerManifest,
+} from "../src/providers/registry.js";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function expectThrow(callback, message) {
+  try {
+    callback();
+  } catch {
+    return;
+  }
+  throw new Error(message);
 }
 
 assert(PROVIDERS.length > 0, "provider registry is empty");
@@ -24,5 +38,21 @@ for (const provider of manifest) {
   assert(provider.endpoints.catalog === `/api/catalog?provider=${provider.id}`, `invalid catalog endpoint: ${provider.id}`);
   assert(provider.endpoints.playlist === `/api/playlist?provider=${provider.id}`, `invalid playlist endpoint: ${provider.id}`);
 }
+
+const noop = () => null;
+const handlers = Object.fromEntries(PROVIDERS.map((provider) => [
+  provider.id,
+  { catalog: noop, playlist: noop },
+]));
+const bound = bindProviderHandlers(handlers);
+assert(bound.size === PROVIDERS.length, "bound provider size mismatch");
+for (const provider of PROVIDERS) {
+  assert(bound.get(provider.id)?.provider === provider, `provider binding failed: ${provider.id}`);
+}
+
+const missingHandlers = { ...handlers };
+delete missingHandlers[PROVIDERS[0].id];
+expectThrow(() => bindProviderHandlers(missingHandlers), "missing provider handlers were accepted");
+expectThrow(() => bindProviderHandlers({ ...handlers, extra: { catalog: noop, playlist: noop } }), "extra provider handlers were accepted");
 
 console.log(`provider registry checks passed (${PROVIDERS.length})`);

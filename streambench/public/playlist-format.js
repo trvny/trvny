@@ -55,6 +55,9 @@ export function parseM3uWorkspace(source, {
         logo: safeUrl(attributes["tvg-logo"]),
         country: attributes["tvg-country"] || "",
         language: attributes["tvg-language"] || "",
+        tags: attributes["tvg-tags"] || "",
+        codec: attributes["tvg-codec"] || "",
+        bitrate: attributes["tvg-bitrate"] || "",
         quality: attributes["tvg-quality"] || attributes.quality || attributes.resolution || "",
         radio: attributes.radio === "true" || attributes.type === "radio",
         hls: attributes.hls === "true",
@@ -90,6 +93,9 @@ export function parseM3uWorkspace(source, {
       logo: pending?.logo || "",
       country: pending?.country || "",
       language: pending?.language || "",
+      tags: pending?.tags || "",
+      codec: pending?.codec || "",
+      bitrate: pending?.bitrate || "",
       quality: pending?.quality || "",
       radio,
       hls: pending?.hls || /\.m3u8(?:$|[?#])/i.test(url),
@@ -129,7 +135,8 @@ export function serializeM3u(items, { dedupe = true } = {}) {
   const lines = ["#EXTM3U"];
   const known = new Set([
     "tvg-id", "tvg-name", "tvg-logo", "tvg-country", "tvg-language",
-    "tvg-quality", "quality", "resolution", "group-title", "radio", "type", "hls",
+    "tvg-tags", "tvg-codec", "tvg-bitrate", "tvg-quality", "quality",
+    "resolution", "group-title", "radio", "type", "hls",
   ]);
 
   for (const item of source) {
@@ -143,6 +150,9 @@ export function serializeM3u(items, { dedupe = true } = {}) {
     add("tvg-logo", item.logo);
     add("tvg-country", item.country);
     add("tvg-language", item.language);
+    add("tvg-tags", item.tags);
+    add("tvg-codec", item.codec);
+    add("tvg-bitrate", item.bitrate);
     add("tvg-quality", item.quality);
     add("group-title", item.group && item.group !== "Bez grupy" ? item.group : "");
     if (item.radio) attributes.push('radio="true"');

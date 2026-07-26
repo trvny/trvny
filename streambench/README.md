@@ -14,6 +14,7 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 - shared provider manifest and generic catalog routes,
 - Free-TV Lite country playlists,
 - iptv-org country and category catalogs,
+- Radio Browser stations by country and popular tag,
 - Cloudflare Worker static asset delivery with security headers.
 
 User-provided playlists are parsed locally in the browser. Public provider data
@@ -22,6 +23,10 @@ Stream media is never proxied by Streambench.
 
 Free-TV Lite keeps HTTPS direct-media entries, excludes marked GeoIP streams
 and removes duplicates. Poland is selected by default.
+
+Radio Browser uses its resolved station URLs, keeps currently working HTTPS
+stations and exposes up to 200 results sorted by votes. The Worker talks only to
+the fixed Radio Browser API host with a descriptive User-Agent.
 
 Known YouTube, Twitch and Vimeo pages are marked as external links instead of
 being passed to the native media player. Unknown URLs remain neutral stream
@@ -84,4 +89,5 @@ npm run smoke -- https://streambench.example.workers.dev
 
 The manual `Smoke streambench` GitHub workflow runs the same checks after
 receiving the deployed HTTPS URL. It verifies health, the provider manifest,
-generic and legacy catalog routes, and the Polish Free-TV Lite playlist.
+generic and legacy catalog routes, and Polish Free-TV Lite and Radio Browser
+playlists.

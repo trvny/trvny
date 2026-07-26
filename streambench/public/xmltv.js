@@ -1,23 +1,39 @@
+const MAX_PROGRAMMES = 100_000;
+
 export function parseXmltvDate(rawValue) {
   const value = String(rawValue || "").trim();
-  const match = value.match(/^(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?\s*(Z|[+-]\d{4})?/);
+  const match = value.match(/^(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?\s*(Z|[+-]\d{4})?\s*$/);
   if (!match) return null;
 
-  const [, year, month, day, hour = "00", minute = "00", second = "00", zone = "Z"] = match;
-  let timestamp = Date.UTC(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-    Number(second),
-  );
+  const [, yearText, monthText, dayText, hourText = "00", minuteText = "00", secondText = "00", zone = "Z"] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return null;
+
+  const localTimestamp = Date.UTC(year, month - 1, day, hour, minute, second);
+  const localDate = new Date(localTimestamp);
+  if (
+    localDate.getUTCFullYear() !== year
+    || localDate.getUTCMonth() !== month - 1
+    || localDate.getUTCDate() !== day
+    || localDate.getUTCHours() !== hour
+    || localDate.getUTCMinutes() !== minute
+    || localDate.getUTCSeconds() !== second
+  ) return null;
+
+  let timestamp = localTimestamp;
   if (zone !== "Z") {
+    const offsetHours = Number(zone.slice(1, 3));
+    const offsetMinutes = Number(zone.slice(3, 5));
+    if (offsetHours > 23 || offsetMinutes > 59) return null;
     const sign = zone[0] === "+" ? 1 : -1;
-    const offset = Number(zone.slice(1, 3)) * 60 + Number(zone.slice(3, 5));
-    timestamp -= sign * offset * 60_000;
+    timestamp -= sign * (offsetHours * 60 + offsetMinutes) * 60_000;
   }
-  return Number.isFinite(timestamp) ? timestamp : null;
+  return timestamp;
 }
 
 function textContent(element, selector) {
@@ -35,7 +51,9 @@ export function parseXmltv(source, Parser = globalThis.DOMParser) {
   }
 
   const programmes = new Map();
+  let programmeCount = 0;
   for (const element of document.querySelectorAll("programme[channel][start]")) {
+    if (programmeCount >= MAX_PROGRAMMES) throw new Error("XMLTV programme limit exceeded");
     const channel = element.getAttribute("channel") || "";
     const start = parseXmltvDate(element.getAttribute("start"));
     const stop = parseXmltvDate(element.getAttribute("stop"));
@@ -55,6 +73,7 @@ export function parseXmltv(source, Parser = globalThis.DOMParser) {
     const entries = programmes.get(channel) || [];
     entries.push(programme);
     programmes.set(channel, entries);
+    programmeCount += 1;
   }
 
   for (const entries of programmes.values()) {

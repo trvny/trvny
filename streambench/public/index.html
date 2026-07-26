@@ -21,7 +21,7 @@
     <section class="hero">
       <p class="eyebrow">IPTV · radio · HLS</p>
       <h1>Warsztat do streamów.</h1>
-      <p>Wklej adres, otwórz playlistę M3U albo zajrzyj do publicznego katalogu iptv-org.</p>
+      <p>Wklej adres, otwórz M3U albo wybierz lżejszy Free-TV Lite i szeroki katalog iptv-org.</p>
     </section>
 
     <section class="workspace" aria-label="Odtwarzacz i źródła">
@@ -67,27 +67,29 @@
           <span id="entryCount" class="count">0</span>
         </div>
 
-        <section class="provider-box" aria-labelledby="iptvOrgHeading">
+        <section class="provider-box" aria-labelledby="providerHeading">
           <div class="provider-heading">
             <div>
               <p class="eyebrow">Publiczny katalog</p>
-              <h3 id="iptvOrgHeading">iptv-org</h3>
+              <h3 id="providerHeading">Free-TV Lite</h3>
             </div>
-            <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+            <a id="providerLink" href="https://github.com/Free-TV/IPTV" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
           </div>
           <div class="provider-controls">
+            <label for="providerName">
+              Źródło
+              <select id="providerName">
+                <option value="free-tv">Free-TV Lite</option>
+                <option value="iptv-org">iptv-org</option>
+              </select>
+            </label>
             <label for="providerScope">
               Widok
-              <select id="providerScope">
-                <option value="country">Kraj</option>
-                <option value="category">Kategoria</option>
-              </select>
+              <select id="providerScope" disabled></select>
             </label>
             <label for="providerValue">
               Playlista
-              <select id="providerValue" disabled>
-                <option>Ładowanie…</option>
-              </select>
+              <select id="providerValue" disabled></select>
             </label>
             <button id="loadProvider" type="button" disabled>Wczytaj</button>
           </div>
@@ -119,7 +121,7 @@
   </main>
 
   <footer>
-    <span>Streambench 0.2</span>
+    <span>Streambench 0.3</span>
     <span>Publiczne katalogi pobiera Worker; własne playlisty nie opuszczają urządzenia.</span>
   </footer>
 

@@ -1,5 +1,27 @@
 "use strict";
 
+const PROVIDERS = {
+  "free-tv": {
+    label: "Free-TV Lite",
+    link: "https://github.com/Free-TV/IPTV",
+    catalog: "/api/providers/free-tv/catalog",
+    playlist: "/api/providers/free-tv/playlist",
+    scopes: [{ id: "country", label: "Kraj" }],
+    defaults: { country: "PL" },
+  },
+  "iptv-org": {
+    label: "iptv-org",
+    link: "https://github.com/iptv-org/iptv",
+    catalog: "/api/providers/iptv-org/catalog",
+    playlist: "/api/providers/iptv-org/playlist",
+    scopes: [
+      { id: "country", label: "Kraj" },
+      { id: "category", label: "Kategoria" },
+    ],
+    defaults: { country: "PL", category: "news" },
+  },
+};
+
 const ui = {
   form: document.querySelector("#streamForm"),
   url: document.querySelector("#streamUrl"),
@@ -10,6 +32,9 @@ const ui = {
   title: document.querySelector("#nowPlaying"),
   status: document.querySelector("#status"),
   hint: document.querySelector("#streamHint"),
+  providerName: document.querySelector("#providerName"),
+  providerHeading: document.querySelector("#providerHeading"),
+  providerLink: document.querySelector("#providerLink"),
   providerScope: document.querySelector("#providerScope"),
   providerValue: document.querySelector("#providerValue"),
   providerLoad: document.querySelector("#loadProvider"),
@@ -24,7 +49,7 @@ const ui = {
 };
 
 let playlist = [];
-let providerCatalog = null;
+const providerCatalogs = new Map();
 let providerRequest = null;
 let hls = null;
 let activeButton = null;
@@ -39,12 +64,16 @@ function setProviderStatus(label, state = "idle") {
   ui.providerStatus.dataset.state = state;
 }
 
+function currentProvider() {
+  return PROVIDERS[ui.providerName.value];
+}
+
 function cancelProviderRequest(showStatus = true) {
   if (!providerRequest) return;
   const request = providerRequest;
   providerRequest = null;
   request.abort();
-  ui.providerLoad.disabled = !providerCatalog;
+  ui.providerLoad.disabled = !providerCatalogs.has(ui.providerName.value);
   if (showStatus) setProviderStatus("Pobieranie anulowane");
 }
 
@@ -267,7 +296,11 @@ function renderPlaylist() {
   ui.count.textContent = query ? `${visible.length}/${playlist.length}` : String(playlist.length);
 }
 
-function loadPlaylist(source, label, { allowArtwork = false, cancelProvider = true } = {}) {
+function loadPlaylist(source, label, {
+  allowArtwork = false,
+  cancelProvider = true,
+  local = true,
+} = {}) {
   if (cancelProvider) cancelProviderRequest();
   playlist = parseM3u(source, { allowArtwork });
   activeButton?.removeAttribute("aria-current");
@@ -276,20 +309,30 @@ function loadPlaylist(source, label, { allowArtwork = false, cancelProvider = tr
   renderPlaylist();
   setStatus(playlist.length ? "Playlista gotowa" : "Pusta playlista", playlist.length ? "idle" : "error");
   ui.hint.textContent = playlist.length
-    ? `${label}: wczytano ${playlist.length} pozycji lokalnie.`
+    ? local
+      ? `${label}: wczytano ${playlist.length} pozycji lokalnie.`
+      : `${label}: wczytano ${playlist.length} pozycji z publicznego katalogu.`
     : `${label}: nie znaleziono poprawnych adresów HTTP lub HTTPS.`;
   return playlist.length;
 }
 
+function catalogEntries(catalog, scope) {
+  if (scope === "country") return catalog?.countries;
+  if (scope === "category") return catalog?.categories;
+  return null;
+}
+
 function renderProviderValues() {
-  const countryMode = ui.providerScope.value === "country";
-  const entries = countryMode ? providerCatalog?.countries : providerCatalog?.categories;
-  const preferred = countryMode ? "PL" : "news";
+  const provider = currentProvider();
+  const catalog = providerCatalogs.get(ui.providerName.value);
+  const scope = ui.providerScope.value;
+  const entries = catalogEntries(catalog, scope);
+  const preferred = provider.defaults[scope];
 
   ui.providerValue.replaceChildren(...(entries || []).map((entry) => {
     const option = document.createElement("option");
-    option.value = countryMode ? entry.code : entry.id;
-    option.textContent = countryMode ? `${entry.flag || "🌐"} ${entry.name}` : entry.name;
+    option.value = scope === "country" ? entry.code : entry.id;
+    option.textContent = scope === "country" ? `${entry.flag || "🌐"} ${entry.name}` : entry.name;
     return option;
   }));
 
@@ -300,25 +343,64 @@ function renderProviderValues() {
   ui.providerLoad.disabled = !entries?.length;
 }
 
-async function loadProviderCatalog() {
+function renderProviderScopes() {
+  const provider = currentProvider();
+  ui.providerScope.replaceChildren(...provider.scopes.map((scope) => {
+    const option = document.createElement("option");
+    option.value = scope.id;
+    option.textContent = scope.label;
+    return option;
+  }));
+  ui.providerScope.disabled = provider.scopes.length <= 1;
+  renderProviderValues();
+}
+
+async function loadProviderCatalog(providerId) {
+  const provider = PROVIDERS[providerId];
+  if (providerCatalogs.has(providerId)) {
+    if (ui.providerName.value === providerId) {
+      renderProviderScopes();
+      setProviderStatus(providerId === "free-tv" ? "HTTPS · direct · bez Geo" : "Katalog gotowy");
+    }
+    return;
+  }
+
   setProviderStatus("Pobieranie katalogu…", "loading");
   try {
-    const response = await fetch("/api/providers/iptv-org/catalog", {
+    const response = await fetch(provider.catalog, {
       headers: { accept: "application/json" },
       credentials: "same-origin",
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    providerCatalog = await response.json();
-    renderProviderValues();
-    setProviderStatus("Katalog gotowy");
+    providerCatalogs.set(providerId, await response.json());
+    if (ui.providerName.value !== providerId) return;
+    renderProviderScopes();
+    setProviderStatus(providerId === "free-tv" ? "HTTPS · direct · bez Geo" : "Katalog gotowy");
   } catch {
+    if (ui.providerName.value !== providerId) return;
     ui.providerValue.disabled = true;
     ui.providerLoad.disabled = true;
-    setProviderStatus("Nie udało się pobrać katalogu iptv-org.", "error");
+    setProviderStatus(`Nie udało się pobrać katalogu ${provider.label}.`, "error");
   }
 }
 
+function selectProvider() {
+  cancelProviderRequest(false);
+  const providerId = ui.providerName.value;
+  const provider = PROVIDERS[providerId];
+  ui.providerHeading.textContent = provider.label;
+  ui.providerLink.href = provider.link;
+  ui.providerScope.disabled = true;
+  ui.providerValue.disabled = true;
+  ui.providerLoad.disabled = true;
+  ui.providerScope.replaceChildren();
+  ui.providerValue.replaceChildren();
+  loadProviderCatalog(providerId);
+}
+
 async function loadProviderPlaylist() {
+  const providerId = ui.providerName.value;
+  const provider = PROVIDERS[providerId];
   const type = ui.providerScope.value;
   const id = ui.providerValue.value;
   const selection = ui.providerValue.selectedOptions[0]?.textContent?.trim() || id;
@@ -328,7 +410,7 @@ async function loadProviderPlaylist() {
   const controller = new AbortController();
   providerRequest = controller;
 
-  const url = new URL("/api/providers/iptv-org/playlist", location.origin);
+  const url = new URL(provider.playlist, location.origin);
   url.searchParams.set("type", type);
   url.searchParams.set("id", id);
 
@@ -343,14 +425,21 @@ async function loadProviderPlaylist() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const source = await response.text();
     if (providerRequest !== controller) return;
-    const count = loadPlaylist(source, `iptv-org · ${selection}`, {
+    const count = loadPlaylist(source, `${provider.label} · ${selection}`, {
       allowArtwork: true,
       cancelProvider: false,
+      local: false,
     });
-    setProviderStatus(count ? `Wczytano ${count} pozycji` : "Playlista jest pusta", count ? "idle" : "error");
+    const sourceCount = Number(response.headers.get("x-streambench-source-count") || 0);
+    const label = count && sourceCount
+      ? `Wczytano ${count} z ${sourceCount} pozycji`
+      : count
+        ? `Wczytano ${count} pozycji`
+        : "Playlista jest pusta";
+    setProviderStatus(label, count ? "idle" : "error");
   } catch (error) {
     if (providerRequest === controller && error.name !== "AbortError") {
-      setProviderStatus("Nie udało się pobrać tej playlisty.", "error");
+      setProviderStatus(`Nie udało się pobrać playlisty ${provider.label}.`, "error");
     }
   } finally {
     if (providerRequest === controller) {
@@ -360,6 +449,7 @@ async function loadProviderPlaylist() {
   }
 }
 
+ui.providerName.addEventListener("change", selectProvider);
 ui.providerScope.addEventListener("change", renderProviderValues);
 ui.providerLoad.addEventListener("click", loadProviderPlaylist);
 ui.file.addEventListener("change", async () => {
@@ -377,4 +467,4 @@ ui.file.addEventListener("change", async () => {
 ui.parse.addEventListener("click", () => loadPlaylist(ui.text.value, "Wklejony tekst"));
 ui.search.addEventListener("input", renderPlaylist);
 
-loadProviderCatalog();
+selectProvider();

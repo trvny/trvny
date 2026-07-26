@@ -40,6 +40,17 @@ async function checkJson(path, validate) {
   console.log(`ok ${path}`);
 }
 
+async function checkPlaylist(path, source) {
+  const response = await request(path, "audio/x-mpegurl,text/plain");
+  const playlist = await response.text();
+  const count = Number(response.headers.get("x-streambench-lite-count"));
+  assert(playlist.trimStart().startsWith("#EXTM3U"), `${source} playlist is not M3U`);
+  assert(response.headers.get("x-streambench-source") === source, `unexpected ${source} playlist header`);
+  assert(Number.isInteger(count) && count > 0, `${source} playlist is empty`);
+  assert(playlist.includes("#EXTINF:"), `${source} playlist has no entries`);
+  console.log(`ok ${path}`);
+}
+
 await checkJson("/health", (body) => {
   assert(body?.status === "ok", "health status is not ok");
   assert(body?.service === "streambench", "unexpected health service");
@@ -47,7 +58,7 @@ await checkJson("/health", (body) => {
 
 await checkJson("/api/providers", (body) => {
   assert(Array.isArray(body.providers), "provider manifest is missing");
-  for (const providerId of ["free-tv", "iptv-org"]) {
+  for (const providerId of ["free-tv", "iptv-org", "radio-browser"]) {
     const provider = body.providers.find((entry) => entry.id === providerId);
     assert(provider, `provider is missing: ${providerId}`);
     assert(provider.endpoints?.catalog?.startsWith("/api/catalog?provider="), `invalid catalog endpoint: ${providerId}`);
@@ -66,17 +77,16 @@ await checkJson("/api/catalog?provider=iptv-org", (body) => {
   assert(Array.isArray(body.categories) && body.categories.length > 0, "iptv-org categories are empty");
 });
 
+await checkJson("/api/catalog?provider=radio-browser", (body) => {
+  assert(body?.provider === "radio-browser", "unexpected Radio Browser provider id");
+  assert(body.countries?.some((country) => country.code === "PL"), "Radio Browser catalog has no Poland entry");
+  assert(Array.isArray(body.tags) && body.tags.length > 0, "Radio Browser tags are empty");
+});
+
 await checkJson("/api/providers/free-tv/catalog", (body) => {
   assert(body?.provider === "free-tv", "legacy provider route failed");
 });
 
-const playlistPath = "/api/playlist?provider=free-tv&type=country&id=PL";
-const playlistResponse = await request(playlistPath, "audio/x-mpegurl,text/plain");
-const playlist = await playlistResponse.text();
-const liteCount = Number(playlistResponse.headers.get("x-streambench-lite-count"));
-assert(playlist.trimStart().startsWith("#EXTM3U"), "Free-TV playlist is not M3U");
-assert(playlistResponse.headers.get("x-streambench-source") === "free-tv", "unexpected playlist source header");
-assert(Number.isInteger(liteCount) && liteCount > 0, "Free-TV Lite playlist is empty");
-assert(playlist.includes("#EXTINF:"), "Free-TV Lite playlist has no entries");
-console.log(`ok ${playlistPath}`);
+await checkPlaylist("/api/playlist?provider=free-tv&type=country&id=PL", "free-tv");
+await checkPlaylist("/api/playlist?provider=radio-browser&type=country&id=PL", "radio-browser");
 console.log(`smoke passed ${baseUrl.origin}`);

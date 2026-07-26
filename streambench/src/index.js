@@ -1,4 +1,5 @@
 import { FREE_TV_COUNTRIES, filterFreeTvPlaylist } from "./providers/free-tv.js";
+import { createRadioBrowserProvider } from "./providers/radio-browser-worker.js";
 import { bindProviderHandlers, providerById, providerManifest } from "./providers/registry.js";
 
 const IPTV_ORG_API = "https://iptv-org.github.io/api/";
@@ -195,6 +196,7 @@ const PROVIDER_HANDLERS = bindProviderHandlers({
     catalog: iptvOrgCatalog,
     playlist: iptvOrgPlaylist,
   },
+  "radio-browser": createRadioBrowserProvider(json),
 });
 
 function providersResponse() {

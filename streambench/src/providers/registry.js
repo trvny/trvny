@@ -22,6 +22,18 @@ export const PROVIDERS = [
       { id: "category", label: "Kategoria", values: "categories", default: "news" },
     ],
   },
+  {
+    id: "radio-browser",
+    label: "Radio Browser",
+    link: "https://www.radio-browser.info/",
+    status: "Publiczne radio · HTTPS · sprawdzone stacje",
+    filters: ["https", "hidebroken"],
+    capabilities: ["catalog", "playlist", "artwork", "radio"],
+    scopes: [
+      { id: "country", label: "Kraj", values: "countries", default: "PL" },
+      { id: "tag", label: "Tag", values: "tags", default: "pop" },
+    ],
+  },
 ];
 
 export function providerById(id) {

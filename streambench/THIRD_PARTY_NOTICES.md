@@ -21,3 +21,9 @@ Source: https://github.com/iptv-org/iptv
 Curated public playlist data is provided by the Free-TV/IPTV project.
 
 Source: https://github.com/Free-TV/IPTV
+
+## Radio Browser
+
+Public internet radio station metadata is provided by Radio Browser.
+
+Source: https://www.radio-browser.info/

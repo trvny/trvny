@@ -25,6 +25,7 @@ const ui = {
 
 let playlist = [];
 let providerCatalog = null;
+let providerRequest = null;
 let hls = null;
 let activeButton = null;
 
@@ -36,6 +37,15 @@ function setStatus(label, state = "idle") {
 function setProviderStatus(label, state = "idle") {
   ui.providerStatus.textContent = label;
   ui.providerStatus.dataset.state = state;
+}
+
+function cancelProviderRequest(showStatus = true) {
+  if (!providerRequest) return;
+  const request = providerRequest;
+  providerRequest = null;
+  request.abort();
+  ui.providerLoad.disabled = !providerCatalog;
+  if (showStatus) setProviderStatus("Pobieranie anulowane");
 }
 
 function validRemoteUrl(value) {
@@ -151,7 +161,7 @@ function extinfTitle(line) {
   return "";
 }
 
-function parseM3u(source) {
+function parseM3u(source, { allowArtwork = false } = {}) {
   const items = [];
   let pending = null;
 
@@ -164,7 +174,7 @@ function parseM3u(source) {
       pending = {
         title: extinfTitle(line) || attributes["tvg-name"] || "",
         group: attributes["group-title"] || "",
-        logo: validRemoteUrl(attributes["tvg-logo"] || "")?.href || "",
+        logo: allowArtwork ? validRemoteUrl(attributes["tvg-logo"] || "")?.href || "" : "",
         country: attributes["tvg-country"] || "",
         language: attributes["tvg-language"] || "",
         radio: attributes.radio === "true" || attributes.type === "radio",
@@ -257,8 +267,9 @@ function renderPlaylist() {
   ui.count.textContent = query ? `${visible.length}/${playlist.length}` : String(playlist.length);
 }
 
-function loadPlaylist(source, label) {
-  playlist = parseM3u(source);
+function loadPlaylist(source, label, { allowArtwork = false, cancelProvider = true } = {}) {
+  if (cancelProvider) cancelProviderRequest();
+  playlist = parseM3u(source, { allowArtwork });
   activeButton?.removeAttribute("aria-current");
   activeButton = null;
   ui.search.value = "";
@@ -313,6 +324,10 @@ async function loadProviderPlaylist() {
   const selection = ui.providerValue.selectedOptions[0]?.textContent?.trim() || id;
   if (!id) return;
 
+  cancelProviderRequest(false);
+  const controller = new AbortController();
+  providerRequest = controller;
+
   const url = new URL("/api/providers/iptv-org/playlist", location.origin);
   url.searchParams.set("type", type);
   url.searchParams.set("id", id);
@@ -323,14 +338,25 @@ async function loadProviderPlaylist() {
     const response = await fetch(url, {
       headers: { accept: "audio/x-mpegurl,text/plain" },
       credentials: "same-origin",
+      signal: controller.signal,
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const count = loadPlaylist(await response.text(), `iptv-org · ${selection}`);
+    const source = await response.text();
+    if (providerRequest !== controller) return;
+    const count = loadPlaylist(source, `iptv-org · ${selection}`, {
+      allowArtwork: true,
+      cancelProvider: false,
+    });
     setProviderStatus(count ? `Wczytano ${count} pozycji` : "Playlista jest pusta", count ? "idle" : "error");
-  } catch {
-    setProviderStatus("Nie udało się pobrać tej playlisty.", "error");
+  } catch (error) {
+    if (providerRequest === controller && error.name !== "AbortError") {
+      setProviderStatus("Nie udało się pobrać tej playlisty.", "error");
+    }
   } finally {
-    ui.providerLoad.disabled = false;
+    if (providerRequest === controller) {
+      providerRequest = null;
+      ui.providerLoad.disabled = false;
+    }
   }
 }
 
@@ -339,6 +365,7 @@ ui.providerLoad.addEventListener("click", loadProviderPlaylist);
 ui.file.addEventListener("change", async () => {
   const [file] = ui.file.files;
   if (!file) return;
+  cancelProviderRequest();
   try {
     loadPlaylist(await file.text(), file.name);
   } catch {

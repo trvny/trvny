@@ -18,7 +18,12 @@ assert(radio.playback === "Audio" && radio.protocol === "HTTP", "radio metadata 
 const file = classifyChannel("https://example.com/video.mp4");
 assert(file.playback === "Plik", "video file metadata mismatch");
 
-const external = classifyChannel("https://www.youtube.com/watch?v=test");
-assert(external.external && external.playback === "Link", "external page metadata mismatch");
+for (const url of [
+  "https://www.youtube.com/watch?v=test",
+  "https://player.vimeo.com/video/123",
+]) {
+  const external = classifyChannel(url);
+  assert(external.external && external.playback === "Link", `external page metadata mismatch: ${url}`);
+}
 
 console.log("channel metadata checks passed");

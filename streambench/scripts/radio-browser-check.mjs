@@ -61,6 +61,10 @@ const playlist = radioBrowserStationsToM3u([
 assert(playlist.count === 2, "station filtering or deduplication failed");
 assert(playlist.body.includes('radio="true"'), "radio marker is missing");
 assert(playlist.body.includes('tvg-country="PL"'), "country metadata is missing");
+assert(playlist.body.includes('tvg-tags="news,pop"'), "tag metadata is missing");
+assert(playlist.body.includes('tvg-codec="MP3"'), "codec metadata is missing");
+assert(playlist.body.includes('tvg-bitrate="128"'), "bitrate metadata is missing");
+assert(playlist.body.includes('tvg-quality="MP3 · 128 kb/s"'), "technical quality badge is missing");
 assert(playlist.body.includes("https://radio.example/live.mp3"), "resolved stream URL is missing");
 assert(playlist.body.includes('hls="true"'), "HLS metadata is missing");
 assert(playlist.body.includes("https://radio.example/live#streambench-hls=.m3u8"), "extensionless HLS marker is missing");

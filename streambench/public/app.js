@@ -1,4 +1,5 @@
 import { classifyChannel } from "./channel-meta.js";
+import { describeHls, describeMedia, describeSource } from "./diagnostics.js";
 
 const ui = {
   form: document.querySelector("#streamForm"),
@@ -10,6 +11,12 @@ const ui = {
   title: document.querySelector("#nowPlaying"),
   status: document.querySelector("#status"),
   hint: document.querySelector("#streamHint"),
+  diagnosticAddress: document.querySelector("#diagnosticAddress"),
+  diagnosticType: document.querySelector("#diagnosticType"),
+  diagnosticSecurity: document.querySelector("#diagnosticSecurity"),
+  diagnosticHls: document.querySelector("#diagnosticHls"),
+  diagnosticMedia: document.querySelector("#diagnosticMedia"),
+  diagnosticError: document.querySelector("#diagnosticError"),
   providerName: document.querySelector("#providerName"),
   providerHeading: document.querySelector("#providerHeading"),
   providerLink: document.querySelector("#providerLink"),
@@ -41,6 +48,27 @@ function setStatus(label, state = "idle") {
 function setProviderStatus(label, state = "idle") {
   ui.providerStatus.textContent = label;
   ui.providerStatus.dataset.state = state;
+}
+
+function setDiagnosticError(message = "Brak") {
+  ui.diagnosticError.textContent = message;
+}
+
+function renderSourceDiagnostics(rawUrl, options = {}) {
+  const source = describeSource(rawUrl, {
+    ...options,
+    pageProtocol: location.protocol,
+  });
+  ui.diagnosticAddress.textContent = source.address;
+  ui.diagnosticType.textContent = source.type || "Stream";
+  ui.diagnosticSecurity.textContent = source.security;
+  ui.diagnosticHls.textContent = source.type.startsWith("HLS") ? "Oczekiwanie na manifest" : "Nie dotyczy";
+  ui.diagnosticMedia.textContent = options.external ? "Źródło zewnętrzne" : "Oczekiwanie na odtwarzacz";
+  setDiagnosticError();
+}
+
+function updateMediaDiagnostics(media) {
+  if (media.currentSrc) ui.diagnosticMedia.textContent = describeMedia(media);
 }
 
 function currentProvider() {
@@ -86,6 +114,7 @@ function stopPlayback() {
 function playbackError(message) {
   setStatus("Błąd", "error");
   ui.hint.textContent = message;
+  setDiagnosticError(message);
 }
 
 function selectExternalSource(rawUrl, title = "") {
@@ -101,6 +130,7 @@ function selectExternalSource(rawUrl, title = "") {
   ui.title.textContent = title || parsed.hostname;
   setStatus("Link zewnętrzny");
   ui.hint.textContent = "To źródło jest stroną zewnętrzną, więc otwieram je poza odtwarzaczem.";
+  renderSourceDiagnostics(parsed.href, { title, external: true });
   return parsed;
 }
 
@@ -115,6 +145,7 @@ function playStream(rawUrl, options = {}) {
   const mode = inferMode(url, options.mode || ui.mode.value, options.radio);
   const media = mode === "audio" ? ui.audio : ui.video;
   const isHls = /\.m3u8(?:$|[?#])/i.test(url);
+  const nativeHls = isHls && Boolean(media.canPlayType("application/vnd.apple.mpegurl"));
 
   stopPlayback();
   ui.shell.dataset.mode = mode;
@@ -123,27 +154,40 @@ function playStream(rawUrl, options = {}) {
   ui.hint.textContent = parsed.protocol === "http:" && location.protocol === "https:"
     ? "Przeglądarka może zablokować ten stream jako niezabezpieczoną treść HTTP."
     : "Łączenie bezpośrednio ze źródłem streamu, bez proxy Streambencha.";
+  renderSourceDiagnostics(url, options);
   setStatus("Łączenie", "loading");
 
   if (isHls && window.Hls?.isSupported()) {
     hls = new window.Hls({ enableWorker: true, lowLatencyMode: true });
     hls.attachMedia(media);
     hls.on(window.Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
-    hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+    hls.on(window.Hls.Events.MANIFEST_PARSED, (_event, data) => {
+      ui.diagnosticHls.textContent = describeHls(data.levels || hls.levels || []);
       media.play().catch(() => setStatus("Naciśnij play"));
     });
+    hls.on(window.Hls.Events.LEVEL_LOADED, (_event, data) => {
+      ui.diagnosticHls.textContent = describeHls(hls.levels || [], {
+        live: data.details?.live ?? null,
+        duration: data.details?.totalduration ?? null,
+      });
+    });
     hls.on(window.Hls.Events.ERROR, (_event, data) => {
+      const message = `HLS: ${data.details || data.type || "nieznany błąd"}`;
+      setDiagnosticError(message);
       if (!data.fatal) return;
-      playbackError(`HLS: ${data.details || data.type || "nieznany błąd"}`);
+      playbackError(message);
       hls?.destroy();
       hls = null;
     });
     return;
   }
 
-  if (isHls && !media.canPlayType("application/vnd.apple.mpegurl")) {
+  if (isHls && !nativeHls) {
     playbackError("Ta przeglądarka nie obsługuje HLS ani Media Source Extensions.");
     return;
+  }
+  if (nativeHls) {
+    ui.diagnosticHls.textContent = "Natywne HLS · szczegóły manifestu niedostępne";
   }
 
   media.src = url;
@@ -151,12 +195,27 @@ function playStream(rawUrl, options = {}) {
 }
 
 for (const media of [ui.video, ui.audio]) {
-  media.addEventListener("playing", () => setStatus("Odtwarzanie", "playing"));
-  media.addEventListener("waiting", () => setStatus("Buforowanie", "loading"));
-  media.addEventListener("stalled", () => setStatus("Przestój", "loading"));
-  media.addEventListener("ended", () => setStatus("Koniec"));
+  media.addEventListener("loadedmetadata", () => updateMediaDiagnostics(media));
+  media.addEventListener("durationchange", () => updateMediaDiagnostics(media));
+  media.addEventListener("playing", () => {
+    setStatus("Odtwarzanie", "playing");
+    updateMediaDiagnostics(media);
+  });
+  media.addEventListener("waiting", () => {
+    setStatus("Buforowanie", "loading");
+    updateMediaDiagnostics(media);
+  });
+  media.addEventListener("stalled", () => {
+    setStatus("Przestój", "loading");
+    updateMediaDiagnostics(media);
+  });
+  media.addEventListener("ended", () => {
+    setStatus("Koniec");
+    updateMediaDiagnostics(media);
+  });
   media.addEventListener("error", () => {
-    if (!hls) playbackError("Odtwarzacz nie może otworzyć tego źródła.");
+    if (!media.currentSrc || hls) return;
+    playbackError("Odtwarzacz nie może otworzyć tego źródła.");
   });
 }
 
@@ -322,7 +381,11 @@ function entryAction(item) {
     action.type = "button";
     action.addEventListener("click", () => {
       activateEntry(action);
-      playStream(item.url, { title: item.title, radio: item.radio });
+      playStream(item.url, {
+        title: item.title,
+        radio: item.radio,
+        quality: item.quality,
+      });
     });
   }
 

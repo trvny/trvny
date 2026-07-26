@@ -25,7 +25,7 @@ const channel = {
   protocol: "HTTPS",
   playback: "HLS",
 };
-assert(itemKey(channel) === "provider:channel.one", "stable item key mismatch");
+assert(itemKey(channel) === "provider:channel.one|https://example.com/live.m3u8", "stable item key mismatch");
 
 const storage = memoryStorage();
 const library = createLocalState(storage);
@@ -40,6 +40,12 @@ assert(library.items("recent")[0].title === "Updated title", "recent snapshot wa
 
 assert(library.toggleHidden(channel), "hidden item was not added");
 assert(library.isHidden(channel), "hidden lookup failed");
+const edit = library.setEdit(channel, { title: "Edited", url: "https://example.com/edited.m3u8" });
+assert(edit?.title === "Edited", "edit was not stored");
+assert(library.applyEdit(channel).url.includes("edited.m3u8"), "edit was not applied");
+assert(library.isHidden(library.applyEdit(channel)), "stable key was lost after URL edit");
+assert(library.clearEdit(channel), "edit was not cleared");
+
 library.setPreference("provider", "radio-browser");
 library.setPreference("mediaMode", "audio");
 assert(library.value.preferences.provider === "radio-browser", "provider preference mismatch");
@@ -49,10 +55,17 @@ assert(library.items("recent").length === 0, "recent items were not cleared");
 
 const normalized = normalizeState({
   favorites: { bad: { url: "javascript:alert(1)" } },
+  edits: {
+    "provider:channel.one|https://example.com/live.m3u8": { ...channel, title: "Edited" },
+  },
   recent: [channel, channel],
   preferences: { mediaMode: "invalid" },
 });
 assert(Object.keys(normalized.favorites).length === 0, "unsafe favorite was accepted");
+assert(
+  normalized.edits["provider:channel.one|https://example.com/live.m3u8"]?.title === "Edited",
+  "normalized edit is missing",
+);
 assert(normalized.recent.length === 1, "normalized recent list was not deduplicated");
 assert(normalized.preferences.mediaMode === "auto", "invalid media mode was accepted");
 

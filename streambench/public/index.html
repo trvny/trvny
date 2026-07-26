@@ -56,6 +56,24 @@
           </div>
           <p id="streamHint" class="hint">HLS działa przez lokalnie dostarczony hls.js, a obsługiwane formaty bezpośrednie przez przeglądarkę.</p>
         </form>
+
+        <section class="diagnostics-panel" aria-labelledby="diagnosticsHeading">
+          <div class="diagnostics-heading">
+            <div>
+              <p class="eyebrow">Lokalnie w przeglądarce</p>
+              <h3 id="diagnosticsHeading">Diagnostyka</h3>
+            </div>
+            <span>bez proxy</span>
+          </div>
+          <dl class="diagnostics-grid">
+            <div><dt>Adres</dt><dd id="diagnosticAddress">Brak źródła</dd></div>
+            <div><dt>Typ</dt><dd id="diagnosticType">Brak danych</dd></div>
+            <div><dt>Bezpieczeństwo</dt><dd id="diagnosticSecurity">Brak danych</dd></div>
+            <div><dt>HLS</dt><dd id="diagnosticHls">Nie dotyczy</dd></div>
+            <div><dt>Media</dt><dd id="diagnosticMedia">Brak danych odtwarzacza</dd></div>
+            <div><dt>Ostatni błąd</dt><dd id="diagnosticError">Brak</dd></div>
+          </dl>
+        </section>
       </div>
 
       <aside class="panel source-panel">
@@ -120,7 +138,7 @@
   </main>
 
   <footer>
-    <span>Streambench 0.5</span>
+    <span>Streambench 0.6</span>
     <span>Publiczne katalogi pobiera Worker; własne playlisty nie opuszczają urządzenia.</span>
   </footer>
 

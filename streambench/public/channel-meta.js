@@ -16,12 +16,13 @@ const VIDEO_FILE_PATTERN = /\.(mp4|m4v|webm|ogv|mov)(?:$|[?#])/i;
 const HLS_PATTERN = /\.m3u8(?:$|[?#])/i;
 
 export function inferQuality(title = "", declared = "") {
-  const source = `${declared} ${title}`.toUpperCase();
+  const declaredLabel = String(declared || "").replace(/[\r\n\t]+/g, " ").trim().slice(0, 48);
+  const source = `${declaredLabel} ${title}`.toUpperCase();
   if (/\b(4K|UHD|2160P)\b/.test(source)) return "4K";
   if (/\b(FHD|1080P)\b/.test(source)) return "FHD";
   if (/\b(HD|720P)\b/.test(source)) return "HD";
   if (/\b(SD|576P|480P)\b/.test(source)) return "SD";
-  return "";
+  return declaredLabel;
 }
 
 export function classifyChannel(rawUrl, { title = "", radio = false, quality = "" } = {}) {

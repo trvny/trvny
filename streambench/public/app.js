@@ -10,6 +10,10 @@ const ui = {
   title: document.querySelector("#nowPlaying"),
   status: document.querySelector("#status"),
   hint: document.querySelector("#streamHint"),
+  providerScope: document.querySelector("#providerScope"),
+  providerValue: document.querySelector("#providerValue"),
+  providerLoad: document.querySelector("#loadProvider"),
+  providerStatus: document.querySelector("#providerStatus"),
   file: document.querySelector("#playlistFile"),
   text: document.querySelector("#playlistText"),
   parse: document.querySelector("#parsePlaylist"),
@@ -20,6 +24,7 @@ const ui = {
 };
 
 let playlist = [];
+let providerCatalog = null;
 let hls = null;
 let activeButton = null;
 
@@ -28,7 +33,12 @@ function setStatus(label, state = "idle") {
   ui.status.dataset.state = state;
 }
 
-function validStreamUrl(value) {
+function setProviderStatus(label, state = "idle") {
+  ui.providerStatus.textContent = label;
+  ui.providerStatus.dataset.state = state;
+}
+
+function validRemoteUrl(value) {
   try {
     const url = new URL(value);
     return url.protocol === "http:" || url.protocol === "https:" ? url : null;
@@ -61,7 +71,7 @@ function playbackError(message) {
 }
 
 function playStream(rawUrl, options = {}) {
-  const parsed = validStreamUrl(rawUrl.trim());
+  const parsed = validRemoteUrl(rawUrl.trim());
   if (!parsed) {
     playbackError("Adres musi używać protokołu HTTP albo HTTPS.");
     return;
@@ -154,13 +164,16 @@ function parseM3u(source) {
       pending = {
         title: extinfTitle(line) || attributes["tvg-name"] || "",
         group: attributes["group-title"] || "",
+        logo: validRemoteUrl(attributes["tvg-logo"] || "")?.href || "",
+        country: attributes["tvg-country"] || "",
+        language: attributes["tvg-language"] || "",
         radio: attributes.radio === "true" || attributes.type === "radio",
       };
       continue;
     }
 
     if (line.startsWith("#")) continue;
-    const url = validStreamUrl(line);
+    const url = validRemoteUrl(line);
     if (!url) {
       pending = null;
       continue;
@@ -170,6 +183,9 @@ function parseM3u(source) {
       url: url.href,
       title: pending?.title || url.hostname,
       group: pending?.group || "Bez grupy",
+      logo: pending?.logo || "",
+      country: pending?.country || "",
+      language: pending?.language || "",
       radio: pending?.radio || false,
     });
     pending = null;
@@ -178,17 +194,34 @@ function parseM3u(source) {
   return items;
 }
 
+function itemMeta(item) {
+  return [item.group, item.country, item.language].filter(Boolean).join(" · ");
+}
+
+function channelArtwork(item) {
+  const fallback = document.createElement("span");
+  fallback.className = "channel-fallback";
+  fallback.textContent = item.radio ? "♫" : "▶";
+
+  if (!item.logo) return fallback;
+
+  const logo = document.createElement("img");
+  logo.className = "channel-logo";
+  logo.src = item.logo;
+  logo.alt = "";
+  logo.loading = "lazy";
+  logo.referrerPolicy = "no-referrer";
+  logo.addEventListener("error", () => logo.replaceWith(fallback), { once: true });
+  return logo;
+}
+
 function entryButton(item) {
   const row = document.createElement("li");
   row.className = "playlist-entry";
 
   const button = document.createElement("button");
   button.type = "button";
-  button.dataset.search = `${item.title} ${item.group}`.toLocaleLowerCase("pl");
-
-  const fallback = document.createElement("span");
-  fallback.className = "channel-fallback";
-  fallback.textContent = item.radio ? "♫" : "▶";
+  button.dataset.search = `${item.title} ${itemMeta(item)}`.toLocaleLowerCase("pl");
 
   const copy = document.createElement("span");
   copy.className = "channel-copy";
@@ -197,9 +230,9 @@ function entryButton(item) {
   name.textContent = item.title;
   const meta = document.createElement("span");
   meta.className = "channel-meta";
-  meta.textContent = item.group;
+  meta.textContent = itemMeta(item);
   copy.append(name, meta);
-  button.append(fallback, copy);
+  button.append(channelArtwork(item), copy);
 
   button.addEventListener("click", () => {
     activeButton?.removeAttribute("aria-current");
@@ -215,7 +248,7 @@ function entryButton(item) {
 function renderPlaylist() {
   const query = ui.search.value.trim().toLocaleLowerCase("pl");
   const visible = query
-    ? playlist.filter((item) => `${item.title} ${item.group}`.toLocaleLowerCase("pl").includes(query))
+    ? playlist.filter((item) => `${item.title} ${itemMeta(item)}`.toLocaleLowerCase("pl").includes(query))
     : playlist;
 
   ui.entries.replaceChildren(...visible.map(entryButton));
@@ -226,14 +259,83 @@ function renderPlaylist() {
 
 function loadPlaylist(source, label) {
   playlist = parseM3u(source);
+  activeButton?.removeAttribute("aria-current");
+  activeButton = null;
   ui.search.value = "";
   renderPlaylist();
   setStatus(playlist.length ? "Playlista gotowa" : "Pusta playlista", playlist.length ? "idle" : "error");
   ui.hint.textContent = playlist.length
     ? `${label}: wczytano ${playlist.length} pozycji lokalnie.`
     : `${label}: nie znaleziono poprawnych adresów HTTP lub HTTPS.`;
+  return playlist.length;
 }
 
+function renderProviderValues() {
+  const countryMode = ui.providerScope.value === "country";
+  const entries = countryMode ? providerCatalog?.countries : providerCatalog?.categories;
+  const preferred = countryMode ? "PL" : "news";
+
+  ui.providerValue.replaceChildren(...(entries || []).map((entry) => {
+    const option = document.createElement("option");
+    option.value = countryMode ? entry.code : entry.id;
+    option.textContent = countryMode ? `${entry.flag || "🌐"} ${entry.name}` : entry.name;
+    return option;
+  }));
+
+  if ([...ui.providerValue.options].some((option) => option.value === preferred)) {
+    ui.providerValue.value = preferred;
+  }
+  ui.providerValue.disabled = !entries?.length;
+  ui.providerLoad.disabled = !entries?.length;
+}
+
+async function loadProviderCatalog() {
+  setProviderStatus("Pobieranie katalogu…", "loading");
+  try {
+    const response = await fetch("/api/providers/iptv-org/catalog", {
+      headers: { accept: "application/json" },
+      credentials: "same-origin",
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    providerCatalog = await response.json();
+    renderProviderValues();
+    setProviderStatus("Katalog gotowy");
+  } catch {
+    ui.providerValue.disabled = true;
+    ui.providerLoad.disabled = true;
+    setProviderStatus("Nie udało się pobrać katalogu iptv-org.", "error");
+  }
+}
+
+async function loadProviderPlaylist() {
+  const type = ui.providerScope.value;
+  const id = ui.providerValue.value;
+  const selection = ui.providerValue.selectedOptions[0]?.textContent?.trim() || id;
+  if (!id) return;
+
+  const url = new URL("/api/providers/iptv-org/playlist", location.origin);
+  url.searchParams.set("type", type);
+  url.searchParams.set("id", id);
+
+  ui.providerLoad.disabled = true;
+  setProviderStatus(`Pobieranie: ${selection}…`, "loading");
+  try {
+    const response = await fetch(url, {
+      headers: { accept: "audio/x-mpegurl,text/plain" },
+      credentials: "same-origin",
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const count = loadPlaylist(await response.text(), `iptv-org · ${selection}`);
+    setProviderStatus(count ? `Wczytano ${count} pozycji` : "Playlista jest pusta", count ? "idle" : "error");
+  } catch {
+    setProviderStatus("Nie udało się pobrać tej playlisty.", "error");
+  } finally {
+    ui.providerLoad.disabled = false;
+  }
+}
+
+ui.providerScope.addEventListener("change", renderProviderValues);
+ui.providerLoad.addEventListener("click", loadProviderPlaylist);
 ui.file.addEventListener("change", async () => {
   const [file] = ui.file.files;
   if (!file) return;
@@ -245,6 +347,7 @@ ui.file.addEventListener("change", async () => {
     ui.file.value = "";
   }
 });
-
 ui.parse.addEventListener("click", () => loadPlaylist(ui.text.value, "Wklejony tekst"));
 ui.search.addEventListener("input", renderPlaylist);
+
+loadProviderCatalog();

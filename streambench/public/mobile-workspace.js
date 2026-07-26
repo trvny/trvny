@@ -4,6 +4,7 @@ const buttons = [...document.querySelectorAll("[data-mobile-view-target]")];
 const playlistCount = document.querySelector("#mobilePlaylistCount");
 const entryCount = document.querySelector("#entryCount");
 const status = document.querySelector("#status");
+const toolsPanel = document.querySelector("#toolsPanel");
 
 function updateCount() {
   if (playlistCount && entryCount) playlistCount.textContent = entryCount.textContent.trim() || "0";
@@ -12,6 +13,7 @@ function updateCount() {
 function setView(view, { scroll = false } = {}) {
   if (!buttons.some((button) => button.dataset.mobileViewTarget === view)) return;
   document.body.dataset.mobileView = view;
+  if (view === "tools" && mediaQuery.matches && toolsPanel) toolsPanel.open = true;
   for (const button of buttons) {
     button.setAttribute("aria-pressed", String(button.dataset.mobileViewTarget === view));
   }

@@ -64,10 +64,7 @@ export function parseM3uWorkspace(source, {
     }
 
     if (line.startsWith("#EXTALB:")) {
-      if (pending) {
-        pending.album = safeText(line.slice("#EXTALB:".length), 120);
-        if (!pending.group) pending.group = pending.album;
-      }
+      if (pending) pending.album = safeText(line.slice("#EXTALB:".length), 120);
       continue;
     }
 

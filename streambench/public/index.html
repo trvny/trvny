@@ -21,7 +21,7 @@
     <section class="hero">
       <p class="eyebrow">IPTV · radio · HLS</p>
       <h1>Warsztat do streamów.</h1>
-      <p>Wklej adres, otwórz M3U albo wybierz lżejszy Free-TV Lite i szeroki katalog iptv-org.</p>
+      <p>Wklej adres, otwórz M3U albo wybierz źródło z katalogu Streambencha.</p>
     </section>
 
     <section class="workspace" aria-label="Odtwarzacz i źródła">
@@ -71,16 +71,15 @@
           <div class="provider-heading">
             <div>
               <p class="eyebrow">Publiczny katalog</p>
-              <h3 id="providerHeading">Free-TV Lite</h3>
+              <h3 id="providerHeading">Ładowanie…</h3>
             </div>
-            <a id="providerLink" href="https://github.com/Free-TV/IPTV" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+            <a id="providerLink" href="https://example.invalid" target="_blank" rel="noopener noreferrer" hidden>GitHub ↗</a>
           </div>
           <div class="provider-controls">
             <label for="providerName">
               Źródło
-              <select id="providerName">
-                <option value="free-tv">Free-TV Lite</option>
-                <option value="iptv-org">iptv-org</option>
+              <select id="providerName" disabled>
+                <option>Ładowanie…</option>
               </select>
             </label>
             <label for="providerScope">
@@ -93,7 +92,7 @@
             </label>
             <button id="loadProvider" type="button" disabled>Wczytaj</button>
           </div>
-          <p id="providerStatus" class="provider-status" data-state="loading">Pobieranie katalogu…</p>
+          <p id="providerStatus" class="provider-status" data-state="loading">Pobieranie źródeł…</p>
         </section>
 
         <div class="source-divider"><span>lub własna playlista</span></div>
@@ -121,7 +120,7 @@
   </main>
 
   <footer>
-    <span>Streambench 0.3</span>
+    <span>Streambench 0.4</span>
     <span>Publiczne katalogi pobiera Worker; własne playlisty nie opuszczają urządzenia.</span>
   </footer>
 

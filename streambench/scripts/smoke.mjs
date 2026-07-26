@@ -45,18 +45,32 @@ await checkJson("/health", (body) => {
   assert(body?.service === "streambench", "unexpected health service");
 });
 
-await checkJson("/api/providers/free-tv/catalog", (body) => {
+await checkJson("/api/providers", (body) => {
+  assert(Array.isArray(body.providers), "provider manifest is missing");
+  for (const providerId of ["free-tv", "iptv-org"]) {
+    const provider = body.providers.find((entry) => entry.id === providerId);
+    assert(provider, `provider is missing: ${providerId}`);
+    assert(provider.endpoints?.catalog?.startsWith("/api/catalog?provider="), `invalid catalog endpoint: ${providerId}`);
+    assert(provider.endpoints?.playlist?.startsWith("/api/playlist?provider="), `invalid playlist endpoint: ${providerId}`);
+  }
+});
+
+await checkJson("/api/catalog?provider=free-tv", (body) => {
   assert(body?.provider === "free-tv", "unexpected Free-TV provider id");
   assert(body.countries?.some((country) => country.code === "PL"), "Free-TV catalog has no Poland entry");
 });
 
-await checkJson("/api/providers/iptv-org/catalog", (body) => {
+await checkJson("/api/catalog?provider=iptv-org", (body) => {
   assert(body?.provider === "iptv-org", "unexpected iptv-org provider id");
   assert(Array.isArray(body.countries) && body.countries.length > 0, "iptv-org countries are empty");
   assert(Array.isArray(body.categories) && body.categories.length > 0, "iptv-org categories are empty");
 });
 
-const playlistPath = "/api/providers/free-tv/playlist?type=country&id=PL";
+await checkJson("/api/providers/free-tv/catalog", (body) => {
+  assert(body?.provider === "free-tv", "legacy provider route failed");
+});
+
+const playlistPath = "/api/playlist?provider=free-tv&type=country&id=PL";
 const playlistResponse = await request(playlistPath, "audio/x-mpegurl,text/plain");
 const playlist = await playlistResponse.text();
 const liteCount = Number(playlistResponse.headers.get("x-streambench-lite-count"));

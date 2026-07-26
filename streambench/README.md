@@ -8,6 +8,7 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 - HLS playback through a locally vendored `hls.js`,
 - local M3U/M3U8 file and text import,
 - playlist filtering and entry selection,
+- shared provider manifest and generic catalog routes,
 - Free-TV Lite country playlists,
 - iptv-org country and category catalogs,
 - Cloudflare Worker static asset delivery with security headers.
@@ -21,6 +22,17 @@ and removes duplicates. Poland is selected by default.
 
 This version has no persistence, EPG or general-purpose remote playlist
 import.
+
+## Provider API
+
+The browser loads provider metadata from `GET /api/providers` and uses:
+
+- `GET /api/catalog?provider=<id>`,
+- `GET /api/playlist?provider=<id>&type=<scope>&id=<value>`.
+
+Existing `/api/providers/<id>/catalog` and `/api/providers/<id>/playlist`
+routes remain available for compatibility. Provider IDs are resolved through a
+fixed Worker registry; these endpoints are not a general remote fetcher.
 
 ## Development
 
@@ -60,5 +72,5 @@ npm run smoke -- https://streambench.example.workers.dev
 ```
 
 The manual `Smoke streambench` GitHub workflow runs the same checks after
-receiving the deployed HTTPS URL. It verifies health, both provider catalogs and
-the Polish Free-TV Lite playlist.
+receiving the deployed HTTPS URL. It verifies health, the provider manifest,
+generic and legacy catalog routes, and the Polish Free-TV Lite playlist.

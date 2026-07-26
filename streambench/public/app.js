@@ -88,6 +88,22 @@ function playbackError(message) {
   ui.hint.textContent = message;
 }
 
+function selectExternalSource(rawUrl, title = "") {
+  const parsed = validRemoteUrl(rawUrl.trim());
+  if (!parsed) {
+    playbackError("Adres musi używać protokołu HTTP albo HTTPS.");
+    return null;
+  }
+
+  stopPlayback();
+  delete ui.shell.dataset.mode;
+  ui.url.value = parsed.href;
+  ui.title.textContent = title || parsed.hostname;
+  setStatus("Link zewnętrzny");
+  ui.hint.textContent = "To źródło jest stroną zewnętrzną, więc otwieram je poza odtwarzaczem.";
+  return parsed;
+}
+
 function playStream(rawUrl, options = {}) {
   const parsed = validRemoteUrl(rawUrl.trim());
   if (!parsed) {
@@ -148,7 +164,19 @@ ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
   activeEntry?.removeAttribute("aria-current");
   activeEntry = null;
-  playStream(ui.url.value);
+
+  const parsed = validRemoteUrl(ui.url.value.trim());
+  if (!parsed) {
+    playbackError("Adres musi używać protokołu HTTP albo HTTPS.");
+    return;
+  }
+
+  if (classifyChannel(parsed.href).external) {
+    const selected = selectExternalSource(parsed.href);
+    if (selected) window.open(selected.href, "_blank", "noopener,noreferrer");
+    return;
+  }
+  playStream(parsed.href);
 });
 
 function parseAttributes(line) {
@@ -288,8 +316,7 @@ function entryAction(item) {
     action.rel = "noopener noreferrer";
     action.addEventListener("click", () => {
       activateEntry(action);
-      setStatus("Link zewnętrzny");
-      ui.hint.textContent = "To źródło jest stroną zewnętrzną, więc otwieram je poza odtwarzaczem.";
+      selectExternalSource(item.url, item.title);
     });
   } else {
     action.type = "button";

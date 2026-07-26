@@ -1,183 +1,68 @@
 # Style Profile Schema
 
-## Portable configuration for chat and agentic systems
+## Portable communication and collaboration profiles
 
-**Version:** 0.1.0  
+**Version:** 0.2.0  
 **Status:** usable baseline  
 **Reference date:** July 2026
 
-This document converts the human-readable style specifications into a portable configuration model. It is designed for ordinary chat, custom instructions, coding agents, tool-using agents, and application-owned runtimes.
+The profile now separates two concerns that were previously mixed:
 
-The central boundary is simple:
+- **personality** controls voice: tone, warmth, directness, formality, humor,
+  empathy, polish, and adaptation to the user's register;
+- **collaboration** controls working behavior: when to ask, when to assume,
+  initiative, verification, preambles, progress updates, and result reporting.
 
-> Style controls communication. Runtime policy controls capabilities, permissions, tools, safety, state, and execution.
+The boundary remains firm:
 
----
+> Style describes communication and collaboration. Runtime policy controls
+> tools, permissions, safety, network access, state changes, model choice, and
+> execution.
 
-## 1. Project layers
-
-The project now has three layers:
-
-1. `styles-pl.md` and `styles-en.md` explain the behavior.
-2. `instructions-pl.md` and `instructions-en.md` provide ready-to-paste prose.
-3. `style-profile.schema.json` defines a machine-readable profile.
-
-Recommended repository layout:
-
-```text
-llm-styles/
-├── styles/
-│   ├── styles-pl.md
-│   └── styles-en.md
-├── instructions/
-│   ├── instructions-pl.md
-│   └── instructions-en.md
-├── schema/
-│   ├── style-profile.schema.json
-│   └── styles-schema.md
-├── profiles/
-│   ├── everyday.pl.yaml
-│   └── everyday.en.yaml
-└── adapters/
-    ├── chatgpt/
-    ├── openai-agents/
-    ├── agents-md/
-    ├── github-copilot/
-    └── generic/
-```
-
----
-
-## 2. What belongs in a style profile
-
-A profile may control:
-
-- base tone,
-- intensity,
-- brevity,
-- structure,
-- humor,
-- emoji,
-- directness,
-- uncertainty language,
-- reporting of actions and failures,
-- adaptation to the user's register,
-- treatment of generated artifacts.
-
-A profile must not silently control:
-
-- tool authorization,
-- write permissions,
-- safety policy,
-- network access,
-- sandbox boundaries,
-- source trust,
-- retry logic,
-- model selection,
-- billing limits,
-- data retention.
-
-Those belong to runtime or policy configuration.
-
----
-
-## 3. Deployment reality
-
-### Plain chat
-
-Plain chat is the default mode. A direct answer should remain possible even when tools exist.
-
-### ChatGPT personalization
-
-A deployed instruction block may coexist with a selected personality, saved memory, current-turn instructions, and the requested style of a generated artifact. The adapter should therefore remain compact and allow the artifact brief to override the assistant's conversational tone.
-
-### OpenAI Agents SDK
-
-The style adapter should normally render into `Agent.instructions` or a dynamic instruction function. Tools, handoffs, guardrails, sessions, tracing, approvals, and execution settings remain separate runtime concerns.
-
-### Codex and AGENTS.md
-
-Repository instructions may be hierarchical. Root instructions should stay broad and concise. Narrow engineering rules belong in nested `AGENTS.md` files near the files they govern.
-
-### GitHub Copilot
-
-Useful targets include:
-
-```text
-.github/copilot-instructions.md
-.github/instructions/<name>.instructions.md
-AGENTS.md
-.github/prompts/<workflow>.prompt.md
-```
-
-Repository-wide style belongs in the first file. Path-specific technical rules belong in `.instructions.md`. Agent operations belong in `AGENTS.md`. Explicit reusable workflows belong in prompt files.
-
----
-
-## 4. Core profile
+## Core profile
 
 ```yaml
-schemaVersion: "0.1"
+schemaVersion: "0.2"
 id: everyday-pl
 locale: pl-PL
 
-style:
+personality:
   base: friendly
   intensity: 1
   modifiers:
-    honest: 2
-    concise: 1
+    honest: 1
+    concise: 2
     warm: 1
     whimsical: 1
+    critical: 1
     headingsAndLists: 1
     emoji: 0
+  adaptation:
+    followUserRegister: true
+    preserveRequestedArtifactStyle: true
+    reduceHumorInSeriousContexts: true
+    mirrorLanguage: true
+    allowCasualProfanity: true
 
-adaptation:
-  followUserRegister: true
-  preserveRequestedArtifactStyle: true
-  reduceHumorInSeriousContexts: true
+collaboration:
+  preamble: multiStepOnly
+  initiative: balanced
+  verification: normal
+  questionPolicy: blockingOnly
+  assumptionPolicy: balanced
+  answerFirst: true
   plainChatIsDefault: true
   respectExplicitTurnInstructions: true
-
-chat:
-  answerFirst: true
   avoidRoutinePraise: true
   avoidRoutineFollowUpOffer: true
-  askOnlyBlockingQuestions: true
-  mirrorLanguage: true
-  allowCasualProfanity: true
-
-agent:
-  enabled: true
   announceOnlyMaterialActions: true
   reportPartialFailures: true
-  exposePrivateReasoning: false
   preferResultOverProcess: true
-  toolUsePolicy: runtime
-  subagentPolicy: allowWhenParallelizable
-
-knowledge:
-  distinguishRawFromSynthesis: true
-  treatMemoryAsFallible: true
-  surfaceSourceConflicts: true
-  preferMaintainedSynthesisForOrientation: true
-
-output:
-  defaultFormat: prose
-  maxHeadingDepth: 3
-  preferShortParagraphs: true
-  tables: whenUseful
-  codeExamples: runnable
-  citations: platformDefault
 ```
 
----
+## Personality
 
-## 5. Base styles
-
-Exactly one base style is required.
-
-Allowed values:
+Exactly one base voice is required:
 
 ```text
 default
@@ -189,45 +74,15 @@ concise
 cynical
 ```
 
-Do not define several base styles at once. Secondary characteristics belong in `modifiers`.
-
-Bad:
-
-```yaml
-style:
-  base:
-    - professional
-    - friendly
-```
-
-Good:
-
-```yaml
-style:
-  base: professional
-  modifiers:
-    warm: 1
-    honest: 2
-```
-
----
-
-## 6. Intensity
-
-Intensity is an integer from 0 to 3.
+`intensity` and modifier values use:
 
 ```text
 0 = disabled
 1 = subtle
 2 = clearly visible
 3 = strong
+null = inherit
 ```
-
-Intensity controls expression, not priority. A strong whimsical profile still yields to factual accuracy, serious context, critical warnings, safety, and the requested artifact format.
-
----
-
-## 7. Modifiers
 
 Core modifiers:
 
@@ -246,216 +101,170 @@ whimsical
 cynical
 ```
 
-Unknown modifiers belong under an extension namespace:
+Unknown or provider-specific values belong under `extensions`, not beside the
+portable fields.
 
-```yaml
-extensions:
-  example.org:
-    understatedHumor: 2
-```
+### Adaptation
 
----
+- `followUserRegister` follows the user's formality and register without
+  copying mistakes, hostility, or unsafe behavior.
+- `preserveRequestedArtifactStyle` lets the requested email, document, code
+  comment, post, or other artifact style override conversational personality.
+- `reduceHumorInSeriousContexts` tones down humor in sensitive or high-risk
+  situations.
+- `mirrorLanguage` uses the language of the current user message unless another
+  language is requested.
+- `allowCasualProfanity` permits mild conversational profanity without carrying
+  it automatically into formal artifacts.
 
-## 8. Adaptation
+## Collaboration
 
-### `followUserRegister`
-
-Match the user's level of formality and conversational register without copying mistakes, hostility, or unsafe behavior.
-
-### `preserveRequestedArtifactStyle`
-
-The style requested for an email, document, resume, post, code comment, or other artifact overrides the assistant's conversational personality inside that artifact.
-
-### `reduceHumorInSeriousContexts`
-
-Reduce or disable humor for medical, legal, financial, security, crisis, grief, mental-health, safety-critical, or data-loss contexts.
-
-### `plainChatIsDefault`
-
-Do not create an agentic workflow merely because tools are available. Use tools only when freshness, access, verification, or execution requires them.
-
-### `respectExplicitTurnInstructions`
-
-A clear instruction in the current user turn overrides style defaults where compatible with higher-level policy.
-
----
-
-## 9. Chat behavior
-
-### `answerFirst`
-
-Lead with the answer or conclusion. Do not place the useful part behind a ceremonial moat.
-
-### `avoidRoutinePraise`
-
-Avoid automatic openings such as “Great question” unless the praise is specific and useful.
-
-### `avoidRoutineFollowUpOffer`
-
-Do not end every answer with an offer to do more or a menu of unrelated next steps.
-
-### `askOnlyBlockingQuestions`
-
-Ask a clarifying question only when missing information materially changes the answer, blocks execution, or makes guessing risky.
-
-### `mirrorLanguage`
-
-Use the language of the current user message unless another language is requested.
-
-### `allowCasualProfanity`
-
-Permit mild conversational profanity when the user uses it naturally. Do not carry it into formal artifacts or sensitive contexts unless explicitly requested.
-
-Public and enterprise profiles should normally default this field to `false`.
-
----
-
-## 10. Agent behavior
-
-### `enabled`
-
-Adds user-facing behavior for tool-using environments. It does not grant tool access.
-
-### `announceOnlyMaterialActions`
-
-Announce work only when it may take time, changes external state, has several meaningful stages, requires consent, or has ambiguity worth surfacing.
-
-### `reportPartialFailures`
-
-Distinguish complete success, partial success, failure, and a recommendation that was not executed.
-
-### `exposePrivateReasoning`
-
-Must default to `false`.
-
-User-facing explanations may include the conclusion, key evidence, assumptions, concise rationale, and validation method. They should not require disclosure of private chain-of-thought.
-
-### `preferResultOverProcess`
-
-Prioritize:
-
-1. result,
-2. artifact or state change,
-3. limitations,
-4. relevant next action.
-
-### `toolUsePolicy`
-
-Allowed values:
+### `preamble`
 
 ```text
-runtime
-auto
-required
-forbidden
+off
+multiStepOnly
+always
 ```
 
-Recommended default: `runtime`.
+A preamble is a brief statement of intent before work. `multiStepOnly` is the
+recommended default. It avoids narrating simple answers while still orienting
+the user before longer or state-changing work.
 
-The style profile should not override actual platform permissions or higher-level routing.
-
-### `subagentPolicy`
-
-Allowed values:
+### `initiative`
 
 ```text
-runtime
-avoidByDefault
-allowWhenParallelizable
-required
-forbidden
+conservative
+balanced
+proactive
 ```
 
-Recommended default: `allowWhenParallelizable`.
+Initiative controls how readily the assistant takes obvious next steps or
+surfaces related problems. It does not grant permission to expand scope or
+change external state.
 
-Subagents are justified by independent work streams, specialization, or separate verification, not by architectural peacocking.
-
----
-
-## 11. Knowledge behavior
-
-### `distinguishRawFromSynthesis`
-
-Separate primary sources, maintained wiki content, summaries, memory, and model inference.
-
-### `treatMemoryAsFallible`
-
-Treat remembered details as clues, not proof. Verify important or unstable claims when possible.
-
-### `surfaceSourceConflicts`
-
-Report contradictions instead of silently blending them.
-
-### `preferMaintainedSynthesisForOrientation`
-
-Use a maintained wiki or synthesis for broad orientation, then return to raw sources for exact quotations, numbers, code, legal text, or evidence.
-
-### `requireTraceableClaims`
-
-Require claims from maintained knowledge to be traceable to source identifiers or citations.
-
----
-
-## 12. Output behavior
-
-### `defaultFormat`
-
-Allowed values:
+### `verification`
 
 ```text
-prose
-compact
-structured
-markdown
+light
+normal
+strict
 ```
 
-An explicit user format always wins.
+Verification controls how much evidence and validation is expected before a
+firm conclusion. It does not create web access, repository access, or tool
+permissions.
 
-### `maxHeadingDepth`
-
-Recommended range: 1 to 4 for ordinary chat.
-
-### `preferShortParagraphs`
-
-Prefer one to four sentences per paragraph in chat.
-
-### `tables`
-
-Allowed values:
+### `questionPolicy`
 
 ```text
-avoid
-whenUseful
-prefer
+blockingOnly
+materialAmbiguity
+earlyAlignment
 ```
 
-Recommended default: `whenUseful`.
+Use a decision rule instead of a ritual requirement to ask questions.
 
-### `codeExamples`
-
-Allowed values:
+### `assumptionPolicy`
 
 ```text
-minimal
-runnable
-explanatory
+cautious
+balanced
+decisive
 ```
 
-### `citations`
+Assumptions should remain reversible where possible and visible when they may
+change the result.
 
-Allowed values:
+### Boolean collaboration fields
+
+- `answerFirst`
+- `plainChatIsDefault`
+- `respectExplicitTurnInstructions`
+- `avoidRoutinePraise`
+- `avoidRoutineFollowUpOffer`
+- `announceOnlyMaterialActions`
+- `reportPartialFailures`
+- `preferResultOverProcess`
+
+## Outcome-first task blocks
+
+For complex reusable instructions, keep the task brief compact:
 
 ```text
-platformDefault
-whenAvailable
-requiredForExternalFacts
+Role: [function and context]
+
+# Personality
+[voice and collaboration tendencies]
+
+# Goal
+[user-visible outcome]
+
+# Success criteria
+[what must be true]
+
+# Constraints
+[evidence, safety, side effects, boundaries]
+
+# Output
+[shape and length]
+
+# Stop rules
+[retry, fallback, ask, abstain, finish]
 ```
 
-This controls presentation only. Browsing and source policy remain external.
+Use absolute words only for real invariants. For judgment calls, encode a
+decision rule instead of a ceremonial sequence of mandatory steps.
 
----
+The reusable template lives at:
 
-## 13. Precedence
+```text
+.ai/templates/outcome-task.md
+```
+
+## Knowledge and output
+
+The existing `knowledge` and `output` objects remain portable. They cover source
+handling and presentation, not runtime capabilities.
+
+## Runtime boundary
+
+Keep these outside the style profile:
+
+- tool authorization and routing,
+- write and deployment permissions,
+- network and sandbox access,
+- safety and approval policy,
+- retries and timeouts,
+- subagent orchestration requirements,
+- model selection and billing limits,
+- secret storage and data retention.
+
+Provider-specific metadata may live under `extensions`, but it must not pretend
+to grant capabilities.
+
+## Migration from 0.1
+
+Version 0.2 maps the old fields as follows:
+
+| 0.1 | 0.2 |
+| --- | --- |
+| `style` | `personality` |
+| `adaptation.followUserRegister` | `personality.adaptation.followUserRegister` |
+| `adaptation.preserveRequestedArtifactStyle` | `personality.adaptation.preserveRequestedArtifactStyle` |
+| `adaptation.reduceHumorInSeriousContexts` | `personality.adaptation.reduceHumorInSeriousContexts` |
+| `chat.mirrorLanguage` | `personality.adaptation.mirrorLanguage` |
+| `chat.allowCasualProfanity` | `personality.adaptation.allowCasualProfanity` |
+| `chat.*` working behavior | `collaboration.*` |
+| `agent.announceOnlyMaterialActions` | `collaboration.announceOnlyMaterialActions` |
+| `agent.reportPartialFailures` | `collaboration.reportPartialFailures` |
+| `agent.preferResultOverProcess` | `collaboration.preferResultOverProcess` |
+
+The schema and renderer still accept 0.1 profiles for archived backups.
+`toolUsePolicy` and `subagentPolicy` are intentionally not represented in 0.2;
+they belong to runtime configuration.
+
+## Precedence
 
 Recommended order from lowest to highest:
 
@@ -467,432 +276,24 @@ Recommended order from lowest to highest:
 6. explicit current-turn instruction,
 7. requested artifact style.
 
-Safety, permissions, platform policy, and task requirements remain above the style stack.
+Safety, permissions, platform policy, and task requirements remain above the
+style stack.
 
-### Scalar merge
+## Validation and rendering
 
-Higher-priority values replace lower-priority values.
-
-### Modifier merge
-
-Higher-priority intensity replaces lower-priority intensity. Values are not added.
-
-### Null
-
-`null` means inherit. `0` explicitly disables an intensity-based field.
-
-### Remaining conflicts
-
-Resolve in this order:
-
-1. correctness,
-2. explicit user intent,
-3. requested artifact format,
-4. less disruptive style expression,
-5. internal warning for diagnostics.
-
-Do not expose configuration plumbing unless it affects the user's result.
-
----
-
-## 14. Adapter contract
-
-Each adapter accepts a validated profile and emits one or more target-specific instruction blocks or files.
-
-Metadata should include:
+Validate against:
 
 ```text
-adapter name
-adapter version
-profile id
-unsupported fields
-warnings
+.ai/schema/style-profile.schema.json
 ```
 
-An adapter must:
+Render a profile:
 
-- preserve semantic intent,
-- omit unsupported fields rather than inventing behavior,
-- warn about meaningful loss,
-- avoid duplicating runtime policy inside style prose,
-- generate deterministic output for the same profile and adapter version.
-
----
-
-## 15. ChatGPT adapter
-
-Target:
-
-```text
-Custom Instructions
-Custom GPT instruction field
+```bash
+python -m pip install pyyaml
+python .ai/templates/render_profile.py .ai/profile.yaml
 ```
 
-Include:
-
-- communication style,
-- chat defaults,
-- uncertainty behavior,
-- artifact-style override,
-- concise tool-result reporting.
-
-Omit:
-
-- tool concurrency,
-- handoff topology,
-- tracing details,
-- repository path rules,
-- permissions the product does not expose through that field.
-
-Prefer compact or standard rendering. Do not inject the complete specification into every chat.
-
----
-
-## 16. OpenAI Agents SDK adapter
-
-Target:
-
-```python
-Agent.instructions
-```
-
-Possible use:
-
-```python
-from agents import Agent
-
-agent = Agent(
-    name="Assistant",
-    instructions=render_style_profile(profile),
-    tools=[...],
-    handoffs=[...],
-    input_guardrails=[...],
-    output_guardrails=[...],
-)
-```
-
-Keep separate:
-
-```text
-style profile:
-  communication and user-facing reporting
-
-runtime:
-  tools, handoffs, guardrails, sessions, tracing, approvals
-```
-
-The renderer must not claim that a tool exists. The runtime already owns the actual tool inventory.
-
----
-
-## 17. AGENTS.md adapter
-
-Use the root `AGENTS.md` for:
-
-- broad communication preferences,
-- repository purpose,
-- build and test commands,
-- validation expectations,
-- change-reporting rules,
-- high-level architectural boundaries.
-
-Use nested `AGENTS.md` files for narrower directory scopes.
-
-Example:
-
-```text
-AGENTS.md
-frontend/AGENTS.md
-backend/AGENTS.md
-docs/AGENTS.md
-```
-
-Do not paste a full general-purpose personality specification into every directory.
-
----
-
-## 18. GitHub Copilot adapter
-
-Repository-wide target:
-
-```text
-.github/copilot-instructions.md
-```
-
-Path-specific target:
-
-```text
-.github/instructions/<name>.instructions.md
-```
-
-Example frontmatter:
-
-```yaml
----
-applyTo: "**/*.ts,**/*.tsx"
----
-```
-
-Agent target:
-
-```text
-AGENTS.md
-```
-
-Reusable workflow target:
-
-```text
-.github/prompts/<workflow>.prompt.md
-```
-
-Use prompt files for explicit operations such as security review, migration planning, release notes, or test generation. Do not use them as an always-on personality dump.
-
----
-
-## 19. Generic prompt adapter
-
-Rendering order:
-
-1. universal communication core,
-2. base style,
-3. active modifiers,
-4. adaptation,
-5. chat behavior,
-6. user-facing agent behavior,
-7. local user preferences.
-
-Compression levels:
-
-```text
-compact   100–250 words
-standard  300–700 words
-full      documentation and audits
-```
-
-The full profile should rarely be injected into every model call. Context windows are not attic space.
-
----
-
-## 20. Validation
-
-A profile is invalid when:
-
-- `schemaVersion` is missing,
-- `id` is missing,
-- `locale` is missing,
-- more than one base style is supplied,
-- intensity is outside 0–3,
-- `exposePrivateReasoning` is true,
-- an unknown core field appears outside `extensions`.
-
-A validator should warn when:
-
-- more than five modifiers are active,
-- `quickReplies` and `educational` are both strong,
-- `whimsical` and `cynical` are both strong,
-- emoji intensity is high in a professional profile,
-- a full rendering is selected for a small custom-instructions field.
-
----
-
-## 21. Testing
-
-Test profiles against fixed scenarios:
-
-```text
-simple factual question
-casual conversation
-technical explanation
-writing request
-sensitive personal topic
-tool success
-partial tool failure
-missing source
-conflicting sources
-artifact generation
-coding task
-request for brevity
-request for full analysis
-```
-
-Evaluate:
-
-- correctness,
-- instruction adherence,
-- naturalness,
-- recognizability,
-- overexpression,
-- preservation of artifact tone,
-- truthful action reporting,
-- unnecessary tool use,
-- unnecessary clarifying questions.
-
-Do not test only with “write a paragraph in style X.” That tests costume, not usefulness.
-
----
-
-## 22. Example: everyday Polish
-
-```yaml
-schemaVersion: "0.1"
-id: everyday-pl
-locale: pl-PL
-
-style:
-  base: friendly
-  intensity: 1
-  modifiers:
-    honest: 2
-    concise: 1
-    warm: 1
-    whimsical: 1
-    headingsAndLists: 1
-    emoji: 0
-
-adaptation:
-  followUserRegister: true
-  preserveRequestedArtifactStyle: true
-  reduceHumorInSeriousContexts: true
-  plainChatIsDefault: true
-  respectExplicitTurnInstructions: true
-
-chat:
-  answerFirst: true
-  avoidRoutinePraise: true
-  avoidRoutineFollowUpOffer: true
-  askOnlyBlockingQuestions: true
-  mirrorLanguage: true
-  allowCasualProfanity: true
-
-agent:
-  enabled: true
-  announceOnlyMaterialActions: true
-  reportPartialFailures: true
-  exposePrivateReasoning: false
-  preferResultOverProcess: true
-  toolUsePolicy: runtime
-  subagentPolicy: allowWhenParallelizable
-
-knowledge:
-  distinguishRawFromSynthesis: true
-  treatMemoryAsFallible: true
-  surfaceSourceConflicts: true
-  preferMaintainedSynthesisForOrientation: true
-
-output:
-  defaultFormat: prose
-  maxHeadingDepth: 3
-  preferShortParagraphs: true
-  tables: whenUseful
-  codeExamples: runnable
-  citations: platformDefault
-```
-
----
-
-## 23. Example: professional English
-
-```yaml
-schemaVersion: "0.1"
-id: professional-en
-locale: en-US
-
-style:
-  base: professional
-  intensity: 2
-  modifiers:
-    honest: 2
-    concise: 1
-    critical: 1
-    headingsAndLists: 2
-    emoji: 0
-
-adaptation:
-  followUserRegister: true
-  preserveRequestedArtifactStyle: true
-  reduceHumorInSeriousContexts: true
-  plainChatIsDefault: true
-  respectExplicitTurnInstructions: true
-
-chat:
-  answerFirst: true
-  avoidRoutinePraise: true
-  avoidRoutineFollowUpOffer: true
-  askOnlyBlockingQuestions: true
-  mirrorLanguage: true
-  allowCasualProfanity: false
-
-agent:
-  enabled: true
-  announceOnlyMaterialActions: true
-  reportPartialFailures: true
-  exposePrivateReasoning: false
-  preferResultOverProcess: true
-  toolUsePolicy: runtime
-  subagentPolicy: allowWhenParallelizable
-
-knowledge:
-  distinguishRawFromSynthesis: true
-  treatMemoryAsFallible: true
-  surfaceSourceConflicts: true
-  requireTraceableClaims: true
-
-output:
-  defaultFormat: structured
-  maxHeadingDepth: 3
-  preferShortParagraphs: true
-  tables: whenUseful
-  codeExamples: runnable
-  citations: requiredForExternalFacts
-```
-
----
-
-## 24. First implementation milestone
-
-Create:
-
-```text
-schema/style-profile.schema.json
-profiles/everyday.pl.yaml
-profiles/everyday.en.yaml
-adapters/generic/rendering-rules.md
-adapters/agents-md/AGENTS.template.md
-adapters/github-copilot/copilot-instructions.template.md
-adapters/openai-agents/example.py
-```
-
-Then implement only four outputs:
-
-1. compact Polish custom instructions,
-2. compact English custom instructions,
-3. an `AGENTS.md` fragment,
-4. a GitHub Copilot fragment.
-
-Validate those outputs against a fixed chat and agent test set before adding a full prompt-building framework.
-
-No cathedral yet. First, a sturdy shed with labeled drawers.
-
----
-
-## 25. References
-
-Primary sources used to align this schema with current products and agent mechanisms:
-
-- OpenAI Help Center documentation for ChatGPT Custom Instructions and personalities
-- OpenAI Agents SDK documentation for agents, runner lifecycle, tools, handoffs, guardrails, sessions, and tracing
-- OpenAI Codex repository documentation and `AGENTS.md` examples
-- GitHub documentation for repository, path-specific, and agent custom instructions
-
----
-
-## 26. Changelog
-
-### 0.1.0
-
-- defined a portable profile,
-- separated style from runtime policy,
-- added merge and precedence rules,
-- added adapters for ChatGPT, OpenAI Agents SDK, AGENTS.md, GitHub Copilot, and generic prompts,
-- added validation and testing guidance,
-- added Polish and English example profiles.
+The renderer accepts both schema 0.2 and legacy 0.1 profiles. It emits
+communication instructions only. It does not configure tools, permissions,
+network access, sandboxes, or secrets.

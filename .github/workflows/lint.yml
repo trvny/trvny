@@ -1,10 +1,9 @@
-# MegaLinter - code quality across the repo. Report-only (no auto-fix
-# commits); see .github/linters/.mega-linter.yml for what's disabled and why.
+# MegaLinter - code quality and downloadable auto-fixes.
 # https://megalinter.io
 ---
 name: MegaLinter
 
-on:  # yamllint disable-line rule:truthy
+on: # yamllint disable-line rule:truthy
   push:
     branches: [main]
   pull_request: null
@@ -33,6 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: MegaLinter
+        id: megalinter
         uses: oxsecurity/megalinter/flavors/formatters@v9
         env:
           MEGALINTER_CONFIG: .github/linters/.mega-linter.yml
@@ -43,14 +43,14 @@ jobs:
             }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLY_FIXES_EVENT: none
-          APPLY_FIXES_MODE: commit
 
       - name: Archive MegaLinter reports
-        if: success() || failure()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: MegaLinter reports
           include-hidden-files: "true"
+          retention-days: 7
           path: |
             megalinter-reports
             mega-linter.log

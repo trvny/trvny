@@ -7,6 +7,7 @@ function emptyState() {
     version: 1,
     favorites: {},
     hidden: {},
+    edits: {},
     recent: [],
     preferences: {
       provider: "",
@@ -29,8 +30,12 @@ function safeUrl(value) {
 }
 
 export function itemKey(item) {
+  const storedKey = safeText(item?.stateKey, 320);
+  if (storedKey) return storedKey;
   const provider = safeText(item?.providerId || "local", 60) || "local";
-  const identity = safeText(item?.id, 180) || safeUrl(item?.url);
+  const url = safeUrl(item?.url);
+  const id = safeText(item?.id, 180);
+  const identity = id && url ? `${id}|${url}` : url;
   return identity ? `${provider}:${identity}` : "";
 }
 
@@ -38,14 +43,17 @@ export function itemSnapshot(item) {
   const url = safeUrl(item?.url);
   if (!url) return null;
   return {
+    stateKey: safeText(item.stateKey, 320),
     id: safeText(item.id, 180),
     url,
     title: safeText(item.title, 180) || new URL(url).hostname,
     group: safeText(item.group, 120),
+    album: safeText(item.album, 120),
     logo: safeUrl(item.logo),
     country: safeText(item.country, 40),
     language: safeText(item.language, 100),
     radio: Boolean(item.radio),
+    hls: Boolean(item.hls),
     providerId: safeText(item.providerId || "local", 60) || "local",
     providerLabel: safeText(item.providerLabel || "Lokalna", 80) || "Lokalna",
     protocol: safeText(item.protocol, 20),
@@ -55,12 +63,17 @@ export function itemSnapshot(item) {
   };
 }
 
-function normalizeItems(value) {
+function normalizeItems(value, { edits = false } = {}) {
   const result = {};
   if (!value || typeof value !== "object" || Array.isArray(value)) return result;
-  for (const [key, item] of Object.entries(value).slice(0, MAX_ITEMS)) {
-    const snapshot = itemSnapshot(item);
-    if (snapshot && itemKey(snapshot) === key) result[key] = snapshot;
+  for (const [rawKey, item] of Object.entries(value).slice(0, MAX_ITEMS)) {
+    const key = safeText(rawKey, 320);
+    const snapshot = itemSnapshot({ ...item, stateKey: edits ? key : item?.stateKey });
+    if (!key || !snapshot) continue;
+    if (edits || itemKey(snapshot) === key) {
+      snapshot.stateKey = key;
+      result[key] = snapshot;
+    }
   }
   return result;
 }
@@ -70,6 +83,7 @@ export function normalizeState(value) {
   if (!value || typeof value !== "object") return state;
   state.favorites = normalizeItems(value.favorites);
   state.hidden = normalizeItems(value.hidden);
+  state.edits = normalizeItems(value.edits, { edits: true });
 
   if (Array.isArray(value.recent)) {
     const seen = new Set();
@@ -115,6 +129,7 @@ export function createLocalState(storage = globalThis.localStorage) {
     const snapshot = itemSnapshot(item);
     const key = snapshot ? itemKey(snapshot) : "";
     if (!key) return false;
+    snapshot.stateKey = key;
     if (state[bucket][key]) delete state[bucket][key];
     else state[bucket][key] = snapshot;
     save();
@@ -143,6 +158,7 @@ export function createLocalState(storage = globalThis.localStorage) {
       const snapshot = itemSnapshot(item);
       const key = snapshot ? itemKey(snapshot) : "";
       if (!key) return;
+      snapshot.stateKey = key;
       state.recent = [snapshot, ...state.recent.filter((entry) => itemKey(entry) !== key)].slice(0, MAX_RECENT);
       save();
     },
@@ -150,10 +166,35 @@ export function createLocalState(storage = globalThis.localStorage) {
       state.recent = [];
       save();
     },
+    editFor(item) {
+      return state.edits[itemKey(item)] || null;
+    },
+    applyEdit(item) {
+      const key = itemKey(item);
+      const edit = state.edits[key];
+      return edit ? { ...item, ...edit, stateKey: key } : { ...item, stateKey: key };
+    },
+    setEdit(item, changes) {
+      const key = itemKey(item);
+      if (!key) return null;
+      const snapshot = itemSnapshot({ ...item, ...changes, stateKey: key });
+      if (!snapshot) return null;
+      snapshot.stateKey = key;
+      state.edits[key] = snapshot;
+      save();
+      return snapshot;
+    },
+    clearEdit(item) {
+      const key = itemKey(item);
+      if (!key || !state.edits[key]) return false;
+      delete state.edits[key];
+      save();
+      return true;
+    },
     items(view) {
-      if (view === "favorites") return Object.values(state.favorites);
-      if (view === "recent") return state.recent;
-      if (view === "hidden") return Object.values(state.hidden);
+      if (view === "favorites") return Object.values(state.favorites).map((item) => this.applyEdit(item));
+      if (view === "recent") return state.recent.map((item) => this.applyEdit(item));
+      if (view === "hidden") return Object.values(state.hidden).map((item) => this.applyEdit(item));
       return [];
     },
     setPreference(name, value) {

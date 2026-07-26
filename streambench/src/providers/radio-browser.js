@@ -21,6 +21,14 @@ function flagFromCode(code) {
   return [...code].map((letter) => String.fromCodePoint(127397 + letter.charCodeAt(0))).join("");
 }
 
+function hlsPlaybackUrl(rawUrl, hls) {
+  if (!hls || /\.m3u8(?:$|[?#])/i.test(rawUrl)) return rawUrl;
+  const url = new URL(rawUrl);
+  const marker = "streambench-hls=.m3u8";
+  url.hash = url.hash ? `${url.hash.slice(1)}&${marker}` : marker;
+  return url.href;
+}
+
 export function normalizeRadioBrowserCatalog(countryRows, tagRows, locale = "pl") {
   const displayNames = new Intl.DisplayNames([locale], { type: "region" });
   const countries = countryRows
@@ -108,9 +116,10 @@ export function radioBrowserStationsToM3u(rows) {
       `group-title="${m3uAttribute(station.tags ? `Radio · ${station.tags}` : "Radio")}"`,
       station.codec ? `tvg-codec="${m3uAttribute(station.codec)}"` : "",
       station.bitrate ? `tvg-bitrate="${station.bitrate}"` : "",
+      station.hls ? `hls="true"` : "",
       `radio="true"`,
     ].filter(Boolean).join(" ");
-    lines.push(`#EXTINF:-1 ${attributes},${station.name}`, station.url);
+    lines.push(`#EXTINF:-1 ${attributes},${station.name}`, hlsPlaybackUrl(station.url, station.hls));
   }
 
   return { body: `${lines.join("\n")}\n`, count: stations.length };

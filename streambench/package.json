@@ -1,11 +1,11 @@
 {
   "name": "streambench",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Browser-based IPTV, radio and stream tester.",
   "scripts": {
     "build": "node scripts/vendor.mjs",
-    "check": "npm run build && node --check src/index.js && node --check src/providers/free-tv.js && node --check public/app.js && node --check scripts/smoke.mjs && node scripts/free-tv-check.mjs && npx wrangler deploy --dry-run",
+    "check": "npm run build && node --check src/index.js && node --check src/providers/free-tv.js && node --check src/providers/registry.js && node --check public/app.js && node --check scripts/smoke.mjs && node scripts/free-tv-check.mjs && node scripts/provider-registry-check.mjs && npx wrangler deploy --dry-run",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",
     "smoke": "node scripts/smoke.mjs"

@@ -50,6 +50,12 @@ function setProviderStatus(label, state = "idle") {
   ui.providerStatus.dataset.state = state;
 }
 
+function announceChannel(item = {}) {
+  window.dispatchEvent(new CustomEvent("streambench:channel", {
+    detail: { id: item.id || "", title: item.title || "" },
+  }));
+}
+
 function setDiagnosticError(message = "Brak") {
   ui.diagnosticError.textContent = message;
 }
@@ -223,6 +229,7 @@ ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
   activeEntry?.removeAttribute("aria-current");
   activeEntry = null;
+  announceChannel();
 
   const parsed = validRemoteUrl(ui.url.value.trim());
   if (!parsed) {
@@ -271,6 +278,7 @@ function parseM3u(source, {
     if (line.startsWith("#EXTINF:")) {
       const attributes = parseAttributes(line);
       pending = {
+        id: attributes["tvg-id"] || "",
         title: extinfTitle(line) || attributes["tvg-name"] || "",
         group: attributes["group-title"] || "",
         logo: allowArtwork ? validRemoteUrl(attributes["tvg-logo"] || "")?.href || "" : "",
@@ -292,6 +300,7 @@ function parseM3u(source, {
     const title = pending?.title || url.hostname;
     const radio = pending?.radio || false;
     items.push({
+      id: pending?.id || "",
       url: url.href,
       title,
       group: pending?.group || "Bez grupy",
@@ -319,6 +328,7 @@ function itemMeta(item) {
 
 function itemSearch(item) {
   return [
+    item.id,
     item.title,
     itemMeta(item),
     item.providerLabel,
@@ -375,12 +385,14 @@ function entryAction(item) {
     action.rel = "noopener noreferrer";
     action.addEventListener("click", () => {
       activateEntry(action);
+      announceChannel(item);
       selectExternalSource(item.url, item.title);
     });
   } else {
     action.type = "button";
     action.addEventListener("click", () => {
       activateEntry(action);
+      announceChannel(item);
       playStream(item.url, {
         title: item.title,
         radio: item.radio,
@@ -432,6 +444,7 @@ function loadPlaylist(source, label, {
   playlist = parseM3u(source, { allowArtwork, providerId, providerLabel });
   activeEntry?.removeAttribute("aria-current");
   activeEntry = null;
+  announceChannel();
   ui.search.value = "";
   renderPlaylist();
   setStatus(playlist.length ? "Playlista gotowa" : "Pusta playlista", playlist.length ? "idle" : "error");

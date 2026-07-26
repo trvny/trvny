@@ -113,6 +113,7 @@ export function radioBrowserStationsToM3u(rows) {
       station.logo ? `tvg-logo="${m3uAttribute(station.logo)}"` : "",
       station.country ? `tvg-country="${station.country}"` : "",
       station.language ? `tvg-language="${m3uAttribute(station.language)}"` : "",
+      station.tags ? `tvg-tags="${m3uAttribute(station.tags)}"` : "",
       `group-title="${m3uAttribute(station.tags ? `Radio · ${station.tags}` : "Radio")}"`,
       station.codec ? `tvg-codec="${m3uAttribute(station.codec)}"` : "",
       station.bitrate ? `tvg-bitrate="${station.bitrate}"` : "",

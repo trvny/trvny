@@ -1,5 +1,5 @@
 import { FREE_TV_COUNTRIES, filterFreeTvPlaylist } from "./providers/free-tv.js";
-import { providerById, providerManifest } from "./providers/registry.js";
+import { bindProviderHandlers, providerById, providerManifest } from "./providers/registry.js";
 
 const IPTV_ORG_API = "https://iptv-org.github.io/api/";
 const IPTV_ORG_PLAYLISTS = "https://iptv-org.github.io/iptv/";
@@ -186,6 +186,17 @@ async function freeTvPlaylist(url) {
   });
 }
 
+const PROVIDER_HANDLERS = bindProviderHandlers({
+  "free-tv": {
+    catalog: freeTvCatalog,
+    playlist: freeTvPlaylist,
+  },
+  "iptv-org": {
+    catalog: iptvOrgCatalog,
+    playlist: iptvOrgPlaylist,
+  },
+});
+
 function providersResponse() {
   return json(
     { providers: providerManifest() },
@@ -195,15 +206,13 @@ function providersResponse() {
 }
 
 async function catalogResponse(providerId) {
-  if (providerId === "free-tv") return freeTvCatalog();
-  if (providerId === "iptv-org") return iptvOrgCatalog();
-  return json({ error: "unknown_provider" }, 400);
+  const handler = PROVIDER_HANDLERS.get(providerId);
+  return handler ? handler.catalog() : json({ error: "unknown_provider" }, 400);
 }
 
 async function playlistResponse(providerId, url) {
-  if (providerId === "free-tv") return freeTvPlaylist(url);
-  if (providerId === "iptv-org") return iptvOrgPlaylist(url);
-  return json({ error: "unknown_provider" }, 400);
+  const handler = PROVIDER_HANDLERS.get(providerId);
+  return handler ? handler.playlist(url) : json({ error: "unknown_provider" }, 400);
 }
 
 function legacyProviderRoute(pathname) {
@@ -216,14 +225,14 @@ async function providerResponse(url) {
 
   if (url.pathname === "/api/catalog" || url.pathname === "/api/playlist") {
     const providerId = url.searchParams.get("provider") || "";
-    if (!providerById(providerId)) return json({ error: "unknown_provider" }, 400);
+    if (!PROVIDER_HANDLERS.has(providerId)) return json({ error: "unknown_provider" }, 400);
     return url.pathname === "/api/catalog"
       ? catalogResponse(providerId)
       : playlistResponse(providerId, url);
   }
 
   const legacy = legacyProviderRoute(url.pathname);
-  if (!legacy || !providerById(legacy.providerId)) return json({ error: "not_found" }, 404);
+  if (!legacy || !PROVIDER_HANDLERS.has(legacy.providerId)) return json({ error: "not_found" }, 404);
   return legacy.resource === "catalog"
     ? catalogResponse(legacy.providerId)
     : playlistResponse(legacy.providerId, url);

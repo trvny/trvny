@@ -53,6 +53,7 @@ const ui = {
   file: document.querySelector("#playlistFile"),
   text: document.querySelector("#playlistText"),
   parse: document.querySelector("#parsePlaylist"),
+  search: document.querySelector("#playlistSearch"),
   entries: document.querySelector("#playlistEntries"),
   exportButton: document.querySelector("#exportPlaylist"),
   copyButton: document.querySelector("#copyPlaylist"),
@@ -130,19 +131,30 @@ pendingProviderSource = (source, meta) => {
   });
 };
 
-function queueBySourceTitle() {
-  const queues = new Map();
-  for (const base of sourceItems) {
-    const key = String(base.sourceTitle || base.title).trim();
-    const queue = queues.get(key) || [];
-    queue.push(base);
-    queues.set(key, queue);
-  }
-  return queues;
-}
-
 function channelMeta(item) {
   return [item.group, item.country, item.language].filter(Boolean).join(" · ");
+}
+
+function sourceSearch(item) {
+  const classified = classifyChannel(item.url, {
+    title: item.sourceTitle || item.title,
+    radio: item.radio,
+    quality: item.quality,
+  });
+  return [
+    item.id,
+    item.sourceTitle || item.title,
+    channelMeta(item),
+    item.providerLabel,
+    classified.protocol,
+    classified.playback,
+    classified.quality,
+  ].filter(Boolean).join(" ").toLocaleLowerCase("pl");
+}
+
+function visibleSourceItems() {
+  const query = ui.search.value.trim().toLocaleLowerCase("pl");
+  return query ? sourceItems.filter((item) => sourceSearch(item).includes(query)) : sourceItems;
 }
 
 function updateRowVisuals(row, item) {
@@ -177,14 +189,12 @@ function enhanceRows() {
   if (!ui.entries || !observer) return;
   observer.disconnect();
   itemByKey.clear();
-  const queues = queueBySourceTitle();
-  const baseByKey = new Map(sourceItems.map((entry) => [itemKey(entry), entry]));
+  const rows = [...ui.entries.querySelectorAll(".playlist-entry")];
+  const visibleItems = visibleSourceItems();
 
-  for (const row of ui.entries.querySelectorAll(".playlist-entry")) {
-    const existingKey = row.dataset.workspaceKey || "";
-    const originalTitle = row.querySelector(".channel-name")?.textContent?.trim() || "";
-    const base = (existingKey ? baseByKey.get(existingKey) : null)
-      || queues.get(originalTitle)?.shift();
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    const base = visibleItems[index];
     if (!base) continue;
     const item = effectiveItem(base);
     const key = itemKey(item);

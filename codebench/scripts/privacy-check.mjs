@@ -55,6 +55,10 @@ for (const [label, pattern] of [
   ["password autocomplete isolation", /new-password/],
   ["spellcheck disabled", /spellcheck\s*=\s*false/],
   ["password cleared on page exit", /pagehide/],
+  ["QR object cleanup", /qr\s*=\s*null/],
+  ["print cache cleanup", /_printSVG\s*=\s*null/],
+  ["rendered output cleanup", /qrHost"\)\?\.replaceChildren\(\)/],
+  ["back-forward cache refresh", /pageshow/],
   ["QR disclosure", /Anyone who can scan the QR can read this password/],
 ]) {
   if (!pattern.test(guard)) failures.push(`privacy guard is missing ${label}`);

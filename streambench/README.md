@@ -8,6 +8,8 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 - HLS playback through a locally vendored `hls.js`,
 - local M3U/M3U8 file and text import,
 - playlist filtering and entry selection,
+- channel labels for provider, protocol, playback type and quality,
+- external video pages opened outside the media player,
 - shared provider manifest and generic catalog routes,
 - Free-TV Lite country playlists,
 - iptv-org country and category catalogs,
@@ -19,6 +21,10 @@ Stream media is never proxied by Streambench.
 
 Free-TV Lite keeps HTTPS direct-media entries, excludes marked GeoIP streams
 and removes duplicates. Poland is selected by default.
+
+Known YouTube, Twitch and Vimeo pages are marked as external links instead of
+being passed to the native media player. Unknown URLs remain neutral stream
+candidates rather than being rejected based only on their file extension.
 
 This version has no persistence, EPG or general-purpose remote playlist
 import.

@@ -108,8 +108,8 @@
           <button id="parsePlaylist" type="button" class="secondary">Wczytaj tekst</button>
         </details>
 
-        <label class="search-label" for="playlistSearch">Filtruj po nazwie, grupie, kraju lub języku</label>
-        <input id="playlistSearch" type="search" autocomplete="off" placeholder="np. sport, Polska, English" disabled>
+        <label class="search-label" for="playlistSearch">Filtruj po nazwie, metadanych lub oznaczeniach</label>
+        <input id="playlistSearch" type="search" autocomplete="off" placeholder="np. HLS, HD, Polska, HTTPS" disabled>
 
         <div id="playlistEmpty" class="playlist-empty">
           <p>Jeszcze pusto. Wczytaj katalog albo wrzuć własną playlistę.</p>
@@ -120,11 +120,11 @@
   </main>
 
   <footer>
-    <span>Streambench 0.4</span>
+    <span>Streambench 0.5</span>
     <span>Publiczne katalogi pobiera Worker; własne playlisty nie opuszczają urządzenia.</span>
   </footer>
 
   <script src="/vendor/hls.min.js"></script>
-  <script src="/app.js"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

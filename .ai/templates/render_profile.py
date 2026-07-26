@@ -337,14 +337,15 @@ def render(profile: dict[str, Any], language: str) -> str:
         )
 
     lines.extend(["", f"{collaboration_title}:"])
-    for field in (
-        "preamble",
-        "initiative",
-        "verification",
-        "questionPolicy",
-        "assumptionPolicy",
-    ):
-        value = collaboration.get(field)
+    collaboration_defaults = {
+        "preamble": "multiStepOnly",
+        "initiative": "balanced",
+        "verification": "normal",
+        "questionPolicy": "blockingOnly",
+        "assumptionPolicy": "balanced",
+    }
+    for field in collaboration_defaults:
+        value = collaboration.get(field, collaboration_defaults[field])
         choices = COLLABORATION_TEXT[language][field]
         if value not in choices:
             raise SystemExit(
@@ -354,7 +355,10 @@ def render(profile: dict[str, Any], language: str) -> str:
         lines.append(f"- {choices[value]}")
 
     for field, text in BOOLEAN_TEXT[language].items():
-        if collaboration.get(field, False):
+        value = collaboration.get(field, True)
+        if not isinstance(value, bool):
+            raise SystemExit(f"collaboration.{field} must be a boolean")
+        if value:
             lines.append(f"- {text}")
 
     lines.extend(

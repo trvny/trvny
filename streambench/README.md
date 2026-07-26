@@ -35,8 +35,30 @@ npm run dev
 npm run check
 ```
 
-## Deployment
+## Deploy via Cloudflare Workers Builds
+
+This project lives in the `trvny/trvny` monorepo under `streambench/`.
+
+1. In Cloudflare Workers & Pages create a Worker by importing `trvny/trvny`.
+2. Set the Worker name to `streambench` and root directory to `streambench`.
+3. Use `npm run build` as the build command.
+4. Use `npx wrangler deploy` as the deploy command.
+5. Set the build watch path to `streambench/*`.
+
+A local authenticated deployment uses:
 
 ```sh
 npm run deploy
 ```
+
+## Production smoke test
+
+After deployment run:
+
+```sh
+npm run smoke -- https://streambench.example.workers.dev
+```
+
+The manual `Smoke streambench` GitHub workflow runs the same checks after
+receiving the deployed HTTPS URL. It verifies health, both provider catalogs and
+the Polish Free-TV Lite playlist.

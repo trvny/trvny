@@ -151,6 +151,14 @@ BOOLEAN_TEXT: dict[str, dict[str, str]] = {
     },
 }
 
+ADAPTATION_DEFAULTS: dict[str, bool] = {
+    "followUserRegister": True,
+    "preserveRequestedArtifactStyle": True,
+    "reduceHumorInSeriousContexts": True,
+    "mirrorLanguage": True,
+    "allowCasualProfanity": False,
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -186,6 +194,15 @@ def intensity(value: Any, field: str) -> int:
         return 0
     if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 3:
         raise SystemExit(f"{field} must be an integer from 0 to 3")
+    return value
+
+
+def boolean_value(
+    values: dict[str, Any], field: str, default: bool, namespace: str
+) -> bool:
+    value = values.get(field, default)
+    if not isinstance(value, bool):
+        raise SystemExit(f"{namespace}.{field} must be a boolean")
     return value
 
 
@@ -274,6 +291,11 @@ def render(profile: dict[str, Any], language: str) -> str:
     if not isinstance(adaptation, dict):
         raise SystemExit("personality.adaptation must be a mapping")
 
+    adaptation_values = {
+        field: boolean_value(adaptation, field, default, "personality.adaptation")
+        for field, default in ADAPTATION_DEFAULTS.items()
+    }
+
     title = "Profil komunikacji" if language == "pl" else "Communication profile"
     personality_title = "Osobowość" if language == "pl" else "Personality"
     collaboration_title = "Współpraca" if language == "pl" else "Collaboration"
@@ -305,31 +327,31 @@ def render(profile: dict[str, Any], language: str) -> str:
     for name, _level in sorted(active, key=lambda item: (-item[1], item[0])):
         lines.append(f"- {MODIFIER_TEXT[language][name]}")
 
-    if adaptation.get("followUserRegister", False):
+    if adaptation_values["followUserRegister"]:
         lines.append(
             "- Dopasuj rejestr do użytkownika bez kopiowania błędów ani agresji."
             if language == "pl"
             else "- Match the user's register without copying mistakes or aggression."
         )
-    if adaptation.get("preserveRequestedArtifactStyle", False):
+    if adaptation_values["preserveRequestedArtifactStyle"]:
         lines.append(
             "- Styl zamawianego artefaktu ma pierwszeństwo przed osobowością rozmowy."
             if language == "pl"
             else "- The requested artifact style outranks conversational personality."
         )
-    if adaptation.get("reduceHumorInSeriousContexts", False):
+    if adaptation_values["reduceHumorInSeriousContexts"]:
         lines.append(
             "- Ogranicz humor w kontekstach poważnych, ryzykownych lub wrażliwych."
             if language == "pl"
             else "- Reduce humor in serious, risky, or sensitive contexts."
         )
-    if adaptation.get("mirrorLanguage", False):
+    if adaptation_values["mirrorLanguage"]:
         lines.append(
             "- Odpowiadaj w języku użytkownika, chyba że poprosi inaczej."
             if language == "pl"
             else "- Reply in the user's language unless asked otherwise."
         )
-    if adaptation.get("allowCasualProfanity", False):
+    if adaptation_values["allowCasualProfanity"]:
         lines.append(
             "- W luźnym czacie dopuszczalne są naturalne, łagodne przekleństwa; nie przenoś ich automatycznie do formalnych artefaktów."
             if language == "pl"
@@ -344,8 +366,8 @@ def render(profile: dict[str, Any], language: str) -> str:
         "questionPolicy": "blockingOnly",
         "assumptionPolicy": "balanced",
     }
-    for field in collaboration_defaults:
-        value = collaboration.get(field, collaboration_defaults[field])
+    for field, default in collaboration_defaults.items():
+        value = collaboration.get(field, default)
         choices = COLLABORATION_TEXT[language][field]
         if value not in choices:
             raise SystemExit(
@@ -355,10 +377,7 @@ def render(profile: dict[str, Any], language: str) -> str:
         lines.append(f"- {choices[value]}")
 
     for field, text in BOOLEAN_TEXT[language].items():
-        value = collaboration.get(field, True)
-        if not isinstance(value, bool):
-            raise SystemExit(f"collaboration.{field} must be a boolean")
-        if value:
+        if boolean_value(collaboration, field, True, "collaboration"):
             lines.append(f"- {text}")
 
     lines.extend(

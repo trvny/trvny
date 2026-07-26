@@ -1,0 +1,18 @@
+{
+  "name": "streambench",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Browser-based IPTV, radio and stream tester.",
+  "scripts": {
+    "build": "node scripts/vendor.mjs",
+    "check": "npm run build && node --check src/index.js && node --check public/app.js && npx wrangler deploy --dry-run",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "hls.js": "1.6.16"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

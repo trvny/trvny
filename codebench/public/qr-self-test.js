@@ -46,6 +46,7 @@
 
   let testing = false;
   let testedSignature = "";
+  let renderGeneration = 0;
 
   function setStatus(state, title, detail) {
     status.dataset.state = state;
@@ -88,10 +89,9 @@
     const scale = Math.min(2, Math.max(0.5, 1200 / largestSide));
     const width = Math.max(1, Math.round(sourceWidth * scale));
     const height = Math.max(1, Math.round(sourceHeight * scale));
-    const padding = Math.max(24, Math.round(Math.max(width, height) * 0.04));
     const canvas = document.createElement("canvas");
-    canvas.width = width + padding * 2;
-    canvas.height = height + padding * 2;
+    canvas.width = width;
+    canvas.height = height;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     context.fillStyle = background;
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -104,7 +104,7 @@
         image.onerror = () => reject(new Error("Could not rasterize the QR."));
         image.src = url;
       });
-      context.drawImage(image, padding, padding, width, height);
+      context.drawImage(image, 0, 0, width, height);
       return context.getImageData(0, 0, canvas.width, canvas.height);
     } finally {
       URL.revokeObjectURL(url);
@@ -152,6 +152,11 @@
     }
   }
 
+  function markTestStale(detail = "The QR changed since the last test.") {
+    testedSignature = "";
+    setStatus("idle", "Not tested", detail);
+  }
+
   async function runTest() {
     if (testing) return;
     testing = true;
@@ -160,10 +165,20 @@
 
     try {
       await prepareDecoder();
+      const generation = renderGeneration;
       const svg = await currentRenderedSVG();
       const expected = typeof window.buildContent === "function" ? (window.buildContent() || " ") : "";
+      if (generation !== renderGeneration) {
+        markTestStale("The QR changed during the test.");
+        return;
+      }
+
       const signature = currentSignature(svg, expected);
       const result = await decode(svg);
+      if (generation !== renderGeneration) {
+        markTestStale("The QR changed during the test.");
+        return;
+      }
 
       if (!result) {
         testedSignature = signature;
@@ -197,9 +212,9 @@
   }
 
   function markChanged() {
+    renderGeneration += 1;
     if (testing || !testedSignature) return;
-    testedSignature = "";
-    setStatus("idle", "Not tested", "The QR changed since the last test.");
+    markTestStale();
   }
 
   testButton.addEventListener("click", runTest);

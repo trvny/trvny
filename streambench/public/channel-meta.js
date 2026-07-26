@@ -8,6 +8,7 @@ const EXTERNAL_HOSTS = new Set([
   "player.twitch.tv",
   "vimeo.com",
   "www.vimeo.com",
+  "player.vimeo.com",
 ]);
 
 const AUDIO_PATTERN = /\.(mp3|aac|m4a|ogg|opus|flac)(?:$|[?#])/i;

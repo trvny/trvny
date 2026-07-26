@@ -1,4 +1,4 @@
-"use strict";
+import { classifyChannel } from "./channel-meta.js";
 
 const ui = {
   form: document.querySelector("#streamForm"),
@@ -31,7 +31,7 @@ const providers = new Map();
 const providerCatalogs = new Map();
 let providerRequest = null;
 let hls = null;
-let activeButton = null;
+let activeEntry = null;
 
 function setStatus(label, state = "idle") {
   ui.status.textContent = label;
@@ -86,6 +86,22 @@ function stopPlayback() {
 function playbackError(message) {
   setStatus("Błąd", "error");
   ui.hint.textContent = message;
+}
+
+function selectExternalSource(rawUrl, title = "") {
+  const parsed = validRemoteUrl(rawUrl.trim());
+  if (!parsed) {
+    playbackError("Adres musi używać protokołu HTTP albo HTTPS.");
+    return null;
+  }
+
+  stopPlayback();
+  delete ui.shell.dataset.mode;
+  ui.url.value = parsed.href;
+  ui.title.textContent = title || parsed.hostname;
+  setStatus("Link zewnętrzny");
+  ui.hint.textContent = "To źródło jest stroną zewnętrzną, więc otwieram je poza odtwarzaczem.";
+  return parsed;
 }
 
 function playStream(rawUrl, options = {}) {
@@ -146,9 +162,21 @@ for (const media of [ui.video, ui.audio]) {
 
 ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
-  activeButton?.removeAttribute("aria-current");
-  activeButton = null;
-  playStream(ui.url.value);
+  activeEntry?.removeAttribute("aria-current");
+  activeEntry = null;
+
+  const parsed = validRemoteUrl(ui.url.value.trim());
+  if (!parsed) {
+    playbackError("Adres musi używać protokołu HTTP albo HTTPS.");
+    return;
+  }
+
+  if (classifyChannel(parsed.href).external) {
+    const selected = selectExternalSource(parsed.href);
+    if (selected) window.open(selected.href, "_blank", "noopener,noreferrer");
+    return;
+  }
+  playStream(parsed.href);
 });
 
 function parseAttributes(line) {
@@ -169,7 +197,11 @@ function extinfTitle(line) {
   return "";
 }
 
-function parseM3u(source, { allowArtwork = false } = {}) {
+function parseM3u(source, {
+  allowArtwork = false,
+  providerId = "local",
+  providerLabel = "Lokalna",
+} = {}) {
   const items = [];
   let pending = null;
 
@@ -185,6 +217,7 @@ function parseM3u(source, { allowArtwork = false } = {}) {
         logo: allowArtwork ? validRemoteUrl(attributes["tvg-logo"] || "")?.href || "" : "",
         country: attributes["tvg-country"] || "",
         language: attributes["tvg-language"] || "",
+        quality: attributes["tvg-quality"] || attributes.quality || attributes.resolution || "",
         radio: attributes.radio === "true" || attributes.type === "radio",
       };
       continue;
@@ -197,14 +230,23 @@ function parseM3u(source, { allowArtwork = false } = {}) {
       continue;
     }
 
+    const title = pending?.title || url.hostname;
+    const radio = pending?.radio || false;
     items.push({
       url: url.href,
-      title: pending?.title || url.hostname,
+      title,
       group: pending?.group || "Bez grupy",
       logo: pending?.logo || "",
       country: pending?.country || "",
       language: pending?.language || "",
-      radio: pending?.radio || false,
+      radio,
+      providerId,
+      providerLabel,
+      ...classifyChannel(url.href, {
+        title,
+        radio,
+        quality: pending?.quality || "",
+      }),
     });
     pending = null;
   }
@@ -216,10 +258,21 @@ function itemMeta(item) {
   return [item.group, item.country, item.language].filter(Boolean).join(" · ");
 }
 
+function itemSearch(item) {
+  return [
+    item.title,
+    itemMeta(item),
+    item.providerLabel,
+    item.protocol,
+    item.playback,
+    item.quality,
+  ].filter(Boolean).join(" ").toLocaleLowerCase("pl");
+}
+
 function channelArtwork(item) {
   const fallback = document.createElement("span");
   fallback.className = "channel-fallback";
-  fallback.textContent = item.radio ? "♫" : "▶";
+  fallback.textContent = item.external ? "↗" : item.radio ? "♫" : "▶";
 
   if (!item.logo) return fallback;
 
@@ -233,13 +286,45 @@ function channelArtwork(item) {
   return logo;
 }
 
-function entryButton(item) {
-  const row = document.createElement("li");
-  row.className = "playlist-entry";
+function channelBadges(item) {
+  const container = document.createElement("span");
+  container.className = "channel-badges";
 
-  const button = document.createElement("button");
-  button.type = "button";
-  button.dataset.search = `${item.title} ${itemMeta(item)}`.toLocaleLowerCase("pl");
+  for (const label of [item.providerLabel, item.protocol, item.playback, item.quality].filter(Boolean)) {
+    const badge = document.createElement("span");
+    badge.className = "channel-badge";
+    badge.textContent = label;
+    container.append(badge);
+  }
+  return container;
+}
+
+function activateEntry(action) {
+  activeEntry?.removeAttribute("aria-current");
+  activeEntry = action;
+  action.setAttribute("aria-current", "true");
+}
+
+function entryAction(item) {
+  const action = document.createElement(item.external ? "a" : "button");
+  action.className = "entry-action";
+  action.dataset.search = itemSearch(item);
+
+  if (item.external) {
+    action.href = item.url;
+    action.target = "_blank";
+    action.rel = "noopener noreferrer";
+    action.addEventListener("click", () => {
+      activateEntry(action);
+      selectExternalSource(item.url, item.title);
+    });
+  } else {
+    action.type = "button";
+    action.addEventListener("click", () => {
+      activateEntry(action);
+      playStream(item.url, { title: item.title, radio: item.radio });
+    });
+  }
 
   const copy = document.createElement("span");
   copy.className = "channel-copy";
@@ -249,27 +334,25 @@ function entryButton(item) {
   const meta = document.createElement("span");
   meta.className = "channel-meta";
   meta.textContent = itemMeta(item);
-  copy.append(name, meta);
-  button.append(channelArtwork(item), copy);
+  copy.append(name, channelBadges(item), meta);
+  action.append(channelArtwork(item), copy);
+  return action;
+}
 
-  button.addEventListener("click", () => {
-    activeButton?.removeAttribute("aria-current");
-    activeButton = button;
-    button.setAttribute("aria-current", "true");
-    playStream(item.url, { title: item.title, radio: item.radio });
-  });
-
-  row.append(button);
+function entryRow(item) {
+  const row = document.createElement("li");
+  row.className = "playlist-entry";
+  row.append(entryAction(item));
   return row;
 }
 
 function renderPlaylist() {
   const query = ui.search.value.trim().toLocaleLowerCase("pl");
   const visible = query
-    ? playlist.filter((item) => `${item.title} ${itemMeta(item)}`.toLocaleLowerCase("pl").includes(query))
+    ? playlist.filter((item) => itemSearch(item).includes(query))
     : playlist;
 
-  ui.entries.replaceChildren(...visible.map(entryButton));
+  ui.entries.replaceChildren(...visible.map(entryRow));
   ui.empty.hidden = playlist.length > 0;
   ui.search.disabled = playlist.length === 0;
   ui.count.textContent = query ? `${visible.length}/${playlist.length}` : String(playlist.length);
@@ -279,11 +362,13 @@ function loadPlaylist(source, label, {
   allowArtwork = false,
   cancelProvider = true,
   local = true,
+  providerId = "local",
+  providerLabel = "Lokalna",
 } = {}) {
   if (cancelProvider) cancelProviderRequest();
-  playlist = parseM3u(source, { allowArtwork });
-  activeButton?.removeAttribute("aria-current");
-  activeButton = null;
+  playlist = parseM3u(source, { allowArtwork, providerId, providerLabel });
+  activeEntry?.removeAttribute("aria-current");
+  activeEntry = null;
   ui.search.value = "";
   renderPlaylist();
   setStatus(playlist.length ? "Playlista gotowa" : "Pusta playlista", playlist.length ? "idle" : "error");
@@ -444,6 +529,8 @@ async function loadProviderPlaylist() {
       allowArtwork: true,
       cancelProvider: false,
       local: false,
+      providerId: provider.id,
+      providerLabel: provider.label,
     });
     const sourceCount = Number(response.headers.get("x-streambench-source-count") || 0);
     const label = count && sourceCount

@@ -29,6 +29,10 @@ function hlsPlaybackUrl(rawUrl, hls) {
   return url.href;
 }
 
+function technicalLabel(station) {
+  return [station.codec, station.bitrate ? `${station.bitrate} kb/s` : ""].filter(Boolean).join(" · ");
+}
+
 export function normalizeRadioBrowserCatalog(countryRows, tagRows, locale = "pl") {
   const displayNames = new Intl.DisplayNames([locale], { type: "region" });
   const countries = countryRows
@@ -107,15 +111,18 @@ export function radioBrowserStationsToM3u(rows) {
 
   const lines = ["#EXTM3U"];
   for (const station of stations) {
+    const quality = technicalLabel(station);
     const attributes = [
       `tvg-id="${m3uAttribute(station.id)}"`,
       `tvg-name="${m3uAttribute(station.name)}"`,
       station.logo ? `tvg-logo="${m3uAttribute(station.logo)}"` : "",
       station.country ? `tvg-country="${station.country}"` : "",
       station.language ? `tvg-language="${m3uAttribute(station.language)}"` : "",
+      station.tags ? `tvg-tags="${m3uAttribute(station.tags)}"` : "",
       `group-title="${m3uAttribute(station.tags ? `Radio · ${station.tags}` : "Radio")}"`,
       station.codec ? `tvg-codec="${m3uAttribute(station.codec)}"` : "",
       station.bitrate ? `tvg-bitrate="${station.bitrate}"` : "",
+      quality ? `tvg-quality="${m3uAttribute(quality)}"` : "",
       station.hls ? `hls="true"` : "",
       `radio="true"`,
     ].filter(Boolean).join(" ");

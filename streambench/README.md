@@ -8,6 +8,9 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 - HLS playback through a locally vendored `hls.js`,
 - local M3U/M3U8 file and text import,
 - local XMLTV file and text import with now/next programme display,
+- local favorites, recent items, hidden entries and remembered preferences,
+- non-destructive playlist entry editing,
+- M3U export and clipboard copy with exact-URL deduplication,
 - playlist filtering and entry selection,
 - channel labels for provider, protocol, playback type and quality,
 - browser-side stream diagnostics without a diagnostic proxy,
@@ -21,6 +24,16 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 User-provided playlists and XMLTV guides are parsed locally in the browser.
 Public provider data and selected playlists are fetched through fixed,
 allowlisted Worker endpoints. Stream media is never proxied by Streambench.
+
+The local library is stored in versioned `localStorage`. It contains favorites,
+up to 20 recent entries, hidden entries, local edits and provider/player
+preferences. No playlist, edit, guide or library state is uploaded.
+
+Playlist edits are overlays and do not modify the original file. Export writes a
+new M3U8 file or copies it to the clipboard. It preserves common M3U attributes,
+`#EXTALB`, per-entry directives such as `#EXTVLCOPT`, MPD URLs and bare stream
+URLs. Optional deduplication removes only identical URLs, so alternate streams
+with the same channel name remain available. Hidden entries are omitted.
 
 Free-TV Lite keeps HTTPS direct-media entries, excludes marked GeoIP streams
 and removes duplicates. Poland is selected by default.
@@ -41,8 +54,7 @@ The diagnostics panel reports URL classification, mixed-content risk, media
 element state and HLS manifest data observed by `hls.js`. Query values are
 masked in the panel. It does not send arbitrary stream URLs through the Worker.
 
-This version has no persistent user state or general-purpose remote playlist
-import.
+This version has no general-purpose remote playlist import.
 
 ## Provider API
 

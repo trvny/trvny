@@ -33,7 +33,7 @@ const SCHEMA = JSON.stringify({
   operatingSystem: "Any",
   browserRequirements: "Requires a modern browser; camera scanning requires HTTPS.",
   description: DESCRIPTION,
-  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
   featureList: [
     "QR code generator",
     "QR and barcode scanner",
@@ -76,7 +76,7 @@ class InjectHead {
 class InjectBody {
   element(element) {
     element.append(
-      '<script src="/hardening.js"></script><script src="/logo-compat.js"></script><script src="/module-shapes.js"></script><script src="/style-picker.js"></script><script src="/frame-presets.js"></script><script src="/qr-self-test.js"></script><script src="/scanner-compat.js"></script>',
+      '<script src="/hardening.js"></script><script src="/privacy-guard.js"></script><script src="/logo-compat.js"></script><script src="/module-shapes.js"></script><script src="/style-picker.js"></script><script src="/frame-presets.js"></script><script src="/qr-self-test.js"></script><script src="/scanner-compat.js"></script>',
       { html: true },
     );
   }

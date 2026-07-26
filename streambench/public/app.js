@@ -131,6 +131,16 @@ function parseAttributes(line) {
   return attributes;
 }
 
+function extinfTitle(line) {
+  let quoted = false;
+  for (let index = "#EXTINF:".length; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"' && line[index - 1] !== "\\") quoted = !quoted;
+    if (character === "," && !quoted) return line.slice(index + 1).trim();
+  }
+  return "";
+}
+
 function parseM3u(source) {
   const items = [];
   let pending = null;
@@ -140,10 +150,9 @@ function parseM3u(source) {
     if (!line) continue;
 
     if (line.startsWith("#EXTINF:")) {
-      const comma = line.lastIndexOf(",");
       const attributes = parseAttributes(line);
       pending = {
-        title: (comma >= 0 ? line.slice(comma + 1) : attributes["tvg-name"] || "").trim(),
+        title: extinfTitle(line) || attributes["tvg-name"] || "",
         group: attributes["group-title"] || "",
         radio: attributes.radio === "true" || attributes.type === "radio",
       };

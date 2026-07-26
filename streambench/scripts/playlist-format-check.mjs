@@ -18,7 +18,7 @@ https://example.com/raw.mp3
 const items = parseM3uWorkspace(source, { providerId: "local", providerLabel: "Lokalna", defaultRadio: true });
 assert(items.length === 4, "playlist entries were not parsed");
 assert(items[0].id === "tv.one" && items[0].url.endsWith("live.mpd"), "IPTV metadata mismatch");
-assert(items[1].album === "BBC" && items[1].group === "BBC", "EXTALB was not preserved");
+assert(items[1].album === "BBC" && items[1].group === "Bez grupy", "EXTALB was not preserved independently");
 assert(items[2].radio && items[2].title === "example.com", "bare radio URL mismatch");
 assert(dedupePlaylist(items).length === 3, "exact URL deduplication failed");
 

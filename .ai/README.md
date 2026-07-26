@@ -21,12 +21,27 @@ Provider files should refer to the shared contract instead of copying it.
 .ai/
 ├── profile.yaml              primary Polish personal profile
 ├── profiles/                 additional portable profiles
-├── schema/                   schema and schema documentation
-├── templates/                small starter files and renderer
+├── schema/                   profile schema and documentation
+├── templates/                small starter files and task templates
 ├── styles/                   long-form style specifications
 ├── instructions/             paste-ready instruction libraries
 └── backups/                  archival copies, not active configuration
 ```
+
+## LLM style model
+
+Schema 0.2 separates:
+
+- `personality`: voice, tone, humor, warmth, directness, register adaptation,
+  and artifact-style handling;
+- `collaboration`: questions, assumptions, initiative, verification, preambles,
+  progress updates, and result reporting.
+
+Tool permissions, model selection, routing, sandboxing, approvals, retries, and
+external side effects remain runtime policy. A friendly voice cannot authorize
+a deployment, and a strict verification preference cannot create web access.
+
+The schema and renderer keep read compatibility with archived 0.1 profiles.
 
 ## Canonical documentation names
 
@@ -43,24 +58,29 @@ Polish editions use the `-pl.md` suffix.
 
 ## Profiles
 
-Profiles describe communication behavior. They do not grant permissions or
-control tools, network access, sandboxing, deployment, or secret handling.
-
 Validate profiles against:
 
 ```text
 .ai/schema/style-profile.schema.json
 ```
 
-Vendor-specific metadata belongs under the `extensions` namespace so the core
-profile remains portable.
+Vendor-specific metadata belongs under `extensions` so the core profile remains
+portable.
+
+Render a profile:
+
+```bash
+python -m pip install pyyaml
+python .ai/templates/render_profile.py .ai/profile.yaml
+```
 
 ## Templates
 
 The templates are intentionally small:
 
 - `openai-agent.py` starts with one agent and no tools,
-- `render_profile.py` renders a compact instruction block,
+- `render_profile.py` renders a compact communication and collaboration block,
+- `outcome-task.md` provides a reusable outcome-first brief for complex tasks,
 - `wrangler.jsonc` requires project-specific values before use,
 - `.dev.vars.example` contains variable names only.
 
@@ -86,6 +106,8 @@ Example files may contain only names and inert placeholders.
 - Prefer one source of truth per concern.
 - Keep generated output separate from maintained files.
 - Keep provider adapters thin.
+- Use absolute language only for genuine invariants.
+- Encode judgment calls as decision rules rather than ceremonial step lists.
 - Use tools only for access, freshness, verification, or execution.
 - Add subagents only when work genuinely separates.
 - Preserve raw sources separately from synthesized notes or wiki content.

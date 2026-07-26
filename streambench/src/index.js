@@ -1,5 +1,8 @@
+import { FREE_TV_COUNTRIES, filterFreeTvPlaylist } from "./providers/free-tv.js";
+
 const IPTV_ORG_API = "https://iptv-org.github.io/api/";
 const IPTV_ORG_PLAYLISTS = "https://iptv-org.github.io/iptv/";
+const FREE_TV_PLAYLIST = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8";
 const MAX_PLAYLIST_BYTES = 5_000_000;
 
 const SECURITY_HEADERS = {
@@ -43,6 +46,26 @@ function withSecurityHeaders(response) {
     statusText: response.statusText,
     headers,
   });
+}
+
+async function readPlaylist(response) {
+  if (!response.ok) return { error: json({ error: "provider_playlist_unavailable" }, 502) };
+
+  const declaredLength = Number(response.headers.get("content-length") || 0);
+  if (declaredLength > MAX_PLAYLIST_BYTES) {
+    return { error: json({ error: "provider_playlist_too_large" }, 413) };
+  }
+
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength > MAX_PLAYLIST_BYTES) {
+    return { error: json({ error: "provider_playlist_too_large" }, 413) };
+  }
+
+  const body = new TextDecoder().decode(bytes);
+  if (!body.trimStart().startsWith("#EXTM3U")) {
+    return { error: json({ error: "invalid_provider_playlist" }, 502) };
+  }
+  return { body };
 }
 
 async function fetchIptvOrg(path, accept) {
@@ -108,35 +131,66 @@ async function iptvOrgPlaylist(url) {
   const path = iptvOrgPlaylistPath(url);
   if (!path) return json({ error: "invalid_provider_selection" }, 400);
 
-  const response = await fetch(new URL(path, IPTV_ORG_PLAYLISTS), {
+  const source = await readPlaylist(await fetch(new URL(path, IPTV_ORG_PLAYLISTS), {
     headers: { accept: "audio/x-mpegurl,text/plain" },
     redirect: "follow",
     signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) return json({ error: "provider_playlist_unavailable" }, 502);
+  }));
+  if (source.error) return source.error;
 
-  const declaredLength = Number(response.headers.get("content-length") || 0);
-  if (declaredLength > MAX_PLAYLIST_BYTES) {
-    return json({ error: "provider_playlist_too_large" }, 413);
-  }
-
-  const bytes = await response.arrayBuffer();
-  if (bytes.byteLength > MAX_PLAYLIST_BYTES) {
-    return json({ error: "provider_playlist_too_large" }, 413);
-  }
-
-  const body = new TextDecoder().decode(bytes);
-  if (!body.trimStart().startsWith("#EXTM3U")) {
-    return json({ error: "invalid_provider_playlist" }, 502);
-  }
-
-  return new Response(body, {
+  return new Response(source.body, {
     headers: {
       "content-type": "audio/x-mpegurl; charset=utf-8",
       "cache-control": "public, max-age=1800, stale-while-revalidate=21600",
       "x-streambench-source": "iptv-org",
     },
   });
+}
+
+function freeTvCatalog() {
+  return json(
+    {
+      provider: "free-tv",
+      countries: FREE_TV_COUNTRIES,
+      filters: ["https", "direct", "no-geo"],
+    },
+    200,
+    "public, max-age=86400, stale-while-revalidate=604800",
+  );
+}
+
+async function freeTvPlaylist(url) {
+  const type = url.searchParams.get("type");
+  const id = (url.searchParams.get("id") || "").toUpperCase();
+  if (type !== "country" || !FREE_TV_COUNTRIES.some((entry) => entry.code === id)) {
+    return json({ error: "invalid_provider_selection" }, 400);
+  }
+
+  const source = await readPlaylist(await fetch(FREE_TV_PLAYLIST, {
+    headers: { accept: "audio/x-mpegurl,text/plain" },
+    redirect: "follow",
+    signal: AbortSignal.timeout(15_000),
+  }));
+  if (source.error) return source.error;
+
+  const filtered = filterFreeTvPlaylist(source.body, id);
+  return new Response(filtered.body, {
+    headers: {
+      "content-type": "audio/x-mpegurl; charset=utf-8",
+      "cache-control": "public, max-age=1800, stale-while-revalidate=21600",
+      "x-streambench-source": "free-tv",
+      "x-streambench-lite-count": String(filtered.count),
+      "x-streambench-source-count": String(filtered.total),
+    },
+  });
+}
+
+async function providerResponse(url) {
+  if (url.pathname === "/api/providers/iptv-org/catalog") return iptvOrgCatalog();
+  if (url.pathname === "/api/providers/iptv-org/playlist") return iptvOrgPlaylist(url);
+  if (url.pathname === "/api/providers/free-tv/catalog") return freeTvCatalog();
+  if (url.pathname === "/api/providers/free-tv/playlist") return freeTvPlaylist(url);
+  return json({ error: "not_found" }, 404);
 }
 
 export default {
@@ -147,19 +201,13 @@ export default {
       return withSecurityHeaders(json({ status: "ok", service: "streambench" }));
     }
 
-    if (url.pathname.startsWith("/api/providers/iptv-org/")) {
+    if (url.pathname.startsWith("/api/providers/")) {
       if (request.method !== "GET") {
         return withSecurityHeaders(json({ error: "method_not_allowed" }, 405));
       }
 
       try {
-        if (url.pathname === "/api/providers/iptv-org/catalog") {
-          return withSecurityHeaders(await iptvOrgCatalog());
-        }
-        if (url.pathname === "/api/providers/iptv-org/playlist") {
-          return withSecurityHeaders(await iptvOrgPlaylist(url));
-        }
-        return withSecurityHeaders(json({ error: "not_found" }, 404));
+        return withSecurityHeaders(await providerResponse(url));
       } catch {
         return withSecurityHeaders(json({ error: "provider_unavailable" }, 502));
       }

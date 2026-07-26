@@ -15,3 +15,9 @@ Public channel metadata and playlists are provided by the iptv-org project.
 Released under the Unlicense.
 
 Source: https://github.com/iptv-org/iptv
+
+## Free-TV
+
+Curated public playlist data is provided by the Free-TV/IPTV project.
+
+Source: https://github.com/Free-TV/IPTV

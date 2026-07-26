@@ -14,7 +14,7 @@
       <span class="brand-mark" aria-hidden="true">▶</span>
       <span>Streambench</span>
     </a>
-    <span class="privacy-note">Własne playlisty są przetwarzane lokalnie</span>
+    <span class="privacy-note">Własne playlisty i EPG są przetwarzane lokalnie</span>
   </header>
 
   <main>
@@ -72,6 +72,31 @@
             <div><dt>HLS</dt><dd id="diagnosticHls">Nie dotyczy</dd></div>
             <div><dt>Media</dt><dd id="diagnosticMedia">Brak danych odtwarzacza</dd></div>
             <div><dt>Ostatni błąd</dt><dd id="diagnosticError">Brak</dd></div>
+          </dl>
+        </section>
+
+        <section class="epg-panel" aria-labelledby="epgHeading">
+          <div class="diagnostics-heading">
+            <div>
+              <p class="eyebrow">XMLTV</p>
+              <h3 id="epgHeading">Program teraz i następnie</h3>
+            </div>
+            <span id="epgStatus" data-state="idle">Brak EPG</span>
+          </div>
+          <div class="epg-import">
+            <label class="file-button" for="epgFile">
+              <span>Otwórz plik XMLTV</span>
+              <input id="epgFile" type="file" accept=".xml,.xmltv,application/xml,text/xml">
+            </label>
+            <details class="paste-box">
+              <summary>Lub wklej XMLTV</summary>
+              <textarea id="epgText" rows="5" spellcheck="false" placeholder="&lt;tv&gt;&#10;  &lt;programme channel=&quot;channel.id&quot; start=&quot;20260726120000 +0200&quot;&gt;...&#10;&lt;/tv&gt;"></textarea>
+              <button id="loadEpgText" type="button" class="secondary">Wczytaj XMLTV</button>
+            </details>
+          </div>
+          <dl class="epg-grid">
+            <div><dt>Teraz</dt><dd id="epgNow">Wczytaj XMLTV i wybierz kanał</dd></div>
+            <div><dt>Następnie</dt><dd id="epgNext">Brak danych</dd></div>
           </dl>
         </section>
       </div>
@@ -138,11 +163,12 @@
   </main>
 
   <footer>
-    <span>Streambench 0.6</span>
-    <span>Publiczne katalogi pobiera Worker; własne playlisty nie opuszczają urządzenia.</span>
+    <span>Streambench 0.8</span>
+    <span>Publiczne katalogi pobiera Worker; własne M3U i XMLTV nie opuszczają urządzenia.</span>
   </footer>
 
   <script src="/vendor/hls.min.js"></script>
+  <script type="module" src="/epg-ui.js"></script>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

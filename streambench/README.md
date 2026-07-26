@@ -7,6 +7,7 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 - direct HTTP/HTTPS stream playback,
 - HLS playback through a locally vendored `hls.js`,
 - local M3U/M3U8 file and text import,
+- local XMLTV file and text import with now/next programme display,
 - playlist filtering and entry selection,
 - channel labels for provider, protocol, playback type and quality,
 - browser-side stream diagnostics without a diagnostic proxy,
@@ -17,9 +18,9 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 - Radio Browser stations by country and popular tag,
 - Cloudflare Worker static asset delivery with security headers.
 
-User-provided playlists are parsed locally in the browser. Public provider data
-and selected playlists are fetched through fixed, allowlisted Worker endpoints.
-Stream media is never proxied by Streambench.
+User-provided playlists and XMLTV guides are parsed locally in the browser.
+Public provider data and selected playlists are fetched through fixed,
+allowlisted Worker endpoints. Stream media is never proxied by Streambench.
 
 Free-TV Lite keeps HTTPS direct-media entries, excludes marked GeoIP streams
 and removes duplicates. Poland is selected by default.
@@ -27,6 +28,10 @@ and removes duplicates. Poland is selected by default.
 Radio Browser uses its resolved station URLs, keeps currently working HTTPS
 stations and exposes up to 200 results sorted by votes. The Worker talks only to
 the fixed Radio Browser API host with a descriptive User-Agent.
+
+XMLTV programmes are matched to playlist channels through `tvg-id`. The guide
+supports XMLTV timezone offsets and displays the current and next programme for
+the selected channel. No guide URL is fetched by the Worker.
 
 Known YouTube, Twitch and Vimeo pages are marked as external links instead of
 being passed to the native media player. Unknown URLs remain neutral stream
@@ -36,7 +41,7 @@ The diagnostics panel reports URL classification, mixed-content risk, media
 element state and HLS manifest data observed by `hls.js`. Query values are
 masked in the panel. It does not send arbitrary stream URLs through the Worker.
 
-This version has no persistence, EPG or general-purpose remote playlist
+This version has no persistent user state or general-purpose remote playlist
 import.
 
 ## Provider API

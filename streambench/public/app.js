@@ -145,6 +145,7 @@ function playStream(rawUrl, options = {}) {
   const mode = inferMode(url, options.mode || ui.mode.value, options.radio);
   const media = mode === "audio" ? ui.audio : ui.video;
   const isHls = /\.m3u8(?:$|[?#])/i.test(url);
+  const nativeHls = isHls && Boolean(media.canPlayType("application/vnd.apple.mpegurl"));
 
   stopPlayback();
   ui.shell.dataset.mode = mode;
@@ -181,9 +182,12 @@ function playStream(rawUrl, options = {}) {
     return;
   }
 
-  if (isHls && !media.canPlayType("application/vnd.apple.mpegurl")) {
+  if (isHls && !nativeHls) {
     playbackError("Ta przeglądarka nie obsługuje HLS ani Media Source Extensions.");
     return;
+  }
+  if (nativeHls) {
+    ui.diagnosticHls.textContent = "Natywne HLS · szczegóły manifestu niedostępne";
   }
 
   media.src = url;

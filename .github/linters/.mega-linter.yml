@@ -2,7 +2,13 @@
 # Docs: https://megalinter.io/latest/config-file/
 ---
 FLAVOR_SUGGESTIONS: false
+SECURITY_SUGGESTIONS: false
+
+# Apply safe formatter fixes inside the runner and expose only changed sources
+# through a dedicated workflow artifact. Nothing is committed back to branches.
 APPLY_FIXES: all
+UPDATED_SOURCES_REPORTER: true
+UPDATED_SOURCES_REPORTER_DIR: updated_sources
 
 # The checkout does not persist credentials. Point changed-file mode at the
 # already-fetched base branch so MegaLinter does not try to fetch origin/HEAD

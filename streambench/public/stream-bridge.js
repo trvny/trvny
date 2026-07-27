@@ -25,6 +25,8 @@ export function relayTarget(rawUrl, {
 if (typeof document !== "undefined") {
   const form = document.querySelector("#streamForm");
   const input = document.querySelector("#streamUrl");
+  const mode = document.querySelector("#mediaMode");
+  const shell = document.querySelector(".media-shell");
   const hint = document.querySelector("#streamHint");
   const title = document.querySelector("#nowPlaying");
   const entries = document.querySelector("#playlistEntries");
@@ -53,18 +55,24 @@ if (typeof document !== "undefined") {
     if (!action || !form || !input) return;
 
     queueMicrotask(() => {
+      entries?.querySelectorAll('[aria-current="true"]').forEach((entry) => {
+        entry.removeAttribute("aria-current");
+      });
+      action.setAttribute("aria-current", "true");
+
       const original = input.value;
       const relay = browserRelay(original);
       if (!relay) return;
 
       const selectedTitle = title?.textContent || "";
+      const selectedMode = shell?.dataset.mode;
+      const previousMode = mode?.value;
       input.value = relay.href;
+      if (mode && selectedMode) mode.value = selectedMode;
       form.requestSubmit();
       input.value = original;
+      if (mode && previousMode) mode.value = previousMode;
 
-      entries?.querySelectorAll('[aria-current="true"]').forEach((entry) => {
-        entry.removeAttribute("aria-current");
-      });
       action.setAttribute("aria-current", "true");
       if (title && selectedTitle) title.textContent = selectedTitle;
       window.dispatchEvent(new CustomEvent("streambench:channel", {

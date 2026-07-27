@@ -1,4 +1,4 @@
-const DIRECT_MEDIA_PATTERN = /\.(?:m3u8|mp4|webm|mp3|aac|m4a|ogg|opus|flac)(?:$|[?#])/i;
+const DIRECT_MEDIA_PATTERN = /\.(?:m3u8|mp4|webm|mp3|aac|m4a|ogg|opus|flac|php)(?:$|[?#])/i;
 const GEO_MARKER_PATTERN = /[Ⓖⓖ]/u;
 
 export const FREE_TV_COUNTRIES = [

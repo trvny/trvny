@@ -15,7 +15,6 @@
   if (!form || !input || !shell) return;
 
   const M3U_PATTERN = /\.m3u(?:$|[?#])/i;
-  const TVPI_HOST = "tvpi.travny.workers.dev";
   let passThrough = false;
   let sourceGeneration = 0;
   let userEditedInput = false;
@@ -27,18 +26,6 @@
     } catch {
       return null;
     }
-  }
-
-  function isTvpiRedirect(url) {
-    return url.hostname.toLowerCase() === TVPI_HOST && /\.m3u8$/i.test(url.pathname);
-  }
-
-  function nestedPlaylistUrl(url) {
-    if (M3U_PATTERN.test(url.href)) return url;
-    if (!isTvpiRedirect(url)) return null;
-    const nested = new URL(url.href);
-    nested.pathname = nested.pathname.replace(/\.m3u8$/i, ".m3u");
-    return nested;
   }
 
   async function fetchText(url) {
@@ -76,9 +63,7 @@
   }
 
   async function resolveNestedStream(url) {
-    const playlistUrl = nestedPlaylistUrl(url);
-    if (!playlistUrl) return url.href;
-    const source = await fetchText(playlistUrl);
+    const source = await fetchText(url);
     const resolved = firstStreamUrl(source);
     if (!resolved) throw new Error("Playlista nie zawiera adresu streamu.");
     return resolved;
@@ -140,36 +125,22 @@
     if (!topLevelSubmission) return;
 
     const url = remoteUrl(input.value);
-    if (!url) return;
-    const importPlaylist = M3U_PATTERN.test(url.href);
-    const resolveTvpi = isTvpiRedirect(url);
-    if (!importPlaylist && !resolveTvpi) return;
+    if (!url || !M3U_PATTERN.test(url.href)) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
     if (submit) submit.disabled = true;
-    status.textContent = importPlaylist ? "Wczytywanie" : "Rozwiązywanie";
+    status.textContent = "Wczytywanie";
     status.dataset.state = "loading";
-    hint.textContent = importPlaylist
-      ? "Pobieranie zdalnej playlisty M3U."
-      : "Pobieranie aktualnego manifestu z playlisty TVPI.";
+    hint.textContent = "Pobieranie zdalnej playlisty M3U.";
 
     try {
-      if (importPlaylist) {
-        await importRemotePlaylist(url, generation);
-        return;
-      }
-
-      const resolved = await resolveNestedStream(url);
-      if (generation !== sourceGeneration) return;
-      input.value = resolved;
-      passThrough = true;
-      form.requestSubmit();
+      await importRemotePlaylist(url, generation);
     } catch (error) {
       if (generation !== sourceGeneration) return;
       const reason = error instanceof Error ? error.message : String(error);
       setFailure(
-        "Nie udało się pobrać źródła. Serwer może być offline albo blokować CORS.",
+        "Nie udało się pobrać playlisty. Serwer może być offline albo blokować CORS.",
         `Źródło: ${reason}`,
       );
     } finally {
@@ -182,17 +153,17 @@
     if (!event.detail?.title) return;
 
     setTimeout(async () => {
-      const stableUrl = remoteUrl(input.value);
-      if (!stableUrl || (!M3U_PATTERN.test(stableUrl.href) && !isTvpiRedirect(stableUrl))) return;
+      const nestedUrl = remoteUrl(input.value);
+      if (!nestedUrl || !M3U_PATTERN.test(nestedUrl.href)) return;
 
       const originalTitle = nowPlaying?.textContent || event.detail.title;
       const activeEntry = entries?.querySelector('.entry-action[aria-current="true"]');
       status.textContent = "Rozwiązywanie";
       status.dataset.state = "loading";
-      hint.textContent = "Pobieranie aktualnego adresu z zagnieżdżonej playlisty.";
+      hint.textContent = "Pobieranie adresu z zagnieżdżonej playlisty M3U.";
 
       try {
-        const resolved = await resolveNestedStream(stableUrl);
+        const resolved = await resolveNestedStream(nestedUrl);
         if (generation !== sourceGeneration) return;
         input.value = resolved;
         passThrough = true;
@@ -217,7 +188,7 @@
     new MutationObserver(() => {
       const error = diagnosticError.textContent || "";
       if (/manifestLoadError|levelLoadError|fragLoadError/i.test(error)) {
-        hint.textContent = "Źródło nie udostępniło manifestu lub segmentu. Powodem może być wygasły adres, CORS, geoblokada albo martwy stream.";
+        hint.textContent = "HLS nie został pobrany. Przy własnych playlistach zwykle oznacza to CORS, mixed content, geoblokadę albo martwy adres.";
       }
     }).observe(diagnosticError, { childList: true, subtree: true });
   }

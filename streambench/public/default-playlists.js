@@ -2,7 +2,6 @@ import { parseM3uWorkspace, serializeM3u } from "./playlist-format.js";
 
 const DEFAULT_PLAYLISTS = [
   { path: "/playlists/iptv.m3u8", defaultRadio: false },
-  { path: "/playlists/internet_radio.m3u8", defaultRadio: true },
 ];
 
 async function readPlaylist(source) {
@@ -39,6 +38,7 @@ async function loadDefaults() {
     return;
   }
 
+  window.streambenchBundledUrls = new Set(items.map((item) => item.url));
   if (Number(entryCount?.textContent || 0) > 0 || textarea.value.trim()) return;
 
   textarea.value = serializeM3u(items, { dedupe: false });

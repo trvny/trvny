@@ -1,5 +1,6 @@
 import { faviconResponse } from "./favicons.js";
 import worker from "./index.js";
+import { handleMediaApi } from "./media-api.js";
 
 class RemoveElement {
   element(element) {
@@ -18,7 +19,8 @@ class InjectFavicons {
       + '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">'
       + '<link rel="mask-icon" href="/favicon.svg" color="#55e6a5">'
       + '<link rel="manifest" href="/site.webmanifest">'
-      + '<link rel="stylesheet" href="/playlist-import.css">',
+      + '<link rel="stylesheet" href="/playlist-import.css">'
+      + '<script type="module" src="/stream-bridge.js"></script>',
       { html: true },
     );
   }
@@ -27,8 +29,11 @@ class InjectFavicons {
 class InjectEnhancements {
   element(element) {
     element.append(
-      '<script type="module" src="/default-playlists.js"></script>'
-      + '<script type="module" src="/source-workspace.js"></script>',
+      '<script type="module" src="/workspace-layout.js"></script>'
+      + '<script type="module" src="/default-playlists.js"></script>'
+      + '<script type="module" src="/source-workspace.js"></script>'
+      + '<script type="module" src="/library-export.js"></script>'
+      + '<script type="module" src="/radio-metadata.js"></script>',
       { html: true },
     );
   }
@@ -43,6 +48,9 @@ function withoutConditionalHeaders(request) {
 
 export default {
   async fetch(request, env, context) {
+    const mediaApi = await handleMediaApi(request, env);
+    if (mediaApi) return mediaApi;
+
     const icon = faviconResponse(new URL(request.url).pathname);
     if (icon) {
       return request.method === "HEAD"

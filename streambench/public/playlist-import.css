@@ -163,6 +163,7 @@
 }
 
 .radio-artwork-fallback {
+  display: grid;
   place-items: center;
   color: var(--accent);
   font-size: 4rem;

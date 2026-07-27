@@ -1,6 +1,9 @@
+import { relayForSource } from "./provider-relay.js";
+
 export function relayTarget(rawUrl, {
   origin = "https://streambench.invalid",
   bundledUrls = new Set(),
+  providerRelays = new Map(),
 } = {}) {
   let source;
   try {
@@ -10,6 +13,10 @@ export function relayTarget(rawUrl, {
   }
 
   if (!["http:", "https:"].includes(source.protocol)) return null;
+
+  const providerRelay = relayForSource(source, providerRelays);
+  if (providerRelay) return providerRelay;
+
   if (!(bundledUrls instanceof Set) || !bundledUrls.has(source.href)) return null;
 
   const hls = /\.m3u8$/i.test(source.pathname);
@@ -34,6 +41,7 @@ if (typeof document !== "undefined") {
   const browserRelay = (value) => relayTarget(value, {
     origin: location.origin,
     bundledUrls: window.streambenchBundledUrls,
+    providerRelays: window.streambenchProviderRelays,
   });
 
   form?.addEventListener("submit", () => {

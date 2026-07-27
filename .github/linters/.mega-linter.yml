@@ -19,31 +19,22 @@ DISABLE:
   - SPELL
   - COPYPASTE
 
-# ACTION_ZIZMOR: now enabled and green (see below + .github/zizmor.yml).
-#   Runs offline; unpinned-uses waived to ref-pin; artipacked fixed via
-#   persist-credentials on the read-only deploy checkouts.
-# TYPESCRIPT_STANDARD: can't locate tsconfig.json from repo root - two
-#   independent TS projects (weather-feed/, mcp/status-mcp/); revisit with
-#   explicit --project args if you want this back.
-DISABLE_LINTERS:
-  - TYPESCRIPT_STANDARD
-
 # ACTION_ZIZMOR: run offline (no GitHub API -> no ref-confusion crash) and
-#   fail CI only on low+ severity. See .github/zizmor.yml for the ref-pin policy.
+# fail CI only on low+ severity. See .github/zizmor.yml for the ref-pin policy.
 ACTION_ZIZMOR_ARGUMENTS:
   - "--offline"
   - "--min-severity=low"
 
 # YAML_YAMLLINT: first full-codebase run surfaced pre-existing style nits
-#   (missing "---", truthy value style) in the workflow/dependabot files.
-#   Non-blocking so the report stays useful without turning every push red.
+# (missing "---", truthy value style) in the workflow/dependabot files.
+# Non-blocking so the report stays useful without turning every push red.
 DISABLE_ERRORS_LINTERS:
   - YAML_YAMLLINT
 
 # .claude/: vendored Claude Code skills, not app code (this is where all the
-#   Python/PowerShell/Markdown volume was coming from)
+# Python/PowerShell/Markdown volume was coming from)
 # stuff/: personal scratch dir (old scripts, quote/feed dumps, configs) -
-#   not maintained project code
+# not maintained project code
 FILTER_REGEX_EXCLUDE: "(package-lock\\.json|\\.claude/|stuff/)"
 
 MARKDOWN_MARKDOWNLINT_CONFIG_FILE: "https://raw.githubusercontent.com/trvny/feeds/refs/heads/main/.github/linters/.markdownlint.yml"

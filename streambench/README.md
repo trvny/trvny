@@ -93,8 +93,10 @@ This project lives in the `trvny/trvny` monorepo under `streambench/`.
 2. Set the Worker name to `streambench` and root directory to `streambench`.
 3. Use `npm run build` as the build command.
 4. Use `npx wrangler deploy` as the deploy command.
-5. Add `streambench/*` and `stuff/playlists/wklejony-tekst.m3u8` to the build watch paths.
-6. Add a secret named `STREAMBENCH_RELAY_SECRET` with at least 32 random characters.
+5. Add `streambench/*` and
+   `stuff/playlists/wklejony-tekst.m3u8` to the build watch paths.
+6. Add `STREAMBENCH_RELAY_SECRET` as a secret with at least 32 random
+   characters.
 
 A local authenticated deployment uses:
 

@@ -1,12 +1,17 @@
 {
+  "id": "/",
   "name": "Streambench",
   "short_name": "Streambench",
-  "description": "Lokalny tester streamów IPTV, radia i playlist M3U.",
+  "description": "Lokalny tester streamów IPTV, radia, HLS oraz playlist M3U i M3U8.",
+  "lang": "pl",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0b0d10",
   "theme_color": "#101318",
+  "categories": ["utilities", "entertainment"],
   "icons": [
     {
       "src": "/favicon.svg",

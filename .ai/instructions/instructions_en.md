@@ -1,4 +1,5 @@
 # Paste-Ready LLM Style Instructions
+
 ## English edition
 
 **Version:** 0.1.0  

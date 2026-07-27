@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { isPrivateHost, radioParadiseChannel, rewriteHlsManifest } from "../src/media-api.js";
+import { rewriteSignedHlsManifest } from "../src/signed-media-api.js";
 
 assert.equal(isPrivateHost("127.0.0.1"), true);
 assert.equal(isPrivateHost("192.168.1.4"), true);
@@ -35,5 +36,21 @@ assert.equal(variant.searchParams.get("url"), "https://cdn.example/live/variant.
 assert.equal(variant.searchParams.get("source"), sourceUrl.href);
 assert.equal(variant.searchParams.get("parent"), authorizationParent.href);
 assert.match(lines[2], /https%3A%2F%2Fcdn\.example%2Flive%2Fkeys%2Fkey\.bin/);
+
+const signature = "a".repeat(43);
+const signed = rewriteSignedHlsManifest(
+  '#EXTM3U\nvariant.m3u8\n#EXT-X-KEY:METHOD=AES-128,URI="keys/key.bin"\n',
+  currentUrl,
+  sourceUrl,
+  requestUrl,
+  signature,
+  authorizationParent,
+);
+const signedLines = signed.split("\n");
+const signedVariant = new URL(signedLines[1]);
+assert.equal(signedVariant.searchParams.get("source"), sourceUrl.href);
+assert.equal(signedVariant.searchParams.get("parent"), authorizationParent.href);
+assert.equal(signedVariant.searchParams.get("sig"), signature);
+assert.match(signedLines[2], new RegExp(`sig=${signature}`));
 
 console.log("media API checks passed");

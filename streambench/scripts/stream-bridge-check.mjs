@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { isRecoverableHlsError } from "../public/playback-recovery.js";
+import { parseProviderRelays } from "../public/provider-relay.js";
 import { relayTarget } from "../public/stream-bridge.js";
 
 const origin = "https://streambench.example";
@@ -17,6 +18,15 @@ assert.equal(radioRelay?.hash, "#streambench.mp3");
 const hlsRelay = relayTarget(hls, { origin, bundledUrls });
 assert.equal(hlsRelay?.searchParams.get("url"), hls);
 assert.equal(hlsRelay?.hash, "#streambench.m3u8");
+
+const providerSource = "http://provider.example/live/master.m3u8";
+const providerRelay = `${origin}/api/relay?url=${encodeURIComponent(providerSource)}&sig=${"a".repeat(43)}#streambench.m3u8`;
+const providerRelays = parseProviderRelays(
+  `#EXTM3U\n#EXTINF:-1 streambench-relay="${providerRelay}",Provider\n${providerSource}\n`,
+  origin,
+);
+const signedRelay = relayTarget(providerSource, { origin, bundledUrls, providerRelays });
+assert.equal(signedRelay?.href, providerRelay);
 
 assert.equal(relayTarget(httpsAudio, { origin, bundledUrls }), null);
 assert.equal(relayTarget("http://other.example/live.mp3", { origin, bundledUrls }), null);

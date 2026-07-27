@@ -93,21 +93,60 @@ function upstreamHeaders(request, { icy = false } = {}) {
   return headers;
 }
 
-async function fetchWithTimeout(url, init = {}, timeoutMs = FETCH_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+async function fetchValidated(rawUrl, init = {}, { timeoutMs = FETCH_TIMEOUT_MS, signal } = {}) {
+  let current = safeRemoteUrl(rawUrl);
+  if (!current) throw new Error("invalid redirect target");
+  const controller = signal ? null : new AbortController();
+  const activeSignal = signal || controller.signal;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
   try {
-    return await fetch(url, { ...init, signal: controller.signal, redirect: "follow" });
+    for (let redirectCount = 0; redirectCount <= 5; redirectCount += 1) {
+      const response = await fetch(current, {
+        ...init,
+        signal: activeSignal,
+        redirect: "manual",
+      });
+      if (response.status < 300 || response.status >= 400) return response;
+      const location = response.headers.get("location");
+      response.body?.cancel();
+      if (!location || redirectCount === 5) throw new Error("invalid redirect chain");
+      current = safeRemoteUrl(new URL(location, current));
+      if (!current) throw new Error("invalid redirect target");
+    }
+    throw new Error("too many redirects");
   } finally {
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
   }
 }
 
 async function readCapped(response, limit) {
   const declared = Number(response.headers.get("content-length") || 0);
   if (declared > limit) throw new Error("response too large");
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength > limit) throw new Error("response too large");
+  if (!response.body) return new Uint8Array();
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > limit) {
+        await reader.cancel();
+        throw new Error("response too large");
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    reader.cancel().catch(() => {});
+    throw error;
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
   return bytes;
 }
 
@@ -126,10 +165,10 @@ function referencedUrls(source, baseUrl) {
   return urls;
 }
 
-async function manifestSource(url) {
+async function manifestSource(url, { refresh = false } = {}) {
   const cached = manifestCache.get(url.href);
-  if (cached && cached.expires > Date.now()) return cached;
-  const response = await fetchWithTimeout(url, {
+  if (!refresh && cached && cached.expires > Date.now()) return cached;
+  const response = await fetchValidated(url, {
     headers: {
       accept: "application/vnd.apple.mpegurl,application/x-mpegURL,audio/mpegurl,text/plain",
       "user-agent": "Streambench/1.0 (+https://streambench.travny.workers.dev)",
@@ -151,14 +190,16 @@ async function manifestSource(url) {
   return result;
 }
 
+async function manifestReferences(parent, target) {
+  let manifest = await manifestSource(parent);
+  if (referencedUrls(manifest.text, manifest.finalUrl).has(target.href)) return true;
+  manifest = await manifestSource(parent, { refresh: true });
+  return referencedUrls(manifest.text, manifest.finalUrl).has(target.href);
+}
+
 async function childAllowed(source, parent, target) {
-  if (parent.href !== source.href) {
-    const rootManifest = await manifestSource(source);
-    const rootReferences = referencedUrls(rootManifest.text, rootManifest.finalUrl);
-    if (parent.href !== rootManifest.finalUrl.href && !rootReferences.has(parent.href)) return false;
-  }
-  const parentManifest = await manifestSource(parent);
-  return referencedUrls(parentManifest.text, parentManifest.finalUrl).has(target.href);
+  if (parent.href !== source.href && !await manifestReferences(source, parent)) return false;
+  return manifestReferences(parent, target);
 }
 
 function relayHref(target, source, parent, requestUrl) {
@@ -169,10 +210,10 @@ function relayHref(target, source, parent, requestUrl) {
   return relay.href;
 }
 
-export function rewriteHlsManifest(source, currentUrl, sourceUrl, requestUrl) {
+export function rewriteHlsManifest(source, currentUrl, sourceUrl, requestUrl, authorizationParent = currentUrl) {
   const rewrite = (value) => {
     try {
-      return relayHref(new URL(value, currentUrl), sourceUrl, currentUrl, requestUrl);
+      return relayHref(new URL(value, currentUrl), sourceUrl, authorizationParent, requestUrl);
     } catch {
       return value;
     }
@@ -213,7 +254,7 @@ async function relay(request, env, requestUrl) {
   if (parent && !await childAllowed(source, parent, target)) return json({ error: "manifest_reference_required" }, 403);
   if (!parent && target.href !== source.href) return json({ error: "invalid_source" }, 403);
 
-  const upstream = await fetchWithTimeout(target, {
+  const upstream = await fetchValidated(target, {
     method: request.method,
     headers: upstreamHeaders(request),
   });
@@ -245,7 +286,7 @@ async function relay(request, env, requestUrl) {
     });
   }
   const current = new URL(upstream.url || target.href);
-  return new Response(rewriteHlsManifest(text, current, source, requestUrl), {
+  return new Response(rewriteHlsManifest(text, current, source, requestUrl, target), {
     status: upstream.status,
     headers: relayResponseHeaders(upstream, { manifest: true }),
   });
@@ -267,7 +308,7 @@ function safeArtwork(value) {
 }
 
 async function radioParadiseMetadata(channel) {
-  const response = await fetchWithTimeout(`https://api.radioparadise.com/api/now_playing?chan=${channel}`, {
+  const response = await fetchValidated(`https://api.radioparadise.com/api/now_playing?chan=${channel}`, {
     headers: { accept: "application/json", "user-agent": "Streambench/1.0" },
   });
   if (!response.ok) throw new Error(`Radio Paradise returned ${response.status}`);
@@ -296,11 +337,9 @@ async function icyMetadata(request, target) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(target, {
+    const response = await fetchValidated(target, {
       headers: upstreamHeaders(request, { icy: true }),
-      redirect: "follow",
-      signal: controller.signal,
-    });
+    }, { signal: controller.signal });
     if (!response.ok || !response.body) throw new Error(`radio returned ${response.status}`);
     const interval = Number(response.headers.get("icy-metaint") || 0);
     if (!Number.isInteger(interval) || interval <= 0 || interval >= MAX_ICY_BYTES - 1) {

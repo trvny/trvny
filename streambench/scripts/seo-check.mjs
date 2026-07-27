@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 
-const publicUrl = new URL("../public/", import.meta.url);
+const projectUrl = new URL("../", import.meta.url);
+const publicUrl = new URL("public/", projectUrl);
 
 async function text(path) {
   return readFile(new URL(path, publicUrl), "utf8");
@@ -10,13 +11,26 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-const [index, robots, sitemap, llms, manifestSource, socialImage] = await Promise.all([
+const [
+  index,
+  robots,
+  sitemap,
+  llms,
+  manifestSource,
+  socialImage,
+  notFound,
+  staticHeaders,
+  wranglerSource,
+] = await Promise.all([
   text("index.html"),
   text("robots.txt"),
   text("sitemap.xml"),
   text("llms.txt"),
   text("site.webmanifest"),
   text("og.svg"),
+  text("404.html"),
+  text("_headers"),
+  readFile(new URL("wrangler.jsonc", projectUrl), "utf8"),
 ]);
 
 const origin = "https://streambench.travny.workers.dev";
@@ -38,5 +52,16 @@ assert(manifest.id === "/", "manifest id is missing");
 assert(manifest.lang === "pl", "manifest language is missing");
 assert(manifest.categories?.includes("utilities"), "manifest category is missing");
 assert(socialImage.includes('viewBox="0 0 1200 630"'), "social preview dimensions are invalid");
+
+const wrangler = JSON.parse(wranglerSource);
+const workerRoutes = wrangler.assets?.run_worker_first;
+assert(wrangler.assets?.not_found_handling === "404-page", "404 asset handling is missing");
+assert(Array.isArray(workerRoutes), "Worker asset routing is not selective");
+assert(workerRoutes.includes("/api/*"), "API routes do not run through Worker");
+assert(workerRoutes.includes("/health"), "health route does not run through Worker");
+assert(!workerRoutes.includes("/*"), "all static assets still run through Worker");
+assert(notFound.includes('<meta name="robots" content="noindex">'), "404 page can be indexed");
+assert(staticHeaders.includes("Content-Security-Policy:"), "static CSP is missing");
+assert(staticHeaders.includes("X-Frame-Options: DENY"), "static frame protection is missing");
 
 console.log("SEO and discovery checks passed");

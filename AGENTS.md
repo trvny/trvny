@@ -35,7 +35,6 @@ Working motto:
 - Never stop at uncertainty — research or deduce the most reasonable approach and continue.
 - Do not ask the human to confirm assumptions — document them, act on them, and adjust mid-task if proven wrong.
 
-
 ## Exploration
 
 - If you are not sure about file content or codebase structure pertaining to the user’s request, use your tools to read files and gather the relevant information: do NOT make up an answer.

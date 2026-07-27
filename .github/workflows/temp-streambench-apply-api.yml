@@ -1,0 +1,57 @@
+name: Apply Streambench patch through API
+
+on:
+  push:
+    branches: [feat/streambench-add-current]
+    paths:
+      - ".github/workflows/temp-streambench-apply-api.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/temp-streambench-apply-api.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: feat/streambench-add-current
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Restore checked implementation
+        shell: bash
+        run: |
+          python <<'PY'
+          import base64
+          import gzip
+          import re
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/temp-streambench-add-current.yml').read_text()
+          match = re.search(r'^\s*PATCH_GZIP_BASE64:\s*(\S+)\s*$', workflow, re.MULTILINE)
+          if not match:
+              raise SystemExit('payload not found')
+          Path('streambench/public/playlist-workspace.js').write_bytes(
+              gzip.decompress(base64.b64decode(match.group(1)))
+          )
+          PY
+          node --check streambench/public/playlist-workspace.js
+      - name: Update branch file
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="$(git rev-parse HEAD:streambench/public/playlist-workspace.js)"
+          content="$(base64 -w0 streambench/public/playlist-workspace.js)"
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/streambench/public/playlist-workspace.js" \
+            -f message='feat: add current stream to playlist' \
+            -f content="$content" \
+            -f sha="$sha" \
+            -f branch='feat/streambench-add-current'

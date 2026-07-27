@@ -1,0 +1,30 @@
+# Streambench
+
+> Browser-based workshop for testing IPTV, internet radio, HLS and local M3U/M3U8 playlists.
+
+Streambench runs at https://streambench.travny.workers.dev/. Local playlist files, XMLTV data, edits, favorites and history stay in the browser. Public provider catalogs are fetched through the Streambench Cloudflare Worker.
+
+## Main capabilities
+
+- Open local M3U and M3U8 playlists or paste their contents.
+- Play supported video and audio streams, including HLS where the browser or bundled hls.js can handle it.
+- Browse public IPTV and radio catalogs.
+- Display playlist logos, tags and available M3U metadata.
+- Import XMLTV data for now-and-next programme information.
+- Search, edit, hide, favorite and export playlist entries locally.
+- Inspect stream protocol, playback type and media diagnostics.
+
+## Public pages
+
+- [Application](https://streambench.travny.workers.dev/): Streambench interface.
+- [Health](https://streambench.travny.workers.dev/health): service health JSON.
+- [Provider manifest](https://streambench.travny.workers.dev/api/providers): available public provider definitions.
+- [Source](https://github.com/trvny/trvny/tree/main/streambench): application source.
+
+## Related TRAVNY tools
+
+- [TRAVNY hub](https://tvpi.pages.dev/): family landing page.
+- [TVP IPTV](https://tvpi.travny.workers.dev/playlist.m3u): fresh TVP playlist endpoint.
+- [Codebench](https://codebench.travny.workers.dev/): QR and code utility.
+- [Weather](https://weather.travny.workers.dev/): local weather ensemble.
+- [Feeds](https://trvny.github.io/feeds/): feed directory and generated RSS/Atom feeds.

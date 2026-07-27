@@ -33,7 +33,7 @@ jobs:
 
       - name: MegaLinter
         id: megalinter
-        uses: oxsecurity/megalinter/flavors/formatters@v9
+        uses: oxsecurity/megalinter/flavors/documentation@v9
         env:
           MEGALINTER_CONFIG: .github/linters/.mega-linter.yml
           VALIDATE_ALL_CODEBASE: >-

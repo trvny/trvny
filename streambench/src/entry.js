@@ -24,10 +24,11 @@ class InjectFavicons {
   }
 }
 
-class InjectDefaultPlaylists {
+class InjectEnhancements {
   element(element) {
     element.append(
-      '<script type="module" src="/default-playlists.js"></script>',
+      '<script type="module" src="/default-playlists.js"></script>'
+      + '<script type="module" src="/source-workspace.js"></script>',
       { html: true },
     );
   }
@@ -70,7 +71,7 @@ export default {
       .on('link[rel="mask-icon"]', new RemoveElement())
       .on('link[rel="manifest"]', new RemoveElement())
       .on("head", new InjectFavicons())
-      .on("body", new InjectDefaultPlaylists())
+      .on("body", new InjectEnhancements())
       .transform(html);
   },
 };

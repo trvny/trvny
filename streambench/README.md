@@ -5,7 +5,9 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 ## Current scope
 
 - direct HTTP/HTTPS stream playback,
+- constrained relay for bundled HTTP streams and HLS resources,
 - HLS playback through a locally vendored `hls.js`,
+- live ICY and Radio Paradise track metadata,
 - local M3U/M3U8 file and text import,
 - local XMLTV file and text import with now/next programme display,
 - local favorites, recent items, hidden entries and remembered preferences,
@@ -13,7 +15,7 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 - M3U export and clipboard copy with exact-URL deduplication,
 - playlist filtering and entry selection,
 - channel labels for provider, protocol, playback type and quality,
-- browser-side stream diagnostics without a diagnostic proxy,
+- browser-side stream diagnostics without a general diagnostic proxy,
 - external video pages opened outside the media player,
 - shared provider manifest and generic catalog routes,
 - Free-TV Lite country playlists,
@@ -23,7 +25,8 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 
 User-provided playlists and XMLTV guides are parsed locally in the browser.
 Public provider data and selected playlists are fetched through fixed,
-allowlisted Worker endpoints. Stream media is never proxied by Streambench.
+allowlisted Worker endpoints. Only URLs from the bundled playlist may use the
+media relay or radio metadata endpoint.
 
 The local library is stored in versioned `localStorage`. It contains favorites,
 up to 20 recent entries, hidden entries, local edits and provider/player
@@ -52,7 +55,8 @@ candidates rather than being rejected based only on their file extension.
 
 The diagnostics panel reports URL classification, mixed-content risk, media
 element state and HLS manifest data observed by `hls.js`. Query values are
-masked in the panel. It does not send arbitrary stream URLs through the Worker.
+masked in the panel. Arbitrary user-supplied stream URLs are not sent through
+the Worker.
 
 This version has no general-purpose remote playlist import.
 
@@ -88,7 +92,7 @@ This project lives in the `trvny/trvny` monorepo under `streambench/`.
 2. Set the Worker name to `streambench` and root directory to `streambench`.
 3. Use `npm run build` as the build command.
 4. Use `npx wrangler deploy` as the deploy command.
-5. Set the build watch path to `streambench/*`.
+5. Add `streambench/*` and `stuff/playlists/wklejony-tekst.m3u8` to the build watch paths.
 
 A local authenticated deployment uses:
 

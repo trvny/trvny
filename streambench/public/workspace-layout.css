@@ -21,38 +21,76 @@
 }
 
 .source-dock {
-  margin-bottom: 18px;
+  margin-top: 18px;
 }
 
 .source-dock .source-tools {
-  display: grid;
-  grid-template-columns: minmax(360px, 1.15fr) minmax(280px, 0.85fr);
-  gap: 0 18px;
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
 }
 
-.source-dock .tool-heading {
-  grid-column: 1 / -1;
+.source-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 14px;
+  padding: 5px;
+  border: 1px solid #ffffff14;
+  border-radius: 13px;
+  background: #090c10;
 }
 
-.source-dock .provider-box {
-  grid-row: 2 / span 5;
+.source-mode-tab {
+  min-height: 40px;
+  padding: 0 12px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.source-mode-tab[aria-selected="true"] {
+  border-color: #55e6a54d;
+  background: #55e6a514;
+  color: var(--accent);
+}
+
+.source-mode-panel {
+  min-width: 0;
+}
+
+.source-mode-panel .provider-box,
+.source-mode-panel .epg-import,
+.source-mode-panel .playlist-tools,
+.source-mode-panel .paste-box,
+.source-mode-panel .file-button {
   margin: 0;
 }
 
-.source-dock .source-divider,
-.source-dock .file-button,
-.source-dock .paste-box,
-.source-dock .playlist-tools {
-  grid-column: 2;
+.source-mode-panel[data-source-panel="playlist"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+  gap: 12px 16px;
+  align-items: start;
 }
 
-.source-dock .paste-box,
-.source-dock .playlist-tools {
-  margin-bottom: 0;
+.source-mode-panel[data-source-panel="playlist"] .paste-box {
+  grid-column: 1;
+}
+
+.source-mode-panel[data-source-panel="playlist"] .playlist-tools {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.source-mode-panel[data-source-panel="epg"] .epg-import {
+  margin: 0;
+}
+
+.source-mode-panel[hidden] {
+  display: none;
 }
 
 .tools-panel {
@@ -136,7 +174,6 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.tools-panel .epg-import,
 .tools-panel .epg-grid {
   grid-template-columns: 1fr;
 }
@@ -153,6 +190,18 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 14px;
+}
+
+.channel-details,
+.player-metadata-grid,
+.player-metadata-grid > div,
+.player-metadata-grid dd {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.player-metadata-grid dd {
+  white-space: normal;
 }
 
 .playlist-entries {
@@ -183,28 +232,31 @@
 }
 
 @media (min-width: 841px) {
-  .workspace {
-    grid-template-columns: minmax(0, 1.4fr) minmax(340px, 0.8fr);
-    align-items: stretch;
+  .hero {
+    max-width: none;
+    margin-bottom: 20px;
   }
 
-  .player-panel,
-  .source-panel {
-    height: clamp(560px, 72vh, 720px);
-    min-height: 0;
+  .hero h1 {
+    max-width: 760px;
+    font-size: clamp(2.7rem, 6vw, 4.9rem);
+  }
+
+  .workspace {
+    grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.75fr);
+    align-items: start;
   }
 
   .player-panel {
-    display: flex;
-    flex-direction: column;
+    min-height: 0;
   }
 
   .player-panel .media-shell {
-    flex: 1;
-    min-height: clamp(260px, 42vh, 380px);
+    min-height: clamp(380px, 52vh, 560px);
   }
 
   .source-panel {
+    height: clamp(620px, 78vh, 820px);
     max-height: none;
     overflow: hidden;
   }
@@ -217,32 +269,24 @@
   .source-panel .playlist-entries {
     max-height: none;
   }
-
-  .hero {
-    margin-bottom: 24px;
-  }
 }
 
 @media (max-width: 900px) {
-  .source-dock .source-tools {
+  .source-mode-panel[data-source-panel="playlist"] {
     grid-template-columns: 1fr;
   }
 
-  .source-dock .provider-box,
-  .source-dock .source-divider,
-  .source-dock .file-button,
-  .source-dock .paste-box,
-  .source-dock .playlist-tools {
+  .source-mode-panel[data-source-panel="playlist"] .playlist-tools {
     grid-column: 1;
     grid-row: auto;
-  }
-
-  .source-dock .provider-box {
-    margin-bottom: 14px;
   }
 }
 
 @media (max-width: 620px) {
+  .source-mode-tabs {
+    grid-template-columns: 1fr;
+  }
+
   .tools-grid,
   .library-panel .library-entries {
     grid-template-columns: 1fr;

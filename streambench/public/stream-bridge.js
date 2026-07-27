@@ -1,44 +1,86 @@
-const form = document.querySelector("#streamForm");
-const input = document.querySelector("#streamUrl");
-const hint = document.querySelector("#streamHint");
-let replaying = false;
-
-function safeUrl(value) {
+export function relayTarget(rawUrl, {
+  origin = "https://streambench.invalid",
+  bundledUrls = new Set(),
+} = {}) {
+  let source;
   try {
-    const url = new URL(String(value || "").trim());
-    return ["http:", "https:"].includes(url.protocol) ? url : null;
+    source = new URL(String(rawUrl || "").trim());
   } catch {
     return null;
   }
+
+  if (!["http:", "https:"].includes(source.protocol)) return null;
+  if (!(bundledUrls instanceof Set) || !bundledUrls.has(source.href)) return null;
+
+  const hls = /\.m3u8$/i.test(source.pathname);
+  if (source.protocol !== "http:" && !hls) return null;
+
+  const relay = new URL("/api/relay", origin);
+  relay.searchParams.set("url", source.href);
+  const extension = source.pathname.match(/\.(m3u8|mp3|aac|m4a|ogg|opus|flac)$/i)?.[0];
+  if (extension) relay.hash = `streambench${extension.toLowerCase()}`;
+  return relay;
 }
 
-function isBundled(url) {
-  return window.streambenchBundledUrls instanceof Set
-    && window.streambenchBundledUrls.has(url.href);
-}
+if (typeof document !== "undefined") {
+  const form = document.querySelector("#streamForm");
+  const input = document.querySelector("#streamUrl");
+  const mode = document.querySelector("#mediaMode");
+  const shell = document.querySelector(".media-shell");
+  const hint = document.querySelector("#streamHint");
+  const title = document.querySelector("#nowPlaying");
+  const entries = document.querySelector("#playlistEntries");
 
-function shouldRelay(url) {
-  return isBundled(url)
-    && (url.protocol === "http:" || /\.m3u8(?:$|[?#])/i.test(url.href));
-}
-
-form?.addEventListener("submit", (event) => {
-  if (replaying) return;
-  const original = safeUrl(input?.value);
-  if (!original || !shouldRelay(original)) return;
-
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  const relay = new URL("/api/relay", location.origin);
-  relay.searchParams.set("url", original.href);
-  if (/\.m3u8(?:$|[?#])/i.test(original.href)) relay.hash = "streambench.m3u8";
-
-  input.value = relay.href;
-  replaying = true;
-  form.requestSubmit();
-  replaying = false;
-  input.value = original.href;
-  queueMicrotask(() => {
-    if (hint) hint.textContent = "Stream przechodzi przez ograniczony przekaźnik Streambencha, aby ominąć mixed content lub CORS HLS.";
+  const browserRelay = (value) => relayTarget(value, {
+    origin: location.origin,
+    bundledUrls: window.streambenchBundledUrls,
   });
-}, true);
+
+  form?.addEventListener("submit", () => {
+    const original = input?.value;
+    const relay = browserRelay(original);
+    if (!relay || !input) return;
+
+    input.value = relay.href;
+    queueMicrotask(() => {
+      if (input.value === relay.href) input.value = original;
+      if (hint) {
+        hint.textContent = "Stream przechodzi przez ograniczony przekaźnik Streambencha, aby ominąć mixed content lub CORS HLS.";
+      }
+    });
+  }, true);
+
+  document.addEventListener("click", (event) => {
+    const action = event.target.closest?.("#playlistEntries .entry-action");
+    if (!action || !form || !input) return;
+
+    queueMicrotask(() => {
+      entries?.querySelectorAll('[aria-current="true"]').forEach((entry) => {
+        entry.removeAttribute("aria-current");
+      });
+      action.setAttribute("aria-current", "true");
+
+      const original = input.value;
+      const relay = browserRelay(original);
+      if (!relay) return;
+
+      const selectedTitle = title?.textContent || "";
+      const selectedMode = shell?.dataset.mode;
+      const previousMode = mode?.value;
+      input.value = relay.href;
+      if (mode && selectedMode) mode.value = selectedMode;
+      form.requestSubmit();
+      input.value = original;
+      if (mode && previousMode) mode.value = previousMode;
+
+      action.setAttribute("aria-current", "true");
+      if (title && selectedTitle) title.textContent = selectedTitle;
+      window.dispatchEvent(new CustomEvent("streambench:channel", {
+        detail: { title: selectedTitle },
+      }));
+      if (hint) {
+        hint.textContent = "Stream przechodzi przez ograniczony przekaźnik Streambencha, aby ominąć mixed content lub CORS HLS.";
+      }
+    });
+  });
+}

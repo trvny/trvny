@@ -1,3 +1,4 @@
+<!-- htmlhint id-class-value:false,head-script-disabled:false -->
 <!doctype html>
 <html lang="pl">
 <head>
@@ -36,15 +37,20 @@
   <link rel="image_src" href="https://streambench.travny.workers.dev/og.svg">
   <link rel="sitemap" type="application/xml" href="/sitemap.xml">
   <link rel="alternate" type="text/plain" href="/llms.txt" title="Streambench llms.txt">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="shortcut icon" href="/favicon.svg">
-  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="mask-icon" href="/favicon.svg" color="#55e6a5">
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/playlist-workspace.css">
   <link rel="stylesheet" href="/workspace-layout.css">
   <link rel="stylesheet" href="/mobile-workspace.css">
+  <link rel="stylesheet" href="/playlist-import.css">
+  <script type="module" src="/stream-bridge.js"></script>
 </head>
 <body>
   <header class="site-header">
@@ -299,5 +305,11 @@
   <script type="module" src="/playlist-workspace.js"></script>
   <script type="module" src="/mobile-workspace.js"></script>
   <script type="module" src="/app.js"></script>
+  <script type="module" src="/workspace-layout.js"></script>
+  <script type="module" src="/default-playlists.js"></script>
+  <script type="module" src="/source-workspace.js"></script>
+  <script type="module" src="/playback-recovery.js"></script>
+  <script type="module" src="/library-export.js"></script>
+  <script type="module" src="/radio-metadata.js"></script>
 </body>
 </html>

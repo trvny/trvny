@@ -61,10 +61,6 @@
   min-width: 0;
 }
 
-.source-mode-panel[hidden] {
-  display: none;
-}
-
 .source-mode-panel .provider-box,
 .source-mode-panel .epg-import,
 .source-mode-panel .playlist-tools,
@@ -91,6 +87,10 @@
 
 .source-mode-panel[data-source-panel="epg"] .epg-import {
   margin: 0;
+}
+
+.source-mode-panel[hidden] {
+  display: none;
 }
 
 .tools-panel {

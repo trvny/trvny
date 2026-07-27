@@ -31,8 +31,6 @@
 
 #### [<img src="https://icons.iconarchive.com/icons/pictogrammers/material/48/qrcode-plus-icon.png" width="48" height="48">](https://codebench.travny.workers.dev)
 
-![quotes](https://gists-readme.yizack.com/api/pin?user=trvny&id=167d2271e3cf7d21e118aa7d906a7d2c&owner=true)
-
 #### [![reader-📰](https://img.shields.io/badge/reader-📰-blueviolet?logo=rss)](https://trvny.github.io/feeds/reader)
 
 ### stuff/

@@ -75,6 +75,7 @@
   }
 
   async function currentRenderedSVG() {
+    if (typeof window.codebenchCurrentQrSvg === "function") return window.codebenchCurrentQrSvg();
     if (typeof window.qrBareSVG !== "function") throw new Error("QR renderer is unavailable.");
     const bare = await window.qrBareSVG();
     if (!bare) throw new Error("QR render is empty.");
@@ -84,6 +85,10 @@
   }
 
   async function rasterize(svg, background) {
+    if (typeof window.codebenchSvgToPngBlob === "function") {
+      return window.codebenchSvgToPngBlob(svg, { background, maxSide: 1200 });
+    }
+
     const [sourceWidth, sourceHeight] = dimensions(svg);
     const largestSide = Math.max(sourceWidth, sourceHeight);
     const scale = Math.min(2, Math.max(0.5, 1200 / largestSide));
@@ -93,6 +98,7 @@
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) throw new Error("Canvas is unavailable.");
     context.fillStyle = background;
     context.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -105,7 +111,12 @@
         image.src = url;
       });
       context.drawImage(image, 0, 0, width, height);
-      return context.getImageData(0, 0, canvas.width, canvas.height);
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("The browser did not produce a PNG."));
+        }, "image/png");
+      });
     } finally {
       URL.revokeObjectURL(url);
     }
@@ -118,8 +129,8 @@
       : [["#ffffff", "rendered"]];
 
     for (const [background, label] of backgrounds) {
-      const imageData = await rasterize(svg, background);
-      const results = await zxing.readBarcodes(imageData, {
+      const png = await rasterize(svg, background);
+      const results = await zxing.readBarcodes(png, {
         tryHarder: true,
         tryRotate: true,
         tryInvert: true,
@@ -143,8 +154,8 @@
   }
 
   async function prepareDecoder() {
-    if (typeof zxReady === "function") {
-      await zxReady();
+    if (typeof window.zxReady === "function") {
+      await window.zxReady();
       return;
     }
     if (typeof zxing.prepareZXingModule === "function") {
@@ -202,7 +213,8 @@
           ? " Readable on a dark background."
           : "";
       setStatus("success", "Readable", `Decoded value matches exactly.${backgroundNote}`);
-    } catch {
+    } catch (error) {
+      console.error("QR self-test failed", error);
       testedSignature = "";
       setStatus("failure", "Test failed", "The local decoder could not test this render.");
     } finally {

@@ -1,5 +1,6 @@
 const MAX_MANIFEST_BYTES = 2_000_000;
 const MAX_ICY_BYTES = 512_000;
+const MAX_METADATA_BYTES = 128_000;
 const FETCH_TIMEOUT_MS = 12_000;
 const MANIFEST_CACHE_MS = 45_000;
 const manifestCache = new Map();
@@ -35,19 +36,38 @@ function safeRemoteUrl(value) {
 export function isPrivateHost(hostname) {
   const host = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, "");
   if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return true;
-  if (host === "::1" || host === "0:0:0:0:0:0:0:1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) return true;
-  const parts = host.split(".");
-  if (parts.length !== 4 || parts.some((part) => !/^\d+$/.test(part))) return false;
-  const octets = parts.map(Number);
-  if (octets.some((part) => part < 0 || part > 255)) return true;
-  return octets[0] === 0
-    || octets[0] === 10
-    || octets[0] === 127
-    || (octets[0] === 169 && octets[1] === 254)
-    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
-    || (octets[0] === 192 && octets[1] === 168)
-    || (octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127)
-    || octets[0] >= 224;
+
+  const ipv4Private = (value) => {
+    const parts = value.split(".");
+    if (parts.length !== 4 || parts.some((part) => !/^\d+$/.test(part))) return null;
+    const octets = parts.map(Number);
+    if (octets.some((part) => part < 0 || part > 255)) return true;
+    return octets[0] === 0
+      || octets[0] === 10
+      || octets[0] === 127
+      || (octets[0] === 169 && octets[1] === 254)
+      || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+      || (octets[0] === 192 && octets[1] === 168)
+      || (octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127)
+      || octets[0] >= 224;
+  };
+
+  const directIpv4 = ipv4Private(host);
+  if (directIpv4 !== null) return directIpv4;
+  if (!host.includes(":")) return false;
+  if (host === "::" || host === "::1" || host === "0:0:0:0:0:0:0:1") return true;
+  if (host.startsWith("fe8") || host.startsWith("fe9") || host.startsWith("fea") || host.startsWith("feb")) return true;
+  if (host.startsWith("fc") || host.startsWith("fd") || host.startsWith("ff")) return true;
+
+  const mapped = host.match(/^::ffff:(.+)$/)?.[1];
+  if (!mapped) return false;
+  const dotted = ipv4Private(mapped);
+  if (dotted !== null) return dotted;
+  const words = mapped.split(":");
+  if (words.length !== 2 || words.some((word) => !/^[0-9a-f]{1,4}$/.test(word))) return true;
+  const high = Number.parseInt(words[0], 16);
+  const low = Number.parseInt(words[1], 16);
+  return ipv4Private(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`) ?? true;
 }
 
 function sameOriginBrowserRequest(request) {
@@ -150,6 +170,18 @@ async function readCapped(response, limit) {
   return bytes;
 }
 
+async function fetchCapped(url, init, limit) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetchValidated(url, init, { signal: controller.signal });
+    const bytes = await readCapped(response, limit);
+    return { response, bytes };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function referencedUrls(source, baseUrl) {
   const urls = new Set();
   for (const rawLine of source.split(/\r?\n/)) {
@@ -168,14 +200,14 @@ function referencedUrls(source, baseUrl) {
 async function manifestSource(url, { refresh = false } = {}) {
   const cached = manifestCache.get(url.href);
   if (!refresh && cached && cached.expires > Date.now()) return cached;
-  const response = await fetchValidated(url, {
+  const { response, bytes } = await fetchCapped(url, {
     headers: {
       accept: "application/vnd.apple.mpegurl,application/x-mpegURL,audio/mpegurl,text/plain",
       "user-agent": "Streambench/1.0 (+https://streambench.travny.workers.dev)",
     },
-  });
+  }, MAX_MANIFEST_BYTES);
   if (!response.ok) throw new Error(`manifest returned ${response.status}`);
-  const text = new TextDecoder().decode(await readCapped(response, MAX_MANIFEST_BYTES));
+  const text = new TextDecoder().decode(bytes);
   if (!text.trimStart().startsWith("#EXTM3U")) throw new Error("not an HLS manifest");
   const result = {
     expires: Date.now() + MANIFEST_CACHE_MS,
@@ -254,15 +286,25 @@ async function relay(request, env, requestUrl) {
   if (parent && !await childAllowed(source, parent, target)) return json({ error: "manifest_reference_required" }, 403);
   if (!parent && target.href !== source.href) return json({ error: "invalid_source" }, 403);
 
-  const upstream = await fetchValidated(target, {
-    method: request.method,
-    headers: upstreamHeaders(request),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let upstream;
+  try {
+    upstream = await fetchValidated(target, {
+      method: request.method,
+      headers: upstreamHeaders(request),
+    }, { signal: controller.signal });
+  } catch (error) {
+    clearTimeout(timer);
+    throw error;
+  }
   if (!upstream.ok && upstream.status !== 206) {
+    clearTimeout(timer);
     upstream.body?.cancel();
     return json({ error: "upstream_unavailable", status: upstream.status }, 502);
   }
   if (request.method === "HEAD") {
+    clearTimeout(timer);
     upstream.body?.cancel();
     return new Response(null, {
       status: upstream.status,
@@ -273,12 +315,18 @@ async function relay(request, env, requestUrl) {
   const contentType = upstream.headers.get("content-type") || "";
   const looksLikeManifest = /(?:mpegurl|m3u8)/i.test(contentType) || /\.m3u8(?:$|[?#])/i.test(target.href);
   if (!looksLikeManifest) {
+    clearTimeout(timer);
     return new Response(upstream.body, {
       status: upstream.status,
       headers: relayResponseHeaders(upstream),
     });
   }
-  const text = new TextDecoder().decode(await readCapped(upstream, MAX_MANIFEST_BYTES));
+  let text;
+  try {
+    text = new TextDecoder().decode(await readCapped(upstream, MAX_MANIFEST_BYTES));
+  } finally {
+    clearTimeout(timer);
+  }
   if (!text.trimStart().startsWith("#EXTM3U")) {
     return new Response(text, {
       status: upstream.status,
@@ -308,11 +356,13 @@ function safeArtwork(value) {
 }
 
 async function radioParadiseMetadata(channel) {
-  const response = await fetchValidated(`https://api.radioparadise.com/api/now_playing?chan=${channel}`, {
-    headers: { accept: "application/json", "user-agent": "Streambench/1.0" },
-  });
+  const { response, bytes } = await fetchCapped(
+    `https://api.radioparadise.com/api/now_playing?chan=${channel}`,
+    { headers: { accept: "application/json", "user-agent": "Streambench/1.0" } },
+    MAX_METADATA_BYTES,
+  );
   if (!response.ok) throw new Error(`Radio Paradise returned ${response.status}`);
-  const body = await response.json();
+  const body = JSON.parse(new TextDecoder().decode(bytes));
   return {
     provider: "radio-paradise",
     title: String(body.title || "").trim(),

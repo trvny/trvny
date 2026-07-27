@@ -23,6 +23,15 @@ class InjectFavicons {
   }
 }
 
+class InjectDefaultPlaylists {
+  element(element) {
+    element.append(
+      '<script type="module" src="/default-playlists.js"></script>',
+      { html: true },
+    );
+  }
+}
+
 function withoutConditionalHeaders(request) {
   const headers = new Headers(request.headers);
   headers.delete("if-none-match");
@@ -60,6 +69,7 @@ export default {
       .on('link[rel="mask-icon"]', new RemoveElement())
       .on('link[rel="manifest"]', new RemoveElement())
       .on("head", new InjectFavicons())
+      .on("body", new InjectDefaultPlaylists())
       .transform(html);
   },
 };

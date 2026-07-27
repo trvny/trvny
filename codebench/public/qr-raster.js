@@ -96,7 +96,12 @@
   }
 
   function notify(message) {
-    if (typeof window.toast === "function") window.toast(message);
+    const toast = document.querySelector("#toast");
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(toast._h);
+    toast._h = setTimeout(() => toast.classList.remove("show"), 1900);
   }
 
   window.codebenchSvgToPngBlob = svgToPngBlob;

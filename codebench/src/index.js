@@ -1,3 +1,4 @@
+import { favicon16Response } from "./favicon-16.js";
 import { faviconResponse } from "./favicons.js";
 
 const SITE_URL = "https://codebench.travny.workers.dev/";
@@ -102,7 +103,7 @@ function textResponse(body, contentType, cacheControl = "public, max-age=3600") 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const generatedIcon = faviconResponse(url.pathname);
+    const generatedIcon = favicon16Response(url.pathname) || faviconResponse(url.pathname);
     if (generatedIcon) return generatedIcon;
 
     if (url.pathname === "/robots.txt") {

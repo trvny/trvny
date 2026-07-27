@@ -1,54 +1,28 @@
-.player-tabs {
-  min-width: 0;
-  width: 100%;
-}
-
-.player-tablist {
-  display: flex;
-  gap: 7px;
-  margin-bottom: 10px;
-}
-
-.player-tablist button {
-  min-height: 36px;
-  padding: 0 12px;
-  background: #171c22;
-  color: var(--muted);
-  font-size: 0.76rem;
-}
-
-.player-tablist button[aria-selected="true"] {
-  border-color: #55e6a580;
-  background: #55e6a514;
-  color: var(--accent);
-}
-
-.player-tabs[data-view="metadata"] .media-shell {
+.playlist-empty[hidden] {
   display: none;
 }
 
+.player-tabs {
+  display: contents;
+}
+
+.player-tablist,
 .player-metadata {
   display: none;
+}
+
+.channel-details {
   min-width: 0;
-  min-height: 360px;
-  overflow: hidden;
-  padding: 18px;
-  border: 1px solid #252d35;
-  border-radius: 14px;
-  background: #090c10;
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid #ffffff1a;
+  border-radius: 13px;
+  background: #0d1115;
 }
 
-.player-tabs[data-view="metadata"] .player-metadata {
-  display: block;
-}
-
-.player-metadata-empty {
-  min-height: 320px;
-  display: grid;
-  place-items: center;
-  margin: 0;
-  color: var(--muted);
-  text-align: center;
+.channel-details[hidden],
+.channel-details [hidden] {
+  display: none;
 }
 
 .player-metadata-head {
@@ -56,12 +30,12 @@
   align-items: start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .player-metadata-head h3 {
   margin: 3px 0 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
 }
 
 .player-metadata-kind {
@@ -77,7 +51,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 0 0 14px;
+  margin: 0 0 10px;
 }
 
 .player-metadata-tags span {
@@ -98,10 +72,10 @@
 
 .player-metadata-grid > div {
   min-width: 0;
-  padding: 10px;
+  padding: 9px;
   border: 1px solid #ffffff12;
-  border-radius: 10px;
-  background: #0d1115;
+  border-radius: 9px;
+  background: #090c10;
 }
 
 .player-metadata-grid > div.wide {
@@ -119,7 +93,7 @@
 .player-metadata-grid dd {
   overflow-wrap: anywhere;
   margin: 5px 0 0;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   line-height: 1.4;
 }
 
@@ -193,14 +167,6 @@
 }
 
 @media (max-width: 620px) {
-  .player-metadata {
-    min-height: 220px;
-  }
-
-  .player-metadata-empty {
-    min-height: 180px;
-  }
-
   .player-metadata-grid {
     grid-template-columns: 1fr;
   }

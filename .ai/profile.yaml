@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=./schema/style-profile.schema.json
-schemaVersion: '0.2'
+schemaVersion: "0.2"
 id: trvny-private
 locale: pl-PL
 personality:
@@ -34,6 +34,51 @@ collaboration:
   reportPartialFailures: true
   preferResultOverProcess: true
 knowledge:
+  distinguishRawFromSynthesis: true
+  treatMemoryAsFallible: true
+  surfaceSourceConflicts: true
+  preferMaintainedSynthesisForOrientation: true
+  requireTraceableClaims: false
+output:
+  defaultFormat: prose
+  maxHeadingDepth: 3
+  preferShortParagraphs: true
+  tables: whenUseful
+  codeExamples: runnable
+  citations: platformDefault
+extensions:
+  trvny:
+    owner: github.com/trvny
+    visibility: private
+    platforms:
+      github:
+        namespace: trvny
+        primaryAgentFile: AGENTS.md
+        copilotInstructions: .github/copilot-instructions.md
+        customAgent: .github/agents/trvny-maintainer.md
+      openai:
+        apiKeyEnvironmentVariable: OPENAI_API_KEY
+        preferResponsesApiForShortLoops: true
+        preferAgentsSdkForManagedOrchestration: true
+        keepStyleSeparateFromRuntimePolicy: true
+      cloudflare:
+        preferWranglerJsonc: true
+        requireExplicitCompatibilityDate: true
+        secretFiles:
+          - .dev.vars
+          - .env
+        commitSecretValues: false
+      microsoft:
+        primaryDocumentation: Microsoft Learn
+        verifyCurrentPlatformDetails: true
+    principles:
+      - consolidation over fragmentation
+      - po kolei, na spokojnie
+      - ordinary chat before agentic machinery
+      - small reversible changes
+      - one source of truth per concern
+      - runtime for deterministic policy
+      - model for interpretation and synthesis
   distinguishRawFromSynthesis: true
   treatMemoryAsFallible: true
   surfaceSourceConflicts: true

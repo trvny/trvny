@@ -4,8 +4,6 @@
 FLAVOR_SUGGESTIONS: false
 SECURITY_SUGGESTIONS: false
 APPLY_FIXES: all
-GITHUB_STATUS_REPORTER: true
-REPORTERS_MARKDOWN_TYPE: simple
 
 # The checkout does not persist credentials. Point changed-file mode at the
 # already-fetched base branch so MegaLinter does not try to fetch origin/HEAD

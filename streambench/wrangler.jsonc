@@ -7,8 +7,18 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    "run_worker_first": true
+    "not_found_handling": "404-page",
+    "run_worker_first": [
+      "/api/*",
+      "/health",
+      "/favicon-16x16.png",
+      "/favicon-32x32.png",
+      "/favicon-96x96.png",
+      "/favicon.ico",
+      "/apple-touch-icon.png",
+      "/android-chrome-192x192.png",
+      "/android-chrome-512x512.png"
+    ]
   },
   "observability": {
     "enabled": true,

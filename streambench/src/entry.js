@@ -23,6 +23,13 @@ class InjectFavicons {
   }
 }
 
+function withoutConditionalHeaders(request) {
+  const headers = new Headers(request.headers);
+  headers.delete("if-none-match");
+  headers.delete("if-modified-since");
+  return new Request(request, { headers });
+}
+
 export default {
   async fetch(request, env, context) {
     const icon = faviconResponse(new URL(request.url).pathname);
@@ -32,9 +39,19 @@ export default {
         : icon;
     }
 
-    const response = await worker.fetch(request, env, context);
+    const response = await worker.fetch(withoutConditionalHeaders(request), env, context);
     const type = response.headers.get("content-type") || "";
     if (!type.includes("text/html")) return response;
+
+    const headers = new Headers(response.headers);
+    headers.delete("etag");
+    headers.delete("last-modified");
+    headers.set("cache-control", "no-cache");
+    const html = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
 
     return new HTMLRewriter()
       .on('link[rel="icon"]', new RemoveElement())
@@ -43,6 +60,6 @@ export default {
       .on('link[rel="mask-icon"]', new RemoveElement())
       .on('link[rel="manifest"]', new RemoveElement())
       .on("head", new InjectFavicons())
-      .transform(response);
+      .transform(html);
   },
 };

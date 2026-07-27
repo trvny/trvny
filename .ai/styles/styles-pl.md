@@ -1,4 +1,5 @@
 # Style odpowiedzi dla LLM
+
 ## Polska specyfikacja zachowania dla zwykłego czatu i trybu agentowego
 
 **Wersja:** 0.1.0  
@@ -1565,8 +1566,8 @@ Dokument czerpie z obserwacji współczesnych systemów LLM, w których:
 
 Materiały referencyjne:
 
-- https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
-- https://gist.github.com/muhammedaydogan/3511c211d81c7f08fd5f03b8125076a5
+- <https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f>
+- <https://gist.github.com/muhammedaydogan/3511c211d81c7f08fd5f03b8125076a5>
 
 ---
 

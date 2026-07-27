@@ -1,4 +1,5 @@
 # Response Styles for LLMs
+
 ## An English behavior specification for everyday chat and agentic systems
 
 **Version:** 0.1.0  

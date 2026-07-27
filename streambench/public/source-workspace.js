@@ -18,6 +18,7 @@
   const TVPI_HOST = "tvpi.travny.workers.dev";
   let passThrough = false;
   let sourceGeneration = 0;
+  let userEditedInput = false;
 
   function remoteUrl(value) {
     try {
@@ -83,8 +84,9 @@
     return resolved;
   }
 
-  async function importRemotePlaylist(url) {
+  async function importRemotePlaylist(url, generation) {
     const source = await fetchText(url);
+    if (generation !== sourceGeneration) return;
     if (!source.trimStart().startsWith("#EXTM3U")) {
       throw new Error("Adres nie zwrócił playlisty M3U.");
     }
@@ -121,11 +123,21 @@
     tabs.replaceWith(shell);
   }
 
+  input.addEventListener("input", () => {
+    userEditedInput = true;
+    sourceGeneration += 1;
+  });
+
   form.addEventListener("submit", async (event) => {
+    const generation = ++sourceGeneration;
+    const topLevelSubmission = event.submitter === submit || userEditedInput;
+    userEditedInput = false;
+
     if (passThrough) {
       passThrough = false;
       return;
     }
+    if (!topLevelSubmission) return;
 
     const url = remoteUrl(input.value);
     if (!url) return;
@@ -144,14 +156,17 @@
 
     try {
       if (importPlaylist) {
-        await importRemotePlaylist(url);
+        await importRemotePlaylist(url, generation);
         return;
       }
 
-      input.value = await resolveNestedStream(url);
+      const resolved = await resolveNestedStream(url);
+      if (generation !== sourceGeneration) return;
+      input.value = resolved;
       passThrough = true;
       form.requestSubmit();
     } catch (error) {
+      if (generation !== sourceGeneration) return;
       const reason = error instanceof Error ? error.message : String(error);
       setFailure(
         "Nie udało się pobrać źródła. Serwer może być offline albo blokować CORS.",
@@ -163,8 +178,8 @@
   }, true);
 
   window.addEventListener("streambench:channel", (event) => {
-    if (!event.detail?.title) return;
     const generation = ++sourceGeneration;
+    if (!event.detail?.title) return;
 
     setTimeout(async () => {
       const stableUrl = remoteUrl(input.value);

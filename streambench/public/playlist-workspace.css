@@ -24,6 +24,20 @@
   font-size: 0.9rem;
 }
 
+.library-play strong,
+.library-play span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-play span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
 .playlist-tools > div:first-child span,
 .library-empty {
   color: var(--muted);
@@ -91,6 +105,16 @@
   color: var(--text);
 }
 
+.library-controls button {
+  flex: 0 1 auto;
+  margin: 0;
+}
+
+.dialog-actions button {
+  flex: 0 1 auto;
+  min-width: 150px;
+}
+
 .entry-tools button:hover,
 .library-actions button:hover {
   color: var(--accent);
@@ -119,11 +143,6 @@
 
 .library-controls select {
   flex: 1 1 220px;
-}
-
-.library-controls button {
-  flex: 0 1 auto;
-  margin: 0;
 }
 
 .library-empty {
@@ -166,20 +185,6 @@
 .library-play:hover,
 .library-play:focus-visible {
   background: #55e6a514;
-}
-
-.library-play strong,
-.library-play span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.library-play span {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 0.7rem;
 }
 
 .library-actions {
@@ -241,11 +246,6 @@
   margin-top: 16px;
 }
 
-.dialog-actions button {
-  flex: 0 1 auto;
-  min-width: 150px;
-}
-
 .icon-button {
   font-size: 1.2rem;
 }
@@ -268,10 +268,6 @@
   .playlist-tool-buttons,
   .dialog-actions {
     flex-direction: column;
-  }
-
-  .dialog-actions button {
-    width: 100%;
   }
 
   .library-controls {

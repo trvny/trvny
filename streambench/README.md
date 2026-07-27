@@ -5,7 +5,7 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 ## Current scope
 
 - direct HTTP/HTTPS stream playback,
-- constrained relay for bundled HTTP streams and HLS resources,
+- constrained relay for bundled and signed provider streams,
 - HLS playback through a locally vendored `hls.js`,
 - live ICY and Radio Paradise track metadata,
 - local M3U/M3U8 file and text import,
@@ -25,8 +25,9 @@ Browser-based workshop for testing IPTV, radio and other media streams.
 
 User-provided playlists and XMLTV guides are parsed locally in the browser.
 Public provider data and selected playlists are fetched through fixed,
-allowlisted Worker endpoints. Only URLs from the bundled playlist may use the
-media relay or radio metadata endpoint.
+allowlisted Worker endpoints. The media relay accepts bundled URLs and exact
+HTTP sources signed by those provider endpoints. Arbitrary user-supplied URLs
+are not signed or accepted by the provider relay.
 
 The local library is stored in versioned `localStorage`. It contains favorites,
 up to 20 recent entries, hidden entries, local edits and provider/player
@@ -93,10 +94,12 @@ This project lives in the `trvny/trvny` monorepo under `streambench/`.
 3. Use `npm run build` as the build command.
 4. Use `npx wrangler deploy` as the deploy command.
 5. Add `streambench/*` and `stuff/playlists/wklejony-tekst.m3u8` to the build watch paths.
+6. Add a secret named `STREAMBENCH_RELAY_SECRET` with at least 32 random characters.
 
 A local authenticated deployment uses:
 
 ```sh
+npx wrangler secret put STREAMBENCH_RELAY_SECRET
 npm run deploy
 ```
 

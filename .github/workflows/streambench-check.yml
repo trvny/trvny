@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "streambench/**"
+      - "stuff/playlists/wklejony-tekst.m3u8"
       - ".github/workflows/streambench-check.yml"
   pull_request:
     paths:
       - "streambench/**"
+      - "stuff/playlists/wklejony-tekst.m3u8"
       - ".github/workflows/streambench-check.yml"
   workflow_dispatch:
 

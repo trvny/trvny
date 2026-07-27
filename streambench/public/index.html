@@ -150,7 +150,7 @@
 
             <label class="file-button" for="playlistFile">
               <span>Otwórz plik M3U</span>
-              <input id="playlistFile" type="file" accept=".m3u,.m3u8,application/x-mpegURL,audio/x-mpegurl,text/plain">
+              <input id="playlistFile" type="file" accept=".m3u,.m3u8,application/vnd.apple.mpegurl,application/mpegurl,application/x-mpegURL,audio/mpegurl,audio/x-mpegurl,text/plain">
             </label>
 
             <details class="paste-box">
@@ -272,6 +272,7 @@
 
   <script src="/vendor/hls.min.js"></script>
   <script type="module" src="/epg-ui.js"></script>
+  <script type="module" src="/playlist-import.js"></script>
   <script type="module" src="/playlist-workspace.js"></script>
   <script type="module" src="/mobile-workspace.js"></script>
   <script type="module" src="/app.js"></script>

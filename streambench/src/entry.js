@@ -26,7 +26,11 @@ class InjectFavicons {
 export default {
   async fetch(request, env, context) {
     const icon = faviconResponse(new URL(request.url).pathname);
-    if (icon) return request.method === "HEAD" ? new Response(null, icon) : icon;
+    if (icon) {
+      return request.method === "HEAD"
+        ? new Response(null, { status: icon.status, headers: icon.headers })
+        : icon;
+    }
 
     const response = await worker.fetch(request, env, context);
     const type = response.headers.get("content-type") || "";

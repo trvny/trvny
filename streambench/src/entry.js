@@ -1,6 +1,7 @@
 import { faviconResponse } from "./favicons.js";
 import worker from "./index.js";
 import { handleMediaApi } from "./media-api.js";
+import { handleSignedMediaApi } from "./signed-media-api.js";
 import { annotateProviderPlaylistResponse } from "./source-signing.js";
 
 function isProviderPlaylist(pathname) {
@@ -10,6 +11,9 @@ function isProviderPlaylist(pathname) {
 
 export default {
   async fetch(request, env, context) {
+    const signedMediaApi = await handleSignedMediaApi(request, env);
+    if (signedMediaApi) return signedMediaApi;
+
     const mediaApi = await handleMediaApi(request, env);
     if (mediaApi) return mediaApi;
 

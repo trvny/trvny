@@ -39,16 +39,31 @@ const rowItems = new WeakMap();
 const itemByKey = new Map();
 let sourceItems = [];
 let sourceLabel = "";
+let sourceOptions = { providerId: "local", providerLabel: "Lokalna", defaultRadio: false };
 let activeEditKey = "";
+let creatingItem = null;
+let pendingCaptureOptions = null;
 let restoredProvider = false;
 let observer = null;
 let submittingWorkspaceItem = false;
+
+const addCurrentButton = document.querySelector("#addCurrentStream") || (() => {
+  const button = document.createElement("button");
+  button.id = "addCurrentStream";
+  button.type = "button";
+  button.className = "secondary";
+  button.textContent = "Dodaj bieżący stream do playlisty";
+  document.querySelector("#streamForm .input-row")?.insertAdjacentElement("afterend", button);
+  return button;
+})();
 
 const ui = {
   form: document.querySelector("#streamForm"),
   url: document.querySelector("#streamUrl"),
   mode: document.querySelector("#mediaMode"),
+  shell: document.querySelector(".media-shell"),
   title: document.querySelector("#nowPlaying"),
+  addCurrent: addCurrentButton,
   provider: document.querySelector("#providerName"),
   file: document.querySelector("#playlistFile"),
   text: document.querySelector("#playlistText"),
@@ -65,6 +80,7 @@ const ui = {
   libraryCount: document.querySelector("#libraryCount"),
   clearRecent: document.querySelector("#clearRecent"),
   dialog: document.querySelector("#editChannelDialog"),
+  dialogTitle: document.querySelector("#editChannelDialog h2"),
   editForm: document.querySelector("#editChannelForm"),
   editTitle: document.querySelector("#editTitle"),
   editUrl: document.querySelector("#editUrl"),
@@ -109,6 +125,7 @@ function captureSource(source, {
   defaultRadio = false,
 } = {}) {
   sourceLabel = label;
+  sourceOptions = { providerId, providerLabel: labelOverride, defaultRadio };
   sourceItems = parseM3uWorkspace(source, {
     providerId,
     providerLabel: labelOverride,
@@ -253,8 +270,11 @@ function playItem(item) {
   renderLibrary();
 }
 
-function openEditor(item) {
-  activeEditKey = itemKey(item);
+function fillEditor(item, creating = false) {
+  creatingItem = creating ? item : null;
+  activeEditKey = creating ? "" : itemKey(item);
+  if (ui.dialogTitle) ui.dialogTitle.textContent = creating ? "Dodaj do playlisty" : "Edytuj pozycję";
+  ui.resetEdit.hidden = creating;
   ui.editTitle.value = item.title || "";
   ui.editUrl.value = item.url || "";
   ui.editGroup.value = item.group === "Bez grupy" ? "" : item.group || "";
@@ -267,8 +287,52 @@ function openEditor(item) {
   else ui.dialog.setAttribute("open", "");
 }
 
+function openEditor(item) {
+  fillEditor(item);
+}
+
+function directItem() {
+  let url;
+  try {
+    url = new URL(ui.url.value.trim());
+    if (!["http:", "https:"].includes(url.protocol)) return null;
+  } catch {
+    return null;
+  }
+
+  const title = url.hostname;
+  return classifyItem({
+    url: url.href,
+    title,
+    sourceTitle: title,
+    group: "Własne",
+    providerId: "local",
+    providerLabel: "Własna",
+    radio: ui.mode.value === "audio" || ui.shell?.dataset.mode === "audio",
+    hls: /\.m3u8(?:$|[?#])/i.test(url.href),
+  });
+}
+
+function openCreator() {
+  const item = directItem();
+  if (!item) {
+    ui.url.setCustomValidity("Podaj poprawny adres HTTP lub HTTPS.");
+    ui.url.reportValidity();
+    ui.url.setCustomValidity("");
+    return;
+  }
+  if (sourceItems.some((entry) => effectiveItem(entry).url === item.url)) {
+    setWorkspaceStatus("Ten adres już jest na aktualnej playliście", "error");
+    return;
+  }
+  fillEditor(item, true);
+}
+
 function closeEditor() {
   activeEditKey = "";
+  creatingItem = null;
+  ui.resetEdit.hidden = false;
+  if (ui.dialogTitle) ui.dialogTitle.textContent = "Edytuj pozycję";
   if (typeof ui.dialog.close === "function") ui.dialog.close();
   else ui.dialog.removeAttribute("open");
 }
@@ -403,15 +467,16 @@ ui.libraryEntries.addEventListener("click", (event) => {
 
 ui.editForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const item = itemFromActiveEdit();
+  const item = creatingItem || itemFromActiveEdit();
   if (!item) return closeEditor();
   try {
     const url = new URL(ui.editUrl.value.trim());
     if (!["http:", "https:"].includes(url.protocol)) throw new Error("invalid protocol");
     const title = ui.editTitle.value.trim();
     if (!title) throw new Error("missing title");
-    library.setEdit(item, {
+    const changes = {
       title,
+      sourceTitle: title,
       url: url.href,
       group: ui.editGroup.value.trim() || "Bez grupy",
       id: ui.editId.value.trim(),
@@ -420,11 +485,40 @@ ui.editForm.addEventListener("submit", (event) => {
       language: ui.editLanguage.value.trim(),
       radio: ui.editRadio.checked,
       hls: /\.m3u8(?:$|[?#])/i.test(url.href) || (item.hls && url.href === item.url),
-    });
+    };
+
+    if (creatingItem) {
+      if (sourceItems.some((entry) => effectiveItem(entry).url === url.href)) {
+        throw new Error("duplicate url");
+      }
+      const added = classifyItem({
+        ...creatingItem,
+        ...changes,
+        providerId: "local",
+        providerLabel: "Własna",
+      });
+      const label = sourceLabel || "Własna playlista";
+      pendingCaptureOptions = sourceItems.length
+        ? { label, ...sourceOptions, defaultRadio: false }
+        : { label, providerId: "local", providerLabel: "Własna" };
+      ui.text.value = serializeM3u([...sourceItems, added], { dedupe: false });
+      ui.parse.click();
+      queueMicrotask(() => {
+        ui.text.value = "";
+      });
+      closeEditor();
+      setWorkspaceStatus(`Dodano: ${title}`);
+      return;
+    }
+
+    library.setEdit(item, changes);
     closeEditor();
     enhanceRows();
-  } catch {
-    ui.editUrl.setCustomValidity("Podaj poprawny adres HTTP lub HTTPS i nazwę kanału.");
+  } catch (error) {
+    const duplicate = error instanceof Error && error.message === "duplicate url";
+    ui.editUrl.setCustomValidity(duplicate
+      ? "Ten adres już jest na aktualnej playliście."
+      : "Podaj poprawny adres HTTP lub HTTPS i nazwę kanału.");
     ui.editUrl.reportValidity();
     ui.editUrl.setCustomValidity("");
   }
@@ -437,6 +531,7 @@ ui.resetEdit.addEventListener("click", () => {
   enhanceRows();
 });
 ui.cancelEdit.addEventListener("click", closeEditor);
+ui.addCurrent?.addEventListener("click", openCreator);
 ui.exportButton.addEventListener("click", exportFile);
 ui.copyButton.addEventListener("click", copyExport);
 ui.libraryView.addEventListener("change", renderLibrary);
@@ -477,7 +572,9 @@ ui.file.addEventListener("change", async (event) => {
 
 ui.parse.addEventListener("click", () => {
   ++sourceGeneration;
-  captureSource(ui.text.value, { label: "Wklejony tekst" });
+  const options = pendingCaptureOptions || { label: "Wklejony tekst" };
+  pendingCaptureOptions = null;
+  captureSource(ui.text.value, options);
 }, true);
 
 ui.form.addEventListener("submit", () => {

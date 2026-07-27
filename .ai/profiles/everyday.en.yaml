@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../schema/style-profile.schema.json
-schemaVersion: '0.2'
+schemaVersion: "0.2"
 id: trvny-everyday-en
 locale: en-US
 personality:

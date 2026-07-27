@@ -16,17 +16,20 @@ https://example.com/geo/index.m3u8
 https://example.com/duplicate/index.m3u8
 #EXTINF:-1 tvg-id="File.pl" tvg-country="PL",File
 https://example.com/video.mp4
+#EXTINF:-1 tvg-id="Forwarder.pl" tvg-country="PL",Forwarder
+https://example.com/stream-forwarder/get.php?x=TVP1
 `;
 
 const poland = filterFreeTvPlaylist(source, "PL");
-assert.equal(poland.total, 7);
-assert.equal(poland.count, 2);
+assert.equal(poland.total, 8);
+assert.equal(poland.count, 3);
 assert.match(poland.body, /Poland HD/);
 assert.match(poland.body, /video\.mp4/);
+assert.match(poland.body, /stream-forwarder\/get\.php\?x=TVP1/);
 assert.doesNotMatch(poland.body, /HTTP only|YouTube|Geo|Duplicate|Germany/);
 
 const all = filterFreeTvPlaylist(source, "ALL");
-assert.equal(all.count, 3);
+assert.equal(all.count, 4);
 assert.match(all.body, /Germany HD/);
 
 assert.throws(() => filterFreeTvPlaylist(source, "XX"), /unsupported/);

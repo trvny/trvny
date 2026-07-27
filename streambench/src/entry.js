@@ -17,7 +17,8 @@ class InjectFavicons {
       + '<link rel="icon" href="/favicon.ico" sizes="any">'
       + '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">'
       + '<link rel="mask-icon" href="/favicon.svg" color="#55e6a5">'
-      + '<link rel="manifest" href="/site.webmanifest">',
+      + '<link rel="manifest" href="/site.webmanifest">'
+      + '<link rel="stylesheet" href="/playlist-import.css">',
       { html: true },
     );
   }

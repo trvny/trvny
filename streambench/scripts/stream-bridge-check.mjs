@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { isRecoverableHlsError } from "../public/playback-recovery.js";
 import { relayTarget } from "../public/stream-bridge.js";
 
 const origin = "https://streambench.example";
@@ -20,5 +21,10 @@ assert.equal(hlsRelay?.hash, "#streambench.m3u8");
 assert.equal(relayTarget(httpsAudio, { origin, bundledUrls }), null);
 assert.equal(relayTarget("http://other.example/live.mp3", { origin, bundledUrls }), null);
 assert.equal(relayTarget("not a url", { origin, bundledUrls }), null);
+
+assert.equal(isRecoverableHlsError("HLS: manifestLoadError"), true);
+assert.equal(isRecoverableHlsError("HLS: fragLoadTimeOut"), true);
+assert.equal(isRecoverableHlsError("HLS: bufferAppendError"), false);
+assert.equal(isRecoverableHlsError("HLS: manifestLoadError", "loading"), false);
 
 console.log("stream bridge checks passed");

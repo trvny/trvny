@@ -32,6 +32,7 @@ class InjectEnhancements {
       '<script type="module" src="/workspace-layout.js"></script>'
       + '<script type="module" src="/default-playlists.js"></script>'
       + '<script type="module" src="/source-workspace.js"></script>'
+      + '<script type="module" src="/playback-recovery.js"></script>'
       + '<script type="module" src="/library-export.js"></script>'
       + '<script type="module" src="/radio-metadata.js"></script>',
       { html: true },

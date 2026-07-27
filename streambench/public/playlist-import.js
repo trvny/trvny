@@ -13,6 +13,24 @@ let decorationPending = false;
 
 const style = document.createElement("style");
 style.textContent = `
+  .player-tabs{min-width:0}
+  .player-tablist{display:flex;gap:7px;margin-bottom:10px}
+  .player-tablist button{min-height:36px;padding:0 12px;background:#171c22;color:var(--muted);font-size:.76rem}
+  .player-tablist button[aria-selected="true"]{border-color:#55e6a580;background:#55e6a514;color:var(--accent)}
+  .player-tabs[data-view="metadata"] .media-shell{display:none}
+  .player-metadata{display:none;min-height:360px;padding:18px;border:1px solid #252d35;border-radius:14px;background:#090c10}
+  .player-tabs[data-view="metadata"] .player-metadata{display:block}
+  .player-metadata-empty{min-height:320px;display:grid;place-items:center;margin:0;color:var(--muted);text-align:center}
+  .player-metadata-head{display:flex;align-items:start;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .player-metadata-head h3{margin:3px 0 0;font-size:1.05rem}
+  .player-metadata-kind{padding:5px 8px;border:1px solid #ffffff1f;border-radius:99px;color:var(--accent);font-size:.68rem;font-weight:750}
+  .player-metadata-tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  .player-metadata-tags span{padding:4px 8px;border:1px solid #55e6a533;border-radius:99px;background:#55e6a50d;color:#bdc7d0;font-size:.7rem}
+  .player-metadata-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+  .player-metadata-grid>div{min-width:0;padding:10px;border:1px solid #ffffff12;border-radius:10px;background:#0d1115}
+  .player-metadata-grid>div.wide{grid-column:1/-1}
+  .player-metadata-grid dt{color:var(--muted);font-size:.65rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .player-metadata-grid dd{overflow-wrap:anywhere;margin:5px 0 0;font-size:.78rem;line-height:1.4}
   .media-shell[data-mode="audio"]{grid-template-rows:minmax(0,1fr) auto;padding:20px}
   .radio-now-playing{display:none;width:100%;align-self:stretch;place-items:center;gap:12px;padding:12px 16px 2px;text-align:center}
   .media-shell[data-mode="audio"] .radio-now-playing{display:grid}
@@ -22,7 +40,7 @@ style.textContent = `
   .radio-artwork-copy strong,.radio-artwork-copy span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .radio-artwork-copy span{margin-top:4px;color:var(--muted);font-size:.76rem}
   .media-shell[data-mode="audio"] audio{align-self:end}
-  @media(max-width:620px){.radio-now-playing img,.radio-artwork-fallback{width:min(150px,48vw)}.radio-now-playing{padding-top:4px}}
+  @media(max-width:620px){.player-metadata{min-height:220px}.player-metadata-empty{min-height:180px}.player-metadata-grid{grid-template-columns:1fr}.player-metadata-grid>div.wide{grid-column:auto}.radio-now-playing img,.radio-artwork-fallback{width:min(150px,48vw)}.radio-now-playing{padding-top:4px}}
 `;
 document.head.append(style);
 
@@ -44,6 +62,63 @@ artworkMeta.textContent = "Stream audio";
 artworkCopy.append(artworkTitle, artworkMeta);
 artworkStage.append(artworkImage, artworkFallback, artworkCopy);
 audio.before(artworkStage);
+
+const playerTabs = document.createElement("div");
+playerTabs.className = "player-tabs";
+playerTabs.dataset.view = "player";
+const tabList = document.createElement("div");
+tabList.className = "player-tablist";
+tabList.setAttribute("role", "tablist");
+tabList.setAttribute("aria-label", "Widok odtwarzacza");
+const playerTab = document.createElement("button");
+playerTab.type = "button";
+playerTab.setAttribute("role", "tab");
+playerTab.setAttribute("aria-selected", "true");
+playerTab.textContent = "Odtwarzacz";
+const metadataTab = document.createElement("button");
+metadataTab.type = "button";
+metadataTab.setAttribute("role", "tab");
+metadataTab.setAttribute("aria-selected", "false");
+metadataTab.textContent = "Metadane";
+tabList.append(playerTab, metadataTab);
+
+const metadataPanel = document.createElement("section");
+metadataPanel.className = "player-metadata";
+metadataPanel.setAttribute("role", "tabpanel");
+const metadataEmpty = document.createElement("p");
+metadataEmpty.className = "player-metadata-empty";
+metadataEmpty.textContent = "Wybierz pozycję z playlisty, aby zobaczyć tagi i metadane.";
+const metadataContent = document.createElement("div");
+metadataContent.hidden = true;
+const metadataHead = document.createElement("div");
+metadataHead.className = "player-metadata-head";
+const metadataHeadingCopy = document.createElement("div");
+const metadataEyebrow = document.createElement("p");
+metadataEyebrow.className = "eyebrow";
+metadataEyebrow.textContent = "Wybrana pozycja";
+const metadataTitle = document.createElement("h3");
+metadataHeadingCopy.append(metadataEyebrow, metadataTitle);
+const metadataKind = document.createElement("span");
+metadataKind.className = "player-metadata-kind";
+metadataHead.append(metadataHeadingCopy, metadataKind);
+const metadataTags = document.createElement("div");
+metadataTags.className = "player-metadata-tags";
+const metadataGrid = document.createElement("dl");
+metadataGrid.className = "player-metadata-grid";
+metadataContent.append(metadataHead, metadataTags, metadataGrid);
+metadataPanel.append(metadataEmpty, metadataContent);
+
+shell.before(playerTabs);
+playerTabs.append(tabList, shell, metadataPanel);
+
+function selectPlayerTab(view) {
+  playerTabs.dataset.view = view;
+  playerTab.setAttribute("aria-selected", String(view === "player"));
+  metadataTab.setAttribute("aria-selected", String(view === "metadata"));
+}
+
+playerTab.addEventListener("click", () => selectPlayerTab("player"));
+metadataTab.addEventListener("click", () => selectPlayerTab("metadata"));
 
 function safeUrl(value) {
   try {
@@ -117,6 +192,47 @@ function itemMeta(item) {
   return [item.group, item.tags, item.codec, item.bitrate, item.quality].filter(Boolean).join(" · ");
 }
 
+function metadataField(label, value, wide = false) {
+  if (!value) return null;
+  const field = document.createElement("div");
+  if (wide) field.className = "wide";
+  const term = document.createElement("dt");
+  term.textContent = label;
+  const description = document.createElement("dd");
+  description.textContent = value;
+  field.append(term, description);
+  return field;
+}
+
+function renderMetadata(item) {
+  metadataEmpty.hidden = Boolean(item);
+  metadataContent.hidden = !item;
+  if (!item) return;
+
+  metadataTitle.textContent = item.title || "Bez nazwy";
+  metadataKind.textContent = item.radio ? "RADIO" : "STREAM";
+  const tags = String(item.tags || "").split(/[,;]+/).map((tag) => tag.trim()).filter(Boolean);
+  metadataTags.replaceChildren(...tags.map((tag) => {
+    const chip = document.createElement("span");
+    chip.textContent = tag;
+    return chip;
+  }));
+  metadataTags.hidden = tags.length === 0;
+
+  const fields = [
+    metadataField("Grupa", item.group),
+    metadataField("tvg-id", item.id),
+    metadataField("Kraj", item.country),
+    metadataField("Język", item.language),
+    metadataField("Kodek", item.codec),
+    metadataField("Bitrate", item.bitrate),
+    metadataField("Jakość", item.quality),
+    metadataField("Logo", item.logo, true),
+    metadataField("Adres źródła", item.url, true),
+  ].filter(Boolean);
+  metadataGrid.replaceChildren(...fields);
+}
+
 function fallbackArtwork(radio = false) {
   const fallback = document.createElement("span");
   fallback.className = "channel-fallback";
@@ -175,6 +291,7 @@ function renderArtwork(item) {
   artworkFallback.hidden = Boolean(item.logo);
   artworkImage.removeAttribute("src");
   if (item.logo) artworkImage.src = item.logo;
+  renderMetadata(item);
 }
 
 artworkImage.addEventListener("error", () => {
@@ -227,6 +344,7 @@ fileInput.addEventListener("change", (event) => {
   sourcePromise.then((source) => {
     localItems = parseLocalPlaylist(source, /radio/i.test(file.name));
     selectedItem = null;
+    renderMetadata(null);
     scheduleDecoration();
   }).catch(() => {});
 }, true);
@@ -234,12 +352,14 @@ fileInput.addEventListener("change", (event) => {
 parseButton.addEventListener("click", () => {
   localItems = parseLocalPlaylist(playlistText.value);
   selectedItem = null;
+  renderMetadata(null);
   scheduleDecoration();
 }, true);
 
 providerLoad.addEventListener("click", () => {
   localItems = [];
   selectedItem = null;
+  renderMetadata(null);
 }, true);
 
 new MutationObserver(scheduleDecoration).observe(entries, { childList: true, subtree: true });

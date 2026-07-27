@@ -3,6 +3,7 @@ const MAX_ICY_BYTES = 512_000;
 const MAX_METADATA_BYTES = 128_000;
 const FETCH_TIMEOUT_MS = 12_000;
 const MANIFEST_CACHE_MS = 45_000;
+const BUNDLED_PLAYLISTS = ["/playlists/iptv.m3u8", "/playlists/internet_radio.m3u8"];
 const manifestCache = new Map();
 let bundledCache = null;
 
@@ -74,20 +75,30 @@ function sameOriginBrowserRequest(request) {
   return request.headers.get("sec-fetch-site") === "same-origin";
 }
 
+async function bundledPlaylistUrls(path, env, requestUrl) {
+  const response = await env.ASSETS.fetch(new Request(new URL(path, requestUrl), {
+    headers: { accept: "audio/x-mpegurl,text/plain" },
+  }));
+  if (!response.ok) {
+    response.body?.cancel();
+    return [];
+  }
+  const text = await response.text();
+  return text.split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^https?:\/\//i.test(line))
+    .map((line) => safeRemoteUrl(line)?.href)
+    .filter(Boolean);
+}
+
 async function bundledUrls(env, requestUrl) {
   if (!bundledCache) {
     bundledCache = (async () => {
-      const assetUrl = new URL("/playlists/iptv.m3u8", requestUrl);
-      const response = await env.ASSETS.fetch(new Request(assetUrl, {
-        headers: { accept: "audio/x-mpegurl,text/plain" },
-      }));
-      if (!response.ok) throw new Error("bundled playlist unavailable");
-      const text = await response.text();
-      return new Set(text.split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter((line) => /^https?:\/\//i.test(line))
-        .map((line) => safeRemoteUrl(line)?.href)
-        .filter(Boolean));
+      const lists = await Promise.all(BUNDLED_PLAYLISTS
+        .map((path) => bundledPlaylistUrls(path, env, requestUrl)));
+      const urls = new Set(lists.flat());
+      if (urls.size === 0) throw new Error("bundled playlists unavailable");
+      return urls;
     })().catch((error) => {
       bundledCache = null;
       throw error;

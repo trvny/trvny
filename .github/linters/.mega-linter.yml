@@ -12,9 +12,11 @@ DEFAULT_BRANCH: main
 
 # REPOSITORY: secret/SAST scanning - GitHub secret scanning + Dependabot
 #   already cover this here
+# SPELL: cspell - not useful for this repo's content
 # COPYPASTE: jscpd - not useful for this repo's size
 DISABLE:
   - REPOSITORY
+  - SPELL
   - COPYPASTE
 
 # ACTION_ZIZMOR: run offline (no GitHub API -> no ref-confusion crash) and

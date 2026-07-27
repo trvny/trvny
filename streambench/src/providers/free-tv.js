@@ -1,4 +1,4 @@
-const DIRECT_MEDIA_PATTERN = /\.(?:m3u8|mp4|webm|mp3|aac|m4a|ogg|opus|flac)(?:$|[?#])/i;
+const BROWSER_SOURCE_MARKER_PATTERN = /[ⒹⓉⓎ]/u;
 const GEO_MARKER_PATTERN = /[Ⓖⓖ]/u;
 
 export const FREE_TV_COUNTRIES = [
@@ -31,10 +31,10 @@ function isSelectedCountry(attributes, country) {
     .includes(country);
 }
 
-function directHttpsUrl(value) {
+function httpsUrl(value) {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && DIRECT_MEDIA_PATTERN.test(url.href) ? url : null;
+    return url.protocol === "https:" ? url : null;
   } catch {
     return null;
   }
@@ -67,11 +67,18 @@ export function filterFreeTvPlaylist(source, country = "PL") {
 
     total += 1;
     const attributes = parseAttributes(pending);
-    const url = directHttpsUrl(line);
+    const url = httpsUrl(line);
+    const browserSource = BROWSER_SOURCE_MARKER_PATTERN.test(pending);
     const geoblocked = GEO_MARKER_PATTERN.test(pending);
     const key = attributes["tvg-id"] || url?.href || "";
 
-    if (url && !geoblocked && isSelectedCountry(attributes, selectedCountry) && !seen.has(key)) {
+    if (
+      url
+      && !browserSource
+      && !geoblocked
+      && isSelectedCountry(attributes, selectedCountry)
+      && !seen.has(key)
+    ) {
       seen.add(key);
       output.push(pending, url.href);
     }

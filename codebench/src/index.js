@@ -1,3 +1,5 @@
+import { faviconResponse } from "./favicons.js";
+
 const SITE_URL = "https://codebench.travny.workers.dev/";
 const TITLE = "Code Bench — QR Code Generator, Barcode Maker & Scanner";
 const DESCRIPTION =
@@ -56,8 +58,14 @@ class InjectHead {
       `<meta name="description" content="${DESCRIPTION}">`
       + '<meta name="robots" content="index,follow,max-image-preview:large">'
       + `<link rel="canonical" href="${SITE_URL}">`
-      + '<link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png">'
-      + '<link rel="shortcut icon" type="image/png" href="/apple-touch-icon.png">'
+      + '<link rel="icon" type="image/svg+xml" href="/favicon.svg">'
+      + '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">'
+      + '<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">'
+      + '<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">'
+      + '<link rel="icon" href="/favicon.ico" sizes="any">'
+      + '<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">'
+      + '<link rel="mask-icon" href="/favicon.svg" color="#DA2B1F">'
+      + '<link rel="manifest" href="/site.webmanifest">'
       + '<meta property="og:type" content="website">'
       + '<meta property="og:locale" content="en_US">'
       + `<meta property="og:title" content="${TITLE}">`
@@ -94,15 +102,8 @@ function textResponse(body, contentType, cacheControl = "public, max-age=3600") 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-
-    if (url.pathname === "/favicon.ico") {
-      const iconRequest = new Request(new URL("/apple-touch-icon.png", url), request);
-      const icon = await env.ASSETS.fetch(iconRequest);
-      const headers = new Headers(icon.headers);
-      headers.set("content-type", "image/png");
-      headers.set("cache-control", "public, max-age=86400, stale-while-revalidate=604800");
-      return new Response(icon.body, { status: icon.status, headers });
-    }
+    const generatedIcon = faviconResponse(url.pathname);
+    if (generatedIcon) return generatedIcon;
 
     if (url.pathname === "/robots.txt") {
       return textResponse(
@@ -139,6 +140,11 @@ export default {
       .on("title", new SetText(TITLE))
       .on('link[href^="https://fonts.googleapis.com"]', new RemoveElement())
       .on('link[href^="https://fonts.gstatic.com"]', new RemoveElement())
+      .on('link[rel="icon"]', new RemoveElement())
+      .on('link[rel="shortcut icon"]', new RemoveElement())
+      .on('link[rel="apple-touch-icon"]', new RemoveElement())
+      .on('link[rel="mask-icon"]', new RemoveElement())
+      .on('link[rel="manifest"]', new RemoveElement())
       .on("head", new InjectHead())
       .on("body", new InjectBody())
       .transform(response);

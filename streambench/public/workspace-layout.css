@@ -1,3 +1,25 @@
+.tool-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tool-heading h3 {
+  margin: 3px 0 0;
+  font-size: 1rem;
+}
+
+.tool-heading > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.tool-heading > span[data-state="error"] {
+  color: var(--danger);
+}
+
 .source-dock {
   margin-bottom: 18px;
 }
@@ -108,28 +130,6 @@
   border: 1px solid #ffffff1a;
   border-radius: 13px;
   background: #0d1115;
-}
-
-.tool-heading {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.tool-heading h3 {
-  margin: 3px 0 0;
-  font-size: 1rem;
-}
-
-.tool-heading > span {
-  color: var(--muted);
-  font-size: 0.72rem;
-}
-
-.tool-heading > span[data-state="error"] {
-  color: var(--danger);
 }
 
 .tools-panel .diagnostics-grid {

@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { dedupePlaylist, parseM3uWorkspace, serializeM3u } from "../public/playlist-format.js";
 
 function assert(condition, message) {
@@ -33,5 +35,11 @@ assert(exported.includes("#EXTALB:BBC"), "EXTALB was not exported");
 assert(exported.includes("#EXTVLCOPT:http-user-agent=Streambench Test"), "item directive was not exported");
 assert(exported.includes("https://example.com/live.mpd"), "MPD URL was not exported");
 assert(exported.match(/https:\/\/example\.com\/raw\.mp3/g)?.length === 1, "export did not deduplicate exact URLs");
+
+const repositorySource = await readFile(new URL("../../stuff/playlists/iptv.m3u8", import.meta.url), "utf8");
+const repositoryItems = parseM3uWorkspace(repositorySource, { providerId: "local", providerLabel: "Lokalna" });
+assert(repositoryItems.length > 20, "repository IPTV playlist was not parsed");
+assert(repositoryItems.some((item) => item.hls), "repository IPTV playlist lost HLS entries");
+assert(repositoryItems.some((item) => item.url.endsWith(".mpd")), "repository IPTV playlist lost MPD entries");
 
 console.log("playlist format checks passed");

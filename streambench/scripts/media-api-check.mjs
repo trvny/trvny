@@ -4,6 +4,11 @@ import { isPrivateHost, radioParadiseChannel, rewriteHlsManifest } from "../src/
 assert.equal(isPrivateHost("127.0.0.1"), true);
 assert.equal(isPrivateHost("192.168.1.4"), true);
 assert.equal(isPrivateHost("stream.radioparadise.com"), false);
+assert.equal(isPrivateHost("fd18f1cadd404894a31a3362c5f319bd.mediatailor.us-east-1.amazonaws.com"), false);
+assert.equal(isPrivateHost("fd00::1"), true);
+assert.equal(isPrivateHost("::ffff:7f00:1"), true);
+assert.equal(isPrivateHost("::ffff:c0a8:101"), true);
+assert.equal(isPrivateHost("::ffff:8.8.8.8"), false);
 
 assert.equal(radioParadiseChannel("http://stream-uk1.radioparadise.com/aac-320"), 0);
 assert.equal(radioParadiseChannel("http://stream.radioparadise.com/ogg-192m"), 1);

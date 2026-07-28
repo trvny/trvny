@@ -1,8 +1,6 @@
 # [Code Bench — QR & Barcode Studio](https://codebench.travny.workers.dev)
 
-[![MegaLinter](https://github.com/trvny/trvny/actions/workflows/mega-linter.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/mega-linter.yml)
-
-[![codebench](public/favicon.svg)](https://codebench.travny.workers.dev)
+[![codebench](public/apple-touch-icon.png)](https://codebench.travny.workers.dev)
 
 Client-side QR and barcode studio. The UI remains a single HTML document,
 while a small Cloudflare Worker wraps static assets with security headers,

@@ -81,8 +81,8 @@
 
 <div align="center">
 
-[![license](https://img.shields.io/github/license/trvny/trvny)](https://opensource.org/license/bsd-2-clause)
-
 <sub>consolidation over fragmentation · po kolei, na spokojnie</sub>
 
 </div>
+
+[![license](https://img.shields.io/github/license/trvny/trvny)](https://opensource.org/license/bsd-2-clause)

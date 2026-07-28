@@ -32,6 +32,7 @@
 |---|---|---|
 | 🔳 **[Codebench](codebench/)** | [codebench.travny.workers.dev](https://codebench.travny.workers.dev) | Prywatne, przeglądarkowe studio QR i kodów kreskowych. Dane nie opuszczają przeglądarki. |
 | 📻 **[Streambench](streambench/)** | [streambench.travny.workers.dev](https://streambench.travny.workers.dev) | Warsztat do testowania, porządkowania i odtwarzania IPTV, radia, HLS, M3U oraz XMLTV. |
+| 🔊 **[WAM Bridge](wambridge/)** | Windows/LAN | Lokalny most audio do głośników Samsung Wireless Audio Multiroom, zaczynając od Shape M5. |
 | 🌦️ **[weather-feed](weather-feed/)** | [weather.travny.workers.dev](https://weather.travny.workers.dev) | Wieloźródłowa pogoda i alerty IMGW dla Kościelca/Chrzanowa, wystawione jako Atom i JSON. |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | Jedno narzędzie do zbiorczego sprawdzania zdrowia TVPI, Feeds i Autek. |
 | 🤖 **[skills](.claude/skills/)** | lokalnie | Biblioteka umiejętności i instrukcji dla narzędzi AI pracujących nad projektami. |

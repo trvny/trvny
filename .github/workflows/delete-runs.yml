@@ -10,7 +10,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: delete-runs
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

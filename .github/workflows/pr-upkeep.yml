@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: read
   checks: read
   contents: write
   pull-requests: write
@@ -32,11 +33,14 @@ jobs:
       - name: Process open PRs
         uses: actions/github-script@v9
         env:
+          AUTOMERGE_ALLOW_NO_CHECKS: >-
+            ${{ vars.PR_AUTOMERGE_ALLOW_NO_CHECKS || 'false' }}
           AUTOMERGE_IDLE_HOURS: ${{ vars.PR_AUTOMERGE_IDLE_HOURS || '4' }}
           AUTOMERGE_LABEL: ${{ vars.PR_AUTOMERGE_LABEL || 'automerge' }}
           AUTOMERGE_METHOD: ${{ vars.PR_AUTOMERGE_METHOD || 'squash' }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: >-
+            ${{ secrets.PR_UPKEEP_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
             const run = require('./.github/scripts/pr-upkeep.cjs');
             await run({ github, context, core });

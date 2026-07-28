@@ -92,6 +92,7 @@ async function checkState(github, owner, repo, headSha) {
 
   return {
     failed: [...failedChecks, ...unusualChecks, ...failedStatuses],
+    observed: checkRuns.length + statuses.length > 0,
     pending: [...pendingChecks, ...pendingStatuses],
   };
 }
@@ -114,6 +115,9 @@ module.exports = async function keepPullRequestsCurrent({
   const automergeLabel = process.env.AUTOMERGE_LABEL || 'automerge';
   const idleHours = Number.parseFloat(process.env.AUTOMERGE_IDLE_HOURS || '4');
   const mergeMethod = process.env.AUTOMERGE_METHOD || 'squash';
+  const allowNoChecks =
+    (process.env.AUTOMERGE_ALLOW_NO_CHECKS || 'false').toLowerCase() ===
+    'true';
 
   if (!Number.isFinite(idleHours) || idleHours < 0) {
     throw new Error(
@@ -232,6 +236,12 @@ module.exports = async function keepPullRequestsCurrent({
       repo,
       pullRequest.head.sha,
     );
+    if (!checks.observed && !allowNoChecks) {
+      core.info(
+        `${prefix}: no checks or commit statuses found on the current SHA.`,
+      );
+      continue;
+    }
     if (checks.failed.length > 0) {
       core.warning(`${prefix}: failing checks: ${describeChecks(checks.failed)}.`);
       continue;

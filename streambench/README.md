@@ -1,6 +1,4 @@
-# [Streambench](https://streambench.travny.workers.dev)
-
-[![MegaLinter](https://github.com/trvny/trvny/actions/workflows/mega-linter.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/mega-linter.yml)
+# [![Streambench](https://streambench.travny.workers.dev/favicon-96x96.png)](https://streambench.travny.workers.dev)
 
 Browser-based workshop for testing IPTV, radio and other media streams.
 

@@ -85,6 +85,7 @@ def run(args: argparse.Namespace) -> int:
         port=args.http_port,
         ffmpeg=args.ffmpeg,
     )
+    server.prepare()
     server.start()
     stream_url = server.url(host_ip)
     LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
@@ -99,6 +100,8 @@ def run(args: argparse.Namespace) -> int:
         print(f"Streaming to Samsung WAM at {speaker_ip}. Press Ctrl+C to stop.")
         while not server.request_finished.wait(timeout=1):
             pass
+        if server.error:
+            raise RuntimeError(server.error)
         return 0
     except KeyboardInterrupt:
         print("\nStopping")

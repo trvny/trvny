@@ -1,0 +1,54 @@
+---
+name: PR upkeep
+
+on: # yamllint disable-line rule:truthy
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: pr-upkeep-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  pull-requests: read
+  statuses: read
+
+jobs:
+  upkeep:
+    name: Update and optionally merge PRs
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout trusted workflow script
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts/pr-upkeep.cjs
+          sparse-checkout-cone-mode: false
+
+      - name: Require event-producing token
+        env:
+          PR_UPKEEP_TOKEN: ${{ secrets.PR_UPKEEP_TOKEN }}
+        run: |
+          if [ -z "$PR_UPKEEP_TOKEN" ]; then
+            echo "::error::Add the repository secret PR_UPKEEP_TOKEN."
+            exit 1
+          fi
+
+      - name: Process open PRs
+        uses: actions/github-script@v9
+        env:
+          AUTOMERGE_ALLOW_NO_CHECKS: >-
+            ${{ vars.PR_AUTOMERGE_ALLOW_NO_CHECKS || 'false' }}
+          AUTOMERGE_IDLE_HOURS: ${{ vars.PR_AUTOMERGE_IDLE_HOURS || '4' }}
+          AUTOMERGE_LABEL: ${{ vars.PR_AUTOMERGE_LABEL || 'automerge' }}
+          AUTOMERGE_METHOD: ${{ vars.PR_AUTOMERGE_METHOD || 'squash' }}
+        with:
+          github-token: ${{ secrets.PR_UPKEEP_TOKEN }}
+          script: |
+            const run = require('./.github/scripts/pr-upkeep.cjs');
+            await run({ github, context, core });

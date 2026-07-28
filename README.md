@@ -57,6 +57,8 @@
 | [WiFi-Automatic](https://github.com/trvny/WiFi-Automatic) | fork aplikacji automatyzującej radio Wi-Fi na Androidzie |
 | [explore](https://github.com/trvny/explore) | fork danych GitHub Topics i Collections |
 
+[![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
+
 ## 💬 Cytat z szuflady
 
 <!-- markdownlint-disable MD033 -->

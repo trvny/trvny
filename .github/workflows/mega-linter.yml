@@ -43,28 +43,22 @@ jobs:
           codebench=false
           streambench=false
 
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            codebench=true
-            streambench=true
-          elif [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] ||
+             [ -z "$BASE_SHA" ] ||
+             [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
             codebench=true
             streambench=true
           else
-            changed_files="$(git diff --name-only "$BASE_SHA" HEAD)"
-
-            if printf '%s\n' "$changed_files" | grep -q '^\.github/workflows/mega-linter\.yml$'; then
+            if ! git diff --quiet "$BASE_SHA" HEAD -- codebench/; then
+              codebench=true
+            fi
+            if ! git diff --quiet "$BASE_SHA" HEAD -- \
+              streambench/ stuff/playlists/wklejony-tekst.m3u8; then
+              streambench=true
+            fi
+            if ! git diff --quiet "$BASE_SHA" HEAD -- .github/workflows/mega-linter.yml; then
               codebench=true
               streambench=true
-            else
-              if printf '%s\n' "$changed_files" | grep '^codebench/' | grep -qv '\.md$'; then
-                codebench=true
-              fi
-              if printf '%s\n' "$changed_files" | grep '^streambench/' | grep -qv '\.md$'; then
-                streambench=true
-              fi
-              if printf '%s\n' "$changed_files" | grep -q '^stuff/playlists/wklejony-tekst\.m3u8$'; then
-                streambench=true
-              fi
             fi
           fi
 
@@ -89,7 +83,9 @@ jobs:
           APPLY_FIXES_EVENT: none
 
       - name: Set up Node.js
-        if: steps.benches.outputs.codebench == 'true' || steps.benches.outputs.streambench == 'true'
+        if: >-
+          steps.benches.outputs.codebench == 'true' ||
+          steps.benches.outputs.streambench == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -128,28 +124,17 @@ jobs:
             mega-linter.log
 
       - name: Gate checks
-        if: always()
-        env:
-          CODEBENCH_OUTCOME: ${{ steps.codebench.outcome }}
-          STREAMBENCH_OUTCOME: ${{ steps.streambench.outcome }}
-          MEGALINTER_OUTCOME: ${{ steps.megalinter.outcome }}
-        run: |
-          failed=false
-
-          for check in \
-            "codebench:$CODEBENCH_OUTCOME" \
-            "streambench:$STREAMBENCH_OUTCOME" \
-            "MegaLinter:$MEGALINTER_OUTCOME"
-          do
-            name="${check%%:*}"
-            outcome="${check#*:}"
-            case "$outcome" in
-              success|skipped) ;;
-              *)
-                echo "$name failed: $outcome"
-                failed=true
-                ;;
-            esac
-          done
-
-          [ "$failed" = false ]
+        if: >-
+          always() &&
+          (
+            steps.megalinter.outcome != 'success' ||
+            (
+              steps.benches.outputs.codebench == 'true' &&
+              steps.codebench.outcome != 'success'
+            ) ||
+            (
+              steps.benches.outputs.streambench == 'true' &&
+              steps.streambench.outcome != 'success'
+            )
+          )
+        run: exit 1

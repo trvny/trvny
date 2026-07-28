@@ -8,7 +8,7 @@ on: # yamllint disable-line rule:truthy
 
 concurrency:
   group: pr-upkeep-${{ github.repository }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   actions: read
@@ -22,10 +22,6 @@ jobs:
     name: Update and optionally merge PRs
     runs-on: ubuntu-slim
     steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
-        with:
-          egress-policy: audit
 
       - name: Checkout trusted workflow script
         uses: actions/checkout@v7.0.1

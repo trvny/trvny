@@ -165,7 +165,16 @@ function currentQuote(readme) {
     `${escapeRegExp(START_MARKER)}([\\s\\S]*?)${escapeRegExp(END_MARKER)}`,
   );
   const match = readme.match(pattern);
-  return match ? normalize(decodeHtml(match[1])) : '';
+  if (!match) {
+    return '';
+  }
+
+  const rendered = decodeHtml(match[1])
+    .replace(/<[^>]+>/g, ' ')
+    .trim()
+    .replace(/^❝/, '')
+    .replace(/❞$/, '');
+  return normalize(rendered);
 }
 
 function pickSource(sources) {

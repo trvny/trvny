@@ -1,5 +1,5 @@
 ---
-name: Update README quote
+name: README quote
 
 on: # yamllint disable-line rule:truthy
   schedule:
@@ -7,7 +7,7 @@ on: # yamllint disable-line rule:truthy
   workflow_dispatch:
 
 concurrency:
-  group: update-readme-quote
+  group: readme-quote
   cancel-in-progress: false
 
 permissions:

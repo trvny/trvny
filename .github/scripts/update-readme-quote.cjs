@@ -4,7 +4,11 @@ const { randomInt } = require('node:crypto');
 
 const START_MARKER = '<!--STARTS_HERE_QUOTE_README-->';
 const END_MARKER = '<!--ENDS_HERE_QUOTE_README-->';
+const FEED_START_MARKER = '<!--README_FEED:START-->';
+const FEED_END_MARKER = '<!--README_FEED:END-->';
 const DEFAULT_GIST_ID = '167d2271e3cf7d21e118aa7d906a7d2c';
+const DEFAULT_FEED_URL =
+  'https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_digest.xml';
 const UPSTREAM_BASE =
   'https://raw.githubusercontent.com/offensive-vk/auto-update-quote/v7';
 
@@ -21,6 +25,25 @@ function escapeHtml(value) {
 
 function decodeHtml(value) {
   return value
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&');
+}
+
+function decodeCodePoint(value, radix) {
+  const codePoint = Number.parseInt(value, radix);
+  return Number.isInteger(codePoint) && codePoint <= 0x10ffff
+    ? String.fromCodePoint(codePoint)
+    : '';
+}
+
+function decodeXml(value) {
+  return value
+    .replace(/^<!\[CDATA\[([\s\S]*)\]\]>$/i, '$1')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => decodeCodePoint(hex, 16))
+    .replace(/&#(\d+);/g, (_, decimal) => decodeCodePoint(decimal, 10))
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
     .replaceAll('&lt;', '<')
     .replaceAll('&gt;', '>')
     .replaceAll('&amp;', '&');
@@ -134,7 +157,7 @@ async function fetchText(url, headers = {}) {
 async function fetchGistCandidates(gistId, token) {
   const headers = {
     Accept: 'application/vnd.github+json',
-    'User-Agent': 'trvny-readme-quote',
+    'User-Agent': 'trvny-readme',
     'X-GitHub-Api-Version': '2026-03-10',
   };
   if (token) {
@@ -161,9 +184,7 @@ async function fetchGistCandidates(gistId, token) {
 }
 
 function currentQuote(readme) {
-  const pattern = new RegExp(
-    `${escapeRegExp(START_MARKER)}([\\s\\S]*?)${escapeRegExp(END_MARKER)}`,
-  );
+  const pattern = markerPattern(START_MARKER, END_MARKER);
   const match = readme.match(pattern);
   if (!match) {
     return '';
@@ -175,6 +196,11 @@ function currentQuote(readme) {
     .replace(/^❝/, '')
     .replace(/❞$/, '');
   return normalize(rendered);
+}
+
+function markerPattern(start, end, capture = true) {
+  const middle = capture ? '([\\s\\S]*?)' : '[\\s\\S]*?';
+  return new RegExp(`${escapeRegExp(start)}${middle}${escapeRegExp(end)}`);
 }
 
 function pickSource(sources) {
@@ -191,7 +217,151 @@ function pickItem(items, previous) {
   return pool[randomInt(pool.length)];
 }
 
-module.exports = async function updateReadmeQuote({ github, context, core }) {
+function extractTag(block, names) {
+  for (const name of names) {
+    const pattern = new RegExp(
+      `<(?:[\\w.-]+:)?${escapeRegExp(name)}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${escapeRegExp(name)}>`,
+      'i',
+    );
+    const match = block.match(pattern);
+    if (match) {
+      return match[1].trim();
+    }
+  }
+  return '';
+}
+
+function cleanFeedText(value) {
+  return decodeXml(value)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function safeHttpUrl(value) {
+  try {
+    const url = new URL(decodeXml(value).trim());
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+function extractLink(block) {
+  const tags = [...block.matchAll(/<(?:[\w.-]+:)?link\b([^>]*)\/?\s*>/gi)];
+  for (const match of tags) {
+    const attributes = match[1];
+    const href = attributes.match(/\bhref\s*=\s*(["'])(.*?)\1/i)?.[2];
+    const rel = attributes.match(/\brel\s*=\s*(["'])(.*?)\1/i)?.[2];
+    if (href && (!rel || rel.toLowerCase() === 'alternate')) {
+      const safe = safeHttpUrl(href);
+      if (safe) {
+        return safe;
+      }
+    }
+  }
+
+  return safeHttpUrl(cleanFeedText(extractTag(block, ['link', 'guid'])));
+}
+
+function parseFeedDate(block) {
+  const value = cleanFeedText(
+    extractTag(block, ['published', 'updated', 'pubDate', 'date']),
+  );
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function parseFeedEntries(xml, sourceUrl) {
+  const blocks = [];
+  for (const tag of ['entry', 'item']) {
+    const pattern = new RegExp(
+      `<(?:[\\w.-]+:)?${tag}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${tag}>`,
+      'gi',
+    );
+    for (const match of xml.matchAll(pattern)) {
+      blocks.push(match[1]);
+    }
+  }
+
+  return blocks.flatMap((block, index) => {
+    const title = cleanFeedText(extractTag(block, ['title']));
+    const url = extractLink(block);
+    if (!title || !url) {
+      return [];
+    }
+    return [{ title, url, timestamp: parseFeedDate(block), sourceUrl, index }];
+  });
+}
+
+function parseFeedUrls(value) {
+  const urls = (value || DEFAULT_FEED_URL)
+    .split(/[\n,]+/)
+    .map((item) => safeHttpUrl(item))
+    .filter(Boolean);
+  return [...new Set(urls)];
+}
+
+function feedLimit(value) {
+  const parsed = Number.parseInt(value ?? '5', 10);
+  return Number.isFinite(parsed) ? Math.min(10, Math.max(1, parsed)) : 5;
+}
+
+function escapeMarkdown(value) {
+  return value.replace(/[\\`*_[\]()]/g, '\\$&');
+}
+
+function truncate(value, limit = 180) {
+  const characters = [...value];
+  return characters.length <= limit
+    ? value
+    : `${characters.slice(0, limit - 1).join('').trimEnd()}…`;
+}
+
+function selectFeedEntries(entries, limit) {
+  const seenTitles = new Set();
+  const seenUrls = new Set();
+  return [...entries]
+    .sort((a, b) => b.timestamp - a.timestamp || a.index - b.index)
+    .filter((entry) => {
+      const title = normalize(entry.title);
+      if (seenTitles.has(title) || seenUrls.has(entry.url)) {
+        return false;
+      }
+      seenTitles.add(title);
+      seenUrls.add(entry.url);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+function renderFeed(entries) {
+  return [
+    FEED_START_MARKER,
+    ...entries.map(
+      (entry) => `- [${escapeMarkdown(truncate(entry.title))}](${entry.url})`,
+    ),
+    FEED_END_MARKER,
+  ].join('\n');
+}
+
+async function loadFeedEntries(urls, core) {
+  const entries = [];
+  for (const url of urls) {
+    try {
+      const xml = await fetchText(url, {
+        Accept: 'application/atom+xml, application/rss+xml, application/xml, text/xml',
+        'User-Agent': 'trvny-readme',
+      });
+      entries.push(...parseFeedEntries(xml, url));
+    } catch (error) {
+      core.warning(`Feed unavailable (${url}): ${error.message}`);
+    }
+  }
+  return entries;
+}
+
+module.exports = async function updateReadme({ github, context, core }) {
   const { owner, repo } = context.repo;
   const gistId = process.env.GIST_ID || DEFAULT_GIST_ID;
   const readmePath = process.env.README_PATH || 'README.md';
@@ -210,10 +380,9 @@ module.exports = async function updateReadmeQuote({ github, context, core }) {
   }
 
   const readme = Buffer.from(response.data.content, 'base64').toString('utf8');
-  const markerPattern = new RegExp(
-    `${escapeRegExp(START_MARKER)}[\\s\\S]*?${escapeRegExp(END_MARKER)}`,
-  );
-  if (!markerPattern.test(readme)) {
+  const quotePattern = markerPattern(START_MARKER, END_MARKER, false);
+  const feedPattern = markerPattern(FEED_START_MARKER, FEED_END_MARKER, false);
+  if (!quotePattern.test(readme) || !feedPattern.test(readme)) {
     throw new Error(`README markers are missing from ${readmePath}`);
   }
 
@@ -239,17 +408,36 @@ module.exports = async function updateReadmeQuote({ github, context, core }) {
     }
   }
 
-  const source = pickSource(sources);
-  const quote = pickItem(source.items, currentQuote(readme));
-  const replacement = [
-    START_MARKER,
-    `<i>❝${escapeHtml(quote)}❞</i>`,
-    END_MARKER,
-  ].join('\n');
-  const updated = readme.replace(markerPattern, replacement);
+  let sourceName = 'current quote';
+  let updated = readme;
+  try {
+    const source = pickSource(sources);
+    const quote = pickItem(source.items, currentQuote(readme));
+    const quoteReplacement = [
+      START_MARKER,
+      `<i>❝${escapeHtml(quote)}❞</i>`,
+      END_MARKER,
+    ].join('\n');
+    updated = updated.replace(quotePattern, quoteReplacement);
+    sourceName = source.name;
+  } catch (error) {
+    core.warning(`Quote sources unavailable: ${error.message}`);
+  }
+
+  const feedUrls = parseFeedUrls(process.env.README_FEED_URLS);
+  const loadedEntries = await loadFeedEntries(feedUrls, core);
+  const feedEntries = selectFeedEntries(
+    loadedEntries,
+    feedLimit(process.env.README_FEED_MAX_ENTRIES),
+  );
+  if (feedEntries.length > 0) {
+    updated = updated.replace(feedPattern, renderFeed(feedEntries));
+  } else {
+    core.warning('No feed entries loaded; preserving the current README feed block.');
+  }
 
   if (updated === readme) {
-    core.info('Selected text already matches README; nothing to commit.');
+    core.info('Dynamic README content is unchanged; nothing to commit.');
     return;
   }
 
@@ -258,10 +446,19 @@ module.exports = async function updateReadmeQuote({ github, context, core }) {
     repo,
     path: readmePath,
     branch,
-    message: 'chore(readme): rotate quote',
+    message: 'chore(readme): refresh dynamic content',
     content: Buffer.from(updated, 'utf8').toString('base64'),
     sha: response.data.sha,
   });
 
-  core.info(`README updated from ${source.name} (${source.items.length} items).`);
+  core.info(
+    `README updated from ${sourceName} and ${feedEntries.length} feed entries.`,
+  );
+};
+
+module.exports._test = {
+  parseFeedEntries,
+  parseFeedUrls,
+  selectFeedEntries,
+  renderFeed,
 };

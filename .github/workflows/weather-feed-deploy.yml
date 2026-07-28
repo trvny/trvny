@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "weather-feed/**"
+      - "!weather-feed/**/*.md"
       - ".github/workflows/weather-feed-deploy.yml"
   pull_request:
     paths:
       - "weather-feed/**"
+      - "!weather-feed/**/*.md"
       - ".github/workflows/weather-feed-deploy.yml"
   workflow_dispatch:
 

@@ -90,6 +90,7 @@ class AudioStreamServer:
         self.token = secrets.token_urlsafe(24)
         self.request_started = threading.Event()
         self.request_finished = threading.Event()
+        self.error: str | None = None
         self._process: subprocess.Popen[bytes] | None = None
         self._process_lock = threading.Lock()
         self._server = ThreadingHTTPServer((bind, port), self._make_handler())
@@ -108,6 +109,37 @@ class AudioStreamServer:
     def url(self, host: str) -> str:
         """Build a URL reachable by the speaker."""
         return f"http://{host}:{self.port}{self.path}"
+
+    def prepare(self, timeout: float = 20.0) -> None:
+        """Verify that FFmpeg can decode and encode a short audio sample."""
+        command = [
+            self.ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            self.source,
+            "-map",
+            "0:a:0",
+            "-t",
+            "0.25",
+            *self.profile.ffmpeg_args,
+            "pipe:1",
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                timeout=timeout,
+                check=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+        except subprocess.TimeoutExpired as error:
+            raise StreamError(f"FFmpeg source check timed out after {timeout:g} seconds") from error
+        if result.returncode != 0:
+            details = result.stderr.decode("utf-8", errors="replace").strip()
+            raise StreamError(f"FFmpeg cannot prepare the source: {details or 'unknown error'}")
 
     def start(self) -> None:
         """Start accepting HTTP connections."""
@@ -142,6 +174,9 @@ class AudioStreamServer:
                 owner.request_started.set()
                 try:
                     owner._serve_audio(self.wfile, self)
+                except Exception as error:  # HTTP worker boundary
+                    owner.error = str(error)
+                    LOGGER.exception("Audio stream failed")
                 finally:
                     owner.request_finished.set()
 
@@ -172,14 +207,21 @@ class AudioStreamServer:
         with self._process_lock:
             self._process = process
 
+        assert process.stdout is not None
+        first_chunk = process.stdout.read(CHUNK_SIZE)
+        if not first_chunk:
+            process.wait(timeout=5)
+            raise StreamError(f"FFmpeg produced no audio (exit {process.returncode})")
+
         handler.send_response(200)
         handler.send_header("Content-Type", self.profile.content_type)
         handler.send_header("Cache-Control", "no-store")
         handler.send_header("Connection", "close")
         handler.end_headers()
 
-        assert process.stdout is not None
         try:
+            output.write(first_chunk)
+            output.flush()
             while chunk := process.stdout.read(CHUNK_SIZE):
                 output.write(chunk)
                 output.flush()

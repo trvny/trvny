@@ -1,5 +1,5 @@
 ---
-name: README quote
+name: README dynamic content
 
 on: # yamllint disable-line rule:truthy
   schedule:
@@ -7,7 +7,7 @@ on: # yamllint disable-line rule:truthy
   workflow_dispatch:
 
 concurrency:
-  group: readme-quote
+  group: readme-dynamic
   cancel-in-progress: false
 
 permissions:
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   update:
-    name: Rotate quote
+    name: Refresh quote and feed
     runs-on: ubuntu-slim
     steps:
       - name: Checkout workflow script
@@ -31,6 +31,9 @@ jobs:
         env:
           GIST_ID: 167d2271e3cf7d21e118aa7d906a7d2c
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          README_FEED_URLS: >-
+            ${{ vars.README_FEED_URLS || 'https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_digest.xml' }}
+          README_FEED_MAX_ENTRIES: ${{ vars.README_FEED_MAX_ENTRIES || '5' }}
           README_PATH: README.md
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

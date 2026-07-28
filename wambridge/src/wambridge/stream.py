@@ -74,7 +74,7 @@ class AudioStreamServer:
         source: str,
         *,
         profile: str = "flac",
-        bind: str = "0.0.0.0",
+        bind: str = "0.0.0.0",  # nosec B104 - WAM must reach the LAN server
         port: int = 0,
         ffmpeg: str = "ffmpeg",
     ) -> None:
@@ -92,6 +92,7 @@ class AudioStreamServer:
         self.request_finished = threading.Event()
         self.error: str | None = None
         self._process: subprocess.Popen[bytes] | None = None
+        self._started = False
         self._process_lock = threading.Lock()
         self._server = ThreadingHTTPServer((bind, port), self._make_handler())
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -127,7 +128,7 @@ class AudioStreamServer:
             "pipe:1",
         ]
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - argv list, resolved executable
                 command,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
@@ -144,6 +145,7 @@ class AudioStreamServer:
     def start(self) -> None:
         """Start accepting HTTP connections."""
         self._thread.start()
+        self._started = True
 
     def close(self) -> None:
         """Stop HTTP serving and any active FFmpeg process."""
@@ -156,10 +158,11 @@ class AudioStreamServer:
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait(timeout=3)
-        self._server.shutdown()
+        if self._started:
+            self._server.shutdown()
+            if self._thread.is_alive():
+                self._thread.join(timeout=3)
         self._server.server_close()
-        if self._thread.is_alive():
-            self._thread.join(timeout=3)
 
     def _make_handler(self) -> type[BaseHTTPRequestHandler]:
         owner = self
@@ -198,7 +201,7 @@ class AudioStreamServer:
             "pipe:1",
         ]
         LOGGER.info("Starting FFmpeg for %s", self.source)
-        process = subprocess.Popen(
+        process = subprocess.Popen(  # nosec B603 - argv list, resolved executable
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,

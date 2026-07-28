@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import urlopen
 from xml.etree import ElementTree
@@ -64,13 +63,13 @@ def request(
     """Send one command and validate the returned XML."""
     url = build_api_url(speaker_ip, method, arguments, port=port)
     try:
-        with urlopen(url, timeout=timeout) as response:  # noqa: S310 - local device URL
+        with urlopen(url, timeout=timeout) as response:  # nosec B310 - local speaker API
             body = response.read().decode("utf-8", errors="replace")
-    except (HTTPError, URLError, TimeoutError, OSError) as error:
+    except OSError as error:
         raise WamApiError(f"Cannot reach Samsung WAM at {speaker_ip}:{port}: {error}") from error
 
     try:
-        root = ElementTree.fromstring(body)
+        root = ElementTree.fromstring(body)  # nosec B314 - small response from local speaker
     except ElementTree.ParseError as error:
         raise WamApiError(f"Samsung WAM returned invalid XML: {body[:200]}") from error
 

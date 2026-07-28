@@ -55,6 +55,12 @@
 | [WiFi-Automatic](https://github.com/trvny/WiFi-Automatic) | fork aplikacji automatyzującej radio Wi-Fi na Androidzie |
 | [explore](https://github.com/trvny/explore) | fork danych GitHub Topics i Collections |
 
+## 💬 Cytat z szuflady
+
+<!--STARTS_HERE_QUOTE_README-->
+<i>❝po kolei, na spokojnie❞</i>
+<!--ENDS_HERE_QUOTE_README-->
+
 ---
 
 <div align="center">

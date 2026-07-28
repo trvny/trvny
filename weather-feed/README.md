@@ -1,4 +1,4 @@
-# weather-feed
+# [weather-feed](https://weather.travny.workers.dev)
 
 [![weather-feed](https://github.com/trvny/trvny/actions/workflows/weather-feed-deploy.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/weather-feed-deploy.yml)
 

@@ -7,7 +7,7 @@ on:
 jobs:
   update-readme-with-blog:
     name: Update latest blogs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -16,3 +16,12 @@ jobs:
         with:
           rss_list: "https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_quote.xml" # required
           max_post: 3  # optional, default 5 
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Update README with latest articles
+        uses: Prachi-Jamdade/Prachi-Jamdade@v1.1.0
+        with:
+          feed_urls: 'https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_digest.xml, https://anotherexample.com/rss'
+          article_limit: 5

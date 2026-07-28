@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - "mcp/status-mcp/**"
+      - "!mcp/status-mcp/**/*.md"
       - ".github/workflows/status-mcp-deploy.yml"
   pull_request:
     branches: [main]
     paths:
       - "mcp/status-mcp/**"
+      - "!mcp/status-mcp/**/*.md"
       - ".github/workflows/status-mcp-deploy.yml"
   workflow_dispatch:
 

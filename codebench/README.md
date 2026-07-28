@@ -25,7 +25,8 @@ This lives in the `trvny/trvny` monorepo under `codebench/`.
    - **Root directory:** `codebench`
    - **Build command:** `npm run build`
    - **Deploy command:** `npx wrangler deploy`
-4. Set **Build watch paths** to `codebench/*` and deploy.
+4. Set the build watch include to `codebench/*` and exclude to `*.md`.
+5. Deploy.
 
 The camera scanner needs HTTPS or localhost.
 

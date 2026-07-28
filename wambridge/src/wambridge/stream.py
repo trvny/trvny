@@ -1,0 +1,199 @@
+"""Local HTTP audio stream backed by FFmpeg."""
+
+from __future__ import annotations
+
+import logging
+import secrets
+import shutil
+import subprocess
+import threading
+from dataclasses import dataclass
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import BinaryIO
+
+LOGGER = logging.getLogger(__name__)
+CHUNK_SIZE = 64 * 1024
+
+
+@dataclass(frozen=True, slots=True)
+class OutputProfile:
+    """FFmpeg output settings understood by Samsung WAM speakers."""
+
+    extension: str
+    content_type: str
+    ffmpeg_args: tuple[str, ...]
+
+
+OUTPUT_PROFILES: dict[str, OutputProfile] = {
+    "flac": OutputProfile(
+        extension="flac",
+        content_type="audio/flac",
+        ffmpeg_args=(
+            "-vn",
+            "-ac",
+            "2",
+            "-ar",
+            "48000",
+            "-sample_fmt",
+            "s16",
+            "-c:a",
+            "flac",
+            "-f",
+            "flac",
+        ),
+    ),
+    "mp3": OutputProfile(
+        extension="mp3",
+        content_type="audio/mpeg",
+        ffmpeg_args=(
+            "-vn",
+            "-ac",
+            "2",
+            "-ar",
+            "48000",
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            "320k",
+            "-f",
+            "mp3",
+        ),
+    ),
+}
+
+
+class StreamError(RuntimeError):
+    """Raised when the local stream cannot start."""
+
+
+class AudioStreamServer:
+    """Serve one tokenized real-time audio stream to a WAM speaker."""
+
+    def __init__(
+        self,
+        source: str,
+        *,
+        profile: str = "flac",
+        bind: str = "0.0.0.0",
+        port: int = 0,
+        ffmpeg: str = "ffmpeg",
+    ) -> None:
+        if profile not in OUTPUT_PROFILES:
+            raise ValueError(f"Unknown output profile: {profile}")
+        resolved_ffmpeg = shutil.which(ffmpeg)
+        if not resolved_ffmpeg:
+            raise StreamError(f"FFmpeg executable not found: {ffmpeg}")
+
+        self.source = source
+        self.profile = OUTPUT_PROFILES[profile]
+        self.ffmpeg = resolved_ffmpeg
+        self.token = secrets.token_urlsafe(24)
+        self.request_started = threading.Event()
+        self.request_finished = threading.Event()
+        self._process: subprocess.Popen[bytes] | None = None
+        self._process_lock = threading.Lock()
+        self._server = ThreadingHTTPServer((bind, port), self._make_handler())
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+
+    @property
+    def port(self) -> int:
+        """Return the bound TCP port."""
+        return int(self._server.server_address[1])
+
+    @property
+    def path(self) -> str:
+        """Return the random URL path expected by the speaker."""
+        return f"/stream/{self.token}.{self.profile.extension}"
+
+    def url(self, host: str) -> str:
+        """Build a URL reachable by the speaker."""
+        return f"http://{host}:{self.port}{self.path}"
+
+    def start(self) -> None:
+        """Start accepting HTTP connections."""
+        self._thread.start()
+
+    def close(self) -> None:
+        """Stop HTTP serving and any active FFmpeg process."""
+        with self._process_lock:
+            process = self._process
+        if process and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+        self._server.shutdown()
+        self._server.server_close()
+        if self._thread.is_alive():
+            self._thread.join(timeout=3)
+
+    def _make_handler(self) -> type[BaseHTTPRequestHandler]:
+        owner = self
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.0"
+
+            def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+                if self.path != owner.path:
+                    self.send_error(404)
+                    return
+                owner.request_started.set()
+                try:
+                    owner._serve_audio(self.wfile, self)
+                finally:
+                    owner.request_finished.set()
+
+            def log_message(self, format_string: str, *args: object) -> None:
+                LOGGER.debug("HTTP: " + format_string, *args)
+
+        return Handler
+
+    def _serve_audio(self, output: BinaryIO, handler: BaseHTTPRequestHandler) -> None:
+        command = [
+            self.ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "warning",
+            "-re",
+            "-i",
+            self.source,
+            *self.profile.ffmpeg_args,
+            "pipe:1",
+        ]
+        LOGGER.info("Starting FFmpeg for %s", self.source)
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        with self._process_lock:
+            self._process = process
+
+        handler.send_response(200)
+        handler.send_header("Content-Type", self.profile.content_type)
+        handler.send_header("Cache-Control", "no-store")
+        handler.send_header("Connection", "close")
+        handler.end_headers()
+
+        assert process.stdout is not None
+        try:
+            while chunk := process.stdout.read(CHUNK_SIZE):
+                output.write(chunk)
+                output.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            LOGGER.info("Speaker closed the stream")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+            with self._process_lock:
+                self._process = None
+            if process.returncode not in {0, -15, 1}:
+                LOGGER.error("FFmpeg exited with %s", process.returncode)

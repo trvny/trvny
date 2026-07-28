@@ -8,7 +8,7 @@ on: # yamllint disable-line rule:truthy
 
 concurrency:
   group: readme-dynamic
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -32,8 +32,8 @@ jobs:
           GIST_ID: 167d2271e3cf7d21e118aa7d906a7d2c
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           README_FEED_URLS: >-
-            ${{ vars.README_FEED_URLS || 'https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_digest.xml' }}
-          README_FEED_MAX_ENTRIES: ${{ vars.README_FEED_MAX_ENTRIES || '5' }}
+            ${{ vars.README_FEED_URLS || 'https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_pap.xml' }}
+          README_FEED_MAX_ENTRIES: ${{ vars.README_FEED_MAX_ENTRIES || '3' }}
           README_PATH: README.md
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

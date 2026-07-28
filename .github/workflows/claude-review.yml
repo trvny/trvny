@@ -8,6 +8,7 @@ on:  # yamllint disable-line rule:truthy
       - opened
       - synchronize
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number || github.run_id }}
@@ -46,4 +47,4 @@ jobs:
             ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 20
+            --max-turns 10

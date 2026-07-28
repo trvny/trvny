@@ -1,4 +1,6 @@
-# Code Bench — QR & Barcode Studio
+# [Code Bench — QR & Barcode Studio](https://codebench.travny.workers.dev)
+
+[![codebench](https://github.com/trvny/trvny/actions/workflows/codebench-check.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/codebench-check.yml)
 
 [![codebench](public/favicon.svg)](https://codebench.travny.workers.dev)
 

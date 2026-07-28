@@ -38,10 +38,13 @@
 
 ## 🗄️ Szuflady
 
-[`playlists`](stuff/playlists/) · [`configs`](stuff/configs/) · [`scripts`](stuff/scripts/) · [`feeds`](stuff/feeds/) · [`quotes`](stuff/quotes/) · [`other`](stuff/other/)
+[`playlists`](stuff/playlists/) · [`configs`](stuff/configs/) ·
+[`feeds`](stuff/feeds/) · [`quotes`](stuff/quotes/) · [`other`](stuff/other/)
 
-- **Playlisty**: robocze i testowe M3U/M3U8 dla Streambencha oraz odtwarzaczy.
-- **Konfiguracje i skrypty**: rzeczy współdzielone, których nie warto zamykać w osobnym repo.
+- **Playlisty**: robocze i testowe M3U/M3U8 dla Streambencha oraz
+  odtwarzaczy.
+- **Konfiguracje**: rzeczy współdzielone, których nie warto zamykać w osobnym
+  repo.
 - **Feedy i cytaty**: źródła pomocnicze używane przez automaty i widżety.
 
 ## 🧪 Pozostałe repozytoria

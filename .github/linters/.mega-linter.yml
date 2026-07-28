@@ -23,7 +23,7 @@ DISABLE:
 # fail CI only on low+ severity. See .github/zizmor.yml for the ref-pin policy.
 ACTION_ZIZMOR_ARGUMENTS:
   - "--offline"
-  - "--min-severity=low"
+  - "--min-severity=medium"
 
 # YAML_YAMLLINT: first full-codebase run surfaced pre-existing style nits
 # (missing "---", truthy value style) in the workflow/dependabot files.

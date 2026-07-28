@@ -1,4 +1,6 @@
-# Streambench
+# [Streambench](https://streambench.travny.workers.dev)
+
+[![streambench](https://github.com/trvny/trvny/actions/workflows/streambench-check.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/streambench-check.yml)
 
 Browser-based workshop for testing IPTV, radio and other media streams.
 

@@ -16,7 +16,7 @@ concurrency:
 jobs:
   delete-runs:
     runs-on: ubuntu-slim
-    timeout-minutes: 30
+    timeout-minutes: 90
     permissions: {}
     steps:
       - name: Delete runs in trvny/trvny

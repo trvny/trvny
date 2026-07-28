@@ -85,12 +85,11 @@ def run(args: argparse.Namespace) -> int:
         port=args.http_port,
         ffmpeg=args.ffmpeg,
     )
-    server.prepare()
-    server.start()
-    stream_url = server.url(host_ip)
-    LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
-
     try:
+        server.prepare()
+        server.start()
+        stream_url = server.url(host_ip)
+        LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
         play_url(speaker_ip, stream_url, port=args.port)
         if not server.request_started.wait(timeout=15):
             raise RuntimeError(

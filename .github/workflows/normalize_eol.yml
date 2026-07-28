@@ -8,6 +8,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   normalize:
     runs-on: ubuntu-slim

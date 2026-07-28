@@ -6,8 +6,10 @@ name: MegaLinter
 on: # yamllint disable-line rule:truthy
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
   pull_request: null
-
+  
 concurrency:
   group: megalinter-${{ github.ref }}
   cancel-in-progress: true
@@ -49,7 +51,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: MegaLinter reports
-          include-hidden-files: "true"
+          include-hidden-files: "false"
           retention-days: 7
           path: |
             megalinter-reports

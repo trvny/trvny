@@ -57,9 +57,11 @@
 
 ## 💬 Cytat z szuflady
 
+<!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
 <i>❝po kolei, na spokojnie❞</i>
 <!--ENDS_HERE_QUOTE_README-->
+<!-- markdownlint-enable MD033 -->
 
 ---
 

@@ -1,7 +1,8 @@
-import { parseM3uWorkspace, serializeM3u } from "./playlist-format.js";
+import { dedupePlaylist, parseM3uWorkspace, serializeM3u } from "./playlist-format.js";
 
 const DEFAULT_PLAYLISTS = [
   { path: "/playlists/iptv.m3u8", defaultRadio: false },
+  { path: "/playlists/internet_radio.m3u8", defaultRadio: true },
 ];
 
 async function readPlaylist(source) {
@@ -29,9 +30,15 @@ async function loadDefaults() {
   if (!textarea || !parseButton) return;
 
   const sources = await Promise.allSettled(DEFAULT_PLAYLISTS.map(readPlaylist));
-  const items = sources
+  for (const [index, result] of sources.entries()) {
+    if (result.status === "rejected") {
+      console.warn(`Streambench skipped ${DEFAULT_PLAYLISTS[index].path}`, result.reason);
+    }
+  }
+
+  const items = dedupePlaylist(sources
     .filter((result) => result.status === "fulfilled")
-    .flatMap((result) => result.value);
+    .flatMap((result) => result.value));
 
   if (!items.length) {
     console.warn("Streambench default playlists are unavailable");

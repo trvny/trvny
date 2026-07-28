@@ -37,10 +37,10 @@ jobs:
 
       - name: Require event-producing token
         env:
-          PR_UPKEEP_TOKEN: ${{ secrets.PR_UPKEEP_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
-          if [ -z "$PR_UPKEEP_TOKEN" ]; then
-            echo "::error::Add the repository secret PR_UPKEEP_TOKEN."
+          if [ -z "$GH_PAT" ]; then
+            echo "::error::Add the repository secret GH_PAT."
             exit 1
           fi
 
@@ -53,7 +53,7 @@ jobs:
           AUTOMERGE_LABEL: ${{ vars.PR_AUTOMERGE_LABEL || 'automerge' }}
           AUTOMERGE_METHOD: ${{ vars.PR_AUTOMERGE_METHOD || 'squash' }}
         with:
-          github-token: ${{ secrets.PR_UPKEEP_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const run = require('./.github/scripts/pr-upkeep.cjs');
             await run({ github, context, core });

@@ -12,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
       - name: Fetch posts
-        uses: armingli/readme-update-actions@v2
+        uses: armingli/readme-update-actions@v1
         with:
           rss_list: "https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_quote.xml" # required
           max_post: 3  # optional, default 5 

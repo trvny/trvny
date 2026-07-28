@@ -1,5 +1,7 @@
 # Code Bench — QR & Barcode Studio
 
+[![codebench](https://github.com/trvny/trvny/actions/workflows/codebench-check.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/codebench-check.yml)
+
 [![codebench](public/favicon.svg)](https://codebench.travny.workers.dev)
 
 Client-side QR and barcode studio. The UI remains a single HTML document,

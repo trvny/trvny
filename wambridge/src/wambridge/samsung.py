@@ -77,7 +77,7 @@ def request(
     response_node = root.find("response")
     result = response_node.get("result") if response_node is not None else None
     response_method = root.findtext("method")
-    if result not in {None, "ok"}:
+    if result != "ok":
         error_code = response_node.get("errcode") if response_node is not None else None
         suffix = f" (error {error_code})" if error_code else ""
         raise WamApiError(f"Samsung WAM rejected {method}{suffix}")

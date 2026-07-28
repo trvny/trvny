@@ -58,6 +58,17 @@
 | [explore](https://github.com/trvny/explore) | fork danych GitHub Topics i Collections |
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
+
+## 📰 Ostatnio w eterze
+
+<!--README_FEED:START-->
+- [Apple Upgrade is a subscription program for the company's devices](https://www.engadget.com/2224951/apple-upgrade-program-announced-klarna/)
+- [Bryan Kohberger Looks to Withdraw Guilty Plea in Idaho Murders](https://www.today.com/video/bryan-kohberger-looks-to-withdraw-guilty-plea-in-idaho-murders-267375173570)
+- [Hugging Face reportedly plagued with AI models generating adult deepfakes](https://www.engadget.com/2224899/hugging-face-reportedly-plagued-with-deepfakes/)
+- [Powerful Earthquake and Tsunami Warning Hit Japan](https://www.today.com/video/massive-earthquake-in-japan-triggers-tsunami-warning-267373125767)
+- [Trump administration forced treatment on hunger striker in ICE detention, document reveals](https://www.theguardian.com/us-news/2026/jul/28/trump-administration-forced-treatment-ice-hunger-striker)
+<!--README_FEED:END-->
+
 ## 💬 Cytat z szuflady
 
 <!-- markdownlint-disable MD033 -->

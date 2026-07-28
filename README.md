@@ -12,12 +12,11 @@
 [![codebench](https://img.shields.io/badge/codebench-QR%20%2B%20barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.travny.workers.dev)
 [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.travny.workers.dev)
 
+[![GitHub Stats](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)
+
 </div>
 
 ---
-
-<!-- BLOG-POST-LIST:START -->
-<!-- BLOG-POST-LIST:END -->
 
 ## 🧭 Mapa projektów
 

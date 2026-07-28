@@ -10,6 +10,7 @@ on:  # yamllint disable-line rule:truthy
     types:
       - completed
   workflow_dispatch:
+  workflow_call: 
 
 concurrency:
   group: codex-auto-fix-${{ github.event.workflow_run.run_id || github.run_id }}

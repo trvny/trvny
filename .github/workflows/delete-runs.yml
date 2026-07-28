@@ -10,13 +10,13 @@ on:
 permissions: {}
 
 concurrency:
-  group: delete-runs
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   delete-runs:
     runs-on: ubuntu-slim
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions: {}
     steps:
       - name: Delete runs in trvny/trvny
@@ -27,7 +27,7 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           repository: trvny/trvny
           retain_days: 14
-          keep_minimum_runs: 6
+          keep_minimum_runs: 3
 
       - name: Delete runs in trvny/feeds
         id: feeds
@@ -37,7 +37,7 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           repository: trvny/feeds
           retain_days: 14
-          keep_minimum_runs: 6
+          keep_minimum_runs: 3
 
       - name: Delete runs in trvny/tvpi
         id: tvpi
@@ -47,7 +47,7 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           repository: trvny/tvpi
           retain_days: 14
-          keep_minimum_runs: 6
+          keep_minimum_runs: 3
 
       - name: Delete runs in trvny/autka
         id: autka
@@ -57,7 +57,7 @@ jobs:
           token: ${{ secrets.GH_PAT }}
           repository: trvny/autka
           retain_days: 14
-          keep_minimum_runs: 6
+          keep_minimum_runs: 3
 
       - name: Apply cleanup gate
         if: always()

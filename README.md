@@ -8,8 +8,8 @@
 
 [![feeds](https://img.shields.io/badge/feeds-live-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feeds)
 [![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://tvpi.pages.dev)
-[![weather](https://img.shields.io/badge/weather-worker-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.travny.workers.dev)
-[![codebench](https://img.shields.io/badge/codebench-QR%20%2B%20barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.travny.workers.dev)
+[![weather](https://img.shields.io/badge/weather-KOŚCIELEC-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.travny.workers.dev)
+[![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.travny.workers.dev)
 [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.travny.workers.dev)
 
 [![GitHub Stats](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)
@@ -57,8 +57,7 @@
 | [WiFi-Automatic](https://github.com/trvny/WiFi-Automatic) | fork aplikacji automatyzującej radio Wi-Fi na Androidzie |
 | [explore](https://github.com/trvny/explore) | fork danych GitHub Topics i Collections |
 
-[![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c) [![feeds](https://github-stats-extended.vercel.app/api/pin?username=trvny&repo=trvny%2Ffeeds&theme=great-gatsby)](https://github.com/trvny/feeds)
-
+[![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
 ## 💬 Cytat z szuflady
 
 <!-- markdownlint-disable MD033 -->

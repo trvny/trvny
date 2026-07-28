@@ -1,0 +1,18 @@
+name: Readme Update Blog
+on:
+  schedule: # Run workflow automatically
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-readme-with-blog:
+    name: Update latest blogs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Fetch posts
+        uses: armingli/readme-update-actions@v2
+        with:
+          rss_list: "https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_quote.xml" # required
+          max_post: 3  # optional, default 5 

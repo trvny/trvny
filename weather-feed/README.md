@@ -1,5 +1,7 @@
 # weather-feed
 
+[![weather-feed](https://github.com/trvny/trvny/actions/workflows/weather-feed-deploy.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/weather-feed-deploy.yml)
+
 Multi-source weather aggregator for **Kościelec (Chrzanów)**,
 50.14 N / 19.42 E, served as an Atom feed of changes rather than a firehose
 of identical readings.

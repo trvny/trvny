@@ -1,0 +1,44 @@
+---
+name: PR upkeep
+
+on: # yamllint disable-line rule:truthy
+  schedule:
+    - cron: "23 * * * *"
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: pr-upkeep-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  checks: read
+  contents: write
+  pull-requests: write
+  statuses: read
+
+jobs:
+  upkeep:
+    name: Update and optionally merge PRs
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout trusted workflow script
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts/pr-upkeep.cjs
+          sparse-checkout-cone-mode: false
+
+      - name: Process open PRs
+        uses: actions/github-script@v9
+        env:
+          AUTOMERGE_IDLE_HOURS: ${{ vars.PR_AUTOMERGE_IDLE_HOURS || '4' }}
+          AUTOMERGE_LABEL: ${{ vars.PR_AUTOMERGE_LABEL || 'automerge' }}
+          AUTOMERGE_METHOD: ${{ vars.PR_AUTOMERGE_METHOD || 'squash' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const run = require('./.github/scripts/pr-upkeep.cjs');
+            await run({ github, context, core });

@@ -1,4 +1,4 @@
-# MegaLinter - code quality reports.
+# MegaLinter - code quality reports and project checks.
 # https://megalinter.io
 ---
 name: MegaLinter
@@ -7,9 +7,10 @@ on: # yamllint disable-line rule:truthy
   push:
     branches: [main]
     paths-ignore:
-      - '**.md'
+      - "**.md"
   pull_request: null
-  
+  workflow_dispatch:
+
 concurrency:
   group: megalinter-${{ github.ref }}
   cancel-in-progress: true
@@ -33,18 +34,83 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Detect bench changes
+        id: benches
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          codebench=false
+          streambench=false
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] ||
+             [ -z "$BASE_SHA" ] ||
+             [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            codebench=true
+            streambench=true
+          else
+            if ! git diff --quiet "$BASE_SHA" HEAD -- codebench/; then
+              codebench=true
+            fi
+            if ! git diff --quiet "$BASE_SHA" HEAD -- \
+              streambench/ stuff/playlists/wklejony-tekst.m3u8; then
+              streambench=true
+            fi
+            if ! git diff --quiet "$BASE_SHA" HEAD -- .github/workflows/mega-linter.yml; then
+              codebench=true
+              streambench=true
+            fi
+          fi
+
+          echo "codebench=$codebench" >> "$GITHUB_OUTPUT"
+          echo "streambench=$streambench" >> "$GITHUB_OUTPUT"
+
       - name: MegaLinter
         id: megalinter
+        continue-on-error: true
         uses: oxsecurity/megalinter/flavors/documentation@v9
         env:
           MEGALINTER_CONFIG: .github/linters/.mega-linter.yml
           VALIDATE_ALL_CODEBASE: >-
             ${{
-              github.event_name == 'push' &&
-              contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
+              github.event_name == 'workflow_dispatch' ||
+              (
+                github.event_name == 'push' &&
+                contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
+              )
             }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLY_FIXES_EVENT: none
+
+      - name: Set up Node.js
+        if: >-
+          steps.benches.outputs.codebench == 'true' ||
+          steps.benches.outputs.streambench == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Check codebench
+        id: codebench
+        if: steps.benches.outputs.codebench == 'true'
+        continue-on-error: true
+        working-directory: codebench
+        run: |
+          npm install
+          npm run build
+          node --check src/index.js
+          for file in public/*.js scripts/*.mjs; do node --check "$file"; done
+          node scripts/privacy-check.mjs
+          npx wrangler deploy --dry-run
+
+      - name: Check streambench
+        id: streambench
+        if: steps.benches.outputs.streambench == 'true'
+        continue-on-error: true
+        working-directory: streambench
+        run: |
+          npm install
+          npm run check
 
       - name: Archive MegaLinter reports
         if: always()
@@ -56,3 +122,19 @@ jobs:
           path: |
             megalinter-reports
             mega-linter.log
+
+      - name: Gate checks
+        if: >-
+          always() &&
+          (
+            steps.megalinter.outcome != 'success' ||
+            (
+              steps.benches.outputs.codebench == 'true' &&
+              steps.codebench.outcome != 'success'
+            ) ||
+            (
+              steps.benches.outputs.streambench == 'true' &&
+              steps.streambench.outcome != 'success'
+            )
+          )
+        run: exit 1

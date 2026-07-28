@@ -112,6 +112,8 @@ module.exports = async function keepPullRequestsCurrent({
   const { owner, repo } = context.repo;
   const repository = await github.rest.repos.get({ owner, repo });
   const defaultBranch = repository.data.default_branch;
+  const automergeEnabled =
+    (process.env.AUTOMERGE_ENABLED || 'false').toLowerCase() === 'true';
   const automergeLabel = process.env.AUTOMERGE_LABEL || 'automerge';
   const idleHours = Number.parseFloat(process.env.AUTOMERGE_IDLE_HOURS || '4');
   const mergeMethod = process.env.AUTOMERGE_METHOD || 'squash';
@@ -119,13 +121,15 @@ module.exports = async function keepPullRequestsCurrent({
     (process.env.AUTOMERGE_ALLOW_NO_CHECKS || 'false').toLowerCase() ===
     'true';
 
-  if (!Number.isFinite(idleHours) || idleHours < 0) {
-    throw new Error(
-      `Invalid AUTOMERGE_IDLE_HOURS: ${process.env.AUTOMERGE_IDLE_HOURS}`,
-    );
-  }
-  if (!MERGE_METHODS.has(mergeMethod)) {
-    throw new Error(`Invalid AUTOMERGE_METHOD: ${mergeMethod}`);
+  if (automergeEnabled) {
+    if (!Number.isFinite(idleHours) || idleHours < 0) {
+      throw new Error(
+        `Invalid AUTOMERGE_IDLE_HOURS: ${process.env.AUTOMERGE_IDLE_HOURS}`,
+      );
+    }
+    if (!MERGE_METHODS.has(mergeMethod)) {
+      throw new Error(`Invalid AUTOMERGE_METHOD: ${mergeMethod}`);
+    }
   }
 
   const pullRequests = await github.paginate(github.rest.pulls.list, {
@@ -191,6 +195,11 @@ module.exports = async function keepPullRequestsCurrent({
         }
         throw error;
       }
+      continue;
+    }
+
+    if (!automergeEnabled) {
+      core.info(`${prefix}: branch is current; automerge disabled.`);
       continue;
     }
 

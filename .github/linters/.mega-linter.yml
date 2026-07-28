@@ -37,4 +37,4 @@ DISABLE_ERRORS_LINTERS:
 # not maintained project code
 FILTER_REGEX_EXCLUDE: "(package-lock\\.json|\\.claude/|stuff/)"
 
-MARKDOWN_MARKDOWNLINT_CONFIG_FILE: "https://raw.githubusercontent.com/trvny/feeds/refs/heads/main/.github/linters/.markdownlint.yml"
+MARKDOWN_MARKDOWNLINT_CONFIG_FILE: "https://raw.githubusercontent.com/trvny/feeds/refs/heads/main/.github/linters/.markdownlint.json"

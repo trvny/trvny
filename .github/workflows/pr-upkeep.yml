@@ -3,7 +3,7 @@ name: PR upkeep
 
 on: # yamllint disable-line rule:truthy
   schedule:
-    - cron: "23 * * * *"
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -22,6 +22,11 @@ jobs:
     name: Update and optionally merge PRs
     runs-on: ubuntu-slim
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
       - name: Checkout trusted workflow script
         uses: actions/checkout@v7.0.1
         with:

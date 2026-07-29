@@ -11,22 +11,33 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   update:
-    name: Refresh quote and feed
+    name: Refresh shared quote and feed
     runs-on: ubuntu-slim
     steps:
-      - name: Checkout workflow script
+      - name: Checkout workflow scripts
         uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-          sparse-checkout: .github/scripts/update-readme-quote.cjs
+          sparse-checkout: |
+            .github/scripts/update-readme-quote.cjs
+            .github/scripts/update-shared-readmes.cjs
           sparse-checkout-cone-mode: false
 
-      - name: Update README
+      - name: Require cross-repository token
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "$GH_PAT" ]; then
+            echo "::error::Add the repository secret GH_PAT."
+            exit 1
+          fi
+
+      - name: Update READMEs
         uses: actions/github-script@v9
         env:
           GIST_ID: 167d2271e3cf7d21e118aa7d906a7d2c
@@ -38,8 +49,12 @@ jobs:
             https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_github.xml
           README_FEED_MAX_ENTRIES: ${{ vars.README_FEED_MAX_ENTRIES || '5' }}
           README_PATH: README.md
+          README_TARGET_REPOS: >-
+            trvny/feeds,
+            trvny/tvpi,
+            trvny/autka
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
-            const run = require('./.github/scripts/update-readme-quote.cjs');
+            const run = require('./.github/scripts/update-shared-readmes.cjs');
             await run({ github, context, core });

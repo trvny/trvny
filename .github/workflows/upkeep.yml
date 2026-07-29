@@ -10,19 +10,19 @@ concurrency:
   group: upkeep-${{ github.repository }}
   cancel-in-progress: true
 
-permissions:
-  actions: read
-  checks: read
-  contents: read
-  pull-requests: read
-  statuses: read
+permissions: {}
 
 jobs:
   upkeep:
     name: Update PR branches
     runs-on: ubuntu-slim
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      pull-requests: read
+      statuses: read
     steps:
-
       - name: Checkout trusted workflow script
         uses: actions/checkout@v7.0.1
         with:
@@ -89,3 +89,100 @@ jobs:
             if (failures.length > 0) {
               core.setFailed(failures.join('\n'));
             }
+
+  readmes:
+    name: Refresh shared READMEs
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout workflow scripts
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts/update-readme-quote.cjs
+            .github/scripts/update-shared-readmes.cjs
+          sparse-checkout-cone-mode: false
+
+      - name: Require cross-repository token
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "$GH_PAT" ]; then
+            echo "::error::Add the repository secret GH_PAT."
+            exit 1
+          fi
+
+      - name: Update READMEs
+        uses: actions/github-script@v9
+        env:
+          GIST_ID: 167d2271e3cf7d21e118aa7d906a7d2c
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          README_FEED_URLS: >-
+            ${{ vars.README_FEED_URLS || 'https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_pap.xml' }},
+            https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_digest.xml,
+            https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_aibridge.xml,
+            https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_github.xml
+          README_FEED_MAX_ENTRIES: ${{ vars.README_FEED_MAX_ENTRIES || '5' }}
+          README_PATH: README.md
+          README_TARGET_REPOS: >-
+            ${{ vars.README_TARGET_REPOS || 'trvny/feeds:both,trvny/tvpi:both,trvny/autka:both' }}
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            const run = require('./.github/scripts/update-shared-readmes.cjs');
+            await run({ github, context, core });
+
+  stats:
+    name: Refresh README cards
+    needs: readmes
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Top languages
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: top-langs
+          options: username=${{ github.repository_owner }}&layout=donut&hide_title=true&langs_count=10
+          path: assets/profile/top-langs.svg
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Feeds card
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: pin
+          options: username=${{ github.repository_owner }}&repo=trvny%2Ffeeds&theme=great-gatsby
+          path: assets/profile/pin_1.svg
+          token: ${{ secrets.GH_PAT }}
+
+      - name: TVPI card
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: pin
+          options: username=${{ github.repository_owner }}&repo=trvny%2Ftvpi&theme=yeblu
+          path: assets/profile/pin_2.svg
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Gist card
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: gist
+          options: id=167d2271e3cf7d21e118aa7d906a7d2&theme=synthwave
+          path: assets/profile/gist.svg
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Commit cards
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/profile/*.svg
+          git commit -m "chore(readme): refresh cards [skip ci]" || exit 0
+          git push

@@ -36,7 +36,7 @@ jobs:
             https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_digest.xml,
             https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_aibridge.xml,
             https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_github.xml
-          README_FEED_MAX_ENTRIES: ${{ vars.README_FEED_MAX_ENTRIES || '3' }}
+          README_FEED_MAX_ENTRIES: ${{ vars.README_FEED_MAX_ENTRIES || '5' }}
           README_PATH: README.md
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

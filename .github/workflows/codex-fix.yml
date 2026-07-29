@@ -59,16 +59,15 @@ jobs:
             failed for commit ${{ github.event.workflow_run.head_sha || github.sha }}.
 
             This repo's main automated checks are:
-            - `npm run typecheck` from the `worker` directory for the Cloudflare Worker.
+            - `npm run typecheck` for the Cloudflare Workers.
             - MegaLinter for repository linting and formatting.
-            - `python3 generate.py` for playlist generation smoke checks when Python files or streams are involved.
 
             Start by reproducing the likely failure with the smallest relevant command:
             - For Deploy Worker failures, run `npm run typecheck` in `worker`.
             - For MegaLinter failures, inspect the workflow failure and run targeted lint/format checks only when possible.
-            - If the failure appears related to playlist generation, run `python3 generate.py`.
 
-            Identify the minimal change needed to make the failing check pass, implement only that change,
+            Identify the minimal change needed to make the failing check pass, 
+            implement,
             and rerun the relevant command. Do not refactor unrelated files.
 
       - name: Check for patch

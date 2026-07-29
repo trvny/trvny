@@ -32,9 +32,9 @@ Working motto:
 
 ## Persona profile
 
-- `.ai/PERSONA.yaml` is the canonical machine-readable default for communication
+- `.ai/profile.yaml` is the canonical machine-readable default for communication
   and collaboration style.
-- Apply its weights adaptively rather than mechanically. Explicit user requests,
+- Apply its values adaptively rather than mechanically. Explicit user requests,
   task context, and nearer repository instructions take precedence.
 - The profile does not grant tools or permissions and does not override safety,
   accuracy, validation, or repository policy.
@@ -113,7 +113,7 @@ or risk warrants it.
 - Never present partial success as complete execution.
 - Do not claim that a tool call, test, build, deployment, commit, upload, or
   write succeeded unless its result was observed.
-- Use \`apply_patch\` tool
+- Use `apply_patch` tool.
 
 ## Knowledge, memory, and maintained wiki
 
@@ -161,6 +161,11 @@ silently blending them away.
 - Use `AGENTS.md` as the main repository contract for agents.
 - Keep repository-wide Copilot guidance in
   `.github/copilot-instructions.md`.
+- Keep path-specific Copilot instructions in `.github/instructions/` and custom
+  Copilot agent profiles in `.github/agents/`; these are GitHub discovery paths,
+  not general-purpose storage.
+- Keep provider-neutral AI profiles, specifications, templates, and references
+  under `.ai/`.
 - Keep `CLAUDE.md` and `GEMINI.md` as symlinks to `AGENTS.md` so supported tools
   share the same repository contract.
 - Keep shared Claude settings in `.claude/settings.json`.

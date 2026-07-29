@@ -2,18 +2,20 @@
 
 This directory contains a small, private behavior and configuration layer for
 AI tools used by `trvny`. It is not a framework and does not replace the
-runtime settings of any provider.
+runtime settings or discovery paths of any provider.
 
 ## Source of truth
 
 - `/AGENTS.md` is the shared repository contract.
-- `/CLAUDE.md` contains only the Claude Code-specific delta.
-- `/.github/copilot-instructions.md` contains only the GitHub Copilot-specific
-  delta.
+- `/CLAUDE.md` and `/GEMINI.md` are root symlinks to that contract.
+- `/.github/copilot-instructions.md` is the GitHub Copilot-specific adapter.
+- `/.github/instructions/` contains path-specific Copilot instructions.
+- `/.github/agents/` contains Copilot custom-agent entry points.
 - `.ai/profile.yaml` is the primary personal style profile.
 - `.ai/schema/style-profile.schema.json` validates portable style profiles.
 
-Provider files should refer to the shared contract instead of copying it.
+Provider files should stay thin and refer to the shared contract instead of
+copying it.
 
 ## Directory map
 
@@ -27,6 +29,27 @@ Provider files should refer to the shared contract instead of copying it.
 ├── instructions/             paste-ready instruction libraries
 └── backups/                  archival copies, not active configuration
 ```
+
+## Provider discovery paths
+
+Keep files in the locations required by the tools that discover them:
+
+```text
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.github/copilot-instructions.md
+.github/instructions/**/*.instructions.md
+.github/agents/**/*.agent.md
+```
+
+These are integration entry points, not evidence that all AI material belongs
+under `.github/`. Provider-neutral profiles, schemas, templates, style
+specifications, and reference material belong under `.ai/`.
+
+Do not replace required discovery files with undocumented symlinks or move them
+into `.ai/`. A beautifully organized file ignored by the tool is still just a
+very tidy paperweight.
 
 ## LLM style model
 

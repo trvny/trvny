@@ -23,14 +23,22 @@ jobs:
           path: assets/profile/top-langs.svg
           token: ${{ secrets.GH_PAT }}
 
-      - name: Generate pin card
+      - name: pin
         uses: stats-organization/github-readme-stats-action@v2
         with:
           card: pin
           options: username=${{ github.repository_owner }}&repo=trvny%2Ffeeds&theme=great-gatsby
-          path: assets/profile/pin.svg
+          path: assets/profile/pin_1.svg
           token: ${{ secrets.GH_PAT }}
 
+      - name: pin
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: pin
+          options: username=${{ github.repository_owner }}&repo=trvny%2Ftvpi&theme=yelba
+          path: assets/profile/pin_2.svg
+          token: ${{ secrets.GH_PAT }}
+          
       - uses: stats-organization/github-readme-stats-action@v2
         with:
            card: gist

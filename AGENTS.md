@@ -32,7 +32,7 @@ Working motto:
 
 ## Persona profile
 
-- `PERSONA.yaml` is the canonical machine-readable default for communication
+- `.ai/PERSONA.yaml` is the canonical machine-readable default for communication
   and collaboration style.
 - Apply its weights adaptively rather than mechanically. Explicit user requests,
   task context, and nearer repository instructions take precedence.
@@ -156,14 +156,14 @@ silently blending them away.
   the repository.
 - The presence of a tool does not create an obligation to use it.
 
-## Copilot, Claude, GitHub
+## Copilot, Claude, Gemini, GitHub
 
 - Use `AGENTS.md` as the main repository contract for agents.
 - Keep repository-wide Copilot guidance in
   `.github/copilot-instructions.md`.
-- Put provider-specific deltas in their own adapter files, such as
-  `CLAUDE.md`, without duplicating this contract.
-- Keep shared Claude settings in .claude/settings.json  
+- Keep `CLAUDE.md` and `GEMINI.md` as symlinks to `AGENTS.md` so supported tools
+  share the same repository contract.
+- Keep shared Claude settings in `.claude/settings.json`.
 - Base important Microsoft and Azure decisions on current Microsoft Learn
   documentation.
 

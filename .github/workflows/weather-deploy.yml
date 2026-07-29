@@ -6,16 +6,16 @@ on:
     paths:
       - "weather-feed/**"
       - "!weather-feed/**/*.md"
-      - ".github/workflows/weather-feed-deploy.yml"
+      - ".github/workflows/weather-deploy.yml"
   pull_request:
     paths:
       - "weather-feed/**"
       - "!weather-feed/**/*.md"
-      - ".github/workflows/weather-feed-deploy.yml"
+      - ".github/workflows/weather-deploy.yml"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-weather-feed
+  group: deploy-weather
   cancel-in-progress: true
 
 permissions:

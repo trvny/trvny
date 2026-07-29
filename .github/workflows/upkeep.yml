@@ -130,10 +130,13 @@ jobs:
           GIST_ID: 167d2271e3cf7d21e118aa7d906a7d2c
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           README_FEED_URLS: >-
-            ${{ vars.README_FEED_URLS || 'https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_pap.xml' }},
-            https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_digest.xml,
+            ${{ vars.README_FEED_URLS || 'https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_daily_digest.xml' }},
+            https://news.google.com/atom/topics/CAAqHAgKIhZDQklTQ2pvSWJHOWpZV3hmZGpJb0FBUAE/sections/CAQiUENCSVNOam9JYkc5allXeGZkakpDRUd4dlkyRnNYM1l5WDNObFkzUnBiMjV5Q3hJSkwyMHZNREl5WW5OdWVnc0tDUzl0THpBeU1tSnpiaWdBKjEIACotCAoiJ0NCSVNGem9JYkc5allXeGZkako2Q3dvSkwyMHZNREl5WW5OdUtBQVABUAE?hl=pl&gl=PL&ceid=PL%3Apl&oc=11,
+            https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_pap.xml,
             https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_aibridge.xml,
-            https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_github.xml
+            https://raw.githubusercontent.com/trvny/feeds/main/feedseek/feeds/feed_github.xml,
+            https://antyweb.pl/feed/,
+            https://weather.travny.workers.dev/feed.atom
           README_FEED_MAX_ENTRIES: ${{ vars.README_FEED_MAX_ENTRIES || '5' }}
           README_PATH: README.md
           README_TARGET_REPOS: >-
@@ -160,7 +163,7 @@ jobs:
         uses: stats-organization/github-readme-stats-action@v2
         with:
           card: top-langs
-          options: username=${{ github.repository_owner }}&layout=donut&hide_title=true&langs_count=10
+          options: username=${{ github.repository_owner }}&layout=donut&hide_title=true&langs_count=10&theme=synthwave
           path: assets/profile/top-langs.svg
           token: ${{ secrets.GH_PAT }}
 
@@ -184,7 +187,7 @@ jobs:
         uses: stats-organization/github-readme-stats-action@v2
         with:
           card: gist
-          options: id=167d2271e3cf7d21e118aa7d906a7d2&theme=synthwave
+          options: id=167d2271e3cf7d21e118aa7d906a7d2c
           path: assets/profile/gist.svg
           token: ${{ secrets.GH_PAT }}
 

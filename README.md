@@ -62,18 +62,18 @@
 ## 📰 Ostatnio w eterze
 
 <!--README_FEED:START-->
-- [Apple Upgrade is a subscription program for the company's devices](https://www.engadget.com/2224951/apple-upgrade-program-announced-klarna/)
-- [Bryan Kohberger Looks to Withdraw Guilty Plea in Idaho Murders](https://www.today.com/video/bryan-kohberger-looks-to-withdraw-guilty-plea-in-idaho-murders-267375173570)
-- [Hugging Face reportedly plagued with AI models generating adult deepfakes](https://www.engadget.com/2224899/hugging-face-reportedly-plagued-with-deepfakes/)
-- [Powerful Earthquake and Tsunami Warning Hit Japan](https://www.today.com/video/massive-earthquake-in-japan-triggers-tsunami-warning-267373125767)
-- [Trump administration forced treatment on hunger striker in ICE detention, document reveals](https://www.theguardian.com/us-news/2026/jul/28/trump-administration-forced-treatment-ice-hunger-striker)
+- [Marka Cashify od lipca funkcjonuje jako kantor kryptowalut online w oparciu o przepisy MiCA](https://pap-mediaroom.pl/biznes-i-finanse/marka-cashify-od-lipca-funkcjonuje-jako-kantor-kryptowalut-online-w-oparciu-o)
+- [Erste Letnie Brzmienia 2026 ruszają już dzisiaj. Kraków otwiera letnią trasę przez pięć miast](https://pap-mediaroom.pl/biznes-i-finanse/erste-letnie-brzmienia-2026-ruszaja-juz-dzisiaj-krakow-otwiera-letnia-trase-przez)
+- [Humanoid pozyskuje 152 mln USD przy wycenie na kwotę 1,35 mld USD po przeprowadzeniu rundy finansowania, stając się pierwszym europejskim jednorożcem wyspecjalizowanym w robotach…](https://pap-mediaroom.pl/biznes-i-finanse/humanoid-pozyskuje-152-mln-usd-przy-wycenie-na-kwote-135-mld-usd-po)
+- [Fresha przyspiesza ekspansję w Europie, otwierając nowe biuro w Warszawie i powołując Macieja Walczewskiego na stanowisko dyrektora generalnego na Europę Wschodnią](https://pap-mediaroom.pl/biznes-i-finanse/fresha-przyspiesza-ekspansje-w-europie-otwierajac-nowe-biuro-w-warszawie-i)
+- [Mikropoświadczenia - nowa waluta umiejętności](https://pap-mediaroom.pl/polityka-i-spoleczenstwo/mikroposwiadczenia-nowa-waluta-umiejetnosci)
 <!--README_FEED:END-->
 
 ## 💬 Cytat z szuflady
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝po kolei, na spokojnie❞</i>
+<i>❝Woe betide the leaders now perched on their dizzy pinnacles of triumph if they cast away at the conference table what the soldiers had won on a hundred blood soaked battlefields. — Winston Churchill❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 

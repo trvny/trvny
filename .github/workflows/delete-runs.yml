@@ -38,8 +38,8 @@ jobs:
 
             for (const repository of repositories) {
               const [owner, repo] = repository.split('/');
-              let before = 0;
-              let matched = 0;
+              let before = null;
+              let matched = null;
               let deleted = 0;
               let failed = 0;
 
@@ -102,11 +102,11 @@ jobs:
 
               summaries.push([
                 repository,
-                String(before),
-                String(matched),
+                before === null ? 'N/A' : String(before),
+                matched === null ? 'N/A' : String(matched),
                 String(deleted),
                 String(failed),
-                String(Math.max(0, before - deleted)),
+                before === null ? 'N/A' : String(Math.max(0, before - deleted)),
               ]);
             }
 

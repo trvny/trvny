@@ -34,7 +34,7 @@ jobs:
       - uses: stats-organization/github-readme-stats-action@v2
         with:
            card: gist
-           options: id=167d2271e3cf7d21e118aa7d906a7d2         
+           options: id=167d2271e3cf7d21e118aa7d906a7d2&theme=synthwave       
            path: assets/profile/gist.svg
            token: ${{ secrets.GH_PAT }}
   

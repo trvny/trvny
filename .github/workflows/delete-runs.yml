@@ -34,9 +34,15 @@ jobs:
             const keepMinimumRuns = 3;
             const cutoff = Date.now() - retainDays * 24 * 60 * 60 * 1000;
             const failures = [];
+            const summaries = [];
 
             for (const repository of repositories) {
               const [owner, repo] = repository.split('/');
+              let before = 0;
+              let matched = 0;
+              let deleted = 0;
+              let failed = 0;
+
               try {
                 const [workflows, runs] = await Promise.all([
                   github.paginate(
@@ -48,6 +54,7 @@ jobs:
                     { owner, repo, status: 'completed', per_page: 100 },
                   ),
                 ]);
+                before = runs.length;
                 const activeWorkflowIds = new Set(workflows.map((workflow) => workflow.id));
                 const runsByWorkflow = new Map();
 
@@ -71,7 +78,8 @@ jobs:
                   }
                 }
 
-                core.info(`${repository}: ${runsToDelete.length} run(s) to delete`);
+                matched = runsToDelete.length;
+                core.info(`${repository}: ${matched} run(s) to delete from ${before}`);
                 for (const run of runsToDelete) {
                   try {
                     await github.rest.actions.deleteWorkflowRun({
@@ -79,16 +87,44 @@ jobs:
                       repo,
                       run_id: run.id,
                     });
+                    deleted += 1;
                   } catch (error) {
+                    failed += 1;
                     failures.push(`${repository}#${run.id}: ${error.message}`);
                     core.error(failures.at(-1));
                   }
                 }
               } catch (error) {
+                failed += 1;
                 failures.push(`${repository}: ${error.message}`);
                 core.error(failures.at(-1));
               }
+
+              summaries.push([
+                repository,
+                String(before),
+                String(matched),
+                String(deleted),
+                String(failed),
+                String(Math.max(0, before - deleted)),
+              ]);
             }
+
+            await core.summary
+              .addHeading('Workflow run cleanup')
+              .addRaw(`Retention: ${retainDays} days; minimum kept per active workflow: ${keepMinimumRuns}.`)
+              .addTable([
+                [
+                  { data: 'Repository', header: true },
+                  { data: 'Before', header: true },
+                  { data: 'Matched', header: true },
+                  { data: 'Deleted', header: true },
+                  { data: 'Failed', header: true },
+                  { data: 'Remaining', header: true },
+                ],
+                ...summaries,
+              ])
+              .write();
 
             if (failures.length > 0) {
               core.setFailed(`${failures.length} workflow run(s) could not be deleted`);

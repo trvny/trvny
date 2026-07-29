@@ -58,3 +58,47 @@ jobs:
           script: |
             const run = require('./.github/scripts/update-shared-readmes.cjs');
             await run({ github, context, core });
+      
+  stats:
+     runs-on: ubuntu-slim
+     steps:
+      - uses: actions/checkout@v7
+      
+      - name: top-languages
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: top-langs
+          options: username=${{ github.repository_owner }}&layout=donut&hide_title=true&langs_count=10
+          path: assets/profile/top-langs.svg
+          token: ${{ secrets.GH_PAT }}
+
+      - name: pin_1
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: pin
+          options: username=${{ github.repository_owner }}&repo=trvny%2Ffeeds&theme=great-gatsby
+          path: assets/profile/pin_1.svg
+          token: ${{ secrets.GH_PAT }}
+
+      - name: pin_2
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: pin
+          options: username=${{ github.repository_owner }}&repo=trvny%2Ftvpi&theme=yeblu
+          path: assets/profile/pin_2.svg
+          token: ${{ secrets.GH_PAT }}
+          
+      - uses: stats-organization/github-readme-stats-action@v2
+        with:
+           card: gist
+           options: id=167d2271e3cf7d21e118aa7d906a7d2&theme=synthwave       
+           path: assets/profile/gist.svg
+           token: ${{ secrets.GH_PAT }}
+  
+      - name: Commit cards
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/profile/*.svg
+          git commit -m "Update README cards" || exit 0
+          git push

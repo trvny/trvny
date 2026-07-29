@@ -120,6 +120,7 @@ module.exports = async function keepPullRequestsCurrent({
   const allowNoChecks =
     (process.env.AUTOMERGE_ALLOW_NO_CHECKS || 'false').toLowerCase() ===
     'true';
+  const failures = [];
 
   if (automergeEnabled) {
     if (!Number.isFinite(idleHours) || idleHours < 0) {
@@ -188,9 +189,10 @@ module.exports = async function keepPullRequestsCurrent({
         );
       } catch (error) {
         if ([403, 422].includes(error.status)) {
-          core.warning(
-            `${prefix}: branch update rejected (${error.status}): ${error.message}`,
-          );
+          const message =
+            `${prefix}: branch update rejected (${error.status}): ${error.message}`;
+          failures.push(message);
+          core.warning(message);
           continue;
         }
         throw error;
@@ -283,4 +285,6 @@ module.exports = async function keepPullRequestsCurrent({
       throw error;
     }
   }
+
+  return { failures };
 };

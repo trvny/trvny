@@ -68,7 +68,16 @@ jobs:
               const [owner, repo] = repository.split('/');
               core.startGroup(`Update ${repository}`);
               try {
-                await run({ github, context: { repo: { owner, repo } }, core });
+                const result = await run({
+                  github,
+                  context: { repo: { owner, repo } },
+                  core,
+                });
+                failures.push(
+                  ...(result.failures ?? []).map(
+                    (failure) => `${repository}: ${failure}`,
+                  ),
+                );
               } catch (error) {
                 failures.push(`${repository}: ${error.message}`);
                 core.error(failures.at(-1));
@@ -78,5 +87,5 @@ jobs:
             }
 
             if (failures.length > 0) {
-              core.setFailed(`${failures.length} repository update(s) failed`);
+              core.setFailed(failures.join('\n'));
             }

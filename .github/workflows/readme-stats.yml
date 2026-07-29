@@ -27,7 +27,7 @@ jobs:
         uses: stats-organization/github-readme-stats-action@v2
         with:
           card: pin
-          options: username=trvny&repo=trvny%2Ffeeds&theme=great-gatsby
+          options: username=${{ github.repository_owner }}&repo=trvny%2Ffeeds&theme=great-gatsby
           path: assets/profile/pin.svg
           token: ${{ secrets.GH_PAT }}
 

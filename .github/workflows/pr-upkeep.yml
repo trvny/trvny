@@ -49,8 +49,34 @@ jobs:
           AUTOMERGE_IDLE_HOURS: ${{ vars.PR_AUTOMERGE_IDLE_HOURS || '4' }}
           AUTOMERGE_LABEL: ${{ vars.PR_AUTOMERGE_LABEL || 'automerge' }}
           AUTOMERGE_METHOD: ${{ vars.PR_AUTOMERGE_METHOD || 'squash' }}
+          PR_UPKEEP_TARGET_REPOS: >-
+            trvny/trvny,
+            trvny/feeds,
+            trvny/tvpi,
+            trvny/autka
         with:
           github-token: ${{ secrets.GH_PAT }}
           script: |
             const run = require('./.github/scripts/pr-upkeep.cjs');
-            await run({ github, context, core });
+            const failures = [];
+            const repositories = process.env.PR_UPKEEP_TARGET_REPOS
+              .split(/[\n,]+/)
+              .map((item) => item.trim())
+              .filter(Boolean);
+
+            for (const repository of [...new Set(repositories)]) {
+              const [owner, repo] = repository.split('/');
+              core.startGroup(`Update ${repository}`);
+              try {
+                await run({ github, context: { repo: { owner, repo } }, core });
+              } catch (error) {
+                failures.push(`${repository}: ${error.message}`);
+                core.error(failures.at(-1));
+              } finally {
+                core.endGroup();
+              }
+            }
+
+            if (failures.length > 0) {
+              core.setFailed(`${failures.length} repository update(s) failed`);
+            }

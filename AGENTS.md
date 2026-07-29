@@ -156,13 +156,14 @@ silently blending them away.
   the repository.
 - The presence of a tool does not create an obligation to use it.
 
-## GitHub, Copilot, and Microsoft
+## Copilot, Claude, GitHub
 
 - Use `AGENTS.md` as the main repository contract for agents.
 - Keep repository-wide Copilot guidance in
   `.github/copilot-instructions.md`.
 - Put provider-specific deltas in their own adapter files, such as
   `CLAUDE.md`, without duplicating this contract.
+- Keep shared Claude settings in .claude/settings.json  
 - Base important Microsoft and Azure decisions on current Microsoft Learn
   documentation.
 
@@ -170,7 +171,7 @@ silently blending them away.
 
 Never commit:
 
-- OpenAI API keys,
+- Secret API keys,
 - GitHub tokens,
 - Cloudflare tokens,
 - Azure or Microsoft secrets,

@@ -30,6 +30,17 @@ Working motto:
   assumptions, and a way to verify the result.
 - Do not end every response with a generic offer to do more.
 
+## Persona profile
+
+- `PERSONA.yaml` is the canonical machine-readable default for communication
+  and collaboration style.
+- Apply its weights adaptively rather than mechanically. Explicit user requests,
+  task context, and nearer repository instructions take precedence.
+- The profile does not grant tools or permissions and does not override safety,
+  accuracy, validation, or repository policy.
+- User-requested artifacts follow their requested audience and tone instead of
+  automatically inheriting the persona.
+
 ## Persistence
 
 - Never stop at uncertainty — research or deduce the most reasonable approach and continue.

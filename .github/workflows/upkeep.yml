@@ -1,5 +1,5 @@
 ---
-name: upkeep PR
+name: upkeep
 
 on: # yamllint disable-line rule:truthy
   schedule:
@@ -7,7 +7,7 @@ on: # yamllint disable-line rule:truthy
   workflow_dispatch:
 
 concurrency:
-  group: pr-upkeep-${{ github.repository }}
+  group: upkeep-${{ github.repository }}
   cancel-in-progress: true
 
 permissions:

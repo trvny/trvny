@@ -6,8 +6,6 @@ name: MegaLinter
 on: # yamllint disable-line rule:truthy
   push:
     branches: [main]
-    paths-ignore:
-      - "**.md"
   pull_request: null
   workflow_dispatch:
 
@@ -18,14 +16,11 @@ concurrency:
 permissions: {}
 
 jobs:
-  megalinter:
-    name: MegaLinter
-    runs-on: ubuntu-latest
+  benches:
+    name: Bench checks
+    runs-on: ubuntu-slim
     permissions:
       contents: read
-      issues: write
-      pull-requests: write
-      checks: write
 
     steps:
       - name: Checkout
@@ -65,23 +60,6 @@ jobs:
           echo "codebench=$codebench" >> "$GITHUB_OUTPUT"
           echo "streambench=$streambench" >> "$GITHUB_OUTPUT"
 
-      - name: MegaLinter
-        id: megalinter
-        continue-on-error: true
-        uses: oxsecurity/megalinter/flavors/documentation@v9
-        env:
-          MEGALINTER_CONFIG: .github/linters/.mega-linter.yml
-          VALIDATE_ALL_CODEBASE: >-
-            ${{
-              github.event_name == 'workflow_dispatch' ||
-              (
-                github.event_name == 'push' &&
-                contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
-              )
-            }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLY_FIXES_EVENT: none
-
       - name: Set up Node.js
         if: >-
           steps.benches.outputs.codebench == 'true' ||
@@ -112,6 +90,54 @@ jobs:
           npm install
           npm run check
 
+      - name: Gate bench checks
+        if: >-
+          always() &&
+          (
+            (
+              steps.benches.outputs.codebench == 'true' &&
+              steps.codebench.outcome != 'success'
+            ) ||
+            (
+              steps.benches.outputs.streambench == 'true' &&
+              steps.streambench.outcome != 'success'
+            )
+          )
+        run: exit 1
+
+  megalinter:
+    name: MegaLinter
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      checks: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: MegaLinter
+        id: megalinter
+        continue-on-error: true
+        uses: oxsecurity/megalinter/flavors/documentation@v9
+        env:
+          MEGALINTER_CONFIG: .github/linters/.mega-linter.yml
+          VALIDATE_ALL_CODEBASE: >-
+            ${{
+              github.event_name == 'workflow_dispatch' ||
+              (
+                github.event_name == 'push' &&
+                contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
+              )
+            }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLY_FIXES_EVENT: none
+
       - name: Archive MegaLinter reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -123,18 +149,6 @@ jobs:
             megalinter-reports
             mega-linter.log
 
-      - name: Gate checks
-        if: >-
-          always() &&
-          (
-            steps.megalinter.outcome != 'success' ||
-            (
-              steps.benches.outputs.codebench == 'true' &&
-              steps.codebench.outcome != 'success'
-            ) ||
-            (
-              steps.benches.outputs.streambench == 'true' &&
-              steps.streambench.outcome != 'success'
-            )
-          )
+      - name: Gate MegaLinter
+        if: always() && steps.megalinter.outcome != 'success'
         run: exit 1

@@ -1,5 +1,5 @@
 ---
-name: PR upkeep
+name: upkeep PR
 
 on: # yamllint disable-line rule:truthy
   schedule:

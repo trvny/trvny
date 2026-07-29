@@ -19,7 +19,7 @@ jobs:
         uses: stats-organization/github-readme-stats-action@v2
         with:
           card: top-langs
-          options: username=${{ github.repository_owner }}&layout=compact&langs_count=6
+          options: username=${{ github.repository_owner }}&layout=donut&hide_title=true&langs_count=10
           path: assets/profile/top-langs.svg
           token: ${{ secrets.GH_PAT }}
 

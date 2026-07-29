@@ -7,6 +7,9 @@ on:  # yamllint disable-line rule:truthy
     types:
       - opened
       - synchronize
+      - reopened
+      - ready_for_review
+      - review_requested
   workflow_dispatch:
   workflow_call:
 
@@ -28,6 +31,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      actions: read
     steps:
       - name: Checkout pull request head
         uses: actions/checkout@v7
@@ -47,4 +51,6 @@ jobs:
             ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 10
+            --max-turns 5
+          additional_permissions: |
+            actions: read

@@ -13,6 +13,8 @@ from typing import BinaryIO
 
 LOGGER = logging.getLogger(__name__)
 CHUNK_SIZE = 64 * 1024
+STARTUP_CHUNK_SIZE = 4096
+STARTUP_SILENCE_MS = 1500
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +68,14 @@ class StreamError(RuntimeError):
     """Raised when the local stream cannot start."""
 
 
+def _read_chunk(stream: BinaryIO, size: int) -> bytes:
+    """Read currently available pipe data without waiting for a full buffer."""
+    read1 = getattr(stream, "read1", None)
+    if callable(read1):
+        return read1(size)
+    return stream.read(size)
+
+
 class AudioStreamServer:
     """Serve one tokenized real-time audio stream to a WAM speaker."""
 
@@ -90,9 +100,12 @@ class AudioStreamServer:
         self.token = secrets.token_urlsafe(24)
         self.request_started = threading.Event()
         self.request_finished = threading.Event()
+        self.audio_released = threading.Event()
+        self.audio_started = threading.Event()
         self.error: str | None = None
         self._process: subprocess.Popen[bytes] | None = None
         self._started = False
+        self._closing = threading.Event()
         self._process_lock = threading.Lock()
         self._server = ThreadingHTTPServer((bind, port), self._make_handler())
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -147,8 +160,14 @@ class AudioStreamServer:
         self._thread.start()
         self._started = True
 
+    def release_audio(self) -> None:
+        """Allow a connected speaker to receive audio after safety checks."""
+        self.audio_released.set()
+
     def close(self) -> None:
         """Stop HTTP serving and any active FFmpeg process."""
+        self._closing.set()
+        self.audio_released.set()
         with self._process_lock:
             process = self._process
         if process and process.poll() is None:
@@ -174,9 +193,19 @@ class AudioStreamServer:
                 if self.path != owner.path:
                     self.send_error(404)
                     return
+
+                self.send_response(200)
+                self.send_header("Content-Type", owner.profile.content_type)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Connection", "close")
+                self.end_headers()
                 owner.request_started.set()
+
                 try:
-                    owner._serve_audio(self.wfile, self)
+                    owner.audio_released.wait()
+                    if owner._closing.is_set():
+                        return
+                    owner._serve_audio(self.wfile)
                 except Exception as error:  # HTTP worker boundary
                     owner.error = str(error)
                     LOGGER.exception("Audio stream failed")
@@ -188,7 +217,7 @@ class AudioStreamServer:
 
         return Handler
 
-    def _serve_audio(self, output: BinaryIO, handler: BaseHTTPRequestHandler) -> None:
+    def _serve_audio(self, output: BinaryIO) -> None:
         command = [
             self.ffmpeg,
             "-hide_banner",
@@ -197,6 +226,8 @@ class AudioStreamServer:
             "-re",
             "-i",
             self.source,
+            "-af",
+            f"adelay={STARTUP_SILENCE_MS}:all=1",
             *self.profile.ffmpeg_args,
             "pipe:1",
         ]
@@ -211,21 +242,16 @@ class AudioStreamServer:
             self._process = process
 
         assert process.stdout is not None
-        first_chunk = process.stdout.read(CHUNK_SIZE)
+        first_chunk = _read_chunk(process.stdout, STARTUP_CHUNK_SIZE)
         if not first_chunk:
             process.wait(timeout=5)
             raise StreamError(f"FFmpeg produced no audio (exit {process.returncode})")
 
-        handler.send_response(200)
-        handler.send_header("Content-Type", self.profile.content_type)
-        handler.send_header("Cache-Control", "no-store")
-        handler.send_header("Connection", "close")
-        handler.end_headers()
-
         try:
             output.write(first_chunk)
             output.flush()
-            while chunk := process.stdout.read(CHUNK_SIZE):
+            self.audio_started.set()
+            while chunk := _read_chunk(process.stdout, CHUNK_SIZE):
                 output.write(chunk)
                 output.flush()
         except (BrokenPipeError, ConnectionResetError):

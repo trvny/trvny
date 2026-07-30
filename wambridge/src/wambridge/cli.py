@@ -14,38 +14,138 @@ from .profiles import (
     remember_device,
     resolve_device,
 )
-from .samsung import WamApiError, play_url, probe
+from .samsung import (
+    MAX_VOLUME,
+    MIN_VOLUME,
+    WamApiError,
+    get_volume,
+    play_url,
+    probe,
+    set_volume,
+)
 from .stream import AudioStreamServer, OUTPUT_PROFILES, StreamError
 
 LOGGER = logging.getLogger("wambridge")
+DEFAULT_MAX_START_VOLUME = 10
+
+
+def volume_level(value: str) -> int:
+    """Parse a raw WAM volume level for argparse."""
+    try:
+        level = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "volume must be an integer from 0 to 100"
+        ) from error
+    if not MIN_VOLUME <= level <= MAX_VOLUME:
+        raise argparse.ArgumentTypeError(
+            f"volume must be between {MIN_VOLUME} and {MAX_VOLUME}"
+        )
+    return level
+
+
+def choose_start_volume(
+    current_volume: int,
+    explicit_volume: int | None,
+    max_start_volume: int,
+) -> int:
+    """Choose an explicit level or clamp the current volume to a safe maximum."""
+    if explicit_volume is not None:
+        return explicit_volume
+    return min(current_volume, max_start_volume)
 
 
 def build_parser() -> argparse.ArgumentParser:
     """Create the CLI parser."""
     parser = argparse.ArgumentParser(
         prog="wambridge",
-        description="Stream FFmpeg-supported audio to a Samsung WAM speaker over Wi-Fi.",
+        description=(
+            "Stream FFmpeg-supported audio to a Samsung WAM speaker over Wi-Fi."
+        ),
     )
-    parser.add_argument("source", nargs="?", help="Audio file, radio URL or other FFmpeg input")
+    parser.add_argument(
+        "source",
+        nargs="?",
+        help="Audio file, radio URL or other FFmpeg input",
+    )
     target = parser.add_mutually_exclusive_group()
     target.add_argument("--speaker", help="Speaker IPv4 address")
-    target.add_argument("--device", help="Saved device alias; current IP is resolved automatically")
-    parser.add_argument("--port", type=int, default=55001, help="Samsung WAM API port")
+    target.add_argument(
+        "--device",
+        help="Saved device alias; current IP is resolved automatically",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=55001,
+        help="Samsung WAM API port",
+    )
     parser.add_argument(
         "--format",
         choices=sorted(OUTPUT_PROFILES),
         default="flac",
         help="Format sent to the speaker (input may be Opus, Ogg, AAC and more)",
     )
-    parser.add_argument("--bind", default="0.0.0.0", help="Local HTTP bind address")
-    parser.add_argument("--http-port", type=int, default=0, help="Local HTTP port; 0 chooses one")
-    parser.add_argument("--ffmpeg", default="ffmpeg", help="FFmpeg executable or path")
-    parser.add_argument("--probe", action="store_true", help="Only test the selected speaker API")
-    parser.add_argument("--discover", action="store_true", help="List discovered speakers and exit")
-    parser.add_argument("--remember", metavar="ALIAS", help="Save a speaker by stable device ID")
-    parser.add_argument("--list-devices", action="store_true", help="List saved device profiles")
-    parser.add_argument("--forget", metavar="ALIAS", help="Delete a saved device profile")
-    parser.add_argument("--config", type=Path, help="Override the per-user device profile file")
+    parser.add_argument(
+        "--volume",
+        type=volume_level,
+        help="Explicit startup volume from 0 to 100",
+    )
+    parser.add_argument(
+        "--max-start-volume",
+        type=volume_level,
+        default=DEFAULT_MAX_START_VOLUME,
+        help=(
+            "Clamp the current speaker volume before playback "
+            f"(default: {DEFAULT_MAX_START_VOLUME})"
+        ),
+    )
+    parser.add_argument(
+        "--bind",
+        default="0.0.0.0",
+        help="Local HTTP bind address",
+    )
+    parser.add_argument(
+        "--http-port",
+        type=int,
+        default=0,
+        help="Local HTTP port; 0 chooses one",
+    )
+    parser.add_argument(
+        "--ffmpeg",
+        default="ffmpeg",
+        help="FFmpeg executable or path",
+    )
+    parser.add_argument(
+        "--probe",
+        action="store_true",
+        help="Only test the selected speaker API",
+    )
+    parser.add_argument(
+        "--discover",
+        action="store_true",
+        help="List discovered speakers and exit",
+    )
+    parser.add_argument(
+        "--remember",
+        metavar="ALIAS",
+        help="Save a speaker by stable device ID",
+    )
+    parser.add_argument(
+        "--list-devices",
+        action="store_true",
+        help="List saved device profiles",
+    )
+    parser.add_argument(
+        "--forget",
+        metavar="ALIAS",
+        help="Delete a saved device profile",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        help="Override the per-user device profile file",
+    )
     parser.add_argument(
         "--discovery-timeout",
         type=float,
@@ -84,7 +184,9 @@ def select_discovered_speaker(args: argparse.Namespace) -> str:
         raise RuntimeError("No Samsung WAM speaker found; pass --speaker IP")
     if len(speakers) > 1:
         addresses = ", ".join(speaker.ip for speaker in speakers)
-        raise RuntimeError(f"More than one Samsung WAM found ({addresses}); pass --speaker IP")
+        raise RuntimeError(
+            f"More than one Samsung WAM found ({addresses}); pass --speaker IP"
+        )
     return speakers[0].ip
 
 
@@ -164,14 +266,18 @@ def run(args: argparse.Namespace) -> int:
             store=store,
         )
         print(
-            f"Saved {profile.alias}: {profile.name} at {profile.last_ip}:{profile.port} "
-            f"(device {profile.device_id})"
+            f"Saved {profile.alias}: {profile.name} at "
+            f"{profile.last_ip}:{profile.port} (device {profile.device_id})"
         )
         return 0
 
     speaker_ip, speaker_port = select_speaker(args, store)
     response = probe(speaker_ip, port=speaker_port)
-    LOGGER.info("Speaker %s replied with %s", speaker_ip, response.method or "XML")
+    LOGGER.info(
+        "Speaker %s replied with %s",
+        speaker_ip,
+        response.method or "XML",
+    )
     if args.probe:
         print(f"Samsung WAM reachable at {speaker_ip}:{speaker_port}")
         return 0
@@ -186,18 +292,49 @@ def run(args: argparse.Namespace) -> int:
         port=args.http_port,
         ffmpeg=args.ffmpeg,
     )
+    restore_volume: int | None = None
+    startup_complete = False
     try:
         server.prepare()
+        current_volume = get_volume(speaker_ip, port=speaker_port)
+        restore_volume = current_volume
+        start_volume = choose_start_volume(
+            current_volume,
+            args.volume,
+            args.max_start_volume,
+        )
+        LOGGER.info(
+            "Speaker volume is %s; starting playback at %s",
+            current_volume,
+            start_volume,
+        )
+
         server.start()
         stream_url = server.url(host_ip)
         LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
+
+        # Keep the speaker at zero while URL playback wakes its decoder.
+        # The stream begins with silence; only then is the target level applied.
+        set_volume(speaker_ip, 0, port=speaker_port)
         play_url(speaker_ip, stream_url, port=speaker_port)
+        set_volume(speaker_ip, 0, port=speaker_port)
+
         if not server.request_started.wait(timeout=15):
             raise RuntimeError(
                 "Speaker accepted the command but did not request the stream; "
                 "check Windows Firewall"
             )
-        print(f"Streaming to Samsung WAM at {speaker_ip}. Press Ctrl+C to stop.")
+        set_volume(speaker_ip, 0, port=speaker_port)
+        server.release_audio()
+        if not server.audio_started.wait(timeout=30):
+            raise RuntimeError("Speaker connected but audio encoding did not start")
+        set_volume(speaker_ip, start_volume, port=speaker_port)
+        startup_complete = True
+
+        print(
+            f"Streaming to Samsung WAM at {speaker_ip} with volume "
+            f"{start_volume}. Press Ctrl+C to stop."
+        )
         while not server.request_finished.wait(timeout=1):
             pass
         if server.error:
@@ -207,7 +344,25 @@ def run(args: argparse.Namespace) -> int:
         print("\nStopping")
         return 130
     finally:
-        server.close()
+        try:
+            server.close()
+        finally:
+            if restore_volume is not None and not startup_complete:
+                try:
+                    set_volume(
+                        speaker_ip,
+                        restore_volume,
+                        port=speaker_port,
+                    )
+                    LOGGER.info(
+                        "Restored speaker volume to %s after aborted startup",
+                        restore_volume,
+                    )
+                except WamApiError as error:
+                    LOGGER.warning(
+                        "Could not restore speaker volume after aborted startup: %s",
+                        error,
+                    )
 
 
 def main(argv: list[str] | None = None) -> int:

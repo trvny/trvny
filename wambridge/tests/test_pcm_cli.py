@@ -140,6 +140,45 @@ class PcmCliTests(TestCase):
         return_value=SimpleNamespace(method="SpkName"),
     )
     @patch("wambridge.pcm_cli.select_speaker", return_value=("10.0.0.118", 55001))
+    @patch("wambridge.pcm_cli.PcmAudioStreamServer", FakePcmServer)
+    def test_restores_volume_after_ambiguous_start_request(
+        self,
+        _select_mock,
+        _probe_mock,
+        _local_ip_mock,
+        _get_volume_mock,
+        volume_mock,
+        _play_url_mock,
+    ) -> None:
+        volume_mock.side_effect = [
+            WamApiError("Cannot reach Samsung WAM at 10.0.0.118:55001: timed out"),
+            None,
+        ]
+
+        with self.assertRaisesRegex(WamApiError, "timed out"):
+            run(
+                self._args("--volume", "4"),
+                pcm_input=BytesIO(),
+                protocol_output=StringIO(),
+            )
+
+        self.assertEqual(
+            volume_mock.call_args_list,
+            [
+                call("10.0.0.118", 4, port=55001),
+                call("10.0.0.118", 7, port=55001, timeout=1.0),
+            ],
+        )
+
+    @patch("wambridge.pcm_cli.play_url")
+    @patch("wambridge.pcm_cli.set_volume")
+    @patch("wambridge.pcm_cli.get_volume", return_value=7)
+    @patch("wambridge.pcm_cli.local_ip_for", return_value="10.0.0.103")
+    @patch(
+        "wambridge.pcm_cli.probe",
+        return_value=SimpleNamespace(method="SpkName"),
+    )
+    @patch("wambridge.pcm_cli.select_speaker", return_value=("10.0.0.118", 55001))
     def test_leaves_volume_untouched_when_speaker_never_requests_pcm(
         self,
         _select_mock,

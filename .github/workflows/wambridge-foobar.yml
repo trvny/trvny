@@ -44,11 +44,21 @@ jobs:
       - name: Build x64 component
         shell: pwsh
         run: |
-          msbuild wambridge/foobar/foo_out_wam.vcxproj `
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest `
+            -requires Microsoft.Component.MSBuild `
+            -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+          if (-not $msbuild) {
+            throw "MSBuild not found"
+          }
+          & $msbuild wambridge/foobar/foo_out_wam.vcxproj `
             /m `
             /p:Configuration=Release `
             /p:Platform=x64 `
             "/p:FoobarSdkRoot=$env:FOOBAR_SDK_ROOT"
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
 
       - name: Package component
         shell: pwsh

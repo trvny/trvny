@@ -122,6 +122,37 @@ reliably resumed, so `--stop` pauses and mutes it; start the source command
 again to play it. `--standby` also mutes native playback so the speaker can
 enter its automatic standby state.
 
+### Radio stations
+
+Save any direct HTTP or HTTPS radio stream under your own alias. These are
+independent of Samsung and TuneIn accounts:
+
+```powershell
+wambridge --radio-add paradise "https://example.net/radio.mp3"
+wambridge --radio-list
+wambridge --radio-play paradise --device M5 --volume 6
+wambridge --radio-remove paradise
+```
+
+The station list is stored in
+`%LOCALAPPDATA%\WAMBridge\stations.json` on Windows. The source is decoded
+by FFmpeg, so the M5 receives the same conservative FLAC or MP3 stream as it
+does for local files.
+
+WAM Bridge can also read and start the native TuneIn presets stored by the
+speaker. This includes the `my` presets synchronized after signing in through
+Samsung's TuneIn plugin:
+
+```powershell
+wambridge --device M5 --tunein-list
+wambridge --device M5 --tunein-play 0 --volume 6
+wambridge --device M5 --tunein-play "Radio Paradise" --volume 6
+```
+
+Custom stations are managed by WAM Bridge. Native TuneIn presets are read and
+played from the speaker; changing the speaker's TuneIn account or preset list
+still belongs to Samsung's plugin because no reliable write API is known.
+
 Test a known speaker:
 
 ```powershell

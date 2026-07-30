@@ -8,6 +8,8 @@ from urllib.request import ProxyHandler, build_opener
 from xml.etree import ElementTree
 
 DEFAULT_PORT = 55001
+MIN_VOLUME = 0
+MAX_VOLUME = 100
 LOCAL_OPENER = build_opener(ProxyHandler({}))
 
 
@@ -141,9 +143,64 @@ def _first_value(response: WamResponse, *names: str) -> str | None:
     return None
 
 
+def _validate_volume(level: int) -> int:
+    if isinstance(level, bool) or not isinstance(level, int):
+        raise ValueError("Volume must be an integer between 0 and 100")
+    if not MIN_VOLUME <= level <= MAX_VOLUME:
+        raise ValueError(f"Volume must be between {MIN_VOLUME} and {MAX_VOLUME}")
+    return level
+
+
 def probe(speaker_ip: str, *, port: int = DEFAULT_PORT, timeout: float = 5.0) -> WamResponse:
     """Check that the target is a responding Samsung WAM speaker."""
     return request(speaker_ip, "GetSpkName", port=port, timeout=timeout)
+
+
+def get_volume(
+    speaker_ip: str,
+    *,
+    port: int = DEFAULT_PORT,
+    timeout: float = 5.0,
+) -> int:
+    """Return the current speaker volume as a value from 0 to 100."""
+    response = request(speaker_ip, "GetVolume", port=port, timeout=timeout)
+    raw_volume = _first_value(
+        response,
+        "volume",
+        "volumelevel",
+        "volume_level",
+        "level",
+    )
+    if raw_volume is None and len(response.values) == 1:
+        raw_volume = next(iter(response.values.values()))
+    if raw_volume is None:
+        raise WamApiError("Samsung WAM response did not contain a volume level")
+    try:
+        volume = int(raw_volume)
+    except ValueError as error:
+        raise WamApiError(f"Samsung WAM returned invalid volume: {raw_volume!r}") from error
+    try:
+        return _validate_volume(volume)
+    except ValueError as error:
+        raise WamApiError(f"Samsung WAM returned invalid volume: {volume}") from error
+
+
+def set_volume(
+    speaker_ip: str,
+    level: int,
+    *,
+    port: int = DEFAULT_PORT,
+    timeout: float = 5.0,
+) -> WamResponse:
+    """Set the speaker volume to an explicit value from 0 to 100."""
+    volume = _validate_volume(level)
+    return request(
+        speaker_ip,
+        "SetVolume",
+        [("volume", volume, "dec")],
+        port=port,
+        timeout=timeout,
+    )
 
 
 def get_device_id(

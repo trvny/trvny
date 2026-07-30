@@ -4,11 +4,11 @@
 
 #include <algorithm>
 #include <atomic>
-#include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
+#include <cwchar>
 #include <deque>
 #include <mutex>
 #include <optional>
@@ -141,7 +141,6 @@ public:
         {
             std::lock_guard lock(m_mutex);
             m_shutdown = true;
-            m_restart = true;
         }
         m_cv.notify_all();
         terminate_child();
@@ -183,7 +182,7 @@ public:
 
         std::unique_lock lock(m_mutex);
         throw_if_failed_locked();
-        if (m_paused) return 0;
+        if (m_paused.load()) return 0;
 
         const unsigned sampleRate = chunk.get_sample_rate();
         const unsigned channels = chunk.get_channels();
@@ -220,10 +219,9 @@ public:
     }
 
     size_t update_v2() override {
-        poll_child();
         std::lock_guard lock(m_mutex);
         throw_if_failed_locked();
-        if (m_paused) return 0;
+        if (m_paused.load()) return 0;
         if (m_sampleRate == 0 || m_channels == 0) return SIZE_MAX;
         return free_frames_locked();
     }
@@ -282,6 +280,12 @@ private:
         m_cv.notify_all();
     }
 
+    bool should_report_child_failure() const {
+        if (m_childStopping.load()) return false;
+        std::lock_guard lock(m_mutex);
+        return !m_shutdown && m_failure.empty();
+    }
+
     std::wstring command_line(unsigned sampleRate, unsigned channels) const {
         std::wstring command = quoted(m_settings.helper);
         command += L" --device " + quoted(m_settings.device);
@@ -295,6 +299,8 @@ private:
     }
 
     bool start_child(unsigned sampleRate, unsigned channels) {
+        stop_child();
+
         SECURITY_ATTRIBUTES security{};
         security.nLength = sizeof(security);
         security.bInheritHandle = TRUE;
@@ -359,6 +365,7 @@ private:
             m_childStdin = stdinWrite;
             m_childStdout = stdoutRead;
         }
+        m_childStopping.store(false);
         m_protocolThread = std::thread(&WamOutput::protocol_loop, this, stdoutRead);
         return true;
     }
@@ -376,10 +383,16 @@ private:
                 if (!line.empty() && line.back() == '\r') line.pop_back();
                 if (line.rfind("WAMBRIDGE PLAYING", 0) == 0) {
                     m_playing.store(true);
-                } else if (line.rfind("WAMBRIDGE ERROR ", 0) == 0) {
+                } else if (
+                    line.rfind("WAMBRIDGE ERROR ", 0) == 0 &&
+                    !m_childStopping.load()
+                ) {
                     set_failure(line.substr(16));
                 }
             }
+        }
+        if (should_report_child_failure()) {
+            set_failure("wambridge-pcm exited unexpectedly");
         }
     }
 
@@ -392,11 +405,16 @@ private:
             {
                 std::unique_lock lock(m_mutex);
                 m_cv.wait(lock, [this] {
-                    return m_shutdown || m_restart ||
-                        (!m_paused && m_sampleRate != 0 && m_channels != 0 && !m_queue.empty());
+                    return m_shutdown ||
+                        (m_failure.empty() && (
+                            m_restart ||
+                            (!m_paused.load() && m_sampleRate != 0 &&
+                             m_channels != 0 && !m_queue.empty())
+                        ));
                 });
                 if (m_shutdown) break;
                 restart = m_restart;
+                if (restart) m_childStopping.store(true);
                 m_restart = false;
                 sampleRate = m_sampleRate;
                 channels = m_channels;
@@ -408,7 +426,7 @@ private:
 
             {
                 std::unique_lock lock(m_mutex);
-                if (m_paused || m_queue.empty()) continue;
+                if (m_paused.load() || m_queue.empty() || !m_failure.empty()) continue;
                 const size_t frames = std::min(kWriteBatchFrames, queued_frames_locked());
                 const size_t values = frames * channels;
                 batch.resize(values);
@@ -428,18 +446,24 @@ private:
 
             const auto* bytes = reinterpret_cast<const std::byte*>(batch.data());
             size_t remaining = batch.size() * sizeof(float);
+            bool writeFailed = false;
             while (remaining > 0) {
                 DWORD written = 0;
                 const DWORD request = static_cast<DWORD>(
                     std::min<size_t>(remaining, static_cast<size_t>(MAXDWORD))
                 );
                 if (!WriteFile(input, bytes, request, &written, nullptr) || written == 0) {
-                    set_failure("wambridge-pcm closed its PCM input");
-                    remaining = 0;
+                    writeFailed = true;
                     break;
                 }
                 bytes += written;
                 remaining -= written;
+            }
+            if (writeFailed) {
+                if (should_report_child_failure()) {
+                    set_failure("wambridge-pcm closed its PCM input");
+                }
+                stop_child();
             }
         }
     }
@@ -450,21 +474,8 @@ private:
             WaitForSingleObject(m_childProcess, 0) == WAIT_TIMEOUT;
     }
 
-    void poll_child() {
-        HANDLE process = nullptr;
-        {
-            std::lock_guard lock(m_childMutex);
-            process = m_childProcess;
-        }
-        if (process == nullptr || WaitForSingleObject(process, 0) == WAIT_TIMEOUT) return;
-
-        std::lock_guard lock(m_mutex);
-        if (!m_shutdown && !m_restart && m_failure.empty()) {
-            m_failure = "wambridge-pcm exited unexpectedly";
-        }
-    }
-
     void terminate_child() {
+        m_childStopping.store(true);
         std::lock_guard lock(m_childMutex);
         if (m_childProcess != nullptr &&
             WaitForSingleObject(m_childProcess, 0) == WAIT_TIMEOUT) {
@@ -473,6 +484,7 @@ private:
     }
 
     void stop_child() {
+        m_childStopping.store(true);
         HANDLE process = nullptr;
         {
             std::lock_guard lock(m_childMutex);
@@ -492,6 +504,7 @@ private:
             close_handle(m_childProcess);
         }
         m_playing.store(false);
+        m_childStopping.store(false);
     }
 
     const double m_bufferLength;
@@ -508,6 +521,7 @@ private:
     std::string m_failure;
     std::atomic<bool> m_paused{false};
     std::atomic<bool> m_playing{false};
+    std::atomic<bool> m_childStopping{false};
     std::atomic<double> m_gain{1.0};
     std::thread m_worker;
 

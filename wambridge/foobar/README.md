@@ -48,7 +48,7 @@ software gain to PCM; the physical speaker level remains managed by WAM Bridge.
 ## Behaviour
 
 - PCM is queued in memory and consumed by FFmpeg at the configured sample rate.
-- Pausing keeps the active FLAC session alive with rate-limited silence, while
+- Pausing keeps the active FLAC session alive with FFmpeg-paced silence, while
   retaining queued audio for resume.
 - Seeking and stopping reset the helper and FFmpeg so buffered pre-flush PCM
   cannot leak into the next position; new PCM starts a fresh WAM session.

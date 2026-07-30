@@ -52,6 +52,7 @@ jobs:
             throw "MSBuild not found"
           }
           & $msbuild wambridge/foobar/foo_out_wam.vcxproj `
+            /t:Rebuild `
             /m `
             /p:Configuration=Release `
             /p:Platform=x64 `

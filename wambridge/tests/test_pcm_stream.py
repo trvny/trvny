@@ -50,19 +50,21 @@ class PcmAudioStreamServerTests(TestCase):
                 sample_format="u8",
             )
 
-    @patch("wambridge.pcm_stream._read_chunk", return_value=b"fLaC")
+    @patch("wambridge.pcm_stream._read_chunk")
     @patch("wambridge.pcm_stream.subprocess.Popen")
     @patch("wambridge.stream.shutil.which", return_value="ffmpeg")
-    def test_rejects_audio_flushed_only_after_pcm_eof(
+    def test_rejects_header_only_flac_while_process_is_alive(
         self,
         _which_mock,
         popen_mock,
-        _read_mock,
+        read_mock,
     ) -> None:
+        metadata_only = b"fLaC" + bytes([0x80, 0, 0, 34]) + bytes(34)
+        read_mock.side_effect = [metadata_only, b""]
         process = SimpleNamespace(
-            stdout=BytesIO(b"fLaC"),
+            stdout=BytesIO(),
             returncode=0,
-            poll=lambda: 0,
+            poll=lambda: None,
             wait=lambda timeout: 0,
             terminate=lambda: None,
             kill=lambda: None,
@@ -74,9 +76,44 @@ class PcmAudioStreamServerTests(TestCase):
             channels=2,
         )
         try:
-            with self.assertRaisesRegex(StreamError, "ended during startup"):
+            with self.assertRaisesRegex(StreamError, "FLAC audio frame"):
                 server._serve_audio(BytesIO())
             self.assertTrue(server.encoder_started.is_set())
             self.assertFalse(server.audio_started.is_set())
+        finally:
+            server.close()
+
+    @patch("wambridge.pcm_stream._read_chunk")
+    @patch("wambridge.pcm_stream.subprocess.Popen")
+    @patch("wambridge.stream.shutil.which", return_value="ffmpeg")
+    def test_accepts_flac_after_metadata_and_frame_sync(
+        self,
+        _which_mock,
+        popen_mock,
+        read_mock,
+    ) -> None:
+        metadata = b"fLaC" + bytes([0x80, 0, 0, 34]) + bytes(34)
+        frame = b"\xff\xf8\x00\x00"
+        read_mock.side_effect = [metadata, frame, b""]
+        process = SimpleNamespace(
+            stdout=BytesIO(),
+            returncode=0,
+            poll=lambda: None,
+            wait=lambda timeout: 0,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+        popen_mock.return_value = process
+        server = PcmAudioStreamServer(
+            BytesIO(b"pcm"),
+            sample_rate=48000,
+            channels=2,
+        )
+        output = BytesIO()
+        try:
+            server._serve_audio(output)
+            self.assertEqual(output.getvalue(), metadata + frame)
+            self.assertTrue(server.encoder_started.is_set())
+            self.assertTrue(server.audio_started.is_set())
         finally:
             server.close()

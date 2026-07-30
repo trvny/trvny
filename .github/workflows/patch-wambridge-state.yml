@@ -1,0 +1,125 @@
+name: Patch WAM helper state
+
+on:
+  push:
+    branches:
+      - wambridge/foo-out-wam
+    paths:
+      - ".github/workflows/patch-wambridge-state.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: wambridge/foo-out-wam
+
+      - name: Patch helper lifecycle
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("wambridge/foobar/foo_out_wam.cpp")
+          source = path.read_text(encoding="utf-8")
+
+          replacements = [
+              (
+                  "private:\n    void retire_stream_locked() {",
+                  "private:\n    enum class ChildState {\n"
+                  "        none,\n"
+                  "        running,\n"
+                  "        exited,\n"
+                  "    };\n\n"
+                  "    void retire_stream_locked() {",
+              ),
+              (
+                  "if (!m_shutdown && !m_restart && !m_flushing &&\n"
+                  "                generation == m_generation &&\n"
+                  "                !m_childStopping.load()) {",
+                  "if (!m_shutdown && !m_restart &&\n"
+                  "                generation == m_generation &&\n"
+                  "                !m_childStopping.load() &&\n"
+                  "                (!m_flushing || playing)) {",
+              ),
+              (
+                  "if (m_shutdown || m_restart ||\n"
+                  "                !session_matches_locked(generation, sampleRate, channels)) {",
+                  "if (m_shutdown || m_restart || !m_failure.empty() ||\n"
+                  "                !session_matches_locked(generation, sampleRate, channels)) {",
+              ),
+              (
+                  "stale = m_shutdown || m_restart ||\n"
+                  "                !session_matches_locked(generation, sampleRate, channels);",
+                  "stale = m_shutdown || m_restart || !m_failure.empty() ||\n"
+                  "                !session_matches_locked(generation, sampleRate, channels);",
+              ),
+              (
+                  "if (flushing && !child_running()) {\n"
+                  "                std::lock_guard lock(m_mutex);\n"
+                  "                if (m_flushing && generation == m_generation) {\n"
+                  "                    retire_stream_locked();\n"
+                  "                }\n"
+                  "                continue;\n"
+                  "            }\n"
+                  "            if (!child_running() &&\n"
+                  "                !start_child(sampleRate, channels, generation)) {\n"
+                  "                continue;\n"
+                  "            }",
+                  "const auto childState = child_state();\n"
+                  "            if (childState == ChildState::exited) {\n"
+                  "                set_failure_if_current(\n"
+                  "                    \"wambridge-pcm exited unexpectedly\",\n"
+                  "                    generation\n"
+                  "                );\n"
+                  "                stop_child();\n"
+                  "                continue;\n"
+                  "            }\n"
+                  "            if (flushing && childState == ChildState::none) {\n"
+                  "                std::lock_guard lock(m_mutex);\n"
+                  "                if (m_flushing && generation == m_generation) {\n"
+                  "                    retire_stream_locked();\n"
+                  "                }\n"
+                  "                continue;\n"
+                  "            }\n"
+                  "            if (childState == ChildState::none &&\n"
+                  "                !start_child(sampleRate, channels, generation)) {\n"
+                  "                continue;\n"
+                  "            }",
+              ),
+              (
+                  "bool child_running() const {\n"
+                  "        std::lock_guard lock(m_childMutex);\n"
+                  "        return m_childProcess != nullptr &&\n"
+                  "            WaitForSingleObject(m_childProcess, 0) == WAIT_TIMEOUT;\n"
+                  "    }",
+                  "ChildState child_state() const {\n"
+                  "        std::lock_guard lock(m_childMutex);\n"
+                  "        if (m_childProcess == nullptr) return ChildState::none;\n"
+                  "        return WaitForSingleObject(m_childProcess, 0) == WAIT_TIMEOUT\n"
+                  "            ? ChildState::running\n"
+                  "            : ChildState::exited;\n"
+                  "    }",
+              ),
+          ]
+
+          for old, new in replacements:
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one match, found {count}: {old[:80]!r}")
+              source = source.replace(old, new)
+
+          path.write_text(source, encoding="utf-8")
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wambridge/foobar/foo_out_wam.cpp
+          git rm .github/workflows/patch-wambridge-state.yml
+          git commit -m "Fix helper state races"
+          git push origin HEAD:wambridge/foo-out-wam

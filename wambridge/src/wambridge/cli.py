@@ -263,6 +263,7 @@ def run(args: argparse.Namespace) -> int:
                 "check Windows Firewall"
             )
         set_volume(speaker_ip, start_volume, port=speaker_port)
+        server.release_audio()
 
         print(
             f"Streaming to Samsung WAM at {speaker_ip} with volume {start_volume}. "

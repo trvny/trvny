@@ -291,14 +291,9 @@ public:
             std::lock_guard lock(m_mutex);
             m_queue.clear();
             m_failure.clear();
-            if (m_helperReady.load() && m_playing.load()) {
-                m_flushing = true;
-                m_flushDeadline = std::chrono::steady_clock::now() + kFlushGrace;
-            } else {
-                retire_stream_locked();
-                m_restart = true;
-                cancel_child();
-            }
+            retire_stream_locked();
+            m_restart = true;
+            cancel_child();
         }
         m_cv.notify_all();
     }

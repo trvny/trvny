@@ -2,6 +2,7 @@ import worker from "./index";
 
 interface Env {
   TVPI: Fetcher;
+  WEATHER: Fetcher;
   AUTKA: Fetcher;
 }
 
@@ -15,7 +16,7 @@ interface RpcRequest {
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_BATCH_SIZE = 16;
 const JSON_HEADERS = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
-const PROJECTS = new Set(["tvpi", "feeds", "autka"]);
+const PROJECTS = new Set(["tvpi", "feeds", "weather", "autka"]);
 const pending = new Map<string, Promise<unknown | null>>();
 
 function rpcError(id: RpcRequest["id"], code: number, message: string) {

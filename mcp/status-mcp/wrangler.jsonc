@@ -20,6 +20,7 @@
   // workers.dev fetch between same-account Workers hairpins and fails).
   "services": [
     { "binding": "TVPI", "service": "tvpi" },
+    { "binding": "WEATHER", "service": "weather" },
     { "binding": "AUTKA", "service": "cargate-backend" }
   ]
 }

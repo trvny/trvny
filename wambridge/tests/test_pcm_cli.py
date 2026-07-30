@@ -83,9 +83,7 @@ class PcmCliTests(TestCase):
         self.assertEqual(
             volume_mock.call_args_list,
             [
-                call("10.0.0.118", 0, port=55001),
-                call("10.0.0.118", 0, port=55001),
-                call("10.0.0.118", 0, port=55001),
+                call("10.0.0.118", 4, port=55001),
                 call("10.0.0.118", 4, port=55001),
             ],
         )
@@ -104,7 +102,7 @@ class PcmCliTests(TestCase):
         return_value=SimpleNamespace(method="SpkName"),
     )
     @patch("wambridge.pcm_cli.select_speaker", return_value=("10.0.0.118", 55001))
-    def test_restores_volume_when_speaker_never_requests_pcm(
+    def test_leaves_volume_untouched_when_speaker_never_requests_pcm(
         self,
         _select_mock,
         _probe_mock,
@@ -131,11 +129,4 @@ class PcmCliTests(TestCase):
                     protocol_output=StringIO(),
                 )
 
-        self.assertEqual(
-            volume_mock.call_args_list,
-            [
-                call("10.0.0.118", 0, port=55001),
-                call("10.0.0.118", 0, port=55001),
-                call("10.0.0.118", 7, port=55001),
-            ],
-        )
+        volume_mock.assert_not_called()

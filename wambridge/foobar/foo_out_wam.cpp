@@ -143,9 +143,10 @@ public:
         {
             std::lock_guard lock(m_mutex);
             m_shutdown = true;
+            m_childStopping.store(true);
         }
-        m_cv.notify_all();
         terminate_child();
+        m_cv.notify_all();
         if (m_worker.joinable()) m_worker.join();
         stop_child();
     }
@@ -195,8 +196,12 @@ public:
             m_capacityFrames = static_cast<size_t>(
                 std::ceil((m_bufferLength + 2.0) * static_cast<double>(m_sampleRate))
             );
+            ++m_generation;
             m_restart = true;
+            m_helperReady.store(false);
             m_playing.store(false);
+            m_childStopping.store(true);
+            terminate_child();
         }
 
         const size_t freeFrames = free_frames_locked();
@@ -241,9 +246,13 @@ public:
         {
             std::lock_guard lock(m_mutex);
             m_queue.clear();
+            ++m_generation;
             m_restart = true;
             m_failure.clear();
+            m_helperReady.store(false);
             m_playing.store(false);
+            m_childStopping.store(true);
+            terminate_child();
         }
         m_cv.notify_all();
     }
@@ -285,7 +294,17 @@ private:
     bool should_report_child_failure() const {
         if (m_childStopping.load()) return false;
         std::lock_guard lock(m_mutex);
-        return !m_shutdown && m_failure.empty();
+        return !m_shutdown && !m_restart && m_failure.empty();
+    }
+
+    bool session_matches_locked(
+        uint64_t generation,
+        unsigned sampleRate,
+        unsigned channels
+    ) const {
+        return generation == m_generation &&
+            sampleRate == m_sampleRate &&
+            channels == m_channels;
     }
 
     std::wstring command_line(unsigned sampleRate, unsigned channels) const {
@@ -300,8 +319,22 @@ private:
         return command;
     }
 
-    bool start_child(unsigned sampleRate, unsigned channels) {
+    bool start_child(
+        unsigned sampleRate,
+        unsigned channels,
+        uint64_t generation
+    ) {
         stop_child();
+        {
+            std::lock_guard lock(m_mutex);
+            if (m_shutdown || m_restart ||
+                !session_matches_locked(generation, sampleRate, channels)) {
+                return false;
+            }
+        }
+
+        m_childStopping.store(false);
+        m_helperReady.store(false);
 
         SECURITY_ATTRIBUTES security{};
         security.nLength = sizeof(security);
@@ -367,7 +400,19 @@ private:
             m_childStdin = stdinWrite;
             m_childStdout = stdoutRead;
         }
-        m_childStopping.store(false);
+
+        bool stale = false;
+        {
+            std::lock_guard lock(m_mutex);
+            stale = m_shutdown || m_restart ||
+                !session_matches_locked(generation, sampleRate, channels);
+        }
+        if (stale) {
+            m_childStopping.store(true);
+            stop_child();
+            return false;
+        }
+
         m_protocolThread = std::thread(&WamOutput::protocol_loop, this, stdoutRead);
         return true;
     }
@@ -383,7 +428,10 @@ private:
                 auto line = pending.substr(0, newline);
                 pending.erase(0, newline + 1);
                 if (!line.empty() && line.back() == '\r') line.pop_back();
-                if (line.rfind("WAMBRIDGE PLAYING", 0) == 0) {
+                if (line == "WAMBRIDGE READY") {
+                    m_helperReady.store(true);
+                    m_cv.notify_all();
+                } else if (line.rfind("WAMBRIDGE PLAYING", 0) == 0) {
                     m_playing.store(true);
                 } else if (
                     line.rfind("WAMBRIDGE ERROR ", 0) == 0 &&
@@ -403,6 +451,7 @@ private:
         while (true) {
             unsigned sampleRate = 0;
             unsigned channels = 0;
+            uint64_t generation = 0;
             bool restart = false;
             {
                 std::unique_lock lock(m_mutex);
@@ -420,17 +469,35 @@ private:
                 m_restart = false;
                 sampleRate = m_sampleRate;
                 channels = m_channels;
+                generation = m_generation;
             }
 
             if (restart) stop_child();
             if (sampleRate == 0 || channels == 0) continue;
-            if (!child_running() && !start_child(sampleRate, channels)) continue;
+            if (!child_running() &&
+                !start_child(sampleRate, channels, generation)) {
+                continue;
+            }
 
             {
                 std::unique_lock lock(m_mutex);
-                if (m_paused.load() || m_queue.empty() || !m_failure.empty()) continue;
+                m_cv.wait(lock, [this, generation, sampleRate, channels] {
+                    return m_shutdown || !m_failure.empty() || m_restart ||
+                        !session_matches_locked(generation, sampleRate, channels) ||
+                        (m_helperReady.load() && !m_paused.load() &&
+                         !m_queue.empty());
+                });
+                if (m_shutdown) break;
+                if (!m_failure.empty() || m_restart ||
+                    !session_matches_locked(generation, sampleRate, channels)) {
+                    continue;
+                }
+                if (m_paused.load() || !m_helperReady.load() || m_queue.empty()) {
+                    continue;
+                }
+
                 const size_t frames = std::min(kWriteBatchFrames, queued_frames_locked());
-                const size_t values = frames * channels;
+                const size_t values = frames * m_channels;
                 batch.resize(values);
                 for (size_t index = 0; index < values; ++index) {
                     batch[index] = m_queue.front();
@@ -487,6 +554,7 @@ private:
 
     void stop_child() {
         m_childStopping.store(true);
+        m_helperReady.store(false);
         HANDLE process = nullptr;
         {
             std::lock_guard lock(m_childMutex);
@@ -506,7 +574,13 @@ private:
             close_handle(m_childProcess);
         }
         m_playing.store(false);
-        m_childStopping.store(false);
+
+        bool keepStopping = false;
+        {
+            std::lock_guard lock(m_mutex);
+            keepStopping = m_restart || m_shutdown;
+        }
+        m_childStopping.store(keepStopping);
     }
 
     const double m_bufferLength;
@@ -518,11 +592,13 @@ private:
     unsigned m_sampleRate = 0;
     unsigned m_channels = 0;
     size_t m_capacityFrames = 0;
+    uint64_t m_generation = 0;
     bool m_shutdown = false;
     bool m_restart = false;
     std::string m_failure;
     std::atomic<bool> m_paused{false};
     std::atomic<bool> m_playing{false};
+    std::atomic<bool> m_helperReady{false};
     std::atomic<bool> m_childStopping{false};
     std::atomic<double> m_gain{1.0};
     std::thread m_worker;

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from pathlib import Path
 from time import monotonic, sleep
 
 from . import cli
@@ -66,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--stations-config",
-        type=cli.Path,
+        type=Path,
         help="Override the per-user custom radio station file",
     )
     return parser

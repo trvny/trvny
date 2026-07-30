@@ -1,8 +1,10 @@
 from io import BytesIO
+from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
 from wambridge.pcm_stream import PcmAudioStreamServer
+from wambridge.stream import StreamError
 
 
 class PcmAudioStreamServerTests(TestCase):
@@ -47,3 +49,34 @@ class PcmAudioStreamServerTests(TestCase):
                 channels=2,
                 sample_format="u8",
             )
+
+    @patch("wambridge.pcm_stream._read_chunk", return_value=b"fLaC")
+    @patch("wambridge.pcm_stream.subprocess.Popen")
+    @patch("wambridge.stream.shutil.which", return_value="ffmpeg")
+    def test_rejects_audio_flushed_only_after_pcm_eof(
+        self,
+        _which_mock,
+        popen_mock,
+        _read_mock,
+    ) -> None:
+        process = SimpleNamespace(
+            stdout=BytesIO(b"fLaC"),
+            returncode=0,
+            poll=lambda: 0,
+            wait=lambda timeout: 0,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+        popen_mock.return_value = process
+        server = PcmAudioStreamServer(
+            BytesIO(),
+            sample_rate=48000,
+            channels=2,
+        )
+        try:
+            with self.assertRaisesRegex(StreamError, "ended during startup"):
+                server._serve_audio(BytesIO())
+            self.assertTrue(server.encoder_started.is_set())
+            self.assertFalse(server.audio_started.is_set())
+        finally:
+            server.close()

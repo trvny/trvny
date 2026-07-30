@@ -146,7 +146,7 @@ public:
             m_shutdown = true;
             m_childStopping.store(true);
         }
-        terminate_child();
+        cancel_child();
         m_cv.notify_all();
         if (m_worker.joinable()) m_worker.join();
         stop_child();
@@ -202,7 +202,7 @@ public:
             m_helperReady.store(false);
             m_playing.store(false);
             m_childStopping.store(true);
-            terminate_child();
+            cancel_child();
         }
 
         const size_t freeFrames = free_frames_locked();
@@ -253,7 +253,7 @@ public:
             m_helperReady.store(false);
             m_playing.store(false);
             m_childStopping.store(true);
-            terminate_child();
+            cancel_child();
         }
         m_cv.notify_all();
     }
@@ -596,13 +596,13 @@ private:
             WaitForSingleObject(m_childProcess, 0) == WAIT_TIMEOUT;
     }
 
-    void terminate_child() {
+    void cancel_child() {
         m_childStopping.store(true);
-        std::lock_guard lock(m_childMutex);
-        if (m_childProcess != nullptr &&
-            WaitForSingleObject(m_childProcess, 0) == WAIT_TIMEOUT) {
-            TerminateProcess(m_childProcess, 1);
+        if (m_worker.joinable()) {
+            CancelSynchronousIo(m_worker.native_handle());
         }
+        std::lock_guard lock(m_childMutex);
+        close_handle(m_childStdin);
     }
 
     void stop_child() {
@@ -670,7 +670,7 @@ output_factory_t<WamOutput> g_outputFactory;
 
 DECLARE_COMPONENT_VERSION(
     "WAM Bridge Output",
-    "0.1.1",
+    "0.1.2",
     "Streams foobar2000 PCM to Samsung WAM speakers through wambridge-pcm."
 );
 

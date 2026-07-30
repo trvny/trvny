@@ -130,3 +130,48 @@ class PcmCliTests(TestCase):
                 )
 
         volume_mock.assert_not_called()
+
+    @patch("wambridge.pcm_cli.play_url")
+    @patch("wambridge.pcm_cli.set_volume")
+    @patch("wambridge.pcm_cli.get_volume", return_value=7)
+    @patch("wambridge.pcm_cli.local_ip_for", return_value="10.0.0.103")
+    @patch(
+        "wambridge.pcm_cli.probe",
+        return_value=SimpleNamespace(method="SpkName"),
+    )
+    @patch("wambridge.pcm_cli.select_speaker", return_value=("10.0.0.118", 55001))
+    def test_restores_volume_when_startup_ends_after_ready(
+        self,
+        _select_mock,
+        _probe_mock,
+        _local_ip_mock,
+        _get_volume_mock,
+        volume_mock,
+        _play_url_mock,
+    ) -> None:
+        class ReadyServer(FakePcmServer):
+            def start(self) -> None:
+                self.request_started.set()
+                self.encoder_started.set()
+
+        args = self._args("--volume", "4")
+        args.startup_timeout = 0.01
+
+        with patch("wambridge.pcm_cli.PcmAudioStreamServer", ReadyServer):
+            with self.assertRaisesRegex(
+                StreamError,
+                "Timed out waiting for audio_started",
+            ):
+                run(
+                    args,
+                    pcm_input=BytesIO(),
+                    protocol_output=StringIO(),
+                )
+
+        self.assertEqual(
+            volume_mock.call_args_list,
+            [
+                call("10.0.0.118", 4, port=55001),
+                call("10.0.0.118", 7, port=55001),
+            ],
+        )

@@ -13,6 +13,7 @@ from typing import BinaryIO
 
 LOGGER = logging.getLogger(__name__)
 CHUNK_SIZE = 64 * 1024
+STARTUP_CHUNK_SIZE = 4096
 STARTUP_SILENCE_MS = 1500
 
 
@@ -65,6 +66,14 @@ OUTPUT_PROFILES: dict[str, OutputProfile] = {
 
 class StreamError(RuntimeError):
     """Raised when the local stream cannot start."""
+
+
+def _read_chunk(stream: BinaryIO, size: int) -> bytes:
+    """Read currently available pipe data without waiting for a full buffer."""
+    read1 = getattr(stream, "read1", None)
+    if callable(read1):
+        return read1(size)
+    return stream.read(size)
 
 
 class AudioStreamServer:
@@ -193,8 +202,7 @@ class AudioStreamServer:
                 owner.request_started.set()
 
                 try:
-                    if not owner.audio_released.wait(timeout=15):
-                        raise StreamError("Timed out waiting for startup volume safety")
+                    owner.audio_released.wait()
                     if owner._closing.is_set():
                         return
                     owner._serve_audio(self.wfile)
@@ -234,7 +242,7 @@ class AudioStreamServer:
             self._process = process
 
         assert process.stdout is not None
-        first_chunk = process.stdout.read(CHUNK_SIZE)
+        first_chunk = _read_chunk(process.stdout, STARTUP_CHUNK_SIZE)
         if not first_chunk:
             process.wait(timeout=5)
             raise StreamError(f"FFmpeg produced no audio (exit {process.returncode})")
@@ -243,7 +251,7 @@ class AudioStreamServer:
             output.write(first_chunk)
             output.flush()
             self.audio_started.set()
-            while chunk := process.stdout.read(CHUNK_SIZE):
+            while chunk := _read_chunk(process.stdout, CHUNK_SIZE):
                 output.write(chunk)
                 output.flush()
         except (BrokenPipeError, ConnectionResetError):

@@ -90,9 +90,11 @@ class AudioStreamServer:
         self.token = secrets.token_urlsafe(24)
         self.request_started = threading.Event()
         self.request_finished = threading.Event()
+        self.audio_released = threading.Event()
         self.error: str | None = None
         self._process: subprocess.Popen[bytes] | None = None
         self._started = False
+        self._closing = threading.Event()
         self._process_lock = threading.Lock()
         self._server = ThreadingHTTPServer((bind, port), self._make_handler())
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -147,8 +149,14 @@ class AudioStreamServer:
         self._thread.start()
         self._started = True
 
+    def release_audio(self) -> None:
+        """Allow a connected speaker to receive audio after safety checks."""
+        self.audio_released.set()
+
     def close(self) -> None:
         """Stop HTTP serving and any active FFmpeg process."""
+        self._closing.set()
+        self.audio_released.set()
         with self._process_lock:
             process = self._process
         if process and process.poll() is None:
@@ -174,9 +182,20 @@ class AudioStreamServer:
                 if self.path != owner.path:
                     self.send_error(404)
                     return
+
+                self.send_response(200)
+                self.send_header("Content-Type", owner.profile.content_type)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Connection", "close")
+                self.end_headers()
                 owner.request_started.set()
+
                 try:
-                    owner._serve_audio(self.wfile, self)
+                    if not owner.audio_released.wait(timeout=15):
+                        raise StreamError("Timed out waiting for startup volume safety")
+                    if owner._closing.is_set():
+                        return
+                    owner._serve_audio(self.wfile)
                 except Exception as error:  # HTTP worker boundary
                     owner.error = str(error)
                     LOGGER.exception("Audio stream failed")
@@ -188,7 +207,7 @@ class AudioStreamServer:
 
         return Handler
 
-    def _serve_audio(self, output: BinaryIO, handler: BaseHTTPRequestHandler) -> None:
+    def _serve_audio(self, output: BinaryIO) -> None:
         command = [
             self.ffmpeg,
             "-hide_banner",
@@ -215,12 +234,6 @@ class AudioStreamServer:
         if not first_chunk:
             process.wait(timeout=5)
             raise StreamError(f"FFmpeg produced no audio (exit {process.returncode})")
-
-        handler.send_response(200)
-        handler.send_header("Content-Type", self.profile.content_type)
-        handler.send_header("Cache-Control", "no-store")
-        handler.send_header("Connection", "close")
-        handler.end_headers()
 
         try:
             output.write(first_chunk)

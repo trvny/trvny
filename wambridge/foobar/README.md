@@ -50,8 +50,8 @@ software gain to PCM; the physical speaker level remains managed by WAM Bridge.
 - PCM is queued in memory and consumed by FFmpeg at the configured sample rate.
 - Pausing keeps the active FLAC session alive with rate-limited silence, while
   retaining queued audio for resume.
-- Seeking clears queued PCM but keeps the active WAM session alive briefly;
-  stopping closes it after a two-second grace period.
+- Seeking keeps an already playing WAM session alive briefly; stopping before
+  playback starts cancels the helper so its temporary volume can be restored.
 - A PCM format change still starts a fresh WAM session.
 - Closing foobar stops the temporary local stream; the speaker cannot continue
   an original internet source independently.

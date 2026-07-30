@@ -292,10 +292,24 @@ private:
         m_cv.notify_all();
     }
 
-    bool should_report_child_failure() const {
-        if (m_childStopping.load()) return false;
-        std::lock_guard lock(m_mutex);
-        return !m_shutdown && !m_restart && m_failure.empty();
+    void set_failure_if_current(
+        const std::string& message,
+        uint64_t generation
+    ) {
+        bool recorded = false;
+        {
+            std::lock_guard lock(m_mutex);
+            if (!m_shutdown && !m_restart &&
+                generation == m_generation &&
+                !m_childStopping.load() && m_failure.empty()) {
+                m_failure = message;
+                recorded = true;
+            }
+        }
+        if (recorded) {
+            m_playing.store(false);
+            m_cv.notify_all();
+        }
     }
 
     bool session_matches_locked(
@@ -414,11 +428,16 @@ private:
             return false;
         }
 
-        m_protocolThread = std::thread(&WamOutput::protocol_loop, this, stdoutRead);
+        m_protocolThread = std::thread(
+            &WamOutput::protocol_loop,
+            this,
+            stdoutRead,
+            generation
+        );
         return true;
     }
 
-    void protocol_loop(HANDLE output) {
+    void protocol_loop(HANDLE output, uint64_t generation) {
         std::string pending;
         char buffer[512];
         DWORD read = 0;
@@ -434,17 +453,15 @@ private:
                     m_cv.notify_all();
                 } else if (line.rfind("WAMBRIDGE PLAYING", 0) == 0) {
                     m_playing.store(true);
-                } else if (
-                    line.rfind("WAMBRIDGE ERROR ", 0) == 0 &&
-                    !m_childStopping.load()
-                ) {
-                    set_failure(line.substr(16));
+                } else if (line.rfind("WAMBRIDGE ERROR ", 0) == 0) {
+                    set_failure_if_current(line.substr(16), generation);
                 }
             }
         }
-        if (should_report_child_failure()) {
-            set_failure("wambridge-pcm exited unexpectedly");
-        }
+        set_failure_if_current(
+            "wambridge-pcm exited unexpectedly",
+            generation
+        );
     }
 
     void worker_loop() {
@@ -543,9 +560,10 @@ private:
                 remaining -= written;
             }
             if (writeFailed) {
-                if (should_report_child_failure()) {
-                    set_failure("wambridge-pcm closed its PCM input");
-                }
+                set_failure_if_current(
+                    "wambridge-pcm closed its PCM input",
+                    generation
+                );
                 stop_child();
                 continue;
             }

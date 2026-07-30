@@ -7,6 +7,9 @@ import secrets
 import shutil
 import subprocess
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import BinaryIO
@@ -15,6 +18,10 @@ LOGGER = logging.getLogger(__name__)
 CHUNK_SIZE = 64 * 1024
 STARTUP_CHUNK_SIZE = 4096
 STARTUP_SILENCE_MS = 1500
+_CONTINUOUS_SOURCES: ContextVar[frozenset[str]] = ContextVar(
+    "wambridge_continuous_sources",
+    default=frozenset(),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,7 +72,18 @@ OUTPUT_PROFILES: dict[str, OutputProfile] = {
 
 
 class StreamError(RuntimeError):
-    """Raised when the local stream cannot start."""
+    """Raised when the local stream cannot start or ends unexpectedly."""
+
+
+@contextmanager
+def continuous_source(source: str) -> Iterator[None]:
+    """Mark one source as live for the duration of a bridge session."""
+    sources = _CONTINUOUS_SOURCES.get()
+    token = _CONTINUOUS_SOURCES.set(sources | {source})
+    try:
+        yield
+    finally:
+        _CONTINUOUS_SOURCES.reset(token)
 
 
 def _read_chunk(stream: BinaryIO, size: int) -> bytes:
@@ -97,6 +115,7 @@ class AudioStreamServer:
         self.source = source
         self.profile = OUTPUT_PROFILES[profile]
         self.ffmpeg = resolved_ffmpeg
+        self.continuous = source in _CONTINUOUS_SOURCES.get()
         self.token = secrets.token_urlsafe(24)
         self.request_started = threading.Event()
         self.request_finished = threading.Event()
@@ -150,10 +169,14 @@ class AudioStreamServer:
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
         except subprocess.TimeoutExpired as error:
-            raise StreamError(f"FFmpeg source check timed out after {timeout:g} seconds") from error
+            raise StreamError(
+                f"FFmpeg source check timed out after {timeout:g} seconds"
+            ) from error
         if result.returncode != 0:
             details = result.stderr.decode("utf-8", errors="replace").strip()
-            raise StreamError(f"FFmpeg cannot prepare the source: {details or 'unknown error'}")
+            raise StreamError(
+                f"FFmpeg cannot prepare the source: {details or 'unknown error'}"
+            )
 
     def start(self) -> None:
         """Start accepting HTTP connections."""
@@ -247,6 +270,7 @@ class AudioStreamServer:
             process.wait(timeout=5)
             raise StreamError(f"FFmpeg produced no audio (exit {process.returncode})")
 
+        unexpected_eof = False
         try:
             output.write(first_chunk)
             output.flush()
@@ -254,6 +278,7 @@ class AudioStreamServer:
             while chunk := _read_chunk(process.stdout, CHUNK_SIZE):
                 output.write(chunk)
                 output.flush()
+            unexpected_eof = self.continuous and not self._closing.is_set()
         except (BrokenPipeError, ConnectionResetError):
             LOGGER.info("Speaker closed the stream")
         finally:
@@ -268,3 +293,9 @@ class AudioStreamServer:
                 self._process = None
             if process.returncode not in {0, -15, 1}:
                 LOGGER.error("FFmpeg exited with %s", process.returncode)
+
+        if unexpected_eof:
+            raise StreamError(
+                "FFmpeg live stream ended unexpectedly "
+                f"(exit {process.returncode})"
+            )

@@ -1,8 +1,14 @@
+from io import BytesIO
 from subprocess import CompletedProcess
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from wambridge.stream import AudioStreamServer, StreamError, _read_chunk
+from wambridge.stream import (
+    AudioStreamServer,
+    StreamError,
+    _read_chunk,
+    continuous_source,
+)
 
 
 class ReadOnePipe:
@@ -38,6 +44,40 @@ class AudioStreamServerTests(TestCase):
             self.assertTrue(server.audio_released.is_set())
         finally:
             server.close()
+
+    @patch("wambridge.stream.shutil.which", return_value="C:/ffmpeg/bin/ffmpeg.exe")
+    @patch("wambridge.stream.subprocess.Popen")
+    def test_continuous_source_reports_unexpected_eof(
+        self,
+        popen_mock,
+        _which_mock,
+    ) -> None:
+        process = Mock()
+        process.stdout = BytesIO(b"fLaC")
+        process.poll.return_value = 0
+        process.wait.return_value = 0
+        process.returncode = 0
+        popen_mock.return_value = process
+
+        with continuous_source("https://radio.example/live"):
+            server = AudioStreamServer("https://radio.example/live")
+        try:
+            with self.assertRaisesRegex(StreamError, "ended unexpectedly"):
+                server._serve_audio(BytesIO())
+        finally:
+            server.close()
+
+    @patch("wambridge.stream.shutil.which", return_value="C:/ffmpeg/bin/ffmpeg.exe")
+    def test_continuous_marker_is_scoped(self, _which_mock) -> None:
+        with continuous_source("https://radio.example/live"):
+            live_server = AudioStreamServer("https://radio.example/live")
+        regular_server = AudioStreamServer("https://radio.example/live")
+        try:
+            self.assertTrue(live_server.continuous)
+            self.assertFalse(regular_server.continuous)
+        finally:
+            live_server.close()
+            regular_server.close()
 
     def test_reads_available_pipe_data_without_filling_buffer(self) -> None:
         pipe = ReadOnePipe()

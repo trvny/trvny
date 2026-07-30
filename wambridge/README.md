@@ -124,20 +124,40 @@ enter its automatic standby state.
 
 ### Radio stations
 
-Save any direct HTTP or HTTPS radio stream under your own alias. These are
-independent of Samsung and TuneIn accounts:
+Save any direct HTTP or HTTPS radio stream under your own alias. Optional
+fallback URLs are tried in order when a stream fails:
 
 ```powershell
-wambridge --radio-add paradise "https://example.net/radio.mp3"
+wambridge --radio-add paradise "https://primary.example/radio.mp3" `
+  "https://backup.example/radio.ogg"
 wambridge --radio-list
 wambridge --radio-play paradise --device M5 --volume 6
 wambridge --radio-remove paradise
 ```
 
 The station list is stored in
-`%LOCALAPPDATA%\WAMBridge\stations.json` on Windows. The source is decoded
-by FFmpeg, so the M5 receives the same conservative FLAC or MP3 stream as it
-does for local files.
+`%LOCALAPPDATA%\WAMBridge\stations.json` on Windows. Existing files containing
+only one `url` per station remain compatible. Sources are decoded by FFmpeg,
+so the M5 receives the same conservative FLAC or MP3 stream as it does for
+local files.
+
+Import the bundled three-station set:
+
+```powershell
+wambridge --radio-import top3
+wambridge --radio-list
+wambridge --radio-play bbc1 --device M5 --volume 4
+wambridge --radio-play trojka --device M5 --volume 4
+wambridge --radio-play czworka --device M5 --volume 4
+```
+
+The `top3` pack contains BBC Radio 1, PR3 Trójka and PR4 Czwórka, each with a
+primary and backup stream. TuneIn web-page addresses are not included because
+they are pages rather than direct audio inputs.
+
+This pack is stored and played by WAM Bridge. It does not overwrite the three
+native presets selected by the physical button on the M5 because no reliable
+preset-write API is known.
 
 WAM Bridge can also read and start the native TuneIn presets stored by the
 speaker. This includes the `my` presets synchronized after signing in through

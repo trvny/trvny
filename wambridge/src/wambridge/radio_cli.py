@@ -19,8 +19,9 @@ from .samsung import (
     set_mute,
     set_volume,
 )
+from .station_packs import get_station_pack, station_pack_names
 from .stations import RadioStation, StationError, StationStore
-from .stream import StreamError
+from .stream import StreamError, continuous_source
 from .tunein import (
     find_tunein_preset,
     get_tunein_presets,
@@ -36,9 +37,17 @@ def build_parser() -> argparse.ArgumentParser:
     radio = parser.add_mutually_exclusive_group()
     radio.add_argument(
         "--radio-add",
-        nargs=2,
-        metavar=("ALIAS", "URL"),
-        help="Save or replace a custom internet-radio station",
+        nargs="+",
+        metavar="ALIAS_OR_URL",
+        help="Save a station as ALIAS URL [FALLBACK_URL ...]",
+    )
+    radio.add_argument(
+        "--radio-import",
+        metavar="PACK",
+        help=(
+            "Import a bundled station pack; available: "
+            f"{', '.join(station_pack_names())}"
+        ),
     )
     radio.add_argument(
         "--radio-list",
@@ -77,6 +86,7 @@ def _radio_action(args: argparse.Namespace) -> bool:
     return any(
         (
             args.radio_add,
+            args.radio_import,
             args.radio_list,
             args.radio_remove,
             args.radio_play,
@@ -112,7 +122,9 @@ def _print_stations(store: StationStore) -> int:
         print("No custom radio stations saved")
         return 0
     for station in stations:
-        print(f"{station.alias}\t{station.url}")
+        print(f"{station.alias}\tprimary\t{station.url}")
+        for fallback in station.fallback_urls:
+            print(f"{station.alias}\tfallback\t{fallback}")
     return 0
 
 
@@ -224,6 +236,47 @@ def _play_tunein_safely(
     return 0
 
 
+def _play_custom_station(
+    args: argparse.Namespace,
+    station: RadioStation,
+) -> int:
+    """Try a station's primary stream and fallbacks in order."""
+    failures: list[str] = []
+    original_source = args.source
+    try:
+        for index, url in enumerate(station.all_urls, start=1):
+            args.source = url
+            LOGGER.info(
+                "Trying radio station %s stream %s/%s: %s",
+                station.alias,
+                index,
+                len(station.all_urls),
+                url,
+            )
+            try:
+                with continuous_source(url):
+                    result = cli.run(args)
+            except (RuntimeError, StreamError, WamApiError) as error:
+                failures.append(f"{url}: {error}")
+                if index < len(station.all_urls):
+                    LOGGER.warning(
+                        "Radio stream failed, trying fallback %s/%s",
+                        index + 1,
+                        len(station.all_urls),
+                    )
+                continue
+            if result in {0, 130}:
+                return result
+            failures.append(f"{url}: exited with status {result}")
+    finally:
+        args.source = original_source
+
+    details = "; ".join(failures)
+    raise RuntimeError(
+        f"All streams failed for radio station {station.alias!r}: {details}"
+    )
+
+
 def run(args: argparse.Namespace) -> int:
     """Run radio actions or delegate unchanged commands to the core CLI."""
     if not _radio_action(args):
@@ -239,10 +292,26 @@ def run(args: argparse.Namespace) -> int:
 
     station_store = StationStore(args.stations_config)
     if args.radio_add:
-        alias, url = args.radio_add
-        station = RadioStation(alias=alias, url=url)
+        if len(args.radio_add) < 2:
+            raise RuntimeError(
+                "--radio-add needs ALIAS URL [FALLBACK_URL ...]"
+            )
+        alias, primary_url, *fallback_urls = args.radio_add
+        station = RadioStation(
+            alias=alias,
+            url=primary_url,
+            fallback_urls=tuple(fallback_urls),
+        )
         station_store.put(station)
-        print(f"Saved radio station {station.alias}: {station.url}")
+        print(
+            f"Saved radio station {station.alias} with "
+            f"{len(station.all_urls)} stream(s)"
+        )
+        return 0
+    if args.radio_import:
+        imported = station_store.put_many(get_station_pack(args.radio_import))
+        aliases = ", ".join(station.alias for station in imported)
+        print(f"Imported radio pack {args.radio_import}: {aliases}")
         return 0
     if args.radio_list:
         return _print_stations(station_store)
@@ -252,13 +321,7 @@ def run(args: argparse.Namespace) -> int:
         return 0
     if args.radio_play:
         station = station_store.get(args.radio_play)
-        args.source = station.url
-        LOGGER.info(
-            "Resolved radio station %s to %s",
-            station.alias,
-            station.url,
-        )
-        return cli.run(args)
+        return _play_custom_station(args, station)
 
     profile_store = ProfileStore(args.config)
     speaker_ip, speaker_port = cli.select_speaker(args, profile_store)

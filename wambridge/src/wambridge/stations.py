@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -20,10 +20,11 @@ class StationError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class RadioStation:
-    """A named internet-radio stream."""
+    """A named internet-radio stream with optional fallback URLs."""
 
     alias: str
     url: str
+    fallback_urls: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> RadioStation:
@@ -31,16 +32,34 @@ class RadioStation:
         try:
             alias = str(value["alias"]).strip()
             url = str(value["url"]).strip()
+            raw_fallbacks = value.get("fallback_urls", ())
         except (KeyError, TypeError) as error:
             raise StationError(f"Invalid radio station: {value!r}") from error
-        validate_station_url(url)
+        if isinstance(raw_fallbacks, str):
+            raw_fallbacks = [raw_fallbacks]
+        if not isinstance(raw_fallbacks, (list, tuple)):
+            raise StationError(f"Invalid radio station fallbacks: {value!r}")
+        fallback_urls = tuple(str(item).strip() for item in raw_fallbacks)
         if not alias:
             raise StationError("Radio station alias cannot be empty")
-        return cls(alias=alias, url=url)
+        validated_urls = _validated_unique_urls((url, *fallback_urls))
+        return cls(
+            alias=alias,
+            url=validated_urls[0],
+            fallback_urls=validated_urls[1:],
+        )
 
-    def to_dict(self) -> dict[str, str]:
+    @property
+    def all_urls(self) -> tuple[str, ...]:
+        """Return the primary URL followed by unique fallbacks."""
+        return (self.url, *self.fallback_urls)
+
+    def to_dict(self) -> dict[str, Any]:
         """Return JSON-safe station data."""
-        return asdict(self)
+        payload: dict[str, Any] = {"alias": self.alias, "url": self.url}
+        if self.fallback_urls:
+            payload["fallback_urls"] = list(self.fallback_urls)
+        return payload
 
 
 def validate_station_url(url: str) -> str:
@@ -49,6 +68,20 @@ def validate_station_url(url: str) -> str:
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise StationError("Radio station URL must use HTTP or HTTPS")
     return url
+
+
+def _validated_unique_urls(urls: Iterable[str]) -> tuple[str, ...]:
+    validated: list[str] = []
+    seen: set[str] = set()
+    for raw_url in urls:
+        url = validate_station_url(raw_url.strip())
+        if url in seen:
+            continue
+        seen.add(url)
+        validated.append(url)
+    if not validated:
+        raise StationError("Radio station needs at least one stream URL")
+    return tuple(validated)
 
 
 def default_station_path() -> Path:
@@ -120,10 +153,19 @@ class StationStore:
 
     def put(self, station: RadioStation) -> None:
         """Create or replace a saved station."""
-        validated = RadioStation.from_dict(station.to_dict())
+        self.put_many([station])
+
+    def put_many(self, new_stations: Iterable[RadioStation]) -> list[RadioStation]:
+        """Create or replace multiple stations in one atomic update."""
+        validated = [
+            RadioStation.from_dict(station.to_dict())
+            for station in new_stations
+        ]
         stations = self.load()
-        stations[_alias_key(validated.alias)] = validated
+        for station in validated:
+            stations[_alias_key(station.alias)] = station
         self._save(stations.values())
+        return validated
 
     def remove(self, alias: str) -> RadioStation:
         """Delete and return a saved station."""

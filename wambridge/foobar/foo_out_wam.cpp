@@ -26,6 +26,7 @@ constexpr char kOutputName[] = "WAM Bridge";
 constexpr char kDeviceName[] = "Samsung M5 (Wi-Fi)";
 constexpr double kStartupLatencySeconds = 1.5;
 constexpr size_t kWriteBatchFrames = 4096;
+constexpr std::chrono::milliseconds kFlushGrace{2000};
 
 // {B768F82C-A6B7-436F-965D-6C8D1B21B91D}
 constexpr GUID kOutputGuid = {
@@ -57,6 +58,40 @@ std::wstring config_path() {
     const auto localAppData = environment_value(L"LOCALAPPDATA");
     if (localAppData.empty()) return L"foobar.ini";
     return localAppData + L"\\WAMBridge\\foobar.ini";
+}
+
+bool file_exists(const std::wstring& path) {
+    const DWORD attributes = GetFileAttributesW(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES &&
+        (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+std::wstring bundled_helper_path() {
+    HMODULE module = nullptr;
+    if (!GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCWSTR>(&kOutputGuid),
+            &module
+        )) {
+        return L"wambridge-pcm.exe";
+    }
+
+    std::vector<wchar_t> buffer(32768);
+    const DWORD size = GetModuleFileNameW(
+        module,
+        buffer.data(),
+        static_cast<DWORD>(buffer.size())
+    );
+    if (size == 0 || size >= buffer.size()) return L"wambridge-pcm.exe";
+
+    std::wstring modulePath(buffer.data(), size);
+    const size_t separator = modulePath.find_last_of(L"\\/");
+    if (separator == std::wstring::npos) return L"wambridge-pcm.exe";
+
+    const auto bundled = modulePath.substr(0, separator) +
+        L"\\wambridge-pcm\\wambridge-pcm.exe";
+    return file_exists(bundled) ? bundled : L"wambridge-pcm.exe";
 }
 
 std::wstring ini_value(
@@ -108,7 +143,12 @@ struct Settings {
 Settings load_settings() {
     const auto path = config_path();
     auto helper = environment_value(L"WAMBRIDGE_PCM");
-    if (helper.empty()) helper = ini_value(L"helper", L"wambridge-pcm.exe", path);
+    if (helper.empty()) {
+        const auto configured = ini_value(L"helper", L"", path);
+        helper = configured.empty() || !file_exists(configured)
+            ? bundled_helper_path()
+            : configured;
+    }
 
     auto device = environment_value(L"WAMBRIDGE_DEVICE");
     if (device.empty()) device = ini_value(L"device", L"M5", path);
@@ -172,7 +212,7 @@ public:
 
     double get_latency() override {
         std::lock_guard lock(m_mutex);
-        if (m_sampleRate == 0 || m_channels == 0) return 0.0;
+        if (m_flushing || m_sampleRate == 0 || m_channels == 0) return 0.0;
         const double queued = static_cast<double>(queued_frames_locked()) / m_sampleRate;
         return queued + (m_playing.load() ? kStartupLatencySeconds : 0.0);
     }
@@ -197,6 +237,7 @@ public:
             m_capacityFrames = static_cast<size_t>(
                 std::ceil((m_bufferLength + 2.0) * static_cast<double>(m_sampleRate))
             );
+            m_flushing = false;
             ++m_generation;
             m_restart = true;
             m_helperReady.store(false);
@@ -208,6 +249,7 @@ public:
         const size_t freeFrames = free_frames_locked();
         const size_t takenFrames = std::min<size_t>(freeFrames, chunk.get_sample_count());
         if (takenFrames == 0) return 0;
+        m_flushing = false;
 
         const audio_sample* input = chunk.get_data();
         const size_t values = takenFrames * channels;
@@ -235,7 +277,8 @@ public:
     }
 
     bool is_progressing() override {
-        return m_playing.load() && !m_paused.load();
+        std::lock_guard lock(m_mutex);
+        return m_playing.load() && !m_paused.load() && !m_flushing;
     }
 
     void pause(bool state) override {
@@ -247,13 +290,15 @@ public:
         {
             std::lock_guard lock(m_mutex);
             m_queue.clear();
-            ++m_generation;
-            m_restart = true;
             m_failure.clear();
-            m_helperReady.store(false);
-            m_playing.store(false);
-            m_childStopping.store(true);
-            cancel_child();
+            if (m_helperReady.load()) {
+                m_flushing = true;
+                m_flushDeadline = std::chrono::steady_clock::now() + kFlushGrace;
+            } else {
+                retire_stream_locked();
+                m_restart = true;
+                cancel_child();
+            }
         }
         m_cv.notify_all();
     }
@@ -267,6 +312,18 @@ public:
     }
 
 private:
+    void retire_stream_locked() {
+        m_queue.clear();
+        m_sampleRate = 0;
+        m_channels = 0;
+        m_capacityFrames = 0;
+        m_flushing = false;
+        ++m_generation;
+        m_helperReady.store(false);
+        m_playing.store(false);
+        m_childStopping.store(true);
+    }
+
     size_t queued_frames_locked() const {
         return m_channels == 0 ? 0 : m_queue.size() / m_channels;
     }
@@ -299,7 +356,7 @@ private:
         bool recorded = false;
         {
             std::lock_guard lock(m_mutex);
-            if (!m_shutdown && !m_restart &&
+            if (!m_shutdown && !m_restart && !m_flushing &&
                 generation == m_generation &&
                 !m_childStopping.load() && m_failure.empty()) {
                 m_failure = message;
@@ -476,7 +533,7 @@ private:
                 m_cv.wait(lock, [this] {
                     return m_shutdown ||
                         (m_failure.empty() && (
-                            m_restart ||
+                            m_restart || m_flushing ||
                             (m_sampleRate != 0 && m_channels != 0 && (
                                 !m_queue.empty() ||
                                 (m_paused.load() && m_helperReady.load())
@@ -494,48 +551,85 @@ private:
 
             if (restart) stop_child();
             if (sampleRate == 0 || channels == 0) continue;
+
+            bool flushing = false;
+            {
+                std::lock_guard lock(m_mutex);
+                flushing = m_flushing;
+            }
+            if (flushing && !child_running()) {
+                std::lock_guard lock(m_mutex);
+                if (m_flushing && generation == m_generation) {
+                    retire_stream_locked();
+                }
+                continue;
+            }
             if (!child_running() &&
                 !start_child(sampleRate, channels, generation)) {
                 continue;
             }
 
             bool sendSilence = false;
+            bool stopAfterFlush = false;
             size_t batchFrames = 0;
             {
                 std::unique_lock lock(m_mutex);
-                m_cv.wait(lock, [this, generation, sampleRate, channels] {
-                    return m_shutdown || !m_failure.empty() || m_restart ||
-                        !session_matches_locked(generation, sampleRate, channels) ||
-                        (m_helperReady.load() && (
-                            m_paused.load() || !m_queue.empty()
-                        ));
-                });
+                m_cv.wait_until(
+                    lock,
+                    m_flushing ? m_flushDeadline
+                               : std::chrono::steady_clock::time_point::max(),
+                    [this, generation, sampleRate, channels] {
+                        return m_shutdown || !m_failure.empty() || m_restart ||
+                            !session_matches_locked(
+                                generation,
+                                sampleRate,
+                                channels
+                            ) ||
+                            (m_helperReady.load() && (
+                                m_flushing || m_paused.load() || !m_queue.empty()
+                            ));
+                    }
+                );
                 if (m_shutdown) break;
                 if (!m_failure.empty() || m_restart ||
                     !session_matches_locked(generation, sampleRate, channels)) {
                     continue;
                 }
 
-                sendSilence = m_paused.load();
-                if (!m_helperReady.load() || (!sendSilence && m_queue.empty())) {
-                    continue;
-                }
-
-                batchFrames = sendSilence
-                    ? kWriteBatchFrames
-                    : std::min(kWriteBatchFrames, queued_frames_locked());
-                const size_t values = batchFrames * channels;
-                batch.resize(values);
-                if (sendSilence) {
-                    std::fill(batch.begin(), batch.end(), 0.0f);
+                if (m_flushing &&
+                    std::chrono::steady_clock::now() >= m_flushDeadline) {
+                    retire_stream_locked();
+                    stopAfterFlush = true;
                 } else {
-                    for (size_t index = 0; index < values; ++index) {
-                        batch[index] = m_queue.front();
-                        m_queue.pop_front();
+                    sendSilence = m_flushing || m_paused.load();
+                }
+                if (stopAfterFlush) {
+                    batchFrames = 0;
+                } else if (!m_helperReady.load() ||
+                    (!sendSilence && m_queue.empty())) {
+                    continue;
+                } else {
+                    batchFrames = sendSilence
+                        ? kWriteBatchFrames
+                        : std::min(kWriteBatchFrames, queued_frames_locked());
+                    const size_t values = batchFrames * channels;
+                    batch.resize(values);
+                    if (sendSilence) {
+                        std::fill(batch.begin(), batch.end(), 0.0f);
+                    } else {
+                        for (size_t index = 0; index < values; ++index) {
+                            batch[index] = m_queue.front();
+                            m_queue.pop_front();
+                        }
                     }
                 }
             }
             m_cv.notify_all();
+
+            if (stopAfterFlush) {
+                stop_child();
+                continue;
+            }
 
             HANDLE input = nullptr;
             {
@@ -578,7 +672,10 @@ private:
                     duration,
                     [this, generation, sampleRate, channels] {
                         return m_shutdown || !m_failure.empty() || m_restart ||
-                            !m_paused.load() ||
+                            (!m_paused.load() && !m_flushing) ||
+                            (m_flushing &&
+                                std::chrono::steady_clock::now() >=
+                                    m_flushDeadline) ||
                             !session_matches_locked(
                                 generation,
                                 sampleRate,
@@ -648,6 +745,8 @@ private:
     uint64_t m_generation = 0;
     bool m_shutdown = false;
     bool m_restart = false;
+    bool m_flushing = false;
+    std::chrono::steady_clock::time_point m_flushDeadline{};
     std::string m_failure;
     std::atomic<bool> m_paused{false};
     std::atomic<bool> m_playing{false};
@@ -670,7 +769,7 @@ output_factory_t<WamOutput> g_outputFactory;
 
 DECLARE_COMPONENT_VERSION(
     "WAM Bridge Output",
-    "0.1.2",
+    "0.1.3",
     "Streams foobar2000 PCM to Samsung WAM speakers through wambridge-pcm."
 );
 

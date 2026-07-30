@@ -312,6 +312,12 @@ public:
     }
 
 private:
+    enum class ChildState {
+        none,
+        running,
+        exited,
+    };
+
     void retire_stream_locked() {
         m_queue.clear();
         m_sampleRate = 0;
@@ -377,9 +383,10 @@ private:
         bool accepted = false;
         {
             std::lock_guard lock(m_mutex);
-            if (!m_shutdown && !m_restart && !m_flushing &&
+            if (!m_shutdown && !m_restart &&
                 generation == m_generation &&
-                !m_childStopping.load()) {
+                !m_childStopping.load() &&
+                (!m_flushing || playing)) {
                 if (ready) m_helperReady.store(true);
                 if (playing) m_playing.store(true);
                 accepted = true;
@@ -418,7 +425,7 @@ private:
         stop_child();
         {
             std::lock_guard lock(m_mutex);
-            if (m_shutdown || m_restart ||
+            if (m_shutdown || m_restart || !m_failure.empty() ||
                 !session_matches_locked(generation, sampleRate, channels)) {
                 return false;
             }
@@ -495,7 +502,7 @@ private:
         bool stale = false;
         {
             std::lock_guard lock(m_mutex);
-            stale = m_shutdown || m_restart ||
+            stale = m_shutdown || m_restart || !m_failure.empty() ||
                 !session_matches_locked(generation, sampleRate, channels);
         }
         if (stale) {
@@ -575,14 +582,23 @@ private:
                 std::lock_guard lock(m_mutex);
                 flushing = m_flushing;
             }
-            if (flushing && !child_running()) {
+            const auto childState = child_state();
+            if (childState == ChildState::exited) {
+                set_failure_if_current(
+                    "wambridge-pcm exited unexpectedly",
+                    generation
+                );
+                stop_child();
+                continue;
+            }
+            if (flushing && childState == ChildState::none) {
                 std::lock_guard lock(m_mutex);
                 if (m_flushing && generation == m_generation) {
                     retire_stream_locked();
                 }
                 continue;
             }
-            if (!child_running() &&
+            if (childState == ChildState::none &&
                 !start_child(sampleRate, channels, generation)) {
                 continue;
             }
@@ -705,10 +721,12 @@ private:
         }
     }
 
-    bool child_running() const {
+    ChildState child_state() const {
         std::lock_guard lock(m_childMutex);
-        return m_childProcess != nullptr &&
-            WaitForSingleObject(m_childProcess, 0) == WAIT_TIMEOUT;
+        if (m_childProcess == nullptr) return ChildState::none;
+        return WaitForSingleObject(m_childProcess, 0) == WAIT_TIMEOUT
+            ? ChildState::running
+            : ChildState::exited;
     }
 
     void cancel_child() {

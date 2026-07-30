@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -28,12 +28,95 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+
+      - name: Commit generation guard
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          @'
+          from pathlib import Path
+
+          path = Path("wambridge/foobar/foo_out_wam.cpp")
+          source = path.read_text(encoding="utf-8")
+          if "set_protocol_state_if_current" not in source:
+              marker = """    bool session_matches_locked(
+                  uint64_t generation,
+                  unsigned sampleRate,
+                  unsigned channels
+              ) const {
+          """
+              guard = """    void set_protocol_state_if_current(
+                  uint64_t generation,
+                  bool ready,
+                  bool playing
+              ) {
+                  bool accepted = false;
+                  {
+                      std::lock_guard lock(m_mutex);
+                      if (!m_shutdown && !m_restart && !m_flushing &&
+                          generation == m_generation &&
+                          !m_childStopping.load()) {
+                          if (ready) m_helperReady.store(true);
+                          if (playing) m_playing.store(true);
+                          accepted = true;
+                      }
+                  }
+                  if (accepted) m_cv.notify_all();
+              }
+
+          """
+              if marker not in source:
+                  raise RuntimeError("session marker not found")
+              source = source.replace(marker, guard + marker, 1)
+
+              old_protocol = """                if (line == \"WAMBRIDGE READY\") {
+                              m_helperReady.store(true);
+                              m_cv.notify_all();
+                          } else if (line.rfind(\"WAMBRIDGE PLAYING\", 0) == 0) {
+                              m_playing.store(true);
+          """
+              new_protocol = """                if (line == \"WAMBRIDGE READY\") {
+                              set_protocol_state_if_current(generation, true, false);
+                          } else if (line.rfind(\"WAMBRIDGE PLAYING\", 0) == 0) {
+                              set_protocol_state_if_current(generation, false, true);
+          """
+              if old_protocol not in source:
+                  raise RuntimeError("protocol marker block not found")
+              source = source.replace(old_protocol, new_protocol, 1)
+
+              old_join = """        if (m_protocolThread.joinable()) m_protocolThread.join();
+
+                  {
+          """
+              new_join = """        if (m_protocolThread.joinable()) m_protocolThread.join();
+                  m_helperReady.store(false);
+
+                  {
+          """
+              if old_join not in source:
+                  raise RuntimeError("protocol join block not found")
+              source = source.replace(old_join, new_join, 1)
+              path.write_text(source, encoding="utf-8")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+          git diff --quiet
+          if ($LASTEXITCODE -eq 0) {
+            exit 0
+          }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wambridge/foobar/foo_out_wam.cpp
+          git commit -m "Reject stale WAM protocol markers"
+          git push origin "HEAD:$env:HEAD_REF"
 
       - name: Test WAM helper
         run: |

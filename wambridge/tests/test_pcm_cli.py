@@ -210,6 +210,6 @@ class PcmCliTests(TestCase):
             volume_mock.call_args_list,
             [
                 call("10.0.0.118", 4, port=55001),
-                call("10.0.0.118", 7, port=55001),
+                call("10.0.0.118", 7, port=55001, timeout=1.0),
             ],
         )

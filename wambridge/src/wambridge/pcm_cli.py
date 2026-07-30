@@ -226,8 +226,6 @@ def run(
         return 130
     finally:
         try:
-            server.close()
-        finally:
             if (
                 restore_volume is not None
                 and volume_changed
@@ -238,6 +236,7 @@ def run(
                         speaker_ip,
                         restore_volume,
                         port=speaker_port,
+                        timeout=1.0,
                     )
                 except WamApiError as error:
                     LOGGER.warning(
@@ -245,6 +244,8 @@ def run(
                         "startup: %s",
                         error,
                     )
+        finally:
+            server.close()
 
 
 def main(argv: list[str] | None = None) -> int:

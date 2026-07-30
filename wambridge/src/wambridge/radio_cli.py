@@ -21,7 +21,7 @@ from .samsung import (
 )
 from .station_packs import get_station_pack, station_pack_names
 from .stations import RadioStation, StationError, StationStore
-from .stream import StreamError
+from .stream import StreamError, continuous_source
 from .tunein import (
     find_tunein_preset,
     get_tunein_presets,
@@ -254,7 +254,8 @@ def _play_custom_station(
                 url,
             )
             try:
-                result = cli.run(args)
+                with continuous_source(url):
+                    result = cli.run(args)
             except (RuntimeError, StreamError, WamApiError) as error:
                 failures.append(f"{url}: {error}")
                 if index < len(station.all_urls):

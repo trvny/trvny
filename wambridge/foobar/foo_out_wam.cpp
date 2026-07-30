@@ -253,10 +253,8 @@ public:
 
         const audio_sample* input = chunk.get_data();
         const size_t values = takenFrames * channels;
-        const double gain = m_gain.load();
         for (size_t index = 0; index < values; ++index) {
-            const double scaled = static_cast<double>(input[index]) * gain;
-            m_queue.push_back(static_cast<float>(std::clamp(scaled, -1.0, 1.0)));
+            m_queue.push_back(static_cast<float>(input[index]));
         }
 
         lock.unlock();
@@ -653,8 +651,13 @@ private:
                     if (sendSilence) {
                         std::fill(batch.begin(), batch.end(), 0.0f);
                     } else {
+                        const double gain = m_gain.load();
                         for (size_t index = 0; index < values; ++index) {
-                            batch[index] = m_queue.front();
+                            const double scaled =
+                                static_cast<double>(m_queue.front()) * gain;
+                            batch[index] = static_cast<float>(
+                                std::clamp(scaled, -1.0, 1.0)
+                            );
                             m_queue.pop_front();
                         }
                     }

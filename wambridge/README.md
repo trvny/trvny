@@ -1,4 +1,9 @@
+<p align="center">
+  <img src="https://www.google.com/s2/favicons?domain=samsung.com&sz=64" alt="samsung">
+</p>
+
 # WAM Bridge
+<img src="https://images.samsung.com/is/image/samsung/pl_WAM550-EN_014_Front_black?$330_330_JPG$" width="128" alt="wam550">
 
 Windows-first proof of concept for streaming audio over Wi-Fi to Samsung
 Wireless Audio Multiroom speakers, including Shape M5 (`WAM550`/`WAM551`).

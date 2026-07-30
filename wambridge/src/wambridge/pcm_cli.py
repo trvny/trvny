@@ -154,11 +154,8 @@ def run(
         port=args.http_port,
         ffmpeg=args.ffmpeg,
     )
-    restore_volume: int | None = None
-    startup_complete = False
     try:
         current_volume = get_volume(speaker_ip, port=speaker_port)
-        restore_volume = current_volume
         start_volume = choose_start_volume(
             current_volume,
             args.volume,
@@ -173,21 +170,19 @@ def run(
         server.start()
         stream_url = server.url(host_ip)
         LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
-        set_volume(speaker_ip, 0, port=speaker_port)
         play_url(speaker_ip, stream_url, port=speaker_port)
-        set_volume(speaker_ip, 0, port=speaker_port)
 
         if not server.request_started.wait(timeout=args.startup_timeout):
             raise StreamError(
                 "Speaker accepted URL playback but did not request the PCM stream"
             )
-        set_volume(speaker_ip, 0, port=speaker_port)
         server.release_audio()
         _wait_for_stream_event(
             server,
             "encoder_started",
             timeout=args.startup_timeout,
         )
+        set_volume(speaker_ip, start_volume, port=speaker_port)
         print("WAMBRIDGE READY", file=output_stream, flush=True)
 
         _wait_for_stream_event(
@@ -196,7 +191,6 @@ def run(
             timeout=args.startup_timeout,
         )
         set_volume(speaker_ip, start_volume, port=speaker_port)
-        startup_complete = True
         print(
             f"WAMBRIDGE PLAYING volume={start_volume}",
             file=output_stream,
@@ -212,22 +206,7 @@ def run(
         print("WAMBRIDGE STOPPING", file=output_stream, flush=True)
         return 130
     finally:
-        try:
-            server.close()
-        finally:
-            if restore_volume is not None and not startup_complete:
-                try:
-                    set_volume(
-                        speaker_ip,
-                        restore_volume,
-                        port=speaker_port,
-                    )
-                except WamApiError as error:
-                    LOGGER.warning(
-                        "Could not restore speaker volume after aborted PCM "
-                        "startup: %s",
-                        error,
-                    )
+        server.close()
 
 
 def main(argv: list[str] | None = None) -> int:

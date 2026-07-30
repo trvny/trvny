@@ -16,3 +16,13 @@ class AudioStreamServerTests(TestCase):
                 server.prepare()
         finally:
             server.close()
+
+    @patch("wambridge.stream.shutil.which", return_value="C:/ffmpeg/bin/ffmpeg.exe")
+    def test_audio_stays_gated_until_released(self, _which_mock) -> None:
+        server = AudioStreamServer("track.opus")
+        try:
+            self.assertFalse(server.audio_released.is_set())
+            server.release_audio()
+            self.assertTrue(server.audio_released.is_set())
+        finally:
+            server.close()

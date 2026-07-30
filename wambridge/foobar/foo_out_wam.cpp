@@ -1,6 +1,8 @@
-#include <foobar2000/SDK/foobar2000.h>
-
 #include <windows.h>
+#include <mmsystem.h>
+#include <objidl.h>
+
+#include <foobar2000/SDK/foobar2000.h>
 
 #include <algorithm>
 #include <atomic>
@@ -137,7 +139,7 @@ public:
           m_settings(load_settings()),
           m_worker(&WamOutput::worker_loop, this) {}
 
-    ~WamOutput() override {
+    ~WamOutput() {
         {
             std::lock_guard lock(m_mutex);
             m_shutdown = true;

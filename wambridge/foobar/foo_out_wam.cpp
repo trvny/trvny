@@ -27,6 +27,8 @@ constexpr char kDeviceName[] = "Samsung M5 (Wi-Fi)";
 constexpr double kStartupLatencySeconds = 1.5;
 constexpr size_t kWriteBatchFrames = 4096;
 constexpr std::chrono::milliseconds kFlushGrace{2000};
+constexpr DWORD kActiveShutdownGraceMs = 2000;
+constexpr DWORD kStartupShutdownGraceMs = 25000;
 
 // {B768F82C-A6B7-436F-965D-6C8D1B21B91D}
 constexpr GUID kOutputGuid = {
@@ -381,7 +383,10 @@ private:
                 !m_childStopping.load() &&
                 (!m_flushing || playing)) {
                 if (ready) m_helperReady.store(true);
-                if (playing) m_playing.store(true);
+                if (playing) {
+                    m_playing.store(true);
+                    m_childReachedPlaying.store(true);
+                }
                 accepted = true;
             }
         }
@@ -426,6 +431,7 @@ private:
 
         m_childStopping.store(false);
         m_helperReady.store(false);
+        m_childReachedPlaying.store(false);
 
         SECURITY_ATTRIBUTES security{};
         security.nLength = sizeof(security);
@@ -724,15 +730,19 @@ private:
     void stop_child() {
         m_childStopping.store(true);
         m_helperReady.store(false);
+        const DWORD gracefulWait = m_childReachedPlaying.load()
+            ? kActiveShutdownGraceMs
+            : kStartupShutdownGraceMs;
         HANDLE process = nullptr;
         {
             std::lock_guard lock(m_childMutex);
             close_handle(m_childStdin);
             process = m_childProcess;
         }
-        if (process != nullptr && WaitForSingleObject(process, 2000) == WAIT_TIMEOUT) {
+        if (process != nullptr &&
+            WaitForSingleObject(process, gracefulWait) == WAIT_TIMEOUT) {
             TerminateProcess(process, 1);
-            WaitForSingleObject(process, 2000);
+            WaitForSingleObject(process, kActiveShutdownGraceMs);
         }
         if (m_protocolThread.joinable()) m_protocolThread.join();
         m_helperReady.store(false);
@@ -744,6 +754,7 @@ private:
             close_handle(m_childProcess);
         }
         m_playing.store(false);
+        m_childReachedPlaying.store(false);
 
         bool keepStopping = false;
         {
@@ -772,6 +783,7 @@ private:
     std::atomic<bool> m_playing{false};
     std::atomic<bool> m_helperReady{false};
     std::atomic<bool> m_childStopping{false};
+    std::atomic<bool> m_childReachedPlaying{false};
     std::atomic<double> m_gain{1.0};
     std::thread m_worker;
 

@@ -67,6 +67,22 @@ Remove a saved profile:
 wambridge --forget M5
 ```
 
+### Startup volume safety
+
+Old WAM firmware may jump to a high volume while switching to URL playback. WAM Bridge reads the current level and clamps startup to `10` by default, applying it before and after the source switch.
+
+Choose an explicit level:
+
+```powershell
+wambridge "D:\Music\track.opus" --device M5 --volume 6
+```
+
+Change only the safety ceiling while preserving quieter current settings:
+
+```powershell
+wambridge "D:\Music\track.opus" --device M5 --max-start-volume 20
+```
+
 Test a known speaker:
 
 ```powershell

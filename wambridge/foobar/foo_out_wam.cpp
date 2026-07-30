@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <cstddef>
@@ -459,8 +460,10 @@ private:
                     return m_shutdown ||
                         (m_failure.empty() && (
                             m_restart ||
-                            (!m_paused.load() && m_sampleRate != 0 &&
-                             m_channels != 0 && !m_queue.empty())
+                            (m_sampleRate != 0 && m_channels != 0 && (
+                                !m_queue.empty() ||
+                                (m_paused.load() && m_helperReady.load())
+                            ))
                         ));
                 });
                 if (m_shutdown) break;
@@ -479,29 +482,40 @@ private:
                 continue;
             }
 
+            bool sendSilence = false;
+            size_t batchFrames = 0;
             {
                 std::unique_lock lock(m_mutex);
                 m_cv.wait(lock, [this, generation, sampleRate, channels] {
                     return m_shutdown || !m_failure.empty() || m_restart ||
                         !session_matches_locked(generation, sampleRate, channels) ||
-                        (m_helperReady.load() && !m_paused.load() &&
-                         !m_queue.empty());
+                        (m_helperReady.load() && (
+                            m_paused.load() || !m_queue.empty()
+                        ));
                 });
                 if (m_shutdown) break;
                 if (!m_failure.empty() || m_restart ||
                     !session_matches_locked(generation, sampleRate, channels)) {
                     continue;
                 }
-                if (m_paused.load() || !m_helperReady.load() || m_queue.empty()) {
+
+                sendSilence = m_paused.load();
+                if (!m_helperReady.load() || (!sendSilence && m_queue.empty())) {
                     continue;
                 }
 
-                const size_t frames = std::min(kWriteBatchFrames, queued_frames_locked());
-                const size_t values = frames * m_channels;
+                batchFrames = sendSilence
+                    ? kWriteBatchFrames
+                    : std::min(kWriteBatchFrames, queued_frames_locked());
+                const size_t values = batchFrames * channels;
                 batch.resize(values);
-                for (size_t index = 0; index < values; ++index) {
-                    batch[index] = m_queue.front();
-                    m_queue.pop_front();
+                if (sendSilence) {
+                    std::fill(batch.begin(), batch.end(), 0.0f);
+                } else {
+                    for (size_t index = 0; index < values; ++index) {
+                        batch[index] = m_queue.front();
+                        m_queue.pop_front();
+                    }
                 }
             }
             m_cv.notify_all();
@@ -533,6 +547,27 @@ private:
                     set_failure("wambridge-pcm closed its PCM input");
                 }
                 stop_child();
+                continue;
+            }
+
+            if (sendSilence) {
+                const auto duration = std::chrono::duration<double>(
+                    static_cast<double>(batchFrames) / sampleRate
+                );
+                std::unique_lock lock(m_mutex);
+                m_cv.wait_for(
+                    lock,
+                    duration,
+                    [this, generation, sampleRate, channels] {
+                        return m_shutdown || !m_failure.empty() || m_restart ||
+                            !m_paused.load() ||
+                            !session_matches_locked(
+                                generation,
+                                sampleRate,
+                                channels
+                            );
+                    }
+                );
             }
         }
     }
@@ -617,7 +652,7 @@ output_factory_t<WamOutput> g_outputFactory;
 
 DECLARE_COMPONENT_VERSION(
     "WAM Bridge Output",
-    "0.1.0",
+    "0.1.1",
     "Streams foobar2000 PCM to Samsung WAM speakers through wambridge-pcm."
 );
 

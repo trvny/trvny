@@ -56,6 +56,7 @@ jobs:
             /m `
             /p:Configuration=Release `
             /p:Platform=x64 `
+            /p:VCToolsVersion=14.29.30133 `
             "/p:FoobarSdkRoot=$env:FOOBAR_SDK_ROOT"
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE

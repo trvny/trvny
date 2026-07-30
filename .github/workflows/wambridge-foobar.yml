@@ -1,0 +1,72 @@
+name: WAM Bridge foobar
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/wambridge-foobar.yml"
+      - "wambridge/foobar/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/wambridge-foobar.yml"
+      - "wambridge/foobar/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download foobar2000 SDK
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force external/foobar-sdk | Out-Null
+          Invoke-WebRequest `
+            -Uri "https://www.foobar2000.org/downloads/SDK-2025-03-07.7z" `
+            -OutFile external/foobar-sdk.7z
+          7z x external/foobar-sdk.7z -oexternal/foobar-sdk -y
+
+          $sdkProject = Get-ChildItem external/foobar-sdk `
+            -Recurse -Filter foobar2000_SDK.vcxproj | Select-Object -First 1
+          if (-not $sdkProject) {
+            throw "foobar2000 SDK project not found after extraction"
+          }
+          $sdkRoot = Split-Path `
+            (Split-Path (Split-Path $sdkProject.FullName -Parent) -Parent) -Parent
+          "FOOBAR_SDK_ROOT=$sdkRoot" | Out-File `
+            -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build x64 component
+        shell: pwsh
+        run: |
+          msbuild wambridge/foobar/foo_out_wam.vcxproj `
+            /m `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            "/p:FoobarSdkRoot=$env:FOOBAR_SDK_ROOT"
+
+      - name: Package component
+        shell: pwsh
+        run: |
+          $output = "wambridge/foobar/build/x64/Release/foo_out_wam.dll"
+          if (-not (Test-Path $output)) {
+            throw "foo_out_wam.dll was not produced"
+          }
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item $output dist/foo_out_wam.dll
+          Push-Location dist
+          7z a -tzip foo_out_wam.fb2k-component foo_out_wam.dll
+          Pop-Location
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foo_out_wam-x64
+          path: |
+            dist/foo_out_wam.dll
+            dist/foo_out_wam.fb2k-component
+          if-no-files-found: error

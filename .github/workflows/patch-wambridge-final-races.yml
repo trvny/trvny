@@ -1,0 +1,66 @@
+name: Patch WAM final races
+
+on:
+  push:
+    branches:
+      - wambridge/foo-out-wam
+    paths:
+      - ".github/workflows/patch-wambridge-final-races.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: wambridge/foo-out-wam
+
+      - name: Patch pacing and startup failures
+        shell: python
+        run: |
+          import base64
+          from pathlib import Path
+
+          path = Path("wambridge/foobar/foo_out_wam.cpp")
+          source = path.read_text(encoding="utf-8")
+          replacements = [
+              (
+                  "ICAgICAgICAgICAgc2V0X2ZhaWx1cmUoIkNvdWxkIG5vdCBjcmVhdGUgaGVscGVyIHN0ZGluIHBpcGUiKTs=",
+                  "ICAgICAgICAgICAgc2V0X2ZhaWx1cmVfaWZfY3VycmVudCgKICAgICAgICAgICAgICAgICJDb3VsZCBub3QgY3JlYXRlIGhlbHBlciBzdGRpbiBwaXBlIiwKICAgICAgICAgICAgICAgIGdlbmVyYXRpb24KICAgICAgICAgICAgKTs=",
+              ),
+              (
+                  "ICAgICAgICAgICAgc2V0X2ZhaWx1cmUoIkNvdWxkIG5vdCBjcmVhdGUgaGVscGVyIHN0ZG91dCBwaXBlIik7",
+                  "ICAgICAgICAgICAgc2V0X2ZhaWx1cmVfaWZfY3VycmVudCgKICAgICAgICAgICAgICAgICJDb3VsZCBub3QgY3JlYXRlIGhlbHBlciBzdGRvdXQgcGlwZSIsCiAgICAgICAgICAgICAgICBnZW5lcmF0aW9uCiAgICAgICAgICAgICk7",
+              ),
+              (
+                  "ICAgICAgICAgICAgc2V0X2ZhaWx1cmUoCiAgICAgICAgICAgICAgICAiQ291bGQgbm90IHN0YXJ0IHdhbWJyaWRnZS1wY207IGNvbmZpZ3VyZSBoZWxwZXIgaW4gIgogICAgICAgICAgICAgICAgIiVMT0NBTEFQUERBVEElXFxXQU1CcmlkZ2VcXGZvb2Jhci5pbmkiCiAgICAgICAgICAgICk7",
+                  "ICAgICAgICAgICAgc2V0X2ZhaWx1cmVfaWZfY3VycmVudCgKICAgICAgICAgICAgICAgICJDb3VsZCBub3Qgc3RhcnQgd2FtYnJpZGdlLXBjbTsgY29uZmlndXJlIGhlbHBlciBpbiAiCiAgICAgICAgICAgICAgICAiJUxPQ0FMQVBQREFUQSVcXFdBTUJyaWRnZVxcZm9vYmFyLmluaSIsCiAgICAgICAgICAgICAgICBnZW5lcmF0aW9uCiAgICAgICAgICAgICk7",
+              ),
+              (
+                  "ICAgICAgICAgICAgaWYgKHNlbmRTaWxlbmNlKSB7CiAgICAgICAgICAgICAgICBjb25zdCBhdXRvIGR1cmF0aW9uID0gc3RkOjpjaHJvbm86OmR1cmF0aW9uPGRvdWJsZT4oCiAgICAgICAgICAgICAgICAgICAgc3RhdGljX2Nhc3Q8ZG91YmxlPihiYXRjaEZyYW1lcykgLyBzYW1wbGVSYXRlCiAgICAgICAgICAgICAgICApOwogICAgICAgICAgICAgICAgc3RkOjp1bmlxdWVfbG9jayBsb2NrKG1fbXV0ZXgpOwogICAgICAgICAgICAgICAgbV9jdi53YWl0X2ZvcigKICAgICAgICAgICAgICAgICAgICBsb2NrLAogICAgICAgICAgICAgICAgICAgIGR1cmF0aW9uLAogICAgICAgICAgICAgICAgICAgIFt0aGlzLCBnZW5lcmF0aW9uLCBzYW1wbGVSYXRlLCBjaGFubmVsc10gewogICAgICAgICAgICAgICAgICAgICAgICByZXR1cm4gbV9zaHV0ZG93biB8fCAhbV9mYWlsdXJlLmVtcHR5KCkgfHwgbV9yZXN0YXJ0IHx8CiAgICAgICAgICAgICAgICAgICAgICAgICAgICAoIW1fcGF1c2VkLmxvYWQoKSAmJiAhbV9mbHVzaGluZykgfHwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIChtX2ZsdXNoaW5nICYmCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgc3RkOjpjaHJvbm86OnN0ZWFkeV9jbG9jazo6bm93KCkgPj0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgbV9mbHVzaERlYWRsaW5lKSB8fAogICAgICAgICAgICAgICAgICAgICAgICAgICAgIXNlc3Npb25fbWF0Y2hlc19sb2NrZWQoCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZ2VuZXJhdGlvbiwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzYW1wbGVSYXRlLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNoYW5uZWxzCiAgICAgICAgICAgICAgICAgICAgICAgICAgICApOwogICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICk7CiAgICAgICAgICAgIH0K",
+                  "",
+              ),
+          ]
+
+          for old_encoded, new_encoded in replacements:
+              old = base64.b64decode(old_encoded).decode()
+              new = base64.b64decode(new_encoded).decode() if new_encoded else ""
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one match, found {count}")
+              source = source.replace(old, new)
+
+          path.write_text(source, encoding="utf-8")
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wambridge/foobar/foo_out_wam.cpp
+          git rm .github/workflows/patch-wambridge-final-races.yml
+          git commit -m "Fix WAM pacing and startup races"
+          git push origin HEAD:wambridge/foo-out-wam

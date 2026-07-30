@@ -18,7 +18,7 @@ const FETCH_TIMEOUT_MS = 9_000;
 
 /**
  * Service bindings to the three same-account Workers. A public workers.dev fetch
- * from one Worker to another on the same account hairpins and fails, so tvpi
+ * from one Worker to another on the same account hairpins and fails, so tvpi,
  * weather, and autka are reached via internal bindings instead. feeds is GitHub
  * (external), so it stays on plain fetch.
  */
@@ -369,7 +369,7 @@ const TOOLS = [
       "Health-check the trvny projects in one call. Omit project to check " +
       "ALL FOUR in parallel (tvpi IPTV playlist, feeds RSS/Atom pipeline, " +
       "weather forecast Worker, autka car-aggregator backend) and get a compact roll-up — use this for " +
-      "a morning check instead of invoking three separate tools. Pass project " +
+      "a morning check instead of invoking four separate tools. Pass project " +
       "to scope to one. deep=true adds per-channel HLS probes for tvpi. All " +
       "reads are public and free.",
     inputSchema: {

@@ -1,0 +1,4 @@
+[wambridge]
+helper=C:\Users\you\path\to\wambridge\.venv\Scripts\wambridge-pcm.exe
+device=M5
+volume=4

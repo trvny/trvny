@@ -2,11 +2,51 @@ from argparse import Namespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from wambridge.radio_cli import _play_tunein_safely
+from wambridge.radio_cli import _play_custom_station, _play_tunein_safely, build_parser
+from wambridge.stations import RadioStation
+from wambridge.stream import StreamError
 from wambridge.tunein import WamPreset
 
 
 class RadioControlCliTests(TestCase):
+    def test_radio_add_accepts_fallback_urls(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "--radio-add",
+                "radio",
+                "http://one.example/live",
+                "http://two.example/live",
+            ]
+        )
+
+        self.assertEqual(
+            args.radio_add,
+            [
+                "radio",
+                "http://one.example/live",
+                "http://two.example/live",
+            ],
+        )
+
+    @patch("wambridge.radio_cli.cli.run")
+    def test_custom_station_tries_fallback_after_stream_error(
+        self,
+        run_mock,
+    ) -> None:
+        run_mock.side_effect = [StreamError("primary failed"), 0]
+        args = Namespace(source=None)
+        station = RadioStation(
+            "Radio",
+            "http://one.example/live",
+            ("http://two.example/live",),
+        )
+
+        result = _play_custom_station(args, station)
+
+        self.assertEqual(result, 0)
+        self.assertEqual(run_mock.call_count, 2)
+        self.assertIsNone(args.source)
+
     @patch("wambridge.radio_cli._wait_for_tunein_playback")
     @patch("wambridge.radio_cli.play_tunein_preset")
     @patch("wambridge.radio_cli.get_mute", return_value=False)

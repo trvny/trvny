@@ -56,6 +56,7 @@ software gain to PCM; the physical speaker level remains managed by WAM Bridge.
 
 ## Manual helper test
 
+<!-- markdownlint-disable-next-line MD013 -->
 ```powershell
 cmd /d /c "ffmpeg -hide_banner -loglevel error -i C:\Music\test.opus -f f32le -acodec pcm_f32le -ar 48000 -ac 2 - | wambridge-pcm --device M5 --sample-rate 48000 --channels 2 --sample-format f32le --format flac --volume 4"
 ```

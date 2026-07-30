@@ -101,6 +101,27 @@ Change only the safety ceiling while preserving quieter current settings:
 wambridge "D:\Music\track.opus" --device M5 --max-start-volume 20
 ```
 
+### Remote control
+
+Inspect and control the saved speaker without opening Samsung's application:
+
+```powershell
+wambridge --device M5 --status
+wambridge --device M5 --set-volume 6
+wambridge --device M5 --mute
+wambridge --device M5 --unmute
+wambridge --device M5 --pause
+wambridge --device M5 --play
+wambridge --device M5 --stop
+wambridge --device M5 --standby
+```
+
+Native content providers such as TuneIn use their CPM play, pause and stop
+commands. DLNA uses UIC pause and resume. Samsung URL playback cannot be
+reliably resumed, so `--stop` pauses and mutes it; start the source command
+again to play it. `--standby` also mutes native playback so the speaker can
+enter its automatic standby state.
+
 Test a known speaker:
 
 ```powershell

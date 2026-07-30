@@ -21,27 +21,17 @@ jobs:
       - name: Reset helper on flush
         shell: python
         run: |
+          import base64
           from pathlib import Path
 
           path = Path("wambridge/foobar/foo_out_wam.cpp")
           source = path.read_text(encoding="utf-8")
-          old = """            m_queue.clear();
-            m_failure.clear();
-            if (m_helperReady.load() && m_playing.load()) {
-                m_flushing = true;
-                m_flushDeadline = std::chrono::steady_clock::now() + kFlushGrace;
-            } else {
-                retire_stream_locked();
-                m_restart = true;
-                cancel_child();
-            }
-"""
-          new = """            m_queue.clear();
-            m_failure.clear();
-            retire_stream_locked();
-            m_restart = true;
-            cancel_child();
-"""
+          old = base64.b64decode(
+              "ICAgICAgICAgICAgbV9xdWV1ZS5jbGVhcigpOwogICAgICAgICAgICBtX2ZhaWx1cmUuY2xlYXIoKTsKICAgICAgICAgICAgaWYgKG1faGVscGVyUmVhZHkubG9hZCgpICYmIG1fcGxheWluZy5sb2FkKCkpIHsKICAgICAgICAgICAgICAgIG1fZmx1c2hpbmcgPSB0cnVlOwogICAgICAgICAgICAgICAgbV9mbHVzaERlYWRsaW5lID0gc3RkOjpjaHJvbm86OnN0ZWFkeV9jbG9jazo6bm93KCkgKyBrRmx1c2hHcmFjZTsKICAgICAgICAgICAgfSBlbHNlIHsKICAgICAgICAgICAgICAgIHJldGlyZV9zdHJlYW1fbG9ja2VkKCk7CiAgICAgICAgICAgICAgICBtX3Jlc3RhcnQgPSB0cnVlOwogICAgICAgICAgICAgICAgY2FuY2VsX2NoaWxkKCk7CiAgICAgICAgICAgIH0K"
+          ).decode()
+          new = base64.b64decode(
+              "ICAgICAgICAgICAgbV9xdWV1ZS5jbGVhcigpOwogICAgICAgICAgICBtX2ZhaWx1cmUuY2xlYXIoKTsKICAgICAgICAgICAgcmV0aXJlX3N0cmVhbV9sb2NrZWQoKTsKICAgICAgICAgICAgbV9yZXN0YXJ0ID0gdHJ1ZTsKICAgICAgICAgICAgY2FuY2VsX2NoaWxkKCk7Cg=="
+          ).decode()
           count = source.count(old)
           if count != 1:
               raise SystemExit(f"Expected one match, found {count}")

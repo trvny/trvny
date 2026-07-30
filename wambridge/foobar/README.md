@@ -47,7 +47,7 @@ software gain to PCM; the physical speaker level remains managed by WAM Bridge.
 
 ## Behaviour
 
-- PCM is queued in memory before a background writer feeds the helper.
+- PCM is queued in memory and consumed by FFmpeg at the configured sample rate.
 - Pausing keeps the active FLAC session alive with rate-limited silence, while
   retaining queued audio for resume.
 - Seeking clears queued PCM but keeps the active WAM session alive briefly;

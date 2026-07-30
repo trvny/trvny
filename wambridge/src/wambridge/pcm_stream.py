@@ -22,6 +22,50 @@ MIN_SAMPLE_RATE = 8000
 MAX_SAMPLE_RATE = 384000
 MIN_CHANNELS = 1
 MAX_CHANNELS = 32
+MAX_STARTUP_PAYLOAD_SIZE = 64 * 1024
+
+
+def _contains_flac_audio_frame(payload: bytes) -> bool:
+    """Return whether a native FLAC payload contains an audio frame."""
+    if not payload.startswith(b"fLaC"):
+        return False
+
+    offset = 4
+    while True:
+        if len(payload) < offset + 4:
+            return False
+        block_header = payload[offset]
+        block_size = int.from_bytes(payload[offset + 1 : offset + 4], "big")
+        offset += 4
+        if len(payload) < offset + block_size:
+            return False
+        offset += block_size
+        if block_header & 0x80:
+            break
+
+    return any(
+        payload[index] == 0xFF and payload[index + 1] & 0xFE == 0xF8
+        for index in range(offset, len(payload) - 1)
+    )
+
+
+def _read_startup_payload(stream: BinaryIO, extension: str) -> bytes:
+    """Read until output proves that encoded audio, not only headers, exists."""
+    payload = bytearray()
+    while len(payload) < MAX_STARTUP_PAYLOAD_SIZE:
+        remaining = MAX_STARTUP_PAYLOAD_SIZE - len(payload)
+        chunk = _read_chunk(stream, min(STARTUP_CHUNK_SIZE, remaining))
+        if not chunk:
+            break
+        payload.extend(chunk)
+        if extension != "flac" or _contains_flac_audio_frame(payload):
+            return bytes(payload)
+
+    if not payload:
+        raise StreamError("FFmpeg produced no audio")
+    if extension == "flac":
+        raise StreamError("PCM input ended before FFmpeg produced a FLAC audio frame")
+    return bytes(payload)
 
 
 class PcmAudioStreamServer(AudioStreamServer):
@@ -117,15 +161,10 @@ class PcmAudioStreamServer(AudioStreamServer):
 
         assert process.stdout is not None
         try:
-            first_chunk = _read_chunk(process.stdout, STARTUP_CHUNK_SIZE)
-            if not first_chunk:
-                process.wait(timeout=5)
-                raise StreamError(
-                    f"FFmpeg produced no audio (exit {process.returncode})"
-                )
-            if process.poll() is not None:
-                raise StreamError("PCM input ended during startup")
-
+            first_chunk = _read_startup_payload(
+                process.stdout,
+                self.profile.extension,
+            )
             output.write(first_chunk)
             output.flush()
             self.audio_started.set()

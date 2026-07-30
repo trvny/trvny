@@ -1,0 +1,209 @@
+from pathlib import Path
+
+
+def replace_once(text: str, old: str, new: str, label: str) -> str:
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected one match, found {count}")
+    return text.replace(old, new, 1)
+
+
+root = Path("mcp/status-mcp")
+index_path = root / "src/index.ts"
+text = index_path.read_text()
+
+text = replace_once(
+    text,
+    "status-mcp — one MCP tool that health-checks all three trvny projects in a\n * single call: tvpi (IPTV Worker), feeds (hourly RSS/Atom generators), and\n * autka (used-car aggregator backend).",
+    "status-mcp — one MCP tool that health-checks four trvny projects in a\n * single call: tvpi (IPTV Worker), feeds (hourly RSS/Atom generators), weather\n * (forecast Worker), and autka (used-car aggregator backend).",
+    "header project count",
+)
+text = replace_once(
+    text,
+    "Omit `project` to check all three in parallel (the\n * morning-check), or pass one of \"tvpi\" | \"feeds\" | \"autka\" to scope it. The\n * point is a single tool invocation, not three",
+    "Omit `project` to check all four in parallel (the\n * morning-check), or pass one of \"tvpi\" | \"feeds\" | \"weather\" | \"autka\" to\n * scope it. The point is a single tool invocation, not four",
+    "header invocation",
+)
+text = replace_once(
+    text,
+    "tvpi and autka are same-account Workers reached via service bindings; feeds\n * reads GitHub (raw + badge SVG + best-effort contents API). No token — free.",
+    "tvpi, weather, and autka are same-account Workers reached via service bindings;\n * feeds reads GitHub (raw + badge SVG + best-effort contents API). No token — free.",
+    "header bindings",
+)
+text = replace_once(
+    text,
+    "Service bindings to the two same-account Workers.",
+    "Service bindings to the three same-account Workers.",
+    "binding count",
+)
+text = replace_once(
+    text,
+    "and autka are reached via internal bindings instead. feeds is GitHub",
+    "weather, and autka are reached via internal bindings instead. feeds is GitHub",
+    "binding description",
+)
+text = replace_once(
+    text,
+    "interface Env {\n  TVPI: Fetcher;\n  AUTKA: Fetcher;\n}",
+    "interface Env {\n  TVPI: Fetcher;\n  WEATHER: Fetcher;\n  AUTKA: Fetcher;\n}",
+    "env",
+)
+text = replace_once(
+    text,
+    'const TVPI_SLUGS = ["tvp1", "tvp2", "tvpinfo", "tvpsport", "tvpdokument", "tvpnauka", "tvprozrywka", "tvphistoria"];',
+    'const TVPI_SLUGS = ["tvp1", "tvp2", "tvpinfo", "tvpsport", "tvpdokument", "tvpnauka", "tvprozrywka", "tvphistoria", "tvpmuzyka"];',
+    "tvpi slugs",
+)
+
+weather_section = '''// ===========================================================================
+// weather — current/forecast freshness and source coverage (service binding)
+// ===========================================================================
+
+interface WeatherCycle {
+  ok?: boolean;
+  completedAt?: string;
+  sources?: string[];
+  warningsFresh?: string[];
+  message?: string;
+}
+
+interface WeatherHealth {
+  ok?: boolean;
+  entries?: number;
+  current?: WeatherCycle;
+  forecast?: WeatherCycle;
+  currentAgeMs?: number | null;
+}
+
+async function checkWeather(env: Env): Promise<ProjectResult> {
+  try {
+    const res = await env.WEATHER.fetch("https://weather/healthz", { signal: timeout(FETCH_TIMEOUT_MS) });
+    const health = (await res.json()) as WeatherHealth;
+    const sources = health.current?.sources ?? [];
+    const warningsFresh = health.current?.warningsFresh ?? [];
+    const currentHealthy = res.ok && health.ok === true && health.current?.ok === true;
+    const forecastHealthy = health.forecast?.ok === true;
+    const partial = sources.length < 2 || warningsFresh.length < 2 || !forecastHealthy;
+    const verdict: Verdict = !currentHealthy ? "down" : partial ? "degraded" : "ok";
+    const ageMinutes = typeof health.currentAgeMs === "number"
+      ? Math.round(health.currentAgeMs / 60_000)
+      : null;
+
+    const lines = [
+      `    current: ${currentHealthy ? "healthy" : "DOWN"}${ageMinutes !== null ? ` (${ageMinutes} min old)` : ""}`,
+      `    sources: ${sources.length ? sources.join(", ") : "none"}`,
+      `    warnings fresh: ${warningsFresh.length ? warningsFresh.join(", ") : "none"}`,
+      `    forecast: ${forecastHealthy ? "healthy" : "DEGRADED"}`,
+      `    entries: ${health.entries ?? "?"}`,
+    ];
+    return {
+      project: "weather",
+      verdict,
+      headline: `current ${currentHealthy ? "healthy" : "DOWN"}, ${sources.length} sources, forecast ${forecastHealthy ? "healthy" : "degraded"}`,
+      lines,
+      data: {
+        healthy: currentHealthy,
+        currentAgeMs: health.currentAgeMs ?? null,
+        sources,
+        warningsFresh,
+        forecastHealthy,
+        entries: health.entries ?? null,
+      },
+    };
+  } catch (e) {
+    return errorResult("weather", e);
+  }
+}
+
+'''
+text = replace_once(
+    text,
+    "// ===========================================================================\n// autka — backend /health + /offers count + /sources (service binding) + CI badge",
+    weather_section + "// ===========================================================================\n// autka — backend /health + /offers count + /sources (service binding) + CI badge",
+    "weather section",
+)
+text = replace_once(
+    text,
+    'const ALL = ["tvpi", "feeds", "autka"] as const;',
+    'const ALL = ["tvpi", "feeds", "weather", "autka"] as const;',
+    "all projects",
+)
+text = replace_once(
+    text,
+    "    feeds: () => checkFeeds(),\n    autka: () => checkAutka(env),",
+    "    feeds: () => checkFeeds(),\n    weather: () => checkWeather(env),\n    autka: () => checkAutka(env),",
+    "runners",
+)
+text = replace_once(
+    text,
+    '"ALL THREE in parallel (tvpi IPTV playlist, feeds RSS/Atom pipeline, " +\n      "autka car-aggregator backend)',
+    '"ALL FOUR in parallel (tvpi IPTV playlist, feeds RSS/Atom pipeline, " +\n      "weather forecast Worker, autka car-aggregator backend)',
+    "tool description",
+)
+text = replace_once(
+    text,
+    'enum: ["tvpi", "feeds", "autka"], description: "Scope to one project. Omit for all three."',
+    'enum: ["tvpi", "feeds", "weather", "autka"], description: "Scope to one project. Omit for all four."',
+    "tool enum",
+)
+index_path.write_text(text)
+
+entry_path = root / "src/entry.ts"
+text = entry_path.read_text()
+text = replace_once(
+    text,
+    "interface Env {\n  TVPI: Fetcher;\n  AUTKA: Fetcher;\n}",
+    "interface Env {\n  TVPI: Fetcher;\n  WEATHER: Fetcher;\n  AUTKA: Fetcher;\n}",
+    "entry env",
+)
+text = replace_once(
+    text,
+    'const PROJECTS = new Set(["tvpi", "feeds", "autka"]);',
+    'const PROJECTS = new Set(["tvpi", "feeds", "weather", "autka"]);',
+    "entry projects",
+)
+entry_path.write_text(text)
+
+wrangler_path = root / "wrangler.jsonc"
+text = wrangler_path.read_text()
+text = replace_once(
+    text,
+    '    { "binding": "TVPI", "service": "tvpi" },\n    { "binding": "AUTKA", "service": "cargate-backend" }',
+    '    { "binding": "TVPI", "service": "tvpi" },\n    { "binding": "WEATHER", "service": "weather" },\n    { "binding": "AUTKA", "service": "cargate-backend" }',
+    "weather binding",
+)
+wrangler_path.write_text(text)
+
+package_path = root / "package.json"
+text = package_path.read_text()
+text = replace_once(
+    text,
+    "One MCP tool that health-checks all three travny projects (tvpi, feeds, autka). Cloudflare Worker, free tier.",
+    "One MCP tool that health-checks four travny projects (tvpi, feeds, weather, autka). Cloudflare Worker, free tier.",
+    "package description",
+)
+package_path.write_text(text)
+
+readme_path = root / "README.md"
+text = readme_path.read_text()
+text = replace_once(text, "health-checks all\nthree travny projects", "health-checks all\nfour travny projects", "readme count")
+text = replace_once(
+    text,
+    "`tvpi`, `feeds`, and `autka` each have a health surface.",
+    "`tvpi`, `feeds`, `weather`, and `autka` each have a health surface.",
+    "readme projects",
+)
+text = replace_once(text, "Rather than three\nconnectors and three tool calls", "Rather than four\nconnectors and four tool calls", "readme calls")
+text = replace_once(
+    text,
+    '| `project` | `tvpi`\\|`feeds`\\|`autka` | —       | scope to one; omit for all three                      |',
+    '| `project` | `tvpi`\\|`feeds`\\|`weather`\\|`autka` | —       | scope to one; omit for all four              |',
+    "readme table",
+)
+text = replace_once(
+    text,
+    "- **feeds** — pipeline pass/fail from the `update-feeds.yml` badge SVG, plus a\n  best-effort `feeds.yaml`-vs-`feeds/` cross-check for missing/tiny files.\n- **autka**",
+    "- **feeds** — pipeline pass/fail from the `update-feeds.yml` badge SVG, plus a\n  best-effort `feeds.yaml`-vs-`feeds/` cross-check for missing/tiny files.\n- **weather** — `/healthz` freshness, live source coverage, IMGW warning freshness,\n  forecast cycle state, and entry count.\n- **autka**",
+    "readme weather",
+)
+readme_path.write_text(text)

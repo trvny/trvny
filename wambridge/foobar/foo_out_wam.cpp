@@ -369,6 +369,25 @@ private:
         }
     }
 
+    void set_protocol_state_if_current(
+        uint64_t generation,
+        bool ready,
+        bool playing
+    ) {
+        bool accepted = false;
+        {
+            std::lock_guard lock(m_mutex);
+            if (!m_shutdown && !m_restart && !m_flushing &&
+                generation == m_generation &&
+                !m_childStopping.load()) {
+                if (ready) m_helperReady.store(true);
+                if (playing) m_playing.store(true);
+                accepted = true;
+            }
+        }
+        if (accepted) m_cv.notify_all();
+    }
+
     bool session_matches_locked(
         uint64_t generation,
         unsigned sampleRate,
@@ -506,10 +525,9 @@ private:
                 pending.erase(0, newline + 1);
                 if (!line.empty() && line.back() == '\r') line.pop_back();
                 if (line == "WAMBRIDGE READY") {
-                    m_helperReady.store(true);
-                    m_cv.notify_all();
+                    set_protocol_state_if_current(generation, true, false);
                 } else if (line.rfind("WAMBRIDGE PLAYING", 0) == 0) {
-                    m_playing.store(true);
+                    set_protocol_state_if_current(generation, false, true);
                 } else if (line.rfind("WAMBRIDGE ERROR ", 0) == 0) {
                     set_failure_if_current(line.substr(16), generation);
                 }
@@ -716,6 +734,7 @@ private:
             WaitForSingleObject(process, 2000);
         }
         if (m_protocolThread.joinable()) m_protocolThread.join();
+        m_helperReady.store(false);
 
         {
             std::lock_guard lock(m_childMutex);

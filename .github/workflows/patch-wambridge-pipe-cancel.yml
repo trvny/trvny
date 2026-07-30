@@ -1,0 +1,69 @@
+name: Patch WAM pipe cancellation
+
+on:
+  push:
+    branches:
+      - wambridge/foo-out-wam
+    paths:
+      - ".github/workflows/patch-wambridge-pipe-cancel.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: wambridge/foo-out-wam
+
+      - name: Patch helper cancellation
+        shell: python
+        run: |
+          import base64
+          from pathlib import Path
+
+          replacements = {
+              Path("wambridge/src/wambridge/pcm_cli.py"): [
+                  (
+                      "X1BBVVNFX0hBTkRPRkZfRVJST1IgPSAiU2Ftc3VuZyBXQU0gcmVqZWN0ZWQgUGF1c2VQbGF5YmFja0V2ZW50Igo=",
+                      "X1BBVVNFX0hBTkRPRkZfRVJST1IgPSAiU2Ftc3VuZyBXQU0gcmVqZWN0ZWQgUGF1c2VQbGF5YmFja0V2ZW50IgpfQlJPS0VOX1BJUEVfRVJST1JTID0gezEwOSwgMjMzfQo=",
+                  ),
+                  (
+                      "ZGVmIF93YWl0X2Zvcl9zdHJlYW1fZXZlbnQoCg==",
+                      "ZGVmIF9wY21faW5wdXRfY2xvc2VkKHN0cmVhbTogQmluYXJ5SU8pIC0+IGJvb2w6CiAgICAiIiJSZXR1cm4gd2hldGhlciBhIFdpbmRvd3MgcGlwZSB3cml0ZXIgY2xvc2VkIHdpdGhvdXQgY29uc3VtaW5nIFBDTS4iIiIKICAgIGlmIHN5cy5wbGF0Zm9ybSAhPSAid2luMzIiOgogICAgICAgIHJldHVybiBGYWxzZQoKICAgIHRyeToKICAgICAgICBpbXBvcnQgY3R5cGVzCiAgICAgICAgaW1wb3J0IG1zdmNydAogICAgICAgIGZyb20gY3R5cGVzIGltcG9ydCB3aW50eXBlcwoKICAgICAgICBoYW5kbGUgPSBtc3ZjcnQuZ2V0X29zZmhhbmRsZShzdHJlYW0uZmlsZW5vKCkpCiAgICBleGNlcHQgKEF0dHJpYnV0ZUVycm9yLCBPU0Vycm9yLCBWYWx1ZUVycm9yKToKICAgICAgICByZXR1cm4gRmFsc2UKCiAgICBrZXJuZWwzMiA9IGN0eXBlcy5XaW5ETEwoImtlcm5lbDMyIiwgdXNlX2xhc3RfZXJyb3I9VHJ1ZSkKICAgIHBlZWtfbmFtZWRfcGlwZSA9IGtlcm5lbDMyLlBlZWtOYW1lZFBpcGUKICAgIHBlZWtfbmFtZWRfcGlwZS5hcmd0eXBlcyA9IFsKICAgICAgICB3aW50eXBlcy5IQU5ETEUsCiAgICAgICAgd2ludHlwZXMuTFBWT0lELAogICAgICAgIHdpbnR5cGVzLkRXT1JELAogICAgICAgIHdpbnR5cGVzLkxQVk9JRCwKICAgICAgICBjdHlwZXMuUE9JTlRFUih3aW50eXBlcy5EV09SRCksCiAgICAgICAgd2ludHlwZXMuTFBWT0lELAogICAgXQogICAgcGVla19uYW1lZF9waXBlLnJlc3R5cGUgPSB3aW50eXBlcy5CT09MCiAgICBhdmFpbGFibGUgPSB3aW50eXBlcy5EV09SRCgpCiAgICBpZiBwZWVrX25hbWVkX3BpcGUoCiAgICAgICAgaGFuZGxlLAogICAgICAgIE5vbmUsCiAgICAgICAgMCwKICAgICAgICBOb25lLAogICAgICAgIGN0eXBlcy5ieXJlZihhdmFpbGFibGUpLAogICAgICAgIE5vbmUsCiAgICApOgogICAgICAgIHJldHVybiBGYWxzZQogICAgcmV0dXJuIGN0eXBlcy5nZXRfbGFzdF9lcnJvcigpIGluIF9CUk9LRU5fUElQRV9FUlJPUlMKCgpkZWYgX3dhaXRfZm9yX3N0cmVhbV9yZXF1ZXN0KAogICAgc2VydmVyOiBQY21BdWRpb1N0cmVhbVNlcnZlciwKICAgIHBjbV9pbnB1dDogQmluYXJ5SU8sCiAgICAqLAogICAgdGltZW91dDogZmxvYXQsCikgLT4gTm9uZToKICAgIGRlYWRsaW5lID0gbW9ub3RvbmljKCkgKyB0aW1lb3V0CiAgICB3aGlsZSBtb25vdG9uaWMoKSA8IGRlYWRsaW5lOgogICAgICAgIGlmIHNlcnZlci5yZXF1ZXN0X3N0YXJ0ZWQud2FpdCgKICAgICAgICAgICAgdGltZW91dD1taW4oMC4xLCBtYXgoMC4wLCBkZWFkbGluZSAtIG1vbm90b25pYygpKSkKICAgICAgICApOgogICAgICAgICAgICByZXR1cm4KICAgICAgICBpZiBfcGNtX2lucHV0X2Nsb3NlZChwY21faW5wdXQpOgogICAgICAgICAgICByYWlzZSBTdHJlYW1FcnJvcigKICAgICAgICAgICAgICAgICJQQ00gaW5wdXQgY2xvc2VkIGJlZm9yZSB0aGUgc3BlYWtlciByZXF1ZXN0ZWQgdGhlIHN0cmVhbSIKICAgICAgICAgICAgKQogICAgICAgIGlmIHNlcnZlci5yZXF1ZXN0X2ZpbmlzaGVkLmlzX3NldCgpOgogICAgICAgICAgICByYWlzZSBTdHJlYW1FcnJvcigKICAgICAgICAgICAgICAgIHNlcnZlci5lcnJvcgogICAgICAgICAgICAgICAgb3IgIlBDTSBzdHJlYW0gZW5kZWQgYmVmb3JlIHRoZSBzcGVha2VyIHJlcXVlc3RlZCBpdCIKICAgICAgICAgICAgKQogICAgcmFpc2UgU3RyZWFtRXJyb3IoCiAgICAgICAgIlNwZWFrZXIgYWNjZXB0ZWQgVVJMIHBsYXliYWNrIGJ1dCBkaWQgbm90IHJlcXVlc3QgdGhlIFBDTSBzdHJlYW0iCiAgICApCgoKZGVmIF93YWl0X2Zvcl9zdHJlYW1fZXZlbnQoCg==",
+                  ),
+                  (
+                      "ICAgICAgICBpZiBub3Qgc2VydmVyLnJlcXVlc3Rfc3RhcnRlZC53YWl0KHRpbWVvdXQ9YXJncy5zdGFydHVwX3RpbWVvdXQpOgogICAgICAgICAgICByYWlzZSBTdHJlYW1FcnJvcigKICAgICAgICAgICAgICAgICJTcGVha2VyIGFjY2VwdGVkIFVSTCBwbGF5YmFjayBidXQgZGlkIG5vdCByZXF1ZXN0IHRoZSBQQ00gc3RyZWFtIgogICAgICAgICAgICApCg==",
+                      "ICAgICAgICBfd2FpdF9mb3Jfc3RyZWFtX3JlcXVlc3QoCiAgICAgICAgICAgIHNlcnZlciwKICAgICAgICAgICAgaW5wdXRfc3RyZWFtLAogICAgICAgICAgICB0aW1lb3V0PWFyZ3Muc3RhcnR1cF90aW1lb3V0LAogICAgICAgICkK",
+                  ),
+              ],
+              Path("wambridge/tests/test_pcm_cli.py"): [
+                  (
+                      "ICAgIEBwYXRjaCgid2FtYnJpZGdlLnBjbV9jbGkucGxheV91cmwiKQogICAgQHBhdGNoKCJ3YW1icmlkZ2UucGNtX2NsaS5zZXRfdm9sdW1lIikKICAgIEBwYXRjaCgid2FtYnJpZGdlLnBjbV9jbGkuZ2V0X3ZvbHVtZSIsIHJldHVybl92YWx1ZT0wKQo=",
+                      "ICAgIEBwYXRjaCgid2FtYnJpZGdlLnBjbV9jbGkucGxheV91cmwiKQogICAgQHBhdGNoKCJ3YW1icmlkZ2UucGNtX2NsaS5zZXRfdm9sdW1lIikKICAgIEBwYXRjaCgid2FtYnJpZGdlLnBjbV9jbGkuZ2V0X3ZvbHVtZSIsIHJldHVybl92YWx1ZT03KQogICAgQHBhdGNoKCJ3YW1icmlkZ2UucGNtX2NsaS5sb2NhbF9pcF9mb3IiLCByZXR1cm5fdmFsdWU9IjEwLjAuMC4xMDMiKQogICAgQHBhdGNoKAogICAgICAgICJ3YW1icmlkZ2UucGNtX2NsaS5wcm9iZSIsCiAgICAgICAgcmV0dXJuX3ZhbHVlPVNpbXBsZU5hbWVzcGFjZShtZXRob2Q9IlNwa05hbWUiKSwKICAgICkKICAgIEBwYXRjaCgid2FtYnJpZGdlLnBjbV9jbGkuc2VsZWN0X3NwZWFrZXIiLCByZXR1cm5fdmFsdWU9KCIxMC4wLjAuMTE4IiwgNTUwMDEpKQogICAgZGVmIHRlc3RfcmVzdG9yZXNfdm9sdW1lX3doZW5fcGNtX3BpcGVfY2xvc2VzX2JlZm9yZV9yZXF1ZXN0KAogICAgICAgIHNlbGYsCiAgICAgICAgX3NlbGVjdF9tb2NrLAogICAgICAgIF9wcm9iZV9tb2NrLAogICAgICAgIF9sb2NhbF9pcF9tb2NrLAogICAgICAgIF9nZXRfdm9sdW1lX21vY2ssCiAgICAgICAgdm9sdW1lX21vY2ssCiAgICAgICAgX3BsYXlfdXJsX21vY2ssCiAgICApIC0+IE5vbmU6CiAgICAgICAgY2xhc3MgU2lsZW50U2VydmVyKEZha2VQY21TZXJ2ZXIpOgogICAgICAgICAgICBkZWYgc3RhcnQoc2VsZikgLT4gTm9uZToKICAgICAgICAgICAgICAgIHBhc3MKCiAgICAgICAgYXJncyA9IHNlbGYuX2FyZ3MoKQogICAgICAgIGFyZ3Muc3RhcnR1cF90aW1lb3V0ID0gNDUKCiAgICAgICAgd2l0aCAoCiAgICAgICAgICAgIHBhdGNoKCJ3YW1icmlkZ2UucGNtX2NsaS5QY21BdWRpb1N0cmVhbVNlcnZlciIsIFNpbGVudFNlcnZlciksCiAgICAgICAgICAgIHBhdGNoKCJ3YW1icmlkZ2UucGNtX2NsaS5fcGNtX2lucHV0X2Nsb3NlZCIsIHJldHVybl92YWx1ZT1UcnVlKSwKICAgICAgICApOgogICAgICAgICAgICB3aXRoIHNlbGYuYXNzZXJ0UmFpc2VzUmVnZXgoCiAgICAgICAgICAgICAgICBTdHJlYW1FcnJvciwKICAgICAgICAgICAgICAgICJQQ00gaW5wdXQgY2xvc2VkIGJlZm9yZSB0aGUgc3BlYWtlciByZXF1ZXN0ZWQiLAogICAgICAgICAgICApOgogICAgICAgICAgICAgICAgcnVuKAogICAgICAgICAgICAgICAgICAgIGFyZ3MsCiAgICAgICAgICAgICAgICAgICAgcGNtX2lucHV0PUJ5dGVzSU8oKSwKICAgICAgICAgICAgICAgICAgICBwcm90b2NvbF9vdXRwdXQ9U3RyaW5nSU8oKSwKICAgICAgICAgICAgICAgICkKCiAgICAgICAgc2VsZi5hc3NlcnRFcXVhbCgKICAgICAgICAgICAgdm9sdW1lX21vY2suY2FsbF9hcmdzX2xpc3QsCiAgICAgICAgICAgIFsKICAgICAgICAgICAgICAgIGNhbGwoIjEwLjAuMC4xMTgiLCAwLCBwb3J0PTU1MDAxKSwKICAgICAgICAgICAgICAgIGNhbGwoIjEwLjAuMC4xMTgiLCA3LCBwb3J0PTU1MDAxLCB0aW1lb3V0PTEuMCksCiAgICAgICAgICAgIF0sCiAgICAgICAgKQoKICAgIEBwYXRjaCgid2FtYnJpZGdlLnBjbV9jbGkucGxheV91cmwiKQogICAgQHBhdGNoKCJ3YW1icmlkZ2UucGNtX2NsaS5zZXRfdm9sdW1lIikKICAgIEBwYXRjaCgid2FtYnJpZGdlLnBjbV9jbGkuZ2V0X3ZvbHVtZSIsIHJldHVybl92YWx1ZT0wKQo=",
+                  ),
+              ],
+          }
+
+          for path, changes in replacements.items():
+              source = path.read_text(encoding="utf-8")
+              for old_encoded, new_encoded in changes:
+                  old = base64.b64decode(old_encoded).decode()
+                  new = base64.b64decode(new_encoded).decode()
+                  count = source.count(old)
+                  if count != 1:
+                      raise SystemExit(f"{path}: expected one match, found {count}")
+                  source = source.replace(old, new)
+              path.write_text(source, encoding="utf-8")
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wambridge/src/wambridge/pcm_cli.py wambridge/tests/test_pcm_cli.py
+          git rm .github/workflows/patch-wambridge-pipe-cancel.yml
+          git commit -m "Cancel WAM startup on closed PCM pipe"
+          git push origin HEAD:wambridge/foo-out-wam

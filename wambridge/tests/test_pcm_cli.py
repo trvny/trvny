@@ -2,7 +2,7 @@ from io import BytesIO, StringIO
 from threading import Event
 from types import SimpleNamespace
 from unittest import TestCase
-from unittest.mock import call, patch
+from unittest.mock import Mock, call, patch
 
 from wambridge.pcm_cli import build_parser, run
 from wambridge.samsung import WamApiError
@@ -69,6 +69,9 @@ class PcmCliTests(TestCase):
         play_url_mock,
     ) -> None:
         protocol = StringIO()
+        sequence = Mock()
+        sequence.attach_mock(volume_mock, "set_volume")
+        sequence.attach_mock(play_url_mock, "play_url")
 
         result = run(
             self._args("--volume", "4"),
@@ -84,14 +87,21 @@ class PcmCliTests(TestCase):
         self.assertEqual(
             volume_mock.call_args_list,
             [
+                call("10.0.0.118", 0, port=55001),
                 call("10.0.0.118", 4, port=55001),
                 call("10.0.0.118", 4, port=55001),
             ],
         )
-        play_url_mock.assert_called_once_with(
-            "10.0.0.118",
-            "http://10.0.0.103:1234/stream/test.flac",
-            port=55001,
+        self.assertEqual(
+            sequence.mock_calls[:2],
+            [
+                call.set_volume("10.0.0.118", 0, port=55001),
+                call.play_url(
+                    "10.0.0.118",
+                    "http://10.0.0.103:1234/stream/test.flac",
+                    port=55001,
+                ),
+            ],
         )
 
     @patch("wambridge.pcm_cli.play_url")
@@ -141,7 +151,7 @@ class PcmCliTests(TestCase):
     )
     @patch("wambridge.pcm_cli.select_speaker", return_value=("10.0.0.118", 55001))
     @patch("wambridge.pcm_cli.PcmAudioStreamServer", FakePcmServer)
-    def test_restores_volume_after_ambiguous_start_request(
+    def test_restores_volume_after_ambiguous_mute_request(
         self,
         _select_mock,
         _probe_mock,
@@ -165,7 +175,7 @@ class PcmCliTests(TestCase):
         self.assertEqual(
             volume_mock.call_args_list,
             [
-                call("10.0.0.118", 4, port=55001),
+                call("10.0.0.118", 0, port=55001),
                 call("10.0.0.118", 7, port=55001, timeout=1.0),
             ],
         )
@@ -179,7 +189,7 @@ class PcmCliTests(TestCase):
         return_value=SimpleNamespace(method="SpkName"),
     )
     @patch("wambridge.pcm_cli.select_speaker", return_value=("10.0.0.118", 55001))
-    def test_leaves_volume_untouched_when_speaker_never_requests_pcm(
+    def test_restores_volume_when_speaker_never_requests_pcm(
         self,
         _select_mock,
         _probe_mock,
@@ -206,7 +216,13 @@ class PcmCliTests(TestCase):
                     protocol_output=StringIO(),
                 )
 
-        volume_mock.assert_not_called()
+        self.assertEqual(
+            volume_mock.call_args_list,
+            [
+                call("10.0.0.118", 0, port=55001),
+                call("10.0.0.118", 7, port=55001, timeout=1.0),
+            ],
+        )
 
     @patch("wambridge.pcm_cli.play_url")
     @patch("wambridge.pcm_cli.set_volume")
@@ -248,6 +264,7 @@ class PcmCliTests(TestCase):
         self.assertEqual(
             volume_mock.call_args_list,
             [
+                call("10.0.0.118", 0, port=55001),
                 call("10.0.0.118", 4, port=55001),
                 call("10.0.0.118", 7, port=55001, timeout=1.0),
             ],

@@ -114,7 +114,7 @@
     
 
     <text class="description" x="25" y="-5"> 
-      <tspan dy="1.2em" x="25">Feeds generator RSS/Atom &#38; Kanarek 🐤 aplikacja na</tspan><tspan dy="1.2em" x="25">Android z workerem Cloudflare</tspan>
+      <tspan dy="1.2em" x="25">RSS/Atom-feed generator | 🐤 Kanarek aplikacja na Android</tspan><tspan dy="1.2em" x="25">z workerem Cloudflare</tspan>
     </text>
 
     <g transform="translate(30, 65)">

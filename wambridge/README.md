@@ -38,6 +38,16 @@ Discover speakers:
 wambridge --discover
 ```
 
+Discovery sends repeated SSDP requests through every active IPv4 adapter. When old firmware stays silent, it falls back to checking Samsung's API on port `55001` in nearby `/24` networks. The result shows whether the speaker was found through `ssdp` or `api-scan`.
+
+Useful diagnostics:
+
+```powershell
+wambridge --discover --verbose
+wambridge --discover --interface 192.168.1.25
+wambridge --discover --no-scan
+```
+
 Test a known speaker:
 
 ```powershell

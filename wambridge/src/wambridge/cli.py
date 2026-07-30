@@ -7,7 +7,7 @@ import logging
 import sys
 from pathlib import Path
 
-from .discovery import discover, local_ip_for
+from .discovery import DiscoveredSpeaker, discover, local_ip_for
 from .samsung import WamApiError, play_url, probe
 from .stream import AudioStreamServer, OUTPUT_PROFILES, StreamError
 
@@ -34,15 +34,42 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ffmpeg", default="ffmpeg", help="FFmpeg executable or path")
     parser.add_argument("--probe", action="store_true", help="Only test the speaker API")
     parser.add_argument("--discover", action="store_true", help="List discovered speakers and exit")
+    parser.add_argument(
+        "--discovery-timeout",
+        type=float,
+        default=4.0,
+        help="Seconds to wait for SSDP replies before the API-scan fallback",
+    )
+    parser.add_argument(
+        "--interface",
+        action="append",
+        dest="interfaces",
+        help="Local IPv4 used for SSDP; repeat to try multiple interfaces",
+    )
+    parser.add_argument(
+        "--no-scan",
+        action="store_true",
+        help="Disable fallback scanning of local /24 networks on port 55001",
+    )
     parser.add_argument("--verbose", action="store_true")
     return parser
 
 
-def select_speaker(explicit_ip: str | None) -> str:
+def find_speakers(args: argparse.Namespace) -> list[DiscoveredSpeaker]:
+    """Run discovery using CLI diagnostics and fallback settings."""
+    return discover(
+        timeout=args.discovery_timeout,
+        local_addresses=args.interfaces,
+        port=args.port,
+        scan=not args.no_scan,
+    )
+
+
+def select_speaker(args: argparse.Namespace) -> str:
     """Use an explicit IP or discover exactly one speaker."""
-    if explicit_ip:
-        return explicit_ip
-    speakers = discover()
+    if args.speaker:
+        return args.speaker
+    speakers = find_speakers(args)
     if not speakers:
         raise RuntimeError("No Samsung WAM speaker found; pass --speaker IP")
     if len(speakers) > 1:
@@ -60,15 +87,15 @@ def normalize_source(source: str) -> str:
 def run(args: argparse.Namespace) -> int:
     """Execute one bridge session."""
     if args.discover:
-        speakers = discover()
+        speakers = find_speakers(args)
         if not speakers:
             print("No Samsung WAM speakers found")
             return 1
         for speaker in speakers:
-            print(f"{speaker.ip}\t{speaker.usn or '-'}")
+            print(f"{speaker.ip}\t{speaker.source}\t{speaker.usn or '-'}")
         return 0
 
-    speaker_ip = select_speaker(args.speaker)
+    speaker_ip = select_speaker(args)
     response = probe(speaker_ip, port=args.port)
     LOGGER.info("Speaker %s replied with %s", speaker_ip, response.method or "XML")
     if args.probe:

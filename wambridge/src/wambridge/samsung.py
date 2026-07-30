@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from urllib.parse import quote
-from urllib.request import urlopen
+from urllib.request import ProxyHandler, build_opener
 from xml.etree import ElementTree
 
 DEFAULT_PORT = 55001
+LOCAL_OPENER = build_opener(ProxyHandler({}))
 
 
 class WamApiError(RuntimeError):
@@ -23,7 +24,10 @@ class WamResponse:
     body: str
 
 
-def build_command(method: str, arguments: list[tuple[str, str | int, str]] | None = None) -> str:
+def build_command(
+    method: str,
+    arguments: list[tuple[str, str | int, str]] | None = None,
+) -> str:
     """Build the XML command accepted by the Samsung WAM API."""
     parts = [f"<name>{method}</name>"]
     for name, value, value_type in arguments or []:
@@ -63,7 +67,7 @@ def request(
     """Send one command and validate the returned XML."""
     url = build_api_url(speaker_ip, method, arguments, port=port)
     try:
-        with urlopen(url, timeout=timeout) as response:  # nosec B310 - local speaker API
+        with LOCAL_OPENER.open(url, timeout=timeout) as response:  # nosec B310 - local API
             body = response.read().decode("utf-8", errors="replace")
     except OSError as error:
         raise WamApiError(f"Cannot reach Samsung WAM at {speaker_ip}:{port}: {error}") from error

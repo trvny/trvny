@@ -79,7 +79,7 @@ jobs:
             exit $LASTEXITCODE
           }
 
-      - name: Package component
+      - name: Package component and source snapshot
         shell: pwsh
         run: |
           $output = "wambridge/foobar/build/x64/Release/foo_out_wam.dll"
@@ -91,6 +91,10 @@ jobs:
           Push-Location dist
           7z a -tzip foo_out_wam.fb2k-component foo_out_wam.dll
           Pop-Location
+          git archive `
+            --format=zip `
+            --output=dist/wambridge-foo-out-wam.zip `
+            HEAD wambridge
 
       - uses: actions/upload-artifact@v4
         with:
@@ -98,4 +102,5 @@ jobs:
           path: |
             dist/foo_out_wam.dll
             dist/foo_out_wam.fb2k-component
+            dist/wambridge-foo-out-wam.zip
           if-no-files-found: error

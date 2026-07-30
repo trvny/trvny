@@ -46,7 +46,8 @@ class PcmAudioStreamServer(AudioStreamServer):
             )
         if not MIN_CHANNELS <= channels <= MAX_CHANNELS:
             raise ValueError(
-                f"channel count must be between {MIN_CHANNELS} and {MAX_CHANNELS}"
+                f"channel count must be between {MIN_CHANNELS} and "
+                f"{MAX_CHANNELS}"
             )
         if sample_format not in PCM_FORMATS:
             raise ValueError(
@@ -115,12 +116,16 @@ class PcmAudioStreamServer(AudioStreamServer):
         self.encoder_started.set()
 
         assert process.stdout is not None
-        first_chunk = _read_chunk(process.stdout, STARTUP_CHUNK_SIZE)
-        if not first_chunk:
-            process.wait(timeout=5)
-            raise StreamError(f"FFmpeg produced no audio (exit {process.returncode})")
-
         try:
+            first_chunk = _read_chunk(process.stdout, STARTUP_CHUNK_SIZE)
+            if not first_chunk:
+                process.wait(timeout=5)
+                raise StreamError(
+                    f"FFmpeg produced no audio (exit {process.returncode})"
+                )
+            if process.poll() is not None:
+                raise StreamError("PCM input ended during startup")
+
             output.write(first_chunk)
             output.flush()
             self.audio_started.set()

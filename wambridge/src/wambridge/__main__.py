@@ -1,5 +1,5 @@
 """Run WAM Bridge with ``python -m wambridge``."""
 
-from .cli import main
+from .radio_cli import main
 
 raise SystemExit(main())

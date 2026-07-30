@@ -1,0 +1,43 @@
+name: Patch WAM startup flush
+
+on:
+  push:
+    branches:
+      - wambridge/foo-out-wam
+    paths:
+      - ".github/workflows/patch-wambridge-preplaying-flush.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: wambridge/foo-out-wam
+
+      - name: Cancel pre-playing flushes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("wambridge/foobar/foo_out_wam.cpp")
+          source = path.read_text(encoding="utf-8")
+          old = "if (m_helperReady.load()) {"
+          new = "if (m_helperReady.load() && m_playing.load()) {"
+          count = source.count(old)
+          if count != 1:
+              raise SystemExit(f"Expected one match, found {count}")
+          path.write_text(source.replace(old, new), encoding="utf-8")
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wambridge/foobar/foo_out_wam.cpp
+          git rm .github/workflows/patch-wambridge-preplaying-flush.yml
+          git commit -m "Cancel pre-playing WAM flushes"
+          git push origin HEAD:wambridge/foo-out-wam

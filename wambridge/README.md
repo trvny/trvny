@@ -69,7 +69,7 @@ wambridge --forget M5
 
 ### Startup volume safety
 
-Old WAM firmware may jump to a high volume while switching to URL playback. WAM Bridge reads the current level and clamps startup to `10` by default, applying it before and after the source switch.
+Old WAM firmware may jump to a high volume while switching to URL playback. WAM Bridge keeps the speaker at `0`, starts the stream with 1.5 seconds of silence, then applies the requested level after decoding has begun. Without an explicit value, the current level is preserved only up to the default ceiling of `10`.
 
 Choose an explicit level:
 

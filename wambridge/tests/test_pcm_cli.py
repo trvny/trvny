@@ -5,6 +5,7 @@ from unittest import TestCase
 from unittest.mock import call, patch
 
 from wambridge.pcm_cli import build_parser, run
+from wambridge.samsung import WamApiError
 from wambridge.stream import StreamError
 
 
@@ -91,6 +92,43 @@ class PcmCliTests(TestCase):
             "10.0.0.118",
             "http://10.0.0.103:1234/stream/test.flac",
             port=55001,
+        )
+
+    @patch("wambridge.pcm_cli.play_url")
+    @patch("wambridge.pcm_cli.set_volume")
+    @patch("wambridge.pcm_cli.get_volume", return_value=4)
+    @patch("wambridge.pcm_cli.local_ip_for", return_value="10.0.0.103")
+    @patch(
+        "wambridge.pcm_cli.probe",
+        return_value=SimpleNamespace(method="SpkName"),
+    )
+    @patch("wambridge.pcm_cli.select_speaker", return_value=("10.0.0.118", 55001))
+    @patch("wambridge.pcm_cli.PcmAudioStreamServer", FakePcmServer)
+    def test_accepts_pause_event_during_url_handoff(
+        self,
+        _select_mock,
+        _probe_mock,
+        _local_ip_mock,
+        _get_volume_mock,
+        _volume_mock,
+        play_url_mock,
+    ) -> None:
+        play_url_mock.side_effect = WamApiError(
+            "Samsung WAM rejected PausePlaybackEvent "
+            "(error GetCurrentPlayTime fail)"
+        )
+        protocol = StringIO()
+
+        result = run(
+            self._args("--volume", "4"),
+            pcm_input=BytesIO(),
+            protocol_output=protocol,
+        )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            protocol.getvalue().splitlines(),
+            ["WAMBRIDGE READY", "WAMBRIDGE PLAYING volume=4"],
         )
 
     @patch("wambridge.pcm_cli.play_url")

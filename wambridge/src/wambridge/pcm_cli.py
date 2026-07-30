@@ -184,6 +184,10 @@ def run(
             start_volume,
         )
 
+        if current_volume != 0:
+            volume_changed = True
+            set_volume(speaker_ip, 0, port=speaker_port)
+
         server.start()
         stream_url = server.url(host_ip)
         LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
@@ -199,7 +203,6 @@ def run(
             "encoder_started",
             timeout=args.startup_timeout,
         )
-        volume_changed = True
         set_volume(speaker_ip, start_volume, port=speaker_port)
         print("WAMBRIDGE READY", file=output_stream, flush=True)
 

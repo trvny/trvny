@@ -48,6 +48,25 @@ wambridge --discover --interface 192.168.1.25
 wambridge --discover --no-scan
 ```
 
+### Saved devices
+
+A DHCP address may change. Save the speaker once under an alias instead of using its IP permanently:
+
+```powershell
+wambridge --speaker 10.0.0.118 --remember M5
+wambridge --list-devices
+wambridge --device M5 --probe
+wambridge "D:\Music\track.opus" --device M5
+```
+
+The profile stores the speaker's stable `device_id` and only caches its last working IP. If the address stops matching that ID, WAM Bridge searches the LAN, finds the same device and updates the profile. On Windows profiles are stored in `%LOCALAPPDATA%\WAMBridge\devices.json`; this is also the device source planned for the foobar2000 component.
+
+Remove a saved profile:
+
+```powershell
+wambridge --forget M5
+```
+
 Test a known speaker:
 
 ```powershell

@@ -1,0 +1,58 @@
+name: Patch WAM output gain
+
+on:
+  push:
+    branches:
+      - wambridge/foo-out-wam
+    paths:
+      - ".github/workflows/patch-wambridge-output-gain.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: wambridge/foo-out-wam
+
+      - name: Apply gain when dequeuing PCM
+        shell: python
+        run: |
+          import base64
+          from pathlib import Path
+
+          path = Path("wambridge/foobar/foo_out_wam.cpp")
+          source = path.read_text(encoding="utf-8")
+          replacements = [
+              (
+                  "ICAgICAgICBjb25zdCBhdWRpb19zYW1wbGUqIGlucHV0ID0gY2h1bmsuZ2V0X2RhdGEoKTsKICAgICAgICBjb25zdCBzaXplX3QgdmFsdWVzID0gdGFrZW5GcmFtZXMgKiBjaGFubmVsczsKICAgICAgICBjb25zdCBkb3VibGUgZ2FpbiA9IG1fZ2Fpbi5sb2FkKCk7CiAgICAgICAgZm9yIChzaXplX3QgaW5kZXggPSAwOyBpbmRleCA8IHZhbHVlczsgKytpbmRleCkgewogICAgICAgICAgICBjb25zdCBkb3VibGUgc2NhbGVkID0gc3RhdGljX2Nhc3Q8ZG91YmxlPihpbnB1dFtpbmRleF0pICogZ2FpbjsKICAgICAgICAgICAgbV9xdWV1ZS5wdXNoX2JhY2soc3RhdGljX2Nhc3Q8ZmxvYXQ+KHN0ZDo6Y2xhbXAoc2NhbGVkLCAtMS4wLCAxLjApKSk7CiAgICAgICAgfQo=",
+                  "ICAgICAgICBjb25zdCBhdWRpb19zYW1wbGUqIGlucHV0ID0gY2h1bmsuZ2V0X2RhdGEoKTsKICAgICAgICBjb25zdCBzaXplX3QgdmFsdWVzID0gdGFrZW5GcmFtZXMgKiBjaGFubmVsczsKICAgICAgICBmb3IgKHNpemVfdCBpbmRleCA9IDA7IGluZGV4IDwgdmFsdWVzOyArK2luZGV4KSB7CiAgICAgICAgICAgIG1fcXVldWUucHVzaF9iYWNrKHN0YXRpY19jYXN0PGZsb2F0PihpbnB1dFtpbmRleF0pKTsKICAgICAgICB9Cg==",
+              ),
+              (
+                  "ICAgICAgICAgICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgICAgICAgICAgICBmb3IgKHNpemVfdCBpbmRleCA9IDA7IGluZGV4IDwgdmFsdWVzOyArK2luZGV4KSB7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBiYXRjaFtpbmRleF0gPSBtX3F1ZXVlLmZyb250KCk7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBtX3F1ZXVlLnBvcF9mcm9udCgpOwogICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgfQo=",
+                  "ICAgICAgICAgICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgICAgICAgICAgICBjb25zdCBkb3VibGUgZ2FpbiA9IG1fZ2Fpbi5sb2FkKCk7CiAgICAgICAgICAgICAgICAgICAgICAgIGZvciAoc2l6ZV90IGluZGV4ID0gMDsgaW5kZXggPCB2YWx1ZXM7ICsraW5kZXgpIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNvbnN0IGRvdWJsZSBzY2FsZWQgPQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHN0YXRpY19jYXN0PGRvdWJsZT4obV9xdWV1ZS5mcm9udCgpKSAqIGdhaW47CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBiYXRjaFtpbmRleF0gPSBzdGF0aWNfY2FzdDxmbG9hdD4oCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgc3RkOjpjbGFtcChzY2FsZWQsIC0xLjAsIDEuMCkKICAgICAgICAgICAgICAgICAgICAgICAgICAgICk7CiAgICAgICAgICAgICAgICAgICAgICAgICAgICBtX3F1ZXVlLnBvcF9mcm9udCgpOwogICAgICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICAgICAgfQo=",
+              ),
+          ]
+
+          for old_encoded, new_encoded in replacements:
+              old = base64.b64decode(old_encoded).decode()
+              new = base64.b64decode(new_encoded).decode()
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected one match, found {count}")
+              source = source.replace(old, new)
+
+          path.write_text(source, encoding="utf-8")
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wambridge/foobar/foo_out_wam.cpp
+          git rm .github/workflows/patch-wambridge-output-gain.yml
+          git commit -m "Apply WAM gain on dequeue"
+          git push origin HEAD:wambridge/foo-out-wam

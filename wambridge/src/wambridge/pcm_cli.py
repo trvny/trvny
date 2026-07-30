@@ -147,6 +147,13 @@ def _pcm_input_closed(stream: BinaryIO) -> bool:
     return ctypes.get_last_error() in _BROKEN_PIPE_ERRORS
 
 
+def _raise_if_pcm_input_closed(stream: BinaryIO) -> None:
+    if _pcm_input_closed(stream):
+        raise StreamError(
+            "PCM input closed before the speaker requested the stream"
+        )
+
+
 def _wait_for_stream_request(
     server: PcmAudioStreamServer,
     pcm_input: BinaryIO,
@@ -159,10 +166,7 @@ def _wait_for_stream_request(
             timeout=min(0.1, max(0.0, deadline - monotonic()))
         ):
             return
-        if _pcm_input_closed(pcm_input):
-            raise StreamError(
-                "PCM input closed before the speaker requested the stream"
-            )
+        _raise_if_pcm_input_closed(pcm_input)
         if server.request_finished.is_set():
             raise StreamError(
                 server.error
@@ -252,11 +256,13 @@ def run(
         if current_volume != 0:
             volume_changed = True
             set_volume(speaker_ip, 0, port=speaker_port)
+            _raise_if_pcm_input_closed(input_stream)
 
         server.start()
         stream_url = server.url(host_ip)
         LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
         _offer_stream(speaker_ip, stream_url, speaker_port)
+        _raise_if_pcm_input_closed(input_stream)
 
         _wait_for_stream_request(
             server,
@@ -271,6 +277,7 @@ def run(
         )
         volume_changed = True
         set_volume(speaker_ip, start_volume, port=speaker_port)
+        _raise_if_pcm_input_closed(input_stream)
         print("WAMBRIDGE READY", file=output_stream, flush=True)
 
         _wait_for_stream_event(
@@ -279,6 +286,7 @@ def run(
             timeout=args.startup_timeout,
         )
         set_volume(speaker_ip, start_volume, port=speaker_port)
+        _raise_if_pcm_input_closed(input_stream)
         startup_complete = True
         print(
             f"WAMBRIDGE PLAYING volume={start_volume}",

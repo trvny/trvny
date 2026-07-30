@@ -18,6 +18,7 @@ from .stream import OUTPUT_PROFILES, StreamError
 
 LOGGER = logging.getLogger("wambridge")
 DEFAULT_MAX_START_VOLUME = 10
+_PAUSE_HANDOFF_ERROR = "Samsung WAM rejected PausePlaybackEvent"
 
 
 def sample_rate(value: str) -> int:
@@ -125,6 +126,18 @@ def _wait_for_stream_event(
     raise StreamError(f"Timed out waiting for {event_name}")
 
 
+def _offer_stream(speaker_ip: str, stream_url: str, speaker_port: int) -> None:
+    try:
+        play_url(speaker_ip, stream_url, port=speaker_port)
+    except WamApiError as error:
+        if not str(error).startswith(_PAUSE_HANDOFF_ERROR):
+            raise
+        LOGGER.info(
+            "Speaker emitted PausePlaybackEvent during URL handoff; "
+            "waiting for the stream request"
+        )
+
+
 def run(
     args: argparse.Namespace,
     *,
@@ -174,7 +187,7 @@ def run(
         server.start()
         stream_url = server.url(host_ip)
         LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
-        play_url(speaker_ip, stream_url, port=speaker_port)
+        _offer_stream(speaker_ip, stream_url, speaker_port)
 
         if not server.request_started.wait(timeout=args.startup_timeout):
             raise StreamError(

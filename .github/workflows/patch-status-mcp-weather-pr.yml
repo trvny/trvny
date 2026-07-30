@@ -1,0 +1,43 @@
+name: Apply status-mcp weather patch
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'feat/status-mcp-weather'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: feat/status-mcp-weather
+
+      - run: python .github/scripts/patch_status_mcp_weather.py
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mcp/status-mcp/package-lock.json
+
+      - run: npm ci
+        working-directory: mcp/status-mcp
+
+      - run: npm run typecheck
+        working-directory: mcp/status-mcp
+
+      - name: Commit clean result
+        run: |
+          rm .github/workflows/patch-status-mcp-weather.yml
+          rm .github/workflows/patch-status-mcp-weather-pr.yml
+          rm .github/scripts/patch_status_mcp_weather.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mcp/status-mcp .github/workflows .github/scripts
+          git commit -m "Add weather to status-mcp"
+          git push origin HEAD:feat/status-mcp-weather

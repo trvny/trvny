@@ -21,6 +21,8 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Download foobar2000 SDK
         shell: pwsh

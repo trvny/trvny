@@ -132,8 +132,8 @@ def run(
     protocol_output: TextIO | None = None,
 ) -> int:
     """Run one raw-PCM helper session."""
-    input_stream = pcm_input or sys.stdin.buffer
-    output_stream = protocol_output or sys.stdout
+    input_stream = pcm_input if pcm_input is not None else sys.stdin.buffer
+    output_stream = protocol_output if protocol_output is not None else sys.stdout
     store = ProfileStore(args.config)
     speaker_ip, speaker_port = select_speaker(args, store)
     response = probe(speaker_ip, port=speaker_port)

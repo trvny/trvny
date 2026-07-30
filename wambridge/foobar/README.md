@@ -7,8 +7,7 @@ and offers it to the speaker through the existing local HTTP bridge.
 ## Requirements
 
 - foobar2000 2.x x64
-- the WAM Bridge Python package installed
-- FFmpeg available to `wambridge-pcm`
+- FFmpeg available in `PATH`
 - a saved speaker profile, for example `M5`
 
 The component uses the foobar2000 SDK dated `2025-03-07` and implements the
@@ -21,14 +20,15 @@ Create `%LOCALAPPDATA%\WAMBridge\foobar.ini`:
 
 ```ini
 [wambridge]
-helper=C:\Users\you\path\to\wambridge\.venv\Scripts\wambridge-pcm.exe
 device=M5
 volume=4
 ```
 
-`helper` defaults to `wambridge-pcm.exe` from `PATH`, `device` defaults to `M5`,
-and `volume` may be omitted to preserve the speaker's current level under the
-helper's normal safety ceiling.
+The component ships its own `wambridge-pcm.exe`; the source checkout and Python
+virtual environment are not needed after installation. `device` defaults to
+`M5`, and `volume` may be omitted to preserve the speaker's current level under
+the helper's normal safety ceiling. An explicit `helper` path remains available
+for development builds.
 
 The equivalent environment overrides are `WAMBRIDGE_PCM`, `WAMBRIDGE_DEVICE`
 and `WAMBRIDGE_VOLUME`.
@@ -50,8 +50,9 @@ software gain to PCM; the physical speaker level remains managed by WAM Bridge.
 - PCM is queued in memory before a background writer feeds the helper.
 - Pausing keeps the active FLAC session alive with rate-limited silence, while
   retaining queued audio for resume.
-- Seeking or changing PCM format clears the queue and starts a fresh WAM
-  session.
+- Seeking clears queued PCM but keeps the active WAM session alive briefly;
+  stopping closes it after a two-second grace period.
+- A PCM format change still starts a fresh WAM session.
 - Closing foobar stops the temporary local stream; the speaker cannot continue
   an original internet source independently.
 - A helper crash invalidates the output and is reported in the foobar console.

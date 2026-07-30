@@ -251,19 +251,22 @@ def run(args: argparse.Namespace) -> int:
         stream_url = server.url(host_ip)
         LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
 
-        # Old WAM firmware may reset volume while switching to URL playback.
-        # Apply the safe level before, immediately after, and once the stream connects.
-        set_volume(speaker_ip, start_volume, port=speaker_port)
+        # Keep the speaker at zero while URL playback wakes its decoder.
+        # The stream begins with silence; only then is the requested level applied.
+        set_volume(speaker_ip, 0, port=speaker_port)
         play_url(speaker_ip, stream_url, port=speaker_port)
-        set_volume(speaker_ip, start_volume, port=speaker_port)
+        set_volume(speaker_ip, 0, port=speaker_port)
 
         if not server.request_started.wait(timeout=15):
             raise RuntimeError(
                 "Speaker accepted the command but did not request the stream; "
                 "check Windows Firewall"
             )
-        set_volume(speaker_ip, start_volume, port=speaker_port)
+        set_volume(speaker_ip, 0, port=speaker_port)
         server.release_audio()
+        if not server.audio_started.wait(timeout=15):
+            raise RuntimeError("Speaker connected but audio encoding did not start")
+        set_volume(speaker_ip, start_volume, port=speaker_port)
 
         print(
             f"Streaming to Samsung WAM at {speaker_ip} with volume {start_volume}. "

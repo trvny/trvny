@@ -165,8 +165,6 @@ def _play_tunein_safely(
     speaker_ip: str,
     speaker_port: int,
 ) -> int:
-    presets = get_tunein_presets(speaker_ip, port=speaker_port)
-    preset = find_tunein_preset(presets, args.tunein_play)
     previous_volume = get_volume(speaker_ip, port=speaker_port)
     previous_mute = get_mute(speaker_ip, port=speaker_port)
     start_volume = cli.choose_start_volume(
@@ -175,9 +173,13 @@ def _play_tunein_safely(
         args.max_start_volume,
     )
     startup_complete = False
+    preset = None
     try:
+        # SetSelectRadio may wake or resume old TuneIn state on quirky firmware.
         set_volume(speaker_ip, 0, port=speaker_port)
         set_mute(speaker_ip, True, port=speaker_port)
+        presets = get_tunein_presets(speaker_ip, port=speaker_port)
+        preset = find_tunein_preset(presets, args.tunein_play)
         play_tunein_preset(
             speaker_ip,
             preset,
@@ -208,6 +210,7 @@ def _play_tunein_safely(
                     "Could not restore WAM state after TuneIn startup failure: %s",
                     error,
                 )
+    assert preset is not None
     print(
         f"Playing TuneIn preset {preset.content_id}: {preset.title} "
         f"at volume {start_volume}"

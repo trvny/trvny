@@ -53,6 +53,39 @@ class PcmAudioStreamServerTests(TestCase):
     @patch("wambridge.pcm_stream._read_chunk")
     @patch("wambridge.pcm_stream.subprocess.Popen")
     @patch("wambridge.stream.shutil.which", return_value="ffmpeg")
+    def test_applies_realtime_clock_before_pcm_input(
+        self,
+        _which_mock,
+        popen_mock,
+        read_mock,
+    ) -> None:
+        metadata = b"fLaC" + bytes([0x80, 0, 0, 34]) + bytes(34)
+        read_mock.side_effect = [metadata + b"\xff\xf8\x00\x00", b""]
+        process = SimpleNamespace(
+            stdout=BytesIO(),
+            returncode=0,
+            poll=lambda: None,
+            wait=lambda timeout: 0,
+            terminate=lambda: None,
+            kill=lambda: None,
+        )
+        popen_mock.return_value = process
+        server = PcmAudioStreamServer(
+            BytesIO(b"pcm"),
+            sample_rate=48000,
+            channels=2,
+        )
+        try:
+            server._serve_audio(BytesIO())
+            command = popen_mock.call_args.args[0]
+            self.assertLess(command.index("-re"), command.index("-i"))
+            self.assertEqual(command[command.index("-ar") + 1], "48000")
+        finally:
+            server.close()
+
+    @patch("wambridge.pcm_stream._read_chunk")
+    @patch("wambridge.pcm_stream.subprocess.Popen")
+    @patch("wambridge.stream.shutil.which", return_value="ffmpeg")
     def test_rejects_header_only_flac_while_process_is_alive(
         self,
         _which_mock,

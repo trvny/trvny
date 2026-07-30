@@ -14,10 +14,43 @@ from .profiles import (
     remember_device,
     resolve_device,
 )
-from .samsung import WamApiError, play_url, probe
+from .samsung import (
+    MAX_VOLUME,
+    MIN_VOLUME,
+    WamApiError,
+    get_volume,
+    play_url,
+    probe,
+    set_volume,
+)
 from .stream import AudioStreamServer, OUTPUT_PROFILES, StreamError
 
 LOGGER = logging.getLogger("wambridge")
+DEFAULT_MAX_START_VOLUME = 10
+
+
+def volume_level(value: str) -> int:
+    """Parse a raw WAM volume level for argparse."""
+    try:
+        level = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("volume must be an integer from 0 to 100") from error
+    if not MIN_VOLUME <= level <= MAX_VOLUME:
+        raise argparse.ArgumentTypeError(
+            f"volume must be between {MIN_VOLUME} and {MAX_VOLUME}"
+        )
+    return level
+
+
+def choose_start_volume(
+    current_volume: int,
+    explicit_volume: int | None,
+    max_start_volume: int,
+) -> int:
+    """Choose an explicit level or clamp the current volume to a safe maximum."""
+    if explicit_volume is not None:
+        return explicit_volume
+    return min(current_volume, max_start_volume)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -36,6 +69,20 @@ def build_parser() -> argparse.ArgumentParser:
         choices=sorted(OUTPUT_PROFILES),
         default="flac",
         help="Format sent to the speaker (input may be Opus, Ogg, AAC and more)",
+    )
+    parser.add_argument(
+        "--volume",
+        type=volume_level,
+        help="Explicit startup volume from 0 to 100",
+    )
+    parser.add_argument(
+        "--max-start-volume",
+        type=volume_level,
+        default=DEFAULT_MAX_START_VOLUME,
+        help=(
+            "Clamp the current speaker volume before playback "
+            f"(default: {DEFAULT_MAX_START_VOLUME})"
+        ),
     )
     parser.add_argument("--bind", default="0.0.0.0", help="Local HTTP bind address")
     parser.add_argument("--http-port", type=int, default=0, help="Local HTTP port; 0 chooses one")
@@ -188,16 +235,39 @@ def run(args: argparse.Namespace) -> int:
     )
     try:
         server.prepare()
+        current_volume = get_volume(speaker_ip, port=speaker_port)
+        start_volume = choose_start_volume(
+            current_volume,
+            args.volume,
+            args.max_start_volume,
+        )
+        LOGGER.info(
+            "Speaker volume is %s; starting playback at %s",
+            current_volume,
+            start_volume,
+        )
+
         server.start()
         stream_url = server.url(host_ip)
         LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
+
+        # Old WAM firmware may reset volume while switching to URL playback.
+        # Apply the safe level before, immediately after, and once the stream connects.
+        set_volume(speaker_ip, start_volume, port=speaker_port)
         play_url(speaker_ip, stream_url, port=speaker_port)
+        set_volume(speaker_ip, start_volume, port=speaker_port)
+
         if not server.request_started.wait(timeout=15):
             raise RuntimeError(
                 "Speaker accepted the command but did not request the stream; "
                 "check Windows Firewall"
             )
-        print(f"Streaming to Samsung WAM at {speaker_ip}. Press Ctrl+C to stop.")
+        set_volume(speaker_ip, start_volume, port=speaker_port)
+
+        print(
+            f"Streaming to Samsung WAM at {speaker_ip} with volume {start_volume}. "
+            "Press Ctrl+C to stop."
+        )
         while not server.request_finished.wait(timeout=1):
             pass
         if server.error:

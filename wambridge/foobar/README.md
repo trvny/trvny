@@ -52,6 +52,7 @@ software gain to PCM; the physical speaker level remains managed by WAM Bridge.
   retaining queued audio for resume.
 - Seeking and stopping reset the helper and FFmpeg so buffered pre-flush PCM
   cannot leak into the next position; new PCM starts a fresh WAM session.
+- Cancelling startup closes the PCM pipe and lets the helper restore volume.
 - A PCM format change still starts a fresh WAM session.
 - Closing foobar stops the temporary local stream; the speaker cannot continue
   an original internet source independently.

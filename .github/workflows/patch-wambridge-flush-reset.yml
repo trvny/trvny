@@ -1,0 +1,58 @@
+name: Patch WAM flush reset
+
+on:
+  push:
+    branches:
+      - wambridge/foo-out-wam
+    paths:
+      - ".github/workflows/patch-wambridge-flush-reset.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: wambridge/foo-out-wam
+
+      - name: Reset helper on flush
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("wambridge/foobar/foo_out_wam.cpp")
+          source = path.read_text(encoding="utf-8")
+          old = """            m_queue.clear();
+            m_failure.clear();
+            if (m_helperReady.load() && m_playing.load()) {
+                m_flushing = true;
+                m_flushDeadline = std::chrono::steady_clock::now() + kFlushGrace;
+            } else {
+                retire_stream_locked();
+                m_restart = true;
+                cancel_child();
+            }
+"""
+          new = """            m_queue.clear();
+            m_failure.clear();
+            retire_stream_locked();
+            m_restart = true;
+            cancel_child();
+"""
+          count = source.count(old)
+          if count != 1:
+              raise SystemExit(f"Expected one match, found {count}")
+          path.write_text(source.replace(old, new), encoding="utf-8")
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wambridge/foobar/foo_out_wam.cpp
+          git rm .github/workflows/patch-wambridge-flush-reset.yml
+          git commit -m "Reset WAM encoder on flush"
+          git push origin HEAD:wambridge/foo-out-wam

@@ -1,11 +1,16 @@
 from unittest import TestCase
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from wambridge.samsung import (
+    WamApiError,
+    WamResponse,
     build_api_url,
     build_command,
+    get_volume,
     normalize_device_id,
     parse_response,
+    set_volume,
 )
 
 
@@ -55,3 +60,54 @@ class SamsungCommandTests(TestCase):
         )
 
         self.assertEqual(response.values["spkname"], "[Samsung] M5")
+
+    @patch("wambridge.samsung.request")
+    def test_gets_volume(self, request_mock) -> None:
+        request_mock.return_value = WamResponse(
+            method="VolumeLevel",
+            result="ok",
+            body="",
+            values={"volume": "37"},
+        )
+
+        self.assertEqual(get_volume("10.0.0.118"), 37)
+        request_mock.assert_called_once_with(
+            "10.0.0.118",
+            "GetVolume",
+            port=55001,
+            timeout=5.0,
+        )
+
+    @patch("wambridge.samsung.request")
+    def test_sets_volume(self, request_mock) -> None:
+        request_mock.return_value = WamResponse(
+            method="VolumeLevel",
+            result="ok",
+            body="",
+        )
+
+        set_volume("10.0.0.118", 10)
+
+        request_mock.assert_called_once_with(
+            "10.0.0.118",
+            "SetVolume",
+            [("volume", 10, "dec")],
+            port=55001,
+            timeout=5.0,
+        )
+
+    def test_rejects_out_of_range_volume(self) -> None:
+        with self.assertRaisesRegex(ValueError, "between 0 and 100"):
+            set_volume("10.0.0.118", 101)
+
+    @patch("wambridge.samsung.request")
+    def test_rejects_invalid_reported_volume(self, request_mock) -> None:
+        request_mock.return_value = WamResponse(
+            method="VolumeLevel",
+            result="ok",
+            body="",
+            values={"volume": "full"},
+        )
+
+        with self.assertRaisesRegex(WamApiError, "invalid volume"):
+            get_volume("10.0.0.118")

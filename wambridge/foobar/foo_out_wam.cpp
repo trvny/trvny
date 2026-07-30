@@ -132,7 +132,7 @@ void close_handle(HANDLE& handle) {
     }
 }
 
-class WamOutput final : public output_v6 {
+class WamOutput : public output_v6 {
 public:
     WamOutput(const GUID&, double bufferLength, bool, t_uint32)
         : m_bufferLength(std::clamp(bufferLength, 2.0, 30.0)),

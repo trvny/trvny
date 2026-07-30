@@ -40,6 +40,24 @@ jobs:
           python -m pip install -e wambridge
           python -m unittest discover -s wambridge/tests
 
+      - name: Build standalone helper
+        shell: pwsh
+        run: |
+          python -m pip install pyinstaller
+          python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --onedir `
+            --name wambridge-pcm `
+            --distpath dist/helper `
+            --workpath build/pyinstaller `
+            --specpath build/pyinstaller `
+            wambridge/foobar/wambridge_pcm_entry.py
+          & dist/helper/wambridge-pcm/wambridge-pcm.exe --help | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
       - name: Download foobar2000 SDK
         shell: pwsh
         run: |
@@ -87,11 +105,16 @@ jobs:
           if (-not (Test-Path $output)) {
             throw "foo_out_wam.dll was not produced"
           }
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item $output dist/foo_out_wam.dll
-          Push-Location dist
-          7z a -tzip foo_out_wam.fb2k-component foo_out_wam.dll
+          New-Item -ItemType Directory -Force dist/component | Out-Null
+          Copy-Item $output dist/component/foo_out_wam.dll
+          Copy-Item `
+            dist/helper/wambridge-pcm `
+            dist/component/wambridge-pcm `
+            -Recurse
+          Push-Location dist/component
+          7z a -tzip ../foo_out_wam.fb2k-component *
           Pop-Location
+          Copy-Item $output dist/foo_out_wam.dll
           git archive `
             --format=zip `
             --output=dist/wambridge-foo-out-wam.zip `

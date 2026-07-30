@@ -1,15 +1,15 @@
 /**
- * status-mcp — one MCP tool that health-checks all three trvny projects in a
- * single call: tvpi (IPTV Worker), feeds (hourly RSS/Atom generators), and
- * autka (used-car aggregator backend).
+ * status-mcp — one MCP tool that health-checks four trvny projects in a
+ * single call: tvpi (IPTV Worker), feeds (hourly RSS/Atom generators), weather
+ * (forecast Worker), and autka (used-car aggregator backend).
  *
- * One tool, `status`. Omit `project` to check all three in parallel (the
- * morning-check), or pass one of "tvpi" | "feeds" | "autka" to scope it. The
- * point is a single tool invocation, not three — the heavy fetching/parsing
+ * One tool, `status`. Omit `project` to check all four in parallel (the
+ * morning-check), or pass one of "tvpi" | "feeds" | "weather" | "autka" to
+ * scope it. The point is a single tool invocation, not four — the heavy fetching/parsing
  * happens here at the edge and the model gets a compact roll-up.
  *
- * tvpi and autka are same-account Workers reached via service bindings; feeds
- * reads GitHub (raw + badge SVG + best-effort contents API). No token — free.
+ * tvpi, weather, and autka are same-account Workers reached via service bindings;
+ * feeds reads GitHub (raw + badge SVG + best-effort contents API). No token — free.
  */
 
 const PROTOCOL_VERSION = "2025-06-18";
@@ -17,13 +17,14 @@ const SERVER_INFO = { name: "status-mcp", version: "1.0.0" };
 const FETCH_TIMEOUT_MS = 9_000;
 
 /**
- * Service bindings to the two same-account Workers. A public workers.dev fetch
+ * Service bindings to the three same-account Workers. A public workers.dev fetch
  * from one Worker to another on the same account hairpins and fails, so tvpi
- * and autka are reached via internal bindings instead. feeds is GitHub
+ * weather, and autka are reached via internal bindings instead. feeds is GitHub
  * (external), so it stays on plain fetch.
  */
 interface Env {
   TVPI: Fetcher;
+  WEATHER: Fetcher;
   AUTKA: Fetcher;
 }
 
@@ -72,7 +73,7 @@ interface ProjectResult {
 // tvpi — read the Worker's X-Source-* headers in one request (service binding)
 // ===========================================================================
 
-const TVPI_SLUGS = ["tvp1", "tvp2", "tvpinfo", "tvpsport", "tvpdokument", "tvpnauka", "tvprozrywka", "tvphistoria"];
+const TVPI_SLUGS = ["tvp1", "tvp2", "tvpinfo", "tvpsport", "tvpdokument", "tvpnauka", "tvprozrywka", "tvphistoria", "tvpmuzyka"];
 type TvpiSource = "cache" | "live" | "d1" | "kv" | "raw" | "r2" | "unknown";
 
 function parseTvpiHeaders(headers: Headers): Map<string, TvpiSource> {
@@ -216,6 +217,66 @@ async function checkFeeds(): Promise<ProjectResult> {
 }
 
 // ===========================================================================
+// weather — current/forecast freshness and source coverage (service binding)
+// ===========================================================================
+
+interface WeatherCycle {
+  ok?: boolean;
+  completedAt?: string;
+  sources?: string[];
+  warningsFresh?: string[];
+  message?: string;
+}
+
+interface WeatherHealth {
+  ok?: boolean;
+  entries?: number;
+  current?: WeatherCycle;
+  forecast?: WeatherCycle;
+  currentAgeMs?: number | null;
+}
+
+async function checkWeather(env: Env): Promise<ProjectResult> {
+  try {
+    const res = await env.WEATHER.fetch("https://weather/healthz", { signal: timeout(FETCH_TIMEOUT_MS) });
+    const health = (await res.json()) as WeatherHealth;
+    const sources = health.current?.sources ?? [];
+    const warningsFresh = health.current?.warningsFresh ?? [];
+    const currentHealthy = res.ok && health.ok === true && health.current?.ok === true;
+    const forecastHealthy = health.forecast?.ok === true;
+    const partial = sources.length < 2 || warningsFresh.length < 2 || !forecastHealthy;
+    const verdict: Verdict = !currentHealthy ? "down" : partial ? "degraded" : "ok";
+    const ageMinutes = typeof health.currentAgeMs === "number"
+      ? Math.round(health.currentAgeMs / 60_000)
+      : null;
+
+    const lines = [
+      `    current: ${currentHealthy ? "healthy" : "DOWN"}${ageMinutes !== null ? ` (${ageMinutes} min old)` : ""}`,
+      `    sources: ${sources.length ? sources.join(", ") : "none"}`,
+      `    warnings fresh: ${warningsFresh.length ? warningsFresh.join(", ") : "none"}`,
+      `    forecast: ${forecastHealthy ? "healthy" : "DEGRADED"}`,
+      `    entries: ${health.entries ?? "?"}`,
+    ];
+    return {
+      project: "weather",
+      verdict,
+      headline: `current ${currentHealthy ? "healthy" : "DOWN"}, ${sources.length} sources, forecast ${forecastHealthy ? "healthy" : "degraded"}`,
+      lines,
+      data: {
+        healthy: currentHealthy,
+        currentAgeMs: health.currentAgeMs ?? null,
+        sources,
+        warningsFresh,
+        forecastHealthy,
+        entries: health.entries ?? null,
+      },
+    };
+  } catch (e) {
+    return errorResult("weather", e);
+  }
+}
+
+// ===========================================================================
 // autka — backend /health + /offers count + /sources (service binding) + CI badge
 // ===========================================================================
 
@@ -270,7 +331,7 @@ function errorResult(project: string, e: unknown): ProjectResult {
   return { project, verdict: "error", headline: `check failed: ${msg}`, lines: [`    ${msg}`], data: { error: msg } };
 }
 
-const ALL = ["tvpi", "feeds", "autka"] as const;
+const ALL = ["tvpi", "feeds", "weather", "autka"] as const;
 type Project = (typeof ALL)[number];
 
 async function runStatus(env: Env, project: Project | undefined, deep: boolean): Promise<{ text: string; structured: object }> {
@@ -278,6 +339,7 @@ async function runStatus(env: Env, project: Project | undefined, deep: boolean):
   const runners: Record<Project, () => Promise<ProjectResult>> = {
     tvpi: () => checkTvpi(env, deep),
     feeds: () => checkFeeds(),
+    weather: () => checkWeather(env),
     autka: () => checkAutka(env),
   };
   const results = await Promise.all(wanted.map((p) => runners[p]()));
@@ -305,15 +367,15 @@ const TOOLS = [
     name: "status",
     description:
       "Health-check the trvny projects in one call. Omit project to check " +
-      "ALL THREE in parallel (tvpi IPTV playlist, feeds RSS/Atom pipeline, " +
-      "autka car-aggregator backend) and get a compact roll-up — use this for " +
+      "ALL FOUR in parallel (tvpi IPTV playlist, feeds RSS/Atom pipeline, " +
+      "weather forecast Worker, autka car-aggregator backend) and get a compact roll-up — use this for " +
       "a morning check instead of invoking three separate tools. Pass project " +
       "to scope to one. deep=true adds per-channel HLS probes for tvpi. All " +
       "reads are public and free.",
     inputSchema: {
       type: "object",
       properties: {
-        project: { type: "string", enum: ["tvpi", "feeds", "autka"], description: "Scope to one project. Omit for all three." },
+        project: { type: "string", enum: ["tvpi", "feeds", "weather", "autka"], description: "Scope to one project. Omit for all four." },
         deep: { type: "boolean", description: "tvpi only: also probe each channel's .m3u8 redirect. Default false." },
       },
       additionalProperties: false,

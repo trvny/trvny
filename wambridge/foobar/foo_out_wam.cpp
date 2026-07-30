@@ -438,13 +438,19 @@ private:
         HANDLE stdoutRead = nullptr;
         HANDLE stdoutWrite = nullptr;
         if (!CreatePipe(&stdinRead, &stdinWrite, &security, 0)) {
-            set_failure("Could not create helper stdin pipe");
+            set_failure_if_current(
+                "Could not create helper stdin pipe",
+                generation
+            );
             return false;
         }
         if (!CreatePipe(&stdoutRead, &stdoutWrite, &security, 0)) {
             close_handle(stdinRead);
             close_handle(stdinWrite);
-            set_failure("Could not create helper stdout pipe");
+            set_failure_if_current(
+                "Could not create helper stdout pipe",
+                generation
+            );
             return false;
         }
         SetHandleInformation(stdinWrite, HANDLE_FLAG_INHERIT, 0);
@@ -479,9 +485,10 @@ private:
         if (!created) {
             close_handle(stdinWrite);
             close_handle(stdoutRead);
-            set_failure(
+            set_failure_if_current(
                 "Could not start wambridge-pcm; configure helper in "
-                "%LOCALAPPDATA%\\WAMBridge\\foobar.ini"
+                "%LOCALAPPDATA%\\WAMBridge\\foobar.ini",
+                generation
             );
             return false;
         }
@@ -691,28 +698,6 @@ private:
                 continue;
             }
 
-            if (sendSilence) {
-                const auto duration = std::chrono::duration<double>(
-                    static_cast<double>(batchFrames) / sampleRate
-                );
-                std::unique_lock lock(m_mutex);
-                m_cv.wait_for(
-                    lock,
-                    duration,
-                    [this, generation, sampleRate, channels] {
-                        return m_shutdown || !m_failure.empty() || m_restart ||
-                            (!m_paused.load() && !m_flushing) ||
-                            (m_flushing &&
-                                std::chrono::steady_clock::now() >=
-                                    m_flushDeadline) ||
-                            !session_matches_locked(
-                                generation,
-                                sampleRate,
-                                channels
-                            );
-                    }
-                );
-            }
         }
     }
 

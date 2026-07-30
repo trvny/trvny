@@ -13,6 +13,7 @@ from typing import BinaryIO
 
 LOGGER = logging.getLogger(__name__)
 CHUNK_SIZE = 64 * 1024
+STARTUP_SILENCE_MS = 1500
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +92,7 @@ class AudioStreamServer:
         self.request_started = threading.Event()
         self.request_finished = threading.Event()
         self.audio_released = threading.Event()
+        self.audio_started = threading.Event()
         self.error: str | None = None
         self._process: subprocess.Popen[bytes] | None = None
         self._started = False
@@ -216,6 +218,8 @@ class AudioStreamServer:
             "-re",
             "-i",
             self.source,
+            "-af",
+            f"adelay={STARTUP_SILENCE_MS}:all=1",
             *self.profile.ffmpeg_args,
             "pipe:1",
         ]
@@ -238,6 +242,7 @@ class AudioStreamServer:
         try:
             output.write(first_chunk)
             output.flush()
+            self.audio_started.set()
             while chunk := process.stdout.read(CHUNK_SIZE):
                 output.write(chunk)
                 output.flush()

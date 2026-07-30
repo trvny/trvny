@@ -226,14 +226,14 @@ class PcmCliTests(TestCase):
 
     @patch("wambridge.pcm_cli.play_url")
     @patch("wambridge.pcm_cli.set_volume")
-    @patch("wambridge.pcm_cli.get_volume", return_value=7)
+    @patch("wambridge.pcm_cli.get_volume", return_value=0)
     @patch("wambridge.pcm_cli.local_ip_for", return_value="10.0.0.103")
     @patch(
         "wambridge.pcm_cli.probe",
         return_value=SimpleNamespace(method="SpkName"),
     )
     @patch("wambridge.pcm_cli.select_speaker", return_value=("10.0.0.118", 55001))
-    def test_restores_volume_when_startup_ends_after_ready(
+    def test_restores_muted_volume_when_startup_ends_after_ready(
         self,
         _select_mock,
         _probe_mock,
@@ -264,8 +264,7 @@ class PcmCliTests(TestCase):
         self.assertEqual(
             volume_mock.call_args_list,
             [
-                call("10.0.0.118", 0, port=55001),
                 call("10.0.0.118", 4, port=55001),
-                call("10.0.0.118", 7, port=55001, timeout=1.0),
+                call("10.0.0.118", 0, port=55001, timeout=1.0),
             ],
         )

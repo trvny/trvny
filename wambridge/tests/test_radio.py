@@ -63,7 +63,7 @@ class RadioControlCliTests(TestCase):
     @patch("wambridge.radio_cli.get_tunein_presets")
     @patch("wambridge.radio_cli.set_mute")
     @patch("wambridge.radio_cli.set_volume")
-    def test_tunein_failure_restores_previous_state(
+    def test_tunein_failure_keeps_speaker_muted(
         self,
         volume_mock,
         mute_mock,
@@ -87,7 +87,7 @@ class RadioControlCliTests(TestCase):
 
         self.assertEqual(
             [call.args[1] for call in volume_mock.call_args_list],
-            [0, 7],
+            [0, 0],
         )
         self.assertEqual(
             [call.args[1] for call in mute_mock.call_args_list],

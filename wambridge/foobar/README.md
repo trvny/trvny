@@ -48,9 +48,12 @@ software gain to PCM; the physical speaker level remains managed by WAM Bridge.
 ## Behaviour
 
 - PCM is queued in memory before a background writer feeds the helper.
-- Pausing stops new PCM from entering the helper.
+- Pausing keeps the active FLAC session alive with rate-limited silence, while
+  retaining queued audio for resume.
 - Seeking or changing PCM format clears the queue and starts a fresh WAM
   session.
+- Closing foobar stops the temporary local stream; the speaker cannot continue
+  an original internet source independently.
 - A helper crash invalidates the output and is reported in the foobar console.
 - The expected startup delay includes the 1.5-second volume-safety silence.
 

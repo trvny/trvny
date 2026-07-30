@@ -19,6 +19,7 @@ from .stream import OUTPUT_PROFILES, StreamError
 LOGGER = logging.getLogger("wambridge")
 DEFAULT_MAX_START_VOLUME = 10
 _PAUSE_HANDOFF_ERROR = "Samsung WAM rejected PausePlaybackEvent"
+_BROKEN_PIPE_ERRORS = {109, 233}
 
 
 def sample_rate(value: str) -> int:
@@ -108,6 +109,70 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _pcm_input_closed(stream: BinaryIO) -> bool:
+    """Return whether a Windows pipe writer closed without consuming PCM."""
+    if sys.platform != "win32":
+        return False
+
+    try:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        handle = msvcrt.get_osfhandle(stream.fileno())
+    except (AttributeError, OSError, ValueError):
+        return False
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    peek_named_pipe = kernel32.PeekNamedPipe
+    peek_named_pipe.argtypes = [
+        wintypes.HANDLE,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        ctypes.POINTER(wintypes.DWORD),
+        wintypes.LPVOID,
+    ]
+    peek_named_pipe.restype = wintypes.BOOL
+    available = wintypes.DWORD()
+    if peek_named_pipe(
+        handle,
+        None,
+        0,
+        None,
+        ctypes.byref(available),
+        None,
+    ):
+        return False
+    return ctypes.get_last_error() in _BROKEN_PIPE_ERRORS
+
+
+def _wait_for_stream_request(
+    server: PcmAudioStreamServer,
+    pcm_input: BinaryIO,
+    *,
+    timeout: float,
+) -> None:
+    deadline = monotonic() + timeout
+    while monotonic() < deadline:
+        if server.request_started.wait(
+            timeout=min(0.1, max(0.0, deadline - monotonic()))
+        ):
+            return
+        if _pcm_input_closed(pcm_input):
+            raise StreamError(
+                "PCM input closed before the speaker requested the stream"
+            )
+        if server.request_finished.is_set():
+            raise StreamError(
+                server.error
+                or "PCM stream ended before the speaker requested it"
+            )
+    raise StreamError(
+        "Speaker accepted URL playback but did not request the PCM stream"
+    )
+
+
 def _wait_for_stream_event(
     server: PcmAudioStreamServer,
     event_name: str,
@@ -193,10 +258,11 @@ def run(
         LOGGER.info("Offering %s to %s", stream_url, speaker_ip)
         _offer_stream(speaker_ip, stream_url, speaker_port)
 
-        if not server.request_started.wait(timeout=args.startup_timeout):
-            raise StreamError(
-                "Speaker accepted URL playback but did not request the PCM stream"
-            )
+        _wait_for_stream_request(
+            server,
+            input_stream,
+            timeout=args.startup_timeout,
+        )
         server.release_audio()
         _wait_for_stream_event(
             server,

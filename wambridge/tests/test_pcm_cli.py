@@ -226,6 +226,53 @@ class PcmCliTests(TestCase):
 
     @patch("wambridge.pcm_cli.play_url")
     @patch("wambridge.pcm_cli.set_volume")
+    @patch("wambridge.pcm_cli.get_volume", return_value=7)
+    @patch("wambridge.pcm_cli.local_ip_for", return_value="10.0.0.103")
+    @patch(
+        "wambridge.pcm_cli.probe",
+        return_value=SimpleNamespace(method="SpkName"),
+    )
+    @patch("wambridge.pcm_cli.select_speaker", return_value=("10.0.0.118", 55001))
+    def test_restores_volume_when_pcm_pipe_closes_before_request(
+        self,
+        _select_mock,
+        _probe_mock,
+        _local_ip_mock,
+        _get_volume_mock,
+        volume_mock,
+        _play_url_mock,
+    ) -> None:
+        class SilentServer(FakePcmServer):
+            def start(self) -> None:
+                pass
+
+        args = self._args()
+        args.startup_timeout = 45
+
+        with (
+            patch("wambridge.pcm_cli.PcmAudioStreamServer", SilentServer),
+            patch("wambridge.pcm_cli._pcm_input_closed", return_value=True),
+        ):
+            with self.assertRaisesRegex(
+                StreamError,
+                "PCM input closed before the speaker requested",
+            ):
+                run(
+                    args,
+                    pcm_input=BytesIO(),
+                    protocol_output=StringIO(),
+                )
+
+        self.assertEqual(
+            volume_mock.call_args_list,
+            [
+                call("10.0.0.118", 0, port=55001),
+                call("10.0.0.118", 7, port=55001, timeout=1.0),
+            ],
+        )
+
+    @patch("wambridge.pcm_cli.play_url")
+    @patch("wambridge.pcm_cli.set_volume")
     @patch("wambridge.pcm_cli.get_volume", return_value=0)
     @patch("wambridge.pcm_cli.local_ip_for", return_value="10.0.0.103")
     @patch(

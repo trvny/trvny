@@ -1,15 +1,15 @@
 from io import BytesIO, StringIO
+from threading import Event
 from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import call, patch
 
 from wambridge.pcm_cli import build_parser, run
+from wambridge.stream import StreamError
 
 
 class FakePcmServer:
     def __init__(self, *_args, **_kwargs) -> None:
-        from threading import Event
-
         self.request_started = Event()
         self.encoder_started = Event()
         self.audio_started = Event()
@@ -122,7 +122,7 @@ class PcmCliTests(TestCase):
 
         with patch("wambridge.pcm_cli.PcmAudioStreamServer", SilentServer):
             with self.assertRaisesRegex(
-                Exception,
+                StreamError,
                 "did not request the PCM stream",
             ):
                 run(

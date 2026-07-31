@@ -68,6 +68,24 @@ extensions:
         primaryAgentFile: AGENTS.md
         copilotInstructions: .github/copilot-instructions.md
         customAgent: .github/agents/trvny-maintainer.agent.md
+        workflow:
+          inspectMainAndOpenPrsFirst: true
+          oneLogicalChangePerPr: true
+          trivialLowRiskChangesMayCommitMain: true
+          preferDirectBranchCommits: true
+          avoidTemporarySelfMutatingWorkflows: true
+          codexReview:
+            advisoryOnly: true
+            neverDelegateWritesOrBranchActions: true
+            manualTrigger: finalOnlyWhenUseful
+            usageLimitIsNotCiFailure: true
+          merge:
+            method: squash
+            requireRelevantCiGreen: true
+            requireResolvedThreads: true
+            verifyFinalHeadSha: true
+          reporting:
+            minimalCommentsAndChangelogs: true
       openai:
         apiKeyEnvironmentVariable: OPENAI_API_KEY
         preferResponsesApiForShortLoops: true
@@ -91,3 +109,5 @@ extensions:
       - one source of truth per concern
       - runtime for deterministic policy
       - model for interpretation and synthesis
+      - Codex review advises; the active agent performs all writes and branch operations
+      - direct branch commits over workflow workarounds

@@ -11,6 +11,7 @@
 [![weather](https://img.shields.io/badge/weather-KOŚCIELEC-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.travny.workers.dev)
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.travny.workers.dev)
 [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.travny.workers.dev)
+[![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/trvny/wambridge)
 
 [![GitHub Stats](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)
 
@@ -27,6 +28,7 @@
 | 📡 **Feeds** | [repo](https://github.com/trvny/feeds) · [strona](https://trvny.github.io/feeds) · [czytnik](https://trvny.github.io/feeds/reader/) | **Feedseek** produkuje RSS/Atom, a **Kanarek** czyta feedy i odtwarza radio/IPTV na Androidzie. |
 | 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [strona](https://tvpi.pages.dev) · [playlista](https://tvpi.travny.workers.dev/playlist.m3u) | Stabilne wejścia IPTV do kanałów TVP, Worker oraz residential-push do odświeżania tokenów HLS. |
 | 🚗 **Autka** | [repo](https://github.com/trvny/autka) | Androidowy agregator ofert samochodów z Polski, UE i importu z USA, razem z kalkulacją kosztu sprowadzenia. |
+| 🔊 **WAM Bridge** | [repo](https://github.com/trvny/wambridge) | Most audio do głośników Samsung Wireless Audio Multiroom oraz natywne wyjście foobar2000 dla Shape M5. |
 
 ### Narzędzia w tym monorepo
 
@@ -34,7 +36,6 @@
 |---|---|---|
 | 🔳 **[Codebench](codebench/)** | [codebench.travny.workers.dev](https://codebench.travny.workers.dev) | Prywatne, przeglądarkowe studio QR i kodów kreskowych. Dane nie opuszczają przeglądarki. |
 | 📻 **[Streambench](streambench/)** | [streambench.travny.workers.dev](https://streambench.travny.workers.dev) | Warsztat do testowania, porządkowania i odtwarzania IPTV, radia, HLS, M3U oraz XMLTV. |
-| 🔊 **[WAM Bridge](wambridge/)** | Windows/LAN | Lokalny most audio do głośników Samsung Wireless Audio Multiroom, zaczynając od Shape M5. |
 | 🌦️ **[weather-feed](weather-feed/)** | [weather.travny.workers.dev](https://weather.travny.workers.dev) | Wieloźródłowa pogoda i alerty IMGW dla Kościelca/Chrzanowa, wystawione jako Atom i JSON. |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | Jedno narzędzie do zbiorczego sprawdzania zdrowia TVPI, Feeds i Autek. |
 | 🤖 **[skills](.claude/skills/)** | lokalnie | Biblioteka umiejętności i instrukcji dla narzędzi AI pracujących nad projektami. |

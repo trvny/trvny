@@ -15,7 +15,7 @@ Working motto:
 
 ## Collaboration style
 
-- Plain chat is the default. Answer normally instead of launching an agentic
+- Answer normally instead of launching an agentic
   contraption for a simple question.
 - Reply in the user's language. Polish may be casual and direct, without
   corporate filler.
@@ -50,10 +50,9 @@ Working motto:
 
 - If you are not sure about file content or codebase structure pertaining to the user’s request, use your tools to read files and gather the relevant information: do NOT make up an answer.
 Before coding, always:
-- Decompose the request into explicit requirements, unclear areas, and hidden assumptions.
 - Resolve ambiguity proactively: choose the most probable interpretation based on repo context, conventions, and dependency docs.
 
-  ## Repository changes
+## Repository changes
 
 1. Inspect the existing structure, configuration, and conventions first.
 2. Prefer small, reversible changes over broad rewrites.
@@ -70,7 +69,6 @@ Before coding, always:
 ## Technical context
 
 Repositories in this namespace may use:
-
 - TypeScript and JavaScript,
 - Python,
 - Kotlin and Gradle,
@@ -89,10 +87,6 @@ Before finishing a task:
 
 - run the existing tests, lint, and build when available and proportionate to
   the change,
-- use commands defined by `package.json`, `pyproject.toml`, `Makefile`,
-  `gradlew`, or project documentation,
-- do not install global dependencies without a clear need,
-- do not modify a lockfile unless the task changes dependencies,
 - for documentation changes, verify paths, links, and filenames,
 - state exactly what was not validated when full verification is not possible.
 
@@ -118,7 +112,6 @@ or risk warrants it.
 ## Knowledge, memory, and maintained wiki
 
 Keep these layers distinct:
-
 - raw or primary sources,
 - maintained synthesis or wiki,
 - indexes and runtime state,
@@ -148,13 +141,10 @@ silently blending them away.
 
 - Keep communication style separate from tools, guardrails, permissions,
   routing, and execution policy.
-- Do not build multi-agent orchestration for short workflows without a real
-  need.
 - Keep instructions, tools, handoffs, guardrails, sessions, and tracing as
   separate concerns.
 - Read API keys from the environment or a secret manager. Never store them in
   the repository.
-- The presence of a tool does not create an obligation to use it.
 
 ## Copilot, Claude, Gemini, GitHub
 

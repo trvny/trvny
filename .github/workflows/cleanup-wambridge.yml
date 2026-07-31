@@ -1,17 +1,16 @@
 name: Cleanup migrated WAM Bridge
 
 on:
-  push:
+  pull_request:
     branches:
-      - cleanup/extract-wambridge
-    paths:
-      - ".cleanup-wambridge-trigger"
+      - main
 
 permissions:
   contents: write
 
 jobs:
   cleanup:
+    if: github.head_ref == 'cleanup/extract-wambridge'
     runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v7
@@ -25,15 +24,6 @@ jobs:
           set -euo pipefail
 
           git rm -r wambridge
-
-          while IFS= read -r workflow; do
-            [[ -n "$workflow" ]] && git rm "$workflow"
-          done < <(
-            grep -ril "wambridge" .github/workflows \
-              --include='*.yml' --include='*.yaml' \
-              | grep -v '^.github/workflows/cleanup-wambridge.yml$' \
-              || true
-          )
 
           python - <<'PY'
           from pathlib import Path
@@ -81,7 +71,7 @@ jobs:
 
           refs="$(git grep -n -i -E 'wambridge|WAM Bridge' -- \
             ':!README.md' \
-            ':!.github/workflows/cleanup-wambridge.yml' \
+            ':!.github/workflows/**' \
             ':!.cleanup-wambridge-trigger' || true)"
           if [[ -n "$refs" ]]; then
             printf '%s\n' "$refs"

@@ -10,7 +10,7 @@ tags:
   - clippings
   - rss
 ---
-## <a href="https://rss-bridge.org/bridge01"><img src="https://cdn.jsdelivr.net/gh/selfhst/icons@main/png/rss-bridge.png" alt="rss-bridge" width="128" height="128"></a>
+## <a href="https://rss-bridge.org/bridge01"><img src="https://github.com/RSS-Bridge/rss-bridge/blob/master/static/favicon.png" alt="rss-bridge"></a>
 
 ### Public instances
 
@@ -27,3 +27,6 @@ tags:
 | ![NL](https://iplookup.flagfox.net/images/h16/NL.png) | [https://feed.eugenemolotov.ru](https://feed.eugenemolotov.ru/)              | Amsterdam, Netherlands                  |
 | ![DE](https://iplookup.flagfox.net/images/h16/DE.png) | [https://rss-bridge.mediani.de](https://rss-bridge.mediani.de/)              | Hosted with Netcup, Germany             |
 | ![UA](https://iplookup.flagfox.net/images/h16/UA.png) | [https://rss.noleron.com](https://rss.noleron.com/)                          | Hosted with Hosting Ukraine, Ukraine    |
+
+---
+<a href="https://rss-bridge.github.io/rss-bridge"><img src="https://github.com/RSS-Bridge/rss-bridge/blob/master/static/logo_300px.png" alt="rss-bridge"></a>

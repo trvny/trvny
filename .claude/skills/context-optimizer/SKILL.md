@@ -1,52 +1,63 @@
 ---
 name: context-optimizer
-description: Manage the Claude Code session itself -- diagnose and recover context-window pressure with compaction, MCP/tool pruning, CLAUDE.md sizing, and subagent delegation. Use whenever a Claude Code session is slowing down or degrading, /context shows high usage, a long task is filling the window, or you're configuring a project to stay lean. Claude Code only (these are slash commands and settings.json, not chat/API features). For how Claude should write and act to save tokens, see the token-efficiency skill.
+description: Diagnose and reduce context pressure in a Claude Code session using the commands and capabilities available in the installed version. Use when a long session becomes repetitive, forgetful, slow, or overloaded with tools and instructions. Avoid fixed percentage thresholds and undocumented environment variables.
 ---
 
-# Context Optimizer
+# Context optimizer
 
-> **Claude Code / Cowork only.** Everything here — `/context`, `/compact`, `settings.json`, MCP pruning, subagents — is a Claude Code session mechanism. If you're in claude.ai chat, none of these exist: there are no slash commands or settings files, and you can't inspect or compact the window. The chat equivalent is to start a fresh conversation and carry forward a short summary, or use Projects for persistent context — see the **chat-context** skill instead.
+This skill is for Claude Code session mechanics. Commands and compaction behavior
+can change between versions, so inspect the current `/help`, `/context`, or
+settings documentation before relying on an exact threshold or environment
+variable.
 
-Manage the context window and token budget of a **Claude Code** session. This skill is about the session container; for output-style and working discipline (verbosity, one-pass coding, read-before-write), use the **token-efficiency** skill instead.
+## Diagnose
 
-Keep this file lean on purpose: a skill that loads to *save* context shouldn't itself be the thing that fills it. The detail lives in `references/session-management.md` -- read it only when you need the specifics.
+Use `/context` when the installed version provides it. Look for:
 
-## Quick Diagnosis
+- a large conversation history,
+- oversized repository instructions,
+- many enabled MCP servers or tool definitions,
+- repeated logs or file contents,
+- signs that the model is forgetting constraints or repeating work.
 
-1. Run `/context` to see current usage and what's consuming it.
-2. **> 70%**: compact at the next task boundary, before quality degrades.
-3. **> ~85%**: you're near the danger zone where responses get generic and forgetful -- compact now. (Claude Code auto-compacts around ~83% by default; don't wait for it.)
+Do not wait for a memorized percentage. The useful trigger is declining answer
+quality or insufficient room for the remaining task.
 
-## The Two Commands That Matter Most
+## Recover
 
-Know the difference -- confusing them is the most common mistake:
+- Use `/compact` to summarize the current session while preserving the work's
+  thread when that command is available.
+- Use `/clear` for a genuinely unrelated task or when the current session is no
+  longer trustworthy. File changes remain a separate concern; verify them after
+  clearing.
+- Use resume or continue commands to reopen previous work, not as a way to free
+  context.
+- If subagents are available, delegate independent high-output investigation
+  and request a compact result. Do not delegate a tightly coupled edit merely
+  to save tokens.
+- Disable unrelated MCP servers or tools for the current task, but keep the
+  capabilities needed to finish and verify it.
 
-| Command | What it does | Use when |
-|---------|--------------|----------|
-| `/compact` | Replaces history with a compressed summary; keeps the thread of what happened (file edits stay on disk). | You want to free space but keep working on the same task. |
-| `/clear` | Empties the context window entirely -- no memory of the session (file edits still stay on disk). | You're switching to unrelated work and want a clean slate. |
+## Prevent recurring pressure
 
-Note: `/resume` (and `/continue`) does **not** reset anything -- it reopens an *earlier* session, loading its history back in. It's for picking up where you left off, not for clearing pressure. To start fresh, use `/clear`. To roll back a session that went off the rails, `/rewind` (or Esc Esc) reverts code and/or conversation to an earlier checkpoint.
+- Keep root `CLAUDE.md` and imported repository instructions short and stable.
+  Move path-specific facts closer to the files they govern.
+- Keep optional skills and long references opt-in rather than importing them
+  into every session.
+- Scope the task and acceptance criteria clearly enough that the agent does not
+  need to inspect the whole repository.
+- Avoid pasting full logs repeatedly. Preserve the decisive error, command, and
+  surrounding context.
+- Start a fresh session between unrelated projects rather than carrying a long
+  transcript as accidental state.
 
-## Highest-Leverage Moves
+## Verify after recovery
 
-In rough order of impact:
+After compaction or clearing, restate or re-read the few constraints that matter:
+current task, target branch, changed files, validation state, and unresolved
+review findings. Do not assume a summary preserved every exact identifier or
+measurement.
 
-1. **Compact early, not at the limit.** Waiting until you're nearly full means a lossy summary of an already-degraded session. Compact at task boundaries while the context is still clean.
-2. **Delegate heavy, high-output work to subagents** (large file exploration, test-suite runs, log analysis). The volume lands in the subagent; your main session stays clean.
-3. **Scope prompts tightly.** "In src/auth/, fix the login bug; don't touch the middleware; should return 429 after 5 attempts" reads a handful of files. "Fix the code" forces Claude to read everything.
-4. **Prune MCPs and tools** when switching domains -- every enabled MCP adds overhead to every request. Aim to keep the active set small.
-5. **Keep CLAUDE.md tight.** It's reloaded every session in the repo, so bloat there is a recurring tax.
-
-## When Context Is Already Degraded
-
-Signs: Claude repeats itself, forgets earlier context, gives generic answers, or tool calls start failing for reasons that worked before.
-
-Fix, in order:
-1. `/compact` (optionally steer it: `/compact focus on the auth module and current test failures`).
-2. If still bad, `/clear` and re-establish only the context you need.
-3. For recurring degradation, shrink CLAUDE.md and prune MCPs so sessions start leaner.
-
-## More Detail
-
-Read `references/session-management.md` for the full tables: per-phase context budget targets, the MCP audit procedure, the auto-compaction config env var (and its known caveats), CLAUDE.md structuring, and subagent delegation patterns.
+Read `references/session-management.md` for a compact checklist. Treat any
+version-specific command or setting there as something to verify against the
+installed Claude Code version.

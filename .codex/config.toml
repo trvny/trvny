@@ -1,50 +1,25 @@
-# Personal Codex configuration for trvny.
-# Keep project instructions in AGENTS.md and secrets outside the repository.
+#:schema https://developers.openai.com/codex/config-schema.json
 
-# Model and response behavior
-model = "gpt-5.6"
-model_provider = "openai"
-personality = "pragmatic"
-model_reasoning_effort = "medium"
-plan_mode_reasoning_effort = "high"
-model_reasoning_summary = "auto"
-model_verbosity = "low"
-
-# Approval and isolation
+# Repository defaults only. Keep model choice, UI preferences, credentials, and
+# personal permissions in the user's Codex configuration.
 approval_policy = "on-request"
-approvals_reviewer = "user"
 sandbox_mode = "workspace-write"
-default_permissions = ":workspace"
-allow_login_shell = true
-
-# Authentication
-cli_auth_credentials_store = "auto"
-mcp_oauth_credentials_store = "auto"
-
-# Project instructions and UI
+web_search = "live"
 project_doc_max_bytes = 32768
 project_doc_fallback_filenames = []
-file_opener = "none"
-hide_agent_reasoning = true
-show_raw_agent_reasoning = false
-check_for_update_on_startup = true
-web_search = "live"
 
-# Multi-agent work stays shallow and bounded.
 [agents]
 enabled = true
 max_concurrent_threads_per_session = 4
-max_depth = 1
 interrupt_message = true
 
-# Workspace writes are allowed, but shell commands do not get general network access.
 [sandbox_workspace_write]
 writable_roots = []
 network_access = false
 exclude_tmpdir_env_var = false
 exclude_slash_tmp = false
 
-# Pass only a minimal environment to child processes and strip likely secrets.
+# Pass a small environment to child processes and strip likely credentials.
 [shell_environment_policy]
 inherit = "core"
 ignore_default_excludes = false
@@ -62,47 +37,11 @@ set = {}
 include_only = []
 experimental_use_profile = false
 
-[history]
-persistence = "save-all"
-max_bytes = 5242880
-
-[tui]
-notifications = false
-animations = true
-show_tooltips = false
-alternate_screen = "auto"
-status_line = ["model-with-reasoning", "context-remaining", "current-dir", "git-branch"]
-
 [analytics]
 enabled = false
 
-[feedback]
-enabled = true
-
-# Keep the stable conveniences enabled; leave experimental switches at defaults.
-[features]
-apps = true
-personality = true
-enable_request_compression = true
-
-# Connector defaults: reads may run automatically; writes require approval.
-[apps._default]
-enabled = true
-destructive_enabled = false
-open_world_enabled = true
-approvals_reviewer = "user"
-default_tools_approval_mode = "writes"
-
-[tools]
-view_image = true
-
-# Telemetry exporters stay disabled unless explicitly configured.
 [otel]
 log_user_prompt = false
-environment = "dev"
 exporter = "none"
 trace_exporter = "none"
 metrics_exporter = "none"
-
-[windows]
-sandbox = "unelevated"

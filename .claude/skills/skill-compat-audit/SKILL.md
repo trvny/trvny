@@ -80,7 +80,13 @@ Do not solve incompatibility by deleting the part that performs the actual job.
 
 ## 5. Test invocation and execution
 
-Use the current platform's supported validation or upload flow. Then test with:
+Use a local validator or offline package check when the target provides one.
+Uploading, installing, provisioning, or enabling a skill changes an external
+account and may disclose package contents, so perform those actions only when
+the user explicitly requests and authorizes them. Otherwise provide the exact
+remaining test and report it as unvalidated.
+
+When an authorized target installation exists, test with:
 
 - a prompt that should clearly invoke the skill;
 - a nearby prompt that should not invoke it;
@@ -112,6 +118,8 @@ For each audited skill, report briefly:
 - Current target documentation beats this skill.
 - Required metadata and package layout must be verified, not remembered.
 - Never paste credentials into a skill package or chat transcript.
+- Never upload, install, provision, or enable a skill without explicit
+  authorization.
 - Do not claim cross-runtime compatibility without testing each target.
 - Prefer capability-based instructions over connector catalogs and machine
   snapshots.

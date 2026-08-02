@@ -83,7 +83,7 @@
 
 Oryginalny kod i dokumentację obejmuje [ISC](LICENSE). Zewnętrzne feedy,
 playlisty, dane, cytaty, grafiki i znaki pozostają własnością ich autorów.
-Szczegóły: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Szczegóły: [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).
 
 ---
 

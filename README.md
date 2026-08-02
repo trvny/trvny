@@ -79,6 +79,12 @@
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
+## Licencja i materiały zewnętrzne
+
+Oryginalny kod i dokumentację obejmuje [ISC](LICENSE). Zewnętrzne feedy,
+playlisty, dane, cytaty, grafiki i znaki pozostają własnością ich autorów.
+Szczegóły: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ---
 
 <div align="center">
@@ -87,4 +93,4 @@
 
 </div>
 
-[![license](https://img.shields.io/github/license/trvny/trvny)](https://opensource.org/license/bsd-2-clause)
+[![license](https://img.shields.io/github/license/trvny/trvny)](LICENSE)

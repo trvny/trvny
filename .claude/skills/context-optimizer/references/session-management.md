@@ -1,89 +1,86 @@
-# Session Management Details
+# Session management checklist
 
-Detailed reference for the context-optimizer skill. Read when you need specifics beyond the SKILL.md summary.
+Detailed reference for the `context-optimizer` skill. Claude Code commands,
+settings, and compaction behavior change over time; confirm version-specific
+behavior with the installed `/help` output or current Anthropic documentation.
 
-## Immediate Actions
+## Immediate actions
 
-| Action | Roughly saves | When |
-|--------|---------------|------|
-| `/compact` | A large chunk of context (varies with how much was summarizable) | At task boundaries |
-| Disable unused MCPs | Per-MCP overhead on every request | When switching domains |
-| Delegate to subagents | Keeps the volume out of the main context entirely | Heavy search/read/test tasks |
-| `/clear` | Full reset of the window | Starting unrelated work |
+| Situation | Action |
+|---|---|
+| Same task, useful history, shrinking headroom | Use `/compact` when available |
+| Unrelated task | Start a fresh session or use `/clear` |
+| Too many irrelevant tools | Disable unrelated MCP servers or tool groups |
+| Huge independent investigation | Delegate to a subagent when available |
+| Repeated logs or file dumps | Keep only the decisive excerpt and location |
+| Bloated startup context | Shorten root instructions and move local facts closer to their paths |
 
-Savings are situational; don't promise a fixed percentage. The win from `/compact` depends on how much of the history compresses cleanly.
+Do not promise a fixed percentage saved by any action.
 
-## Context Budget Planning
+## Context planning
 
-Rough per-phase targets for a long task:
+Reserve enough room for implementation, validation, and review. Instead of
+fixed phase percentages, ask:
 
-| Phase | Target Usage | If Over |
-|-------|-------------|---------|
-| Planning | < 20% | Keep plans concise |
-| Implementation | < 60% | Compact between files |
-| Testing | < 80% | Delegate test runs to a subagent |
-| Review | < 90% | `/clear` and re-establish only what's needed |
+- Is the remaining task larger than the available headroom?
+- Is the model still remembering acceptance criteria and constraints?
+- Are new tool calls adding evidence or repeating old material?
+- Would a compact summary preserve exact identifiers, measurements, and branch
+  state well enough to continue safely?
 
-## Auto-Compaction Configuration
+Compact at a clean task boundary when possible. After compaction, verify the
+current branch, changed files, failing command, and unresolved review findings.
 
-Claude Code auto-compacts around ~83% of the window by default. You can lower that trigger with the `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` environment variable (value is a percentage, 1-100).
+## Compaction settings
 
-```bash
-# Compact earlier, at 50% -- more headroom, more frequent compaction
-export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50
-```
+Do not encode undocumented auto-compaction percentages or environment variables
+as repository policy. If tuning is needed:
 
-Important caveats (verified against the Claude Code issue tracker as of early 2026):
+1. inspect the current Claude Code documentation or `/help` output,
+2. verify the setting exists in the installed version,
+3. keep machine-specific values in user or local settings,
+4. test the behavior in a new session,
+5. remove the setting when it no longer has a measurable benefit.
 
-- **It can only lower the threshold, not raise it.** Values above the ~83% default are silently clamped, so setting it to 95 does nothing. Useful range is below ~83.
-- **Setting it via the `env` block of `settings.json` has been reported as unreliable** -- in several versions it's visible to subprocesses but ignored by the compaction logic itself. The more reliable path is exporting it in your shell (`.bashrc`/`.zshrc`) before launching Claude Code.
-- **Env-var changes only apply to new sessions.** Restart Claude Code after changing it.
-- Very low values (e.g. 10) compact too often and waste tokens re-summarizing. A value in the 50-75 range is a reasonable starting point; verify the behavior in your own setup, since this area has open bugs.
+## MCP and tool audit
 
-If you do use settings.json despite the above, it goes in `~/.claude/settings.json`:
-```json
-{ "env": { "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50" } }
-```
+Enabled tools add definitions and may consume attention even when unused.
+Periodically inspect the active set and disable unrelated servers for the
+current domain. Do not remove a tool that is required for validation or an
+explicit external action merely to make the context smaller.
 
-## MCP Audit
+## Subagent delegation
 
-Every enabled MCP server adds tool definitions to every request, so an overloaded toolset taxes the whole session. Keep the active set lean.
+Good candidates are independent and high-output:
 
-```bash
-/mcp   # list active servers, then disable what this task doesn't need
-```
+- broad codebase discovery,
+- isolated log analysis,
+- a separate review pass,
+- a test matrix whose raw output need not enter the main session.
 
-Rule of thumb: only enable MCPs relevant to the current domain. When you switch domains, prune.
+Keep tightly coupled edits in one context unless the repository has a clear
+handoff boundary. Ask subagents for conclusions, evidence, and file locations,
+not a transcript dump.
 
-## Subagent Delegation
+## Prompt scoping
 
-Push high-output operations into subagents so the bulk never enters the main context:
+A useful task brief identifies:
 
-- Test-suite output
-- Large file or codebase exploration
-- Documentation generation
-- Log analysis
+- the target area,
+- the desired outcome,
+- constraints and files that must not change,
+- acceptance criteria,
+- the narrow validation expected.
 
-The subagent absorbs the volume and returns only its conclusion; the main session stays clean.
+Do not over-constrain a debugging task before the evidence identifies the
+faulty layer.
 
-## Prompt Scoping
+## Instruction-file maintenance
 
-Tightly scoped prompts read fewer files and produce less rework:
+Root instruction files are loaded frequently, so keep them short and stable.
+Move path-specific commands and architecture rules to nearer instruction files
+or opt-in references. Remove facts that can be discovered cheaply and facts
+likely to become stale.
 
-- **Scope it**: "In src/auth/, fix the login bug"
-- **Constrain it**: "Don't modify the middleware"
-- **Give acceptance criteria**: "Should return 429 after 5 attempts"
-- **Avoid the vague**: "Fix the code" forces Claude to read broadly to find the target
-
-## CLAUDE.md Optimization
-
-CLAUDE.md is reloaded at the start of every session in the repo, so size there is a recurring cost:
-
-- Root CLAUDE.md: aim for < 60 lines, < 150 max
-- Move package-specific guidance to a package-level CLAUDE.md
-- Move personal preferences to CLAUDE.local.md
-- Remove obvious or rapidly-changing information that goes stale
-
-## See Also
-
-For output-style and working-discipline rules (verbosity, one-pass coding, tool-call budgets, read-before-write, ASCII-only output), use the **token-efficiency** skill. That skill owns *how Claude responds*; this one owns *the session container*.
+For output and working discipline, use the `token-efficiency` skill. This file
+covers the session container only.

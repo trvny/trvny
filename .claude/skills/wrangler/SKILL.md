@@ -1,924 +1,150 @@
 ---
 name: wrangler
-description: Cloudflare Workers CLI for deploying, developing, and managing Workers, KV, R2, D1, Vectorize, Hyperdrive, Workers AI, Containers, Queues, Workflows, Pipelines, and Secrets Store. Load before running wrangler commands to ensure correct syntax and best practices. Biases towards retrieval from Cloudflare docs over pre-trained knowledge.
+description: Use the Wrangler CLI safely for Cloudflare Workers projects. Discover the project's pinned Wrangler version, package scripts, configuration, environment, and current official command syntax before acting. Use for local development, types, dry runs, bindings, migrations, deployments, logs, secrets, and resource management. Require authorization for remote or destructive operations.
 ---
 
 # Wrangler CLI
 
-> **In claude.ai chat.** You can install Wrangler in the bash sandbox (`npm install -D wrangler@latest`) and run offline commands — `wrangler types`, `tsc --noEmit`, `wrangler deploy --dry-run`, config validation. But anything that touches the user's Cloudflare account — `wrangler login` (browser OAuth), `wrangler deploy`, `wrangler dev` against real bindings, `secret put` — **won't work here**: there's no browser and no account auth. For those, write the exact command and config for the user to run on their machine (or via the deploy workflow in CI), and say so plainly rather than implying you deployed.
+Wrangler changes quickly, and its subcommands span harmless local inspection,
+remote reads, billable writes, deployments, migrations, and deletion. Do not use
+this skill as a frozen command reference. Retrieve current Cloudflare docs and
+inspect the project's installed version before constructing a command.
 
-Your knowledge of Wrangler CLI flags, config fields, and subcommands may be outdated. **Prefer retrieval over pre-training** for any Wrangler task.
+## Establish project context
 
-## Retrieval Sources
+Read:
 
-Fetch the **latest** information before writing or reviewing Wrangler commands and config. Do not rely on baked-in knowledge for CLI flags, config fields, or binding shapes.
+- nearest `AGENTS.md`;
+- `package.json` and the lockfile;
+- `wrangler.jsonc`, `wrangler.toml`, or generated config;
+- active CI and deployment workflows;
+- migration directories and generated types where relevant.
 
-| Source | How to retrieve | Use for |
-|--------|----------------|---------|
-| Wrangler docs | `https://developers.cloudflare.com/workers/wrangler/` | CLI commands, flags, config reference |
-| Wrangler config schema | `node_modules/wrangler/config-schema.json` | Config fields, binding shapes, allowed values |
-| Cloudflare docs | Search tool or `https://developers.cloudflare.com/workers/` | API reference, compatibility dates/flags |
+Prefer the project's package-manager script or locally installed Wrangler. Check
+the version with the command appropriate to that package manager. Running
+`npx wrangler` in a project without Wrangler installed can fetch a newer version
+than CI uses, so do not use it casually as a substitute for the locked toolchain.
 
-## FIRST: Check if Wrangler is installed, and if not, install it
+Do not install or upgrade Wrangler merely to run one command unless the task
+includes that dependency change. If dependencies are missing, restore the
+locked environment with the project's package manager when appropriate.
 
-Check if Wrangler is installed by running:
+## Retrieve exact syntax
 
-```bash
-wrangler --version  # Requires v4.x+
-```
-
-If Wrangler is not installed, you should install it by running:
-
-```bash
-npm install -D wrangler@latest
-```
-
-Wherever possible, you should use Wrangler instead of manually constructing API requests.
-
-## Key Guidelines
-
-- **Use `wrangler.jsonc`**: Prefer JSON config over TOML. Newer features are JSON-only.
-- **Set `compatibility_date`**: Use a recent date (within 30 days). Check https://developers.cloudflare.com/workers/configuration/compatibility-dates/
-- **Generate types after config changes**: Run `wrangler types` to update TypeScript bindings.
-- **Local dev defaults to local storage**: Bindings use local simulation unless `remote: true`.
-- **Profile Worker startup**: Run `wrangler check startup` to measure startup time and detect scripts that exceed the startup time limit.
-- **Use environments for staging/prod**: Define `env.staging` and `env.production` in config.
-
-## Quick Start: New Worker
+Use current official Cloudflare documentation or the installed CLI help for the
+specific product and version:
 
 ```bash
-# Initialize new project
-npx wrangler init my-worker
-
-# Or with a framework
-npx create-cloudflare@latest my-app
+npm exec wrangler -- --version
+npm exec wrangler -- --help
+npm exec wrangler -- <command> --help
 ```
 
-## Quick Reference: Core Commands
+Adapt the launcher for npm, pnpm, yarn, bun, or an existing package script. Do
+not paste a memorized flag into production automation without checking that the
+installed version supports it.
 
-| Task | Command |
-|------|---------|
-| Start local dev server | `wrangler dev` |
-| Deploy to Cloudflare | `wrangler deploy` |
-| Deploy dry run | `wrangler deploy --dry-run` |
-| Generate TypeScript types | `wrangler types` |
-| Profile Worker startup time | `wrangler check startup` |
-| View live logs | `wrangler tail` |
-| Delete Worker | `wrangler delete` |
-| Auth status | `wrangler whoami` |
+The local Wrangler config and bundled schema are the source of truth for this
+project's fields and bindings. Current online docs are the source for newly
+available features and platform behavior. Reconcile both instead of silently
+reviewing old code with a new unpinned CLI.
 
----
+## Classify the operation
 
-## Configuration (wrangler.jsonc)
+Before running a command, classify it:
 
-### Minimal Config
+### Local and normally reversible
 
-```jsonc
-{
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "my-worker",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-01-01"
-}
-```
+Examples include version/help output, local type generation, configuration
+inspection, tests, and a supported deploy dry run. These can still modify local
+files or dependencies, so inspect the command and diff afterward.
 
-### Full Config with Bindings
+### Remote read
 
-```jsonc
-{
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "my-worker",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-01-01",
-  "compatibility_flags": ["nodejs_compat"],
+Examples include account identity, logs, resource listings, and remote database
+queries. These require authentication and may expose private account data.
+Perform them only when needed for the task and summarize sensitive output
+carefully.
 
-  // Environment variables
-  "vars": {
-    "ENVIRONMENT": "production"
-  },
+### Remote write
 
-  // KV Namespace
-  "kv_namespaces": [
-    { "binding": "KV", "id": "<KV_NAMESPACE_ID>" }
-  ],
+Examples include deployment, version upload or rollout, setting secrets,
+creating resources, applying remote migrations, writing KV/R2/D1 data, and
+changing routes or bindings. Require an explicit request and authorization.
+Confirm the target account, Worker, environment, and resource before execution.
 
-  // R2 Bucket
-  "r2_buckets": [
-    { "binding": "BUCKET", "bucket_name": "my-bucket" }
-  ],
+### Destructive or hard to reverse
 
-  // D1 Database
-  "d1_databases": [
-    { "binding": "DB", "database_name": "my-db", "database_id": "<DB_ID>" }
-  ],
+Examples include deleting Workers or resources, dropping data, rolling back or
+replacing production state, and deleting secrets. Require explicit authorization
+for the exact operation and verify backups or recovery paths when applicable.
 
-  // Workers AI (always remote)
-  "ai": { "binding": "AI" },
+## Configuration rules
 
-  // Vectorize
-  "vectorize": [
-    { "binding": "VECTOR_INDEX", "index_name": "my-index" }
-  ],
+- Preserve the project's existing config format and environment model unless a
+  migration is requested.
+- Keep the compatibility date and flags explicit. Update them deliberately with
+  current docs and tests, not as drive-by cleanup.
+- Keep binding names synchronized across config, code, generated types, tests,
+  migrations, and documentation.
+- Keep secret values out of config, shell history, logs, PR text, and source.
+  Use the platform's supported secret mechanism.
+- Never copy account IDs, namespace IDs, database IDs, tokens, or private routes
+  from one project or environment without verifying the intended target.
+- Preserve project-specific deployment scripts and CI conventions. A generic
+  Wrangler command is not automatically safer than the repository workflow.
 
-  // Hyperdrive
-  "hyperdrive": [
-    { "binding": "HYPERDRIVE", "id": "<HYPERDRIVE_ID>" }
-  ],
+## Common workflows
 
-  // Durable Objects
-  "durable_objects": {
-    "bindings": [
-      { "name": "COUNTER", "class_name": "Counter" }
-    ]
-  },
+### Local validation
 
-  // Cron triggers
-  "triggers": {
-    "crons": ["0 * * * *"]
-  },
+Use the project's scripts first. Depending on the repository, relevant checks
+may include locked dependency installation, type generation, typecheck, tests,
+lint, and a dry-run bundle. Read the current `package.json` rather than assuming
+script names.
 
-  // Environments
-  "env": {
-    "staging": {
-      "name": "my-worker-staging",
-      "vars": { "ENVIRONMENT": "staging" }
-    }
-  }
-}
-```
+### Binding or migration change
 
-### Generate Types from Config
+Update config, generated types, code, tests, and migrations as one coherent
+change. Apply migrations locally first when the project supports it. Do not
+apply remote D1 or Durable Object migrations as an incidental validation step.
 
-```bash
-# Generate worker-configuration.d.ts
-wrangler types
+### Deployment
 
-# Custom output path
-wrangler types ./src/env.d.ts
+Before deployment:
 
-# Check types are up to date (CI)
-wrangler types --check
-```
+1. confirm account, Worker name, environment, routes, bindings, and secrets;
+2. inspect the final diff and relevant CI;
+3. use the repository's deployment workflow or installed Wrangler version;
+4. perform the external action only when explicitly requested;
+5. observe the actual deploy result and smoke-test the changed path.
 
----
+A dry run proves bundling, not authentication, migrations, bindings, routes, or
+live runtime behavior. A push to `main` proves neither upload nor rollout.
 
-## Local Development
+### Logs and production diagnosis
 
-### Start Dev Server
+Limit scope and duration. Avoid printing request bodies, credentials, personal
+data, or unbounded logs. Correlate logs with a concrete version, deployment, or
+request and distinguish platform failures from application failures.
 
-```bash
-# Local mode (default) - uses local storage simulation
-wrangler dev
+## Failure handling
 
-# With specific environment
-wrangler dev --env staging
+- Read the full command error and current help before changing flags.
+- Distinguish missing local dependencies, authentication, permissions, wrong
+  account/environment, invalid config, API rejection, and application failure.
+- Do not work around an authentication or permission error by embedding a token
+  in source or constructing an undocumented direct API request.
+- Never claim a deployment, migration, secret change, or resource operation
+  succeeded without observing its result.
 
-# Force local-only (disable remote bindings)
-wrangler dev --local
+## Completion
 
-# Remote mode - runs on Cloudflare edge (legacy)
-wrangler dev --remote
-
-# Custom port
-wrangler dev --port 8787
-
-# Live reload for HTML changes
-wrangler dev --live-reload
-
-# Test scheduled/cron handlers
-wrangler dev --test-scheduled
-# Then visit: http://localhost:8787/__scheduled
-```
-
-### Remote Bindings for Local Dev
-
-Use `remote: true` in binding config to connect to real resources while running locally:
-
-```jsonc
-{
-  "r2_buckets": [
-    { "binding": "BUCKET", "bucket_name": "my-bucket", "remote": true }
-  ],
-  "ai": { "binding": "AI", "remote": true },
-  "vectorize": [
-    { "binding": "INDEX", "index_name": "my-index", "remote": true }
-  ]
-}
-```
-
-**Recommended remote bindings**: AI (required), Vectorize, Browser Rendering, mTLS, Images.
-
-### Local Secrets
-
-Create `.dev.vars` for local development secrets:
-
-```
-API_KEY=local-dev-key
-DATABASE_URL=postgres://localhost:5432/dev
-```
-
----
-
-## Deployment
-
-### Deploy Worker
-
-```bash
-# Deploy to production
-wrangler deploy
-
-# Deploy specific environment
-wrangler deploy --env staging
-
-# Dry run (validate without deploying)
-wrangler deploy --dry-run
-
-# Keep dashboard-set variables
-wrangler deploy --keep-vars
-
-# Minify code
-wrangler deploy --minify
-```
-
-### Manage Secrets
-
-> **Security**: Never pass secret values as command arguments or pipe them via `echo`.
-> Use the interactive prompt (preferred), pipe from a file, or use `secret bulk`.
-> Never output, log, or hardcode secret values in commands.
-
-```bash
-# Set secret — interactive prompt (preferred, wrangler will ask for the value securely)
-wrangler secret put API_KEY
-
-# Set secret from a file (useful for PEM keys, CI environments)
-wrangler secret put PRIVATE_KEY < path/to/private-key.pem
-
-# List secrets
-wrangler secret list
-
-# Delete secret
-wrangler secret delete API_KEY
-
-# Bulk secrets from JSON file (do not commit this file to version control)
-wrangler secret bulk secrets.json
-```
-
-### Versions and Rollback
-
-```bash
-# List recent versions
-wrangler versions list
-
-# View specific version
-wrangler versions view <VERSION_ID>
-
-# Rollback to previous version
-wrangler rollback
-
-# Rollback to specific version
-wrangler rollback <VERSION_ID>
-```
-
----
-
-## KV (Key-Value Store)
-
-### Manage Namespaces
-
-```bash
-# Create namespace
-wrangler kv namespace create MY_KV
-
-# List namespaces
-wrangler kv namespace list
-
-# Delete namespace
-wrangler kv namespace delete --namespace-id <ID>
-```
-
-### Manage Keys
-
-```bash
-# Put value
-wrangler kv key put --namespace-id <ID> "key" "value"
-
-# Put with expiration (seconds)
-wrangler kv key put --namespace-id <ID> "key" "value" --expiration-ttl 3600
-
-# Get value
-wrangler kv key get --namespace-id <ID> "key"
-
-# List keys
-wrangler kv key list --namespace-id <ID>
-
-# Delete key
-wrangler kv key delete --namespace-id <ID> "key"
-
-# Bulk put from JSON
-wrangler kv bulk put --namespace-id <ID> data.json
-```
-
-### Config Binding
-
-```jsonc
-{
-  "kv_namespaces": [
-    { "binding": "CACHE", "id": "<NAMESPACE_ID>" }
-  ]
-}
-```
-
----
-
-## R2 (Object Storage)
-
-### Manage Buckets
-
-```bash
-# Create bucket
-wrangler r2 bucket create my-bucket
-
-# Create with location hint
-wrangler r2 bucket create my-bucket --location wnam
-
-# List buckets
-wrangler r2 bucket list
-
-# Get bucket info
-wrangler r2 bucket info my-bucket
-
-# Delete bucket
-wrangler r2 bucket delete my-bucket
-```
-
-### Manage Objects
-
-```bash
-# Upload object
-wrangler r2 object put my-bucket/path/file.txt --file ./local-file.txt
-
-# Download object
-wrangler r2 object get my-bucket/path/file.txt
-
-# Delete object
-wrangler r2 object delete my-bucket/path/file.txt
-```
-
-### Config Binding
-
-```jsonc
-{
-  "r2_buckets": [
-    { "binding": "ASSETS", "bucket_name": "my-bucket" }
-  ]
-}
-```
-
----
-
-## D1 (SQL Database)
-
-### Manage Databases
-
-```bash
-# Create database
-wrangler d1 create my-database
-
-# Create with location
-wrangler d1 create my-database --location wnam
-
-# List databases
-wrangler d1 list
-
-# Get database info
-wrangler d1 info my-database
-
-# Delete database
-wrangler d1 delete my-database
-```
-
-### Execute SQL
-
-```bash
-# Execute SQL command (remote)
-wrangler d1 execute my-database --remote --command "SELECT * FROM users"
-
-# Execute SQL file (remote)
-wrangler d1 execute my-database --remote --file ./schema.sql
-
-# Execute locally
-wrangler d1 execute my-database --local --command "SELECT * FROM users"
-```
-
-### Migrations
-
-```bash
-# Create migration
-wrangler d1 migrations create my-database create_users_table
-
-# List pending migrations
-wrangler d1 migrations list my-database --local
-
-# Apply migrations locally
-wrangler d1 migrations apply my-database --local
-
-# Apply migrations to remote
-wrangler d1 migrations apply my-database --remote
-```
-
-### Export/Backup
-
-```bash
-# Export schema and data
-wrangler d1 export my-database --remote --output backup.sql
-
-# Export schema only
-wrangler d1 export my-database --remote --output schema.sql --no-data
-```
-
-### Config Binding
-
-```jsonc
-{
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "my-database",
-      "database_id": "<DATABASE_ID>",
-      "migrations_dir": "./migrations"
-    }
-  ]
-}
-```
-
----
-
-## Vectorize (Vector Database)
-
-### Manage Indexes
-
-```bash
-# Create index with dimensions
-wrangler vectorize create my-index --dimensions 768 --metric cosine
-
-# Create with preset (auto-configures dimensions/metric)
-wrangler vectorize create my-index --preset @cf/baai/bge-base-en-v1.5
-
-# List indexes
-wrangler vectorize list
-
-# Get index info
-wrangler vectorize get my-index
-
-# Delete index
-wrangler vectorize delete my-index
-```
-
-### Manage Vectors
-
-```bash
-# Insert vectors from NDJSON file
-wrangler vectorize insert my-index --file vectors.ndjson
-
-# Query vectors
-wrangler vectorize query my-index --vector "[0.1, 0.2, ...]" --top-k 10
-```
-
-### Config Binding
-
-```jsonc
-{
-  "vectorize": [
-    { "binding": "SEARCH_INDEX", "index_name": "my-index" }
-  ]
-}
-```
-
----
-
-## Hyperdrive (Database Accelerator)
-
-### Manage Configs
-
-```bash
-# Create config
-wrangler hyperdrive create my-hyperdrive \
-  --origin-host db.example.com \
-  --origin-port 5432 \
-  --database my-database \
-  --origin-user db-user \
-  --origin-password "$DB_PASSWORD"
-
-# Or using a connection string from an environment variable
-wrangler hyperdrive create my-hyperdrive \
-  --connection-string "$HYPERDRIVE_CONNECTION_STRING"
-
-# List configs
-wrangler hyperdrive list
-
-# Get config details
-wrangler hyperdrive get <HYPERDRIVE_ID>
-
-# Update config
-wrangler hyperdrive update <HYPERDRIVE_ID> \
-  --origin-password "$DB_PASSWORD"
-
-# Delete config
-wrangler hyperdrive delete <HYPERDRIVE_ID>
-```
-
-### Config Binding
-
-```jsonc
-{
-  "compatibility_flags": ["nodejs_compat"],
-  "hyperdrive": [
-    { "binding": "HYPERDRIVE", "id": "<HYPERDRIVE_ID>" }
-  ]
-}
-```
-
----
-
-## Workers AI
-
-### List Models
-
-```bash
-# List available models
-wrangler ai models
-
-# List finetunes
-wrangler ai finetune list
-```
-
-### Config Binding
-
-```jsonc
-{
-  "ai": { "binding": "AI" }
-}
-```
-
-**Note**: Workers AI always runs remotely and incurs usage charges even in local dev.
-
----
-
-## Queues
-
-### Manage Queues
-
-```bash
-# Create queue
-wrangler queues create my-queue
-
-# List queues
-wrangler queues list
-
-# Delete queue
-wrangler queues delete my-queue
-
-# Add consumer to queue
-wrangler queues consumer add my-queue my-worker
-
-# Remove consumer
-wrangler queues consumer remove my-queue my-worker
-```
-
-### Config Binding
-
-```jsonc
-{
-  "queues": {
-    "producers": [
-      { "binding": "MY_QUEUE", "queue": "my-queue" }
-    ],
-    "consumers": [
-      {
-        "queue": "my-queue",
-        "max_batch_size": 10,
-        "max_batch_timeout": 30
-      }
-    ]
-  }
-}
-```
-
----
-
-## Containers
-
-### Build and Push Images
-
-```bash
-# Build container image
-wrangler containers build -t my-app:latest .
-
-# Build and push in one command
-wrangler containers build -t my-app:latest . --push
-
-# Push existing image to Cloudflare registry
-wrangler containers push my-app:latest
-```
-
-### Manage Containers
-
-```bash
-# List containers
-wrangler containers list
-
-# Get container info
-wrangler containers info <CONTAINER_ID>
-
-# Delete container
-wrangler containers delete <CONTAINER_ID>
-```
-
-### Manage Images
-
-```bash
-# List images in registry
-wrangler containers images list
-
-# Delete image
-wrangler containers images delete my-app:latest
-```
-
-### Manage External Registries
-
-> **Security**: Never hardcode registry credentials in commands. Use environment variables.
-
-```bash
-# List configured registries
-wrangler containers registries list
-
-# Configure external registry (e.g., ECR)
-wrangler containers registries configure <DOMAIN> \
-  --aws-access-key-id "$AWS_ACCESS_KEY_ID"
-
-# Configure DockerHub
-wrangler containers registries configure <DOMAIN> \
-  --dockerhub-username "$DOCKERHUB_USERNAME"
-
-# Delete registry configuration
-wrangler containers registries delete <DOMAIN>
-```
-
----
-
-## Workflows
-
-### Manage Workflows
-
-```bash
-# List workflows
-wrangler workflows list
-
-# Describe workflow
-wrangler workflows describe my-workflow
-
-# Trigger workflow instance
-wrangler workflows trigger my-workflow
-
-# Trigger with parameters
-wrangler workflows trigger my-workflow --params '{"key": "value"}'
-
-# Delete workflow
-wrangler workflows delete my-workflow
-```
-
-### Manage Workflow Instances
-
-```bash
-# List instances
-wrangler workflows instances list my-workflow
-
-# Describe instance
-wrangler workflows instances describe my-workflow <INSTANCE_ID>
-
-# Terminate instance
-wrangler workflows instances terminate my-workflow <INSTANCE_ID>
-```
-
-### Config Binding
-
-```jsonc
-{
-  "workflows": [
-    {
-      "binding": "MY_WORKFLOW",
-      "name": "my-workflow",
-      "class_name": "MyWorkflow"
-    }
-  ]
-}
-```
-
----
-
-## Pipelines
-
-### Manage Pipelines
-
-```bash
-# Create pipeline
-wrangler pipelines create my-pipeline --r2 my-bucket
-
-# List pipelines
-wrangler pipelines list
-
-# Show pipeline details
-wrangler pipelines show my-pipeline
-
-# Update pipeline
-wrangler pipelines update my-pipeline --batch-max-mb 100
-
-# Delete pipeline
-wrangler pipelines delete my-pipeline
-```
-
-### Config Binding
-
-```jsonc
-{
-  "pipelines": [
-    { "binding": "MY_PIPELINE", "pipeline": "my-pipeline" }
-  ]
-}
-```
-
----
-
-## Secrets Store
-
-### Manage Stores
-
-```bash
-# Create store
-wrangler secrets-store store create my-store
-
-# List stores
-wrangler secrets-store store list
-
-# Delete store
-wrangler secrets-store store delete <STORE_ID>
-```
-
-### Manage Secrets in Store
-
-```bash
-# Add secret to store
-wrangler secrets-store secret put <STORE_ID> my-secret
-
-# List secrets in store
-wrangler secrets-store secret list <STORE_ID>
-
-# Get secret
-wrangler secrets-store secret get <STORE_ID> my-secret
-
-# Delete secret from store
-wrangler secrets-store secret delete <STORE_ID> my-secret
-```
-
-### Config Binding
-
-```jsonc
-{
-  "secrets_store_secrets": [
-    {
-      "binding": "MY_SECRET",
-      "store_id": "<STORE_ID>",
-      "secret_name": "my-secret"
-    }
-  ]
-}
-```
-
----
-
-## Pages (Frontend Deployment)
-
-```bash
-# Create Pages project
-wrangler pages project create my-site
-
-# Deploy directory to Pages
-wrangler pages deploy ./dist
-
-# Deploy with specific branch
-wrangler pages deploy ./dist --branch main
-
-# List deployments
-wrangler pages deployment list --project-name my-site
-```
-
----
-
-## Observability
-
-### Tail Logs
-
-```bash
-# Stream live logs
-wrangler tail
-
-# Tail specific Worker
-wrangler tail my-worker
-
-# Filter by status
-wrangler tail --status error
-
-# Filter by search term
-wrangler tail --search "error"
-
-# JSON output
-wrangler tail --format json
-```
-
-### Config Logging
-
-```jsonc
-{
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1
-  }
-}
-```
-
----
-
-## Testing
-
-### Local Testing with Vitest
-
-```bash
-npm install -D @cloudflare/vitest-pool-workers vitest
-```
-
-`vitest.config.ts`:
-```typescript
-import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
-
-export default defineWorkersConfig({
-  test: {
-    poolOptions: {
-      workers: {
-        wrangler: { configPath: "./wrangler.jsonc" },
-      },
-    },
-  },
-});
-```
-
-### Test Scheduled Events
-
-```bash
-# Enable in dev
-wrangler dev --test-scheduled
-
-# Trigger via HTTP
-curl http://localhost:8787/__scheduled
-```
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| `command not found: wrangler` | Install: `npm install -D wrangler` |
-| Auth errors | Run `wrangler login` |
-| Startup time limit exceeded | Run `wrangler check startup` to profile startup and generate CPU profiles |
-| Type errors after config change | Run `wrangler types` |
-| Local storage not persisting | Check `.wrangler/state` directory |
-| Binding undefined in Worker | Verify binding name matches config exactly |
-
-### Debug Commands
-
-```bash
-# Check auth status
-wrangler whoami
-
-# Profile Worker startup time
-wrangler check startup
-
-# View config schema
-wrangler docs configuration
-```
-
----
-
-## Best Practices
-
-1. **Version control `wrangler.jsonc`**: Treat as source of truth for Worker config.
-2. **Use automatic provisioning**: Omit resource IDs for auto-creation on deploy.
-3. **Run `wrangler types` in CI**: Add to build step to catch binding mismatches.
-4. **Use environments**: Separate staging/production with `env.staging`, `env.production`.
-5. **Set `compatibility_date`**: Update quarterly to get new runtime features.
-6. **Use `.dev.vars` for local secrets**: Never commit secrets to config.
-7. **Test locally first**: `wrangler dev` with local bindings before deploying.
-8. **Use `--dry-run` before major deploys**: Validate changes without deployment.
-9. **Never embed secrets in commands**: Use interactive prompts (`wrangler secret put`), file-based input (`wrangler secret bulk`), or secure CI environment variables. Never echo, log, or pass secret values as CLI arguments.
+Report briefly:
+
+- repository and installed Wrangler version;
+- target account/Worker/environment when a remote operation was authorized;
+- exact class of operation performed;
+- files or resources changed;
+- local validation and observed CI/deployment result;
+- anything not executed or not verified live.

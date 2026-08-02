@@ -1,135 +1,167 @@
 ---
 name: tvpi-channel-fix
-description: Diagnose and fix a dead, stale, or dropping channel in the travino/tvpi IPTV project — read the Worker's X-Source-* headers to localize the failure layer, confirm the cause against the live TVP API, make a minimal edit to worker/src/index.ts and/or generate.py, and verify. Use whenever a channel is offline/down/dropping, a status badge is red, a stream "works then dies then recovers", the raw mirror is stale, or someone says "tvpi is broken", "channel X stopped", "fix the stream".
+description: Diagnose and repair a dead, stale, or dropping channel in trvny/tvpi. Start with the Worker's X-Source-* headers, distinguish normal residential-push dependence from a code defect, keep all three channel registries synchronized, make the smallest fix, and verify the Worker, raw mirror, D1/R2 fallbacks, and residential pusher as applicable.
+license: ISC
 ---
 
-# TVP Channel Fix (travino/tvpi)
+# TVPI channel repair
 
-> **In claude.ai chat.** The repo isn't checked out on disk here, and `gh`/`wrangler` aren't authenticated. Two ways to work:
-> - **Read/write via the github connector** (`github:get_file_contents`, `github:create_or_update_file`, `github:push_files`) — preferred for small, targeted edits. Edit `worker/src/index.ts` and `generate.py` together in one `push_files` call so the two stay in lockstep (see the `github-ops` skill).
-> - **Or `git clone` in the bash sandbox** when you need to actually run the local checks below (`npx wrangler types && npx tsc --noEmit`, `python3 generate.py`). The sandbox can run `git`/`npm`/`python3`/`curl` but starts empty and **has no GitHub auth** — so the clone only works while the repo is **public** (`git clone https://github.com/travino/tvpi`). **If the repo is private**, the connector still works fine; just stay connector-only — read files via `github:*`, push, and verify by watching the Actions run instead of running the checks locally. Don't paste a token into the chat to force a clone.
-> Replace every `gh ...` call (workflow dispatch, API reads, run logs) with the github connector: `github:list_issues`, `github:list_commits`, `github:get_latest_release`, and dispatch/run-log reads through the connector — `gh` has no token in chat. After writing, verify by re-reading the file (returned commit SHA) and checking the Actions run, then report the SHA/run conclusion, not just "done."
+Repository: `trvny/tvpi`  
+Worker: `https://tvpi.travny.workers.dev`
 
+Use the GitHub connector for repository reads, writes, PRs, workflow state, and
+logs. Do not use an unauthenticated GitHub API call or paste a token into chat.
 
-A channel stopped playing. The job is to find **which resolution layer broke**, fix the one real cause, and verify — not to blindly regenerate or commit placeholders. Most "outages" are either an expired token on the raw mirror (self-healing, not a bug) or the live TVP fetch failing because the API shape or a channel ID changed.
+## Current architecture
 
-## Architecture in one breath
+The Worker resolves each channel through:
 
-Two delivery paths, both fed from the same TVP API:
+1. per-colo Cache API,
+2. live TVP API,
+3. D1 last-known-good,
+4. raw GitHub mirror,
+5. R2 mirror.
 
-- **Worker** (`https://tvpi.travny.workers.dev`, source `worker/src/index.ts`) — resolves per request: **L1** per-colo Cache → **L2** live TVP API → **L3a** KV last-known-good → **L3b** raw GitHub mirror. KV is written **only** by the cron (`scheduled()`), never on the request path.
-- **Raw mirror** (`https://raw.githubusercontent.com/travino/tvpi/main/streams/{slug}.m3u`) — static snapshots committed every 15 min by `generate.py` via `.github/workflows/refresh.yml`.
+`POST /push/<slug>` accepts a validated manifest from
+`scripts/residential_push.py` and writes the residential result into D1 and R2.
+The ordinary GET path reads D1 but does not write it.
 
-Channels (keep `CHANNELS` in `index.ts` and `TVP_CHANNELS` in `generate.py` identical): `tvp1` 399697, `tvp2` 399698, `tvpinfo` 399699, `tvpsport` 399702, `tvpdokument` 399721, `tvpnauka` 399722, `tvprozrywka` 399724, `tvphistoria` 399703.
+TVP currently rejects most playlist API requests from non-Polish cloud
+infrastructure with `GEOIP_FILTER_FAILED`. A Polish residential pusher running
+roughly every ten minutes is therefore the normal source for most channels, not
+an emergency workaround. GitHub Actions and Cloudflare colos cannot replace it.
+A stale residential source may be an infrastructure-availability problem rather
+than a parser bug.
 
-## Input
+Current channels, synchronized across `worker/src/index.ts`, `generate.py`, and
+`scripts/residential_push.py`:
 
-A channel name or slug (`tvpsport`). If none given, check all eight — the header sweep in Step 1 shows every channel's serving layer at once.
+| slug | TVP id |
+|---|---:|
+| `tvp1` | 399697 |
+| `tvp2` | 399698 |
+| `tvpinfo` | 399699 |
+| `tvpsport` | 399702 |
+| `tvpdokument` | 399721 |
+| `tvpnauka` | 399722 |
+| `tvprozrywka` | 399724 |
+| `tvphistoria` | 399703 |
+| `tvpmuzyka` | 2999109 |
 
-## Workflow
+## Diagnose before editing
 
-### 1. Localize the failure with X-Source headers
-
-The Worker tags every response with which layer served each channel. This is the whole diagnosis — read it first.
+Read the headers for one channel and the combined playlist:
 
 ```bash
-# One channel:
-curl -sI https://tvpi.travny.workers.dev/tvpsport.m3u | grep -i x-source
-
-# All channels at once (each slug appears in exactly one X-Source-* list):
-curl -sI https://tvpi.travny.workers.dev/playlist.m3u | grep -i x-source
+curl -sSI https://tvpi.travny.workers.dev/tvpsport.m3u | grep -Ei 'x-source|x-revalidating'
+curl -sSI https://tvpi.travny.workers.dev/playlist.m3u | grep -Ei 'x-source|x-revalidating'
 ```
 
-Interpretation:
+Interpret them:
 
-| Slug appears in… | Meaning | Action |
-|---|---|---|
-| `X-Source-Live` or `X-Source-Cache` | Worker healthy, **L2 live fetch works** | If a player still fails → downstream (geo-block / player / token raced). **Not a repo bug** — see Notes. |
-| `X-Source-KV` or `X-Source-Raw` | **L2 live fetch is FAILING for this channel** | This is the real signal. Go to Step 2 to find why. |
-| nothing / HTTP 503 | All layers exhausted | If it's **all** channels → suspect cron-stalled + API-wide break/outage. If **one** → discontinued ID. Step 2. |
+| Header | Meaning |
+|---|---|
+| `X-Source-Cache` | warm-colo cached URL; usually healthy |
+| `X-Source-Live` | TVP API succeeded from the Worker colo |
+| `X-Source-D1` | last-known-good, commonly supplied by residential push |
+| `X-Source-Raw` | committed GitHub snapshot |
+| `X-Source-R2` | final Cloudflare mirror fallback |
+| all `none` or HTTP 503 | every layer failed or expired |
 
-Also glance at the raw mirror's freshness — a stale commit across *all* files points at the cron, not the code. Use authenticated `gh` (the unauthenticated `api.github.com` is rate-limited from cloud/CI IPs and returns a `message` dict instead of commits):
+`D1` or `R2` is not automatically a defect. For geo-blocked channels it can be
+the expected delivery path. Check freshness and the residential runner before
+changing parsing code.
+
+Then inspect:
+
+- the latest `Refresh M3U` and `Deploy Worker` runs,
+- recent commits touching `streams/`,
+- open issue #15 for the residential-runner status,
+- residential pusher output, if available: fetched/pushed channel count and
+  manifest validation failures,
+- whether one channel is affected or all nine.
+
+## Root-cause classes
+
+### Residential runner unavailable
+
+Symptoms: most channels fall to old D1/R2/raw entries or 503 together, while
+`tvpinfo` may still resolve live.
+
+Action: restore or rerun `scripts/residential_push.py` on a Polish residential
+connection. Do not rewrite Worker logic to disguise a missing runner.
+
+### Channel id changed or channel removed
+
+Confirm the current TVP product id from an authoritative TVP page or API. Update
+all three registries in one change:
+
+- `worker/src/index.ts` → `CHANNELS`,
+- `generate.py` → `TVP_CHANNELS`,
+- `scripts/residential_push.py` → `CHANNELS`.
+
+Delete an obsolete `streams/<slug>.m3u` only when the channel is genuinely gone.
+
+### TVP JSON shape changed
+
+The current extraction is `sources.HLS[0].src`. Update the matching extraction
+and types in both Worker and Python paths. Also confirm the residential pusher
+still finds candidates. Preserve retries, timeouts, validation, and fallback
+ordering unless the evidence specifically requires changing them.
+
+### Manifest or player compatibility failure
+
+The residential pusher validates media segments, makes child URIs absolute, and
+selects a default audio track. Fix normalization in
+`scripts/residential_push.py`; do not simply push an unvalidated master URL.
+
+### Worker deploy failure
+
+From `worker/` run:
 
 ```bash
-# Last commit that touched streams/ (UTC); compare to `date -u`:
-gh api "repos/travino/tvpi/commits?path=streams&per_page=1" -q '.[0].commit.committer.date'
+npm ci
+npm run typecheck
 ```
 
-### 2. Confirm the cause against the live TVP API
+A change under `worker/**` deploys through `.github/workflows/deploy.yml` after
+merge to `main`.
 
-For any channel that fell through to KV/Raw/none, hit the API exactly as the code does (id from the table above):
+### Raw mirror stale
 
-```bash
-curl -s "https://vod.tvp.pl/api/products/399702/videos/playlist?platform=BROWSER&videoType=LIVE" \
-  -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-  -H "Referer: https://vod.tvp.pl/" \
-  -H "Accept: application/json, */*" | python3 -m json.tool | head -40
-```
+`generate.py` updates `streams/` through `.github/workflows/refresh.yml`. Running
+that workflow from a non-Polish runner cannot bypass the TVP geo-block. The raw
+mirror is a fallback, not the durable fix for missing residential refreshes.
 
-Read the result:
+## Verification
 
-- **200 with `.sources.HLS[0].src` present** → API is fine; the code's JSON path no longer matches → **shape change** (Fix A).
-- **200 but `.sources` has no `HLS` / different shape** → dump keys with `... | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('sources',{}).keys())"` → shape change (Fix A).
-- **404 / error / empty body** → the channel **ID changed or was discontinued** (Fix B).
-- **All channels error identically** → TVP-side outage or API-wide change; if the latter, Fix A once fixes everyone.
-
-### 3. Fix (minimal, and mirror it across both files)
-
-The Worker and the generator each independently call the same API and dig the same path. A real fix almost always edits **both** `worker/src/index.ts` and `generate.py`, or they drift.
-
-**Fix A — JSON path moved.** Update the extraction in both:
-- `index.ts` → `fetchTvpStreamUrl`: `data.sources?.HLS?.[0]?.src` and the `TvpPlaylist` interface.
-- `generate.py` → `get_tvp_stream_url`: `data.get("sources", {}).get("HLS", [])[0]["src"]`.
-
-Change only the path to match the new shape. Leave timeouts, headers, retry, and fallback logic alone.
-
-**Fix B — channel ID changed.** Get the new id from the live VOD page (pattern `vod.tvp.pl/live,1/{name},{id}` — the trailing number is the id), then update the entry in `CHANNELS` (`index.ts`) **and** `TVP_CHANNELS` (`generate.py`). Keep `slug`, `name`, `logo`, `group` in sync. If the channel is genuinely gone, remove it from both lists (the `git add streams/` glob and the worker map drop it automatically) and delete `streams/{slug}.m3u`.
-
-**Fix C — only the raw mirror is stale, Worker serves `live`.** No code bug. A token expired before the next commit landed. It self-heals on the next cron; only act if the cron itself is stalled (Fix D). Tell the user to prefer the Worker URL.
-
-**Fix D — cron stalled / Actions paused.** The raw commit timestamp (Step 1) is old across all channels and `Refresh TVP M3U` shows no recent runs. The workflow self-re-enables, but GitHub still pauses or delays schedules. Trigger a run manually:
+Use the checks that match the edit:
 
 ```bash
-gh workflow run refresh.yml -R travino/tvpi   # or: Actions tab → Refresh TVP M3U → Run workflow
-```
-
-**Fix E — Worker globally 500/stale behavior.** Check the latest `Deploy Worker` run; a TypeScript error blocks deploy. Reproduce locally before pushing:
-
-```bash
-cd worker && npm install && npx wrangler types && npx tsc --noEmit
-```
-
-Editing anything under `worker/**` and pushing to `main` auto-deploys.
-
-### 4. Verify
-
-```bash
-# 1) API now yields a src (re-run the Step 2 curl) — expect an https HLS URL.
-
-# 2) Generator picks it up (pure stdlib, no deps):
+cd worker && npm ci && npm run typecheck
 python3 generate.py
-grep -h '^http' streams/tvpsport.m3u   # the fixed channel(s) → a real URL, not a placeholder
-
-# 3) Worker type-checks (if you touched index.ts):
-cd worker && npx wrangler types && npx tsc --noEmit && cd ..
-
-# 4) After deploy lands, the channel should resolve LIVE again:
-curl -sI https://tvpi.travny.workers.dev/tvpsport.m3u | grep -i x-source
-#   → slug now in X-Source-Live (or X-Source-Cache on a warm colo)
+TVPI_PUSH_TOKEN=... python3 scripts/residential_push.py
 ```
 
-Fixed = API returns a src, `generate.py` writes a real URL (no "stream unavailable" stub), worker type-checks, and the slug serves from `live`/`cache`.
+The Python network checks are meaningful for all channels only from a suitable
+Polish residential connection.
 
-### 5. Report
+After deployment or push, re-read the response headers and test the stable
+`.m3u8` URL in a real player. A repair is complete when:
 
-Short: which channel, which layer was failing (from the headers), the root cause, and the exact edit (old → new path, or old → new id) in **both** files. Note if a manual cron dispatch or worker redeploy was needed.
+- the affected channel resolves through an expected fresh layer,
+- the manifest and at least one media segment validate,
+- all three channel registries agree,
+- relevant CI is green,
+- no unrelated fallback or security behavior changed.
 
-## Notes / guardrails
+## Guardrails
 
-- **Headers first.** Don't edit code until `X-Source-*` says L2 is actually failing. A channel serving from `live`/`cache` that won't play is a downstream problem, not a repo bug.
-- **Keep the two channel lists in lockstep.** `index.ts` `CHANNELS` ↔ `generate.py` `TVP_CHANNELS` — same id/slug/name. A fix to one without the other leaves the Worker and mirror disagreeing.
-- **Never "fix" by committing a placeholder.** `generate.py` already reuses last-known-good on transient failures (`resolve_url` / `read_existing_url`); a stub is the genuine-dead path, not a remedy.
-- **Don't add KV writes to the request path** while editing the Worker — KV is cron-only by design (free-tier write budget). Writing per request can blow the 1k/day cap from a single hot colo.
-- **Geo-block is not a repo bug.** TVP HLS segments are PL-geo-locked; from outside Poland the manifest URL resolves fine (`live`) but segments 403. Nothing in this repo fixes that.
-- **Editing `generate.py` doesn't refresh the mirror by itself** — only the cron or a `workflow_dispatch` run of `refresh.yml` regenerates `streams/`. Editing `worker/**` triggers `deploy.yml`.
-- If the API shape changed so much that nothing maps cleanly, stop and report — a parser rewrite needs sign-off.
+- Headers first, edits second.
+- Never commit placeholder URLs as a repair.
+- Never expose `PUSH_TOKEN` or put it in `wrangler.jsonc`.
+- Do not add D1 writes to ordinary GET requests.
+- Do not claim Cloudflare or GitHub Actions can replace the Polish residential
+  source while TVP enforces the current geo-block.
+- Keep changes minimal and report the failing layer, root cause, exact files,
+  verification result, commit or PR, and workflow conclusion.

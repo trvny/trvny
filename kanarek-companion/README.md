@@ -12,6 +12,19 @@ For `installation.created`, `installation.unsuspend`,
 the Worker also creates a short-lived installation token and verifies repository
 access. Tokens are never returned or logged.
 
+## Controlled comment probe
+
+A newly opened pull request receives one test comment only when all conditions
+match:
+
+- repository is exactly `trvny/trvny`;
+- the pull request body contains `<!-- kanarek-companion:test-comment -->`;
+- no existing app-bot comment contains the same marker.
+
+The webhook is acknowledged before GitHub API writes run. A per-PR Durable
+Object serializes overlapping deliveries, caches the result, and checks every
+page of existing comments before creating one.
+
 ## Cloudflare Workers Builds
 
 Connect `trvny/trvny` with:

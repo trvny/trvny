@@ -5,6 +5,20 @@
   "compatibility_date": "2026-08-03",
   "workers_dev": true,
   "preview_urls": false,
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "COMMENT_PROBE_LOCK",
+        "class_name": "CommentProbeLock"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["CommentProbeLock"]
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {

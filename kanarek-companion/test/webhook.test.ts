@@ -8,6 +8,7 @@ import worker, {
 } from '../src/index.ts';
 
 const env = {
+  COMMENT_PROBE_LOCK: {} as DurableObjectNamespace,
   GITHUB_APP_ID: '4472094',
   GITHUB_APP_SLUG: 'kanarek-companion',
   GITHUB_PRIVATE_KEY: 'configured-private-key',
@@ -79,6 +80,7 @@ test('reports not ready without the webhook secret', async () => {
     webhookConfigured: false,
     privateKeyConfigured: true,
     installationAuthConfigured: true,
+    commentLockConfigured: true,
   });
 });
 
@@ -96,6 +98,25 @@ test('reports not ready without the GitHub App private key', async () => {
     webhookConfigured: true,
     privateKeyConfigured: false,
     installationAuthConfigured: false,
+    commentLockConfigured: true,
+  });
+});
+
+test('reports not ready without the comment lock binding', async () => {
+  const response = await worker.fetch(new Request('https://example.test/health'), {
+    ...env,
+    COMMENT_PROBE_LOCK: undefined as unknown as DurableObjectNamespace,
+  });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    service: 'kanarek-companion',
+    appId: '4472094',
+    appSlug: 'kanarek-companion',
+    webhookConfigured: true,
+    privateKeyConfigured: true,
+    installationAuthConfigured: true,
+    commentLockConfigured: false,
   });
 });
 

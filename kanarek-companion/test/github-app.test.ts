@@ -5,10 +5,16 @@ import test from 'node:test';
 import {
   checkInstallationAccess,
   createAppJwt,
+  ensureTestComment,
+  TEST_COMMENT_MARKER,
 } from '../src/github-app.ts';
 
 function testKeyPair() {
   return generateKeyPairSync('rsa', { modulusLength: 2048 });
+}
+
+function privateKeyPem(): string {
+  return testKeyPair().privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
 }
 
 test('signs a GitHub App JWT with a PKCS#1 private key', async () => {
@@ -62,8 +68,7 @@ test('accepts a private key stored with escaped newlines', async () => {
 });
 
 test('exchanges the JWT and verifies repository access', async () => {
-  const { privateKey } = testKeyPair();
-  const pem = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
+  const pem = privateKeyPem();
   const calls: string[] = [];
 
   const fetcher = async (
@@ -107,4 +112,117 @@ test('exchanges the JWT and verifies repository access', async () => {
     'https://api.github.com/installation/repositories?per_page=1',
   ]);
   assert.equal(JSON.stringify(result).includes('ghs_test_token'), false);
+});
+
+test('creates one marked pull request comment', async () => {
+  const pem = privateKeyPem();
+  const calls: string[] = [];
+
+  const fetcher = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const url = String(input);
+    const headers = new Headers(init?.headers);
+    calls.push(`${init?.method ?? 'GET'} ${url}`);
+
+    if (url.endsWith('/app/installations/123/access_tokens')) {
+      return Response.json({
+        token: 'ghs_comment_token',
+        expires_at: '2026-08-04T00:30:00Z',
+      });
+    }
+
+    if (url.endsWith('/issues/149/comments?per_page=100')) {
+      assert.equal(headers.get('authorization'), 'Bearer ghs_comment_token');
+      return Response.json([]);
+    }
+
+    if (url.endsWith('/issues/149/comments') && init?.method === 'POST') {
+      assert.equal(headers.get('authorization'), 'Bearer ghs_comment_token');
+      const requestBody = JSON.parse(String(init.body)) as { body: string };
+      assert.match(requestBody.body, new RegExp(TEST_COMMENT_MARKER));
+      assert.match(requestBody.body, /kanarek-companion:delivery:delivery-123/);
+      return Response.json(
+        {
+          id: 321,
+          html_url: 'https://github.com/trvny/trvny/pull/149#issuecomment-321',
+        },
+        { status: 201 },
+      );
+    }
+
+    return new Response(null, { status: 404 });
+  };
+
+  const result = await ensureTestComment(
+    '4472094',
+    pem,
+    123,
+    'trvny/trvny',
+    149,
+    'delivery-123',
+    fetcher,
+  );
+
+  assert.deepEqual(result, {
+    commentId: 321,
+    commentUrl: 'https://github.com/trvny/trvny/pull/149#issuecomment-321',
+    created: true,
+    expiresAt: '2026-08-04T00:30:00Z',
+  });
+  assert.equal(JSON.stringify(result).includes('ghs_comment_token'), false);
+  assert.equal(calls.length, 3);
+});
+
+test('reuses the marked comment after a redelivery', async () => {
+  const pem = privateKeyPem();
+  let createCalls = 0;
+
+  const fetcher = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const url = String(input);
+
+    if (url.endsWith('/app/installations/123/access_tokens')) {
+      return Response.json({
+        token: 'ghs_comment_token',
+        expires_at: '2026-08-04T00:30:00Z',
+      });
+    }
+
+    if (url.endsWith('/issues/149/comments?per_page=100')) {
+      return Response.json([
+        {
+          id: 321,
+          html_url: 'https://github.com/trvny/trvny/pull/149#issuecomment-321',
+          body: `${TEST_COMMENT_MARKER}\nalready here`,
+        },
+      ]);
+    }
+
+    if (url.endsWith('/issues/149/comments') && init?.method === 'POST') {
+      createCalls += 1;
+    }
+    return new Response(null, { status: 404 });
+  };
+
+  const result = await ensureTestComment(
+    '4472094',
+    pem,
+    123,
+    'trvny/trvny',
+    149,
+    'delivery-123',
+    fetcher,
+  );
+
+  assert.deepEqual(result, {
+    commentId: 321,
+    commentUrl: 'https://github.com/trvny/trvny/pull/149#issuecomment-321',
+    created: false,
+    expiresAt: '2026-08-04T00:30:00Z',
+  });
+  assert.equal(createCalls, 0);
 });

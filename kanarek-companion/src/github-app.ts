@@ -1,9 +1,24 @@
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
 
+export const TEST_COMMENT_MARKER =
+  '<!-- kanarek-companion:test-comment -->';
+
 export interface InstallationAccessCheck {
   expiresAt: string;
   repositoryCount: number;
+}
+
+export interface TestCommentResult {
+  commentId: number;
+  commentUrl: string;
+  created: boolean;
+  expiresAt: string;
+}
+
+interface InstallationToken {
+  expiresAt: string;
+  token: string;
 }
 
 export class GitHubApiError extends Error {
@@ -139,20 +154,110 @@ function githubHeaders(token: string): Headers {
   return new Headers({
     Accept: 'application/vnd.github+json',
     Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
     'User-Agent': 'kanarek-companion',
     'X-GitHub-Api-Version': GITHUB_API_VERSION,
   });
 }
 
-async function requireJson(
+async function requireJson<T>(
   response: Response,
   operation: string,
-): Promise<Record<string, unknown>> {
+): Promise<T> {
   if (!response.ok) {
     await response.body?.cancel();
     throw new GitHubApiError(operation, response.status);
   }
-  return (await response.json()) as Record<string, unknown>;
+  return (await response.json()) as T;
+}
+
+async function createInstallationToken(
+  appId: string,
+  privateKey: string,
+  installationId: number,
+  fetcher: typeof fetch,
+): Promise<InstallationToken> {
+  const jwt = await createAppJwt(appId, privateKey);
+  const response = await fetcher(
+    `${GITHUB_API}/app/installations/${installationId}/access_tokens`,
+    {
+      method: 'POST',
+      headers: githubHeaders(jwt),
+    },
+  );
+  const payload = await requireJson<Record<string, unknown>>(
+    response,
+    'create_installation_token',
+  );
+  const token = payload.token;
+  const expiresAt = payload.expires_at;
+  if (typeof token !== 'string' || typeof expiresAt !== 'string') {
+    throw new Error('invalid_installation_token_response');
+  }
+  return { token, expiresAt };
+}
+
+function repositoryParts(repository: string): [string, string] {
+  const parts = repository.split('/');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error('invalid_repository_name');
+  }
+  return [encodeURIComponent(parts[0]), encodeURIComponent(parts[1])];
+}
+
+function commentBody(delivery: string): string {
+  const safeDelivery = delivery.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 100);
+  return [
+    TEST_COMMENT_MARKER,
+    `<!-- kanarek-companion:delivery:${safeDelivery || 'unknown'} -->`,
+    '🐤 Kanarek-companion działa. Zweryfikowany webhook, token instalacji i komentarz GitHub App są podłączone.',
+  ].join('\n');
+}
+
+function nextCommentsPage(
+  linkHeader: string | null,
+  commentsUrl: string,
+): string | null {
+  if (!linkHeader) return null;
+  for (const part of linkHeader.split(',')) {
+    const match = part.trim().match(/^<([^>]+)>;\s*rel="next"$/);
+    if (!match) continue;
+
+    const next = new URL(match[1]);
+    const expected = new URL(commentsUrl);
+    if (next.origin !== expected.origin || next.pathname !== expected.pathname) {
+      throw new Error('invalid_comments_pagination_url');
+    }
+    return next.toString();
+  }
+  return null;
+}
+
+function existingTestComment(
+  comments: unknown[],
+  appSlug: string,
+): TestCommentResult | null {
+  const expectedLogin = `${appSlug}[bot]`;
+  for (const value of comments) {
+    const comment = value as Record<string, unknown>;
+    const user = comment.user as Record<string, unknown> | undefined;
+    if (
+      typeof comment.body === 'string' &&
+      comment.body.includes(TEST_COMMENT_MARKER) &&
+      typeof comment.id === 'number' &&
+      typeof comment.html_url === 'string' &&
+      user?.login === expectedLogin &&
+      user.type === 'Bot'
+    ) {
+      return {
+        commentId: comment.id,
+        commentUrl: comment.html_url,
+        created: false,
+        expiresAt: '',
+      };
+    }
+  }
+  return null;
 }
 
 export async function checkInstallationAccess(
@@ -161,29 +266,17 @@ export async function checkInstallationAccess(
   installationId: number,
   fetcher: typeof fetch = fetch,
 ): Promise<InstallationAccessCheck> {
-  const jwt = await createAppJwt(appId, privateKey);
-  const tokenResponse = await fetcher(
-    `${GITHUB_API}/app/installations/${installationId}/access_tokens`,
-    {
-      method: 'POST',
-      headers: githubHeaders(jwt),
-    },
+  const installation = await createInstallationToken(
+    appId,
+    privateKey,
+    installationId,
+    fetcher,
   );
-  const tokenPayload = await requireJson(
-    tokenResponse,
-    'create_installation_token',
-  );
-  const token = tokenPayload.token;
-  const expiresAt = tokenPayload.expires_at;
-  if (typeof token !== 'string' || typeof expiresAt !== 'string') {
-    throw new Error('invalid_installation_token_response');
-  }
-
   const repositoriesResponse = await fetcher(
     `${GITHUB_API}/installation/repositories?per_page=1`,
-    { headers: githubHeaders(token) },
+    { headers: githubHeaders(installation.token) },
   );
-  const repositoriesPayload = await requireJson(
+  const repositoriesPayload = await requireJson<Record<string, unknown>>(
     repositoriesResponse,
     'list_installation_repositories',
   );
@@ -192,5 +285,66 @@ export async function checkInstallationAccess(
     throw new Error('invalid_repositories_response');
   }
 
-  return { expiresAt, repositoryCount };
+  return { expiresAt: installation.expiresAt, repositoryCount };
+}
+
+export async function ensureTestComment(
+  appId: string,
+  appSlug: string,
+  privateKey: string,
+  installationId: number,
+  repository: string,
+  pullRequestNumber: number,
+  delivery: string,
+  fetcher: typeof fetch = fetch,
+): Promise<TestCommentResult> {
+  const installation = await createInstallationToken(
+    appId,
+    privateKey,
+    installationId,
+    fetcher,
+  );
+  const [owner, repo] = repositoryParts(repository);
+  const commentsUrl = `${GITHUB_API}/repos/${owner}/${repo}/issues/${pullRequestNumber}/comments`;
+  let pageUrl: string | null = `${commentsUrl}?per_page=100`;
+  const visited = new Set<string>();
+
+  while (pageUrl) {
+    if (visited.has(pageUrl)) throw new Error('comments_pagination_loop');
+    visited.add(pageUrl);
+
+    const response = await fetcher(pageUrl, {
+      headers: githubHeaders(installation.token),
+    });
+    const comments = await requireJson<unknown>(
+      response,
+      'list_issue_comments',
+    );
+    if (!Array.isArray(comments)) throw new Error('invalid_comments_response');
+
+    const existing = existingTestComment(comments, appSlug);
+    if (existing) {
+      return { ...existing, expiresAt: installation.expiresAt };
+    }
+    pageUrl = nextCommentsPage(response.headers.get('link'), commentsUrl);
+  }
+
+  const created = await requireJson<Record<string, unknown>>(
+    await fetcher(commentsUrl, {
+      method: 'POST',
+      headers: githubHeaders(installation.token),
+      body: JSON.stringify({ body: commentBody(delivery) }),
+    }),
+    'create_issue_comment',
+  );
+  if (typeof created.id !== 'number' || typeof created.html_url !== 'string') {
+    throw new Error('invalid_created_comment_response');
+  }
+
+  return {
+    commentId: created.id,
+    commentUrl: created.html_url,
+    created: true,
+    expiresAt: installation.expiresAt,
+  };
 }

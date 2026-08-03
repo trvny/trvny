@@ -3,14 +3,24 @@ import test from 'node:test';
 
 import worker, {
   readLimitedBody,
+  testCommentTarget,
   verifyWebhookSignature,
 } from '../src/index.ts';
 
 const env = {
+  COMMENT_PROBE_LOCK: {} as DurableObjectNamespace,
   GITHUB_APP_ID: '4472094',
   GITHUB_APP_SLUG: 'kanarek-companion',
   GITHUB_PRIVATE_KEY: 'configured-private-key',
   GITHUB_WEBHOOK_SECRET: 'test-secret',
+};
+
+const testMetadata = {
+  delivery: 'delivery-123',
+  event: 'pull_request',
+  action: 'opened',
+  repository: 'trvny/trvny',
+  installationId: 123,
 };
 
 test('validates the GitHub HMAC-SHA256 test vector', async () => {
@@ -70,6 +80,7 @@ test('reports not ready without the webhook secret', async () => {
     webhookConfigured: false,
     privateKeyConfigured: true,
     installationAuthConfigured: true,
+    commentLockConfigured: true,
   });
 });
 
@@ -87,5 +98,61 @@ test('reports not ready without the GitHub App private key', async () => {
     webhookConfigured: true,
     privateKeyConfigured: false,
     installationAuthConfigured: false,
+    commentLockConfigured: true,
   });
+});
+
+test('reports not ready without the comment lock binding', async () => {
+  const response = await worker.fetch(new Request('https://example.test/health'), {
+    ...env,
+    COMMENT_PROBE_LOCK: undefined as unknown as DurableObjectNamespace,
+  });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    service: 'kanarek-companion',
+    appId: '4472094',
+    appSlug: 'kanarek-companion',
+    webhookConfigured: true,
+    privateKeyConfigured: true,
+    installationAuthConfigured: true,
+    commentLockConfigured: false,
+  });
+});
+
+test('allows the comment probe only for a marked new PR in trvny/trvny', () => {
+  const markedPayload = {
+    number: 149,
+    pull_request: {
+      body: '<!-- kanarek-companion:test-comment -->',
+    },
+  };
+
+  assert.deepEqual(testCommentTarget(testMetadata, markedPayload), {
+    delivery: 'delivery-123',
+    installationId: 123,
+    pullRequestNumber: 149,
+    repository: 'trvny/trvny',
+  });
+  assert.equal(
+    testCommentTarget(
+      { ...testMetadata, repository: 'trvny/feeds' },
+      markedPayload,
+    ),
+    null,
+  );
+  assert.equal(
+    testCommentTarget(
+      { ...testMetadata, action: 'synchronize' },
+      markedPayload,
+    ),
+    null,
+  );
+  assert.equal(
+    testCommentTarget(testMetadata, {
+      number: 149,
+      pull_request: { body: 'ordinary PR' },
+    }),
+    null,
+  );
 });

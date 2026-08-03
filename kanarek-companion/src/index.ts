@@ -2,7 +2,7 @@ import {
   checkInstallationAccess,
   GitHubApiError,
   type InstallationAccessCheck,
-} from './github-app';
+} from './github-app.ts';
 
 interface Env {
   GITHUB_APP_ID: string;

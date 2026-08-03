@@ -57,7 +57,7 @@ function base64ToBytes(value: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-function bytesToBase64Url(value: Uint8Array<ArrayBuffer>): string {
+function bytesToBase64Url(value: Uint8Array<ArrayBufferLike>): string {
   let binary = '';
   for (let index = 0; index < value.byteLength; index += 1) {
     binary += String.fromCharCode(value[index]);

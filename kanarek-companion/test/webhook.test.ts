@@ -54,3 +54,18 @@ test('supports HEAD health probes', async () => {
   assert.equal(response.status, 200);
   assert.equal(await response.text(), '');
 });
+
+test('reports not ready without the webhook secret', async () => {
+  const response = await worker.fetch(new Request('https://example.test/health'), {
+    ...env,
+    GITHUB_WEBHOOK_SECRET: '',
+  });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    service: 'kanarek-companion',
+    appId: '4472094',
+    appSlug: 'kanarek-companion',
+    webhookConfigured: false,
+  });
+});

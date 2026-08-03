@@ -4,9 +4,11 @@ import {
   GitHubApiError,
   TEST_COMMENT_MARKER,
   type InstallationAccessCheck,
+  type TestCommentResult,
 } from './github-app.ts';
 
 interface Env {
+  COMMENT_PROBE_LOCK: DurableObjectNamespace;
   GITHUB_APP_ID: string;
   GITHUB_APP_SLUG: string;
   GITHUB_PRIVATE_KEY: string;
@@ -26,6 +28,12 @@ interface TestCommentTarget {
   installationId: number;
   pullRequestNumber: number;
   repository: string;
+}
+
+interface CommentProbeResponse {
+  cached: boolean;
+  ok: boolean;
+  result?: TestCommentResult;
 }
 
 const MAX_BODY_BYTES = 1_048_576;
@@ -209,6 +217,60 @@ function testCommentTarget(
   };
 }
 
+function isTestCommentTarget(value: unknown): value is TestCommentTarget {
+  const target = value as Partial<TestCommentTarget> | null;
+  return Boolean(
+    target &&
+      target.repository === TEST_COMMENT_REPOSITORY &&
+      typeof target.delivery === 'string' &&
+      target.delivery.length > 0 &&
+      typeof target.installationId === 'number' &&
+      Number.isInteger(target.installationId) &&
+      target.installationId > 0 &&
+      typeof target.pullRequestNumber === 'number' &&
+      Number.isInteger(target.pullRequestNumber) &&
+      target.pullRequestNumber > 0,
+  );
+}
+
+async function runCommentProbe(
+  target: TestCommentTarget,
+  env: Env,
+): Promise<void> {
+  const id = env.COMMENT_PROBE_LOCK.idFromName(
+    `${target.repository}#${target.pullRequestNumber}`,
+  );
+  const response = await env.COMMENT_PROBE_LOCK.get(id).fetch(
+    'https://comment-probe.internal/run',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(target),
+    },
+  );
+  const payload = (await response.json()) as CommentProbeResponse;
+  if (!response.ok || !payload.ok || !payload.result) {
+    throw new Error(`comment_probe_lock_failed_${response.status}`);
+  }
+
+  console.log(
+    JSON.stringify({
+      delivery: target.delivery,
+      event: 'pull_request',
+      action: 'opened',
+      repository: target.repository,
+      installationId: target.installationId,
+      pullRequestNumber: target.pullRequestNumber,
+      testComment: {
+        ok: true,
+        cached: payload.cached,
+        created: payload.result.created,
+        commentId: payload.result.commentId,
+      },
+    }),
+  );
+}
+
 function scheduleTestComment(
   target: TestCommentTarget | null,
   env: Env,
@@ -216,46 +278,20 @@ function scheduleTestComment(
 ): boolean {
   if (!target) return false;
 
-  const task = ensureTestComment(
-    env.GITHUB_APP_ID,
-    env.GITHUB_APP_SLUG,
-    env.GITHUB_PRIVATE_KEY,
-    target.installationId,
-    target.repository,
-    target.pullRequestNumber,
-    target.delivery,
-  )
-    .then((result) => {
-      console.log(
-        JSON.stringify({
-          delivery: target.delivery,
-          event: 'pull_request',
-          action: 'opened',
-          repository: target.repository,
-          installationId: target.installationId,
-          pullRequestNumber: target.pullRequestNumber,
-          testComment: {
-            ok: true,
-            created: result.created,
-            commentId: result.commentId,
-          },
-        }),
-      );
-    })
-    .catch((error: unknown) => {
-      console.error(
-        JSON.stringify({
-          delivery: target.delivery,
-          event: 'pull_request',
-          action: 'opened',
-          repository: target.repository,
-          installationId: target.installationId,
-          pullRequestNumber: target.pullRequestNumber,
-          testComment: 'failed',
-          failure: operationFailure(error),
-        }),
-      );
-    });
+  const task = runCommentProbe(target, env).catch((error: unknown) => {
+    console.error(
+      JSON.stringify({
+        delivery: target.delivery,
+        event: 'pull_request',
+        action: 'opened',
+        repository: target.repository,
+        installationId: target.installationId,
+        pullRequestNumber: target.pullRequestNumber,
+        testComment: 'failed',
+        failure: operationFailure(error),
+      }),
+    );
+  });
 
   if (ctx) ctx.waitUntil(task);
   else void task;
@@ -369,7 +405,12 @@ function health(env: Env, method: string): Response {
   const webhookConfigured = Boolean(env.GITHUB_WEBHOOK_SECRET);
   const privateKeyConfigured = Boolean(env.GITHUB_PRIVATE_KEY);
   const appConfigured = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_SLUG);
-  const ready = webhookConfigured && privateKeyConfigured && appConfigured;
+  const commentLockConfigured = Boolean(env.COMMENT_PROBE_LOCK);
+  const ready =
+    webhookConfigured &&
+    privateKeyConfigured &&
+    appConfigured &&
+    commentLockConfigured;
   const response = json(
     {
       ok: ready,
@@ -379,6 +420,7 @@ function health(env: Env, method: string): Response {
       webhookConfigured,
       privateKeyConfigured,
       installationAuthConfigured: privateKeyConfigured && appConfigured,
+      commentLockConfigured,
     },
     ready ? 200 : 503,
   );
@@ -389,6 +431,65 @@ function health(env: Env, method: string): Response {
     });
   }
   return response;
+}
+
+export class CommentProbeLock {
+  private readonly env: Env;
+  private readonly state: DurableObjectState;
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    if (request.method !== 'POST') {
+      return json({ error: 'method_not_allowed' }, 405);
+    }
+
+    let target: unknown;
+    try {
+      target = await request.json();
+    } catch {
+      return json({ error: 'invalid_json' }, 400);
+    }
+    if (!isTestCommentTarget(target)) {
+      return json({ error: 'invalid_comment_probe_target' }, 400);
+    }
+
+    let response = json({ error: 'comment_probe_not_run' }, 500);
+    await this.state.blockConcurrencyWhile(async () => {
+      try {
+        const cached = await this.state.storage.get<TestCommentResult>('result');
+        if (cached) {
+          response = json({ ok: true, cached: true, result: cached });
+          return;
+        }
+
+        const result = await ensureTestComment(
+          this.env.GITHUB_APP_ID,
+          this.env.GITHUB_APP_SLUG,
+          this.env.GITHUB_PRIVATE_KEY,
+          target.installationId,
+          target.repository,
+          target.pullRequestNumber,
+          target.delivery,
+        );
+        await this.state.storage.put('result', result);
+        response = json({ ok: true, cached: false, result });
+      } catch (error) {
+        response = json(
+          {
+            ok: false,
+            cached: false,
+            failure: operationFailure(error),
+          },
+          502,
+        );
+      }
+    });
+    return response;
+  }
 }
 
 const worker = {

@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kanarek-companion",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-03",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false
+    }
+  },
+  "vars": {
+    "GITHUB_APP_ID": "4472094",
+    "GITHUB_APP_SLUG": "kanarek-companion"
+  }
+}

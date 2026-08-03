@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import worker, {
   readLimitedBody,
+  testCommentTarget,
   verifyWebhookSignature,
 } from '../src/index.ts';
 
@@ -11,6 +12,14 @@ const env = {
   GITHUB_APP_SLUG: 'kanarek-companion',
   GITHUB_PRIVATE_KEY: 'configured-private-key',
   GITHUB_WEBHOOK_SECRET: 'test-secret',
+};
+
+const testMetadata = {
+  delivery: 'delivery-123',
+  event: 'pull_request',
+  action: 'opened',
+  repository: 'trvny/trvny',
+  installationId: 123,
 };
 
 test('validates the GitHub HMAC-SHA256 test vector', async () => {
@@ -88,4 +97,41 @@ test('reports not ready without the GitHub App private key', async () => {
     privateKeyConfigured: false,
     installationAuthConfigured: false,
   });
+});
+
+test('allows the comment probe only for a marked new PR in trvny/trvny', () => {
+  const markedPayload = {
+    number: 149,
+    pull_request: {
+      body: '<!-- kanarek-companion:test-comment -->',
+    },
+  };
+
+  assert.deepEqual(testCommentTarget(testMetadata, markedPayload), {
+    delivery: 'delivery-123',
+    installationId: 123,
+    pullRequestNumber: 149,
+    repository: 'trvny/trvny',
+  });
+  assert.equal(
+    testCommentTarget(
+      { ...testMetadata, repository: 'trvny/feeds' },
+      markedPayload,
+    ),
+    null,
+  );
+  assert.equal(
+    testCommentTarget(
+      { ...testMetadata, action: 'synchronize' },
+      markedPayload,
+    ),
+    null,
+  );
+  assert.equal(
+    testCommentTarget(testMetadata, {
+      number: 149,
+      pull_request: { body: 'ordinary PR' },
+    }),
+    null,
+  );
 });

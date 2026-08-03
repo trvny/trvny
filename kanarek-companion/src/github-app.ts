@@ -87,11 +87,12 @@ function pkcs1ToPkcs8(
 }
 
 function privateKeyDer(pem: string): ArrayBuffer {
-  const isPkcs1 = pem.includes('-----BEGIN RSA PRIVATE KEY-----');
-  const isPkcs8 = pem.includes('-----BEGIN PRIVATE KEY-----');
+  const normalized = pem.replace(/\\n/g, '\n').trim();
+  const isPkcs1 = normalized.includes('-----BEGIN RSA PRIVATE KEY-----');
+  const isPkcs8 = normalized.includes('-----BEGIN PRIVATE KEY-----');
   if (!isPkcs1 && !isPkcs8) throw new Error('invalid_private_key_format');
 
-  const base64 = pem
+  const base64 = normalized
     .replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/g, '')
     .replace(/-----END (?:RSA )?PRIVATE KEY-----/g, '')
     .replace(/\s/g, '');
@@ -119,7 +120,7 @@ export async function createAppJwt(
   const header = jsonToBase64Url({ alg: 'RS256', typ: 'JWT' });
   const payload = jsonToBase64Url({
     iat: nowSeconds - 60,
-    exp: nowSeconds + 540,
+    exp: nowSeconds + 480,
     iss: appId,
   });
   const unsigned = `${header}.${payload}`;
@@ -145,7 +146,10 @@ async function requireJson(
   response: Response,
   operation: string,
 ): Promise<Record<string, unknown>> {
-  if (!response.ok) throw new GitHubApiError(operation, response.status);
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new GitHubApiError(operation, response.status);
+  }
   return (await response.json()) as Record<string, unknown>;
 }
 

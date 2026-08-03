@@ -120,18 +120,32 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   );
 }
 
+function health(env: Env, method: string): Response {
+  const response = json({
+    ok: true,
+    service: 'kanarek-companion',
+    appId: env.GITHUB_APP_ID,
+    appSlug: env.GITHUB_APP_SLUG,
+    webhookConfigured: Boolean(env.GITHUB_WEBHOOK_SECRET),
+  });
+  if (method === 'HEAD') {
+    return new Response(null, {
+      status: response.status,
+      headers: response.headers,
+    });
+  }
+  return response;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (request.method === 'GET' && url.pathname === HEALTH_PATH) {
-      return json({
-        ok: true,
-        service: 'kanarek-companion',
-        appId: env.GITHUB_APP_ID,
-        appSlug: env.GITHUB_APP_SLUG,
-        webhookConfigured: Boolean(env.GITHUB_WEBHOOK_SECRET),
-      });
+    if (url.pathname === HEALTH_PATH) {
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        return json({ error: 'method_not_allowed' }, 405);
+      }
+      return health(env, request.method);
     }
 
     if (url.pathname === WEBHOOK_PATH) {

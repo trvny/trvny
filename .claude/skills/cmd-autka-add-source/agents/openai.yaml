@@ -1,7 +1,0 @@
-interface:
-  display_name: "Add Autka Source"
-  short_description: "Add a compliant marketplace source to Autka"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#DF7757"
-  default_prompt: "Use $cmd-autka-add-source to add this marketplace source end to end."

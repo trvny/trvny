@@ -26,10 +26,30 @@ test('signs a GitHub App JWT with a PKCS#1 private key', async () => {
     JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')),
     {
       iat: now - 60,
-      exp: now + 540,
+      exp: now + 480,
       iss: '4472094',
     },
   );
+  assert.equal(
+    verify(
+      'RSA-SHA256',
+      Buffer.from(`${header}.${payload}`),
+      publicKey,
+      Buffer.from(signature, 'base64url'),
+    ),
+    true,
+  );
+});
+
+test('accepts a private key stored with escaped newlines', async () => {
+  const { privateKey, publicKey } = testKeyPair();
+  const pem = privateKey
+    .export({ type: 'pkcs1', format: 'pem' })
+    .toString()
+    .replace(/\n/g, '\\n');
+  const jwt = await createAppJwt('4472094', pem, 1_700_000_000);
+  const [header, payload, signature] = jwt.split('.');
+
   assert.equal(
     verify(
       'RSA-SHA256',

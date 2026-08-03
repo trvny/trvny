@@ -1,7 +1,0 @@
-interface:
-  display_name: "TVPI Channel Fix"
-  short_description: "Diagnose and repair broken IPTV channel streams"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#DF7757"
-  default_prompt: "Use $tvpi-channel-fix to diagnose and repair this failing TVPI channel."

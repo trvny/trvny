@@ -199,23 +199,28 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   try {
     authentication = await authenticateInstallation(metadata, env);
   } catch (error) {
+    const failure = authenticationFailure(error);
     console.error(
       JSON.stringify({
         ...metadata,
         supported,
         authentication: 'failed',
-        failure: authenticationFailure(error),
+        failure,
       }),
     );
     return json(
       {
-        accepted: false,
+        accepted: true,
         supported,
         delivery: metadata.delivery,
         event: metadata.event,
-        error: 'installation_auth_failed',
+        authentication: {
+          ok: false,
+          error: 'installation_auth_failed',
+          failure,
+        },
       },
-      502,
+      202,
     );
   }
 

@@ -7,12 +7,14 @@ export interface InstallationAccessCheck {
 }
 
 export class GitHubApiError extends Error {
-  constructor(
-    readonly operation: string,
-    readonly status: number,
-  ) {
+  readonly operation: string;
+  readonly status: number;
+
+  constructor(operation: string, status: number) {
     super(`${operation} failed with status ${status}`);
     this.name = 'GitHubApiError';
+    this.operation = operation;
+    this.status = status;
   }
 }
 

@@ -57,6 +57,45 @@ async function verifyWebhookSignature(
   return crypto.subtle.verify('HMAC', key, signature, payload);
 }
 
+async function readLimitedBody(
+  request: Request,
+  limit = MAX_BODY_BYTES,
+): Promise<ArrayBuffer | null> {
+  if (!request.body) return new ArrayBuffer(0);
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  let total = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value.byteLength) continue;
+
+      total += value.byteLength;
+      if (total > limit) {
+        await reader.cancel('payload_too_large');
+        return null;
+      }
+
+      const chunk = new Uint8Array(value.byteLength);
+      chunk.set(value);
+      chunks.push(chunk);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body.buffer;
+}
+
 function webhookMetadata(
   request: Request,
   payload: Record<string, unknown>,
@@ -82,10 +121,8 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     return json({ error: 'payload_too_large' }, 413);
   }
 
-  const body = await request.arrayBuffer();
-  if (body.byteLength > MAX_BODY_BYTES) {
-    return json({ error: 'payload_too_large' }, 413);
-  }
+  const body = await readLimitedBody(request);
+  if (!body) return json({ error: 'payload_too_large' }, 413);
 
   const valid = await verifyWebhookSignature(
     env.GITHUB_WEBHOOK_SECRET,
@@ -137,7 +174,7 @@ function health(env: Env, method: string): Response {
   return response;
 }
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
@@ -159,4 +196,5 @@ export default {
   },
 };
 
-export { verifyWebhookSignature };
+export default worker;
+export { readLimitedBody, verifyWebhookSignature };

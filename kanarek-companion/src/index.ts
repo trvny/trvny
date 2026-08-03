@@ -4,7 +4,6 @@ import {
   GitHubApiError,
   TEST_COMMENT_MARKER,
   type InstallationAccessCheck,
-  type TestCommentResult,
 } from './github-app.ts';
 
 interface Env {
@@ -210,22 +209,64 @@ function testCommentTarget(
   };
 }
 
-async function createTestComment(
+function scheduleTestComment(
   target: TestCommentTarget | null,
   env: Env,
-): Promise<TestCommentResult | null> {
-  if (!target) return null;
-  return ensureTestComment(
+  ctx?: ExecutionContext,
+): boolean {
+  if (!target) return false;
+
+  const task = ensureTestComment(
     env.GITHUB_APP_ID,
+    env.GITHUB_APP_SLUG,
     env.GITHUB_PRIVATE_KEY,
     target.installationId,
     target.repository,
     target.pullRequestNumber,
     target.delivery,
-  );
+  )
+    .then((result) => {
+      console.log(
+        JSON.stringify({
+          delivery: target.delivery,
+          event: 'pull_request',
+          action: 'opened',
+          repository: target.repository,
+          installationId: target.installationId,
+          pullRequestNumber: target.pullRequestNumber,
+          testComment: {
+            ok: true,
+            created: result.created,
+            commentId: result.commentId,
+          },
+        }),
+      );
+    })
+    .catch((error: unknown) => {
+      console.error(
+        JSON.stringify({
+          delivery: target.delivery,
+          event: 'pull_request',
+          action: 'opened',
+          repository: target.repository,
+          installationId: target.installationId,
+          pullRequestNumber: target.pullRequestNumber,
+          testComment: 'failed',
+          failure: operationFailure(error),
+        }),
+      );
+    });
+
+  if (ctx) ctx.waitUntil(task);
+  else void task;
+  return true;
 }
 
-async function handleWebhook(request: Request, env: Env): Promise<Response> {
+async function handleWebhook(
+  request: Request,
+  env: Env,
+  ctx?: ExecutionContext,
+): Promise<Response> {
   const contentLength = Number(request.headers.get('content-length') ?? '0');
   if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
     return json({ error: 'payload_too_large' }, 413);
@@ -255,7 +296,6 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   const supported =
     metadata.event !== null && SUPPORTED_EVENTS.has(metadata.event);
   let authentication: InstallationAccessCheck | null = null;
-  let testComment: TestCommentResult | null = null;
 
   try {
     authentication = await authenticateInstallation(metadata, env);
@@ -285,36 +325,11 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     );
   }
 
-  try {
-    testComment = await createTestComment(
-      testCommentTarget(metadata, payload),
-      env,
-    );
-  } catch (error) {
-    const failure = operationFailure(error);
-    console.error(
-      JSON.stringify({
-        ...metadata,
-        supported,
-        testComment: 'failed',
-        failure,
-      }),
-    );
-    return json(
-      {
-        accepted: true,
-        supported,
-        delivery: metadata.delivery,
-        event: metadata.event,
-        testComment: {
-          ok: false,
-          error: 'test_comment_failed',
-          failure,
-        },
-      },
-      202,
-    );
-  }
+  const testCommentScheduled = scheduleTestComment(
+    testCommentTarget(metadata, payload),
+    env,
+    ctx,
+  );
 
   console.log(
     JSON.stringify({
@@ -327,13 +342,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
             expiresAt: authentication.expiresAt,
           }
         : null,
-      testComment: testComment
-        ? {
-            ok: true,
-            created: testComment.created,
-            commentId: testComment.commentId,
-          }
-        : null,
+      testComment: testCommentScheduled ? { scheduled: true } : null,
     }),
   );
 
@@ -350,14 +359,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
             expiresAt: authentication.expiresAt,
           }
         : null,
-      testComment: testComment
-        ? {
-            ok: true,
-            created: testComment.created,
-            commentId: testComment.commentId,
-            commentUrl: testComment.commentUrl,
-          }
-        : null,
+      testComment: testCommentScheduled ? { scheduled: true } : null,
     },
     202,
   );
@@ -390,7 +392,11 @@ function health(env: Env, method: string): Response {
 }
 
 const worker = {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx?: ExecutionContext,
+  ): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === HEALTH_PATH) {
@@ -404,7 +410,7 @@ const worker = {
       if (request.method !== 'POST') {
         return json({ error: 'method_not_allowed' }, 405);
       }
-      return handleWebhook(request, env);
+      return handleWebhook(request, env, ctx);
     }
 
     return json({ error: 'not_found' }, 404);

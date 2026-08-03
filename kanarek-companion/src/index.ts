@@ -1,7 +1,22 @@
+import {
+  checkInstallationAccess,
+  GitHubApiError,
+  type InstallationAccessCheck,
+} from './github-app.ts';
+
 interface Env {
   GITHUB_APP_ID: string;
   GITHUB_APP_SLUG: string;
+  GITHUB_PRIVATE_KEY: string;
   GITHUB_WEBHOOK_SECRET: string;
+}
+
+interface WebhookMetadata {
+  delivery: string | null;
+  event: string | null;
+  action: string | null;
+  repository: string | null;
+  installationId: number | null;
 }
 
 const MAX_BODY_BYTES = 1_048_576;
@@ -17,6 +32,11 @@ const SUPPORTED_EVENTS = new Set([
   'pull_request_review',
   'status',
   'workflow_run',
+]);
+const INSTALLATION_AUTH_ACTIONS = new Set([
+  'created',
+  'new_permissions_accepted',
+  'unsuspend',
 ]);
 
 function json(body: unknown, status = 200): Response {
@@ -99,7 +119,7 @@ async function readLimitedBody(
 function webhookMetadata(
   request: Request,
   payload: Record<string, unknown>,
-): Record<string, unknown> {
+): WebhookMetadata {
   const repository = payload.repository as
     | { full_name?: unknown }
     | undefined;
@@ -113,6 +133,36 @@ function webhookMetadata(
     installationId:
       typeof installation?.id === 'number' ? installation.id : null,
   };
+}
+
+function shouldCheckInstallation(metadata: WebhookMetadata): boolean {
+  if (metadata.event === 'installation_repositories') return true;
+  return (
+    metadata.event === 'installation' &&
+    metadata.action !== null &&
+    INSTALLATION_AUTH_ACTIONS.has(metadata.action)
+  );
+}
+
+function authenticationFailure(error: unknown): Record<string, unknown> {
+  if (error instanceof GitHubApiError) {
+    return { operation: error.operation, status: error.status };
+  }
+  if (error instanceof Error) return { reason: error.message };
+  return { reason: 'unknown_error' };
+}
+
+async function authenticateInstallation(
+  metadata: WebhookMetadata,
+  env: Env,
+): Promise<InstallationAccessCheck | null> {
+  if (!shouldCheckInstallation(metadata)) return null;
+  if (metadata.installationId === null) throw new Error('missing_installation_id');
+  return checkInstallationAccess(
+    env.GITHUB_APP_ID,
+    env.GITHUB_PRIVATE_KEY,
+    metadata.installationId,
+  );
 }
 
 async function handleWebhook(request: Request, env: Env): Promise<Response> {
@@ -142,30 +192,79 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   }
 
   const metadata = webhookMetadata(request, payload);
-  const event = metadata.event;
-  const supported = typeof event === 'string' && SUPPORTED_EVENTS.has(event);
-  console.log(JSON.stringify({ ...metadata, supported }));
+  const supported =
+    metadata.event !== null && SUPPORTED_EVENTS.has(metadata.event);
+  let authentication: InstallationAccessCheck | null = null;
+
+  try {
+    authentication = await authenticateInstallation(metadata, env);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        ...metadata,
+        supported,
+        authentication: 'failed',
+        failure: authenticationFailure(error),
+      }),
+    );
+    return json(
+      {
+        accepted: false,
+        supported,
+        delivery: metadata.delivery,
+        event: metadata.event,
+        error: 'installation_auth_failed',
+      },
+      502,
+    );
+  }
+
+  console.log(
+    JSON.stringify({
+      ...metadata,
+      supported,
+      authentication: authentication
+        ? {
+            ok: true,
+            repositoryCount: authentication.repositoryCount,
+            expiresAt: authentication.expiresAt,
+          }
+        : null,
+    }),
+  );
 
   return json(
     {
       accepted: true,
       supported,
       delivery: metadata.delivery,
-      event,
+      event: metadata.event,
+      authentication: authentication
+        ? {
+            ok: true,
+            repositoryCount: authentication.repositoryCount,
+            expiresAt: authentication.expiresAt,
+          }
+        : null,
     },
     202,
   );
 }
 
 function health(env: Env, method: string): Response {
-  const ready = Boolean(env.GITHUB_WEBHOOK_SECRET);
+  const webhookConfigured = Boolean(env.GITHUB_WEBHOOK_SECRET);
+  const privateKeyConfigured = Boolean(env.GITHUB_PRIVATE_KEY);
+  const appConfigured = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_SLUG);
+  const ready = webhookConfigured && privateKeyConfigured && appConfigured;
   const response = json(
     {
       ok: ready,
       service: 'kanarek-companion',
       appId: env.GITHUB_APP_ID,
       appSlug: env.GITHUB_APP_SLUG,
-      webhookConfigured: ready,
+      webhookConfigured,
+      privateKeyConfigured,
+      installationAuthConfigured: privateKeyConfigured && appConfigured,
     },
     ready ? 200 : 503,
   );

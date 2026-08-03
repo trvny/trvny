@@ -59,7 +59,13 @@
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
 
+## Licencja i materiały zewnętrzne
+
+Oryginalny kod i dokumentację obejmuje [ISC](LICENSE). Zewnętrzne feedy,
+playlisty, dane, cytaty, grafiki i znaki pozostają własnością ich autorów: [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md).
 ## 📰 Ostatnio w eterze
+
+---
 
 <!--README_FEED:START-->
 - ["To nie będzie bimbrownia". Inwestor stanowczo odpowiada mieszkańcom - Przelom.pl](https://news.google.com/atom/articles/CBMisgFBVV95cUxPeWJIRnpQaW4wUUhxV0lGSE0xdklPZ0hleGxZYVhlQUdvcHdzSzFJR2NjRHlsVmJWVFpRa1J3X0lER3BOR3JVSkRodl9QMzN2UHlleWtZRlRyT2p3UU9OYkZQNUtDX3ltMUZTc3VWY1ZxRTZNbU1mbFB1bXdnbDRORC1ZX2hsYzd1eHNYVW9Tb3pzRlYtaEp5WWZLM254V09OZDZrdEw4MWlyVFBZN3NtTjFR?oc=5)
@@ -77,14 +83,6 @@
 <i>❝The person I like most is the one who points out my defects. — Umar ibn Al-Khattāb (R.A)❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
-
-## Licencja i materiały zewnętrzne
-
-Oryginalny kod i dokumentację obejmuje [ISC](LICENSE). Zewnętrzne feedy,
-playlisty, dane, cytaty, grafiki i znaki pozostają własnością ich autorów.
-Szczegóły: [THIRD_PARTY_NOTICES.md](docs/THIRD_PARTY_NOTICES.md).
-
----
 
 <div align="center">
 

@@ -12,6 +12,17 @@ For `installation.created`, `installation.unsuspend`,
 the Worker also creates a short-lived installation token and verifies repository
 access. Tokens are never returned or logged.
 
+## Controlled comment probe
+
+A newly opened pull request receives one test comment only when all conditions
+match:
+
+- repository is exactly `trvny/trvny`;
+- the pull request body contains `<!-- kanarek-companion:test-comment -->`;
+- no existing comment contains the same marker.
+
+Redeliveries reuse the marked comment instead of creating duplicates.
+
 ## Cloudflare Workers Builds
 
 Connect `trvny/trvny` with:

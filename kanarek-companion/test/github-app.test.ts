@@ -17,6 +17,25 @@ function privateKeyPem(): string {
   return testKeyPair().privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
 }
 
+function installationToken(): Response {
+  return Response.json({
+    token: 'ghs_comment_token',
+    expires_at: '2026-08-04T00:30:00Z',
+  });
+}
+
+function botComment(id = 321): Record<string, unknown> {
+  return {
+    id,
+    html_url: `https://github.com/trvny/trvny/pull/149#issuecomment-${id}`,
+    body: `${TEST_COMMENT_MARKER}\nalready here`,
+    user: {
+      login: 'kanarek-companion[bot]',
+      type: 'Bot',
+    },
+  };
+}
+
 test('signs a GitHub App JWT with a PKCS#1 private key', async () => {
   const { privateKey, publicKey } = testKeyPair();
   const pem = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
@@ -127,10 +146,7 @@ test('creates one marked pull request comment', async () => {
     calls.push(`${init?.method ?? 'GET'} ${url}`);
 
     if (url.endsWith('/app/installations/123/access_tokens')) {
-      return Response.json({
-        token: 'ghs_comment_token',
-        expires_at: '2026-08-04T00:30:00Z',
-      });
+      return installationToken();
     }
 
     if (url.endsWith('/issues/149/comments?per_page=100')) {
@@ -140,8 +156,9 @@ test('creates one marked pull request comment', async () => {
 
     if (url.endsWith('/issues/149/comments') && init?.method === 'POST') {
       assert.equal(headers.get('authorization'), 'Bearer ghs_comment_token');
+      assert.equal(headers.get('content-type'), 'application/json');
       const requestBody = JSON.parse(String(init.body)) as { body: string };
-      assert.match(requestBody.body, new RegExp(TEST_COMMENT_MARKER));
+      assert.equal(requestBody.body.includes(TEST_COMMENT_MARKER), true);
       assert.match(requestBody.body, /kanarek-companion:delivery:delivery-123/);
       return Response.json(
         {
@@ -157,6 +174,7 @@ test('creates one marked pull request comment', async () => {
 
   const result = await ensureTestComment(
     '4472094',
+    'kanarek-companion',
     pem,
     123,
     'trvny/trvny',
@@ -175,7 +193,7 @@ test('creates one marked pull request comment', async () => {
   assert.equal(calls.length, 3);
 });
 
-test('reuses the marked comment after a redelivery', async () => {
+test('reuses only a marked comment authored by the app bot', async () => {
   const pem = privateKeyPem();
   let createCalls = 0;
 
@@ -186,20 +204,11 @@ test('reuses the marked comment after a redelivery', async () => {
     const url = String(input);
 
     if (url.endsWith('/app/installations/123/access_tokens')) {
-      return Response.json({
-        token: 'ghs_comment_token',
-        expires_at: '2026-08-04T00:30:00Z',
-      });
+      return installationToken();
     }
 
     if (url.endsWith('/issues/149/comments?per_page=100')) {
-      return Response.json([
-        {
-          id: 321,
-          html_url: 'https://github.com/trvny/trvny/pull/149#issuecomment-321',
-          body: `${TEST_COMMENT_MARKER}\nalready here`,
-        },
-      ]);
+      return Response.json([botComment()]);
     }
 
     if (url.endsWith('/issues/149/comments') && init?.method === 'POST') {
@@ -210,6 +219,7 @@ test('reuses the marked comment after a redelivery', async () => {
 
   const result = await ensureTestComment(
     '4472094',
+    'kanarek-companion',
     pem,
     123,
     'trvny/trvny',
@@ -221,6 +231,62 @@ test('reuses the marked comment after a redelivery', async () => {
   assert.deepEqual(result, {
     commentId: 321,
     commentUrl: 'https://github.com/trvny/trvny/pull/149#issuecomment-321',
+    created: false,
+    expiresAt: '2026-08-04T00:30:00Z',
+  });
+  assert.equal(createCalls, 0);
+});
+
+test('follows pagination before deciding to create a comment', async () => {
+  const pem = privateKeyPem();
+  const firstPage = Array.from({ length: 100 }, (_, index) => ({
+    id: index + 1,
+    body: 'ordinary comment',
+  }));
+  let createCalls = 0;
+
+  const fetcher = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const url = String(input);
+
+    if (url.endsWith('/app/installations/123/access_tokens')) {
+      return installationToken();
+    }
+
+    if (url.endsWith('/issues/149/comments?per_page=100')) {
+      return Response.json(firstPage, {
+        headers: {
+          Link: '<https://api.github.com/repos/trvny/trvny/issues/149/comments?per_page=100&page=2>; rel="next"',
+        },
+      });
+    }
+
+    if (url.endsWith('/issues/149/comments?per_page=100&page=2')) {
+      return Response.json([botComment(654)]);
+    }
+
+    if (url.endsWith('/issues/149/comments') && init?.method === 'POST') {
+      createCalls += 1;
+    }
+    return new Response(null, { status: 404 });
+  };
+
+  const result = await ensureTestComment(
+    '4472094',
+    'kanarek-companion',
+    pem,
+    123,
+    'trvny/trvny',
+    149,
+    'delivery-123',
+    fetcher,
+  );
+
+  assert.deepEqual(result, {
+    commentId: 654,
+    commentUrl: 'https://github.com/trvny/trvny/pull/149#issuecomment-654',
     created: false,
     expiresAt: '2026-08-04T00:30:00Z',
   });

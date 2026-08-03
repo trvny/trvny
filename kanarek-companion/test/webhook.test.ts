@@ -9,6 +9,7 @@ import worker, {
 const env = {
   GITHUB_APP_ID: '4472094',
   GITHUB_APP_SLUG: 'kanarek-companion',
+  GITHUB_PRIVATE_KEY: 'configured-private-key',
   GITHUB_WEBHOOK_SECRET: 'test-secret',
 };
 
@@ -67,5 +68,24 @@ test('reports not ready without the webhook secret', async () => {
     appId: '4472094',
     appSlug: 'kanarek-companion',
     webhookConfigured: false,
+    privateKeyConfigured: true,
+    installationAuthConfigured: true,
+  });
+});
+
+test('reports not ready without the GitHub App private key', async () => {
+  const response = await worker.fetch(new Request('https://example.test/health'), {
+    ...env,
+    GITHUB_PRIVATE_KEY: '',
+  });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    service: 'kanarek-companion',
+    appId: '4472094',
+    appSlug: 'kanarek-companion',
+    webhookConfigured: true,
+    privateKeyConfigured: false,
+    installationAuthConfigured: false,
   });
 });

@@ -1,7 +1,0 @@
-interface:
-  display_name: "Concise Responses"
-  short_description: "Lean, direct answers without filler or repetition"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#DF7757"
-  default_prompt: "Use $concise-responses to answer this directly with no unnecessary padding."

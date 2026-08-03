@@ -1,7 +1,0 @@
-interface:
-  display_name: "Wrangler CLI"
-  short_description: "Use Wrangler correctly for Cloudflare development"
-  icon_small: "./assets/icon.svg"
-  icon_large: "./assets/icon.svg"
-  brand_color: "#F38020"
-  default_prompt: "Use $wrangler to prepare the correct Wrangler commands and configuration."

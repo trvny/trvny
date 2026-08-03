@@ -158,13 +158,17 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
 }
 
 function health(env: Env, method: string): Response {
-  const response = json({
-    ok: true,
-    service: 'kanarek-companion',
-    appId: env.GITHUB_APP_ID,
-    appSlug: env.GITHUB_APP_SLUG,
-    webhookConfigured: Boolean(env.GITHUB_WEBHOOK_SECRET),
-  });
+  const ready = Boolean(env.GITHUB_WEBHOOK_SECRET);
+  const response = json(
+    {
+      ok: ready,
+      service: 'kanarek-companion',
+      appId: env.GITHUB_APP_ID,
+      appSlug: env.GITHUB_APP_SLUG,
+      webhookConfigured: ready,
+    },
+    ready ? 200 : 503,
+  );
   if (method === 'HEAD') {
     return new Response(null, {
       status: response.status,

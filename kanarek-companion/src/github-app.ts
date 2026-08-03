@@ -154,6 +154,7 @@ function githubHeaders(token: string): Headers {
   return new Headers({
     Accept: 'application/vnd.github+json',
     Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
     'User-Agent': 'kanarek-companion',
     'X-GitHub-Api-Version': GITHUB_API_VERSION,
   });
@@ -213,6 +214,52 @@ function commentBody(delivery: string): string {
   ].join('\n');
 }
 
+function nextCommentsPage(
+  linkHeader: string | null,
+  commentsUrl: string,
+): string | null {
+  if (!linkHeader) return null;
+  for (const part of linkHeader.split(',')) {
+    const match = part.trim().match(/^<([^>]+)>;\s*rel="next"$/);
+    if (!match) continue;
+
+    const next = new URL(match[1]);
+    const expected = new URL(commentsUrl);
+    if (next.origin !== expected.origin || next.pathname !== expected.pathname) {
+      throw new Error('invalid_comments_pagination_url');
+    }
+    return next.toString();
+  }
+  return null;
+}
+
+function existingTestComment(
+  comments: unknown[],
+  appSlug: string,
+): TestCommentResult | null {
+  const expectedLogin = `${appSlug}[bot]`;
+  for (const value of comments) {
+    const comment = value as Record<string, unknown>;
+    const user = comment.user as Record<string, unknown> | undefined;
+    if (
+      typeof comment.body === 'string' &&
+      comment.body.includes(TEST_COMMENT_MARKER) &&
+      typeof comment.id === 'number' &&
+      typeof comment.html_url === 'string' &&
+      user?.login === expectedLogin &&
+      user.type === 'Bot'
+    ) {
+      return {
+        commentId: comment.id,
+        commentUrl: comment.html_url,
+        created: false,
+        expiresAt: '',
+      };
+    }
+  }
+  return null;
+}
+
 export async function checkInstallationAccess(
   appId: string,
   privateKey: string,
@@ -243,6 +290,7 @@ export async function checkInstallationAccess(
 
 export async function ensureTestComment(
   appId: string,
+  appSlug: string,
   privateKey: string,
   installationId: number,
   repository: string,
@@ -258,29 +306,27 @@ export async function ensureTestComment(
   );
   const [owner, repo] = repositoryParts(repository);
   const commentsUrl = `${GITHUB_API}/repos/${owner}/${repo}/issues/${pullRequestNumber}/comments`;
-  const comments = await requireJson<unknown>(
-    await fetcher(`${commentsUrl}?per_page=100`, {
-      headers: githubHeaders(installation.token),
-    }),
-    'list_issue_comments',
-  );
-  if (!Array.isArray(comments)) throw new Error('invalid_comments_response');
+  let pageUrl: string | null = `${commentsUrl}?per_page=100`;
+  const visited = new Set<string>();
 
-  for (const value of comments) {
-    const comment = value as Record<string, unknown>;
-    if (
-      typeof comment.body === 'string' &&
-      comment.body.includes(TEST_COMMENT_MARKER) &&
-      typeof comment.id === 'number' &&
-      typeof comment.html_url === 'string'
-    ) {
-      return {
-        commentId: comment.id,
-        commentUrl: comment.html_url,
-        created: false,
-        expiresAt: installation.expiresAt,
-      };
+  while (pageUrl) {
+    if (visited.has(pageUrl)) throw new Error('comments_pagination_loop');
+    visited.add(pageUrl);
+
+    const response = await fetcher(pageUrl, {
+      headers: githubHeaders(installation.token),
+    });
+    const comments = await requireJson<unknown>(
+      response,
+      'list_issue_comments',
+    );
+    if (!Array.isArray(comments)) throw new Error('invalid_comments_response');
+
+    const existing = existingTestComment(comments, appSlug);
+    if (existing) {
+      return { ...existing, expiresAt: installation.expiresAt };
     }
+    pageUrl = nextCommentsPage(response.headers.get('link'), commentsUrl);
   }
 
   const created = await requireJson<Record<string, unknown>>(

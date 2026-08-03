@@ -19,9 +19,11 @@ match:
 
 - repository is exactly `trvny/trvny`;
 - the pull request body contains `<!-- kanarek-companion:test-comment -->`;
-- no existing comment contains the same marker.
+- no existing app-bot comment contains the same marker.
 
-Redeliveries reuse the marked comment instead of creating duplicates.
+The webhook is acknowledged before GitHub API writes run. A per-PR Durable
+Object serializes overlapping deliveries, caches the result, and checks every
+page of existing comments before creating one.
 
 ## Cloudflare Workers Builds
 

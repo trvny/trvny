@@ -1,7 +1,10 @@
 import {
   checkInstallationAccess,
+  ensureTestComment,
   GitHubApiError,
+  TEST_COMMENT_MARKER,
   type InstallationAccessCheck,
+  type TestCommentResult,
 } from './github-app.ts';
 
 interface Env {
@@ -19,9 +22,17 @@ interface WebhookMetadata {
   installationId: number | null;
 }
 
+interface TestCommentTarget {
+  delivery: string;
+  installationId: number;
+  pullRequestNumber: number;
+  repository: string;
+}
+
 const MAX_BODY_BYTES = 1_048_576;
 const WEBHOOK_PATH = '/webhooks/github';
 const HEALTH_PATH = '/health';
+const TEST_COMMENT_REPOSITORY = 'trvny/trvny';
 const SUPPORTED_EVENTS = new Set([
   'check_run',
   'check_suite',
@@ -144,7 +155,7 @@ function shouldCheckInstallation(metadata: WebhookMetadata): boolean {
   );
 }
 
-function authenticationFailure(error: unknown): Record<string, unknown> {
+function operationFailure(error: unknown): Record<string, unknown> {
   if (error instanceof GitHubApiError) {
     return { operation: error.operation, status: error.status };
   }
@@ -162,6 +173,55 @@ async function authenticateInstallation(
     env.GITHUB_APP_ID,
     env.GITHUB_PRIVATE_KEY,
     metadata.installationId,
+  );
+}
+
+function testCommentTarget(
+  metadata: WebhookMetadata,
+  payload: Record<string, unknown>,
+): TestCommentTarget | null {
+  if (
+    metadata.event !== 'pull_request' ||
+    metadata.action !== 'opened' ||
+    metadata.repository !== TEST_COMMENT_REPOSITORY ||
+    metadata.installationId === null ||
+    !metadata.delivery
+  ) {
+    return null;
+  }
+
+  const pullRequest = payload.pull_request as { body?: unknown } | undefined;
+  const pullRequestNumber = payload.number;
+  if (
+    typeof pullRequest?.body !== 'string' ||
+    !pullRequest.body.includes(TEST_COMMENT_MARKER) ||
+    typeof pullRequestNumber !== 'number' ||
+    !Number.isInteger(pullRequestNumber) ||
+    pullRequestNumber < 1
+  ) {
+    return null;
+  }
+
+  return {
+    delivery: metadata.delivery,
+    installationId: metadata.installationId,
+    pullRequestNumber,
+    repository: metadata.repository,
+  };
+}
+
+async function createTestComment(
+  target: TestCommentTarget | null,
+  env: Env,
+): Promise<TestCommentResult | null> {
+  if (!target) return null;
+  return ensureTestComment(
+    env.GITHUB_APP_ID,
+    env.GITHUB_PRIVATE_KEY,
+    target.installationId,
+    target.repository,
+    target.pullRequestNumber,
+    target.delivery,
   );
 }
 
@@ -195,11 +255,12 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   const supported =
     metadata.event !== null && SUPPORTED_EVENTS.has(metadata.event);
   let authentication: InstallationAccessCheck | null = null;
+  let testComment: TestCommentResult | null = null;
 
   try {
     authentication = await authenticateInstallation(metadata, env);
   } catch (error) {
-    const failure = authenticationFailure(error);
+    const failure = operationFailure(error);
     console.error(
       JSON.stringify({
         ...metadata,
@@ -224,6 +285,37 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     );
   }
 
+  try {
+    testComment = await createTestComment(
+      testCommentTarget(metadata, payload),
+      env,
+    );
+  } catch (error) {
+    const failure = operationFailure(error);
+    console.error(
+      JSON.stringify({
+        ...metadata,
+        supported,
+        testComment: 'failed',
+        failure,
+      }),
+    );
+    return json(
+      {
+        accepted: true,
+        supported,
+        delivery: metadata.delivery,
+        event: metadata.event,
+        testComment: {
+          ok: false,
+          error: 'test_comment_failed',
+          failure,
+        },
+      },
+      202,
+    );
+  }
+
   console.log(
     JSON.stringify({
       ...metadata,
@@ -233,6 +325,13 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
             ok: true,
             repositoryCount: authentication.repositoryCount,
             expiresAt: authentication.expiresAt,
+          }
+        : null,
+      testComment: testComment
+        ? {
+            ok: true,
+            created: testComment.created,
+            commentId: testComment.commentId,
           }
         : null,
     }),
@@ -249,6 +348,14 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
             ok: true,
             repositoryCount: authentication.repositoryCount,
             expiresAt: authentication.expiresAt,
+          }
+        : null,
+      testComment: testComment
+        ? {
+            ok: true,
+            created: testComment.created,
+            commentId: testComment.commentId,
+            commentUrl: testComment.commentUrl,
           }
         : null,
     },
@@ -305,4 +412,4 @@ const worker = {
 };
 
 export default worker;
-export { readLimitedBody, verifyWebhookSignature };
+export { readLimitedBody, testCommentTarget, verifyWebhookSignature };

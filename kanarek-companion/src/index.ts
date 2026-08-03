@@ -29,13 +29,13 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function hexToBytes(value: string): Uint8Array | null {
+function hexToBytes(value: string): ArrayBuffer | null {
   if (!/^[0-9a-f]{64}$/i.test(value)) return null;
   const bytes = new Uint8Array(value.length / 2);
   for (let index = 0; index < value.length; index += 2) {
     bytes[index / 2] = Number.parseInt(value.slice(index, index + 2), 16);
   }
-  return bytes;
+  return bytes.buffer;
 }
 
 async function verifyWebhookSignature(

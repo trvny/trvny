@@ -18,7 +18,12 @@ export interface TestCommentResult {
 
 interface InstallationToken {
   expiresAt: string;
+  permissions: Record<string, string>;
   token: string;
+}
+
+interface GitHubApiDiagnosticContext {
+  grantedPermissions?: Record<string, string>;
 }
 
 export class GitHubApiError extends Error {
@@ -160,12 +165,60 @@ function githubHeaders(token: string): Headers {
   });
 }
 
+function stringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+
+  const result: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'string') result[key] = entry;
+  }
+  return result;
+}
+
+function safeText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return value.replace(/\s+/g, ' ').trim().slice(0, 500) || null;
+}
+
+async function githubFailureDetails(
+  response: Response,
+): Promise<{ documentationUrl: string | null; message: string | null }> {
+  try {
+    const payload = (await response.json()) as Record<string, unknown>;
+    return {
+      documentationUrl: safeText(payload.documentation_url),
+      message: safeText(payload.message),
+    };
+  } catch {
+    return { documentationUrl: null, message: null };
+  }
+}
+
 async function requireJson<T>(
   response: Response,
   operation: string,
+  diagnosticContext: GitHubApiDiagnosticContext = {},
 ): Promise<T> {
   if (!response.ok) {
-    await response.body?.cancel();
+    const details = await githubFailureDetails(response);
+    console.warn(
+      JSON.stringify({
+        githubApiDiagnostic: {
+          acceptedPermissions: response.headers.get(
+            'x-accepted-github-permissions',
+          ),
+          documentationUrl: details.documentationUrl,
+          grantedPermissions: diagnosticContext.grantedPermissions ?? null,
+          message: details.message,
+          operation,
+          rateLimitRemaining: response.headers.get('x-ratelimit-remaining'),
+          rateLimitReset: response.headers.get('x-ratelimit-reset'),
+          requestId: response.headers.get('x-github-request-id'),
+          retryAfter: response.headers.get('retry-after'),
+          status: response.status,
+        },
+      }),
+    );
     throw new GitHubApiError(operation, response.status);
   }
   return (await response.json()) as T;
@@ -194,7 +247,11 @@ async function createInstallationToken(
   if (typeof token !== 'string' || typeof expiresAt !== 'string') {
     throw new Error('invalid_installation_token_response');
   }
-  return { token, expiresAt };
+  return {
+    token,
+    expiresAt,
+    permissions: stringRecord(payload.permissions),
+  };
 }
 
 function repositoryParts(repository: string): [string, string] {
@@ -279,6 +336,7 @@ export async function checkInstallationAccess(
   const repositoriesPayload = await requireJson<Record<string, unknown>>(
     repositoriesResponse,
     'list_installation_repositories',
+    { grantedPermissions: installation.permissions },
   );
   const repositoryCount = repositoriesPayload.total_count;
   if (typeof repositoryCount !== 'number') {
@@ -319,6 +377,7 @@ export async function ensureTestComment(
     const comments = await requireJson<unknown>(
       response,
       'list_issue_comments',
+      { grantedPermissions: installation.permissions },
     );
     if (!Array.isArray(comments)) throw new Error('invalid_comments_response');
 
@@ -336,6 +395,7 @@ export async function ensureTestComment(
       body: JSON.stringify({ body: commentBody(delivery) }),
     }),
     'create_issue_comment',
+    { grantedPermissions: installation.permissions },
   );
   if (typeof created.id !== 'number' || typeof created.html_url !== 'string') {
     throw new Error('invalid_created_comment_response');

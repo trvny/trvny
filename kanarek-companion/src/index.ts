@@ -478,11 +478,24 @@ export class CommentProbeLock {
         await this.state.storage.put('result', result);
         response = json({ ok: true, cached: false, result });
       } catch (error) {
+        const failure = operationFailure(error);
+        console.error(
+          JSON.stringify({
+            delivery: target.delivery,
+            event: 'pull_request',
+            action: 'opened',
+            repository: target.repository,
+            installationId: target.installationId,
+            pullRequestNumber: target.pullRequestNumber,
+            testComment: 'failed',
+            failure,
+          }),
+        );
         response = json(
           {
             ok: false,
             cached: false,
-            failure: operationFailure(error),
+            failure,
           },
           502,
         );

@@ -190,7 +190,6 @@ async function githubFailureDetails(
       message: safeText(payload.message),
     };
   } catch {
-    await response.body?.cancel();
     return { documentationUrl: null, message: null };
   }
 }
@@ -337,6 +336,7 @@ export async function checkInstallationAccess(
   const repositoriesPayload = await requireJson<Record<string, unknown>>(
     repositoriesResponse,
     'list_installation_repositories',
+    { grantedPermissions: installation.permissions },
   );
   const repositoryCount = repositoriesPayload.total_count;
   if (typeof repositoryCount !== 'number') {
@@ -377,6 +377,7 @@ export async function ensureTestComment(
     const comments = await requireJson<unknown>(
       response,
       'list_issue_comments',
+      { grantedPermissions: installation.permissions },
     );
     if (!Array.isArray(comments)) throw new Error('invalid_comments_response');
 

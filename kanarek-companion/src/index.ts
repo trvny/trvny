@@ -32,6 +32,7 @@ interface TestCommentTarget {
 
 interface CommentProbeResponse {
   cached: boolean;
+  failure?: Record<string, unknown>;
   ok: boolean;
   result?: TestCommentResult;
 }
@@ -250,7 +251,19 @@ async function runCommentProbe(
   );
   const payload = (await response.json()) as CommentProbeResponse;
   if (!response.ok || !payload.ok || !payload.result) {
-    throw new Error(`comment_probe_lock_failed_${response.status}`);
+    console.error(
+      JSON.stringify({
+        delivery: target.delivery,
+        repository: target.repository,
+        installationId: target.installationId,
+        pullRequestNumber: target.pullRequestNumber,
+        testComment: 'failed',
+        failure: payload.failure ?? {
+          reason: `comment_probe_lock_failed_${response.status}`,
+        },
+      }),
+    );
+    return;
   }
 
   console.log(
@@ -478,11 +491,12 @@ export class CommentProbeLock {
         await this.state.storage.put('result', result);
         response = json({ ok: true, cached: false, result });
       } catch (error) {
+        const failure = operationFailure(error);
         response = json(
           {
             ok: false,
             cached: false,
-            failure: operationFailure(error),
+            failure,
           },
           502,
         );

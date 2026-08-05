@@ -51,7 +51,9 @@ jobs:
               streambench/ stuff/playlists/wklejony-tekst.m3u8; then
               streambench=true
             fi
-            if ! git diff --quiet "$BASE_SHA" HEAD -- .github/workflows/mega-linter.yml; then
+            if ! git diff --quiet "$BASE_SHA" HEAD -- \
+              .github/workflows/mega-linter.yml \
+              .github/linters/.mega-linter.yml; then
               codebench=true
               streambench=true
             fi

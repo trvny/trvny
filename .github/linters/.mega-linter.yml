@@ -35,6 +35,9 @@ DISABLE_ERRORS_LINTERS:
 # Python/PowerShell/Markdown volume was coming from)
 # stuff/: personal scratch dir (old scripts, quote/feed dumps, configs) -
 # not maintained project code
-FILTER_REGEX_EXCLUDE: "(package-lock\\.json|\\.claude/|stuff/)"
+# codebench/public/ and streambench/public/: established application assets
+# validated by the dedicated Bench checks; generic documentation linters flag
+# stable DOM ids and bundled/minified CSS as false positives.
+FILTER_REGEX_EXCLUDE: "(package-lock\\.json|\\.claude/|stuff/|codebench/public/|streambench/public/)"
 
 MARKDOWN_MARKDOWNLINT_CONFIG_FILE: "https://raw.githubusercontent.com/trvny/feeds/refs/heads/main/.github/linters/.markdownlint.json"

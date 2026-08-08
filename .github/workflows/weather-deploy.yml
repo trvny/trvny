@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-weather
+  group: deploy-weather-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

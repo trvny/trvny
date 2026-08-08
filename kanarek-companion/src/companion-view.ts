@@ -3,9 +3,9 @@ import type { BranchState, CiState, CompanionEnv, PullRequest, QuipEntry, Review
 
 export const MARKER = '<!-- kanarek-pr-companion:v1 -->';
 const ROOT_LABELS = new Map([
-  ['app', 'Aplikacja'],
-  ['src', 'Kod źródłowy'],
-  ['lib', 'Biblioteka'],
+  ['app', 'App'],
+  ['src', 'Source'],
+  ['lib', 'Library'],
   ['server', 'Backend'],
   ['backend', 'Backend'],
   ['api', 'API'],
@@ -16,14 +16,14 @@ const ROOT_LABELS = new Map([
   ['workers', 'Worker'],
   ['android', 'Android'],
   ['ios', 'iOS'],
-  ['test', 'Testy'],
-  ['tests', 'Testy'],
-  ['spec', 'Testy'],
-  ['scripts', 'Narzędzia'],
-  ['tools', 'Narzędzia'],
-  ['config', 'Konfiguracja'],
-  ['public', 'Zasoby'],
-  ['assets', 'Zasoby'],
+  ['test', 'Tests'],
+  ['tests', 'Tests'],
+  ['spec', 'Tests'],
+  ['scripts', 'Tools'],
+  ['tools', 'Tools'],
+  ['config', 'Configuration'],
+  ['public', 'Assets'],
+  ['assets', 'Assets'],
 ]);
 
 function code(value: unknown): string {
@@ -50,7 +50,7 @@ function rootLabel(root: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 32);
-  if (!value) return 'Pozostałe';
+  if (!value) return 'Other';
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
@@ -59,8 +59,8 @@ function areaFor(file: string): string {
   if (file.startsWith('kanarek/worker/')) return 'Kanarek Worker';
   if (file.startsWith('kanarek/')) return 'Kanarek';
   if (file.startsWith('feedseek/')) return 'Feedseek';
-  if (file.startsWith('.github/')) return 'Automatyka GitHub';
-  if (file.startsWith('docs/') || file.endsWith('.md')) return 'Dokumentacja';
+  if (file.startsWith('.github/')) return 'GitHub automation';
+  if (file.startsWith('docs/') || file.endsWith('.md')) return 'Documentation';
   if (!file.includes('/')) return 'Repo root';
   return rootLabel(file.split('/')[0]);
 }
@@ -84,34 +84,34 @@ export function status(
   review: ReviewState,
   ciRequired = true,
 ): StatusState {
-  if (pr.merged) return { key: 'merged', title: '🟣 scalony', blockers: [] };
+  if (pr.merged) return { key: 'merged', title: '🟣 merged', blockers: [] };
   if (pr.state === 'closed') {
-    return { key: 'closed', title: '⚫ zamknięty', blockers: [] };
+    return { key: 'closed', title: '⚫ closed', blockers: [] };
   }
   if (pr.draft) {
-    return { key: 'draft', title: '📝 szkic', blockers: ['PR jest szkicem'] };
+    return { key: 'draft', title: '📝 draft', blockers: ['PR is a draft'] };
   }
 
   const blockers: string[] = [];
-  if (branch.behind !== null && branch.behind > 0) blockers.push(`${branch.behind} za ${pr.base.ref}`);
-  if (branch.behind === null) blockers.push('nieznany stan gałęzi');
+  if (branch.behind !== null && branch.behind > 0) blockers.push(`${branch.behind} behind ${pr.base.ref}`);
+  if (branch.behind === null) blockers.push('branch state unknown');
   if (pr.mergeable === false || pr.mergeable_state === 'dirty') {
-    blockers.push('konflikty scalania');
+    blockers.push('merge conflicts');
   }
-  if (pr.mergeable === null) blockers.push('GitHub liczy scalalność');
-  if (ciRequired && ci.total === 0) blockers.push('brak wyników CI');
-  if (ci.pending.length) blockers.push(`${ci.pending.length} kontroli w toku`);
-  if (ci.failed.length) blockers.push(`${ci.failed.length} kontroli z błędem`);
-  if (review.changes) blockers.push('review żąda zmian');
+  if (pr.mergeable === null) blockers.push('GitHub is calculating mergeability');
+  if (ciRequired && ci.total === 0) blockers.push('no CI results');
+  if (ci.pending.length) blockers.push(`${ci.pending.length} checks pending`);
+  if (ci.failed.length) blockers.push(`${ci.failed.length} checks failed`);
+  if (review.changes) blockers.push('review requested changes');
   if (pr.mergeable_state === 'blocked' && blockers.length === 0) {
-    blockers.push('GitHub oznacza PR jako blocked');
+    blockers.push('GitHub marks the PR as blocked');
   }
 
   if (ci.failed.length || pr.mergeable_state === 'dirty') {
-    return { key: 'blocked', title: '🔴 blokada', blockers };
+    return { key: 'blocked', title: '🔴 blocked', blockers };
   }
-  if (blockers.length) return { key: 'waiting', title: '🟡 czeka', blockers };
-  return { key: 'ready', title: '🟢 gotowy', blockers: [] };
+  if (blockers.length) return { key: 'waiting', title: '🟡 waiting', blockers };
+  return { key: 'ready', title: '🟢 ready', blockers: [] };
 }
 
 export function blockerKinds(
@@ -141,10 +141,10 @@ export function blockerKinds(
 
 function branchBadge(pr: PullRequest, branch: BranchState): string {
   if (pr.merged) return `${code(pr.base.ref)} ✅`;
-  if (pr.state === 'closed') return 'gałąź ⚫';
+  if (pr.state === 'closed') return 'branch ⚫';
   if (branch.behind === 0) return `${code(pr.base.ref)} ✅`;
   if (branch.behind !== null && branch.behind > 0) return `${code(pr.base.ref)} −${branch.behind}`;
-  return 'gałąź ?';
+  return 'branch ?';
 }
 
 function checksBadge(ci: CiState, ciRequired: boolean): string {
@@ -185,9 +185,9 @@ export function render(
   }
   const details = current.blockers.filter((item) =>
     [
-      'konflikty scalania',
-      'GitHub liczy scalalność',
-      'GitHub oznacza PR jako blocked',
+      'merge conflicts',
+      'GitHub is calculating mergeability',
+      'GitHub marks the PR as blocked',
     ].includes(item),
   );
   const blockers = details.length
@@ -197,10 +197,10 @@ export function render(
     [
       ...new Set(
         projectAreas.map((area) =>
-          area === 'Automatyka GitHub' ? 'Kanarek' : area,
+          area === 'GitHub automation' ? 'Kanarek' : area,
         ),
       ),
-    ].join(', ') || 'Pozostałe';
+    ].join(', ') || 'Other';
 
   return `${MARKER}
 <!-- kanarek-state:${stateHash} -->
@@ -214,5 +214,5 @@ ${badges.filter(Boolean).join(' · ')}${blockers}
 
 > ${quip}
 
-<sub>${scope} · ${pr.changed_files} pl. · ${code(pr.head.sha.slice(0, 8))}</sub>`;
+<sub>${scope} · ${pr.changed_files} files · ${code(pr.head.sha.slice(0, 8))}</sub>`;
 }

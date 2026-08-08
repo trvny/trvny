@@ -87,18 +87,34 @@ test('keeps the rendered comment stable while pending checks finish', () => {
   const laterStatus = status(pr, { behind: 0 }, laterCi, review, true);
   assert.equal(firstStatus.key, laterStatus.key);
 
-  const args = [
+  const firstBody = render(
+    pr,
+    { behind: 0 },
+    firstCi,
     review,
     ['Feedseek'],
+    firstStatus,
     'Still waiting for CI.',
     '0123456789abcdef',
     'fedcba9876543210',
-    'preset' as const,
+    'preset',
     [],
     true,
-  ] as const;
-  const firstBody = render(pr, { behind: 0 }, firstCi, firstStatus, ...args);
-  const laterBody = render(pr, { behind: 0 }, laterCi, laterStatus, ...args);
+  );
+  const laterBody = render(
+    pr,
+    { behind: 0 },
+    laterCi,
+    review,
+    ['Feedseek'],
+    laterStatus,
+    'Still waiting for CI.',
+    '0123456789abcdef',
+    'fedcba9876543210',
+    'preset',
+    [],
+    true,
+  );
   assert.equal(firstBody, laterBody);
   assert.match(firstBody, /CI 🟡/);
 });

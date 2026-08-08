@@ -40,7 +40,18 @@ jobs:
           cache: npm
           cache-dependency-path: kanarek-companion/package-lock.json
 
+      - name: Regenerate lockfile diagnostic
+        run: npm install --package-lock-only --ignore-scripts
       - run: npm ci
       - name: Dependency audit diagnostic
         run: npm audit --json || true
       - run: npm run check
+
+      - name: Archive updated lockfile
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: kanarek-companion-updated-lockfile
+          path: kanarek-companion/package-lock.json
+          if-no-files-found: error
+          retention-days: 1

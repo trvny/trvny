@@ -12,6 +12,7 @@ import {
   storeBank,
 } from './companion-bank.ts';
 import {
+  clearCompanionComments,
   comments,
   comparison,
   files,
@@ -29,11 +30,17 @@ import {
   status,
 } from './companion-view.ts';
 import { aiQuip, decoded, hash, preset, sanitize, shouldAskAi } from './quip.ts';
-import type { CompanionEnv, CompanionResult, CompanionTarget, QuipEntry } from './companion-types.ts';
+import type { CompanionEnv, CompanionResult, CompanionTarget, PullRequest, QuipEntry } from './companion-types.ts';
 
 export { associatedPullRequestNumbers } from './companion-github.ts';
 export { areas, blockerKinds, MARKER, render, size, status } from './companion-view.ts';
 export type { CompanionEnv, CompanionResult, CompanionTarget } from './companion-types.ts';
+
+export function isCompanionDisabled(pr: Pick<PullRequest, 'labels'>): boolean {
+  return Boolean(
+    pr.labels?.some((label) => label.name?.trim().toLowerCase() === 'no-goblin'),
+  );
+}
 
 export async function refreshCompanion(
   target: CompanionTarget,
@@ -47,6 +54,26 @@ export async function refreshCompanion(
     fetcher,
   );
   const pr = await pull(client, target.repository, target.pullRequestNumber);
+  if (isCompanionDisabled(pr)) {
+    const oldComments = await comments(
+      client,
+      target.repository,
+      target.pullRequestNumber,
+    );
+    const changed = await clearCompanionComments(
+      client,
+      env.GITHUB_APP_SLUG,
+      target.repository,
+      oldComments,
+    );
+    return {
+      changed,
+      commentId: null,
+      quipSource: 'preset',
+      state: 'disabled',
+    };
+  }
+
   const ciRequired = requireCi(env, target.repository);
   const [changedFiles, branch, ci, review, oldComments] = await Promise.all([
     files(client, target.repository, target.pullRequestNumber),

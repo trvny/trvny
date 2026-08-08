@@ -21,6 +21,11 @@ import {
   checks,
   upsert,
 } from './companion-github.ts';
+import {
+  contextLanguage,
+  contextualPreset,
+  matchesLanguage,
+} from './companion-language.ts';
 import { syncReaction } from './companion-reactions.ts';
 import {
   areas,
@@ -30,10 +35,11 @@ import {
   size,
   status,
 } from './companion-view.ts';
-import { aiQuip, decoded, hash, preset, sanitize, shouldAskAi } from './quip.ts';
+import { aiQuip, decoded, hash, sanitize, shouldAskAi } from './quip.ts';
 import type { CompanionEnv, CompanionResult, CompanionTarget, PullRequest, QuipEntry } from './companion-types.ts';
 
 export { associatedPullRequestNumbers } from './companion-github.ts';
+export { contextLanguage } from './companion-language.ts';
 export { reactionForState } from './companion-reactions.ts';
 export { areas, blockerKinds, MARKER, render, size, status } from './companion-view.ts';
 export type { CompanionEnv, CompanionResult, CompanionTarget } from './companion-types.ts';
@@ -97,11 +103,13 @@ export async function refreshCompanion(
   const prSize = size(pr);
   const current = status(pr, branch, ci, review, ciRequired);
   const kinds = blockerKinds(pr, branch, ci, review, ciRequired);
+  const language = contextLanguage(`${pr.title ?? ''}\n${pr.body ?? ''}`);
   const quipFacts = {
     status: current.key,
     blockers: kinds,
     area: projectAreas[0] ?? 'Other',
     size: prSize.key,
+    language,
   };
   const quipKey = await hash(quipFacts);
   const stateHash = await hash({
@@ -163,15 +171,24 @@ export async function refreshCompanion(
       `blockers=${kinds.join(',') || 'none'}`,
       `area=${quipFacts.area}`,
       `size=${prSize.key}`,
+      `language=${language}`,
       `context_title=${sanitize(pr.title ?? '') || 'none'}`,
       `context_body=${sanitize(pr.body ?? '') || 'none'}`,
       `previous_quip=${previousQuip || 'none'}`,
     ].join('; ');
-    quip = (await aiQuip(facts, env, fetcher)) ?? '';
-    if (quip) source = 'ai';
+    const generated = (await aiQuip(facts, env, fetcher)) ?? '';
+    if (generated && matchesLanguage(generated, language)) {
+      quip = generated;
+      source = 'ai';
+    }
   }
   if (!quip) {
-    quip = await preset(current.key, `${target.pullRequestNumber}:${stateHash}`, previousQuip);
+    quip = await contextualPreset(
+      current.key,
+      `${target.pullRequestNumber}:${stateHash}`,
+      previousQuip,
+      language,
+    );
     source = 'preset';
   }
   pool = rememberQuip(pool, quipKey, quip, source);

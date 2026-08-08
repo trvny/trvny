@@ -28,12 +28,23 @@ interface CompanionLockResponse {
   duplicate?: boolean;
   failure?: Record<string, unknown>;
   ok: boolean;
+  queued?: boolean;
   result?: CompanionResult;
 }
 
 const MAX_BODY_BYTES = 1_048_576;
 const WEBHOOK_PATH = '/webhooks/github';
 const HEALTH_PATH = '/health';
+const COALESCE_DELAY_MS = 1_000;
+const COALESCED_EVENTS = new Set([
+  'check_run',
+  'check_suite',
+  'status',
+  'workflow_run',
+]);
+const PENDING_TARGET_KEY = 'pending-target';
+const PENDING_DELIVERIES_KEY = 'pending-deliveries';
+const PROCESSED_DELIVERIES_KEY = 'processed-deliveries';
 const SUPPORTED_EVENTS = new Set([
   'check_run',
   'check_suite',
@@ -361,6 +372,10 @@ function isCompanionTarget(value: unknown): value is CompanionTarget {
   );
 }
 
+function shouldCoalesceTarget(target: CompanionTarget): boolean {
+  return COALESCED_EVENTS.has(target.sourceEvent);
+}
+
 async function runTarget(target: CompanionTarget, env: Env): Promise<void> {
   const id = env.COMPANION_LOCK.idFromName(
     `${target.repository}#${target.pullRequestNumber}`,
@@ -396,6 +411,7 @@ async function runTarget(target: CompanionTarget, env: Env): Promise<void> {
         changed: payload.result?.changed ?? false,
         commentId: payload.result?.commentId ?? null,
         duplicate: payload.duplicate ?? false,
+        queued: payload.queued ?? false,
         quipSource: payload.result?.quipSource ?? null,
         state: payload.result?.state ?? null,
       },
@@ -617,7 +633,18 @@ export class CommentProbeLock {
       return json({ error: 'repository_not_enabled' }, 403);
     }
 
-    const run = this.queue.then(() => this.refresh(target));
+    if (shouldCoalesceTarget(target)) {
+      return this.enqueue(() => this.queueCoalesced(target));
+    }
+    return this.enqueue(() => this.refreshNow(target));
+  }
+
+  async alarm(): Promise<void> {
+    await this.enqueue(() => this.flushCoalesced());
+  }
+
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(task);
     this.queue = run.then(
       () => undefined,
       () => undefined,
@@ -625,23 +652,48 @@ export class CommentProbeLock {
     return run;
   }
 
-  private async refresh(target: CompanionTarget): Promise<Response> {
-    const deliveries =
-      (await this.state.storage.get<string[]>('processed-deliveries')) ?? [];
-    if (deliveries.includes(target.delivery)) {
-      return json({ ok: true, duplicate: true });
+  private async queueCoalesced(target: CompanionTarget): Promise<Response> {
+    const processed =
+      (await this.state.storage.get<string[]>(PROCESSED_DELIVERIES_KEY)) ?? [];
+    if (processed.includes(target.delivery)) {
+      return json({ ok: true, duplicate: true, queued: false });
     }
 
+    const pending =
+      (await this.state.storage.get<string[]>(PENDING_DELIVERIES_KEY)) ?? [];
+    await this.state.storage.put({
+      [PENDING_TARGET_KEY]: target,
+      [PENDING_DELIVERIES_KEY]: [
+        target.delivery,
+        ...pending.filter((delivery) => delivery !== target.delivery),
+      ].slice(0, 64),
+    });
+    if ((await this.state.storage.getAlarm()) === null) {
+      await this.state.storage.setAlarm(Date.now() + COALESCE_DELAY_MS);
+    }
+    return json({ ok: true, duplicate: false, queued: true });
+  }
+
+  private async refreshNow(target: CompanionTarget): Promise<Response> {
+    const pendingTarget =
+      await this.state.storage.get<CompanionTarget>(PENDING_TARGET_KEY);
+    const pendingDeliveries = pendingTarget
+      ? ((await this.state.storage.get<string[]>(PENDING_DELIVERIES_KEY)) ?? [])
+      : [];
+
     try {
-      const result = await refreshCompanion(target, this.env);
-      await this.state.storage.put(
-        'processed-deliveries',
-        [target.delivery, ...deliveries.filter((item) => item !== target.delivery)].slice(
-          0,
-          64,
-        ),
-      );
-      return json({ ok: true, duplicate: false, result });
+      const payload = await this.performRefresh(target, [
+        target.delivery,
+        ...pendingDeliveries,
+      ]);
+      if (pendingTarget) {
+        await this.state.storage.delete([
+          PENDING_TARGET_KEY,
+          PENDING_DELIVERIES_KEY,
+        ]);
+        await this.state.storage.deleteAlarm();
+      }
+      return json(payload);
     } catch (error) {
       return json(
         {
@@ -651,6 +703,75 @@ export class CommentProbeLock {
         502,
       );
     }
+  }
+
+  private async flushCoalesced(): Promise<void> {
+    const target = await this.state.storage.get<CompanionTarget>(PENDING_TARGET_KEY);
+    if (!target) return;
+    const deliveries =
+      (await this.state.storage.get<string[]>(PENDING_DELIVERIES_KEY)) ?? [
+        target.delivery,
+      ];
+
+    try {
+      const payload = await this.performRefresh(target, deliveries);
+      await this.state.storage.delete([
+        PENDING_TARGET_KEY,
+        PENDING_DELIVERIES_KEY,
+      ]);
+      console.log(
+        JSON.stringify({
+          companion: {
+            changed: payload.result?.changed ?? false,
+            coalesced: true,
+            commentId: payload.result?.commentId ?? null,
+            deliveryCount: deliveries.length,
+            duplicate: payload.duplicate ?? false,
+            quipSource: payload.result?.quipSource ?? null,
+            state: payload.result?.state ?? null,
+          },
+          pullRequestNumber: target.pullRequestNumber,
+          repository: target.repository,
+          sourceEvent: target.sourceEvent,
+        }),
+      );
+    } catch (error) {
+      console.error(
+        JSON.stringify({
+          companion: 'coalesced_refresh_failed',
+          deliveryCount: deliveries.length,
+          failure: operationFailure(error),
+          pullRequestNumber: target.pullRequestNumber,
+          repository: target.repository,
+          sourceEvent: target.sourceEvent,
+        }),
+      );
+      throw error;
+    }
+  }
+
+  private async performRefresh(
+    target: CompanionTarget,
+    deliveryValues: string[],
+  ): Promise<CompanionLockResponse> {
+    const processed =
+      (await this.state.storage.get<string[]>(PROCESSED_DELIVERIES_KEY)) ?? [];
+    const deliveries = [...new Set(deliveryValues)].filter(
+      (delivery) => !processed.includes(delivery),
+    );
+    if (!deliveries.length) {
+      return { ok: true, duplicate: true };
+    }
+
+    const result = await refreshCompanion(target, this.env);
+    await this.state.storage.put(
+      PROCESSED_DELIVERIES_KEY,
+      [
+        ...deliveries,
+        ...processed.filter((delivery) => !deliveries.includes(delivery)),
+      ].slice(0, 64),
+    );
+    return { ok: true, duplicate: false, result };
   }
 }
 
@@ -685,6 +806,7 @@ export {
   companionTargets,
   isCompanionEvent,
   readLimitedBody,
+  shouldCoalesceTarget,
   verifyWebhookSignature,
   webhookMetadata,
 };

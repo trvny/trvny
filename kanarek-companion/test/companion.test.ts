@@ -52,8 +52,8 @@ test('maps the refreshed GitHub automation signature back to Kanarek', () => {
     { failed: [], passed: [{}], pending: [], total: 1 },
     review,
     [...projectAreas, 'Kanarek'],
-    { key: 'ready', title: '🟢 gotowy', blockers: [] },
-    'Zielono.',
+    { key: 'ready', title: '🟢 ready', blockers: [] },
+    'Green across the board.',
     '0123456789abcdef',
     'fedcba9876543210',
     'preset',
@@ -61,7 +61,7 @@ test('maps the refreshed GitHub automation signature back to Kanarek', () => {
     true,
   );
   assert.equal(body.includes(MARKER), true);
-  assert.match(body, /<sub>Kanarek · 2 pl\./);
+  assert.match(body, /<sub>Kanarek · 2 files/);
   assert.equal(size(pr).key, 'tiny');
 });
 

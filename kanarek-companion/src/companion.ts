@@ -62,7 +62,7 @@ export async function refreshCompanion(
   const quipFacts = {
     status: current.key,
     blockers: kinds,
-    area: projectAreas[0] ?? 'Pozostałe',
+    area: projectAreas[0] ?? 'Other',
     size: prSize.key,
   };
   const quipKey = await hash(quipFacts);
@@ -125,6 +125,8 @@ export async function refreshCompanion(
       `blockers=${kinds.join(',') || 'none'}`,
       `area=${quipFacts.area}`,
       `size=${prSize.key}`,
+      `context_title=${sanitize(pr.title ?? '') || 'none'}`,
+      `context_body=${sanitize(pr.body ?? '') || 'none'}`,
       `previous_quip=${previousQuip || 'none'}`,
     ].join('; ');
     quip = (await aiQuip(facts, env, fetcher)) ?? '';

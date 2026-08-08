@@ -58,6 +58,8 @@ const PULL_REQUEST_ACTIONS = new Set([
   'converted_to_draft',
   'auto_merge_enabled',
   'auto_merge_disabled',
+  'labeled',
+  'unlabeled',
   'closed',
 ]);
 const PULL_REQUEST_REVIEW_ACTIONS = new Set(['submitted', 'dismissed']);
@@ -219,11 +221,25 @@ function pullNumbers(value: unknown): number[] {
   return [...new Set(numbers)];
 }
 
-function isCompanionEvent(metadata: WebhookMetadata): boolean {
+function noGoblinLabel(payload: Record<string, unknown>): boolean {
+  const label = payload.label as { name?: unknown } | undefined;
+  return (
+    typeof label?.name === 'string' &&
+    label.name.trim().toLowerCase() === 'no-goblin'
+  );
+}
+
+function isCompanionEvent(
+  metadata: WebhookMetadata,
+  payload: Record<string, unknown> = {},
+): boolean {
   if (!metadata.event) return false;
   if (metadata.event === 'status') return true;
   if (!metadata.action) return false;
   if (metadata.event === 'pull_request') {
+    if (['labeled', 'unlabeled'].includes(metadata.action)) {
+      return noGoblinLabel(payload);
+    }
     return PULL_REQUEST_ACTIONS.has(metadata.action);
   }
   if (metadata.event === 'pull_request_review') {
@@ -247,7 +263,7 @@ async function companionTargets(
   env: Env,
 ): Promise<CompanionTarget[]> {
   if (
-    !isCompanionEvent(metadata) ||
+    !isCompanionEvent(metadata, payload) ||
     !metadata.delivery ||
     !metadata.event ||
     !metadata.repository ||
@@ -409,7 +425,7 @@ function scheduleCompanion(
   env: Env,
   ctx?: ExecutionContext,
 ): boolean {
-  if (!isCompanionEvent(metadata) || !repositoryAllowed(env, metadata.repository)) {
+  if (!isCompanionEvent(metadata, payload) || !repositoryAllowed(env, metadata.repository)) {
     return false;
   }
   const task = runCompanionEvent(metadata, payload, env);

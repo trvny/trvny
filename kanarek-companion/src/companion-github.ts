@@ -216,6 +216,27 @@ export async function comments(
     );
 }
 
+export async function clearCompanionComments(
+  client: GitHubInstallationClient,
+  appSlug: string,
+  repository: string,
+  found: IssueComment[],
+): Promise<boolean> {
+  const [owner, repo] = repoParts(repository);
+  const ownLogin = `${appSlug}[bot]`;
+  const removable = found.filter((item) =>
+    [ownLogin, 'github-actions[bot]'].includes(item.user?.login ?? ''),
+  );
+  for (const comment of removable) {
+    await client.void(
+      `/repos/${owner}/${repo}/issues/comments/${comment.id}`,
+      'delete_issue_comment',
+      { method: 'DELETE' },
+    );
+  }
+  return removable.length > 0;
+}
+
 export async function files(
   client: GitHubInstallationClient,
   repository: string,

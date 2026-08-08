@@ -2,7 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { BANK_KEY, loadBank, storeBank } from '../src/companion-bank.ts';
-import { areas, blockerKinds, MARKER, render, size, status } from '../src/companion.ts';
+import {
+  areas,
+  blockerKinds,
+  isCompanionDisabled,
+  MARKER,
+  render,
+  size,
+  status,
+} from '../src/companion.ts';
 import type { CompanionEnv } from '../src/companion.ts';
 
 const pr = {
@@ -34,6 +42,13 @@ test('keeps missing CI as waiting by default', () => {
 
 test('allows CI-less repositories to become ready', () => {
   assert.equal(status(pr, { behind: 0 }, emptyCi, review, false).key, 'ready');
+});
+
+test('disables the companion only for the no-goblin label', () => {
+  assert.equal(isCompanionDisabled({ labels: [{ name: 'no-goblin' }] }), true);
+  assert.equal(isCompanionDisabled({ labels: [{ name: 'NO-GOBLIN' }] }), true);
+  assert.equal(isCompanionDisabled({ labels: [{ name: 'bug' }] }), false);
+  assert.equal(isCompanionDisabled({}), false);
 });
 
 test('describes GitHub blocked merge state in quip facts', () => {

@@ -9,6 +9,8 @@ Cloudflare Worker receiving GitHub App webhooks for `kanarek-companion` and main
 
 PR, review, completed CI/check-suite, and commit-status events refresh the affected pull request. A per-PR Durable Object serializes overlapping deliveries and deduplicates redeliveries.
 
+Add the `no-goblin` label to silence Kanarek on a PR; removing it restores the companion.
+
 ## Quips
 
 The Worker keeps the existing Kanarek preset set and reads the shared phrase bank directly from the Workers KV namespace under `kanarek:companion:quip-bank:v1`.

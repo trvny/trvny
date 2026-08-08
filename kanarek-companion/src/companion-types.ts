@@ -39,6 +39,7 @@ export interface PullRequest {
   deletions: number;
   draft: boolean;
   head: { sha: string };
+  labels?: Array<{ name?: string | null }>;
   mergeable: boolean | null;
   mergeable_state: string;
   merged: boolean;

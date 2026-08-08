@@ -147,19 +147,6 @@ export function sanitize(value: unknown): string {
     .slice(0, 140);
 }
 
-export async function preset(
-  key: string,
-  seed: unknown,
-  excluded = '',
-): Promise<string> {
-  const options = PRESETS[key] ?? PRESETS.waiting;
-  const alternatives = options.filter((option) => option !== excluded);
-  const choices = alternatives.length ? alternatives : options;
-  const digest = await hash(seed);
-  const index = Number.parseInt(digest.slice(0, 8), 16) % choices.length;
-  return choices[index];
-}
-
 export function aiPercent(env: QuipEnv): number {
   const parsed = Number.parseInt(env.KANAREK_AI_PERCENT ?? '25', 10);
   if (!Number.isFinite(parsed)) return 25;

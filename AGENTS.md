@@ -42,7 +42,13 @@ Working motto:
 
 ## GitHub workflow
 
-- GitHub bot identity: use the GPTomek GitHub App (gptomek[bot]) for commits, comments, review replies, and reactions when available. Pull requests should still be opened as trvny, because external     automatic reviews are triggered for PRs opened by that account. GPTomek is routed through the existing kanarek-companion Worker and private control PR trvny/trvny#176; do not create per-command       GitHub Actions workflows or another Worker.
+- GitHub bot identity: use the GPTomek GitHub App (`gptomek[bot]`) for commits,
+  comments, review replies, and reactions when available. Pull requests should
+  still be opened as `trvny`, because external automatic reviews are triggered
+  for PRs opened by that account. GPTomek lives under `gh-apps/` and reuses the
+  existing `kanarek-companion` Worker; current control transport is
+  `trvny/trvny#176`. Do not create per-command GitHub Actions workflows or
+  another Worker.
 - Keep one logical change per pull request. Truly trivial, low-risk fixes may go
   directly to `main` when branch protection permits it.
 - Avoid token-driven GitHub Actions whose main purpose is editing another branch

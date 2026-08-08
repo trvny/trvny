@@ -15,7 +15,7 @@ Safe same-repository PRs may be updated to the base branch automatically when CI
 
 ## GPTomek
 
-The same Worker can use the separate `gptomek` GitHub App for authored commits, comments, review replies, and reactions. Commands are accepted only from the private `trvny/trvny` control PR on branch `gptomek/control`; normal pull requests remain opened as `trvny`.
+The same Worker hosts the separate [`gptomek`](../gptomek/) GitHub App bridge for authored commits, comments, review replies, and reactions. Commands are currently accepted only from the private `trvny/trvny` control PR on branch `gptomek/control`; normal pull requests remain opened as `trvny`.
 
 The bridge reuses Kanarek's existing `pull_request` webhook delivery path, so GPTomek does not need another Worker or webhook endpoint.
 
@@ -30,7 +30,7 @@ AI quips remain optional. Provider order and defaults are OpenAI (`gpt-5.6-luna`
 Connect `trvny/trvny` with:
 
 - production branch: `main`
-- root directory: `kanarek-companion`
+- root directory: `gh-apps/kanarek-companion`
 - build command: `npm run check`
 - deploy command: `npm run deploy`
 

@@ -25,6 +25,8 @@ const FAIL = new Set([
   'timed_out',
 ]);
 const PASS = new Set(['neutral', 'skipped', 'success']);
+const PAGE_SIZE = 100;
+const MAX_PAGES = 20;
 
 function repoParts(repository: string): [string, string] {
   const parts = repository.split('/');
@@ -32,6 +34,26 @@ function repoParts(repository: string): [string, string] {
     throw new Error('invalid_repository_name');
   }
   return [encodeURIComponent(parts[0]), encodeURIComponent(parts[1])];
+}
+
+async function paginateArray<T>(
+  client: GitHubInstallationClient,
+  path: string,
+  operation: string,
+): Promise<T[]> {
+  const output: T[] = [];
+  const separator = path.includes('?') ? '&' : '?';
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const data = await client.json<unknown>(
+      `${path}${separator}per_page=${PAGE_SIZE}&page=${page}`,
+      operation,
+    );
+    if (!Array.isArray(data)) throw new Error(`${operation}_invalid_response`);
+    output.push(...(data as T[]));
+    if (data.length < PAGE_SIZE) return output;
+  }
+  console.warn(`${operation} truncated after ${MAX_PAGES * PAGE_SIZE} items.`);
+  return output;
 }
 
 export async function pull(
@@ -74,18 +96,19 @@ async function checkRuns(
 ): Promise<CheckRun[]> {
   const [owner, repo] = repoParts(repository);
   const output: CheckRun[] = [];
-  for (let page = 1; page <= 20; page += 1) {
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
     const response = await client.json<{ check_runs?: unknown }>(
-      `/repos/${owner}/${repo}/commits/${sha}/check-runs?filter=latest&per_page=100&page=${page}`,
+      `/repos/${owner}/${repo}/commits/${sha}/check-runs?filter=latest&per_page=${PAGE_SIZE}&page=${page}`,
       'list_check_runs',
     );
     const values = Array.isArray(response.check_runs)
       ? (response.check_runs as CheckRun[])
       : [];
     output.push(...values);
-    if (values.length < 100) return output;
+    if (values.length < PAGE_SIZE) return output;
   }
-  throw new Error('list_check_runs_pagination_limit');
+  console.warn(`list_check_runs truncated after ${MAX_PAGES * PAGE_SIZE} items.`);
+  return output;
 }
 
 async function commitStatuses(
@@ -95,18 +118,19 @@ async function commitStatuses(
 ): Promise<CommitStatus[]> {
   const [owner, repo] = repoParts(repository);
   const output: CommitStatus[] = [];
-  for (let page = 1; page <= 20; page += 1) {
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
     const response = await client.json<{ statuses?: unknown }>(
-      `/repos/${owner}/${repo}/commits/${sha}/status?per_page=100&page=${page}`,
+      `/repos/${owner}/${repo}/commits/${sha}/status?per_page=${PAGE_SIZE}&page=${page}`,
       'list_commit_statuses',
     );
     const values = Array.isArray(response.statuses)
       ? (response.statuses as CommitStatus[])
       : [];
     output.push(...values);
-    if (values.length < 100) return output;
+    if (values.length < PAGE_SIZE) return output;
   }
-  throw new Error('list_commit_statuses_pagination_limit');
+  console.warn(`list_commit_statuses truncated after ${MAX_PAGES * PAGE_SIZE} items.`);
+  return output;
 }
 
 export async function checks(
@@ -152,7 +176,8 @@ export async function reviews(
   number: number,
 ): Promise<ReviewState> {
   const [owner, repo] = repoParts(repository);
-  const all = await client.paginate<Review>(
+  const all = await paginateArray<Review>(
+    client,
     `/repos/${owner}/${repo}/pulls/${number}/reviews`,
     'list_pull_request_reviews',
   );
@@ -179,7 +204,8 @@ export async function comments(
   number: number,
 ): Promise<IssueComment[]> {
   const [owner, repo] = repoParts(repository);
-  const all = await client.paginate<IssueComment>(
+  const all = await paginateArray<IssueComment>(
+    client,
     `/repos/${owner}/${repo}/issues/${number}/comments`,
     'list_issue_comments',
   );
@@ -196,7 +222,8 @@ export async function files(
   number: number,
 ): Promise<string[]> {
   const [owner, repo] = repoParts(repository);
-  const all = await client.paginate<{ filename?: unknown }>(
+  const all = await paginateArray<{ filename?: unknown }>(
+    client,
     `/repos/${owner}/${repo}/pulls/${number}/files`,
     'list_pull_request_files',
   );
@@ -272,7 +299,8 @@ export async function associatedPullRequestNumbers(
     fetcher,
   );
   const [owner, repo] = repoParts(repository);
-  const pulls = await client.paginate<{ number?: unknown }>(
+  const pulls = await paginateArray<{ number?: unknown }>(
+    client,
     `/repos/${owner}/${repo}/commits/${encodeURIComponent(sha)}/pulls`,
     'list_pull_requests_for_commit',
   );
@@ -282,4 +310,3 @@ export async function associatedPullRequestNumbers(
       .filter((value): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0),
   )];
 }
-

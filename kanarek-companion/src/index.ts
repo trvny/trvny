@@ -58,6 +58,8 @@ const PULL_REQUEST_ACTIONS = new Set([
   'converted_to_draft',
   'auto_merge_enabled',
   'auto_merge_disabled',
+  'labeled',
+  'unlabeled',
   'closed',
 ]);
 const PULL_REQUEST_REVIEW_ACTIONS = new Set(['submitted', 'dismissed']);

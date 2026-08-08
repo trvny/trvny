@@ -174,6 +174,7 @@ export function render(
   source: 'ai' | 'pool' | 'preset',
   pool: QuipEntry[],
   ciRequired = true,
+  branchUpdateWarning: string | null = null,
 ): string {
   const badges = [
     branchBadge(pr, branch),
@@ -193,6 +194,9 @@ export function render(
   const blockers = details.length
     ? `\n\n<sub>${details.join(' · ')}</sub>`
     : '';
+  const updateWarning = branchUpdateWarning
+    ? `\n\n<sub>${branchUpdateWarning}</sub>`
+    : '';
   const scope =
     [
       ...new Set(
@@ -210,7 +214,7 @@ export function render(
 <!-- kanarek-source:${source} -->
 ### 🐤 Kanarek · ${current.title}
 
-${badges.filter(Boolean).join(' · ')}${blockers}
+${badges.filter(Boolean).join(' · ')}${blockers}${updateWarning}
 
 > ${quip}
 

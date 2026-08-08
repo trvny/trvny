@@ -27,7 +27,11 @@ import {
   matchesLanguage,
 } from './companion-language.ts';
 import { syncReaction } from './companion-reactions.ts';
-import { shouldUpdateBranch, updateBranch } from './companion-update.ts';
+import {
+  branchUpdatePermissionWarning,
+  shouldUpdateBranch,
+  updateBranch,
+} from './companion-update.ts';
 import {
   areas,
   blockerKinds,
@@ -114,6 +118,9 @@ export async function refreshCompanion(
     ciRequired,
     env,
   );
+  const branchUpdateWarning = branchUpdateEligible
+    ? branchUpdatePermissionWarning(client)
+    : null;
   const language = contextLanguage(`${pr.title ?? ''}\n${pr.body ?? ''}`);
   const quipFacts = {
     status: current.key,
@@ -217,6 +224,7 @@ export async function refreshCompanion(
     source,
     pool,
     ciRequired,
+    branchUpdateWarning,
   );
   const result = await upsert(
     client,
@@ -236,7 +244,7 @@ export async function refreshCompanion(
     );
   }
 
-  if (branchUpdateEligible) {
+  if (branchUpdateEligible && !branchUpdateWarning) {
     await updateBranch(
       client,
       target.repository,

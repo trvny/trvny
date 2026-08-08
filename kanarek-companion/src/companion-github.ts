@@ -28,7 +28,7 @@ const PASS = new Set(['neutral', 'skipped', 'success']);
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20;
 
-function repoParts(repository: string): [string, string] {
+export function repoParts(repository: string): [string, string] {
   const parts = repository.split('/');
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
     throw new Error('invalid_repository_name');

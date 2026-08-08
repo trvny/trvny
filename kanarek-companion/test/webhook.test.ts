@@ -99,10 +99,9 @@ test('reports not ready without the webhook secret', async () => {
 
 test('routes the PR and review events used by the companion', async () => {
   assert.equal(isCompanionEvent(testMetadata), true);
-  assert.equal(
-    isCompanionEvent({ ...testMetadata, action: 'labeled' }),
-    false,
-  );
+  assert.equal(isCompanionEvent({ ...testMetadata, action: 'labeled' }), true);
+  assert.equal(isCompanionEvent({ ...testMetadata, action: 'unlabeled' }), true);
+  assert.equal(isCompanionEvent({ ...testMetadata, action: 'assigned' }), false);
   assert.deepEqual(
     await companionTargets(testMetadata, { number: 156 }, env),
     [

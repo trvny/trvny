@@ -62,7 +62,7 @@ export async function refreshCompanion(
   const quipFacts = {
     status: current.key,
     blockers: kinds,
-    area: projectAreas[0] ?? 'Pozostałe',
+    area: projectAreas[0] ?? 'Other',
     size: prSize.key,
   };
   const quipKey = await hash(quipFacts);

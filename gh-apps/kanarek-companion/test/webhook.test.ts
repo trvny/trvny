@@ -5,6 +5,7 @@ import worker, {
   companionTargets,
   isCompanionEvent,
   readLimitedBody,
+  shouldCoalesceTarget,
   verifyWebhookSignature,
 } from '../src/index.ts';
 
@@ -150,6 +151,22 @@ test('routes the PR and review events used by the companion', async () => {
     ),
     [],
   );
+});
+
+test('coalesces only noisy CI events', () => {
+  const target = {
+    delivery: 'delivery-123',
+    installationId: 123,
+    pullRequestNumber: 156,
+    repository: 'trvny/trvny',
+    sourceEvent: 'check_run',
+  };
+  for (const sourceEvent of ['check_run', 'check_suite', 'status', 'workflow_run']) {
+    assert.equal(shouldCoalesceTarget({ ...target, sourceEvent }), true);
+  }
+  for (const sourceEvent of ['pull_request', 'pull_request_review']) {
+    assert.equal(shouldCoalesceTarget({ ...target, sourceEvent }), false);
+  }
 });
 
 test('routes only marked edits of the GPTomek control mailbox', async () => {

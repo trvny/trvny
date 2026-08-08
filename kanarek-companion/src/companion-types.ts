@@ -8,6 +8,7 @@ export interface CompanionEnv extends QuipEnv {
   KANAREK_QUIP_KV?: KVNamespace;
   KANAREK_REQUIRE_CI?: string;
   KANAREK_REPOSITORIES?: string;
+  KANAREK_UPDATE_BRANCH?: string;
 }
 
 export interface CompanionTarget {
@@ -38,7 +39,11 @@ export interface PullRequest {
   changed_files: number;
   deletions: number;
   draft: boolean;
-  head: { sha: string };
+  head: {
+    ref?: string;
+    repo?: { full_name?: string | null } | null;
+    sha: string;
+  };
   labels?: Array<{ name?: string | null }>;
   mergeable: boolean | null;
   mergeable_state: string;

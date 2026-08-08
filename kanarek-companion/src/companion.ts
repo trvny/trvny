@@ -27,6 +27,7 @@ import {
   matchesLanguage,
 } from './companion-language.ts';
 import { syncReaction } from './companion-reactions.ts';
+import { shouldUpdateBranch, updateBranch } from './companion-update.ts';
 import {
   areas,
   blockerKinds,
@@ -41,6 +42,7 @@ import type { CompanionEnv, CompanionResult, CompanionTarget, PullRequest, QuipE
 export { associatedPullRequestNumbers } from './companion-github.ts';
 export { contextLanguage } from './companion-language.ts';
 export { reactionForState } from './companion-reactions.ts';
+export { shouldUpdateBranch } from './companion-update.ts';
 export { areas, blockerKinds, MARKER, render, size, status } from './companion-view.ts';
 export type { CompanionEnv, CompanionResult, CompanionTarget } from './companion-types.ts';
 
@@ -103,6 +105,15 @@ export async function refreshCompanion(
   const prSize = size(pr);
   const current = status(pr, branch, ci, review, ciRequired);
   const kinds = blockerKinds(pr, branch, ci, review, ciRequired);
+  const branchUpdateEligible = shouldUpdateBranch(
+    pr,
+    branch,
+    ci,
+    review,
+    target.repository,
+    ciRequired,
+    env,
+  );
   const language = contextLanguage(`${pr.title ?? ''}\n${pr.body ?? ''}`);
   const quipFacts = {
     status: current.key,
@@ -222,6 +233,15 @@ export async function refreshCompanion(
       target.repository,
       target.pullRequestNumber,
       current.key,
+    );
+  }
+
+  if (branchUpdateEligible) {
+    await updateBranch(
+      client,
+      target.repository,
+      target.pullRequestNumber,
+      pr.head.sha,
     );
   }
 

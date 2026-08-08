@@ -20,8 +20,8 @@ test('replaces the previous companion reaction', async () => {
   const client = {
     async paginate() {
       return [
-        { id: 1, content: 'eyes', user: { login: 'kanarek-companion[bot]', type: 'Bot' } },
-        { id: 2, content: 'heart', user: { login: 'kanarek-companion[bot]', type: 'Bot' } },
+        { id: 1, content: 'eyes', user: { login: 'kanarek-companion[bot]', type: 'User' } },
+        { id: 2, content: 'heart', user: { login: 'kanarek-companion[bot]', type: 'User' } },
         { id: 3, content: 'rocket', user: { login: 'someone', type: 'User' } },
       ];
     },
@@ -55,7 +55,7 @@ test('keeps an already synchronized reaction without another POST', async () => 
   const client = {
     async paginate() {
       return [
-        { id: 1, content: 'rocket', user: { login: 'kanarek-companion[bot]', type: 'Bot' } },
+        { id: 1, content: 'rocket', user: { login: 'kanarek-companion[bot]', type: 'User' } },
       ];
     },
     async json() {
@@ -80,7 +80,7 @@ test('clears managed reactions when Kanarek is disabled', async () => {
   const client = {
     async paginate() {
       return [
-        { id: 7, content: 'eyes', user: { login: 'kanarek-companion[bot]', type: 'Bot' } },
+        { id: 7, content: 'eyes', user: { login: 'kanarek-companion[bot]', type: 'User' } },
       ];
     },
     async json() {

@@ -38,7 +38,6 @@ export async function syncReaction(
     const managed = existing.filter(
       (reaction) =>
         reaction.user?.login === ownLogin &&
-        reaction.user?.type === 'Bot' &&
         typeof reaction.content === 'string' &&
         MANAGED_REACTIONS.has(reaction.content as CompanionReaction),
     );

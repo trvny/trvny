@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { BANK_KEY, loadBank, storeBank } from '../src/companion-bank.ts';
+import {
+  BANK_KEY,
+  loadBank,
+  maintainBank,
+  shouldUsePool,
+  storeBank,
+} from '../src/companion-bank.ts';
 import {
   areas,
   blockerKinds,
@@ -54,7 +60,13 @@ test('disables the companion only for the no-goblin label', () => {
 test('describes GitHub blocked merge state in quip facts', () => {
   const blocked = { ...pr, mergeable_state: 'blocked' };
   assert.deepEqual(
-    blockerKinds(blocked, { behind: 0 }, { failed: [], passed: [{}], pending: [], total: 1 }, review, true),
+    blockerKinds(
+      blocked,
+      { behind: 0 },
+      { failed: [], passed: [{}], pending: [], total: 1 },
+      review,
+      true,
+    ),
     ['merge-state-blocked'],
   );
 });
@@ -123,7 +135,46 @@ test('sanitizes contributor-controlled project area labels', () => {
   assert.deepEqual(areas(['@some-user/file.ts']), ['Some user']);
 });
 
-test('stores rotating quips and scopes bank reads to one quip key', async () => {
+test('uses the bank outside the configured AI rollout', async () => {
+  const quipKey = 'aaaaaaaaaaaaaaaa';
+  const noAi = {} as CompanionEnv;
+  assert.equal(await shouldUsePool(12, quipKey, 'ready', noAi), true);
+  assert.equal(await shouldUsePool(12, quipKey, 'blocked', noAi), true);
+  assert.equal(await shouldUsePool(12, quipKey, 'waiting', noAi), false);
+  assert.equal(
+    await shouldUsePool(12, quipKey, 'ready', {
+      OPENAI_API_KEY: 'configured',
+      KANAREK_AI_ENABLED: 'false',
+    } as CompanionEnv),
+    true,
+  );
+  assert.equal(
+    await shouldUsePool(12, quipKey, 'ready', {
+      OPENAI_API_KEY: 'configured',
+      KANAREK_AI_PERCENT: '0',
+    } as CompanionEnv),
+    true,
+  );
+  assert.equal(
+    await shouldUsePool(12, quipKey, 'ready', {
+      OPENAI_API_KEY: 'configured',
+      KANAREK_AI_PERCENT: '100',
+    } as CompanionEnv),
+    false,
+  );
+  const rolloutDecisions = await Promise.all(
+    Array.from({ length: 32 }, (_, index) =>
+      shouldUsePool(index + 1, quipKey, 'ready', {
+        OPENAI_API_KEY: 'configured',
+        KANAREK_AI_PERCENT: '25',
+      } as CompanionEnv),
+    ),
+  );
+  assert.equal(rolloutDecisions.includes(true), true);
+  assert.equal(rolloutDecisions.includes(false), true);
+});
+
+test('keeps bank entries persistent, rotating, and bounded per quip key', async () => {
   const values = new Map<string, string>([
     [
       BANK_KEY,
@@ -132,26 +183,37 @@ test('stores rotating quips and scopes bank reads to one quip key', async () => 
       ]),
     ],
   ]);
-  const listed: Array<{ limit?: number; prefix?: string }> = [];
-  const ttls: number[] = [];
+  const expirations = new Map<string, number>();
+  const listed: Array<{ cursor?: string; limit?: number; prefix?: string }> = [];
+  const ttlWrites: number[] = [];
   const kv = {
+    async delete(key: string) {
+      values.delete(key);
+      expirations.delete(key);
+    },
     async get(key: string) {
       return values.get(key) ?? null;
     },
-    async list(options: { limit?: number; prefix?: string }) {
+    async list(options: { cursor?: string; limit?: number; prefix?: string }) {
       listed.push(options);
+      const all = [...values.keys()]
+        .filter((key) => key !== BANK_KEY && key.startsWith(options.prefix ?? ''))
+        .sort();
+      const offset = Number.parseInt(options.cursor ?? '0', 10) || 0;
+      const limit = options.limit ?? 1_000;
+      const names = all.slice(offset, offset + limit);
+      const next = offset + names.length;
       return {
-        keys: [...values.keys()]
-          .filter((key) => key !== BANK_KEY && key.startsWith(options.prefix ?? ''))
-          .sort()
-          .slice(0, options.limit)
-          .map((name) => ({ name })),
-        list_complete: true,
+        keys: names.map((name) => ({ name, expiration: expirations.get(name) })),
+        list_complete: next >= all.length,
+        cursor: next < all.length ? String(next) : '',
       };
     },
     async put(key: string, value: string, options?: { expirationTtl?: number }) {
       values.set(key, value);
-      ttls.push(options?.expirationTtl ?? 0);
+      ttlWrites.push(options?.expirationTtl ?? 0);
+      if (options?.expirationTtl) expirations.set(key, options.expirationTtl);
+      else expirations.delete(key);
     },
   } as unknown as KVNamespace;
   const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
@@ -166,10 +228,11 @@ test('stores rotating quips and scopes bank reads to one quip key', async () => 
   ]);
 
   assert.equal(
-    [...values.keys()].filter((key) => key !== BANK_KEY).length,
+    [...values.keys()].filter((key) => key.startsWith(`${BANK_KEY}:entry:`)).length,
     2,
   );
-  assert.deepEqual(ttls, [90 * 24 * 60 * 60, 90 * 24 * 60 * 60]);
+  assert.deepEqual(ttlWrites, [0, 0]);
+
   const keys = ['aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb', 'cccccccccccccccc'];
   const banks = await Promise.all(
     keys.map((key) => loadBank(env, key, '0000000000000000')),
@@ -180,13 +243,23 @@ test('stores rotating quips and scopes bank reads to one quip key', async () => 
 
   const rotatingKey = 'dddddddddddddddd';
   for (let index = 0; index < 30; index += 1) {
+    const name = `${BANK_KEY}:entry:${rotatingKey}:${index.toString(16).padStart(16, '0')}`;
     values.set(
-      `${BANK_KEY}:entry:${rotatingKey}:${String(index).padStart(2, '0')}`,
+      name,
       JSON.stringify([
         { k: rotatingKey, q: `Generated rotating quip number ${index}.` },
       ]),
     );
+    expirations.set(name, 9_999_999_999 + index);
   }
+  await maintainBank(env, true);
+  assert.equal(
+    [...expirations.keys()].filter((key) =>
+      key.startsWith(`${BANK_KEY}:entry:${rotatingKey}:`),
+    ).length,
+    0,
+  );
+
   const firstWindow = await loadBank(env, rotatingKey, '0000000000000000');
   const rotatedWindow = await loadBank(env, rotatingKey, '0000001800000000');
   assert.equal(firstWindow.length, 24);
@@ -194,12 +267,131 @@ test('stores rotating quips and scopes bank reads to one quip key', async () => 
   assert.equal(firstWindow[0]?.q, 'Generated rotating quip number 0.');
   assert.equal(rotatedWindow[0]?.q, 'Generated rotating quip number 24.');
 
-  assert.deepEqual(
-    listed.map((entry) => entry.limit),
-    [256, 256, 256, 256, 256],
+  const boundedKey = 'ffffffffffffffff';
+  for (let index = 0; index < 270; index += 1) {
+    await storeBank(env, [
+      { k: boundedKey, q: `Persistent bounded quip number ${index}.` },
+    ]);
+  }
+  assert.equal(
+    [...values.keys()].filter((key) =>
+      key.startsWith(`${BANK_KEY}:entry:${boundedKey}:`),
+    ).length,
+    256,
   );
-  assert.deepEqual(
-    listed.slice(0, 3).map((entry) => entry.prefix),
-    keys.map((key) => `${BANK_KEY}:entry:${key}:`),
+  assert.equal(ttlWrites.every((ttl) => ttl === 0), true);
+  assert.equal(
+    listed.some(
+      (entry) => entry.prefix === `${BANK_KEY}:entry:` && entry.limit === 1_000,
+    ),
+    true,
   );
+});
+
+test('continues legacy TTL migration without waiting for the maintenance interval', async () => {
+  const values = new Map<string, string>();
+  const expirations = new Map<string, number>();
+  const prefix = `${BANK_KEY}:entry:`;
+  const quipKey = 'abababababababab';
+  for (let index = 0; index < 230; index += 1) {
+    const name = `${prefix}${quipKey}:${index.toString(16).padStart(16, '0')}`;
+    values.set(
+      name,
+      JSON.stringify([{ k: quipKey, q: `Legacy expiring quip number ${index}.` }]),
+    );
+    expirations.set(name, 10_000_000_000 + index);
+  }
+  const kv = {
+    async delete(key: string) {
+      values.delete(key);
+      expirations.delete(key);
+    },
+    async get(key: string) {
+      return values.get(key) ?? null;
+    },
+    async list(options: { cursor?: string; limit?: number; prefix?: string }) {
+      const all = [...values.keys()]
+        .filter((key) => key.startsWith(options.prefix ?? ''))
+        .sort();
+      const offset = Number.parseInt(options.cursor ?? '0', 10) || 0;
+      const limit = options.limit ?? 1_000;
+      const names = all.slice(offset, offset + limit);
+      const next = offset + names.length;
+      return {
+        keys: names.map((name) => ({ name, expiration: expirations.get(name) })),
+        list_complete: next >= all.length,
+        cursor: next < all.length ? String(next) : '',
+      };
+    },
+    async put(key: string, value: string) {
+      values.set(key, value);
+      expirations.delete(key);
+    },
+  } as unknown as KVNamespace;
+  const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
+
+  const first = await maintainBank(env, true);
+  const second = await maintainBank(env);
+  assert.equal(first.migrated, 200);
+  assert.equal(second.skipped, false);
+  assert.equal(second.migrated, 30);
+  assert.equal(expirations.size, 0);
+  assert.equal((await maintainBank(env)).skipped, true);
+});
+
+test('reconciles the whole learned bank incrementally to a finite global limit', async () => {
+  const values = new Map<string, string>();
+  const prefix = `${BANK_KEY}:entry:`;
+  for (let index = 0; index < 4_150; index += 1) {
+    const quipKey = Math.floor(index / 250).toString(16).padStart(16, '0');
+    const identity = index.toString(16).padStart(16, '0');
+    values.set(
+      `${prefix}${quipKey}:${identity}`,
+      JSON.stringify([{ k: quipKey, q: `Global persistent quip number ${index}.` }]),
+    );
+  }
+  const kv = {
+    async delete(key: string) {
+      values.delete(key);
+    },
+    async get(key: string) {
+      return values.get(key) ?? null;
+    },
+    async list(options: { cursor?: string; limit?: number; prefix?: string }) {
+      const all = [...values.keys()]
+        .filter((key) => key.startsWith(options.prefix ?? ''))
+        .sort();
+      const offset = Number.parseInt(options.cursor ?? '0', 10) || 0;
+      const limit = options.limit ?? 1_000;
+      const names = all.slice(offset, offset + limit);
+      const next = offset + names.length;
+      return {
+        keys: names.map((name) => ({ name })),
+        list_complete: next >= all.length,
+        cursor: next < all.length ? String(next) : '',
+      };
+    },
+    async put(key: string, value: string) {
+      values.set(key, value);
+    },
+  } as unknown as KVNamespace;
+  const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
+
+  const first = await maintainBank(env, true);
+  assert.equal(first.pruned, 24);
+  assert.equal(
+    [...values.keys()].filter((key) => key.startsWith(prefix)).length,
+    4_126,
+  );
+  await maintainBank(env, true);
+  await maintainBank(env, true);
+
+  const entryKeys = [...values.keys()].filter((key) => key.startsWith(prefix));
+  assert.equal(entryKeys.length, 4_096);
+  const perKey = new Map<string, number>();
+  for (const key of entryKeys) {
+    const quipKey = key.slice(prefix.length, prefix.length + 16);
+    perKey.set(quipKey, (perKey.get(quipKey) ?? 0) + 1);
+  }
+  assert.equal(Math.max(...perKey.values()) <= 256, true);
 });

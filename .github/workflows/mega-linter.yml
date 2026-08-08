@@ -69,6 +69,10 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            codebench/package-lock.json
+            streambench/package-lock.json
 
       - name: Check codebench
         id: codebench
@@ -76,7 +80,7 @@ jobs:
         continue-on-error: true
         working-directory: codebench
         run: |
-          npm install
+          npm ci
           npm run build
           node --check src/index.js
           for file in public/*.js scripts/*.mjs; do node --check "$file"; done
@@ -89,7 +93,7 @@ jobs:
         continue-on-error: true
         working-directory: streambench
         run: |
-          npm install
+          npm ci
           npm run check
 
       - name: Gate bench checks

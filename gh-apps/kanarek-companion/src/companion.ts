@@ -151,9 +151,6 @@ export async function refreshCompanion(
     head: pr.head.sha,
     behind: branch.behind,
     reviews: review,
-    mergeable: pr.mergeable,
-    mergeableState: pr.mergeable_state,
-    merged: pr.merged,
     autoMerge: pr.auto_merge?.merge_method ?? null,
     files: pr.changed_files,
   });

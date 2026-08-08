@@ -4,14 +4,14 @@ on:
   push:
     branches: [main]
     paths:
-      - "kanarek-companion/**"
-      - "!kanarek-companion/**/*.md"
+      - "gh-apps/kanarek-companion/**"
+      - "!gh-apps/kanarek-companion/**/*.md"
       - ".github/workflows/kanarek-companion-ci.yml"
   pull_request:
     branches: [main]
     paths:
-      - "kanarek-companion/**"
-      - "!kanarek-companion/**/*.md"
+      - "gh-apps/kanarek-companion/**"
+      - "!gh-apps/kanarek-companion/**/*.md"
       - ".github/workflows/kanarek-companion-ci.yml"
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 5
     defaults:
       run:
-        working-directory: kanarek-companion
+        working-directory: gh-apps/kanarek-companion
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -38,7 +38,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: kanarek-companion/package-lock.json
+          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
 
       - run: npm ci
       - run: npm run check

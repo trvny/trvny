@@ -1,4 +1,5 @@
 import { createInstallationClient } from './github-app.ts';
+import { handleGptomekControl } from './gptomek.ts';
 import {
   loadBank,
   poolEntries,
@@ -75,6 +76,15 @@ export async function refreshCompanion(
     fetcher,
   );
   const pr = await pull(client, target.repository, target.pullRequestNumber);
+  const gptomek = await handleGptomekControl(target, pr, env, fetcher);
+  if (gptomek.control) {
+    return {
+      changed: gptomek.handled,
+      commentId: null,
+      quipSource: 'preset',
+      state: 'gptomek-control',
+    };
+  }
   if (isCompanionDisabled(pr)) {
     const oldComments = await comments(
       client,

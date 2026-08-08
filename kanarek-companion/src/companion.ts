@@ -21,6 +21,7 @@ import {
   checks,
   upsert,
 } from './companion-github.ts';
+import { reactForState } from './companion-reactions.ts';
 import {
   areas,
   blockerKinds,
@@ -33,6 +34,7 @@ import { aiQuip, decoded, hash, preset, sanitize, shouldAskAi } from './quip.ts'
 import type { CompanionEnv, CompanionResult, CompanionTarget, PullRequest, QuipEntry } from './companion-types.ts';
 
 export { associatedPullRequestNumbers } from './companion-github.ts';
+export { reactionForState } from './companion-reactions.ts';
 export { areas, blockerKinds, MARKER, render, size, status } from './companion-view.ts';
 export type { CompanionEnv, CompanionResult, CompanionTarget } from './companion-types.ts';
 
@@ -179,14 +181,22 @@ export async function refreshCompanion(
     pool,
     ciRequired,
   );
-  const result = await upsert(
-    client,
-    env.GITHUB_APP_SLUG,
-    target.repository,
-    target.pullRequestNumber,
-    body,
-    oldComments,
-  );
+  const [result] = await Promise.all([
+    upsert(
+      client,
+      env.GITHUB_APP_SLUG,
+      target.repository,
+      target.pullRequestNumber,
+      body,
+      oldComments,
+    ),
+    reactForState(
+      client,
+      target.repository,
+      target.pullRequestNumber,
+      current.key,
+    ),
+  ]);
 
   if (source === 'ai' || source === 'pool') {
     const reusable = rememberQuip(bank, quipKey, quip, source);

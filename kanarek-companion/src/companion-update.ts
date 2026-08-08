@@ -43,18 +43,24 @@ function hasWritePermission(
   return Boolean(value && WRITE_PERMISSIONS.has(value));
 }
 
+export function branchUpdatePermissionWarning(
+  client: GitHubInstallationClient,
+): string | null {
+  const missing: string[] = [];
+  if (!hasWritePermission(client, 'contents')) missing.push('Contents');
+  if (!hasWritePermission(client, 'pull_requests')) missing.push('Pull requests');
+  return missing.length
+    ? `auto-update unavailable · needs ${missing.join(' + ')} write`
+    : null;
+}
+
 export async function updateBranch(
   client: GitHubInstallationClient,
   repository: string,
   pullRequestNumber: number,
   expectedHeadSha: string,
 ): Promise<boolean> {
-  if (
-    !hasWritePermission(client, 'pull_requests') ||
-    !hasWritePermission(client, 'contents')
-  ) {
-    return false;
-  }
+  if (branchUpdatePermissionWarning(client)) return false;
 
   const [owner, repo] = repoParts(repository);
   try {

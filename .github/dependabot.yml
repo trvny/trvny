@@ -53,7 +53,7 @@ updates:
         patterns:
           - "*"
   - package-ecosystem: "npm"
-    directory: "/kanarek-companion"
+    directory: "/gh-apps/kanarek-companion"
     schedule:
       interval: "weekly"
       day: "monday"

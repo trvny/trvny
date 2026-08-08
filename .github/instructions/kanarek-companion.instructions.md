@@ -1,5 +1,5 @@
 ---
-applyTo: "kanarek-companion/src/**/*.ts"
+applyTo: "gh-apps/kanarek-companion/src/**/*.ts"
 ---
 
 # Kanarek companion Worker

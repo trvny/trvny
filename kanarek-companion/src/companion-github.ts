@@ -290,7 +290,7 @@ export async function associatedPullRequestNumbers(
   installationId: number,
   repository: string,
   sha: string,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = (input, init) => fetch(input, init),
 ): Promise<number[]> {
   const client = await createInstallationClient(
     env.GITHUB_APP_ID,

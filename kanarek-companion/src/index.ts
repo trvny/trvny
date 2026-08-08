@@ -1,46 +1,39 @@
 import {
+  associatedPullRequestNumbers,
+  refreshCompanion,
+  type CompanionEnv,
+  type CompanionResult,
+  type CompanionTarget,
+} from './companion.ts';
+import {
   checkInstallationAccess,
-  ensureTestComment,
   GitHubApiError,
-  TEST_COMMENT_MARKER,
   type InstallationAccessCheck,
-  type TestCommentResult,
 } from './github-app.ts';
 
-interface Env {
-  COMMENT_PROBE_LOCK: DurableObjectNamespace;
-  GITHUB_APP_ID: string;
-  GITHUB_APP_SLUG: string;
-  GITHUB_PRIVATE_KEY: string;
+interface Env extends CompanionEnv {
+  COMPANION_LOCK: DurableObjectNamespace;
   GITHUB_WEBHOOK_SECRET: string;
 }
 
 interface WebhookMetadata {
+  action: string | null;
   delivery: string | null;
   event: string | null;
-  action: string | null;
-  repository: string | null;
   installationId: number | null;
+  repository: string | null;
 }
 
-interface TestCommentTarget {
-  delivery: string;
-  installationId: number;
-  pullRequestNumber: number;
-  repository: string;
-}
-
-interface CommentProbeResponse {
-  cached: boolean;
+interface CompanionLockResponse {
+  duplicate?: boolean;
   failure?: Record<string, unknown>;
   ok: boolean;
-  result?: TestCommentResult;
+  result?: CompanionResult;
 }
 
 const MAX_BODY_BYTES = 1_048_576;
 const WEBHOOK_PATH = '/webhooks/github';
 const HEALTH_PATH = '/health';
-const TEST_COMMENT_REPOSITORY = 'trvny/trvny';
 const SUPPORTED_EVENTS = new Set([
   'check_run',
   'check_suite',
@@ -57,6 +50,20 @@ const INSTALLATION_AUTH_ACTIONS = new Set([
   'new_permissions_accepted',
   'unsuspend',
 ]);
+const PULL_REQUEST_ACTIONS = new Set([
+  'opened',
+  'reopened',
+  'synchronize',
+  'ready_for_review',
+  'converted_to_draft',
+  'auto_merge_enabled',
+  'auto_merge_disabled',
+  'closed',
+]);
+const PULL_REQUEST_REVIEW_ACTIONS = new Set(['submitted', 'dismissed']);
+const CHECK_RUN_ACTIONS = new Set(['completed']);
+const CHECK_SUITE_ACTIONS = new Set(['completed']);
+const WORKFLOW_RUN_ACTIONS = new Set(['completed']);
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, {
@@ -184,45 +191,115 @@ async function authenticateInstallation(
   );
 }
 
-function testCommentTarget(
-  metadata: WebhookMetadata,
-  payload: Record<string, unknown>,
-): TestCommentTarget | null {
-  if (
-    metadata.event !== 'pull_request' ||
-    metadata.action !== 'opened' ||
-    metadata.repository !== TEST_COMMENT_REPOSITORY ||
-    metadata.installationId === null ||
-    !metadata.delivery
-  ) {
-    return null;
-  }
-
-  const pullRequest = payload.pull_request as { body?: unknown } | undefined;
-  const pullRequestNumber = payload.number;
-  if (
-    typeof pullRequest?.body !== 'string' ||
-    !pullRequest.body.includes(TEST_COMMENT_MARKER) ||
-    typeof pullRequestNumber !== 'number' ||
-    !Number.isInteger(pullRequestNumber) ||
-    pullRequestNumber < 1
-  ) {
-    return null;
-  }
-
-  return {
-    delivery: metadata.delivery,
-    installationId: metadata.installationId,
-    pullRequestNumber,
-    repository: metadata.repository,
-  };
+function validNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+    ? value
+    : null;
 }
 
-function isTestCommentTarget(value: unknown): value is TestCommentTarget {
-  const target = value as Partial<TestCommentTarget> | null;
+function pullNumbers(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  const numbers = value
+    .map((item) =>
+      item && typeof item === 'object'
+        ? validNumber((item as { number?: unknown }).number)
+        : null,
+    )
+    .filter((item): item is number => item !== null);
+  return [...new Set(numbers)];
+}
+
+function isCompanionEvent(metadata: WebhookMetadata): boolean {
+  if (!metadata.event) return false;
+  if (metadata.event === 'status') return true;
+  if (!metadata.action) return false;
+  if (metadata.event === 'pull_request') {
+    return PULL_REQUEST_ACTIONS.has(metadata.action);
+  }
+  if (metadata.event === 'pull_request_review') {
+    return PULL_REQUEST_REVIEW_ACTIONS.has(metadata.action);
+  }
+  if (metadata.event === 'check_run') {
+    return CHECK_RUN_ACTIONS.has(metadata.action);
+  }
+  if (metadata.event === 'check_suite') {
+    return CHECK_SUITE_ACTIONS.has(metadata.action);
+  }
+  if (metadata.event === 'workflow_run') {
+    return WORKFLOW_RUN_ACTIONS.has(metadata.action);
+  }
+  return false;
+}
+
+async function companionTargets(
+  metadata: WebhookMetadata,
+  payload: Record<string, unknown>,
+  env: Env,
+): Promise<CompanionTarget[]> {
+  if (
+    !isCompanionEvent(metadata) ||
+    !metadata.delivery ||
+    !metadata.event ||
+    !metadata.repository ||
+    metadata.installationId === null
+  ) {
+    return [];
+  }
+
+  let numbers: number[] = [];
+  let sha: string | null = null;
+
+  if (metadata.event === 'pull_request') {
+    const direct = validNumber(payload.number);
+    numbers = direct ? [direct] : [];
+  } else if (metadata.event === 'pull_request_review') {
+    const pr = payload.pull_request as { number?: unknown } | undefined;
+    const direct = validNumber(pr?.number);
+    numbers = direct ? [direct] : [];
+  } else if (metadata.event === 'workflow_run') {
+    const run = payload.workflow_run as
+      | { head_sha?: unknown; pull_requests?: unknown }
+      | undefined;
+    numbers = pullNumbers(run?.pull_requests);
+    sha = typeof run?.head_sha === 'string' ? run.head_sha : null;
+  } else if (metadata.event === 'check_suite') {
+    const suite = payload.check_suite as
+      | { head_sha?: unknown; pull_requests?: unknown }
+      | undefined;
+    numbers = pullNumbers(suite?.pull_requests);
+    sha = typeof suite?.head_sha === 'string' ? suite.head_sha : null;
+  } else if (metadata.event === 'check_run') {
+    const run = payload.check_run as
+      | { head_sha?: unknown; pull_requests?: unknown }
+      | undefined;
+    numbers = pullNumbers(run?.pull_requests);
+    sha = typeof run?.head_sha === 'string' ? run.head_sha : null;
+  } else if (metadata.event === 'status') {
+    sha = typeof payload.sha === 'string' ? payload.sha : null;
+  }
+
+  if (!numbers.length && sha) {
+    numbers = await associatedPullRequestNumbers(
+      env,
+      metadata.installationId,
+      metadata.repository,
+      sha,
+    );
+  }
+
+  return numbers.map((pullRequestNumber) => ({
+    delivery: metadata.delivery ?? '',
+    installationId: metadata.installationId ?? 0,
+    pullRequestNumber,
+    repository: metadata.repository ?? '',
+    sourceEvent: metadata.event ?? '',
+  }));
+}
+
+function isCompanionTarget(value: unknown): value is CompanionTarget {
+  const target = value as Partial<CompanionTarget> | null;
   return Boolean(
     target &&
-      target.repository === TEST_COMMENT_REPOSITORY &&
       typeof target.delivery === 'string' &&
       target.delivery.length > 0 &&
       typeof target.installationId === 'number' &&
@@ -230,37 +307,38 @@ function isTestCommentTarget(value: unknown): value is TestCommentTarget {
       target.installationId > 0 &&
       typeof target.pullRequestNumber === 'number' &&
       Number.isInteger(target.pullRequestNumber) &&
-      target.pullRequestNumber > 0,
+      target.pullRequestNumber > 0 &&
+      typeof target.repository === 'string' &&
+      /^[^/]+\/[^/]+$/.test(target.repository) &&
+      typeof target.sourceEvent === 'string' &&
+      target.sourceEvent.length > 0,
   );
 }
 
-async function runCommentProbe(
-  target: TestCommentTarget,
-  env: Env,
-): Promise<void> {
-  const id = env.COMMENT_PROBE_LOCK.idFromName(
+async function runTarget(target: CompanionTarget, env: Env): Promise<void> {
+  const id = env.COMPANION_LOCK.idFromName(
     `${target.repository}#${target.pullRequestNumber}`,
   );
-  const response = await env.COMMENT_PROBE_LOCK.get(id).fetch(
-    'https://comment-probe.internal/run',
+  const response = await env.COMPANION_LOCK.get(id).fetch(
+    'https://kanarek-companion.internal/refresh',
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(target),
     },
   );
-  const payload = (await response.json()) as CommentProbeResponse;
-  if (!response.ok || !payload.ok || !payload.result) {
+  const payload = (await response.json()) as CompanionLockResponse;
+  if (!response.ok || !payload.ok) {
     console.error(
       JSON.stringify({
+        companion: 'failed',
         delivery: target.delivery,
-        repository: target.repository,
-        installationId: target.installationId,
-        pullRequestNumber: target.pullRequestNumber,
-        testComment: 'failed',
         failure: payload.failure ?? {
-          reason: `comment_probe_lock_failed_${response.status}`,
+          reason: `companion_lock_failed_${response.status}`,
         },
+        pullRequestNumber: target.pullRequestNumber,
+        repository: target.repository,
+        sourceEvent: target.sourceEvent,
       }),
     );
     return;
@@ -268,44 +346,60 @@ async function runCommentProbe(
 
   console.log(
     JSON.stringify({
-      delivery: target.delivery,
-      event: 'pull_request',
-      action: 'opened',
-      repository: target.repository,
-      installationId: target.installationId,
-      pullRequestNumber: target.pullRequestNumber,
-      testComment: {
-        ok: true,
-        cached: payload.cached,
-        created: payload.result.created,
-        commentId: payload.result.commentId,
+      companion: {
+        changed: payload.result?.changed ?? false,
+        commentId: payload.result?.commentId ?? null,
+        duplicate: payload.duplicate ?? false,
+        quipSource: payload.result?.quipSource ?? null,
+        state: payload.result?.state ?? null,
       },
+      delivery: target.delivery,
+      pullRequestNumber: target.pullRequestNumber,
+      repository: target.repository,
+      sourceEvent: target.sourceEvent,
     }),
   );
 }
 
-function scheduleTestComment(
-  target: TestCommentTarget | null,
+async function runCompanionEvent(
+  metadata: WebhookMetadata,
+  payload: Record<string, unknown>,
+  env: Env,
+): Promise<void> {
+  try {
+    const targets = await companionTargets(metadata, payload, env);
+    await Promise.all(targets.map((target) => runTarget(target, env)));
+    if (!targets.length) {
+      console.log(
+        JSON.stringify({
+          companion: 'no_pull_requests',
+          delivery: metadata.delivery,
+          event: metadata.event,
+          repository: metadata.repository,
+        }),
+      );
+    }
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        companion: 'failed',
+        delivery: metadata.delivery,
+        event: metadata.event,
+        failure: operationFailure(error),
+        repository: metadata.repository,
+      }),
+    );
+  }
+}
+
+function scheduleCompanion(
+  metadata: WebhookMetadata,
+  payload: Record<string, unknown>,
   env: Env,
   ctx?: ExecutionContext,
 ): boolean {
-  if (!target) return false;
-
-  const task = runCommentProbe(target, env).catch((error: unknown) => {
-    console.error(
-      JSON.stringify({
-        delivery: target.delivery,
-        event: 'pull_request',
-        action: 'opened',
-        repository: target.repository,
-        installationId: target.installationId,
-        pullRequestNumber: target.pullRequestNumber,
-        testComment: 'failed',
-        failure: operationFailure(error),
-      }),
-    );
-  });
-
+  if (!isCompanionEvent(metadata)) return false;
+  const task = runCompanionEvent(metadata, payload, env);
   if (ctx) ctx.waitUntil(task);
   else void task;
   return true;
@@ -374,12 +468,7 @@ async function handleWebhook(
     );
   }
 
-  const testCommentScheduled = scheduleTestComment(
-    testCommentTarget(metadata, payload),
-    env,
-    ctx,
-  );
-
+  const companionScheduled = scheduleCompanion(metadata, payload, env, ctx);
   console.log(
     JSON.stringify({
       ...metadata,
@@ -391,7 +480,7 @@ async function handleWebhook(
             expiresAt: authentication.expiresAt,
           }
         : null,
-      testComment: testCommentScheduled ? { scheduled: true } : null,
+      companion: companionScheduled ? { scheduled: true } : null,
     }),
   );
 
@@ -408,7 +497,7 @@ async function handleWebhook(
             expiresAt: authentication.expiresAt,
           }
         : null,
-      testComment: testCommentScheduled ? { scheduled: true } : null,
+      companion: companionScheduled ? { scheduled: true } : null,
     },
     202,
   );
@@ -418,12 +507,16 @@ function health(env: Env, method: string): Response {
   const webhookConfigured = Boolean(env.GITHUB_WEBHOOK_SECRET);
   const privateKeyConfigured = Boolean(env.GITHUB_PRIVATE_KEY);
   const appConfigured = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_SLUG);
-  const commentLockConfigured = Boolean(env.COMMENT_PROBE_LOCK);
+  const companionLockConfigured = Boolean(env.COMPANION_LOCK);
+  const quipBankConfigured = Boolean(env.KANAREK_QUIP_KV);
+  const aiConfigured = Boolean(
+    env.OPENAI_API_KEY ||
+      env.ANTHROPIC_API_KEY ||
+      env.GEMINI_API_KEY ||
+      env.XAI_API_KEY,
+  );
   const ready =
-    webhookConfigured &&
-    privateKeyConfigured &&
-    appConfigured &&
-    commentLockConfigured;
+    webhookConfigured && privateKeyConfigured && appConfigured && companionLockConfigured;
   const response = json(
     {
       ok: ready,
@@ -433,7 +526,9 @@ function health(env: Env, method: string): Response {
       webhookConfigured,
       privateKeyConfigured,
       installationAuthConfigured: privateKeyConfigured && appConfigured,
-      commentLockConfigured,
+      companionLockConfigured,
+      quipBankConfigured,
+      aiConfigured,
     },
     ready ? 200 : 503,
   );
@@ -466,37 +561,34 @@ export class CommentProbeLock {
     } catch {
       return json({ error: 'invalid_json' }, 400);
     }
-    if (!isTestCommentTarget(target)) {
-      return json({ error: 'invalid_comment_probe_target' }, 400);
+    if (!isCompanionTarget(target)) {
+      return json({ error: 'invalid_companion_target' }, 400);
     }
 
-    let response = json({ error: 'comment_probe_not_run' }, 500);
+    let response = json({ error: 'companion_not_run' }, 500);
     await this.state.blockConcurrencyWhile(async () => {
-      try {
-        const cached = await this.state.storage.get<TestCommentResult>('result');
-        if (cached) {
-          response = json({ ok: true, cached: true, result: cached });
-          return;
-        }
+      const deliveries =
+        (await this.state.storage.get<string[]>('processed-deliveries')) ?? [];
+      if (deliveries.includes(target.delivery)) {
+        response = json({ ok: true, duplicate: true });
+        return;
+      }
 
-        const result = await ensureTestComment(
-          this.env.GITHUB_APP_ID,
-          this.env.GITHUB_APP_SLUG,
-          this.env.GITHUB_PRIVATE_KEY,
-          target.installationId,
-          target.repository,
-          target.pullRequestNumber,
-          target.delivery,
+      try {
+        const result = await refreshCompanion(target, this.env);
+        await this.state.storage.put(
+          'processed-deliveries',
+          [target.delivery, ...deliveries.filter((item) => item !== target.delivery)].slice(
+            0,
+            64,
+          ),
         );
-        await this.state.storage.put('result', result);
-        response = json({ ok: true, cached: false, result });
+        response = json({ ok: true, duplicate: false, result });
       } catch (error) {
-        const failure = operationFailure(error);
         response = json(
           {
             ok: false,
-            cached: false,
-            failure,
+            failure: operationFailure(error),
           },
           502,
         );
@@ -533,4 +625,10 @@ const worker = {
 };
 
 export default worker;
-export { readLimitedBody, testCommentTarget, verifyWebhookSignature };
+export {
+  companionTargets,
+  isCompanionEvent,
+  readLimitedBody,
+  verifyWebhookSignature,
+  webhookMetadata,
+};

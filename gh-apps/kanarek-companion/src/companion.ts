@@ -175,7 +175,7 @@ export async function refreshCompanion(
   let bank: QuipEntry[] = [];
 
   if (!quip && (await shouldUsePool(target.pullRequestNumber, quipKey, current.key, env))) {
-    bank = await loadBank(env);
+    bank = await loadBank(env, quipKey, stateHash);
     quip =
       (await pooledQuip(
         quipKey,
@@ -262,8 +262,7 @@ export async function refreshCompanion(
   }
 
   if (!sameQuipState && (source === 'ai' || source === 'pool')) {
-    const reusable = rememberQuip(bank, quipKey, quip, source);
-    await storeBank(env, reusable);
+    await storeBank(env, [{ k: quipKey, q: quip }]);
   }
 
   return {

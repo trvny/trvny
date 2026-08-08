@@ -1,5 +1,6 @@
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
+const MAX_PAGES = 20;
 
 export const TEST_COMMENT_MARKER =
   '<!-- kanarek-companion:test-comment -->';
@@ -224,6 +225,18 @@ async function requireJson<T>(
   return (await response.json()) as T;
 }
 
+async function requireVoid(
+  response: Response,
+  operation: string,
+  diagnosticContext: GitHubApiDiagnosticContext = {},
+): Promise<void> {
+  if (response.ok) {
+    await response.body?.cancel();
+    return;
+  }
+  await requireJson<unknown>(response, operation, diagnosticContext);
+}
+
 async function createInstallationToken(
   appId: string,
   privateKey: string,
@@ -260,6 +273,90 @@ function repositoryParts(repository: string): [string, string] {
     throw new Error('invalid_repository_name');
   }
   return [encodeURIComponent(parts[0]), encodeURIComponent(parts[1])];
+}
+
+function apiPath(path: string): string {
+  if (!path.startsWith('/') || path.startsWith('//')) {
+    throw new Error('invalid_github_api_path');
+  }
+  return `${GITHUB_API}${path}`;
+}
+
+export class GitHubInstallationClient {
+  readonly expiresAt: string;
+  readonly permissions: Readonly<Record<string, string>>;
+  private readonly fetcher: typeof fetch;
+  private readonly token: string;
+
+  constructor(installation: InstallationToken, fetcher: typeof fetch) {
+    this.token = installation.token;
+    this.expiresAt = installation.expiresAt;
+    this.permissions = installation.permissions;
+    this.fetcher = fetcher;
+  }
+
+  async json<T>(
+    path: string,
+    operation: string,
+    init: RequestInit = {},
+  ): Promise<T> {
+    const response = await this.fetcher(apiPath(path), {
+      ...init,
+      headers: githubHeaders(this.token),
+    });
+    return requireJson<T>(response, operation, {
+      grantedPermissions: { ...this.permissions },
+    });
+  }
+
+  async void(
+    path: string,
+    operation: string,
+    init: RequestInit = {},
+  ): Promise<void> {
+    const response = await this.fetcher(apiPath(path), {
+      ...init,
+      headers: githubHeaders(this.token),
+    });
+    return requireVoid(response, operation, {
+      grantedPermissions: { ...this.permissions },
+    });
+  }
+
+  async paginate<T>(path: string, operation: string): Promise<T[]> {
+    const url = new URL(apiPath(path));
+    url.searchParams.set('per_page', '100');
+    const output: T[] = [];
+
+    for (let page = 1; page <= MAX_PAGES; page += 1) {
+      url.searchParams.set('page', String(page));
+      const response = await this.fetcher(url, {
+        headers: githubHeaders(this.token),
+      });
+      const data = await requireJson<unknown>(response, operation, {
+        grantedPermissions: { ...this.permissions },
+      });
+      if (!Array.isArray(data)) throw new Error(`${operation}_invalid_response`);
+      output.push(...(data as T[]));
+      if (data.length < 100) return output;
+    }
+    throw new Error(`${operation}_pagination_limit`);
+  }
+}
+
+export async function createInstallationClient(
+  appId: string,
+  privateKey: string,
+  installationId: number,
+  fetcher: typeof fetch = fetch,
+): Promise<GitHubInstallationClient> {
+  const installation = await createInstallationToken(
+    appId,
+    privateKey,
+    installationId,
+    fetcher,
+  );
+  return new GitHubInstallationClient(installation, fetcher);
 }
 
 function commentBody(delivery: string): string {

@@ -30,14 +30,26 @@ export function shouldUpdateBranch(
   return true;
 }
 
+function hasWritePermission(
+  client: GitHubInstallationClient,
+  permission: 'contents' | 'pull_requests',
+): boolean {
+  const value = client.permissions[permission];
+  return Boolean(value && WRITE_PERMISSIONS.has(value));
+}
+
 export async function updateBranch(
   client: GitHubInstallationClient,
   repository: string,
   pullRequestNumber: number,
   expectedHeadSha: string,
 ): Promise<boolean> {
-  const permission = client.permissions.pull_requests;
-  if (!permission || !WRITE_PERMISSIONS.has(permission)) return false;
+  if (
+    !hasWritePermission(client, 'pull_requests') ||
+    !hasWritePermission(client, 'contents')
+  ) {
+    return false;
+  }
 
   const [owner, repo] = repoParts(repository);
   try {

@@ -62,10 +62,11 @@
 ## Licencja i materiały zewnętrzne
 
 Oryginalny kod i dokumentację obejmuje [ISC](LICENSE). Zewnętrzne feedy,
-playlisty, dane, cytaty, grafiki i znaki pozostają własnością ich autorów: [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md).
-## 📰 Ostatnio w eterze
+playlisty, dane, cytaty, grafiki i znaki pozostają własnością ich autorów: [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md).  
+[![license](https://img.shields.io/github/license/trvny/trvny)](LICENSE)
 
 ---
+## 📰 Ostatnio w eterze
 
 <!--README_FEED:START-->
 - [Confronting the Barriers to AI Diffusion in the U.S. Military](https://carnegieendowment.org/research/2026/08/confronting-the-barriers-to-ai-diffusion-in-the-us-military)
@@ -89,5 +90,3 @@ playlisty, dane, cytaty, grafiki i znaki pozostają własnością ich autorów: 
 <sub>consolidation over fragmentation · po kolei, na spokojnie</sub>
 
 </div>
-
-[![license](https://img.shields.io/github/license/trvny/trvny)](LICENSE)

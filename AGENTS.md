@@ -10,9 +10,14 @@ Working motto:
 
 ## Repository conventions
 
-- Files under `.ai/`, `.claude/skills/`, templates, examples, backups, and
-  reference directories are not active instructions unless the current tool or
-  task explicitly loads them.
+- `.ai/core/` is the public `trvny/.ai` submodule and the maintained source for
+  reusable AI profiles, schemas, tools, templates, styles, instructions, and
+  public skills. Apply `.ai/profile.yaml` as the private profile overlay after
+  the public base. Keep backups and private/project material under
+  `.ai/private/`; do not duplicate public core files here.
+- Files under `.ai/private/`, templates, examples, backups, and reference
+  directories are not active instructions unless the current tool or task
+  explicitly loads them.
 - Check the current target branch, open pull requests, and recent changes when
   the task could overlap ongoing work.
 - Detect the local stack from project files; do not assume one stack across this
@@ -30,15 +35,16 @@ Working motto:
 - `CLAUDE.md` and `GEMINI.md` are thin imports of this file.
 - `.github/copilot-instructions.md` contains only Copilot-specific adaptation;
   path-specific Copilot rules belong in `.github/instructions/`.
-- `.github/agents/` and `.claude/agents/` contain focused opt-in agents, not
-  repository-wide policy.
-- `.claude/settings.json` contains conservative shared permissions. Personal
-  paths and permissions belong in uncommitted local settings.
-- `.codex/config.toml` contains project defaults only. Do not pin a model,
-  replace the normal `AGENTS.md` instruction chain, or store personal UI
-  preferences there.
-- Provider-neutral profiles, schemas, templates, and references belong under
-  `.ai/`; they are documentation or inputs, not hidden authority.
+- `.ai/core/.claude/settings.json` and `.ai/core/.codex/config.toml` are reusable
+  reference defaults from the public core. Because the core is a nested
+  submodule, providers do not discover them automatically as repository-root
+  configuration.
+- Public opt-in skills live in `.ai/core/skills/`; private or project-specific
+  skill backups live in `.ai/private/skills/`. Neither set is repository-wide
+  policy unless explicitly loaded.
+- Provider-neutral reusable material lives in `.ai/core/`; private profile
+  behavior lives in `.ai/profile.yaml`. Neither is hidden authority unless a
+  current tool or task explicitly loads it.
 
 ## GitHub workflow
 

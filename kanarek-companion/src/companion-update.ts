@@ -10,7 +10,6 @@ import type {
 
 const WRITE_PERMISSIONS = new Set(['admin', 'write']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
-const PERMISSION_WARNING = 'auto-update unavailable · needs Contents + Pull requests write';
 
 function disabled(value: string | undefined): boolean {
   return value ? FALSE_VALUES.has(value.trim().toLowerCase()) : false;
@@ -47,10 +46,12 @@ function hasWritePermission(
 export function branchUpdatePermissionWarning(
   client: GitHubInstallationClient,
 ): string | null {
-  return hasWritePermission(client, 'pull_requests') &&
-    hasWritePermission(client, 'contents')
-    ? null
-    : PERMISSION_WARNING;
+  const missing: string[] = [];
+  if (!hasWritePermission(client, 'contents')) missing.push('Contents');
+  if (!hasWritePermission(client, 'pull_requests')) missing.push('Pull requests');
+  return missing.length
+    ? `auto-update unavailable · needs ${missing.join(' + ')} write`
+    : null;
 }
 
 export async function updateBranch(

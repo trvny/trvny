@@ -38,7 +38,7 @@
 | 📻 **[Streambench](streambench/)** | [streambench.travny.workers.dev](https://streambench.travny.workers.dev) | Warsztat do testowania, porządkowania i odtwarzania IPTV, radia, HLS, M3U oraz XMLTV. |
 | 🌦️ **[weather-feed](weather-feed/)** | [weather.travny.workers.dev](https://weather.travny.workers.dev) | Wieloźródłowa pogoda i alerty IMGW dla Kościelca/Chrzanowa, wystawione jako Atom i JSON. |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | Jedno narzędzie do zbiorczego sprawdzania zdrowia TVPI, Feeds i Autek. |
-| 🤖 **[skills](.claude/skills/)** | lokalnie | Biblioteka umiejętności i instrukcji dla narzędzi AI pracujących nad projektami. |
+| 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Publiczny rdzeń konfiguracji AI + prywatny profil, archiwum i projektowe skillsy. |
 
 ## 🗄️ Szuflady
 

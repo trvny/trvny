@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/trvny/trvny/blob/main/.ai/schema/style-profile.schema.json",
+  "title": "LLM Style Profile",
+  "description": "Portable communication and collaboration profile. Tool permissions, safety, routing, model choice, and execution policy remain outside this document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "locale"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schemaVersion": {
+            "const": "0.2"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "personality",
+          "collaboration"
+        ],
+        "not": {
+          "anyOf": [
+            {"required": ["style"]},
+            {"required": ["adaptation"]},
+            {"required": ["chat"]},
+            {"required": ["agent"]}
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schemaVersion": {
+            "const": "0.1"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "style"
+        ],
+        "not": {
+          "anyOf": [
+            {"required": ["personality"]},
+            {"required": ["collaboration"]}
+          ]
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "enum": [
+        "0.1",
+        "0.2"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "locale": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$"
+    },
+    "personality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base"
+      ],
+      "properties": {
+        "base": {
+          "type": "string",
+          "enum": [
+            "default",
+            "professional",
+            "friendly",
+            "honest",
+            "whimsical",
+            "concise",
+            "cynical"
+          ]
+        },
+        "intensity": {
+          "$ref": "#/$defs/intensity"
+        },
+        "modifiers": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "honest": {"$ref": "#/$defs/intensity"},
+            "warm": {"$ref": "#/$defs/intensity"},
+            "enthusiastic": {"$ref": "#/$defs/intensity"},
+            "concise": {"$ref": "#/$defs/intensity"},
+            "technical": {"$ref": "#/$defs/intensity"},
+            "educational": {"$ref": "#/$defs/intensity"},
+            "critical": {"$ref": "#/$defs/intensity"},
+            "headingsAndLists": {"$ref": "#/$defs/intensity"},
+            "emoji": {"$ref": "#/$defs/intensity"},
+            "quickReplies": {"$ref": "#/$defs/intensity"},
+            "whimsical": {"$ref": "#/$defs/intensity"},
+            "cynical": {"$ref": "#/$defs/intensity"}
+          }
+        },
+        "adaptation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "followUserRegister": {"type": "boolean", "default": true},
+            "preserveRequestedArtifactStyle": {"type": "boolean", "default": true},
+            "reduceHumorInSeriousContexts": {"type": "boolean", "default": true},
+            "mirrorLanguage": {"type": "boolean", "default": true},
+            "allowCasualProfanity": {"type": "boolean", "default": false}
+          }
+        }
+      }
+    },
+    "collaboration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preamble",
+        "initiative",
+        "verification"
+      ],
+      "properties": {
+        "preamble": {
+          "type": "string",
+          "enum": ["off", "multiStepOnly", "always"],
+          "default": "multiStepOnly"
+        },
+        "initiative": {
+          "type": "string",
+          "enum": ["conservative", "balanced", "proactive"],
+          "default": "balanced"
+        },
+        "verification": {
+          "type": "string",
+          "enum": ["light", "normal", "strict"],
+          "default": "normal"
+        },
+        "questionPolicy": {
+          "type": "string",
+          "enum": ["blockingOnly", "materialAmbiguity", "earlyAlignment"],
+          "default": "blockingOnly"
+        },
+        "assumptionPolicy": {
+          "type": "string",
+          "enum": ["cautious", "balanced", "decisive"],
+          "default": "balanced"
+        },
+        "answerFirst": {"type": "boolean", "default": true},
+        "plainChatIsDefault": {"type": "boolean", "default": true},
+        "respectExplicitTurnInstructions": {"type": "boolean", "default": true},
+        "avoidRoutinePraise": {"type": "boolean", "default": true},
+        "avoidRoutineFollowUpOffer": {"type": "boolean", "default": true},
+        "announceOnlyMaterialActions": {"type": "boolean", "default": true},
+        "reportPartialFailures": {"type": "boolean", "default": true},
+        "preferResultOverProcess": {"type": "boolean", "default": true}
+      }
+    },
+    "knowledge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "distinguishRawFromSynthesis": {"type": "boolean", "default": true},
+        "treatMemoryAsFallible": {"type": "boolean", "default": true},
+        "surfaceSourceConflicts": {"type": "boolean", "default": true},
+        "preferMaintainedSynthesisForOrientation": {"type": "boolean", "default": true},
+        "requireTraceableClaims": {"type": "boolean", "default": false}
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "defaultFormat": {
+          "type": "string",
+          "enum": ["prose", "compact", "structured", "markdown"],
+          "default": "prose"
+        },
+        "maxHeadingDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6,
+          "default": 3
+        },
+        "preferShortParagraphs": {"type": "boolean", "default": true},
+        "tables": {
+          "type": "string",
+          "enum": ["avoid", "whenUseful", "prefer"],
+          "default": "whenUseful"
+        },
+        "codeExamples": {
+          "type": "string",
+          "enum": ["minimal", "runnable", "explanatory"],
+          "default": "runnable"
+        },
+        "citations": {
+          "type": "string",
+          "enum": ["platformDefault", "whenAvailable", "requiredForExternalFacts"],
+          "default": "platformDefault"
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[A-Za-z0-9.-]+$"},
+      "additionalProperties": true
+    },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base"],
+      "properties": {
+        "base": {
+          "type": "string",
+          "enum": ["default", "professional", "friendly", "honest", "whimsical", "concise", "cynical"]
+        },
+        "intensity": {"$ref": "#/$defs/intensity"},
+        "modifiers": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "honest": {"$ref": "#/$defs/intensity"},
+            "warm": {"$ref": "#/$defs/intensity"},
+            "enthusiastic": {"$ref": "#/$defs/intensity"},
+            "concise": {"$ref": "#/$defs/intensity"},
+            "technical": {"$ref": "#/$defs/intensity"},
+            "educational": {"$ref": "#/$defs/intensity"},
+            "critical": {"$ref": "#/$defs/intensity"},
+            "headingsAndLists": {"$ref": "#/$defs/intensity"},
+            "emoji": {"$ref": "#/$defs/intensity"},
+            "quickReplies": {"$ref": "#/$defs/intensity"},
+            "whimsical": {"$ref": "#/$defs/intensity"},
+            "cynical": {"$ref": "#/$defs/intensity"}
+          }
+        }
+      },
+      "deprecated": true,
+      "description": "Legacy 0.1 voice field. Use personality in 0.2."
+    },
+    "adaptation": {
+      "type": "object",
+      "deprecated": true,
+      "description": "Legacy 0.1 field. Move voice adaptation to personality.adaptation and working behavior to collaboration.",
+      "additionalProperties": false,
+      "properties": {
+        "followUserRegister": {"type": "boolean", "default": true},
+        "preserveRequestedArtifactStyle": {"type": "boolean", "default": true},
+        "reduceHumorInSeriousContexts": {"type": "boolean", "default": true},
+        "plainChatIsDefault": {"type": "boolean", "default": true},
+        "respectExplicitTurnInstructions": {"type": "boolean", "default": true}
+      }
+    },
+    "chat": {
+      "type": "object",
+      "deprecated": true,
+      "description": "Legacy 0.1 field. Move these values to personality.adaptation or collaboration.",
+      "additionalProperties": false,
+      "properties": {
+        "answerFirst": {"type": "boolean", "default": true},
+        "avoidRoutinePraise": {"type": "boolean", "default": true},
+        "avoidRoutineFollowUpOffer": {"type": "boolean", "default": true},
+        "askOnlyBlockingQuestions": {"type": "boolean", "default": true},
+        "mirrorLanguage": {"type": "boolean", "default": true},
+        "allowCasualProfanity": {"type": "boolean", "default": false}
+      }
+    },
+    "agent": {
+      "type": "object",
+      "deprecated": true,
+      "description": "Legacy 0.1 field. Collaboration behavior moved to collaboration; tool and subagent policy belongs to runtime configuration.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean", "default": false},
+        "announceOnlyMaterialActions": {"type": "boolean", "default": true},
+        "reportPartialFailures": {"type": "boolean", "default": true},
+        "exposePrivateReasoning": {"type": "boolean", "const": false},
+        "preferResultOverProcess": {"type": "boolean", "default": true},
+        "toolUsePolicy": {
+          "type": "string",
+          "enum": ["runtime", "auto", "required", "forbidden"],
+          "default": "runtime"
+        },
+        "subagentPolicy": {
+          "type": "string",
+          "enum": ["runtime", "avoidByDefault", "allowWhenParallelizable", "required", "forbidden"],
+          "default": "allowWhenParallelizable"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "intensity": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 3
+    }
+  }
+}

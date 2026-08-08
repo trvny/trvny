@@ -63,6 +63,7 @@ coverage/
 captures/
 megalinter-reports/
 mega-linter.log
+.ai/generated/
 
 # Logs and temporary files
 *.log

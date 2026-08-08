@@ -28,12 +28,23 @@ function client(permissions: Record<string, string>): GitHubInstallationClient {
   return { permissions } as unknown as GitHubInstallationClient;
 }
 
-test('reports exactly which GitHub App permissions block branch updates', () => {
-  const warning = branchUpdatePermissionWarning(
-    client({ contents: 'read', pull_requests: 'write' }),
+test('reports the exact missing GitHub App permissions', () => {
+  assert.equal(
+    branchUpdatePermissionWarning(
+      client({ contents: 'read', pull_requests: 'write' }),
+    ),
+    'auto-update unavailable · needs Contents write',
   );
   assert.equal(
-    warning,
+    branchUpdatePermissionWarning(
+      client({ contents: 'write', pull_requests: 'read' }),
+    ),
+    'auto-update unavailable · needs Pull requests write',
+  );
+  assert.equal(
+    branchUpdatePermissionWarning(
+      client({ contents: 'read', pull_requests: 'read' }),
+    ),
     'auto-update unavailable · needs Contents + Pull requests write',
   );
   assert.equal(
@@ -64,8 +75,5 @@ test('renders the permission warning in the Kanarek status comment', () => {
     warning,
   );
 
-  assert.match(
-    body,
-    /auto-update unavailable · needs Contents \+ Pull requests write/,
-  );
+  assert.match(body, /auto-update unavailable · needs Contents write/);
 });

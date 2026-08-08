@@ -10,6 +10,7 @@ export const SOURCE_RE = /<!-- kanarek-source:(ai|pool|preset) -->/;
 const LIVE_STATUSES = new Set(['ready', 'blocked']);
 const POOL_LIMIT = 24;
 const BANK_LIMIT = 256;
+const ENTRY_PREFIX = `${BANK_KEY}:entry:`;
 
 function entriesFromValue(value: unknown): QuipEntry[] {
   let parsed = value;
@@ -111,10 +112,26 @@ export async function shouldUsePool(
   return bucket < aiPercent(env);
 }
 
+async function loadEntryBank(env: CompanionEnv): Promise<QuipEntry[]> {
+  if (!env.KANAREK_QUIP_KV) return [];
+  const page = await env.KANAREK_QUIP_KV.list({
+    prefix: ENTRY_PREFIX,
+    limit: BANK_LIMIT,
+  });
+  const values = await Promise.all(
+    page.keys.map((key) => env.KANAREK_QUIP_KV?.get(key.name)),
+  );
+  return mergeEntries(values.flatMap((value) => entriesFromValue(value)));
+}
+
 export async function loadBank(env: CompanionEnv): Promise<QuipEntry[]> {
   if (!env.KANAREK_QUIP_KV) return [];
   try {
-    return entriesFromValue(await env.KANAREK_QUIP_KV.get(BANK_KEY));
+    const [legacy, entries] = await Promise.all([
+      env.KANAREK_QUIP_KV.get(BANK_KEY),
+      loadEntryBank(env),
+    ]);
+    return mergeEntries(entries, entriesFromValue(legacy));
   } catch (error) {
     console.warn(
       `Kanarek quip bank unavailable: ${error instanceof Error ? error.message : 'unknown_error'}`,
@@ -129,11 +146,16 @@ export async function storeBank(
 ): Promise<void> {
   if (!env.KANAREK_QUIP_KV || !entries.length) return;
   try {
-    const current = entriesFromValue(await env.KANAREK_QUIP_KV.get(BANK_KEY));
-    const merged = mergeEntries(entries, current);
-    if (JSON.stringify(merged) !== JSON.stringify(current)) {
-      await env.KANAREK_QUIP_KV.put(BANK_KEY, JSON.stringify(merged));
-    }
+    const normalized = mergeEntries(entries);
+    await Promise.all(
+      normalized.map(async (entry) => {
+        const identity = await hash(`${entry.k}\u0000${entry.q}`);
+        await env.KANAREK_QUIP_KV?.put(
+          `${ENTRY_PREFIX}${entry.k}:${identity}`,
+          JSON.stringify([entry]),
+        );
+      }),
+    );
   } catch (error) {
     console.warn(
       `Kanarek quip bank update failed: ${error instanceof Error ? error.message : 'unknown_error'}`,
@@ -158,4 +180,3 @@ export async function pooledQuip(
     Number.parseInt((await hash(`${stateHash}:pool`)).slice(0, 8), 16) % unique.length;
   return unique[index];
 }
-

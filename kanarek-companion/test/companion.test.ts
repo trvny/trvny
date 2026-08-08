@@ -34,6 +34,14 @@ test('allows CI-less repositories to become ready', () => {
   assert.equal(status(pr, { behind: 0 }, emptyCi, review, false).key, 'ready');
 });
 
+test('describes GitHub blocked merge state in quip facts', () => {
+  const blocked = { ...pr, mergeable_state: 'blocked' };
+  assert.deepEqual(
+    blockerKinds(blocked, { behind: 0 }, { failed: [], passed: [{}], pending: [], total: 1 }, review, true),
+    ['merge-state-blocked'],
+  );
+});
+
 test('maps the refreshed GitHub automation signature back to Kanarek', () => {
   const projectAreas = areas(['.github/workflows/example.yml']);
   const body = render(
@@ -41,7 +49,7 @@ test('maps the refreshed GitHub automation signature back to Kanarek', () => {
     { behind: 0 },
     { failed: [], passed: [{}], pending: [], total: 1 },
     review,
-    projectAreas,
+    [...projectAreas, 'Kanarek'],
     { key: 'ready', title: '🟢 gotowy', blockers: [] },
     'Zielono.',
     '0123456789abcdef',

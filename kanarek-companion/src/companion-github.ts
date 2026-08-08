@@ -57,7 +57,7 @@ export async function comparison(
   const [owner, repo] = repoParts(repository);
   try {
     const result = await client.json<{ behind_by?: unknown }>(
-      `/repos/${owner}/${repo}/compare/${pr.base.sha}...${pr.head.sha}`,
+      `/repos/${owner}/${repo}/compare/${encodeURIComponent(pr.base.ref)}...${pr.head.sha}`,
       'compare_pull_request_branch',
     );
     return { behind: typeof result.behind_by === 'number' ? result.behind_by : null };
@@ -216,8 +216,17 @@ export async function upsert(
   const [owner, repo] = repoParts(repository);
   const ownLogin = `${appSlug}[bot]`;
   const own = found.filter((item) => item.user?.login === ownLogin);
+  const legacy = found.filter((item) => item.user?.login === 'github-actions[bot]');
+  const stale = [...own.slice(1), ...legacy];
   if (own[0]?.body === body) {
-    return { changed: false, commentId: own[0].id };
+    for (const duplicate of stale) {
+      await client.void(
+        `/repos/${owner}/${repo}/issues/comments/${duplicate.id}`,
+        'delete_issue_comment',
+        { method: 'DELETE' },
+      );
+    }
+    return { changed: stale.length > 0, commentId: own[0].id };
   }
 
   let commentId: number;
@@ -239,7 +248,7 @@ export async function upsert(
     commentId = created.id;
   }
 
-  for (const duplicate of own.slice(1)) {
+  for (const duplicate of stale) {
     await client.void(
       `/repos/${owner}/${repo}/issues/comments/${duplicate.id}`,
       'delete_issue_comment',

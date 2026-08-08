@@ -161,6 +161,16 @@ function webhookMetadata(
   };
 }
 
+
+function repositoryAllowed(env: Env, repository: string | null): boolean {
+  if (!repository) return false;
+  const configured = String(env.KANAREK_REPOSITORIES ?? 'trvny/trvny')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return configured.includes(repository);
+}
+
 function shouldCheckInstallation(metadata: WebhookMetadata): boolean {
   if (metadata.event === 'installation_repositories') return true;
   return (
@@ -241,6 +251,7 @@ async function companionTargets(
     !metadata.delivery ||
     !metadata.event ||
     !metadata.repository ||
+    !repositoryAllowed(env, metadata.repository) ||
     metadata.installationId === null
   ) {
     return [];
@@ -398,7 +409,9 @@ function scheduleCompanion(
   env: Env,
   ctx?: ExecutionContext,
 ): boolean {
-  if (!isCompanionEvent(metadata)) return false;
+  if (!isCompanionEvent(metadata) || !repositoryAllowed(env, metadata.repository)) {
+    return false;
+  }
   const task = runCompanionEvent(metadata, payload, env);
   if (ctx) ctx.waitUntil(task);
   else void task;
@@ -544,6 +557,7 @@ function health(env: Env, method: string): Response {
 export class CommentProbeLock {
   private readonly env: Env;
   private readonly state: DurableObjectState;
+  private queue: Promise<void> = Promise.resolve();
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -564,37 +578,44 @@ export class CommentProbeLock {
     if (!isCompanionTarget(target)) {
       return json({ error: 'invalid_companion_target' }, 400);
     }
+    if (!repositoryAllowed(this.env, target.repository)) {
+      return json({ error: 'repository_not_enabled' }, 403);
+    }
 
-    let response = json({ error: 'companion_not_run' }, 500);
-    await this.state.blockConcurrencyWhile(async () => {
-      const deliveries =
-        (await this.state.storage.get<string[]>('processed-deliveries')) ?? [];
-      if (deliveries.includes(target.delivery)) {
-        response = json({ ok: true, duplicate: true });
-        return;
-      }
+    const run = this.queue.then(() => this.refresh(target));
+    this.queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
 
-      try {
-        const result = await refreshCompanion(target, this.env);
-        await this.state.storage.put(
-          'processed-deliveries',
-          [target.delivery, ...deliveries.filter((item) => item !== target.delivery)].slice(
-            0,
-            64,
-          ),
-        );
-        response = json({ ok: true, duplicate: false, result });
-      } catch (error) {
-        response = json(
-          {
-            ok: false,
-            failure: operationFailure(error),
-          },
-          502,
-        );
-      }
-    });
-    return response;
+  private async refresh(target: CompanionTarget): Promise<Response> {
+    const deliveries =
+      (await this.state.storage.get<string[]>('processed-deliveries')) ?? [];
+    if (deliveries.includes(target.delivery)) {
+      return json({ ok: true, duplicate: true });
+    }
+
+    try {
+      const result = await refreshCompanion(target, this.env);
+      await this.state.storage.put(
+        'processed-deliveries',
+        [target.delivery, ...deliveries.filter((item) => item !== target.delivery)].slice(
+          0,
+          64,
+        ),
+      );
+      return json({ ok: true, duplicate: false, result });
+    } catch (error) {
+      return json(
+        {
+          ok: false,
+          failure: operationFailure(error),
+        },
+        502,
+      );
+    }
   }
 }
 

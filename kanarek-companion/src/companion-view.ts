@@ -120,7 +120,7 @@ export function blockerKinds(
   review: ReviewState,
   ciRequired = true,
 ): string[] {
-  return [
+  const kinds = [
     branch.behind !== null && branch.behind > 0 ? 'behind' : null,
     branch.behind === null ? 'branch-unknown' : null,
     pr.mergeable === false || pr.mergeable_state === 'dirty'
@@ -132,6 +132,10 @@ export function blockerKinds(
     ci.failed.length ? 'ci-failed' : null,
     review.changes ? 'review-changes' : null,
   ].filter((value): value is string => Boolean(value));
+  if (pr.mergeable_state === 'blocked' && kinds.length === 0) {
+    kinds.push('merge-state-blocked');
+  }
+  return kinds;
 }
 
 function branchBadge(pr: PullRequest, branch: BranchState): string {
@@ -189,9 +193,13 @@ export function render(
     ? `\n\n<sub>${details.join(' · ')}</sub>`
     : '';
   const scope =
-    projectAreas
-      .map((area) => (area === 'Automatyka GitHub' ? 'Kanarek' : area))
-      .join(', ') || 'Pozostałe';
+    [
+      ...new Set(
+        projectAreas.map((area) =>
+          area === 'Automatyka GitHub' ? 'Kanarek' : area,
+        ),
+      ),
+    ].join(', ') || 'Pozostałe';
 
   return `${MARKER}
 <!-- kanarek-state:${stateHash} -->

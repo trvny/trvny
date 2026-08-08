@@ -14,6 +14,7 @@ const env = {
   GITHUB_APP_SLUG: 'kanarek-companion',
   GITHUB_PRIVATE_KEY: 'configured-private-key',
   GITHUB_WEBHOOK_SECRET: 'test-secret',
+  KANAREK_REPOSITORIES: 'trvny/trvny',
   KANAREK_QUIP_KV: {
     get: async () => null,
     put: async () => undefined,
@@ -113,5 +114,13 @@ test('routes the PR and review events used by the companion', async () => {
         sourceEvent: 'pull_request',
       },
     ],
+  );
+  assert.deepEqual(
+    await companionTargets(
+      { ...testMetadata, repository: 'someone/else' },
+      { number: 156 },
+      env,
+    ),
+    [],
   );
 });

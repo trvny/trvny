@@ -7,6 +7,7 @@ export interface CompanionEnv extends QuipEnv {
   KANAREK_NO_CI_REPOS?: string;
   KANAREK_QUIP_KV?: KVNamespace;
   KANAREK_REQUIRE_CI?: string;
+  KANAREK_REPOSITORIES?: string;
 }
 
 export interface CompanionTarget {

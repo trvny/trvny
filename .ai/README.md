@@ -1,12 +1,18 @@
 # Private `.ai` overlay
 
-This repository no longer carries a second copy of the reusable AI core.
+This repository no longer carries a second active copy of the reusable AI core.
 
 ```text
 .ai/
 ├── core/          public submodule -> https://github.com/trvny/.ai
-├── profile.yaml   private partial overlay
+├── profile.yaml   private profile overlay
 └── private/       backups and archived personal/project material
+```
+
+Initialize the pinned public core after cloning:
+
+```bash
+git submodule update --init .ai/core
 ```
 
 ## Compose the effective profile
@@ -29,7 +35,9 @@ python .ai/core/tools/render_profile.py \
   --output .ai/generated/instructions.txt
 ```
 
-Later layers win. `profile.yaml` therefore contains only private differences from the public default.
+Later layers win. The private profile deliberately pins personal communication and collaboration choices so a future generic-default change does not silently alter them. Reusable schemas, tools, templates, provider defaults, and public skills still have a single source of truth in the public core.
+
+The referenced merge tool, renderer, base profile, and schema are present in the pinned public-core commit. Current CI does not read `.ai/core`; any future workflow that does must enable submodule checkout first.
 
 ## Direction of changes
 

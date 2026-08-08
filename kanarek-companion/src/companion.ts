@@ -21,7 +21,11 @@ import {
   checks,
   upsert,
 } from './companion-github.ts';
-import { contextLanguage, contextualPreset } from './companion-language.ts';
+import {
+  contextLanguage,
+  contextualPreset,
+  matchesLanguage,
+} from './companion-language.ts';
 import { syncReaction } from './companion-reactions.ts';
 import {
   areas,
@@ -172,8 +176,11 @@ export async function refreshCompanion(
       `context_body=${sanitize(pr.body ?? '') || 'none'}`,
       `previous_quip=${previousQuip || 'none'}`,
     ].join('; ');
-    quip = (await aiQuip(facts, env, fetcher)) ?? '';
-    if (quip) source = 'ai';
+    const generated = (await aiQuip(facts, env, fetcher)) ?? '';
+    if (generated && matchesLanguage(generated, language)) {
+      quip = generated;
+      source = 'ai';
+    }
   }
   if (!quip) {
     quip = await contextualPreset(

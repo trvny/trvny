@@ -9,6 +9,11 @@ import type {
 } from './companion-types.ts';
 
 const WRITE_PERMISSIONS = new Set(['admin', 'write']);
+const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
+
+function disabled(value: string | undefined): boolean {
+  return value ? FALSE_VALUES.has(value.trim().toLowerCase()) : false;
+}
 
 export function shouldUpdateBranch(
   pr: PullRequest,
@@ -19,10 +24,10 @@ export function shouldUpdateBranch(
   ciRequired: boolean,
   env: Pick<CompanionEnv, 'KANAREK_UPDATE_BRANCH'>,
 ): boolean {
-  if (env.KANAREK_UPDATE_BRANCH === 'false') return false;
+  if (disabled(env.KANAREK_UPDATE_BRANCH)) return false;
   if (pr.state !== 'open' || pr.draft || pr.merged) return false;
   if (branch.behind === null || branch.behind <= 0) return false;
-  if (pr.head.repo?.full_name !== repository) return false;
+  if (pr.head.repo?.full_name?.toLowerCase() !== repository.toLowerCase()) return false;
   if (pr.mergeable !== true || pr.mergeable_state === 'dirty') return false;
   if (ci.pending.length || ci.failed.length) return false;
   if (ciRequired && ci.total === 0) return false;
@@ -71,17 +76,15 @@ export async function updateBranch(
     );
     return true;
   } catch (error) {
-    if (error instanceof GitHubApiError) {
-      console.warn(
-        JSON.stringify({
-          companionBranchUpdate: 'skipped',
-          pullRequestNumber,
-          repository,
-          status: error.status,
-        }),
-      );
-      return false;
-    }
-    throw error;
+    console.warn(
+      JSON.stringify({
+        companionBranchUpdate: 'skipped',
+        pullRequestNumber,
+        repository,
+        reason: error instanceof Error ? error.message : 'unknown_error',
+        status: error instanceof GitHubApiError ? error.status : null,
+      }),
+    );
+    return false;
   }
 }

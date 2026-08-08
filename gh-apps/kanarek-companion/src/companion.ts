@@ -261,7 +261,7 @@ export async function refreshCompanion(
     );
   }
 
-  if (source === 'ai' || source === 'pool') {
+  if (!sameQuipState && (source === 'ai' || source === 'pool')) {
     const reusable = rememberQuip(bank, quipKey, quip, source);
     await storeBank(env, reusable);
   }

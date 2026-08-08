@@ -20,14 +20,14 @@ jobs:
     name: Bench checks
     runs-on: ubuntu-slim
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
+          ref: ci/bench-lockfiles
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Detect bench changes
         id: benches
@@ -70,13 +70,18 @@ jobs:
         with:
           node-version: 24
 
+      - name: Generate lockfiles
+        run: |
+          npm install --package-lock-only --ignore-scripts --prefix codebench
+          npm install --package-lock-only --ignore-scripts --prefix streambench
+
       - name: Check codebench
         id: codebench
         if: steps.benches.outputs.codebench == 'true'
         continue-on-error: true
         working-directory: codebench
         run: |
-          npm install
+          npm ci
           npm run build
           node --check src/index.js
           for file in public/*.js scripts/*.mjs; do node --check "$file"; done
@@ -89,8 +94,22 @@ jobs:
         continue-on-error: true
         working-directory: streambench
         run: |
-          npm install
+          npm ci
           npm run check
+
+      - name: Commit lockfiles
+        if: >-
+          steps.codebench.outcome == 'success' &&
+          steps.streambench.outcome == 'success'
+        run: |
+          git add codebench/package-lock.json streambench/package-lock.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Lock bench dependencies"
+          git push origin HEAD:ci/bench-lockfiles
 
       - name: Gate bench checks
         if: >-

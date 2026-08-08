@@ -9,7 +9,6 @@ import {
   rememberQuip,
   shouldUsePool,
   SOURCE_RE,
-  STATE_RE,
   storeBank,
 } from './companion-bank.ts';
 import {
@@ -151,21 +150,11 @@ export async function refreshCompanion(
     ...quipFacts,
     head: pr.head.sha,
     behind: branch.behind,
-    checks: {
-      failed: ci.failed.length,
-      pending: ci.pending.length,
-      passed: ci.passed.length,
-      total: ci.total,
-    },
     reviews: review,
-    mergeable: pr.mergeable,
-    mergeableState: pr.mergeable_state,
-    merged: pr.merged,
     autoMerge: pr.auto_merge?.merge_method ?? null,
     files: pr.changed_files,
   });
   const previous = oldComments[0];
-  const previousState = previous?.body?.match(STATE_RE)?.[1];
   const previousKey = previous?.body?.match(QUIP_KEY_RE)?.[1];
   const previousSource = previous?.body?.match(SOURCE_RE)?.[1] ?? 'preset';
   const previousQuip = sanitize(
@@ -177,10 +166,10 @@ export async function refreshCompanion(
     previousQuip,
     previousSource,
   );
-  const sameSnapshot = previousState === stateHash;
-  let quip = sameSnapshot ? previousQuip : '';
+  const sameQuipState = previousKey === quipKey && Boolean(previousQuip);
+  let quip = sameQuipState ? previousQuip : '';
   let source: 'ai' | 'pool' | 'preset' =
-    sameSnapshot && ['ai', 'pool', 'preset'].includes(previousSource)
+    sameQuipState && ['ai', 'pool', 'preset'].includes(previousSource)
       ? (previousSource as 'ai' | 'pool' | 'preset')
       : 'preset';
   let bank: QuipEntry[] = [];
@@ -272,7 +261,7 @@ export async function refreshCompanion(
     );
   }
 
-  if (source === 'ai' || source === 'pool') {
+  if (!sameQuipState && (source === 'ai' || source === 'pool')) {
     const reusable = rememberQuip(bank, quipKey, quip, source);
     await storeBank(env, reusable);
   }

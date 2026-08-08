@@ -133,10 +133,10 @@ test('allows CI-less repositories only when CI is explicitly optional', () => {
   );
 });
 
-test('uses expected_head_sha and pull-requests write permission', async () => {
+test('uses expected_head_sha with pull-requests and contents write permissions', async () => {
   const calls: Array<{ body?: BodyInit | null; method?: string; path: string }> = [];
   const client = {
-    permissions: { pull_requests: 'write' },
+    permissions: { contents: 'write', pull_requests: 'write' },
     async json(path: string, _operation: string, init: RequestInit = {}) {
       calls.push({ body: init.body, method: init.method, path });
       return { message: 'Updating pull request branch.' };
@@ -156,19 +156,25 @@ test('uses expected_head_sha and pull-requests write permission', async () => {
   ]);
 });
 
-test('does not call update-branch without pull-requests write permission', async () => {
-  let called = false;
-  const client = {
-    permissions: { pull_requests: 'read' },
-    async json() {
-      called = true;
-      return {};
-    },
-  } as unknown as GitHubInstallationClient;
+test('does not call update-branch without both required write permissions', async () => {
+  for (const permissions of [
+    { contents: 'read', pull_requests: 'write' },
+    { contents: 'write', pull_requests: 'read' },
+    { pull_requests: 'write' },
+  ]) {
+    let called = false;
+    const client = {
+      permissions,
+      async json() {
+        called = true;
+        return {};
+      },
+    } as unknown as GitHubInstallationClient;
 
-  assert.equal(
-    await updateBranch(client, 'trvny/trvny', 162, pr.head.sha),
-    false,
-  );
-  assert.equal(called, false);
+    assert.equal(
+      await updateBranch(client, 'trvny/trvny', 162, pr.head.sha),
+      false,
+    );
+    assert.equal(called, false);
+  }
 });

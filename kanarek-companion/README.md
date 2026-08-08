@@ -11,7 +11,7 @@ PR, review, completed CI/check-suite, and commit-status events refresh the affec
 
 Add the `no-goblin` label to silence Kanarek on a PR; removing it restores the companion.
 
-Safe same-repository PRs may be updated to the base branch automatically when CI and review are settled. Set `KANAREK_UPDATE_BRANCH=false` to disable this.
+Safe same-repository PRs may be updated to the base branch automatically when CI and review are settled. The GitHub App needs `Pull requests: write` and `Contents: write` for this action. Set `KANAREK_UPDATE_BRANCH=false` to disable this.
 
 ## Quips
 

@@ -34,6 +34,7 @@ export interface PullRequest {
   additions: number;
   auto_merge?: { merge_method?: string | null } | null;
   base: { ref: string; sha: string };
+  body?: string | null;
   changed_files: number;
   deletions: number;
   draft: boolean;
@@ -43,6 +44,7 @@ export interface PullRequest {
   merged: boolean;
   number: number;
   state: string;
+  title?: string | null;
 }
 
 export interface CheckRun {

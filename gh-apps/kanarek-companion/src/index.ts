@@ -163,7 +163,6 @@ function webhookMetadata(
   };
 }
 
-
 function repositoryAllowed(env: Env, repository: string | null): boolean {
   if (!repository) return false;
   const configured = String(env.KANAREK_REPOSITORIES ?? 'trvny/trvny')
@@ -229,6 +228,23 @@ function noGoblinLabel(payload: Record<string, unknown>): boolean {
   );
 }
 
+function gptomekControlEdit(
+  metadata: WebhookMetadata,
+  payload: Record<string, unknown>,
+): boolean {
+  const pr = payload.pull_request as
+    | { body?: unknown; user?: { login?: unknown } }
+    | undefined;
+  return (
+    metadata.action === 'edited' &&
+    metadata.repository === 'trvny/trvny' &&
+    validNumber(payload.number) === 176 &&
+    pr?.user?.login === 'trvny' &&
+    typeof pr.body === 'string' &&
+    pr.body.includes('<!-- gptomek-command:')
+  );
+}
+
 function isCompanionEvent(
   metadata: WebhookMetadata,
   payload: Record<string, unknown> = {},
@@ -237,6 +253,9 @@ function isCompanionEvent(
   if (metadata.event === 'status') return true;
   if (!metadata.action) return false;
   if (metadata.event === 'pull_request') {
+    if (metadata.action === 'edited') {
+      return gptomekControlEdit(metadata, payload);
+    }
     if (['labeled', 'unlabeled'].includes(metadata.action)) {
       return noGoblinLabel(payload);
     }

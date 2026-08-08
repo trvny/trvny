@@ -15,7 +15,11 @@ Safe same-repository PRs may be updated to the base branch automatically when CI
 
 ## GPTomek
 
-The same Worker hosts the separate [`gptomek`](../gptomek/) GitHub App bridge for authored commits, comments, review replies, and reactions. Commands are currently accepted only from the private `trvny/trvny` control PR on branch `gptomek/control`; normal pull requests remain opened as `trvny`.
+The same Worker hosts the separate [`gptomek`](../gptomek/) GitHub App bridge
+for authored commits, comments, review replies, and reactions. Commands use the
+private `trvny/trvny#176` pull request as a branchless control mailbox; edits to
+that PR are handled even after it is closed or merged. Normal pull requests
+remain opened as `trvny`.
 
 The bridge reuses Kanarek's existing `pull_request` webhook delivery path, so GPTomek does not need another Worker or webhook endpoint.
 

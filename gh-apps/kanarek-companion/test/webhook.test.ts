@@ -29,6 +29,15 @@ const testMetadata = {
   installationId: 123,
 };
 
+const controlEdit = {
+  number: 176,
+  pull_request: {
+    body: '<!-- gptomek-command:dGVzdA -->',
+    state: 'closed',
+    user: { login: 'trvny' },
+  },
+};
+
 test('validates the GitHub HMAC-SHA256 test vector', async () => {
   const payload = new TextEncoder().encode('Hello, World!').buffer;
   const signature =
@@ -140,5 +149,46 @@ test('routes the PR and review events used by the companion', async () => {
       env,
     ),
     [],
+  );
+});
+
+test('routes only marked edits of the GPTomek control mailbox', async () => {
+  const edited = { ...testMetadata, action: 'edited' };
+  assert.equal(isCompanionEvent(edited, controlEdit), true);
+  assert.equal(
+    isCompanionEvent(edited, {
+      ...controlEdit,
+      number: 177,
+    }),
+    false,
+  );
+  assert.equal(
+    isCompanionEvent(edited, {
+      ...controlEdit,
+      pull_request: { ...controlEdit.pull_request, body: 'idle' },
+    }),
+    false,
+  );
+  assert.equal(
+    isCompanionEvent(edited, {
+      ...controlEdit,
+      pull_request: {
+        ...controlEdit.pull_request,
+        user: { login: 'someone' },
+      },
+    }),
+    false,
+  );
+  assert.deepEqual(
+    await companionTargets(edited, controlEdit, env),
+    [
+      {
+        delivery: 'delivery-123',
+        installationId: 123,
+        pullRequestNumber: 176,
+        repository: 'trvny/trvny',
+        sourceEvent: 'pull_request',
+      },
+    ],
   );
 });

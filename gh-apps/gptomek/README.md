@@ -8,7 +8,7 @@ reactions.
 - Runtime module: `../kanarek-companion/src/gptomek.ts`
 - Shared Worker: `kanarek-companion`
 - Worker secret: `GPTOMEK_PRIVATE_KEY`
-- Current control transport: `trvny/trvny#176`
+- Control mailbox: `trvny/trvny#176` (no persistent branch required)
 
 Pull requests remain opened as `trvny` so external automatic review continues
 to trigger from the expected author.

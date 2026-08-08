@@ -33,6 +33,10 @@ test('updates only a safe same-repository branch', () => {
     true,
   );
   assert.equal(
+    shouldUpdateBranch(pr, branch, ci, review, 'TRVNY/TRVNY', true, {}),
+    true,
+  );
+  assert.equal(
     shouldUpdateBranch(
       { ...pr, head: { ...pr.head, repo: { full_name: 'someone/fork' } } },
       branch,
@@ -111,18 +115,24 @@ test('refuses updates while CI or review is unsettled', () => {
     ),
     false,
   );
-  assert.equal(
-    shouldUpdateBranch(
-      pr,
-      branch,
-      ci,
-      review,
-      'trvny/trvny',
-      true,
-      { KANAREK_UPDATE_BRANCH: 'false' },
-    ),
-    false,
-  );
+});
+
+test('recognizes common false values for the update switch', () => {
+  for (const value of ['false', 'FALSE', '0', 'no', 'OFF', ' off ']) {
+    assert.equal(
+      shouldUpdateBranch(
+        pr,
+        branch,
+        ci,
+        review,
+        'trvny/trvny',
+        true,
+        { KANAREK_UPDATE_BRANCH: value },
+      ),
+      false,
+      value,
+    );
+  }
 });
 
 test('allows CI-less repositories only when CI is explicitly optional', () => {
@@ -177,4 +187,18 @@ test('does not call update-branch without both required write permissions', asyn
     );
     assert.equal(called, false);
   }
+});
+
+test('treats API and network update failures as best-effort skips', async () => {
+  const client = {
+    permissions: { contents: 'write', pull_requests: 'write' },
+    async json() {
+      throw new TypeError('network down');
+    },
+  } as unknown as GitHubInstallationClient;
+
+  assert.equal(
+    await updateBranch(client, 'trvny/trvny', 162, pr.head.sha),
+    false,
+  );
 });

@@ -9,6 +9,7 @@ export const SOURCE_RE = /<!-- kanarek-source:(ai|pool|preset) -->/;
 const LIVE_STATUSES = new Set(['ready', 'blocked']);
 const POOL_LIMIT = 24;
 const BANK_LIMIT = 256;
+const ENTRY_TTL_SECONDS = 90 * 24 * 60 * 60;
 const ENTRY_PREFIX = `${BANK_KEY}:entry:`;
 
 function entriesFromValue(value: unknown): QuipEntry[] {
@@ -111,26 +112,43 @@ export async function shouldUsePool(
   return bucket < aiPercent(env);
 }
 
-async function loadEntryBank(env: CompanionEnv): Promise<QuipEntry[]> {
+async function loadEntryBank(
+  env: CompanionEnv,
+  quipKey: string,
+  stateHash: string,
+): Promise<QuipEntry[]> {
   if (!env.KANAREK_QUIP_KV) return [];
   const page = await env.KANAREK_QUIP_KV.list({
-    prefix: ENTRY_PREFIX,
+    prefix: `${ENTRY_PREFIX}${quipKey}:`,
     limit: BANK_LIMIT,
   });
+  if (!page.keys.length) return [];
+  const offset = Number.parseInt(stateHash.slice(0, 8), 16) % page.keys.length;
+  const selected = [
+    ...page.keys.slice(offset),
+    ...page.keys.slice(0, offset),
+  ].slice(0, POOL_LIMIT);
   const values = await Promise.all(
-    page.keys.map((key) => env.KANAREK_QUIP_KV?.get(key.name)),
+    selected.map((key) => env.KANAREK_QUIP_KV?.get(key.name)),
   );
   return mergeEntries(values.flatMap((value) => entriesFromValue(value)));
 }
 
-export async function loadBank(env: CompanionEnv): Promise<QuipEntry[]> {
+export async function loadBank(
+  env: CompanionEnv,
+  quipKey: string,
+  stateHash: string,
+): Promise<QuipEntry[]> {
   if (!env.KANAREK_QUIP_KV) return [];
   try {
     const [legacy, entries] = await Promise.all([
       env.KANAREK_QUIP_KV.get(BANK_KEY),
-      loadEntryBank(env),
+      loadEntryBank(env, quipKey, stateHash),
     ]);
-    return mergeEntries(entries, entriesFromValue(legacy));
+    return mergeEntries(
+      entries,
+      entriesFromValue(legacy).filter((entry) => entry.k === quipKey),
+    ).slice(0, POOL_LIMIT);
   } catch (error) {
     console.warn(
       `Kanarek quip bank unavailable: ${error instanceof Error ? error.message : 'unknown_error'}`,
@@ -152,6 +170,7 @@ export async function storeBank(
         await env.KANAREK_QUIP_KV?.put(
           `${ENTRY_PREFIX}${entry.k}:${identity}`,
           JSON.stringify([entry]),
+          { expirationTtl: ENTRY_TTL_SECONDS },
         );
       }),
     );

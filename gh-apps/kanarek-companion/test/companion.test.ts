@@ -123,7 +123,7 @@ test('sanitizes contributor-controlled project area labels', () => {
   assert.deepEqual(areas(['@some-user/file.ts']), ['Some user']);
 });
 
-test('stores concurrent quips under independent KV keys', async () => {
+test('stores rotating quips and scopes bank reads to one quip key', async () => {
   const values = new Map<string, string>([
     [
       BANK_KEY,
@@ -132,20 +132,26 @@ test('stores concurrent quips under independent KV keys', async () => {
       ]),
     ],
   ]);
+  const listed: Array<{ limit?: number; prefix?: string }> = [];
+  const ttls: number[] = [];
   const kv = {
     async get(key: string) {
       return values.get(key) ?? null;
     },
-    async list(options: { prefix?: string }) {
+    async list(options: { limit?: number; prefix?: string }) {
+      listed.push(options);
       return {
         keys: [...values.keys()]
           .filter((key) => key !== BANK_KEY && key.startsWith(options.prefix ?? ''))
+          .sort()
+          .slice(0, options.limit)
           .map((name) => ({ name })),
         list_complete: true,
       };
     },
-    async put(key: string, value: string) {
+    async put(key: string, value: string, options?: { expirationTtl?: number }) {
       values.set(key, value);
+      ttls.push(options?.expirationTtl ?? 0);
     },
   } as unknown as KVNamespace;
   const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
@@ -163,9 +169,37 @@ test('stores concurrent quips under independent KV keys', async () => {
     [...values.keys()].filter((key) => key !== BANK_KEY).length,
     2,
   );
-  const bank = await loadBank(env);
+  assert.deepEqual(ttls, [90 * 24 * 60 * 60, 90 * 24 * 60 * 60]);
+  const keys = ['aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb', 'cccccccccccccccc'];
+  const banks = await Promise.all(
+    keys.map((key) => loadBank(env, key, '0000000000000000')),
+  );
+  for (const [index, bank] of banks.entries()) {
+    assert.deepEqual(bank.map((entry) => entry.k), [keys[index]]);
+  }
+
+  const rotatingKey = 'dddddddddddddddd';
+  for (let index = 0; index < 30; index += 1) {
+    values.set(
+      `${BANK_KEY}:entry:${rotatingKey}:${String(index).padStart(2, '0')}`,
+      JSON.stringify([
+        { k: rotatingKey, q: `Generated rotating quip number ${index}.` },
+      ]),
+    );
+  }
+  const firstWindow = await loadBank(env, rotatingKey, '0000000000000000');
+  const rotatedWindow = await loadBank(env, rotatingKey, '0000001800000000');
+  assert.equal(firstWindow.length, 24);
+  assert.equal(rotatedWindow.length, 24);
+  assert.equal(firstWindow[0]?.q, 'Generated rotating quip number 0.');
+  assert.equal(rotatedWindow[0]?.q, 'Generated rotating quip number 24.');
+
   assert.deepEqual(
-    new Set(bank.map((entry) => entry.k)),
-    new Set(['aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb', 'cccccccccccccccc']),
+    listed.map((entry) => entry.limit),
+    [256, 256, 256, 256, 256],
+  );
+  assert.deepEqual(
+    listed.slice(0, 3).map((entry) => entry.prefix),
+    keys.map((key) => `${BANK_KEY}:entry:${key}:`),
   );
 });

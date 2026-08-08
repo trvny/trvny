@@ -1,6 +1,5 @@
 # Private `.ai` overlay
 
-This repository no longer carries a second active copy of the reusable AI core.
 
 ```text
 .ai/

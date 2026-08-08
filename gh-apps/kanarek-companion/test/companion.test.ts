@@ -80,6 +80,45 @@ test('maps the refreshed GitHub automation signature back to Kanarek', () => {
   assert.equal(size(pr).key, 'tiny');
 });
 
+test('keeps the rendered comment stable while pending checks finish', () => {
+  const firstCi = { failed: [], passed: [{}], pending: [{}, {}], total: 3 };
+  const laterCi = { failed: [], passed: [{}, {}], pending: [{}], total: 3 };
+  const firstStatus = status(pr, { behind: 0 }, firstCi, review, true);
+  const laterStatus = status(pr, { behind: 0 }, laterCi, review, true);
+  assert.equal(firstStatus.key, laterStatus.key);
+
+  const firstBody = render(
+    pr,
+    { behind: 0 },
+    firstCi,
+    review,
+    ['Feedseek'],
+    firstStatus,
+    'Still waiting for CI.',
+    '0123456789abcdef',
+    'fedcba9876543210',
+    'preset',
+    [],
+    true,
+  );
+  const laterBody = render(
+    pr,
+    { behind: 0 },
+    laterCi,
+    review,
+    ['Feedseek'],
+    laterStatus,
+    'Still waiting for CI.',
+    '0123456789abcdef',
+    'fedcba9876543210',
+    'preset',
+    [],
+    true,
+  );
+  assert.equal(firstBody, laterBody);
+  assert.match(firstBody, /CI 🟡/);
+});
+
 test('sanitizes contributor-controlled project area labels', () => {
   assert.deepEqual(areas(['@some-user/file.ts']), ['Some user']);
 });

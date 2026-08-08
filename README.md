@@ -7,7 +7,7 @@
 <br>
 
 [![feeds](https://img.shields.io/badge/feeds-live-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feeds)
-[![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://tvpi.pages.dev)
+[![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://travny.pages.dev/tv/)
 [![weather](https://img.shields.io/badge/weather-KOŚCIELEC-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.travny.workers.dev)
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.travny.workers.dev)
 [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.travny.workers.dev)
@@ -26,7 +26,7 @@
 | projekt | wejścia | co tam siedzi |
 |---|---|---|
 | 📡 **Feeds** | [repo](https://github.com/trvny/feeds) · [strona](https://trvny.github.io/feeds) · [czytnik](https://trvny.github.io/feeds/reader/) | **Feedseek** produkuje RSS/Atom, a **Kanarek** czyta feedy i odtwarza radio/IPTV na Androidzie. |
-| 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [strona](https://tvpi.pages.dev) · [playlista](https://tvpi.travny.workers.dev/playlist.m3u) | Stabilne wejścia IPTV do kanałów TVP, Worker oraz residential-push do odświeżania tokenów HLS. |
+| 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [strona](https://travny.pages.dev/tv/) · [playlista](https://tvpi.travny.workers.dev/playlist.m3u) | Stabilne wejścia IPTV do kanałów TVP, Worker oraz residential-push do odświeżania tokenów HLS. |
 | 🚗 **Autka** | [repo](https://github.com/trvny/autka) | Androidowy agregator ofert samochodów z Polski, UE i importu z USA, razem z kalkulacją kosztu sprowadzenia. |
 | 🔊 **WAM Bridge** | [repo](https://github.com/trvny/wambridge) | Most audio do głośników Samsung Wireless Audio Multiroom oraz natywne wyjście foobar2000 dla Shape M5. |
 

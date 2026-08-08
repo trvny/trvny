@@ -313,7 +313,7 @@ export function renderPage(
   <footer>
     Źródła: Open-Meteo · OpenWeather · Visual Crossing · IMGW-PIB · Open-Meteo Air Quality (CAMS).
     Aktualizacja co 2 h (pogoda) i raz dziennie (prognoza).<br>
-    <a href="https://tvpi.pages.dev/">tvpi ↗</a>
+    <a href="https://travny.pages.dev/">travny ↗</a>
   </footer>
 </main>
 <div class="toast" id="toast"></div>

@@ -45,7 +45,7 @@ assert(robots.includes(`Sitemap: ${origin}/sitemap.xml`), "robots sitemap URL is
 assert(robots.includes("Disallow: /api/"), "API crawler rule is missing");
 assert(sitemap.includes(`<loc>${origin}/</loc>`), "sitemap application URL is missing");
 assert(llms.includes("# Streambench"), "llms.txt title is missing");
-assert(llms.includes("https://tvpi.pages.dev/"), "TRAVNY hub is missing from llms.txt");
+assert(llms.includes("https://travny.pages.dev/"), "TRAVNY hub is missing from llms.txt");
 
 const manifest = JSON.parse(manifestSource);
 assert(manifest.id === "/", "manifest id is missing");

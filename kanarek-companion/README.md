@@ -13,6 +13,12 @@ Add the `no-goblin` label to silence Kanarek on a PR; removing it restores the c
 
 Safe same-repository PRs may be updated to the base branch automatically when CI and review are settled. The GitHub App needs `Pull requests: write` and `Contents: write` for this action. Set `KANAREK_UPDATE_BRANCH=false` to disable this.
 
+## GPTomek
+
+The same Worker can use the separate `gptomek` GitHub App for authored commits, comments, review replies, and reactions. Commands are accepted only from the private `trvny/trvny` control PR on branch `gptomek/control`; normal pull requests remain opened as `trvny`.
+
+The bridge reuses Kanarek's existing `pull_request` webhook delivery path, so GPTomek does not need another Worker or webhook endpoint.
+
 ## Quips
 
 The Worker keeps the existing Kanarek preset set and reads the shared phrase bank directly from the Workers KV namespace under `kanarek:companion:quip-bank:v1`.
@@ -36,6 +42,7 @@ Required Worker secrets:
 
 - `GITHUB_WEBHOOK_SECRET`
 - `GITHUB_PRIVATE_KEY`
+- `GPTOMEK_PRIVATE_KEY` for GPTomek operations
 
 Optional AI secrets:
 

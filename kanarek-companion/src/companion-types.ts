@@ -4,6 +4,9 @@ export interface CompanionEnv extends QuipEnv {
   GITHUB_APP_ID: string;
   GITHUB_APP_SLUG: string;
   GITHUB_PRIVATE_KEY: string;
+  GPTOMEK_APP_ID?: string;
+  GPTOMEK_INSTALLATION_ID?: string;
+  GPTOMEK_PRIVATE_KEY?: string;
   KANAREK_NO_CI_REPOS?: string;
   KANAREK_QUIP_KV?: KVNamespace;
   KANAREK_REQUIRE_CI?: string;
@@ -51,6 +54,7 @@ export interface PullRequest {
   number: number;
   state: string;
   title?: string | null;
+  user?: { login?: string | null } | null;
 }
 
 export interface CheckRun {

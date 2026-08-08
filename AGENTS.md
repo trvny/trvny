@@ -44,8 +44,10 @@ Working motto:
 
 - Keep one logical change per pull request. Truly trivial, low-risk fixes may go
   directly to `main` when branch protection permits it.
-- Do not create self-pushing or token-driven workflows merely to edit another
-  branch or trigger more automation.
+- Avoid token-driven GitHub Actions whose main purpose is editing another branch
+  or repository or triggering more automation, especially when they would waste
+  private Actions minutes. Purpose-built external services, Workers, and GitHub
+  Apps may use scoped tokens when that is the appropriate runtime.
 - Treat Codex review as advisory. Do not ask it to implement, commit, push, or
   update branches. Apply valid findings directly.
 - Merge only when relevant checks are green on the final head commit and

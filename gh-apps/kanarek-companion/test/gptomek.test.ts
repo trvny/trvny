@@ -11,7 +11,7 @@ import type { CompanionEnv, CompanionTarget, PullRequest } from '../src/companio
 const target: CompanionTarget = {
   delivery: 'delivery-1',
   installationId: 1,
-  pullRequestNumber: 999,
+  pullRequestNumber: 176,
   repository: 'trvny/trvny',
   sourceEvent: 'pull_request',
 };
@@ -25,22 +25,29 @@ const controlPr: PullRequest = {
   deletions: 0,
   draft: true,
   head: {
-    ref: 'gptomek/control',
+    ref: 'historical-head-name',
     repo: { full_name: 'trvny/trvny' },
     sha: 'b'.repeat(40),
   },
   labels: [],
   mergeable: true,
   mergeable_state: 'clean',
-  merged: false,
-  number: 999,
-  state: 'open',
+  merged: true,
+  number: 176,
+  state: 'closed',
   title: 'GPTomek control channel',
   user: { login: 'trvny' },
 };
 
-test('recognizes only the private GPTomek control PR', () => {
+test('recognizes only trvny/trvny#176 as the GPTomek control PR', () => {
   assert.equal(isGptomekControlPr(target, controlPr), true);
+  assert.equal(
+    isGptomekControlPr(
+      { ...target, pullRequestNumber: 999 },
+      controlPr,
+    ),
+    false,
+  );
   assert.equal(
     isGptomekControlPr(
       { ...target, repository: 'trvny/feeds' },

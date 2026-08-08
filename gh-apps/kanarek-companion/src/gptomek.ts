@@ -2,7 +2,7 @@ import { createInstallationClient, type GitHubInstallationClient } from './githu
 import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-types.ts';
 
 const CONTROL_REPOSITORY = 'trvny/trvny';
-const CONTROL_BRANCH = 'gptomek/control';
+const CONTROL_PULL_REQUEST = 176;
 const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9_-]+)\s*-->/;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const BOT_IDENTITY = {
@@ -483,7 +483,7 @@ export function isGptomekControlPr(
   const author = (pr as PullRequest & { user?: { login?: string | null } }).user?.login;
   return (
     target.repository === CONTROL_REPOSITORY &&
-    pr.head.ref === CONTROL_BRANCH &&
+    target.pullRequestNumber === CONTROL_PULL_REQUEST &&
     author === 'trvny'
   );
 }

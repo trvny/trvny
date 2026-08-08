@@ -38,7 +38,7 @@ export type { CompanionEnv, CompanionResult, CompanionTarget } from './companion
 export async function refreshCompanion(
   target: CompanionTarget,
   env: CompanionEnv,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = (input, init) => fetch(input, init),
 ): Promise<CompanionResult> {
   const client = await createInstallationClient(
     env.GITHUB_APP_ID,

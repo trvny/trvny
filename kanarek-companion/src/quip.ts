@@ -381,7 +381,7 @@ async function requestXai(
     {
       model,
       store: false,
-      max_output_tokens: 128,
+      max_output_tokens: 256,
       reasoning: { effort: 'low' },
       input: [
         { role: 'system', content: SYSTEM_PROMPT },

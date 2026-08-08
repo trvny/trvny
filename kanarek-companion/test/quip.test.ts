@@ -145,7 +145,7 @@ test('uses low reasoning for xAI instead of Grok 4.5 high default', async () => 
 
   assert.ok(quip);
   assert.deepEqual(requestBody?.reasoning, { effort: 'low' });
-  assert.equal(requestBody?.max_output_tokens, 128);
+  assert.equal(requestBody?.max_output_tokens, 256);
 });
 
 test('uses the same concise system contract for Anthropic', async () => {

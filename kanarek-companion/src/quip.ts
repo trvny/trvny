@@ -71,7 +71,9 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 export async function hash(value: unknown): Promise<string> {
-  const input = new TextEncoder().encode(JSON.stringify(value));
+  const encodedValue = new TextEncoder().encode(JSON.stringify(value));
+  const input = new Uint8Array(encodedValue.byteLength);
+  input.set(encodedValue);
   const digest = await crypto.subtle.digest('SHA-256', input.buffer);
   return bytesToHex(new Uint8Array(digest)).slice(0, 16);
 }

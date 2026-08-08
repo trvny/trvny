@@ -256,7 +256,7 @@ async function requestOpenAi(
   const body: Record<string, unknown> = {
     model,
     store: false,
-    max_output_tokens: 64,
+    max_output_tokens: supportsReasoning(model) ? 256 : 64,
     input: [
       {
         role: 'system',

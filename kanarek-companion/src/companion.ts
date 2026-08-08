@@ -40,7 +40,14 @@ import {
   size,
   status,
 } from './companion-view.ts';
-import { aiQuip, decoded, hash, sanitize, shouldAskAi } from './quip.ts';
+import {
+  aiQuip,
+  decoded,
+  hash,
+  quipPromptInput,
+  sanitize,
+  shouldAskAi,
+} from './quip.ts';
 import type { CompanionEnv, CompanionResult, CompanionTarget, PullRequest, QuipEntry } from './companion-types.ts';
 
 export { associatedPullRequestNumbers } from './companion-github.ts';
@@ -184,16 +191,18 @@ export async function refreshCompanion(
     !quip &&
     (await shouldAskAi(target.pullRequestNumber, quipKey, current.key, env))
   ) {
-    const facts = [
-      `status=${current.key}`,
-      `blockers=${kinds.join(',') || 'none'}`,
-      `area=${quipFacts.area}`,
-      `size=${prSize.key}`,
-      `language=${language}`,
-      `context_title=${sanitize(pr.title ?? '') || 'none'}`,
-      `context_body=${sanitize(pr.body ?? '') || 'none'}`,
-      `previous_quip=${previousQuip || 'none'}`,
-    ].join('; ');
+    const facts = quipPromptInput({
+      language,
+      status: current.key,
+      blockers: kinds,
+      area: quipFacts.area,
+      size: prSize.key,
+      previousQuip: previousQuip || null,
+      context: {
+        title: sanitize(pr.title ?? '') || null,
+        body: sanitize(pr.body ?? '') || null,
+      },
+    });
     const generated = (await aiQuip(facts, env, fetcher)) ?? '';
     if (generated && matchesLanguage(generated, language)) {
       quip = generated;

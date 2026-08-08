@@ -46,6 +46,7 @@ function rootLabel(root: string): string {
   if (known) return known;
   const value = root
     .replace(/[._-]+/g, ' ')
+    .replace(/[^\p{L}\p{N} ]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 32);
@@ -215,4 +216,3 @@ ${badges.filter(Boolean).join(' · ')}${blockers}
 
 <sub>${scope} · ${pr.changed_files} pl. · ${code(pr.head.sha.slice(0, 8))}</sub>`;
 }
-

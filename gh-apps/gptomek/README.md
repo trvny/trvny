@@ -8,9 +8,9 @@ reactions.
 - Runtime module: `../kanarek-companion/src/gptomek.ts`
 - Shared Worker: `kanarek-companion`
 - Worker secret: `GPTOMEK_PRIVATE_KEY`
-- Control mailbox: `trvny/trvny#176` (merged PR body; no persistent branch)
+- Control mailbox: `trvny/trvny#176` (closed PR body; no persistent branch)
 
-The mailbox is intentionally branchless: a marked edit of the merged pull
+The mailbox is intentionally branchless: a marked edit of the closed pull
 request body is routed through the shared Worker's normal locked webhook path.
 
 Pull requests remain opened as `trvny` so external automatic review continues

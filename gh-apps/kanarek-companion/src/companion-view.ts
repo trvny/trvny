@@ -150,9 +150,9 @@ function branchBadge(pr: PullRequest, branch: BranchState): string {
 function checksBadge(ci: CiState, ciRequired: boolean): string {
   if (ci.total === 0 && !ciRequired) return 'CI ➖';
   if (ci.total === 0) return 'CI ⚪';
-  if (ci.failed.length) return `CI 🔴 ${ci.failed.length}`;
-  if (ci.pending.length) return `CI 🟡 ${ci.pending.length}`;
-  return `CI ✅ ${ci.passed.length}/${ci.total}`;
+  if (ci.failed.length) return 'CI 🔴';
+  if (ci.pending.length) return 'CI 🟡';
+  return 'CI ✅';
 }
 
 function reviewBadge(review: ReviewState): string | null {

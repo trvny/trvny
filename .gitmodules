@@ -1,0 +1,3 @@
+[submodule ".ai/core"]
+	path = .ai/core
+	url = https://github.com/trvny/.ai.git

@@ -2,7 +2,6 @@ import { aiPercent, decoded, hash, sanitize } from './quip.ts';
 import type { CompanionEnv, IssueComment, QuipEntry } from './companion-types.ts';
 
 export const BANK_KEY = 'kanarek:companion:quip-bank:v1';
-export const STATE_RE = /<!-- kanarek-state:([a-f0-9]+) -->/;
 export const QUIP_KEY_RE = /<!-- kanarek-quip-key:([a-f0-9]+) -->/;
 export const QUIP_RE = /<!-- kanarek-quip:([A-Za-z0-9_-]+) -->/;
 const POOL_RE = /<!-- kanarek-pool:([A-Za-z0-9_-]+) -->/;

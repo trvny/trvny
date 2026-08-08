@@ -436,7 +436,7 @@
       <outline text="TWRP" title="TWRP" type="rss" 
             xmlUrl="https://twrp.me/feed.xml" htmlUrl="http://twrp.me/"/>
       <outline text="miuipolska" title="miuipolska" type="rss" 
-            xmlUrl="https://miuipolska.pl/forum/rss/1-co-nowego.xml/?member_id=84245&amp;key=76b2c9aa11f9a335d8084be908c12531" htmlUrl="https://miuipolska.pl/forum/rss/1-co-nowego.xml/"/>
+            xmlUrl="https://miuipolska.pl/forum/rss/1-co-nowego.xml/?member_id=84245&amp;key=REDACTED-MIUIPOLSKA-FEED-KEY" htmlUrl="https://miuipolska.pl/forum/rss/1-co-nowego.xml/"/>
       <outline text="xiaomi.eu" title="xiaomi|eu" type="rss" 
             xmlUrl="https://xiaomi.eu/community/forums/-/index.rss" htmlUrl="https://xiaomi.eu/community/"/>
       <outline text="FMHY" title="FMHY" type="rss" 
@@ -1119,7 +1119,7 @@ https://www.war.gov/News/News-Stories/
       <outline text="TerazMuzyka" title="TerazMuzyka" type="rss" 
             xmlUrl="https://www.terazmuzyka.pl//feed" htmlUrl="https://www.terazmuzyka.pl/"/>
       <outline text="Music News" title="Music-News" type="rss" 
-            xmlUrl="https://www.music-news.com/rss/c5RAS2tkYoRTvbRq/UK/news" htmlUrl="https://www.music-news.com/"/>
+            xmlUrl="https://www.music-news.com/rss/REDACTED-MUSICNEWS-FEED-KEY/UK/news" htmlUrl="https://www.music-news.com/"/>
       <outline text="PCMag" title="PCMag" type="rss" 
             xmlUrl="https://www.pcmag.com/feeds/rss/latest" htmlUrl="https://www.pcmag.com/feeds/rss/latest"/>
       <outline text="Know Your Meme" title="Know Your Meme" type="rss" 

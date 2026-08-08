@@ -1,4 +1,4 @@
-import { aiPercent, decoded, hash, sanitize } from './quip.ts';
+import { decoded, hash, sanitize, shouldAskAi } from './quip.ts';
 import type { CompanionEnv, IssueComment, QuipEntry } from './companion-types.ts';
 
 export const BANK_KEY = 'kanarek:companion:quip-bank:v1';
@@ -9,8 +9,81 @@ export const SOURCE_RE = /<!-- kanarek-source:(ai|pool|preset) -->/;
 const LIVE_STATUSES = new Set(['ready', 'blocked']);
 const POOL_LIMIT = 24;
 const BANK_LIMIT = 256;
-const ENTRY_TTL_SECONDS = 90 * 24 * 60 * 60;
+const GLOBAL_BANK_LIMIT = 4_096;
+const MIGRATION_LIMIT = 200;
+const PRUNE_LIMIT = 24;
+const MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1_000;
 const ENTRY_PREFIX = `${BANK_KEY}:entry:`;
+const MAINTENANCE_KEY = `${BANK_KEY}:maintenance:last`;
+const ENTRY_KEY_RE = new RegExp(
+  `^${ENTRY_PREFIX}([a-f0-9]{16}):([a-f0-9]{16})$`,
+);
+
+interface BankKey {
+  expiration?: number;
+  name: string;
+}
+
+interface EntryKeyParts {
+  identity: string;
+  quipKey: string;
+}
+
+interface MigrationCursor {
+  expiration: number;
+  name: string;
+}
+
+interface MaintenanceState {
+  cursor: MigrationCursor | null;
+  last: number;
+}
+
+function compareNames(left: string, right: string): number {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+function entryKeyParts(name: string): EntryKeyParts | null {
+  const match = name.match(ENTRY_KEY_RE);
+  return match ? { quipKey: match[1], identity: match[2] } : null;
+}
+
+function maintenanceState(value: string | null): MaintenanceState {
+  if (!value) return { cursor: null, last: 0 };
+  try {
+    const parsed = JSON.parse(value) as Partial<MaintenanceState>;
+    const cursor = parsed.cursor as Partial<MigrationCursor> | null | undefined;
+    return {
+      last: typeof parsed.last === 'number' && Number.isFinite(parsed.last) ? parsed.last : 0,
+      cursor:
+        cursor &&
+        typeof cursor.expiration === 'number' &&
+        Number.isFinite(cursor.expiration) &&
+        typeof cursor.name === 'string'
+          ? { expiration: cursor.expiration, name: cursor.name }
+          : null,
+    };
+  } catch {
+    return {
+      cursor: null,
+      last: Number.parseInt(value, 10) || 0,
+    };
+  }
+}
+
+function migrationPosition(key: BankKey): MigrationCursor {
+  return { expiration: key.expiration ?? 0, name: key.name };
+}
+
+function afterMigrationCursor(key: BankKey, cursor: MigrationCursor): boolean {
+  const expiration = key.expiration ?? 0;
+  return (
+    expiration > cursor.expiration ||
+    (expiration === cursor.expiration && compareNames(key.name, cursor.name) > 0)
+  );
+}
 
 function entriesFromValue(value: unknown): QuipEntry[] {
   let parsed = value;
@@ -98,18 +171,17 @@ function quipsFromComment(body: string | null | undefined, quipKey: string): str
   return values;
 }
 
+export function canUsePool(stateKey: string): boolean {
+  return LIVE_STATUSES.has(stateKey);
+}
+
 export async function shouldUsePool(
   number: number,
   quipKey: string,
   stateKey: string,
   env: CompanionEnv,
 ): Promise<boolean> {
-  if (env.KANAREK_AI_ENABLED === 'false' || !LIVE_STATUSES.has(stateKey)) {
-    return false;
-  }
-  const bucket =
-    Number.parseInt((await hash(`${number}:${quipKey}`)).slice(0, 8), 16) % 100;
-  return bucket < aiPercent(env);
+  return canUsePool(stateKey) && !(await shouldAskAi(number, quipKey, stateKey, env));
 }
 
 async function loadEntryBank(
@@ -117,21 +189,159 @@ async function loadEntryBank(
   quipKey: string,
   stateHash: string,
 ): Promise<QuipEntry[]> {
-  if (!env.KANAREK_QUIP_KV) return [];
-  const page = await env.KANAREK_QUIP_KV.list({
+  const kv = env.KANAREK_QUIP_KV;
+  if (!kv) return [];
+  const page = await kv.list({
     prefix: `${ENTRY_PREFIX}${quipKey}:`,
     limit: BANK_LIMIT,
   });
   if (!page.keys.length) return [];
   const offset = Number.parseInt(stateHash.slice(0, 8), 16) % page.keys.length;
-  const selected = [
-    ...page.keys.slice(offset),
-    ...page.keys.slice(0, offset),
-  ].slice(0, POOL_LIMIT);
-  const values = await Promise.all(
-    selected.map((key) => env.KANAREK_QUIP_KV?.get(key.name)),
+  const selected = [...page.keys.slice(offset), ...page.keys.slice(0, offset)].slice(
+    0,
+    POOL_LIMIT,
   );
+  const values = await Promise.all(selected.map((key) => kv.get(key.name)));
   return mergeEntries(values.flatMap((value) => entriesFromValue(value)));
+}
+
+async function listBankKeys(env: CompanionEnv): Promise<BankKey[]> {
+  const kv = env.KANAREK_QUIP_KV;
+  if (!kv) return [];
+  const keys: BankKey[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await kv.list({ prefix: ENTRY_PREFIX, limit: 1_000, cursor });
+    keys.push(
+      ...page.keys.map((key) => ({
+        name: key.name,
+        expiration: key.expiration,
+      })),
+    );
+    if (page.list_complete) break;
+    if (!page.cursor) throw new Error('quip_bank_list_missing_cursor');
+    cursor = page.cursor;
+  } while (cursor);
+
+  return [...new Map(keys.map((key) => [key.name, key])).values()];
+}
+
+function retainedBankNames(keys: BankKey[]): Set<string> {
+  const grouped = new Map<
+    string,
+    Array<{ key: BankKey; parts: EntryKeyParts }>
+  >();
+  for (const key of keys) {
+    const parts = entryKeyParts(key.name);
+    if (!parts) continue;
+    const group = grouped.get(parts.quipKey) ?? [];
+    group.push({ key, parts });
+    grouped.set(parts.quipKey, group);
+  }
+  const groups = [...grouped.entries()]
+    .sort(([left], [right]) => compareNames(left, right))
+    .map(([, group]) =>
+      group.sort(
+        (left, right) =>
+          compareNames(left.parts.identity, right.parts.identity) ||
+          compareNames(left.key.name, right.key.name),
+      ),
+    );
+  const retained = new Set<string>();
+  for (let index = 0; index < BANK_LIMIT && retained.size < GLOBAL_BANK_LIMIT; index += 1) {
+    let added = false;
+    for (const group of groups) {
+      const candidate = group[index];
+      if (!candidate) continue;
+      retained.add(candidate.key.name);
+      added = true;
+      if (retained.size >= GLOBAL_BANK_LIMIT) break;
+    }
+    if (!added) break;
+  }
+  return retained;
+}
+
+async function pruneBank(
+  kv: KVNamespace,
+  keys: BankKey[],
+  limit = PRUNE_LIMIT,
+): Promise<number> {
+  const retained = retainedBankNames(keys);
+  const removable = keys
+    .filter((key) => ENTRY_KEY_RE.test(key.name) && !retained.has(key.name))
+    .sort((left, right) => compareNames(left.name, right.name))
+    .slice(0, limit);
+  await Promise.all(removable.map((key) => kv.delete(key.name)));
+  return removable.length;
+}
+
+export async function maintainBank(
+  env: CompanionEnv,
+  force = false,
+): Promise<{ migrated: number; pruned: number; skipped: boolean }> {
+  const kv = env.KANAREK_QUIP_KV;
+  if (!kv) return { migrated: 0, pruned: 0, skipped: true };
+  try {
+    const now = Date.now();
+    const state = maintenanceState(await kv.get(MAINTENANCE_KEY));
+    if (!force && !state.cursor && now - state.last < MAINTENANCE_INTERVAL_MS) {
+      return { migrated: 0, pruned: 0, skipped: true };
+    }
+
+    const keys = await listBankKeys(env);
+    const retained = retainedBankNames(keys);
+    const expiring = keys
+      .filter(
+        (key) => retained.has(key.name) && key.expiration !== undefined,
+      )
+      .sort(
+        (left, right) =>
+          (left.expiration ?? Number.MAX_SAFE_INTEGER) -
+            (right.expiration ?? Number.MAX_SAFE_INTEGER) ||
+          compareNames(left.name, right.name),
+      );
+    const pending = state.cursor
+      ? expiring.filter((key) => afterMigrationCursor(key, state.cursor as MigrationCursor))
+      : expiring;
+    const batch = pending.slice(0, MIGRATION_LIMIT);
+    const results = await Promise.allSettled(
+      batch.map(async (key) => {
+        const value = await kv.get(key.name);
+        if (value !== null) await kv.put(key.name, value);
+        return value !== null;
+      }),
+    );
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        console.warn(
+          `Kanarek quip bank TTL migration failed: ${result.reason instanceof Error ? result.reason.message : 'unknown_error'}`,
+        );
+      }
+    }
+    const firstFailure = results.findIndex((result) => result.status === 'rejected');
+    const processed = firstFailure >= 0 ? firstFailure : results.length;
+    const migrated = results.filter(
+      (result) => result.status === 'fulfilled' && result.value,
+    ).length;
+    const cursor =
+      processed > 0 ? migrationPosition(batch[processed - 1]) : state.cursor;
+    const migrationIncomplete = pending.length > processed;
+    await kv.put(
+      MAINTENANCE_KEY,
+      JSON.stringify({
+        cursor: migrationIncomplete ? cursor : null,
+        last: migrationIncomplete ? state.last : now,
+      } satisfies MaintenanceState),
+    );
+    return { migrated, pruned: await pruneBank(kv, keys), skipped: false };
+  } catch (error) {
+    console.warn(
+      `Kanarek quip bank maintenance failed: ${error instanceof Error ? error.message : 'unknown_error'}`,
+    );
+    return { migrated: 0, pruned: 0, skipped: false };
+  }
 }
 
 export async function loadBank(
@@ -139,10 +349,11 @@ export async function loadBank(
   quipKey: string,
   stateHash: string,
 ): Promise<QuipEntry[]> {
-  if (!env.KANAREK_QUIP_KV) return [];
+  const kv = env.KANAREK_QUIP_KV;
+  if (!kv) return [];
   try {
     const [legacy, entries] = await Promise.all([
-      env.KANAREK_QUIP_KV.get(BANK_KEY),
+      kv.get(BANK_KEY),
       loadEntryBank(env, quipKey, stateHash),
     ]);
     return mergeEntries(
@@ -161,19 +372,23 @@ export async function storeBank(
   env: CompanionEnv,
   entries: QuipEntry[],
 ): Promise<void> {
-  if (!env.KANAREK_QUIP_KV || !entries.length) return;
+  const kv = env.KANAREK_QUIP_KV;
+  if (!kv || !entries.length) return;
   try {
-    const normalized = mergeEntries(entries);
-    await Promise.all(
-      normalized.map(async (entry) => {
-        const identity = await hash(`${entry.k}\u0000${entry.q}`);
-        await env.KANAREK_QUIP_KV?.put(
-          `${ENTRY_PREFIX}${entry.k}:${identity}`,
-          JSON.stringify([entry]),
-          { expirationTtl: ENTRY_TTL_SECONDS },
-        );
-      }),
-    );
+    const current = await listBankKeys(env);
+    for (const entry of mergeEntries(entries)) {
+      const identity = await hash(`${entry.k}\u0000${entry.q}`);
+      const keyName = `${ENTRY_PREFIX}${entry.k}:${identity}`;
+      const existing = current.find((key) => key.name === keyName);
+      const candidateKeys = existing ? current : [...current, { name: keyName }];
+      if (!retainedBankNames(candidateKeys).has(keyName)) continue;
+      if (!existing || existing.expiration !== undefined) {
+        await kv.put(keyName, JSON.stringify([entry]));
+        if (existing) existing.expiration = undefined;
+        else current.push({ name: keyName });
+      }
+    }
+    await pruneBank(kv, current);
   } catch (error) {
     console.warn(
       `Kanarek quip bank update failed: ${error instanceof Error ? error.message : 'unknown_error'}`,

@@ -27,6 +27,8 @@ The bridge reuses Kanarek's existing `pull_request` webhook delivery path, so GP
 
 The Worker keeps the existing Kanarek preset set and reads the shared phrase bank directly from the Workers KV namespace under `kanarek:companion:quip-bank:v1`.
 
+Learned quips are persistent: the bank keeps up to 256 entries per context and 4096 total, while incremental maintenance removes legacy TTLs and trims overflow.
+
 AI quips remain optional. Provider order and defaults are OpenAI (`gpt-5.6-luna`, then `gpt-5.4-nano`), Anthropic, Gemini, and xAI. Without provider secrets Kanarek uses the shared pool and presets.
 
 ## Cloudflare Workers Builds

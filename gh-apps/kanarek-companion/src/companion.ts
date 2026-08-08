@@ -1,7 +1,9 @@
 import { createInstallationClient } from './github-app.ts';
 import { handleGptomekControl } from './gptomek.ts';
 import {
+  canUsePool,
   loadBank,
+  maintainBank,
   poolEntries,
   pooledQuip,
   QUIP_KEY_RE,
@@ -113,6 +115,7 @@ export async function refreshCompanion(
     };
   }
 
+  const bankMaintenance = maintainBank(env);
   const ciRequired = requireCi(env, target.repository);
   const [changedFiles, branch, ci, review, oldComments] = await Promise.all([
     files(client, target.repository, target.pullRequestNumber),
@@ -173,18 +176,29 @@ export async function refreshCompanion(
       ? (previousSource as 'ai' | 'pool' | 'preset')
       : 'preset';
   let bank: QuipEntry[] = [];
-
-  if (!quip && (await shouldUsePool(target.pullRequestNumber, quipKey, current.key, env))) {
+  let poolAttempted = false;
+  const tryPool = async (): Promise<void> => {
+    if (poolAttempted || !canUsePool(current.key)) return;
+    poolAttempted = true;
     bank = await loadBank(env, quipKey, stateHash);
-    quip =
-      (await pooledQuip(
-        quipKey,
-        stateHash,
-        oldComments,
-        bank,
-        previousQuip,
-      )) ?? '';
-    if (quip) source = 'pool';
+    const pooled = await pooledQuip(
+      quipKey,
+      stateHash,
+      oldComments,
+      bank,
+      previousQuip,
+    );
+    if (pooled) {
+      quip = pooled;
+      source = 'pool';
+    }
+  };
+
+  if (
+    !quip &&
+    (await shouldUsePool(target.pullRequestNumber, quipKey, current.key, env))
+  ) {
+    await tryPool();
   }
   if (
     !quip &&
@@ -208,6 +222,7 @@ export async function refreshCompanion(
       source = 'ai';
     }
   }
+  if (!quip) await tryPool();
   if (!quip) {
     quip = await contextualPreset(
       current.key,
@@ -261,7 +276,14 @@ export async function refreshCompanion(
     );
   }
 
-  if (!sameQuipState && (source === 'ai' || source === 'pool')) {
+  await bankMaintenance;
+  const bankHasQuip = bank.some(
+    (entry) => entry.k === quipKey && entry.q === quip,
+  );
+  if (
+    !sameQuipState &&
+    (source === 'ai' || (source === 'pool' && !bankHasQuip))
+  ) {
     await storeBank(env, [{ k: quipKey, q: quip }]);
   }
 

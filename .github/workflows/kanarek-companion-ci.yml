@@ -41,4 +41,6 @@ jobs:
           cache-dependency-path: kanarek-companion/package-lock.json
 
       - run: npm ci
+      - name: Dependency audit diagnostic
+        run: npm audit --json || true
       - run: npm run check

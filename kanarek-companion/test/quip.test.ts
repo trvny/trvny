@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { hash, PRESETS, sanitize } from '../src/quip.ts';
+import { aiQuip, hash, PRESETS, sanitize } from '../src/quip.ts';
 
 test('keeps the refreshed Kanarek preset bank', () => {
   assert.equal(
@@ -37,4 +37,27 @@ test('sanitizes generated quips before rendering', () => {
     sanitize('**hej** @user https://example.com\nOK'),
     'hej ＠user OK',
   );
+});
+
+test('gives OpenAI reasoning models enough output budget', async () => {
+  let requestBody: Record<string, unknown> | null = null;
+  const fetcher = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    requestBody = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+    return Response.json({
+      output_text: 'Kanarek policzył lampki i wszystko świeci jak trzeba.',
+    });
+  }) as typeof fetch;
+
+  const quip = await aiQuip(
+    'status=ready; blockers=none; area=Repo root; size=tiny',
+    {
+      OPENAI_API_KEY: 'test',
+      KANAREK_OPENAI_MODEL: 'gpt-5.6-luna',
+      KANAREK_OPENAI_FALLBACK_MODEL: 'gpt-5.4-nano',
+    },
+    fetcher,
+  );
+
+  assert.ok(quip);
+  assert.equal(requestBody?.max_output_tokens, 256);
 });

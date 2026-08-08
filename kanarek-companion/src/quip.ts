@@ -5,7 +5,8 @@ const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 const XAI_MODEL = 'grok-4.5';
 const AI_STATUSES = new Set(['ready', 'blocked']);
 const SYSTEM_PROMPT = [
-  'Write exactly one short status quip in English, 45–110 characters.',
+  'Write exactly one short status quip, 45–110 characters.',
+  'Match the natural language of context_title and context_body when clear; otherwise use English.',
   'Use charming, lightly technical Kanarek humor.',
   'Use only the supplied facts without listing them.',
   'Do not repeat previous_quip when it is provided.',
@@ -28,6 +29,10 @@ export interface QuipEnv {
 
 export const PRESETS: Readonly<Record<string, readonly string[]>> = {
   ready: [
+    'Zielono. Kanarek odkłada śrubokręt.',
+    'Kable spokojne, lampki zielone. Można lecieć.',
+    'Maszyna mruczy poprawnie. Kanarek kiwa dziobem.',
+    'Czytnik mruczy, Kanarek strzyże błędy, feed płynie.',
     'Green across the board. Kanarek puts the screwdriver away.',
     'Cables calm, lights green. Cleared for takeoff.',
     'The machine purrs correctly. Kanarek approves with one tiny nod.',
@@ -36,6 +41,11 @@ export const PRESETS: Readonly<Record<string, readonly string[]>> = {
     'The branch is behaving. Nobody touch anything.',
   ],
   waiting: [
+    'Maszyny mielą. Kanarek pilnuje kabla.',
+    'Lampki jeszcze myślą. Ptak zostaje na posterunku.',
+    'Trochę szumu w przewodach. Kanarek cierpliwie czeka.',
+    'Kanarek śledzi CI, aż kod zabulgotuje. Testy jeszcze mieszają.',
+    'Kiedy CI śpi, Android mruga „już idzie”, a kabel cierpliwie czeka.',
     'The machinery is chewing. Kanarek guards the cable.',
     'The lights are still thinking. Bird remains on duty.',
     'Some static in the wires. Kanarek is waiting it out.',
@@ -44,6 +54,11 @@ export const PRESETS: Readonly<Record<string, readonly string[]>> = {
     'Not broken, merely busy pretending to be complicated.',
   ],
   blocked: [
+    'Czerwona lampka świeci. Kanarek woła człowieka.',
+    'Coś zgrzyta w maszynie. Dziób wskazuje blokadę.',
+    'Lot wstrzymany. Jeden kabel wyraźnie protestuje.',
+    'Czerwona lampka świeci. Kanarek woła człowieka, CI w zawieszeniu.',
+    'CI in dreamland: blockers hum while Kanarek naps through the blockade.',
     'Red light on. Kanarek is pointing at the problem with his beak.',
     'Something is grinding in the machine. Flight suspended.',
     'One cable has chosen violence. Kanarek recommends human intervention.',
@@ -52,18 +67,27 @@ export const PRESETS: Readonly<Record<string, readonly string[]>> = {
     'Blocked. The tiny yellow incident commander is displeased.',
   ],
   draft: [
+    'Szkic w klatce. Na razie bez alarmu.',
+    'Kanarek zerka na szkic i nie pogania maszyny.',
+    'Roboczy lot. Pióra jeszcze nie są policzone.',
     'Draft in the cage. No alarm yet.',
     'Kanarek inspects the sketch and lets the machinery sleep.',
     'Work in progress. Feathers are still being counted.',
     'Still assembling the wings. Takeoff would be ambitious.',
   ],
   merged: [
+    'Wleciało do main. Kanarek zamyka kajet.',
+    'Kod już w gnieździe. Maszyna może odpocząć.',
+    'Scalone. Kanarek stawia małą pieczątkę dziobem.',
     'It landed in main. Kanarek closes the notebook.',
     'Code is in the nest. The machinery may rest.',
     'Merged. Kanarek applies the tiny official beak stamp.',
     'Main has acquired another resident. Welcome aboard.',
   ],
   closed: [
+    'Lot odwołany. Kanarek sprząta okruszki.',
+    'PR zamknięty. Klatka wraca do trybu czuwania.',
+    'Akta odłożone. Kanarek gasi lampkę.',
     'Flight cancelled. Kanarek sweeps up the crumbs.',
     'PR closed. The cage returns to standby mode.',
     'Case filed away. Kanarek switches off the desk lamp.',

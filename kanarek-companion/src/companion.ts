@@ -21,7 +21,7 @@ import {
   checks,
   upsert,
 } from './companion-github.ts';
-import { reactForState } from './companion-reactions.ts';
+import { syncReaction } from './companion-reactions.ts';
 import {
   areas,
   blockerKinds,
@@ -62,14 +62,23 @@ export async function refreshCompanion(
       target.repository,
       target.pullRequestNumber,
     );
-    const changed = await clearCompanionComments(
-      client,
-      env.GITHUB_APP_SLUG,
-      target.repository,
-      oldComments,
-    );
+    const [commentChanged, reactionChanged] = await Promise.all([
+      clearCompanionComments(
+        client,
+        env.GITHUB_APP_SLUG,
+        target.repository,
+        oldComments,
+      ),
+      syncReaction(
+        client,
+        env.GITHUB_APP_SLUG,
+        target.repository,
+        target.pullRequestNumber,
+        'disabled',
+      ),
+    ]);
     return {
-      changed,
+      changed: commentChanged || reactionChanged,
       commentId: null,
       quipSource: 'preset',
       state: 'disabled',
@@ -181,22 +190,23 @@ export async function refreshCompanion(
     pool,
     ciRequired,
   );
-  const [result] = await Promise.all([
-    upsert(
+  const result = await upsert(
+    client,
+    env.GITHUB_APP_SLUG,
+    target.repository,
+    target.pullRequestNumber,
+    body,
+    oldComments,
+  );
+  if (result.changed) {
+    await syncReaction(
       client,
       env.GITHUB_APP_SLUG,
       target.repository,
       target.pullRequestNumber,
-      body,
-      oldComments,
-    ),
-    reactForState(
-      client,
-      target.repository,
-      target.pullRequestNumber,
       current.key,
-    ),
-  ]);
+    );
+  }
 
   if (source === 'ai' || source === 'pool') {
     const reusable = rememberQuip(bank, quipKey, quip, source);

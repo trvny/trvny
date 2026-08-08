@@ -256,7 +256,7 @@ async function requestOpenAi(
   const body: Record<string, unknown> = {
     model,
     store: false,
-    max_output_tokens: supportsReasoning(model) ? 256 : 64,
+    max_output_tokens: supportsReasoning(model) ? 256 : 128,
     input: [
       {
         role: 'system',
@@ -295,7 +295,7 @@ async function requestAnthropic(
     },
     {
       model,
-      max_tokens: 64,
+      max_tokens: 128,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: facts }],
     },
@@ -317,7 +317,7 @@ async function requestGemini(
     {
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ text: facts }] }],
-      generationConfig: { maxOutputTokens: 64 },
+      generationConfig: { maxOutputTokens: 128 },
     },
     fetcher,
   );
@@ -337,7 +337,7 @@ async function requestXai(
     {
       model,
       store: false,
-      max_output_tokens: 64,
+      max_output_tokens: 128,
       input: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: facts },

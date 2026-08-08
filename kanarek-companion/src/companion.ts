@@ -125,6 +125,8 @@ export async function refreshCompanion(
       `blockers=${kinds.join(',') || 'none'}`,
       `area=${quipFacts.area}`,
       `size=${prSize.key}`,
+      `context_title=${sanitize(pr.title ?? '') || 'none'}`,
+      `context_body=${sanitize(pr.body ?? '') || 'none'}`,
       `previous_quip=${previousQuip || 'none'}`,
     ].join('; ');
     quip = (await aiQuip(facts, env, fetcher)) ?? '';

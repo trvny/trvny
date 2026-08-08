@@ -39,6 +39,8 @@
   "vars": {
     "GITHUB_APP_ID": "4472094",
     "GITHUB_APP_SLUG": "kanarek-companion",
+    "GPTOMEK_APP_ID": "4524407",
+    "GPTOMEK_INSTALLATION_ID": "152126523",
     "KANAREK_AI_ENABLED": "true",
     "KANAREK_AI_PERCENT": "25",
     "KANAREK_REQUIRE_CI": "true",

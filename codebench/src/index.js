@@ -58,6 +58,9 @@ class InjectHead {
     element.append(
       `<meta name="description" content="${DESCRIPTION}">`
       + '<meta name="robots" content="index,follow,max-image-preview:large">'
+      + '<meta name="mobile-web-app-capable" content="yes">'
+      + '<meta name="apple-mobile-web-app-capable" content="yes">'
+      + '<meta name="apple-mobile-web-app-title" content="Code Bench">'
       + `<link rel="canonical" href="${SITE_URL}">`
       + '<link rel="icon" type="image/svg+xml" href="/favicon.svg">'
       + '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">'

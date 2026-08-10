@@ -1,4 +1,8 @@
-import { createInstallationClient, type GitHubInstallationClient } from './github-app.ts';
+import {
+  createInstallationClient,
+  GitHubApiError,
+  type GitHubInstallationClient,
+} from './github-app.ts';
 import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-types.ts';
 
 const CONTROL_REPOSITORY = 'trvny/trvny';
@@ -51,6 +55,14 @@ interface CommitFilesCommand {
   files: CommitFile[];
 }
 
+interface DeleteBranchCommand {
+  id: string;
+  op: 'delete_branch';
+  repository: string;
+  branch: string;
+  expectedHeadSha: string;
+}
+
 interface CommentCommand {
   id: string;
   op: 'comment';
@@ -79,6 +91,7 @@ interface ReactionCommand {
 type GptomekCommand =
   | AdoptBranchCommand
   | CommitFilesCommand
+  | DeleteBranchCommand
   | CommentCommand
   | ReplyReviewCommand
   | ReactionCommand;
@@ -201,6 +214,16 @@ function parseCommand(value: unknown): GptomekCommand {
       expectedHeadSha: sha(input.expectedHeadSha, 'expected_head_sha'),
       message: requiredString(input.message, 'message', 1_000),
       files,
+    };
+  }
+
+  if (op === 'delete_branch') {
+    return {
+      id,
+      op,
+      repository: repository(input.repository),
+      branch: branch(input.branch),
+      expectedHeadSha: sha(input.expectedHeadSha, 'expected_head_sha'),
     };
   }
 
@@ -443,12 +466,49 @@ async function commitFiles(
   await updateBranch(client, command.repository, command.branch, newSha, false);
 }
 
+export function isProtectedBranch(
+  branchName: string,
+  defaultBranch: string,
+): boolean {
+  return branchName.toLowerCase() === 'main' || branchName === defaultBranch;
+}
+
+export async function deleteBranch(
+  client: GitHubInstallationClient,
+  command: DeleteBranchCommand,
+): Promise<void> {
+  const repositoryInfo = await client.json<{ default_branch?: unknown }>(
+    `/repos/${repoPath(command.repository)}`,
+    'gptomek_get_repository',
+  );
+  const defaultBranch = branch(repositoryInfo.default_branch);
+  if (isProtectedBranch(command.branch, defaultBranch)) {
+    throw new Error('protected_branch');
+  }
+
+  let currentHead: string;
+  try {
+    currentHead = await branchHead(client, command.repository, command.branch);
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404) return;
+    throw error;
+  }
+  if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
+
+  await client.void(
+    `/repos/${repoPath(command.repository)}/git/refs/heads/${refPath(command.branch)}`,
+    'gptomek_delete_branch',
+    { method: 'DELETE' },
+  );
+}
+
 async function executeCommand(
   client: GitHubInstallationClient,
   command: GptomekCommand,
 ): Promise<void> {
   if (command.op === 'adopt_branch') return adoptBranch(client, command);
   if (command.op === 'commit_files') return commitFiles(client, command);
+  if (command.op === 'delete_branch') return deleteBranch(client, command);
 
   if (command.op === 'comment') {
     await client.json<unknown>(

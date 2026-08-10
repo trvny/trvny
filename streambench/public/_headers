@@ -4,3 +4,6 @@
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/portable.html
+  ! Content-Security-Policy

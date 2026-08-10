@@ -129,8 +129,11 @@ export default {
     }
 
     const asset = await env.ASSETS.fetch(request);
+    const portable = url.pathname === "/portable.html";
     const headers = new Headers(asset.headers);
-    for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+      if (!portable || name !== "content-security-policy") headers.set(name, value);
+    }
 
     const response = new Response(asset.body, {
       status: asset.status,
@@ -138,7 +141,7 @@ export default {
       headers,
     });
     const type = headers.get("content-type") ?? "";
-    if (!type.includes("text/html")) return response;
+    if (!type.includes("text/html") || portable) return response;
 
     return new HTMLRewriter()
       .on("title", new SetText(TITLE))

@@ -55,6 +55,7 @@ jobs:
               streambench=true
             fi
             if ! git diff --quiet "$BASE_SHA" HEAD -- \
+              .github/workflows/benches-release.yml \
               .github/workflows/mega-linter.yml \
               .github/linters/.mega-linter.yml; then
               codebench=true
@@ -84,11 +85,7 @@ jobs:
         working-directory: codebench
         run: |
           npm ci
-          npm run build
-          node --check src/index.js
-          for file in public/*.js scripts/*.mjs; do node --check "$file"; done
-          node scripts/privacy-check.mjs
-          npx wrangler deploy --dry-run
+          npm run check
 
       - name: Check streambench
         id: streambench

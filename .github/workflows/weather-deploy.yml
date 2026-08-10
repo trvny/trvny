@@ -24,7 +24,7 @@ permissions:
 jobs:
   check-deploy:
     runs-on: ubuntu-slim
-    timeout-minutes: 10
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: weather-feed

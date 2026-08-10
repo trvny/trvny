@@ -1,6 +1,7 @@
 import { createInstallationClient } from './github-app.ts';
 import { handleGptomekControl } from './gptomek.ts';
 import {
+  bankContext,
   canUsePool,
   loadBank,
   maintainBank,
@@ -9,7 +10,7 @@ import {
   QUIP_KEY_RE,
   QUIP_RE,
   rememberQuip,
-  shouldUsePool,
+  shouldAskAiForBank,
   SOURCE_RE,
   storeBank,
 } from './companion-bank.ts';
@@ -51,6 +52,7 @@ import {
   shouldAskAi,
 } from './quip.ts';
 import type { CompanionEnv, CompanionResult, CompanionTarget, PullRequest, QuipEntry } from './companion-types.ts';
+import type { BankContext } from './companion-bank.ts';
 
 export { associatedPullRequestNumbers } from './companion-github.ts';
 export { contextLanguage } from './companion-language.ts';
@@ -177,10 +179,11 @@ export async function refreshCompanion(
       : 'preset';
   let bank: QuipEntry[] = [];
   let poolAttempted = false;
+  let measuredBank: BankContext | undefined;
   const tryPool = async (): Promise<void> => {
     if (poolAttempted || !canUsePool(current.key)) return;
     poolAttempted = true;
-    bank = await loadBank(env, quipKey, stateHash);
+    bank = await loadBank(env, quipKey, stateHash, measuredBank);
     const pooled = await pooledQuip(
       quipKey,
       stateHash,
@@ -194,16 +197,27 @@ export async function refreshCompanion(
     }
   };
 
-  if (
-    !quip &&
-    (await shouldUsePool(target.pullRequestNumber, quipKey, current.key, env))
-  ) {
-    await tryPool();
+  let aiSelected = false;
+  if (!quip) {
+    const baseAiSelected = await shouldAskAi(
+      target.pullRequestNumber,
+      quipKey,
+      current.key,
+      env,
+    );
+    if (baseAiSelected) {
+      measuredBank = await bankContext(env, quipKey);
+      aiSelected = await shouldAskAiForBank(
+        target.pullRequestNumber,
+        quipKey,
+        current.key,
+        env,
+        measuredBank,
+      );
+    }
+    if (!aiSelected) await tryPool();
   }
-  if (
-    !quip &&
-    (await shouldAskAi(target.pullRequestNumber, quipKey, current.key, env))
-  ) {
+  if (!quip && aiSelected) {
     const facts = quipPromptInput({
       language,
       status: current.key,

@@ -36,6 +36,10 @@ npm install
 npm run dev
 ```
 
+`npm run build` also generates `public/portable.html`: a single-file build with
+its runtime libraries, fonts and ZXing WASM embedded. It can be saved and opened
+without the Worker.
+
 `npm run deploy` builds vendored assets and deploys them.
 
 ## Layout
@@ -46,7 +50,8 @@ npm run dev
 - `public/fonts.css` — self-hosted Space Grotesk and Space Mono declarations;
 - `src/index.js` — static-asset Worker, HTML injection, and security headers;
 - `scripts/vendor.mjs` — copies pinned libraries and WOFF2 files from
-  `node_modules`.
+  `node_modules`;
+- `scripts/portable.mjs` — generates the standalone HTML build.
 
-Generated `public/vendor/`, `public/fonts/`, and `node_modules/` remain
-ignored by Git.
+Generated `public/vendor/`, `public/fonts/`, `public/portable.html`, and
+`node_modules/` remain ignored by Git.

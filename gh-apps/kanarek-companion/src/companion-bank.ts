@@ -1,4 +1,4 @@
-import { decoded, hash, sanitize, shouldAskAi } from './quip.ts';
+import { aiPercent, decoded, hash, sanitize, shouldAskAi } from './quip.ts';
 import type { CompanionEnv, IssueComment, QuipEntry } from './companion-types.ts';
 
 export const BANK_KEY = 'kanarek:companion:quip-bank:v1';
@@ -8,7 +8,7 @@ const POOL_RE = /<!-- kanarek-pool:([A-Za-z0-9_-]+) -->/;
 export const SOURCE_RE = /<!-- kanarek-source:(ai|pool|preset) -->/;
 const LIVE_STATUSES = new Set(['ready', 'blocked']);
 const POOL_LIMIT = 24;
-const BANK_LIMIT = 256;
+export const BANK_LIMIT = 256;
 const GLOBAL_BANK_LIMIT = 4_096;
 const MIGRATION_LIMIT = 200;
 const PRUNE_LIMIT = 24;
@@ -22,6 +22,17 @@ const ENTRY_KEY_RE = new RegExp(
 interface BankKey {
   expiration?: number;
   name: string;
+}
+
+export interface BankCapacity {
+  available: boolean;
+  limit: number;
+  size: number;
+}
+
+export interface BankContext extends BankCapacity {
+  keys: string[];
+  legacy: QuipEntry[];
 }
 
 interface EntryKeyParts {
@@ -175,33 +186,159 @@ export function canUsePool(stateKey: string): boolean {
   return LIVE_STATUSES.has(stateKey);
 }
 
+function retainedContextLimit(keys: BankKey[], quipKey: string): number {
+  const counts = new Map<string, number>();
+  for (const key of keys) {
+    const parts = entryKeyParts(key.name);
+    if (!parts) continue;
+    counts.set(parts.quipKey, (counts.get(parts.quipKey) ?? 0) + 1);
+  }
+  counts.set(quipKey, BANK_LIMIT);
+  const groups = [...counts.entries()].sort(([left], [right]) =>
+    compareNames(left, right),
+  );
+  let retained = 0;
+  let target = 0;
+  for (let index = 0; index < BANK_LIMIT && retained < GLOBAL_BANK_LIMIT; index += 1) {
+    let added = false;
+    for (const [key, count] of groups) {
+      if (count <= index) continue;
+      retained += 1;
+      added = true;
+      if (key === quipKey) target += 1;
+      if (retained >= GLOBAL_BANK_LIMIT) break;
+    }
+    if (!added) break;
+  }
+  return target;
+}
+
+export async function bankContext(
+  env: CompanionEnv,
+  quipKey: string,
+): Promise<BankContext> {
+  const kv = env.KANAREK_QUIP_KV;
+  if (!kv) {
+    return { available: false, keys: [], legacy: [], limit: BANK_LIMIT, size: 0 };
+  }
+  try {
+    const [allKeys, legacyValue] = await Promise.all([
+      listBankKeys(env),
+      kv.get(BANK_KEY),
+    ]);
+    const retained = retainedBankNames(allKeys);
+    const retainedKeys = allKeys.filter((key) => retained.has(key.name));
+    const currentKeys = retainedKeys.filter(
+      (key) => entryKeyParts(key.name)?.quipKey === quipKey,
+    );
+    const identities = new Set(
+      currentKeys
+        .map((key) => entryKeyParts(key.name)?.identity)
+        .filter((value): value is string => Boolean(value)),
+    );
+    const legacy = mergeEntries(
+      entriesFromValue(legacyValue).filter((entry) => entry.k === quipKey),
+    );
+    let uniqueLegacy = 0;
+    for (const entry of legacy) {
+      const identity = await hash(`${entry.k}\u0000${entry.q}`);
+      if (identities.has(identity)) continue;
+      identities.add(identity);
+      uniqueLegacy += 1;
+    }
+    const limit = retainedContextLimit(retainedKeys, quipKey);
+    return {
+      available: true,
+      keys: currentKeys.map((key) => key.name),
+      legacy,
+      limit,
+      size: Math.min(limit, currentKeys.length + uniqueLegacy),
+    };
+  } catch (error) {
+    console.warn(
+      `Kanarek quip bank capacity unavailable: ${error instanceof Error ? error.message : 'unknown_error'}`,
+    );
+    return { available: false, keys: [], legacy: [], limit: BANK_LIMIT, size: 0 };
+  }
+}
+
+export async function bankCapacity(
+  env: CompanionEnv,
+  quipKey: string,
+): Promise<BankCapacity> {
+  const context = await bankContext(env, quipKey);
+  return {
+    available: context.available,
+    limit: context.limit,
+    size: context.size,
+  };
+}
+
+export function effectiveAiPercent(
+  env: CompanionEnv,
+  capacity: BankCapacity,
+): number {
+  const configured = aiPercent(env);
+  if (!capacity.available || configured <= 0 || capacity.limit <= 0) return 0;
+  const limit = Math.max(1, Math.min(BANK_LIMIT, Math.floor(capacity.limit)));
+  const size = Math.max(0, Math.min(limit, Math.floor(capacity.size)));
+  const remaining = limit - size;
+  if (!remaining) return 0;
+  return Math.ceil((configured * remaining) / limit);
+}
+
+export async function shouldAskAiForBank(
+  number: number,
+  quipKey: string,
+  stateKey: string,
+  env: CompanionEnv,
+  capacity: BankCapacity,
+): Promise<boolean> {
+  const percent = effectiveAiPercent(env, capacity);
+  return shouldAskAi(number, quipKey, stateKey, {
+    ...env,
+    KANAREK_AI_PERCENT: String(percent),
+  });
+}
+
 export async function shouldUsePool(
   number: number,
   quipKey: string,
   stateKey: string,
   env: CompanionEnv,
+  capacity: BankCapacity = {
+    available: true,
+    limit: BANK_LIMIT,
+    size: 0,
+  },
 ): Promise<boolean> {
-  return canUsePool(stateKey) && !(await shouldAskAi(number, quipKey, stateKey, env));
+  return (
+    canUsePool(stateKey) &&
+    !(await shouldAskAiForBank(number, quipKey, stateKey, env, capacity))
+  );
 }
 
 async function loadEntryBank(
   env: CompanionEnv,
   quipKey: string,
   stateHash: string,
+  listedKeys?: string[],
 ): Promise<QuipEntry[]> {
   const kv = env.KANAREK_QUIP_KV;
   if (!kv) return [];
-  const page = await kv.list({
-    prefix: `${ENTRY_PREFIX}${quipKey}:`,
-    limit: BANK_LIMIT,
-  });
-  if (!page.keys.length) return [];
-  const offset = Number.parseInt(stateHash.slice(0, 8), 16) % page.keys.length;
-  const selected = [...page.keys.slice(offset), ...page.keys.slice(0, offset)].slice(
+  const keys =
+    listedKeys ??
+    (await kv.list({
+      prefix: `${ENTRY_PREFIX}${quipKey}:`,
+      limit: BANK_LIMIT,
+    })).keys.map((key) => key.name);
+  if (!keys.length) return [];
+  const offset = Number.parseInt(stateHash.slice(0, 8), 16) % keys.length;
+  const selected = [...keys.slice(offset), ...keys.slice(0, offset)].slice(
     0,
     POOL_LIMIT,
   );
-  const values = await Promise.all(selected.map((key) => kv.get(key.name)));
+  const values = await Promise.all(selected.map((key) => kv.get(key)));
   return mergeEntries(values.flatMap((value) => entriesFromValue(value)));
 }
 
@@ -348,10 +485,20 @@ export async function loadBank(
   env: CompanionEnv,
   quipKey: string,
   stateHash: string,
+  context?: BankContext,
 ): Promise<QuipEntry[]> {
   const kv = env.KANAREK_QUIP_KV;
   if (!kv) return [];
   try {
+    if (context?.available) {
+      const entries = await loadEntryBank(
+        env,
+        quipKey,
+        stateHash,
+        context.keys,
+      );
+      return mergeEntries(entries, context.legacy).slice(0, POOL_LIMIT);
+    }
     const [legacy, entries] = await Promise.all([
       kv.get(BANK_KEY),
       loadEntryBank(env, quipKey, stateHash),

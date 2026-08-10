@@ -79,6 +79,10 @@ npm install
 npm run dev
 ```
 
+`npm run build` also generates `public/portable.html`. CSS, JavaScript, hls.js
+and the bundled playlists live inside that one file. Public catalogs, metadata
+and constrained relay features still use the hosted Streambench Worker.
+
 ## Validation
 
 ```sh

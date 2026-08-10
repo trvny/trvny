@@ -21,6 +21,7 @@ async function collectJavaScript(directory) {
 const files = [
   ...await collectJavaScript(new URL("../src/", import.meta.url)),
   ...await collectJavaScript(new URL("../public/", import.meta.url)),
+  new URL("portable.mjs", import.meta.url),
   new URL("smoke.mjs", import.meta.url),
   new URL("vendor.mjs", import.meta.url),
 ].sort((left, right) => left.href.localeCompare(right.href));

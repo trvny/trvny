@@ -22,7 +22,7 @@ jobs:
   build:
     name: Build and validate
     if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 20
     permissions:
       contents: read
@@ -92,8 +92,8 @@ jobs:
     name: Publish release
     if: github.ref == 'refs/heads/main'
     needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
     permissions:
       contents: write
 
@@ -137,11 +137,14 @@ jobs:
           EOF
 
           gh release create "$tag" \
-            dist/codebench-portable.html \
-            dist/streambench-portable.html \
-            dist/benches-portable.zip \
-            dist/SHA256SUMS \
+            --draft \
             --target "$GITHUB_SHA" \
             --title "Benches Portable · ${GITHUB_SHA::7}" \
             --notes-file release-notes.md \
             --latest=false
+          gh release upload "$tag" \
+            dist/codebench-portable.html \
+            dist/streambench-portable.html \
+            dist/benches-portable.zip \
+            dist/SHA256SUMS
+          gh release edit "$tag" --draft=false --latest=false

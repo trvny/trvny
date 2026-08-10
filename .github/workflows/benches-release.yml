@@ -111,7 +111,7 @@ jobs:
         run: |
           tag="benches-${GITHUB_SHA::12}"
           matches="$(
-            gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+            gh api "repos/$GH_REPO/releases?per_page=100" \
               --jq ".[] | select(.tag_name == \"$tag\") | [.id, .draft] | @tsv"
           )"
 

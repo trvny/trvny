@@ -1,0 +1,150 @@
+---
+name: Benches portable release
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+    paths:
+      - codebench/**
+      - streambench/**
+      - stuff/playlists/iptv.m3u8
+      - stuff/playlists/internet_radio.m3u8
+      - .github/workflows/benches-release.yml
+  workflow_dispatch:
+
+concurrency:
+  group: benches-portable-release-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build and validate
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            codebench/package-lock.json
+            streambench/package-lock.json
+
+      - name: Check Codebench
+        working-directory: codebench
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Streambench
+        working-directory: streambench
+        run: |
+          npm ci
+          npm run check
+
+      - name: Package portable builds
+        run: |
+          mkdir -p dist
+          cp codebench/public/portable.html dist/codebench-portable.html
+          cp streambench/public/portable.html dist/streambench-portable.html
+          cat > dist/README.txt <<'EOF'
+          Benches portable builds
+
+          codebench-portable.html
+            Fully self-contained Codebench build.
+
+          streambench-portable.html
+            Single-file Streambench frontend. Public catalogs, metadata and
+            constrained relay features still use https://streambench.travny.workers.dev.
+          EOF
+          (
+            cd dist
+            zip -9 benches-portable.zip \
+              codebench-portable.html \
+              streambench-portable.html \
+              README.txt
+            sha256sum \
+              codebench-portable.html \
+              streambench-portable.html \
+              benches-portable.zip > SHA256SUMS
+          )
+
+      - name: Upload release package
+        uses: actions/upload-artifact@v7
+        with:
+          name: benches-portable-release
+          path: dist/
+          retention-days: 1
+
+  release:
+    name: Publish release
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release package
+        uses: actions/download-artifact@v8
+        with:
+          name: benches-portable-release
+          path: dist
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="benches-${GITHUB_SHA::12}"
+          matches="$(
+            gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$tag\") | [.id, .draft] | @tsv"
+          )"
+
+          published="$(printf '%s\n' "$matches" | awk -F '\t' '$2 == "false" { print $1; exit }')"
+          if [ -n "$published" ]; then
+            echo "Release $tag already exists."
+            exit 0
+          fi
+
+          while IFS=$'\t' read -r release_id draft; do
+            if [ -n "$release_id" ] && [ "$draft" = "true" ]; then
+              echo "Removing incomplete draft release $release_id before retry."
+              gh api --method DELETE "repos/$GH_REPO/releases/$release_id"
+            fi
+          done <<< "$matches"
+
+          cat > release-notes.md <<EOF
+          Portable single-file builds of Codebench and Streambench.
+
+          Built from \`${GITHUB_SHA}\`.
+          Streambench's public catalogs, metadata and constrained relay continue
+          to use the hosted Streambench backend.
+          EOF
+
+          gh release create "$tag" \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "Benches Portable · ${GITHUB_SHA::7}" \
+            --notes-file release-notes.md \
+            --latest=false
+          gh release upload "$tag" \
+            dist/codebench-portable.html \
+            dist/streambench-portable.html \
+            dist/benches-portable.zip \
+            dist/SHA256SUMS
+          gh release edit "$tag" --draft=false --latest=false

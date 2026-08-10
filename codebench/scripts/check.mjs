@@ -9,11 +9,9 @@ function checkSyntax(path) {
   execFileSync(process.execPath, ["--check", path], { stdio: "inherit" });
 }
 
-for (const [directory, suffix] of [
-  ["src", ".js"],
-  ["public", ".js"],
-  ["scripts", ".mjs"],
-]) {
+checkSyntax(join(root, "src", "index.js"));
+
+for (const [directory, suffix] of [["public", ".js"], ["scripts", ".mjs"]]) {
   for (const name of readdirSync(join(root, directory)).filter((entry) => entry.endsWith(suffix))) {
     checkSyntax(join(root, directory, name));
   }

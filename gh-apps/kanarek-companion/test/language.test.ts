@@ -15,6 +15,8 @@ test('detects Polish and English PR context', () => {
   assert.equal(contextLanguage('Poprawka reakcji Kanarka'), 'pl');
   assert.equal(contextLanguage('Add Kanarek PR reactions'), 'en');
   assert.equal(contextLanguage('Fix the worker when CI is blocked'), 'en');
+  assert.equal(contextLanguage('Temporary production probe. Do not merge.'), 'en');
+  assert.equal(contextLanguage('Dodaj to do banku'), 'pl');
 });
 
 test('keeps every preset state in explicit language pools', () => {

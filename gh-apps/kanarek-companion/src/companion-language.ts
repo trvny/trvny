@@ -61,6 +61,7 @@ const ENGLISH_WORDS = new Set([
   'and',
   'branch',
   'change',
+  'do',
   'fix',
   'for',
   'from',

@@ -88,10 +88,11 @@ test('encodes commands in a single hidden marker', () => {
   assert.equal(marker.includes('hello'), false);
 });
 
-test('protects main and the current repository default branch', () => {
+test('protects main, the default branch, and GPTomek control transport', () => {
   assert.equal(isProtectedBranch('main', 'develop'), true);
   assert.equal(isProtectedBranch('MAIN', 'develop'), true);
   assert.equal(isProtectedBranch('develop', 'develop'), true);
+  assert.equal(isProtectedBranch('gptomek/control', 'main'), true);
   assert.equal(isProtectedBranch('feature/delete-me', 'main'), false);
 });
 
@@ -217,7 +218,7 @@ test('rejects protected branches before reading their head', async () => {
     },
   } as unknown as GitHubInstallationClient;
 
-  for (const branch of ['main', 'develop']) {
+  for (const branch of ['main', 'develop', 'gptomek/control']) {
     await assert.rejects(
       deleteBranch(client, {
         id: `delete-${branch}`,

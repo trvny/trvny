@@ -10,6 +10,7 @@ import {
   GitHubApiError,
   type InstallationAccessCheck,
 } from './github-app.ts';
+import { hasAiProvider } from './quip.ts';
 
 interface Env extends CompanionEnv {
   COMPANION_LOCK: DurableObjectNamespace;
@@ -573,12 +574,7 @@ function health(env: Env, method: string): Response {
   const appConfigured = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_SLUG);
   const companionLockConfigured = Boolean(env.COMPANION_LOCK);
   const quipBankConfigured = Boolean(env.KANAREK_QUIP_KV);
-  const aiConfigured = Boolean(
-    env.OPENAI_API_KEY ||
-      env.ANTHROPIC_API_KEY ||
-      env.GEMINI_API_KEY ||
-      env.XAI_API_KEY,
-  );
+  const aiConfigured = hasAiProvider(env);
   const ready =
     webhookConfigured && privateKeyConfigured && appConfigured && companionLockConfigured;
   const response = json(

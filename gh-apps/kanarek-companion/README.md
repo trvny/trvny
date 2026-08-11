@@ -85,6 +85,20 @@ Provider order and defaults are OpenAI (`gpt-5.6-luna`, then
 `gpt-5.4-nano`), Anthropic, Gemini, and xAI. Without provider secrets Kanarek
 uses the shared pool and presets.
 
+Output ceilings intentionally stay generous: 128 tokens for the default
+non-reasoning OpenAI models and Anthropic, and 256 for Gemini, reasoning
+OpenAI models, and xAI. Gemini Flash-Lite is pinned to `minimal` thinking.
+Provider responses are accepted only after a normal
+completion; explicit token-limit or other incomplete stops are discarded and
+never enter the bank. Each real provider response emits a compact
+`kanarek_ai_generation` log with finish reason, provider-reported output and
+reasoning token counts, and final character count, but never the generated
+text. Use those complete-response samples before tightening a ceiling.
+
+A provider can be disabled without removing its secret by setting the matching
+`KANAREK_OPENAI_ENABLED`, `KANAREK_ANTHROPIC_ENABLED`,
+`KANAREK_GEMINI_ENABLED`, or `KANAREK_XAI_ENABLED` variable to `false`.
+
 ## GPTomek
 
 The same Worker hosts the separate [`gptomek`](../gptomek/) GitHub App bridge

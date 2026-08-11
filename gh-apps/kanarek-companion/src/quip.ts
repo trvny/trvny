@@ -18,10 +18,14 @@ export interface QuipEnv {
   GEMINI_API_KEY?: string;
   KANAREK_AI_ENABLED?: string;
   KANAREK_AI_PERCENT?: string;
+  KANAREK_ANTHROPIC_ENABLED?: string;
   KANAREK_ANTHROPIC_MODEL?: string;
+  KANAREK_GEMINI_ENABLED?: string;
   KANAREK_GEMINI_MODEL?: string;
+  KANAREK_OPENAI_ENABLED?: string;
   KANAREK_OPENAI_FALLBACK_MODEL?: string;
   KANAREK_OPENAI_MODEL?: string;
+  KANAREK_XAI_ENABLED?: string;
   KANAREK_XAI_MODEL?: string;
   OPENAI_API_KEY?: string;
   XAI_API_KEY?: string;
@@ -178,12 +182,16 @@ export function aiPercent(env: QuipEnv): number {
   return Math.min(100, Math.max(0, parsed));
 }
 
-function hasAiProvider(env: QuipEnv): boolean {
+function providerEnabled(value: string | undefined): boolean {
+  return value !== 'false';
+}
+
+export function hasAiProvider(env: QuipEnv): boolean {
   return Boolean(
-    env.OPENAI_API_KEY ||
-      env.ANTHROPIC_API_KEY ||
-      env.GEMINI_API_KEY ||
-      env.XAI_API_KEY,
+    (env.OPENAI_API_KEY && providerEnabled(env.KANAREK_OPENAI_ENABLED)) ||
+      (env.ANTHROPIC_API_KEY && providerEnabled(env.KANAREK_ANTHROPIC_ENABLED)) ||
+      (env.GEMINI_API_KEY && providerEnabled(env.KANAREK_GEMINI_ENABLED)) ||
+      (env.XAI_API_KEY && providerEnabled(env.KANAREK_XAI_ENABLED)),
   );
 }
 
@@ -237,27 +245,113 @@ function anthropicOutputText(response: Record<string, unknown>): string {
 
 function geminiOutputText(response: Record<string, unknown>): string {
   const candidates = Array.isArray(response.candidates) ? response.candidates : [];
-  const values: string[] = [];
-  for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== 'object') continue;
-    const content = (candidate as { content?: unknown }).content;
-    if (!content || typeof content !== 'object') continue;
-    const parts = Array.isArray((content as { parts?: unknown }).parts)
-      ? ((content as { parts: unknown[] }).parts ?? [])
-      : [];
-    for (const part of parts) {
-      if (part && typeof part === 'object' && typeof (part as { text?: unknown }).text === 'string') {
-        values.push((part as { text: string }).text);
-      }
-    }
-  }
-  return values.join(' ');
+  const candidate = candidates[0];
+  if (!candidate || typeof candidate !== 'object') return '';
+  const content = (candidate as { content?: unknown }).content;
+  if (!content || typeof content !== 'object') return '';
+  const parts = Array.isArray((content as { parts?: unknown }).parts)
+    ? ((content as { parts: unknown[] }).parts ?? [])
+    : [];
+  return parts
+    .map((part) =>
+      part && typeof part === 'object' && typeof (part as { text?: unknown }).text === 'string'
+        ? (part as { text: string }).text
+        : '',
+    )
+    .filter(Boolean)
+    .join(' ');
 }
 
 function openAiReasoningEffort(model: string): 'low' | 'none' | null {
   if (/^gpt-5\.(?:4|5|6)(?:[-.]|$)/.test(model)) return 'none';
   if (/^(gpt-5|o\d)/.test(model)) return 'low';
   return null;
+}
+
+interface ProviderUsage {
+  outputTokens: number | null;
+  reasoningTokens: number | null;
+}
+
+interface ProviderResult {
+  complete: boolean;
+  finishReason: string | null;
+  text: string;
+  usage: ProviderUsage;
+}
+
+function finiteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function responsesResult(response: Record<string, unknown>): ProviderResult {
+  const status = typeof response.status === 'string' ? response.status : null;
+  const incomplete = objectValue(response.incomplete_details);
+  const incompleteReason =
+    typeof incomplete.reason === 'string' ? incomplete.reason : null;
+  const usage = objectValue(response.usage);
+  const outputDetails = objectValue(usage.output_tokens_details);
+  return {
+    complete: status === 'completed',
+    finishReason: incompleteReason ?? status,
+    text: sanitize(openAiOutputText(response)),
+    usage: {
+      outputTokens: finiteNumber(usage.output_tokens),
+      reasoningTokens: finiteNumber(outputDetails.reasoning_tokens),
+    },
+  };
+}
+
+function anthropicResult(response: Record<string, unknown>): ProviderResult {
+  const stopReason =
+    typeof response.stop_reason === 'string' ? response.stop_reason : null;
+  const usage = objectValue(response.usage);
+  return {
+    complete: stopReason === 'end_turn' || stopReason === 'stop_sequence',
+    finishReason: stopReason,
+    text: sanitize(anthropicOutputText(response)),
+    usage: {
+      outputTokens: finiteNumber(usage.output_tokens),
+      reasoningTokens: null,
+    },
+  };
+}
+
+function geminiResult(response: Record<string, unknown>): ProviderResult {
+  const candidates = Array.isArray(response.candidates) ? response.candidates : [];
+  const first = objectValue(candidates[0]);
+  const finishReason =
+    typeof first.finishReason === 'string' ? first.finishReason : null;
+  const usage = objectValue(response.usageMetadata);
+  return {
+    complete: finishReason === 'STOP',
+    finishReason,
+    text: sanitize(geminiOutputText(response)),
+    usage: {
+      outputTokens: finiteNumber(usage.candidatesTokenCount),
+      reasoningTokens: finiteNumber(usage.thoughtsTokenCount),
+    },
+  };
+}
+
+function logProviderResult(label: string, result: ProviderResult): void {
+  console.info(
+    JSON.stringify({
+      event: 'kanarek_ai_generation',
+      provider: label,
+      complete: result.complete,
+      finish_reason: result.finishReason,
+      output_tokens: result.usage.outputTokens,
+      reasoning_tokens: result.usage.reasoningTokens,
+      output_chars: result.text.length,
+    }),
+  );
 }
 
 async function postJson(
@@ -295,7 +389,7 @@ async function requestOpenAi(
   facts: string,
   apiKey: string,
   fetcher: typeof fetch,
-): Promise<string> {
+): Promise<ProviderResult> {
   const reasoningEffort = openAiReasoningEffort(model);
   const body: Record<string, unknown> = {
     model,
@@ -321,7 +415,7 @@ async function requestOpenAi(
     body,
     fetcher,
   );
-  return sanitize(openAiOutputText(response));
+  return responsesResult(response);
 }
 
 async function requestAnthropic(
@@ -329,7 +423,7 @@ async function requestAnthropic(
   facts: string,
   apiKey: string,
   fetcher: typeof fetch,
-): Promise<string> {
+): Promise<ProviderResult> {
   const response = await postJson(
     'https://api.anthropic.com/v1/messages',
     `Anthropic ${model}`,
@@ -345,7 +439,7 @@ async function requestAnthropic(
     },
     fetcher,
   );
-  return sanitize(anthropicOutputText(response));
+  return anthropicResult(response);
 }
 
 async function requestGemini(
@@ -353,7 +447,7 @@ async function requestGemini(
   facts: string,
   apiKey: string,
   fetcher: typeof fetch,
-): Promise<string> {
+): Promise<ProviderResult> {
   const response = await postJson(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     `Gemini ${model}`,
@@ -361,11 +455,14 @@ async function requestGemini(
     {
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ text: facts }] }],
-      generationConfig: { maxOutputTokens: 128 },
+      generationConfig: {
+        maxOutputTokens: 256,
+        thinkingConfig: { thinkingLevel: 'minimal' },
+      },
     },
     fetcher,
   );
-  return sanitize(geminiOutputText(response));
+  return geminiResult(response);
 }
 
 async function requestXai(
@@ -373,7 +470,7 @@ async function requestXai(
   facts: string,
   apiKey: string,
   fetcher: typeof fetch,
-): Promise<string> {
+): Promise<ProviderResult> {
   const response = await postJson(
     'https://api.x.ai/v1/responses',
     `xAI ${model}`,
@@ -390,12 +487,12 @@ async function requestXai(
     },
     fetcher,
   );
-  return sanitize(openAiOutputText(response));
+  return responsesResult(response);
 }
 
 interface ProviderCandidate {
   label: string;
-  request: () => Promise<string>;
+  request: () => Promise<ProviderResult>;
 }
 
 function providerCandidates(
@@ -404,7 +501,7 @@ function providerCandidates(
   fetcher: typeof fetch,
 ): ProviderCandidate[] {
   const candidates: ProviderCandidate[] = [];
-  if (env.OPENAI_API_KEY) {
+  if (env.OPENAI_API_KEY && providerEnabled(env.KANAREK_OPENAI_ENABLED)) {
     const models = [
       env.KANAREK_OPENAI_MODEL || PRIMARY_MODEL,
       env.KANAREK_OPENAI_FALLBACK_MODEL || FALLBACK_MODEL,
@@ -416,21 +513,21 @@ function providerCandidates(
       });
     }
   }
-  if (env.ANTHROPIC_API_KEY) {
+  if (env.ANTHROPIC_API_KEY && providerEnabled(env.KANAREK_ANTHROPIC_ENABLED)) {
     const model = env.KANAREK_ANTHROPIC_MODEL || ANTHROPIC_MODEL;
     candidates.push({
       label: `Anthropic ${model}`,
       request: () => requestAnthropic(model, facts, env.ANTHROPIC_API_KEY ?? '', fetcher),
     });
   }
-  if (env.GEMINI_API_KEY) {
+  if (env.GEMINI_API_KEY && providerEnabled(env.KANAREK_GEMINI_ENABLED)) {
     const model = env.KANAREK_GEMINI_MODEL || GEMINI_MODEL;
     candidates.push({
       label: `Gemini ${model}`,
       request: () => requestGemini(model, facts, env.GEMINI_API_KEY ?? '', fetcher),
     });
   }
-  if (env.XAI_API_KEY) {
+  if (env.XAI_API_KEY && providerEnabled(env.KANAREK_XAI_ENABLED)) {
     const model = env.KANAREK_XAI_MODEL || XAI_MODEL;
     candidates.push({
       label: `xAI ${model}`,
@@ -451,10 +548,14 @@ export async function aiQuip(
     const candidate = candidates[index];
     const hasFallback = index + 1 < candidates.length;
     try {
-      const value = await candidate.request();
-      if (value.length >= 12) return value;
+      const result = await candidate.request();
+      logProviderResult(candidate.label, result);
+      if (result.complete && result.text.length >= 12) return result.text;
+      const reason = result.complete
+        ? 'no usable quip'
+        : `incomplete generation (${result.finishReason ?? 'unknown reason'})`;
       console.warn(
-        `${candidate.label} returned no usable quip${hasFallback ? '; trying next provider.' : '; using preset.'}`,
+        `${candidate.label} returned ${reason}${hasFallback ? '; trying next provider.' : '; using preset.'}`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown provider error';

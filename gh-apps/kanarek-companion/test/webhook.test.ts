@@ -99,6 +99,22 @@ test('reports runtime readiness and optional integrations', async () => {
   });
 });
 
+test('health honors per-provider disable switches', async () => {
+  const disabled = await worker.fetch(new Request('https://example.test/health'), {
+    ...env,
+    OPENAI_API_KEY: 'test',
+    KANAREK_OPENAI_ENABLED: 'false',
+  });
+  assert.equal((await disabled.json() as { aiConfigured: boolean }).aiConfigured, false);
+
+  const enabled = await worker.fetch(new Request('https://example.test/health'), {
+    ...env,
+    OPENAI_API_KEY: 'test',
+    KANAREK_OPENAI_ENABLED: 'true',
+  });
+  assert.equal((await enabled.json() as { aiConfigured: boolean }).aiConfigured, true);
+});
+
 test('reports not ready without the webhook secret', async () => {
   const response = await worker.fetch(new Request('https://example.test/health'), {
     ...env,

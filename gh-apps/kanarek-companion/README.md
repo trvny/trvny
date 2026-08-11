@@ -112,11 +112,12 @@ that AI attempt never calls another paid provider: unusable output falls back
 to the bank/presets instead. This bounds one parsed billable response per
 selected AI attempt.
 
-A valid paid quip is temporarily cached by repository, pull request, and exact
-`stateHash` for up to seven days. If GitHub work fails after generation, a retry
-reuses that receipt instead of paying AI again. Once the visible update and
-persistent-bank retention succeed, the receipt is removed. These receipts are
-idempotency data and do not count toward the 256/4096 learned-bank limits.
+A valid paid quip is temporarily cached by repository, pull request, semantic
+`stateHash`, and exact head SHA for up to seven days. If GitHub work fails after
+generation, a retry reuses that receipt instead of paying AI again. Once the
+visible update and persistent-bank retention succeed, the receipt is removed.
+These receipts are idempotency data and do not count toward the 256/4096
+learned-bank limits.
 
 Each real provider response emits a compact `kanarek_ai_generation` log with
 finish reason, provider-reported output and reasoning token counts, and final
@@ -134,9 +135,10 @@ apply to `KANAREK_AI_ENABLED`.
 
 The same Worker hosts the separate [`gptomek`](../gptomek/) GitHub App bridge
 for bot-authored commits, comments, review replies, and reactions. Commands use
-the private `trvny/trvny#176` pull request as a branchless control mailbox.
-Edits to that PR are handled even after it is closed or merged. Normal pull
-requests remain opened as `trvny` so external automatic review still triggers.
+the private `trvny/trvny#176` pull request as a closed control mailbox. Its
+`gptomek/control` head ref must remain present for body edits to reach the
+shared webhook path. Normal pull requests remain opened as `trvny` so external
+automatic review still triggers.
 
 The bridge reuses Kanarek's existing `pull_request` webhook delivery path, so
 GPTomek does not need another Worker or webhook endpoint.

@@ -8,13 +8,18 @@ GitHub App used for bot-authored repository operations.
 - Shared Worker: `kanarek-companion`
 - Worker secret: `GPTOMEK_PRIVATE_KEY`
 - Control mailbox: `trvny/trvny#176` (closed PR body)
-- Control ref: `gptomek/control` (must remain present)
+- Control ref: `gptomek/control` (persistent transport anchor)
 
 A hidden command in the closed PR body is handled through the shared Worker's
-locked webhook path and removed after a successful operation. The control PR may
-stay closed, but its `gptomek/control` head ref must remain present; deleting the
-ref stops the body-edit control transport. GPTomek therefore treats that branch
-as protected from `delete_branch`.
+locked webhook path and removed after a successful operation. GitHub stops
+delivering that body-edit transport when the PR's head ref is deleted, so
+`gptomek/control` must remain present.
+
+The control branch is not a working branch and is intentionally not kept current
+with `main`. Its tree and distance behind `main` are irrelevant to command
+handling; only the ref's continued existence anchors PR #176. Do not merge,
+delete, rebase, or routinely sync it. GPTomek also protects the ref from
+`delete_branch`.
 
 Supported operations:
 

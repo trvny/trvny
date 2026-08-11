@@ -285,24 +285,26 @@ export async function refreshCompanion(
     }
   };
 
-  if (
-    shouldCheckPaidReceipt(
-      current.key,
-      quip,
-      previousSource,
-      previousStateHash,
-      stateHash,
-    )
-  ) {
-    let recovered = await loadPaidState(
-      env,
-      target.repository,
-      target.pullRequestNumber,
-      receiptHash,
-      quipKey,
-      language,
-    );
-    if (!recovered && Date.now() < LEGACY_RECEIPT_FALLBACK_UNTIL) {
+  const checkCurrentReceipt = shouldCheckPaidReceipt(
+    current.key,
+    quip,
+    previousSource,
+    previousStateHash,
+    stateHash,
+  );
+  const checkLegacyReceipt = Date.now() < LEGACY_RECEIPT_FALLBACK_UNTIL;
+  if (checkCurrentReceipt || checkLegacyReceipt) {
+    let recovered = checkCurrentReceipt
+      ? await loadPaidState(
+          env,
+          target.repository,
+          target.pullRequestNumber,
+          receiptHash,
+          quipKey,
+          language,
+        )
+      : null;
+    if (!recovered && checkLegacyReceipt) {
       const legacyReceiptHash = await hash({
         ...quipFacts,
         head: stateInput.head,

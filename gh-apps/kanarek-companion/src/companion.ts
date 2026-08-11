@@ -66,6 +66,7 @@ import type {
 } from './companion-types.ts';
 
 const COMMENT_STATE_RE = /<!-- kanarek-state:([a-f0-9]{16}) -->/;
+const LEGACY_RECEIPT_FALLBACK_UNTIL = Date.UTC(2026, 7, 19);
 
 type QuipFacts = {
   status: string;
@@ -238,8 +239,6 @@ export async function refreshCompanion(
   const previous = oldComments[0];
   const previousKey = previous?.body?.match(QUIP_KEY_RE)?.[1];
   const previousStateHash = previous?.body?.match(COMMENT_STATE_RE)?.[1];
-  const shouldTryLegacyReceipt =
-    previousStateHash === undefined || previousStateHash !== stateHash;
   const previousSource = previous?.body?.match(SOURCE_RE)?.[1] ?? 'preset';
   const previousQuip = sanitize(
     decoded(previous?.body?.match(QUIP_RE)?.[1] ?? ''),
@@ -303,7 +302,7 @@ export async function refreshCompanion(
       quipKey,
       language,
     );
-    if (!recovered && shouldTryLegacyReceipt) {
+    if (!recovered && Date.now() < LEGACY_RECEIPT_FALLBACK_UNTIL) {
       const legacyReceiptHash = await hash({
         ...quipFacts,
         head: stateInput.head,

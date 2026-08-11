@@ -218,5 +218,5 @@ ${badges.filter(Boolean).join(' · ')}${blockers}${updateWarning}
 
 > ${quip}
 
-<sub>${scope} · ${pr.changed_files} files · ${code(pr.head.sha.slice(0, 8))}</sub>`;
+<sub>${scope} · ${pr.changed_files} files</sub>`;
 }

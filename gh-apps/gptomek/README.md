@@ -7,11 +7,14 @@ GitHub App used for bot-authored repository operations.
 - Runtime module: `../kanarek-companion/src/gptomek.ts`
 - Shared Worker: `kanarek-companion`
 - Worker secret: `GPTOMEK_PRIVATE_KEY`
-- Control mailbox: `trvny/trvny#176` (closed PR body; no persistent branch)
+- Control mailbox: `trvny/trvny#176` (closed PR body)
+- Control ref: `gptomek/control` (must remain present)
 
-The mailbox is intentionally branchless. A hidden command in the closed PR body
-is handled through the shared Worker's locked webhook path and removed after a
-successful operation.
+A hidden command in the closed PR body is handled through the shared Worker's
+locked webhook path and removed after a successful operation. The control PR may
+stay closed, but its `gptomek/control` head ref must remain present; deleting the
+ref stops the body-edit control transport. GPTomek therefore treats that branch
+as protected from `delete_branch`.
 
 Supported operations:
 
@@ -23,9 +26,9 @@ Supported operations:
 - `reply_review`: reply to an inline PR review thread.
 - `react_issue_comment` and `react_review_comment`: add GitHub reactions.
 
-`delete_branch` has layered guards: literal `main` is always protected, the
-repository's current `default_branch` is fetched and protected, and the branch
-head is checked against `expectedHeadSha` immediately before the DELETE request.
+`delete_branch` has layered guards: literal `main`, the GPTomek control ref, and
+the repository's current `default_branch` are protected, and the branch head is
+checked against `expectedHeadSha` immediately before the DELETE request.
 GitHub's delete-ref API has no atomic expected-SHA precondition, so a concurrent
 push in the narrow check/delete window remains an unavoidable race. An already
 missing target branch is treated as success so mailbox retries stay idempotent.

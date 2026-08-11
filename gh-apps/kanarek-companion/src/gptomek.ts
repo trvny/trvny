@@ -7,6 +7,7 @@ import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-typ
 
 const CONTROL_REPOSITORY = 'trvny/trvny';
 const CONTROL_PULL_REQUEST = 176;
+const CONTROL_BRANCH = 'gptomek/control';
 const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9_-]+)\s*-->/;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const BOT_IDENTITY = {
@@ -470,7 +471,11 @@ export function isProtectedBranch(
   branchName: string,
   defaultBranch: string,
 ): boolean {
-  return branchName.toLowerCase() === 'main' || branchName === defaultBranch;
+  return (
+    branchName.toLowerCase() === 'main' ||
+    branchName === defaultBranch ||
+    branchName === CONTROL_BRANCH
+  );
 }
 
 export async function deleteBranch(

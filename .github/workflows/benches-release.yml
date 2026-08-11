@@ -140,11 +140,10 @@ jobs:
             --draft \
             --target "$GITHUB_SHA" \
             --title "Benches Portable · ${GITHUB_SHA::7}" \
-            --notes-file release-notes.md \
-            --latest=false
+            --notes-file release-notes.md
           gh release upload "$tag" \
             dist/codebench-portable.html \
             dist/streambench-portable.html \
             dist/benches-portable.zip \
             dist/SHA256SUMS
-          gh release edit "$tag" --draft=false --latest=false
+          gh release edit "$tag" --draft=false --latest

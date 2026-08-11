@@ -67,6 +67,35 @@ import type {
 
 const COMMENT_STATE_RE = /<!-- kanarek-state:([a-f0-9]{16}) -->/;
 
+type QuipFacts = {
+  status: string;
+  blockers: string[];
+  area: string;
+  size: string;
+  language: string;
+};
+
+type CommentStateInput = {
+  head: string;
+  behind: number | null;
+  reviews: { approvals: number; changes: number };
+  autoMerge: string | null;
+  files: number;
+};
+
+export async function commentStateHash(
+  quipFacts: QuipFacts,
+  state: CommentStateInput,
+): Promise<string> {
+  return hash({
+    ...quipFacts,
+    behind: state.behind,
+    reviews: state.reviews,
+    autoMerge: state.autoMerge,
+    files: state.files,
+  });
+}
+
 export { associatedPullRequestNumbers } from './companion-github.ts';
 export { contextLanguage } from './companion-language.ts';
 export { reactionForState } from './companion-reactions.ts';
@@ -189,7 +218,7 @@ export async function refreshCompanion(
     ? branchUpdatePermissionWarning(client)
     : null;
   const language = contextLanguage(`${pr.title ?? ''}\n${pr.body ?? ''}`);
-  const quipFacts = {
+  const quipFacts: QuipFacts = {
     status: current.key,
     blockers: kinds,
     area: projectAreas[0] ?? 'Other',
@@ -197,14 +226,23 @@ export async function refreshCompanion(
     language,
   };
   const quipKey = await hash(quipFacts);
-  const stateHash = await hash({
-    ...quipFacts,
+  const stateInput: CommentStateInput = {
     head: pr.head.sha,
     behind: branch.behind,
     reviews: review,
     autoMerge: pr.auto_merge?.merge_method ?? null,
     files: pr.changed_files,
+  };
+  const stateHash = await commentStateHash(quipFacts, stateInput);
+  const legacyReceiptHash = await hash({
+    ...quipFacts,
+    head: stateInput.head,
+    behind: stateInput.behind,
+    reviews: stateInput.reviews,
+    autoMerge: stateInput.autoMerge,
+    files: stateInput.files,
   });
+  const receiptHash = await hash({ state: stateHash, head: stateInput.head });
   const previous = oldComments[0];
   const previousKey = previous?.body?.match(QUIP_KEY_RE)?.[1];
   const previousStateHash = previous?.body?.match(COMMENT_STATE_RE)?.[1];
@@ -233,6 +271,7 @@ export async function refreshCompanion(
   let measuredBank: BankContext | undefined;
   let pendingPaidQuip: string | null = null;
   let paidReceiptStored: boolean | null = null;
+  let paidReceiptHash = receiptHash;
   let paidBankedBeforeGithub = false;
   let paidRecovered = false;
   const tryPool = async (): Promise<void> => {
@@ -262,14 +301,25 @@ export async function refreshCompanion(
       stateHash,
     )
   ) {
-    const recovered = await loadPaidState(
+    let recovered = await loadPaidState(
       env,
       target.repository,
       target.pullRequestNumber,
-      stateHash,
+      receiptHash,
       quipKey,
       language,
     );
+    if (!recovered && legacyReceiptHash !== receiptHash) {
+      recovered = await loadPaidState(
+        env,
+        target.repository,
+        target.pullRequestNumber,
+        legacyReceiptHash,
+        quipKey,
+        language,
+      );
+      if (recovered) paidReceiptHash = legacyReceiptHash;
+    }
     if (recovered) {
       pendingPaidQuip = recovered;
       paidRecovered = true;
@@ -323,7 +373,7 @@ export async function refreshCompanion(
         env,
         target.repository,
         target.pullRequestNumber,
-        stateHash,
+        receiptHash,
         quipKey,
         quip,
         language,
@@ -409,7 +459,7 @@ export async function refreshCompanion(
         env,
         target.repository,
         target.pullRequestNumber,
-        stateHash,
+        paidReceiptHash,
       );
     }
     console.info(

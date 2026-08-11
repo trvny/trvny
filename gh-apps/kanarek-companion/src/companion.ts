@@ -234,18 +234,12 @@ export async function refreshCompanion(
     files: pr.changed_files,
   };
   const stateHash = await commentStateHash(quipFacts, stateInput);
-  const legacyReceiptHash = await hash({
-    ...quipFacts,
-    head: stateInput.head,
-    behind: stateInput.behind,
-    reviews: stateInput.reviews,
-    autoMerge: stateInput.autoMerge,
-    files: stateInput.files,
-  });
   const receiptHash = await hash({ state: stateHash, head: stateInput.head });
   const previous = oldComments[0];
   const previousKey = previous?.body?.match(QUIP_KEY_RE)?.[1];
   const previousStateHash = previous?.body?.match(COMMENT_STATE_RE)?.[1];
+  const shouldTryLegacyReceipt =
+    previousStateHash === undefined || previousStateHash !== stateHash;
   const previousSource = previous?.body?.match(SOURCE_RE)?.[1] ?? 'preset';
   const previousQuip = sanitize(
     decoded(previous?.body?.match(QUIP_RE)?.[1] ?? ''),
@@ -309,7 +303,15 @@ export async function refreshCompanion(
       quipKey,
       language,
     );
-    if (!recovered && legacyReceiptHash !== receiptHash) {
+    if (!recovered && shouldTryLegacyReceipt) {
+      const legacyReceiptHash = await hash({
+        ...quipFacts,
+        head: stateInput.head,
+        behind: stateInput.behind,
+        reviews: stateInput.reviews,
+        autoMerge: stateInput.autoMerge,
+        files: stateInput.files,
+      });
       recovered = await loadPaidState(
         env,
         target.repository,

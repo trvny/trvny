@@ -1,4 +1,4 @@
-import { hash, PRESETS } from './quip.ts';
+import { hash, PRESETS, sanitize, validQuipLength } from './quip.ts';
 
 export type CompanionLanguage = 'en' | 'pl';
 
@@ -22,31 +22,62 @@ const POLISH_WORDS = new Set([
   'dodanie',
   'dziala',
   'działa',
+  'dziob',
+  'dziób',
+  'gotowe',
+  'gotowy',
   'jest',
+  'kabel',
+  'kable',
   'kanarka',
+  'kod',
+  'lampka',
+  'lampki',
+  'lampek',
+  'leciec',
+  'lecieć',
   'ma',
+  'maszyna',
+  'mozna',
+  'można',
+  'mruczy',
   'na',
   'napraw',
   'naprawa',
   'nie',
   'oraz',
+  'pilnuje',
   'po',
   'popraw',
   'poprawka',
   'poprawki',
   'przy',
+  'ptak',
   'reakcja',
   'reakcji',
   'sie',
   'się',
+  'skrzynka',
+  'skrzynke',
+  'skrzynkę',
+  'spokojnie',
+  'sprawdza',
+  'swieci',
+  'świeci',
   'ten',
+  'testy',
   'to',
   'usun',
   'usuń',
   'w',
+  'wszystko',
   'z',
   'za',
   'zaktualizuj',
+  'zamyka',
+  'zielone',
+  'zielony',
+  'zielonych',
   'zmian',
   'zmiana',
   'zmiany',
@@ -59,31 +90,50 @@ const POLISH_WORDS = new Set([
 const ENGLISH_WORDS = new Set([
   'add',
   'and',
+  'bird',
+  'blocked',
   'branch',
+  'cables',
+  'calm',
   'change',
+  'checks',
+  'cleared',
+  'closes',
+  'code',
   'do',
+  'everything',
   'fix',
   'for',
   'from',
+  'green',
   'in',
   'is',
+  'lights',
+  'machine',
   'of',
   'on',
   'pull',
+  'quietly',
   'reaction',
   'reactions',
+  'ready',
   'remove',
   'request',
   'state',
+  'takeoff',
   'the',
   'this',
   'to',
+  'toolbox',
   'update',
+  'waiting',
   'when',
+  'wiring',
   'with',
+  'works',
 ]);
 
-export function contextLanguage(value: string): CompanionLanguage {
+function languageScores(value: string): { english: number; polish: number } {
   const text = value.toLowerCase();
   const tokens = text.match(/[\p{L}]+/gu) ?? [];
   let polish = (text.match(/[ąćęłńóśźż]/g) ?? []).length * 3;
@@ -93,6 +143,11 @@ export function contextLanguage(value: string): CompanionLanguage {
     if (POLISH_WORDS.has(token)) polish += 1;
     if (ENGLISH_WORDS.has(token)) english += 1;
   }
+  return { english, polish };
+}
+
+export function contextLanguage(value: string): CompanionLanguage {
+  const { english, polish } = languageScores(value);
   return polish > english ? 'pl' : 'en';
 }
 
@@ -110,7 +165,17 @@ export function matchesLanguage(
   value: string,
   language: CompanionLanguage,
 ): boolean {
-  return contextLanguage(value) === language;
+  const { english, polish } = languageScores(value);
+  if (Math.abs(polish - english) < 3) return true;
+  return language === 'pl' ? polish > english : english > polish;
+}
+
+export function reusableQuip(
+  value: unknown,
+  language: CompanionLanguage,
+): string | null {
+  const quip = sanitize(value);
+  return validQuipLength(quip) && matchesLanguage(quip, language) ? quip : null;
 }
 
 export async function contextualPreset(

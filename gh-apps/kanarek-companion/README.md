@@ -135,13 +135,14 @@ apply to `KANAREK_AI_ENABLED`.
 
 The same Worker hosts the separate [`gptomek`](../gptomek/) GitHub App bridge
 for bot-authored commits, comments, review replies, and reactions. Commands use
-the private `trvny/trvny#176` pull request as a closed control mailbox. Its
-`gptomek/control` head ref must remain present for body edits to reach the
-shared webhook path. Normal pull requests remain opened as `trvny` so external
-automatic review still triggers.
+the private closed `trvny/trvny#176` pull request as a control mailbox.
+`gptomek/control` is only its persistent head-ref anchor: it must exist for body
+edits to reach the shared webhook path, but its contents and distance behind
+`main` do not participate in command handling. Do not sync or merge it.
 
-The bridge reuses Kanarek's existing `pull_request` webhook delivery path, so
-GPTomek does not need another Worker or webhook endpoint.
+Normal pull requests remain opened as `trvny` so external automatic review
+still triggers. The bridge reuses Kanarek's existing `pull_request` webhook
+delivery path, so GPTomek does not need another Worker or webhook endpoint.
 
 ## Where to look
 

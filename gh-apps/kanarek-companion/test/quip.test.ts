@@ -3,12 +3,14 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
+  aiPercent,
   aiQuip,
   hash,
   PRESETS,
   quipPromptInput,
   sanitize,
   shouldAskAi,
+  validQuipLength,
 } from '../src/quip.ts';
 
 test('keeps the refreshed Kanarek preset bank', () => {
@@ -44,6 +46,21 @@ test('sanitizes generated quips before rendering', () => {
     sanitize('**hej** @user https://example.com\nOK'),
     'hej ＠user OK',
   );
+});
+
+test('enforces the learned quip character contract', () => {
+  assert.equal(validQuipLength('x'.repeat(44)), false);
+  assert.equal(validQuipLength('x'.repeat(45)), true);
+  assert.equal(validQuipLength('x'.repeat(110)), true);
+  assert.equal(validQuipLength('x'.repeat(111)), false);
+});
+
+test('fails closed on malformed configured AI percentages', () => {
+  assert.equal(aiPercent({}), 25);
+  assert.equal(aiPercent({ KANAREK_AI_PERCENT: '25' }), 25);
+  assert.equal(aiPercent({ KANAREK_AI_PERCENT: '  ' }), 0);
+  assert.equal(aiPercent({ KANAREK_AI_PERCENT: '25oops' }), 0);
+  assert.equal(aiPercent({ KANAREK_AI_PERCENT: 'wat' }), 0);
 });
 
 test('serializes PR context as structured untrusted prompt data', () => {
@@ -161,7 +178,12 @@ test('uses the same concise system contract for Anthropic', async () => {
   const fetcher = (async (_input: RequestInfo | URL, init?: RequestInit) => {
     requestBody = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
     return Response.json({
-      content: [{ type: 'text', text: 'Kanarek sees calm wires and returns the screwdriver to its drawer.' }],
+      content: [
+        {
+          type: 'text',
+          text: 'Kanarek sees calm wires and returns the screwdriver to its drawer.',
+        },
+      ],
       stop_reason: 'end_turn',
     });
   }) as typeof fetch;
@@ -180,7 +202,11 @@ test('uses the same concise system contract for Gemini', async () => {
         {
           finishReason: 'STOP',
           content: {
-            parts: [{ text: 'Kanarek scans the dashboard. No feathers need to be ruffled.' }],
+            parts: [
+              {
+                text: 'Kanarek scans the dashboard. No feathers need to be ruffled.',
+              },
+            ],
           },
         },
       ],
@@ -202,11 +228,23 @@ test('uses only the Gemini candidate whose finish reason is validated', async ()
       candidates: [
         {
           finishReason: 'STOP',
-          content: { parts: [{ text: 'Kanarek checks the first candidate and closes the toolbox.' }] },
+          content: {
+            parts: [
+              {
+                text: 'Kanarek checks the first candidate and closes the toolbox.',
+              },
+            ],
+          },
         },
         {
           finishReason: 'MAX_TOKENS',
-          content: { parts: [{ text: 'This truncated second candidate must never leak into the quip.' }] },
+          content: {
+            parts: [
+              {
+                text: 'This truncated second candidate must never leak into the quip.',
+              },
+            ],
+          },
         },
       ],
     })) as typeof fetch;
@@ -265,7 +303,12 @@ test('rejects OpenAI Responses output truncated by the token ceiling', async () 
 test('rejects Anthropic max_tokens output', async () => {
   const fetcher = (async () =>
     Response.json({
-      content: [{ type: 'text', text: 'Kanarek was still composing this sentence when the meter' }],
+      content: [
+        {
+          type: 'text',
+          text: 'Kanarek was still composing this sentence when the meter',
+        },
+      ],
       stop_reason: 'max_tokens',
       usage: { output_tokens: 128 },
     })) as typeof fetch;
@@ -279,13 +322,116 @@ test('rejects Gemini MAX_TOKENS output', async () => {
       candidates: [
         {
           finishReason: 'MAX_TOKENS',
-          content: { parts: [{ text: 'Kanarek was interrupted halfway through the wiring report' }] },
+          content: {
+            parts: [
+              {
+                text: 'Kanarek was interrupted halfway through the wiring report',
+              },
+            ],
+          },
         },
       ],
       usageMetadata: { candidatesTokenCount: 128, thoughtsTokenCount: 7 },
     })) as typeof fetch;
 
   assert.equal(await aiQuip('{}', { GEMINI_API_KEY: 'test' }, fetcher), null);
+});
+
+test('does not pay a second provider after a parsed billable response', async () => {
+  let calls = 0;
+  const fetcher = (async () => {
+    calls += 1;
+    if (calls === 1) {
+      return Response.json({
+        status: 'incomplete',
+        incomplete_details: { reason: 'max_output_tokens' },
+        output_text: 'Kanarek starts a valid-looking sentence but the provider cuts it short.',
+        usage: { output_tokens: 128 },
+      });
+    }
+    return Response.json({
+      content: [
+        {
+          type: 'text',
+          text: 'This second paid provider must never be called for this attempt.',
+        },
+      ],
+      stop_reason: 'end_turn',
+    });
+  }) as typeof fetch;
+
+  assert.equal(
+    await aiQuip(
+      '{}',
+      {
+        OPENAI_API_KEY: 'openai',
+        KANAREK_OPENAI_MODEL: 'gpt-5.6-luna',
+        KANAREK_OPENAI_FALLBACK_MODEL: 'gpt-5.6-luna',
+        ANTHROPIC_API_KEY: 'anthropic',
+      },
+      fetcher,
+    ),
+    null,
+  );
+  assert.equal(calls, 1);
+});
+
+test('does not pay a second provider after a complete but unusable quip', async () => {
+  let calls = 0;
+  const fetcher = (async () => {
+    calls += 1;
+    return Response.json({ status: 'completed', output_text: 'Too short.' });
+  }) as typeof fetch;
+
+  assert.equal(
+    await aiQuip(
+      '{}',
+      {
+        OPENAI_API_KEY: 'openai',
+        KANAREK_OPENAI_MODEL: 'gpt-5.6-luna',
+        KANAREK_OPENAI_FALLBACK_MODEL: 'gpt-5.6-luna',
+        ANTHROPIC_API_KEY: 'anthropic',
+      },
+      fetcher,
+    ),
+    null,
+  );
+  assert.equal(calls, 1);
+});
+
+test('still falls back after a request failure with no provider response', async () => {
+  let calls = 0;
+  const fetcher = (async () => {
+    calls += 1;
+    if (calls === 1) {
+      return new Response('quota unavailable', { status: 429 });
+    }
+    return Response.json({
+      content: [
+        {
+          type: 'text',
+          text: 'Kanarek finds the fallback wire and quietly restores the circuit.',
+        },
+      ],
+      stop_reason: 'end_turn',
+    });
+  }) as typeof fetch;
+
+  const quip = await aiQuip(
+    '{}',
+    {
+      OPENAI_API_KEY: 'openai',
+      KANAREK_OPENAI_MODEL: 'gpt-5.6-luna',
+      KANAREK_OPENAI_FALLBACK_MODEL: 'gpt-5.6-luna',
+      ANTHROPIC_API_KEY: 'anthropic',
+    },
+    fetcher,
+  );
+  assert.equal(
+    quip,
+    'Kanarek finds the fallback wire and quietly restores the circuit.',
+  );
+  assert.equal(calls, 2);
 });
 
 test('logs provider token usage without logging generated text', async () => {
@@ -328,18 +474,40 @@ test('logs provider token usage without logging generated text', async () => {
   }
 });
 
-test('can disable a provider without deleting its API key', async () => {
-  let calls = 0;
-  const fetcher = (async () => {
-    calls += 1;
-    return Response.json({ output_text: 'This request should never be made.' });
-  }) as typeof fetch;
+test('accepts common false values for paid AI switches', async () => {
+  for (const value of ['false', 'FALSE', '0', 'off', 'NO']) {
+    let calls = 0;
+    const fetcher = (async () => {
+      calls += 1;
+      return Response.json({
+        status: 'completed',
+        output_text: 'This request should never be made while the switch is disabled.',
+      });
+    }) as typeof fetch;
 
-  const env = {
-    OPENAI_API_KEY: 'test',
-    KANAREK_OPENAI_ENABLED: 'false',
-  };
-  assert.equal(await aiQuip('{}', env, fetcher), null);
-  assert.equal(await shouldAskAi(1, '0123456789abcdef', 'ready', env), false);
-  assert.equal(calls, 0);
+    const env = {
+      OPENAI_API_KEY: 'test',
+      KANAREK_OPENAI_ENABLED: value,
+    };
+    assert.equal(await aiQuip('{}', env, fetcher), null, value);
+    assert.equal(
+      await shouldAskAi(1, '0123456789abcdef', 'ready', env),
+      false,
+      value,
+    );
+    assert.equal(calls, 0, value);
+  }
+});
+
+test('accepts common false values for the global AI switch', async () => {
+  for (const value of ['false', 'FALSE', '0', 'off', 'NO']) {
+    assert.equal(
+      await shouldAskAi(1, '0123456789abcdef', 'ready', {
+        OPENAI_API_KEY: 'test',
+        KANAREK_AI_ENABLED: value,
+      }),
+      false,
+      value,
+    );
+  }
 });

@@ -27,8 +27,13 @@ import {
 import {
   contextLanguage,
   contextualPreset,
-  matchesLanguage,
+  reusableQuip,
 } from './companion-language.ts';
+import {
+  deletePaidState,
+  loadPaidState,
+  storePaidState,
+} from './companion-paid.ts';
 import { syncReaction } from './companion-reactions.ts';
 import {
   branchUpdatePermissionWarning,
@@ -51,20 +56,61 @@ import {
   sanitize,
   shouldAskAi,
 } from './quip.ts';
-import type { CompanionEnv, CompanionResult, CompanionTarget, PullRequest, QuipEntry } from './companion-types.ts';
 import type { BankContext } from './companion-bank.ts';
+import type {
+  CompanionEnv,
+  CompanionResult,
+  CompanionTarget,
+  PullRequest,
+  QuipEntry,
+} from './companion-types.ts';
+
+const COMMENT_STATE_RE = /<!-- kanarek-state:([a-f0-9]{16}) -->/;
 
 export { associatedPullRequestNumbers } from './companion-github.ts';
 export { contextLanguage } from './companion-language.ts';
 export { reactionForState } from './companion-reactions.ts';
 export { shouldUpdateBranch } from './companion-update.ts';
-export { areas, blockerKinds, MARKER, render, size, status } from './companion-view.ts';
-export type { CompanionEnv, CompanionResult, CompanionTarget } from './companion-types.ts';
+export {
+  areas,
+  blockerKinds,
+  MARKER,
+  render,
+  size,
+  status,
+} from './companion-view.ts';
+export type {
+  CompanionEnv,
+  CompanionResult,
+  CompanionTarget,
+} from './companion-types.ts';
 
 export function isCompanionDisabled(pr: Pick<PullRequest, 'labels'>): boolean {
   return Boolean(
     pr.labels?.some((label) => label.name?.trim().toLowerCase() === 'no-goblin'),
   );
+}
+
+export function shouldCheckPaidReceipt(
+  stateKey: string,
+  quip: string,
+  previousSource: string,
+  previousStateHash: string | undefined,
+  stateHash: string,
+): boolean {
+  return (
+    canUsePool(stateKey) &&
+    (!quip || (previousSource === 'ai' && previousStateHash === stateHash))
+  );
+}
+
+export function paidQuipForBank(
+  pendingPaidQuip: string | null,
+  sameQuipState: boolean,
+  source: string,
+  quip: string,
+): string | null {
+  return pendingPaidQuip ?? (!sameQuipState && source === 'ai' ? quip : null);
 }
 
 export async function refreshCompanion(
@@ -161,18 +207,23 @@ export async function refreshCompanion(
   });
   const previous = oldComments[0];
   const previousKey = previous?.body?.match(QUIP_KEY_RE)?.[1];
+  const previousStateHash = previous?.body?.match(COMMENT_STATE_RE)?.[1];
   const previousSource = previous?.body?.match(SOURCE_RE)?.[1] ?? 'preset';
   const previousQuip = sanitize(
     decoded(previous?.body?.match(QUIP_RE)?.[1] ?? ''),
   );
+  const previousLearnedQuip = ['ai', 'pool'].includes(previousSource)
+    ? reusableQuip(previousQuip, language) ?? ''
+    : previousQuip;
   let pool = rememberQuip(
     poolEntries(previous?.body),
     previousKey,
-    previousQuip,
+    previousLearnedQuip,
     previousSource,
   );
-  const sameQuipState = previousKey === quipKey && Boolean(previousQuip);
-  let quip = sameQuipState ? previousQuip : '';
+  const sameQuipState =
+    previousKey === quipKey && Boolean(previousLearnedQuip);
+  let quip = sameQuipState ? previousLearnedQuip : '';
   let source: 'ai' | 'pool' | 'preset' =
     sameQuipState && ['ai', 'pool', 'preset'].includes(previousSource)
       ? (previousSource as 'ai' | 'pool' | 'preset')
@@ -180,22 +231,55 @@ export async function refreshCompanion(
   let bank: QuipEntry[] = [];
   let poolAttempted = false;
   let measuredBank: BankContext | undefined;
+  let pendingPaidQuip: string | null = null;
+  let paidReceiptStored: boolean | null = null;
+  let paidBankedBeforeGithub = false;
+  let paidRecovered = false;
   const tryPool = async (): Promise<void> => {
     if (poolAttempted || !canUsePool(current.key)) return;
     poolAttempted = true;
-    bank = await loadBank(env, quipKey, stateHash, measuredBank);
+    bank = await loadBank(env, quipKey, stateHash, measuredBank, language);
     const pooled = await pooledQuip(
       quipKey,
       stateHash,
       oldComments,
       bank,
-      previousQuip,
+      previousLearnedQuip,
+      language,
     );
     if (pooled) {
       quip = pooled;
       source = 'pool';
     }
   };
+
+  if (
+    shouldCheckPaidReceipt(
+      current.key,
+      quip,
+      previousSource,
+      previousStateHash,
+      stateHash,
+    )
+  ) {
+    const recovered = await loadPaidState(
+      env,
+      target.repository,
+      target.pullRequestNumber,
+      stateHash,
+      quipKey,
+      language,
+    );
+    if (recovered) {
+      pendingPaidQuip = recovered;
+      paidRecovered = true;
+      paidReceiptStored = true;
+      if (!quip) {
+        quip = recovered;
+        source = 'ai';
+      }
+    }
+  }
 
   let aiSelected = false;
   if (!quip) {
@@ -206,7 +290,7 @@ export async function refreshCompanion(
       env,
     );
     if (baseAiSelected) {
-      measuredBank = await bankContext(env, quipKey);
+      measuredBank = await bankContext(env, quipKey, language);
       aiSelected = await shouldAskAiForBank(
         target.pullRequestNumber,
         quipKey,
@@ -224,16 +308,40 @@ export async function refreshCompanion(
       blockers: kinds,
       area: quipFacts.area,
       size: prSize.key,
-      previousQuip: previousQuip || null,
+      previousQuip: previousLearnedQuip || null,
       context: {
         title: sanitize(pr.title ?? '') || null,
         body: sanitize(pr.body ?? '') || null,
       },
     });
-    const generated = (await aiQuip(facts, env, fetcher)) ?? '';
-    if (generated && matchesLanguage(generated, language)) {
+    const generated = reusableQuip(await aiQuip(facts, env, fetcher), language);
+    if (generated) {
       quip = generated;
       source = 'ai';
+      pendingPaidQuip = quip;
+      paidReceiptStored = await storePaidState(
+        env,
+        target.repository,
+        target.pullRequestNumber,
+        stateHash,
+        quipKey,
+        quip,
+        language,
+      );
+      if (!paidReceiptStored) {
+        await bankMaintenance;
+        paidBankedBeforeGithub = await storeBank(env, [
+          { k: quipKey, q: quip },
+        ]);
+      }
+      console.info(
+        JSON.stringify({
+          event: 'kanarek_ai_persistence',
+          banked_before_github: paidBankedBeforeGithub,
+          receipt_stored: paidReceiptStored,
+          quip_key: quipKey,
+        }),
+      );
     }
   }
   if (!quip) await tryPool();
@@ -241,7 +349,7 @@ export async function refreshCompanion(
     quip = await contextualPreset(
       current.key,
       `${target.pullRequestNumber}:${stateHash}`,
-      previousQuip,
+      previousLearnedQuip,
       language,
     );
     source = 'preset';
@@ -281,6 +389,42 @@ export async function refreshCompanion(
     );
   }
 
+  await bankMaintenance;
+  const bankHasQuip = bank.some(
+    (entry) => entry.k === quipKey && entry.q === quip,
+  );
+  const paidQuipToBank = paidQuipForBank(
+    pendingPaidQuip,
+    sameQuipState,
+    source,
+    quip,
+  );
+  const bankHasPaidQuip =
+    paidQuipToBank !== null &&
+    bank.some((entry) => entry.k === quipKey && entry.q === paidQuipToBank);
+  if (paidQuipToBank && !paidBankedBeforeGithub && !bankHasPaidQuip) {
+    const retained = await storeBank(env, [{ k: quipKey, q: paidQuipToBank }]);
+    if (retained && paidReceiptStored) {
+      await deletePaidState(
+        env,
+        target.repository,
+        target.pullRequestNumber,
+        stateHash,
+      );
+    }
+    console.info(
+      JSON.stringify({
+        event: paidRecovered ? 'kanarek_ai_recovered' : 'kanarek_ai_bank',
+        retained,
+        receipt_stored: retained ? false : paidReceiptStored,
+        quip_key: quipKey,
+      }),
+    );
+  }
+  if (!sameQuipState && source === 'pool' && !bankHasQuip) {
+    await storeBank(env, [{ k: quipKey, q: quip }]);
+  }
+
   if (branchUpdateEligible && !branchUpdateWarning) {
     await updateBranch(
       client,
@@ -288,17 +432,6 @@ export async function refreshCompanion(
       target.pullRequestNumber,
       pr.head.sha,
     );
-  }
-
-  await bankMaintenance;
-  const bankHasQuip = bank.some(
-    (entry) => entry.k === quipKey && entry.q === quip,
-  );
-  if (
-    !sameQuipState &&
-    (source === 'ai' || (source === 'pool' && !bankHasQuip))
-  ) {
-    await storeBank(env, [{ k: quipKey, q: quip }]);
   }
 
   return {

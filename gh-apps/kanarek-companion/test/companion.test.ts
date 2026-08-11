@@ -175,12 +175,19 @@ test('uses the bank outside the configured AI rollout', async () => {
 });
 
 test('keeps bank entries persistent, rotating, and bounded per quip key', async () => {
+  const legacyQuip = 'Starszy poprawny tekst Kanarka z istniejącej bazy danych.';
+  const firstParallel =
+    'Pierwszy równoległy poprawny wpis Kanarka do trwałej bazy.';
+  const secondParallel =
+    'Drugi równoległy poprawny wpis Kanarka do trwałej bazy.';
+  const rotatingQuip = (index: number) =>
+    `Generated rotating Kanarek quip number ${index} for persistent bank testing.`;
+  const boundedQuip = (index: number) =>
+    `Persistent bounded Kanarek quip number ${index} for bank limit testing.`;
   const values = new Map<string, string>([
     [
       BANK_KEY,
-      JSON.stringify([
-        { k: 'aaaaaaaaaaaaaaaa', q: 'Starszy tekst z istniejącej bazy.' },
-      ]),
+      JSON.stringify([{ k: 'aaaaaaaaaaaaaaaa', q: legacyQuip }]),
     ],
   ]);
   const expirations = new Map<string, number>();
@@ -219,12 +226,8 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
   const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
 
   await Promise.all([
-    storeBank(env, [
-      { k: 'bbbbbbbbbbbbbbbb', q: 'Pierwszy równoległy wpis Kanarka.' },
-    ]),
-    storeBank(env, [
-      { k: 'cccccccccccccccc', q: 'Drugi równoległy wpis Kanarka.' },
-    ]),
+    storeBank(env, [{ k: 'bbbbbbbbbbbbbbbb', q: firstParallel }]),
+    storeBank(env, [{ k: 'cccccccccccccccc', q: secondParallel }]),
   ]);
 
   assert.equal(
@@ -246,9 +249,7 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
     const name = `${BANK_KEY}:entry:${rotatingKey}:${index.toString(16).padStart(16, '0')}`;
     values.set(
       name,
-      JSON.stringify([
-        { k: rotatingKey, q: `Generated rotating quip number ${index}.` },
-      ]),
+      JSON.stringify([{ k: rotatingKey, q: rotatingQuip(index) }]),
     );
     expirations.set(name, 9_999_999_999 + index);
   }
@@ -264,14 +265,12 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
   const rotatedWindow = await loadBank(env, rotatingKey, '0000001800000000');
   assert.equal(firstWindow.length, 24);
   assert.equal(rotatedWindow.length, 24);
-  assert.equal(firstWindow[0]?.q, 'Generated rotating quip number 0.');
-  assert.equal(rotatedWindow[0]?.q, 'Generated rotating quip number 24.');
+  assert.equal(firstWindow[0]?.q, rotatingQuip(0));
+  assert.equal(rotatedWindow[0]?.q, rotatingQuip(24));
 
   const boundedKey = 'ffffffffffffffff';
   for (let index = 0; index < 270; index += 1) {
-    await storeBank(env, [
-      { k: boundedKey, q: `Persistent bounded quip number ${index}.` },
-    ]);
+    await storeBank(env, [{ k: boundedKey, q: boundedQuip(index) }]);
   }
   assert.equal(
     [...values.keys()].filter((key) =>
@@ -288,6 +287,55 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
   );
 });
 
+test('removes unusable learned entries incrementally while reading a context', async () => {
+  const quipKey = 'eeeeeeeeeeeeeeee';
+  const prefix = `${BANK_KEY}:entry:${quipKey}:`;
+  const wrongLanguageKey = `${prefix}0000000000000001`;
+  const tooShortKey = `${prefix}0000000000000002`;
+  const values = new Map<string, string>([
+    [
+      wrongLanguageKey,
+      JSON.stringify([
+        {
+          k: quipKey,
+          q: 'Everything works, green lights are calm and ready for takeoff.',
+        },
+      ]),
+    ],
+    [
+      tooShortKey,
+      JSON.stringify([{ k: quipKey, q: 'Za krótki stary wpis.' }]),
+    ],
+  ]);
+  const deleted: string[] = [];
+  const kv = {
+    async delete(key: string) {
+      deleted.push(key);
+      values.delete(key);
+    },
+    async get(key: string) {
+      return values.get(key) ?? null;
+    },
+    async list(options: { prefix?: string }) {
+      const names = [...values.keys()].filter((key) =>
+        key.startsWith(options.prefix ?? ''),
+      );
+      return { keys: names.map((name) => ({ name })), list_complete: true, cursor: '' };
+    },
+    async put(key: string, value: string) {
+      values.set(key, value);
+    },
+  } as unknown as KVNamespace;
+  const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
+
+  assert.deepEqual(
+    await loadBank(env, quipKey, '0000000000000000', undefined, 'pl'),
+    [],
+  );
+  assert.deepEqual(new Set(deleted), new Set([wrongLanguageKey, tooShortKey]));
+  assert.equal(values.size, 0);
+});
+
 test('continues legacy TTL migration without waiting for the maintenance interval', async () => {
   const values = new Map<string, string>();
   const expirations = new Map<string, number>();
@@ -297,7 +345,12 @@ test('continues legacy TTL migration without waiting for the maintenance interva
     const name = `${prefix}${quipKey}:${index.toString(16).padStart(16, '0')}`;
     values.set(
       name,
-      JSON.stringify([{ k: quipKey, q: `Legacy expiring quip number ${index}.` }]),
+      JSON.stringify([
+        {
+          k: quipKey,
+          q: `Legacy expiring Kanarek quip number ${index} kept for TTL migration testing.`,
+        },
+      ]),
     );
     expirations.set(name, 10_000_000_000 + index);
   }
@@ -347,7 +400,12 @@ test('reconciles the whole learned bank incrementally to a finite global limit',
     const identity = index.toString(16).padStart(16, '0');
     values.set(
       `${prefix}${quipKey}:${identity}`,
-      JSON.stringify([{ k: quipKey, q: `Global persistent quip number ${index}.` }]),
+      JSON.stringify([
+        {
+          k: quipKey,
+          q: `Global persistent Kanarek quip number ${index} for finite bank limit testing.`,
+        },
+      ]),
     );
   }
   const kv = {

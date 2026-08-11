@@ -20,8 +20,10 @@ A normal delivery follows this path:
 6. For live `ready`/`blocked` states, Kanarek reuses the persistent KV bank,
    optionally asks AI, or falls back to presets. The same semantic quip state
    reuses its current line instead of generating churn.
-7. The comment is upserted and the PR reaction is synchronized. New reusable
-   AI/pool quips are persisted after the visible update.
+7. A valid paid AI quip first gets a cheap, short-lived retry receipt. The
+   comment is then upserted, maintenance is joined, and the quip is promoted to
+   the persistent bank. If the receipt write fails, bank storage is attempted
+   before GitHub work so a paid result still has durable protection.
 
 Add the `no-goblin` label to silence Kanarek on a PR. Removing it restores the
 companion.
@@ -50,18 +52,30 @@ The persistent phrase bank lives in Workers KV under
 - Up to 256 learned quips are retained per `quipKey` context and 4096 total.
 - A live selection reads at most 24 entries from the current context, rotated
   by `stateHash`.
-- Learned entries have no age TTL. Incremental maintenance removes legacy
-  expirations and trims overflow.
+- Learned AI/pool entries must satisfy the 45–110 character contract used for
+  new AI output. Presets are intentionally exempt and are never stored.
+- Invalid or wrong-language learned entries encountered in a live bank window
+  are removed incrementally. Cleanup is best-effort: a failed delete never
+  makes already-read valid bank entries unavailable.
+- Learned entries have no age TTL. Concurrent, throttled maintenance removes
+  legacy expirations, rejects invalid migration candidates, and trims overflow.
 - AI-generated quips are stored. Historical pool quips are promoted to KV when
-  selected and missing there. Presets are never stored.
-- Legacy `BANK_KEY` entries remain readable and count toward bank fullness.
+  selected and missing there.
+- Legacy `BANK_KEY` entries remain readable; only reusable legacy values count
+  toward the current context fullness.
+- Per-entry occupancy is deliberately conservative until invalid values are
+  encountered and cleaned. A malformed stored key can temporarily make a
+  context look fuller, which can only reduce paid AI selection, never increase
+  spend.
 - When AI is not selected, the order is bank/comment pool, then preset.
-- When AI is selected but fails or returns the wrong language, Kanarek falls
-  back to the bank/comment pool before presets.
+- When AI is selected but fails validation, Kanarek falls back to the
+  bank/comment pool before presets.
 
 `KANAREK_AI_PERCENT` is the maximum AI rollout, not a permanent spend rate.
 The effective percentage decreases linearly as the current `quipKey` fills the
-space it can actually retain.
+space it can actually retain. A missing value keeps the default `25`; an
+explicit value must be a decimal integer percentage. Malformed or empty values
+fail closed to `0` rather than restoring a paid default accidentally.
 
 While the global cap is not binding, that space is 256 entries:
 
@@ -88,16 +102,33 @@ uses the shared pool and presets.
 Output ceilings intentionally stay generous: 128 tokens for the default
 non-reasoning OpenAI models and Anthropic, and 256 for Gemini, reasoning
 OpenAI models, and xAI. Gemini Flash-Lite is pinned to `minimal` thinking.
-Provider responses are accepted only after a normal
-completion; explicit token-limit or other incomplete stops are discarded and
-never enter the bank. Each real provider response emits a compact
-`kanarek_ai_generation` log with finish reason, provider-reported output and
-reasoning token counts, and final character count, but never the generated
-text. Use those complete-response samples before tightening a ceiling.
+Provider responses are accepted only after a normal completion and the learned
+45–110 character/language validation. Explicit token-limit and other incomplete
+stops never enter the bank.
+
+A request/network/HTTP failure may fall through to the next configured
+provider. Once a provider returns a parsed successful HTTP response, however,
+that AI attempt never calls another paid provider: unusable output falls back
+to the bank/presets instead. This bounds one parsed billable response per
+selected AI attempt.
+
+A valid paid quip is temporarily cached by repository, pull request, and exact
+`stateHash` for up to seven days. If GitHub work fails after generation, a retry
+reuses that receipt instead of paying AI again. Once the visible update and
+persistent-bank retention succeed, the receipt is removed. These receipts are
+idempotency data and do not count toward the 256/4096 learned-bank limits.
+
+Each real provider response emits a compact `kanarek_ai_generation` log with
+finish reason, provider-reported output and reasoning token counts, and final
+character count, but never the generated text or raw provider error bodies.
+Paid persistence emits separate receipt/bank diagnostics. Use complete response
+samples before tightening a ceiling.
 
 A provider can be disabled without removing its secret by setting the matching
 `KANAREK_OPENAI_ENABLED`, `KANAREK_ANTHROPIC_ENABLED`,
-`KANAREK_GEMINI_ENABLED`, or `KANAREK_XAI_ENABLED` variable to `false`.
+`KANAREK_GEMINI_ENABLED`, or `KANAREK_XAI_ENABLED` variable to a common false
+value (`false`, `0`, `no`, or `off`, case-insensitive). The same false values
+apply to `KANAREK_AI_ENABLED`.
 
 ## GPTomek
 
@@ -119,6 +150,7 @@ GPTomek does not need another Worker or webhook endpoint.
 - `src/companion-github.ts`: GitHub reads and comment upsert operations.
 - `src/companion-bank.ts`: persistent quip storage, adaptive AI budget,
   selection, migration, and pruning.
+- `src/companion-paid.ts`: short-lived paid-generation retry receipts.
 - `src/quip.ts`: presets, provider adapters, prompt contract, sanitization, and
   base AI rollout.
 - `src/companion-language.ts`: lightweight PL/EN detection and validation.

@@ -62,7 +62,7 @@ test('a full context always falls back to the pool even with a 100 percent ceili
 test('counts legacy quips in the current context fullness', async () => {
   const legacy = Array.from({ length: 64 }, (_, index) => ({
     k: quipKey,
-    q: `Legacy reusable bank quip number ${index}.`,
+    q: `Legacy reusable Kanarek bank quip number ${index} remains valid for capacity testing.`,
   }));
   const kv = {
     async get(key: string) {
@@ -121,7 +121,12 @@ test('reuses measured keys and legacy data when falling back to the bank', async
   const values = new Map(
     names.map((name, index) => [
       name,
-      JSON.stringify([{ k: quipKey, q: `Reusable bank quip number ${index}.` }]),
+      JSON.stringify([
+        {
+          k: quipKey,
+          q: `Reusable Kanarek bank quip number ${index} remains valid for measured fallback testing.`,
+        },
+      ]),
     ]),
   );
   let listCalls = 0;

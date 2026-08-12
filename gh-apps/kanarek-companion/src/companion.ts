@@ -88,6 +88,12 @@ export async function commentStateHash(
   quipFacts: QuipFacts,
   state: CommentStateInput,
 ): Promise<string> {
+  if (quipFacts.status === 'merged' || quipFacts.status === 'closed') {
+    return hash({
+      ...quipFacts,
+      files: state.files,
+    });
+  }
   return hash({
     ...quipFacts,
     behind: state.behind,

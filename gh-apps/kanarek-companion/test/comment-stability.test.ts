@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { commentStateHash, render } from '../src/companion.ts';
+import { blockerKinds, commentStateHash, render } from '../src/companion.ts';
 import type { PullRequest } from '../src/companion-types.ts';
 
 const basePr: PullRequest = {
@@ -59,4 +59,127 @@ test('keeps comment state and rendering stable across head-only changes', async 
   const second = await stateAndBody('2'.repeat(40));
   assert.equal(first.stateHash, second.stateHash);
   assert.equal(first.body, second.body);
+});
+
+test('keeps CI startup stable from missing results into pending checks', async () => {
+  const review = { approvals: 0, changes: 0 };
+  const facts = {
+    status: 'waiting',
+    blockers: ['ci-missing'],
+    area: 'Gh apps',
+    size: 'tiny',
+    language: 'en',
+  };
+  const stateHash = await commentStateHash(facts, {
+    head: '1'.repeat(40),
+    behind: 0,
+    reviews: review,
+    autoMerge: null,
+    files: 2,
+  });
+  const current = {
+    key: 'waiting',
+    title: '🟡 waiting',
+    blockers: ['no CI results'],
+  };
+  const missingBody = render(
+    basePr,
+    { behind: 0 },
+    { failed: [], passed: [], pending: [], total: 0 },
+    review,
+    ['Gh apps'],
+    current,
+    'Waiting for CI.',
+    stateHash,
+    'fedcba9876543210',
+    'preset',
+    [],
+    true,
+  );
+  const pendingBody = render(
+    basePr,
+    { behind: 0 },
+    { failed: [], passed: [], pending: [{}, {}], total: 2 },
+    review,
+    ['Gh apps'],
+    { ...current, blockers: ['2 checks pending'] },
+    'Waiting for CI.',
+    stateHash,
+    'fedcba9876543210',
+    'preset',
+    [],
+    true,
+  );
+  assert.equal(missingBody, pendingBody);
+  assert.match(missingBody, /CI 🟡/);
+});
+
+test('keeps optional pending CI represented in quip facts', () => {
+  assert.deepEqual(
+    blockerKinds(
+      basePr,
+      { behind: 0 },
+      { failed: [], passed: [], pending: [{}], total: 1 },
+      { approvals: 0, changes: 0 },
+      false,
+    ),
+    ['ci-pending'],
+  );
+});
+
+test('freezes merged comments against late CI, review, and branch churn', async () => {
+  const facts = {
+    status: 'merged',
+    blockers: [] as string[],
+    area: 'Gh apps',
+    size: 'tiny',
+    language: 'en',
+  };
+  const firstHash = await commentStateHash(facts, {
+    head: '1'.repeat(40),
+    behind: 0,
+    reviews: { approvals: 2, changes: 0 },
+    autoMerge: 'squash',
+    files: 2,
+  });
+  const laterHash = await commentStateHash(facts, {
+    head: '2'.repeat(40),
+    behind: 9,
+    reviews: { approvals: 0, changes: 3 },
+    autoMerge: null,
+    files: 2,
+  });
+  assert.equal(firstHash, laterHash);
+
+  const mergedPr = { ...basePr, merged: true, state: 'closed' } as PullRequest;
+  const firstBody = render(
+    mergedPr,
+    { behind: 0 },
+    { failed: [], passed: [{}], pending: [], total: 1 },
+    { approvals: 2, changes: 0 },
+    ['Gh apps'],
+    { key: 'merged', title: '🟣 merged', blockers: [] },
+    'Merged.',
+    firstHash,
+    'fedcba9876543210',
+    'preset',
+    [],
+    true,
+  );
+  const laterBody = render(
+    mergedPr,
+    { behind: 9 },
+    { failed: [{}], passed: [], pending: [{}, {}], total: 3 },
+    { approvals: 0, changes: 3 },
+    ['Gh apps'],
+    { key: 'merged', title: '🟣 merged', blockers: [] },
+    'Merged.',
+    laterHash,
+    'fedcba9876543210',
+    'preset',
+    [],
+    true,
+  );
+  assert.equal(firstBody, laterBody);
+  assert.doesNotMatch(firstBody, /CI |review /);
 });

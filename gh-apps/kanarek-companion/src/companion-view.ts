@@ -115,12 +115,14 @@ export function status(
 }
 
 export function blockerKinds(
-  pr: Pick<PullRequest, 'mergeable' | 'mergeable_state'>,
+  pr: Pick<PullRequest, 'mergeable' | 'mergeable_state' | 'merged' | 'state'>,
   branch: BranchState,
   ci: CiState,
   review: ReviewState,
   ciRequired = true,
 ): string[] {
+  if (pr.merged || pr.state === 'closed') return [];
+
   const kinds = [
     branch.behind !== null && branch.behind > 0 ? 'behind' : null,
     branch.behind === null ? 'branch-unknown' : null,
@@ -128,8 +130,11 @@ export function blockerKinds(
       ? 'conflict'
       : null,
     pr.mergeable === null ? 'mergeability-pending' : null,
-    ciRequired && ci.total === 0 ? 'ci-missing' : null,
-    ci.pending.length ? 'ci-pending' : null,
+    ciRequired && (ci.total === 0 || ci.pending.length)
+      ? 'ci-missing'
+      : !ciRequired && ci.pending.length
+        ? 'ci-pending'
+        : null,
     ci.failed.length ? 'ci-failed' : null,
     review.changes ? 'review-changes' : null,
   ].filter((value): value is string => Boolean(value));
@@ -149,7 +154,7 @@ function branchBadge(pr: PullRequest, branch: BranchState): string {
 
 function checksBadge(ci: CiState, ciRequired: boolean): string {
   if (ci.total === 0 && !ciRequired) return 'CI ➖';
-  if (ci.total === 0) return 'CI ⚪';
+  if (ci.total === 0) return 'CI 🟡';
   if (ci.failed.length) return 'CI 🔴';
   if (ci.pending.length) return 'CI 🟡';
   return 'CI ✅';
@@ -176,12 +181,15 @@ export function render(
   ciRequired = true,
   branchUpdateWarning: string | null = null,
 ): string {
-  const badges = [
-    branchBadge(pr, branch),
-    checksBadge(ci, ciRequired),
-    reviewBadge(review),
-  ];
-  if (pr.auto_merge && !pr.merged && pr.state !== 'closed') {
+  const terminal = pr.merged || pr.state === 'closed';
+  const badges = terminal
+    ? [branchBadge(pr, branch)]
+    : [
+        branchBadge(pr, branch),
+        checksBadge(ci, ciRequired),
+        reviewBadge(review),
+      ];
+  if (pr.auto_merge && !terminal) {
     badges.push('auto-merge ✅');
   }
   const details = current.blockers.filter((item) =>

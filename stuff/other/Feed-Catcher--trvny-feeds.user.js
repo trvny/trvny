@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Feed-Catcher->trvny/feeds
+// @name         Feed-Catcher->trvny/feedseek
 // @namespace    trvny
 // @version      0.2.0
-// @description  Detect RSS/Atom/JSON feeds on any page, one-tap add to trvny/feeds
+// @description  Detect RSS/Atom/JSON feeds on any page, one-tap add to trvny/feedseek
 // @match        *://*/*
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -10,7 +10,7 @@
 // @grant        GM_xmlhttpRequest
 // @connect      *
 // @run-at       document-idle
-// @homepageURL  https://trvny.github.io/feeds/reader
+// @homepageURL  https://trvny.github.io/feedseek/reader
 // @icon         https://www.mozilla.org/media/img/trademarks/feed-icon-28x28.e077f1f611f0.png
 // @noframes
 // ==/UserScript==
@@ -18,7 +18,7 @@
 (function () {
   'use strict';
 
-  const REPO = () => GM_getValue('repo', 'trvny/feeds');
+  const REPO = () => GM_getValue('repo', 'trvny/feedseek');
   const TOKEN = () => GM_getValue('gh_token', '');
 
   const FEED_TYPES = [

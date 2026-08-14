@@ -208,7 +208,7 @@ export async function refreshCompanion(
     reviews(client, target.repository, target.pullRequestNumber),
     comments(client, target.repository, target.pullRequestNumber),
   ]);
-  const projectAreas = areas(changedFiles);
+  const projectAreas = areas(changedFiles, target.repository);
   const prSize = size(pr);
   const current = status(pr, branch, ci, review, ciRequired);
   const kinds = blockerKinds(pr, branch, ci, review, ciRequired);

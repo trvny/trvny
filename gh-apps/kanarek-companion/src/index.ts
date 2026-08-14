@@ -10,6 +10,10 @@ import {
   GitHubApiError,
   type InstallationAccessCheck,
 } from './github-app.ts';
+import {
+  handleGptomekIssueControl,
+  isGptomekControlIssueEdit,
+} from './gptomek-issue.ts';
 import { hasAiProvider } from './quip.ts';
 
 interface Env extends CompanionEnv {
@@ -51,6 +55,7 @@ const SUPPORTED_EVENTS = new Set([
   'check_suite',
   'installation',
   'installation_repositories',
+  'issues',
   'ping',
   'pull_request',
   'pull_request_review',
@@ -264,6 +269,9 @@ function isCompanionEvent(
   if (!metadata.event) return false;
   if (metadata.event === 'status') return true;
   if (!metadata.action) return false;
+  if (metadata.event === 'issues') {
+    return isGptomekControlIssueEdit(metadata, payload);
+  }
   if (metadata.event === 'pull_request') {
     if (metadata.action === 'edited') {
       return gptomekControlEdit(metadata, payload);
@@ -307,7 +315,11 @@ async function companionTargets(
   let numbers: number[] = [];
   let sha: string | null = null;
 
-  if (metadata.event === 'pull_request') {
+  if (metadata.event === 'issues') {
+    const issue = payload.issue as { number?: unknown } | undefined;
+    const direct = validNumber(issue?.number);
+    numbers = direct ? [direct] : [];
+  } else if (metadata.event === 'pull_request') {
     const direct = validNumber(payload.number);
     numbers = direct ? [direct] : [];
   } else if (metadata.event === 'pull_request_review') {
@@ -759,7 +771,10 @@ export class CommentProbeLock {
       return { ok: true, duplicate: true };
     }
 
-    const result = await refreshCompanion(target, this.env);
+    const result =
+      target.sourceEvent === 'issues'
+        ? await handleGptomekIssueControl(target, this.env)
+        : await refreshCompanion(target, this.env);
     await this.state.storage.put(
       PROCESSED_DELIVERIES_KEY,
       [

@@ -135,6 +135,21 @@ test('sanitizes contributor-controlled project area labels', () => {
   assert.deepEqual(areas(['@some-user/file.ts']), ['Some user']);
 });
 
+test('labels standalone split repositories from their root layout', () => {
+  assert.deepEqual(
+    areas(['app/src/main/MainActivity.kt', 'worker/src/index.ts'], 'trvny/kanarek'),
+    ['Kanarek Android', 'Kanarek Worker'],
+  );
+  assert.deepEqual(
+    areas(['feed_generators/reuters.py', 'feeds.yaml'], 'trvny/feedseek'),
+    ['Feedseek'],
+  );
+  assert.deepEqual(
+    areas(['README.md', '.github/workflows/ci.yml'], 'trvny/feedseek'),
+    ['Documentation', 'GitHub automation'],
+  );
+});
+
 test('uses the bank outside the configured AI rollout', async () => {
   const quipKey = 'aaaaaaaaaaaaaaaa';
   const noAi = {} as CompanionEnv;

@@ -8,9 +8,9 @@ bindings, no token, plus outbound GitHub fetches.
 
 ## Why one server, one tool
 
-`tvpi`, `feeds`, `weather`, and `autka` each have a health surface. Rather than
-four connectors and four tool calls, this is **one connector** exposing **one
-`status` tool** that fans out to all four in parallel and returns a compact
+`tvpi`, **Feedseek**, `weather`, and `autka` each have a health surface. Rather
+than four connectors and four tool calls, this is **one connector** exposing
+**one `status` tool** that fans out to all four in parallel and returns a compact
 roll-up — a morning check in a single invocation.
 
 ## The tool
@@ -22,12 +22,14 @@ roll-up — a morning check in a single invocation.
 | `project` | string | — | scope to one; omit for all four |
 | `deep` | boolean | `false` | probe TVPI channel redirects |
 
-`project` accepts `tvpi`, `feeds`, `weather`, or `autka`.
+`project` accepts `tvpi`, `feeds`, `weather`, or `autka`. The `feeds` selector is
+kept as the compatibility key for **Feedseek** after the repository rename.
 
 - **tvpi** — reads `/playlist.m3u`'s `X-Source-*` headers: `live`/`cache` = ok,
   `kv`/`raw`/`r2` = degraded, absent = down.
-- **feeds** — pipeline pass/fail from the `update-feeds.yml` badge SVG, plus a
-  best-effort `feeds.yaml`-vs-`feeds/` cross-check for missing/tiny files.
+- **Feedseek** (`feeds`) — pipeline pass/fail from the `update-feeds.yml` badge
+  SVG in `trvny/feedseek`, plus a best-effort root `feeds.yaml`-vs-`feeds/`
+  cross-check for missing/tiny files.
 - **weather** — `/healthz` freshness, live source coverage, IMGW warning
   freshness, forecast cycle state, and entry count.
 - **autka** — backend `/health`, `/offers` count, `/sources`, and the

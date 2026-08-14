@@ -54,19 +54,30 @@ function rootLabel(root: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function areaFor(file: string): string {
-  if (file.startsWith('kanarek/app/')) return 'Kanarek Android';
-  if (file.startsWith('kanarek/worker/')) return 'Kanarek Worker';
-  if (file.startsWith('kanarek/')) return 'Kanarek';
-  if (file.startsWith('feedseek/')) return 'Feedseek';
+function areaFor(file: string, repository = ''): string {
+  const repo = repository.toLowerCase();
+
+  if (repo === 'trvny/kanarek') {
+    if (file.startsWith('.github/')) return 'GitHub automation';
+    if (file.startsWith('docs/') || file.endsWith('.md')) return 'Documentation';
+    if (file.startsWith('app/')) return 'Kanarek Android';
+    if (file.startsWith('worker/')) return 'Kanarek Worker';
+    return 'Kanarek';
+  }
+  if (repo === 'trvny/feedseek') {
+    if (file.startsWith('.github/')) return 'GitHub automation';
+    if (file.startsWith('docs/') || file.endsWith('.md')) return 'Documentation';
+    return 'Feedseek';
+  }
+
   if (file.startsWith('.github/')) return 'GitHub automation';
   if (file.startsWith('docs/') || file.endsWith('.md')) return 'Documentation';
   if (!file.includes('/')) return 'Repo root';
   return rootLabel(file.split('/')[0]);
 }
 
-export function areas(files: string[]): string[] {
-  return [...new Set(files.map(areaFor))];
+export function areas(files: string[], repository = ''): string[] {
+  return [...new Set(files.map((file) => areaFor(file, repository)))];
 }
 
 export function size(pr: Pick<PullRequest, 'additions' | 'deletions' | 'changed_files'>): { key: string } {

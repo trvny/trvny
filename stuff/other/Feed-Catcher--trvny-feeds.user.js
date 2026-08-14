@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Feed-Catcher->trvny/feedseek
 // @namespace    trvny
-// @version      0.2.0
+// @version      0.2.1
 // @description  Detect RSS/Atom/JSON feeds on any page, one-tap add to trvny/feedseek
 // @match        *://*/*
 // @grant        GM_getValue

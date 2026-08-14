@@ -56,7 +56,7 @@ test('recognizes only trvny/trvny#176 as the GPTomek control PR', () => {
   );
   assert.equal(
     isGptomekControlPr(
-      { ...target, repository: 'trvny/feeds' },
+      { ...target, repository: 'trvny/feedseek' },
       controlPr,
     ),
     false,
@@ -80,7 +80,7 @@ test('encodes commands in a single hidden marker', () => {
   const marker = commandMarker({
     id: 'test-1',
     op: 'comment',
-    repository: 'trvny/feeds',
+    repository: 'trvny/feedseek',
     pullRequestNumber: 12,
     body: 'hello',
   });

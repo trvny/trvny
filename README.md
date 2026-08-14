@@ -6,7 +6,7 @@
 
 <br>
 
-[![feeds](https://img.shields.io/badge/feeds-live-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feedseek)
+[![feedseek](https://img.shields.io/badge/feedseek-live-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feedseek)
 [![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://travny.pages.dev/tv/)
 [![weather](https://img.shields.io/badge/weather-KOŚCIELEC-f38020?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.travny.workers.dev)
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.travny.workers.dev)
@@ -25,7 +25,8 @@
 
 | projekt | wejścia | co tam siedzi |
 |---|---|---|
-| 📡 **Feeds** | [repo](https://github.com/trvny/feedseek) · [strona](https://trvny.github.io/feedseek) · [czytnik](https://trvny.github.io/feedseek/reader/) | **Feedseek** produkuje RSS/Atom, a **Kanarek** czyta feedy i odtwarza radio/IPTV na Androidzie. |
+| 📡 **Feedseek** | [repo](https://github.com/trvny/feedseek) · [strona](https://trvny.github.io/feedseek) · [czytnik](https://trvny.github.io/feedseek/reader/) | Generator i publikator RSS/Atom dla źródeł bez użytecznych natywnych feedów. |
+| 🐤 **Kanarek** | [repo](https://github.com/trvny/kanarek) | Androidowy czytnik RSS/Atom, widżety oraz odtwarzacz radia/IPTV. |
 | 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [strona](https://travny.pages.dev/tv/) · [playlista](https://tvpi.travny.workers.dev/playlist.m3u) | Stabilne wejścia IPTV do kanałów TVP, Worker oraz residential-push do odświeżania tokenów HLS. |
 | 🚗 **Autka** | [repo](https://github.com/trvny/autka) | Androidowy agregator ofert samochodów z Polski, UE i importu z USA, razem z kalkulacją kosztu sprowadzenia. |
 | 🔊 **WAM Bridge** | [repo](https://github.com/trvny/wambridge) | Most audio do głośników Samsung Wireless Audio Multiroom oraz natywne wyjście foobar2000 dla Shape M5. |
@@ -37,7 +38,7 @@
 | 🔳 **[Codebench](codebench/)** | [codebench.travny.workers.dev](https://codebench.travny.workers.dev) | Prywatne, przeglądarkowe studio QR i kodów kreskowych. Dane nie opuszczają przeglądarki. |
 | 📻 **[Streambench](streambench/)** | [streambench.travny.workers.dev](https://streambench.travny.workers.dev) | Warsztat do testowania, porządkowania i odtwarzania IPTV, radia, HLS, M3U oraz XMLTV. |
 | 🌦️ **[weather-feed](weather-feed/)** | [weather.travny.workers.dev](https://weather.travny.workers.dev) | Wieloźródłowa pogoda i alerty IMGW dla Kościelca/Chrzanowa, wystawione jako Atom i JSON. |
-| 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | Jedno narzędzie do zbiorczego sprawdzania zdrowia TVPI, Feeds i Autek. |
+| 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | Jedno narzędzie do zbiorczego sprawdzania zdrowia TVPI, Feedseek i Autek. |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Publiczny rdzeń konfiguracji AI + prywatny profil, archiwum i projektowe skillsy. |
 
 ## 🗄️ Szuflady

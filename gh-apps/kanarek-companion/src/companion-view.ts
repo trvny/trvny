@@ -70,10 +70,6 @@ function areaFor(file: string, repository = ''): string {
     return 'Feedseek';
   }
 
-  if (file.startsWith('kanarek/app/')) return 'Kanarek Android';
-  if (file.startsWith('kanarek/worker/')) return 'Kanarek Worker';
-  if (file.startsWith('kanarek/')) return 'Kanarek';
-  if (file.startsWith('feedseek/')) return 'Feedseek';
   if (file.startsWith('.github/')) return 'GitHub automation';
   if (file.startsWith('docs/') || file.endsWith('.md')) return 'Documentation';
   if (!file.includes('/')) return 'Repo root';

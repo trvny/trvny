@@ -45,4 +45,4 @@ CSS_STYLELINT_FILTER_REGEX_EXCLUDE: "streambench/public/styles\\.css"
 HTML_DJLINT_FILTER_REGEX_EXCLUDE: "(codebench/public/index\\.html|streambench/public/index\\.html)"
 HTML_HTMLHINT_FILTER_REGEX_EXCLUDE: "codebench/public/index\\.html"
 
-MARKDOWN_MARKDOWNLINT_CONFIG_FILE: "https://raw.githubusercontent.com/trvny/feeds/refs/heads/main/.github/linters/.markdownlint.json"
+MARKDOWN_MARKDOWNLINT_CONFIG_FILE: "https://raw.githubusercontent.com/trvny/feedseek/refs/heads/main/.github/linters/.markdownlint.json"

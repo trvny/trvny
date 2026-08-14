@@ -2,7 +2,7 @@
   "name": "status-mcp",
   "version": "1.0.0",
   "private": true,
-  "description": "One MCP tool that health-checks four travny projects (tvpi, feeds, weather, autka). Cloudflare Worker, free tier.",
+  "description": "One MCP tool that health-checks four travny projects (tvpi, Feedseek, weather, autka). Cloudflare Worker, free tier.",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",

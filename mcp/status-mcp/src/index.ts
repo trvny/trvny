@@ -136,9 +136,9 @@ async function checkTvpi(env: Env, deep: boolean): Promise<ProjectResult> {
 // ===========================================================================
 
 const FEEDS_OWNER = "trvny";
-const FEEDS_REPO = "feeds";
-// Feed generators + registry + output XML all live under this subdir.
-const FEEDS_SUBDIR = "feedseek";
+const FEEDS_REPO = "feedseek";
+// Feedseek now lives at the repository root.
+const FEEDS_PREFIX = "";
 const FEEDS_RAW = `https://raw.githubusercontent.com/${FEEDS_OWNER}/${FEEDS_REPO}/main`;
 const FEEDS_API = `https://api.github.com/repos/${FEEDS_OWNER}/${FEEDS_REPO}`;
 const FEEDS_WORKFLOW = "update-feeds.yml";
@@ -161,7 +161,7 @@ function parseRegistryNames(yaml: string): string[] {
 
 async function listFeedFiles(): Promise<Array<{ name: string; size: number }> | null> {
   try {
-    const res = await fetch(`${FEEDS_API}/contents/${FEEDS_SUBDIR}/feeds?ref=main`, {
+    const res = await fetch(`${FEEDS_API}/contents/${FEEDS_PREFIX}feeds?ref=main`, {
       headers: { "User-Agent": UA, Accept: "application/vnd.github+json" },
       signal: timeout(FETCH_TIMEOUT_MS),
     });
@@ -176,7 +176,7 @@ async function listFeedFiles(): Promise<Array<{ name: string; size: number }> | 
 async function checkFeeds(): Promise<ProjectResult> {
   try {
     const [yamlRes, files, pipeline] = await Promise.all([
-      fetch(`${FEEDS_RAW}/${FEEDS_SUBDIR}/feeds.yaml`, { signal: timeout(FETCH_TIMEOUT_MS) }),
+      fetch(`${FEEDS_RAW}/${FEEDS_PREFIX}feeds.yaml`, { signal: timeout(FETCH_TIMEOUT_MS) }),
       listFeedFiles(),
       badgeStatus(FEEDS_OWNER, FEEDS_REPO, FEEDS_WORKFLOW),
     ]);

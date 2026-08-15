@@ -90,11 +90,41 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    input::placeholder, textarea::placeholder {
+      color: var(--muted, #6c6a5e);
+      opacity: .42;
+    }
     @media (max-width: 700px) {
       .qr-style-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
   `;
   document.head.appendChild(style);
+
+  const quietZone = document.querySelector("#qMargin");
+  if (quietZone) quietZone.value = "10";
+  const clearLogoBackground = document.querySelector("#qLogoClear");
+  if (clearLogoBackground) clearLogoBackground.checked = false;
+
+  if (typeof templates !== "undefined") {
+    const compactPlaceholders = {
+      url: { url: "https://example.com" },
+      text: { text: "" },
+      wifi: { ssid: "", pass: "" },
+      vcard: { fn: "", org: "", title: "", phone: "+48…", email: "name@example.com", url: "https://…", adr: "" },
+      email: { to: "name@example.com", subject: "", body: "" },
+      sms: { num: "+48…", msg: "" },
+      tel: { num: "+48…" },
+      geo: { lat: "52.23", lng: "21.01" },
+      event: { title: "", loc: "" },
+    };
+    Object.entries(compactPlaceholders).forEach(([templateName, placeholders]) => {
+      templates[templateName]?.forEach((field) => {
+        if (Object.hasOwn(placeholders, field.k)) field.ph = placeholders[field.k];
+      });
+    });
+    const urlField = templates.url?.find((field) => field.k === "url");
+    if (urlField) urlField.v = "";
+  }
 
   const pattern = [
     [0, 0], [1, 0], [3, 0], [4, 0],

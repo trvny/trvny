@@ -53,7 +53,7 @@ jobs:
             triggers="$(
               curl "${curl_args[@]}" "${api}/builds/workers/${tag}/triggers"
             )"
-            triggger_uuid="$(
+            trigger_uuid="$(
               jq -r '
                 [
                   .result[]
@@ -62,7 +62,7 @@ jobs:
                 ][0] // empty
               ' <<<"$triggers"
             )"
-            if [ -z "$triggger_uuid" ]; then
+            if [ -z "$trigger_uuid" ]; then
               echo "::error::Production build trigger for ${script} not found."
               return 1
             fi

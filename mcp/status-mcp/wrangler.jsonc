@@ -4,7 +4,12 @@
   "main": "src/entry.ts",
   "compatibility_date": "2026-07-14",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": false,
+  // A remote MCP connector can only reach a public URL, so workers.dev has to
+  // be on for this to be usable as one at all. What keeps it from being an open
+  // button that makes the bound Workers do work is the bearer check in
+  // src/entry.ts, which fails closed when STATUS_MCP_TOKEN is unset.
+  // Previews stay off: they would publish the same endpoint on per-version URLs.
+  "workers_dev": true,
   "preview_urls": false,
   "observability": { "enabled": true,
     "logs": {

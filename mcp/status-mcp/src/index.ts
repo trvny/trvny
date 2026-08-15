@@ -429,7 +429,12 @@ export default {
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Mcp-Session-Id, Mcp-Protocol-Version",
+          // Authorization is not CORS-safelisted, so a cross-origin browser
+          // client only sends the bearer token if the preflight advertises it.
+          // Leaving it out would make the token requirement unsatisfiable from
+          // a browser: the preflight passes, the POST never leaves.
+          "Access-Control-Allow-Headers": "Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version",
+          "Access-Control-Max-Age": "86400",
         },
       });
     }

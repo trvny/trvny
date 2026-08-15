@@ -26,7 +26,8 @@
     "logs": {
       "enabled": true,
       "head_sampling_rate": 0.01,
-      "invocation_logs": true
+      "persist": false,
+      "invocation_logs": false
     }
   }
 }

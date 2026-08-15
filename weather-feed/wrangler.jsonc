@@ -11,7 +11,8 @@
     "logs": {
       "enabled": true,
       "head_sampling_rate": 0.01,
-      "invocation_logs": true
+      "persist": true,
+      "invocation_logs": false
     }
   },
 

@@ -184,10 +184,11 @@ test('freezes merged comments against late CI, review, and branch churn', async 
   assert.doesNotMatch(firstBody, /CI |review /);
 });
 
-// A merge to the base branch changes `behind` for every open pull request at
-// once. When that count reached the state hash verbatim, one merge rewrote every
-// companion comment, saying nothing new about any of them. The hash now stores
-// whether we are behind, so a pull request falls behind once and stays put.
+// A merge to the base branch changes the exact `behind` count for every open
+// pull request at once. When that count reached the state hash and badge
+// verbatim, one merge rewrote every companion comment without any of them
+// having changed. The hash now stores unknown/current/behind, so a pull
+// request falls behind once and then stays put.
 const behindHash = (behind: number) =>
   commentStateHash(
     {

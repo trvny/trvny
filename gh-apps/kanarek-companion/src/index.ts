@@ -40,13 +40,7 @@ interface CompanionLockResponse {
 const MAX_BODY_BYTES = 1_048_576;
 const WEBHOOK_PATH = '/webhooks/github';
 const HEALTH_PATH = '/health';
-const COALESCE_DELAY_MS = 1_000;
-const COALESCED_EVENTS = new Set([
-  'check_run',
-  'check_suite',
-  'status',
-  'workflow_run',
-]);
+const COMMENT_WINDOW_MS = 10 * 60 * 1_000;
 const PENDING_TARGET_KEY = 'pending-target';
 const PENDING_DELIVERIES_KEY = 'pending-deliveries';
 const PROCESSED_DELIVERIES_KEY = 'processed-deliveries';
@@ -386,7 +380,10 @@ function isCompanionTarget(value: unknown): value is CompanionTarget {
 }
 
 function shouldCoalesceTarget(target: CompanionTarget): boolean {
-  return COALESCED_EVENTS.has(target.sourceEvent);
+  if (target.sourceEvent === 'issues') return false;
+  return !(
+    target.repository === 'trvny/trvny' && target.pullRequestNumber === 176
+  );
 }
 
 async function runTarget(target: CompanionTarget, env: Env): Promise<void> {
@@ -677,7 +674,7 @@ export class CommentProbeLock {
       ].slice(0, 64),
     });
     if ((await this.state.storage.getAlarm()) === null) {
-      await this.state.storage.setAlarm(Date.now() + COALESCE_DELAY_MS);
+      await this.state.storage.setAlarm(Date.now() + COMMENT_WINDOW_MS);
     }
     return json({ ok: true, duplicate: false, queued: true });
   }
@@ -814,6 +811,7 @@ const worker = {
 
 export default worker;
 export {
+  COMMENT_WINDOW_MS,
   companionTargets,
   isCompanionEvent,
   readLimitedBody,

@@ -4,14 +4,20 @@ Working notes that stay true away from the machine they were written on. Read
 these before starting work; they are context, not instructions, and several of
 them exist because something was got wrong once already.
 
-## Where this comes from
+## Two directions, never both for one file
 
-The maintained store is `~/.claude/memory` on the author's machine, loaded
-automatically in local sessions. It is not reachable from a clone, so a remote
-agent would otherwise start with none of it.
+```text
+memory/
+├── *.md            exported DOWN from ~/.claude/memory — read-only here
+└── field-notes/    written UP, here, by whoever worked in this repository
+```
 
-This directory is an **export of the portable subset** of that store. It is a
-copy, which means it can drift, so the direction is fixed:
+Each note has exactly one side that authors it. That is the whole design: a file
+written from both ends needs two-way sync, and two-way sync drifts.
+
+**Exported notes (this directory).** The maintained store is `~/.claude/memory`
+on the author's machine, loaded automatically in local sessions and unreachable
+from a clone. The files here are copies of its portable subset, so:
 
 - fix or extend a note **at the source**, then re-export it here,
 - do not edit a file in this directory to correct it — the fix would be lost the
@@ -19,15 +25,27 @@ copy, which means it can drift, so the direction is fixed:
 - entries that are only true on that one machine (PowerShell quirks, PATH policy,
   winget, hardware, sleep behaviour) stay out on purpose.
 
+**Field notes (`field-notes/`).** Written in the repository, by anyone working
+in it, including delegated agents and sessions with no access to the local
+machine at all. They travel up: the author may later promote one into the local
+store, and until then it lives here and is read like any other note. See
+`field-notes/README.md` before adding one.
+
 Frontmatter keeps its `originSessionId` and `modified` from the source. Both are
 artefacts of the local store; ignore them here.
 
 ## Links that go nowhere
 
-Notes cross-reference each other as `[[name]]`. A link is resolvable here only if
-the name appears in the index below — the rest point into the local store and
-cannot be followed from a clone. That is expected, not a broken file. Treat an
-unresolvable link as "there is more on this at the source", and carry on.
+Notes cross-reference each other as `[[name]]`. This file is authoritative on
+what resolves: a link resolves if `<name>.md` exists in this directory or in
+`field-notes/`. Everything else points into the local store and cannot be
+followed from a clone — expected, not a broken file. Treat an unresolvable link
+as "there is more on this at the source", and carry on.
+
+Resolution is by file, not by index entry, so an exported note that never made
+it into the index below still resolves. The index covers the exported notes only;
+`field-notes/` has none by design — see its README for why, and for how to find
+things there instead.
 
 ## Index
 
@@ -37,7 +55,7 @@ unresolvable link as "there is more on this at the source", and carry on.
 - `memory-state-vs-durable` — never record live state (open PRs, HEADs, file lists) as a bare fact; date it and say how to re-check.
 - `secret-scan-patterns` — scan for the *shape* of a value, not the parameter name. Two of four keys were missed by a name-based regex.
 - `merge-conflict-marker-check` — after resolving a conflict with a script, grep the whole tree; markers once passed CI and a review round.
-- `feedback-short-github-comments` — keep GitHub comments to the point; long analysis belongs in the conversation.
+- `feedback-short-github-comments` — how to conduct yourself on GitHub: keep comments to the point (long analysis belongs in the conversation), close the threads you fixed, react to review comments that helped, and answer reviewers in the language they wrote in.
 - `remote-claude-delegation` — a closed, well-specified chunk goes to a remote agent and comes back as a PR; exploration stays in the interactive session.
 
 ### GitHub and git

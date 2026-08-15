@@ -4,7 +4,7 @@ description: "Don't open a branch+PR for a one-line fix just to merge it a minut
 metadata: 
   node_type: memory
   type: feedback
-  modified: 2026-08-12T04:27:45.223Z
+  modified: 2026-08-15T03:16:14.332Z
   originSessionId: b9d96a3a-e8be-49ee-bfe9-fd8c41ecc18b
 ---
 
@@ -41,6 +41,24 @@ still linted and built.
 > Codexowej (`FEEDSEEK_IMAGE_LOOKUPS=0` znaczylo „bez limitu" zamiast „wylacz", bo `if limit`
 > jest falszywe przy zerze). Znalazlem go sam przy smoke-tescie, ale to byl przypadek.
 > **Test: czy plik jest nowy albo czy CI ma szanse tego nie zlapac — jesli tak, to PR.**
+
+> **Drugi raz, 15.08.2026 — `trvny/trvny`, siedem commitow prosto na `main`.** Hook
+> `SessionStart`, `AGENTS.md`, przebudowa `.ai/`, config MegaLintera. Test z korekty wyzej
+> zadzialalby bez pudla: **CI nie mialo szans tego zlapac** — hook byl wykluczony z lintowania
+> (`.claude/` w `FILTER_REGEX_EXCLUDE`), a odwroconej precedencji w `AGENTS.md` zaden linter nie
+> wylapie. Recenzja subagenta znalazla potem **cztery prawdziwe bledy**, w tym hook, ktory nigdy
+> sie nie uruchamial na Windowsie. Wszystkie byly klasy PR-owej.
+>
+> **Mechanizm porazki, ten sam oba razy:** ciag drobnych edycji, kazda z osobna trywialna,
+> i ani razu przeliczenia calosci. Decyzja „main czy PR" zapada przy pierwszym commicie i potem
+> nikt jej nie rewiduje, choc zakres puchnie.
+>
+> **Poprawka od uzytkownika, ta sama sesja — moje sformulowanie bylo zle.** Napisalem
+> „decyduj na starcie", a na starcie wlasnie nie wiadomo: *„czasem zaczyna sie od »a tylko to
+> zmienie« a konczy »13 changed files, 23452 lines«"*. Zaczynaj bez otwierania czegokolwiek.
+> **Punkt decyzyjny jest przed pushem**, bo dopiero tam informacja istnieje: zerknij na
+> `git diff --stat` i jesli urosl snieg — kilka plikow albo cokolwiek, czego CI nie lintuje —
+> pozbieraj te commity na galaz i zrob PR. To jest wykonalne, „przewidz zakres z gory" nie jest.
 
 **Why:** stated 2026-08-02 — "jeśli ma iść branch+pr tylko po to żeby minutę później to merge to
 chyba lepiej od razu to na main". The default agent habit of branching off the default branch is a

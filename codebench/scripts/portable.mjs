@@ -21,6 +21,7 @@ const helperScripts = [
   "qr-output-plus.js",
   "qr-self-test.js",
   "barcode-formats.js",
+  "barcode-assist.js",
   "scanner-compat.js",
 ];
 

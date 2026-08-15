@@ -1,39 +1,21 @@
-# LLM style documents backup
+# Backups
 
-- `styles-pl.md`
-- `instructions-pl.md`
-- `styles-en.md`
-- `instructions-en.md`
-- `styles-schema.md`
-- `style-profile.schema.json`
-
-## Odtworzenie
-
-```bash
-cat .ai/backups/llm-styles-backup.tar.gz.b64.part* \
-  | base64 --decode \
-  > /tmp/llm-styles-backup.tar.gz
-
-mkdir -p .ai/backups/restored
-
-tar -xzf /tmp/llm-styles-backup.tar.gz \
-  -C .ai/backups/restored
-```
-
-Wynik:
+Historical storage. Nothing here is active configuration, and nothing should
+search this tree on a normal pass — open it only when you are after something
+specific and expect to find it here.
 
 ```text
-.ai/backups/restored/
-├── styles-pl.md
-├── instructions-pl.md
-├── styles-en.md
-├── instructions-en.md
-├── styles-schema.md
-└── style-profile.schema.json
+backups/
+├── archive/       superseded instructions, profiles, schema and styles
+├── skills/        retired and project-specific skill bundles
+└── llm-wiki.zip   wiki snapshot
 ```
 
-## Szybka weryfikacja
+`archive/` holds files replaced by the public core or by `.ai/profile.yaml`.
+They are kept for reference and migration, not for use. Do not edit an archived
+copy of a public-core file and synchronize it back — reusable changes go
+directly to `trvny/.ai`.
 
-```bash
-tar -tzf /tmp/llm-styles-backup.tar.gz
-```
+`skills/` holds skill bundles that are no longer wired into anything, plus ones
+that only ever made sense for a single project. Public, reusable skills belong
+in `trvny/.ai` instead.

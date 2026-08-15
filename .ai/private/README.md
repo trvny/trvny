@@ -1,15 +1,24 @@
 # Private AI storage
 
-Project-specific and personal material that does not belong in the public core.
+Project-specific and personal material that does not belong in the public core
+at `trvny/.ai`.
 
-Historical storage — do not read as instructions, and do not search by default.
-Go in only when something specific is missing and you expect to find it there:
+```text
+.ai/private/
+└── backups/    historical storage — do not read by default
+```
 
-- `backups/` keeps historical snapshots.
-- `archive/` keeps superseded files that may still be useful for reference or migration.
+Anything added here alongside `backups/` is live material and may be read as
+context. `backups/` is the exception, and the only one: nothing should search it
+on a normal pass. Go in when you are looking for something specific and expect
+it to be there — recovering a superseded file, checking what an old version
+said — not to build up context.
 
-Everything else here may be active. What is active says so in its own README:
+## Direction of changes
 
-- `skills/` keeps project-specific and archival skill bundles. Public skills belong in `trvny/.ai` instead.
+Reusable profiles, schemas, tools, templates, styles, instructions, provider
+defaults and intentionally public skills belong in `trvny/.ai`. Personal
+identity, private workflow, project-specific material and archives belong here.
 
-Do not edit an archived public-core copy and then synchronize it back. Reusable changes go directly to the public core.
+Do not copy a public core file here to customize it. Add an overlay, or change
+the public source.

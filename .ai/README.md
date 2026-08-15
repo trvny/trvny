@@ -5,7 +5,7 @@
 .ai/
 ├── core/          public submodule -> https://github.com/trvny/.ai
 ├── profile.yaml   private profile overlay
-└── private/       backups and archived personal/project material
+└── private/       personal and project material (backups/ is historical)
 ```
 
 Initialize the pinned public core after cloning:
@@ -45,4 +45,4 @@ The referenced merge tool, renderer, base profile, and schema are present in the
 
 Do not copy a public core file here to customize it. Add an overlay or change the public source instead.
 
-Material under `.ai/private/` is backup/archive storage and is not active configuration unless explicitly loaded.
+Material under `.ai/private/` may be active; see `.ai/private/README.md`. The exception is `.ai/private/backups/`, which is historical storage and is not read on a normal pass.

@@ -16,7 +16,10 @@ const helperScripts = [
   "frame-presets.js",
   "svg-compat.js",
   "qr-raster.js",
+  "qr-palette.js",
+  "qr-output-plus.js",
   "qr-self-test.js",
+  "barcode-formats.js",
   "scanner-compat.js",
 ];
 

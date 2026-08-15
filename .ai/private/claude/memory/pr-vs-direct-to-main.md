@@ -4,7 +4,7 @@ description: "Don't open a branch+PR for a one-line fix just to merge it a minut
 metadata: 
   node_type: memory
   type: feedback
-  modified: 2026-08-15T02:25:06.530Z
+  modified: 2026-08-15T03:16:14.332Z
   originSessionId: b9d96a3a-e8be-49ee-bfe9-fd8c41ecc18b
 ---
 
@@ -46,7 +46,7 @@ still linted and built.
 > `SessionStart`, `AGENTS.md`, przebudowa `.ai/`, config MegaLintera. Test z korekty wyzej
 > zadzialalby bez pudla: **CI nie mialo szans tego zlapac** — hook byl wykluczony z lintowania
 > (`.claude/` w `FILTER_REGEX_EXCLUDE`), a odwroconej precedencji w `AGENTS.md` zaden linter nie
-> wyapie. Recenzja subagenta znalazla potem **cztery prawdziwe bledy**, w tym hook, ktory nigdy
+> wylapie. Recenzja subagenta znalazla potem **cztery prawdziwe bledy**, w tym hook, ktory nigdy
 > sie nie uruchamial na Windowsie. Wszystkie byly klasy PR-owej.
 >
 > **Mechanizm porazki, ten sam oba razy:** ciag drobnych edycji, kazda z osobna trywialna,

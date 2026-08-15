@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: feedback
   originSessionId: 07852de2-e231-4f84-9025-d8d962981d0b
-  modified: 2026-08-15T02:50:10.772Z
+  modified: 2026-08-15T03:17:04.496Z
 ---
 
 Komentarze na GitHubie maja byc **krotkie**. Uzytkownik powiedzial wprost
@@ -16,6 +16,26 @@ rzeczy krotko i tyle"*.
 tabele, sekcje, cytaty z logow). Trescowo dobre, ale to nie jest format, ktorego
 on chce na GitHubie — repo czyta tez ChatGPT i sam autor, a scianka tekstu
 utrudnia wylapanie sedna.
+
+**How to apply:** na GitHub idzie wniosek + minimalny dowod (kilka linii logu,
+jedna tabelka jesli naprawde potrzebna) i tyle. Pelna analize, warianty,
+zastrzezenia i rozumowanie zostawiac w rozmowie. Jesli czegos nie da sie skrocic
+bez utraty sensu — link do artefaktu zamiast wklejania calosci.
+
+## Po otwarciu PR-a **poczekaj chwile i zerknij na recenzje**
+
+Uzytkownik, 15.08.2026: *„dodaj sobie nawyk poczekania chwile po otwarciu PR i zerkniecia na
+te jakies ew reviewy"*. Nie otwieraj i nie odchodz — recenzenci odzywaja sie w ciagu ~1-2 minut.
+
+Jak czytac Codexa, zeby nie czekac na darmo:
+
+- reakcja **👀 (eyes)** = cos analizuje, **za chwile moze cos wjechac** → poczekaj,
+- od razu **✅** = przyklepal, **nie ma na co czekac** → idz dalej.
+
+Sprawdzone dwa razy tego dnia: #206 dostal siedem prawdziwych znalezisk w dwoch turach,
+a #209 — czysty re-eksport dwoch plikow `.md`, „bzdura" — **i tak** przyniosl trzy sensowne
+uwagi (nieaktualny wpis w indeksie, sekcje wciete miedzy `Why:` a `How to apply:`, literowka).
+Wniosek: **nie oceniaj z gory, czy PR jest za blahy na recenzje.** Koszt zerkniecia to minuta.
 
 ## Domykanie recenzji — **rob to zawsze, nie tylko gdy poprosi**
 
@@ -38,11 +58,6 @@ Po odniesieniu sie do recenzji, w tej samej turze:
 **Odpowiadaj w jezyku recenzenta.** Boty pisza po angielsku → odpowiadasz po angielsku.
 Rozmowa z uzytkownikiem na czacie zostaje po polsku; to sa dwa rozne audytoria i nie ma
 powodu ich mieszac. 15.08.2026 odpisalem Devinowi i Codexowi po polsku — poprawione.
-
-**How to apply:** na GitHub idzie wniosek + minimalny dowod (kilka linii logu,
-jedna tabelka jesli naprawde potrzebna) i tyle. Pelna analize, warianty,
-zastrzezenia i rozumowanie zostawiac w rozmowie. Jesli czegos nie da sie skrocic
-bez utraty sensu — link do artefaktu zamiast wklejania calosci.
 
 ## Nie tlumaczyc sie i nie wystawiac konfiguracji maszyny
 

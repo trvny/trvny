@@ -13,7 +13,7 @@ on: # yamllint disable-line rule:truthy
   workflow_dispatch:
 
 concurrency:
-  group: benches-portable-release-${{ github.sha }}
+  group: benches-portable-release
   cancel-in-progress: false
 
 permissions: {}
@@ -104,46 +104,49 @@ jobs:
           name: benches-portable-release
           path: dist
 
-      - name: Create release
+      - name: Publish rolling release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          tag="benches-${GITHUB_SHA::12}"
-          matches="$(
-            gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
-              --jq ".[] | select(.tag_name == \"$tag\") | [.id, .draft] | @tsv"
-          )"
-
-          published="$(printf '%s\n' "$matches" | awk -F '\t' '$2 == "false" { print $1; exit }')"
-          if [ -n "$published" ]; then
-            echo "Release $tag already exists."
-            exit 0
-          fi
-
-          while IFS=$'\t' read -r release_id draft; do
-            if [ -n "$release_id" ] && [ "$draft" = "true" ]; then
-              echo "Removing incomplete draft release $release_id before retry."
-              gh api --method DELETE "repos/$GH_REPO/releases/$release_id"
-            fi
-          done <<< "$matches"
+          tag="benches-portable-latest"
 
           cat > release-notes.md <<EOF
           Portable single-file builds of Codebench and Streambench.
 
-          Built from \`${GITHUB_SHA}\`.
+          Rolling release built from \`${GITHUB_SHA}\`.
           Streambench's public catalogs, metadata and constrained relay continue
           to use the hosted Streambench backend.
           EOF
 
-          gh release create "$tag" \
-            --draft \
-            --target "$GITHUB_SHA" \
-            --title "Benches Portable · ${GITHUB_SHA::7}" \
-            --notes-file release-notes.md
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/$GH_REPO/git/refs/tags/$tag" \
+              -f sha="$GITHUB_SHA" \
+              -F force=true
+            gh release edit "$tag" \
+              --title "Benches Portable · rolling" \
+              --notes-file release-notes.md
+          else
+            gh release create "$tag" \
+              --draft \
+              --target "$GITHUB_SHA" \
+              --title "Benches Portable · rolling" \
+              --notes-file release-notes.md
+          fi
+
           gh release upload "$tag" \
             dist/codebench-portable.html \
             dist/streambench-portable.html \
             dist/benches-portable.zip \
-            dist/SHA256SUMS
+            dist/SHA256SUMS \
+            --clobber
           gh release edit "$tag" --draft=false --latest
+
+          gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+            --jq '.[] | select(.tag_name | test("^benches-[0-9a-f]{12}$")) | [.id, .tag_name] | @tsv' |
+            while IFS=$'\t' read -r release_id old_tag; do
+              [ -n "$release_id" ] || continue
+              echo "Removing superseded release $old_tag."
+              gh api --method DELETE "repos/$GH_REPO/releases/$release_id"
+              gh api --method DELETE "repos/$GH_REPO/git/refs/tags/$old_tag" || true
+            done

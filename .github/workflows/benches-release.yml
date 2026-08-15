@@ -7,8 +7,6 @@ on: # yamllint disable-line rule:truthy
     paths:
       - codebench/**
       - streambench/**
-      - stuff/playlists/iptv.m3u8
-      - stuff/playlists/internet_radio.m3u8
       - .github/workflows/benches-release.yml
   workflow_dispatch:
 

@@ -79,9 +79,11 @@ npm install
 npm run dev
 ```
 
-`npm run build` also generates `public/portable.html`. CSS, JavaScript, hls.js
-and the bundled playlists live inside that one file. Public catalogs, metadata
-and constrained relay features still use the hosted Streambench Worker.
+The bundled IPTV and radio sources are maintained in `public/playlists/`.
+`npm run build` also generates `public/portable.html` and vendors `hls.js`.
+CSS, JavaScript, hls.js and the bundled playlists live inside that one file.
+Public catalogs, metadata and constrained relay features still use the hosted
+Streambench Worker.
 
 ## Validation
 
@@ -97,9 +99,7 @@ This project lives in the `trvny/trvny` monorepo under `streambench/`.
 2. Set the Worker name to `streambench` and root directory to `streambench`.
 3. Use `npm run build` as the build command.
 4. Use `npx wrangler deploy` as the deploy command.
-5. Add `streambench/*`, `stuff/playlists/iptv.m3u8` and
-   `stuff/playlists/internet_radio.m3u8` to the build watch includes —
-   `npm run build` vendors both of those into `public/playlists/`.
+5. Add `streambench/**` to the build watch includes.
 6. Add `*.md` to the build watch excludes.
 7. Add `STREAMBENCH_RELAY_SECRET` as a secret with at least 32 random
    characters.

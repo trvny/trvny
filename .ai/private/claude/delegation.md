@@ -6,6 +6,18 @@ short. Everything here is standing context; only the task differs.
 Written after the first real run (2026-08-15), which produced five findings and
 three lessons. The lessons are the numbered rules below.
 
+## What this has to survive
+
+Today a delegated agent runs from a session on the author's machine, so anything
+missing can be handed to it. Do not design for that. The case worth being ready
+for is the opposite one: a cold session from `claude.ai/code`, from a phone,
+with the laptop off — *"CI has failed ten times in a row, help"*.
+
+That session gets the repository and nothing else. Whatever it needs to be
+useful has to already be committed here. It is also the reason `field-notes/`
+exists: a session like that cannot write back to the local store, but it can
+leave what it learned in the repository.
+
 ## What the agent already has
 
 It gets its own git worktree under `.claude/worktrees/agent-<id>/`, a full

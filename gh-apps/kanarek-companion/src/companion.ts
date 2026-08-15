@@ -42,7 +42,7 @@ import {
 } from './companion-update.ts';
 import {
   areas,
-  behindFloor,
+  behindState,
   blockerKinds,
   render,
   requireCi,
@@ -97,9 +97,9 @@ export async function commentStateHash(
   }
   return hash({
     ...quipFacts,
-    // Hash the same coarse value the comment renders. Hashing the exact count
-    // while rendering a floor would churn the hash without changing the body.
-    behind: state.behind === null ? null : behindFloor(state.behind),
+    // Hash the same value the badge renders. Hashing the exact count while
+    // rendering a state would churn the hash without changing the body.
+    behind: behindState(state.behind),
     reviews: state.reviews,
     autoMerge: state.autoMerge,
     files: state.files,
@@ -112,7 +112,7 @@ export { reactionForState } from './companion-reactions.ts';
 export { shouldUpdateBranch } from './companion-update.ts';
 export {
   areas,
-  behindFloor,
+  behindState,
   blockerKinds,
   MARKER,
   render,

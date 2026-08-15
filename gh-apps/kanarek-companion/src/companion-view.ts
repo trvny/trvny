@@ -31,24 +31,20 @@ function code(value: unknown): string {
 }
 
 /**
- * Coarsens "how far behind the base branch we are" to a floor: 0, 1, 5 or 20.
+ * Reduces "how far behind the base branch we are" to whether we are behind.
  *
- * The exact count is the largest source of comment churn. It changes for every
+ * The exact count was the largest source of comment churn. It changes for every
  * open pull request at once every time anything merges to the base, so a busy
- * afternoon rewrites every companion comment repeatedly without any of those
+ * afternoon rewrote every companion comment repeatedly without any of those
  * rewrites saying something new about the pull request being rewritten.
  *
- * A floor keeps the signal that matters ("behind, and roughly how badly") and
- * only moves when a bucket boundary is crossed.
- *
- * Zero maps to zero rather than to the lowest bucket, so the helper cannot turn
- * an up-to-date branch into a behind one at a call site that forgets to guard.
+ * The count is not worth that: GitHub already shows it on the branch itself,
+ * and what the comment is for is a glance. As a state, a pull request falls
+ * behind once and stays there, so merges stop moving it at all.
  */
-export function behindFloor(behind: number): number {
-  if (behind <= 0) return 0;
-  if (behind >= 20) return 20;
-  if (behind >= 5) return 5;
-  return 1;
+export function behindState(behind: number | null): 'unknown' | 'current' | 'behind' {
+  if (behind === null) return 'unknown';
+  return behind > 0 ? 'behind' : 'current';
 }
 
 export function requireCi(env: CompanionEnv, repository: string): boolean {
@@ -179,10 +175,9 @@ export function blockerKinds(
 function branchBadge(pr: PullRequest, branch: BranchState): string {
   if (pr.merged) return `${code(pr.base.ref)} ✅`;
   if (pr.state === 'closed') return 'branch ⚫';
-  if (branch.behind === 0) return `${code(pr.base.ref)} ✅`;
-  if (branch.behind !== null && branch.behind > 0) {
-    return `${code(pr.base.ref)} −${behindFloor(branch.behind)}+`;
-  }
+  const state = behindState(branch.behind);
+  if (state === 'current') return `${code(pr.base.ref)} ✅`;
+  if (state === 'behind') return `${code(pr.base.ref)} ↓`;
   return 'branch ?';
 }
 

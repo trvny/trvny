@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { behindFloor, blockerKinds, commentStateHash, render } from '../src/companion.ts';
+import { behindState, blockerKinds, commentStateHash, render } from '../src/companion.ts';
 import type { PullRequest } from '../src/companion-types.ts';
 
 const basePr: PullRequest = {
@@ -192,7 +192,7 @@ const behindHash = (behind: number) =>
   commentStateHash(
     {
       status: 'ready',
-      blockers: behind > 0 ? ['behind main'] : [],
+      blockers: behind > 0 ? ['behind'] : [],
       area: 'Gh apps',
       size: 'tiny',
       language: 'en',
@@ -206,28 +206,23 @@ const behindHash = (behind: number) =>
     },
   );
 
-test('behindFloor buckets the distance instead of reporting it exactly', () => {
-  assert.equal(behindFloor(0), 0);
-  assert.equal(behindFloor(1), 1);
-  assert.equal(behindFloor(4), 1);
-  assert.equal(behindFloor(5), 5);
-  assert.equal(behindFloor(19), 5);
-  assert.equal(behindFloor(20), 20);
-  assert.equal(behindFloor(97), 20);
+test('behindState reduces the distance to whether we are behind', () => {
+  assert.equal(behindState(null), 'unknown');
+  assert.equal(behindState(0), 'current');
+  assert.equal(behindState(1), 'behind');
+  assert.equal(behindState(97), 'behind');
 });
 
-test('drifting further behind inside one bucket leaves the state hash alone', async () => {
+test('drifting further behind leaves the state hash alone', async () => {
   assert.equal(await behindHash(1), await behindHash(4));
-  assert.equal(await behindHash(5), await behindHash(19));
+  assert.equal(await behindHash(4), await behindHash(97));
 });
 
-test('crossing a bucket boundary still changes the state hash', async () => {
+test('falling behind at all still changes the state hash', async () => {
   assert.notEqual(await behindHash(0), await behindHash(1));
-  assert.notEqual(await behindHash(4), await behindHash(5));
-  assert.notEqual(await behindHash(19), await behindHash(20));
 });
 
-test('the branch badge shows a floor, not the exact count', () => {
+test('the branch badge reports the state, not the count', () => {
   const body = (behind: number) =>
     render(
       basePr,
@@ -235,7 +230,7 @@ test('the branch badge shows a floor, not the exact count', () => {
       { failed: [], passed: [{}], pending: [], total: 1 },
       { approvals: 0, changes: 0 },
       ['Gh apps'],
-      { key: 'ready', title: '🟢 ready', blockers: [] },
+      { key: 'ready', title: '\u{1F7E2} ready', blockers: [] },
       'Ready.',
       '0'.repeat(16),
       'fedcba9876543210',
@@ -244,7 +239,7 @@ test('the branch badge shows a floor, not the exact count', () => {
       true,
     );
 
-  assert.match(body(3), /−1\+/);
-  assert.equal(body(1), body(4));
-  assert.notEqual(body(4), body(5));
+  assert.ok(body(3).includes('\u2193'));
+  assert.equal(body(1), body(97));
+  assert.notEqual(body(0), body(1));
 });

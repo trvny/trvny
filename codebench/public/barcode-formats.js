@@ -7,6 +7,8 @@
   const groups = [
     ["More 2D / stacked", [
       ["rectangularmicroqrcode", "rMQR"],
+      ["datamatrixrectangular", "Data Matrix Rectangular"],
+      ["datamatrixrectangularextension", "Data Matrix DMRE"],
       ["micropdf417", "MicroPDF417"],
       ["pdf417compact", "Compact PDF417"],
       ["azteccodecompact", "Compact Aztec"],
@@ -21,6 +23,7 @@
       ["databarlimited", "GS1 DataBar Limited"],
       ["databarexpanded", "GS1 DataBar Expanded"],
       ["gs1dlqrcode", "GS1 Digital Link QR"],
+      ["gs1dldatamatrix", "GS1 Digital Link Data Matrix"],
     ]],
   ];
 
@@ -35,14 +38,17 @@
 
   if (typeof twoD !== "undefined") {
     [
-      "rectangularmicroqrcode", "micropdf417", "pdf417compact", "azteccodecompact", "aztecrune",
-      "dotcode", "hanxin", "codablockf", "code16k", "gs1dlqrcode",
+      "rectangularmicroqrcode", "datamatrixrectangular", "datamatrixrectangularextension",
+      "micropdf417", "pdf417compact", "azteccodecompact", "aztecrune", "dotcode", "hanxin",
+      "codablockf", "code16k", "gs1dlqrcode", "gs1dldatamatrix",
     ].forEach((format) => twoD.add(format));
   }
 
   if (typeof bHints !== "undefined") {
     Object.assign(bHints, {
       rectangularmicroqrcode: "Rectangular Micro QR — compact and wide; short payloads work best.",
+      datamatrixrectangular: "Rectangular Data Matrix for narrow labels and constrained layouts.",
+      datamatrixrectangularextension: "DMRE — extended rectangular Data Matrix sizes.",
       micropdf417: "Compact stacked 2D code for smaller labels.",
       pdf417compact: "PDF417 with compact row indicators.",
       azteccodecompact: "Compact Aztec — dense short payloads, no quiet zone required.",
@@ -55,6 +61,7 @@
       databarlimited: "GS1 DataBar Limited — restricted GTIN range for small labels.",
       databarexpanded: "GS1 DataBar Expanded — variable-length GS1 AI data.",
       gs1dlqrcode: "GS1 Digital Link URI encoded as QR.",
+      gs1dldatamatrix: "GS1 Digital Link URI encoded as Data Matrix.",
     });
   }
 })();

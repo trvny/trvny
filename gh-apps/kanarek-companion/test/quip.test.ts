@@ -153,7 +153,7 @@ test('keeps low reasoning for older OpenAI reasoning models', async () => {
   assert.equal(requestBody?.max_output_tokens, 256);
 });
 
-test('uses low reasoning for xAI instead of Grok 4.5 high default', async () => {
+test('uses low reasoning with extra headroom for xAI', async () => {
   let requestBody: Record<string, unknown> | null = null;
   const fetcher = (async (_input: RequestInfo | URL, init?: RequestInit) => {
     requestBody = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
@@ -171,7 +171,8 @@ test('uses low reasoning for xAI instead of Grok 4.5 high default', async () => 
 
   assert.ok(quip);
   assert.deepEqual(requestBody?.reasoning, { effort: 'low' });
-  assert.equal(requestBody?.max_output_tokens, 256);
+  assert.equal(requestBody?.max_output_tokens, 1_024);
+  assert.equal(requestBody?.prompt_cache_key, 'kanarek-quip-v1');
 });
 
 test('uses the same concise system contract for Anthropic', async () => {

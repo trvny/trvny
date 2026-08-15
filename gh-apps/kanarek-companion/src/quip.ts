@@ -2,11 +2,31 @@ const PRIMARY_MODEL = 'gpt-5.6-luna';
 const FALLBACK_MODEL = 'gpt-5.4-nano';
 const ANTHROPIC_MODEL = 'claude-haiku-4-5';
 const GEMINI_MODEL = 'gemini-3.5-flash-lite';
-const XAI_MODEL = 'grok-4.5';
+const XAI_MODEL = 'grok-4.6';
 const AI_STATUSES = new Set(['ready', 'blocked']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
-const QUIP_OUTPUT_TOKEN_LIMIT = 256;
-const XAI_QUIP_OUTPUT_TOKEN_LIMIT = 1_024;
+const DEFAULT_QUIP_OUTPUT_TOKEN_LIMIT = 256;
+const DEFAULT_XAI_QUIP_OUTPUT_TOKEN_LIMIT = 1_024;
+const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
+const PROVIDER_SLOTS = [
+  'openai',
+  'openai-fallback',
+  'anthropic',
+  'gemini',
+  'xai',
+] as const;
+type ProviderSlot = (typeof PROVIDER_SLOTS)[number];
+const DEFAULT_PROVIDER_ORDER: readonly ProviderSlot[] = PROVIDER_SLOTS;
+const OPENAI_REASONING_EFFORTS = new Set([
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+]);
+const GEMINI_THINKING_LEVELS = new Set(['minimal', 'low', 'medium', 'high']);
+const XAI_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
 export const QUIP_MIN_CHARS = 45;
 export const QUIP_MAX_CHARS = 110;
 const SYSTEM_PROMPT = [
@@ -25,14 +45,24 @@ export interface QuipEnv {
   KANAREK_AI_ENABLED?: string;
   KANAREK_AI_PERCENT?: string;
   KANAREK_ANTHROPIC_ENABLED?: string;
+  KANAREK_ANTHROPIC_MAX_TOKENS?: string;
   KANAREK_ANTHROPIC_MODEL?: string;
   KANAREK_GEMINI_ENABLED?: string;
+  KANAREK_GEMINI_MAX_OUTPUT_TOKENS?: string;
   KANAREK_GEMINI_MODEL?: string;
+  KANAREK_GEMINI_THINKING_LEVEL?: string;
   KANAREK_OPENAI_ENABLED?: string;
   KANAREK_OPENAI_FALLBACK_MODEL?: string;
+  KANAREK_OPENAI_MAX_OUTPUT_TOKENS?: string;
   KANAREK_OPENAI_MODEL?: string;
+  KANAREK_OPENAI_REASONING?: string;
+  KANAREK_PROVIDER_ORDER?: string;
+  KANAREK_PROVIDER_TIMEOUT_MS?: string;
   KANAREK_XAI_ENABLED?: string;
+  KANAREK_XAI_MAX_OUTPUT_TOKENS?: string;
   KANAREK_XAI_MODEL?: string;
+  KANAREK_XAI_PROMPT_CACHE_KEY?: string;
+  KANAREK_XAI_REASONING?: string;
   OPENAI_API_KEY?: string;
   XAI_API_KEY?: string;
 }
@@ -191,6 +221,57 @@ function settingDisabled(value: string | undefined): boolean {
   return value ? FALSE_VALUES.has(value.trim().toLowerCase()) : false;
 }
 
+function configuredInteger(
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const raw = value?.trim();
+  if (!raw || !/^\d+$/.test(raw)) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function configuredChoice(
+  value: string | undefined,
+  allowed: ReadonlySet<string>,
+  fallback: string,
+): string {
+  const normalized = value?.trim().toLowerCase();
+  return normalized && allowed.has(normalized) ? normalized : fallback;
+}
+
+function providerTimeoutMs(env: QuipEnv): number {
+  return configuredInteger(
+    env.KANAREK_PROVIDER_TIMEOUT_MS,
+    DEFAULT_PROVIDER_TIMEOUT_MS,
+    1_000,
+    120_000,
+  );
+}
+
+function providerOrder(value: string | undefined): ProviderSlot[] {
+  const allowed = new Set<string>(PROVIDER_SLOTS);
+  const ordered: ProviderSlot[] = [];
+  const seen = new Set<ProviderSlot>();
+  for (const raw of value?.split(',') ?? []) {
+    const slot = raw.trim().toLowerCase();
+    if (!allowed.has(slot)) continue;
+    const providerSlot = slot as ProviderSlot;
+    if (seen.has(providerSlot)) continue;
+    seen.add(providerSlot);
+    ordered.push(providerSlot);
+  }
+  for (const slot of DEFAULT_PROVIDER_ORDER) {
+    if (!seen.has(slot)) ordered.push(slot);
+  }
+  return ordered;
+}
+
 export function aiPercent(env: QuipEnv): number {
   if (env.KANAREK_AI_PERCENT === undefined) return 25;
   const raw = env.KANAREK_AI_PERCENT.trim();
@@ -281,7 +362,14 @@ function geminiOutputText(response: Record<string, unknown>): string {
     .join(' ');
 }
 
-function openAiReasoningEffort(model: string): 'low' | 'none' | null {
+function openAiReasoningEffort(
+  model: string,
+  configured?: string,
+): string | null {
+  const normalized = configured?.trim().toLowerCase();
+  if (normalized && normalized !== 'auto' && OPENAI_REASONING_EFFORTS.has(normalized)) {
+    return normalized;
+  }
   if (/^gpt-5\.(?:4|5|6)(?:[-.]|$)/.test(model)) return 'none';
   if (/^(gpt-5|o\d)/.test(model)) return 'low';
   return null;
@@ -378,10 +466,11 @@ async function postJson(
   label: string,
   headers: Record<string, string>,
   body: unknown,
+  timeoutMs: number,
   fetcher: typeof fetch,
 ): Promise<Record<string, unknown>> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetcher(url, {
       method: 'POST',
@@ -407,13 +496,19 @@ async function requestOpenAi(
   model: string,
   facts: string,
   apiKey: string,
+  env: QuipEnv,
   fetcher: typeof fetch,
 ): Promise<ProviderResult> {
-  const reasoningEffort = openAiReasoningEffort(model);
+  const reasoningEffort = openAiReasoningEffort(model, env.KANAREK_OPENAI_REASONING);
   const body: Record<string, unknown> = {
     model,
     store: false,
-    max_output_tokens: QUIP_OUTPUT_TOKEN_LIMIT,
+    max_output_tokens: configuredInteger(
+      env.KANAREK_OPENAI_MAX_OUTPUT_TOKENS,
+      DEFAULT_QUIP_OUTPUT_TOKEN_LIMIT,
+      1,
+      65_536,
+    ),
     input: [
       {
         role: 'system',
@@ -432,6 +527,7 @@ async function requestOpenAi(
     `OpenAI ${model}`,
     { Authorization: `Bearer ${apiKey}` },
     body,
+    providerTimeoutMs(env),
     fetcher,
   );
   return responsesResult(response);
@@ -441,6 +537,7 @@ async function requestAnthropic(
   model: string,
   facts: string,
   apiKey: string,
+  env: QuipEnv,
   fetcher: typeof fetch,
 ): Promise<ProviderResult> {
   const response = await postJson(
@@ -452,10 +549,16 @@ async function requestAnthropic(
     },
     {
       model,
-      max_tokens: QUIP_OUTPUT_TOKEN_LIMIT,
+      max_tokens: configuredInteger(
+        env.KANAREK_ANTHROPIC_MAX_TOKENS,
+        DEFAULT_QUIP_OUTPUT_TOKEN_LIMIT,
+        1,
+        65_536,
+      ),
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: facts }],
     },
+    providerTimeoutMs(env),
     fetcher,
   );
   return anthropicResult(response);
@@ -465,6 +568,7 @@ async function requestGemini(
   model: string,
   facts: string,
   apiKey: string,
+  env: QuipEnv,
   fetcher: typeof fetch,
 ): Promise<ProviderResult> {
   const response = await postJson(
@@ -475,10 +579,22 @@ async function requestGemini(
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role: 'user', parts: [{ text: facts }] }],
       generationConfig: {
-        maxOutputTokens: QUIP_OUTPUT_TOKEN_LIMIT,
-        thinkingConfig: { thinkingLevel: 'minimal' },
+        maxOutputTokens: configuredInteger(
+          env.KANAREK_GEMINI_MAX_OUTPUT_TOKENS,
+          DEFAULT_QUIP_OUTPUT_TOKEN_LIMIT,
+          1,
+          65_536,
+        ),
+        thinkingConfig: {
+          thinkingLevel: configuredChoice(
+            env.KANAREK_GEMINI_THINKING_LEVEL,
+            GEMINI_THINKING_LEVELS,
+            'minimal',
+          ),
+        },
       },
     },
+    providerTimeoutMs(env),
     fetcher,
   );
   return geminiResult(response);
@@ -488,8 +604,11 @@ async function requestXai(
   model: string,
   facts: string,
   apiKey: string,
+  env: QuipEnv,
   fetcher: typeof fetch,
 ): Promise<ProviderResult> {
+  const promptCacheKey =
+    env.KANAREK_XAI_PROMPT_CACHE_KEY?.trim() || 'kanarek-quip-v1';
   const response = await postJson(
     'https://api.x.ai/v1/responses',
     `xAI ${model}`,
@@ -497,14 +616,26 @@ async function requestXai(
     {
       model,
       store: false,
-      max_output_tokens: XAI_QUIP_OUTPUT_TOKEN_LIMIT,
-      prompt_cache_key: 'kanarek-quip-v1',
-      reasoning: { effort: 'low' },
+      max_output_tokens: configuredInteger(
+        env.KANAREK_XAI_MAX_OUTPUT_TOKENS,
+        DEFAULT_XAI_QUIP_OUTPUT_TOKEN_LIMIT,
+        1,
+        65_536,
+      ),
+      prompt_cache_key: promptCacheKey,
+      reasoning: {
+        effort: configuredChoice(
+          env.KANAREK_XAI_REASONING,
+          XAI_REASONING_EFFORTS,
+          'low',
+        ),
+      },
       input: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: facts },
       ],
     },
+    providerTimeoutMs(env),
     fetcher,
   );
   return responsesResult(response);
@@ -520,41 +651,47 @@ function providerCandidates(
   env: QuipEnv,
   fetcher: typeof fetch,
 ): ProviderCandidate[] {
-  const candidates: ProviderCandidate[] = [];
+  const candidates = new Map<ProviderSlot, ProviderCandidate>();
   if (env.OPENAI_API_KEY && providerEnabled(env.KANAREK_OPENAI_ENABLED)) {
-    const models = [
-      env.KANAREK_OPENAI_MODEL || PRIMARY_MODEL,
-      env.KANAREK_OPENAI_FALLBACK_MODEL || FALLBACK_MODEL,
-    ].filter((model, index, all) => model && all.indexOf(model) === index);
-    for (const model of models) {
-      candidates.push({
-        label: `OpenAI ${model}`,
-        request: () => requestOpenAi(model, facts, env.OPENAI_API_KEY ?? '', fetcher),
+    const primaryModel = env.KANAREK_OPENAI_MODEL || PRIMARY_MODEL;
+    const fallbackModel = env.KANAREK_OPENAI_FALLBACK_MODEL || FALLBACK_MODEL;
+    candidates.set('openai', {
+      label: `OpenAI ${primaryModel}`,
+      request: () =>
+        requestOpenAi(primaryModel, facts, env.OPENAI_API_KEY ?? '', env, fetcher),
+    });
+    if (fallbackModel && fallbackModel !== primaryModel) {
+      candidates.set('openai-fallback', {
+        label: `OpenAI ${fallbackModel}`,
+        request: () =>
+          requestOpenAi(fallbackModel, facts, env.OPENAI_API_KEY ?? '', env, fetcher),
       });
     }
   }
   if (env.ANTHROPIC_API_KEY && providerEnabled(env.KANAREK_ANTHROPIC_ENABLED)) {
     const model = env.KANAREK_ANTHROPIC_MODEL || ANTHROPIC_MODEL;
-    candidates.push({
+    candidates.set('anthropic', {
       label: `Anthropic ${model}`,
-      request: () => requestAnthropic(model, facts, env.ANTHROPIC_API_KEY ?? '', fetcher),
+      request: () => requestAnthropic(model, facts, env.ANTHROPIC_API_KEY ?? '', env, fetcher),
     });
   }
   if (env.GEMINI_API_KEY && providerEnabled(env.KANAREK_GEMINI_ENABLED)) {
     const model = env.KANAREK_GEMINI_MODEL || GEMINI_MODEL;
-    candidates.push({
+    candidates.set('gemini', {
       label: `Gemini ${model}`,
-      request: () => requestGemini(model, facts, env.GEMINI_API_KEY ?? '', fetcher),
+      request: () => requestGemini(model, facts, env.GEMINI_API_KEY ?? '', env, fetcher),
     });
   }
   if (env.XAI_API_KEY && providerEnabled(env.KANAREK_XAI_ENABLED)) {
     const model = env.KANAREK_XAI_MODEL || XAI_MODEL;
-    candidates.push({
+    candidates.set('xai', {
       label: `xAI ${model}`,
-      request: () => requestXai(model, facts, env.XAI_API_KEY ?? '', fetcher),
+      request: () => requestXai(model, facts, env.XAI_API_KEY ?? '', env, fetcher),
     });
   }
-  return candidates;
+  return providerOrder(env.KANAREK_PROVIDER_ORDER)
+    .map((slot) => candidates.get(slot))
+    .filter((candidate): candidate is ProviderCandidate => Boolean(candidate));
 }
 
 export async function aiQuip(

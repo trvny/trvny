@@ -96,16 +96,20 @@ slot until the distribution changes.
 If the persistent KV bank cannot be measured, paid AI is skipped because the
 generated line could not be safely retained.
 
-Provider order and defaults are OpenAI (`gpt-5.6-luna`, then
-`gpt-5.4-nano`), Anthropic, Gemini, and xAI. Without provider secrets Kanarek
-uses the shared pool and presets.
+`KANAREK_PROVIDER_ORDER` reorders enabled providers; it does not enable or
+disable them. The current default is OpenAI primary, OpenAI fallback, Anthropic,
+Gemini, then xAI. Provider enable switches, model names, output ceilings,
+reasoning/thinking settings, the xAI prompt-cache key, and the shared provider
+timeout are all visible beside it in `wrangler.jsonc`. Without provider secrets
+Kanarek uses the shared pool and presets.
 
-Output ceilings stay conservative at 256 tokens for OpenAI, Anthropic, and
-Gemini. Grok gets 1024 because Grok 4.5 cannot disable reasoning and even low
-effort can consume substantial reasoning headroom before the short visible
-line. xAI requests also use a stable prompt cache key. Current OpenAI quip
-models use `none` reasoning, Gemini Flash-Lite uses `minimal`, and xAI uses
-`low`.
+Current ceilings are 256 tokens for OpenAI, Anthropic, and Gemini, and 1024 for
+xAI. The larger xAI ceiling was introduced after Grok 4.5 consumed substantial
+reasoning headroom before producing its short visible line; Grok 4.6 is now the
+configured xAI model, so `kanarek_ai_generation` usage logs should be used before
+lowering that ceiling. OpenAI reasoning is configured as `auto`, preserving the
+model-aware `none`/`low` heuristic; Gemini Flash-Lite uses `minimal`, and xAI
+uses `low`.
 
 Provider responses are accepted only after a normal completion and the learned
 45–110 character/language validation. Explicit token-limit and other incomplete
@@ -198,5 +202,5 @@ Optional AI secrets:
 - `GEMINI_API_KEY`
 - `XAI_API_KEY`
 
-GitHub App metadata, model defaults, AI percentage ceiling, and the KV binding
-are defined in `wrangler.jsonc`.
+GitHub App metadata, provider order/model/generation controls, AI percentage
+ceiling, and the KV binding are defined in `wrangler.jsonc`.

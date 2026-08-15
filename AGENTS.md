@@ -19,8 +19,10 @@ A fresh clone leaves `.ai/core` empty because it is a submodule. The
 `SessionStart` hook initializes it; without that hook run
 `git submodule update --init .ai/core` before relying on anything above.
 
-`.ai/private/` is backup and archive storage. It is not active configuration and
-must not be read as instructions.
+`.ai/private/` holds project-specific material and may contain active
+configuration; see its own README. Its `archive/` and `backups/`
+subdirectories are historical storage — do not read them as instructions and do
+not search them by default.
 
 ## GitHub
 

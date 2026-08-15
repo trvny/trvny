@@ -6,6 +6,7 @@
   const data = $("#bData");
   const hint = $("#bHint");
   const error = $("#bErr");
+  const structured = window.codebenchStructuredPayloads;
   if (!type || !data || !hint) return;
 
   const freeTextFormats = new Set([
@@ -141,8 +142,6 @@
   };
 
   const escapeWifi = (value) => String(value || "").replace(/[\\;,\":]/g, (match) => `\\${match}`);
-  const cleanVcard = (value) => String(value || "").replace(/\r?\n/g, " ").replace(/([\\;,])/g, "\\$1");
-  const formatDate = (value) => value ? value.replace(/[-:]/g, "").replace("T", "T") : "";
 
   function values() {
     return Object.fromEntries(Array.from(fieldsHost.querySelectorAll("[data-payload-key]")).map((element) => [element.dataset.payloadKey, element.value]));
@@ -160,22 +159,14 @@
       return `WIFI:${parts.join(";")};;`;
     }
     if (kind === "vcard") {
-      const lines = ["BEGIN:VCARD", "VERSION:3.0", `FN:${cleanVcard(v.name)}`];
-      if (v.org) lines.push(`ORG:${cleanVcard(v.org)}`);
-      if (v.phone) lines.push(`TEL:${cleanVcard(v.phone)}`);
-      if (v.email) lines.push(`EMAIL:${cleanVcard(v.email)}`);
-      if (v.url) lines.push(`URL:${cleanVcard(v.url)}`);
-      lines.push("END:VCARD");
-      return lines.join("\n");
+      return structured?.buildVCard({
+        fn: v.name, org: v.org, phone: v.phone, email: v.email, url: v.url,
+      }) || "";
     }
     if (kind === "event") {
-      const lines = ["BEGIN:VEVENT"];
-      if (v.title) lines.push(`SUMMARY:${cleanVcard(v.title)}`);
-      if (v.start) lines.push(`DTSTART:${formatDate(v.start)}`);
-      if (v.end) lines.push(`DTEND:${formatDate(v.end)}`);
-      if (v.location) lines.push(`LOCATION:${cleanVcard(v.location)}`);
-      lines.push("END:VEVENT");
-      return lines.join("\n");
+      return structured?.buildCalendarEvent({
+        title: v.title, loc: v.location, start: v.start, end: v.end,
+      }) || "";
     }
     if (kind === "email") {
       const params = new URLSearchParams();
@@ -207,9 +198,9 @@
   }
 
   function updateCompatibility() {
-    const structured = payloadType.value !== "raw";
+    const structuredPayload = payloadType.value !== "raw";
     const carrier = type.value;
-    if (!structured) {
+    if (!structuredPayload) {
       payloadNote.textContent = "Structured payloads are just text conventions. Pick Wi-Fi, vCard, event, etc. to generate the raw payload for the selected symbol.";
       return;
     }

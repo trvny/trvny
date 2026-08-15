@@ -10,7 +10,9 @@ Shared context lives in `.ai/`. Read it in this order — most useful first:
 
 1. `.ai/private/claude/memory/` — working notes from the author's local store:
    habits, GitHub conventions, CI traps. This is the part a clone cannot get any
-   other way, and the part most likely to save a wasted round.
+   other way, and the part most likely to save a wasted round. You can add to it:
+   `memory/field-notes/` is written here rather than exported, so a finding that
+   cost you real work does not have to cost the next session the same.
 2. `.ai/core/instructions/` and `.ai/core/styles/` — how to communicate. From
    the public core, a pinned submodule of `trvny/.ai`.
 3. `.ai/profile.yaml` — the private profile overlay on the core's base profile.

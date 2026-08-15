@@ -39,11 +39,15 @@ DISABLE_ERRORS_LINTERS:
 # that runs on every session, so it is exactly the code shellcheck should see.
 # stuff/: personal scratch dir (old scripts, quote/feed dumps, configs) -
 # not maintained project code
-# .ai/private/claude/memory/: exported copies of notes maintained in
+# .ai/private/claude/memory/*.md: exported copies of notes maintained in
 # ~/.claude/memory. Their README forbids editing them here (a fix would be lost
-# on re-export), so a linter asking for edits in this directory has nowhere to
-# send them. The frontmatter they are generated with carries trailing whitespace.
-FILTER_REGEX_EXCLUDE: "(package-lock\\.json|stuff/|\\.ai/private/claude/memory/)"
+# on re-export), so a linter asking for edits has nowhere to send them, and the
+# frontmatter they are generated with carries trailing whitespace.
+# The exclusion is deliberately NOT the whole directory: memory/README.md and
+# everything under memory/field-notes/ is written in this repository and can be
+# fixed here, so it stays linted. Matching a single path segment ending in .md,
+# minus README, is what draws that line.
+FILTER_REGEX_EXCLUDE: "(package-lock\\.json|stuff/|\\.ai/private/claude/memory/(?!README\\.md)[^/]+\\.md)"
 
 # Keep generic linting for bench assets, except where established DOM ids and
 # bundled CSS intentionally conflict with generic documentation-style rules.

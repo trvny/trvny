@@ -20,7 +20,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
-            echo "::error::Set CLOUDFLARE_BUILDS_API_TOKEN with Workers CI Write."
+            echo "::error::Set CLOUDFLARE_BUILDS_API_TOKEN with Workers Builds Configuration/Edit and Workers Scripts/Read."
             exit 1
           fi
 
@@ -39,7 +39,10 @@ jobs:
             excludes="$3"
 
             tag="$(
-              jq -r --arg script "$script"                 '.result[] | select(.id == $script) | .tag // empty'                 <<<"$scripts" |
+              jq -r \
+                --arg script "$script" \
+                '.result[] | select(.id == $script) | .tag // empty' \
+                <<<"$scripts" |
                 head -n1
             )"
             if [ -z "$tag" ]; then
@@ -50,7 +53,7 @@ jobs:
             triggers="$(
               curl "${curl_args[@]}" "${api}/builds/workers/${tag}/triggers"
             )"
-            trigger_uuid="$(
+            triggger_uuid="$(
               jq -r '
                 [
                   .result[]
@@ -59,22 +62,35 @@ jobs:
                 ][0] // empty
               ' <<<"$triggers"
             )"
-            if [ -z "$trigger_uuid" ]; then
+            if [ -z "$triggger_uuid" ]; then
               echo "::error::Production build trigger for ${script} not found."
               return 1
             fi
 
             payload="$(
-              jq -cn                 --argjson path_includes "$includes"                 --argjson path_excludes "$excludes"                 '{path_includes: $path_includes, path_excludes: $path_excludes}'
+              jq -cn \
+                --argjson path_includes "$includes" \
+                --argjson path_excludes "$excludes" \
+                '{path_includes: $path_includes, path_excludes: $path_excludes}'
             )"
 
-            curl "${curl_args[@]}"               --request PATCH               --header "Content-Type: application/json"               --data "$payload"               "${api}/builds/triggers/${trigger_uuid}" >/dev/null
+            curl "${curl_args[@]}" \
+              --request PATCH \
+              --header "Content-Type: application/json" \
+              --data "$payload" \
+              "${api}/builds/triggers/${trigger_uuid}" >/dev/null
 
             echo "Synced ${script}: ${includes}"
           }
 
-          sync_watch             "streambench"             '["streambench/*","stuff/playlists/iptv.m3u8","stuff/playlists/internet_radio.m3u8"]'             '["*.md"]'
+          sync_watch \
+            "streambench" \
+            '["streambench/*","stuff/playlists/iptv.m3u8","stuff/playlists/internet_radio.m3u8"]' \
+            '["*.md"]'
           sync_watch "codebench" '["codebench/*"]' '["*.md"]'
-          sync_watch             "kanarek-companion"             '["gh-apps/kanarek-companion/*"]'             '["*.md"]'
+          sync_watch \
+            "kanarek-companion" \
+            '["gh-apps/kanarek-companion/*"]' \
+            '["*.md"]'
           sync_watch "feeds-proxy" '["feeds-proxy/*"]' '["*.md"]'
           sync_watch "kanarek" '["worker/*"]' '["*.md"]'

@@ -2,11 +2,11 @@
 
 <img src="assets/banner.svg" alt="trvny" width="100%">
 
-**Private command center: projects, services, tools, and drawers in one place.**
+**Prywatny hol dowodzenia: projekty, usługi, narzędzia i szuflady w jednym miejscu.**
 
 <br>
 
-[Polski](README_pl.md) · **English**
+**Polski** · [English](README.md)
 
 [![feedseek](https://img.shields.io/badge/feed-seek-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feedseek) [![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://travny.pages.dev/tv/)
 [![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/trvny/wambridge) 
@@ -20,53 +20,55 @@
 
 ---
 
-## 🧭 Project map
+## 🧭 Mapa projektów
 
-### Main repositories
+### Główne repozytoria
 
-| project | entry points | what's inside |
+| projekt | wejścia | co tam siedzi |
 |---|---|---|
-| 📡 **Feedseek** | [repo](https://github.com/trvny/feedseek) · [site](https://trvny.github.io/feedseek) · [reader](https://trvny.github.io/feedseek/reader/) | RSS/Atom feed generator and publisher for sources without useful native feeds. |
-| 🐤 **Kanarek** | [repo](https://github.com/trvny/kanarek) | Android RSS/Atom reader with widgets and radio/IPTV playback. |
-| 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [site](https://travny.pages.dev/tv/) · [playlist](https://tvpi.travny.workers.dev/playlist.m3u) | Stable IPTV entry points for TVP channels, a Worker, and residential push for refreshing HLS tokens. |
-| 🚗 **Autka** | [repo](https://github.com/trvny/autka) | Android aggregator of car listings from Poland, the EU, and US imports, including import cost calculations. |
-| 🔊 **WAM Bridge** | [repo](https://github.com/trvny/wambridge) | Audio bridge for Samsung Wireless Audio Multiroom speakers and native foobar2000 output for Shape M5. |
+| 📡 **Feedseek** | [repo](https://github.com/trvny/feedseek) · [strona](https://trvny.github.io/feedseek) · [czytnik](https://trvny.github.io/feedseek/reader/) | Generator i publikator RSS/Atom dla źródeł bez użytecznych natywnych feedów. |
+| 🐤 **Kanarek** | [repo](https://github.com/trvny/kanarek) | Androidowy czytnik RSS/Atom, widżety oraz odtwarzacz radia/IPTV. |
+| 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [strona](https://travny.pages.dev/tv/) · [playlista](https://tvpi.travny.workers.dev/playlist.m3u) | Stabilne wejścia IPTV do kanałów TVP, Worker oraz residential-push do odświeżania tokenów HLS. |
+| 🚗 **Autka** | [repo](https://github.com/trvny/autka) | Androidowy agregator ofert samochodów z Polski, UE i importu z USA, razem z kalkulacją kosztu sprowadzenia. |
+| 🔊 **WAM Bridge** | [repo](https://github.com/trvny/wambridge) | Most audio do głośników Samsung Wireless Audio Multiroom oraz natywne wyjście foobar2000 dla Shape M5. |
 
-### Tools in this monorepo
+### Narzędzia w tym monorepo
 
-| project | live | purpose |
+| projekt | live | przeznaczenie |
 |---|---|---|
-| 🔳 **[Codebench](codebench/)** | [codebench.travny.workers.dev](https://codebench.travny.workers.dev) | Private browser-based QR and barcode studio. Data never leaves the browser. |
-| 📻 **[Streambench](streambench/)** | [streambench.travny.workers.dev](https://streambench.travny.workers.dev) | Workshop for testing, organizing, and playing IPTV, radio, HLS, M3U, and XMLTV. |
-| 🌦️ **[weather-feed](weather-feed/)** | [weather.travny.workers.dev](https://weather.travny.workers.dev) | Multi-source weather and IMGW alerts for Kościelec/Chrzanów, exposed as Atom and JSON. |
-| 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | One tool for aggregate health checks of TVPI, Feedseek, and Autka. |
-| 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Public AI configuration core + private profile, archive, and project skills. |
+| 🔳 **[Codebench](codebench/)** | [codebench.travny.workers.dev](https://codebench.travny.workers.dev) | Prywatne, przeglądarkowe studio QR i kodów kreskowych. Dane nie opuszczają przeglądarki. |
+| 📻 **[Streambench](streambench/)** | [streambench.travny.workers.dev](https://streambench.travny.workers.dev) | Warsztat do testowania, porządkowania i odtwarzania IPTV, radia, HLS, M3U oraz XMLTV. |
+| 🌦️ **[weather-feed](weather-feed/)** | [weather.travny.workers.dev](https://weather.travny.workers.dev) | Wieloźródłowa pogoda i alerty IMGW dla Kościelca/Chrzanowa, wystawione jako Atom i JSON. |
+| 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | Jedno narzędzie do zbiorczego sprawdzania zdrowia TVPI, Feedseek i Autek. |
+| 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Publiczny rdzeń konfiguracji AI + prywatny profil, archiwum i projektowe skillsy. |
 
-## 🗄️ Drawers
+## 🗄️ Szuflady
 
 [`playlists`](stuff/playlists/) · [`configs`](stuff/configs/) ·
 [`feeds`](stuff/feeds/) · [`quotes`](stuff/quotes/) · [`other`](stuff/other/)
 
-- **Playlists**: working and test M3U/M3U8 files for Streambench and players.
-- **Configs**: shared pieces that are not worth putting in a separate repository.
-- **Feeds and quotes**: helper sources used by automations and widgets.
+- **Playlisty**: robocze i testowe M3U/M3U8 dla Streambencha oraz
+  odtwarzaczy.
+- **Konfiguracje**: rzeczy współdzielone, których nie warto zamykać w osobnym
+  repo.
+- **Feedy i cytaty**: źródła pomocnicze używane przez automaty i widżety.
 
-## 🧪 Other repositories
+## 🧪 Pozostałe repozytoria
 
-| repo | role |
+| repo | rola |
 |---|---|
-| [WiFi-Automatic](https://github.com/trvny/WiFi-Automatic) | fork of an Android app that automates Wi-Fi radio state |
+| [WiFi-Automatic](https://github.com/trvny/WiFi-Automatic) | fork aplikacji automatyzującej radio Wi-Fi na Androidzie |
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
 
-## [License](LICENSE) and [third-party materials](docs/THIRD_PARTY_NOTICES.md)
+## [Licencja](LICENSE) i [materiały zewnętrzne](docs/THIRD_PARTY_NOTICES.md)
 
-Original code and documentation are covered by [ISC](https://spdx.org/licenses/ISC).  
+Oryginalny kod i dokumentację obejmuje [ISC](https://spdx.org/licenses/ISC).  
 [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md).  
 [![license](https://img.shields.io/github/license/trvny/trvny)](LICENSE)
 
 ---
-## 💬 Quote from the drawer
+## 💬 Cytat z szuflady
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
@@ -74,7 +76,7 @@ Original code and documentation are covered by [ISC](https://spdx.org/licenses/I
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
-## 📰 Recently on the air
+## 📰 Ostatnio w eterze
 
 <!--README_FEED:START-->
 - [Bakteria w wodzie! Zjeżdżalnia na Basenach Letnich w Chrzanowie zamknięta - Przelom.pl](https://news.google.com/atom/articles/CBMiuwFBVV95cUxQUHJJa3pnenhMdWVWTngwS0E5NFN4YV9PVFduVHdoQWlkQkFmUlRkQ05Fa0k4SjNWeWtfMnloeUIxN2pEbV9laTlLNlREWEJJQ3VMRzlFdU1EcEQ1ZWNlLTBCQzc4LW93eTUwRzUya0g2bEpVeGltdGZmVFV6Vkk2VngxLURfTVA2Y2tmdFdDTWR4aFhnSmVxem9PY3M4U2FvX2NGWEJBNXhSb0xMM3NqaUZLanBSTE8yY0w0?oc=5)

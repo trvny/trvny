@@ -41,7 +41,8 @@ const SCHEMA = JSON.stringify({
     "QR code generator",
     "QR and barcode scanner",
     "Barcode generator",
-    "PNG and SVG export",
+    "Styled and circular QR codes",
+    "PNG, SVG, WebP, JPEG and terminal QR export",
     "Client-side private processing",
   ],
 }).replaceAll("<", "\\u003c");
@@ -88,7 +89,7 @@ class InjectHead {
 class InjectBody {
   element(element) {
     element.append(
-      '<script src="/hardening.js"></script><script src="/privacy-guard.js"></script><script src="/logo-compat.js"></script><script src="/svg-normalize.js"></script><script src="/module-shapes.js"></script><script src="/style-picker.js"></script><script src="/frame-presets.js"></script><script src="/svg-compat.js"></script><script src="/qr-raster.js"></script><script src="/qr-self-test.js"></script><script src="/scanner-compat.js"></script>',
+      '<script src="/hardening.js"></script><script src="/privacy-guard.js"></script><script src="/logo-compat.js"></script><script src="/svg-normalize.js"></script><script src="/module-shapes.js"></script><script src="/style-picker.js"></script><script src="/frame-presets.js"></script><script src="/svg-compat.js"></script><script src="/qr-raster.js"></script><script src="/qr-palette.js"></script><script src="/qr-output-plus.js"></script><script src="/qr-self-test.js"></script><script src="/barcode-formats.js"></script><script src="/scanner-compat.js"></script>',
       { html: true },
     );
   }

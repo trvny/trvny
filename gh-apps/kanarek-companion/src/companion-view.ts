@@ -30,6 +30,25 @@ function code(value: unknown): string {
   return `\`${String(value).replaceAll('`', 'ˋ')}\``;
 }
 
+/**
+ * Coarsens "how far behind the base branch we are" to a floor: 1, 5 or 20.
+ *
+ * The exact count is the single largest source of comment churn. It changes for
+ * every open pull request at once every time anything merges to the base, so a
+ * busy afternoon rewrites every companion comment repeatedly — and, because the
+ * count also reaches the quip prompt through the blocker list, re-rolls every
+ * quip along with it. None of that says anything new about the pull request it
+ * is rewriting.
+ *
+ * A floor keeps the signal that matters ("behind, and roughly how badly") and
+ * only changes when a bucket boundary is crossed.
+ */
+export function behindFloor(behind: number): number {
+  if (behind >= 20) return 20;
+  if (behind >= 5) return 5;
+  return 1;
+}
+
 export function requireCi(env: CompanionEnv, repository: string): boolean {
   if (env.KANAREK_REQUIRE_CI === 'false') return false;
   const excluded = new Set(
@@ -104,7 +123,9 @@ export function status(
   }
 
   const blockers: string[] = [];
-  if (branch.behind !== null && branch.behind > 0) blockers.push(`${branch.behind} behind ${pr.base.ref}`);
+  // No number here on purpose: blockers reach the quip prompt, so a count would
+  // make every merge to the base re-roll the quip of every open pull request.
+  if (branch.behind !== null && branch.behind > 0) blockers.push(`behind ${pr.base.ref}`);
   if (branch.behind === null) blockers.push('branch state unknown');
   if (pr.mergeable === false || pr.mergeable_state === 'dirty') {
     blockers.push('merge conflicts');
@@ -159,7 +180,9 @@ function branchBadge(pr: PullRequest, branch: BranchState): string {
   if (pr.merged) return `${code(pr.base.ref)} ✅`;
   if (pr.state === 'closed') return 'branch ⚫';
   if (branch.behind === 0) return `${code(pr.base.ref)} ✅`;
-  if (branch.behind !== null && branch.behind > 0) return `${code(pr.base.ref)} −${branch.behind}`;
+  if (branch.behind !== null && branch.behind > 0) {
+    return `${code(pr.base.ref)} −${behindFloor(branch.behind)}+`;
+  }
   return 'branch ?';
 }
 

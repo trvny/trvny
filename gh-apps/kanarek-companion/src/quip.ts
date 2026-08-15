@@ -574,8 +574,14 @@ export async function aiQuip(
       const reason = result.complete
         ? `unusable quip (${result.text.length} chars)`
         : `incomplete generation (${result.finishReason ?? 'unknown reason'})`;
-      console.warn(`${candidate.label} returned ${reason}; using bank/preset.`);
-      return null;
+      // A provider that answers unusably is as failed as one that throws, and
+      // with a tight token budget it is the likelier of the two: Grok 4.5 spends
+      // its whole allowance on reasoning and returns an empty completion. Ending
+      // the chain here meant one short answer from the first provider skipped
+      // every remaining one.
+      console.warn(
+        `${candidate.label} returned ${reason}${hasFallback ? '; trying next provider.' : '; using bank/preset.'}`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown provider error';
       console.warn(

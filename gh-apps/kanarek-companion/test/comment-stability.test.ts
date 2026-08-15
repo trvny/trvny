@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { blockerKinds, commentStateHash, render } from '../src/companion.ts';
+import { behindFloor, blockerKinds, commentStateHash, render } from '../src/companion.ts';
 import type { PullRequest } from '../src/companion-types.ts';
 
 const basePr: PullRequest = {
@@ -182,4 +182,69 @@ test('freezes merged comments against late CI, review, and branch churn', async 
   );
   assert.equal(firstBody, laterBody);
   assert.doesNotMatch(firstBody, /CI |review /);
+});
+
+// A merge to the base branch changes `behind` for every open pull request at
+// once. When that count reached the state hash verbatim, one merge rewrote every
+// companion comment and re-rolled every quip, saying nothing new about any of
+// them. The count is now floored, so it only moves at a bucket boundary.
+const behindHash = (behind: number) =>
+  commentStateHash(
+    {
+      status: 'ready',
+      blockers: behind > 0 ? ['behind main'] : [],
+      area: 'Gh apps',
+      size: 'tiny',
+      language: 'en',
+      context: '',
+    },
+    {
+      head: 'b'.repeat(40),
+      behind,
+      reviews: { approvals: 0, changes: 0 },
+      autoMerge: null,
+      files: 2,
+    },
+  );
+
+test('behindFloor buckets the distance instead of reporting it exactly', () => {
+  assert.equal(behindFloor(1), 1);
+  assert.equal(behindFloor(4), 1);
+  assert.equal(behindFloor(5), 5);
+  assert.equal(behindFloor(19), 5);
+  assert.equal(behindFloor(20), 20);
+  assert.equal(behindFloor(97), 20);
+});
+
+test('drifting further behind inside one bucket leaves the state hash alone', async () => {
+  assert.equal(await behindHash(1), await behindHash(4));
+  assert.equal(await behindHash(5), await behindHash(19));
+});
+
+test('crossing a bucket boundary still changes the state hash', async () => {
+  assert.notEqual(await behindHash(0), await behindHash(1));
+  assert.notEqual(await behindHash(4), await behindHash(5));
+  assert.notEqual(await behindHash(19), await behindHash(20));
+});
+
+test('the branch badge shows a floor, not the exact count', () => {
+  const body = (behind: number) =>
+    render(
+      basePr,
+      { behind },
+      { failed: [], passed: [{}], pending: [], total: 1 },
+      { approvals: 0, changes: 0 },
+      ['Gh apps'],
+      { key: 'ready', title: '🟢 ready', blockers: [] },
+      'Ready.',
+      '0'.repeat(16),
+      'fedcba9876543210',
+      'preset',
+      [],
+      true,
+    );
+
+  assert.match(body(3), /−1\+/);
+  assert.equal(body(1), body(4));
+  assert.notEqual(body(4), body(5));
 });

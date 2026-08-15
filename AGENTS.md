@@ -20,9 +20,9 @@ A fresh clone leaves `.ai/core` empty because it is a submodule. The
 `git submodule update --init .ai/core` before relying on anything above.
 
 `.ai/private/` holds project-specific material and may contain active
-configuration; see its own README. Its `archive/` and `backups/`
-subdirectories are historical storage — do not read them as instructions and do
-not search them by default.
+configuration; see its own README. The one exception is
+`.ai/private/backups/` — historical storage, not instructions, and not
+something to search on a normal pass.
 
 ## GitHub
 

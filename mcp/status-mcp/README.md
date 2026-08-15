@@ -42,8 +42,31 @@ on push to `mcp/status-mcp/**` (reuses repo secrets `CLOUDFLARE_API_TOKEN` /
 `CLOUDFLARE_ACCOUNT_ID`). Manual: `npm install && npx wrangler deploy` from this
 folder.
 
+## Authentication
+
+The endpoint needs a shared secret before it will answer anything. Generate one
+and store it as a Worker secret:
+
+```bash
+# any long random string; this prints one without putting it in shell history
+openssl rand -base64 32
+npx wrangler secret put STATUS_MCP_TOKEN
+```
+
+Until that secret exists, every `POST` is rejected with `401`. That is
+deliberate: the endpoint is reachable from the open internet and drives the
+other Workers through service bindings, so it fails closed rather than open.
+
 Then add `https://status-mcp.<subdomain>.workers.dev` as a single custom
-connector in Claude. No auth — read-only public data.
+connector in Claude, with the header:
+
+```text
+Authorization: Bearer <the same token>
+```
+
+`GET` stays unauthenticated and returns a one-line banner. It touches no service
+binding, and leaving it open keeps the CORS preflight working — a client cannot
+present a token on a preflight.
 
 ## Keeping it correct
 

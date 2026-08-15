@@ -43,13 +43,37 @@ function secretsMatch(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/**
+ * Accepts the token either in the URL path or as a bearer header.
+ *
+ * The path is the one that matters: a custom connector on claude.ai only offers
+ * a URL and OAuth, with nowhere to add a header, so a header-only check made the
+ * endpoint unusable as a connector at all. The header form is kept because it is
+ * the natural way to call this from curl or any ordinary client.
+ *
+ * A token in a URL is normally a bad idea because URLs end up in logs. Here the
+ * only log that would see it is this Worker's own, which is why
+ * `invocation_logs` is off — see wrangler.jsonc. There is no referrer to leak
+ * to: nothing links here, and the request is made server-side.
+ */
 function authorized(request: Request, env: Env): boolean {
   const expected = env.STATUS_MCP_TOKEN;
   if (!expected) return false;
+
   const header = request.headers.get("Authorization") ?? "";
   const prefix = "Bearer ";
-  if (!header.startsWith(prefix)) return false;
-  return secretsMatch(header.slice(prefix.length), expected);
+  if (header.startsWith(prefix) && secretsMatch(header.slice(prefix.length), expected)) return true;
+
+  // Everything after the leading slash, so a token is compared whole even if it
+  // somehow contains one. Decoding is best-effort: a malformed escape only means
+  // this cannot be the token.
+  let path = new URL(request.url).pathname.slice(1);
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    return false;
+  }
+  return secretsMatch(path, expected);
 }
 
 async function readTextLimited(request: Request): Promise<string> {

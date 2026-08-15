@@ -3,6 +3,8 @@
 (() => {
   const customShapes = new Set(["heart", "star", "diamond", "plus"]);
   const dotSelect = document.querySelector("#qDot");
+  const cornerSquareSelect = document.querySelector("#qCornerSq");
+  const cornerDotSelect = document.querySelector("#qCornerDot");
   const originalQrOptions = window.qrOptions;
   const originalRenderQR = window.renderQR;
   const originalBareSVG = window.qrBareSVG;
@@ -25,7 +27,7 @@
   hint.className = "hint";
   hint.style.margin = "7px 0 0";
   hint.style.display = "none";
-  hint.textContent = "Decorative modules reduce scan tolerance; finder patterns stay standard. Test before printing.";
+  hint.textContent = "Decorative modules reduce scan tolerance; finder layout stays standard. Test before printing.";
   dotSelect.insertAdjacentElement("afterend", hint);
 
   let printSource = null;
@@ -82,12 +84,8 @@
       + `C${x + size * 0.95} ${y + size * 0.52},${x + size * 0.8} ${y + size * 0.72},${cx} ${y + size * 0.92}Z`;
   }
 
-  function transformSVG(svg, shape) {
-    if (!svg || !customShapes.has(shape)) return svg;
-    const documentNode = new DOMParser().parseFromString(svg, "image/svg+xml");
-    if (documentNode.querySelector("parsererror")) return svg;
-
-    documentNode.querySelectorAll('clipPath[id^="clip-path-dot-color-"]').forEach((clipPath) => {
+  function replaceRectModules(documentNode, selector, shape) {
+    documentNode.querySelectorAll(selector).forEach((clipPath) => {
       Array.from(clipPath.children).forEach((element) => {
         if (element.localName !== "rect") return;
         const x = numberAttribute(element, "x");
@@ -102,6 +100,20 @@
         element.replaceWith(path);
       });
     });
+  }
+
+  function transformSVG(svg, shape) {
+    if (!svg || !customShapes.has(shape)) return svg;
+    const documentNode = new DOMParser().parseFromString(svg, "image/svg+xml");
+    if (documentNode.querySelector("parsererror")) return svg;
+
+    replaceRectModules(documentNode, 'clipPath[id^="clip-path-dot-color-"]', shape);
+    if (!cornerSquareSelect?.value) {
+      replaceRectModules(documentNode, 'clipPath[id^="clip-path-corners-square-color-"]', shape);
+    }
+    if (!cornerDotSelect?.value) {
+      replaceRectModules(documentNode, 'clipPath[id^="clip-path-corners-dot-color-"]', shape);
+    }
 
     documentNode.documentElement.setAttribute("data-codebench-modules", shape);
     return new XMLSerializer().serializeToString(documentNode.documentElement);

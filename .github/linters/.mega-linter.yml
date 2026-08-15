@@ -37,7 +37,11 @@ DISABLE_ERRORS_LINTERS:
 # Python/PowerShell/Markdown volume was coming from)
 # stuff/: personal scratch dir (old scripts, quote/feed dumps, configs) -
 # not maintained project code
-FILTER_REGEX_EXCLUDE: "(package-lock\\.json|\\.claude/|stuff/)"
+# .ai/private/claude/memory/: exported copies of notes maintained in
+# ~/.claude/memory. Their README forbids editing them here (a fix would be lost
+# on re-export), so a linter asking for edits in this directory has nowhere to
+# send them. The frontmatter they are generated with carries trailing whitespace.
+FILTER_REGEX_EXCLUDE: "(package-lock\\.json|\\.claude/|stuff/|\\.ai/private/claude/memory/)"
 
 # Keep generic linting for bench assets, except where established DOM ids and
 # bundled CSS intentionally conflict with generic documentation-style rules.

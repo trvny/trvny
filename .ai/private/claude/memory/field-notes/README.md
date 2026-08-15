@@ -10,6 +10,12 @@ have to be re-derived: a measurement, a disproved hypothesis, a decision and its
 reason, a trap that looks like a bug but is not. Do not write one for what you
 just did — the commit message and the diff already record that.
 
+A note may later be promoted into the local store. **Promotion is a move, not a
+copy:** the note leaves this directory in the same change, and comes back as an
+exported note in the parent. Leaving the original here would give one fact two
+authoring locations, which is the exact thing the two-direction split exists to
+prevent.
+
 A note is worth more when it says how to check it again. Date anything that can
 go stale, and name the command or the file that settles it.
 
@@ -32,9 +38,10 @@ metadata:
 `node_type: memory` matches the local store's format, so promoting a note is a
 copy rather than a copy plus a fix.
 
-Link related notes as `[[name]]`. Links resolve against `field-notes/` and the
-exported notes in the parent directory; anything else points into a local store
-you cannot reach, which is expected rather than broken.
+Link related notes as `[[name]]`. The parent `../README.md` is authoritative on
+what a link resolves against; the short version is that anything outside this
+directory and the exported notes points into a local store you cannot reach,
+which is expected rather than broken.
 
 **There is no index here, on purpose.** A shared index file is the one thing two
 agents working in parallel would both have to edit, and it would conflict even
@@ -43,8 +50,12 @@ supposed to avoid. Discovery goes through the filenames and the `description`
 line instead:
 
 ```bash
-grep -h '^description:' .ai/private/claude/memory/field-notes/*.md
+grep -h --exclude=README.md '^description:' .ai/private/claude/memory/field-notes/*.md
 ```
+
+`--exclude=README.md` is not optional: the template above contains a matching
+`description:` line, so without it the scan reports this file's placeholder as
+though it were a note.
 
 So the description carries the weight an index entry would have. Write it as the
 one line you would want to read when scanning for whether this note is relevant.

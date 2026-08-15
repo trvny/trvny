@@ -6,8 +6,10 @@ core, but it is still active configuration and context.
 
 ```text
 claude/
-├── memory/         working notes exported from the local memory store
-└── delegation.md   checklist for writing a subagent task prompt
+├── memory/
+│   ├── *.md            notes exported down from the local memory store
+│   └── field-notes/    notes written up, here, by whoever worked in this repo
+└── delegation.md       checklist for writing a subagent task prompt
 ```
 
 `memory/` is the part a session away from the author's machine cannot get any

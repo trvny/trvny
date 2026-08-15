@@ -13,10 +13,14 @@ const helperScripts = [
   "svg-normalize.js",
   "module-shapes.js",
   "style-picker.js",
+  "corner-palette.js",
   "frame-presets.js",
   "svg-compat.js",
   "qr-raster.js",
+  "qr-palette.js",
+  "qr-output-plus.js",
   "qr-self-test.js",
+  "barcode-formats.js",
   "scanner-compat.js",
 ];
 

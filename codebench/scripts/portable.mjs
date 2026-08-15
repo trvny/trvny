@@ -13,6 +13,7 @@ const helperScripts = [
   "svg-normalize.js",
   "module-shapes.js",
   "style-picker.js",
+  "corner-palette.js",
   "frame-presets.js",
   "svg-compat.js",
   "qr-raster.js",

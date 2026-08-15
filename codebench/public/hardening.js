@@ -28,7 +28,7 @@
     .observe(barcodeError, { attributes: true, childList: true, subtree: true });
   syncBarcodeValidity();
 
-  // Standards-safe text values for vCard and iCalendar QR payloads.
+  // One standards-safe source of truth for vCard and iCalendar payloads.
   const originalBuildContent = window.buildContent;
   const value = (key) => {
     const element = $("#f_" + key);
@@ -42,13 +42,14 @@
   const escapeSingleLine = (input) => String(input ?? "")
     .replace(/\\/g, "\\\\")
     .replace(/\r?\n/g, "");
-  const formatLocalDateTime = (input) => input
-    ? input.replace(/[-:]/g, "").replace("T", "T") + "00"
-    : "";
+  const formatLocalDateTime = (input) => {
+    if (!input) return "";
+    const compact = input.replace(/[-:]/g, "");
+    return compact.length === 13 ? compact + "00" : compact;
+  };
   const formatUtcDateTime = (date) => date.toISOString()
     .replace(/[-:]/g, "")
     .replace(/\.\d{3}Z$/, "Z");
-  const calendarStamp = formatUtcDateTime(new Date());
   const hash = (input) => {
     let result = 2166136261;
     for (const character of input) {
@@ -57,41 +58,58 @@
     }
     return (result >>> 0).toString(16);
   };
+  const buildVCard = ({ fn = "", org = "", title = "", phone = "", email = "", url = "", adr = "" } = {}) => [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    `FN:${escapeStructuredText(fn)}`,
+    org && `ORG:${escapeStructuredText(org)}`,
+    title && `TITLE:${escapeStructuredText(title)}`,
+    phone && `TEL:${escapeSingleLine(phone)}`,
+    email && `EMAIL:${escapeSingleLine(email)}`,
+    url && `URL:${escapeSingleLine(url)}`,
+    adr && `ADR:;;${escapeStructuredText(adr)};;;;`,
+    "END:VCARD",
+  ].filter(Boolean).join("\r\n");
+  const buildCalendarEvent = ({ title = "", loc = "", start = "", end = "" } = {}) => {
+    const identity = [title, loc, start, end].join("|");
+    return [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Code Bench//QR & Barcode Studio//EN",
+      "CALSCALE:GREGORIAN",
+      "BEGIN:VEVENT",
+      `UID:codebench-${hash(identity)}@local`,
+      `DTSTAMP:${formatUtcDateTime(new Date())}`,
+      `SUMMARY:${escapeStructuredText(title)}`,
+      loc && `LOCATION:${escapeStructuredText(loc)}`,
+      start && `DTSTART:${formatLocalDateTime(start)}`,
+      end && `DTEND:${formatLocalDateTime(end)}`,
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].filter(Boolean).join("\r\n");
+  };
+
+  window.codebenchStructuredPayloads = {
+    escapeStructuredText,
+    escapeSingleLine,
+    formatLocalDateTime,
+    buildVCard,
+    buildCalendarEvent,
+  };
 
   if (typeof originalBuildContent === "function") {
     window.buildContent = function hardenedBuildContent() {
       const template = $("#qrChips .chip[aria-pressed='true']")?.dataset.t;
       if (template === "vcard") {
-        return [
-          "BEGIN:VCARD",
-          "VERSION:3.0",
-          `FN:${escapeStructuredText(value("fn"))}`,
-          value("org") && `ORG:${escapeStructuredText(value("org"))}`,
-          value("title") && `TITLE:${escapeStructuredText(value("title"))}`,
-          value("phone") && `TEL:${escapeSingleLine(value("phone"))}`,
-          value("email") && `EMAIL:${escapeSingleLine(value("email"))}`,
-          value("url") && `URL:${escapeSingleLine(value("url"))}`,
-          value("adr") && `ADR:;;${escapeStructuredText(value("adr"))};;;;`,
-          "END:VCARD",
-        ].filter(Boolean).join("\r\n");
+        return buildVCard({
+          fn: value("fn"), org: value("org"), title: value("title"), phone: value("phone"),
+          email: value("email"), url: value("url"), adr: value("adr"),
+        });
       }
       if (template === "event") {
-        const identity = [value("title"), value("loc"), value("start"), value("end")].join("|");
-        return [
-          "BEGIN:VCALENDAR",
-          "VERSION:2.0",
-          "PRODID:-//Code Bench//QR & Barcode Studio//EN",
-          "CALSCALE:GREGORIAN",
-          "BEGIN:VEVENT",
-          `UID:codebench-${hash(identity)}@local`,
-          `DTSTAMP:${calendarStamp}`,
-          `SUMMARY:${escapeStructuredText(value("title"))}`,
-          value("loc") && `LOCATION:${escapeStructuredText(value("loc"))}`,
-          value("start") && `DTSTART:${formatLocalDateTime(value("start"))}`,
-          value("end") && `DTEND:${formatLocalDateTime(value("end"))}`,
-          "END:VEVENT",
-          "END:VCALENDAR",
-        ].filter(Boolean).join("\r\n");
+        return buildCalendarEvent({
+          title: value("title"), loc: value("loc"), start: value("start"), end: value("end"),
+        });
       }
       return originalBuildContent();
     };

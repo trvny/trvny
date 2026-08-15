@@ -4,6 +4,12 @@ interface Env {
   TVPI: Fetcher;
   WEATHER: Fetcher;
   AUTKA: Fetcher;
+  // Shared secret the caller sends as `Authorization: Bearer <token>`. Set with
+  // `wrangler secret put STATUS_MCP_TOKEN`. When it is missing every request is
+  // rejected: this endpoint is reachable from the open internet and drives the
+  // other Workers through service bindings, so failing closed is the only safe
+  // default.
+  STATUS_MCP_TOKEN?: string;
 }
 
 interface RpcRequest {
@@ -25,6 +31,25 @@ function rpcError(id: RpcRequest["id"], code: number, message: string) {
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+}
+
+// Compares without an early return, so the time taken does not reveal how many
+// leading characters were right. Length is allowed to leak; the token is a
+// fixed-length random string, so that tells an attacker nothing.
+function secretsMatch(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function authorized(request: Request, env: Env): boolean {
+  const expected = env.STATUS_MCP_TOKEN;
+  if (!expected) return false;
+  const header = request.headers.get("Authorization") ?? "";
+  const prefix = "Bearer ";
+  if (!header.startsWith(prefix)) return false;
+  return secretsMatch(header.slice(prefix.length), expected);
 }
 
 async function readTextLimited(request: Request): Promise<string> {
@@ -123,7 +148,17 @@ async function getStatusResult(
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // Non-POST is the CORS preflight and a static banner. Neither reaches a
+    // service binding, so both stay open; gating them would only break the
+    // preflight that clients send before they can present a token at all.
     if (request.method !== "POST") return worker.fetch(request, env);
+
+    if (!authorized(request, env)) {
+      return new Response(JSON.stringify(rpcError(null, -32001, "Unauthorized")), {
+        status: 401,
+        headers: { ...JSON_HEADERS, "WWW-Authenticate": 'Bearer realm="status-mcp"' },
+      });
+    }
 
     const declaredLength = Number(request.headers.get("Content-Length") || 0);
     if (declaredLength > MAX_BODY_BYTES) return json(rpcError(null, -32600, "Request too large"), 413);

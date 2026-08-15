@@ -36,7 +36,7 @@ assert(exported.includes("#EXTVLCOPT:http-user-agent=Streambench Test"), "item d
 assert(exported.includes("https://example.com/live.mpd"), "MPD URL was not exported");
 assert(exported.match(/https:\/\/example\.com\/raw\.mp3/g)?.length === 1, "export did not deduplicate exact URLs");
 
-const repositorySource = await readFile(new URL("../../stuff/playlists/iptv.m3u8", import.meta.url), "utf8");
+const repositorySource = await readFile(new URL("../public/playlists/iptv.m3u8", import.meta.url), "utf8");
 const repositoryItems = parseM3uWorkspace(repositorySource, { providerId: "local", providerLabel: "Lokalna" });
 assert(repositoryItems.length > 20, "repository IPTV playlist was not parsed");
 assert(repositoryItems.some((item) => item.hls), "repository IPTV playlist lost HLS entries");

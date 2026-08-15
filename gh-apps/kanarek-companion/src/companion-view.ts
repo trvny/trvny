@@ -30,6 +30,23 @@ function code(value: unknown): string {
   return `\`${String(value).replaceAll('`', 'ˋ')}\``;
 }
 
+/**
+ * Reduces "how far behind the base branch we are" to whether we are behind.
+ *
+ * The exact count was the largest source of comment churn. It changes for every
+ * open pull request at once every time anything merges to the base, so a busy
+ * afternoon rewrote every companion comment repeatedly without any of those
+ * rewrites saying something new about the pull request being rewritten.
+ *
+ * The count is not worth that: GitHub already shows it on the branch itself,
+ * and what the comment is for is a glance. As a state, a pull request falls
+ * behind once and stays there, so merges stop moving it at all.
+ */
+export function behindState(behind: number | null): 'unknown' | 'current' | 'behind' {
+  if (behind === null) return 'unknown';
+  return behind > 0 ? 'behind' : 'current';
+}
+
 export function requireCi(env: CompanionEnv, repository: string): boolean {
   if (env.KANAREK_REQUIRE_CI === 'false') return false;
   const excluded = new Set(
@@ -158,8 +175,9 @@ export function blockerKinds(
 function branchBadge(pr: PullRequest, branch: BranchState): string {
   if (pr.merged) return `${code(pr.base.ref)} ✅`;
   if (pr.state === 'closed') return 'branch ⚫';
-  if (branch.behind === 0) return `${code(pr.base.ref)} ✅`;
-  if (branch.behind !== null && branch.behind > 0) return `${code(pr.base.ref)} −${branch.behind}`;
+  const state = behindState(branch.behind);
+  if (state === 'current') return `${code(pr.base.ref)} ✅`;
+  if (state === 'behind') return `${code(pr.base.ref)} ↓`;
   return 'branch ?';
 }
 

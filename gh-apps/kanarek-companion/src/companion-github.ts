@@ -27,6 +27,7 @@ const FAIL = new Set([
 const PASS = new Set(['neutral', 'skipped', 'success']);
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20;
+const MERGEABILITY_RETRY_DELAYS_MS = [400, 800, 1_600] as const;
 
 export function repoParts(repository: string): [string, string] {
   const parts = repository.split('/');
@@ -64,8 +65,9 @@ export async function pull(
   const [owner, repo] = repoParts(repository);
   const path = `/repos/${owner}/${repo}/pulls/${number}`;
   let result = await client.json<PullRequest>(path, 'get_pull_request');
-  if (result.state === 'open' && result.mergeable === null) {
-    await new Promise((resolve) => setTimeout(resolve, 800));
+  for (const delay of MERGEABILITY_RETRY_DELAYS_MS) {
+    if (result.state !== 'open' || result.mergeable !== null) break;
+    await new Promise((resolve) => setTimeout(resolve, delay));
     result = await client.json<PullRequest>(path, 'get_pull_request');
   }
   return result;

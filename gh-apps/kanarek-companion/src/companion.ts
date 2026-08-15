@@ -99,7 +99,7 @@ export async function commentStateHash(
     ...quipFacts,
     // Hash the same coarse value the comment renders. Hashing the exact count
     // while rendering a floor would churn the hash without changing the body.
-    behind: state.behind === null || state.behind <= 0 ? state.behind : behindFloor(state.behind),
+    behind: state.behind === null ? null : behindFloor(state.behind),
     reviews: state.reviews,
     autoMerge: state.autoMerge,
     files: state.files,

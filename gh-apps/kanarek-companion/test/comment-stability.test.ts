@@ -196,7 +196,6 @@ const behindHash = (behind: number) =>
       area: 'Gh apps',
       size: 'tiny',
       language: 'en',
-      context: '',
     },
     {
       head: 'b'.repeat(40),
@@ -208,6 +207,7 @@ const behindHash = (behind: number) =>
   );
 
 test('behindFloor buckets the distance instead of reporting it exactly', () => {
+  assert.equal(behindFloor(0), 0);
   assert.equal(behindFloor(1), 1);
   assert.equal(behindFloor(4), 1);
   assert.equal(behindFloor(5), 5);

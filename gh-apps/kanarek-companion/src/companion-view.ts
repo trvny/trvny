@@ -31,19 +31,21 @@ function code(value: unknown): string {
 }
 
 /**
- * Coarsens "how far behind the base branch we are" to a floor: 1, 5 or 20.
+ * Coarsens "how far behind the base branch we are" to a floor: 0, 1, 5 or 20.
  *
- * The exact count is the single largest source of comment churn. It changes for
- * every open pull request at once every time anything merges to the base, so a
- * busy afternoon rewrites every companion comment repeatedly — and, because the
- * count also reaches the quip prompt through the blocker list, re-rolls every
- * quip along with it. None of that says anything new about the pull request it
- * is rewriting.
+ * The exact count is the largest source of comment churn. It changes for every
+ * open pull request at once every time anything merges to the base, so a busy
+ * afternoon rewrites every companion comment repeatedly without any of those
+ * rewrites saying something new about the pull request being rewritten.
  *
  * A floor keeps the signal that matters ("behind, and roughly how badly") and
- * only changes when a bucket boundary is crossed.
+ * only moves when a bucket boundary is crossed.
+ *
+ * Zero maps to zero rather than to the lowest bucket, so the helper cannot turn
+ * an up-to-date branch into a behind one at a call site that forgets to guard.
  */
 export function behindFloor(behind: number): number {
+  if (behind <= 0) return 0;
   if (behind >= 20) return 20;
   if (behind >= 5) return 5;
   return 1;
@@ -123,9 +125,7 @@ export function status(
   }
 
   const blockers: string[] = [];
-  // No number here on purpose: blockers reach the quip prompt, so a count would
-  // make every merge to the base re-roll the quip of every open pull request.
-  if (branch.behind !== null && branch.behind > 0) blockers.push(`behind ${pr.base.ref}`);
+  if (branch.behind !== null && branch.behind > 0) blockers.push(`${branch.behind} behind ${pr.base.ref}`);
   if (branch.behind === null) blockers.push('branch state unknown');
   if (pr.mergeable === false || pr.mergeable_state === 'dirty') {
     blockers.push('merge conflicts');

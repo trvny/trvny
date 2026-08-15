@@ -33,15 +33,17 @@ ACTION_ZIZMOR_ARGUMENTS:
 DISABLE_ERRORS_LINTERS:
   - YAML_YAMLLINT
 
-# .claude/: vendored Claude Code skills, not app code (this is where all the
-# Python/PowerShell/Markdown volume was coming from)
+# .claude/ is NOT excluded any more. It used to hold vendored Claude Code skills
+# (all the Python/PowerShell/Markdown volume), but those were deleted in 75c12e0
+# and the rest moved to .ai/.claude/. What lives there now is a SessionStart hook
+# that runs on every session, so it is exactly the code shellcheck should see.
 # stuff/: personal scratch dir (old scripts, quote/feed dumps, configs) -
 # not maintained project code
 # .ai/private/claude/memory/: exported copies of notes maintained in
 # ~/.claude/memory. Their README forbids editing them here (a fix would be lost
 # on re-export), so a linter asking for edits in this directory has nowhere to
 # send them. The frontmatter they are generated with carries trailing whitespace.
-FILTER_REGEX_EXCLUDE: "(package-lock\\.json|\\.claude/|stuff/|\\.ai/private/claude/memory/)"
+FILTER_REGEX_EXCLUDE: "(package-lock\\.json|stuff/|\\.ai/private/claude/memory/)"
 
 # Keep generic linting for bench assets, except where established DOM ids and
 # bundled CSS intentionally conflict with generic documentation-style rules.

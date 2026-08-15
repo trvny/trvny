@@ -16,6 +16,8 @@
       "enabled": true,
       "head_sampling_rate": 0.01,
       "persist": true,
+      // invocation_logs off deliberately: the token can arrive in the URL path
+      // (see src/entry.ts), and an invocation log would record that URL.
       "invocation_logs": false
     },
     "traces": {

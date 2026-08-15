@@ -44,25 +44,47 @@ folder.
 
 ## Authentication
 
-The endpoint needs a shared secret before it will answer anything. Generate one
-and store it as a Worker secret:
+The endpoint needs a shared secret before it will answer anything. Until the
+secret exists, every `POST` is rejected with `401` — deliberately, since the
+endpoint is reachable from the open internet and drives the other Workers
+through service bindings, so it fails closed rather than open.
+
+Generate a **URL-safe** token. It has to survive being a path segment, so no
+`/` or `+`:
 
 ```bash
-# any long random string; this prints one without putting it in shell history
-openssl rand -base64 32
-npx wrangler secret put STATUS_MCP_TOKEN
+openssl rand -base64 32 | tr '+/' '-_' | tr -d '='
 ```
 
-Until that secret exists, every `POST` is rejected with `401`. That is
-deliberate: the endpoint is reachable from the open internet and drives the
-other Workers through service bindings, so it fails closed rather than open.
+Store it as a Worker secret named `STATUS_MCP_TOKEN`, either with
+`npx wrangler secret put STATUS_MCP_TOKEN` or, without a local wrangler, in the
+dashboard under **Workers & Pages → status-mcp → Settings → Variables and
+Secrets**.
 
-Then add `https://status-mcp.<subdomain>.workers.dev` as a single custom
-connector in Claude, with the header:
+## Calling it
+
+The token goes in the URL path:
 
 ```text
-Authorization: Bearer <the same token>
+https://status-mcp.<subdomain>.workers.dev/<token>
 ```
+
+That is the form to add as a custom connector in Claude, because the connector
+form offers a URL and OAuth and no place for a header.
+
+A bearer header works too and is the nicer way to call it by hand:
+
+```bash
+curl -X POST https://status-mcp.<subdomain>.workers.dev/ \
+  -H "Authorization: Bearer $STATUS_MCP_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+A token in a URL is usually a bad idea because URLs land in logs. The only log
+that would see this one is this Worker's own, which is why `invocation_logs` is
+off in `wrangler.jsonc`. Nothing links here and the request is made server-side,
+so there is no referrer to leak either.
 
 `GET` stays unauthenticated and returns a one-line banner. It touches no service
 binding, and leaving it open keeps the CORS preflight working — a client cannot

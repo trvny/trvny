@@ -6,7 +6,8 @@ core, but it is still active configuration and context.
 
 ```text
 claude/
-└── memory/     working notes exported from the local memory store
+├── memory/         working notes exported from the local memory store
+└── delegation.md   checklist for writing a subagent task prompt
 ```
 
 `memory/` is the part a remote session cannot get any other way: the maintained

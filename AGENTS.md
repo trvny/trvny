@@ -6,15 +6,20 @@ Prefer improving an existing home over creating another parallel structure.
 
 ## Read `.ai` first
 
-Shared context lives in `.ai/`. Read it in this order; where two layers
-disagree, the later one wins:
+Shared context lives in `.ai/`. Read it in this order — most useful first:
 
 1. `.ai/private/claude/memory/` — working notes from the author's local store:
    habits, GitHub conventions, CI traps. This is the part a clone cannot get any
    other way, and the part most likely to save a wasted round.
 2. `.ai/core/instructions/` and `.ai/core/styles/` — how to communicate. From
    the public core, a pinned submodule of `trvny/.ai`.
-3. This file — rules specific to this repository.
+3. `.ai/profile.yaml` — the private profile overlay on the core's base profile.
+
+**Precedence does not follow the reading order above.** When two layers
+disagree, the more specific one wins: this file beats anything
+in `.ai/`, and everything private (`.ai/private/`, `.ai/profile.yaml`) beats the
+public core. The core holds generic defaults; the private layer exists precisely
+to pin choices a future change to those defaults must not silently override.
 
 Skip the rest of `.ai/core` unless you are changing the core itself. Its
 `AGENTS.md` governs maintenance of *that* repository, not work in this one, and

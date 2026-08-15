@@ -30,6 +30,7 @@
     "logs": {
       "enabled": true,
       "head_sampling_rate": 0.1,
+      "persist": true,
       "invocation_logs": false
     },
     "traces": {
@@ -57,7 +58,7 @@
     "KANAREK_ANTHROPIC_MAX_TOKENS": "256",
     "KANAREK_GEMINI_ENABLED": "true",
     "KANAREK_GEMINI_MODEL": "gemini-3.5-flash-lite",
-    "KANAREK_GEMINI_MAX_OUTPUT_TOKENS": "256",
+      "KANAREK_GEMINI_MAX_OUTPUT_TOKENS": "256",
     "KANAREK_GEMINI_THINKING_LEVEL": "minimal",
     "KANAREK_XAI_ENABLED": "true",
     "KANAREK_XAI_MODEL": "grok-4.6",

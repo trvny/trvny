@@ -59,3 +59,7 @@ unresolvable link as "there is more on this at the source", and carry on.
 ### Data
 
 - `feed-dates-can-be-future` — a future-dated feed entry is often deliberate (forecasts, announcements); fix the sort key, never filter the set.
+
+### This repository
+
+- `gptomek-control-mailbox` — **do not delete the `gptomek/control` branch.** It looks abandoned, ~61 commits behind `main`, and deleting it kills the GPTomek command channel: GitHub stops delivering `pull_request.edited` once a PR's head ref is gone. Also records why the issue-based replacement does not work yet, and the seven causes already ruled out.

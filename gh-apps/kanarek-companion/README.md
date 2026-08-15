@@ -99,12 +99,12 @@ Provider order and defaults are OpenAI (`gpt-5.6-luna`, then
 `gpt-5.4-nano`), Anthropic, Gemini, and xAI. Without provider secrets Kanarek
 uses the shared pool and presets.
 
-Output ceilings intentionally stay generous: 128 tokens for the default
-non-reasoning OpenAI models and Anthropic, and 256 for Gemini, reasoning
-OpenAI models, and xAI. Gemini Flash-Lite is pinned to `minimal` thinking.
-Provider responses are accepted only after a normal completion and the learned
-45–110 character/language validation. Explicit token-limit and other incomplete
-stops never enter the bank.
+Output ceilings intentionally stay generous at 256 tokens across providers.
+Reasoning stays economical: current OpenAI quip models use `none`, Gemini
+Flash-Lite uses `minimal`, and xAI uses `low`. Provider responses are accepted
+only after a normal completion and the learned 45–110 character/language
+validation. Explicit token-limit and other incomplete stops never enter the
+bank.
 
 A request/network/HTTP failure may fall through to the next configured
 provider. Once a provider returns a parsed successful HTTP response, however,

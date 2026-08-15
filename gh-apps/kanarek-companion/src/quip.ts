@@ -6,6 +6,7 @@ const XAI_MODEL = 'grok-4.5';
 const AI_STATUSES = new Set(['ready', 'blocked']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
 const QUIP_OUTPUT_TOKEN_LIMIT = 256;
+const XAI_QUIP_OUTPUT_TOKEN_LIMIT = 1_024;
 export const QUIP_MIN_CHARS = 45;
 export const QUIP_MAX_CHARS = 110;
 const SYSTEM_PROMPT = [
@@ -496,7 +497,8 @@ async function requestXai(
     {
       model,
       store: false,
-      max_output_tokens: QUIP_OUTPUT_TOKEN_LIMIT,
+      max_output_tokens: XAI_QUIP_OUTPUT_TOKEN_LIMIT,
+      prompt_cache_key: 'kanarek-quip-v1',
       reasoning: { effort: 'low' },
       input: [
         { role: 'system', content: SYSTEM_PROMPT },

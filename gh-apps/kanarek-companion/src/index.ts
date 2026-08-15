@@ -40,7 +40,7 @@ interface CompanionLockResponse {
 const MAX_BODY_BYTES = 1_048_576;
 const WEBHOOK_PATH = '/webhooks/github';
 const HEALTH_PATH = '/health';
-const COMMENT_WINDOW_MS = 10 * 60 * 1_000;
+const COMMENT_WINDOW_MS = 2 * 60 * 1_000;
 const PENDING_TARGET_KEY = 'pending-target';
 const PENDING_DELIVERIES_KEY = 'pending-deliveries';
 const PROCESSED_DELIVERIES_KEY = 'processed-deliveries';

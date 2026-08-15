@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import worker, {
+  COMMENT_WINDOW_MS,
   companionTargets,
   isCompanionEvent,
   readLimitedBody,
@@ -169,7 +170,7 @@ test('routes the PR and review events used by the companion', async () => {
   );
 });
 
-test('coalesces only noisy CI events', () => {
+test('coalesces normal companion activity into ten-minute refresh windows', () => {
   const target = {
     delivery: 'delivery-123',
     installationId: 123,
@@ -177,12 +178,29 @@ test('coalesces only noisy CI events', () => {
     repository: 'trvny/trvny',
     sourceEvent: 'check_run',
   };
-  for (const sourceEvent of ['check_run', 'check_suite', 'status', 'workflow_run']) {
+  assert.equal(COMMENT_WINDOW_MS, 10 * 60 * 1_000);
+  for (const sourceEvent of [
+    'check_run',
+    'check_suite',
+    'status',
+    'workflow_run',
+    'pull_request',
+    'pull_request_review',
+  ]) {
     assert.equal(shouldCoalesceTarget({ ...target, sourceEvent }), true);
   }
-  for (const sourceEvent of ['pull_request', 'pull_request_review']) {
-    assert.equal(shouldCoalesceTarget({ ...target, sourceEvent }), false);
-  }
+  assert.equal(
+    shouldCoalesceTarget({ ...target, sourceEvent: 'issues' }),
+    false,
+  );
+  assert.equal(
+    shouldCoalesceTarget({
+      ...target,
+      pullRequestNumber: 176,
+      sourceEvent: 'pull_request',
+    }),
+    false,
+  );
 });
 
 test('routes only marked edits of the GPTomek control mailbox', async () => {

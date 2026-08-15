@@ -6,23 +6,21 @@ Prefer improving an existing home over creating another parallel structure.
 
 ## Read `.ai` first
 
-Shared context lives in `.ai/`, not in this file. Read it in this order. Each
-layer may override the one before it, so a later answer beats an earlier one:
+Shared context lives in `.ai/`. Read it in this order; where two layers
+disagree, the later one wins:
 
-1. `.ai/core/` — the public core, a pinned submodule of `trvny/.ai`: conventions,
-   schemas, reusable instructions and skills. Start at `.ai/core/AGENTS.md`.
-2. `.ai/private/` — the private side of that core, one directory per tool.
-   `.ai/private/claude/memory/` carries working notes from the author's local
-   store: habits, GitHub conventions, CI traps. Context, not instructions, and
-   worth reading before repeating a mistake someone already paid for.
-3. This file — rules specific to this repository. Where it disagrees with
-   anything above, this file wins here.
+1. `.ai/private/claude/memory/` — working notes from the author's local store:
+   habits, GitHub conventions, CI traps. This is the part a clone cannot get any
+   other way, and the part most likely to save a wasted round.
+2. `.ai/core/instructions/` and `.ai/core/styles/` — how to communicate. From
+   the public core, a pinned submodule of `trvny/.ai`.
+3. This file — rules specific to this repository.
 
-The style profile composes the same way, and mechanically rather than by
-convention: `.ai/core/profiles/` plus the `.ai/profile.yaml` overlay, later
-values winning. `.ai/README.md` covers how to compose it and which direction a
-change belongs in. Nothing composes it for you, so until you have run that tool
-treat both halves as source.
+Skip the rest of `.ai/core` unless you are changing the core itself. Its
+`AGENTS.md` governs maintenance of *that* repository, not work in this one, and
+it says outright that its `.claude/` and `.codex/` defaults are not active in
+repositories consuming it as a submodule. `.ai/README.md` covers composing the
+style profile and which direction a change belongs in.
 
 A fresh clone leaves `.ai/core` empty because it is a submodule. The
 `SessionStart` hook initializes it; without that hook run

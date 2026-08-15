@@ -93,6 +93,15 @@
     return width ? Number(width[1]) : 600;
   }
 
+  function frameSafeBare(bare) {
+    if (!document.querySelector("#qTransparent")?.checked) return bare;
+    const fill = document.querySelector("#qBg")?.value || "#ffffff";
+    return bare.replace(
+      /^(\s*(?:<\?xml[^>]*>\s*)?<svg\b[^>]*>)/i,
+      `$1<rect x="0" y="0" width="100%" height="100%" fill="${fill}"/>`,
+    );
+  }
+
   function innerSVG(bare, x, y, size, sourceSize) {
     return bare.replace(
       /^\s*(?:<\?xml[^>]*>\s*)?<svg\b[^>]*>/i,
@@ -174,10 +183,11 @@
 
   window.frameSVG = function framePresetSVG(bare, options) {
     const preset = options?.preset || framePreset;
-    if (preset === "top-tab") return tabFrame(bare, options, "top");
-    if (preset === "bottom-tab") return tabFrame(bare, options, "bottom");
-    if (preset === "speech") return speechFrame(bare, options);
-    if (preset === "phone") return phoneFrame(bare, options);
-    return originalFrameSVG(bare, options);
+    const source = frameSafeBare(bare);
+    if (preset === "top-tab") return tabFrame(source, options, "top");
+    if (preset === "bottom-tab") return tabFrame(source, options, "bottom");
+    if (preset === "speech") return speechFrame(source, options);
+    if (preset === "phone") return phoneFrame(source, options);
+    return originalFrameSVG(source, options);
   };
 })();

@@ -45,6 +45,7 @@
     micropdf417: ["Arbitrary short payloads; compact stacked 2D code.", "MicroPDF417"],
     microqrcode: ["Short payloads only; capacity depends strongly on version and error correction.", "micro"],
     rectangularmicroqrcode: ["Short payloads; rectangular Micro QR (rMQR).", "rMQR"],
+    maxicode: ["Fixed-size MaxiCode. Plain text is supported; structured carrier modes have additional rules.", "MaxiCode"],
     dotcode: ["Arbitrary data; dotted 2D symbology suited to high-speed printing.", "DotCode"],
     hanxin: ["Arbitrary text; Han Xin 2D matrix.", "Han Xin"],
     codablockf: ["Text encoded as stacked Code 128.", "Codablock F"],
@@ -70,6 +71,7 @@
     .barcode-assist-fields .wide{grid-column:1/-1}.barcode-assist-note{margin:7px 0 0;font:400 10px/1.45 "Space Mono",monospace;color:var(--muted)}
     .barcode-requirement{margin:-6px 0 14px;padding:9px 10px;border-left:3px solid var(--line);background:var(--panel-2);font:400 11px/1.45 "Space Mono",monospace;color:var(--muted)}
     .barcode-requirement b{color:var(--ink)}.barcode-requirement.bad{border-left-color:var(--accent);color:var(--accent-ink)}
+    .encoder-error{margin-top:5px}
     @media(max-width:560px){.barcode-assist-fields{grid-template-columns:1fr}.barcode-assist-fields .wide{grid-column:auto}}
   `;
   document.head.appendChild(style);
@@ -98,6 +100,11 @@
   const requirement = document.createElement("div");
   requirement.id = "bRequirement";
   requirement.className = "barcode-requirement";
+  const requirementBody = document.createElement("div");
+  const encoderError = document.createElement("div");
+  encoderError.className = "encoder-error";
+  encoderError.hidden = true;
+  requirement.append(requirementBody, encoderError);
   hint.insertAdjacentElement("afterend", requirement);
 
   const payloadType = $("#bPayloadType");
@@ -169,10 +176,10 @@
       }) || "";
     }
     if (kind === "email") {
-      const params = new URLSearchParams();
-      if (v.subject) params.set("subject", v.subject);
-      if (v.body) params.set("body", v.body);
-      return `mailto:${v.to || ""}${params.size ? `?${params}` : ""}`;
+      const params = [];
+      if (v.subject) params.push(`subject=${encodeURIComponent(v.subject)}`);
+      if (v.body) params.push(`body=${encodeURIComponent(v.body)}`);
+      return `mailto:${v.to || ""}${params.length ? `?${params.join("&")}` : ""}`;
     }
     if (kind === "sms") return `SMSTO:${v.number || ""}:${v.message || ""}`;
     if (kind === "tel") return `tel:${v.number || ""}`;
@@ -220,6 +227,12 @@
     return true;
   }
 
+  let ruleInvalid = false;
+  let encoderInvalid = false;
+  function syncRequirementState() {
+    requirement.classList.toggle("bad", ruleInvalid || encoderInvalid);
+  }
+
   let previousSample = "CODE-BENCH-128";
   function updateRequirement({ seed = false } = {}) {
     const [text = "The encoder validates this format.", sample = "", rule] = formatInfo[type.value] || [];
@@ -229,9 +242,22 @@
     }
     previousSample = sample;
     const valid = validByRule(rule, data.value.trim());
-    requirement.classList.toggle("bad", !valid);
-    requirement.innerHTML = `<b>Input:</b> ${text}${sample ? ` <span>Example: <code>${sample.replaceAll("<", "&lt;")}</code></span>` : ""}${valid ? "" : " <b>Current value does not match.</b>"}`;
+    ruleInvalid = !valid;
+    requirementBody.innerHTML = `<b>Input:</b> ${text}${sample ? ` <span>Example: <code>${sample.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</code></span>` : ""}${valid ? "" : " <b>Current value does not match.</b>"}`;
+    syncRequirementState();
     updateCompatibility();
+  }
+
+  function updateEncoderError() {
+    encoderInvalid = Boolean(error && !error.classList.contains("hidden") && error.textContent.trim());
+    encoderError.hidden = !encoderInvalid;
+    encoderError.replaceChildren();
+    if (encoderInvalid) {
+      const label = document.createElement("b");
+      label.textContent = "Encoder:";
+      encoderError.append(label, document.createTextNode(` ${error.textContent.trim()}`));
+    }
+    syncRequirementState();
   }
 
   payloadType.addEventListener("change", rebuildPayloadFields);
@@ -239,13 +265,9 @@
   data.addEventListener("input", () => updateRequirement());
 
   if (error) {
-    new MutationObserver(() => {
-      if (!error.classList.contains("hidden") && error.textContent.trim()) {
-        requirement.classList.add("bad");
-        const base = requirement.innerHTML.replace(/<div class="encoder-error">[\s\S]*?<\/div>/, "");
-        requirement.innerHTML = `${base}<div class="encoder-error"><b>Encoder:</b> ${error.textContent.replaceAll("<", "&lt;")}</div>`;
-      }
-    }).observe(error, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    new MutationObserver(updateEncoderError)
+      .observe(error, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    updateEncoderError();
   }
 
   rebuildPayloadFields();

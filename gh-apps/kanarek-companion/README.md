@@ -8,8 +8,9 @@ maintaining the Kanarek PR status comment.
 A normal delivery follows this path:
 
 1. `index.ts` verifies and routes the GitHub webhook.
-2. Noisy CI/check/status events are coalesced per PR by `CommentProbeLock`.
-   Direct PR/review changes stay immediate.
+2. Normal PR, review, CI, check, and status activity is coalesced into a
+   ten-minute per-PR refresh window by `CommentProbeLock`. GPTomek control
+   traffic stays immediate.
 3. `companion.ts` reads the PR, branch, CI, review, files, and existing Kanarek
    comment.
 4. `companion-view.ts` reduces that data to a semantic state such as `waiting`,
@@ -99,12 +100,16 @@ Provider order and defaults are OpenAI (`gpt-5.6-luna`, then
 `gpt-5.4-nano`), Anthropic, Gemini, and xAI. Without provider secrets Kanarek
 uses the shared pool and presets.
 
-Output ceilings intentionally stay generous at 256 tokens across providers.
-Reasoning stays economical: current OpenAI quip models use `none`, Gemini
-Flash-Lite uses `minimal`, and xAI uses `low`. Provider responses are accepted
-only after a normal completion and the learned 45–110 character/language
-validation. Explicit token-limit and other incomplete stops never enter the
-bank.
+Output ceilings stay conservative at 256 tokens for OpenAI, Anthropic, and
+Gemini. Grok gets 1024 because Grok 4.5 cannot disable reasoning and even low
+effort can consume substantial reasoning headroom before the short visible
+line. xAI requests also use a stable prompt cache key. Current OpenAI quip
+models use `none` reasoning, Gemini Flash-Lite uses `minimal`, and xAI uses
+`low`.
+
+Provider responses are accepted only after a normal completion and the learned
+45–110 character/language validation. Explicit token-limit and other incomplete
+stops never enter the bank.
 
 A request/network/HTTP failure may fall through to the next configured
 provider. Once a provider returns a parsed successful HTTP response, however,
@@ -146,7 +151,7 @@ delivery path, so GPTomek does not need another Worker or webhook endpoint.
 
 ## Where to look
 
-- `src/index.ts`: webhook routing, delivery dedupe, and CI coalescing.
+- `src/index.ts`: webhook routing, delivery dedupe, and event coalescing.
 - `src/companion.ts`: top-level orchestration and quip selection flow.
 - `src/companion-view.ts`: semantic PR state, badges, project areas, and the
   rendered comment.
@@ -164,7 +169,8 @@ delivery path, so GPTomek does not need another Worker or webhook endpoint.
 
 When changing quip behavior, preserve the distinction between `quipKey`
 (reusable context) and `stateHash` (specific PR state). When changing webhook
-handling, keep noisy CI events coalesced and direct PR/review events immediate.
+handling, preserve per-PR coalescing for normal companion activity and keep
+GPTomek control traffic immediate.
 
 ## Cloudflare Workers Builds
 

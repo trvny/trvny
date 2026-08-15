@@ -37,10 +37,13 @@ artefacts of the local store; ignore them here.
 ## Links that go nowhere
 
 Notes cross-reference each other as `[[name]]`. A link is resolvable here only if
-the name appears in the index below or in `field-notes/` — the rest point into
-the local store and cannot be followed from a clone. That is expected, not a
-broken file. Treat an unresolvable link as "there is more on this at the
-source", and carry on.
+the name appears in the index below or is a file in `field-notes/` — the rest
+point into the local store and cannot be followed from a clone. That is
+expected, not a broken file. Treat an unresolvable link as "there is more on
+this at the source", and carry on.
+
+The index below covers the exported notes only. `field-notes/` has none by
+design; see its README for why, and for how to find things there instead.
 
 ## Index
 

@@ -22,18 +22,32 @@ One file per fact, `kebab-case.md`, with this frontmatter:
 name: <same as the filename, without .md>
 description: <one line — this is what a future reader scans>
 metadata:
+  node_type: memory
   type: project | reference | feedback
 ---
 
 <the fact, then how to verify it>
 ```
 
+`node_type: memory` matches the local store's format, so promoting a note is a
+copy rather than a copy plus a fix.
+
 Link related notes as `[[name]]`. Links resolve against `field-notes/` and the
 exported notes in the parent directory; anything else points into a local store
 you cannot reach, which is expected rather than broken.
 
-Add a line to the index below in the same commit. An unindexed note is one
-nobody finds.
+**There is no index here, on purpose.** A shared index file is the one thing two
+agents working in parallel would both have to edit, and it would conflict even
+when their notes are unrelated — which is exactly the write-back design this is
+supposed to avoid. Discovery goes through the filenames and the `description`
+line instead:
+
+```bash
+grep -h '^description:' .ai/private/claude/memory/field-notes/*.md
+```
+
+So the description carries the weight an index entry would have. Write it as the
+one line you would want to read when scanning for whether this note is relevant.
 
 ## When you are a delegated agent
 
@@ -42,7 +56,3 @@ next agent would waste the same hour on. Say in your final report that you added
 one. Do not edit the exported notes in the parent directory to correct them —
 that fix would be lost on the next export; report the correction instead and it
 will be made at the source.
-
-## Index
-
-_Empty. First note goes here._

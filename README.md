@@ -66,6 +66,14 @@ Oryginalny kod i dokumentację obejmuje [ISC](https://spdx.org/licenses/ISC).
 [![license](https://img.shields.io/github/license/trvny/trvny)](LICENSE)
 
 ---
+## 💬 Cytat z szuflady
+
+<!-- markdownlint-disable MD033 -->
+<!--STARTS_HERE_QUOTE_README-->
+<i>❝“Software is a gas; it expands to fill its container.”— Nathan Myhrvold❞</i>
+<!--ENDS_HERE_QUOTE_README-->
+<!-- markdownlint-enable MD033 -->
+
 ## 📰 Ostatnio w eterze
 
 <!--README_FEED:START-->
@@ -76,14 +84,6 @@ Oryginalny kod i dokumentację obejmuje [ISC](https://spdx.org/licenses/ISC).
 - [US could not verify Israeli warnings of Iran plots against Trump, sources say](https://www.reuters.com/world/middle-east/us-could-not-verify-israeli-warnings-iran-plots-against-trump-sources-say-2026-08-13/)
 - [Sandisk forecasts mid-to-high-teens revenue growth through 2030](https://www.reuters.com/business/sandisk-forecasts-mid-to-high-teens-revenue-growth-through-2030-2026-08-13/)
 <!--README_FEED:END-->
-
-## 💬 Cytat z szuflady
-
-<!-- markdownlint-disable MD033 -->
-<!--STARTS_HERE_QUOTE_README-->
-<i>❝“Software is a gas; it expands to fill its container.”— Nathan Myhrvold❞</i>
-<!--ENDS_HERE_QUOTE_README-->
-<!-- markdownlint-enable MD033 -->
 
 <div align="center">
 

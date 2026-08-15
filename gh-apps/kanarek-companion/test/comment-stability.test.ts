@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { blockerKinds, commentStateHash, render } from '../src/companion.ts';
+import { behindState, blockerKinds, commentStateHash, render } from '../src/companion.ts';
 import type { PullRequest } from '../src/companion-types.ts';
 
 const basePr: PullRequest = {
@@ -182,4 +182,65 @@ test('freezes merged comments against late CI, review, and branch churn', async 
   );
   assert.equal(firstBody, laterBody);
   assert.doesNotMatch(firstBody, /CI |review /);
+});
+
+// A merge to the base branch changes the exact `behind` count for every open
+// pull request at once. When that count reached the state hash and badge
+// verbatim, one merge rewrote every companion comment without any of them
+// having changed. The hash now stores unknown/current/behind, so a pull
+// request falls behind once and then stays put.
+const behindHash = (behind: number) =>
+  commentStateHash(
+    {
+      status: 'ready',
+      blockers: behind > 0 ? ['behind'] : [],
+      area: 'Gh apps',
+      size: 'tiny',
+      language: 'en',
+    },
+    {
+      head: 'b'.repeat(40),
+      behind,
+      reviews: { approvals: 0, changes: 0 },
+      autoMerge: null,
+      files: 2,
+    },
+  );
+
+test('behindState reduces the distance to whether we are behind', () => {
+  assert.equal(behindState(null), 'unknown');
+  assert.equal(behindState(0), 'current');
+  assert.equal(behindState(1), 'behind');
+  assert.equal(behindState(97), 'behind');
+});
+
+test('drifting further behind leaves the state hash alone', async () => {
+  assert.equal(await behindHash(1), await behindHash(4));
+  assert.equal(await behindHash(4), await behindHash(97));
+});
+
+test('falling behind at all still changes the state hash', async () => {
+  assert.notEqual(await behindHash(0), await behindHash(1));
+});
+
+test('the branch badge reports the state, not the count', () => {
+  const body = (behind: number) =>
+    render(
+      basePr,
+      { behind },
+      { failed: [], passed: [{}], pending: [], total: 1 },
+      { approvals: 0, changes: 0 },
+      ['Gh apps'],
+      { key: 'ready', title: '\u{1F7E2} ready', blockers: [] },
+      'Ready.',
+      '0'.repeat(16),
+      'fedcba9876543210',
+      'preset',
+      [],
+      true,
+    );
+
+  assert.ok(body(3).includes('\u2193'));
+  assert.equal(body(1), body(97));
+  assert.notEqual(body(0), body(1));
 });

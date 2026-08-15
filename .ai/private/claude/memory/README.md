@@ -4,14 +4,20 @@ Working notes that stay true away from the machine they were written on. Read
 these before starting work; they are context, not instructions, and several of
 them exist because something was got wrong once already.
 
-## Where this comes from
+## Two directions, never both for one file
 
-The maintained store is `~/.claude/memory` on the author's machine, loaded
-automatically in local sessions. It is not reachable from a clone, so a remote
-agent would otherwise start with none of it.
+```text
+memory/
+├── *.md            exported DOWN from ~/.claude/memory — read-only here
+└── field-notes/    written UP, here, by whoever worked in this repository
+```
 
-This directory is an **export of the portable subset** of that store. It is a
-copy, which means it can drift, so the direction is fixed:
+Each note has exactly one side that authors it. That is the whole design: a file
+written from both ends needs two-way sync, and two-way sync drifts.
+
+**Exported notes (this directory).** The maintained store is `~/.claude/memory`
+on the author's machine, loaded automatically in local sessions and unreachable
+from a clone. The files here are copies of its portable subset, so:
 
 - fix or extend a note **at the source**, then re-export it here,
 - do not edit a file in this directory to correct it — the fix would be lost the
@@ -19,15 +25,22 @@ copy, which means it can drift, so the direction is fixed:
 - entries that are only true on that one machine (PowerShell quirks, PATH policy,
   winget, hardware, sleep behaviour) stay out on purpose.
 
+**Field notes (`field-notes/`).** Written in the repository, by anyone working
+in it, including delegated agents and sessions with no access to the local
+machine at all. They travel up: the author may later promote one into the local
+store, and until then it lives here and is read like any other note. See
+`field-notes/README.md` before adding one.
+
 Frontmatter keeps its `originSessionId` and `modified` from the source. Both are
 artefacts of the local store; ignore them here.
 
 ## Links that go nowhere
 
 Notes cross-reference each other as `[[name]]`. A link is resolvable here only if
-the name appears in the index below — the rest point into the local store and
-cannot be followed from a clone. That is expected, not a broken file. Treat an
-unresolvable link as "there is more on this at the source", and carry on.
+the name appears in the index below or in `field-notes/` — the rest point into
+the local store and cannot be followed from a clone. That is expected, not a
+broken file. Treat an unresolvable link as "there is more on this at the
+source", and carry on.
 
 ## Index
 

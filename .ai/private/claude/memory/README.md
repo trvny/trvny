@@ -55,7 +55,7 @@ things there instead.
 - `memory-state-vs-durable` — never record live state (open PRs, HEADs, file lists) as a bare fact; date it and say how to re-check.
 - `secret-scan-patterns` — scan for the *shape* of a value, not the parameter name. Two of four keys were missed by a name-based regex.
 - `merge-conflict-marker-check` — after resolving a conflict with a script, grep the whole tree; markers once passed CI and a review round.
-- `feedback-short-github-comments` — keep GitHub comments to the point; long analysis belongs in the conversation.
+- `feedback-short-github-comments` — how to conduct yourself on GitHub: keep comments to the point (long analysis belongs in the conversation), close the threads you fixed, react to review comments that helped, and answer reviewers in the language they wrote in.
 - `remote-claude-delegation` — a closed, well-specified chunk goes to a remote agent and comes back as a PR; exploration stays in the interactive session.
 
 ### GitHub and git

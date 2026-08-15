@@ -1,11 +1,11 @@
 ---
 name: feedback-short-github-comments
-description: na GitHubie pisac krotko - najwazniejsze rzeczy i tyle; dlugie analizy zostawiac na czat
+description: "Zachowanie na GitHubie: pisac krotko (dlugie analizy na czat), po odniesieniu sie do recenzji zamykac watki i dawac lapke w gore, i odpowiadac w jezyku recenzenta"
 metadata: 
   node_type: memory
   type: feedback
   originSessionId: 07852de2-e231-4f84-9025-d8d962981d0b
-  modified: 2026-08-08T15:36:58.687Z
+  modified: 2026-08-15T03:17:04.496Z
 ---
 
 Komentarze na GitHubie maja byc **krotkie**. Uzytkownik powiedzial wprost
@@ -21,6 +21,43 @@ utrudnia wylapanie sedna.
 jedna tabelka jesli naprawde potrzebna) i tyle. Pelna analize, warianty,
 zastrzezenia i rozumowanie zostawiac w rozmowie. Jesli czegos nie da sie skrocic
 bez utraty sensu — link do artefaktu zamiast wklejania calosci.
+
+## Po otwarciu PR-a **poczekaj chwile i zerknij na recenzje**
+
+Uzytkownik, 15.08.2026: *„dodaj sobie nawyk poczekania chwile po otwarciu PR i zerkniecia na
+te jakies ew reviewy"*. Nie otwieraj i nie odchodz — recenzenci odzywaja sie w ciagu ~1-2 minut.
+
+Jak czytac Codexa, zeby nie czekac na darmo:
+
+- reakcja **👀 (eyes)** = cos analizuje, **za chwile moze cos wjechac** → poczekaj,
+- od razu **✅** = przyklepal, **nie ma na co czekac** → idz dalej.
+
+Sprawdzone dwa razy tego dnia: #206 dostal siedem prawdziwych znalezisk w dwoch turach,
+a #209 — czysty re-eksport dwoch plikow `.md`, „bzdura" — **i tak** przyniosl trzy sensowne
+uwagi (nieaktualny wpis w indeksie, sekcje wciete miedzy `Why:` a `How to apply:`, literowka).
+Wniosek: **nie oceniaj z gory, czy PR jest za blahy na recenzje.** Koszt zerkniecia to minuta.
+
+## Domykanie recenzji — **rob to zawsze, nie tylko gdy poprosi**
+
+Uzytkownik, 15.08.2026: *„jak juz sie poodnosisz do reviewow to daj resolved gdzie pasuje,
+a na przydatne uwagi dawaj lapke w gore"* — i zaraz potem: *„te reakcje itd. to postaraj sie
+ogolnie na przyszlosc, nie tylko teraz tu"*. To jest **rutyna**, nie jednorazowa prosba.
+
+Po odniesieniu sie do recenzji, w tej samej turze:
+
+1. **Lapka w gore** na kazdej merytorycznej uwadze — takze na tych typu „Info", jesli
+   faktycznie cos wniosly. Boty wprost o to prosza (*„React with 👍 / 👎"*) i to jest ich
+   petla zwrotna. Reakcje **dzialaja tokenem appki** → [[claudiusz-wrapper]].
+2. **Zamknij watki**, ktore naprawiles. `resolveReviewThread` **nie dziala** tokenem appki
+   (`Resource not accessible by integration`), wiec idzie tokenem uzytkownika przez GraphQL —
+   szczegoly w [[github-tooling-workflow]]. `gh` nie ma na to komendy.
+3. Nierozwiazany watek blokuje merge, gdy repo ma `required_conversation_resolution`.
+
+## Jezyk
+
+**Odpowiadaj w jezyku recenzenta.** Boty pisza po angielsku → odpowiadasz po angielsku.
+Rozmowa z uzytkownikiem na czacie zostaje po polsku; to sa dwa rozne audytoria i nie ma
+powodu ich mieszac. 15.08.2026 odpisalem Devinowi i Codexowi po polsku — poprawione.
 
 ## Nie tlumaczyc sie i nie wystawiac konfiguracji maszyny
 

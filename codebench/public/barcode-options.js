@@ -145,7 +145,7 @@
     if (format === "qrcode") {
       next.eclevel = values.ec;
       next.fixedeclevel = true;
-      if (values.version) next.version = Number(values.version);
+      if (values.version) next.version = values.version;
     } else if (format === "microqrcode") {
       next.eclevel = values.ec;
       next.fixedeclevel = true;

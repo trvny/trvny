@@ -22,7 +22,9 @@ const helperScripts = [
   "qr-self-test.js",
   "barcode-formats.js",
   "barcode-assist.js",
+  "barcode-options.js",
   "scanner-compat.js",
+  "scanner-details.js",
 ];
 
 const vendorScripts = [

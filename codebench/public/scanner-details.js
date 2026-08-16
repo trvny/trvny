@@ -55,6 +55,14 @@
       .replace(/\\([\\;,:"])/g, "$1");
   }
 
+  function safeDecodeURIComponent(input) {
+    try {
+      return decodeURIComponent(input);
+    } catch {
+      return input;
+    }
+  }
+
   function splitEscaped(input, delimiter) {
     const parts = [];
     let current = "";
@@ -135,7 +143,7 @@
     const separator = body.indexOf("?");
     const address = separator < 0 ? body : body.slice(0, separator);
     const params = new URLSearchParams(separator < 0 ? "" : body.slice(separator + 1));
-    return { title: "Email", rows: [["To", decodeURIComponent(address)], ["Subject", params.get("subject")], ["Message", params.get("body")]] };
+    return { title: "Email", rows: [["To", safeDecodeURIComponent(address)], ["Subject", params.get("subject")], ["Message", params.get("body")]] };
   }
 
   function parseSms(text) {

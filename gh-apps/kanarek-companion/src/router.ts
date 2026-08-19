@@ -5,6 +5,7 @@ import { isProtectedBranch } from './gptomek.ts';
 import { addInvestigationOpenApi, handleInvestigationAction } from './investigation-actions.ts';
 import { addIssueOpenApi, handleIssueAction } from './issue-actions.ts';
 import { addLifecycleOpenApi, handleLifecycleAction } from './lifecycle-actions.ts';
+import { addMaintenanceOpenApi, handleMaintenanceAction } from './maintenance-actions.ts';
 import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
 import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
 import { addWorkflowOpenApi, handleWorkflowAction } from './workflow-actions.ts';
@@ -109,6 +110,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   addInvestigationOpenApi(source);
   addIssueOpenApi(source);
   addLifecycleOpenApi(source);
+  addMaintenanceOpenApi(source);
   addOperatorOpenApi(source);
   addReleaseOpenApi(source);
   addWorkflowOpenApi(source);
@@ -404,6 +406,9 @@ const worker = {
 
     const investigationResponse = await handleInvestigationAction(request, env, actionFetch);
     if (investigationResponse) return investigationResponse;
+
+    const maintenanceResponse = await handleMaintenanceAction(request, env, actionFetch);
+    if (maintenanceResponse) return maintenanceResponse;
 
     if (url.pathname === BRANCH_DELETE_PATH) {
       try {

@@ -1,11 +1,20 @@
-import { relayForSource } from "./provider-relay.js";
+import { relayForSource, type ProviderRelayMap } from "./provider-relay.ts";
 
-export function relayTarget(rawUrl, {
-  origin = "https://streambench.invalid",
-  bundledUrls = new Set(),
-  providerRelays = new Map(),
-} = {}) {
-  let source;
+type RelayTargetOptions = {
+  origin?: string;
+  bundledUrls?: Set<string>;
+  providerRelays?: ProviderRelayMap;
+};
+
+export function relayTarget(
+  rawUrl: unknown,
+  {
+    origin = "https://streambench.invalid",
+    bundledUrls = new Set<string>(),
+    providerRelays = new Map<string, string>(),
+  }: RelayTargetOptions = {},
+): URL | null {
+  let source: URL;
   try {
     source = new URL(String(rawUrl || "").trim());
   } catch {
@@ -30,24 +39,25 @@ export function relayTarget(rawUrl, {
 }
 
 if (typeof document !== "undefined") {
-  const form = document.querySelector("#streamForm");
-  const input = document.querySelector("#streamUrl");
-  const mode = document.querySelector("#mediaMode");
-  const shell = document.querySelector(".media-shell");
-  const hint = document.querySelector("#streamHint");
-  const title = document.querySelector("#nowPlaying");
-  const entries = document.querySelector("#playlistEntries");
+  const form = document.querySelector<HTMLFormElement>("#streamForm");
+  const input = document.querySelector<HTMLInputElement>("#streamUrl");
+  const mode = document.querySelector<HTMLSelectElement>("#mediaMode");
+  const shell = document.querySelector<HTMLElement>(".media-shell");
+  const hint = document.querySelector<HTMLElement>("#streamHint");
+  const title = document.querySelector<HTMLElement>("#nowPlaying");
+  const entries = document.querySelector<HTMLElement>("#playlistEntries");
 
-  const browserRelay = (value) => relayTarget(value, {
+  const browserRelay = (value: unknown): URL | null => relayTarget(value, {
     origin: location.origin,
     bundledUrls: window.streambenchBundledUrls,
     providerRelays: window.streambenchProviderRelays,
   });
 
   form?.addEventListener("submit", () => {
-    const original = input?.value;
+    if (!input) return;
+    const original = input.value;
     const relay = browserRelay(original);
-    if (!relay || !input) return;
+    if (!relay) return;
 
     input.value = relay.href;
     queueMicrotask(() => {
@@ -59,7 +69,8 @@ if (typeof document !== "undefined") {
   }, true);
 
   document.addEventListener("click", (event) => {
-    const action = event.target.closest?.("#playlistEntries .entry-action");
+    const target = event.target instanceof Element ? event.target : null;
+    const action = target?.closest<HTMLElement>("#playlistEntries .entry-action");
     if (!action || !form || !input) return;
 
     queueMicrotask(() => {

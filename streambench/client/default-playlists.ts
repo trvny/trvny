@@ -1,11 +1,27 @@
-import { dedupePlaylist, parseM3uWorkspace, serializeM3u } from "./playlist-format.js";
+import {
+  dedupePlaylist,
+  parseM3uWorkspace,
+  serializeM3u,
+  type PlaylistItem,
+} from "./playlist-format.ts";
 
-const DEFAULT_PLAYLISTS = [
+type DefaultPlaylist = {
+  path: string;
+  defaultRadio: boolean;
+};
+
+declare global {
+  interface Window {
+    streambenchBundledUrls: Set<string>;
+  }
+}
+
+const DEFAULT_PLAYLISTS: DefaultPlaylist[] = [
   { path: "/playlists/iptv.m3u8", defaultRadio: false },
   { path: "/playlists/internet_radio.m3u8", defaultRadio: true },
 ];
 
-async function readPlaylist(source) {
+async function readPlaylist(source: DefaultPlaylist): Promise<PlaylistItem[]> {
   const response = await fetch(source.path, {
     headers: { accept: "audio/x-mpegurl,text/plain" },
   });
@@ -23,10 +39,10 @@ async function readPlaylist(source) {
   });
 }
 
-async function loadDefaults() {
-  const textarea = document.querySelector("#playlistText");
-  const parseButton = document.querySelector("#parsePlaylist");
-  const entryCount = document.querySelector("#entryCount");
+async function loadDefaults(): Promise<void> {
+  const textarea = document.querySelector<HTMLTextAreaElement>("#playlistText");
+  const parseButton = document.querySelector<HTMLButtonElement>("#parsePlaylist");
+  const entryCount = document.querySelector<HTMLElement>("#entryCount");
   if (!textarea || !parseButton) return;
 
   const sources = await Promise.allSettled(DEFAULT_PLAYLISTS.map(readPlaylist));
@@ -37,7 +53,7 @@ async function loadDefaults() {
   }
 
   const items = dedupePlaylist(sources
-    .filter((result) => result.status === "fulfilled")
+    .filter((result): result is PromiseFulfilledResult<PlaylistItem[]> => result.status === "fulfilled")
     .flatMap((result) => result.value));
 
   if (!items.length) {
@@ -55,6 +71,6 @@ async function loadDefaults() {
   });
 }
 
-loadDefaults().catch((error) => {
+loadDefaults().catch((error: unknown) => {
   console.warn("Streambench could not load its default playlists", error);
 });

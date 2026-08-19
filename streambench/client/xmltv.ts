@@ -1,7 +1,20 @@
 const MAX_PROGRAMMES = 100_000;
 const MAX_OPEN_PROGRAMME_MS = 6 * 60 * 60 * 1_000;
 
-export function parseXmltvDate(rawValue) {
+export type XmltvProgramme = {
+  channel: string;
+  channelName?: string;
+  start: number;
+  stop: number | null;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  category?: string;
+};
+
+export type XmltvProgrammes = Map<string, XmltvProgramme[]>;
+
+export function parseXmltvDate(rawValue: unknown): number | null {
   const value = String(rawValue || "").trim();
   const match = value.match(/^(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?\s*(Z|[+-]\d{4})?\s*$/);
   if (!match) return null;
@@ -37,21 +50,22 @@ export function parseXmltvDate(rawValue) {
   return timestamp;
 }
 
-function textContent(element, selector) {
+function textContent(element: ParentNode, selector: string): string {
   return element.querySelector(selector)?.textContent?.trim() || "";
 }
 
-export function parseXmltv(source, Parser = globalThis.DOMParser) {
+export function parseXmltv(source: unknown, Parser: typeof DOMParser = globalThis.DOMParser): XmltvProgrammes {
   if (typeof Parser !== "function") throw new Error("DOMParser is unavailable");
   const document = new Parser().parseFromString(String(source || ""), "application/xml");
   if (document.querySelector("parsererror")) throw new Error("invalid XMLTV document");
 
-  const channelNames = new Map();
+  const channelNames = new Map<string, string>();
   for (const channel of document.querySelectorAll("channel[id]")) {
-    channelNames.set(channel.getAttribute("id"), textContent(channel, "display-name"));
+    const id = channel.getAttribute("id");
+    if (id) channelNames.set(id, textContent(channel, "display-name"));
   }
 
-  const programmes = new Map();
+  const programmes: XmltvProgrammes = new Map();
   let programmeCount = 0;
   for (const element of document.querySelectorAll("programme[channel][start]")) {
     if (programmeCount >= MAX_PROGRAMMES) throw new Error("XMLTV programme limit exceeded");
@@ -61,7 +75,7 @@ export function parseXmltv(source, Parser = globalThis.DOMParser) {
     const title = textContent(element, "title");
     if (!channel || start === null || !title) continue;
 
-    const programme = {
+    const programme: XmltvProgramme = {
       channel,
       channelName: channelNames.get(channel) || channel,
       start,
@@ -83,10 +97,14 @@ export function parseXmltv(source, Parser = globalThis.DOMParser) {
   return programmes;
 }
 
-export function scheduleForChannel(programmes, channelId, now = Date.now()) {
+export function scheduleForChannel(
+  programmes: ReadonlyMap<string, readonly XmltvProgramme[]>,
+  channelId: string,
+  now = Date.now(),
+): { current: XmltvProgramme | null; next: XmltvProgramme | null } {
   const entries = programmes.get(channelId) || [];
-  let current = null;
-  let next = null;
+  let current: XmltvProgramme | null = null;
+  let next: XmltvProgramme | null = null;
 
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index];
@@ -102,7 +120,7 @@ export function scheduleForChannel(programmes, channelId, now = Date.now()) {
   return { current, next };
 }
 
-export function formatProgramme(programme, locale = "pl-PL") {
+export function formatProgramme(programme: XmltvProgramme | null | undefined, locale = "pl-PL"): string {
   if (!programme) return "Brak danych";
   const formatter = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" });
   const range = programme.stop

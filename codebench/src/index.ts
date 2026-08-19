@@ -6,7 +6,7 @@ const TITLE = "Code Bench — QR Code Generator, Barcode Maker & Scanner";
 const DESCRIPTION =
   "Free browser-based QR code generator, barcode maker and scanner. Create styled QR codes, Code 128, EAN, Data Matrix, Aztec, PDF417 and more without uploading your data.";
 
-const SECURITY_HEADERS = {
+const SECURITY_HEADERS: Record<string, string> = {
   "content-security-policy": [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
@@ -49,14 +49,21 @@ const SCHEMA = JSON.stringify({
 }).replaceAll("<", "\\u003c");
 
 class RemoveElement {
-  element(element) { element.remove(); }
+  element(element: Element): void {
+    element.remove();
+  }
 }
+
 class SetText {
-  constructor(value) { this.value = value; }
-  element(element) { element.setInnerContent(this.value); }
+  constructor(private readonly value: string) {}
+
+  element(element: Element): void {
+    element.setInnerContent(this.value);
+  }
 }
+
 class InjectHead {
-  element(element) {
+  element(element: Element): void {
     element.append(
       `<meta name="description" content="${DESCRIPTION}">`
       + '<meta name="robots" content="index,follow,max-image-preview:large">'
@@ -87,8 +94,9 @@ class InjectHead {
     );
   }
 }
+
 class InjectBody {
-  element(element) {
+  element(element: Element): void {
     element.append(
       '<script src="/hardening.js"></script><script src="/privacy-guard.js"></script><script src="/logo-compat.js"></script><script src="/svg-normalize.js"></script><script src="/module-shapes.js"></script><script src="/style-picker.js"></script><script src="/corner-palette.js"></script><script src="/frame-presets.js"></script><script src="/svg-compat.js"></script><script src="/qr-raster.js"></script><script src="/qr-palette.js"></script><script src="/qr-output-plus.js"></script><script src="/qr-self-test.js"></script><script src="/barcode-formats.js"></script><script src="/barcode-assist.js"></script><script src="/barcode-options.js"></script><script src="/scanner-compat.js"></script><script src="/scanner-details.js"></script>',
       { html: true },
@@ -96,7 +104,11 @@ class InjectBody {
   }
 }
 
-function textResponse(body, contentType, cacheControl = "public, max-age=3600") {
+function textResponse(
+  body: string,
+  contentType: string,
+  cacheControl = "public, max-age=3600",
+): Response {
   return new Response(body, {
     headers: {
       "content-type": contentType,
@@ -106,7 +118,7 @@ function textResponse(body, contentType, cacheControl = "public, max-age=3600") 
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const generatedIcon = favicon16Response(url.pathname) || faviconResponse(url.pathname);
     if (generatedIcon) return generatedIcon;
@@ -158,4 +170,4 @@ export default {
       .on("body", new InjectBody())
       .transform(response);
   },
-};
+} satisfies ExportedHandler<Env>;

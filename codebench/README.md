@@ -40,7 +40,8 @@ npm run dev
 its runtime libraries, fonts and ZXing WASM embedded. It can be saved and opened
 without the Worker.
 
-`npm run deploy` builds vendored assets and deploys them.
+`npm run typecheck` generates Worker types from `wrangler.jsonc` and runs strict
+TypeScript checks. `npm run deploy` builds vendored assets and deploys them.
 
 ## Layout
 
@@ -48,10 +49,10 @@ without the Worker.
 - `public/hardening.js` — validation, safe exports, bounded image work,
   and print fixes;
 - `public/fonts.css` — self-hosted Space Grotesk and Space Mono declarations;
-- `src/index.js` — static-asset Worker, HTML injection, and security headers;
+- `src/index.ts` — static-asset Worker, HTML injection, and security headers;
 - `scripts/vendor.mjs` — copies pinned libraries and WOFF2 files from
   `node_modules`;
 - `scripts/portable.mjs` — generates the standalone HTML build.
 
-Generated `public/vendor/`, `public/fonts/`, `public/portable.html`, and
-`node_modules/` remain ignored by Git.
+Generated `worker-configuration.d.ts`, `public/vendor/`, `public/fonts/`,
+`public/portable.html`, and `node_modules/` remain ignored by Git.

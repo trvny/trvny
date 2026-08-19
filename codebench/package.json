@@ -5,7 +5,8 @@
   "description": "QR & Barcode Studio — static, client-side.",
   "scripts": {
     "build": "node scripts/vendor.mjs && node scripts/portable.mjs",
-    "check": "npm run build && node scripts/check.mjs",
+    "typecheck": "wrangler types && npx --yes --package=typescript@7.0.2 tsc --noEmit",
+    "check": "npm run build && npm run typecheck && node scripts/check.mjs",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"
   },

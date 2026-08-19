@@ -7,7 +7,7 @@ personality:
   base: friendly
   intensity: 1
   modifiers:
-    honest: 1
+    honest: 0
     warm: 1
     enthusiastic: 0
     concise: 2
@@ -15,7 +15,7 @@ personality:
     educational: 0
     critical: 2
     headingsAndLists: 1
-    emoji: 0
+    emoji: 1
     quickReplies: 0
     whimsical: 2
     cynical: 2

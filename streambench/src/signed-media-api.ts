@@ -6,7 +6,7 @@ import {
   safeRemoteUrl,
   sameOriginBrowserRequest,
 } from "./relay-core.js";
-import { verifySourceSignature } from "./source-signing.js";
+import { verifySourceSignature } from "./source-signing.ts";
 
 const RELAY_LABEL = "signed-provider";
 

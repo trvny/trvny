@@ -10,6 +10,21 @@ GitHub App used for bot-authored repository operations.
 - Control mailbox: `trvny/trvny#176` (closed PR body)
 - Control ref: `gptomek/control` (persistent transport anchor)
 
+## What this is
+
+GPTomek is the bot identity behind repository automation that should not pretend to
+be `trvny`. The shared `kanarek-companion` Worker authenticates as the GitHub App
+for normal writes and exposes guarded higher-level operations used by automation
+and the custom GPT gateway. Operations that deliberately need the human identity,
+most notably opening pull requests and selected PR state changes, use the
+authorized `trvny` OAuth token instead.
+
+That split is intentional: commits, comments, reactions and routine automation can
+be visibly bot-authored, while pull requests stay opened as `trvny` so external
+automatic review continues to trigger from the expected author. The control
+mailbox below is an internal transport for GPTomek-only operations; it is not a
+queue humans should normally edit by hand.
+
 A hidden command in the closed PR body is handled through the shared Worker's
 locked webhook path and removed after a successful operation. GitHub stops
 delivering that body-edit transport when the PR's head ref is deleted, so
@@ -31,7 +46,7 @@ Supported operations:
 - `reply_review`: reply to an inline PR review thread.
 - `react_issue_comment` and `react_review_comment`: add GitHub reactions.
 
-`delete_branch` has layered guards: literal `main`, the GPTomek control ref, and
+`delete_branch` aas layered guards: literal `main`, the GPTomek control ref, and
 the repository's current `default_branch` are protected, and the branch head is
 checked against `expectedHeadSha` immediately before the DELETE request.
 GitHub's delete-ref API has no atomic expected-SHA precondition, so a concurrent

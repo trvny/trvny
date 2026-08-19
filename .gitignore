@@ -64,6 +64,10 @@ captures/
 megalinter-reports/
 mega-linter.log
 .ai/generated/
+streambench/public/channel-meta.js
+streambench/public/diagnostics.js
+streambench/public/local-state.js
+streambench/public/playlist-format.js
 
 # Logs and temporary files
 *.log

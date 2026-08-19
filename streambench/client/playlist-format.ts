@@ -1,7 +1,60 @@
 const ATTRIBUTE_PATTERN = /([\w-]+)="([^"]*)"/g;
 const AUDIO_PATTERN = /\.(mp3|aac|m4a|ogg|opus|flac)(?:$|[?#])/i;
 
-function safeUrl(value) {
+type Attributes = Record<string, string>;
+
+type PendingItem = {
+  attributes: Attributes;
+  id: string;
+  title: string;
+  group: string;
+  album: string;
+  logo: string;
+  country: string;
+  language: string;
+  tags: string;
+  codec: string;
+  bitrate: string;
+  quality: string;
+  radio: boolean;
+  hls: boolean;
+  directives: string[];
+};
+
+export type PlaylistItem = {
+  id: string;
+  url: string;
+  title: string;
+  sourceTitle?: string;
+  group?: string;
+  album?: string;
+  logo?: string;
+  country?: string;
+  language?: string;
+  tags?: string;
+  codec?: string;
+  bitrate?: string;
+  quality?: string;
+  radio?: boolean;
+  hls?: boolean;
+  providerId?: string;
+  providerLabel?: string;
+  attributes?: Record<string, unknown>;
+  directives?: unknown[];
+  [key: string]: unknown;
+};
+
+type ParseOptions = {
+  providerId?: string;
+  providerLabel?: string;
+  defaultRadio?: boolean;
+};
+
+type SerializeOptions = {
+  dedupe?: boolean;
+};
+
+function safeUrl(value: unknown): string {
   try {
     const url = new URL(String(value || "").trim());
     return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
@@ -10,19 +63,19 @@ function safeUrl(value) {
   }
 }
 
-function safeText(value, maxLength = 500) {
+function safeText(value: unknown, maxLength = 500): string {
   return String(value || "").replace(/[\r\n\t]+/g, " ").trim().slice(0, maxLength);
 }
 
-function parseAttributes(line) {
-  const attributes = {};
+function parseAttributes(line: string): Attributes {
+  const attributes: Attributes = {};
   for (const match of line.matchAll(ATTRIBUTE_PATTERN)) {
     attributes[match[1].toLowerCase()] = match[2];
   }
   return attributes;
 }
 
-function extinfTitle(line) {
+function extinfTitle(line: string): string {
   let quoted = false;
   for (let index = "#EXTINF:".length; index < line.length; index += 1) {
     const character = line[index];
@@ -32,13 +85,12 @@ function extinfTitle(line) {
   return "";
 }
 
-export function parseM3uWorkspace(source, {
-  providerId = "local",
-  providerLabel = "Lokalna",
-  defaultRadio = false,
-} = {}) {
-  const items = [];
-  let pending = null;
+export function parseM3uWorkspace(
+  source: unknown,
+  { providerId = "local", providerLabel = "Lokalna", defaultRadio = false }: ParseOptions = {},
+): PlaylistItem[] {
+  const items: PlaylistItem[] = [];
+  let pending: PendingItem | null = null;
 
   for (const rawLine of String(source || "").replace(/^\uFEFF/, "").split(/\r?\n/)) {
     const line = rawLine.trim();
@@ -110,17 +162,17 @@ export function parseM3uWorkspace(source, {
   return items;
 }
 
-function attributeValue(value) {
+function attributeValue(value: unknown): string {
   return safeText(value, 500).replace(/["\\]/g, "");
 }
 
-function titleValue(value) {
+function titleValue(value: unknown): string {
   return safeText(value, 500).replace(/[\r\n]/g, " ");
 }
 
-export function dedupePlaylist(items) {
-  const result = [];
-  const seen = new Set();
+export function dedupePlaylist(items: readonly PlaylistItem[] | null | undefined): PlaylistItem[] {
+  const result: PlaylistItem[] = [];
+  const seen = new Set<string>();
   for (const item of items || []) {
     const url = safeUrl(item?.url);
     if (!url || seen.has(url)) continue;
@@ -130,7 +182,10 @@ export function dedupePlaylist(items) {
   return result;
 }
 
-export function serializeM3u(items, { dedupe = true } = {}) {
+export function serializeM3u(
+  items: readonly PlaylistItem[] | null | undefined,
+  { dedupe = true }: SerializeOptions = {},
+): string {
   const source = dedupe ? dedupePlaylist(items) : (items || []).filter((item) => safeUrl(item?.url));
   const lines = ["#EXTM3U"];
   const known = new Set([
@@ -140,8 +195,8 @@ export function serializeM3u(items, { dedupe = true } = {}) {
   ]);
 
   for (const item of source) {
-    const attributes = [];
-    const add = (name, value) => {
+    const attributes: string[] = [];
+    const add = (name: string, value: unknown): void => {
       const safe = attributeValue(value);
       if (safe) attributes.push(`${name}="${safe}"`);
     };

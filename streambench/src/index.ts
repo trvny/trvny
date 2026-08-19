@@ -1,13 +1,13 @@
-import { FREE_TV_COUNTRIES, filterFreeTvPlaylist } from "./providers/free-tv.js";
-import { createRadioBrowserProvider } from "./providers/radio-browser-worker.js";
-import { bindProviderHandlers, providerById, providerManifest } from "./providers/registry.js";
+import { FREE_TV_COUNTRIES, filterFreeTvPlaylist } from "./providers/free-tv.ts";
+import { createRadioBrowserProvider } from "./providers/radio-browser-worker.ts";
+import { bindProviderHandlers, providerById, providerManifest } from "./providers/registry.ts";
 
 const IPTV_ORG_API = "https://iptv-org.github.io/api/";
 const IPTV_ORG_PLAYLISTS = "https://iptv-org.github.io/iptv/";
 const FREE_TV_PLAYLIST = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8";
 const MAX_PLAYLIST_BYTES = 5_000_000;
 
-const SECURITY_HEADERS = {
+const SECURITY_HEADERS: Record<string, string> = {
   "content-security-policy": [
     "default-src 'self'",
     "script-src 'self'",
@@ -27,7 +27,12 @@ const SECURITY_HEADERS = {
   "permissions-policy": "camera=(), microphone=(), geolocation=()",
 };
 
-function json(body, status = 200, cacheControl = "no-store") {
+type PlaylistReadResult = { body: string; error?: never } | { body?: never; error: Response };
+type IptvOrgCountry = { code?: unknown; name?: unknown; flag?: unknown };
+type IptvOrgCategory = { id?: unknown; name?: unknown };
+type LegacyProviderRoute = { providerId: string; resource: "catalog" | "playlist" };
+
+function json(body: unknown, status = 200, cacheControl = "no-store"): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -37,12 +42,9 @@ function json(body, status = 200, cacheControl = "no-store") {
   });
 }
 
-function withSecurityHeaders(response) {
+function withSecurityHeaders(response: Response): Response {
   const headers = new Headers(response.headers);
-  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-    headers.set(name, value);
-  }
-
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -50,7 +52,7 @@ function withSecurityHeaders(response) {
   });
 }
 
-async function readPlaylist(response) {
+async function readPlaylist(response: Response): Promise<PlaylistReadResult> {
   if (!response.ok) return { error: json({ error: "provider_playlist_unavailable" }, 502) };
 
   const declaredLength = Number(response.headers.get("content-length") || 0);
@@ -70,18 +72,17 @@ async function readPlaylist(response) {
   return { body };
 }
 
-async function fetchIptvOrg(path, accept) {
+async function fetchIptvOrg(path: string, accept: string): Promise<Response> {
   const response = await fetch(new URL(path, IPTV_ORG_API), {
     headers: { accept },
     redirect: "follow",
     signal: AbortSignal.timeout(12_000),
   });
-
   if (!response.ok) throw new Error(`iptv-org returned ${response.status}`);
   return response;
 }
 
-async function iptvOrgCatalog() {
+async function iptvOrgCatalog(): Promise<Response> {
   const [countriesResponse, categoriesResponse] = await Promise.all([
     fetchIptvOrg("countries.json", "application/json"),
     fetchIptvOrg("categories.json", "application/json"),
@@ -95,18 +96,22 @@ async function iptvOrgCatalog() {
     throw new Error("invalid iptv-org catalog");
   }
 
-  const countries = countriesSource
-    .filter((country) => /^[A-Z]{2}$/.test(country.code) && typeof country.name === "string")
-    .map((country) => ({ code: country.code, name: country.name, flag: country.flag || "" }))
+  const countries = (countriesSource as IptvOrgCountry[])
+    .filter((country) => /^[A-Z]{2}$/.test(String(country.code || "")) && typeof country.name === "string")
+    .map((country) => ({
+      code: String(country.code),
+      name: String(country.name),
+      flag: typeof country.flag === "string" ? country.flag : "",
+    }))
     .sort((left, right) => left.name.localeCompare(right.name, "en"));
-  const categories = categoriesSource
+  const categories = (categoriesSource as IptvOrgCategory[])
     .filter((category) => (
-      /^[a-z0-9-]+$/.test(category.id)
+      /^[a-z0-9-]+$/.test(String(category.id || ""))
       && typeof category.name === "string"
       && category.id !== "xxx"
       && category.id !== "undefined"
     ))
-    .map((category) => ({ id: category.id, name: category.name }))
+    .map((category) => ({ id: String(category.id), name: String(category.name) }))
     .sort((left, right) => left.name.localeCompare(right.name, "en"));
 
   return json(
@@ -116,20 +121,15 @@ async function iptvOrgCatalog() {
   );
 }
 
-function iptvOrgPlaylistPath(url) {
+function iptvOrgPlaylistPath(url: URL): string | null {
   const type = url.searchParams.get("type");
   const id = url.searchParams.get("id") || "";
-
-  if (type === "country" && /^[a-z]{2}$/i.test(id)) {
-    return `countries/${id.toLowerCase()}.m3u`;
-  }
-  if (type === "category" && /^[a-z0-9-]+$/.test(id)) {
-    return `categories/${id}.m3u`;
-  }
+  if (type === "country" && /^[a-z]{2}$/i.test(id)) return `countries/${id.toLowerCase()}.m3u`;
+  if (type === "category" && /^[a-z0-9-]+$/.test(id)) return `categories/${id}.m3u`;
   return null;
 }
 
-async function iptvOrgPlaylist(url) {
+async function iptvOrgPlaylist(url: URL): Promise<Response> {
   const path = iptvOrgPlaylistPath(url);
   if (!path) return json({ error: "invalid_provider_selection" }, 400);
 
@@ -149,19 +149,19 @@ async function iptvOrgPlaylist(url) {
   });
 }
 
-function freeTvCatalog() {
+function freeTvCatalog(): Response {
   return json(
     {
       provider: "free-tv",
       countries: FREE_TV_COUNTRIES,
-      filters: providerById("free-tv").filters,
+      filters: providerById("free-tv")!.filters,
     },
     200,
     "public, max-age=86400, stale-while-revalidate=604800",
   );
 }
 
-async function freeTvPlaylist(url) {
+async function freeTvPlaylist(url: URL): Promise<Response> {
   const type = url.searchParams.get("type");
   const id = (url.searchParams.get("id") || "").toUpperCase();
   if (type !== "country" || !FREE_TV_COUNTRIES.some((entry) => entry.code === id)) {
@@ -188,18 +188,12 @@ async function freeTvPlaylist(url) {
 }
 
 const PROVIDER_HANDLERS = bindProviderHandlers({
-  "free-tv": {
-    catalog: freeTvCatalog,
-    playlist: freeTvPlaylist,
-  },
-  "iptv-org": {
-    catalog: iptvOrgCatalog,
-    playlist: iptvOrgPlaylist,
-  },
+  "free-tv": { catalog: freeTvCatalog, playlist: freeTvPlaylist },
+  "iptv-org": { catalog: iptvOrgCatalog, playlist: iptvOrgPlaylist },
   "radio-browser": createRadioBrowserProvider(json),
 });
 
-function providersResponse() {
+function providersResponse(): Response {
   return json(
     { providers: providerManifest() },
     200,
@@ -207,22 +201,24 @@ function providersResponse() {
   );
 }
 
-async function catalogResponse(providerId) {
+async function catalogResponse(providerId: string): Promise<Response> {
   const handler = PROVIDER_HANDLERS.get(providerId);
   return handler ? handler.catalog() : json({ error: "unknown_provider" }, 400);
 }
 
-async function playlistResponse(providerId, url) {
+async function playlistResponse(providerId: string, url: URL): Promise<Response> {
   const handler = PROVIDER_HANDLERS.get(providerId);
   return handler ? handler.playlist(url) : json({ error: "unknown_provider" }, 400);
 }
 
-function legacyProviderRoute(pathname) {
+function legacyProviderRoute(pathname: string): LegacyProviderRoute | null {
   const match = pathname.match(/^\/api\/providers\/([a-z0-9-]+)\/(catalog|playlist)$/);
-  return match ? { providerId: match[1], resource: match[2] } : null;
+  return match
+    ? { providerId: match[1], resource: match[2] as LegacyProviderRoute["resource"] }
+    : null;
 }
 
-async function providerResponse(url) {
+async function providerResponse(url: URL): Promise<Response> {
   if (url.pathname === "/api/providers") return providersResponse();
 
   if (url.pathname === "/api/catalog" || url.pathname === "/api/playlist") {
@@ -240,7 +236,7 @@ async function providerResponse(url) {
     : playlistResponse(legacy.providerId, url);
 }
 
-function isProviderRoute(pathname) {
+function isProviderRoute(pathname: string): boolean {
   return pathname === "/api/providers"
     || pathname === "/api/catalog"
     || pathname === "/api/playlist"
@@ -248,7 +244,7 @@ function isProviderRoute(pathname) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/health") {
@@ -259,7 +255,6 @@ export default {
       if (request.method !== "GET") {
         return withSecurityHeaders(json({ error: "method_not_allowed" }, 405));
       }
-
       try {
         return withSecurityHeaders(await providerResponse(url));
       } catch {
@@ -273,4 +268,4 @@ export default {
 
     return withSecurityHeaders(await env.ASSETS.fetch(request));
   },
-};
+} satisfies ExportedHandler<Env>;

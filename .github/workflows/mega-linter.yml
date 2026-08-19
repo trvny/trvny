@@ -23,6 +23,7 @@ permissions: {}
 jobs:
   benches:
     name: Bench checks
+    if: github.event_name != 'push'
     runs-on: ubuntu-slim
     timeout-minutes: 20
     permissions:

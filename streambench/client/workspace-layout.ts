@@ -1,12 +1,14 @@
-const workspace = document.querySelector(".workspace");
-const sourceTools = document.querySelector(".source-tools");
-const toolsPanel = document.querySelector("#toolsPanel");
-const library = document.querySelector(".library-box");
-const epgImport = document.querySelector(".epg-import");
-const playlistEmpty = document.querySelector("#playlistEmpty p");
-const mobileTools = document.querySelector('[data-mobile-view-target="tools"]');
+export {};
 
-function sourceTab(id, label, selected = false) {
+const workspace = document.querySelector<HTMLElement>(".workspace");
+const sourceTools = document.querySelector<HTMLElement>(".source-tools");
+const toolsPanel = document.querySelector<HTMLDetailsElement>("#toolsPanel");
+const library = document.querySelector<HTMLElement>(".library-box");
+const epgImport = document.querySelector<HTMLElement>(".epg-import");
+const playlistEmpty = document.querySelector<HTMLParagraphElement>("#playlistEmpty p");
+const mobileTools = document.querySelector<HTMLElement>('[data-mobile-view-target="tools"]');
+
+function sourceTab(id: string, label: string, selected = false): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.id = `sourceTab-${id}`;
@@ -19,7 +21,7 @@ function sourceTab(id, label, selected = false) {
   return button;
 }
 
-function sourcePanel(id, selected = false) {
+function sourcePanel(id: string, selected = false): HTMLElement {
   const panel = document.createElement("section");
   panel.id = `sourcePanel-${id}`;
   panel.className = "source-mode-panel";
@@ -31,12 +33,12 @@ function sourcePanel(id, selected = false) {
 }
 
 if (workspace && sourceTools) {
-  const heading = sourceTools.querySelector(":scope > .tool-heading");
-  const provider = sourceTools.querySelector(":scope > .provider-box");
-  const divider = sourceTools.querySelector(":scope > .source-divider");
-  const fileButton = sourceTools.querySelector(":scope > .file-button");
-  const pasteBox = sourceTools.querySelector(":scope > .paste-box");
-  const playlistTools = sourceTools.querySelector(":scope > .playlist-tools");
+  const heading = sourceTools.querySelector<HTMLElement>(":scope > .tool-heading");
+  const provider = sourceTools.querySelector<HTMLElement>(":scope > .provider-box");
+  const divider = sourceTools.querySelector<HTMLElement>(":scope > .source-divider");
+  const fileButton = sourceTools.querySelector<HTMLElement>(":scope > .file-button");
+  const pasteBox = sourceTools.querySelector<HTMLElement>(":scope > .paste-box");
+  const playlistTools = sourceTools.querySelector<HTMLElement>(":scope > .playlist-tools");
 
   divider?.remove();
   heading?.querySelector(".eyebrow")?.replaceChildren("Źródła i dane");
@@ -65,7 +67,8 @@ if (workspace && sourceTools) {
   panels.className = "source-mode-panels";
   panels.append(catalogPanel, playlistPanel, epgPanel);
 
-  sourceTools.replaceChildren(...[heading, tabs, panels].filter(Boolean));
+  const children = [heading, tabs, panels].filter((node): node is HTMLElement => node !== null);
+  sourceTools.replaceChildren(...children);
 
   const sourceDock = document.createElement("section");
   sourceDock.className = "panel source-dock";
@@ -73,24 +76,25 @@ if (workspace && sourceTools) {
   sourceDock.append(sourceTools);
   workspace.after(sourceDock);
 
-  const selectSource = (id) => {
-    tabs.querySelectorAll(".source-mode-tab").forEach((tab) => {
+  const selectSource = (id: string | undefined): void => {
+    tabs.querySelectorAll<HTMLElement>(".source-mode-tab").forEach((tab) => {
       tab.setAttribute("aria-selected", String(tab.dataset.sourceTarget === id));
     });
-    panels.querySelectorAll(".source-mode-panel").forEach((panel) => {
+    panels.querySelectorAll<HTMLElement>(".source-mode-panel").forEach((panel) => {
       panel.hidden = panel.dataset.sourcePanel !== id;
     });
   };
 
   tabs.addEventListener("click", (event) => {
-    const tab = event.target.closest(".source-mode-tab");
+    const target = event.target instanceof Element ? event.target : null;
+    const tab = target?.closest<HTMLElement>(".source-mode-tab");
     if (tab) selectSource(tab.dataset.sourceTarget);
   });
 
   if (library) {
     library.classList.add("panel", "library-panel");
     sourceDock.after(library);
-    const controls = library.querySelector(".library-controls");
+    const controls = library.querySelector<HTMLElement>(".library-controls");
     if (controls && !document.querySelector("#exportLibrary")) {
       const exportButton = document.createElement("button");
       exportButton.id = "exportLibrary";
@@ -116,8 +120,8 @@ if (playlistEmpty) {
   playlistEmpty.textContent = "Wczytaj katalog lub własną playlistę w panelu pod odtwarzaczem.";
 }
 
-if (mobileTools) {
-  mobileTools.childNodes[0].textContent = "Źródła";
+if (mobileTools?.firstChild) {
+  mobileTools.firstChild.textContent = "Źródła";
 }
 
 window.dispatchEvent(new CustomEvent("streambench:layout-ready"));

@@ -42,3 +42,7 @@ expect to find it there.
 - Prefer one logical change per pull request; truly trivial, low-risk fixes can
   go directly to `main`.
 - Keep pull-request descriptions, comments, and changelogs brief.
+
+## Code review rules
+
+- Do not comment on README-only, documentation-only, changelog, formatting, or cosmetic changes unless they introduce a factual error or break generated/validated content.

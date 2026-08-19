@@ -1,4 +1,4 @@
-import { faviconResponse } from "./favicons.js";
+import { faviconResponse } from "./favicons.ts";
 import worker from "./index.js";
 import { handleMediaApi } from "./media-api.ts";
 import { handleSignedMediaApi } from "./signed-media-api.ts";

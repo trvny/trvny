@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isPrivateHost, radioParadiseChannel, rewriteHlsManifest } from "../src/media-api.js";
+import { isPrivateHost, radioParadiseChannel, rewriteHlsManifest } from "../src/media-api.ts";
 import { rewriteSignedHlsManifest } from "../src/signed-media-api.ts";
 
 assert.equal(isPrivateHost("127.0.0.1"), true);

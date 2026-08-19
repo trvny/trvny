@@ -1,6 +1,6 @@
 import { faviconResponse } from "./favicons.js";
 import worker from "./index.js";
-import { handleMediaApi } from "./media-api.js";
+import { handleMediaApi } from "./media-api.ts";
 import { handleSignedMediaApi } from "./signed-media-api.ts";
 import { annotateProviderPlaylistResponse } from "./source-signing.ts";
 

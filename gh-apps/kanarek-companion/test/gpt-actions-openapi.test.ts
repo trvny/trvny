@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   customGptOpenApi,
   githubOAuthAuthorizationUrl,
+  normalizeGptActionsRequest,
 } from '../src/router.ts';
 
 test('Custom GPT OpenAPI includes validator-friendly object schemas', () => {
@@ -74,4 +75,26 @@ test('GitHub App OAuth bridge strips the synthetic ChatGPT scope', () => {
   assert.equal(target.searchParams.get('redirect_uri'), 'https://chat.openai.com/aip/callback');
   assert.equal(target.searchParams.get('state'), 'abc');
   assert.equal(target.searchParams.has('scope'), false);
+});
+
+test('reaction writes discard GitHub response bodies', async () => {
+  const request = new Request('https://example.workers.dev/gpt-actions/github/bot', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer test-token',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      method: 'POST',
+      path: '/repos/trvny/trvny/issues/245/reactions',
+      body: { content: '+1' },
+      expect: 'json',
+    }),
+  });
+
+  const normalized = await normalizeGptActionsRequest(request);
+  const payload = (await normalized.json()) as Record<string, unknown>;
+
+  assert.equal(normalized.headers.get('authorization'), 'Bearer test-token');
+  assert.equal(payload.expect, 'empty');
 });

@@ -9,6 +9,7 @@ type JsonObject = Record<string, unknown>;
 
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const OAUTH_AUTHORIZE_PATH = '/gpt-actions/oauth/authorize';
+const BOT_ACTION_PATH = '/gpt-actions/github/bot';
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -69,6 +70,48 @@ export function githubOAuthAuthorizationUrl(requestUrl: string): string {
   return target.toString();
 }
 
+export async function normalizeGptActionsRequest(request: Request): Promise<Request> {
+  const url = new URL(request.url);
+  if (url.pathname !== BOT_ACTION_PATH || request.method !== 'POST') return request;
+
+  let input: JsonObject;
+  try {
+    const value = await request.clone().json();
+    if (!isObject(value)) return request;
+    input = value;
+  } catch {
+    return request;
+  }
+
+  const path = typeof input.path === 'string' ? input.path : '';
+  if (input.method !== 'POST' || !path.endsWith('/reactions') || input.expect === 'empty') {
+    return request;
+  }
+
+  const headers = new Headers(request.headers);
+  headers.set('content-type', 'application/json');
+  headers.delete('content-length');
+  return new Request(request.url, {
+    method: request.method,
+    headers,
+    body: JSON.stringify({ ...input, expect: 'empty' }),
+  });
+}
+
+function actionException(error: unknown): Response {
+  const requestId = crypto.randomUUID();
+  const detail =
+    error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 500) : 'unknown_error';
+  console.error(JSON.stringify({ gptActions: 'uncaught', requestId, detail }));
+  return Response.json(
+    { ok: false, error: 'worker_exception', requestId, detail },
+    {
+      status: 500,
+      headers: { 'cache-control': 'no-store' },
+    },
+  );
+}
+
 const worker = {
   async fetch(
     request: Request,
@@ -95,7 +138,11 @@ const worker = {
       }
     }
     if (url.pathname === '/gpt-actions' || url.pathname.startsWith('/gpt-actions/')) {
-      return handleGptActions(request, env);
+      try {
+        return await handleGptActions(await normalizeGptActionsRequest(request), env);
+      } catch (error) {
+        return actionException(error);
+      }
     }
     return baseWorker.fetch(request, env, ctx);
   },

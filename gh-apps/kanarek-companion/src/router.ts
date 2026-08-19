@@ -1,6 +1,7 @@
 import baseWorker, { CommentProbeLock } from './index.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
+import { addLifecycleOpenApi, handleLifecycleAction } from './lifecycle-actions.ts';
 import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
 
 export { CommentProbeLock };
@@ -92,13 +93,14 @@ function addBranchDeleteOperation(document: JsonObject): void {
   const botPost = isObject(botPath) && isObject(botPath.post) ? botPath.post : null;
   if (botPost) {
     botPost.description =
-      'Use for comments, reactions, labels, issue/PR updates, merges, workflows, releases and other allowlisted repo operations. PR creation stays user-authored. File edits and raw branch-ref changes are blocked here; use commitFilesAsGptomek or deleteBranchAsGptomek.';
+      'Use for comments, reactions, labels, issue/PR updates, merges, workflows, releases and other allowlisted ops. PR creation stays user-authored. File edits and raw branch refs are blocked; use commitFilesAsGptomek, createBranchAsGptomek or deleteBranchAsGptomek.';
   }
 }
 
 export function customGptOpenApi(origin: string): JsonObject {
   const source = openApiDocument(origin);
   addBranchDeleteOperation(source);
+  addLifecycleOpenApi(source);
   addOperatorOpenApi(source);
   const document = normalizeObjectSchemas(source);
   if (!isObject(document)) throw new Error('invalid_openapi_document');
@@ -147,6 +149,9 @@ export function restrictedBotWrite(methodValue: string, path: string): string | 
     new RegExp(`${repoPrefix}contents(?:/|$)`).test(pathname)
   ) {
     return 'use_commit_files';
+  }
+  if (method === 'POST' && new RegExp(`${repoPrefix}git/refs/?$`).test(pathname)) {
+    return 'use_create_branch';
   }
   if (
     (method === 'PATCH' || method === 'DELETE') &&
@@ -365,6 +370,9 @@ const worker = {
 
     const operatorResponse = await handleOperatorAction(request, env, actionFetch);
     if (operatorResponse) return operatorResponse;
+
+    const lifecycleResponse = await handleLifecycleAction(request, env, actionFetch);
+    if (lifecycleResponse) return lifecycleResponse;
 
     if (url.pathname === BRANCH_DELETE_PATH) {
       try {

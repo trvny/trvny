@@ -469,10 +469,22 @@ function statCount(value: unknown): number {
     : 0;
 }
 
+function providerErrorCategory(error: unknown): string {
+  if (error instanceof Error) {
+    if (error.name === 'AbortError') return 'timeout';
+    if (error instanceof SyntaxError) return 'invalid_json';
+    const httpStatus = error.message.match(/\breturned (\d{3})\b/)?.[1];
+    if (httpStatus) return `http_${httpStatus}`;
+    if (error.message.includes('invalid JSON')) return 'invalid_json';
+  }
+  return 'request_error';
+}
+
 async function recordProviderStats(
   env: QuipEnv,
   label: string,
   success: boolean,
+  lastError: string | null = null,
 ): Promise<void> {
   const kv = env.KANAREK_QUIP_KV;
   if (!kv) return;
@@ -497,6 +509,7 @@ async function recordProviderStats(
         failures: statCount(current.failures) + (success ? 0 : 1),
         last_used: Date.now(),
         last_result: success ? 'success' : 'failure',
+        last_error: success ? null : lastError ?? 'unknown_error',
       }),
     );
   } catch (error) {
@@ -755,7 +768,12 @@ export async function aiQuip(
       const result = await candidate.request();
       logProviderResult(candidate.label, result);
       const success = result.complete && validQuipLength(result.text);
-      await recordProviderStats(env, candidate.label, success);
+      const lastError = success
+        ? null
+        : result.complete
+          ? 'invalid_output'
+          : 'incomplete';
+      await recordProviderStats(env, candidate.label, success, lastError);
       if (success) return result.text;
       const reason = result.complete
         ? `unusable quip (${result.text.length} chars)`
@@ -763,7 +781,7 @@ export async function aiQuip(
       console.warn(`${candidate.label} returned ${reason}; using bank/preset.`);
       return null;
     } catch (error) {
-      await recordProviderStats(env, candidate.label, false);
+      await recordProviderStats(env, candidate.label, false, providerErrorCategory(error));
       const message = error instanceof Error ? error.message : 'unknown provider error';
       console.warn(
         `${message}${hasFallback ? '; trying next provider.' : '; using bank/preset.'}`,

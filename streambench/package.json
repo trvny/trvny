@@ -4,7 +4,7 @@
   "version": "0.9.0",
   "description": "Browser-based IPTV, radio and stream tester.",
   "scripts": {
-    "build:client": "npx --yes --package=typescript@7.0.2 tsc -p tsconfig.client.json",
+    "build:client": "npx --yes --package=typescript@7.0.2 tsc -p tsconfig.client.json && npx --yes --package=typescript@7.0.2 tsc -p tsconfig.client-orchestrators.json",
     "build": "npm run build:client && node scripts/vendor.mjs && node scripts/portable.mjs",
     "typecheck": "wrangler types && npx --yes --package=typescript@7.0.2 tsc --noEmit",
     "check": "npm run build && npm run typecheck && npm run check:syntax && npm run test:raw && npx wrangler deploy --dry-run",

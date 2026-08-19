@@ -4,23 +4,27 @@ import { handleMediaApi } from "./media-api.js";
 import { handleSignedMediaApi } from "./signed-media-api.js";
 import { annotateProviderPlaylistResponse } from "./source-signing.js";
 
-function isProviderPlaylist(pathname) {
+type StreambenchEnv = Env & {
+  STREAMBENCH_RELAY_SECRET: string;
+};
+
+function isProviderPlaylist(pathname: string): boolean {
   return pathname === "/api/playlist"
     || /^\/api\/providers\/[a-z0-9-]+\/playlist$/.test(pathname);
 }
 
-function isPortableApiRequest(request, url) {
+function isPortableApiRequest(request: Request, url: URL): boolean {
   return url.pathname.startsWith("/api/") && request.headers.get("origin") === "null";
 }
 
-function portableApiRequest(request, url) {
+function portableApiRequest(request: Request, url: URL): Request {
   if (!isPortableApiRequest(request, url)) return request;
   const headers = new Headers(request.headers);
   headers.set("sec-fetch-site", "same-origin");
   return new Request(request, { headers });
 }
 
-function portableApiResponse(request, url, response) {
+function portableApiResponse(request: Request, url: URL, response: Response): Response {
   if (!isPortableApiRequest(request, url)) return response;
   const headers = new Headers(response.headers);
   headers.set("access-control-allow-origin", "null");
@@ -33,7 +37,11 @@ function portableApiResponse(request, url, response) {
 }
 
 export default {
-  async fetch(request, env, context) {
+  async fetch(
+    request: Request,
+    env: StreambenchEnv,
+    _context: ExecutionContext,
+  ): Promise<Response> {
     const url = new URL(request.url);
     if (isPortableApiRequest(request, url) && request.method === "OPTIONS") {
       return new Response(null, {
@@ -62,10 +70,10 @@ export default {
         : icon;
     }
 
-    const response = await worker.fetch(apiRequest, env, context);
+    const response = await worker.fetch(apiRequest, env);
     const annotated = isProviderPlaylist(url.pathname)
-      ? annotateProviderPlaylistResponse(response, url, env.STREAMBENCH_RELAY_SECRET)
+      ? await annotateProviderPlaylistResponse(response, url, env.STREAMBENCH_RELAY_SECRET)
       : response;
     return portableApiResponse(request, url, annotated);
   },
-};
+} satisfies ExportedHandler<StreambenchEnv>;

@@ -12,9 +12,7 @@
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true,
-    "allowJs": true,
-    "checkJs": false
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*"]
 }

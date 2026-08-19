@@ -6,6 +6,7 @@ import {
   customGptOpenApi,
   githubOAuthAuthorizationUrl,
   normalizeGptActionsRequest,
+  restrictedBotWrite,
 } from '../src/router.ts';
 
 test('Custom GPT OpenAPI includes validator-friendly object schemas', () => {
@@ -28,6 +29,7 @@ test('Custom GPT OpenAPI includes validator-friendly object schemas', () => {
       Record<
         string,
         {
+          operationId?: string;
           responses?: Record<
             string,
             {
@@ -51,6 +53,11 @@ test('Custom GPT OpenAPI includes validator-friendly object schemas', () => {
     document.components.securitySchemes.githubOAuth.flows.authorizationCode.scopes,
     { github: 'Authenticate with the installed GitHub App' },
   );
+  const operations = Object.values(document.paths)
+    .flatMap((path) => Object.values(path))
+    .map((operation) => operation.operationId)
+    .filter(Boolean);
+  assert.ok(operations.includes('deleteBranchAsGptomek'));
 
   for (const path of Object.values(document.paths)) {
     for (const operation of Object.values(path)) {
@@ -98,6 +105,41 @@ test('reaction writes discard GitHub response bodies', async () => {
 
   assert.equal(normalized.headers.get('authorization'), 'Bearer test-token');
   assert.equal(payload.expect, 'empty');
+});
+
+test('raw code-changing bot writes are routed through guarded operations', () => {
+  assert.equal(
+    restrictedBotWrite('PATCH', '/repos/trvny/trvny/git/refs/heads/main'),
+    'use_commit_files',
+  );
+  assert.equal(
+    restrictedBotWrite('DELETE', '/repos/trvny/trvny/git/refs/heads/feature/test'),
+    'use_delete_branch',
+  );
+  assert.equal(
+    restrictedBotWrite('PUT', '/repos/trvny/trvny/contents/src/test.ts'),
+    'use_commit_files',
+  );
+  assert.equal(
+    restrictedBotWrite('DELETE', '/repos/trvny/trvny/contents/src/test.ts'),
+    'use_commit_files',
+  );
+  assert.equal(
+    restrictedBotWrite('PUT', '/repos/trvny/trvny/issues/../contents/src/test.ts'),
+    'use_commit_files',
+  );
+  assert.equal(
+    restrictedBotWrite('PATCH', '/repos/trvny/trvny/issues/%2e%2e/git/refs/heads/main'),
+    'use_commit_files',
+  );
+  assert.equal(
+    restrictedBotWrite('POST', '/repos/trvny/trvny/git/refs'),
+    null,
+  );
+  assert.equal(
+    restrictedBotWrite('POST', '/repos/trvny/trvny/issues/1/comments'),
+    null,
+  );
 });
 
 test('actions use a wrapper instead of storing the runtime fetch directly', () => {

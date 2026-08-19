@@ -1,8 +1,8 @@
 import { faviconResponse } from "./favicons.js";
 import worker from "./index.js";
 import { handleMediaApi } from "./media-api.js";
-import { handleSignedMediaApi } from "./signed-media-api.js";
-import { annotateProviderPlaylistResponse } from "./source-signing.js";
+import { handleSignedMediaApi } from "./signed-media-api.ts";
+import { annotateProviderPlaylistResponse } from "./source-signing.ts";
 
 function isProviderPlaylist(pathname: string): boolean {
   return pathname === "/api/playlist"

@@ -2,6 +2,7 @@ import baseWorker, { CommentProbeLock } from './index.ts';
 import { addChangeOpenApi, handleChangeAction } from './change-actions.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
+import { addInvestigationOpenApi, handleInvestigationAction } from './investigation-actions.ts';
 import { addIssueOpenApi, handleIssueAction } from './issue-actions.ts';
 import { addLifecycleOpenApi, handleLifecycleAction } from './lifecycle-actions.ts';
 import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
@@ -105,6 +106,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   const source = openApiDocument(origin);
   addBranchDeleteOperation(source);
   addChangeOpenApi(source);
+  addInvestigationOpenApi(source);
   addIssueOpenApi(source);
   addLifecycleOpenApi(source);
   addOperatorOpenApi(source);
@@ -399,6 +401,9 @@ const worker = {
 
     const workflowResponse = await handleWorkflowAction(request, env, actionFetch);
     if (workflowResponse) return workflowResponse;
+
+    const investigationResponse = await handleInvestigationAction(request, env, actionFetch);
+    if (investigationResponse) return investigationResponse;
 
     if (url.pathname === BRANCH_DELETE_PATH) {
       try {

@@ -6,7 +6,12 @@ name: MegaLinter
 on: # yamllint disable-line rule:truthy
   push:
     branches: [main]
-  pull_request: null
+  pull_request:
+    paths:
+      - "codebench/**"
+      - "streambench/**"
+      - ".github/workflows/benches-release.yml"
+      - ".github/workflows/mega-linter.yml"
   workflow_dispatch:
 
 concurrency:
@@ -53,8 +58,7 @@ jobs:
             fi
             if ! git diff --quiet "$BASE_SHA" HEAD -- \
               .github/workflows/benches-release.yml \
-              .github/workflows/mega-linter.yml \
-              .github/linters/.mega-linter.yml; then
+              .github/workflows/mega-linter.yml; then
               codebench=true
               streambench=true
             fi
@@ -110,6 +114,7 @@ jobs:
 
   megalinter:
     name: MegaLinter
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -142,7 +147,7 @@ jobs:
           APPLY_FIXES_EVENT: none
 
       - name: Archive MegaLinter reports
-        if: always()
+        if: always() && steps.megalinter.outcome != 'success'
         uses: actions/upload-artifact@v7
         with:
           name: MegaLinter reports

@@ -46,7 +46,7 @@ Supported operations:
 - `reply_review`: reply to an inline PR review thread.
 - `react_issue_comment` and `react_review_comment`: add GitHub reactions.
 
-`delete_branch` aas layered guards: literal `main`, the GPTomek control ref, and
+`delete_branch` has layered guards: literal `main`, the GPTomek control ref, and
 the repository's current `default_branch` are protected, and the branch head is
 checked against `expectedHeadSha` immediately before the DELETE request.
 GitHub's delete-ref API has no atomic expected-SHA precondition, so a concurrent
@@ -54,6 +54,3 @@ push in the narrow check/delete window remains an unavoidable race. An already
 missing target branch is treated as success so mailbox retries stay idempotent.
 GitHub also rejects deletion of its current default branch. The App needs
 `Contents: write` for ref deletion.
-
-Pull requests remain opened as `trvny` so external automatic review continues
-to trigger from the expected author.

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isPrivateHost, relayUpstream, rewriteManifest, safeRemoteUrl } from "../src/relay-core.js";
+import { isPrivateHost, relayUpstream, rewriteManifest, safeRemoteUrl } from "../src/relay-core.ts";
 
 assert.equal(safeRemoteUrl("http://user:pass@example.com/a"), null);
 assert.equal(safeRemoteUrl("file:///etc/passwd"), null);

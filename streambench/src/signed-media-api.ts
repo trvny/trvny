@@ -1,21 +1,15 @@
 import {
   childAllowed,
+  hasErrorName,
   json,
   relayUpstream,
   rewriteManifest,
   safeRemoteUrl,
   sameOriginBrowserRequest,
-} from "./relay-core.js";
+} from "./relay-core.ts";
 import { verifySourceSignature } from "./source-signing.ts";
 
 const RELAY_LABEL = "signed-provider";
-
-function hasErrorName(error: unknown, name: string): boolean {
-  return typeof error === "object"
-    && error !== null
-    && "name" in error
-    && (error as { name?: unknown }).name === name;
-}
 
 export function rewriteSignedHlsManifest(
   source: string,

@@ -3,6 +3,7 @@ import {
   childAllowed,
   fetchCapped,
   fetchValidated,
+  hasErrorName,
   isPrivateHost,
   json,
   relayUpstream,
@@ -10,7 +11,7 @@ import {
   safeRemoteUrl,
   sameOriginBrowserRequest,
   upstreamHeaders,
-} from "./relay-core.js";
+} from "./relay-core.ts";
 
 const MAX_ICY_BYTES = 512_000;
 const MAX_METADATA_BYTES = 128_000;
@@ -31,21 +32,6 @@ type StreamTitle = {
   artist: string;
   title: string;
 };
-
-type FetchValidated = (
-  rawUrl: string | URL,
-  init?: RequestInit,
-  options?: { timeoutMs?: number; signal?: AbortSignal },
-) => Promise<Response>;
-
-const fetchValidatedWithOptions = fetchValidated as FetchValidated;
-
-function hasErrorName(error: unknown, name: string): boolean {
-  return typeof error === "object"
-    && error !== null
-    && "name" in error
-    && (error as { name?: unknown }).name === name;
-}
 
 export { isPrivateHost };
 
@@ -155,7 +141,7 @@ async function icyMetadata(request: Request, target: URL): Promise<TrackMetadata
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetchValidatedWithOptions(target, {
+    const response = await fetchValidated(target, {
       headers: upstreamHeaders(request, { icy: true }),
     }, { signal: controller.signal });
     if (!response.ok || !response.body) throw new Error(`radio returned ${response.status}`);

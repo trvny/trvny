@@ -6,13 +6,15 @@ personal, project-specific, or simply not for a public repository.
 
 ```text
 .ai/private/
-└── claude/     Claude-specific counterparts of the core's Claude material
+├── personalities/  tool-neutral opt-in voices and instruction sets
+└── claude/          Claude-specific counterparts of the core's Claude material
 ```
 
-One directory per tool, named after it, mirroring how the core keeps `.claude/`
-and `.codex/` reference defaults side by side. Add `codex/` or `gemini/` the same
-way when there is something to put in them — do not pile another tool's material
-into an existing directory.
+`personalities/` contains private, provider-neutral voices that can be copied or
+adapted where needed. Other directories are split per tool, named after it, and
+mirror how the core keeps `.claude/` and `.codex/` reference defaults side by
+side. Add `codex/` or `gemini/` the same way when there is something to put in
+them — do not pile another tool's material into an existing directory.
 
 This is active material: read it. Historical storage lives in `.ai/backups/` and
 is deliberately outside this tree, so nothing here needs to be filtered out on a

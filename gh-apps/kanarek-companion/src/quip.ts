@@ -8,6 +8,7 @@ const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
 const DEFAULT_QUIP_OUTPUT_TOKEN_LIMIT = 256;
 const DEFAULT_XAI_QUIP_OUTPUT_TOKEN_LIMIT = 1_024;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
+const PROVIDER_STATS_PREFIX = 'kanarek:companion:provider-stats:v1:';
 const PROVIDER_SLOTS = [
   'openai',
   'openai-fallback',
@@ -44,6 +45,7 @@ export interface QuipEnv {
   GEMINI_API_KEY?: string;
   KANAREK_AI_ENABLED?: string;
   KANAREK_AI_PERCENT?: string;
+  KANAREK_QUIP_KV?: KVNamespace;
   KANAREK_ANTHROPIC_ENABLED?: string;
   KANAREK_ANTHROPIC_MAX_TOKENS?: string;
   KANAREK_ANTHROPIC_MODEL?: string;
@@ -461,6 +463,51 @@ function logProviderResult(label: string, result: ProviderResult): void {
   );
 }
 
+function statCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : 0;
+}
+
+async function recordProviderStats(
+  env: QuipEnv,
+  label: string,
+  success: boolean,
+): Promise<void> {
+  const kv = env.KANAREK_QUIP_KV;
+  if (!kv) return;
+  const key = `${PROVIDER_STATS_PREFIX}${encoded(label)}`;
+  try {
+    let current: Record<string, unknown> = {};
+    const raw = await kv.get(key);
+    if (raw) {
+      try {
+        current = objectValue(JSON.parse(raw) as unknown);
+      } catch {
+        current = {};
+      }
+    }
+    await kv.put(
+      key,
+      JSON.stringify({
+        version: 1,
+        provider: label,
+        attempts: statCount(current.attempts) + 1,
+        successes: statCount(current.successes) + (success ? 1 : 0),
+        failures: statCount(current.failures) + (success ? 0 : 1),
+        last_used: Date.now(),
+        last_result: success ? 'success' : 'failure',
+      }),
+    );
+  } catch (error) {
+    console.warn(
+      `Kanarek provider stats unavailable: ${
+        error instanceof Error ? error.message : 'unknown_error'
+      }`,
+    );
+  }
+}
+
 async function postJson(
   url: string,
   label: string,
@@ -707,13 +754,16 @@ export async function aiQuip(
     try {
       const result = await candidate.request();
       logProviderResult(candidate.label, result);
-      if (result.complete && validQuipLength(result.text)) return result.text;
+      const success = result.complete && validQuipLength(result.text);
+      await recordProviderStats(env, candidate.label, success);
+      if (success) return result.text;
       const reason = result.complete
         ? `unusable quip (${result.text.length} chars)`
         : `incomplete generation (${result.finishReason ?? 'unknown reason'})`;
       console.warn(`${candidate.label} returned ${reason}; using bank/preset.`);
       return null;
     } catch (error) {
+      await recordProviderStats(env, candidate.label, false);
       const message = error instanceof Error ? error.message : 'unknown provider error';
       console.warn(
         `${message}${hasFallback ? '; trying next provider.' : '; using bank/preset.'}`,

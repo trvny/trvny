@@ -1,30 +1,32 @@
 const RECOVERABLE_HLS_ERROR = /(?:manifest|level|frag|key)Load(?:Error|TimeOut)/i;
 const MAX_RETRIES = 2;
 
-export function isRecoverableHlsError(message, state = "error") {
+export function isRecoverableHlsError(message: unknown, state = "error"): boolean {
   return state === "error" && RECOVERABLE_HLS_ERROR.test(String(message || ""));
 }
 
 if (typeof document !== "undefined") {
-  const form = document.querySelector("#streamForm");
-  const input = document.querySelector("#streamUrl");
-  const status = document.querySelector("#status");
-  const hint = document.querySelector("#streamHint");
-  const diagnosticError = document.querySelector("#diagnosticError");
-  const media = [document.querySelector("#videoPlayer"), document.querySelector("#audioPlayer")]
-    .filter(Boolean);
+  const form = document.querySelector<HTMLFormElement>("#streamForm");
+  const input = document.querySelector<HTMLInputElement>("#streamUrl");
+  const status = document.querySelector<HTMLElement>("#status");
+  const hint = document.querySelector<HTMLElement>("#streamHint");
+  const diagnosticError = document.querySelector<HTMLElement>("#diagnosticError");
+  const media = [
+    document.querySelector<HTMLVideoElement>("#videoPlayer"),
+    document.querySelector<HTMLAudioElement>("#audioPlayer"),
+  ].filter((element): element is HTMLVideoElement | HTMLAudioElement => element !== null);
 
   let attempts = 0;
-  let retryTimer = null;
+  let retryTimer: number | null = null;
   let retrySubmit = false;
   let source = "";
 
-  function clearRetry() {
+  function clearRetry(): void {
     if (retryTimer !== null) clearTimeout(retryTimer);
     retryTimer = null;
   }
 
-  function reset() {
+  function reset(): void {
     clearRetry();
     attempts = 0;
     source = input?.value || "";
@@ -53,7 +55,9 @@ if (typeof document !== "undefined") {
       }
       if (retryTimer !== null) return;
       if (attempts >= MAX_RETRIES) {
-        if (hint) hint.textContent = "HLS nie ruszył po dwóch próbach. Źródło może blokować przeglądarkę przez CORS, wygasło albo jest offline.";
+        if (hint) {
+          hint.textContent = "HLS nie ruszył po dwóch próbach. Źródło może blokować przeglądarkę przez CORS, wygasło albo jest offline.";
+        }
         return;
       }
 
@@ -62,7 +66,7 @@ if (typeof document !== "undefined") {
       status.dataset.state = "loading";
       if (hint) hint.textContent = "Ponawiam pobranie stabilnego adresu HLS.";
 
-      retryTimer = setTimeout(() => {
+      retryTimer = window.setTimeout(() => {
         retryTimer = null;
         if (input.value !== source) return;
         retrySubmit = true;

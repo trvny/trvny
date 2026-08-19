@@ -1,28 +1,35 @@
-import { createLocalState } from "./local-state.js";
-import { serializeM3u } from "./playlist-format.js";
+import { createLocalState } from "./local-state.ts";
+import { serializeM3u, type PlaylistItem } from "./playlist-format.ts";
 
 const library = createLocalState();
-const view = document.querySelector("#libraryView");
-const exportButton = document.querySelector("#exportLibrary");
-const copyButton = document.querySelector("#copyLibrary");
-const status = document.querySelector("#workspaceStatus");
+const view = document.querySelector<HTMLSelectElement>("#libraryView");
+const exportButton = document.querySelector<HTMLButtonElement>("#exportLibrary");
+const copyButton = document.querySelector<HTMLButtonElement>("#copyLibrary");
+const status = document.querySelector<HTMLElement>("#workspaceStatus");
 
-function setStatus(message, state = "idle") {
+type LibraryView = "favorites" | "recent" | "hidden";
+
+function selectedView(): LibraryView {
+  const value = view?.value;
+  return value === "recent" || value === "hidden" ? value : "favorites";
+}
+
+function setStatus(message: string, state = "idle"): void {
   if (!status) return;
   status.textContent = message;
   status.dataset.state = state;
 }
 
-function selectedItems() {
+function selectedItems(): PlaylistItem[] {
   library.reload();
-  return library.items(view?.value || "favorites");
+  return library.items(selectedView()) as PlaylistItem[];
 }
 
-function exportText() {
+function exportText(): string {
   return serializeM3u(selectedItems(), { dedupe: true });
 }
 
-function viewName() {
+function viewName(): string {
   return view?.selectedOptions?.[0]?.textContent?.trim() || "Biblioteka";
 }
 
@@ -33,7 +40,7 @@ exportButton?.addEventListener("click", () => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `streambench-${view?.value || "library"}.m3u8`;
+  link.download = `streambench-${selectedView()}.m3u8`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
   setStatus(`${viewName()}: wyeksportowano ${items.length} pozycji`);

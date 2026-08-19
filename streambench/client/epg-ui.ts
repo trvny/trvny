@@ -1,25 +1,25 @@
-import { formatProgramme, parseXmltv, scheduleForChannel } from "./xmltv.js";
+import { formatProgramme, parseXmltv, scheduleForChannel, type XmltvProgrammes } from "./xmltv.ts";
 
 const MAX_XMLTV_BYTES = 10_000_000;
 
 const ui = {
-  file: document.querySelector("#epgFile"),
-  text: document.querySelector("#epgText"),
-  loadText: document.querySelector("#loadEpgText"),
-  status: document.querySelector("#epgStatus"),
-  now: document.querySelector("#epgNow"),
-  next: document.querySelector("#epgNext"),
+  file: document.querySelector<HTMLInputElement>("#epgFile")!,
+  text: document.querySelector<HTMLTextAreaElement>("#epgText")!,
+  loadText: document.querySelector<HTMLButtonElement>("#loadEpgText")!,
+  status: document.querySelector<HTMLElement>("#epgStatus")!,
+  now: document.querySelector<HTMLElement>("#epgNow")!,
+  next: document.querySelector<HTMLElement>("#epgNext")!,
 };
 
-let programmes = new Map();
-let activeChannel = null;
+let programmes: XmltvProgrammes = new Map();
+let activeChannel: { id?: string } | null = null;
 
-function setStatus(message, state = "idle") {
+function setStatus(message: string, state = "idle"): void {
   ui.status.textContent = message;
   ui.status.dataset.state = state;
 }
 
-function renderSchedule() {
+function renderSchedule(): void {
   if (!activeChannel?.id) {
     ui.now.textContent = "Wybierz kanał z tvg-id";
     ui.next.textContent = "Brak danych";
@@ -30,7 +30,7 @@ function renderSchedule() {
   ui.next.textContent = formatProgramme(schedule.next);
 }
 
-function loadSource(source, label) {
+function loadSource(source: string, label: string): void {
   if (new Blob([source]).size > MAX_XMLTV_BYTES) throw new Error("XMLTV source is too large");
   programmes = parseXmltv(source);
   const count = [...programmes.values()].reduce((sum, entries) => sum + entries.length, 0);
@@ -39,7 +39,7 @@ function loadSource(source, label) {
 }
 
 ui.file.addEventListener("change", async () => {
-  const [file] = ui.file.files;
+  const [file] = ui.file.files || [];
   if (!file) return;
   try {
     if (file.size > MAX_XMLTV_BYTES) throw new Error("XMLTV file is too large");
@@ -60,7 +60,7 @@ ui.loadText.addEventListener("click", () => {
 });
 
 window.addEventListener("streambench:channel", (event) => {
-  activeChannel = event.detail || null;
+  activeChannel = (event as CustomEvent<{ id?: string } | null>).detail || null;
   renderSchedule();
 });
 

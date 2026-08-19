@@ -65,9 +65,14 @@ megalinter-reports/
 mega-linter.log
 .ai/generated/
 streambench/public/channel-meta.js
+streambench/public/default-playlists.js
 streambench/public/diagnostics.js
+streambench/public/epg-ui.js
+streambench/public/library-export.js
 streambench/public/local-state.js
+streambench/public/playback-recovery.js
 streambench/public/playlist-format.js
+streambench/public/xmltv.js
 
 # Logs and temporary files
 *.log

@@ -32,6 +32,14 @@ type StreamTitle = {
   title: string;
 };
 
+type FetchValidated = (
+  rawUrl: string | URL,
+  init?: RequestInit,
+  options?: { timeoutMs?: number; signal?: AbortSignal },
+) => Promise<Response>;
+
+const fetchValidatedWithOptions = fetchValidated as FetchValidated;
+
 function hasErrorName(error: unknown, name: string): boolean {
   return typeof error === "object"
     && error !== null
@@ -125,10 +133,10 @@ async function radioParadiseMetadata(channel: number): Promise<TrackMetadata> {
   const body = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
   return {
     provider: "radio-paradise",
-    title: String(body.title ?? "").trim(),
-    artist: String(body.artist ?? "").trim(),
-    album: String(body.album ?? "").trim(),
-    artwork: safeArtwork(body.cover ?? body.cover_med ?? body.cover_small),
+    title: String(body.title || "").trim(),
+    artist: String(body.artist || "").trim(),
+    album: String(body.album || "").trim(),
+    artwork: safeArtwork(body.cover || body.cover_med || body.cover_small),
     refreshAfter: 15,
   };
 }
@@ -147,7 +155,7 @@ async function icyMetadata(request: Request, target: URL): Promise<TrackMetadata
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetchValidated(target, {
+    const response = await fetchValidatedWithOptions(target, {
       headers: upstreamHeaders(request, { icy: true }),
     }, { signal: controller.signal });
     if (!response.ok || !response.body) throw new Error(`radio returned ${response.status}`);

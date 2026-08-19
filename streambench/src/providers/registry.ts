@@ -1,4 +1,28 @@
-export const PROVIDERS = [
+export type ProviderScope = {
+  id: string;
+  label: string;
+  values: string;
+  default: string;
+};
+
+export type Provider = {
+  id: string;
+  label: string;
+  link: string;
+  status: string;
+  filters: string[];
+  capabilities: string[];
+  scopes: ProviderScope[];
+};
+
+export type ProviderHandler = {
+  catalog: () => Response | Promise<Response>;
+  playlist: (url: URL) => Response | Promise<Response>;
+};
+
+type BoundProviderHandler = ProviderHandler & { provider: Provider };
+
+export const PROVIDERS: Provider[] = [
   {
     id: "free-tv",
     label: "Free-TV Lite",
@@ -36,11 +60,11 @@ export const PROVIDERS = [
   },
 ];
 
-export function providerById(id) {
+export function providerById(id: string): Provider | null {
   return PROVIDERS.find((provider) => provider.id === id) || null;
 }
 
-export function bindProviderHandlers(handlers) {
+export function bindProviderHandlers(handlers: Record<string, ProviderHandler>): Map<string, BoundProviderHandler> {
   for (const provider of PROVIDERS) {
     const handler = handlers[provider.id];
     if (typeof handler?.catalog !== "function" || typeof handler?.playlist !== "function") {

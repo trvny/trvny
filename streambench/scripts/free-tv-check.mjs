@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { filterFreeTvPlaylist } from "../src/providers/free-tv.js";
+import { filterFreeTvPlaylist } from "../src/providers/free-tv.ts";
 
 const source = `#EXTM3U
 #EXTINF:-1 tvg-id="Poland.pl" tvg-country="PL",Poland HD

@@ -1,6 +1,14 @@
 const DIRECT_MEDIA_PATTERN = /\.(?:m3u8|mp4|webm|mp3|aac|m4a|ogg|opus|flac|php)(?:$|[?#])/i;
 const GEO_MARKER_PATTERN = /[Ⓖⓖ]/u;
 
+type FreeTvAttributes = Record<string, string>;
+
+type FreeTvPlaylistResult = {
+  body: string;
+  count: number;
+  total: number;
+};
+
 export const FREE_TV_COUNTRIES = [
   { code: "ALL", name: "Wszystkie", flag: "🌍" },
   { code: "PL", name: "Polska", flag: "🇵🇱" },
@@ -15,15 +23,15 @@ export const FREE_TV_COUNTRIES = [
   { code: "ES", name: "Hiszpania", flag: "🇪🇸" },
 ];
 
-function parseAttributes(line) {
-  const attributes = {};
+function parseAttributes(line: string): FreeTvAttributes {
+  const attributes: FreeTvAttributes = {};
   for (const match of line.matchAll(/([\w-]+)="([^"]*)"/g)) {
     attributes[match[1].toLowerCase()] = match[2];
   }
   return attributes;
 }
 
-function isSelectedCountry(attributes, country) {
+function isSelectedCountry(attributes: FreeTvAttributes, country: string): boolean {
   if (country === "ALL") return true;
   return (attributes["tvg-country"] || "")
     .split(/[;,]/)
@@ -31,7 +39,7 @@ function isSelectedCountry(attributes, country) {
     .includes(country);
 }
 
-function directHttpsUrl(value) {
+function directHttpsUrl(value: string): URL | null {
   try {
     const url = new URL(value);
     return url.protocol === "https:" && DIRECT_MEDIA_PATTERN.test(url.href) ? url : null;
@@ -40,7 +48,7 @@ function directHttpsUrl(value) {
   }
 }
 
-export function filterFreeTvPlaylist(source, country = "PL") {
+export function filterFreeTvPlaylist(source: string, country = "PL"): FreeTvPlaylistResult {
   const selectedCountry = country.toUpperCase();
   if (!FREE_TV_COUNTRIES.some((entry) => entry.code === selectedCountry)) {
     throw new TypeError("unsupported Free-TV country");
@@ -50,8 +58,8 @@ export function filterFreeTvPlaylist(source, country = "PL") {
   }
 
   const output = ["#EXTM3U"];
-  const seen = new Set();
-  let pending = null;
+  const seen = new Set<string>();
+  let pending: string | null = null;
   let total = 0;
 
   for (const rawLine of source.replace(/^\uFEFF/, "").split(/\r?\n/)) {

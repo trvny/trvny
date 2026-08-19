@@ -2,7 +2,7 @@ import {
   normalizeRadioBrowserCatalog,
   radioBrowserSearchPath,
   radioBrowserStationsToM3u,
-} from "../src/providers/radio-browser.js";
+} from "../src/providers/radio-browser.ts";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);

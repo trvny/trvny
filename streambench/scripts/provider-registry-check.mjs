@@ -3,7 +3,7 @@ import {
   bindProviderHandlers,
   providerById,
   providerManifest,
-} from "../src/providers/registry.js";
+} from "../src/providers/registry.ts";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);

@@ -89,9 +89,9 @@ function addBranchDeleteOperation(document: JsonObject): void {
 
   const botPath = paths[BOT_ACTION_PATH];
   const botPost = isObject(botPath) && isObject(botPath.post) ? botPath.post : null;
-  if (botPost && typeof botPost.description === 'string') {
-    botPost.description +=
-      ' Direct file writes and raw branch ref updates/deletes are blocked; use commitFilesAsGptomek or deleteBranchAsGptomek.';
+  if (botPost) {
+    botPost.description =
+      'Use for comments, reactions, labels, issue/PR updates, merges, workflows, releases and other allowlisted repo operations. PR creation stays user-authored. File edits and raw branch-ref changes are blocked here; use commitFilesAsGptomek or deleteBranchAsGptomek.';
   }
 }
 

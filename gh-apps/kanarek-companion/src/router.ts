@@ -6,6 +6,7 @@ import { addIssueOpenApi, handleIssueAction } from './issue-actions.ts';
 import { addLifecycleOpenApi, handleLifecycleAction } from './lifecycle-actions.ts';
 import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
 import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
+import { addWorkflowOpenApi, handleWorkflowAction } from './workflow-actions.ts';
 
 export { CommentProbeLock };
 
@@ -96,7 +97,7 @@ function addBranchDeleteOperation(document: JsonObject): void {
   const botPost = isObject(botPath) && isObject(botPath.post) ? botPath.post : null;
   if (botPost) {
     botPost.description =
-      'Use for comments, reactions, labels, issue/PR updates, merges, workflows, releases and other allowlisted ops. PR creation stays user-authored. File edits and raw branch refs are blocked; use commitFilesAsGptomek, createBranchAsGptomek or deleteBranchAsGptomek.';
+      'Use for allowlisted comments, reactions, labels, issue/PR updates, workflow dispatches and releases. PR creation stays user-authored. File edits, raw branch refs and workflow run controls use guarded actions.';
   }
 }
 
@@ -108,6 +109,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   addLifecycleOpenApi(source);
   addOperatorOpenApi(source);
   addReleaseOpenApi(source);
+  addWorkflowOpenApi(source);
   const document = normalizeObjectSchemas(source);
   if (!isObject(document)) throw new Error('invalid_openapi_document');
 
@@ -164,6 +166,12 @@ export function restrictedBotWrite(methodValue: string, path: string): string | 
     new RegExp(`${repoPrefix}git/refs/heads/`).test(pathname)
   ) {
     return method === 'DELETE' ? 'use_delete_branch' : 'use_commit_files';
+  }
+  if (
+    method === 'POST' &&
+    new RegExp(`${repoPrefix}actions/runs/[0-9]+/(?:rerun|rerun-failed-jobs|cancel)/?$`).test(pathname)
+  ) {
+    return 'use_workflow_control';
   }
   return null;
 }
@@ -388,6 +396,9 @@ const worker = {
 
     const changeResponse = await handleChangeAction(request, env, actionFetch);
     if (changeResponse) return changeResponse;
+
+    const workflowResponse = await handleWorkflowAction(request, env, actionFetch);
+    if (workflowResponse) return workflowResponse;
 
     if (url.pathname === BRANCH_DELETE_PATH) {
       try {

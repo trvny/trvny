@@ -170,7 +170,7 @@ test('routes the PR and review events used by the companion', async () => {
   );
 });
 
-test('coalesces normal companion activity into two-minute refresh windows', () => {
+test('coalesces normal companion activity into ten-minute refresh windows', () => {
   const target = {
     delivery: 'delivery-123',
     installationId: 123,
@@ -178,7 +178,7 @@ test('coalesces normal companion activity into two-minute refresh windows', () =
     repository: 'trvny/trvny',
     sourceEvent: 'check_run',
   };
-  assert.equal(COMMENT_WINDOW_MS, 2 * 60 * 1_000);
+  assert.equal(COMMENT_WINDOW_MS, 10 * 60 * 1_000);
   for (const sourceEvent of [
     'check_run',
     'check_suite',

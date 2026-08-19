@@ -118,12 +118,13 @@ html = html
   .replace(/<link\b[^>]*>\s*/gi, "")
   .replace('class="brand" href="/"', 'class="brand" href="#"');
 
+const tagOnlyHtml = html.replace(/(<script\b[^>]*>)[\s\S]*?<\/script>/gi, "$1</script>");
 for (const forbidden of [
   /<script\b[^>]*\bsrc=/i,
   /<link\b[^>]*\brel=["']stylesheet["']/i,
   /<script\b[^>]*type=["']module["'][^>]*\bsrc=/i,
 ]) {
-  if (forbidden.test(html)) throw new Error(`portable output keeps external asset: ${forbidden}`);
+  if (forbidden.test(tagOnlyHtml)) throw new Error(`portable output keeps external asset: ${forbidden}`);
 }
 if (!html.includes(backend) || !html.includes('type="importmap"')) {
   throw new Error("portable backend or module map missing");

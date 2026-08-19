@@ -1,6 +1,7 @@
 import baseWorker, { CommentProbeLock } from './index.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
+import { addIssueOpenApi, handleIssueAction } from './issue-actions.ts';
 import { addLifecycleOpenApi, handleLifecycleAction } from './lifecycle-actions.ts';
 import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
 import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
@@ -101,6 +102,7 @@ function addBranchDeleteOperation(document: JsonObject): void {
 export function customGptOpenApi(origin: string): JsonObject {
   const source = openApiDocument(origin);
   addBranchDeleteOperation(source);
+  addIssueOpenApi(source);
   addLifecycleOpenApi(source);
   addOperatorOpenApi(source);
   addReleaseOpenApi(source);
@@ -378,6 +380,9 @@ const worker = {
 
     const releaseResponse = await handleReleaseAction(request, env, actionFetch);
     if (releaseResponse) return releaseResponse;
+
+    const issueResponse = await handleIssueAction(request, env, actionFetch);
+    if (issueResponse) return issueResponse;
 
     if (url.pathname === BRANCH_DELETE_PATH) {
       try {

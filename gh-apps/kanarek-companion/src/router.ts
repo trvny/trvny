@@ -1,6 +1,7 @@
 import baseWorker, { CommentProbeLock } from './index.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
+import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
 
 export { CommentProbeLock };
 
@@ -98,6 +99,7 @@ function addBranchDeleteOperation(document: JsonObject): void {
 export function customGptOpenApi(origin: string): JsonObject {
   const source = openApiDocument(origin);
   addBranchDeleteOperation(source);
+  addOperatorOpenApi(source);
   const document = normalizeObjectSchemas(source);
   if (!isObject(document)) throw new Error('invalid_openapi_document');
 
@@ -360,6 +362,10 @@ const worker = {
         return Response.json({ error: 'invalid_oauth_authorize_request' }, { status: 400 });
       }
     }
+
+    const operatorResponse = await handleOperatorAction(request, env, actionFetch);
+    if (operatorResponse) return operatorResponse;
+
     if (url.pathname === BRANCH_DELETE_PATH) {
       try {
         return await deleteBranchAction(request, env);

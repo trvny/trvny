@@ -209,6 +209,17 @@ function githubHeaders(token: string): Headers {
   });
 }
 
+export function githubGraphqlError(payload: unknown): string | null {
+  if (!isObject(payload) || !Array.isArray(payload.errors) || payload.errors.length === 0) {
+    return null;
+  }
+  for (const error of payload.errors) {
+    if (!isObject(error) || typeof error.message !== 'string' || !error.message.trim()) continue;
+    return error.message.trim().slice(0, 300);
+  }
+  return 'unknown_graphql_error';
+}
+
 async function userGithubRequest(
   token: string,
   path: string,
@@ -240,6 +251,10 @@ async function userGithubRequest(
       message ? `github_${response.status}_${message}` : `github_${response.status}`,
       response.status,
     );
+  }
+  if (target.pathname === '/graphql') {
+    const message = githubGraphqlError(payload);
+    if (message) throw new LifecycleError(`github_graphql_${message}`, 502);
   }
   return payload;
 }
@@ -368,6 +383,9 @@ async function setPullRequestStateAsTrvny(
       fetcher,
     );
     current = await readData(request, env, fetcher, `/repos/${repo}/pulls/${pullRequestNumber}`);
+    if (!isObject(current) || current.draft !== input.draft) {
+      throw new LifecycleError('draft_change_not_confirmed', 409);
+    }
   }
 
   return json({ ok: true, pullRequest: pullRequestSummary(current) });

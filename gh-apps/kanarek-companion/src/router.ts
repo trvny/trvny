@@ -112,6 +112,8 @@ function actionException(error: unknown): Response {
   );
 }
 
+export const actionFetch: typeof fetch = (input, init) => fetch(input, init);
+
 const worker = {
   async fetch(
     request: Request,
@@ -139,7 +141,11 @@ const worker = {
     }
     if (url.pathname === '/gpt-actions' || url.pathname.startsWith('/gpt-actions/')) {
       try {
-        return await handleGptActions(await normalizeGptActionsRequest(request), env);
+        return await handleGptActions(
+          await normalizeGptActionsRequest(request),
+          env,
+          actionFetch,
+        );
       } catch (error) {
         return actionException(error);
       }

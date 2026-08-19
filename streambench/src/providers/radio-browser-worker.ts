@@ -2,13 +2,16 @@ import {
   normalizeRadioBrowserCatalog,
   radioBrowserSearchPath,
   radioBrowserStationsToM3u,
-} from "./radio-browser.js";
+} from "./radio-browser.ts";
 
 const API_ROOT = "https://de1.api.radio-browser.info/";
 const USER_AGENT = "Streambench/0.7";
 const MAX_JSON_BYTES = 5_000_000;
 
-async function fetchRows(path) {
+type JsonResponder = (body: unknown, status?: number, cacheControl?: string) => Response;
+type JsonRow = Record<string, unknown>;
+
+async function fetchRows(path: string): Promise<JsonRow[]> {
   const response = await fetch(new URL(path, API_ROOT), {
     headers: {
       accept: "application/json",
@@ -24,13 +27,13 @@ async function fetchRows(path) {
   const bytes = await response.arrayBuffer();
   if (bytes.byteLength > MAX_JSON_BYTES) throw new Error("Radio Browser response too large");
 
-  const body = JSON.parse(new TextDecoder().decode(bytes));
+  const body: unknown = JSON.parse(new TextDecoder().decode(bytes));
   if (!Array.isArray(body)) throw new Error("invalid Radio Browser response");
-  return body;
+  return body as JsonRow[];
 }
 
-export function createRadioBrowserProvider(json) {
-  async function catalog() {
+export function createRadioBrowserProvider(json: JsonResponder) {
+  async function catalog(): Promise<Response> {
     const [countryRows, tagRows] = await Promise.all([
       fetchRows("/json/countrycodes?hidebroken=true&order=stationcount&reverse=true&limit=250"),
       fetchRows("/json/tags?hidebroken=true&order=stationcount&reverse=true&limit=120"),
@@ -42,7 +45,7 @@ export function createRadioBrowserProvider(json) {
     );
   }
 
-  async function playlist(url) {
+  async function playlist(url: URL): Promise<Response> {
     const type = url.searchParams.get("type") || "";
     const rawId = url.searchParams.get("id") || "";
     const id = type === "country" ? rawId.toUpperCase() : rawId;

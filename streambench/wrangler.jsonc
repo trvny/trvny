@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "streambench",
-  "main": "src/entry.js",
+  "main": "src/entry.ts",
   "compatibility_date": "2026-07-26",
   "preview_urls": false,
   "assets": {

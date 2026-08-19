@@ -10,18 +10,25 @@ import { verifySourceSignature } from "./source-signing.js";
 
 const RELAY_LABEL = "signed-provider";
 
+function hasErrorName(error: unknown, name: string): boolean {
+  return typeof error === "object"
+    && error !== null
+    && "name" in error
+    && (error as { name?: unknown }).name === name;
+}
+
 export function rewriteSignedHlsManifest(
-  source,
-  currentUrl,
-  sourceUrl,
-  requestUrl,
-  signature,
-  authorizationParent = currentUrl,
-) {
+  source: string,
+  currentUrl: URL,
+  sourceUrl: URL,
+  requestUrl: URL,
+  signature: string,
+  authorizationParent: URL = currentUrl,
+): string {
   return rewriteManifest(source, currentUrl, sourceUrl, requestUrl, { authorizationParent, signature });
 }
 
-async function signedRelay(request, requestUrl, secret) {
+async function signedRelay(request: Request, requestUrl: URL, secret: string): Promise<Response> {
   if (!sameOriginBrowserRequest(request)) return json({ error: "same_origin_required" }, 403);
   const target = safeRemoteUrl(requestUrl.searchParams.get("url"));
   if (!target) return json({ error: "invalid_url" }, 400);
@@ -39,14 +46,14 @@ async function signedRelay(request, requestUrl, secret) {
   return relayUpstream(request, { target, source, requestUrl, signature, label: RELAY_LABEL });
 }
 
-export async function handleSignedMediaApi(request, env) {
+export async function handleSignedMediaApi(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname !== "/api/relay" || !url.searchParams.has("sig")) return null;
   if (!["GET", "HEAD"].includes(request.method)) return json({ error: "method_not_allowed" }, 405);
   try {
     return await signedRelay(request, url, env.STREAMBENCH_RELAY_SECRET);
   } catch (error) {
-    const code = error?.name === "AbortError" ? "upstream_timeout" : "upstream_unavailable";
+    const code = hasErrorName(error, "AbortError") ? "upstream_timeout" : "upstream_unavailable";
     return json({ error: code }, 502);
   }
 }

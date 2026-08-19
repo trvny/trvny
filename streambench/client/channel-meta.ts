@@ -15,7 +15,20 @@ const AUDIO_PATTERN = /\.(mp3|aac|m4a|ogg|opus|flac)(?:$|[?#])/i;
 const VIDEO_FILE_PATTERN = /\.(mp4|m4v|webm|ogv|mov)(?:$|[?#])/i;
 const HLS_PATTERN = /\.m3u8(?:$|[?#])/i;
 
-export function inferQuality(title = "", declared = "") {
+export type ChannelClassificationOptions = {
+  title?: string;
+  radio?: boolean;
+  quality?: string;
+};
+
+export type ChannelClassification = {
+  external: boolean;
+  playback: "Stream" | "Link" | "HLS" | "Audio" | "Plik";
+  protocol: "HTTPS" | "HTTP";
+  quality: string;
+};
+
+export function inferQuality(title = "", declared = ""): string {
   const declaredLabel = String(declared || "").replace(/[\r\n\t]+/g, " ").trim().slice(0, 48);
   const source = `${declaredLabel} ${title}`.toUpperCase();
   if (/\b(4K|UHD|2160P)\b/.test(source)) return "4K";
@@ -25,10 +38,13 @@ export function inferQuality(title = "", declared = "") {
   return declaredLabel;
 }
 
-export function classifyChannel(rawUrl, { title = "", radio = false, quality = "" } = {}) {
+export function classifyChannel(
+  rawUrl: string,
+  { title = "", radio = false, quality = "" }: ChannelClassificationOptions = {},
+): ChannelClassification {
   const url = new URL(rawUrl);
   const external = EXTERNAL_HOSTS.has(url.hostname.toLowerCase());
-  let playback = "Stream";
+  let playback: ChannelClassification["playback"] = "Stream";
 
   if (external) playback = "Link";
   else if (HLS_PATTERN.test(url.href)) playback = "HLS";

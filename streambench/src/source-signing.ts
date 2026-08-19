@@ -2,14 +2,22 @@ const SIGNATURE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MIN_SECRET_LENGTH = 32;
 const encoder = new TextEncoder();
 let cachedSecret = "";
-let cachedKey = null;
+let cachedKey: CryptoKey | null = null;
 
-function normalizedSecret(value) {
+type UrlValue = string | URL;
+
+type PlaylistAnnotation = {
+  body: string;
+  count: number;
+  enabled: boolean;
+};
+
+function normalizedSecret(value: string): string {
   const secret = String(value || "").trim();
   return secret.length >= MIN_SECRET_LENGTH ? secret : "";
 }
 
-function remoteUrl(value) {
+function remoteUrl(value: UrlValue): URL | null {
   try {
     const url = new URL(String(value || "").trim());
     if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
@@ -19,28 +27,29 @@ function remoteUrl(value) {
   }
 }
 
-async function signingKey(secretValue) {
+async function signingKey(secretValue: string): Promise<CryptoKey | null> {
   const secret = normalizedSecret(secretValue);
   if (!secret) return null;
   if (cachedKey && cachedSecret === secret) return cachedKey;
-  cachedSecret = secret;
-  cachedKey = await crypto.subtle.importKey(
+  const key = await crypto.subtle.importKey(
     "raw",
     encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"],
   );
-  return cachedKey;
+  cachedSecret = secret;
+  cachedKey = key;
+  return key;
 }
 
-function base64Url(bytes) {
+function base64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-function signatureBytes(value) {
+function signatureBytes(value: string): Uint8Array | null {
   if (!SIGNATURE_PATTERN.test(String(value || ""))) return null;
   const base64 = String(value).replace(/-/g, "+").replace(/_/g, "/") + "=";
   try {
@@ -51,7 +60,7 @@ function signatureBytes(value) {
   }
 }
 
-export async function createSourceSignature(sourceValue, secretValue) {
+export async function createSourceSignature(sourceValue: UrlValue, secretValue: string): Promise<string> {
   const source = remoteUrl(sourceValue);
   const key = await signingKey(secretValue);
   if (!source || !key) return "";
@@ -59,7 +68,11 @@ export async function createSourceSignature(sourceValue, secretValue) {
   return base64Url(new Uint8Array(signature));
 }
 
-export async function verifySourceSignature(sourceValue, signatureValue, secretValue) {
+export async function verifySourceSignature(
+  sourceValue: UrlValue,
+  signatureValue: string,
+  secretValue: string,
+): Promise<boolean> {
   const source = remoteUrl(sourceValue);
   const signature = signatureBytes(signatureValue);
   const key = await signingKey(secretValue);
@@ -67,12 +80,16 @@ export async function verifySourceSignature(sourceValue, signatureValue, secretV
   return crypto.subtle.verify("HMAC", key, signature, encoder.encode(source.href));
 }
 
-function mediaFragment(url) {
+function mediaFragment(url: URL): string {
   const extension = url.pathname.match(/\.(m3u8?|mp4|webm|mp3|aac|m4a|ogg|opus|flac)$/i)?.[0];
   return extension ? `streambench${extension.toLowerCase()}` : "streambench.media";
 }
 
-export async function signedRelayUrl(sourceValue, requestValue, secretValue) {
+export async function signedRelayUrl(
+  sourceValue: UrlValue,
+  requestValue: UrlValue,
+  secretValue: string,
+): Promise<URL | null> {
   const source = remoteUrl(sourceValue);
   if (!source || source.protocol !== "http:") return null;
   const signature = await createSourceSignature(source, secretValue);
@@ -84,7 +101,7 @@ export async function signedRelayUrl(sourceValue, requestValue, secretValue) {
   return relay;
 }
 
-function extinfDelimiter(line) {
+function extinfDelimiter(line: string): number {
   let quoted = false;
   for (let index = "#EXTINF:".length; index < line.length; index += 1) {
     const character = line[index];
@@ -94,14 +111,18 @@ function extinfDelimiter(line) {
   return -1;
 }
 
-function withRelayAttribute(line, relayUrl) {
+function withRelayAttribute(line: string, relayUrl: URL): string {
   const clean = line.replace(/\s+streambench-relay="[^"]*"/gi, "");
   const delimiter = extinfDelimiter(clean);
   if (delimiter < 0) return clean;
   return `${clean.slice(0, delimiter)} streambench-relay="${relayUrl.href}"${clean.slice(delimiter)}`;
 }
 
-export async function annotateProviderPlaylist(sourceValue, requestValue, secretValue) {
+export async function annotateProviderPlaylist(
+  sourceValue: string,
+  requestValue: UrlValue,
+  secretValue: string,
+): Promise<PlaylistAnnotation> {
   const source = String(sourceValue || "");
   if (!normalizedSecret(secretValue)) return { body: source, count: 0, enabled: false };
   const lines = source.split(/\r?\n/);
@@ -131,7 +152,11 @@ export async function annotateProviderPlaylist(sourceValue, requestValue, secret
   return { body: lines.join("\n"), count, enabled: true };
 }
 
-export async function annotateProviderPlaylistResponse(response, requestValue, secretValue) {
+export async function annotateProviderPlaylistResponse(
+  response: Response,
+  requestValue: UrlValue,
+  secretValue: string,
+): Promise<Response> {
   const type = response.headers.get("content-type") || "";
   if (!response.ok || !/(?:mpegurl|m3u8)/i.test(type)) return response;
 

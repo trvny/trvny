@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { branchNameAllowed } from '../src/lifecycle-actions.ts';
+import { branchNameAllowed, githubGraphqlError } from '../src/lifecycle-actions.ts';
 import { customGptOpenApi, restrictedBotWrite } from '../src/router.ts';
 
 test('lifecycle actions are exposed in Custom GPT OpenAPI', () => {
@@ -42,4 +42,13 @@ test('branch names reject traversal and lock-style refs', () => {
   assert.equal(branchNameAllowed('../main'), false);
   assert.equal(branchNameAllowed('feat//oops'), false);
   assert.equal(branchNameAllowed('feat/test.lock'), false);
+});
+
+test('GraphQL payload errors are surfaced even with HTTP 200', () => {
+  assert.equal(
+    githubGraphqlError({ errors: [{ message: 'Pull request is not open' }] }),
+    'Pull request is not open',
+  );
+  assert.equal(githubGraphqlError({ data: { ok: true } }), null);
+  assert.equal(githubGraphqlError({ errors: [{}] }), 'unknown_graphql_error');
 });

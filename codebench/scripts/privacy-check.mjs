@@ -64,7 +64,7 @@ for (const [label, pattern] of [
   if (!pattern.test(guard)) failures.push(`privacy guard is missing ${label}`);
 }
 
-const worker = await readFile(join(root, "src", "index.js"), "utf8");
+const worker = await readFile(join(root, "src", "index.ts"), "utf8");
 if (!worker.includes('<script src="/privacy-guard.js"></script>')) {
   failures.push("Worker does not load privacy-guard.js");
 }

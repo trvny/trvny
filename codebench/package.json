@@ -4,7 +4,8 @@
   "version": "1.1.0",
   "description": "QR & Barcode Studio — static, client-side.",
   "scripts": {
-    "build": "node scripts/vendor.mjs && node scripts/portable.mjs",
+    "build:client": "npx --yes --package=typescript@7.0.2 tsc -p tsconfig.client.json",
+    "build": "npm run build:client && node scripts/vendor.mjs && node scripts/portable.mjs",
     "typecheck": "wrangler types && npx --yes --package=typescript@7.0.2 tsc --noEmit",
     "check": "npm run build && npm run typecheck && node scripts/check.mjs",
     "dev": "npm run build && wrangler dev",

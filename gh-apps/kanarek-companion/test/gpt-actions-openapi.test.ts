@@ -30,6 +30,7 @@ test('Custom GPT OpenAPI includes validator-friendly object schemas', () => {
         string,
         {
           operationId?: string;
+          description?: string;
           responses?: Record<
             string,
             {
@@ -61,6 +62,7 @@ test('Custom GPT OpenAPI includes validator-friendly object schemas', () => {
 
   for (const path of Object.values(document.paths)) {
     for (const operation of Object.values(path)) {
+      if (operation.description) assert.ok(operation.description.length <= 300);
       const schema =
         operation.responses?.['200']?.content?.['application/json']?.schema;
       if (schema?.type === 'object') {

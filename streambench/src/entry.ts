@@ -4,10 +4,6 @@ import { handleMediaApi } from "./media-api.js";
 import { handleSignedMediaApi } from "./signed-media-api.js";
 import { annotateProviderPlaylistResponse } from "./source-signing.js";
 
-type StreambenchEnv = Env & {
-  STREAMBENCH_RELAY_SECRET: string;
-};
-
 function isProviderPlaylist(pathname: string): boolean {
   return pathname === "/api/playlist"
     || /^\/api\/providers\/[a-z0-9-]+\/playlist$/.test(pathname);
@@ -39,7 +35,7 @@ function portableApiResponse(request: Request, url: URL, response: Response): Re
 export default {
   async fetch(
     request: Request,
-    env: StreambenchEnv,
+    env: Env,
     _context: ExecutionContext,
   ): Promise<Response> {
     const url = new URL(request.url);
@@ -76,4 +72,4 @@ export default {
       : response;
     return portableApiResponse(request, url, annotated);
   },
-} satisfies ExportedHandler<StreambenchEnv>;
+} satisfies ExportedHandler<Env>;

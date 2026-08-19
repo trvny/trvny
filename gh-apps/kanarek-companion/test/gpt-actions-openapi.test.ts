@@ -136,7 +136,7 @@ test('raw code-changing bot writes are routed through guarded operations', () =>
   );
   assert.equal(
     restrictedBotWrite('POST', '/repos/trvny/trvny/git/refs'),
-    null,
+    'use_create_branch',
   );
   assert.equal(
     restrictedBotWrite('POST', '/repos/trvny/trvny/issues/1/comments'),

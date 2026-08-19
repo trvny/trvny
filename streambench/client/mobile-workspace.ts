@@ -1,23 +1,27 @@
-const mediaQuery = window.matchMedia("(max-width: 840px)");
-const nav = document.querySelector("#mobileWorkspaceNav");
-const buttons = [...document.querySelectorAll("[data-mobile-view-target]")];
-const playlistCount = document.querySelector("#mobilePlaylistCount");
-const entryCount = document.querySelector("#entryCount");
-const status = document.querySelector("#status");
-const toolsPanel = document.querySelector("#toolsPanel");
+export {};
 
-function updateCount() {
-  if (playlistCount && entryCount) playlistCount.textContent = entryCount.textContent.trim() || "0";
+const mediaQuery = window.matchMedia("(max-width: 840px)");
+const nav = document.querySelector<HTMLElement>("#mobileWorkspaceNav");
+const buttons = [...document.querySelectorAll<HTMLElement>("[data-mobile-view-target]")];
+const playlistCount = document.querySelector<HTMLElement>("#mobilePlaylistCount");
+const entryCount = document.querySelector<HTMLElement>("#entryCount")!;
+const status = document.querySelector<HTMLElement>("#status")!;
+const toolsPanel = document.querySelector<HTMLDetailsElement>("#toolsPanel");
+
+type ViewOptions = { scroll?: boolean };
+
+function updateCount(): void {
+  if (playlistCount) playlistCount.textContent = entryCount.textContent?.trim() || "0";
 }
 
-function syncToolsDrawer() {
+function syncToolsDrawer(): void {
   if (mediaQuery.matches && document.body.dataset.mobileView === "tools" && toolsPanel) {
     toolsPanel.open = true;
   }
 }
 
-function setView(view, { scroll = false } = {}) {
-  if (!buttons.some((button) => button.dataset.mobileViewTarget === view)) return;
+function setView(view: string | undefined, { scroll = false }: ViewOptions = {}): void {
+  if (!view || !buttons.some((button) => button.dataset.mobileViewTarget === view)) return;
   document.body.dataset.mobileView = view;
   syncToolsDrawer();
   for (const button of buttons) {
@@ -33,14 +37,15 @@ for (const button of buttons) {
 mediaQuery.addEventListener("change", syncToolsDrawer);
 new MutationObserver(updateCount).observe(entryCount, { childList: true, subtree: true, characterData: true });
 new MutationObserver(() => {
-  if (status.textContent.trim() !== "Playlista gotowa") return;
+  if (status.textContent?.trim() !== "Playlista gotowa") return;
   document.body.dataset.hasPlaylist = "true";
   updateCount();
   setView("playlist", { scroll: true });
 }).observe(status, { childList: true, subtree: true, characterData: true });
 
 window.addEventListener("streambench:channel", (event) => {
-  if (event.detail?.title) setView("player", { scroll: mediaQuery.matches });
+  const detail = (event as CustomEvent<{ title?: string }>).detail;
+  if (detail?.title) setView("player", { scroll: mediaQuery.matches });
 });
 
 setView("player");

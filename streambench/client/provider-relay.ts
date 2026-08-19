@@ -2,7 +2,15 @@ const STORAGE_KEY = "streambench.provider-relays.v1";
 const MAX_RELAYS = 500;
 const SIGNATURE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
-function safeUrl(value, base) {
+export type ProviderRelayMap = Map<string, string>;
+
+declare global {
+  interface Window {
+    streambenchProviderRelays: ProviderRelayMap;
+  }
+}
+
+function safeUrl(value: unknown, base?: string | URL): URL | null {
   try {
     const url = new URL(String(value || "").trim(), base);
     return ["http:", "https:"].includes(url.protocol) ? url : null;
@@ -11,7 +19,7 @@ function safeUrl(value, base) {
   }
 }
 
-function validRelay(sourceUrl, relayValue, origin) {
+function validRelay(sourceUrl: URL, relayValue: unknown, origin: string): URL | null {
   const relay = safeUrl(relayValue, origin);
   if (!relay || relay.origin !== origin || relay.pathname !== "/api/relay") return null;
   const target = safeUrl(relay.searchParams.get("source") || relay.searchParams.get("url"));
@@ -20,16 +28,19 @@ function validRelay(sourceUrl, relayValue, origin) {
   return relay;
 }
 
-function parseAttributes(line) {
-  const attributes = {};
+function parseAttributes(line: string): Record<string, string> {
+  const attributes: Record<string, string> = {};
   for (const match of line.matchAll(/([\w-]+)="([^"]*)"/g)) {
     attributes[match[1].toLowerCase()] = match[2];
   }
   return attributes;
 }
 
-export function parseProviderRelays(source, origin = "https://streambench.invalid") {
-  const relays = new Map();
+export function parseProviderRelays(
+  source: unknown,
+  origin = "https://streambench.invalid",
+): ProviderRelayMap {
+  const relays: ProviderRelayMap = new Map();
   let pendingRelay = "";
   for (const rawLine of String(source || "").replace(/^\uFEFF/, "").split(/\r?\n/)) {
     const line = rawLine.trim();
@@ -47,7 +58,10 @@ export function parseProviderRelays(source, origin = "https://streambench.invali
   return relays;
 }
 
-export function relayForSource(rawUrl, relays = globalThis.streambenchProviderRelays) {
+export function relayForSource(
+  rawUrl: unknown,
+  relays: unknown = typeof window !== "undefined" ? window.streambenchProviderRelays : undefined,
+): URL | null {
   const source = safeUrl(rawUrl);
   if (!source || !(relays instanceof Map)) return null;
   const relay = relays.get(source.href);
@@ -55,37 +69,43 @@ export function relayForSource(rawUrl, relays = globalThis.streambenchProviderRe
 }
 
 if (typeof window !== "undefined") {
-  const relays = new Map();
+  const relays: ProviderRelayMap = new Map();
 
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    for (const [sourceValue, relayValue] of Object.entries(stored).slice(-MAX_RELAYS)) {
-      const sourceUrl = safeUrl(sourceValue);
-      const relay = sourceUrl ? validRelay(sourceUrl, relayValue, location.origin) : null;
-      if (sourceUrl && relay) relays.set(sourceUrl.href, relay.href);
+    const stored: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+      for (const [sourceValue, relayValue] of Object.entries(stored).slice(-MAX_RELAYS)) {
+        const sourceUrl = safeUrl(sourceValue);
+        const relay = sourceUrl ? validRelay(sourceUrl, relayValue, location.origin) : null;
+        if (sourceUrl && relay) relays.set(sourceUrl.href, relay.href);
+      }
     }
   } catch {}
 
   window.streambenchProviderRelays = relays;
 
-  const persist = () => {
+  const persist = (): void => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(relays)));
     } catch {}
   };
 
-  const remember = (source) => {
+  const remember = (source: unknown): void => {
     for (const [sourceUrl, relayUrl] of parseProviderRelays(source, location.origin)) {
       relays.delete(sourceUrl);
       relays.set(sourceUrl, relayUrl);
     }
-    while (relays.size > MAX_RELAYS) relays.delete(relays.keys().next().value);
+    while (relays.size > MAX_RELAYS) {
+      const oldest = relays.keys().next().value;
+      if (typeof oldest !== "string") break;
+      relays.delete(oldest);
+    }
     persist();
   };
 
-  const providerPlaylistRequest = (input) => {
+  const providerPlaylistRequest = (input: RequestInfo | URL): boolean => {
     try {
-      const rawUrl = input instanceof URL ? input.href : typeof input === "string" ? input : input?.url;
+      const rawUrl = input instanceof URL ? input.href : typeof input === "string" ? input : input.url;
       const url = new URL(rawUrl, location.origin);
       return url.pathname === "/api/playlist"
         || /^\/api\/providers\/[a-z0-9-]+\/playlist$/.test(url.pathname);
@@ -95,7 +115,7 @@ if (typeof window !== "undefined") {
   };
 
   const originalFetch = window.fetch.bind(window);
-  window.fetch = async (...args) => {
+  window.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
     const providerPlaylist = providerPlaylistRequest(args[0]);
     const response = await originalFetch(...args);
     if (providerPlaylist && response.ok) {

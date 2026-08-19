@@ -3,6 +3,7 @@ import { handleGptActions, openApiDocument } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
 import { addLifecycleOpenApi, handleLifecycleAction } from './lifecycle-actions.ts';
 import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
+import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
 
 export { CommentProbeLock };
 
@@ -102,6 +103,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   addBranchDeleteOperation(source);
   addLifecycleOpenApi(source);
   addOperatorOpenApi(source);
+  addReleaseOpenApi(source);
   const document = normalizeObjectSchemas(source);
   if (!isObject(document)) throw new Error('invalid_openapi_document');
 
@@ -373,6 +375,9 @@ const worker = {
 
     const lifecycleResponse = await handleLifecycleAction(request, env, actionFetch);
     if (lifecycleResponse) return lifecycleResponse;
+
+    const releaseResponse = await handleReleaseAction(request, env, actionFetch);
+    if (releaseResponse) return releaseResponse;
 
     if (url.pathname === BRANCH_DELETE_PATH) {
       try {

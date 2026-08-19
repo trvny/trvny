@@ -8,7 +8,8 @@ import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-typ
 const CONTROL_REPOSITORY = 'trvny/trvny';
 const CONTROL_PULL_REQUEST = 176;
 const CONTROL_BRANCH = 'gptomek/control';
-const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9_-]+)\s*-->/;
+const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9+/_-]+={0,2})\s*-->/;
+const COMMAND_PREFIX_RE = /<!--\s*gptomek-command:/;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const BOT_IDENTITY = {
   name: 'GPTomek',
@@ -265,7 +266,7 @@ function parseCommand(value: unknown): GptomekCommand {
 }
 
 function decodeBase64Url(value: string): string {
-  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/').replace(/=+$/g, '');
   const padding = '='.repeat((4 - (normalized.length % 4)) % 4);
   return new TextDecoder().decode(
     Uint8Array.from(atob(normalized + padding), (character) => character.charCodeAt(0)),
@@ -285,8 +286,15 @@ export function commandMarker(command: unknown): string {
 }
 
 function commandFromBody(body: string | null | undefined): GptomekCommand | null {
-  const match = body?.match(COMMAND_RE);
-  if (!match) return null;
+  if (!body) return null;
+  const match = body.match(COMMAND_RE);
+  if (!match) {
+    if (COMMAND_PREFIX_RE.test(body)) throw new Error('invalid_command_encoding');
+    return null;
+  }
+  const remainder = body.replace(match[0], '');
+  if (COMMAND_PREFIX_RE.test(remainder)) throw new Error('invalid_command_encoding');
+
   let decoded: unknown;
   try {
     decoded = JSON.parse(decodeBase64Url(match[1]));

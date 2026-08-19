@@ -5,7 +5,8 @@
   "description": "Browser-based IPTV, radio and stream tester.",
   "scripts": {
     "build": "node scripts/vendor.mjs && node scripts/portable.mjs",
-    "check": "npm run build && npm run check:syntax && npm test && npx wrangler deploy --dry-run",
+    "typecheck": "wrangler types && npx --yes --package=typescript@7.0.2 tsc --noEmit",
+    "check": "npm run build && npm run typecheck && npm run check:syntax && npm test && npx wrangler deploy --dry-run",
     "check:syntax": "node scripts/syntax-check.mjs",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy",

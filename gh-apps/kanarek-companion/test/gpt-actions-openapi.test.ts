@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  actionFetch,
   customGptOpenApi,
   githubOAuthAuthorizationUrl,
   normalizeGptActionsRequest,
@@ -97,4 +98,8 @@ test('reaction writes discard GitHub response bodies', async () => {
 
   assert.equal(normalized.headers.get('authorization'), 'Bearer test-token');
   assert.equal(payload.expect, 'empty');
+});
+
+test('actions use a wrapper instead of storing the runtime fetch directly', () => {
+  assert.notEqual(actionFetch, globalThis.fetch);
 });

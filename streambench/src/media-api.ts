@@ -15,20 +15,48 @@ import {
 const MAX_ICY_BYTES = 512_000;
 const MAX_METADATA_BYTES = 128_000;
 const BUNDLED_PLAYLISTS = ["/playlists/iptv.m3u8", "/playlists/internet_radio.m3u8"];
-let bundledCache = null;
+let bundledCache: Promise<Set<string>> | null = null;
+
+type TrackMetadata = {
+  provider: string;
+  station?: string;
+  title: string;
+  artist: string;
+  album: string;
+  artwork: string;
+  refreshAfter: number;
+};
+
+type StreamTitle = {
+  artist: string;
+  title: string;
+};
+
+function hasErrorName(error: unknown, name: string): boolean {
+  return typeof error === "object"
+    && error !== null
+    && "name" in error
+    && (error as { name?: unknown }).name === name;
+}
 
 export { isPrivateHost };
 
-export function rewriteHlsManifest(source, currentUrl, sourceUrl, requestUrl, authorizationParent = currentUrl) {
+export function rewriteHlsManifest(
+  source: string,
+  currentUrl: URL,
+  sourceUrl: URL,
+  requestUrl: URL,
+  authorizationParent: URL = currentUrl,
+): string {
   return rewriteManifest(source, currentUrl, sourceUrl, requestUrl, { authorizationParent });
 }
 
-async function bundledPlaylistUrls(path, env, requestUrl) {
+async function bundledPlaylistUrls(path: string, env: Env, requestUrl: URL): Promise<string[]> {
   const response = await env.ASSETS.fetch(new Request(new URL(path, requestUrl), {
     headers: { accept: "audio/x-mpegurl,text/plain" },
   }));
   if (!response.ok) {
-    response.body?.cancel();
+    void response.body?.cancel();
     return [];
   }
   const text = await response.text();
@@ -36,10 +64,10 @@ async function bundledPlaylistUrls(path, env, requestUrl) {
     .map((line) => line.trim())
     .filter((line) => /^https?:\/\//i.test(line))
     .map((line) => safeRemoteUrl(line)?.href)
-    .filter(Boolean);
+    .filter((url): url is string => Boolean(url));
 }
 
-async function bundledUrls(env, requestUrl) {
+async function bundledUrls(env: Env, requestUrl: URL): Promise<Set<string>> {
   if (!bundledCache) {
     bundledCache = (async () => {
       const lists = await Promise.all(BUNDLED_PLAYLISTS
@@ -47,7 +75,7 @@ async function bundledUrls(env, requestUrl) {
       const urls = new Set(lists.flat());
       if (urls.size === 0) throw new Error("bundled playlists unavailable");
       return urls;
-    })().catch((error) => {
+    })().catch((error: unknown) => {
       bundledCache = null;
       throw error;
     });
@@ -55,11 +83,11 @@ async function bundledUrls(env, requestUrl) {
   return bundledCache;
 }
 
-async function isBundledUrl(url, env, requestUrl) {
+async function isBundledUrl(url: URL, env: Env, requestUrl: URL): Promise<boolean> {
   return (await bundledUrls(env, requestUrl)).has(url.href);
 }
 
-async function relay(request, env, requestUrl) {
+async function relay(request: Request, env: Env, requestUrl: URL): Promise<Response> {
   if (!sameOriginBrowserRequest(request)) return json({ error: "same_origin_required" }, 403);
   const target = safeRemoteUrl(requestUrl.searchParams.get("url"));
   if (!target) return json({ error: "invalid_url" }, 400);
@@ -72,9 +100,9 @@ async function relay(request, env, requestUrl) {
   return relayUpstream(request, { target, source, requestUrl });
 }
 
-export function radioParadiseChannel(rawUrl) {
-  let url;
-  try { url = new URL(rawUrl); } catch { return null; }
+export function radioParadiseChannel(rawUrl: string | URL): number | null {
+  let url: URL;
+  try { url = new URL(String(rawUrl)); } catch { return null; }
   if (!/(^|\.)radioparadise\.com$/i.test(url.hostname)) return null;
   const path = url.pathname.toLowerCase();
   if (path.includes("rock")) return 2;
@@ -83,29 +111,29 @@ export function radioParadiseChannel(rawUrl) {
   return 0;
 }
 
-function safeArtwork(value) {
+function safeArtwork(value: unknown): string {
   return safeRemoteUrl(value)?.href || "";
 }
 
-async function radioParadiseMetadata(channel) {
+async function radioParadiseMetadata(channel: number): Promise<TrackMetadata> {
   const { response, bytes } = await fetchCapped(
     `https://api.radioparadise.com/api/now_playing?chan=${channel}`,
     { headers: { accept: "application/json", "user-agent": "Streambench/1.0" } },
     MAX_METADATA_BYTES,
   );
   if (!response.ok) throw new Error(`Radio Paradise returned ${response.status}`);
-  const body = JSON.parse(new TextDecoder().decode(bytes));
+  const body = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
   return {
     provider: "radio-paradise",
-    title: String(body.title || "").trim(),
-    artist: String(body.artist || "").trim(),
-    album: String(body.album || "").trim(),
-    artwork: safeArtwork(body.cover || body.cover_med || body.cover_small),
+    title: String(body.title ?? "").trim(),
+    artist: String(body.artist ?? "").trim(),
+    album: String(body.album ?? "").trim(),
+    artwork: safeArtwork(body.cover ?? body.cover_med ?? body.cover_small),
     refreshAfter: 15,
   };
 }
 
-export function parseStreamTitle(value) {
+export function parseStreamTitle(value: unknown): StreamTitle {
   const text = String(value || "").replace(/\0+$/g, "").trim();
   const match = text.match(/StreamTitle='([^']*)'/i);
   const combined = (match?.[1] || "").trim();
@@ -115,7 +143,7 @@ export function parseStreamTitle(value) {
     : { artist: "", title: combined };
 }
 
-async function icyMetadata(request, target) {
+async function icyMetadata(request: Request, target: URL): Promise<TrackMetadata> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -125,7 +153,7 @@ async function icyMetadata(request, target) {
     if (!response.ok || !response.body) throw new Error(`radio returned ${response.status}`);
     const interval = Number(response.headers.get("icy-metaint") || 0);
     if (!Number.isInteger(interval) || interval <= 0 || interval >= MAX_ICY_BYTES - 1) {
-      response.body.cancel();
+      void response.body.cancel();
       return {
         provider: "icy",
         station: response.headers.get("icy-name") || "",
@@ -147,7 +175,7 @@ async function icyMetadata(request, target) {
       bytes = next;
     }
     if (bytes.byteLength <= interval) {
-      reader.cancel();
+      void reader.cancel();
       throw new Error("ICY metadata missing");
     }
     const metadataLength = bytes[interval] * 16;
@@ -160,7 +188,7 @@ async function icyMetadata(request, target) {
       next.set(value, bytes.byteLength);
       bytes = next;
     }
-    reader.cancel();
+    void reader.cancel();
     const metadata = new TextDecoder("latin1").decode(bytes.slice(interval + 1, Math.min(required, bytes.byteLength)));
     const parsed = parseStreamTitle(metadata);
     return {
@@ -177,7 +205,7 @@ async function icyMetadata(request, target) {
   }
 }
 
-async function metadata(request, env, requestUrl) {
+async function metadata(request: Request, env: Env, requestUrl: URL): Promise<Response> {
   if (!sameOriginBrowserRequest(request)) return json({ error: "same_origin_required" }, 403);
   const target = safeRemoteUrl(requestUrl.searchParams.get("url"));
   if (!target) return json({ error: "invalid_url" }, 400);
@@ -189,7 +217,7 @@ async function metadata(request, env, requestUrl) {
   return json(result);
 }
 
-export async function handleMediaApi(request, env) {
+export async function handleMediaApi(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname !== "/api/relay" && url.pathname !== "/api/radio-metadata") return null;
   if (!["GET", "HEAD"].includes(request.method)) return json({ error: "method_not_allowed" }, 405);
@@ -198,7 +226,7 @@ export async function handleMediaApi(request, env) {
       ? await relay(request, env, url)
       : await metadata(request, env, url);
   } catch (error) {
-    const code = error?.name === "AbortError" ? "upstream_timeout" : "upstream_unavailable";
+    const code = hasErrorName(error, "AbortError") ? "upstream_timeout" : "upstream_unavailable";
     return json({ error: code }, 502);
   }
 }

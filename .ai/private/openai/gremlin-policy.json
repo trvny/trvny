@@ -12,6 +12,7 @@
     ],
     "preferredActions": [
       "getOperatorBootstrap",
+      "runOperatorAutopilot",
       "getAccountMaintenance",
       "runAccountMaintenanceAutofix",
       "getRepositoryContext",

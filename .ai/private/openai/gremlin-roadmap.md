@@ -24,6 +24,9 @@ raw REST calls.
   current-head first-attempt workflow retries, exact closed-PR branch cleanup,
   dead-branch cache cleanup and expired-artifact deletion through existing
   guarded actions.
+- Private operator policy lives in `.ai/private/openai/gremlin-policy.json` and
+  `getOperatorBootstrap` returns its validated model/runtime contract plus
+  optional repository metadata and root `AGENTS.md` guidance.
 - Generic raw branch/workflow/release writes are blocked in favor of guarded
   actions.
 - Operator plumbing caches OAuth `/user` checks and GPTomek installation tokens;
@@ -33,18 +36,18 @@ raw REST calls.
 
 ## Next: private `.ai` control plane
 
-- [ ] Add `.ai/private/openai/gremlin.yaml` (name provisional) as the private
-  runtime/operator policy source of truth. Keep the public `.ai` repository a
+- [x] Add `.ai/private/openai/gremlin-policy.json` as the private
+  runtime/operator policy source of truth. JSON is intentional here: strict
+  parsing and zero extra Worker dependency. Keep the public `.ai` repository a
   reusable template.
-- [ ] Split that policy into model guidance and deterministic runtime guards.
-  Suggested fields: autonomy level, repository include/exclude rules, safe
-  auto-actions, stop/ask conditions, maintenance thresholds, merge/release
-  policy, scan limits and preferred high-level actions.
-- [ ] Add validation for the private policy so a typo cannot silently loosen a
-  guard.
-- [ ] Add an operator bootstrap action that returns effective private policy,
-  relevant repository instructions, capabilities and stop conditions in one
-  compact response.
+- [x] Split that policy into model guidance and deterministic runtime guards:
+  autonomy, repository scope, stop conditions, maintenance limits and
+  merge/release rules.
+- [x] Validate the private policy strictly so unknown keys, malformed values or
+  unsafe limits fail closed instead of silently changing behavior.
+- [x] Add `getOperatorBootstrap`, returning effective private policy, optional
+  repository metadata/root `AGENTS.md`, capability categories and stop
+  conditions in one compact response.
 - [ ] Teach high-level actions to consume the same policy automatically where
   deterministic enforcement belongs, instead of copying rules into Custom GPT
   Instructions.

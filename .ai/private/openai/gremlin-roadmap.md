@@ -27,6 +27,9 @@ raw REST calls.
 - Private operator policy lives in `.ai/private/openai/gremlin-policy.json` and
   `getOperatorBootstrap` returns its validated model/runtime contract plus
   optional repository metadata and root `AGENTS.md` guidance.
+- Account maintenance and maintenance autofix are policy-wrapped: repository
+  include/exclude rules, archived handling, run limits, autofix enablement and
+  workflow retry budget are enforced before guarded mutations execute.
 - Generic raw branch/workflow/release writes are blocked in favor of guarded
   actions.
 - Operator plumbing caches OAuth `/user` checks and GPTomek installation tokens;
@@ -51,6 +54,8 @@ raw REST calls.
 - [ ] Teach high-level actions to consume the same policy automatically where
   deterministic enforcement belongs, instead of copying rules into Custom GPT
   Instructions.
+  - [x] Account maintenance and maintenance autofix policy enforcement.
+  - [ ] Merge/finalize and release policy enforcement.
 - [ ] Keep the Custom GPT instruction block small: personality + broad operating
   contract + “follow runtime operator policy”. Do not duplicate the policy into
   the 8k instruction field.
@@ -67,8 +72,10 @@ raw REST calls.
 - [x] Auto-handle the first deterministic safe chores through guarded actions:
   exact expired artifacts, dead-branch caches, closed-PR orphan branches with
   expected SHA and one reasonable current-head workflow retry.
-- [ ] Move maintenance thresholds, repository exceptions and enabled auto-actions
-  into the private runtime policy instead of hard-coding broader heuristics.
+- [x] Move maintenance repository scope, per-run limits, autofix enablement and
+  workflow retry budget into the private runtime policy.
+- [ ] Add policy-driven cache/age thresholds and per-repository maintenance
+  exceptions when they become useful.
 - [ ] Keep product/code decisions in the model. Runtime decides what is allowed;
   the model decides what the evidence means and what change to implement.
 - [ ] Add resumable operation/checkpoint IDs if long multi-repository jobs begin

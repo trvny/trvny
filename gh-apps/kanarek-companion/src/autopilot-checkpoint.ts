@@ -6,10 +6,11 @@ const CHECKPOINT_KEY = 'checkpoint';
 const CHECKPOINT_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 const OPERATION_LEASE_MS = 10 * 60 * 1_000;
 const MAX_CHECKPOINT_RESULT_BYTES = 128_000;
+const MAX_CHECKPOINT_PROGRESS_BYTES = 64_000;
 const OPERATION_ID_RE = /^op-[A-Za-z0-9][A-Za-z0-9._:-]{7,95}$/;
 
 type JsonObject = Record<string, unknown>;
-type CheckpointStatus = 'running' | 'complete' | 'uncertain';
+type CheckpointStatus = 'running' | 'paused' | 'complete' | 'uncertain';
 
 export interface AutopilotCheckpointEnv extends GptActionsEnv {
   OPERATOR_CHECKPOINTS: DurableObjectNamespace;
@@ -23,6 +24,7 @@ export interface StoredAutopilotCheckpoint {
   createdAt: number;
   updatedAt: number;
   leaseUntil: number;
+  progress?: JsonObject;
   result?: {
     status: number;
     body: JsonObject;
@@ -99,12 +101,16 @@ export function checkpointClaimDecision(
 
 function validCheckpoint(value: unknown): value is StoredAutopilotCheckpoint {
   if (!isObject(value)) return false;
+  if (value.progress !== undefined && !isObject(value.progress)) return false;
   return (
     value.version === 1 &&
     operationIdAllowed(value.operationId) &&
     typeof value.inputHash === 'string' &&
     /^[0-9a-f]{64}$/.test(value.inputHash) &&
-    (value.status === 'running' || value.status === 'complete' || value.status === 'uncertain') &&
+    (value.status === 'running' ||
+      value.status === 'paused' ||
+      value.status === 'complete' ||
+      value.status === 'uncertain') &&
     typeof value.createdAt === 'number' &&
     typeof value.updatedAt === 'number' &&
     typeof value.leaseUntil === 'number'
@@ -136,6 +142,7 @@ export class OperatorCheckpointStore {
     if (!body) return json({ error: 'invalid_checkpoint_request' }, 400);
 
     if (pathname === '/claim') return this.claim(body);
+    if (pathname === '/progress') return this.progress(body);
     if (pathname === '/complete') return this.complete(body);
     if (pathname === '/uncertain') return this.uncertain(body);
     return json({ error: 'not_found' }, 404);
@@ -179,10 +186,46 @@ export class OperatorCheckpointStore {
       createdAt: checkpoint?.createdAt ?? now,
       updatedAt: now,
       leaseUntil: now + OPERATION_LEASE_MS,
+      ...(checkpoint?.progress ? { progress: cloneObject(checkpoint.progress) } : {}),
     };
     await this.state.storage.put(CHECKPOINT_KEY, next);
     await this.state.storage.setAlarm(now + CHECKPOINT_RETENTION_MS);
-    return json({ ok: true, state: decision.action === 'recover' ? 'recover' : 'claimed' });
+    return json({
+      ok: true,
+      state: decision.action === 'recover' ? 'recover' : 'claimed',
+      ...(checkpoint?.progress ? { progress: cloneObject(checkpoint.progress) } : {}),
+    });
+  }
+
+  private async progress(body: JsonObject): Promise<Response> {
+    const inputHash = body.inputHash;
+    const progress = body.progress;
+    if (
+      typeof inputHash !== 'string' ||
+      !/^[0-9a-f]{64}$/.test(inputHash) ||
+      !isObject(progress)
+    ) {
+      return json({ error: 'invalid_checkpoint_progress' }, 400);
+    }
+    const encoded = JSON.stringify(progress);
+    if (encoded.length > MAX_CHECKPOINT_PROGRESS_BYTES) {
+      return json({ error: 'checkpoint_progress_too_large' }, 413);
+    }
+
+    const raw = await this.state.storage.get<StoredAutopilotCheckpoint>(CHECKPOINT_KEY);
+    if (!validCheckpoint(raw)) return json({ error: 'checkpoint_not_claimed' }, 409);
+    if (raw.inputHash !== inputHash) return json({ error: 'checkpoint_input_mismatch' }, 409);
+
+    const now = Date.now();
+    await this.state.storage.put(CHECKPOINT_KEY, {
+      ...raw,
+      status: 'paused',
+      updatedAt: now,
+      leaseUntil: 0,
+      progress: cloneObject(progress),
+    } satisfies StoredAutopilotCheckpoint);
+    await this.state.storage.setAlarm(now + CHECKPOINT_RETENTION_MS);
+    return json({ ok: true });
   }
 
   private async complete(body: JsonObject): Promise<Response> {
@@ -248,7 +291,7 @@ function checkpointStub(env: AutopilotCheckpointEnv, operationId: string): Durab
   return env.OPERATOR_CHECKPOINTS.get(id);
 }
 
-async function checkpointCall(
+export async function checkpointCall(
   env: AutopilotCheckpointEnv,
   operationId: string,
   pathname: string,

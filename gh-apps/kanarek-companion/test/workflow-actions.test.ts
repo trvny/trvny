@@ -28,19 +28,16 @@ test('workflow control only permits state-compatible operations', () => {
   assert.equal(workflowControlAllowed('rerun_failed', 'completed', 'success'), false);
 });
 
-test('raw workflow run mutations are routed through the guarded action', () => {
-  assert.equal(
-    restrictedBotWrite('POST', '/repos/trvny/trvny/actions/runs/123/rerun'),
-    'use_workflow_control',
-  );
-  assert.equal(
-    restrictedBotWrite('POST', '/repos/trvny/trvny/actions/runs/123/rerun-failed-jobs'),
-    'use_workflow_control',
-  );
-  assert.equal(
-    restrictedBotWrite('POST', '/repos/trvny/trvny/actions/runs/123/cancel'),
-    'use_workflow_control',
-  );
+test('all raw workflow run writes are routed through guarded workflow control', () => {
+  for (const path of [
+    '/repos/trvny/trvny/actions/runs/123/rerun',
+    '/repos/trvny/trvny/actions/runs/123/rerun-failed-jobs',
+    '/repos/trvny/trvny/actions/runs/123/cancel',
+    '/repos/trvny/trvny/actions/runs/123/pending_deployments',
+    '/repos/trvny/trvny/actions/runs/123/anything-new-github-adds-later',
+  ]) {
+    assert.equal(restrictedBotWrite('POST', path), 'use_workflow_control');
+  }
   assert.equal(
     restrictedBotWrite('POST', '/repos/trvny/trvny/actions/workflows/ci.yml/dispatches'),
     null,

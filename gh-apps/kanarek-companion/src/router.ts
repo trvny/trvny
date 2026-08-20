@@ -1,6 +1,11 @@
 import baseWorker, { CommentProbeLock } from './index.ts';
 import { actionFetch } from './action-context.ts';
 import { addAutopilotOpenApi, handleAutopilotAction } from './autopilot-actions.ts';
+import {
+  addAutopilotCheckpointOpenApi,
+  handleResumableAutopilotAction,
+  OperatorCheckpointStore,
+} from './autopilot-checkpoint.ts';
 import { addBatchOpenApi, handleBatchAction } from './batch-actions.ts';
 import { addChangeOpenApi, handleChangeAction } from './change-actions.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
@@ -22,11 +27,17 @@ import { handleMergeReleasePolicyAction } from './policy-merge-release.ts';
 import { handlePolicyEnforcementAction } from './policy-enforcement.ts';
 import { addPolicyOpenApi, handlePolicyAction } from './policy-actions.ts';
 import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
+import {
+  addEnhancedWorkflowDiagnosisOpenApi,
+  handleEnhancedWorkflowDiagnosis,
+} from './workflow-diagnosis-enhanced.ts';
 import { addWorkflowOpenApi, handleWorkflowAction } from './workflow-actions.ts';
 
-export { CommentProbeLock, actionFetch };
+export { CommentProbeLock, OperatorCheckpointStore, actionFetch };
 
-type BaseEnv = Parameters<typeof baseWorker.fetch>[1];
+type BaseEnv = Parameters<typeof baseWorker.fetch>[1] & {
+  OPERATOR_CHECKPOINTS: DurableObjectNamespace;
+};
 
 type JsonObject = Record<string, unknown>;
 
@@ -34,6 +45,7 @@ const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const OAUTH_AUTHORIZE_PATH = '/gpt-actions/oauth/authorize';
 const BOT_ACTION_PATH = '/gpt-actions/github/bot';
 const BRANCH_DELETE_PATH = '/gpt-actions/github/branches/delete';
+const AUTOPILOT_ACTION_PATH = '/gpt-actions/operator/autopilot';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
 function isObject(value: unknown): value is JsonObject {
@@ -121,6 +133,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   const source = openApiDocument(origin);
   addBranchDeleteOperation(source);
   addAutopilotOpenApi(source);
+  addAutopilotCheckpointOpenApi(source);
   addBatchOpenApi(source);
   addChangeOpenApi(source);
   addInvestigationOpenApi(source);
@@ -130,6 +143,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   addAccountMaintenanceOpenApi(source);
   addMaintenanceAutofixOpenApi(source);
   addOperatorOpenApi(source);
+  addEnhancedWorkflowDiagnosisOpenApi(source);
   addPolicyOpenApi(source);
   addReleaseOpenApi(source);
   addWorkflowOpenApi(source);
@@ -415,11 +429,27 @@ const worker = {
       }
     }
 
+    if (url.pathname === AUTOPILOT_ACTION_PATH) {
+      const authProbe = await handleGptActions(
+        internalActionRequest(request, '/gpt-actions/github/read', { path: '/user' }),
+        env,
+        actionFetch,
+      );
+      if (!authProbe.ok) return authProbe;
+    }
+
     const batchResponse = await handleBatchAction(request, env, actionFetch);
     if (batchResponse) return batchResponse;
 
     const policyResponse = await handlePolicyAction(request, env, actionFetch);
     if (policyResponse) return policyResponse;
+
+    const resumableAutopilotResponse = await handleResumableAutopilotAction(
+      request,
+      env,
+      actionFetch,
+    );
+    if (resumableAutopilotResponse) return resumableAutopilotResponse;
 
     const autopilotResponse = await handleAutopilotAction(request, env, actionFetch);
     if (autopilotResponse) return autopilotResponse;
@@ -437,6 +467,13 @@ const worker = {
       actionFetch,
     );
     if (policyEnforcementResponse) return policyEnforcementResponse;
+
+    const enhancedDiagnosisResponse = await handleEnhancedWorkflowDiagnosis(
+      request,
+      env,
+      actionFetch,
+    );
+    if (enhancedDiagnosisResponse) return enhancedDiagnosisResponse;
 
     const operatorResponse = await handleOperatorAction(request, env, actionFetch);
     if (operatorResponse) return operatorResponse;

@@ -51,6 +51,28 @@ const POLICY: GremlinPolicy = {
   },
 };
 
+const STYLE_PROFILE = `schemaVersion: "0.2"
+id: gremlin-private
+locale: pl-PL
+
+personality:
+  base: cynical
+  intensity: 2
+  modifiers:
+    concise: 2
+    technical: 2
+    critical: 2
+    whimsical: 2
+    cynical: 3
+
+collaboration:
+  preamble: multiStepOnly
+  initiative: proactive
+  verification: strict
+  questionPolicy: blockingOnly
+  assumptionPolicy: decisive
+`;
+
 function filePayload(content: string, sha: string): Record<string, unknown> {
   return {
     encoding: 'base64',
@@ -116,7 +138,7 @@ test('Gremlin policy parser accepts strict per-repository maintenance overrides'
   );
 });
 
-test('operator bootstrap loads private policy and repository guidance with one OAuth user check', async () => {
+test('operator bootstrap loads private policy, style and repository guidance with one OAuth user check', async () => {
   const calls: string[] = [];
   const upstream: typeof fetch = async (input, init) => {
     const request = new Request(input, init);
@@ -129,6 +151,10 @@ test('operator bootstrap loads private policy and repository guidance with one O
     if (url.pathname === '/repos/trvny/trvny/contents/.ai/private/openai/gremlin-policy.json') {
       assert.equal(url.searchParams.get('ref'), 'main');
       return Response.json(filePayload(JSON.stringify(POLICY), '1'.repeat(40)));
+    }
+    if (url.pathname === '/repos/trvny/trvny/contents/.ai/private/openai/gremlin-profile.yaml') {
+      assert.equal(url.searchParams.get('ref'), 'main');
+      return Response.json(filePayload(STYLE_PROFILE, '3'.repeat(40)));
     }
     if (url.pathname === '/repos/trvny/feedseek') {
       return Response.json({
@@ -160,7 +186,13 @@ test('operator bootstrap loads private policy and repository guidance with one O
   assert.equal(response.status, 200);
   const payload = await response.json() as {
     policy: GremlinPolicy;
+    styleProfile: {
+      source: { repository: string; path: string; ref: string; sha: string };
+      format: string;
+      content: string;
+    };
     stopConditions: string[];
+    capabilities: string[];
     repository: {
       name: string;
       defaultBranch: string;
@@ -170,6 +202,11 @@ test('operator bootstrap loads private policy and repository guidance with one O
 
   assert.equal(payload.policy.model.autonomy, 'high');
   assert.deepEqual(payload.stopConditions, POLICY.model.stopConditions);
+  assert.equal(payload.styleProfile.format, 'yaml');
+  assert.equal(payload.styleProfile.source.path, '.ai/private/openai/gremlin-profile.yaml');
+  assert.match(payload.styleProfile.content, /base: cynical/);
+  assert.match(payload.styleProfile.content, /initiative: proactive/);
+  assert.ok(payload.capabilities.includes('operator_style_profile'));
   assert.equal(payload.repository.name, 'trvny/feedseek');
   assert.equal(payload.repository.defaultBranch, 'main');
   assert.match(payload.repository.instructions.rootAgentsMarkdown ?? '', /Keep it tidy/);

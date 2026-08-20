@@ -1,4 +1,6 @@
 import baseWorker, { CommentProbeLock } from './index.ts';
+import { actionFetch } from './action-context.ts';
+import { addBatchOpenApi, handleBatchAction } from './batch-actions.ts';
 import { addChangeOpenApi, handleChangeAction } from './change-actions.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
@@ -10,7 +12,7 @@ import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts'
 import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
 import { addWorkflowOpenApi, handleWorkflowAction } from './workflow-actions.ts';
 
-export { CommentProbeLock };
+export { CommentProbeLock, actionFetch };
 
 type BaseEnv = Parameters<typeof baseWorker.fetch>[1];
 
@@ -106,6 +108,7 @@ function addBranchDeleteOperation(document: JsonObject): void {
 export function customGptOpenApi(origin: string): JsonObject {
   const source = openApiDocument(origin);
   addBranchDeleteOperation(source);
+  addBatchOpenApi(source);
   addChangeOpenApi(source);
   addInvestigationOpenApi(source);
   addIssueOpenApi(source);
@@ -370,8 +373,6 @@ function actionException(error: unknown): Response {
   );
 }
 
-export const actionFetch: typeof fetch = (input, init) => fetch(input, init);
-
 const worker = {
   async fetch(
     request: Request,
@@ -397,6 +398,9 @@ const worker = {
         return Response.json({ error: 'invalid_oauth_authorize_request' }, { status: 400 });
       }
     }
+
+    const batchResponse = await handleBatchAction(request, env, actionFetch);
+    if (batchResponse) return batchResponse;
 
     const operatorResponse = await handleOperatorAction(request, env, actionFetch);
     if (operatorResponse) return operatorResponse;

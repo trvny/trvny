@@ -17,6 +17,7 @@ import {
 } from './maintenance-autofix.ts';
 import { addMaintenanceOpenApi, handleMaintenanceAction } from './maintenance-actions.ts';
 import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
+import { addPolicyOpenApi, handlePolicyAction } from './policy-actions.ts';
 import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
 import { addWorkflowOpenApi, handleWorkflowAction } from './workflow-actions.ts';
 
@@ -125,6 +126,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   addAccountMaintenanceOpenApi(source);
   addMaintenanceAutofixOpenApi(source);
   addOperatorOpenApi(source);
+  addPolicyOpenApi(source);
   addReleaseOpenApi(source);
   addWorkflowOpenApi(source);
   const document = normalizeObjectSchemas(source);
@@ -411,6 +413,9 @@ const worker = {
 
     const batchResponse = await handleBatchAction(request, env, actionFetch);
     if (batchResponse) return batchResponse;
+
+    const policyResponse = await handlePolicyAction(request, env, actionFetch);
+    if (policyResponse) return policyResponse;
 
     const operatorResponse = await handleOperatorAction(request, env, actionFetch);
     if (operatorResponse) return operatorResponse;

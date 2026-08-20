@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "model": {
+    "autonomy": "high",
+    "operatingMode": "act_then_report",
+    "stopConditions": [
+      "missing_credentials_or_permissions",
+      "repository_or_goal_cannot_be_resolved",
+      "material_product_decision_required",
+      "unrelated_destructive_change_required",
+      "external_secret_or_approval_required"
+    ],
+    "preferredActions": [
+      "getOperatorBootstrap",
+      "getAccountMaintenance",
+      "runAccountMaintenanceAutofix",
+      "getRepositoryContext",
+      "prepareChange",
+      "investigateCode",
+      "inspectPullRequest",
+      "finalizePullRequest",
+      "diagnoseWorkflowRun"
+    ]
+  },
+  "runtime": {
+    "repositories": {
+      "include": ["trvny/*"],
+      "exclude": [],
+      "skipArchived": true
+    },
+    "maintenance": {
+      "autofix": true,
+      "maxRepositoriesPerRun": 8,
+      "maxFixesPerRun": 12,
+      "workflowRetries": 1
+    },
+    "merge": {
+      "enabled": true,
+      "method": "squash",
+      "requireGreenCi": true,
+      "requireNoActionableReviews": true,
+      "requireExpectedHeadSha": true
+    },
+    "release": {
+      "allowedBranches": ["main"],
+      "requireExpectedTargetSha": true
+    }
+  }
+}

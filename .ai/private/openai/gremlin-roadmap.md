@@ -27,6 +27,13 @@ raw REST calls.
 - `runOperatorAutopilot` composes the operator loop: policy-scoped account scan,
   safe maintenance plan/execution, verification scan, bounded PR inspection and
   a prioritized continuation queue for model-driven follow-through.
+- Autopilot operations can use stable `operationId` checkpoints in a dedicated
+  Durable Object. Completed results replay safely; a lost/expired running lease
+  recovers with a forced read-only verification pass instead of replaying
+  uncertain mutations. OAuth bearer tokens are never stored in checkpoints.
+- `diagnoseWorkflowRun` keeps failure-signal windows plus the log tail for up to
+  three failing jobs, avoiding setup-heavy first-chunk excerpts while preserving
+  the existing run/job/failed-step summary.
 - Private operator policy lives in `.ai/private/openai/gremlin-policy.json` and
   `getOperatorBootstrap` returns its validated model/runtime contract plus
   optional repository metadata and root `AGENTS.md` guidance.
@@ -86,8 +93,10 @@ raw REST calls.
 - [x] Keep product/code decisions in the model. Runtime decides what is allowed;
   the autopilot queues semantic follow-through instead of inventing code fixes in
   the Worker.
-- [ ] Add resumable operation/checkpoint IDs if long multi-repository jobs begin
-  hitting Action-call or request-duration limits.
+- [x] Add resumable operation/checkpoint IDs for long or interrupted runs. A
+  stable client-supplied `operationId` gets a strongly consistent Durable Object
+  checkpoint, bounded lease, safe result replay and read-only recovery after an
+  uncertain interruption.
 - [ ] Add end-to-end release orchestration later: validate target -> dispatch
   build -> wait/diagnose -> collect artifact -> create/update release -> attach
   asset -> verify latest/release state.
@@ -96,7 +105,7 @@ raw REST calls.
 
 - [ ] Nested `AGENTS.md` support for target directories, not only root guidance,
   in context/prepare/investigation flows.
-- [ ] Improve workflow diagnosis to return failure-focused/tail log excerpts
+- [x] Improve workflow diagnosis to return failure-focused/tail log excerpts
   instead of primarily the first chunk of logs.
 - [ ] Paginate PR review threads beyond the current first 100 when needed.
 - [ ] Request-local memoization for identical GitHub GETs inside one high-level
@@ -135,5 +144,7 @@ raw REST calls.
   operations stay `trvny`.
 - Codex review is advisory. The active operator evaluates findings and performs
   writes itself.
+- Never persist OAuth bearer tokens in operator checkpoints. Recovery requires a
+  fresh authorized Action call.
 - Policy may narrow or disable behavior, but it never weakens hard safety floors
   such as expected-SHA/snapshot guards, green relevant CI or review-state checks.

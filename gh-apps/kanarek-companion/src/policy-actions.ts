@@ -4,8 +4,10 @@ const READ_PATH = '/gpt-actions/github/read';
 const BOOTSTRAP_PATH = '/gpt-actions/operator/bootstrap';
 const POLICY_REPOSITORY = 'trvny/trvny';
 const POLICY_PATH = '.ai/private/openai/gremlin-policy.json';
+const PROFILE_PATH = '.ai/private/openai/gremlin-profile.yaml';
 const POLICY_REF = 'main';
 const MAX_POLICY_BYTES = 32_000;
+const MAX_STYLE_PROFILE_BYTES = 16_000;
 const MAX_AGENTS_BYTES = 24_000;
 const DEFAULT_CACHE_MAX_BYTES = 5 * 1024 * 1024 * 1024;
 const DEFAULT_CACHE_STALE_DAYS = 5;
@@ -72,6 +74,16 @@ export interface LoadedGremlinPolicy {
   };
 }
 
+interface LoadedStyleProfile {
+  yaml: string;
+  source: {
+    repository: string;
+    path: string;
+    ref: string;
+    sha: string;
+  };
+}
+
 class PolicyActionError extends Error {
   readonly code: string;
   readonly status: number;
@@ -94,6 +106,7 @@ const GATEWAY_CAPABILITIES = [
   'release_control',
   'maintenance_scan',
   'maintenance_autofix',
+  'operator_style_profile',
 ] as const;
 
 function isObject(value: unknown): value is JsonObject {
@@ -479,6 +492,32 @@ export async function loadGremlinPolicy(
   };
 }
 
+async function loadGremlinStyleProfile(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<LoadedStyleProfile> {
+  const raw = await readData(
+    request,
+    env,
+    fetcher,
+    `/repos/${repoPath(POLICY_REPOSITORY)}/contents/${contentPath(PROFILE_PATH)}?ref=${POLICY_REF}`,
+  );
+  if (!isObject(raw) || typeof raw.sha !== 'string') {
+    throw new PolicyActionError('invalid_style_profile_file_response', 502);
+  }
+  const yaml = decodeGithubFile(raw, MAX_STYLE_PROFILE_BYTES, 'invalid_style_profile_file');
+  return {
+    yaml,
+    source: {
+      repository: POLICY_REPOSITORY,
+      path: PROFILE_PATH,
+      ref: POLICY_REF,
+      sha: raw.sha,
+    },
+  };
+}
+
 function repositoryName(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null;
   if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
@@ -545,15 +584,23 @@ async function operatorBootstrap(
 ): Promise<Response> {
   const input = await inputObject(request);
   const targetRepository = repositoryName(input.repository);
-  const loaded = await loadGremlinPolicy(request, env, fetcher);
-  const repository = targetRepository
-    ? await repositoryBootstrap(request, env, fetcher, targetRepository)
-    : null;
+  const [loaded, styleProfile, repository] = await Promise.all([
+    loadGremlinPolicy(request, env, fetcher),
+    loadGremlinStyleProfile(request, env, fetcher),
+    targetRepository
+      ? repositoryBootstrap(request, env, fetcher, targetRepository)
+      : Promise.resolve(null),
+  ]);
 
   return json({
     ok: true,
     policySource: loaded.source,
     policy: loaded.policy,
+    styleProfile: {
+      source: styleProfile.source,
+      format: 'yaml',
+      content: styleProfile.yaml,
+    },
     capabilities: GATEWAY_CAPABILITIES,
     stopConditions: loaded.policy.model.stopConditions,
     repository,
@@ -566,9 +613,9 @@ export function addPolicyOpenApi(document: JsonObject): void {
   paths[BOOTSTRAP_PATH] = {
     post: {
       operationId: 'getOperatorBootstrap',
-      summary: 'Load Gremlin operator policy and repository guidance',
+      summary: 'Load Gremlin operator policy, style and repository guidance',
       description:
-        'Loads the validated private Gremlin policy and optional repository metadata plus root AGENTS.md. Use at the start of substantial GitHub work.',
+        'Loads private Gremlin runtime policy, style profile and optional repository metadata plus root AGENTS.md. Use at the start of substantial GitHub work.',
       requestBody: {
         required: false,
         content: {

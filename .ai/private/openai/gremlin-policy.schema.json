@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/trvny/trvny/.ai/private/openai/gremlin-policy.schema.json",
+  "title": "Gremlin operator policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "operator",
+    "repositories",
+    "maintenance",
+    "pullRequests",
+    "releases",
+    "stopConditions",
+    "bootstrap",
+    "preferredActions"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["autonomy", "finishRoutineWorkWithoutConfirmation", "preferHighLevelGuardedActions", "genericMutationActionsAreEscapeHatches", "askOnlyWhenBlockedOrMateriallyAmbiguous"],
+      "properties": {
+        "autonomy": { "enum": ["low", "medium", "high"] },
+        "finishRoutineWorkWithoutConfirmation": { "type": "boolean" },
+        "preferHighLevelGuardedActions": { "type": "boolean" },
+        "genericMutationActionsAreEscapeHatches": { "type": "boolean" },
+        "askOnlyWhenBlockedOrMateriallyAmbiguous": { "type": "boolean" }
+      }
+    },
+    "repositories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "include", "exclude", "skipArchivedByDefault"],
+      "properties": {
+        "owner": { "const": "trvny" },
+        "include": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true },
+        "exclude": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "skipArchivedByDefault": { "type": "boolean" }
+      }
+    },
+    "maintenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "autofixEnabled", "maxRepositoriesPerRun", "maxFixesPerRun", "allow", "workflowRetry", "branchCleanup", "cacheCleanup", "artifactCleanup"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "autofixEnabled": { "type": "boolean" },
+        "maxRepositoriesPerRun": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "maxFixesPerRun": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "allow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["retryFailedWorkflow", "deleteExpiredArtifact", "deleteDeadBranchCache", "deleteClosedPrOrphanBranch"],
+          "properties": {
+            "retryFailedWorkflow": { "type": "boolean" },
+            "deleteExpiredArtifact": { "type": "boolean" },
+            "deleteDeadBranchCache": { "type": "boolean" },
+            "deleteClosedPrOrphanBranch": { "type": "boolean" }
+          }
+        },
+        "workflowRetry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxAutomaticAttempts", "requireCurrentBranchHead"],
+          "properties": {
+            "maxAutomaticAttempts": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "requireCurrentBranchHead": { "type": "boolean" }
+          }
+        },
+        "branchCleanup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requireClosedPullRequest", "requireExactHeadSha"],
+          "properties": {
+            "requireClosedPullRequest": { "type": "boolean" },
+            "requireExactHeadSha": { "type": "boolean" }
+          }
+        },
+        "cacheCleanup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requireMissingBranch"],
+          "properties": { "requireMissingBranch": { "type": "boolean" } }
+        },
+        "artifactCleanup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requireExpired"],
+          "properties": { "requireExpired": { "type": "boolean" } }
+        }
+      }
+    },
+    "pullRequests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["openAs", "botWritesAs", "preferredMergeMethod", "mergeWhen", "codexReviewIsAdvisory"],
+      "properties": {
+        "openAs": { "const": "trvny" },
+        "botWritesAs": { "const": "gptomek[bot]" },
+        "preferredMergeMethod": { "enum": ["squash", "merge", "rebase"] },
+        "mergeWhen": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["finalHeadChecksGreen", "actionableReviewThreadsResolved", "scopeMatchesRequest"],
+          "properties": {
+            "finalHeadChecksGreen": { "type": "boolean" },
+            "actionableReviewThreadsResolved": { "type": "boolean" },
+            "scopeMatchesRequest": { "type": "boolean" }
+          }
+        },
+        "codexReviewIsAdvisory": { "type": "boolean" }
+      }
+    },
+    "releases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["guardedActionsOnly", "defaultBranchOnlyUnlessExplicit", "verifyTargetBeforePublish", "verifyFinalReleaseState"],
+      "properties": {
+        "guardedActionsOnly": { "type": "boolean" },
+        "defaultBranchOnlyUnlessExplicit": { "type": "boolean" },
+        "verifyTargetBeforePublish": { "type": "boolean" },
+        "verifyFinalReleaseState": { "type": "boolean" }
+      }
+    },
+    "stopConditions": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policyPath", "alsoRead", "useGithubReadBatch", "loadBeforeRepositoryMutation"],
+      "properties": {
+        "policyPath": { "const": ".ai/private/openai/gremlin-policy.json" },
+        "alsoRead": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "useGithubReadBatch": { "type": "boolean" },
+        "loadBeforeRepositoryMutation": { "type": "boolean" }
+      }
+    },
+    "preferredActions": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1, "uniqueItems": true }
+  }
+}

@@ -16,6 +16,12 @@ raw REST calls.
 - Workflow rerun/cancel plus validated `workflow_dispatch`.
 - Guarded release create/update plus Actions-artifact -> release-asset upload
   and exact-snapshot asset deletion.
+- `orchestrateRelease` adds a resumable guarded release state machine: validate
+  policy/target -> checkpoint dispatch baseline -> dispatch/identify exact bot
+  workflow run -> wait/diagnose -> select exact artifact -> create/update
+  release -> upload asset -> verify release/asset/latest state. It pauses between
+  mutation stages so retries resume from Durable Object progress rather than
+  blindly replaying uncertain writes.
 - `prepareChange` for base/head/AGENTS/issue-aware change setup.
 - `investigateCode` with path/language/ref filters and optional file history.
 - Per-repository maintenance report plus exact artifact/cache cleanup.
@@ -35,7 +41,8 @@ raw REST calls.
 - Autopilot operations can use stable `operationId` checkpoints in a dedicated
   Durable Object. Completed results replay safely; a lost/expired running lease
   recovers with a forced read-only verification pass instead of replaying
-  uncertain mutations. OAuth bearer tokens are never stored in checkpoints.
+  uncertain mutations. The same store now supports bounded paused progress for
+  multi-call release orchestration. OAuth bearer tokens are never stored there.
 - `diagnoseWorkflowRun` keeps failure-signal windows plus the log tail for up to
   three failing jobs, avoiding setup-heavy first-chunk excerpts while preserving
   the existing run/job/failed-step summary.
@@ -105,9 +112,10 @@ raw REST calls.
   stable client-supplied `operationId` gets a strongly consistent Durable Object
   checkpoint, bounded lease, safe result replay and read-only recovery after an
   uncertain interruption.
-- [ ] Add end-to-end release orchestration later: validate target -> dispatch
-  build -> wait/diagnose -> collect artifact -> create/update release -> attach
-  asset -> verify latest/release state.
+- [x] Add end-to-end release orchestration: validate target -> dispatch build ->
+  wait/diagnose -> collect exact artifact -> create/update release -> attach
+  asset -> verify release/asset/latest state. Dispatch and upload recovery are
+  checkpoint-aware so an interrupted request does not blindly replay mutations.
 
 ## High-value follow-ups
 

@@ -24,6 +24,9 @@ raw REST calls.
   current-head first-attempt workflow retries, exact closed-PR branch cleanup,
   dead-branch cache cleanup and expired-artifact deletion through existing
   guarded actions.
+- `runOperatorAutopilot` composes the operator loop: policy-scoped account scan,
+  safe maintenance plan/execution, verification scan, bounded PR inspection and
+  a prioritized continuation queue for model-driven follow-through.
 - Private operator policy lives in `.ai/private/openai/gremlin-policy.json` and
   `getOperatorBootstrap` returns its validated model/runtime contract plus
   optional repository metadata and root `AGENTS.md` guidance.
@@ -67,8 +70,10 @@ raw REST calls.
 
 ## Autopilot
 
-- [ ] Build the broader guarded account/repository autopilot loop:
-  scan -> classify -> plan -> execute safe steps -> verify -> report.
+- [x] Build the guarded account/repository operator loop:
+  scan -> classify -> plan -> execute safe steps -> verify -> report/continue.
+  `runOperatorAutopilot` performs the deterministic cycle and returns prioritized
+  continuation tasks so the model can keep working without routine human input.
 - [x] Start with maintenance: the account radar selects repositories and
   `runAccountMaintenanceAutofix` uses detailed repo reports only where needed.
 - [x] Auto-handle the first deterministic safe chores through guarded actions:
@@ -78,8 +83,9 @@ raw REST calls.
   workflow retry budget into the private runtime policy.
 - [ ] Add policy-driven cache/age thresholds and per-repository maintenance
   exceptions when they become useful.
-- [ ] Keep product/code decisions in the model. Runtime decides what is allowed;
-  the model decides what the evidence means and what change to implement.
+- [x] Keep product/code decisions in the model. Runtime decides what is allowed;
+  the autopilot queues semantic follow-through instead of inventing code fixes in
+  the Worker.
 - [ ] Add resumable operation/checkpoint IDs if long multi-repository jobs begin
   hitting Action-call or request-duration limits.
 - [ ] Add end-to-end release orchestration later: validate target -> dispatch

@@ -1,5 +1,6 @@
 import baseWorker, { CommentProbeLock } from './index.ts';
 import { actionFetch } from './action-context.ts';
+import { addAutopilotOpenApi, handleAutopilotAction } from './autopilot-actions.ts';
 import { addBatchOpenApi, handleBatchAction } from './batch-actions.ts';
 import { addChangeOpenApi, handleChangeAction } from './change-actions.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
@@ -119,6 +120,7 @@ function addBranchDeleteOperation(document: JsonObject): void {
 export function customGptOpenApi(origin: string): JsonObject {
   const source = openApiDocument(origin);
   addBranchDeleteOperation(source);
+  addAutopilotOpenApi(source);
   addBatchOpenApi(source);
   addChangeOpenApi(source);
   addInvestigationOpenApi(source);
@@ -418,6 +420,9 @@ const worker = {
 
     const policyResponse = await handlePolicyAction(request, env, actionFetch);
     if (policyResponse) return policyResponse;
+
+    const autopilotResponse = await handleAutopilotAction(request, env, actionFetch);
+    if (autopilotResponse) return autopilotResponse;
 
     const mergeReleasePolicyResponse = await handleMergeReleasePolicyAction(
       request,

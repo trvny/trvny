@@ -64,10 +64,22 @@ test('checkpoint claims replay completed work and do not duplicate active work',
   );
 });
 
-test('expired or uncertain work recovers without replaying mutations', () => {
+test('expired, paused or uncertain work recovers without replaying mutations', () => {
   const now = 30_000;
   assert.deepEqual(
     checkpointClaimDecision(checkpoint({ leaseUntil: 20_000 }), 'a'.repeat(64), now),
+    { action: 'recover' },
+  );
+  assert.deepEqual(
+    checkpointClaimDecision(
+      checkpoint({
+        status: 'paused',
+        leaseUntil: 0,
+        progress: { stage: 'waiting_workflow', runId: 123 },
+      }),
+      'a'.repeat(64),
+      now,
+    ),
     { action: 'recover' },
   );
   assert.deepEqual(

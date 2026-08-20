@@ -30,6 +30,9 @@ raw REST calls.
 - Account maintenance and maintenance autofix are policy-wrapped: repository
   include/exclude rules, archived handling, run limits, autofix enablement and
   workflow retry budget are enforced before guarded mutations execute.
+- PR finalization and release mutations are policy-wrapped too. Merge enablement
+  and method, repository scope, archived handling and release branch ancestry
+  are checked before the existing expected-SHA, CI, review and snapshot guards.
 - Generic raw branch/workflow/release writes are blocked in favor of guarded
   actions.
 - Operator plumbing caches OAuth `/user` checks and GPTomek installation tokens;
@@ -51,11 +54,10 @@ raw REST calls.
 - [x] Add `getOperatorBootstrap`, returning effective private policy, optional
   repository metadata/root `AGENTS.md`, capability categories and stop
   conditions in one compact response.
-- [ ] Teach high-level actions to consume the same policy automatically where
-  deterministic enforcement belongs, instead of copying rules into Custom GPT
-  Instructions.
+- [x] Teach the current mutation-heavy high-level actions to consume the same
+  policy automatically where deterministic enforcement belongs.
   - [x] Account maintenance and maintenance autofix policy enforcement.
-  - [ ] Merge/finalize and release policy enforcement.
+  - [x] Merge/finalize and release policy enforcement.
 - [ ] Keep the Custom GPT instruction block small: personality + broad operating
   contract + “follow runtime operator policy”. Do not duplicate the policy into
   the 8k instruction field.
@@ -127,5 +129,5 @@ raw REST calls.
   operations stay `trvny`.
 - Codex review is advisory. The active operator evaluates findings and performs
   writes itself.
-- Never trade verification for autonomy: expected-SHA/snapshot guards, green
-  relevant CI and final-state rechecks remain part of the machine.
+- Policy may narrow or disable behavior, but it never weakens hard safety floors
+  such as expected-SHA/snapshot guards, green relevant CI or review-state checks.

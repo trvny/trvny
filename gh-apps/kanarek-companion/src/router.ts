@@ -17,6 +17,7 @@ import {
 } from './maintenance-autofix.ts';
 import { addMaintenanceOpenApi, handleMaintenanceAction } from './maintenance-actions.ts';
 import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
+import { handleMergeReleasePolicyAction } from './policy-merge-release.ts';
 import { handlePolicyEnforcementAction } from './policy-enforcement.ts';
 import { addPolicyOpenApi, handlePolicyAction } from './policy-actions.ts';
 import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
@@ -417,6 +418,13 @@ const worker = {
 
     const policyResponse = await handlePolicyAction(request, env, actionFetch);
     if (policyResponse) return policyResponse;
+
+    const mergeReleasePolicyResponse = await handleMergeReleasePolicyAction(
+      request,
+      env,
+      actionFetch,
+    );
+    if (mergeReleasePolicyResponse) return mergeReleasePolicyResponse;
 
     const policyEnforcementResponse = await handlePolicyEnforcementAction(
       request,

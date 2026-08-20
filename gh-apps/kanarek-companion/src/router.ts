@@ -173,7 +173,7 @@ export function restrictedBotWrite(methodValue: string, path: string): string | 
   }
   if (
     method === 'POST' &&
-    new RegExp(`${repoPrefix}actions/runs/[0-9]+/(?:rerun|rerun-failed-jobs|cancel)/?$`).test(pathname)
+    new RegExp(`${repoPrefix}actions/runs(?:/|$)`).test(pathname)
   ) {
     return 'use_workflow_control';
   }

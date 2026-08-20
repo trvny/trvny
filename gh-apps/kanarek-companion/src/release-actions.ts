@@ -1,12 +1,24 @@
+import { createAppJwt } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 
+const GITHUB_API = 'https://api.github.com';
+const GITHUB_UPLOADS = 'https://uploads.github.com';
+const GITHUB_API_VERSION = '2026-03-10';
 const READ_PATH = '/gpt-actions/github/read';
 const BOT_PATH = '/gpt-actions/github/bot';
 const RELEASE_PATH = '/gpt-actions/github/releases/manage';
+const RELEASE_ASSET_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-artifact';
+const RELEASE_ASSET_DELETE_PATH = '/gpt-actions/github/releases/assets/delete';
+const MAX_RELEASE_ASSET_BYTES = 64 * 1024 * 1024;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
 type JsonObject = Record<string, unknown>;
 type MakeLatest = 'true' | 'false' | 'legacy';
+
+interface GptomekToken {
+  permissions: Record<string, string>;
+  token: string;
+}
 
 class ReleaseError extends Error {
   readonly code: string;
@@ -61,6 +73,43 @@ function sha(value: unknown): string {
     throw new ReleaseError('invalid_target_sha');
   }
   return value.toLowerCase();
+}
+
+function positiveInteger(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new ReleaseError(`invalid_${name}`);
+  }
+  return value;
+}
+
+function nonNegativeInteger(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new ReleaseError(`invalid_${name}`);
+  }
+  return value;
+}
+
+function requiredText(value: unknown, name: string, max: number): string {
+  if (typeof value !== 'string' || !value || value.length > max) {
+    throw new ReleaseError(`invalid_${name}`);
+  }
+  return value;
+}
+
+export function releaseAssetNameAllowed(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length >= 1 &&
+    value.length <= 255 &&
+    !value.startsWith('.') &&
+    !value.endsWith('.') &&
+    /^[A-Za-z0-9][A-Za-z0-9._+-]*$/.test(value)
+  );
+}
+
+function assetName(value: unknown): string {
+  if (!releaseAssetNameAllowed(value)) throw new ReleaseError('invalid_asset_name');
+  return value;
 }
 
 function repoPath(repositoryName: string): string {
@@ -207,6 +256,182 @@ function compactRelease(value: unknown): JsonObject | null {
   };
 }
 
+function compactAsset(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  const uploader = isObject(value.uploader) ? value.uploader : {};
+  return {
+    id: typeof value.id === 'number' ? value.id : null,
+    name: typeof value.name === 'string' ? value.name : null,
+    label: typeof value.label === 'string' ? value.label : null,
+    state: typeof value.state === 'string' ? value.state : null,
+    contentType: typeof value.content_type === 'string' ? value.content_type : null,
+    sizeBytes: typeof value.size === 'number' ? value.size : null,
+    digest: typeof value.digest === 'string' ? value.digest : null,
+    uploader: typeof uploader.login === 'string' ? uploader.login : null,
+    browserDownloadUrl:
+      typeof value.browser_download_url === 'string' ? value.browser_download_url : null,
+  };
+}
+
+function permissionAllows(value: unknown, required: 'read' | 'write'): boolean {
+  if (value === 'write') return true;
+  return required === 'read' && value === 'read';
+}
+
+function tokenHeaders(token: string, contentType = 'application/json'): Headers {
+  return new Headers({
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${token}`,
+    'Content-Type': contentType,
+    'User-Agent': 'gremlin-gpt-actions',
+    'X-GitHub-Api-Version': GITHUB_API_VERSION,
+  });
+}
+
+async function gptomekToken(env: GptActionsEnv, fetcher: typeof fetch): Promise<GptomekToken> {
+  const appId = requiredText(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
+  const privateKey = requiredText(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
+  const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
+  if (!Number.isInteger(installationId) || installationId <= 0) {
+    throw new ReleaseError('invalid_gptomek_installation_id', 503);
+  }
+
+  const jwt = await createAppJwt(appId, privateKey);
+  const response = await fetcher(
+    `${GITHUB_API}/app/installations/${installationId}/access_tokens`,
+    { method: 'POST', headers: tokenHeaders(jwt) },
+  );
+  if (!response.ok) throw new ReleaseError('gptomek_token_failed', 502);
+
+  let value: unknown;
+  try {
+    value = await response.json();
+  } catch {
+    throw new ReleaseError('invalid_gptomek_token_response', 502);
+  }
+  if (!isObject(value) || typeof value.token !== 'string' || !isObject(value.permissions)) {
+    throw new ReleaseError('invalid_gptomek_token_response', 502);
+  }
+  const permissions: Record<string, string> = {};
+  for (const [name, permission] of Object.entries(value.permissions)) {
+    if (typeof permission === 'string') permissions[name] = permission;
+  }
+  return { token: value.token, permissions };
+}
+
+function verifyRelease(value: unknown, releaseId: number, expectedTag: string): JsonObject {
+  if (!isObject(value) || value.id !== releaseId || value.tag_name !== expectedTag) {
+    throw new ReleaseError('release_snapshot_changed', 409);
+  }
+  if (value.immutable === true) throw new ReleaseError('release_is_immutable', 409);
+  return value;
+}
+
+export function artifactReleaseSnapshotMatches(
+  value: unknown,
+  artifactId: number,
+  expectedName: string,
+  expectedSizeBytes: number,
+  expectedWorkflowRunId: number,
+): boolean {
+  if (!isObject(value)) return false;
+  const workflowRun = isObject(value.workflow_run) ? value.workflow_run : {};
+  return (
+    value.id === artifactId &&
+    value.name === expectedName &&
+    value.size_in_bytes === expectedSizeBytes &&
+    workflowRun.id === expectedWorkflowRunId &&
+    value.expired !== true
+  );
+}
+
+export function releaseAssetSnapshotMatches(
+  value: unknown,
+  assetId: number,
+  expectedName: string,
+  expectedSizeBytes: number,
+): boolean {
+  return (
+    isObject(value) &&
+    value.id === assetId &&
+    value.name === expectedName &&
+    value.size === expectedSizeBytes
+  );
+}
+
+function releaseAssets(value: unknown): JsonObject[] {
+  if (!Array.isArray(value)) throw new ReleaseError('invalid_release_assets_response', 502);
+  return value.filter((entry): entry is JsonObject => isObject(entry));
+}
+
+async function downloadArtifactZip(
+  token: string,
+  repositoryName: string,
+  artifactId: number,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const repo = repoPath(repositoryName);
+  const response = await fetcher(`${GITHUB_API}/repos/${repo}/actions/artifacts/${artifactId}/zip`, {
+    headers: tokenHeaders(token),
+    redirect: 'manual',
+  });
+  if (response.status === 410) throw new ReleaseError('artifact_expired', 409);
+  if (response.status === 404) throw new ReleaseError('artifact_download_not_found', 409);
+  if (response.status === 302) {
+    const location = response.headers.get('location');
+    if (!location) throw new ReleaseError('invalid_artifact_download_redirect', 502);
+    let target: URL;
+    try {
+      target = new URL(location);
+    } catch {
+      throw new ReleaseError('invalid_artifact_download_redirect', 502);
+    }
+    if (target.protocol !== 'https:' || target.username || target.password) {
+      throw new ReleaseError('invalid_artifact_download_redirect', 502);
+    }
+    const archive = await fetcher(target, {
+      headers: { 'User-Agent': 'gremlin-gpt-actions' },
+      redirect: 'follow',
+    });
+    if (!archive.ok) throw new ReleaseError('artifact_download_failed', 502);
+    return archive;
+  }
+  if (!response.ok) throw new ReleaseError('artifact_download_failed', 502);
+  return response;
+}
+
+async function uploadReleaseAsset(
+  token: string,
+  repositoryName: string,
+  releaseId: number,
+  name: string,
+  label: string | undefined,
+  bytes: ArrayBuffer,
+  fetcher: typeof fetch,
+): Promise<JsonObject> {
+  const repo = repoPath(repositoryName);
+  const url = new URL(`${GITHUB_UPLOADS}/repos/${repo}/releases/${releaseId}/assets`);
+  url.searchParams.set('name', name);
+  if (label !== undefined) url.searchParams.set('label', label);
+  const response = await fetcher(url, {
+    method: 'POST',
+    headers: tokenHeaders(token, 'application/zip'),
+    body: bytes,
+  });
+  if (response.status === 422) throw new ReleaseError('release_asset_name_conflict', 409);
+  if (!response.ok) throw new ReleaseError('release_asset_upload_failed', 502);
+  let value: unknown;
+  try {
+    value = await response.json();
+  } catch {
+    throw new ReleaseError('invalid_release_asset_response', 502);
+  }
+  if (!isObject(value) || typeof value.id !== 'number' || value.name !== name) {
+    throw new ReleaseError('invalid_release_asset_response', 502);
+  }
+  return value;
+}
+
 async function resolveTagCommit(
   source: Request,
   env: GptActionsEnv,
@@ -343,6 +568,136 @@ async function releaseAsGptomek(
   return json({ ok: true, created: true, release: compactRelease(created) });
 }
 
+async function uploadWorkflowArtifactAsReleaseAsset(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const input = await inputObject(request);
+  const repositoryName = repository(input.repository);
+  const releaseId = positiveInteger(input.releaseId, 'release_id');
+  const expectedTag = tag(input.expectedTag);
+  const artifactId = positiveInteger(input.artifactId, 'artifact_id');
+  const expectedArtifactName = requiredText(input.expectedArtifactName, 'expected_artifact_name', 255);
+  const expectedArtifactSizeBytes = nonNegativeInteger(
+    input.expectedArtifactSizeBytes,
+    'expected_artifact_size_bytes',
+  );
+  const expectedWorkflowRunId = positiveInteger(
+    input.expectedWorkflowRunId,
+    'expected_workflow_run_id',
+  );
+  const outputName = assetName(input.assetName);
+  const label = textField(input.label, 'label', 255);
+  const repo = repoPath(repositoryName);
+
+  const [releaseRaw, artifactRaw, assetsRaw] = await Promise.all([
+    readData(request, env, fetcher, `/repos/${repo}/releases/${releaseId}`),
+    readData(request, env, fetcher, `/repos/${repo}/actions/artifacts/${artifactId}`),
+    readData(request, env, fetcher, `/repos/${repo}/releases/${releaseId}/assets?per_page=100`),
+  ]);
+  verifyRelease(releaseRaw, releaseId, expectedTag);
+  if (
+    !artifactReleaseSnapshotMatches(
+      artifactRaw,
+      artifactId,
+      expectedArtifactName,
+      expectedArtifactSizeBytes,
+      expectedWorkflowRunId,
+    )
+  ) {
+    throw new ReleaseError('artifact_snapshot_changed', 409);
+  }
+  if (expectedArtifactSizeBytes > MAX_RELEASE_ASSET_BYTES) {
+    throw new ReleaseError('artifact_too_large_for_release_asset', 413);
+  }
+  const existingAsset = releaseAssets(assetsRaw).find((entry) => entry.name === outputName);
+  if (existingAsset) {
+    return json({ ok: false, error: 'release_asset_exists', asset: compactAsset(existingAsset) }, 409);
+  }
+
+  const installation = await gptomekToken(env, fetcher);
+  if (!permissionAllows(installation.permissions.actions, 'read')) {
+    throw new ReleaseError('gptomek_actions_read_required', 503);
+  }
+  if (!permissionAllows(installation.permissions.contents, 'write')) {
+    throw new ReleaseError('gptomek_contents_write_required', 503);
+  }
+
+  const archive = await downloadArtifactZip(
+    installation.token,
+    repositoryName,
+    artifactId,
+    fetcher,
+  );
+  const bytes = await archive.arrayBuffer();
+  if (bytes.byteLength > MAX_RELEASE_ASSET_BYTES) {
+    throw new ReleaseError('artifact_too_large_for_release_asset', 413);
+  }
+  const uploaded = await uploadReleaseAsset(
+    installation.token,
+    repositoryName,
+    releaseId,
+    outputName,
+    label,
+    bytes,
+    fetcher,
+  );
+  return json({
+    ok: true,
+    releaseId,
+    tag: expectedTag,
+    source: {
+      artifactId,
+      artifactName: expectedArtifactName,
+      workflowRunId: expectedWorkflowRunId,
+      reportedSizeBytes: expectedArtifactSizeBytes,
+      downloadedBytes: bytes.byteLength,
+    },
+    asset: compactAsset(uploaded),
+  });
+}
+
+async function deleteReleaseAssetAsGptomek(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const input = await inputObject(request);
+  const repositoryName = repository(input.repository);
+  const releaseId = positiveInteger(input.releaseId, 'release_id');
+  const expectedTag = tag(input.expectedTag);
+  const assetId = positiveInteger(input.assetId, 'asset_id');
+  const expectedName = assetName(input.expectedName);
+  const expectedSizeBytes = nonNegativeInteger(input.expectedSizeBytes, 'expected_size_bytes');
+  const repo = repoPath(repositoryName);
+
+  const [releaseRaw, assetRaw, assetsRaw] = await Promise.all([
+    readData(request, env, fetcher, `/repos/${repo}/releases/${releaseId}`),
+    readData(request, env, fetcher, `/repos/${repo}/releases/assets/${assetId}`),
+    readData(request, env, fetcher, `/repos/${repo}/releases/${releaseId}/assets?per_page=100`),
+  ]);
+  verifyRelease(releaseRaw, releaseId, expectedTag);
+  if (!releaseAssetSnapshotMatches(assetRaw, assetId, expectedName, expectedSizeBytes)) {
+    throw new ReleaseError('release_asset_snapshot_changed', 409);
+  }
+  const belongsToRelease = releaseAssets(assetsRaw).some((entry) => entry.id === assetId);
+  if (!belongsToRelease) throw new ReleaseError('release_asset_not_in_release', 409);
+
+  const installation = await gptomekToken(env, fetcher);
+  if (!permissionAllows(installation.permissions.contents, 'write')) {
+    throw new ReleaseError('gptomek_contents_write_required', 503);
+  }
+  const response = await fetcher(`${GITHUB_API}/repos/${repo}/releases/assets/${assetId}`, {
+    method: 'DELETE',
+    headers: tokenHeaders(installation.token),
+  });
+  if (response.status === 404) throw new ReleaseError('release_asset_disappeared', 409);
+  if (!response.ok) throw new ReleaseError('release_asset_delete_failed', 502);
+  await response.body?.cancel();
+  return json({ ok: true, deleted: true, releaseId, tag: expectedTag, assetId, name: expectedName });
+}
+
 function objectResponse(description: string): JsonObject {
   return {
     '200': {
@@ -386,6 +741,81 @@ export function addReleaseOpenApi(document: JsonObject): void {
       responses: objectResponse('Release result'),
     },
   };
+  paths[RELEASE_ASSET_UPLOAD_PATH] = {
+    post: {
+      operationId: 'uploadWorkflowArtifactAsReleaseAsset',
+      summary: 'Publish an Actions artifact ZIP as a release asset',
+      description:
+        'Verifies one release and one workflow artifact snapshot, downloads the artifact ZIP as gptomek[bot], then uploads it to the release without overwriting an existing asset.',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: [
+                'repository',
+                'releaseId',
+                'expectedTag',
+                'artifactId',
+                'expectedArtifactName',
+                'expectedArtifactSizeBytes',
+                'expectedWorkflowRunId',
+                'assetName',
+              ],
+              properties: {
+                repository: { type: 'string', example: 'trvny/feedseek' },
+                releaseId: { type: 'integer', minimum: 1 },
+                expectedTag: { type: 'string' },
+                artifactId: { type: 'integer', minimum: 1 },
+                expectedArtifactName: { type: 'string' },
+                expectedArtifactSizeBytes: { type: 'integer', minimum: 0 },
+                expectedWorkflowRunId: { type: 'integer', minimum: 1 },
+                assetName: { type: 'string', example: 'feedseek-android.zip' },
+                label: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      responses: objectResponse('Uploaded release asset'),
+    },
+  };
+  paths[RELEASE_ASSET_DELETE_PATH] = {
+    post: {
+      operationId: 'deleteReleaseAssetAsGptomek',
+      summary: 'Delete one exact release asset as gptomek[bot]',
+      description:
+        'Deletes a release asset only after its release tag, asset ID, name, size and membership in that release still match the expected snapshot.',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: [
+                'repository',
+                'releaseId',
+                'expectedTag',
+                'assetId',
+                'expectedName',
+                'expectedSizeBytes',
+              ],
+              properties: {
+                repository: { type: 'string', example: 'trvny/feedseek' },
+                releaseId: { type: 'integer', minimum: 1 },
+                expectedTag: { type: 'string' },
+                assetId: { type: 'integer', minimum: 1 },
+                expectedName: { type: 'string' },
+                expectedSizeBytes: { type: 'integer', minimum: 0 },
+              },
+            },
+          },
+        },
+      },
+      responses: objectResponse('Deleted release asset'),
+    },
+  };
 }
 
 export async function handleReleaseAction(
@@ -393,9 +823,22 @@ export async function handleReleaseAction(
   env: GptActionsEnv,
   fetcher: typeof fetch,
 ): Promise<Response | null> {
-  if (new URL(request.url).pathname !== RELEASE_PATH) return null;
+  const pathname = new URL(request.url).pathname;
+  if (
+    pathname !== RELEASE_PATH &&
+    pathname !== RELEASE_ASSET_UPLOAD_PATH &&
+    pathname !== RELEASE_ASSET_DELETE_PATH
+  ) {
+    return null;
+  }
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
   try {
+    if (pathname === RELEASE_ASSET_UPLOAD_PATH) {
+      return await uploadWorkflowArtifactAsReleaseAsset(request, env, fetcher);
+    }
+    if (pathname === RELEASE_ASSET_DELETE_PATH) {
+      return await deleteReleaseAssetAsGptomek(request, env, fetcher);
+    }
     return await releaseAsGptomek(request, env, fetcher);
   } catch (error) {
     if (error instanceof ReleaseError) return json({ ok: false, error: error.code }, error.status);

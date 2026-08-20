@@ -1,7 +1,13 @@
+import {
+  createInstallationClient,
+  type GitHubInstallationClient,
+} from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const MAINTENANCE_PATH = '/gpt-actions/github/maintenance/report';
+const ARTIFACT_DELETE_PATH = '/gpt-actions/github/maintenance/artifacts/delete';
+const CACHE_DELETE_PATH = '/gpt-actions/github/maintenance/caches/delete';
 const NON_PROBLEM_CONCLUSIONS = new Set(['success', 'neutral', 'skipped']);
 
 type JsonObject = Record<string, unknown>;
@@ -29,6 +35,27 @@ function json(body: unknown, status = 200): Response {
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
     throw new MaintenanceError('repository_not_allowed', 403);
+  }
+  return value;
+}
+
+function requiredString(value: unknown, name: string, max = 1_000): string {
+  if (typeof value !== 'string' || !value || value.length > max) {
+    throw new MaintenanceError(`invalid_${name}`);
+  }
+  return value;
+}
+
+function positiveInteger(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new MaintenanceError(`invalid_${name}`);
+  }
+  return value;
+}
+
+function nonNegativeInteger(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new MaintenanceError(`invalid_${name}`);
   }
   return value;
 }
@@ -77,18 +104,35 @@ async function actionPayload(response: Response): Promise<JsonObject> {
   return value;
 }
 
+async function readResponse(
+  source: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  path: string,
+): Promise<Response> {
+  return handleGptActions(internalRequest(source, READ_PATH, { path }), env, fetcher);
+}
+
 async function readData(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  const response = await handleGptActions(
-    internalRequest(source, READ_PATH, { path }),
-    env,
-    fetcher,
-  );
-  return (await actionPayload(response)).data;
+  return (await actionPayload(await readResponse(source, env, fetcher, path))).data;
+}
+
+async function gptomekClient(
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<GitHubInstallationClient> {
+  const appId = requiredString(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
+  const privateKey = requiredString(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
+  const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
+  if (!Number.isInteger(installationId) || installationId <= 0) {
+    throw new MaintenanceError('invalid_gptomek_installation_id', 503);
+  }
+  return createInstallationClient(appId, privateKey, installationId, fetcher);
 }
 
 function stringValue(value: unknown): string | null {
@@ -129,6 +173,62 @@ function compactRun(value: unknown): JsonObject | null {
     htmlUrl: stringValue(value.html_url),
     updatedAt: stringValue(value.updated_at),
   };
+}
+
+function compactArtifact(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  const workflowRun = isObject(value.workflow_run) ? value.workflow_run : {};
+  return {
+    id: numberValue(value.id),
+    name: stringValue(value.name),
+    sizeBytes: numberValue(value.size_in_bytes),
+    expired: value.expired === true,
+    createdAt: stringValue(value.created_at),
+    updatedAt: stringValue(value.updated_at),
+    expiresAt: stringValue(value.expires_at),
+    workflowRunId: numberValue(workflowRun.id),
+  };
+}
+
+function compactCache(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  return {
+    id: numberValue(value.id),
+    key: stringValue(value.key),
+    ref: stringValue(value.ref),
+    version: stringValue(value.version),
+    sizeBytes: numberValue(value.size_in_bytes),
+    createdAt: stringValue(value.created_at),
+    lastAccessedAt: stringValue(value.last_accessed_at),
+  };
+}
+
+export function artifactCleanupMatches(
+  value: unknown,
+  artifactId: number,
+  expectedName: string,
+  expectedSizeBytes: number,
+): boolean {
+  return (
+    isObject(value) &&
+    value.id === artifactId &&
+    value.name === expectedName &&
+    value.size_in_bytes === expectedSizeBytes
+  );
+}
+
+export function cacheCleanupMatches(
+  value: unknown,
+  cacheId: number,
+  expectedKey: string,
+  expectedRef: string,
+): boolean {
+  return (
+    isObject(value) &&
+    value.id === cacheId &&
+    value.key === expectedKey &&
+    value.ref === expectedRef
+  );
 }
 
 export function workflowRunIsProblem(value: unknown): boolean {
@@ -177,21 +277,26 @@ async function maintenanceReport(
   const input = await inputObject(request);
   const repositoryName = repository(input.repository);
   const repo = repoPath(repositoryName);
-  const [repositoryRaw, branchesRaw, pullsRaw, runsRaw, artifactsRaw, cacheRaw] = await Promise.all([
-    readData(request, env, fetcher, `/repos/${repo}`),
-    readData(request, env, fetcher, `/repos/${repo}/branches?per_page=100`),
-    readData(request, env, fetcher, `/repos/${repo}/pulls?state=open&per_page=100`),
-    readData(request, env, fetcher, `/repos/${repo}/actions/runs?per_page=50`),
-    readData(request, env, fetcher, `/repos/${repo}/actions/artifacts?per_page=100`),
-    readData(request, env, fetcher, `/repos/${repo}/actions/cache/usage`),
-  ]);
+  const [repositoryRaw, branchesRaw, pullsRaw, runsRaw, artifactsRaw, cacheRaw, cachesRaw] =
+    await Promise.all([
+      readData(request, env, fetcher, `/repos/${repo}`),
+      readData(request, env, fetcher, `/repos/${repo}/branches?per_page=100`),
+      readData(request, env, fetcher, `/repos/${repo}/pulls?state=open&per_page=100`),
+      readData(request, env, fetcher, `/repos/${repo}/actions/runs?per_page=50`),
+      readData(request, env, fetcher, `/repos/${repo}/actions/artifacts?per_page=100`),
+      readData(request, env, fetcher, `/repos/${repo}/actions/cache/usage`),
+      readData(request, env, fetcher, `/repos/${repo}/actions/caches?per_page=100`),
+    ]);
   if (!isObject(repositoryRaw) || typeof repositoryRaw.default_branch !== 'string') {
     throw new MaintenanceError('invalid_repository_response', 502);
   }
   const branches = Array.isArray(branchesRaw) ? branchesRaw : [];
   const pulls = Array.isArray(pullsRaw) ? pullsRaw : [];
   const runs = isObject(runsRaw) && Array.isArray(runsRaw.workflow_runs) ? runsRaw.workflow_runs : [];
-  const artifacts = isObject(artifactsRaw) && Array.isArray(artifactsRaw.artifacts) ? artifactsRaw.artifacts : [];
+  const artifacts =
+    isObject(artifactsRaw) && Array.isArray(artifactsRaw.artifacts) ? artifactsRaw.artifacts : [];
+  const caches =
+    isObject(cachesRaw) && Array.isArray(cachesRaw.actions_caches) ? cachesRaw.actions_caches : [];
   const openPullRequests = pulls
     .map(compactPullRequest)
     .filter((entry): entry is JsonObject => Boolean(entry));
@@ -203,7 +308,17 @@ async function maintenanceReport(
   const listedArtifactBytes = artifacts.reduce((sum, artifact) => {
     return sum + (isObject(artifact) && typeof artifact.size_in_bytes === 'number' ? artifact.size_in_bytes : 0);
   }, 0);
-  const expiredArtifacts = artifacts.filter((artifact) => isObject(artifact) && artifact.expired === true).length;
+  const expiredArtifacts = artifacts.filter(
+    (artifact) => isObject(artifact) && artifact.expired === true,
+  ).length;
+  const artifactItems = artifacts
+    .slice(0, 30)
+    .map(compactArtifact)
+    .filter((entry): entry is JsonObject => Boolean(entry));
+  const cacheItems = caches
+    .slice(0, 30)
+    .map(compactCache)
+    .filter((entry): entry is JsonObject => Boolean(entry));
 
   return json({
     ok: true,
@@ -228,14 +343,106 @@ async function maintenanceReport(
       listedCount: artifacts.length,
       listedBytes: listedArtifactBytes,
       expiredListedCount: expiredArtifacts,
-      truncated: isObject(artifactsRaw) && typeof artifactsRaw.total_count === 'number'
-        ? artifactsRaw.total_count > artifacts.length
-        : false,
+      items: artifactItems,
+      truncated:
+        isObject(artifactsRaw) && typeof artifactsRaw.total_count === 'number'
+          ? artifactsRaw.total_count > artifacts.length
+          : false,
     },
     cache: {
       activeCount: isObject(cacheRaw) ? numberValue(cacheRaw.active_caches_count) : null,
       activeBytes: isObject(cacheRaw) ? numberValue(cacheRaw.active_caches_size_in_bytes) : null,
+      totalCount: isObject(cachesRaw) ? numberValue(cachesRaw.total_count) : null,
+      listedCount: caches.length,
+      items: cacheItems,
+      truncated:
+        isObject(cachesRaw) && typeof cachesRaw.total_count === 'number'
+          ? cachesRaw.total_count > caches.length
+          : false,
     },
+  });
+}
+
+async function deleteMaintenanceArtifact(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const input = await inputObject(request);
+  const repositoryName = repository(input.repository);
+  const artifactId = positiveInteger(input.artifactId, 'artifact_id');
+  const expectedName = requiredString(input.expectedName, 'expected_name', 500);
+  const expectedSizeBytes = nonNegativeInteger(input.expectedSizeBytes, 'expected_size_bytes');
+  const repo = repoPath(repositoryName);
+  const artifactResponse = await readResponse(
+    request,
+    env,
+    fetcher,
+    `/repos/${repo}/actions/artifacts/${artifactId}`,
+  );
+  if (artifactResponse.status === 404) {
+    return json({ ok: true, deleted: false, alreadyAbsent: true });
+  }
+  const artifactRaw = (await actionPayload(artifactResponse)).data;
+  if (!artifactCleanupMatches(artifactRaw, artifactId, expectedName, expectedSizeBytes)) {
+    throw new MaintenanceError('artifact_changed', 409);
+  }
+
+  const client = await gptomekClient(env, fetcher);
+  await client.void(
+    `/repos/${repo}/actions/artifacts/${artifactId}`,
+    'gpt_action_delete_artifact',
+    { method: 'DELETE' },
+  );
+  return json({
+    ok: true,
+    deleted: true,
+    alreadyAbsent: false,
+    artifact: compactArtifact(artifactRaw),
+  });
+}
+
+async function deleteMaintenanceCache(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const input = await inputObject(request);
+  const repositoryName = repository(input.repository);
+  const cacheId = positiveInteger(input.cacheId, 'cache_id');
+  const expectedKey = requiredString(input.expectedKey, 'expected_key', 1_000);
+  const expectedRef = requiredString(input.expectedRef, 'expected_ref', 1_000);
+  const repo = repoPath(repositoryName);
+  const cacheList = await readData(
+    request,
+    env,
+    fetcher,
+    `/repos/${repo}/actions/caches?per_page=100&key=${encodeURIComponent(expectedKey)}&ref=${encodeURIComponent(expectedRef)}`,
+  );
+  if (!isObject(cacheList) || !Array.isArray(cacheList.actions_caches)) {
+    throw new MaintenanceError('invalid_cache_response', 502);
+  }
+  const cacheRaw = cacheList.actions_caches.find(
+    (value) => isObject(value) && value.id === cacheId,
+  );
+  if (!cacheRaw) {
+    return json({ ok: true, deleted: false, alreadyAbsent: true });
+  }
+  if (!cacheCleanupMatches(cacheRaw, cacheId, expectedKey, expectedRef)) {
+    throw new MaintenanceError('cache_changed', 409);
+  }
+
+  const client = await gptomekClient(env, fetcher);
+  await client.void(
+    `/repos/${repo}/actions/caches/${cacheId}`,
+    'gpt_action_delete_actions_cache',
+    { method: 'DELETE' },
+  );
+  return json({
+    ok: true,
+    deleted: true,
+    alreadyAbsent: false,
+    cache: compactCache(cacheRaw),
   });
 }
 
@@ -248,6 +455,17 @@ function objectResponse(description: string): JsonObject {
   };
 }
 
+function requestSchema(required: string[], properties: JsonObject): JsonObject {
+  return {
+    required: true,
+    content: {
+      'application/json': {
+        schema: { type: 'object', required, properties },
+      },
+    },
+  };
+}
+
 export function addMaintenanceOpenApi(document: JsonObject): void {
   if (!isObject(document.paths)) document.paths = {};
   const paths = document.paths as JsonObject;
@@ -256,20 +474,44 @@ export function addMaintenanceOpenApi(document: JsonObject): void {
       operationId: 'getRepositoryMaintenance',
       summary: 'Inspect repository maintenance state',
       description:
-        'Returns open PRs, branches without open PRs, recent problematic workflow runs, artifact usage and active Actions cache usage without deleting anything.',
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: {
-              type: 'object',
-              required: ['repository'],
-              properties: { repository: { type: 'string', example: 'trvny/feedseek' } },
-            },
-          },
-        },
-      },
+        'Returns open PRs, unattached branches, problematic workflow runs, artifacts and Actions caches without deleting anything.',
+      requestBody: requestSchema(['repository'], {
+        repository: { type: 'string', example: 'trvny/feedseek' },
+      }),
       responses: objectResponse('Repository maintenance report'),
+    },
+  };
+  paths[ARTIFACT_DELETE_PATH] = {
+    post: {
+      operationId: 'deleteMaintenanceArtifact',
+      summary: 'Delete one exact Actions artifact',
+      description:
+        'Deletes one artifact only when its current ID, name and byte size still match the maintenance snapshot.',
+      requestBody: requestSchema(
+        ['repository', 'artifactId', 'expectedName', 'expectedSizeBytes'],
+        {
+          repository: { type: 'string', example: 'trvny/feedseek' },
+          artifactId: { type: 'integer', minimum: 1 },
+          expectedName: { type: 'string' },
+          expectedSizeBytes: { type: 'integer', minimum: 0 },
+        },
+      ),
+      responses: objectResponse('Artifact cleanup result'),
+    },
+  };
+  paths[CACHE_DELETE_PATH] = {
+    post: {
+      operationId: 'deleteMaintenanceCache',
+      summary: 'Delete one exact Actions cache',
+      description:
+        'Deletes one Actions cache only when its current ID, key and ref still match the maintenance snapshot.',
+      requestBody: requestSchema(['repository', 'cacheId', 'expectedKey', 'expectedRef'], {
+        repository: { type: 'string', example: 'trvny/feedseek' },
+        cacheId: { type: 'integer', minimum: 1 },
+        expectedKey: { type: 'string' },
+        expectedRef: { type: 'string' },
+      }),
+      responses: objectResponse('Cache cleanup result'),
     },
   };
 }
@@ -279,10 +521,19 @@ export async function handleMaintenanceAction(
   env: GptActionsEnv,
   fetcher: typeof fetch,
 ): Promise<Response | null> {
-  if (new URL(request.url).pathname !== MAINTENANCE_PATH) return null;
+  const pathname = new URL(request.url).pathname;
+  if (![MAINTENANCE_PATH, ARTIFACT_DELETE_PATH, CACHE_DELETE_PATH].includes(pathname)) {
+    return null;
+  }
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
   try {
-    return await maintenanceReport(request, env, fetcher);
+    if (pathname === ARTIFACT_DELETE_PATH) {
+      return deleteMaintenanceArtifact(request, env, fetcher);
+    }
+    if (pathname === CACHE_DELETE_PATH) {
+      return deleteMaintenanceCache(request, env, fetcher);
+    }
+    return maintenanceReport(request, env, fetcher);
   } catch (error) {
     if (error instanceof MaintenanceError) return json({ ok: false, error: error.code }, error.status);
     console.error(

@@ -8,14 +8,20 @@ Prefer improving an existing home over creating another parallel structure.
 
 Shared context lives in `.ai/`. Read it in this order — most useful first:
 
-1. `.ai/private/claude/memory/` — working notes from the author's local store:
+1. `.ai/private/openai/gremlin-policy.json` — private runtime/operator policy for
+   Gremlin/GPTomek. For GitHub work, load it before repository mutations and
+   treat its deterministic guards, stop conditions, repo filters, maintenance
+   limits, merge/release policy, and preferred high-level Actions as the private
+   source of truth. Use `githubReadBatch` when practical so policy and repo
+   context arrive in one round trip.
+2. `.ai/private/claude/memory/` — working notes from the author's local store:
    habits, GitHub conventions, CI traps. This is the part a clone cannot get any
    other way, and the part most likely to save a wasted round. You can add to it:
    `memory/field-notes/` is written here rather than exported, so a finding that
    cost you real work does not have to cost the next session the same.
-2. `.ai/core/instructions/` and `.ai/core/styles/` — how to communicate. From
+3. `.ai/core/instructions/` and `.ai/core/styles/` — how to communicate. From
    the public core, a pinned submodule of `trvny/.ai`.
-3. `.ai/profile.yaml` — the private profile overlay on the core's base profile.
+4. `.ai/profile.yaml` — the private profile overlay on the core's base profile.
 
 **Precedence does not follow the reading order above.** When two layers
 disagree, the more specific one wins: this file beats anything

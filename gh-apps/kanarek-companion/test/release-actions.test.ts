@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { releaseTagAllowed, releaseUpdateFlags } from '../src/release-actions.ts';
-import { customGptOpenApi } from '../src/router.ts';
+import { customGptOpenApi, restrictedBotWrite } from '../src/router.ts';
 
 test('release action is exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {
@@ -35,4 +35,18 @@ test('release updates preserve omitted publication flags', () => {
     () => releaseUpdateFlags(true, false, undefined, undefined, 'true'),
     /latest_not_allowed_for_draft_or_prerelease/,
   );
+});
+
+test('raw release mutations are routed through the guarded release action', () => {
+  for (const [method, path] of [
+    ['POST', '/repos/trvny/trvny/releases'],
+    ['PATCH', '/repos/trvny/trvny/releases/123'],
+    ['DELETE', '/repos/trvny/trvny/releases/123'],
+    ['POST', '/repos/trvny/trvny/releases/123/assets'],
+    ['DELETE', '/repos/trvny/trvny/releases/assets/456'],
+    ['POST', '/repos/trvny/trvny/releases/generate-notes'],
+  ] as const) {
+    assert.equal(restrictedBotWrite(method, path), 'use_release_action');
+  }
+  assert.equal(restrictedBotWrite('GET', '/repos/trvny/trvny/releases/123'), null);
 });

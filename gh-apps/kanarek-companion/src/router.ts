@@ -99,7 +99,7 @@ function addBranchDeleteOperation(document: JsonObject): void {
   const botPost = isObject(botPath) && isObject(botPath.post) ? botPath.post : null;
   if (botPost) {
     botPost.description =
-      'Use for allowlisted comments, reactions, labels, issue/PR updates and releases. PR creation stays user-authored. File edits, raw branch refs and workflow mutations use guarded actions.';
+      'Use for allowlisted comments, reactions, labels and issue/PR updates. PR creation stays user-authored. File edits, raw branch refs, workflow mutations and release writes use guarded actions.';
   }
 }
 
@@ -182,6 +182,12 @@ export function restrictedBotWrite(methodValue: string, path: string): string | 
     new RegExp(`${repoPrefix}actions/workflows/[^/]+/dispatches/?$`).test(pathname)
   ) {
     return 'use_workflow_dispatch';
+  }
+  if (
+    (method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE') &&
+    new RegExp(`${repoPrefix}releases(?:/|$)`).test(pathname)
+  ) {
+    return 'use_release_action';
   }
   return null;
 }

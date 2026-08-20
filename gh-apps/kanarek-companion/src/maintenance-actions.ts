@@ -222,12 +222,14 @@ export function cacheCleanupMatches(
   cacheId: number,
   expectedKey: string,
   expectedRef: string,
+  expectedLastAccessedAt?: string,
 ): boolean {
   return (
     isObject(value) &&
     value.id === cacheId &&
     value.key === expectedKey &&
-    value.ref === expectedRef
+    value.ref === expectedRef &&
+    (expectedLastAccessedAt === undefined || value.last_accessed_at === expectedLastAccessedAt)
   );
 }
 
@@ -412,6 +414,9 @@ async function deleteMaintenanceCache(
   const cacheId = positiveInteger(input.cacheId, 'cache_id');
   const expectedKey = requiredString(input.expectedKey, 'expected_key', 1_000);
   const expectedRef = requiredString(input.expectedRef, 'expected_ref', 1_000);
+  const expectedLastAccessedAt = input.expectedLastAccessedAt === undefined
+    ? undefined
+    : requiredString(input.expectedLastAccessedAt, 'expected_last_accessed_at', 100);
   const repo = repoPath(repositoryName);
   const cacheList = await readData(
     request,
@@ -428,7 +433,7 @@ async function deleteMaintenanceCache(
   if (!cacheRaw) {
     return json({ ok: true, deleted: false, alreadyAbsent: true });
   }
-  if (!cacheCleanupMatches(cacheRaw, cacheId, expectedKey, expectedRef)) {
+  if (!cacheCleanupMatches(cacheRaw, cacheId, expectedKey, expectedRef, expectedLastAccessedAt)) {
     throw new MaintenanceError('cache_changed', 409);
   }
 

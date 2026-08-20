@@ -61,9 +61,34 @@ test('artifact cleanup requires an exact snapshot match', () => {
 });
 
 test('cache cleanup requires an exact id, key and ref match', () => {
-  const cache = { id: 7, key: 'npm-linux-v3', ref: 'refs/heads/main' };
+  const cache = {
+    id: 7,
+    key: 'npm-linux-v3',
+    ref: 'refs/heads/main',
+    last_accessed_at: '2026-08-10T12:00:00Z',
+  };
   assert.equal(cacheCleanupMatches(cache, 7, 'npm-linux-v3', 'refs/heads/main'), true);
   assert.equal(cacheCleanupMatches(cache, 8, 'npm-linux-v3', 'refs/heads/main'), false);
   assert.equal(cacheCleanupMatches(cache, 7, 'npm-linux-v2', 'refs/heads/main'), false);
   assert.equal(cacheCleanupMatches(cache, 7, 'npm-linux-v3', 'refs/heads/dev'), false);
+  assert.equal(
+    cacheCleanupMatches(
+      cache,
+      7,
+      'npm-linux-v3',
+      'refs/heads/main',
+      '2026-08-10T12:00:00Z',
+    ),
+    true,
+  );
+  assert.equal(
+    cacheCleanupMatches(
+      { ...cache, last_accessed_at: '2026-08-21T00:00:00Z' },
+      7,
+      'npm-linux-v3',
+      'refs/heads/main',
+      '2026-08-10T12:00:00Z',
+    ),
+    false,
+  );
 });

@@ -30,6 +30,9 @@ const POLICY: GremlinPolicy = {
       maxRepositoriesPerRun: 8,
       maxFixesPerRun: 12,
       workflowRetries: 1,
+      cacheMaxBytes: 5 * 1024 * 1024 * 1024,
+      cacheStaleDays: 5,
+      repositoryOverrides: [],
     },
     merge: {
       enabled: true,

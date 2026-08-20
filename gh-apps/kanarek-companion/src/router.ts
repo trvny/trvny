@@ -26,6 +26,11 @@ import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts'
 import { handleMergeReleasePolicyAction } from './policy-merge-release.ts';
 import { handlePolicyEnforcementAction } from './policy-enforcement.ts';
 import { addPolicyOpenApi, handlePolicyAction } from './policy-actions.ts';
+import {
+  addReleaseOrchestrationOpenApi,
+  handleReleaseOrchestrationAction,
+  RELEASE_ORCHESTRATION_PATH,
+} from './release-orchestration.ts';
 import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
 import {
   addEnhancedWorkflowDiagnosisOpenApi,
@@ -146,6 +151,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   addEnhancedWorkflowDiagnosisOpenApi(source);
   addPolicyOpenApi(source);
   addReleaseOpenApi(source);
+  addReleaseOrchestrationOpenApi(source);
   addWorkflowOpenApi(source);
   const document = normalizeObjectSchemas(source);
   if (!isObject(document)) throw new Error('invalid_openapi_document');
@@ -429,7 +435,10 @@ const worker = {
       }
     }
 
-    if (url.pathname === AUTOPILOT_ACTION_PATH) {
+    if (
+      url.pathname === AUTOPILOT_ACTION_PATH ||
+      url.pathname === RELEASE_ORCHESTRATION_PATH
+    ) {
       const authProbe = await handleGptActions(
         internalActionRequest(request, '/gpt-actions/github/read', { path: '/user' }),
         env,
@@ -453,6 +462,13 @@ const worker = {
 
     const autopilotResponse = await handleAutopilotAction(request, env, actionFetch);
     if (autopilotResponse) return autopilotResponse;
+
+    const releaseOrchestrationResponse = await handleReleaseOrchestrationAction(
+      request,
+      env,
+      actionFetch,
+    );
+    if (releaseOrchestrationResponse) return releaseOrchestrationResponse;
 
     const mergeReleasePolicyResponse = await handleMergeReleasePolicyAction(
       request,

@@ -20,6 +20,10 @@ raw REST calls.
 - `investigateCode` with path/language/ref filters and optional file history.
 - Per-repository maintenance report plus exact artifact/cache cleanup.
 - Account-wide maintenance radar across active owned repositories.
+- `runAccountMaintenanceAutofix` can plan and execute bounded safe maintenance:
+  current-head first-attempt workflow retries, exact closed-PR branch cleanup,
+  dead-branch cache cleanup and expired-artifact deletion through existing
+  guarded actions.
 - Generic raw branch/workflow/release writes are blocked in favor of guarded
   actions.
 - Operator plumbing caches OAuth `/user` checks and GPTomek installation tokens;
@@ -53,14 +57,15 @@ raw REST calls.
 
 ## Autopilot
 
-- [ ] Build a guarded account/repository autopilot loop:
+- [ ] Build the broader guarded account/repository autopilot loop:
   scan -> classify -> plan -> execute safe steps -> verify -> report.
-- [ ] Start with maintenance because the read and cleanup primitives already
-  exist. Global radar should choose repositories, then use detailed repo reports
-  only where needed.
-- [ ] Let deterministic policy auto-handle safe chores such as exact stale cache
-  or artifact cleanup, orphan branch cleanup with expected SHA, reasonable
-  workflow retries and final verification.
+- [x] Start with maintenance: the account radar selects repositories and
+  `runAccountMaintenanceAutofix` uses detailed repo reports only where needed.
+- [x] Auto-handle the first deterministic safe chores through guarded actions:
+  exact expired artifacts, dead-branch caches, closed-PR orphan branches with
+  expected SHA and one reasonable current-head workflow retry.
+- [ ] Move maintenance thresholds, repository exceptions and enabled auto-actions
+  into the private runtime policy instead of hard-coding broader heuristics.
 - [ ] Keep product/code decisions in the model. Runtime decides what is allowed;
   the model decides what the evidence means and what change to implement.
 - [ ] Add resumable operation/checkpoint IDs if long multi-repository jobs begin

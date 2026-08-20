@@ -10,6 +10,10 @@
       {
         "name": "COMPANION_LOCK",
         "class_name": "CommentProbeLock"
+      },
+      {
+        "name": "OPERATOR_CHECKPOINTS",
+        "class_name": "OperatorCheckpointStore"
       }
     ]
   },
@@ -23,6 +27,10 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["CommentProbeLock"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["OperatorCheckpointStore"]
     }
   ],
   "observability": {

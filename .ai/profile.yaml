@@ -11,12 +11,12 @@ personality:
     warm: 1
     enthusiastic: 0
     concise: 2
-    technical: 0
+    technical: 1
     educational: 0
     critical: 2
     headingsAndLists: 1
     emoji: 1
-    quickReplies: 0
+    quickReplies: 1
     whimsical: 2
     cynical: 2
   adaptation:

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildCodeSnippets } from '../src/investigation-actions.ts';
+import {
+  buildCodeSearchQuery,
+  buildCodeSnippets,
+  investigationRefAllowed,
+} from '../src/investigation-actions.ts';
 import { customGptOpenApi } from '../src/router.ts';
 
 test('code investigation is exposed in Custom GPT OpenAPI', () => {
@@ -16,6 +20,27 @@ test('code investigation is exposed in Custom GPT OpenAPI', () => {
   for (const operation of operations) {
     if (operation.description) assert.ok(operation.description.length <= 300);
   }
+});
+
+test('code search query includes optional path and language filters', () => {
+  assert.equal(
+    buildCodeSearchQuery('trvny/trvny', ['worker', 'token'], 'src', 'TypeScript'),
+    'worker token repo:trvny/trvny path:src language:TypeScript',
+  );
+  assert.equal(
+    buildCodeSearchQuery('trvny/trvny', ['worker']),
+    'worker repo:trvny/trvny',
+  );
+});
+
+test('investigation refs accept normal refs and reject unsafe shapes', () => {
+  assert.equal(investigationRefAllowed('main'), true);
+  assert.equal(investigationRefAllowed('feature/mobile/widget'), true);
+  assert.equal(investigationRefAllowed('a'.repeat(40)), true);
+  assert.equal(investigationRefAllowed('../main'), false);
+  assert.equal(investigationRefAllowed('feature//broken'), false);
+  assert.equal(investigationRefAllowed('bad ref'), false);
+  assert.equal(investigationRefAllowed('release.lock'), false);
 });
 
 test('code snippets include line numbers and merge nearby matches', () => {

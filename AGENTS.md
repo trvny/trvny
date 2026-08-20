@@ -18,17 +18,12 @@ when major homes move.
 | IPTV, radio, HLS, M3U/M3U8, XMLTV, Streambench | `streambench/` | Media testing/organizing/player workshop. Read `streambench/README.md`. |
 | Weather, IMGW alerts, Kościelec, Chrzanów | `weather-feed/` | Multi-source weather Worker exposing Atom/JSON. |
 | Aggregate service health / MCP status | `mcp/status-mcp/` | Health checks for selected external projects/services. |
-| GitHub Apps, GPT Actions, Gremlin operator, Kanarek Companion, GPTomek | `gh-apps/` | `kanarek-companion/` is the shared Cloudflare Worker/runtime. `gptomek/` documents/configures the bot identity; it reuses the Companion Worker rather than running a second backend. |
+| GitHub Apps, GPT Actions, Gremlin operator, Kanarek Companion, GPT omek | `gh-apps/` | `kanarek-companion/` is the shared Cloudflare Worker/runtime. `gptomek/` documents/configures the bot identity; it reuses the Companion Worker rather than running a second backend. |
 | Gremlin runtime policy, style profile, operator roadmap | `.ai/private/openai/` | Private OpenAI/Custom GPT overlay. Runtime safety policy and model style are separate concerns. |
 | Claude-local notes and learned repo traps | `.ai/private/claude/` | Private Claude overlay and working memory. |
 | Shared AI styles/instructions/profile composition | `.ai/` | Public `.ai/core` submodule plus private overlays in this repo. |
 | Playlists, small configs, helper feeds, quotes, miscellaneous drawers | `stuff/` | Shared loose material that does not justify a separate project. |
 | Licenses and third-party notices | `docs/` and repository root | Keep factual/legal files boring and accurate. |
-
-The large standalone projects are **not** directories in this repository:
-`trvny/feedseek`, `trvny/kanarek`, `trvny/tvpi`, `trvny/autka` and
-`trvny/wambridge` are separate repositories. If a task names one of them, work
-there unless the task explicitly concerns shared infrastructure kept here.
 
 For `gh-apps/` work, do not assume names imply separate runtimes. In particular,
 GPTomek and Kanarek Companion share the `gh-apps/kanarek-companion/` Worker.
@@ -41,7 +36,7 @@ Shared context lives in `.ai/`. Read only the layers relevant to the task, with
 these common entry points:
 
 1. `.ai/private/openai/gremlin-policy.json`,
-   `.ai/private/openai/gremlin-profile.yaml` and, when changing the operator
+   `.ic/private/openai/gremlin-profile.yaml` and, when changing the operator
    stack, `.ai/private/openai/gremlin-roadmap.md` — private Gremlin runtime
    policy, dedicated style profile and implementation checkpoint.
 2. `.ai/private/claude/memory/` — working notes from the author's local store:

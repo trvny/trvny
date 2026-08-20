@@ -7,11 +7,23 @@ const POLICY_PATH = '.ai/private/openai/gremlin-policy.json';
 const POLICY_REF = 'main';
 const MAX_POLICY_BYTES = 32_000;
 const MAX_AGENTS_BYTES = 24_000;
+const DEFAULT_CACHE_MAX_BYTES = 5 * 1024 * 1024 * 1024;
+const DEFAULT_CACHE_STALE_DAYS = 5;
+const MIN_CACHE_MAX_BYTES = 64 * 1024 * 1024;
+const MAX_CACHE_MAX_BYTES = 100 * 1024 * 1024 * 1024;
 
 type JsonObject = Record<string, unknown>;
 type Autonomy = 'low' | 'medium' | 'high';
 type OperatingMode = 'ask_first' | 'plan_then_act' | 'act_then_report';
 type MergeMethod = 'merge' | 'squash' | 'rebase';
+
+export interface MaintenanceRepositoryOverride {
+  repository: string;
+  autofix?: boolean;
+  workflowRetries?: number;
+  cacheMaxBytes?: number;
+  cacheStaleDays?: number;
+}
 
 export interface GremlinPolicy {
   version: 1;
@@ -32,6 +44,9 @@ export interface GremlinPolicy {
       maxRepositoriesPerRun: number;
       maxFixesPerRun: number;
       workflowRetries: number;
+      cacheMaxBytes: number;
+      cacheStaleDays: number;
+      repositoryOverrides: MaintenanceRepositoryOverride[];
     };
     merge: {
       enabled: boolean;
@@ -124,6 +139,19 @@ function integerValue(value: unknown, min: number, max: number, path: string): n
   return value;
 }
 
+function optionalBoolean(value: unknown, path: string): boolean | undefined {
+  return value === undefined ? undefined : booleanValue(value, path);
+}
+
+function optionalInteger(
+  value: unknown,
+  min: number,
+  max: number,
+  path: string,
+): number | undefined {
+  return value === undefined ? undefined : integerValue(value, min, max, path);
+}
+
 function stringList(
   value: unknown,
   path: string,
@@ -145,6 +173,13 @@ function repositoryPatterns(value: unknown, path: string): string[] {
   return stringList(value, path, /^trvny\/(?:\*|[A-Za-z0-9_.-]+)$/);
 }
 
+function exactRepository(value: unknown, path: string): string {
+  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+    policyError(path);
+  }
+  return value;
+}
+
 function branchNames(value: unknown, path: string): string[] {
   const result = stringList(value, path, /^[A-Za-z0-9._/-]+$/);
   for (const branch of result) {
@@ -158,6 +193,43 @@ function branchNames(value: unknown, path: string): string[] {
     }
   }
   return result;
+}
+
+function maintenanceOverrides(value: unknown): MaintenanceRepositoryOverride[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 32) policyError('runtime_maintenance_repository_overrides');
+
+  const overrides = value.map((entry, index) => {
+    const path = `runtime_maintenance_repository_overrides_${index}`;
+    const raw = exactObject(
+      entry,
+      ['repository', 'autofix', 'workflowRetries', 'cacheMaxBytes', 'cacheStaleDays'],
+      path,
+    );
+    const result: MaintenanceRepositoryOverride = {
+      repository: exactRepository(raw.repository, `${path}_repository`),
+    };
+    const autofix = optionalBoolean(raw.autofix, `${path}_autofix`);
+    const workflowRetries = optionalInteger(raw.workflowRetries, 0, 3, `${path}_workflow_retries`);
+    const cacheMaxBytes = optionalInteger(
+      raw.cacheMaxBytes,
+      MIN_CACHE_MAX_BYTES,
+      MAX_CACHE_MAX_BYTES,
+      `${path}_cache_max_bytes`,
+    );
+    const cacheStaleDays = optionalInteger(raw.cacheStaleDays, 1, 365, `${path}_cache_stale_days`);
+    if (autofix !== undefined) result.autofix = autofix;
+    if (workflowRetries !== undefined) result.workflowRetries = workflowRetries;
+    if (cacheMaxBytes !== undefined) result.cacheMaxBytes = cacheMaxBytes;
+    if (cacheStaleDays !== undefined) result.cacheStaleDays = cacheStaleDays;
+    return result;
+  });
+
+  const repositories = overrides.map((entry) => entry.repository);
+  if (new Set(repositories).size !== repositories.length) {
+    policyError('runtime_maintenance_repository_overrides_duplicate');
+  }
+  return overrides;
 }
 
 export function parseGremlinPolicy(value: unknown): GremlinPolicy {
@@ -181,7 +253,15 @@ export function parseGremlinPolicy(value: unknown): GremlinPolicy {
   );
   const maintenance = exactObject(
     runtime.maintenance,
-    ['autofix', 'maxRepositoriesPerRun', 'maxFixesPerRun', 'workflowRetries'],
+    [
+      'autofix',
+      'maxRepositoriesPerRun',
+      'maxFixesPerRun',
+      'workflowRetries',
+      'cacheMaxBytes',
+      'cacheStaleDays',
+      'repositoryOverrides',
+    ],
     'runtime_maintenance',
   );
   const merge = exactObject(
@@ -250,6 +330,23 @@ export function parseGremlinPolicy(value: unknown): GremlinPolicy {
           3,
           'runtime_maintenance_workflow_retries',
         ),
+        cacheMaxBytes: maintenance.cacheMaxBytes === undefined
+          ? DEFAULT_CACHE_MAX_BYTES
+          : integerValue(
+              maintenance.cacheMaxBytes,
+              MIN_CACHE_MAX_BYTES,
+              MAX_CACHE_MAX_BYTES,
+              'runtime_maintenance_cache_max_bytes',
+            ),
+        cacheStaleDays: maintenance.cacheStaleDays === undefined
+          ? DEFAULT_CACHE_STALE_DAYS
+          : integerValue(
+              maintenance.cacheStaleDays,
+              1,
+              365,
+              'runtime_maintenance_cache_stale_days',
+            ),
+        repositoryOverrides: maintenanceOverrides(maintenance.repositoryOverrides),
       },
       merge: {
         enabled: booleanValue(merge.enabled, 'runtime_merge_enabled'),

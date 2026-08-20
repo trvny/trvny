@@ -33,7 +33,10 @@
       "autofix": true,
       "maxRepositoriesPerRun": 8,
       "maxFixesPerRun": 12,
-      "workflowRetries": 1
+      "workflowRetries": 1,
+      "cacheMaxBytes": 5368709120,
+      "cacheStaleDays": 5,
+      "repositoryOverrides": []
     },
     "merge": {
       "enabled": true,

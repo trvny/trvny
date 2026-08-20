@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "operator": {
+    "autonomy": "high",
+    "finishRoutineWorkWithoutConfirmation": true,
+    "preferHighLevelGuardedActions": true,
+    "genericMutationActionsAreEscapeHatches": true,
+    "askOnlyWhenBlockedOrMateriallyAmbiguous": true
+  },
+  "repositories": {
+    "owner": "trvny",
+    "include": ["trvny/*"],
+    "exclude": [],
+    "skipArchivedByDefault": true
+  },
+  "maintenance": {
+    "enabled": true,
+    "autofixEnabled": true,
+    "maxRepositoriesPerRun": 8,
+    "maxFixesPerRun": 12,
+    "allow": {
+      "retryFailedWorkflow": true,
+      "deleteExpiredArtifact": true,
+      "deleteDeadBranchCache": true,
+      "deleteClosedPrOrphanBranch": true
+    },
+    "workflowRetry": {
+      "maxAutomaticAttempts": 1,
+      "requireCurrentBranchHead": true
+    },
+    "branchCleanup": {
+      "requireClosedPullRequest": true,
+      "requireExactHeadSha": true
+    },
+    "cacheCleanup": {
+      "requireMissingBranch": true
+    },
+    "artifactCleanup": {
+      "requireExpired": true
+    }
+  },
+  "pullRequests": {
+    "openAs": "trvny",
+    "botWritesAs": "gptomek[bot]",
+    "preferredMergeMethod": "squash",
+    "mergeWhen": {
+      "finalHeadChecksGreen": true,
+      "actionableReviewThreadsResolved": true,
+      "scopeMatchesRequest": true
+    },
+    "codexReviewIsAdvisory": true
+  },
+  "releases": {
+    "guardedActionsOnly": true,
+    "defaultBranchOnlyUnlessExplicit": true,
+    "verifyTargetBeforePublish": true,
+    "verifyFinalReleaseState": true
+  },
+  "stopConditions": [
+    "missing_required_credentials_or_permissions",
+    "repository_or_target_cannot_be_identified",
+    "two_materially_different_product_decisions_are_equally_plausible",
+    "next_step_would_destroy_unrelated_data_or_exceed_scope",
+    "external_secret_or_approval_is_required"
+  ],
+  "bootstrap": {
+    "policyPath": ".ai/private/openai/gremlin-policy.json",
+    "alsoRead": ["AGENTS.md"],
+    "useGithubReadBatch": true,
+    "loadBeforeRepositoryMutation": true
+  },
+  "preferredActions": [
+    "githubReadBatch",
+    "getRepositoryContext",
+    "prepareChange",
+    "inspectPullRequest",
+    "finalizePullRequest",
+    "diagnoseWorkflowRun",
+    "controlWorkflowRun",
+    "getRepositoryMaintenance",
+    "getAccountMaintenance",
+    "runAccountMaintenanceAutofix",
+    "investigateCode",
+    "releaseAsGptomek"
+  ]
+}

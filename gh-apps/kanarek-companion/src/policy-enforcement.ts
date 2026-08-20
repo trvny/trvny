@@ -16,12 +16,14 @@ import type { GptActionsEnv } from './gpt-actions.ts';
 
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
 const AUTOFIX_PATH = '/gpt-actions/github/maintenance/autofix';
+const REPORT_PATH = '/gpt-actions/github/maintenance/report';
 const ARTIFACT_DELETE_PATH = '/gpt-actions/github/maintenance/artifacts/delete';
 const CACHE_DELETE_PATH = '/gpt-actions/github/maintenance/caches/delete';
 const BRANCH_CLEANUP_PATH = '/gpt-actions/github/pull-requests/cleanup-branch';
 const WORKFLOW_CONTROL_PATH = '/gpt-actions/github/workflows/control';
 const HARD_MAX_REPOSITORIES = 8;
 const HARD_MAX_ACTIONS = 20;
+const DAY_MS = 24 * 60 * 60 * 1_000;
 
 type JsonObject = Record<string, unknown>;
 type ActionHandler = (
@@ -41,6 +43,13 @@ interface ActionResult {
   blocked: boolean;
   status: number;
   payload: JsonObject;
+}
+
+export interface EffectiveMaintenancePolicy {
+  autofix: boolean;
+  workflowRetries: number;
+  cacheMaxBytes: number;
+  cacheStaleDays: number;
 }
 
 class PolicyEnforcementError extends Error {
@@ -113,9 +122,7 @@ async function safeInvoke(
 ): Promise<ActionResult> {
   try {
     const response = await handler(internalRequest(source, pathname, body), env, fetcher);
-    if (!response) {
-      return failure(500, 'action_route_missing');
-    }
+    if (!response) return failure(500, 'action_route_missing');
     let payload: unknown;
     try {
       payload = await response.clone().json();
@@ -149,6 +156,24 @@ function patternMatches(pattern: string, repository: string): boolean {
   return pattern === 'trvny/*' ? repository.startsWith('trvny/') : pattern === repository;
 }
 
+function numberValue(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function objectArray(value: unknown): JsonObject[] {
+  return Array.isArray(value) ? value.filter(isObject) : [];
+}
+
+function epoch(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function repositoryAllowedByPolicy(policy: GremlinPolicy, repository: string): boolean {
   const included = policy.runtime.repositories.include.some((pattern) =>
     patternMatches(pattern, repository),
@@ -159,11 +184,46 @@ export function repositoryAllowedByPolicy(policy: GremlinPolicy, repository: str
   return included && !excluded;
 }
 
+export function effectiveMaintenancePolicy(
+  policy: GremlinPolicy,
+  repository: string,
+): EffectiveMaintenancePolicy {
+  const global = policy.runtime.maintenance;
+  const override = global.repositoryOverrides.find((entry) => entry.repository === repository);
+  return {
+    autofix: global.autofix && override?.autofix !== false,
+    workflowRetries: Math.min(global.workflowRetries, override?.workflowRetries ?? global.workflowRetries),
+    cacheMaxBytes: override?.cacheMaxBytes ?? global.cacheMaxBytes,
+    cacheStaleDays: override?.cacheStaleDays ?? global.cacheStaleDays,
+  };
+}
+
 function policyMetadata(loaded: LoadedGremlinPolicy): JsonObject {
   return {
     source: loaded.source,
     autonomy: loaded.policy.model.autonomy,
     operatingMode: loaded.policy.model.operatingMode,
+  };
+}
+
+function withMaintenanceAttention(
+  repository: JsonObject,
+  policy: GremlinPolicy,
+): JsonObject {
+  const name = repositoryName(repository.name);
+  const effective = effectiveMaintenancePolicy(policy, name);
+  const attention = Array.isArray(repository.attention)
+    ? repository.attention.filter((entry): entry is string => typeof entry === 'string')
+    : [];
+  const cache = isObject(repository.cache) ? repository.cache : {};
+  const activeBytes = numberValue(cache.activeBytes);
+  if (activeBytes !== null && activeBytes >= effective.cacheMaxBytes && !attention.includes('cache_pressure')) {
+    attention.push('cache_pressure');
+  }
+  return {
+    ...repository,
+    attention,
+    maintenancePolicy: effective,
   };
 }
 
@@ -187,8 +247,17 @@ export function filterAccountMaintenancePayload(
       excluded.push(name);
       continue;
     }
-    selected.push(repository);
+    selected.push(withMaintenanceAttention(repository, loaded.policy));
   }
+
+  selected.sort((left, right) => {
+    const leftAttention = Array.isArray(left.attention) ? left.attention.length : 0;
+    const rightAttention = Array.isArray(right.attention) ? right.attention.length : 0;
+    const attention = rightAttention - leftAttention;
+    const leftName = typeof left.name === 'string' ? left.name : '';
+    const rightName = typeof right.name === 'string' ? right.name : '';
+    return attention || leftName.localeCompare(rightName);
+  });
 
   return {
     ...payload,
@@ -278,6 +347,149 @@ function accountRepositoryNames(payload: JsonObject): string[] {
     .filter((name): name is string => Boolean(name));
 }
 
+async function reportForRepository(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  repository: string,
+): Promise<JsonObject> {
+  return invoke(handleMaintenanceAction, request, env, fetcher, REPORT_PATH, { repository });
+}
+
+function staleCachePlans(
+  repository: string,
+  report: JsonObject,
+  policy: EffectiveMaintenancePolicy,
+  excludedIds: Set<number>,
+  now: number,
+): JsonObject[] {
+  const cache = isObject(report.cache) ? report.cache : {};
+  const activeBytes = numberValue(cache.activeBytes);
+  if (activeBytes === null || activeBytes < policy.cacheMaxBytes) return [];
+  const cutoff = now - policy.cacheStaleDays * DAY_MS;
+
+  return objectArray(cache.items)
+    .map((item) => ({ item, lastAccessedEpoch: epoch(item.lastAccessedAt) }))
+    .filter(({ item, lastAccessedEpoch }) => {
+      const id = numberValue(item.id);
+      return (
+        id !== null &&
+        Number.isInteger(id) &&
+        id > 0 &&
+        !excludedIds.has(id) &&
+        lastAccessedEpoch !== null &&
+        lastAccessedEpoch <= cutoff &&
+        typeof item.key === 'string' &&
+        typeof item.ref === 'string' &&
+        typeof item.lastAccessedAt === 'string'
+      );
+    })
+    .sort((left, right) => (left.lastAccessedEpoch ?? 0) - (right.lastAccessedEpoch ?? 0))
+    .map(({ item }) => ({
+      kind: 'delete_stale_cache',
+      repository,
+      cacheId: item.id,
+      expectedKey: item.key,
+      expectedRef: item.ref,
+      expectedLastAccessedAt: item.lastAccessedAt,
+      policyReason: {
+        activeBytes,
+        cacheMaxBytes: policy.cacheMaxBytes,
+        cacheStaleDays: policy.cacheStaleDays,
+      },
+    }));
+}
+
+async function collectThresholdPlans(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  policy: GremlinPolicy,
+  repositories: string[],
+  basePlans: JsonObject[],
+): Promise<{ plans: JsonObject[]; diagnostics: JsonObject[] }> {
+  const excludedIds = new Map<string, Set<number>>();
+  for (const plan of basePlans) {
+    const repository = stringValue(plan.repository);
+    const cacheId = numberValue(plan.cacheId);
+    if (!repository || cacheId === null || !Number.isInteger(cacheId)) continue;
+    const ids = excludedIds.get(repository) ?? new Set<number>();
+    ids.add(cacheId);
+    excludedIds.set(repository, ids);
+  }
+
+  const plans: JsonObject[] = [];
+  const diagnostics: JsonObject[] = [];
+  const now = Date.now();
+  const reports = await Promise.all(
+    repositories.map(async (repository) => {
+      try {
+        return { repository, report: await reportForRepository(request, env, fetcher, repository) };
+      } catch (error) {
+        diagnostics.push({
+          repository,
+          area: 'cache_threshold_planning',
+          error: error instanceof Error ? error.message.slice(0, 200) : 'planning_failed',
+        });
+        return null;
+      }
+    }),
+  );
+
+  for (const entry of reports) {
+    if (!entry) continue;
+    plans.push(
+      ...staleCachePlans(
+        entry.repository,
+        entry.report,
+        effectiveMaintenancePolicy(policy, entry.repository),
+        excludedIds.get(entry.repository) ?? new Set<number>(),
+        now,
+      ),
+    );
+  }
+  return { plans, diagnostics };
+}
+
+async function verifyStaleCachePlan(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  policy: GremlinPolicy,
+  plan: JsonObject,
+): Promise<ActionResult | null> {
+  const repository = repositoryName(plan.repository);
+  const effective = effectiveMaintenancePolicy(policy, repository);
+  const report = await reportForRepository(request, env, fetcher, repository);
+  const cache = isObject(report.cache) ? report.cache : {};
+  const activeBytes = numberValue(cache.activeBytes);
+  if (activeBytes === null || activeBytes < effective.cacheMaxBytes) {
+    return failure(409, 'cache_pressure_cleared', true);
+  }
+  const cacheId = numberValue(plan.cacheId);
+  const expectedKey = stringValue(plan.expectedKey);
+  const expectedRef = stringValue(plan.expectedRef);
+  const expectedLastAccessedAt = stringValue(plan.expectedLastAccessedAt);
+  if (cacheId === null || !expectedKey || !expectedRef || !expectedLastAccessedAt) {
+    return failure(422, 'invalid_stale_cache_plan', true);
+  }
+  const current = objectArray(cache.items).find((item) => item.id === cacheId);
+  if (
+    !current ||
+    current.key !== expectedKey ||
+    current.ref !== expectedRef ||
+    current.lastAccessedAt !== expectedLastAccessedAt
+  ) {
+    return failure(409, 'stale_cache_snapshot_changed', true);
+  }
+  const lastAccessedAt = epoch(current.lastAccessedAt);
+  const cutoff = Date.now() - effective.cacheStaleDays * DAY_MS;
+  if (lastAccessedAt === null || lastAccessedAt > cutoff) {
+    return failure(409, 'stale_cache_recently_accessed', true);
+  }
+  return null;
+}
+
 async function executePlan(
   request: Request,
   env: GptActionsEnv,
@@ -287,9 +499,13 @@ async function executePlan(
 ): Promise<ActionResult> {
   const repository = repositoryName(plan.repository);
   const kind = typeof plan.kind === 'string' ? plan.kind : '';
+  const effective = effectiveMaintenancePolicy(policy, repository);
 
+  if (!effective.autofix) {
+    return failure(403, 'policy_blocks_repository_autofix', true);
+  }
   if (kind === 'rerun_failed_workflow') {
-    if (policy.runtime.maintenance.workflowRetries < 1) {
+    if (effective.workflowRetries < 1) {
       return failure(403, 'policy_blocks_workflow_retry', true);
     }
     return safeInvoke(handleWorkflowAction, request, env, fetcher, WORKFLOW_CONTROL_PATH, {
@@ -316,6 +532,17 @@ async function executePlan(
       expectedRef: plan.expectedRef,
     });
   }
+  if (kind === 'delete_stale_cache') {
+    const blocker = await verifyStaleCachePlan(request, env, fetcher, policy, plan);
+    if (blocker) return blocker;
+    return safeInvoke(handleMaintenanceAction, request, env, fetcher, CACHE_DELETE_PATH, {
+      repository,
+      cacheId: plan.cacheId,
+      expectedKey: plan.expectedKey,
+      expectedRef: plan.expectedRef,
+      expectedLastAccessedAt: plan.expectedLastAccessedAt,
+    });
+  }
   if (kind === 'delete_expired_artifact') {
     return safeInvoke(handleMaintenanceAction, request, env, fetcher, ARTIFACT_DELETE_PATH, {
       repository,
@@ -325,6 +552,12 @@ async function executePlan(
     });
   }
   return failure(422, 'policy_unknown_repair_kind', true);
+}
+
+function effectiveMaintenanceByRepository(policy: GremlinPolicy, repositories: string[]): JsonObject {
+  return Object.fromEntries(
+    repositories.map((repository) => [repository, effectiveMaintenancePolicy(policy, repository)]),
+  );
 }
 
 function noWorkResponse(
@@ -425,9 +658,29 @@ async function policyMaintenanceAutofix(
     AUTOFIX_PATH,
     { repositories: selected, dryRun: true, maxActions: limits.maxActions },
   );
-  const plans = Array.isArray(planner.plan) ? planner.plan.filter(isObject) : [];
+  const basePlans = Array.isArray(planner.plan) ? planner.plan.filter(isObject) : [];
+  const threshold = await collectThresholdPlans(
+    request,
+    env,
+    fetcher,
+    loaded.policy,
+    selected,
+    basePlans,
+  );
+  const combinedPlans = [...basePlans, ...threshold.plans];
+  const plans = combinedPlans.slice(0, limits.maxActions);
+  const extraDeferred = combinedPlans.slice(limits.maxActions);
+  const plannerDeferred = Array.isArray(planner.deferred) ? planner.deferred : [];
+  const diagnostics = [
+    ...(Array.isArray(planner.diagnostics) ? planner.diagnostics : []),
+    ...threshold.diagnostics,
+  ];
+
   const common = {
     ...planner,
+    plan: plans,
+    deferred: [...plannerDeferred, ...extraDeferred],
+    diagnostics,
     accountSummary: isObject(account.summary) ? account.summary : null,
     repositories: {
       ...(isObject(planner.repositories) ? planner.repositories : {}),
@@ -438,6 +691,7 @@ async function policyMaintenanceAutofix(
       ...policyMetadata(loaded),
       limits,
       maintenance: loaded.policy.runtime.maintenance,
+      effectiveMaintenance: effectiveMaintenanceByRepository(loaded.policy, selected),
     },
   };
 
@@ -466,7 +720,7 @@ async function policyMaintenanceAutofix(
     summary: {
       repositoriesProcessed: selected.length,
       planned: plans.length,
-      deferred: Array.isArray(planner.deferred) ? planner.deferred.length : 0,
+      deferred: [...plannerDeferred, ...extraDeferred].length,
       executed: executed.length,
       succeeded,
       failed,

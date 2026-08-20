@@ -24,6 +24,11 @@ raw REST calls.
   current-head first-attempt workflow retries, exact closed-PR branch cleanup,
   dead-branch cache cleanup and expired-artifact deletion through existing
   guarded actions.
+- Maintenance cache pressure is policy-driven. The private policy defines global
+  cache size/age thresholds and optional per-repository overrides. Account scans
+  surface `cache_pressure`; autofix may remove stale caches only while the repo is
+  over its size threshold, and rechecks pressure plus `lastAccessedAt` immediately
+  before deletion.
 - `runOperatorAutopilot` composes the operator loop: policy-scoped account scan,
   safe maintenance plan/execution, verification scan, bounded PR inspection and
   a prioritized continuation queue for model-driven follow-through.
@@ -38,8 +43,9 @@ raw REST calls.
   `getOperatorBootstrap` returns its validated model/runtime contract plus
   optional repository metadata and root `AGENTS.md` guidance.
 - Account maintenance and maintenance autofix are policy-wrapped: repository
-  include/exclude rules, archived handling, run limits, autofix enablement and
-  workflow retry budget are enforced before guarded mutations execute.
+  include/exclude rules, archived handling, run limits, autofix enablement,
+  workflow retry budget and cache thresholds are enforced before guarded
+  mutations execute.
 - PR finalization and release mutations are policy-wrapped too. Merge enablement
   and method, repository scope, archived handling and release branch ancestry
   are checked before the existing expected-SHA, CI, review and snapshot guards.
@@ -88,8 +94,10 @@ raw REST calls.
   expected SHA and one reasonable current-head workflow retry.
 - [x] Move maintenance repository scope, per-run limits, autofix enablement and
   workflow retry budget into the private runtime policy.
-- [ ] Add policy-driven cache/age thresholds and per-repository maintenance
-  exceptions when they become useful.
+- [x] Add policy-driven cache/age thresholds and per-repository maintenance
+  exceptions. Defaults are 5 GiB active cache pressure and 5 days since last
+  access; per-repository overrides may tune both or disable autofix. Stale cache
+  deletion revalidates the current snapshot before mutation.
 - [x] Keep product/code decisions in the model. Runtime decides what is allowed;
   the autopilot queues semantic follow-through instead of inventing code fixes in
   the Worker.
@@ -126,8 +134,9 @@ raw REST calls.
   Actions artifact instead of publishing the whole artifact ZIP.
 - [ ] Safe replace-release-asset workflow composed from exact delete + fresh
   snapshot + upload.
-- [ ] Account maintenance filters/priorities driven by private policy: ignored
-  repos, cache thresholds, age thresholds and repository-specific exceptions.
+- [x] Account maintenance filters/priorities driven by private policy: repository
+  scope, cache size/age thresholds and repository-specific exceptions now affect
+  both attention ranking and safe cache cleanup.
 - [ ] Account-level PR/issue sweep for “what needs my attention?” beyond pure
   Actions/cache maintenance.
 - [ ] More code-investigation ergonomics only when they remove real round trips

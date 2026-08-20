@@ -33,6 +33,9 @@ const POLICY: GremlinPolicy = {
       maxRepositoriesPerRun: 8,
       maxFixesPerRun: 12,
       workflowRetries: 1,
+      cacheMaxBytes: 5 * 1024 * 1024 * 1024,
+      cacheStaleDays: 5,
+      repositoryOverrides: [],
     },
     merge: {
       enabled: true,
@@ -81,6 +84,35 @@ test('Gremlin policy parser rejects unknown keys and unsafe limits', () => {
   assert.throws(
     () => parseGremlinPolicy(excessive),
     /invalid_policy_runtime_maintenance_workflow_retries/,
+  );
+
+  const tinyCache = structuredClone(POLICY);
+  tinyCache.runtime.maintenance.cacheMaxBytes = 1024;
+  assert.throws(
+    () => parseGremlinPolicy(tinyCache),
+    /invalid_policy_runtime_maintenance_cache_max_bytes/,
+  );
+});
+
+test('Gremlin policy parser accepts strict per-repository maintenance overrides', () => {
+  const configured = structuredClone(POLICY);
+  configured.runtime.maintenance.repositoryOverrides = [
+    {
+      repository: 'trvny/trvny',
+      autofix: false,
+      workflowRetries: 0,
+      cacheMaxBytes: 2 * 1024 * 1024 * 1024,
+      cacheStaleDays: 10,
+    },
+  ];
+  assert.deepEqual(parseGremlinPolicy(configured), configured);
+
+  configured.runtime.maintenance.repositoryOverrides.push({
+    repository: 'trvny/trvny',
+  });
+  assert.throws(
+    () => parseGremlinPolicy(configured),
+    /invalid_policy_runtime_maintenance_repository_overrides_duplicate/,
   );
 });
 

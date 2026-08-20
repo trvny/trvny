@@ -11,6 +11,10 @@ import {
   addAccountMaintenanceOpenApi,
   handleAccountMaintenanceAction,
 } from './maintenance-account.ts';
+import {
+  addMaintenanceAutofixOpenApi,
+  handleMaintenanceAutofixAction,
+} from './maintenance-autofix.ts';
 import { addMaintenanceOpenApi, handleMaintenanceAction } from './maintenance-actions.ts';
 import { addOperatorOpenApi, handleOperatorAction } from './operator-actions.ts';
 import { addReleaseOpenApi, handleReleaseAction } from './release-actions.ts';
@@ -119,6 +123,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   addLifecycleOpenApi(source);
   addMaintenanceOpenApi(source);
   addAccountMaintenanceOpenApi(source);
+  addMaintenanceAutofixOpenApi(source);
   addOperatorOpenApi(source);
   addReleaseOpenApi(source);
   addWorkflowOpenApi(source);
@@ -427,6 +432,13 @@ const worker = {
 
     const investigationResponse = await handleInvestigationAction(request, env, actionFetch);
     if (investigationResponse) return investigationResponse;
+
+    const maintenanceAutofixResponse = await handleMaintenanceAutofixAction(
+      request,
+      env,
+      actionFetch,
+    );
+    if (maintenanceAutofixResponse) return maintenanceAutofixResponse;
 
     const accountMaintenanceResponse = await handleAccountMaintenanceAction(
       request,

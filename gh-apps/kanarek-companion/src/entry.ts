@@ -1,3 +1,7 @@
+import {
+  addAgentGuidanceOpenApi,
+  handleAgentGuidanceAction,
+} from './agents-guidance-actions.ts';
 import router, {
   actionFetch,
   CommentProbeLock,
@@ -97,6 +101,7 @@ export function addCapabilityOpenApi(document: JsonObject): void {
 export function gatewayOpenApi(origin: string): JsonObject {
   const document = customGptOpenApi(origin);
   addCapabilityOpenApi(document);
+  addAgentGuidanceOpenApi(document);
   return document;
 }
 
@@ -333,6 +338,8 @@ const worker = {
     if (url.pathname === HEALTH_PATH && (request.method === 'GET' || request.method === 'HEAD')) {
       return decoratedHealth(request, env, ctx);
     }
+    const guidanceResponse = await handleAgentGuidanceAction(request, env, ctx);
+    if (guidanceResponse) return guidanceResponse;
     return router.fetch(request, env, ctx);
   },
 };

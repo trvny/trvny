@@ -49,6 +49,14 @@ raw REST calls.
 - Private operator policy lives in `.ai/private/openai/gremlin-policy.json` and
   `getOperatorBootstrap` returns its validated model/runtime contract plus
   optional repository metadata and root `AGENTS.md` guidance.
+- Dedicated paste-ready Builder instructions live in
+  `.ai/private/openai/gremlin-builder-instructions.md`; a CI test keeps them
+  below the Custom GPT 8k-byte limit and anchored to the runtime actions instead
+  of duplicating policy detail.
+- `getOperatorCapabilities` reports the serving Cloudflare Worker version and
+  derives sorted operation IDs plus a SHA-256 capability digest from the exact
+  OpenAPI served by that deployment. `/health` exposes the same live fingerprint
+  for deployment checks without treating a merge as proof of deployment.
 - Account maintenance and maintenance autofix are policy-wrapped: repository
   include/exclude rules, archived handling, run limits, autofix enablement,
   workflow retry budget and cache thresholds are enforced before guarded
@@ -81,9 +89,10 @@ raw REST calls.
   policy automatically where deterministic enforcement belongs.
   - [x] Account maintenance and maintenance autofix policy enforcement.
   - [x] Merge/finalize and release policy enforcement.
-- [ ] Keep the Custom GPT instruction block small: personality + broad operating
-  contract + “follow runtime operator policy”. Do not duplicate the policy into
-  the 8k instruction field.
+- [x] Keep the Custom GPT instruction block small: personality + broad operating
+  contract + runtime-action routing. The maintained paste-ready source is
+  `.ai/private/openai/gremlin-builder-instructions.md`, with CI enforcing the 8k
+  byte budget instead of duplicating runtime policy in Builder text.
 - [ ] Optionally generate a compact Builder/Knowledge pack from the private
   overlay so personality/reference material has a maintained source rather than
   hand-copied text.
@@ -131,8 +140,10 @@ raw REST calls.
 - [ ] Keep shrinking/tooling the OpenAPI surface: prefer high-level guarded
   workflows, use generic read/bot calls only as escape hatches, and consider a
   central action registry if router boilerplate keeps growing.
-- [ ] Add a compact capability/version manifest so the GPT can tell which
-  gateway generation is deployed before choosing a workflow.
+- [x] Add a compact capability/version manifest so the GPT can tell which
+  gateway generation is deployed before choosing a workflow. It derives its
+  operation set from the exact deployment OpenAPI and fingerprints it alongside
+  Cloudflare Worker version metadata.
 - [ ] Add a harmless post-deploy smoke/E2E check for the live Worker. Do not
   infer successful deployment merely from a merge to `main`.
 

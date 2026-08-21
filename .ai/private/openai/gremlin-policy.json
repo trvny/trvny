@@ -12,6 +12,7 @@
     ],
     "preferredActions": [
       "getOperatorBootstrap",
+      "getOperatorCapabilities",
       "runOperatorAutopilot",
       "getAccountMaintenance",
       "runAccountMaintenanceAutofix",

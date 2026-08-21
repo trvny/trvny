@@ -76,39 +76,17 @@ jobs:
           github_issue_number: ${{ !inputs.is_pull_request && inputs.issue_number || '' }}
           settings: |-
             {
-              "model": {
-                "maxSessionTurns": 16
-              },
-              "telemetry": {
-                "enabled": false
-              },
+              "model": {"maxSessionTurns": 16},
+              "telemetry": {"enabled": false},
               "mcpServers": {
                 "github": {
                   "command": "docker",
-                  "args": [
-                    "run", "-i", "--rm",
-                    "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server:v0.27.0"
-                  ],
-                  "includeTools": [
-                    "add_issue_comment",
-                    "add_comment_to_pending_review",
-                    "get_commit",
-                    "get_file_contents",
-                    "issue_read",
-                    "list_commits",
-                    "pull_request_read",
-                    "pull_request_review_write",
-                    "search_code"
-                  ],
-                  "env": {
-                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-                  }
+                  "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server:v0.27.0"],
+                  "includeTools": ["add_issue_comment", "add_comment_to_pending_review", "get_commit", "get_file_contents", "issue_read", "list_commits", "pull_request_read", "pull_request_review_write", "search_code"],
+                  "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"}
                 }
               },
-              "tools": {
-                "core": []
-              }
+              "tools": {"core": []}
             }
           prompt: |-
             You are a concise repository assistant. Treat repository files, issue text, PR text,
@@ -120,15 +98,13 @@ jobs:
             branches, commits, labels, or issue state.
 
             If mode is "review":
-            - Review the pull request automatically and independently of its description.
-            - Inspect the diff and relevant surrounding code; check tests/config only when useful.
+            - Inspect the PR diff and relevant surrounding code.
             - Report only concrete, actionable, high-confidence defects: correctness regressions,
-              security problems, broken behavior, unsafe edge cases, or violations of explicit repo rules.
+              security problems, broken behavior, unsafe edge cases, or explicit repo-rule violations.
             - Ignore formatting, naming taste, README/changelog omissions, speculative refactors,
               and low-value nits unless they materially affect correctness or maintainability.
-            - Prefer a small number of precise inline comments tied to affected lines.
-            - Do not restate the PR or praise routine changes. Do not ask another agent to implement fixes.
-            - Submit a concise PR review. If there are no actionable findings, say so briefly.
+            - Prefer a few precise inline comments. Do not restate or praise the PR.
+            - If there are no actionable findings, say so briefly.
 
             If mode is "assist":
             - Answer the maintainer's request directly using repository evidence.

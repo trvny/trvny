@@ -6,6 +6,7 @@ import {
   CODE_HISTORY_PATH,
   handleCodeHistoryAction,
   selectBlameRanges,
+  symbolLineMatches,
   symbolLineNumbers,
 } from '../src/code-history.ts';
 
@@ -17,6 +18,16 @@ test('symbolLineNumbers matches identifier boundaries', () => {
     '// Widget',
   ].join('\n');
   assert.deepEqual(symbolLineNumbers(content, 'Widget'), [1, 2, 4]);
+});
+
+test('symbolLineMatches counts beyond the returned line budget', () => {
+  const content = Array.from({ length: 60 }, (_, index) => `Widget(${index});`).join('\n');
+  const result = symbolLineMatches(content, 'Widget', 50);
+  assert.equal(result.total, 60);
+  assert.equal(result.lines.length, 50);
+  assert.equal(result.truncated, true);
+  assert.deepEqual(result.lines.slice(0, 2), [1, 2]);
+  assert.equal(result.lines.at(-1), 50);
 });
 
 test('selectBlameRanges focuses on line ranges and symbol lines', () => {
@@ -151,9 +162,13 @@ test('focused history resolves an exact snapshot and joins blame with PR context
   const payload = (await response.json()) as Record<string, any>;
   assert.equal(payload.snapshot.sha, sha);
   assert.deepEqual(payload.focus.symbolMatches.lines, [1, 2]);
+  assert.equal(payload.focus.symbolMatches.count, 2);
+  assert.equal(payload.focus.symbolMatches.truncated, false);
   assert.equal(payload.blame.ranges.length, 1);
   assert.equal(payload.blame.ranges[0].commit.pullRequests[0].number, 123);
+  assert.equal(payload.blame.ranges[0].commit.pullRequestsQueried, true);
   assert.equal(payload.recentCommits[0].pullRequests[0].number, 123);
+  assert.deepEqual(payload.enrichment.queriedCommitShas, [sha]);
 });
 
 test('focused history is exposed in OpenAPI', () => {

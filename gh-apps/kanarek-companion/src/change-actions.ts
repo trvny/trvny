@@ -1,3 +1,4 @@
+import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { branchNameAllowed, handleLifecycleAction } from './lifecycle-actions.ts';
 
@@ -163,17 +164,6 @@ function compactPullRequest(value: unknown): JsonObject | null {
   };
 }
 
-function decodeGithubContent(value: unknown): string | null {
-  if (!isObject(value) || value.encoding !== 'base64' || typeof value.content !== 'string') return null;
-  try {
-    const binary = atob(value.content.replace(/\s/g, ''));
-    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
-  } catch {
-    return null;
-  }
-}
-
 export function branchPullRequestConflict(pullRequests: unknown[], branchName: string): JsonObject | null {
   for (const value of pullRequests) {
     if (!isObject(value) || !isObject(value.head) || value.head.ref !== branchName) continue;
@@ -182,23 +172,22 @@ export function branchPullRequestConflict(pullRequests: unknown[], branchName: s
   return null;
 }
 
-async function optionalAgents(
+async function readAgentFile(
   request: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   repo: string,
-  baseSha: string,
-): Promise<string | null> {
+  path: string,
+  ref: string,
+): Promise<unknown | null> {
   const response = await readResponse(
     request,
     env,
     fetcher,
-    `/repos/${repo}/contents/AGENTS.md?ref=${baseSha}`,
+    `/repos/${repo}/contents/${repoPath(path)}?ref=${encodeURIComponent(ref)}`,
   );
   if (response.status === 404) return null;
-  const data = (await responsePayload(response)).data;
-  const decoded = decodeGithubContent(data);
-  return decoded ? decoded.slice(0, 32_000) : null;
+  return (await responsePayload(response)).data;
 }
 
 async function prepareChange(
@@ -211,6 +200,12 @@ async function prepareChange(
   const branchName = branch(input.branch);
   const baseSha = expectedSha(input.expectedBaseSha);
   const issue = input.issueNumber === undefined ? null : positiveInteger(input.issueNumber, 'issue_number');
+  let targets: string[];
+  try {
+    targets = targetPaths(input.targetPaths);
+  } catch {
+    throw new ChangeError('invalid_target_paths');
+  }
   const repo = repoPath(repositoryName);
 
   const repositoryRaw = await readData(request, env, fetcher, `/repos/${repo}`);
@@ -265,8 +260,12 @@ async function prepareChange(
   if (branchResponse.ok) return json({ ok: false, error: 'branch_already_exists' }, 409);
   if (branchResponse.status !== 404) await responsePayload(branchResponse);
 
-  const [agents, issueRaw] = await Promise.all([
-    optionalAgents(request, env, fetcher, repo, baseSha),
+  const [agentGuidance, issueRaw] = await Promise.all([
+    loadAgentGuidance(
+      targets,
+      baseSha,
+      (path, ref) => readAgentFile(request, env, fetcher, repo, path, ref),
+    ),
     issue === null
       ? Promise.resolve(null)
       : readData(request, env, fetcher, `/repos/${repo}/issues/${issue}`),
@@ -297,7 +296,8 @@ async function prepareChange(
       htmlUrl: stringValue(repositoryRaw.html_url),
     },
     branch: { name: branchName, sha: baseSha, created: true },
-    agentInstructions: agents,
+    agentInstructions: agentGuidance.root,
+    agentGuidance,
     issue: compactIssue(issueRaw),
     openPullRequests: openPullRequests
       .slice(0, 30)
@@ -323,7 +323,7 @@ export function addChangeOpenApi(document: JsonObject): void {
       operationId: 'prepareChange',
       summary: 'Preflight a change and create its branch',
       description:
-        'Checks the exact current default-branch SHA, branch and PR conflicts, loads root AGENTS.md and optional issue context, then creates a guarded GPTomek branch.',
+        'Checks the exact current default-branch SHA and conflicts, loads applicable root/nested AGENTS.md for optional target files plus issue context, then creates a guarded GPTomek branch.',
       requestBody: {
         required: true,
         content: {
@@ -336,6 +336,12 @@ export function addChangeOpenApi(document: JsonObject): void {
                 branch: { type: 'string' },
                 expectedBaseSha: { type: 'string' },
                 issueNumber: { type: 'integer', minimum: 1 },
+                targetPaths: {
+                  type: 'array',
+                  maxItems: 6,
+                  items: { type: 'string' },
+                  description: 'Repository-relative files expected to be edited; used to load applicable nested AGENTS.md files.',
+                },
               },
             },
           },

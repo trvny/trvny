@@ -482,7 +482,7 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
   const allRanges = rawBlameRanges(blameGraphql);
   const selectedRanges = selectBlameRanges(
     allRanges
-      .map((range) => ({
+      .map((range): BlameRangeLike => ({
         ...range,
         startingLine: numberValue(range.startingLine) ?? 0,
         endingLine: numberValue(range.endingLine) ?? 0,

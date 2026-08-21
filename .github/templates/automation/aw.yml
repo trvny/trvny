@@ -1,0 +1,8 @@
+name: trvny automation
+description: Shared GitHub automation templates for trvny repositories.
+includes:
+  - workflows/docs-updater.md
+  - source: templates/gemini-dispatch.yml
+    destination: .github/workflows/gemini-dispatch.yml
+  - source: templates/gemini-assistant.yml
+    destination: .github/workflows/gemini-assistant.yml

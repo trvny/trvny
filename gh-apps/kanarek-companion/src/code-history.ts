@@ -6,6 +6,7 @@ const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_CONTENT_BYTES = 600_000;
 const MAX_BLAME_RANGES = 80;
 const MAX_PR_LOOKUPS = 12;
+const MAX_SYMBOL_LINES = 50;
 
 type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
@@ -25,6 +26,12 @@ export type BlameRangeLike = {
   endingLine: number;
   commit?: unknown;
   age?: unknown;
+};
+
+export type SymbolMatchSummary = {
+  lines: number[];
+  total: number;
+  truncated: boolean;
 };
 
 class CodeHistoryError extends Error {
@@ -257,15 +264,26 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function symbolLineNumbers(content: string, symbol: string, limit = 50): number[] {
+export function symbolLineMatches(
+  content: string,
+  symbol: string,
+  limit = MAX_SYMBOL_LINES,
+): SymbolMatchSummary {
   const escaped = escapeRegExp(symbol);
   const pattern = new RegExp(`(^|[^A-Za-z0-9_$])${escaped}([^A-Za-z0-9_$]|$)`);
-  const lines = content.split(/\r?\n/);
-  const result: number[] = [];
-  for (let index = 0; index < lines.length && result.length < limit; index += 1) {
-    if (pattern.test(lines[index])) result.push(index + 1);
+  const contentLines = content.split(/\r?\n/);
+  const lines: number[] = [];
+  let total = 0;
+  for (let index = 0; index < contentLines.length; index += 1) {
+    if (!pattern.test(contentLines[index])) continue;
+    total += 1;
+    if (lines.length < limit) lines.push(index + 1);
   }
-  return result;
+  return { lines, total, truncated: total > lines.length };
+}
+
+export function symbolLineNumbers(content: string, symbol: string, limit = MAX_SYMBOL_LINES): number[] {
+  return symbolLineMatches(content, symbol, limit).lines;
 }
 
 function symbolContexts(content: string, lines: number[]): JsonObject[] {
@@ -439,7 +457,11 @@ function compactCommit(value: unknown, pulls: JsonObject[] = []): JsonObject | n
   };
 }
 
-function blameCommit(value: unknown, pulls: JsonObject[]): JsonObject | null {
+function blameCommit(
+  value: unknown,
+  pulls: JsonObject[],
+  pullRequestsQueried: boolean,
+): JsonObject | null {
   if (!isObject(value) || typeof value.oid !== 'string') return null;
   const author = isObject(value.author) ? value.author : {};
   const user = isObject(author.user) ? author.user : {};
@@ -455,6 +477,7 @@ function blameCommit(value: unknown, pulls: JsonObject[]): JsonObject | null {
     },
     url: stringValue(value.url),
     pullRequests: pulls,
+    pullRequestsQueried,
   };
 }
 
@@ -465,7 +488,10 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
   const content = input.symbol
     ? await fileContentAtSnapshot(request, invoke, input.repository, input.path, snapshot.sha)
     : null;
-  const symbolLines = input.symbol && content ? symbolLineNumbers(content, input.symbol) : [];
+  const symbolMatch = input.symbol && content
+    ? symbolLineMatches(content, input.symbol)
+    : { lines: [], total: 0, truncated: false };
+  const symbolLines = symbolMatch.lines;
   const symbolRequested = input.symbol !== undefined;
   const focused =
     (input.startLine !== undefined && input.endLine !== undefined) || symbolRequested;
@@ -520,6 +546,7 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
     lookupShas.map(async (sha) => [sha, await pullsForCommit(request, invoke, input.repository, sha)] as const),
   );
   const pullMap = new Map<string, JsonObject[]>(pullEntries);
+  const queriedShas = new Set(lookupShas);
 
   const blame = selectedRanges.map((range) => {
     const rawCommit = isObject(range.commit) ? range.commit : null;
@@ -528,7 +555,9 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
       startingLine: range.startingLine,
       endingLine: range.endingLine,
       age: numberValue(range.age),
-      commit: rawCommit ? blameCommit(rawCommit, pullMap.get(sha) ?? []) : null,
+      commit: rawCommit
+        ? blameCommit(rawCommit, pullMap.get(sha) ?? [], queriedShas.has(sha))
+        : null,
     };
   });
 
@@ -564,7 +593,9 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
       symbol: input.symbol ?? null,
       symbolMatches: input.symbol
         ? {
-            count: symbolLines.length,
+            count: symbolMatch.total,
+            returnedCount: symbolLines.length,
+            truncated: symbolMatch.truncated,
             lines: symbolLines,
             contexts: content ? symbolContexts(content, symbolLines) : [],
             contentUnavailable: content === null,
@@ -579,8 +610,12 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
       totalRanges: allRanges.length,
       returnedRanges: blame.length,
       focused,
-      truncated: blame.length < matchingRanges,
+      truncated: symbolMatch.truncated || blame.length < matchingRanges,
       ranges: blame,
+    },
+    enrichment: {
+      pullRequestLookupBudget: MAX_PR_LOOKUPS,
+      queriedCommitShas: lookupShas,
     },
     recentCommits,
   });

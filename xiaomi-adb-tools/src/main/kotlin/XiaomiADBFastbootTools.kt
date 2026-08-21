@@ -10,7 +10,7 @@ import java.io.File
 class XiaomiADBFastbootTools : Application() {
 
     companion object {
-        val version = "7.0"
+        val version = "7.1"
         // Data lives under XDG-ish ~/.local/share, not straight in the home directory.
         val dir = File(System.getProperty("user.home"), ".local/share/xiaomi-adb-tools")
         val win = "win" in System.getProperty("os.name").lowercase()

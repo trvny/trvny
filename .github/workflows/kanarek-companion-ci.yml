@@ -7,12 +7,6 @@ on:
       - "gh-apps/kanarek-companion/**"
       - "!gh-apps/kanarek-companion/**/*.md"
       - ".github/workflows/kanarek-companion-ci.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "gh-apps/kanarek-companion/**"
-      - "!gh-apps/kanarek-companion/**/*.md"
-      - ".github/workflows/kanarek-companion-ci.yml"
   workflow_dispatch:
 
 concurrency:

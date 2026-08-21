@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { gatewayManifest, gatewayOpenApi } from '../src/entry.ts';
 
-test('gateway OpenAPI exposes the live capability manifest action', () => {
+test('gateway OpenAPI exposes live capability and smoke actions', () => {
   const document = gatewayOpenApi('https://example.workers.dev') as {
     paths: Record<string, Record<string, { operationId?: string; description?: string }>>;
   };
@@ -11,9 +11,14 @@ test('gateway OpenAPI exposes the live capability manifest action', () => {
   const capability = operations.find(
     (operation) => operation.operationId === 'getOperatorCapabilities',
   );
+  const smoke = operations.find(
+    (operation) => operation.operationId === 'runOperatorSmokeTest',
+  );
 
   assert.ok(capability);
+  assert.ok(smoke);
   assert.ok(!capability.description || capability.description.length <= 300);
+  assert.ok(!smoke.description || smoke.description.length <= 300);
 });
 
 test('gateway manifest reports exact operation IDs and Worker version metadata', async () => {
@@ -36,6 +41,7 @@ test('gateway manifest reports exact operation IDs and Worker version metadata',
   assert.equal(manifest.workerVersion.id, 'worker-version-id');
   assert.equal(manifest.workerVersion.tag, 'deploy-tag');
   assert.ok(manifest.openApi.operationIds.includes('getOperatorCapabilities'));
+  assert.ok(manifest.openApi.operationIds.includes('runOperatorSmokeTest'));
   assert.ok(manifest.openApi.operationIds.includes('runOperatorAutopilot'));
   assert.ok(manifest.openApi.operationIds.includes('orchestrateRelease'));
   assert.equal(manifest.openApi.operationCount, manifest.openApi.operationIds.length);

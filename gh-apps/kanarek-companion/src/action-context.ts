@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 const GITHUB_API_ORIGIN = 'https://api.github.com';
 const USER_CACHE_TTL_MS = 15_000;
 const INSTALLATION_REFRESH_MARGIN_MS = 5 * 60_000;
@@ -15,6 +17,16 @@ type CacheEntry = {
   response: StoredResponse;
   reusableUntil: number;
 };
+
+type RequestMemoStore = {
+  reads: Map<string, Promise<StoredResponse>>;
+};
+
+const requestMemoStorage = new AsyncLocalStorage<RequestMemoStore>();
+
+export function runWithActionRequestContext<T>(callback: () => T): T {
+  return requestMemoStorage.run({ reads: new Map() }, callback);
+}
 
 function restoreResponse(value: StoredResponse): Response {
   return new Response(value.body || null, {
@@ -93,17 +105,29 @@ function installationReuseUntil(value: StoredResponse): number | null {
   }
 }
 
+function installationTokenMatch(request: Request, url: URL): RegExpMatchArray | null {
+  if (request.method !== 'POST' || request.body !== null) return null;
+  return url.pathname.match(/^\/app\/installations\/(\d+)\/access_tokens$/);
+}
+
+function requestMemoKey(request: Request, url: URL): string {
+  const headers = [
+    ['authorization', request.headers.get('authorization') ?? ''],
+    ['accept', request.headers.get('accept') ?? ''],
+    ['x-github-api-version', request.headers.get('x-github-api-version') ?? ''],
+    ['if-none-match', request.headers.get('if-none-match') ?? ''],
+    ['if-modified-since', request.headers.get('if-modified-since') ?? ''],
+  ];
+  return `${url.toString()}\n${headers.map(([key, value]) => `${key}:${value}`).join('\n')}`;
+}
+
 export function createActionFetch(upstream: typeof fetch): typeof fetch {
   const userCache = new Map<string, CacheEntry>();
   const userInFlight = new Map<string, Promise<StoredResponse>>();
   const installationCache = new Map<string, CacheEntry>();
   const installationInFlight = new Map<string, Promise<StoredResponse>>();
 
-  const optimized: typeof fetch = async (input, init) => {
-    const request = new Request(input, init);
-    const url = new URL(request.url);
-    if (url.origin !== GITHUB_API_ORIGIN) return upstream(request);
-
+  const githubRequest = async (request: Request, url: URL): Promise<Response> => {
     const authorization = bearerValue(request);
     if (request.method === 'GET' && url.pathname === '/user' && authorization) {
       const cached = userCache.get(authorization);
@@ -130,10 +154,8 @@ export function createActionFetch(upstream: typeof fetch): typeof fetch {
       }
     }
 
-    const installationMatch = url.pathname.match(/^\/app\/installations\/(\d+)\/access_tokens$/);
-    const issuer = installationMatch && request.method === 'POST' && request.body === null
-      ? appIssuer(request)
-      : null;
+    const installationMatch = installationTokenMatch(request, url);
+    const issuer = installationMatch ? appIssuer(request) : null;
     if (installationMatch && issuer) {
       const key = `${issuer}:${installationMatch[1]}`;
       const cached = installationCache.get(key);
@@ -159,6 +181,35 @@ export function createActionFetch(upstream: typeof fetch): typeof fetch {
     }
 
     return upstream(request);
+  };
+
+  const optimized: typeof fetch = async (input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.origin !== GITHUB_API_ORIGIN) return upstream(request);
+
+    const requestMemo = requestMemoStorage.getStore();
+    const installationMatch = installationTokenMatch(request, url);
+    if (requestMemo && request.method !== 'GET' && !installationMatch) {
+      requestMemo.reads.clear();
+    }
+
+    if (requestMemo && request.method === 'GET') {
+      const key = requestMemoKey(request, url);
+      let pending = requestMemo.reads.get(key);
+      if (!pending) {
+        pending = githubRequest(request, url).then(storeResponse);
+        requestMemo.reads.set(key, pending);
+      }
+      try {
+        return restoreResponse(await pending);
+      } catch (error) {
+        if (requestMemo.reads.get(key) === pending) requestMemo.reads.delete(key);
+        throw error;
+      }
+    }
+
+    return githubRequest(request, url);
   };
 
   return optimized;

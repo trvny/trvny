@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createActionFetch } from '../src/action-context.ts';
+import {
+  createActionFetch,
+  runWithActionRequestContext,
+} from '../src/action-context.ts';
 
 function fakeAppJwt(issuer: string, nonce: number): string {
   const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
@@ -93,4 +96,58 @@ test('does not cache unrelated GitHub writes', async () => {
   });
 
   assert.equal(calls, 2);
+});
+
+test('memoizes identical GitHub GETs only inside one action request context', async () => {
+  let calls = 0;
+  const upstream: typeof fetch = async () => {
+    calls += 1;
+    return Response.json({ call: calls });
+  };
+  const optimized = createActionFetch(upstream);
+  const url = 'https://api.github.com/repos/trvny/trvny';
+  const init = { headers: { Authorization: 'Bearer scoped-token' } };
+
+  await runWithActionRequestContext(async () => {
+    const [first, second] = await Promise.all([
+      optimized(url, init),
+      optimized(url, init),
+    ]);
+    assert.equal((await first.json() as { call: number }).call, 1);
+    assert.equal((await second.json() as { call: number }).call, 1);
+  });
+  assert.equal(calls, 1);
+
+  await runWithActionRequestContext(async () => {
+    const response = await optimized(url, init);
+    assert.equal((await response.json() as { call: number }).call, 2);
+  });
+  assert.equal(calls, 2);
+});
+
+test('invalidates request-local GET memoization before a GitHub mutation', async () => {
+  let calls = 0;
+  const upstream: typeof fetch = async (input, init) => {
+    calls += 1;
+    const request = new Request(input, init);
+    return Response.json({ call: calls, method: request.method });
+  };
+  const optimized = createActionFetch(upstream);
+  const url = 'https://api.github.com/repos/trvny/trvny/git/ref/heads/main';
+  const headers = { Authorization: 'Bearer scoped-token' };
+
+  await runWithActionRequestContext(async () => {
+    const first = await optimized(url, { headers });
+    assert.equal((await first.json() as { call: number }).call, 1);
+
+    await optimized('https://api.github.com/repos/trvny/trvny/issues/1/comments', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ body: 'mutation' }),
+    });
+
+    const afterMutation = await optimized(url, { headers });
+    assert.equal((await afterMutation.json() as { call: number }).call, 3);
+  });
+  assert.equal(calls, 3);
 });

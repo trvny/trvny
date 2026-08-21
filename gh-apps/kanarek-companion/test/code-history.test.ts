@@ -31,6 +31,14 @@ test('selectBlameRanges focuses on line ranges and symbol lines', () => {
   );
 });
 
+test('selectBlameRanges preserves an empty requested symbol focus', () => {
+  const ranges = [
+    { startingLine: 1, endingLine: 4, id: 'a' },
+    { startingLine: 5, endingLine: 8, id: 'b' },
+  ];
+  assert.deepEqual(selectBlameRanges(ranges, undefined, undefined, [], 80, true), []);
+});
+
 test('focused history resolves an exact snapshot and joins blame with PR context', async () => {
   const sha = 'a'.repeat(40);
   const content = 'export function Widget() {}\nWidget();\n';

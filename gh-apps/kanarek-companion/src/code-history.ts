@@ -282,8 +282,10 @@ export function selectBlameRanges<T extends BlameRangeLike>(
   endLine?: number,
   symbolLines: number[] = [],
   limit = MAX_BLAME_RANGES,
+  symbolRequested = false,
 ): T[] {
-  const focused = startLine !== undefined && endLine !== undefined || symbolLines.length > 0;
+  const focused =
+    (startLine !== undefined && endLine !== undefined) || symbolRequested || symbolLines.length > 0;
   const selected = focused
     ? ranges.filter((range) => {
         const overlapsRange =
@@ -464,6 +466,9 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
     ? await fileContentAtSnapshot(request, invoke, input.repository, input.path, snapshot.sha)
     : null;
   const symbolLines = input.symbol && content ? symbolLineNumbers(content, input.symbol) : [];
+  const symbolRequested = input.symbol !== undefined;
+  const focused =
+    (input.startLine !== undefined && input.endLine !== undefined) || symbolRequested;
 
   const [blameGraphql, recentRaw] = await Promise.all([
     graphqlData(request, invoke, BLAME_QUERY, {
@@ -491,19 +496,26 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
     input.startLine,
     input.endLine,
     symbolLines,
+    MAX_BLAME_RANGES,
+    symbolRequested,
   );
 
   const recent = Array.isArray(recentRaw) ? recentRaw.filter(isObject).slice(0, input.maxCommits) : [];
-  const commitShas = new Set<string>();
-  for (const range of selectedRanges) {
-    if (isObject(range.commit) && typeof range.commit.oid === 'string' && SHA_RE.test(range.commit.oid)) {
-      commitShas.add(range.commit.oid.toLowerCase());
-    }
-  }
+  const recentShas: string[] = [];
   for (const commit of recent) {
-    if (typeof commit.sha === 'string' && SHA_RE.test(commit.sha)) commitShas.add(commit.sha.toLowerCase());
+    if (typeof commit.sha !== 'string' || !SHA_RE.test(commit.sha)) continue;
+    const sha = commit.sha.toLowerCase();
+    if (!recentShas.includes(sha)) recentShas.push(sha);
   }
-  const lookupShas = [...commitShas].slice(0, MAX_PR_LOOKUPS);
+  const blameShas: string[] = [];
+  for (const range of selectedRanges) {
+    if (!isObject(range.commit) || typeof range.commit.oid !== 'string' || !SHA_RE.test(range.commit.oid)) {
+      continue;
+    }
+    const sha = range.commit.oid.toLowerCase();
+    if (!recentShas.includes(sha) && !blameShas.includes(sha)) blameShas.push(sha);
+  }
+  const lookupShas = [...recentShas, ...blameShas].slice(0, MAX_PR_LOOKUPS);
   const pullEntries = await Promise.all(
     lookupShas.map(async (sha) => [sha, await pullsForCommit(request, invoke, input.repository, sha)] as const),
   );
@@ -526,6 +538,19 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
       return compactCommit(commit, pullMap.get(sha) ?? []);
     })
     .filter((commit): commit is JsonObject => Boolean(commit));
+
+  const matchingRanges = focused
+    ? allRanges.filter((range) => {
+        const start = numberValue(range.startingLine) ?? 0;
+        const end = numberValue(range.endingLine) ?? 0;
+        const lineRange =
+          input.startLine !== undefined && input.endLine !== undefined
+            ? start <= input.endLine && end >= input.startLine
+            : false;
+        const symbolRange = symbolLines.some((line) => line >= start && line <= end);
+        return lineRange || symbolRange;
+      }).length
+    : allRanges.length;
 
   return json({
     ok: true,
@@ -553,18 +578,8 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
     blame: {
       totalRanges: allRanges.length,
       returnedRanges: blame.length,
-      focused: input.startLine !== undefined || symbolLines.length > 0,
-      truncated: blame.length < (input.startLine !== undefined || symbolLines.length > 0
-        ? allRanges.filter((range) => {
-            const start = numberValue(range.startingLine) ?? 0;
-            const end = numberValue(range.endingLine) ?? 0;
-            const lineRange = input.startLine !== undefined && input.endLine !== undefined
-              ? start <= input.endLine && end >= input.startLine
-              : false;
-            const symbolRange = symbolLines.some((line) => line >= start && line <= end);
-            return lineRange || symbolRange;
-          }).length
-        : allRanges.length),
+      focused,
+      truncated: blame.length < matchingRanges,
       ranges: blame,
     },
     recentCommits,

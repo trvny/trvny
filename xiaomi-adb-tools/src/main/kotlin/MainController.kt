@@ -81,6 +81,9 @@ class MainController : Initializable {
     private lateinit var unpackageTableColumn: TableColumn<App, String>
 
     @FXML
+    private lateinit var unvettedTableColumn: TableColumn<App, String>
+
+    @FXML
     private lateinit var recheckTableColumn: TableColumn<App, Boolean>
 
     @FXML
@@ -97,6 +100,9 @@ class MainController : Initializable {
 
     @FXML
     private lateinit var dispackageTableColumn: TableColumn<App, String>
+
+    @FXML
+    private lateinit var disvettedTableColumn: TableColumn<App, String>
 
     @FXML
     private lateinit var encheckTableColumn: TableColumn<App, Boolean>
@@ -364,6 +370,7 @@ class MainController : Initializable {
         uncheckTableColumn.setCellFactory { CheckBoxTableCell() }
         unappTableColumn.cellValueFactory = PropertyValueFactory("appname")
         unpackageTableColumn.cellValueFactory = PropertyValueFactory("packagename")
+        unvettedTableColumn.cellValueFactory = PropertyValueFactory("vetted")
 
         recheckTableColumn.cellValueFactory = PropertyValueFactory("selected")
         recheckTableColumn.setCellFactory { CheckBoxTableCell() }
@@ -374,6 +381,7 @@ class MainController : Initializable {
         discheckTableColumn.setCellFactory { CheckBoxTableCell() }
         disappTableColumn.cellValueFactory = PropertyValueFactory("appname")
         dispackageTableColumn.cellValueFactory = PropertyValueFactory("packagename")
+        disvettedTableColumn.cellValueFactory = PropertyValueFactory("vetted")
 
         encheckTableColumn.cellValueFactory = PropertyValueFactory("selected")
         encheckTableColumn.setCellFactory { CheckBoxTableCell() }
@@ -414,36 +422,6 @@ class MainController : Initializable {
         AppManager.outputTextArea = outputTextArea
 
         GlobalScope.launch(Dispatchers.IO) {
-            try {
-                val link =
-                    URL("https://api.github.com/repos/Szaki/XiaomiADBFastbootTools/releases/latest").readText()
-                        .substringAfter("\"html_url\":\"").substringBefore('"')
-                val latest = link.substringAfterLast('/')
-                if (latest > XiaomiADBFastbootTools.version)
-                    withContext(Dispatchers.Main) {
-                        val vb = VBox()
-                        val download = Hyperlink("Download")
-                        Alert(AlertType.INFORMATION).apply {
-                            initStyle(StageStyle.UTILITY)
-                            title = "New version available!"
-                            graphic = ImageView("mitu.png")
-                            headerText =
-                                "Version $latest is available!"
-                            vb.alignment = Pos.CENTER
-                            download.onAction = EventHandler {
-                                if (XiaomiADBFastbootTools.linux)
-                                    Runtime.getRuntime().exec("xdg-open $link")
-                                else Desktop.getDesktop().browse(URI(link))
-                            }
-                            download.font = Font(15.0)
-                            vb.children.add(download)
-                            dialogPane.content = vb
-                            showAndWait()
-                        }
-                    }
-            } catch (ex: Exception) {
-                // OK
-            }
             if (!Command.check()) {
                 withContext(Dispatchers.Main) {
                     val hb = HBox(15.0)

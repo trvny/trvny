@@ -22,7 +22,8 @@ keep its MIT license. What changed since:
   on every launch, so it could only ever fail.
 - The `apps.yml` download from the deleted upstream repo is gone, so a run no longer waits
   on a request that can only fail.
-- Data goes to `~/.local/share/xiaomi-adb-tools` instead of a directory in the home root.
+- Data goes to `~/.local/xiaomi-adb-tools` instead of a directory in the home root,
+  and JavaFX is told to unpack its native libraries there too rather than into `~/.openjfx`.
 
 `adb` and `fastboot` are taken from `PATH` when they are there; only if they are missing
 does the app download `platform-tools` into its own data directory.

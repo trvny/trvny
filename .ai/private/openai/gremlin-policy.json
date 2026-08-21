@@ -13,6 +13,7 @@
     "preferredActions": [
       "getOperatorBootstrap",
       "getOperatorCapabilities",
+      "runOperatorSmokeTest",
       "runOperatorAutopilot",
       "getAccountMaintenance",
       "runAccountMaintenanceAutofix",

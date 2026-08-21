@@ -57,6 +57,11 @@ raw REST calls.
   derives sorted operation IDs plus a SHA-256 capability digest from the exact
   OpenAPI served by that deployment. `/health` exposes the same live fingerprint
   for deployment checks without treating a merge as proof of deployment.
+- `runOperatorSmokeTest` performs a read-only authenticated identity -> bootstrap
+  -> live capabilities -> harmless repository-read path. After runtime changes,
+  the main-branch CI also polls public `/health` and canonical OpenAPI until the
+  Cloudflare Workers Builds deployment exposes the exact source-derived
+  capability digest, then verifies the required operator actions are present.
 - Account maintenance and maintenance autofix are policy-wrapped: repository
   include/exclude rules, archived handling, run limits, autofix enablement,
   workflow retry budget and cache thresholds are enforced before guarded
@@ -144,8 +149,10 @@ raw REST calls.
   gateway generation is deployed before choosing a workflow. It derives its
   operation set from the exact deployment OpenAPI and fingerprints it alongside
   Cloudflare Worker version metadata.
-- [ ] Add a harmless post-deploy smoke/E2E check for the live Worker. Do not
-  infer successful deployment merely from a merge to `main`.
+- [x] Add harmless post-deploy smoke/E2E checks for the live Worker. GitHub
+  Actions waits for the public live fingerprint to converge after a main push;
+  `runOperatorSmokeTest` separately exercises authenticated identity, bootstrap,
+  capabilities and a read-only repository request without mutations.
 
 ## Optional/luxury
 

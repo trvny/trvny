@@ -42,3 +42,30 @@ jobs:
 
       - run: npm ci
       - run: npm run check
+
+  smoke-live:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-companion
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
+
+      - run: npm ci
+      - name: Wait for Cloudflare production and smoke the live gateway
+        run: npm run smoke:live
+        env:
+          KANAREK_LIVE_ORIGIN: https://kanarek-companion.travny.workers.dev
+          KANAREK_SMOKE_ATTEMPTS: "36"
+          KANAREK_SMOKE_INTERVAL_MS: "15000"

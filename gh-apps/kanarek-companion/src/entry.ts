@@ -22,7 +22,16 @@ type Env = RouterEnv & {
 
 const OPENAPI_PATH = '/gpt-actions/openapi.json';
 const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
+const SMOKE_PATH = '/gpt-actions/operator/smoke';
 const HEALTH_PATH = '/health';
+const SMOKE_REPOSITORY = 'trvny/trvny';
+const REQUIRED_SMOKE_OPERATIONS = [
+  'getOperatorBootstrap',
+  'getOperatorCapabilities',
+  'runOperatorAutopilot',
+  'runOperatorSmokeTest',
+  'orchestrateRelease',
+] as const;
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -62,6 +71,27 @@ export function addCapabilityOpenApi(document: JsonObject): void {
       },
     },
   };
+  paths[SMOKE_PATH] = {
+    post: {
+      operationId: 'runOperatorSmokeTest',
+      summary: 'Run a harmless authenticated smoke test against the live operator',
+      description:
+        'Verifies trvny/GPTomek identity, private operator bootstrap, live capability metadata and a harmless trvny/trvny repository read. Performs no mutations.',
+      responses: {
+        '200': {
+          description: 'Operator smoke test passed',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {},
+              },
+            },
+          },
+        },
+      },
+    },
+  };
 }
 
 export function gatewayOpenApi(origin: string): JsonObject {
@@ -70,7 +100,7 @@ export function gatewayOpenApi(origin: string): JsonObject {
   return document;
 }
 
-function operationIds(document: JsonObject): string[] {
+export function operationIds(document: JsonObject): string[] {
   if (!isObject(document.paths)) return [];
   const ids = new Set<string>();
   for (const pathItem of Object.values(document.paths)) {
@@ -116,26 +146,156 @@ export async function gatewayManifest(
   };
 }
 
-function internalAuthProbe(source: Request): Request {
+function internalActionRequest(
+  source: Request,
+  pathname: string,
+  method: 'GET' | 'POST',
+  body?: JsonObject,
+): Request {
   const url = new URL(source.url);
-  url.pathname = '/gpt-actions/github/read';
+  url.pathname = pathname;
   url.search = '';
   const headers = new Headers(source.headers);
   headers.set('content-type', 'application/json');
   headers.delete('content-length');
   return new Request(url, {
-    method: 'POST',
+    method,
     headers,
-    body: JSON.stringify({ path: '/user' }),
+    body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
   });
+}
+
+async function responseObject(response: Response): Promise<JsonObject | null> {
+  try {
+    const value = await response.clone().json();
+    return isObject(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function smokeFailure(stage: string, response: Response, payload: JsonObject | null): Response {
+  return json(
+    {
+      ok: false,
+      stage,
+      status: response.status,
+      error: typeof payload?.error === 'string' ? payload.error : 'smoke_step_failed',
+    },
+    response.status >= 400 ? response.status : 502,
+  );
 }
 
 async function capabilityResponse(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
-  const authorized = await router.fetch(internalAuthProbe(request), env);
+  const authorized = await router.fetch(
+    internalActionRequest(request, '/gpt-actions/github/read', 'POST', { path: '/user' }),
+    env,
+  );
   if (!authorized.ok) return authorized;
   const document = gatewayOpenApi(new URL(request.url).origin);
   return json({ ok: true, ...(await gatewayManifest(document, env.CF_VERSION_METADATA)) });
+}
+
+async function operatorSmokeResponse(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+
+  const identityResponse = await router.fetch(
+    internalActionRequest(request, '/gpt-actions/whoami', 'GET'),
+    env,
+  );
+  const identity = await responseObject(identityResponse);
+  if (!identityResponse.ok || identity?.ok !== true) {
+    return smokeFailure('identity', identityResponse, identity);
+  }
+
+  const bootstrapResponse = await router.fetch(
+    internalActionRequest(request, '/gpt-actions/operator/bootstrap', 'POST', {
+      repository: SMOKE_REPOSITORY,
+    }),
+    env,
+  );
+  const bootstrap = await responseObject(bootstrapResponse);
+  if (!bootstrapResponse.ok || bootstrap?.ok !== true || !isObject(bootstrap.policy)) {
+    return smokeFailure('bootstrap', bootstrapResponse, bootstrap);
+  }
+
+  const capabilitiesResponse = await capabilityResponse(
+    internalActionRequest(request, CAPABILITY_PATH, 'GET'),
+    env,
+  );
+  const capabilities = await responseObject(capabilitiesResponse);
+  const openApi = isObject(capabilities?.openApi) ? capabilities.openApi : null;
+  const worker = isObject(capabilities?.workerVersion) ? capabilities.workerVersion : null;
+  const ids = Array.isArray(openApi?.operationIds)
+    ? openApi.operationIds.filter((value): value is string => typeof value === 'string')
+    : [];
+  const missingOperations = REQUIRED_SMOKE_OPERATIONS.filter((operation) => !ids.includes(operation));
+  if (
+    !capabilitiesResponse.ok ||
+    capabilities?.ok !== true ||
+    typeof worker?.id !== 'string' ||
+    missingOperations.length
+  ) {
+    return json(
+      {
+        ok: false,
+        stage: 'capabilities',
+        status: capabilitiesResponse.status,
+        error: 'live_capability_manifest_invalid',
+        missingOperations,
+      },
+      capabilitiesResponse.ok ? 502 : capabilitiesResponse.status,
+    );
+  }
+
+  const repositoryResponse = await router.fetch(
+    internalActionRequest(request, '/gpt-actions/github/read', 'POST', {
+      path: `/repos/${SMOKE_REPOSITORY}`,
+    }),
+    env,
+  );
+  const repositoryPayload = await responseObject(repositoryResponse);
+  const repository = isObject(repositoryPayload?.data) ? repositoryPayload.data : null;
+  if (
+    !repositoryResponse.ok ||
+    repositoryPayload?.ok !== true ||
+    repository?.full_name !== SMOKE_REPOSITORY ||
+    typeof repository.default_branch !== 'string'
+  ) {
+    return smokeFailure('repository_read', repositoryResponse, repositoryPayload);
+  }
+
+  const user = isObject(identity.user) ? identity.user : {};
+  const bot = isObject(identity.bot) ? identity.bot : {};
+  return json({
+    ok: true,
+    service: 'kanarek-companion',
+    workerVersion: worker,
+    capabilityDigest: openApi?.capabilityDigest ?? null,
+    operationCount: openApi?.operationCount ?? ids.length,
+    checks: {
+      identity: {
+        ok: true,
+        user: typeof user.login === 'string' ? user.login : null,
+        bot: typeof bot.login === 'string' ? bot.login : null,
+      },
+      bootstrap: {
+        ok: true,
+        policyVersion: bootstrap.policy.version ?? null,
+        repository: SMOKE_REPOSITORY,
+      },
+      capabilities: {
+        ok: true,
+        requiredOperations: [...REQUIRED_SMOKE_OPERATIONS],
+      },
+      repositoryRead: {
+        ok: true,
+        repository: repository.full_name,
+        defaultBranch: repository.default_branch,
+      },
+    },
+  });
 }
 
 async function decoratedHealth(
@@ -166,6 +326,9 @@ const worker = {
     }
     if (url.pathname === CAPABILITY_PATH) {
       return capabilityResponse(request, env);
+    }
+    if (url.pathname === SMOKE_PATH) {
+      return operatorSmokeResponse(request, env);
     }
     if (url.pathname === HEALTH_PATH && (request.method === 'GET' || request.method === 'HEAD')) {
       return decoratedHealth(request, env, ctx);

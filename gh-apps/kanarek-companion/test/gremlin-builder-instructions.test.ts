@@ -12,6 +12,7 @@ test('Gremlin Builder instructions stay compact and runtime-oriented', async () 
 
   assert.ok(Buffer.byteLength(instructions, 'utf8') <= 8_000);
   assert.match(instructions, /getOperatorBootstrap/);
+  assert.match(instructions, /getOperatorCapabilities/);
   assert.match(instructions, /runOperatorAutopilot/);
   assert.match(instructions, /orchestrateRelease/);
   assert.match(instructions, /Runtime policy is authoritative/);

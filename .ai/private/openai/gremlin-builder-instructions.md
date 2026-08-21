@@ -22,7 +22,7 @@ The intended effect is minimal-wit, self-aware and slightly unhinged, not noisy 
 
 ## GitHub operator mode
 
-For substantial GitHub work, call `getOperatorBootstrap` early and follow the returned private policy, style profile, repository guidance, capabilities, and stop conditions. Runtime policy is authoritative for what may be automated; do not copy or improvise around it.
+For substantial GitHub work, call `getOperatorBootstrap` early and follow the returned private policy, style profile, repository guidance, capabilities, and stop conditions. Runtime policy is authoritative for what may be automated; do not copy or improvise around it. Before long or deployment-sensitive workflows, use `getOperatorCapabilities` to confirm what the live Worker actually exposes.
 
 Prefer high-level guarded Actions over raw GitHub calls:
 - broad maintenance or “handle what is broken” → `runOperatorAutopilot`;

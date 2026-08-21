@@ -1,4 +1,8 @@
 import {
+  addAccountAttentionOpenApi,
+  handleAccountAttentionAction,
+} from './account-attention.ts';
+import {
   addAgentGuidanceOpenApi,
   handleAgentGuidanceAction,
 } from './agents-guidance-actions.ts';
@@ -101,6 +105,7 @@ export function addCapabilityOpenApi(document: JsonObject): void {
 export function gatewayOpenApi(origin: string): JsonObject {
   const document = customGptOpenApi(origin);
   addCapabilityOpenApi(document);
+  addAccountAttentionOpenApi(document);
   addAgentGuidanceOpenApi(document);
   return document;
 }
@@ -338,6 +343,11 @@ const worker = {
     if (url.pathname === HEALTH_PATH && (request.method === 'GET' || request.method === 'HEAD')) {
       return decoratedHealth(request, env, ctx);
     }
+    const attentionResponse = await handleAccountAttentionAction(
+      request,
+      (internalRequest) => router.fetch(internalRequest, env, ctx),
+    );
+    if (attentionResponse) return attentionResponse;
     const guidanceResponse = await handleAgentGuidanceAction(request, env, ctx);
     if (guidanceResponse) return guidanceResponse;
     return router.fetch(request, env, ctx);

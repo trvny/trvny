@@ -20,9 +20,10 @@ Use the nearest `AGENTS.md` for the files being changed; deeper instructions ove
 - Check the target branch, open PRs and recent changes when work may overlap.
 - Detect the local stack from project files; this repository is mixed.
 - Keep one maintained source of truth per concern.
-- Use GPTomek for bot-authored writes when available; keep PR creation as `trvny` when required by review automation.
+- Use GPTomek for bot-authored writes; keep intentionally human-authored PR creation as `trvny`.
 - Keep one logical change per PR. Trivial low-risk fixes may go directly to `main` when allowed.
-- Merge only with relevant final-head checks green and actionable review threads resolved. Prefer squash.
+- For substantial code changes, run one relevant final validation on the final head; do not rerun CI after every intermediate edit. Trivial/docs-only changes may skip CI.
+- Resolve actionable review threads when a review was actually requested. Prefer squash.
 - Keep PR descriptions, comments and changelogs brief.
 
 ## Persistence

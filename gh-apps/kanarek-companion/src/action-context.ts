@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
+import { paginateReviewThreadsGraphql } from './review-thread-pagination.ts';
+
 const GITHUB_API_ORIGIN = 'https://api.github.com';
 const USER_CACHE_TTL_MS = 15_000;
 const INSTALLATION_REFRESH_MARGIN_MS = 5 * 60_000;
@@ -128,6 +130,9 @@ export function createActionFetch(upstream: typeof fetch): typeof fetch {
   const installationInFlight = new Map<string, Promise<StoredResponse>>();
 
   const githubRequest = async (request: Request, url: URL): Promise<Response> => {
+    const paginatedReviewThreads = await paginateReviewThreadsGraphql(request, upstream);
+    if (paginatedReviewThreads) return paginatedReviewThreads;
+
     const authorization = bearerValue(request);
     if (request.method === 'GET' && url.pathname === '/user' && authorization) {
       const cached = userCache.get(authorization);

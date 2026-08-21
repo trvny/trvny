@@ -12,6 +12,11 @@ import {
   handleReleaseEntryAction,
   RELEASE_ENTRY_UPLOAD_PATH,
 } from './release-entry-action.ts';
+import {
+  addReleaseReplaceOpenApi,
+  handleReleaseReplaceAction,
+  RELEASE_ASSET_REPLACE_PATH,
+} from './release-replace-action.ts';
 
 export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
 
@@ -43,6 +48,7 @@ function json(body: unknown, status = 200): Response {
 function openApi(request: Request): JsonObject {
   const document = gatewayOpenApi(new URL(request.url).origin);
   addReleaseEntryOpenApi(document);
+  addReleaseReplaceOpenApi(document);
   return document;
 }
 
@@ -98,6 +104,15 @@ const runtime = {
       }
       if (url.pathname === RELEASE_ENTRY_UPLOAD_PATH) {
         const response = await handleReleaseEntryAction(request, env, actionFetch);
+        if (response) return response;
+      }
+      if (url.pathname === RELEASE_ASSET_REPLACE_PATH) {
+        const response = await handleReleaseReplaceAction(
+          request,
+          env,
+          actionFetch,
+          (internalRequest) => worker.fetch(internalRequest, env, ctx),
+        );
         if (response) return response;
       }
 

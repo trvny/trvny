@@ -139,8 +139,9 @@
                                                             <TableView fx:id="uninstallerTableView" editable="true" GridPane.columnSpan="2">
                                                               <columns>
                                                                 <TableColumn fx:id="uncheckTableColumn" prefWidth="35.0" />
-                                                                <TableColumn fx:id="unappTableColumn" editable="false" prefWidth="205.0" text="App name" />
-                                                                  <TableColumn fx:id="unpackageTableColumn" editable="false" prefWidth="310.0" text="Package name" />
+                                                                <TableColumn fx:id="unappTableColumn" editable="false" prefWidth="195.0" text="App name" />
+                                                                  <TableColumn fx:id="unpackageTableColumn" editable="false" prefWidth="250.0" text="Package name" />
+                                                                  <TableColumn fx:id="unvettedTableColumn" editable="false" prefWidth="70.0" text="Vetted" />
                                                               </columns>
                                                             </TableView>
                                                             <Button fx:id="uninstallButton" mnemonicParsing="false" onAction="#uninstallButtonPressed" prefHeight="35.0" prefWidth="570.0" text="Uninstall!" textFill="RED" GridPane.columnSpan="2" GridPane.halignment="LEFT" GridPane.rowIndex="1" GridPane.vgrow="ALWAYS">
@@ -203,8 +204,9 @@
                                                             <TableView fx:id="disablerTableView" editable="true" GridPane.columnSpan="2">
                                                                <columns>
                                                                   <TableColumn fx:id="discheckTableColumn" prefWidth="35.0" />
-                                                                  <TableColumn fx:id="disappTableColumn" editable="false" prefWidth="205.0" text="App name" />
-                                                                  <TableColumn fx:id="dispackageTableColumn" editable="false" prefWidth="310.0" text="Package name" />
+                                                                  <TableColumn fx:id="disappTableColumn" editable="false" prefWidth="195.0" text="App name" />
+                                                                  <TableColumn fx:id="dispackageTableColumn" editable="false" prefWidth="250.0" text="Package name" />
+                                                                  <TableColumn fx:id="disvettedTableColumn" editable="false" prefWidth="70.0" text="Vetted" />
                                                                </columns>
                                                             </TableView>
                                                             <Button fx:id="disableButton" mnemonicParsing="false" onAction="#disableButtonPressed" prefHeight="35.0" prefWidth="570.0" text="Disable!" textFill="RED" GridPane.columnSpan="2" GridPane.halignment="LEFT" GridPane.rowIndex="1" GridPane.vgrow="ALWAYS">

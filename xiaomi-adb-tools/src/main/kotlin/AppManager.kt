@@ -23,6 +23,10 @@ object AppManager {
     val customApps = File(XiaomiADBFastbootTools.dir, "apps.yml")
     private val potentialApps = mutableMapOf<String, String>()
 
+    // Packages the curated list vouches for. Everything else comes straight off the device and
+    // has never been checked by anyone, which is what the Vetted column in the tables says.
+    private val vettedApps = mutableSetOf<String>()
+
     init {
         if (!customApps.exists())
             customApps.createNewFile()
@@ -30,16 +34,23 @@ object AppManager {
 
     suspend fun readPotentialApps() {
         potentialApps.clear()
+        vettedApps.clear()
         potentialApps["android.autoinstalls.config.Xiaomi.${Device.codename}"] = "PAI"
+        vettedApps += "android.autoinstalls.config.Xiaomi.${Device.codename}"
         withContext(Dispatchers.IO) {
             // This used to fetch apps.yml from Szaki/XiaomiADBFastbootTools, which no longer
             // exists on GitHub, so every run paid for a failing request before falling back.
             // These names are only labels now: the tables themselves come from the device.
             this::class.java.classLoader.getResource("apps.yml")?.readText()?.trim()?.lines()
-                ?.forEach { potentialApps += it.toAppEntry() }
+                ?.forEach {
+                    val entry = it.toAppEntry()
+                    potentialApps += entry
+                    vettedApps += entry.first
+                }
         }
         customApps.forEachLine { potentialApps += it.toAppEntry() }
         potentialApps.remove("")
+        vettedApps.remove("")
     }
 
     private fun String.toAppEntry(): Pair<String, String> {
@@ -86,10 +97,14 @@ object AppManager {
             }
         }
         withContext(Dispatchers.Main) {
-            uninstallerTableView.items.setAll(uninstallApps.toSortedMap().map { App(it.key, it.value) })
-            reinstallerTableView.items.setAll(reinstallApps.toSortedMap().map { App(it.key, it.value) })
-            disablerTableView.items.setAll(disableApps.toSortedMap().map { App(it.key, it.value) })
-            enablerTableView.items.setAll(enableApps.toSortedMap().map { App(it.key, it.value) })
+            uninstallerTableView.items.setAll(uninstallApps.toSortedMap()
+                .map { App(it.key, it.value, isVetted = it.value.all(vettedApps::contains)) })
+            reinstallerTableView.items.setAll(reinstallApps.toSortedMap()
+                .map { App(it.key, it.value, isVetted = it.value.all(vettedApps::contains)) })
+            disablerTableView.items.setAll(disableApps.toSortedMap()
+                .map { App(it.key, it.value, isVetted = it.value.all(vettedApps::contains)) })
+            enablerTableView.items.setAll(enableApps.toSortedMap()
+                .map { App(it.key, it.value, isVetted = it.value.all(vettedApps::contains)) })
             uninstallerTableView.refresh()
             reinstallerTableView.refresh()
             disablerTableView.refresh()

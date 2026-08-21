@@ -24,7 +24,7 @@ incidents or step-by-step session history here.
 - [x] Exact artifact ZIP -> release asset upload.
 - [x] Exact release-asset deletion.
 - [x] Extract one exact artifact entry (APK/AAB/checksum/etc.) and publish it as a release asset.
-- [ ] Safe replace-release-asset flow: exact old snapshot -> delete -> fresh source snapshot -> upload -> verify.
+- [x] Safe replace-release-asset flow: exact old snapshot -> delete -> fresh source snapshot -> upload -> verify.
 - [ ] Teach release orchestration to optionally use exact artifact entries instead of only whole artifact ZIPs.
 
 ## Coding operator
@@ -32,8 +32,8 @@ incidents or step-by-step session history here.
 Build these in roughly this order. Prefer high-level workflows that remove model/API round trips;
 do not wrap every GitHub endpoint for its own sake.
 
-- [ ] **Symbol/reference investigation.** Extend code investigation to locate a named function,
-  class, type or constant, its definitions, references/imports/implementations and nearby tests.
+- [x] **Symbol/reference investigation.** Locate a named function, class, type or constant,
+  classify definitions/references/imports/implementations on an exact snapshot and surface matching tests.
 - [ ] **Blame and focused history.** For a file/symbol/line range, return the commits/PR context
   that explains how the code got there and helps identify regressions.
 - [ ] **Dependency/import graph.** Show what a target imports and the bounded set of callers or

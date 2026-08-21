@@ -17,6 +17,11 @@ import {
   handleReleaseReplaceAction,
   RELEASE_ASSET_REPLACE_PATH,
 } from './release-replace-action.ts';
+import {
+  addSymbolInvestigationOpenApi,
+  handleSymbolInvestigationAction,
+  SYMBOL_INVESTIGATION_PATH,
+} from './symbol-investigation.ts';
 
 export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
 
@@ -49,6 +54,7 @@ function openApi(request: Request): JsonObject {
   const document = gatewayOpenApi(new URL(request.url).origin);
   addReleaseEntryOpenApi(document);
   addReleaseReplaceOpenApi(document);
+  addSymbolInvestigationOpenApi(document);
   return document;
 }
 
@@ -111,6 +117,13 @@ const runtime = {
           request,
           env,
           actionFetch,
+          (internalRequest) => worker.fetch(internalRequest, env, ctx),
+        );
+        if (response) return response;
+      }
+      if (url.pathname === SYMBOL_INVESTIGATION_PATH) {
+        const response = await handleSymbolInvestigationAction(
+          request,
           (internalRequest) => worker.fetch(internalRequest, env, ctx),
         );
         if (response) return response;

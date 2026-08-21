@@ -3,17 +3,106 @@ import { enrichConflictResponse } from './conflict-response.ts';
 import worker, {
   actionFetch,
   CommentProbeLock,
+  gatewayManifest,
+  gatewayOpenApi,
   OperatorCheckpointStore,
 } from './entry.ts';
+import {
+  addReleaseEntryOpenApi,
+  handleReleaseEntryAction,
+  RELEASE_ENTRY_UPLOAD_PATH,
+} from './release-entry-action.ts';
 
 export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
 
-type Env = Parameters<typeof worker.fetch>[1];
+type WorkerEnv = Parameters<typeof worker.fetch>[1];
+type JsonObject = Record<string, unknown>;
+type Env = WorkerEnv & {
+  CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
+};
+
+const OPENAPI_PATH = '/gpt-actions/openapi.json';
+const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
+const SMOKE_PATH = '/gpt-actions/operator/smoke';
+const HEALTH_PATH = '/health';
+
+function isObject(value: unknown): value is JsonObject {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function json(body: unknown, status = 200): Response {
+  return Response.json(body, {
+    status,
+    headers: {
+      'cache-control': 'no-store',
+      'content-type': 'application/json; charset=utf-8',
+    },
+  });
+}
+
+function openApi(request: Request): JsonObject {
+  const document = gatewayOpenApi(new URL(request.url).origin);
+  addReleaseEntryOpenApi(document);
+  return document;
+}
+
+async function manifest(request: Request, env: Env): Promise<JsonObject> {
+  return gatewayManifest(openApi(request), env.CF_VERSION_METADATA);
+}
+
+async function responseObject(response: Response): Promise<JsonObject | null> {
+  try {
+    const value: unknown = await response.clone().json();
+    return isObject(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+async function decorateGatewayResponse(
+  request: Request,
+  response: Response,
+  env: Env,
+): Promise<Response> {
+  if (!response.ok) return response;
+  const pathname = new URL(request.url).pathname;
+  if (pathname === CAPABILITY_PATH && request.method === 'GET') {
+    return json({ ok: true, ...(await manifest(request, env)) }, response.status);
+  }
+  if (pathname === HEALTH_PATH && request.method === 'GET') {
+    const payload = await responseObject(response);
+    return payload ? json({ ...payload, gateway: await manifest(request, env) }, response.status) : response;
+  }
+  if (pathname === SMOKE_PATH && request.method === 'POST') {
+    const payload = await responseObject(response);
+    const live = await manifest(request, env);
+    const openApiManifest = isObject(live.openApi) ? live.openApi : {};
+    return payload
+      ? json({
+          ...payload,
+          workerVersion: live.workerVersion ?? payload.workerVersion,
+          capabilityDigest: openApiManifest.capabilityDigest ?? payload.capabilityDigest,
+          operationCount: openApiManifest.operationCount ?? payload.operationCount,
+        }, response.status)
+      : response;
+  }
+  return response;
+}
 
 const runtime = {
   fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     return runWithActionRequestContext(async () => {
-      const response = await worker.fetch(request, env, ctx);
+      const url = new URL(request.url);
+      if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
+        return json(openApi(request));
+      }
+      if (url.pathname === RELEASE_ENTRY_UPLOAD_PATH) {
+        const response = await handleReleaseEntryAction(request, env, actionFetch);
+        if (response) return response;
+      }
+
+      const baseResponse = await worker.fetch(request, env, ctx);
+      const response = await decorateGatewayResponse(request, baseResponse, env);
       return enrichConflictResponse(
         request,
         response,

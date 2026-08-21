@@ -1,185 +1,68 @@
-# Gremlin / GPTomek checkpoint
+# Gremlin / GPTomek roadmap
 
-Private roadmap for the Custom GPT operator stack. This belongs in the private
-overlay in `trvny/trvny`, not the public `trvny/.ai` template.
+Private roadmap for the Custom GPT operator in `trvny/trvny`.
+Keep this capability-oriented and evergreen. Do not store current SHAs, transient
+incidents or step-by-step session history here.
 
-## Current state
+## Operating foundation
 
-The gateway is already usable as a guarded GitHub operator rather than a bag of
-raw REST calls.
+- [x] Split `trvny` OAuth identity from ordinary `gptomek[bot]` writes.
+- [x] Private fail-closed runtime policy plus dedicated Gremlin style profile.
+- [x] Compact Builder instructions with an enforced size budget.
+- [x] Repository bootstrap, scoped/nested `AGENTS.md` guidance and guarded change preparation.
+- [x] Guarded file/branch/PR/issue/workflow/release operations.
+- [x] Expected-SHA/snapshot guards, self-describing conflicts and request-local read reuse.
+- [x] PR inspection/finalization with paginated review threads.
+- [x] Failure-focused workflow diagnosis and bounded workflow control.
+- [x] Account maintenance scan/autofix and account PR/issue attention radar.
+- [x] Resumable operator autopilot with strongly consistent checkpoints.
+- [x] Live capability/version manifest and harmless authenticated/post-deploy smoke checks.
+- [x] Resumable release orchestration from validated target through artifact/release verification.
 
-- OAuth bridge verifies the authorized user as `trvny`; ordinary bot-authored
-  writes use `gptomek[bot]`.
-- Guarded file commits, branch creation/deletion/cleanup, PR creation/state,
-  review-thread state, comments/reactions/labels and issue triage.
-- Repository context, PR inspection/finalization and workflow diagnosis.
-- Workflow rerun/cancel plus validated `workflow_dispatch`.
-- Guarded release create/update plus Actions-artifact -> release-asset upload
-  and exact-snapshot asset deletion.
-- `orchestrateRelease` adds a resumable guarded release state machine: validate
-  policy/target -> checkpoint dispatch baseline -> dispatch/identify exact bot
-  workflow run -> wait/diagnose -> select exact artifact -> create/update
-  release -> upload asset -> verify release/asset/latest state. It pauses between
-  mutation stages so retries resume from Durable Object progress rather than
-  blindly replaying uncertain writes.
-- `prepareChange` for base/head/AGENTS/issue-aware change setup.
-- `investigateCode` with path/language/ref filters and optional file history.
-- Per-repository maintenance report plus exact artifact/cache cleanup.
-- Account-wide maintenance radar across active owned repositories.
-- `runAccountMaintenanceAutofix` can plan and execute bounded safe maintenance:
-  current-head first-attempt workflow retries, exact closed-PR branch cleanup,
-  dead-branch cache cleanup and expired-artifact deletion through existing
-  guarded actions.
-- Maintenance cache pressure is policy-driven. The private policy defines global
-  cache size/age thresholds and optional per-repository overrides. Account scans
-  surface `cache_pressure`; autofix may remove stale caches only while the repo is
-  over its size threshold, and rechecks pressure plus `lastAccessedAt` immediately
-  before deletion.
-- `runOperatorAutopilot` composes the operator loop: policy-scoped account scan,
-  safe maintenance plan/execution, verification scan, bounded PR inspection and
-  a prioritized continuation queue for model-driven follow-through.
-- Autopilot operations can use stable `operationId` checkpoints in a dedicated
-  Durable Object. Completed results replay safely; a lost/expired running lease
-  recovers with a forced read-only verification pass instead of replaying
-  uncertain mutations. The same store now supports bounded paused progress for
-  multi-call release orchestration. OAuth bearer tokens are never stored there.
-- `diagnoseWorkflowRun` keeps failure-signal windows plus the log tail for up to
-  three failing jobs, avoiding setup-heavy first-chunk excerpts while preserving
-  the existing run/job/failed-step summary.
-- Private operator policy lives in `.ai/private/openai/gremlin-policy.json` and
-  `getOperatorBootstrap` returns its validated model/runtime contract plus
-  optional repository metadata and root `AGENTS.md` guidance.
-- Dedicated paste-ready Builder instructions live in
-  `.ai/private/openai/gremlin-builder-instructions.md`; a CI test keeps them
-  below the Custom GPT 8k-byte limit and anchored to the runtime actions instead
-  of duplicating policy detail.
-- `getOperatorCapabilities` reports the serving Cloudflare Worker version and
-  derives sorted operation IDs plus a SHA-256 capability digest from the exact
-  OpenAPI served by that deployment. `/health` exposes the same live fingerprint
-  for deployment checks without treating a merge as proof of deployment.
-- `runOperatorSmokeTest` performs a read-only authenticated identity -> bootstrap
-  -> live capabilities -> harmless repository-read path. After runtime changes,
-  the main-branch CI also polls public `/health` and canonical OpenAPI until the
-  Cloudflare Workers Builds deployment exposes the exact source-derived
-  capability digest, then verifies the required operator actions are present.
-- Account maintenance and maintenance autofix are policy-wrapped: repository
-  include/exclude rules, archived handling, run limits, autofix enablement,
-  workflow retry budget and cache thresholds are enforced before guarded
-  mutations execute.
-- PR finalization and release mutations are policy-wrapped too. Merge enablement
-  and method, repository scope, archived handling and release branch ancestry
-  are checked before the existing expected-SHA, CI, review and snapshot guards.
-- Generic raw branch/workflow/release writes are blocked in favor of guarded
-  actions.
-- Operator plumbing caches OAuth `/user` checks and GPTomek installation tokens;
-  `githubReadBatch` can perform up to 10 allowlisted reads concurrently.
-- GPTomek control mailbox remains a separate internal transport and
-  `gptomek/control` stays a persistent anchor.
+## Release pipeline
 
-## Next: private `.ai` control plane
+- [x] Exact artifact ZIP -> release asset upload.
+- [x] Exact release-asset deletion.
+- [x] Extract one exact artifact entry (APK/AAB/checksum/etc.) and publish it as a release asset.
+- [ ] Safe replace-release-asset flow: exact old snapshot -> delete -> fresh source snapshot -> upload -> verify.
+- [ ] Teach release orchestration to optionally use exact artifact entries instead of only whole artifact ZIPs.
 
-- [x] Add `.ai/private/openai/gremlin-policy.json` as the private
-  runtime/operator policy source of truth. JSON is intentional here: strict
-  parsing and zero extra Worker dependency. Keep the public `.ai` repository a
-  reusable template.
-- [x] Split that policy into model guidance and deterministic runtime guards:
-  autonomy, repository scope, stop conditions, maintenance limits and
-  merge/release rules.
-- [x] Validate the private policy strictly so unknown keys, malformed values or
-  unsafe limits fail closed instead of silently changing behavior.
-- [x] Add `getOperatorBootstrap`, returning effective private policy, optional
-  repository metadata/root `AGENTS.md`, capability categories and stop
-  conditions in one compact response.
-- [x] Teach the current mutation-heavy high-level actions to consume the same
-  policy automatically where deterministic enforcement belongs.
-  - [x] Account maintenance and maintenance autofix policy enforcement.
-  - [x] Merge/finalize and release policy enforcement.
-- [x] Keep the Custom GPT instruction block small: personality + broad operating
-  contract + runtime-action routing. The maintained paste-ready source is
-  `.ai/private/openai/gremlin-builder-instructions.md`, with CI enforcing the 8k
-  byte budget instead of duplicating runtime policy in Builder text.
-- [ ] Optionally generate a compact Builder/Knowledge pack from the private
-  overlay so personality/reference material has a maintained source rather than
-  hand-copied text.
+## Coding operator
 
-## Autopilot
+Build these in roughly this order. Prefer high-level workflows that remove model/API round trips;
+do not wrap every GitHub endpoint for its own sake.
 
-- [x] Build the guarded account/repository operator loop:
-  scan -> classify -> plan -> execute safe steps -> verify -> report/continue.
-  `runOperatorAutopilot` performs the deterministic cycle and returns prioritized
-  continuation tasks so the model can keep working without routine human input.
-- [x] Start with maintenance: the account radar selects repositories and
-  `runAccountMaintenanceAutofix` uses detailed repo reports only where needed.
-- [x] Auto-handle the first deterministic safe chores through guarded actions:
-  exact expired artifacts, dead-branch caches, closed-PR orphan branches with
-  expected SHA and one reasonable current-head workflow retry.
-- [x] Move maintenance repository scope, per-run limits, autofix enablement and
-  workflow retry budget into the private runtime policy.
-- [x] Add policy-driven cache/age thresholds and per-repository maintenance
-  exceptions. Defaults are 5 GiB active cache pressure and 5 days since last
-  access; per-repository overrides may tune both or disable autofix. Stale cache
-  deletion revalidates the current snapshot before mutation.
-- [x] Keep product/code decisions in the model. Runtime decides what is allowed;
-  the autopilot queues semantic follow-through instead of inventing code fixes in
-  the Worker.
-- [x] Add resumable operation/checkpoint IDs for long or interrupted runs. A
-  stable client-supplied `operationId` gets a strongly consistent Durable Object
-  checkpoint, bounded lease, safe result replay and read-only recovery after an
-  uncertain interruption.
-- [x] Add end-to-end release orchestration: validate target -> dispatch build ->
-  wait/diagnose -> collect exact artifact -> create/update release -> attach
-  asset -> verify release/asset/latest state. Dispatch and upload recovery are
-  checkpoint-aware so an interrupted request does not blindly replay mutations.
+- [ ] **Symbol/reference investigation.** Extend code investigation to locate a named function,
+  class, type or constant, its definitions, references/imports/implementations and nearby tests.
+- [ ] **Blame and focused history.** For a file/symbol/line range, return the commits/PR context
+  that explains how the code got there and helps identify regressions.
+- [ ] **Dependency/import graph.** Show what a target imports and the bounded set of callers or
+  modules likely affected by a change.
+- [ ] **Targeted test discovery.** Given changed/target files, discover the smallest relevant
+  test/typecheck/lint/build commands while retaining full CI as the final gate.
+- [ ] **Code-change autopilot.** Compose goal -> scoped instructions -> investigation -> minimal
+  edit -> targeted verification -> commit/PR -> CI/review -> merge/cleanup. Semantic code choices
+  stay with the model; deterministic safety/state transitions stay in the Worker.
+- [ ] **Refactor-aware editing.** Support rename/move operations with before/after reference
+  snapshots and verification that stale references were not left behind.
+- [ ] **Bug investigation mode.** Connect issue/stack trace/CI failure -> relevant symbol/history ->
+  reproduction or targeted test -> fix -> verification.
+- [ ] **Focused code-review pass.** Pre-merge analysis for missed callers, API-contract drift,
+  unsafe null/state handling, race-prone changes, missing edge cases and accidental scope growth.
 
-## High-value follow-ups
+## Architecture / ergonomics
 
-- [ ] Nested `AGENTS.md` support for target directories, not only root guidance,
-  in context/prepare/investigation flows.
-- [x] Improve workflow diagnosis to return failure-focused/tail log excerpts
-  instead of primarily the first chunk of logs.
-- [ ] Paginate PR review threads beyond the current first 100 when needed.
-- [ ] Request-local memoization for identical GitHub GETs inside one high-level
-  action, beyond the existing OAuth/install-token caches.
-- [ ] Make conflict responses more self-describing (`expected`, `current`,
-  changed resource metadata) so the model can recover without an extra read.
-- [ ] Keep shrinking/tooling the OpenAPI surface: prefer high-level guarded
-  workflows, use generic read/bot calls only as escape hatches, and consider a
-  central action registry if router boilerplate keeps growing.
-- [x] Add a compact capability/version manifest so the GPT can tell which
-  gateway generation is deployed before choosing a workflow. It derives its
-  operation set from the exact deployment OpenAPI and fingerprints it alongside
-  Cloudflare Worker version metadata.
-- [x] Add harmless post-deploy smoke/E2E checks for the live Worker. GitHub
-  Actions waits for the public live fingerprint to converge after a main push;
-  `runOperatorSmokeTest` separately exercises authenticated identity, bootstrap,
-  capabilities and a read-only repository request without mutations.
-
-## Optional/luxury
-
-- [ ] Release assets v2: select/extract a specific APK/AAB/checksum from an
-  Actions artifact instead of publishing the whole artifact ZIP.
-- [ ] Safe replace-release-asset workflow composed from exact delete + fresh
-  snapshot + upload.
-- [x] Account maintenance filters/priorities driven by private policy: repository
-  scope, cache size/age thresholds and repository-specific exceptions now affect
-  both attention ranking and safe cache cleanup.
-- [ ] Account-level PR/issue sweep for “what needs my attention?” beyond pure
-  Actions/cache maintenance.
-- [ ] More code-investigation ergonomics only when they remove real round trips
-  (symbol/history/blame-oriented context), rather than wrapping every GitHub
-  endpoint.
+- [ ] Generate an optional compact Builder/Knowledge pack from private `.ai` sources.
+- [ ] Introduce a central Action registry if router/OpenAPI registration duplication keeps growing.
+- [ ] Add further code-investigation ergonomics only when they demonstrably remove round trips.
 
 ## Design constraints
 
 - One source of truth per concern.
-- Public `.ai` stays reusable; personal/operator policy stays in the private
-  overlay in `trvny/trvny`.
+- Public `.ai` stays reusable; personal/operator policy stays private.
 - Guarded high-level actions are preferred over raw mutation endpoints.
-- GPTomek performs normal bot-authored writes; intentionally human-authored
-  operations stay `trvny`.
-- Codex review is advisory. The active operator evaluates findings and performs
-  writes itself.
-- Never persist OAuth bearer tokens in operator checkpoints. Recovery requires a
-  fresh authorized Action call.
-- Policy may narrow or disable behavior, but it never weakens hard safety floors
-  such as expected-SHA/snapshot guards, green relevant CI or review-state checks.
+- GPTomek performs normal bot-authored writes; intentionally human-authored operations stay `trvny`.
+- Policy may narrow behavior but never weakens hard runtime safety guards.
+- Never persist OAuth bearer tokens in checkpoints.
+- Interrupted or uncertain mutations recover by verification, not blind replay.
+- Final merge/release gates require fresh state, exact expected snapshots and applicable green CI/review state.

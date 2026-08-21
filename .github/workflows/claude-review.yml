@@ -1,15 +1,8 @@
-# Claude Code review on opened and updated pull requests.
+# Claude Code review, run explicitly when useful.
 ---
 name: Claude review
 
 on:  # yamllint disable-line rule:truthy
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-      - review_requested
   workflow_dispatch:
     inputs:
       pr_number:
@@ -23,21 +16,13 @@ on:  # yamllint disable-line rule:truthy
         type: number
 
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
+  group: claude-review-${{ inputs.pr_number || github.run_id }}
   cancel-in-progress: true
 
 permissions: {}
 
 jobs:
   review:
-    # Automatic reviews need a same-repository PR and regular Actions secrets.
-    if: >-
-      ${{
-        github.event_name == 'workflow_dispatch' ||
-        github.event_name == 'workflow_call' ||
-        (github.event.pull_request.user.login != 'dependabot[bot]' &&
-         github.event.pull_request.head.repo.full_name == github.repository)
-      }}
     runs-on: ubuntu-slim
     timeout-minutes: 20
     permissions:
@@ -48,11 +33,7 @@ jobs:
       - name: Checkout pull request head
         uses: actions/checkout@v7
         with:
-          ref: >-
-            ${{
-              github.event.pull_request.head.sha ||
-              format('refs/pull/{0}/head', inputs.pr_number)
-            }}
+          ref: ${{ format('refs/pull/{0}/head', inputs.pr_number) }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -64,7 +45,7 @@ jobs:
           plugins: code-review@claude-code-plugins
           prompt: >-
             /code-review:code-review
-            ${{ github.repository }}/pull/${{ github.event.pull_request.number || inputs.pr_number }}
+            ${{ github.repository }}/pull/${{ inputs.pr_number }}
           claude_args: |
             --model claude-sonnet-5
             --max-turns 5

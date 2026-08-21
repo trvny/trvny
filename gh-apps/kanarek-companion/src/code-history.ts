@@ -23,6 +23,8 @@ type Input = {
 export type BlameRangeLike = {
   startingLine: number;
   endingLine: number;
+  commit?: unknown;
+  age?: unknown;
 };
 
 class CodeHistoryError extends Error {

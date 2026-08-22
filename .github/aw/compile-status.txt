@@ -1,0 +1,57 @@
+setup=success
+compile=failure
+cross_repo_token=false
+
+.github/workflows/docs-worker.md: warning: safe update mode detected unapproved changes
+
+New restricted secret(s):
+  - GEMINI_API_KEY
+
+Remediation options:
+  1. Use the --approve flag to allow the changes.
+  2. Revert the unapproved changes.
+  3. Use an interactive coding agent to review and approve the changes.
+
+⚠ ⚠️  SECURITY REVIEW REQUIRED — safe update mode detected unapproved changes:
+
+safe update mode detected unapproved changes
+
+New restricted secret(s):
+  - GEMINI_API_KEY
+
+Remediation options:
+  1. Use the --approve flag to allow the changes.
+  2. Revert the unapproved changes.
+  3. Use an interactive coding agent to review and approve the changes.
+
+Action required for the calling agent:
+  1. Review every new secret and action listed above for potential malicious use
+     (e.g. credential exfiltration, supply-chain attacks, unexpected network access).
+  2. Add a security review note to the pull request description that:
+     - Lists any new or removed secrets, actions, and redirect changes from this compilation.
+     - Confirms you have reviewed each one and explains why it is safe to add.
+     - Flags any item you cannot fully verify so a human reviewer can inspect it.
+
+✗ Compiled 2 workflows: 1 succeeded, 1 failed, 1 error, 1 warning
+
+✗ Failed workflows:
+✗ docs-orchestrator.md
+
+✗ docs-orchestrator.md (1 error(s)):
+  • 🟡 MEDIUM PRIORITY:
+  • 1. .github/workflows/docs-orchestrator.md:1:1: error: Missing required permissions for GitHub toolsets:
+  - pull-requests: read (required by pull_requests)
+
+To fix this, you can either:
+
+Option 1: Add missing permissions to your workflow frontmatter:
+permissions:
+  pull-requests: read
+
+See: https://github.com/github/gh-aw/blob/main/docs/src/content/docs/reference/permissions.md
+
+Option 2: Reduce the required toolsets in your workflow:
+Remove or adjust toolsets that require these permissions:
+  - pull_requests
+i → Correct the event or filter name, then re-run compilation.
+✗ compilation failed

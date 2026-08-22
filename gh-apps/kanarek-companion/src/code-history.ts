@@ -21,6 +21,11 @@ type Input = {
   maxCommits: number;
 };
 
+type PullLookup = {
+  pulls: JsonObject[];
+  ok: boolean;
+};
+
 export type BlameRangeLike = {
   startingLine: number;
   endingLine: number;
@@ -420,7 +425,7 @@ async function pullsForCommit(
   invoke: Invoke,
   repositoryName: string,
   sha: string,
-): Promise<JsonObject[]> {
+): Promise<PullLookup> {
   const repo = repoPath(repositoryName);
   try {
     const raw = await readData(
@@ -428,15 +433,21 @@ async function pullsForCommit(
       invoke,
       `/repos/${repo}/commits/${sha}/pulls?per_page=5`,
     );
-    return Array.isArray(raw)
-      ? raw.map(compactPull).filter((pull): pull is JsonObject => Boolean(pull))
-      : [];
+    if (!Array.isArray(raw)) return { pulls: [], ok: false };
+    return {
+      pulls: raw.map(compactPull).filter((pull): pull is JsonObject => Boolean(pull)),
+      ok: true,
+    };
   } catch {
-    return [];
+    return { pulls: [], ok: false };
   }
 }
 
-function compactCommit(value: unknown, pulls: JsonObject[] = []): JsonObject | null {
+function compactCommit(
+  value: unknown,
+  pulls: JsonObject[] = [],
+  pullRequestsQueried = false,
+): JsonObject | null {
   if (!isObject(value) || typeof value.sha !== 'string') return null;
   const commit = isObject(value.commit) ? value.commit : {};
   const author = isObject(commit.author) ? commit.author : {};
@@ -454,6 +465,7 @@ function compactCommit(value: unknown, pulls: JsonObject[] = []): JsonObject | n
     },
     htmlUrl: stringValue(value.html_url),
     pullRequests: pulls,
+    pullRequestsQueried,
   };
 }
 
@@ -545,8 +557,15 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
   const pullEntries = await Promise.all(
     lookupShas.map(async (sha) => [sha, await pullsForCommit(request, invoke, input.repository, sha)] as const),
   );
-  const pullMap = new Map<string, JsonObject[]>(pullEntries);
-  const queriedShas = new Set(lookupShas);
+  const pullMap = new Map<string, JsonObject[]>(
+    pullEntries.map(([sha, result]) => [sha, result.pulls]),
+  );
+  const queriedShas = new Set(
+    pullEntries.filter(([, result]) => result.ok).map(([sha]) => sha),
+  );
+  const failedShas = new Set(
+    pullEntries.filter(([, result]) => !result.ok).map(([sha]) => sha),
+  );
 
   const blame = selectedRanges.map((range) => {
     const rawCommit = isObject(range.commit) ? range.commit : null;
@@ -564,7 +583,7 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
   const recentCommits = recent
     .map((commit) => {
       const sha = typeof commit.sha === 'string' ? commit.sha.toLowerCase() : '';
-      return compactCommit(commit, pullMap.get(sha) ?? []);
+      return compactCommit(commit, pullMap.get(sha) ?? [], queriedShas.has(sha));
     })
     .filter((commit): commit is JsonObject => Boolean(commit));
 
@@ -615,7 +634,9 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
     },
     enrichment: {
       pullRequestLookupBudget: MAX_PR_LOOKUPS,
-      queriedCommitShas: lookupShas,
+      attemptedCommitShas: lookupShas,
+      queriedCommitShas: [...queriedShas],
+      failedCommitShas: [...failedShas],
     },
     recentCommits,
   });

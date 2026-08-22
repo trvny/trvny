@@ -297,7 +297,13 @@ function relativePythonPath(callerPath: string, specifier: string): string {
 }
 
 function suffixMatches(candidate: string, variants: string[]): boolean {
-  return variants.some((variant) => candidate === variant || candidate.endsWith(`/${variant}`));
+  if (!candidate) return false;
+  return variants.some(
+    (variant) =>
+      candidate === variant ||
+      candidate.endsWith(`/${variant}`) ||
+      variant.endsWith(`/${candidate}`),
+  );
 }
 
 export function importReferencesTarget(

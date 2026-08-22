@@ -4,6 +4,7 @@ import {
   operationIdAllowed,
   type AutopilotCheckpointEnv,
 } from './autopilot-checkpoint.ts';
+import { loadAgentGuidance } from './agents-guidance.ts';
 import {
   DEPENDENCY_GRAPH_PATH,
   handleDependencyGraphAction,
@@ -17,7 +18,6 @@ export const CODE_CHANGE_AUTOPILOT_PATH = '/gpt-actions/operator/code-change';
 
 const PREPARE_CHANGE_PATH = '/gpt-actions/github/changes/prepare';
 const INVESTIGATE_PATH = '/gpt-actions/github/code/investigate';
-const CONTEXT_PATH = '/gpt-actions/github/context';
 const READ_PATH = '/gpt-actions/github/read';
 const COMMIT_FILES_PATH = '/gpt-actions/github/commit-files';
 const CREATE_PR_PATH = '/gpt-actions/github/pull-requests';
@@ -402,6 +402,31 @@ function decodeContent(value: unknown): string | null {
   }
 }
 
+async function targetGuidance(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  ref: string,
+): Promise<unknown> {
+  return loadAgentGuidance(core.targetPaths, ref, async (path, pinnedRef) => {
+    const { response, payload } = await invokePayload(
+      source,
+      invoke,
+      READ_PATH,
+      { path: `/repos/${repoPath(core.repository)}/contents/${contentPath(path)}?ref=${encodeURIComponent(pinnedRef)}` },
+      true,
+    );
+    if (response.status === 404) return null;
+    if (!response.ok || payload.ok !== true) {
+      throw new CodeChangeError(
+        typeof payload.error === 'string' ? payload.error : 'agent_guidance_read_failed',
+        response.status,
+      );
+    }
+    return payload.data;
+  });
+}
+
 async function branchHead(source: Request, invoke: Invoke, core: CoreInput): Promise<string> {
   const raw = await readData(
     source,
@@ -460,10 +485,7 @@ async function preparationContext(source: Request, invoke: Invoke, core: CoreInp
   if (currentBase.sha !== core.expectedBaseSha) {
     throw new CodeChangeError('base_head_changed', 409, { currentBase: currentBase.sha, expected: core.expectedBaseSha });
   }
-  const context = await invokePayload(source, invoke, CONTEXT_PATH, {
-    repository: core.repository,
-    targetPaths: core.targetPaths,
-  });
+  const guidance = await targetGuidance(source, invoke, core, currentBranch);
   const open = await readData(
     source,
     invoke,
@@ -477,7 +499,7 @@ async function preparationContext(source: Request, invoke: Invoke, core: CoreInp
     recovered: true,
     repository: { name: core.repository, defaultBranch: currentBase.defaultBranch, baseSha: core.expectedBaseSha },
     branch: { name: core.branch, sha: currentBranch, created: false },
-    agentGuidance: context.payload.agentGuidance ?? null,
+    agentGuidance: guidance,
   };
 }
 
@@ -533,6 +555,25 @@ async function targetedVerification(
   );
   if (!response) return { ok: false, error: 'targeted_test_route_missing' };
   return responseObject(response);
+}
+
+function verificationCommands(plan: JsonObject): Array<{ cwd: string; command: string }> {
+  if (!Array.isArray(plan.recommendedCommands)) return [];
+  return plan.recommendedCommands
+    .filter(isObject)
+    .map((entry) => ({ cwd: stringValue(entry.cwd) ?? '.', command: stringValue(entry.command) ?? '' }))
+    .filter((entry) => Boolean(entry.command));
+}
+
+function verificationEvidenceMissing(plan: JsonObject, results: JsonObject[]): string[] {
+  const passed = new Set(
+    results
+      .filter((result) => result.status === 'passed')
+      .map((result) => `${stringValue(result.cwd) ?? '.'}\n${stringValue(result.command) ?? ''}`),
+  );
+  return verificationCommands(plan)
+    .filter((expected) => !passed.has(`${expected.cwd}\n${expected.command}`))
+    .map((expected) => `${expected.cwd}: ${expected.command}`);
 }
 
 export function reviewGateBlockers(snapshot: ReviewGateSnapshot, expectedHeadSha: string): string[] {
@@ -745,17 +786,14 @@ async function editingResponse(
   core: CoreInput,
   progress: Progress,
 ): Promise<JsonObject> {
-  const context = await invokePayload(source, invoke, CONTEXT_PATH, {
-    repository: core.repository,
-    targetPaths: core.targetPaths,
-  });
+  const guidance = await targetGuidance(source, invoke, core, progress.branchHead);
   const investigated = await investigationContext(source, invoke, core, progress.branchHead);
   return {
     ok: true,
     stage: 'editing',
     goal: core.goal,
     branch: { name: core.branch, headSha: progress.branchHead },
-    agentGuidance: context.payload.agentGuidance ?? null,
+    agentGuidance: guidance,
     ...investigated,
     nextAction: {
       type: 'edit',
@@ -811,10 +849,8 @@ async function run(
   if (!claim.response.ok) return new Response(claim.response.body, claim.response);
   if (claim.payload.state === 'complete' && isObject(claim.payload.result)) {
     const result = claim.payload.result;
-    return json(
-      isObject(result.body) ? result.body : { ok: false, error: 'invalid_checkpoint_result' },
-      typeof result.status === 'number' ? result.status : 200,
-    );
+    return json(isObject(result.body) ? result.body : { ok: false, error: 'invalid_checkpoint_result' },
+      typeof result.status === 'number' ? result.status : 200);
   }
 
   let progress = isObject(claim.payload.progress) ? claim.payload.progress as Progress : null;
@@ -837,6 +873,9 @@ async function run(
         stage: 'verifying',
         branchHead: newHead,
         revision: progress.revision + 1,
+        ...(progress.pullRequest
+          ? { pullRequest: { ...progress.pullRequest, headSha: newHead } }
+          : {}),
       };
       delete next.verification;
       return pause(env, core, inputHash, next, {
@@ -854,12 +893,20 @@ async function run(
       if (progress.stage !== 'verifying') {
         throw new CodeChangeError('verification_not_allowed_in_stage', 409, { stage: progress.stage });
       }
+      const verificationPlan = await targetedVerification(request, invoke, core, progress.branchHead);
+      if (submitted.status === 'passed') {
+        const missing = verificationEvidenceMissing(verificationPlan, submitted.results ?? []);
+        if (missing.length) {
+          throw new CodeChangeError('verification_evidence_incomplete', 409, { missing });
+        }
+      }
       if (submitted.status === 'failed') {
         const next: Progress = { ...progress, stage: 'editing' };
         return pause(env, core, inputHash, next, {
           ok: false,
           stage: 'editing',
           verification: { status: 'failed', results: submitted.results ?? [] },
+          verificationPlan,
           nextAction: { type: 'edit', note: 'Fix the failed targeted verification on the same guarded branch.' },
         });
       }
@@ -992,6 +1039,8 @@ async function run(
   } catch (error) {
     if (progress) {
       await checkpointCall(env, core.operationId, '/progress', { inputHash, progress }).catch(() => null);
+    } else {
+      await checkpointCall(env, core.operationId, '/uncertain', { inputHash }).catch(() => null);
     }
     throw error;
   }

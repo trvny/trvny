@@ -33,7 +33,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -o pipefail
-          gh aw compile docs-orchestrator docs-worker --strict 2>&1 | tee /tmp/gh-aw-compile.log
+          gh aw compile docs-orchestrator docs-worker --strict --approve 2>&1 | tee /tmp/gh-aw-compile.log
 
       - name: Commit generated files or diagnostics
         if: always()

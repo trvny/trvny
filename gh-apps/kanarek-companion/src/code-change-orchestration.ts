@@ -84,6 +84,7 @@ type Progress = JsonObject & {
 
 export type ReviewGateSnapshot = {
   state: string;
+  baseRef: string;
   draft: boolean;
   headSha: string;
   mergeable: boolean | null;
@@ -576,9 +577,14 @@ function verificationEvidenceMissing(plan: JsonObject, results: JsonObject[]): s
     .map((expected) => `${expected.cwd}: ${expected.command}`);
 }
 
-export function reviewGateBlockers(snapshot: ReviewGateSnapshot, expectedHeadSha: string): string[] {
+export function reviewGateBlockers(
+  snapshot: ReviewGateSnapshot,
+  expectedHeadSha: string,
+  expectedBaseRef: string,
+): string[] {
   const blockers: string[] = [];
   if (snapshot.state !== 'open') blockers.push(`state:${snapshot.state}`);
+  if (snapshot.baseRef !== expectedBaseRef) blockers.push(`base_changed:${snapshot.baseRef}`);
   if (snapshot.draft) blockers.push('draft');
   if (snapshot.headSha.toLowerCase() !== expectedHeadSha.toLowerCase()) blockers.push('head_changed');
   if (snapshot.mergeable !== true) blockers.push(snapshot.mergeable === false ? 'not_mergeable' : 'mergeability_unknown');
@@ -591,8 +597,11 @@ export function reviewGateBlockers(snapshot: ReviewGateSnapshot, expectedHeadSha
 function finalizeSnapshot(inspection: JsonObject): ReviewGateSnapshot {
   const data = isObject(inspection.data) ? inspection.data : null;
   const raw = data && isObject(data.finalizeSnapshot) ? data.finalizeSnapshot : null;
+  const pullRequest = data && isObject(data.pullRequest) ? data.pullRequest : null;
+  const baseRef = pullRequest ? stringValue(pullRequest.baseRef) : null;
   if (
     !raw ||
+    !baseRef ||
     typeof raw.state !== 'string' ||
     typeof raw.draft !== 'boolean' ||
     typeof raw.headSha !== 'string' ||
@@ -604,7 +613,7 @@ function finalizeSnapshot(inspection: JsonObject): ReviewGateSnapshot {
   ) {
     throw new CodeChangeError('invalid_finalize_snapshot', 502);
   }
-  return raw as unknown as ReviewGateSnapshot;
+  return { ...raw, baseRef } as unknown as ReviewGateSnapshot;
 }
 
 async function inspect(source: Request, invoke: Invoke, core: CoreInput, pullRequestNumber: number): Promise<JsonObject> {
@@ -966,7 +975,7 @@ async function run(
 
       const inspection = await inspect(request, invoke, core, progress.pullRequest.number);
       const snapshot = finalizeSnapshot(inspection);
-      const blockers = reviewGateBlockers(snapshot, progress.branchHead);
+      const blockers = reviewGateBlockers(snapshot, progress.branchHead, progress.defaultBranch);
       if (blockers.length) {
         return pause(env, core, inputHash, progress, {
           ok: false,
@@ -984,6 +993,7 @@ async function run(
         pullRequestNumber: progress.pullRequest.number,
         expectedHeadSha: progress.branchHead,
         mergeMethod: submitted.mergeMethod,
+        expectedBaseRef: progress.defaultBranch,
       }, true);
       if (!finalized.response.ok || finalized.payload.merged !== true) {
         const merged = await mergedPullRequest(request, invoke, core, progress.pullRequest.number);
@@ -1033,7 +1043,7 @@ async function run(
       pullRequest: progress.pullRequest,
       verification: progress.verification ?? null,
       inspection: inspection.data ?? null,
-      blockers: reviewGateBlockers(finalizeSnapshot(inspection), progress.branchHead),
+      blockers: reviewGateBlockers(finalizeSnapshot(inspection), progress.branchHead, progress.defaultBranch),
       nextAction: { type: 'review', note: 'Fix actionable findings before marking semantic review complete.' },
     });
   } catch (error) {
@@ -1084,9 +1094,55 @@ export function addCodeChangeAutopilotOpenApi(document: JsonObject): void {
                 path: { type: 'string' },
                 language: { type: 'string' },
                 action: {
-                  type: 'object',
-                  description: 'Stage submission: edit, verification or review. Omit to inspect/resume the current stage.',
-                  properties: {},
+                  description: 'Stage submission. Omit to inspect or resume the current stage.',
+                  oneOf: [
+                    {
+                      type: 'object',
+                      required: ['type', 'message', 'files'],
+                      properties: {
+                        type: { type: 'string', enum: ['edit'] },
+                        message: { type: 'string' },
+                        files: {
+                          type: 'array',
+                          minItems: 1,
+                          maxItems: MAX_FILES,
+                          items: {
+                            type: 'object',
+                            required: ['path', 'content'],
+                            properties: {
+                              path: { type: 'string' },
+                              content: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    {
+                      type: 'object',
+                      required: ['type', 'status'],
+                      properties: {
+                        type: { type: 'string', enum: ['verification'] },
+                        status: { type: 'string', enum: ['passed', 'failed', 'unavailable'] },
+                        reason: { type: 'string' },
+                        results: { type: 'array', items: { type: 'object', properties: {} } },
+                        pullRequest: {
+                          type: 'object',
+                          required: ['title'],
+                          properties: { title: { type: 'string' }, body: { type: 'string' } },
+                        },
+                      },
+                    },
+                    {
+                      type: 'object',
+                      required: ['type', 'reviewedHeadSha', 'semanticReviewComplete'],
+                      properties: {
+                        type: { type: 'string', enum: ['review'] },
+                        reviewedHeadSha: { type: 'string' },
+                        semanticReviewComplete: { type: 'boolean', enum: [true] },
+                        mergeMethod: { type: 'string', enum: ['squash', 'merge', 'rebase'] },
+                      },
+                    },
+                  ],
                 },
               },
             },

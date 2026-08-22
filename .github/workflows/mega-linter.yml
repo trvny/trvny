@@ -4,14 +4,15 @@
 name: MegaLinter
 
 on: # yamllint disable-line rule:truthy
+  # Linting belongs on pull requests, where it can still block something. A push
+  # to main only gets the full sweep when the rules themselves change; use
+  # workflow_dispatch for an on-demand sweep of the whole codebase.
   push:
     branches: [main]
-  pull_request:
     paths:
-      - "codebench/**"
-      - "streambench/**"
-      - ".github/workflows/benches-release.yml"
+      - ".github/linters/**"
       - ".github/workflows/mega-linter.yml"
+  pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -115,7 +116,6 @@ jobs:
 
   megalinter:
     name: MegaLinter
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -1,6 +1,7 @@
 ---
 on:
-  schedule: weekly on monday
+  # Bez harmonogramu swiadomie: cotygodniowa porcja PR-ow do przejrzenia to praca
+  # tworzona, nie oszczedzana. Odpalac recznie, gdy jest po co.
   workflow_dispatch:
 
 engine: gemini

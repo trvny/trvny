@@ -32,6 +32,11 @@ import {
   handleSymbolInvestigationAction,
   SYMBOL_INVESTIGATION_PATH,
 } from './symbol-investigation.ts';
+import {
+  addTargetedTestsOpenApi,
+  handleTargetedTestsAction,
+  TARGETED_TESTS_PATH,
+} from './test-discovery.ts';
 
 export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
 
@@ -67,6 +72,7 @@ function openApi(request: Request): JsonObject {
   addSymbolInvestigationOpenApi(document);
   addCodeHistoryOpenApi(document);
   addDependencyGraphOpenApi(document);
+  addTargetedTestsOpenApi(document);
   return document;
 }
 
@@ -149,6 +155,13 @@ const runtime = {
       }
       if (url.pathname === DEPENDENCY_GRAPH_PATH) {
         const response = await handleDependencyGraphAction(
+          request,
+          (internalRequest) => worker.fetch(internalRequest, env, ctx),
+        );
+        if (response) return response;
+      }
+      if (url.pathname === TARGETED_TESTS_PATH) {
+        const response = await handleTargetedTestsAction(
           request,
           (internalRequest) => worker.fetch(internalRequest, env, ctx),
         );

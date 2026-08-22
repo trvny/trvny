@@ -38,7 +38,7 @@ do not wrap every GitHub endpoint for its own sake.
   that explains how the code got there and helps identify regressions.
 - [x] **Dependency/import graph.** Show what a target imports and the bounded set of callers or
   modules likely affected by a change.
-- [ ] **Targeted test discovery.** Given changed/target files, discover the smallest relevant
+- [x] **Targeted test discovery.** Given changed/target files, discover the smallest relevant
   test/typecheck/lint/build commands while retaining full CI as the final gate.
 - [ ] **Code-change autopilot.** Compose goal -> scoped instructions -> investigation -> minimal
   edit -> targeted verification -> commit/PR -> CI/review -> merge/cleanup. Semantic code choices

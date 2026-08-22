@@ -1,0 +1,59 @@
+name: Copilot code review setup
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/copilot-code-review.yml"
+  pull_request:
+    paths:
+      - ".github/workflows/copilot-code-review.yml"
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            codebench/package-lock.json
+            streambench/package-lock.json
+            gh-apps/kanarek-companion/package-lock.json
+            mcp/status-mcp/package-lock.json
+            weather-feed/package-lock.json
+
+      - name: Install Node dependencies
+        run: |
+          for dir in \
+            codebench \
+            streambench \
+            gh-apps/kanarek-companion \
+            mcp/status-mcp \
+            weather-feed; do
+            (cd "$dir" && npm ci)
+          done
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Prepare Xiaomi ADB Tools
+        run: |
+          chmod +x xiaomi-adb-tools/gradlew
+          ./xiaomi-adb-tools/gradlew -p xiaomi-adb-tools --no-daemon help

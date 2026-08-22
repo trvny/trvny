@@ -32,7 +32,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-          token: ${{ secrets.GH_PAT }}
 
       - name: Apply exact review fixes
         shell: python
@@ -95,16 +94,13 @@ jobs:
 
           path.write_text(source)
 
-      - name: Commit clean patched tree
+      - name: Commit source fix
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git rm .github/workflows/pr297-autopilot-fix.yml
-          git checkout origin/main -- .github/workflows/kanarek-companion-ci.yml
-          git add gh-apps/kanarek-companion/src/code-change-orchestration.ts .github/workflows/kanarek-companion-ci.yml
+          git add gh-apps/kanarek-companion/src/code-change-orchestration.ts
           git commit -m "fix(gpt-actions): harden code change recovery"
           git push origin HEAD:${HEAD_REF}
 

@@ -11,19 +11,14 @@ permissions:
   contents: read
   pull-requests: read
 
-# Keep the target set explicit so the agent cannot quietly widen its scope.
+# gh-aw guard patterns cannot represent the dotted `.ai` repository literally.
+# Keep dispatch itself constrained by the explicit seven-repository target list below.
 tools:
   github:
     github-token: ${{ secrets.GH_PAT }}
     toolsets: [repos, pull_requests]
     allowed-repos:
-      - trvny/feedseek
-      - trvny/kanarek
-      - trvny/tvpi
-      - trvny/wambridge
-      - trvny/trvny
-      - trvny/autka
-      - trvny/.ai
+      - trvny/*
     min-integrity: merged
 
 safe-outputs:

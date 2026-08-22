@@ -23,6 +23,55 @@ permissions:
   contents: write
 
 jobs:
+  diagnose-pr297:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 297
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
+
+      - name: Capture diagnostics
+        shell: bash
+        run: |
+          set +e
+          {
+            echo "HEAD=$(git rev-parse HEAD)"
+            echo "--- replacement counts ---"
+            python - <<'PY'
+          from pathlib import Path
+          source = Path('gh-apps/kanarek-companion/src/code-change-orchestration.ts').read_text()
+          old_discovery = "  if (!response) return { ok: false, error: 'targeted_test_route_missing' };\n  return responseObject(response);\n"
+          old_recovery = "      const alreadyMerged = await mergedPullRequest(request, invoke, core, progress.pullRequest.number);\n      if (alreadyMerged) {\n        const cleanupResult = await cleanup(request, invoke, core, progress.pullRequest);\n"
+          print('discovery=', source.count(old_discovery))
+          print('recovery=', source.count(old_recovery))
+          PY
+            echo "--- npm ci ---"
+            cd gh-apps/kanarek-companion
+            npm ci
+            echo "npm_ci_exit=$?"
+            echo "--- npm run check ---"
+            npm run check
+            echo "npm_check_exit=$?"
+          } > "$GITHUB_WORKSPACE/pr297-diag.txt" 2>&1
+          exit 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr297-diagnostics
+          path: pr297-diag.txt
+          if-no-files-found: error
+          retention-days: 1
+
   autopilot-review-fix:
     if: github.event_name == 'pull_request' && github.event.pull_request.number == 297
     runs-on: ubuntu-slim

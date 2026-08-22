@@ -1,8 +1,0 @@
-setup=success
-compile=success
-cross_repo_token=false
-
-i guard policy dry-run report for docs-orchestrator.md:
-  allowed-repos: trvny/autka, trvny/feedseek, trvny/kanarek, trvny/wambridge
-  min-integrity: merged
-✓ Compiled 2 workflows: 2 succeeded, 0 warnings

@@ -22,11 +22,13 @@ jobs:
           ref: gh-aw/docs-flash-lite
 
       - name: Install gh-aw CLI
-        uses: github/gh-aw/actions/setup-cli@main
-        with:
-          version: v0.87.0
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-aw@v0.87.0
 
       - name: Compile
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: gh aw compile --strict --approve
 
       - name: Commit generated locks

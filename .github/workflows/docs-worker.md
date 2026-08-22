@@ -18,7 +18,7 @@ concurrency:
   group: gh-aw-${{ github.workflow }}-${{ github.event.inputs.target_repo }}
 
 engine: gemini
-model: gemini-3.7-flash
+model: gemini-3.5-flash-lite
 
 permissions:
   contents: read

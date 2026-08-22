@@ -34,6 +34,7 @@ test('extractImports finds common module, dotted and Rust imports', () => {
 test('importReferencesTarget resolves relative and dotted callers conservatively', () => {
   assert.equal(importReferencesTarget('src/caller.ts', './widget', 'src/widget.ts'), 'high');
   assert.equal(importReferencesTarget('src/caller.ts', './feature', 'src/feature/index.ts'), 'high');
+  assert.equal(importReferencesTarget('src/caller.ts', './widget', 'other/src/widget.ts'), null);
   assert.equal(importReferencesTarget('app/views.py', 'app.services.feed', 'app/services/feed.py', 'python'), 'medium');
   assert.equal(
     importReferencesTarget(

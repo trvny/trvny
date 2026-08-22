@@ -31,18 +31,22 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh aw compile docs-orchestrator docs-worker --strict 2>&1 | tee /tmp/gh-aw-compile.log
+        run: |
+          set -o pipefail
+          gh aw compile docs-orchestrator docs-worker --strict 2>&1 | tee /tmp/gh-aw-compile.log
 
       - name: Commit generated files or diagnostics
         if: always()
         env:
           SETUP_OUTCOME: ${{ steps.setup.outcome }}
           COMPILE_OUTCOME: ${{ steps.compile.outcome }}
+          CROSS_REPO_TOKEN_PRESENT: ${{ secrets.GH_AW_GITHUB_TOKEN != '' }}
         run: |
           mkdir -p .github/aw
           {
             echo "setup=${SETUP_OUTCOME}"
             echo "compile=${COMPILE_OUTCOME}"
+            echo "cross_repo_token=${CROSS_REPO_TOKEN_PRESENT}"
             if [ -f /tmp/gh-aw-compile.log ]; then
               echo
               cat /tmp/gh-aw-compile.log
@@ -53,7 +57,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .github/aw/compile-status.txt
           if [ "$COMPILE_OUTCOME" = "success" ]; then
-            git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml .github/aw
+            git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml
+            git add .github/aw
           fi
           git commit -m "ci: record central docs compile" || exit 0
           git push origin HEAD:${{ github.event.pull_request.head.ref }}

@@ -13,7 +13,7 @@ permissions:
 # The pilot set stays explicit so the agent cannot quietly widen its scope.
 tools:
   github:
-    github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+    github-token: ${{ secrets.GH_PAT }}
     toolsets: [repos, pull_requests]
     allowed-repos:
       - trvny/feedseek

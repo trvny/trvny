@@ -34,7 +34,7 @@ do not wrap every GitHub endpoint for its own sake.
 
 - [x] **Symbol/reference investigation.** Locate a named function, class, type or constant,
   classify definitions/references/imports/implementations on an exact snapshot and surface matching tests.
-- [ ] **Blame and focused history.** For a file/symbol/line range, return the commits/PR context
+- [x] **Blame and focused history.** For a file/symbol/line range, return the commits/PR context
   that explains how the code got there and helps identify regressions.
 - [ ] **Dependency/import graph.** Show what a target imports and the bounded set of callers or
   modules likely affected by a change.

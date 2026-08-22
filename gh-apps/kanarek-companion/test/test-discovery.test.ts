@@ -122,6 +122,116 @@ test('targeted discovery pins project lookup and returns narrow Node commands', 
   assert.equal(payload.finalGate.ciRequired, true);
 });
 
+test('deep targets still reach their project root', async () => {
+  const sha = 'e'.repeat(40);
+  const target = 'deep-project/a/b/c/d/e/f/g/h/i/j/Thing.kt';
+  const source = new Request('https://example.workers.dev' + TARGETED_TESTS_PATH, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ repository: 'trvny/trvny', targetPaths: [target], ref: 'main' }),
+  });
+
+  const invoke = async (request: Request): Promise<Response> => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const path = String(body.path);
+    if (path === '/repos/trvny/trvny') {
+      return Response.json({ ok: true, data: { default_branch: 'main' } });
+    }
+    if (path === '/repos/trvny/trvny/commits/main') {
+      return Response.json({ ok: true, data: { sha } });
+    }
+    if (path === `/repos/trvny/trvny/contents/deep-project?ref=${sha}`) {
+      return Response.json({ ok: true, data: [{ name: 'gradlew', type: 'file' }] });
+    }
+    if (path === `/repos/trvny/trvny/contents/deep-project/gradlew?ref=${sha}`) {
+      return Response.json({ ok: true, data: { encoding: 'base64', content: '', size: 0 } });
+    }
+    return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+  };
+
+  const response = await handleTargetedTestsAction(source, invoke);
+  assert.ok(response);
+  const payload = (await response.json()) as Record<string, any>;
+  assert.equal(payload.projects[0].root, 'deep-project');
+  assert.equal(payload.projects[0].kind, 'gradle');
+});
+
+test('nonexistent test targets are not reported as discovered', async () => {
+  const sha = 'f'.repeat(40);
+  const target = 'app/test/missing.test.ts';
+  const packageJson = JSON.stringify({ scripts: { test: 'node --test test/*.test.ts' } });
+  const source = new Request('https://example.workers.dev' + TARGETED_TESTS_PATH, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ repository: 'trvny/trvny', targetPaths: [target], ref: 'main' }),
+  });
+
+  const invoke = async (request: Request): Promise<Response> => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const path = String(body.path);
+    if (path === '/repos/trvny/trvny') {
+      return Response.json({ ok: true, data: { default_branch: 'main' } });
+    }
+    if (path === '/repos/trvny/trvny/commits/main') {
+      return Response.json({ ok: true, data: { sha } });
+    }
+    if (path === `/repos/trvny/trvny/contents/app/test?ref=${sha}`) {
+      return Response.json({ ok: true, data: [] });
+    }
+    if (path === `/repos/trvny/trvny/contents/app?ref=${sha}`) {
+      return Response.json({ ok: true, data: [{ name: 'package.json', type: 'file' }] });
+    }
+    if (path === `/repos/trvny/trvny/contents/app/package.json?ref=${sha}`) {
+      return Response.json({
+        ok: true,
+        data: {
+          encoding: 'base64',
+          size: packageJson.length,
+          content: Buffer.from(packageJson).toString('base64'),
+        },
+      });
+    }
+    return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+  };
+
+  const response = await handleTargetedTestsAction(source, invoke);
+  assert.ok(response);
+  const payload = (await response.json()) as Record<string, any>;
+  assert.deepEqual(payload.projects[0].discoveredTests, []);
+  assert.equal(payload.recommendedCommands[0].command, 'npm test');
+  assert.equal(payload.recommendedCommands[0].scope, 'project');
+});
+
+test('Go package arguments are shell quoted', async () => {
+  const sha = 'a'.repeat(40);
+  const target = 'go-app/pkg;echo-pwn/file.go';
+  const source = new Request('https://example.workers.dev' + TARGETED_TESTS_PATH, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ repository: 'trvny/trvny', targetPaths: [target], ref: 'main' }),
+  });
+
+  const invoke = async (request: Request): Promise<Response> => {
+    const body = (await request.json()) as Record<string, unknown>;
+    const path = String(body.path);
+    if (path === '/repos/trvny/trvny') {
+      return Response.json({ ok: true, data: { default_branch: 'main' } });
+    }
+    if (path === '/repos/trvny/trvny/commits/main') {
+      return Response.json({ ok: true, data: { sha } });
+    }
+    if (path === `/repos/trvny/trvny/contents/go-app?ref=${sha}`) {
+      return Response.json({ ok: true, data: [{ name: 'go.mod', type: 'file' }] });
+    }
+    return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
+  };
+
+  const response = await handleTargetedTestsAction(source, invoke);
+  assert.ok(response);
+  const payload = (await response.json()) as Record<string, any>;
+  assert.equal(payload.recommendedCommands[0].command, "go test './pkg;echo-pwn'");
+});
+
 test('targeted test discovery only accepts POST', async () => {
   const response = await handleTargetedTestsAction(
     new Request('https://example.workers.dev' + TARGETED_TESTS_PATH, { method: 'GET' }),

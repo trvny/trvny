@@ -1,0 +1,44 @@
+# Temporary compiler for PR #295. Remove after lock generation.
+name: Compile gh-aw PR
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/aw-compile-trigger]
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-aw/docs-flash-lite
+
+      - name: Compile and record result
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          {
+            gh extension install github/gh-aw@v0.87.0
+            gh aw compile --strict --approve
+          } > .github/aw-compile.log 2>&1
+          status=$?
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "$status" -eq 0 ]; then
+            rm -f .github/aw-compile.log
+            git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml
+            git diff --cached --quiet || git commit -m "chore: compile docs workflows"
+          else
+            git add .github/aw-compile.log
+            git commit -m "ci: record gh-aw compile failure"
+          fi
+
+          git push origin HEAD:gh-aw/docs-flash-lite
+          exit "$status"

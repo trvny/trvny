@@ -37,8 +37,8 @@ Review documentation drift across this pilot set only:
 - `trvny/kanarek`
 - `trvny/Autka`
 
-For each repository, inspect meaningful code, configuration, workflow, and user-facing changes from the last seven days. Decide whether those changes plausibly made existing documentation stale.
+For each repository, inspect meaningful code, configuration, workflow, and user-facing changes from the last seven days. Also inspect relevant open pull requests that may already update documentation for those changes. Decide whether merged changes plausibly made existing documentation stale and whether that drift is already being addressed.
 
-Dispatch `docs-worker` once for a repository only when there is concrete evidence worth checking. Pass `target_repo` exactly as listed above. Do not dispatch for repositories with no meaningful documentation risk, routine dependency churn, formatting-only changes, generated files, or release noise.
+Dispatch `docs-worker` once for a repository only when there is concrete evidence worth checking and no relevant open pull request already covers the same documentation work. Pass `target_repo` exactly as listed above. Do not dispatch for repositories with no meaningful documentation risk, routine dependency churn, formatting-only changes, generated files, release noise, or documentation work already in progress.
 
 Prefer fewer high-confidence worker runs over speculative fan-out. Do not modify target repositories from this workflow.

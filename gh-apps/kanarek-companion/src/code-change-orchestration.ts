@@ -578,12 +578,10 @@ function verificationEvidenceMissing(plan: JsonObject, results: JsonObject[]): s
   const passed = new Set(
     results
       .filter((result) => result.status === 'passed')
-      .map((result) => `${stringValue(result.cwd) ?? '.'}\
-${stringValue(result.command) ?? ''}`),
+      .map((result) => `${stringValue(result.cwd) ?? '.'}\n${stringValue(result.command) ?? ''}`),
   );
   return verificationCommands(plan)
-    .filter((expected) => !passed.has(`${expected.cwd}\
-${expected.command}`))
+    .filter((expected) => !passed.has(`${expected.cwd}\n${expected.command}`))
     .map((expected) => `${expected.cwd}: ${expected.command}`);
 }
 

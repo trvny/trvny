@@ -8,7 +8,9 @@ on: # yamllint disable-line rule:truthy
   # AGENTS.md allows to be pushed straight there. Pushes and pull requests both
   # lint changed files only; the full-codebase sweep is reserved for
   # workflow_dispatch, since running it on every push is what made this
-  # workflow the single largest consumer of Actions minutes.
+  # workflow the single largest consumer of Actions minutes. The trade-off is
+  # real: after changing the rules under .github/linters, existing files are not
+  # rescanned until someone dispatches a run by hand.
   push:
     branches: [main]
   pull_request:

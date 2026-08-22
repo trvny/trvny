@@ -22,7 +22,7 @@ tools:
       - trvny/tvpi
       - trvny/wambridge
       - trvny/trvny
-      - trvny/Autka
+      - trvny/autka
       - trvny/.ai
     min-integrity: merged
 

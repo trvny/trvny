@@ -22,22 +22,43 @@ jobs:
           fetch-depth: 0
 
       - name: Install gh-aw
+        id: setup
         uses: github/gh-aw/actions/setup-cli@80a44d777dd097c7f4455162764590f66937d6f6
         with:
           version: v0.87.0
 
       - name: Compile
+        id: compile
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh aw compile docs-orchestrator docs-worker --strict
+        run: gh aw compile docs-orchestrator docs-worker --strict 2>&1 | tee /tmp/gh-aw-compile.log
 
-      - name: Commit generated locks
+      - name: Commit generated files or diagnostics
+        if: always()
+        env:
+          SETUP_OUTCOME: ${{ steps.setup.outcome }}
+          COMPILE_OUTCOME: ${{ steps.compile.outcome }}
         run: |
+          mkdir -p .github/aw
+          {
+            echo "setup=${SETUP_OUTCOME}"
+            echo "compile=${COMPILE_OUTCOME}"
+            if [ -f /tmp/gh-aw-compile.log ]; then
+              echo
+              cat /tmp/gh-aw-compile.log
+            fi
+          } > .github/aw/compile-status.txt
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml .github/aw
-          if git diff --cached --quiet; then
-            exit 0
+          git add .github/aw/compile-status.txt
+          if [ "$COMPILE_OUTCOME" = "success" ]; then
+            git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml .github/aw
           fi
-          git commit -m "ci: compile central docs workflows"
+          git commit -m "ci: record central docs compile" || exit 0
           git push
+
+      - name: Fail on compile error
+        if: ${{ steps.compile.outcome != 'success' }}
+        run: exit 1

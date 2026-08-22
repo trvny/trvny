@@ -1,9 +1,7 @@
 name: Compile gh-aw sources
 
 on:
-  push:
-    branches:
-      - gh-aw/central-docs-control
+  pull_request:
     paths:
       - .github/workflows/docs-orchestrator.md
       - .github/workflows/docs-worker.md
@@ -16,9 +14,10 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Install gh-aw
@@ -57,7 +56,7 @@ jobs:
             git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml .github/aw
           fi
           git commit -m "ci: record central docs compile" || exit 0
-          git push
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
       - name: Fail on compile error
         if: ${{ steps.compile.outcome != 'success' }}

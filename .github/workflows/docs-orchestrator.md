@@ -12,12 +12,14 @@ permissions:
 # The pilot set stays explicit so the agent cannot quietly widen its scope.
 tools:
   github:
+    github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
     toolsets: [repos, pull_requests]
     allowed-repos:
       - trvny/feedseek
       - trvny/wambridge
       - trvny/kanarek
       - trvny/autka
+    min-integrity: merged
 
 safe-outputs:
   dispatch-workflow:

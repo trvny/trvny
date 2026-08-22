@@ -8,7 +8,7 @@ on:
       - .github/workflows/compile-gh-aw.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   compile:
@@ -19,6 +19,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install gh-aw
         id: setup
@@ -35,7 +36,7 @@ jobs:
           set -o pipefail
           gh aw compile docs-orchestrator docs-worker --strict --approve 2>&1 | tee /tmp/gh-aw-compile.log
 
-      - name: Commit generated files or diagnostics
+      - name: Prepare diagnostics
         if: always()
         env:
           SETUP_OUTCOME: ${{ steps.setup.outcome }}
@@ -47,21 +48,22 @@ jobs:
             echo "setup=${SETUP_OUTCOME}"
             echo "compile=${COMPILE_OUTCOME}"
             echo "cross_repo_token=${CROSS_REPO_TOKEN_PRESENT}"
-            if [ -f /tmp/gh-aw-compile.log ]; then
-              echo
-              cat /tmp/gh-aw-compile.log
-            fi
+            echo
+            cat /tmp/gh-aw-compile.log 2>/dev/null || true
           } > .github/aw/compile-status.txt
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/aw/compile-status.txt
-          if [ "$COMPILE_OUTCOME" = "success" ]; then
-            git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml
-            git add .github/aw
-          fi
-          git commit -m "ci: record central docs compile" || exit 0
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+      - name: Upload generated locks
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: central-docs-gh-aw
+          include-hidden-files: true
+          retention-days: 1
+          path: |
+            .github/workflows/docs-orchestrator.lock.yml
+            .github/workflows/docs-worker.lock.yml
+            .github/aw/actions-lock.json
+            .github/aw/compile-status.txt
 
       - name: Fail on compile error
         if: ${{ steps.compile.outcome != 'success' }}

@@ -21,13 +21,14 @@ permissions:
 
 checkout:
   repository: ${{ github.event.inputs.target_repo }}
+  github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
   current: true
   fetch-depth: 0
 
 safe-outputs:
+  github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
   create-pull-request:
     target-repo: ${{ github.event.inputs.target_repo }}
-    branch: docs/automation
     title-prefix: "[docs] "
     draft: true
     max: 1

@@ -1,4 +1,9 @@
 import { runWithActionRequestContext } from './action-context.ts';
+import {
+  addCodeHistoryOpenApi,
+  CODE_HISTORY_PATH,
+  handleCodeHistoryAction,
+} from './code-history.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
 import worker, {
   actionFetch,
@@ -55,6 +60,7 @@ function openApi(request: Request): JsonObject {
   addReleaseEntryOpenApi(document);
   addReleaseReplaceOpenApi(document);
   addSymbolInvestigationOpenApi(document);
+  addCodeHistoryOpenApi(document);
   return document;
 }
 
@@ -123,6 +129,13 @@ const runtime = {
       }
       if (url.pathname === SYMBOL_INVESTIGATION_PATH) {
         const response = await handleSymbolInvestigationAction(
+          request,
+          (internalRequest) => worker.fetch(internalRequest, env, ctx),
+        );
+        if (response) return response;
+      }
+      if (url.pathname === CODE_HISTORY_PATH) {
+        const response = await handleCodeHistoryAction(
           request,
           (internalRequest) => worker.fetch(internalRequest, env, ctx),
         );

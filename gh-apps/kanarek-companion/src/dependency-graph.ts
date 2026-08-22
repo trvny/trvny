@@ -248,7 +248,7 @@ export function extractImports(content: string, limit = MAX_IMPORTS): ImportEvid
       continue;
     }
     const plainImport = text.match(/^\s*import\s+([A-Za-z_][A-Za-z0-9_.]*)\s*;?/);
-    if (plainImport && !/\bfrom\s+['"]/.test(text)) {
+    if (plainImport && !/\bfrom\s+['"]/.test(text) && !/=\s*require\s*\(/.test(text)) {
       pushImport(output, seen, line, plainImport[1], 'python', text);
       continue;
     }
@@ -296,6 +296,10 @@ function relativePythonPath(callerPath: string, specifier: string): string {
   return normalizePath([base, tail].filter(Boolean).join('/'));
 }
 
+function exactMatches(candidate: string, variants: string[]): boolean {
+  return Boolean(candidate) && variants.includes(candidate);
+}
+
 function suffixMatches(candidate: string, variants: string[]): boolean {
   if (!candidate) return false;
   return variants.some(
@@ -318,21 +322,31 @@ export function importReferencesTarget(
 
   if (syntax === 'module' && cleaned.startsWith('.')) {
     const resolved = stripExtension(normalizePath(`${dirname(callerPath)}/${cleaned}`));
-    return suffixMatches(resolved, variants) ? 'high' : null;
+    return exactMatches(resolved, variants) ? 'high' : null;
   }
 
   if (syntax === 'python') {
-    const resolved = cleaned.startsWith('.')
+    const relative = cleaned.startsWith('.');
+    const resolved = relative
       ? relativePythonPath(callerPath, cleaned)
       : cleaned.replace(/\./g, '/');
-    return suffixMatches(stripExtension(resolved), variants) ? (cleaned.startsWith('.') ? 'high' : 'medium') : null;
+    const matches = relative
+      ? exactMatches(stripExtension(resolved), variants)
+      : suffixMatches(stripExtension(resolved), variants);
+    return matches ? (relative ? 'high' : 'medium') : null;
   }
 
   if (syntax === 'rust') {
     let resolved = cleaned.replace(/[{}\s]/g, '').replace(/::/g, '/');
-    if (resolved.startsWith('crate/')) resolved = resolved.slice('crate/'.length);
-    else if (resolved.startsWith('self/')) resolved = `${dirname(callerPath)}/${resolved.slice('self/'.length)}`;
-    else if (resolved.startsWith('super/')) resolved = `${dirname(dirname(callerPath))}/${resolved.slice('super/'.length)}`;
+    if (resolved.startsWith('crate/')) {
+      resolved = resolved.slice('crate/'.length);
+    } else if (resolved.startsWith('self/')) {
+      resolved = `${dirname(callerPath)}/${resolved.slice('self/'.length)}`;
+      return exactMatches(stripExtension(normalizePath(resolved)), variants) ? 'medium' : null;
+    } else if (resolved.startsWith('super/')) {
+      resolved = `${dirname(dirname(callerPath))}/${resolved.slice('super/'.length)}`;
+      return exactMatches(stripExtension(normalizePath(resolved)), variants) ? 'medium' : null;
+    }
     return suffixMatches(stripExtension(normalizePath(resolved)), variants) ? 'medium' : null;
   }
 

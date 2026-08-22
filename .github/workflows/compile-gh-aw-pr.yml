@@ -11,9 +11,8 @@ permissions:
 jobs:
   compile:
     if: >-
+      github.actor == 'trvny' &&
       github.event.issue.number == 295 &&
-      github.event.issue.pull_request &&
-      github.event.comment.author_association == 'OWNER' &&
       github.event.comment.body == '/compile-gh-aw'
     runs-on: ubuntu-latest
     steps:

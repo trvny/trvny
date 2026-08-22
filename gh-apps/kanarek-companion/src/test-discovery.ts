@@ -5,7 +5,7 @@ export const TARGETED_TESTS_PATH = '/gpt-actions/github/code/tests';
 const READ_PATH = '/gpt-actions/github/read';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_TARGETS = 12;
-const MAX_ANCESTORS = 8;
+const MAX_ANCESTORS = 32;
 const MAX_TEST_CANDIDATES = 64;
 const MAX_CONTENT_BYTES = 300_000;
 
@@ -79,6 +79,7 @@ function validPath(value: unknown): value is string {
     !value.endsWith('/') &&
     !value.includes('..') &&
     !value.includes('//') &&
+    value.split('/').length <= MAX_ANCESTORS &&
     value.split('/').every((part) => part && part !== '.' && part !== '..')
   );
 }
@@ -421,7 +422,6 @@ async function existingTests(
   }
   const checked = await Promise.all(
     [...candidates].map(async (candidate) => {
-      if (project.targets.includes(candidate) && likelyTestPath(candidate)) return candidate;
       const raw = await readOptional(
         source,
         invoke,
@@ -670,7 +670,7 @@ function goVerification(project: Project): {
     }),
   );
   return {
-    recommended: [...packages].map((pkg) => command(project.root, `go test ${pkg}`, 'test', 'targeted', 'Run tests for changed Go packages.')),
+    recommended: [...packages].map((pkg) => command(project.root, `go test ${shellQuote(pkg)}`, 'test', 'targeted', 'Run tests for changed Go packages.')),
     gate: [command(project.root, 'go test ./...', 'test', 'project', 'Module-wide Go verification gate.')],
     evidence: [project.marker],
   };

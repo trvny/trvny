@@ -4,14 +4,14 @@
 name: MegaLinter
 
 on: # yamllint disable-line rule:truthy
+  # Everything that reaches main gets linted, including the trivial fixes that
+  # AGENTS.md allows to be pushed straight there. Pushes and pull requests both
+  # lint changed files only; the full-codebase sweep is reserved for
+  # workflow_dispatch, since running it on every push is what made this
+  # workflow the single largest consumer of Actions minutes.
   push:
     branches: [main]
   pull_request:
-    paths:
-      - "codebench/**"
-      - "streambench/**"
-      - ".github/workflows/benches-release.yml"
-      - ".github/workflows/mega-linter.yml"
   workflow_dispatch:
 
 concurrency:
@@ -115,7 +115,6 @@ jobs:
 
   megalinter:
     name: MegaLinter
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -136,14 +135,7 @@ jobs:
         uses: oxsecurity/megalinter/flavors/documentation@v10
         env:
           MEGALINTER_CONFIG: .github/linters/.mega-linter.yml
-          VALIDATE_ALL_CODEBASE: >-
-            ${{
-              github.event_name == 'workflow_dispatch' ||
-              (
-                github.event_name == 'push' &&
-                contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
-              )
-            }}
+          VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'workflow_dispatch' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLY_FIXES_EVENT: none
 

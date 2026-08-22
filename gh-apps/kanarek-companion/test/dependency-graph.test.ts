@@ -35,6 +35,15 @@ test('importReferencesTarget resolves relative and dotted callers conservatively
   assert.equal(importReferencesTarget('src/caller.ts', './widget', 'src/widget.ts'), 'high');
   assert.equal(importReferencesTarget('src/caller.ts', './feature', 'src/feature/index.ts'), 'high');
   assert.equal(importReferencesTarget('app/views.py', 'app.services.feed', 'app/services/feed.py', 'python'), 'medium');
+  assert.equal(
+    importReferencesTarget(
+      'app/src/main/kotlin/example/Caller.kt',
+      'example.services.Feed',
+      'app/src/main/kotlin/example/services/Feed.kt',
+      'python',
+    ),
+    'medium',
+  );
   assert.equal(importReferencesTarget('src/caller.ts', './other', 'src/widget.ts'), null);
 });
 

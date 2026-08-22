@@ -12,6 +12,11 @@ on:
           - trvny/kanarek
           - trvny/Autka
 
+run-name: Documentation worker · ${{ github.event.inputs.target_repo }}
+
+concurrency:
+  group: gh-aw-${{ github.workflow }}-${{ github.event.inputs.target_repo }}
+
 engine: gemini
 model: gemini-3.7-flash
 
@@ -21,12 +26,12 @@ permissions:
 
 checkout:
   repository: ${{ github.event.inputs.target_repo }}
-  github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+  github-token: ${{ secrets.GH_PAT }}
   current: true
   fetch-depth: 0
 
 safe-outputs:
-  github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+  github-token: ${{ secrets.GH_PAT }}
   create-pull-request:
     target-repo: ${{ github.event.inputs.target_repo }}
     title-prefix: "[docs] "

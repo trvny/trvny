@@ -8,9 +8,12 @@ on:
         type: choice
         options:
           - trvny/feedseek
-          - trvny/wambridge
           - trvny/kanarek
+          - trvny/tvpi
+          - trvny/wambridge
+          - trvny/trvny
           - trvny/Autka
+          - trvny/.ai
 
 run-name: Documentation worker · ${{ github.event.inputs.target_repo }}
 
@@ -18,7 +21,7 @@ concurrency:
   group: gh-aw-${{ github.workflow }}-${{ github.event.inputs.target_repo }}
 
 engine: gemini
-model: gemini-3.7-flash
+model: gemini-3.5-flash-lite
 
 permissions:
   contents: read
@@ -41,12 +44,18 @@ safe-outputs:
 
 # Documentation Worker
 
-Inspect the checked-out target repository for meaningful documentation drift caused by changes from the last seven days.
+Inspect the checked-out target repository for meaningful documentation drift caused by merged changes since the relevant documentation was last updated. If that point cannot be determined reliably, inspect the last thirty days instead.
 
 Read `AGENTS.md` when present and follow the repository's documentation structure, terminology, language conventions, and local style. Prefer updating existing documentation over creating parallel files. When localized counterparts describe the same behavior, keep them aligned.
 
-Update only documentation that is demonstrably stale, such as setup steps, configuration or option descriptions, examples, commands, paths, architecture notes, workflows, or user-facing behavior that no longer matches the repository.
+Use this documentation priority:
 
-Keep the patch narrow. Do not modify product code, generated files, release artifacts, or changelogs unless repository instructions explicitly require it. Ignore routine dependency churn and cosmetic-only changes.
+1. Treat `docs/**` as the primary surface when the repository has a canonical `docs` directory.
+2. Update only the specific sections of `README.md` or localized README counterparts that are demonstrably stale, especially setup, configuration, usage, architecture, commands, paths, workflows, and user-facing behavior.
+3. Update documentation outside `docs/**` or README only when repository conventions, links, or `AGENTS.md` make that file the canonical home for the affected information.
+
+Do not create a `docs` directory merely because one does not exist. Do not rewrite README introductions, badges, screenshots, marketing copy, project-status prose, contribution policies, security policies, or unrelated documentation unless the merged changes directly made that material inaccurate.
+
+Update only documentation that is demonstrably stale. Keep the patch narrow. Do not modify product code, generated files, release artifacts, or changelogs unless repository instructions explicitly require it. Ignore routine dependency churn and cosmetic-only changes.
 
 If the documentation is already accurate, make no changes and do not open a pull request. Otherwise create one concise draft pull request describing only the drift that was corrected.

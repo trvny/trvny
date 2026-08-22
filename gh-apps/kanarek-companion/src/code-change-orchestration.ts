@@ -554,8 +554,16 @@ async function targetedVerification(
     }),
     invoke,
   );
-  if (!response) return { ok: false, error: 'targeted_test_route_missing' };
-  return responseObject(response);
+  if (!response) throw new CodeChangeError('targeted_test_route_missing', 502);
+  const payload = await responseObject(response);
+  if (!response.ok || payload.ok !== true) {
+    throw new CodeChangeError(
+      typeof payload.error === 'string' ? payload.error : 'targeted_test_discovery_failed',
+      response.status,
+      payload,
+    );
+  }
+  return payload;
 }
 
 function verificationCommands(plan: JsonObject): Array<{ cwd: string; command: string }> {
@@ -570,10 +578,12 @@ function verificationEvidenceMissing(plan: JsonObject, results: JsonObject[]): s
   const passed = new Set(
     results
       .filter((result) => result.status === 'passed')
-      .map((result) => `${stringValue(result.cwd) ?? '.'}\n${stringValue(result.command) ?? ''}`),
+      .map((result) => `${stringValue(result.cwd) ?? '.'}\
+${stringValue(result.command) ?? ''}`),
   );
   return verificationCommands(plan)
-    .filter((expected) => !passed.has(`${expected.cwd}\n${expected.command}`))
+    .filter((expected) => !passed.has(`${expected.cwd}\
+${expected.command}`))
     .map((expected) => `${expected.cwd}: ${expected.command}`);
 }
 
@@ -962,6 +972,20 @@ async function run(
       }
       const alreadyMerged = await mergedPullRequest(request, invoke, core, progress.pullRequest.number);
       if (alreadyMerged) {
+        const mergedHead = isObject(alreadyMerged.head) ? stringValue(alreadyMerged.head.sha) : null;
+        const mergedBase = isObject(alreadyMerged.base) ? stringValue(alreadyMerged.base.ref) : null;
+        if (!mergedHead || mergedHead.toLowerCase() !== progress.branchHead) {
+          throw new CodeChangeError('pull_request_head_changed', 409, {
+            expected: progress.branchHead,
+            current: mergedHead,
+          });
+        }
+        if (mergedBase !== progress.defaultBranch) {
+          throw new CodeChangeError('pull_request_base_changed', 409, {
+            expected: progress.defaultBranch,
+            current: mergedBase,
+          });
+        }
         const cleanupResult = await cleanup(request, invoke, core, progress.pullRequest);
         return complete(env, core, inputHash, {
           ok: true,

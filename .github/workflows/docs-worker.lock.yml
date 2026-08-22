@@ -1,5 +1,5 @@
-# gh-aw-metadata: {"schema_version":"v4","frontmatter_hash":"14652fedcb11d978d079885c268554fb29d2da994e97bdddc0a4ad2418b3891a","body_hash":"566099a3c72526e66d439610ef1cc23bc2eaee6afcd5d2245ca53bc1659d8dea","compiler_version":"v0.87.0","strict":true,"agent_id":"gemini","agent_model":"gemini-3.7-flash","engine_versions":{"gemini":"0.55.1"}}
-# gh-aw-manifest: {"version":1,"secrets":["COPILOT_GITHUB_TOKEN","GEMINI_API_KEY","GH_AW_CI_TRIGGER_TOKEN","GH_AW_GITHUB_MCP_SERVER_TOKEN","GH_AW_GITHUB_TOKEN","GITHUB_TOKEN"],"actions":[{"repo":"actions/cache/restore","sha":"55cc8345863c7cc4c66a329aec7e433d2d1c52a9","version":"v6.1.0"},{"repo":"actions/cache/save","sha":"55cc8345863c7cc4c66a329aec7e433d2d1c52a9","version":"v6.1.0"},{"repo":"actions/checkout","sha":"3d3c42e5aac5ba805825da76410c181273ba90b1","version":"v7.0.1"},{"repo":"actions/download-artifact","sha":"3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c","version":"v8.0.1"},{"repo":"actions/github-script","sha":"3a2844b7e9c422d3c10d287c895573f7108da1b3","version":"v9.0.0"},{"repo":"actions/setup-node","sha":"820762786026740c76f36085b0efc47a31fe5020","version":"v7.0.0"},{"repo":"actions/upload-artifact","sha":"043fb46d1a93c77aae656e7c1c64a875d1fc6a0a","version":"v7.0.1"},{"repo":"github/gh-aw-actions/setup","sha":"b77e0d501fd2d2243d1f72722617e80d513f674e","version":"v0.87.0"}],"containers":[{"image":"ghcr.io/github/gh-aw-firewall/agent:0.28.1","digest":"sha256:5e3f6ee27eeae07195838b97ac4aa2f8aea42a7c55f1c0d3e17d8e88e294ad0d","pinned_image":"ghcr.io/github/gh-aw-firewall/agent:0.28.1@sha256:5e3f6ee27eeae07195838b97ac4aa2f8aea42a7c55f1c0d3e17d8e88e294ad0d"},{"image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.28.1","digest":"sha256:288e7d2a12d5b430500d739f9c16e20bb1ed51b91f986f3f3eccde189f489f5c","pinned_image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.28.1@sha256:288e7d2a12d5b430500d739f9c16e20bb1ed51b91f986f3f3eccde189f489f5c"},{"image":"ghcr.io/github/gh-aw-firewall/squid:0.28.1","digest":"sha256:9d428af47899bf18ef2d5618075777d76ef344c91e76c1f44ec1aaa0ee347e5f","pinned_image":"ghcr.io/github/gh-aw-firewall/squid:0.28.1@sha256:9d428af47899bf18ef2d5618075777d76ef344c91e76c1f44ec1aaa0ee347e5f"},{"image":"ghcr.io/github/gh-aw-mcpg:v0.4.9","digest":"sha256:e5a1569aeaf41820fa7bdee3e94468cae448133cdbf00119ad24f5b74db1ab9f","pinned_image":"ghcr.io/github/gh-aw-mcpg:v0.4.9@sha256:e5a1569aeaf41820fa7bdee3e94468cae448133cdbf00119ad24f5b74db1ab9f"},{"image":"ghcr.io/github/gh-aw-node","digest":"sha256:0d9f1fb5fd6610c0ac1f5194a38e45a8a1e81f8a390d5142d8e4e6f26a4b3196","pinned_image":"ghcr.io/github/gh-aw-node@sha256:0d9f1fb5fd6610c0ac1f5194a38e45a8a1e81f8a390d5142d8e4e6f26a4b3196"},{"image":"ghcr.io/github/github-mcp-server:v1.9.0","digest":"sha256:881b53d6f75f69bdbc1b5b10fc2f1361717c19054143b3a8529fb5c32061a50e","pinned_image":"ghcr.io/github/github-mcp-server:v1.9.0@sha256:881b53d6f75f69bdbc1b5b10fc2f1361717c19054143b3a8529fb5c32061a50e"}]}
+# gh-aw-metadata: {"schema_version":"v4","frontmatter_hash":"406dca8a4c090143c4de580b5f13123bd461464f4481e9f2364ee58497224ea2","body_hash":"566099a3c72526e66d439610ef1cc23bc2eaee6afcd5d2245ca53bc1659d8dea","compiler_version":"v0.87.0","strict":true,"agent_id":"gemini","agent_model":"gemini-3.7-flash","engine_versions":{"gemini":"0.55.1"}}
+# gh-aw-manifest: {"version":1,"secrets":["COPILOT_GITHUB_TOKEN","GEMINI_API_KEY","GH_AW_CI_TRIGGER_TOKEN","GH_AW_GITHUB_MCP_SERVER_TOKEN","GH_AW_GITHUB_TOKEN","GH_PAT","GITHUB_TOKEN"],"actions":[{"repo":"actions/cache/restore","sha":"55cc8345863c7cc4c66a329aec7e433d2d1c52a9","version":"v6.1.0"},{"repo":"actions/cache/save","sha":"55cc8345863c7cc4c66a329aec7e433d2d1c52a9","version":"v6.1.0"},{"repo":"actions/checkout","sha":"3d3c42e5aac5ba805825da76410c181273ba90b1","version":"v7.0.1"},{"repo":"actions/download-artifact","sha":"3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c","version":"v8.0.1"},{"repo":"actions/github-script","sha":"3a2844b7e9c422d3c10d287c895573f7108da1b3","version":"v9.0.0"},{"repo":"actions/setup-node","sha":"820762786026740c76f36085b0efc47a31fe5020","version":"v7.0.0"},{"repo":"actions/upload-artifact","sha":"043fb46d1a93c77aae656e7c1c64a875d1fc6a0a","version":"v7.0.1"},{"repo":"github/gh-aw-actions/setup","sha":"b77e0d501fd2d2243d1f72722617e80d513f674e","version":"v0.87.0"}],"containers":[{"image":"ghcr.io/github/gh-aw-firewall/agent:0.28.1","digest":"sha256:5e3f6ee27eeae07195838b97ac4aa2f8aea42a7c55f1c0d3e17d8e88e294ad0d","pinned_image":"ghcr.io/github/gh-aw-firewall/agent:0.28.1@sha256:5e3f6ee27eeae07195838b97ac4aa2f8aea42a7c55f1c0d3e17d8e88e294ad0d"},{"image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.28.1","digest":"sha256:288e7d2a12d5b430500d739f9c16e20bb1ed51b91f986f3f3eccde189f489f5c","pinned_image":"ghcr.io/github/gh-aw-firewall/api-proxy:0.28.1@sha256:288e7d2a12d5b430500d739f9c16e20bb1ed51b91f986f3f3eccde189f489f5c"},{"image":"ghcr.io/github/gh-aw-firewall/squid:0.28.1","digest":"sha256:9d428af47899bf18ef2d5618075777d76ef344c91e76c1f44ec1aaa0ee347e5f","pinned_image":"ghcr.io/github/gh-aw-firewall/squid:0.28.1@sha256:9d428af47899bf18ef2d5618075777d76ef344c91e76c1f44ec1aaa0ee347e5f"},{"image":"ghcr.io/github/gh-aw-mcpg:v0.4.9","digest":"sha256:e5a1569aeaf41820fa7bdee3e94468cae448133cdbf00119ad24f5b74db1ab9f","pinned_image":"ghcr.io/github/gh-aw-mcpg:v0.4.9@sha256:e5a1569aeaf41820fa7bdee3e94468cae448133cdbf00119ad24f5b74db1ab9f"},{"image":"ghcr.io/github/gh-aw-node","digest":"sha256:0d9f1fb5fd6610c0ac1f5194a38e45a8a1e81f8a390d5142d8e4e6f26a4b3196","pinned_image":"ghcr.io/github/gh-aw-node@sha256:0d9f1fb5fd6610c0ac1f5194a38e45a8a1e81f8a390d5142d8e4e6f26a4b3196"},{"image":"ghcr.io/github/github-mcp-server:v1.9.0","digest":"sha256:881b53d6f75f69bdbc1b5b10fc2f1361717c19054143b3a8529fb5c32061a50e","pinned_image":"ghcr.io/github/github-mcp-server:v1.9.0@sha256:881b53d6f75f69bdbc1b5b10fc2f1361717c19054143b3a8529fb5c32061a50e"}]}
 # This file was automatically generated by gh-aw (v0.87.0). DO NOT EDIT. To debug this workflow, load the skill at https://github.com/github/gh-aw/blob/main/debug.md
 #
 #    ___                   _   _
@@ -30,6 +30,7 @@
 #   - GH_AW_CI_TRIGGER_TOKEN
 #   - GH_AW_GITHUB_MCP_SERVER_TOKEN
 #   - GH_AW_GITHUB_TOKEN
+#   - GH_PAT
 #   - GITHUB_TOKEN
 #
 # Custom actions used:
@@ -73,9 +74,9 @@ on:
 permissions: {}
 
 concurrency:
-  group: "gh-aw-${{ github.workflow }}"
+  group: gh-aw-${{ github.workflow }}-${{ github.event.inputs.target_repo }}
 
-run-name: "Documentation Worker"
+run-name: Documentation worker · ${{ github.event.inputs.target_repo }}
 
 jobs:
   activation:
@@ -412,7 +413,7 @@ jobs:
         with:
           persist-credentials: false
           repository: ${{ github.event.inputs.target_repo }}
-          token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
       - name: Build checkout manifest for safe-outputs handlers
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -421,7 +422,7 @@ jobs:
           GH_AW_CHECKOUT_MANIFEST_COUNT: "1"
           GH_AW_CHECKOUT_REPO_0: ${{ github.event.inputs.target_repo }}
           GH_AW_CHECKOUT_PATH_0: ""
-          GH_AW_CHECKOUT_TOKEN_0: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          GH_AW_CHECKOUT_TOKEN_0: ${{ secrets.GH_PAT }}
         with:
           script: |
             const { main } = require('${{ runner.temp }}/gh-aw/actions/build_checkout_manifest.cjs');
@@ -449,9 +450,9 @@ jobs:
           github.event.pull_request || github.event.issue.pull_request || github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.aw_context || '{}').item_type == 'pull_request'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io, getOctokit);
@@ -848,10 +849,11 @@ jobs:
             const { main } = require('${{ runner.temp }}/gh-aw/actions/redact_secrets.cjs');
             await main();
         env:
-          GH_AW_SECRET_NAMES: 'GEMINI_API_KEY,GH_AW_GITHUB_MCP_SERVER_TOKEN,GH_AW_GITHUB_TOKEN,GITHUB_TOKEN'
+          GH_AW_SECRET_NAMES: 'GEMINI_API_KEY,GH_AW_GITHUB_MCP_SERVER_TOKEN,GH_AW_GITHUB_TOKEN,GH_PAT,GITHUB_TOKEN'
           SECRET_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SECRET_GH_AW_GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN }}
           SECRET_GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          SECRET_GH_PAT: ${{ secrets.GH_PAT }}
           SECRET_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Append agent step summary
         if: always()
@@ -1098,7 +1100,7 @@ jobs:
           GH_AW_AMBIENT_CONTEXT: ${{ needs.agent.outputs.ambient_context }}
           GH_AW_WORKFLOW_ID: "docs-worker"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io, getOctokit);
@@ -1115,7 +1117,7 @@ jobs:
           GH_AW_DETECTION_CONCLUSION: ${{ needs.detection.outputs.detection_conclusion }}
           GH_AW_DETECTION_REASON: ${{ needs.detection.outputs.detection_reason }}
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io, getOctokit);
@@ -1130,7 +1132,7 @@ jobs:
           GH_AW_WORKFLOW_NAME: "Documentation Worker"
           GH_AW_WORKFLOW_SOURCE_URL: "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/.github/workflows/docs-worker.md"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io, getOctokit);
@@ -1145,7 +1147,7 @@ jobs:
           GH_AW_WORKFLOW_NAME: "Documentation Worker"
           GH_AW_WORKFLOW_SOURCE_URL: "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/.github/workflows/docs-worker.md"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io, getOctokit);
@@ -1187,7 +1189,7 @@ jobs:
           GH_AW_MISSING_DATA_REPORT_AS_FAILURE: "true"
           GH_AW_TIMEOUT_MINUTES: "20"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io, getOctokit);
@@ -1204,7 +1206,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_REPORT_FAILED_JOBS: "true"
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io, getOctokit);
@@ -1541,21 +1543,21 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true
-          token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
       - name: Checkout ${{ github.event.inputs.target_repo }}
         if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request')
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true
           repository: ${{ github.event.inputs.target_repo }}
-          token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
       - name: Configure Git credentials
         if: (!cancelled()) && needs.agent.result != 'skipped' && contains(needs.agent.outputs.output_types, 'create_pull_request')
         env:
           GITHUB_REPOSITORY: ${{ github.event.inputs.target_repo }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
-          GIT_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          GIT_TOKEN: ${{ secrets.GH_PAT }}
         run: bash "${RUNNER_TEMP}/gh-aw/actions/configure_git_credentials.sh"
       - name: Configure GH_HOST for enterprise compatibility
         id: ghes-host-config
@@ -1577,9 +1579,9 @@ jobs:
           GITHUB_API_URL: ${{ github.api_url }}
           GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"draft\":true,\"max\":1,\"max_patch_files\":100,\"max_patch_size\":4096,\"protect_top_level_dot_folders\":true,\"protected_files\":[\"package.json\",\"bun.lockb\",\"bunfig.toml\",\"deno.json\",\"deno.jsonc\",\"deno.lock\",\"global.json\",\"NuGet.Config\",\"Directory.Packages.props\",\"mix.exs\",\"mix.lock\",\"go.mod\",\"go.sum\",\"stack.yaml\",\"stack.yaml.lock\",\"pom.xml\",\"build.gradle\",\"build.gradle.kts\",\"settings.gradle\",\"settings.gradle.kts\",\"gradle.properties\",\"package-lock.json\",\"yarn.lock\",\"pnpm-lock.yaml\",\"npm-shrinkwrap.json\",\"requirements.txt\",\"Pipfile\",\"Pipfile.lock\",\"pyproject.toml\",\"setup.py\",\"setup.cfg\",\"Gemfile\",\"Gemfile.lock\",\"uv.lock\",\"CODEOWNERS\",\"DESIGN.md\",\"README.md\",\"CONTRIBUTING.md\",\"CHANGELOG.md\",\"SECURITY.md\",\"CODE_OF_CONDUCT.md\",\"GEMINI.md\",\"AGENTS.md\"],\"protected_files_policy\":\"request_review\",\"target-repo\":\"${{ github.event.inputs.target_repo }}\",\"title_prefix\":\"[docs] \"},\"create_report_incomplete_issue\":{},\"missing_data\":{},\"missing_tool\":{},\"noop\":{\"max\":1,\"report-as-issue\":\"false\"},\"report_incomplete\":{}}"
           GH_AW_CI_TRIGGER_TOKEN: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         with:
-          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io, getOctokit);

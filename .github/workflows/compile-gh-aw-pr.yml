@@ -2,8 +2,8 @@
 name: Compile gh-aw PR
 
 on:
-  pull_request_target: # zizmor: ignore[dangerous-triggers]
-    types: [synchronize]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: write
@@ -11,16 +11,15 @@ permissions:
 jobs:
   compile:
     if: >-
-      github.actor != 'github-actions[bot]' &&
-      github.event.pull_request.number == 295 &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'gh-aw/docs-flash-lite' &&
-      github.event.pull_request.user.login == 'trvny'
+      github.event.issue.number == 295 &&
+      github.event.issue.pull_request &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/compile-gh-aw'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: gh-aw/docs-flash-lite
 
       - name: Install gh-aw CLI
         uses: github/gh-aw/actions/setup-cli@main
@@ -31,11 +30,9 @@ jobs:
         run: gh aw compile --strict --approve
 
       - name: Commit generated locks
-        env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml
           git diff --cached --quiet || git commit -m "chore: compile docs workflows"
-          git push origin "HEAD:${HEAD_REF}"
+          git push origin HEAD:gh-aw/docs-flash-lite

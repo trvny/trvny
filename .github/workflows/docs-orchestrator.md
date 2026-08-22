@@ -8,6 +8,7 @@ model: gemini-3.7-flash
 
 permissions:
   contents: read
+  pull-requests: read
 
 # The pilot set stays explicit so the agent cannot quietly widen its scope.
 tools:

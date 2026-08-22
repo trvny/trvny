@@ -4,6 +4,11 @@ import {
   CODE_HISTORY_PATH,
   handleCodeHistoryAction,
 } from './code-history.ts';
+import {
+  addDependencyGraphOpenApi,
+  DEPENDENCY_GRAPH_PATH,
+  handleDependencyGraphAction,
+} from './dependency-graph.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
 import worker, {
   actionFetch,
@@ -61,6 +66,7 @@ function openApi(request: Request): JsonObject {
   addReleaseReplaceOpenApi(document);
   addSymbolInvestigationOpenApi(document);
   addCodeHistoryOpenApi(document);
+  addDependencyGraphOpenApi(document);
   return document;
 }
 
@@ -136,6 +142,13 @@ const runtime = {
       }
       if (url.pathname === CODE_HISTORY_PATH) {
         const response = await handleCodeHistoryAction(
+          request,
+          (internalRequest) => worker.fetch(internalRequest, env, ctx),
+        );
+        if (response) return response;
+      }
+      if (url.pathname === DEPENDENCY_GRAPH_PATH) {
+        const response = await handleDependencyGraphAction(
           request,
           (internalRequest) => worker.fetch(internalRequest, env, ctx),
         );

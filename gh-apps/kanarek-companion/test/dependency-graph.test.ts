@@ -6,6 +6,7 @@ import {
   extractImports,
   handleDependencyGraphAction,
   importReferencesTarget,
+  searchSeed,
 } from '../src/dependency-graph.ts';
 
 test('extractImports finds common module, dotted and Rust imports', () => {
@@ -46,6 +47,35 @@ test('importReferencesTarget resolves relative and dotted callers conservatively
     'medium',
   );
   assert.equal(importReferencesTarget('src/caller.ts', './other', 'src/widget.ts'), null);
+});
+
+test('Rust crate imports resolve against the caller crate source root', () => {
+  assert.equal(importReferencesTarget('src/lib.rs', 'crate::model::Feed', 'src/model.rs', 'rust'), 'medium');
+  assert.equal(
+    importReferencesTarget(
+      'crates/feed/src/lib.rs',
+      'crate::model::Feed',
+      'crates/feed/src/model.rs',
+      'rust',
+    ),
+    'medium',
+  );
+  assert.equal(
+    importReferencesTarget(
+      'crates/feed/src/lib.rs',
+      'crate::model::Feed',
+      'crates/other/src/model.rs',
+      'rust',
+    ),
+    null,
+  );
+});
+
+test('searchSeed uses package names for barrel files', () => {
+  assert.equal(searchSeed('src/feature/index.ts'), 'feature');
+  assert.equal(searchSeed('app/services/__init__.py'), 'services');
+  assert.equal(searchSeed('src/model/mod.rs'), 'model');
+  assert.equal(searchSeed('src/widget.ts'), 'widget');
 });
 
 test('dependency graph pins caller verification to the resolved snapshot', async () => {

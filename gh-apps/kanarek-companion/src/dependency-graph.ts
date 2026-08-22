@@ -310,6 +310,30 @@ function suffixMatches(candidate: string, variants: string[]): boolean {
   );
 }
 
+function sourceRoot(path: string): string | null {
+  const normalized = normalizePath(path);
+  if (normalized.startsWith('src/')) return 'src/';
+  const marker = normalized.lastIndexOf('/src/');
+  return marker >= 0 ? normalized.slice(0, marker + '/src/'.length) : null;
+}
+
+function rustCrateModule(callerPath: string, targetPath: string): string | null {
+  const root = sourceRoot(callerPath);
+  if (!root) return null;
+  let target = stripExtension(normalizePath(targetPath));
+  if (!target.startsWith(root)) return null;
+  target = target.slice(root.length);
+  if (target.endsWith('/mod')) target = target.slice(0, -'/mod'.length);
+  return target || null;
+}
+
+function rustRelativeMatches(candidate: string, variants: string[]): boolean {
+  const normalized = stripExtension(normalizePath(candidate));
+  return variants.some(
+    (variant) => normalized === variant || normalized.startsWith(`${variant}/`),
+  );
+}
+
 export function importReferencesTarget(
   callerPath: string,
   specifier: string,
@@ -339,13 +363,18 @@ export function importReferencesTarget(
   if (syntax === 'rust') {
     let resolved = cleaned.replace(/[{}\s]/g, '').replace(/::/g, '/');
     if (resolved.startsWith('crate/')) {
-      resolved = resolved.slice('crate/'.length);
+      const imported = resolved.slice('crate/'.length);
+      const targetModule = rustCrateModule(callerPath, targetPath);
+      if (targetModule) {
+        return imported === targetModule || imported.startsWith(`${targetModule}/`) ? 'medium' : null;
+      }
+      resolved = imported;
     } else if (resolved.startsWith('self/')) {
       resolved = `${dirname(callerPath)}/${resolved.slice('self/'.length)}`;
-      return exactMatches(stripExtension(normalizePath(resolved)), variants) ? 'medium' : null;
+      return rustRelativeMatches(resolved, variants) ? 'medium' : null;
     } else if (resolved.startsWith('super/')) {
       resolved = `${dirname(dirname(callerPath))}/${resolved.slice('super/'.length)}`;
-      return exactMatches(stripExtension(normalizePath(resolved)), variants) ? 'medium' : null;
+      return rustRelativeMatches(resolved, variants) ? 'medium' : null;
     }
     return suffixMatches(stripExtension(normalizePath(resolved)), variants) ? 'medium' : null;
   }
@@ -380,9 +409,15 @@ async function resolveSnapshot(
   };
 }
 
-function searchSeed(path: string): string {
-  const file = normalizePath(path).split('/').at(-1) ?? path;
-  return stripExtension(file).replace(/[^A-Za-z0-9_$.-]/g, '');
+export function searchSeed(path: string): string {
+  const parts = normalizePath(path).split('/');
+  const file = parts.at(-1) ?? path;
+  const stem = stripExtension(file);
+  const seed =
+    (stem === 'index' || stem === '__init__' || stem === 'mod') && parts.length > 1
+      ? parts[parts.length - 2]
+      : stem;
+  return seed.replace(/[^A-Za-z0-9_$.-]/g, '');
 }
 
 async function dependencyGraph(source: Request, invoke: Invoke): Promise<Response> {

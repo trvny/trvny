@@ -88,3 +88,4 @@ jobs:
           git add gh-apps/kanarek-companion/src/code-change-orchestration.ts
           git commit -m "fix(gpt-actions): harden code change recovery"
           git push origin HEAD:${GITHUB_REF_NAME}
+# gptomek trigger

@@ -28,6 +28,9 @@ const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_TARGETS = 6;
 const MAX_FILES = 12;
 const MAX_FILE_CONTENT = 96_000;
+const MAX_RECOVERED_COMMITS = 50;
+const GPTOMEK_COMMIT_NAME = 'GPTomek';
+const GPTOMEK_COMMIT_EMAIL = '314538226+gptomek[bot]@users.noreply.github.com';
 
 type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
@@ -49,11 +52,18 @@ type CoreInput = {
 
 type EditFile = { path: string; content: string | null };
 type EditAction = { type: 'edit'; message: string; files: EditFile[] };
+type VerificationResult = {
+  status: 'passed' | 'failed';
+  cwd: string;
+  command: string;
+};
 type VerificationAction = {
   type: 'verification';
   status: 'passed' | 'failed' | 'unavailable';
+  headSha: string;
+  revision: number;
   reason?: string;
-  results?: JsonObject[];
+  results?: VerificationResult[];
   pullRequest?: { title: string; body: string };
 };
 type ReviewAction = {
@@ -250,10 +260,26 @@ function action(value: unknown, scope: string[]): Action | undefined {
     if (value.status !== 'passed' && value.status !== 'failed' && value.status !== 'unavailable') {
       throw new CodeChangeError('invalid_verification_status');
     }
+    const headSha = expectedSha(value.headSha, 'verification_head_sha');
+    const revision = numberValue(value.revision);
+    if (revision === null || revision < 1) throw new CodeChangeError('invalid_verification_revision');
     const reason = value.reason === undefined ? undefined : requiredText(value.reason, 'verification_reason', 2_000);
     if (value.status === 'unavailable' && !reason) throw new CodeChangeError('verification_reason_required');
-    if (value.results !== undefined && (!Array.isArray(value.results) || value.results.length > 30 || !value.results.every(isObject))) {
-      throw new CodeChangeError('invalid_verification_results');
+    let results: VerificationResult[] | undefined;
+    if (value.results !== undefined) {
+      if (!Array.isArray(value.results) || value.results.length > 30) {
+        throw new CodeChangeError('invalid_verification_results');
+      }
+      results = value.results.map((entry) => {
+        if (!isObject(entry) || (entry.status !== 'passed' && entry.status !== 'failed')) {
+          throw new CodeChangeError('invalid_verification_results');
+        }
+        return {
+          status: entry.status,
+          cwd: requiredText(entry.cwd, 'verification_cwd', 1_000),
+          command: requiredText(entry.command, 'verification_command', 8_000),
+        };
+      });
     }
     let pullRequest: VerificationAction['pullRequest'];
     if (value.pullRequest !== undefined) {
@@ -268,8 +294,10 @@ function action(value: unknown, scope: string[]): Action | undefined {
     return {
       type: 'verification',
       status: value.status,
+      headSha,
+      revision,
       ...(reason ? { reason } : {}),
-      ...(Array.isArray(value.results) ? { results: value.results as JsonObject[] } : {}),
+      ...(results ? { results } : {}),
       ...(pullRequest ? { pullRequest } : {}),
     };
   }
@@ -488,6 +516,103 @@ async function defaultBranchHead(
   return { defaultBranch, sha: sha.toLowerCase() };
 }
 
+type RecoveredBranch = {
+  revision: number;
+  pullRequest?: PullRequestProgress;
+};
+
+function commitIdentityMatches(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  return stringValue(value.name) === GPTOMEK_COMMIT_NAME && stringValue(value.email) === GPTOMEK_COMMIT_EMAIL;
+}
+
+async function recoverEvolvedBranch(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  currentBranch: string,
+  defaultBranch: string,
+): Promise<RecoveredBranch> {
+  const compare = await readData(
+    source,
+    invoke,
+    `/repos/${repoPath(core.repository)}/compare/${core.expectedBaseSha}...${currentBranch}`,
+  );
+  if (!isObject(compare) || compare.status !== 'ahead') {
+    throw new CodeChangeError('branch_not_recoverable', 409);
+  }
+  const aheadBy = numberValue(compare.ahead_by);
+  const commits = Array.isArray(compare.commits) ? compare.commits : [];
+  if (
+    aheadBy === null ||
+    aheadBy < 1 ||
+    aheadBy > MAX_RECOVERED_COMMITS ||
+    commits.length !== aheadBy
+  ) {
+    throw new CodeChangeError('branch_history_not_recoverable', 409);
+  }
+
+  let expectedParent = core.expectedBaseSha;
+  for (const value of commits) {
+    if (!isObject(value) || !Array.isArray(value.parents) || value.parents.length !== 1) {
+      throw new CodeChangeError('branch_history_not_recoverable', 409);
+    }
+    const sha = stringValue(value.sha);
+    const parent = isObject(value.parents[0]) ? stringValue(value.parents[0].sha) : null;
+    const commit = isObject(value.commit) ? value.commit : null;
+    if (
+      !sha ||
+      !SHA_RE.test(sha) ||
+      !parent ||
+      parent.toLowerCase() !== expectedParent ||
+      !commit ||
+      !commitIdentityMatches(commit.author) ||
+      !commitIdentityMatches(commit.committer)
+    ) {
+      throw new CodeChangeError('branch_history_not_recoverable', 409);
+    }
+    expectedParent = sha.toLowerCase();
+  }
+  if (expectedParent !== currentBranch) {
+    throw new CodeChangeError('branch_history_not_recoverable', 409);
+  }
+
+  const allowed = new Set(core.targetPaths);
+  const files = Array.isArray(compare.files) ? compare.files : [];
+  if (
+    !files.length ||
+    files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))
+  ) {
+    throw new CodeChangeError('branch_scope_changed', 409);
+  }
+
+  const rawPullRequests = await readData(
+    source,
+    invoke,
+    `/repos/${repoPath(core.repository)}/pulls?state=all&head=${encodeURIComponent(`trvny:${core.branch}`)}&per_page=10`,
+  );
+  const pullRequests = Array.isArray(rawPullRequests) ? rawPullRequests.filter(isObject) : [];
+  if (pullRequests.length > 1) throw new CodeChangeError('ambiguous_pull_request', 409);
+  if (!pullRequests.length) return { revision: aheadBy };
+
+  const raw = pullRequests[0];
+  const head = isObject(raw.head) ? raw.head : {};
+  const base = isObject(raw.base) ? raw.base : {};
+  if (stringValue(raw.state) !== 'open' || typeof raw.merged_at === 'string') {
+    throw new CodeChangeError('pull_request_not_open', 409);
+  }
+  if (stringValue(head.ref) !== core.branch) {
+    throw new CodeChangeError('pull_request_branch_changed', 409);
+  }
+  if (stringValue(base.ref) !== defaultBranch) {
+    throw new CodeChangeError('pull_request_base_changed', 409);
+  }
+  return {
+    revision: aheadBy,
+    pullRequest: pullRequestProgress(raw, currentBranch),
+  };
+}
+
 async function preparationContext(source: Request, invoke: Invoke, core: CoreInput): Promise<JsonObject> {
   const prepareBody: JsonObject = {
     repository: core.repository,
@@ -511,26 +636,43 @@ async function preparationContext(source: Request, invoke: Invoke, core: CoreInp
     branchHead(source, invoke, core),
     defaultBranchHead(source, invoke, core),
   ]);
-  if (currentBranch !== core.expectedBaseSha) {
-    throw new CodeChangeError('branch_head_changed', 409, { currentBranch, expected: core.expectedBaseSha });
-  }
-  if (currentBase.sha !== core.expectedBaseSha) {
-    throw new CodeChangeError('base_head_changed', 409, { currentBase: currentBase.sha, expected: core.expectedBaseSha });
-  }
   const guidance = await targetGuidance(source, invoke, core, currentBranch);
-  const open = await readData(
+
+  if (currentBranch === core.expectedBaseSha) {
+    if (currentBase.sha !== core.expectedBaseSha) {
+      throw new CodeChangeError('base_head_changed', 409, { currentBase: currentBase.sha, expected: core.expectedBaseSha });
+    }
+    const open = await readData(
+      source,
+      invoke,
+      `/repos/${repoPath(core.repository)}/pulls?state=open&head=${encodeURIComponent(`trvny:${core.branch}`)}&per_page=10`,
+    );
+    if (Array.isArray(open) && open.length) {
+      throw new CodeChangeError('pull_request_already_exists', 409);
+    }
+    return {
+      ok: true,
+      recovered: true,
+      repository: { name: core.repository, defaultBranch: currentBase.defaultBranch, baseSha: core.expectedBaseSha },
+      branch: { name: core.branch, sha: currentBranch, created: false, revision: 0 },
+      agentGuidance: guidance,
+    };
+  }
+
+  const recovered = await recoverEvolvedBranch(
     source,
     invoke,
-    `/repos/${repoPath(core.repository)}/pulls?state=open&head=${encodeURIComponent(`trvny:${core.branch}`)}&per_page=10`,
+    core,
+    currentBranch,
+    currentBase.defaultBranch,
   );
-  if (Array.isArray(open) && open.length) {
-    throw new CodeChangeError('pull_request_already_exists', 409);
-  }
   return {
     ok: true,
     recovered: true,
+    recoveredEvolved: true,
     repository: { name: core.repository, defaultBranch: currentBase.defaultBranch, baseSha: core.expectedBaseSha },
-    branch: { name: core.branch, sha: currentBranch, created: false },
+    branch: { name: core.branch, sha: currentBranch, created: false, revision: recovered.revision },
+    ...(recovered.pullRequest ? { pullRequest: recovered.pullRequest } : {}),
     agentGuidance: guidance,
   };
 }
@@ -605,15 +747,26 @@ function verificationCommands(plan: JsonObject): Array<{ cwd: string; command: s
     .filter((entry) => Boolean(entry.command));
 }
 
-function verificationEvidenceMissing(plan: JsonObject, results: JsonObject[]): string[] {
+function verificationEvidenceMissing(plan: JsonObject, results: VerificationResult[]): string[] {
   const passed = new Set(
     results
       .filter((result) => result.status === 'passed')
-      .map((result) => `${stringValue(result.cwd) ?? '.'}\n${stringValue(result.command) ?? ''}`),
+      .map((result) => `${result.cwd}
+${result.command}`),
   );
   return verificationCommands(plan)
-    .filter((expected) => !passed.has(`${expected.cwd}\n${expected.command}`))
+    .filter((expected) => !passed.has(`${expected.cwd}
+${expected.command}`))
     .map((expected) => `${expected.cwd}: ${expected.command}`);
+}
+
+function verificationNextAction(progress: Progress): JsonObject {
+  return {
+    type: 'verification',
+    headSha: progress.branchHead,
+    revision: progress.revision,
+    allowedStatuses: ['passed', 'failed', 'unavailable'],
+  };
 }
 
 export function reviewGateBlockers(
@@ -895,14 +1048,54 @@ async function initialProgress(
 ): Promise<{ progress: Progress; body: JsonObject }> {
   const prepared = await preparationContext(source, invoke, core);
   const repositoryData = isObject(prepared.repository) ? prepared.repository : {};
+  const branchData = isObject(prepared.branch) ? prepared.branch : {};
   const defaultBranch = stringValue(repositoryData.defaultBranch);
-  if (!defaultBranch) throw new CodeChangeError('invalid_prepare_change_response', 502);
+  const branchSha = stringValue(branchData.sha);
+  const revision = numberValue(branchData.revision) ?? 0;
+  if (!defaultBranch || !branchSha || !SHA_RE.test(branchSha) || revision < 0) {
+    throw new CodeChangeError('invalid_prepare_change_response', 502);
+  }
+
+  let pullRequest: PullRequestProgress | undefined;
+  if (isObject(prepared.pullRequest)) {
+    const number = numberValue(prepared.pullRequest.number);
+    const headSha = stringValue(prepared.pullRequest.headSha);
+    if (!number || !headSha || headSha.toLowerCase() !== branchSha.toLowerCase()) {
+      throw new CodeChangeError('invalid_prepare_change_response', 502);
+    }
+    pullRequest = {
+      number,
+      headSha: headSha.toLowerCase(),
+      htmlUrl: stringValue(prepared.pullRequest.htmlUrl),
+    };
+  }
+
   const progress: Progress = {
-    stage: 'editing',
+    stage: revision > 0 ? 'verifying' : 'editing',
     defaultBranch,
-    branchHead: core.expectedBaseSha,
-    revision: 0,
+    branchHead: branchSha.toLowerCase(),
+    revision,
+    ...(pullRequest ? { pullRequest } : {}),
   };
+
+  if (revision > 0) {
+    const verificationPlan = await targetedVerification(source, invoke, core, progress.branchHead);
+    return {
+      progress,
+      body: {
+        ok: true,
+        recovered: true,
+        stage: 'verifying',
+        revision,
+        headSha: progress.branchHead,
+        preparation: prepared,
+        verificationPlan,
+        finalGate: 'Normal repository CI on the final PR head remains mandatory.',
+        nextAction: verificationNextAction(progress),
+      },
+    };
+  }
+
   const [investigated, targetFiles] = await Promise.all([
     investigationContext(source, invoke, core, progress.branchHead),
     targetFileSnapshots(source, invoke, core, progress.branchHead),
@@ -956,18 +1149,45 @@ async function run(
       if (progress.stage !== 'editing' && progress.stage !== 'waiting_ci_review') {
         throw new CodeChangeError('edit_not_allowed_in_stage', 409, { stage: progress.stage });
       }
+
+      let editProgress = progress;
       if (progress.stage === 'waiting_ci_review') {
-        await assertPullRequestEditable(request, invoke, core, progress);
+        if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
+        const current = await branchHead(request, invoke, core);
+        if (current !== progress.branchHead) {
+          if (!await verifyRecoveredCommit(request, invoke, core, progress.branchHead, current, submitted)) {
+            throw new CodeChangeError('branch_head_changed', 409, { expected: progress.branchHead, current });
+          }
+          editProgress = {
+            ...progress,
+            branchHead: current,
+            pullRequest: { ...progress.pullRequest, headSha: current },
+          };
+        }
+        await assertPullRequestEditable(request, invoke, core, editProgress);
       }
-      const newHead = await commitEdit(request, invoke, core, progress, submitted);
+
+      const previousHead = editProgress.branchHead;
+      const newHead = await commitEdit(request, invoke, core, editProgress, submitted);
+      if (progress.stage === 'waiting_ci_review' && newHead !== previousHead) {
+        editProgress = {
+          ...editProgress,
+          branchHead: newHead,
+          pullRequest: editProgress.pullRequest
+            ? { ...editProgress.pullRequest, headSha: newHead }
+            : undefined,
+        };
+        await assertPullRequestEditable(request, invoke, core, editProgress);
+      }
+
       const verificationPlan = await targetedVerification(request, invoke, core, newHead);
       const next: Progress = {
-        ...progress,
+        ...editProgress,
         stage: 'verifying',
         branchHead: newHead,
         revision: progress.revision + 1,
-        ...(progress.pullRequest
-          ? { pullRequest: { ...progress.pullRequest, headSha: newHead } }
+        ...(editProgress.pullRequest
+          ? { pullRequest: { ...editProgress.pullRequest, headSha: newHead } }
           : {}),
       };
       delete next.verification;
@@ -978,13 +1198,19 @@ async function run(
         headSha: newHead,
         verificationPlan,
         finalGate: 'Normal repository CI on the final PR head remains mandatory.',
-        nextAction: { type: 'verification', allowedStatuses: ['passed', 'failed', 'unavailable'] },
+        nextAction: verificationNextAction(next),
       });
     }
 
     if (submitted?.type === 'verification') {
       if (progress.stage !== 'verifying') {
         throw new CodeChangeError('verification_not_allowed_in_stage', 409, { stage: progress.stage });
+      }
+      if (submitted.headSha !== progress.branchHead || submitted.revision !== progress.revision) {
+        throw new CodeChangeError('verification_revision_changed', 409, {
+          expectedHeadSha: progress.branchHead,
+          expectedRevision: progress.revision,
+        });
       }
       const verificationPlan = await targetedVerification(request, invoke, core, progress.branchHead);
       if (submitted.status === 'passed') {
@@ -1118,7 +1344,7 @@ async function run(
         headSha: progress.branchHead,
         verificationPlan,
         finalGate: 'Normal repository CI on the final PR head remains mandatory.',
-        nextAction: { type: 'verification', allowedStatuses: ['passed', 'failed', 'unavailable'] },
+        nextAction: verificationNextAction(progress),
       });
     }
     if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
@@ -1205,12 +1431,26 @@ export function addCodeChangeAutopilotOpenApi(document: JsonObject): void {
                     },
                     {
                       type: 'object',
-                      required: ['type', 'status'],
+                      required: ['type', 'status', 'headSha', 'revision'],
                       properties: {
                         type: { type: 'string', enum: ['verification'] },
                         status: { type: 'string', enum: ['passed', 'failed', 'unavailable'] },
+                        headSha: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
+                        revision: { type: 'integer', minimum: 1 },
                         reason: { type: 'string' },
-                        results: { type: 'array', items: { type: 'object', properties: {} } },
+                        results: {
+                          type: 'array',
+                          maxItems: 30,
+                          items: {
+                            type: 'object',
+                            required: ['status', 'cwd', 'command'],
+                            properties: {
+                              status: { type: 'string', enum: ['passed', 'failed'] },
+                              cwd: { type: 'string' },
+                              command: { type: 'string' },
+                            },
+                          },
+                        },
                         pullRequest: {
                           type: 'object',
                           required: ['title'],

@@ -396,6 +396,43 @@ async function commitData(
   return { tree: { sha: data.tree.sha } };
 }
 
+type ContentTreeEntry = { mode: string; type: string };
+
+export function contentTreeMode(entry?: { mode?: unknown; type?: unknown }): '100644' | '100755' | '120000' {
+  if (!entry) return '100644';
+  if (
+    entry.type !== 'blob' ||
+    (entry.mode !== '100644' && entry.mode !== '100755' && entry.mode !== '120000')
+  ) {
+    throw new ActionError('unsupported_file_mode', 409);
+  }
+  return entry.mode;
+}
+
+async function baseTreeEntries(
+  client: GitHubInstallationClient,
+  repositoryName: string,
+  treeSha: string,
+): Promise<Map<string, ContentTreeEntry>> {
+  const data = await client.json<{
+    truncated?: boolean;
+    tree?: Array<{ path?: string; mode?: string; type?: string }>;
+  }>(
+    `/repos/${repoPath(repositoryName)}/git/trees/${treeSha}?recursive=1`,
+    'gpt_action_get_base_tree',
+  );
+  if (data.truncated === true || !Array.isArray(data.tree)) {
+    throw new ActionError('base_tree_not_readable', 502);
+  }
+  const entries = new Map<string, ContentTreeEntry>();
+  for (const entry of data.tree) {
+    if (typeof entry.path === 'string' && typeof entry.mode === 'string' && typeof entry.type === 'string') {
+      entries.set(entry.path, { mode: entry.mode, type: entry.type });
+    }
+  }
+  return entries;
+}
+
 async function commitFiles(
   request: Request,
   env: GptActionsEnv,
@@ -430,11 +467,13 @@ async function commitFiles(
   const currentHead = await branchHead(client, repositoryName, branchName);
   if (currentHead !== expectedHeadSha) throw new ActionError('branch_head_changed', 409);
   const baseCommit = await commitData(client, repositoryName, expectedHeadSha);
+  const baseEntries = await baseTreeEntries(client, repositoryName, baseCommit.tree.sha);
 
   const tree = await Promise.all(
     files.map(async (file) => {
+      const mode = contentTreeMode(baseEntries.get(file.path));
       if (file.content === null) {
-        return { path: file.path, mode: '100644', type: 'blob', sha: null };
+        return { path: file.path, mode, type: 'blob', sha: null };
       }
       const blob = await client.json<{ sha?: string }>(
         `/repos/${repoPath(repositoryName)}/git/blobs`,
@@ -445,7 +484,7 @@ async function commitFiles(
         },
       );
       if (!blob.sha || !SHA_RE.test(blob.sha)) throw new ActionError('invalid_created_blob', 502);
-      return { path: file.path, mode: '100644', type: 'blob', sha: blob.sha };
+      return { path: file.path, mode, type: 'blob', sha: blob.sha };
     }),
   );
 

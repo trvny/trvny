@@ -17,6 +17,10 @@ test('code-change autopilot exposes implementCodeChange with stage action contra
     'verification',
     'review',
   ]);
+  const verification = variants[1];
+  assert.deepEqual(verification.required, ['type', 'status', 'headSha', 'revision']);
+  assert.deepEqual(verification.properties.results.items.required, ['status', 'cwd', 'command']);
+  assert.deepEqual(verification.properties.results.items.properties.status.enum, ['passed', 'failed']);
 });
 
 test('review gate requires exact base, reviewed head and successful final CI', () => {

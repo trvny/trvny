@@ -428,6 +428,37 @@ async function targetGuidance(
   });
 }
 
+async function targetFileSnapshots(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  ref: string,
+): Promise<Array<{ path: string; exists: boolean; content: string | null }>> {
+  return Promise.all(core.targetPaths.map(async (path) => {
+    const { response, payload } = await invokePayload(
+      source,
+      invoke,
+      READ_PATH,
+      { path: `/repos/${repoPath(core.repository)}/contents/${contentPath(path)}?ref=${encodeURIComponent(ref)}` },
+      true,
+    );
+    if (response.status === 404) return { path, exists: false, content: null };
+    if (!response.ok || payload.ok !== true) {
+      throw new CodeChangeError(
+        typeof payload.error === 'string' ? payload.error : 'target_file_read_failed',
+        response.status,
+        { path },
+      );
+    }
+    const content = decodeContent(payload.data);
+    if (content === null) throw new CodeChangeError('target_file_not_decodable', 502, { path });
+    if (content.length > MAX_FILE_CONTENT) {
+      throw new CodeChangeError('file_content_too_large', 413, { path });
+    }
+    return { path, exists: true, content };
+  }));
+}
+
 async function branchHead(source: Request, invoke: Invoke, core: CoreInput): Promise<string> {
   const raw = await readData(
     source,
@@ -754,6 +785,40 @@ async function mergedPullRequest(
   return typeof raw.merged_at === 'string' ? raw : null;
 }
 
+function validateMergedPullRequest(raw: JsonObject, progress: Progress): void {
+  const head = isObject(raw.head) ? raw.head : {};
+  const base = isObject(raw.base) ? raw.base : {};
+  const headSha = stringValue(head.sha);
+  const baseRef = stringValue(base.ref);
+  if (!headSha || headSha.toLowerCase() !== progress.branchHead) {
+    throw new CodeChangeError('pull_request_head_changed', 409, { expected: progress.branchHead, current: headSha });
+  }
+  if (baseRef !== progress.defaultBranch) {
+    throw new CodeChangeError('pull_request_base_changed', 409, { expected: progress.defaultBranch, current: baseRef });
+  }
+}
+
+async function assertPullRequestEditable(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  progress: Progress,
+): Promise<void> {
+  if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
+  const raw = await readData(source, invoke, `/repos/${repoPath(core.repository)}/pulls/${progress.pullRequest.number}`);
+  if (!isObject(raw)) throw new CodeChangeError('invalid_pull_request_response', 502);
+  const head = isObject(raw.head) ? raw.head : {};
+  const base = isObject(raw.base) ? raw.base : {};
+  const state = stringValue(raw.state);
+  const headRef = stringValue(head.ref);
+  const headSha = stringValue(head.sha);
+  const baseRef = stringValue(base.ref);
+  if (state !== 'open' || typeof raw.merged_at === 'string') throw new CodeChangeError('pull_request_not_open', 409, { state });
+  if (headRef !== core.branch) throw new CodeChangeError('pull_request_branch_changed', 409, { expected: core.branch, current: headRef });
+  if (!headSha || headSha.toLowerCase() !== progress.branchHead) throw new CodeChangeError('pull_request_head_changed', 409, { expected: progress.branchHead, current: headSha });
+  if (baseRef !== progress.defaultBranch) throw new CodeChangeError('pull_request_base_changed', 409, { expected: progress.defaultBranch, current: baseRef });
+}
+
 async function cleanup(
   source: Request,
   invoke: Invoke,
@@ -803,18 +868,22 @@ async function editingResponse(
   core: CoreInput,
   progress: Progress,
 ): Promise<JsonObject> {
-  const guidance = await targetGuidance(source, invoke, core, progress.branchHead);
-  const investigated = await investigationContext(source, invoke, core, progress.branchHead);
+  const [guidance, investigated, targetFiles] = await Promise.all([
+    targetGuidance(source, invoke, core, progress.branchHead),
+    investigationContext(source, invoke, core, progress.branchHead),
+    targetFileSnapshots(source, invoke, core, progress.branchHead),
+  ]);
   return {
     ok: true,
     stage: 'editing',
     goal: core.goal,
     branch: { name: core.branch, headSha: progress.branchHead },
     agentGuidance: guidance,
+    targetFiles,
     ...investigated,
     nextAction: {
       type: 'edit',
-      note: 'Submit complete contents only for declared targetPaths. Semantic code choices stay with the model.',
+      note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
     },
   };
 }
@@ -834,7 +903,10 @@ async function initialProgress(
     branchHead: core.expectedBaseSha,
     revision: 0,
   };
-  const investigated = await investigationContext(source, invoke, core, progress.branchHead);
+  const [investigated, targetFiles] = await Promise.all([
+    investigationContext(source, invoke, core, progress.branchHead),
+    targetFileSnapshots(source, invoke, core, progress.branchHead),
+  ]);
   return {
     progress,
     body: {
@@ -843,10 +915,11 @@ async function initialProgress(
       goal: core.goal,
       branch: { name: core.branch, headSha: progress.branchHead },
       preparation: prepared,
+      targetFiles,
       ...investigated,
       nextAction: {
         type: 'edit',
-        note: 'Submit complete contents only for declared targetPaths. Semantic code choices stay with the model.',
+        note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
       },
     },
   };
@@ -882,6 +955,9 @@ async function run(
     if (submitted?.type === 'edit') {
       if (progress.stage !== 'editing' && progress.stage !== 'waiting_ci_review') {
         throw new CodeChangeError('edit_not_allowed_in_stage', 409, { stage: progress.stage });
+      }
+      if (progress.stage === 'waiting_ci_review') {
+        await assertPullRequestEditable(request, invoke, core, progress);
       }
       const newHead = await commitEdit(request, invoke, core, progress, submitted);
       const verificationPlan = await targetedVerification(request, invoke, core, newHead);
@@ -970,20 +1046,7 @@ async function run(
       }
       const alreadyMerged = await mergedPullRequest(request, invoke, core, progress.pullRequest.number);
       if (alreadyMerged) {
-        const mergedHead = isObject(alreadyMerged.head) ? stringValue(alreadyMerged.head.sha) : null;
-        const mergedBase = isObject(alreadyMerged.base) ? stringValue(alreadyMerged.base.ref) : null;
-        if (!mergedHead || mergedHead.toLowerCase() !== progress.branchHead) {
-          throw new CodeChangeError('pull_request_head_changed', 409, {
-            expected: progress.branchHead,
-            current: mergedHead,
-          });
-        }
-        if (mergedBase !== progress.defaultBranch) {
-          throw new CodeChangeError('pull_request_base_changed', 409, {
-            expected: progress.defaultBranch,
-            current: mergedBase,
-          });
-        }
+        validateMergedPullRequest(alreadyMerged, progress);
         const cleanupResult = await cleanup(request, invoke, core, progress.pullRequest);
         return complete(env, core, inputHash, {
           ok: true,
@@ -1030,6 +1093,7 @@ async function run(
       }
       const merged = await mergedPullRequest(request, invoke, core, progress.pullRequest.number);
       if (!merged) throw new CodeChangeError('merge_not_confirmed', 502);
+      validateMergedPullRequest(merged, progress);
       const cleanupResult = await cleanup(request, invoke, core, progress.pullRequest);
       return complete(env, core, inputHash, {
         ok: true,

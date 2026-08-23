@@ -751,12 +751,10 @@ function verificationEvidenceMissing(plan: JsonObject, results: VerificationResu
   const passed = new Set(
     results
       .filter((result) => result.status === 'passed')
-      .map((result) => `${result.cwd}
-${result.command}`),
+      .map((result) => `${result.cwd}\n${result.command}`),
   );
   return verificationCommands(plan)
-    .filter((expected) => !passed.has(`${expected.cwd}
-${expected.command}`))
+    .filter((expected) => !passed.has(`${expected.cwd}\n${expected.command}`))
     .map((expected) => `${expected.cwd}: ${expected.command}`);
 }
 
@@ -1151,6 +1149,7 @@ async function run(
       }
 
       let editProgress = progress;
+      let recoveredEdit = false;
       if (progress.stage === 'waiting_ci_review') {
         if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
         const current = await branchHead(request, invoke, core);
@@ -1163,12 +1162,15 @@ async function run(
             branchHead: current,
             pullRequest: { ...progress.pullRequest, headSha: current },
           };
+          recoveredEdit = true;
         }
         await assertPullRequestEditable(request, invoke, core, editProgress);
       }
 
       const previousHead = editProgress.branchHead;
-      const newHead = await commitEdit(request, invoke, core, editProgress, submitted);
+      const newHead = recoveredEdit
+        ? editProgress.branchHead
+        : await commitEdit(request, invoke, core, editProgress, submitted);
       if (progress.stage === 'waiting_ci_review' && newHead !== previousHead) {
         editProgress = {
           ...editProgress,

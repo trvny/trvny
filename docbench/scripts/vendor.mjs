@@ -6,6 +6,10 @@ await cp(
   "public/vendor/js-yaml.min.js",
 );
 await cp(
+  "node_modules/marked/lib/marked.umd.js",
+  "public/vendor/marked.umd.js",
+);
+await cp(
   "node_modules/@cantoo/pdf-lib/dist/pdf-lib.min.js",
   "public/vendor/pdf-lib.min.js",
 );

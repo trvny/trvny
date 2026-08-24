@@ -28,6 +28,7 @@ export interface FinalizeSnapshot {
   state: string;
   draft: boolean;
   headSha: string;
+  baseRef?: string | null;
   mergeable: boolean | null;
   ciState: 'none' | 'pending' | 'failure' | 'success';
   unresolvedThreads: number;
@@ -69,6 +70,22 @@ function expectedSha(value: unknown): string {
     throw new OperatorError('invalid_expected_head_sha');
   }
   return value.toLowerCase();
+}
+
+function expectedRef(value: unknown): string {
+  if (
+    typeof value !== 'string' ||
+    !value ||
+    value.length > 250 ||
+    value.startsWith('/') ||
+    value.endsWith('/') ||
+    value.includes('..') ||
+    value.includes('//') ||
+    !/^[A-Za-z0-9._/-]+$/.test(value)
+  ) {
+    throw new OperatorError('invalid_expected_base_ref');
+  }
+  return value;
 }
 
 function repoPath(repositoryName: string): string {
@@ -400,6 +417,7 @@ async function inspectPullRequestData(
   const prRaw = await readData(source, env, fetcher, `/repos/${repo}/pulls/${pullRequestNumber}`);
   if (!isObject(prRaw)) throw new OperatorError('invalid_pull_request_response', 502);
   const head = isObject(prRaw.head) ? prRaw.head : {};
+  const base = isObject(prRaw.base) ? prRaw.base : {};
   const headSha = stringValue(head.sha);
   const nodeId = stringValue(prRaw.node_id);
   if (!headSha || !SHA_RE.test(headSha) || !nodeId) {
@@ -461,6 +479,7 @@ async function inspectPullRequestData(
       state: stringValue(prRaw.state) ?? 'unknown',
       draft: prRaw.draft === true,
       headSha: headSha.toLowerCase(),
+      baseRef: stringValue(base.ref),
       mergeable: typeof prRaw.mergeable === 'boolean' ? prRaw.mergeable : null,
       ciState: ci.state,
       unresolvedThreads: unresolvedThreads.length,
@@ -472,11 +491,13 @@ async function inspectPullRequestData(
 export function finalizeBlockers(
   snapshot: FinalizeSnapshot,
   expectedHeadSha: string,
+  expectedBaseRef?: string,
 ): string[] {
   const blockers: string[] = [];
   if (snapshot.state !== 'open') blockers.push('pull_request_not_open');
   if (snapshot.draft) blockers.push('pull_request_is_draft');
   if (snapshot.headSha.toLowerCase() !== expectedHeadSha.toLowerCase()) blockers.push('head_sha_changed');
+  if (expectedBaseRef && snapshot.baseRef !== expectedBaseRef) blockers.push('base_ref_changed');
   if (snapshot.mergeable === null) blockers.push('mergeability_unknown');
   else if (!snapshot.mergeable) blockers.push('pull_request_not_mergeable');
   if (snapshot.ciState === 'pending') blockers.push('ci_pending');
@@ -643,6 +664,7 @@ async function finalizePullRequest(
   const repositoryName = repository(input.repository);
   const pullRequestNumber = positiveInteger(input.pullRequestNumber, 'pull_request_number');
   const headSha = expectedSha(input.expectedHeadSha);
+  const baseRef = input.expectedBaseRef === undefined ? undefined : expectedRef(input.expectedBaseRef);
   const mergeMethod =
     input.mergeMethod === 'merge' || input.mergeMethod === 'rebase' ? input.mergeMethod : 'squash';
   const inspection = await inspectPullRequestData(
@@ -655,7 +677,7 @@ async function finalizePullRequest(
   const snapshot = inspection.finalizeSnapshot;
   if (!isObject(snapshot)) throw new OperatorError('invalid_finalize_snapshot', 502);
   const typedSnapshot = snapshot as unknown as FinalizeSnapshot;
-  const blockers = finalizeBlockers(typedSnapshot, headSha);
+  const blockers = finalizeBlockers(typedSnapshot, headSha, baseRef);
   if (blockers.length) {
     return json({ ok: false, merged: false, blockers, inspection }, 409);
   }
@@ -745,13 +767,14 @@ export function addOperatorOpenApi(document: JsonObject): void {
       operationId: 'finalizePullRequest',
       summary: 'Safely merge a ready pull request',
       description:
-        'Checks expected head SHA, draft/open state, mergeability, CI, unresolved review threads and active change requests before merging as gptomek[bot].',
+        'Checks expected head SHA and optional expected base ref, draft/open state, mergeability, CI, unresolved review threads and active change requests before merging as gptomek[bot].',
       requestBody: requestSchema(
         ['repository', 'pullRequestNumber', 'expectedHeadSha'],
         {
           repository: { type: 'string' },
           pullRequestNumber: { type: 'integer', minimum: 1 },
           expectedHeadSha: { type: 'string' },
+          expectedBaseRef: { type: 'string' },
           mergeMethod: { type: 'string', enum: ['squash', 'merge', 'rebase'], default: 'squash' },
         },
       ),

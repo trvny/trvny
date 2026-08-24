@@ -392,6 +392,7 @@ function preservesXmlSpace(node) {
 
 function renderXmlTree(doc) {
   const fragment = document.createDocumentFragment();
+  const serializer = new XMLSerializer();
   let nodes = 0;
   let truncated = false;
 
@@ -442,6 +443,22 @@ function renderXmlTree(doc) {
     }
     if (node.nodeType === Node.COMMENT_NODE) {
       appendScalar(parent, "#comment", node.nodeValue || "");
+      return;
+    }
+    if (node.nodeType === Node.PROCESSING_INSTRUCTION_NODE) {
+      appendSourceScalar(
+        parent,
+        "#processing-instruction",
+        sourceScalar(serializer.serializeToString(node), "string"),
+      );
+      return;
+    }
+    if (node.nodeType === Node.DOCUMENT_TYPE_NODE) {
+      appendSourceScalar(
+        parent,
+        "#doctype",
+        sourceScalar(serializer.serializeToString(node), "string"),
+      );
     }
   }
 

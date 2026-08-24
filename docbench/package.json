@@ -1,0 +1,19 @@
+{
+  "name": "docbench",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local-first document and PDF toolbox.",
+  "scripts": {
+    "build": "node scripts/vendor.mjs && node scripts/portable.mjs",
+    "typecheck": "wrangler types && npx --yes --package=typescript@7.0.2 tsc --noEmit",
+    "check": "npm run build && npm run typecheck && node scripts/check.mjs && wrangler deploy --dry-run",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "js-yaml": "5.3.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

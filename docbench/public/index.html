@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111318">
+  <meta name="description" content="Edit and validate text documents locally, with PDF tools coming next.">
+  <title>Doc Bench — Document & PDF Studio</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">TRVNY / BENCHES</p>
+        <h1>Doc Bench</h1>
+        <p class="tagline">Document & PDF Studio · local-first</p>
+      </div>
+      <div class="hero-actions">
+        <button id="openButton" class="button primary" type="button">Open file</button>
+        <button id="newButton" class="button" type="button">New</button>
+        <input id="fileInput" type="file" hidden accept=".txt,.md,.markdown,.json,.yml,.yaml,.xml,text/*,application/json,application/xml,text/xml">
+      </div>
+    </header>
+
+    <nav class="mode-tabs" aria-label="Workspace">
+      <button class="mode-tab active" type="button" data-mode="document">Documents</button>
+      <button class="mode-tab" type="button" data-mode="pdf">PDF</button>
+    </nav>
+
+    <section id="documentWorkspace" class="workspace">
+      <div class="toolbar">
+        <label>Format
+          <select id="formatSelect">
+            <option value="txt">TXT</option>
+            <option value="md">Markdown</option>
+            <option value="json">JSON</option>
+            <option value="yaml">YAML</option>
+            <option value="xml">XML</option>
+          </select>
+        </label>
+        <label>Line endings
+          <select id="eolSelect">
+            <option value="LF">LF</option>
+            <option value="CRLF">CRLF</option>
+            <option value="CR">CR</option>
+          </select>
+        </label>
+        <button id="validateButton" class="button compact" type="button">Validate</button>
+        <button id="formatButton" class="button compact" type="button">Format</button>
+        <button id="copyButton" class="button compact" type="button">Copy</button>
+        <button id="saveButton" class="button compact primary" type="button">Save</button>
+      </div>
+
+      <div id="dropZone" class="editor-grid">
+        <section class="panel editor-panel">
+          <div class="panel-header">
+            <strong id="filenameLabel">untitled.txt</strong>
+            <span id="encodingLabel">UTF-8 · LF</span>
+          </div>
+          <textarea id="editor" spellcheck="false" aria-label="Document editor" placeholder="Drop a file here or start typing…"></textarea>
+        </section>
+        <section class="panel preview-panel">
+          <div class="panel-header">
+            <strong>Parsed preview</strong>
+            <span id="statusBadge" class="status neutral">Plain text</span>
+          </div>
+          <pre id="preview" tabindex="0"></pre>
+        </section>
+      </div>
+      <p id="detailStatus" class="detail-status">UTF-8 · LF · 1 line</p>
+    </section>
+
+    <section id="pdfWorkspace" class="workspace pdf-placeholder" hidden>
+      <div>
+        <p class="eyebrow">NEXT ENGINE</p>
+        <h2>PDF surgery without bookmark amnesia.</h2>
+        <p>Merge, page operations, optimization and outline editing will land here with explicit bookmark preservation.</p>
+      </div>
+    </section>
+
+    <footer>Files stay in your browser. No uploads, no telemetry.</footer>
+  </main>
+  <script src="/vendor/js-yaml.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

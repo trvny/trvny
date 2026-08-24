@@ -1,0 +1,61 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0b0d11;
+  color: #f4f5f7;
+  --panel: #11151c;
+  --panel-2: #171c25;
+  --line: #2a313d;
+  --muted: #929baa;
+  --accent: #da2b1f;
+  --ok: #68d391;
+  --bad: #ff7b72;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 20% 0%, #161b24 0, #0b0d11 38%); }
+button, select, textarea { font: inherit; }
+button, select { color: inherit; }
+.app-shell { width: min(1480px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 24px; }
+.hero { display: flex; gap: 24px; justify-content: space-between; align-items: end; margin-bottom: 20px; }
+.hero h1 { margin: 2px 0 0; font-size: clamp(2.2rem, 5vw, 4.7rem); letter-spacing: -0.055em; }
+.eyebrow { margin: 0; color: var(--accent); font-size: .72rem; font-weight: 800; letter-spacing: .18em; }
+.tagline { margin: 6px 0 0; color: var(--muted); }
+.hero-actions, .toolbar, .mode-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.button, select, .mode-tab { border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); padding: 10px 13px; cursor: pointer; }
+.button:hover, .mode-tab:hover { border-color: #495466; }
+.button.primary { background: var(--accent); border-color: var(--accent); color: white; font-weight: 700; }
+.button.compact { padding: 8px 11px; }
+.mode-tabs { margin-bottom: 10px; }
+.mode-tab { color: var(--muted); }
+.mode-tab.active { color: white; background: #202633; }
+.workspace { border: 1px solid var(--line); border-radius: 16px; background: rgba(17, 21, 28, .86); overflow: hidden; box-shadow: 0 24px 70px rgba(0,0,0,.28); }
+.toolbar { padding: 10px; border-bottom: 1px solid var(--line); align-items: end; }
+.toolbar label { display: grid; gap: 4px; color: var(--muted); font-size: .72rem; }
+.toolbar select { min-width: 108px; padding: 8px 10px; }
+.editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .72fr); min-height: 62vh; }
+.panel { min-width: 0; display: flex; flex-direction: column; }
+.editor-panel { border-right: 1px solid var(--line); }
+.panel-header { min-height: 44px; display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 0 13px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
+.panel-header strong { color: #dce1e8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#editor, #preview { width: 100%; min-height: 0; flex: 1; margin: 0; padding: 18px; border: 0; outline: 0; background: transparent; color: #e8ebef; font: 14px/1.58 "SFMono-Regular", Consolas, "Liberation Mono", monospace; tab-size: 2; }
+#editor { resize: none; }
+#preview { overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #cbd2dc; }
+.status { border-radius: 999px; padding: 4px 8px; font-weight: 700; }
+.status.good { color: var(--ok); background: rgba(104,211,145,.1); }
+.status.bad { color: var(--bad); background: rgba(255,123,114,.1); }
+.status.neutral { color: var(--muted); background: rgba(146,155,170,.1); }
+.detail-status { margin: 0; padding: 9px 13px; border-top: 1px solid var(--line); color: var(--muted); font: 12px/1.4 "SFMono-Regular", Consolas, monospace; }
+.drop-active { outline: 2px dashed var(--accent); outline-offset: -8px; }
+.pdf-placeholder { min-height: 52vh; display: grid; place-items: center; padding: 48px; text-align: center; }
+.pdf-placeholder h2 { margin: 6px 0 8px; font-size: clamp(1.7rem, 4vw, 3rem); }
+.pdf-placeholder p:last-child { max-width: 650px; color: var(--muted); }
+footer { padding: 12px 2px; color: var(--muted); font-size: .78rem; }
+
+@media (max-width: 800px) {
+  .app-shell { width: min(100% - 18px, 1480px); padding-top: 16px; }
+  .hero { align-items: flex-start; flex-direction: column; }
+  .editor-grid { grid-template-columns: 1fr; min-height: auto; }
+  .editor-panel { border-right: 0; border-bottom: 1px solid var(--line); }
+  #editor, #preview { min-height: 42vh; }
+}

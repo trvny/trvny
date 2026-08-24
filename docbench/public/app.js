@@ -135,9 +135,27 @@
     }, 2);
   }
 
+  function findUnsafeInteger(value, seen = new WeakSet()) {
+    if (typeof value === "number") {
+      return Number.isInteger(value) && !Number.isSafeInteger(value);
+    }
+    if (!value || typeof value !== "object") return false;
+    if (seen.has(value)) return false;
+    seen.add(value);
+    if (Array.isArray(value)) return value.some((item) => findUnsafeInteger(item, seen));
+    return Object.values(value).some((item) => findUnsafeInteger(item, seen));
+  }
+
   function xmlError(text) {
     const doc = new DOMParser().parseFromString(text, "application/xml");
-    const error = doc.querySelector("parsererror");
+    const root = doc.documentElement;
+    const parserNamespaces = new Set([
+      "http://www.mozilla.org/newlayout/xml/parsererror.xml",
+      "http://www.w3.org/1999/xhtml",
+    ]);
+    const error = root?.localName === "parsererror" && parserNamespaces.has(root.namespaceURI)
+      ? root
+      : null;
     if (!error) return null;
     const message = error.textContent.trim().replace(/\s+/g, " ");
     const lineMatch = message.match(/line\s+(\d+).*column\s+(\d+)/i);
@@ -205,7 +223,11 @@
       statusBadge.textContent = "Valid";
       if (format === "xml") preview.textContent = editor.value;
       else if (format === "json") preview.textContent = formatJsonLossless(editor.value || "null");
-      else preview.textContent = stringifyPreview(result.value);
+      else if (findUnsafeInteger(result.value)) {
+        statusBadge.className = "status neutral";
+        statusBadge.textContent = "Valid · large integer";
+        preview.textContent = editor.value;
+      } else preview.textContent = stringifyPreview(result.value);
     } else {
       statusBadge.className = "status bad";
       const at = result.error.position ? ` · ${result.error.position.line}:${result.error.position.column}` : "";
@@ -283,6 +305,9 @@
       if (formatSelect.value === "yaml") {
         const docs = [];
         globalThis.jsyaml.loadAll(editor.value, (doc) => docs.push(doc));
+        if (docs.some((doc) => findUnsafeInteger(doc))) {
+          throw new Error("Formatting blocked: YAML contains an integer outside JavaScript's safe range.");
+        }
         editor.value = docs.map((doc) => globalThis.jsyaml.dump(doc, { noRefs: true })).join("---\n");
       }
       if (formatSelect.value === "xml") editor.value = `${formatXml(editor.value)}\n`;

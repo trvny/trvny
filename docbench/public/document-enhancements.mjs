@@ -22,6 +22,8 @@ const dropZone = $("#drop-zone");
 const documentWorkspace = $("#document-workspace");
 
 const MAX_TREE_NODES = 5000;
+const SOURCE_SCALAR = Symbol("source-scalar");
+const XML_NAMESPACE = "http://www.w3.org/XML/1998/namespace";
 const extensionToFormat = {
   txt: "txt",
   md: "md",
@@ -166,6 +168,30 @@ function appendScalar(parent, key, value) {
   parent.append(row);
 }
 
+function sourceScalar(text, type) {
+  return { [SOURCE_SCALAR]: true, text, type };
+}
+
+function isSourceScalar(value) {
+  return Boolean(value?.[SOURCE_SCALAR]);
+}
+
+function appendSourceScalar(parent, key, value) {
+  const row = document.createElement("div");
+  row.className = "tree-leaf";
+  if (key !== null) {
+    const keyNode = document.createElement("span");
+    keyNode.className = "tree-key";
+    keyNode.textContent = `${key}: `;
+    row.append(keyNode);
+  }
+  const valueNode = document.createElement("span");
+  valueNode.className = `tree-value tree-${value.type}`;
+  valueNode.textContent = value.text;
+  row.append(valueNode);
+  parent.append(row);
+}
+
 function appendTreeLimit(fragment) {
   const note = document.createElement("p");
   note.className = "preview-limit-note";
@@ -186,11 +212,14 @@ function renderDataTree(value, rootLabel = "root") {
     }
     nodes += 1;
 
+    if (isSourceScalar(item)) {
+      appendSourceScalar(parent, key, item);
+      return;
+    }
     if (!item || typeof item !== "object") {
       appendScalar(parent, key, item);
       return;
     }
-
     if (seen.has(item)) {
       appendScalar(parent, key, "[alias/circular reference]");
       return;
@@ -229,6 +258,27 @@ function renderDataTree(value, rootLabel = "root") {
   renderNode(fragment, null, value, 0);
   if (truncated) appendTreeLimit(fragment);
   return fragment;
+}
+
+function preserveYamlNumericLexemes(typed, raw, seen = new WeakMap()) {
+  if (typeof typed === "number") {
+    return sourceScalar(typeof raw === "string" ? raw : String(typed), "number");
+  }
+  if (!typed || typeof typed !== "object") return typed;
+  if (seen.has(typed)) return seen.get(typed);
+
+  const result = Array.isArray(typed) ? [] : {};
+  seen.set(typed, result);
+  if (Array.isArray(typed)) {
+    typed.forEach((item, index) => {
+      result[index] = preserveYamlNumericLexemes(item, raw?.[index], seen);
+    });
+  } else {
+    for (const [key, item] of Object.entries(typed)) {
+      result[key] = preserveYamlNumericLexemes(item, raw?.[key], seen);
+    }
+  }
+  return result;
 }
 
 function jsonScalarClass(node) {
@@ -274,7 +324,7 @@ function renderJsonTree(source) {
     }
     nodes += 1;
 
-    if (!['object', 'array'].includes(node.type)) {
+    if (!["object", "array"].includes(node.type)) {
       appendJsonScalar(parent, key, node, source);
       return;
     }
@@ -329,6 +379,17 @@ function xmlParserError(doc) {
     : null;
 }
 
+function preservesXmlSpace(node) {
+  let element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  while (element) {
+    const mode = element.getAttributeNS?.(XML_NAMESPACE, "space");
+    if (mode === "preserve") return true;
+    if (mode === "default") return false;
+    element = element.parentElement;
+  }
+  return false;
+}
+
 function renderXmlTree(doc) {
   const fragment = document.createDocumentFragment();
   let nodes = 0;
@@ -369,8 +430,10 @@ function renderXmlTree(doc) {
     }
 
     if (node.nodeType === Node.TEXT_NODE) {
-      const value = node.nodeValue?.trim();
-      if (value) appendScalar(parent, "#text", value);
+      const value = node.nodeValue || "";
+      if (value.trim() || preservesXmlSpace(node)) {
+        appendScalar(parent, "#text", value);
+      }
       return;
     }
     if (node.nodeType === Node.CDATA_SECTION_NODE) {
@@ -612,20 +675,19 @@ function renderEnhancedPreview() {
   }
   if (format === "yaml") {
     try {
-      const validated = [];
-      globalThis.jsyaml.loadAll(editor.value, (doc) => validated.push(doc));
-      const preserved = [];
-      try {
-        globalThis.jsyaml.loadAll(editor.value, (doc) => preserved.push(doc), {
-          schema: globalThis.jsyaml.FAILSAFE_SCHEMA,
-        });
-      } catch {
-        preserved.push(...validated);
-      }
-      const value = preserved.length === 1 ? preserved[0] : preserved;
+      const typed = [];
+      const raw = [];
+      globalThis.jsyaml.loadAll(editor.value, (doc) => typed.push(doc));
+      globalThis.jsyaml.loadAll(editor.value, (doc) => raw.push(doc), {
+        schema: globalThis.jsyaml.FAILSAFE_SCHEMA,
+      });
+      const merged = typed.map((doc, index) => {
+        return preserveYamlNumericLexemes(doc, raw[index]);
+      });
+      const value = merged.length === 1 ? merged[0] : merged;
       setPreviewMode("tree", "YAML tree");
       preview.replaceChildren(
-        renderDataTree(value, preserved.length === 1 ? "YAML" : "YAML documents"),
+        renderDataTree(value, merged.length === 1 ? "YAML" : "YAML documents"),
       );
       setStatus("good", "Valid · tree");
     } catch {
@@ -844,7 +906,13 @@ eolSelect.addEventListener("change", () => {
 });
 formatButton.addEventListener("click", () => {
   state.mixedEol = false;
-  schedulePreview(170);
+  queueMicrotask(() => {
+    if (statusBadge.textContent === "Format failed") {
+      updateMeta();
+      return;
+    }
+    renderEnhancedPreview();
+  });
 });
 validateButton.addEventListener("click", () => schedulePreview(20));
 

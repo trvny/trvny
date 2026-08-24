@@ -5,3 +5,28 @@ await cp(
   "node_modules/js-yaml/dist/browser/js-yaml.umd.min.js",
   "public/vendor/js-yaml.min.js",
 );
+await cp(
+  "node_modules/@cantoo/pdf-lib/dist/pdf-lib.min.js",
+  "public/vendor/pdf-lib.min.js",
+);
+
+await mkdir("public/vendor/pdfjs", { recursive: true });
+await cp("node_modules/pdfjs-dist/build/pdf.mjs", "public/vendor/pdfjs/pdf.mjs");
+await cp(
+  "node_modules/pdfjs-dist/build/pdf.worker.mjs",
+  "public/vendor/pdfjs/pdf.worker.mjs",
+);
+
+await mkdir("public/vendor/qpdf-run", { recursive: true });
+for (const file of ["index.js", "browserRunner.js", "bytes.js", "worker.js"]) {
+  await cp(`node_modules/qpdf-run/src/${file}`, `public/vendor/qpdf-run/${file}`);
+}
+await mkdir("public/vendor/qpdf/lib", { recursive: true });
+await cp(
+  "node_modules/qpdf-run/vendor/qpdf/lib/qpdf.js",
+  "public/vendor/qpdf/lib/qpdf.js",
+);
+await cp(
+  "node_modules/qpdf-run/vendor/qpdf/lib/qpdf.wasm",
+  "public/vendor/qpdf/lib/qpdf.wasm",
+);

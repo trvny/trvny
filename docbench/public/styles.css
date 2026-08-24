@@ -108,6 +108,15 @@ select,
   padding: 8px 11px;
 }
 
+.button.danger {
+  color: #ffaaa4;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .mode-tabs {
   margin-bottom: 10px;
 }
@@ -256,10 +265,217 @@ select,
   color: var(--muted);
 }
 
+.pdf-toolbar {
+  align-items: center;
+}
+
+.toolbar-spacer {
+  flex: 1 1 24px;
+}
+
+.toolbar .toggle-label {
+  display: flex;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.pdf-meta-row {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 13px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.pdf-meta-row strong {
+  color: #dce1e8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#pdf-status.bad {
+  color: var(--bad);
+}
+
+.pdf-grid {
+  min-height: 66vh;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.25fr) minmax(0, 1fr) minmax(190px, 0.28fr);
+}
+
+.pdf-outline-panel,
+.pdf-preview-panel,
+.pdf-pages-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-outline-panel {
+  border-right: 1px solid var(--line);
+}
+
+.pdf-pages-panel {
+  border-left: 1px solid var(--line);
+}
+
+.pdf-outline,
+.pdf-pages {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+
+.pdf-outline {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.outline-item {
+  width: 100%;
+  display: block;
+  padding: 7px 8px 7px calc(8px + var(--outline-depth, 0) * 14px);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #d7dce3;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outline-item:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.outline-item:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+
+.outline-note {
+  margin: 10px 2px 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: #d7a36b;
+  line-height: 1.45;
+}
+
+.pdf-canvas-stage {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  display: grid;
+  place-items: start center;
+  padding: 18px;
+  background: #0d1015;
+}
+
+#pdf-preview-canvas {
+  max-width: 100%;
+  height: auto;
+  box-shadow: 0 10px 32px rgb(0 0 0 / 40%);
+}
+
+.pdf-empty-hint {
+  place-self: center;
+  color: var(--muted);
+}
+
+#pdf-preview-canvas:not([hidden]) + .pdf-empty-hint {
+  display: none;
+}
+
+.pdf-pages {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.pdf-page-card {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 74px minmax(28px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #dce1e8;
+  text-align: left;
+  cursor: grab;
+}
+
+.pdf-page-card:hover {
+  background: var(--panel-2);
+}
+
+.pdf-page-card.selected {
+  border-color: #596678;
+  background: #202633;
+}
+
+.pdf-page-card:active {
+  cursor: grabbing;
+}
+
+.pdf-page-card span {
+  font-weight: 800;
+  text-align: center;
+}
+
+.pdf-page-card small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-thumb {
+  width: 74px;
+  max-height: 98px;
+  border-radius: 3px;
+  background: #fff;
+  object-fit: contain;
+}
+
 footer {
   padding: 12px 2px;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+@media (max-width: 1050px) {
+  .pdf-grid {
+    grid-template-columns: minmax(170px, 0.3fr) minmax(0, 1fr);
+  }
+
+  .pdf-pages-panel {
+    grid-column: 1 / -1;
+    max-height: 310px;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .pdf-pages {
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  }
 }
 
 @media (max-width: 800px) {
@@ -286,5 +502,25 @@ footer {
   #editor,
   #preview {
     min-height: 42vh;
+  }
+
+  .pdf-meta-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pdf-grid {
+    display: block;
+  }
+
+  .pdf-outline-panel,
+  .pdf-pages-panel {
+    max-height: 280px;
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .pdf-preview-panel {
+    min-height: 60vh;
   }
 }

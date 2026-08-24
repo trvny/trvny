@@ -2,8 +2,10 @@ import {
   buildCombinedOutline,
   buildQpdfFinalizeRequest,
   buildQpdfPageRequest,
+  clonePdfOutline,
   formatPdfSize,
   readPdfOutline,
+  remapOutlineToPagePlan,
   replacePdfOutline,
 } from "./pdf-core.mjs";
 
@@ -21,11 +23,34 @@ const leftButton = $("#pdf-move-left");
 const rightButton = $("#pdf-move-right");
 const optimizeToggle = $("#pdf-optimize");
 const linearizeToggle = $("#pdf-linearize");
+const bookmarkEditor = $("#bookmark-editor");
+const bookmarkTitle = $("#bookmark-title");
+const bookmarkTargetType = $("#bookmark-target-type");
+const bookmarkPage = $("#bookmark-page");
+const bookmarkPageRow = $("#bookmark-page-row");
+const bookmarkUrl = $("#bookmark-url");
+const bookmarkUrlRow = $("#bookmark-url-row");
+const bookmarkNamed = $("#bookmark-named");
+const bookmarkNamedRow = $("#bookmark-named-row");
+const bookmarkBold = $("#bookmark-bold");
+const bookmarkItalic = $("#bookmark-italic");
+const bookmarkOpen = $("#bookmark-open");
+const bookmarkAddRoot = $("#bookmark-add-root");
+const bookmarkAddSibling = $("#bookmark-add-sibling");
+const bookmarkAddChild = $("#bookmark-add-child");
+const bookmarkUp = $("#bookmark-up");
+const bookmarkDown = $("#bookmark-down");
+const bookmarkIndent = $("#bookmark-indent");
+const bookmarkOutdent = $("#bookmark-outdent");
+const bookmarkDelete = $("#bookmark-delete");
 
 const state = {
   sources: [],
   plan: [],
+  outline: [],
   selectedIndex: -1,
+  selectedBookmarkPath: null,
+  droppedBookmarks: 0,
   pdfjs: null,
   qpdfModule: null,
   qpdfRunner: null,
@@ -110,6 +135,22 @@ async function closeSources() {
   await Promise.allSettled(oldSources.map((source) => source.pdf?.destroy?.()));
 }
 
+function freshCombinedOutline() {
+  return buildCombinedOutline(state.sources, state.plan).outline;
+}
+
+function mergeAppendedOutlines(oldSourceCount, oldOutline) {
+  if (oldSourceCount === 0) return freshCombinedOutline();
+  const fresh = freshCombinedOutline();
+  if (oldSourceCount === 1) {
+    const firstWrapper = fresh[0];
+    if (!firstWrapper) return fresh;
+    firstWrapper.children = clonePdfOutline(oldOutline);
+    return [firstWrapper, ...fresh.slice(1)];
+  }
+  return [...clonePdfOutline(oldOutline), ...fresh.slice(oldSourceCount)];
+}
+
 async function openFiles(files, append) {
   const selected = [...files];
   if (!selected.length) return;
@@ -123,9 +164,12 @@ async function openFiles(files, append) {
     throw error;
   }
 
+  const oldSourceCount = state.sources.length;
+  const oldOutline = clonePdfOutline(state.outline);
   if (!append) {
     await closeSources();
     state.plan = [];
+    state.outline = [];
   }
   const offset = state.sources.length;
   state.sources.push(...newSources);
@@ -135,6 +179,12 @@ async function openFiles(files, append) {
       state.plan.push({ sourceId, pageIndex });
     }
   });
+
+  state.outline = append
+    ? mergeAppendedOutlines(oldSourceCount, oldOutline)
+    : freshCombinedOutline();
+  state.droppedBookmarks = 0;
+  state.selectedBookmarkPath = null;
   state.selectedIndex = state.plan.length ? (append ? state.selectedIndex : 0) : -1;
   if (state.selectedIndex < 0 && state.plan.length) state.selectedIndex = 0;
   refreshPdfUi();
@@ -144,12 +194,60 @@ function selectedEntry() {
   return state.plan[state.selectedIndex] || null;
 }
 
+function bookmarkAtPath(path) {
+  if (!Array.isArray(path) || !path.length) return null;
+  let items = state.outline;
+  let bookmark = null;
+  for (const index of path) {
+    bookmark = items[index];
+    if (!bookmark) return null;
+    items = bookmark.children || [];
+  }
+  return bookmark;
+}
+
+function bookmarkContainer(path) {
+  if (!Array.isArray(path) || !path.length) return null;
+  let items = state.outline;
+  for (const index of path.slice(0, -1)) {
+    const bookmark = items[index];
+    if (!bookmark) return null;
+    bookmark.children ||= [];
+    items = bookmark.children;
+  }
+  const index = path.at(-1);
+  return Number.isInteger(index) ? { items, index } : null;
+}
+
+function samePath(left, right) {
+  return Array.isArray(left)
+    && Array.isArray(right)
+    && left.length === right.length
+    && left.every((value, index) => value === right[index]);
+}
+
+function newBookmark() {
+  const pageIndex = state.selectedIndex >= 0 ? state.selectedIndex : 0;
+  return {
+    title: "New bookmark",
+    target: state.plan.length
+      ? { kind: "page", pageIndex, view: { type: "Fit", args: [] } }
+      : null,
+    color: [],
+    bold: false,
+    italic: false,
+    open: true,
+    children: [],
+  };
+}
+
 function updateControls() {
   const hasPage = Boolean(selectedEntry());
   saveButton.disabled = !state.plan.length;
   removeButton.disabled = !hasPage || state.plan.length <= 1;
   leftButton.disabled = !hasPage || state.selectedIndex <= 0;
   rightButton.disabled = !hasPage || state.selectedIndex >= state.plan.length - 1;
+  bookmarkAddRoot.disabled = !state.plan.length;
 }
 
 function refreshPdfUi() {
@@ -164,8 +262,14 @@ function refreshPdfUi() {
       : "Open a PDF to begin.",
   );
   renderPageStrip();
-  renderOutline();
+  renderBookmarkUi();
   renderPreview().catch(showError);
+  updateControls();
+}
+
+function refreshBookmarkUi() {
+  renderOutline();
+  renderBookmarkEditor();
   updateControls();
 }
 
@@ -251,19 +355,48 @@ function selectPage(index) {
   refreshPdfUi();
 }
 
+function remapEditedOutline(oldPlan) {
+  const remapped = remapOutlineToPagePlan(state.outline, oldPlan, state.plan);
+  state.outline = remapped.outline;
+  state.droppedBookmarks = remapped.dropped;
+  if (remapped.dropped && !bookmarkAtPath(state.selectedBookmarkPath)) {
+    state.selectedBookmarkPath = null;
+  }
+}
+
 function movePage(from, to) {
   if (from === to || from < 0 || from >= state.plan.length || to < 0 || to >= state.plan.length) return;
+  const oldPlan = state.plan.map((page) => ({ ...page }));
   const [page] = state.plan.splice(from, 1);
   state.plan.splice(to, 0, page);
   state.selectedIndex = to;
+  remapEditedOutline(oldPlan);
   refreshPdfUi();
 }
 
 function removeSelectedPage() {
   if (state.plan.length <= 1 || state.selectedIndex < 0) return;
+  const oldPlan = state.plan.map((page) => ({ ...page }));
   state.plan.splice(state.selectedIndex, 1);
   state.selectedIndex = Math.min(state.selectedIndex, state.plan.length - 1);
+  remapEditedOutline(oldPlan);
   refreshPdfUi();
+}
+
+function renderBookmarkUi() {
+  renderOutline();
+  renderBookmarkEditor();
+}
+
+function selectBookmark(path) {
+  state.selectedBookmarkPath = [...path];
+  const bookmark = bookmarkAtPath(path);
+  if (bookmark?.target?.kind === "page") {
+    state.selectedIndex = bookmark.target.pageIndex;
+    refreshPdfUi();
+  } else {
+    refreshBookmarkUi();
+  }
 }
 
 function renderOutline() {
@@ -272,49 +405,228 @@ function renderOutline() {
     outlineHost.textContent = "No bookmarks yet.";
     return;
   }
-  const combined = buildCombinedOutline(state.sources, state.plan);
-  if (!combined.outline.length) {
-    outlineHost.textContent = "This PDF has no bookmarks.";
+  if (!state.outline.length) {
+    outlineHost.textContent = "No bookmarks. Add one to start.";
     return;
   }
 
-  function appendLevel(bookmarks, parent, depth) {
-    for (const bookmark of bookmarks) {
+  function appendLevel(bookmarks, parent, depth, parentPath = []) {
+    bookmarks.forEach((bookmark, index) => {
+      const path = [...parentPath, index];
       const row = document.createElement("button");
       row.type = "button";
-      row.className = "outline-item";
+      row.className = `outline-item${samePath(path, state.selectedBookmarkPath) ? " selected" : ""}`;
       row.style.setProperty("--outline-depth", String(depth));
       row.textContent = bookmark.title;
-      const pageIndex = bookmark.target?.kind === "page" ? bookmark.target.pageIndex : null;
-      row.disabled = pageIndex === null;
-      if (pageIndex !== null) row.addEventListener("click", () => selectPage(pageIndex));
+      if (!bookmark.target) row.classList.add("targetless");
+      row.addEventListener("click", () => selectBookmark(path));
       parent.append(row);
-      appendLevel(bookmark.children || [], parent, depth + 1);
-    }
+      appendLevel(bookmark.children || [], parent, depth + 1, path);
+    });
   }
-  appendLevel(combined.outline, outlineHost, 0);
+  appendLevel(state.outline, outlineHost, 0);
 
-  if (combined.dropped) {
+  if (state.droppedBookmarks) {
     const note = document.createElement("p");
     note.className = "outline-note";
-    note.textContent = `${combined.dropped} bookmark${combined.dropped === 1 ? "" : "s"} to deleted pages will be pruned.`;
+    note.textContent = `${state.droppedBookmarks} bookmark${state.droppedBookmarks === 1 ? "" : "s"} to deleted pages were pruned.`;
     outlineHost.append(note);
   }
+}
+
+function fillBookmarkPages(selectedPageIndex) {
+  bookmarkPage.replaceChildren();
+  state.plan.forEach((entry, index) => {
+    const source = state.sources[entry.sourceId];
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = state.sources.length > 1
+      ? `Page ${index + 1} · ${source.filename} p.${entry.pageIndex + 1}`
+      : `Page ${index + 1}`;
+    bookmarkPage.append(option);
+  });
+  if (Number.isInteger(selectedPageIndex) && state.plan[selectedPageIndex]) {
+    bookmarkPage.value = String(selectedPageIndex);
+  }
+}
+
+function renderBookmarkEditor() {
+  const bookmark = bookmarkAtPath(state.selectedBookmarkPath);
+  bookmarkEditor.hidden = !bookmark;
+  if (!bookmark) return;
+
+  bookmarkTitle.value = bookmark.title || "";
+  const targetType = bookmark.target?.kind || "none";
+  bookmarkTargetType.value = targetType;
+  bookmarkPageRow.hidden = targetType !== "page";
+  bookmarkUrlRow.hidden = targetType !== "url";
+  bookmarkNamedRow.hidden = targetType !== "named";
+  fillBookmarkPages(bookmark.target?.kind === "page" ? bookmark.target.pageIndex : null);
+  bookmarkUrl.value = bookmark.target?.kind === "url" ? bookmark.target.url || "" : "";
+  bookmarkNamed.value = bookmark.target?.kind === "named" ? bookmark.target.action || "" : "";
+  bookmarkBold.checked = Boolean(bookmark.bold);
+  bookmarkItalic.checked = Boolean(bookmark.italic);
+  bookmarkOpen.checked = bookmark.open !== false;
+
+  const location = bookmarkContainer(state.selectedBookmarkPath);
+  bookmarkUp.disabled = !location || location.index <= 0;
+  bookmarkDown.disabled = !location || location.index >= location.items.length - 1;
+  bookmarkIndent.disabled = !location || location.index <= 0;
+  bookmarkOutdent.disabled = state.selectedBookmarkPath.length < 2;
+}
+
+function mutateSelectedBookmark(mutator, rerender = true) {
+  const bookmark = bookmarkAtPath(state.selectedBookmarkPath);
+  if (!bookmark) return;
+  mutator(bookmark);
+  if (rerender) refreshBookmarkUi();
+}
+
+function setBookmarkTargetType(type) {
+  mutateSelectedBookmark((bookmark) => {
+    if (type === "page") {
+      const currentPage = bookmark.target?.kind === "page"
+        ? bookmark.target.pageIndex
+        : Math.max(0, state.selectedIndex);
+      bookmark.target = {
+        kind: "page",
+        pageIndex: Math.min(currentPage, Math.max(0, state.plan.length - 1)),
+        view: bookmark.target?.kind === "page"
+          ? bookmark.target.view
+          : { type: "Fit", args: [] },
+      };
+    } else if (type === "url") {
+      bookmark.target = {
+        kind: "url",
+        url: bookmark.target?.kind === "url" ? bookmark.target.url : "",
+        newWindow: bookmark.target?.kind === "url" && Boolean(bookmark.target.newWindow),
+      };
+    } else if (type === "named") {
+      bookmark.target = {
+        kind: "named",
+        action: bookmark.target?.kind === "named" ? bookmark.target.action : "NextPage",
+      };
+    } else {
+      bookmark.target = null;
+    }
+  });
+}
+
+function addRootBookmark() {
+  if (!state.plan.length) return;
+  state.outline.push(newBookmark());
+  state.selectedBookmarkPath = [state.outline.length - 1];
+  state.droppedBookmarks = 0;
+  refreshBookmarkUi();
+  bookmarkTitle.focus();
+  bookmarkTitle.select();
+}
+
+function addSiblingBookmark() {
+  const location = bookmarkContainer(state.selectedBookmarkPath);
+  if (!location) return;
+  location.items.splice(location.index + 1, 0, newBookmark());
+  state.selectedBookmarkPath = [
+    ...state.selectedBookmarkPath.slice(0, -1),
+    location.index + 1,
+  ];
+  refreshBookmarkUi();
+  bookmarkTitle.focus();
+  bookmarkTitle.select();
+}
+
+function addChildBookmark() {
+  const bookmark = bookmarkAtPath(state.selectedBookmarkPath);
+  if (!bookmark) return;
+  bookmark.children ||= [];
+  bookmark.children.push(newBookmark());
+  state.selectedBookmarkPath = [
+    ...state.selectedBookmarkPath,
+    bookmark.children.length - 1,
+  ];
+  refreshBookmarkUi();
+  bookmarkTitle.focus();
+  bookmarkTitle.select();
+}
+
+function moveBookmark(delta) {
+  const location = bookmarkContainer(state.selectedBookmarkPath);
+  if (!location) return;
+  const nextIndex = location.index + delta;
+  if (nextIndex < 0 || nextIndex >= location.items.length) return;
+  [location.items[location.index], location.items[nextIndex]] = [
+    location.items[nextIndex],
+    location.items[location.index],
+  ];
+  state.selectedBookmarkPath = [
+    ...state.selectedBookmarkPath.slice(0, -1),
+    nextIndex,
+  ];
+  refreshBookmarkUi();
+}
+
+function indentBookmark() {
+  const location = bookmarkContainer(state.selectedBookmarkPath);
+  if (!location || location.index <= 0) return;
+  const [bookmark] = location.items.splice(location.index, 1);
+  const previous = location.items[location.index - 1];
+  previous.children ||= [];
+  previous.children.push(bookmark);
+  state.selectedBookmarkPath = [
+    ...state.selectedBookmarkPath.slice(0, -1),
+    location.index - 1,
+    previous.children.length - 1,
+  ];
+  refreshBookmarkUi();
+}
+
+function outdentBookmark() {
+  const path = state.selectedBookmarkPath;
+  if (!Array.isArray(path) || path.length < 2) return;
+  const current = bookmarkContainer(path);
+  const parentPath = path.slice(0, -1);
+  const parentLocation = bookmarkContainer(parentPath);
+  if (!current || !parentLocation) return;
+
+  const [bookmark] = current.items.splice(current.index, 1);
+  parentLocation.items.splice(parentLocation.index + 1, 0, bookmark);
+  state.selectedBookmarkPath = [
+    ...parentPath.slice(0, -1),
+    parentLocation.index + 1,
+  ];
+  refreshBookmarkUi();
+}
+
+function deleteBookmark() {
+  const location = bookmarkContainer(state.selectedBookmarkPath);
+  if (!location) return;
+  location.items.splice(location.index, 1);
+  state.selectedBookmarkPath = null;
+  refreshBookmarkUi();
 }
 
 function outlineSignature(outline) {
   return (outline || []).map((bookmark) => {
     let target = null;
     if (bookmark.target?.kind === "page") {
-      target = ["page", bookmark.target.pageIndex, bookmark.target.view?.type || "Fit"];
+      target = [
+        "page",
+        bookmark.target.pageIndex,
+        bookmark.target.view?.type || "Fit",
+        [...(bookmark.target.view?.args || [])],
+      ];
     } else if (bookmark.target?.kind === "url") {
-      target = ["url", bookmark.target.url];
+      target = ["url", bookmark.target.url, Boolean(bookmark.target.newWindow)];
     } else if (bookmark.target?.kind === "named") {
       target = ["named", bookmark.target.action];
     }
     return {
       title: bookmark.title,
       target,
+      color: [...(bookmark.color || [])],
+      bold: Boolean(bookmark.bold),
+      italic: Boolean(bookmark.italic),
+      open: bookmark.open !== false,
       children: outlineSignature(bookmark.children),
     };
   });
@@ -328,7 +640,7 @@ async function verifyOutput(bytes, expectedPages, expectedOutline) {
     }
     const outline = await readPdfOutline(pdf);
     if (JSON.stringify(outlineSignature(outline)) !== JSON.stringify(outlineSignature(expectedOutline))) {
-      throw new Error("Output verification failed: bookmark tree or destinations changed.");
+      throw new Error("Output verification failed: bookmark tree, style or destinations changed.");
     }
   } finally {
     await pdf.destroy();
@@ -344,8 +656,7 @@ async function savePdf() {
     const pageRequest = buildQpdfPageRequest(state.sources, state.plan);
     const pageResult = await qpdf.run(pageRequest);
     const pageBytes = pageResult.outputs[pageRequest.outputName];
-    const combined = buildCombinedOutline(state.sources, state.plan);
-    let finalBytes = await replacePdfOutline(pageBytes, combined.outline);
+    let finalBytes = await replacePdfOutline(pageBytes, state.outline);
     const warnings = [...(pageResult.warnings || [])];
 
     if (optimizeToggle.checked || linearizeToggle.checked) {
@@ -358,7 +669,7 @@ async function savePdf() {
       warnings.push(...(finalizeResult.warnings || []));
     }
 
-    await verifyOutput(finalBytes, state.plan.length, combined.outline);
+    await verifyOutput(finalBytes, state.plan.length, state.outline);
 
     const filename = state.sources.length === 1
       ? state.sources[0].filename.replace(/\.pdf$/i, "") + "-docbench.pdf"
@@ -393,6 +704,53 @@ leftButton.addEventListener("click", () => movePage(state.selectedIndex, state.s
 rightButton.addEventListener("click", () => movePage(state.selectedIndex, state.selectedIndex + 1));
 removeButton.addEventListener("click", removeSelectedPage);
 saveButton.addEventListener("click", savePdf);
+bookmarkAddRoot.addEventListener("click", addRootBookmark);
+bookmarkAddSibling.addEventListener("click", addSiblingBookmark);
+bookmarkAddChild.addEventListener("click", addChildBookmark);
+bookmarkUp.addEventListener("click", () => moveBookmark(-1));
+bookmarkDown.addEventListener("click", () => moveBookmark(1));
+bookmarkIndent.addEventListener("click", indentBookmark);
+bookmarkOutdent.addEventListener("click", outdentBookmark);
+bookmarkDelete.addEventListener("click", deleteBookmark);
+bookmarkTitle.addEventListener("input", () => {
+  mutateSelectedBookmark((bookmark) => { bookmark.title = bookmarkTitle.value; }, false);
+  renderOutline();
+});
+bookmarkTargetType.addEventListener("change", () => setBookmarkTargetType(bookmarkTargetType.value));
+bookmarkPage.addEventListener("change", () => {
+  mutateSelectedBookmark((bookmark) => {
+    const pageIndex = Number(bookmarkPage.value);
+    if (!Number.isInteger(pageIndex) || !state.plan[pageIndex]) return;
+    const view = bookmark.target?.kind === "page"
+      ? bookmark.target.view
+      : { type: "Fit", args: [] };
+    bookmark.target = { kind: "page", pageIndex, view };
+    state.selectedIndex = pageIndex;
+  });
+});
+bookmarkUrl.addEventListener("input", () => {
+  mutateSelectedBookmark((bookmark) => {
+    bookmark.target = {
+      kind: "url",
+      url: bookmarkUrl.value,
+      newWindow: bookmark.target?.kind === "url" && Boolean(bookmark.target.newWindow),
+    };
+  }, false);
+});
+bookmarkNamed.addEventListener("input", () => {
+  mutateSelectedBookmark((bookmark) => {
+    bookmark.target = { kind: "named", action: bookmarkNamed.value };
+  }, false);
+});
+bookmarkBold.addEventListener("change", () => {
+  mutateSelectedBookmark((bookmark) => { bookmark.bold = bookmarkBold.checked; });
+});
+bookmarkItalic.addEventListener("change", () => {
+  mutateSelectedBookmark((bookmark) => { bookmark.italic = bookmarkItalic.checked; });
+});
+bookmarkOpen.addEventListener("change", () => {
+  mutateSelectedBookmark((bookmark) => { bookmark.open = bookmarkOpen.checked; });
+});
 window.addEventListener("beforeunload", () => state.qpdfRunner?.destroy?.());
 
 refreshPdfUi();

@@ -1,17 +1,79 @@
 import { readFile, writeFile } from "node:fs/promises";
 
-const [html, css, yaml, app] = await Promise.all([
+const [
+  html,
+  css,
+  yaml,
+  pdfLib,
+  app,
+  pdfCore,
+  pdfApp,
+  pdfJs,
+  pdfWorker,
+  qpdfBrowserRunner,
+  qpdfBytes,
+  qpdfWorker,
+  qpdfJs,
+  qpdfWasm,
+] = await Promise.all([
   readFile("public/index.html", "utf8"),
   readFile("public/styles.css", "utf8"),
   readFile("public/vendor/js-yaml.min.js", "utf8"),
+  readFile("public/vendor/pdf-lib.min.js", "utf8"),
   readFile("public/app.js", "utf8"),
+  readFile("public/pdf-core.mjs", "utf8"),
+  readFile("public/pdf-app.mjs", "utf8"),
+  readFile("public/vendor/pdfjs/pdf.mjs", "utf8"),
+  readFile("public/vendor/pdfjs/pdf.worker.mjs", "utf8"),
+  readFile("public/vendor/qpdf-run/browserRunner.js", "utf8"),
+  readFile("public/vendor/qpdf-run/bytes.js", "utf8"),
+  readFile("public/vendor/qpdf-run/worker.js", "utf8"),
+  readFile("public/vendor/qpdf/lib/qpdf.js", "utf8"),
+  readFile("public/vendor/qpdf/lib/qpdf.wasm"),
 ]);
 
 const safeScript = (value) => value.replaceAll("</script", "<\\/script");
+const dataUrl = (mime, value) => {
+  const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value, "utf8");
+  return `data:${mime};base64,${bytes.toString("base64")}`;
+};
+
+const qpdfBytesUrl = dataUrl("text/javascript", qpdfBytes);
+const browserRunnerPortable = qpdfBrowserRunner.replaceAll(
+  "'./bytes.js'",
+  JSON.stringify(qpdfBytesUrl),
+);
+const qpdfBrowserRunnerUrl = dataUrl("text/javascript", browserRunnerPortable);
+const qpdfModuleUrl = dataUrl(
+  "text/javascript",
+  `export { createBrowserQpdfRunner as createQpdfRunner } from ${JSON.stringify(qpdfBrowserRunnerUrl)};`,
+);
+const pdfCoreUrl = dataUrl("text/javascript", pdfCore);
+const pdfAppPortable = pdfApp.replace(
+  'from "./pdf-core.mjs";',
+  `from ${JSON.stringify(pdfCoreUrl)};`,
+);
+
+const assets = {
+  pdfModuleUrl: dataUrl("text/javascript", pdfJs),
+  pdfWorkerUrl: dataUrl("text/javascript", pdfWorker),
+  qpdfModuleUrl,
+  qpdfWorkerUrl: dataUrl("text/javascript", qpdfWorker),
+  qpdfJsUrl: dataUrl("text/javascript", qpdfJs),
+  qpdfWasmUrl: dataUrl("application/wasm", qpdfWasm),
+};
+
+const portablePdfScripts = [
+  `<script>globalThis.__docbenchPdfAssets=${JSON.stringify(assets)}</script>`,
+  `<script type="module">${safeScript(pdfAppPortable)}</script>`,
+].join("\n");
+
 const portable = html
   .replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`)
   .replace('<script src="/vendor/js-yaml.min.js"></script>', `<script>${safeScript(yaml)}</script>`)
+  .replace('<script src="/vendor/pdf-lib.min.js"></script>', `<script>${safeScript(pdfLib)}</script>`)
   .replace('<script src="/app.js"></script>', `<script>${safeScript(app)}</script>`)
+  .replace('<script type="module" src="/pdf-app.mjs"></script>', portablePdfScripts)
   .replace('<link rel="manifest" href="/site.webmanifest">', "")
   .replace('<link rel="icon" type="image/svg+xml" href="/favicon.svg">', "");
 

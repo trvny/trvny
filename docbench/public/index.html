@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#111318">
-  <meta name="description" content="Edit and validate text documents locally, with PDF tools coming next.">
+  <meta name="description" content="Edit, validate and transform documents and PDFs locally in your browser.">
   <title>Doc Bench — Document & PDF Studio</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="manifest" href="/site.webmanifest">
@@ -73,17 +73,56 @@
       <p id="detail-status" class="detail-status">UTF-8 · LF · 1 line</p>
     </section>
 
-    <section id="pdf-workspace" class="workspace pdf-placeholder" hidden>
-      <div>
-        <p class="eyebrow">NEXT ENGINE</p>
-        <h2>PDF surgery without bookmark amnesia.</h2>
-        <p>Merge, page operations, optimization and outline editing will land here with explicit bookmark preservation.</p>
+    <section id="pdf-workspace" class="workspace" hidden>
+      <div class="toolbar pdf-toolbar">
+        <button id="pdf-open-button" class="button compact primary" type="button">Open PDF</button>
+        <button id="pdf-add-button" class="button compact" type="button">Add PDF</button>
+        <input id="pdf-input" type="file" hidden accept="application/pdf,.pdf">
+        <input id="pdf-add-input" type="file" hidden multiple accept="application/pdf,.pdf">
+        <span class="toolbar-spacer"></span>
+        <button id="pdf-move-left" class="button compact" type="button" disabled>← Move</button>
+        <button id="pdf-move-right" class="button compact" type="button" disabled>Move →</button>
+        <button id="pdf-remove-page" class="button compact danger" type="button" disabled>Delete page</button>
+        <label class="toggle-label">
+          <input id="pdf-optimize" type="checkbox" checked>
+          Lossless optimize
+        </label>
+        <label class="toggle-label">
+          <input id="pdf-linearize" type="checkbox">
+          Fast Web View
+        </label>
+        <button id="pdf-save-button" class="button compact primary" type="button" disabled>Save PDF</button>
+      </div>
+
+      <div class="pdf-meta-row">
+        <strong id="pdf-filename">No PDF loaded</strong>
+        <span id="pdf-status">Open a PDF to begin.</span>
+      </div>
+
+      <div class="pdf-grid">
+        <aside class="pdf-outline-panel" aria-label="PDF bookmarks">
+          <div class="panel-header"><strong>Bookmarks</strong><span>preserved</span></div>
+          <div id="pdf-outline" class="pdf-outline">No bookmarks yet.</div>
+        </aside>
+        <section class="pdf-preview-panel">
+          <div class="panel-header"><strong>Preview</strong><span>PDF.js · scripting off</span></div>
+          <div class="pdf-canvas-stage">
+            <canvas id="pdf-preview-canvas" hidden></canvas>
+            <p class="pdf-empty-hint">Open a PDF. Everything stays on this device.</p>
+          </div>
+        </section>
+        <aside class="pdf-pages-panel" aria-label="PDF pages">
+          <div class="panel-header"><strong>Pages</strong><span>drag to reorder</span></div>
+          <div id="pdf-pages" class="pdf-pages"></div>
+        </aside>
       </div>
     </section>
 
     <footer>Files stay in your browser. No uploads, no telemetry.</footer>
   </main>
   <script src="/vendor/js-yaml.min.js"></script>
+  <script src="/vendor/pdf-lib.min.js"></script>
   <script src="/app.js"></script>
+  <script type="module" src="/pdf-app.mjs"></script>
 </body>
 </html>

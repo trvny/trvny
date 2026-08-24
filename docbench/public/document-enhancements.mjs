@@ -1,3 +1,5 @@
+import { parseTree } from "./vendor/jsonc-parser/impl/parser.js";
+
 const $ = (selector) => document.querySelector(selector);
 
 const editor = $("#editor");
@@ -92,9 +94,14 @@ function formatFromFilename(name) {
 
 async function readTextFile(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const bom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const bom = bytes.length >= 3
+    && bytes[0] === 0xef
+    && bytes[1] === 0xbb
+    && bytes[2] === 0xbf;
   const contentBytes = bom ? bytes.slice(3) : bytes;
-  if (contentBytes.includes(0)) throw new Error("Binary or UTF-16 input is not supported yet.");
+  if (contentBytes.includes(0)) {
+    throw new Error("Binary or UTF-16 input is not supported yet.");
+  }
   const raw = new TextDecoder("utf-8", { fatal: true }).decode(contentBytes);
   return { raw, bom, eol: detectEol(raw) };
 }
@@ -125,6 +132,7 @@ function setPreviewMode(mode, title) {
 function setStatus(kind, text) {
   statusBadge.className = `status ${kind}`;
   statusBadge.textContent = text;
+  statusBadge.removeAttribute("title");
 }
 
 function scalarText(value) {
@@ -136,7 +144,9 @@ function scalarText(value) {
 
 function scalarClass(value) {
   if (value === null) return "null";
-  if (["string", "number", "boolean", "undefined"].includes(typeof value)) return typeof value;
+  if (["string", "number", "boolean", "undefined"].includes(typeof value)) {
+    return typeof value;
+  }
   return "other";
 }
 
@@ -154,6 +164,13 @@ function appendScalar(parent, key, value) {
   valueNode.textContent = scalarText(value);
   row.append(valueNode);
   parent.append(row);
+}
+
+function appendTreeLimit(fragment) {
+  const note = document.createElement("p");
+  note.className = "preview-limit-note";
+  note.textContent = `Tree preview stopped after ${MAX_TREE_NODES.toLocaleString()} nodes.`;
+  fragment.append(note);
 }
 
 function renderDataTree(value, rootLabel = "root") {
@@ -186,15 +203,19 @@ function renderDataTree(value, rootLabel = "root") {
     const details = document.createElement("details");
     details.className = "tree-node";
     details.open = depth < 2;
+
     const summary = document.createElement("summary");
     const keyNode = document.createElement("span");
     keyNode.className = "tree-key";
     keyNode.textContent = key === null ? rootLabel : String(key);
     const metaNode = document.createElement("span");
     metaNode.className = "tree-meta";
-    metaNode.textContent = Array.isArray(item) ? `Array(${entries.length})` : `Object(${entries.length})`;
+    metaNode.textContent = Array.isArray(item)
+      ? `Array(${entries.length})`
+      : `Object(${entries.length})`;
     summary.append(keyNode, metaNode);
     details.append(summary);
+
     const children = document.createElement("div");
     children.className = "tree-children";
     for (const [childKey, childValue] of entries) {
@@ -206,12 +227,94 @@ function renderDataTree(value, rootLabel = "root") {
   }
 
   renderNode(fragment, null, value, 0);
-  if (truncated) {
-    const note = document.createElement("p");
-    note.className = "preview-limit-note";
-    note.textContent = `Tree preview stopped after ${MAX_TREE_NODES.toLocaleString()} nodes.`;
-    fragment.append(note);
+  if (truncated) appendTreeLimit(fragment);
+  return fragment;
+}
+
+function jsonScalarClass(node) {
+  if (node.type === "string") return "string";
+  if (node.type === "number") return "number";
+  if (node.type === "boolean") return "boolean";
+  if (node.type === "null") return "null";
+  return "other";
+}
+
+function appendJsonScalar(parent, key, node, source) {
+  const row = document.createElement("div");
+  row.className = "tree-leaf";
+  if (key !== null) {
+    const keyNode = document.createElement("span");
+    keyNode.className = "tree-key";
+    keyNode.textContent = `${key}: `;
+    row.append(keyNode);
   }
+  const valueNode = document.createElement("span");
+  valueNode.className = `tree-value tree-${jsonScalarClass(node)}`;
+  valueNode.textContent = source.slice(node.offset, node.offset + node.length);
+  row.append(valueNode);
+  parent.append(row);
+}
+
+function renderJsonTree(source) {
+  const errors = [];
+  const root = parseTree(source, errors, {
+    allowTrailingComma: false,
+    disallowComments: true,
+  });
+  if (!root || errors.length) return null;
+
+  const fragment = document.createDocumentFragment();
+  let nodes = 0;
+  let truncated = false;
+
+  function renderNode(parent, key, node, depth) {
+    if (!node || nodes >= MAX_TREE_NODES) {
+      truncated = true;
+      return;
+    }
+    nodes += 1;
+
+    if (!['object', 'array'].includes(node.type)) {
+      appendJsonScalar(parent, key, node, source);
+      return;
+    }
+
+    const details = document.createElement("details");
+    details.className = "tree-node";
+    details.open = depth < 2;
+    const summary = document.createElement("summary");
+    const keyNode = document.createElement("span");
+    keyNode.className = "tree-key";
+    keyNode.textContent = key === null ? "JSON" : String(key);
+    const metaNode = document.createElement("span");
+    metaNode.className = "tree-meta";
+    const count = node.children?.length || 0;
+    metaNode.textContent = node.type === "array"
+      ? `Array(${count})`
+      : `Object(${count})`;
+    summary.append(keyNode, metaNode);
+    details.append(summary);
+
+    const children = document.createElement("div");
+    children.className = "tree-children";
+    if (node.type === "array") {
+      (node.children || []).forEach((child, index) => {
+        if (!truncated) renderNode(children, index, child, depth + 1);
+      });
+    } else {
+      for (const property of node.children || []) {
+        const [propertyName, propertyValue] = property.children || [];
+        const propertyKey = propertyName?.value ?? "?";
+        renderNode(children, propertyKey, propertyValue, depth + 1);
+        if (truncated) break;
+      }
+    }
+    details.append(children);
+    parent.append(details);
+  }
+
+  renderNode(fragment, null, root, 0);
+  if (truncated) appendTreeLimit(fragment);
   return fragment;
 }
 
@@ -221,7 +324,9 @@ function xmlParserError(doc) {
     "http://www.mozilla.org/newlayout/xml/parsererror.xml",
     "http://www.w3.org/1999/xhtml",
   ]);
-  return root?.localName === "parsererror" && namespaces.has(root.namespaceURI) ? root : null;
+  return root?.localName === "parsererror" && namespaces.has(root.namespaceURI)
+    ? root
+    : null;
 }
 
 function renderXmlTree(doc) {
@@ -281,12 +386,7 @@ function renderXmlTree(doc) {
     renderNode(fragment, child, 0);
     if (truncated) break;
   }
-  if (truncated) {
-    const note = document.createElement("p");
-    note.className = "preview-limit-note";
-    note.textContent = `Tree preview stopped after ${MAX_TREE_NODES.toLocaleString()} nodes.`;
-    fragment.append(note);
-  }
+  if (truncated) appendTreeLimit(fragment);
   return fragment;
 }
 
@@ -296,7 +396,6 @@ function safeHref(href) {
   try {
     const resolved = new URL(href, globalThis.location.href);
     if (["http:", "https:", "mailto:"].includes(resolved.protocol)) return href;
-    if (resolved.origin === globalThis.location.origin && ["http:", "https:"].includes(resolved.protocol)) return href;
   } catch {
     return null;
   }
@@ -310,8 +409,8 @@ function markdownInline(tokens, parent) {
       else parent.append(document.createTextNode(token.text || ""));
       continue;
     }
-    if (token.type === "strong" || token.type === "em" || token.type === "del") {
-      const tag = token.type === "strong" ? "strong" : token.type === "em" ? "em" : "del";
+    if (["strong", "em", "del"].includes(token.type)) {
+      const tag = token.type === "strong" ? "strong" : token.type;
       const element = document.createElement(tag);
       markdownInline(token.tokens, element);
       parent.append(element);
@@ -346,7 +445,9 @@ function markdownInline(tokens, parent) {
       const image = document.createElement("span");
       image.className = "markdown-image-placeholder";
       image.textContent = token.text ? `[image: ${token.text}]` : "[image omitted]";
-      if (token.href) image.title = `Remote images are not loaded automatically: ${token.href}`;
+      if (token.href) {
+        image.title = `Remote images are not loaded automatically: ${token.href}`;
+      }
       parent.append(image);
       continue;
     }
@@ -372,18 +473,13 @@ function renderMarkdownBlocks(tokens, parent) {
   for (const token of tokens || []) {
     if (token.type === "space") continue;
     if (token.type === "heading") {
-      const heading = document.createElement(`h${Math.min(6, Math.max(1, token.depth || 1))}`);
+      const depth = Math.min(6, Math.max(1, token.depth || 1));
+      const heading = document.createElement(`h${depth}`);
       markdownInline(token.tokens, heading);
       parent.append(heading);
       continue;
     }
-    if (token.type === "paragraph") {
-      const paragraph = document.createElement("p");
-      markdownInline(token.tokens, paragraph);
-      parent.append(paragraph);
-      continue;
-    }
-    if (token.type === "text") {
+    if (token.type === "paragraph" || token.type === "text") {
       const paragraph = document.createElement("p");
       markdownInline(token.tokens?.length ? token.tokens : [token], paragraph);
       parent.append(paragraph);
@@ -406,7 +502,9 @@ function renderMarkdownBlocks(tokens, parent) {
     }
     if (token.type === "list") {
       const list = document.createElement(token.ordered ? "ol" : "ul");
-      if (token.ordered && Number.isFinite(token.start) && token.start !== 1) list.start = token.start;
+      if (token.ordered && Number.isFinite(token.start) && token.start !== 1) {
+        list.start = token.start;
+      }
       for (const itemToken of token.items || []) {
         const item = document.createElement("li");
         if (itemToken.task) {
@@ -465,293 +563,299 @@ function renderMarkdownBlocks(tokens, parent) {
       parent.append(raw);
       continue;
     }
-+    if (token.tokens?.length) renderMarkdownBlocks(token.tokens, parent);
-+  }
-+}
-+
-+function renderMarkdown() {
-+  const markedApi = globalThis.marked;
-+  if (!markedApi?.lexer) {
-+    setPreviewMode("raw", "Markdown source");
-+    preview.textContent = editor.value;
-+    setStatus("bad", "Preview unavailable");
-+    return;
-+  }
-+  const tokens = markedApi.lexer(editor.value, { gfm: true, breaks: false });
-+  const fragment = document.createDocumentFragment();
-+  renderMarkdownBlocks(tokens, fragment);
-+  setPreviewMode("markdown", "Markdown preview");
-+  preview.replaceChildren(fragment);
-+  setStatus("neutral", "Rendered Markdown");
-+}
-+
-+function renderEnhancedPreview() {
-+  const format = formatSelect.value;
-+  if (format === "txt") {
-+    setPreviewMode("raw", "Plain-text preview");
-+    preview.textContent = editor.value;
-+    setStatus("neutral", "Plain text");
-+    updateMeta();
-+    return;
-+  }
-+  if (format === "md") {
-+    renderMarkdown();
-+    updateMeta();
-+    return;
-+  }
-+  if (format === "json") {
-+    let value;
-+    try {
-+      value = JSON.parse(editor.value);
-+    } catch {
-+      setPreviewMode("raw", "Parse error");
-+      updateMeta();
-+      return;
-+    }
-+    setPreviewMode("tree", "JSON tree");
-+    preview.replaceChildren(renderDataTree(value, "JSON"));
-+    setStatus("good", "Valid · tree");
-+    updateMeta();
-+    return;
-+  }
-+  if (format === "yaml") {
-+    try {
-+      const validated = [];
-+      globalThis.jsyaml.loadAll(editor.value, (doc) => validated.push(doc));
-+      const preserved = [];
-+      try {
-+        globalThis.jsyaml.loadAll(editor.value, (doc) => preserved.push(doc), {
-+          schema: globalThis.jsyaml.FAILSAFE_SCHEMA,
-+        });
-+      } catch {
-+        preserved.push(...validated);
-+      }
-+      const value = preserved.length === 1 ? preserved[0] : preserved;
-+      setPreviewMode("tree", "YAML tree");
-+      preview.replaceChildren(renderDataTree(value, preserved.length === 1 ? "YAML" : "YAML documents"));
-+      setStatus("good", "Valid · tree");
-+    } catch {
-+      setPreviewMode("raw", "Parse error");
-+    }
-+    updateMeta();
-+    return;
-+  }
-+  if (format === "xml") {
-+    const doc = new DOMParser().parseFromString(editor.value, "application/xml");
-+    if (xmlParserError(doc)) {
-+      setPreviewMode("raw", "Parse error");
-+      updateMeta();
-+      return;
-+    }
-+    setPreviewMode("tree", "XML tree");
-+    preview.replaceChildren(renderXmlTree(doc));
-+    setStatus("good", "Valid · tree");
-+    updateMeta();
-+  }
-+}
-+
-+let previewTimer;
-+function schedulePreview(delay = 145) {
-+  clearTimeout(previewTimer);
-+  previewTimer = setTimeout(renderEnhancedPreview, delay);
-+}
-+
-+function documentBytes() {
-+  const raw = applyEol(editor.value, eolSelect.value);
-+  const encoded = new TextEncoder().encode(raw);
-+  if (!state.bom) return encoded;
-+  const result = new Uint8Array(encoded.length + 3);
-+  result.set([0xef, 0xbb, 0xbf]);
-+  result.set(encoded, 3);
-+  return result;
-+}
-+
-+function downloadDocument() {
-+  const blob = new Blob([documentBytes()], { type: mimeByFormat[formatSelect.value] || mimeByFormat.txt });
-+  const link = document.createElement("a");
-+  link.href = URL.createObjectURL(blob);
-+  link.download = state.filename || filenameLabel.textContent || "document.txt";
-+  link.click();
-+  setTimeout(() => URL.revokeObjectURL(link.href), 0);
-+}
-+
-+async function ensureWritePermission(handle) {
-+  if (typeof handle.queryPermission !== "function") return true;
-+  const options = { mode: "readwrite" };
-+  if (await handle.queryPermission(options) === "granted") return true;
-+  if (typeof handle.requestPermission !== "function") return false;
-+  return await handle.requestPermission(options) === "granted";
-+}
-+
-+function flashSaveState(text) {
-+  saveButton.textContent = text;
-+  setTimeout(updateSaveButton, 1100);
-+}
-+
-+async function writeHandle(handle) {
-+  if (!await ensureWritePermission(handle)) throw new Error("Write permission was not granted.");
-+  const writable = await handle.createWritable();
-+  try {
-+    await writable.write(documentBytes());
-+    await writable.close();
-+  } catch (error) {
-+    try {
-+      await writable.abort();
-+    } catch {
-+      // Preserve the original write/close error.
-+    }
-+    throw error;
-+  }
-+  state.handle = handle;
-+  state.filename = handle.name || state.filename;
-+  filenameLabel.textContent = state.filename;
-+  updateMeta();
-+  updateSaveButton();
-+  flashSaveState("Saved ✓");
-+}
-+
-+async function chooseSaveHandle() {
-+  return globalThis.showSaveFilePicker({
-+    suggestedName: state.filename || filenameLabel.textContent || "document.txt",
-+    types: pickerTypes,
-+  });
-+}
-+
-+async function saveDocument() {
-+  try {
-+    if (state.handle) {
-+      await writeHandle(state.handle);
-+      return;
-+    }
-+    if (nativeSaveSupported) {
-+      const handle = await chooseSaveHandle();
-+      await writeHandle(handle);
-+      return;
-+    }
-+    downloadDocument();
-+    flashSaveState("Downloaded ✓");
-+  } catch (error) {
-+    if (error?.name === "AbortError") return;
-+    if (!state.handle && ["TypeError", "SecurityError", "NotAllowedError"].includes(error?.name)) {
-+      downloadDocument();
-+      flashSaveState("Downloaded ✓");
-+      return;
-+    }
-+    setStatus("bad", "Save failed");
-+    statusBadge.title = error?.message || String(error);
-+  }
-+}
-+
-+async function loadNativeHandle(handle) {
-+  const file = await handle.getFile();
-+  const { raw, bom, eol } = await readTextFile(file);
-+  state.handle = handle;
-+  state.filename = file.name || handle.name || "document.txt";
-+  state.bom = bom;
-+  state.mixedEol = eol.mixed;
-+  state.eol = eol.target;
-+  editor.value = normalizeEol(raw);
-+  eolSelect.value = eol.target;
-+  formatSelect.value = formatFromFilename(state.filename);
-+  filenameLabel.textContent = state.filename;
-+  editor.dispatchEvent(new Event("input", { bubbles: true }));
-+  updateSaveButton();
-+  schedulePreview();
-+}
-+
-+async function syncFallbackFile(file) {
-+  try {
-+    const { bom, eol } = await readTextFile(file);
-+    state.handle = null;
-+    state.filename = file.name || filenameLabel.textContent || "document.txt";
-+    state.bom = bom;
-+    state.mixedEol = eol.mixed;
-+    state.eol = eol.target;
-+    setTimeout(() => {
-+      state.filename = filenameLabel.textContent || state.filename;
-+      updateSaveButton();
-+      renderEnhancedPreview();
-+    }, 170);
-+  } catch {
-+    state.handle = null;
-+    updateSaveButton();
-+  }
-+}
-+
-+openButton.addEventListener("click", (event) => {
-+  if (!nativeOpenSupported) return;
-+  event.preventDefault();
-+  event.stopImmediatePropagation();
-+  void (async () => {
-+    try {
-+      const [handle] = await globalThis.showOpenFilePicker({
-+        multiple: false,
-+        types: pickerTypes,
-+      });
-+      if (handle) await loadNativeHandle(handle);
-+    } catch (error) {
-+      if (error?.name === "AbortError") return;
-+      fileInput.click();
-+    }
-+  })();
-+}, true);
-+
-+saveButton.addEventListener("click", (event) => {
-+  event.preventDefault();
-+  event.stopImmediatePropagation();
-+  void saveDocument();
-+}, true);
-+
-+downloadButton.addEventListener("click", downloadDocument);
-+
-+fileInput.addEventListener("change", () => {
-+  const file = fileInput.files?.[0];
-+  if (file) void syncFallbackFile(file);
-+});
-+
-+dropZone.addEventListener("drop", (event) => {
-+  const file = event.dataTransfer?.files?.[0];
-+  if (file) void syncFallbackFile(file);
-+}, true);
-+
-+newButton.addEventListener("click", () => {
-+  queueMicrotask(() => {
-+    state.handle = null;
-+    state.filename = filenameLabel.textContent || "untitled.txt";
-+    state.bom = false;
-+    state.mixedEol = false;
-+    state.eol = eolSelect.value;
-+    updateSaveButton();
-+    renderEnhancedPreview();
-+  });
-+});
-+
-+editor.addEventListener("input", () => schedulePreview());
-+formatSelect.addEventListener("change", () => {
-+  queueMicrotask(() => {
-+    if (state.handle) filenameLabel.textContent = state.filename;
-+    else state.filename = filenameLabel.textContent || state.filename;
-+    schedulePreview();
-+  });
-+});
-+eolSelect.addEventListener("change", () => {
-+  state.mixedEol = false;
-+  state.eol = eolSelect.value;
-+  setTimeout(updateMeta, 0);
-+});
-+formatButton.addEventListener("click", () => {
-+  state.mixedEol = false;
-+  schedulePreview(170);
-+});
-+validateButton.addEventListener("click", () => schedulePreview(20));
-+
-+document.addEventListener("keydown", (event) => {
-+  if (documentWorkspace.hidden) return;
-+  if (event.altKey || (!event.ctrlKey && !event.metaKey) || event.key.toLowerCase() !== "s") return;
-+  event.preventDefault();
-+  event.stopImmediatePropagation();
-+  void saveDocument();
-+}, true);
-+
-+updateSaveButton();
-+schedulePreview(0);
+    if (token.tokens?.length) renderMarkdownBlocks(token.tokens, parent);
+  }
+}
+
+function renderMarkdown() {
+  const markedApi = globalThis.marked;
+  if (!markedApi?.lexer) {
+    setPreviewMode("raw", "Markdown source");
+    preview.textContent = editor.value;
+    setStatus("bad", "Preview unavailable");
+    return;
+  }
+  const tokens = markedApi.lexer(editor.value, { gfm: true, breaks: false });
+  const fragment = document.createDocumentFragment();
+  renderMarkdownBlocks(tokens, fragment);
+  setPreviewMode("markdown", "Markdown preview");
+  preview.replaceChildren(fragment);
+  setStatus("neutral", "Rendered Markdown");
+}
+
+function renderEnhancedPreview() {
+  const format = formatSelect.value;
+  if (format === "txt") {
+    setPreviewMode("raw", "Plain-text preview");
+    preview.textContent = editor.value;
+    setStatus("neutral", "Plain text");
+    updateMeta();
+    return;
+  }
+  if (format === "md") {
+    renderMarkdown();
+    updateMeta();
+    return;
+  }
+  if (format === "json") {
+    const tree = renderJsonTree(editor.value);
+    if (!tree) {
+      setPreviewMode("raw", "Parse error");
+      updateMeta();
+      return;
+    }
+    setPreviewMode("tree", "JSON tree");
+    preview.replaceChildren(tree);
+    setStatus("good", "Valid · tree");
+    updateMeta();
+    return;
+  }
+  if (format === "yaml") {
+    try {
+      const validated = [];
+      globalThis.jsyaml.loadAll(editor.value, (doc) => validated.push(doc));
+      const preserved = [];
+      try {
+        globalThis.jsyaml.loadAll(editor.value, (doc) => preserved.push(doc), {
+          schema: globalThis.jsyaml.FAILSAFE_SCHEMA,
+        });
+      } catch {
+        preserved.push(...validated);
+      }
+      const value = preserved.length === 1 ? preserved[0] : preserved;
+      setPreviewMode("tree", "YAML tree");
+      preview.replaceChildren(
+        renderDataTree(value, preserved.length === 1 ? "YAML" : "YAML documents"),
+      );
+      setStatus("good", "Valid · tree");
+    } catch {
+      setPreviewMode("raw", "Parse error");
+    }
+    updateMeta();
+    return;
+  }
+  if (format === "xml") {
+    const doc = new DOMParser().parseFromString(editor.value, "application/xml");
+    if (xmlParserError(doc)) {
+      setPreviewMode("raw", "Parse error");
+      updateMeta();
+      return;
+    }
+    setPreviewMode("tree", "XML tree");
+    preview.replaceChildren(renderXmlTree(doc));
+    setStatus("good", "Valid · tree");
+    updateMeta();
+  }
+}
+
+let previewTimer;
+function schedulePreview(delay = 145) {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(renderEnhancedPreview, delay);
+}
+
+function documentBytes() {
+  const raw = applyEol(editor.value, eolSelect.value);
+  const encoded = new TextEncoder().encode(raw);
+  if (!state.bom) return encoded;
+  const result = new Uint8Array(encoded.length + 3);
+  result.set([0xef, 0xbb, 0xbf]);
+  result.set(encoded, 3);
+  return result;
+}
+
+function downloadDocument() {
+  const blob = new Blob(
+    [documentBytes()],
+    { type: mimeByFormat[formatSelect.value] || mimeByFormat.txt },
+  );
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = state.filename || filenameLabel.textContent || "document.txt";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 0);
+}
+
+async function ensureWritePermission(handle) {
+  if (typeof handle.queryPermission !== "function") return true;
+  const options = { mode: "readwrite" };
+  if (await handle.queryPermission(options) === "granted") return true;
+  if (typeof handle.requestPermission !== "function") return false;
+  return await handle.requestPermission(options) === "granted";
+}
+
+function flashSaveState(text) {
+  saveButton.textContent = text;
+  setTimeout(updateSaveButton, 1100);
+}
+
+async function writeHandle(handle) {
+  if (!await ensureWritePermission(handle)) {
+    throw new Error("Write permission was not granted.");
+  }
+  const writable = await handle.createWritable();
+  try {
+    await writable.write(documentBytes());
+    await writable.close();
+  } catch (error) {
+    try {
+      await writable.abort();
+    } catch {
+      // Preserve the original write/close error.
+    }
+    throw error;
+  }
+  state.handle = handle;
+  state.filename = handle.name || state.filename;
+  filenameLabel.textContent = state.filename;
+  updateMeta();
+  updateSaveButton();
+  flashSaveState("Saved ✓");
+}
+
+async function chooseSaveHandle() {
+  return globalThis.showSaveFilePicker({
+    suggestedName: state.filename || filenameLabel.textContent || "document.txt",
+    types: pickerTypes,
+  });
+}
+
+async function saveDocument() {
+  try {
+    if (state.handle) {
+      await writeHandle(state.handle);
+      return;
+    }
+    if (nativeSaveSupported) {
+      const handle = await chooseSaveHandle();
+      await writeHandle(handle);
+      return;
+    }
+    downloadDocument();
+    flashSaveState("Downloaded ✓");
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    if (!state.handle && ["TypeError", "SecurityError", "NotAllowedError"].includes(error?.name)) {
+      downloadDocument();
+      flashSaveState("Downloaded ✓");
+      return;
+    }
+    setStatus("bad", "Save failed");
+    statusBadge.title = error?.message || String(error);
+  }
+}
+
+async function loadNativeHandle(handle) {
+  const file = await handle.getFile();
+  const { raw, bom, eol } = await readTextFile(file);
+  state.handle = handle;
+  state.filename = file.name || handle.name || "document.txt";
+  state.bom = bom;
+  state.mixedEol = eol.mixed;
+  state.eol = eol.target;
+  editor.value = normalizeEol(raw);
+  eolSelect.value = eol.target;
+  formatSelect.value = formatFromFilename(state.filename);
+  filenameLabel.textContent = state.filename;
+  editor.dispatchEvent(new Event("input", { bubbles: true }));
+  updateSaveButton();
+  schedulePreview();
+}
+
+async function syncFallbackFile(file) {
+  try {
+    const { bom, eol } = await readTextFile(file);
+    state.handle = null;
+    state.filename = file.name || filenameLabel.textContent || "document.txt";
+    state.bom = bom;
+    state.mixedEol = eol.mixed;
+    state.eol = eol.target;
+    setTimeout(() => {
+      state.filename = filenameLabel.textContent || state.filename;
+      updateSaveButton();
+      renderEnhancedPreview();
+    }, 170);
+  } catch {
+    state.handle = null;
+    updateSaveButton();
+  }
+}
+
+openButton.addEventListener("click", (event) => {
+  if (!nativeOpenSupported) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  void (async () => {
+    try {
+      const [handle] = await globalThis.showOpenFilePicker({
+        multiple: false,
+        types: pickerTypes,
+      });
+      if (handle) await loadNativeHandle(handle);
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      fileInput.click();
+    }
+  })();
+}, true);
+
+saveButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  void saveDocument();
+}, true);
+
+downloadButton.addEventListener("click", downloadDocument);
+
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files?.[0];
+  if (file) void syncFallbackFile(file);
+});
+
+dropZone.addEventListener("drop", (event) => {
+  const file = event.dataTransfer?.files?.[0];
+  if (file) void syncFallbackFile(file);
+}, true);
+
+newButton.addEventListener("click", () => {
+  queueMicrotask(() => {
+    state.handle = null;
+    state.filename = filenameLabel.textContent || "untitled.txt";
+    state.bom = false;
+    state.mixedEol = false;
+    state.eol = eolSelect.value;
+    updateSaveButton();
+    renderEnhancedPreview();
+  });
+});
+
+editor.addEventListener("input", () => schedulePreview());
+formatSelect.addEventListener("change", () => {
+  queueMicrotask(() => {
+    if (state.handle) filenameLabel.textContent = state.filename;
+    else state.filename = filenameLabel.textContent || state.filename;
+    schedulePreview();
+  });
+});
+eolSelect.addEventListener("change", () => {
+  state.mixedEol = false;
+  state.eol = eolSelect.value;
+  setTimeout(updateMeta, 0);
+});
+formatButton.addEventListener("click", () => {
+  state.mixedEol = false;
+  schedulePreview(170);
+});
+validateButton.addEventListener("click", () => schedulePreview(20));
+
+document.addEventListener("keydown", (event) => {
+  if (documentWorkspace.hidden) return;
+  if (event.altKey || (!event.ctrlKey && !event.metaKey)) return;
+  if (event.key.toLowerCase() !== "s") return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  void saveDocument();
+}, true);
+
+updateSaveButton();
+schedulePreview(0);

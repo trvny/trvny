@@ -97,47 +97,23 @@ jobs:
           orchestration = Path('gh-apps/kanarek-companion/src/code-change-orchestration.ts')
           text = orchestration.read_text()
 
-          old_call = """    core,
-              currentBranch,
-              currentBase.defaultBranch,
-            );"""
-          new_call = """    core,
-              inputHash,
-              currentBranch,
-              currentBase.defaultBranch,
-            );"""
+          old_call = "    core,\n    currentBranch,\n    currentBase.defaultBranch,\n  );"
+          new_call = "    core,\n    inputHash,\n    currentBranch,\n    currentBase.defaultBranch,\n  );"
           if old_call in text and new_call not in text:
               text = text.replace(old_call, new_call, 1)
 
-          old_next = """      nextAction: {
-                type: 'edit',
-                note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
-              },"""
-          new_next = """      nextAction: {
-                type: 'edit',
-                headSha: progress.branchHead,
-                revision: progress.revision,
-                note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
-              },"""
+          old_next = "      nextAction: {\n        type: 'edit',\n        note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',\n      },"
+          new_next = "      nextAction: {\n        type: 'edit',\n        headSha: progress.branchHead,\n        revision: progress.revision,\n        note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',\n      },"
           if old_next in text:
               text = text.replace(old_next, new_next, 1)
 
-          old_openapi = """                        type: { type: 'string', enum: ['edit'] },
-                        message: { type: 'string' },"""
-          new_openapi = """                        type: { type: 'string', enum: ['edit'] },
-                        headSha: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
-                        revision: { type: 'integer', minimum: 0 },
-                        message: { type: 'string' },"""
+          old_openapi = "                        type: { type: 'string', enum: ['edit'] },\n                        message: { type: 'string' },"
+          new_openapi = "                        type: { type: 'string', enum: ['edit'] },\n                        headSha: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },\n                        revision: { type: 'integer', minimum: 0 },\n                        message: { type: 'string' },"
           if old_openapi in text:
               text = text.replace(old_openapi, new_openapi, 1)
 
-          old_scope = """  if (
-              !files.length ||
-              files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))
-            ) {"""
-          new_scope = """  if (
-              files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))
-            ) {"""
+          old_scope = "  if (\n    !files.length ||\n    files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))\n  ) {"
+          new_scope = "  if (\n    files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))\n  ) {"
           if old_scope in text:
               text = text.replace(old_scope, new_scope, 1)
           orchestration.write_text(text)
@@ -153,8 +129,13 @@ jobs:
               'submitted.headSha !== progress.branchHead || submitted.revision !== progress.revision',
               "required: ['type', 'headSha', 'revision', 'message', 'files']",
               "revision: { type: 'integer', minimum: 0 }",
+              "    core,\n    inputHash,\n    currentBranch,\n    currentBase.defaultBranch,",
           ]
           missing = [marker for marker in required if marker not in text]
+          if text.count("type: 'edit',\n        headSha: progress.branchHead,\n        revision: progress.revision,") < 2:
+              missing.append('editing nextAction revision binding')
+          if '!files.length ||' in text:
+              missing.append('empty aggregate diff recovery')
           if 'resolveGitTreeEntries(' not in actions:
               missing.append('gpt-actions tree path resolver')
           if missing:

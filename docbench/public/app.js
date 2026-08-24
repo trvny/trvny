@@ -124,26 +124,35 @@
     return `${output}\n`;
   }
 
-  function stringifyPreview(value) {
-    const seen = new WeakSet();
-    return JSON.stringify(value, (_key, current) => {
-      if (current && typeof current === "object") {
-        if (seen.has(current)) return "[Circular]";
-        seen.add(current);
+  function previewValue(value, ancestors = new WeakSet()) {
+    if (!value || typeof value !== "object") return value;
+    if (ancestors.has(value)) return "[Circular]";
+
+    ancestors.add(value);
+    let result;
+    if (Array.isArray(value)) {
+      result = value.map((item) => previewValue(item, ancestors));
+    } else {
+      result = {};
+      for (const [key, item] of Object.entries(value)) {
+        result[key] = previewValue(item, ancestors);
       }
-      return current;
-    }, 2);
+    }
+    ancestors.delete(value);
+    return result;
   }
 
-  function findUnsafeInteger(value, seen = new WeakSet()) {
-    if (typeof value === "number") {
-      return Number.isInteger(value) && !Number.isSafeInteger(value);
-    }
+  function stringifyPreview(value) {
+    return JSON.stringify(previewValue(value), null, 2);
+  }
+
+  function containsYamlNumber(value, seen = new WeakSet()) {
+    if (typeof value === "number") return true;
     if (!value || typeof value !== "object") return false;
     if (seen.has(value)) return false;
     seen.add(value);
-    if (Array.isArray(value)) return value.some((item) => findUnsafeInteger(item, seen));
-    return Object.values(value).some((item) => findUnsafeInteger(item, seen));
+    if (Array.isArray(value)) return value.some((item) => containsYamlNumber(item, seen));
+    return Object.values(value).some((item) => containsYamlNumber(item, seen));
   }
 
   function xmlError(text) {
@@ -170,8 +179,8 @@
     switch (formatSelect.value) {
       case "json":
         try {
-          JSON.parse(text || "null");
-          return { ok: true, value: text || "null" };
+          JSON.parse(text);
+          return { ok: true, value: text };
         } catch (error) {
           return { ok: false, error: jsonError(error, text) };
         }
@@ -222,10 +231,10 @@
       statusBadge.className = "status good";
       statusBadge.textContent = "Valid";
       if (format === "xml") preview.textContent = editor.value;
-      else if (format === "json") preview.textContent = formatJsonLossless(editor.value || "null");
-      else if (findUnsafeInteger(result.value)) {
+      else if (format === "json") preview.textContent = formatJsonLossless(editor.value);
+      else if (containsYamlNumber(result.value)) {
         statusBadge.className = "status neutral";
-        statusBadge.textContent = "Valid · large integer";
+        statusBadge.textContent = "Valid · numeric YAML";
         preview.textContent = editor.value;
       } else preview.textContent = stringifyPreview(result.value);
     } else {
@@ -255,7 +264,9 @@
 
       const children = Array.from(node.childNodes);
       const hasElementChild = children.some((child) => child.nodeType === Node.ELEMENT_NODE);
-      const hasSensitiveText = hasElementChild && children.some((child) => {
+      if (!hasElementChild) return `${indent}${serializer.serializeToString(node)}`;
+
+      const hasSensitiveText = children.some((child) => {
         if (child.nodeType === Node.CDATA_SECTION_NODE) return true;
         if (child.nodeType !== Node.TEXT_NODE) return false;
         const value = child.nodeValue || "";
@@ -301,14 +312,14 @@
     const result = parseCurrent();
     if (!result.ok) return renderValidation();
     try {
-      if (formatSelect.value === "json") editor.value = formatJsonLossless(editor.value || "null");
+      if (formatSelect.value === "json") editor.value = formatJsonLossless(editor.value);
       if (formatSelect.value === "yaml") {
         const docs = [];
         globalThis.jsyaml.loadAll(editor.value, (doc) => docs.push(doc));
-        if (docs.some((doc) => findUnsafeInteger(doc))) {
-          throw new Error("Formatting blocked: YAML contains an integer outside JavaScript's safe range.");
+        if (docs.some((doc) => containsYamlNumber(doc))) {
+          throw new Error("Formatting blocked: numeric YAML scalars are kept verbatim to avoid precision loss.");
         }
-        editor.value = docs.map((doc) => globalThis.jsyaml.dump(doc, { noRefs: true })).join("---\n");
+        editor.value = docs.map((doc) => globalThis.jsyaml.dump(doc)).join("---\n");
       }
       if (formatSelect.value === "xml") editor.value = `${formatXml(editor.value)}\n`;
       state.mixedEol = false;

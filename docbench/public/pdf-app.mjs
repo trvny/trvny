@@ -142,13 +142,22 @@ function freshCombinedOutline() {
 function mergeAppendedOutlines(oldSourceCount, oldOutline) {
   if (oldSourceCount === 0) return freshCombinedOutline();
   const fresh = freshCombinedOutline();
+  const survivingOldSources = new Set(
+    state.plan
+      .filter((page) => page.sourceId < oldSourceCount)
+      .map((page) => page.sourceId),
+  ).size;
+
   if (oldSourceCount === 1) {
     const firstWrapper = fresh[0];
     if (!firstWrapper) return fresh;
     firstWrapper.children = clonePdfOutline(oldOutline);
     return [firstWrapper, ...fresh.slice(1)];
   }
-  return [...clonePdfOutline(oldOutline), ...fresh.slice(oldSourceCount)];
+  return [
+    ...clonePdfOutline(oldOutline),
+    ...fresh.slice(survivingOldSources),
+  ];
 }
 
 async function openFiles(files, append) {
@@ -359,9 +368,7 @@ function remapEditedOutline(oldPlan) {
   const remapped = remapOutlineToPagePlan(state.outline, oldPlan, state.plan);
   state.outline = remapped.outline;
   state.droppedBookmarks = remapped.dropped;
-  if (remapped.dropped && !bookmarkAtPath(state.selectedBookmarkPath)) {
-    state.selectedBookmarkPath = null;
-  }
+  if (remapped.dropped) state.selectedBookmarkPath = null;
 }
 
 function movePage(from, to) {
@@ -417,7 +424,7 @@ function renderOutline() {
       row.type = "button";
       row.className = `outline-item${samePath(path, state.selectedBookmarkPath) ? " selected" : ""}`;
       row.style.setProperty("--outline-depth", String(depth));
-      row.textContent = bookmark.title;
+      row.textContent = bookmark.title || "Untitled bookmark";
       if (!bookmark.target) row.classList.add("targetless");
       row.addEventListener("click", () => selectBookmark(path));
       parent.append(row);
@@ -466,7 +473,8 @@ function renderBookmarkEditor() {
   bookmarkNamed.value = bookmark.target?.kind === "named" ? bookmark.target.action || "" : "";
   bookmarkBold.checked = Boolean(bookmark.bold);
   bookmarkItalic.checked = Boolean(bookmark.italic);
-  bookmarkOpen.checked = bookmark.open !== false;
+  bookmarkOpen.checked = bookmark.children?.length ? bookmark.open !== false : true;
+  bookmarkOpen.disabled = !bookmark.children?.length;
 
   const location = bookmarkContainer(state.selectedBookmarkPath);
   bookmarkUp.disabled = !location || location.index <= 0;
@@ -479,6 +487,7 @@ function mutateSelectedBookmark(mutator, rerender = true) {
   const bookmark = bookmarkAtPath(state.selectedBookmarkPath);
   if (!bookmark) return;
   mutator(bookmark);
+  state.droppedBookmarks = 0;
   if (rerender) refreshBookmarkUi();
 }
 
@@ -530,6 +539,7 @@ function addSiblingBookmark() {
     ...state.selectedBookmarkPath.slice(0, -1),
     location.index + 1,
   ];
+  state.droppedBookmarks = 0;
   refreshBookmarkUi();
   bookmarkTitle.focus();
   bookmarkTitle.select();
@@ -544,6 +554,7 @@ function addChildBookmark() {
     ...state.selectedBookmarkPath,
     bookmark.children.length - 1,
   ];
+  state.droppedBookmarks = 0;
   refreshBookmarkUi();
   bookmarkTitle.focus();
   bookmarkTitle.select();
@@ -562,6 +573,7 @@ function moveBookmark(delta) {
     ...state.selectedBookmarkPath.slice(0, -1),
     nextIndex,
   ];
+  state.droppedBookmarks = 0;
   refreshBookmarkUi();
 }
 
@@ -577,6 +589,7 @@ function indentBookmark() {
     location.index - 1,
     previous.children.length - 1,
   ];
+  state.droppedBookmarks = 0;
   refreshBookmarkUi();
 }
 
@@ -594,6 +607,7 @@ function outdentBookmark() {
     ...parentPath.slice(0, -1),
     parentLocation.index + 1,
   ];
+  state.droppedBookmarks = 0;
   refreshBookmarkUi();
 }
 
@@ -602,7 +616,13 @@ function deleteBookmark() {
   if (!location) return;
   location.items.splice(location.index, 1);
   state.selectedBookmarkPath = null;
+  state.droppedBookmarks = 0;
   refreshBookmarkUi();
+}
+
+function normalizedColor(bookmark) {
+  const color = [...(bookmark.color || [])];
+  return color.length === 3 ? color : [0, 0, 0];
 }
 
 function outlineSignature(outline) {
@@ -620,16 +640,35 @@ function outlineSignature(outline) {
     } else if (bookmark.target?.kind === "named") {
       target = ["named", bookmark.target.action];
     }
+    const children = bookmark.children || [];
     return {
       title: bookmark.title,
       target,
-      color: [...(bookmark.color || [])],
+      color: normalizedColor(bookmark),
       bold: Boolean(bookmark.bold),
       italic: Boolean(bookmark.italic),
-      open: bookmark.open !== false,
-      children: outlineSignature(bookmark.children),
+      open: children.length ? bookmark.open !== false : true,
+      children: outlineSignature(children),
     };
   });
+}
+
+function validateEditableOutline(outline = state.outline) {
+  for (const bookmark of outline) {
+    if (!String(bookmark.title || "").trim()) {
+      throw new Error("Bookmark titles cannot be empty.");
+    }
+    if (bookmark.target?.kind === "page") {
+      if (!Number.isInteger(bookmark.target.pageIndex) || !state.plan[bookmark.target.pageIndex]) {
+        throw new Error(`Bookmark “${bookmark.title}” points to a missing page.`);
+      }
+    } else if (bookmark.target?.kind === "url" && !String(bookmark.target.url || "").trim()) {
+      throw new Error(`Bookmark “${bookmark.title}” has an empty URL.`);
+    } else if (bookmark.target?.kind === "named" && !String(bookmark.target.action || "").trim()) {
+      throw new Error(`Bookmark “${bookmark.title}” has an empty named action.`);
+    }
+    validateEditableOutline(bookmark.children || []);
+  }
 }
 
 async function verifyOutput(bytes, expectedPages, expectedOutline) {
@@ -652,6 +691,7 @@ async function savePdf() {
   saveButton.disabled = true;
   setStatus("Building PDF locally…");
   try {
+    validateEditableOutline();
     const qpdf = await ensureQpdf();
     const pageRequest = buildQpdfPageRequest(state.sources, state.plan);
     const pageResult = await qpdf.run(pageRequest);
@@ -704,6 +744,7 @@ leftButton.addEventListener("click", () => movePage(state.selectedIndex, state.s
 rightButton.addEventListener("click", () => movePage(state.selectedIndex, state.selectedIndex + 1));
 removeButton.addEventListener("click", removeSelectedPage);
 saveButton.addEventListener("click", savePdf);
+bookmarkEditor.addEventListener("submit", (event) => event.preventDefault());
 bookmarkAddRoot.addEventListener("click", addRootBookmark);
 bookmarkAddSibling.addEventListener("click", addSiblingBookmark);
 bookmarkAddChild.addEventListener("click", addChildBookmark);
@@ -726,7 +767,8 @@ bookmarkPage.addEventListener("change", () => {
       : { type: "Fit", args: [] };
     bookmark.target = { kind: "page", pageIndex, view };
     state.selectedIndex = pageIndex;
-  });
+  }, false);
+  refreshPdfUi();
 });
 bookmarkUrl.addEventListener("input", () => {
   mutateSelectedBookmark((bookmark) => {

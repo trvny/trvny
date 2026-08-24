@@ -13,6 +13,7 @@ function snapshot(overrides: Partial<FinalizeSnapshot> = {}): FinalizeSnapshot {
     state: 'open',
     draft: false,
     headSha: 'a'.repeat(40),
+    baseRef: 'main',
     mergeable: true,
     ciState: 'success',
     unresolvedThreads: 0,
@@ -64,23 +65,26 @@ test('CI summary distinguishes no CI, pending, failing and green runs', () => {
   );
 });
 
-test('finalize blockers enforce the expected head and review/CI gates', () => {
-  assert.deepEqual(finalizeBlockers(snapshot(), 'a'.repeat(40)), []);
+test('finalize blockers enforce the expected head, base and review/CI gates', () => {
+  assert.deepEqual(finalizeBlockers(snapshot(), 'a'.repeat(40), 'main'), []);
   assert.deepEqual(
     finalizeBlockers(
       snapshot({
         draft: true,
         headSha: 'b'.repeat(40),
+        baseRef: 'release',
         mergeable: null,
         ciState: 'pending',
         unresolvedThreads: 2,
         activeChangeRequests: 1,
       }),
       'a'.repeat(40),
+      'main',
     ),
     [
       'pull_request_is_draft',
       'head_sha_changed',
+      'base_ref_changed',
       'mergeability_unknown',
       'ci_pending',
       'unresolved_review_threads',

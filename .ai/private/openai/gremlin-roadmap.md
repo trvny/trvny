@@ -40,7 +40,7 @@ do not wrap every GitHub endpoint for its own sake.
   modules likely affected by a change.
 - [x] **Targeted test discovery.** Given changed/target files, discover the smallest relevant
   test/typecheck/lint/build commands while retaining full CI as the final gate.
-- [ ] **Code-change autopilot.** Compose goal -> scoped instructions -> investigation -> minimal
+- [x] **Code-change autopilot.** Compose goal -> scoped instructions -> investigation -> minimal
   edit -> targeted verification -> commit/PR -> CI/review -> merge/cleanup. Semantic code choices
   stay with the model; deterministic safety/state transitions stay in the Worker.
 - [ ] **Refactor-aware editing.** Support rename/move operations with before/after reference

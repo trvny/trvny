@@ -8,6 +8,15 @@
 
 Used for YAML 1.2/1.1 parsing, validation and explicit formatting.
 
+## jsonc-parser
+
+- Package: `jsonc-parser` 3.3.1
+- Project: https://github.com/microsoft/node-jsonc-parser
+- License: MIT
+
+Used to build the JSON preview tree from source offsets so scalar lexemes stay
+exact, including integers outside JavaScript's safe numeric range.
+
 ## Marked
 
 - Package: `marked` 18.0.10

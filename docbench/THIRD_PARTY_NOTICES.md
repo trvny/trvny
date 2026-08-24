@@ -8,6 +8,16 @@
 
 Used for YAML 1.2/1.1 parsing, validation and explicit formatting.
 
+## Marked
+
+- Package: `marked` 18.0.10
+- Project: https://github.com/markedjs/marked
+- License: MIT
+
+Used only to tokenize Markdown. Doc Bench renders the resulting tokens into DOM
+nodes itself. Raw HTML is not executed and remote Markdown images are not loaded
+automatically.
+
 ## PDF.js
 
 - Package: `pdfjs-dist` 6.2.108

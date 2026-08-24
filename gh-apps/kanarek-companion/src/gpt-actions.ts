@@ -4,6 +4,7 @@ import {
   type GitHubInstallationClient,
 } from './github-app.ts';
 import type { CompanionEnv } from './companion-types.ts';
+import { resolveGitTreeEntries, type GitTreeEntry } from './git-tree.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
@@ -396,8 +397,6 @@ async function commitData(
   return { tree: { sha: data.tree.sha } };
 }
 
-type ContentTreeEntry = { mode: string; type: string };
-
 export function contentTreeMode(entry?: { mode?: unknown; type?: unknown }): '100644' | '100755' | '120000' {
   if (!entry) return '100644';
   if (
@@ -413,24 +412,29 @@ async function baseTreeEntries(
   client: GitHubInstallationClient,
   repositoryName: string,
   treeSha: string,
-): Promise<Map<string, ContentTreeEntry>> {
-  const data = await client.json<{
-    truncated?: boolean;
-    tree?: Array<{ path?: string; mode?: string; type?: string }>;
-  }>(
-    `/repos/${repoPath(repositoryName)}/git/trees/${treeSha}?recursive=1`,
-    'gpt_action_get_base_tree',
-  );
-  if (data.truncated === true || !Array.isArray(data.tree)) {
-    throw new ActionError('base_tree_not_readable', 502);
-  }
-  const entries = new Map<string, ContentTreeEntry>();
-  for (const entry of data.tree) {
-    if (typeof entry.path === 'string' && typeof entry.mode === 'string' && typeof entry.type === 'string') {
-      entries.set(entry.path, { mode: entry.mode, type: entry.type });
+  paths: string[],
+): Promise<Map<string, GitTreeEntry>> {
+  return resolveGitTreeEntries(treeSha, paths, async (sha) => {
+    const data = await client.json<{
+      truncated?: boolean;
+      tree?: Array<{ path?: string; mode?: string; type?: string; sha?: string }>;
+    }>(
+      `/repos/${repoPath(repositoryName)}/git/trees/${sha}`,
+      'gpt_action_get_base_tree',
+    );
+    if (data.truncated === true || !Array.isArray(data.tree)) {
+      throw new ActionError('base_tree_not_readable', 502);
     }
-  }
-  return entries;
+    return data.tree.flatMap((entry): GitTreeEntry[] => {
+      return typeof entry.path === 'string' &&
+        typeof entry.mode === 'string' &&
+        typeof entry.type === 'string' &&
+        typeof entry.sha === 'string' &&
+        SHA_RE.test(entry.sha)
+        ? [{ path: entry.path, mode: entry.mode, type: entry.type, sha: entry.sha.toLowerCase() }]
+        : [];
+    });
+  });
 }
 
 async function commitFiles(
@@ -442,7 +446,7 @@ async function commitFiles(
   const repositoryName = repository(input.repository);
   const branchName = branch(input.branch);
   const expectedHeadSha = sha(input.expectedHeadSha, 'expected_head_sha');
-  const message = requiredString(input.message, 'message', 1_000);
+  const message = requiredString(input.message, 'message', 1_500);
   if (!Array.isArray(input.files) || !input.files.length || input.files.length > 32) {
     throw new ActionError('invalid_files');
   }
@@ -467,7 +471,7 @@ async function commitFiles(
   const currentHead = await branchHead(client, repositoryName, branchName);
   if (currentHead !== expectedHeadSha) throw new ActionError('branch_head_changed', 409);
   const baseCommit = await commitData(client, repositoryName, expectedHeadSha);
-  const baseEntries = await baseTreeEntries(client, repositoryName, baseCommit.tree.sha);
+  const baseEntries = await baseTreeEntries(client, repositoryName, baseCommit.tree.sha, files.map((file) => file.path));
 
   const tree = await Promise.all(
     files.map(async (file) => {

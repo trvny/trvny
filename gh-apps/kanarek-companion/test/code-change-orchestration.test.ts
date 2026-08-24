@@ -3,6 +3,10 @@ import test from 'node:test';
 
 import {
   addCodeChangeAutopilotOpenApi,
+  commitProvenanceMatches,
+  decodeContent,
+  operationCommitMessage,
+  recoveredChangedPathsAllowed,
   reviewGateBlockers,
 } from '../src/code-change-orchestration.ts';
 
@@ -17,6 +21,9 @@ test('code-change autopilot exposes implementCodeChange with stage action contra
     'verification',
     'review',
   ]);
+  const edit = variants[0];
+  assert.deepEqual(edit.required, ['type', 'headSha', 'revision', 'message', 'files']);
+  assert.equal(edit.properties.revision.minimum, 0);
   const verification = variants[1];
   assert.deepEqual(verification.required, ['type', 'status', 'headSha', 'revision']);
   assert.deepEqual(verification.properties.results.items.required, ['status', 'cwd', 'command']);
@@ -81,4 +88,25 @@ test('review gate blocks unknown mergeability and pending CI', () => {
     ),
     ['mergeability_unknown', 'ci:pending'],
   );
+});
+
+
+test('recovered commits may omit unchanged submitted paths but not add extra paths', () => {
+  assert.equal(recoveredChangedPathsAllowed(['a.ts'], ['a.ts', 'unchanged.ts']), true);
+  assert.equal(recoveredChangedPathsAllowed([], ['unchanged.ts']), true);
+  assert.equal(recoveredChangedPathsAllowed(['a.ts', 'surprise.ts'], ['a.ts']), false);
+  assert.equal(recoveredChangedPathsAllowed(['a.ts', 'a.ts'], ['a.ts']), false);
+});
+
+test('commit provenance binds recovery to operation id and input hash', () => {
+  const hash = 'b'.repeat(64);
+  const message = operationCommitMessage('fix: example', 'op-example123', hash);
+  assert.equal(commitProvenanceMatches(message, 'op-example123', hash), true);
+  assert.equal(commitProvenanceMatches(message, 'op-other1234', hash), false);
+  assert.equal(commitProvenanceMatches(message, 'op-example123', 'c'.repeat(64)), false);
+});
+
+test('authoritative snapshots reject invalid UTF-8', () => {
+  assert.equal(decodeContent({ encoding: 'base64', content: 'aGVsbG8=' }), 'hello');
+  assert.equal(decodeContent({ encoding: 'base64', content: 'wyg=' }), null);
 });

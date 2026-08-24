@@ -5,6 +5,7 @@ import {
   type AutopilotCheckpointEnv,
 } from './autopilot-checkpoint.ts';
 import { loadAgentGuidance } from './agents-guidance.ts';
+import { resolveGitTreeEntries, type GitTreeEntry } from './git-tree.ts';
 import {
   DEPENDENCY_GRAPH_PATH,
   handleDependencyGraphAction,
@@ -31,6 +32,8 @@ const MAX_FILE_CONTENT = 96_000;
 const MAX_RECOVERED_COMMITS = 50;
 const GPTOMEK_COMMIT_NAME = 'GPTomek';
 const GPTOMEK_COMMIT_EMAIL = '314538226+gptomek[bot]@users.noreply.github.com';
+const OPERATION_TRAILER = 'GPTomek-Operation';
+const INPUT_HASH_TRAILER = 'GPTomek-Input-Hash';
 
 type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
@@ -51,7 +54,7 @@ type CoreInput = {
 };
 
 type EditFile = { path: string; content: string | null };
-type EditAction = { type: 'edit'; message: string; files: EditFile[] };
+type EditAction = { type: 'edit'; headSha: string; revision: number; message: string; files: EditFile[] };
 type VerificationResult = {
   status: 'passed' | 'failed';
   cwd: string;
@@ -223,6 +226,30 @@ function requiredText(value: unknown, name: string, max: number): string {
   return value;
 }
 
+export function operationCommitMessage(
+  message: string,
+  operationId: string,
+  inputHash: string,
+): string {
+  return `${message}\n\n${OPERATION_TRAILER}: ${operationId}\n${INPUT_HASH_TRAILER}: ${inputHash}`;
+}
+
+export function commitProvenanceMatches(
+  message: string | null,
+  operationId: string,
+  inputHash: string,
+): boolean {
+  if (!message) return false;
+  const trailer = `\n\n${OPERATION_TRAILER}: ${operationId}\n${INPUT_HASH_TRAILER}: ${inputHash}`;
+  return message.endsWith(trailer);
+}
+
+export function recoveredChangedPathsAllowed(changed: string[], submitted: string[]): boolean {
+  if (new Set(changed).size !== changed.length) return false;
+  const allowed = new Set(submitted);
+  return changed.every((path) => allowed.has(path));
+}
+
 function editFiles(value: unknown, scope: string[]): EditFile[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_FILES) {
     throw new CodeChangeError('invalid_files');
@@ -250,8 +277,13 @@ function action(value: unknown, scope: string[]): Action | undefined {
   if (value === undefined) return undefined;
   if (!isObject(value) || typeof value.type !== 'string') throw new CodeChangeError('invalid_action');
   if (value.type === 'edit') {
+    const headSha = expectedSha(value.headSha, 'edit_head_sha');
+    const revision = numberValue(value.revision);
+    if (revision === null || revision < 0) throw new CodeChangeError('invalid_edit_revision');
     return {
       type: 'edit',
+      headSha,
+      revision,
       message: requiredText(value.message, 'commit_message', 1_000),
       files: editFiles(value.files, scope),
     };
@@ -421,11 +453,13 @@ function numberValue(value: unknown): number | null {
   return typeof value === 'number' && Number.isInteger(value) ? value : null;
 }
 
-function decodeContent(value: unknown): string | null {
+export function decodeContent(value: unknown): string | null {
   if (!isObject(value) || value.encoding !== 'base64' || typeof value.content !== 'string') return null;
   try {
     const binary = atob(value.content.replace(/\s/g, ''));
-    return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(
+      Uint8Array.from(binary, (char) => char.charCodeAt(0)),
+    );
   } catch {
     return null;
   }
@@ -456,35 +490,86 @@ async function targetGuidance(
   });
 }
 
+async function treeEntriesAtRef(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  ref: string,
+  paths: string[],
+): Promise<Map<string, GitTreeEntry>> {
+  const rawCommit = await readData(
+    source,
+    invoke,
+    `/repos/${repoPath(core.repository)}/commits/${encodeURIComponent(ref)}`,
+  );
+  const commit = isObject(rawCommit) && isObject(rawCommit.commit) ? rawCommit.commit : null;
+  const tree = commit && isObject(commit.tree) ? commit.tree : null;
+  const treeSha = tree ? stringValue(tree.sha) : null;
+  if (!treeSha || !SHA_RE.test(treeSha)) throw new CodeChangeError('invalid_commit_tree_response', 502);
+
+  return resolveGitTreeEntries(treeSha, paths, async (sha) => {
+    const raw = await readData(source, invoke, `/repos/${repoPath(core.repository)}/git/trees/${sha}`);
+    if (!isObject(raw) || raw.truncated === true || !Array.isArray(raw.tree)) {
+      throw new CodeChangeError('git_tree_not_readable', 502);
+    }
+    return raw.tree.flatMap((value): GitTreeEntry[] => {
+      if (!isObject(value)) return [];
+      const path = stringValue(value.path);
+      const mode = stringValue(value.mode);
+      const type = stringValue(value.type);
+      const entrySha = stringValue(value.sha);
+      return path && mode && type && entrySha && SHA_RE.test(entrySha)
+        ? [{ path, mode, type, sha: entrySha.toLowerCase() }]
+        : [];
+    });
+  });
+}
+
+type TargetFileSnapshot = {
+  path: string;
+  exists: boolean;
+  content: string | null;
+  mode?: string;
+};
+
+async function fileSnapshotsAtRef(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  ref: string,
+  paths: string[],
+): Promise<TargetFileSnapshot[]> {
+  const entries = await treeEntriesAtRef(source, invoke, core, ref, paths);
+  return Promise.all(paths.map(async (path) => {
+    const entry = entries.get(path);
+    if (!entry) return { path, exists: false, content: null };
+    if (
+      entry.type !== 'blob' ||
+      (entry.mode !== '100644' && entry.mode !== '100755' && entry.mode !== '120000')
+    ) {
+      throw new CodeChangeError('unsupported_target_file_mode', 409, { path, mode: entry.mode, type: entry.type });
+    }
+    const raw = await readData(
+      source,
+      invoke,
+      `/repos/${repoPath(core.repository)}/git/blobs/${entry.sha}`,
+    );
+    const content = decodeContent(raw);
+    if (content === null) throw new CodeChangeError('target_file_not_utf8', 415, { path });
+    if (content.length > MAX_FILE_CONTENT) {
+      throw new CodeChangeError('file_content_too_large', 413, { path });
+    }
+    return { path, exists: true, content, mode: entry.mode };
+  }));
+}
+
 async function targetFileSnapshots(
   source: Request,
   invoke: Invoke,
   core: CoreInput,
   ref: string,
-): Promise<Array<{ path: string; exists: boolean; content: string | null }>> {
-  return Promise.all(core.targetPaths.map(async (path) => {
-    const { response, payload } = await invokePayload(
-      source,
-      invoke,
-      READ_PATH,
-      { path: `/repos/${repoPath(core.repository)}/contents/${contentPath(path)}?ref=${encodeURIComponent(ref)}` },
-      true,
-    );
-    if (response.status === 404) return { path, exists: false, content: null };
-    if (!response.ok || payload.ok !== true) {
-      throw new CodeChangeError(
-        typeof payload.error === 'string' ? payload.error : 'target_file_read_failed',
-        response.status,
-        { path },
-      );
-    }
-    const content = decodeContent(payload.data);
-    if (content === null) throw new CodeChangeError('target_file_not_decodable', 502, { path });
-    if (content.length > MAX_FILE_CONTENT) {
-      throw new CodeChangeError('file_content_too_large', 413, { path });
-    }
-    return { path, exists: true, content };
-  }));
+): Promise<TargetFileSnapshot[]> {
+  return fileSnapshotsAtRef(source, invoke, core, ref, core.targetPaths);
 }
 
 async function branchHead(source: Request, invoke: Invoke, core: CoreInput): Promise<string> {
@@ -530,6 +615,7 @@ async function recoverEvolvedBranch(
   source: Request,
   invoke: Invoke,
   core: CoreInput,
+  inputHash: string,
   currentBranch: string,
   defaultBranch: string,
 ): Promise<RecoveredBranch> {
@@ -567,7 +653,8 @@ async function recoverEvolvedBranch(
       parent.toLowerCase() !== expectedParent ||
       !commit ||
       !commitIdentityMatches(commit.author) ||
-      !commitIdentityMatches(commit.committer)
+      !commitIdentityMatches(commit.committer) ||
+      !commitProvenanceMatches(stringValue(commit.message), core.operationId, inputHash)
     ) {
       throw new CodeChangeError('branch_history_not_recoverable', 409);
     }
@@ -580,7 +667,6 @@ async function recoverEvolvedBranch(
   const allowed = new Set(core.targetPaths);
   const files = Array.isArray(compare.files) ? compare.files : [];
   if (
-    !files.length ||
     files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))
   ) {
     throw new CodeChangeError('branch_scope_changed', 409);
@@ -613,7 +699,7 @@ async function recoverEvolvedBranch(
   };
 }
 
-async function preparationContext(source: Request, invoke: Invoke, core: CoreInput): Promise<JsonObject> {
+async function preparationContext(source: Request, invoke: Invoke, core: CoreInput, inputHash: string): Promise<JsonObject> {
   const prepareBody: JsonObject = {
     repository: core.repository,
     branch: core.branch,
@@ -663,6 +749,7 @@ async function preparationContext(source: Request, invoke: Invoke, core: CoreInp
     source,
     invoke,
     core,
+    inputHash,
     currentBranch,
     currentBase.defaultBranch,
   );
@@ -817,6 +904,7 @@ async function verifyRecoveredCommit(
   source: Request,
   invoke: Invoke,
   core: CoreInput,
+  inputHash: string,
   previousHead: string,
   currentHead: string,
   edit: EditAction,
@@ -829,48 +917,53 @@ async function verifyRecoveredCommit(
   if (!isObject(commit) || !Array.isArray(commit.parents) || commit.parents.length !== 1) return false;
   const parent = isObject(commit.parents[0]) ? stringValue(commit.parents[0].sha) : null;
   const message = isObject(commit.commit) ? stringValue(commit.commit.message) : null;
-  if (parent?.toLowerCase() !== previousHead || message !== edit.message) return false;
+  if (
+    parent?.toLowerCase() !== previousHead ||
+    message !== operationCommitMessage(edit.message, core.operationId, inputHash)
+  ) return false;
   const files = Array.isArray(commit.files) ? commit.files : [];
   const changed = files
     .map((file) => (isObject(file) ? stringValue(file.filename) : null))
     .filter((path): path is string => Boolean(path));
-  if (changed.length !== edit.files.length || new Set(changed).size !== changed.length) return false;
-  if (!edit.files.every((file) => changed.includes(file.path))) return false;
+  if (!recoveredChangedPathsAllowed(changed, edit.files.map((file) => file.path))) return false;
 
-  for (const file of edit.files) {
-    const { response, payload } = await invokePayload(
-      source,
-      invoke,
-      READ_PATH,
-      { path: `/repos/${repoPath(core.repository)}/contents/${contentPath(file.path)}?ref=${currentHead}` },
-      true,
-    );
-    if (file.content === null) {
-      if (response.status !== 404) return false;
-      continue;
-    }
-    if (!response.ok || payload.ok !== true || decodeContent(payload.data) !== file.content) return false;
-  }
-  return true;
+  const snapshots = await fileSnapshotsAtRef(
+    source,
+    invoke,
+    core,
+    currentHead,
+    edit.files.map((file) => file.path),
+  );
+  const byPath = new Map(snapshots.map((snapshot) => [snapshot.path, snapshot]));
+  return edit.files.every((file) => {
+    const snapshot = byPath.get(file.path);
+    if (!snapshot) return false;
+    return file.content === null
+      ? snapshot.exists === false
+      : snapshot.exists === true && snapshot.content === file.content;
+  });
 }
 
 async function commitEdit(
   source: Request,
   invoke: Invoke,
   core: CoreInput,
+  inputHash: string,
   progress: Progress,
   edit: EditAction,
 ): Promise<string> {
   const current = await branchHead(source, invoke, core);
   if (current !== progress.branchHead) {
-    if (await verifyRecoveredCommit(source, invoke, core, progress.branchHead, current, edit)) return current;
+    if (await verifyRecoveredCommit(source, invoke, core, inputHash, progress.branchHead, current, edit)) {
+      return current;
+    }
     throw new CodeChangeError('branch_head_changed', 409, { expected: progress.branchHead, current });
   }
   const { payload } = await invokePayload(source, invoke, COMMIT_FILES_PATH, {
     repository: core.repository,
     branch: core.branch,
     expectedHeadSha: progress.branchHead,
-    message: edit.message,
+    message: operationCommitMessage(edit.message, core.operationId, inputHash),
     files: edit.files,
   });
   const sha = stringValue(payload.sha);
@@ -1034,6 +1127,8 @@ async function editingResponse(
     ...investigated,
     nextAction: {
       type: 'edit',
+      headSha: progress.branchHead,
+      revision: progress.revision,
       note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
     },
   };
@@ -1043,8 +1138,9 @@ async function initialProgress(
   source: Request,
   invoke: Invoke,
   core: CoreInput,
+  inputHash: string,
 ): Promise<{ progress: Progress; body: JsonObject }> {
-  const prepared = await preparationContext(source, invoke, core);
+  const prepared = await preparationContext(source, invoke, core, inputHash);
   const repositoryData = isObject(prepared.repository) ? prepared.repository : {};
   const branchData = isObject(prepared.branch) ? prepared.branch : {};
   const defaultBranch = stringValue(repositoryData.defaultBranch);
@@ -1110,6 +1206,8 @@ async function initialProgress(
       ...investigated,
       nextAction: {
         type: 'edit',
+        headSha: progress.branchHead,
+        revision: progress.revision,
         note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
       },
     },
@@ -1137,74 +1235,80 @@ async function run(
   let progress = isObject(claim.payload.progress) ? claim.payload.progress as Progress : null;
   try {
     if (!progress) {
-      const started = await initialProgress(request, invoke, core);
+      const started = await initialProgress(request, invoke, core, inputHash);
       progress = started.progress;
       return pause(env, core, inputHash, progress, started.body);
     }
 
     const submitted = parsed.action;
     if (submitted?.type === 'edit') {
-      if (progress.stage !== 'editing' && progress.stage !== 'waiting_ci_review') {
-        throw new CodeChangeError('edit_not_allowed_in_stage', 409, { stage: progress.stage });
-      }
-
-      let editProgress = progress;
-      let recoveredEdit = false;
-      if (progress.stage === 'waiting_ci_review') {
-        if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
-        const current = await branchHead(request, invoke, core);
-        if (current !== progress.branchHead) {
-          if (!await verifyRecoveredCommit(request, invoke, core, progress.branchHead, current, submitted)) {
-            throw new CodeChangeError('branch_head_changed', 409, { expected: progress.branchHead, current });
-          }
-          editProgress = {
-            ...progress,
-            branchHead: current,
-            pullRequest: { ...progress.pullRequest, headSha: current },
-          };
-          recoveredEdit = true;
-        }
-        await assertPullRequestEditable(request, invoke, core, editProgress);
-      }
-
-      const previousHead = editProgress.branchHead;
-      const newHead = recoveredEdit
-        ? editProgress.branchHead
-        : await commitEdit(request, invoke, core, editProgress, submitted);
-      if (progress.stage === 'waiting_ci_review' && newHead !== previousHead) {
-        editProgress = {
-          ...editProgress,
-          branchHead: newHead,
-          pullRequest: editProgress.pullRequest
-            ? { ...editProgress.pullRequest, headSha: newHead }
-            : undefined,
-        };
-        await assertPullRequestEditable(request, invoke, core, editProgress);
-      }
-
-      const verificationPlan = await targetedVerification(request, invoke, core, newHead);
-      const next: Progress = {
-        ...editProgress,
-        stage: 'verifying',
-        branchHead: newHead,
-        revision: progress.revision + 1,
-        ...(editProgress.pullRequest
-          ? { pullRequest: { ...editProgress.pullRequest, headSha: newHead } }
-          : {}),
-      };
-      delete next.verification;
-      return pause(env, core, inputHash, next, {
-        ok: true,
-        stage: 'verifying',
-        revision: next.revision,
-        headSha: newHead,
-        verificationPlan,
-        finalGate: 'Normal repository CI on the final PR head remains mandatory.',
-        nextAction: verificationNextAction(next),
+    if (progress.stage !== 'editing' && progress.stage !== 'waiting_ci_review') {
+      throw new CodeChangeError('edit_not_allowed_in_stage', 409, { stage: progress.stage });
+    }
+    if (submitted.headSha !== progress.branchHead || submitted.revision !== progress.revision) {
+      throw new CodeChangeError('edit_revision_changed', 409, {
+        expectedHeadSha: progress.branchHead,
+        expectedRevision: progress.revision,
       });
     }
 
-    if (submitted?.type === 'verification') {
+    let editProgress = progress;
+    let recoveredEdit = false;
+    if (progress.stage === 'waiting_ci_review') {
+      if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
+      const current = await branchHead(request, invoke, core);
+      if (current !== progress.branchHead) {
+        if (!await verifyRecoveredCommit(request, invoke, core, inputHash, progress.branchHead, current, submitted)) {
+          throw new CodeChangeError('branch_head_changed', 409, { expected: progress.branchHead, current });
+        }
+        editProgress = {
+          ...progress,
+          branchHead: current,
+          pullRequest: { ...progress.pullRequest, headSha: current },
+        };
+        recoveredEdit = true;
+      }
+      await assertPullRequestEditable(request, invoke, core, editProgress);
+    }
+
+    const previousHead = editProgress.branchHead;
+    const newHead = recoveredEdit
+      ? editProgress.branchHead
+      : await commitEdit(request, invoke, core, inputHash, editProgress, submitted);
+    if (progress.stage === 'waiting_ci_review' && newHead !== previousHead) {
+      editProgress = {
+        ...editProgress,
+        branchHead: newHead,
+        pullRequest: editProgress.pullRequest
+          ? { ...editProgress.pullRequest, headSha: newHead }
+          : undefined,
+      };
+      await assertPullRequestEditable(request, invoke, core, editProgress);
+    }
+
+    const verificationPlan = await targetedVerification(request, invoke, core, newHead);
+    const next: Progress = {
+      ...editProgress,
+      stage: 'verifying',
+      branchHead: newHead,
+      revision: progress.revision + 1,
+      ...(editProgress.pullRequest
+        ? { pullRequest: { ...editProgress.pullRequest, headSha: newHead } }
+        : {}),
+    };
+    delete next.verification;
+    return pause(env, core, inputHash, next, {
+      ok: true,
+      stage: 'verifying',
+      revision: next.revision,
+      headSha: newHead,
+      verificationPlan,
+      finalGate: 'Normal repository CI on the final PR head remains mandatory.',
+      nextAction: verificationNextAction(next),
+    });
+  }
+
+  if (submitted?.type === 'verification') {
       if (progress.stage !== 'verifying') {
         throw new CodeChangeError('verification_not_allowed_in_stage', 409, { stage: progress.stage });
       }
@@ -1228,7 +1332,7 @@ async function run(
           stage: 'editing',
           verification: { status: 'failed', results: submitted.results ?? [] },
           verificationPlan,
-          nextAction: { type: 'edit', note: 'Fix the failed targeted verification on the same guarded branch.' },
+          nextAction: { type: 'edit', headSha: progress.branchHead, revision: progress.revision, note: 'Fix the failed targeted verification on the same guarded branch.' },
         });
       }
 
@@ -1412,9 +1516,11 @@ export function addCodeChangeAutopilotOpenApi(document: JsonObject): void {
                   oneOf: [
                     {
                       type: 'object',
-                      required: ['type', 'message', 'files'],
+                      required: ['type', 'headSha', 'revision', 'message', 'files'],
                       properties: {
                         type: { type: 'string', enum: ['edit'] },
+                        headSha: { type: 'string', pattern: '^[0-9a-fA-F]{40}$' },
+                        revision: { type: 'integer', minimum: 0 },
                         message: { type: 'string' },
                         files: {
                           type: 'array',

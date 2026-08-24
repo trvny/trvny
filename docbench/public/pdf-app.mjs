@@ -1,5 +1,6 @@
 import {
   buildCombinedOutline,
+  buildQpdfFinalizeRequest,
   buildQpdfPageRequest,
   formatPdfSize,
   readPdfOutline,
@@ -301,16 +302,22 @@ function renderOutline() {
   }
 }
 
-function qpdfOptions(request) {
-  const args = [...request.args];
-  const pageMarker = args.indexOf("--pages");
-  const beforePages = [];
-  if (optimizeToggle.checked) {
-    beforePages.push("--object-streams=generate", "--recompress-flate", "--compression-level=9");
-  }
-  if (linearizeToggle.checked) beforePages.push("--linearize");
-  args.splice(pageMarker, 0, ...beforePages);
-  return { ...request, args };
+function outlineSignature(outline) {
+  return (outline || []).map((bookmark) => {
+    let target = null;
+    if (bookmark.target?.kind === "page") {
+      target = ["page", bookmark.target.pageIndex, bookmark.target.view?.type || "Fit"];
+    } else if (bookmark.target?.kind === "url") {
+      target = ["url", bookmark.target.url];
+    } else if (bookmark.target?.kind === "named") {
+      target = ["named", bookmark.target.action];
+    }
+    return {
+      title: bookmark.title,
+      target,
+      children: outlineSignature(bookmark.children),
+    };
+  });
 }
 
 async function verifyOutput(bytes, expectedPages, expectedOutline) {
@@ -320,8 +327,8 @@ async function verifyOutput(bytes, expectedPages, expectedOutline) {
       throw new Error(`Output verification failed: expected ${expectedPages} pages, got ${pdf.numPages}.`);
     }
     const outline = await readPdfOutline(pdf);
-    if (expectedOutline.length && !outline.length) {
-      throw new Error("Output verification failed: bookmarks disappeared.");
+    if (JSON.stringify(outlineSignature(outline)) !== JSON.stringify(outlineSignature(expectedOutline))) {
+      throw new Error("Output verification failed: bookmark tree or destinations changed.");
     }
   } finally {
     await pdf.destroy();
@@ -334,11 +341,23 @@ async function savePdf() {
   setStatus("Building PDF locally…");
   try {
     const qpdf = await ensureQpdf();
-    const request = qpdfOptions(buildQpdfPageRequest(state.sources, state.plan));
-    const result = await qpdf.run(request);
-    const pageBytes = result.outputs[request.outputName];
+    const pageRequest = buildQpdfPageRequest(state.sources, state.plan);
+    const pageResult = await qpdf.run(pageRequest);
+    const pageBytes = pageResult.outputs[pageRequest.outputName];
     const combined = buildCombinedOutline(state.sources, state.plan);
-    const finalBytes = await replacePdfOutline(pageBytes, combined.outline);
+    let finalBytes = await replacePdfOutline(pageBytes, combined.outline);
+    const warnings = [...(pageResult.warnings || [])];
+
+    if (optimizeToggle.checked || linearizeToggle.checked) {
+      const finalizeRequest = buildQpdfFinalizeRequest(finalBytes, {
+        optimize: optimizeToggle.checked,
+        linearize: linearizeToggle.checked,
+      });
+      const finalizeResult = await qpdf.run(finalizeRequest);
+      finalBytes = finalizeResult.outputs[finalizeRequest.outputName];
+      warnings.push(...(finalizeResult.warnings || []));
+    }
+
     await verifyOutput(finalBytes, state.plan.length, combined.outline);
 
     const filename = state.sources.length === 1
@@ -351,8 +370,8 @@ async function savePdf() {
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 0);
 
-    const warnings = result.warnings?.length ? ` · ${result.warnings.length} qpdf warning(s)` : "";
-    setStatus(`Saved ${state.plan.length} pages · ${formatPdfSize(finalBytes.byteLength)}${warnings}`);
+    const warningText = warnings.length ? ` · ${warnings.length} qpdf warning(s)` : "";
+    setStatus(`Saved ${state.plan.length} pages · ${formatPdfSize(finalBytes.byteLength)}${warningText}`);
   } catch (error) {
     showError(error);
   } finally {

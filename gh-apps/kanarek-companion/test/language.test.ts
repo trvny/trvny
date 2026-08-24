@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  chinesePresetPool,
   contextLanguage,
   contextualPreset,
   matchesLanguage,
@@ -47,10 +48,11 @@ test('keeps every preset state in explicit language pools', () => {
   );
 });
 
-test('selects presets only from the requested language pool', async () => {
+test('selects presets from the requested language pool with a rare Chinese easter egg', async () => {
   for (const key of Object.keys(PRESETS)) {
     for (const language of ['pl', 'en'] as const) {
       const pool = presetPool(key, language);
+      const chinese = chinesePresetPool(key);
       for (let index = 0; index < 20; index += 1) {
         const value = await contextualPreset(
           key,
@@ -58,10 +60,28 @@ test('selects presets only from the requested language pool', async () => {
           '',
           language,
         );
-        assert.equal(pool.includes(value), true, `${key}/${language}: ${value}`);
+        assert.equal(
+          pool.includes(value) || chinese.includes(value),
+          true,
+          `${key}/${language}: ${value}`,
+        );
       }
     }
   }
+});
+
+test('keeps the Chinese easter egg deterministic and rare', async () => {
+  const chinese = chinesePresetPool('ready');
+  assert.equal(
+    chinese.includes(await contextualPreset('ready', 'zh-test-4', '', 'en')),
+    true,
+  );
+  assert.equal(
+    presetPool('ready', 'en').includes(
+      await contextualPreset('ready', 'zh-test-0', '', 'en'),
+    ),
+    true,
+  );
 });
 
 test('validates generated text before caching it by language', () => {

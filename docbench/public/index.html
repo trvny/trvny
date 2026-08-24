@@ -88,6 +88,15 @@
           Lossless optimize
         </label>
         <label class="toggle-label">
+          <input id="pdf-lossy-images" type="checkbox">
+          Lossy images
+        </label>
+        <label id="pdf-image-quality-row" class="quality-label" hidden>
+          JPEG quality
+          <input id="pdf-image-quality" type="range" min="30" max="95" step="5" value="75">
+          <output id="pdf-image-quality-value" for="pdf-image-quality">75</output>
+        </label>
+        <label class="toggle-label">
           <input id="pdf-linearize" type="checkbox">
           Fast Web View
         </label>

@@ -238,15 +238,24 @@ export function buildQpdfPageRequest(sources, pagePlan, outputName = "output.pdf
   return { inputs, args, outputs: [outputName], outputName };
 }
 
+function normalizeJpegQuality(value) {
+  const quality = Number(value);
+  if (!Number.isFinite(quality)) return 75;
+  return Math.max(1, Math.min(100, Math.round(quality)));
+}
+
 export function buildQpdfFinalizeRequest(
   pdfBytes,
-  { optimize = false, linearize = false } = {},
+  { optimize = false, linearize = false, lossyImages = false, jpegQuality = 75 } = {},
   outputName = "output.pdf",
 ) {
   const inputName = "input.pdf";
   const args = [inputName];
   if (optimize) {
     args.push("--object-streams=generate", "--recompress-flate", "--compression-level=9");
+  }
+  if (lossyImages) {
+    args.push("--optimize-images", `--jpeg-quality=${normalizeJpegQuality(jpegQuality)}`);
   }
   if (linearize) args.push("--linearize");
   args.push(outputName);

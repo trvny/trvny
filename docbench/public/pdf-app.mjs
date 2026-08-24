@@ -22,6 +22,10 @@ const removeButton = $("#pdf-remove-page");
 const leftButton = $("#pdf-move-left");
 const rightButton = $("#pdf-move-right");
 const optimizeToggle = $("#pdf-optimize");
+const lossyImagesToggle = $("#pdf-lossy-images");
+const imageQuality = $("#pdf-image-quality");
+const imageQualityRow = $("#pdf-image-quality-row");
+const imageQualityValue = $("#pdf-image-quality-value");
 const linearizeToggle = $("#pdf-linearize");
 const bookmarkEditor = $("#bookmark-editor");
 const bookmarkTitle = $("#bookmark-title");
@@ -248,6 +252,12 @@ function newBookmark() {
     open: true,
     children: [],
   };
+}
+
+function updateCompressionControls() {
+  imageQualityRow.hidden = !lossyImagesToggle.checked;
+  imageQualityValue.value = imageQuality.value;
+  imageQualityValue.textContent = imageQuality.value;
 }
 
 function updateControls() {
@@ -698,11 +708,14 @@ async function savePdf() {
     const pageBytes = pageResult.outputs[pageRequest.outputName];
     let finalBytes = await replacePdfOutline(pageBytes, state.outline);
     const warnings = [...(pageResult.warnings || [])];
+    const lossyImages = lossyImagesToggle.checked;
 
-    if (optimizeToggle.checked || linearizeToggle.checked) {
+    if (optimizeToggle.checked || linearizeToggle.checked || lossyImages) {
       const finalizeRequest = buildQpdfFinalizeRequest(finalBytes, {
         optimize: optimizeToggle.checked,
         linearize: linearizeToggle.checked,
+        lossyImages,
+        jpegQuality: Number(imageQuality.value),
       });
       const finalizeResult = await qpdf.run(finalizeRequest);
       finalBytes = finalizeResult.outputs[finalizeRequest.outputName];
@@ -744,6 +757,8 @@ leftButton.addEventListener("click", () => movePage(state.selectedIndex, state.s
 rightButton.addEventListener("click", () => movePage(state.selectedIndex, state.selectedIndex + 1));
 removeButton.addEventListener("click", removeSelectedPage);
 saveButton.addEventListener("click", savePdf);
+lossyImagesToggle.addEventListener("change", updateCompressionControls);
+imageQuality.addEventListener("input", updateCompressionControls);
 bookmarkEditor.addEventListener("submit", (event) => event.preventDefault());
 bookmarkAddRoot.addEventListener("click", addRootBookmark);
 bookmarkAddSibling.addEventListener("click", addSiblingBookmark);
@@ -795,4 +810,5 @@ bookmarkOpen.addEventListener("change", () => {
 });
 window.addEventListener("beforeunload", () => state.qpdfRunner?.destroy?.());
 
+updateCompressionControls();
 refreshPdfUi();

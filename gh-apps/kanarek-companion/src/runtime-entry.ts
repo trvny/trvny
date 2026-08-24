@@ -1,5 +1,10 @@
 import { runWithActionRequestContext } from './action-context.ts';
 import {
+  addBugInvestigationOpenApi,
+  BUG_INVESTIGATION_PATH,
+  handleBugInvestigationAction,
+} from './bug-investigation.ts';
+import {
   addCodeChangeAutopilotOpenApi,
   CODE_CHANGE_AUTOPILOT_PATH,
   handleCodeChangeAutopilotAction,
@@ -78,6 +83,7 @@ function openApi(request: Request): JsonObject {
   addCodeHistoryOpenApi(document);
   addDependencyGraphOpenApi(document);
   addTargetedTestsOpenApi(document);
+  addBugInvestigationOpenApi(document);
   addCodeChangeAutopilotOpenApi(document);
   return document;
 }
@@ -131,6 +137,13 @@ const runtime = {
       const url = new URL(request.url);
       if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
         return json(openApi(request));
+      }
+      if (url.pathname === BUG_INVESTIGATION_PATH) {
+        const response = await handleBugInvestigationAction(
+          request,
+          (internalRequest) => worker.fetch(internalRequest, env, ctx),
+        );
+        if (response) return response;
       }
       if (url.pathname === CODE_CHANGE_AUTOPILOT_PATH) {
         const response = await handleCodeChangeAutopilotAction(

@@ -16,7 +16,7 @@
     "test:raw": "node --test \"scripts/*-check.mjs\""
   },
   "dependencies": {
-    "hls.js": "1.7.0"
+    "hls.js": "1.7.1"
   },
   "devDependencies": {
     "wrangler": "^4"

@@ -105,6 +105,11 @@
   font-size: 0.82rem;
 }
 
+#preview.preview-markdown pre.markdown-raw-html-block {
+  border-style: dashed;
+  color: var(--muted);
+}
+
 #preview.preview-markdown hr {
   margin: 1.4rem 0;
   border: 0;
@@ -144,11 +149,6 @@
   padding: 0.14em 0.4em;
   background: rgb(143 153 168 / 8%);
   font: 400 0.76rem/1.4 "Space Mono", ui-monospace, monospace;
-}
-
-.markdown-raw-html-block {
-  border-style: dashed !important;
-  color: var(--muted);
 }
 
 #preview.preview-tree {

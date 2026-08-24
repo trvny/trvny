@@ -1,0 +1,43 @@
+---
+name: Docbench PDF asset bootstrap
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    paths:
+      - docbench/package.json
+      - docbench/package-lock.json
+      - .github/workflows/docbench-assets-bootstrap.yml
+
+permissions:
+  contents: read
+
+jobs:
+  assets:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install
+        working-directory: docbench
+        run: npm ci --ignore-scripts
+      - name: Collect browser assets
+        run: |
+          mkdir -p pdf-assets/cantoo pdf-assets/pdfjs pdf-assets/qpdf
+          cp docbench/node_modules/@cantoo/pdf-lib/dist/pdf-lib.min.js pdf-assets/cantoo/
+          cp docbench/node_modules/pdfjs-dist/build/pdf.mjs pdf-assets/pdfjs/
+          cp docbench/node_modules/pdfjs-dist/build/pdf.worker.mjs pdf-assets/pdfjs/
+          cp -R docbench/node_modules/qpdf-run/src pdf-assets/qpdf/src
+          mkdir -p pdf-assets/qpdf/lib
+          cp docbench/node_modules/qpdf-run/vendor/qpdf/lib/qpdf.js pdf-assets/qpdf/lib/
+          cp docbench/node_modules/qpdf-run/vendor/qpdf/lib/qpdf.wasm pdf-assets/qpdf/lib/
+          find pdf-assets -type f -printf '%p %s bytes\n'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: docbench-pdf-assets
+          path: pdf-assets/
+          retention-days: 1

@@ -59,6 +59,7 @@ const state = {
   bom: false,
   mixedEol: false,
   eol: eolSelect.value,
+  documentRevision: 0,
 };
 
 const nativeOpenSupported = globalThis.isSecureContext
@@ -199,86 +200,95 @@ function appendTreeLimit(fragment) {
   fragment.append(note);
 }
 
-function renderDataTree(value, rootLabel = "root") {
+function yamlScalarClass(tag) {
+  if (tag.endsWith(":int") || tag.endsWith(":float")) return "number";
+  if (tag.endsWith(":bool")) return "boolean";
+  if (tag.endsWith(":null")) return "null";
+  return "string";
+}
+
+function yamlScalarText(node) {
+  const type = yamlScalarClass(node.tag || "");
+  const timestamp = node.tag?.endsWith(":timestamp");
+  const value = type === "string" && !timestamp ? JSON.stringify(node.value) : node.value;
+  return node.anchor ? `&${node.anchor} ${value}` : value;
+}
+
+function yamlKeyLabel(node) {
+  if (!node) return "?";
+  if (node.kind === "scalar") return node.value;
+  if (node.kind === "alias") return `*${node.anchor}`;
+  return `[${node.kind} key]`;
+}
+
+function renderYamlTree(source) {
+  const yaml = globalThis.jsyaml;
+  if (!yaml?.parseEvents || !yaml?.eventsToAst || !yaml?.CORE_SCHEMA) return null;
+  const schema = yaml.CORE_SCHEMA.withTags(yaml.mergeTag, yaml.timestampTag);
+  const documents = yaml.eventsToAst(yaml.parseEvents(source), { source, schema });
   const fragment = document.createDocumentFragment();
-  const seen = new WeakSet();
   let nodes = 0;
   let truncated = false;
 
-  function renderNode(parent, key, item, depth) {
-    if (nodes >= MAX_TREE_NODES) {
+  function renderNode(parent, key, node, depth) {
+    if (!node || nodes >= MAX_TREE_NODES) {
       truncated = true;
       return;
     }
     nodes += 1;
 
-    if (isSourceScalar(item)) {
-      appendSourceScalar(parent, key, item);
+    if (node.kind === "scalar") {
+      appendSourceScalar(parent, key, sourceScalar(yamlScalarText(node), yamlScalarClass(node.tag || "")));
       return;
     }
-    if (!item || typeof item !== "object") {
-      appendScalar(parent, key, item);
+    if (node.kind === "alias") {
+      appendSourceScalar(parent, key, sourceScalar(`*${node.anchor}`, "other"));
       return;
     }
-    if (seen.has(item)) {
-      appendScalar(parent, key, "[alias/circular reference]");
-      return;
-    }
-    seen.add(item);
 
-    const entries = Array.isArray(item)
-      ? item.map((child, index) => [index, child])
-      : Object.entries(item);
     const details = document.createElement("details");
     details.className = "tree-node";
     details.open = depth < 2;
-
     const summary = document.createElement("summary");
     const keyNode = document.createElement("span");
     keyNode.className = "tree-key";
-    keyNode.textContent = key === null ? rootLabel : String(key);
+    keyNode.textContent = key === null ? "YAML" : String(key);
     const metaNode = document.createElement("span");
     metaNode.className = "tree-meta";
-    metaNode.textContent = Array.isArray(item)
-      ? `Array(${entries.length})`
-      : `Object(${entries.length})`;
+    const count = node.items.length;
+    const kind = node.kind === "sequence" ? "Sequence" : "Mapping";
+    metaNode.textContent = `${kind}(${count})${node.anchor ? ` · &${node.anchor}` : ""}`;
     summary.append(keyNode, metaNode);
     details.append(summary);
 
     const children = document.createElement("div");
     children.className = "tree-children";
-    for (const [childKey, childValue] of entries) {
-      renderNode(children, childKey, childValue, depth + 1);
-      if (truncated) break;
+    if (node.kind === "sequence") {
+      node.items.forEach((child, index) => {
+        if (!truncated) renderNode(children, index, child, depth + 1);
+      });
+    } else {
+      for (const pair of node.items) {
+        renderNode(children, yamlKeyLabel(pair.key), pair.value, depth + 1);
+        if (truncated) break;
+      }
     }
     details.append(children);
     parent.append(details);
   }
 
-  renderNode(fragment, null, value, 0);
+  if (documents.length === 1) {
+    if (documents[0].contents) renderNode(fragment, null, documents[0].contents, 0);
+    else appendScalar(fragment, null, "(empty document)");
+  } else {
+    documents.forEach((document, index) => {
+      const label = `Document ${index + 1}`;
+      if (document.contents) renderNode(fragment, label, document.contents, 0);
+      else appendScalar(fragment, label, "(empty document)");
+    });
+  }
   if (truncated) appendTreeLimit(fragment);
   return fragment;
-}
-
-function preserveYamlNumericLexemes(typed, raw, seen = new WeakMap()) {
-  if (typeof typed === "number") {
-    return sourceScalar(typeof raw === "string" ? raw : String(typed), "number");
-  }
-  if (!typed || typeof typed !== "object") return typed;
-  if (seen.has(typed)) return seen.get(typed);
-
-  const result = Array.isArray(typed) ? [] : {};
-  seen.set(typed, result);
-  if (Array.isArray(typed)) {
-    typed.forEach((item, index) => {
-      result[index] = preserveYamlNumericLexemes(item, raw?.[index], seen);
-    });
-  } else {
-    for (const [key, item] of Object.entries(typed)) {
-      result[key] = preserveYamlNumericLexemes(item, raw?.[key], seen);
-    }
-  }
-  return result;
 }
 
 function jsonScalarClass(node) {
@@ -692,20 +702,11 @@ function renderEnhancedPreview() {
   }
   if (format === "yaml") {
     try {
-      const typed = [];
-      const raw = [];
-      globalThis.jsyaml.loadAll(editor.value, (doc) => typed.push(doc));
-      globalThis.jsyaml.loadAll(editor.value, (doc) => raw.push(doc), {
-        schema: globalThis.jsyaml.FAILSAFE_SCHEMA,
-      });
-      const merged = typed.map((doc, index) => {
-        return preserveYamlNumericLexemes(doc, raw[index]);
-      });
-      const value = merged.length === 1 ? merged[0] : merged;
+      globalThis.jsyaml.loadAll(editor.value);
+      const tree = renderYamlTree(editor.value);
+      if (!tree) throw new Error("YAML AST runtime is unavailable.");
       setPreviewMode("tree", "YAML tree");
-      preview.replaceChildren(
-        renderDataTree(value, merged.length === 1 ? "YAML" : "YAML documents"),
-      );
+      preview.replaceChildren(tree);
       setStatus("good", "Valid · tree");
     } catch {
       setPreviewMode("raw", "Parse error");
@@ -743,14 +744,23 @@ function documentBytes() {
   return result;
 }
 
-function downloadDocument() {
+function currentDocumentSnapshot() {
+  return {
+    revision: state.documentRevision,
+    bytes: documentBytes(),
+    filename: state.filename || filenameLabel.textContent || "document.txt",
+    format: formatSelect.value,
+  };
+}
+
+function downloadDocument(snapshot = currentDocumentSnapshot()) {
   const blob = new Blob(
-    [documentBytes()],
-    { type: mimeByFormat[formatSelect.value] || mimeByFormat.txt },
+    [snapshot.bytes],
+    { type: mimeByFormat[snapshot.format] || mimeByFormat.txt },
   );
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = state.filename || filenameLabel.textContent || "document.txt";
+  link.download = snapshot.filename;
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 0);
 }
@@ -768,13 +778,22 @@ function flashSaveState(text) {
   setTimeout(updateSaveButton, 1100);
 }
 
-async function writeHandle(handle) {
+function staleSaveError() {
+  const error = new Error("The active document changed while save was waiting.");
+  error.name = "StaleDocumentError";
+  return error;
+}
+
+async function writeHandle(handle, snapshot) {
   if (!await ensureWritePermission(handle)) {
     throw new Error("Write permission was not granted.");
   }
+  if (state.documentRevision !== snapshot.revision) throw staleSaveError();
   const writable = await handle.createWritable();
   try {
-    await writable.write(documentBytes());
+    if (state.documentRevision !== snapshot.revision) throw staleSaveError();
+    await writable.write(snapshot.bytes);
+    if (state.documentRevision !== snapshot.revision) throw staleSaveError();
     await writable.close();
   } catch (error) {
     try {
@@ -784,38 +803,43 @@ async function writeHandle(handle) {
     }
     throw error;
   }
+
+  if (state.documentRevision !== snapshot.revision) return;
   state.handle = handle;
-  state.filename = handle.name || state.filename;
+  state.filename = handle.name || snapshot.filename;
   filenameLabel.textContent = state.filename;
   updateMeta();
   updateSaveButton();
   flashSaveState("Saved ✓");
 }
 
-async function chooseSaveHandle() {
+async function chooseSaveHandle(snapshot) {
   return globalThis.showSaveFilePicker({
-    suggestedName: state.filename || filenameLabel.textContent || "document.txt",
+    suggestedName: snapshot.filename,
     types: pickerTypes,
   });
 }
 
 async function saveDocument() {
+  const snapshot = currentDocumentSnapshot();
+  const linkedHandle = state.handle;
   try {
-    if (state.handle) {
-      await writeHandle(state.handle);
+    if (linkedHandle) {
+      await writeHandle(linkedHandle, snapshot);
       return;
     }
     if (nativeSaveSupported) {
-      const handle = await chooseSaveHandle();
-      await writeHandle(handle);
+      const handle = await chooseSaveHandle(snapshot);
+      if (state.documentRevision !== snapshot.revision) throw staleSaveError();
+      await writeHandle(handle, snapshot);
       return;
     }
-    downloadDocument();
+    downloadDocument(snapshot);
     flashSaveState("Downloaded ✓");
   } catch (error) {
-    if (error?.name === "AbortError") return;
-    if (!state.handle && ["TypeError", "SecurityError", "NotAllowedError"].includes(error?.name)) {
-      downloadDocument();
+    if (error?.name === "AbortError" || error?.name === "StaleDocumentError") return;
+    if (!linkedHandle && ["TypeError", "SecurityError", "NotAllowedError"].includes(error?.name)) {
+      downloadDocument(snapshot);
       flashSaveState("Downloaded ✓");
       return;
     }
@@ -865,15 +889,31 @@ openButton.addEventListener("click", (event) => {
   event.preventDefault();
   event.stopImmediatePropagation();
   void (async () => {
+    let handle;
     try {
-      const [handle] = await globalThis.showOpenFilePicker({
+      [handle] = await globalThis.showOpenFilePicker({
         multiple: false,
         types: pickerTypes,
       });
-      if (handle) await loadNativeHandle(handle);
     } catch (error) {
       if (error?.name === "AbortError") return;
-      fileInput.click();
+      if (["TypeError", "SecurityError", "NotAllowedError"].includes(error?.name)) {
+        fileInput.click();
+        return;
+      }
+      setStatus("bad", "Open failed");
+      statusBadge.title = error?.message || String(error);
+      return;
+    }
+    if (!handle) return;
+    state.documentRevision += 1;
+    state.handle = null;
+    updateSaveButton();
+    try {
+      await loadNativeHandle(handle);
+    } catch (error) {
+      setStatus("bad", "Open failed");
+      statusBadge.title = error?.message || String(error);
     }
   })();
 }, true);
@@ -884,20 +924,29 @@ saveButton.addEventListener("click", (event) => {
   void saveDocument();
 }, true);
 
-downloadButton.addEventListener("click", downloadDocument);
+downloadButton.addEventListener("click", () => downloadDocument());
 
 fileInput.addEventListener("change", () => {
   const file = fileInput.files?.[0];
-  if (file) void syncFallbackFile(file);
+  if (!file) return;
+  state.documentRevision += 1;
+  state.handle = null;
+  updateSaveButton();
+  void syncFallbackFile(file);
 });
 
 dropZone.addEventListener("drop", (event) => {
   const file = event.dataTransfer?.files?.[0];
-  if (file) void syncFallbackFile(file);
+  if (!file) return;
+  state.documentRevision += 1;
+  state.handle = null;
+  updateSaveButton();
+  void syncFallbackFile(file);
 }, true);
 
 newButton.addEventListener("click", () => {
   queueMicrotask(() => {
+    state.documentRevision += 1;
     state.handle = null;
     state.filename = filenameLabel.textContent || "untitled.txt";
     state.bom = false;
@@ -908,8 +957,12 @@ newButton.addEventListener("click", () => {
   });
 });
 
-editor.addEventListener("input", () => schedulePreview());
+editor.addEventListener("input", () => {
+  state.documentRevision += 1;
+  schedulePreview();
+});
 formatSelect.addEventListener("change", () => {
+  state.documentRevision += 1;
   queueMicrotask(() => {
     if (state.handle) filenameLabel.textContent = state.filename;
     else state.filename = filenameLabel.textContent || state.filename;
@@ -917,11 +970,13 @@ formatSelect.addEventListener("change", () => {
   });
 });
 eolSelect.addEventListener("change", () => {
+  state.documentRevision += 1;
   state.mixedEol = false;
   state.eol = eolSelect.value;
   setTimeout(updateMeta, 0);
 });
 formatButton.addEventListener("click", () => {
+  state.documentRevision += 1;
   state.mixedEol = false;
   queueMicrotask(() => {
     if (statusBadge.textContent === "Format failed") {

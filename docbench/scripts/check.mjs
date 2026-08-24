@@ -60,8 +60,14 @@ if (documentEnhancements.includes("JSON.parse(editor.value)")) {
   throw new Error("JSON tree preview must not coerce source numbers through JSON.parse.");
 }
 for (const fidelityGuard of [
-  "preserveYamlNumericLexemes",
-  "FAILSAFE_SCHEMA",
+  "renderYamlTree",
+  "parseEvents",
+  "eventsToAst",
+  "mergeTag",
+  "timestampTag",
+  "currentDocumentSnapshot",
+  "documentRevision",
+  "StaleDocumentError",
   "preservesXmlSpace",
   "PROCESSING_INSTRUCTION_NODE",
   "DOCUMENT_TYPE_NODE",

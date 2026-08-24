@@ -22,8 +22,12 @@ for (const path of [
 }
 
 const portable = await readFile("public/portable.html", "utf8");
+const resourceHtml = portable.replace(
+  /(<script\b[^>]*>)[\s\S]*?<\/script>/gi,
+  "$1</script>",
+);
 const resourceUrls = [];
-for (const match of portable.matchAll(/<(?:script|link|img|source|iframe)\b[^>]*\b(?:src|href)=["']([^"']+)["'][^>]*>/gi)) {
+for (const match of resourceHtml.matchAll(/<(?:script|link|img|source|iframe)\b[^>]*\b(?:src|href)=["']([^"']+)["'][^>]*>/gi)) {
   resourceUrls.push(match[1]);
 }
 for (const leaked of [

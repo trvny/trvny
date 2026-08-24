@@ -101,8 +101,47 @@
 
       <div class="pdf-grid">
         <aside class="pdf-outline-panel" aria-label="PDF bookmarks">
-          <div class="panel-header"><strong>Bookmarks</strong><span>preserved</span></div>
+          <div class="panel-header bookmark-panel-header">
+            <strong>Bookmarks</strong>
+            <button id="bookmark-add-root" class="mini-button" type="button" disabled>Add</button>
+          </div>
           <div id="pdf-outline" class="pdf-outline">No bookmarks yet.</div>
+          <form id="bookmark-editor" class="bookmark-editor" hidden>
+            <label>Title
+              <input id="bookmark-title" type="text" maxlength="500">
+            </label>
+            <label>Target
+              <select id="bookmark-target-type">
+                <option value="page">Page</option>
+                <option value="url">URL</option>
+                <option value="named">Named action</option>
+                <option value="none">No target</option>
+              </select>
+            </label>
+            <label id="bookmark-page-row">Page
+              <select id="bookmark-page"></select>
+            </label>
+            <label id="bookmark-url-row" hidden>URL
+              <input id="bookmark-url" type="url" placeholder="https://example.com/">
+            </label>
+            <label id="bookmark-named-row" hidden>Named action
+              <input id="bookmark-named" type="text" placeholder="NextPage">
+            </label>
+            <div class="bookmark-flags">
+              <label><input id="bookmark-bold" type="checkbox"> Bold</label>
+              <label><input id="bookmark-italic" type="checkbox"> Italic</label>
+              <label><input id="bookmark-open" type="checkbox"> Open</label>
+            </div>
+            <div class="bookmark-actions">
+              <button id="bookmark-add-sibling" class="mini-button" type="button">+ Sibling</button>
+              <button id="bookmark-add-child" class="mini-button" type="button">+ Child</button>
+              <button id="bookmark-up" class="mini-button" type="button">↑</button>
+              <button id="bookmark-down" class="mini-button" type="button">↓</button>
+              <button id="bookmark-indent" class="mini-button" type="button">→ Nest</button>
+              <button id="bookmark-outdent" class="mini-button" type="button">← Out</button>
+              <button id="bookmark-delete" class="mini-button danger" type="button">Delete</button>
+            </div>
+          </form>
         </aside>
         <section class="pdf-preview-panel">
           <div class="panel-header"><strong>Preview</strong><span>PDF.js · scripting off</span></div>

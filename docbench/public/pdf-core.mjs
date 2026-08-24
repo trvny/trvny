@@ -119,6 +119,10 @@ function cloneBookmark(bookmark) {
   };
 }
 
+export function clonePdfOutline(outline) {
+  return (outline || []).map(cloneBookmark);
+}
+
 export function remapOutline(outline, mapPageIndex) {
   let dropped = 0;
 
@@ -145,6 +149,26 @@ export function remapOutline(outline, mapPageIndex) {
     outline: (outline || []).map(visit).filter(Boolean),
     dropped,
   };
+}
+
+function pageIdentity(page) {
+  if (!page) return null;
+  return `${page.sourceId}:${page.pageIndex}`;
+}
+
+export function remapOutlineToPagePlan(outline, oldPlan, newPlan) {
+  const outputIndexByIdentity = new Map();
+  for (let index = 0; index < newPlan.length; index += 1) {
+    const identity = pageIdentity(newPlan[index]);
+    if (identity !== null && !outputIndexByIdentity.has(identity)) {
+      outputIndexByIdentity.set(identity, index);
+    }
+  }
+
+  return remapOutline(outline, (oldOutputIndex) => {
+    const identity = pageIdentity(oldPlan[oldOutputIndex]);
+    return identity === null ? null : (outputIndexByIdentity.get(identity) ?? null);
+  });
 }
 
 export function buildCombinedOutline(sources, pagePlan) {

@@ -4,8 +4,10 @@ import {
   buildCombinedOutline,
   buildQpdfFinalizeRequest,
   buildQpdfPageRequest,
+  clonePdfOutline,
   readPdfOutline,
   remapOutline,
+  remapOutlineToPagePlan,
   replacePdfOutline,
 } from "../public/pdf-core.mjs";
 
@@ -46,10 +48,40 @@ assert.equal(read[0].target.view.type, "FitH");
 assert.equal(read[0].children[0].target.pageIndex, 2);
 assert.equal(read[1].target.kind, "url");
 
+const cloned = clonePdfOutline(read);
+cloned[0].title = "Edited";
+assert.equal(read[0].title, "Rozdział 1");
+
 const remapped = remapOutline(read, (pageIndex) => ({ 0: 2, 2: null })[pageIndex]);
 assert.equal(remapped.outline[0].target.pageIndex, 2);
 assert.equal(remapped.outline[0].children.length, 0);
 assert.equal(remapped.dropped, 1);
+
+const oldPlan = [
+  { sourceId: 0, pageIndex: 0 },
+  { sourceId: 0, pageIndex: 1 },
+  { sourceId: 0, pageIndex: 2 },
+];
+const reorderedPlan = [oldPlan[2], oldPlan[0], oldPlan[1]];
+const editedOutline = [{
+  title: "My edited title",
+  target: { kind: "page", pageIndex: 0, view: { type: "Fit", args: [] } },
+  children: [{
+    title: "Deleted target",
+    target: { kind: "page", pageIndex: 1, view: { type: "Fit", args: [] } },
+    children: [],
+  }],
+}];
+const reorderedOutline = remapOutlineToPagePlan(editedOutline, oldPlan, reorderedPlan);
+assert.equal(reorderedOutline.outline[0].title, "My edited title");
+assert.equal(reorderedOutline.outline[0].target.pageIndex, 1);
+assert.equal(reorderedOutline.outline[0].children[0].target.pageIndex, 2);
+
+const deletedPlan = [oldPlan[2], oldPlan[0]];
+const afterDelete = remapOutlineToPagePlan(reorderedOutline.outline, reorderedPlan, deletedPlan);
+assert.equal(afterDelete.outline[0].target.pageIndex, 1);
+assert.equal(afterDelete.outline[0].children.length, 0);
+assert.equal(afterDelete.dropped, 1);
 
 const sources = [
   { filename: "one.pdf", outline: read, bytes: new Uint8Array([1]) },

@@ -23,8 +23,10 @@ jobs:
           node-version: 24
       - name: Generate lockfile
         working-directory: docbench
-        run: |
-          npm install --package-lock-only --ignore-scripts
-          echo '---PACKAGE-LOCK-BEGIN---'
-          cat package-lock.json
-          echo '---PACKAGE-LOCK-END---'
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Upload lockfile
+        uses: actions/upload-artifact@v7
+        with:
+          name: docbench-package-lock
+          path: docbench/package-lock.json
+          retention-days: 1

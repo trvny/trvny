@@ -356,13 +356,13 @@ select,
   white-space: nowrap;
 }
 
-.outline-item:hover:not(:disabled) {
-  background: var(--panel-2);
-}
-
 .outline-item:disabled {
   color: var(--muted);
   cursor: default;
+}
+
+.outline-item:hover:not(:disabled) {
+  background: var(--panel-2);
 }
 
 .outline-note {
@@ -390,13 +390,13 @@ select,
   box-shadow: 0 10px 32px rgb(0 0 0 / 40%);
 }
 
-#pdf-preview-canvas:not([hidden]) + .pdf-empty-hint {
-  display: none;
-}
-
 .pdf-empty-hint {
   place-self: center;
   color: var(--muted);
+}
+
+#pdf-preview-canvas:not([hidden]) + .pdf-empty-hint {
+  display: none;
 }
 
 .pdf-pages {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import * as PDFLib from "@cantoo/pdf-lib";
 import {
   buildCombinedOutline,
+  buildQpdfFinalizeRequest,
   buildQpdfPageRequest,
   readPdfOutline,
   remapOutline,
@@ -86,6 +87,20 @@ assert.deepEqual(qpdfRequest.args, [
   "output.pdf",
 ]);
 assert.equal(qpdfRequest.inputs["source-1.pdf"][0], 2);
+
+const finalizeRequest = buildQpdfFinalizeRequest(
+  new Uint8Array([4, 5, 6]),
+  { optimize: true, linearize: true },
+);
+assert.deepEqual(finalizeRequest.args, [
+  "input.pdf",
+  "--object-streams=generate",
+  "--recompress-flate",
+  "--compression-level=9",
+  "--linearize",
+  "output.pdf",
+]);
+assert.deepEqual([...finalizeRequest.inputs["input.pdf"]], [4, 5, 6]);
 
 const document = await PDFLib.PDFDocument.create();
 document.addPage([300, 400]);

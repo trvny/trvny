@@ -53,6 +53,88 @@
     return { message: error.message, position };
   }
 
+  function nextNonWhitespace(text, index) {
+    while (index < text.length && /\s/.test(text[index])) index += 1;
+    return index;
+  }
+
+  function formatJsonLossless(text) {
+    const source = text.trim();
+    if (!source) return "";
+
+    let output = "";
+    let indent = 0;
+    let inString = false;
+    let escaped = false;
+    const stack = [];
+    const padding = () => "  ".repeat(indent);
+
+    for (let index = 0; index < source.length; index += 1) {
+      const char = source[index];
+
+      if (inString) {
+        output += char;
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === "\"") inString = false;
+        continue;
+      }
+
+      if (char === "\"") {
+        inString = true;
+        output += char;
+        continue;
+      }
+      if (/\s/.test(char)) continue;
+
+      if (char === "{" || char === "[") {
+        const close = char === "{" ? "}" : "]";
+        const next = nextNonWhitespace(source, index + 1);
+        const expanded = source[next] !== close;
+        stack.push(expanded);
+        output += char;
+        if (expanded) {
+          indent += 1;
+          output += `\n${padding()}`;
+        }
+        continue;
+      }
+
+      if (char === "}" || char === "]") {
+        const expanded = stack.pop();
+        if (expanded) {
+          indent -= 1;
+          output += `\n${padding()}`;
+        }
+        output += char;
+        continue;
+      }
+
+      if (char === ",") {
+        output += `,\n${padding()}`;
+        continue;
+      }
+      if (char === ":") {
+        output += ": ";
+        continue;
+      }
+      output += char;
+    }
+
+    return `${output}\n`;
+  }
+
+  function stringifyPreview(value) {
+    const seen = new WeakSet();
+    return JSON.stringify(value, (_key, current) => {
+      if (current && typeof current === "object") {
+        if (seen.has(current)) return "[Circular]";
+        seen.add(current);
+      }
+      return current;
+    }, 2);
+  }
+
   function xmlError(text) {
     const doc = new DOMParser().parseFromString(text, "application/xml");
     const error = doc.querySelector("parsererror");
@@ -69,8 +151,12 @@
     const text = editor.value;
     switch (formatSelect.value) {
       case "json":
-        try { return { ok: true, value: JSON.parse(text || "null") }; }
-        catch (error) { return { ok: false, error: jsonError(error, text) }; }
+        try {
+          JSON.parse(text || "null");
+          return { ok: true, value: text || "null" };
+        } catch (error) {
+          return { ok: false, error: jsonError(error, text) };
+        }
       case "yaml":
         try {
           const docs = [];
@@ -118,7 +204,8 @@
       statusBadge.className = "status good";
       statusBadge.textContent = "Valid";
       if (format === "xml") preview.textContent = editor.value;
-      else preview.textContent = JSON.stringify(result.value, null, 2);
+      else if (format === "json") preview.textContent = formatJsonLossless(editor.value || "null");
+      else preview.textContent = stringifyPreview(result.value);
     } else {
       statusBadge.className = "status bad";
       const at = result.error.position ? ` · ${result.error.position.line}:${result.error.position.column}` : "";
@@ -132,22 +219,67 @@
   function formatXml(text) {
     const error = xmlError(text);
     if (error) throw new Error(error.message);
-    const serialized = new XMLSerializer().serializeToString(new DOMParser().parseFromString(text, "application/xml"));
-    const tokens = serialized.replace(/>\s*</g, "><").replace(/</g, "\n<").trim().split("\n");
-    let depth = 0;
-    return tokens.map((token) => {
-      if (/^<\//.test(token)) depth = Math.max(0, depth - 1);
-      const line = `${"  ".repeat(depth)}${token}`;
-      if (/^<[^!?/][^>]*[^/]>/i.test(token) && !/<\/[^>]+>$/.test(token)) depth += 1;
-      return line;
-    }).join("\n");
+
+    const doc = new DOMParser().parseFromString(text, "application/xml");
+    const serializer = new XMLSerializer();
+    const declaration = text.match(/^\s*(<\?xml\s+[^?]*\?>)/i)?.[1] || "";
+
+    function serializeNode(node, depth) {
+      const indent = "  ".repeat(depth);
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        if (node.nodeType === Node.TEXT_NODE && !node.nodeValue.trim()) return "";
+        return `${indent}${serializer.serializeToString(node)}`;
+      }
+
+      const children = Array.from(node.childNodes);
+      const hasElementChild = children.some((child) => child.nodeType === Node.ELEMENT_NODE);
+      const hasSensitiveText = hasElementChild && children.some((child) => {
+        if (child.nodeType === Node.CDATA_SECTION_NODE) return true;
+        if (child.nodeType !== Node.TEXT_NODE) return false;
+        const value = child.nodeValue || "";
+        return value.trim() !== "" || !/[\r\n]/.test(value);
+      });
+      const preservesSpace = node.getAttributeNS?.(
+        "http://www.w3.org/XML/1998/namespace",
+        "space",
+      ) === "preserve";
+
+      if (hasSensitiveText || preservesSpace) {
+        return `${indent}${serializer.serializeToString(node)}`;
+      }
+
+      const structuralChildren = children.filter((child) => {
+        return child.nodeType !== Node.TEXT_NODE || child.nodeValue.trim() !== "";
+      });
+      if (!structuralChildren.length) {
+        return `${indent}${serializer.serializeToString(node)}`;
+      }
+
+      const shallow = node.cloneNode(false);
+      let opening = serializer.serializeToString(shallow);
+      if (opening.endsWith("/>")) opening = `${opening.slice(0, -2)}>`;
+
+      const lines = [`${indent}${opening}`];
+      for (const child of structuralChildren) {
+        const serialized = serializeNode(child, depth + 1);
+        if (serialized) lines.push(serialized);
+      }
+      lines.push(`${indent}</${node.nodeName}>`);
+      return lines.join("\n");
+    }
+
+    const body = Array.from(doc.childNodes)
+      .map((node) => serializeNode(node, 0))
+      .filter(Boolean)
+      .join("\n");
+    return [declaration, body].filter(Boolean).join("\n");
   }
 
   function formatDocument() {
     const result = parseCurrent();
     if (!result.ok) return renderValidation();
     try {
-      if (formatSelect.value === "json") editor.value = `${JSON.stringify(result.value, null, 2)}\n`;
+      if (formatSelect.value === "json") editor.value = formatJsonLossless(editor.value || "null");
       if (formatSelect.value === "yaml") {
         const docs = [];
         globalThis.jsyaml.loadAll(editor.value, (doc) => docs.push(doc));

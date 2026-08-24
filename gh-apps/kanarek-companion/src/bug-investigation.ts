@@ -343,6 +343,16 @@ export function extractBugSymbols(text: string, hints: string[] = [], limit = 6)
     if (candidates.length >= limit) return candidates.slice(0, limit);
   }
 
+  const pythonFrame = /\bFile\s+"[^"\n]+",\s+line\s+\d+,\s+in\s+([A-Za-z_][A-Za-z0-9_]*)/g;
+  for (const match of text.matchAll(pythonFrame)) {
+    const symbol = match[1];
+    add(symbol);
+    const frameStart = match.index ?? 0;
+    const nameStart = frameStart + match[0].lastIndexOf(symbol);
+    stackRanges.push([nameStart, nameStart + symbol.length]);
+    if (candidates.length >= limit) return candidates.slice(0, limit);
+  }
+
   const dotted = /\b([A-Za-z_$][A-Za-z0-9_$]*)\.([A-Za-z_$][A-Za-z0-9_$]*)\b/g;
   for (const match of text.matchAll(dotted)) {
     const index = match.index ?? 0;
@@ -811,6 +821,9 @@ async function investigate(request: Request, invoke: Invoke): Promise<Response> 
   const verifiedStackPaths = stackCandidates.filter((path) => verifiedSet.has(path));
   const hintedTarget = input.path && verifiedSet.has(input.path) ? input.path : null;
   const targets = collectTargetPaths(verifiedStackPaths, hintedTarget, investigations);
+  const mutationTargetPaths = snapshot.baseSha === snapshot.sha
+    ? targets.paths
+    : await existingTargetPaths(request, invoke, input.repository, snapshot.baseSha, targets.paths);
   const history = await Promise.all(
     targets.paths.slice(0, 3).map((path) => childAction(
       request,
@@ -826,16 +839,16 @@ async function investigate(request: Request, invoke: Invoke): Promise<Response> 
     )),
   );
 
-  const verificationPlan = targets.paths.length
+  const verificationPlan = mutationTargetPaths.length
     ? await childAction(
         request,
         TARGETED_TESTS_PATH,
-        { repository: input.repository, targetPaths: targets.paths, ref: snapshot.sha },
+        { repository: input.repository, targetPaths: mutationTargetPaths, ref: snapshot.baseSha },
         (child) => handleTargetedTestsAction(child, invoke),
       )
     : { ok: false, error: 'no_target_paths' };
 
-  const nextAction = await handoff(input, resolved, snapshot, symbols, targets.paths);
+  const nextAction = await handoff(input, resolved, snapshot, symbols, mutationTargetPaths);
   return json({
     ok: true,
     source: {
@@ -858,17 +871,20 @@ async function investigate(request: Request, invoke: Invoke): Promise<Response> 
       hintedTarget,
     },
     symbolInvestigations: investigations,
-    targetPaths: targets.paths,
+    evidenceTargetPaths: targets.paths,
+    targetPaths: mutationTargetPaths,
     history,
     verificationPlan,
     readyForFix: nextAction !== null,
     nextAction: nextAction ?? {
       type: 'investigate_more',
-      note: targets.paths.length
-        ? 'No downstream-safe investigation term was found. Add a symbol hint or narrow the target path.'
-        : symbols.length
-          ? 'No reliable target files were found. Add a path/language hint or inspect the returned symbol evidence.'
-          : 'No reliable code symbols or target files were extracted. Retry with a symbol or exact file path hint.',
+      note: targets.paths.length && !mutationTargetPaths.length
+        ? 'Evidence-only target files are absent from the current mutation base. Provide a base-applicable target or port the evidence first.'
+        : mutationTargetPaths.length
+          ? 'No downstream-safe investigation term was found. Add a symbol hint or narrow the target path.'
+          : symbols.length
+            ? 'No reliable target files were found. Add a path/language hint or inspect the returned symbol evidence.'
+            : 'No reliable code symbols or target files were extracted. Retry with a symbol or exact file path hint.',
     },
   });
 }

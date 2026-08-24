@@ -73,17 +73,8 @@ jobs:
 
           path = Path('gh-apps/kanarek-companion/src/code-change-orchestration.ts')
           text = path.read_text()
-          old = """          nextAction: blockers.some((blocker) => blocker.startsWith('ci:failure'))
-            ? { type: 'edit', note: 'Diagnose the failed CI before finalization.' }
-            : { type: 'review', note: 'Wait for or resolve final-head CI/review blockers.' },"""
-          new = """          nextAction: blockers.some((blocker) => blocker.startsWith('ci:failure'))
-            ? {
-              type: 'edit',
-              headSha: progress.branchHead,
-              revision: progress.revision,
-              note: 'Diagnose the failed CI before finalization.',
-            }
-            : { type: 'review', note: 'Wait for or resolve final-head CI/review blockers.' },"""
+          old = "          nextAction: blockers.some((blocker) => blocker.startsWith('ci:failure'))\n            ? { type: 'edit', note: 'Diagnose the failed CI before finalization.' }\n            : { type: 'review', note: 'Wait for or resolve final-head CI/review blockers.' },"
+          new = "          nextAction: blockers.some((blocker) => blocker.startsWith('ci:failure'))\n            ? {\n              type: 'edit',\n              headSha: progress.branchHead,\n              revision: progress.revision,\n              note: 'Diagnose the failed CI before finalization.',\n            }\n            : { type: 'review', note: 'Wait for or resolve final-head CI/review blockers.' },"
           if text.count(old) != 1:
               raise SystemExit(f'expected one final edit action, found {text.count(old)}')
           path.write_text(text.replace(old, new, 1))

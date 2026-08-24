@@ -10,6 +10,8 @@ const [
   pdfLib,
   app,
   documentEnhancements,
+  jsonParser,
+  jsonScanner,
   pdfCore,
   pdfApp,
   pdfJs,
@@ -29,6 +31,8 @@ const [
   readFile("public/vendor/pdf-lib.min.js", "utf8"),
   readFile("public/app.js", "utf8"),
   readFile("public/document-enhancements.mjs", "utf8"),
+  readFile("public/vendor/jsonc-parser/impl/parser.js", "utf8"),
+  readFile("public/vendor/jsonc-parser/impl/scanner.js", "utf8"),
   readFile("public/pdf-core.mjs", "utf8"),
   readFile("public/pdf-app.mjs", "utf8"),
   readFile("public/vendor/pdfjs/pdf.mjs", "utf8"),
@@ -58,6 +62,16 @@ for (const filename of [
   const fontUrl = dataUrl("font/woff2", await readFile(`public/fonts/${filename}`));
   portableFonts = portableFonts.replaceAll(`/fonts/${filename}`, fontUrl);
 }
+
+const jsonScannerUrl = dataUrl("text/javascript", jsonScanner);
+const jsonParserPortable = jsonParser
+  .replaceAll("'./scanner.js'", JSON.stringify(jsonScannerUrl))
+  .replaceAll('"./scanner.js"', JSON.stringify(jsonScannerUrl));
+const jsonParserUrl = dataUrl("text/javascript", jsonParserPortable);
+const documentEnhancementsPortable = documentEnhancements.replace(
+  'from "./vendor/jsonc-parser/impl/parser.js";',
+  `from ${JSON.stringify(jsonParserUrl)};`,
+);
 
 const qpdfBytesUrl = dataUrl("text/javascript", qpdfBytes);
 const browserRunnerPortable = qpdfBrowserRunner.replaceAll(
@@ -90,14 +104,32 @@ const portablePdfScripts = [
 ].join("\n");
 
 const portable = html
-  .replace('<link rel="stylesheet" href="/fonts.css">', `<style data-portable-fonts>${portableFonts}</style>`)
+  .replace(
+    '<link rel="stylesheet" href="/fonts.css">',
+    `<style data-portable-fonts>${portableFonts}</style>`,
+  )
   .replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`)
-  .replace('<link rel="stylesheet" href="/document-enhancements.css">', `<style>${enhancementsCss}</style>`)
-  .replace('<script src="/vendor/js-yaml.min.js"></script>', `<script>${safeScript(yaml)}</script>`)
-  .replace('<script src="/vendor/marked.umd.js"></script>', `<script>${safeScript(marked)}</script>`)
-  .replace('<script src="/vendor/pdf-lib.min.js"></script>', `<script>${safeScript(pdfLib)}</script>`)
+  .replace(
+    '<link rel="stylesheet" href="/document-enhancements.css">',
+    `<style>${enhancementsCss}</style>`,
+  )
+  .replace(
+    '<script src="/vendor/js-yaml.min.js"></script>',
+    `<script>${safeScript(yaml)}</script>`,
+  )
+  .replace(
+    '<script src="/vendor/marked.umd.js"></script>',
+    `<script>${safeScript(marked)}</script>`,
+  )
+  .replace(
+    '<script src="/vendor/pdf-lib.min.js"></script>',
+    `<script>${safeScript(pdfLib)}</script>`,
+  )
   .replace('<script src="/app.js"></script>', `<script>${safeScript(app)}</script>`)
-  .replace('<script type="module" src="/document-enhancements.mjs"></script>', `<script type="module">${safeScript(documentEnhancements)}</script>`)
+  .replace(
+    '<script type="module" src="/document-enhancements.mjs"></script>',
+    `<script type="module">${safeScript(documentEnhancementsPortable)}</script>`,
+  )
   .replace('<script type="module" src="/pdf-app.mjs"></script>', portablePdfScripts)
   .replace('<link rel="manifest" href="/site.webmanifest">', "")
   .replace('<link rel="icon" type="image/svg+xml" href="/favicon.svg">', "");

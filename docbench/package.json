@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/vendor.mjs && node scripts/portable.mjs",
     "typecheck": "npx --yes wrangler@4 types && npx --yes --package=typescript@7.0.2 tsc --noEmit",
-    "check": "npm run build && npm run typecheck && node --check public/app.js && node scripts/check.mjs && node tests/pdf-core.test.mjs && npx --yes wrangler@4 deploy --dry-run",
+    "check": "npm run build && npm run typecheck && node --check public/app.js && node --check public/document-enhancements.mjs && node scripts/check.mjs && node tests/pdf-core.test.mjs && npx --yes wrangler@4 deploy --dry-run",
     "dev": "npm run build && npx --yes wrangler@4 dev",
     "deploy": "npm run build && npx --yes wrangler@4 deploy"
   },
@@ -15,6 +15,7 @@
     "@fontsource-variable/space-grotesk": "5.3.0",
     "@fontsource/space-mono": "5.3.0",
     "js-yaml": "5.3.0",
+    "marked": "18.0.10",
     "pdfjs-dist": "6.2.108",
     "qpdf-run": "0.2.1"
   },

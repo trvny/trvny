@@ -42,6 +42,7 @@ for (const capability of [
   "showOpenFilePicker",
   "showSaveFilePicker",
   "createWritable",
+  "writable.abort",
 ]) {
   if (!documentEnhancements.includes(capability)) {
     throw new Error(`Document workspace is missing ${capability} support.`);

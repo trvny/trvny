@@ -38,7 +38,8 @@ merge, lossless structural optimization and linearization.
 
 ## Space Grotesk / Space Mono
 
-- Packages: `@fontsource-variable/space-grotesk` 5.3.0 and `@fontsource/space-mono` 5.3.0
+- Packages: `@fontsource-variable/space-grotesk` 5.3.0 and
+  `@fontsource/space-mono` 5.3.0
 - Project: https://fontsource.org/
 - Font licenses: SIL Open Font License 1.1
 

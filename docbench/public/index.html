@@ -3,69 +3,77 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#111318">
+  <meta name="theme-color" content="#0b0d11">
   <meta name="description" content="Edit, validate and transform documents and PDFs locally in your browser.">
   <title>Doc Bench — Document & PDF Studio</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="manifest" href="/site.webmanifest">
+  <link rel="stylesheet" href="/fonts.css">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <main class="app-shell">
     <header class="hero">
-      <div>
+      <div class="hero-copy">
         <p class="eyebrow">TRVNY / BENCHES</p>
-        <h1>Doc Bench</h1>
-        <p class="tagline">Document & PDF Studio · local-first</p>
+        <div class="title-row">
+          <h1>Doc Bench</h1>
+          <span class="privacy-chip"><span class="privacy-dot" aria-hidden="true"></span>Local only</span>
+        </div>
+        <p class="tagline">Document & PDF Studio · edit, inspect and export without uploading.</p>
       </div>
       <div class="hero-actions">
         <button id="open-button" class="button primary" type="button">Open file</button>
-        <button id="new-button" class="button" type="button">New</button>
+        <button id="new-button" class="button" type="button">New document</button>
         <input id="file-input" type="file" hidden accept=".txt,.md,.markdown,.json,.yml,.yaml,.xml,text/*,application/json,application/xml,text/xml">
       </div>
     </header>
 
-    <nav class="mode-tabs" aria-label="Workspace">
-      <button class="mode-tab active" type="button" data-mode="document">Documents</button>
-      <button class="mode-tab" type="button" data-mode="pdf">PDF</button>
+    <nav class="mode-tabs" role="tablist" aria-label="Workspace">
+      <button id="document-tab" class="mode-tab active" type="button" role="tab" aria-selected="true" aria-controls="document-workspace" data-mode="document">Documents</button>
+      <button id="pdf-tab" class="mode-tab" type="button" role="tab" aria-selected="false" aria-controls="pdf-workspace" data-mode="pdf">PDF</button>
     </nav>
 
-    <section id="document-workspace" class="workspace">
-      <div class="toolbar">
-        <label>Format
-          <select id="format-select">
-            <option value="txt">TXT</option>
-            <option value="md">Markdown</option>
-            <option value="json">JSON</option>
-            <option value="yaml">YAML</option>
-            <option value="xml">XML</option>
-          </select>
-        </label>
-        <label>Line endings
-          <select id="eol-select">
-            <option value="LF">LF</option>
-            <option value="CRLF">CRLF</option>
-            <option value="CR">CR</option>
-          </select>
-        </label>
-        <button id="validate-button" class="button compact" type="button">Validate</button>
-        <button id="format-button" class="button compact" type="button">Format</button>
-        <button id="copy-button" class="button compact" type="button">Copy</button>
-        <button id="save-button" class="button compact primary" type="button">Save</button>
+    <section id="document-workspace" class="workspace" role="tabpanel" aria-labelledby="document-tab">
+      <div class="toolbar document-toolbar">
+        <div class="toolbar-group fields-group">
+          <label>Format
+            <select id="format-select">
+              <option value="txt">TXT</option>
+              <option value="md">Markdown</option>
+              <option value="json">JSON</option>
+              <option value="yaml">YAML</option>
+              <option value="xml">XML</option>
+            </select>
+          </label>
+          <label>Line endings
+            <select id="eol-select">
+              <option value="LF">LF</option>
+              <option value="CRLF">CRLF</option>
+              <option value="CR">CR</option>
+            </select>
+          </label>
+        </div>
+        <div class="toolbar-group action-group">
+          <button id="validate-button" class="button compact" type="button">Validate</button>
+          <button id="format-button" class="button compact" type="button">Format</button>
+          <button id="copy-button" class="button compact" type="button">Copy</button>
+          <button id="save-button" class="button compact primary" type="button" aria-keyshortcuts="Control+S Meta+S">Save</button>
+        </div>
       </div>
 
       <div id="drop-zone" class="editor-grid">
-        <section class="panel editor-panel">
+        <section class="panel editor-panel" aria-label="Editor">
           <div class="panel-header">
             <strong id="filename-label">untitled.txt</strong>
             <span id="encoding-label">UTF-8 · LF</span>
           </div>
           <textarea id="editor" spellcheck="false" aria-label="Document editor" placeholder="Drop a file here or start typing…"></textarea>
         </section>
-        <section class="panel preview-panel">
+        <section class="panel preview-panel" aria-label="Parsed preview">
           <div class="panel-header">
             <strong>Parsed preview</strong>
-            <span id="status-badge" class="status neutral">Plain text</span>
+            <span id="status-badge" class="status neutral" role="status" aria-live="polite">Plain text</span>
           </div>
           <pre id="preview" tabindex="0"></pre>
         </section>
@@ -73,39 +81,46 @@
       <p id="detail-status" class="detail-status">UTF-8 · LF · 1 line</p>
     </section>
 
-    <section id="pdf-workspace" class="workspace" hidden>
+    <section id="pdf-workspace" class="workspace" role="tabpanel" aria-labelledby="pdf-tab" hidden>
       <div class="toolbar pdf-toolbar">
-        <button id="pdf-open-button" class="button compact primary" type="button">Open PDF</button>
-        <button id="pdf-add-button" class="button compact" type="button">Add PDF</button>
-        <input id="pdf-input" type="file" hidden accept="application/pdf,.pdf">
-        <input id="pdf-add-input" type="file" hidden multiple accept="application/pdf,.pdf">
-        <span class="toolbar-spacer"></span>
-        <button id="pdf-move-left" class="button compact" type="button" disabled>← Move</button>
-        <button id="pdf-move-right" class="button compact" type="button" disabled>Move →</button>
-        <button id="pdf-remove-page" class="button compact danger" type="button" disabled>Delete page</button>
-        <label class="toggle-label">
-          <input id="pdf-optimize" type="checkbox" checked>
-          Lossless optimize
-        </label>
-        <label class="toggle-label">
-          <input id="pdf-lossy-images" type="checkbox">
-          Lossy images
-        </label>
-        <label id="pdf-image-quality-row" class="quality-label" hidden>
-          JPEG quality
-          <input id="pdf-image-quality" type="range" min="30" max="95" step="5" value="75">
-          <output id="pdf-image-quality-value" for="pdf-image-quality">75</output>
-        </label>
-        <label class="toggle-label">
-          <input id="pdf-linearize" type="checkbox">
-          Fast Web View
-        </label>
-        <button id="pdf-save-button" class="button compact primary" type="button" disabled>Save PDF</button>
+        <div class="toolbar-group action-group">
+          <button id="pdf-open-button" class="button compact primary" type="button">Open PDF</button>
+          <button id="pdf-add-button" class="button compact" type="button">Add PDF</button>
+          <input id="pdf-input" type="file" hidden accept="application/pdf,.pdf">
+          <input id="pdf-add-input" type="file" hidden multiple accept="application/pdf,.pdf">
+        </div>
+        <div class="toolbar-group page-action-group">
+          <button id="pdf-move-left" class="button compact" type="button" disabled>← Move</button>
+          <button id="pdf-move-right" class="button compact" type="button" disabled>Move →</button>
+          <button id="pdf-remove-page" class="button compact danger" type="button" disabled>Delete page</button>
+        </div>
+        <div class="toolbar-group option-group">
+          <label class="toggle-label">
+            <input id="pdf-optimize" type="checkbox" checked>
+            Lossless optimize
+          </label>
+          <label class="toggle-label">
+            <input id="pdf-lossy-images" type="checkbox">
+            Lossy images
+          </label>
+          <label id="pdf-image-quality-row" class="quality-label" hidden>
+            JPEG quality
+            <input id="pdf-image-quality" type="range" min="30" max="95" step="5" value="75">
+            <output id="pdf-image-quality-value" for="pdf-image-quality">75</output>
+          </label>
+          <label class="toggle-label">
+            <input id="pdf-linearize" type="checkbox">
+            Fast Web View
+          </label>
+        </div>
+        <div class="toolbar-group save-group">
+          <button id="pdf-save-button" class="button compact primary" type="button" aria-keyshortcuts="Control+S Meta+S" disabled>Save PDF</button>
+        </div>
       </div>
 
       <div class="pdf-meta-row">
         <strong id="pdf-filename">No PDF loaded</strong>
-        <span id="pdf-status">Open a PDF to begin.</span>
+        <span id="pdf-status" role="status" aria-live="polite">Open a PDF to begin.</span>
       </div>
 
       <div class="pdf-grid">
@@ -144,15 +159,15 @@
             <div class="bookmark-actions">
               <button id="bookmark-add-sibling" class="mini-button" type="button">+ Sibling</button>
               <button id="bookmark-add-child" class="mini-button" type="button">+ Child</button>
-              <button id="bookmark-up" class="mini-button" type="button">↑</button>
-              <button id="bookmark-down" class="mini-button" type="button">↓</button>
+              <button id="bookmark-up" class="mini-button" type="button" title="Move bookmark up">↑</button>
+              <button id="bookmark-down" class="mini-button" type="button" title="Move bookmark down">↓</button>
               <button id="bookmark-indent" class="mini-button" type="button">→ Nest</button>
               <button id="bookmark-outdent" class="mini-button" type="button">← Out</button>
               <button id="bookmark-delete" class="mini-button danger" type="button">Delete</button>
             </div>
           </form>
         </aside>
-        <section class="pdf-preview-panel">
+        <section class="pdf-preview-panel" aria-label="PDF preview">
           <div class="panel-header"><strong>Preview</strong><span>PDF.js · scripting off</span></div>
           <div class="pdf-canvas-stage">
             <canvas id="pdf-preview-canvas" hidden></canvas>
@@ -166,7 +181,7 @@
       </div>
     </section>
 
-    <footer>Files stay in your browser. No uploads, no telemetry.</footer>
+    <footer><span>Local-first by design.</span><span>No uploads · no telemetry · portable build included.</span></footer>
   </main>
   <script src="/vendor/js-yaml.min.js"></script>
   <script src="/vendor/pdf-lib.min.js"></script>

@@ -3,6 +3,8 @@ import { access, readFile, stat } from "node:fs/promises";
 for (const path of [
   "public/index.html",
   "public/app.js",
+  "public/document-enhancements.mjs",
+  "public/document-enhancements.css",
   "public/pdf-app.mjs",
   "public/pdf-core.mjs",
   "public/fonts.css",
@@ -14,6 +16,7 @@ for (const path of [
   "public/fonts/space-mono-latin-ext-700.woff2",
   "public/fonts/space-mono-latin-700.woff2",
   "public/vendor/js-yaml.min.js",
+  "public/vendor/marked.umd.js",
   "public/vendor/pdf-lib.min.js",
   "public/vendor/pdfjs/pdf.mjs",
   "public/vendor/pdfjs/pdf.worker.mjs",
@@ -26,6 +29,26 @@ for (const path of [
   "public/portable.html",
 ]) {
   await access(path);
+}
+
+const documentEnhancements = await readFile(
+  "public/document-enhancements.mjs",
+  "utf8",
+);
+if (documentEnhancements.includes("innerHTML")) {
+  throw new Error("Rich document preview must not inject rendered HTML.");
+}
+for (const capability of [
+  "showOpenFilePicker",
+  "showSaveFilePicker",
+  "createWritable",
+]) {
+  if (!documentEnhancements.includes(capability)) {
+    throw new Error(`Document workspace is missing ${capability} support.`);
+  }
+}
+if (!documentEnhancements.includes("MAX_TREE_NODES")) {
+  throw new Error("Structured previews must keep a bounded tree renderer.");
 }
 
 const portable = await readFile("public/portable.html", "utf8");
@@ -41,10 +64,12 @@ for (const leaked of [
   "/vendor/",
   "/fonts/",
   "/app.js",
+  "/document-enhancements.mjs",
   "/pdf-app.mjs",
   "/pdf-core.mjs",
   "/fonts.css",
   "/styles.css",
+  "/document-enhancements.css",
 ]) {
   if (resourceUrls.some((url) => url.startsWith(leaked))) {
     throw new Error(`Portable build still references ${leaked}`);
@@ -57,6 +82,10 @@ if (!portable.includes("Space Grotesk") || !portable.includes("Space Mono")) {
   throw new Error("Portable build is missing embedded Bench fonts");
 }
 if (!portable.includes("jsyaml")) throw new Error("Portable build is missing YAML runtime");
+if (!portable.includes("marked")) throw new Error("Portable build is missing Markdown runtime");
+if (!portable.includes("showSaveFilePicker") || !portable.includes("createWritable")) {
+  throw new Error("Portable build is missing direct-save support");
+}
 if (!portable.includes("PDFLib")) throw new Error("Portable build is missing PDF mutation runtime");
 if (!portable.includes("__docbenchPdfAssets")) {
   throw new Error("Portable build is missing embedded PDF runtime assets");

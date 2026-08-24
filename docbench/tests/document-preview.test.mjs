@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { parseTree } from "jsonc-parser";
+import jsoncParser from "jsonc-parser";
 
-const source = String.raw`{
+const { parseTree } = jsoncParser;
+const source = `{
   "huge": 9007199254740993,
   "exponent": 1e400,
-  "escaped": "\u0061"
+  "escaped": "\\u0061"
 }`;
 const errors = [];
 const root = parseTree(source, errors, {
@@ -28,7 +29,7 @@ function lexeme(node) {
 
 assert.equal(lexeme(propertyValue("huge")), "9007199254740993");
 assert.equal(lexeme(propertyValue("exponent")), "1e400");
-assert.equal(lexeme(propertyValue("escaped")), String.raw`"\u0061"`);
+assert.equal(lexeme(propertyValue("escaped")), '"\\u0061"');
 assert.notEqual(JSON.parse(source).huge.toString(), lexeme(propertyValue("huge")));
 
 console.log("Doc Bench document preview tests passed.");

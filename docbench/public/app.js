@@ -127,6 +127,7 @@
 
   function previewValue(value, ancestors = new WeakSet()) {
     if (!value || typeof value !== "object") return value;
+    if (value instanceof Date) return value.toISOString();
     if (ancestors.has(value)) return "[Circular]";
 
     ancestors.add(value);

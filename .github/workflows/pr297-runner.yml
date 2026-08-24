@@ -1,0 +1,59 @@
+name: Run PR 297 review fixes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/pr297-runner.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: feat/code-change-autopilot
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
+
+      - name: Apply review patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/pr297-review-fixes.yml').read_text()
+          lines = workflow.splitlines()
+          start = next(i for i, line in enumerate(lines) if line.strip() == "python - <<'PY'") + 1
+          end = next(i for i in range(start, len(lines)) if lines[i].strip() == 'PY')
+          script = textwrap.dedent('\n'.join(lines[start:end])) + '\n'
+          script = script.replace("r'''\\\n", "'''\\\n")
+          script = script.replace(
+              're.subn(pattern, replacement, text, count=1, flags=re.S)',
+              're.subn(pattern, lambda _match: replacement, text, count=1, flags=re.S)',
+          )
+          exec(compile(script, '<pr297-review-fixes>', 'exec'), {'__name__': '__main__'})
+          PY
+
+      - name: Validate companion
+        working-directory: gh-apps/kanarek-companion
+        run: |
+          npm ci
+          npm run check
+
+      - name: Commit source fixes
+        run: |
+          git config user.name GPTomek
+          git config user.email '314538226+gptomek[bot]@users.noreply.github.com'
+          git add gh-apps/kanarek-companion/src gh-apps/kanarek-companion/test
+          git diff --cached --check
+          git commit -m 'fix(gpt-actions): close autopilot review gaps'
+          git push origin HEAD:feat/code-change-autopilot

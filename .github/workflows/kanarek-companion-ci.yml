@@ -82,6 +82,14 @@ jobs:
               're.subn(pattern, replacement, text, count=1, flags=re.S)',
               're.subn(pattern, lambda _match: replacement, text, count=1, flags=re.S)',
           )
+          script = script.replace(
+              '"""    core,\\n        currentBranch,\\n        currentBase.defaultBranch,\\n      );"""',
+              '"""    core,\\n    currentBranch,\\n    currentBase.defaultBranch,\\n  );"""',
+          )
+          script = script.replace(
+              '"""    core,\\n        inputHash,\\n        currentBranch,\\n        currentBase.defaultBranch,\\n      );"""',
+              '"""    core,\\n    inputHash,\\n    currentBranch,\\n    currentBase.defaultBranch,\\n  );"""',
+          )
           exec(compile(script, '<pr297-review-fixes>', 'exec'), {'__name__': '__main__'})
           PY
 

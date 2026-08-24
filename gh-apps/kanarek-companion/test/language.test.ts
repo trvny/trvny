@@ -5,9 +5,11 @@ import {
   chinesePresetPool,
   contextLanguage,
   contextualPreset,
+  latinPresetPool,
   matchesLanguage,
   presetPool,
   reusableQuip,
+  russianPresetPool,
 } from '../src/companion-language.ts';
 import { PRESETS } from '../src/quip.ts';
 
@@ -48,11 +50,15 @@ test('keeps every preset state in explicit language pools', () => {
   );
 });
 
-test('selects presets from the requested language pool with a rare Chinese easter egg', async () => {
+test('selects presets from normal or rare easter-egg language pools', async () => {
   for (const key of Object.keys(PRESETS)) {
     for (const language of ['pl', 'en'] as const) {
-      const pool = presetPool(key, language);
-      const chinese = chinesePresetPool(key);
+      const pools = [
+        presetPool(key, language),
+        chinesePresetPool(key),
+        latinPresetPool(key),
+        russianPresetPool(key),
+      ];
       for (let index = 0; index < 20; index += 1) {
         const value = await contextualPreset(
           key,
@@ -61,7 +67,7 @@ test('selects presets from the requested language pool with a rare Chinese easte
           language,
         );
         assert.equal(
-          pool.includes(value) || chinese.includes(value),
+          pools.some((pool) => pool.includes(value)),
           true,
           `${key}/${language}: ${value}`,
         );
@@ -70,15 +76,28 @@ test('selects presets from the requested language pool with a rare Chinese easte
   }
 });
 
-test('keeps the Chinese easter egg deterministic and rare', async () => {
-  const chinese = chinesePresetPool('ready');
+test('keeps polyglot easter eggs deterministic and rare', async () => {
   assert.equal(
-    chinese.includes(await contextualPreset('ready', 'zh-test-4', '', 'en')),
+    chinesePresetPool('ready').includes(
+      await contextualPreset('ready', 'egg-32', '', 'en'),
+    ),
+    true,
+  );
+  assert.equal(
+    latinPresetPool('ready').includes(
+      await contextualPreset('ready', 'egg-2', '', 'en'),
+    ),
+    true,
+  );
+  assert.equal(
+    russianPresetPool('ready').includes(
+      await contextualPreset('ready', 'egg-16', '', 'en'),
+    ),
     true,
   );
   assert.equal(
     presetPool('ready', 'en').includes(
-      await contextualPreset('ready', 'zh-test-0', '', 'en'),
+      await contextualPreset('ready', 'egg-0', '', 'en'),
     ),
     true,
   );

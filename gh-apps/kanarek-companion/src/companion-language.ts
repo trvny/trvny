@@ -3,6 +3,8 @@ import { hash, PRESETS, sanitize, validQuipLength } from './quip.ts';
 export type CompanionLanguage = 'en' | 'pl';
 
 const CHINESE_EASTER_EGG_PERCENT = 3;
+const LATIN_EASTER_EGG_PERCENT = 2;
+const RUSSIAN_EASTER_EGG_PERCENT = 2;
 
 const CHINESE_PRESETS: Readonly<Record<string, readonly string[]>> = {
   ready: [
@@ -28,6 +30,60 @@ const CHINESE_PRESETS: Readonly<Record<string, readonly string[]>> = {
   closed: [
     '航班取消。金丝雀关灯收摊，今天就到这里。',
     'PR 已关闭。金丝雀扫走面包屑，笼子恢复待机。',
+  ],
+};
+
+const LATIN_PRESETS: Readonly<Record<string, readonly string[]>> = {
+  ready: [
+    'Lumina virent. Canaria instrumenta deponit; volatus permittitur.',
+    'Fila quiescunt. Canaria caput inclinat: ad main procedendum est.',
+  ],
+  waiting: [
+    'Machina adhuc laborat. Canaria funem custodit et responsum CI exspectat.',
+    'Lumina adhuc cogitant. Canaria iuxta sedet nec bullas tangit.',
+  ],
+  blocked: [
+    'Lumen rubrum ardet. Canaria vitium monstrat et auxilium humanum exspectat.',
+    'Unus funis rebellat. Canaria volatum suspendit donec res componatur.',
+  ],
+  draft: [
+    'Alae adhuc struuntur. Canaria non urget; schema manet in officina.',
+    'Schema adhuc in cavea est. Canaria chartam inspicit et alarmum differt.',
+  ],
+  merged: [
+    'In main iam appulit. Canaria libellum claudit: opus perfectum est.',
+    'Codex ad nidum rediit. Canaria sigillum ponit et officium finit.',
+  ],
+  closed: [
+    'Volatus cancellatus est. Canaria lucem extinguit et caveam ordinat.',
+    'PR clausum est. Canaria micas verrit; cavea ad quietem redit.',
+  ],
+};
+
+const RUSSIAN_PRESETS: Readonly<Record<string, readonly string[]>> = {
+  ready: [
+    'Всё зелёное. Канарейка убирает отвёртку и разрешает взлёт.',
+    'Провода подозрительно тихие. Канарейка кивает: можно в main.',
+  ],
+  waiting: [
+    'Машина ещё работает. Канарейка сторожит кабель и ждёт ответа CI.',
+    'Лампочки ещё думают. Канарейка сидит рядом и кнопки пока не клюёт.',
+  ],
+  blocked: [
+    'Красная лампа горит. Канарейка показывает на сбой и зовёт человека.',
+    'Один кабель взбунтовался. Канарейка временно отменяет взлёт.',
+  ],
+  draft: [
+    'Крылья ещё собирают. Канарейка не торопит, черновик остаётся в работе.',
+    'Черновик ещё в клетке. Канарейка читает схему и пока не бьёт тревогу.',
+  ],
+  merged: [
+    'Код уже в main. Канарейка закрывает блокнот: дело сделано.',
+    'Код вернулся в гнездо. Канарейка ставит печать и уходит домой.',
+  ],
+  closed: [
+    'Полёт отменён. Канарейка выключает свет и закрывает лавочку.',
+    'PR закрыт. Канарейка сметает крошки, клетка возвращается в ожидание.',
   ],
 };
 
@@ -195,6 +251,16 @@ export function chinesePresetPool(key: string): readonly string[] {
   return CHINESE_PRESETS[stateKey] ?? CHINESE_PRESETS.waiting;
 }
 
+export function latinPresetPool(key: string): readonly string[] {
+  const stateKey = PRESETS[key] ? key : 'waiting';
+  return LATIN_PRESETS[stateKey] ?? LATIN_PRESETS.waiting;
+}
+
+export function russianPresetPool(key: string): readonly string[] {
+  const stateKey = PRESETS[key] ? key : 'waiting';
+  return RUSSIAN_PRESETS[stateKey] ?? RUSSIAN_PRESETS.waiting;
+}
+
 export function matchesLanguage(
   value: string,
   language: CompanionLanguage,
@@ -219,13 +285,22 @@ export async function contextualPreset(
   language: CompanionLanguage = 'en',
 ): Promise<string> {
   const digest = await hash(seed);
-  const chineseOptions = chinesePresetPool(key);
-  const chinese =
-    Number.parseInt(digest.slice(0, 8), 16) % 100 < CHINESE_EASTER_EGG_PERCENT;
-  const options = chinese ? chineseOptions : presetPool(key, language);
+  const roll = Number.parseInt(digest.slice(0, 8), 16) % 100;
+  const chineseEnd = CHINESE_EASTER_EGG_PERCENT;
+  const latinEnd = chineseEnd + LATIN_EASTER_EGG_PERCENT;
+  const russianEnd = latinEnd + RUSSIAN_EASTER_EGG_PERCENT;
+  const normalOptions = presetPool(key, language);
+  const options =
+    roll < chineseEnd
+      ? chinesePresetPool(key)
+      : roll < latinEnd
+        ? latinPresetPool(key)
+        : roll < russianEnd
+          ? russianPresetPool(key)
+          : normalOptions;
   const alternatives = options.filter((option) => option !== excluded);
   const choices = alternatives.length ? alternatives : options;
-  const indexSource = chinese ? digest.slice(8, 16) : digest.slice(0, 8);
+  const indexSource = options === normalOptions ? digest.slice(0, 8) : digest.slice(8, 16);
   const index = Number.parseInt(indexSource, 16) % choices.length;
   return choices[index];
 }

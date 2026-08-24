@@ -1,6 +1,13 @@
-import { hash, PRESETS, sanitize, validQuipLength } from './quip.ts';
+import {
+  hash,
+  PRESETS,
+  sanitize,
+  type QuipLanguage,
+  validQuipLength,
+} from './quip.ts';
 
-export type CompanionLanguage = 'en' | 'pl';
+export type CompanionLanguage = QuipLanguage;
+type PrimaryLanguage = Extract<CompanionLanguage, 'en' | 'pl'>;
 
 const CHINESE_EASTER_EGG_PERCENT = 3;
 const LATIN_EASTER_EGG_PERCENT = 2;
@@ -218,6 +225,39 @@ const ENGLISH_WORDS = new Set([
   'works',
 ]);
 
+const LATIN_WORDS = new Set([
+  'adhuc',
+  'ad',
+  'canaria',
+  'cavea',
+  'claudit',
+  'codex',
+  'cum',
+  'est',
+  'et',
+  'exspectat',
+  'fila',
+  'finit',
+  'funem',
+  'funis',
+  'iam',
+  'lumen',
+  'lumina',
+  'machina',
+  'micas',
+  'nidum',
+  'non',
+  'opus',
+  'permittitur',
+  'quiescunt',
+  'redit',
+  'sed',
+  'sigillum',
+  'vitium',
+  'volatum',
+  'volatus',
+]);
+
 function languageScores(value: string): { english: number; polish: number } {
   const text = value.toLowerCase();
   const tokens = text.match(/[\p{L}]+/gu) ?? [];
@@ -231,19 +271,37 @@ function languageScores(value: string): { english: number; polish: number } {
   return { english, polish };
 }
 
-export function contextLanguage(value: string): CompanionLanguage {
+function latinScore(value: string): number {
+  const tokens = value.toLowerCase().match(/[\p{L}]+/gu) ?? [];
+  return tokens.reduce(
+    (score, token) => score + (LATIN_WORDS.has(token) ? 1 : 0),
+    0,
+  );
+}
+
+function detectedPrimaryLanguage(value: string): PrimaryLanguage {
   const { english, polish } = languageScores(value);
   return polish > english ? 'pl' : 'en';
 }
 
-export function presetPool(
-  key: string,
-  language: CompanionLanguage,
-): readonly string[] {
-  const stateKey = PRESETS[key] ? key : 'waiting';
-  const options = PRESETS[stateKey] ?? PRESETS.waiting;
-  const split = POLISH_PRESET_COUNTS[stateKey] ?? 0;
-  return language === 'pl' ? options.slice(0, split) : options.slice(split);
+function polyglotRoll(value: string): number {
+  let valueHash = 2_166_136_261;
+  for (let index = 0; index < value.length; index += 1) {
+    valueHash ^= value.charCodeAt(index);
+    valueHash = Math.imul(valueHash, 16_777_619);
+  }
+  return (valueHash >>> 0) % 100;
+}
+
+export function contextLanguage(value: string): CompanionLanguage {
+  const roll = polyglotRoll(value);
+  const chineseEnd = CHINESE_EASTER_EGG_PERCENT;
+  const latinEnd = chineseEnd + LATIN_EASTER_EGG_PERCENT;
+  const russianEnd = latinEnd + RUSSIAN_EASTER_EGG_PERCENT;
+  if (roll < chineseEnd) return 'zh';
+  if (roll < latinEnd) return 'la';
+  if (roll < russianEnd) return 'ru';
+  return detectedPrimaryLanguage(value);
 }
 
 export function chinesePresetPool(key: string): readonly string[] {
@@ -261,11 +319,33 @@ export function russianPresetPool(key: string): readonly string[] {
   return RUSSIAN_PRESETS[stateKey] ?? RUSSIAN_PRESETS.waiting;
 }
 
+export function presetPool(
+  key: string,
+  language: CompanionLanguage,
+): readonly string[] {
+  if (language === 'zh') return chinesePresetPool(key);
+  if (language === 'la') return latinPresetPool(key);
+  if (language === 'ru') return russianPresetPool(key);
+  const stateKey = PRESETS[key] ? key : 'waiting';
+  const options = PRESETS[stateKey] ?? PRESETS.waiting;
+  const split = POLISH_PRESET_COUNTS[stateKey] ?? 0;
+  return language === 'pl' ? options.slice(0, split) : options.slice(split);
+}
+
 export function matchesLanguage(
   value: string,
   language: CompanionLanguage,
 ): boolean {
+  const han = /\p{Script=Han}/u.test(value);
+  const cyrillic = /\p{Script=Cyrillic}/u.test(value);
+  if (language === 'zh') return han && !cyrillic;
+  if (language === 'ru') return cyrillic && !han;
+  if (han || cyrillic) return false;
+
+  const latin = latinScore(value);
   const { english, polish } = languageScores(value);
+  if (language === 'la') return latin >= 2 && english <= 2 && polish <= 1;
+  if (latin >= 2) return false;
   if (Math.abs(polish - english) < 3) return true;
   return language === 'pl' ? polish > english : english > polish;
 }
@@ -284,23 +364,10 @@ export async function contextualPreset(
   excluded = '',
   language: CompanionLanguage = 'en',
 ): Promise<string> {
-  const digest = await hash(seed);
-  const roll = Number.parseInt(digest.slice(0, 8), 16) % 100;
-  const chineseEnd = CHINESE_EASTER_EGG_PERCENT;
-  const latinEnd = chineseEnd + LATIN_EASTER_EGG_PERCENT;
-  const russianEnd = latinEnd + RUSSIAN_EASTER_EGG_PERCENT;
-  const normalOptions = presetPool(key, language);
-  const options =
-    roll < chineseEnd
-      ? chinesePresetPool(key)
-      : roll < latinEnd
-        ? latinPresetPool(key)
-        : roll < russianEnd
-          ? russianPresetPool(key)
-          : normalOptions;
+  const options = presetPool(key, language);
   const alternatives = options.filter((option) => option !== excluded);
   const choices = alternatives.length ? alternatives : options;
-  const indexSource = options === normalOptions ? digest.slice(0, 8) : digest.slice(8, 16);
-  const index = Number.parseInt(indexSource, 16) % choices.length;
+  const digest = await hash(seed);
+  const index = Number.parseInt(digest.slice(0, 8), 16) % choices.length;
   return choices[index];
 }

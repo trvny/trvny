@@ -2,8 +2,7 @@
 name: Docbench lock bootstrap
 
 on: # yamllint disable-line rule:truthy
-  push:
-    branches: [feat/docbench-pdf-core]
+  pull_request:
     paths:
       - docbench/package.json
       - .github/workflows/docbench-lock-bootstrap.yml

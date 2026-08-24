@@ -22,7 +22,8 @@
 
   function detectEol(raw) {
     const crlf = (raw.match(/\r\n/g) || []).length;
-    const lf = (raw.match(/(^|[^\r])\n/g) || []).length;
+    const totalLf = (raw.match(/\n/g) || []).length;
+    const lf = totalLf - crlf;
     const cr = (raw.match(/\r(?!\n)/g) || []).length;
     const present = [["CRLF", crlf], ["LF", lf], ["CR", cr]].filter(([, count]) => count > 0);
     if (!present.length) return { target: "LF", mixed: false };
@@ -338,12 +339,14 @@
 
   async function openFile(file) {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    state.bom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
-    const contentBytes = state.bom ? bytes.slice(3) : bytes;
+    const hasBom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+    const contentBytes = hasBom ? bytes.slice(3) : bytes;
     if (contentBytes.includes(0)) throw new Error("Binary or UTF-16 input is not supported yet.");
     const raw = new TextDecoder("utf-8", { fatal: true }).decode(contentBytes);
     const eol = detectEol(raw);
+
     state.filename = file.name || "document.txt";
+    state.bom = hasBom;
     state.mixedEol = eol.mixed;
     editor.value = normalizeEol(raw);
     eolSelect.value = eol.target;

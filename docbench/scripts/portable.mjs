@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 
 const [
   html,
+  fonts,
   css,
   yaml,
   pdfLib,
@@ -17,6 +18,7 @@ const [
   qpdfWasm,
 ] = await Promise.all([
   readFile("public/index.html", "utf8"),
+  readFile("public/fonts.css", "utf8"),
   readFile("public/styles.css", "utf8"),
   readFile("public/vendor/js-yaml.min.js", "utf8"),
   readFile("public/vendor/pdf-lib.min.js", "utf8"),
@@ -37,6 +39,19 @@ const dataUrl = (mime, value) => {
   const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value, "utf8");
   return `data:${mime};base64,${bytes.toString("base64")}`;
 };
+
+let portableFonts = fonts;
+for (const filename of [
+  "space-grotesk-latin-ext.woff2",
+  "space-grotesk-latin.woff2",
+  "space-mono-latin-ext-400.woff2",
+  "space-mono-latin-400.woff2",
+  "space-mono-latin-ext-700.woff2",
+  "space-mono-latin-700.woff2",
+]) {
+  const fontUrl = dataUrl("font/woff2", await readFile(`public/fonts/${filename}`));
+  portableFonts = portableFonts.replaceAll(`/fonts/${filename}`, fontUrl);
+}
 
 const qpdfBytesUrl = dataUrl("text/javascript", qpdfBytes);
 const browserRunnerPortable = qpdfBrowserRunner.replaceAll(
@@ -69,6 +84,7 @@ const portablePdfScripts = [
 ].join("\n");
 
 const portable = html
+  .replace('<link rel="stylesheet" href="/fonts.css">', `<style data-portable-fonts>${portableFonts}</style>`)
   .replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`)
   .replace('<script src="/vendor/js-yaml.min.js"></script>', `<script>${safeScript(yaml)}</script>`)
   .replace('<script src="/vendor/pdf-lib.min.js"></script>', `<script>${safeScript(pdfLib)}</script>`)

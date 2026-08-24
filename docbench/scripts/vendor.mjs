@@ -10,6 +10,18 @@ await cp(
   "public/vendor/pdf-lib.min.js",
 );
 
+await mkdir("public/fonts", { recursive: true });
+for (const [source, target] of [
+  ["@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2", "space-grotesk-latin.woff2"],
+  ["@fontsource-variable/space-grotesk/files/space-grotesk-latin-ext-wght-normal.woff2", "space-grotesk-latin-ext.woff2"],
+  ["@fontsource/space-mono/files/space-mono-latin-400-normal.woff2", "space-mono-latin-400.woff2"],
+  ["@fontsource/space-mono/files/space-mono-latin-ext-400-normal.woff2", "space-mono-latin-ext-400.woff2"],
+  ["@fontsource/space-mono/files/space-mono-latin-700-normal.woff2", "space-mono-latin-700.woff2"],
+  ["@fontsource/space-mono/files/space-mono-latin-ext-700-normal.woff2", "space-mono-latin-ext-700.woff2"],
+]) {
+  await cp(`node_modules/${source}`, `public/fonts/${target}`);
+}
+
 await mkdir("public/vendor/pdfjs", { recursive: true });
 await cp("node_modules/pdfjs-dist/build/pdf.mjs", "public/vendor/pdfjs/pdf.mjs");
 await cp(

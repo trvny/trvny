@@ -134,6 +134,23 @@ assert.deepEqual(finalizeRequest.args, [
 ]);
 assert.deepEqual([...finalizeRequest.inputs["input.pdf"]], [4, 5, 6]);
 
+const lossyRequest = buildQpdfFinalizeRequest(
+  new Uint8Array([7, 8]),
+  { lossyImages: true, jpegQuality: 60 },
+);
+assert.deepEqual(lossyRequest.args, [
+  "input.pdf",
+  "--optimize-images",
+  "--jpeg-quality=60",
+  "output.pdf",
+]);
+
+const clampedLossyRequest = buildQpdfFinalizeRequest(
+  new Uint8Array([9]),
+  { lossyImages: true, jpegQuality: 999 },
+);
+assert.ok(clampedLossyRequest.args.includes("--jpeg-quality=100"));
+
 const document = await PDFLib.PDFDocument.create();
 document.addPage([300, 400]);
 document.addPage([300, 400]);

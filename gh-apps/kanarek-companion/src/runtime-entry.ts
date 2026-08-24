@@ -1,5 +1,10 @@
 import { runWithActionRequestContext } from './action-context.ts';
 import {
+  addCodeChangeAutopilotOpenApi,
+  CODE_CHANGE_AUTOPILOT_PATH,
+  handleCodeChangeAutopilotAction,
+} from './code-change-orchestration.ts';
+import {
   addCodeHistoryOpenApi,
   CODE_HISTORY_PATH,
   handleCodeHistoryAction,
@@ -73,6 +78,7 @@ function openApi(request: Request): JsonObject {
   addCodeHistoryOpenApi(document);
   addDependencyGraphOpenApi(document);
   addTargetedTestsOpenApi(document);
+  addCodeChangeAutopilotOpenApi(document);
   return document;
 }
 
@@ -125,6 +131,14 @@ const runtime = {
       const url = new URL(request.url);
       if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
         return json(openApi(request));
+      }
+      if (url.pathname === CODE_CHANGE_AUTOPILOT_PATH) {
+        const response = await handleCodeChangeAutopilotAction(
+          request,
+          env,
+          (internalRequest) => worker.fetch(internalRequest, env, ctx),
+        );
+        if (response) return response;
       }
       if (url.pathname === RELEASE_ENTRY_UPLOAD_PATH) {
         const response = await handleReleaseEntryAction(request, env, actionFetch);

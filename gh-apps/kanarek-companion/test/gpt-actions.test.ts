@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  contentTreeMode,
   githubBotRequestAllowed,
   githubReadAllowed,
   openApiDocument,
@@ -74,4 +75,13 @@ test('OpenAPI advertises hybrid identities and OAuth token proxy', () => {
     document.components.securitySchemes.githubOAuth.flows.authorizationCode.tokenUrl,
     'https://example.workers.dev/gpt-actions/oauth/token',
   );
+});
+
+
+test('commit tree mode preserves executable files and symlinks', () => {
+  assert.equal(contentTreeMode(undefined), '100644');
+  assert.equal(contentTreeMode({ type: 'blob', mode: '100644' }), '100644');
+  assert.equal(contentTreeMode({ type: 'blob', mode: '100755' }), '100755');
+  assert.equal(contentTreeMode({ type: 'blob', mode: '120000' }), '120000');
+  assert.throws(() => contentTreeMode({ type: 'commit', mode: '160000' }));
 });

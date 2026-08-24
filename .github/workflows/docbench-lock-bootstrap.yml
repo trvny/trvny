@@ -1,0 +1,31 @@
+---
+name: Docbench lock bootstrap
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: [feat/docbench-pdf-core]
+    paths:
+      - docbench/package.json
+      - .github/workflows/docbench-lock-bootstrap.yml
+
+permissions:
+  contents: read
+
+jobs:
+  lock:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Generate lockfile
+        working-directory: docbench
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          echo '---PACKAGE-LOCK-BEGIN---'
+          cat package-lock.json
+          echo '---PACKAGE-LOCK-END---'

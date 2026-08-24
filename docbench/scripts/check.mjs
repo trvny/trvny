@@ -17,6 +17,8 @@ for (const path of [
   "public/fonts/space-mono-latin-700.woff2",
   "public/vendor/js-yaml.min.js",
   "public/vendor/marked.umd.js",
+  "public/vendor/jsonc-parser/impl/parser.js",
+  "public/vendor/jsonc-parser/impl/scanner.js",
   "public/vendor/pdf-lib.min.js",
   "public/vendor/pdfjs/pdf.mjs",
   "public/vendor/pdfjs/pdf.worker.mjs",
@@ -51,6 +53,12 @@ for (const capability of [
 if (!documentEnhancements.includes("MAX_TREE_NODES")) {
   throw new Error("Structured previews must keep a bounded tree renderer.");
 }
+if (!documentEnhancements.includes("source.slice(node.offset, node.offset + node.length)")) {
+  throw new Error("JSON tree preview must preserve source scalar lexemes.");
+}
+if (documentEnhancements.includes("JSON.parse(editor.value)")) {
+  throw new Error("JSON tree preview must not coerce source numbers through JSON.parse.");
+}
 
 const portable = await readFile("public/portable.html", "utf8");
 const resourceHtml = portable.replace(
@@ -76,6 +84,9 @@ for (const leaked of [
     throw new Error(`Portable build still references ${leaked}`);
   }
 }
+if (portable.includes('./vendor/jsonc-parser/impl/parser.js')) {
+  throw new Error("Portable build still references the external JSON parser module.");
+}
 if (resourceUrls.some((url) => /^https?:\/\//i.test(url))) {
   throw new Error("Portable build must not load third-party resources");
 }
@@ -84,6 +95,7 @@ if (!portable.includes("Space Grotesk") || !portable.includes("Space Mono")) {
 }
 if (!portable.includes("jsyaml")) throw new Error("Portable build is missing YAML runtime");
 if (!portable.includes("marked")) throw new Error("Portable build is missing Markdown runtime");
+if (!portable.includes("parseTree")) throw new Error("Portable build is missing JSON tree runtime");
 if (!portable.includes("showSaveFilePicker") || !portable.includes("createWritable")) {
   throw new Error("Portable build is missing direct-save support");
 }

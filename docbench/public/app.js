@@ -4,14 +4,14 @@
   const $ = (selector) => document.querySelector(selector);
   const editor = $("#editor");
   const preview = $("#preview");
-  const formatSelect = $("#formatSelect");
-  const eolSelect = $("#eolSelect");
-  const statusBadge = $("#statusBadge");
-  const detailStatus = $("#detailStatus");
-  const filenameLabel = $("#filenameLabel");
-  const encodingLabel = $("#encodingLabel");
-  const fileInput = $("#fileInput");
-  const dropZone = $("#dropZone");
+  const formatSelect = $("#format-select");
+  const eolSelect = $("#eol-select");
+  const statusBadge = $("#status-badge");
+  const detailStatus = $("#detail-status");
+  const filenameLabel = $("#filename-label");
+  const encodingLabel = $("#encoding-label");
+  const fileInput = $("#file-input");
+  const dropZone = $("#drop-zone");
 
   const state = { filename: "untitled.txt", bom: false, mixedEol: false };
   const extensionToFormat = {
@@ -207,12 +207,12 @@
     editor.focus();
   }
 
-  $("#openButton").addEventListener("click", () => fileInput.click());
-  $("#newButton").addEventListener("click", newDocument);
-  $("#validateButton").addEventListener("click", renderValidation);
-  $("#formatButton").addEventListener("click", formatDocument);
-  $("#saveButton").addEventListener("click", saveFile);
-  $("#copyButton").addEventListener("click", async () => navigator.clipboard.writeText(editor.value));
+  $("#open-button").addEventListener("click", () => fileInput.click());
+  $("#new-button").addEventListener("click", newDocument);
+  $("#validate-button").addEventListener("click", renderValidation);
+  $("#format-button").addEventListener("click", formatDocument);
+  $("#save-button").addEventListener("click", saveFile);
+  $("#copy-button").addEventListener("click", async () => navigator.clipboard.writeText(editor.value));
   fileInput.addEventListener("change", async () => {
     if (!fileInput.files?.[0]) return;
     try { await openFile(fileInput.files[0]); }
@@ -250,8 +250,8 @@
     tab.addEventListener("click", () => {
       document.querySelectorAll(".mode-tab").forEach((item) => item.classList.toggle("active", item === tab));
       const pdf = tab.dataset.mode === "pdf";
-      $("#documentWorkspace").hidden = pdf;
-      $("#pdfWorkspace").hidden = !pdf;
+      $("#document-workspace").hidden = pdf;
+      $("#pdf-workspace").hidden = !pdf;
     });
   });
 

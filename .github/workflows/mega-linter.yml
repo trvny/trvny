@@ -73,9 +73,11 @@ jobs:
             fi
           fi
 
-          echo "codebench=$codebench" >> "$GITHUB_OUTPUT"
-          echo "streambench=$streambench" >> "$GITHUB_OUTPUT"
-          echo "docbench=$docbench" >> "$GITHUB_OUTPUT"
+          {
+            echo "codebench=$codebench"
+            echo "streambench=$streambench"
+            echo "docbench=$docbench"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         if: >-

@@ -63,6 +63,8 @@ for (const fidelityGuard of [
   "preserveYamlNumericLexemes",
   "FAILSAFE_SCHEMA",
   "preservesXmlSpace",
+  "PROCESSING_INSTRUCTION_NODE",
+  "DOCUMENT_TYPE_NODE",
   'statusBadge.textContent === "Format failed"',
 ]) {
   if (!documentEnhancements.includes(fidelityGuard)) {

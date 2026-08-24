@@ -418,14 +418,49 @@
     catch (error) { preview.textContent = error.message; statusBadge.className = "status bad"; statusBadge.textContent = "Open failed"; }
   });
 
-  document.querySelectorAll(".mode-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll(".mode-tab").forEach((item) => item.classList.toggle("active", item === tab));
-      const pdf = tab.dataset.mode === "pdf";
-      $("#document-workspace").hidden = pdf;
-      $("#pdf-workspace").hidden = !pdf;
+  const modeTabs = [...document.querySelectorAll(".mode-tab")];
+  const documentWorkspace = $("#document-workspace");
+  const pdfWorkspace = $("#pdf-workspace");
+
+  function activateModeTab(tab, focus = false) {
+    modeTabs.forEach((item) => {
+      const active = item === tab;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-selected", String(active));
+      item.tabIndex = active ? 0 : -1;
+    });
+    const pdf = tab.dataset.mode === "pdf";
+    documentWorkspace.hidden = pdf;
+    pdfWorkspace.hidden = !pdf;
+    if (focus) tab.focus();
+  }
+
+  modeTabs.forEach((tab) => {
+    tab.addEventListener("click", () => activateModeTab(tab));
+    tab.addEventListener("keydown", (event) => {
+      const current = modeTabs.indexOf(tab);
+      let next = null;
+      if (event.key === "ArrowRight") next = (current + 1) % modeTabs.length;
+      if (event.key === "ArrowLeft") next = (current - 1 + modeTabs.length) % modeTabs.length;
+      if (event.key === "Home") next = 0;
+      if (event.key === "End") next = modeTabs.length - 1;
+      if (next === null) return;
+      event.preventDefault();
+      activateModeTab(modeTabs[next], true);
     });
   });
 
+  document.addEventListener("keydown", (event) => {
+    if (event.altKey || (!event.ctrlKey && !event.metaKey) || event.key.toLowerCase() !== "s") return;
+    event.preventDefault();
+    if (!documentWorkspace.hidden) {
+      saveFile();
+      return;
+    }
+    const pdfSave = $("#pdf-save-button");
+    if (!pdfSave.disabled) pdfSave.click();
+  });
+
+  activateModeTab(modeTabs.find((tab) => tab.classList.contains("active")) || modeTabs[0]);
   renderValidation();
 })();

@@ -82,15 +82,40 @@ jobs:
               're.subn(pattern, replacement, text, count=1, flags=re.S)',
               're.subn(pattern, lambda _match: replacement, text, count=1, flags=re.S)',
           )
-          script = script.replace(
-              '"""    core,\n        currentBranch,\n        currentBase.defaultBranch,\n      );"""',
-              '"""    core,\n    currentBranch,\n    currentBase.defaultBranch,\n  );"""',
-          )
-          script = script.replace(
-              '"""    core,\n        inputHash,\n        currentBranch,\n        currentBase.defaultBranch,\n      );"""',
-              '"""    core,\n    inputHash,\n    currentBranch,\n    currentBase.defaultBranch,\n  );"""',
-          )
+
+          patch_lines = script.splitlines()
+          marker = next(i for i, line in enumerate(patch_lines) if "'recover call provenance'" in line)
+          block_start = max(i for i in range(marker) if patch_lines[i].lstrip().startswith('text = replace_once('))
+          block_end = next(i for i in range(marker + 1, len(patch_lines)) if patch_lines[i].strip() == ')')
+          del patch_lines[block_start:block_end + 1]
+          script = '\n'.join(patch_lines) + '\n'
           exec(compile(script, '<pr297-review-fixes>', 'exec'), {'__name__': '__main__'})
+
+          orchestration = Path('gh-apps/kanarek-companion/src/code-change-orchestration.ts')
+          text = orchestration.read_text()
+          old_call = """    core,
+              currentBranch,
+              currentBase.defaultBranch,
+            );"""
+          new_call = """    core,
+              inputHash,
+              currentBranch,
+              currentBase.defaultBranch,
+            );"""
+          if text.count(old_call) != 1:
+              raise SystemExit(f'recover call provenance: expected 1 match, got {text.count(old_call)}')
+          text = text.replace(old_call, new_call, 1)
+
+          old_scope = """  if (
+              !files.length ||
+              files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))
+            ) {"""
+          new_scope = """  if (
+              files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))
+            ) {"""
+          if text.count(old_scope) != 1:
+              raise SystemExit(f'empty aggregate diff recovery: expected 1 match, got {text.count(old_scope)}')
+          orchestration.write_text(text.replace(old_scope, new_scope, 1))
           PY
 
       - name: Validate patched companion

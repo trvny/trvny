@@ -22,11 +22,6 @@
         </div>
         <p class="tagline">Document & PDF Studio · edit, inspect and export without uploading.</p>
       </div>
-      <div class="hero-actions">
-        <button id="open-button" class="button primary" type="button">Open file</button>
-        <button id="new-button" class="button" type="button">New document</button>
-        <input id="file-input" type="file" hidden accept=".txt,.md,.markdown,.json,.yml,.yaml,.xml,text/*,application/json,application/xml,text/xml">
-      </div>
     </header>
 
     <nav class="mode-tabs" role="tablist" aria-label="Workspace">
@@ -36,6 +31,11 @@
 
     <section id="document-workspace" class="workspace" role="tabpanel" aria-labelledby="document-tab">
       <div class="toolbar document-toolbar">
+        <div class="toolbar-group document-file-group">
+          <button id="open-button" class="button compact primary" type="button">Open file</button>
+          <button id="new-button" class="button compact" type="button">New</button>
+          <input id="file-input" type="file" hidden accept=".txt,.md,.markdown,.json,.yml,.yaml,.xml,text/*,application/json,application/xml,text/xml">
+        </div>
         <div class="toolbar-group fields-group">
           <label>Format
             <select id="format-select">

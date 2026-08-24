@@ -37,6 +37,11 @@ test('bug symbols recognize async stack frames', () => {
   assert.deepEqual(extractBugSymbols('at async parse (src/parser.ts:4:2)'), ['parse']);
 });
 
+test('bug symbols recognize Python traceback frames', () => {
+  const text = 'Traceback (most recent call last):\n  File "/home/runner/work/repo/parser.py", line 42, in parse_config\nValueError: boom';
+  assert.deepEqual(extractBugSymbols(text, [], 1), ['parse_config']);
+});
+
 test('bug symbols prioritize terminal members of qualified stack frames', () => {
   const text = 'at org.springframework.context.support.AbstractApplicationContext.refresh(ApplicationContext.java:4)';
   assert.deepEqual(extractBugSymbols(text, [], 4), ['refresh', 'AbstractApplicationContext']);
@@ -93,7 +98,13 @@ test('exact path hints are accepted only when they resolve to a pinned blob', as
     throw new Error(`unexpected read: ${body.path}`);
   };
   assert.deepEqual(
-    await existingTargetPaths(request, invoke, 'trvny/trvny', 'a'.repeat(40), ['src/app.ts', 'src']),
+    await existingTargetPaths(
+      request,
+      invoke,
+      'trvny/trvny',
+      'a'.repeat(40),
+      ['src/app.ts', 'src/missing.ts', 'src'],
+    ),
     ['src/app.ts'],
   );
 });

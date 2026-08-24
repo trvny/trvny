@@ -46,12 +46,14 @@ jobs:
         run: |
           codebench=false
           streambench=false
+          docbench=false
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ] ||
              [ -z "$BASE_SHA" ] ||
              [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
             codebench=true
             streambench=true
+            docbench=true
           else
             if ! git diff --quiet "$BASE_SHA" HEAD -- codebench/; then
               codebench=true
@@ -59,21 +61,29 @@ jobs:
             if ! git diff --quiet "$BASE_SHA" HEAD -- streambench/; then
               streambench=true
             fi
+            if ! git diff --quiet "$BASE_SHA" HEAD -- docbench/; then
+              docbench=true
+            fi
             if ! git diff --quiet "$BASE_SHA" HEAD -- \
               .github/workflows/benches-release.yml \
               .github/workflows/mega-linter.yml; then
               codebench=true
               streambench=true
+              docbench=true
             fi
           fi
 
-          echo "codebench=$codebench" >> "$GITHUB_OUTPUT"
-          echo "streambench=$streambench" >> "$GITHUB_OUTPUT"
+          {
+            echo "codebench=$codebench"
+            echo "streambench=$streambench"
+            echo "docbench=$docbench"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         if: >-
           steps.benches.outputs.codebench == 'true' ||
-          steps.benches.outputs.streambench == 'true'
+          steps.benches.outputs.streambench == 'true' ||
+          steps.benches.outputs.docbench == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -81,6 +91,7 @@ jobs:
           cache-dependency-path: |
             codebench/package-lock.json
             streambench/package-lock.json
+            docbench/package-lock.json
 
       - name: Check codebench
         id: codebench
@@ -100,6 +111,15 @@ jobs:
           npm ci
           npm run check
 
+      - name: Check docbench
+        id: docbench
+        if: steps.benches.outputs.docbench == 'true'
+        continue-on-error: true
+        working-directory: docbench
+        run: |
+          npm ci
+          npm run check
+
       - name: Gate bench checks
         if: >-
           always() &&
@@ -111,6 +131,10 @@ jobs:
             (
               steps.benches.outputs.streambench == 'true' &&
               steps.streambench.outcome != 'success'
+            ) ||
+            (
+              steps.benches.outputs.docbench == 'true' &&
+              steps.docbench.outcome != 'success'
             )
           )
         run: exit 1

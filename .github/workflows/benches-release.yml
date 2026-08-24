@@ -7,12 +7,19 @@ on: # yamllint disable-line rule:truthy
     paths:
       - codebench/**
       - streambench/**
+      - docbench/**
+      - .github/workflows/benches-release.yml
+  pull_request:
+    paths:
+      - codebench/**
+      - streambench/**
+      - docbench/**
       - .github/workflows/benches-release.yml
   workflow_dispatch:
 
 concurrency:
-  group: benches-portable-release
-  cancel-in-progress: false
+  group: benches-portable-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions: {}
 
@@ -39,6 +46,7 @@ jobs:
           cache-dependency-path: |
             codebench/package-lock.json
             streambench/package-lock.json
+            docbench/package-lock.json
 
       - name: Check Codebench
         working-directory: codebench
@@ -52,11 +60,18 @@ jobs:
           npm ci
           npm run check
 
+      - name: Check Docbench
+        working-directory: docbench
+        run: |
+          npm ci
+          npm run check
+
       - name: Package portable builds
         run: |
           mkdir -p dist
           cp codebench/public/portable.html dist/codebench-portable.html
           cp streambench/public/portable.html dist/streambench-portable.html
+          cp docbench/public/portable.html dist/docbench-portable.html
           cat > dist/README.txt <<'EOF'
           Benches portable builds
 
@@ -66,16 +81,21 @@ jobs:
           streambench-portable.html
             Single-file Streambench frontend. Public catalogs, metadata and
             constrained relay features still use https://streambench.travny.workers.dev.
+
+          docbench-portable.html
+            Fully self-contained Docbench document workspace.
           EOF
           (
             cd dist
             zip -9 benches-portable.zip \
               codebench-portable.html \
               streambench-portable.html \
+              docbench-portable.html \
               README.txt
             sha256sum \
               codebench-portable.html \
               streambench-portable.html \
+              docbench-portable.html \
               benches-portable.zip > SHA256SUMS
           )
 
@@ -110,7 +130,7 @@ jobs:
           tag="benches-portable-latest"
 
           cat > release-notes.md <<EOF
-          Portable single-file builds of Codebench and Streambench.
+          Portable single-file builds of Codebench, Streambench and Docbench.
 
           Rolling release built from \`${GITHUB_SHA}\`.
           Streambench's public catalogs, metadata and constrained relay continue
@@ -135,6 +155,7 @@ jobs:
           gh release upload "$tag" \
             dist/codebench-portable.html \
             dist/streambench-portable.html \
+            dist/docbench-portable.html \
             dist/benches-portable.zip \
             dist/SHA256SUMS \
             --clobber

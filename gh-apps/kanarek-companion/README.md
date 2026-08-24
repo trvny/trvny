@@ -76,7 +76,9 @@ The persistent phrase bank lives in Workers KV under
 The effective percentage decreases linearly as the current `quipKey` fills the
 space it can actually retain. A missing value keeps the default `25`; an
 explicit value must be a decimal integer percentage. Malformed or empty values
-fail closed to `0` rather than restoring a paid default accidentally.
+fail closed to `0` rather than restoring a paid default accidentally. The same
+gate applies to free router fallbacks: they are transport fallbacks for selected
+AI attempts, not an unlimited generation path.
 
 While the global cap is not binding, that space is 256 entries:
 
@@ -97,19 +99,24 @@ If the persistent KV bank cannot be measured, paid AI is skipped because the
 generated line could not be safely retained.
 
 `KANAREK_PROVIDER_ORDER` reorders enabled providers; it does not enable or
-disable them. The current default is OpenAI primary, OpenAI fallback, Anthropic,
-Gemini, then xAI. Provider enable switches, model names, output ceilings,
-reasoning/thinking settings, the xAI prompt-cache key, and the shared provider
-timeout are all visible beside it in `wrangler.jsonc`. Without provider secrets
-Kanarek uses the shared pool and presets.
+disable them. The configured production order is Gemini, OpenAI, xAI, the
+OpenAI fallback, Anthropic, then OpenRouter and OrcaRouter. The free routers are
+deliberately last so request, quota, or credit failures from direct providers
+can fall through to them. Provider enable switches, model names, output
+ceilings, reasoning/thinking settings, the xAI prompt-cache key, and the shared
+provider timeout are all visible beside it in `wrangler.jsonc`. Without
+provider secrets Kanarek uses the shared pool and presets.
 
-Current ceilings are 256 tokens for OpenAI, Anthropic, and Gemini, and 1024 for
-xAI. The larger xAI ceiling was introduced after Grok 4.5 consumed substantial
-reasoning headroom before producing its short visible line; Grok 4.6 is now the
-configured xAI model, so `kanarek_ai_generation` usage logs should be used before
-lowering that ceiling. OpenAI reasoning is configured as `auto`, preserving the
-model-aware `none`/`low` heuristic; Gemini Flash-Lite uses `minimal`, and xAI
-uses `low`.
+OpenRouter uses its native ordered `models` fallback over the configured
+free-only model list. Inkling is intentionally omitted from that list because
+its free endpoint is restricted to agentic harnesses. OrcaRouter uses
+`orcarouter/auto`; its allowed/default models remain controlled by the
+OrcaRouter workspace, so the workspace allowlist is the source of truth.
+
+Current configured ceilings are 1024 tokens for all providers. OpenAI reasoning
+is configured as `auto`, preserving the model-aware `none`/`low` heuristic;
+Gemini Flash-Lite uses `medium`, and xAI uses `low`. Provider usage logs should
+be checked before tightening a ceiling.
 
 Provider responses are accepted only after a normal completion and the learned
 45–110 character/language validation. Explicit token-limit and other incomplete
@@ -117,9 +124,9 @@ stops never enter the bank.
 
 A request/network/HTTP failure may fall through to the next configured
 provider. Once a provider returns a parsed successful HTTP response, however,
-that AI attempt never calls another paid provider: unusable output falls back
-to the bank/presets instead. This bounds one parsed billable response per
-selected AI attempt.
+that AI attempt never calls another provider: unusable output falls back to the
+bank/presets instead. This preserves the one-response budget boundary while
+allowing request-level failover.
 
 A valid paid quip is temporarily cached by repository, pull request, semantic
 `stateHash`, and exact head SHA for up to seven days. If GitHub work fails after
@@ -135,6 +142,7 @@ Paid persistence emits separate receipt/bank diagnostics. Use complete response
 samples before tightening a ceiling.
 
 A provider can be disabled without removing its secret by setting the matching
+`KANAREK_OPENROUTER_ENABLED`, `KANAREK_ORCAROUTER_ENABLED`,
 `KANAREK_OPENAI_ENABLED`, `KANAREK_ANTHROPIC_ENABLED`,
 `KANAREK_GEMINI_ENABLED`, or `KANAREK_XAI_ENABLED` variable to a common false
 value (`false`, `0`, `no`, or `off`, case-insensitive). The same false values
@@ -197,6 +205,8 @@ Required Worker secrets:
 
 Optional AI secrets:
 
+- `OPENROUTER_API_KEY`
+- `ORCAROUTER_API_KEY`
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `GEMINI_API_KEY`

@@ -53,11 +53,20 @@ for (const capability of [
 if (!documentEnhancements.includes("MAX_TREE_NODES")) {
   throw new Error("Structured previews must keep a bounded tree renderer.");
 }
+if (!/for \(const attribute of node\.attributes\) \{\r?\n\s*if \(nodes >= MAX_TREE_NODES\)/.test(documentEnhancements)) {
+  throw new Error("XML attributes must count against the tree node budget.");
+}
 if (!documentEnhancements.includes("source.slice(node.offset, node.offset + node.length)")) {
   throw new Error("JSON tree preview must preserve source scalar lexemes.");
 }
 if (documentEnhancements.includes("JSON.parse(editor.value)")) {
   throw new Error("JSON tree preview must not coerce source numbers through JSON.parse.");
+}
+const fallbackFunction = documentEnhancements.match(
+  /async function syncFallbackFile\(file\) \{([\s\S]*?)\n\}/,
+)?.[1] || "";
+if (!fallbackFunction || /catch \{[\s\S]*?state\.handle = null/.test(fallbackFunction)) {
+  throw new Error("Rejected fallback files must preserve the existing linked handle.");
 }
 for (const fidelityGuard of [
   "renderYamlTree",

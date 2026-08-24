@@ -423,6 +423,11 @@ function renderXmlTree(doc) {
       name.textContent = `<${node.nodeName}>`;
       summary.append(name);
       for (const attribute of node.attributes) {
+        if (nodes >= MAX_TREE_NODES) {
+          truncated = true;
+          break;
+        }
+        nodes += 1;
         const attr = document.createElement("span");
         attr.className = "xml-attribute";
         attr.textContent = `${attribute.name}=${JSON.stringify(attribute.value)}`;
@@ -879,7 +884,6 @@ async function syncFallbackFile(file) {
       renderEnhancedPreview();
     }, 170);
   } catch {
-    state.handle = null;
     updateSaveButton();
   }
 }
@@ -907,8 +911,6 @@ openButton.addEventListener("click", (event) => {
     }
     if (!handle) return;
     state.documentRevision += 1;
-    state.handle = null;
-    updateSaveButton();
     try {
       await loadNativeHandle(handle);
     } catch (error) {
@@ -930,8 +932,6 @@ fileInput.addEventListener("change", () => {
   const file = fileInput.files?.[0];
   if (!file) return;
   state.documentRevision += 1;
-  state.handle = null;
-  updateSaveButton();
   void syncFallbackFile(file);
 });
 
@@ -939,8 +939,6 @@ dropZone.addEventListener("drop", (event) => {
   const file = event.dataTransfer?.files?.[0];
   if (!file) return;
   state.documentRevision += 1;
-  state.handle = null;
-  updateSaveButton();
   void syncFallbackFile(file);
 }, true);
 
@@ -977,12 +975,12 @@ eolSelect.addEventListener("change", () => {
 });
 formatButton.addEventListener("click", () => {
   state.documentRevision += 1;
-  state.mixedEol = false;
   queueMicrotask(() => {
     if (statusBadge.textContent === "Format failed") {
       updateMeta();
       return;
     }
+    state.mixedEol = false;
     renderEnhancedPreview();
   });
 });

@@ -36,5 +36,14 @@ Used to rebuild bookmark trees after structural page operations.
 Used to run qpdf locally in a Web Worker for content-preserving page selection,
 merge, lossless structural optimization and linearization.
 
+## Space Grotesk / Space Mono
+
+- Packages: `@fontsource-variable/space-grotesk` 5.3.0 and `@fontsource/space-mono` 5.3.0
+- Project: https://fontsource.org/
+- Font licenses: SIL Open Font License 1.1
+
+Used for the shared Bench UI and monospace document/status typography. Font
+files are self-hosted and embedded in the portable build.
+
 All browser assets are copied locally during the build. Production and portable
-builds do not load these runtimes from a CDN.
+builds do not load these runtimes or fonts from a CDN.

@@ -96,6 +96,11 @@ jobs:
 
           orchestration = Path('gh-apps/kanarek-companion/src/code-change-orchestration.ts')
           text = orchestration.read_text()
+          text = text.replace(
+              "new TextDecoder('utf-8', { fatal: true })",
+              "new TextDecoder('utf-8', { fatal: true, ignoreBOM: false })",
+              1,
+          )
 
           old_call = "    core,\n    currentBranch,\n    currentBase.defaultBranch,\n  );"
           new_call = "    core,\n    inputHash,\n    currentBranch,\n    currentBase.defaultBranch,\n  );"
@@ -121,7 +126,7 @@ jobs:
           actions = Path('gh-apps/kanarek-companion/src/gpt-actions.ts').read_text()
           required = [
               "type EditAction = { type: 'edit'; headSha: string; revision: number;",
-              "new TextDecoder('utf-8', { fatal: true })",
+              "new TextDecoder('utf-8', { fatal: true, ignoreBOM: false })",
               'commitProvenanceMatches(',
               'recoveredChangedPathsAllowed(',
               'resolveGitTreeEntries(',

@@ -22,6 +22,10 @@ for (const path of [
 }
 
 const portable = await readFile("public/portable.html", "utf8");
+const resourceUrls = [];
+for (const match of portable.matchAll(/<(?:script|link|img|source|iframe)\b[^>]*\b(?:src|href)=["']([^"']+)["'][^>]*>/gi)) {
+  resourceUrls.push(match[1]);
+}
 for (const leaked of [
   "/vendor/",
   "/app.js",
@@ -29,17 +33,17 @@ for (const leaked of [
   "/pdf-core.mjs",
   "/styles.css",
 ]) {
-  if (portable.includes(`src=\"${leaked}`) || portable.includes(`href=\"${leaked}`)) {
+  if (resourceUrls.some((url) => url.startsWith(leaked))) {
     throw new Error(`Portable build still references ${leaked}`);
   }
+}
+if (resourceUrls.some((url) => /^https?:\/\//i.test(url))) {
+  throw new Error("Portable build must not load third-party resources");
 }
 if (!portable.includes("jsyaml")) throw new Error("Portable build is missing YAML runtime");
 if (!portable.includes("PDFLib")) throw new Error("Portable build is missing PDF mutation runtime");
 if (!portable.includes("__docbenchPdfAssets")) {
   throw new Error("Portable build is missing embedded PDF runtime assets");
-}
-for (const external of ['src="http', "src='http", 'href="http', "href='http"]) {
-  if (portable.includes(external)) throw new Error("Portable build must not load third-party resources");
 }
 const portableSize = (await stat("public/portable.html")).size;
 if (portableSize >= 24 * 1024 * 1024) {

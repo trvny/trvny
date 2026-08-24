@@ -584,12 +584,8 @@ async function ensureWritePermission(handle) {
 }
 
 function flashSaveState(text) {
-  const previous = saveButton.textContent;
   saveButton.textContent = text;
-  setTimeout(() => {
-    updateSaveButton();
-    if (saveButton.textContent === text && previous === text) updateSaveButton();
-  }, 1100);
+  setTimeout(updateSaveButton, 1100);
 }
 
 async function writeHandle(handle) {
@@ -630,6 +626,11 @@ async function saveDocument() {
     flashSaveState("Downloaded ✓");
   } catch (error) {
     if (error?.name === "AbortError") return;
+    if (!state.handle && ["TypeError", "SecurityError", "NotAllowedError"].includes(error?.name)) {
+      downloadDocument();
+      flashSaveState("Downloaded ✓");
+      return;
+    }
     setStatus("bad", "Save failed");
     statusBadge.title = error?.message || String(error);
   }
@@ -722,7 +723,8 @@ newButton.addEventListener("click", () => {
 editor.addEventListener("input", () => schedulePreview());
 formatSelect.addEventListener("change", () => {
   queueMicrotask(() => {
-    state.filename = filenameLabel.textContent || state.filename;
+    if (state.handle) filenameLabel.textContent = state.filename;
+    else state.filename = filenameLabel.textContent || state.filename;
     schedulePreview();
   });
 });

@@ -214,6 +214,26 @@ export function buildQpdfPageRequest(sources, pagePlan, outputName = "output.pdf
   return { inputs, args, outputs: [outputName], outputName };
 }
 
+export function buildQpdfFinalizeRequest(
+  pdfBytes,
+  { optimize = false, linearize = false } = {},
+  outputName = "output.pdf",
+) {
+  const inputName = "input.pdf";
+  const args = [inputName];
+  if (optimize) {
+    args.push("--object-streams=generate", "--recompress-flate", "--compression-level=9");
+  }
+  if (linearize) args.push("--linearize");
+  args.push(outputName);
+  return {
+    inputs: { [inputName]: pdfBytes },
+    args,
+    outputs: [outputName],
+    outputName,
+  };
+}
+
 function setIf(dict, key, value, PDFLib) {
   if (value !== undefined && value !== null) {
     dict.set(PDFLib.PDFName.of(key), value);

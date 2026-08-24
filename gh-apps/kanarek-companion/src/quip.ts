@@ -3,18 +3,29 @@ const FALLBACK_MODEL = 'gpt-5.4-nano';
 const ANTHROPIC_MODEL = 'claude-haiku-4-5';
 const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 const XAI_MODEL = 'grok-4.6';
+const OPENROUTER_MODELS = [
+  'z-ai/glm-5.2:free',
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+] as const;
+const ORCAROUTER_MODEL = 'orcarouter/auto';
 const AI_STATUSES = new Set(['ready', 'blocked']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
 const DEFAULT_QUIP_OUTPUT_TOKEN_LIMIT = 256;
+const DEFAULT_ROUTER_QUIP_OUTPUT_TOKEN_LIMIT = 1_024;
 const DEFAULT_XAI_QUIP_OUTPUT_TOKEN_LIMIT = 1_024;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const PROVIDER_STATS_PREFIX = 'kanarek:companion:provider-stats:v1:';
 const PROVIDER_SLOTS = [
+  'openrouter',
+  'orcarouter',
+  'gemini',
   'openai',
+  'xai',
   'openai-fallback',
   'anthropic',
-  'gemini',
-  'xai',
 ] as const;
 type ProviderSlot = (typeof PROVIDER_SLOTS)[number];
 const DEFAULT_PROVIDER_ORDER: readonly ProviderSlot[] = PROVIDER_SLOTS;
@@ -43,6 +54,8 @@ const SYSTEM_PROMPT = [
 export interface QuipEnv {
   ANTHROPIC_API_KEY?: string;
   GEMINI_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
+  ORCAROUTER_API_KEY?: string;
   KANAREK_AI_ENABLED?: string;
   KANAREK_AI_PERCENT?: string;
   KANAREK_QUIP_KV?: KVNamespace;
@@ -58,6 +71,12 @@ export interface QuipEnv {
   KANAREK_OPENAI_MAX_OUTPUT_TOKENS?: string;
   KANAREK_OPENAI_MODEL?: string;
   KANAREK_OPENAI_REASONING?: string;
+  KANAREK_OPENROUTER_ENABLED?: string;
+  KANAREK_OPENROUTER_MAX_TOKENS?: string;
+  KANAREK_OPENROUTER_MODELS?: string;
+  KANAREK_ORCAROUTER_ENABLED?: string;
+  KANAREK_ORCAROUTER_MAX_TOKENS?: string;
+  KANAREK_ORCAROUTER_MODEL?: string;
   KANAREK_PROVIDER_ORDER?: string;
   KANAREK_PROVIDER_TIMEOUT_MS?: string;
   KANAREK_XAI_ENABLED?: string;
@@ -247,6 +266,16 @@ function configuredChoice(
   return normalized && allowed.has(normalized) ? normalized : fallback;
 }
 
+function configuredList(
+  value: string | undefined,
+  fallback: readonly string[],
+): string[] {
+  const values = (value?.split(',') ?? [])
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return values.length ? [...new Set(values)] : [...fallback];
+}
+
 function providerTimeoutMs(env: QuipEnv): number {
   return configuredInteger(
     env.KANAREK_PROVIDER_TIMEOUT_MS,
@@ -288,7 +317,9 @@ function providerEnabled(value: string | undefined): boolean {
 
 export function hasAiProvider(env: QuipEnv): boolean {
   return Boolean(
-    (env.OPENAI_API_KEY && providerEnabled(env.KANAREK_OPENAI_ENABLED)) ||
+    (env.OPENROUTER_API_KEY && providerEnabled(env.KANAREK_OPENROUTER_ENABLED)) ||
+      (env.ORCAROUTER_API_KEY && providerEnabled(env.KANAREK_ORCAROUTER_ENABLED)) ||
+      (env.OPENAI_API_KEY && providerEnabled(env.KANAREK_OPENAI_ENABLED)) ||
       (env.ANTHROPIC_API_KEY && providerEnabled(env.KANAREK_ANTHROPIC_ENABLED)) ||
       (env.GEMINI_API_KEY && providerEnabled(env.KANAREK_GEMINI_ENABLED)) ||
       (env.XAI_API_KEY && providerEnabled(env.KANAREK_XAI_ENABLED)),
@@ -360,6 +391,21 @@ function geminiOutputText(response: Record<string, unknown>): string {
         ? (part as { text: string }).text
         : '',
     )
+    .filter(Boolean)
+    .join(' ');
+}
+
+function chatCompletionOutputText(response: Record<string, unknown>): string {
+  const choices = Array.isArray(response.choices) ? response.choices : [];
+  const first = objectValue(choices[0]);
+  const message = objectValue(first.message);
+  if (typeof message.content === 'string') return message.content;
+  if (!Array.isArray(message.content)) return '';
+  return message.content
+    .map((value) => {
+      const part = objectValue(value);
+      return typeof part.text === 'string' ? part.text : '';
+    })
     .filter(Boolean)
     .join(' ');
 }
@@ -445,6 +491,24 @@ function geminiResult(response: Record<string, unknown>): ProviderResult {
     usage: {
       outputTokens: finiteNumber(usage.candidatesTokenCount),
       reasoningTokens: finiteNumber(usage.thoughtsTokenCount),
+    },
+  };
+}
+
+function chatCompletionResult(response: Record<string, unknown>): ProviderResult {
+  const choices = Array.isArray(response.choices) ? response.choices : [];
+  const first = objectValue(choices[0]);
+  const finishReason =
+    typeof first.finish_reason === 'string' ? first.finish_reason : null;
+  const usage = objectValue(response.usage);
+  const completionDetails = objectValue(usage.completion_tokens_details);
+  return {
+    complete: finishReason === 'stop',
+    finishReason,
+    text: sanitize(chatCompletionOutputText(response)),
+    usage: {
+      outputTokens: finiteNumber(usage.completion_tokens),
+      reasoningTokens: finiteNumber(completionDetails.reasoning_tokens),
     },
   };
 }
@@ -660,6 +724,72 @@ async function requestGemini(
   return geminiResult(response);
 }
 
+async function requestOpenRouter(
+  facts: string,
+  apiKey: string,
+  env: QuipEnv,
+  fetcher: typeof fetch,
+): Promise<ProviderResult> {
+  const models = configuredList(env.KANAREK_OPENROUTER_MODELS, OPENROUTER_MODELS);
+  const body: Record<string, unknown> = {
+    model: models[0],
+    max_tokens: configuredInteger(
+      env.KANAREK_OPENROUTER_MAX_TOKENS,
+      DEFAULT_ROUTER_QUIP_OUTPUT_TOKEN_LIMIT,
+      1,
+      65_536,
+    ),
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: facts },
+    ],
+  };
+  if (models.length > 1) body.models = models.slice(1);
+
+  const response = await postJson(
+    'https://openrouter.ai/api/v1/chat/completions',
+    'OpenRouter free-pack',
+    {
+      Authorization: `Bearer ${apiKey}`,
+      'X-Title': 'Kanarek companion',
+    },
+    body,
+    providerTimeoutMs(env),
+    fetcher,
+  );
+  return chatCompletionResult(response);
+}
+
+async function requestOrcaRouter(
+  facts: string,
+  apiKey: string,
+  env: QuipEnv,
+  fetcher: typeof fetch,
+): Promise<ProviderResult> {
+  const model = env.KANAREK_ORCAROUTER_MODEL?.trim() || ORCAROUTER_MODEL;
+  const response = await postJson(
+    'https://api.orcarouter.ai/v1/chat/completions',
+    `OrcaRouter ${model}`,
+    { Authorization: `Bearer ${apiKey}` },
+    {
+      model,
+      max_tokens: configuredInteger(
+        env.KANAREK_ORCAROUTER_MAX_TOKENS,
+        DEFAULT_ROUTER_QUIP_OUTPUT_TOKEN_LIMIT,
+        1,
+        65_536,
+      ),
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: facts },
+      ],
+    },
+    providerTimeoutMs(env),
+    fetcher,
+  );
+  return chatCompletionResult(response);
+}
+
 async function requestXai(
   model: string,
   facts: string,
@@ -712,6 +842,19 @@ function providerCandidates(
   fetcher: typeof fetch,
 ): ProviderCandidate[] {
   const candidates = new Map<ProviderSlot, ProviderCandidate>();
+  if (env.OPENROUTER_API_KEY && providerEnabled(env.KANAREK_OPENROUTER_ENABLED)) {
+    candidates.set('openrouter', {
+      label: 'OpenRouter free-pack',
+      request: () => requestOpenRouter(facts, env.OPENROUTER_API_KEY ?? '', env, fetcher),
+    });
+  }
+  if (env.ORCAROUTER_API_KEY && providerEnabled(env.KANAREK_ORCAROUTER_ENABLED)) {
+    const model = env.KANAREK_ORCAROUTER_MODEL?.trim() || ORCAROUTER_MODEL;
+    candidates.set('orcarouter', {
+      label: `OrcaRouter ${model}`,
+      request: () => requestOrcaRouter(facts, env.ORCAROUTER_API_KEY ?? '', env, fetcher),
+    });
+  }
   if (env.OPENAI_API_KEY && providerEnabled(env.KANAREK_OPENAI_ENABLED)) {
     const primaryModel = env.KANAREK_OPENAI_MODEL || PRIMARY_MODEL;
     const fallbackModel = env.KANAREK_OPENAI_FALLBACK_MODEL || FALLBACK_MODEL;

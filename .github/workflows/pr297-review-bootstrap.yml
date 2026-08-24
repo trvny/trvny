@@ -59,3 +59,5 @@ jobs:
           git diff --cached --check
           git commit -m 'fix(gpt-actions): close autopilot review gaps'
           git push origin HEAD:feat/code-change-autopilot
+
+# Triggered after registration.

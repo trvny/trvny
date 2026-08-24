@@ -5,7 +5,14 @@ for (const path of [
   "public/app.js",
   "public/pdf-app.mjs",
   "public/pdf-core.mjs",
+  "public/fonts.css",
   "public/styles.css",
+  "public/fonts/space-grotesk-latin-ext.woff2",
+  "public/fonts/space-grotesk-latin.woff2",
+  "public/fonts/space-mono-latin-ext-400.woff2",
+  "public/fonts/space-mono-latin-400.woff2",
+  "public/fonts/space-mono-latin-ext-700.woff2",
+  "public/fonts/space-mono-latin-700.woff2",
   "public/vendor/js-yaml.min.js",
   "public/vendor/pdf-lib.min.js",
   "public/vendor/pdfjs/pdf.mjs",
@@ -32,9 +39,11 @@ for (const match of resourceHtml.matchAll(/<(?:script|link|img|source|iframe)\b[
 }
 for (const leaked of [
   "/vendor/",
+  "/fonts/",
   "/app.js",
   "/pdf-app.mjs",
   "/pdf-core.mjs",
+  "/fonts.css",
   "/styles.css",
 ]) {
   if (resourceUrls.some((url) => url.startsWith(leaked))) {
@@ -43,6 +52,9 @@ for (const leaked of [
 }
 if (resourceUrls.some((url) => /^https?:\/\//i.test(url))) {
   throw new Error("Portable build must not load third-party resources");
+}
+if (!portable.includes("Space Grotesk") || !portable.includes("Space Mono")) {
+  throw new Error("Portable build is missing embedded Bench fonts");
 }
 if (!portable.includes("jsyaml")) throw new Error("Portable build is missing YAML runtime");
 if (!portable.includes("PDFLib")) throw new Error("Portable build is missing PDF mutation runtime");

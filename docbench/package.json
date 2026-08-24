@@ -5,15 +5,12 @@
   "description": "Local-first document and PDF toolbox.",
   "scripts": {
     "build": "node scripts/vendor.mjs && node scripts/portable.mjs",
-    "typecheck": "wrangler types && npx --yes --package=typescript@7.0.2 tsc --noEmit",
-    "check": "npm run build && npm run typecheck && node scripts/check.mjs && wrangler deploy --dry-run",
-    "dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy"
+    "typecheck": "npx --yes wrangler@4 types && npx --yes --package=typescript@7.0.2 tsc --noEmit",
+    "check": "npm run build && npm run typecheck && node --check public/app.js && node scripts/check.mjs && npx --yes wrangler@4 deploy --dry-run",
+    "dev": "npm run build && npx --yes wrangler@4 dev",
+    "deploy": "npm run build && npx --yes wrangler@4 deploy"
   },
   "dependencies": {
     "js-yaml": "5.3.0"
-  },
-  "devDependencies": {
-    "wrangler": "^4"
   }
 }

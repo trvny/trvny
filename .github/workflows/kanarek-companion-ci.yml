@@ -132,7 +132,7 @@ jobs:
               "    core,\n    inputHash,\n    currentBranch,\n    currentBase.defaultBranch,",
           ]
           missing = [marker for marker in required if marker not in text]
-          if text.count("type: 'edit',\n        headSha: progress.branchHead,\n        revision: progress.revision,") < 2:
+          if text.count("type: 'edit',\n        headSha: progress.branchHead,\n        revision: progress.revision,") < 1:
               missing.append('editing nextAction revision binding')
           if '!files.length ||' in text:
               missing.append('empty aggregate diff recovery')

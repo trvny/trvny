@@ -275,7 +275,8 @@ select,
   flex: 1 1 24px;
 }
 
-.toolbar .toggle-label {
+.toolbar .toggle-label,
+.toolbar .quality-label {
   display: flex;
   grid-auto-flow: column;
   align-items: center;
@@ -283,6 +284,16 @@ select,
   min-height: 34px;
   padding: 0 4px;
   white-space: nowrap;
+}
+
+.quality-label input[type="range"] {
+  width: 96px;
+}
+
+.quality-label output {
+  min-width: 2ch;
+  color: #dce1e8;
+  font-variant-numeric: tabular-nums;
 }
 
 .pdf-meta-row {

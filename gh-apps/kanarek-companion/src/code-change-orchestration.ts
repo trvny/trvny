@@ -1400,7 +1400,12 @@ async function run(
           blockers,
           inspection: inspection.data ?? null,
           nextAction: blockers.some((blocker) => blocker.startsWith('ci:failure'))
-            ? { type: 'edit', note: 'Diagnose the failed CI before finalization.' }
+            ? {
+              type: 'edit',
+              headSha: progress.branchHead,
+              revision: progress.revision,
+              note: 'Diagnose the failed CI before finalization.',
+            }
             : { type: 'review', note: 'Wait for or resolve final-head CI/review blockers.' },
         }, 409);
       }

@@ -59,6 +59,16 @@ if (!documentEnhancements.includes("source.slice(node.offset, node.offset + node
 if (documentEnhancements.includes("JSON.parse(editor.value)")) {
   throw new Error("JSON tree preview must not coerce source numbers through JSON.parse.");
 }
+for (const fidelityGuard of [
+  "preserveYamlNumericLexemes",
+  "FAILSAFE_SCHEMA",
+  "preservesXmlSpace",
+  'statusBadge.textContent === "Format failed"',
+]) {
+  if (!documentEnhancements.includes(fidelityGuard)) {
+    throw new Error(`Structured preview is missing fidelity guard: ${fidelityGuard}`);
+  }
+}
 
 const portable = await readFile("public/portable.html", "utf8");
 const resourceHtml = portable.replace(

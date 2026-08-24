@@ -465,287 +465,293 @@ function renderMarkdownBlocks(tokens, parent) {
       parent.append(raw);
       continue;
     }
-    if (token.tokens?.length) renderMarkdownBlocks(token.tokens, parent);
-  }
-}
-
-function renderMarkdown() {
-  const markedApi = globalThis.marked;
-  if (!markedApi?.lexer) {
-    setPreviewMode("raw", "Markdown source");
-    preview.textContent = editor.value;
-    setStatus("bad", "Preview unavailable");
-    return;
-  }
-  const tokens = markedApi.lexer(editor.value, { gfm: true, breaks: false });
-  const fragment = document.createDocumentFragment();
-  renderMarkdownBlocks(tokens, fragment);
-  setPreviewMode("markdown", "Markdown preview");
-  preview.replaceChildren(fragment);
-  setStatus("neutral", "Rendered Markdown");
-}
-
-function renderEnhancedPreview() {
-  const format = formatSelect.value;
-  if (format === "txt") {
-    setPreviewMode("raw", "Plain-text preview");
-    preview.textContent = editor.value;
-    setStatus("neutral", "Plain text");
-    updateMeta();
-    return;
-  }
-  if (format === "md") {
-    renderMarkdown();
-    updateMeta();
-    return;
-  }
-  if (format === "json") {
-    let value;
-    try {
-      value = JSON.parse(editor.value);
-    } catch {
-      setPreviewMode("raw", "Parse error");
-      updateMeta();
-      return;
-    }
-    setPreviewMode("tree", "JSON tree");
-    preview.replaceChildren(renderDataTree(value, "JSON"));
-    setStatus("good", "Valid · tree");
-    updateMeta();
-    return;
-  }
-  if (format === "yaml") {
-    try {
-      const validated = [];
-      globalThis.jsyaml.loadAll(editor.value, (doc) => validated.push(doc));
-      const preserved = [];
-      try {
-        globalThis.jsyaml.loadAll(editor.value, (doc) => preserved.push(doc), {
-          schema: globalThis.jsyaml.FAILSAFE_SCHEMA,
-        });
-      } catch {
-        preserved.push(...validated);
-      }
-      const value = preserved.length === 1 ? preserved[0] : preserved;
-      setPreviewMode("tree", "YAML tree");
-      preview.replaceChildren(renderDataTree(value, preserved.length === 1 ? "YAML" : "YAML documents"));
-      setStatus("good", "Valid · tree");
-    } catch {
-      setPreviewMode("raw", "Parse error");
-    }
-    updateMeta();
-    return;
-  }
-  if (format === "xml") {
-    const doc = new DOMParser().parseFromString(editor.value, "application/xml");
-    if (xmlParserError(doc)) {
-      setPreviewMode("raw", "Parse error");
-      updateMeta();
-      return;
-    }
-    setPreviewMode("tree", "XML tree");
-    preview.replaceChildren(renderXmlTree(doc));
-    setStatus("good", "Valid · tree");
-    updateMeta();
-  }
-}
-
-let previewTimer;
-function schedulePreview(delay = 145) {
-  clearTimeout(previewTimer);
-  previewTimer = setTimeout(renderEnhancedPreview, delay);
-}
-
-function documentBytes() {
-  const raw = applyEol(editor.value, eolSelect.value);
-  const encoded = new TextEncoder().encode(raw);
-  if (!state.bom) return encoded;
-  const result = new Uint8Array(encoded.length + 3);
-  result.set([0xef, 0xbb, 0xbf]);
-  result.set(encoded, 3);
-  return result;
-}
-
-function downloadDocument() {
-  const blob = new Blob([documentBytes()], { type: mimeByFormat[formatSelect.value] || mimeByFormat.txt });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = state.filename || filenameLabel.textContent || "document.txt";
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 0);
-}
-
-async function ensureWritePermission(handle) {
-  if (typeof handle.queryPermission !== "function") return true;
-  const options = { mode: "readwrite" };
-  if (await handle.queryPermission(options) === "granted") return true;
-  if (typeof handle.requestPermission !== "function") return false;
-  return await handle.requestPermission(options) === "granted";
-}
-
-function flashSaveState(text) {
-  saveButton.textContent = text;
-  setTimeout(updateSaveButton, 1100);
-}
-
-async function writeHandle(handle) {
-  if (!await ensureWritePermission(handle)) throw new Error("Write permission was not granted.");
-  const writable = await handle.createWritable();
-  try {
-    await writable.write(documentBytes());
-  } finally {
-    await writable.close();
-  }
-  state.handle = handle;
-  state.filename = handle.name || state.filename;
-  filenameLabel.textContent = state.filename;
-  updateMeta();
-  updateSaveButton();
-  flashSaveState("Saved ✓");
-}
-
-async function chooseSaveHandle() {
-  return globalThis.showSaveFilePicker({
-    suggestedName: state.filename || filenameLabel.textContent || "document.txt",
-    types: pickerTypes,
-  });
-}
-
-async function saveDocument() {
-  try {
-    if (state.handle) {
-      await writeHandle(state.handle);
-      return;
-    }
-    if (nativeSaveSupported) {
-      const handle = await chooseSaveHandle();
-      await writeHandle(handle);
-      return;
-    }
-    downloadDocument();
-    flashSaveState("Downloaded ✓");
-  } catch (error) {
-    if (error?.name === "AbortError") return;
-    if (!state.handle && ["TypeError", "SecurityError", "NotAllowedError"].includes(error?.name)) {
-      downloadDocument();
-      flashSaveState("Downloaded ✓");
-      return;
-    }
-    setStatus("bad", "Save failed");
-    statusBadge.title = error?.message || String(error);
-  }
-}
-
-async function loadNativeHandle(handle) {
-  const file = await handle.getFile();
-  const { raw, bom, eol } = await readTextFile(file);
-  state.handle = handle;
-  state.filename = file.name || handle.name || "document.txt";
-  state.bom = bom;
-  state.mixedEol = eol.mixed;
-  state.eol = eol.target;
-  editor.value = normalizeEol(raw);
-  eolSelect.value = eol.target;
-  formatSelect.value = formatFromFilename(state.filename);
-  filenameLabel.textContent = state.filename;
-  editor.dispatchEvent(new Event("input", { bubbles: true }));
-  updateSaveButton();
-  schedulePreview();
-}
-
-async function syncFallbackFile(file) {
-  try {
-    const { bom, eol } = await readTextFile(file);
-    state.handle = null;
-    state.filename = file.name || filenameLabel.textContent || "document.txt";
-    state.bom = bom;
-    state.mixedEol = eol.mixed;
-    state.eol = eol.target;
-    setTimeout(() => {
-      state.filename = filenameLabel.textContent || state.filename;
-      updateSaveButton();
-      renderEnhancedPreview();
-    }, 170);
-  } catch {
-    state.handle = null;
-    updateSaveButton();
-  }
-}
-
-openButton.addEventListener("click", (event) => {
-  if (!nativeOpenSupported) return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  void (async () => {
-    try {
-      const [handle] = await globalThis.showOpenFilePicker({
-        multiple: false,
-        types: pickerTypes,
-      });
-      if (handle) await loadNativeHandle(handle);
-    } catch (error) {
-      if (error?.name === "AbortError") return;
-      fileInput.click();
-    }
-  })();
-}, true);
-
-saveButton.addEventListener("click", (event) => {
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  void saveDocument();
-}, true);
-
-downloadButton.addEventListener("click", downloadDocument);
-
-fileInput.addEventListener("change", () => {
-  const file = fileInput.files?.[0];
-  if (file) void syncFallbackFile(file);
-});
-
-dropZone.addEventListener("drop", (event) => {
-  const file = event.dataTransfer?.files?.[0];
-  if (file) void syncFallbackFile(file);
-}, true);
-
-newButton.addEventListener("click", () => {
-  queueMicrotask(() => {
-    state.handle = null;
-    state.filename = filenameLabel.textContent || "untitled.txt";
-    state.bom = false;
-    state.mixedEol = false;
-    state.eol = eolSelect.value;
-    updateSaveButton();
-    renderEnhancedPreview();
-  });
-});
-
-editor.addEventListener("input", () => schedulePreview());
-formatSelect.addEventListener("change", () => {
-  queueMicrotask(() => {
-    if (state.handle) filenameLabel.textContent = state.filename;
-    else state.filename = filenameLabel.textContent || state.filename;
-    schedulePreview();
-  });
-});
-eolSelect.addEventListener("change", () => {
-  state.mixedEol = false;
-  state.eol = eolSelect.value;
-  setTimeout(updateMeta, 0);
-});
-formatButton.addEventListener("click", () => {
-  state.mixedEol = false;
-  schedulePreview(170);
-});
-validateButton.addEventListener("click", () => schedulePreview(20));
-
-document.addEventListener("keydown", (event) => {
-  if (documentWorkspace.hidden) return;
-  if (event.altKey || (!event.ctrlKey && !event.metaKey) || event.key.toLowerCase() !== "s") return;
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  void saveDocument();
-}, true);
-
-updateSaveButton();
-schedulePreview(0);
++    if (token.tokens?.length) renderMarkdownBlocks(token.tokens, parent);
++  }
++}
++
++function renderMarkdown() {
++  const markedApi = globalThis.marked;
++  if (!markedApi?.lexer) {
++    setPreviewMode("raw", "Markdown source");
++    preview.textContent = editor.value;
++    setStatus("bad", "Preview unavailable");
++    return;
++  }
++  const tokens = markedApi.lexer(editor.value, { gfm: true, breaks: false });
++  const fragment = document.createDocumentFragment();
++  renderMarkdownBlocks(tokens, fragment);
++  setPreviewMode("markdown", "Markdown preview");
++  preview.replaceChildren(fragment);
++  setStatus("neutral", "Rendered Markdown");
++}
++
++function renderEnhancedPreview() {
++  const format = formatSelect.value;
++  if (format === "txt") {
++    setPreviewMode("raw", "Plain-text preview");
++    preview.textContent = editor.value;
++    setStatus("neutral", "Plain text");
++    updateMeta();
++    return;
++  }
++  if (format === "md") {
++    renderMarkdown();
++    updateMeta();
++    return;
++  }
++  if (format === "json") {
++    let value;
++    try {
++      value = JSON.parse(editor.value);
++    } catch {
++      setPreviewMode("raw", "Parse error");
++      updateMeta();
++      return;
++    }
++    setPreviewMode("tree", "JSON tree");
++    preview.replaceChildren(renderDataTree(value, "JSON"));
++    setStatus("good", "Valid · tree");
++    updateMeta();
++    return;
++  }
++  if (format === "yaml") {
++    try {
++      const validated = [];
++      globalThis.jsyaml.loadAll(editor.value, (doc) => validated.push(doc));
++      const preserved = [];
++      try {
++        globalThis.jsyaml.loadAll(editor.value, (doc) => preserved.push(doc), {
++          schema: globalThis.jsyaml.FAILSAFE_SCHEMA,
++        });
++      } catch {
++        preserved.push(...validated);
++      }
++      const value = preserved.length === 1 ? preserved[0] : preserved;
++      setPreviewMode("tree", "YAML tree");
++      preview.replaceChildren(renderDataTree(value, preserved.length === 1 ? "YAML" : "YAML documents"));
++      setStatus("good", "Valid · tree");
++    } catch {
++      setPreviewMode("raw", "Parse error");
++    }
++    updateMeta();
++    return;
++  }
++  if (format === "xml") {
++    const doc = new DOMParser().parseFromString(editor.value, "application/xml");
++    if (xmlParserError(doc)) {
++      setPreviewMode("raw", "Parse error");
++      updateMeta();
++      return;
++    }
++    setPreviewMode("tree", "XML tree");
++    preview.replaceChildren(renderXmlTree(doc));
++    setStatus("good", "Valid · tree");
++    updateMeta();
++  }
++}
++
++let previewTimer;
++function schedulePreview(delay = 145) {
++  clearTimeout(previewTimer);
++  previewTimer = setTimeout(renderEnhancedPreview, delay);
++}
++
++function documentBytes() {
++  const raw = applyEol(editor.value, eolSelect.value);
++  const encoded = new TextEncoder().encode(raw);
++  if (!state.bom) return encoded;
++  const result = new Uint8Array(encoded.length + 3);
++  result.set([0xef, 0xbb, 0xbf]);
++  result.set(encoded, 3);
++  return result;
++}
++
++function downloadDocument() {
++  const blob = new Blob([documentBytes()], { type: mimeByFormat[formatSelect.value] || mimeByFormat.txt });
++  const link = document.createElement("a");
++  link.href = URL.createObjectURL(blob);
++  link.download = state.filename || filenameLabel.textContent || "document.txt";
++  link.click();
++  setTimeout(() => URL.revokeObjectURL(link.href), 0);
++}
++
++async function ensureWritePermission(handle) {
++  if (typeof handle.queryPermission !== "function") return true;
++  const options = { mode: "readwrite" };
++  if (await handle.queryPermission(options) === "granted") return true;
++  if (typeof handle.requestPermission !== "function") return false;
++  return await handle.requestPermission(options) === "granted";
++}
++
++function flashSaveState(text) {
++  saveButton.textContent = text;
++  setTimeout(updateSaveButton, 1100);
++}
++
++async function writeHandle(handle) {
++  if (!await ensureWritePermission(handle)) throw new Error("Write permission was not granted.");
++  const writable = await handle.createWritable();
++  try {
++    await writable.write(documentBytes());
++    await writable.close();
++  } catch (error) {
++    try {
++      await writable.abort();
++    } catch {
++      // Preserve the original write/close error.
++    }
++    throw error;
++  }
++  state.handle = handle;
++  state.filename = handle.name || state.filename;
++  filenameLabel.textContent = state.filename;
++  updateMeta();
++  updateSaveButton();
++  flashSaveState("Saved ✓");
++}
++
++async function chooseSaveHandle() {
++  return globalThis.showSaveFilePicker({
++    suggestedName: state.filename || filenameLabel.textContent || "document.txt",
++    types: pickerTypes,
++  });
++}
++
++async function saveDocument() {
++  try {
++    if (state.handle) {
++      await writeHandle(state.handle);
++      return;
++    }
++    if (nativeSaveSupported) {
++      const handle = await chooseSaveHandle();
++      await writeHandle(handle);
++      return;
++    }
++    downloadDocument();
++    flashSaveState("Downloaded ✓");
++  } catch (error) {
++    if (error?.name === "AbortError") return;
++    if (!state.handle && ["TypeError", "SecurityError", "NotAllowedError"].includes(error?.name)) {
++      downloadDocument();
++      flashSaveState("Downloaded ✓");
++      return;
++    }
++    setStatus("bad", "Save failed");
++    statusBadge.title = error?.message || String(error);
++  }
++}
++
++async function loadNativeHandle(handle) {
++  const file = await handle.getFile();
++  const { raw, bom, eol } = await readTextFile(file);
++  state.handle = handle;
++  state.filename = file.name || handle.name || "document.txt";
++  state.bom = bom;
++  state.mixedEol = eol.mixed;
++  state.eol = eol.target;
++  editor.value = normalizeEol(raw);
++  eolSelect.value = eol.target;
++  formatSelect.value = formatFromFilename(state.filename);
++  filenameLabel.textContent = state.filename;
++  editor.dispatchEvent(new Event("input", { bubbles: true }));
++  updateSaveButton();
++  schedulePreview();
++}
++
++async function syncFallbackFile(file) {
++  try {
++    const { bom, eol } = await readTextFile(file);
++    state.handle = null;
++    state.filename = file.name || filenameLabel.textContent || "document.txt";
++    state.bom = bom;
++    state.mixedEol = eol.mixed;
++    state.eol = eol.target;
++    setTimeout(() => {
++      state.filename = filenameLabel.textContent || state.filename;
++      updateSaveButton();
++      renderEnhancedPreview();
++    }, 170);
++  } catch {
++    state.handle = null;
++    updateSaveButton();
++  }
++}
++
++openButton.addEventListener("click", (event) => {
++  if (!nativeOpenSupported) return;
++  event.preventDefault();
++  event.stopImmediatePropagation();
++  void (async () => {
++    try {
++      const [handle] = await globalThis.showOpenFilePicker({
++        multiple: false,
++        types: pickerTypes,
++      });
++      if (handle) await loadNativeHandle(handle);
++    } catch (error) {
++      if (error?.name === "AbortError") return;
++      fileInput.click();
++    }
++  })();
++}, true);
++
++saveButton.addEventListener("click", (event) => {
++  event.preventDefault();
++  event.stopImmediatePropagation();
++  void saveDocument();
++}, true);
++
++downloadButton.addEventListener("click", downloadDocument);
++
++fileInput.addEventListener("change", () => {
++  const file = fileInput.files?.[0];
++  if (file) void syncFallbackFile(file);
++});
++
++dropZone.addEventListener("drop", (event) => {
++  const file = event.dataTransfer?.files?.[0];
++  if (file) void syncFallbackFile(file);
++}, true);
++
++newButton.addEventListener("click", () => {
++  queueMicrotask(() => {
++    state.handle = null;
++    state.filename = filenameLabel.textContent || "untitled.txt";
++    state.bom = false;
++    state.mixedEol = false;
++    state.eol = eolSelect.value;
++    updateSaveButton();
++    renderEnhancedPreview();
++  });
++});
++
++editor.addEventListener("input", () => schedulePreview());
++formatSelect.addEventListener("change", () => {
++  queueMicrotask(() => {
++    if (state.handle) filenameLabel.textContent = state.filename;
++    else state.filename = filenameLabel.textContent || state.filename;
++    schedulePreview();
++  });
++});
++eolSelect.addEventListener("change", () => {
++  state.mixedEol = false;
++  state.eol = eolSelect.value;
++  setTimeout(updateMeta, 0);
++});
++formatButton.addEventListener("click", () => {
++  state.mixedEol = false;
++  schedulePreview(170);
++});
++validateButton.addEventListener("click", () => schedulePreview(20));
++
++document.addEventListener("keydown", (event) => {
++  if (documentWorkspace.hidden) return;
++  if (event.altKey || (!event.ctrlKey && !event.metaKey) || event.key.toLowerCase() !== "s") return;
++  event.preventDefault();
++  event.stopImmediatePropagation();
++  void saveDocument();
++}, true);
++
++updateSaveButton();
++schedulePreview(0);

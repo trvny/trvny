@@ -27,6 +27,15 @@ Used only to tokenize Markdown. Doc Bench renders the resulting tokens into DOM
 nodes itself. Raw HTML is not executed and remote Markdown images are not loaded
 automatically.
 
+## fflate
+
+- Package: `fflate` 0.8.3
+- Project: https://github.com/101arrowz/fflate
+- License: MIT
+
+Used locally to package split-page PDF exports into a single ZIP archive. PDF
+entries are stored without a second compression pass.
+
 ## PDF.js
 
 - Package: `pdfjs-dist` 6.2.108

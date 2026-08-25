@@ -20,6 +20,7 @@ for (const path of [
   "public/vendor/jsonc-parser/impl/parser.js",
   "public/vendor/jsonc-parser/impl/scanner.js",
   "public/vendor/pdf-lib.min.js",
+  "public/vendor/fflate.min.js",
   "public/vendor/pdfjs/pdf.mjs",
   "public/vendor/pdfjs/pdf.worker.mjs",
   "public/vendor/qpdf-run/index.js",
@@ -102,6 +103,20 @@ for (const fidelityGuard of [
   }
 }
 
+const pdfApp = await readFile("public/pdf-app.mjs", "utf8");
+for (const exportGuard of [
+  "extractSelectedPage",
+  "splitAllPages",
+  "ZipPassThrough",
+  "remapOutlineToPagePlan(snapshot.outline, snapshot.plan, plan)",
+  "await verifyOutput(finalBytes, plan.length, outline)",
+  "state.exporting",
+]) {
+  if (!pdfApp.includes(exportGuard)) {
+    throw new Error(`PDF split/extract is missing guard: ${exportGuard}`);
+  }
+}
+
 const portable = await readFile("public/portable.html", "utf8");
 const resourceHtml = portable.replace(
   /(<script\b[^>]*>)[\s\S]*?<\/script>/gi,
@@ -142,6 +157,7 @@ if (!portable.includes("showSaveFilePicker") || !portable.includes("createWritab
   throw new Error("Portable build is missing direct-save support");
 }
 if (!portable.includes("PDFLib")) throw new Error("Portable build is missing PDF mutation runtime");
+if (!portable.includes("ZipPassThrough")) throw new Error("Portable build is missing ZIP runtime");
 if (!portable.includes("__docbenchPdfAssets")) {
   throw new Error("Portable build is missing embedded PDF runtime assets");
 }

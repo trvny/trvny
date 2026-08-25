@@ -133,6 +133,12 @@ const portable = html
   .replace('<script type="module" src="/pdf-app.mjs"></script>', portablePdfScripts)
   .replace('<link rel="manifest" href="/site.webmanifest">', "")
   .replace('<link rel="canonical" href="https://docbench.travny.workers.dev/">', "")
-  .replace('<link rel="icon" type="image/svg+xml" href="/favicon.svg">', "");
+  .replace('<link rel="icon" type="image/svg+xml" href="/favicon.svg">', "")
+  .replace('<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">', "")
+  .replace('<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">', "")
+  .replace('<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">', "")
+  .replace('<link rel="icon" href="/favicon.ico" sizes="any">', "")
+  .replace('<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">', "")
+  .replace('<link rel="mask-icon" href="/favicon.svg" color="#f59e0b">', "");
 
 await writeFile("public/portable.html", portable);

@@ -23,8 +23,9 @@ Streambench runs at https://streambench.travny.workers.dev/. Local playlist file
 
 ## Related TRAVNY tools
 
-- [TRAVNY hub](https://travny.pages.dev/): family landing page.
+- [TRAVNY hub](https://trfny.com/): family landing page.
 - [TVP IPTV](https://tvpi.travny.workers.dev/playlist.m3u): fresh TVP playlist endpoint.
-- [Codebench](https://codebench.travny.workers.dev/): QR and code utility.
-- [Weather](https://weather.travny.workers.dev/): local weather ensemble.
+- [Codebench](https://codebench.trfny.com/): QR and code utility.
+- [Doc Bench](https://docbench.travny.workers.dev/): local-first document and PDF studio.
+- [Weather](https://weather.trfny.com/): local weather ensemble.
 - [Feeds](https://trvny.github.io/feedseek/): feed directory and generated RSS/Atom feeds.

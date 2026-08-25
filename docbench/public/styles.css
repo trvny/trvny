@@ -697,6 +697,15 @@ footer {
   font: 400 0.66rem/1.4 "Space Mono", ui-monospace, monospace;
 }
 
+footer a {
+  color: inherit;
+  text-underline-offset: 0.16em;
+}
+
+footer a:hover {
+  color: var(--text);
+}
+
 @media (max-width: 1180px) {
   .pdf-toolbar .save-group {
     margin-left: 0;

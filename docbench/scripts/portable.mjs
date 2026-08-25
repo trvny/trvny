@@ -132,6 +132,7 @@ const portable = html
   )
   .replace('<script type="module" src="/pdf-app.mjs"></script>', portablePdfScripts)
   .replace('<link rel="manifest" href="/site.webmanifest">', "")
+  .replace('<link rel="canonical" href="https://docbench.travny.workers.dev/">', "")
   .replace('<link rel="icon" type="image/svg+xml" href="/favicon.svg">', "");
 
 await writeFile("public/portable.html", portable);

@@ -148,6 +148,43 @@
         <span id="pdf-status" role="status" aria-live="polite">Open a PDF to begin.</span>
       </div>
 
+      <details id="pdf-metadata-panel" class="pdf-metadata-panel">
+        <summary>
+          <strong>Metadata</strong>
+          <span id="pdf-metadata-state">No PDF</span>
+        </summary>
+        <fieldset id="pdf-metadata-fields" class="pdf-metadata-grid" disabled>
+          <label>Title
+            <input id="pdf-meta-title" type="text" maxlength="1000">
+          </label>
+          <label>Author
+            <input id="pdf-meta-author" type="text" maxlength="1000">
+          </label>
+          <label>Subject
+            <input id="pdf-meta-subject" type="text" maxlength="2000">
+          </label>
+          <label>Keywords
+            <input id="pdf-meta-keywords" type="text" maxlength="4000">
+          </label>
+          <label>Creator
+            <input id="pdf-meta-creator" type="text" maxlength="1000">
+          </label>
+          <label>Producer
+            <input id="pdf-meta-producer" type="text" maxlength="1000">
+          </label>
+          <label>Created
+            <input id="pdf-meta-created" type="datetime-local" step="1">
+          </label>
+          <label>Modified
+            <input id="pdf-meta-modified" type="datetime-local" step="1">
+          </label>
+        </fieldset>
+        <div class="pdf-metadata-footer">
+          <span>Dates use local time. Edits apply to Save, Extract and Split.</span>
+          <button id="pdf-metadata-reset" class="mini-button" type="button" disabled>Reset</button>
+        </div>
+      </details>
+
       <div class="pdf-grid">
         <aside class="pdf-outline-panel" aria-label="PDF bookmarks">
           <div class="panel-header bookmark-panel-header">

@@ -63,7 +63,7 @@ if (documentEnhancements.includes("JSON.parse(editor.value)")) {
   throw new Error("JSON tree preview must not coerce source numbers through JSON.parse.");
 }
 const fallbackFunction = documentEnhancements.match(
-  /async function syncFallbackFile\(file\) \{([\s\S]*?)\n\}/,
+  /async function syncFallbackFile\(file, revision\) \{([\s\S]*?)\n\}/,
 )?.[1] || "";
 if (!fallbackFunction || /catch \{[\s\S]*?state\.handle = null/.test(fallbackFunction)) {
   throw new Error("Rejected fallback files must preserve the existing linked handle.");
@@ -77,6 +77,10 @@ for (const fidelityGuard of [
   "currentDocumentSnapshot",
   "documentRevision",
   "StaleDocumentError",
+  "markdownBudget",
+  "appendMarkdownLimit",
+  "loadNativeHandle(handle, revision)",
+  "syncFallbackFile(file, revision)",
   "preservesXmlSpace",
   "PROCESSING_INSTRUCTION_NODE",
   "DOCUMENT_TYPE_NODE",

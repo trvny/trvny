@@ -497,64 +497,91 @@ function safeHref(href) {
   return null;
 }
 
-function markdownInline(tokens, parent) {
+function markdownBudget() {
+  return { nodes: 0, truncated: false };
+}
+
+function takeMarkdownNode(budget) {
+  if (budget.nodes >= MAX_TREE_NODES) {
+    budget.truncated = true;
+    return false;
+  }
+  budget.nodes += 1;
+  return true;
+}
+
+function markdownElement(tag, budget) {
+  return takeMarkdownNode(budget) ? document.createElement(tag) : null;
+}
+
+function appendMarkdownText(parent, text, budget) {
+  if (!text || !takeMarkdownNode(budget)) return;
+  parent.append(document.createTextNode(text));
+}
+
+function markdownInline(tokens, parent, budget) {
   for (const token of tokens || []) {
+    if (budget.truncated) break;
     if (token.type === "text" || token.type === "escape") {
-      if (token.tokens?.length) markdownInline(token.tokens, parent);
-      else parent.append(document.createTextNode(token.text || ""));
+      if (token.tokens?.length) markdownInline(token.tokens, parent, budget);
+      else appendMarkdownText(parent, token.text || "", budget);
       continue;
     }
     if (["strong", "em", "del"].includes(token.type)) {
       const tag = token.type === "strong" ? "strong" : token.type;
-      const element = document.createElement(tag);
-      markdownInline(token.tokens, element);
+      const element = markdownElement(tag, budget);
+      if (!element) break;
+      markdownInline(token.tokens, element, budget);
       parent.append(element);
       continue;
     }
     if (token.type === "codespan") {
-      const code = document.createElement("code");
-      code.textContent = token.text || "";
+      const code = markdownElement("code", budget);
+      if (!code) break;
+      appendMarkdownText(code, token.text || "", budget);
       parent.append(code);
       continue;
     }
     if (token.type === "br") {
-      parent.append(document.createElement("br"));
+      const br = markdownElement("br", budget);
+      if (br) parent.append(br);
       continue;
     }
     if (token.type === "link") {
       const href = safeHref(token.href);
       if (!href) {
-        markdownInline(token.tokens, parent);
+        markdownInline(token.tokens, parent, budget);
         continue;
       }
-      const link = document.createElement("a");
+      const link = markdownElement("a", budget);
+      if (!link) break;
       link.href = href;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       if (token.title) link.title = token.title;
-      markdownInline(token.tokens, link);
+      markdownInline(token.tokens, link, budget);
       parent.append(link);
       continue;
     }
     if (token.type === "image") {
-      const image = document.createElement("span");
+      const image = markdownElement("span", budget);
+      if (!image) break;
       image.className = "markdown-image-placeholder";
-      image.textContent = token.text ? `[image: ${token.text}]` : "[image omitted]";
-      if (token.href) {
-        image.title = `Remote images are not loaded automatically: ${token.href}`;
-      }
+      appendMarkdownText(image, token.text ? `[image: ${token.text}]` : "[image omitted]", budget);
+      if (token.href) image.title = `Remote images are not loaded automatically: ${token.href}`;
       parent.append(image);
       continue;
     }
     if (token.type === "html") {
-      const raw = document.createElement("code");
+      const raw = markdownElement("code", budget);
+      if (!raw) break;
       raw.className = "markdown-raw-html";
-      raw.textContent = token.text || token.raw || "";
+      appendMarkdownText(raw, token.text || token.raw || "", budget);
       parent.append(raw);
       continue;
     }
-    if (token.tokens?.length) markdownInline(token.tokens, parent);
-    else if (token.text) parent.append(document.createTextNode(token.text));
+    if (token.tokens?.length) markdownInline(token.tokens, parent, budget);
+    else if (token.text) appendMarkdownText(parent, token.text, budget);
   }
 }
 
@@ -564,81 +591,99 @@ function markdownCellTokens(cell) {
   return [{ type: "text", text: cell?.text ?? String(cell ?? "") }];
 }
 
-function renderMarkdownBlocks(tokens, parent) {
+function renderMarkdownBlocks(tokens, parent, budget) {
   for (const token of tokens || []) {
+    if (budget.truncated) break;
     if (token.type === "space") continue;
     if (token.type === "heading") {
       const depth = Math.min(6, Math.max(1, token.depth || 1));
-      const heading = document.createElement(`h${depth}`);
-      markdownInline(token.tokens, heading);
+      const heading = markdownElement(`h${depth}`, budget);
+      if (!heading) break;
+      markdownInline(token.tokens, heading, budget);
       parent.append(heading);
       continue;
     }
     if (token.type === "paragraph" || token.type === "text") {
-      const paragraph = document.createElement("p");
-      markdownInline(token.tokens?.length ? token.tokens : [token], paragraph);
+      const paragraph = markdownElement("p", budget);
+      if (!paragraph) break;
+      markdownInline(token.tokens?.length ? token.tokens : [token], paragraph, budget);
       parent.append(paragraph);
       continue;
     }
     if (token.type === "code") {
-      const pre = document.createElement("pre");
-      const code = document.createElement("code");
-      code.textContent = token.text || "";
+      const pre = markdownElement("pre", budget);
+      const code = markdownElement("code", budget);
+      if (!pre || !code) break;
+      appendMarkdownText(code, token.text || "", budget);
       if (token.lang) code.dataset.language = token.lang.split(/\s+/)[0];
       pre.append(code);
       parent.append(pre);
       continue;
     }
     if (token.type === "blockquote") {
-      const quote = document.createElement("blockquote");
-      renderMarkdownBlocks(token.tokens, quote);
+      const quote = markdownElement("blockquote", budget);
+      if (!quote) break;
+      renderMarkdownBlocks(token.tokens, quote, budget);
       parent.append(quote);
       continue;
     }
     if (token.type === "list") {
-      const list = document.createElement(token.ordered ? "ol" : "ul");
+      const list = markdownElement(token.ordered ? "ol" : "ul", budget);
+      if (!list) break;
       if (token.ordered && Number.isFinite(token.start) && token.start !== 1) {
         list.start = token.start;
       }
       for (const itemToken of token.items || []) {
-        const item = document.createElement("li");
+        if (budget.truncated) break;
+        const item = markdownElement("li", budget);
+        if (!item) break;
         if (itemToken.task) {
-          const checkbox = document.createElement("input");
+          const checkbox = markdownElement("input", budget);
+          if (!checkbox) break;
           checkbox.type = "checkbox";
           checkbox.checked = Boolean(itemToken.checked);
           checkbox.disabled = true;
           checkbox.setAttribute("aria-hidden", "true");
-          item.append(checkbox, document.createTextNode(" "));
+          item.append(checkbox);
+          appendMarkdownText(item, " ", budget);
         }
-        renderMarkdownBlocks(itemToken.tokens, item);
+        renderMarkdownBlocks(itemToken.tokens, item, budget);
         list.append(item);
       }
       parent.append(list);
       continue;
     }
     if (token.type === "table") {
-      const table = document.createElement("table");
-      const thead = document.createElement("thead");
-      const headRow = document.createElement("tr");
-      (token.header || []).forEach((cell, index) => {
-        const th = document.createElement("th");
+      const table = markdownElement("table", budget);
+      const thead = markdownElement("thead", budget);
+      const headRow = markdownElement("tr", budget);
+      if (!table || !thead || !headRow) break;
+      for (const [index, cell] of (token.header || []).entries()) {
+        if (budget.truncated) break;
+        const th = markdownElement("th", budget);
+        if (!th) break;
         const align = token.align?.[index];
         if (["left", "center", "right"].includes(align)) th.style.textAlign = align;
-        markdownInline(markdownCellTokens(cell), th);
+        markdownInline(markdownCellTokens(cell), th, budget);
         headRow.append(th);
-      });
+      }
       thead.append(headRow);
       table.append(thead);
-      const tbody = document.createElement("tbody");
+      const tbody = markdownElement("tbody", budget);
+      if (!tbody) break;
       for (const row of token.rows || []) {
-        const tr = document.createElement("tr");
-        row.forEach((cell, index) => {
-          const td = document.createElement("td");
+        if (budget.truncated) break;
+        const tr = markdownElement("tr", budget);
+        if (!tr) break;
+        for (const [index, cell] of row.entries()) {
+          if (budget.truncated) break;
+          const td = markdownElement("td", budget);
+          if (!td) break;
           const align = token.align?.[index];
           if (["left", "center", "right"].includes(align)) td.style.textAlign = align;
-          markdownInline(markdownCellTokens(cell), td);
+          markdownInline(markdownCellTokens(cell), td, budget);
           tr.append(td);
-        });
+        }
         tbody.append(tr);
       }
       table.append(tbody);
@@ -646,20 +691,29 @@ function renderMarkdownBlocks(tokens, parent) {
       continue;
     }
     if (token.type === "hr") {
-      parent.append(document.createElement("hr"));
+      const hr = markdownElement("hr", budget);
+      if (hr) parent.append(hr);
       continue;
     }
     if (token.type === "html") {
-      const raw = document.createElement("pre");
+      const raw = markdownElement("pre", budget);
+      const code = markdownElement("code", budget);
+      if (!raw || !code) break;
       raw.className = "markdown-raw-html-block";
-      const code = document.createElement("code");
-      code.textContent = token.text || token.raw || "";
+      appendMarkdownText(code, token.text || token.raw || "", budget);
       raw.append(code);
       parent.append(raw);
       continue;
     }
-    if (token.tokens?.length) renderMarkdownBlocks(token.tokens, parent);
+    if (token.tokens?.length) renderMarkdownBlocks(token.tokens, parent, budget);
   }
+}
+
+function appendMarkdownLimit(fragment) {
+  const note = document.createElement("p");
+  note.className = "preview-limit-note";
+  note.textContent = `Markdown preview stopped after ${MAX_TREE_NODES.toLocaleString()} DOM nodes.`;
+  fragment.append(note);
 }
 
 function renderMarkdown() {
@@ -672,10 +726,12 @@ function renderMarkdown() {
   }
   const tokens = markedApi.lexer(editor.value, { gfm: true, breaks: false });
   const fragment = document.createDocumentFragment();
-  renderMarkdownBlocks(tokens, fragment);
+  const budget = markdownBudget();
+  renderMarkdownBlocks(tokens, fragment, budget);
+  if (budget.truncated) appendMarkdownLimit(fragment);
   setPreviewMode("markdown", "Markdown preview");
   preview.replaceChildren(fragment);
-  setStatus("neutral", "Rendered Markdown");
+  setStatus("neutral", budget.truncated ? "Rendered · truncated" : "Rendered Markdown");
 }
 
 function renderEnhancedPreview() {
@@ -853,9 +909,10 @@ async function saveDocument() {
   }
 }
 
-async function loadNativeHandle(handle) {
+async function loadNativeHandle(handle, revision) {
   const file = await handle.getFile();
   const { raw, bom, eol } = await readTextFile(file);
+  if (state.documentRevision !== revision) return false;
   state.handle = handle;
   state.filename = file.name || handle.name || "document.txt";
   state.bom = bom;
@@ -868,23 +925,26 @@ async function loadNativeHandle(handle) {
   editor.dispatchEvent(new Event("input", { bubbles: true }));
   updateSaveButton();
   schedulePreview();
+  return true;
 }
 
-async function syncFallbackFile(file) {
+async function syncFallbackFile(file, revision) {
   try {
     const { bom, eol } = await readTextFile(file);
+    if (state.documentRevision !== revision) return;
     state.handle = null;
     state.filename = file.name || filenameLabel.textContent || "document.txt";
     state.bom = bom;
     state.mixedEol = eol.mixed;
     state.eol = eol.target;
     setTimeout(() => {
+      if (state.documentRevision !== revision) return;
       state.filename = filenameLabel.textContent || state.filename;
       updateSaveButton();
       renderEnhancedPreview();
     }, 170);
   } catch {
-    updateSaveButton();
+    if (state.documentRevision === revision) updateSaveButton();
   }
 }
 
@@ -910,10 +970,11 @@ openButton.addEventListener("click", (event) => {
       return;
     }
     if (!handle) return;
-    state.documentRevision += 1;
+    const revision = state.documentRevision += 1;
     try {
-      await loadNativeHandle(handle);
+      await loadNativeHandle(handle, revision);
     } catch (error) {
+      if (state.documentRevision !== revision) return;
       setStatus("bad", "Open failed");
       statusBadge.title = error?.message || String(error);
     }
@@ -931,15 +992,15 @@ downloadButton.addEventListener("click", () => downloadDocument());
 fileInput.addEventListener("change", () => {
   const file = fileInput.files?.[0];
   if (!file) return;
-  state.documentRevision += 1;
-  void syncFallbackFile(file);
+  const revision = state.documentRevision += 1;
+  void syncFallbackFile(file, revision);
 });
 
 dropZone.addEventListener("drop", (event) => {
   const file = event.dataTransfer?.files?.[0];
   if (!file) return;
-  state.documentRevision += 1;
-  void syncFallbackFile(file);
+  const revision = state.documentRevision += 1;
+  void syncFallbackFile(file, revision);
 }, true);
 
 newButton.addEventListener("click", () => {

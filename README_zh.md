@@ -8,11 +8,11 @@
 
 [Polski](README_pl.md) · [English](README.md) · **简体中文**
 
-[![feedseek](https://img.shields.io/badge/feed-seek-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feedseek) [![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://travny.pages.dev/tv/)
+[![feedseek](https://img.shields.io/badge/feed-seek-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feedseek) [![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://trfny.com/tv/)
 [![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/trvny/wambridge)
-[![weather](https://img.shields.io/badge/weather-KOŚCIELEC-16a34a?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.travny.workers.dev)  
-[![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.travny.workers.dev) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.travny.workers.dev)  
-[![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://travny.pages.dev)
+[![weather](https://img.shields.io/badge/weather-KOŚCIELEC-16a34a?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.trfny.com)
+[![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.trfny.com) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.trfny.com) [![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.travny.workers.dev)
+[![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://trfny.com)
 
 [![GitHub Stats](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)
 
@@ -28,7 +28,7 @@
 |---|---|---|
 | 📡 **Feedseek** | [仓库](https://github.com/trvny/feedseek) · [网站](https://trvny.github.io/feedseek) · [阅读器](https://trvny.github.io/feedseek/reader/) | 为缺少可用原生订阅源的网站生成并发布 RSS/Atom。 |
 | 🐤 **Kanarek** | [仓库](https://github.com/trvny/kanarek) | Android RSS/Atom 阅读器，带桌面小组件以及广播/IPTV 播放。 |
-| 📺 **TVPI** | [仓库](https://github.com/trvny/tvpi) · [网站](https://travny.pages.dev/tv/) · [播放列表](https://tvpi.travny.workers.dev/playlist.m3u) | TVP 频道的稳定 IPTV 入口、Cloudflare Worker，以及用于刷新 HLS token 的住宅网络推送方案。 |
+| 📺 **TVPI** | [仓库](https://github.com/trvny/tvpi) · [网站](https://trfny.com/tv/) · [播放列表](https://tvpi.travny.workers.dev/playlist.m3u) | TVP 频道的稳定 IPTV 入口、Cloudflare Worker，以及用于刷新 HLS token 的住宅网络推送方案。 |
 | 🚗 **Autka** | [仓库](https://github.com/trvny/autka) | Android 二手车聚合器，覆盖波兰、欧盟与美国进口，并包含进口成本计算。 |
 | 🔊 **WAM Bridge** | [仓库](https://github.com/trvny/wambridge) | Samsung Wireless Audio Multiroom 音频桥接，以及面向 Shape M5 的原生 foobar2000 输出。 |
 
@@ -36,9 +36,10 @@
 
 | 项目 | 在线地址 | 用途 |
 |---|---|---|
-| 🔳 **[Codebench](codebench/)** | [codebench.travny.workers.dev](https://codebench.travny.workers.dev) | 浏览器内运行的私有 QR/条码工作台，数据不会离开浏览器。 |
-| 📻 **[Streambench](streambench/)** | [streambench.travny.workers.dev](https://streambench.travny.workers.dev) | 用于测试、整理和播放 IPTV、广播、HLS、M3U 与 XMLTV。 |
-| 🌦️ **[weather-feed](weather-feed/)** | [weather.travny.workers.dev](https://weather.travny.workers.dev) | Kościelec/Chrzanów 的多源天气与 IMGW 警报，以 Atom 和 JSON 提供。 |
+| 🔳 **[Codebench](codebench/)** | [codebench.trfny.com](https://codebench.trfny.com) | 浏览器内运行的私有 QR/条码工作台，数据不会离开浏览器。 |
+| 📻 **[Streambench](streambench/)** | [streambench.trfny.com](https://streambench.trfny.com) | 用于测试、整理和播放 IPTV、广播、HLS、M3U 与 XMLTV。 |
+| 📄 **[Docbench](docbench/)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | 本地优先的文档与 PDF 工作台，可编辑、预览、验证、合并、整理页面和书签。 |
+| 🌦️ **[weather-feed](weather-feed/)** | [weather.trfny.com](https://weather.trfny.com) | Kościelec/Chrzanów 的多源天气与 IMGW 警报，以 Atom 和 JSON 提供。 |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | 汇总检查 TVPI、Feedseek 和 Autka 健康状态的单一工具。 |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | 公共 AI 配置核心，以及私有配置、归档和项目 skills。 |
 
@@ -61,8 +62,8 @@
 
 ## [许可证](LICENSE)与[第三方材料](docs/THIRD_PARTY_NOTICES.md)
 
-原创代码与文档采用 [ISC](https://spdx.org/licenses/ISC) 许可。  
-第三方材料见 [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md)。  
+原创代码与文档采用 [ISC](https://spdx.org/licenses/ISC) 许可。
+第三方材料见 [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md)。
 [![license](https://img.shields.io/github/license/trvny/trvny)](LICENSE)
 
 ---

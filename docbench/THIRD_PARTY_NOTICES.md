@@ -8,6 +8,25 @@
 
 Used for YAML 1.2/1.1 parsing, validation and explicit formatting.
 
+## jsonc-parser
+
+- Package: `jsonc-parser` 3.3.1
+- Project: https://github.com/microsoft/node-jsonc-parser
+- License: MIT
+
+Used to build the JSON preview tree from source offsets so scalar lexemes stay
+exact, including integers outside JavaScript's safe numeric range.
+
+## Marked
+
+- Package: `marked` 18.0.10
+- Project: https://github.com/markedjs/marked
+- License: MIT
+
+Used only to tokenize Markdown. Doc Bench renders the resulting tokens into DOM
+nodes itself. Raw HTML is not executed and remote Markdown images are not loaded
+automatically.
+
 ## PDF.js
 
 - Package: `pdfjs-dist` 6.2.108

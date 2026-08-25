@@ -10,6 +10,7 @@
   <link rel="manifest" href="/site.webmanifest">
   <link rel="stylesheet" href="/fonts.css">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/document-enhancements.css">
 </head>
 <body>
   <main class="app-shell">
@@ -59,6 +60,7 @@
           <button id="format-button" class="button compact" type="button">Format</button>
           <button id="copy-button" class="button compact" type="button">Copy</button>
           <button id="save-button" class="button compact primary" type="button" aria-keyshortcuts="Control+S Meta+S">Save</button>
+          <button id="download-button" class="button compact" type="button">Download</button>
         </div>
       </div>
 
@@ -72,10 +74,10 @@
         </section>
         <section class="panel preview-panel" aria-label="Parsed preview">
           <div class="panel-header">
-            <strong>Parsed preview</strong>
+            <strong id="preview-title">Parsed preview</strong>
             <span id="status-badge" class="status neutral" role="status" aria-live="polite">Plain text</span>
           </div>
-          <pre id="preview" tabindex="0"></pre>
+          <div id="preview" class="preview-raw" tabindex="0"></div>
         </section>
       </div>
       <p id="detail-status" class="detail-status">UTF-8 · LF · 1 line</p>
@@ -184,8 +186,10 @@
     <footer><span>Local-first by design.</span><span>No uploads · no telemetry · portable build included.</span></footer>
   </main>
   <script src="/vendor/js-yaml.min.js"></script>
+  <script src="/vendor/marked.umd.js"></script>
   <script src="/vendor/pdf-lib.min.js"></script>
   <script src="/app.js"></script>
+  <script type="module" src="/document-enhancements.mjs"></script>
   <script type="module" src="/pdf-app.mjs"></script>
 </body>
 </html>

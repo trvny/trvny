@@ -5,7 +5,10 @@ import {
   buildQpdfFinalizeRequest,
   buildQpdfPageRequest,
   clonePdfOutline,
+  readPdfMetadata,
   readPdfOutline,
+  replacePdfMetadata,
+  verifyPdfMetadata,
   remapOutline,
   remapOutlineToPagePlan,
   replacePdfOutline,
@@ -150,6 +153,151 @@ const clampedLossyRequest = buildQpdfFinalizeRequest(
   { lossyImages: true, jpegQuality: 999 },
 );
 assert.ok(clampedLossyRequest.args.includes("--jpeg-quality=100"));
+
+const metadataDocument = await PDFLib.PDFDocument.create();
+metadataDocument.addPage([100, 100]);
+metadataDocument.setTitle("Original");
+metadataDocument.setAuthor("Żółw");
+metadataDocument.setSubject("Metadata test");
+metadataDocument.setKeywords(["alpha, beta"]);
+metadataDocument.setCreator("Doc Bench test");
+metadataDocument.setProducer("Original producer");
+metadataDocument.setCreationDate(new Date("2020-01-02T03:04:05Z"));
+metadataDocument.setModificationDate(new Date("2021-02-03T04:05:06Z"));
+const metadataBytes = await metadataDocument.save();
+const originalMetadata = await readPdfMetadata(metadataBytes, PDFLib);
+assert.equal(originalMetadata.title, "Original");
+assert.equal(originalMetadata.author, "Żółw");
+assert.equal(originalMetadata.keywords, "alpha, beta");
+assert.equal(originalMetadata.creationDate, "2020-01-02T03:04:05.000Z");
+assert.equal(originalMetadata.modificationDate, "2021-02-03T04:05:06.000Z");
+
+const editedMetadataBytes = await replacePdfMetadata(metadataBytes, {
+  title: "Edited",
+  keywords: "one, two; three",
+  creationDate: "2022-03-04T05:06:07.000Z",
+  modificationDate: "",
+}, PDFLib);
+const editedMetadata = await readPdfMetadata(editedMetadataBytes, PDFLib);
+assert.equal(editedMetadata.title, "Edited");
+assert.equal(editedMetadata.author, "Żółw");
+assert.equal(editedMetadata.subject, "Metadata test");
+assert.equal(editedMetadata.keywords, "one, two; three");
+assert.equal(editedMetadata.creator, "Doc Bench test");
+assert.equal(editedMetadata.producer, "Original producer");
+assert.equal(editedMetadata.creationDate, "2022-03-04T05:06:07.000Z");
+assert.equal(editedMetadata.modificationDate, "");
+
+async function readTestXmp(bytes) {
+  const loaded = await PDFLib.PDFDocument.load(bytes, { updateMetadata: false });
+  const stream = loaded.catalog.lookup(PDFLib.PDFName.of("Metadata"));
+  if (!(stream instanceof PDFLib.PDFRawStream)) return "";
+  return new TextDecoder().decode(PDFLib.decodePDFRawStream(stream).decode());
+}
+
+const pdfaDocument = await PDFLib.PDFDocument.create({ updateMetadata: false });
+pdfaDocument.addPage([100, 100]);
+pdfaDocument.setTitle("Old PDF/A title");
+pdfaDocument.setAuthor("Old PDF/A author");
+pdfaDocument.convertToPDFA({
+  conformance: "3B",
+  extensions: [
+    '<rdf:Description rdf:about="" xmlns:docbench="urn:docbench:test"><docbench:Keep>yes</docbench:Keep></rdf:Description>',
+  ],
+});
+const pdfaBytes = await pdfaDocument.save();
+const pdfaChanges = { title: "Synced PDF/A title", author: "Synced author" };
+const editedPdfaBytes = await replacePdfMetadata(pdfaBytes, pdfaChanges, PDFLib);
+const editedPdfaMetadata = await readPdfMetadata(editedPdfaBytes, PDFLib);
+await verifyPdfMetadata(editedPdfaBytes, editedPdfaMetadata, pdfaChanges, PDFLib);
+const editedPdfaXmp = await readTestXmp(editedPdfaBytes);
+assert.ok(editedPdfaXmp.includes("Synced PDF/A title"));
+assert.ok(editedPdfaXmp.includes("Synced author"));
+assert.ok(!editedPdfaXmp.includes("Old PDF/A title"));
+assert.ok(editedPdfaXmp.includes("docbench:Keep"));
+
+const genericXmpDocument = await PDFLib.PDFDocument.create({ updateMetadata: false });
+genericXmpDocument.addPage([100, 100]);
+genericXmpDocument.setTitle("Old generic title");
+const genericXmp = `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:docbench="urn:docbench:test">
+<dc:title><rdf:Alt><rdf:li xml:lang="x-default">Old generic title</rdf:li></rdf:Alt></dc:title>
+<docbench:Keep>yes</docbench:Keep>
+</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
+const genericStream = genericXmpDocument.context.stream(new TextEncoder().encode(genericXmp), {
+  Type: "Metadata",
+  Subtype: "XML",
+});
+genericXmpDocument.catalog.set(
+  PDFLib.PDFName.of("Metadata"),
+  genericXmpDocument.context.register(genericStream),
+);
+const genericXmpBytes = await genericXmpDocument.save();
+const genericChanges = { title: "New generic title" };
+const editedGenericBytes = await replacePdfMetadata(genericXmpBytes, genericChanges, PDFLib);
+const editedGenericMetadata = await readPdfMetadata(editedGenericBytes, PDFLib);
+await verifyPdfMetadata(editedGenericBytes, editedGenericMetadata, genericChanges, PDFLib);
+const editedGenericXmp = await readTestXmp(editedGenericBytes);
+assert.ok(!editedGenericXmp.includes("Old generic title"));
+assert.ok(!editedGenericXmp.includes("<dc:title"));
+assert.ok(editedGenericXmp.includes("docbench:Keep"));
+
+function encodeUtf16Le(text) {
+  const bytes = new Uint8Array(2 + text.length * 2);
+  bytes[0] = 0xff; bytes[1] = 0xfe;
+  for (let index = 0; index < text.length; index += 1) {
+    const unit = text.charCodeAt(index);
+    bytes[2 + index * 2] = unit & 0xff;
+    bytes[3 + index * 2] = unit >>> 8;
+  }
+  return bytes;
+}
+
+function encodeUtf32Be(text) {
+  const points = [...text].map((char) => char.codePointAt(0));
+  const bytes = new Uint8Array(4 + points.length * 4);
+  bytes.set([0x00, 0x00, 0xfe, 0xff]);
+  points.forEach((point, index) => {
+    const offset = 4 + index * 4;
+    bytes[offset] = point >>> 24;
+    bytes[offset + 1] = point >>> 16;
+    bytes[offset + 2] = point >>> 8;
+    bytes[offset + 3] = point;
+  });
+  return bytes;
+}
+
+async function withXmpPacket(xmlBytes, title) {
+  const pdf = await PDFLib.PDFDocument.create({ updateMetadata: false });
+  pdf.addPage([100, 100]);
+  pdf.setTitle(title);
+  const stream = pdf.context.stream(xmlBytes, { Type: "Metadata", Subtype: "XML" });
+  pdf.catalog.set(PDFLib.PDFName.of("Metadata"), pdf.context.register(stream));
+  return pdf.save();
+}
+
+const encodedGenericXml = `<?xpacket begin=""?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:keep="urn:keep"><dc:title><rdf:Alt><rdf:li xml:lang="x-default">Old encoded title</rdf:li></rdf:Alt></dc:title><keep:Value>yes</keep:Value></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
+for (const encoded of [encodeUtf16Le(encodedGenericXml), encodeUtf32Be(encodedGenericXml)]) {
+  const source = await withXmpPacket(encoded, "Old encoded title");
+  const edited = await replacePdfMetadata(source, { title: "New encoded title" }, PDFLib);
+  const metadata = await readPdfMetadata(edited, PDFLib);
+  await verifyPdfMetadata(edited, metadata, { title: "New encoded title" }, PDFLib);
+  const xmp = await readTestXmp(edited);
+  assert.ok(!xmp.includes("Old encoded title"));
+  assert.ok(xmp.includes("keep:Value"));
+}
+
+const mixedPdfaXml = `<?xpacket begin=""?><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/" xmlns:keep="urn:keep" keep:flag="yes"><dc:title><rdf:Alt><rdf:li xml:lang="x-default">Old mixed title</rdf:li></rdf:Alt></dc:title><pdfaid:part>3</pdfaid:part><pdfaid:conformance>B</pdfaid:conformance><keep:Value>preserve me</keep:Value></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
+const mixedSource = await withXmpPacket(new TextEncoder().encode(mixedPdfaXml), "Old mixed title");
+const mixedEdited = await replacePdfMetadata(mixedSource, { title: "New mixed title" }, PDFLib);
+const mixedMetadata = await readPdfMetadata(mixedEdited, PDFLib);
+await verifyPdfMetadata(mixedEdited, mixedMetadata, { title: "New mixed title" }, PDFLib);
+const mixedXmp = await readTestXmp(mixedEdited);
+assert.ok(mixedXmp.includes("keep:Value"));
+assert.ok(mixedXmp.includes('keep:flag="yes"'));
+assert.ok(!mixedXmp.includes("Old mixed title"));
 
 const document = await PDFLib.PDFDocument.create();
 document.addPage([300, 400]);

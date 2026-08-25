@@ -4,8 +4,11 @@ import {
   buildQpdfPageRequest,
   clonePdfOutline,
   formatPdfSize,
+  readPdfMetadata,
   readPdfOutline,
   remapOutlineToPagePlan,
+  replacePdfMetadata,
+  verifyPdfMetadata,
   replacePdfOutline,
 } from "./pdf-core.mjs";
 
@@ -29,6 +32,19 @@ const imageQuality = $("#pdf-image-quality");
 const imageQualityRow = $("#pdf-image-quality-row");
 const imageQualityValue = $("#pdf-image-quality-value");
 const linearizeToggle = $("#pdf-linearize");
+const metadataFieldset = $("#pdf-metadata-fields");
+const metadataState = $("#pdf-metadata-state");
+const metadataReset = $("#pdf-metadata-reset");
+const metadataBindings = [
+  { key: "title", input: $("#pdf-meta-title") },
+  { key: "author", input: $("#pdf-meta-author") },
+  { key: "subject", input: $("#pdf-meta-subject") },
+  { key: "keywords", input: $("#pdf-meta-keywords") },
+  { key: "creator", input: $("#pdf-meta-creator") },
+  { key: "producer", input: $("#pdf-meta-producer") },
+  { key: "creationDate", input: $("#pdf-meta-created"), date: true },
+  { key: "modificationDate", input: $("#pdf-meta-modified"), date: true },
+];
 const bookmarkEditor = $("#bookmark-editor");
 const bookmarkTitle = $("#bookmark-title");
 const bookmarkTargetType = $("#bookmark-target-type");
@@ -54,6 +70,8 @@ const state = {
   sources: [],
   plan: [],
   outline: [],
+  metadata: null,
+  metadataOriginal: null,
   selectedIndex: -1,
   selectedBookmarkPath: null,
   droppedBookmarks: 0,
@@ -128,11 +146,28 @@ async function makeSource(file) {
 
   const pdf = await openPdfDocument(bytes);
   const outline = await readPdfOutline(pdf);
+  let metadata;
+  try {
+    metadata = await readPdfMetadata(bytes);
+  } catch (error) {
+    console.warn("Could not read PDF metadata; using empty fields.", error);
+    metadata = {
+      title: "",
+      author: "",
+      subject: "",
+      keywords: "",
+      creator: "",
+      producer: "",
+      creationDate: "",
+      modificationDate: "",
+    };
+  }
   return {
     filename: file.name || "document.pdf",
     bytes,
     pdf,
     outline,
+    metadata,
     pageCount: pdf.numPages,
   };
 }
@@ -182,6 +217,7 @@ async function openFiles(files, append) {
 
   const oldSourceCount = state.sources.length;
   const oldOutline = clonePdfOutline(state.outline);
+  const replaceMetadata = !append || oldSourceCount === 0;
   if (!append) {
     await closeSources();
     state.plan = [];
@@ -199,6 +235,11 @@ async function openFiles(files, append) {
   state.outline = append
     ? mergeAppendedOutlines(oldSourceCount, oldOutline)
     : freshCombinedOutline();
+  if (replaceMetadata) {
+    state.metadata = { ...newSources[0].metadata };
+    state.metadataOriginal = { ...newSources[0].metadata };
+    renderMetadataEditor();
+  }
   state.droppedBookmarks = 0;
   state.selectedBookmarkPath = null;
   state.selectedIndex = state.plan.length ? (append ? state.selectedIndex : 0) : -1;
@@ -257,6 +298,50 @@ function newBookmark() {
   };
 }
 
+function isoToLocalDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return shifted.toISOString().slice(0, 19);
+}
+
+function localDateTimeToIso(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(Math.floor(date.getTime() / 1000) * 1000).toISOString();
+}
+
+function currentMetadataChanges() {
+  if (!state.metadata || !state.metadataOriginal) return {};
+  const changes = {};
+  for (const { key } of metadataBindings) {
+    if (state.metadata[key] !== state.metadataOriginal[key]) changes[key] = state.metadata[key];
+  }
+  return changes;
+}
+
+function updateMetadataStatus() {
+  const hasMetadata = Boolean(state.metadata);
+  const changes = hasMetadata ? Object.keys(currentMetadataChanges()).length : 0;
+  metadataState.textContent = !hasMetadata
+    ? "No PDF"
+    : changes
+      ? `${changes} edited field${changes === 1 ? "" : "s"}`
+      : "Original";
+  metadataFieldset.disabled = !hasMetadata || state.exporting;
+  metadataReset.disabled = !hasMetadata || state.exporting || changes === 0;
+}
+
+function renderMetadataEditor() {
+  for (const { key, input, date } of metadataBindings) {
+    const value = state.metadata?.[key] || "";
+    input.value = date ? isoToLocalDateTime(value) : value;
+  }
+  updateMetadataStatus();
+}
+
 function updateCompressionControls() {
   imageQualityRow.hidden = !lossyImagesToggle.checked;
   imageQualityValue.value = imageQuality.value;
@@ -273,6 +358,7 @@ function updateControls() {
   leftButton.disabled = busy || !hasPage || state.selectedIndex <= 0;
   rightButton.disabled = busy || !hasPage || state.selectedIndex >= state.plan.length - 1;
   bookmarkAddRoot.disabled = busy || !state.plan.length;
+  updateMetadataStatus();
 }
 
 function refreshPdfUi() {
@@ -687,7 +773,7 @@ function validateEditableOutline(outline = state.outline, plan = state.plan) {
   }
 }
 
-async function verifyOutput(bytes, expectedPages, expectedOutline) {
+async function verifyOutput(bytes, expectedPages, expectedOutline, expectedMetadata, metadataChanges) {
   const pdf = await openPdfDocument(bytes);
   try {
     if (pdf.numPages !== expectedPages) {
@@ -697,6 +783,7 @@ async function verifyOutput(bytes, expectedPages, expectedOutline) {
     if (JSON.stringify(outlineSignature(outline)) !== JSON.stringify(outlineSignature(expectedOutline))) {
       throw new Error("Output verification failed: bookmark tree, style or destinations changed.");
     }
+    await verifyPdfMetadata(bytes, expectedMetadata, metadataChanges);
   } finally {
     await pdf.destroy();
   }
@@ -719,6 +806,8 @@ function exportSnapshot() {
     })),
     plan: state.plan.map((page) => ({ ...page })),
     outline: clonePdfOutline(state.outline),
+    metadata: { ...state.metadata },
+    metadataChanges: currentMetadataChanges(),
     options: currentExportOptions(),
   };
 }
@@ -730,6 +819,9 @@ async function buildPdfOutput(snapshot, plan, outline) {
   const pageResult = await qpdf.run(pageRequest);
   const pageBytes = pageResult.outputs[pageRequest.outputName];
   let finalBytes = await replacePdfOutline(pageBytes, outline);
+  if (Object.keys(snapshot.metadataChanges).length) {
+    finalBytes = await replacePdfMetadata(finalBytes, snapshot.metadataChanges);
+  }
   const warnings = [...(pageResult.warnings || [])];
 
   if (snapshot.options.optimize || snapshot.options.linearize || snapshot.options.lossyImages) {
@@ -739,7 +831,7 @@ async function buildPdfOutput(snapshot, plan, outline) {
     warnings.push(...(finalizeResult.warnings || []));
   }
 
-  await verifyOutput(finalBytes, plan.length, outline);
+  await verifyOutput(finalBytes, plan.length, outline, snapshot.metadata, snapshot.metadataChanges);
   return { bytes: finalBytes, warnings };
 }
 
@@ -895,6 +987,19 @@ removeButton.addEventListener("click", removeSelectedPage);
 extractButton.addEventListener("click", extractSelectedPage);
 splitButton.addEventListener("click", splitAllPages);
 saveButton.addEventListener("click", savePdf);
+for (const { key, input, date } of metadataBindings) {
+  input.addEventListener(date ? "change" : "input", () => {
+    if (!state.metadata || state.exporting) return;
+    state.metadata[key] = date ? localDateTimeToIso(input.value) : input.value;
+    updateMetadataStatus();
+  });
+}
+metadataReset.addEventListener("click", () => {
+  if (!state.metadataOriginal || state.exporting) return;
+  state.metadata = { ...state.metadataOriginal };
+  renderMetadataEditor();
+});
+
 lossyImagesToggle.addEventListener("change", updateCompressionControls);
 imageQuality.addEventListener("input", updateCompressionControls);
 bookmarkEditor.addEventListener("submit", (event) => event.preventDefault());
@@ -949,4 +1054,5 @@ bookmarkOpen.addEventListener("change", () => {
 window.addEventListener("beforeunload", () => state.qpdfRunner?.destroy?.());
 
 updateCompressionControls();
+renderMetadataEditor();
 refreshPdfUi();

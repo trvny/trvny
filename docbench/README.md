@@ -9,10 +9,10 @@ rendered preview, JSON/YAML/XML get collapsible tree views, and supported
 browsers can save changes directly back to a chosen local file. Download remains
 available as the portable fallback.
 
-PDF tools cover local preview, merge, page deletion/reordering, bookmark
-editing, lossless optimization, optional lossy image recompression and Fast Web
-View. Bookmark trees are remapped to surviving pages, rebuilt and verified
-before download.
+PDF tools cover local preview, merge, page deletion/reordering, single-page
+extraction, split-to-ZIP, bookmark editing, lossless optimization, optional lossy
+image recompression and Fast Web View. Bookmark trees are remapped to surviving
+pages, rebuilt and verified before every PDF download.
 
 ## Local
 

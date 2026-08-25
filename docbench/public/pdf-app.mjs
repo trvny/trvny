@@ -18,6 +18,8 @@ const previewCanvas = $("#pdf-preview-canvas");
 const pdfStatus = $("#pdf-status");
 const pdfFilename = $("#pdf-filename");
 const saveButton = $("#pdf-save-button");
+const extractButton = $("#pdf-extract-page");
+const splitButton = $("#pdf-split-all");
 const removeButton = $("#pdf-remove-page");
 const leftButton = $("#pdf-move-left");
 const rightButton = $("#pdf-move-right");
@@ -59,6 +61,7 @@ const state = {
   qpdfModule: null,
   qpdfRunner: null,
   renderToken: 0,
+  exporting: false,
 };
 
 const thumbnailObserver = new IntersectionObserver((entries) => {
@@ -262,11 +265,14 @@ function updateCompressionControls() {
 
 function updateControls() {
   const hasPage = Boolean(selectedEntry());
-  saveButton.disabled = !state.plan.length;
-  removeButton.disabled = !hasPage || state.plan.length <= 1;
-  leftButton.disabled = !hasPage || state.selectedIndex <= 0;
-  rightButton.disabled = !hasPage || state.selectedIndex >= state.plan.length - 1;
-  bookmarkAddRoot.disabled = !state.plan.length;
+  const busy = state.exporting;
+  saveButton.disabled = busy || !state.plan.length;
+  extractButton.disabled = busy || !hasPage;
+  splitButton.disabled = busy || state.plan.length <= 1;
+  removeButton.disabled = busy || !hasPage || state.plan.length <= 1;
+  leftButton.disabled = busy || !hasPage || state.selectedIndex <= 0;
+  rightButton.disabled = busy || !hasPage || state.selectedIndex >= state.plan.length - 1;
+  bookmarkAddRoot.disabled = busy || !state.plan.length;
 }
 
 function refreshPdfUi() {
@@ -663,13 +669,13 @@ function outlineSignature(outline) {
   });
 }
 
-function validateEditableOutline(outline = state.outline) {
+function validateEditableOutline(outline = state.outline, plan = state.plan) {
   for (const bookmark of outline) {
     if (!String(bookmark.title || "").trim()) {
       throw new Error("Bookmark titles cannot be empty.");
     }
     if (bookmark.target?.kind === "page") {
-      if (!Number.isInteger(bookmark.target.pageIndex) || !state.plan[bookmark.target.pageIndex]) {
+      if (!Number.isInteger(bookmark.target.pageIndex) || !plan[bookmark.target.pageIndex]) {
         throw new Error(`Bookmark “${bookmark.title}” points to a missing page.`);
       }
     } else if (bookmark.target?.kind === "url" && !String(bookmark.target.url || "").trim()) {
@@ -677,7 +683,7 @@ function validateEditableOutline(outline = state.outline) {
     } else if (bookmark.target?.kind === "named" && !String(bookmark.target.action || "").trim()) {
       throw new Error(`Bookmark “${bookmark.title}” has an empty named action.`);
     }
-    validateEditableOutline(bookmark.children || []);
+    validateEditableOutline(bookmark.children || [], plan);
   }
 }
 
@@ -696,50 +702,180 @@ async function verifyOutput(bytes, expectedPages, expectedOutline) {
   }
 }
 
+function currentExportOptions() {
+  return {
+    optimize: optimizeToggle.checked,
+    linearize: linearizeToggle.checked,
+    lossyImages: lossyImagesToggle.checked,
+    jpegQuality: Number(imageQuality.value),
+  };
+}
+
+function exportSnapshot() {
+  return {
+    sources: state.sources.map((source) => ({
+      filename: source.filename,
+      bytes: source.bytes,
+    })),
+    plan: state.plan.map((page) => ({ ...page })),
+    outline: clonePdfOutline(state.outline),
+    options: currentExportOptions(),
+  };
+}
+
+async function buildPdfOutput(snapshot, plan, outline) {
+  validateEditableOutline(outline, plan);
+  const qpdf = await ensureQpdf();
+  const pageRequest = buildQpdfPageRequest(snapshot.sources, plan);
+  const pageResult = await qpdf.run(pageRequest);
+  const pageBytes = pageResult.outputs[pageRequest.outputName];
+  let finalBytes = await replacePdfOutline(pageBytes, outline);
+  const warnings = [...(pageResult.warnings || [])];
+
+  if (snapshot.options.optimize || snapshot.options.linearize || snapshot.options.lossyImages) {
+    const finalizeRequest = buildQpdfFinalizeRequest(finalBytes, snapshot.options);
+    const finalizeResult = await qpdf.run(finalizeRequest);
+    finalBytes = finalizeResult.outputs[finalizeRequest.outputName];
+    warnings.push(...(finalizeResult.warnings || []));
+  }
+
+  await verifyOutput(finalBytes, plan.length, outline);
+  return { bytes: finalBytes, warnings };
+}
+
+function downloadBytes(bytes, filename, type) {
+  const blob = new Blob([bytes], { type });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 0);
+}
+
+function outputBaseName(snapshot) {
+  const raw = snapshot.sources.length === 1
+    ? snapshot.sources[0].filename.replace(/\.pdf$/i, "")
+    : "merged";
+  return (raw || "document").replace(/[\\/:*?"<>|]/g, "-");
+}
+
+function pageFilename(snapshot, outputIndex) {
+  const width = Math.max(2, String(snapshot.plan.length).length);
+  return `${outputBaseName(snapshot)}-page-${String(outputIndex + 1).padStart(width, "0")}.pdf`;
+}
+
+function setExportBusy(busy) {
+  state.exporting = busy;
+  updateControls();
+}
+
+function concatByteChunks(chunks) {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const joined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    joined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return joined;
+}
+
+function createStoredZip(zipApi) {
+  const chunks = [];
+  let zip;
+  const done = new Promise((resolve, reject) => {
+    zip = new zipApi.Zip((error, data, final) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      chunks.push(data);
+      if (final) resolve(concatByteChunks(chunks));
+    });
+  });
+  return {
+    add(filename, bytes) {
+      const entry = new zipApi.ZipPassThrough(filename);
+      zip.add(entry);
+      entry.push(bytes, true);
+    },
+    async finish() {
+      zip.end();
+      return done;
+    },
+  };
+}
+
 async function savePdf() {
-  if (!state.plan.length) return;
-  saveButton.disabled = true;
+  if (!state.plan.length || state.exporting) return;
+  const snapshot = exportSnapshot();
+  setExportBusy(true);
   setStatus("Building PDF locally…");
   try {
-    validateEditableOutline();
-    const qpdf = await ensureQpdf();
-    const pageRequest = buildQpdfPageRequest(state.sources, state.plan);
-    const pageResult = await qpdf.run(pageRequest);
-    const pageBytes = pageResult.outputs[pageRequest.outputName];
-    let finalBytes = await replacePdfOutline(pageBytes, state.outline);
-    const warnings = [...(pageResult.warnings || [])];
-    const lossyImages = lossyImagesToggle.checked;
-
-    if (optimizeToggle.checked || linearizeToggle.checked || lossyImages) {
-      const finalizeRequest = buildQpdfFinalizeRequest(finalBytes, {
-        optimize: optimizeToggle.checked,
-        linearize: linearizeToggle.checked,
-        lossyImages,
-        jpegQuality: Number(imageQuality.value),
-      });
-      const finalizeResult = await qpdf.run(finalizeRequest);
-      finalBytes = finalizeResult.outputs[finalizeRequest.outputName];
-      warnings.push(...(finalizeResult.warnings || []));
-    }
-
-    await verifyOutput(finalBytes, state.plan.length, state.outline);
-
-    const filename = state.sources.length === 1
-      ? state.sources[0].filename.replace(/\.pdf$/i, "") + "-docbench.pdf"
+    const result = await buildPdfOutput(snapshot, snapshot.plan, snapshot.outline);
+    const filename = snapshot.sources.length === 1
+      ? `${outputBaseName(snapshot)}-docbench.pdf`
       : "merged-docbench.pdf";
-    const blob = new Blob([finalBytes], { type: "application/pdf" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 0);
-
-    const warningText = warnings.length ? ` · ${warnings.length} qpdf warning(s)` : "";
-    setStatus(`Saved ${state.plan.length} pages · ${formatPdfSize(finalBytes.byteLength)}${warningText}`);
+    downloadBytes(result.bytes, filename, "application/pdf");
+    const warningText = result.warnings.length
+      ? ` · ${result.warnings.length} qpdf warning(s)`
+      : "";
+    setStatus(`Saved ${snapshot.plan.length} pages · ${formatPdfSize(result.bytes.byteLength)}${warningText}`);
   } catch (error) {
     showError(error);
   } finally {
-    updateControls();
+    setExportBusy(false);
+  }
+}
+
+async function extractSelectedPage() {
+  if (state.exporting || state.selectedIndex < 0 || !state.plan[state.selectedIndex]) return;
+  const snapshot = exportSnapshot();
+  const outputIndex = state.selectedIndex;
+  const plan = [{ ...snapshot.plan[outputIndex] }];
+  const outline = remapOutlineToPagePlan(snapshot.outline, snapshot.plan, plan).outline;
+  setExportBusy(true);
+  setStatus(`Extracting page ${outputIndex + 1}…`);
+  try {
+    const result = await buildPdfOutput(snapshot, plan, outline);
+    downloadBytes(result.bytes, pageFilename(snapshot, outputIndex), "application/pdf");
+    setStatus(`Extracted page ${outputIndex + 1} · ${formatPdfSize(result.bytes.byteLength)}`);
+  } catch (error) {
+    showError(error);
+  } finally {
+    setExportBusy(false);
+  }
+}
+
+async function splitAllPages() {
+  if (state.exporting || state.plan.length <= 1) return;
+  const zipApi = globalThis.fflate;
+  if (!zipApi?.Zip || !zipApi?.ZipPassThrough) {
+    showError(new Error("ZIP runtime is unavailable."));
+    return;
+  }
+
+  const snapshot = exportSnapshot();
+  const archive = createStoredZip(zipApi);
+  let warningCount = 0;
+  setExportBusy(true);
+  try {
+    for (let outputIndex = 0; outputIndex < snapshot.plan.length; outputIndex += 1) {
+      setStatus(`Splitting page ${outputIndex + 1} / ${snapshot.plan.length}…`);
+      const plan = [{ ...snapshot.plan[outputIndex] }];
+      const outline = remapOutlineToPagePlan(snapshot.outline, snapshot.plan, plan).outline;
+      const result = await buildPdfOutput(snapshot, plan, outline);
+      archive.add(pageFilename(snapshot, outputIndex), result.bytes);
+      warningCount += result.warnings.length;
+    }
+    const zipBytes = await archive.finish();
+    downloadBytes(zipBytes, `${outputBaseName(snapshot)}-split.zip`, "application/zip");
+    const warningText = warningCount ? ` · ${warningCount} qpdf warning(s)` : "";
+    setStatus(`Split ${snapshot.plan.length} pages · ${formatPdfSize(zipBytes.byteLength)} ZIP${warningText}`);
+  } catch (error) {
+    showError(error);
+  } finally {
+    setExportBusy(false);
   }
 }
 
@@ -756,6 +892,8 @@ addPdfInput.addEventListener("change", async () => {
 leftButton.addEventListener("click", () => movePage(state.selectedIndex, state.selectedIndex - 1));
 rightButton.addEventListener("click", () => movePage(state.selectedIndex, state.selectedIndex + 1));
 removeButton.addEventListener("click", removeSelectedPage);
+extractButton.addEventListener("click", extractSelectedPage);
+splitButton.addEventListener("click", splitAllPages);
 saveButton.addEventListener("click", savePdf);
 lossyImagesToggle.addEventListener("change", updateCompressionControls);
 imageQuality.addEventListener("input", updateCompressionControls);

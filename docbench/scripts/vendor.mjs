@@ -13,6 +13,7 @@ await cp(
   "node_modules/@cantoo/pdf-lib/dist/pdf-lib.min.js",
   "public/vendor/pdf-lib.min.js",
 );
+await cp("node_modules/fflate/umd/index.js", "public/vendor/fflate.min.js");
 
 await mkdir("public/vendor/jsonc-parser/impl", { recursive: true });
 await cp(

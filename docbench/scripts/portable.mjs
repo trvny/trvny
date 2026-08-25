@@ -8,6 +8,7 @@ const [
   yaml,
   marked,
   pdfLib,
+  fflate,
   app,
   documentEnhancements,
   jsonParser,
@@ -29,6 +30,7 @@ const [
   readFile("public/vendor/js-yaml.min.js", "utf8"),
   readFile("public/vendor/marked.umd.js", "utf8"),
   readFile("public/vendor/pdf-lib.min.js", "utf8"),
+  readFile("public/vendor/fflate.min.js", "utf8"),
   readFile("public/app.js", "utf8"),
   readFile("public/document-enhancements.mjs", "utf8"),
   readFile("public/vendor/jsonc-parser/impl/parser.js", "utf8"),
@@ -124,6 +126,10 @@ const portable = html
   .replace(
     '<script src="/vendor/pdf-lib.min.js"></script>',
     `<script>${safeScript(pdfLib)}</script>`,
+  )
+  .replace(
+    '<script src="/vendor/fflate.min.js"></script>',
+    `<script>${safeScript(fflate)}</script>`,
   )
   .replace('<script src="/app.js"></script>', `<script>${safeScript(app)}</script>`)
   .replace(

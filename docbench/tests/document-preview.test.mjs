@@ -68,4 +68,18 @@ assert.equal(merge.key.tag, "tag:yaml.org,2002:merge");
 assert.equal(merge.value.kind, "alias");
 assert.equal(merge.value.anchor, "d");
 
+const explicitYaml = yaml.eventsToAst(
+  yaml.parseEvents("count: !!int 12\nenabled: !!bool false"),
+  { source: "count: !!int 12\nenabled: !!bool false", schema },
+)[0].contents;
+assert.equal(mappingValue(explicitYaml, "count").tag, "!!int");
+assert.equal(mappingValue(explicitYaml, "enabled").tag, "!!bool");
+
+const complexYaml = yaml.eventsToAst(
+  yaml.parseEvents("? [tenant, id]\n: value"),
+  { source: "? [tenant, id]\n: value", schema },
+)[0].contents;
+assert.equal(complexYaml.items[0].key.kind, "sequence");
+assert.deepEqual(complexYaml.items[0].key.items.map((item) => item.value), ["tenant", "id"]);
+
 console.log("Doc Bench document preview tests passed.");

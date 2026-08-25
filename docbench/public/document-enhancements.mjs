@@ -33,6 +33,7 @@ const extensionToFormat = {
   yaml: "yaml",
   xml: "xml",
 };
+const preferredExtension = { txt: "txt", md: "md", json: "json", yaml: "yaml", xml: "xml" };
 const mimeByFormat = {
   txt: "text/plain;charset=utf-8",
   md: "text/markdown;charset=utf-8",
@@ -200,16 +201,22 @@ function appendTreeLimit(fragment) {
   fragment.append(note);
 }
 
+function normalizeYamlTag(tag) {
+  const value = String(tag || "");
+  return value.startsWith("!!") ? `tag:yaml.org,2002:${value.slice(2)}` : value;
+}
+
 function yamlScalarClass(tag) {
-  if (tag.endsWith(":int") || tag.endsWith(":float")) return "number";
-  if (tag.endsWith(":bool")) return "boolean";
-  if (tag.endsWith(":null")) return "null";
+  const normalized = normalizeYamlTag(tag);
+  if (normalized.endsWith(":int") || normalized.endsWith(":float")) return "number";
+  if (normalized.endsWith(":bool")) return "boolean";
+  if (normalized.endsWith(":null")) return "null";
   return "string";
 }
 
 function yamlScalarText(node) {
   const type = yamlScalarClass(node.tag || "");
-  const timestamp = node.tag?.endsWith(":timestamp");
+  const timestamp = normalizeYamlTag(node.tag).endsWith(":timestamp");
   const value = type === "string" && !timestamp ? JSON.stringify(node.value) : node.value;
   return node.anchor ? `&${node.anchor} ${value}` : value;
 }
@@ -268,8 +275,13 @@ function renderYamlTree(source) {
         if (!truncated) renderNode(children, index, child, depth + 1);
       });
     } else {
-      for (const pair of node.items) {
-        renderNode(children, yamlKeyLabel(pair.key), pair.value, depth + 1);
+      for (const [index, pair] of node.items.entries()) {
+        if (["scalar", "alias"].includes(pair.key?.kind)) {
+          renderNode(children, yamlKeyLabel(pair.key), pair.value, depth + 1);
+        } else {
+          renderNode(children, `Key ${index + 1}`, pair.key, depth + 1);
+          if (!truncated) renderNode(children, `Value ${index + 1}`, pair.value, depth + 1);
+        }
         if (truncated) break;
       }
     }
@@ -940,21 +952,24 @@ async function loadNativeHandle(handle, revision) {
 
 async function syncFallbackFile(file, revision) {
   try {
-    const { bom, eol } = await readTextFile(file);
+    const { raw, bom, eol } = await readTextFile(file);
     if (state.documentRevision !== revision) return;
     state.handle = null;
-    state.filename = file.name || filenameLabel.textContent || "document.txt";
+    state.filename = file.name || "document.txt";
     state.bom = bom;
     state.mixedEol = eol.mixed;
     state.eol = eol.target;
-    setTimeout(() => {
-      if (state.documentRevision !== revision) return;
-      state.filename = filenameLabel.textContent || state.filename;
-      updateSaveButton();
-      renderEnhancedPreview();
-    }, 170);
-  } catch {
-    if (state.documentRevision === revision) updateSaveButton();
+    editor.value = normalizeEol(raw);
+    eolSelect.value = eol.target;
+    formatSelect.value = formatFromFilename(state.filename);
+    filenameLabel.textContent = state.filename;
+    updateSaveButton();
+    renderEnhancedPreview();
+  } catch (error) {
+    if (state.documentRevision !== revision) return;
+    setStatus("bad", "Open failed");
+    statusBadge.title = error?.message || String(error);
+    updateSaveButton();
   }
 }
 
@@ -999,16 +1014,22 @@ saveButton.addEventListener("click", (event) => {
 
 downloadButton.addEventListener("click", () => downloadDocument());
 
-fileInput.addEventListener("change", () => {
+fileInput.addEventListener("change", (event) => {
   const file = fileInput.files?.[0];
   if (!file) return;
+  event.stopImmediatePropagation();
   const revision = state.documentRevision += 1;
-  void syncFallbackFile(file, revision);
-});
+  void syncFallbackFile(file, revision).finally(() => {
+    if (state.documentRevision === revision) fileInput.value = "";
+  });
+}, true);
 
 dropZone.addEventListener("drop", (event) => {
   const file = event.dataTransfer?.files?.[0];
   if (!file) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  dropZone.classList.remove("drop-active");
   const revision = state.documentRevision += 1;
   void syncFallbackFile(file, revision);
 }, true);
@@ -1030,14 +1051,15 @@ editor.addEventListener("input", () => {
   state.documentRevision += 1;
   schedulePreview();
 });
-formatSelect.addEventListener("change", () => {
+formatSelect.addEventListener("change", (event) => {
+  event.stopImmediatePropagation();
   state.documentRevision += 1;
-  queueMicrotask(() => {
-    if (state.handle) filenameLabel.textContent = state.filename;
-    else state.filename = filenameLabel.textContent || state.filename;
-    schedulePreview();
-  });
-});
+  if (!state.handle && state.filename.startsWith("untitled.")) {
+    state.filename = `untitled.${preferredExtension[formatSelect.value]}`;
+  }
+  filenameLabel.textContent = state.filename;
+  schedulePreview();
+}, true);
 eolSelect.addEventListener("change", () => {
   state.documentRevision += 1;
   state.mixedEol = false;

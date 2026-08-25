@@ -65,8 +65,16 @@ if (documentEnhancements.includes("JSON.parse(editor.value)")) {
 const fallbackFunction = documentEnhancements.match(
   /async function syncFallbackFile\(file, revision\) \{([\s\S]*?)\n\}/,
 )?.[1] || "";
-if (!fallbackFunction || /catch \{[\s\S]*?state\.handle = null/.test(fallbackFunction)) {
-  throw new Error("Rejected fallback files must preserve the existing linked handle.");
+if (
+  !fallbackFunction
+  || /catch \{[\s\S]*?state\.handle = null/.test(fallbackFunction)
+  || !fallbackFunction.includes("editor.value = normalizeEol(raw)")
+  || !fallbackFunction.includes("state.documentRevision !== revision")
+) {
+  throw new Error("Fallback reads must stay revision-safe and replace the editor only after success.");
+}
+if (!/fileInput\.addEventListener\("change", \(event\) => \{[\s\S]*?event\.stopImmediatePropagation\(\)[\s\S]*?\}, true\);/.test(documentEnhancements)) {
+  throw new Error("Fallback file input must intercept the legacy async open handler.");
 }
 for (const fidelityGuard of [
   "renderYamlTree",
@@ -82,6 +90,8 @@ for (const fidelityGuard of [
   "loadNativeHandle(handle, revision)",
   "syncFallbackFile(file, revision)",
   "appendEmptyDocument",
+  "normalizeYamlTag",
+  "`Key ${index + 1}`",
   "preservesXmlSpace",
   "PROCESSING_INSTRUCTION_NODE",
   "DOCUMENT_TYPE_NODE",

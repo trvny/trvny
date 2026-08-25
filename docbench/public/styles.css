@@ -471,6 +471,89 @@ select {
   white-space: nowrap;
 }
 
+.pdf-metadata-panel {
+  border-bottom: 1px solid var(--line);
+  background: rgb(8 10 14 / 22%);
+}
+
+.pdf-metadata-panel summary {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 13px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  list-style: none;
+}
+
+.pdf-metadata-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.pdf-metadata-panel summary::after {
+  content: "›";
+  transition: transform 120ms ease;
+}
+
+.pdf-metadata-panel[open] summary::after {
+  transform: rotate(90deg);
+}
+
+.pdf-metadata-panel summary strong {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+}
+
+#pdf-metadata-state {
+  margin-left: auto;
+  font-family: "Space Mono", ui-monospace, monospace;
+}
+
+.pdf-metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 0;
+  padding: 12px 13px;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.pdf-metadata-grid label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.pdf-metadata-grid input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: #e7ebf0;
+}
+
+.pdf-metadata-grid:disabled {
+  opacity: 0.58;
+}
+
+.pdf-metadata-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 13px 12px;
+  color: var(--muted);
+  font: 400 0.66rem/1.4 "Space Mono", ui-monospace, monospace;
+}
+
 #pdf-status.bad {
   color: var(--bad);
 }
@@ -721,6 +804,10 @@ footer a:hover {
 }
 
 @media (max-width: 1050px) {
+  .pdf-metadata-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .pdf-grid {
     grid-template-columns: minmax(220px, 0.36fr) minmax(0, 1fr);
   }
@@ -844,6 +931,15 @@ footer a:hover {
 
   .fields-group select {
     width: 100%;
+  }
+
+  .pdf-metadata-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pdf-metadata-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .panel-header {

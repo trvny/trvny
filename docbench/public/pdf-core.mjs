@@ -216,6 +216,351 @@ export function buildCombinedOutline(sources, pagePlan) {
   return { outline: results, dropped };
 }
 
+function normalizeMetadataDate(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(Math.floor(date.getTime() / 1000) * 1000).toISOString();
+}
+
+export function normalizePdfMetadata(metadata = {}) {
+  return {
+    title: String(metadata.title ?? ""),
+    author: String(metadata.author ?? ""),
+    subject: String(metadata.subject ?? ""),
+    keywords: String(metadata.keywords ?? ""),
+    creator: String(metadata.creator ?? ""),
+    producer: String(metadata.producer ?? ""),
+    creationDate: normalizeMetadataDate(metadata.creationDate),
+    modificationDate: normalizeMetadataDate(metadata.modificationDate),
+  };
+}
+
+function safeMetadataValue(getter, fallback = "") {
+  try {
+    return getter() ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function optionalMetadataValue(getter) {
+  try {
+    return getter() ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function metadataFromDocument(pdfDocument) {
+  return normalizePdfMetadata({
+    title: safeMetadataValue(() => pdfDocument.getTitle()),
+    author: safeMetadataValue(() => pdfDocument.getAuthor()),
+    subject: safeMetadataValue(() => pdfDocument.getSubject()),
+    keywords: safeMetadataValue(() => pdfDocument.getKeywords()),
+    creator: safeMetadataValue(() => pdfDocument.getCreator()),
+    producer: safeMetadataValue(() => pdfDocument.getProducer()),
+    creationDate: safeMetadataValue(() => pdfDocument.getCreationDate()),
+    modificationDate: safeMetadataValue(() => pdfDocument.getModificationDate()),
+  });
+}
+
+function decodeXmpBytes(bytes) {
+  const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const starts = (...values) => values.every((value, index) => data[index] === value);
+  let encoding = "utf-8";
+  let offset = 0;
+  if (starts(0x00, 0x00, 0xfe, 0xff)) { encoding = "utf-32be"; offset = 4; }
+  else if (starts(0xff, 0xfe, 0x00, 0x00)) { encoding = "utf-32le"; offset = 4; }
+  else if (starts(0xfe, 0xff)) { encoding = "utf-16be"; offset = 2; }
+  else if (starts(0xff, 0xfe)) { encoding = "utf-16le"; offset = 2; }
+  else if (starts(0xef, 0xbb, 0xbf)) { offset = 3; }
+  else if (starts(0x00, 0x00, 0x00, 0x3c)) encoding = "utf-32be";
+  else if (starts(0x3c, 0x00, 0x00, 0x00)) encoding = "utf-32le";
+  else if (starts(0x00, 0x3c, 0x00, 0x3f)) encoding = "utf-16be";
+  else if (starts(0x3c, 0x00, 0x3f, 0x00)) encoding = "utf-16le";
+  const payload = data.subarray(offset);
+  if (encoding === "utf-8") return new TextDecoder("utf-8").decode(payload);
+  if (encoding === "utf-16le" || encoding === "utf-16be") {
+    return new TextDecoder(encoding).decode(payload);
+  }
+  let result = "";
+  const littleEndian = encoding === "utf-32le";
+  for (let index = 0; index + 3 < payload.length; index += 4) {
+    const codePoint = littleEndian
+      ? (payload[index] | (payload[index + 1] << 8) | (payload[index + 2] << 16) | (payload[index + 3] << 24)) >>> 0
+      : ((payload[index] << 24) | (payload[index + 1] << 16) | (payload[index + 2] << 8) | payload[index + 3]) >>> 0;
+    result += codePoint <= 0x10ffff && !(codePoint >= 0xd800 && codePoint <= 0xdfff)
+      ? String.fromCodePoint(codePoint)
+      : "\ufffd";
+  }
+  return result;
+}
+
+function readCatalogMetadataXml(pdfDocument, PDFLib) {
+  try {
+    const stream = pdfDocument.catalog.lookup(PDFLib.PDFName.of("Metadata"));
+    if (!(stream instanceof PDFLib.PDFRawStream)) return "";
+    return decodeXmpBytes(PDFLib.decodePDFRawStream(stream).decode());
+  } catch {
+    return "";
+  }
+}
+
+function writeCatalogMetadataXml(pdfDocument, xml, PDFLib) {
+  const metadataStream = pdfDocument.context.stream(
+    new TextEncoder().encode(xml),
+    { Type: "Metadata", Subtype: "XML" },
+  );
+  const key = PDFLib.PDFName.of("Metadata");
+  const existingRef = pdfDocument.catalog.get(key);
+  if (existingRef instanceof PDFLib.PDFRef) {
+    pdfDocument.context.assign(existingRef, metadataStream);
+  } else {
+    pdfDocument.catalog.set(key, pdfDocument.context.register(metadataStream));
+  }
+}
+
+const XMP_NAMESPACE_FIELDS = {
+  title: ["http://purl.org/dc/elements/1.1/", "title"],
+  author: ["http://purl.org/dc/elements/1.1/", "creator"],
+  subject: ["http://purl.org/dc/elements/1.1/", "description"],
+  keywords: ["http://ns.adobe.com/pdf/1.3/", "Keywords"],
+  creator: ["http://ns.adobe.com/xap/1.0/", "CreatorTool"],
+  producer: ["http://ns.adobe.com/pdf/1.3/", "Producer"],
+  creationDate: ["http://ns.adobe.com/xap/1.0/", "CreateDate"],
+  modificationDate: ["http://ns.adobe.com/xap/1.0/", "ModifyDate"],
+};
+const PDFA_NAMESPACE = "http://www.aiim.org/pdfa/ns/id/";
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function namespacePrefixes(xml, namespace) {
+  const prefixes = [];
+  const pattern = /xmlns:([A-Za-z_][\w.-]*)\s*=\s*(["'])([^"']+)\2/g;
+  for (const match of xml.matchAll(pattern)) {
+    if (match[3] === namespace && !prefixes.includes(match[1])) prefixes.push(match[1]);
+  }
+  return prefixes;
+}
+
+function removeNamespacedProperty(xml, prefix, localName) {
+  const name = `${escapeRegex(prefix)}:${escapeRegex(localName)}`;
+  let result = xml.replace(new RegExp(`\\s+${name}\\s*=\\s*"[^"]*"`, "gi"), "");
+  result = result.replace(new RegExp(`\\s+${name}\\s*=\\s*'[^']*'`, "gi"), "");
+  result = result.replace(new RegExp(`<${name}\\b[^>]*>[\\s\\S]*?<\\/${name}\\s*>`, "gi"), "");
+  return result.replace(new RegExp(`<${name}\\b[^>]*/\\s*>`, "gi"), "");
+}
+
+function stripEditedStandardXmp(xml, changes) {
+  let result = xml;
+  for (const key of Object.keys(changes || {})) {
+    const field = XMP_NAMESPACE_FIELDS[key];
+    if (!field) continue;
+    const [namespace, localName] = field;
+    for (const prefix of namespacePrefixes(result, namespace)) {
+      result = removeNamespacedProperty(result, prefix, localName);
+    }
+  }
+  return result;
+}
+
+const OWNED_XMP_NAMESPACES = new Set([
+  "http://purl.org/dc/elements/1.1/",
+  "http://ns.adobe.com/xap/1.0/",
+  "http://ns.adobe.com/pdf/1.3/",
+  PDFA_NAMESPACE,
+]);
+const STRUCTURAL_XMP_NAMESPACES = new Set([
+  "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+  "http://www.w3.org/XML/1998/namespace",
+]);
+
+function namespaceMap(xml) {
+  const namespaces = new Map();
+  const pattern = /xmlns:([A-Za-z_][\w.-]*)\s*=\s*(["'])([^"']+)\2/g;
+  for (const match of xml.matchAll(pattern)) namespaces.set(match[1], match[3]);
+  return namespaces;
+}
+
+function extractMixedForeignDescription(description, namespaces) {
+  const openingEnd = description.indexOf(">");
+  if (openingEnd < 0 || description.endsWith("/>")) return "";
+  const opening = description.slice(0, openingEnd + 1);
+  const inner = description.slice(openingEnd + 1, description.lastIndexOf("</rdf:Description>"));
+  const foreign = [...namespaces].filter(([, uri]) =>
+    !OWNED_XMP_NAMESPACES.has(uri) && !STRUCTURAL_XMP_NAMESPACES.has(uri));
+  if (!foreign.length) return "";
+  const attributes = [];
+  const children = [];
+  for (const [prefix] of foreign) {
+    const escaped = escapeRegex(prefix);
+    const attrPattern = new RegExp(`\\s+${escaped}:([\\w.-]+)\\s*=\\s*(?:"[^"]*"|'[^']*')`, "g");
+    attributes.push(...opening.match(attrPattern) || []);
+    const childPattern = new RegExp(`<${escaped}:[\\w.-]+\\b[^>]*(?:\\/>|>[\\s\\S]*?<\\/${escaped}:[\\w.-]+\\s*>)`, "g");
+    children.push(...inner.match(childPattern) || []);
+  }
+  if (!attributes.length && !children.length) return "";
+  const about = /\srdf:about\s*=\s*("[^"]*"|'[^']*')/.exec(opening)?.[1] || '""';
+  const declarations = foreign.map(([prefix, uri]) => ` xmlns:${prefix}="${uri}"`).join("");
+  return `<rdf:Description rdf:about=${about}${declarations}${attributes.join("")}>${children.join("")}</rdf:Description>`;
+}
+
+function extractPreservableXmpExtensions(xml, PDFLib) {
+  const preserved = [...(PDFLib.extractForeignXmpDescriptions?.(xml) || [])];
+  const existing = new Set(preserved);
+  const namespaces = namespaceMap(xml);
+  const descriptions = xml.match(/<rdf:Description\b[^>]*\/>|<rdf:Description\b[^>]*>[\s\S]*?<\/rdf:Description>/g) || [];
+  for (const description of descriptions) {
+    if (existing.has(description)) continue;
+    const mixed = extractMixedForeignDescription(description, namespaces);
+    if (mixed && !existing.has(mixed)) {
+      existing.add(mixed);
+      preserved.push(mixed);
+    }
+  }
+  return preserved;
+}
+
+function pdfaMetadataInfo(pdfDocument, conformance, extensions) {
+  return {
+    conformance,
+    title: optionalMetadataValue(() => pdfDocument.getTitle()),
+    author: optionalMetadataValue(() => pdfDocument.getAuthor()),
+    subject: optionalMetadataValue(() => pdfDocument.getSubject()),
+    keywords: optionalMetadataValue(() => pdfDocument.getKeywords()),
+    creator: optionalMetadataValue(() => pdfDocument.getCreator()),
+    producer: optionalMetadataValue(() => pdfDocument.getProducer()),
+    creationDate: optionalMetadataValue(() => pdfDocument.getCreationDate()),
+    modificationDate: optionalMetadataValue(() => pdfDocument.getModificationDate()),
+    extensions,
+  };
+}
+
+function supportedPdfaConformance(xml, PDFLib) {
+  return PDFLib.parsePDFAConformanceFromXmp?.(xml);
+}
+
+function synchronizeCatalogXmp(pdfDocument, changes, PDFLib) {
+  const xml = readCatalogMetadataXml(pdfDocument, PDFLib);
+  if (!xml || !Object.keys(changes || {}).length) return;
+
+  const conformance = supportedPdfaConformance(xml, PDFLib);
+  if (conformance) {
+    const extensions = extractPreservableXmpExtensions(xml, PDFLib);
+    const synchronized = PDFLib.buildPDFAMetadata(
+      pdfaMetadataInfo(pdfDocument, conformance, extensions),
+    );
+    writeCatalogMetadataXml(pdfDocument, synchronized, PDFLib);
+    return;
+  }
+
+  if (xml.includes(PDFA_NAMESPACE)) {
+    throw new Error("This PDF/A XMP version cannot be edited safely by Doc Bench.");
+  }
+
+  const stripped = stripEditedStandardXmp(xml, changes);
+  if (stripped !== xml) writeCatalogMetadataXml(pdfDocument, stripped, PDFLib);
+}
+
+export async function readPdfMetadata(pdfBytes, PDFLib = globalThis.PDFLib) {
+  if (!PDFLib?.PDFDocument) throw new Error("PDF mutation engine is unavailable.");
+  const pdfDocument = await PDFLib.PDFDocument.load(pdfBytes, { updateMetadata: false });
+  return metadataFromDocument(pdfDocument);
+}
+
+function normalizeXmpPacket(xml) {
+  return String(xml || "").replace(/\r\n?/g, "\n").trim();
+}
+
+export async function verifyPdfMetadata(
+  pdfBytes,
+  expectedMetadata,
+  changes = {},
+  PDFLib = globalThis.PDFLib,
+) {
+  if (!PDFLib?.PDFDocument) throw new Error("PDF mutation engine is unavailable.");
+  const pdfDocument = await PDFLib.PDFDocument.load(pdfBytes, { updateMetadata: false });
+  const actualMetadata = metadataFromDocument(pdfDocument);
+  if (JSON.stringify(actualMetadata) !== JSON.stringify(expectedMetadata)) {
+    throw new Error("Output verification failed: document metadata changed.");
+  }
+
+  const xml = readCatalogMetadataXml(pdfDocument, PDFLib);
+  if (!xml || !Object.keys(changes || {}).length) return;
+  const conformance = supportedPdfaConformance(xml, PDFLib);
+  if (conformance) {
+    const extensions = extractPreservableXmpExtensions(xml, PDFLib);
+    const expectedXml = PDFLib.buildPDFAMetadata(
+      pdfaMetadataInfo(pdfDocument, conformance, extensions),
+    );
+    if (normalizeXmpPacket(xml) !== normalizeXmpPacket(expectedXml)) {
+      throw new Error("Output verification failed: PDF/A XMP metadata is out of sync.");
+    }
+    return;
+  }
+  if (xml.includes(PDFA_NAMESPACE)) {
+    throw new Error("Output verification failed: unsupported PDF/A XMP metadata remains.");
+  }
+  if (stripEditedStandardXmp(xml, changes) !== xml) {
+    throw new Error("Output verification failed: stale XMP metadata remains.");
+  }
+}
+
+function deleteInfoKey(pdfDocument, key, PDFLib) {
+  const infoRef = pdfDocument.context.trailerInfo.Info;
+  if (!infoRef) return;
+  const info = pdfDocument.context.lookup(infoRef);
+  info?.delete?.(PDFLib.PDFName.of(key));
+}
+
+function applyMetadataDate(pdfDocument, key, value, setter, PDFLib) {
+  if (!value) {
+    deleteInfoKey(pdfDocument, key, PDFLib);
+    return;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error(`Invalid PDF metadata date: ${key}.`);
+  setter.call(pdfDocument, date);
+}
+
+export async function replacePdfMetadata(
+  pdfBytes,
+  changes = {},
+  PDFLib = globalThis.PDFLib,
+) {
+  if (!PDFLib?.PDFDocument) throw new Error("PDF mutation engine is unavailable.");
+  const pdfDocument = await PDFLib.PDFDocument.load(pdfBytes, { updateMetadata: false });
+
+  const stringFields = [
+    ["title", "setTitle"],
+    ["author", "setAuthor"],
+    ["subject", "setSubject"],
+    ["creator", "setCreator"],
+    ["producer", "setProducer"],
+  ];
+  for (const [key, setter] of stringFields) {
+    if (Object.hasOwn(changes, key)) pdfDocument[setter](String(changes[key] ?? ""));
+  }
+  if (Object.hasOwn(changes, "keywords")) {
+    pdfDocument.setKeywords([String(changes.keywords ?? "")]);
+  }
+  if (Object.hasOwn(changes, "creationDate")) {
+    applyMetadataDate(pdfDocument, "CreationDate", changes.creationDate, pdfDocument.setCreationDate, PDFLib);
+  }
+  if (Object.hasOwn(changes, "modificationDate")) {
+    applyMetadataDate(pdfDocument, "ModDate", changes.modificationDate, pdfDocument.setModificationDate, PDFLib);
+  }
+  synchronizeCatalogXmp(pdfDocument, changes, PDFLib);
+
+  return pdfDocument.save({
+    addDefaultPage: false,
+    updateFieldAppearances: false,
+  });
+}
+
 export function buildQpdfPageRequest(sources, pagePlan, outputName = "output.pdf") {
   if (!sources.length) throw new Error("At least one PDF source is required.");
   if (!pagePlan.length) throw new Error("A PDF must contain at least one page.");
@@ -383,7 +728,6 @@ export async function replacePdfOutline(pdfBytes, outline, PDFLib = globalThis.P
   }
 
   return pdfDocument.save({
-    useObjectStreams: true,
     addDefaultPage: false,
     updateFieldAppearances: false,
   });

@@ -103,17 +103,55 @@ for (const fidelityGuard of [
   }
 }
 
+const pdfCore = await readFile("public/pdf-core.mjs", "utf8");
+for (const metadataCoreGuard of [
+  "readPdfMetadata",
+  "replacePdfMetadata",
+  "normalizePdfMetadata",
+  "updateMetadata: false",
+  'pdfDocument.setKeywords([String(changes.keywords ?? "")])',
+  "deleteInfoKey",
+  "decodeXmpBytes",
+  "extractPreservableXmpExtensions",
+]) {
+  if (!pdfCore.includes(metadataCoreGuard)) {
+    throw new Error(`PDF metadata core is missing guard: ${metadataCoreGuard}`);
+  }
+}
+
 const pdfApp = await readFile("public/pdf-app.mjs", "utf8");
 for (const exportGuard of [
   "extractSelectedPage",
   "splitAllPages",
   "ZipPassThrough",
   "remapOutlineToPagePlan(snapshot.outline, snapshot.plan, plan)",
-  "await verifyOutput(finalBytes, plan.length, outline)",
+  "await verifyOutput(finalBytes, plan.length, outline, snapshot.metadata, snapshot.metadataChanges)",
   "state.exporting",
+  "currentMetadataChanges",
+  "metadataChanges",
+  "replacePdfMetadata",
+  "expectedMetadata",
 ]) {
   if (!pdfApp.includes(exportGuard)) {
     throw new Error(`PDF split/extract is missing guard: ${exportGuard}`);
+  }
+}
+
+const html = await readFile("public/index.html", "utf8");
+for (const metadataUiGuard of [
+  "pdf-metadata-panel",
+  "pdf-meta-title",
+  "pdf-meta-author",
+  "pdf-meta-subject",
+  "pdf-meta-keywords",
+  "pdf-meta-creator",
+  "pdf-meta-producer",
+  "pdf-meta-created",
+  "pdf-meta-modified",
+  "pdf-metadata-reset",
+]) {
+  if (!html.includes(metadataUiGuard)) {
+    throw new Error(`PDF metadata UI is missing guard: ${metadataUiGuard}`);
   }
 }
 
@@ -158,6 +196,9 @@ if (!portable.includes("showSaveFilePicker") || !portable.includes("createWritab
 }
 if (!portable.includes("PDFLib")) throw new Error("Portable build is missing PDF mutation runtime");
 if (!portable.includes("ZipPassThrough")) throw new Error("Portable build is missing ZIP runtime");
+if (!portable.includes("pdf-meta-title") || !portable.includes("replacePdfMetadata")) {
+  throw new Error("Portable build is missing PDF metadata editor support");
+}
 if (!portable.includes("__docbenchPdfAssets")) {
   throw new Error("Portable build is missing embedded PDF runtime assets");
 }

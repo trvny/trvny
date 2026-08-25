@@ -1,4 +1,4 @@
-import { cp, mkdir } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 
 await mkdir("public/vendor", { recursive: true });
 await cp(
@@ -6,8 +6,26 @@ await cp(
   "public/vendor/js-yaml.min.js",
 );
 await cp(
+  "node_modules/marked/lib/marked.umd.js",
+  "public/vendor/marked.umd.js",
+);
+await cp(
   "node_modules/@cantoo/pdf-lib/dist/pdf-lib.min.js",
   "public/vendor/pdf-lib.min.js",
+);
+
+await mkdir("public/vendor/jsonc-parser/impl", { recursive: true });
+await cp(
+  "node_modules/jsonc-parser/lib/esm/impl/scanner.js",
+  "public/vendor/jsonc-parser/impl/scanner.js",
+);
+const jsonParser = await readFile(
+  "node_modules/jsonc-parser/lib/esm/impl/parser.js",
+  "utf8",
+);
+await writeFile(
+  "public/vendor/jsonc-parser/impl/parser.js",
+  jsonParser.replaceAll("from './scanner'", "from './scanner.js'"),
 );
 
 await mkdir("public/fonts", { recursive: true });

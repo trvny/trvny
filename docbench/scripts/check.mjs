@@ -81,6 +81,7 @@ for (const fidelityGuard of [
   "appendMarkdownLimit",
   "loadNativeHandle(handle, revision)",
   "syncFallbackFile(file, revision)",
+  "appendEmptyDocument",
   "preservesXmlSpace",
   "PROCESSING_INSTRUCTION_NODE",
   "DOCUMENT_TYPE_NODE",

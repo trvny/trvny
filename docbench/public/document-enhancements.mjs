@@ -277,14 +277,24 @@ function renderYamlTree(source) {
     parent.append(details);
   }
 
+  function appendEmptyDocument(parent, key) {
+    if (nodes >= MAX_TREE_NODES) {
+      truncated = true;
+      return;
+    }
+    nodes += 1;
+    appendScalar(parent, key, "(empty document)");
+  }
+
   if (documents.length === 1) {
     if (documents[0].contents) renderNode(fragment, null, documents[0].contents, 0);
-    else appendScalar(fragment, null, "(empty document)");
+    else appendEmptyDocument(fragment, null);
   } else {
     documents.forEach((document, index) => {
+      if (truncated) return;
       const label = `Document ${index + 1}`;
       if (document.contents) renderNode(fragment, label, document.contents, 0);
-      else appendScalar(fragment, label, "(empty document)");
+      else appendEmptyDocument(fragment, label);
     });
   }
   if (truncated) appendTreeLimit(fragment);

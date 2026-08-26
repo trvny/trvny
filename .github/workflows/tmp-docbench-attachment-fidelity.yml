@@ -1,0 +1,46 @@
+name: Temporary Docbench attachment fidelity
+
+on:
+  push:
+    branches:
+      - feat/docbench-pdf-attachments
+    paths:
+      - .github/tmp-docbench-attachment-fidelity.py
+      - .github/workflows/tmp-docbench-attachment-fidelity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-check-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feat/docbench-pdf-attachments
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: docbench/package-lock.json
+      - name: Apply patch
+        run: python .github/tmp-docbench-attachment-fidelity.py
+      - name: Install
+        working-directory: docbench
+        run: npm ci --no-audit --no-fund
+      - name: Check Docbench
+        working-directory: docbench
+        run: npm run check
+      - name: Commit clean fix
+        shell: bash
+        run: |
+          rm -rf docbench/public/fonts
+          rm -f .github/tmp-docbench-attachment-fidelity.py
+          rm -f .github/workflows/tmp-docbench-attachment-fidelity.yml
+          git add docbench .github
+          git diff --cached --check
+          git config user.name "gptomek[bot]"
+          git config user.email "199175422+gptomek[bot]@users.noreply.github.com"
+          git commit -m "fix(docbench): preserve attachment fidelity"
+          git push origin HEAD:feat/docbench-pdf-attachments

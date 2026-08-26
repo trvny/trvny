@@ -6,11 +6,11 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "node scripts/deploy.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.ts",
     "smoke:live": "node scripts/smoke-live.ts",
-    "check": "npm run typecheck && npm test && node --check scripts/smoke-live.ts && wrangler deploy --dry-run --outdir dist"
+    "check": "npm run typecheck && npm test && node --check scripts/deploy.ts && node --check scripts/smoke-live.ts && wrangler deploy --dry-run --outdir dist"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260821.1",

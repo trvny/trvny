@@ -4,7 +4,7 @@ import {
   buildQpdfPageRequest,
   clonePdfOutline,
   formatPdfSize,
-  mergePdfAttachmentSets,
+  mergePdfAttachmentSourceSets,
   readPdfAttachments,
   readPdfMetadata,
   readPdfOutline,
@@ -236,10 +236,10 @@ async function openFiles(files, append) {
   }
   const offset = state.sources.length;
   state.sources.push(...newSources);
-const incomingAttachments = newSources.flatMap((source) => source.attachments || []);
-state.attachments = append && oldSourceCount
-  ? mergePdfAttachmentSets(state.attachments, incomingAttachments)
-  : mergePdfAttachmentSets([], incomingAttachments);
+  state.attachments = mergePdfAttachmentSourceSets(
+    newSources.map((source) => source.attachments || []),
+    append && oldSourceCount ? state.attachments : null,
+  );
   newSources.forEach((source, relativeSourceId) => {
     const sourceId = offset + relativeSourceId;
     for (let pageIndex = 0; pageIndex < source.pageCount; pageIndex += 1) {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import * as PDFLib from "@cantoo/pdf-lib";
 import {
   mergePdfAttachmentSets,
+  mergePdfAttachmentSourceSets,
   normalizePdfAttachment,
   readPdfAttachments,
   replacePdfAttachments,
@@ -101,6 +102,46 @@ const collidingSortNames = [
 ];
 const collatingBytes = await replacePdfAttachments(await onePagePdf(), collidingSortNames, PDFLib);
 await verifyPdfAttachments(collatingBytes, collidingSortNames, PDFLib);
+
+const caseDistinctSources = mergePdfAttachmentSourceSets([
+  [
+    { name: "A.txt", data: new Uint8Array([10]), mimeType: "text/plain" },
+    { name: "a.txt", data: new Uint8Array([11]), mimeType: "text/plain" },
+  ],
+  [
+    { name: "A.txt", data: new Uint8Array([12]), mimeType: "text/plain" },
+  ],
+]);
+assert.deepEqual(
+  caseDistinctSources.map((attachment) => attachment.name),
+  ["A.txt", "a.txt", "A (2).txt"],
+);
+
+const checksumDocument = await PDFLib.PDFDocument.load(datedBytes, { updateMetadata: false });
+const checksumSpec = firstAttachmentFileSpec(checksumDocument);
+const checksumEf = checksumSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);
+const checksumStream = checksumEf.lookup(PDFLib.PDFName.of("F"), PDFLib.PDFStream);
+const checksumParams = checksumStream.dict.lookup(PDFLib.PDFName.of("Params"), PDFLib.PDFDict);
+const checksumValue = PDFLib.PDFHexString.of("00112233445566778899aabbccddeeff");
+checksumParams.set(PDFLib.PDFName.of("CheckSum"), checksumValue);
+const checksumBytes = await checksumDocument.save({ updateFieldAppearances: false });
+const checksumAttachments = await readPdfAttachments(checksumBytes, PDFLib);
+assert.deepEqual([...checksumAttachments[0].checksum], [...checksumValue.asBytes()]);
+const rebuiltChecksumBytes = await replacePdfAttachments(checksumBytes, checksumAttachments, PDFLib);
+const rebuiltChecksumAttachments = await readPdfAttachments(rebuiltChecksumBytes, PDFLib);
+assert.deepEqual([...rebuiltChecksumAttachments[0].checksum], [...checksumValue.asBytes()]);
+await verifyPdfAttachments(rebuiltChecksumBytes, checksumAttachments, PDFLib);
+
+const undecodableDocument = await PDFLib.PDFDocument.load(datedBytes, { updateMetadata: false });
+const undecodableSpec = firstAttachmentFileSpec(undecodableDocument);
+const undecodableEf = undecodableSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);
+const undecodableStream = undecodableEf.lookup(PDFLib.PDFName.of("F"), PDFLib.PDFStream);
+undecodableStream.dict.set(PDFLib.PDFName.of("Filter"), PDFLib.PDFName.of("UnsupportedDocbenchFilter"));
+const undecodableBytes = await undecodableDocument.save({ updateFieldAppearances: false });
+await assert.rejects(
+  () => readPdfAttachments(undecodableBytes, PDFLib),
+  /Could not decode PDF attachment dated\.txt; refusing to rewrite attachments/,
+);
 
 const associatedDocument = await PDFLib.PDFDocument.load(formBytes, { updateMetadata: false });
 const [{ specRef: oldSpecRef, fileSpec: oldFileSpec }] = associatedDocument.getRawAttachments();

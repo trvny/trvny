@@ -347,7 +347,7 @@ assert.equal(afOnlyAttachments.length, 1, "AF-only attachment should be read");
 
 const unsupportedRelationshipBytes = await replacePdfAttachments(nestedBytes, [{ ...nestedAttachments[0], afRelationship: "FormData" }], PDFLib);
 const unsupportedRelationship = await readPdfAttachments(unsupportedRelationshipBytes, PDFLib);
-assert.equal(unsupportedRelationship[0].afRelationship, "");
+assert.equal(unsupportedRelationship[0].afRelationship, "FormData");
 
 const mergedAttachments = mergePdfAttachmentSets(nestedAttachments, [{
   name: "NOTE.TXT",

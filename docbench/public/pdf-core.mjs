@@ -744,8 +744,26 @@ function attachmentOptions(attachment) {
     description: attachment.description || undefined,
     creationDate: attachment.creationDate ? new Date(attachment.creationDate) : undefined,
     modificationDate: attachment.modificationDate ? new Date(attachment.modificationDate) : undefined,
-    afRelationship: attachment.afRelationship || undefined,
+    afRelationship: attachment.afRelationship === "FormData"
+      ? undefined
+      : (attachment.afRelationship || undefined),
   };
+}
+
+function restoreFormDataRelationships(pdfDocument, attachments, PDFLib) {
+  const formDataNames = new Set(
+    attachments
+      .filter((attachment) => attachment.afRelationship === "FormData")
+      .map((attachment) => attachment.name),
+  );
+  if (!formDataNames.size) return;
+
+  for (const { fileName, fileSpec } of pdfDocument.getRawAttachments?.() || []) {
+    const name = pdfText(fileName, PDFLib);
+    if (formDataNames.has(name)) {
+      fileSpec.set(PDFLib.PDFName.of("AFRelationship"), PDFLib.PDFName.of("FormData"));
+    }
+  }
 }
 
 async function pdfaAttachmentConformance(attachment, PDFLib) {
@@ -803,6 +821,8 @@ export async function replacePdfAttachments(
       attachmentOptions(attachment),
     );
   }
+  await pdfDocument.flush();
+  restoreFormDataRelationships(pdfDocument, normalized, PDFLib);
   return pdfDocument.save({
     addDefaultPage: false,
     updateFieldAppearances: false,

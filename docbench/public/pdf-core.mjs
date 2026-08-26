@@ -563,7 +563,7 @@ export async function replacePdfMetadata(
 
 const MAX_ATTACHMENT_TREE_NODES = 10000;
 const AF_RELATIONSHIPS = new Set([
-  "Source", "Data", "Alternative", "Supplement",
+  "Source", "Data", "Alternative", "Supplement", "FormData",
   "EncryptedPayload", "Schema", "Unspecified",
 ]);
 
@@ -582,8 +582,15 @@ function pdfText(value, PDFLib) {
 }
 
 function pdfDate(value, PDFLib) {
-  if (!(value instanceof PDFLib.PDFString)) return "";
-  try { return normalizeAttachmentDate(value.decodeDate()); } catch { return ""; }
+  if (!(value instanceof PDFLib.PDFString || value instanceof PDFLib.PDFHexString)) return "";
+  try {
+    const dateString = value instanceof PDFLib.PDFString
+      ? value
+      : PDFLib.PDFString.of(value.decodeText());
+    return normalizeAttachmentDate(dateString.decodeDate());
+  } catch {
+    return "";
+  }
 }
 
 function pdfNameOrText(value, PDFLib) {
@@ -741,6 +748,36 @@ function attachmentOptions(attachment) {
   };
 }
 
+async function pdfaAttachmentConformance(attachment, PDFLib) {
+  const data = attachment.data;
+  if (data.byteLength < 5) return null;
+  const signature = new TextDecoder("ascii").decode(data.subarray(0, 5));
+  if (signature !== "%PDF-") return null;
+  try {
+    const document = await PDFLib.PDFDocument.load(data, { updateMetadata: false });
+    return supportedPdfaConformance(readCatalogMetadataXml(document, PDFLib), PDFLib) || null;
+  } catch {
+    return null;
+  }
+}
+
+async function validatePdfaAttachmentSet(conformance, attachments, PDFLib) {
+  const part = Number(conformance?.part);
+  if (part === 1 && attachments.length) {
+    throw new Error("PDF/A-1 does not permit embedded files.");
+  }
+  if (part !== 2) return;
+  for (const attachment of attachments) {
+    const embeddedConformance = await pdfaAttachmentConformance(attachment, PDFLib);
+    const embeddedPart = Number(embeddedConformance?.part);
+    if (embeddedPart !== 1 && embeddedPart !== 2) {
+      throw new Error(
+        `PDF/A-2 permits only PDF/A-1 or PDF/A-2 attachments; remove or replace ${attachment.name}.`,
+      );
+    }
+  }
+}
+
 export async function replacePdfAttachments(
   pdfBytes,
   attachments = [],
@@ -757,9 +794,7 @@ export async function replacePdfAttachments(
   }
   const pdfDocument = await PDFLib.PDFDocument.load(pdfBytes, { updateMetadata: false });
   const conformance = supportedPdfaConformance(readCatalogMetadataXml(pdfDocument, PDFLib), PDFLib);
-  if (conformance?.part === 1 && normalized.length) {
-    throw new Error("PDF/A-1 does not permit embedded files.");
-  }
+  await validatePdfaAttachmentSet(conformance, normalized, PDFLib);
   clearPdfAttachmentRoots(pdfDocument, PDFLib);
   for (const attachment of normalized) {
     await pdfDocument.attach(

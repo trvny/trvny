@@ -6,6 +6,7 @@ on:
       - feat/docbench-pdf-attachments
     paths:
       - .github/tmp-docbench-attachment-roundtrip.py
+      - .github/tmp-docbench-attachment-roundtrip-fix.py
       - .github/workflows/tmp-docbench-attachment-roundtrip.yml
 
 permissions:
@@ -25,7 +26,9 @@ jobs:
           cache: npm
           cache-dependency-path: docbench/package-lock.json
       - name: Apply round-trip patch
-        run: python .github/tmp-docbench-attachment-roundtrip.py
+        run: |
+          python .github/tmp-docbench-attachment-roundtrip.py
+          python .github/tmp-docbench-attachment-roundtrip-fix.py
       - name: Install
         working-directory: docbench
         run: npm ci --no-audit --no-fund
@@ -38,6 +41,7 @@ jobs:
             .github/tmp-docbench-attachment-filespec-testfix.py \
             .github/tmp-docbench-attachment-filespec.py \
             .github/tmp-docbench-attachment-roundtrip.py \
+            .github/tmp-docbench-attachment-roundtrip-fix.py \
             .github/workflows/tmp-docbench-attachment-filespec.yml \
             .github/workflows/tmp-docbench-attachment-roundtrip.yml
           git config user.name "gptomek[bot]"

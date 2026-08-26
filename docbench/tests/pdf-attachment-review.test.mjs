@@ -151,14 +151,31 @@ const associatedPage = associatedDocument.getPage(0);
 associatedPage.node.set(PDFLib.PDFName.of("AF"), associatedDocument.context.obj([oldSpecRef]));
 const annotation = associatedDocument.context.obj({
   Type: "Annot",
-  Subtype: "Text",
+  Subtype: "FileAttachment",
   Rect: [0, 0, 10, 10],
   AF: [oldSpecRef],
+  FS: oldSpecRef,
 });
 const annotationRef = associatedDocument.context.register(annotation);
 associatedPage.node.set(PDFLib.PDFName.of("Annots"), associatedDocument.context.obj([annotationRef]));
 const associatedBytes = await associatedDocument.save({ updateFieldAppearances: false });
-assert.equal((await readPdfAttachments(associatedBytes, PDFLib)).length, 1);
+const associatedAttachments = await readPdfAttachments(associatedBytes, PDFLib);
+assert.equal(associatedAttachments.length, 1);
+const retainedAssociatedBytes = await replacePdfAttachments(associatedBytes, associatedAttachments, PDFLib);
+const retainedAssociatedDocument = await PDFLib.PDFDocument.load(retainedAssociatedBytes, { updateMetadata: false });
+const retainedPage = retainedAssociatedDocument.getPage(0);
+const retainedAnnots = retainedPage.node.lookup(PDFLib.PDFName.of("Annots"), PDFLib.PDFArray);
+const retainedAnnotation = retainedAnnots.lookup(0, PDFLib.PDFDict);
+assert.equal(retainedAnnotation.has(PDFLib.PDFName.of("FS")), true);
+assert.equal(retainedAnnotation.has(PDFLib.PDFName.of("AF")), true);
+
+const fsOnlyDocument = await PDFLib.PDFDocument.load(associatedBytes, { updateMetadata: false });
+const fsOnlyNames = fsOnlyDocument.catalog.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict);
+fsOnlyNames.delete(PDFLib.PDFName.of("EmbeddedFiles"));
+fsOnlyDocument.catalog.delete(PDFLib.PDFName.of("AF"));
+const fsOnlyBytes = await fsOnlyDocument.save({ updateFieldAppearances: false });
+assert.equal((await readPdfAttachments(fsOnlyBytes, PDFLib)).length, 1, "FS-only attachment should be read");
+
 const removedAssociatedBytes = await replacePdfAttachments(associatedBytes, [], PDFLib);
 assert.equal((await readPdfAttachments(removedAssociatedBytes, PDFLib)).length, 0);
 const removedAssociatedDocument = await PDFLib.PDFDocument.load(removedAssociatedBytes, { updateMetadata: false });
@@ -167,8 +184,49 @@ assert.equal(removedPage.node.has(PDFLib.PDFName.of("AF")), false);
 const removedAnnots = removedPage.node.lookup(PDFLib.PDFName.of("Annots"), PDFLib.PDFArray);
 const removedAnnotation = removedAnnots.lookup(0, PDFLib.PDFDict);
 assert.equal(removedAnnotation.has(PDFLib.PDFName.of("AF")), false);
+assert.equal(removedAnnotation.has(PDFLib.PDFName.of("FS")), false);
 assert.equal(removedAssociatedDocument.context.lookup(oldSpecRef), undefined);
 assert.equal(removedAssociatedDocument.context.lookup(oldStreamRef), undefined);
+
+
+const collisionBase = await PDFLib.PDFDocument.create({ updateMetadata: false });
+collisionBase.addPage([100, 100]);
+collisionBase.addPage([100, 100]);
+let collisionBytes = await collisionBase.save();
+collisionBytes = await replacePdfAttachments(collisionBytes, [
+  { name: "dup.txt", data: new Uint8Array([21]), mimeType: "text/plain" },
+  { name: "other.txt", data: new Uint8Array([22]), mimeType: "text/plain" },
+], PDFLib);
+const collisionDocument = await PDFLib.PDFDocument.load(collisionBytes, { updateMetadata: false });
+const collisionRaw = collisionDocument.getRawAttachments();
+const collisionNames = collisionDocument.catalog
+  .lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict)
+  .lookup(PDFLib.PDFName.of("EmbeddedFiles"), PDFLib.PDFDict)
+  .lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFArray);
+for (let index = 0; index < 2; index += 1) {
+  collisionNames.set(index * 2, PDFLib.PDFHexString.fromText("dup.txt"));
+  collisionRaw[index].fileSpec.set(PDFLib.PDFName.of("F"), PDFLib.PDFString.of("dup.txt"));
+  collisionRaw[index].fileSpec.set(PDFLib.PDFName.of("UF"), PDFLib.PDFHexString.fromText("dup.txt"));
+  collisionDocument.getPage(index).node.set(
+    PDFLib.PDFName.of("AF"),
+    collisionDocument.context.obj([collisionRaw[index].specRef]),
+  );
+}
+const duplicateNameBytes = await collisionDocument.save({ updateFieldAppearances: false });
+const duplicateAttachments = await readPdfAttachments(duplicateNameBytes, PDFLib);
+assert.deepEqual(duplicateAttachments.map((attachment) => attachment.name), ["dup.txt", "dup.txt"]);
+const collisionDesired = mergePdfAttachmentSourceSets(
+  duplicateAttachments.map((attachment) => [attachment]),
+);
+assert.deepEqual(collisionDesired.map((attachment) => attachment.name), ["dup.txt", "dup (2).txt"]);
+const remappedCollisionBytes = await replacePdfAttachments(duplicateNameBytes, collisionDesired, PDFLib);
+const remappedCollisionDocument = await PDFLib.PDFDocument.load(remappedCollisionBytes, { updateMetadata: false });
+const pageAssociationNames = remappedCollisionDocument.getPages().map((page) => {
+  const af = page.node.lookup(PDFLib.PDFName.of("AF"), PDFLib.PDFArray);
+  const spec = af.lookup(0, PDFLib.PDFDict);
+  return spec.lookup(PDFLib.PDFName.of("UF")).decodeText();
+});
+assert.deepEqual(pageAssociationNames, ["dup.txt", "dup (2).txt"]);
 
 const oversizedTreeDocument = await PDFLib.PDFDocument.create({ updateMetadata: false });
 oversizedTreeDocument.addPage([100, 100]);

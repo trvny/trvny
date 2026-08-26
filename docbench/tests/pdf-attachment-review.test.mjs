@@ -102,4 +102,46 @@ const collidingSortNames = [
 const collatingBytes = await replacePdfAttachments(await onePagePdf(), collidingSortNames, PDFLib);
 await verifyPdfAttachments(collatingBytes, collidingSortNames, PDFLib);
 
+const associatedDocument = await PDFLib.PDFDocument.load(formBytes, { updateMetadata: false });
+const [{ specRef: oldSpecRef, fileSpec: oldFileSpec }] = associatedDocument.getRawAttachments();
+const oldEf = oldFileSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);
+const oldStreamRef = oldEf.get(PDFLib.PDFName.of("F"));
+const associatedPage = associatedDocument.getPage(0);
+associatedPage.node.set(PDFLib.PDFName.of("AF"), associatedDocument.context.obj([oldSpecRef]));
+const annotation = associatedDocument.context.obj({
+  Type: "Annot",
+  Subtype: "Text",
+  Rect: [0, 0, 10, 10],
+  AF: [oldSpecRef],
+});
+const annotationRef = associatedDocument.context.register(annotation);
+associatedPage.node.set(PDFLib.PDFName.of("Annots"), associatedDocument.context.obj([annotationRef]));
+const associatedBytes = await associatedDocument.save({ updateFieldAppearances: false });
+assert.equal((await readPdfAttachments(associatedBytes, PDFLib)).length, 1);
+const removedAssociatedBytes = await replacePdfAttachments(associatedBytes, [], PDFLib);
+assert.equal((await readPdfAttachments(removedAssociatedBytes, PDFLib)).length, 0);
+const removedAssociatedDocument = await PDFLib.PDFDocument.load(removedAssociatedBytes, { updateMetadata: false });
+const removedPage = removedAssociatedDocument.getPage(0);
+assert.equal(removedPage.node.has(PDFLib.PDFName.of("AF")), false);
+const removedAnnots = removedPage.node.lookup(PDFLib.PDFName.of("Annots"), PDFLib.PDFArray);
+const removedAnnotation = removedAnnots.lookup(0, PDFLib.PDFDict);
+assert.equal(removedAnnotation.has(PDFLib.PDFName.of("AF")), false);
+assert.equal(removedAssociatedDocument.context.lookup(oldSpecRef), undefined);
+assert.equal(removedAssociatedDocument.context.lookup(oldStreamRef), undefined);
+
+const oversizedTreeDocument = await PDFLib.PDFDocument.create({ updateMetadata: false });
+oversizedTreeDocument.addPage([100, 100]);
+const oversizedKids = oversizedTreeDocument.context.obj([]);
+for (let index = 0; index < 10000; index += 1) {
+  oversizedKids.push(oversizedTreeDocument.context.obj({}));
+}
+const oversizedEmbedded = oversizedTreeDocument.context.obj({ Kids: oversizedKids });
+const oversizedNames = oversizedTreeDocument.context.obj({ EmbeddedFiles: oversizedEmbedded });
+oversizedTreeDocument.catalog.set(PDFLib.PDFName.of("Names"), oversizedNames);
+const oversizedTreeBytes = await oversizedTreeDocument.save({ updateFieldAppearances: false });
+await assert.rejects(
+  () => readPdfAttachments(oversizedTreeBytes, PDFLib),
+  /PDF attachment name tree is too large/,
+);
+
 console.log("Doc Bench PDF attachment review tests passed.");

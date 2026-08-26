@@ -20,6 +20,7 @@ import {
   handleDependencyGraphAction,
 } from './dependency-graph.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
+import { scheduleFreeReviewWebhook } from './free-review.ts';
 import worker, {
   actionFetch,
   CommentProbeLock,
@@ -60,6 +61,7 @@ const OPENAPI_PATH = '/gpt-actions/openapi.json';
 const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
 const SMOKE_PATH = '/gpt-actions/operator/smoke';
 const HEALTH_PATH = '/health';
+const WEBHOOK_PATH = '/webhooks/github';
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -135,6 +137,10 @@ const runtime = {
   fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     return runWithActionRequestContext(async () => {
       const url = new URL(request.url);
+      const reviewRequest =
+        url.pathname === WEBHOOK_PATH && request.method === 'POST'
+          ? request.clone()
+          : null;
       if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
         return json(openApi(request));
       }
@@ -196,6 +202,9 @@ const runtime = {
       }
 
       const baseResponse = await worker.fetch(request, env, ctx);
+      if (reviewRequest && baseResponse.status === 202) {
+        scheduleFreeReviewWebhook(reviewRequest, env, ctx);
+      }
       const response = await decorateGatewayResponse(request, baseResponse, env);
       return enrichConflictResponse(
         request,

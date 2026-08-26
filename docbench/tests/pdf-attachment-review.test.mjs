@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import * as PDFLib from "@cantoo/pdf-lib";
 import {
+  mergePdfAttachmentSets,
   normalizePdfAttachment,
   readPdfAttachments,
   replacePdfAttachments,
+  verifyPdfAttachments,
 } from "../public/pdf-core.mjs";
 
 async function onePagePdf({ pdfa } = {}) {
@@ -82,5 +84,22 @@ const compliantPdfa2 = await replacePdfAttachments(pdfa2, [{
 const compliantAttachments = await readPdfAttachments(compliantPdfa2, PDFLib);
 assert.equal(compliantAttachments.length, 1);
 assert.equal(compliantAttachments[0].name, "archival-child.pdf");
+
+const spacedAttachment = mergePdfAttachmentSets([], [{
+  name: " report.txt ",
+  data: new TextEncoder().encode("spaces"),
+  mimeType: "text/plain",
+}]);
+assert.equal(spacedAttachment[0].name, " report.txt ");
+const spacedBytes = await replacePdfAttachments(await onePagePdf(), spacedAttachment, PDFLib);
+const spacedRead = await readPdfAttachments(spacedBytes, PDFLib);
+assert.equal(spacedRead[0].name, " report.txt ");
+
+const collidingSortNames = [
+  { name: "résumé.txt", data: new Uint8Array([1]), mimeType: "text/plain" },
+  { name: "resume.txt", data: new Uint8Array([2]), mimeType: "text/plain" },
+];
+const collatingBytes = await replacePdfAttachments(await onePagePdf(), collidingSortNames, PDFLib);
+await verifyPdfAttachments(collatingBytes, collidingSortNames, PDFLib);
 
 console.log("Doc Bench PDF attachment review tests passed.");

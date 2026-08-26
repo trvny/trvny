@@ -829,10 +829,6 @@ export async function replacePdfAttachments(
   });
 }
 
-function attachmentSort(left, right) {
-  return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
-}
-
 function sameBytes(left, right) {
   if (left.byteLength !== right.byteLength) return false;
   for (let index = 0; index < left.byteLength; index += 1) {
@@ -857,23 +853,29 @@ export async function verifyPdfAttachments(
   expectedAttachments = [],
   PDFLib = globalThis.PDFLib,
 ) {
-  const expected = expectedAttachments.map(normalizePdfAttachment).sort(attachmentSort);
-  const actual = (await readPdfAttachments(pdfBytes, PDFLib)).sort(attachmentSort);
+  const expected = expectedAttachments.map(normalizePdfAttachment);
+  const actual = await readPdfAttachments(pdfBytes, PDFLib);
   if (actual.length !== expected.length) {
     throw new Error(`Output verification failed: expected ${expected.length} attachments, got ${actual.length}.`);
   }
-  for (let index = 0; index < expected.length; index += 1) {
-    if (JSON.stringify(attachmentSignature(actual[index])) !== JSON.stringify(attachmentSignature(expected[index]))) {
-      throw new Error(`Output verification failed: attachment metadata changed for ${expected[index].name}.`);
+  const actualByName = new Map(actual.map((attachment) => [attachment.name, attachment]));
+  for (const expectedAttachment of expected) {
+    const actualAttachment = actualByName.get(expectedAttachment.name);
+    if (!actualAttachment) {
+      throw new Error(`Output verification failed: attachment ${expectedAttachment.name} is missing.`);
     }
-    if (!sameBytes(actual[index].data, expected[index].data)) {
-      throw new Error(`Output verification failed: attachment bytes changed for ${expected[index].name}.`);
+    if (JSON.stringify(attachmentSignature(actualAttachment)) !== JSON.stringify(attachmentSignature(expectedAttachment))) {
+      throw new Error(`Output verification failed: attachment metadata changed for ${expectedAttachment.name}.`);
+    }
+    if (!sameBytes(actualAttachment.data, expectedAttachment.data)) {
+      throw new Error(`Output verification failed: attachment bytes changed for ${expectedAttachment.name}.`);
     }
   }
 }
 
 function uniqueAttachmentName(name, used) {
-  const base = String(name || "attachment").trim() || "attachment";
+  const rawName = String(name ?? "");
+  const base = rawName.trim() ? rawName : "attachment";
   if (!used.has(base.toLowerCase())) return base;
   const dot = base.lastIndexOf(".");
   const stem = dot > 0 ? base.slice(0, dot) : base;

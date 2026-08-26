@@ -5,9 +5,13 @@ import {
   buildQpdfFinalizeRequest,
   buildQpdfPageRequest,
   clonePdfOutline,
+  mergePdfAttachmentSets,
+  readPdfAttachments,
   readPdfMetadata,
   readPdfOutline,
+  replacePdfAttachments,
   replacePdfMetadata,
+  verifyPdfAttachments,
   verifyPdfMetadata,
   remapOutline,
   remapOutlineToPagePlan,
@@ -298,6 +302,68 @@ const mixedXmp = await readTestXmp(mixedEdited);
 assert.ok(mixedXmp.includes("keep:Value"));
 assert.ok(mixedXmp.includes('keep:flag="yes"'));
 assert.ok(!mixedXmp.includes("Old mixed title"));
+
+const attachmentDocument = await PDFLib.PDFDocument.create({ updateMetadata: false });
+attachmentDocument.addPage([100, 100]);
+await attachmentDocument.attach(new TextEncoder().encode("hello attachment"), "note.txt", {
+  mimeType: "text/plain",
+  description: "Doc Bench attachment test",
+  creationDate: new Date("2023-01-02T03:04:05Z"),
+  modificationDate: new Date("2024-02-03T04:05:06Z"),
+  afRelationship: PDFLib.AFRelationship.Data,
+});
+const attachmentBytes = await attachmentDocument.save();
+const attachments = await readPdfAttachments(attachmentBytes, PDFLib);
+assert.equal(attachments.length, 1);
+assert.equal(attachments[0].name, "note.txt");
+assert.equal(new TextDecoder().decode(attachments[0].data), "hello attachment");
+assert.equal(attachments[0].mimeType, "text/plain");
+assert.equal(attachments[0].afRelationship, "Data");
+assert.equal(attachments[0].description, "Doc Bench attachment test");
+assert.equal(attachments[0].creationDate, "2023-01-02T03:04:05.000Z");
+assert.equal(attachments[0].modificationDate, "2024-02-03T04:05:06.000Z");
+
+const nestedDocument = await PDFLib.PDFDocument.load(attachmentBytes, { updateMetadata: false });
+const nestedNames = nestedDocument.catalog.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict);
+const nestedEmbedded = nestedNames.lookup(PDFLib.PDFName.of("EmbeddedFiles"), PDFLib.PDFDict);
+const nestedArray = nestedEmbedded.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFArray);
+const nestedChild = nestedDocument.context.obj({ Names: nestedArray });
+nestedEmbedded.delete(PDFLib.PDFName.of("Names"));
+nestedEmbedded.set(
+  PDFLib.PDFName.of("Kids"),
+  nestedDocument.context.obj([nestedDocument.context.register(nestedChild)]),
+);
+const nestedBytes = await nestedDocument.save({ addDefaultPage: false, updateFieldAppearances: false });
+const nestedAttachments = await readPdfAttachments(nestedBytes, PDFLib);
+assert.equal(nestedAttachments.length, 1, "nested attachment name tree should be read");
+assert.equal(nestedAttachments[0].name, "note.txt");
+
+const afOnlyDocument = await PDFLib.PDFDocument.load(attachmentBytes, { updateMetadata: false });
+const afNames = afOnlyDocument.catalog.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict);
+afNames.delete(PDFLib.PDFName.of("EmbeddedFiles"));
+const afOnlyBytes = await afOnlyDocument.save({ addDefaultPage: false, updateFieldAppearances: false });
+const afOnlyAttachments = await readPdfAttachments(afOnlyBytes, PDFLib);
+assert.equal(afOnlyAttachments.length, 1, "AF-only attachment should be read");
+
+const unsupportedRelationshipBytes = await replacePdfAttachments(nestedBytes, [{ ...nestedAttachments[0], afRelationship: "FormData" }], PDFLib);
+const unsupportedRelationship = await readPdfAttachments(unsupportedRelationshipBytes, PDFLib);
+assert.equal(unsupportedRelationship[0].afRelationship, "");
+
+const mergedAttachments = mergePdfAttachmentSets(nestedAttachments, [{
+  name: "NOTE.TXT",
+  data: new Uint8Array([1, 2, 3]),
+  mimeType: "application/octet-stream",
+  afRelationship: "Unspecified",
+}]);
+assert.deepEqual(mergedAttachments.map((attachment) => attachment.name), ["note.txt", "NOTE (2).TXT"]);
+const replacedAttachmentBytes = await replacePdfAttachments(nestedBytes, mergedAttachments, PDFLib);
+await verifyPdfAttachments(replacedAttachmentBytes, mergedAttachments, PDFLib);
+const replacedAttachments = await readPdfAttachments(replacedAttachmentBytes, PDFLib);
+assert.equal(replacedAttachments.length, 2);
+assert.deepEqual(
+  replacedAttachments.map((attachment) => attachment.name).sort(),
+  ["NOTE (2).TXT", "note.txt"],
+);
 
 const document = await PDFLib.PDFDocument.create();
 document.addPage([300, 400]);

@@ -561,6 +561,287 @@ export async function replacePdfMetadata(
   });
 }
 
+const MAX_ATTACHMENT_TREE_NODES = 10000;
+const AF_RELATIONSHIPS = new Set([
+  "Source", "Data", "Alternative", "Supplement",
+  "EncryptedPayload", "Schema", "Unspecified",
+]);
+
+function normalizeAttachmentDate(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(Math.floor(date.getTime() / 1000) * 1000).toISOString();
+}
+
+function pdfText(value, PDFLib) {
+  if (value instanceof PDFLib.PDFHexString || value instanceof PDFLib.PDFString) {
+    try { return value.decodeText(); } catch { return ""; }
+  }
+  return "";
+}
+
+function pdfDate(value, PDFLib) {
+  if (!(value instanceof PDFLib.PDFString)) return "";
+  try { return normalizeAttachmentDate(value.decodeDate()); } catch { return ""; }
+}
+
+function pdfNameOrText(value, PDFLib) {
+  if (value instanceof PDFLib.PDFName) return value.toString().slice(1);
+  return pdfText(value, PDFLib);
+}
+
+export function normalizePdfAttachment(attachment = {}) {
+  const rawData = attachment.data ?? new Uint8Array();
+  const data = rawData instanceof Uint8Array ? rawData : new Uint8Array(rawData);
+  const relationship = String(attachment.afRelationship || "");
+  return {
+    name: String(attachment.name || ""),
+    data,
+    mimeType: String(attachment.mimeType || ""),
+    afRelationship: AF_RELATIONSHIPS.has(relationship) ? relationship : "",
+    description: String(attachment.description || ""),
+    creationDate: normalizeAttachmentDate(attachment.creationDate),
+    modificationDate: normalizeAttachmentDate(attachment.modificationDate),
+  };
+}
+
+function attachmentFromFileSpec(fileSpec, treeName, PDFLib) {
+  const ef = fileSpec.lookup(PDFLib.PDFName.of("EF"));
+  if (!(ef instanceof PDFLib.PDFDict)) return null;
+  const stream = ef.has(PDFLib.PDFName.of("UF"))
+    ? ef.lookup(PDFLib.PDFName.of("UF"))
+    : ef.lookup(PDFLib.PDFName.of("F"));
+  if (!(stream instanceof PDFLib.PDFStream)) return null;
+
+  const specName = fileSpec.has(PDFLib.PDFName.of("UF"))
+    ? pdfText(fileSpec.lookup(PDFLib.PDFName.of("UF")), PDFLib)
+    : pdfText(fileSpec.lookup(PDFLib.PDFName.of("F")), PDFLib);
+  const subtype = stream.dict.lookup(PDFLib.PDFName.of("Subtype"));
+  const mimeType = pdfNameOrText(subtype, PDFLib)
+    .replace(/#([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  const params = stream.dict.lookup(PDFLib.PDFName.of("Params"));
+  const creationDate = params instanceof PDFLib.PDFDict
+    ? pdfDate(params.lookup(PDFLib.PDFName.of("CreationDate")), PDFLib)
+    : "";
+  const modificationDate = params instanceof PDFLib.PDFDict
+    ? pdfDate(params.lookup(PDFLib.PDFName.of("ModDate")), PDFLib)
+    : "";
+  const relationship = pdfNameOrText(
+    fileSpec.lookup(PDFLib.PDFName.of("AFRelationship")), PDFLib,
+  );
+  const description = pdfText(fileSpec.lookup(PDFLib.PDFName.of("Desc")), PDFLib);
+  return normalizePdfAttachment({
+    name: treeName || specName || "attachment",
+    data: PDFLib.decodePDFRawStream(stream).decode(),
+    mimeType,
+    afRelationship: relationship,
+    description,
+    creationDate,
+    modificationDate,
+  });
+}
+
+function collectPdfAttachmentSpecs(pdfDocument, PDFLib) {
+  const results = [];
+  const seenRefs = new Set();
+  const seenDicts = new Set();
+  const visitedNodes = new Set();
+  let visitedCount = 0;
+
+  const addSpec = (rawSpec, fileSpec, treeName = "") => {
+    const refKey = rawSpec instanceof PDFLib.PDFRef ? rawSpec.toString() : "";
+    if (refKey ? seenRefs.has(refKey) : seenDicts.has(fileSpec)) return;
+    if (refKey) seenRefs.add(refKey); else seenDicts.add(fileSpec);
+    const attachment = attachmentFromFileSpec(fileSpec, treeName, PDFLib);
+    if (attachment) results.push(attachment);
+  };
+
+  const walkNameTree = (node) => {
+    if (!(node instanceof PDFLib.PDFDict) || visitedNodes.has(node)) return;
+    visitedNodes.add(node);
+    visitedCount += 1;
+    if (visitedCount > MAX_ATTACHMENT_TREE_NODES) {
+      throw new Error("PDF attachment name tree is too large.");
+    }
+    const namesKey = PDFLib.PDFName.of("Names");
+    if (node.has(namesKey)) {
+      const names = node.lookup(namesKey);
+      if (names instanceof PDFLib.PDFArray) {
+        for (let index = 0; index + 1 < names.size(); index += 2) {
+          try {
+            const name = pdfText(names.lookup(index), PDFLib);
+            const rawSpec = names.get(index + 1);
+            const fileSpec = names.lookup(index + 1, PDFLib.PDFDict);
+            addSpec(rawSpec, fileSpec, name);
+          } catch {}
+        }
+      }
+    }
+    const kidsKey = PDFLib.PDFName.of("Kids");
+    if (node.has(kidsKey)) {
+      const kids = node.lookup(kidsKey);
+      if (kids instanceof PDFLib.PDFArray) {
+        for (let index = 0; index < kids.size(); index += 1) {
+          try { walkNameTree(kids.lookup(index, PDFLib.PDFDict)); } catch {}
+        }
+      }
+    }
+  };
+
+  const namesKey = PDFLib.PDFName.of("Names");
+  const embeddedKey = PDFLib.PDFName.of("EmbeddedFiles");
+  if (pdfDocument.catalog.has(namesKey)) {
+    const names = pdfDocument.catalog.lookup(namesKey);
+    if (names instanceof PDFLib.PDFDict && names.has(embeddedKey)) {
+      const embedded = names.lookup(embeddedKey);
+      if (embedded instanceof PDFLib.PDFDict) walkNameTree(embedded);
+    }
+  }
+
+  const afKey = PDFLib.PDFName.of("AF");
+  if (pdfDocument.catalog.has(afKey)) {
+    const associated = pdfDocument.catalog.lookup(afKey);
+    if (associated instanceof PDFLib.PDFArray) {
+      for (let index = 0; index < associated.size(); index += 1) {
+        try {
+          const rawSpec = associated.get(index);
+          const fileSpec = associated.lookup(index, PDFLib.PDFDict);
+          addSpec(rawSpec, fileSpec);
+        } catch {}
+      }
+    }
+  }
+  return results;
+}
+
+export async function readPdfAttachments(pdfBytes, PDFLib = globalThis.PDFLib) {
+  if (!PDFLib?.PDFDocument) throw new Error("PDF mutation engine is unavailable.");
+  const pdfDocument = await PDFLib.PDFDocument.load(pdfBytes, { updateMetadata: false });
+  return collectPdfAttachmentSpecs(pdfDocument, PDFLib);
+}
+
+function clearPdfAttachmentRoots(pdfDocument, PDFLib) {
+  const namesKey = PDFLib.PDFName.of("Names");
+  const embeddedKey = PDFLib.PDFName.of("EmbeddedFiles");
+  if (pdfDocument.catalog.has(namesKey)) {
+    const names = pdfDocument.catalog.lookup(namesKey);
+    if (names instanceof PDFLib.PDFDict) names.delete(embeddedKey);
+  }
+  pdfDocument.catalog.delete(PDFLib.PDFName.of("AF"));
+}
+
+function attachmentOptions(attachment) {
+  return {
+    mimeType: attachment.mimeType || undefined,
+    description: attachment.description || undefined,
+    creationDate: attachment.creationDate ? new Date(attachment.creationDate) : undefined,
+    modificationDate: attachment.modificationDate ? new Date(attachment.modificationDate) : undefined,
+    afRelationship: attachment.afRelationship || undefined,
+  };
+}
+
+export async function replacePdfAttachments(
+  pdfBytes,
+  attachments = [],
+  PDFLib = globalThis.PDFLib,
+) {
+  if (!PDFLib?.PDFDocument) throw new Error("PDF mutation engine is unavailable.");
+  const normalized = attachments.map(normalizePdfAttachment);
+  const names = new Set();
+  for (const attachment of normalized) {
+    if (!attachment.name.trim()) throw new Error("Attachment names cannot be empty.");
+    const key = attachment.name.toLowerCase();
+    if (names.has(key)) throw new Error(`Duplicate attachment name: ${attachment.name}`);
+    names.add(key);
+  }
+  const pdfDocument = await PDFLib.PDFDocument.load(pdfBytes, { updateMetadata: false });
+  const conformance = supportedPdfaConformance(readCatalogMetadataXml(pdfDocument, PDFLib), PDFLib);
+  if (conformance?.part === 1 && normalized.length) {
+    throw new Error("PDF/A-1 does not permit embedded files.");
+  }
+  clearPdfAttachmentRoots(pdfDocument, PDFLib);
+  for (const attachment of normalized) {
+    await pdfDocument.attach(
+      attachment.data,
+      attachment.name,
+      attachmentOptions(attachment),
+    );
+  }
+  return pdfDocument.save({
+    addDefaultPage: false,
+    updateFieldAppearances: false,
+  });
+}
+
+function attachmentSort(left, right) {
+  return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+}
+
+function sameBytes(left, right) {
+  if (left.byteLength !== right.byteLength) return false;
+  for (let index = 0; index < left.byteLength; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+function attachmentSignature(attachment) {
+  return {
+    name: attachment.name,
+    mimeType: attachment.mimeType,
+    afRelationship: attachment.afRelationship,
+    description: attachment.description,
+    creationDate: attachment.creationDate,
+    modificationDate: attachment.modificationDate,
+  };
+}
+
+export async function verifyPdfAttachments(
+  pdfBytes,
+  expectedAttachments = [],
+  PDFLib = globalThis.PDFLib,
+) {
+  const expected = expectedAttachments.map(normalizePdfAttachment).sort(attachmentSort);
+  const actual = (await readPdfAttachments(pdfBytes, PDFLib)).sort(attachmentSort);
+  if (actual.length !== expected.length) {
+    throw new Error(`Output verification failed: expected ${expected.length} attachments, got ${actual.length}.`);
+  }
+  for (let index = 0; index < expected.length; index += 1) {
+    if (JSON.stringify(attachmentSignature(actual[index])) !== JSON.stringify(attachmentSignature(expected[index]))) {
+      throw new Error(`Output verification failed: attachment metadata changed for ${expected[index].name}.`);
+    }
+    if (!sameBytes(actual[index].data, expected[index].data)) {
+      throw new Error(`Output verification failed: attachment bytes changed for ${expected[index].name}.`);
+    }
+  }
+}
+
+function uniqueAttachmentName(name, used) {
+  const base = String(name || "attachment").trim() || "attachment";
+  if (!used.has(base.toLowerCase())) return base;
+  const dot = base.lastIndexOf(".");
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const extension = dot > 0 ? base.slice(dot) : "";
+  for (let suffix = 2; suffix < 100000; suffix += 1) {
+    const candidate = `${stem} (${suffix})${extension}`;
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  throw new Error("Could not allocate a unique attachment name.");
+}
+
+export function mergePdfAttachmentSets(existing = [], incoming = []) {
+  const merged = [];
+  const used = new Set();
+  for (const raw of [...existing, ...incoming]) {
+    const attachment = normalizePdfAttachment(raw);
+    attachment.name = uniqueAttachmentName(attachment.name, used);
+    used.add(attachment.name.toLowerCase());
+    merged.push(attachment);
+  }
+  return merged;
+}
+
 export function buildQpdfPageRequest(sources, pagePlan, outputName = "output.pdf") {
   if (!sources.length) throw new Error("At least one PDF source is required.");
   if (!pagePlan.length) throw new Error("A PDF must contain at least one page.");

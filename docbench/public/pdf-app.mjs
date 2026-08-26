@@ -4,10 +4,14 @@ import {
   buildQpdfPageRequest,
   clonePdfOutline,
   formatPdfSize,
+  mergePdfAttachmentSets,
+  readPdfAttachments,
   readPdfMetadata,
   readPdfOutline,
   remapOutlineToPagePlan,
+  replacePdfAttachments,
   replacePdfMetadata,
+  verifyPdfAttachments,
   verifyPdfMetadata,
   replacePdfOutline,
 } from "./pdf-core.mjs";
@@ -45,6 +49,10 @@ const metadataBindings = [
   { key: "creationDate", input: $("#pdf-meta-created"), date: true },
   { key: "modificationDate", input: $("#pdf-meta-modified"), date: true },
 ];
+const attachmentInput = $("#pdf-attachment-input");
+const attachmentsHost = $("#pdf-attachments");
+const attachmentsState = $("#pdf-attachments-state");
+const attachmentAdd = $("#pdf-attachment-add");
 const bookmarkEditor = $("#bookmark-editor");
 const bookmarkTitle = $("#bookmark-title");
 const bookmarkTargetType = $("#bookmark-target-type");
@@ -72,6 +80,7 @@ const state = {
   outline: [],
   metadata: null,
   metadataOriginal: null,
+  attachments: [],
   selectedIndex: -1,
   selectedBookmarkPath: null,
   droppedBookmarks: 0,
@@ -146,6 +155,7 @@ async function makeSource(file) {
 
   const pdf = await openPdfDocument(bytes);
   const outline = await readPdfOutline(pdf);
+  const attachments = await readPdfAttachments(bytes);
   let metadata;
   try {
     metadata = await readPdfMetadata(bytes);
@@ -168,6 +178,7 @@ async function makeSource(file) {
     pdf,
     outline,
     metadata,
+    attachments,
     pageCount: pdf.numPages,
   };
 }
@@ -225,6 +236,10 @@ async function openFiles(files, append) {
   }
   const offset = state.sources.length;
   state.sources.push(...newSources);
+const incomingAttachments = newSources.flatMap((source) => source.attachments || []);
+state.attachments = append && oldSourceCount
+  ? mergePdfAttachmentSets(state.attachments, incomingAttachments)
+  : mergePdfAttachmentSets([], incomingAttachments);
   newSources.forEach((source, relativeSourceId) => {
     const sourceId = offset + relativeSourceId;
     for (let pageIndex = 0; pageIndex < source.pageCount; pageIndex += 1) {
@@ -342,6 +357,90 @@ function renderMetadataEditor() {
   updateMetadataStatus();
 }
 
+function renderAttachmentEditor() {
+  const totalBytes = state.attachments.reduce((sum, attachment) => sum + attachment.data.byteLength, 0);
+  attachmentsState.textContent = !state.sources.length
+    ? "No PDF"
+    : `${state.attachments.length} file${state.attachments.length === 1 ? "" : "s"} · ${formatPdfSize(totalBytes)}`;
+  attachmentAdd.disabled = state.exporting || !state.sources.length;
+  attachmentsHost.replaceChildren();
+  if (!state.sources.length) {
+    attachmentsHost.textContent = "Open a PDF to manage embedded files.";
+    return;
+  }
+  if (!state.attachments.length) {
+    attachmentsHost.textContent = "No embedded files.";
+    return;
+  }
+  state.attachments.forEach((attachment, index) => {
+    const row = document.createElement("div");
+    row.className = "pdf-attachment-row";
+    if (attachment.description) row.title = attachment.description;
+    const copy = document.createElement("div");
+    copy.className = "pdf-attachment-copy";
+    const name = document.createElement("strong");
+    name.textContent = attachment.name;
+    const detail = document.createElement("small");
+    detail.textContent = [
+      formatPdfSize(attachment.data.byteLength),
+      attachment.mimeType,
+      attachment.afRelationship,
+    ].filter(Boolean).join(" · ");
+    copy.append(name, detail);
+    const actions = document.createElement("div");
+    actions.className = "pdf-attachment-actions";
+    const download = document.createElement("button");
+    download.type = "button";
+    download.className = "mini-button";
+    download.textContent = "Download";
+    download.disabled = state.exporting;
+    download.addEventListener("click", () => {
+      downloadBytes(
+        attachment.data,
+        attachment.name,
+        attachment.mimeType || "application/octet-stream",
+      );
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "mini-button danger";
+    remove.textContent = "Remove";
+    remove.disabled = state.exporting;
+    remove.addEventListener("click", () => {
+      if (state.exporting) return;
+      const [removed] = state.attachments.splice(index, 1);
+      renderAttachmentEditor();
+      setStatus(`Removed attachment ${removed.name}.`);
+    });
+    actions.append(download, remove);
+    row.append(copy, actions);
+    attachmentsHost.append(row);
+  });
+}
+
+async function addAttachmentFiles(files) {
+  if (!state.sources.length || state.exporting) return;
+  const added = [];
+  for (const file of [...files]) {
+    const modified = file.lastModified ? new Date(file.lastModified) : null;
+    added.push({
+      name: file.name || "attachment.bin",
+      data: new Uint8Array(await file.arrayBuffer()),
+      mimeType: file.type || "",
+      afRelationship: "Unspecified",
+      description: "",
+      creationDate: "",
+      modificationDate: modified && !Number.isNaN(modified.getTime())
+        ? new Date(Math.floor(modified.getTime() / 1000) * 1000).toISOString()
+        : "",
+    });
+  }
+  if (!added.length) return;
+  state.attachments = mergePdfAttachmentSets(state.attachments, added);
+  renderAttachmentEditor();
+  setStatus(`Added ${added.length} attachment${added.length === 1 ? "" : "s"}.`);
+}
+
 function updateCompressionControls() {
   imageQualityRow.hidden = !lossyImagesToggle.checked;
   imageQualityValue.value = imageQuality.value;
@@ -359,6 +458,7 @@ function updateControls() {
   rightButton.disabled = busy || !hasPage || state.selectedIndex >= state.plan.length - 1;
   bookmarkAddRoot.disabled = busy || !state.plan.length;
   updateMetadataStatus();
+  renderAttachmentEditor();
 }
 
 function refreshPdfUi() {
@@ -773,7 +873,7 @@ function validateEditableOutline(outline = state.outline, plan = state.plan) {
   }
 }
 
-async function verifyOutput(bytes, expectedPages, expectedOutline, expectedMetadata, metadataChanges) {
+async function verifyOutput(bytes, expectedPages, expectedOutline, expectedMetadata, metadataChanges, expectedAttachments) {
   const pdf = await openPdfDocument(bytes);
   try {
     if (pdf.numPages !== expectedPages) {
@@ -784,6 +884,7 @@ async function verifyOutput(bytes, expectedPages, expectedOutline, expectedMetad
       throw new Error("Output verification failed: bookmark tree, style or destinations changed.");
     }
     await verifyPdfMetadata(bytes, expectedMetadata, metadataChanges);
+    await verifyPdfAttachments(bytes, expectedAttachments);
   } finally {
     await pdf.destroy();
   }
@@ -808,6 +909,7 @@ function exportSnapshot() {
     outline: clonePdfOutline(state.outline),
     metadata: { ...state.metadata },
     metadataChanges: currentMetadataChanges(),
+    attachments: state.attachments.map((attachment) => ({ ...attachment, data: attachment.data })),
     options: currentExportOptions(),
   };
 }
@@ -822,6 +924,7 @@ async function buildPdfOutput(snapshot, plan, outline) {
   if (Object.keys(snapshot.metadataChanges).length) {
     finalBytes = await replacePdfMetadata(finalBytes, snapshot.metadataChanges);
   }
+  finalBytes = await replacePdfAttachments(finalBytes, snapshot.attachments);
   const warnings = [...(pageResult.warnings || [])];
 
   if (snapshot.options.optimize || snapshot.options.linearize || snapshot.options.lossyImages) {
@@ -831,7 +934,7 @@ async function buildPdfOutput(snapshot, plan, outline) {
     warnings.push(...(finalizeResult.warnings || []));
   }
 
-  await verifyOutput(finalBytes, plan.length, outline, snapshot.metadata, snapshot.metadataChanges);
+  await verifyOutput(finalBytes, plan.length, outline, snapshot.metadata, snapshot.metadataChanges, snapshot.attachments);
   return { bytes: finalBytes, warnings };
 }
 
@@ -987,6 +1090,11 @@ removeButton.addEventListener("click", removeSelectedPage);
 extractButton.addEventListener("click", extractSelectedPage);
 splitButton.addEventListener("click", splitAllPages);
 saveButton.addEventListener("click", savePdf);
+attachmentAdd.addEventListener("click", () => attachmentInput.click());
+attachmentInput.addEventListener("change", async () => {
+  try { await addAttachmentFiles(attachmentInput.files || []); } catch (error) { showError(error); }
+  attachmentInput.value = "";
+});
 for (const { key, input, date } of metadataBindings) {
   input.addEventListener(date ? "change" : "input", () => {
     if (!state.metadata || state.exporting) return;

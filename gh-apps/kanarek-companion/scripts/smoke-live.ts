@@ -1,10 +1,16 @@
-import { gatewayManifest, gatewayOpenApi, operationIds } from '../src/entry.ts';
+import { gatewayManifest, operationIds } from '../src/entry.ts';
+import { runtimeOpenApi } from '../src/runtime-openapi.ts';
 
 type JsonObject = Record<string, unknown>;
 
 const ORIGIN = process.env.KANAREK_LIVE_ORIGIN ?? 'https://kanarek-companion.travny.workers.dev';
 const ATTEMPTS = Number(process.env.KANAREK_SMOKE_ATTEMPTS ?? '36');
 const INTERVAL_MS = Number(process.env.KANAREK_SMOKE_INTERVAL_MS ?? '15000');
+const EXPECTED_COMMIT_SHA = (
+  process.env.KANAREK_EXPECTED_COMMIT_SHA ?? process.env.GITHUB_SHA ?? ''
+)
+  .trim()
+  .toLowerCase();
 const REQUIRED_OPERATIONS = [
   'getOperatorBootstrap',
   'getOperatorCapabilities',
@@ -12,6 +18,10 @@ const REQUIRED_OPERATIONS = [
   'runOperatorSmokeTest',
   'orchestrateRelease',
 ] as const;
+
+if (EXPECTED_COMMIT_SHA && !/^[0-9a-f]{40}$/.test(EXPECTED_COMMIT_SHA)) {
+  throw new Error('expected commit SHA must be a 40-character Git SHA');
+}
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -36,14 +46,24 @@ async function getJson(path: string): Promise<JsonObject> {
 }
 
 function nestedObject(value: JsonObject, key: string): JsonObject | null {
-  return isObject(value[key]) ? value[key] as JsonObject : null;
+  return isObject(value[key]) ? (value[key] as JsonObject) : null;
 }
 
 function stringValue(value: JsonObject | null, key: string): string | null {
-  return value && typeof value[key] === 'string' ? value[key] as string : null;
+  return value && typeof value[key] === 'string' ? (value[key] as string) : null;
 }
 
-const expectedDocument = gatewayOpenApi(ORIGIN);
+function booleanValue(value: JsonObject | null, key: string): boolean | null {
+  return value && typeof value[key] === 'boolean' ? (value[key] as boolean) : null;
+}
+
+function nullableSetting(value: JsonObject | null, key: string): string | null | undefined {
+  if (!value || !Object.prototype.hasOwnProperty.call(value, key)) return undefined;
+  const setting = value[key];
+  return setting === null || typeof setting === 'string' ? setting : undefined;
+}
+
+const expectedDocument = runtimeOpenApi(ORIGIN);
 const expectedManifest = await gatewayManifest(expectedDocument, undefined);
 const expectedOpenApi = nestedObject(expectedManifest, 'openApi');
 const expectedDigest = stringValue(expectedOpenApi, 'capabilityDigest');
@@ -58,18 +78,49 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const health = await getJson('/health');
     if (health.ok !== true) throw new Error('/health reports not ready');
 
+    const freeReview = nestedObject(health, 'freeReview');
+    const enabledSetting = nullableSetting(freeReview, 'enabledSetting');
+    const orcaSecretConfigured = booleanValue(freeReview, 'orcaSecretConfigured');
+    const orcaEnabledSetting = nullableSetting(freeReview, 'orcaEnabledSetting');
+    const openRouterSecretConfigured = booleanValue(freeReview, 'openRouterSecretConfigured');
+    const openRouterEnabledSetting = nullableSetting(freeReview, 'openRouterEnabledSetting');
+    if (
+      enabledSetting === undefined ||
+      orcaSecretConfigured === null ||
+      orcaEnabledSetting === undefined ||
+      openRouterSecretConfigured === null ||
+      openRouterEnabledSetting === undefined
+    ) {
+      throw new Error('/health is missing free review diagnostics');
+    }
+    console.log(
+      `free review health: setting=${String(enabledSetting ?? 'default')} ` +
+        `orcaSecret=${String(orcaSecretConfigured)} orcaSetting=${String(orcaEnabledSetting ?? 'default')} ` +
+        `openRouterSecret=${String(openRouterSecretConfigured)} ` +
+        `openRouterSetting=${String(openRouterEnabledSetting ?? 'default')}`,
+    );
+
     const gateway = nestedObject(health, 'gateway');
     const liveOpenApi = gateway ? nestedObject(gateway, 'openApi') : null;
     const workerVersion = gateway ? nestedObject(gateway, 'workerVersion') : null;
     const liveDigest = stringValue(liveOpenApi, 'capabilityDigest');
     const versionId = stringValue(workerVersion, 'id');
+    const versionTag = stringValue(workerVersion, 'tag');
     const versionTimestamp = stringValue(workerVersion, 'timestamp');
-    lastSeen = liveDigest ?? 'missing-live-manifest';
+    const versionMatchesCommit = EXPECTED_COMMIT_SHA
+      ? versionTag?.toLowerCase() === EXPECTED_COMMIT_SHA
+      : Boolean(versionId && versionTimestamp);
+    lastSeen = `digest=${liveDigest ?? 'missing'} tag=${versionTag ?? 'none'}`;
 
-    if (liveDigest !== expectedDigest || !versionId || !versionTimestamp) {
+    if (
+      liveDigest !== expectedDigest ||
+      !versionId ||
+      !versionTimestamp ||
+      !versionMatchesCommit
+    ) {
       console.log(
         `smoke ${attempt}/${maxAttempts}: waiting for live deployment ` +
-          `(expected ${expectedDigest}, got ${lastSeen}, version ${versionId ?? 'none'})`,
+          `(expected digest ${expectedDigest}, expected tag ${EXPECTED_COMMIT_SHA || 'any'}, got ${lastSeen})`,
       );
     } else {
       const liveDocument = await getJson('/gpt-actions/openapi.json');
@@ -85,8 +136,8 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       if (missing.length) throw new Error(`live OpenAPI missing operations: ${missing.join(', ')}`);
 
       console.log(
-        `live smoke passed: version=${versionId} timestamp=${versionTimestamp} ` +
-          `operations=${ids.length} digest=${liveDigest}`,
+        `live smoke passed: version=${versionId} tag=${versionTag ?? 'none'} ` +
+          `timestamp=${versionTimestamp} operations=${ids.length} digest=${liveDigest}`,
       );
       process.exit(0);
     }

@@ -5,11 +5,23 @@ on:
   workflow_dispatch:
 
 engine:
-  id: codex
+  id: copilot
   env:
-    OPENAI_BASE_URL: "https://api.orcarouter.ai/v1"
-    OPENAI_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
-model: orcarouter/auto
+    COPILOT_PROVIDER_BASE_URL: "https://api.orcarouter.ai/v1"
+    COPILOT_PROVIDER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
+    COPILOT_MODEL: deepseek/deepseek-v4-flash-free
+    COPILOT_PROVIDER_TYPE: openai
+    COPILOT_PROVIDER_WIRE_API: completions
+model: deepseek/deepseek-v4-flash-free
+
+models:
+  providers:
+    github-copilot:
+      models:
+        "deepseek/deepseek-v4-flash-free":
+          cost:
+            input: "0e0"
+            output: "0e0"
 
 network:
   allowed:
@@ -31,6 +43,7 @@ tools:
     min-integrity: merged
 
 safe-outputs:
+  report-failure-as-issue: false
   dispatch-workflow:
     workflows: [docs-worker]
     max: 7

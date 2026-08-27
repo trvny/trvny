@@ -1,0 +1,41 @@
+name: Temporary gh-aw recompile
+
+on:
+  push:
+    branches: [chore/gh-aw-orcarouter]
+    paths:
+      - ".github/workflows/docs-orchestrator.md"
+      - ".github/workflows/docs-worker.md"
+
+concurrency:
+  group: gh-aw-recompile-temp
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install gh-aw
+        uses: github/gh-aw/actions/setup-cli@v0.87.0
+        with:
+          version: v0.87.0
+
+      - name: Compile documentation workflows
+        run: gh aw compile docs-orchestrator docs-worker --strict --no-check-update
+
+      - name: Commit generated locks
+        run: |
+          if git diff --quiet -- .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml
+          git commit -m "ci: recompile documentation workflows"
+          git push

@@ -443,6 +443,29 @@ function supportedPdfaConformance(xml, PDFLib) {
   return PDFLib.parsePDFAConformanceFromXmp?.(xml);
 }
 
+function attachmentPdfaConformance(xml, PDFLib) {
+  const parsed = supportedPdfaConformance(xml, PDFLib);
+  if (parsed) return parsed;
+  if (!xml || !xml.includes(PDFA_NAMESPACE)) return null;
+
+  const readField = (localName) => {
+    for (const prefix of namespacePrefixes(xml, PDFA_NAMESPACE)) {
+      const escaped = escapeRegex(prefix);
+      const local = escapeRegex(localName);
+      const attribute = new RegExp(String.raw`${escaped}:${local}\s*=\s*["']([^"']+)["']`, "i").exec(xml)?.[1];
+      if (attribute) return attribute.trim();
+      const element = new RegExp(String.raw`<${escaped}:${local}\b[^>]*>\s*([^<]+?)\s*</${escaped}:${local}\s*>`, "i").exec(xml)?.[1];
+      if (element) return element.trim();
+    }
+    return "";
+  };
+
+  const part = Number(readField("part"));
+  const conformance = readField("conformance").toUpperCase();
+  if (Number.isInteger(part) && part > 0) return { part, conformance };
+  return { unsupported: true };
+}
+
 function synchronizeCatalogXmp(pdfDocument, changes, PDFLib) {
   const xml = readCatalogMetadataXml(pdfDocument, PDFLib);
   if (!xml || !Object.keys(changes || {}).length) return;
@@ -559,6 +582,739 @@ export async function replacePdfMetadata(
     addDefaultPage: false,
     updateFieldAppearances: false,
   });
+}
+
+const MAX_ATTACHMENT_TREE_NODES = 10000;
+const AF_RELATIONSHIPS = new Set([
+  "Source", "Data", "Alternative", "Supplement", "FormData",
+  "EncryptedPayload", "Schema", "Unspecified",
+]);
+
+function normalizeAttachmentDate(value) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(Math.floor(date.getTime() / 1000) * 1000).toISOString();
+}
+
+function pdfText(value, PDFLib) {
+  if (value instanceof PDFLib.PDFHexString || value instanceof PDFLib.PDFString) {
+    try { return value.decodeText(); } catch { return ""; }
+  }
+  return "";
+}
+
+function pdfDate(value, PDFLib) {
+  if (!(value instanceof PDFLib.PDFString || value instanceof PDFLib.PDFHexString)) return "";
+  try {
+    const dateString = value instanceof PDFLib.PDFString
+      ? value
+      : PDFLib.PDFString.of(value.decodeText());
+    return normalizeAttachmentDate(dateString.decodeDate());
+  } catch {
+    return "";
+  }
+}
+
+function pdfNameOrText(value, PDFLib) {
+  if (value instanceof PDFLib.PDFName) return value.toString().slice(1);
+  return pdfText(value, PDFLib);
+}
+
+function pdfRawBytes(value, PDFLib) {
+  if (value instanceof PDFLib.PDFHexString || value instanceof PDFLib.PDFString) {
+    try {
+      const bytes = value.asBytes?.();
+      if (bytes instanceof Uint8Array) return bytes.slice();
+    } catch {}
+  }
+  return new Uint8Array();
+}
+
+function normalizeAttachmentChecksum(value) {
+  if (!value) return new Uint8Array();
+  if (value instanceof Uint8Array) return value.slice();
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength).slice();
+  }
+  if (value instanceof ArrayBuffer) return new Uint8Array(value.slice(0));
+  return new Uint8Array(value);
+}
+
+export function normalizePdfAttachment(attachment = {}) {
+  const rawData = attachment.data ?? new Uint8Array();
+  const data = rawData instanceof Uint8Array ? rawData : new Uint8Array(rawData);
+  const relationship = String(attachment.afRelationship || "");
+  return {
+    name: String(attachment.name || ""),
+    data,
+    mimeType: String(attachment.mimeType || ""),
+    afRelationship: AF_RELATIONSHIPS.has(relationship) ? relationship : "",
+    description: String(attachment.description || ""),
+    creationDate: normalizeAttachmentDate(attachment.creationDate),
+    modificationDate: normalizeAttachmentDate(attachment.modificationDate),
+    checksum: normalizeAttachmentChecksum(attachment.checksum),
+    sourcePdfBytes: attachment.sourcePdfBytes instanceof Uint8Array
+      ? attachment.sourcePdfBytes
+      : null,
+    sourceSpecIndex: Number.isInteger(attachment.sourceSpecIndex)
+      ? attachment.sourceSpecIndex
+      : null,
+  };
+}
+
+function attachmentFromFileSpec(fileSpec, treeName, PDFLib) {
+  const ef = fileSpec.lookup(PDFLib.PDFName.of("EF"));
+  if (!(ef instanceof PDFLib.PDFDict)) return null;
+  const stream = ef.has(PDFLib.PDFName.of("UF"))
+    ? ef.lookup(PDFLib.PDFName.of("UF"))
+    : ef.lookup(PDFLib.PDFName.of("F"));
+  if (!(stream instanceof PDFLib.PDFStream)) return null;
+
+  const specName = fileSpec.has(PDFLib.PDFName.of("UF"))
+    ? pdfText(fileSpec.lookup(PDFLib.PDFName.of("UF")), PDFLib)
+    : pdfText(fileSpec.lookup(PDFLib.PDFName.of("F")), PDFLib);
+  const subtype = stream.dict.lookup(PDFLib.PDFName.of("Subtype"));
+  const mimeType = pdfNameOrText(subtype, PDFLib)
+    .replace(/#([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  const params = stream.dict.lookup(PDFLib.PDFName.of("Params"));
+  const creationDate = params instanceof PDFLib.PDFDict
+    ? pdfDate(params.lookup(PDFLib.PDFName.of("CreationDate")), PDFLib)
+    : "";
+  const modificationDate = params instanceof PDFLib.PDFDict
+    ? pdfDate(params.lookup(PDFLib.PDFName.of("ModDate")), PDFLib)
+    : "";
+  const checksum = params instanceof PDFLib.PDFDict
+    ? pdfRawBytes(params.lookup(PDFLib.PDFName.of("CheckSum")), PDFLib)
+    : new Uint8Array();
+  const relationship = pdfNameOrText(
+    fileSpec.lookup(PDFLib.PDFName.of("AFRelationship")), PDFLib,
+  );
+  const description = pdfText(fileSpec.lookup(PDFLib.PDFName.of("Desc")), PDFLib);
+  const attachmentName = treeName || specName || "attachment";
+  let data;
+  try {
+    data = PDFLib.decodePDFRawStream(stream).decode();
+  } catch (error) {
+    throw new Error(
+      `Could not decode PDF attachment ${attachmentName}; refusing to rewrite attachments.`,
+      { cause: error },
+    );
+  }
+  return normalizePdfAttachment({
+    name: attachmentName,
+    data,
+    mimeType,
+    afRelationship: relationship,
+    description,
+    creationDate,
+    modificationDate,
+    checksum,
+  });
+}
+
+const MAX_ATTACHMENT_GRAPH_NODES = 50000;
+
+function walkPdfObjectGraph(pdfDocument, PDFLib, visitDict) {
+  const seenRefs = new Set();
+  const seenObjects = new Set();
+  let visited = 0;
+
+  const walk = (rawValue) => {
+    let value = rawValue;
+    if (value instanceof PDFLib.PDFRef) {
+      const key = value.toString();
+      if (seenRefs.has(key)) return;
+      seenRefs.add(key);
+      try { value = pdfDocument.context.lookup(value); } catch { return; }
+    }
+    if (value instanceof PDFLib.PDFStream) return;
+    if (value instanceof PDFLib.PDFDict) {
+      if (seenObjects.has(value)) return;
+      seenObjects.add(value);
+      visited += 1;
+      if (visited > MAX_ATTACHMENT_GRAPH_NODES) {
+        throw new Error("PDF object graph is too large to preserve attachment associations safely.");
+      }
+      visitDict(value);
+      let type = "";
+      try { type = pdfNameOrText(value.lookup(PDFLib.PDFName.of("Type")), PDFLib); } catch {}
+      if (type === "Filespec") return;
+      for (const key of value.keys()) {
+        const name = key.toString();
+        if (name === "/AF" || name === "/FS" || name === "/EF") continue;
+        walk(value.get(key));
+      }
+      return;
+    }
+    if (value instanceof PDFLib.PDFArray) {
+      if (seenObjects.has(value)) return;
+      seenObjects.add(value);
+      visited += 1;
+      if (visited > MAX_ATTACHMENT_GRAPH_NODES) {
+        throw new Error("PDF object graph is too large to preserve attachment associations safely.");
+      }
+      for (let index = 0; index < value.size(); index += 1) walk(value.get(index));
+    }
+  };
+
+  walk(pdfDocument.catalog);
+  for (const page of pdfDocument.getPages()) walk(page.node);
+}
+
+function collectPdfAttachmentSpecs(pdfDocument, PDFLib, records = null) {
+  const results = [];
+  const seenRefs = new Set();
+  const seenDicts = new Set();
+  const visitedNodes = new Set();
+  let visitedCount = 0;
+
+  const addSpec = (rawSpec, fileSpec, treeName = "", { allowAlias = false } = {}) => {
+    const refKey = rawSpec instanceof PDFLib.PDFRef ? rawSpec.toString() : "";
+    const alreadySeen = refKey ? seenRefs.has(refKey) : seenDicts.has(fileSpec);
+    if (alreadySeen && !allowAlias) return;
+    if (!alreadySeen) {
+      if (refKey) seenRefs.add(refKey); else seenDicts.add(fileSpec);
+    }
+    const attachment = attachmentFromFileSpec(fileSpec, treeName, PDFLib);
+    if (!attachment) return;
+    results.push(attachment);
+    records?.push({ rawSpec, fileSpec, attachment });
+  };
+
+  const collectAssociated = (dict) => {
+    const afKey = PDFLib.PDFName.of("AF");
+    if (!(dict instanceof PDFLib.PDFDict) || !dict.has(afKey)) return;
+    const associated = dict.lookup(afKey);
+    if (!(associated instanceof PDFLib.PDFArray)) return;
+    for (let index = 0; index < associated.size(); index += 1) {
+      let rawSpec;
+      let fileSpec;
+      try {
+        rawSpec = associated.get(index);
+        fileSpec = associated.lookup(index, PDFLib.PDFDict);
+      } catch {
+        continue;
+      }
+      addSpec(rawSpec, fileSpec);
+    }
+  };
+
+  const walkNameTree = (node) => {
+    if (!(node instanceof PDFLib.PDFDict) || visitedNodes.has(node)) return;
+    visitedNodes.add(node);
+    visitedCount += 1;
+    if (visitedCount > MAX_ATTACHMENT_TREE_NODES) {
+      throw new Error("PDF attachment name tree is too large.");
+    }
+    const namesKey = PDFLib.PDFName.of("Names");
+    if (node.has(namesKey)) {
+      const names = node.lookup(namesKey);
+      if (names instanceof PDFLib.PDFArray) {
+        for (let index = 0; index + 1 < names.size(); index += 2) {
+          let name;
+          let rawSpec;
+          let fileSpec;
+          try {
+            name = pdfText(names.lookup(index), PDFLib);
+            rawSpec = names.get(index + 1);
+            fileSpec = names.lookup(index + 1, PDFLib.PDFDict);
+          } catch {
+            continue;
+          }
+          addSpec(rawSpec, fileSpec, name, { allowAlias: true });
+        }
+      }
+    }
+    const kidsKey = PDFLib.PDFName.of("Kids");
+    if (node.has(kidsKey)) {
+      const kids = node.lookup(kidsKey);
+      if (kids instanceof PDFLib.PDFArray) {
+        for (let index = 0; index < kids.size(); index += 1) {
+          let child;
+          try { child = kids.lookup(index, PDFLib.PDFDict); } catch { continue; }
+          walkNameTree(child);
+        }
+      }
+    }
+  };
+
+  const namesKey = PDFLib.PDFName.of("Names");
+  const embeddedKey = PDFLib.PDFName.of("EmbeddedFiles");
+  if (pdfDocument.catalog.has(namesKey)) {
+    const names = pdfDocument.catalog.lookup(namesKey);
+    if (names instanceof PDFLib.PDFDict && names.has(embeddedKey)) {
+      const embedded = names.lookup(embeddedKey);
+      if (embedded instanceof PDFLib.PDFDict) walkNameTree(embedded);
+    }
+  }
+
+  walkPdfObjectGraph(pdfDocument, PDFLib, (dict) => {
+    collectAssociated(dict);
+    let subtype = "";
+    try { subtype = pdfNameOrText(dict.lookup(PDFLib.PDFName.of("Subtype")), PDFLib); } catch {}
+    const fsKey = PDFLib.PDFName.of("FS");
+    if (subtype !== "FileAttachment" || !dict.has(fsKey)) return;
+    let rawSpec;
+    let fileSpec;
+    try {
+      rawSpec = dict.get(fsKey);
+      fileSpec = dict.lookup(fsKey, PDFLib.PDFDict);
+    } catch {
+      return;
+    }
+    addSpec(rawSpec, fileSpec);
+  });
+  return results;
+}
+
+export async function readPdfAttachments(pdfBytes, PDFLib = globalThis.PDFLib) {
+  if (!PDFLib?.PDFDocument) throw new Error("PDF mutation engine is unavailable.");
+  const sourcePdfBytes = pdfBytes instanceof Uint8Array ? pdfBytes : new Uint8Array(pdfBytes);
+  const pdfDocument = await PDFLib.PDFDocument.load(sourcePdfBytes, { updateMetadata: false });
+  return collectPdfAttachmentSpecs(pdfDocument, PDFLib).map((attachment, sourceSpecIndex) => ({
+    ...attachment,
+    sourcePdfBytes,
+    sourceSpecIndex,
+  }));
+}
+
+function attachmentRecordFor(rawSpec, fileSpec, records, PDFLib) {
+  const refKey = rawSpec instanceof PDFLib.PDFRef ? rawSpec.toString() : "";
+  for (const record of records) {
+    const recordRef = record.rawSpec instanceof PDFLib.PDFRef ? record.rawSpec.toString() : "";
+    if ((refKey && recordRef === refKey) || (!refKey && record.fileSpec === fileSpec)) {
+      return record;
+    }
+  }
+  return null;
+}
+
+function attachmentPayloadMatches(left, right) {
+  return left.mimeType === right.mimeType
+    && left.afRelationship === right.afRelationship
+    && left.description === right.description
+    && left.creationDate === right.creationDate
+    && left.modificationDate === right.modificationDate
+    && sameBytes(left.checksum || new Uint8Array(), right.checksum || new Uint8Array())
+    && sameBytes(left.data, right.data);
+}
+
+function assignAttachmentTargets(records, attachments) {
+  const used = new Set();
+  const findMatch = (record, requireName) => {
+    for (let index = 0; index < attachments.length; index += 1) {
+      if (used.has(index)) continue;
+      const candidate = attachments[index];
+      if (requireName && candidate.name !== record.attachment.name) continue;
+      if (attachmentPayloadMatches(record.attachment, candidate)) return index;
+    }
+    return -1;
+  };
+
+  for (const record of records) {
+    let index = findMatch(record, true);
+    if (index < 0) index = findMatch(record, false);
+    record.targetName = index < 0 ? null : attachments[index].name;
+    if (index >= 0) used.add(index);
+  }
+  return used;
+}
+
+function detachAssociatedFileLocations(pdfDocument, records, PDFLib) {
+  const locations = [];
+  const afKey = PDFLib.PDFName.of("AF");
+  const fsKey = PDFLib.PDFName.of("FS");
+
+  const recordFor = (rawSpec, fileSpec) => {
+    const record = attachmentRecordFor(rawSpec, fileSpec, records, PDFLib);
+    if (!record) {
+      throw new Error("Could not preserve an associated-file reference safely.");
+    }
+    return record;
+  };
+
+  walkPdfObjectGraph(pdfDocument, PDFLib, (dict) => {
+    if (dict.has(afKey)) {
+      const recordList = [];
+      const associated = dict.lookup(afKey);
+      if (!(associated instanceof PDFLib.PDFArray)) {
+        throw new Error("Could not preserve a malformed associated-file array safely.");
+      }
+      for (let index = 0; index < associated.size(); index += 1) {
+        let rawSpec;
+        let fileSpec;
+        try {
+          rawSpec = associated.get(index);
+          fileSpec = associated.lookup(index, PDFLib.PDFDict);
+        } catch (error) {
+          throw new Error("Could not preserve an associated-file reference safely.", { cause: error });
+        }
+        recordList.push(recordFor(rawSpec, fileSpec));
+      }
+      locations.push({ kind: "AF", dict, records: recordList, isCatalog: dict === pdfDocument.catalog });
+      dict.delete(afKey);
+    }
+
+    let subtype = "";
+    try { subtype = pdfNameOrText(dict.lookup(PDFLib.PDFName.of("Subtype")), PDFLib); } catch {}
+    if (subtype !== "FileAttachment" || !dict.has(fsKey)) return;
+    let rawSpec;
+    let fileSpec;
+    try {
+      rawSpec = dict.get(fsKey);
+      fileSpec = dict.lookup(fsKey, PDFLib.PDFDict);
+    } catch (error) {
+      throw new Error("Could not preserve a FileAttachment /FS reference safely.", { cause: error });
+    }
+    const managedRecord = attachmentRecordFor(rawSpec, fileSpec, records, PDFLib);
+    if (!managedRecord) return;
+    locations.push({ kind: "FS", dict, records: [managedRecord], isCatalog: false });
+    dict.delete(fsKey);
+  });
+  return locations;
+}
+
+function deleteOldAttachmentObjects(pdfDocument, records, PDFLib) {
+  const deleted = new Set();
+  const deleteRef = (value) => {
+    if (!(value instanceof PDFLib.PDFRef)) return;
+    const key = value.toString();
+    if (deleted.has(key)) return;
+    deleted.add(key);
+    pdfDocument.context.delete(value);
+  };
+
+  for (const { rawSpec, fileSpec } of records) {
+    try {
+      const ef = fileSpec.lookup(PDFLib.PDFName.of("EF"));
+      if (ef instanceof PDFLib.PDFDict) {
+        for (const key of ef.keys()) deleteRef(ef.get(key));
+      }
+    } catch {}
+    deleteRef(rawSpec);
+  }
+}
+
+function clearPdfAttachmentRoots(pdfDocument, records, PDFLib) {
+  const locations = detachAssociatedFileLocations(pdfDocument, records, PDFLib);
+  const namesKey = PDFLib.PDFName.of("Names");
+  const embeddedKey = PDFLib.PDFName.of("EmbeddedFiles");
+  if (pdfDocument.catalog.has(namesKey)) {
+    const names = pdfDocument.catalog.lookup(namesKey);
+    if (names instanceof PDFLib.PDFDict) names.delete(embeddedKey);
+  }
+  pdfDocument.catalog.delete(PDFLib.PDFName.of("AF"));
+  deleteOldAttachmentObjects(pdfDocument, records, PDFLib);
+  return locations;
+}
+
+function restoreAssociatedFileLocations(pdfDocument, locations, newAttachmentNames, PDFLib) {
+  const rawAttachments = pdfDocument.getRawAttachments?.() || [];
+  const byName = new Map(rawAttachments.map(({ fileName, specRef }) => [pdfText(fileName, PDFLib), specRef]));
+  const afKey = PDFLib.PDFName.of("AF");
+  const fsKey = PDFLib.PDFName.of("FS");
+  pdfDocument.catalog.delete(afKey);
+
+  let catalogLocation = null;
+  for (const location of locations) {
+    if (location.isCatalog) catalogLocation = location;
+    const refs = location.records
+      .map((record) => record.targetName ? byName.get(record.targetName) : null)
+      .filter(Boolean);
+    if (location.kind === "AF" && refs.length) {
+      location.dict.set(afKey, pdfDocument.context.obj(refs));
+    } else if (location.kind === "FS" && refs[0]) {
+      location.dict.set(fsKey, refs[0]);
+    }
+  }
+
+  const newRefs = newAttachmentNames.map((name) => byName.get(name)).filter(Boolean);
+  if (!newRefs.length) return;
+  if (catalogLocation) {
+    const current = pdfDocument.catalog.lookup(afKey);
+    const refs = [];
+    if (current instanceof PDFLib.PDFArray) {
+      for (let index = 0; index < current.size(); index += 1) refs.push(current.get(index));
+    }
+    refs.push(...newRefs);
+    pdfDocument.catalog.set(afKey, pdfDocument.context.obj(refs));
+  } else {
+    pdfDocument.catalog.set(afKey, pdfDocument.context.obj(newRefs));
+  }
+}
+
+async function restoreSourceFileSpecs(pdfDocument, attachments, PDFLib) {
+  if (!attachments.some((attachment) => attachment.sourcePdfBytes && Number.isInteger(attachment.sourceSpecIndex))) return;
+  if (!PDFLib.PDFObjectCopier?.for) {
+    throw new Error("PDF object copier is unavailable; refusing to rewrite source attachment FileSpecs.");
+  }
+
+  const targetRecords = [];
+  collectPdfAttachmentSpecs(pdfDocument, PDFLib, targetRecords);
+  const targets = new Map(
+    targetRecords.map(({ attachment, fileSpec }) => [attachment.name, fileSpec]),
+  );
+  const loaded = new Map();
+  for (const attachment of attachments) {
+    if (!attachment.sourcePdfBytes || !Number.isInteger(attachment.sourceSpecIndex)) continue;
+    let source = loaded.get(attachment.sourcePdfBytes);
+    if (!source) {
+      const document = await PDFLib.PDFDocument.load(attachment.sourcePdfBytes, { updateMetadata: false });
+      const records = [];
+      collectPdfAttachmentSpecs(document, PDFLib, records);
+      source = { document, records, copier: PDFLib.PDFObjectCopier.for(document.context, pdfDocument.context) };
+      loaded.set(attachment.sourcePdfBytes, source);
+    }
+    const record = source.records[attachment.sourceSpecIndex];
+    const target = targets.get(attachment.name);
+    if (!record || !target) {
+      throw new Error(`Could not restore source FileSpec for ${attachment.name}.`);
+    }
+    for (const key of record.fileSpec.keys()) {
+      const name = key.toString();
+      if (name === "/Type") continue;
+      if (name === "/EF") {
+        let sourceEf;
+        try { sourceEf = record.fileSpec.lookup(key, PDFLib.PDFDict); } catch {}
+        if (sourceEf) {
+          const restoredEf = pdfDocument.context.obj({});
+          for (const efKey of sourceEf.keys()) {
+            restoredEf.set(efKey, source.copier.copy(sourceEf.get(efKey)));
+          }
+          target.set(key, restoredEf);
+        }
+        continue;
+      }
+      if (name === "/F" || name === "/UF") {
+        let sourceName = "";
+        try { sourceName = pdfText(record.fileSpec.lookup(key), PDFLib); } catch {}
+        if (sourceName === record.attachment.name) continue;
+      }
+      target.set(key, source.copier.copy(record.fileSpec.get(key)));
+    }
+  }
+}
+
+function attachmentOptions(attachment) {
+  return {
+    mimeType: attachment.mimeType || undefined,
+    description: attachment.description || undefined,
+    creationDate: attachment.creationDate ? new Date(attachment.creationDate) : undefined,
+    modificationDate: attachment.modificationDate ? new Date(attachment.modificationDate) : undefined,
+    afRelationship: attachment.afRelationship === "FormData"
+      ? undefined
+      : (attachment.afRelationship || undefined),
+  };
+}
+
+function bytesToHex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function restoreAttachmentChecksums(pdfDocument, attachments, PDFLib) {
+  const checksums = new Map(
+    attachments
+      .filter((attachment) => attachment.checksum?.byteLength)
+      .map((attachment) => [attachment.name, attachment.checksum]),
+  );
+  if (!checksums.size) return;
+
+  for (const { fileName, fileSpec } of pdfDocument.getRawAttachments?.() || []) {
+    const checksum = checksums.get(pdfText(fileName, PDFLib));
+    if (!checksum) continue;
+    const ef = fileSpec.lookup(PDFLib.PDFName.of("EF"));
+    if (!(ef instanceof PDFLib.PDFDict)) continue;
+    const stream = ef.has(PDFLib.PDFName.of("UF"))
+      ? ef.lookup(PDFLib.PDFName.of("UF"))
+      : ef.lookup(PDFLib.PDFName.of("F"));
+    if (!(stream instanceof PDFLib.PDFStream)) continue;
+    const paramsKey = PDFLib.PDFName.of("Params");
+    let params = stream.dict.lookup(paramsKey);
+    if (!(params instanceof PDFLib.PDFDict)) {
+      params = pdfDocument.context.obj({});
+      stream.dict.set(paramsKey, params);
+    }
+    params.set(
+      PDFLib.PDFName.of("CheckSum"),
+      PDFLib.PDFHexString.of(bytesToHex(checksum)),
+    );
+  }
+}
+
+function restoreFormDataRelationships(pdfDocument, attachments, PDFLib) {
+  const formDataNames = new Set(
+    attachments
+      .filter((attachment) => attachment.afRelationship === "FormData")
+      .map((attachment) => attachment.name),
+  );
+  if (!formDataNames.size) return;
+
+  for (const { fileName, fileSpec } of pdfDocument.getRawAttachments?.() || []) {
+    const name = pdfText(fileName, PDFLib);
+    if (formDataNames.has(name)) {
+      fileSpec.set(PDFLib.PDFName.of("AFRelationship"), PDFLib.PDFName.of("FormData"));
+    }
+  }
+}
+
+async function pdfaAttachmentConformance(attachment, PDFLib) {
+  const data = attachment.data;
+  if (data.byteLength < 5) return null;
+  const signature = new TextDecoder("ascii").decode(data.subarray(0, 5));
+  if (signature !== "%PDF-") return null;
+  try {
+    const document = await PDFLib.PDFDocument.load(data, { updateMetadata: false });
+    return attachmentPdfaConformance(readCatalogMetadataXml(document, PDFLib), PDFLib);
+  } catch {
+    return null;
+  }
+}
+
+async function validatePdfaAttachmentSet(conformance, attachments, PDFLib) {
+  if (conformance?.unsupported) {
+    throw new Error("This PDF/A declaration cannot be validated safely for embedded files.");
+  }
+  const part = Number(conformance?.part);
+  if (part === 1 && attachments.length) {
+    throw new Error("PDF/A-1 does not permit embedded files.");
+  }
+  if (part !== 2) return;
+  for (const attachment of attachments) {
+    const embeddedConformance = await pdfaAttachmentConformance(attachment, PDFLib);
+    const embeddedPart = Number(embeddedConformance?.part);
+    if (embeddedPart !== 1 && embeddedPart !== 2) {
+      throw new Error(
+        `PDF/A-2 permits only PDF/A-1 or PDF/A-2 attachments; remove or replace ${attachment.name}.`,
+      );
+    }
+  }
+}
+
+export async function replacePdfAttachments(
+  pdfBytes,
+  attachments = [],
+  PDFLib = globalThis.PDFLib,
+) {
+  if (!PDFLib?.PDFDocument) throw new Error("PDF mutation engine is unavailable.");
+  const normalized = attachments.map(normalizePdfAttachment);
+  const names = new Set();
+  for (const attachment of normalized) {
+    if (!attachment.name.trim()) throw new Error("Attachment names cannot be empty.");
+    const key = attachment.name;
+    if (names.has(key)) throw new Error(`Duplicate attachment name: ${attachment.name}`);
+    names.add(key);
+  }
+  const pdfDocument = await PDFLib.PDFDocument.load(pdfBytes, { updateMetadata: false });
+  const conformance = attachmentPdfaConformance(readCatalogMetadataXml(pdfDocument, PDFLib), PDFLib);
+  await validatePdfaAttachmentSet(conformance, normalized, PDFLib);
+  const oldRecords = [];
+  collectPdfAttachmentSpecs(pdfDocument, PDFLib, oldRecords);
+  const matchedTargets = assignAttachmentTargets(oldRecords, normalized);
+  const newAttachmentNames = normalized
+    .filter((_, index) => !matchedTargets.has(index))
+    .map((attachment) => attachment.name);
+  const associatedLocations = clearPdfAttachmentRoots(pdfDocument, oldRecords, PDFLib);
+  for (const attachment of normalized) {
+    await pdfDocument.attach(
+      attachment.data,
+      attachment.name,
+      attachmentOptions(attachment),
+    );
+  }
+  await pdfDocument.flush();
+  await restoreSourceFileSpecs(pdfDocument, normalized, PDFLib);
+  restoreFormDataRelationships(pdfDocument, normalized, PDFLib);
+  restoreAttachmentChecksums(pdfDocument, normalized, PDFLib);
+  restoreAssociatedFileLocations(pdfDocument, associatedLocations, newAttachmentNames, PDFLib);
+  return pdfDocument.save({
+    addDefaultPage: false,
+    updateFieldAppearances: false,
+  });
+}
+
+function sameBytes(left, right) {
+  if (left.byteLength !== right.byteLength) return false;
+  for (let index = 0; index < left.byteLength; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+function attachmentSignature(attachment) {
+  return {
+    name: attachment.name,
+    mimeType: attachment.mimeType,
+    afRelationship: attachment.afRelationship,
+    description: attachment.description,
+    creationDate: attachment.creationDate,
+    modificationDate: attachment.modificationDate,
+    checksum: [...(attachment.checksum || [])],
+  };
+}
+
+export async function verifyPdfAttachments(
+  pdfBytes,
+  expectedAttachments = [],
+  PDFLib = globalThis.PDFLib,
+) {
+  const expected = expectedAttachments.map(normalizePdfAttachment);
+  const actual = await readPdfAttachments(pdfBytes, PDFLib);
+  if (actual.length !== expected.length) {
+    throw new Error(`Output verification failed: expected ${expected.length} attachments, got ${actual.length}.`);
+  }
+  const actualByName = new Map(actual.map((attachment) => [attachment.name, attachment]));
+  for (const expectedAttachment of expected) {
+    const actualAttachment = actualByName.get(expectedAttachment.name);
+    if (!actualAttachment) {
+      throw new Error(`Output verification failed: attachment ${expectedAttachment.name} is missing.`);
+    }
+    if (JSON.stringify(attachmentSignature(actualAttachment)) !== JSON.stringify(attachmentSignature(expectedAttachment))) {
+      throw new Error(`Output verification failed: attachment metadata changed for ${expectedAttachment.name}.`);
+    }
+    if (!sameBytes(actualAttachment.data, expectedAttachment.data)) {
+      throw new Error(`Output verification failed: attachment bytes changed for ${expectedAttachment.name}.`);
+    }
+  }
+}
+
+function uniqueAttachmentName(name, used) {
+  const rawName = String(name ?? "");
+  const base = rawName.trim() ? rawName : "attachment";
+  if (!used.has(base.toLowerCase())) return base;
+  const dot = base.lastIndexOf(".");
+  const stem = dot > 0 ? base.slice(0, dot) : base;
+  const extension = dot > 0 ? base.slice(dot) : "";
+  for (let suffix = 2; suffix < 100000; suffix += 1) {
+    const candidate = `${stem} (${suffix})${extension}`;
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  throw new Error("Could not allocate a unique attachment name.");
+}
+
+export function mergePdfAttachmentSets(existing = [], incoming = []) {
+  const merged = existing.map(normalizePdfAttachment);
+  const used = new Set(merged.map((attachment) => attachment.name.toLowerCase()));
+  for (const raw of incoming) {
+    const attachment = normalizePdfAttachment(raw);
+    attachment.name = uniqueAttachmentName(attachment.name, used);
+    used.add(attachment.name.toLowerCase());
+    merged.push(attachment);
+  }
+  return merged;
+}
+
+export function mergePdfAttachmentSourceSets(sourceSets = [], existing = null) {
+  let merged = existing == null ? null : existing.map(normalizePdfAttachment);
+  for (const sourceSet of sourceSets) {
+    const normalized = (sourceSet || []).map(normalizePdfAttachment);
+    if (merged == null) {
+      merged = normalized;
+    } else {
+      merged = mergePdfAttachmentSets(merged, normalized);
+    }
+  }
+  return merged || [];
 }
 
 export function buildQpdfPageRequest(sources, pagePlan, outputName = "output.pdf") {

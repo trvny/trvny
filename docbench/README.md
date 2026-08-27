@@ -10,10 +10,10 @@ browsers can save changes directly back to a chosen local file. Download remains
 available as the portable fallback.
 
 PDF tools cover local preview, merge, page deletion/reordering, single-page
-extraction, split-to-ZIP, bookmark and document-metadata editing, lossless
-optimization, optional lossy image recompression and Fast Web View. Bookmark
-trees and metadata are rebuilt or preserved as needed and verified before every
-PDF download. Metadata edits keep trailer Info and XMP consistent; PDF/A XMP keeps
+extraction, split-to-ZIP, bookmark, document-metadata and embedded-file editing,
+lossless optimization, optional lossy image recompression and Fast Web View. Bookmark
+trees, metadata and attachments are rebuilt or preserved as needed and verified
+before every PDF download. Metadata edits keep trailer Info and XMP consistent; PDF/A XMP keeps
 foreign extension blocks intact.
 
 ## Local

@@ -45,6 +45,15 @@ replace_once(
     "source FileSpec filename restoration",
 )
 
+# The generated embed dictionary may expose only /F. Build a valid multi-EF
+# fixture by reusing whichever original embedded-file stream exists.
+replace_once(
+    "docbench/tests/pdf-attachment-review.test.mjs",
+    '''const originalUf = richEf.get(PDFLib.PDFName.of("UF"));''',
+    '''const originalUf = richEf.get(PDFLib.PDFName.of("UF")) || richEf.get(PDFLib.PDFName.of("F"));''',
+    "multi-EF fixture fallback",
+)
+
 # Add focused regressions for aliases and independent FileSpec filenames.
 test_path = root / "docbench/tests/pdf-attachment-review.test.mjs"
 tests = test_path.read_text(encoding="utf-8")

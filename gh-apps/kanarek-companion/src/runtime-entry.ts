@@ -7,10 +7,6 @@ import {
 import { CODE_HISTORY_PATH, handleCodeHistoryAction } from './code-history.ts';
 import { DEPENDENCY_GRAPH_PATH, handleDependencyGraphAction } from './dependency-graph.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
-import {
-  FreeReviewJob,
-  scheduleFreeReviewWebhook,
-} from './free-review-job.ts';
 import worker, {
   actionFetch,
   CommentProbeLock,
@@ -29,25 +25,18 @@ import {
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
 
-export { actionFetch, CommentProbeLock, FreeReviewJob, OperatorCheckpointStore };
+export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
 
 type WorkerEnv = Parameters<typeof worker.fetch>[1];
 type JsonObject = Record<string, unknown>;
 type Env = WorkerEnv & {
   CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
-  FREE_REVIEW_QUEUE?: DurableObjectNamespace;
-  KANAREK_FREE_REVIEW_ENABLED?: string;
-  KANAREK_OPENROUTER_ENABLED?: string;
-  KANAREK_ORCAROUTER_ENABLED?: string;
-  OPENROUTER_API_KEY?: string;
-  ORCAROUTER_API_KEY?: string;
 };
 
 const OPENAPI_PATH = '/gpt-actions/openapi.json';
 const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
 const SMOKE_PATH = '/gpt-actions/operator/smoke';
 const HEALTH_PATH = '/health';
-const WEBHOOK_PATH = '/webhooks/github';
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -79,17 +68,6 @@ async function responseObject(response: Response): Promise<JsonObject | null> {
   }
 }
 
-function freeReviewHealth(env: Env): JsonObject {
-  return {
-    enabledSetting: env.KANAREK_FREE_REVIEW_ENABLED ?? null,
-    queueConfigured: Boolean(env.FREE_REVIEW_QUEUE),
-    orcaSecretConfigured: Boolean(env.ORCAROUTER_API_KEY),
-    orcaEnabledSetting: env.KANAREK_ORCAROUTER_ENABLED ?? null,
-    openRouterSecretConfigured: Boolean(env.OPENROUTER_API_KEY),
-    openRouterEnabledSetting: env.KANAREK_OPENROUTER_ENABLED ?? null,
-  };
-}
-
 async function decorateGatewayResponse(
   request: Request,
   response: Response,
@@ -106,7 +84,6 @@ async function decorateGatewayResponse(
       ? json(
           {
             ...payload,
-            freeReview: freeReviewHealth(env),
             gateway: await manifest(request, env),
           },
           response.status,
@@ -137,13 +114,7 @@ async function decorateGatewayResponse(
 const runtime = {
   fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     return runWithActionRequestContext(async () => {
-      const url = new URL(request.url);
-      const reviewRequest =
-        url.pathname === WEBHOOK_PATH && request.method === 'POST'
-          ? request.clone()
-          : null;
-
-      if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
+      const url = new URL(request.url);if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
         return json(runtimeOpenApi(new URL(request.url).origin));
       }
       if (url.pathname === BUG_INVESTIGATION_PATH) {
@@ -207,11 +178,7 @@ const runtime = {
         if (response) return response;
       }
 
-      const baseResponse = await worker.fetch(request, env, ctx);
-      if (reviewRequest && baseResponse.status === 202) {
-        scheduleFreeReviewWebhook(reviewRequest, env, ctx);
-      }
-      const response = await decorateGatewayResponse(
+      const baseResponse = await worker.fetch(request, env, ctx);const response = await decorateGatewayResponse(
         request,
         baseResponse,
         env,

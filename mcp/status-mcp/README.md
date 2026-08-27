@@ -1,6 +1,6 @@
 # status-mcp
 
-[![status-mcp](https://github.com/trvny/trvny/actions/workflows/status-mcp-deploy.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/status-mcp-deploy.yml)
+[![status-mcp](https://github.com/trvny/trvny/actions/workflows/status-mcp-ci.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/status-mcp-ci.yml)
 
 One [MCP](https://modelcontextprotocol.io) server, one tool — health-checks all
 four travny projects in a single call. Cloudflare Worker, **free tier**: service
@@ -37,10 +37,10 @@ kept as the compatibility key for **Feedseek** after the repository rename.
 
 ## Deploy
 
-Auto-deploys from `trvny/trvny` via `.github/workflows/status-mcp-deploy.yml`
-on push to `mcp/status-mcp/**` (reuses repo secrets `CLOUDFLARE_API_TOKEN` /
-`CLOUDFLARE_ACCOUNT_ID`). Manual: `npm install && npx wrangler deploy` from this
-folder.
+Production deploys from `trvny/trvny` through Cloudflare Workers Builds,
+rooted at `mcp/status-mcp` and watching `main`. The
+`.github/workflows/status-mcp-ci.yml` workflow only validates changes.
+Manual: `npm install && npx wrangler deploy` from this folder.
 
 ## Authentication
 

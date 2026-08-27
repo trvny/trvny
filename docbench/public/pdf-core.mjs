@@ -967,7 +967,9 @@ function detachAssociatedFileLocations(pdfDocument, records, PDFLib) {
     } catch (error) {
       throw new Error("Could not preserve a FileAttachment /FS reference safely.", { cause: error });
     }
-    locations.push({ kind: "FS", dict, records: [recordFor(rawSpec, fileSpec)], isCatalog: false });
+    const managedRecord = attachmentRecordFor(rawSpec, fileSpec, records, PDFLib);
+    if (!managedRecord) return;
+    locations.push({ kind: "FS", dict, records: [managedRecord], isCatalog: false });
     dict.delete(fsKey);
   });
   return locations;

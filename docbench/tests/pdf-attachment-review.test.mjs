@@ -364,4 +364,30 @@ const filenamesOutputSpec = attachmentFileSpecByName(filenamesOutput, "tree-name
 assert.equal(filenamesOutputSpec.lookup(PDFLib.PDFName.of("F")).decodeText(), "platform-name.bin");
 assert.equal(filenamesOutputSpec.lookup(PDFLib.PDFName.of("UF")).decodeText(), "unicode-name.bin");
 
+
+const externalDocument = await PDFLib.PDFDocument.load(await onePagePdf(), { updateMetadata: false });
+const externalSpecRef = externalDocument.context.register(externalDocument.context.obj({
+  Type: "Filespec",
+  F: PDFLib.PDFString.of("manual.txt"),
+  UF: PDFLib.PDFHexString.fromText("manual.txt"),
+}));
+const externalAnnotationRef = externalDocument.context.register(externalDocument.context.obj({
+  Type: "Annot",
+  Subtype: "FileAttachment",
+  Rect: [0, 0, 10, 10],
+  FS: externalSpecRef,
+}));
+externalDocument.getPage(0).node.set(
+  PDFLib.PDFName.of("Annots"),
+  externalDocument.context.obj([externalAnnotationRef]),
+);
+const externalBytes = await externalDocument.save({ updateFieldAppearances: false });
+assert.equal((await readPdfAttachments(externalBytes, PDFLib)).length, 0);
+const externalRoundTrip = await replacePdfAttachments(externalBytes, [], PDFLib);
+const externalOutput = await PDFLib.PDFDocument.load(externalRoundTrip, { updateMetadata: false });
+const externalAnnots = externalOutput.getPage(0).node.lookup(PDFLib.PDFName.of("Annots"), PDFLib.PDFArray);
+const externalAnnotation = externalAnnots.lookup(0, PDFLib.PDFDict);
+const externalSpec = externalAnnotation.lookup(PDFLib.PDFName.of("FS"), PDFLib.PDFDict);
+assert.equal(externalSpec.lookup(PDFLib.PDFName.of("UF")).decodeText(), "manual.txt");
+
 console.log("Doc Bench PDF attachment review tests passed.");

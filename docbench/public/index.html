@@ -185,6 +185,19 @@
         </div>
       </details>
 
+      <details id="pdf-attachments-panel" class="pdf-metadata-panel pdf-attachments-panel">
+      <summary>
+        <strong>Attachments</strong>
+        <span id="pdf-attachments-state">No PDF</span>
+      </summary>
+      <input id="pdf-attachment-input" type="file" multiple hidden>
+      <div id="pdf-attachments" class="pdf-attachments-list">Open a PDF to manage embedded files.</div>
+      <div class="pdf-metadata-footer">
+        <span>Embedded files are preserved across Save, Extract and Split.</span>
+        <button id="pdf-attachment-add" class="mini-button" type="button" disabled>Add files</button>
+      </div>
+    </details>
+
       <div class="pdf-grid">
         <aside class="pdf-outline-panel" aria-label="PDF bookmarks">
           <div class="panel-header bookmark-panel-header">

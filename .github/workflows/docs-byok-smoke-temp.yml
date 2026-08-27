@@ -1,0 +1,20 @@
+name: Temporary docs BYOK smoke
+
+on:
+  push:
+    branches:
+      - fix/gh-aw-orcarouter-byok
+    paths:
+      - ".github/workflows/docs-byok-smoke-temp.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch branch documentation orchestrator
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: gh workflow run docs-orchestrator.lock.yml --repo "$GITHUB_REPOSITORY" --ref fix/gh-aw-orcarouter-byok

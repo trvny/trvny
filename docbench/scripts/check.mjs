@@ -113,6 +113,10 @@ for (const metadataCoreGuard of [
   "deleteInfoKey",
   "decodeXmpBytes",
   "extractPreservableXmpExtensions",
+  "readPdfAttachments",
+  "replacePdfAttachments",
+  "verifyPdfAttachments",
+  "MAX_ATTACHMENT_TREE_NODES",
 ]) {
   if (!pdfCore.includes(metadataCoreGuard)) {
     throw new Error(`PDF metadata core is missing guard: ${metadataCoreGuard}`);
@@ -125,12 +129,15 @@ for (const exportGuard of [
   "splitAllPages",
   "ZipPassThrough",
   "remapOutlineToPagePlan(snapshot.outline, snapshot.plan, plan)",
-  "await verifyOutput(finalBytes, plan.length, outline, snapshot.metadata, snapshot.metadataChanges)",
+  "await verifyOutput(finalBytes, plan.length, outline, snapshot.metadata, snapshot.metadataChanges, snapshot.attachments)",
   "state.exporting",
   "currentMetadataChanges",
   "metadataChanges",
   "replacePdfMetadata",
   "expectedMetadata",
+  "mergePdfAttachmentSets",
+  "replacePdfAttachments",
+  "snapshot.attachments",
 ]) {
   if (!pdfApp.includes(exportGuard)) {
     throw new Error(`PDF split/extract is missing guard: ${exportGuard}`);
@@ -149,6 +156,10 @@ for (const metadataUiGuard of [
   "pdf-meta-created",
   "pdf-meta-modified",
   "pdf-metadata-reset",
+  "pdf-attachments-panel",
+  "pdf-attachment-input",
+  "pdf-attachment-add",
+  "pdf-attachments-state",
 ]) {
   if (!html.includes(metadataUiGuard)) {
     throw new Error(`PDF metadata UI is missing guard: ${metadataUiGuard}`);
@@ -198,6 +209,9 @@ if (!portable.includes("PDFLib")) throw new Error("Portable build is missing PDF
 if (!portable.includes("ZipPassThrough")) throw new Error("Portable build is missing ZIP runtime");
 if (!portable.includes("pdf-meta-title") || !portable.includes("replacePdfMetadata")) {
   throw new Error("Portable build is missing PDF metadata editor support");
+}
+if (!portable.includes("pdf-attachment-add") || !portable.includes("replacePdfAttachments")) {
+  throw new Error("Portable build is missing PDF attachment editor support");
 }
 if (!portable.includes("__docbenchPdfAssets")) {
   throw new Error("Portable build is missing embedded PDF runtime assets");

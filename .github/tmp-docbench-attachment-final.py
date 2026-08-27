@@ -35,11 +35,12 @@ replace_once(
     "name-tree alias collection call",
 )
 
-# Restore every key in /EF explicitly. Copying the whole dictionary through the
-# object copier can collapse provider-specific alternate stream entries.
+# Restore every key in /EF explicitly, and preserve /F and /UF only when they
+# were intentionally distinct from the source name-tree key. This keeps custom
+# platform/unicode filenames while still allowing collision renames.
 replace_once(
     "docbench/public/pdf-core.mjs",
-    '''      if (name === "/Type") continue;\n      if (name === "/F" || name === "/UF") {\n        let sourceName = "";\n        try { sourceName = pdfText(record.fileSpec.lookup(key), PDFLib); } catch {}\n        if (sourceName === record.attachment.name) continue;\n      }\n      target.set(key, source.copier.copy(record.fileSpec.get(key)));''',
+    '''      if (name === "/F" || name === "/UF" || name === "/Type") continue;\n      target.set(key, source.copier.copy(record.fileSpec.get(key)));''',
     '''      if (name === "/Type") continue;\n      if (name === "/EF") {\n        let sourceEf;\n        try { sourceEf = record.fileSpec.lookup(key, PDFLib.PDFDict); } catch {}\n        if (sourceEf) {\n          const restoredEf = pdfDocument.context.obj({});\n          for (const efKey of sourceEf.keys()) {\n            restoredEf.set(efKey, source.copier.copy(sourceEf.get(efKey)));\n          }\n          target.set(key, restoredEf);\n        }\n        continue;\n      }\n      if (name === "/F" || name === "/UF") {\n        let sourceName = "";\n        try { sourceName = pdfText(record.fileSpec.lookup(key), PDFLib); } catch {}\n        if (sourceName === record.attachment.name) continue;\n      }\n      target.set(key, source.copier.copy(record.fileSpec.get(key)));''',
     "source FileSpec restoration",
 )

@@ -25,7 +25,7 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#330](https://github.com/trvny/trvny/pull/330) | Use OrcaRouter through Copilot BYOK | @trvny | ready | 2026-08-27 |
+| trvny/wambridge | [#112](https://github.com/trvny/wambridge/pull/112) | Route foobar pause through M5 control | @trvny | ready | 2026-08-27 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

@@ -4,8 +4,17 @@ on:
   # tworzona, nie oszczedzana. Odpalac recznie, gdy jest po co.
   workflow_dispatch:
 
-engine: gemini
-model: gemini-3.5-flash-lite
+engine:
+  id: codex
+  env:
+    OPENAI_BASE_URL: "https://api.orcarouter.ai/v1"
+    OPENAI_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
+model: orcarouter/auto
+
+network:
+  allowed:
+    - defaults
+    - api.orcarouter.ai
 
 permissions:
   contents: read

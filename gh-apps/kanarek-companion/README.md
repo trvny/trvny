@@ -100,7 +100,7 @@ generated line could not be safely retained.
 
 `KANAREK_PROVIDER_ORDER` reorders enabled providers; it does not enable or
 disable them. The configured production order is Gemini, OpenAI, xAI, the
-OpenAI fallback, Anthropic, then OpenRouter and OrcaRouter. The free routers are
+OpenAI fallback, Anthropic, then OrcaRouter and OpenRouter. The free routers are
 deliberately last so request, quota, or credit failures from direct providers
 can fall through to them. Provider enable switches, model names, output
 ceilings, reasoning/thinking settings, the xAI prompt-cache key, and the shared

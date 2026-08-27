@@ -20,7 +20,7 @@ on:
         type: string
         default: manual
 
-run-name: Documentation worker Â· ${{ inputs.target_repo }} Â· Orca Â· ${{ inputs.request_id }}
+run-name: Documentation worker · ${{ inputs.target_repo }} · Orca · ${{ inputs.request_id }}
 
 concurrency:
   group: gh-aw-docs-${{ inputs.target_repo }}

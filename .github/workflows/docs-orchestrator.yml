@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   dispatch:
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
       - name: Run documentation cascade
@@ -64,7 +64,7 @@ jobs:
             local request_id=$3
             shift 3
 
-            echo "::group::$repo Â· $workflow"
+            echo "::group::$repo · $workflow"
             gh workflow run "$workflow" \
               --repo "$GITHUB_REPOSITORY" \
               --ref "$REF" \
@@ -95,15 +95,15 @@ jobs:
             request_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${index}"
             echo "### $repo"
 
-            if run_worker docs-worker.lock.yml "$repo" "$request_id"; then
+            if run_worker docs-worker.lock.yml "$repo" "${request_id}-orca"; then
               echo "$repo: OrcaRouter / DeepSeek V4 Flash Free"
-            elif run_worker docs-openrouter-worker.lock.yml "$repo" "$request_id" \
+            elif run_worker docs-openrouter-worker.lock.yml "$repo" "${request_id}-ultra" \
               -f 'model=nvidia/nemotron-3-ultra-550b-a55b:free'; then
               echo "$repo: OpenRouter / Nemotron 3 Ultra Free"
-            elif run_worker docs-openrouter-worker.lock.yml "$repo" "$request_id" \
+            elif run_worker docs-openrouter-worker.lock.yml "$repo" "${request_id}-lightning" \
               -f 'model=nvidia/nemotron-3.5-lightning:free'; then
               echo "$repo: OpenRouter / Nemotron 3.5 Lightning Free"
-            elif run_worker docs-openrouter-worker.lock.yml "$repo" "$request_id" \
+            elif run_worker docs-openrouter-worker.lock.yml "$repo" "${request_id}-free" \
               -f 'model=openrouter/free'; then
               echo "$repo: OpenRouter / Free Models Router"
             else

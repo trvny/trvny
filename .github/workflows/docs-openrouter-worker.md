@@ -28,7 +28,7 @@ on:
         type: string
         default: manual
 
-run-name: Documentation worker Â· ${{ inputs.target_repo }} Â· OpenRouter Â· ${{ inputs.model }} Â· ${{ inputs.request_id }}
+run-name: Documentation worker · ${{ inputs.target_repo }} · OpenRouter · ${{ inputs.model }} · ${{ inputs.request_id }}
 
 concurrency:
   group: gh-aw-docs-${{ inputs.target_repo }}

@@ -67,11 +67,9 @@
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
 
-## [License](LICENSE) and [third-party materials](docs/THIRD_PARTY_NOTICES.md)
+## [License](LICENSE) [![license](https://img.shields.io/github/license/trvny/trvny)](LICENSE)
 
-Original code and documentation are covered by [ISC](https://spdx.org/licenses/ISC).
-[THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md).
-[![license](https://img.shields.io/github/license/trvny/trvny)](LICENSE)
+[ISC](https://spdx.org/licenses/ISC). [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md).
 
 ---
 ## 💬 Quote from the drawer

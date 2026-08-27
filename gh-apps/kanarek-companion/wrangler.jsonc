@@ -18,6 +18,10 @@
       {
         "name": "OPERATOR_CHECKPOINTS",
         "class_name": "OperatorCheckpointStore"
+      },
+      {
+        "name": "FREE_REVIEW_QUEUE",
+        "class_name": "FreeReviewJob"
       }
     ]
   },
@@ -35,6 +39,10 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["OperatorCheckpointStore"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["FreeReviewJob"]
     }
   ],
   "observability": {

@@ -40,6 +40,12 @@ replace_once(
 
 replace_once(
     "docbench/tests/pdf-attachment-review.test.mjs",
+    '''const richSpec = richRaw[0].fileSpec;''',
+    '''const richSpec = firstAttachmentFileSpec(richDocument);''',
+    "rich fixture FileSpec",
+)
+replace_once(
+    "docbench/tests/pdf-attachment-review.test.mjs",
     '''const originalUf = richEf.get(PDFLib.PDFName.of("UF"));''',
     '''const originalUf = richEf.get(PDFLib.PDFName.of("UF")) || richEf.get(PDFLib.PDFName.of("F"));''',
     "multi-EF fixture fallback",
@@ -47,12 +53,9 @@ replace_once(
 replace_once(
     "docbench/tests/pdf-attachment-review.test.mjs",
     '''const richSourceBytes = await richDocument.save({ updateFieldAppearances: false });\nconst richAttachments = await readPdfAttachments(richSourceBytes, PDFLib);''',
-    '''const richSourceBytes = await richDocument.save({ updateFieldAppearances: false });\nconst richSourceCheck = await PDFLib.PDFDocument.load(richSourceBytes, { updateMetadata: false });\nconst richSourceSpec = richSourceCheck.getRawAttachments().find(({ fileName }) => fileName.decodeText() === "rich.bin").fileSpec;\nconst richSourceEf = richSourceSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("F")), true, "fixture should contain /EF/F");\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("UF")), true, "fixture should contain /EF/UF");\nconst richAttachments = await readPdfAttachments(richSourceBytes, PDFLib);''',
+    '''const richSourceBytes = await richDocument.save({ updateFieldAppearances: false });\nconst richSourceCheck = await PDFLib.PDFDocument.load(richSourceBytes, { updateMetadata: false });\nconst richSourceSpec = firstAttachmentFileSpec(richSourceCheck);\nconst richSourceEf = richSourceSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("F")), true, "fixture should contain /EF/F");\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("UF")), true, "fixture should contain /EF/UF");\nconst richAttachments = await readPdfAttachments(richSourceBytes, PDFLib);''',
     "rich source fixture validation",
 )
-
-# Check a source-only custom dictionary before the alternate-EF assertions so a
-# failure tells us whether FileSpec restoration ran at all.
 replace_once(
     "docbench/tests/pdf-attachment-review.test.mjs",
     '''const outputEf = richOutputSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(outputEf.has(PDFLib.PDFName.of("F")), true);''',

@@ -1,0 +1,40 @@
+name: Documentation Orchestrator
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: documentation-orchestrator
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-slim
+    steps:
+      - name: Dispatch documentation workers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repos=(
+            trvny/feedseek
+            trvny/kanarek
+            trvny/tvpi
+            trvny/wambridge
+            trvny/trvny
+            trvny/Autka
+            trvny/.ai
+          )
+
+          for repo in "${repos[@]}"; do
+            gh workflow run docs-worker.lock.yml \
+              --repo "$GITHUB_REPOSITORY" \
+              --ref "$REF" \
+              -f "target_repo=$repo"
+          done

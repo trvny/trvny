@@ -59,20 +59,7 @@ function stringValue(value: JsonObject | null, key: string): string | null {
     : null;
 }
 
-function booleanValue(value: JsonObject | null, key: string): boolean | null {
-  return value && typeof value[key] === 'boolean'
-    ? (value[key] as boolean)
-    : null;
-}
-
-function nullableSetting(
-  value: JsonObject | null,
-  key: string,
-): string | null | undefined {
-  if (!value || !Object.prototype.hasOwnProperty.call(value, key)) {
-    return undefined;
-  }
-  const setting = value[key];
+const setting = value[key];
   return setting === null || typeof setting === 'string'
     ? setting
     : undefined;
@@ -94,45 +81,6 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
   try {
     const health = await getJson('/health');
     if (health.ok !== true) throw new Error('/health reports not ready');
-
-    const freeReview = nestedObject(health, 'freeReview');
-    const enabledSetting = nullableSetting(freeReview, 'enabledSetting');
-    const queueConfigured = booleanValue(freeReview, 'queueConfigured');
-    const orcaSecretConfigured = booleanValue(
-      freeReview,
-      'orcaSecretConfigured',
-    );
-    const orcaEnabledSetting = nullableSetting(
-      freeReview,
-      'orcaEnabledSetting',
-    );
-    const openRouterSecretConfigured = booleanValue(
-      freeReview,
-      'openRouterSecretConfigured',
-    );
-    const openRouterEnabledSetting = nullableSetting(
-      freeReview,
-      'openRouterEnabledSetting',
-    );
-    if (
-      enabledSetting === undefined ||
-      queueConfigured !== true ||
-      orcaSecretConfigured === null ||
-      orcaEnabledSetting === undefined ||
-      openRouterSecretConfigured === null ||
-      openRouterEnabledSetting === undefined
-    ) {
-      throw new Error('/health is missing free review diagnostics or queue');
-    }
-    console.log(
-      `free review health: setting=${String(enabledSetting ?? 'default')} ` +
-        `queue=${String(queueConfigured)} ` +
-        `orcaSecret=${String(orcaSecretConfigured)} ` +
-        `orcaSetting=${String(orcaEnabledSetting ?? 'default')} ` +
-        `openRouterSecret=${String(openRouterSecretConfigured)} ` +
-        `openRouterSetting=${String(openRouterEnabledSetting ?? 'default')}`,
-    );
-
     const gateway = nestedObject(health, 'gateway');
     const liveOpenApi = gateway ? nestedObject(gateway, 'openApi') : null;
     const workerVersion = gateway

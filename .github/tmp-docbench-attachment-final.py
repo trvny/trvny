@@ -47,10 +47,18 @@ replace_once(
     "source FileSpec restoration",
 )
 
+# Test helpers must locate a specific FileSpec by its name-tree key. The first
+# entry is not stable once multiple attachments are present.
 replace_once(
     "docbench/tests/pdf-attachment-review.test.mjs",
-    '''const richSpec = richRaw[0].fileSpec;''',
-    '''const richSpec = firstAttachmentFileSpec(richDocument);''',
+    '''function firstAttachmentFileSpec(document) {\n  const names = document.catalog.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict);\n  const embedded = names.lookup(PDFLib.PDFName.of("EmbeddedFiles"), PDFLib.PDFDict);\n  const entries = embedded.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFArray);\n  return entries.lookup(1, PDFLib.PDFDict);\n}\n''',
+    '''function firstAttachmentFileSpec(document) {\n  const names = document.catalog.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict);\n  const embedded = names.lookup(PDFLib.PDFName.of("EmbeddedFiles"), PDFLib.PDFDict);\n  const entries = embedded.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFArray);\n  return entries.lookup(1, PDFLib.PDFDict);\n}\n\nfunction attachmentFileSpecByName(document, expectedName) {\n  const names = document.catalog.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict);\n  const embedded = names.lookup(PDFLib.PDFName.of("EmbeddedFiles"), PDFLib.PDFDict);\n  const entries = embedded.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFArray);\n  for (let index = 0; index + 1 < entries.size(); index += 2) {\n    if (entries.lookup(index).decodeText() === expectedName) {\n      return entries.lookup(index + 1, PDFLib.PDFDict);\n    }\n  }\n  throw new Error(`Missing attachment FileSpec for ${expectedName}`);\n}\n''',
+    "named FileSpec helper",
+)
+replace_once(
+    "docbench/tests/pdf-attachment-review.test.mjs",
+    '''const richRaw = richDocument.getRawAttachments();\nconst richSpec = richRaw[0].fileSpec;''',
+    '''const richRaw = richDocument.getRawAttachments();\nconst richRawEntry = richRaw.find(({ fileName }) => fileName.decodeText() === "rich.bin");\nassert.ok(richRawEntry, "rich.bin raw attachment should exist");\nconst richSpec = attachmentFileSpecByName(richDocument, "rich.bin");''',
     "rich fixture FileSpec",
 )
 replace_once(
@@ -61,14 +69,26 @@ replace_once(
 )
 replace_once(
     "docbench/tests/pdf-attachment-review.test.mjs",
+    '''richDocument.catalog.set(PDFLib.PDFName.of("AF"), richDocument.context.obj([richRaw[0].specRef]));''',
+    '''richDocument.catalog.set(PDFLib.PDFName.of("AF"), richDocument.context.obj([richRawEntry.specRef]));''',
+    "rich catalog AF",
+)
+replace_once(
+    "docbench/tests/pdf-attachment-review.test.mjs",
+    '''const structElem = richDocument.context.obj({ Type: "StructElem", S: "P", AF: [richRaw[0].specRef] });''',
+    '''const structElem = richDocument.context.obj({ Type: "StructElem", S: "P", AF: [richRawEntry.specRef] });''',
+    "rich struct AF",
+)
+replace_once(
+    "docbench/tests/pdf-attachment-review.test.mjs",
     '''const richSourceBytes = await richDocument.save({ updateFieldAppearances: false });\nconst richAttachments = await readPdfAttachments(richSourceBytes, PDFLib);''',
-    '''const richSourceBytes = await richDocument.save({ updateFieldAppearances: false });\nconst richSourceCheck = await PDFLib.PDFDocument.load(richSourceBytes, { updateMetadata: false });\nconst richSourceSpec = firstAttachmentFileSpec(richSourceCheck);\nconst richSourceEf = richSourceSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("F")), true, "fixture should contain /EF/F");\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("UF")), true, "fixture should contain /EF/UF");\nconst richAttachments = await readPdfAttachments(richSourceBytes, PDFLib);''',
+    '''const richSourceBytes = await richDocument.save({ updateFieldAppearances: false });\nconst richSourceCheck = await PDFLib.PDFDocument.load(richSourceBytes, { updateMetadata: false });\nconst richSourceSpec = attachmentFileSpecByName(richSourceCheck, "rich.bin");\nconst richSourceEf = richSourceSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("F")), true, "fixture should contain /EF/F");\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("UF")), true, "fixture should contain /EF/UF");\nassert.deepEqual([...PDFLib.decodePDFRawStream(richSourceEf.lookup(PDFLib.PDFName.of("UF"), PDFLib.PDFRawStream)).decode()], [40, 41]);\nconst richAttachments = await readPdfAttachments(richSourceBytes, PDFLib);''',
     "rich source fixture validation",
 )
 replace_once(
     "docbench/tests/pdf-attachment-review.test.mjs",
     '''const richOutputRaw = richOutput.getRawAttachments();\nconst richOutputSpec = richOutputRaw.find(({ fileName }) => fileName.decodeText() === "rich.bin").fileSpec;''',
-    '''const richOutputSpec = firstAttachmentFileSpec(richOutput);''',
+    '''const richOutputSpec = attachmentFileSpecByName(richOutput, "rich.bin");''',
     "rich output FileSpec inspection",
 )
 
@@ -108,7 +128,7 @@ const filenamesBase = await replacePdfAttachments(await onePagePdf(), [{
   mimeType: "application/octet-stream",
 }], PDFLib);
 const filenamesDocument = await PDFLib.PDFDocument.load(filenamesBase, { updateMetadata: false });
-const filenamesSpec = firstAttachmentFileSpec(filenamesDocument);
+const filenamesSpec = attachmentFileSpecByName(filenamesDocument, "tree-name.bin");
 filenamesSpec.set(PDFLib.PDFName.of("F"), PDFLib.PDFString.of("platform-name.bin"));
 filenamesSpec.set(PDFLib.PDFName.of("UF"), PDFLib.PDFHexString.fromText("unicode-name.bin"));
 const filenamesBytes = await filenamesDocument.save({ updateFieldAppearances: false });
@@ -116,7 +136,7 @@ const filenamesAttachments = await readPdfAttachments(filenamesBytes, PDFLib);
 assert.equal(filenamesAttachments[0].name, "tree-name.bin");
 const filenamesRoundTrip = await replacePdfAttachments(filenamesBytes, filenamesAttachments, PDFLib);
 const filenamesOutput = await PDFLib.PDFDocument.load(filenamesRoundTrip, { updateMetadata: false });
-const filenamesOutputSpec = firstAttachmentFileSpec(filenamesOutput);
+const filenamesOutputSpec = attachmentFileSpecByName(filenamesOutput, "tree-name.bin");
 assert.equal(filenamesOutputSpec.lookup(PDFLib.PDFName.of("F")).decodeText(), "platform-name.bin");
 assert.equal(filenamesOutputSpec.lookup(PDFLib.PDFName.of("UF")).decodeText(), "unicode-name.bin");
 

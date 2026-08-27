@@ -1,52 +1,30 @@
 import { runWithActionRequestContext } from './action-context.ts';
+import { BUG_INVESTIGATION_PATH, handleBugInvestigationAction } from './bug-investigation.ts';
 import {
-  addBugInvestigationOpenApi,
-  BUG_INVESTIGATION_PATH,
-  handleBugInvestigationAction,
-} from './bug-investigation.ts';
-import {
-  addCodeChangeAutopilotOpenApi,
   CODE_CHANGE_AUTOPILOT_PATH,
   handleCodeChangeAutopilotAction,
 } from './code-change-orchestration.ts';
-import {
-  addCodeHistoryOpenApi,
-  CODE_HISTORY_PATH,
-  handleCodeHistoryAction,
-} from './code-history.ts';
-import {
-  addDependencyGraphOpenApi,
-  DEPENDENCY_GRAPH_PATH,
-  handleDependencyGraphAction,
-} from './dependency-graph.ts';
+import { CODE_HISTORY_PATH, handleCodeHistoryAction } from './code-history.ts';
+import { DEPENDENCY_GRAPH_PATH, handleDependencyGraphAction } from './dependency-graph.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
+import { scheduleFreeReviewWebhook } from './free-review.ts';
 import worker, {
   actionFetch,
   CommentProbeLock,
   gatewayManifest,
-  gatewayOpenApi,
   OperatorCheckpointStore,
 } from './entry.ts';
+import { handleReleaseEntryAction, RELEASE_ENTRY_UPLOAD_PATH } from './release-entry-action.ts';
 import {
-  addReleaseEntryOpenApi,
-  handleReleaseEntryAction,
-  RELEASE_ENTRY_UPLOAD_PATH,
-} from './release-entry-action.ts';
-import {
-  addReleaseReplaceOpenApi,
   handleReleaseReplaceAction,
   RELEASE_ASSET_REPLACE_PATH,
 } from './release-replace-action.ts';
+import { runtimeOpenApi } from './runtime-openapi.ts';
 import {
-  addSymbolInvestigationOpenApi,
   handleSymbolInvestigationAction,
   SYMBOL_INVESTIGATION_PATH,
 } from './symbol-investigation.ts';
-import {
-  addTargetedTestsOpenApi,
-  handleTargetedTestsAction,
-  TARGETED_TESTS_PATH,
-} from './test-discovery.ts';
+import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
 
 export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
 
@@ -54,12 +32,18 @@ type WorkerEnv = Parameters<typeof worker.fetch>[1];
 type JsonObject = Record<string, unknown>;
 type Env = WorkerEnv & {
   CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
+  KANAREK_FREE_REVIEW_ENABLED?: string;
+  KANAREK_OPENROUTER_ENABLED?: string;
+  KANAREK_ORCAROUTER_ENABLED?: string;
+  OPENROUTER_API_KEY?: string;
+  ORCAROUTER_API_KEY?: string;
 };
 
 const OPENAPI_PATH = '/gpt-actions/openapi.json';
 const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
 const SMOKE_PATH = '/gpt-actions/operator/smoke';
 const HEALTH_PATH = '/health';
+const WEBHOOK_PATH = '/webhooks/github';
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -75,21 +59,8 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function openApi(request: Request): JsonObject {
-  const document = gatewayOpenApi(new URL(request.url).origin);
-  addReleaseEntryOpenApi(document);
-  addReleaseReplaceOpenApi(document);
-  addSymbolInvestigationOpenApi(document);
-  addCodeHistoryOpenApi(document);
-  addDependencyGraphOpenApi(document);
-  addTargetedTestsOpenApi(document);
-  addBugInvestigationOpenApi(document);
-  addCodeChangeAutopilotOpenApi(document);
-  return document;
-}
-
 async function manifest(request: Request, env: Env): Promise<JsonObject> {
-  return gatewayManifest(openApi(request), env.CF_VERSION_METADATA);
+  return gatewayManifest(runtimeOpenApi(new URL(request.url).origin), env.CF_VERSION_METADATA);
 }
 
 async function responseObject(response: Response): Promise<JsonObject | null> {
@@ -99,6 +70,16 @@ async function responseObject(response: Response): Promise<JsonObject | null> {
   } catch {
     return null;
   }
+}
+
+function freeReviewHealth(env: Env): JsonObject {
+  return {
+    enabledSetting: env.KANAREK_FREE_REVIEW_ENABLED ?? null,
+    orcaSecretConfigured: Boolean(env.ORCAROUTER_API_KEY),
+    orcaEnabledSetting: env.KANAREK_ORCAROUTER_ENABLED ?? null,
+    openRouterSecretConfigured: Boolean(env.OPENROUTER_API_KEY),
+    openRouterEnabledSetting: env.KANAREK_OPENROUTER_ENABLED ?? null,
+  };
 }
 
 async function decorateGatewayResponse(
@@ -113,19 +94,31 @@ async function decorateGatewayResponse(
   }
   if (pathname === HEALTH_PATH && request.method === 'GET') {
     const payload = await responseObject(response);
-    return payload ? json({ ...payload, gateway: await manifest(request, env) }, response.status) : response;
+    return payload
+      ? json(
+          {
+            ...payload,
+            freeReview: freeReviewHealth(env),
+            gateway: await manifest(request, env),
+          },
+          response.status,
+        )
+      : response;
   }
   if (pathname === SMOKE_PATH && request.method === 'POST') {
     const payload = await responseObject(response);
     const live = await manifest(request, env);
     const openApiManifest = isObject(live.openApi) ? live.openApi : {};
     return payload
-      ? json({
-          ...payload,
-          workerVersion: live.workerVersion ?? payload.workerVersion,
-          capabilityDigest: openApiManifest.capabilityDigest ?? payload.capabilityDigest,
-          operationCount: openApiManifest.operationCount ?? payload.operationCount,
-        }, response.status)
+      ? json(
+          {
+            ...payload,
+            workerVersion: live.workerVersion ?? payload.workerVersion,
+            capabilityDigest: openApiManifest.capabilityDigest ?? payload.capabilityDigest,
+            operationCount: openApiManifest.operationCount ?? payload.operationCount,
+          },
+          response.status,
+        )
       : response;
   }
   return response;
@@ -135,8 +128,11 @@ const runtime = {
   fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     return runWithActionRequestContext(async () => {
       const url = new URL(request.url);
+      const reviewRequest =
+        url.pathname === WEBHOOK_PATH && request.method === 'POST' ? request.clone() : null;
+
       if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
-        return json(openApi(request));
+        return json(runtimeOpenApi(new URL(request.url).origin));
       }
       if (url.pathname === BUG_INVESTIGATION_PATH) {
         const response = await handleBugInvestigationAction(
@@ -196,6 +192,9 @@ const runtime = {
       }
 
       const baseResponse = await worker.fetch(request, env, ctx);
+      if (reviewRequest && baseResponse.status === 202) {
+        scheduleFreeReviewWebhook(reviewRequest, env, ctx);
+      }
       const response = await decorateGatewayResponse(request, baseResponse, env);
       return enrichConflictResponse(
         request,

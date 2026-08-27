@@ -11,7 +11,6 @@ def replace_once(path, old, new, label):
     target.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
 
 
-# The browser add-files path uses this helper directly.
 replace_once(
     "docbench/public/pdf-app.mjs",
     '''  formatPdfSize,\n  mergePdfAttachmentSourceSets,''',
@@ -19,9 +18,6 @@ replace_once(
     "attachment merge helper import",
 )
 
-# A name tree may legally expose multiple keys for one FileSpec. Preserve those
-# aliases while still deduplicating the same FileSpec when discovered again via
-# /AF or /FS association roots.
 replace_once(
     "docbench/public/pdf-core.mjs",
     '''  const addSpec = (rawSpec, fileSpec, treeName = "") => {\n    const refKey = rawSpec instanceof PDFLib.PDFRef ? rawSpec.toString() : "";\n    if (refKey ? seenRefs.has(refKey) : seenDicts.has(fileSpec)) return;\n    if (refKey) seenRefs.add(refKey); else seenDicts.add(fileSpec);\n    const attachment = attachmentFromFileSpec(fileSpec, treeName, PDFLib);''',
@@ -35,9 +31,6 @@ replace_once(
     "name-tree alias collection call",
 )
 
-# Restore every key in /EF explicitly, and preserve /F and /UF only when they
-# were intentionally distinct from the source name-tree key. This keeps custom
-# platform/unicode filenames while still allowing collision renames.
 replace_once(
     "docbench/public/pdf-core.mjs",
     '''      if (name === "/F" || name === "/UF" || name === "/Type") continue;\n      target.set(key, source.copier.copy(record.fileSpec.get(key)));''',
@@ -45,13 +38,26 @@ replace_once(
     "source FileSpec restoration",
 )
 
-# The generated embed dictionary may expose only /F. Build a valid multi-EF
-# fixture by reusing whichever original embedded-file stream exists.
 replace_once(
     "docbench/tests/pdf-attachment-review.test.mjs",
     '''const originalUf = richEf.get(PDFLib.PDFName.of("UF"));''',
     '''const originalUf = richEf.get(PDFLib.PDFName.of("UF")) || richEf.get(PDFLib.PDFName.of("F"));''',
     "multi-EF fixture fallback",
+)
+replace_once(
+    "docbench/tests/pdf-attachment-review.test.mjs",
+    '''const richSourceBytes = await richDocument.save({ updateFieldAppearances: false });\nconst richAttachments = await readPdfAttachments(richSourceBytes, PDFLib);''',
+    '''const richSourceBytes = await richDocument.save({ updateFieldAppearances: false });\nconst richSourceCheck = await PDFLib.PDFDocument.load(richSourceBytes, { updateMetadata: false });\nconst richSourceSpec = richSourceCheck.getRawAttachments().find(({ fileName }) => fileName.decodeText() === "rich.bin").fileSpec;\nconst richSourceEf = richSourceSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("F")), true, "fixture should contain /EF/F");\nassert.equal(richSourceEf.has(PDFLib.PDFName.of("UF")), true, "fixture should contain /EF/UF");\nconst richAttachments = await readPdfAttachments(richSourceBytes, PDFLib);''',
+    "rich source fixture validation",
+)
+
+# Check a source-only custom dictionary before the alternate-EF assertions so a
+# failure tells us whether FileSpec restoration ran at all.
+replace_once(
+    "docbench/tests/pdf-attachment-review.test.mjs",
+    '''const outputEf = richOutputSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(outputEf.has(PDFLib.PDFName.of("F")), true);''',
+    '''const outputCiEarly = richOutputSpec.lookup(PDFLib.PDFName.of("CI"), PDFLib.PDFDict);\nassert.equal(outputCiEarly.lookup(PDFLib.PDFName.of("Department")).decodeText(), "Legal");\nconst outputEf = richOutputSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(outputEf.has(PDFLib.PDFName.of("F")), true);''',
+    "rich restoration sentinel",
 )
 
 # Add focused regressions for aliases and independent FileSpec filenames.

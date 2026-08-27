@@ -12,27 +12,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  dispatch:
+  cascade:
+    name: ${{ matrix.repo }}
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - trvny/feedseek
+          - trvny/kanarek
+          - trvny/tvpi
+          - trvny/wambridge
+          - trvny/trvny
+          - trvny/Autka
+          - trvny/.ai
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 100
     steps:
       - name: Run documentation cascade
         env:
           GH_TOKEN: ${{ github.token }}
           REF: ${{ github.ref_name }}
+          TARGET_REPO: ${{ matrix.repo }}
         shell: bash
         run: |
           set -euo pipefail
 
-          repos=(
-            trvny/feedseek
-            trvny/kanarek
-            trvny/tvpi
-            trvny/wambridge
-            trvny/trvny
-            trvny/Autka
-            trvny/.ai
-          )
+          repo="$TARGET_REPO"
 
           find_run() {
             local workflow=$1
@@ -89,31 +94,22 @@ jobs:
             return "$result"
           }
 
-          failed=()
-          index=0
-          for repo in "${repos[@]}"; do
-            request_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${index}"
-            echo "### $repo"
+          repo_key=${repo//\//-}
+          request_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${repo_key}"
+          echo "### $repo"
 
-            if run_worker docs-worker.lock.yml "$repo" "${request_id}-orca"; then
-              echo "$repo: OrcaRouter / DeepSeek V4 Flash Free"
-            elif run_worker docs-openrouter-worker.lock.yml "$repo" "${request_id}-ultra" \
-              -f 'model=nvidia/nemotron-3-ultra-550b-a55b:free'; then
-              echo "$repo: OpenRouter / Nemotron 3 Ultra Free"
-            elif run_worker docs-openrouter-worker.lock.yml "$repo" "${request_id}-lightning" \
-              -f 'model=nvidia/nemotron-3.5-lightning:free'; then
-              echo "$repo: OpenRouter / Nemotron 3.5 Lightning Free"
-            elif run_worker docs-openrouter-worker.lock.yml "$repo" "${request_id}-free" \
-              -f 'model=openrouter/free'; then
-              echo "$repo: OpenRouter / Free Models Router"
-            else
-              failed+=("$repo")
-            fi
-
-            index=$((index + 1))
-          done
-
-          if [ "${#failed[@]}" -gt 0 ]; then
-            printf 'All providers failed for: %s\n' "${failed[*]}" >&2
+          if run_worker docs-worker.lock.yml "$repo" "${request_id}-orca"; then
+            echo "$repo: OrcaRouter / DeepSeek V4 Flash Free"
+          elif run_worker docs-openrouter-worker.lock.yml "$repo" "${request_id}-ultra" \
+            -f 'model=nvidia/nemotron-3-ultra-550b-a55b:free'; then
+            echo "$repo: OpenRouter / Nemotron 3 Ultra Free"
+          elif run_worker docs-openrouter-worker.lock.yml "$repo" "${request_id}-lightning" \
+            -f 'model=nvidia/nemotron-3.5-lightning:free'; then
+            echo "$repo: OpenRouter / Nemotron 3.5 Lightning Free"
+          elif run_worker docs-openrouter-worker.lock.yml "$repo" "${request_id}-free" \
+            -f 'model=openrouter/free'; then
+            echo "$repo: OpenRouter / Free Models Router"
+          else
+            echo "All providers failed for: $repo" >&2
             exit 1
           fi

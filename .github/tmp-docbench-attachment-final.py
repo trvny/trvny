@@ -35,12 +35,13 @@ replace_once(
     "name-tree alias collection call",
 )
 
-# Keep the FileSpec's platform/unicode filenames independent of the name-tree
-# key. New attachments still receive pdf-lib's generated /F and /UF values.
+# Preserve /F and /UF only when they were explicitly different from the
+# name-tree key in the source. If they matched the old key, a collision rename
+# must be allowed to rename them too.
 replace_once(
     "docbench/public/pdf-core.mjs",
-    '''      if (name === "/F" || name === "/UF" || name === "/Type") continue;''',
-    '''      if (name === "/Type") continue;''',
+    '''      if (name === "/F" || name === "/UF" || name === "/Type") continue;\n      target.set(key, source.copier.copy(record.fileSpec.get(key)));''',
+    '''      if (name === "/Type") continue;\n      if (name === "/F" || name === "/UF") {\n        let sourceName = "";\n        try { sourceName = pdfText(record.fileSpec.lookup(key), PDFLib); } catch {}\n        if (sourceName === record.attachment.name) continue;\n      }\n      target.set(key, source.copier.copy(record.fileSpec.get(key)));''',
     "source FileSpec filename restoration",
 )
 

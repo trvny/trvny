@@ -67,9 +67,9 @@ replace_once(
 )
 replace_once(
     "docbench/tests/pdf-attachment-review.test.mjs",
-    '''const outputEf = richOutputSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(outputEf.has(PDFLib.PDFName.of("F")), true);''',
-    '''const outputCiEarly = richOutputSpec.lookup(PDFLib.PDFName.of("CI"), PDFLib.PDFDict);\nassert.equal(outputCiEarly.lookup(PDFLib.PDFName.of("Department")).decodeText(), "Legal");\nconst outputEf = richOutputSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);\nassert.equal(outputEf.has(PDFLib.PDFName.of("F")), true);''',
-    "rich restoration sentinel",
+    '''const richOutputRaw = richOutput.getRawAttachments();\nconst richOutputSpec = richOutputRaw.find(({ fileName }) => fileName.decodeText() === "rich.bin").fileSpec;''',
+    '''const richOutputSpec = firstAttachmentFileSpec(richOutput);''',
+    "rich output FileSpec inspection",
 )
 
 # Add focused regressions for aliases and independent FileSpec filenames.

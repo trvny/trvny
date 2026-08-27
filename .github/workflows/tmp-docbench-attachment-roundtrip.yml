@@ -51,6 +51,7 @@ jobs:
               text = text.replace(needle, f'console.log("TRACE {label}");\n{needle}', 1)
           Path('docbench/tests/pdf-attachment-debug.test.mjs').write_text(text, encoding='utf-8')
           PY
+          nl -ba docbench/tests/pdf-attachment-debug.test.mjs | sed -n '276,294p'
       - name: Install
         working-directory: docbench
         run: npm ci --no-audit --no-fund

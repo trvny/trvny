@@ -31,9 +31,10 @@ jobs:
           python .github/tmp-docbench-attachment-roundtrip.py
           python .github/tmp-docbench-attachment-roundtrip-fix.py
           python .github/tmp-docbench-attachment-final.py
-          grep -n -A80 -B5 "export function mergePdfAttachmentSets" docbench/public/pdf-core.mjs || true
-          grep -n -A50 -B5 "reserveAttachmentExportFileName" docbench/public/pdf-core.mjs docbench/public/pdf-app.mjs || true
-          grep -n -A50 -B5 "assertSharedFileSpecAliasesCanBeMutated" docbench/public/pdf-core.mjs docbench/public/pdf-app.mjs || true
+          echo '--- generated failing-test area ---'
+          nl -ba docbench/tests/pdf-attachment-review.test.mjs | sed -n '215,245p'
+          echo '--- generated merge helper area ---'
+          nl -ba docbench/public/pdf-core.mjs | sed -n '1240,1288p'
       - name: Install
         working-directory: docbench
         run: npm ci --no-audit --no-fund

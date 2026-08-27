@@ -1,0 +1,98 @@
+from pathlib import Path
+
+root = Path.cwd()
+
+
+def replace_once(path, old, new, label):
+    target = root / path
+    text = target.read_text(encoding="utf-8")
+    if old not in text:
+        raise SystemExit(f"missing {label} in {path}")
+    target.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+
+
+# The browser add-files path uses this helper directly.
+replace_once(
+    "docbench/public/pdf-app.mjs",
+    '''  formatPdfSize,\n  mergePdfAttachmentSourceSets,''',
+    '''  formatPdfSize,\n  mergePdfAttachmentSets,\n  mergePdfAttachmentSourceSets,''',
+    "attachment merge helper import",
+)
+
+# A name tree may legally expose multiple keys for one FileSpec. Preserve those
+# aliases while still deduplicating the same FileSpec when discovered again via
+# /AF or /FS association roots.
+replace_once(
+    "docbench/public/pdf-core.mjs",
+    '''  const addSpec = (rawSpec, fileSpec, treeName = "") => {\n    const refKey = rawSpec instanceof PDFLib.PDFRef ? rawSpec.toString() : "";\n    if (refKey ? seenRefs.has(refKey) : seenDicts.has(fileSpec)) return;\n    if (refKey) seenRefs.add(refKey); else seenDicts.add(fileSpec);\n    const attachment = attachmentFromFileSpec(fileSpec, treeName, PDFLib);''',
+    '''  const addSpec = (rawSpec, fileSpec, treeName = "", { allowAlias = false } = {}) => {\n    const refKey = rawSpec instanceof PDFLib.PDFRef ? rawSpec.toString() : "";\n    const alreadySeen = refKey ? seenRefs.has(refKey) : seenDicts.has(fileSpec);\n    if (alreadySeen && !allowAlias) return;\n    if (!alreadySeen) {\n      if (refKey) seenRefs.add(refKey); else seenDicts.add(fileSpec);\n    }\n    const attachment = attachmentFromFileSpec(fileSpec, treeName, PDFLib);''',
+    "name-tree alias-aware FileSpec collection",
+)
+replace_once(
+    "docbench/public/pdf-core.mjs",
+    '''          addSpec(rawSpec, fileSpec, name);''',
+    '''          addSpec(rawSpec, fileSpec, name, { allowAlias: true });''',
+    "name-tree alias collection call",
+)
+
+# Keep the FileSpec's platform/unicode filenames independent of the name-tree
+# key. New attachments still receive pdf-lib's generated /F and /UF values.
+replace_once(
+    "docbench/public/pdf-core.mjs",
+    '''      if (name === "/F" || name === "/UF" || name === "/Type") continue;''',
+    '''      if (name === "/Type") continue;''',
+    "source FileSpec filename restoration",
+)
+
+# Add focused regressions for aliases and independent FileSpec filenames.
+test_path = root / "docbench/tests/pdf-attachment-review.test.mjs"
+tests = test_path.read_text(encoding="utf-8")
+marker = 'console.log("Doc Bench PDF attachment review tests passed.");'
+if marker not in tests:
+    raise SystemExit("attachment review test footer missing")
+extra = r'''
+const aliasBase = await replacePdfAttachments(await onePagePdf(), [{
+  name: "canonical.bin",
+  data: new Uint8Array([71, 72]),
+  mimeType: "application/octet-stream",
+}], PDFLib);
+const aliasDocument = await PDFLib.PDFDocument.load(aliasBase, { updateMetadata: false });
+const aliasRaw = aliasDocument.getRawAttachments()[0];
+const aliasNames = aliasDocument.catalog
+  .lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict)
+  .lookup(PDFLib.PDFName.of("EmbeddedFiles"), PDFLib.PDFDict)
+  .lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFArray);
+aliasNames.set(0, PDFLib.PDFHexString.fromText("alias-one.bin"));
+aliasNames.push(PDFLib.PDFHexString.fromText("alias-two.bin"));
+aliasNames.push(aliasRaw.specRef);
+const aliasBytes = await aliasDocument.save({ updateFieldAppearances: false });
+const aliasAttachments = await readPdfAttachments(aliasBytes, PDFLib);
+assert.deepEqual(aliasAttachments.map((attachment) => attachment.name), ["alias-one.bin", "alias-two.bin"]);
+const aliasRoundTrip = await replacePdfAttachments(aliasBytes, aliasAttachments, PDFLib);
+assert.deepEqual(
+  (await readPdfAttachments(aliasRoundTrip, PDFLib)).map((attachment) => attachment.name),
+  ["alias-one.bin", "alias-two.bin"],
+);
+
+const filenamesBase = await replacePdfAttachments(await onePagePdf(), [{
+  name: "tree-name.bin",
+  data: new Uint8Array([81, 82]),
+  mimeType: "application/octet-stream",
+}], PDFLib);
+const filenamesDocument = await PDFLib.PDFDocument.load(filenamesBase, { updateMetadata: false });
+const filenamesSpec = firstAttachmentFileSpec(filenamesDocument);
+filenamesSpec.set(PDFLib.PDFName.of("F"), PDFLib.PDFString.of("platform-name.bin"));
+filenamesSpec.set(PDFLib.PDFName.of("UF"), PDFLib.PDFHexString.fromText("unicode-name.bin"));
+const filenamesBytes = await filenamesDocument.save({ updateFieldAppearances: false });
+const filenamesAttachments = await readPdfAttachments(filenamesBytes, PDFLib);
+assert.equal(filenamesAttachments[0].name, "tree-name.bin");
+const filenamesRoundTrip = await replacePdfAttachments(filenamesBytes, filenamesAttachments, PDFLib);
+const filenamesOutput = await PDFLib.PDFDocument.load(filenamesRoundTrip, { updateMetadata: false });
+const filenamesOutputSpec = firstAttachmentFileSpec(filenamesOutput);
+assert.equal(filenamesOutputSpec.lookup(PDFLib.PDFName.of("F")).decodeText(), "platform-name.bin");
+assert.equal(filenamesOutputSpec.lookup(PDFLib.PDFName.of("UF")).decodeText(), "unicode-name.bin");
+
+'''
+test_path.write_text(tests.replace(marker, extra + marker, 1), encoding="utf-8", newline="\n")
+
+print("final attachment preservation fixes applied")

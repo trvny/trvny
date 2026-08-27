@@ -14,13 +14,21 @@ on:
           - trvny/trvny
           - trvny/Autka
           - trvny/.ai
+      model:
+        description: OpenRouter fallback model
+        required: true
+        type: choice
+        options:
+          - nvidia/nemotron-3-ultra-550b-a55b:free
+          - nvidia/nemotron-3.5-lightning:free
+          - openrouter/free
       request_id:
         description: Correlation id for orchestrated runs
         required: false
         type: string
         default: manual
 
-run-name: Documentation worker Â· ${{ inputs.target_repo }} Â· Orca Â· ${{ inputs.request_id }}
+run-name: Documentation worker Â· ${{ inputs.target_repo }} Â· OpenRouter Â· ${{ inputs.model }} Â· ${{ inputs.request_id }}
 
 concurrency:
   group: gh-aw-docs-${{ inputs.target_repo }}
@@ -29,18 +37,26 @@ engine:
   id: copilot
   bare: true
   env:
-    COPILOT_PROVIDER_BASE_URL: "https://api.orcarouter.ai/v1"
-    COPILOT_PROVIDER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
-    COPILOT_MODEL: deepseek/deepseek-v4-flash-free
+    COPILOT_PROVIDER_BASE_URL: "https://openrouter.ai/api/v1"
+    COPILOT_PROVIDER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    COPILOT_MODEL: ${{ inputs.model }}
     COPILOT_PROVIDER_TYPE: openai
     COPILOT_PROVIDER_WIRE_API: completions
-model: deepseek/deepseek-v4-flash-free
+model: ${{ inputs.model }}
 
 models:
   providers:
     github-copilot:
       models:
-        "deepseek/deepseek-v4-flash-free":
+        "nvidia/nemotron-3-ultra-550b-a55b:free":
+          cost:
+            input: "0e0"
+            output: "0e0"
+        "nvidia/nemotron-3.5-lightning:free":
+          cost:
+            input: "0e0"
+            output: "0e0"
+        "openrouter/free":
           cost:
             input: "0e0"
             output: "0e0"
@@ -50,7 +66,7 @@ max-turns: 8
 network:
   allowed:
     - defaults
-    - api.orcarouter.ai
+    - openrouter.ai
 
 permissions:
   contents: read

@@ -27,6 +27,11 @@ ACTION_ZIZMOR_ARGUMENTS:
   - "--offline"
   - "--min-severity=medium"
 
+# actionlint 1.7.12 does not yet recognize GitHub's documented
+# concurrency.queue key emitted by gh-aw. Ignore only that parser false positive.
+ACTION_ACTIONLINT_ARGUMENTS: >-
+  -ignore 'unexpected key "queue" for "concurrency" section'
+
 # YAML_YAMLLINT: first full-codebase run surfaced pre-existing style nits
 # (missing "---", truthy value style) in the workflow/dependabot files.
 # Non-blocking so the report stays useful without turning every push red.

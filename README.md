@@ -20,6 +20,14 @@
 
 ---
 
+## 🔀 Open pull requests
+
+<!--OPEN_PRS:START-->
+| Repository | PR | Title | Author | State | Updated |
+| --- | ---: | --- | --- | --- | --- |
+| trvny/trvny | [#330](https://github.com/trvny/trvny/pull/330) | Use OrcaRouter through Copilot BYOK | @trvny | ready | 2026-08-27 |
+<!--OPEN_PRS:END-->
+
 ## 🧭 Project map
 
 ### Main repositories
@@ -56,14 +64,6 @@
 | repo | role |
 |---|---|
 | [WiFi-Automatic](https://github.com/trvny/WiFi-Automatic) | fork of an Android app that automates Wi-Fi radio state |
-
-## 🔀 Open pull requests
-
-<!--OPEN_PRS:START-->
-| Repository | PR | Title | Author | State | Updated |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#330](https://github.com/trvny/trvny/pull/330) | Use OrcaRouter through Copilot BYOK | @trvny | ready | 2026-08-27 |
-<!--OPEN_PRS:END-->
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
 

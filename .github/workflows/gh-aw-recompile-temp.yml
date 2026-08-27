@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          persist-credentials: false
+          token: ${{ secrets.GH_PAT }}
 
       - name: Install gh-aw
         uses: github/gh-aw/actions/setup-cli@v0.87.0
@@ -30,14 +30,15 @@ jobs:
           version: v0.87.0
 
       - name: Compile documentation workflows
-        run: gh aw compile docs-orchestrator docs-worker --strict --no-check-update
+        run: gh aw compile docs-orchestrator docs-worker --strict --no-check-update --approve
 
-      - name: Upload generated locks
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: gh-aw-locks
-          path: |
-            .github/workflows/docs-orchestrator.lock.yml
-            .github/workflows/docs-worker.lock.yml
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit generated locks
+        run: |
+          if git diff --quiet -- .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml; then
+            exit 0
+          fi
+          git config user.name "trvny"
+          git config user.email "120686325+trvny@users.noreply.github.com"
+          git add .github/workflows/docs-orchestrator.lock.yml .github/workflows/docs-worker.lock.yml
+          git commit -m "ci: recompile documentation workflows"
+          git push

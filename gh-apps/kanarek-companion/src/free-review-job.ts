@@ -1,12 +1,14 @@
 import {
   runFreeReviewWebhook,
   type FreeReviewEnv,
+  type FreeReviewProvider,
   type FreeReviewResult,
 } from './free-review.ts';
 
 const JOB_KEY = 'free-review-job';
 const STATUS_KEY = 'free-review-status';
 const SHA_RE = /^[0-9a-f]{40}$/i;
+const FALLBACK_ALARM_DELAY_MS = 1_000;
 
 interface FreeReviewJobEnv extends FreeReviewEnv {
   FREE_REVIEW_QUEUE?: DurableObjectNamespace;
@@ -15,6 +17,16 @@ interface FreeReviewJobEnv extends FreeReviewEnv {
 interface StoredJob {
   body: string;
   headSha: string;
+  provider?: FreeReviewProvider;
+}
+
+export function nextFreeReviewProvider(
+  provider: FreeReviewProvider,
+  result: FreeReviewResult | null,
+): FreeReviewProvider | null {
+  return provider === 'orcarouter' && result?.skipped === 'provider_failed'
+    ? 'openrouter'
+    : null;
 }
 
 function objectValue(value: unknown): Record<string, unknown> {
@@ -125,10 +137,14 @@ export class FreeReviewJob {
       return Response.json({ error: 'invalid_target' }, { status: 400 });
     }
 
-    const job: StoredJob = { body, headSha: target.headSha };
+    const job: StoredJob = {
+      body,
+      headSha: target.headSha,
+      provider: 'orcarouter',
+    };
     await this.state.storage.put({
       [JOB_KEY]: job,
-      [STATUS_KEY]: 'queued',
+      [STATUS_KEY]: 'queued:orcarouter',
     });
     await this.state.storage.setAlarm(Date.now() + 1);
     return Response.json({ ok: true, queued: true });
@@ -141,7 +157,9 @@ export class FreeReviewJob {
       return;
     }
 
-    await this.state.storage.put(STATUS_KEY, 'running');
+    const provider: FreeReviewProvider =
+      job.provider === 'openrouter' ? 'openrouter' : 'orcarouter';
+    await this.state.storage.put(STATUS_KEY, `running:${provider}`);
     let result: FreeReviewResult | null = null;
     try {
       result = await runFreeReviewWebhook(
@@ -154,6 +172,8 @@ export class FreeReviewJob {
           body: job.body,
         }),
         this.env,
+        fetch,
+        provider,
       );
     } catch (error) {
       console.error(
@@ -164,6 +184,28 @@ export class FreeReviewJob {
         }),
       );
       throw error;
+    }
+
+    const fallbackProvider = nextFreeReviewProvider(provider, result);
+    if (fallbackProvider) {
+      const fallbackJob: StoredJob = {
+        ...job,
+        provider: fallbackProvider,
+      };
+      await this.state.storage.put({
+        [JOB_KEY]: fallbackJob,
+        [STATUS_KEY]: `queued:${fallbackProvider}`,
+      });
+      await this.state.storage.setAlarm(Date.now() + FALLBACK_ALARM_DELAY_MS);
+      console.log(
+        JSON.stringify({
+          freeReview: 'fallback_scheduled',
+          headSha: job.headSha,
+          fromProvider: provider,
+          toProvider: fallbackProvider,
+        }),
+      );
+      return;
     }
 
     console.log(

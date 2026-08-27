@@ -17,7 +17,7 @@ const DEFAULT_ORCAROUTER_MODEL = 'orcarouter/auto';
 const DEFAULT_MAX_DIFF_CHARS = 50_000;
 const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
 const DEFAULT_MAX_OUTPUT_TOKENS = 4_096;
-const DEFAULT_TIMEOUT_MS = 180_000;
+const DEFAULT_TIMEOUT_MS = 780_000;
 const MAX_FILES = 50;
 const MAX_PATCH_CHARS = 12_000;
 const MAX_CONTEXT_FILES = 24;
@@ -186,6 +186,8 @@ interface ParsedReview {
   findings: RawFinding[];
   summary: string;
 }
+
+export type FreeReviewProvider = 'orcarouter' | 'openrouter';
 
 export interface ProviderReview {
   parsed: ParsedReview;
@@ -693,11 +695,23 @@ async function postCompletion(
   }
 }
 
-export async function askFreeRouters(
+function freeReviewProviderConfigured(
+  env: FreeReviewEnv,
+  provider: FreeReviewProvider,
+): boolean {
+  return provider === 'orcarouter'
+    ? Boolean(env.ORCAROUTER_API_KEY) && !disabled(env.KANAREK_ORCAROUTER_ENABLED)
+    : Boolean(env.OPENROUTER_API_KEY) && !disabled(env.KANAREK_OPENROUTER_ENABLED);
+}
+
+export async function askFreeRouter(
   prompt: string,
   env: FreeReviewEnv,
   fetcher: typeof fetch,
+  router: FreeReviewProvider,
 ): Promise<ProviderReview | null> {
+  if (!freeReviewProviderConfigured(env, router)) return null;
+
   const maxTokens = configuredInteger(
     env.KANAREK_FREE_REVIEW_MAX_OUTPUT_TOKENS,
     DEFAULT_MAX_OUTPUT_TOKENS,
@@ -708,7 +722,7 @@ export async function askFreeRouters(
     env.KANAREK_FREE_REVIEW_TIMEOUT_MS,
     DEFAULT_TIMEOUT_MS,
     2_000,
-    300_000,
+    840_000,
   );
   const messages = [
     { role: 'system', content: REVIEW_SYSTEM_PROMPT },
@@ -724,7 +738,7 @@ export async function askFreeRouters(
       const parsed = parseReviewJson(output);
       if (!parsed || !reviewTextIsChinese(parsed)) {
         console.warn(
-          `Kanarek free review ${provider} returned unusable output; trying fallback.`,
+          `Kanarek free review ${provider} returned unusable output.`,
         );
         return null;
       }
@@ -739,12 +753,11 @@ export async function askFreeRouters(
     }
   };
 
-  if (env.ORCAROUTER_API_KEY && !disabled(env.KANAREK_ORCAROUTER_ENABLED)) {
+  if (router === 'orcarouter') {
     const model =
       env.KANAREK_ORCAROUTER_MODEL?.trim() || DEFAULT_ORCAROUTER_MODEL;
     const provider = `OrcaRouter ${model}`;
-
-    const result = await tryProvider(provider, () =>
+    return tryProvider(provider, () =>
       postCompletion(
         'https://api.orcarouter.ai/v1/chat/completions',
         'OrcaRouter',
@@ -754,33 +767,39 @@ export async function askFreeRouters(
         fetcher,
       ),
     );
-    if (result) return result;
   }
 
-  if (env.OPENROUTER_API_KEY && !disabled(env.KANAREK_OPENROUTER_ENABLED)) {
-    const models = configuredList(
-      env.KANAREK_OPENROUTER_MODELS,
-      DEFAULT_OPENROUTER_MODELS,
-    );
-    const requestBody: Record<string, unknown> = {
-      model: models[0],
-      messages,
-      max_tokens: maxTokens,
-    };
-    if (models.length > 1) requestBody.models = models.slice(1);
-    const result = await tryProvider('OpenRouter free-pack', () =>
-      postCompletion(
-        'https://openrouter.ai/api/v1/chat/completions',
-        'OpenRouter',
-        env.OPENROUTER_API_KEY ?? '',
-        requestBody,
-        timeoutMs,
-        fetcher,
-      ),
-    );
+  const models = configuredList(
+    env.KANAREK_OPENROUTER_MODELS,
+    DEFAULT_OPENROUTER_MODELS,
+  );
+  const requestBody: Record<string, unknown> = {
+    model: models[0],
+    messages,
+    max_tokens: maxTokens,
+  };
+  if (models.length > 1) requestBody.models = models.slice(1);
+  return tryProvider('OpenRouter free-pack', () =>
+    postCompletion(
+      'https://openrouter.ai/api/v1/chat/completions',
+      'OpenRouter',
+      env.OPENROUTER_API_KEY ?? '',
+      requestBody,
+      timeoutMs,
+      fetcher,
+    ),
+  );
+}
+
+export async function askFreeRouters(
+  prompt: string,
+  env: FreeReviewEnv,
+  fetcher: typeof fetch,
+): Promise<ProviderReview | null> {
+  for (const router of ['orcarouter', 'openrouter'] as const) {
+    const result = await askFreeRouter(prompt, env, fetcher, router);
     if (result) return result;
   }
-
   return null;
 }
 
@@ -929,6 +948,7 @@ export async function runFreeReviewWebhook(
   request: Request,
   env: FreeReviewEnv,
   fetcher: typeof fetch = fetch,
+  provider?: FreeReviewProvider,
 ): Promise<FreeReviewResult | null> {
   if (disabled(env.KANAREK_FREE_REVIEW_ENABLED)) {
     return {
@@ -1005,9 +1025,18 @@ export async function runFreeReviewWebhook(
       skipped: 'duplicate_head',
     };
   }
+  if (provider && !freeReviewProviderConfigured(env, provider)) {
+    return {
+      reviewed: false,
+      provider: null,
+      findingCount: 0,
+      skipped: 'provider_failed',
+    };
+  }
   if (
-    (!env.OPENROUTER_API_KEY || disabled(env.KANAREK_OPENROUTER_ENABLED)) &&
-    (!env.ORCAROUTER_API_KEY || disabled(env.KANAREK_ORCAROUTER_ENABLED))
+    !provider &&
+    !freeReviewProviderConfigured(env, 'openrouter') &&
+    !freeReviewProviderConfigured(env, 'orcarouter')
   ) {
     return {
       reviewed: false,
@@ -1023,6 +1052,31 @@ export async function runFreeReviewWebhook(
     installationId,
     fetcher,
   );
+  const currentBeforeReview = await sourceClient.json<{
+    draft?: boolean;
+    head?: { sha?: string };
+    state?: string;
+  }>(
+    `/repos/${repoPath(repository)}/pulls/${number}`,
+    'free_review_preflight_pull_request',
+  );
+  if (currentBeforeReview.head?.sha !== headSha) {
+    return {
+      reviewed: false,
+      provider: null,
+      findingCount: 0,
+      skipped: 'stale_head',
+    };
+  }
+  if (currentBeforeReview.draft === true || currentBeforeReview.state !== 'open') {
+    return {
+      reviewed: false,
+      provider: null,
+      findingCount: 0,
+      skipped: 'pull_request_not_reviewable',
+    };
+  }
+
   const maxDiffChars = configuredInteger(
     env.KANAREK_FREE_REVIEW_MAX_DIFF_CHARS,
     DEFAULT_MAX_DIFF_CHARS,
@@ -1089,23 +1143,22 @@ export async function runFreeReviewWebhook(
     }),
   );
 
-  const generated = await askFreeRouters(
-    reviewPrompt(
-      number,
-      pullRequest.title,
-      pullRequest.body,
-      selectedFiles,
-      repositoryContext,
-    ),
-    env,
-    fetcher,
+  const prompt = reviewPrompt(
+    number,
+    pullRequest.title,
+    pullRequest.body,
+    selectedFiles,
+    repositoryContext,
   );
+  const generated = provider
+    ? await askFreeRouter(prompt, env, fetcher, provider)
+    : await askFreeRouters(prompt, env, fetcher);
   if (!generated) {
     return {
       reviewed: false,
       provider: null,
       findingCount: 0,
-      skipped: 'providers_failed',
+      skipped: provider ? 'provider_failed' : 'providers_failed',
     };
   }
   const parsed = generated.parsed;

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  askFreeRouter,
   askFreeRouters,
   contextPathPriority,
   parseReviewJson,
@@ -149,6 +150,27 @@ test('prefers OrcaRouter and asks for Simplified Chinese review text', async () 
   assert.equal(result?.provider, 'OrcaRouter orcarouter/auto');
   assert.match(systemPrompt, /Simplified Chinese/);
   assert.match(systemPrompt, /Repository context/);
+});
+
+test('can run one free router without invoking the other provider', async () => {
+  const urls: string[] = [];
+  const fetcher = (async (input: RequestInfo | URL) => {
+    urls.push(String(input));
+    return completion('{"summary":"单独运行成功","findings":[]}');
+  }) as typeof fetch;
+
+  const result = await askFreeRouter(
+    '{}',
+    {
+      ORCAROUTER_API_KEY: 'orca',
+      OPENROUTER_API_KEY: 'openrouter',
+    } as unknown as import('../src/free-review.ts').FreeReviewEnv,
+    fetcher,
+    'openrouter',
+  );
+
+  assert.deepEqual(urls, ['https://openrouter.ai/api/v1/chat/completions']);
+  assert.equal(result?.provider, 'OpenRouter free-pack');
 });
 
 test('falls back to OpenRouter when OrcaRouter output is unusable', async () => {

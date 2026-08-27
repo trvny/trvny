@@ -31,6 +31,15 @@ replace_once(
     "name-tree alias collection call",
 )
 
+# getRawAttachments() is suitable for reading attachment payloads, but its
+# fileSpec objects are not the live name-tree dictionaries we must mutate.
+replace_once(
+    "docbench/public/pdf-core.mjs",
+    '''  const targets = new Map(\n    (pdfDocument.getRawAttachments?.() || []).map(({ fileName, fileSpec }) => [pdfText(fileName, PDFLib), fileSpec]),\n  );''',
+    '''  const targetRecords = [];\n  collectPdfAttachmentSpecs(pdfDocument, PDFLib, targetRecords);\n  const targets = new Map(\n    targetRecords.map(({ attachment, fileSpec }) => [attachment.name, fileSpec]),\n  );''',
+    "live FileSpec targets",
+)
+
 replace_once(
     "docbench/public/pdf-core.mjs",
     '''      if (name === "/F" || name === "/UF" || name === "/Type") continue;\n      target.set(key, source.copier.copy(record.fileSpec.get(key)));''',

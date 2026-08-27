@@ -300,7 +300,10 @@ function contextEligiblePath(path: string): boolean {
   ) {
     return false;
   }
-  return CONTEXT_CONFIG_NAMES.has(basename(path)) || CONTEXT_TEXT_EXTENSIONS.has(extension(path));
+  return (
+    CONTEXT_CONFIG_NAMES.has(basename(path)) ||
+    CONTEXT_TEXT_EXTENSIONS.has(extension(path))
+  );
 }
 
 export function contextPathPriority(
@@ -320,7 +323,9 @@ export function contextPathPriority(
     if (pathDirectory === changedDirectory) sameDirectory = true;
     if (
       CONTEXT_CONFIG_NAMES.has(name) &&
-      (changed === path || changed.startsWith(`${pathDirectory}/`) || pathDirectory === '')
+      (changed === path ||
+        changed.startsWith(`${pathDirectory}/`) ||
+        pathDirectory === '')
     ) {
       ancestorConfig = true;
     }
@@ -374,15 +379,20 @@ function reviewFiles(files: PullRequestFile[], maxDiffChars: number): ReviewFile
       path,
       patch: clipped,
       rightLines: patchRightLines(clipped),
-      sha: typeof file.sha === 'string' && /^[0-9a-f]{40}$/i.test(file.sha) ? file.sha : null,
+      sha:
+        typeof file.sha === 'string' && /^[0-9a-f]{40}$/i.test(file.sha)
+          ? file.sha
+          : null,
     });
     remaining -= clipped.length;
   }
   return output;
 }
 
-function diffText(files: ReviewFile[]): string {
-  return files.map((file) => `### ${file.path}\n${file.patch}`).join('\n\n');
+function diffText(files: Array<Pick<ReviewFile, 'path' | 'patch'>>): string {
+  return files
+    .map((file) => `### ${file.path}\n${file.patch}`)
+    .join('\n\n');
 }
 
 async function fetchReviewFiles(
@@ -402,7 +412,10 @@ async function fetchReviewFiles(
     }
     files.push(...batch);
     const selected = reviewFiles(files, maxDiffChars);
-    const used = selected.reduce((total, file) => total + file.patch.length, 0);
+    const used = selected.reduce(
+      (total, file) => total + file.patch.length,
+      0,
+    );
     if (
       selected.length >= MAX_FILES ||
       used >= maxDiffChars ||
@@ -421,7 +434,10 @@ function decodeBase64Text(value: string): string | null {
     for (let index = 0; index < binary.length; index += 1) {
       bytes[index] = binary.charCodeAt(index);
     }
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return new TextDecoder('utf-8', {
+      fatal: true,
+      ignoreBOM: false,
+    }).decode(bytes);
   } catch {
     return null;
   }
@@ -436,7 +452,9 @@ async function fetchBlobText(
     `/repos/${repoPath(repository)}/git/blobs/${encodeURIComponent(sha)}`,
     'free_review_get_context_blob',
   );
-  if (blob.encoding !== 'base64' || typeof blob.content !== 'string') return null;
+  if (blob.encoding !== 'base64' || typeof blob.content !== 'string') {
+    return null;
+  }
   return decodeBase64Text(blob.content);
 }
 
@@ -469,7 +487,8 @@ function contextEntryCandidates(
         Boolean(entry.sha) &&
         !changed.has(path) &&
         contextEligiblePath(path) &&
-        (typeof entry.size !== 'number' || entry.size <= MAX_CONTEXT_BLOB_BYTES)
+        (typeof entry.size !== 'number' ||
+          entry.size <= MAX_CONTEXT_BLOB_BYTES)
       );
     })
     .sort((left, right) => {
@@ -811,13 +830,19 @@ function normalizedFindings(
         : 'medium';
     const title =
       typeof raw.title === 'string' ? raw.title.trim().slice(0, 120) : '';
-    const body =
+    const findingBody =
       typeof raw.body === 'string' ? raw.body.trim().slice(0, 1_200) : '';
-    if (!title || !body) continue;
+    if (!title || !findingBody) continue;
     const key = `${raw.path}:${raw.line}:${title.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    output.push({ severity, path: raw.path, line: raw.line, title, body });
+    output.push({
+      severity,
+      path: raw.path,
+      line: raw.line,
+      title,
+      body: findingBody,
+    });
     if (output.length >= MAX_FINDINGS) break;
   }
   return output;
@@ -879,13 +904,7 @@ export function reviewPrompt(
       title: typeof title === 'string' ? title.slice(0, 300) : '',
       body: typeof body === 'string' ? body.slice(0, 2_000) : '',
     },
-    diff: diffText(
-      files.map((file) => ({
-        ...file,
-        rightLines: new Set<number>(),
-        sha: null,
-      })),
-    ),
+    diff: diffText(files),
     repository_context: repositoryContext,
   });
 }

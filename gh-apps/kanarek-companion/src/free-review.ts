@@ -487,8 +487,8 @@ function contextEntryCandidates(
         Boolean(entry.sha) &&
         !changed.has(path) &&
         contextEligiblePath(path) &&
-        (typeof entry.size !== 'number' ||
-          entry.size <= MAX_CONTEXT_BLOB_BYTES)
+        typeof entry.size === 'number' &&
+        entry.size <= MAX_CONTEXT_BLOB_BYTES
       );
     })
     .sort((left, right) => {
@@ -547,6 +547,13 @@ async function fetchRepositoryContext(
   }
 
   const tree = boundedTreePaths(entries);
+  const entriesByPath = new Map(
+    entries
+      .filter((entry): entry is GitTreeEntry & { path: string } =>
+        Boolean(entry.path),
+      )
+      .map((entry) => [entry.path, entry] as const),
+  );
   let remaining = Math.max(
     0,
     maxContextChars - JSON.stringify({ tree, treeTruncated }).length,
@@ -554,13 +561,22 @@ async function fetchRepositoryContext(
 
   for (const file of files) {
     if (contextFiles.length >= MAX_CONTEXT_FILES || remaining <= 0) break;
-    if (!file.sha) continue;
+    const entry = entriesByPath.get(file.path);
+    if (
+      !file.sha ||
+      entry?.type !== 'blob' ||
+      entry.sha !== file.sha ||
+      typeof entry.size !== 'number' ||
+      entry.size > MAX_CONTEXT_BLOB_BYTES
+    ) {
+      continue;
+    }
     try {
       const selected = await contextFile(
         client,
         repository,
         file.path,
-        file.sha,
+        entry.sha,
         remaining,
       );
       if (!selected) continue;
@@ -746,18 +762,18 @@ export async function askFreeRouters(
       env.KANAREK_OPENROUTER_MODELS,
       DEFAULT_OPENROUTER_MODELS,
     );
-    const body: Record<string, unknown> = {
+    const requestBody: Record<string, unknown> = {
       model: models[0],
       messages,
       max_tokens: maxTokens,
     };
-    if (models.length > 1) body.models = models.slice(1);
+    if (models.length > 1) requestBody.models = models.slice(1);
     const result = await tryProvider('OpenRouter free-pack', () =>
       postCompletion(
         'https://openrouter.ai/api/v1/chat/completions',
         'OpenRouter',
         env.OPENROUTER_API_KEY ?? '',
-        body,
+        requestBody,
         timeoutMs,
         fetcher,
       ),
@@ -1168,57 +1184,4 @@ export async function runFreeReviewWebhook(
     provider: generated.provider,
     findingCount: findings.length,
   };
-}
-
-async function runLockedFreeReviewWebhook(
-  request: Request,
-  env: FreeReviewEnv,
-): Promise<void> {
-  if (request.headers.get('x-github-event') !== 'pull_request') return;
-  let payload: Record<string, unknown>;
-  try {
-    payload = objectValue(await request.clone().json());
-  } catch {
-    return;
-  }
-  const repositoryObject = objectValue(payload.repository);
-  const repository =
-    typeof repositoryObject.full_name === 'string'
-      ? repositoryObject.full_name
-      : '';
-  const number = typeof payload.number === 'number' ? payload.number : 0;
-  if (!repository || !number) return;
-
-  const id = env.COMPANION_LOCK.idFromName(`${repository}#${number}`);
-  const response = await env.COMPANION_LOCK.get(id).fetch(
-    'https://kanarek-companion.internal/free-review',
-    {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-github-event': 'pull_request',
-      },
-      body: await request.text(),
-    },
-  );
-  if (!response.ok) {
-    throw new Error(`free_review_lock_failed_${response.status}`);
-  }
-}
-
-export function scheduleFreeReviewWebhook(
-  request: Request,
-  env: FreeReviewEnv,
-  ctx?: ExecutionContext,
-): void {
-  const task = runLockedFreeReviewWebhook(request, env).catch((error) => {
-    console.error(
-      JSON.stringify({
-        freeReview: 'failed',
-        error: error instanceof Error ? error.message : 'unknown_error',
-      }),
-    );
-  });
-  if (ctx) ctx.waitUntil(task);
-  else void task;
 }

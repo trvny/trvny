@@ -14,7 +14,6 @@ import {
   handleGptomekIssueControl,
   isGptomekControlIssueEdit,
 } from './gptomek-issue.ts';
-import { runFreeReviewWebhook } from './free-review.ts';
 import { hasAiProvider } from './quip.ts';
 
 interface Env extends CompanionEnv {
@@ -624,39 +623,6 @@ export class CommentProbeLock {
   async fetch(request: Request): Promise<Response> {
     if (request.method !== 'POST') {
       return json({ error: 'method_not_allowed' }, 405);
-    }
-
-    if (new URL(request.url).pathname === '/free-review') {
-      return this.enqueue(async () => {
-        let headSha = '';
-        try {
-          const payload = (await request.clone().json()) as {
-            pull_request?: { head?: { sha?: unknown } };
-          };
-          const candidate = payload.pull_request?.head?.sha;
-          if (typeof candidate === 'string' && /^[0-9a-f]{40}$/i.test(candidate)) {
-            headSha = candidate.toLowerCase();
-          }
-        } catch {
-          // Let the review handler report malformed payloads.
-        }
-        const claimKey = headSha ? `free-review:${headSha}` : '';
-        if (claimKey && (await this.state.storage.get<string>(claimKey))) {
-          return json({ ok: true, result: { reviewed: false, skipped: 'duplicate_head_lock' } });
-        }
-        if (claimKey) await this.state.storage.put(claimKey, 'in_progress');
-        try {
-          const result = await runFreeReviewWebhook(request, this.env);
-          if (claimKey) {
-            if (result?.skipped === 'providers_failed') await this.state.storage.delete(claimKey);
-            else await this.state.storage.put(claimKey, 'done');
-          }
-          return json({ ok: true, result });
-        } catch (error) {
-          if (claimKey) await this.state.storage.delete(claimKey);
-          throw error;
-        }
-      });
     }
 
     let target: unknown;

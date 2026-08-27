@@ -18,10 +18,6 @@
       {
         "name": "OPERATOR_CHECKPOINTS",
         "class_name": "OperatorCheckpointStore"
-      },
-      {
-        "name": "FREE_REVIEW_QUEUE",
-        "class_name": "FreeReviewJob"
       }
     ]
   },
@@ -43,6 +39,10 @@
     {
       "tag": "v3",
       "new_sqlite_classes": ["FreeReviewJob"]
+    },
+    {
+      "tag": "v4",
+      "deleted_classes": ["FreeReviewJob"]
     }
   ],
   "observability": {
@@ -64,11 +64,6 @@
     "GPTOMEK_INSTALLATION_ID": "152126523",
     "KANAREK_AI_ENABLED": "true",
     "KANAREK_AI_PERCENT": "25",
-    "KANAREK_FREE_REVIEW_ENABLED": "true",
-    "KANAREK_FREE_REVIEW_MAX_CONTEXT_CHARS": "120000",
-    "KANAREK_FREE_REVIEW_MAX_DIFF_CHARS": "50000",
-    "KANAREK_FREE_REVIEW_MAX_OUTPUT_TOKENS": "4096",
-    "KANAREK_FREE_REVIEW_TIMEOUT_MS": "180000",
     "KANAREK_PROVIDER_ORDER": "gemini,openai,xai,openai-fallback,anthropic,orcarouter,openrouter",
     "KANAREK_PROVIDER_TIMEOUT_MS": "10000",
     "KANAREK_REQUIRE_CI": "true",

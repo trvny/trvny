@@ -31,13 +31,28 @@ jobs:
           python .github/tmp-docbench-attachment-roundtrip.py
           python .github/tmp-docbench-attachment-roundtrip-fix.py
           python .github/tmp-docbench-attachment-final.py
-          echo '--- generated failing-test area ---'
-          nl -ba docbench/tests/pdf-attachment-review.test.mjs | sed -n '215,245p'
-          echo '--- generated merge helper area ---'
-          nl -ba docbench/public/pdf-core.mjs | sed -n '1240,1288p'
+          python - <<'PY'
+          from pathlib import Path
+          src = Path('docbench/tests/pdf-attachment-review.test.mjs')
+          text = src.read_text(encoding='utf-8')
+          marks = [
+              ('const caseDistinctBase =', 'case-distinct'),
+              ('const pdfa2aDocument =', 'pdfa-level-a'),
+              ('const richBase =', 'rich-filespec'),
+              ('const aliasBase =', 'shared-alias'),
+              ('const filenamesBase =', 'independent-filenames'),
+              ('console.log("Doc Bench PDF attachment review tests passed.");', 'done'),
+          ]
+          for needle, label in marks:
+              text = text.replace(needle, f'console.log("TRACE {label}");\n{needle}', 1)
+          Path('docbench/tests/pdf-attachment-debug.test.mjs').write_text(text, encoding='utf-8')
+          PY
       - name: Install
         working-directory: docbench
         run: npm ci --no-audit --no-fund
+      - name: Trace attachment regressions
+        working-directory: docbench
+        run: node tests/pdf-attachment-debug.test.mjs
       - name: Check Docbench
         working-directory: docbench
         run: npm run check
@@ -45,6 +60,7 @@ jobs:
         shell: bash
         run: |
           rm -rf docbench/public/fonts
+          rm -f docbench/tests/pdf-attachment-debug.test.mjs
           rm -f \
             .github/tmp-docbench-attachment-filespec-testfix.py \
             .github/tmp-docbench-attachment-filespec.py \

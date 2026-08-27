@@ -23,6 +23,18 @@ function firstAttachmentFileSpec(document) {
   return entries.lookup(1, PDFLib.PDFDict);
 }
 
+function attachmentFileSpecByName(document, expectedName) {
+  const names = document.catalog.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict);
+  const embedded = names.lookup(PDFLib.PDFName.of("EmbeddedFiles"), PDFLib.PDFDict);
+  const entries = embedded.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFArray);
+  for (let index = 0; index + 1 < entries.size(); index += 2) {
+    if (entries.lookup(index).decodeText() === expectedName) {
+      return entries.lookup(index + 1, PDFLib.PDFDict);
+    }
+  }
+  throw new Error(`Missing attachment FileSpec for ${expectedName}`);
+}
+
 assert.equal(
   normalizePdfAttachment({ name: "form.xml", afRelationship: "FormData" }).afRelationship,
   "FormData",
@@ -228,6 +240,73 @@ const pageAssociationNames = remappedCollisionDocument.getPages().map((page) => 
 });
 assert.deepEqual(pageAssociationNames, ["dup.txt", "dup (2).txt"]);
 
+
+const caseDistinctBase = await onePagePdf();
+const caseDistinctBytes = await replacePdfAttachments(caseDistinctBase, [
+  { name: "A.txt", data: new Uint8Array([31]), mimeType: "text/plain" },
+  { name: "a.txt", data: new Uint8Array([32]), mimeType: "text/plain" },
+], PDFLib);
+assert.deepEqual((await readPdfAttachments(caseDistinctBytes, PDFLib)).map((item) => item.name).sort(), ["A.txt", "a.txt"]);
+
+const pdfa2aDocument = await PDFLib.PDFDocument.load(await onePagePdf({ pdfa: "2B" }), { updateMetadata: false });
+const metadataKey = PDFLib.PDFName.of("Metadata");
+const metadataStream = pdfa2aDocument.catalog.lookup(metadataKey, PDFLib.PDFRawStream);
+const metadataXml = new TextDecoder().decode(PDFLib.decodePDFRawStream(metadataStream).decode());
+const levelAXml = metadataXml.replace(/(<[^:>]+:conformance\b[^>]*>\s*)B(\s*<\/[^:>]+:conformance\s*>)/i, "$1A$2");
+assert.notEqual(levelAXml, metadataXml, "PDF/A fixture should expose a conformance element");
+const levelAStream = pdfa2aDocument.context.stream(new TextEncoder().encode(levelAXml), { Type: "Metadata", Subtype: "XML" });
+pdfa2aDocument.catalog.set(metadataKey, pdfa2aDocument.context.register(levelAStream));
+const pdfa2aBytes = await pdfa2aDocument.save({ updateFieldAppearances: false });
+await assert.rejects(
+  () => replacePdfAttachments(pdfa2aBytes, [{ name: "payload.txt", data: new Uint8Array([1]), mimeType: "text/plain" }], PDFLib),
+  /PDF\/A-2 permits only PDF\/A-1 or PDF\/A-2 attachments/,
+);
+
+const richBase = await replacePdfAttachments(await onePagePdf(), [
+  { name: "rich.bin", data: new Uint8Array([40, 41]), mimeType: "application/octet-stream" },
+  { name: "plain.bin", data: new Uint8Array([50]), mimeType: "application/octet-stream" },
+], PDFLib);
+const richDocument = await PDFLib.PDFDocument.load(richBase, { updateMetadata: false });
+const richRaw = richDocument.getRawAttachments();
+const richRawEntry = richRaw.find(({ fileName }) => fileName.decodeText() === "rich.bin");
+assert.ok(richRawEntry, "rich.bin raw attachment should exist");
+const richSpec = attachmentFileSpecByName(richDocument, "rich.bin");
+const richEf = richSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);
+const originalUf = richEf.get(PDFLib.PDFName.of("UF")) || richEf.get(PDFLib.PDFName.of("F"));
+const alternateStream = richDocument.context.flateStream(new Uint8Array([90, 91, 92]), { Type: "EmbeddedFile" });
+richEf.set(PDFLib.PDFName.of("F"), richDocument.context.register(alternateStream));
+richEf.set(PDFLib.PDFName.of("UF"), originalUf);
+richSpec.set(PDFLib.PDFName.of("CI"), richDocument.context.obj({ Department: PDFLib.PDFHexString.fromText("Legal"), Rank: 7 }));
+richDocument.catalog.set(PDFLib.PDFName.of("AF"), richDocument.context.obj([richRawEntry.specRef]));
+const structElem = richDocument.context.obj({ Type: "StructElem", S: "P", AF: [richRawEntry.specRef] });
+richDocument.catalog.set(PDFLib.PDFName.of("StructTreeRoot"), richDocument.context.obj({ Type: "StructTreeRoot", K: [structElem] }));
+const richSourceBytes = await richDocument.save({ updateFieldAppearances: false });
+const richSourceCheck = await PDFLib.PDFDocument.load(richSourceBytes, { updateMetadata: false });
+const richSourceSpec = attachmentFileSpecByName(richSourceCheck, "rich.bin");
+const richSourceEf = richSourceSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);
+assert.equal(richSourceEf.has(PDFLib.PDFName.of("F")), true, "fixture should contain /EF/F");
+assert.equal(richSourceEf.has(PDFLib.PDFName.of("UF")), true, "fixture should contain /EF/UF");
+assert.deepEqual([...PDFLib.decodePDFRawStream(richSourceEf.lookup(PDFLib.PDFName.of("UF"), PDFLib.PDFRawStream)).decode()], [40, 41]);
+const richAttachments = await readPdfAttachments(richSourceBytes, PDFLib);
+const richRoundTrip = await replacePdfAttachments(richSourceBytes, richAttachments, PDFLib);
+const richOutput = await PDFLib.PDFDocument.load(richRoundTrip, { updateMetadata: false });
+const richOutputSpec = attachmentFileSpecByName(richOutput, "rich.bin");
+const outputEf = richOutputSpec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);
+assert.equal(outputEf.has(PDFLib.PDFName.of("F")), true);
+assert.equal(outputEf.has(PDFLib.PDFName.of("UF")), true);
+assert.deepEqual([...PDFLib.decodePDFRawStream(outputEf.lookup(PDFLib.PDFName.of("F"), PDFLib.PDFRawStream)).decode()], [90, 91, 92]);
+assert.deepEqual([...PDFLib.decodePDFRawStream(outputEf.lookup(PDFLib.PDFName.of("UF"), PDFLib.PDFRawStream)).decode()], [40, 41]);
+const outputCi = richOutputSpec.lookup(PDFLib.PDFName.of("CI"), PDFLib.PDFDict);
+assert.equal(outputCi.lookup(PDFLib.PDFName.of("Department")).decodeText(), "Legal");
+assert.equal(outputCi.lookup(PDFLib.PDFName.of("Rank"), PDFLib.PDFNumber).asNumber(), 7);
+const outputCatalogAf = richOutput.catalog.lookup(PDFLib.PDFName.of("AF"), PDFLib.PDFArray);
+assert.equal(outputCatalogAf.size(), 1, "catalog /AF subset should stay a subset");
+const outputStruct = richOutput.catalog.lookup(PDFLib.PDFName.of("StructTreeRoot"), PDFLib.PDFDict);
+const outputStructKids = outputStruct.lookup(PDFLib.PDFName.of("K"), PDFLib.PDFArray);
+const outputStructElem = outputStructKids.lookup(0, PDFLib.PDFDict);
+const outputStructAf = outputStructElem.lookup(PDFLib.PDFName.of("AF"), PDFLib.PDFArray);
+assert.equal(outputStructAf.size(), 1, "structure-element /AF should be rebound");
+
 const oversizedTreeDocument = await PDFLib.PDFDocument.create({ updateMetadata: false });
 oversizedTreeDocument.addPage([100, 100]);
 const oversizedKids = oversizedTreeDocument.context.obj([]);
@@ -242,5 +321,47 @@ await assert.rejects(
   () => readPdfAttachments(oversizedTreeBytes, PDFLib),
   /PDF attachment name tree is too large/,
 );
+
+
+const aliasBase = await replacePdfAttachments(await onePagePdf(), [{
+  name: "canonical.bin",
+  data: new Uint8Array([71, 72]),
+  mimeType: "application/octet-stream",
+}], PDFLib);
+const aliasDocument = await PDFLib.PDFDocument.load(aliasBase, { updateMetadata: false });
+const aliasRaw = aliasDocument.getRawAttachments()[0];
+const aliasNames = aliasDocument.catalog
+  .lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict)
+  .lookup(PDFLib.PDFName.of("EmbeddedFiles"), PDFLib.PDFDict)
+  .lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFArray);
+aliasNames.set(0, PDFLib.PDFHexString.fromText("alias-one.bin"));
+aliasNames.push(PDFLib.PDFHexString.fromText("alias-two.bin"));
+aliasNames.push(aliasRaw.specRef);
+const aliasBytes = await aliasDocument.save({ updateFieldAppearances: false });
+const aliasAttachments = await readPdfAttachments(aliasBytes, PDFLib);
+assert.deepEqual(aliasAttachments.map((attachment) => attachment.name), ["alias-one.bin", "alias-two.bin"]);
+const aliasRoundTrip = await replacePdfAttachments(aliasBytes, aliasAttachments, PDFLib);
+assert.deepEqual(
+  (await readPdfAttachments(aliasRoundTrip, PDFLib)).map((attachment) => attachment.name),
+  ["alias-one.bin", "alias-two.bin"],
+);
+
+const filenamesBase = await replacePdfAttachments(await onePagePdf(), [{
+  name: "tree-name.bin",
+  data: new Uint8Array([81, 82]),
+  mimeType: "application/octet-stream",
+}], PDFLib);
+const filenamesDocument = await PDFLib.PDFDocument.load(filenamesBase, { updateMetadata: false });
+const filenamesSpec = attachmentFileSpecByName(filenamesDocument, "tree-name.bin");
+filenamesSpec.set(PDFLib.PDFName.of("F"), PDFLib.PDFString.of("platform-name.bin"));
+filenamesSpec.set(PDFLib.PDFName.of("UF"), PDFLib.PDFHexString.fromText("unicode-name.bin"));
+const filenamesBytes = await filenamesDocument.save({ updateFieldAppearances: false });
+const filenamesAttachments = await readPdfAttachments(filenamesBytes, PDFLib);
+assert.equal(filenamesAttachments[0].name, "tree-name.bin");
+const filenamesRoundTrip = await replacePdfAttachments(filenamesBytes, filenamesAttachments, PDFLib);
+const filenamesOutput = await PDFLib.PDFDocument.load(filenamesRoundTrip, { updateMetadata: false });
+const filenamesOutputSpec = attachmentFileSpecByName(filenamesOutput, "tree-name.bin");
+assert.equal(filenamesOutputSpec.lookup(PDFLib.PDFName.of("F")).decodeText(), "platform-name.bin");
+assert.equal(filenamesOutputSpec.lookup(PDFLib.PDFName.of("UF")).decodeText(), "unicode-name.bin");
 
 console.log("Doc Bench PDF attachment review tests passed.");

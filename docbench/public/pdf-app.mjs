@@ -4,6 +4,7 @@ import {
   buildQpdfPageRequest,
   clonePdfOutline,
   formatPdfSize,
+  mergePdfAttachmentSets,
   mergePdfAttachmentSourceSets,
   readPdfAttachments,
   readPdfMetadata,

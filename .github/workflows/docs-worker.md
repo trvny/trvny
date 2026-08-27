@@ -22,6 +22,7 @@ concurrency:
 
 engine:
   id: copilot
+  bare: true
   env:
     COPILOT_PROVIDER_BASE_URL: "https://api.orcarouter.ai/v1"
     COPILOT_PROVIDER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
@@ -39,6 +40,8 @@ models:
             input: "0e0"
             output: "0e0"
 
+max-turns: 5
+
 network:
   allowed:
     - defaults
@@ -46,13 +49,91 @@ network:
 
 permissions:
   contents: read
-  pull-requests: read
 
 checkout:
   repository: ${{ github.event.inputs.target_repo }}
   github-token: ${{ secrets.GH_PAT }}
   current: true
   fetch-depth: 0
+
+tools:
+  github: false
+  bash: false
+  edit:
+  cli-proxy: false
+
+steps:
+  - name: Build compact documentation context
+    shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
+      TARGET_REPO: ${{ github.event.inputs.target_repo }}
+    run: |
+      set -euo pipefail
+
+      mkdir -p /tmp/gh-aw
+      context=/tmp/gh-aw/docs-context.md
+      changed_files=$(mktemp)
+      relevant_files=$(mktemp)
+
+      month_base=$(git rev-list -1 --before='30 days ago' HEAD || true)
+      if [ -z "$month_base" ]; then
+        month_base=$(git rev-list --max-parents=0 HEAD | tail -1)
+      fi
+
+      doc_base=$(git log -1 --format=%H -- docs README*.md 2>/dev/null || true)
+      base=${doc_base:-$month_base}
+
+      git diff --name-only "$base"..HEAD -- . > "$changed_files"
+      grep -Ev '(^|/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|.*\.lock\.yml)$' "$changed_files" > "$relevant_files" || true
+
+      {
+        echo '# Documentation drift context'
+        echo
+        echo "Target: $TARGET_REPO"
+        echo "Head: $(git rev-parse --short=12 HEAD)"
+        echo "Lookback base: $(git rev-parse --short=12 "$base")"
+        echo "Commits after base: $(git rev-list --count "$base"..HEAD)"
+        echo
+        echo '## Root repository instructions'
+        if [ -f AGENTS.md ]; then
+          sed -n '1,60p' AGENTS.md
+        else
+          echo '(no root AGENTS.md)'
+        fi
+        echo
+        echo '## Documentation candidates'
+        {
+          find docs -type f 2>/dev/null
+          find . -maxdepth 1 -type f -name 'README*.md' -print
+        } | sed 's#^\./##' | sort | head -40
+        echo
+        echo '## Recent commits in lookback'
+        git log "$base"..HEAD --first-parent --max-count=10 --date=short \
+          --pretty=format:'- %h %ad %s' || true
+        echo
+        echo
+        echo '## Changed files in lookback'
+        head -40 "$relevant_files"
+        echo
+        echo '## Bounded source diff excerpts'
+        grep -Ev '^(docs/|README[^/]*\.md$)' "$relevant_files" | head -3 | while IFS= read -r file; do
+          [ -n "$file" ] || continue
+          echo "### $file"
+          git diff --unified=1 "$base"..HEAD -- "$file" | head -60 || true
+          echo
+        done
+        echo
+        echo '## Change size'
+        git diff --shortstat "$base"..HEAD || true
+        echo
+        echo '## Open documentation pull requests'
+        gh pr list --repo "$TARGET_REPO" --state open --limit 10 \
+          --json number,title,headRefName \
+          --jq '.[] | select(.title | startswith("[docs] ")) | "- #\(.number) \(.title) [\(.headRefName)]"' \
+          || echo '(unavailable)'
+      } > "$context"
+
 
 safe-outputs:
   report-failure-as-issue: false
@@ -66,18 +147,13 @@ safe-outputs:
 
 # Documentation Worker
 
-Inspect the checked-out target repository for meaningful documentation drift caused by merged changes since the relevant documentation was last updated. If that point cannot be determined reliably, inspect the last thirty days instead.
+Read `/tmp/gh-aw/docs-context.md` first. Treat it as the complete Git-history summary for this run. Do not reconstruct or broaden Git history.
+Use the bounded commit list, changed-file list, documentation candidates, repository instructions, and open documentation pull requests from that context to decide whether merged changes made canonical documentation stale. Inspect only the files necessary to verify a concrete mismatch. The context already contains bounded source diffs. Inspect at most one source/config/workflow file beyond those excerpts and three documentation files. Read only the relevant section of each file, never more than about 100 lines at once, and do not reread material already seen. Ignore dependency locks, generated files, cosmetic churn, release noise, and unrelated prose.
 
-Read `AGENTS.md` when present and follow the repository's documentation structure, terminology, language conventions, and local style. Prefer updating existing documentation over creating parallel files. When localized counterparts describe the same behavior, keep them aligned.
+Before editing a file, read any nearer `AGENTS.md` that applies to that path. Preserve the repository's documentation structure, terminology, language conventions, and local style. Prefer updating existing documentation over creating parallel files. When localized counterparts describe the same changed behavior, keep them aligned.
 
-Use this documentation priority:
+Treat `docs/**` as the primary documentation surface when the repository uses it. Otherwise update only specific stale sections of canonical README files or another clearly canonical documentation file. Focus on setup, configuration, usage, architecture, commands, paths, workflows, and user-facing behavior.
 
-1. Treat `docs/**` as the primary surface when the repository has a canonical `docs` directory.
-2. Update only the specific sections of `README.md` or localized README counterparts that are demonstrably stale, especially setup, configuration, usage, architecture, commands, paths, workflows, and user-facing behavior.
-3. Update documentation outside `docs/**` or README only when repository conventions, links, or `AGENTS.md` make that file the canonical home for the affected information.
+Do not modify product code, generated files, release artifacts, changelogs, policy files, or unrelated documentation. Keep the patch narrow.
 
-Do not create a `docs` directory merely because one does not exist. Do not rewrite README introductions, badges, screenshots, marketing copy, project-status prose, contribution policies, security policies, or unrelated documentation unless the merged changes directly made that material inaccurate.
-
-Update only documentation that is demonstrably stale. Keep the patch narrow. Do not modify product code, generated files, release artifacts, or changelogs unless repository instructions explicitly require it. Ignore routine dependency churn and cosmetic-only changes.
-
-If the documentation is already accurate, make no changes and do not open a pull request. Otherwise create one concise draft pull request describing only the drift that was corrected.
+If documentation is already accurate, the evidence is inconclusive, or an open documentation pull request already covers the same drift, make no changes and use `noop`. Otherwise edit only the stale documentation and create one concise draft pull request describing the corrected drift.

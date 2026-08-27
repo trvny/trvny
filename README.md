@@ -57,6 +57,17 @@
 |---|---|
 | [WiFi-Automatic](https://github.com/trvny/WiFi-Automatic) | fork of an Android app that automates Wi-Fi radio state |
 
+## 🔀 Open pull requests
+
+<!--OPEN_PRS:START-->
+| Repository | PR | Title | Author | State | Updated |
+| --- | ---: | --- | --- | --- | --- |
+| trvny/Autka | [#181](https://github.com/trvny/Autka/pull/181) | Prepare backend deployment for Cloudflare Builds | @trvny | ready | 2026-08-26 |
+| trvny/trvny | [#322](https://github.com/trvny/trvny/pull/322) | Add PDF attachment management to Docbench | @trvny | ready | 2026-08-27 |
+| trvny/trvny | [#324](https://github.com/trvny/trvny/pull/324) | Prepare remaining Workers for Cloudflare Builds | @trvny | ready | 2026-08-26 |
+| trvny/tvpi | [#73](https://github.com/trvny/tvpi/pull/73) | Prepare Worker deployment for Cloudflare Builds | @trvny | ready | 2026-08-26 |
+<!--OPEN_PRS:END-->
+
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
 
 ## [License](LICENSE) and [third-party materials](docs/THIRD_PARTY_NOTICES.md)

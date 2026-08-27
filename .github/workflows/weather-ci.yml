@@ -1,4 +1,4 @@
-name: Deploy weather-feed
+name: Weather feed CI
 
 on:
   push:
@@ -6,23 +6,24 @@ on:
     paths:
       - "weather-feed/**"
       - "!weather-feed/**/*.md"
-      - ".github/workflows/weather-deploy.yml"
+      - ".github/workflows/weather-ci.yml"
   pull_request:
+    branches: [main]
     paths:
       - "weather-feed/**"
       - "!weather-feed/**/*.md"
-      - ".github/workflows/weather-deploy.yml"
+      - ".github/workflows/weather-ci.yml"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-weather-${{ github.ref }}
+  group: weather-ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  check-deploy:
+  check:
     runs-on: ubuntu-slim
     timeout-minutes: 20
     defaults:
@@ -40,13 +41,4 @@ jobs:
           cache-dependency-path: weather-feed/package-lock.json
 
       - run: npm ci
-
-      - name: Type check and test
-        run: npm run check
-
-      - name: Deploy
-        if: github.event_name != 'pull_request'
-        run: npx wrangler deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - run: npm run check

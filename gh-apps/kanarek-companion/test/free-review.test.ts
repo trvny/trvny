@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { askFreeRouters, parseReviewJson, patchRightLines, reviewablePath } from '../src/free-review.ts';
+import {
+  askFreeRouters,
+  contextPathPriority,
+  parseReviewJson,
+  patchRightLines,
+  reviewPrompt,
+  reviewablePath,
+} from '../src/free-review.ts';
 
 test('tracks RIGHT-side lines from a unified patch', () => {
   const lines = patchRightLines([
@@ -24,6 +31,70 @@ test('skips documentation, lockfiles, and generated trees', () => {
   assert.equal(reviewablePath('.github/workflows/check.yml'), true);
 });
 
+test('prioritizes repository context from the changed module', () => {
+  const changed = ['gh-apps/kanarek-companion/src/free-review.ts'];
+
+  assert.ok(
+    contextPathPriority(
+      'gh-apps/kanarek-companion/AGENTS.md',
+      changed,
+    ) <
+      contextPathPriority(
+        'gh-apps/kanarek-companion/src/companion.ts',
+        changed,
+      ),
+  );
+  assert.ok(
+    contextPathPriority(
+      'gh-apps/kanarek-companion/src/github-app.ts',
+      changed,
+    ) < contextPathPriority('docbench/public/pdf-core.mjs', changed),
+  );
+});
+
+test('includes repository tree and source context in the model prompt', () => {
+  const prompt = JSON.parse(
+    reviewPrompt(
+      42,
+      'Fix parser',
+      'Keep existing behavior.',
+      [{ path: 'src/parser.ts', patch: '@@ -1 +1 @@\n-old\n+next' }],
+      {
+        tree: ['package.json', 'src/parser.ts', 'src/runtime.ts'],
+        treeTruncated: false,
+        files: [
+          {
+            path: 'src/parser.ts',
+            content: 'export const next = runtime();',
+            truncated: false,
+          },
+          {
+            path: 'src/runtime.ts',
+            content: 'export function runtime() { return 1; }',
+            truncated: false,
+          },
+        ],
+      },
+    ),
+  ) as {
+    repository_context?: {
+      files?: Array<{ path?: string; content?: string }>;
+      tree?: string[];
+    };
+  };
+
+  assert.deepEqual(prompt.repository_context?.tree, [
+    'package.json',
+    'src/parser.ts',
+    'src/runtime.ts',
+  ]);
+  assert.equal(prompt.repository_context?.files?.[1]?.path, 'src/runtime.ts');
+  assert.match(
+    prompt.repository_context?.files?.[1]?.content ?? '',
+    /function runtime/,
+  );
+});
+
 test('accepts fenced JSON while preserving findings', () => {
   const parsed = parseReviewJson(`\`\`\`json\n{
     "summary": "One concrete issue.",
@@ -44,7 +115,6 @@ test('accepts fenced JSON while preserving findings', () => {
 test('rejects non-JSON model chatter', () => {
   assert.equal(parseReviewJson('Looks good to me.'), null);
 });
-
 
 function completion(content: string): Response {
   return Response.json({
@@ -78,6 +148,7 @@ test('prefers OrcaRouter and asks for Simplified Chinese review text', async () 
   assert.equal(urls.length, 1);
   assert.equal(result?.provider, 'OrcaRouter orcarouter/auto');
   assert.match(systemPrompt, /Simplified Chinese/);
+  assert.match(systemPrompt, /Repository context/);
 });
 
 test('falls back to OpenRouter when OrcaRouter output is unusable', async () => {
@@ -106,16 +177,22 @@ test('falls back to OpenRouter when OrcaRouter output is unusable', async () => 
   assert.equal(result?.parsed.summary, '回退成功');
 });
 
-
 test('falls back when OrcaRouter ignores the Chinese-language requirement', async () => {
   const urls: string[] = [];
   const fetcher = (async (input: RequestInfo | URL) => {
     urls.push(String(input));
-    if (urls.length === 1) return completion('{"summary":"Looks good","findings":[]}');
+    if (urls.length === 1) {
+      return completion('{"summary":"Looks good","findings":[]}');
+    }
     return completion('{"summary":"中文回退成功","findings":[]}');
   }) as typeof fetch;
-  const result = await askFreeRouters('{}', {
-    ORCAROUTER_API_KEY: 'orca', OPENROUTER_API_KEY: 'openrouter',
-  } as unknown as import('../src/free-review.ts').FreeReviewEnv, fetcher);
+  const result = await askFreeRouters(
+    '{}',
+    {
+      ORCAROUTER_API_KEY: 'orca',
+      OPENROUTER_API_KEY: 'openrouter',
+    } as unknown as import('../src/free-review.ts').FreeReviewEnv,
+    fetcher,
+  );
   assert.equal(result?.provider, 'OpenRouter free-pack');
 });

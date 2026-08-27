@@ -7,7 +7,10 @@ import {
 import { CODE_HISTORY_PATH, handleCodeHistoryAction } from './code-history.ts';
 import { DEPENDENCY_GRAPH_PATH, handleDependencyGraphAction } from './dependency-graph.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
-import { scheduleFreeReviewWebhook } from './free-review.ts';
+import {
+  FreeReviewJob,
+  scheduleFreeReviewWebhook,
+} from './free-review-job.ts';
 import worker, {
   actionFetch,
   CommentProbeLock,
@@ -26,12 +29,13 @@ import {
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
 
-export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
+export { actionFetch, CommentProbeLock, FreeReviewJob, OperatorCheckpointStore };
 
 type WorkerEnv = Parameters<typeof worker.fetch>[1];
 type JsonObject = Record<string, unknown>;
 type Env = WorkerEnv & {
   CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
+  FREE_REVIEW_QUEUE?: DurableObjectNamespace;
   KANAREK_FREE_REVIEW_ENABLED?: string;
   KANAREK_OPENROUTER_ENABLED?: string;
   KANAREK_ORCAROUTER_ENABLED?: string;
@@ -60,7 +64,10 @@ function json(body: unknown, status = 200): Response {
 }
 
 async function manifest(request: Request, env: Env): Promise<JsonObject> {
-  return gatewayManifest(runtimeOpenApi(new URL(request.url).origin), env.CF_VERSION_METADATA);
+  return gatewayManifest(
+    runtimeOpenApi(new URL(request.url).origin),
+    env.CF_VERSION_METADATA,
+  );
 }
 
 async function responseObject(response: Response): Promise<JsonObject | null> {
@@ -75,6 +82,7 @@ async function responseObject(response: Response): Promise<JsonObject | null> {
 function freeReviewHealth(env: Env): JsonObject {
   return {
     enabledSetting: env.KANAREK_FREE_REVIEW_ENABLED ?? null,
+    queueConfigured: Boolean(env.FREE_REVIEW_QUEUE),
     orcaSecretConfigured: Boolean(env.ORCAROUTER_API_KEY),
     orcaEnabledSetting: env.KANAREK_ORCAROUTER_ENABLED ?? null,
     openRouterSecretConfigured: Boolean(env.OPENROUTER_API_KEY),
@@ -114,8 +122,10 @@ async function decorateGatewayResponse(
           {
             ...payload,
             workerVersion: live.workerVersion ?? payload.workerVersion,
-            capabilityDigest: openApiManifest.capabilityDigest ?? payload.capabilityDigest,
-            operationCount: openApiManifest.operationCount ?? payload.operationCount,
+            capabilityDigest:
+              openApiManifest.capabilityDigest ?? payload.capabilityDigest,
+            operationCount:
+              openApiManifest.operationCount ?? payload.operationCount,
           },
           response.status,
         )
@@ -129,7 +139,9 @@ const runtime = {
     return runWithActionRequestContext(async () => {
       const url = new URL(request.url);
       const reviewRequest =
-        url.pathname === WEBHOOK_PATH && request.method === 'POST' ? request.clone() : null;
+        url.pathname === WEBHOOK_PATH && request.method === 'POST'
+          ? request.clone()
+          : null;
 
       if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
         return json(runtimeOpenApi(new URL(request.url).origin));
@@ -150,7 +162,11 @@ const runtime = {
         if (response) return response;
       }
       if (url.pathname === RELEASE_ENTRY_UPLOAD_PATH) {
-        const response = await handleReleaseEntryAction(request, env, actionFetch);
+        const response = await handleReleaseEntryAction(
+          request,
+          env,
+          actionFetch,
+        );
         if (response) return response;
       }
       if (url.pathname === RELEASE_ASSET_REPLACE_PATH) {
@@ -195,7 +211,11 @@ const runtime = {
       if (reviewRequest && baseResponse.status === 202) {
         scheduleFreeReviewWebhook(reviewRequest, env, ctx);
       }
-      const response = await decorateGatewayResponse(request, baseResponse, env);
+      const response = await decorateGatewayResponse(
+        request,
+        baseResponse,
+        env,
+      );
       return enrichConflictResponse(
         request,
         response,

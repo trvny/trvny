@@ -7,6 +7,7 @@ on:
     paths:
       - .github/tmp-docbench-attachment-roundtrip.py
       - .github/tmp-docbench-attachment-roundtrip-fix.py
+      - .github/tmp-docbench-attachment-final.py
       - .github/workflows/tmp-docbench-attachment-roundtrip.yml
 
 permissions:
@@ -25,10 +26,11 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: docbench/package-lock.json
-      - name: Apply round-trip patch
+      - name: Apply attachment preservation patches
         run: |
           python .github/tmp-docbench-attachment-roundtrip.py
           python .github/tmp-docbench-attachment-roundtrip-fix.py
+          python .github/tmp-docbench-attachment-final.py
       - name: Install
         working-directory: docbench
         run: npm ci --no-audit --no-fund
@@ -36,16 +38,25 @@ jobs:
         working-directory: docbench
         run: npm run check
       - name: Commit clean fix
+        shell: bash
         run: |
+          rm -rf docbench/public/fonts
           rm -f \
             .github/tmp-docbench-attachment-filespec-testfix.py \
             .github/tmp-docbench-attachment-filespec.py \
             .github/tmp-docbench-attachment-roundtrip.py \
             .github/tmp-docbench-attachment-roundtrip-fix.py \
+            .github/tmp-docbench-attachment-final.py \
             .github/workflows/tmp-docbench-attachment-filespec.yml \
-            .github/workflows/tmp-docbench-attachment-roundtrip.yml
+            .github/workflows/tmp-docbench-attachment-roundtrip.yml \
+            .github/workflows/tmp-docbench-attachment-roundtrip-macos.yml
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
           git config user.name "gptomek[bot]"
           git config user.email "199175422+gptomek[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "fix(docbench): preserve attachment FileSpecs"
+          git commit -m "fix(docbench): preserve attachment round trips"
           git push origin HEAD:feat/docbench-pdf-attachments

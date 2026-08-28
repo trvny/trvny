@@ -27,7 +27,7 @@ engine:
   env:
     COPILOT_PROVIDER_BASE_URL: "https://openrouter.ai/api/v1"
     COPILOT_PROVIDER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-    COPILOT_MODEL: qwen/qwen3-coder:free
+    COPILOT_MODEL: openrouter/free
     COPILOT_PROVIDER_TYPE: openai
     COPILOT_PROVIDER_WIRE_API: completions
 model: openrouter/free
@@ -36,7 +36,7 @@ models:
   providers:
     github-copilot:
       models:
-        "qwen/qwen3-coder:free":
+        "openrouter/free":
           cost:
             input: "0e0"
             output: "0e0"

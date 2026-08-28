@@ -47,10 +47,10 @@ for (const codePoint of [
 }
 
 const injectionPatterns = [
-  /\b(?:ignore|disregard|forget)\b.{0,90}\b(?:previous|prior|above|system|developer)\b.{0,60}\b(?:instruction|instructions|prompt|message|messages)\b/giu,
-  /\b(?:reveal|print|show|output|expose|dump)\b.{0,60}\b(?:system|developer)\s+(?:prompt|message|instructions?)\b/giu,
-  /\b(?:do not|don't)\s+(?:tell|show|inform)\s+(?:the\s+)?user\b/giu,
-  /\b(?:zignoruj|ignoruj|pomiń|zapomnij)\b.{0,90}\b(?:poprzednie|wcześniejsze|powyższe|systemowe|deweloperskie)\b.{0,60}\b(?:instrukcje|polecenia|prompt|wiadomości)\b/giu,
+  /\b(?:ignore|disregard|forget)\b.{0,90}\b(?:previous|prior|above|system|developer)\b.{0,60}\b(?:instruction|instructions|prompt|message|messages)\b/gius,
+  /\b(?:reveal|print|show|output|expose|dump)\b.{0,60}\b(?:system|developer)\s+(?:prompt|message|instructions?)\b/gius,
+  /\b(?:do not|don't)\s+(?:tell|show|inform)\s+(?:the\s+)?user\b/gius,
+  /(?<!\p{L})(?:zignoruj|ignoruj|pomiń|zapomnij)(?!\p{L}).{0,90}\b(?:poprzednie|wcześniejsze|powyższe|systemowe|deweloperskie)\b.{0,60}\b(?:instrukcje|polecenia|prompt|wiadomości)\b/gius,
 ];
 
 function isControl(codePoint) {
@@ -115,8 +115,22 @@ function locate(text, starts, finding) {
 }
 
 function addFinding(findings, finding) {
-  if (findings.length >= MAX_FINDINGS) return;
-  findings.push(finding);
+  if (findings.length < MAX_FINDINGS) {
+    findings.push(finding);
+    return;
+  }
+  findings.truncated = true;
+  const candidateRank = severityRank[finding.severity] ?? severityRank.low;
+  let replacement = -1;
+  let worstRank = candidateRank;
+  for (let index = findings.length - 1; index >= 0; index -= 1) {
+    const rank = severityRank[findings[index].severity] ?? severityRank.low;
+    if (rank <= worstRank) continue;
+    worstRank = rank;
+    replacement = index;
+    if (worstRank === severityRank.low) break;
+  }
+  if (replacement >= 0) findings[replacement] = finding;
 }
 
 function scanCharacters(text, findings) {
@@ -277,9 +291,11 @@ function scanText(text) {
     const key = `${finding.kind}:${finding.offset}:${finding.length}:${finding.label}`;
     if (!unique.has(key)) unique.set(key, locate(text, starts, finding));
   }
-  return [...unique.values()]
+  const result = [...unique.values()]
     .sort((a, b) => a.offset - b.offset || severityRank[a.severity] - severityRank[b.severity])
     .slice(0, MAX_FINDINGS);
+  Object.defineProperty(result, "truncated", { value: Boolean(findings.truncated) });
+  return result;
 }
 
 function summarizeFindings(findings) {

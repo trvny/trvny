@@ -63,7 +63,7 @@ function cleanResult() {
   note.textContent = "This is a local heuristic scan, not proof that a document is safe.";
   box.append(title, note);
   return box;
-}function summaryRow(summary) {
+}function summaryRow(summary, truncated) {
   const row = document.createElement("div");
   row.className = "inspect-summary";
   for (const [severity, count] of Object.entries(summary)) {
@@ -74,7 +74,9 @@ function cleanResult() {
   }
   const note = document.createElement("span");
   note.className = "inspect-summary-note";
-  note.textContent = "Prompt-injection and marker findings are heuristic; click any finding to jump to source.";
+  note.textContent = truncated
+    ? "Showing the highest-priority findings; additional matches were truncated. Click a finding to jump to source."
+    : "Prompt-injection and marker findings are heuristic; click any finding to jump to source.";
   row.append(note);
   return row;
 }
@@ -92,8 +94,8 @@ function inspectDocument() {
   const list = document.createElement("div");
   list.className = "inspect-findings";
   for (const finding of findings) list.append(findingRow(finding));
-  preview.replaceChildren(summaryRow(summary), list);
-  setStatus(summary.high ? "bad" : "neutral", `Inspect · ${findings.length}`);
+  preview.replaceChildren(summaryRow(summary, findings.truncated), list);
+  setStatus(summary.high ? "bad" : "neutral", `Inspect · ${findings.length}${findings.truncated ? "+" : ""}`);
 }
 
 inspectButton.addEventListener("click", inspectDocument);

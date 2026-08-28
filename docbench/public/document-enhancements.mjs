@@ -112,15 +112,15 @@ async function readTextFile(file) {
 
 function updateMeta() {
   const lines = editor.value.split("\n").length;
-  const mixed = state.mixedEol ? `Mixed → ${eolSelect.value}` : eolSelect.value;
+  const mixed = state.mixedEol ? `Mixed â†’ ${eolSelect.value}` : eolSelect.value;
   const bom = state.bom ? "UTF-8 BOM" : "UTF-8";
-  const linked = state.handle ? " · linked file" : "";
-  encodingLabel.textContent = `${bom} · ${mixed}`;
-  detailStatus.textContent = `${bom} · ${mixed} · ${lines} line${lines === 1 ? "" : "s"}${linked}`;
+  const linked = state.handle ? " Â· linked file" : "";
+  encodingLabel.textContent = `${bom} Â· ${mixed}`;
+  detailStatus.textContent = `${bom} Â· ${mixed} Â· ${lines} line${lines === 1 ? "" : "s"}${linked}`;
 }
 
 function updateSaveButton() {
-  saveButton.textContent = state.handle || !nativeSaveSupported ? "Save" : "Save as…";
+  saveButton.textContent = state.handle || !nativeSaveSupported ? "Save" : "Save asâ€¦";
   saveButton.title = state.handle
     ? `Save directly to ${state.filename}`
     : nativeSaveSupported
@@ -163,7 +163,7 @@ function parseXmlError(error) {
 function renderParseError(error) {
   setPreviewMode("error", "Parse error");
   const position = error?.position || null;
-  const at = position ? ` · ${position.line}:${position.column}` : "";
+  const at = position ? ` Â· ${position.line}:${position.column}` : "";
   setStatus("bad", `Invalid${at}`);
   const message = document.createElement("p");
   message.className = "preview-error-message";
@@ -327,7 +327,7 @@ function renderYamlTree(source) {
     metaNode.className = "tree-meta";
     const count = node.items.length;
     const kind = node.kind === "sequence" ? "Sequence" : "Mapping";
-    metaNode.textContent = `${kind}(${count})${node.anchor ? ` · &${node.anchor}` : ""}`;
+    metaNode.textContent = `${kind}(${count})${node.anchor ? ` Â· &${node.anchor}` : ""}`;
     summary.append(keyNode, metaNode);
     details.append(summary);
 
@@ -816,7 +816,7 @@ function renderMarkdown() {
   if (budget.truncated) appendMarkdownLimit(fragment);
   setPreviewMode("markdown", "Markdown preview");
   preview.replaceChildren(fragment);
-  setStatus("neutral", budget.truncated ? "Rendered � truncated" : "Rendered Markdown");
+  setStatus("neutral", budget.truncated ? "Rendered · truncated" : "Rendered Markdown");
 }
 
 function renderEnhancedPreview() {
@@ -845,7 +845,7 @@ function renderEnhancedPreview() {
     }
     setPreviewMode("tree", "JSON tree");
     preview.replaceChildren(tree);
-    setStatus("good", "Valid · tree");
+    setStatus("good", "Valid Â· tree");
     updateMeta();
     return;
   }
@@ -856,7 +856,7 @@ function renderEnhancedPreview() {
       if (!tree) throw new Error("YAML AST runtime is unavailable.");
       setPreviewMode("tree", "YAML tree");
       preview.replaceChildren(tree);
-      setStatus("good", "Valid · tree");
+      setStatus("good", "Valid Â· tree");
     } catch (error) {
       const mark = error?.mark;
       renderParseError({
@@ -877,12 +877,16 @@ function renderEnhancedPreview() {
     }
     setPreviewMode("tree", "XML tree");
     preview.replaceChildren(renderXmlTree(doc));
-    setStatus("good", "Valid · tree");
+    setStatus("good", "Valid Â· tree");
     updateMeta();
   }
 }
 
 let previewTimer;
+/**
+ * 延迟安排预览渲染，并取消此前尚未执行的预览任务。
+ * @param {number} [delay=145] - 执行预览渲染前等待的毫秒数。
+ */
 function schedulePreview(delay = 145) {
   clearTimeout(previewTimer);
   previewTimer = setTimeout(renderEnhancedPreview, delay);
@@ -893,6 +897,10 @@ document.addEventListener("docbench:inspect-start", () => {
   previewTimer = undefined;
 });
 
+/**
+ * 将编辑器内容按选定的行尾格式编码为 UTF-8 文档字节，并根据设置附加 BOM。
+ * @return {Uint8Array} 编码后的文档字节。
+ */
 function documentBytes() {
   const raw = applyEol(editor.value, eolSelect.value);
   const encoded = new TextEncoder().encode(raw);
@@ -969,7 +977,7 @@ async function writeHandle(handle, snapshot) {
   filenameLabel.textContent = state.filename;
   updateMeta();
   updateSaveButton();
-  flashSaveState("Saved ✓");
+  flashSaveState("Saved âœ“");
 }
 
 async function chooseSaveHandle(snapshot) {
@@ -994,12 +1002,12 @@ async function saveDocument() {
       return;
     }
     downloadDocument(snapshot);
-    flashSaveState("Downloaded ✓");
+    flashSaveState("Downloaded âœ“");
   } catch (error) {
     if (error?.name === "AbortError" || error?.name === "StaleDocumentError") return;
     if (!linkedHandle && ["TypeError", "SecurityError", "NotAllowedError"].includes(error?.name)) {
       downloadDocument(snapshot);
-      flashSaveState("Downloaded ✓");
+      flashSaveState("Downloaded âœ“");
       return;
     }
     setStatus("bad", "Save failed");

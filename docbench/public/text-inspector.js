@@ -10,12 +10,21 @@ const previewTitle = select("#preview-title");
 const statusBadge = select("#status-badge");
 const inspectButton = select("#inspect-button");
 
+/**
+ * 更新状态徽章的样式、文本及提示信息。
+ * @param {string} kind - 状态类型，用于设置对应的 CSS 类名。
+ * @param {string} text - 要显示的状态文本。
+ */
 function setStatus(kind, text) {
   statusBadge.className = `status ${kind}`;
   statusBadge.textContent = text;
   statusBadge.removeAttribute("title");
 }
 
+/**
+ * 在编辑器中定位并选中指定的检查结果。
+ * @param {Object} finding - 包含文本偏移量和长度的检查结果。
+ */
 function revealFinding(finding) {
   const start = Math.max(0, Math.min(editor.value.length, finding.offset));
   const end = Math.max(start, Math.min(editor.value.length, start + finding.length));
@@ -23,11 +32,21 @@ function revealFinding(finding) {
   editor.setSelectionRange(start, end);
 }
 
+/**
+ * 将严重级别映射为界面显示标签。
+ * @param {string} severity - 严重级别。
+ * @return {string} 对应的显示标签：`High`、`Review` 或 `Info`。
+ */
 function severityLabel(severity) {
   if (severity === "high") return "High";
   if (severity === "medium") return "Review";
   return "Info";
-}function findingRow(finding) {
+}/**
+ * 创建可点击的检查发现项，并显示其严重级别、位置、标签和详细信息。
+ * @param {Object} finding - 检查发现，包含严重级别、标签、行列位置和详细信息。
+ * @return {HTMLButtonElement} 显示检查发现内容的按钮。
+ */
+function findingRow(finding) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `inspect-finding severity-${finding.severity}`;
@@ -52,6 +71,10 @@ function severityLabel(severity) {
   return button;
 }
 
+/**
+ * 创建未发现可疑文本模式时显示的结果提示。
+ * @return {HTMLDivElement} 包含扫描结果标题和启发式扫描免责声明的提示元素。
+ */
 function cleanResult() {
   const box = document.createElement("div");
   box.className = "inspect-clean";
@@ -61,7 +84,13 @@ function cleanResult() {
   note.textContent = "This is a local heuristic scan, not proof that a document is safe.";
   box.append(title, note);
   return box;
-}function summaryRow(summary, truncated) {
+}/**
+ * 创建检查结果摘要行，显示各严重级别的发现数量及结果说明。
+ * @param {Object} summary - 按严重级别统计的发现数量。
+ * @param {boolean} truncated - 是否因结果截断而仅显示优先级最高的发现。
+ * @return {HTMLDivElement} 包含严重级别摘要和说明文本的元素。
+ */
+function summaryRow(summary, truncated) {
   const row = document.createElement("div");
   row.className = "inspect-summary";
   for (const [severity, count] of Object.entries(summary)) {
@@ -79,6 +108,9 @@ function cleanResult() {
   return row;
 }
 
+/**
+ * 检查编辑器中的文本并渲染可疑模式及其严重级别摘要。
+ */
 function inspectDocument() {
   document.dispatchEvent(new Event("docbench:inspect-start"));
   const findings = scanText(editor.value);

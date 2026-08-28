@@ -772,6 +772,39 @@ test('Cloudflare overview paginates account zones with the supported page size',
   assert.deepEqual(body.zones?.data?.map((zone) => zone.name), ['zone-1.example', 'zone-2.example']);
 });
 
+test('Cloudflare overview paginates Pages projects without forcing per_page', async () => {
+  const pages: number[] = [];
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname === '/client/v4/user/tokens/verify') return cf({ status: 'active' });
+    if (url.pathname === `/client/v4/accounts/${ACCOUNT_ID}/workers/scripts`) return cf([]);
+    if (url.pathname === `/client/v4/accounts/${ACCOUNT_ID}/pages/projects`) {
+      assert.equal(url.searchParams.has('per_page'), false);
+      const page = Number(url.searchParams.get('page'));
+      pages.push(page);
+      return Response.json({
+        success: true,
+        errors: [],
+        messages: [],
+        result: [{ id: `project-${page}`, name: `project-${page}` }],
+        result_info: { page, total_pages: 2, total_count: 2 },
+      });
+    }
+    if (url.pathname === '/client/v4/zones') return cf([]);
+    return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
+  });
+  const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/overview', {
+    headers: { Authorization: 'Bearer test' },
+  });
+  const response = await handleCloudflareAction(request, env(), createActionFetch(upstream));
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { pages?: { data?: Array<{ name?: string }> } };
+  assert.deepEqual(pages, [1, 2]);
+  assert.deepEqual(body.pages?.data?.map((project) => project.name), ['project-1', 'project-2']);
+});
+
 test('Cloudflare overview accepts account-owned API tokens', async () => {
   const verifyPaths: string[] = [];
   const upstream: typeof fetch = githubPolicyFetch((input, init) => {

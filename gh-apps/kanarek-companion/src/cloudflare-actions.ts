@@ -24,6 +24,7 @@ const DNS_PAGE_SIZE = 500;
 const MAX_DNS_PAGES = 20;
 const ZONE_PAGE_SIZE = 50;
 const MAX_ZONE_PAGES = 20;
+const MAX_PAGES_PROJECT_PAGES = 20;
 const ROUTE_SCAN_BATCH_SIZE = 25;
 
 type JsonObject = Record<string, unknown>;
@@ -610,6 +611,34 @@ async function zonesForAccount(
   throw new CloudflareActionError('cloudflare_zone_inventory_too_large', 413);
 }
 
+async function pagesProjectsForAccount(
+  env: GptActionsEnv,
+  accountId: string,
+  fetcher: typeof fetch,
+): Promise<unknown[]> {
+  const projects: unknown[] = [];
+  for (let page = 1; page <= MAX_PAGES_PROJECT_PAGES; page += 1) {
+    const query = new URLSearchParams({ page: String(page) });
+    const { result, resultInfo } = await cloudflareRequest(
+      env,
+      `/accounts/${accountId}/pages/projects?${query}`,
+      'GET',
+      undefined,
+      fetcher,
+    );
+    projects.push(...resultArray(result));
+    const totalPages = numberField(resultInfo, 'total_pages');
+    if (totalPages !== null && (!Number.isInteger(totalPages) || totalPages < 0)) {
+      throw new CloudflareActionError('invalid_cloudflare_pagination', 502);
+    }
+    if (totalPages !== null && totalPages > MAX_PAGES_PROJECT_PAGES) {
+      throw new CloudflareActionError('cloudflare_pages_inventory_too_large', 413);
+    }
+    if (totalPages === null || page >= totalPages) return projects;
+  }
+  throw new CloudflareActionError('cloudflare_pages_inventory_too_large', 413);
+}
+
 async function tokenStatus(env: GptActionsEnv, fetcher: typeof fetch): Promise<JsonObject> {
   const { accountId } = credentials(env);
   let result: unknown;
@@ -676,8 +705,8 @@ async function overview(request: Request, env: GptActionsEnv, fetcher: typeof fe
       return resultArray(result).map(safeWorker);
     }),
     section(async () => {
-      const { result } = await cloudflareRequest(env, `/accounts/${accountId}/pages/projects?per_page=100`, 'GET', undefined, fetcher);
-      return resultArray(result).map(safePagesProject);
+      const projects = await pagesProjectsForAccount(env, accountId, fetcher);
+      return projects.map(safePagesProject);
     }),
     section(async () => {
       const zones = await zonesForAccount(env, accountId, fetcher);

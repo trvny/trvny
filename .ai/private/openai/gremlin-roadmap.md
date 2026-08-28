@@ -50,6 +50,19 @@ do not wrap every GitHub endpoint for its own sake.
 - [ ] **Focused code-review pass.** Pre-merge analysis for missed callers, API-contract drift,
   unsafe null/state handling, race-prone changes, missing edge cases and accidental scope growth.
 
+## Beyond GitHub
+
+Build outward in this order, keeping external capabilities high-level and guarded instead of mirroring entire provider APIs.
+
+- [x] **On-demand specialist knowledge.** Manifest-backed `getGremlinKnowledge` loads private domain references only when needed; initial mastery packs cover Brainrot and Rickroll-Lang.
+- [ ] **Cloudflare operator.** Read and operate Workers/Pages, deployments, routes, DNS and useful observability through guarded actions; reuse the existing Worker/control plane where sensible.
+- [ ] **Package intelligence.** Research npm, PyPI, crates.io, Maven Central, NuGet and other relevant ecosystems for current versions, maintenance health, releases, licenses, advisories, changelogs and alternatives. Start read-only and triangulate registry metadata with upstream repositories.
+- [ ] **Feed doctor.** Discover and validate RSS/Atom feeds, redirects, caching headers and icons, then produce Feedseek-ready source data.
+- [ ] **Web diagnostics.** Inspect HTTP/TLS, redirects, robots, sitemaps, cache behavior and broken links without turning Gremlin into a generic browser automation swamp.
+- [ ] **Artifact inspector.** Inspect ZIP/JAR/APK/AAB-style artifacts for metadata, contents, versions and checksums without executing them.
+- [ ] **GitLab / F-Droid operator.** Extend guarded review, CI and packaging workflows where the GitHub operator patterns transfer cleanly.
+- [ ] **Research -> action.** Feed fresh documentation and release-note findings into guarded implementation/release work instead of relying on model memory.
+
 ## Architecture / ergonomics
 
 - [ ] Generate an optional compact Builder/Knowledge pack from private `.ai` sources.

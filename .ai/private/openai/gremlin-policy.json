@@ -12,6 +12,7 @@
     ],
     "preferredActions": [
       "getOperatorBootstrap",
+      "getGremlinKnowledge",
       "getOperatorCapabilities",
       "runOperatorSmokeTest",
       "runOperatorAutopilot",

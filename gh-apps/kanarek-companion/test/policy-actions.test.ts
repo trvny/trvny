@@ -317,3 +317,31 @@ test('specialist knowledge rejects manifest paths outside the private knowledge 
     error: 'invalid_knowledge_manifest_topic_brainrot_path',
   });
 });
+
+test('specialist knowledge treats inherited object properties as unknown topics', async () => {
+  const upstream: typeof fetch = async (input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname === '/user') {
+      return Response.json({ login: 'trvny', id: 120686325 });
+    }
+    if (url.pathname === '/repos/trvny/trvny/contents/.ai/private/openai/gremlin-knowledge.json') {
+      return Response.json(filePayload(JSON.stringify(KNOWLEDGE_MANIFEST), '7'.repeat(40)));
+    }
+    return Response.json({ message: 'unexpected' }, { status: 500 });
+  };
+
+  const request = new Request('https://example.workers.dev/gpt-actions/operator/knowledge', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer policy-user-token',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ topic: 'constructor' }),
+  });
+
+  const response = await handlePolicyAction(request, {} as Env, createActionFetch(upstream));
+  assert.ok(response);
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { ok: false, error: 'knowledge_topic_not_found' });
+});

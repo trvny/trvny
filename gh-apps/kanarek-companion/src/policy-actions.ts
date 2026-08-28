@@ -651,8 +651,9 @@ function resolveKnowledgeTopic(
   manifest: GremlinKnowledgeManifest,
   requestedTopic: string,
 ): [string, GremlinKnowledgeTopic] | null {
-  const direct = manifest.topics[requestedTopic];
-  if (direct) return [requestedTopic, direct];
+  if (Object.prototype.hasOwnProperty.call(manifest.topics, requestedTopic)) {
+    return [requestedTopic, manifest.topics[requestedTopic]];
+  }
   for (const [topic, entry] of Object.entries(manifest.topics)) {
     if (entry.aliases.includes(requestedTopic)) return [topic, entry];
   }

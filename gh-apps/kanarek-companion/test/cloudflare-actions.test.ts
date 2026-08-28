@@ -576,3 +576,41 @@ test('route updates serialize the snapshot check with the write', async () => {
   assert.equal(first.status, 200);
   assert.equal(routeWrites, 1);
 });
+
+test('zone inspection paginates DNS records before returning snapshots', async () => {
+  const zoneId = 'b'.repeat(32);
+  const dnsPages: number[] = [];
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname === `/client/v4/zones/${zoneId}`) {
+      return cf({ id: zoneId, name: 'trfny.com', account: { id: ACCOUNT_ID } });
+    }
+    if (url.pathname === `/client/v4/zones/${zoneId}/dns_records`) {
+      const page = Number(url.searchParams.get('page'));
+      dnsPages.push(page);
+      const record = { id: `dns-${page}`, type: 'A', name: `p${page}.trfny.com`, content: `192.0.2.${page}` };
+      return Response.json({
+        success: true,
+        errors: [],
+        messages: [],
+        result: [record],
+        result_info: { page, per_page: 500, total_pages: 2, total_count: 2 },
+      });
+    }
+    if (url.pathname === `/client/v4/zones/${zoneId}/workers/routes`) return cf([]);
+    return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
+  });
+  const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/zones/inspect', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zone: zoneId }),
+  });
+  const response = await handleCloudflareAction(request, env(), createActionFetch(upstream));
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { dns?: { data?: Array<{ id?: string; snapshot?: string }> } };
+  assert.deepEqual(dnsPages, [1, 2]);
+  assert.deepEqual(body.dns?.data?.map((record) => record.id), ['dns-1', 'dns-2']);
+  assert.ok(body.dns?.data?.every((record) => typeof record.snapshot === 'string'));
+});

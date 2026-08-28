@@ -20,6 +20,8 @@ const ACCOUNT_ID_RE = /^[a-f0-9]{32}$/i;
 const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const RESOURCE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const MAX_CF_RESPONSE_BYTES = 2_000_000;
+const DNS_PAGE_SIZE = 500;
+const MAX_DNS_PAGES = 20;
 
 type JsonObject = Record<string, unknown>;
 type MutationKey = keyof GremlinPolicy['runtime']['cloudflare']['mutations'];
@@ -541,6 +543,35 @@ function resultArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+async function dnsRecords(
+  env: GptActionsEnv,
+  zoneId: string,
+  fetcher: typeof fetch,
+): Promise<unknown[]> {
+  const records: unknown[] = [];
+  for (let page = 1; page <= MAX_DNS_PAGES; page += 1) {
+    const query = new URLSearchParams({ per_page: String(DNS_PAGE_SIZE), page: String(page) });
+    const { result, resultInfo } = await cloudflareRequest(
+      env,
+      `/zones/${encoded(zoneId)}/dns_records?${query}`,
+      'GET',
+      undefined,
+      fetcher,
+    );
+    const batch = resultArray(result);
+    records.push(...batch);
+    const totalPages = numberField(resultInfo, 'total_pages');
+    if (totalPages !== null && (!Number.isInteger(totalPages) || totalPages < 1)) {
+      throw new CloudflareActionError('invalid_cloudflare_pagination', 502);
+    }
+    if (totalPages !== null && totalPages > MAX_DNS_PAGES) {
+      throw new CloudflareActionError('cloudflare_dns_inventory_too_large', 413);
+    }
+    if (totalPages !== null ? page >= totalPages : batch.length < DNS_PAGE_SIZE) return records;
+  }
+  throw new CloudflareActionError('cloudflare_dns_inventory_too_large', 413);
+}
+
 async function tokenStatus(env: GptActionsEnv, fetcher: typeof fetch): Promise<JsonObject> {
   const { result } = await cloudflareRequest(env, '/user/tokens/verify', 'GET', undefined, fetcher);
   if (!isObject(result) || result.status !== 'active') {
@@ -706,8 +737,8 @@ async function inspectZone(request: Request, env: GptActionsEnv, fetcher: typeof
   const zoneId = requiredString(zone.id, 'zone_id', 32);
   const [dns, routes] = await Promise.all([
     section(async () => {
-      const { result } = await cloudflareRequest(env, `/zones/${encoded(zoneId)}/dns_records?per_page=500`, 'GET', undefined, fetcher);
-      return Promise.all(resultArray(result).slice(0, 500).map((record) => withSnapshot('cloudflare-dns', safeDnsRecord(record))));
+      const records = await dnsRecords(env, zoneId, fetcher);
+      return Promise.all(records.map((record) => withSnapshot('cloudflare-dns', safeDnsRecord(record))));
     }),
     section(async () => {
       const { result } = await cloudflareRequest(env, `/zones/${encoded(zoneId)}/workers/routes`, 'GET', undefined, fetcher);

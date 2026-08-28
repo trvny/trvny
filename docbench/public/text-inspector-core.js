@@ -6,6 +6,8 @@ const MAX_BASE64_DECODE_CHARS = 65536;
 const BASE64_PREVIEW_CHARS = 8192;
 const MAX_VARIATION_PREVIEW_BYTES = 512;
 const MAX_TAG_PREVIEW_CHARS = 512;
+const MIXED_TOKEN_PREVIEW_BEFORE = 48;
+const MIXED_TOKEN_PREVIEW_AFTER = 96;
 const severityRank = { high: 0, medium: 1, low: 2 };
 
 const specialCharacters = new Map([
@@ -57,6 +59,12 @@ const injectionPatterns = [
   /(?<!\p{L})(?:zignoruj|ignoruj|pomiń|zapomnij)(?!\p{L}).{0,90}\b(?:poprzednie|wcześniejsze|powyższe|systemowe|deweloperskie)\b.{0,60}\b(?:instrukcje|polecenia|prompt|wiadomości)\b/gius,
 ];
 
+const previewFormatPattern = /\p{Cf}/u;
+const mixedTokenCharacterPattern = /[\p{L}\p{N}_-]/u;
+const latinCharacterPattern = /\p{Script=Latin}/u;
+const cyrillicCharacterPattern = /\p{Script=Cyrillic}/u;
+const greekCharacterPattern = /\p{Script=Greek}/u;
+
 function isControl(codePoint) {
   return (codePoint < 0x20 && ![0x09, 0x0a, 0x0d].includes(codePoint))
     || (codePoint >= 0x7f && codePoint <= 0x9f);
@@ -81,10 +89,17 @@ function codePointLabel(codePoint) {
   return `U+${codePoint.toString(16).toUpperCase().padStart(codePoint <= 0xffff ? 4 : 6, "0")}`;
 }
 
+function previewEscape(codePoint) {
+  const hex = codePoint.toString(16).padStart(codePoint <= 0xffff ? 4 : 1, "0");
+  return codePoint <= 0xffff ? `\\u${hex}` : `\\u{${hex}}`;
+}
+
 function escapedPreviewChar(char) {
   const codePoint = char.codePointAt(0);
-  if (codePoint > 0x1f && codePoint !== 0x7f) return char;
-  return `\\u${codePoint.toString(16).padStart(4, "0")}`;
+  if (codePoint <= 0x1f || codePoint === 0x7f || previewFormatPattern.test(char)) {
+    return previewEscape(codePoint);
+  }
+  return char;
 }
 
 function quotedPreview(value, limit = 180) {
@@ -169,9 +184,11 @@ function fillRemainingColumns(targets, columns, state) {
 function columnsForOffsets(text, lineStart, lineEnd, offsets) {
   const targets = [...new Set(offsets)].sort((a, b) => a - b);
   const columns = new Map();
+  if (!targets.length) return columns;
   const state = { index: 0, column: 1 };
   for (const range of graphemeRanges(text, lineStart, lineEnd)) {
     assignColumnsInRange(targets, columns, state, range);
+    if (state.index >= targets.length) break;
     state.column += 1;
   }
   fillRemainingColumns(targets, columns, state);
@@ -428,28 +445,65 @@ function scanUnicodeTags(text, findings) {
   }
 }
 
-function scriptFlags(token) {
+function tokenScriptFlags(char) {
   return {
-    latin: /\p{Script=Latin}/u.test(token),
-    cyrillic: /\p{Script=Cyrillic}/u.test(token),
-    greek: /\p{Script=Greek}/u.test(token),
+    latin: latinCharacterPattern.test(char),
+    cyrillic: cyrillicCharacterPattern.test(char),
+    greek: greekCharacterPattern.test(char),
   };
 }
 
+function mixedScriptPresent(state) {
+  return state.latin && (state.cyrillic || state.greek);
+}
+
+function updateMixedTokenScripts(state, char, offset) {
+  const wasMixed = mixedScriptPresent(state);
+  const flags = tokenScriptFlags(char);
+  state.latin ||= flags.latin;
+  state.cyrillic ||= flags.cyrillic;
+  state.greek ||= flags.greek;
+  if (!wasMixed && mixedScriptPresent(state)) state.evidenceOffset = offset;
+}
+
+function mixedTokenPreview(text, state) {
+  const anchor = state.evidenceOffset ?? state.start;
+  const start = Math.max(state.start, anchor - MIXED_TOKEN_PREVIEW_BEFORE);
+  const end = Math.min(state.end, anchor + MIXED_TOKEN_PREVIEW_AFTER);
+  const prefix = start > state.start ? "…" : "";
+  const suffix = end < state.end ? "…" : "";
+  return `${prefix}${text.slice(start, end)}${suffix}`;
+}
+
+function flushMixedToken(text, findings, state) {
+  if (!state || state.end - state.start < 3 || !mixedScriptPresent(state)) return;
+  addFinding(findings, {
+    severity: "medium",
+    kind: "confusable",
+    label: "Mixed-script token",
+    detail: `Mixed-script token (${state.end - state.start} code units): ${quotedPreview(mixedTokenPreview(text, state))}. Latin mixed with Cyrillic or Greek can create look-alike identifiers or links.`,
+    offset: state.start,
+    length: state.end - state.start,
+  });
+}
+
 function scanMixedScripts(text, findings) {
-  const tokenPattern = /[\p{L}\p{N}_-]{3,}/gu;
-  for (const match of text.matchAll(tokenPattern)) {
-    const flags = scriptFlags(match[0]);
-    if (!flags.latin || (!flags.cyrillic && !flags.greek)) continue;
-    addFinding(findings, {
-      severity: "medium",
-      kind: "confusable",
-      label: "Mixed-script token",
-      detail: `Mixed-script token: ${quotedPreview(match[0])}. Latin mixed with Cyrillic or Greek can create look-alike identifiers or links.`,
-      offset: match.index,
-      length: match[0].length,
-    });
+  let state = null;
+  for (let offset = 0; offset < text.length;) {
+    const codePoint = text.codePointAt(offset);
+    const width = codePointWidth(codePoint);
+    const char = String.fromCodePoint(codePoint);
+    if (mixedTokenCharacterPattern.test(char)) {
+      if (!state) state = { start: offset, end: offset, latin: false, cyrillic: false, greek: false, evidenceOffset: null };
+      state.end = offset + width;
+      updateMixedTokenScripts(state, char, offset);
+    } else if (state) {
+      flushMixedToken(text, findings, state);
+      state = null;
+    }
+    offset += width;
   }
+  flushMixedToken(text, findings, state);
 }
 
 function scanPromptInjection(text, findings) {
@@ -537,16 +591,31 @@ function wrappedBase64Candidates(text) {
   return results;
 }
 
-function encodedCandidates(text) {
-  const results = [...text.matchAll(/[A-Za-z0-9+/_-]{32,}={0,2}/gu)].map((match) => ({
-    encoded: match[0], offset: match.index, length: match[0].length,
-  }));
-  const seen = new Set(results.map((candidate) => `${candidate.offset}:${candidate.length}`));
-  for (const candidate of wrappedBase64Candidates(text)) {
-    const key = `${candidate.offset}:${candidate.length}`;
-    if (!seen.has(key)) results.push(candidate);
+function candidateContainedBy(candidate, carrier) {
+  return candidate.offset >= carrier.offset
+    && candidate.offset + candidate.length <= carrier.offset + carrier.length;
+}
+
+function excludeWrappedLineCandidates(candidates, wrapped) {
+  const results = [];
+  let carrierIndex = 0;
+  for (const candidate of candidates) {
+    while (carrierIndex < wrapped.length
+      && wrapped[carrierIndex].offset + wrapped[carrierIndex].length <= candidate.offset) {
+      carrierIndex += 1;
+    }
+    const carrier = wrapped[carrierIndex];
+    if (!carrier || !candidateContainedBy(candidate, carrier)) results.push(candidate);
   }
   return results;
+}
+
+function encodedCandidates(text) {
+  const wrapped = wrappedBase64Candidates(text);
+  const continuous = [...text.matchAll(/[A-Za-z0-9+/_-]{32,}={0,2}/gu)].map((match) => ({
+    encoded: match[0], offset: match.index, length: match[0].length,
+  }));
+  return [...excludeWrappedLineCandidates(continuous, wrapped), ...wrapped];
 }
 
 function scanEncodedPrompts(text, findings) {

@@ -700,7 +700,8 @@ function excludeWrappedLineCandidates(candidates, wrapped) {
 
 function encodedCandidates(text) {
   const wrapped = wrappedBase64Candidates(text);
-  return [...excludeWrappedLineCandidates(continuousBase64Candidates(text), wrapped), ...wrapped];
+  const suppressingWrapped = wrapped.filter((candidate) => candidateDecodedSlices(candidate).some(scanDecodedPrompt));
+  return [...excludeWrappedLineCandidates(continuousBase64Candidates(text), suppressingWrapped), ...wrapped];
 }
 
 function scanEncodedPrompts(text, findings) {

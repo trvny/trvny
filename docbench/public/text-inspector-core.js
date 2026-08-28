@@ -652,9 +652,11 @@ function boundedCandidate(text, start, end) {
     return { encoded: text.slice(start, end), edges: null, offset: start, length };
   }
   const chunk = BASE64_PREVIEW_CHARS - (BASE64_PREVIEW_CHARS % 4);
+  const suffixOffset = (length - chunk) % 4;
+  const suffixStart = end - chunk - suffixOffset;
   return {
     encoded: null,
-    edges: [text.slice(start, start + chunk), text.slice(end - chunk, end)],
+    edges: [text.slice(start, start + chunk), text.slice(suffixStart, end)],
     offset: start,
     length,
   };

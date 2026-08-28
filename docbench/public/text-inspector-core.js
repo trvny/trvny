@@ -452,8 +452,14 @@ function scanPromptInjection(text, findings) {
   }
 }
 
-function decodedBase64(value) {
-  if (value.length % 4 !== 0) return null;
+function normalizedBase64(value) {
+  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
+  const remainder = normalized.length % 4;
+  if (remainder === 1) return null;
+  return normalized + "=".repeat((4 - remainder) % 4);
+}
+
+function decodedNormalizedBase64(value) {
   try {
     const binary = globalThis.atob(value);
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
@@ -461,6 +467,11 @@ function decodedBase64(value) {
   } catch {
     return null;
   }
+}
+
+function decodedBase64(value) {
+  const normalized = normalizedBase64(value);
+  return normalized ? decodedNormalizedBase64(normalized) : null;
 }
 
 function scanDecodedPrompt(value) {
@@ -472,14 +483,16 @@ function scanDecodedPrompt(value) {
 }
 
 function decodedBase64Slices(value) {
-  if (value.length <= MAX_BASE64_DECODE_CHARS) {
-    const decoded = decodedBase64(value);
+  const normalized = normalizedBase64(value);
+  if (!normalized) return [];
+  if (normalized.length <= MAX_BASE64_DECODE_CHARS) {
+    const decoded = decodedNormalizedBase64(normalized);
     return decoded ? [decoded] : [];
   }
   const chunk = BASE64_PREVIEW_CHARS - (BASE64_PREVIEW_CHARS % 4);
-  const suffixStart = Math.max(0, value.length - chunk);
-  return [value.slice(0, chunk), value.slice(suffixStart)]
-    .map(decodedBase64)
+  const suffixStart = Math.max(0, normalized.length - chunk);
+  return [normalized.slice(0, chunk), normalized.slice(suffixStart)]
+    .map(decodedNormalizedBase64)
     .filter(Boolean);
 }
 
@@ -487,13 +500,13 @@ function encodedCandidates(text) {
   const results = [];
   const seen = new Set();
   const patterns = [
-    /(?:[A-Za-z0-9+/]{4}){8,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/g,
-    /(?:[A-Za-z0-9+/]{32,}\r?\n[ \t]*)+[A-Za-z0-9+/]{4,}={0,2}/g,
+    /[A-Za-z0-9+/_-]{32,}={0,2}/g,
+    /(?:[A-Za-z0-9+/_-]{32,}\r?\n[ \t]*)+[A-Za-z0-9+/_-]{2,}={0,2}/g,
   ];
   for (const pattern of patterns) {
     for (const match of text.matchAll(pattern)) {
-      const encoded = match[0].replace(/\s+/g, "");
-      if (encoded.length % 4 !== 0) continue;
+      const encoded = match[0].replace(/\s+/gu, "");
+      if (!normalizedBase64(encoded)) continue;
       const key = `${match.index}:${match[0].length}`;
       if (seen.has(key)) continue;
       seen.add(key);

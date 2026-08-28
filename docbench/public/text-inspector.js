@@ -21,8 +21,6 @@ function revealFinding(finding) {
   const end = Math.max(start, Math.min(editor.value.length, start + finding.length));
   editor.focus({ preventScroll: true });
   editor.setSelectionRange(start, end);
-  const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight) || 22;
-  editor.scrollTop = Math.max(0, (finding.line - 3) * lineHeight);
 }
 
 function severityLabel(severity) {

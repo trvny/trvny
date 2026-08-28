@@ -163,22 +163,27 @@ function locateFindings(text, starts, findings) {
   return located;
 }
 
+function replacementIndex(findings, finding) {
+  const candidateRank = severityRank[finding.severity] ?? severityRank.low;
+  let replacement = -1;
+  let worstRank = candidateRank;
+  findings.forEach((current, index) => {
+    const rank = severityRank[current.severity] ?? severityRank.low;
+    if (rank > worstRank) {
+      worstRank = rank;
+      replacement = index;
+    }
+  });
+  return replacement;
+}
+
 function addFinding(findings, finding) {
   if (findings.length < MAX_FINDINGS) {
     findings.push(finding);
     return;
   }
   findings.truncated = true;
-  const candidateRank = severityRank[finding.severity] ?? severityRank.low;
-  let replacement = -1;
-  let worstRank = candidateRank;
-  for (let index = findings.length - 1; index >= 0; index -= 1) {
-    const rank = severityRank[findings[index].severity] ?? severityRank.low;
-    if (rank <= worstRank) continue;
-    worstRank = rank;
-    replacement = index;
-    if (worstRank === severityRank.low) break;
-  }
+  const replacement = replacementIndex(findings, finding);
   if (replacement >= 0) findings[replacement] = finding;
 }
 
@@ -356,24 +361,43 @@ function decodedBase64Slices(value) {
     .filter(Boolean);
 }
 
+function encodedCandidates(text) {
+  const results = [];
+  const seen = new Set();
+  const patterns = [
+    /(?:[A-Za-z0-9+/]{4}){8,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/g,
+    /(?:[A-Za-z0-9+/]{32,}\r?\n[ \t]*)+[A-Za-z0-9+/]{4,}={0,2}/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const encoded = match[0].replace(/\s+/g, "");
+      if (encoded.length % 4 !== 0) continue;
+      const key = `${match.index}:${match[0].length}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push({ encoded, offset: match.index, length: match[0].length });
+    }
+  }
+  return results;
+}
+
 function scanEncodedPrompts(text, findings) {
-  const candidates = /(?:[A-Za-z0-9+/]{4}){8,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/g;
-  for (const match of text.matchAll(candidates)) {
-    const decodedSlices = decodedBase64Slices(match[0]);
+  for (const candidate of encodedCandidates(text)) {
+    const decodedSlices = decodedBase64Slices(candidate.encoded);
     const decoded = decodedSlices.find(scanDecodedPrompt);
     if (decoded) {
       addFinding(findings, {
         severity: "high", kind: "prompt-injection", label: "Encoded prompt-like instruction",
         detail: `Base64 decoded payload: ${quotedPreview(decoded)}`,
-        offset: match.index, length: match[0].length,
+        offset: candidate.offset, length: candidate.length,
       });
       continue;
     }
-    if (match[0].length > MAX_BASE64_DECODE_CHARS) {
+    if (candidate.encoded.length > MAX_BASE64_DECODE_CHARS) {
       addFinding(findings, {
         severity: "medium", kind: "marker-carrier", label: "Large Base64 carrier",
-        detail: `Encoded run is ${match[0].length} characters; only bounded edge previews were decoded. Hidden content may exist inside.`,
-        offset: match.index, length: match[0].length,
+        detail: `Encoded run is ${candidate.encoded.length} characters; only bounded edge previews were decoded. Hidden content may exist inside.`,
+        offset: candidate.offset, length: candidate.length,
       });
     }
   }

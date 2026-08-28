@@ -125,6 +125,10 @@ function decodeBytes(bytes) {
   }
 }
 
+function decodeBytesRecovering(bytes) {
+  return decodeBytes(bytes) ?? new TextDecoder("utf-8").decode(bytes);
+}
+
 function makeLineStarts(text) {
   const starts = [0];
   for (let index = 0; index < text.length; index += 1) {
@@ -550,7 +554,7 @@ function decodedNormalizedBase64(value) {
   try {
     const binary = globalThis.atob(value);
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    return decodeBytes(bytes);
+    return decodeBytesRecovering(bytes);
   } catch {
     return null;
   }
@@ -578,12 +582,21 @@ function decodedBase64Slices(value) {
     .filter(Boolean);
 }
 
+function candidateDecodedSlices(candidate) {
+  if (candidate.encoded !== null) return decodedBase64Slices(candidate.encoded);
+  return candidate.edges
+    .map(normalizedBase64)
+    .filter(Boolean)
+    .map(decodedNormalizedBase64)
+    .filter(Boolean);
+}
+
 function pushWrappedCandidate(results, run) {
   if (!run || run.parts.length < 2) return;
   const encoded = run.parts.join("");
   if (!normalizedBase64(encoded)) return;
   if (!decodedBase64Slices(encoded).length) return;
-  results.push({ encoded, offset: run.start, length: run.end - run.start });
+  results.push({ encoded, edges: null, offset: run.start, length: run.end - run.start });
 }
 
 function startWrappedRun(part, lineStart, lineEnd) {
@@ -625,6 +638,47 @@ function wrappedBase64Candidates(text) {
   return results;
 }
 
+function isBase64AlphabetCode(unit) {
+  return (unit >= 0x41 && unit <= 0x5a)
+    || (unit >= 0x61 && unit <= 0x7a)
+    || (unit >= 0x30 && unit <= 0x39)
+    || unit === 0x2b || unit === 0x2f || unit === 0x5f || unit === 0x2d;
+}
+
+function boundedCandidate(text, start, end) {
+  const length = end - start;
+  if (length <= MAX_BASE64_DECODE_CHARS) {
+    return { encoded: text.slice(start, end), edges: null, offset: start, length };
+  }
+  const chunk = BASE64_PREVIEW_CHARS - (BASE64_PREVIEW_CHARS % 4);
+  return {
+    encoded: null,
+    edges: [text.slice(start, start + chunk), text.slice(end - chunk, end)],
+    offset: start,
+    length,
+  };
+}
+
+function continuousBase64Candidates(text) {
+  const results = [];
+  let cursor = 0;
+  while (cursor < text.length) {
+    while (cursor < text.length && !isBase64AlphabetCode(text.charCodeAt(cursor))) cursor += 1;
+    const start = cursor;
+    while (cursor < text.length && isBase64AlphabetCode(text.charCodeAt(cursor))) cursor += 1;
+    if (cursor - start < 32) continue;
+    let end = cursor;
+    let padding = 0;
+    while (end < text.length && text.charCodeAt(end) === 0x3d && padding < 2) {
+      end += 1;
+      padding += 1;
+    }
+    results.push(boundedCandidate(text, start, end));
+    cursor = end;
+  }
+  return results;
+}
+
 function candidateContainedBy(candidate, carrier) {
   return candidate.offset >= carrier.offset
     && candidate.offset + candidate.length <= carrier.offset + carrier.length;
@@ -646,15 +700,12 @@ function excludeWrappedLineCandidates(candidates, wrapped) {
 
 function encodedCandidates(text) {
   const wrapped = wrappedBase64Candidates(text);
-  const continuous = [...text.matchAll(/[A-Za-z0-9+/_-]{32,}={0,2}/gu)].map((match) => ({
-    encoded: match[0], offset: match.index, length: match[0].length,
-  }));
-  return [...excludeWrappedLineCandidates(continuous, wrapped), ...wrapped];
+  return [...excludeWrappedLineCandidates(continuousBase64Candidates(text), wrapped), ...wrapped];
 }
 
 function scanEncodedPrompts(text, findings) {
   for (const candidate of encodedCandidates(text)) {
-    const decodedSlices = decodedBase64Slices(candidate.encoded);
+    const decodedSlices = candidateDecodedSlices(candidate);
     const decoded = decodedSlices.find(scanDecodedPrompt);
     if (decoded) {
       addFinding(findings, {
@@ -664,10 +715,10 @@ function scanEncodedPrompts(text, findings) {
       });
       continue;
     }
-    if (candidate.encoded.length > MAX_BASE64_DECODE_CHARS) {
+    if (candidate.length > MAX_BASE64_DECODE_CHARS) {
       addFinding(findings, {
         severity: "medium", kind: "marker-carrier", label: "Large Base64 carrier",
-        detail: `Encoded run is ${candidate.encoded.length} characters; only bounded edge previews were decoded. Hidden content may exist inside.`,
+        detail: `Encoded run is ${candidate.length} characters; only bounded edge previews were decoded. Hidden content may exist inside.`,
         offset: candidate.offset, length: candidate.length,
       });
     }

@@ -641,7 +641,7 @@ async function inspectWorker(request: Request, env: GptActionsEnv, fetcher: type
         const matched = resultArray(result).filter((route) => stringField(route, 'script') === script);
         return {
           zone: safeZone(zone),
-          routes: await Promise.all(matched.map(async (route) => withSnapshot('cloudflare-route', safeRoute(route)))),
+          routes: await Promise.all(matched.map((route) => withSnapshot('cloudflare-route', safeRoute(route)))),
         };
       } catch (error) {
         if (error instanceof CloudflareActionError && [401, 403].includes(error.status)) {
@@ -699,11 +699,11 @@ async function inspectZone(request: Request, env: GptActionsEnv, fetcher: typeof
   const [dns, routes] = await Promise.all([
     section(async () => {
       const { result } = await cloudflareRequest(env, `/zones/${encoded(zoneId)}/dns_records?per_page=500`, 'GET', undefined, fetcher);
-      return Promise.all(resultArray(result).slice(0, 500).map(async (record) => withSnapshot('cloudflare-dns', safeDnsRecord(record))));
+      return Promise.all(resultArray(result).slice(0, 500).map((record) => withSnapshot('cloudflare-dns', safeDnsRecord(record))));
     }),
     section(async () => {
       const { result } = await cloudflareRequest(env, `/zones/${encoded(zoneId)}/workers/routes`, 'GET', undefined, fetcher);
-      return Promise.all(resultArray(result).map(async (route) => withSnapshot('cloudflare-route', safeRoute(route))));
+      return Promise.all(resultArray(result).map((route) => withSnapshot('cloudflare-route', safeRoute(route))));
     }),
   ]);
   return json({ ok: true, zone: safeZone(zone), dns, routes });

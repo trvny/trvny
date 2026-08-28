@@ -10,6 +10,7 @@ import type { GremlinPolicy } from '../src/policy-actions.ts';
 import { customGptOpenApi } from '../src/router.ts';
 
 type Env = Parameters<typeof handleCloudflareAction>[1];
+type FetchStub = (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>;
 
 const ACCOUNT_ID = 'a'.repeat(32);
 const POLICY: GremlinPolicy = {
@@ -122,21 +123,21 @@ function env(): Env {
   } as Env;
 }
 
-function githubPolicyFetch(extra: typeof fetch): typeof fetch {
-  return async (input, init) => {
+function githubPolicyFetch(extra: FetchStub): typeof fetch {
+  return ((input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (url.origin === 'https://api.github.com' && url.pathname === '/user') {
-      return Response.json({ login: 'trvny', id: 120686325 });
+      return Promise.resolve(Response.json({ login: 'trvny', id: 120686325 }));
     }
     if (
       url.origin === 'https://api.github.com' &&
       url.pathname === '/repos/trvny/trvny/contents/.ai/private/openai/gremlin-policy.json'
     ) {
-      return Response.json(filePayload(JSON.stringify(POLICY)));
+      return Promise.resolve(Response.json(filePayload(JSON.stringify(POLICY))));
     }
-    return extra(request);
-  };
+    return Promise.resolve(extra(request));
+  }) as typeof fetch;
 }
 
 test('Cloudflare operator actions are exposed in Custom GPT OpenAPI', () => {
@@ -164,7 +165,7 @@ test('Cloudflare operator actions are exposed in Custom GPT OpenAPI', () => {
 });
 
 test('Cloudflare overview strips Pages secret values', async () => {
-  const upstream: typeof fetch = githubPolicyFetch(async (input, init) => {
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (url.pathname === '/client/v4/user/tokens/verify') {
@@ -210,7 +211,7 @@ test('stale DNS snapshot blocks a write', async () => {
   let patchCalls = 0;
   const zoneId = 'b'.repeat(32);
   const recordId = 'record-1';
-  const upstream: typeof fetch = githubPolicyFetch(async (input, init) => {
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (url.pathname === '/client/v4/zones') {
@@ -254,7 +255,7 @@ test('stale Worker deployment blocks rollback', async () => {
   const currentId = '11111111-1111-4111-8111-111111111111';
   const expectedId = '22222222-2222-4222-8222-222222222222';
   const targetId = '33333333-3333-4333-8333-333333333333';
-  const upstream: typeof fetch = githubPolicyFetch(async (input, init) => {
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (url.pathname.endsWith('/workers/scripts/kanarek-companion/deployments')) {
@@ -290,7 +291,7 @@ test('stale Worker deployment blocks rollback', async () => {
 
 test('zone ids are scoped to the configured Cloudflare account', async () => {
   const zoneId = 'b'.repeat(32);
-  const upstream: typeof fetch = githubPolicyFetch(async (input, init) => {
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (url.pathname === `/client/v4/zones/${zoneId}`) {
@@ -401,7 +402,7 @@ test('Pages rollback replays an identical retry without a second mutation', asyn
   const expectedId = '11111111-1111-4111-8111-111111111111';
   const targetId = '22222222-2222-4222-8222-222222222222';
   let rollbackWrites = 0;
-  const upstream: typeof fetch = githubPolicyFetch(async (input, init) => {
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
     const request = new Request(input, init);
     const url = new URL(request.url);
     if (url.pathname.endsWith('/pages/projects/trfny')) {

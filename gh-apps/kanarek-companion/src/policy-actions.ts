@@ -2,12 +2,16 @@ import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const BOOTSTRAP_PATH = '/gpt-actions/operator/bootstrap';
+const KNOWLEDGE_PATH = '/gpt-actions/operator/knowledge';
 const POLICY_REPOSITORY = 'trvny/trvny';
 const POLICY_PATH = '.ai/private/openai/gremlin-policy.json';
 const PROFILE_PATH = '.ai/private/openai/gremlin-profile.yaml';
+const KNOWLEDGE_MANIFEST_PATH = '.ai/private/openai/gremlin-knowledge.json';
 const POLICY_REF = 'main';
 const MAX_POLICY_BYTES = 32_000;
 const MAX_STYLE_PROFILE_BYTES = 16_000;
+const MAX_KNOWLEDGE_MANIFEST_BYTES = 16_000;
+const MAX_KNOWLEDGE_BYTES = 64_000;
 const MAX_AGENTS_BYTES = 24_000;
 const DEFAULT_CACHE_MAX_BYTES = 5 * 1024 * 1024 * 1024;
 const DEFAULT_CACHE_STALE_DAYS = 5;
@@ -84,6 +88,27 @@ interface LoadedStyleProfile {
   };
 }
 
+interface GremlinKnowledgeTopic {
+  path: string;
+  aliases: string[];
+  description: string;
+}
+
+interface GremlinKnowledgeManifest {
+  version: 1;
+  topics: Record<string, GremlinKnowledgeTopic>;
+}
+
+interface LoadedGremlinKnowledgeManifest {
+  manifest: GremlinKnowledgeManifest;
+  source: {
+    repository: string;
+    path: string;
+    ref: string;
+    sha: string;
+  };
+}
+
 class PolicyActionError extends Error {
   readonly code: string;
   readonly status: number;
@@ -107,6 +132,7 @@ const GATEWAY_CAPABILITIES = [
   'maintenance_scan',
   'maintenance_autofix',
   'operator_style_profile',
+  'domain_knowledge',
 ] as const;
 
 function isObject(value: unknown): value is JsonObject {
@@ -206,6 +232,72 @@ function branchNames(value: unknown, path: string): string[] {
     }
   }
   return result;
+}
+
+function knowledgeError(path: string): never {
+  const normalized = path.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+  throw new PolicyActionError(`invalid_knowledge_manifest_${normalized || 'root'}`, 422);
+}
+
+function parseGremlinKnowledgeManifest(value: unknown): GremlinKnowledgeManifest {
+  if (!isObject(value) || value.version !== 1 || !isObject(value.topics)) {
+    knowledgeError('root');
+  }
+  for (const key of Object.keys(value)) {
+    if (key !== 'version' && key !== 'topics') knowledgeError(key);
+  }
+
+  const topicEntries = Object.entries(value.topics);
+  if (topicEntries.length === 0 || topicEntries.length > 32) knowledgeError('topics');
+  const aliases = new Set<string>();
+  const topics: Record<string, GremlinKnowledgeTopic> = {};
+
+  for (const [topic, rawValue] of topicEntries) {
+    if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(topic) || !isObject(rawValue)) {
+      knowledgeError(`topic_${topic}`);
+    }
+    for (const key of Object.keys(rawValue)) {
+      if (!['path', 'aliases', 'description'].includes(key)) {
+        knowledgeError(`topic_${topic}_${key}`);
+      }
+    }
+    if (
+      typeof rawValue.path !== 'string' ||
+      !/^\.ai\/private\/openai\/knowledge\/[A-Za-z0-9._-]+\.md$/.test(rawValue.path)
+    ) {
+      knowledgeError(`topic_${topic}_path`);
+    }
+    if (
+      typeof rawValue.description !== 'string' ||
+      rawValue.description.length === 0 ||
+      rawValue.description.length > 240
+    ) {
+      knowledgeError(`topic_${topic}_description`);
+    }
+    if (!Array.isArray(rawValue.aliases) || rawValue.aliases.length > 16) {
+      knowledgeError(`topic_${topic}_aliases`);
+    }
+    const topicAliases = rawValue.aliases.map((alias, index) => {
+      if (typeof alias !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(alias)) {
+        knowledgeError(`topic_${topic}_alias_${index}`);
+      }
+      return alias;
+    });
+    if (new Set(topicAliases).size !== topicAliases.length) {
+      knowledgeError(`topic_${topic}_aliases_duplicate`);
+    }
+    for (const name of [topic, ...topicAliases]) {
+      if (aliases.has(name)) knowledgeError(`topic_${topic}_alias_collision`);
+      aliases.add(name);
+    }
+    topics[topic] = {
+      path: rawValue.path,
+      aliases: topicAliases,
+      description: rawValue.description,
+    };
+  }
+
+  return { version: 1, topics };
 }
 
 function maintenanceOverrides(value: unknown): MaintenanceRepositoryOverride[] {
@@ -518,6 +610,56 @@ async function loadGremlinStyleProfile(
   };
 }
 
+
+async function loadGremlinKnowledgeManifest(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<LoadedGremlinKnowledgeManifest> {
+  const raw = await readData(
+    request,
+    env,
+    fetcher,
+    `/repos/${repoPath(POLICY_REPOSITORY)}/contents/${contentPath(KNOWLEDGE_MANIFEST_PATH)}?ref=${POLICY_REF}`,
+  );
+  if (!isObject(raw) || typeof raw.sha !== 'string') {
+    throw new PolicyActionError('invalid_knowledge_manifest_file_response', 502);
+  }
+  const text = decodeGithubFile(
+    raw,
+    MAX_KNOWLEDGE_MANIFEST_BYTES,
+    'invalid_knowledge_manifest_file',
+  );
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new PolicyActionError('invalid_knowledge_manifest_json', 422);
+  }
+  return {
+    manifest: parseGremlinKnowledgeManifest(parsed),
+    source: {
+      repository: POLICY_REPOSITORY,
+      path: KNOWLEDGE_MANIFEST_PATH,
+      ref: POLICY_REF,
+      sha: raw.sha,
+    },
+  };
+}
+
+function resolveKnowledgeTopic(
+  manifest: GremlinKnowledgeManifest,
+  requestedTopic: string,
+): [string, GremlinKnowledgeTopic] | null {
+  if (Object.prototype.hasOwnProperty.call(manifest.topics, requestedTopic)) {
+    return [requestedTopic, manifest.topics[requestedTopic]];
+  }
+  for (const [topic, entry] of Object.entries(manifest.topics)) {
+    if (entry.aliases.includes(requestedTopic)) return [topic, entry];
+  }
+  return null;
+}
+
 function repositoryName(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null;
   if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
@@ -526,7 +668,7 @@ function repositoryName(value: unknown): string | null {
   return value;
 }
 
-async function inputObject(request: Request): Promise<JsonObject> {
+async function requestJsonObject(request: Request): Promise<JsonObject> {
   const text = await request.clone().text();
   if (text.length > 16_000) throw new PolicyActionError('payload_too_large', 413);
   if (!text.trim()) return {};
@@ -537,10 +679,28 @@ async function inputObject(request: Request): Promise<JsonObject> {
     throw new PolicyActionError('invalid_json');
   }
   if (!isObject(parsed)) throw new PolicyActionError('invalid_json_object');
+  return parsed;
+}
+
+async function bootstrapInputObject(request: Request): Promise<JsonObject> {
+  const parsed = await requestJsonObject(request);
   for (const key of Object.keys(parsed)) {
     if (key !== 'repository') throw new PolicyActionError('invalid_bootstrap_request');
   }
   return parsed;
+}
+
+async function knowledgeTopicInput(request: Request): Promise<string> {
+  const parsed = await requestJsonObject(request);
+  for (const key of Object.keys(parsed)) {
+    if (key !== 'topic') throw new PolicyActionError('invalid_knowledge_request');
+  }
+  if (typeof parsed.topic !== 'string') throw new PolicyActionError('knowledge_topic_required');
+  const topic = parsed.topic.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(topic)) {
+    throw new PolicyActionError('invalid_knowledge_topic');
+  }
+  return topic;
 }
 
 async function repositoryBootstrap(
@@ -582,7 +742,7 @@ async function operatorBootstrap(
   env: GptActionsEnv,
   fetcher: typeof fetch,
 ): Promise<Response> {
-  const input = await inputObject(request);
+  const input = await bootstrapInputObject(request);
   const targetRepository = repositoryName(input.repository);
   const [loaded, styleProfile, repository] = await Promise.all([
     loadGremlinPolicy(request, env, fetcher),
@@ -604,6 +764,46 @@ async function operatorBootstrap(
     capabilities: GATEWAY_CAPABILITIES,
     stopConditions: loaded.policy.model.stopConditions,
     repository,
+  });
+}
+
+
+async function gremlinKnowledge(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const requestedTopic = await knowledgeTopicInput(request);
+  const loaded = await loadGremlinKnowledgeManifest(request, env, fetcher);
+  const resolved = resolveKnowledgeTopic(loaded.manifest, requestedTopic);
+  if (!resolved) throw new PolicyActionError('knowledge_topic_not_found', 404);
+  const [topic, entry] = resolved;
+
+  const raw = await readData(
+    request,
+    env,
+    fetcher,
+    `/repos/${repoPath(POLICY_REPOSITORY)}/contents/${contentPath(entry.path)}?ref=${POLICY_REF}`,
+  );
+  if (!isObject(raw) || typeof raw.sha !== 'string') {
+    throw new PolicyActionError('invalid_knowledge_file_response', 502);
+  }
+  const markdown = decodeGithubFile(raw, MAX_KNOWLEDGE_BYTES, 'invalid_knowledge_file');
+
+  return json({
+    ok: true,
+    topic,
+    requestedTopic,
+    description: entry.description,
+    manifestSource: loaded.source,
+    source: {
+      repository: POLICY_REPOSITORY,
+      path: entry.path,
+      ref: POLICY_REF,
+      sha: raw.sha,
+    },
+    format: 'markdown',
+    content: markdown,
   });
 }
 
@@ -641,6 +841,43 @@ export function addPolicyOpenApi(document: JsonObject): void {
       },
     },
   };
+
+  paths[KNOWLEDGE_PATH] = {
+    post: {
+      operationId: 'getGremlinKnowledge',
+      summary: 'Load one maintained Gremlin specialist knowledge topic',
+      description:
+        'Loads a private, manifest-approved specialist reference only when needed. Use before Brainrot or Rickroll-Lang work instead of guessing syntax or semantics.',
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['topic'],
+              properties: {
+                topic: { type: 'string', example: 'brainrot' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': {
+          description: 'Maintained specialist knowledge reference',
+          content: {
+            'application/json': {
+              schema: { type: 'object', properties: {} },
+            },
+          },
+        },
+        '404': {
+          description: 'Unknown knowledge topic',
+        },
+      },
+    },
+  };
 }
 
 export async function handlePolicyAction(
@@ -648,9 +885,11 @@ export async function handlePolicyAction(
   env: GptActionsEnv,
   fetcher: typeof fetch,
 ): Promise<Response | null> {
-  if (new URL(request.url).pathname !== BOOTSTRAP_PATH) return null;
+  const path = new URL(request.url).pathname;
+  if (path !== BOOTSTRAP_PATH && path !== KNOWLEDGE_PATH) return null;
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
   try {
+    if (path === KNOWLEDGE_PATH) return await gremlinKnowledge(request, env, fetcher);
     return await operatorBootstrap(request, env, fetcher);
   } catch (error) {
     if (error instanceof PolicyActionError) {

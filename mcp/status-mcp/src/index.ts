@@ -12,8 +12,20 @@
  * feeds reads GitHub (raw + badge SVG + best-effort contents API). No token — free.
  */
 
+import { ICON_BYTES } from "./icon";
+
 const PROTOCOL_VERSION = "2025-06-18";
-const SERVER_INFO = { name: "status-mcp", version: "1.0.0" };
+// Everything a client shows about this server comes from here, in the reply to
+// `initialize` — a connector list has nothing else to go on. Without `icons` it
+// falls back to a letter avatar; the favicon of this host is never consulted.
+// The URL is absolute and unauthenticated on purpose: see wrangler.jsonc.
+const SERVER_INFO = {
+  name: "status-mcp",
+  version: "1.0.0",
+  description: "Health-checks the tvpi, feeds, weather and autka projects and reports one verdict each.",
+  websiteUrl: "https://github.com/trvny/trvny/tree/main/mcp/status-mcp",
+  icons: [{ src: "https://status-mcp.travny.workers.dev/icon.png", mimeType: "image/png", sizes: ["512x512"] }],
+};
 const FETCH_TIMEOUT_MS = 9_000;
 
 /**
@@ -439,6 +451,18 @@ export default {
       });
     }
     if (request.method === "GET") {
+      // The icon `serverInfo` advertises. It has to answer without a token:
+      // a connector list fetches this URL anonymously, knowing nothing about
+      // the gate. GET reaches no service binding, so serving it costs nothing.
+      if (new URL(request.url).pathname === "/icon.png") {
+        return new Response(ICON_BYTES, {
+          headers: {
+            "Content-Type": "image/png",
+            "Cache-Control": "public, max-age=86400",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      }
       return new Response("status-mcp server. POST JSON-RPC to this endpoint.\n", {
         headers: { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" },
       });

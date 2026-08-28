@@ -62,6 +62,13 @@ tools:
 
 safe-outputs:
   report-failure-as-issue: false
+  report-failed-jobs: false
+  missing-data:
+    create-issue: false
+  missing-tool:
+    create-issue: false
+  report-incomplete:
+    create-issue: false
   create-pull-request-review-comment:
     max: 8
     side: RIGHT

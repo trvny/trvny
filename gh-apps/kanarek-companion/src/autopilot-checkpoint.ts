@@ -145,6 +145,7 @@ export class OperatorCheckpointStore {
     if (pathname === '/progress') return this.progress(body);
     if (pathname === '/complete') return this.complete(body);
     if (pathname === '/uncertain') return this.uncertain(body);
+    if (pathname === '/release') return this.release(body);
     return json({ error: 'not_found' }, 404);
   }
 
@@ -263,6 +264,19 @@ export class OperatorCheckpointStore {
     await this.state.storage.put(CHECKPOINT_KEY, next);
     await this.state.storage.setAlarm(now + CHECKPOINT_RETENTION_MS);
     return json({ ok: true });
+  }
+
+  private async release(body: JsonObject): Promise<Response> {
+    const inputHash = body.inputHash;
+    if (typeof inputHash !== 'string' || !/^[0-9a-f]{64}$/.test(inputHash)) {
+      return json({ error: 'invalid_checkpoint_release' }, 400);
+    }
+    const raw = await this.state.storage.get<StoredAutopilotCheckpoint>(CHECKPOINT_KEY);
+    if (!validCheckpoint(raw)) return json({ ok: true, state: 'released' });
+    if (raw.inputHash !== inputHash) return json({ error: 'checkpoint_input_mismatch' }, 409);
+    await this.state.storage.delete(CHECKPOINT_KEY);
+    await this.state.storage.deleteAlarm();
+    return json({ ok: true, state: 'released' });
   }
 
   private async uncertain(body: JsonObject): Promise<Response> {

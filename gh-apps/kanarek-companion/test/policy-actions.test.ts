@@ -37,6 +37,16 @@ const POLICY: GremlinPolicy = {
       cacheStaleDays: 5,
       repositoryOverrides: [],
     },
+    cloudflare: {
+      enabled: true,
+      mutations: {
+        workerRollback: true,
+        pagesRollback: true,
+        workerSubdomain: true,
+        routeUpdate: true,
+        dnsUpdate: true,
+      },
+    },
     merge: {
       enabled: true,
       method: 'squash',
@@ -344,4 +354,21 @@ test('specialist knowledge treats inherited object properties as unknown topics'
   assert.ok(response);
   assert.equal(response.status, 404);
   assert.deepEqual(await response.json(), { ok: false, error: 'knowledge_topic_not_found' });
+});
+
+test('legacy Gremlin policy defaults Cloudflare operator off', () => {
+  const legacy = structuredClone(POLICY) as unknown as {
+    runtime: Record<string, unknown>;
+  };
+  delete legacy.runtime.cloudflare;
+
+  const parsed = parseGremlinPolicy(legacy);
+  assert.equal(parsed.runtime.cloudflare.enabled, false);
+  assert.deepEqual(parsed.runtime.cloudflare.mutations, {
+    workerRollback: false,
+    pagesRollback: false,
+    workerSubdomain: false,
+    routeUpdate: false,
+    dnsUpdate: false,
+  });
 });

@@ -36,6 +36,7 @@ const SMOKE_REPOSITORY = 'trvny/trvny';
 const REQUIRED_SMOKE_OPERATIONS = [
   'getOperatorBootstrap',
   'getOperatorCapabilities',
+  'getCloudflareOverview',
   'runOperatorAutopilot',
   'runOperatorSmokeTest',
   'orchestrateRelease',
@@ -325,7 +326,13 @@ async function decoratedHealth(
   }
   const document = gatewayOpenApi(new URL(request.url).origin);
   const manifest = await gatewayManifest(document, env.CF_VERSION_METADATA);
-  return json({ ...body, gateway: manifest }, response.status);
+  return json({
+    ...body,
+    gateway: manifest,
+    cloudflare: {
+      configured: Boolean(env.CLOUDFLARE_ACCOUNT_ID?.trim() && env.CLOUDFLARE_API_TOKEN?.trim()),
+    },
+  }, response.status);
 }
 
 const worker = {

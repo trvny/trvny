@@ -195,6 +195,19 @@ Connect `trvny/trvny` with:
 
 GitHub Actions validates the project but does not deploy it.
 
+## Gremlin Cloudflare operator
+
+The GPT Actions gateway exposes guarded Cloudflare inventory and inspection for
+Workers, Pages projects, zones, deployments, routes, DNS, and Worker
+observability. Mutations are intentionally narrow: existing-version rollback,
+workers.dev state, and updates to existing routes or DNS records. Mutation
+calls require fresh expected IDs, state, or snapshot hashes so stale reads fail
+closed. The gateway never returns Worker secret values or Pages build variables.
+
+`gremlin-cloudflare-secrets-sync.yml` copies the existing repository
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` Actions secrets into the
+`kanarek-companion` Worker. It is manual-only and does not print their values.
+
 ## Secrets
 
 Required Worker secrets:

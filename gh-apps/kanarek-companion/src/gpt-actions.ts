@@ -664,10 +664,10 @@ export function openApiDocument(origin: string): Record<string, unknown> {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'Gremlin GitHub Operator',
+      title: 'Gremlin Operator',
       version: '1.0.0',
       description:
-        'GitHub operator for trvny repositories. Uses trvny OAuth for user-only operations and gptomek[bot] for normal repository writes.',
+        'Guarded operator for trvny GitHub repositories and selected Cloudflare resources. Uses trvny OAuth for authorization and server-side provider credentials for narrow external actions.',
     },
     servers: [{ url: origin }],
     security: [{ githubOAuth: [] }],

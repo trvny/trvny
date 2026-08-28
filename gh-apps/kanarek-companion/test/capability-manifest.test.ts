@@ -41,6 +41,7 @@ test('gateway manifest reports exact operation IDs and Worker version metadata',
   assert.equal(manifest.workerVersion.id, 'worker-version-id');
   assert.equal(manifest.workerVersion.tag, 'deploy-tag');
   assert.ok(manifest.openApi.operationIds.includes('getOperatorCapabilities'));
+  assert.ok(manifest.openApi.operationIds.includes('getCloudflareOverview'));
   assert.ok(manifest.openApi.operationIds.includes('runOperatorSmokeTest'));
   assert.ok(manifest.openApi.operationIds.includes('runOperatorAutopilot'));
   assert.ok(manifest.openApi.operationIds.includes('orchestrateRelease'));

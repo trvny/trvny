@@ -54,6 +54,16 @@ export interface GremlinPolicy {
       cacheStaleDays: number;
       repositoryOverrides: MaintenanceRepositoryOverride[];
     };
+    cloudflare: {
+      enabled: boolean;
+      mutations: {
+        workerRollback: boolean;
+        pagesRollback: boolean;
+        workerSubdomain: boolean;
+        routeUpdate: boolean;
+        dnsUpdate: boolean;
+      };
+    };
     merge: {
       enabled: boolean;
       method: MergeMethod;
@@ -133,6 +143,7 @@ const GATEWAY_CAPABILITIES = [
   'maintenance_autofix',
   'operator_style_profile',
   'domain_knowledge',
+  'cloudflare_operator',
 ] as const;
 
 function isObject(value: unknown): value is JsonObject {
@@ -348,7 +359,7 @@ export function parseGremlinPolicy(value: unknown): GremlinPolicy {
   );
   const runtime = exactObject(
     root.runtime,
-    ['repositories', 'maintenance', 'merge', 'release'],
+    ['repositories', 'maintenance', 'cloudflare', 'merge', 'release'],
     'runtime',
   );
   const repositories = exactObject(
@@ -369,6 +380,16 @@ export function parseGremlinPolicy(value: unknown): GremlinPolicy {
     ],
     'runtime_maintenance',
   );
+  const cloudflare = runtime.cloudflare === undefined
+    ? null
+    : exactObject(runtime.cloudflare, ['enabled', 'mutations'], 'runtime_cloudflare');
+  const cloudflareMutations = cloudflare
+    ? exactObject(
+        cloudflare.mutations,
+        ['workerRollback', 'pagesRollback', 'workerSubdomain', 'routeUpdate', 'dnsUpdate'],
+        'runtime_cloudflare_mutations',
+      )
+    : null;
   const merge = exactObject(
     runtime.merge,
     [
@@ -452,6 +473,26 @@ export function parseGremlinPolicy(value: unknown): GremlinPolicy {
               'runtime_maintenance_cache_stale_days',
             ),
         repositoryOverrides: maintenanceOverrides(maintenance.repositoryOverrides),
+      },
+      cloudflare: {
+        enabled: cloudflare ? booleanValue(cloudflare.enabled, 'runtime_cloudflare_enabled') : false,
+        mutations: {
+          workerRollback: cloudflareMutations
+            ? booleanValue(cloudflareMutations.workerRollback, 'runtime_cloudflare_mutations_worker_rollback')
+            : false,
+          pagesRollback: cloudflareMutations
+            ? booleanValue(cloudflareMutations.pagesRollback, 'runtime_cloudflare_mutations_pages_rollback')
+            : false,
+          workerSubdomain: cloudflareMutations
+            ? booleanValue(cloudflareMutations.workerSubdomain, 'runtime_cloudflare_mutations_worker_subdomain')
+            : false,
+          routeUpdate: cloudflareMutations
+            ? booleanValue(cloudflareMutations.routeUpdate, 'runtime_cloudflare_mutations_route_update')
+            : false,
+          dnsUpdate: cloudflareMutations
+            ? booleanValue(cloudflareMutations.dnsUpdate, 'runtime_cloudflare_mutations_dns_update')
+            : false,
+        },
       },
       merge: {
         enabled: booleanValue(merge.enabled, 'runtime_merge_enabled'),

@@ -5,6 +5,8 @@ for (const path of [
   "public/app.js",
   "public/document-enhancements.mjs",
   "public/document-enhancements.css",
+  "public/text-inspector-core.mjs",
+  "public/text-inspector.mjs",
   "public/pdf-app.mjs",
   "public/pdf-core.mjs",
   "public/fonts.css",
@@ -180,6 +182,8 @@ for (const leaked of [
   "/fonts/",
   "/app.js",
   "/document-enhancements.mjs",
+  "/text-inspector.mjs",
+  "/text-inspector-core.mjs",
   "/pdf-app.mjs",
   "/pdf-core.mjs",
   "/fonts.css",
@@ -202,6 +206,9 @@ if (!portable.includes("Space Grotesk") || !portable.includes("Space Mono")) {
 if (!portable.includes("jsyaml")) throw new Error("Portable build is missing YAML runtime");
 if (!portable.includes("marked")) throw new Error("Portable build is missing Markdown runtime");
 if (!portable.includes("parseTree")) throw new Error("Portable build is missing JSON tree runtime");
+if (!portable.includes("Text safety inspection") || !portable.includes("inspect-button")) {
+  throw new Error("Portable build is missing text inspector support.");
+}
 if (!portable.includes("showSaveFilePicker") || !portable.includes("createWritable")) {
   throw new Error("Portable build is missing direct-save support");
 }

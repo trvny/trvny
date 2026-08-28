@@ -11,6 +11,8 @@ const [
   fflate,
   app,
   documentEnhancements,
+  inspectorCore,
+  inspector,
   jsonParser,
   jsonScanner,
   pdfCore,
@@ -33,6 +35,8 @@ const [
   readFile("public/vendor/fflate.min.js", "utf8"),
   readFile("public/app.js", "utf8"),
   readFile("public/document-enhancements.mjs", "utf8"),
+  readFile("public/text-inspector-core.mjs", "utf8"),
+  readFile("public/text-inspector.mjs", "utf8"),
   readFile("public/vendor/jsonc-parser/impl/parser.js", "utf8"),
   readFile("public/vendor/jsonc-parser/impl/scanner.js", "utf8"),
   readFile("public/pdf-core.mjs", "utf8"),
@@ -73,6 +77,11 @@ const jsonParserUrl = dataUrl("text/javascript", jsonParserPortable);
 const documentEnhancementsPortable = documentEnhancements.replace(
   'from "./vendor/jsonc-parser/impl/parser.js";',
   `from ${JSON.stringify(jsonParserUrl)};`,
+);
+const inspectorCoreUrl = dataUrl("text/javascript", inspectorCore);
+const inspectorPortable = inspector.replace(
+  'from "./text-inspector-core.mjs";',
+  `from ${JSON.stringify(inspectorCoreUrl)};`,
 );
 
 const qpdfBytesUrl = dataUrl("text/javascript", qpdfBytes);
@@ -135,6 +144,10 @@ const portable = html
   .replace(
     '<script type="module" src="/document-enhancements.mjs"></script>',
     `<script type="module">${safeScript(documentEnhancementsPortable)}</script>`,
+  )
+  .replace(
+    '<script type="module" src="/text-inspector.mjs"></script>',
+    `<script type="module">${safeScript(inspectorPortable)}</script>`,
   )
   .replace('<script type="module" src="/pdf-app.mjs"></script>', portablePdfScripts)
   .replace('<link rel="manifest" href="/site.webmanifest">', "")

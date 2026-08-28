@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "topics": {
+    "brainrot": {
+      "path": ".ai/private/openai/knowledge/brainrot.md",
+      "aliases": [
+        "brainrotlang"
+      ],
+      "description": "Brainrot language syntax, semantics, runtime, modules, pitfalls and verification workflow."
+    },
+    "rickroll": {
+      "path": ".ai/private/openai/knowledge/rickroll.md",
+      "aliases": [
+        "rick",
+        "rick-lang",
+        "rickroll-lang"
+      ],
+      "description": "Rickroll-Lang lexer, syntax, backends, safety pitfalls and verification workflow."
+    }
+  }
+}

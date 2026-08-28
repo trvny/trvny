@@ -73,6 +73,25 @@ collaboration:
   assumptionPolicy: decisive
 `;
 
+
+const KNOWLEDGE_MANIFEST = {
+  version: 1,
+  topics: {
+    brainrot: {
+      path: '.ai/private/openai/knowledge/brainrot.md',
+      aliases: ['brainrotlang'],
+      description: 'Brainrot expert reference.',
+    },
+    rickroll: {
+      path: '.ai/private/openai/knowledge/rickroll.md',
+      aliases: ['rick', 'rick-lang', 'rickroll-lang'],
+      description: 'Rickroll-Lang expert reference.',
+    },
+  },
+};
+
+const BRAINROT_KNOWLEDGE = '# Brainrot\n\nUse `rizz` for integers.\n';
+
 function filePayload(content: string, sha: string): Record<string, unknown> {
   return {
     encoding: 'base64',
@@ -81,15 +100,18 @@ function filePayload(content: string, sha: string): Record<string, unknown> {
   };
 }
 
-test('operator bootstrap is exposed in Custom GPT OpenAPI', () => {
+test('operator bootstrap and specialist knowledge are exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {
     paths: Record<string, Record<string, { operationId?: string; description?: string }>>;
   };
   const operations = Object.values(document.paths).flatMap((path) => Object.values(path));
   const bootstrap = operations.find((operation) => operation.operationId === 'getOperatorBootstrap');
+  const knowledge = operations.find((operation) => operation.operationId === 'getGremlinKnowledge');
 
   assert.ok(bootstrap);
+  assert.ok(knowledge);
   assert.ok(!bootstrap.description || bootstrap.description.length <= 300);
+  assert.ok(!knowledge.description || knowledge.description.length <= 300);
 });
 
 test('Gremlin policy parser rejects unknown keys and unsafe limits', () => {
@@ -211,4 +233,87 @@ test('operator bootstrap loads private policy, style and repository guidance wit
   assert.equal(payload.repository.defaultBranch, 'main');
   assert.match(payload.repository.instructions.rootAgentsMarkdown ?? '', /Keep it tidy/);
   assert.equal(calls.filter((call) => call === 'GET /user').length, 1);
+});
+
+test('specialist knowledge resolves aliases through the private manifest', async () => {
+  const calls: string[] = [];
+  const upstream: typeof fetch = async (input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    calls.push(`${request.method} ${url.pathname}${url.search}`);
+
+    if (url.pathname === '/user') {
+      return Response.json({ login: 'trvny', id: 120686325 });
+    }
+    if (url.pathname === '/repos/trvny/trvny/contents/.ai/private/openai/gremlin-knowledge.json') {
+      assert.equal(url.searchParams.get('ref'), 'main');
+      return Response.json(filePayload(JSON.stringify(KNOWLEDGE_MANIFEST), '4'.repeat(40)));
+    }
+    if (url.pathname === '/repos/trvny/trvny/contents/.ai/private/openai/knowledge/brainrot.md') {
+      assert.equal(url.searchParams.get('ref'), 'main');
+      return Response.json(filePayload(BRAINROT_KNOWLEDGE, '5'.repeat(40)));
+    }
+    return Response.json({ message: 'unexpected' }, { status: 500 });
+  };
+
+  const request = new Request('https://example.workers.dev/gpt-actions/operator/knowledge', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer policy-user-token',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ topic: 'brainrotlang' }),
+  });
+
+  const response = await handlePolicyAction(request, {} as Env, createActionFetch(upstream));
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  const payload = await response.json() as {
+    topic: string;
+    requestedTopic: string;
+    format: string;
+    content: string;
+    source: { path: string; sha: string };
+  };
+
+  assert.equal(payload.topic, 'brainrot');
+  assert.equal(payload.requestedTopic, 'brainrotlang');
+  assert.equal(payload.format, 'markdown');
+  assert.equal(payload.content, BRAINROT_KNOWLEDGE);
+  assert.equal(payload.source.path, '.ai/private/openai/knowledge/brainrot.md');
+  assert.equal(calls.filter((call) => call === 'GET /user').length, 1);
+});
+
+test('specialist knowledge rejects manifest paths outside the private knowledge directory', async () => {
+  const unsafeManifest = structuredClone(KNOWLEDGE_MANIFEST);
+  unsafeManifest.topics.brainrot.path = '../../AGENTS.md';
+
+  const upstream: typeof fetch = async (input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname === '/user') {
+      return Response.json({ login: 'trvny', id: 120686325 });
+    }
+    if (url.pathname === '/repos/trvny/trvny/contents/.ai/private/openai/gremlin-knowledge.json') {
+      return Response.json(filePayload(JSON.stringify(unsafeManifest), '6'.repeat(40)));
+    }
+    return Response.json({ message: 'unexpected' }, { status: 500 });
+  };
+
+  const request = new Request('https://example.workers.dev/gpt-actions/operator/knowledge', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer policy-user-token',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ topic: 'brainrot' }),
+  });
+
+  const response = await handlePolicyAction(request, {} as Env, createActionFetch(upstream));
+  assert.ok(response);
+  assert.equal(response.status, 422);
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    error: 'invalid_knowledge_manifest_topic_brainrot_path',
+  });
 });

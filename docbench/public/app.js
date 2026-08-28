@@ -168,12 +168,30 @@
       ? root
       : null;
     if (!error) return null;
-    const message = error.textContent.trim().replace(/\s+/g, " ");
-    const lineMatch = message.match(/line\s+(\d+).*column\s+(\d+)/i);
+    const rawMessage = error.textContent.trim().replace(/\s+/g, " ");
+    const lineMatch = rawMessage.match(/line(?: number)?\s*[: ]\s*(\d+).*?column(?: number)?\s*[: ]\s*(\d+)/i);
+    const message = rawMessage
+      .replace(/^This page contains the following errors:\s*/i, "")
+      .replace(/^error on line \d+ at column \d+:\s*/i, "")
+      .replace(/\s*Below is a rendering of the page up to the first error.*$/i, "")
+      .trim() || "Malformed XML.";
     return {
       message,
       position: lineMatch ? { line: Number(lineMatch[1]), column: Number(lineMatch[2]) } : null,
     };
+  }
+
+  function revealErrorLine(position) {
+    if (!position?.line) return;
+    const lines = editor.value.split("\n");
+    const lineIndex = Math.min(lines.length - 1, Math.max(0, position.line - 1));
+    let start = 0;
+    for (let index = 0; index < lineIndex; index += 1) start += lines[index].length + 1;
+    const end = start + lines[lineIndex].length;
+    editor.focus({ preventScroll: true });
+    editor.setSelectionRange(start, end);
+    const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight) || 22;
+    editor.scrollTop = Math.max(0, (lineIndex - 2) * lineHeight);
   }
 
   function parseCurrent() {
@@ -218,7 +236,7 @@
     detailStatus.textContent = `${bom} · ${mixed} · ${lines} line${lines === 1 ? "" : "s"}`;
   }
 
-  function renderValidation() {
+  function renderValidation({ revealError = false } = {}) {
     const result = parseCurrent();
     const format = formatSelect.value;
     if (["txt", "md"].includes(format)) {
@@ -244,6 +262,7 @@
       const at = result.error.position ? ` · ${result.error.position.line}:${result.error.position.column}` : "";
       statusBadge.textContent = `Invalid${at}`;
       preview.textContent = result.error.message;
+      if (revealError) revealErrorLine(result.error.position);
     }
     updateMeta();
     return result;
@@ -312,7 +331,7 @@
 
   function formatDocument() {
     const result = parseCurrent();
-    if (!result.ok) return renderValidation();
+    if (!result.ok) return renderValidation({ revealError: true });
     try {
       if (formatSelect.value === "json") editor.value = formatJsonLossless(editor.value);
       if (formatSelect.value === "yaml") {
@@ -381,7 +400,7 @@
 
   $("#open-button").addEventListener("click", () => fileInput.click());
   $("#new-button").addEventListener("click", newDocument);
-  $("#validate-button").addEventListener("click", renderValidation);
+  $("#validate-button").addEventListener("click", () => renderValidation({ revealError: true }));
   $("#format-button").addEventListener("click", formatDocument);
   $("#save-button").addEventListener("click", saveFile);
   $("#copy-button").addEventListener("click", async () => navigator.clipboard.writeText(editor.value));

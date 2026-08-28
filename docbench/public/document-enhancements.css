@@ -253,3 +253,47 @@
     padding-left: 7px;
   }
 }
+
+#preview.preview-error {
+  display: block;
+  white-space: normal;
+}
+
+.preview-error-message {
+  margin: 0 0 14px;
+  color: var(--bad);
+  font: 600 0.78rem/1.5 "Space Mono", ui-monospace, monospace;
+}
+
+.preview-error-source {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0b0e13;
+  font: 400 0.76rem/1.55 "Space Mono", ui-monospace, monospace;
+}
+
+.preview-error-line {
+  display: grid;
+  min-width: max-content;
+  grid-template-columns: 4ch minmax(0, 1fr);
+}
+
+.preview-error-line.active {
+  background: rgb(255 132 125 / 12%);
+  box-shadow: inset 3px 0 var(--bad);
+}
+
+.preview-error-line-number {
+  padding: 3px 8px;
+  color: var(--muted);
+  text-align: right;
+  user-select: none;
+}
+
+.preview-error-code {
+  padding: 3px 10px;
+  border-left: 1px solid var(--line);
+  color: var(--text-soft);
+  white-space: pre;
+}

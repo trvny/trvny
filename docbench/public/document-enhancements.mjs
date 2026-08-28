@@ -139,6 +139,69 @@ function setStatus(kind, text) {
   statusBadge.removeAttribute("title");
 }
 
+function positionFromOffset(text, offset) {
+  const before = text.slice(0, Math.max(0, offset));
+  const lines = before.split("\n");
+  return { line: lines.length, column: lines.at(-1).length + 1 };
+}
+
+function parseXmlError(error) {
+  if (!error) return null;
+  const rawMessage = error.textContent.trim().replace(/\s+/g, " ");
+  const lineMatch = rawMessage.match(/line(?: number)?\s*[: ]\s*(\d+).*?column(?: number)?\s*[: ]\s*(\d+)/i);
+  const message = rawMessage
+    .replace(/^This page contains the following errors:\s*/i, "")
+    .replace(/^error on line \d+ at column \d+:\s*/i, "")
+    .replace(/\s*Below is a rendering of the page up to the first error.*$/i, "")
+    .trim() || "Malformed XML.";
+  return {
+    message,
+    position: lineMatch ? { line: Number(lineMatch[1]), column: Number(lineMatch[2]) } : null,
+  };
+}
+
+function renderParseError(error) {
+  setPreviewMode("error", "Parse error");
+  const position = error?.position || null;
+  const at = position ? ` · ${position.line}:${position.column}` : "";
+  setStatus("bad", `Invalid${at}`);
+  const message = document.createElement("p");
+  message.className = "preview-error-message";
+  message.textContent = error?.message || "The document could not be parsed.";
+  if (!position?.line) {
+    preview.replaceChildren(message);
+    return;
+  }
+
+  const lines = editor.value.split("\n");
+  const target = Math.min(lines.length, Math.max(1, position.line));
+  const first = Math.max(1, target - 2);
+  const last = Math.min(lines.length, target + 2);
+  const source = document.createElement("div");
+  source.className = "preview-error-source";
+  for (let line = first; line <= last; line += 1) {
+    const row = document.createElement("div");
+    row.className = line === target ? "preview-error-line active" : "preview-error-line";
+    const number = document.createElement("span");
+    number.className = "preview-error-line-number";
+    number.textContent = String(line);
+    const code = document.createElement("span");
+    code.className = "preview-error-code";
+    code.textContent = lines[line - 1] || " ";
+    row.append(number, code);
+    source.append(row);
+  }
+  preview.replaceChildren(message, source);
+}
+
+function updateFormatButton() {
+  const enabled = ["json", "yaml", "xml"].includes(formatSelect.value);
+  formatButton.disabled = !enabled;
+  formatButton.title = enabled
+    ? "Normalize indentation and layout"
+    : "Auto-format is available for JSON, YAML and XML";
+}
+
 function scalarText(value) {
   if (value === null) return "null";
   if (typeof value === "string") return JSON.stringify(value);
@@ -773,7 +836,10 @@ function renderEnhancedPreview() {
   if (format === "json") {
     const tree = renderJsonTree(editor.value);
     if (!tree) {
-      setPreviewMode("raw", "Parse error");
+      const errors = [];
+      parseTree(editor.value, errors, { allowTrailingComma: false, disallowComments: true });
+      const position = errors[0] ? positionFromOffset(editor.value, errors[0].offset) : null;
+      renderParseError({ message: "Invalid JSON.", position });
       updateMeta();
       return;
     }
@@ -791,16 +857,21 @@ function renderEnhancedPreview() {
       setPreviewMode("tree", "YAML tree");
       preview.replaceChildren(tree);
       setStatus("good", "Valid · tree");
-    } catch {
-      setPreviewMode("raw", "Parse error");
+    } catch (error) {
+      const mark = error?.mark;
+      renderParseError({
+        message: error?.reason || error?.message || "Invalid YAML.",
+        position: mark ? { line: mark.line + 1, column: mark.column + 1 } : null,
+      });
     }
     updateMeta();
     return;
   }
   if (format === "xml") {
     const doc = new DOMParser().parseFromString(editor.value, "application/xml");
-    if (xmlParserError(doc)) {
-      setPreviewMode("raw", "Parse error");
+    const parserError = xmlParserError(doc);
+    if (parserError) {
+      renderParseError(parseXmlError(parserError));
       updateMeta();
       return;
     }
@@ -944,6 +1015,7 @@ async function loadNativeHandle(handle, revision) {
   eolSelect.value = eol.target;
   formatSelect.value = formatFromFilename(state.filename);
   filenameLabel.textContent = state.filename;
+  updateFormatButton();
   editor.dispatchEvent(new Event("input", { bubbles: true }));
   updateSaveButton();
   schedulePreview();
@@ -963,6 +1035,7 @@ async function syncFallbackFile(file, revision) {
     eolSelect.value = eol.target;
     formatSelect.value = formatFromFilename(state.filename);
     filenameLabel.textContent = state.filename;
+    updateFormatButton();
     updateSaveButton();
     renderEnhancedPreview();
   } catch (error) {
@@ -982,7 +1055,6 @@ openButton.addEventListener("click", (event) => {
     try {
       [handle] = await globalThis.showOpenFilePicker({
         multiple: false,
-        types: pickerTypes,
       });
     } catch (error) {
       if (error?.name === "AbortError") return;
@@ -1058,6 +1130,7 @@ formatSelect.addEventListener("change", (event) => {
     state.filename = `untitled.${preferredExtension[formatSelect.value]}`;
   }
   filenameLabel.textContent = state.filename;
+  updateFormatButton();
   schedulePreview();
 }, true);
 eolSelect.addEventListener("change", () => {
@@ -1089,4 +1162,5 @@ document.addEventListener("keydown", (event) => {
 }, true);
 
 updateSaveButton();
+updateFormatButton();
 schedulePreview(0);

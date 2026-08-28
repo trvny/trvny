@@ -56,7 +56,7 @@
         <div class="toolbar-group document-file-group">
           <button id="open-button" class="button compact primary" type="button">Open file</button>
           <button id="new-button" class="button compact" type="button">New</button>
-          <input id="file-input" type="file" hidden accept=".txt,.md,.markdown,.json,.yml,.yaml,.xml,text/*,application/json,application/xml,text/xml">
+          <input id="file-input" type="file" hidden accept="*/*">
         </div>
         <div class="toolbar-group fields-group">
           <label>Format
@@ -78,7 +78,7 @@
         </div>
         <div class="toolbar-group action-group">
           <button id="validate-button" class="button compact" type="button">Validate</button>
-          <button id="format-button" class="button compact" type="button">Format</button>
+          <button id="format-button" class="button compact" type="button">Auto-format</button>
           <button id="copy-button" class="button compact" type="button">Copy</button>
           <button id="save-button" class="button compact primary" type="button" aria-keyshortcuts="Control+S Meta+S">Save</button>
           <button id="download-button" class="button compact" type="button">Download</button>

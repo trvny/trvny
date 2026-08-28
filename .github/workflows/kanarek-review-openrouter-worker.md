@@ -60,9 +60,32 @@ tools:
     toolsets: [repos, pull_requests]
     min-integrity: approved
 
+jobs:
+  safe_outputs:
+    pre-steps:
+      - name: Load resolved review model
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: "${{ needs.activation.outputs.artifact_prefix }}agent"
+          merge-multiple: true
+          path: "${{ runner.temp }}/gh-aw/review-model"
+      - name: Export resolved review model
+        shell: bash
+        run: |
+          usage="${RUNNER_TEMP}/gh-aw/review-model/agent_usage.json"
+          if [ -f "$usage" ]; then
+            model="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1], "utf8")); process.stdout.write(x.primary_model || "")' "$usage")"
+            if [ -n "$model" ]; then
+              echo "GH_AW_PRIMARY_MODEL=$model" >> "$GITHUB_ENV"
+            fi
+          fi
+
 safe-outputs:
   report-failure-as-issue: false
   report-failed-jobs: false
+  messages:
+    footer: "> <sub>模型：{ai_model} · OpenRouter</sub>"
   missing-data:
     create-issue: false
   missing-tool:
@@ -77,7 +100,7 @@ safe-outputs:
     max: 1
     allowed-events: [COMMENT]
     target: ${{ inputs.pr_number }}
-    footer: none
+    footer: always
 ---
 
 # Kanarek Free Code Review

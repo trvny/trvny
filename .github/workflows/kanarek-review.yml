@@ -33,7 +33,9 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository)
       }}
     permissions:
+      actions: read
       contents: read
+      issues: write
       pull-requests: write
     uses: trvny/trvny/.github/workflows/kanarek-review-worker.lock.yml@main
     with:
@@ -55,7 +57,9 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository)
       }}
     permissions:
+      actions: read
       contents: read
+      issues: write
       pull-requests: write
     uses: trvny/trvny/.github/workflows/kanarek-review-openrouter-worker.lock.yml@main
     with:

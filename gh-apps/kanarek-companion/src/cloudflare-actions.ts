@@ -22,6 +22,8 @@ const RESOURCE_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const MAX_CF_RESPONSE_BYTES = 2_000_000;
 const DNS_PAGE_SIZE = 500;
 const MAX_DNS_PAGES = 20;
+const ZONE_PAGE_SIZE = 50;
+const MAX_ZONE_PAGES = 20;
 
 type JsonObject = Record<string, unknown>;
 type MutationKey = keyof GremlinPolicy['runtime']['cloudflare']['mutations'];
@@ -572,6 +574,33 @@ async function dnsRecords(
   throw new CloudflareActionError('cloudflare_dns_inventory_too_large', 413);
 }
 
+async function zonesForAccount(
+  env: GptActionsEnv,
+  accountId: string,
+  fetcher: typeof fetch,
+): Promise<unknown[]> {
+  const zones: unknown[] = [];
+  for (let page = 1; page <= MAX_ZONE_PAGES; page += 1) {
+    const query = new URLSearchParams({
+      'account.id': accountId,
+      per_page: String(ZONE_PAGE_SIZE),
+      page: String(page),
+    });
+    const { result, resultInfo } = await cloudflareRequest(env, `/zones?${query}`, 'GET', undefined, fetcher);
+    const batch = resultArray(result);
+    zones.push(...batch);
+    const totalPages = numberField(resultInfo, 'total_pages');
+    if (totalPages !== null && (!Number.isInteger(totalPages) || totalPages < 1)) {
+      throw new CloudflareActionError('invalid_cloudflare_pagination', 502);
+    }
+    if (totalPages !== null && totalPages > MAX_ZONE_PAGES) {
+      throw new CloudflareActionError('cloudflare_zone_inventory_too_large', 413);
+    }
+    if (totalPages !== null ? page >= totalPages : batch.length < ZONE_PAGE_SIZE) return zones;
+  }
+  throw new CloudflareActionError('cloudflare_zone_inventory_too_large', 413);
+}
+
 async function tokenStatus(env: GptActionsEnv, fetcher: typeof fetch): Promise<JsonObject> {
   const { result } = await cloudflareRequest(env, '/user/tokens/verify', 'GET', undefined, fetcher);
   if (!isObject(result) || result.status !== 'active') {
@@ -629,8 +658,8 @@ async function overview(request: Request, env: GptActionsEnv, fetcher: typeof fe
       return resultArray(result).map(safePagesProject);
     }),
     section(async () => {
-      const { result } = await cloudflareRequest(env, `/zones?account.id=${accountId}&per_page=100`, 'GET', undefined, fetcher);
-      return resultArray(result).map(safeZone);
+      const zones = await zonesForAccount(env, accountId, fetcher);
+      return zones.map(safeZone);
     }),
   ]);
   return json({ ok: true, token, workers, pages, zones });
@@ -667,10 +696,7 @@ async function inspectWorker(request: Request, env: GptActionsEnv, fetcher: type
       const { result } = await cloudflareRequest(env, `/accounts/${accountId}/workers/scripts/${encoded(script)}/script-settings`, 'GET', undefined, fetcher);
       return safeScriptSettings(result);
     }),
-    section(async () => {
-      const { result } = await cloudflareRequest(env, `/zones?account.id=${accountId}&per_page=100`, 'GET', undefined, fetcher);
-      return resultArray(result);
-    }),
+    section(async () => zonesForAccount(env, accountId, fetcher)),
   ]);
 
   const routes: JsonObject[] = [];

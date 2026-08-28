@@ -648,3 +648,37 @@ test('Worker inspection reads versions from the paginated items array', async ()
     hasPreview: null,
   }]);
 });
+
+test('Cloudflare overview paginates account zones with the supported page size', async () => {
+  const zonePages: number[] = [];
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname === '/client/v4/user/tokens/verify') return cf({ status: 'active' });
+    if (url.pathname === `/client/v4/accounts/${ACCOUNT_ID}/workers/scripts`) return cf([]);
+    if (url.pathname === `/client/v4/accounts/${ACCOUNT_ID}/pages/projects`) return cf([]);
+    if (url.pathname === '/client/v4/zones') {
+      assert.equal(url.searchParams.get('per_page'), '50');
+      assert.equal(url.searchParams.get('account.id'), ACCOUNT_ID);
+      const page = Number(url.searchParams.get('page'));
+      zonePages.push(page);
+      return Response.json({
+        success: true,
+        errors: [],
+        messages: [],
+        result: [{ id: String(page).repeat(32), name: `zone-${page}.example`, status: 'active' }],
+        result_info: { page, per_page: 50, total_pages: 2, total_count: 2 },
+      });
+    }
+    return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
+  });
+  const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/overview', {
+    headers: { Authorization: 'Bearer test' },
+  });
+  const response = await handleCloudflareAction(request, env(), createActionFetch(upstream));
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { zones?: { data?: Array<{ name?: string }> } };
+  assert.deepEqual(zonePages, [1, 2]);
+  assert.deepEqual(body.zones?.data?.map((zone) => zone.name), ['zone-1.example', 'zone-2.example']);
+});

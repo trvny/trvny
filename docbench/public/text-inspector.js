@@ -1,14 +1,14 @@
-(() => {
-  "use strict";
+"use strict";
 
+(() => {
 const { scanText, summarizeFindings } = globalThis.DocBenchTextInspector;
 
-const $ = (selector) => document.querySelector(selector);
-const editor = $("#editor");
-const preview = $("#preview");
-const previewTitle = $("#preview-title");
-const statusBadge = $("#status-badge");
-const inspectButton = $("#inspect-button");
+const select = (selector) => document.querySelector(selector);
+const editor = select("#editor");
+const preview = select("#preview");
+const previewTitle = select("#preview-title");
+const statusBadge = select("#status-badge");
+const inspectButton = select("#inspect-button");
 
 function setStatus(kind, text) {
   statusBadge.className = `status ${kind}`;
@@ -82,6 +82,7 @@ function cleanResult() {
 }
 
 function inspectDocument() {
+  document.dispatchEvent(new Event("docbench:inspect-start"));
   const findings = scanText(editor.value);
   const summary = summarizeFindings(findings);
   preview.className = "preview-inspector";

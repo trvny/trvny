@@ -1,7 +1,9 @@
-(() => {
-  "use strict";
+"use strict";
 
+(() => {
 const MAX_FINDINGS = 500;
+const MAX_BASE64_DECODE_CHARS = 65536;
+const BASE64_PREVIEW_CHARS = 8192;
 const severityRank = { high: 0, medium: 1, low: 2 };
 
 const specialCharacters = new Map([
@@ -77,6 +79,20 @@ function codePointLabel(codePoint) {
   return `U+${codePoint.toString(16).toUpperCase().padStart(codePoint <= 0xffff ? 4 : 6, "0")}`;
 }
 
+function quotedPreview(value, limit = 180) {
+  const compact = value.replace(/[\u0000-\u001F\u007F]/g, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const clipped = compact.length > limit ? `${compact.slice(0, limit)}…` : compact;
+  return JSON.stringify(clipped);
+}
+
+function decodeBytes(bytes) {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
 function makeLineStarts(text) {
   const starts = [0];
   for (let index = 0; index < text.length; index += 1) {
@@ -96,22 +112,55 @@ function lineIndexForOffset(starts, offset) {
   return Math.max(0, high);
 }
 
-function humanColumn(text, lineStart, offset) {
-  const prefix = text.slice(lineStart, offset);
+function columnsForOffsets(text, lineStart, lineEnd, offsets) {
+  const targets = [...new Set(offsets)].sort((a, b) => a - b);
+  const columns = new Map();
+  let targetIndex = 0;
+  const assignSegment = (start, end, column) => {
+    while (targetIndex < targets.length && targets[targetIndex] < end) {
+      if (targets[targetIndex] >= start) columns.set(targets[targetIndex], column);
+      targetIndex += 1;
+    }
+  };
+
+  let column = 1;
   if (typeof Intl?.Segmenter === "function") {
     const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-    return [...segmenter.segment(prefix)].length + 1;
+    for (const part of segmenter.segment(text.slice(lineStart, lineEnd))) {
+      const start = lineStart + part.index;
+      assignSegment(start, start + part.segment.length, column);
+      column += 1;
+    }
+  } else {
+    for (let cursor = lineStart; cursor < lineEnd;) {
+      const codePoint = text.codePointAt(cursor);
+      const width = codePoint > 0xffff ? 2 : 1;
+      assignSegment(cursor, cursor + width, column);
+      cursor += width;
+      column += 1;
+    }
   }
-  return [...prefix].length + 1;
+  while (targetIndex < targets.length) columns.set(targets[targetIndex++], column);
+  return columns;
 }
 
-function locate(text, starts, finding) {
-  const lineIndex = lineIndexForOffset(starts, finding.offset);
-  return {
-    ...finding,
-    line: lineIndex + 1,
-    column: humanColumn(text, starts[lineIndex], finding.offset),
-  };
+function locateFindings(text, starts, findings) {
+  const located = new Array(findings.length);
+  const groups = new Map();
+  findings.forEach((finding, index) => {
+    const lineIndex = lineIndexForOffset(starts, finding.offset);
+    if (!groups.has(lineIndex)) groups.set(lineIndex, []);
+    groups.get(lineIndex).push({ finding, index });
+  });
+  for (const [lineIndex, entries] of groups) {
+    const lineStart = starts[lineIndex];
+    const lineEnd = lineIndex + 1 < starts.length ? starts[lineIndex + 1] - 1 : text.length;
+    const columns = columnsForOffsets(text, lineStart, lineEnd, entries.map(({ finding }) => finding.offset));
+    for (const { finding, index } of entries) {
+      located[index] = { ...finding, line: lineIndex + 1, column: columns.get(finding.offset) || 1 };
+    }
+  }
+  return located;
 }
 
 function addFinding(findings, finding) {
@@ -133,20 +182,63 @@ function addFinding(findings, finding) {
   if (replacement >= 0) findings[replacement] = finding;
 }
 
+function findingForCodePoint(codePoint, offset, width) {
+  const special = specialCharacters.get(codePoint);
+  if (special) return {
+    severity: special[0], kind: "invisible", label: special[1],
+    detail: `${special[2]} ${codePointLabel(codePoint)}`, offset, length: width,
+  };
+  if (isTagCharacter(codePoint)) return null;
+  if (/\p{Cf}/u.test(String.fromCodePoint(codePoint))) return {
+    severity: "medium", kind: "invisible", label: "Unicode format control",
+    detail: `Invisible or formatting control ${codePointLabel(codePoint)}. Review unexpected use.`, offset, length: width,
+  };
+  if (isControl(codePoint)) return {
+    severity: "high", kind: "control", label: "Control character",
+    detail: `Unexpected non-printing control ${codePointLabel(codePoint)}.`, offset, length: width,
+  };
+  if (isNoncharacter(codePoint)) return {
+    severity: "high", kind: "invalid-unicode", label: "Unicode noncharacter",
+    detail: `${codePointLabel(codePoint)} is reserved as a noncharacter.`, offset, length: width,
+  };
+  if (/\p{Co}/u.test(String.fromCodePoint(codePoint))) return {
+    severity: "low", kind: "marker-carrier", label: "Private-use character",
+    detail: `${codePointLabel(codePoint)} has no standardized meaning and can carry application-specific metadata.`, offset, length: width,
+  };
+  return null;
+}
+
+function variationSelectorByte(codePoint) {
+  if (codePoint >= 0xfe00 && codePoint <= 0xfe0f) return codePoint - 0xfe00;
+  if (codePoint >= 0xe0100 && codePoint <= 0xe01ef) return codePoint - 0xe0100 + 16;
+  return null;
+}
+
+function variationRunDetail(text, start, end, count) {
+  const bytes = [];
+  for (let offset = start; offset < end;) {
+    const codePoint = text.codePointAt(offset);
+    const value = variationSelectorByte(codePoint);
+    if (value !== null) bytes.push(value);
+    offset += codePoint > 0xffff ? 2 : 1;
+  }
+  const decoded = decodeBytes(Uint8Array.from(bytes));
+  if (decoded && /[^\u0000-\u001F\u007F]/.test(decoded)) {
+    return `${count} consecutive variation selectors. Decoded payload: ${quotedPreview(decoded)}`;
+  }
+  const hex = bytes.slice(0, 48).map((value) => value.toString(16).padStart(2, "0")).join(" ");
+  return `${count} consecutive variation selectors. Encoded bytes: ${hex}${bytes.length > 48 ? " …" : ""}`;
+}
+
 function scanCharacters(text, findings) {
   let variationStart = -1;
   let variationCount = 0;
   const flushVariationRun = (end) => {
-    if (variationCount >= 4) {
-      addFinding(findings, {
-        severity: "medium",
-        kind: "marker-carrier",
-        label: "Variation-selector sequence",
-        detail: `${variationCount} consecutive variation selectors can carry hidden metadata. This is not proof of AI origin.`,
-        offset: variationStart,
-        length: end - variationStart,
-      });
-    }
+    if (variationCount >= 4) addFinding(findings, {
+      severity: "medium", kind: "marker-carrier", label: "Variation-selector sequence",
+      detail: variationRunDetail(text, variationStart, end, variationCount),
+      offset: variationStart, length: end - variationStart,
+    });
     variationStart = -1;
     variationCount = 0;
   };
@@ -160,51 +252,37 @@ function scanCharacters(text, findings) {
     } else {
       flushVariationRun(offset);
     }
-
-    const special = specialCharacters.get(codePoint);
-    if (special) {
-      addFinding(findings, {
-        severity: special[0], kind: "invisible", label: special[1],
-        detail: `${special[2]} ${codePointLabel(codePoint)}`,
-        offset, length: width,
-      });
-    } else if (isTagCharacter(codePoint)) {
-      addFinding(findings, {
-        severity: "high", kind: "marker-carrier", label: "Unicode tag character",
-        detail: `${codePointLabel(codePoint)} is normally invisible and can encode hidden text or markers.`, offset, length: width,
-      });
-    } else if (/\p{Cf}/u.test(String.fromCodePoint(codePoint))) {
-      addFinding(findings, {
-        severity: "medium", kind: "invisible", label: "Unicode format control",
-        detail: `Invisible or formatting control ${codePointLabel(codePoint)}. Review unexpected use.`, offset, length: width,
-      });
-    } else if (isControl(codePoint)) {
-      addFinding(findings, {
-        severity: "high", kind: "control", label: "Control character",
-        detail: `Unexpected non-printing control ${codePointLabel(codePoint)}.`, offset, length: width,
-      });
-    } else if (isNoncharacter(codePoint)) {
-      addFinding(findings, {
-        severity: "high",
-        kind: "invalid-unicode",
-        label: "Unicode noncharacter",
-        detail: `${codePointLabel(codePoint)} is reserved as a noncharacter.`,
-        offset,
-        length: width,
-      });
-    } else if (/\p{Co}/u.test(String.fromCodePoint(codePoint))) {
-      addFinding(findings, {
-        severity: "low",
-        kind: "marker-carrier",
-        label: "Private-use character",
-        detail: `${codePointLabel(codePoint)} has no standardized meaning and can carry application-specific metadata.`,
-        offset,
-        length: width,
-      });
-    }
+    const finding = findingForCodePoint(codePoint, offset, width);
+    if (finding) addFinding(findings, finding);
     offset += width;
   }
   flushVariationRun(text.length);
+}
+
+function scanUnicodeTags(text, findings) {
+  for (let offset = 0; offset < text.length;) {
+    const codePoint = text.codePointAt(offset);
+    if (!isTagCharacter(codePoint)) {
+      offset += codePoint > 0xffff ? 2 : 1;
+      continue;
+    }
+    const start = offset;
+    let payload = "";
+    let count = 0;
+    while (offset < text.length) {
+      const tag = text.codePointAt(offset);
+      if (!isTagCharacter(tag)) break;
+      const ascii = tag - 0xe0000;
+      if (ascii >= 0x20 && ascii <= 0x7e) payload += String.fromCharCode(ascii);
+      count += 1;
+      offset += tag > 0xffff ? 2 : 1;
+    }
+    addFinding(findings, {
+      severity: "high", kind: "marker-carrier", label: "Unicode tag sequence",
+      detail: payload ? `Hidden tag payload: ${quotedPreview(payload)}` : `${count} invisible Unicode tag characters.`,
+      offset: start, length: offset - start,
+    });
+  }
 }
 
 function scriptFlags(token) {
@@ -224,7 +302,7 @@ function scanMixedScripts(text, findings) {
       severity: "medium",
       kind: "confusable",
       label: "Mixed-script token",
-      detail: "Latin mixed with Cyrillic or Greek can create look-alike identifiers or links.",
+      detail: `Mixed-script token: ${quotedPreview(match[0])}. Latin mixed with Cyrillic or Greek can create look-alike identifiers or links.`,
       offset: match.index,
       length: match[0].length,
     });
@@ -239,7 +317,7 @@ function scanPromptInjection(text, findings) {
         severity: "medium",
         kind: "prompt-injection",
         label: "Prompt-injection-like instruction",
-        detail: "Heuristic match only. Review before passing this content to an AI agent.",
+        detail: `Matched instruction: ${quotedPreview(match[0])}. Heuristic match only.`,
         offset: match.index,
         length: match[0].length,
       });
@@ -248,39 +326,63 @@ function scanPromptInjection(text, findings) {
 }
 
 function decodedBase64(value) {
-  if (value.length > 8192 || value.length % 4 !== 0) return null;
+  if (value.length % 4 !== 0) return null;
   try {
     const binary = globalThis.atob(value);
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return decodeBytes(bytes);
   } catch {
     return null;
   }
 }
 
+function scanDecodedPrompt(value) {
+  if (!value) return false;
+  return injectionPatterns.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(value);
+  });
+}
+
+function decodedBase64Slices(value) {
+  if (value.length <= MAX_BASE64_DECODE_CHARS) {
+    const decoded = decodedBase64(value);
+    return decoded ? [decoded] : [];
+  }
+  const chunk = BASE64_PREVIEW_CHARS - (BASE64_PREVIEW_CHARS % 4);
+  const suffixStart = Math.max(0, value.length - chunk);
+  return [value.slice(0, chunk), value.slice(suffixStart)]
+    .map(decodedBase64)
+    .filter(Boolean);
+}
+
 function scanEncodedPrompts(text, findings) {
   const candidates = /(?:[A-Za-z0-9+/]{4}){8,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/g;
   for (const match of text.matchAll(candidates)) {
-    const decoded = decodedBase64(match[0]);
-    if (!decoded) continue;
-    if (!injectionPatterns.some((pattern) => {
-      pattern.lastIndex = 0;
-      return pattern.test(decoded);
-    })) continue;
-    addFinding(findings, {
-      severity: "high",
-      kind: "prompt-injection",
-      label: "Encoded prompt-like instruction",
-      detail: "Base64 content decodes to an instruction matching prompt-injection heuristics.",
-      offset: match.index,
-      length: match[0].length,
-    });
+    const decodedSlices = decodedBase64Slices(match[0]);
+    const decoded = decodedSlices.find(scanDecodedPrompt);
+    if (decoded) {
+      addFinding(findings, {
+        severity: "high", kind: "prompt-injection", label: "Encoded prompt-like instruction",
+        detail: `Base64 decoded payload: ${quotedPreview(decoded)}`,
+        offset: match.index, length: match[0].length,
+      });
+      continue;
+    }
+    if (match[0].length > MAX_BASE64_DECODE_CHARS) {
+      addFinding(findings, {
+        severity: "medium", kind: "marker-carrier", label: "Large Base64 carrier",
+        detail: `Encoded run is ${match[0].length} characters; only bounded edge previews were decoded. Hidden content may exist inside.`,
+        offset: match.index, length: match[0].length,
+      });
+    }
   }
 }
 
 function scanText(text) {
   const findings = [];
   scanCharacters(text, findings);
+  scanUnicodeTags(text, findings);
   scanMixedScripts(text, findings);
   scanPromptInjection(text, findings);
   scanEncodedPrompts(text, findings);
@@ -289,9 +391,9 @@ function scanText(text) {
   const unique = new Map();
   for (const finding of findings) {
     const key = `${finding.kind}:${finding.offset}:${finding.length}:${finding.label}`;
-    if (!unique.has(key)) unique.set(key, locate(text, starts, finding));
+    if (!unique.has(key)) unique.set(key, finding);
   }
-  const result = [...unique.values()]
+  const result = locateFindings(text, starts, [...unique.values()])
     .sort((a, b) => a.offset - b.offset || severityRank[a.severity] - severityRank[b.severity])
     .slice(0, MAX_FINDINGS);
   Object.defineProperty(result, "truncated", { value: Boolean(findings.truncated) });

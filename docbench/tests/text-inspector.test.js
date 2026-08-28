@@ -78,6 +78,12 @@ const selectorFinding = scanText(`x${selectorPayload}`).find((item) => item.labe
 assert.ok(selectorFinding);
 assert.match(selectorFinding.detail, /hide/);
 
+const repeatedSelector = String.fromCodePoint(0xe0100 + 0x41 - 16);
+const largeSelectorFinding = scanText(`x${repeatedSelector.repeat(5000)}`).find((item) => item.label === "Variation-selector sequence");
+assert.ok(largeSelectorFinding);
+assert.match(largeSelectorFinding.detail, /5000 consecutive/);
+assert.match(largeSelectorFinding.detail, /prefix/);
+
 const longLine = scanText(`${"x".repeat(10000)}${"\u00A0".repeat(500)}`);
 assert.equal(longLine.length, 500);
 assert.equal(longLine.at(-1).column, 10500);

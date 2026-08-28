@@ -4,6 +4,7 @@
 const MAX_FINDINGS = 500;
 const MAX_BASE64_DECODE_CHARS = 65536;
 const BASE64_PREVIEW_CHARS = 8192;
+const MAX_VARIATION_PREVIEW_BYTES = 512;
 const severityRank = { high: 0, medium: 1, low: 2 };
 
 const specialCharacters = new Map([
@@ -219,20 +220,52 @@ function variationSelectorByte(codePoint) {
   return null;
 }
 
-function variationRunDetail(text, start, end, count) {
+function variationBytesForward(text, start, end, limit) {
   const bytes = [];
-  for (let offset = start; offset < end;) {
+  for (let offset = start; offset < end && bytes.length < limit;) {
     const codePoint = text.codePointAt(offset);
     const value = variationSelectorByte(codePoint);
     if (value !== null) bytes.push(value);
     offset += codePoint > 0xffff ? 2 : 1;
   }
-  const decoded = decodeBytes(Uint8Array.from(bytes));
-  if (decoded && /[^\u0000-\u001F\u007F]/.test(decoded)) {
-    return `${count} consecutive variation selectors. Decoded payload: ${quotedPreview(decoded)}`;
+  return bytes;
+}
+
+function previousCodePoint(text, offset) {
+  let start = offset - 1;
+  const unit = text.charCodeAt(start);
+  if (unit >= 0xdc00 && unit <= 0xdfff && start > 0) {
+    const high = text.charCodeAt(start - 1);
+    if (high >= 0xd800 && high <= 0xdbff) start -= 1;
   }
-  const hex = bytes.slice(0, 48).map((value) => value.toString(16).padStart(2, "0")).join(" ");
-  return `${count} consecutive variation selectors. Encoded bytes: ${hex}${bytes.length > 48 ? " …" : ""}`;
+  return { codePoint: text.codePointAt(start), start };
+}
+
+function variationBytesBackward(text, start, end, limit) {
+  const bytes = [];
+  for (let offset = end; offset > start && bytes.length < limit;) {
+    const previous = previousCodePoint(text, offset);
+    const value = variationSelectorByte(previous.codePoint);
+    if (value !== null) bytes.push(value);
+    offset = previous.start;
+  }
+  return bytes.reverse();
+}
+
+function variationPreview(bytes) {
+  const decoded = decodeBytes(Uint8Array.from(bytes));
+  if (decoded && /[^\u0000-\u001F\u007F]/.test(decoded)) return quotedPreview(decoded);
+  return bytes.slice(0, 48).map((value) => value.toString(16).padStart(2, "0")).join(" ")
+    + (bytes.length > 48 ? " …" : "");
+}
+
+function variationRunDetail(text, start, end, count) {
+  const prefix = variationBytesForward(text, start, end, MAX_VARIATION_PREVIEW_BYTES);
+  if (count <= MAX_VARIATION_PREVIEW_BYTES) {
+    return `${count} consecutive variation selectors. Decoded payload: ${variationPreview(prefix)}`;
+  }
+  const suffix = variationBytesBackward(text, start, end, MAX_VARIATION_PREVIEW_BYTES);
+  return `${count} consecutive variation selectors. Decoded prefix: ${variationPreview(prefix)}; suffix: ${variationPreview(suffix)}`;
 }
 
 function scanCharacters(text, findings) {

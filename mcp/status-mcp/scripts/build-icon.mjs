@@ -5,7 +5,19 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import sharp from "sharp";
+
+// sharp is deliberately NOT a declared dependency. It is a native package this
+// script needs perhaps once a year, and `npm ci` would then install it on every
+// CI run and on every deploy. It is present anyway, as a transitive dependency
+// of wrangler; when it is not, say so plainly instead of dying on a bare
+// ERR_MODULE_NOT_FOUND.
+let sharp;
+try {
+  ({ default: sharp } = await import("sharp"));
+} catch {
+  console.error("sharp is not installed here. Run `npm i --no-save sharp@0.35.3` and try again.");
+  process.exit(1);
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const svgPath = resolve(here, "../../../assets/status-mcp.svg");

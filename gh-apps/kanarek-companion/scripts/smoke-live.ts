@@ -59,11 +59,6 @@ function stringValue(value: JsonObject | null, key: string): string | null {
     : null;
 }
 
-const setting = value[key];
-  return setting === null || typeof setting === 'string'
-    ? setting
-    : undefined;
-}
 
 const expectedDocument = runtimeOpenApi(ORIGIN);
 const expectedManifest = await gatewayManifest(expectedDocument, undefined);

@@ -151,19 +151,30 @@ function graphemeRanges(text, lineStart, lineEnd) {
     : codePointRanges(text, lineStart, lineEnd);
 }
 
+function assignColumnsInRange(targets, columns, state, range) {
+  while (state.index < targets.length && targets[state.index] < range.end) {
+    const target = targets[state.index];
+    if (target >= range.start) columns.set(target, state.column);
+    state.index += 1;
+  }
+}
+
+function fillRemainingColumns(targets, columns, state) {
+  while (state.index < targets.length) {
+    columns.set(targets[state.index], state.column);
+    state.index += 1;
+  }
+}
+
 function columnsForOffsets(text, lineStart, lineEnd, offsets) {
   const targets = [...new Set(offsets)].sort((a, b) => a - b);
   const columns = new Map();
-  let targetIndex = 0;
-  let column = 1;
+  const state = { index: 0, column: 1 };
   for (const range of graphemeRanges(text, lineStart, lineEnd)) {
-    while (targetIndex < targets.length && targets[targetIndex] < range.end) {
-      if (targets[targetIndex] >= range.start) columns.set(targets[targetIndex], column);
-      targetIndex += 1;
-    }
-    column += 1;
+    assignColumnsInRange(targets, columns, state, range);
+    state.column += 1;
   }
-  while (targetIndex < targets.length) columns.set(targets[targetIndex++], column);
+  fillRemainingColumns(targets, columns, state);
   return columns;
 }
 
@@ -374,20 +385,25 @@ function tagAscii(codePoint) {
   return ascii >= 0x20 && ascii <= 0x7e ? String.fromCharCode(ascii) : "";
 }
 
-function readUnicodeTagRun(text, start) {
-  let offset = start;
-  let payload = "";
-  let count = 0;
-  let truncated = false;
-  while (offset < text.length && isTagCharacter(text.codePointAt(offset))) {
-    const codePoint = text.codePointAt(offset);
-    const char = tagAscii(codePoint);
-    if (char && payload.length < MAX_TAG_PREVIEW_CHARS) payload += char;
-    else if (char) truncated = true;
-    count += 1;
-    offset += codePointWidth(codePoint);
+function appendTagPreview(state, char) {
+  if (!char) return;
+  if (state.payload.length < MAX_TAG_PREVIEW_CHARS) {
+    state.payload += char;
+    return;
   }
-  return { end: offset, payload, count, truncated };
+  state.truncated = true;
+}
+
+function readUnicodeTagRun(text, start) {
+  const state = { offset: start, payload: "", count: 0, truncated: false };
+  while (state.offset < text.length) {
+    const codePoint = text.codePointAt(state.offset);
+    if (!isTagCharacter(codePoint)) break;
+    appendTagPreview(state, tagAscii(codePoint));
+    state.count += 1;
+    state.offset += codePointWidth(codePoint);
+  }
+  return { end: state.offset, payload: state.payload, count: state.count, truncated: state.truncated };
 }
 
 function tagRunDetail(run) {
@@ -467,11 +483,6 @@ function decodedNormalizedBase64(value) {
   } catch {
     return null;
   }
-}
-
-function decodedBase64(value) {
-  const normalized = normalizedBase64(value);
-  return normalized ? decodedNormalizedBase64(normalized) : null;
 }
 
 function scanDecodedPrompt(value) {

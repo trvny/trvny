@@ -101,5 +101,14 @@ function inspectDocument() {
   setStatus(summary.high ? "bad" : "neutral", `Inspect · ${findings.length}${findings.truncated ? "+" : ""}`);
 }
 
+function enableInspectionAfterInitialPreview() {
+  setTimeout(() => {
+    inspectButton.disabled = false;
+  }, 0);
+}
+
+inspectButton.disabled = true;
 inspectButton.addEventListener("click", inspectDocument);
+if (document.readyState === "complete") enableInspectionAfterInitialPreview();
+else window.addEventListener("load", enableInspectionAfterInitialPreview, { once: true });
 })();

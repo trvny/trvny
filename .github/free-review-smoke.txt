@@ -1,1 +1,2 @@
 smoke 1
+smoke 2

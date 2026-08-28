@@ -611,7 +611,20 @@ async function zonesForAccount(
 }
 
 async function tokenStatus(env: GptActionsEnv, fetcher: typeof fetch): Promise<JsonObject> {
-  const { result } = await cloudflareRequest(env, '/user/tokens/verify', 'GET', undefined, fetcher);
+  const { accountId } = credentials(env);
+  let result: unknown;
+  try {
+    ({ result } = await cloudflareRequest(env, '/user/tokens/verify', 'GET', undefined, fetcher));
+  } catch (error) {
+    if (!(error instanceof CloudflareActionError) || ![401, 403].includes(error.status)) throw error;
+    ({ result } = await cloudflareRequest(
+      env,
+      `/accounts/${accountId}/tokens/verify`,
+      'GET',
+      undefined,
+      fetcher,
+    ));
+  }
   if (!isObject(result) || result.status !== 'active') {
     throw new CloudflareActionError('cloudflare_token_inactive', 503);
   }

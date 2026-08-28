@@ -520,6 +520,44 @@ test('transient Worker rollback failure releases the resource lock for retry', a
   assert.equal(deploymentWrites, 2);
 });
 
+test('ambiguous Worker rollback failure keeps the resource lease', async () => {
+  const runtime = env();
+  const expectedId = '11111111-1111-4111-8111-111111111111';
+  const targetId = '22222222-2222-4222-8222-222222222222';
+  const createdId = '33333333-3333-4333-8333-333333333333';
+  let currentId = expectedId;
+  let currentVersionId = '44444444-4444-4444-8444-444444444444';
+  let deploymentWrites = 0;
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/workers/scripts/kanarek-companion/deployments')) {
+      if (request.method === 'POST') {
+        deploymentWrites += 1;
+        currentId = createdId;
+        currentVersionId = targetId;
+        throw new TypeError('response lost after write');
+      }
+      return cf({ deployments: [{ id: currentId, created_on: '2026-08-28T15:00:00Z', versions: [{ version_id: currentVersionId, percentage: 100 }] }] });
+    }
+    if (url.pathname.includes('/workers/scripts/kanarek-companion/versions/')) return cf({ id: targetId });
+    return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
+  });
+  const request = () => new Request('https://example.workers.dev/gpt-actions/cloudflare/workers/rollback', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ script: 'kanarek-companion', expectedDeploymentId: expectedId, targetVersionId: targetId }),
+  });
+  const first = await handleCloudflareAction(request(), runtime, createActionFetch(upstream));
+  assert.ok(first);
+  assert.equal(first.status, 500);
+  const second = await handleCloudflareAction(request(), runtime, createActionFetch(upstream));
+  assert.ok(second);
+  assert.equal(second.status, 409);
+  assert.equal((await second.json() as { error?: string }).error, 'cloudflare_mutation_in_progress');
+  assert.equal(deploymentWrites, 1);
+});
+
 test('route updates serialize the snapshot check with the write', async () => {
   const runtime = env();
   const zoneId = 'b'.repeat(32);
@@ -647,6 +685,57 @@ test('Worker inspection reads versions from the paginated items array', async ()
     source: 'wrangler',
     hasPreview: null,
   }]);
+});
+
+test('Worker inspection scans routes across every paginated account zone', async () => {
+  const script = 'kanarek-companion';
+  const lastZoneId = 'zone-101';
+  const routeLookups: string[] = [];
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname === `/client/v4/accounts/${ACCOUNT_ID}/workers/scripts`) return cf([{ id: script }]);
+    if (url.pathname.endsWith(`/${script}/deployments`)) return cf({ deployments: [] });
+    if (url.pathname.endsWith(`/${script}/versions`)) return cf({ items: [] });
+    if (url.pathname.endsWith(`/${script}/subdomain`)) return cf({ enabled: true, previews_enabled: false });
+    if (url.pathname.endsWith(`/${script}/script-settings`)) return cf({ logpush: false });
+    if (url.pathname === '/client/v4/zones') {
+      const page = Number(url.searchParams.get('page'));
+      const start = (page - 1) * 50 + 1;
+      const count = page < 3 ? 50 : 1;
+      const zones = Array.from({ length: count }, (_, index) => {
+        const number = start + index;
+        return { id: `zone-${number}`, name: `zone-${number}.example`, status: 'active' };
+      });
+      return Response.json({
+        success: true,
+        errors: [],
+        messages: [],
+        result: zones,
+        result_info: { page, per_page: 50, total_pages: 3, total_count: 101 },
+      });
+    }
+    const routeMatch = url.pathname.match(/^\/client\/v4\/zones\/(zone-\d+)\/workers\/routes$/);
+    if (routeMatch) {
+      const zoneId = routeMatch[1];
+      routeLookups.push(zoneId);
+      return cf(zoneId === lastZoneId ? [{ id: 'route-last', pattern: 'last.example/*', script }] : []);
+    }
+    return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
+  });
+  const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/workers/inspect', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ script }),
+  });
+  const response = await handleCloudflareAction(request, env(), createActionFetch(upstream));
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { routes?: { data?: Array<{ zone?: { id?: string }; routes?: Array<{ id?: string }> }> } };
+  assert.equal(routeLookups.length, 101);
+  assert.equal(routeLookups.at(-1), lastZoneId);
+  const lastZone = body.routes?.data?.find((entry) => entry.zone?.id === lastZoneId);
+  assert.equal(lastZone?.routes?.[0]?.id, 'route-last');
 });
 
 test('Cloudflare overview paginates account zones with the supported page size', async () => {

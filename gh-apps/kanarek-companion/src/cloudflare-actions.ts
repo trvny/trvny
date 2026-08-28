@@ -24,6 +24,7 @@ const DNS_PAGE_SIZE = 500;
 const MAX_DNS_PAGES = 20;
 const ZONE_PAGE_SIZE = 50;
 const MAX_ZONE_PAGES = 20;
+const ROUTE_SCAN_BATCH_SIZE = 25;
 
 type JsonObject = Record<string, unknown>;
 type MutationKey = keyof GremlinPolicy['runtime']['cloudflare']['mutations'];
@@ -500,9 +501,17 @@ async function runSerializedMutation(
 ): Promise<Response> {
   const claim = await claimMutation(env, kind, accountId, resource, input);
   try {
-    return await work(claim);
-  } finally {
+    const response = await work(claim);
     await releaseMutation(env, claim);
+    return response;
+  } catch (error) {
+    const knownRejectedRequest =
+      error instanceof CloudflareActionError &&
+      error.status >= 400 &&
+      error.status < 500 &&
+      error.status !== 408;
+    if (knownRejectedRequest) await releaseMutation(env, claim);
+    throw error;
   }
 }
 
@@ -702,26 +711,36 @@ async function inspectWorker(request: Request, env: GptActionsEnv, fetcher: type
   const routes: JsonObject[] = [];
   const routeErrors: JsonObject[] = [];
   if (zones.ok === true && Array.isArray(zones.data)) {
-    const routeResults = await Promise.all(zones.data.slice(0, 100).map(async (zone) => {
-      if (!isObject(zone) || typeof zone.id !== 'string') return null;
-      try {
-        const { result } = await cloudflareRequest(env, `/zones/${encoded(zone.id)}/workers/routes`, 'GET', undefined, fetcher);
-        const matched = resultArray(result).filter((route) => stringField(route, 'script') === script);
-        return {
-          zone: safeZone(zone),
-          routes: await Promise.all(matched.map((route) => withSnapshot('cloudflare-route', safeRoute(route)))),
-        };
-      } catch (error) {
-        if (error instanceof CloudflareActionError && [401, 403].includes(error.status)) {
-          return { zone: safeZone(zone), error: error.code, status: error.status };
-        }
-        throw error;
+    for (let index = 0; index < zones.data.length; index += ROUTE_SCAN_BATCH_SIZE) {
+      const routeResults = await Promise.all(
+        zones.data.slice(index, index + ROUTE_SCAN_BATCH_SIZE).map(async (zone) => {
+          if (!isObject(zone) || typeof zone.id !== 'string') return null;
+          try {
+            const { result } = await cloudflareRequest(
+              env,
+              `/zones/${encoded(zone.id)}/workers/routes`,
+              'GET',
+              undefined,
+              fetcher,
+            );
+            const matched = resultArray(result).filter((route) => stringField(route, 'script') === script);
+            return {
+              zone: safeZone(zone),
+              routes: await Promise.all(matched.map((route) => withSnapshot('cloudflare-route', safeRoute(route)))),
+            };
+          } catch (error) {
+            if (error instanceof CloudflareActionError && [401, 403].includes(error.status)) {
+              return { zone: safeZone(zone), error: error.code, status: error.status };
+            }
+            throw error;
+          }
+        }),
+      );
+      for (const item of routeResults) {
+        if (!item) continue;
+        if ('routes' in item) routes.push(item as JsonObject);
+        else routeErrors.push(item as JsonObject);
       }
-    }));
-    for (const item of routeResults) {
-      if (!item) continue;
-      if ('routes' in item) routes.push(item as JsonObject);
-      else routeErrors.push(item as JsonObject);
     }
   }
 

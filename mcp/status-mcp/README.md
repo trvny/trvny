@@ -105,6 +105,11 @@ because that is how the first attempt broke: capping the palette at eight
 colours dropped the cream outright and the served icon quietly stopped matching
 its source. Palette mode stays on, the colour count stays uncapped.
 
+It needs `sharp`, which is **not** a declared dependency on purpose — a native
+package wanted maybe once a year should not be installed by every `npm ci` and
+every deploy. It comes in transitively with wrangler; if it ever stops doing so,
+the script says which command to run.
+
 The Worker answers `GET /icon.png` from that constant. A static-assets binding
 would be the obvious way to serve a file, and it does not work here: adding
 `"assets"` to `wrangler.jsonc` makes every authenticated request fail, in both

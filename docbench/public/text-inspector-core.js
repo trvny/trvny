@@ -507,22 +507,44 @@ function decodedBase64Slices(value) {
     .filter(Boolean);
 }
 
-function encodedCandidates(text) {
+function wrappedBase64Candidates(text) {
+  if (!text.includes("\n")) return [];
   const results = [];
-  const seen = new Set();
-  const patterns = [
-    /[A-Za-z0-9+/_-]{32,}={0,2}/g,
-    /(?:[A-Za-z0-9+/_-]{32,}\r?\n[ \t]*)+[A-Za-z0-9+/_-]{2,}={0,2}/g,
-  ];
-  for (const pattern of patterns) {
-    for (const match of text.matchAll(pattern)) {
-      const encoded = match[0].replace(/\s+/gu, "");
-      if (!normalizedBase64(encoded)) continue;
-      const key = `${match.index}:${match[0].length}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      results.push({ encoded, offset: match.index, length: match[0].length });
-    }
+  let run = null;
+  let lineStart = 0;
+  const flush = () => {
+    if (!run || run.parts.length < 2) { run = null; return; }
+    const body = run.parts.slice(0, -1);
+    if (body.some((part) => part.length < 32) || run.parts.at(-1).length < 2) { run = null; return; }
+    const encoded = run.parts.join("");
+    if (normalizedBase64(encoded)) results.push({ encoded, offset: run.start, length: run.end - run.start });
+    run = null;
+  };
+  while (lineStart <= text.length) {
+    const newline = text.indexOf("\n", lineStart);
+    const rawEnd = newline < 0 ? text.length : newline;
+    const lineEnd = rawEnd > lineStart && text.charCodeAt(rawEnd - 1) === 0x0d ? rawEnd - 1 : rawEnd;
+    const part = text.slice(lineStart, lineEnd).trim();
+    if (/^[A-Za-z0-9+/_-]+={0,2}$/u.test(part) && part.length >= 2) {
+      if (!run) run = { start: lineStart, end: lineEnd, parts: [] };
+      run.parts.push(part);
+      run.end = lineEnd;
+    } else flush();
+    if (newline < 0) break;
+    lineStart = newline + 1;
+  }
+  flush();
+  return results;
+}
+
+function encodedCandidates(text) {
+  const results = [...text.matchAll(/[A-Za-z0-9+/_-]{32,}={0,2}/gu)].map((match) => ({
+    encoded: match[0], offset: match.index, length: match[0].length,
+  }));
+  const seen = new Set(results.map((candidate) => `${candidate.offset}:${candidate.length}`));
+  for (const candidate of wrappedBase64Candidates(text)) {
+    const key = `${candidate.offset}:${candidate.length}`;
+    if (!seen.has(key)) results.push(candidate);
   }
   return results;
 }

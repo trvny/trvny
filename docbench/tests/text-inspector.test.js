@@ -68,7 +68,9 @@ assert.ok(base64UrlFinding);
 assert.match(base64UrlFinding.detail, /Ignore/);
 
 const hugeCarrier = Buffer.alloc(50000, 0x20).toString("base64");
+const hugeCarrierStarted = Date.now();
 assert.ok(scanText(hugeCarrier).some((item) => item.label === "Large Base64 carrier"));
+assert.ok(Date.now() - hugeCarrierStarted < 3000, "long unwrapped Base64 must scan without quadratic backtracking");
 
 const selectors = scanText("x\uFE00\uFE01\uFE02\uFE03y");
 assert.ok(selectors.some((item) => item.label === "Variation-selector sequence"));

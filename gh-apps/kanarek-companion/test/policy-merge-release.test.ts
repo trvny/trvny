@@ -34,6 +34,16 @@ const POLICY: GremlinPolicy = {
       cacheStaleDays: 5,
       repositoryOverrides: [],
     },
+    cloudflare: {
+      enabled: true,
+      mutations: {
+        workerRollback: true,
+        pagesRollback: true,
+        workerSubdomain: true,
+        routeUpdate: true,
+        dnsUpdate: true,
+      },
+    },
     merge: {
       enabled: true,
       method: 'squash',

@@ -13,6 +13,7 @@
     "preferredActions": [
       "getOperatorBootstrap",
       "getGremlinKnowledge",
+      "getCloudflareOverview",
       "getOperatorCapabilities",
       "runOperatorSmokeTest",
       "runOperatorAutopilot",
@@ -52,6 +53,16 @@
     "release": {
       "allowedBranches": ["main"],
       "requireExpectedTargetSha": true
+    },
+    "cloudflare": {
+      "enabled": true,
+      "mutations": {
+        "workerRollback": true,
+        "pagesRollback": true,
+        "workerSubdomain": true,
+        "routeUpdate": true,
+        "dnsUpdate": true
+      }
     }
   }
 }

@@ -8,6 +8,7 @@ import {
 } from './autopilot-checkpoint.ts';
 import { addBatchOpenApi, handleBatchAction } from './batch-actions.ts';
 import { addChangeOpenApi, handleChangeAction } from './change-actions.ts';
+import { addCloudflareOpenApi, handleCloudflareAction } from './cloudflare-actions.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
 import { addInvestigationOpenApi, handleInvestigationAction } from './investigation-actions.ts';
@@ -141,6 +142,7 @@ export function customGptOpenApi(origin: string): JsonObject {
   addAutopilotCheckpointOpenApi(source);
   addBatchOpenApi(source);
   addChangeOpenApi(source);
+  addCloudflareOpenApi(source);
   addInvestigationOpenApi(source);
   addIssueOpenApi(source);
   addLifecycleOpenApi(source);
@@ -452,6 +454,9 @@ const worker = {
 
     const policyResponse = await handlePolicyAction(request, env, actionFetch);
     if (policyResponse) return policyResponse;
+
+    const cloudflareResponse = await handleCloudflareAction(request, env, actionFetch);
+    if (cloudflareResponse) return cloudflareResponse;
 
     const resumableAutopilotResponse = await handleResumableAutopilotAction(
       request,

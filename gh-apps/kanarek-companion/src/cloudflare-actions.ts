@@ -28,11 +28,17 @@ interface CloudflareActionEnv extends GptActionsEnv {
   OPERATOR_CHECKPOINTS?: DurableObjectNamespace;
 }
 
-interface RollbackClaim {
+type CloudflareMutationKind =
+  | 'worker-rollback'
+  | 'pages-rollback'
+  | 'worker-subdomain'
+  | 'route-update'
+  | 'dns-update';
+
+interface MutationClaim {
   operationId: string;
   inputHash: string;
   recovered: boolean;
-  replay?: Response;
 }
 
 class CloudflareActionError extends Error {
@@ -405,14 +411,13 @@ function stableValue(value: unknown): unknown {
   return output;
 }
 
-async function rollbackOperationId(
-  kind: 'worker' | 'pages',
+async function mutationOperationId(
+  kind: CloudflareMutationKind,
   accountId: string,
   resource: string,
-  expectedStateId: string,
 ): Promise<string> {
-  const digest = await autopilotInputHash({ kind, accountId, resource, expectedStateId });
-  return `op-cf-${kind}-${digest.slice(0, 48)}`;
+  const digest = await autopilotInputHash({ kind, accountId, resource });
+  return `op-cf-${kind}-${digest.slice(0, 40)}`;
 }
 
 function checkpointEnv(env: CloudflareActionEnv): AutopilotCheckpointEnv {
@@ -422,56 +427,37 @@ function checkpointEnv(env: CloudflareActionEnv): AutopilotCheckpointEnv {
   return env as AutopilotCheckpointEnv;
 }
 
-function checkpointResult(payload: JsonObject): { status: number; body: JsonObject } | null {
-  if (!isObject(payload.result)) return null;
-  const status = payload.result.status;
-  const body = payload.result.body;
-  return typeof status === 'number' && Number.isInteger(status) && isObject(body)
-    ? { status, body }
-    : null;
-}
-
-async function claimRollback(
+async function claimMutation(
   env: CloudflareActionEnv,
-  kind: 'worker' | 'pages',
+  kind: CloudflareMutationKind,
   accountId: string,
   resource: string,
-  expectedStateId: string,
   input: JsonObject,
-): Promise<RollbackClaim> {
+): Promise<MutationClaim> {
   const durableEnv = checkpointEnv(env);
-  const operationId = await rollbackOperationId(kind, accountId, resource, expectedStateId);
+  const operationId = await mutationOperationId(kind, accountId, resource);
   const inputHash = await autopilotInputHash({ accountId, ...input });
-  const claim = await checkpointCall(durableEnv, operationId, '/claim', { operationId, inputHash });
+  let claim = await checkpointCall(durableEnv, operationId, '/claim', { operationId, inputHash });
+  if (claim.payload.state === 'complete') {
+    const released = await checkpointCall(durableEnv, operationId, '/release', { inputHash });
+    if (!released.response.ok) {
+      throw new CloudflareActionError('cloudflare_mutation_checkpoint_failed', 502);
+    }
+    claim = await checkpointCall(durableEnv, operationId, '/claim', { operationId, inputHash });
+  }
   if (claim.payload.state === 'input_mismatch') {
-    throw new CloudflareActionError('cloudflare_rollback_conflict', 409, { operationId });
+    throw new CloudflareActionError('cloudflare_mutation_conflict', 409, { operationId });
   }
   if (claim.payload.state === 'in_progress') {
-    throw new CloudflareActionError('cloudflare_rollback_in_progress', 409, {
+    throw new CloudflareActionError('cloudflare_mutation_in_progress', 409, {
       operationId,
-      retryAfterSeconds:
-        typeof claim.payload.retryAfterSeconds === 'number'
-          ? claim.payload.retryAfterSeconds
-          : 30,
+      retryAfterSeconds: typeof claim.payload.retryAfterSeconds === 'number'
+        ? claim.payload.retryAfterSeconds
+        : 30,
     });
   }
-  if (claim.payload.state === 'complete') {
-    const stored = checkpointResult(claim.payload);
-    if (stored) {
-      const operation = isObject(stored.body.operation) ? stored.body.operation : {};
-      return {
-        operationId,
-        inputHash,
-        recovered: false,
-        replay: json({
-          ...stored.body,
-          operation: { ...operation, id: operationId, replayed: true },
-        }, stored.status),
-      };
-    }
-  }
   if (!claim.response.ok && claim.payload.state !== 'recover') {
-    throw new CloudflareActionError('cloudflare_rollback_checkpoint_failed', 502);
+    throw new CloudflareActionError('cloudflare_mutation_checkpoint_failed', 502);
   }
   return {
     operationId,
@@ -480,13 +466,44 @@ async function claimRollback(
   };
 }
 
-async function completeRollback(
+async function releaseMutation(env: CloudflareActionEnv, claim: MutationClaim): Promise<void> {
+  try {
+    const released = await checkpointCall(checkpointEnv(env), claim.operationId, '/release', {
+      inputHash: claim.inputHash,
+    });
+    if (!released.response.ok) {
+      console.error(JSON.stringify({
+        cloudflareOperator: 'lock_release_failed',
+        operationId: claim.operationId,
+        status: released.response.status,
+      }));
+    }
+  } catch (error) {
+    console.error(JSON.stringify({
+      cloudflareOperator: 'lock_release_failed',
+      operationId: claim.operationId,
+      error: error instanceof Error ? error.message : 'unknown_error',
+    }));
+  }
+}
+async function runSerializedMutation(
   env: CloudflareActionEnv,
-  claim: RollbackClaim,
-  status: number,
-  body: JsonObject,
+  kind: CloudflareMutationKind,
+  accountId: string,
+  resource: string,
+  input: JsonObject,
+  work: (claim: MutationClaim) => Promise<Response>,
 ): Promise<Response> {
-  const finalBody: JsonObject = {
+  const claim = await claimMutation(env, kind, accountId, resource, input);
+  try {
+    return await work(claim);
+  } finally {
+    await releaseMutation(env, claim);
+  }
+}
+
+function mutationResponse(claim: MutationClaim, status: number, body: JsonObject): Response {
+  return json({
     ...body,
     operation: {
       id: claim.operationId,
@@ -494,16 +511,7 @@ async function completeRollback(
       recovered: claim.recovered,
       replayed: false,
     },
-  };
-  const completion = await checkpointCall(checkpointEnv(env), claim.operationId, '/complete', {
-    inputHash: claim.inputHash,
-    status,
-    body: finalBody,
-  });
-  if (!completion.response.ok) {
-    return json({ ...finalBody, checkpointWarning: 'checkpoint_completion_failed' }, status);
-  }
-  return json(finalBody, status);
+  }, status);
 }
 
 function workerDeploymentTargets(value: unknown, versionId: string): boolean {
@@ -723,68 +731,57 @@ async function rollbackWorker(
   const targetVersionId = uuid(input.targetVersionId, 'target_version_id');
   const message = optionalString(input.message, 'message', 1_000) ?? 'Gremlin guarded rollback';
   const { accountId } = credentials(env);
-  const claim = await claimRollback(
+  const lockInput = { script, expectedDeploymentId, targetVersionId, message };
+  return runSerializedMutation(
     env,
-    'worker',
+    'worker-rollback',
     accountId,
     script,
-    expectedDeploymentId,
-    { script, expectedDeploymentId, targetVersionId, message },
-  );
-  if (claim.replay) return claim.replay;
-
-  const deploymentsPath = `/accounts/${accountId}/workers/scripts/${encoded(script)}/deployments`;
-  try {
-    const { result } = await cloudflareRequest(env, deploymentsPath, 'GET', undefined, fetcher);
-    const deployments = isObject(result) && Array.isArray(result.deployments) ? result.deployments : [];
-    const current = sortByDateDescending(deployments, 'created_on')[0];
-    if (claim.recovered && workerDeploymentTargets(current, targetVersionId)) {
-      return completeRollback(env, claim, 200, {
+    lockInput,
+    async (claim) => {
+      const deploymentsPath = `/accounts/${accountId}/workers/scripts/${encoded(script)}/deployments`;
+      const { result } = await cloudflareRequest(env, deploymentsPath, 'GET', undefined, fetcher);
+      const deployments = isObject(result) && Array.isArray(result.deployments) ? result.deployments : [];
+      const current = sortByDateDescending(deployments, 'created_on')[0];
+      if (workerDeploymentTargets(current, targetVersionId)) {
+        return mutationResponse(claim, 200, {
+          ok: true,
+          deployment: safeWorkerDeployment(current),
+          recovery: 'verified_existing_target',
+          idempotent: true,
+        });
+      }
+      if (!isObject(current) || stringField(current, 'id') !== expectedDeploymentId) {
+        return mutationResponse(claim, 409, {
+          ok: false,
+          error: 'cloudflare_deployment_changed',
+          currentDeploymentId: isObject(current) ? stringField(current, 'id') : null,
+        });
+      }
+      await cloudflareRequest(
+        env,
+        `/accounts/${accountId}/workers/scripts/${encoded(script)}/versions/${encoded(targetVersionId)}`,
+        'GET',
+        undefined,
+        fetcher,
+      );
+      const { result: created } = await cloudflareRequest(
+        env,
+        deploymentsPath,
+        'POST',
+        {
+          strategy: 'percentage',
+          versions: [{ version_id: targetVersionId, percentage: 100 }],
+          annotations: { 'workers/message': message },
+        },
+        fetcher,
+      );
+      return mutationResponse(claim, 200, {
         ok: true,
-        deployment: safeWorkerDeployment(current),
-        recovery: 'verified_existing_target',
+        deployment: safeWorkerDeployment(created),
       });
-    }
-    if (!isObject(current) || stringField(current, 'id') !== expectedDeploymentId) {
-      return completeRollback(env, claim, 409, {
-        ok: false,
-        error: 'cloudflare_deployment_changed',
-        currentDeploymentId: isObject(current) ? stringField(current, 'id') : null,
-      });
-    }
-
-    await cloudflareRequest(
-      env,
-      `/accounts/${accountId}/workers/scripts/${encoded(script)}/versions/${encoded(targetVersionId)}`,
-      'GET',
-      undefined,
-      fetcher,
-    );
-    const { result: created } = await cloudflareRequest(
-      env,
-      deploymentsPath,
-      'POST',
-      {
-        strategy: 'percentage',
-        versions: [{ version_id: targetVersionId, percentage: 100 }],
-        annotations: { 'workers/message': message },
-      },
-      fetcher,
-    );
-    return completeRollback(env, claim, 200, {
-      ok: true,
-      deployment: safeWorkerDeployment(created),
-    });
-  } catch (error) {
-    if (error instanceof CloudflareActionError && error.status < 500) {
-      return completeRollback(env, claim, error.status, {
-        ok: false,
-        error: error.code,
-        ...(error.details ?? {}),
-      });
-    }
-    throw error;
-  }
+    },
+  );
 }
 
 async function rollbackPages(
@@ -800,74 +797,67 @@ async function rollbackPages(
   const expectedId = uuid(input.expectedProductionDeploymentId, 'expected_production_deployment_id');
   const targetId = uuid(input.targetDeploymentId, 'target_deployment_id');
   const { accountId } = credentials(env);
-  const claim = await claimRollback(
+  const lockInput = { project, expectedProductionDeploymentId: expectedId, targetDeploymentId: targetId };
+  return runSerializedMutation(
     env,
-    'pages',
+    'pages-rollback',
     accountId,
     project,
-    expectedId,
-    { project, expectedProductionDeploymentId: expectedId, targetDeploymentId: targetId },
-  );
-  if (claim.replay) return claim.replay;
-
-  try {
-    const projectPath = `/accounts/${accountId}/pages/projects/${encoded(project)}`;
-    const { result } = await cloudflareRequest(env, projectPath, 'GET', undefined, fetcher);
-    if (!isObject(result)) throw new CloudflareActionError('invalid_cloudflare_pages_project', 502);
-    const canonical = isObject(result.canonical_deployment) ? result.canonical_deployment : null;
-    const currentId = canonical ? stringField(canonical, 'id') : null;
-    if (claim.recovered && currentId === targetId && canonical) {
-      return completeRollback(env, claim, 200, {
+    lockInput,
+    async (claim) => {
+      const projectPath = `/accounts/${accountId}/pages/projects/${encoded(project)}`;
+      const { result } = await cloudflareRequest(env, projectPath, 'GET', undefined, fetcher);
+      if (!isObject(result)) throw new CloudflareActionError('invalid_cloudflare_pages_project', 502);
+      const canonical = isObject(result.canonical_deployment) ? result.canonical_deployment : null;
+      const currentId = canonical ? stringField(canonical, 'id') : null;
+      if (currentId === targetId && canonical) {
+        return mutationResponse(claim, 200, {
+          ok: true,
+          deployment: safePagesDeployment(canonical),
+          recovery: 'verified_existing_target',
+          idempotent: true,
+        });
+      }
+      if (currentId !== expectedId) {
+        return mutationResponse(claim, 409, {
+          ok: false,
+          error: 'cloudflare_pages_deployment_changed',
+          currentDeploymentId: currentId,
+        });
+      }
+      const { result: target } = await cloudflareRequest(
+        env,
+        `${projectPath}/deployments/${encoded(targetId)}`,
+        'GET',
+        undefined,
+        fetcher,
+      );
+      if (!isObject(target) || stringField(target, 'environment') !== 'production') {
+        return mutationResponse(claim, 409, {
+          ok: false,
+          error: 'cloudflare_pages_target_not_production',
+        });
+      }
+      const { result: rolledBack } = await cloudflareRequest(
+        env,
+        `${projectPath}/deployments/${encoded(targetId)}/rollback`,
+        'POST',
+        undefined,
+        fetcher,
+      );
+      return mutationResponse(claim, 200, {
         ok: true,
-        deployment: safePagesDeployment(canonical),
-        recovery: 'verified_existing_target',
+        deployment: safePagesDeployment(rolledBack),
       });
-    }
-    if (currentId !== expectedId) {
-      return completeRollback(env, claim, 409, {
-        ok: false,
-        error: 'cloudflare_pages_deployment_changed',
-        currentDeploymentId: currentId,
-      });
-    }
-
-    const { result: target } = await cloudflareRequest(
-      env,
-      `${projectPath}/deployments/${encoded(targetId)}`,
-      'GET',
-      undefined,
-      fetcher,
-    );
-    if (!isObject(target) || stringField(target, 'environment') !== 'production') {
-      return completeRollback(env, claim, 409, {
-        ok: false,
-        error: 'cloudflare_pages_target_not_production',
-      });
-    }
-    const { result: rolledBack } = await cloudflareRequest(
-      env,
-      `${projectPath}/deployments/${encoded(targetId)}/rollback`,
-      'POST',
-      undefined,
-      fetcher,
-    );
-    return completeRollback(env, claim, 200, {
-      ok: true,
-      deployment: safePagesDeployment(rolledBack),
-    });
-  } catch (error) {
-    if (error instanceof CloudflareActionError && error.status < 500) {
-      return completeRollback(env, claim, error.status, {
-        ok: false,
-        error: error.code,
-        ...(error.details ?? {}),
-      });
-    }
-    throw error;
-  }
+    },
+  );
 }
 
-async function updateWorkerSubdomain(request: Request, env: GptActionsEnv, fetcher: typeof fetch): Promise<Response> {
+async function updateWorkerSubdomain(
+  request: Request,
+  env: CloudflareActionEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
   const policy = await cloudflarePolicy(request, env, fetcher);
   requireMutation(policy, 'workerSubdomain');
   const input = await inputObject(request);
@@ -879,18 +869,44 @@ async function updateWorkerSubdomain(request: Request, env: GptActionsEnv, fetch
   const previewsEnabled = requiredBoolean(input.previewsEnabled, 'previews_enabled');
   const { accountId } = credentials(env);
   const path = `/accounts/${accountId}/workers/scripts/${encoded(script)}/subdomain`;
-  const { result: current } = await cloudflareRequest(env, path, 'GET', undefined, fetcher);
-  if (
-    booleanField(current, 'enabled') !== expectedEnabled ||
-    booleanField(current, 'previews_enabled') !== expectedPreviewsEnabled
-  ) {
-    throw new CloudflareActionError('cloudflare_subdomain_changed', 409, { current: safeSubdomain(current) });
-  }
-  const { result } = await cloudflareRequest(env, path, 'POST', { enabled, previews_enabled: previewsEnabled }, fetcher);
-  return json({ ok: true, subdomain: safeSubdomain(result) });
+  const lockInput = { script, expectedEnabled, expectedPreviewsEnabled, enabled, previewsEnabled };
+  return runSerializedMutation(
+    env,
+    'worker-subdomain',
+    accountId,
+    script,
+    lockInput,
+    async (claim) => {
+      const { result: current } = await cloudflareRequest(env, path, 'GET', undefined, fetcher);
+      const currentEnabled = booleanField(current, 'enabled');
+      const currentPreviewsEnabled = booleanField(current, 'previews_enabled');
+      if (currentEnabled === enabled && currentPreviewsEnabled === previewsEnabled) {
+        return mutationResponse(claim, 200, { ok: true, subdomain: safeSubdomain(current), idempotent: true });
+      }
+      if (currentEnabled !== expectedEnabled || currentPreviewsEnabled !== expectedPreviewsEnabled) {
+        return mutationResponse(claim, 409, {
+          ok: false,
+          error: 'cloudflare_subdomain_changed',
+          current: safeSubdomain(current),
+        });
+      }
+      const { result } = await cloudflareRequest(
+        env,
+        path,
+        'POST',
+        { enabled, previews_enabled: previewsEnabled },
+        fetcher,
+      );
+      return mutationResponse(claim, 200, { ok: true, subdomain: safeSubdomain(result) });
+    },
+  );
 }
 
-async function updateRoute(request: Request, env: GptActionsEnv, fetcher: typeof fetch): Promise<Response> {
+async function updateRoute(
+  request: Request,
+  env: CloudflareActionEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
   const policy = await cloudflarePolicy(request, env, fetcher);
   requireMutation(policy, 'routeUpdate');
   const input = await inputObject(request);
@@ -903,14 +919,38 @@ async function updateRoute(request: Request, env: GptActionsEnv, fetcher: typeof
   const zone = await resolveZone(env, zoneName, fetcher);
   const zoneId = requiredString(zone.id, 'zone_id', 32);
   const path = `/zones/${encoded(zoneId)}/workers/routes/${encoded(routeId)}`;
-  const { result: current } = await cloudflareRequest(env, path, 'GET', undefined, fetcher);
-  const currentSafe = safeRoute(current);
-  const currentSnapshot = await snapshot('cloudflare-route', currentSafe);
-  if (currentSnapshot !== expectedSnapshot) {
-    throw new CloudflareActionError('cloudflare_route_changed', 409, { current: { ...currentSafe, snapshot: currentSnapshot } });
-  }
-  const { result } = await cloudflareRequest(env, path, 'PUT', { pattern, script }, fetcher);
-  return json({ ok: true, route: await withSnapshot('cloudflare-route', safeRoute(result)) });
+  const lockInput = { zone: zoneId, routeId, expectedSnapshot, pattern, script };
+  return runSerializedMutation(
+    env,
+    'route-update',
+    credentials(env).accountId,
+    `${zoneId}:${routeId}`,
+    lockInput,
+    async (claim) => {
+      const { result: current } = await cloudflareRequest(env, path, 'GET', undefined, fetcher);
+      const currentSafe = safeRoute(current);
+      const currentSnapshot = await snapshot('cloudflare-route', currentSafe);
+      if (stringField(currentSafe, 'pattern') === pattern && stringField(currentSafe, 'script') === script) {
+        return mutationResponse(claim, 200, {
+          ok: true,
+          route: { ...currentSafe, snapshot: currentSnapshot },
+          idempotent: true,
+        });
+      }
+      if (currentSnapshot !== expectedSnapshot) {
+        return mutationResponse(claim, 409, {
+          ok: false,
+          error: 'cloudflare_route_changed',
+          current: { ...currentSafe, snapshot: currentSnapshot },
+        });
+      }
+      const { result } = await cloudflareRequest(env, path, 'PUT', { pattern, script }, fetcher);
+      return mutationResponse(claim, 200, {
+        ok: true,
+        route: await withSnapshot('cloudflare-route', safeRoute(result)),
+      });
+    },
+  );
 }
 
 function dnsPatch(value: unknown): JsonObject {
@@ -933,7 +973,7 @@ function dnsPatch(value: unknown): JsonObject {
   return patch;
 }
 
-async function updateDns(request: Request, env: GptActionsEnv, fetcher: typeof fetch): Promise<Response> {
+async function updateDns(request: Request, env: CloudflareActionEnv, fetcher: typeof fetch): Promise<Response> {
   const policy = await cloudflarePolicy(request, env, fetcher);
   requireMutation(policy, 'dnsUpdate');
   const input = await inputObject(request);
@@ -945,16 +985,40 @@ async function updateDns(request: Request, env: GptActionsEnv, fetcher: typeof f
   const zone = await resolveZone(env, zoneName, fetcher);
   const zoneId = requiredString(zone.id, 'zone_id', 32);
   const path = `/zones/${encoded(zoneId)}/dns_records/${encoded(recordId)}`;
-  const { result: current } = await cloudflareRequest(env, path, 'GET', undefined, fetcher);
-  const currentSafe = safeDnsRecord(current);
-  const currentSnapshot = await snapshot('cloudflare-dns', currentSafe);
-  if (currentSnapshot !== expectedSnapshot) {
-    throw new CloudflareActionError('cloudflare_dns_record_changed', 409, { current: { ...currentSafe, snapshot: currentSnapshot } });
-  }
-  const { result } = await cloudflareRequest(env, path, 'PATCH', desired, fetcher);
-  return json({ ok: true, record: await withSnapshot('cloudflare-dns', safeDnsRecord(result)) });
+  const lockInput = { zone: zoneId, recordId, expectedSnapshot, desired };
+  return runSerializedMutation(
+    env,
+    'dns-update',
+    credentials(env).accountId,
+    `${zoneId}:${recordId}`,
+    lockInput,
+    async (claim) => {
+      const { result: current } = await cloudflareRequest(env, path, 'GET', undefined, fetcher);
+      const currentSafe = safeDnsRecord(current);
+      const currentSnapshot = await snapshot('cloudflare-dns', currentSafe);
+      const desiredSatisfied = Object.entries(desired).every(([key, value]) => currentSafe[key] === value);
+      if (desiredSatisfied) {
+        return mutationResponse(claim, 200, {
+          ok: true,
+          record: { ...currentSafe, snapshot: currentSnapshot },
+          idempotent: true,
+        });
+      }
+      if (currentSnapshot !== expectedSnapshot) {
+        return mutationResponse(claim, 409, {
+          ok: false,
+          error: 'cloudflare_dns_record_changed',
+          current: { ...currentSafe, snapshot: currentSnapshot },
+        });
+      }
+      const { result } = await cloudflareRequest(env, path, 'PATCH', desired, fetcher);
+      return mutationResponse(claim, 200, {
+        ok: true,
+        record: await withSnapshot('cloudflare-dns', safeDnsRecord(result)),
+      });
+    },
+  );
 }
-
 function responseSchema(): JsonObject {
   return {
     '200': {

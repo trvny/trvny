@@ -94,3 +94,29 @@ test('expired, paused or uncertain work recovers without replaying mutations', (
     action: 'input_mismatch',
   });
 });
+
+test('checkpoint release removes a completed resource lock', async () => {
+  const records = new Map<string, unknown>();
+  const storage = {
+    get: async (key: string) => records.get(key),
+    put: async (key: string, value: unknown) => { records.set(key, value); },
+    delete: async (key: string) => records.delete(key),
+    deleteAll: async () => { records.clear(); },
+    setAlarm: async () => undefined,
+    deleteAlarm: async () => undefined,
+  };
+  const { OperatorCheckpointStore } = await import('../src/autopilot-checkpoint.ts');
+  const store = new OperatorCheckpointStore({ storage } as unknown as DurableObjectState);
+  const call = (pathname: string, body: Record<string, unknown>) => store.fetch(new Request(
+    `https://checkpoint.internal${pathname}`,
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+  ));
+  const operationId = 'op-resource-lock';
+  const firstHash = 'a'.repeat(64);
+  const secondHash = 'b'.repeat(64);
+  assert.equal((await call('/claim', { operationId, inputHash: firstHash })).status, 200);
+  assert.equal((await call('/release', { inputHash: firstHash })).status, 200);
+  const next = await call('/claim', { operationId, inputHash: secondHash });
+  assert.equal(next.status, 200);
+  assert.equal((await next.json() as { state?: string }).state, 'claimed');
+});

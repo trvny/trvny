@@ -108,6 +108,13 @@ function checkpointNamespace(): DurableObjectNamespace {
             });
             return Response.json({ ok: true });
           }
+          if (new URL(request.url).pathname === '/release') {
+            if (current && current.inputHash !== inputHash) {
+              return Response.json({ error: 'checkpoint_input_mismatch' }, { status: 409 });
+            }
+            states.delete(key);
+            return Response.json({ ok: true, state: 'released' });
+          }
           return Response.json({ error: 'not_found' }, { status: 404 });
         },
       } as DurableObjectStub;
@@ -118,7 +125,7 @@ function checkpointNamespace(): DurableObjectNamespace {
 function env(): Env {
   return {
     CLOUDFLARE_ACCOUNT_ID: ACCOUNT_ID,
-    CLOUDFLARE_API_TOKEN: 'cf-test-token',
+    CLOUDFLARE_API_TOKEN: 'test',
     OPERATOR_CHECKPOINTS: checkpointNamespace(),
   } as Env;
 }
@@ -196,7 +203,7 @@ test('Cloudflare overview strips Pages secret values', async () => {
   });
   const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/overview', {
     method: 'GET',
-    headers: { Authorization: 'Bearer github-user-token' },
+    headers: { Authorization: 'Bearer test' },
   });
   const response = await handleCloudflareAction(request, env(), createActionFetch(upstream));
   assert.ok(response);
@@ -233,7 +240,7 @@ test('stale DNS snapshot blocks a write', async () => {
   const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/dns/update', {
     method: 'POST',
     headers: {
-      Authorization: 'Bearer github-user-token',
+      Authorization: 'Bearer test',
       'Content-Type': 'application/json',
     },    body: JSON.stringify({
       zone: 'trfny.com',
@@ -268,7 +275,7 @@ test('stale Worker deployment blocks rollback', async () => {
   });  const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/workers/rollback', {
     method: 'POST',
     headers: {
-      Authorization: 'Bearer github-user-token',
+      Authorization: 'Bearer test',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -306,7 +313,7 @@ test('zone ids are scoped to the configured Cloudflare account', async () => {
   const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/zones/inspect', {
     method: 'POST',
     headers: {
-      Authorization: 'Bearer github-user-token',
+      Authorization: 'Bearer test',
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ zone: zoneId }),
@@ -327,6 +334,8 @@ test('Worker rollback serializes competing targets and replays identical retries
   const targetB = '33333333-3333-4333-8333-333333333333';
   const createdId = '44444444-4444-4444-8444-444444444444';
   let deploymentWrites = 0;
+  let currentDeploymentId = expectedId;
+  let currentVersionId = '55555555-5555-4555-8555-555555555555';
   let releasePost!: () => void;
   let markPostStarted!: () => void;
   const postGate = new Promise<void>((resolve) => { releasePost = resolve; });
@@ -338,6 +347,8 @@ test('Worker rollback serializes competing targets and replays identical retries
     if (url.pathname.endsWith('/workers/scripts/kanarek-companion/deployments')) {
       if (request.method === 'POST') {
         deploymentWrites += 1;
+        currentDeploymentId = createdId;
+        currentVersionId = targetA;
         markPostStarted();
         await postGate;
         return cf({
@@ -348,9 +359,9 @@ test('Worker rollback serializes competing targets and replays identical retries
       }
       return cf({
         deployments: [{
-          id: expectedId,
+          id: currentDeploymentId,
           created_on: '2026-08-28T15:00:00Z',
-          versions: [{ version_id: '55555555-5555-4555-8555-555555555555', percentage: 100 }],
+          versions: [{ version_id: currentVersionId, percentage: 100 }],
         }],
       });
     }
@@ -365,7 +376,7 @@ test('Worker rollback serializes competing targets and replays identical retries
     {
       method: 'POST',
       headers: {
-        Authorization: 'Bearer github-user-token',
+        Authorization: 'Bearer test',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -381,7 +392,7 @@ test('Worker rollback serializes competing targets and replays identical retries
   const competing = await handleCloudflareAction(requestFor(targetB), runtime, createActionFetch(upstream));
   assert.ok(competing);
   assert.equal(competing.status, 409);
-  assert.equal((await competing.json() as { error?: string }).error, 'cloudflare_rollback_conflict');
+  assert.equal((await competing.json() as { error?: string }).error, 'cloudflare_mutation_conflict');
   assert.equal(deploymentWrites, 1);
 
   releasePost();
@@ -392,8 +403,9 @@ test('Worker rollback serializes competing targets and replays identical retries
   const replay = await handleCloudflareAction(requestFor(targetA), runtime, createActionFetch(upstream));
   assert.ok(replay);
   assert.equal(replay.status, 200);
-  const replayPayload = await replay.json() as { operation?: { replayed?: boolean } };
-  assert.equal(replayPayload.operation?.replayed, true);
+  const replayPayload = await replay.json() as { idempotent?: boolean; operation?: { replayed?: boolean } };
+  assert.equal(replayPayload.idempotent, true);
+  assert.equal(replayPayload.operation?.replayed, false);
   assert.equal(deploymentWrites, 1);
 });
 
@@ -401,6 +413,8 @@ test('Pages rollback replays an identical retry without a second mutation', asyn
   const runtime = env();
   const expectedId = '11111111-1111-4111-8111-111111111111';
   const targetId = '22222222-2222-4222-8222-222222222222';
+  const targetC = '33333333-3333-4333-8333-333333333333';
+  let currentId = expectedId;
   let rollbackWrites = 0;
   const upstream: typeof fetch = githubPolicyFetch((input, init) => {
     const request = new Request(input, init);
@@ -410,32 +424,35 @@ test('Pages rollback replays an identical retry without a second mutation', asyn
         id: 'project-1',
         name: 'trfny',
         canonical_deployment: {
-          id: expectedId,
+          id: currentId,
           environment: 'production',
         },
       });
     }
-    if (url.pathname.endsWith(`/pages/projects/trfny/deployments/${targetId}`)) {
-      return cf({ id: targetId, environment: 'production' });
-    }
-    if (url.pathname.endsWith(`/pages/projects/trfny/deployments/${targetId}/rollback`)) {
+    if (url.pathname.includes('/pages/projects/trfny/deployments/') && url.pathname.endsWith('/rollback')) {
       rollbackWrites += 1;
-      return cf({ id: targetId, environment: 'production' });
+      const rolledId = url.pathname.split('/').at(-2) ?? '';
+      currentId = rolledId;
+      return cf({ id: rolledId, environment: 'production' });
+    }
+    if (url.pathname.includes('/pages/projects/trfny/deployments/')) {
+      const deploymentId = url.pathname.split('/').at(-1) ?? '';
+      return cf({ id: deploymentId, environment: 'production' });
     }
     return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
   });
-  const request = () => new Request(
+  const request = (targetDeploymentId = targetId) => new Request(
     'https://example.workers.dev/gpt-actions/cloudflare/pages/rollback',
     {
       method: 'POST',
       headers: {
-        Authorization: 'Bearer github-user-token',
+        Authorization: 'Bearer test',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         project: 'trfny',
         expectedProductionDeploymentId: expectedId,
-        targetDeploymentId: targetId,
+        targetDeploymentId,
       }),
     },
   );
@@ -448,7 +465,114 @@ test('Pages rollback replays an identical retry without a second mutation', asyn
   const replay = await handleCloudflareAction(request(), runtime, createActionFetch(upstream));
   assert.ok(replay);
   assert.equal(replay.status, 200);
-  const payload = await replay.json() as { operation?: { replayed?: boolean } };
-  assert.equal(payload.operation?.replayed, true);
+  const payload = await replay.json() as { idempotent?: boolean; operation?: { replayed?: boolean } };
+  assert.equal(payload.idempotent, true);
+  assert.equal(payload.operation?.replayed, false);
   assert.equal(rollbackWrites, 1);
+
+  currentId = expectedId;
+  const freshCycle = await handleCloudflareAction(request(targetC), runtime, createActionFetch(upstream));
+  assert.ok(freshCycle);
+  assert.equal(freshCycle.status, 200);
+  assert.equal(currentId, targetC);
+  assert.equal(rollbackWrites, 2);
+});
+
+test('transient Worker rollback failure releases the resource lock for retry', async () => {
+  const runtime = env();
+  const expectedId = '11111111-1111-4111-8111-111111111111';
+  const targetId = '22222222-2222-4222-8222-222222222222';
+  const createdId = '33333333-3333-4333-8333-333333333333';
+  let currentId = expectedId;
+  let currentVersionId = '44444444-4444-4444-8444-444444444444';
+  let deploymentWrites = 0;
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/workers/scripts/kanarek-companion/deployments')) {
+      if (request.method === 'POST') {
+        deploymentWrites += 1;
+        if (deploymentWrites === 1) {
+          return Response.json({ success: false, errors: [{ code: 1015 }] }, { status: 429 });
+        }
+        currentId = createdId;
+        currentVersionId = targetId;
+        return cf({ id: createdId, versions: [{ version_id: targetId, percentage: 100 }] });
+      }
+      return cf({ deployments: [{ id: currentId, created_on: '2026-08-28T15:00:00Z', versions: [{ version_id: currentVersionId, percentage: 100 }] }] });
+    }
+    if (url.pathname.includes('/workers/scripts/kanarek-companion/versions/')) {
+      return cf({ id: targetId });
+    }
+    return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
+  });
+  const request = () => new Request('https://example.workers.dev/gpt-actions/cloudflare/workers/rollback', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ script: 'kanarek-companion', expectedDeploymentId: expectedId, targetVersionId: targetId }),
+  });
+  const first = await handleCloudflareAction(request(), runtime, createActionFetch(upstream));
+  assert.ok(first);
+  assert.equal(first.status, 429);
+  const second = await handleCloudflareAction(request(), runtime, createActionFetch(upstream));
+  assert.ok(second);
+  assert.equal(second.status, 200);
+  assert.equal(deploymentWrites, 2);
+});
+
+test('route updates serialize the snapshot check with the write', async () => {
+  const runtime = env();
+  const zoneId = 'b'.repeat(32);
+  const routeId = 'route-1';
+  let route = { id: routeId, pattern: 'old.example/*', script: 'old-worker' };
+  let routeWrites = 0;
+  let releasePut!: () => void;
+  let markPutStarted!: () => void;
+  const putGate = new Promise<void>((resolve) => { releasePut = resolve; });
+  const putStarted = new Promise<void>((resolve) => { markPutStarted = resolve; });
+  const upstream: typeof fetch = githubPolicyFetch(async (input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname === '/client/v4/zones') {
+      return cf([{ id: zoneId, name: 'trfny.com', status: 'active' }]);
+    }
+    if (url.pathname === `/client/v4/zones/${zoneId}/dns_records`) return cf([]);
+    if (url.pathname === `/client/v4/zones/${zoneId}/workers/routes`) return cf([route]);
+    if (url.pathname === `/client/v4/zones/${zoneId}/workers/routes/${routeId}`) {
+      if (request.method === 'PUT') {
+        routeWrites += 1;
+        markPutStarted();
+        await putGate;
+        route = { id: routeId, pattern: 'a.example/*', script: 'worker-a' };
+      }
+      return cf(route);
+    }
+    return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
+  });
+  const actionFetch = createActionFetch(upstream);
+  const inspect = await handleCloudflareAction(new Request('https://example.workers.dev/gpt-actions/cloudflare/zones/inspect', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zone: 'trfny.com' }),
+  }), runtime, actionFetch);
+  assert.ok(inspect);
+  const inspected = await inspect.json() as { routes?: { data?: Array<{ snapshot?: string }> } };
+  const expectedSnapshot = inspected.routes?.data?.[0]?.snapshot;
+  assert.ok(expectedSnapshot);
+  const requestFor = (pattern: string, script: string) => new Request('https://example.workers.dev/gpt-actions/cloudflare/routes/update', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zone: 'trfny.com', routeId, expectedSnapshot, pattern, script }),
+  });
+  const firstPromise = handleCloudflareAction(requestFor('a.example/*', 'worker-a'), runtime, createActionFetch(upstream));
+  await putStarted;
+  const competing = await handleCloudflareAction(requestFor('b.example/*', 'worker-b'), runtime, createActionFetch(upstream));
+  assert.ok(competing);
+  assert.equal(competing.status, 409);
+  assert.equal((await competing.json() as { error?: string }).error, 'cloudflare_mutation_conflict');
+  releasePut();
+  const first = await firstPromise;
+  assert.ok(first);
+  assert.equal(first.status, 200);
+  assert.equal(routeWrites, 1);
 });

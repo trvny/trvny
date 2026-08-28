@@ -90,6 +90,25 @@ so there is no referrer to leak either.
 binding, and leaving it open keeps the CORS preflight working — a client cannot
 present a token on a preflight.
 
+## The connector icon
+
+A client draws the connector from `serverInfo` in the reply to `initialize` —
+nothing else. It never looks for a favicon on this host, so a server that sends
+only a name and version gets a letter avatar.
+
+`src/icon.ts` is **generated**, not written by hand: it is
+`assets/status-mcp.svg` from the repo root, rasterized to a 512×512 indexed PNG
+and base64-encoded. Edit the SVG, then regenerate the module — never the other
+way round.
+
+The Worker answers `GET /icon.png` from that constant. A static-assets binding
+would be the obvious way to serve a file, and it does not work here: adding
+`"assets"` to `wrangler.jsonc` makes every authenticated request fail, in both
+the bearer-header and token-in-path forms (measured 2026-08-28). Inlining keeps
+the gate intact, and `GET` was already unauthenticated and reaches no service
+binding, so `https://status-mcp.<subdomain>.workers.dev/icon.png` needs no
+token — which it must not, because claude.ai fetches it anonymously.
+
 ## Keeping it correct
 
 `TVPI_SLUGS` must track tvpi's `CHANNELS`. Project URLs / workflow names are

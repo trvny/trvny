@@ -71,6 +71,11 @@ const tagFinding = scanText(`x${hiddenTags}`).find((item) => item.label === "Uni
 assert.ok(tagFinding);
 assert.match(tagFinding.detail, /secret/);
 
+const largeHiddenTags = [..."x".repeat(2000)].map((char) => String.fromCodePoint(0xe0000 + char.charCodeAt(0))).join("");
+const largeTagFinding = scanText(largeHiddenTags).find((item) => item.label === "Unicode tag sequence");
+assert.ok(largeTagFinding);
+assert.match(largeTagFinding.detail, /preview truncated/);
+
 const selectorPayload = [...Buffer.from("hide", "utf8")].map((byte) => String.fromCodePoint(
   byte < 16 ? 0xfe00 + byte : 0xe0100 + byte - 16,
 )).join("");

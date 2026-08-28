@@ -5,6 +5,7 @@ const MAX_FINDINGS = 500;
 const MAX_BASE64_DECODE_CHARS = 65536;
 const BASE64_PREVIEW_CHARS = 8192;
 const MAX_VARIATION_PREVIEW_BYTES = 512;
+const MAX_TAG_PREVIEW_CHARS = 512;
 const severityRank = { high: 0, medium: 1, low: 2 };
 
 const specialCharacters = new Map([
@@ -80,10 +81,24 @@ function codePointLabel(codePoint) {
   return `U+${codePoint.toString(16).toUpperCase().padStart(codePoint <= 0xffff ? 4 : 6, "0")}`;
 }
 
+function escapedPreviewChar(char) {
+  const codePoint = char.codePointAt(0);
+  if (codePoint > 0x1f && codePoint !== 0x7f) return char;
+  return `\\u${codePoint.toString(16).padStart(4, "0")}`;
+}
+
 function quotedPreview(value, limit = 180) {
-  const compact = value.replace(/[\u0000-\u001F\u007F]/g, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const compact = [...value].map(escapedPreviewChar).join("");
   const clipped = compact.length > limit ? `${compact.slice(0, limit)}…` : compact;
   return JSON.stringify(clipped);
+}
+
+function hasVisibleText(value) {
+  for (const char of value) {
+    const codePoint = char.codePointAt(0);
+    if (codePoint > 0x1f && codePoint !== 0x7f) return true;
+  }
+  return false;
 }
 
 function decodeBytes(bytes) {
@@ -113,33 +128,40 @@ function lineIndexForOffset(starts, offset) {
   return Math.max(0, high);
 }
 
+function* segmentedGraphemeRanges(text, lineStart, lineEnd) {
+  const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+  for (const part of segmenter.segment(text.slice(lineStart, lineEnd))) {
+    const start = lineStart + part.index;
+    yield { start, end: start + part.segment.length };
+  }
+}
+
+function* codePointRanges(text, lineStart, lineEnd) {
+  for (let cursor = lineStart; cursor < lineEnd;) {
+    const codePoint = text.codePointAt(cursor);
+    const width = codePoint > 0xffff ? 2 : 1;
+    yield { start: cursor, end: cursor + width };
+    cursor += width;
+  }
+}
+
+function graphemeRanges(text, lineStart, lineEnd) {
+  return typeof Intl?.Segmenter === "function"
+    ? segmentedGraphemeRanges(text, lineStart, lineEnd)
+    : codePointRanges(text, lineStart, lineEnd);
+}
+
 function columnsForOffsets(text, lineStart, lineEnd, offsets) {
   const targets = [...new Set(offsets)].sort((a, b) => a - b);
   const columns = new Map();
   let targetIndex = 0;
-  const assignSegment = (start, end, column) => {
-    while (targetIndex < targets.length && targets[targetIndex] < end) {
-      if (targets[targetIndex] >= start) columns.set(targets[targetIndex], column);
+  let column = 1;
+  for (const range of graphemeRanges(text, lineStart, lineEnd)) {
+    while (targetIndex < targets.length && targets[targetIndex] < range.end) {
+      if (targets[targetIndex] >= range.start) columns.set(targets[targetIndex], column);
       targetIndex += 1;
     }
-  };
-
-  let column = 1;
-  if (typeof Intl?.Segmenter === "function") {
-    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-    for (const part of segmenter.segment(text.slice(lineStart, lineEnd))) {
-      const start = lineStart + part.index;
-      assignSegment(start, start + part.segment.length, column);
-      column += 1;
-    }
-  } else {
-    for (let cursor = lineStart; cursor < lineEnd;) {
-      const codePoint = text.codePointAt(cursor);
-      const width = codePoint > 0xffff ? 2 : 1;
-      assignSegment(cursor, cursor + width, column);
-      cursor += width;
-      column += 1;
-    }
+    column += 1;
   }
   while (targetIndex < targets.length) columns.set(targets[targetIndex++], column);
   return columns;
@@ -188,29 +210,62 @@ function addFinding(findings, finding) {
   if (replacement >= 0) findings[replacement] = finding;
 }
 
-function findingForCodePoint(codePoint, offset, width) {
+function specialCharacterFinding(codePoint, offset, width) {
   const special = specialCharacters.get(codePoint);
-  if (special) return {
+  if (!special) return null;
+  return {
     severity: special[0], kind: "invisible", label: special[1],
     detail: `${special[2]} ${codePointLabel(codePoint)}`, offset, length: width,
   };
-  if (isTagCharacter(codePoint)) return null;
-  if (/\p{Cf}/u.test(String.fromCodePoint(codePoint))) return {
+}
+
+function formatControlFinding(codePoint, offset, width) {
+  if (!/\p{Cf}/u.test(String.fromCodePoint(codePoint))) return null;
+  return {
     severity: "medium", kind: "invisible", label: "Unicode format control",
     detail: `Invisible or formatting control ${codePointLabel(codePoint)}. Review unexpected use.`, offset, length: width,
   };
-  if (isControl(codePoint)) return {
+}
+
+function rawControlFinding(codePoint, offset, width) {
+  if (!isControl(codePoint)) return null;
+  return {
     severity: "high", kind: "control", label: "Control character",
     detail: `Unexpected non-printing control ${codePointLabel(codePoint)}.`, offset, length: width,
   };
-  if (isNoncharacter(codePoint)) return {
+}
+
+function noncharacterFinding(codePoint, offset, width) {
+  if (!isNoncharacter(codePoint)) return null;
+  return {
     severity: "high", kind: "invalid-unicode", label: "Unicode noncharacter",
     detail: `${codePointLabel(codePoint)} is reserved as a noncharacter.`, offset, length: width,
   };
-  if (/\p{Co}/u.test(String.fromCodePoint(codePoint))) return {
+}
+
+function privateUseFinding(codePoint, offset, width) {
+  if (!/\p{Co}/u.test(String.fromCodePoint(codePoint))) return null;
+  return {
     severity: "low", kind: "marker-carrier", label: "Private-use character",
-    detail: `${codePointLabel(codePoint)} has no standardized meaning and can carry application-specific metadata.`, offset, length: width,
+    detail: `${codePointLabel(codePoint)} has no standardized meaning and can carry application-specific metadata.`,
+    offset, length: width,
   };
+}
+
+const characterFindingFactories = [
+  specialCharacterFinding,
+  formatControlFinding,
+  rawControlFinding,
+  noncharacterFinding,
+  privateUseFinding,
+];
+
+function findingForCodePoint(codePoint, offset, width) {
+  if (isTagCharacter(codePoint)) return null;
+  for (const factory of characterFindingFactories) {
+    const finding = factory(codePoint, offset, width);
+    if (finding) return finding;
+  }
   return null;
 }
 
@@ -231,13 +286,23 @@ function variationBytesForward(text, start, end, limit) {
   return bytes;
 }
 
+function isLowSurrogate(unit) {
+  return unit >= 0xdc00 && unit <= 0xdfff;
+}
+
+function isHighSurrogate(unit) {
+  return unit >= 0xd800 && unit <= 0xdbff;
+}
+
+function previousCodePointStart(text, offset) {
+  const last = offset - 1;
+  if (!isLowSurrogate(text.charCodeAt(last))) return last;
+  const previous = last - 1;
+  return previous >= 0 && isHighSurrogate(text.charCodeAt(previous)) ? previous : last;
+}
+
 function previousCodePoint(text, offset) {
-  let start = offset - 1;
-  const unit = text.charCodeAt(start);
-  if (unit >= 0xdc00 && unit <= 0xdfff && start > 0) {
-    const high = text.charCodeAt(start - 1);
-    if (high >= 0xd800 && high <= 0xdbff) start -= 1;
-  }
+  const start = previousCodePointStart(text, offset);
   return { codePoint: text.codePointAt(start), start };
 }
 
@@ -254,7 +319,7 @@ function variationBytesBackward(text, start, end, limit) {
 
 function variationPreview(bytes) {
   const decoded = decodeBytes(Uint8Array.from(bytes));
-  if (decoded && /[^\u0000-\u001F\u007F]/.test(decoded)) return quotedPreview(decoded);
+  if (decoded && hasVisibleText(decoded)) return quotedPreview(decoded);
   return bytes.slice(0, 48).map((value) => value.toString(16).padStart(2, "0")).join(" ")
     + (bytes.length > 48 ? " …" : "");
 }
@@ -268,58 +333,82 @@ function variationRunDetail(text, start, end, count) {
   return `${count} consecutive variation selectors. Decoded prefix: ${variationPreview(prefix)}; suffix: ${variationPreview(suffix)}`;
 }
 
-function scanCharacters(text, findings) {
-  let variationStart = -1;
-  let variationCount = 0;
-  const flushVariationRun = (end) => {
-    if (variationCount >= 4) addFinding(findings, {
-      severity: "medium", kind: "marker-carrier", label: "Variation-selector sequence",
-      detail: variationRunDetail(text, variationStart, end, variationCount),
-      offset: variationStart, length: end - variationStart,
-    });
-    variationStart = -1;
-    variationCount = 0;
-  };
+function flushVariationRun(text, findings, state, end) {
+  if (state.count >= 4) addFinding(findings, {
+    severity: "medium", kind: "marker-carrier", label: "Variation-selector sequence",
+    detail: variationRunDetail(text, state.start, end, state.count),
+    offset: state.start, length: end - state.start,
+  });
+  state.start = -1;
+  state.count = 0;
+}
 
+function updateVariationRun(text, findings, state, codePoint, offset) {
+  if (!isVariationSelector(codePoint)) {
+    flushVariationRun(text, findings, state, offset);
+    return;
+  }
+  if (state.start < 0) state.start = offset;
+  state.count += 1;
+}
+
+function scanCharacters(text, findings) {
+  const variation = { start: -1, count: 0 };
   for (let offset = 0; offset < text.length;) {
     const codePoint = text.codePointAt(offset);
     const width = codePoint > 0xffff ? 2 : 1;
-    if (isVariationSelector(codePoint)) {
-      if (variationStart < 0) variationStart = offset;
-      variationCount += 1;
-    } else {
-      flushVariationRun(offset);
-    }
+    updateVariationRun(text, findings, variation, codePoint, offset);
     const finding = findingForCodePoint(codePoint, offset, width);
     if (finding) addFinding(findings, finding);
     offset += width;
   }
-  flushVariationRun(text.length);
+  flushVariationRun(text, findings, variation, text.length);
+}
+
+function codePointWidth(codePoint) {
+  return codePoint > 0xffff ? 2 : 1;
+}
+
+function tagAscii(codePoint) {
+  const ascii = codePoint - 0xe0000;
+  return ascii >= 0x20 && ascii <= 0x7e ? String.fromCharCode(ascii) : "";
+}
+
+function readUnicodeTagRun(text, start) {
+  let offset = start;
+  let payload = "";
+  let count = 0;
+  let truncated = false;
+  while (offset < text.length && isTagCharacter(text.codePointAt(offset))) {
+    const codePoint = text.codePointAt(offset);
+    const char = tagAscii(codePoint);
+    if (char && payload.length < MAX_TAG_PREVIEW_CHARS) payload += char;
+    else if (char) truncated = true;
+    count += 1;
+    offset += codePointWidth(codePoint);
+  }
+  return { end: offset, payload, count, truncated };
+}
+
+function tagRunDetail(run) {
+  if (!run.payload) return `${run.count} invisible Unicode tag characters.`;
+  const suffix = run.truncated ? " (preview truncated)" : "";
+  return `Hidden tag payload: ${quotedPreview(run.payload)}${suffix}`;
 }
 
 function scanUnicodeTags(text, findings) {
   for (let offset = 0; offset < text.length;) {
     const codePoint = text.codePointAt(offset);
     if (!isTagCharacter(codePoint)) {
-      offset += codePoint > 0xffff ? 2 : 1;
+      offset += codePointWidth(codePoint);
       continue;
     }
-    const start = offset;
-    let payload = "";
-    let count = 0;
-    while (offset < text.length) {
-      const tag = text.codePointAt(offset);
-      if (!isTagCharacter(tag)) break;
-      const ascii = tag - 0xe0000;
-      if (ascii >= 0x20 && ascii <= 0x7e) payload += String.fromCharCode(ascii);
-      count += 1;
-      offset += tag > 0xffff ? 2 : 1;
-    }
+    const run = readUnicodeTagRun(text, offset);
     addFinding(findings, {
       severity: "high", kind: "marker-carrier", label: "Unicode tag sequence",
-      detail: payload ? `Hidden tag payload: ${quotedPreview(payload)}` : `${count} invisible Unicode tag characters.`,
-      offset: start, length: offset - start,
+      detail: tagRunDetail(run), offset, length: run.end - offset,
     });
+    offset = run.end;
   }
 }
 

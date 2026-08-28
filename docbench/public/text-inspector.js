@@ -27,7 +27,9 @@ function severityLabel(severity) {
   if (severity === "high") return "High";
   if (severity === "medium") return "Review";
   return "Info";
-}function findingRow(finding) {
+}
+
+function findingRow(finding) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `inspect-finding severity-${finding.severity}`;
@@ -61,7 +63,9 @@ function cleanResult() {
   note.textContent = "This is a local heuristic scan, not proof that a document is safe.";
   box.append(title, note);
   return box;
-}function summaryRow(summary, truncated) {
+}
+
+function summaryRow(summary, truncated) {
   const row = document.createElement("div");
   row.className = "inspect-summary";
   for (const [severity, count] of Object.entries(summary)) {
@@ -73,7 +77,7 @@ function cleanResult() {
   const note = document.createElement("span");
   note.className = "inspect-summary-note";
   note.textContent = truncated
-    ? "Showing the highest-priority findings; additional matches were truncated. Click a finding to jump to source."
+    ? "Showing the retained findings in source order; additional matches were truncated. Click a finding to jump to source."
     : "Prompt-injection and marker findings are heuristic; click any finding to jump to source.";
   row.append(note);
   return row;

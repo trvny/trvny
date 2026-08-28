@@ -654,7 +654,10 @@ async function inspectWorker(request: Request, env: GptActionsEnv, fetcher: type
     }),
     section(async () => {
       const { result } = await cloudflareRequest(env, `/accounts/${accountId}/workers/scripts/${encoded(script)}/versions?page=1&per_page=20`, 'GET', undefined, fetcher);
-      return resultArray(result).slice(0, 20).map(safeWorkerVersion);
+      if (!isObject(result) || !Array.isArray(result.items)) {
+        throw new CloudflareActionError('invalid_cloudflare_worker_versions', 502);
+      }
+      return result.items.slice(0, 20).map(safeWorkerVersion);
     }),
     section(async () => {
       const { result } = await cloudflareRequest(env, `/accounts/${accountId}/workers/scripts/${encoded(script)}/subdomain`, 'GET', undefined, fetcher);

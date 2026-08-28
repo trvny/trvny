@@ -614,3 +614,37 @@ test('zone inspection paginates DNS records before returning snapshots', async (
   assert.deepEqual(body.dns?.data?.map((record) => record.id), ['dns-1', 'dns-2']);
   assert.ok(body.dns?.data?.every((record) => typeof record.snapshot === 'string'));
 });
+
+test('Worker inspection reads versions from the paginated items array', async () => {
+  const script = 'kanarek-companion';
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname === `/client/v4/accounts/${ACCOUNT_ID}/workers/scripts`) return cf([{ id: script }]);
+    if (url.pathname.endsWith(`/${script}/deployments`)) return cf({ deployments: [] });
+    if (url.pathname.endsWith(`/${script}/versions`)) {
+      return cf({ items: [{ id: 'version-1', number: 1, metadata: { source: 'wrangler' } }] });
+    }
+    if (url.pathname.endsWith(`/${script}/subdomain`)) return cf({ enabled: true, previews_enabled: false });
+    if (url.pathname.endsWith(`/${script}/script-settings`)) return cf({ logpush: false });
+    if (url.pathname === '/client/v4/zones') return cf([]);
+    return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
+  });
+  const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/workers/inspect', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ script }),
+  });
+  const response = await handleCloudflareAction(request, env(), createActionFetch(upstream));
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  const body = await response.json() as { versions?: { data?: Array<{ id?: string; number?: number }> } };
+  assert.deepEqual(body.versions?.data, [{
+    id: 'version-1',
+    number: 1,
+    createdOn: null,
+    modifiedOn: null,
+    source: 'wrangler',
+    hasPreview: null,
+  }]);
+});

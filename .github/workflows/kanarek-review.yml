@@ -2,7 +2,7 @@ name: Kanarek free review
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
+    types: [opened]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -35,7 +35,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      issues: write
       pull-requests: write
     uses: trvny/trvny/.github/workflows/kanarek-review-worker.lock.yml@main
     with:
@@ -59,7 +58,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      issues: write
       pull-requests: write
     uses: trvny/trvny/.github/workflows/kanarek-review-openrouter-worker.lock.yml@main
     with:

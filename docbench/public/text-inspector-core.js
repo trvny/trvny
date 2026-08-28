@@ -1,3 +1,6 @@
+(() => {
+  "use strict";
+
 const MAX_FINDINGS = 500;
 const severityRank = { high: 0, medium: 1, low: 2 };
 
@@ -261,7 +264,7 @@ function scanEncodedPrompts(text, findings) {
   }
 }
 
-export function scanText(text) {
+function scanText(text) {
   const findings = [];
   scanCharacters(text, findings);
   scanMixedScripts(text, findings);
@@ -279,9 +282,12 @@ export function scanText(text) {
     .slice(0, MAX_FINDINGS);
 }
 
-export function summarizeFindings(findings) {
+function summarizeFindings(findings) {
   return findings.reduce((summary, finding) => {
     summary[finding.severity] += 1;
     return summary;
   }, { high: 0, medium: 0, low: 0 });
 }
+
+globalThis.DocBenchTextInspector = Object.freeze({ scanText, summarizeFindings });
+})();

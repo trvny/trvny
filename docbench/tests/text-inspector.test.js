@@ -1,5 +1,10 @@
-import assert from "node:assert/strict";
-import { scanText, summarizeFindings } from "../public/text-inspector-core.mjs";
+const assert = require("node:assert/strict");
+const { readFileSync } = require("node:fs");
+const vm = require("node:vm");
+const context = { TextDecoder, Uint8Array, Intl, atob };
+context.globalThis = context;
+vm.runInNewContext(readFileSync(require.resolve("../public/text-inspector-core.js"), "utf8"), context);
+const { scanText, summarizeFindings } = context.DocBenchTextInspector;
 
 const invisible = scanText("safe\n𐅣\u200Btail");
 const zeroWidth = invisible.find((item) => item.label === "Zero-width space");
@@ -37,7 +42,9 @@ const summary = summarizeFindings([
   { severity: "medium" },
   { severity: "low" },
 ]);
-assert.deepEqual(summary, { high: 1, medium: 2, low: 1 });
+assert.equal(summary.high, 1);
+assert.equal(summary.medium, 2);
+assert.equal(summary.low, 1);
 
-assert.deepEqual(scanText("Plain Polish: zażółć gęślą jaźń. 𐅣"), []);
+assert.equal(scanText("Plain Polish: zażółć gęślą jaźń. 𐅣").length, 0);
 console.log("Doc Bench text inspector tests passed.");

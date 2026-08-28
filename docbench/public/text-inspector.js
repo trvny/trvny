@@ -1,4 +1,7 @@
-import { scanText, summarizeFindings } from "./text-inspector-core.mjs";
+(() => {
+  "use strict";
+
+const { scanText, summarizeFindings } = globalThis.DocBenchTextInspector;
 
 const $ = (selector) => document.querySelector(selector);
 const editor = $("#editor");
@@ -94,3 +97,4 @@ function inspectDocument() {
 }
 
 inspectButton.addEventListener("click", inspectDocument);
+})();

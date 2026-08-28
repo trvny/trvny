@@ -98,8 +98,12 @@ only a name and version gets a letter avatar.
 
 `src/icon.ts` is **generated**, not written by hand: it is
 `assets/status-mcp.svg` from the repo root, rasterized to a 512×512 indexed PNG
-and base64-encoded. Edit the SVG, then regenerate the module — never the other
-way round.
+and base64-encoded. Edit the SVG, then `npm run build:icon` — never the module.
+
+The script refuses to write an icon whose circle has lost the `#FFFDF8` fill,
+because that is how the first attempt broke: capping the palette at eight
+colours dropped the cream outright and the served icon quietly stopped matching
+its source. Palette mode stays on, the colour count stays uncapped.
 
 The Worker answers `GET /icon.png` from that constant. A static-assets binding
 would be the obvious way to serve a file, and it does not work here: adding

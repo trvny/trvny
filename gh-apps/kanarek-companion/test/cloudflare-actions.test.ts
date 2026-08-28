@@ -771,3 +771,33 @@ test('Cloudflare overview paginates account zones with the supported page size',
   assert.deepEqual(zonePages, [1, 2]);
   assert.deepEqual(body.zones?.data?.map((zone) => zone.name), ['zone-1.example', 'zone-2.example']);
 });
+
+test('Cloudflare overview accepts account-owned API tokens', async () => {
+  const verifyPaths: string[] = [];
+  const upstream: typeof fetch = githubPolicyFetch((input, init) => {
+    const request = new Request(input, init);
+    const url = new URL(request.url);
+    if (url.pathname === '/client/v4/user/tokens/verify') {
+      verifyPaths.push(url.pathname);
+      return Response.json({ success: false, errors: [{ code: 1000 }] }, { status: 401 });
+    }
+    if (url.pathname === `/client/v4/accounts/${ACCOUNT_ID}/tokens/verify`) {
+      verifyPaths.push(url.pathname);
+      return cf({ status: 'active' });
+    }
+    if (url.pathname === `/client/v4/accounts/${ACCOUNT_ID}/workers/scripts`) return cf([]);
+    if (url.pathname === `/client/v4/accounts/${ACCOUNT_ID}/pages/projects`) return cf([]);
+    if (url.pathname === '/client/v4/zones') return cf([]);
+    return Response.json({ success: false, errors: [{ code: 9999 }] }, { status: 500 });
+  });
+  const request = new Request('https://example.workers.dev/gpt-actions/cloudflare/overview', {
+    headers: { Authorization: 'Bearer test' },
+  });
+  const response = await handleCloudflareAction(request, env(), createActionFetch(upstream));
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  assert.deepEqual(verifyPaths, [
+    '/client/v4/user/tokens/verify',
+    `/client/v4/accounts/${ACCOUNT_ID}/tokens/verify`,
+  ]);
+});

@@ -4,6 +4,7 @@
 const MAX_FINDINGS = 500;
 const MAX_BASE64_DECODE_CHARS = 65536;
 const BASE64_PREVIEW_CHARS = 8192;
+const MIN_BASE64_CANDIDATE_CHARS = 20;
 const MAX_VARIATION_PREVIEW_BYTES = 512;
 const MAX_TAG_PREVIEW_CHARS = 512;
 const MIXED_TOKEN_PREVIEW_BEFORE = 48;
@@ -666,7 +667,7 @@ function continuousBase64Candidates(text) {
     while (cursor < text.length && !isBase64AlphabetCode(text.charCodeAt(cursor))) cursor += 1;
     const start = cursor;
     while (cursor < text.length && isBase64AlphabetCode(text.charCodeAt(cursor))) cursor += 1;
-    if (cursor - start < 32) continue;
+    if (cursor - start < MIN_BASE64_CANDIDATE_CHARS) continue;
     let end = cursor;
     let padding = 0;
     while (end < text.length && text.charCodeAt(end) === 0x3d && padding < 2) {

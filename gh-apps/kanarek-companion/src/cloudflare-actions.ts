@@ -1,3 +1,8 @@
+import {
+  autopilotInputHash,
+  checkpointCall,
+  type AutopilotCheckpointEnv,
+} from './autopilot-checkpoint.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
 import { loadGremlinPolicy, type GremlinPolicy } from './policy-actions.ts';
 
@@ -18,6 +23,17 @@ const MAX_CF_RESPONSE_BYTES = 2_000_000;
 
 type JsonObject = Record<string, unknown>;
 type MutationKey = keyof GremlinPolicy['runtime']['cloudflare']['mutations'];
+
+interface CloudflareActionEnv extends GptActionsEnv {
+  OPERATOR_CHECKPOINTS?: DurableObjectNamespace;
+}
+
+interface RollbackClaim {
+  operationId: string;
+  inputHash: string;
+  recovered: boolean;
+  replay?: Response;
+}
 
 class CloudflareActionError extends Error {
   readonly code: string;
@@ -389,6 +405,119 @@ function stableValue(value: unknown): unknown {
   return output;
 }
 
+async function rollbackOperationId(
+  kind: 'worker' | 'pages',
+  accountId: string,
+  resource: string,
+  expectedStateId: string,
+): Promise<string> {
+  const digest = await autopilotInputHash({ kind, accountId, resource, expectedStateId });
+  return `op-cf-${kind}-${digest.slice(0, 48)}`;
+}
+
+function checkpointEnv(env: CloudflareActionEnv): AutopilotCheckpointEnv {
+  if (!env.OPERATOR_CHECKPOINTS) {
+    throw new CloudflareActionError('operator_checkpoint_storage_unavailable', 503);
+  }
+  return env as AutopilotCheckpointEnv;
+}
+
+function checkpointResult(payload: JsonObject): { status: number; body: JsonObject } | null {
+  if (!isObject(payload.result)) return null;
+  const status = payload.result.status;
+  const body = payload.result.body;
+  return typeof status === 'number' && Number.isInteger(status) && isObject(body)
+    ? { status, body }
+    : null;
+}
+
+async function claimRollback(
+  env: CloudflareActionEnv,
+  kind: 'worker' | 'pages',
+  accountId: string,
+  resource: string,
+  expectedStateId: string,
+  input: JsonObject,
+): Promise<RollbackClaim> {
+  const durableEnv = checkpointEnv(env);
+  const operationId = await rollbackOperationId(kind, accountId, resource, expectedStateId);
+  const inputHash = await autopilotInputHash({ accountId, ...input });
+  const claim = await checkpointCall(durableEnv, operationId, '/claim', { operationId, inputHash });
+  if (claim.payload.state === 'input_mismatch') {
+    throw new CloudflareActionError('cloudflare_rollback_conflict', 409, { operationId });
+  }
+  if (claim.payload.state === 'in_progress') {
+    throw new CloudflareActionError('cloudflare_rollback_in_progress', 409, {
+      operationId,
+      retryAfterSeconds:
+        typeof claim.payload.retryAfterSeconds === 'number'
+          ? claim.payload.retryAfterSeconds
+          : 30,
+    });
+  }
+  if (claim.payload.state === 'complete') {
+    const stored = checkpointResult(claim.payload);
+    if (stored) {
+      const operation = isObject(stored.body.operation) ? stored.body.operation : {};
+      return {
+        operationId,
+        inputHash,
+        recovered: false,
+        replay: json({
+          ...stored.body,
+          operation: { ...operation, id: operationId, replayed: true },
+        }, stored.status),
+      };
+    }
+  }
+  if (!claim.response.ok && claim.payload.state !== 'recover') {
+    throw new CloudflareActionError('cloudflare_rollback_checkpoint_failed', 502);
+  }
+  return {
+    operationId,
+    inputHash,
+    recovered: claim.payload.state === 'recover',
+  };
+}
+
+async function completeRollback(
+  env: CloudflareActionEnv,
+  claim: RollbackClaim,
+  status: number,
+  body: JsonObject,
+): Promise<Response> {
+  const finalBody: JsonObject = {
+    ...body,
+    operation: {
+      id: claim.operationId,
+      serialized: true,
+      recovered: claim.recovered,
+      replayed: false,
+    },
+  };
+  const completion = await checkpointCall(checkpointEnv(env), claim.operationId, '/complete', {
+    inputHash: claim.inputHash,
+    status,
+    body: finalBody,
+  });
+  if (!completion.response.ok) {
+    return json({ ...finalBody, checkpointWarning: 'checkpoint_completion_failed' }, status);
+  }
+  return json(finalBody, status);
+}
+
+function workerDeploymentTargets(value: unknown, versionId: string): boolean {
+  if (!isObject(value) || !Array.isArray(value.versions) || value.versions.length !== 1) {
+    return false;
+  }
+  const only = value.versions[0];
+  return (
+    isObject(only) &&
+    stringField(only, 'version_id') === versionId &&
+    numberField(only, 'percentage') === 100
+  );
+}
+
 async function snapshot(kind: string, value: JsonObject): Promise<string> {
   const serialized = JSON.stringify(stableValue(value));
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(serialized));
@@ -580,7 +709,11 @@ async function inspectZone(request: Request, env: GptActionsEnv, fetcher: typeof
   return json({ ok: true, zone: safeZone(zone), dns, routes });
 }
 
-async function rollbackWorker(request: Request, env: GptActionsEnv, fetcher: typeof fetch): Promise<Response> {
+async function rollbackWorker(
+  request: Request,
+  env: CloudflareActionEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
   const policy = await cloudflarePolicy(request, env, fetcher);
   requireMutation(policy, 'workerRollback');
   const input = await inputObject(request);
@@ -590,31 +723,75 @@ async function rollbackWorker(request: Request, env: GptActionsEnv, fetcher: typ
   const targetVersionId = uuid(input.targetVersionId, 'target_version_id');
   const message = optionalString(input.message, 'message', 1_000) ?? 'Gremlin guarded rollback';
   const { accountId } = credentials(env);
-
-  const { result } = await cloudflareRequest(env, `/accounts/${accountId}/workers/scripts/${encoded(script)}/deployments`, 'GET', undefined, fetcher);
-  const deployments = isObject(result) && Array.isArray(result.deployments) ? result.deployments : [];
-  const current = sortByDateDescending(deployments, 'created_on')[0];
-  if (!isObject(current) || stringField(current, 'id') !== expectedDeploymentId) {
-    throw new CloudflareActionError('cloudflare_deployment_changed', 409, {
-      currentDeploymentId: isObject(current) ? stringField(current, 'id') : null,
-    });
-  }
-  await cloudflareRequest(env, `/accounts/${accountId}/workers/scripts/${encoded(script)}/versions/${encoded(targetVersionId)}`, 'GET', undefined, fetcher);
-  const { result: created } = await cloudflareRequest(
+  const claim = await claimRollback(
     env,
-    `/accounts/${accountId}/workers/scripts/${encoded(script)}/deployments`,
-    'POST',
-    {
-      strategy: 'percentage',
-      versions: [{ version_id: targetVersionId, percentage: 100 }],
-      annotations: { 'workers/message': message },
-    },
-    fetcher,
+    'worker',
+    accountId,
+    script,
+    expectedDeploymentId,
+    { script, expectedDeploymentId, targetVersionId, message },
   );
-  return json({ ok: true, deployment: safeWorkerDeployment(created) });
+  if (claim.replay) return claim.replay;
+
+  const deploymentsPath = `/accounts/${accountId}/workers/scripts/${encoded(script)}/deployments`;
+  try {
+    const { result } = await cloudflareRequest(env, deploymentsPath, 'GET', undefined, fetcher);
+    const deployments = isObject(result) && Array.isArray(result.deployments) ? result.deployments : [];
+    const current = sortByDateDescending(deployments, 'created_on')[0];
+    if (claim.recovered && workerDeploymentTargets(current, targetVersionId)) {
+      return completeRollback(env, claim, 200, {
+        ok: true,
+        deployment: safeWorkerDeployment(current),
+        recovery: 'verified_existing_target',
+      });
+    }
+    if (!isObject(current) || stringField(current, 'id') !== expectedDeploymentId) {
+      return completeRollback(env, claim, 409, {
+        ok: false,
+        error: 'cloudflare_deployment_changed',
+        currentDeploymentId: isObject(current) ? stringField(current, 'id') : null,
+      });
+    }
+
+    await cloudflareRequest(
+      env,
+      `/accounts/${accountId}/workers/scripts/${encoded(script)}/versions/${encoded(targetVersionId)}`,
+      'GET',
+      undefined,
+      fetcher,
+    );
+    const { result: created } = await cloudflareRequest(
+      env,
+      deploymentsPath,
+      'POST',
+      {
+        strategy: 'percentage',
+        versions: [{ version_id: targetVersionId, percentage: 100 }],
+        annotations: { 'workers/message': message },
+      },
+      fetcher,
+    );
+    return completeRollback(env, claim, 200, {
+      ok: true,
+      deployment: safeWorkerDeployment(created),
+    });
+  } catch (error) {
+    if (error instanceof CloudflareActionError && error.status < 500) {
+      return completeRollback(env, claim, error.status, {
+        ok: false,
+        error: error.code,
+        ...(error.details ?? {}),
+      });
+    }
+    throw error;
+  }
 }
 
-async function rollbackPages(request: Request, env: GptActionsEnv, fetcher: typeof fetch): Promise<Response> {
+async function rollbackPages(
+  request: Request,
+  env: CloudflareActionEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
   const policy = await cloudflarePolicy(request, env, fetcher);
   requireMutation(policy, 'pagesRollback');
   const input = await inputObject(request);
@@ -623,19 +800,71 @@ async function rollbackPages(request: Request, env: GptActionsEnv, fetcher: type
   const expectedId = uuid(input.expectedProductionDeploymentId, 'expected_production_deployment_id');
   const targetId = uuid(input.targetDeploymentId, 'target_deployment_id');
   const { accountId } = credentials(env);
-  const { result } = await cloudflareRequest(env, `/accounts/${accountId}/pages/projects/${encoded(project)}`, 'GET', undefined, fetcher);
-  if (!isObject(result)) throw new CloudflareActionError('invalid_cloudflare_pages_project', 502);
-  const canonical = isObject(result.canonical_deployment) ? result.canonical_deployment : null;
-  const currentId = canonical ? stringField(canonical, 'id') : null;
-  if (currentId !== expectedId) {
-    throw new CloudflareActionError('cloudflare_pages_deployment_changed', 409, { currentDeploymentId: currentId });
+  const claim = await claimRollback(
+    env,
+    'pages',
+    accountId,
+    project,
+    expectedId,
+    { project, expectedProductionDeploymentId: expectedId, targetDeploymentId: targetId },
+  );
+  if (claim.replay) return claim.replay;
+
+  try {
+    const projectPath = `/accounts/${accountId}/pages/projects/${encoded(project)}`;
+    const { result } = await cloudflareRequest(env, projectPath, 'GET', undefined, fetcher);
+    if (!isObject(result)) throw new CloudflareActionError('invalid_cloudflare_pages_project', 502);
+    const canonical = isObject(result.canonical_deployment) ? result.canonical_deployment : null;
+    const currentId = canonical ? stringField(canonical, 'id') : null;
+    if (claim.recovered && currentId === targetId && canonical) {
+      return completeRollback(env, claim, 200, {
+        ok: true,
+        deployment: safePagesDeployment(canonical),
+        recovery: 'verified_existing_target',
+      });
+    }
+    if (currentId !== expectedId) {
+      return completeRollback(env, claim, 409, {
+        ok: false,
+        error: 'cloudflare_pages_deployment_changed',
+        currentDeploymentId: currentId,
+      });
+    }
+
+    const { result: target } = await cloudflareRequest(
+      env,
+      `${projectPath}/deployments/${encoded(targetId)}`,
+      'GET',
+      undefined,
+      fetcher,
+    );
+    if (!isObject(target) || stringField(target, 'environment') !== 'production') {
+      return completeRollback(env, claim, 409, {
+        ok: false,
+        error: 'cloudflare_pages_target_not_production',
+      });
+    }
+    const { result: rolledBack } = await cloudflareRequest(
+      env,
+      `${projectPath}/deployments/${encoded(targetId)}/rollback`,
+      'POST',
+      undefined,
+      fetcher,
+    );
+    return completeRollback(env, claim, 200, {
+      ok: true,
+      deployment: safePagesDeployment(rolledBack),
+    });
+  } catch (error) {
+    if (error instanceof CloudflareActionError && error.status < 500) {
+      return completeRollback(env, claim, error.status, {
+        ok: false,
+        error: error.code,
+        ...(error.details ?? {}),
+      });
+    }
+    throw error;
   }
-  const { result: target } = await cloudflareRequest(env, `/accounts/${accountId}/pages/projects/${encoded(project)}/deployments/${encoded(targetId)}`, 'GET', undefined, fetcher);
-  if (!isObject(target) || stringField(target, 'environment') !== 'production') {
-    throw new CloudflareActionError('cloudflare_pages_target_not_production', 409);
-  }
-  const { result: rolledBack } = await cloudflareRequest(env, `/accounts/${accountId}/pages/projects/${encoded(project)}/deployments/${encoded(targetId)}/rollback`, 'POST', undefined, fetcher);
-  return json({ ok: true, deployment: safePagesDeployment(rolledBack) });
 }
 
 async function updateWorkerSubdomain(request: Request, env: GptActionsEnv, fetcher: typeof fetch): Promise<Response> {
@@ -800,7 +1029,7 @@ export function addCloudflareOpenApi(document: JsonObject): void {
   paths[WORKER_ROLLBACK_PATH] = postOperation(
     'rollbackCloudflareWorker',
     'Roll a Worker back to an existing version',
-    'Creates a 100% deployment of an existing Worker version only if the latest deployment id still matches. Never uses force, uploads code or edits secrets.',
+    'Serializes one rollback per expected deployment, replays identical retries, and creates a 100% deployment only if the latest deployment id still matches. Never uses force, uploads code or edits secrets.',
     {
       script: { type: 'string' },
       expectedDeploymentId: { type: 'string' },
@@ -812,7 +1041,7 @@ export function addCloudflareOpenApi(document: JsonObject): void {
   paths[PAGES_ROLLBACK_PATH] = postOperation(
     'rollbackCloudflarePagesProject',
     'Roll a Pages project back to an existing production deployment',
-    'Rolls back only when the current canonical production deployment still matches the expected id and the target is a production deployment.',
+    'Serializes one rollback per expected production deployment, replays identical retries, and rolls back only when the canonical deployment still matches and the target is production.',
     {
       project: { type: 'string' },
       expectedProductionDeploymentId: { type: 'string' },
@@ -893,7 +1122,7 @@ function actionFailure(error: unknown): Response {
 
 export async function handleCloudflareAction(
   request: Request,
-  env: GptActionsEnv,
+  env: CloudflareActionEnv,
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
   const path = new URL(request.url).pathname;

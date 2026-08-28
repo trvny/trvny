@@ -64,6 +64,7 @@ const mixedTokenCharacterPattern = /[\p{L}\p{N}_-]/u;
 const latinCharacterPattern = /\p{Script=Latin}/u;
 const cyrillicCharacterPattern = /\p{Script=Cyrillic}/u;
 const greekCharacterPattern = /\p{Script=Greek}/u;
+const base64LinePattern = /^[A-Za-z0-9+/_-]+={0,2}$/u;
 
 function isControl(codePoint) {
   return (codePoint < 0x20 && ![0x09, 0x0a, 0x0d].includes(codePoint))
@@ -214,28 +215,44 @@ function locateFindings(text, starts, findings) {
   return located;
 }
 
-function replacementIndex(findings, finding) {
-  const candidateRank = severityRank[finding.severity] ?? severityRank.low;
-  let replacement = -1;
-  let worstRank = candidateRank;
-  findings.forEach((current, index) => {
-    const rank = severityRank[current.severity] ?? severityRank.low;
-    if (rank > worstRank) {
-      worstRank = rank;
-      replacement = index;
-    }
-  });
-  return replacement;
+function findingRank(finding) {
+  return severityRank[finding.severity] ?? severityRank.low;
+}
+
+function severityCounts(findings) {
+  if (!findings.severityCounts) {
+    Object.defineProperty(findings, "severityCounts", { value: [0, 0, 0] });
+  }
+  return findings.severityCounts;
+}
+
+function worstRetainedRank(counts) {
+  for (let rank = severityRank.low; rank >= severityRank.high; rank -= 1) {
+    if (counts[rank] > 0) return rank;
+  }
+  return severityRank.high;
+}
+
+function replacementIndexForRank(findings, rank) {
+  return findings.findIndex((current) => findingRank(current) === rank);
 }
 
 function addFinding(findings, finding) {
+  const counts = severityCounts(findings);
+  const candidateRank = findingRank(finding);
   if (findings.length < MAX_FINDINGS) {
     findings.push(finding);
+    counts[candidateRank] += 1;
     return;
   }
   findings.truncated = true;
-  const replacement = replacementIndex(findings, finding);
-  if (replacement >= 0) findings[replacement] = finding;
+  const worstRank = worstRetainedRank(counts);
+  if (candidateRank >= worstRank) return;
+  const replacement = replacementIndexForRank(findings, worstRank);
+  if (replacement < 0) return;
+  findings[replacement] = finding;
+  counts[worstRank] -= 1;
+  counts[candidateRank] += 1;
 }
 
 function specialCharacterFinding(codePoint, offset, width) {
@@ -561,33 +578,50 @@ function decodedBase64Slices(value) {
     .filter(Boolean);
 }
 
+function pushWrappedCandidate(results, run) {
+  if (!run || run.parts.length < 2) return;
+  const encoded = run.parts.join("");
+  if (!normalizedBase64(encoded)) return;
+  if (!decodedBase64Slices(encoded).length) return;
+  results.push({ encoded, offset: run.start, length: run.end - run.start });
+}
+
+function startWrappedRun(part, lineStart, lineEnd) {
+  if (part.length < 32 || part.includes("=")) return null;
+  return { start: lineStart, end: lineEnd, parts: [part] };
+}
+
+function extendWrappedRun(results, run, part, lineEnd) {
+  if (!run) return null;
+  if (!base64LinePattern.test(part) || part.length < 2) {
+    pushWrappedCandidate(results, run);
+    return null;
+  }
+  run.parts.push(part);
+  run.end = lineEnd;
+  if (part.length < 32 || part.includes("=")) {
+    pushWrappedCandidate(results, run);
+    return null;
+  }
+  return run;
+}
+
 function wrappedBase64Candidates(text) {
   if (!text.includes("\n")) return [];
   const results = [];
   let run = null;
   let lineStart = 0;
-  const flush = () => {
-    if (!run || run.parts.length < 2) { run = null; return; }
-    const body = run.parts.slice(0, -1);
-    if (body.some((part) => part.length < 32) || run.parts.at(-1).length < 2) { run = null; return; }
-    const encoded = run.parts.join("");
-    if (normalizedBase64(encoded)) results.push({ encoded, offset: run.start, length: run.end - run.start });
-    run = null;
-  };
   while (lineStart <= text.length) {
     const newline = text.indexOf("\n", lineStart);
     const rawEnd = newline < 0 ? text.length : newline;
     const lineEnd = rawEnd > lineStart && text.charCodeAt(rawEnd - 1) === 0x0d ? rawEnd - 1 : rawEnd;
     const part = text.slice(lineStart, lineEnd).trim();
-    if (/^[A-Za-z0-9+/_-]+={0,2}$/u.test(part) && part.length >= 2) {
-      if (!run) run = { start: lineStart, end: lineEnd, parts: [] };
-      run.parts.push(part);
-      run.end = lineEnd;
-    } else flush();
+    if (run) run = extendWrappedRun(results, run, part, lineEnd);
+    if (!run && base64LinePattern.test(part)) run = startWrappedRun(part, lineStart, lineEnd);
     if (newline < 0) break;
     lineStart = newline + 1;
   }
-  flush();
+  pushWrappedCandidate(results, run);
   return results;
 }
 

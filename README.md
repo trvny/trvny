@@ -25,7 +25,10 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/wambridge | [#112](https://github.com/trvny/wambridge/pull/112) | Route foobar pause through M5 control | @trvny | ready | 2026-08-27 |
+| trvny/feedseek | [#330](https://github.com/trvny/feedseek/pull/330) | Add Tencent newsroom feed | @trvny | ready | 2026-08-29 |
+| trvny/trvny | [#351](https://github.com/trvny/trvny/pull/351) | fix(review): pin AIHubMix worker to merged commit | @trvny | ready | 2026-08-29 |
+| trvny/tvpi | [#74](https://github.com/trvny/tvpi/pull/74) | fix(seo): consolidate hub discovery | @trvny | ready | 2026-08-29 |
+| trvny/wambridge | [#128](https://github.com/trvny/wambridge/pull/128) | Add foobar sleep timer controls | @trvny | ready | 2026-08-29 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

@@ -1,0 +1,38 @@
+name: Compile review AIHubMix
+
+on:
+  push:
+    branches: [feat/review-aihubmix]
+    paths:
+      - .github/workflows/compile-review-aihubmix.yml
+      - .github/workflows/kanarek-review-aihubmix-worker.md
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Install gh-aw v0.87.2
+        run: |
+          curl -fsSL https://github.com/github/gh-aw/releases/download/v0.87.2/linux-amd64 -o /tmp/gh-aw
+          chmod +x /tmp/gh-aw
+      - name: Compile reviewer workflow
+        run: |
+          /tmp/gh-aw compile --validate --no-check-update \
+            .github/workflows/kanarek-review-aihubmix-worker.md
+      - name: Export generated lock
+        run: |
+          mkdir -p reviewer-locks
+          cp .github/workflows/kanarek-review-aihubmix-worker.lock.yml reviewer-locks/aihubmix-glm.txt
+          rm -f .github/workflows/kanarek-review-aihubmix-worker.lock.yml
+          git config user.name 'gptomek[bot]'
+          git config user.email '314538226+gptomek[bot]@users.noreply.github.com'
+          git add reviewer-locks/aihubmix-glm.txt
+          git commit -m 'chore(review): export compiled AIHubMix lock'
+          git push origin HEAD:feat/review-aihubmix

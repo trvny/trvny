@@ -71,7 +71,7 @@ jobs:
       actions: read
       contents: read
       pull-requests: write
-    uses: trvny/trvny/.github/workflows/kanarek-review-aihubmix-worker.lock.yml@main
+    uses: ./.github/workflows/kanarek-review-aihubmix-worker.lock.yml
     with:
       pr_number: ${{ format('{0}', inputs.pr_number) }}
       head_sha: ${{ inputs.head_sha }}

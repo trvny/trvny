@@ -56,6 +56,10 @@ for (const capability of [
 if (!documentEnhancements.includes("MAX_TREE_NODES")) {
   throw new Error("Structured previews must keep a bounded tree renderer.");
 }
+if (!documentEnhancements.includes('root?.localName !== "html"')
+  || !documentEnhancements.includes('const candidate = body?.firstElementChild;')) {
+  throw new Error("XML parser errors must detect Chromium's HTML wrapper.");
+}
 if (!/for \(const attribute of node\.attributes\) \{\r?\n\s*if \(nodes >= MAX_TREE_NODES\)/.test(documentEnhancements)) {
   throw new Error("XML attributes must count against the tree node budget.");
 }

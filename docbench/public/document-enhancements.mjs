@@ -469,9 +469,15 @@ function xmlParserError(doc) {
     "http://www.mozilla.org/newlayout/xml/parsererror.xml",
     "http://www.w3.org/1999/xhtml",
   ]);
-  return root?.localName === "parsererror" && namespaces.has(root.namespaceURI)
-    ? root
-    : null;
+  const isParserError = (node) => node?.localName === "parsererror"
+    && namespaces.has(node.namespaceURI);
+  if (isParserError(root)) return root;
+  if (root?.localName !== "html" || root.namespaceURI !== "http://www.w3.org/1999/xhtml") {
+    return null;
+  }
+  const body = root.getElementsByTagName("body")[0];
+  const candidate = body?.firstElementChild;
+  return isParserError(candidate) ? candidate : null;
 }
 
 function preservesXmlSpace(node) {

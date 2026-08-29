@@ -35,4 +35,5 @@ jobs:
           git config user.email '314538226+gptomek[bot]@users.noreply.github.com'
           git add reviewer-locks/aihubmix-glm.txt
           git commit -m 'chore(review): export compiled AIHubMix lock'
+          git pull --rebase origin feat/review-aihubmix
           git push origin HEAD:feat/review-aihubmix

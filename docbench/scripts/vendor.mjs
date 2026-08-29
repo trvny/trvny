@@ -29,6 +29,43 @@ await writeFile(
   jsonParser.replaceAll("from './scanner'", "from './scanner.js'"),
 );
 
+await mkdir("public/vendor/js-tiktoken/ranks", { recursive: true });
+await cp(
+  "node_modules/js-tiktoken/dist/lite.js",
+  "public/vendor/js-tiktoken/lite.js",
+);
+const tiktokenChunkSource = await readFile(
+  "node_modules/js-tiktoken/dist/chunk-VL2OQCWN.js",
+  "utf8",
+);
+if (!tiktokenChunkSource.includes("base64-js")) {
+  throw new Error("js-tiktoken lite dependency layout changed.");
+}
+await writeFile(
+  "public/vendor/js-tiktoken/chunk-VL2OQCWN.js",
+  tiktokenChunkSource
+    .replaceAll('"base64-js"', '"./base64-js.mjs"')
+    .replaceAll("'base64-js'", "'./base64-js.mjs'"),
+);
+await cp(
+  "node_modules/js-tiktoken/dist/ranks/o200k_base.js",
+  "public/vendor/js-tiktoken/ranks/o200k_base.js",
+);
+const base64Source = await readFile("node_modules/base64-js/index.js", "utf8");
+const base64Module = `${base64Source
+  .replace("'use strict'\n\n", "")
+  .replace("exports.byteLength = byteLength\n", "")
+  .replace("exports.toByteArray = toByteArray\n", "")
+  .replace("exports.fromByteArray = fromByteArray\n", "")}
+const base64 = { byteLength, toByteArray, fromByteArray };
+export { byteLength, toByteArray, fromByteArray };
+export default base64;
+`;
+if (base64Module.includes("exports.")) {
+  throw new Error("base64-js CommonJS layout changed.");
+}
+await writeFile("public/vendor/js-tiktoken/base64-js.mjs", base64Module);
+
 await mkdir("public/fonts", { recursive: true });
 for (const [source, target] of [
   ["@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2", "space-grotesk-latin.woff2"],

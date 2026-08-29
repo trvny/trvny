@@ -13,6 +13,12 @@ const [
   documentEnhancements,
   inspectorCore,
   inspector,
+  tokenCounterCore,
+  tokenCounter,
+  tiktokenLite,
+  tiktokenChunk,
+  tiktokenRank,
+  tiktokenBase64,
   jsonParser,
   jsonScanner,
   pdfCore,
@@ -37,6 +43,12 @@ const [
   readFile("public/document-enhancements.mjs", "utf8"),
   readFile("public/text-inspector-core.js", "utf8"),
   readFile("public/text-inspector.js", "utf8"),
+  readFile("public/token-counter-core.mjs", "utf8"),
+  readFile("public/token-counter.mjs", "utf8"),
+  readFile("public/vendor/js-tiktoken/lite.js", "utf8"),
+  readFile("public/vendor/js-tiktoken/chunk-VL2OQCWN.js", "utf8"),
+  readFile("public/vendor/js-tiktoken/ranks/o200k_base.js", "utf8"),
+  readFile("public/vendor/js-tiktoken/base64-js.mjs", "utf8"),
   readFile("public/vendor/jsonc-parser/impl/parser.js", "utf8"),
   readFile("public/vendor/jsonc-parser/impl/scanner.js", "utf8"),
   readFile("public/pdf-core.mjs", "utf8"),
@@ -78,6 +90,31 @@ const documentEnhancementsPortable = documentEnhancements.replace(
   'from "./vendor/jsonc-parser/impl/parser.js";',
   `from ${JSON.stringify(jsonParserUrl)};`,
 );
+
+const tiktokenBase64Url = dataUrl("text/javascript", tiktokenBase64);
+const tiktokenChunkPortable = tiktokenChunk
+  .replaceAll("'./base64-js.mjs'", JSON.stringify(tiktokenBase64Url))
+  .replaceAll('"./base64-js.mjs"', JSON.stringify(tiktokenBase64Url));
+const tiktokenChunkUrl = dataUrl("text/javascript", tiktokenChunkPortable);
+const tiktokenLitePortable = tiktokenLite
+  .replaceAll("'./chunk-VL2OQCWN.js'", JSON.stringify(tiktokenChunkUrl))
+  .replaceAll('"./chunk-VL2OQCWN.js"', JSON.stringify(tiktokenChunkUrl));
+const tiktokenLiteUrl = dataUrl("text/javascript", tiktokenLitePortable);
+const tiktokenRankUrl = dataUrl("text/javascript", tiktokenRank);
+const tokenCounterCoreUrl = dataUrl("text/javascript", tokenCounterCore);
+const tokenCounterPortable = tokenCounter.replace(
+  'from "./token-counter-core.mjs";',
+  `from ${JSON.stringify(tokenCounterCoreUrl)};`,
+);
+const tokenCounterUrl = dataUrl("text/javascript", tokenCounterPortable);
+const inspectorPortable = inspector.replace(
+  '"./token-counter.mjs"',
+  JSON.stringify(tokenCounterUrl),
+);
+const portableTokenizerAssets = `<script>globalThis.__docbenchTokenizerAssets=${JSON.stringify({
+  liteUrl: tiktokenLiteUrl,
+  rankUrl: tiktokenRankUrl,
+})}</script>`;
 
 const qpdfBytesUrl = dataUrl("text/javascript", qpdfBytes);
 const browserRunnerPortable = qpdfBrowserRunner.replaceAll(
@@ -141,7 +178,10 @@ const portable = html
     `<script type="module">${safeScript(documentEnhancementsPortable)}</script>`,
   )
   .replace('<script src="/text-inspector-core.js"></script>', `<script>${safeScript(inspectorCore)}</script>`)
-  .replace('<script src="/text-inspector.js"></script>', `<script>${safeScript(inspector)}</script>`)
+  .replace(
+    '<script src="/text-inspector.js"></script>',
+    `${portableTokenizerAssets}\n<script>${safeScript(inspectorPortable)}</script>`,
+  )
   .replace('<script type="module" src="/pdf-app.mjs"></script>', portablePdfScripts)
   .replace('<link rel="manifest" href="/site.webmanifest">', "")
   .replace('<link rel="canonical" href="https://docbench.travny.workers.dev/">', "")

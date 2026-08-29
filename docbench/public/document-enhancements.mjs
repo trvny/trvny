@@ -1042,6 +1042,7 @@ async function syncFallbackFile(file, revision) {
     filenameLabel.textContent = state.filename;
     updateFormatButton();
     updateSaveButton();
+    document.dispatchEvent(new Event("docbench:document-change"));
     renderEnhancedPreview();
   } catch (error) {
     if (state.documentRevision !== revision) return;

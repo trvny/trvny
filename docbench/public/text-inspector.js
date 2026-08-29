@@ -112,3 +112,7 @@ inspectButton.addEventListener("click", inspectDocument);
 if (document.readyState === "complete") enableInspectionAfterInitialPreview();
 else window.addEventListener("load", enableInspectionAfterInitialPreview, { once: true });
 })();
+
+import("./token-counter.mjs").catch((error) => {
+  console.warn("DocBench token counter failed to initialize", error);
+});

@@ -110,6 +110,20 @@ function quotedPreview(value, limit = 180) {
   return JSON.stringify(clipped);
 }
 
+function quotedPreviewAround(value, match, limit = 180) {
+  if (value.length <= limit) return quotedPreview(value, limit);
+  const matchStart = match.index;
+  const matchEnd = matchStart + match[0].length;
+  const context = Math.max(0, limit - Math.min(match[0].length, limit));
+  const before = Math.min(matchStart, Math.floor(context / 2));
+  const after = Math.min(value.length - matchEnd, context - before);
+  const start = matchStart - before;
+  const end = matchEnd + after;
+  const prefix = start > 0 ? "…" : "";
+  const suffix = end < value.length ? "…" : "";
+  return quotedPreview(`${prefix}${value.slice(start, end)}${suffix}`, limit + 2);
+}
+
 function hasVisibleText(value) {
   for (const char of value) {
     const codePoint = char.codePointAt(0);
@@ -561,12 +575,18 @@ function decodedNormalizedBase64(value) {
   }
 }
 
-function scanDecodedPrompt(value) {
-  if (!value) return false;
-  return injectionPatterns.some((pattern) => {
+function decodedPromptMatch(value) {
+  if (!value) return null;
+  for (const pattern of injectionPatterns) {
     pattern.lastIndex = 0;
-    return pattern.test(value);
-  });
+    const match = pattern.exec(value);
+    if (match) return match;
+  }
+  return null;
+}
+
+function scanDecodedPrompt(value) {
+  return Boolean(decodedPromptMatch(value));
 }
 
 function decodedBase64Slices(value) {
@@ -709,12 +729,19 @@ function encodedCandidates(text) {
 
 function scanEncodedPrompts(text, findings) {
   for (const candidate of encodedCandidates(text)) {
-    const decodedSlices = candidateDecodedSlices(candidate);
-    const decoded = decodedSlices.find(scanDecodedPrompt);
-    if (decoded) {
+    let decoded = null;
+    let match = null;
+    for (const slice of candidateDecodedSlices(candidate)) {
+      const sliceMatch = decodedPromptMatch(slice);
+      if (!sliceMatch) continue;
+      decoded = slice;
+      match = sliceMatch;
+      break;
+    }
+    if (decoded && match) {
       addFinding(findings, {
         severity: "high", kind: "prompt-injection", label: "Encoded prompt-like instruction",
-        detail: `Base64 decoded payload: ${quotedPreview(decoded)}`,
+        detail: `Base64 decoded payload: ${quotedPreviewAround(decoded, match)}`,
         offset: candidate.offset, length: candidate.length,
       });
       continue;

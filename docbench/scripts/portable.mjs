@@ -11,6 +11,8 @@ const [
   fflate,
   app,
   documentEnhancements,
+  inspectorCore,
+  inspector,
   jsonParser,
   jsonScanner,
   pdfCore,
@@ -33,6 +35,8 @@ const [
   readFile("public/vendor/fflate.min.js", "utf8"),
   readFile("public/app.js", "utf8"),
   readFile("public/document-enhancements.mjs", "utf8"),
+  readFile("public/text-inspector-core.js", "utf8"),
+  readFile("public/text-inspector.js", "utf8"),
   readFile("public/vendor/jsonc-parser/impl/parser.js", "utf8"),
   readFile("public/vendor/jsonc-parser/impl/scanner.js", "utf8"),
   readFile("public/pdf-core.mjs", "utf8"),
@@ -136,6 +140,8 @@ const portable = html
     '<script type="module" src="/document-enhancements.mjs"></script>',
     `<script type="module">${safeScript(documentEnhancementsPortable)}</script>`,
   )
+  .replace('<script src="/text-inspector-core.js"></script>', `<script>${safeScript(inspectorCore)}</script>`)
+  .replace('<script src="/text-inspector.js"></script>', `<script>${safeScript(inspector)}</script>`)
   .replace('<script type="module" src="/pdf-app.mjs"></script>', portablePdfScripts)
   .replace('<link rel="manifest" href="/site.webmanifest">', "")
   .replace('<link rel="canonical" href="https://docbench.travny.workers.dev/">', "")

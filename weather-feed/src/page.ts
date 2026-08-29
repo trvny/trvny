@@ -203,6 +203,7 @@ export function renderPage(
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="alternate" type="application/atom+xml" title="Pogoda — zmiany" href="/feed.atom">
 <link rel="alternate" type="application/atom+xml" title="Ostrzeżenia IMGW" href="/warnings.atom">
+<link rel="alternate" type="text/plain" href="/llms.txt" title="Pogoda Chrzanów llms.txt">
 <meta name="description" content="${escapeHtml(description)}">
 <link rel="canonical" href="${escapeHtml(origin)}/">
 <meta property="og:type" content="website">
@@ -313,7 +314,7 @@ export function renderPage(
   <footer>
     Źródła: Open-Meteo · OpenWeather · Visual Crossing · IMGW-PIB · Open-Meteo Air Quality (CAMS).
     Aktualizacja co 2 h (pogoda) i raz dziennie (prognoza).<br>
-    <a href="https://travny.pages.dev/">travny ↗</a>
+    <a href="https://trfny.com/">TRAVNY ↗</a>
   </footer>
 </main>
 <div class="toast" id="toast"></div>

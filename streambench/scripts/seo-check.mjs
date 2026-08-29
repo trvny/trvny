@@ -33,13 +33,14 @@ const [
   readFile(new URL("wrangler.jsonc", projectUrl), "utf8"),
 ]);
 
-const origin = "https://streambench.travny.workers.dev";
+const origin = "https://streambench.trfny.com";
 assert(index.includes(`<link rel="canonical" href="${origin}/">`), "canonical URL is missing");
 assert(index.includes(`<meta property="og:url" content="${origin}/">`), "Open Graph URL is missing");
 assert(index.includes(`<meta name="twitter:card" content="summary_large_image">`), "Twitter card is missing");
 assert(index.includes("max-image-preview:large"), "crawler preview directives are missing");
 assert(index.includes(`<link rel="sitemap" type="application/xml" href="/sitemap.xml">`), "sitemap link is missing");
 assert(index.includes(`<link rel="alternate" type="text/plain" href="/llms.txt"`), "llms.txt link is missing");
+assert(index.includes('application/ld+json'), "JSON-LD is missing");
 
 assert(robots.includes(`Sitemap: ${origin}/sitemap.xml`), "robots sitemap URL is missing");
 assert(robots.includes("Disallow: /api/"), "API crawler rule is missing");
@@ -57,6 +58,8 @@ const wrangler = JSON.parse(wranglerSource);
 const workerRoutes = wrangler.assets?.run_worker_first;
 assert(wrangler.assets?.not_found_handling === "404-page", "404 asset handling is missing");
 assert(Array.isArray(workerRoutes), "Worker asset routing is not selective");
+assert(workerRoutes.includes("/"), "homepage does not run through Worker for canonical redirect");
+assert(workerRoutes.includes("/index.html"), "index alias does not run through Worker");
 assert(workerRoutes.includes("/api/*"), "API routes do not run through Worker");
 assert(workerRoutes.includes("/health"), "health route does not run through Worker");
 assert(!workerRoutes.includes("/*"), "all static assets still run through Worker");

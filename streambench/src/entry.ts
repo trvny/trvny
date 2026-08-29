@@ -39,6 +39,12 @@ export default {
     _context: ExecutionContext,
   ): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/index.html" || (url.hostname === "streambench.travny.workers.dev" && url.pathname === "/")) {
+      url.hostname = "streambench.trfny.com";
+      url.protocol = "https:";
+      url.pathname = "/";
+      return Response.redirect(url.toString(), 301);
+    }
     if (isPortableApiRequest(request, url) && request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,

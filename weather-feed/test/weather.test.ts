@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FEED_ID, renderAtom, warningEntries } from "../src/feed";
+import { renderPage } from "../src/page";
 import type { Warning } from "../src/types";
 import {
   reconcileWarnings, warningEndTimeMs,
@@ -83,4 +84,13 @@ test("warnings feed has its own id and self URL", () => {
     xml,
     /rel="self" href="https:\/\/weather\.example\/feed\.atom"/,
   );
+});
+
+
+test("weather page advertises its canonical and llms surface", () => {
+  const html = renderPage("https://weather.trfny.com");
+  assert.match(html, /rel="canonical" href="https:\/\/weather\.trfny\.com\/"/);
+  assert.match(html, /rel="alternate" type="text\/plain" href="\/llms\.txt"/);
+  assert.match(html, /application\/ld\+json/);
+  assert.match(html, /href="https:\/\/trfny\.com\/"/);
 });

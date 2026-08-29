@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /health
 
-Sitemap: https://streambench.travny.workers.dev/sitemap.xml
+Sitemap: https://streambench.trfny.com/sitemap.xml

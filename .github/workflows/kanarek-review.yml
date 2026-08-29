@@ -22,7 +22,7 @@ on:
         required: true
         default: openrouter
         type: choice
-        options: [openrouter, orca]
+        options: [openrouter, orca, aihubmix-glm]
 
 permissions: {}
 
@@ -64,4 +64,18 @@ jobs:
       base_sha: ${{ inputs.base_sha }}
     secrets:
       ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
+      COPILOT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  aihubmix-glm:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.provider == 'aihubmix-glm' }}
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    uses: trvny/trvny/.github/workflows/kanarek-review-aihubmix-worker.lock.yml@main
+    with:
+      pr_number: ${{ format('{0}', inputs.pr_number) }}
+      head_sha: ${{ inputs.head_sha }}
+      base_sha: ${{ inputs.base_sha }}
+    secrets:
+      AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
       COPILOT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

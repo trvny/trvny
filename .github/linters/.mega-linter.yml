@@ -29,8 +29,12 @@ ACTION_ZIZMOR_ARGUMENTS:
 
 # actionlint 1.7.12 does not yet recognize GitHub's documented
 # concurrency.queue key emitted by gh-aw. Ignore only that parser false positive.
+# It also predates the job.workflow_repository/workflow_sha/workflow_ref/
+# workflow_file_path context fields gh-aw emits for reusable-workflow callers,
+# so its static type checker flags them as undefined properties on `job`.
 ACTION_ACTIONLINT_ARGUMENTS: >-
   -ignore 'unexpected key "queue" for "concurrency" section'
+  -ignore 'property "workflow_(repository|sha|ref|file_path)" is not defined'
 
 # YAML_YAMLLINT: first full-codebase run surfaced pre-existing style nits
 # (missing "---", truthy value style) in the workflow/dependabot files.

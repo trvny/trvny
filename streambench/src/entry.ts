@@ -4,6 +4,9 @@ import { handleMediaApi } from "./media-api.ts";
 import { handleSignedMediaApi } from "./signed-media-api.ts";
 import { annotateProviderPlaylistResponse } from "./source-signing.ts";
 
+const SITE_HOST = "streambench.trfny.com";
+const WORKERS_HOST = "streambench.travny.workers.dev";
+
 function isProviderPlaylist(pathname: string): boolean {
   return pathname === "/api/playlist"
     || /^\/api\/providers\/[a-z0-9-]+\/playlist$/.test(pathname);
@@ -39,8 +42,8 @@ export default {
     _context: ExecutionContext,
   ): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname === "/index.html" || (url.hostname === "streambench.travny.workers.dev" && url.pathname === "/")) {
-      url.hostname = "streambench.trfny.com";
+    if (url.pathname === "/index.html" || (url.hostname === WORKERS_HOST && url.pathname === "/")) {
+      url.hostname = SITE_HOST;
       url.protocol = "https:";
       url.pathname = "/";
       return Response.redirect(url.toString(), 301);

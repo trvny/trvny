@@ -2,6 +2,7 @@ import { favicon16Response } from "./favicon-16.js";
 import { faviconResponse } from "./favicons.js";
 
 const SITE_URL = "https://codebench.trfny.com/";
+const SITE_HOST = new URL(SITE_URL).hostname;
 const WORKERS_HOST = "codebench.travny.workers.dev";
 const TITLE = "Code Bench — QR Code Generator, Barcode Maker & Scanner";
 const DESCRIPTION =
@@ -86,7 +87,7 @@ class InjectHead {
       + `<meta property="og:title" content="${TITLE}">`
       + `<meta property="og:description" content="${DESCRIPTION}">`
       + `<meta property="og:url" content="${SITE_URL}">`
-      + '<meta property="og:image" content="https://codebench.trfny.com/apple-touch-icon.png">'
+      + `<meta property="og:image" content="${SITE_URL}apple-touch-icon.png">`
       + '<meta name="twitter:card" content="summary">'
       + `<meta name="twitter:title" content="${TITLE}">`
       + `<meta name="twitter:description" content="${DESCRIPTION}">`
@@ -123,7 +124,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.hostname === WORKERS_HOST || url.pathname === "/index.html") {
-      if (url.hostname === WORKERS_HOST) url.hostname = "codebench.trfny.com";
+      if (url.hostname === WORKERS_HOST) url.hostname = SITE_HOST;
       url.protocol = "https:";
       if (url.pathname === "/index.html") url.pathname = "/";
       return Response.redirect(url.toString(), 301);

@@ -13,6 +13,29 @@ import type {
 } from "./types";
 import { reconcileWarnings } from "./warnings";
 
+const SITE_ORIGIN = "https://weather.trfny.com";
+const SITE_HOST = new URL(SITE_ORIGIN).hostname;
+const WORKERS_HOST = "weather.travny.workers.dev";
+
+const ROBOTS = `User-agent: *\nAllow: /\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`;
+const SITEMAP = `<?xml version="1.0" encoding="utf-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${SITE_ORIGIN}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>
+  <url><loc>${SITE_ORIGIN}/feed.atom</loc><changefreq>hourly</changefreq></url>
+  <url><loc>${SITE_ORIGIN}/warnings.atom</loc><changefreq>hourly</changefreq></url>
+</urlset>
+`;
+const LLMS = `# Pogoda Chrzanów · Kościelec
+
+> Multi-source local weather dashboard with air quality, pollen and IMGW warnings.
+
+- [Dashboard](${SITE_ORIGIN}/): current local conditions and recent changes.
+- [Current state JSON](${SITE_ORIGIN}/state.json): machine-readable current ensemble.
+- [Weather changes feed](${SITE_ORIGIN}/feed.atom): Atom feed of meaningful changes.
+- [IMGW warnings feed](${SITE_ORIGIN}/warnings.atom): warning-only Atom feed.
+- [TRAVNY hub](https://trfny.com/): related tools and services.
+`;
+
 const K = {
   entries: "entries",
   baselineCurrent: "baseline:current",
@@ -182,6 +205,16 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     const { pathname, origin } = url;
+    if (pathname === "/index.html" || (url.hostname === WORKERS_HOST && pathname === "/")) {
+      if (url.hostname === WORKERS_HOST) url.hostname = SITE_HOST;
+      url.protocol = "https:";
+      url.pathname = "/";
+      return Response.redirect(url.toString(), 301);
+    }
+
+    const discovery = discoveryResponse(pathname);
+    if (discovery) return discovery;
+
     const entries = (await load<FeedEntry[]>(env, K.entries)) ?? [];
 
     switch (pathname) {
@@ -208,24 +241,9 @@ export default {
         const healthy = Boolean(current?.ok && currentAgeMs !== null && currentAgeMs <= CONFIG.currentStaleAfterMs);
         return json({ ok: healthy, entries: entries.length, current, forecast, currentAgeMs }, healthy ? 200 : 503);
       }
-      case "/robots.txt":
-        return new Response(
-          `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`,
-          { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "max-age=86400" } },
-        );
-      case "/sitemap.xml":
-        return new Response(
-          `<?xml version="1.0" encoding="utf-8"?>\n`
-          + `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`
-          + `  <url><loc>${origin}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>\n`
-          + `  <url><loc>${origin}/feed.atom</loc><changefreq>hourly</changefreq></url>\n`
-          + `  <url><loc>${origin}/warnings.atom</loc><changefreq>hourly</changefreq></url>\n`
-          + `</urlset>\n`,
-          { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "max-age=86400" } },
-        );
       case "/": {
         const state = await load<CurrentState>(env, K.current);
-        return new Response(renderPage(origin, state, entries), {
+        return new Response(renderPage(SITE_ORIGIN, state, entries), {
           headers: {
             "content-type": "text/html; charset=utf-8",
             "cache-control": "public, max-age=300, stale-while-revalidate=600",
@@ -242,6 +260,26 @@ export default {
     ctx.waitUntil(job.catch((e) => log("error", { msg: "cron failed", cron: event.cron, error: String(e) })));
   },
 };
+
+function discoveryResponse(pathname: string): Response | undefined {
+  switch (pathname) {
+    case "/robots.txt":
+      return cachedResponse(ROBOTS, "text/plain; charset=utf-8", 86400);
+    case "/sitemap.xml":
+      return cachedResponse(SITEMAP, "application/xml; charset=utf-8", 86400);
+    case "/llms.txt":
+      return cachedResponse(LLMS, "text/plain; charset=utf-8", 3600);
+  }
+}
+
+function cachedResponse(body: string, contentType: string, maxAge: number): Response {
+  return new Response(body, {
+    headers: {
+      "content-type": contentType,
+      "cache-control": `max-age=${maxAge}`,
+    },
+  });
+}
 
 function atom(body: string): Response {
   return new Response(body, {

@@ -1,7 +1,9 @@
 import { favicon16Response } from "./favicon-16.js";
 import { faviconResponse } from "./favicons.js";
 
-const SITE_URL = "https://codebench.travny.workers.dev/";
+const SITE_URL = "https://codebench.trfny.com/";
+const SITE_HOST = new URL(SITE_URL).hostname;
+const WORKERS_HOST = "codebench.travny.workers.dev";
 const TITLE = "Code Bench — QR Code Generator, Barcode Maker & Scanner";
 const DESCRIPTION =
   "Free browser-based QR code generator, barcode maker and scanner. Create styled QR codes, Code 128, EAN, Data Matrix, Aztec, PDF417 and more without uploading your data.";
@@ -71,6 +73,7 @@ class InjectHead {
       + '<meta name="apple-mobile-web-app-capable" content="yes">'
       + '<meta name="apple-mobile-web-app-title" content="Code Bench">'
       + `<link rel="canonical" href="${SITE_URL}">`
+      + '<link rel="alternate" type="text/plain" href="/llms.txt" title="Code Bench llms.txt">'
       + '<link rel="icon" type="image/svg+xml" href="/favicon.svg">'
       + '<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">'
       + '<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">'
@@ -84,7 +87,7 @@ class InjectHead {
       + `<meta property="og:title" content="${TITLE}">`
       + `<meta property="og:description" content="${DESCRIPTION}">`
       + `<meta property="og:url" content="${SITE_URL}">`
-      + '<meta property="og:image" content="https://codebench.travny.workers.dev/apple-touch-icon.png">'
+      + `<meta property="og:image" content="${SITE_URL}apple-touch-icon.png">`
       + '<meta name="twitter:card" content="summary">'
       + `<meta name="twitter:title" content="${TITLE}">`
       + `<meta name="twitter:description" content="${DESCRIPTION}">`
@@ -120,6 +123,12 @@ function textResponse(
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.hostname === WORKERS_HOST || url.pathname === "/index.html") {
+      if (url.hostname === WORKERS_HOST) url.hostname = SITE_HOST;
+      url.protocol = "https:";
+      if (url.pathname === "/index.html") url.pathname = "/";
+      return Response.redirect(url.toString(), 301);
+    }
     const generatedIcon = favicon16Response(url.pathname) || faviconResponse(url.pathname);
     if (generatedIcon) return generatedIcon;
 
@@ -155,7 +164,7 @@ export default {
       headers,
     });
     const type = headers.get("content-type") ?? "";
-    if (!type.includes("text/html") || portable) return response;
+    if (!asset.ok || !type.includes("text/html") || portable) return response;
 
     return new HTMLRewriter()
       .on("title", new SetText(TITLE))

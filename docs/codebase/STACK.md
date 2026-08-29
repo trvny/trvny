@@ -1,0 +1,61 @@
+# Technology Stack
+
+## 1) Runtime Summary
+
+This is an organizational monorepo, not a package-manager workspace. The root has no `package.json`, workspace file, or Node version pin; each application owns its toolchain.
+
+| Area | Value | Evidence |
+| --- | --- | --- |
+| Primary languages | TypeScript/JavaScript for Workers and browser tools; Kotlin/JVM for Xiaomi ADB Tools | tracked `*.ts`/`*.js`/`*.mjs`/`*.kt` inventory, `xiaomi-adb-tools/build.gradle` |
+| Runtime + version | Cloudflare Workers/browser code targets ES2022; CI uses Node 24; Xiaomi targets Java 21 | `*/tsconfig.json`, `.github/workflows/benches-release.yml`, `xiaomi-adb-tools/build.gradle` |
+| Package manager | npm per JS/TS project; Gradle Wrapper for Xiaomi | `*/package-lock.json`, `xiaomi-adb-tools/gradle/wrapper/gradle-wrapper.properties` |
+| Module/build system | TypeScript 7 + Wrangler 4; Gradle 9.7.1 + Kotlin 2.4.10 | package manifests, `xiaomi-adb-tools/build.gradle` |
+
+[TODO] The supported local Node version is not declared in `.nvmrc`, `.node-version`, root `package.json`, or package `engines`; Node 24 is only explicit in CI.
+
+## 2) Production Frameworks and Dependencies
+
+| Component | High-impact runtime dependencies | Role | Evidence |
+| --- | --- | --- | --- |
+| Codebench | `qr-code-styling` 1.9.2, `bwip-js` 4.11.4, `zxing-wasm` 3.1.3 | QR/barcode generation and scanning in-browser | `codebench/package.json` |
+| Docbench | `@cantoo/pdf-lib` 2.9.1, `pdfjs-dist` 6.2.108, `qpdf-run` 0.2.1, `marked` 18.0.10, `js-yaml` 5.3.0, `js-tiktoken` 1.0.21 | PDF/document parsing, mutation, rendering and token counting in-browser | `docbench/package.json` |
+| Streambench | `hls.js` 1.7.1 | Browser HLS playback | `streambench/package.json` |
+| Weather, Status MCP, Kanarek | No production npm packages; platform Web APIs and Cloudflare bindings | Edge services | respective `package.json` files |
+| Xiaomi ADB Tools | JavaFX 21.0.12, `kotlinx-coroutines-javafx` 1.11.0 | Desktop UI and asynchronous device commands | `xiaomi-adb-tools/build.gradle` |
+
+Fontsource packages are runtime build inputs for Codebench/Docbench, copied into static assets rather than fetched from Google Fonts in production.
+
+## 3) Development Toolchain
+
+| Tool | Purpose | Evidence |
+| --- | --- | --- |
+| TypeScript 7.0.2 | Static checking/client compilation | package scripts and `tsconfig*.json` |
+| Wrangler 4 | Cloudflare types, dev server, dry-run and deploy | JS/TS package manifests |
+| Node built-in test/assert + `tsx` | Worker and module tests | Kanarek/Weather manifests and tests |
+| MegaLinter + zizmor | Repository linting and Actions security checks | `.github/workflows/mega-linter.yml`, `.github/linters/.mega-linter.yml` |
+| Gradle Wrapper | Xiaomi build | `xiaomi-adb-tools/gradlew`, wrapper properties |
+
+## 4) Key Commands
+
+```bash
+(cd codebench && npm ci && npm run check)
+(cd docbench && npm ci && npm run check)
+(cd streambench && npm ci && npm run check)
+(cd weather-feed && npm ci && npm run check)
+(cd gh-apps/kanarek-companion && npm ci && npm run check)
+(cd mcp/status-mcp && npm ci && npm run typecheck)
+```
+
+## 5) Environment and Config
+
+- Cloudflare config: each deployed package owns `wrangler.jsonc`; there is no root deployment manifest.
+- Runtime bindings include `ASSETS`, `WEATHER_KV`, `KANAREK_QUIP_KV`, Durable Objects, and Status MCP service bindings; see the relevant Wrangler files.
+- Secrets are read from Worker env bindings. Important names include `STATUS_MCP_TOKEN`, `STREAMBENCH_RELAY_SECRET`, weather API keys, GitHub App keys/webhook secret, Cloudflare credentials, and AI-provider API keys.
+- `.ai/core` is a Git submodule; `.ai/profile.yaml` and `.ai/private/` form the private overlay (`.gitmodules`, `.ai/README.md`).
+
+## 6) Evidence
+
+- `codebench/package.json`, `docbench/package.json`, `streambench/package.json`
+- `weather-feed/package.json`, `mcp/status-mcp/package.json`, `gh-apps/kanarek-companion/package.json`
+- `xiaomi-adb-tools/build.gradle`, `xiaomi-adb-tools/gradle/wrapper/gradle-wrapper.properties`
+- `.github/workflows/benches-release.yml`, `.gitmodules`

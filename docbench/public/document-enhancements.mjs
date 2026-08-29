@@ -888,6 +888,11 @@ function schedulePreview(delay = 145) {
   previewTimer = setTimeout(renderEnhancedPreview, delay);
 }
 
+document.addEventListener("docbench:inspect-start", () => {
+  clearTimeout(previewTimer);
+  previewTimer = undefined;
+});
+
 function documentBytes() {
   const raw = applyEol(editor.value, eolSelect.value);
   const encoded = new TextEncoder().encode(raw);

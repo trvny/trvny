@@ -423,6 +423,10 @@
     clearTimeout(validationTimer);
     validationTimer = setTimeout(renderValidation, 120);
   });
+  document.addEventListener("docbench:inspect-start", () => {
+    clearTimeout(validationTimer);
+    validationTimer = undefined;
+  });
 
   for (const event of ["dragenter", "dragover"]) {
     dropZone.addEventListener(event, (e) => { e.preventDefault(); dropZone.classList.add("drop-active"); });

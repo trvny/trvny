@@ -344,6 +344,7 @@
       }
       if (formatSelect.value === "xml") editor.value = `${formatXml(editor.value)}\n`;
       state.mixedEol = false;
+      document.dispatchEvent(new Event("docbench:document-change"));
       renderValidation();
     } catch (error) {
       statusBadge.className = "status bad";
@@ -372,6 +373,7 @@
     eolSelect.value = eol.target;
     filenameLabel.textContent = state.filename;
     setFormatFromFilename(state.filename);
+    document.dispatchEvent(new Event("docbench:document-change"));
     renderValidation();
   }
 
@@ -394,6 +396,7 @@
     eolSelect.value = "LF";
     editor.value = "";
     filenameLabel.textContent = state.filename;
+    document.dispatchEvent(new Event("docbench:document-change"));
     renderValidation();
     editor.focus();
   }

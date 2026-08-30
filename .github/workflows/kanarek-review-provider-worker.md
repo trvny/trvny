@@ -14,43 +14,59 @@ on:
         description: Base SHA captured with the review request
         required: true
         type: string
-      provider_name:
-        description: Provider display name
-        required: true
-        type: string
-      provider_url:
-        description: OpenAI-compatible provider base URL
-        required: true
-        type: string
-      model_name:
-        description: Provider model slug
+      provider:
+        description: Provider id (openrouter, orca, aihubmix, gemini)
         required: true
         type: string
     secrets:
-      REVIEW_API_KEY:
-        required: true
+      OPENROUTER_API_KEY:
+        required: false
+      ORCAROUTER_API_KEY:
+        required: false
+      AIHUBMIX_API_KEY:
+        required: false
+      GEMINI_API_KEY:
+        required: false
 
-run-name: Kanarek review · #${{ inputs.pr_number }} · ${{ inputs.provider_name }}
+run-name: Kanarek review · #${{ inputs.pr_number }} · ${{ inputs.provider }}
 
 timeout-minutes: 30
 
 engine:
   id: copilot
   env:
-    COPILOT_PROVIDER_BASE_URL: ${{ inputs.provider_url }}
-    COPILOT_PROVIDER_API_KEY: ${{ secrets.REVIEW_API_KEY }}
-    COPILOT_MODEL: ${{ inputs.model_name }}
+    COPILOT_PROVIDER_BASE_URL: ${{ inputs.provider == 'openrouter' && 'https://openrouter.ai/api/v1' || inputs.provider == 'orca' && 'https://api.orcarouter.ai/v1' || inputs.provider == 'aihubmix' && 'https://aihubmix.com/v1' || inputs.provider == 'gemini' && 'https://generativelanguage.googleapis.com/v1beta/openai/' || '' }}
+    COPILOT_PROVIDER_API_KEY: ${{ inputs.provider == 'openrouter' && secrets.OPENROUTER_API_KEY || inputs.provider == 'orca' && secrets.ORCAROUTER_API_KEY || inputs.provider == 'aihubmix' && secrets.AIHUBMIX_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
+    COPILOT_MODEL: ${{ inputs.provider == 'openrouter' && 'openrouter/free' || inputs.provider == 'orca' && 'deepseek/deepseek-v4-flash-free' || inputs.provider == 'aihubmix' && 'coding-glm-5.3-free' || inputs.provider == 'gemini' && 'gemini-2.5-flash' || '' }}
     COPILOT_PROVIDER_TYPE: openai
     COPILOT_PROVIDER_WIRE_API: completions
-model: ${{ inputs.model_name }}
+model: ${{ inputs.provider == 'openrouter' && 'openrouter/free' || inputs.provider == 'orca' && 'deepseek/deepseek-v4-flash-free' || inputs.provider == 'aihubmix' && 'coding-glm-5.3-free' || inputs.provider == 'gemini' && 'gemini-2.5-flash' || '' }}
+
+models:
+  providers:
+    github-copilot:
+      models:
+        "openrouter/free":
+          cost:
+            input: "0e0"
+            output: "0e0"
+        "deepseek/deepseek-v4-flash-free":
+          cost:
+            input: "0e0"
+            output: "0e0"
+        "coding-glm-5.3-free":
+          cost:
+            input: "0e0"
+            output: "0e0"
+        "gemini-2.5-flash":
+          cost:
+            input: "3e-7"
+            output: "2.5e-6"
 
 network:
   allowed:
     - defaults
-    - api.orcarouter.ai
-    - openrouter.ai
-    - aihubmix.com
-    - generativelanguage.googleapis.com
+  allowed-input: true
 
 permissions:
   contents: read
@@ -91,7 +107,7 @@ safe-outputs:
   report-failure-as-issue: false
   report-failed-jobs: false
   messages:
-    footer: "> <sub>模型：{ai_model} · ${{ inputs.provider_name }}</sub>"
+    footer: "> <sub>模型：{ai_model} · ${{ inputs.provider }}</sub>"
   missing-data:
     create-issue: false
   missing-tool:

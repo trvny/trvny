@@ -131,6 +131,22 @@ jobs:
     needs: [validate_review_target]
     if: needs.validate_review_target.outputs.current == 'true'
     pre-steps:
+      - name: Fail closed if pull request changed before publishing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
+          EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
+        run: |
+          set -euo pipefail
+          pr="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          jq -e \
+            --arg head "$EXPECTED_HEAD_SHA" \
+            --arg base "$EXPECTED_BASE_SHA" \
+            '.state == "open" and .draft == false and
+             .head.sha == $head and .base.sha == $base' \
+            <<< "$pr" > /dev/null
       - name: Load resolved review model
         continue-on-error: true
         uses: actions/download-artifact@v8

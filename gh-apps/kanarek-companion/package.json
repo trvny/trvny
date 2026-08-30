@@ -13,9 +13,9 @@
     "check": "npm run typecheck && npm test && node --check scripts/deploy.ts && node --check scripts/smoke-live.ts && wrangler deploy --dry-run --outdir dist"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260821.1",
+    "@cloudflare/workers-types": "5.20260827.1",
     "typescript": "7.0.2",
-    "wrangler": "4.125.0"
+    "wrangler": "4.127.0"
   },
   "overrides": {
     "sharp": "0.35.3"

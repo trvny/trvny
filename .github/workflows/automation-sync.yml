@@ -30,18 +30,14 @@ jobs:
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ secrets.GH_PAT }}
-      ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
     steps:
-      - name: Sync review secrets and caller
+      - name: Sync review bearer and caller
         shell: bash
         run: |
           set -euo pipefail
           : "${GH_TOKEN:?GH_PAT must be configured}"
-          : "${ORCAROUTER_API_KEY:?ORCAROUTER_API_KEY must be configured}"
           : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY must be configured}"
-          : "${AIHUBMIX_API_KEY:?AIHUBMIX_API_KEY must be configured}"
           source_repo="$GITHUB_REPOSITORY"
           source_path=.github/workflows/kanarek-review.yml
           source_branch=$(gh api "repos/$source_repo" --jq .default_branch)
@@ -63,13 +59,8 @@ jobs:
           )
 
           for repo in "${repos[@]}"; do
-            printf '%s' "$ORCAROUTER_API_KEY" |
-              gh secret set ORCAROUTER_API_KEY --repo "$repo"
             printf '%s' "$OPENROUTER_API_KEY" |
               gh secret set OPENROUTER_API_KEY --repo "$repo"
-            printf '%s' "$AIHUBMIX_API_KEY" |
-              gh secret set AIHUBMIX_API_KEY --repo "$repo"
-
             default_branch=$(gh api "repos/$repo" --jq .default_branch)
             tmp=$(mktemp)
             blob_sha=''
@@ -79,6 +70,8 @@ jobs:
               >"$tmp" 2>/dev/null; then
               if cmp -s "$caller" "$tmp"; then
                 rm -f "$tmp"
+                gh secret delete ORCAROUTER_API_KEY --repo "$repo" 2>/dev/null || true
+                gh secret delete AIHUBMIX_API_KEY --repo "$repo" 2>/dev/null || true
                 continue
               fi
               blob_sha=$(gh api \
@@ -118,6 +111,8 @@ jobs:
               gh api --method PUT \
                 "repos/$repo/contents/.github/workflows/kanarek-review.yml" \
                 --input - >/dev/null
+            gh secret delete ORCAROUTER_API_KEY --repo "$repo" 2>/dev/null || true
+            gh secret delete AIHUBMIX_API_KEY --repo "$repo" 2>/dev/null || true
           done
 
   cloudflare:

@@ -102,7 +102,9 @@
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: true, untrustedContentHint: true },
     execute() {
-      const validation = globalThis.DocBenchDocumentUi?.validate({ revealError: true });
+      const validator = globalThis.DocBenchDocumentUi?.validate;
+      if (typeof validator !== "function") return { ok: false, error: "Document validator is not ready." };
+      const validation = validator({ revealError: true });
       return { ok: validation?.ok !== false, ...snapshot() };
     },
   });

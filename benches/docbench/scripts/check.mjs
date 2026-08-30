@@ -217,7 +217,7 @@ if (!portable.includes("Text safety inspection") || !portable.includes("inspect-
   throw new Error("Portable build is missing text inspector support.");
 }
 for (const toolName of ["read_document", "set_document_text", "validate_document", "format_document", "inspect_document"]) {
-  if (!portable.includes('name: "' + toolName + '"')) {
+  if (!portable.includes(`name: "${toolName}"`)) {
     throw new Error(`Portable build is missing WebMCP tool: ${toolName}`);
   }
 }

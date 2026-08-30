@@ -31,6 +31,7 @@ engine:
     COPILOT_PROVIDER_TYPE: openai
     COPILOT_PROVIDER_WIRE_API: completions
 model: deepseek/deepseek-v4-flash-free
+inlined-imports: true
 
 models:
   providers:
@@ -120,8 +121,9 @@ only schema-valid methods from the live tool schema, including `get`, `get_diff`
 invoke shell, `git`, `gh`, or `exec_command` to inspect the pull request or
 repository history.
 First verify through GitHub that the pull request is still open, is not a draft,
-and its current head SHA is exactly `${{ inputs.head_sha }}`. If any of those
-checks fail, emit a no-op and stop without publishing a review.
+its current base SHA is exactly `${{ inputs.base_sha }}`, and its current head SHA
+is exactly `${{ inputs.head_sha }}`. If any check fails, emit a no-op and stop
+without publishing a review.
 Inspect the complete diff and then inspect as much surrounding repository context
 as is useful: applicable `AGENTS.md`, callers, callees, tests, configuration,
 package/build files, adjacent modules, and existing conventions. The diff is the
@@ -135,8 +137,10 @@ or factual validity. Do not praise or summarize the pull request.
 
 All human-facing review text must be in Simplified Chinese. Inline comments must
 be attached only to added or modified RIGHT-side lines in the pull-request diff.
-Use at most eight inline findings. Before publishing, verify the pull request head
-again and stop with a no-op if it changed.
+Use at most eight inline findings. Before publishing, repeat the full GitHub
+validation that the pull request is still open and not a draft and that both its
+base SHA and head SHA still exactly match `${{ inputs.base_sha }}` and
+`${{ inputs.head_sha }}`. Stop with a no-op if any check fails.
 
 Finish every current, reviewable pull request by submitting exactly one native
 GitHub pull-request review with event `COMMENT`. Buffer any inline findings first,

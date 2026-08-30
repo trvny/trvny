@@ -1,0 +1,200 @@
+using PaintDotNet;
+using PaintDotNet.FileTypes;
+using PaintDotNet.Imaging;
+using PaintDotNet.PropertySystem;
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using DrawingPixelFormat = System.Drawing.Imaging.PixelFormat;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
+using System.Windows.Forms;
+
+namespace Travny.PaintDotNetIco;
+
+public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInfoProvider
+{
+    private const string PreserveAspectRatio = "Preserve aspect ratio";
+    private static readonly (string Name, int Size)[] SizeProperties =
+    {
+        ("16 x 16", 16), ("20 x 20", 20), ("24 x 24", 24),
+        ("32 x 32", 32), ("40 x 40", 40), ("48 x 48", 48),
+        ("64 x 64", 64), ("128 x 128", 128), ("256 x 256", 256)
+    };
+
+    public IcoFileTypeModern(IFileTypeHost host)
+        : base(host, "Windows Icon", FileTypeOptions.Create() with
+        {
+            LoadExtensions = new[] { ".ico" },
+            SaveExtensions = new[] { ".ico" },
+            IsSavingConfigurable = true,
+            SupportsSavingLayers = false,
+            SupportsCancellationExceptions = false
+        })
+    {
+    }
+    public IPluginSupportInfo GetPluginSupportInfo() => new PluginSupportInfo();
+
+    protected override PropertyBasedFileTypeLoader OnCreatePropertyBasedLoader() =>
+        new Loader(this);
+
+    protected override PropertyBasedFileTypeSaver OnCreatePropertyBasedSaver() =>
+        new Saver(this);
+
+    private sealed class Loader : PropertyBasedFileTypeLoader
+    {
+        public Loader(IcoFileTypeModern fileType) : base(fileType)
+        {
+        }
+
+        protected override IFileTypeDocument OnLoad(IPropertyBasedFileTypeLoadContext context)
+        {
+            IcoDocument icon = IcoDecoder.Read(context.Input);
+            IReadOnlyList<IcoFrame> frames = icon.Frames;
+            int defaultIndex = icon.FindDefaultFrameIndex();
+
+            if (frames.Count == 1)
+            {
+                return CreateDocument(context, icon, new[] { frames[defaultIndex] });
+            }
+
+            using var dialog = new FrameSelectionDialog(frames, defaultIndex);
+            if (dialog.ShowDialog() != DialogResult.OK)
+            {
+                throw new OperationCanceledException("ICO loading cancelled.");
+            }
+
+            IReadOnlyList<IcoFrame> selected = dialog.OpenAll
+                ? frames.Where(icon.CanDecode).ToArray()
+                : new[] { frames[dialog.SelectedIndex] };
+            return CreateDocument(context, icon, selected);
+        }
+    }
+    private static IFileTypeDocument CreateDocument(
+        IPropertyBasedFileTypeLoadContext context,
+        IcoDocument icon,
+        IReadOnlyList<IcoFrame> frames)
+    {
+        if (frames.Count == 0)
+        {
+            throw new InvalidDataException("ICO contains no decodable images.");
+        }
+
+        int width = frames.Max(frame => frame.Width);
+        int height = frames.Max(frame => frame.Height);
+        IFileTypeDocument<ColorBgra32> document =
+            context.Factory.CreateDocumentBgra32(width, height);
+
+        foreach (IcoFrame frame in frames)
+        {
+            using Bitmap bitmap = icon.Decode(frame);
+            using IFileTypeBitmapLayer<ColorBgra32> layer = document.CreateBitmapLayer();
+            layer.Name = FrameName(frame);
+            using IFileTypeBitmapSink<ColorBgra32> sink = layer.GetBitmap();
+            CopyBitmapToSink(bitmap, sink);
+            document.Layers.Add(layer);
+        }
+
+        return document;
+    }
+
+    private static string FrameName(IcoFrame frame)
+    {
+        string encoding = frame.IsPng ? "PNG" : "bitmap";
+        return $"{frame.Width} x {frame.Height}, {frame.BitCount}-bit {encoding}";
+    }
+    private static unsafe void CopyBitmapToSink(
+        Bitmap source,
+        IFileTypeBitmapSink<ColorBgra32> sink)
+    {
+        using var normalized = new Bitmap(source.Width, source.Height, DrawingPixelFormat.Format32bppArgb);
+        using (Graphics graphics = Graphics.FromImage(normalized))
+        {
+            graphics.Clear(Color.Transparent);
+            graphics.DrawImageUnscaled(source, 0, 0);
+        }
+
+        Rectangle rect = new(0, 0, normalized.Width, normalized.Height);
+        BitmapData data = normalized.LockBits(rect, ImageLockMode.ReadOnly, DrawingPixelFormat.Format32bppArgb);
+        try
+        {
+            using IFileTypeBitmapLock<ColorBgra32> target = sink.Lock(BitmapLockOptions.Write);
+            int copyBytes = normalized.Width * 4;
+            for (int y = 0; y < normalized.Height; y++)
+            {
+                byte* src = (byte*)data.Scan0 + (y * data.Stride);
+                byte* dst = (byte*)target.Buffer + (y * target.BufferStride);
+                Buffer.MemoryCopy(src, dst, target.BufferStride, copyBytes);
+            }
+        }
+        finally
+        {
+            normalized.UnlockBits(data);
+        }
+    }
+
+    private sealed class Saver : PropertyBasedFileTypeSaver
+    {
+        public Saver(IcoFileTypeModern fileType) : base(fileType)
+        {
+        }
+        protected override PropertyCollection OnCreateDefaultSaveProperties()
+        {
+            var properties = new List<Property>
+            {
+                new BooleanProperty(PreserveAspectRatio, true)
+            };
+
+            foreach ((string name, int _) in SizeProperties)
+            {
+                properties.Add(new BooleanProperty(name, true));
+            }
+
+            return new PropertyCollection(properties);
+        }
+
+        protected override void OnSave(IPropertyBasedFileTypeSaveContext context)
+        {
+            var sizes = new List<int>(SizeProperties.Length);
+            foreach ((string name, int size) in SizeProperties)
+            {
+                if (Convert.ToBoolean(context.Options.GetProperty(name)!.Value))
+                {
+                    sizes.Add(size);
+                }
+            }
+
+            bool preserve = Convert.ToBoolean(
+                context.Options.GetProperty(PreserveAspectRatio)!.Value);
+            using IFileTypeCompositeBitmap<ColorBgra32> composite =
+                context.Document.GetCompositeBitmapBgra32();
+            using Bitmap source = CopyCompositeToBitmap(composite);
+            IcoEncoder.Write(context.Output, source, sizes, preserve);
+        }
+    }
+    private static unsafe Bitmap CopyCompositeToBitmap(
+        IFileTypeCompositeBitmap<ColorBgra32> source)
+    {
+        int width = source.Size.Width;
+        int height = source.Size.Height;
+        var bitmap = new Bitmap(width, height, DrawingPixelFormat.Format32bppArgb);
+        Rectangle rect = new(0, 0, width, height);
+        BitmapData data = bitmap.LockBits(rect, ImageLockMode.WriteOnly, DrawingPixelFormat.Format32bppArgb);
+
+        try
+        {
+            uint bufferSize = checked((uint)(Math.Abs(data.Stride) * height));
+            source.CopyPixels((void*)data.Scan0, data.Stride, bufferSize, null);
+        }
+        catch
+        {
+            bitmap.UnlockBits(data);
+            bitmap.Dispose();
+            throw;
+        }
+
+        bitmap.UnlockBits(data);
+        return bitmap;
+    }
+}

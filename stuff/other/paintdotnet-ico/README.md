@@ -1,46 +1,50 @@
 # Paint.NET ICO FileType
 
-Small dependency-free `.ico` file type plugin for Paint.NET 5.1.x.
+Dependency-free `.ico` file type plugin for Paint.NET 5.1 and 5.2+.
 
 ## What it does
 
 - adds **Windows Icon (`.ico`)** to Open and Save As,
-- opens the largest image embedded in an ICO,
-- supports modern PNG-backed and legacy BMP/DIB-backed icons,
-- writes a real multi-image ICO container,
+- lets you choose an embedded image when opening multi-frame icons,
+- can open every valid embedded image as a named Paint.NET layer,
+- defaults to the largest decodable frame, then the highest bit depth,
+- skips malformed frames when opening all layers,
+- supports PNG-backed and legacy BMP/DIB-backed icons,
+- writes real multi-image ICO containers,
 - exports 16, 20, 24, 32, 40, 48, 64, 128 and 256 px frames,
-- preserves transparency,
-- optionally preserves aspect ratio and pads with transparency,
-- stores exported frames as PNG inside the ICO container.
+- preserves transparency and optionally preserves aspect ratio with transparent padding.
 
-The codec is plain C# and does not depend on Pillow, ImageSharp or another image package.
+The shared ICO codec is plain C#. It does not depend on Pillow, ImageSharp, or another image package.
 
+## Paint.NET adapters
+
+`PaintDotNetIco.Modern.csproj` targets Paint.NET 5.2's new `PaintDotNet.FileTypes` API on .NET 10. This is the primary adapter and has been tested against Paint.NET 5.2 Alpha build 9719.
+
+`PaintDotNetIco.csproj` targets the classic Paint.NET 5.1 FileType API on .NET 9. It is kept as a compatibility adapter and is verified against Paint.NET 5.1.12.
 ## Build
 
-Requirements:
-
-- .NET 9 SDK,
-- Paint.NET 5.1.x installed or unpacked locally.
+For Paint.NET 5.2+:
 
 ```powershell
-dotnet build .\PaintDotNetIco.csproj -c Release
+dotnet build .\PaintDotNetIco.Modern.csproj -c Release
 ```
-If Paint.NET is elsewhere:
+
+For Paint.NET 5.1.x, build against a 5.1 installation or portable directory:
 
 ```powershell
-dotnet build .\PaintDotNetIco.csproj -c Release -p:PaintDotNetDir='D:\Apps\paint.net'
+dotnet build .\PaintDotNetIco.csproj -c Release -p:PaintDotNetDir='D:\Apps\paint.net-5.1'
 ```
 
-Install `Travny.PaintDotNet.IcoFileType.dll` in a `FileTypes` plugin directory:
+The modern build requires .NET 10 SDK; the legacy build requires .NET 9 SDK.
 
-- Classic: `C:\Program Files\Paint.NET\FileTypes`, or the per-user `Documents\Paint.NET App Files\FileTypes` alternative.
-- Microsoft Store: `Documents\Paint.NET App Files\FileTypes`.
-- Portable: `<Paint.NET directory>\FileTypes`.
+## Install
 
-Restart Paint.NET after copying the DLL.
+For the classic installed edition, copy the DLL to:
 
-## Compatibility
+```text
+C:\Program Files\Paint.NET\FileTypes
+```
 
-This adapter targets the stable Paint.NET 5.1 legacy FileType API because 5.2 is still pre-release. The ICO codec is intentionally isolated from Paint.NET APIs so a 5.2 adapter can reuse it when the new FileType API settles.
+Store builds may use `Documents\Paint.NET App Files\FileTypes`; portable builds use `<Paint.NET directory>\FileTypes`. Restart Paint.NET after replacing a plugin DLL.
 
-When opening a multi-image ICO, the plugin chooses the largest valid frame, preferring the highest bit depth when dimensions tie.
+When opening a multi-image ICO, **Open all as layers** creates a document sized to the largest selected frame and places each icon image on its own named layer.

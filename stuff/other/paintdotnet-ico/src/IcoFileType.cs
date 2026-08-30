@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Windows.Forms;
 
 namespace Travny.PaintDotNetIco;
 
@@ -59,8 +60,82 @@ public sealed class IcoFileType : PropertyBasedFileType
 
     protected override Document OnLoad(Stream input)
     {
-        using Bitmap bitmap = IcoDecoder.ReadLargestBitmap(input);
-        return Document.FromImage(bitmap);
+        IcoDocument icon = IcoDecoder.Read(input);
+        IReadOnlyList<IcoFrame> frames = icon.Frames;
+
+        if (frames.Count == 1)
+        {
+            return CreateDocument(icon, frames, skipInvalid: false);
+        }
+
+        int defaultIndex = icon.FindDefaultFrameIndex();
+        using var dialog = new FrameSelectionDialog(frames, defaultIndex);
+        if (dialog.ShowDialog() != DialogResult.OK)
+        {
+            throw new OperationCanceledException("ICO loading cancelled.");
+        }
+
+        if (dialog.OpenAll)
+        {
+            return CreateDocument(icon, frames, skipInvalid: true);
+        }
+
+        return CreateDocument(
+            icon,
+            new[] { frames[dialog.SelectedIndex] },
+            skipInvalid: false);
+    }
+
+    private static Document CreateDocument(
+        IcoDocument icon,
+        IReadOnlyList<IcoFrame> frames,
+        bool skipInvalid)
+    {
+        var usableFrames = new List<IcoFrame>(frames.Count);
+        foreach (IcoFrame frame in frames)
+        {
+            if (!skipInvalid || icon.CanDecode(frame))
+            {
+                usableFrames.Add(frame);
+            }
+        }
+
+        if (usableFrames.Count == 0)
+        {
+            throw new InvalidDataException("ICO contains no decodable images.");
+        }
+
+        int width = 1;
+        int height = 1;
+        foreach (IcoFrame frame in usableFrames)
+        {
+            width = Math.Max(width, frame.Width);
+            height = Math.Max(height, frame.Height);
+        }
+
+        var document = new Document(width, height);
+        foreach (IcoFrame frame in usableFrames)
+        {
+            using Bitmap bitmap = icon.Decode(frame);
+            var layer = new BitmapLayer(width, height)
+            {
+                Name = FrameName(frame)
+            };
+
+            using Bitmap target = layer.Surface.CreateAliasedBitmap();
+            using Graphics graphics = Graphics.FromImage(target);
+            graphics.Clear(Color.Transparent);
+            graphics.DrawImageUnscaled(bitmap, 0, 0);
+            document.Layers.Add(layer);
+        }
+
+        return document;
+    }
+
+    private static string FrameName(IcoFrame frame)
+    {
+        string encoding = frame.IsPng ? "PNG" : "bitmap";
+        return $"{frame.Width} x {frame.Height}, {frame.BitCount}-bit {encoding}";
     }
 
     protected override void OnSaveT(

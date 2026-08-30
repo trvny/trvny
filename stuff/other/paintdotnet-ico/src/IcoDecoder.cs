@@ -8,162 +8,218 @@ using System.Runtime.InteropServices;
 
 namespace Travny.PaintDotNetIco;
 
-internal static class IcoDecoder
+internal sealed record IcoFrame(
+    int Index,
+    int Width,
+    int Height,
+    byte ColorCount,
+    byte Reserved,
+    ushort Planes,
+    ushort BitCount,
+    int DataLength,
+    int DataOffset,
+    bool IsPng)
 {
-    private const int MaxEntries = 1024;
-    private const int MaxImageBytes = 32 * 1024 * 1024;
-    private const long MaxBufferedInputBytes = 64L * 1024 * 1024;
+    public long Score => ((long)Width * Height << 16) + BitCount;
+}
 
-    public static Bitmap ReadLargestBitmap(Stream input)
+internal sealed class IcoDocument
+{
+    private readonly byte[] data;
+
+    public IcoDocument(byte[] data, IReadOnlyList<IcoFrame> frames)
     {
-        ArgumentNullException.ThrowIfNull(input);
+        this.data = data;
+        Frames = frames;
+    }
 
-        if (!input.CanSeek)
-        {
-            using MemoryStream buffered = BufferNonSeekable(input);
-            return ReadLargestBitmap(buffered);
-        }
+    public IReadOnlyList<IcoFrame> Frames { get; }
 
-        List<IcoEntry> entries = ReadDirectory(input);
-        foreach (IcoEntry entry in entries.OrderByDescending(static entry => entry.Score))
+    public int FindDefaultFrameIndex()
+    {
+        foreach ((IcoFrame frame, int index) in Frames
+                     .Select((frame, index) => (frame, index))
+                     .OrderByDescending(item => item.frame.Score))
         {
-            try
+            if (CanDecode(frame))
             {
-                using MemoryStream singleIcon = BuildSingleEntryIcon(input, entry);
-                using var icon = new Icon(singleIcon);
-                return icon.ToBitmap();
-            }
-            catch (Exception ex) when (ex is ArgumentException or ExternalException or OutOfMemoryException or EndOfStreamException)
-            {
-                // Try the next-best frame if this entry is malformed.
+                return index;
             }
         }
 
         throw new InvalidDataException("ICO contains no decodable images.");
     }
 
-    private static MemoryStream BufferNonSeekable(Stream input)
+    public bool CanDecode(IcoFrame frame)
     {
-        var output = new MemoryStream();
-        byte[] buffer = new byte[81920];
-        long total = 0;
-
-        while (true)
+        try
         {
-            int read = input.Read(buffer, 0, buffer.Length);
-            if (read == 0)
-                break;
-
-            total += read;
-            if (total > MaxBufferedInputBytes)
-                throw new InvalidDataException("ICO input is too large to buffer safely.");
-
-            output.Write(buffer, 0, read);
+            using Bitmap bitmap = Decode(frame);
+            return bitmap.Width == frame.Width && bitmap.Height == frame.Height;
         }
-
-        output.Position = 0;
-        return output;
+        catch (Exception ex) when (IsDecodeFailure(ex))
+        {
+            return false;
+        }
     }
 
-    private static List<IcoEntry> ReadDirectory(Stream input)
+    public Bitmap Decode(IcoFrame frame)
     {
-        input.Position = 0;
-        Span<byte> header = stackalloc byte[6];
-        input.ReadExactly(header);
-
-        if (BinaryPrimitives.ReadUInt16LittleEndian(header) != 0 ||
-            BinaryPrimitives.ReadUInt16LittleEndian(header[2..]) != 1)
-            throw new InvalidDataException("Not a valid Windows icon file.");
-
-        int count = BinaryPrimitives.ReadUInt16LittleEndian(header[4..]);
-        if (count <= 0 || count > MaxEntries)
-            throw new InvalidDataException("ICO directory entry count is invalid.");
-
-        int directoryLength = checked(count * 16);
-        byte[] directory = new byte[directoryLength];
-        input.ReadExactly(directory);
-        long minimumDataOffset = 6L + directoryLength;
-        long streamLength = input.Length;
-        var entries = new List<IcoEntry>(count);
-
-        for (int i = 0; i < count; i++)
+        if (frame.IsPng)
         {
-            int offset = i * 16;
-            int width = directory[offset] == 0 ? 256 : directory[offset];
-            int height = directory[offset + 1] == 0 ? 256 : directory[offset + 1];
-            uint rawDataLength = BinaryPrimitives.ReadUInt32LittleEndian(directory.AsSpan(offset + 8, 4));
-            if (rawDataLength == 0 || rawDataLength > MaxImageBytes)
-                continue;
-            int dataLength = (int)rawDataLength;
-            long dataOffset = BinaryPrimitives.ReadUInt32LittleEndian(directory.AsSpan(offset + 12, 4));
-
-            if (dataOffset < minimumDataOffset || dataOffset > streamLength - dataLength)
-                continue;
-
-            entries.Add(new IcoEntry(
-                width,
-                height,
-                directory[offset + 2],
-                directory[offset + 3],
-                BinaryPrimitives.ReadUInt16LittleEndian(directory.AsSpan(offset + 4, 2)),
-                BinaryPrimitives.ReadUInt16LittleEndian(directory.AsSpan(offset + 6, 2)),
-                dataLength,
-                dataOffset));
+            using var stream = new MemoryStream(
+                data, frame.DataOffset, frame.DataLength, writable: false);
+            using var decoded = new Bitmap(stream);
+            return new Bitmap(decoded);
         }
 
-        if (entries.Count == 0)
-            throw new InvalidDataException("ICO contains no readable directory entries.");
-
-        return entries;
+        using MemoryStream singleIcon = BuildSingleEntryIcon(frame);
+        using var icon = new Icon(singleIcon);
+        using Bitmap decodedIcon = icon.ToBitmap();
+        return new Bitmap(decodedIcon);
     }
 
-    private static MemoryStream BuildSingleEntryIcon(Stream input, IcoEntry entry)
+    private MemoryStream BuildSingleEntryIcon(IcoFrame frame)
     {
-        var output = new MemoryStream(22 + entry.DataLength);
+        var output = new MemoryStream(22 + frame.DataLength);
         using var writer = new BinaryWriter(output, System.Text.Encoding.UTF8, leaveOpen: true);
         writer.Write((ushort)0);
         writer.Write((ushort)1);
         writer.Write((ushort)1);
-        writer.Write((byte)(entry.Width == 256 ? 0 : entry.Width));
-        writer.Write((byte)(entry.Height == 256 ? 0 : entry.Height));
-        writer.Write(entry.ColorCount);
-        writer.Write(entry.Reserved);
-        writer.Write(entry.Planes);
-        writer.Write(entry.BitCount);
-        writer.Write((uint)entry.DataLength);
+        writer.Write((byte)(frame.Width == 256 ? 0 : frame.Width));
+        writer.Write((byte)(frame.Height == 256 ? 0 : frame.Height));
+        writer.Write(frame.ColorCount);
+        writer.Write(frame.Reserved);
+        writer.Write(frame.Planes);
+        writer.Write(frame.BitCount);
+        writer.Write((uint)frame.DataLength);
         writer.Write((uint)22);
+        writer.Write(data, frame.DataOffset, frame.DataLength);
         writer.Flush();
-
-        input.Position = entry.DataOffset;
-        CopyExactly(input, output, entry.DataLength);
         output.Position = 0;
         return output;
     }
 
-    private static void CopyExactly(Stream input, Stream output, int bytesToCopy)
+    private static bool IsDecodeFailure(Exception ex) =>
+        ex is ArgumentException
+            or ExternalException
+            or OutOfMemoryException
+            or EndOfStreamException
+            or InvalidDataException;
+}
+
+internal static class IcoDecoder
+{
+    private const int MaxEntries = 1024;
+    private const int MaxImageBytes = 32 * 1024 * 1024;
+    private const int MaxBufferedInputBytes = 64 * 1024 * 1024;
+
+    public static IcoDocument Read(Stream input)
     {
-        byte[] buffer = new byte[Math.Min(81920, bytesToCopy)];
-        int remaining = bytesToCopy;
-        while (remaining > 0)
-        {
-            int read = input.Read(buffer, 0, Math.Min(buffer.Length, remaining));
-            if (read == 0)
-                throw new EndOfStreamException();
-            output.Write(buffer, 0, read);
-            remaining -= read;
-        }
+        ArgumentNullException.ThrowIfNull(input);
+        byte[] data = ReadInput(input);
+        IReadOnlyList<IcoFrame> frames = ReadDirectory(data);
+        return new IcoDocument(data, frames);
     }
 
-    private readonly record struct IcoEntry(
-        int Width,
-        int Height,
-        byte ColorCount,
-        byte Reserved,
-        ushort Planes,
-        ushort BitCount,
-        int DataLength,
-        long DataOffset)
+    private static byte[] ReadInput(Stream input)
     {
-        public long Score => ((long)Width * Height << 16) + BitCount;
+        var output = new MemoryStream();
+        byte[] buffer = new byte[81920];
+        int total = 0;
+
+        while (true)
+        {
+            int read = input.Read(buffer, 0, buffer.Length);
+            if (read == 0) break;
+
+            total = checked(total + read);
+            if (total > MaxBufferedInputBytes)
+            {
+                throw new InvalidDataException("ICO input is too large to buffer safely.");
+            }
+
+            output.Write(buffer, 0, read);
+        }
+
+        return output.ToArray();
+    }
+
+    private static IReadOnlyList<IcoFrame> ReadDirectory(byte[] data)
+    {
+        if (data.Length < 6)
+        {
+            throw new InvalidDataException("ICO header is truncated.");
+        }
+
+        ReadOnlySpan<byte> header = data.AsSpan(0, 6);
+        if (BinaryPrimitives.ReadUInt16LittleEndian(header) != 0 ||
+            BinaryPrimitives.ReadUInt16LittleEndian(header[2..]) != 1)
+        {
+            throw new InvalidDataException("Not a valid Windows icon file.");
+        }
+
+        int count = BinaryPrimitives.ReadUInt16LittleEndian(header[4..]);
+        if (count <= 0 || count > MaxEntries)
+        {
+            throw new InvalidDataException("ICO directory entry count is invalid.");
+        }
+
+        int directoryLength = checked(count * 16);
+        if (data.Length < 6 + directoryLength)
+        {
+            throw new InvalidDataException("ICO directory is truncated.");
+        }
+
+        int minimumDataOffset = 6 + directoryLength;
+        var frames = new List<IcoFrame>(count);
+
+        for (int index = 0; index < count; index++)
+        {
+            int offset = 6 + (index * 16);
+            ReadOnlySpan<byte> entry = data.AsSpan(offset, 16);
+            int width = entry[0] == 0 ? 256 : entry[0];
+            int height = entry[1] == 0 ? 256 : entry[1];
+            uint rawLength = BinaryPrimitives.ReadUInt32LittleEndian(entry[8..12]);
+            uint rawOffset = BinaryPrimitives.ReadUInt32LittleEndian(entry[12..16]);
+
+            if (rawLength == 0 || rawLength > MaxImageBytes || rawOffset > int.MaxValue)
+            {
+                continue;
+            }
+
+            int dataLength = checked((int)rawLength);
+            int dataOffset = checked((int)rawOffset);
+            if (dataOffset < minimumDataOffset || dataOffset > data.Length - dataLength)
+            {
+                continue;
+            }
+
+            frames.Add(new IcoFrame(
+                index,
+                width,
+                height,
+                entry[2],
+                entry[3],
+                BinaryPrimitives.ReadUInt16LittleEndian(entry[4..6]),
+                BinaryPrimitives.ReadUInt16LittleEndian(entry[6..8]),
+                dataLength,
+                dataOffset,
+                IsPng(data, dataOffset, dataLength)));
+        }
+
+        if (frames.Count == 0)
+        {
+            throw new InvalidDataException("ICO contains no readable directory entries.");
+        }
+
+        return frames;
+    }
+
+    private static bool IsPng(byte[] data, int offset, int length)
+    {
+        ReadOnlySpan<byte> signature = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
+        return length >= signature.Length &&
+               data.AsSpan(offset, signature.Length).SequenceEqual(signature);
     }
 }

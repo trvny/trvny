@@ -141,7 +141,7 @@ async function responsePreview(response: Response): Promise<string> {
   } catch {
     return '';
   } finally {
-    void reader?.cancel().catch(() => {
+    reader?.cancel().catch(() => {
       // Best-effort preview cleanup; do not block the original tee branch.
     });
   }

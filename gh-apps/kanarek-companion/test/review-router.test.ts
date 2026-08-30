@@ -110,6 +110,48 @@ test('review router preserves a normal AIHubMix stream after previewing it', asy
   assert.equal(await response?.text(), stream);
 });
 
+test('review router recognizes CRLF SSE boundaries without buffering the stream', async () => {
+  const encoder = new TextEncoder();
+  let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
+  const body = new ReadableStream<Uint8Array>({
+    start(value) {
+      controller = value;
+      value.enqueue(encoder.encode('data: {"choices":[]}\r\n\r\n'));
+    },
+  });
+  const startedAt = Date.now();
+  const response = await handleReviewRouterRequest(request(), {
+    AIHUBMIX_API_KEY: 'aihubmix-key', OPENROUTER_API_KEY: 'router-token',
+    KANAREK_REVIEW_ROUTER_TIMEOUT_MS: '1000',
+  }, (() => Promise.resolve(new Response(body, {
+    status: 200, headers: { 'content-type': 'text/event-stream' },
+  }))) as typeof fetch);
+
+  assert.ok(Date.now() - startedAt < 500);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'aihubmix');
+  controller?.close();
+  await response?.body?.cancel();
+});
+
+test('review router bounds a stalled AIHubMix preview and falls back', async () => {
+  const urls: string[] = [];
+  const stalled = new ReadableStream<Uint8Array>({ start() {} });
+  const startedAt = Date.now();
+  const response = await handleReviewRouterRequest(request(), {
+    AIHUBMIX_API_KEY: 'aihubmix-key', OPENROUTER_API_KEY: 'router-token',
+    KANAREK_REVIEW_ROUTER_TIMEOUT_MS: '1000',
+  }, ((input: RequestInfo | URL) => {
+    urls.push(String(input));
+    if (urls.length === 1) return Promise.resolve(new Response(stalled, { status: 200 }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  const elapsedMs = Date.now() - startedAt;
+  assert.ok(elapsedMs >= 900 && elapsedMs < 2000);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.equal(urls.length, 2);
+});
+
 test('review router returns an upstream 400 as an invalid client request', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(

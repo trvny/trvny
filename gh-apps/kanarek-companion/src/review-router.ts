@@ -124,7 +124,26 @@ async function discard(response: Response): Promise<void> {
   }
 }
 
-async function responsePreview(response: Response): Promise<string> {
+async function readPreviewChunk(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  deadlineAt: number,
+): Promise<ReadableStreamReadResult<Uint8Array> | null> {
+  const remainingMs = deadlineAt - Date.now();
+  if (remainingMs <= 0) return null;
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result: ReadableStreamReadResult<Uint8Array> | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+    const timer = setTimeout(() => finish(null), remainingMs);
+    reader.read().then((result) => finish(result), () => finish(null));
+  });
+}
+
+async function responsePreview(response: Response, deadlineAt: number): Promise<string | null> {
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   try {
     reader = response.clone().body?.getReader();
@@ -132,14 +151,16 @@ async function responsePreview(response: Response): Promise<string> {
     const decoder = new TextDecoder();
     let preview = '';
     while (preview.length < SOFT_FAILURE_PREVIEW_BYTES) {
-      const { done, value } = await reader.read();
+      const chunk = await readPreviewChunk(reader, deadlineAt);
+      if (!chunk) return null;
+      const { done, value } = chunk;
       if (done) break;
       preview += decoder.decode(value, { stream: true });
-      if (preview.includes('\n\n')) break;
+      if (/(?:\r\n|\r|\n){2}/.test(preview)) break;
     }
     return preview.slice(0, SOFT_FAILURE_PREVIEW_BYTES);
   } catch {
-    return '';
+    return null;
   } finally {
     reader?.cancel().catch(() => {
       // Best-effort preview cleanup; do not block the original tee branch.
@@ -177,7 +198,9 @@ export async function handleReviewRouterRequest(
     if (!apiKey) continue;
     configured += 1;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs(env));
+    const providerTimeoutMs = timeoutMs(env);
+    const deadlineAt = Date.now() + providerTimeoutMs;
+    const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
     try {
       const response = await fetcher(provider.url, {
         method: 'POST',
@@ -189,11 +212,17 @@ export async function handleReviewRouterRequest(
         body: JSON.stringify({ ...input, model: provider.model }),
         signal: controller.signal,
       });
-      clearTimeout(timeout);
-
       if (response.ok) {
         if (provider.id === 'aihubmix') {
-          const preview = await responsePreview(response);
+          const preview = await responsePreview(response, deadlineAt);
+          clearTimeout(timeout);
+          if (preview === null) {
+            await discard(response);
+            console.warn(JSON.stringify({
+              kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'preview_timeout',
+            }));
+            continue;
+          }
           if (isAIHubMixSoftFailure(preview)) {
             await discard(response);
             console.warn(JSON.stringify({
@@ -201,11 +230,14 @@ export async function handleReviewRouterRequest(
             }));
             continue;
           }
+        } else {
+          clearTimeout(timeout);
         }
         console.info(JSON.stringify({ kanarekReviewRouter: 'selected', provider: provider.id }));
         return upstreamResponse(response, provider);
       }
 
+      clearTimeout(timeout);
       const status = response.status;
       await discard(response);
       if (status === 400) {

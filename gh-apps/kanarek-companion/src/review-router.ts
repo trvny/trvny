@@ -56,12 +56,12 @@ function isObject(value: unknown): value is JsonObject {
 
 function timingSafeEqual(left: string, right: string): boolean {
   const encoder = new TextEncoder();
-  const a = encoder.encode(left);
-  const b = encoder.encode(right);
-  let diff = a.length ^ b.length;
-  const length = Math.max(a.length, b.length);
+  const leftBytes = encoder.encode(left);
+  const rightBytes = encoder.encode(right);
+  let diff = leftBytes.length ^ rightBytes.length;
+  const length = Math.max(leftBytes.length, rightBytes.length);
   for (let index = 0; index < length; index += 1) {
-    diff |= (a[index] ?? 0) ^ (b[index] ?? 0);
+    diff |= (leftBytes[index] ?? 0) ^ (rightBytes[index] ?? 0);
   }
   return diff === 0;
 }

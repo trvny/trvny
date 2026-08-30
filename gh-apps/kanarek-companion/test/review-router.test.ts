@@ -18,9 +18,9 @@ test('review router rejects an invalid bearer before provider access', async () 
   const response = await handleReviewRouterRequest(
     request('wrong'),
     { OPENROUTER_API_KEY: 'router-token' },
-    (async () => {
+    (() => {
       calls += 1;
-      return new Response();
+      return Promise.resolve(new Response());
     }) as typeof fetch,
   );
 
@@ -30,15 +30,17 @@ test('review router rejects an invalid bearer before provider access', async () 
 
 test('review router falls through AIHubMix quota failure to OpenRouter', async () => {
   const calls: Array<{ url: string; model: unknown; authorization: string | null }> = [];
-  const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetcher = ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: unknown };
     const headers = new Headers(init?.headers);
     calls.push({ url: String(input), model: body.model, authorization: headers.get('authorization') });
-    if (calls.length === 1) return new Response('quota', { status: 429 });
-    return new Response('{"choices":[]}', {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
+    if (calls.length === 1) return Promise.resolve(new Response('quota', { status: 429 }));
+    return Promise.resolve(
+      new Response('{"choices":[]}', {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
   }) as typeof fetch;
 
   const response = await handleReviewRouterRequest(
@@ -69,9 +71,9 @@ test('review router stops on provider authentication failure', async () => {
   const response = await handleReviewRouterRequest(
     request(),
     { AIHUBMIX_API_KEY: 'bad-key', OPENROUTER_API_KEY: 'router-token' },
-    (async () => {
+    (() => {
       calls += 1;
-      return new Response('unauthorized', { status: 401 });
+      return Promise.resolve(new Response('unauthorized', { status: 401 }));
     }) as typeof fetch,
   );
 
@@ -84,10 +86,10 @@ test('review router skips unconfigured providers and can reach OrcaRouter', asyn
   const response = await handleReviewRouterRequest(
     request(),
     { OPENROUTER_API_KEY: 'router-token', ORCAROUTER_API_KEY: 'orca-key' },
-    (async (input: RequestInfo | URL) => {
+    ((input: RequestInfo | URL) => {
       urls.push(String(input));
-      if (urls.length === 1) return new Response('busy', { status: 503 });
-      return new Response('{"choices":[]}', { status: 200 });
+      if (urls.length === 1) return Promise.resolve(new Response('busy', { status: 503 }));
+      return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
     }) as typeof fetch,
   );
 

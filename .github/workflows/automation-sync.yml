@@ -51,9 +51,12 @@ jobs:
             "repos/$source_repo/contents/$source_path?ref=$source_branch" \
             >"$caller"
           repos=(
+            trvny/.ai
+            trvny/.github
+            trvny/Autka
+            trvny/WiFi-Automatic
             trvny/feedseek
             trvny/kanarek
-            trvny/Autka
             trvny/tvpi
             trvny/wambridge
           )

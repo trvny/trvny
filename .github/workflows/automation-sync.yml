@@ -20,12 +20,11 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: automation-sync
-  cancel-in-progress: false
-
 jobs:
   review:
+    concurrency:
+      group: automation-sync-review
+      cancel-in-progress: false
     if: ${{ github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'review' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -108,6 +107,9 @@ jobs:
           done
 
   cloudflare:
+    concurrency:
+      group: automation-sync-cloudflare
+      cancel-in-progress: false
     if: ${{ github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'cloudflare') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5

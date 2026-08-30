@@ -5,15 +5,11 @@ on: # yamllint disable-line rule:truthy
   push:
     branches: [main]
     paths:
-      - codebench/**
-      - streambench/**
-      - docbench/**
+      - benches/**
       - .github/workflows/benches-release.yml
   pull_request:
     paths:
-      - codebench/**
-      - streambench/**
-      - docbench/**
+      - benches/**
       - .github/workflows/benches-release.yml
   workflow_dispatch:
 
@@ -43,35 +39,30 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: |
-            codebench/package-lock.json
-            streambench/package-lock.json
-            docbench/package-lock.json
+          cache-dependency-path: benches/package-lock.json
+
+      - name: Install Bench dependencies
+        working-directory: benches
+        run: npm ci
 
       - name: Check Codebench
-        working-directory: codebench
-        run: |
-          npm ci
-          npm run check
+        working-directory: benches
+        run: npm run check:codebench
 
       - name: Check Streambench
-        working-directory: streambench
-        run: |
-          npm ci
-          npm run check
+        working-directory: benches
+        run: npm run check:streambench
 
       - name: Check Docbench
-        working-directory: docbench
-        run: |
-          npm ci
-          npm run check
+        working-directory: benches
+        run: npm run check:docbench
 
       - name: Package portable builds
         run: |
           mkdir -p dist
-          cp codebench/public/portable.html dist/codebench-portable.html
-          cp streambench/public/portable.html dist/streambench-portable.html
-          cp docbench/public/portable.html dist/docbench-portable.html
+          cp benches/codebench/public/portable.html dist/codebench-portable.html
+          cp benches/streambench/public/portable.html dist/streambench-portable.html
+          cp benches/docbench/public/portable.html dist/docbench-portable.html
           cat > dist/README.txt <<'EOF'
           Benches portable builds
 

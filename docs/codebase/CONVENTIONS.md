@@ -4,7 +4,7 @@
 
 | Item | Rule | Example | Evidence |
 | --- | --- | --- | --- |
-| Files | Web code is mostly kebab-case; Kotlin class files are PascalCase | `source-signing.ts`, `MainController.kt` | `streambench/src/`, `xiaomi-adb-tools/src/main/kotlin/` |
+| Files | Web code is mostly kebab-case; Kotlin class files are PascalCase | `source-signing.ts`, `MainController.kt` | `benches/streambench/src/`, `xiaomi-adb-tools/src/main/kotlin/` |
 | Functions/methods | camelCase | `fetchOpenMeteo`, `safeRemoteUrl`, `gatewayManifest` | representative source files |
 | Types/interfaces | PascalCase | `CycleStatus`, `RpcRequest`, `CompanionTarget` | Weather, Status, Kanarek source |
 | Constants/env vars | Constants often `UPPER_SNAKE_CASE`; Worker bindings/secrets are uppercase | `MAX_BODY_BYTES`, `STATUS_MCP_TOKEN` | `mcp/status-mcp/src/entry.ts` |
@@ -27,7 +27,7 @@
 
 ## 4) Error and Logging Conventions
 
-- HTTP Workers prefer structured responses with stable error codes such as `method_not_allowed`, `provider_unavailable`, or JSON-RPC error objects rather than raw stack traces (`streambench/src/index.ts`, `mcp/status-mcp/src/entry.ts`).
+- HTTP Workers prefer structured responses with stable error codes such as `method_not_allowed`, `provider_unavailable`, or JSON-RPC error objects rather than raw stack traces (`benches/streambench/src/index.ts`, `mcp/status-mcp/src/entry.ts`).
 - Weather treats upstream failure as expected partial degradation: source calls are caught independently, logged, and may fall back to last-good KV state (`weather-feed/src/index.ts`).
 - Kanarek catches operator exceptions at routing boundaries, logs JSON including a request ID, and returns a structured `worker_exception` (`gh-apps/kanarek-companion/src/router.ts`).
 - Logging is not unified behind a library. Weather and Kanarek use `console` with structured JSON in important paths; other packages are quieter.
@@ -43,7 +43,7 @@
 ## 6) Evidence
 
 - `.gitattributes`, `.github/.editorconfig`, `.github/linters/.mega-linter.yml`
-- `codebench/tsconfig.client.json`, `streambench/tsconfig.client-orchestrators.json`
+- `benches/codebench/tsconfig.client.json`, `benches/streambench/tsconfig.client-orchestrators.json`
 - `weather-feed/src/index.ts`, `mcp/status-mcp/src/entry.ts`
 - `gh-apps/kanarek-companion/src/router.ts`, `gh-apps/kanarek-companion/test/webhook.test.ts`
 - `xiaomi-adb-tools/gradle.properties`

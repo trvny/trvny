@@ -6,24 +6,22 @@
 | --- | --- | --- |
 | `.ai/` | Public AI configuration submodule plus private overlays/backups | `.ai/README.md`, `.gitmodules` |
 | `.github/` | CI, dependency updates, linting, agents and automation templates | `.github/workflows/`, `.github/dependabot.yml` |
-| `codebench/` | QR/barcode generator and scanner | `AGENTS.md`, `codebench/README.md` |
-| `docbench/` | Local-first text/document/PDF toolbox | `AGENTS.md`, `docbench/README.md` |
-| `streambench/` | IPTV/radio/HLS/M3U/XMLTV browser tool plus constrained Worker APIs | `AGENTS.md`, `streambench/README.md` |
+| `benches/` | Shared npm workspace for Codebench, Docbench and Streambench | `benches/package.json`, `benches/README.md` |
 | `weather-feed/` | Scheduled weather/IMGW aggregator and Atom feed | `weather-feed/README.md`, `weather-feed/src/index.ts` |
 | `mcp/status-mcp/` | One-tool MCP health aggregator | `mcp/status-mcp/README.md` |
 | `gh-apps/` | Kanarek Companion Worker and GPTomek operator documentation/runtime | `gh-apps/README.md` |
 | `xiaomi-adb-tools/` | Kotlin/JavaFX ADB/Fastboot desktop application | `xiaomi-adb-tools/README.md` |
 | `stuff/` | Personal data/config/feed/playlist drawers, excluded from normal linting | `AGENTS.md`, `.github/linters/.mega-linter.yml` |
 
-The repository is a convention-based monorepo: packages share Git history and CI policy but have independent manifests/builds.
+The repository is a mixed monorepo: the three Benches share an npm workspace and lockfile, while unrelated packages keep independent manifests and builds.
 
 ## 2) Entry Points
 
 | Component | Main entry | Selection |
 | --- | --- | --- |
-| Codebench | `codebench/src/index.ts` | `codebench/wrangler.jsonc` |
-| Docbench | `docbench/src/index.ts` | `docbench/wrangler.jsonc` |
-| Streambench | `streambench/src/entry.ts` | `streambench/wrangler.jsonc` |
+| Codebench | `benches/codebench/src/index.ts` | `benches/codebench/wrangler.jsonc` |
+| Docbench | `benches/docbench/src/index.ts` | `benches/docbench/wrangler.jsonc` |
+| Streambench | `benches/streambench/src/entry.ts` | `benches/streambench/wrangler.jsonc` |
 | Weather | `weather-feed/src/index.ts` | `weather-feed/wrangler.jsonc`; HTTP + scheduled handler |
 | Status MCP | `mcp/status-mcp/src/entry.ts` | `mcp/status-mcp/wrangler.jsonc`; wraps `src/index.ts` |
 | Kanarek/GPTomek | `gh-apps/kanarek-companion/src/runtime-entry.ts` | `gh-apps/kanarek-companion/wrangler.jsonc` |
@@ -33,7 +31,7 @@ The repository is a convention-based monorepo: packages share Git history and CI
 
 | Boundary | What belongs here | What must not be here | Evidence |
 | --- | --- | --- | --- |
-| Bench Worker `src/` | HTTP routing, security headers, provider/relay edge logic | Docbench document mutation and Codebench QR payload processing | `codebench/src/index.ts`, `docbench/src/index.ts`, `streambench/src/entry.ts` |
+| Bench Worker `src/` | HTTP routing, security headers, provider/relay edge logic | Docbench document mutation and Codebench QR payload processing | `benches/codebench/src/index.ts`, `benches/docbench/src/index.ts`, `benches/streambench/src/entry.ts` |
 | Bench browser `client/` or `public/` | UI, local files, media/PDF/QR processing | Cloudflare secret access | browser modules and Wrangler bindings |
 | Weather `src/` | source adapters, normalization, state/feed rendering | unrelated project health or GitHub operations | `weather-feed/src/*` |
 | Status MCP `src/` | aggregate health reads and MCP transport/auth | mutations of monitored projects | `mcp/status-mcp/src/entry.ts`, `src/index.ts` |
@@ -52,6 +50,6 @@ The repository is a convention-based monorepo: packages share Git history and CI
 ## 5) Evidence
 
 - `AGENTS.md`, `.gitmodules`, `.gitattributes`
-- `codebench/wrangler.jsonc`, `docbench/wrangler.jsonc`, `streambench/wrangler.jsonc`
+- `benches/codebench/wrangler.jsonc`, `benches/docbench/wrangler.jsonc`, `benches/streambench/wrangler.jsonc`
 - `weather-feed/wrangler.jsonc`, `mcp/status-mcp/wrangler.jsonc`
 - `gh-apps/kanarek-companion/wrangler.jsonc`, `xiaomi-adb-tools/build.gradle`

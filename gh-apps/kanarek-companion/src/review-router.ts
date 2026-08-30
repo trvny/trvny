@@ -3,6 +3,12 @@ export const REVIEW_ROUTER_PATH = '/review-router/v1/chat/completions';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
+const SOFT_FAILURE_PREVIEW_BYTES = 8_192;
+const AIHUBMIX_RETRYABLE_MESSAGES = [
+  'to prevent abuse of free resources',
+  'accounts that have not been recharged can only try',
+  'increase the free quota after recharging',
+] as const;
 
 export interface ReviewRouterEnv {
   AIHUBMIX_API_KEY?: string;
@@ -118,6 +124,34 @@ async function discard(response: Response): Promise<void> {
   }
 }
 
+async function responsePreview(response: Response): Promise<string> {
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  try {
+    reader = response.clone().body?.getReader();
+    if (!reader) return '';
+    const decoder = new TextDecoder();
+    let preview = '';
+    while (preview.length < SOFT_FAILURE_PREVIEW_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      preview += decoder.decode(value, { stream: true });
+      if (preview.includes('\n\n')) break;
+    }
+    return preview.slice(0, SOFT_FAILURE_PREVIEW_BYTES);
+  } catch {
+    return '';
+  } finally {
+    void reader?.cancel().catch(() => {
+      // Best-effort preview cleanup; do not block the original tee branch.
+    });
+  }
+}
+
+function isAIHubMixSoftFailure(preview: string): boolean {
+  const normalized = preview.toLowerCase();
+  return AIHUBMIX_RETRYABLE_MESSAGES.some((message) => normalized.includes(message));
+}
+
 export async function handleReviewRouterRequest(
   request: Request,
   env: ReviewRouterEnv,
@@ -158,6 +192,16 @@ export async function handleReviewRouterRequest(
       clearTimeout(timeout);
 
       if (response.ok) {
+        if (provider.id === 'aihubmix') {
+          const preview = await responsePreview(response);
+          if (isAIHubMixSoftFailure(preview)) {
+            await discard(response);
+            console.warn(JSON.stringify({
+              kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'soft_quota',
+            }));
+            continue;
+          }
+        }
         console.info(JSON.stringify({ kanarekReviewRouter: 'selected', provider: provider.id }));
         return upstreamResponse(response, provider);
       }

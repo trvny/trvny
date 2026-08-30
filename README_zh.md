@@ -64,7 +64,7 @@
 
 原创代码与文档采用 [ISC](https://spdx.org/licenses/ISC) 许可。
 第三方材料见 [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md)。
-[![license](https://img.shields.io/github/license/trvny/trvny)](LICENSE)
+[![code license](https://img.shields.io/github/license/trvny/trvny?label=code&logo=opensourceinitiative&logoColor=white&color=6f42c1&style=flat-square)](https://spdx.org/licenses/ISC)
 
 ---
 ## 💬 抽屉里的引语

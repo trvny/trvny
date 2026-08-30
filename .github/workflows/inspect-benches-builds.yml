@@ -1,0 +1,36 @@
+---
+name: Inspect Bench Workers Builds
+
+on: # yamllint disable-line rule:truthy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Inspect build triggers
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID"
+          auth="Authorization: Bearer $CF_API_TOKEN"
+          scripts="$(curl --fail-with-body -sS "$api/workers/scripts" -H "$auth")"
+
+          for worker in codebench docbench streambench; do
+            tag="$(jq -r --arg worker "$worker" '.result[] | select(.id == $worker) | .tag' <<<"$scripts")"
+            test -n "$tag" && test "$tag" != null
+            triggers="$(curl --fail-with-body -sS "$api/builds/workers/$tag/triggers" -H "$auth")"
+            echo "::group::$worker"
+            jq -c '.result[] | {
+              trigger_uuid, trigger_name, root_directory,
+              build_command, deploy_command, branch_includes,
+              branch_excludes, path_includes, path_excludes
+            }' <<<"$triggers"
+            echo "::endgroup::"
+          done

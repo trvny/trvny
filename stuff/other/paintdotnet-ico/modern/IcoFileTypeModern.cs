@@ -89,6 +89,11 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
         foreach (IcoFrame frame in frames)
         {
             using Bitmap bitmap = icon.Decode(frame);
+            if (bitmap.Width != frame.Width || bitmap.Height != frame.Height)
+            {
+                throw new InvalidDataException("ICO frame dimensions do not match its directory entry.");
+            }
+
             using IFileTypeBitmapLayer<ColorBgra32> layer = document.CreateBitmapLayer();
             layer.Name = FrameName(frame);
             using IFileTypeBitmapSink<ColorBgra32> sink = layer.GetBitmap();
@@ -108,6 +113,11 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
         Bitmap source,
         IFileTypeBitmapSink<ColorBgra32> sink)
     {
+        if (source.Width > sink.Size.Width || source.Height > sink.Size.Height)
+        {
+            throw new InvalidDataException("Decoded ICO frame exceeds the destination bitmap bounds.");
+        }
+
         using var normalized = new Bitmap(source.Width, source.Height, DrawingPixelFormat.Format32bppArgb);
         using (Graphics graphics = Graphics.FromImage(normalized))
         {

@@ -74,13 +74,12 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
         {
             using IcoDocument icon = IcoDecoder.Read(context.Input);
             IReadOnlyList<IcoFrame> frames = icon.Frames;
-            int defaultIndex = icon.FindDefaultFrameIndex();
-
             if (frames.Count == 1)
             {
-                return CreateDocument(context, icon, new[] { frames[defaultIndex] });
+                return CreateDocument(context, icon, new[] { frames[0] });
             }
 
+            int defaultIndex = icon.FindDefaultFrameIndex();
             FrameSelectionChoice choice = fileType.ShowFrameSelection(frames, defaultIndex);
 
             IReadOnlyList<IcoFrame> selected = choice.OpenAll
@@ -104,22 +103,30 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
         IFileTypeDocument<ColorBgra32> document =
             context.Factory.CreateDocumentBgra32(width, height);
 
-        foreach (IcoFrame frame in frames)
+        try
         {
-            using Bitmap bitmap = icon.Decode(frame);
-            if (bitmap.Width != frame.Width || bitmap.Height != frame.Height)
+            foreach (IcoFrame frame in frames)
             {
-                throw new InvalidDataException("ICO frame dimensions do not match its directory entry.");
+                using Bitmap bitmap = icon.Decode(frame);
+                if (bitmap.Width != frame.Width || bitmap.Height != frame.Height)
+                {
+                    throw new InvalidDataException("ICO frame dimensions do not match its directory entry.");
+                }
+
+                using IFileTypeBitmapLayer<ColorBgra32> layer = document.CreateBitmapLayer();
+                layer.Name = FrameName(frame);
+                using IFileTypeBitmapSink<ColorBgra32> sink = layer.GetBitmap();
+                CopyBitmapToSink(bitmap, sink);
+                document.Layers.Add(layer);
             }
 
-            using IFileTypeBitmapLayer<ColorBgra32> layer = document.CreateBitmapLayer();
-            layer.Name = FrameName(frame);
-            using IFileTypeBitmapSink<ColorBgra32> sink = layer.GetBitmap();
-            CopyBitmapToSink(bitmap, sink);
-            document.Layers.Add(layer);
+            return document;
         }
-
-        return document;
+        catch
+        {
+            document.Dispose();
+            throw;
+        }
     }
 
     private static string FrameName(IcoFrame frame)
@@ -139,6 +146,7 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
         using var normalized = new Bitmap(source.Width, source.Height, DrawingPixelFormat.Format32bppArgb);
         using (Graphics graphics = Graphics.FromImage(normalized))
         {
+            graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
             graphics.Clear(Color.Transparent);
             graphics.DrawImageUnscaled(source, 0, 0);
         }

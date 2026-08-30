@@ -109,22 +109,36 @@ public sealed class IcoFileType : PropertyBasedFileType
         }
 
         var document = new Document(width, height);
-        foreach (IcoFrame frame in usableFrames)
+        try
         {
-            using Bitmap bitmap = icon.Decode(frame);
-            var layer = new BitmapLayer(width, height)
+            foreach (IcoFrame frame in usableFrames)
             {
-                Name = FrameName(frame)
-            };
+                using Bitmap bitmap = icon.Decode(frame);
+                if (bitmap.Width != frame.Width || bitmap.Height != frame.Height)
+                {
+                    throw new InvalidDataException("ICO frame dimensions do not match its directory entry.");
+                }
 
-            using Bitmap target = layer.Surface.CreateAliasedBitmap();
-            using Graphics graphics = Graphics.FromImage(target);
-            graphics.Clear(Color.Transparent);
-            graphics.DrawImageUnscaled(bitmap, 0, 0);
-            document.Layers.Add(layer);
+                var layer = new BitmapLayer(width, height)
+                {
+                    Name = FrameName(frame)
+                };
+
+                using Bitmap target = layer.Surface.CreateAliasedBitmap();
+                using Graphics graphics = Graphics.FromImage(target);
+                graphics.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                graphics.Clear(Color.Transparent);
+                graphics.DrawImageUnscaled(bitmap, 0, 0);
+                document.Layers.Add(layer);
+            }
+
+            return document;
         }
-
-        return document;
+        catch
+        {
+            document.Dispose();
+            throw;
+        }
     }
 
     private static string FrameName(IcoFrame frame)

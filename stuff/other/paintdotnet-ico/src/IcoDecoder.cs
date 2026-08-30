@@ -17,22 +17,23 @@ internal sealed record IcoFrame(
     ushort Planes,
     ushort BitCount,
     int DataLength,
-    int DataOffset,
+    long DataOffset,
     bool IsPng)
 {
     public long Score => ((long)Width * Height << 16) + BitCount;
 }
 
-internal sealed class IcoDocument
+internal sealed class IcoDocument : IDisposable
 {
-    private readonly byte[] data;
+    private readonly Stream input;
+    private readonly bool ownsInput;
 
-    public IcoDocument(byte[] data, IReadOnlyList<IcoFrame> frames)
+    public IcoDocument(Stream input, IReadOnlyList<IcoFrame> frames, bool ownsInput)
     {
-        this.data = data;
+        this.input = input;
+        this.ownsInput = ownsInput;
         Frames = frames;
     }
-
     public IReadOnlyList<IcoFrame> Frames { get; }
 
     public int FindDefaultFrameIndex()
@@ -67,8 +68,8 @@ internal sealed class IcoDocument
     {
         if (frame.IsPng)
         {
-            using var stream = new MemoryStream(
-                data, frame.DataOffset, frame.DataLength, writable: false);
+            byte[] payload = ReadPayload(frame);
+            using var stream = new MemoryStream(payload, writable: false);
             using var decoded = new Bitmap(stream);
             return new Bitmap(decoded);
         }
@@ -77,6 +78,14 @@ internal sealed class IcoDocument
         using var icon = new Icon(singleIcon);
         using Bitmap decodedIcon = icon.ToBitmap();
         return new Bitmap(decodedIcon);
+    }
+
+    private byte[] ReadPayload(IcoFrame frame)
+    {
+        byte[] payload = new byte[frame.DataLength];
+        input.Position = frame.DataOffset;
+        input.ReadExactly(payload);
+        return payload;
     }
 
     private MemoryStream BuildSingleEntryIcon(IcoFrame frame)
@@ -94,10 +103,28 @@ internal sealed class IcoDocument
         writer.Write(frame.BitCount);
         writer.Write((uint)frame.DataLength);
         writer.Write((uint)22);
-        writer.Write(data, frame.DataOffset, frame.DataLength);
         writer.Flush();
+
+        input.Position = frame.DataOffset;
+        CopyExactly(input, output, frame.DataLength);
         output.Position = 0;
         return output;
+    }
+    private static void CopyExactly(Stream input, Stream output, int bytesToCopy)
+    {
+        byte[] buffer = new byte[Math.Min(81920, bytesToCopy)];
+        int remaining = bytesToCopy;
+        while (remaining > 0)
+        {
+            int read = input.Read(buffer, 0, Math.Min(buffer.Length, remaining));
+            if (read == 0)
+            {
+                throw new EndOfStreamException();
+            }
+
+            output.Write(buffer, 0, read);
+            remaining -= read;
+        }
     }
 
     private static bool IsDecodeFailure(Exception ex) =>
@@ -106,53 +133,79 @@ internal sealed class IcoDocument
             or OutOfMemoryException
             or EndOfStreamException
             or InvalidDataException;
+
+    public void Dispose()
+    {
+        if (ownsInput)
+        {
+            input.Dispose();
+        }
+    }
 }
 
 internal static class IcoDecoder
 {
     private const int MaxEntries = 1024;
     private const int MaxImageBytes = 32 * 1024 * 1024;
-    private const int MaxBufferedInputBytes = 64 * 1024 * 1024;
-
+    private const long MaxBufferedInputBytes = 64L * 1024 * 1024;
     public static IcoDocument Read(Stream input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        byte[] data = ReadInput(input);
-        IReadOnlyList<IcoFrame> frames = ReadDirectory(data);
-        return new IcoDocument(data, frames);
+
+        if (input.CanSeek)
+        {
+            return CreateDocument(input, ownsInput: false);
+        }
+
+        MemoryStream buffered = BufferNonSeekable(input);
+        try
+        {
+            return CreateDocument(buffered, ownsInput: true);
+        }
+        catch
+        {
+            buffered.Dispose();
+            throw;
+        }
     }
 
-    private static byte[] ReadInput(Stream input)
+    private static IcoDocument CreateDocument(Stream input, bool ownsInput)
+    {
+        IReadOnlyList<IcoFrame> frames = ReadDirectory(input);
+        return new IcoDocument(input, frames, ownsInput);
+    }
+
+    private static MemoryStream BufferNonSeekable(Stream input)
     {
         var output = new MemoryStream();
         byte[] buffer = new byte[81920];
-        int total = 0;
+        long total = 0;
 
         while (true)
         {
             int read = input.Read(buffer, 0, buffer.Length);
             if (read == 0) break;
 
-            total = checked(total + read);
+            total += read;
             if (total > MaxBufferedInputBytes)
             {
+                output.Dispose();
                 throw new InvalidDataException("ICO input is too large to buffer safely.");
             }
 
             output.Write(buffer, 0, read);
         }
 
-        return output.ToArray();
+        output.Position = 0;
+        return output;
     }
 
-    private static IReadOnlyList<IcoFrame> ReadDirectory(byte[] data)
+    private static IReadOnlyList<IcoFrame> ReadDirectory(Stream input)
     {
-        if (data.Length < 6)
-        {
-            throw new InvalidDataException("ICO header is truncated.");
-        }
+        input.Position = 0;
+        Span<byte> header = stackalloc byte[6];
+        input.ReadExactly(header);
 
-        ReadOnlySpan<byte> header = data.AsSpan(0, 6);
         if (BinaryPrimitives.ReadUInt16LittleEndian(header) != 0 ||
             BinaryPrimitives.ReadUInt16LittleEndian(header[2..]) != 1)
         {
@@ -166,31 +219,29 @@ internal static class IcoDecoder
         }
 
         int directoryLength = checked(count * 16);
-        if (data.Length < 6 + directoryLength)
-        {
-            throw new InvalidDataException("ICO directory is truncated.");
-        }
-
-        int minimumDataOffset = 6 + directoryLength;
+        byte[] directory = new byte[directoryLength];
+        input.ReadExactly(directory);
+        long minimumDataOffset = 6L + directoryLength;
+        long streamLength = input.Length;
         var frames = new List<IcoFrame>(count);
 
         for (int index = 0; index < count; index++)
         {
-            int offset = 6 + (index * 16);
-            ReadOnlySpan<byte> entry = data.AsSpan(offset, 16);
+            int offset = index * 16;
+            ReadOnlySpan<byte> entry = directory.AsSpan(offset, 16);
             int width = entry[0] == 0 ? 256 : entry[0];
             int height = entry[1] == 0 ? 256 : entry[1];
             uint rawLength = BinaryPrimitives.ReadUInt32LittleEndian(entry[8..12]);
             uint rawOffset = BinaryPrimitives.ReadUInt32LittleEndian(entry[12..16]);
 
-            if (rawLength == 0 || rawLength > MaxImageBytes || rawOffset > int.MaxValue)
+            if (rawLength == 0 || rawLength > MaxImageBytes)
             {
                 continue;
             }
 
             int dataLength = checked((int)rawLength);
-            int dataOffset = checked((int)rawOffset);
-            if (dataOffset < minimumDataOffset || dataOffset > data.Length - dataLength)
+            long dataOffset = rawOffset;
+            if (dataOffset < minimumDataOffset || dataOffset > streamLength - dataLength)
             {
                 continue;
             }
@@ -205,7 +256,7 @@ internal static class IcoDecoder
                 BinaryPrimitives.ReadUInt16LittleEndian(entry[6..8]),
                 dataLength,
                 dataOffset,
-                IsPng(data, dataOffset, dataLength)));
+                IsPng(input, dataOffset, dataLength)));
         }
 
         if (frames.Count == 0)
@@ -215,11 +266,17 @@ internal static class IcoDecoder
 
         return frames;
     }
-
-    private static bool IsPng(byte[] data, int offset, int length)
+    private static bool IsPng(Stream input, long offset, int length)
     {
-        ReadOnlySpan<byte> signature = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
-        return length >= signature.Length &&
-               data.AsSpan(offset, signature.Length).SequenceEqual(signature);
+        if (length < 8)
+        {
+            return false;
+        }
+
+        Span<byte> signature = stackalloc byte[8];
+        input.Position = offset;
+        input.ReadExactly(signature);
+        ReadOnlySpan<byte> pngSignature = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
+        return signature.SequenceEqual(pngSignature);
     }
 }

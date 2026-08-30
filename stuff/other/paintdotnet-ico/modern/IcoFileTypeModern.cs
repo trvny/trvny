@@ -50,7 +50,7 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
 
         protected override IFileTypeDocument OnLoad(IPropertyBasedFileTypeLoadContext context)
         {
-            IcoDocument icon = IcoDecoder.Read(context.Input);
+            using IcoDocument icon = IcoDecoder.Read(context.Input);
             IReadOnlyList<IcoFrame> frames = icon.Frames;
             int defaultIndex = icon.FindDefaultFrameIndex();
 

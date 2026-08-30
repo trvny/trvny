@@ -60,7 +60,7 @@ public sealed class IcoFileType : PropertyBasedFileType
 
     protected override Document OnLoad(Stream input)
     {
-        IcoDocument icon = IcoDecoder.Read(input);
+        using IcoDocument icon = IcoDecoder.Read(input);
         IReadOnlyList<IcoFrame> frames = icon.Frames;
 
         if (frames.Count == 1)

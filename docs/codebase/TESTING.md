@@ -44,8 +44,8 @@ status-mcp has no behavior test script; its CI currently runs TypeScript only. X
 
 ## 5) Coverage and Quality Signals
 
-- Coverage tool + threshold: `[TODO]` none discovered.
-- Current reported coverage: `[TODO]` none discovered.
+- Coverage tool + threshold: none configured; repository policy uses targeted/project checks plus final CI rather than a numeric coverage gate.
+- Current reported coverage: none; no repository-level percentage is treated as a release criterion.
 - Quality gates include strict TypeScript, package-specific checks, Wrangler dry-runs, MegaLinter and Kanarek's live smoke.
 - Known gaps: status-mcp behavior/auth paths, Xiaomi device-command behavior, and browser-level E2E interactions are not covered by discovered automated suites.
 

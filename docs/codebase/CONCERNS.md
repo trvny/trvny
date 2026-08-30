@@ -6,8 +6,8 @@
 |----------|---------|----------|--------|------------------|
 | high | Privileged Kanarek/GPTomek behavior is spread across very large, frequently changed modules | `gh-apps/kanarek-companion/src/code-change-orchestration.ts`, `cloudflare-actions.ts`, `router.ts`; 90-day Git history | Guard or routing regressions can affect GitHub/Cloudflare mutations | Keep changes narrow, preserve expected-state/idempotency tests, split only on stable seams |
 | medium | status-mcp has auth, token-path handling, caching and multi-service fan-out but no behavior tests | `mcp/status-mcp/src/entry.ts`, `package.json`, `.github/workflows/status-mcp-ci.yml` | Regressions can break the shared health surface or auth boundary | Add focused Node tests for auth, limits, caching and partial upstream failure |
-| medium | Non-Bench JS/TS subprojects still have independent validation roots and no shared local Node runtime pin | package manifests, Node 24 CI workflows | Tool/runtime drift outside the Bench family | Keep unrelated products independent unless a second stable shared boundary emerges |
-| medium | Dependency-update coverage still omits Xiaomi Gradle | `.github/dependabot.yml`, `xiaomi-adb-tools/build.gradle` | Gradle dependency/security updates rely on manual discovery | Add the Gradle ecosystem unless omission is intentional |
+| medium | Non-Bench JS/TS subprojects keep independent validation roots and local Node has no declared support boundary | package manifests, Node 24 CI workflows, PR #265 historical validation | Tool/runtime drift remains possible outside the Bench family | Keep unrelated products independent; declare local Node support if a stable compatibility contract is wanted |
+| medium | Dependency-update coverage still omits Xiaomi Gradle | `.github/dependabot.yml`, `xiaomi-adb-tools/build.gradle` | Gradle dependency/security updates rely on manual discovery | Add a Gradle ecosystem entry as a separate maintenance change |
 | low | Documentation has two confirmed stale descriptions | root README status-mcp rows; `weather-feed/README.md` badge | Project map/status links mislead readers | Correct Weather in status-mcp row and point weather badge at the current workflow |
 
 No meaningful production `TODO`, `FIXME` or `HACK` markers were found by the acquisition scan.
@@ -50,16 +50,21 @@ No meaningful production `TODO`, `FIXME` or `HACK` markers were found by the acq
 
 ## 6) `[ASK USER]` Questions
 
-1. `[ASK USER]` Should the new Bench workspace pattern ever extend to unrelated JS/TS products, or should it remain a family-specific boundary?
-2. `[ASK USER]` Should Node 24 be the supported local development runtime too, or is it intentionally only a CI choice?
-3. `[ASK USER]` Is the missing Dependabot entry for Xiaomi Gradle intentional?
-4. `[ASK USER]` What automated-test/coverage expectation should apply to status-mcp and Xiaomi ADB Tools?
-5. `[ASK USER]` Are the large Kanarek, Docbench and Xiaomi modules accepted ownership boundaries, or planned technical-debt targets?
+1. `[ASK USER]` Should the supported local Node runtime be declared, and if so should it match CI's Node 24?
+2. `[ASK USER]` What automated behavior-testing expectation, if any, should Xiaomi ADB Tools have beyond the current `./gradlew jar` CI build?
+
+The other previous intent questions are resolved by current repository evidence:
+
+- The npm workspace is scoped to the Bench family; PR #352 consolidated Codebench, Docbench and Streambench while current repo guidance keeps unrelated products independent.
+- Missing Xiaomi Gradle Dependabot coverage is a concrete maintenance gap; the default remediation is a separate Gradle update entry rather than another architecture decision.
+- Repository quality gates are project-specific checks plus final CI, with no numeric coverage gate. status-mcp's missing behavior suite is a concrete testing gap rather than an unknown policy.
+- No broad Kanarek, Docbench or Xiaomi rewrite is planned in current repository evidence. Existing guidance favors narrow extraction along stable seams when a concrete change or regression test justifies it.
 
 ## 7) Evidence
 
 - Reproducible churn: `git log --since="90 days ago" --name-only --pretty=format:` grouped by path
 - Reproducible size check: line counts over tracked `*.ts`, `*.js`, `*.mjs`, `*.kt` production files
+- Historical decisions: PR #265 (historical Node 22 validation, no durable support boundary), PR #288 (broad Xiaomi architecture cleanup left out of restoration), PR #296 (targeted test discovery + final CI), PR #352 (Bench-family workspace)
 - `mcp/status-mcp/src/entry.ts`, `mcp/status-mcp/src/index.ts`, `.github/workflows/status-mcp-ci.yml`
 - `gh-apps/kanarek-companion/src/cloudflare-actions.ts`, `gh-apps/kanarek-companion/src/policy-actions.ts`, `gh-apps/kanarek-companion/src/router.ts`
 - `benches/docbench/public/pdf-core.mjs`, `benches/streambench/src/relay-core.ts`, `xiaomi-adb-tools/src/main/kotlin/MainController.kt`

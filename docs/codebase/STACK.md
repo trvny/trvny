@@ -2,16 +2,16 @@
 
 ## 1) Runtime Summary
 
-This is an organizational monorepo, not a package-manager workspace. The root has no `package.json`, workspace file, or Node version pin; each application owns its toolchain.
+This is an organizational monorepo with one package-manager workspace scoped to the Bench family. The root has no `package.json` or Node version pin; `benches/` shares one npm workspace while unrelated applications keep independent toolchains.
 
 | Area | Value | Evidence |
 | --- | --- | --- |
 | Primary languages | TypeScript/JavaScript for Workers and browser tools; Kotlin/JVM for Xiaomi ADB Tools | tracked `*.ts`/`*.js`/`*.mjs`/`*.kt` inventory, `xiaomi-adb-tools/build.gradle` |
-| Runtime + version | Cloudflare Workers/browser code targets ES2022; CI uses Node 24; Xiaomi targets Java 21 | `*/tsconfig.json`, `.github/workflows/benches-release.yml`, `xiaomi-adb-tools/build.gradle` |
-| Package manager | npm per JS/TS project; Gradle Wrapper for Xiaomi | `*/package-lock.json`, `xiaomi-adb-tools/gradle/wrapper/gradle-wrapper.properties` |
+| Runtime + version | Cloudflare Workers/browser code targets ES2022; JS/TS CI uses Node 24; Xiaomi targets Java 21 | `*/tsconfig.json`, Bench/Weather/Status/Kanarek CI workflows, `xiaomi-adb-tools/build.gradle` |
+| Package manager | npm workspace for Benches; per-project npm for other JS/TS services; Gradle Wrapper for Xiaomi | `benches/package.json`, other package manifests, `xiaomi-adb-tools/gradle/wrapper/gradle-wrapper.properties` |
 | Module/build system | TypeScript 7 + Wrangler 4; Gradle 9.7.1 + Kotlin 2.4.10 | package manifests, `xiaomi-adb-tools/build.gradle` |
 
-[TODO] The supported local Node version is not declared in `.nvmrc`, `.node-version`, root `package.json`, or package `engines`; Node 24 is only explicit in CI.
+Gap: Local Node support is not durably declared. PR #265 records a historical successful run on Node 22.22.2 while CI used Node 24, but current manifests and repository guidance do not define a supported local version.
 
 ## 2) Production Frameworks and Dependencies
 

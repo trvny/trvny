@@ -38,7 +38,7 @@
 - Kanarek and Weather use Node's built-in `node:test` plus `node:assert/strict`; Kanarek tests live in `test/*.test.ts`, Weather in `test/**/*.test.ts`.
 - Docbench uses standalone assertion scripts in `tests/`; Streambench uses `scripts/*-check.mjs`, several run through `node --test`.
 - Network/Cloudflare dependencies are usually isolated with hand-written fetch/env/Durable Object stubs rather than a mocking framework.
-- [TODO] No coverage tool or minimum threshold is configured at repository or package level.
+- No coverage tool or minimum threshold is configured; the current quality model relies on project-specific checks and CI gates.
 
 ## 6) Evidence
 

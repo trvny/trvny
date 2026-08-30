@@ -246,6 +246,17 @@ internal static class IcoDecoder
                 continue;
             }
 
+            if (!TryValidateEmbeddedDimensions(
+                    input,
+                    dataOffset,
+                    dataLength,
+                    width,
+                    height,
+                    out bool isPng))
+            {
+                continue;
+            }
+
             frames.Add(new IcoFrame(
                 index,
                 width,
@@ -256,7 +267,7 @@ internal static class IcoDecoder
                 BinaryPrimitives.ReadUInt16LittleEndian(entry[6..8]),
                 dataLength,
                 dataOffset,
-                IsPng(input, dataOffset, dataLength)));
+                isPng));
         }
 
         if (frames.Count == 0)
@@ -266,17 +277,90 @@ internal static class IcoDecoder
 
         return frames;
     }
-    private static bool IsPng(Stream input, long offset, int length)
+    private static bool TryValidateEmbeddedDimensions(
+        Stream input,
+        long offset,
+        int length,
+        int directoryWidth,
+        int directoryHeight,
+        out bool isPng)
     {
+        isPng = false;
         if (length < 8)
         {
             return false;
         }
 
-        Span<byte> signature = stackalloc byte[8];
+        int prefixLength = Math.Min(length, 24);
+        Span<byte> prefix = stackalloc byte[24];
         input.Position = offset;
-        input.ReadExactly(signature);
+        input.ReadExactly(prefix[..prefixLength]);
+
         ReadOnlySpan<byte> pngSignature = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
-        return signature.SequenceEqual(pngSignature);
+        if (prefix[..8].SequenceEqual(pngSignature))
+        {
+            isPng = true;
+            return ValidatePngDimensions(prefix[..prefixLength], directoryWidth, directoryHeight);
+        }
+
+        return ValidateDibDimensions(prefix[..prefixLength], directoryWidth, directoryHeight);
     }
+
+    private static bool ValidatePngDimensions(
+        ReadOnlySpan<byte> prefix,
+        int directoryWidth,
+        int directoryHeight)
+    {
+        if (prefix.Length < 24)
+        {
+            return false;
+        }
+
+        uint ihdrLength = BinaryPrimitives.ReadUInt32BigEndian(prefix[8..12]);
+        ReadOnlySpan<byte> ihdr = new byte[] { 73, 72, 68, 82 };
+        if (ihdrLength != 13 || !prefix[12..16].SequenceEqual(ihdr))
+        {
+            return false;
+        }
+
+        uint width = BinaryPrimitives.ReadUInt32BigEndian(prefix[16..20]);
+        uint height = BinaryPrimitives.ReadUInt32BigEndian(prefix[20..24]);
+        return width == (uint)directoryWidth && height == (uint)directoryHeight;
+    }
+
+    private static bool ValidateDibDimensions(
+        ReadOnlySpan<byte> prefix,
+        int directoryWidth,
+        int directoryHeight)
+    {
+        if (prefix.Length < 8)
+        {
+            return false;
+        }
+
+        uint headerSize = BinaryPrimitives.ReadUInt32LittleEndian(prefix[..4]);
+        if (headerSize == 12)
+        {
+            int coreWidth = BinaryPrimitives.ReadUInt16LittleEndian(prefix[4..6]);
+            int coreStoredHeight = BinaryPrimitives.ReadUInt16LittleEndian(prefix[6..8]);
+            return coreWidth == directoryWidth && IsValidDibHeight(coreStoredHeight, directoryHeight);
+        }
+
+        if (headerSize < 40 || prefix.Length < 12)
+        {
+            return false;
+        }
+
+        int dibWidth = BinaryPrimitives.ReadInt32LittleEndian(prefix[4..8]);
+        int dibStoredHeight = BinaryPrimitives.ReadInt32LittleEndian(prefix[8..12]);
+        if (dibWidth != directoryWidth || dibStoredHeight == int.MinValue)
+        {
+            return false;
+        }
+
+        return IsValidDibHeight(Math.Abs(dibStoredHeight), directoryHeight);
+    }
+
+    private static bool IsValidDibHeight(int storedHeight, int directoryHeight) =>
+        storedHeight == directoryHeight || storedHeight == checked(directoryHeight * 2);
 }

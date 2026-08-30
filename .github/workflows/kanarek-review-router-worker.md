@@ -97,7 +97,39 @@ steps:
         | jq 'add' > "$context_dir/files.json"
 
 jobs:
+  validate_review_target:
+    runs-on: ubuntu-latest
+    needs: [agent]
+    permissions:
+      pull-requests: read
+    outputs:
+      current: ${{ steps.validate.outputs.current }}
+    steps:
+      - name: Revalidate pull request before publishing
+        id: validate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
+          EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
+        run: |
+          set -euo pipefail
+          pr="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          current=false
+          if jq -e \
+            --arg head "$EXPECTED_HEAD_SHA" \
+            --arg base "$EXPECTED_BASE_SHA" \
+            '.state == "open" and .draft == false and
+             .head.sha == $head and .base.sha == $base' \
+            <<< "$pr" > /dev/null; then
+            current=true
+          fi
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+
   safe_outputs:
+    needs: [validate_review_target]
+    if: needs.validate_review_target.outputs.current == 'true'
     pre-steps:
       - name: Load resolved review model
         continue-on-error: true
@@ -173,11 +205,9 @@ or factual validity. Do not praise or summarize the pull request.
 
 All human-facing review text must be in Simplified Chinese. Inline comments must
 be attached only to added or modified RIGHT-side lines in the pull-request diff.
-Use at most eight inline findings. Immediately before publishing, call
-`pull_request_read` with method `get` once and verify that the pull request is
-still open and not a draft and that both its base SHA and head SHA still exactly
-match `${{ inputs.base_sha }}` and `${{ inputs.head_sha }}`. Stop with a
-no-op if any check fails.
+Use at most eight inline findings. A separate deterministic job revalidates the
+pull request after the agent finishes and gates publication, so do not spend a
+model turn revalidating solely for race protection.
 
 Finish every current, reviewable pull request by submitting exactly one native
 GitHub pull-request review with event `COMMENT`. Buffer any inline findings

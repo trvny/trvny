@@ -415,15 +415,6 @@ No remote access yet.
 - free-tier fallback;
 - optional review/repair loop.
 
-## Non-goals
-
-- General remote desktop replacement.
-- Public shell access.
-- Giving cloud services administrator access to the laptop.
-- Keeping many permanent clones/worktrees around.
-- Allowing one provider to become the source of truth for task policy.
-- Reverse-engineering private Codex Cloud APIs.
-
 ## Design principle
 
 > The cloud may request work; the Legion decides what authority that request receives.

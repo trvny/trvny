@@ -27,6 +27,7 @@ internal sealed class IcoDocument : IDisposable
 {
     private readonly Stream input;
     private readonly bool ownsInput;
+    private readonly Dictionary<(long Offset, int Length), bool> decodeCache = new();
 
     public IcoDocument(Stream input, IReadOnlyList<IcoFrame> frames, bool ownsInput)
     {
@@ -53,13 +54,22 @@ internal sealed class IcoDocument : IDisposable
 
     public bool CanDecode(IcoFrame frame)
     {
+        var key = (frame.DataOffset, frame.DataLength);
+        if (decodeCache.TryGetValue(key, out bool cached))
+        {
+            return cached;
+        }
+
         try
         {
             using Bitmap bitmap = Decode(frame);
-            return bitmap.Width == frame.Width && bitmap.Height == frame.Height;
+            bool result = bitmap.Width == frame.Width && bitmap.Height == frame.Height;
+            decodeCache[key] = result;
+            return result;
         }
         catch (Exception ex) when (IsDecodeFailure(ex))
         {
+            decodeCache[key] = false;
             return false;
         }
     }
@@ -70,14 +80,28 @@ internal sealed class IcoDocument : IDisposable
         {
             byte[] payload = ReadPayload(frame);
             using var stream = new MemoryStream(payload, writable: false);
-            using var decoded = new Bitmap(stream);
-            return new Bitmap(decoded);
+            try
+            {
+                using var decoded = new Bitmap(stream);
+                return new Bitmap(decoded);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidDataException("ICO PNG frame could not be decoded.", ex);
+            }
         }
 
         using MemoryStream singleIcon = BuildSingleEntryIcon(frame);
-        using var icon = new Icon(singleIcon);
-        using Bitmap decodedIcon = icon.ToBitmap();
-        return new Bitmap(decodedIcon);
+        try
+        {
+            using var icon = new Icon(singleIcon);
+            using Bitmap decodedIcon = icon.ToBitmap();
+            return new Bitmap(decodedIcon);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new InvalidDataException("ICO bitmap frame could not be decoded.", ex);
+        }
     }
 
     private byte[] ReadPayload(IcoFrame frame)
@@ -128,9 +152,7 @@ internal sealed class IcoDocument : IDisposable
     }
 
     private static bool IsDecodeFailure(Exception ex) =>
-        ex is ArgumentException
-            or ExternalException
-            or OutOfMemoryException
+        ex is ExternalException
             or EndOfStreamException
             or InvalidDataException;
 
@@ -147,6 +169,7 @@ internal static class IcoDecoder
 {
     private const int MaxEntries = 1024;
     private const int MaxImageBytes = 32 * 1024 * 1024;
+    private const long MaxTotalImageBytes = 64L * 1024 * 1024;
     private const long MaxBufferedInputBytes = 64L * 1024 * 1024;
     public static IcoDocument Read(Stream input)
     {
@@ -224,6 +247,8 @@ internal static class IcoDecoder
         long minimumDataOffset = 6L + directoryLength;
         long streamLength = input.Length;
         var frames = new List<IcoFrame>(count);
+        var uniquePayloads = new HashSet<(long Offset, int Length)>();
+        long totalUniqueImageBytes = 0;
 
         for (int index = 0; index < count; index++)
         {
@@ -244,6 +269,15 @@ internal static class IcoDecoder
             if (dataOffset < minimumDataOffset || dataOffset > streamLength - dataLength)
             {
                 continue;
+            }
+
+            if (uniquePayloads.Add((dataOffset, dataLength)))
+            {
+                totalUniqueImageBytes = checked(totalUniqueImageBytes + dataLength);
+                if (totalUniqueImageBytes > MaxTotalImageBytes)
+                {
+                    throw new InvalidDataException("ICO aggregate image payload is too large to process safely.");
+                }
             }
 
             if (!TryValidateEmbeddedDimensions(

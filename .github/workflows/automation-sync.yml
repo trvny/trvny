@@ -1,15 +1,32 @@
-name: Sync Kanarek review rollout
+name: Sync automation rollout
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 4 * * *'
+    inputs:
+      target:
+        description: Automation credentials to sync
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - review
+          - cloudflare
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/kanarek-review.yml
 
 permissions:
   contents: read
 
+concurrency:
+  group: automation-sync-${{ github.event_name }}-${{ inputs.target || 'review' }}
+  cancel-in-progress: false
+
 jobs:
-  sync:
+  review:
+    if: ${{ github.event_name == 'push' || inputs.target == 'all' || inputs.target == 'review' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -27,6 +44,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          : "${GH_TOKEN:?GH_PAT must be configured}"
+          : "${ORCAROUTER_API_KEY:?ORCAROUTER_API_KEY must be configured}"
+          : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY must be configured}"
           : "${AIHUBMIX_API_KEY:?AIHUBMIX_API_KEY must be configured}"
           caller=.github/workflows/kanarek-review.yml
           repos=(
@@ -86,3 +106,22 @@ jobs:
                 "repos/$repo/contents/.github/workflows/kanarek-review.yml" \
                 --input - >/dev/null
           done
+
+  cloudflare:
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'cloudflare') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Sync operator credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
+          printf '%s' "$CLOUDFLARE_API_TOKEN" |
+            npx --yes wrangler@4.127.1 secret put CLOUDFLARE_API_TOKEN --name kanarek-companion
+          printf '%s' "$CLOUDFLARE_ACCOUNT_ID" |
+            npx --yes wrangler@4.127.1 secret put CLOUDFLARE_ACCOUNT_ID --name kanarek-companion

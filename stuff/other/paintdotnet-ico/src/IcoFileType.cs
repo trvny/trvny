@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Windows.Forms;
 
 namespace Travny.PaintDotNetIco;
 
@@ -37,7 +36,7 @@ public sealed class IcoFileType : PropertyBasedFileType
             {
                 LoadExtensions = new[] { ".ico" },
                 SaveExtensions = new[] { ".ico" },
-                SupportsCancellation = false,
+                SupportsCancellation = true,
                 SupportsLayers = false
             })
     {
@@ -69,20 +68,16 @@ public sealed class IcoFileType : PropertyBasedFileType
         }
 
         int defaultIndex = icon.FindDefaultFrameIndex();
-        using var dialog = new FrameSelectionDialog(frames, defaultIndex);
-        if (dialog.ShowDialog() != DialogResult.OK)
-        {
-            throw new OperationCanceledException("ICO loading cancelled.");
-        }
+        FrameSelectionChoice choice = FrameSelectionDialog.ShowOnStaThread(frames, defaultIndex);
 
-        if (dialog.OpenAll)
+        if (choice.OpenAll)
         {
             return CreateDocument(icon, frames, skipInvalid: true);
         }
 
         return CreateDocument(
             icon,
-            new[] { frames[dialog.SelectedIndex] },
+            new[] { frames[choice.SelectedIndex] },
             skipInvalid: false);
     }
 
@@ -157,8 +152,14 @@ public sealed class IcoFileType : PropertyBasedFileType
             }
         }
 
+        if (sizes.Count == 0)
+        {
+            throw new InvalidOperationException("Select at least one icon size before saving.");
+        }
+
         bool preserve = Convert.ToBoolean(token.GetProperty(PreserveAspectRatio)!.Value);
         using Bitmap source = scratchSurface.CreateAliasedBitmap();
-        IcoEncoder.Write(output, source, sizes, preserve);
+        IcoEncoder.Write(output, source, sizes, preserve,
+            percent => progressCallback(null, new ProgressEventArgs(percent)));
     }
 }

@@ -11,7 +11,7 @@ namespace Travny.PaintDotNetIco;
 
 internal static class IcoEncoder
 {
-    public static void Write(Stream output, Bitmap source, IEnumerable<int> requestedSizes, bool preserveAspectRatio)
+    public static void Write(Stream output, Bitmap source, IEnumerable<int> requestedSizes, bool preserveAspectRatio, Action<double>? progressCallback = null)
     {
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(source);
@@ -24,16 +24,19 @@ internal static class IcoEncoder
 
         if (sizes.Length == 0)
         {
-            sizes = new[] { 256 };
+            throw new InvalidOperationException("Select at least one icon size before saving.");
         }
 
+        progressCallback?.Invoke(0);
         var frames = new List<IconFrame>(sizes.Length);
-        foreach (int size in sizes)
+        for (int index = 0; index < sizes.Length; index++)
         {
+            int size = sizes[index];
             using Bitmap resized = Resize(source, size, preserveAspectRatio);
             using var png = new MemoryStream();
             resized.Save(png, ImageFormat.Png);
             frames.Add(new IconFrame(size, png.ToArray()));
+            progressCallback?.Invoke(((index + 1) * 90.0) / sizes.Length);
         }
 
         using var writer = new BinaryWriter(output, Encoding.UTF8, leaveOpen: true);
@@ -61,6 +64,7 @@ internal static class IcoEncoder
         }
 
         writer.Flush();
+        progressCallback?.Invoke(100);
     }
 
     private static Bitmap Resize(Bitmap source, int size, bool preserveAspectRatio)

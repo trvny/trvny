@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace Travny.PaintDotNetIco;
+
+internal sealed record FrameSelectionChoice(int SelectedIndex, bool OpenAll);
 
 internal sealed class FrameSelectionDialog : Form
 {
@@ -75,6 +78,37 @@ internal sealed class FrameSelectionDialog : Form
         Controls.Add(cancelButton);
         AcceptButton = selectedButton;
         CancelButton = cancelButton;
+    }
+
+    public static FrameSelectionChoice ShowOnStaThread(IReadOnlyList<IcoFrame> frames, int defaultIndex)
+    {
+        FrameSelectionChoice? choice = null;
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                using var dialog = new FrameSelectionDialog(frames, defaultIndex);
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    choice = new FrameSelectionChoice(dialog.SelectedIndex, dialog.OpenAll);
+                }
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+        }) { IsBackground = true, Name = "Paint.NET ICO frame picker" };
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (error is not null)
+        {
+            throw new InvalidOperationException("ICO frame selection dialog failed.", error);
+        }
+
+        return choice ?? throw new OperationCanceledException("ICO loading cancelled.");
     }
 
     public int SelectedIndex => frameList.SelectedIndex;

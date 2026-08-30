@@ -1,4 +1,5 @@
 using PaintDotNet;
+using PaintDotNet.AppModel;
 using PaintDotNet.FileTypes;
 using PaintDotNet.Imaging;
 using PaintDotNet.PropertySystem;
@@ -16,6 +17,7 @@ namespace Travny.PaintDotNetIco;
 public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInfoProvider
 {
     private const string PreserveAspectRatio = "Preserve aspect ratio";
+    private readonly IUISynchronizationContext uiContext;
     private static readonly (string Name, int Size)[] SizeProperties =
     {
         ("16 x 16", 16), ("20 x 20", 20), ("24 x 24", 24),
@@ -30,9 +32,11 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
             SaveExtensions = new[] { ".ico" },
             IsSavingConfigurable = true,
             SupportsSavingLayers = false,
-            SupportsCancellationExceptions = false
+            SupportsCancellationExceptions = true
         })
     {
+        uiContext = (IUISynchronizationContext?)host.Services.GetService(typeof(IUISynchronizationContext))
+            ?? throw new InvalidOperationException("Paint.NET did not provide a UI synchronization context.");
     }
     public IPluginSupportInfo GetPluginSupportInfo() => new PluginSupportInfo();
 
@@ -42,10 +46,28 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
     protected override PropertyBasedFileTypeSaver OnCreatePropertyBasedSaver() =>
         new Saver(this);
 
+    private FrameSelectionChoice ShowFrameSelection(IReadOnlyList<IcoFrame> frames, int defaultIndex)
+    {
+        FrameSelectionChoice? choice = null;
+        uiContext.Send(_ =>
+        {
+            using var dialog = new FrameSelectionDialog(frames, defaultIndex);
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                choice = new FrameSelectionChoice(dialog.SelectedIndex, dialog.OpenAll);
+            }
+        }, null);
+
+        return choice ?? throw new OperationCanceledException("ICO loading cancelled.");
+    }
+
     private sealed class Loader : PropertyBasedFileTypeLoader
     {
+        private readonly IcoFileTypeModern fileType;
+
         public Loader(IcoFileTypeModern fileType) : base(fileType)
         {
+            this.fileType = fileType;
         }
 
         protected override IFileTypeDocument OnLoad(IPropertyBasedFileTypeLoadContext context)
@@ -59,15 +81,11 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
                 return CreateDocument(context, icon, new[] { frames[defaultIndex] });
             }
 
-            using var dialog = new FrameSelectionDialog(frames, defaultIndex);
-            if (dialog.ShowDialog() != DialogResult.OK)
-            {
-                throw new OperationCanceledException("ICO loading cancelled.");
-            }
+            FrameSelectionChoice choice = fileType.ShowFrameSelection(frames, defaultIndex);
 
-            IReadOnlyList<IcoFrame> selected = dialog.OpenAll
+            IReadOnlyList<IcoFrame> selected = choice.OpenAll
                 ? frames.Where(icon.CanDecode).ToArray()
-                : new[] { frames[dialog.SelectedIndex] };
+                : new[] { frames[choice.SelectedIndex] };
             return CreateDocument(context, icon, selected);
         }
     }
@@ -175,12 +193,18 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
                 }
             }
 
+            if (sizes.Count == 0)
+            {
+                throw new InvalidOperationException("Select at least one icon size before saving.");
+            }
+
             bool preserve = Convert.ToBoolean(
                 context.Options.GetProperty(PreserveAspectRatio)!.Value);
             using IFileTypeCompositeBitmap<ColorBgra32> composite =
                 context.Document.GetCompositeBitmapBgra32();
             using Bitmap source = CopyCompositeToBitmap(composite);
-            IcoEncoder.Write(context.Output, source, sizes, preserve);
+            IcoEncoder.Write(context.Output, source, sizes, preserve,
+                percent => context.ProgressCallback(null, new ProgressEventArgs(percent)));
         }
     }
     private static unsafe Bitmap CopyCompositeToBitmap(

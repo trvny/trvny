@@ -30,6 +30,7 @@
     <Reference Include="PaintDotNet.Core" HintPath="$(PaintDotNetDir)\PaintDotNet.Core.dll" Private="false" />
     <Reference Include="PaintDotNet.Primitives" HintPath="$(PaintDotNetDir)\PaintDotNet.Primitives.dll" Private="false" />
     <Reference Include="PaintDotNet.FileTypes" HintPath="$(PaintDotNetDir)\PaintDotNet.FileTypes.dll" Private="false" />
+    <Reference Include="PaintDotNet.Fundamentals" HintPath="$(PaintDotNetDir)\PaintDotNet.Fundamentals.dll" Private="false" />
     <Reference Include="PaintDotNet.PropertySystem" HintPath="$(PaintDotNetDir)\PaintDotNet.PropertySystem.dll" Private="false" />
     <Reference Include="PaintDotNet.Windows" HintPath="$(PaintDotNetDir)\PaintDotNet.Windows.dll" Private="false" />
   </ItemGroup>

@@ -184,7 +184,7 @@ const portable = html
     '<script src="/text-inspector.js"></script>',
     `${portableTokenizerAssets}\n<script>${safeScript(inspectorPortable)}</script>`,
   )
-  .replace('<script src="webmcp.js"></script>', `<script>${safeScript(webmcp)}</script>`)
+  .replace('<script src="/webmcp.js"></script>', `<script>${safeScript(webmcp)}</script>`)
   .replace('<script type="module" src="/pdf-app.mjs"></script>', portablePdfScripts)
   .replace('<link rel="manifest" href="/site.webmanifest">', "")
   .replace('<link rel="canonical" href="https://docbench.travny.workers.dev/">', "")

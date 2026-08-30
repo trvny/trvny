@@ -83,14 +83,15 @@
       if (format !== undefined && !allowedFormats.has(format)) {
         return { ok: false, error: "format must be txt, md, json, yaml or xml." };
       }
+      editor.value = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
       if (format) {
         formatSelect.value = format;
         formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      editor.value = text;
-      editor.dispatchEvent(new Event("input", { bubbles: true }));
-      document.querySelector("#validate-button")?.click();
-      return snapshot({ includeText: true });
+      eolSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      globalThis.DocBenchDocumentUi?.validate({ revealError: true });
+      return { ok: true, ...snapshot({ includeText: true }) };
     },
   });
 
@@ -99,10 +100,10 @@
     title: "Validate Docbench document",
     description: "Validate the current TXT, Markdown, JSON, YAML or XML document and update the visible result.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    annotations: { readOnlyHint: false, untrustedContentHint: true },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
     execute() {
-      document.querySelector("#validate-button")?.click();
-      return snapshot();
+      const validation = globalThis.DocBenchDocumentUi?.validate({ revealError: true });
+      return { ok: validation?.ok !== false, ...snapshot() };
     },
   });
 
@@ -113,28 +114,30 @@
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     annotations: { readOnlyHint: false, untrustedContentHint: true },
     execute() {
+      const before = editor.value;
       document.querySelector("#format-button")?.click();
-      return snapshot({ includeText: true });
+      const result = snapshot({ includeText: true });
+      const failed = result.status === "Format failed" || result.status.startsWith("Invalid");
+      return { ok: !failed, changed: editor.value !== before, ...result };
     },
   });
 
   register({
     name: "inspect_document",
     title: "Inspect Docbench document",
-    description: "Run Docbench's local text-safety inspection for hidden characters, markers and prompt-injection-like patterns.",
+    description: "Read Docbench's local text-safety inspection for hidden characters, markers and prompt-injection-like patterns without changing the document.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
-    annotations: { readOnlyHint: false, untrustedContentHint: true },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
     execute() {
       const inspector = globalThis.DocBenchTextInspector;
       if (!inspector?.scanText || !inspector?.summarizeFindings) {
         return { ok: false, error: "Text inspector is not ready." };
       }
       const findings = inspector.scanText(editor.value);
-      document.querySelector("#inspect-button")?.click();
       return {
         ok: true,
         count: findings.length,
-        truncated: Boolean(findings.truncated),
+        truncated: Boolean(findings.truncated || findings.length > 100),
         summary: inspector.summarizeFindings(findings),
         findings: findings.slice(0, 100).map((finding) => ({
           severity: finding.severity,

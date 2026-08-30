@@ -216,8 +216,10 @@ if (!portable.includes("parseTree")) throw new Error("Portable build is missing 
 if (!portable.includes("Text safety inspection") || !portable.includes("inspect-button")) {
   throw new Error("Portable build is missing text inspector support.");
 }
-if (!portable.includes('name: "read_document"') || !portable.includes('name: "inspect_document"')) {
-  throw new Error("Portable build is missing WebMCP document tools.");
+for (const toolName of ["read_document", "set_document_text", "validate_document", "format_document", "inspect_document"]) {
+  if (!portable.includes('name: "' + toolName + '"')) {
+    throw new Error(`Portable build is missing WebMCP tool: ${toolName}`);
+  }
 }
 if (!portable.includes("showSaveFilePicker") || !portable.includes("createWritable")) {
   throw new Error("Portable build is missing direct-save support");

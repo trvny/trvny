@@ -67,6 +67,7 @@ steps:
     shell: bash
     env:
       GH_TOKEN: ${{ github.token }}
+      GH_ENTERPRISE_TOKEN: ${{ github.token }}
       PR_NUMBER: ${{ inputs.pr_number }}
       EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
       EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
@@ -123,6 +124,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_ENTERPRISE_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
           EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
           EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
@@ -151,6 +153,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_ENTERPRISE_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
           EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
           EXPECTED_BASE_SHA: ${{ inputs.base_sha }}

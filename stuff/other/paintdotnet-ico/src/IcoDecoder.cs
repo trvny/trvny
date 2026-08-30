@@ -271,15 +271,6 @@ internal static class IcoDecoder
                 continue;
             }
 
-            if (uniquePayloads.Add((dataOffset, dataLength)))
-            {
-                totalUniqueImageBytes = checked(totalUniqueImageBytes + dataLength);
-                if (totalUniqueImageBytes > MaxTotalImageBytes)
-                {
-                    throw new InvalidDataException("ICO aggregate image payload is too large to process safely.");
-                }
-            }
-
             if (!TryValidateEmbeddedDimensions(
                     input,
                     dataOffset,
@@ -289,6 +280,17 @@ internal static class IcoDecoder
                     out bool isPng))
             {
                 continue;
+            }
+
+            if (!uniquePayloads.Add((dataOffset, dataLength)))
+            {
+                continue;
+            }
+
+            totalUniqueImageBytes = checked(totalUniqueImageBytes + dataLength);
+            if (totalUniqueImageBytes > MaxTotalImageBytes)
+            {
+                throw new InvalidDataException("ICO aggregate image payload is too large to process safely.");
             }
 
             frames.Add(new IcoFrame(

@@ -154,6 +154,7 @@ public sealed class IcoFileType : PropertyBasedFileType
         Surface scratchSurface,
         ProgressEventHandler progressCallback)
     {
+        progressCallback(null, new ProgressEventArgs(0));
         scratchSurface.Clear();
         input.CreateRenderer().Render(scratchSurface);
 

@@ -29,13 +29,13 @@ If Paint.NET is elsewhere:
 dotnet build .\PaintDotNetIco.csproj -c Release -p:PaintDotNetDir='D:\Apps\paint.net'
 ```
 
-Copy `Travny.PaintDotNet.IcoFileType.dll` to:
+Install `Travny.PaintDotNet.IcoFileType.dll` in a `FileTypes` plugin directory:
 
-```text
-Documents\Paint.NET App Files\FileTypes
-```
+- Classic: `C:\Program Files\Paint.NET\FileTypes`, or the per-user `Documents\Paint.NET App Files\FileTypes` alternative.
+- Microsoft Store: `Documents\Paint.NET App Files\FileTypes`.
+- Portable: `<Paint.NET directory>\FileTypes`.
 
-and restart Paint.NET.
+Restart Paint.NET after copying the DLL.
 
 ## Compatibility
 

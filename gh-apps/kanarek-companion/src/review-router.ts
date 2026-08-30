@@ -86,7 +86,6 @@ function timeoutMs(env: ReviewRouterEnv): number {
 
 function retryableStatus(status: number): boolean {
   return (
-    status === 400 ||
     status === 402 ||
     status === 404 ||
     status === 408 ||
@@ -165,6 +164,9 @@ export async function handleReviewRouterRequest(
 
       const status = response.status;
       await discard(response);
+      if (status === 400) {
+        return jsonError('Invalid review request', 'invalid_request', 400);
+      }
       console.warn(
         JSON.stringify({ kanarekReviewRouter: 'provider_failed', provider: provider.id, status }),
       );

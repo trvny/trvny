@@ -66,6 +66,25 @@ test('review router falls through AIHubMix quota failure to OpenRouter', async (
   assert.equal(calls[1].authorization, 'Bearer router-token');
 });
 
+
+
+test('review router returns an upstream 400 as an invalid client request', async () => {
+  let calls = 0;
+  const response = await handleReviewRouterRequest(
+    request(),
+    { AIHUBMIX_API_KEY: 'aihubmix-key', OPENROUTER_API_KEY: 'router-token' },
+    (() => {
+      calls += 1;
+      return Promise.resolve(new Response('bad request details', { status: 400 }));
+    }) as typeof fetch,
+  );
+
+  assert.equal(response?.status, 400);
+  assert.equal(calls, 1);
+  const payload = (await response?.json()) as { error?: { code?: string } };
+  assert.equal(payload.error?.code, 'invalid_request');
+});
+
 test('review router stops on provider authentication failure', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(

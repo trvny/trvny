@@ -68,6 +68,90 @@ test('review router falls through AIHubMix quota failure to OpenRouter', async (
 
 
 
+test('review router treats AIHubMix HTTP 200 quota text as retryable', async () => {
+  const urls: string[] = [];
+  const fetcher = ((input: RequestInfo | URL) => {
+    urls.push(String(input));
+    if (urls.length === 1) {
+      return Promise.resolve(new Response(
+        'data: {"choices":[{"delta":{"content":"Sorry, to prevent abuse of free resources, accounts that have not been recharged can only try 10 times."}}]}\n\n',
+        { status: 200, headers: { 'content-type': 'text/event-stream' } },
+      ));
+    }
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch;
+
+  const response = await handleReviewRouterRequest(request(), {
+    AIHUBMIX_API_KEY: 'aihubmix-key', OPENROUTER_API_KEY: 'router-token',
+  }, fetcher);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.deepEqual(urls, [
+    'https://aihubmix.com/v1/chat/completions',
+    'https://openrouter.ai/api/v1/chat/completions',
+  ]);
+});
+
+test('review router preserves a normal AIHubMix stream after previewing it', async () => {
+  let calls = 0;
+  const stream = 'data: {"choices":[{"delta":{"content":"正常。"}}]}\n\n';
+  const response = await handleReviewRouterRequest(request(), {
+    AIHUBMIX_API_KEY: 'aihubmix-key', OPENROUTER_API_KEY: 'router-token',
+  }, (() => {
+    calls += 1;
+    return Promise.resolve(new Response(stream, {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    }));
+  }) as typeof fetch);
+
+  assert.equal(calls, 1);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'aihubmix');
+  assert.equal(await response?.text(), stream);
+});
+
+test('review router recognizes CRLF SSE boundaries without buffering the stream', async () => {
+  const encoder = new TextEncoder();
+  let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
+  const body = new ReadableStream<Uint8Array>({
+    start(value) {
+      controller = value;
+      value.enqueue(encoder.encode('data: {"choices":[]}\r\n\r\n'));
+    },
+  });
+  const startedAt = Date.now();
+  const response = await handleReviewRouterRequest(request(), {
+    AIHUBMIX_API_KEY: 'aihubmix-key', OPENROUTER_API_KEY: 'router-token',
+    KANAREK_REVIEW_ROUTER_TIMEOUT_MS: '1000',
+  }, (() => Promise.resolve(new Response(body, {
+    status: 200, headers: { 'content-type': 'text/event-stream' },
+  }))) as typeof fetch);
+
+  assert.ok(Date.now() - startedAt < 500);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'aihubmix');
+  controller?.close();
+  await response?.body?.cancel();
+});
+
+test('review router bounds a stalled AIHubMix preview and falls back', async () => {
+  const urls: string[] = [];
+  const { readable: stalled } = new TransformStream<Uint8Array, Uint8Array>();
+  const startedAt = Date.now();
+  const response = await handleReviewRouterRequest(request(), {
+    AIHUBMIX_API_KEY: 'aihubmix-key', OPENROUTER_API_KEY: 'router-token',
+    KANAREK_REVIEW_ROUTER_TIMEOUT_MS: '1000',
+  }, ((input: RequestInfo | URL) => {
+    urls.push(String(input));
+    if (urls.length === 1) return Promise.resolve(new Response(stalled, { status: 200 }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  const elapsedMs = Date.now() - startedAt;
+  assert.ok(elapsedMs >= 900 && elapsedMs < 2000);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.equal(urls.length, 2);
+});
+
 test('review router returns an upstream 400 as an invalid client request', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(

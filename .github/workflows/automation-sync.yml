@@ -130,8 +130,11 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
     steps:
-      - name: Sync operator credentials
+      - name: Sync Worker credentials
         shell: bash
         run: |
           set -euo pipefail
@@ -147,11 +150,35 @@ jobs:
 
           pathlib.Path(sys.argv[1]).write_text(
               json.dumps({
-                  "CLOUDFLARE_API_TOKEN": os.environ["CLOUDFLARE_API_TOKEN"],
-                  "CLOUDFLARE_ACCOUNT_ID": os.environ["CLOUDFLARE_ACCOUNT_ID"],
+                  **{
+                      "CLOUDFLARE_API_TOKEN": os.environ["CLOUDFLARE_API_TOKEN"],
+                      "CLOUDFLARE_ACCOUNT_ID": os.environ["CLOUDFLARE_ACCOUNT_ID"],
+                  },
+                  **{
+                      key: os.environ[key]
+                      for key in ("AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY")
+                      if os.environ.get(key)
+                  },
               }),
               encoding="utf-8",
           )
           PY
           chmod 600 "$secrets_file"
           npx --yes wrangler@4.127.1 secret bulk "$secrets_file" --name kanarek-companion
+
+          current_secrets="$(npx --yes wrangler@4.127.1 secret list --name kanarek-companion --format json)"
+          for key in AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY; do
+            if [ -n "${!key:-}" ]; then
+              continue
+            fi
+            if CURRENT_SECRETS="$current_secrets" SECRET_KEY="$key" python3 - <<'PY'
+          import json
+          import os
+
+          secrets = json.loads(os.environ["CURRENT_SECRETS"])
+          raise SystemExit(0 if any(item.get("name") == os.environ["SECRET_KEY"] for item in secrets) else 1)
+          PY
+            then
+              printf 'y\n' | npx --yes wrangler@4.127.1 secret delete "$key" --name kanarek-companion
+            fi
+          done

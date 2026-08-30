@@ -6,6 +6,10 @@ import {
   addAgentGuidanceOpenApi,
   handleAgentGuidanceAction,
 } from './agents-guidance-actions.ts';
+import {
+  handleReviewRouterRequest,
+  type ReviewRouterEnv,
+} from './review-router.ts';
 import router, {
   actionFetch,
   CommentProbeLock,
@@ -24,7 +28,7 @@ interface WorkerVersionMetadataLike {
   timestamp?: string;
 }
 
-type Env = RouterEnv & {
+type Env = RouterEnv & ReviewRouterEnv & {
   CF_VERSION_METADATA?: WorkerVersionMetadataLike;
 };
 
@@ -338,6 +342,8 @@ async function decoratedHealth(
 const worker = {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const reviewRouterResponse = await handleReviewRouterRequest(request, env);
+    if (reviewRouterResponse) return reviewRouterResponse;
     if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
       return json(gatewayOpenApi(url.origin));
     }

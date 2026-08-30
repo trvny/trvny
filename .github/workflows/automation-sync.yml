@@ -34,11 +34,6 @@ jobs:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
     steps:
-      - name: Checkout review caller
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
       - name: Sync review secrets and caller
         shell: bash
         run: |
@@ -47,7 +42,18 @@ jobs:
           : "${ORCAROUTER_API_KEY:?ORCAROUTER_API_KEY must be configured}"
           : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY must be configured}"
           : "${AIHUBMIX_API_KEY:?AIHUBMIX_API_KEY must be configured}"
-          caller=.github/workflows/kanarek-review.yml
+          source_repo="$GITHUB_REPOSITORY"
+          source_path=.github/workflows/kanarek-review.yml
+          source_branch=$(gh api "repos/$source_repo" --jq .default_branch)
+          source_blob_sha=$(gh api \
+            "repos/$source_repo/contents/$source_path?ref=$source_branch" \
+            --jq .sha)
+          caller=$(mktemp)
+          trap 'rm -f "$caller"' EXIT
+          gh api \
+            -H 'Accept: application/vnd.github.raw+json' \
+            "repos/$source_repo/contents/$source_path?ref=$source_branch" \
+            >"$caller"
           repos=(
             trvny/feedseek
             trvny/kanarek
@@ -100,6 +106,14 @@ jobs:
                   email: "314538226+gptomek[bot]@users.noreply.github.com"
                 }
               } + (if $sha == "" then {} else {sha: $sha} end)')
+            current_source_blob_sha=$(gh api \
+              "repos/$source_repo/contents/$source_path?ref=$source_branch" \
+              --jq .sha)
+            if [[ "$current_source_blob_sha" != "$source_blob_sha" ]]; then
+              echo "Review caller changed on $source_branch; a newer sync will handle rollout."
+              exit 0
+            fi
+
             printf '%s' "$payload" |
               gh api --method PUT \
                 "repos/$repo/contents/.github/workflows/kanarek-review.yml" \
@@ -123,7 +137,21 @@ jobs:
           set -euo pipefail
           : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
           : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
-          printf '%s' "$CLOUDFLARE_API_TOKEN" |
-            npx --yes wrangler@4.127.1 secret put CLOUDFLARE_API_TOKEN --name kanarek-companion
-          printf '%s' "$CLOUDFLARE_ACCOUNT_ID" |
-            npx --yes wrangler@4.127.1 secret put CLOUDFLARE_ACCOUNT_ID --name kanarek-companion
+          secrets_file=$(mktemp)
+          trap 'rm -f "$secrets_file"' EXIT
+          python3 - "$secrets_file" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          pathlib.Path(sys.argv[1]).write_text(
+              json.dumps({
+                  "CLOUDFLARE_API_TOKEN": os.environ["CLOUDFLARE_API_TOKEN"],
+                  "CLOUDFLARE_ACCOUNT_ID": os.environ["CLOUDFLARE_ACCOUNT_ID"],
+              }),
+              encoding="utf-8",
+          )
+          PY
+          chmod 600 "$secrets_file"
+          npx --yes wrangler@4.127.1 secret bulk "$secrets_file" --name kanarek-companion

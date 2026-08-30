@@ -4,12 +4,14 @@
   "version": "1.1.0",
   "description": "QR & Barcode Studio — static, client-side.",
   "scripts": {
-    "build:client": "npx --yes --package=typescript@7.0.2 tsc -p tsconfig.client.json",
+    "build:client": "tsc -p tsconfig.client.json",
     "build": "npm run build:client && node scripts/vendor.mjs && node scripts/portable.mjs",
-    "typecheck": "wrangler types && npx --yes --package=typescript@7.0.2 tsc --noEmit",
+    "typecheck": "wrangler types && tsc --noEmit",
     "check": "npm run build && npm run typecheck && node scripts/check.mjs",
     "dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:worker": "wrangler deploy",
+    "preview:worker": "wrangler versions upload"
   },
   "dependencies": {
     "@fontsource-variable/space-grotesk": "5.3.0",
@@ -19,6 +21,7 @@
     "zxing-wasm": "3.1.3"
   },
   "devDependencies": {
-    "wrangler": "^4"
+    "wrangler": "^4",
+    "typescript": "7.0.2"
   }
 }

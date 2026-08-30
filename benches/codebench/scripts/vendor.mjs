@@ -1,10 +1,10 @@
 import { mkdirSync, copyFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dependencyFile, workspaceDirectory } from "../../scripts/dependency-file.mjs";
 
 // Copy runtime libraries and fonts out of node_modules so production performs
 // no third-party CDN requests and remains usable offline after assets are cached.
-const root = dirname(fileURLToPath(import.meta.url)) + "/..";
+const root = workspaceDirectory(import.meta.url);
 
 const files = [
   ["qr-code-styling/lib/qr-code-styling.js", "public/vendor/qr-code-styling.js"],
@@ -22,6 +22,6 @@ const files = [
 for (const [from, to] of files) {
   const output = `${root}/${to}`;
   mkdirSync(dirname(output), { recursive: true });
-  copyFileSync(`${root}/node_modules/${from}`, output);
+  copyFileSync(dependencyFile(import.meta.url, from), output);
   console.log("vendored", to);
 }

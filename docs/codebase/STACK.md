@@ -17,9 +17,9 @@ This is an organizational monorepo, not a package-manager workspace. The root ha
 
 | Component | High-impact runtime dependencies | Role | Evidence |
 | --- | --- | --- | --- |
-| Codebench | `qr-code-styling` 1.9.2, `bwip-js` 4.11.4, `zxing-wasm` 3.1.3 | QR/barcode generation and scanning in-browser | `codebench/package.json` |
-| Docbench | `@cantoo/pdf-lib` 2.9.1, `pdfjs-dist` 6.2.108, `qpdf-run` 0.2.1, `marked` 18.0.10, `js-yaml` 5.3.0, `js-tiktoken` 1.0.21 | PDF/document parsing, mutation, rendering and token counting in-browser | `docbench/package.json` |
-| Streambench | `hls.js` 1.7.1 | Browser HLS playback | `streambench/package.json` |
+| Codebench | `qr-code-styling` 1.9.2, `bwip-js` 4.11.4, `zxing-wasm` 3.1.3 | QR/barcode generation and scanning in-browser | `benches/codebench/package.json` |
+| Docbench | `@cantoo/pdf-lib` 2.9.1, `pdfjs-dist` 6.2.108, `qpdf-run` 0.2.1, `marked` 18.0.10, `js-yaml` 5.3.0, `js-tiktoken` 1.0.21 | PDF/document parsing, mutation, rendering and token counting in-browser | `benches/docbench/package.json` |
+| Streambench | `hls.js` 1.7.1 | Browser HLS playback | `benches/streambench/package.json` |
 | Weather, Status MCP, Kanarek | No production npm packages; platform Web APIs and Cloudflare bindings | Edge services | respective `package.json` files |
 | Xiaomi ADB Tools | JavaFX 21.0.12, `kotlinx-coroutines-javafx` 1.11.0 | Desktop UI and asynchronous device commands | `xiaomi-adb-tools/build.gradle` |
 
@@ -38,9 +38,7 @@ Fontsource packages are runtime build inputs for Codebench/Docbench, copied into
 ## 4) Key Commands
 
 ```bash
-(cd codebench && npm ci && npm run check)
-(cd docbench && npm ci && npm run check)
-(cd streambench && npm ci && npm run check)
+(cd benches && npm ci && npm run check)
 (cd weather-feed && npm ci && npm run check)
 (cd gh-apps/kanarek-companion && npm ci && npm run check)
 (cd mcp/status-mcp && npm ci && npm run typecheck)
@@ -55,7 +53,7 @@ Fontsource packages are runtime build inputs for Codebench/Docbench, copied into
 
 ## 6) Evidence
 
-- `codebench/package.json`, `docbench/package.json`, `streambench/package.json`
+- `benches/codebench/package.json`, `benches/docbench/package.json`, `benches/streambench/package.json`
 - `weather-feed/package.json`, `mcp/status-mcp/package.json`, `gh-apps/kanarek-companion/package.json`
 - `xiaomi-adb-tools/build.gradle`, `xiaomi-adb-tools/gradle/wrapper/gradle-wrapper.properties`
 - `.github/workflows/benches-release.yml`, `.gitmodules`

@@ -28,7 +28,7 @@ User documents and PDFs are processed locally in the browser. The application ha
 ## Public pages
 
 - [Application](https://docbench.travny.workers.dev/): Doc Bench interface.
-- [Source](https://github.com/trvny/trvny/tree/main/docbench): application source and documentation.
+- [Source](https://github.com/trvny/trvny/tree/main/benches/docbench): application source and documentation.
 - [Benches portable release](https://github.com/trvny/trvny/releases/tag/benches-portable-latest): rolling standalone builds.
 
 ## Related TRAVNY tools

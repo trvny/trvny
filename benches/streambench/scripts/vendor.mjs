@@ -1,8 +1,9 @@
 import { copyFile, mkdir } from "node:fs/promises";
+import { dependencyFile } from "../../scripts/dependency-file.mjs";
 
 await mkdir(new URL("../public/vendor/", import.meta.url), { recursive: true });
 await copyFile(
-  new URL("../node_modules/hls.js/dist/hls.min.js", import.meta.url),
+  dependencyFile(import.meta.url, "hls.js/dist/hls.min.js"),
   new URL("../public/vendor/hls.min.js", import.meta.url),
 );
 

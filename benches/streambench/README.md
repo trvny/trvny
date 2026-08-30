@@ -1,4 +1,4 @@
-# [![Streambench](https://streambench.travny.workers.dev/favicon-96x96.png)](https://streambench.travny.workers.dev)
+# [![Streambench](https://streambench.trfny.com/favicon-96x96.png)](https://streambench.trfny.com)
 
 Browser-based workshop for testing IPTV, radio and other media streams.
 
@@ -75,8 +75,9 @@ fixed Worker registry; these endpoints are not a general remote fetcher.
 ## Development
 
 ```sh
-npm install
-npm run dev
+cd benches
+npm ci
+npm run dev --workspace=streambench
 ```
 
 The bundled IPTV and radio sources are maintained in `public/playlists/`.
@@ -93,22 +94,24 @@ npm run check
 
 ## Deploy via Cloudflare Workers Builds
 
-This project lives in the `trvny/trvny` monorepo under `streambench/`.
+This project lives in the `trvny/trvny` monorepo under `benches/streambench/`.
 
 1. In Cloudflare Workers & Pages create a Worker by importing `trvny/trvny`.
-2. Set the Worker name to `streambench` and root directory to `streambench`.
-3. Use `npm run build` as the build command.
-4. Use `npx wrangler deploy` as the deploy command.
-5. Add `streambench/**` to the build watch includes.
-6. Add `*.md` to the build watch excludes.
-7. Add `STREAMBENCH_RELAY_SECRET` as a secret with at least 32 random
+2. Set the Worker name to `streambench` and root directory to `benches`.
+3. Use `npm run build:streambench` as the build command.
+4. Use `npm run deploy:streambench` as the deploy command.
+5. Use `npm run preview:streambench` as the non-production deploy command.
+6. Add `benches/streambench/*`, `benches/package.json` and `benches/package-lock.json` to build watch includes.
+7. Add `*.md` to the build watch excludes.
+8. Add `STREAMBENCH_RELAY_SECRET` as a secret with at least 32 random
    characters.
 
 A local authenticated deployment uses:
 
 ```sh
-npx wrangler secret put STREAMBENCH_RELAY_SECRET
-npm run deploy
+cd benches
+npm exec --workspace=streambench -- wrangler secret put STREAMBENCH_RELAY_SECRET
+npm run deploy --workspace=streambench
 ```
 
 ## Production smoke test

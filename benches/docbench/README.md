@@ -19,10 +19,17 @@ foreign extension blocks intact.
 ## Local
 
 ```sh
-cd docbench
+cd benches
 npm ci
-npm run dev
+npm run dev --workspace=docbench
 ```
 
 `npm run build` vendors browser dependencies and creates
 `public/portable.html`.
+
+## Deploy via Cloudflare Workers Builds
+
+Use `benches` as the root directory, `npm run build:docbench` as the build
+command, `npm run deploy:docbench` as the deploy command and
+`npm run preview:docbench` for non-production branches. Build watch includes
+should cover `benches/docbench/*`, `benches/package.json` and `benches/package-lock.json`; exclude `*.md`.

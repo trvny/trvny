@@ -1,6 +1,6 @@
-# [Code Bench — QR & Barcode Studio](https://codebench.travny.workers.dev)
+# [Code Bench — QR & Barcode Studio](https://codebench.trfny.com)
 
-[![codebench](public/apple-touch-icon.png)](https://codebench.travny.workers.dev)
+[![codebench](public/apple-touch-icon.png)](https://codebench.trfny.com)
 
 Client-side QR and barcode studio. The UI remains a single HTML document,
 while a small Cloudflare Worker wraps static assets with security headers,
@@ -13,17 +13,18 @@ requests.
 
 ## Deploy via Cloudflare Workers Builds
 
-This lives in the `trvny/trvny` monorepo under `codebench/`.
+This lives in the `trvny/trvny` monorepo under `benches/codebench/`.
 
 1. Cloudflare dashboard → **Workers & Pages** → **Create** →
    **Import a repository**.
 2. Connect GitHub and select **trvny/trvny**.
 3. Configure:
    - **Worker name:** `codebench`
-   - **Root directory:** `codebench`
-   - **Build command:** `npm run build`
-   - **Deploy command:** `npx wrangler deploy`
-4. Set the build watch include to `codebench/*` and exclude to `*.md`.
+   - **Root directory:** `benches`
+   - **Build command:** `npm run build:codebench`
+   - **Deploy command:** `npm run deploy:codebench`
+   - **Preview deploy command:** `npm run preview:codebench`
+4. Set build watch includes to `benches/codebench/*`, `benches/package.json` and `benches/package-lock.json`; exclude `*.md`.
 5. Deploy.
 
 The camera scanner needs HTTPS or localhost.
@@ -31,9 +32,9 @@ The camera scanner needs HTTPS or localhost.
 ## Local
 
 ```sh
-cd codebench
-npm install
-npm run dev
+cd benches
+npm ci
+npm run dev --workspace=codebench
 ```
 
 `npm run build` also generates `public/portable.html`: a single-file build with

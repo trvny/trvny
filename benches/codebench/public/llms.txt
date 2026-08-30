@@ -14,7 +14,7 @@ Code Bench runs at https://codebench.trfny.com/. User content is processed in th
 ## Public pages
 
 - [Application](https://codebench.trfny.com/): Code Bench interface.
-- [Source](https://github.com/trvny/trvny/tree/main/codebench): application source.
+- [Source](https://github.com/trvny/trvny/tree/main/benches/codebench): application source.
 
 ## Related TRAVNY tools
 

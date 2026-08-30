@@ -7,7 +7,7 @@
   const removeButton = document.querySelector("#qLogoRemove");
   if (typeof originalQrOptions !== "function" || typeof originalRenderQR !== "function" || !fileInput) return;
 
-  // Icon paths are from Lucide Icons (ISC). See codebench/THIRD_PARTY_NOTICES.md.
+  // Icon paths are from Lucide Icons (ISC). See benches/codebench/THIRD_PARTY_NOTICES.md.
   const icons = {
     link: {
       label: "Link",

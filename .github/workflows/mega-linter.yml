@@ -55,16 +55,19 @@ jobs:
             streambench=true
             docbench=true
           else
-            if ! git diff --quiet "$BASE_SHA" HEAD -- codebench/; then
+            if ! git diff --quiet "$BASE_SHA" HEAD -- benches/codebench/; then
               codebench=true
             fi
-            if ! git diff --quiet "$BASE_SHA" HEAD -- streambench/; then
+            if ! git diff --quiet "$BASE_SHA" HEAD -- benches/streambench/; then
               streambench=true
             fi
-            if ! git diff --quiet "$BASE_SHA" HEAD -- docbench/; then
+            if ! git diff --quiet "$BASE_SHA" HEAD -- benches/docbench/; then
               docbench=true
             fi
             if ! git diff --quiet "$BASE_SHA" HEAD -- \
+              benches/package.json \
+              benches/package-lock.json \
+              benches/scripts/ \
               .github/workflows/benches-release.yml \
               .github/workflows/mega-linter.yml; then
               codebench=true
@@ -88,37 +91,36 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: |
-            codebench/package-lock.json
-            streambench/package-lock.json
-            docbench/package-lock.json
+          cache-dependency-path: benches/package-lock.json
+
+      - name: Install Bench dependencies
+        if: >-
+          steps.benches.outputs.codebench == 'true' ||
+          steps.benches.outputs.streambench == 'true' ||
+          steps.benches.outputs.docbench == 'true'
+        working-directory: benches
+        run: npm ci
 
       - name: Check codebench
         id: codebench
         if: steps.benches.outputs.codebench == 'true'
         continue-on-error: true
-        working-directory: codebench
-        run: |
-          npm ci
-          npm run check
+        working-directory: benches
+        run: npm run check:codebench
 
       - name: Check streambench
         id: streambench
         if: steps.benches.outputs.streambench == 'true'
         continue-on-error: true
-        working-directory: streambench
-        run: |
-          npm ci
-          npm run check
+        working-directory: benches
+        run: npm run check:streambench
 
       - name: Check docbench
         id: docbench
         if: steps.benches.outputs.docbench == 'true'
         continue-on-error: true
-        working-directory: docbench
-        run: |
-          npm ci
-          npm run check
+        working-directory: benches
+        run: npm run check:docbench
 
       - name: Gate bench checks
         if: >-

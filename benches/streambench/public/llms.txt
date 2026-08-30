@@ -19,7 +19,7 @@ Streambench runs at https://streambench.trfny.com/. Local playlist files, XMLTV 
 - [Application](https://streambench.trfny.com/): Streambench interface.
 - [Health](https://streambench.trfny.com/health): service health JSON.
 - [Provider manifest](https://streambench.trfny.com/api/providers): available public provider definitions.
-- [Source](https://github.com/trvny/trvny/tree/main/streambench): application source.
+- [Source](https://github.com/trvny/trvny/tree/main/benches/streambench): application source.
 
 ## Related TRAVNY tools
 

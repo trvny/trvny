@@ -3,6 +3,12 @@ export const REVIEW_ROUTER_PATH = '/review-router/v1/chat/completions';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
+const SOFT_FAILURE_PREVIEW_BYTES = 8_192;
+const AIHUBMIX_RETRYABLE_MESSAGES = [
+  'to prevent abuse of free resources',
+  'accounts that have not been recharged can only try',
+  'increase the free quota after recharging',
+] as const;
 
 export interface ReviewRouterEnv {
   AIHUBMIX_API_KEY?: string;
@@ -118,6 +124,59 @@ async function discard(response: Response): Promise<void> {
   }
 }
 
+function readPreviewChunk(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  deadlineAt: number,
+): Promise<ReadableStreamReadResult<Uint8Array> | null> {
+  const remainingMs = deadlineAt - Date.now();
+  if (remainingMs <= 0) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(null);
+    }, remainingMs);
+    const finish = (result: ReadableStreamReadResult<Uint8Array> | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+    reader.read().then((result) => finish(result), () => finish(null));
+  });
+}
+
+async function responsePreview(response: Response, deadlineAt: number): Promise<string | null> {
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  try {
+    reader = response.clone().body?.getReader();
+    if (!reader) return '';
+    const decoder = new TextDecoder();
+    let preview = '';
+    while (preview.length < SOFT_FAILURE_PREVIEW_BYTES) {
+      const chunk = await readPreviewChunk(reader, deadlineAt);
+      if (!chunk) return null;
+      const { done, value } = chunk;
+      if (done) break;
+      preview += decoder.decode(value, { stream: true });
+      if (/(?:\r\n|\r|\n){2}/.test(preview)) break;
+    }
+    return preview.slice(0, SOFT_FAILURE_PREVIEW_BYTES);
+  } catch {
+    return null;
+  } finally {
+    reader?.cancel().catch(() => {
+      // Best-effort preview cleanup; do not block the original tee branch.
+    });
+  }
+}
+
+function isAIHubMixSoftFailure(preview: string): boolean {
+  const normalized = preview.toLowerCase();
+  return AIHUBMIX_RETRYABLE_MESSAGES.some((message) => normalized.includes(message));
+}
+
 export async function handleReviewRouterRequest(
   request: Request,
   env: ReviewRouterEnv,
@@ -143,7 +202,9 @@ export async function handleReviewRouterRequest(
     if (!apiKey) continue;
     configured += 1;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs(env));
+    const providerTimeoutMs = timeoutMs(env);
+    const deadlineAt = Date.now() + providerTimeoutMs;
+    const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
     try {
       const response = await fetcher(provider.url, {
         method: 'POST',
@@ -155,13 +216,32 @@ export async function handleReviewRouterRequest(
         body: JSON.stringify({ ...input, model: provider.model }),
         signal: controller.signal,
       });
-      clearTimeout(timeout);
-
       if (response.ok) {
+        if (provider.id === 'aihubmix') {
+          const preview = await responsePreview(response, deadlineAt);
+          clearTimeout(timeout);
+          if (preview === null) {
+            await discard(response);
+            console.warn(JSON.stringify({
+              kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'preview_timeout',
+            }));
+            continue;
+          }
+          if (isAIHubMixSoftFailure(preview)) {
+            await discard(response);
+            console.warn(JSON.stringify({
+              kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'soft_quota',
+            }));
+            continue;
+          }
+        } else {
+          clearTimeout(timeout);
+        }
         console.info(JSON.stringify({ kanarekReviewRouter: 'selected', provider: provider.id }));
         return upstreamResponse(response, provider);
       }
 
+      clearTimeout(timeout);
       const status = response.status;
       await discard(response);
       if (status === 400) {

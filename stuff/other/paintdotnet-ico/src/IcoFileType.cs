@@ -11,24 +11,6 @@ namespace Travny.PaintDotNetIco;
 [PluginSupportInfo(typeof(PluginSupportInfo))]
 public sealed class IcoFileType : PropertyBasedFileType
 {
-    private const string PreserveAspectRatio = "Preserve aspect ratio";
-    private const string Size16 = "16 x 16";
-    private const string Size20 = "20 x 20";
-    private const string Size24 = "24 x 24";
-    private const string Size32 = "32 x 32";
-    private const string Size40 = "40 x 40";
-    private const string Size48 = "48 x 48";
-    private const string Size64 = "64 x 64";
-    private const string Size128 = "128 x 128";
-    private const string Size256 = "256 x 256";
-
-    private static readonly (string Name, int Size)[] SizeProperties =
-    {
-        (Size16, 16), (Size20, 20), (Size24, 24),
-        (Size32, 32), (Size40, 40), (Size48, 48),
-        (Size64, 64), (Size128, 128), (Size256, 256)
-    };
-
     public IcoFileType()
         : base(
             "Windows Icon",
@@ -46,10 +28,10 @@ public sealed class IcoFileType : PropertyBasedFileType
     {
         var properties = new List<Property>
         {
-            new BooleanProperty(PreserveAspectRatio, true)
+            new BooleanProperty(IcoExportOptions.PreserveAspectRatio, true)
         };
 
-        foreach ((string name, int _) in SizeProperties)
+        foreach ((string name, int _) in IcoExportOptions.Sizes)
         {
             properties.Add(new BooleanProperty(name, true));
         }
@@ -158,8 +140,8 @@ public sealed class IcoFileType : PropertyBasedFileType
         scratchSurface.Clear();
         input.CreateRenderer().Render(scratchSurface);
 
-        var sizes = new List<int>(SizeProperties.Length);
-        foreach ((string name, int size) in SizeProperties)
+        var sizes = new List<int>(IcoExportOptions.Sizes.Length);
+        foreach ((string name, int size) in IcoExportOptions.Sizes)
         {
             if (Convert.ToBoolean(token.GetProperty(name)!.Value))
             {
@@ -172,7 +154,7 @@ public sealed class IcoFileType : PropertyBasedFileType
             throw new InvalidOperationException("Select at least one icon size before saving.");
         }
 
-        bool preserve = Convert.ToBoolean(token.GetProperty(PreserveAspectRatio)!.Value);
+        bool preserve = Convert.ToBoolean(token.GetProperty(IcoExportOptions.PreserveAspectRatio)!.Value);
         using Bitmap source = scratchSurface.CreateAliasedBitmap();
         IcoEncoder.Write(output, source, sizes, preserve,
             percent => progressCallback(null, new ProgressEventArgs(percent)));

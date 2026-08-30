@@ -16,15 +16,7 @@ namespace Travny.PaintDotNetIco;
 
 public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInfoProvider
 {
-    private const string PreserveAspectRatio = "Preserve aspect ratio";
     private readonly IUISynchronizationContext uiContext;
-    private static readonly (string Name, int Size)[] SizeProperties =
-    {
-        ("16 x 16", 16), ("20 x 20", 20), ("24 x 24", 24),
-        ("32 x 32", 32), ("40 x 40", 40), ("48 x 48", 48),
-        ("64 x 64", 64), ("128 x 128", 128), ("256 x 256", 256)
-    };
-
     public IcoFileTypeModern(IFileTypeHost host)
         : base(host, "Windows Icon", FileTypeOptions.Create() with
         {
@@ -179,10 +171,10 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
         {
             var properties = new List<Property>
             {
-                new BooleanProperty(PreserveAspectRatio, true)
+                new BooleanProperty(IcoExportOptions.PreserveAspectRatio, true)
             };
 
-            foreach ((string name, int _) in SizeProperties)
+            foreach ((string name, int _) in IcoExportOptions.Sizes)
             {
                 properties.Add(new BooleanProperty(name, true));
             }
@@ -192,8 +184,8 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
 
         protected override void OnSave(IPropertyBasedFileTypeSaveContext context)
         {
-            var sizes = new List<int>(SizeProperties.Length);
-            foreach ((string name, int size) in SizeProperties)
+            var sizes = new List<int>(IcoExportOptions.Sizes.Length);
+            foreach ((string name, int size) in IcoExportOptions.Sizes)
             {
                 if (Convert.ToBoolean(context.Options.GetProperty(name)!.Value))
                 {
@@ -207,7 +199,7 @@ public sealed class IcoFileTypeModern : PropertyBasedFileType, IPluginSupportInf
             }
 
             bool preserve = Convert.ToBoolean(
-                context.Options.GetProperty(PreserveAspectRatio)!.Value);
+                context.Options.GetProperty(IcoExportOptions.PreserveAspectRatio)!.Value);
             using IFileTypeCompositeBitmap<ColorBgra32> composite =
                 context.Document.GetCompositeBitmapBgra32();
             using Bitmap source = CopyCompositeToBitmap(composite);

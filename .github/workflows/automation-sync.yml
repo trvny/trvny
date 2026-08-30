@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: automation-sync-${{ github.event_name }}-${{ inputs.target || 'review' }}
+  group: automation-sync
   cancel-in-progress: false
 
 jobs:

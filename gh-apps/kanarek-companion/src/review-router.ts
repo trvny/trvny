@@ -132,14 +132,17 @@ function readPreviewChunk(
   if (remainingMs <= 0) return Promise.resolve(null);
   return new Promise((resolve) => {
     let settled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(null);
+    }, remainingMs);
     const finish = (result: ReadableStreamReadResult<Uint8Array> | null) => {
       if (settled) return;
       settled = true;
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
       resolve(result);
     };
-    timer = setTimeout(() => finish(null), remainingMs);
     reader.read().then((result) => finish(result), () => finish(null));
   });
 }

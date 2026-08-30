@@ -124,21 +124,22 @@ async function discard(response: Response): Promise<void> {
   }
 }
 
-async function readPreviewChunk(
+function readPreviewChunk(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   deadlineAt: number,
 ): Promise<ReadableStreamReadResult<Uint8Array> | null> {
   const remainingMs = deadlineAt - Date.now();
-  if (remainingMs <= 0) return null;
+  if (remainingMs <= 0) return Promise.resolve(null);
   return new Promise((resolve) => {
     let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const finish = (result: ReadableStreamReadResult<Uint8Array> | null) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       resolve(result);
     };
-    const timer = setTimeout(() => finish(null), remainingMs);
+    timer = setTimeout(() => finish(null), remainingMs);
     reader.read().then((result) => finish(result), () => finish(null));
   });
 }

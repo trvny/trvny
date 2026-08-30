@@ -135,7 +135,7 @@ test('review router recognizes CRLF SSE boundaries without buffering the stream'
 
 test('review router bounds a stalled AIHubMix preview and falls back', async () => {
   const urls: string[] = [];
-  const stalled = new ReadableStream<Uint8Array>({ start() {} });
+  const { readable: stalled } = new TransformStream<Uint8Array, Uint8Array>();
   const startedAt = Date.now();
   const response = await handleReviewRouterRequest(request(), {
     AIHUBMIX_API_KEY: 'aihubmix-key', OPENROUTER_API_KEY: 'router-token',

@@ -35,6 +35,10 @@ companion.
   KV bank, and optional AI readiness.
 - `POST /webhooks/github` verifies `X-Hub-Signature-256` before accepting a
   delivery.
+- `POST /review-router/v1/chat/completions` is the private OpenAI-compatible
+  transport for free PR review. It authenticates with the synchronized router
+  bearer and falls through AIHubMix, OpenRouter, then OrcaRouter before a
+  successful upstream response starts streaming.
 
 PR, review, completed CI/check-suite, and commit-status events refresh the
 affected pull request. A per-PR Durable Object serializes overlapping
@@ -204,9 +208,11 @@ workers.dev state, and updates to existing routes or DNS records. Mutation
 calls require fresh expected IDs, state, or snapshot hashes so stale reads fail
 closed. The gateway never returns Worker secret values or Pages build variables.
 
-`automation-sync.yml` can copy the existing repository
-`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` Actions secrets into the
-`kanarek-companion` Worker. It is manual-only and does not print their values.
+`automation-sync.yml` can copy the existing repository Cloudflare credentials
+and the AIHubMix/OpenRouter/OrcaRouter review credentials into the
+`kanarek-companion` Worker. Its Cloudflare target is manual-only and never prints
+secret values. The review router reuses `OPENROUTER_API_KEY` as its private
+bearer; its upstream provider credentials stay centralized in the Worker.
 
 ## Secrets
 
@@ -220,6 +226,7 @@ Optional AI secrets:
 
 - `OPENROUTER_API_KEY`
 - `ORCAROUTER_API_KEY`
+- `AIHUBMIX_API_KEY` for the free review router
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `GEMINI_API_KEY`

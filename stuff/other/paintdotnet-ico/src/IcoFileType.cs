@@ -34,7 +34,7 @@ public sealed class IcoFileType : PropertyBasedFileType
             "Windows Icon",
             new FileTypeOptions
             {
-                LoadExtensions = Array.Empty<string>(),
+                LoadExtensions = new[] { ".ico" },
                 SaveExtensions = new[] { ".ico" },
                 SupportsCancellation = false,
                 SupportsLayers = false
@@ -57,8 +57,11 @@ public sealed class IcoFileType : PropertyBasedFileType
         return new PropertyCollection(properties);
     }
 
-    protected override Document OnLoad(Stream input) =>
-        throw new NotSupportedException("ICO loading is not supported yet.");
+    protected override Document OnLoad(Stream input)
+    {
+        using Bitmap bitmap = IcoDecoder.ReadLargestBitmap(input);
+        return Document.FromImage(bitmap);
+    }
 
     protected override void OnSaveT(
         Document input,

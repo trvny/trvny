@@ -115,6 +115,9 @@ jobs:
           EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
         run: |
           set -euo pipefail
+          GH_HOST="${GITHUB_SERVER_URL#https://}"
+          GH_HOST="${GH_HOST#http://}"
+          export GH_HOST
           pr="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
           current=false
           if jq -e \
@@ -140,6 +143,9 @@ jobs:
           EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
         run: |
           set -euo pipefail
+          GH_HOST="${GITHUB_SERVER_URL#https://}"
+          GH_HOST="${GH_HOST#http://}"
+          export GH_HOST
           pr="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
           jq -e \
             --arg head "$EXPECTED_HEAD_SHA" \

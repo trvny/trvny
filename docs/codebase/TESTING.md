@@ -9,9 +9,7 @@
 ```bash
 cd gh-apps/kanarek-companion && npm run check
 cd weather-feed && npm run check
-cd codebench && npm run check
-cd streambench && npm run check
-cd docbench && npm run check
+cd benches && npm ci && npm run check
 cd mcp/status-mcp && npm run typecheck
 # Xiaomi: CI runs ./gradlew jar; agent instructions prohibit local Gradle execution.
 ```
@@ -22,7 +20,7 @@ There is no root `test`/`check` command and no repo-wide test runner.
 
 - Kanarek: `gh-apps/kanarek-companion/test/*.test.ts`, using native Node tests and explicit network/runtime fakes.
 - Weather: `weather-feed/test/*.test.ts`, using native Node tests via `tsx`.
-- Docbench: `docbench/tests/*.test.mjs` plus focused check scripts; many tests execute assertions directly rather than registering runner cases.
+- Docbench: `benches/docbench/tests/*.test.mjs` plus focused check scripts; many tests execute assertions directly rather than registering runner cases.
 - Codebench and Streambench: focused invariant scripts under `scripts/`, commonly named `*-check.mjs`.
 - No shared repo-level setup/fixture package was found.
 
@@ -55,7 +53,7 @@ status-mcp has no behavior test script; its CI currently runs TypeScript only. X
 
 - `gh-apps/kanarek-companion/package.json`, `gh-apps/kanarek-companion/test/webhook.test.ts`, `gh-apps/kanarek-companion/test/cloudflare-actions.test.ts`
 - `weather-feed/package.json`, `weather-feed/test/weather.test.ts`
-- `docbench/package.json`, `docbench/tests/pdf-core.test.mjs`
-- `codebench/scripts/privacy-check.mjs`, `streambench/scripts/relay-core-check.mjs`
+- `benches/docbench/package.json`, `benches/docbench/tests/pdf-core.test.mjs`
+- `benches/codebench/scripts/privacy-check.mjs`, `benches/streambench/scripts/relay-core-check.mjs`
 - `.github/workflows/kanarek-companion-ci.yml`, `.github/workflows/weather-ci.yml`, `.github/workflows/status-mcp-ci.yml`
 - `.github/workflows/benches-release.yml`, `.github/workflows/xiaomi-adb-tools-ci.yml`

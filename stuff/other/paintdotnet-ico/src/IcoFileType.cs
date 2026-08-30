@@ -36,7 +36,7 @@ public sealed class IcoFileType : PropertyBasedFileType
             {
                 LoadExtensions = Array.Empty<string>(),
                 SaveExtensions = new[] { ".ico" },
-                SupportsCancellation = true,
+                SupportsCancellation = false,
                 SupportsLayers = false
             })
     {

@@ -31,6 +31,7 @@ engine:
     COPILOT_PROVIDER_TYPE: openai
     COPILOT_PROVIDER_WIRE_API: completions
 model: coding-glm-5.3-free
+inlined-imports: true
 
 models:
   providers:

@@ -59,6 +59,7 @@ checkout:
 tools:
   github:
     toolsets: [pull_requests]
+    allowed-repos: ${{ github.repository }}
     min-integrity: approved
 
 steps:
@@ -88,13 +89,25 @@ steps:
         exit 0
       fi
 
-      gh api \
-        -H 'Accept: application/vnd.github.v3.diff' \
-        "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
-        > "$context_dir/pr.diff"
-      gh api --paginate --slurp \
-        "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
-        | jq 'add' > "$context_dir/files.json"
+      git diff --no-ext-diff --find-renames \
+        "$EXPECTED_BASE_SHA...$EXPECTED_HEAD_SHA" > "$context_dir/pr.diff"
+      git diff --name-only "$EXPECTED_BASE_SHA...$EXPECTED_HEAD_SHA" \
+        | jq -R -s 'split("\n") | map(select(length > 0)) | map({filename: .})' \
+        > "$context_dir/files.json"
+
+      gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+        > "$context_dir/pr-after.json"
+      if ! jq -e \
+        --arg head "$EXPECTED_HEAD_SHA" \
+        --arg base "$EXPECTED_BASE_SHA" \
+        '.state == "open" and .draft == false and
+         .head.sha == $head and .base.sha == $base' \
+        "$context_dir/pr-after.json" > /dev/null; then
+        echo '{"type":"noop","message":"Pull request changed during snapshot"}' \
+          >> "$GH_AW_SAFE_OUTPUTS"
+        exit 0
+      fi
+      mv "$context_dir/pr-after.json" "$context_dir/pr.json"
 
 jobs:
   validate_review_target:

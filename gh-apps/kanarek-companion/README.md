@@ -204,7 +204,7 @@ workers.dev state, and updates to existing routes or DNS records. Mutation
 calls require fresh expected IDs, state, or snapshot hashes so stale reads fail
 closed. The gateway never returns Worker secret values or Pages build variables.
 
-`gremlin-cloudflare-secrets-sync.yml` copies the existing repository
+`automation-sync.yml` can copy the existing repository
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` Actions secrets into the
 `kanarek-companion` Worker. It is manual-only and does not print their values.
 

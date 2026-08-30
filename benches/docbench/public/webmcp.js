@@ -1,5 +1,6 @@
+"use strict";
+
 (() => {
-  "use strict";
 
   const context = document.modelContext;
   if (!context?.registerTool) return;
@@ -7,14 +8,16 @@
   const lifecycle = new AbortController();
   const register = (tool) => {
     try {
-      void Promise.resolve(context.registerTool(tool, { signal: lifecycle.signal }))
+      Promise.resolve(context.registerTool(tool, { signal: lifecycle.signal }))
         .catch((error) => console.warn("Docbench WebMCP registration failed", error));
     } catch (error) {
       console.warn("Docbench WebMCP registration failed", error);
     }
   };
 
-  window.addEventListener("pagehide", () => lifecycle.abort(), { once: true });
+  window.addEventListener("pagehide", (event) => {
+    if (!event.persisted) lifecycle.abort();
+  });
 
   const editor = document.querySelector("#editor");
   const formatSelect = document.querySelector("#format-select");
@@ -72,12 +75,19 @@
       additionalProperties: false,
     },
     annotations: { readOnlyHint: false, untrustedContentHint: true },
-    execute({ text, format }) {
+    execute({ text, format } = {}) {
+      if (typeof text !== "string" || text.length > 500000) {
+        return { ok: false, error: "text must be a string of at most 500000 characters." };
+      }
+      const allowedFormats = new Set(["txt", "md", "json", "yaml", "xml"]);
+      if (format !== undefined && !allowedFormats.has(format)) {
+        return { ok: false, error: "format must be txt, md, json, yaml or xml." };
+      }
       if (format) {
         formatSelect.value = format;
         formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      editor.value = String(text ?? "");
+      editor.value = text;
       editor.dispatchEvent(new Event("input", { bubbles: true }));
       document.querySelector("#validate-button")?.click();
       return snapshot({ includeText: true });

@@ -14,59 +14,21 @@ on:
         description: Base SHA captured with the review request
         required: true
         type: string
-      provider:
-        description: Provider id (openrouter, orca, aihubmix, gemini)
-        required: true
-        type: string
     secrets:
-      OPENROUTER_API_KEY:
-        required: false
-      ORCAROUTER_API_KEY:
-        required: false
-      AIHUBMIX_API_KEY:
-        required: false
       GEMINI_API_KEY:
-        required: false
+        required: true
 
-run-name: Kanarek review · #${{ inputs.pr_number }} · ${{ inputs.provider }}
+run-name: Kanarek review · #${{ inputs.pr_number }} · Gemini
 
 timeout-minutes: 30
 
 engine:
-  id: copilot
-  env:
-    COPILOT_PROVIDER_BASE_URL: ${{ inputs.provider == 'openrouter' && 'https://openrouter.ai/api/v1' || inputs.provider == 'orca' && 'https://api.orcarouter.ai/v1' || inputs.provider == 'aihubmix' && 'https://aihubmix.com/v1' || inputs.provider == 'gemini' && 'https://generativelanguage.googleapis.com/v1beta/openai/' || '' }}
-    COPILOT_PROVIDER_API_KEY: ${{ inputs.provider == 'openrouter' && secrets.OPENROUTER_API_KEY || inputs.provider == 'orca' && secrets.ORCAROUTER_API_KEY || inputs.provider == 'aihubmix' && secrets.AIHUBMIX_API_KEY || inputs.provider == 'gemini' && secrets.GEMINI_API_KEY || '' }}
-    COPILOT_MODEL: ${{ inputs.provider == 'openrouter' && 'openrouter/free' || inputs.provider == 'orca' && 'deepseek/deepseek-v4-flash-free' || inputs.provider == 'aihubmix' && 'coding-glm-5.3-free' || inputs.provider == 'gemini' && 'gemini-2.5-flash' || '' }}
-    COPILOT_PROVIDER_TYPE: openai
-    COPILOT_PROVIDER_WIRE_API: completions
-model: ${{ inputs.provider == 'openrouter' && 'openrouter/free' || inputs.provider == 'orca' && 'deepseek/deepseek-v4-flash-free' || inputs.provider == 'aihubmix' && 'coding-glm-5.3-free' || inputs.provider == 'gemini' && 'gemini-2.5-flash' || '' }}
-
-models:
-  providers:
-    github-copilot:
-      models:
-        "openrouter/free":
-          cost:
-            input: "0e0"
-            output: "0e0"
-        "deepseek/deepseek-v4-flash-free":
-          cost:
-            input: "0e0"
-            output: "0e0"
-        "coding-glm-5.3-free":
-          cost:
-            input: "0e0"
-            output: "0e0"
-        "gemini-2.5-flash":
-          cost:
-            input: "3e-7"
-            output: "2.5e-6"
+  id: gemini
+model: gemini-2.5-flash
 
 network:
   allowed:
     - defaults
-  allowed-input: true
 
 permissions:
   contents: read
@@ -82,32 +44,11 @@ tools:
     toolsets: [repos, pull_requests]
     min-integrity: approved
 
-jobs:
-  safe_outputs:
-    pre-steps:
-      - name: Load resolved review model
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          pattern: "${{ needs.activation.outputs.artifact_prefix }}agent"
-          merge-multiple: true
-          path: "${{ runner.temp }}/gh-aw/review-model"
-      - name: Export resolved review model
-        shell: bash
-        run: |
-          usage="${RUNNER_TEMP}/gh-aw/review-model/agent_usage.json"
-          if [ -f "$usage" ]; then
-            model="$(node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1], "utf8")); process.stdout.write(x.primary_model || "")' "$usage")"
-            if [ -n "$model" ]; then
-              echo "GH_AW_PRIMARY_MODEL=$model" >> "$GITHUB_ENV"
-            fi
-          fi
-
 safe-outputs:
   report-failure-as-issue: false
   report-failed-jobs: false
   messages:
-    footer: "> <sub>模型：{ai_model} · ${{ inputs.provider }}</sub>"
+    footer: "> <sub>模型：Gemini 2.5 Flash</sub>"
   missing-data:
     create-issue: false
   missing-tool:

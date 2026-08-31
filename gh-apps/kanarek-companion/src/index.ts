@@ -174,13 +174,18 @@ function webhookMetadata(
   };
 }
 
-function repositoryAllowed(env: Env, repository: string | null): boolean {
+export function repositoryAllowed(env: Env, repository: string | null): boolean {
   if (!repository) return false;
   const configured = String(env.KANAREK_REPOSITORIES ?? 'trvny/trvny')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
-  return configured.includes(repository);
+  return configured.some((entry) => {
+    if (entry === repository) return true;
+    if (!entry.endsWith('/*')) return false;
+    const owner = entry.slice(0, -2);
+    return repository.startsWith(`${owner}/`);
+  });
 }
 
 function shouldCheckInstallation(metadata: WebhookMetadata): boolean {

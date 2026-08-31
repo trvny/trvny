@@ -16,6 +16,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/kanarek-review.yml
+      - .github/workflows/automation-sync.yml
 
 permissions:
   contents: read
@@ -30,14 +31,14 @@ jobs:
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ secrets.GH_PAT }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
     steps:
       - name: Sync review bearer and caller
         shell: bash
         run: |
           set -euo pipefail
           : "${GH_TOKEN:?GH_PAT must be configured}"
-          : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY must be configured}"
+          : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
           source_repo="$GITHUB_REPOSITORY"
           source_path=.github/workflows/kanarek-review.yml
           source_branch=$(gh api "repos/$source_repo" --jq .default_branch)
@@ -45,7 +46,8 @@ jobs:
             "repos/$source_repo/contents/$source_path?ref=$source_branch" \
             --jq .sha)
           caller=$(mktemp)
-          trap 'rm -f "$caller"' EXIT
+          twojstar_repos_file=$(mktemp)
+          trap 'rm -f "$caller" "$twojstar_repos_file"' EXIT
           gh api \
             -H 'Accept: application/vnd.github.raw+json' \
             "repos/$source_repo/contents/$source_path?ref=$source_branch" \
@@ -60,10 +62,15 @@ jobs:
             trvny/tvpi
             trvny/wambridge
           )
+          gh api --paginate orgs/twojstar/repos \
+            --jq '.[] | select(.archived == false and .disabled == false) | .full_name' \
+            >"$twojstar_repos_file"
+          mapfile -t twojstar_repos <"$twojstar_repos_file"
+          repos+=("${twojstar_repos[@]}")
 
           for repo in "${repos[@]}"; do
-            printf '%s' "$OPENROUTER_API_KEY" |
-              gh secret set OPENROUTER_API_KEY --repo "$repo"
+            printf '%s' "$KANAREK_REVIEW_ROUTER_TOKEN" |
+              gh secret set KANAREK_REVIEW_ROUTER_TOKEN --repo "$repo"
             default_branch=$(gh api "repos/$repo" --jq .default_branch)
             tmp=$(mktemp)
             blob_sha=''
@@ -73,8 +80,9 @@ jobs:
               >"$tmp" 2>/dev/null; then
               if cmp -s "$caller" "$tmp"; then
                 rm -f "$tmp"
-                gh secret delete ORCAROUTER_API_KEY --repo "$repo" 2>/dev/null || true
-                gh secret delete AIHUBMIX_API_KEY --repo "$repo" 2>/dev/null || true
+                for key in OPENROUTER_API_KEY ORCAROUTER_API_KEY AIHUBMIX_API_KEY; do
+                  gh secret delete "$key" --repo "$repo" 2>/dev/null || true
+                done
                 continue
               fi
               blob_sha=$(gh api \
@@ -114,8 +122,9 @@ jobs:
               gh api --method PUT \
                 "repos/$repo/contents/.github/workflows/kanarek-review.yml" \
                 --input - >/dev/null
-            gh secret delete ORCAROUTER_API_KEY --repo "$repo" 2>/dev/null || true
-            gh secret delete AIHUBMIX_API_KEY --repo "$repo" 2>/dev/null || true
+            for key in OPENROUTER_API_KEY ORCAROUTER_API_KEY AIHUBMIX_API_KEY; do
+              gh secret delete "$key" --repo "$repo" 2>/dev/null || true
+            done
           done
 
   cloudflare:

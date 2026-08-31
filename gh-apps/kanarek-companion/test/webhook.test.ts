@@ -6,6 +6,7 @@ import worker, {
   companionTargets,
   isCompanionEvent,
   readLimitedBody,
+  repositoryAllowed,
   shouldCoalesceTarget,
   verifyWebhookSignature,
 } from '../src/index.ts';
@@ -30,6 +31,15 @@ const testMetadata = {
   repository: 'trvny/trvny',
   installationId: 123,
 };
+
+test('allows repository wildcards without matching other owners', () => {
+  const wildcardEnv = { KANAREK_REPOSITORIES: 'trvny/trvny,twojstar/*' };
+  assert.equal(repositoryAllowed(wildcardEnv, 'twojstar/.github'), true);
+  assert.equal(repositoryAllowed(wildcardEnv, 'twojstar/Autka'), true);
+  assert.equal(repositoryAllowed(wildcardEnv, 'trvny/trvny'), true);
+  assert.equal(repositoryAllowed(wildcardEnv, 'twojstar-evil/Autka'), false);
+  assert.equal(repositoryAllowed(wildcardEnv, 'trvny/feedseek'), false);
+});
 
 const controlEdit = {
   number: 176,

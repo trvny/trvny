@@ -1,6 +1,6 @@
 # Agent Dispatcher MCP — concept
 
-Status: **planning / no runtime yet**
+Status: **planning; local MVP is the next implementation step**
 
 ## Goal
 
@@ -9,12 +9,25 @@ A small, provider-agnostic MCP side project that lets a remote assistant delegat
 The worker should prefer the cheapest available execution path:
 
 1. deterministic local tools (`git`, `gh`, Gradle, ADB, npm, Python, etc.),
-2. free/cheap OpenCode providers,
+2. OpenCode with free/cheap providers,
 3. Antigravity when installed,
 4. Codex when installed,
 5. future adapters without changing the MCP surface.
 
 The cloud side coordinates work. Provider credentials and actual code execution stay on the Legion.
+
+The dispatcher is **not another agent framework**. It owns policy, routing, isolation, task lifecycle and normalized results. Provider-native harnesses own their own model loop behind a narrow adapter.
+
+## Architecture decisions — 2026-08-31 harness review
+
+Current OpenCode, Claude Agent SDK and Codex capabilities make a few boundaries clearer:
+
+- **Outer isolation is authoritative.** Provider permission systems are useful defense in depth, but they are not the worker's security boundary.
+- **Do not parse TUIs.** Use structured CLI/API/SDK surfaces. OpenCode can emit JSON events and attach runs to a headless server; Codex provides `exec`, an SDK and `app-server`; Claude provides an Agent SDK.
+- **Do not build a second agent loop.** Let OpenCode, Codex, Claude or another provider manage their own reasoning loop. The dispatcher wraps them with policy and lifecycle controls.
+- **Fail closed when isolation is expected but unavailable.** A warning followed by unsandboxed execution is unacceptable for remote delegated work.
+- **Provider agents receive less authority than the worker.** They cannot widen filesystem, network, credential, publication or process privileges.
+- **The first agent adapter remains OpenCode.** It is provider-agnostic and can route to local/free providers such as configured OpenRouter/OrcaRouter-compatible routes without changing the dispatcher contract.
 
 ## High-level architecture
 
@@ -30,19 +43,27 @@ Task broker / transport adapter
         |  outbound pull only
         v
 Legion worker
-  |-- direct tools
-  |-- OpenCode
-  |-- Antigravity (later)
-  `-- Codex (later)
-        |
-        v
-isolated task workspace
-        |
-        v
-structured result + diff + tests + commit
+  |
+  |-- task journal / lease state
+  |-- local policy engine
+  |-- workspace manager
+  |-- process + network boundary
+  |       |
+  |       |-- direct tools
+  |       |-- OpenCode
+  |       |-- Antigravity (later)
+  |       |-- Codex (later)
+  |       `-- other adapters
+  |
+  `--> normalized events + result
+          |
+          v
+ structured result + diff + tests + commit
 ```
 
 The transport must be replaceable. Cloudflare, GCP, AWS or another provider can implement the same broker interface.
+
+The local policy engine sits **outside** every provider adapter. A provider can request an action; only the worker can authorize and execute it.
 
 ## MCP surface
 
@@ -63,17 +84,25 @@ A task should contain only explicit fields such as:
 
 ```json
 {
+  "task_id": "0198...",
   "repo": "trvny/feedseek",
+  "base_ref": "main",
   "goal": "Diagnose and fix failing tests",
   "budget": "free",
-  "capabilities": ["git", "tests"],
+  "capabilities": ["git.read", "workspace.write", "tests.run"],
   "timeout_minutes": 20,
-  "network": "restricted",
+  "network": {
+    "mode": "restricted",
+    "allow": ["github.com", "registry.npmjs.org"]
+  },
+  "publish": "none",
   "result": ["summary", "diff", "tests", "commit"]
 }
 ```
 
 The local policy engine converts this into concrete allowed actions. Text from an LLM is never itself authority to expand permissions.
+
+Remote input must not contain arbitrary local paths, raw credentials or shell commands. Repository names, refs, capabilities and publication policy are validated against local configuration.
 
 ## Local execution model
 
@@ -90,6 +119,25 @@ Examples:
 
 Escalate to an agent only when reasoning or code changes are actually needed.
 
+### Outer execution boundary
+
+Treat every agent runtime as potentially able to issue arbitrary commands unless an OS-level boundary proves otherwise.
+
+The worker must therefore own the real boundary:
+
+- dedicated non-admin worker identity;
+- canonicalized worker-owned task workspace;
+- explicit read/write roots;
+- per-task process tree and hard timeout;
+- network policy enforced outside the model prompt;
+- per-adapter secret injection with the minimum required credentials;
+- fail-closed sandbox startup;
+- cleanup and credential removal after every run.
+
+Provider-specific permission prompts and deny rules are **additional controls**, not substitutes for this boundary.
+
+On Windows, prefer WSL2 or a container/VM boundary for agent execution where practical. Keep hardware-dependent Windows actions such as ADB or device-specific helpers behind narrow host-side capabilities instead of giving an agent general host shell access.
+
 ### Resource budget
 
 The Legion currently has limited RAM, so default to:
@@ -98,6 +146,8 @@ The Legion currently has limited RAM, so default to:
 - bounded CPU/runtime;
 - no resident model processes unless useful;
 - no duplicate full clones when a worktree is enough.
+
+A warm OpenCode server is acceptable only if measurements show that avoiding repeated MCP/provider startup is worth the idle footprint.
 
 ### Git workspace lifecycle
 
@@ -113,22 +163,57 @@ Avoid branch/worktree graveyards.
 
 The dispatcher may delete **only resources it created under its own workspace root**.
 
-## Provider routing
+## Adapter contract
 
-Adapters implement a common interface:
+Provider adapters implement one maintained interface rather than copying dispatcher policy into each integration:
 
 ```text
-probe()
-run(task)
-cancel(task)
-collect_result()
+probe()              -> capabilities + availability
+prepare(task, env)   -> run context
+run(context)         -> structured event stream
+cancel(run_id)       -> best-effort interruption
+collect_result(id)   -> normalized result
+cleanup(run_id)      -> provider-local cleanup
 ```
 
-Initial routing idea:
+`probe()` should report facts useful to routing, for example:
+
+- installed / authenticated;
+- supported task types;
+- structured event support;
+- resume support;
+- isolation mode;
+- current model/provider availability;
+- cost class (`free`, `cheap`, `paid`).
+
+Adapters do not decide filesystem access, publication rights or destructive authority.
+
+### Normalized events
+
+Avoid scraping prose to infer state. Normalize provider output into a small event vocabulary such as:
+
+```text
+started
+progress
+tool_request
+tool_result
+approval_required
+test_result
+artifact
+completed
+failed
+cancelled
+```
+
+Raw provider events may be retained locally for debugging, but remote results should expose the normalized form and redact secrets.
+
+## Provider routing
+
+Initial routing remains intentionally boring:
 
 ```text
 deterministic tool
-    -> OpenCode/free provider
+    -> OpenCode / free provider
     -> Antigravity
     -> Codex
 ```
@@ -143,6 +228,101 @@ Routing can consider:
 - user budget (`free`, `balanced`, `best`).
 
 Provider-specific output is normalized before it reaches the MCP client.
+
+Routing should start as deterministic code, not another LLM. An agentic router is justified only if measured tasks show that fixed rules are inadequate.
+
+## OpenCode adapter — first agent implementation
+
+OpenCode is the best first agent adapter because it is already provider-agnostic and exposes integration surfaces that do not require terminal scraping.
+
+Preferred integration path:
+
+1. optionally start `opencode serve` bound to loopback only;
+2. run through the official API/SDK or `opencode run --attach ... --format json`;
+3. select models as `provider/model` from local configuration;
+4. consume newline-delimited JSON events;
+5. normalize events into the dispatcher result contract.
+
+A persistent local server can avoid repeated MCP cold starts, but it is an optimization rather than an architectural requirement.
+
+### OpenCode security rule
+
+OpenCode's own `bash` tool is **not an OS sandbox**: shell commands execute with the host user's filesystem, process and network authority. Its permission rules can allow/ask/deny commands and external directories, but they do not create a containment boundary.
+
+Therefore:
+
+- run OpenCode inside the worker's outer execution boundary;
+- default external directories to deny;
+- deny destructive command families explicitly;
+- never use `--dangerously-skip-permissions` for dispatcher work;
+- use `--auto` only inside an already isolated task environment and only with explicit deny rules still in force;
+- keep the OpenCode server loopback-only and authenticated if server mode is used.
+
+## Codex adapter — use the harness, do not recreate it
+
+Codex now exposes its agent harness as reusable integration layers. Pick the shallowest layer that satisfies the task:
+
+- **`codex exec`** — preferred first Codex adapter for bounded background jobs;
+- **Codex SDK** — use when the dispatcher needs programmatic start/resume/stream behavior;
+- **Codex app-server** — use only when persistent threads, rich streamed events, interruption and approval handling justify a long-lived local process.
+
+The Codex harness already handles the agent loop, context, tool use, sandbox/approval policies and progress events. The dispatcher should not duplicate those responsibilities.
+
+The worker's outer policy remains authoritative even when Codex also provides sandboxing or approvals.
+
+## Claude adapter — optional, policy-friendly path
+
+Claude Agent SDK is a viable later adapter when an authorized Claude execution route is available. It exposes built-in tools, hooks, MCP, permissions, sessions and non-interactive execution.
+
+For dispatcher use:
+
+- prefer a locked-down permission mode such as `dontAsk` with narrow allow rules;
+- use a `PreToolUse` hook for checks that must run on **every** tool request, because calls auto-approved by earlier permission stages can bypass `canUseTool`;
+- enable sandboxing with fail-closed behavior;
+- do not allow unsandboxed fallback for remote delegated work;
+- remember that MCP servers and hooks are separate host processes unless the whole Claude process is placed inside an outer container/VM boundary.
+
+Claude's command sandbox is supported on macOS, Linux and WSL2, **not native Windows**. A sandboxed Claude adapter on the Legion should therefore run in WSL2 or a stronger outer container/VM boundary.
+
+## OpenAI Agents SDK — optional orchestration experiment
+
+The OpenAI Agents SDK can compose MCP tools, approvals, guardrails, tracing and sandbox agents. It may become useful if the dispatcher later needs a genuinely agentic orchestration layer.
+
+Do not make it a Phase 1 dependency:
+
+- routing is simpler and safer as deterministic code initially;
+- `SandboxAgent` is currently beta;
+- tool guardrails do not cover every hosted or built-in execution tool;
+- Codex already exposes the coding harness needed by a Codex adapter.
+
+If adopted later, the SDK must sit **inside** the same worker policy boundary rather than becoming the policy authority itself.
+
+## Antigravity adapter — later
+
+Add Antigravity after the local worker contract is stable and the tool is installed. Prefer a documented non-interactive/API/SDK surface if available at that time; do not couple the dispatcher to terminal rendering.
+
+## Task claiming and idempotency
+
+Assume the remote broker can deliver a task more than once.
+
+The worker should maintain a small durable local journal keyed by `task_id`.
+
+**Phase 1 uses local claim state, not a broker lease:**
+
+- atomically claim a `task_id` in the local journal before any side effect;
+- keep local `running/completed/failed/cancelled` state;
+- if a claim becomes stale, mark it `recovery_required`; never automatically replay it merely because the previous process tree is gone;
+- before each logical external side effect, derive and persist a stable `effect_id` from the task identity, action kind and logical target; the same logical effect must keep the same `effect_id` across retries and recovery;
+- persist the effect intent before the call and its receipt afterward; adapters reuse `effect_id` as the remote idempotency key where supported and reconcile/query remote state with that same identity before retrying;
+- if an external system cannot provide idempotency, conditional creation or a reliable reconciliation query for that effect, leave the task in `recovery_required` and never replay it automatically;
+- resume a stale task only when already-performed side effects are proven idempotent or safely reconciled; otherwise fail closed for manual/recovery-specific handling;
+- publish results idempotently;
+- deduplicate before any side effect;
+- store commit/artifact hashes in the completed record.
+
+**Phase 2 adds the remote broker lease + heartbeat** with bounded expiry. Broker lease expiry makes a task eligible for redelivery, but the local journal remains authoritative for duplicate suppression: the same `task_id` must not execute twice while its original process tree is still alive.
+
+`cancel` is a request, not magic: the worker marks cancellation, terminates the owned process tree, then records whether cleanup completed.
 
 ## Remote transport candidates
 
@@ -191,6 +371,7 @@ Security is part of the architecture, not a later hardening pass.
 - **No public listener on the Legion.**
 - No router port forwarding to Windows.
 - Worker initiates outbound TLS connections only.
+- Any local agent/API server binds to loopback or a private task namespace only.
 - Remote MCP/control plane never receives OpenCode, Gemini, Codex, GitHub or local Windows credentials.
 - Separate wake relay from execution worker.
 
@@ -218,6 +399,7 @@ github.pr.create
 gradle.build
 adb.inspect
 workspace.write
+tests.run
 ```
 
 High-risk capabilities are denied by default:
@@ -244,7 +426,7 @@ Run the worker:
 - with explicit time/resource limits;
 - without elevation prompts.
 
-Where practical, execute untrusted agent commands in a stronger sandbox (WSL/container/Windows Sandbox). Hardware-dependent tools such as ADB can use narrowly scoped host-side helpers.
+Where practical, execute agent runtimes in WSL2/container/VM isolation. Hardware-dependent tools such as ADB can use narrowly scoped host-side helpers.
 
 ### Secrets
 
@@ -252,6 +434,7 @@ Where practical, execute untrusted agent commands in a stronger sandbox (WSL/con
 - Never put long-lived secrets in task payloads, logs, Git history or the cloud queue.
 - Prefer GitHub App / short-lived installation tokens over broad PATs.
 - Scope every cloud credential to the exact queue/function/resource it needs.
+- Inject only the secrets required by the selected adapter/task.
 - Redact logs before returning them remotely.
 
 ### Egress
@@ -277,7 +460,8 @@ Record a compact append-only local audit trail:
 - requested capabilities,
 - policy decision,
 - adapter/tool chosen,
-- commands/actions performed,
+- normalized action/tool events,
+- commands/actions performed by trusted host helpers,
 - exit status,
 - resulting commit/diff hashes.
 
@@ -359,11 +543,13 @@ A remote task should be able to use this sequence:
 1. enqueue task;
 2. if worker offline, optionally request wake;
 3. wait for authenticated worker check-in;
-4. worker claims task;
-5. worker executes with the minimum capability set;
-6. worker publishes structured result;
-7. worker cleans its workspace;
-8. optionally hibernate after a configurable idle window.
+4. worker atomically claims the task in its local journal; Phase 2 remote execution additionally acquires and renews the broker lease;
+5. worker validates task + capabilities and creates an isolated workspace;
+6. worker chooses the cheapest suitable execution path;
+7. worker executes with the minimum capability set;
+8. worker publishes structured result idempotently;
+9. worker cleans its workspace and provider state;
+10. optionally hibernate after a configurable idle window.
 
 The cloud should not be able to force hibernation or arbitrary power operations except through explicitly defined, local-policy-controlled capabilities.
 
@@ -372,20 +558,36 @@ The cloud should not be able to force hibernation or arbitrary power operations 
 ### Phase 0 — design
 
 - keep this document as source of truth;
-- settle task/result schemas;
+- settle task/result/event schemas;
 - threat model;
-- transport abstraction.
+- transport abstraction;
+- adapter contract;
+- decide the Phase 1 outer isolation mechanism on the Legion.
 
 ### Phase 1 — local MVP
 
 - worker daemon/CLI;
+- durable task journal;
 - direct tool adapter;
-- OpenCode adapter;
+- OpenCode adapter using structured JSON/API output;
 - one-task concurrency;
 - workspace lifecycle + cleanup watchdog;
-- structured JSON result.
+- process-tree timeout/cancel;
+- explicit local capability policy;
+- structured JSON result + normalized event stream.
 
 No remote access yet.
+
+Phase 1 is successful when a local fixture can prove all of these:
+
+1. deterministic task runs without an LLM;
+2. OpenCode task runs in a temporary worktree and produces structured events;
+3. denied capability remains denied even if the provider requests it;
+4. timeout/cancel kills the whole owned process tree;
+5. duplicate `task_id` cannot repeat side effects;
+6. a local fixture that simulates an external write succeeding and then crashes before task completion is recorded recovers/reconciles to exactly one logical effect;
+7. cleanup leaves no stale worktree/provider process;
+8. result contains summary, validation evidence and artifact/commit hashes.
 
 ### Phase 2 — remote control plane
 
@@ -393,6 +595,7 @@ No remote access yet.
 - queue transport;
 - strong auth;
 - signed/replay-protected task envelopes;
+- leases + heartbeat;
 - audit log.
 
 ### Phase 3 — wake
@@ -405,7 +608,8 @@ No remote access yet.
 ### Phase 4 — more agents
 
 - Antigravity adapter;
-- Codex/App Server adapter;
+- Codex `exec` adapter first, SDK/app-server only if needed;
+- optional Claude Agent SDK adapter;
 - optional additional OpenCode providers.
 
 ### Phase 5 — smarter routing
@@ -413,7 +617,19 @@ No remote access yet.
 - quota awareness;
 - task/provider success metrics;
 - free-tier fallback;
-- optional review/repair loop.
+- optional review/repair loop;
+- only then consider an agentic router if deterministic rules become a real limitation.
+
+## References checked 2026-08-31
+
+- OpenCode CLI / headless execution: <https://opencode.ai/docs/cli/>
+- OpenCode permissions: <https://opencode.ai/docs/permissions/>
+- OpenAI — Codex as a platform / open agent harness: <https://developers.openai.com/blog/codex-as-a-platform>
+- OpenAI Agents SDK — MCP: <https://openai.github.io/openai-agents-python/mcp/>
+- OpenAI Agents SDK — sandbox agents: <https://openai.github.io/openai-agents-python/sandbox/guide/>
+- Claude Agent SDK overview: <https://code.claude.com/docs/en/agent-sdk/overview>
+- Claude Agent SDK permissions: <https://code.claude.com/docs/en/agent-sdk/permissions>
+- Claude sandboxing / Windows + WSL2: <https://code.claude.com/docs/en/sandboxing>
 
 ## Design principle
 

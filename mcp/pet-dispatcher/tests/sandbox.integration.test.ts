@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import type { DispatcherConfig } from "../src/config.js";
@@ -23,10 +23,12 @@ async function makeFixture() {
   await execFileAsync("git", ["-C", repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "init"]);
   await writeFile(join(workspaceRoot, "outside.txt"), "OUTSIDE_SECRET\n");
 
+  const gitWhere = await execFileAsync(process.platform === "win32" ? "where.exe" : "which", ["git"]);
+  const gitRoot = dirname(gitWhere.stdout.split(/\r?\n/u)[0] ?? "");
   const config: DispatcherConfig = {
     workspaceRoot,
     repositories: { fixture: repo },
-    toolRoots: [],
+    toolRoots: [gitRoot],
     networkProfiles: { github: { hosts: ["api.github.com"] } },
     defaultTimeoutMs: 15_000,
     maxOutputBytes: 1_048_576,
@@ -36,7 +38,7 @@ async function makeFixture() {
   };
   const sessions = new SessionManager(config);
   const runner = await CommandRunner.create(config, sessions);
-  return { base, workspaceRoot, sessions, runner };
+  return { base, repo, workspaceRoot, sessions, runner };
 }
 
 test("MXC permits session files but denies files outside the assigned workspace", async () => {
@@ -172,4 +174,23 @@ test("session sync fails closed until restricted host egress exists", async () =
       /sync requires restricted host egress/,
     );
   } finally { await rm(fixture.base, { recursive: true, force: true }); }
+});
+
+test("session checkout ignores inherited host Git filter configuration", async () => {
+  const fixture = await makeFixture();
+  const globalConfig = join(fixture.base, "host-global.gitconfig");
+  await writeFile(join(fixture.repo, ".gitattributes"), "README.md filter=probe\n");
+  await execFileAsync("git", ["-C", fixture.repo, "add", ".gitattributes"]);
+  await execFileAsync("git", ["-C", fixture.repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "attrs"]);
+  await execFileAsync("git", ["config", "--file", globalConfig, "filter.probe.smudge", "exit 79"]);
+  await execFileAsync("git", ["config", "--file", globalConfig, "filter.probe.required", "true"]);
+  const previous = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = globalConfig;
+  try {
+    const session = await fixture.sessions.open("fixture");
+    await fixture.sessions.close(session.id, true);
+  } finally {
+    if (previous === undefined) delete process.env.GIT_CONFIG_GLOBAL; else process.env.GIT_CONFIG_GLOBAL = previous;
+    await rm(fixture.base, { recursive: true, force: true });
+  }
 });

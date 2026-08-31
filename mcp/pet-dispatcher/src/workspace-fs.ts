@@ -56,7 +56,6 @@ export async function moveWorkspace(session: Session, from: string, to: string):
 }
 
 export async function deleteWorkspace(session: Session, path: string): Promise<void> {
-  const target = await resolveExisting(session.root, path);
-  if (target === session.root) throw new Error("cannot delete the session root");
+  const target = await resolveForCreate(session.root, path);
   await rm(target, { recursive: true, force: false });
 }

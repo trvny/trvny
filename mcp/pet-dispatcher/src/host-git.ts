@@ -1,42 +1,14 @@
 import { execFile } from "node:child_process";
-import { constants } from "node:fs";
-import { access, mkdir, realpath } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import type { DispatcherConfig } from "./config.js";
+import { gitSafetyArgs, isolatedGitEnvironment, resolveTrustedGitExecutable } from "./git-runtime.js";
 import { resolveExisting, resolveForCreate, validateRelativePath } from "./path-guard.js";
 import type { Session, SessionManager } from "./sessions.js";
 
 const execFileAsync = promisify(execFile);
 
-function gitEnvironment(session: Session, gitExecutable: string): NodeJS.ProcessEnv {
-  const home = join(session.gitDir, "pet-dispatcher-home");
-  return {
-    SystemRoot: process.env.SystemRoot,
-    ComSpec: process.env.ComSpec,
-    PATH: dirname(gitExecutable),
-    PATHEXT: process.env.PATHEXT,
-    HOME: home,
-    USERPROFILE: home,
-    XDG_CONFIG_HOME: join(home, "xdg"),
-    GIT_CONFIG_NOSYSTEM: "1",
-    GIT_CONFIG_GLOBAL: "NUL",
-    GIT_TERMINAL_PROMPT: "0",
-    GIT_OPTIONAL_LOCKS: "0",
-  };
-}
-
-function baseArgs(session: Session): string[] {
-  return [
-    "--git-dir", session.gitDir,
-    "--work-tree", session.root,
-    "-c", "core.hooksPath=NUL",
-    "-c", "core.fsmonitor=false",
-    "-c", "credential.helper=",
-    "-c", "commit.gpgSign=false",
-    "-c", "tag.gpgSign=false",
-  ];
-}
 
 async function cleanPaths(session: Session, paths: string[]): Promise<string[]> {
   if (paths.length === 0) throw new Error("at least one path is required");
@@ -69,7 +41,7 @@ export class HostGit {
   constructor(readonly sessions: SessionManager, readonly config: DispatcherConfig) {}
 
   #gitPath(): Promise<string> {
-    this.#gitExecutable ??= this.#resolveGitExecutable();
+    this.#gitExecutable ??= resolveTrustedGitExecutable(this.config);
     return this.#gitExecutable;
   }
 
@@ -86,24 +58,6 @@ export class HostGit {
     }
   }
 
-  async #resolveGitExecutable(): Promise<string> {
-    const names = process.platform === "win32" ? ["git.exe", "git.cmd"] : ["git"];
-    for (const configuredRoot of this.config.toolRoots) {
-      let root: string;
-      try { root = await realpath(configuredRoot); }
-      catch { continue; }
-      for (const name of names) {
-        const candidate = resolve(root, name);
-        try {
-          await access(candidate, constants.F_OK);
-          const target = await realpath(candidate);
-          const prefix = root.endsWith("\\") ? root.toLowerCase() : `${root.toLowerCase()}\\`;
-          if (target.toLowerCase() === root.toLowerCase() || target.toLowerCase().startsWith(prefix)) return target;
-        } catch { /* try next configured tool root */ }
-      }
-    }
-    throw new Error("trusted Git executable was not found in configured toolRoots");
-  }
 
   async #runUnlocked(session: Session, args: string[]): Promise<GitResult> {
     const gitExecutable = await this.#gitPath();
@@ -112,10 +66,10 @@ export class HostGit {
     try {
       const { stdout, stderr } = await execFileAsync(
         gitExecutable,
-        [...baseArgs(session), ...args],
+        ["--git-dir", session.gitDir, "--work-tree", session.root, ...gitSafetyArgs, ...args],
         {
           cwd: session.root,
-          env: gitEnvironment(session, gitExecutable),
+          env: isolatedGitEnvironment(gitExecutable, join(session.gitDir, "pet-dispatcher-home")),
           maxBuffer: this.config.maxOutputBytes,
           windowsHide: true,
         },
@@ -176,7 +130,7 @@ export class HostGit {
       try {
         await execFileAsync(gitExecutable, args, {
           cwd: session.sourceRoot,
-          env: gitEnvironment(session, gitExecutable),
+          env: isolatedGitEnvironment(gitExecutable, join(session.gitDir, "pet-dispatcher-home")),
           maxBuffer: this.config.maxOutputBytes,
           windowsHide: true,
         });
@@ -189,7 +143,7 @@ export class HostGit {
         ["-C", session.sourceRoot, "rev-parse", "--verify", `${ref}^{commit}`],
         {
           cwd: session.sourceRoot,
-          env: gitEnvironment(session, gitExecutable),
+          env: isolatedGitEnvironment(gitExecutable, join(session.gitDir, "pet-dispatcher-home")),
           maxBuffer: this.config.maxOutputBytes,
           windowsHide: true,
         },

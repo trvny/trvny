@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { DispatcherConfig } from "./config.js";
 import type { NetworkAccess, NetworkMode } from "./network.js";
+import { gitSafetyArgs, isolatedGitEnvironment, resolveTrustedGitExecutable } from "./git-runtime.js";
 import { assertInside } from "./path-guard.js";
 
 const execFileAsync = promisify(execFile);
@@ -33,6 +34,7 @@ export class SessionManager {
   readonly #sessions = new Map<string, Session>();
   readonly #writers = new Map<string, string>();
   readonly #activity = new Map<string, Activity>();
+  #gitExecutable?: Promise<string>;
 
   constructor(readonly config: DispatcherConfig) {}
 
@@ -43,6 +45,15 @@ export class SessionManager {
   }
 
   list(): Session[] { return [...this.#sessions.values()]; }
+
+  #gitPath(): Promise<string> {
+    this.#gitExecutable ??= resolveTrustedGitExecutable(this.config);
+    return this.#gitExecutable;
+  }
+
+  #gitOptions(gitExecutable: string, home: string) {
+    return { env: isolatedGitEnvironment(gitExecutable, home), maxBuffer: this.config.maxOutputBytes, windowsHide: true };
+  }
 
   acquireActivity(id: string, kind: string): () => void {
     this.get(id);
@@ -95,21 +106,21 @@ export class SessionManager {
     let sessionDir: string | undefined;
     try {
       const sourceRoot = await realpath(sourceConfigured);
-      const { stdout } = await execFileAsync("git", ["-C", sourceRoot, "rev-parse", "--verify", `${ref}^{commit}`]);
-      const initialCommit = stdout.trim();
+      const gitExecutable = await this.#gitPath();
       const sessionsRoot = resolve(this.config.workspaceRoot, "sessions");
       await mkdir(sessionsRoot, { recursive: true });
       sessionDir = resolve(sessionsRoot, id);
       assertInside(sessionsRoot, sessionDir);
       const root = resolve(sessionDir, "worktree");
       const gitDir = resolve(sessionDir, "git");
+      const hostHome = resolve(sessionDir, "host-home");
+      await mkdir(hostHome, { recursive: true });
+      const gitOptions = this.#gitOptions(gitExecutable, hostHome);
+      const { stdout } = await execFileAsync(gitExecutable, [...gitSafetyArgs, "-C", sourceRoot, "rev-parse", "--verify", `${ref}^{commit}`], gitOptions);
+      const initialCommit = stdout.trim();
 
-      await execFileAsync("git", [
-        "clone", "--shared", "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root,
-      ]);
-      await execFileAsync("git", [
-        "--git-dir", gitDir, "--work-tree", root, "checkout", "--detach", initialCommit,
-      ]);
+      await execFileAsync(gitExecutable, [...gitSafetyArgs, "clone", "--shared", "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root], gitOptions);
+      await execFileAsync(gitExecutable, [...gitSafetyArgs, "--git-dir", gitDir, "--work-tree", root, "checkout", "--detach", initialCommit], gitOptions);
       await rm(join(root, ".git"), { force: true });
       const readonlyRoots: string[] = [];
       const session: Session = {
@@ -127,10 +138,14 @@ export class SessionManager {
   }
 
   async #statusUnlocked(session: Session): Promise<{ session: Session; head: string; dirty: boolean; changedHead: boolean }> {
-    const prefix = ["--git-dir", session.gitDir, "--work-tree", session.root];
+    const gitExecutable = await this.#gitPath();
+    const home = join(session.gitDir, "pet-dispatcher-home");
+    await mkdir(home, { recursive: true });
+    const prefix = [...gitSafetyArgs, "--git-dir", session.gitDir, "--work-tree", session.root];
+    const options = { ...this.#gitOptions(gitExecutable, home), cwd: session.root };
     const [{ stdout: headOut }, { stdout: statusOut }] = await Promise.all([
-      execFileAsync("git", [...prefix, "rev-parse", "HEAD"]),
-      execFileAsync("git", [...prefix, "status", "--porcelain"]),
+      execFileAsync(gitExecutable, [...prefix, "rev-parse", "HEAD"], options),
+      execFileAsync(gitExecutable, [...prefix, "status", "--porcelain"], options),
     ]);
     const head = headOut.trim();
     return { session, head, dirty: statusOut.trim().length > 0, changedHead: head !== session.initialCommit };

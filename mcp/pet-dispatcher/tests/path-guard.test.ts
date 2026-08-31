@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { resolveExisting, resolveForCreate, resolveForWrite, validateRelativePath } from "../src/path-guard.js";
 import type { Session } from "../src/sessions.js";
-import { readWorkspace } from "../src/workspace-fs.js";
+import { deleteWorkspace, readWorkspace } from "../src/workspace-fs.js";
 
 async function fixture() {
   const base = await mkdtemp(join(tmpdir(), "pet-dispatcher-path-"));
@@ -69,5 +69,21 @@ test("workspace reads reject oversized files before reading the body", async () 
       network: { mode: "none", profile: null }, exportedCommit: null, exportedRef: null, createdAt: new Date(0).toISOString(),
     } satisfies Session;
     await assert.rejects(readWorkspace(session, "large.txt", 16), /exceeds 16 byte/);
+  } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+
+test("workspace delete removes a symlink entry without deleting its target", async () => {
+  const { base, root } = await fixture();
+  try {
+    const target = join(root, "target");
+    await mkdir(target);
+    await writeFile(join(target, "keep.txt"), "keep");
+    const link = join(root, "link");
+    await symlink(target, link, process.platform === "win32" ? "junction" : "dir");
+    const session = { id: "00000000-0000-4000-8000-000000000002", repo: "fixture", sessionDir: base, root, gitDir: join(base, "git"), sourceRoot: root, initialCommit: "deadbeef", readonlyRoots: [], network: { mode: "none", profile: null }, exportedCommit: null, exportedRef: null, createdAt: new Date(0).toISOString() } satisfies Session;
+    await deleteWorkspace(session, "link");
+    await assert.rejects(lstat(link), /ENOENT/);
+    assert.equal(await readFile(join(target, "keep.txt"), "utf8"), "keep");
   } finally { await rm(base, { recursive: true, force: true }); }
 });

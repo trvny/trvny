@@ -63,7 +63,14 @@ test('review router prefers OpenRouter then falls through to OrcaRouter', async 
     {
       url: 'https://openrouter.ai/api/v1/chat/completions',
       model: 'minimax/minimax-m3:free',
-      models: ['nvidia/nemotron-3-ultra-550b-a55b:free', 'openrouter/free'],
+      models: [
+        'nvidia/nemotron-3-ultra-550b-a55b:free',
+        'poolside/laguna-s-2.1:free',
+        'cohere/north-mini-code:free',
+        'poolside/laguna-m.1:free',
+        'nvidia/nemotron-3-super-120b-a12b:free',
+        'openrouter/free',
+      ],
     },
     {
       url: 'https://api.orcarouter.ai/v1/chat/completions',
@@ -73,6 +80,22 @@ test('review router prefers OpenRouter then falls through to OrcaRouter', async 
   ]);
   assert.equal(calls[0].authorization, 'Bearer openrouter-key');
   assert.equal(calls[1].authorization, 'Bearer orca-key');
+});
+
+test('review router honors the shared configured OpenRouter model chain', async () => {
+  let body: { model?: unknown; models?: unknown } = {};
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_OPENROUTER_MODELS: 'first/free, second/free,first/free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(body.model, 'first/free');
+  assert.deepEqual(body.models, ['second/free']);
 });
 
 test('review router falls through provider authentication errors', async () => {

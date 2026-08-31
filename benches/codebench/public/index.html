@@ -945,6 +945,12 @@ globalThis.CodeBenchUi=Object.freeze({
   getContent:()=>lastQrContent,
   getQrTemplate:()=>qrType,
   hasQr:()=>Boolean(qr),
+  ensureQrRendered:async()=>{
+    if(!qr)throw new Error("QR renderer is not ready");
+    const blob=await qr.getRawData("png");
+    if(!blob)throw new Error("QR renderer produced no PNG data");
+    return true;
+  },
 });
 
 /* ---------- boot ---------- */

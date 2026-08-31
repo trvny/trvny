@@ -199,7 +199,7 @@
       additionalProperties: false,
     },
     annotations: { readOnlyHint: false, untrustedContentHint: true },
-    execute({ template, fields = {}, style = {} } = {}) {
+    async execute({ template, fields = {}, style = {} } = {}) {
       if (!qrTemplates.has(template)) return { ok: false, error: "Unsupported QR template." };
       if (!fields || typeof fields !== "object" || Array.isArray(fields)) {
         return { ok: false, error: "fields must be an object." };
@@ -248,6 +248,7 @@
       ui.goTab("qr");
       try {
         ui.renderQR(content);
+        await ui.ensureQrRendered();
       } catch (error) {
         restoreQr(previous);
         return { ok: false, error: `QR render failed: ${error?.message || error}.` };

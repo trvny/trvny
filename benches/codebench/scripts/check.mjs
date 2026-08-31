@@ -45,10 +45,19 @@ if (!llms.includes("https://codebench.trfny.com/")) throw new Error("llms.txt ca
 if (!index.includes('<script src="webmcp.js"></script>')) throw new Error("WebMCP page script is missing");
 if (!index.includes("lastQrContent=data")) throw new Error("QR encoded payload cache is missing");
 if (!webmcp.includes("QR render failed")) throw new Error("WebMCP QR guarded-render error handling is missing");
+if (!index.includes("ensureQrRendered:async")) throw new Error("QR async render readiness bridge is missing");
+if (!webmcp.includes("await ui.ensureQrRendered()")) throw new Error("WebMCP QR setter does not await render readiness");
 if (!webmcp.includes("ui.hasQr()")) throw new Error("WebMCP QR export readiness guard is missing");
-for (const helper of ["logo-compat.js", "module-shapes.js", "qr-palette.js"]) {
+for (const [helper, wrapperName, callee] of [
+  ["logo-compat.js", "logoQrOptions", "originalQrOptions"],
+  ["module-shapes.js", "decorativeModuleQrOptions", "originalQrOptions"],
+  ["qr-palette.js", "paletteQrOptions", "previousOptions"],
+]) {
   const helperSource = readFileSync(join(root, "public", helper), "utf8");
-  if (!helperSource.includes("...args") || !helperSource.includes("(...args)")) {
+  const signature = `window.qrOptions = function ${wrapperName}(...args)`;
+  const wrapperStart = helperSource.indexOf(signature);
+  const wrapperBody = wrapperStart >= 0 ? helperSource.slice(wrapperStart, wrapperStart + 220) : "";
+  if (!wrapperBody.includes(`${callee}(...args)`)) {
     throw new Error(`QR option wrapper does not forward payload arguments: ${helper}`);
   }
 }

@@ -1,5 +1,6 @@
 import { classifyChannel } from "./channel-meta.js";
 import { describeHls, describeMedia, describeSource } from "./diagnostics.js";
+import { createPlaybackAttemptCoordinator } from "./playback-attempt.js";
 import "./stream-bridge.js";
 
 const ui = {
@@ -41,6 +42,7 @@ let providerRequest = null;
 let hls = null;
 let activeEntry = null;
 let activeItemIndex = -1;
+const playbackAttempts = createPlaybackAttemptCoordinator();
 
 function effectivePlaylistEntries() {
   const entries = globalThis.StreambenchWorkspace?.entries?.();
@@ -743,49 +745,70 @@ function playbackOutcome(entry) {
   return null;
 }
 
-async function waitForPlaybackOutcome(entry, timeoutMs = 1500) {
+async function waitForPlaybackOutcome(entry, signal, timeoutMs = 1500) {
+  const cancelled = () => ({
+    ok: false,
+    started: false,
+    cancelled: true,
+    reason: signal.reason || "cancelled",
+    entry,
+    state: streamState(),
+  });
+  if (signal.aborted) return cancelled();
   const immediate = playbackOutcome(entry);
   if (immediate) return immediate;
   return new Promise((resolve) => {
     let timer = null;
     const observer = new MutationObserver(() => {
+      if (signal.aborted) return finish(cancelled());
       const outcome = playbackOutcome(entry);
       if (outcome) finish(outcome);
     });
+    const onAbort = () => finish(cancelled());
     const finish = (result) => {
       if (timer !== null) clearTimeout(timer);
       observer.disconnect();
+      signal.removeEventListener("abort", onAbort);
       resolve(result);
     };
+    signal.addEventListener("abort", onAbort, { once: true });
     observer.observe(ui.status, { attributes: true, childList: true, subtree: true });
-    timer = setTimeout(() => finish({ ok: true, started: false, pending: true, entry, state: streamState() }), timeoutMs);
+    timer = setTimeout(() => finish(signal.aborted
+      ? cancelled()
+      : { ok: true, started: false, pending: true, entry, state: streamState() }), timeoutMs);
   });
 }
 
 async function startPlaylistPlayback(index) {
+  const attempt = playbackAttempts.begin();
+  const finish = (result) => {
+    playbackAttempts.complete(attempt);
+    return result;
+  };
   const effective = effectivePlaylistEntry(index);
-  if (!effective) return { ok: false, error: "Playlist entry does not exist." };
+  if (!effective) return finish({ ok: false, error: "Playlist entry does not exist." });
   const item = effective.item;
   const entry = publicPlaylistItem(item, index);
-  if (effective.hidden) return { ok: false, error: "Playlist entry is hidden.", entry };
+  if (effective.hidden) return finish({ ok: false, error: "Playlist entry is hidden.", entry });
   if (item.external) {
-    return { ok: false, error: "This entry is an external page and cannot play inside Streambench.", entry };
+    return finish({ ok: false, error: "This entry is an external page and cannot play inside Streambench.", entry });
   }
 
   const workspace = globalThis.StreambenchWorkspace;
   if (workspace?.playIndex) {
     const result = workspace.playIndex(index);
-    if (!result?.ok) return { ok: false, error: result?.error || "Streambench could not activate the entry.", entry };
+    if (!result?.ok) return finish({ ok: false, error: result?.error || "Streambench could not activate the entry.", entry });
   } else {
     const action = ui.entries.querySelector(`[data-playlist-index="${index}"]`);
-    if (!action) return { ok: false, error: "Playlist entry is not available in the current UI.", entry };
+    if (!action) return finish({ ok: false, error: "Playlist entry is not available in the current UI.", entry });
     action.click();
   }
   await Promise.resolve();
-  return waitForPlaybackOutcome(publicPlaylistItem(effectivePlaylistEntry(index)?.item || item, index));
+  return finish(await waitForPlaybackOutcome(publicPlaylistItem(effectivePlaylistEntry(index)?.item || item, index), attempt.signal));
 }
 
 function stopStreamPlayback() {
+  playbackAttempts.cancel("stopped");
   stopPlayback();
   setStatus("Zatrzymano");
   return { ok: true, state: streamState() };

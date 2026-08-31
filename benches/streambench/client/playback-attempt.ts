@@ -20,6 +20,10 @@ export function createPlaybackAttemptCoordinator() {
       return { id: active.id, signal: controller.signal };
     },
     cancel,
+    current(): PlaybackAttempt | null {
+      if (!active || active.controller.signal.aborted) return null;
+      return { id: active.id, signal: active.controller.signal };
+    },
     complete(attempt: PlaybackAttempt): void {
       if (active?.id === attempt.id && active.controller.signal === attempt.signal) active = null;
     },

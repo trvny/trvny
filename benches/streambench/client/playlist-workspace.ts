@@ -247,7 +247,7 @@ function sourceIndexFor(item) {
   return sourceItems.findIndex((entry) => itemKey(effectiveItem(entry)) === itemKey(item));
 }
 
-function playItem(item, sourceIndex = sourceIndexFor(item)) {
+function playItem(item, sourceIndex = sourceIndexFor(item), { preserveAttempt = false } = {}) {
   const active = ui.entries.querySelector('[aria-current="true"]');
   active?.removeAttribute("aria-current");
   const row = sourceIndex >= 0
@@ -270,7 +270,7 @@ function playItem(item, sourceIndex = sourceIndexFor(item)) {
     submitPlaybackForm(ui.form, {
       playlistIndex: sourceIndex,
       preserveSelection: sourceIndex >= 0,
-      preserveAttempt: true,
+      preserveAttempt,
     });
   } finally {
     submittingWorkspaceItem = false;
@@ -449,7 +449,7 @@ function playSourceIndex(index) {
   const item = effectiveItem(entry);
   if (library.isHidden(item)) return { ok: false, error: "Playlist entry is hidden.", item };
   if (item.external) return { ok: false, error: "External entries cannot play inside Streambench.", item };
-  playItem(item, index);
+  playItem(item, index, { preserveAttempt: true });
   return { ok: true, item };
 }
 

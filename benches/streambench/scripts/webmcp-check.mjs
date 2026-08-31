@@ -9,10 +9,12 @@ import {
 const attempts = createPlaybackAttemptCoordinator();
 const first = attempts.begin();
 const second = attempts.begin();
+assert.equal(attempts.current()?.id, second.id);
 assert.equal(first.signal.aborted, true);
 assert.equal(first.signal.reason, "superseded");
 assert.equal(second.signal.aborted, false);
 attempts.cancel("stopped");
+assert.equal(attempts.current(), null);
 assert.equal(second.signal.aborted, true);
 assert.equal(second.signal.reason, "stopped");
 const completed = attempts.begin();
@@ -41,8 +43,9 @@ assert.equal(completePlaybackAttemptIfTerminal(pendingCoordinator, terminalAttem
 pendingCoordinator.cancel("stopped");
 assert.equal(terminalAttempt.signal.aborted, false);
 
-const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
-assert.match(appSource, /if \(!webmcpActivationAttempt\)\s*playbackAttempts\.cancel\("superseded"\)/);
+const appSource = readFileSync(new URL("../client/app.ts", import.meta.url), "utf8");
+assert.match(appSource, /options\.preserveAttempt \? playbackAttempts\.current\(\) : null/);
+assert.match(appSource, /if \(!ownedAttempt\) playbackAttempts\.cancel\("superseded"\)/);
 assert.match(appSource, /void settlePendingPlaybackAttempt\(attempt, effectiveEntry\)/);
 
 const tools = new Map();

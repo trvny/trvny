@@ -1,4 +1,4 @@
-import { realpath } from "node:fs/promises";
+import { lstat, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve, win32 } from "node:path";
 
 function isInside(root: string, target: string): boolean {
@@ -38,6 +38,24 @@ export async function resolveForCreate(root: string, input: string): Promise<str
   const parent = await realpath(dirname(lexical));
   if (!isInside(canonical, parent)) throw new Error("target parent escapes the session workspace");
   return resolve(parent, basename(lexical));
+}
+
+export async function resolveForWrite(root: string, input: string): Promise<string> {
+  validateRelativePath(input);
+  const canonical = await canonicalRoot(root);
+  const lexical = resolve(canonical, input);
+  if (!isInside(canonical, lexical) || lexical === canonical) {
+    throw new Error("write target escapes or replaces the session workspace root");
+  }
+  try {
+    await lstat(lexical);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    return resolveForCreate(canonical, input);
+  }
+  const target = await realpath(lexical);
+  if (!isInside(canonical, target)) throw new Error("write target resolves outside the session workspace");
+  return target;
 }
 
 export function assertInside(root: string, target: string): void {

@@ -9,13 +9,15 @@ The Phase 1 local MVP is implemented in this directory. The broader architecture
 - one writable session per configured repository,
 - session-owned lightweight Git clones with shared read-only object storage,
 - workspace-confined filesystem tools,
-- structured session-bound host Git adapter for status/diff/add/commit,
+- structured session-bound host Git adapter for status/diff/add/commit/export,
 - `workspace_exec` through Microsoft MXC / Windows ProcessContainer,
 - process timeout, cancellation and bounded output,
 - OpenRouter and Gemini agent adapters over the same confined tools,
 - brokered HTTPS profiles with exact destination validation,
 - direct sandbox sockets denied by default,
 - path traversal, junction/symlink escape and sandbox-boundary tests.
+
+`git_export` preserves a session commit under `refs/pet-dispatcher/<session-id>` in the configured source clone, allowing a clean session close without losing committed work.
 
 `restricted` direct egress is intentionally fail-closed on the current Windows backend until there is an enforceable per-session host/network boundary.
 ## Network model

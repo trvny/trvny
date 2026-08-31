@@ -103,3 +103,19 @@ test("workspace cancellation terminates a long-running sandbox command", async (
     await rm(fixture.base, { recursive: true, force: true });
   }
 });
+
+test("concurrent opens reserve the writer lease before asynchronous setup", async () => {
+  const fixture = await makeFixture();
+  try {
+    const results = await Promise.allSettled([
+      fixture.sessions.open("fixture"),
+      fixture.sessions.open("fixture"),
+    ]);
+    const fulfilled = results.filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof fixture.sessions.open>>> => result.status === "fulfilled");
+    const rejected = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+    assert.equal(fulfilled.length, 1);
+    assert.equal(rejected.length, 1);
+    assert.match(String(rejected[0]?.reason), /already has a writer session/);
+    if (fulfilled[0]) await fixture.sessions.close(fulfilled[0].value.id, true);
+  } finally { await rm(fixture.base, { recursive: true, force: true }); }
+});

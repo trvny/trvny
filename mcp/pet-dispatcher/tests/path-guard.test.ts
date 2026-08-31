@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { resolveExisting, resolveForCreate, validateRelativePath } from "../src/path-guard.js";
+import { resolveExisting, resolveForCreate, resolveForWrite, validateRelativePath } from "../src/path-guard.js";
 
 async function fixture() {
   const base = await mkdtemp(join(tmpdir(), "pet-dispatcher-path-"));
@@ -40,5 +40,18 @@ test("allows creating a file only below an existing in-root parent", async () =>
     const target = await resolveForCreate(root, "nested/new.txt");
     assert.equal(target, join(root, "nested", "new.txt"));
     await assert.rejects(resolveForCreate(root, "../new.txt"), /escapes/);
+  } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+test("rejects writes through a file symlink that escapes the workspace", async (t) => {
+  const { base, root, outside } = await fixture();
+  try {
+    const link = join(root, "escape-file.txt");
+    try { await symlink(join(outside, "secret.txt"), link, "file"); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EPERM") { t.skip("file symlinks require Windows Developer Mode"); return; }
+      throw error;
+    }
+    await assert.rejects(resolveForWrite(root, "escape-file.txt"), /outside/);
   } finally { await rm(base, { recursive: true, force: true }); }
 });

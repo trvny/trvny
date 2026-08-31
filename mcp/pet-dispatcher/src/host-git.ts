@@ -11,7 +11,7 @@ const execFileAsync = promisify(execFile);
 const MAX_OUTPUT = 1_048_576;
 
 function gitEnvironment(session: Session, gitExecutable: string): NodeJS.ProcessEnv {
-  const home = join(session.root, ".pet-dispatcher", "git-home");
+  const home = join(session.root, ".git", "pet-dispatcher", "git-home");
   return {
     SystemRoot: process.env.SystemRoot,
     ComSpec: process.env.ComSpec,
@@ -97,7 +97,7 @@ export class HostGit {
 
   async #run(session: Session, args: string[]): Promise<GitResult> {
     const gitExecutable = await this.#gitPath();
-    const home = join(session.root, ".pet-dispatcher", "git-home");
+    const home = join(session.root, ".git", "pet-dispatcher", "git-home");
     await mkdir(home, { recursive: true });
     try {
       const { stdout, stderr } = await execFileAsync(
@@ -130,6 +130,37 @@ export class HostGit {
   async add(sessionId: string, paths: string[]): Promise<GitResult> {
     const session = this.sessions.get(sessionId);
     return this.#run(session, ["add", "--", ...await cleanPaths(session, paths)]);
+  }
+
+  async exportCommit(sessionId: string): Promise<{ commit: string; ref: string }> {
+    const session = this.sessions.get(sessionId);
+    const headResult = await this.#run(session, ["rev-parse", "--verify", "HEAD"]);
+    if (headResult.exitCode !== 0) throw new Error(`cannot resolve session HEAD: ${headResult.stderr}`);
+    const commit = headResult.stdout.trim();
+    const ref = `refs/pet-dispatcher/${session.id}`;
+    const gitExecutable = await this.#gitPath();
+    const args = [
+      "-C", session.sourceRoot,
+      "-c", "core.hooksPath=NUL", "-c", "core.fsmonitor=false", "-c", "credential.helper=",
+      "fetch", "--no-tags", session.root, `HEAD:${ref}`,
+    ];
+    try {
+      await execFileAsync(gitExecutable, args, {
+        cwd: session.sourceRoot,
+        env: gitEnvironment(session, gitExecutable),
+        maxBuffer: MAX_OUTPUT,
+        windowsHide: true,
+      });
+    } catch (error) {
+      const failure = error as NodeJS.ErrnoException & { stderr?: string };
+      throw new Error(`failed to export session commit: ${failure.stderr ?? failure.message}`);
+    }
+    const { stdout } = await execFileAsync(gitExecutable, ["-C", session.sourceRoot, "rev-parse", "--verify", `${ref}^{commit}`], {
+      cwd: session.sourceRoot, env: gitEnvironment(session, gitExecutable), maxBuffer: MAX_OUTPUT, windowsHide: true,
+    });
+    if (stdout.trim() !== commit) throw new Error("exported ref does not match the session HEAD");
+    this.sessions.markExported(sessionId, commit, ref);
+    return { commit, ref };
   }
 
   async commit(sessionId: string, message: string): Promise<GitResult> {

@@ -22,6 +22,8 @@ function publicSession(session: Session) {
     repo: session.repo,
     initialCommit: session.initialCommit,
     network: session.network,
+    exportedCommit: session.exportedCommit,
+    exportedRef: session.exportedRef,
     createdAt: session.createdAt,
   };
 }
@@ -166,6 +168,12 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
     inputSchema: { sessionId: z.string().uuid(), message: z.string().min(1).max(500) },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   }, async ({ sessionId, message }) => response(await git.commit(sessionId, message)));
+
+  server.registerTool("git_export", {
+    description: "Preserve the current session HEAD under a dispatcher ref in the configured source repository.",
+    inputSchema: { sessionId: z.string().uuid() },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async ({ sessionId }) => response(await git.exportCommit(sessionId)));
 
   server.registerTool("workspace_exec", {
     description: "Execute an argv-style developer command inside the session's MXC sandbox.",

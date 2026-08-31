@@ -28,7 +28,7 @@ async function fixture() {
   } satisfies DispatcherConfig;
   const sessions = new SessionManager(config);
   const session = await sessions.open("fixture");
-  return { base, sessions, session, git: new HostGit(sessions, config) };
+  return { base, repo, sessions, session, git: new HostGit(sessions, config) };
 }
 
 test("host Git adapter is bound to the session checkout", async () => {
@@ -65,4 +65,30 @@ test("host Git commit uses dispatcher identity without host Git config", async (
     await f.sessions.close(f.session.id, true);
     await rm(f.base, { recursive: true, force: true });
   }
+});
+
+test("host Git status does not dirty an otherwise unchanged checkout", async () => {
+  const f = await fixture();
+  try {
+    assert.equal((await f.git.status(f.session.id)).exitCode, 0);
+    assert.equal((await f.sessions.status(f.session.id)).dirty, false);
+    await f.sessions.close(f.session.id);
+  } finally { await rm(f.base, { recursive: true, force: true }); }
+});
+
+test("export preserves the current commit before clean session close", async () => {
+  const f = await fixture();
+  try {
+    await writeFile(join(f.session.root, "exported.txt"), "keep me\n");
+    assert.equal((await f.git.add(f.session.id, ["exported.txt"])).exitCode, 0);
+    assert.equal((await f.git.commit(f.session.id, "test: export commit")).exitCode, 0);
+    await assert.rejects(f.sessions.close(f.session.id), /unexported/);
+    const exported = await f.git.exportCommit(f.session.id);
+    assert.match(exported.ref, /^refs\/pet-dispatcher\//u);
+    const { stdout } = await execFileAsync("git", ["-C", f.repo, "rev-parse", "--verify", `${exported.ref}^{commit}`]);
+    assert.equal(stdout.trim(), exported.commit);
+    await f.sessions.close(f.session.id);
+    const preserved = await execFileAsync("git", ["-C", f.repo, "rev-parse", "--verify", `${exported.ref}^{commit}`]);
+    assert.equal(preserved.stdout.trim(), exported.commit);
+  } finally { await rm(f.base, { recursive: true, force: true }); }
 });

@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import type { Session } from "./sessions.js";
-import { resolveExisting, resolveForCreate } from "./path-guard.js";
+import { resolveExisting, resolveForCreate, resolveForWrite } from "./path-guard.js";
 
 export async function listWorkspace(session: Session, path = "."): Promise<object[]> {
   const target = await resolveExisting(session.root, path);
@@ -28,12 +28,7 @@ export async function readWorkspace(session: Session, path: string, maxBytes = 1
   return content.toString("utf8");
 }
 export async function writeWorkspace(session: Session, path: string, content: string): Promise<void> {
-  let target: string;
-  try {
-    target = await resolveExisting(session.root, path);
-  } catch {
-    target = await resolveForCreate(session.root, path);
-  }
+  const target = await resolveForWrite(session.root, path);
   await writeFile(target, content, "utf8");
 }
 

@@ -26,6 +26,8 @@ const session: Session = {
   initialCommit: "deadbeef",
   readonlyRoots: [],
   network: { mode: "brokered", profile: "github" },
+  exportedCommit: null,
+  exportedRef: null,
   createdAt: new Date(0).toISOString(),
 };
 test("URL guard allows only profiled HTTPS destinations", () => {

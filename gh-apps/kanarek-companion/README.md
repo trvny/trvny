@@ -208,11 +208,13 @@ workers.dev state, and updates to existing routes or DNS records. Mutation
 calls require fresh expected IDs, state, or snapshot hashes so stale reads fail
 closed. The gateway never returns Worker secret values or Pages build variables.
 
-`automation-sync.yml` can copy the existing repository Cloudflare credentials
-and the AIHubMix/OpenRouter/OrcaRouter review credentials into the
-`kanarek-companion` Worker. Its Cloudflare target is manual-only and never prints
-secret values. The review router reuses `OPENROUTER_API_KEY` as its private
-bearer; its upstream provider credentials stay centralized in the Worker.
+`automation-sync.yml` can copy the existing repository Cloudflare credentials,
+the dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, and the AIHubMix/OpenRouter/OrcaRouter
+review credentials into the `kanarek-companion` Worker. Its Cloudflare target is
+manual-only and never prints secret values. The router prefers OpenRouter, then
+OrcaRouter, then AIHubMix, and falls through transient, quota, authentication, and
+provider-availability failures. During the router-token rollout it also accepts
+the legacy OpenRouter bearer so existing callers keep working.
 
 ## Secrets
 
@@ -221,6 +223,10 @@ Required Worker secrets:
 - `GITHUB_WEBHOOK_SECRET`
 - `GITHUB_PRIVATE_KEY`
 - `GPTOMEK_PRIVATE_KEY` for GPTomek operations
+
+Review router secret:
+
+- `KANAREK_REVIEW_ROUTER_TOKEN`
 
 Optional AI secrets:
 

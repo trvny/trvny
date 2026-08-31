@@ -1,4 +1,5 @@
 export const REVIEW_ROUTER_PATH = '/review-router/v1/chat/completions';
+export const REVIEW_ROUTER_MODELS_PATH = '/review-router/v1/models';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_TIMEOUT_MS = 1_000;
@@ -11,6 +12,7 @@ const AIHUBMIX_RETRYABLE_MESSAGES = [
 ] as const;
 
 export interface ReviewRouterEnv {
+  KANAREK_REVIEW_ROUTER_TOKEN?: string;
   AIHUBMIX_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   ORCAROUTER_API_KEY?: string;
@@ -29,12 +31,6 @@ type ReviewProvider = {
 
 const PROVIDERS: readonly ReviewProvider[] = [
   {
-    id: 'aihubmix',
-    url: 'https://aihubmix.com/v1/chat/completions',
-    model: 'coding-glm-5.3-free',
-    apiKey: (env) => env.AIHUBMIX_API_KEY,
-  },
-  {
     id: 'openrouter',
     url: 'https://openrouter.ai/api/v1/chat/completions',
     model: 'openrouter/free',
@@ -46,6 +42,12 @@ const PROVIDERS: readonly ReviewProvider[] = [
     url: 'https://api.orcarouter.ai/v1/chat/completions',
     model: 'deepseek/deepseek-v4-flash-free',
     apiKey: (env) => env.ORCAROUTER_API_KEY,
+  },
+  {
+    id: 'aihubmix',
+    url: 'https://aihubmix.com/v1/chat/completions',
+    model: 'coding-glm-5.3-free',
+    apiKey: (env) => env.AIHUBMIX_API_KEY,
   },
 ];
 
@@ -73,11 +75,17 @@ function timingSafeEqual(left: string, right: string): boolean {
 }
 
 function authorized(request: Request, env: ReviewRouterEnv): boolean {
-  const expected = env.OPENROUTER_API_KEY?.trim();
-  if (!expected) return false;
+  const expected = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
+  const legacy = env.OPENROUTER_API_KEY?.trim();
+  if (!expected && !legacy) return false;
   const header = request.headers.get('authorization') ?? '';
   const match = /^Bearer\s+(.+)$/i.exec(header);
-  return Boolean(match && timingSafeEqual(match[1].trim(), expected));
+  if (!match) return false;
+  const presented = match[1].trim();
+  return Boolean(
+    (expected && timingSafeEqual(presented, expected)) ||
+    (legacy && timingSafeEqual(presented, legacy))
+  );
 }
 
 function timeoutMs(env: ReviewRouterEnv): number {
@@ -92,10 +100,13 @@ function timeoutMs(env: ReviewRouterEnv): number {
 
 function retryableStatus(status: number): boolean {
   return (
+    status === 401 ||
     status === 402 ||
+    status === 403 ||
     status === 404 ||
     status === 408 ||
     status === 409 ||
+    status === 413 ||
     status === 422 ||
     status === 425 ||
     status === 429 ||
@@ -183,6 +194,14 @@ export async function handleReviewRouterRequest(
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
   const url = new URL(request.url);
+  if (url.pathname === REVIEW_ROUTER_MODELS_PATH) {
+    if (request.method !== 'GET') return jsonError('Method not allowed', 'method_not_allowed', 405);
+    if (!authorized(request, env)) return jsonError('Unauthorized', 'unauthorized', 401);
+    return Response.json({
+      object: 'list',
+      data: [{ id: 'kanarek-review-free', object: 'model', owned_by: 'kanarek' }],
+    }, { headers: { 'cache-control': 'no-store' } });
+  }
   if (url.pathname !== REVIEW_ROUTER_PATH) return null;
   if (request.method !== 'POST') return jsonError('Method not allowed', 'method_not_allowed', 405);
   if (!authorized(request, env)) return jsonError('Unauthorized', 'unauthorized', 401);

@@ -305,16 +305,18 @@ Add Antigravity after the local worker contract is stable and the tool is instal
 
 Assume the remote broker can deliver a task more than once.
 
-The worker should maintain a small durable local journal keyed by `task_id` and use:
+The worker should maintain a small durable local journal keyed by `task_id`.
 
-- claim lease + heartbeat;
-- bounded lease expiry;
-- local `running/completed/failed/cancelled` state;
-- idempotent result publication;
-- deduplication before any side effect;
-- commit/artifact hashes in the completed record.
+**Phase 1 uses local claim state, not a broker lease:**
 
-A lease expiring in the cloud must not cause the same local task to execute twice while its original process tree is still alive.
+- atomically claim a `task_id` in the local journal before any side effect;
+- keep local `running/completed/failed/cancelled` state;
+- recover a stale local claim only after proving the previous owned process tree is gone;
+- publish results idempotently;
+- deduplicate before any side effect;
+- store commit/artifact hashes in the completed record.
+
+**Phase 2 adds the remote broker lease + heartbeat** with bounded expiry. Broker lease expiry makes a task eligible for redelivery, but the local journal remains authoritative for duplicate suppression: the same `task_id` must not execute twice while its original process tree is still alive.
 
 `cancel` is a request, not magic: the worker marks cancellation, terminates the owned process tree, then records whether cleanup completed.
 

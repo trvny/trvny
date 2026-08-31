@@ -68,7 +68,7 @@
     "KANAREK_PROVIDER_TIMEOUT_MS": "10000",
     "KANAREK_REVIEW_ROUTER_TIMEOUT_MS": "30000",
     "KANAREK_REQUIRE_CI": "true",
-    "KANAREK_REPOSITORIES": "trvny/trvny,trvny/feedseek,trvny/kanarek,trvny/Autka,trvny/tvpi,trvny/wambridge",
+    "KANAREK_REPOSITORIES": "trvny/trvny,trvny/feedseek,trvny/kanarek,trvny/Autka,trvny/tvpi,trvny/wambridge,twojstar/*",
     "KANAREK_OPENROUTER_ENABLED": "true",
     "KANAREK_OPENROUTER_MODELS": "z-ai/glm-5.2:free,nvidia/nemotron-3-ultra-550b-a55b:free,google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-super-120b-a12b:free",
     "KANAREK_OPENROUTER_MAX_TOKENS": "1024",

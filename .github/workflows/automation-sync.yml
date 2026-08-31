@@ -16,6 +16,7 @@ on:
     branches: [main]
     paths:
       - .github/workflows/kanarek-review.yml
+      - .github/workflows/automation-sync.yml
 
 permissions:
   contents: read
@@ -45,7 +46,8 @@ jobs:
             "repos/$source_repo/contents/$source_path?ref=$source_branch" \
             --jq .sha)
           caller=$(mktemp)
-          trap 'rm -f "$caller"' EXIT
+          twojstar_repos_file=$(mktemp)
+          trap 'rm -f "$caller" "$twojstar_repos_file"' EXIT
           gh api \
             -H 'Accept: application/vnd.github.raw+json' \
             "repos/$source_repo/contents/$source_path?ref=$source_branch" \
@@ -60,6 +62,11 @@ jobs:
             trvny/tvpi
             trvny/wambridge
           )
+          gh api --paginate orgs/twojstar/repos \
+            --jq '.[] | select(.archived == false and .disabled == false) | .full_name' \
+            >"$twojstar_repos_file"
+          mapfile -t twojstar_repos <"$twojstar_repos_file"
+          repos+=("${twojstar_repos[@]}")
 
           for repo in "${repos[@]}"; do
             printf '%s' "$KANAREK_REVIEW_ROUTER_TOKEN" |

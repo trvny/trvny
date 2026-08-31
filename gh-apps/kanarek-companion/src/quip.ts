@@ -3,13 +3,7 @@ const FALLBACK_MODEL = 'gpt-5.4-nano';
 const ANTHROPIC_MODEL = 'claude-haiku-4-5';
 const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 const XAI_MODEL = 'grok-4.6';
-const OPENROUTER_MODELS = [
-  'z-ai/glm-5.2:free',
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'google/gemma-4-31b-it:free',
-  'google/gemma-4-26b-a4b-it:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
-] as const;
+import { configuredOpenRouterModels } from './openrouter-models.ts';
 const ORCAROUTER_MODEL = 'orcarouter/auto';
 const AI_STATUSES = new Set(['ready', 'blocked']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
@@ -265,16 +259,6 @@ function configuredChoice(
 ): string {
   const normalized = value?.trim().toLowerCase();
   return normalized && allowed.has(normalized) ? normalized : fallback;
-}
-
-function configuredList(
-  value: string | undefined,
-  fallback: readonly string[],
-): string[] {
-  const values = (value?.split(',') ?? [])
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return values.length ? [...new Set(values)] : [...fallback];
 }
 
 function providerTimeoutMs(env: QuipEnv): number {
@@ -731,7 +715,7 @@ async function requestOpenRouter(
   env: QuipEnv,
   fetcher: typeof fetch,
 ): Promise<ProviderResult> {
-  const models = configuredList(env.KANAREK_OPENROUTER_MODELS, OPENROUTER_MODELS);
+  const models = configuredOpenRouterModels(env.KANAREK_OPENROUTER_MODELS);
   const body: Record<string, unknown> = {
     model: models[0],
     max_tokens: configuredInteger(

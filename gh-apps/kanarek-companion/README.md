@@ -111,11 +111,13 @@ ceilings, reasoning/thinking settings, the xAI prompt-cache key, and the shared
 provider timeout are all visible beside it in `wrangler.jsonc`. Without
 provider secrets Kanarek uses the shared pool and presets.
 
-OpenRouter uses its native ordered `models` fallback over the configured
-free-only model list. Inkling is intentionally omitted from that list because
-its free endpoint is restricted to agentic harnesses. OrcaRouter uses
-`orcarouter/auto`; its allowed/default models remain controlled by the
-OrcaRouter workspace, so the workspace allowlist is the source of truth.
+OpenRouter uses its native ordered `models` fallback over one shared
+free-only model list used by both Companion quips and Kanarek Review. Production
+prefers MiniMax M3, Nemotron 3 Ultra, Laguna S 2.1, North Mini Code, Laguna M.1,
+and Nemotron 3 Super before falling back to `openrouter/free`. The final free
+router keeps newly available tool-capable models reachable without code changes.
+OrcaRouter uses `orcarouter/auto`; its allowed/default models remain controlled
+by the OrcaRouter workspace, so the workspace allowlist is the source of truth.
 
 Current configured ceilings are 1024 tokens for all providers. OpenAI reasoning
 is configured as `auto`, preserving the model-aware `none`/`low` heuristic;

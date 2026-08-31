@@ -44,8 +44,14 @@ if (!notFound.includes('name="robots" content="noindex,follow"')) throw new Erro
 if (!llms.includes("https://codebench.trfny.com/")) throw new Error("llms.txt canonical application URL is missing");
 if (!index.includes('<script src="webmcp.js"></script>')) throw new Error("WebMCP page script is missing");
 if (!index.includes("lastQrContent=data")) throw new Error("QR encoded payload cache is missing");
-if (!webmcp.includes("QR payload is too large")) throw new Error("WebMCP QR capacity guard is missing");
+if (!webmcp.includes("QR render failed")) throw new Error("WebMCP QR guarded-render error handling is missing");
 if (!webmcp.includes("ui.hasQr()")) throw new Error("WebMCP QR export readiness guard is missing");
+for (const helper of ["logo-compat.js", "module-shapes.js", "qr-palette.js"]) {
+  const helperSource = readFileSync(join(root, "public", helper), "utf8");
+  if (!helperSource.includes("...args") || !helperSource.includes("(...args)")) {
+    throw new Error(`QR option wrapper does not forward payload arguments: ${helper}`);
+  }
+}
 for (const toolName of ["read_code_state", "set_qr_code", "set_barcode", "export_code"]) {
   if (!portable.includes(`name: "${toolName}"`)) throw new Error(`Portable build is missing WebMCP tool: ${toolName}`);
 }

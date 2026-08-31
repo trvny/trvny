@@ -34,7 +34,6 @@
   ]);
   const stringField = { type: "string", maxLength: 10000 };
   const colorField = { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" };
-  const qrByteCapacity = { L: 2953, M: 2331, Q: 1663, H: 1273 };
 
   const activeWorkspace = () =>
     document.querySelector('.tab[aria-selected="true"]')?.dataset.tab || "scan";
@@ -246,13 +245,6 @@
       const ignoredFields = applyQrFields(fields);
       applyQrStyle(style);
       const content = text(ui.buildContent()) || " ";
-      const errorCorrection = byId("qEc")?.value || "Q";
-      const bytes = new TextEncoder().encode(content).length;
-      const capacity = qrByteCapacity[errorCorrection] || qrByteCapacity.Q;
-      if (bytes > capacity) {
-        restoreQr(previous);
-        return { ok: false, error: `QR payload is too large for EC ${errorCorrection} (${bytes} bytes; max ${capacity}).` };
-      }
       ui.goTab("qr");
       try {
         ui.renderQR(content);
@@ -308,6 +300,17 @@
       if (transparent !== undefined && typeof transparent !== "boolean") {
         return { ok: false, error: "transparent must be a boolean." };
       }
+      const previous = {
+        workspace: activeWorkspace(),
+        format: formatSelect.value,
+        data: byId("bData").value,
+        showText: byId("bText").checked,
+        scale: byId("bScale").value,
+        height: byId("bHeight").value,
+        foreground: byId("bFg").value,
+        background: byId("bBg").value,
+        transparent: byId("bTransparent").checked,
+      };
       byId("bData").value = data;
       if (showText !== undefined) byId("bText").checked = showText;
       if (scale !== undefined) byId("bScale").value = String(scale);
@@ -321,8 +324,23 @@
 
       const barcodeError = byId("bErr");
       const ok = Boolean(barcodeError?.classList.contains("hidden"));
+      if (!ok) {
+        const error = text(barcodeError?.textContent);
+        byId("bData").value = previous.data;
+        byId("bText").checked = previous.showText;
+        byId("bScale").value = previous.scale;
+        byId("bHeight").value = previous.height;
+        byId("bFg").value = previous.foreground;
+        byId("bBg").value = previous.background;
+        byId("bTransparent").checked = previous.transparent;
+        formatSelect.value = previous.format;
+        formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        ui.goTab(previous.workspace);
+        const restored = snapshot(false);
+        return { ok: false, error, workspace: restored.workspace, barcode: restored.barcode };
+      }
       const state = snapshot(false);
-      return { ok, error: ok ? "" : text(barcodeError?.textContent), workspace: state.workspace, barcode: state.barcode };
+      return { ok: true, error: "", workspace: state.workspace, barcode: state.barcode };
     },
   });
 

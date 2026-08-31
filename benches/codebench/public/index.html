@@ -706,6 +706,7 @@ function buildContent(){
 }
 
 function qrOptions(data){
+  data=typeof data==="string"?data:(buildContent()||" ");
   const size=+$("#qSize").value||600;
   const grad=$("#qGrad").checked;
   const fg=$("#qFg").value,fg2=$("#qFg2").value;

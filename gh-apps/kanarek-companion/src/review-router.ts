@@ -1,3 +1,5 @@
+import { configuredOpenRouterModels } from './openrouter-models.ts';
+
 export const REVIEW_ROUTER_PATH = '/review-router/v1/chat/completions';
 export const REVIEW_ROUTER_MODELS_PATH = '/review-router/v1/models';
 
@@ -17,6 +19,7 @@ export interface ReviewRouterEnv {
   OPENROUTER_API_KEY?: string;
   ORCAROUTER_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
+  KANAREK_OPENROUTER_MODELS?: string;
 }
 
 type JsonObject = Record<string, unknown>;
@@ -30,28 +33,31 @@ type ReviewProvider = {
   headers?: Record<string, string>;
 };
 
-const PROVIDERS: readonly ReviewProvider[] = [
-  {
-    id: 'openrouter',
-    url: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'minimax/minimax-m3:free',
-    fallbackModels: ['nvidia/nemotron-3-ultra-550b-a55b:free', 'openrouter/free'],
-    apiKey: (env) => env.OPENROUTER_API_KEY,
-    headers: { 'X-Title': 'Kanarek free review' },
-  },
-  {
-    id: 'orcarouter',
-    url: 'https://api.orcarouter.ai/v1/chat/completions',
-    model: 'deepseek/deepseek-v4-flash-free',
-    apiKey: (env) => env.ORCAROUTER_API_KEY,
-  },
-  {
-    id: 'aihubmix',
-    url: 'https://aihubmix.com/v1/chat/completions',
-    model: 'coding-glm-5.3-free',
-    apiKey: (env) => env.AIHUBMIX_API_KEY,
-  },
-];
+function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
+  const openRouterModels = configuredOpenRouterModels(env.KANAREK_OPENROUTER_MODELS);
+  return [
+    {
+      id: 'openrouter',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      model: openRouterModels[0],
+      fallbackModels: openRouterModels.slice(1),
+      apiKey: (providerEnv) => providerEnv.OPENROUTER_API_KEY,
+      headers: { 'X-Title': 'Kanarek free review' },
+    },
+    {
+      id: 'orcarouter',
+      url: 'https://api.orcarouter.ai/v1/chat/completions',
+      model: 'deepseek/deepseek-v4-flash-free',
+      apiKey: (providerEnv) => providerEnv.ORCAROUTER_API_KEY,
+    },
+    {
+      id: 'aihubmix',
+      url: 'https://aihubmix.com/v1/chat/completions',
+      model: 'coding-glm-5.3-free',
+      apiKey: (providerEnv) => providerEnv.AIHUBMIX_API_KEY,
+    },
+  ];
+}
 
 function jsonError(message: string, code: string, status: number): Response {
   return Response.json(
@@ -214,7 +220,7 @@ export async function handleReviewRouterRequest(
 
   let configured = 0;
   let invalidRequests = 0;
-  for (const provider of PROVIDERS) {
+  for (const provider of providers(env)) {
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
     configured += 1;

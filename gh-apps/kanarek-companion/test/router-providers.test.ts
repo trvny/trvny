@@ -29,12 +29,14 @@ test('uses the OpenRouter free model fallback chain', async () => {
   assert.equal(await aiQuip('{}', { OPENROUTER_API_KEY: 'router' }, fetcher), VALID_QUIP);
   assert.equal(url, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(headers.get('authorization'), 'Bearer router');
-  assert.equal(body.model, 'z-ai/glm-5.2:free');
+  assert.equal(body.model, 'minimax/minimax-m3:free');
   assert.deepEqual(body.models, [
     'nvidia/nemotron-3-ultra-550b-a55b:free',
-    'google/gemma-4-31b-it:free',
-    'google/gemma-4-26b-a4b-it:free',
+    'poolside/laguna-s-2.1:free',
+    'cohere/north-mini-code:free',
+    'poolside/laguna-m.1:free',
     'nvidia/nemotron-3-super-120b-a12b:free',
+    'openrouter/free',
   ]);
   assert.equal(body.max_tokens, 1_024);
 });

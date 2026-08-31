@@ -1,5 +1,6 @@
 import { classifyChannel } from "./channel-meta.js";
 import { describeHls, describeMedia, describeSource } from "./diagnostics.js";
+import "./stream-bridge.js";
 
 const ui = {
   form: document.querySelector("#streamForm"),
@@ -228,10 +229,11 @@ for (const media of [ui.video, ui.audio]) {
 
 ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
-  activeEntry?.removeAttribute("aria-current");
-  activeEntry = null;
-  activeItemIndex = -1;
-  announceChannel();
+  const selected = ui.entries.querySelector('.entry-action[aria-current="true"]');
+  const selectedIndex = Number(selected?.dataset.playlistIndex);
+  activeEntry = selected || null;
+  activeItemIndex = selected && Number.isInteger(selectedIndex) ? selectedIndex : -1;
+  announceChannel(activeItemIndex >= 0 ? playlist[activeItemIndex] : {});
 
   const parsed = validRemoteUrl(ui.url.value.trim());
   if (!parsed) {
@@ -703,19 +705,41 @@ function searchPlaylistEntries(query = "", limit = 20) {
   };
 }
 
-function startPlaylistPlayback(index) {
+async function startPlaylistPlayback(index) {
   const item = playlist[index];
   if (!item) return { ok: false, error: "Playlist entry does not exist." };
   if (item.external) {
     return { ok: false, error: "This entry is an external page and cannot play inside Streambench.", entry: publicPlaylistItem(item, index) };
   }
-  activeEntry?.removeAttribute("aria-current");
-  activeEntry = ui.entries.querySelector(`[data-playlist-index="${index}"]`);
-  activeEntry?.setAttribute("aria-current", "true");
-  activeItemIndex = index;
-  announceChannel(item);
-  playStream(item.url, { title: item.title, radio: item.radio, quality: item.quality });
-  return { ok: true, started: true, entry: publicPlaylistItem(item, index), state: streamState() };
+  const previousQuery = ui.search.value;
+  let action = ui.entries.querySelector(`[data-playlist-index="${index}"]`);
+  if (!action && previousQuery) {
+    ui.search.value = "";
+    renderPlaylist();
+    action = ui.entries.querySelector(`[data-playlist-index="${index}"]`);
+  }
+  if (!action) {
+    if (previousQuery) {
+      ui.search.value = previousQuery;
+      renderPlaylist();
+    }
+    return { ok: false, error: "Playlist entry is not available in the current UI." };
+  }
+  action.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  if (previousQuery) {
+    ui.search.value = previousQuery;
+    renderPlaylist();
+  }
+  const started = activeItemIndex === index;
+  return {
+    ok: started,
+    started,
+    error: started ? "" : "Streambench did not activate the selected playlist entry.",
+    entry: publicPlaylistItem(item, index),
+    state: streamState(),
+  };
 }
 
 function stopStreamPlayback() {

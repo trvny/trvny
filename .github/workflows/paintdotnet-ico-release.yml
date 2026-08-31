@@ -16,7 +16,7 @@ on: # yamllint disable-line rule:truthy
 
 concurrency:
   group: paintdotnet-ico-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions: {}
 
@@ -235,7 +235,7 @@ jobs:
 
               gh release upload "$rolling_tag" "${assets[@]}" --clobber
               gh api --method PATCH "repos/$GH_REPO/git/refs/tags/$rolling_tag" -f sha="$GITHUB_SHA" -F force=true
-              gh release edit "$rolling_tag" --title "Paint.NET ICO · latest v${VERSION}" --notes-file rolling-notes.md
+              gh release edit "$rolling_tag" --title "Paint.NET ICO · latest v${VERSION}" --notes-file rolling-notes.md --draft=false
               trap - ERR
             else
               gh release create "$rolling_tag" \

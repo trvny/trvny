@@ -541,7 +541,7 @@ A remote task should be able to use this sequence:
 1. enqueue task;
 2. if worker offline, optionally request wake;
 3. wait for authenticated worker check-in;
-4. worker claims task with a lease;
+4. worker atomically claims the task in its local journal; Phase 2 remote execution additionally acquires and renews the broker lease;
 5. worker validates task + capabilities and creates an isolated workspace;
 6. worker chooses the cheapest suitable execution path;
 7. worker executes with the minimum capability set;

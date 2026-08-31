@@ -635,6 +635,7 @@ $("#camSwitch").onclick=async()=>{
    QR GENERATOR  (qr-code-styling)
 ====================================================== */
 let qr=null,qrLogoData=null,qrType="url",lastQrContent="",qrRenderGeneration=0,qrRenderPromise=Promise.resolve(false);
+function invalidateQrRenderState(){qrRenderGeneration+=1;lastQrContent="";qrRenderPromise=Promise.resolve(false);}
 
 const templates={
   url:[{k:"url",l:"URL",t:"url",ph:"https://example.com",v:"https://"}],
@@ -828,7 +829,7 @@ function renderBar(){
   }
 }
 ["bType","bData","bText","bScale","bHeight","bFg","bBg","bTransparent"].forEach(id=>$("#"+id).addEventListener("input",renderBar));
-$("#bType").addEventListener("change",()=>{updBHint();renderBar();});
+$("#bType").addEventListener("change",()=>{updBHint();if($("#bType").dataset.codebenchToolWrite!=="true")renderBar();});
 $("#bPng").onclick=()=>{$("#bCanvas").toBlob(b=>download(b,"barcode-"+$("#bType").value+".png"),"image/png");};
 $("#bCopy").onclick=()=>copyCanvasPng($("#bCanvas"));
 $("#bSvg").onclick=()=>{
@@ -953,6 +954,7 @@ globalThis.CodeBenchUi=Object.freeze({
   getContent:()=>lastQrContent,
   getQrTemplate:()=>qrType,
   hasQr:()=>Boolean(qr),
+  invalidateQrRenderState,
   ensureQrRendered:async()=>{
     if(!qr)throw new Error("QR renderer is not ready");
     const generation=qrRenderGeneration;

@@ -376,7 +376,6 @@
         background: byId("bBg").value,
         transparent: byId("bTransparent").checked,
       };
-      byId("bData").value = data;
       if (showText !== undefined) byId("bText").checked = showText;
       if (scale !== undefined) byId("bScale").value = String(scale);
       if (height !== undefined) byId("bHeight").value = String(height);
@@ -384,7 +383,12 @@
       if (background !== undefined) byId("bBg").value = background;
       if (transparent !== undefined) byId("bTransparent").checked = transparent;
       formatSelect.value = format;
-      formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      formatSelect.dataset.codebenchToolWrite = "true";
+      try {
+        formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      } finally {
+        delete formatSelect.dataset.codebenchToolWrite;
+      }
       byId("bData").value = data;
       byId("bData").dispatchEvent(new Event("input", { bubbles: true }));
       ui.goTab("bar");
@@ -401,7 +405,12 @@
         byId("bBg").value = previous.background;
         byId("bTransparent").checked = previous.transparent;
         formatSelect.value = previous.format;
-        formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        formatSelect.dataset.codebenchToolWrite = "true";
+        try {
+          formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        } finally {
+          delete formatSelect.dataset.codebenchToolWrite;
+        }
         byId("bData").value = previous.data;
         byId("bData").dispatchEvent(new Event("input", { bubbles: true }));
         ui.goTab(previous.workspace);
@@ -427,14 +436,19 @@
       additionalProperties: false,
     },
     annotations: { readOnlyHint: false, untrustedContentHint: true },
-    execute({ kind, format } = {}) {
+    async execute({ kind, format } = {}) {
       if (!["qr", "barcode"].includes(kind)) return { ok: false, error: "kind must be qr or barcode." };
       if (!["png", "svg"].includes(format)) return { ok: false, error: "format must be png or svg." };
       if (kind === "barcode" && !byId("bErr")?.classList.contains("hidden")) {
         return { ok: false, error: text(byId("bErr")?.textContent) || "Fix the barcode data first." };
       }
-      if (kind === "qr" && !ui.hasQr()) {
-        return { ok: false, error: "Render a QR code first." };
+      if (kind === "qr") {
+        if (!ui.hasQr()) return { ok: false, error: "Render a QR code first." };
+        try {
+          await waitForQrRendered();
+        } catch (error) {
+          return { ok: false, error: `QR export is not ready: ${error?.message || error}.` };
+        }
       }
       const buttonId = kind === "qr"
         ? (format === "png" ? "qrPng" : "qrSvg")

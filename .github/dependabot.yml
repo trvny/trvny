@@ -63,6 +63,10 @@ updates:
       prefix: "ci"
     ignore:
       - dependency-name: "github/gh-aw-actions/*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
     groups:
       actions:
         patterns:

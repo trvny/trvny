@@ -37,7 +37,7 @@ companion.
   delivery.
 - `POST /review-router/v1/chat/completions` is the private OpenAI-compatible
   transport for free PR review. It authenticates with the synchronized router
-  bearer and falls through AIHubMix, OpenRouter, then OrcaRouter before a
+  bearer and falls through OpenRouter, OrcaRouter, then AIHubMix before a
   successful upstream response starts streaming.
 
 PR, review, completed CI/check-suite, and commit-status events refresh the

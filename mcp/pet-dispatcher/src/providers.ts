@@ -9,9 +9,9 @@ Use the provided tools to inspect, edit and validate the assigned repository.
 Never assume host filesystem access outside the session. Finish with a concise summary and validation evidence.`;
 
 interface OpenRouterToolCall {
-  id: string;
-  type: "function";
-  function: { name: string; arguments: string };
+  id?: string;
+  type?: string;
+  function?: { name?: string; arguments?: string };
 }
 interface OpenRouterMessage {
   role: string;
@@ -62,11 +62,17 @@ export async function runOpenRouter(
       return { provider: "openrouter", model, text: message.content ?? "", steps: step };
     }
     for (const call of calls) {
+      const fn = call?.function;
+      const toolCallId = call?.id ?? "unknown";
+      if (!fn?.name) {
+        messages.push({ role: "tool", tool_call_id: toolCallId, name: "invalid_tool_call", content: JSON.stringify({ error: "malformed tool_call" }) });
+        continue;
+      }
       let args: unknown = {};
-      try { args = JSON.parse(call.function.arguments || "{}"); }
+      try { args = JSON.parse(fn.arguments || "{}"); }
       catch { args = { parseError: "invalid JSON tool arguments" }; }
-      const result = await toolResult(tools, sessionId, call.function.name, args);
-      messages.push({ role: "tool", tool_call_id: call.id, name: call.function.name, content: JSON.stringify(result) });
+      const result = await toolResult(tools, sessionId, fn.name, args);
+      messages.push({ role: "tool", tool_call_id: toolCallId, name: fn.name, content: JSON.stringify(result) });
     }
   }
   throw new Error(`OpenRouter agent exceeded ${maxSteps} steps`);

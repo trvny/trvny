@@ -119,3 +119,57 @@ test("concurrent opens reserve the writer lease before asynchronous setup", asyn
     if (fulfilled[0]) await fixture.sessions.close(fulfilled[0].value.id, true);
   } finally { await rm(fixture.base, { recursive: true, force: true }); }
 });
+
+
+test("host operations cannot race an active sandbox process", async () => {
+  const fixture = await makeFixture();
+  const session = await fixture.sessions.open("fixture");
+  try {
+    const running = fixture.runner.exec(session.id, ["cmd", "/d", "/s", "/c", "for /L %i in (1,1,2147483647) do @rem"], ".", 35_000);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await assert.rejects(
+      fixture.sessions.runHostOperation(session.id, async () => "unexpected"),
+      /active workspace\.exec operation/,
+    );
+    assert.equal(fixture.runner.cancel(session.id), true);
+    await running;
+  } finally {
+    await fixture.sessions.close(session.id, true);
+    await rm(fixture.base, { recursive: true, force: true });
+  }
+});
+
+
+test("cancel keeps the session occupied until the old child actually closes", async () => {
+  const fixture = await makeFixture();
+  const session = await fixture.sessions.open("fixture");
+  try {
+    const running = fixture.runner.exec(session.id, ["cmd", "/d", "/s", "/c", "for /L %i in (1,1,2147483647) do @rem"], ".", 35_000);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.equal(fixture.runner.cancel(session.id), true);
+    const second = fixture.runner.exec(session.id, ["cmd", "/d", "/s", "/c", "echo SECOND"]);
+    const secondResult = await second.then((value) => ({ kind: "value" as const, value }), (error) => ({ kind: "error" as const, error }));
+    await running;
+    if (secondResult.kind === "error") {
+      assert.match(String(secondResult.error), /active workspace\.exec operation|running command/);
+    } else {
+      assert.equal(secondResult.value.exitCode, 0);
+    }
+    const after = await fixture.runner.exec(session.id, ["cmd", "/d", "/s", "/c", "echo AFTER"]);
+    assert.equal(after.exitCode, 0);
+    assert.match(after.stdout, /AFTER/);
+  } finally {
+    await fixture.sessions.close(session.id, true);
+    await rm(fixture.base, { recursive: true, force: true });
+  }
+});
+
+test("session sync fails closed until restricted host egress exists", async () => {
+  const fixture = await makeFixture();
+  try {
+    await assert.rejects(
+      fixture.sessions.open("fixture", "HEAD", "none", undefined, true),
+      /sync requires restricted host egress/,
+    );
+  } finally { await rm(fixture.base, { recursive: true, force: true }); }
+});

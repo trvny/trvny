@@ -98,22 +98,29 @@ export class AgentTools {
     const args = (raw ?? {}) as Record<string, unknown>;
     const session = this.sessions.get(sessionId);
     switch (name) {
-      case "list_files": return listWorkspace(session, String(args.path ?? "."));
-      case "read_file": return { content: await readWorkspace(session, String(args.path ?? "")) };
+      case "list_files":
+        return this.sessions.runHostOperation(sessionId, (locked) => listWorkspace(locked, String(args.path ?? ".")));
+      case "read_file":
+        return this.sessions.runHostOperation(sessionId, async (locked) => ({ content: await readWorkspace(locked, String(args.path ?? "")) }));
       case "write_file":
-        await writeWorkspace(session, String(args.path ?? ""), String(args.content ?? ""));
+        await this.sessions.runHostOperation(sessionId, (locked) =>
+          writeWorkspace(locked, String(args.path ?? ""), String(args.content ?? "")));
         return { ok: true };
       case "patch_file":
-        await patchWorkspace(session, String(args.path ?? ""), String(args.oldText ?? ""), String(args.newText ?? ""));
+        await this.sessions.runHostOperation(sessionId, (locked) =>
+          patchWorkspace(locked, String(args.path ?? ""), String(args.oldText ?? ""), String(args.newText ?? "")));
         return { ok: true };
       case "exec": {
         const argv = Array.isArray(args.argv) ? args.argv.map(String) : [];
-        return this.runner.exec(
-          sessionId,
-          argv,
-          String(args.cwd ?? "."),
-          typeof args.timeoutMs === "number" ? args.timeoutMs : undefined,
-        );
+        let timeoutMs: number | undefined;
+        if (args.timeoutMs !== undefined) {
+          const value = Number(args.timeoutMs);
+          if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1_000 || value > 3_600_000) {
+            throw new Error("timeoutMs must be an integer between 1000 and 3600000");
+          }
+          timeoutMs = value;
+        }
+        return this.runner.exec(sessionId, argv, String(args.cwd ?? "."), timeoutMs);
       }
       case "git_status": return this.git.status(sessionId);
       case "git_diff":

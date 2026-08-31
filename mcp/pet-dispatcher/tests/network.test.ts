@@ -21,7 +21,9 @@ const config: DispatcherConfig = {
 const session: Session = {
   id: "00000000-0000-4000-8000-000000000000",
   repo: "test",
+  sessionDir: "C:\\work\\session-dir",
   root: "C:\\work\\session",
+  gitDir: "C:\\work\\session-dir\\git",
   sourceRoot: "C:\\repo",
   initialCommit: "deadbeef",
   readonlyRoots: [],

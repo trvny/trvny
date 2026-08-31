@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { resolveExisting, resolveForCreate, resolveForWrite, validateRelativePath } from "../src/path-guard.js";
+import type { Session } from "../src/sessions.js";
+import { readWorkspace } from "../src/workspace-fs.js";
 
 async function fixture() {
   const base = await mkdtemp(join(tmpdir(), "pet-dispatcher-path-"));
@@ -53,5 +55,19 @@ test("rejects writes through a file symlink that escapes the workspace", async (
       throw error;
     }
     await assert.rejects(resolveForWrite(root, "escape-file.txt"), /outside/);
+  } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+
+test("workspace reads reject oversized files before reading the body", async () => {
+  const { base, root } = await fixture();
+  try {
+    await writeFile(join(root, "large.txt"), "x".repeat(64));
+    const session = {
+      id: "00000000-0000-4000-8000-000000000001", repo: "fixture", sessionDir: base,
+      root, gitDir: join(base, "git"), sourceRoot: root, initialCommit: "deadbeef", readonlyRoots: [],
+      network: { mode: "none", profile: null }, exportedCommit: null, exportedRef: null, createdAt: new Date(0).toISOString(),
+    } satisfies Session;
+    await assert.rejects(readWorkspace(session, "large.txt", 16), /exceeds 16 byte/);
   } finally { await rm(base, { recursive: true, force: true }); }
 });

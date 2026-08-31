@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, realpath, rm } from "node:fs/promises";
+import { mkdir, realpath, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { DispatcherConfig } from "./config.js";
@@ -12,7 +12,9 @@ const execFileAsync = promisify(execFile);
 export interface Session {
   id: string;
   repo: string;
+  sessionDir: string;
   root: string;
+  gitDir: string;
   sourceRoot: string;
   initialCommit: string;
   readonlyRoots: string[];
@@ -22,9 +24,15 @@ export interface Session {
   createdAt: string;
 }
 
+interface Activity {
+  kind: string;
+  token: symbol;
+}
+
 export class SessionManager {
   readonly #sessions = new Map<string, Session>();
   readonly #writers = new Map<string, string>();
+  readonly #activity = new Map<string, Activity>();
 
   constructor(readonly config: DispatcherConfig) {}
 
@@ -35,6 +43,27 @@ export class SessionManager {
   }
 
   list(): Session[] { return [...this.#sessions.values()]; }
+
+  acquireActivity(id: string, kind: string): () => void {
+    this.get(id);
+    const current = this.#activity.get(id);
+    if (current) throw new Error(`session already has an active ${current.kind} operation`);
+    const token = Symbol(kind);
+    this.#activity.set(id, { kind, token });
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      if (this.#activity.get(id)?.token === token) this.#activity.delete(id);
+    };
+  }
+
+  async runHostOperation<T>(id: string, operation: (session: Session) => Promise<T>): Promise<T> {
+    const release = this.acquireActivity(id, "host");
+    try { return await operation(this.get(id)); }
+    finally { release(); }
+  }
+
   #network(mode: NetworkMode, profile?: string): NetworkAccess {
     if (mode === "none") {
       if (profile) throw new Error("network profile is not valid when network mode is none");
@@ -57,45 +86,58 @@ export class SessionManager {
   ): Promise<Session> {
     const sourceConfigured = this.config.repositories[repo];
     if (!sourceConfigured) throw new Error(`repository is not configured: ${repo}`);
+    if (sync) throw new Error("session sync requires restricted host egress and is unavailable in Phase 1");
     if (this.#writers.has(repo)) throw new Error(`repository already has a writer session: ${repo}`);
     if (!/^(?!-)[A-Za-z0-9._/@+:-]+$/.test(ref)) throw new Error("invalid git ref");
     const network = this.#network(networkMode, networkProfile);
     const id = randomUUID();
     this.#writers.set(repo, id);
-    let root: string | undefined;
+    let sessionDir: string | undefined;
     try {
       const sourceRoot = await realpath(sourceConfigured);
-      if (sync) await execFileAsync("git", ["-C", sourceRoot, "fetch", "--prune", "origin"]);
       const { stdout } = await execFileAsync("git", ["-C", sourceRoot, "rev-parse", "--verify", `${ref}^{commit}`]);
       const initialCommit = stdout.trim();
       const sessionsRoot = resolve(this.config.workspaceRoot, "sessions");
       await mkdir(sessionsRoot, { recursive: true });
-      root = resolve(sessionsRoot, id);
-      assertInside(sessionsRoot, root);
-      await execFileAsync("git", ["clone", "--shared", "--no-checkout", sourceRoot, root]);
-      await execFileAsync("git", ["-C", root, "checkout", "--detach", initialCommit]);
-      const readonlyRoots = await this.#sharedObjectRoots(root);
+      sessionDir = resolve(sessionsRoot, id);
+      assertInside(sessionsRoot, sessionDir);
+      const root = resolve(sessionDir, "worktree");
+      const gitDir = resolve(sessionDir, "git");
+
+      await execFileAsync("git", [
+        "clone", "--shared", "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root,
+      ]);
+      await execFileAsync("git", [
+        "--git-dir", gitDir, "--work-tree", root, "checkout", "--detach", initialCommit,
+      ]);
+      await rm(join(root, ".git"), { force: true });
+      const readonlyRoots: string[] = [];
       const session: Session = {
-        id, repo, root: await realpath(root), sourceRoot, initialCommit, readonlyRoots, network,
-        exportedCommit: null, exportedRef: null, createdAt: new Date().toISOString(),
+        id, repo, sessionDir: await realpath(sessionDir), root: await realpath(root), gitDir: await realpath(gitDir),
+        sourceRoot, initialCommit, readonlyRoots, network, exportedCommit: null, exportedRef: null,
+        createdAt: new Date().toISOString(),
       };
       this.#sessions.set(id, session);
       return session;
     } catch (error) {
-      if (root) await rm(root, { recursive: true, force: true }).catch(() => undefined);
+      if (sessionDir) await rm(sessionDir, { recursive: true, force: true }).catch(() => undefined);
       if (this.#writers.get(repo) === id) this.#writers.delete(repo);
       throw error;
     }
   }
 
-  async status(id: string): Promise<{ session: Session; head: string; dirty: boolean; changedHead: boolean }> {
-    const session = this.get(id);
+  async #statusUnlocked(session: Session): Promise<{ session: Session; head: string; dirty: boolean; changedHead: boolean }> {
+    const prefix = ["--git-dir", session.gitDir, "--work-tree", session.root];
     const [{ stdout: headOut }, { stdout: statusOut }] = await Promise.all([
-      execFileAsync("git", ["-C", session.root, "rev-parse", "HEAD"]),
-      execFileAsync("git", ["-C", session.root, "status", "--porcelain"]),
+      execFileAsync("git", [...prefix, "rev-parse", "HEAD"]),
+      execFileAsync("git", [...prefix, "status", "--porcelain"]),
     ]);
     const head = headOut.trim();
     return { session, head, dirty: statusOut.trim().length > 0, changedHead: head !== session.initialCommit };
+  }
+
+  async status(id: string): Promise<{ session: Session; head: string; dirty: boolean; changedHead: boolean }> {
+    return this.runHostOperation(id, (session) => this.#statusUnlocked(session));
   }
 
   markExported(id: string, commit: string, ref: string): void {
@@ -105,26 +147,20 @@ export class SessionManager {
   }
 
   async close(id: string, discard = false): Promise<void> {
-    const state = await this.status(id);
-    const headIsExported = state.session.exportedCommit === state.head;
-    if (!discard && (state.dirty || (state.changedHead && !headIsExported))) {
-      throw new Error("session has unexported changes; export the current commit or close with discard=true");
-    }
-    const sessionsRoot = resolve(this.config.workspaceRoot, "sessions");
-    assertInside(sessionsRoot, state.session.root);
-    await rm(state.session.root, { recursive: true, force: true });
-    this.#sessions.delete(id);
-    if (this.#writers.get(state.session.repo) === id) this.#writers.delete(state.session.repo);
+    const release = this.acquireActivity(id, "close");
+    try {
+      const session = this.get(id);
+      const state = await this.#statusUnlocked(session);
+      const headIsExported = session.exportedCommit === state.head;
+      if (!discard && (state.dirty || (state.changedHead && !headIsExported))) {
+        throw new Error("session has unexported changes; export the current commit or close with discard=true");
+      }
+      const sessionsRoot = resolve(this.config.workspaceRoot, "sessions");
+      assertInside(sessionsRoot, session.sessionDir);
+      await rm(session.sessionDir, { recursive: true, force: true });
+      this.#sessions.delete(id);
+      if (this.#writers.get(session.repo) === id) this.#writers.delete(session.repo);
+    } finally { release(); }
   }
 
-  async #sharedObjectRoots(root: string): Promise<string[]> {
-    try {
-      const raw = await readFile(join(root, ".git", "objects", "info", "alternates"), "utf8");
-      const roots: string[] = [];
-      for (const line of raw.split(/\r?\n/).filter(Boolean)) roots.push(await realpath(line));
-      return roots;
-    } catch {
-      return [];
-    }
-  }
 }

@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import type { Session } from "./sessions.js";
 import { resolveExisting, resolveForCreate, resolveForWrite } from "./path-guard.js";
 
@@ -23,9 +23,12 @@ export async function statWorkspace(session: Session, path: string): Promise<obj
 
 export async function readWorkspace(session: Session, path: string, maxBytes = 1_048_576): Promise<string> {
   const target = await resolveExisting(session.root, path);
-  const content = await readFile(target);
-  if (content.byteLength > maxBytes) throw new Error(`file exceeds ${maxBytes} byte read limit`);
-  return content.toString("utf8");
+  const handle = await open(target, "r");
+  try {
+    const info = await handle.stat();
+    if (info.size > maxBytes) throw new Error(`file exceeds ${maxBytes} byte read limit`);
+    return (await handle.readFile()).toString("utf8");
+  } finally { await handle.close(); }
 }
 export async function writeWorkspace(session: Session, path: string, content: string): Promise<void> {
   const target = await resolveForWrite(session.root, path);
@@ -34,7 +37,7 @@ export async function writeWorkspace(session: Session, path: string, content: st
 
 export async function patchWorkspace(session: Session, path: string, oldText: string, newText: string): Promise<void> {
   const target = await resolveExisting(session.root, path);
-  const content = await readFile(target, "utf8");
+  const content = await readWorkspace(session, path);
   const first = content.indexOf(oldText);
   if (first < 0) throw new Error("patch text was not found");
   if (content.indexOf(oldText, first + oldText.length) >= 0) throw new Error("patch text is not unique");

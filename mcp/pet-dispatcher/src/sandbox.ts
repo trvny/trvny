@@ -95,69 +95,74 @@ export class CommandRunner {
 
   async exec(sessionId: string, argv: string[], cwd = ".", timeoutMs?: number): Promise<ExecResult> {
     if (argv.length === 0) throw new Error("argv must contain an executable");
-    if (this.#running.has(sessionId)) throw new Error("session already has a running command");
-    const session = this.sessions.get(sessionId);
-    const workingDirectory = await resolveExisting(session.root, cwd);
-    const executable = await this.#resolveExecutable(session, argv[0] ?? "");
-    const timeout = Math.min(timeoutMs ?? this.config.defaultTimeoutMs, 3_600_000);
-    const extension = extname(executable).toLowerCase();
-    let commandLine: string;
-    if (extension === ".cmd" || extension === ".bat") {
-      const cmd = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe");
-      const inner = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
-      commandLine = `${quoteWindowsArg(cmd)} /d /s /c "${inner}"`;
-    } else {
-      commandLine = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
-    }
-
-    const policy = {
-      version: "0.7.0-alpha",
-      filesystem: { readwritePaths: [session.root], readonlyPaths: [...this.toolRoots, ...session.readonlyRoots] },
-      // Socket access stays denied for both none and brokered modes. Brokered HTTPS
-      // is executed by NetworkBroker outside the sandbox after host validation.
-      network: { allowOutbound: false, allowLocalNetwork: false },
-      ui: { allowWindows: false, clipboard: "none" as const, allowInputInjection: false },
-      timeoutMs: timeout,
-    };
-    const sandbox = createConfigFromPolicy(policy, "process", `pet-dispatcher-${session.id.slice(0, 8)}`);
-    if (!sandbox.process) throw new Error("MXC did not create a process configuration");
-    sandbox.process.commandLine = commandLine;
-    sandbox.process.cwd = workingDirectory;
-
-    // Do not inject or inherit host environment variables. Besides keeping secrets
-    // out of untrusted commands, current Windows processcontainer builds can fail
-    // CreateProcessW when caller-supplied environment entries are present.
-    const started = Date.now();
-    const child = spawnSandboxFromConfig(sandbox, { usePty: false }, workingDirectory);
-    this.#running.set(sessionId, child);
-    return await new Promise<ExecResult>((resolveResult, reject) => {
-      let stdout = "";
-      let stderr = "";
-      let truncated = false;
-      const append = (current: string, chunk: Buffer | string): string => {
-        const next = current + chunk.toString();
-        if (Buffer.byteLength(next) <= this.config.maxOutputBytes) return next;
-        truncated = true;
-        return Buffer.from(next).subarray(0, this.config.maxOutputBytes).toString("utf8");
+    const releaseActivity = this.sessions.acquireActivity(sessionId, "workspace.exec");
+    let child: ChildProcess | undefined;
+    try {
+      if (this.#running.has(sessionId)) throw new Error("session already has a running command");
+      const session = this.sessions.get(sessionId);
+      const workingDirectory = await resolveExisting(session.root, cwd);
+      const executable = await this.#resolveExecutable(session, argv[0] ?? "");
+      const requestedTimeout = timeoutMs ?? this.config.defaultTimeoutMs;
+      if (!Number.isFinite(requestedTimeout) || requestedTimeout < 1_000) {
+        throw new Error("timeoutMs must be a finite value of at least 1000ms");
+      }
+      const timeout = Math.min(Math.trunc(requestedTimeout), 3_600_000);
+      const extension = extname(executable).toLowerCase();
+      let commandLine: string;
+      if (extension === ".cmd" || extension === ".bat") {
+        const cmd = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe");
+        const inner = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
+        commandLine = `${quoteWindowsArg(cmd)} /d /s /c "${inner}"`;
+      } else {
+        commandLine = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
+      }
+      const policy = {
+        version: "0.7.0-alpha",
+        filesystem: { readwritePaths: [session.root], readonlyPaths: [...this.toolRoots, ...session.readonlyRoots] },
+        network: { allowOutbound: false, allowLocalNetwork: false },
+        ui: { allowWindows: false, clipboard: "none" as const, allowInputInjection: false },
+        timeoutMs: timeout,
       };
-      child.stdout?.on("data", (chunk) => { stdout = append(stdout, chunk); });
-      child.stderr?.on("data", (chunk) => { stderr = append(stderr, chunk); });
-      child.once("error", (error) => {
-        this.#running.delete(sessionId);
-        reject(error);
+      const sandbox = createConfigFromPolicy(policy, "process", `pet-dispatcher-${session.id.slice(0, 8)}`);
+      if (!sandbox.process) throw new Error("MXC did not create a process configuration");
+      sandbox.process.commandLine = commandLine;
+      sandbox.process.cwd = workingDirectory;
+      const started = Date.now();
+      child = spawnSandboxFromConfig(sandbox, { usePty: false }, workingDirectory);
+      this.#running.set(sessionId, child);
+      const runningChild = child;
+      return await new Promise<ExecResult>((resolveResult, reject) => {
+        let stdout = "";
+        let stderr = "";
+        let truncated = false;
+        const append = (current: string, chunk: Buffer | string): string => {
+          const next = current + chunk.toString();
+          if (Buffer.byteLength(next) <= this.config.maxOutputBytes) return next;
+          truncated = true;
+          return Buffer.from(next).subarray(0, this.config.maxOutputBytes).toString("utf8");
+        };
+        runningChild.stdout?.on("data", (chunk) => { stdout = append(stdout, chunk); });
+        runningChild.stderr?.on("data", (chunk) => { stderr = append(stderr, chunk); });
+        runningChild.once("error", (error) => {
+          if (this.#running.get(sessionId) === runningChild) this.#running.delete(sessionId);
+          releaseActivity();
+          reject(error);
+        });
+        runningChild.once("close", (exitCode) => {
+          if (this.#running.get(sessionId) === runningChild) this.#running.delete(sessionId);
+          releaseActivity();
+          resolveResult({ exitCode, stdout, stderr, truncated, durationMs: Date.now() - started });
+        });
       });
-      child.once("close", (exitCode) => {
-        this.#running.delete(sessionId);
-        resolveResult({ exitCode, stdout, stderr, truncated, durationMs: Date.now() - started });
-      });
-    });
+    } catch (error) {
+      if (!child) releaseActivity();
+      throw error;
+    }
   }
 
   cancel(sessionId: string): boolean {
     const child = this.#running.get(sessionId);
     if (!child) return false;
-    const killed = child.kill();
-    if (killed) this.#running.delete(sessionId);
-    return killed;
+    return child.kill();
   }
 }

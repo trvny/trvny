@@ -37,6 +37,8 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
   const broker = new NetworkBroker(config);
   const git = new HostGit(sessions, config);
   const agentTools = new AgentTools(sessions, runner, broker, git);
+  const host = <T>(sessionId: string, operation: (session: Session) => Promise<T>) =>
+    sessions.runHostOperation(sessionId, operation);
   server.registerTool("security_status", {
     description: "Report the local sandbox backend, configured repositories and provider availability.",
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -86,25 +88,25 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
     description: "List a directory relative to the assigned session root.",
     inputSchema: { sessionId: z.string().uuid(), path: z.string().default(".") },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async ({ sessionId, path }) => response({ entries: await listWorkspace(sessions.get(sessionId), path) }));
+  }, async ({ sessionId, path }) => response({ entries: await host(sessionId, (session) => listWorkspace(session, path)) }));
 
   server.registerTool("fs_stat", {
     description: "Read metadata for a path relative to the assigned session root.",
     inputSchema: { sessionId: z.string().uuid(), path: z.string().min(1) },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async ({ sessionId, path }) => response(await statWorkspace(sessions.get(sessionId), path)));
+  }, async ({ sessionId, path }) => response(await host(sessionId, (session) => statWorkspace(session, path))));
 
   server.registerTool("fs_read", {
     description: "Read one UTF-8 text file relative to the assigned session root.",
     inputSchema: { sessionId: z.string().uuid(), path: z.string().min(1) },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async ({ sessionId, path }) => response({ content: await readWorkspace(sessions.get(sessionId), path) }));
+  }, async ({ sessionId, path }) => response({ content: await host(sessionId, (session) => readWorkspace(session, path)) }));
   server.registerTool("fs_write", {
     description: "Create or replace one UTF-8 file inside the assigned session root.",
     inputSchema: { sessionId: z.string().uuid(), path: z.string().min(1), content: z.string() },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   }, async ({ sessionId, path, content }) => {
-    await writeWorkspace(sessions.get(sessionId), path, content);
+    await host(sessionId, (session) => writeWorkspace(session, path, content));
     return response({ ok: true });
   });
 
@@ -115,7 +117,7 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   }, async ({ sessionId, path, oldText, newText }) => {
-    await patchWorkspace(sessions.get(sessionId), path, oldText, newText);
+    await host(sessionId, (session) => patchWorkspace(session, path, oldText, newText));
     return response({ ok: true });
   });
 
@@ -124,7 +126,7 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
     inputSchema: { sessionId: z.string().uuid(), path: z.string().min(1) },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   }, async ({ sessionId, path }) => {
-    await mkdirWorkspace(sessions.get(sessionId), path);
+    await host(sessionId, (session) => mkdirWorkspace(session, path));
     return response({ ok: true });
   });
   server.registerTool("fs_move", {
@@ -132,7 +134,7 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
     inputSchema: { sessionId: z.string().uuid(), from: z.string().min(1), to: z.string().min(1) },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   }, async ({ sessionId, from, to }) => {
-    await moveWorkspace(sessions.get(sessionId), from, to);
+    await host(sessionId, (session) => moveWorkspace(session, from, to));
     return response({ ok: true });
   });
 
@@ -141,7 +143,7 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
     inputSchema: { sessionId: z.string().uuid(), path: z.string().min(1) },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   }, async ({ sessionId, path }) => {
-    await deleteWorkspace(sessions.get(sessionId), path);
+    await host(sessionId, (session) => deleteWorkspace(session, path));
     return response({ ok: true });
   });
 

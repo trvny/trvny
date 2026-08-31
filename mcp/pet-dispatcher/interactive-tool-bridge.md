@@ -189,7 +189,7 @@ git.status
 git.diff
 ```
 
-`git.*` methods are convenience/structured operations. `workspace.exec ["git", ...]` may still be allowed when the session has `process.exec`; both pass through the same local policy.
+`git.*` methods are the authoritative repository operations. Phase 1 deliberately keeps Git metadata outside the MXC-writable worktree, so `workspace.exec ["git", ...]` is not relied on for repository state even when the Git binary itself is allowlisted.
 
 Do not create a separate MCP namespace for every installed CLI unless structured arguments materially improve safety or ergonomics.
 
@@ -229,7 +229,7 @@ High-risk capabilities such as elevation, credential-store reads, firewall chang
 
 ## Repository/workdir ownership
 
-The dispatcher should prefer an existing maintained clone as the source repository while executing changes in worker-owned temporary checkouts. Phase 1 uses lightweight `git clone --shared` checkouts so writable `.git` metadata stays inside the sandbox; a normal Git worktree would point back to metadata outside the writable root.
+The dispatcher should prefer an existing maintained clone as the source repository while executing changes in worker-owned temporary checkouts. Phase 1 uses lightweight `git clone --shared --separate-git-dir` checkouts: the MXC-writable worktree contains only working files, while session Git metadata lives in a private sibling directory that is never granted to the sandbox.
 
 For interactive coding sessions:
 

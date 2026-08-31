@@ -58,7 +58,7 @@ test("host Git commit uses dispatcher identity without host Git config", async (
     assert.equal((await f.git.add(f.session.id, ["new.txt"])).exitCode, 0);
     const commit = await f.git.commit(f.session.id, "test: safe host git");
     assert.equal(commit.exitCode, 0, commit.stderr);
-    const { stdout } = await execFileAsync("git", ["-C", f.session.root, "log", "-1", "--format=%an <%ae>%n%s"]);
+    const { stdout } = await execFileAsync("git", ["--git-dir", f.session.gitDir, "--work-tree", f.session.root, "log", "-1", "--format=%an <%ae>%n%s"]);
     assert.match(stdout, /GPTomek <314538226\+gptomek\[bot\]@users\.noreply\.github\.com>/);
     assert.match(stdout, /test: safe host git/);
   } finally {
@@ -91,4 +91,21 @@ test("export preserves the current commit before clean session close", async () 
     const preserved = await execFileAsync("git", ["-C", f.repo, "rev-parse", "--verify", `${exported.ref}^{commit}`]);
     assert.equal(preserved.stdout.trim(), exported.commit);
   } finally { await rm(f.base, { recursive: true, force: true }); }
+});
+
+
+test("sandbox-owned .git files cannot configure host Git filters", async () => {
+  const f = await fixture();
+  try {
+    assert.notEqual(f.session.gitDir, join(f.session.root, ".git"));
+    await mkdir(join(f.session.root, ".git"));
+    await writeFile(join(f.session.root, ".git", "config"), '[filter "probe"]\n\tclean = false\n\trequired = true\n');
+    await writeFile(join(f.session.root, ".gitattributes"), "probe filter=probe\n");
+    await writeFile(join(f.session.root, "probe"), "data\n");
+    const add = await f.git.add(f.session.id, ["probe"]);
+    assert.equal(add.exitCode, 0, add.stderr);
+  } finally {
+    await f.sessions.close(f.session.id, true);
+    await rm(f.base, { recursive: true, force: true });
+  }
 });

@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { createPlaybackAttemptCoordinator } from "../public/playback-attempt.js";
+import { readFileSync } from "node:fs";
+import {
+  beginPlaybackAttemptForTarget,
+  completePlaybackAttemptIfTerminal,
+  createPlaybackAttemptCoordinator,
+} from "../public/playback-attempt.js";
 
 const attempts = createPlaybackAttemptCoordinator();
 const first = attempts.begin();
@@ -14,6 +19,31 @@ const completed = attempts.begin();
 attempts.complete(completed);
 attempts.cancel("stopped");
 assert.equal(completed.signal.aborted, false);
+
+const guarded = createPlaybackAttemptCoordinator();
+const validPending = guarded.begin();
+for (const rejected of [null, { hidden: true, item: {} }, { hidden: false, item: { external: true } }]) {
+  assert.equal(beginPlaybackAttemptForTarget(guarded, rejected).ok, false);
+  assert.equal(validPending.signal.aborted, false);
+}
+const validReplacement = beginPlaybackAttemptForTarget(guarded, { hidden: false, item: { external: false } });
+assert.equal(validReplacement.ok, true);
+assert.equal(validPending.signal.aborted, true);
+assert.equal(validPending.signal.reason, "superseded");
+
+const pendingCoordinator = createPlaybackAttemptCoordinator();
+const pendingAttempt = pendingCoordinator.begin();
+assert.equal(completePlaybackAttemptIfTerminal(pendingCoordinator, pendingAttempt, { pending: true }), false);
+pendingCoordinator.cancel("stopped");
+assert.equal(pendingAttempt.signal.aborted, true);
+const terminalAttempt = pendingCoordinator.begin();
+assert.equal(completePlaybackAttemptIfTerminal(pendingCoordinator, terminalAttempt, { pending: false }), true);
+pendingCoordinator.cancel("stopped");
+assert.equal(terminalAttempt.signal.aborted, false);
+
+const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+assert.match(appSource, /if \(!webmcpActivationAttempt\)\s*playbackAttempts\.cancel\("superseded"\)/);
+assert.match(appSource, /void settlePendingPlaybackAttempt\(attempt, effectiveEntry\)/);
 
 const tools = new Map();
 globalThis.document = {

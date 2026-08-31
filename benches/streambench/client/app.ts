@@ -1,6 +1,10 @@
 import { classifyChannel } from "./channel-meta.js";
 import { describeHls, describeMedia, describeSource } from "./diagnostics.js";
-import { createPlaybackAttemptCoordinator } from "./playback-attempt.js";
+import {
+  beginPlaybackAttemptForTarget,
+  completePlaybackAttemptIfTerminal,
+  createPlaybackAttemptCoordinator,
+} from "./playback-attempt.js";
 import "./stream-bridge.js";
 
 const ui = {
@@ -43,6 +47,7 @@ let hls = null;
 let activeEntry = null;
 let activeItemIndex = -1;
 const playbackAttempts = createPlaybackAttemptCoordinator();
+let webmcpActivationAttempt = null;
 
 function effectivePlaylistEntries() {
   const entries = globalThis.StreambenchWorkspace?.entries?.();
@@ -147,6 +152,7 @@ function selectExternalSource(rawUrl, title = "") {
     return null;
   }
 
+  if (!webmcpActivationAttempt) playbackAttempts.cancel("superseded");
   stopPlayback();
   delete ui.shell.dataset.mode;
   ui.url.value = parsed.href;
@@ -164,6 +170,9 @@ function playStream(rawUrl, options = {}) {
     return;
   }
 
+  const attemptSignal = webmcpActivationAttempt?.signal || null;
+  if (!webmcpActivationAttempt) playbackAttempts.cancel("superseded");
+  const attemptActive = () => !attemptSignal?.aborted;
   const url = parsed.href;
   const mode = inferMode(url, options.mode || ui.mode.value, options.radio);
   const media = mode === "audio" ? ui.audio : ui.video;
@@ -181,26 +190,34 @@ function playStream(rawUrl, options = {}) {
   setStatus("Łączenie", "loading");
 
   if (isHls && window.Hls?.isSupported()) {
-    hls = new window.Hls({ enableWorker: true, lowLatencyMode: true });
-    hls.attachMedia(media);
-    hls.on(window.Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
-    hls.on(window.Hls.Events.MANIFEST_PARSED, (_event, data) => {
-      ui.diagnosticHls.textContent = describeHls(data.levels || hls.levels || []);
-      media.play().catch(() => setStatus("Naciśnij play"));
+    const instance = new window.Hls({ enableWorker: true, lowLatencyMode: true });
+    hls = instance;
+    instance.attachMedia(media);
+    instance.on(window.Hls.Events.MEDIA_ATTACHED, () => {
+      if (attemptActive()) instance.loadSource(url);
     });
-    hls.on(window.Hls.Events.LEVEL_LOADED, (_event, data) => {
-      ui.diagnosticHls.textContent = describeHls(hls.levels || [], {
+    instance.on(window.Hls.Events.MANIFEST_PARSED, (_event, data) => {
+      if (!attemptActive()) return;
+      ui.diagnosticHls.textContent = describeHls(data.levels || instance.levels || []);
+      media.play().catch(() => {
+        if (attemptActive()) setStatus("Naciśnij play");
+      });
+    });
+    instance.on(window.Hls.Events.LEVEL_LOADED, (_event, data) => {
+      if (!attemptActive()) return;
+      ui.diagnosticHls.textContent = describeHls(instance.levels || [], {
         live: data.details?.live ?? null,
         duration: data.details?.totalduration ?? null,
       });
     });
-    hls.on(window.Hls.Events.ERROR, (_event, data) => {
+    instance.on(window.Hls.Events.ERROR, (_event, data) => {
+      if (!attemptActive()) return;
       const message = `HLS: ${data.details || data.type || "nieznany błąd"}`;
       setDiagnosticError(message);
       if (!data.fatal) return;
       playbackError(message);
-      hls?.destroy();
-      hls = null;
+      instance.destroy();
+      if (hls === instance) hls = null;
     });
     return;
   }
@@ -214,7 +231,9 @@ function playStream(rawUrl, options = {}) {
   }
 
   media.src = url;
-  media.play().catch(() => setStatus("Naciśnij play"));
+  media.play().catch(() => {
+    if (attemptActive()) setStatus("Naciśnij play");
+  });
 }
 
 for (const media of [ui.video, ui.audio]) {
@@ -745,7 +764,7 @@ function playbackOutcome(entry) {
   return null;
 }
 
-async function waitForPlaybackOutcome(entry, signal, timeoutMs = 1500) {
+async function waitForPlaybackOutcome(entry, signal, timeoutMs: number | null = 1500) {
   const cancelled = () => ({
     ok: false,
     started: false,
@@ -773,38 +792,56 @@ async function waitForPlaybackOutcome(entry, signal, timeoutMs = 1500) {
     };
     signal.addEventListener("abort", onAbort, { once: true });
     observer.observe(ui.status, { attributes: true, childList: true, subtree: true });
-    timer = setTimeout(() => finish(signal.aborted
-      ? cancelled()
-      : { ok: true, started: false, pending: true, entry, state: streamState() }), timeoutMs);
+    if (timeoutMs !== null) {
+      timer = setTimeout(() => finish(signal.aborted
+        ? cancelled()
+        : { ok: true, started: false, pending: true, entry, state: streamState() }), timeoutMs);
+    }
   });
 }
 
+async function settlePendingPlaybackAttempt(attempt, entry) {
+  const terminal = await waitForPlaybackOutcome(entry, attempt.signal, null);
+  if (!terminal.cancelled) playbackAttempts.complete(attempt);
+}
+
 async function startPlaylistPlayback(index) {
-  const attempt = playbackAttempts.begin();
-  const finish = (result) => {
-    playbackAttempts.complete(attempt);
-    return result;
-  };
   const effective = effectivePlaylistEntry(index);
-  if (!effective) return finish({ ok: false, error: "Playlist entry does not exist." });
+  const entry = effective ? publicPlaylistItem(effective.item, index) : null;
+  const prepared = beginPlaybackAttemptForTarget(playbackAttempts, effective);
+  if (!prepared.ok) return { ok: false, error: prepared.error, ...(entry ? { entry } : {}) };
   const item = effective.item;
-  const entry = publicPlaylistItem(item, index);
-  if (effective.hidden) return finish({ ok: false, error: "Playlist entry is hidden.", entry });
-  if (item.external) {
-    return finish({ ok: false, error: "This entry is an external page and cannot play inside Streambench.", entry });
-  }
 
   const workspace = globalThis.StreambenchWorkspace;
-  if (workspace?.playIndex) {
-    const result = workspace.playIndex(index);
-    if (!result?.ok) return finish({ ok: false, error: result?.error || "Streambench could not activate the entry.", entry });
-  } else {
-    const action = ui.entries.querySelector(`[data-playlist-index="${index}"]`);
-    if (!action) return finish({ ok: false, error: "Playlist entry is not available in the current UI.", entry });
-    action.click();
+  const action = workspace?.playIndex
+    ? null
+    : ui.entries.querySelector(`[data-playlist-index="${index}"]`);
+  if (!workspace?.playIndex && !action) {
+    return { ok: false, error: "Playlist entry is not available in the current UI.", entry };
   }
+
+  const attempt = prepared.attempt;
+  webmcpActivationAttempt = attempt;
+  try {
+    if (workspace?.playIndex) {
+      const result = workspace.playIndex(index);
+      if (!result?.ok) {
+        playbackAttempts.complete(attempt);
+        return { ok: false, error: result?.error || "Streambench could not activate the entry.", entry };
+      }
+    } else {
+      action.click();
+    }
+  } finally {
+    webmcpActivationAttempt = null;
+  }
+
   await Promise.resolve();
-  return finish(await waitForPlaybackOutcome(publicPlaylistItem(effectivePlaylistEntry(index)?.item || item, index), attempt.signal));
+  const effectiveEntry = publicPlaylistItem(effectivePlaylistEntry(index)?.item || item, index);
+  const outcome = await waitForPlaybackOutcome(effectiveEntry, attempt.signal);
+  if (outcome.pending) void settlePendingPlaybackAttempt(attempt, effectiveEntry);
+  completePlaybackAttemptIfTerminal(playbackAttempts, attempt, outcome);
+  return outcome;
 }
 
 function stopStreamPlayback() {

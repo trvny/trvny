@@ -5,6 +5,10 @@ import {
   completePlaybackAttemptIfTerminal,
   createPlaybackAttemptCoordinator,
 } from "./playback-attempt.js";
+import {
+  playbackSubmissionContext,
+  setActivePlaylistIndex as persistActivePlaylistIndex,
+} from "./playback-submission.js";
 import "./stream-bridge.js";
 
 const ui = {
@@ -170,8 +174,10 @@ function playStream(rawUrl, options = {}) {
     return;
   }
 
-  const attemptSignal = webmcpActivationAttempt?.signal || null;
-  if (!webmcpActivationAttempt) playbackAttempts.cancel("superseded");
+  const preservedAttempt = options.preserveAttempt ? playbackAttempts.current() : null;
+  const ownedAttempt = webmcpActivationAttempt || preservedAttempt;
+  const attemptSignal = ownedAttempt?.signal || null;
+  if (!ownedAttempt) playbackAttempts.cancel("superseded");
   const attemptActive = () => !attemptSignal?.aborted;
   const url = parsed.href;
   const mode = inferMode(url, options.mode || ui.mode.value, options.radio);
@@ -263,16 +269,20 @@ for (const media of [ui.video, ui.audio]) {
 
 ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
+  const context = playbackSubmissionContext(ui.form);
   const selected = ui.entries.querySelector('.entry-action[aria-current="true"]');
   const selectedIndex = Number(selected?.dataset.playlistIndex);
-  const workspaceIndex = Number(ui.form.dataset.streambenchPlaylistIndex);
-  const preserveSelection = ui.form.dataset.streambenchPreserveSelection === "true";
-  const nextIndex = Number.isInteger(workspaceIndex)
-    ? workspaceIndex
-    : preserveSelection && selected && Number.isInteger(selectedIndex) ? selectedIndex : -1;
-  if (nextIndex < 0) selected?.removeAttribute("aria-current");
-  activeEntry = nextIndex >= 0 ? selected || null : null;
+  const nextIndex = context.playlistIndex >= 0
+    ? context.playlistIndex
+    : context.preserveSelection && selected && Number.isInteger(selectedIndex) ? selectedIndex : -1;
+  const nextEntry = nextIndex >= 0
+    ? ui.entries.querySelector(`[data-playlist-index="${nextIndex}"]`)
+    : null;
+  if (selected && selected !== nextEntry) selected.removeAttribute("aria-current");
+  nextEntry?.setAttribute("aria-current", "true");
+  activeEntry = nextEntry;
   activeItemIndex = nextIndex;
+  persistActivePlaylistIndex(ui.form, activeItemIndex);
   announceChannel(effectivePlaylistEntry(activeItemIndex)?.item || {});
 
   const parsed = validRemoteUrl(ui.url.value.trim());
@@ -286,7 +296,7 @@ ui.form.addEventListener("submit", (event) => {
     if (selected) window.open(selected.href, "_blank", "noopener,noreferrer");
     return;
   }
-  playStream(parsed.href);
+  playStream(parsed.href, { preserveAttempt: context.preserveAttempt });
 });
 
 function parseAttributes(line) {
@@ -808,8 +818,11 @@ async function settlePendingPlaybackAttempt(attempt, entry) {
 async function startPlaylistPlayback(index) {
   const effective = effectivePlaylistEntry(index);
   const entry = effective ? publicPlaylistItem(effective.item, index) : null;
-  const prepared = beginPlaybackAttemptForTarget(playbackAttempts, effective);
-  if (!prepared.ok) return { ok: false, error: prepared.error, ...(entry ? { entry } : {}) };
+  if (!effective) return { ok: false, error: "Playlist entry does not exist." };
+  if (effective.hidden) return { ok: false, error: "Playlist entry is hidden.", entry };
+  if (effective.item.external) {
+    return { ok: false, error: "This entry is an external page and cannot play inside Streambench.", entry };
+  }
   const item = effective.item;
 
   const workspace = globalThis.StreambenchWorkspace;
@@ -819,7 +832,8 @@ async function startPlaylistPlayback(index) {
   if (!workspace?.playIndex && !action) {
     return { ok: false, error: "Playlist entry is not available in the current UI.", entry };
   }
-
+  const prepared = beginPlaybackAttemptForTarget(playbackAttempts, effective);
+  if (!prepared.ok) return { ok: false, error: prepared.error, entry };
   const attempt = prepared.attempt;
   webmcpActivationAttempt = attempt;
   try {

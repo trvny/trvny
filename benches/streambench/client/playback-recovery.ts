@@ -1,3 +1,4 @@
+import { activePlaylistIndex, submitPlaybackForm } from "./playback-submission.js";
 const RECOVERABLE_HLS_ERROR = /(?:manifest|level|frag|key)Load(?:Error|TimeOut)/i;
 const MAX_RETRIES = 2;
 
@@ -70,7 +71,11 @@ if (typeof document !== "undefined") {
         retryTimer = null;
         if (input.value !== source) return;
         retrySubmit = true;
-        form.requestSubmit();
+        submitPlaybackForm(form, {
+          playlistIndex: activePlaylistIndex(form),
+          preserveSelection: true,
+          preserveAttempt: true,
+        });
       }, attempts * 700);
     }).observe(diagnosticError, { childList: true, subtree: true });
   }

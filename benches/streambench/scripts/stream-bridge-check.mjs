@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { isRecoverableHlsError } from "../public/playback-recovery.js";
 import { parseProviderRelays } from "../public/provider-relay.js";
 import { relayTarget } from "../public/stream-bridge.js";
+import { activePlaylistIndex, playbackSubmissionContext, setActivePlaylistIndex, submitPlaybackForm } from "../public/playback-submission.js";
 
 const origin = "https://streambench.example";
 const httpRadio = "http://radio.example/live.mp3?token=abc";
@@ -38,6 +39,18 @@ assert.equal(isRecoverableHlsError("HLS: fragLoadTimeOut"), true);
 assert.equal(isRecoverableHlsError("HLS: bufferAppendError"), false);
 assert.equal(isRecoverableHlsError("HLS: manifestLoadError", "loading"), false);
 
+const submitted = [];
+const fakeForm = {
+  dataset: {},
+  requestSubmit() { submitted.push(playbackSubmissionContext(fakeForm)); },
+};
+setActivePlaylistIndex(fakeForm, 0);
+assert.equal(activePlaylistIndex(fakeForm), 0);
+submitPlaybackForm(fakeForm, { preserveAttempt: true });
+assert.deepEqual(submitted, [{ playlistIndex: 0, preserveSelection: true, preserveAttempt: true }]);
+assert.equal(activePlaylistIndex(fakeForm), 0);
+assert.equal(playbackSubmissionContext(fakeForm).playlistIndex, -1);
+
 const [appSource, workspaceSource, bridgeSource] = await Promise.all([
   readFile(new URL("../client/app.ts", import.meta.url), "utf8"),
   readFile(new URL("../client/playlist-workspace.ts", import.meta.url), "utf8"),
@@ -50,8 +63,9 @@ assert.ok(playbackStart >= 0 && playbackEnd > playbackStart);
 const webmcpPlayback = appSource.slice(playbackStart, playbackEnd);
 assert.match(webmcpPlayback, /action\.click\(\)/);
 assert.doesNotMatch(webmcpPlayback, /\bplayStream\s*\(\s*item\.url\b/);
-assert.match(appSource, /streambenchPlaylistIndex/);
+assert.match(appSource, /playbackSubmissionContext/);
 assert.match(workspaceSource, /StreambenchWorkspace/);
-assert.match(bridgeSource, /streambenchPreserveSelection/);
+assert.match(workspaceSource, /submitPlaybackForm/);
+assert.match(bridgeSource, /submitPlaybackForm/);
 
 console.log("stream bridge checks passed");

@@ -1,3 +1,5 @@
+import { activePlaylistIndex, submitPlaybackForm } from "./playback-submission.js";
+
 "use strict";
 
 (() => {
@@ -167,7 +169,11 @@
         if (generation !== sourceGeneration) return;
         input.value = resolved;
         passThrough = true;
-        form.requestSubmit();
+        submitPlaybackForm(form, {
+          playlistIndex: activePlaylistIndex(form),
+          preserveSelection: true,
+          preserveAttempt: true,
+        });
         queueMicrotask(() => {
           if (nowPlaying) nowPlaying.textContent = originalTitle;
           activeEntry?.setAttribute("aria-current", "true");

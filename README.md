@@ -41,7 +41,8 @@
 | 📡 **Feedseek** | [repo](https://github.com/trvny/feedseek) · [site](https://trvny.github.io/feedseek) · [reader](https://trvny.github.io/feedseek/reader/) | RSS/Atom feed generator and publisher for sources without useful native feeds. |
 | 🐤 **Kanarek** | [repo](https://github.com/trvny/kanarek) | Android RSS/Atom reader with widgets and radio/IPTV playback. |
 | 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [site](https://trfny.com/tv/) · [playlist](https://tvpi.travny.workers.dev/playlist.m3u) | Stable IPTV entry points for TVP channels, a Worker, and residential push for refreshing HLS tokens. |
-| 🚗 **Autka** | [repo](https://github.com/trvny/autka) | Android aggregator of car listings from Poland, the EU, and US imports, including import cost calculations. |
+| 🚗 **Autka** | [repo](https://github.com/twojstar/Autka) | Android aggregator of car listings from Poland, the EU, and US imports, including import cost calculations. |
+| 🤖 **LlmBench** | [repo](https://github.com/twojstar/llmbench) | Android hub for account-backed AI chats and free-provider LLM access. |
 | 🔊 **WAM Bridge** | [repo](https://github.com/trvny/wambridge) | Audio bridge for Samsung Wireless Audio Multiroom speakers and native foobar2000 output for Shape M5. |
 
 ### Tools in this monorepo

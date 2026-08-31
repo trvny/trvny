@@ -669,7 +669,7 @@ const templates={
   ]
 };
 
-function pickTemplate(t){
+function pickTemplate(t,shouldRender=true){
   qrType=t;
   $$("#qrChips .chip").forEach(c=>c.setAttribute("aria-pressed",c.dataset.t===t));
   const host=$("#qrFields");host.innerHTML="";
@@ -683,7 +683,7 @@ function pickTemplate(t){
     host.insertAdjacentHTML("beforeend",el);
   });
   host.querySelectorAll("input,textarea,select").forEach(i=>i.addEventListener("input",renderQR));
-  renderQR();
+  if(shouldRender)renderQR();
 }
 $$("#qrChips .chip").forEach(c=>c.addEventListener("click",()=>pickTemplate(c.dataset.t)));
 

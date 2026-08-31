@@ -53,6 +53,10 @@ if (!webmcp.includes("truncatedFields")) throw new Error("WebMCP QR field payloa
 const barcodeInputSyncs = webmcp.match(/byId\("bData"\)\.dispatchEvent\(new Event\("input"/g) || [];
 if (barcodeInputSyncs.length < 2) throw new Error("WebMCP barcode writes do not preserve exact data across format synchronization");
 if (!webmcp.includes("ui.hasQr()")) throw new Error("WebMCP QR export readiness guard is missing");
+if (!index.includes("function pickTemplate(t,shouldRender=true)")) throw new Error("QR template switching cannot suppress intermediate renders");
+if (!webmcp.includes("ui.pickTemplate(template, false)")) throw new Error("WebMCP QR setter still performs an intermediate template render");
+if (!webmcp.includes("missingBarcodeControls")) throw new Error("WebMCP barcode control guard is missing");
+if (!webmcp.includes("missingQrControls")) throw new Error("WebMCP QR control guard is missing");
 for (const [helper, wrapperName, callee] of [
   ["logo-compat.js", "logoQrOptions", "originalQrOptions"],
   ["module-shapes.js", "decorativeModuleQrOptions", "originalQrOptions"],

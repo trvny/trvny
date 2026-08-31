@@ -150,15 +150,25 @@
   }
 
   function applyQrStyle(style) {
-    if (style.errorCorrection !== undefined) byId("qEc").value = style.errorCorrection;
-    if (style.size !== undefined) byId("qSize").value = String(style.size);
-    if (style.margin !== undefined) byId("qMargin").value = String(style.margin);
-    if (style.foreground !== undefined) byId("qFg").value = style.foreground;
-    if (style.background !== undefined) byId("qBg").value = style.background;
-    if (style.transparent !== undefined) {
-      byId("qTransparent").checked = style.transparent;
-      byId("qBg").disabled = style.transparent;
+    const ec = byId("qEc");
+    const size = byId("qSize");
+    const margin = byId("qMargin");
+    const foreground = byId("qFg");
+    const background = byId("qBg");
+    const transparent = byId("qTransparent");
+    if (style.errorCorrection !== undefined && ec) ec.value = style.errorCorrection;
+    if (style.size !== undefined && size) size.value = String(style.size);
+    if (style.margin !== undefined && margin) margin.value = String(style.margin);
+    if (style.foreground !== undefined && foreground) foreground.value = style.foreground;
+    if (style.background !== undefined && background) background.value = style.background;
+    if (style.transparent !== undefined && transparent) {
+      transparent.checked = style.transparent;
+      if (background) background.disabled = style.transparent;
     }
+  }
+
+  function missingControls(ids) {
+    return ids.filter((id) => !byId(id));
   }
 
   async function waitForQrRendered() {
@@ -176,7 +186,7 @@
   }
 
   async function restoreQr(previous) {
-    ui.pickTemplate(previous.template);
+    ui.pickTemplate(previous.template, false);
     applyQrFields(previous.fields);
     applyQrStyle(previous.style);
     try {
@@ -270,6 +280,11 @@
         return { ok: false, error: "transparent must be a boolean." };
       }
 
+      const missingQrControls = missingControls(["qEc", "qSize", "qMargin", "qFg", "qBg", "qTransparent"]);
+      if (missingQrControls.length) {
+        return { ok: false, error: `Codebench QR controls are unavailable: ${missingQrControls.join(", ")}.` };
+      }
+
       const previous = {
         workspace: activeWorkspace(),
         template: ui.getQrTemplate(),
@@ -277,7 +292,7 @@
         style: currentQrStyle(),
         content: text(ui.getContent()),
       };
-      ui.pickTemplate(template);
+      ui.pickTemplate(template, false);
       const ignoredFields = applyQrFields(fields);
       applyQrStyle(style);
       const content = text(ui.buildContent()) || " ";
@@ -322,8 +337,14 @@
     },
     annotations: { readOnlyHint: false, untrustedContentHint: true },
     execute({ format, data, showText, scale, height, foreground, background, transparent } = {}) {
+      const missingBarcodeControls = missingControls([
+        "bType", "bData", "bText", "bScale", "bHeight", "bFg", "bBg", "bTransparent", "bErr",
+      ]);
+      if (missingBarcodeControls.length) {
+        return { ok: false, error: `Codebench barcode controls are unavailable: ${missingBarcodeControls.join(", ")}.` };
+      }
       const formatSelect = byId("bType");
-      const formats = new Set(Array.from(formatSelect?.options || [], (option) => option.value));
+      const formats = new Set(Array.from(formatSelect.options, (option) => option.value));
       if (typeof format !== "string" || !formats.has(format)) {
         return { ok: false, error: "Unsupported barcode format." };
       }

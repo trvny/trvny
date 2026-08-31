@@ -78,16 +78,11 @@ function timingSafeEqual(left: string, right: string): boolean {
 
 function authorized(request: Request, env: ReviewRouterEnv): boolean {
   const expected = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
-  const legacy = env.OPENROUTER_API_KEY?.trim();
-  if (!expected && !legacy) return false;
+  if (!expected) return false;
   const header = request.headers.get('authorization') ?? '';
   const match = /^Bearer\s+(.+)$/i.exec(header);
   if (!match) return false;
-  const presented = match[1].trim();
-  return Boolean(
-    (expected && timingSafeEqual(presented, expected)) ||
-    (legacy && timingSafeEqual(presented, legacy))
-  );
+  return timingSafeEqual(match[1].trim(), expected);
 }
 
 function timeoutMs(env: ReviewRouterEnv): number {

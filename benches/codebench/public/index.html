@@ -939,7 +939,7 @@ globalThis.CodeBenchUi=Object.freeze({
   pickTemplate,
   renderQR,
   renderBar,
-  buildContent,
+  getContent:()=>typeof globalThis.buildContent==="function"?globalThis.buildContent():buildContent(),
   getQrTemplate:()=>qrType,
 });
 

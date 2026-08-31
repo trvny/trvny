@@ -54,7 +54,7 @@
     const scanResult = byId("result");
     const scanText = text(byId("resVal")?.textContent);
     const qrFields = readQrFields();
-    const qrContent = text(ui.buildContent());
+    const qrContent = text(ui.getContent());
     const result = {
       workspace: activeWorkspace(),
       qr: {
@@ -215,7 +215,8 @@
       }
       ui.goTab("qr");
       ui.renderQR();
-      return { ok: true, ignoredFields, ...snapshot(true) };
+      const state = snapshot(false);
+      return { ok: true, ignoredFields, workspace: state.workspace, qr: state.qr };
     },
   });
 
@@ -275,7 +276,8 @@
 
       const barcodeError = byId("bErr");
       const ok = Boolean(barcodeError?.classList.contains("hidden"));
-      return { ok, error: ok ? "" : text(barcodeError?.textContent), ...snapshot(true) };
+      const state = snapshot(false);
+      return { ok, error: ok ? "" : text(barcodeError?.textContent), workspace: state.workspace, barcode: state.barcode };
     },
   });
 
@@ -309,10 +311,7 @@
       if (!button) return { ok: false, error: "Export control is not ready." };
       ui.goTab(kind === "qr" ? "qr" : "bar");
       button.click();
-      const stem = kind === "qr"
-        ? `qr-${ui.getQrTemplate()}`
-        : `barcode-${byId("bType")?.value || "code"}`;
-      return { ok: true, started: true, filename: `${stem}.${format}` };
+      return { ok: true, started: true };
     },
   });
 })();

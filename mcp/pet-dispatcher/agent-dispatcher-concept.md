@@ -312,7 +312,9 @@ The worker should maintain a small durable local journal keyed by `task_id`.
 - atomically claim a `task_id` in the local journal before any side effect;
 - keep local `running/completed/failed/cancelled` state;
 - if a claim becomes stale, mark it `recovery_required`; never automatically replay it merely because the previous process tree is gone;
-- record a durable receipt/idempotency key before each external side effect and reconcile those receipts plus remote state before any recovery attempt;
+- before each logical external side effect, derive and persist a stable `effect_id` from the task identity, action kind and logical target; the same logical effect must keep the same `effect_id` across retries and recovery;
+- persist the effect intent before the call and its receipt afterward; adapters reuse `effect_id` as the remote idempotency key where supported and reconcile/query remote state with that same identity before retrying;
+- if an external system cannot provide idempotency, conditional creation or a reliable reconciliation query for that effect, leave the task in `recovery_required` and never replay it automatically;
 - resume a stale task only when already-performed side effects are proven idempotent or safely reconciled; otherwise fail closed for manual/recovery-specific handling;
 - publish results idempotently;
 - deduplicate before any side effect;
@@ -583,8 +585,9 @@ Phase 1 is successful when a local fixture can prove all of these:
 3. denied capability remains denied even if the provider requests it;
 4. timeout/cancel kills the whole owned process tree;
 5. duplicate `task_id` cannot repeat side effects;
-6. cleanup leaves no stale worktree/provider process;
-7. result contains summary, validation evidence and artifact/commit hashes.
+6. if the process crashes after a remote write succeeds but before task completion is recorded, recovery/reconciliation produces exactly one remote logical effect;
+7. cleanup leaves no stale worktree/provider process;
+8. result contains summary, validation evidence and artifact/commit hashes.
 
 ### Phase 2 — remote control plane
 

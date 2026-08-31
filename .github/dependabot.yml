@@ -61,12 +61,10 @@ updates:
       timezone: "Europe/Warsaw"
     commit-message:
       prefix: "ci"
+    # gh-aw action pins are compiler-owned. Upgrade them together with the
+    # compiler and generated workflow via `gh aw upgrade`, never independently.
     ignore:
       - dependency-name: "github/gh-aw-actions/*"
-        update-types:
-          - "version-update:semver-major"
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
     groups:
       actions:
         patterns:

@@ -15,8 +15,10 @@ on:
         required: true
         type: string
     secrets:
+      KANAREK_REVIEW_ROUTER_TOKEN:
+        required: false
       OPENROUTER_API_KEY:
-        required: true
+        required: false
 
 run-name: Kanarek review · #${{ inputs.pr_number }}
 
@@ -26,7 +28,7 @@ engine:
   id: copilot
   env:
     COPILOT_PROVIDER_BASE_URL: "https://kanarek-companion.travny.workers.dev/review-router/v1"
-    COPILOT_PROVIDER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+    COPILOT_PROVIDER_API_KEY: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN || secrets.OPENROUTER_API_KEY }}
     COPILOT_MODEL: kanarek-review-free
     COPILOT_PROVIDER_TYPE: openai
     COPILOT_PROVIDER_WIRE_API: completions
@@ -170,7 +172,7 @@ jobs:
             <<< "$pr" > /dev/null
       - name: Load resolved review model
         continue-on-error: true
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           pattern: "${{ needs.activation.outputs.artifact_prefix }}agent"
           merge-multiple: true

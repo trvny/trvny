@@ -59,7 +59,7 @@
   register({
     name: "start_stream_playback",
     title: "Start Streambench playback",
-    description: "Start playback for one non-external entry from the currently loaded Streambench playlist.",
+    description: "Start playback for one non-external entry through Streambench's existing relay-aware UI. The returned entry is the logical playlist item; state.diagnostics.address reports the effective playback route.",
     inputSchema: {
       type: "object",
       properties: { index: { type: "integer", minimum: 0 } },

@@ -1,0 +1,64 @@
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import type { Session } from "./sessions.js";
+import { resolveExisting, resolveForCreate } from "./path-guard.js";
+
+export async function listWorkspace(session: Session, path = "."): Promise<object[]> {
+  const target = await resolveExisting(session.root, path);
+  const entries = await readdir(target, { withFileTypes: true });
+  return entries.map((entry) => ({
+    name: entry.name,
+    type: entry.isDirectory() ? "directory" : entry.isFile() ? "file" : entry.isSymbolicLink() ? "symlink" : "other",
+  }));
+}
+
+export async function statWorkspace(session: Session, path: string): Promise<object> {
+  const target = await resolveExisting(session.root, path);
+  const info = await stat(target);
+  return {
+    size: info.size,
+    modifiedAt: info.mtime.toISOString(),
+    type: info.isDirectory() ? "directory" : info.isFile() ? "file" : "other",
+  };
+}
+
+export async function readWorkspace(session: Session, path: string, maxBytes = 1_048_576): Promise<string> {
+  const target = await resolveExisting(session.root, path);
+  const content = await readFile(target);
+  if (content.byteLength > maxBytes) throw new Error(`file exceeds ${maxBytes} byte read limit`);
+  return content.toString("utf8");
+}
+export async function writeWorkspace(session: Session, path: string, content: string): Promise<void> {
+  let target: string;
+  try {
+    target = await resolveExisting(session.root, path);
+  } catch {
+    target = await resolveForCreate(session.root, path);
+  }
+  await writeFile(target, content, "utf8");
+}
+
+export async function patchWorkspace(session: Session, path: string, oldText: string, newText: string): Promise<void> {
+  const target = await resolveExisting(session.root, path);
+  const content = await readFile(target, "utf8");
+  const first = content.indexOf(oldText);
+  if (first < 0) throw new Error("patch text was not found");
+  if (content.indexOf(oldText, first + oldText.length) >= 0) throw new Error("patch text is not unique");
+  await writeFile(target, content.slice(0, first) + newText + content.slice(first + oldText.length), "utf8");
+}
+
+export async function mkdirWorkspace(session: Session, path: string): Promise<void> {
+  const target = await resolveForCreate(session.root, path);
+  await mkdir(target);
+}
+
+export async function moveWorkspace(session: Session, from: string, to: string): Promise<void> {
+  const source = await resolveExisting(session.root, from);
+  const target = await resolveForCreate(session.root, to);
+  await rename(source, target);
+}
+
+export async function deleteWorkspace(session: Session, path: string): Promise<void> {
+  const target = await resolveExisting(session.root, path);
+  if (target === session.root) throw new Error("cannot delete the session root");
+  await rm(target, { recursive: true, force: false });
+}

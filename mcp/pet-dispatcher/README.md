@@ -1,9 +1,43 @@
 # Pet Dispatcher
 
-Provider-agnostic MCP control plane and local worker concept for delegating bounded development tasks to a trusted machine without exposing an unrestricted host shell.
+Workspace-confined MCP worker for using a trusted development machine without exposing an unrestricted host shell.
 
-The maintained design and implementation plan lives in [`agent-dispatcher-concept.md`](./agent-dispatcher-concept.md).
+The Phase 1 local MVP is implemented in this directory. The broader architecture remains documented in [`agent-dispatcher-concept.md`](./agent-dispatcher-concept.md), while [`interactive-tool-bridge.md`](./interactive-tool-bridge.md) defines the direct ChatGPT/tool-session path intended to replace a parallel Desktop Commander connection.
 
-The direct local-tool path for ChatGPT and other remote assistants is defined in [`interactive-tool-bridge.md`](./interactive-tool-bridge.md). It is intended to replace the need to run Desktop Commander in parallel by providing workspace-confined filesystem access, process execution and host-tool adapters through the same dispatcher policy engine.
+## What works now
 
-Current status: **planning; local-only Phase 1 MVP next**.
+- one writable session per configured repository,
+- session-owned lightweight Git clones with shared read-only object storage,
+- workspace-confined filesystem tools,
+- structured session-bound host Git adapter for status/diff/add/commit,
+- `workspace_exec` through Microsoft MXC / Windows ProcessContainer,
+- process timeout, cancellation and bounded output,
+- OpenRouter and Gemini agent adapters over the same confined tools,
+- brokered HTTPS profiles with exact destination validation,
+- direct sandbox sockets denied by default,
+- path traversal, junction/symlink escape and sandbox-boundary tests.
+
+`restricted` direct egress is intentionally fail-closed on the current Windows backend until there is an enforceable per-session host/network boundary.
+## Network model
+
+Sessions choose one of three modes when opened:
+
+- `none` — no direct or brokered network access.
+- `brokered` — sandbox sockets remain blocked; `http_fetch` performs GET/HEAD outside the sandbox after validating the configured hostname profile, HTTPS, port, redirects and response size.
+- `restricted` — reserved for future direct CLI egress through a host-enforced firewall/proxy boundary. Requests currently fail closed.
+
+Broker profiles are explicit configuration, not authority supplied by the caller. Redirect destinations are validated again, URL credentials and IP literals are rejected, and only a small safe response-header set is returned.
+
+OpenRouter/Gemini API keys stay in the dispatcher process. On the current AppContainer + DACL tier, Node/Deno/npm may require the one-time elevated wxc-host-prep prepare-system-drive metadata ACL preparation reported by doctor; the dispatcher does not apply it automatically. They are not passed to `workspace_exec` children. Current Windows ProcessContainer builds also have an upstream issue with caller-supplied environment blocks, so Phase 1 deliberately launches sandboxed commands with a cleared environment and resolves the requested executable to an absolute allowlisted tool-root path first.
+
+## Setup
+
+```powershell
+cd mcp/pet-dispatcher
+npm install
+Copy-Item dispatcher.config.example.json $env:LOCALAPPDATA\pet-dispatcher.json
+$env:PET_DISPATCHER_CONFIG = "$env:LOCALAPPDATA\pet-dispatcher.json"
+npm run doctor
+npm run check
+npm run dev
+```

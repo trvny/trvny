@@ -92,8 +92,8 @@ A task should contain only explicit fields such as:
   "capabilities": ["git.read", "workspace.write", "tests.run"],
   "timeout_minutes": 20,
   "network": {
-    "mode": "restricted",
-    "allow": ["github.com", "registry.npmjs.org"]
+    "mode": "brokered",
+    "profile": "github-npm-read"
   },
   "publish": "none",
   "result": ["summary", "diff", "tests", "commit"]
@@ -439,7 +439,13 @@ Where practical, execute agent runtimes in WSL2/container/VM isolation. Hardware
 
 ### Egress
 
-Where practical, allow only required destinations for each adapter. A coding agent should not automatically gain arbitrary network access just because it can execute a command.
+Use locally maintained network profiles; remote callers may request a profile name but cannot supply a new host allowlist. A coding agent does not automatically gain arbitrary network access just because it can execute a command.
+
+- `none` is the default and grants no network authority.
+- `brokered` keeps sandbox sockets blocked and routes bounded HTTPS GET/HEAD requests through the dispatcher, which validates scheme, port, hostname profile, redirects and response size.
+- `restricted` is reserved for direct CLI egress only when the host can prove per-session enforcement. If that boundary is unavailable, the session fails closed rather than degrading to open outbound access.
+
+On current Windows ProcessContainer builds, do not treat `allowedHosts` as an enforceable hostname firewall. The local worker must use the broker or another independently enforced host boundary.
 
 ### Destructive operations
 

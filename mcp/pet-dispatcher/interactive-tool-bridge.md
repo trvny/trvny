@@ -134,7 +134,7 @@ Rules:
 - secrets are injected only by named local profiles;
 - executable lookup follows local policy, not caller-provided absolute host paths;
 - stdout/stderr are bounded and streamed/returned with secret redaction;
-- network access follows the session policy;
+- direct sockets are denied for `none` and `brokered`; brokered HTTPS goes through the dispatcher allowlist, while direct `restricted` egress requires a separately proven host boundary;
 - child processes inherit the same containment boundary.
 
 This gives ChatGPT access to `git`, `gh`, Gradle, ADB, npm, Python, ffmpeg and future tools without adding a new MCP method for every binary.
@@ -229,16 +229,16 @@ High-risk capabilities such as elevation, credential-store reads, firewall chang
 
 ## Repository/workdir ownership
 
-The dispatcher should prefer an existing maintained clone as the source repository while executing changes in worker-owned temporary worktrees.
+The dispatcher should prefer an existing maintained clone as the source repository while executing changes in worker-owned temporary checkouts. Phase 1 uses lightweight `git clone --shared` checkouts so writable `.git` metadata stays inside the sandbox; a normal Git worktree would point back to metadata outside the writable root.
 
 For interactive coding sessions:
 
 1. resolve the configured repository;
-2. create or reuse one session-owned worktree under the worker workspace root;
-3. make that worktree the only writable filesystem root;
+2. create or reuse one session-owned isolated checkout under the worker workspace root;
+3. make that checkout the only writable filesystem root;
 4. keep the session alive while ChatGPT is actively using tools;
 5. preserve commits/results as requested;
-6. remove the worktree when the session closes or expires, unless explicitly retained for recovery.
+6. remove the checkout when the session closes or expires, unless explicitly retained for recovery.
 
 This keeps "current repo state" and "assistant scratch state" separate and avoids an expanding zoo of dirty clones.
 

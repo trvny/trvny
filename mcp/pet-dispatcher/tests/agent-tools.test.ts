@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AgentTools } from "../src/agent-tools.js";
+import { AgentTools, agentToolDefinitions } from "../src/agent-tools.js";
 import type { HostGit } from "../src/host-git.js";
 import type { NetworkBroker } from "../src/network.js";
 import type { CommandRunner } from "../src/sandbox.js";
@@ -41,4 +41,9 @@ test("agent exec rejects invalid timeout values before reaching the runner", asy
     /integer between 1000 and 3600000/,
   );
   assert.equal(runnerCalled, false);
+});
+
+
+test("provider agents cannot export commits into the host source repository", async () => {
+  assert.equal(agentToolDefinitions.some((tool) => tool.name === "git_export"), false);
 });

@@ -17,7 +17,7 @@ The Phase 1 local MVP is implemented in this directory. The broader architecture
 - direct sandbox sockets denied by default,
 - path traversal, junction/symlink escape, Git-filter escape, activity-race and sandbox-boundary tests.
 
-`git_export` preserves a session commit under `refs/pet-dispatcher/<session-id>` in the configured source clone, allowing a clean session close without losing committed work. Host filesystem/Git operations and `workspace_exec` share one per-session activity lease, so a sandbox process cannot swap a junction or symlink between host-side validation and mutation.
+`git_export` preserves a session commit under `refs/pet-dispatcher/<session-id>` in the configured source clone, allowing a clean session close without losing committed work. It is intentionally controller-only and is not exposed to OpenRouter/Gemini provider agents. Host filesystem/Git operations and `workspace_exec` share one per-session activity lease, so a sandbox process cannot swap a junction or symlink between host-side validation and mutation.
 
 `restricted` direct egress is intentionally fail-closed on the current Windows backend until there is an enforceable per-session host/network boundary. For the same reason, `open_session(sync=true)` is fail-closed in Phase 1 instead of running an unrestricted host `git fetch`.
 ## Network model

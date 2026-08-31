@@ -72,11 +72,6 @@ export const agentToolDefinitions: AgentToolDefinition[] = [
     parameters: { type: "object", properties: { message: { type: "string" } }, required: ["message"], additionalProperties: false },
   },
   {
-    name: "git_export",
-    description: "Preserve the current session HEAD in the configured source repository before closing the session.",
-    parameters: { type: "object", properties: {}, additionalProperties: false },
-  },
-  {
     name: "http_fetch",
     description: "Fetch an allowlisted HTTPS URL through the dispatcher network broker. Direct sandbox sockets stay blocked.",
     parameters: {
@@ -128,7 +123,6 @@ export class AgentTools {
       case "git_add":
         return this.git.add(sessionId, Array.isArray(args.paths) ? args.paths.map(String) : []);
       case "git_commit": return this.git.commit(sessionId, String(args.message ?? ""));
-      case "git_export": return this.git.exportCommit(sessionId);
       case "http_fetch":
         return this.broker.request(session, {
           url: String(args.url ?? ""),

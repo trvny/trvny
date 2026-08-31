@@ -311,7 +311,9 @@ The worker should maintain a small durable local journal keyed by `task_id`.
 
 - atomically claim a `task_id` in the local journal before any side effect;
 - keep local `running/completed/failed/cancelled` state;
-- recover a stale local claim only after proving the previous owned process tree is gone;
+- if a claim becomes stale, mark it `recovery_required`; never automatically replay it merely because the previous process tree is gone;
+- record a durable receipt/idempotency key before each external side effect and reconcile those receipts plus remote state before any recovery attempt;
+- resume a stale task only when already-performed side effects are proven idempotent or safely reconciled; otherwise fail closed for manual/recovery-specific handling;
 - publish results idempotently;
 - deduplicate before any side effect;
 - store commit/artifact hashes in the completed record.

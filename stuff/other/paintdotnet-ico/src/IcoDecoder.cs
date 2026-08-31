@@ -170,6 +170,7 @@ internal static class IcoDecoder
     private const int MaxEntries = 1024;
     private const int MaxImageBytes = 32 * 1024 * 1024;
     private const long MaxTotalImageBytes = 64L * 1024 * 1024;
+    private const long MaxTotalDecodedPixels = 16L * 1024 * 1024;
     private const long MaxBufferedInputBytes = 64L * 1024 * 1024;
     public static IcoDocument Read(Stream input)
     {
@@ -249,6 +250,7 @@ internal static class IcoDecoder
         var frames = new List<IcoFrame>(count);
         var uniquePayloads = new HashSet<(long Offset, int Length)>();
         long totalUniqueImageBytes = 0;
+        long totalDecodedPixels = 0;
 
         for (int index = 0; index < count; index++)
         {
@@ -291,6 +293,12 @@ internal static class IcoDecoder
             if (totalUniqueImageBytes > MaxTotalImageBytes)
             {
                 throw new InvalidDataException("ICO aggregate image payload is too large to process safely.");
+            }
+
+            totalDecodedPixels = checked(totalDecodedPixels + ((long)width * height));
+            if (totalDecodedPixels > MaxTotalDecodedPixels)
+            {
+                throw new InvalidDataException("ICO aggregate decoded pixel area is too large to process safely.");
             }
 
             frames.Add(new IcoFrame(

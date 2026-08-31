@@ -25,6 +25,7 @@ type ReviewProvider = {
   id: 'aihubmix' | 'openrouter' | 'orcarouter';
   url: string;
   model: string;
+  fallbackModels?: readonly string[];
   apiKey: (env: ReviewRouterEnv) => string | undefined;
   headers?: Record<string, string>;
 };
@@ -33,7 +34,8 @@ const PROVIDERS: readonly ReviewProvider[] = [
   {
     id: 'openrouter',
     url: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'openrouter/free',
+    model: 'minimax/minimax-m3:free',
+    fallbackModels: ['nvidia/nemotron-3-ultra-550b-a55b:free', 'openrouter/free'],
     apiKey: (env) => env.OPENROUTER_API_KEY,
     headers: { 'X-Title': 'Kanarek free review' },
   },
@@ -216,6 +218,7 @@ export async function handleReviewRouterRequest(
   }
 
   let configured = 0;
+  let invalidRequests = 0;
   for (const provider of PROVIDERS) {
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
@@ -232,7 +235,11 @@ export async function handleReviewRouterRequest(
           Authorization: `Bearer ${apiKey}`,
           ...provider.headers,
         },
-        body: JSON.stringify({ ...input, model: provider.model }),
+        body: JSON.stringify({
+          ...input,
+          model: provider.model,
+          ...(provider.fallbackModels ? { models: provider.fallbackModels } : { models: undefined }),
+        }),
         signal: controller.signal,
       });
       if (response.ok) {
@@ -264,7 +271,11 @@ export async function handleReviewRouterRequest(
       const status = response.status;
       await discard(response);
       if (status === 400) {
-        return jsonError('Invalid review request', 'invalid_request', 400);
+        invalidRequests += 1;
+        console.warn(
+          JSON.stringify({ kanarekReviewRouter: 'provider_failed', provider: provider.id, status }),
+        );
+        continue;
       }
       console.warn(
         JSON.stringify({ kanarekReviewRouter: 'provider_failed', provider: provider.id, status }),
@@ -283,6 +294,9 @@ export async function handleReviewRouterRequest(
 
   if (!configured) {
     return jsonError('Review router is not configured', 'review_router_unconfigured', 503);
+  }
+  if (invalidRequests === configured) {
+    return jsonError('Invalid review request', 'invalid_request', 400);
   }
   return jsonError('Review providers unavailable', 'review_router_exhausted', 502);
 }

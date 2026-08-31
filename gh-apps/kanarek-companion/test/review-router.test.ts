@@ -40,11 +40,14 @@ test('review router exposes its synthetic OpenAI model', async () => {
 });
 
 test('review router prefers OpenRouter then falls through to OrcaRouter', async () => {
-  const calls: Array<{ url: string; model: unknown; authorization: string | null }> = [];
+  const calls: Array<{ url: string; model: unknown; models: unknown; authorization: string | null }> = [];
   const fetcher = ((input: RequestInfo | URL, init?: RequestInit) => {
-    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
     const headers = new Headers(init?.headers);
-    calls.push({ url: String(input), model: body.model, authorization: headers.get('authorization') });
+    calls.push({
+      url: String(input), model: body.model, models: body.models,
+      authorization: headers.get('authorization'),
+    });
     if (calls.length === 1) return Promise.resolve(new Response('quota', { status: 429 }));
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch;
@@ -56,9 +59,17 @@ test('review router prefers OpenRouter then falls through to OrcaRouter', async 
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
-  assert.deepEqual(calls.map(({ url, model }) => ({ url, model })), [
-    { url: 'https://openrouter.ai/api/v1/chat/completions', model: 'openrouter/free' },
-    { url: 'https://api.orcarouter.ai/v1/chat/completions', model: 'deepseek/deepseek-v4-flash-free' },
+  assert.deepEqual(calls.map(({ url, model, models }) => ({ url, model, models })), [
+    {
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      model: 'minimax/minimax-m3:free',
+      models: ['nvidia/nemotron-3-ultra-550b-a55b:free', 'openrouter/free'],
+    },
+    {
+      url: 'https://api.orcarouter.ai/v1/chat/completions',
+      model: 'deepseek/deepseek-v4-flash-free',
+      models: undefined,
+    },
   ]);
   assert.equal(calls[0].authorization, 'Bearer openrouter-key');
   assert.equal(calls[1].authorization, 'Bearer orca-key');
@@ -79,6 +90,20 @@ test('review router falls through provider authentication errors', async () => {
   assert.equal(urls.length, 2);
 });
 
+test('review router falls through a provider-specific 400', async () => {
+  let calls = 0;
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
+  }, (() => {
+    calls += 1;
+    if (calls === 1) return Promise.resolve(new Response('model rejected request', { status: 400 }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.equal(calls, 2);
+});
 test('review router reaches AIHubMix after earlier providers fail', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(), {
@@ -168,7 +193,7 @@ test('review router returns an upstream 400 as an invalid client request', async
   }) as typeof fetch);
 
   assert.equal(response?.status, 400);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
   const payload = (await response?.json()) as { error?: { code?: string } };
   assert.equal(payload.error?.code, 'invalid_request');
 });

@@ -34,6 +34,8 @@
   ]);
   const stringField = { type: "string", maxLength: 10000 };
   const colorField = { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" };
+  const responseFieldLimit = 10000;
+  const qrRenderTimeoutMs = 3000;
 
   const activeWorkspace = () =>
     document.querySelector('.tab[aria-selected="true"]')?.dataset.tab || "scan";
@@ -45,6 +47,20 @@
       result[key] = element.type === "checkbox" ? element.checked : element.value;
     });
     return result;
+  }
+
+  function boundedQrFields(fields) {
+    const values = {};
+    const truncatedFields = [];
+    for (const [key, value] of Object.entries(fields)) {
+      if (typeof value === "string") {
+        values[key] = value.slice(0, responseFieldLimit);
+        if (value.length > responseFieldLimit) truncatedFields.push(key);
+      } else {
+        values[key] = value;
+      }
+    }
+    return { values, truncatedFields };
   }
 
   function snapshot(includePayload = false) {
@@ -91,7 +107,9 @@
     if (includePayload) {
       result.qr.content = qrContent.slice(0, 50000);
       result.qr.contentTruncated = qrContent.length > 50000;
-      result.qr.fieldValues = qrFields;
+      const boundedFields = boundedQrFields(qrFields);
+      result.qr.fieldValues = boundedFields.values;
+      result.qr.truncatedFields = boundedFields.truncatedFields;
       result.barcode.data = barcodeData.slice(0, 50000);
       result.barcode.dataTruncated = barcodeData.length > 50000;
       if (result.scan) {
@@ -143,12 +161,30 @@
     }
   }
 
-  function restoreQr(previous) {
+  async function waitForQrRendered() {
+    let timer;
+    try {
+      await Promise.race([
+        Promise.resolve(ui.ensureQrRendered()),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error("QR rendering timed out.")), qrRenderTimeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  async function restoreQr(previous) {
     ui.pickTemplate(previous.template);
     applyQrFields(previous.fields);
     applyQrStyle(previous.style);
-    ui.renderQR(previous.content || ui.buildContent() || " ");
-    ui.goTab(previous.workspace);
+    try {
+      ui.renderQR(previous.content || ui.buildContent() || " ");
+      await waitForQrRendered();
+    } finally {
+      ui.goTab(previous.workspace);
+    }
   }
 
   register({
@@ -248,9 +284,16 @@
       ui.goTab("qr");
       try {
         ui.renderQR(content);
-        await ui.ensureQrRendered();
+        await waitForQrRendered();
       } catch (error) {
-        restoreQr(previous);
+        try {
+          await restoreQr(previous);
+        } catch (restoreError) {
+          return {
+            ok: false,
+            error: `QR render failed: ${error?.message || error}. Restore also failed: ${restoreError?.message || restoreError}.`,
+          };
+        }
         return { ok: false, error: `QR render failed: ${error?.message || error}.` };
       }
       const state = snapshot(false);
@@ -321,6 +364,8 @@
       if (transparent !== undefined) byId("bTransparent").checked = transparent;
       formatSelect.value = format;
       formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      byId("bData").value = data;
+      byId("bData").dispatchEvent(new Event("input", { bubbles: true }));
       ui.goTab("bar");
 
       const barcodeError = byId("bErr");
@@ -336,6 +381,8 @@
         byId("bTransparent").checked = previous.transparent;
         formatSelect.value = previous.format;
         formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        byId("bData").value = previous.data;
+        byId("bData").dispatchEvent(new Event("input", { bubbles: true }));
         ui.goTab(previous.workspace);
         const restored = snapshot(false);
         return { ok: false, error, workspace: restored.workspace, barcode: restored.barcode };

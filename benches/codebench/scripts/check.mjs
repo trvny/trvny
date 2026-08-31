@@ -46,7 +46,12 @@ if (!index.includes('<script src="webmcp.js"></script>')) throw new Error("WebMC
 if (!index.includes("lastQrContent=data")) throw new Error("QR encoded payload cache is missing");
 if (!webmcp.includes("QR render failed")) throw new Error("WebMCP QR guarded-render error handling is missing");
 if (!index.includes("ensureQrRendered:async")) throw new Error("QR async render readiness bridge is missing");
-if (!webmcp.includes("await ui.ensureQrRendered()")) throw new Error("WebMCP QR setter does not await render readiness");
+if (!webmcp.includes("await waitForQrRendered()")) throw new Error("WebMCP QR setter does not await bounded render readiness");
+if (!webmcp.includes("QR rendering timed out.")) throw new Error("WebMCP QR render wait is not bounded");
+if (!webmcp.includes("await restoreQr(previous)")) throw new Error("WebMCP QR rollback is not awaited");
+if (!webmcp.includes("truncatedFields")) throw new Error("WebMCP QR field payloads are not bounded");
+const barcodeInputSyncs = webmcp.match(/byId\("bData"\)\.dispatchEvent\(new Event\("input"/g) || [];
+if (barcodeInputSyncs.length < 2) throw new Error("WebMCP barcode writes do not preserve exact data across format synchronization");
 if (!webmcp.includes("ui.hasQr()")) throw new Error("WebMCP QR export readiness guard is missing");
 for (const [helper, wrapperName, callee] of [
   ["logo-compat.js", "logoQrOptions", "originalQrOptions"],

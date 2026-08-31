@@ -934,6 +934,15 @@ $("#printModal").addEventListener("click",e=>{if(e.target.id==="printModal")clos
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#printModal").classList.contains("show"))closePrint();});
 ["pPage","pPw","pPh","pOrient","pLayout","pW","pAlign","pMargin","pGap","pTileMargin"].forEach(id=>{const el=$("#"+id);if(el)el.addEventListener("input",refreshPrint);});
 
+globalThis.CodeBenchUi=Object.freeze({
+  goTab,
+  pickTemplate,
+  renderQR,
+  renderBar,
+  buildContent,
+  getQrTemplate:()=>qrType,
+});
+
 /* ---------- boot ---------- */
 window.addEventListener("DOMContentLoaded",()=>{
   pickTemplate("url");
@@ -942,5 +951,6 @@ window.addEventListener("DOMContentLoaded",()=>{
 });
 window.addEventListener("beforeunload",stopCam);
 </script>
+<script src="webmcp.js"></script>
 </body>
 </html>

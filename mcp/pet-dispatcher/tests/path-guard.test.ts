@@ -87,3 +87,10 @@ test("workspace delete removes a symlink entry without deleting its target", asy
     assert.equal(await readFile(join(target, "keep.txt"), "utf8"), "keep");
   } finally { await rm(base, { recursive: true, force: true }); }
 });
+
+
+test("create path reports a missing target parent clearly", async () => {
+  const { base, root } = await fixture();
+  try { await assert.rejects(resolveForCreate(root, "missing/new.txt"), /target parent does not exist/); }
+  finally { await rm(base, { recursive: true, force: true }); }
+});

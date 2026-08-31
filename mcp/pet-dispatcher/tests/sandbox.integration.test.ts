@@ -194,3 +194,20 @@ test("session checkout ignores inherited host Git filter configuration", async (
     await rm(fixture.base, { recursive: true, force: true });
   }
 });
+
+
+test("sandbox commands do not inherit dispatcher environment variables", async () => {
+  const fixture = await makeFixture();
+  const session = await fixture.sessions.open("fixture");
+  const previous = process.env.PET_SECRET_SENTINEL;
+  process.env.PET_SECRET_SENTINEL = "MUST_NOT_LEAK";
+  try {
+    const result = await fixture.runner.exec(session.id, ["cmd", "/d", "/s", "/c", "set PET_SECRET_SENTINEL"]);
+    assert.doesNotMatch(result.stdout, /MUST_NOT_LEAK/);
+    assert.match(result.stderr, /not defined/i);
+  } finally {
+    if (previous === undefined) delete process.env.PET_SECRET_SENTINEL; else process.env.PET_SECRET_SENTINEL = previous;
+    await fixture.sessions.close(session.id, true);
+    await rm(fixture.base, { recursive: true, force: true });
+  }
+});

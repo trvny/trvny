@@ -3,7 +3,9 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-const hostRule = z.string().min(1).regex(/^(?:\*\.)?[A-Za-z0-9.-]+$/, "network host rules must be DNS names or *.domain patterns");
+const hostRule = z.string().min(1)
+  .regex(/^(?:\*\.)?[A-Za-z0-9.-]+$/, "network host rules must be DNS names or *.domain patterns")
+  .refine((value) => !value.startsWith("*.") || value.slice(2).includes("."), "wildcard network host rules must include a multi-label domain suffix");
 const networkProfileSchema = z.object({
   hosts: z.array(hostRule).min(1).max(64),
 });

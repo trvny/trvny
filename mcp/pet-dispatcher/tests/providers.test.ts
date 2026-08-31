@@ -50,3 +50,19 @@ test("OpenRouter malformed tool calls become tool errors instead of crashing", a
     else process.env.OPENROUTER_API_KEY = originalKey;
   }
 });
+
+
+test("OpenRouter rejects tool calls that omit tool_call_id", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.OPENROUTER_API_KEY;
+  const fakeFetch = (async () => new Response(JSON.stringify({ choices: [{ message: { role: "assistant", tool_calls: [{ function: { name: "read_file", arguments: "{}" } }] } }] }), { status: 200, headers: { "Content-Type": "application/json" } })) as typeof fetch;
+  const tools = { execute: async () => { throw new Error("malformed tool call must not execute"); } } as unknown as AgentTools;
+  try {
+    process.env.OPENROUTER_API_KEY = "test-only";
+    globalThis.fetch = fakeFetch;
+    await assert.rejects(runOpenRouter(config, tools, "session", "goal", "test-model", 1), /malformed tool_call without id/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.OPENROUTER_API_KEY; else process.env.OPENROUTER_API_KEY = originalKey;
+  }
+});

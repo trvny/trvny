@@ -123,7 +123,7 @@ export class CommandRunner {
         ui: { allowWindows: false, clipboard: "none" as const, allowInputInjection: false },
         timeoutMs: timeout,
       };
-      const sandbox = createConfigFromPolicy(policy, "process", `pet-dispatcher-${session.id.slice(0, 8)}`);
+      const sandbox = createConfigFromPolicy(policy, "process", `pet-dispatcher-${session.id}`);
       if (!sandbox.process) throw new Error("MXC did not create a process configuration");
       sandbox.process.commandLine = commandLine;
       sandbox.process.cwd = workingDirectory;

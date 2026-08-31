@@ -35,7 +35,12 @@ export async function resolveForCreate(root: string, input: string): Promise<str
   if (!isInside(canonical, lexical) || lexical === canonical) {
     throw new Error("target escapes or replaces the session workspace root");
   }
-  const parent = await realpath(dirname(lexical));
+  let parent: string;
+  try { parent = await realpath(dirname(lexical)); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new Error("target parent does not exist");
+    throw error;
+  }
   if (!isInside(canonical, parent)) throw new Error("target parent escapes the session workspace");
   return resolve(parent, basename(lexical));
 }

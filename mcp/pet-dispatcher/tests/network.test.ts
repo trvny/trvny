@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
-import type { DispatcherConfig } from "../src/config.js";
+import { loadConfig, type DispatcherConfig } from "../src/config.js";
 import { assertAllowedUrl, NetworkBroker } from "../src/network.js";
 import type { Session } from "../src/sessions.js";
 
@@ -61,6 +64,7 @@ test("broker validates every redirect and truncates response bodies", async () =
 test("broker rejects unsafe caller-supplied headers", async () => {
   const broker = new NetworkBroker(config, (async () => new Response("ok")) as typeof fetch);
   await assert.rejects(broker.request(session, { url: "https://api.github.com", accept: "text/plain\r\nX-Evil: yes" }), /invalid Accept/);
+  await assert.rejects(broker.request(session, { url: "https://api.github.com", accept: "text/plain\u0000evil" }), /invalid Accept/);
 });
 
 test("broker fails closed on redirect to an unprofiled host", async () => {
@@ -79,4 +83,14 @@ test("broker refuses sessions without brokered capability", async () => {
   const broker = new NetworkBroker(config, (async () => new Response("ok")) as typeof fetch);
   const offline = { ...session, network: { mode: "none" as const, profile: null } };
   await assert.rejects(broker.request(offline, { url: "https://api.github.com" }), /no brokered network capability/);
+});
+
+
+test("config rejects wildcard rules that span an entire public suffix", async () => {
+  const base = await mkdtemp(join(tmpdir(), "pet-dispatcher-config-"));
+  const path = join(base, "dispatcher.json");
+  try {
+    await writeFile(path, JSON.stringify({ workspaceRoot: "./work", repositories: {}, networkProfiles: { bad: { hosts: ["*.com"] } } }));
+    await assert.rejects(loadConfig(path), /multi-label domain suffix/);
+  } finally { await rm(base, { recursive: true, force: true }); }
 });

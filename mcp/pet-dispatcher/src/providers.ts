@@ -63,7 +63,8 @@ export async function runOpenRouter(
     }
     for (const call of calls) {
       const fn = call?.function;
-      const toolCallId = call?.id ?? "unknown";
+      if (!call?.id) throw new Error("OpenRouter returned malformed tool_call without id");
+      const toolCallId = call.id;
       if (!fn?.name) {
         messages.push({ role: "tool", tool_call_id: toolCallId, name: "invalid_tool_call", content: JSON.stringify({ error: "malformed tool_call" }) });
         continue;

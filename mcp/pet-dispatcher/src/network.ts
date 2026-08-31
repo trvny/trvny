@@ -92,7 +92,7 @@ export class NetworkBroker {
     if (!profile) throw new Error(`unknown network profile: ${session.network.profile}`);
 
     const method = request.method ?? "GET";
-    if (request.accept && (request.accept.length > 256 || /[\r\n]/u.test(request.accept))) {
+    if (request.accept && (request.accept.length > 256 || /[\x00-\x1f\x7f]/u.test(request.accept))) {
       throw new Error("invalid Accept header");
     }
     let url = assertAllowedUrl(request.url, profile.hosts);

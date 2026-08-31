@@ -44,6 +44,11 @@ if (typeof document !== "undefined") {
     reset();
   }, true);
 
+  window.addEventListener("streambench:playback-stop", () => {
+    retrySubmit = false;
+    reset();
+  });
+
   for (const element of media) element.addEventListener("playing", reset);
 
   if (diagnosticError && status && form && input) {

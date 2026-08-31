@@ -49,6 +49,7 @@ assert.match(appSource, /shouldWaitForHlsRecovery/);
 assert.match(appSource, /persistActivePlaylistIndex\(ui\.form, -1\)/);
 assert.match(appSource, /if \(!ownedAttempt\) playbackAttempts\.cancel\("superseded"\)/);
 assert.match(appSource, /void settlePendingPlaybackAttempt\(attempt, effectiveEntry\)/);
+assert.match(appSource, /dispatchEvent\(new Event\("streambench:playback-stop"\)\)/);
 
 const tools = new Map();
 globalThis.document = {

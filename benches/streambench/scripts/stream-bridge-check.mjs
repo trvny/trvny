@@ -54,10 +54,12 @@ assert.deepEqual(submitted, [{ playlistIndex: 0, preserveSelection: true, preser
 assert.equal(activePlaylistIndex(fakeForm), 0);
 assert.equal(playbackSubmissionContext(fakeForm).playlistIndex, -1);
 
-const [appSource, workspaceSource, bridgeSource] = await Promise.all([
+const [appSource, workspaceSource, bridgeSource, recoverySource, sourceWorkspaceSource] = await Promise.all([
   readFile(new URL("../client/app.ts", import.meta.url), "utf8"),
   readFile(new URL("../client/playlist-workspace.ts", import.meta.url), "utf8"),
   readFile(new URL("../client/stream-bridge.ts", import.meta.url), "utf8"),
+  readFile(new URL("../client/playback-recovery.ts", import.meta.url), "utf8"),
+  readFile(new URL("../client/source-workspace.ts", import.meta.url), "utf8"),
 ]);
 assert.match(appSource, /import "\.\/stream-bridge\.js";/);
 const playbackStart = appSource.indexOf("async function startPlaylistPlayback");
@@ -70,5 +72,8 @@ assert.match(appSource, /playbackSubmissionContext/);
 assert.match(workspaceSource, /StreambenchWorkspace/);
 assert.match(workspaceSource, /submitPlaybackForm/);
 assert.match(bridgeSource, /submitPlaybackForm/);
+assert.match(recoverySource, /streambench:playback-stop/);
+assert.match(sourceWorkspaceSource, /streambench:playback-stop/);
+assert.match(sourceWorkspaceSource, /generation !== sourceGeneration/);
 
 console.log("stream bridge checks passed");

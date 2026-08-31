@@ -115,6 +115,12 @@ import { activePlaylistIndex, submitPlaybackForm } from "./playback-submission.j
     sourceGeneration += 1;
   });
 
+  window.addEventListener("streambench:playback-stop", () => {
+    sourceGeneration += 1;
+    passThrough = false;
+    userEditedInput = false;
+  });
+
   form.addEventListener("submit", async (event) => {
     const generation = ++sourceGeneration;
     const topLevelSubmission = event.submitter === submit || userEditedInput;
@@ -155,6 +161,7 @@ import { activePlaylistIndex, submitPlaybackForm } from "./playback-submission.j
     if (!event.detail?.title) return;
 
     setTimeout(async () => {
+      if (generation !== sourceGeneration) return;
       const nestedUrl = remoteUrl(input.value);
       if (!nestedUrl || !M3U_PATTERN.test(nestedUrl.href)) return;
 

@@ -866,6 +866,7 @@ async function startPlaylistPlayback(index) {
 }
 
 function stopStreamPlayback() {
+  window.dispatchEvent(new Event("streambench:playback-stop"));
   playbackAttempts.cancel("stopped");
   stopPlayback();
   setStatus("Zatrzymano");

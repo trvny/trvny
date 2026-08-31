@@ -215,8 +215,8 @@ manual-only and never prints secret values. The router prefers OpenRouter with
 MiniMax M3 free first, Nemotron 3 Ultra free second, and the broader free
 pool as its final model fallback, then OrcaRouter, then AIHubMix. Provider-specific
 request rejection, transient, quota, authentication, and availability failures fall
-through to the next provider. During the router-token rollout it also accepts
-the legacy OpenRouter bearer so existing callers keep working.
+through to the next provider. The review endpoint accepts only the dedicated router
+bearer; provider API keys stay server-side.
 
 ## Secrets
 

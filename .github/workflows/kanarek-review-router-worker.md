@@ -17,8 +17,6 @@ on:
     secrets:
       KANAREK_REVIEW_ROUTER_TOKEN:
         required: false
-      OPENROUTER_API_KEY:
-        required: false
 
 run-name: Kanarek review · #${{ inputs.pr_number }}
 
@@ -28,7 +26,7 @@ engine:
   id: copilot
   env:
     COPILOT_PROVIDER_BASE_URL: "https://kanarek-companion.travny.workers.dev/review-router/v1"
-    COPILOT_PROVIDER_API_KEY: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN || secrets.OPENROUTER_API_KEY }}
+    COPILOT_PROVIDER_API_KEY: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
     COPILOT_MODEL: kanarek-review-free
     COPILOT_PROVIDER_TYPE: openai
     COPILOT_PROVIDER_WIRE_API: completions

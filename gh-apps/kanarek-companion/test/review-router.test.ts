@@ -198,9 +198,9 @@ test('review router returns an upstream 400 as an invalid client request', async
   assert.equal(payload.error?.code, 'invalid_request');
 });
 
-test('review router temporarily accepts the legacy OpenRouter bearer during rollout', async () => {
+test('review router rejects provider credentials as router bearer', async () => {
   const response = await handleReviewRouterRequest(request('openrouter-key'), {
     KANAREK_REVIEW_ROUTER_TOKEN: routerToken, OPENROUTER_API_KEY: 'openrouter-key',
-  }, (() => Promise.resolve(new Response('{"choices":[]}', { status: 200 }))) as typeof fetch);
-  assert.equal(response?.status, 200);
+  });
+  assert.equal(response?.status, 401);
 });

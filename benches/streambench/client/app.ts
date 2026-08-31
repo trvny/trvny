@@ -39,6 +39,7 @@ const providerCatalogs = new Map();
 let providerRequest = null;
 let hls = null;
 let activeEntry = null;
+let activeItemIndex = -1;
 
 function setStatus(label, state = "idle") {
   ui.status.textContent = label;
@@ -229,6 +230,7 @@ ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
   activeEntry?.removeAttribute("aria-current");
   activeEntry = null;
+  activeItemIndex = -1;
   announceChannel();
 
   const parsed = validRemoteUrl(ui.url.value.trim());
@@ -374,10 +376,11 @@ function activateEntry(action) {
   action.setAttribute("aria-current", "true");
 }
 
-function entryAction(item) {
+function entryAction(item, index) {
   const action = document.createElement(item.external ? "a" : "button");
   action.className = "entry-action";
   action.dataset.search = itemSearch(item);
+  action.dataset.playlistIndex = String(index);
 
   if (item.external) {
     action.href = item.url;
@@ -385,6 +388,7 @@ function entryAction(item) {
     action.rel = "noopener noreferrer";
     action.addEventListener("click", () => {
       activateEntry(action);
+      activeItemIndex = index;
       announceChannel(item);
       selectExternalSource(item.url, item.title);
     });
@@ -392,6 +396,7 @@ function entryAction(item) {
     action.type = "button";
     action.addEventListener("click", () => {
       activateEntry(action);
+      activeItemIndex = index;
       announceChannel(item);
       playStream(item.url, {
         title: item.title,
@@ -414,20 +419,25 @@ function entryAction(item) {
   return action;
 }
 
-function entryRow(item) {
+function entryRow(item, index) {
   const row = document.createElement("li");
   row.className = "playlist-entry";
-  row.append(entryAction(item));
+  row.append(entryAction(item, index));
   return row;
 }
 
 function renderPlaylist() {
   const query = ui.search.value.trim().toLocaleLowerCase("pl");
+  const indexed = playlist.map((item, index) => ({ item, index }));
   const visible = query
-    ? playlist.filter((item) => itemSearch(item).includes(query))
-    : playlist;
+    ? indexed.filter(({ item }) => itemSearch(item).includes(query))
+    : indexed;
 
-  ui.entries.replaceChildren(...visible.map(entryRow));
+  ui.entries.replaceChildren(...visible.map(({ item, index }) => entryRow(item, index)));
+  activeEntry = activeItemIndex >= 0
+    ? ui.entries.querySelector(`[data-playlist-index="${activeItemIndex}"]`)
+    : null;
+  activeEntry?.setAttribute("aria-current", "true");
   ui.empty.hidden = playlist.length > 0;
   ui.search.disabled = playlist.length === 0;
   ui.count.textContent = query ? `${visible.length}/${playlist.length}` : String(playlist.length);
@@ -444,6 +454,7 @@ function loadPlaylist(source, label, {
   playlist = parseM3u(source, { allowArtwork, providerId, providerLabel });
   activeEntry?.removeAttribute("aria-current");
   activeEntry = null;
+  activeItemIndex = -1;
   announceChannel();
   ui.search.value = "";
   renderPlaylist();
@@ -626,6 +637,99 @@ async function loadProviderPlaylist() {
     }
   }
 }
+
+function publicPlaylistItem(item, index) {
+  const host = validRemoteUrl(item.url)?.hostname || "";
+  return {
+    index,
+    id: item.id || "",
+    title: item.title || "",
+    group: item.group || "",
+    country: item.country || "",
+    language: item.language || "",
+    provider: item.providerLabel || "",
+    protocol: item.protocol || "",
+    playback: item.playback || "",
+    quality: item.quality || "",
+    radio: Boolean(item.radio),
+    external: Boolean(item.external),
+    host,
+  };
+}
+
+function streamState() {
+  const active = activeItemIndex >= 0 ? playlist[activeItemIndex] : null;
+  return {
+    status: ui.status.textContent || "",
+    statusState: ui.status.dataset.state || "idle",
+    nowPlaying: ui.title.textContent || "",
+    mode: ui.shell.dataset.mode || ui.mode.value || "auto",
+    playlist: {
+      count: playlist.length,
+      query: ui.search.value || "",
+      active: active ? publicPlaylistItem(active, activeItemIndex) : null,
+    },
+    provider: {
+      id: ui.providerName.value || "",
+      scope: ui.providerScope.value || "",
+      value: ui.providerValue.value || "",
+      status: ui.providerStatus.textContent || "",
+    },
+    diagnostics: {
+      address: ui.diagnosticAddress.textContent || "",
+      type: ui.diagnosticType.textContent || "",
+      security: ui.diagnosticSecurity.textContent || "",
+      hls: ui.diagnosticHls.textContent || "",
+      media: ui.diagnosticMedia.textContent || "",
+      error: ui.diagnosticError.textContent || "",
+    },
+    epg: {
+      status: document.querySelector("#epgStatus")?.textContent || "",
+      now: document.querySelector("#epgNow")?.textContent || "",
+      next: document.querySelector("#epgNext")?.textContent || "",
+    },
+  };
+}
+
+function searchPlaylistEntries(query = "", limit = 20) {
+  const needle = String(query).trim().toLocaleLowerCase("pl");
+  const matches = playlist
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => !needle || itemSearch(item).includes(needle));
+  return {
+    total: matches.length,
+    items: matches.slice(0, limit).map(({ item, index }) => publicPlaylistItem(item, index)),
+    truncated: matches.length > limit,
+  };
+}
+
+function startPlaylistPlayback(index) {
+  const item = playlist[index];
+  if (!item) return { ok: false, error: "Playlist entry does not exist." };
+  if (item.external) {
+    return { ok: false, error: "This entry is an external page and cannot play inside Streambench.", entry: publicPlaylistItem(item, index) };
+  }
+  activeEntry?.removeAttribute("aria-current");
+  activeEntry = ui.entries.querySelector(`[data-playlist-index="${index}"]`);
+  activeEntry?.setAttribute("aria-current", "true");
+  activeItemIndex = index;
+  announceChannel(item);
+  playStream(item.url, { title: item.title, radio: item.radio, quality: item.quality });
+  return { ok: true, started: true, entry: publicPlaylistItem(item, index), state: streamState() };
+}
+
+function stopStreamPlayback() {
+  stopPlayback();
+  setStatus("Zatrzymano");
+  return { ok: true, state: streamState() };
+}
+
+globalThis.StreambenchUi = Object.freeze({
+  readState: streamState,
+  searchEntries: searchPlaylistEntries,
+  startPlayback: startPlaylistPlayback,
+  stopPlayback: stopStreamPlayback,
+});
 
 ui.providerName.addEventListener("change", selectProvider);
 ui.providerScope.addEventListener("change", renderProviderValues);

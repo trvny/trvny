@@ -43,9 +43,9 @@ if (wrangler.assets?.not_found_handling !== "404-page") throw new Error("404 ass
 if (!notFound.includes('name="robots" content="noindex,follow"')) throw new Error("404 page can be indexed");
 if (!llms.includes("https://codebench.trfny.com/")) throw new Error("llms.txt canonical application URL is missing");
 if (!index.includes('<script src="webmcp.js"></script>')) throw new Error("WebMCP page script is missing");
-if (!index.includes("lastQrContent=data")) throw new Error("QR encoded payload cache is missing");
+if (!index.includes("generation!==qrRenderGeneration") || !index.includes("lastQrContent=data")) throw new Error("QR payload cache is not gated by successful current-generation rendering");
 if (!webmcp.includes("QR render failed")) throw new Error("WebMCP QR guarded-render error handling is missing");
-if (!index.includes("ensureQrRendered:async")) throw new Error("QR async render readiness bridge is missing");
+if (!index.includes("ensureQrRendered:async") || !index.includes("await qrRenderPromise")) throw new Error("QR async render readiness bridge is missing");
 if (!webmcp.includes("await waitForQrRendered()")) throw new Error("WebMCP QR setter does not await bounded render readiness");
 if (!webmcp.includes("QR rendering timed out.")) throw new Error("WebMCP QR render wait is not bounded");
 if (!webmcp.includes("await restoreQr(previous)")) throw new Error("WebMCP QR rollback is not awaited");

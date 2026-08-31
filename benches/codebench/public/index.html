@@ -634,7 +634,7 @@ $("#camSwitch").onclick=async()=>{
 /* ======================================================
    QR GENERATOR  (qr-code-styling)
 ====================================================== */
-let qr=null,qrLogoData=null,qrType="url",lastQrContent="";
+let qr=null,qrLogoData=null,qrType="url",lastQrContent="",qrRenderGeneration=0,qrRenderPromise=Promise.resolve(false);
 
 const templates={
   url:[{k:"url",l:"URL",t:"url",ph:"https://example.com",v:"https://"}],
@@ -729,10 +729,18 @@ function qrOptions(data){
 function renderQR(content){
   if(typeof QRCodeStyling==="undefined")return;
   const data=typeof content==="string"?content:(buildContent()||" ");
-  const o=qrOptions(data);
+  const o=qrOptions(data),generation=++qrRenderGeneration;
   if(!qr){const next=new QRCodeStyling(o);next.append($("#qrHost"));qr=next;}
   else qr.update(o);
-  lastQrContent=data;
+  const renderer=qr;
+  qrRenderPromise=(async()=>{
+    const blob=await renderer.getRawData("png");
+    if(!blob)throw new Error("QR renderer produced no PNG data");
+    if(generation!==qrRenderGeneration||renderer!==qr)return false;
+    lastQrContent=data;
+    return true;
+  })();
+  qrRenderPromise.catch(()=>{});
   $("#qrStat").textContent=`QR · ${qrType} · EC ${$("#qEc").value}`;
   updateFramed();
 }
@@ -947,8 +955,9 @@ globalThis.CodeBenchUi=Object.freeze({
   hasQr:()=>Boolean(qr),
   ensureQrRendered:async()=>{
     if(!qr)throw new Error("QR renderer is not ready");
-    const blob=await qr.getRawData("png");
-    if(!blob)throw new Error("QR renderer produced no PNG data");
+    const generation=qrRenderGeneration;
+    const ready=await qrRenderPromise;
+    if(!ready||generation!==qrRenderGeneration)throw new Error("QR render was superseded");
     return true;
   },
 });

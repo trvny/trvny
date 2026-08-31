@@ -199,29 +199,46 @@ jobs:
             fi
           fi
 
-          rolling_tag="paintdotnet-ico-latest"
-          cat > rolling-notes.md <<EOF
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            rolling_tag="paintdotnet-ico-latest"
+            cat > rolling-notes.md <<EOF
           Current Paint.NET ICO FileType build, v${VERSION}, from \`${GITHUB_SHA}\`.
 
           This rolling release backs the stable download link in the plugin README.
           Versioned releases use tags such as \`paintdotnet-ico-v${VERSION}\`.
           EOF
 
-          if gh release view "$rolling_tag" >/dev/null 2>&1; then
-            gh api --method PATCH "repos/$GH_REPO/git/refs/tags/$rolling_tag" \
-              -f sha="$GITHUB_SHA" \
-              -F force=true
-            gh release edit "$rolling_tag" \
-              --title "Paint.NET ICO · latest v${VERSION}" \
-              --notes-file rolling-notes.md
-          else
-            gh release create "$rolling_tag" \
-              --draft \
-              --target "$GITHUB_SHA" \
-              --title "Paint.NET ICO · latest v${VERSION}" \
-              --notes-file rolling-notes.md \
-              --latest=false
-          fi
+            if gh release view "$rolling_tag" >/dev/null 2>&1; then
+              backup_dir="$(mktemp -d)"
+              mkdir -p "$backup_dir/assets"
+              old_sha="$(gh api "repos/$GH_REPO/git/ref/tags/$rolling_tag" --jq .object.sha)"
+              old_title="$(gh release view "$rolling_tag" --json name --jq .name)"
+              gh release view "$rolling_tag" --json body --jq .body > "$backup_dir/notes.md"
+              gh release download "$rolling_tag" --dir "$backup_dir/assets"
 
-          gh release upload "$rolling_tag" "${assets[@]}" --clobber
-          gh release edit "$rolling_tag" --draft=false
+              rollback() {
+                status=$?
+                set +e
+                gh api --method PATCH "repos/$GH_REPO/git/refs/tags/$rolling_tag" -f sha="$old_sha" -F force=true
+                gh release edit "$rolling_tag" --title "$old_title" --notes-file "$backup_dir/notes.md"
+                gh release upload "$rolling_tag" "$backup_dir"/assets/* --clobber
+                set -e
+                return "$status"
+              }
+              trap rollback ERR
+
+              gh release upload "$rolling_tag" "${assets[@]}" --clobber
+              gh api --method PATCH "repos/$GH_REPO/git/refs/tags/$rolling_tag" -f sha="$GITHUB_SHA" -F force=true
+              gh release edit "$rolling_tag" --title "Paint.NET ICO · latest v${VERSION}" --notes-file rolling-notes.md
+              trap - ERR
+            else
+              gh release create "$rolling_tag" \
+                --draft \
+                --target "$GITHUB_SHA" \
+                --title "Paint.NET ICO · latest v${VERSION}" \
+                --notes-file rolling-notes.md \
+                --latest=false
+              gh release upload "$rolling_tag" "${assets[@]}"
+              gh release edit "$rolling_tag" --draft=false
+            fi
+          fi

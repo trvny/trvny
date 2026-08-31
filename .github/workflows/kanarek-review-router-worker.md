@@ -59,7 +59,6 @@ checkout:
 tools:
   github:
     toolsets: [pull_requests]
-    allowed-repos: ${{ github.repository }}
     min-integrity: approved
 
 steps:

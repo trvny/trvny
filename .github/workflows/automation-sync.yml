@@ -30,14 +30,14 @@ jobs:
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ secrets.GH_PAT }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
     steps:
       - name: Sync review bearer and caller
         shell: bash
         run: |
           set -euo pipefail
           : "${GH_TOKEN:?GH_PAT must be configured}"
-          : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY must be configured}"
+          : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
           source_repo="$GITHUB_REPOSITORY"
           source_path=.github/workflows/kanarek-review.yml
           source_branch=$(gh api "repos/$source_repo" --jq .default_branch)
@@ -62,8 +62,8 @@ jobs:
           )
 
           for repo in "${repos[@]}"; do
-            printf '%s' "$OPENROUTER_API_KEY" |
-              gh secret set OPENROUTER_API_KEY --repo "$repo"
+            printf '%s' "$KANAREK_REVIEW_ROUTER_TOKEN" |
+              gh secret set KANAREK_REVIEW_ROUTER_TOKEN --repo "$repo"
             default_branch=$(gh api "repos/$repo" --jq .default_branch)
             tmp=$(mktemp)
             blob_sha=''
@@ -73,8 +73,9 @@ jobs:
               >"$tmp" 2>/dev/null; then
               if cmp -s "$caller" "$tmp"; then
                 rm -f "$tmp"
-                gh secret delete ORCAROUTER_API_KEY --repo "$repo" 2>/dev/null || true
-                gh secret delete AIHUBMIX_API_KEY --repo "$repo" 2>/dev/null || true
+                for key in OPENROUTER_API_KEY ORCAROUTER_API_KEY AIHUBMIX_API_KEY; do
+                  gh secret delete "$key" --repo "$repo" 2>/dev/null || true
+                done
                 continue
               fi
               blob_sha=$(gh api \
@@ -114,8 +115,9 @@ jobs:
               gh api --method PUT \
                 "repos/$repo/contents/.github/workflows/kanarek-review.yml" \
                 --input - >/dev/null
-            gh secret delete ORCAROUTER_API_KEY --repo "$repo" 2>/dev/null || true
-            gh secret delete AIHUBMIX_API_KEY --repo "$repo" 2>/dev/null || true
+            for key in OPENROUTER_API_KEY ORCAROUTER_API_KEY AIHUBMIX_API_KEY; do
+              gh secret delete "$key" --repo "$repo" 2>/dev/null || true
+            done
           done
 
   cloudflare:

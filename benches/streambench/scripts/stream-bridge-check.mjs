@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { isRecoverableHlsError } from "../public/playback-recovery.js";
+import { isRecoverableHlsError, shouldWaitForHlsRecovery } from "../public/playback-recovery-policy.js";
 import { parseProviderRelays } from "../public/provider-relay.js";
 import { relayTarget } from "../public/stream-bridge.js";
 import { activePlaylistIndex, playbackSubmissionContext, setActivePlaylistIndex, submitPlaybackForm } from "../public/playback-submission.js";
@@ -38,6 +38,9 @@ assert.equal(isRecoverableHlsError("HLS: manifestLoadError"), true);
 assert.equal(isRecoverableHlsError("HLS: fragLoadTimeOut"), true);
 assert.equal(isRecoverableHlsError("HLS: bufferAppendError"), false);
 assert.equal(isRecoverableHlsError("HLS: manifestLoadError", "loading"), false);
+assert.equal(shouldWaitForHlsRecovery("HLS: manifestLoadError", "error", "idle"), true);
+assert.equal(shouldWaitForHlsRecovery("HLS: manifestLoadError", "error", "pending"), true);
+assert.equal(shouldWaitForHlsRecovery("HLS: manifestLoadError", "error", "exhausted"), false);
 
 const submitted = [];
 const fakeForm = {

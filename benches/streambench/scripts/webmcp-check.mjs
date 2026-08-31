@@ -45,6 +45,8 @@ assert.equal(terminalAttempt.signal.aborted, false);
 
 const appSource = readFileSync(new URL("../client/app.ts", import.meta.url), "utf8");
 assert.match(appSource, /options\.preserveAttempt \? playbackAttempts\.current\(\) : null/);
+assert.match(appSource, /shouldWaitForHlsRecovery/);
+assert.match(appSource, /persistActivePlaylistIndex\(ui\.form, -1\)/);
 assert.match(appSource, /if \(!ownedAttempt\) playbackAttempts\.cancel\("superseded"\)/);
 assert.match(appSource, /void settlePendingPlaybackAttempt\(attempt, effectiveEntry\)/);
 

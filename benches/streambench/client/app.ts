@@ -1,5 +1,6 @@
 import { classifyChannel } from "./channel-meta.js";
 import { describeHls, describeMedia, describeSource } from "./diagnostics.js";
+import { shouldWaitForHlsRecovery } from "./playback-recovery-policy.js";
 import {
   beginPlaybackAttemptForTarget,
   completePlaybackAttemptIfTerminal,
@@ -507,6 +508,7 @@ function loadPlaylist(source, label, {
   activeEntry?.removeAttribute("aria-current");
   activeEntry = null;
   activeItemIndex = -1;
+  persistActivePlaylistIndex(ui.form, -1);
   announceChannel();
   ui.search.value = "";
   renderPlaylist();
@@ -759,6 +761,11 @@ function playbackOutcome(entry) {
   const state = streamState();
   if (state.statusState === "playing") return { ok: true, started: true, pending: false, entry, state };
   if (state.statusState === "error") {
+    if (shouldWaitForHlsRecovery(
+      state.diagnostics.error,
+      state.statusState,
+      ui.status.dataset.streambenchRecovery,
+    )) return null;
     return { ok: false, started: false, error: state.diagnostics.error || state.status || "Playback failed.", entry, state };
   }
   if (state.status === "Naciśnij play") {

@@ -1,10 +1,8 @@
 import { activePlaylistIndex, submitPlaybackForm } from "./playback-submission.js";
-const RECOVERABLE_HLS_ERROR = /(?:manifest|level|frag|key)Load(?:Error|TimeOut)/i;
-const MAX_RETRIES = 2;
+import { isRecoverableHlsError } from "./playback-recovery-policy.js";
+export { isRecoverableHlsError };
 
-export function isRecoverableHlsError(message: unknown, state = "error"): boolean {
-  return state === "error" && RECOVERABLE_HLS_ERROR.test(String(message || ""));
-}
+const MAX_RETRIES = 2;
 
 if (typeof document !== "undefined") {
   const form = document.querySelector<HTMLFormElement>("#streamForm");
@@ -22,6 +20,10 @@ if (typeof document !== "undefined") {
   let retrySubmit = false;
   let source = "";
 
+  function setRecoveryState(state: "idle" | "pending" | "exhausted"): void {
+    if (status) status.dataset.streambenchRecovery = state;
+  }
+
   function clearRetry(): void {
     if (retryTimer !== null) clearTimeout(retryTimer);
     retryTimer = null;
@@ -31,6 +33,7 @@ if (typeof document !== "undefined") {
     clearRetry();
     attempts = 0;
     source = input?.value || "";
+    setRecoveryState("idle");
   }
 
   form?.addEventListener("submit", () => {
@@ -56,6 +59,7 @@ if (typeof document !== "undefined") {
       }
       if (retryTimer !== null) return;
       if (attempts >= MAX_RETRIES) {
+        setRecoveryState("exhausted");
         if (hint) {
           hint.textContent = "HLS nie ruszył po dwóch próbach. Źródło może blokować przeglądarkę przez CORS, wygasło albo jest offline.";
         }
@@ -63,6 +67,7 @@ if (typeof document !== "undefined") {
       }
 
       attempts += 1;
+      setRecoveryState("pending");
       status.textContent = `Ponawianie ${attempts}/${MAX_RETRIES}`;
       status.dataset.state = "loading";
       if (hint) hint.textContent = "Ponawiam pobranie stabilnego adresu HLS.";

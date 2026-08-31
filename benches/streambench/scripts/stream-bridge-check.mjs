@@ -38,13 +38,20 @@ assert.equal(isRecoverableHlsError("HLS: fragLoadTimeOut"), true);
 assert.equal(isRecoverableHlsError("HLS: bufferAppendError"), false);
 assert.equal(isRecoverableHlsError("HLS: manifestLoadError", "loading"), false);
 
-const appSource = await readFile(new URL("../client/app.ts", import.meta.url), "utf8");
+const [appSource, workspaceSource, bridgeSource] = await Promise.all([
+  readFile(new URL("../client/app.ts", import.meta.url), "utf8"),
+  readFile(new URL("../client/playlist-workspace.ts", import.meta.url), "utf8"),
+  readFile(new URL("../client/stream-bridge.ts", import.meta.url), "utf8"),
+]);
 assert.match(appSource, /import "\.\/stream-bridge\.js";/);
 const playbackStart = appSource.indexOf("async function startPlaylistPlayback");
 const playbackEnd = appSource.indexOf("function stopStreamPlayback", playbackStart);
 assert.ok(playbackStart >= 0 && playbackEnd > playbackStart);
 const webmcpPlayback = appSource.slice(playbackStart, playbackEnd);
 assert.match(webmcpPlayback, /action\.click\(\)/);
-assert.doesNotMatch(webmcpPlayback, /playStream\(item\.url/);
+assert.doesNotMatch(webmcpPlayback, /\bplayStream\s*\(\s*item\.url\b/);
+assert.match(appSource, /streambenchPlaylistIndex/);
+assert.match(workspaceSource, /StreambenchWorkspace/);
+assert.match(bridgeSource, /streambenchPreserveSelection/);
 
 console.log("stream bridge checks passed");

@@ -242,7 +242,11 @@ function scheduleEnhance() {
   requestAnimationFrame(() => requestAnimationFrame(enhanceRows));
 }
 
-function playItem(item) {
+function sourceIndexFor(item) {
+  return sourceItems.findIndex((entry) => itemKey(effectiveItem(entry)) === itemKey(item));
+}
+
+function playItem(item, sourceIndex = sourceIndexFor(item)) {
   const active = ui.entries.querySelector('[aria-current="true"]');
   active?.removeAttribute("aria-current");
   const row = [...ui.entries.querySelectorAll(".playlist-entry")]
@@ -258,9 +262,13 @@ function playItem(item) {
   const previousMode = ui.mode.value;
   if (item.radio) ui.mode.value = "audio";
   ui.url.value = targetUrl;
+  if (sourceIndex >= 0) ui.form.dataset.streambenchPlaylistIndex = String(sourceIndex);
   submittingWorkspaceItem = true;
-  ui.form.requestSubmit();
-  submittingWorkspaceItem = false;
+  try { ui.form.requestSubmit(); }
+  finally {
+    submittingWorkspaceItem = false;
+    delete ui.form.dataset.streambenchPlaylistIndex;
+  }
   ui.mode.value = previousMode;
   ui.title.textContent = item.title;
   window.dispatchEvent(new CustomEvent("streambench:channel", {
@@ -421,6 +429,27 @@ async function copyExport() {
     setWorkspaceStatus("Nie udało się skopiować M3U", "error");
   }
 }
+
+function workspaceEntries() {
+  return sourceItems.map((entry, index) => {
+    const item = effectiveItem(entry);
+    return { index, item, hidden: library.isHidden(item) };
+  });
+}
+
+function playSourceIndex(index) {
+  const entry = sourceItems[index];
+  if (!entry) return { ok: false, error: "Playlist entry does not exist." };
+  const item = effectiveItem(entry);
+  if (library.isHidden(item)) return { ok: false, error: "Playlist entry is hidden.", item };
+  playItem(item, index);
+  return { ok: true, item };
+}
+
+globalThis.StreambenchWorkspace = Object.freeze({
+  entries: workspaceEntries,
+  playIndex: playSourceIndex,
+});
 
 ui.entries.addEventListener("click", (event) => {
   const row = event.target.closest(".playlist-entry");

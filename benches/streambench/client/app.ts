@@ -42,6 +42,19 @@ let hls = null;
 let activeEntry = null;
 let activeItemIndex = -1;
 
+function effectivePlaylistEntries() {
+  const entries = globalThis.StreambenchWorkspace?.entries?.();
+  if (Array.isArray(entries) && entries.length) return entries;
+  return playlist.map((item, index) => ({ index, item, hidden: false }));
+}
+
+function effectivePlaylistEntry(index) {
+  const entry = effectivePlaylistEntries().find((candidate) => candidate.index === index);
+  if (entry) return entry;
+  const item = playlist[index];
+  return item ? { index, item, hidden: false } : null;
+}
+
 function setStatus(label, state = "idle") {
   ui.status.textContent = label;
   ui.status.dataset.state = state;
@@ -231,9 +244,15 @@ ui.form.addEventListener("submit", (event) => {
   event.preventDefault();
   const selected = ui.entries.querySelector('.entry-action[aria-current="true"]');
   const selectedIndex = Number(selected?.dataset.playlistIndex);
-  activeEntry = selected || null;
-  activeItemIndex = selected && Number.isInteger(selectedIndex) ? selectedIndex : -1;
-  announceChannel(activeItemIndex >= 0 ? playlist[activeItemIndex] : {});
+  const workspaceIndex = Number(ui.form.dataset.streambenchPlaylistIndex);
+  const preserveSelection = ui.form.dataset.streambenchPreserveSelection === "true";
+  const nextIndex = Number.isInteger(workspaceIndex)
+    ? workspaceIndex
+    : preserveSelection && selected && Number.isInteger(selectedIndex) ? selectedIndex : -1;
+  if (nextIndex < 0) selected?.removeAttribute("aria-current");
+  activeEntry = nextIndex >= 0 ? selected || null : null;
+  activeItemIndex = nextIndex;
+  announceChannel(effectivePlaylistEntry(activeItemIndex)?.item || {});
 
   const parsed = validRemoteUrl(ui.url.value.trim());
   if (!parsed) {
@@ -660,7 +679,7 @@ function publicPlaylistItem(item, index) {
 }
 
 function streamState() {
-  const active = activeItemIndex >= 0 ? playlist[activeItemIndex] : null;
+  const active = activeItemIndex >= 0 ? effectivePlaylistEntry(activeItemIndex)?.item || null : null;
   return {
     status: ui.status.textContent || "",
     statusState: ui.status.dataset.state || "idle",
@@ -695,8 +714,8 @@ function streamState() {
 
 function searchPlaylistEntries(query = "", limit = 20) {
   const needle = String(query).trim().toLocaleLowerCase("pl");
-  const matches = playlist
-    .map((item, index) => ({ item, index }))
+  const matches = effectivePlaylistEntries()
+    .filter(({ hidden }) => !hidden)
     .filter(({ item }) => !needle || itemSearch(item).includes(needle));
   return {
     total: matches.length,
@@ -705,41 +724,65 @@ function searchPlaylistEntries(query = "", limit = 20) {
   };
 }
 
+function playbackOutcome(entry) {
+  const state = streamState();
+  if (state.statusState === "playing") return { ok: true, started: true, pending: false, entry, state };
+  if (state.statusState === "error") {
+    return { ok: false, started: false, error: state.diagnostics.error || state.status || "Playback failed.", entry, state };
+  }
+  if (state.status === "Naciśnij play") {
+    return {
+      ok: false,
+      started: false,
+      requiresInteraction: true,
+      error: "Browser requires user interaction before playback can start.",
+      entry,
+      state,
+    };
+  }
+  return null;
+}
+
+async function waitForPlaybackOutcome(entry, timeoutMs = 1500) {
+  const immediate = playbackOutcome(entry);
+  if (immediate) return immediate;
+  return new Promise((resolve) => {
+    let timer = null;
+    const observer = new MutationObserver(() => {
+      const outcome = playbackOutcome(entry);
+      if (outcome) finish(outcome);
+    });
+    const finish = (result) => {
+      if (timer !== null) clearTimeout(timer);
+      observer.disconnect();
+      resolve(result);
+    };
+    observer.observe(ui.status, { attributes: true, childList: true, subtree: true });
+    timer = setTimeout(() => finish({ ok: true, started: false, pending: true, entry, state: streamState() }), timeoutMs);
+  });
+}
+
 async function startPlaylistPlayback(index) {
-  const item = playlist[index];
-  if (!item) return { ok: false, error: "Playlist entry does not exist." };
+  const effective = effectivePlaylistEntry(index);
+  if (!effective) return { ok: false, error: "Playlist entry does not exist." };
+  const item = effective.item;
+  const entry = publicPlaylistItem(item, index);
+  if (effective.hidden) return { ok: false, error: "Playlist entry is hidden.", entry };
   if (item.external) {
-    return { ok: false, error: "This entry is an external page and cannot play inside Streambench.", entry: publicPlaylistItem(item, index) };
+    return { ok: false, error: "This entry is an external page and cannot play inside Streambench.", entry };
   }
-  const previousQuery = ui.search.value;
-  let action = ui.entries.querySelector(`[data-playlist-index="${index}"]`);
-  if (!action && previousQuery) {
-    ui.search.value = "";
-    renderPlaylist();
-    action = ui.entries.querySelector(`[data-playlist-index="${index}"]`);
+
+  const workspace = globalThis.StreambenchWorkspace;
+  if (workspace?.playIndex) {
+    const result = workspace.playIndex(index);
+    if (!result?.ok) return { ok: false, error: result?.error || "Streambench could not activate the entry.", entry };
+  } else {
+    const action = ui.entries.querySelector(`[data-playlist-index="${index}"]`);
+    if (!action) return { ok: false, error: "Playlist entry is not available in the current UI.", entry };
+    action.click();
   }
-  if (!action) {
-    if (previousQuery) {
-      ui.search.value = previousQuery;
-      renderPlaylist();
-    }
-    return { ok: false, error: "Playlist entry is not available in the current UI." };
-  }
-  action.click();
   await Promise.resolve();
-  await Promise.resolve();
-  if (previousQuery) {
-    ui.search.value = previousQuery;
-    renderPlaylist();
-  }
-  const started = activeItemIndex === index;
-  return {
-    ok: started,
-    started,
-    error: started ? "" : "Streambench did not activate the selected playlist entry.",
-    entry: publicPlaylistItem(item, index),
-    state: streamState(),
-  };
+  return waitForPlaybackOutcome(publicPlaylistItem(effectivePlaylistEntry(index)?.item || item, index));
 }
 
 function stopStreamPlayback() {

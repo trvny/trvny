@@ -88,7 +88,9 @@ if (typeof document !== "undefined") {
       const previousMode = mode?.value;
       input.value = relay.href;
       if (mode && selectedMode) mode.value = selectedMode;
-      form.requestSubmit();
+      form.dataset.streambenchPreserveSelection = "true";
+      try { form.requestSubmit(); }
+      finally { delete form.dataset.streambenchPreserveSelection; }
       input.value = original;
       if (mode && previousMode) mode.value = previousMode;
 

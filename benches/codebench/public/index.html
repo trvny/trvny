@@ -634,7 +634,7 @@ $("#camSwitch").onclick=async()=>{
 /* ======================================================
    QR GENERATOR  (qr-code-styling)
 ====================================================== */
-let qr=null,qrLogoData=null,qrType="url";
+let qr=null,qrLogoData=null,qrType="url",lastQrContent="";
 
 const templates={
   url:[{k:"url",l:"URL",t:"url",ph:"https://example.com",v:"https://"}],
@@ -705,8 +705,7 @@ function buildContent(){
   return"";
 }
 
-function qrOptions(){
-  const data=buildContent()||" ";
+function qrOptions(data){
   const size=+$("#qSize").value||600;
   const grad=$("#qGrad").checked;
   const fg=$("#qFg").value,fg2=$("#qFg2").value;
@@ -726,11 +725,13 @@ function qrOptions(){
   if(qrLogoData){o.image=qrLogoData;o.imageOptions={crossOrigin:"anonymous",margin:4,imageSize:+$("#qLogoSize").value,hideBackgroundDots:$("#qLogoClear").checked};}
   return o;
 }
-function renderQR(){
+function renderQR(content){
   if(typeof QRCodeStyling==="undefined")return;
-  const o=qrOptions();
-  if(!qr){qr=new QRCodeStyling(o);qr.append($("#qrHost"));}
+  const data=typeof content==="string"?content:(buildContent()||" ");
+  const o=qrOptions(data);
+  if(!qr){const next=new QRCodeStyling(o);next.append($("#qrHost"));qr=next;}
   else qr.update(o);
+  lastQrContent=data;
   $("#qrStat").textContent=`QR · ${qrType} · EC ${$("#qEc").value}`;
   updateFramed();
 }
@@ -937,10 +938,12 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#printModal").cl
 globalThis.CodeBenchUi=Object.freeze({
   goTab,
   pickTemplate,
-  renderQR,
+  renderQR:(content)=>typeof globalThis.renderQR==="function"?globalThis.renderQR(content):renderQR(content),
   renderBar,
-  getContent:()=>typeof globalThis.buildContent==="function"?globalThis.buildContent():buildContent(),
+  buildContent:()=>typeof globalThis.buildContent==="function"?globalThis.buildContent():buildContent(),
+  getContent:()=>lastQrContent,
   getQrTemplate:()=>qrType,
+  hasQr:()=>Boolean(qr),
 });
 
 /* ---------- boot ---------- */

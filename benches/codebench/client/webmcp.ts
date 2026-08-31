@@ -34,6 +34,7 @@
   ]);
   const stringField = { type: "string", maxLength: 10000 };
   const colorField = { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" };
+  const qrByteCapacity = { L: 2953, M: 2331, Q: 1663, H: 1273 };
 
   const activeWorkspace = () =>
     document.querySelector('.tab[aria-selected="true"]')?.dataset.tab || "scan";
@@ -107,6 +108,48 @@
       return `${name} must be a #RRGGBB color.`;
     }
     return "";
+  }
+
+  function currentQrStyle() {
+    return {
+      errorCorrection: byId("qEc")?.value || "Q",
+      size: Number(byId("qSize")?.value || 600),
+      margin: Number(byId("qMargin")?.value || 0),
+      foreground: byId("qFg")?.value || "#000000",
+      background: byId("qBg")?.value || "#ffffff",
+      transparent: Boolean(byId("qTransparent")?.checked),
+    };
+  }
+
+  function applyQrFields(fields) {
+    const ignored = [];
+    for (const [key, value] of Object.entries(fields)) {
+      const element = byId(`f_${key}`);
+      if (!element) ignored.push(key);
+      else if (element.type === "checkbox") element.checked = value;
+      else element.value = value;
+    }
+    return ignored;
+  }
+
+  function applyQrStyle(style) {
+    if (style.errorCorrection !== undefined) byId("qEc").value = style.errorCorrection;
+    if (style.size !== undefined) byId("qSize").value = String(style.size);
+    if (style.margin !== undefined) byId("qMargin").value = String(style.margin);
+    if (style.foreground !== undefined) byId("qFg").value = style.foreground;
+    if (style.background !== undefined) byId("qBg").value = style.background;
+    if (style.transparent !== undefined) {
+      byId("qTransparent").checked = style.transparent;
+      byId("qBg").disabled = style.transparent;
+    }
+  }
+
+  function restoreQr(previous) {
+    ui.pickTemplate(previous.template);
+    applyQrFields(previous.fields);
+    applyQrStyle(previous.style);
+    ui.renderQR(previous.content || ui.buildContent() || " ");
+    ui.goTab(previous.workspace);
   }
 
   register({
@@ -192,29 +235,31 @@
         return { ok: false, error: "transparent must be a boolean." };
       }
 
+      const previous = {
+        workspace: activeWorkspace(),
+        template: ui.getQrTemplate(),
+        fields: readQrFields(),
+        style: currentQrStyle(),
+        content: text(ui.getContent()),
+      };
       ui.pickTemplate(template);
-      const ignoredFields = [];
-      for (const [key, value] of Object.entries(fields)) {
-        const element = byId(`f_${key}`);
-        if (!element) {
-          ignoredFields.push(key);
-        } else if (element.type === "checkbox") {
-          element.checked = value;
-        } else {
-          element.value = value;
-        }
-      }
-      if (style.errorCorrection !== undefined) byId("qEc").value = style.errorCorrection;
-      if (style.size !== undefined) byId("qSize").value = String(style.size);
-      if (style.margin !== undefined) byId("qMargin").value = String(style.margin);
-      if (style.foreground !== undefined) byId("qFg").value = style.foreground;
-      if (style.background !== undefined) byId("qBg").value = style.background;
-      if (style.transparent !== undefined) {
-        byId("qTransparent").checked = style.transparent;
-        byId("qBg").disabled = style.transparent;
+      const ignoredFields = applyQrFields(fields);
+      applyQrStyle(style);
+      const content = text(ui.buildContent()) || " ";
+      const errorCorrection = byId("qEc")?.value || "Q";
+      const bytes = new TextEncoder().encode(content).length;
+      const capacity = qrByteCapacity[errorCorrection] || qrByteCapacity.Q;
+      if (bytes > capacity) {
+        restoreQr(previous);
+        return { ok: false, error: `QR payload is too large for EC ${errorCorrection} (${bytes} bytes; max ${capacity}).` };
       }
       ui.goTab("qr");
-      ui.renderQR();
+      try {
+        ui.renderQR(content);
+      } catch (error) {
+        restoreQr(previous);
+        return { ok: false, error: `QR render failed: ${error?.message || error}.` };
+      }
       const state = snapshot(false);
       return { ok: true, ignoredFields, workspace: state.workspace, qr: state.qr };
     },
@@ -301,7 +346,7 @@
       if (kind === "barcode" && !byId("bErr")?.classList.contains("hidden")) {
         return { ok: false, error: text(byId("bErr")?.textContent) || "Fix the barcode data first." };
       }
-      if (kind === "qr" && !byId("qrHost")?.querySelector("canvas") && !byId("qrFramed")?.querySelector("svg")) {
+      if (kind === "qr" && !ui.hasQr()) {
         return { ok: false, error: "Render a QR code first." };
       }
       const buttonId = kind === "qr"

@@ -585,7 +585,7 @@ Phase 1 is successful when a local fixture can prove all of these:
 3. denied capability remains denied even if the provider requests it;
 4. timeout/cancel kills the whole owned process tree;
 5. duplicate `task_id` cannot repeat side effects;
-6. if the process crashes after a remote write succeeds but before task completion is recorded, recovery/reconciliation produces exactly one remote logical effect;
+6. a local fixture that simulates an external write succeeding and then crashes before task completion is recorded recovers/reconciles to exactly one logical effect;
 7. cleanup leaves no stale worktree/provider process;
 8. result contains summary, validation evidence and artifact/commit hashes.
 

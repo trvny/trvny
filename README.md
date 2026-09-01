@@ -26,10 +26,8 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#330](https://github.com/trvny/feedseek/pull/330) | Add Tencent newsroom feed | @trvny | ready | 2026-08-29 |
-| trvny/trvny | [#351](https://github.com/trvny/trvny/pull/351) | fix(review): pin AIHubMix worker to merged commit | @trvny | ready | 2026-08-29 |
-| trvny/tvpi | [#74](https://github.com/trvny/tvpi/pull/74) | fix(seo): consolidate hub discovery | @trvny | ready | 2026-08-29 |
-| trvny/wambridge | [#128](https://github.com/trvny/wambridge/pull/128) | Add foobar sleep timer controls | @trvny | ready | 2026-08-29 |
+| trvny/feedseek | [#337](https://github.com/trvny/feedseek/pull/337) | Add OPENOFFICE feed | @trvny | ready | 2026-08-31 |
+| trvny/trvny | [#392](https://github.com/trvny/trvny/pull/392) | feat: build local Pet Dispatcher MVP | @trvny | ready | 2026-08-31 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

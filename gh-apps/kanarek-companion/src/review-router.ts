@@ -15,8 +15,6 @@ const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'nvidia/nemotron-3-super-120b-a12b:free',
   'openrouter/free',
 ] as const;
-const GEMINI_REVIEW_FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash'] as const;
-
 const AIHUBMIX_RETRYABLE_MESSAGES = [
   'to prevent abuse of free resources',
   'accounts that have not been recharged can only try',
@@ -26,11 +24,9 @@ const AIHUBMIX_RETRYABLE_MESSAGES = [
 export interface ReviewRouterEnv {
   KANAREK_REVIEW_ROUTER_TOKEN?: string;
   AIHUBMIX_API_KEY?: string;
-  GEMINI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   ORCAROUTER_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
-  KANAREK_REVIEW_GEMINI_MODEL?: string;
   KANAREK_REVIEW_OPENROUTER_MODELS?: string;
   KANAREK_OPENROUTER_MODELS?: string;
 }
@@ -38,11 +34,10 @@ export interface ReviewRouterEnv {
 type JsonObject = Record<string, unknown>;
 
 type ReviewProvider = {
-  id: 'gemini' | 'aihubmix' | 'openrouter' | 'orcarouter';
+  id: 'aihubmix' | 'openrouter' | 'orcarouter';
   url: string;
   model: string;
   fallbackModels?: readonly string[];
-  sequentialFallbackModels?: readonly string[];
   apiKey: (env: ReviewRouterEnv) => string | undefined;
   headers?: Record<string, string>;
 };
@@ -56,13 +51,6 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
       ? configuredOpenRouterModels(sharedOpenRouterModels)
       : [...DEFAULT_REVIEW_OPENROUTER_MODELS];
   return [
-    {
-      id: 'gemini',
-      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-      model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || 'gemini-3.7-flash',
-      sequentialFallbackModels: GEMINI_REVIEW_FALLBACK_MODELS,
-      apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
-    },
     {
       id: 'openrouter',
       url: 'https://openrouter.ai/api/v1/chat/completions',
@@ -246,13 +234,6 @@ type ProviderAttempt = {
 };
 
 function providerAttempts(provider: ReviewProvider): readonly ProviderAttempt[] {
-  if (provider.id === 'gemini') {
-    const models = [...new Set([provider.model, ...(provider.sequentialFallbackModels ?? [])])];
-    return models.map((model, index) => ({
-      model,
-      label: index === 0 ? 'default' as const : 'model_fallback' as const,
-    }));
-  }
   if (provider.id === 'openrouter' && provider.fallbackModels?.length) {
     return [
       { model: provider.model, fallbackModels: provider.fallbackModels, label: 'fallback_chain' },
@@ -270,9 +251,6 @@ function shouldTryNextAttempt(
 ): boolean {
   if (attemptIndex + 1 >= attemptCount) return false;
   if (provider.id === 'openrouter') return status === 400;
-  if (provider.id === 'gemini') {
-    return status === 400 || status === 404 || status === 429 || status >= 500;
-  }
   return false;
 }
 

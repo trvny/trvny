@@ -37,10 +37,10 @@ companion.
   delivery.
 - `POST /review-router/v1/chat/completions` is the private OpenAI-compatible
   transport for free PR review. It authenticates with the synchronized router
-  bearer and tries direct Gemini, OpenRouter, OrcaRouter, then AIHubMix before
-  a successful upstream response starts streaming. Gemini can step down across
-  compatible Flash generations, while OpenRouter can retry its primary model
-  without the fallback array when the array itself is rejected.
+  bearer and tries only the free review providers: OpenRouter, OrcaRouter, then
+  AIHubMix. Paid/direct provider credentials used for quip generation are never
+  consumed by the review router. OpenRouter can retry its primary model without
+  the fallback array when the array itself is rejected.
 
 PR, review, completed CI/check-suite, and commit-status events refresh the
 affected pull request. A per-PR Durable Object serializes overlapping
@@ -215,12 +215,12 @@ calls require fresh expected IDs, state, or snapshot hashes so stale reads fail
 closed. The gateway never returns Worker secret values or Pages build variables.
 
 `automation-sync.yml` can copy the existing repository Cloudflare credentials,
-the dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, and the Gemini/AIHubMix/OpenRouter/
-OrcaRouter review credentials into the `kanarek-companion` Worker. Its Cloudflare target is
-manual-only and never prints secret values. The router prefers direct
-Gemini 3.7 Flash, with sequential 3.6/3.5 Flash compatibility fallbacks, then
-OpenRouter with the review-specific tool-capable free-model chain, then
-OrcaRouter, then AIHubMix. An OpenRouter HTTP 400 from the full model chain is
+the dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the free review credentials
+(AIHubMix/OpenRouter/OrcaRouter), and the separate quip-provider credentials into
+the `kanarek-companion` Worker. Its Cloudflare target is manual-only and never
+prints secret values. The review router uses OpenRouter with the review-specific
+tool-capable free-model chain, then OrcaRouter, then AIHubMix. Direct Gemini,
+OpenAI, Anthropic, and xAI credentials remain quip-only. An OpenRouter HTTP 400 from the full model chain is
 retried once with the primary model only. Provider-specific request rejection,
 transient, quota, authentication, and availability failures fall through to the
 next provider. Terminal diagnostics expose only bounded provider/category codes,
@@ -244,10 +244,10 @@ Optional AI secrets:
 - `OPENROUTER_API_KEY`
 - `ORCAROUTER_API_KEY`
 - `AIHUBMIX_API_KEY` for the free review router
-- `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY`
-- `GEMINI_API_KEY`
-- `XAI_API_KEY`
+- `OPENAI_API_KEY` for quip generation
+- `ANTHROPIC_API_KEY` for quip generation
+- `GEMINI_API_KEY` for quip generation
+- `XAI_API_KEY` for quip generation
 
 GitHub App metadata, provider order/model/generation controls, AI percentage
 ceiling, and the KV binding are defined in `wrangler.jsonc`.

@@ -16,16 +16,18 @@ const AIHUBMIX_RETRYABLE_MESSAGES = [
 export interface ReviewRouterEnv {
   KANAREK_REVIEW_ROUTER_TOKEN?: string;
   AIHUBMIX_API_KEY?: string;
+  GEMINI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   ORCAROUTER_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
+  KANAREK_REVIEW_GEMINI_MODEL?: string;
   KANAREK_OPENROUTER_MODELS?: string;
 }
 
 type JsonObject = Record<string, unknown>;
 
 type ReviewProvider = {
-  id: 'aihubmix' | 'openrouter' | 'orcarouter';
+  id: 'gemini' | 'aihubmix' | 'openrouter' | 'orcarouter';
   url: string;
   model: string;
   fallbackModels?: readonly string[];
@@ -36,6 +38,12 @@ type ReviewProvider = {
 function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
   const openRouterModels = configuredOpenRouterModels(env.KANAREK_OPENROUTER_MODELS);
   return [
+    {
+      id: 'gemini',
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || 'gemini-3.7-flash',
+      apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
+    },
     {
       id: 'openrouter',
       url: 'https://openrouter.ai/api/v1/chat/completions',

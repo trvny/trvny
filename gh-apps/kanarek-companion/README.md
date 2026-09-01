@@ -211,11 +211,11 @@ calls require fresh expected IDs, state, or snapshot hashes so stale reads fail
 closed. The gateway never returns Worker secret values or Pages build variables.
 
 `automation-sync.yml` can copy the existing repository Cloudflare credentials,
-the dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, and the AIHubMix/OpenRouter/OrcaRouter
-review credentials into the `kanarek-companion` Worker. Its Cloudflare target is
-manual-only and never prints secret values. The router prefers OpenRouter with
-MiniMax M3 free first, Nemotron 3 Ultra free second, and the broader free
-pool as its final model fallback, then OrcaRouter, then AIHubMix. Provider-specific
+the dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, and the Gemini/AIHubMix/OpenRouter/
+OrcaRouter review credentials into the `kanarek-companion` Worker. Its Cloudflare target is
+manual-only and never prints secret values. The router prefers direct
+Gemini 3.7 Flash, then OpenRouter with the shared ordered free-model chain,
+then OrcaRouter, then AIHubMix. Provider-specific
 request rejection, transient, quota, authentication, and availability failures fall
 through to the next provider. The review endpoint accepts only the dedicated router
 bearer; provider API keys stay server-side.

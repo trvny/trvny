@@ -25,15 +25,61 @@ const SITEMAP = `<?xml version="1.0" encoding="utf-8"?>
   <url><loc>${SITE_ORIGIN}/warnings.atom</loc><changefreq>hourly</changefreq></url>
 </urlset>
 `;
+const INDEX_MD = `# Pogoda Chrzanów · Kościelec
+
+> Multi-source local weather dashboard for Kościelec in Chrzanów, Poland.
+
+The dashboard combines several weather sources instead of presenting a single-provider forecast. It publishes current conditions, forecast ensembles, air quality, pollen observations and IMGW warnings.
+
+## Machine-readable resources
+
+- [Current state JSON](${SITE_ORIGIN}/state.json)
+- [Weather changes Atom feed](${SITE_ORIGIN}/feed.atom)
+- [IMGW warnings Atom feed](${SITE_ORIGIN}/warnings.atom)
+- [Concise LLM guide](${SITE_ORIGIN}/llms.txt)
+- [Full LLM guide](${SITE_ORIGIN}/llms-full.txt)
+- [TRAVNY hub](https://trfny.com/)
+`;
+
 const LLMS = `# Pogoda Chrzanów · Kościelec
 
 > Multi-source local weather dashboard with air quality, pollen and IMGW warnings.
 
-- [Dashboard](${SITE_ORIGIN}/): current local conditions and recent changes.
+## Resources
+
+- [Dashboard](${SITE_ORIGIN}/index.md): Markdown description of the local weather dashboard.
 - [Current state JSON](${SITE_ORIGIN}/state.json): machine-readable current ensemble.
 - [Weather changes feed](${SITE_ORIGIN}/feed.atom): Atom feed of meaningful changes.
 - [IMGW warnings feed](${SITE_ORIGIN}/warnings.atom): warning-only Atom feed.
+- [Full LLM guide](${SITE_ORIGIN}/llms-full.txt): complete weather-service guide in one file.
 - [TRAVNY hub](https://trfny.com/): related tools and services.
+`;
+
+const LLMS_FULL = `# Pogoda Chrzanów · Kościelec full documentation
+
+Source: ${SITE_ORIGIN}/
+
+Description: Complete LLM-oriented guide to the TRAVNY multi-source weather service for Kościelec in Chrzanów, Poland.
+
+## Dashboard
+
+The service combines Open-Meteo, OpenWeather, Visual Crossing and IMGW data where available. The dashboard presents an ensemble rather than pretending one provider is authoritative. It includes current temperature, feels-like temperature, humidity, wind, conditions, air quality, pollen and active IMGW warnings.
+
+## Public data
+
+- [Current state JSON](${SITE_ORIGIN}/state.json): current machine-readable ensemble.
+- [Weather changes Atom feed](${SITE_ORIGIN}/feed.atom): meaningful condition and forecast changes.
+- [IMGW warnings Atom feed](${SITE_ORIGIN}/warnings.atom): active warning changes.
+- [Markdown dashboard page](${SITE_ORIGIN}/index.md): concise page description.
+
+## Freshness
+
+Current observations are refreshed on the Worker schedule and health status tracks staleness. Consumers should prefer timestamps published in JSON/feed payloads over assuming a successful HTTP response is fresh.
+
+## Related
+
+- [TRAVNY hub](https://trfny.com/)
+- [Source](https://github.com/trvny/trvny/tree/main/weather-feed)
 `;
 
 const K = {
@@ -247,6 +293,7 @@ export default {
           headers: {
             "content-type": "text/html; charset=utf-8",
             "cache-control": "public, max-age=300, stale-while-revalidate=600",
+            "link": '</index.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
           },
         });
       }
@@ -267,8 +314,12 @@ function discoveryResponse(pathname: string): Response | undefined {
       return cachedResponse(ROBOTS, "text/plain; charset=utf-8", 86400);
     case "/sitemap.xml":
       return cachedResponse(SITEMAP, "application/xml; charset=utf-8", 86400);
+    case "/index.md":
+      return cachedResponse(INDEX_MD, "text/markdown; charset=utf-8", 3600);
     case "/llms.txt":
       return cachedResponse(LLMS, "text/plain; charset=utf-8", 3600);
+    case "/llms-full.txt":
+      return cachedResponse(LLMS_FULL, "text/plain; charset=utf-8", 3600);
   }
 }
 

@@ -15,6 +15,8 @@ Prefer improving an existing home over creating a parallel structure. Inspect lo
 - `.ai/private/claude/` — private Claude notes and memory.
 - `stuff/` — small configs, feeds, playlists and miscellaneous assets.
 
+For Quarto-backed reports, treat `.qmd` as the maintained content source and committed rendered outputs (`.html`/`.md`) as generated artifacts. Keep the Quarto version pinned and verify generated outputs in CI; do not convert dynamic README files merely to adopt Quarto.
+
 Use the nearest `AGENTS.md` for the files being changed; deeper instructions override broader ones.
 
 ## Workflow

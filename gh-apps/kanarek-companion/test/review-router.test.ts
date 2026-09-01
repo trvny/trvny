@@ -42,14 +42,12 @@ test('review router exposes its synthetic OpenAI model', async () => {
   assert.equal(payload.data?.[0]?.id, 'kanarek-review-free');
 });
 
-test('review router prefers direct Gemini when its free-tier key is configured', async () => {
+test('review router ignores paid Gemini credentials and prefers OpenRouter', async () => {
   let call: { url?: string; model?: unknown; authorization?: string | null } = {};
-  const response = await handleReviewRouterRequest(request(), {
-    ...auth,
-    GEMINI_API_KEY: 'gemini-key',
-    KANAREK_REVIEW_GEMINI_MODEL: 'gemini-3.7-flash',
-    OPENROUTER_API_KEY: 'openrouter-key',
-  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+  const env = {
+    ...auth, GEMINI_API_KEY: 'paid-quip-only-key', OPENROUTER_API_KEY: 'openrouter-key',
+  };
+  const response = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: unknown };
     call = {
       url: String(input),
@@ -58,17 +56,14 @@ test('review router prefers direct Gemini when its free-tier key is configured',
     };
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
-
   assert.equal(response?.status, 200);
-  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini');
-  assert.deepEqual(call, {
-    url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-    model: 'gemini-3.7-flash',
-    authorization: 'Bearer gemini-key',
-  });
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.equal(call.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(call.model, 'nvidia/nemotron-3-ultra-550b-a55b:free');
+  assert.equal(call.authorization, 'Bearer openrouter-key');
 });
 
-test('review router removes Copilot null refusal before Gemini tool follow-up', async () => {
+test('review router normalizes Copilot tool follow-ups for free providers', async () => {
   const toolCalls = [{
     id: 'call_1',
     type: 'function',
@@ -84,53 +79,16 @@ test('review router removes Copilot null refusal before Gemini tool follow-up', 
       { role: 'assistant', content: null, refusal: null, tool_calls: toolCalls },
       { role: 'tool', tool_call_id: 'call_1', content: 'diff' },
     ],
-  }), {
-    ...auth, GEMINI_API_KEY: 'gemini-key',
-  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+  }), { ...auth, OPENROUTER_API_KEY: 'openrouter-key' }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { messages?: unknown[] };
     messages = body.messages ?? [];
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
-
   assert.equal(response?.status, 200);
   const assistant = messages[1] as Record<string, unknown>;
   assert.equal('refusal' in assistant, false);
   assert.deepEqual(assistant.tool_calls, toolCalls);
   assert.deepEqual(messages[2], { role: 'tool', tool_call_id: 'call_1', content: 'diff' });
-});
-
-test('review router falls back across compatible Gemini Flash models', async () => {
-  const models: unknown[] = [];
-  const response = await handleReviewRouterRequest(request(), {
-    ...auth, GEMINI_API_KEY: 'gemini-key',
-  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
-    const body = JSON.parse(String(init?.body)) as { model?: unknown };
-    models.push(body.model);
-    if (models.length === 1) {
-      return Promise.resolve(new Response('{"error":{"message":"invalid model"}}', { status: 400 }));
-    }
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
-  }) as typeof fetch);
-
-  assert.equal(response?.status, 200);
-  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini');
-  assert.deepEqual(models, ['gemini-3.7-flash', 'gemini-3.6-flash']);
-});
-
-test('review router keeps a Gemini transient failure retryable after fallback 400s', async () => {
-  let calls = 0;
-  const response = await handleReviewRouterRequest(request(), {
-    ...auth, GEMINI_API_KEY: 'gemini-key',
-  }, (() => {
-    calls += 1;
-    const status = [429, 400, 400][calls - 1] ?? 500;
-    return Promise.resolve(new Response('provider failure', { status }));
-  }) as typeof fetch);
-
-  assert.equal(response?.status, 502);
-  assert.equal(calls, 3);
-  const payload = (await response?.json()) as { error?: { code?: string } };
-  assert.equal(payload.error?.code, 'review_router_exhausted');
 });
 
 test('review router prefers OpenRouter then falls through to OrcaRouter', async () => {
@@ -351,14 +309,11 @@ test('review router treats an unreadable upstream 400 as provider failure', asyn
 test('review router reports bounded provider diagnostics without upstream bodies', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(request(), {
-    ...auth, GEMINI_API_KEY: 'gemini-key', OPENROUTER_API_KEY: 'openrouter-key',
+    ...auth, OPENROUTER_API_KEY: 'openrouter-key',
     ORCAROUTER_API_KEY: 'orca-key', AIHUBMIX_API_KEY: 'aihubmix-key',
   }, ((input: RequestInfo | URL) => {
     calls += 1;
     const hostname = new URL(String(input)).hostname;
-    if (hostname === 'generativelanguage.googleapis.com') {
-      return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: 400 }));
-    }
     if (hostname === 'openrouter.ai') {
       return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: 429 }));
     }
@@ -376,7 +331,7 @@ test('review router reports bounded provider diagnostics without upstream bodies
   assert.equal(payload.error?.code, 'review_router_exhausted');
   assert.equal(
     payload.error?.message,
-    'Review providers unavailable (gemini:http_400_invalid_request, openrouter:http_429, orcarouter:http_503, aihubmix:soft_quota)',
+    'Review providers unavailable (openrouter:http_429, orcarouter:http_503, aihubmix:soft_quota)',
   );
   assert.equal(JSON.stringify(payload).includes('SECRET-UPSTREAM-BODY'), false);
   assert.equal(JSON.stringify(payload).includes('accounts that have not been recharged'), false);
@@ -384,7 +339,7 @@ test('review router reports bounded provider diagnostics without upstream bodies
 
 test('review router classifies a bad parameter without exposing the upstream body', async () => {
   const response = await handleReviewRouterRequest(request(), {
-    ...auth, GEMINI_API_KEY: 'gemini-key',
+    ...auth, ORCAROUTER_API_KEY: 'orca-key',
   }, (() => Promise.resolve(new Response(
     '{"error":{"message":"Unknown field stream_options SECRET-UPSTREAM-BODY"}}',
     { status: 400 },
@@ -392,32 +347,10 @@ test('review router classifies a bad parameter without exposing the upstream bod
 
   assert.equal(response?.status, 400);
   const payload = (await response?.json()) as { error?: { message?: string } };
-  assert.equal(payload.error?.message, 'Invalid review request (gemini:http_400_unsupported_parameter)');
+  assert.equal(payload.error?.message, 'Invalid review request (orcarouter:http_400_unsupported_parameter)');
   assert.equal(JSON.stringify(payload).includes('SECRET-UPSTREAM-BODY'), false);
 });
 
-test('review router classifies a Gemini invalid API key as provider failure', async () => {
-  let calls = 0;
-  const response = await handleReviewRouterRequest(request(), {
-    ...auth, GEMINI_API_KEY: 'stale-gemini-key',
-  }, (() => {
-    calls += 1;
-    return Promise.resolve(new Response(
-      '[{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT"}}]',
-      { status: 400 },
-    ));
-  }) as typeof fetch);
-
-  assert.equal(response?.status, 502);
-  assert.equal(calls, 3);
-  const payload = (await response?.json()) as { error?: { message?: string; code?: string } };
-  assert.equal(payload.error?.code, 'review_router_exhausted');
-  assert.equal(
-    payload.error?.message,
-    'Review providers unavailable (gemini:http_400_invalid_api_key)',
-  );
-  assert.equal(JSON.stringify(payload).includes('API key not valid'), false);
-});
 test('review router rejects provider credentials as router bearer', async () => {
   const response = await handleReviewRouterRequest(request('openrouter-key'), {
     KANAREK_REVIEW_ROUTER_TOKEN: routerToken, OPENROUTER_API_KEY: 'openrouter-key',

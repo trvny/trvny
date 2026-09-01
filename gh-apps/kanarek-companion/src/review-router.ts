@@ -105,6 +105,19 @@ function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+function normalizeProviderInput(input: JsonObject): JsonObject {
+  if (!Array.isArray(input.messages)) return input;
+  let changed = false;
+  const messages = input.messages.map((message) => {
+    if (!isObject(message) || message.role !== 'assistant' || message.refusal !== null) return message;
+    const normalized = { ...message };
+    delete normalized.refusal;
+    changed = true;
+    return normalized;
+  });
+  return changed ? { ...input, messages } : input;
+}
+
 function timingSafeEqual(left: string, right: string): boolean {
   const encoder = new TextEncoder();
   const leftBytes = encoder.encode(left);
@@ -350,7 +363,7 @@ export async function handleReviewRouterRequest(
   try {
     const value: unknown = await request.json();
     if (!isObject(value)) return jsonError('Invalid request body', 'invalid_request', 400);
-    input = value;
+    input = normalizeProviderInput(value);
   } catch {
     return jsonError('Invalid JSON body', 'invalid_json', 400);
   }

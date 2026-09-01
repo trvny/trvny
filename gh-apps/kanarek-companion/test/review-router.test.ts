@@ -7,11 +7,14 @@ const base = 'https://kanarek-companion.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;
 const routerToken = 'router-token';
 
-function request(token = routerToken): Request {
+function request(
+  token = routerToken,
+  body: unknown = { model: 'ignored', stream: true, messages: [{ role: 'user', content: 'x' }] },
+): Request {
   return new Request(endpoint, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'ignored', stream: true, messages: [{ role: 'user', content: 'x' }] }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -63,6 +66,37 @@ test('review router prefers direct Gemini when its free-tier key is configured',
     model: 'gemini-3.7-flash',
     authorization: 'Bearer gemini-key',
   });
+});
+
+test('review router removes Copilot null refusal before Gemini tool follow-up', async () => {
+  const toolCalls = [{
+    id: 'call_1',
+    type: 'function',
+    function: { name: 'view', arguments: '{"path":"/tmp/pr.diff"}' },
+    extra_content: { google: { thought_signature: 'signed-context' } },
+  }];
+  let messages: unknown[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'ignored',
+    stream: true,
+    messages: [
+      { role: 'user', content: 'review' },
+      { role: 'assistant', content: null, refusal: null, tool_calls: toolCalls },
+      { role: 'tool', tool_call_id: 'call_1', content: 'diff' },
+    ],
+  }), {
+    ...auth, GEMINI_API_KEY: 'gemini-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { messages?: unknown[] };
+    messages = body.messages ?? [];
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  const assistant = messages[1] as Record<string, unknown>;
+  assert.equal('refusal' in assistant, false);
+  assert.deepEqual(assistant.tool_calls, toolCalls);
+  assert.deepEqual(messages[2], { role: 'tool', tool_call_id: 'call_1', content: 'diff' });
 });
 
 test('review router falls back across compatible Gemini Flash models', async () => {

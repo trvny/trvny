@@ -90,7 +90,8 @@ test("warnings feed has its own id and self URL", () => {
 test("weather page advertises its canonical and llms surface", () => {
   const html = renderPage("https://weather.trfny.com");
   assert.match(html, /rel="canonical" href="https:\/\/weather\.trfny\.com\/"/);
-  assert.match(html, /rel="alternate" type="text\/plain" href="\/llms\.txt"/);
+  assert.match(html, /rel="alternate" type="text\/markdown" href="\/index\.md"/);
+  assert.match(html, /rel="describedby" href="\/llms\.txt"/);
   assert.match(html, /application\/ld\+json/);
   assert.match(html, /href="https:\/\/trfny\.com\/"/);
 });
@@ -99,7 +100,9 @@ test("weather discovery routes do not require storage", async () => {
   const expected = {
     "/robots.txt": "https://weather.trfny.com/sitemap.xml",
     "/sitemap.xml": "https://weather.trfny.com/feed.atom",
-    "/llms.txt": "https://weather.trfny.com/state.json",
+    "/index.md": "https://weather.trfny.com/state.json",
+    "/llms.txt": "https://weather.trfny.com/index.md",
+    "/llms-full.txt": "https://weather.trfny.com/state.json",
   };
 
   for (const [path, canonicalUrl] of Object.entries(expected)) {

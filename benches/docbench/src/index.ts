@@ -27,6 +27,10 @@ export default {
 
     if (headers.get("content-type")?.includes("text/html")) {
       headers.set("cache-control", "no-cache");
+      headers.set(
+        "link",
+        '</index.md>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"',
+      );
     }
 
     return new Response(asset.body, {

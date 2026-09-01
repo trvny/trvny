@@ -25,7 +25,7 @@ export default {
       headers.set(name, value);
     }
 
-    if (headers.get("content-type")?.includes("text/html")) {
+    if (asset.ok && headers.get("content-type")?.includes("text/html")) {
       headers.set("cache-control", "no-cache");
       headers.set(
         "link",

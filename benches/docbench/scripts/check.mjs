@@ -154,6 +154,11 @@ for (const exportGuard of [
   }
 }
 
+const workerSource = await readFile("src/index.ts", "utf8");
+if (!workerSource.includes('if (asset.ok && headers.get("content-type")?.includes("text/html"))')) {
+  throw new Error("Discovery headers must be limited to successful HTML assets.");
+}
+
 const html = await readFile("public/index.html", "utf8");
 for (const metadataUiGuard of [
   "pdf-metadata-panel",

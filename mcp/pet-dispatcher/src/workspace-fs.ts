@@ -1,14 +1,30 @@
-import { mkdir, open, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, opendir, rename, rm, stat, writeFile } from "node:fs/promises";
 import type { Session } from "./sessions.js";
 import { resolveExisting, resolveExistingEntry, resolveForCreate, resolveForWrite } from "./path-guard.js";
 
+const MAX_DIRECTORY_ENTRIES = 500;
+
 export async function listWorkspace(session: Session, path = "."): Promise<object[]> {
   const target = await resolveExisting(session.root, path);
-  const entries = await readdir(target, { withFileTypes: true });
-  return entries.map((entry) => ({
-    name: entry.name,
-    type: entry.isDirectory() ? "directory" : entry.isFile() ? "file" : entry.isSymbolicLink() ? "symlink" : "other",
-  }));
+  const directory = await opendir(target);
+  const entries: object[] = [];
+  let truncated = false;
+  try {
+    for await (const entry of directory) {
+      if (entries.length >= MAX_DIRECTORY_ENTRIES) {
+        truncated = true;
+        break;
+      }
+      entries.push({
+        name: entry.name,
+        type: entry.isDirectory() ? "directory" : entry.isFile() ? "file" : entry.isSymbolicLink() ? "symlink" : "other",
+      });
+    }
+  } finally {
+    await directory.close().catch(() => undefined);
+  }
+  if (truncated) entries.push({ truncated: true, limit: MAX_DIRECTORY_ENTRIES });
+  return entries;
 }
 
 export async function statWorkspace(session: Session, path: string): Promise<object> {
@@ -30,6 +46,7 @@ export async function readWorkspace(session: Session, path: string, maxBytes = 1
     return (await handle.readFile()).toString("utf8");
   } finally { await handle.close(); }
 }
+
 export async function writeWorkspace(session: Session, path: string, content: string): Promise<void> {
   const target = await resolveForWrite(session.root, path);
   await writeFile(target, content, "utf8");

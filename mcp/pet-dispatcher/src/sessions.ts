@@ -1,15 +1,16 @@
 import { execFile } from "node:child_process";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
-import { mkdir, realpath, rm } from "node:fs/promises";
+import { mkdir, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { DispatcherConfig } from "./config.js";
-import type { NetworkAccess, NetworkMode } from "./network.js";
 import { gitSafetyArgs, isolatedGitEnvironment, resolveTrustedGitExecutable } from "./git-runtime.js";
+import type { NetworkAccess, NetworkMode } from "./network.js";
 import { assertInside } from "./path-guard.js";
 
 const execFileAsync = promisify(execFile);
+const LEGACY_SESSION_GRACE_MS = 24 * 60 * 60 * 1_000;
 
 export interface Session {
   id: string;
@@ -31,14 +32,61 @@ interface Activity {
   token: symbol;
 }
 
+function processIsAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code !== "ESRCH" && code !== "EINVAL";
+  }
+}
+
 export class SessionManager {
   readonly #sessions = new Map<string, Session>();
   readonly #writers = new Map<string, string>();
   readonly #activity = new Map<string, Activity>();
   readonly #activityContext = new AsyncLocalStorage<{ id: string; token: symbol }>();
+  readonly #initialization: Promise<void>;
+  #initializationError?: Error;
   #gitExecutable?: Promise<string>;
 
-  constructor(readonly config: DispatcherConfig) {}
+  constructor(readonly config: DispatcherConfig) {
+    this.#initialization = this.#cleanupOrphanedSessions().catch((error: unknown) => {
+      this.#initializationError = error instanceof Error ? error : new Error(String(error));
+    });
+  }
+
+  async #ready(): Promise<void> {
+    await this.#initialization;
+    if (this.#initializationError) throw this.#initializationError;
+  }
+
+  async #cleanupOrphanedSessions(): Promise<void> {
+    const sessionsRoot = resolve(this.config.workspaceRoot, "sessions");
+    await mkdir(sessionsRoot, { recursive: true });
+    const entries = await readdir(sessionsRoot, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory() || this.#sessions.has(entry.name)) continue;
+      const candidate = resolve(sessionsRoot, entry.name);
+      assertInside(sessionsRoot, candidate);
+
+      let ownerPid: number | undefined;
+      try {
+        const owner = JSON.parse(await readFile(join(candidate, "owner.json"), "utf8")) as { pid?: unknown };
+        if (typeof owner.pid === "number" && Number.isInteger(owner.pid) && owner.pid > 0) ownerPid = owner.pid;
+      } catch { /* legacy or partially-created session */ }
+
+      if (ownerPid !== undefined) {
+        if (processIsAlive(ownerPid)) continue;
+      } else {
+        const info = await stat(candidate);
+        if (Date.now() - info.mtimeMs < LEGACY_SESSION_GRACE_MS) continue;
+      }
+      await rm(candidate, { recursive: true, force: true });
+    }
+  }
 
   get(id: string): Session {
     const session = this.#sessions.get(id);
@@ -107,6 +155,7 @@ export class SessionManager {
     networkProfile?: string,
     sync = false,
   ): Promise<Session> {
+    await this.#ready();
     const sourceConfigured = this.config.repositories[repo];
     if (!sourceConfigured) throw new Error(`repository is not configured: ${repo}`);
     if (sync) throw new Error("session sync requires restricted host egress and is unavailable in Phase 1");
@@ -127,11 +176,12 @@ export class SessionManager {
       const gitDir = resolve(sessionDir, "git");
       const hostHome = resolve(sessionDir, "host-home");
       await mkdir(hostHome, { recursive: true });
+      await writeFile(join(sessionDir, "owner.json"), JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }), "utf8");
       const gitOptions = this.#gitOptions(gitExecutable, hostHome);
       const { stdout } = await execFileAsync(gitExecutable, [...gitSafetyArgs, "-C", sourceRoot, "rev-parse", "--verify", `${ref}^{commit}`], gitOptions);
       const initialCommit = stdout.trim();
 
-      await execFileAsync(gitExecutable, [...gitSafetyArgs, "clone", "--shared", "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root], gitOptions);
+      await execFileAsync(gitExecutable, [...gitSafetyArgs, "clone", "--no-local", "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root], gitOptions);
       await execFileAsync(gitExecutable, [...gitSafetyArgs, "--git-dir", gitDir, "--work-tree", root, "checkout", "--detach", initialCommit], gitOptions);
       await rm(join(root, ".git"), { force: true });
       const readonlyRoots: string[] = [];
@@ -189,5 +239,4 @@ export class SessionManager {
       if (this.#writers.get(session.repo) === id) this.#writers.delete(session.repo);
     } finally { release(); }
   }
-
 }

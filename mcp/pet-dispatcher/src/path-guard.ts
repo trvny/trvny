@@ -1,9 +1,23 @@
 import { lstat, realpath } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve, win32 } from "node:path";
 
+const WINDOWS_DEVICE_NAME = /^(?:CON|PRN|AUX|NUL|CLOCK\$|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])$/iu;
+
 function isInside(root: string, target: string): boolean {
   const rel = relative(root, target);
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function validateWindowsPathComponents(input: string): void {
+  for (const component of input.split(/[\\/]/u)) {
+    if (!component || component === "." || component === "..") continue;
+    if (component.includes(":")) throw new Error("Windows alternate-data-stream and device path syntax is not allowed");
+    const normalized = component.replace(/[ .]+$/u, "");
+    if (normalized !== component) throw new Error("Windows paths may not end components with a dot or space");
+    const dot = normalized.indexOf(".");
+    const stem = (dot >= 0 ? normalized.slice(0, dot) : normalized).replace(/[ .]+$/u, "");
+    if (WINDOWS_DEVICE_NAME.test(stem)) throw new Error(`reserved Windows device path is not allowed: ${component}`);
+  }
 }
 
 export function validateRelativePath(input: string): string {
@@ -11,6 +25,7 @@ export function validateRelativePath(input: string): string {
   if (isAbsolute(input) || win32.isAbsolute(input) || /^[a-zA-Z]:/.test(input)) {
     throw new Error("absolute, drive-qualified and UNC paths are not allowed");
   }
+  validateWindowsPathComponents(input);
   return input;
 }
 

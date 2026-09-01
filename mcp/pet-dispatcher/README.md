@@ -7,19 +7,23 @@ The Phase 1 local MVP is implemented in this directory. The broader architecture
 ## What works now
 
 - one writable session per configured repository,
-- session-owned lightweight Git checkouts with private metadata outside the MXC-writable worktree,
-- workspace-confined filesystem tools,
+- session-owned independent Git checkouts with private metadata outside the MXC-writable worktree,
+- orphan-session reclamation using per-session owner metadata, with a grace period for legacy session directories,
+- workspace-confined filesystem tools with bounded file reads and directory listings,
 - structured session-bound host Git adapter for status/diff/add/commit/export; source objects and Git config are never exposed to the sandbox,
 - `workspace_exec` through Microsoft MXC / Windows ProcessContainer,
 - process timeout, cancellation and bounded output,
 - OpenRouter and Gemini agent adapters over the same confined tools,
 - brokered HTTPS profiles with exact destination validation,
 - direct sandbox sockets denied by default,
-- path traversal, junction/symlink escape, Git-filter escape, activity-race and sandbox-boundary tests.
+- path traversal, Windows device-path, junction/symlink escape, Git-filter escape, activity-race and sandbox-boundary tests.
 
 `git_export` preserves a session commit under `refs/pet-dispatcher/<session-id>` in the configured source clone, allowing a clean session close without losing committed work. It is intentionally controller-only and is not exposed to OpenRouter/Gemini provider agents. Host filesystem/Git operations and `workspace_exec` share one per-session activity lease, so a sandbox process cannot swap a junction or symlink between host-side validation and mutation.
 
+Session Git objects are copied through a non-local clone path instead of borrowing the source clone's object database. A source-side prune therefore cannot invalidate an active session.
+
 `restricted` direct egress is intentionally fail-closed on the current Windows backend until there is an enforceable per-session host/network boundary. For the same reason, `open_session(sync=true)` is fail-closed in Phase 1 instead of running an unrestricted host `git fetch`.
+
 ## Network model
 
 Sessions choose one of three modes when opened:

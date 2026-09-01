@@ -10,7 +10,7 @@
     "start": "node dist/src/index.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/sandbox.integration.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/agent-tools.test.ts",
+    "test": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/sandbox.integration.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/agent-tools.test.ts tests/hardening.test.ts",
     "test:sandbox": "tsx --test tests/sandbox.integration.test.ts",
     "check": "npm run typecheck && npm test"
   },

@@ -9,26 +9,6 @@ import type { Session, SessionManager } from "./sessions.js";
 
 const execFileAsync = promisify(execFile);
 
-
-async function cleanPaths(session: Session, paths: string[]): Promise<string[]> {
-  if (paths.length === 0) throw new Error("at least one path is required");
-  const clean: string[] = [];
-  for (const path of paths) {
-    const value = validateRelativePath(path);
-    if (value === ".") throw new Error("git adapter requires explicit paths, not '.'");
-    if (value.split(/[\\/]/u).includes("..")) throw new Error("git path may not contain '..' segments");
-    if (value.startsWith("-")) throw new Error("git paths may not begin with '-'");
-    try {
-      await resolveExisting(session.root, value);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      await resolveForCreate(session.root, value);
-    }
-    clean.push(value);
-  }
-  return clean;
-}
-
 export interface GitResult {
   stdout: string;
   stderr: string;
@@ -58,7 +38,6 @@ export class HostGit {
     }
   }
 
-
   async #runUnlocked(session: Session, args: string[]): Promise<GitResult> {
     const gitExecutable = await this.#gitPath();
     const home = join(session.gitDir, "pet-dispatcher-home");
@@ -69,7 +48,7 @@ export class HostGit {
         ["--git-dir", session.gitDir, "--work-tree", session.root, ...gitSafetyArgs, ...args],
         {
           cwd: session.root,
-          env: isolatedGitEnvironment(gitExecutable, join(session.gitDir, "pet-dispatcher-home")),
+          env: isolatedGitEnvironment(gitExecutable, home),
           maxBuffer: this.config.maxOutputBytes,
           windowsHide: true,
         },
@@ -85,6 +64,40 @@ export class HostGit {
     }
   }
 
+  async #cleanPaths(session: Session, paths: string[]): Promise<string[]> {
+    if (paths.length === 0) throw new Error("at least one path is required");
+    const clean: string[] = [];
+    for (const path of paths) {
+      const value = validateRelativePath(path);
+      if (value === ".") throw new Error("git adapter requires explicit paths, not '.'");
+      if (value.split(/[\\/]/u).includes("..")) throw new Error("git path may not contain '..' segments");
+      if (value.startsWith("-")) throw new Error("git paths may not begin with '-'");
+
+      try {
+        await resolveExisting(session.root, value);
+        clean.push(value);
+        continue;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+
+      try {
+        await resolveForCreate(session.root, value);
+        clean.push(value);
+        continue;
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== "target parent does not exist") throw error;
+      }
+
+      const tracked = await this.#runUnlocked(session, ["ls-files", "--error-unmatch", "--", value]);
+      if (tracked.exitCode !== 0) {
+        throw new Error(`missing Git path is not tracked in the session index: ${value}`);
+      }
+      clean.push(value);
+    }
+    return clean;
+  }
+
   status(sessionId: string): Promise<GitResult> {
     return this.sessions.runHostOperation(sessionId, (session) =>
       this.#runUnlocked(session, ["status", "--short", "--branch"]));
@@ -94,14 +107,14 @@ export class HostGit {
     return this.sessions.runHostOperation(sessionId, async (session) => {
       const args = ["diff", "--no-ext-diff", "--no-textconv"];
       if (staged) args.push("--cached");
-      if (paths.length) args.push("--", ...await cleanPaths(session, paths));
+      if (paths.length) args.push("--", ...await this.#cleanPaths(session, paths));
       return this.#runUnlocked(session, args);
     });
   }
 
   add(sessionId: string, paths: string[]): Promise<GitResult> {
     return this.sessions.runHostOperation(sessionId, async (session) =>
-      this.#runUnlocked(session, ["add", "--", ...await cleanPaths(session, paths)]));
+      this.#runUnlocked(session, ["add", "--", ...await this.#cleanPaths(session, paths)]));
   }
 
   commit(sessionId: string, message: string): Promise<GitResult> {

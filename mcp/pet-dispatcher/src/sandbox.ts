@@ -1,11 +1,11 @@
 import { type ChildProcess } from "node:child_process";
+import { constants } from "node:fs";
 import { access, realpath } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
-import { constants } from "node:fs";
 import { createConfigFromPolicy, getPlatformSupport, spawnSandboxFromConfig } from "@microsoft/mxc-sdk";
 import type { DispatcherConfig } from "./config.js";
-import type { Session, SessionManager } from "./sessions.js";
 import { resolveExisting } from "./path-guard.js";
+import type { Session, SessionManager } from "./sessions.js";
 
 export interface ExecResult {
   exitCode: number | null;
@@ -30,8 +30,10 @@ function quoteWindowsArg(value: string): string {
   }
   return `${out}${"\\".repeat(slashes * 2)}"`;
 }
+
 export class CommandRunner {
   readonly #running = new Map<string, ChildProcess>();
+
   private constructor(
     readonly config: DispatcherConfig,
     readonly sessions: SessionManager,
@@ -71,6 +73,7 @@ export class CommandRunner {
       configuredToolRoots: this.toolRoots.length,
     };
   }
+
   async #resolveExecutable(session: Session, command: string): Promise<string> {
     if (!command || command.includes("\0")) throw new Error("command is required");
     if (command.includes("/") || command.includes("\\")) {
@@ -132,17 +135,34 @@ export class CommandRunner {
       this.#running.set(sessionId, child);
       const runningChild = child;
       return await new Promise<ExecResult>((resolveResult, reject) => {
-        let stdout = "";
-        let stderr = "";
+        const stdoutChunks: Buffer[] = [];
+        const stderrChunks: Buffer[] = [];
+        let stdoutBytes = 0;
+        let stderrBytes = 0;
         let truncated = false;
-        const append = (current: string, chunk: Buffer | string): string => {
-          const next = current + chunk.toString();
-          if (Buffer.byteLength(next) <= this.config.maxOutputBytes) return next;
+
+        const capture = (chunks: Buffer[], usedBytes: number, chunk: Buffer | string): number => {
+          if (usedBytes >= this.config.maxOutputBytes) {
+            truncated = true;
+            return usedBytes;
+          }
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          const remaining = this.config.maxOutputBytes - usedBytes;
+          if (buffer.length <= remaining) {
+            chunks.push(buffer);
+            return usedBytes + buffer.length;
+          }
+          if (remaining > 0) chunks.push(buffer.subarray(0, remaining));
           truncated = true;
-          return Buffer.from(next).subarray(0, this.config.maxOutputBytes).toString("utf8");
+          return this.config.maxOutputBytes;
         };
-        runningChild.stdout?.on("data", (chunk) => { stdout = append(stdout, chunk); });
-        runningChild.stderr?.on("data", (chunk) => { stderr = append(stderr, chunk); });
+
+        runningChild.stdout?.on("data", (chunk: Buffer | string) => {
+          stdoutBytes = capture(stdoutChunks, stdoutBytes, chunk);
+        });
+        runningChild.stderr?.on("data", (chunk: Buffer | string) => {
+          stderrBytes = capture(stderrChunks, stderrBytes, chunk);
+        });
         runningChild.once("error", (error) => {
           if (this.#running.get(sessionId) === runningChild) this.#running.delete(sessionId);
           releaseActivity();
@@ -151,7 +171,13 @@ export class CommandRunner {
         runningChild.once("close", (exitCode) => {
           if (this.#running.get(sessionId) === runningChild) this.#running.delete(sessionId);
           releaseActivity();
-          resolveResult({ exitCode, stdout, stderr, truncated, durationMs: Date.now() - started });
+          resolveResult({
+            exitCode,
+            stdout: Buffer.concat(stdoutChunks, stdoutBytes).toString("utf8"),
+            stderr: Buffer.concat(stderrChunks, stderrBytes).toString("utf8"),
+            truncated,
+            durationMs: Date.now() - started,
+          });
         });
       });
     } catch (error) {

@@ -9,6 +9,20 @@ const networkProfileSchema = z.object({
   hosts: z.array(hostRule).min(1).max(64),
 });
 
+const remoteSchema = z.object({
+  enabled: z.boolean().default(false),
+  deviceId: z.string().min(1).max(128),
+  accountId: z.string().regex(/^[0-9a-f]{32}$/u),
+  queueId: z.string().regex(/^[0-9a-f]{32}$/u),
+  controlPlaneUrl: z.string().url(),
+  queueTokenEnv: z.string().min(1).default("PET_DISPATCHER_QUEUE_TOKEN"),
+  signingSecretEnv: z.string().min(1).default("PET_DISPATCHER_SIGNING_SECRET"),
+  pollIntervalMs: z.number().int().min(1_000).max(60_000).default(5_000),
+  heartbeatIntervalMs: z.number().int().min(5_000).max(60_000).default(15_000),
+  visibilityTimeoutMs: z.number().int().min(30_000).max(43_200_000).default(1_800_000),
+  journalPath: z.string().min(1).default("remote-journal.json"),
+});
+
 const configSchema = z.object({
   workspaceRoot: z.string().min(1),
   repositories: z.record(z.string(), z.string().min(1)),
@@ -19,6 +33,7 @@ const configSchema = z.object({
   maxBrokerResponseBytes: z.number().int().min(1_024).max(8_388_608).default(2_097_152),
   openRouterModel: z.string().min(1).default("openrouter/free"),
   geminiModel: z.string().min(1).default("gemini-2.5-flash"),
+  remote: remoteSchema.optional(),
 });
 
 export type DispatcherConfig = z.infer<typeof configSchema>;
@@ -26,6 +41,7 @@ export type DispatcherConfig = z.infer<typeof configSchema>;
 function resolveLocalPath(value: string, base: string): string {
   return resolve(isAbsolute(value) ? value : resolve(base, value));
 }
+
 export async function loadConfig(configPath = process.env.PET_DISPATCHER_CONFIG): Promise<DispatcherConfig> {
   if (!configPath) throw new Error("PET_DISPATCHER_CONFIG must point to a local dispatcher config file");
   const absoluteConfigPath = resolve(configPath);
@@ -39,6 +55,10 @@ export async function loadConfig(configPath = process.env.PET_DISPATCHER_CONFIG)
       Object.entries(parsed.repositories).map(([name, path]) => [name, resolveLocalPath(path, base)]),
     ),
     toolRoots: parsed.toolRoots.map((path) => resolveLocalPath(path, base)),
+    remote: parsed.remote ? {
+      ...parsed.remote,
+      journalPath: resolveLocalPath(parsed.remote.journalPath, base),
+    } : undefined,
     networkProfiles: Object.fromEntries(
       Object.entries(parsed.networkProfiles).map(([name, profile]) => [
         name,

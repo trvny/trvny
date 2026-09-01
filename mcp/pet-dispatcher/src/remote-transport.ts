@@ -20,12 +20,13 @@ const terminalStatuses = new Set(["completed", "failed", "cancelled", "recovery_
 function pause(ms: number, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) return Promise.resolve();
   return new Promise((resolve) => {
+    let timer: ReturnType<typeof setTimeout>;
     const done = () => {
       clearTimeout(timer);
       signal?.removeEventListener("abort", done);
       resolve();
     };
-    const timer = setTimeout(done, ms);
+    timer = setTimeout(done, ms);
     signal?.addEventListener("abort", done, { once: true });
   });
 }
@@ -357,7 +358,7 @@ export class RemoteWorker {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write("[pet-dispatcher] remote poll error: " + message + "\n");
+        process.stderr.write(`[pet-dispatcher] remote poll error: ${message}\n`);
         await pause(this.transport.config.pollIntervalMs, signal);
       }
     }

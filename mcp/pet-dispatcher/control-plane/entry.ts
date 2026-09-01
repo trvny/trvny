@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import {
   remoteResultSchema,
   remoteTaskSchema,
@@ -20,6 +21,8 @@ const WORKER_CLOCK_SKEW_MS = 5 * 60_000;
 const NONCE_HISTORY_LIMIT = 64;
 const STATE_KEY = "state";
 const NONCES_KEY = "worker-nonces";
+const QUOTA_KEY = "daily-delegation-quota";
+const DAILY_DELEGATION_LIMIT = 500;
 
 function json(value: unknown, status = 200): Response {
   return Response.json(value, { status, headers: { "cache-control": "no-store" } });
@@ -54,6 +57,10 @@ function stateStub(env: Env, taskId: string): DurableObjectStub {
   return env.TASK_STATE.get(env.TASK_STATE.idFromName(taskId));
 }
 
+function quotaStub(env: Env): DurableObjectStub {
+  return env.TASK_STATE.get(env.TASK_STATE.idFromName("__pet-free-tier-budget__"));
+}
+
 async function readState(env: Env, taskId: string): Promise<Response> {
   return stateStub(env, taskId).fetch("https://state/state");
 }
@@ -75,6 +82,17 @@ export class TaskStateStore {
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const body = await readBody(request);
+    if (url.pathname === "/quota/consume") {
+      const day = new Date().toISOString().slice(0, 10);
+      const quota = await this.state.storage.get<{ day: string; count: number }>(QUOTA_KEY);
+      const count = quota?.day === day ? quota.count : 0;
+      if (count >= DAILY_DELEGATION_LIMIT) {
+        return json({ error: "free_tier_task_budget_exhausted", limit: DAILY_DELEGATION_LIMIT }, 429);
+      }
+      const next = { day, count: count + 1 };
+      await this.state.storage.put(QUOTA_KEY, next);
+      return json({ ...next, limit: DAILY_DELEGATION_LIMIT }, 201);
+    }
     if (url.pathname === "/init") {
       if (current) return json(current);
       const next = remoteTaskStateSchema.parse(JSON.parse(body) as unknown);
@@ -171,6 +189,11 @@ async function workerAuthorized(request: Request, env: Env, body: string): Promi
 async function delegate(request: Request, env: Env): Promise<Response> {
   const raw = await readBody(request);
   const task = remoteTaskSchema.parse(JSON.parse(raw) as unknown);
+  const quota = await quotaStub(env).fetch("https://state/quota/consume", { method: "POST", body: "{}" });
+  if (!quota.ok) {
+    if (quota.status === 429) return json({ error: "free_tier_task_budget_exhausted" }, 429);
+    throw new Error(`failed to reserve free-tier task budget: HTTP ${quota.status}`);
+  }
   const now = Date.now();
   const taskId = crypto.randomUUID();
   const envelope = {
@@ -179,7 +202,7 @@ async function delegate(request: Request, env: Env): Promise<Response> {
     deviceId: deviceId(env),
     nonce: crypto.randomUUID(),
     issuedAt: now,
-    expiresAt: Math.min(now + 24 * 60 * 60_000, now + (task.timeoutMinutes + 15) * 60_000),
+    expiresAt: now + 24 * 60 * 60_000,
     task,
   };
   const signed = await signEnvelope(envelope, requiredSecret(env, "TASK_SIGNING_SECRET"));
@@ -261,7 +284,7 @@ export default {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const status = message.includes("request body is too large") ? 413
-        : message.includes("JSON") || message.includes("validation") ? 400
+        : error instanceof SyntaxError || error instanceof ZodError ? 400
           : 500;
       return json({ error: status === 500 ? "internal_error" : "invalid_request" }, status);
     }

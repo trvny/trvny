@@ -8,6 +8,8 @@ import type { SessionManager } from "./sessions.js";
 import type { RemoteResult, RemoteTask } from "./remote-protocol.js";
 import type { RemoteTaskExecutor } from "./remote-transport.js";
 
+const MAX_SUMMARY_CHARS = 20_000;
+
 const PROFILE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
   inspect: ["workspace.read", "git.read", "network.fetch"],
   code: [
@@ -27,6 +29,9 @@ function resolveCapabilities(task: RemoteTask): ReadonlySet<string> {
     }
   }
   const selected = new Set(requested);
+  if (selected.has("workspace.write") && !selected.has("git.commit")) {
+    throw new Error("workspace.write requires git.commit for durable remote changes");
+  }
   if (selected.has("process.exec") && !selected.has("workspace.write")) {
     throw new Error("process.exec requires workspace.write in the current MXC profile");
   }
@@ -37,6 +42,10 @@ function resolveCapabilities(task: RemoteTask): ReadonlySet<string> {
     throw new Error("tests.run requires process.exec");
   }
   return selected;
+}
+
+function boundedSummary(value: string, fallback: string): string {
+  return (value || fallback).slice(0, MAX_SUMMARY_CHARS);
 }
 
 function trimDiff(value: string): string | undefined {
@@ -92,7 +101,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         await this.sessions.close(session.id, true);
         return {
           status: "failed",
-          summary: agent.text || "Agent returned with uncommitted workspace changes.",
+          summary: boundedSummary(agent.text, "Agent returned with uncommitted workspace changes."),
           diff,
           error: "remote agent left uncommitted changes; workspace was discarded",
         };
@@ -103,7 +112,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       await this.sessions.close(session.id, false);
       return {
         status: "completed",
-        summary: agent.text || `Remote ${agent.provider} task completed.`,
+        summary: boundedSummary(agent.text, `Remote ${agent.provider} task completed.`),
         diff,
         commit: exported?.commit,
         exportedRef: exported?.ref,

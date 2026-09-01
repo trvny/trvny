@@ -339,7 +339,7 @@ export async function handleReviewRouterRequest(
     const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
     const attempts = providerAttempts(provider);
     let providerFailureCategory = 'unknown';
-    let providerInvalidRequest = false;
+    let providerInvalidRequest = true;
 
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
       const attempt = attempts[attemptIndex];
@@ -364,6 +364,7 @@ export async function handleReviewRouterRequest(
             if (preview === null) {
               await discard(response);
               providerFailureCategory = 'preview_timeout';
+              providerInvalidRequest = false;
               console.warn(JSON.stringify({
                 kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'preview_timeout',
               }));
@@ -372,6 +373,7 @@ export async function handleReviewRouterRequest(
             if (isAIHubMixSoftFailure(preview)) {
               await discard(response);
               providerFailureCategory = 'soft_quota';
+              providerInvalidRequest = false;
               console.warn(JSON.stringify({
                 kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'soft_quota',
               }));
@@ -388,7 +390,7 @@ export async function handleReviewRouterRequest(
         const status = response.status;
         const preview = status === 400 ? await responsePreview(response, deadlineAt) : null;
         providerFailureCategory = status === 400 ? classifyBadRequest(preview) : `http_${status}`;
-        providerInvalidRequest = status === 400;
+        if (status !== 400) providerInvalidRequest = false;
         await discard(response);
         console.warn(JSON.stringify({
           kanarekReviewRouter: 'provider_failed',

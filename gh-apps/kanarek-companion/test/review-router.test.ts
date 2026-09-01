@@ -161,7 +161,7 @@ test('review router cools down a quota-limited provider across Copilot retries',
   const first = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
     firstUrls.push(String(input));
     if (firstUrls.length === 1) return Promise.resolve(new Response('quota', { status: 429 }));
-    return Promise.resolve(new Response('{\"choices\":[]}', { status: 200 }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
   assert.equal(first?.status, 200);
   assert.deepEqual(firstUrls, [
@@ -172,7 +172,7 @@ test('review router cools down a quota-limited provider across Copilot retries',
   const retryUrls: string[] = [];
   const retry = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
     retryUrls.push(String(input));
-    return Promise.resolve(new Response('{\"choices\":[]}', { status: 200 }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
   assert.equal(retry?.status, 200);
   assert.deepEqual(retryUrls, ['https://api.orcarouter.ai/v1/chat/completions']);
@@ -188,7 +188,7 @@ test('review router fails fast while the whole free pool is quota-cooled', async
     calls += 1;
     if (new URL(String(input)).hostname === 'aihubmix.com') {
       return Promise.resolve(new Response(
-        'data: {\"choices\":[{\"delta\":{\"content\":\"to prevent abuse of free resources\"}}]}\n\n',
+        'data: {"choices":[{"delta":{"content":"to prevent abuse of free resources"}}]}\n\n',
         { status: 200, headers: { 'content-type': 'text/event-stream' } },
       ));
     }
@@ -199,7 +199,7 @@ test('review router fails fast while the whole free pool is quota-cooled', async
 
   const retry = await handleReviewRouterRequest(request(), env, (() => {
     calls += 1;
-    return Promise.resolve(new Response('{\"choices\":[]}', { status: 200 }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
   assert.equal(retry?.status, 429);
   assert.equal(calls, 3);

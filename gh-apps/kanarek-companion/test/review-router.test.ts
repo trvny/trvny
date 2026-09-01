@@ -39,6 +39,32 @@ test('review router exposes its synthetic OpenAI model', async () => {
   assert.equal(payload.data?.[0]?.id, 'kanarek-review-free');
 });
 
+test('review router prefers direct Gemini when its free-tier key is configured', async () => {
+  let call: { url?: string; model?: unknown; authorization?: string | null } = {};
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_MODEL: 'gemini-3.7-flash',
+    OPENROUTER_API_KEY: 'openrouter-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    call = {
+      url: String(input),
+      model: body.model,
+      authorization: new Headers(init?.headers).get('authorization'),
+    };
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini');
+  assert.deepEqual(call, {
+    url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    model: 'gemini-3.7-flash',
+    authorization: 'Bearer gemini-key',
+  });
+});
+
 test('review router prefers OpenRouter then falls through to OrcaRouter', async () => {
   const calls: Array<{ url: string; model: unknown; models: unknown; authorization: string | null }> = [];
   const fetcher = ((input: RequestInfo | URL, init?: RequestInit) => {

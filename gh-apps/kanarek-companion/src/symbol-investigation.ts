@@ -500,7 +500,7 @@ export function addSymbolInvestigationOpenApi(document: JsonObject): void {
               type: 'object',
               required: ['repository', 'symbol'],
               properties: {
-                repository: { type: 'string', example: 'twojstar/kanarek' },
+                repository: { type: 'string', example: 'trvny/feedseek' },
                 symbol: { type: 'string', example: 'FeedRepository' },
                 maxFiles: { type: 'integer', minimum: 1, maximum: 12, default: 8 },
                 path: { type: 'string', example: 'src' },

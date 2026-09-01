@@ -132,6 +132,7 @@ export class TaskStateStore {
     }
 
     if (url.pathname === "/worker/result") {
+      if (terminal(current.status)) return json(current);
       const result = remoteResultSchema.parse(JSON.parse(body) as unknown);
       const next: RemoteTaskState = {
         ...current,

@@ -17,6 +17,19 @@ import {
 
 const terminalStatuses = new Set(["completed", "failed", "cancelled", "recovery_required"]);
 
+function pause(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener("abort", done, { once: true });
+  });
+}
+
 const pulledMessageSchema = z.object({
   lease_id: z.string().min(1),
   body: z.unknown(),
@@ -85,11 +98,17 @@ export class RemoteJournal {
     const existing = data.entries[taskId];
     if (existing) {
       if (terminalStatuses.has(existing.status)) return { kind: "terminal", entry: existing };
+      if (existing.status === "leased") {
+        existing.leaseId = leaseId;
+        existing.updatedAt = new Date().toISOString();
+        await this.#save();
+        return { kind: "claimed", entry: existing };
+      }
       existing.status = "recovery_required";
       existing.updatedAt = new Date().toISOString();
       existing.result = {
         status: "recovery_required",
-        summary: "An earlier worker stopped before this task reached a terminal state.",
+        summary: "An earlier worker stopped after execution began.",
         error: "automatic task replay is disabled",
       };
       await this.#save();
@@ -164,9 +183,8 @@ export class CloudflareQueueTransport {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(30_000),
     });
-    const payload = await response.json() as unknown;
     if (!response.ok) throw new Error(`Cloudflare Queue request failed with HTTP ${response.status}`);
-    return payload;
+    return response.json() as Promise<unknown>;
   }
 
   async pull(): Promise<PullMessage | undefined> {
@@ -234,10 +252,18 @@ export class RemoteWorker {
     readonly executor: RemoteTaskExecutor,
   ) {}
 
+  async #publishTerminal(taskId: string, leaseId: string, result: RemoteResult): Promise<void> {
+    try {
+      await this.transport.report(taskId, "result", result);
+      await this.transport.ack(leaseId);
+    } catch {
+      await this.transport.retry(leaseId, 30).catch(() => undefined);
+    }
+  }
+
   async recover(): Promise<void> {
     for (const entry of await this.journal.recoverInterrupted()) {
-      if (entry.result) await this.transport.report(entry.taskId, "result", entry.result);
-      await this.transport.ack(entry.leaseId).catch(() => undefined);
+      if (entry.result) await this.#publishTerminal(entry.taskId, entry.leaseId, entry.result);
     }
   }
 
@@ -248,40 +274,48 @@ export class RemoteWorker {
     let signed: SignedTaskEnvelope;
     try {
       signed = await this.transport.decode(message);
-    } catch (error) {
+    } catch {
       await this.transport.ack(message.lease_id);
-      throw error;
+      return true;
     }
 
     const claim = await this.journal.claim(signed, message.lease_id);
     if (claim.kind === "terminal") {
-      if (claim.entry.result) await this.transport.report(claim.entry.taskId, "result", claim.entry.result);
-      await this.transport.ack(message.lease_id);
+      if (claim.entry.result) {
+        await this.#publishTerminal(claim.entry.taskId, message.lease_id, claim.entry.result);
+      } else {
+        await this.transport.ack(message.lease_id);
+      }
       return true;
     }
 
     const taskId = signed.envelope.taskId;
-    await this.journal.mark(taskId, "running");
-    const leaseState = remoteTaskStateSchema.parse(
-      await this.transport.report(taskId, "lease", { status: "running" }),
-    );
+    let leaseState;
+    try {
+      leaseState = remoteTaskStateSchema.parse(
+        await this.transport.report(taskId, "lease", { status: "leased" }),
+      );
+    } catch {
+      await this.transport.retry(message.lease_id, 30).catch(() => undefined);
+      return true;
+    }
     if (leaseState.cancelRequested) {
       const result: RemoteResult = { status: "cancelled", summary: "Task was cancelled before local execution began." };
       await this.journal.mark(taskId, "cancelled", result);
-      await this.transport.report(taskId, "result", result);
-      await this.transport.ack(message.lease_id);
+      await this.#publishTerminal(taskId, message.lease_id, result);
       return true;
     }
+
+    await this.journal.mark(taskId, "running");
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       controller.abort(new Error("remote task timeout exceeded"));
     }, signed.envelope.task.timeoutMinutes * 60_000);
-    const heartbeatIntervalMs = this.transport.config.heartbeatIntervalMs;
     let heartbeatBusy = false;
     const heartbeat = setInterval(() => {
       if (heartbeatBusy || controller.signal.aborted) return;
       heartbeatBusy = true;
-      void this.transport.report(taskId, "heartbeat", { status: "running" })
+      this.transport.report(taskId, "heartbeat", { status: "running" })
         .then((value) => {
           const state = remoteTaskStateSchema.parse(value);
           if (state.cancelRequested && !controller.signal.aborted) {
@@ -290,37 +324,41 @@ export class RemoteWorker {
         })
         .catch(() => undefined)
         .finally(() => { heartbeatBusy = false; });
-    }, heartbeatIntervalMs);
+    }, this.transport.config.heartbeatIntervalMs);
+
+    let result: RemoteResult;
     try {
-      const result = remoteResultSchema.parse(
+      result = remoteResultSchema.parse(
         await this.executor.execute(signed.envelope.task, taskId, controller.signal),
       );
-      await this.journal.mark(taskId, result.status, result);
-      await this.transport.report(taskId, "result", result);
-      await this.transport.ack(message.lease_id);
-      return true;
     } catch (error) {
-      const result: RemoteResult = {
+      result = {
         status: "recovery_required",
-        summary: "Remote task stopped after the local claim was persisted.",
+        summary: "Remote task stopped after local execution began.",
         error: error instanceof Error ? error.message.slice(0, 4_096) : String(error).slice(0, 4_096),
       };
-      await this.journal.mark(taskId, "recovery_required", result);
-      await this.transport.report(taskId, "result", result).catch(() => undefined);
-      await this.transport.ack(message.lease_id);
-      return true;
     } finally {
       clearTimeout(timeout);
       clearInterval(heartbeat);
     }
+
+    await this.journal.mark(taskId, result.status, result);
+    await this.#publishTerminal(taskId, message.lease_id, result);
+    return true;
   }
 
   async run(signal?: AbortSignal): Promise<void> {
     await this.recover();
     while (!signal?.aborted) {
-      const handled = await this.pollOnce();
-      if (!handled) {
-        await new Promise<void>((resolve) => setTimeout(resolve, this.transport.config.pollIntervalMs));
+      try {
+        const handled = await this.pollOnce();
+        if (!handled) {
+          await pause(this.transport.config.pollIntervalMs, signal);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write("[pet-dispatcher] remote poll error: " + message + "\n");
+        await pause(this.transport.config.pollIntervalMs, signal);
       }
     }
   }

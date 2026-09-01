@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { AgentTools } from "../src/agent-tools.js";
+import { loadConfig } from "../src/config.js";
 import {
   remoteTaskSchema,
   signEnvelope,
@@ -107,7 +108,7 @@ function transportConfig(journalPath: string) {
     signingSecretEnv: "PET_TEST_SIGNING_SECRET",
     pollIntervalMs: 1_000,
     heartbeatIntervalMs: 10,
-    visibilityTimeoutMs: 60_000,
+    visibilityTimeoutMs: 1_800_000,
     journalPath,
   };
 }
@@ -268,6 +269,111 @@ test("remote heartbeat cancels an already running confined executor", async () =
   } finally {
     delete process.env.PET_TEST_QUEUE_TOKEN;
     delete process.env.PET_TEST_SIGNING_SECRET;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a leased task can be re-leased before execution starts", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pet-remote-release-"));
+  try {
+    const path = join(root, "journal.json");
+    const signed = await signedTask("33333333-3333-4333-8333-333333333333");
+    const journal = new RemoteJournal(path);
+    const first = await journal.claim(signed, "lease-old");
+    assert.equal(first.kind, "claimed");
+    const second = await journal.claim(signed, "lease-new");
+    assert.equal(second.kind, "claimed");
+    assert.equal(second.entry.leaseId, "lease-new");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("result publish failure preserves terminal journal state and retries delivery", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pet-remote-publish-retry-"));
+  const signed = await signedTask("44444444-4444-4444-8444-444444444444");
+  const actions: string[] = [];
+  let delivered = false;
+  process.env.PET_TEST_QUEUE_TOKEN = "queue-token";
+  process.env.PET_TEST_SIGNING_SECRET = SECRET;
+  const fakeFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/messages/pull")) {
+      if (delivered) return Response.json({ success: true, result: { messages: [] } });
+      delivered = true;
+      return Response.json({ success: true, result: { messages: [{ lease_id: "lease-publish", body: signed }] } });
+    }
+    if (url.pathname.endsWith("/messages/ack")) {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { acks?: unknown[]; retries?: unknown[] };
+      actions.push(body.retries?.length ? "retry" : "ack");
+      return Response.json({ success: true, result: { ackCount: body.acks?.length ?? 0, retryCount: body.retries?.length ?? 0 } });
+    }
+    const taskId = signed.envelope.taskId;
+    if (url.pathname.endsWith("/lease")) {
+      actions.push("lease");
+      return Response.json(state(taskId));
+    }
+    if (url.pathname.endsWith("/result")) {
+      actions.push("result-failed");
+      return new Response("temporary failure", { status: 503 });
+    }
+    return new Response("not found", { status: 404 });
+  }) as typeof fetch;
+
+  const executor: RemoteTaskExecutor = {
+    execute() {
+      actions.push("execute");
+      return Promise.resolve({ status: "completed", summary: "done" });
+    },
+  };
+  try {
+    const config = transportConfig(join(root, "journal.json"));
+    const worker = new RemoteWorker(
+      new CloudflareQueueTransport(config, fakeFetch),
+      new RemoteJournal(config.journalPath),
+      executor,
+    );
+    assert.equal(await worker.pollOnce(), true);
+    assert.deepEqual(actions, ["lease", "execute", "result-failed", "retry"]);
+
+    const persisted = await new RemoteJournal(config.journalPath).claim(signed, "lease-redelivered");
+    assert.equal(persisted.kind, "terminal");
+    assert.equal(persisted.entry.result?.status, "completed");
+  } finally {
+    delete process.env.PET_TEST_QUEUE_TOKEN;
+    delete process.env.PET_TEST_SIGNING_SECRET;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("remote config requires HTTPS control plane and a 30-minute Queue lease", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pet-remote-config-"));
+  const path = join(root, "dispatcher.json");
+  const base = {
+    workspaceRoot: root,
+    repositories: { trvny: root },
+    remote: {
+      enabled: true,
+      deviceId: "legion",
+      accountId: "a".repeat(32),
+      queueId: "b".repeat(32),
+      controlPlaneUrl: "https://control.example/",
+      visibilityTimeoutMs: 1_800_000,
+      journalPath: "journal.json",
+    },
+  };
+  try {
+    await writeFile(path, JSON.stringify({
+      ...base,
+      remote: { ...base.remote, controlPlaneUrl: "http://control.example/" },
+    }));
+    await assert.rejects(loadConfig(path), /must use HTTPS/u);
+    await writeFile(path, JSON.stringify({
+      ...base,
+      remote: { ...base.remote, visibilityTimeoutMs: 1_799_999 },
+    }));
+    await assert.rejects(loadConfig(path), />=1800000/u);
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });

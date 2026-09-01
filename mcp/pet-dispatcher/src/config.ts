@@ -14,12 +14,12 @@ const remoteSchema = z.object({
   deviceId: z.string().min(1).max(128),
   accountId: z.string().regex(/^[0-9a-f]{32}$/u),
   queueId: z.string().regex(/^[0-9a-f]{32}$/u),
-  controlPlaneUrl: z.string().url(),
+  controlPlaneUrl: z.string().url().refine((value) => new URL(value).protocol === "https:", "controlPlaneUrl must use HTTPS"),
   queueTokenEnv: z.string().min(1).default("PET_DISPATCHER_QUEUE_TOKEN"),
   signingSecretEnv: z.string().min(1).default("PET_DISPATCHER_SIGNING_SECRET"),
   pollIntervalMs: z.number().int().min(1_000).max(60_000).default(5_000),
   heartbeatIntervalMs: z.number().int().min(5_000).max(60_000).default(15_000),
-  visibilityTimeoutMs: z.number().int().min(30_000).max(43_200_000).default(1_800_000),
+  visibilityTimeoutMs: z.number().int().min(1_800_000).max(43_200_000).default(1_800_000),
   journalPath: z.string().min(1).default("remote-journal.json"),
 });
 

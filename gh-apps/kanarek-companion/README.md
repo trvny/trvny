@@ -216,11 +216,13 @@ closed. The gateway never returns Worker secret values or Pages build variables.
 
 `automation-sync.yml` can copy the existing repository Cloudflare credentials,
 the dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the free review credentials
-(AIHubMix/OpenRouter/OrcaRouter), and the separate quip-provider credentials into
-the `kanarek-companion` Worker. Its Cloudflare target is manual-only and never
+(AIHubMix/OpenRouter/OrcaRouter), and the Gemini credential used for quip
+generation into the `kanarek-companion` Worker. Its Cloudflare target is
+manual-only and never
 prints secret values. The review router uses OpenRouter with the review-specific
 tool-capable free-model chain, then OrcaRouter, then AIHubMix. Direct Gemini,
-OpenAI, Anthropic, and xAI credentials remain quip-only. An OpenRouter HTTP 400 from the full model chain is
+OpenAI, Anthropic, and xAI credentials remain quip-only. An OpenRouter HTTP
+400 from the full model chain is
 retried once with the primary model only. Provider-specific request rejection,
 transient, quota, authentication, and availability failures fall through to the
 next provider. Terminal diagnostics expose only bounded provider/category codes,

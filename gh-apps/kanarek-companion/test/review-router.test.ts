@@ -65,7 +65,6 @@ test('review router prefers direct Gemini when its free-tier key is configured',
   });
 });
 
-
 test('review router falls back across compatible Gemini Flash models', async () => {
   const models: unknown[] = [];
   const response = await handleReviewRouterRequest(request(), {
@@ -82,6 +81,22 @@ test('review router falls back across compatible Gemini Flash models', async () 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini');
   assert.deepEqual(models, ['gemini-3.7-flash', 'gemini-3.6-flash']);
+});
+
+test('review router keeps a Gemini transient failure retryable after fallback 400s', async () => {
+  let calls = 0;
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, GEMINI_API_KEY: 'gemini-key',
+  }, (() => {
+    calls += 1;
+    const status = [429, 400, 400][calls - 1] ?? 500;
+    return Promise.resolve(new Response('provider failure', { status }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 502);
+  assert.equal(calls, 3);
+  const payload = (await response?.json()) as { error?: { code?: string } };
+  assert.equal(payload.error?.code, 'review_router_exhausted');
 });
 
 test('review router prefers OpenRouter then falls through to OrcaRouter', async () => {
@@ -171,7 +186,7 @@ test('review router retries OpenRouter primary-only after a fallback-chain 400',
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
   assert.equal(bodies.length, 2);
   assert.ok(Array.isArray(bodies[0].models));
-  assert.equal(bodies[1].models, undefined);
+  assert.equal('models' in bodies[1], false);
 });
 
 test('review router falls through after both OpenRouter 400 attempts fail', async () => {
@@ -188,6 +203,7 @@ test('review router falls through after both OpenRouter 400 attempts fail', asyn
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(calls, 3);
 });
+
 test('review router reaches AIHubMix after earlier providers fail', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(), {

@@ -89,9 +89,10 @@ export class HostGit {
         if (!(error instanceof Error) || error.message !== "target parent does not exist") throw error;
       }
 
-      const tracked = await this.#runUnlocked(session, ["ls-files", "--error-unmatch", "--", value]);
+      const treePath = value.replace(/\\/gu, "/");
+      const tracked = await this.#runUnlocked(session, ["cat-file", "-e", `HEAD:${treePath}`]);
       if (tracked.exitCode !== 0) {
-        throw new Error(`missing Git path is not tracked in the session index: ${value}`);
+        throw new Error(`missing Git path is not tracked by the session HEAD: ${value}`);
       }
       clean.push(value);
     }

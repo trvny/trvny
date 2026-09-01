@@ -116,7 +116,7 @@ test("host Git uses the platform null device for hooks", () => {
   assert.equal(hookArg, `core.hooksPath=${process.platform === "win32" ? "NUL" : "/dev/null"}`);
 });
 
-test("host Git reports untracked files and treats pathspec magic literally", async () => {
+test("host Git reports untracked files and rejects pathspec magic before Git", async () => {
   const fixtureState = await fixture();
   try {
     await writeFile(join(fixtureState.session.root, "alpha.txt"), "a\n");
@@ -124,8 +124,7 @@ test("host Git reports untracked files and treats pathspec magic literally", asy
     const status = await fixtureState.git.status(fixtureState.session.id);
     assert.match(status.stdout, /\?\? alpha\.txt/);
     assert.match(status.stdout, /\?\? beta\.txt/);
-    const add = await fixtureState.git.add(fixtureState.session.id, [":(top)**"]);
-    assert.notEqual(add.exitCode, 0);
+    await assert.rejects(fixtureState.git.add(fixtureState.session.id, [":(top)**"]), /Windows|alternate-data-stream/iu);
     assert.equal((await fixtureState.git.diff(fixtureState.session.id, true)).stdout, "");
   } finally { await fixtureState.sessions.close(fixtureState.session.id, true); await rm(fixtureState.base, { recursive: true, force: true }); }
 });
@@ -133,8 +132,8 @@ test("host Git reports untracked files and treats pathspec magic literally", asy
 test("export rejects a session HEAD outside the initial commit lineage", async () => {
   const fixtureState = await fixture();
   try {
-    const tree = (await execFileAsync("git", ["-C", fixtureState.repo, "rev-parse", "HEAD^{tree}"])).stdout.trim();
-    const unrelated = (await execFileAsync("git", ["-C", fixtureState.repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit-tree", tree, "-m", "unrelated"])).stdout.trim();
+    const tree = (await execFileAsync("git", ["--git-dir", fixtureState.session.gitDir, "rev-parse", "HEAD^{tree}"])).stdout.trim();
+    const unrelated = (await execFileAsync("git", ["--git-dir", fixtureState.session.gitDir, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit-tree", tree, "-m", "unrelated"])).stdout.trim();
     await execFileAsync("git", ["--git-dir", fixtureState.session.gitDir, "update-ref", "HEAD", unrelated]);
     await assert.rejects(fixtureState.git.exportCommit(fixtureState.session.id), /outside the initial commit lineage/);
     await assert.rejects(execFileAsync("git", ["-C", fixtureState.repo, "rev-parse", "--verify", `refs/pet-dispatcher/${fixtureState.session.id}`]));

@@ -91,7 +91,7 @@ export class AgentTools {
 
   async execute(sessionId: string, name: string, raw: unknown): Promise<unknown> {
     const args = (raw ?? {}) as Record<string, unknown>;
-    const session = this.sessions.get(sessionId);
+    this.sessions.get(sessionId);
     switch (name) {
       case "list_files":
         return this.sessions.runHostOperation(sessionId, (locked) => listWorkspace(locked, String(args.path ?? ".")));
@@ -124,7 +124,7 @@ export class AgentTools {
         return this.git.add(sessionId, Array.isArray(args.paths) ? args.paths.map(String) : []);
       case "git_commit": return this.git.commit(sessionId, String(args.message ?? ""));
       case "http_fetch":
-        return this.broker.request(session, {
+        return this.broker.request(this.sessions.get(sessionId), {
           url: String(args.url ?? ""),
           method: args.method === "HEAD" ? "HEAD" : "GET",
           accept: typeof args.accept === "string" ? args.accept : undefined,

@@ -1,6 +1,6 @@
 import { mkdir, open, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import type { Session } from "./sessions.js";
-import { resolveExisting, resolveForCreate, resolveForWrite } from "./path-guard.js";
+import { resolveExisting, resolveExistingEntry, resolveForCreate, resolveForWrite } from "./path-guard.js";
 
 export async function listWorkspace(session: Session, path = "."): Promise<object[]> {
   const target = await resolveExisting(session.root, path);
@@ -50,12 +50,12 @@ export async function mkdirWorkspace(session: Session, path: string): Promise<vo
 }
 
 export async function moveWorkspace(session: Session, from: string, to: string): Promise<void> {
-  const source = await resolveExisting(session.root, from);
+  const source = await resolveExistingEntry(session.root, from);
   const target = await resolveForCreate(session.root, to);
   await rename(source, target);
 }
 
 export async function deleteWorkspace(session: Session, path: string): Promise<void> {
-  const target = await resolveForCreate(session.root, path);
+  const target = await resolveExistingEntry(session.root, path);
   await rm(target, { recursive: true, force: false });
 }

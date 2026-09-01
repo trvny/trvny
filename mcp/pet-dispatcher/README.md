@@ -28,7 +28,7 @@ Sessions choose one of three modes when opened:
 - `brokered` — sandbox sockets remain blocked; `http_fetch` performs GET/HEAD outside the sandbox after validating the configured hostname profile, HTTPS, port, redirects and response size.
 - `restricted` — reserved for future direct CLI egress through a host-enforced firewall/proxy boundary. Requests currently fail closed.
 
-Broker profiles are explicit configuration, not authority supplied by the caller. Redirect destinations are validated again, URL credentials and IP literals are rejected, and only a small safe response-header set is returned.
+Broker profiles are explicit configuration, not authority supplied by the caller. Phase 1 accepts exact DNS hostnames only; wildcard host rules are rejected. Redirect destinations are validated again, URL credentials and IP literals are rejected, and only a small safe response-header set is returned.
 
 OpenRouter/Gemini API keys stay in the dispatcher process. On the current AppContainer + DACL tier, Node/Deno/npm may require the one-time elevated wxc-host-prep prepare-system-drive metadata ACL preparation reported by doctor; the dispatcher does not apply it automatically. They are not passed to `workspace_exec` children. Current Windows ProcessContainer builds also have an upstream issue with caller-supplied environment blocks, so Phase 1 deliberately launches sandboxed commands with a cleared environment and resolves the requested executable to an absolute allowlisted tool-root path first.
 

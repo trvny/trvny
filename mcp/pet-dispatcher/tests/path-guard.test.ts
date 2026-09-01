@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { resolveExisting, resolveForCreate, resolveForWrite, validateRelativePath } from "../src/path-guard.js";
 import type { Session } from "../src/sessions.js";
-import { deleteWorkspace, readWorkspace } from "../src/workspace-fs.js";
+import { deleteWorkspace, moveWorkspace, readWorkspace } from "../src/workspace-fs.js";
 
 async function fixture() {
   const base = await mkdtemp(join(tmpdir(), "pet-dispatcher-path-"));
@@ -93,4 +93,22 @@ test("create path reports a missing target parent clearly", async () => {
   const { base, root } = await fixture();
   try { await assert.rejects(resolveForCreate(root, "missing/new.txt"), /target parent does not exist/); }
   finally { await rm(base, { recursive: true, force: true }); }
+});
+
+test("workspace move renames a symlink entry without relocating its target", async () => {
+  const { base, root } = await fixture();
+  const target = join(root, "move-target");
+  await mkdir(target);
+  await writeFile(join(target, "keep.txt"), "keep");
+  const session = {
+    id: "00000000-0000-4000-8000-000000000003", repo: "fixture", sessionDir: base,
+    root, gitDir: join(base, "git"), sourceRoot: root, initialCommit: "deadbeef", readonlyRoots: [],
+    network: { mode: "none", profile: null }, exportedCommit: null, exportedRef: null, createdAt: new Date(0).toISOString(),
+  } satisfies Session;
+  try {
+    await symlink(target, join(root, "alias"), process.platform === "win32" ? "junction" : "dir");
+    await moveWorkspace(session, "alias", "moved-alias");
+    assert.equal((await lstat(join(root, "moved-alias"))).isSymbolicLink(), true);
+    assert.equal(await readFile(join(target, "keep.txt"), "utf8"), "keep");
+  } finally { await rm(base, { recursive: true, force: true }); }
 });

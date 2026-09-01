@@ -12,7 +12,7 @@ const config: DispatcherConfig = {
   repositories: {},
   toolRoots: [],
   networkProfiles: {
-    github: { hosts: ["github.com", "api.github.com", "*.githubusercontent.com"] },
+    github: { hosts: ["github.com", "api.github.com", "raw.githubusercontent.com"] },
   },
   defaultTimeoutMs: 120_000,
   maxOutputBytes: 1_048_576,
@@ -86,11 +86,15 @@ test("broker refuses sessions without brokered capability", async () => {
 });
 
 
-test("config rejects wildcard rules that span an entire public suffix", async () => {
+test("config accepts exact hosts and rejects every wildcard rule", async () => {
   const base = await mkdtemp(join(tmpdir(), "pet-dispatcher-config-"));
   const path = join(base, "dispatcher.json");
   try {
-    await writeFile(path, JSON.stringify({ workspaceRoot: "./work", repositories: {}, networkProfiles: { bad: { hosts: ["*.com"] } } }));
-    await assert.rejects(loadConfig(path), /multi-label domain suffix/);
+    await writeFile(path, JSON.stringify({ workspaceRoot: "./work", repositories: {}, networkProfiles: { ok: { hosts: ["api.github.com"] } } }));
+    assert.deepEqual((await loadConfig(path)).networkProfiles.ok?.hosts, ["api.github.com"]);
+    for (const rule of ["*.com", "*.co.uk", "*.github.io", "*.githubusercontent.com"]) {
+      await writeFile(path, JSON.stringify({ workspaceRoot: "./work", repositories: {}, networkProfiles: { bad: { hosts: [rule] } } }));
+      await assert.rejects(loadConfig(path), /exact DNS names/);
+    }
   } finally { await rm(base, { recursive: true, force: true }); }
 });

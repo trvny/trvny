@@ -215,13 +215,13 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
       maxSteps: z.number().int().min(1).max(64).default(16),
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
-  }, async ({ sessionId, provider, goal, model, maxSteps }) => {
-    sessions.get(sessionId);
-    if (provider === "openrouter") {
-      return response(await runOpenRouter(config, agentTools, sessionId, goal, model, maxSteps));
-    }
-    return response(await runGemini(config, agentTools, sessionId, goal, model, maxSteps));
-  });
+  }, async ({ sessionId, provider, goal, model, maxSteps }) =>
+    sessions.runActivity(sessionId, "agent", async () => {
+      if (provider === "openrouter") {
+        return response(await runOpenRouter(config, agentTools, sessionId, goal, model, maxSteps));
+      }
+      return response(await runGemini(config, agentTools, sessionId, goal, model, maxSteps));
+    }));
 
   return server;
 }

@@ -4,8 +4,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 const hostRule = z.string().min(1)
-  .regex(/^(?:\*\.)?[A-Za-z0-9.-]+$/, "network host rules must be DNS names or *.domain patterns")
-  .refine((value) => !value.startsWith("*.") || value.slice(2).includes("."), "wildcard network host rules must include a multi-label domain suffix");
+  .regex(/^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/, "network host rules must be exact DNS names");
 const networkProfileSchema = z.object({
   hosts: z.array(hostRule).min(1).max(64),
 });

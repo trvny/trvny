@@ -7,6 +7,7 @@ import test from "node:test";
 import { promisify } from "node:util";
 import type { DispatcherConfig } from "../src/config.js";
 import { HostGit } from "../src/host-git.js";
+import { gitSafetyArgs } from "../src/git-runtime.js";
 import { SessionManager } from "../src/sessions.js";
 
 const execFileAsync = promisify(execFile);
@@ -18,8 +19,8 @@ async function fixture() {
   await execFileAsync("git", ["init", repo]);
   await writeFile(join(repo, "README.md"), "one\n");
   await execFileAsync("git", ["-C", repo, "add", "README.md"]);
-  await execFileAsync("git", ["-C", repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "init"]);
-  const gitWhere = await execFileAsync("where.exe", ["git"]);
+  await execFileAsync("git", ["-C", repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "init"]);
+  const gitWhere = await execFileAsync(process.platform === "win32" ? "where.exe" : "which", ["git"]);
   const gitRoot = dirname(gitWhere.stdout.split(/\r?\n/u)[0] ?? "");
   const config = {
     workspaceRoot: join(base, "worker"), repositories: { fixture: repo }, toolRoots: [gitRoot], networkProfiles: {},
@@ -108,4 +109,23 @@ test("sandbox-owned .git files cannot configure host Git filters", async () => {
     await f.sessions.close(f.session.id, true);
     await rm(f.base, { recursive: true, force: true });
   }
+});
+
+test("host Git uses the platform null device for hooks", () => {
+  const hookArg = gitSafetyArgs.find((value) => value.startsWith("core.hooksPath="));
+  assert.equal(hookArg, `core.hooksPath=${process.platform === "win32" ? "NUL" : "/dev/null"}`);
+});
+
+test("host Git reports untracked files and treats pathspec magic literally", async () => {
+  const f = await fixture();
+  try {
+    await writeFile(join(f.session.root, "alpha.txt"), "a\n");
+    await writeFile(join(f.session.root, "beta.txt"), "b\n");
+    const status = await f.git.status(f.session.id);
+    assert.match(status.stdout, /\?\? alpha\.txt/);
+    assert.match(status.stdout, /\?\? beta\.txt/);
+    const add = await f.git.add(f.session.id, [":(top)**"]);
+    assert.notEqual(add.exitCode, 0);
+    assert.equal((await f.git.diff(f.session.id, true)).stdout, "");
+  } finally { await f.sessions.close(f.session.id, true); await rm(f.base, { recursive: true, force: true }); }
 });

@@ -26,13 +26,7 @@ export interface BrokeredFetchResult {
 const SAFE_RESPONSE_HEADERS = new Set(["content-type", "content-length", "etag", "last-modified", "location"]);
 const MAX_REDIRECTS = 5;
 function hostMatches(hostname: string, rule: string): boolean {
-  const host = hostname.toLowerCase();
-  const normalized = rule.toLowerCase();
-  if (normalized.startsWith("*.")) {
-    const suffix = normalized.slice(1);
-    return host.endsWith(suffix) && host.length > suffix.length;
-  }
-  return host === normalized;
+  return hostname.toLowerCase() === rule.toLowerCase();
 }
 
 export function assertAllowedUrl(rawUrl: string, hosts: readonly string[]): URL {

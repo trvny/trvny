@@ -20,7 +20,7 @@ async function makeFixture() {
   await execFileAsync("git", ["init", repo]);
   await writeFile(join(repo, "README.md"), "INSIDE_OK\n");
   await execFileAsync("git", ["-C", repo, "add", "README.md"]);
-  await execFileAsync("git", ["-C", repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "init"]);
+  await execFileAsync("git", ["-C", repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "init"]);
   await writeFile(join(workspaceRoot, "outside.txt"), "OUTSIDE_SECRET\n");
 
   const gitWhere = await execFileAsync(process.platform === "win32" ? "where.exe" : "which", ["git"]);
@@ -181,7 +181,7 @@ test("session checkout ignores inherited host Git filter configuration", async (
   const globalConfig = join(fixture.base, "host-global.gitconfig");
   await writeFile(join(fixture.repo, ".gitattributes"), "README.md filter=probe\n");
   await execFileAsync("git", ["-C", fixture.repo, "add", ".gitattributes"]);
-  await execFileAsync("git", ["-C", fixture.repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "attrs"]);
+  await execFileAsync("git", ["-C", fixture.repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "-c", "commit.gpgSign=false", "commit", "-m", "attrs"]);
   await execFileAsync("git", ["config", "--file", globalConfig, "filter.probe.smudge", "exit 79"]);
   await execFileAsync("git", ["config", "--file", globalConfig, "filter.probe.required", "true"]);
   const previous = process.env.GIT_CONFIG_GLOBAL;
@@ -210,4 +210,24 @@ test("sandbox commands do not inherit dispatcher environment variables", async (
     await fixture.sessions.close(session.id, true);
     await rm(fixture.base, { recursive: true, force: true });
   }
+});
+
+test("agent activity lease spans nested tools and blocks concurrent close", async () => {
+  const fixture = await makeFixture();
+  const session = await fixture.sessions.open("fixture");
+  let releaseGate!: () => void;
+  const gate = new Promise<void>((resolve) => { releaseGate = resolve; });
+  let entered!: () => void;
+  const enteredGate = new Promise<void>((resolve) => { entered = resolve; });
+  const run = fixture.sessions.runActivity(session.id, "agent", async () => {
+    await fixture.sessions.runHostOperation(session.id, async () => undefined);
+    entered();
+    await gate;
+  });
+  await enteredGate;
+  await assert.rejects(fixture.sessions.close(session.id, true), /active agent operation/);
+  releaseGate();
+  await run;
+  await fixture.sessions.close(session.id, true);
+  await rm(fixture.base, { recursive: true, force: true });
 });

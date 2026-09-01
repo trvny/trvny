@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { mkdir, realpath, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -34,6 +35,7 @@ export class SessionManager {
   readonly #sessions = new Map<string, Session>();
   readonly #writers = new Map<string, string>();
   readonly #activity = new Map<string, Activity>();
+  readonly #activityContext = new AsyncLocalStorage<{ id: string; token: symbol }>();
   #gitExecutable?: Promise<string>;
 
   constructor(readonly config: DispatcherConfig) {}
@@ -58,6 +60,8 @@ export class SessionManager {
   acquireActivity(id: string, kind: string): () => void {
     this.get(id);
     const current = this.#activity.get(id);
+    const inherited = this.#activityContext.getStore();
+    if (current && inherited?.id === id && inherited.token === current.token) return () => undefined;
     if (current) throw new Error(`session already has an active ${current.kind} operation`);
     const token = Symbol(kind);
     this.#activity.set(id, { kind, token });
@@ -67,6 +71,14 @@ export class SessionManager {
       released = true;
       if (this.#activity.get(id)?.token === token) this.#activity.delete(id);
     };
+  }
+
+  async runActivity<T>(id: string, kind: string, operation: () => Promise<T>): Promise<T> {
+    const release = this.acquireActivity(id, kind);
+    const activity = this.#activity.get(id);
+    if (!activity) { release(); throw new Error("failed to reserve session activity"); }
+    try { return await this.#activityContext.run({ id, token: activity.token }, operation); }
+    finally { release(); }
   }
 
   async runHostOperation<T>(id: string, operation: (session: Session) => Promise<T>): Promise<T> {

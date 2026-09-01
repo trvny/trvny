@@ -14,14 +14,16 @@
         "github.com",
         "api.github.com",
         "codeload.github.com",
-        "*.githubusercontent.com"
+        "raw.githubusercontent.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com"
       ]
     },
     "npm-read": {
       "hosts": ["registry.npmjs.org"]
     },
     "github-npm-read": {
-      "hosts": ["github.com", "api.github.com", "codeload.github.com", "*.githubusercontent.com", "registry.npmjs.org"]
+      "hosts": ["github.com", "api.github.com", "codeload.github.com", "raw.githubusercontent.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com", "registry.npmjs.org"]
     },
     "android-read": {
       "hosts": ["dl.google.com", "maven.google.com", "repo1.maven.org", "services.gradle.org"]

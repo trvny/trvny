@@ -3,8 +3,10 @@ import { access, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { DispatcherConfig } from "./config.js";
 
+const nullDevice = process.platform === "win32" ? "NUL" : "/dev/null";
+
 export const gitSafetyArgs = [
-  "-c", "core.hooksPath=NUL",
+  "-c", `core.hooksPath=${nullDevice}`,
   "-c", "core.fsmonitor=false",
   "-c", "credential.helper=",
   "-c", "commit.gpgSign=false",
@@ -26,6 +28,7 @@ export function isolatedGitEnvironment(gitExecutable: string, home: string): Nod
     GIT_TERMINAL_PROMPT: "0",
     GIT_OPTIONAL_LOCKS: "0",
     GIT_LFS_SKIP_SMUDGE: "1",
+    GIT_LITERAL_PATHSPECS: "1",
   };
 }
 

@@ -28,6 +28,20 @@ export async function resolveExisting(root: string, input: string): Promise<stri
   return target;
 }
 
+export async function resolveExistingEntry(root: string, input: string): Promise<string> {
+  validateRelativePath(input);
+  const canonical = await canonicalRoot(root);
+  const lexical = resolve(canonical, input);
+  if (!isInside(canonical, lexical) || lexical === canonical) {
+    throw new Error("entry escapes or replaces the session workspace root");
+  }
+  const parent = await realpath(dirname(lexical));
+  if (!isInside(canonical, parent)) throw new Error("entry parent escapes the session workspace");
+  const entry = resolve(parent, basename(lexical));
+  await lstat(entry);
+  return entry;
+}
+
 export async function resolveForCreate(root: string, input: string): Promise<string> {
   validateRelativePath(input);
   const canonical = await canonicalRoot(root);

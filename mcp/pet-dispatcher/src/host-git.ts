@@ -87,7 +87,7 @@ export class HostGit {
 
   async status(sessionId: string): Promise<GitResult> {
     return this.sessions.runHostOperation(sessionId, (session) =>
-      this.#runUnlocked(session, ["status", "--short", "--branch", "--untracked-files=no"]));
+      this.#runUnlocked(session, ["status", "--short", "--branch"]));
   }
 
   async diff(sessionId: string, staged = false, paths: string[] = []): Promise<GitResult> {
@@ -124,7 +124,7 @@ export class HostGit {
       const gitExecutable = await this.#gitPath();
       const args = [
         "-C", session.sourceRoot,
-        "-c", "core.hooksPath=NUL", "-c", "core.fsmonitor=false", "-c", "credential.helper=",
+        ...gitSafetyArgs,
         "fetch", "--no-tags", session.gitDir, `HEAD:${ref}`,
       ];
       try {

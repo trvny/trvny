@@ -1,0 +1,28 @@
+{
+  "name": "pet-dispatcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workspace-confined local MCP worker for trusted development machines.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "doctor": "tsx src/index.ts doctor",
+    "start": "node dist/src/index.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/sandbox.integration.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/agent-tools.test.ts tests/hardening.test.ts",
+    "test:sandbox": "tsx --test tests/sandbox.integration.test.ts",
+    "check": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "@google/genai": "^2.19.0",
+    "@microsoft/mxc-sdk": "^0.8.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}

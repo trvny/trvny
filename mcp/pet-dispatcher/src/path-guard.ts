@@ -1,0 +1,97 @@
+import { lstat, realpath } from "node:fs/promises";
+import { basename, dirname, isAbsolute, relative, resolve, win32 } from "node:path";
+
+const WINDOWS_DEVICE_NAME = /^(?:CON|PRN|AUX|NUL|CLOCK\$|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])$/iu;
+
+function isInside(root: string, target: string): boolean {
+  const rel = relative(root, target);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function validateWindowsPathComponents(input: string): void {
+  for (const component of input.split(/[\\/]/u)) {
+    if (!component || component === "." || component === "..") continue;
+    if (component.includes(":")) throw new Error("Windows alternate-data-stream and device path syntax is not allowed");
+    const normalized = component.replace(/[ .]+$/u, "");
+    if (normalized !== component) throw new Error("Windows paths may not end components with a dot or space");
+    const dot = normalized.indexOf(".");
+    const stem = (dot >= 0 ? normalized.slice(0, dot) : normalized).replace(/[ .]+$/u, "");
+    if (WINDOWS_DEVICE_NAME.test(stem)) throw new Error(`reserved Windows device path is not allowed: ${component}`);
+  }
+}
+
+export function validateRelativePath(input: string): string {
+  if (!input || input.includes("\0")) throw new Error("path must be a non-empty relative path");
+  if (isAbsolute(input) || win32.isAbsolute(input) || /^[a-zA-Z]:/.test(input)) {
+    throw new Error("absolute, drive-qualified and UNC paths are not allowed");
+  }
+  validateWindowsPathComponents(input);
+  return input;
+}
+
+export function canonicalRoot(root: string): Promise<string> {
+  return realpath(resolve(root));
+}
+
+export async function resolveExisting(root: string, input: string): Promise<string> {
+  validateRelativePath(input);
+  const canonical = await canonicalRoot(root);
+  const lexical = resolve(canonical, input);
+  if (!isInside(canonical, lexical)) throw new Error("path escapes the session workspace");
+  const target = await realpath(lexical);
+  if (!isInside(canonical, target)) throw new Error("resolved path escapes the session workspace");
+  return target;
+}
+
+export async function resolveExistingEntry(root: string, input: string): Promise<string> {
+  validateRelativePath(input);
+  const canonical = await canonicalRoot(root);
+  const lexical = resolve(canonical, input);
+  if (!isInside(canonical, lexical) || lexical === canonical) {
+    throw new Error("entry escapes or replaces the session workspace root");
+  }
+  const parent = await realpath(dirname(lexical));
+  if (!isInside(canonical, parent)) throw new Error("entry parent escapes the session workspace");
+  const entry = resolve(parent, basename(lexical));
+  await lstat(entry);
+  return entry;
+}
+
+export async function resolveForCreate(root: string, input: string): Promise<string> {
+  validateRelativePath(input);
+  const canonical = await canonicalRoot(root);
+  const lexical = resolve(canonical, input);
+  if (!isInside(canonical, lexical) || lexical === canonical) {
+    throw new Error("target escapes or replaces the session workspace root");
+  }
+  let parent: string;
+  try { parent = await realpath(dirname(lexical)); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new Error("target parent does not exist");
+    throw error;
+  }
+  if (!isInside(canonical, parent)) throw new Error("target parent escapes the session workspace");
+  return resolve(parent, basename(lexical));
+}
+
+export async function resolveForWrite(root: string, input: string): Promise<string> {
+  validateRelativePath(input);
+  const canonical = await canonicalRoot(root);
+  const lexical = resolve(canonical, input);
+  if (!isInside(canonical, lexical) || lexical === canonical) {
+    throw new Error("write target escapes or replaces the session workspace root");
+  }
+  try {
+    await lstat(lexical);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    return resolveForCreate(canonical, input);
+  }
+  const target = await realpath(lexical);
+  if (!isInside(canonical, target)) throw new Error("write target resolves outside the session workspace");
+  return target;
+}
+
+export function assertInside(root: string, target: string): void {
+  if (!isInside(resolve(root), resolve(target))) throw new Error("path escapes the session workspace");
+}

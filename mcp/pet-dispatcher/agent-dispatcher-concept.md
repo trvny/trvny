@@ -92,8 +92,8 @@ A task should contain only explicit fields such as:
   "capabilities": ["git.read", "workspace.write", "tests.run"],
   "timeout_minutes": 20,
   "network": {
-    "mode": "restricted",
-    "allow": ["github.com", "registry.npmjs.org"]
+    "mode": "brokered",
+    "profile": "github-npm-read"
   },
   "publish": "none",
   "result": ["summary", "diff", "tests", "commit"]
@@ -145,21 +145,20 @@ The Legion currently has limited RAM, so default to:
 - concurrency: **1 active agent task**;
 - bounded CPU/runtime;
 - no resident model processes unless useful;
-- no duplicate full clones when a worktree is enough.
+- no duplicate object stores; prefer shared ephemeral checkouts with private session metadata.
 
 A warm OpenCode server is acceptable only if measurements show that avoiding repeated MCP/provider startup is worth the idle footprint.
 
 ### Git workspace lifecycle
 
-Avoid branch/worktree graveyards.
+Avoid branch/checkout graveyards.
 
-1. create a detached temporary worktree under one worker-owned root;
-2. run the task;
-3. test;
+1. create a detached shared checkout under one worker-owned root;
+2. keep its Git metadata in a private sibling directory outside the sandbox-writable worktree;
+3. run the task and tests;
 4. if successful, preserve the commit and optionally publish a short-lived remote branch/PR;
-5. remove the worktree immediately;
-6. run `git worktree prune`;
-7. watchdog removes stale worker-owned workspaces.
+5. remove the session checkout and private metadata immediately;
+6. watchdog removes stale worker-owned workspaces.
 
 The dispatcher may delete **only resources it created under its own workspace root**.
 
@@ -439,7 +438,13 @@ Where practical, execute agent runtimes in WSL2/container/VM isolation. Hardware
 
 ### Egress
 
-Where practical, allow only required destinations for each adapter. A coding agent should not automatically gain arbitrary network access just because it can execute a command.
+Use locally maintained network profiles; remote callers may request a profile name but cannot supply a new host allowlist. A coding agent does not automatically gain arbitrary network access just because it can execute a command.
+
+- `none` is the default and grants no network authority.
+- `brokered` keeps sandbox sockets blocked and routes bounded HTTPS GET/HEAD requests through the dispatcher, which validates scheme, port, hostname profile, redirects and response size.
+- `restricted` is reserved for direct CLI egress only when the host can prove per-session enforcement. If that boundary is unavailable, the session fails closed rather than degrading to open outbound access.
+
+On current Windows ProcessContainer builds, do not treat `allowedHosts` as an enforceable hostname firewall. The local worker must use the broker or another independently enforced host boundary.
 
 ### Destructive operations
 

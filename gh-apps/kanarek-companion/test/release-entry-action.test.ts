@@ -25,7 +25,7 @@ test('rejects unsafe entry paths before making GitHub requests', async () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        repository: 'trvny/kanarek',
+        repository: 'trvny/feedseek',
         releaseId: 1,
         expectedTag: 'v1.0.0',
         artifactId: 2,

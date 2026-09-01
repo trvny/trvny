@@ -1,16 +1,20 @@
 import {
+  createAppJwt,
   createInstallationClient,
   GitHubApiError,
   type GitHubInstallationClient,
 } from './github-app.ts';
 import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-types.ts';
 
+const GITHUB_API = 'https://api.github.com';
+const GITHUB_API_VERSION = '2026-03-10';
 const CONTROL_REPOSITORY = 'trvny/trvny';
 const CONTROL_PULL_REQUEST = 176;
 const CONTROL_BRANCH = 'gptomek/control';
 const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9+/_-]+={0,2})\s*-->/;
 const COMMAND_PREFIX_RE = /<!--\s*gptomek-command:/;
 const SHA_RE = /^[0-9a-f]{40}$/i;
+const ALLOWED_REPOSITORY_OWNERS = new Set(['trvny', 'twojstar']);
 const BOT_IDENTITY = {
   name: 'GPTomek',
   email: '314538226+gptomek[bot]@users.noreply.github.com',
@@ -125,13 +129,23 @@ function sha(value: unknown, name: string): string {
   return result.toLowerCase();
 }
 
+export function gptomekRepositoryAllowed(value: string): boolean {
+  const [owner, repo, extra] = value.split('/');
+  return Boolean(
+    !extra &&
+      owner &&
+      ALLOWED_REPOSITORY_OWNERS.has(owner) &&
+      repo &&
+      /^[A-Za-z0-9_.-]+$/.test(repo),
+  );
+}
+
 function repository(value: unknown): string {
   const result = requiredString(value, 'repository', 200);
-  const [owner, repo, extra] = result.split('/');
-  if (extra || owner !== 'trvny' || !repo || !/^[A-Za-z0-9_.-]+$/.test(repo)) {
+  if (!gptomekRepositoryAllowed(result)) {
     throw new Error('repository_not_allowed');
   }
-  return `${owner}/${repo}`;
+  return result;
 }
 
 function branch(value: unknown): string {
@@ -327,6 +341,32 @@ function repoPath(repositoryName: string): string {
 
 function refPath(branchName: string): string {
   return encodeURIComponent(branchName);
+}
+
+async function repositoryInstallationId(
+  appId: string,
+  privateKey: string,
+  repositoryName: string,
+  fetcher: typeof fetch,
+): Promise<number> {
+  const jwt = await createAppJwt(appId, privateKey);
+  const response = await fetcher(
+    `${GITHUB_API}/repos/${repoPath(repositoryName)}/installation`,
+    {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${jwt}`,
+        'User-Agent': 'kanarek-companion',
+        'X-GitHub-Api-Version': GITHUB_API_VERSION,
+      },
+    },
+  );
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new GitHubApiError('gptomek_get_repository_installation', response.status);
+  }
+  const payload = (await response.json()) as { id?: unknown };
+  return positiveInteger(payload.id, 'repository_installation_id');
 }
 
 async function branchHead(
@@ -573,15 +613,30 @@ export async function handleGptomekControl(
   if (!command) return { control: true, handled: false };
 
   const settings = config(env);
-  const client = await createInstallationClient(
+  const controlClient = await createInstallationClient(
     settings.appId,
     settings.privateKey,
     settings.installationId,
     fetcher,
   );
-  await executeCommand(client, command);
+  const commandInstallationId = await repositoryInstallationId(
+    settings.appId,
+    settings.privateKey,
+    command.repository,
+    fetcher,
+  );
+  const commandClient =
+    commandInstallationId === settings.installationId
+      ? controlClient
+      : await createInstallationClient(
+          settings.appId,
+          settings.privateKey,
+          commandInstallationId,
+          fetcher,
+        );
+  await executeCommand(commandClient, command);
 
-  await client.json<unknown>(
+  await controlClient.json<unknown>(
     `/repos/${repoPath(CONTROL_REPOSITORY)}/pulls/${target.pullRequestNumber}`,
     'gptomek_clear_command',
     {
@@ -595,6 +650,8 @@ export async function handleGptomekControl(
       gptomek: 'command_completed',
       commandId: command.id,
       operation: command.op,
+      repository: command.repository,
+      installationId: commandInstallationId,
     }),
   );
   return {

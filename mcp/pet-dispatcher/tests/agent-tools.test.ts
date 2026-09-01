@@ -24,10 +24,10 @@ test("agent exec rejects invalid timeout values before reaching the runner", asy
   let runnerCalled = false;
   const sessions = {
     get: () => session,
-    runHostOperation: async <T>(_id: string, operation: (locked: Session) => Promise<T>) => operation(session),
+    runHostOperation: <T>(_id: string, operation: (locked: Session) => Promise<T>) => operation(session),
   } as unknown as SessionManager;
   const runner = {
-    exec: async () => { runnerCalled = true; return {}; },
+    exec: () => { runnerCalled = true; return Promise.resolve({}); },
   } as unknown as CommandRunner;
   const tools = new AgentTools(
     sessions,
@@ -44,6 +44,6 @@ test("agent exec rejects invalid timeout values before reaching the runner", asy
 });
 
 
-test("provider agents cannot export commits into the host source repository", async () => {
+test("provider agents cannot export commits into the host source repository", () => {
   assert.equal(agentToolDefinitions.some((tool) => tool.name === "git_export"), false);
 });

@@ -163,7 +163,7 @@ export class SessionManager {
     return { session, head, dirty: statusOut.trim().length > 0, changedHead: head !== session.initialCommit };
   }
 
-  async status(id: string): Promise<{ session: Session; head: string; dirty: boolean; changedHead: boolean }> {
+  status(id: string): Promise<{ session: Session; head: string; dirty: boolean; changedHead: boolean }> {
     return this.runHostOperation(id, (session) => this.#statusUnlocked(session));
   }
 

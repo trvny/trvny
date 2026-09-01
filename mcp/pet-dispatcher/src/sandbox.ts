@@ -24,11 +24,11 @@ function quoteWindowsArg(value: string): string {
   let slashes = 0;
   for (const char of value) {
     if (char === "\\") { slashes++; continue; }
-    if (char === '"') out += "\\".repeat(slashes * 2 + 1) + '"';
-    else out += "\\".repeat(slashes) + char;
+    if (char === '"') out += `${"\\".repeat(slashes * 2 + 1)}"`;
+    else out += `${"\\".repeat(slashes)}${char}`;
     slashes = 0;
   }
-  return out + "\\".repeat(slashes * 2) + '"';
+  return `${out}${"\\".repeat(slashes * 2)}"`;
 }
 export class CommandRunner {
   readonly #running = new Map<string, ChildProcess>();

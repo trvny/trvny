@@ -85,12 +85,12 @@ export class HostGit {
     }
   }
 
-  async status(sessionId: string): Promise<GitResult> {
+  status(sessionId: string): Promise<GitResult> {
     return this.sessions.runHostOperation(sessionId, (session) =>
       this.#runUnlocked(session, ["status", "--short", "--branch"]));
   }
 
-  async diff(sessionId: string, staged = false, paths: string[] = []): Promise<GitResult> {
+  diff(sessionId: string, staged = false, paths: string[] = []): Promise<GitResult> {
     return this.sessions.runHostOperation(sessionId, async (session) => {
       const args = ["diff", "--no-ext-diff", "--no-textconv"];
       if (staged) args.push("--cached");
@@ -99,12 +99,12 @@ export class HostGit {
     });
   }
 
-  async add(sessionId: string, paths: string[]): Promise<GitResult> {
+  add(sessionId: string, paths: string[]): Promise<GitResult> {
     return this.sessions.runHostOperation(sessionId, async (session) =>
       this.#runUnlocked(session, ["add", "--", ...await cleanPaths(session, paths)]));
   }
 
-  async commit(sessionId: string, message: string): Promise<GitResult> {
+  commit(sessionId: string, message: string): Promise<GitResult> {
     const trimmed = message.trim();
     if (!trimmed || trimmed.length > 500) throw new Error("commit message must be 1-500 characters");
     if (trimmed.includes("\0")) throw new Error("invalid commit message");
@@ -115,11 +115,18 @@ export class HostGit {
     ]));
   }
 
-  async exportCommit(sessionId: string): Promise<{ commit: string; ref: string }> {
+  exportCommit(sessionId: string): Promise<{ commit: string; ref: string }> {
     return this.sessions.runHostOperation(sessionId, async (session) => {
       const headResult = await this.#runUnlocked(session, ["rev-parse", "--verify", "HEAD"]);
       if (headResult.exitCode !== 0) throw new Error(`cannot resolve session HEAD: ${headResult.stderr}`);
       const commit = headResult.stdout.trim();
+      const ancestry = await this.#runUnlocked(session, ["merge-base", "--is-ancestor", session.initialCommit, commit]);
+      if (ancestry.exitCode === 1) {
+        throw new Error("session HEAD is outside the initial commit lineage");
+      }
+      if (ancestry.exitCode !== 0) {
+        throw new Error(`cannot verify session commit lineage: ${ancestry.stderr}`);
+      }
       const ref = `refs/pet-dispatcher/${session.id}`;
       const gitExecutable = await this.#gitPath();
       const args = [

@@ -21,20 +21,20 @@ test("OpenRouter malformed tool calls become tool errors instead of crashing", a
   const originalKey = process.env.OPENROUTER_API_KEY;
   let call = 0;
   let secondRequest: Record<string, unknown> | undefined;
-  const fakeFetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+  const fakeFetch = ((_input: string | URL | Request, init?: RequestInit) => {
     call++;
     if (call === 1) {
-      return new Response(JSON.stringify({
+      return Promise.resolve(new Response(JSON.stringify({
         choices: [{ message: { role: "assistant", tool_calls: [{ id: "bad-call" }] } }],
-      }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
     }
     secondRequest = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
-    return new Response(JSON.stringify({
+    return Promise.resolve(new Response(JSON.stringify({
       choices: [{ message: { role: "assistant", content: "done" } }],
-    }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
   }) as typeof fetch;
   const tools = {
-    execute: async () => { throw new Error("malformed tool call must not execute"); },
+    execute: () => Promise.reject(new Error("malformed tool call must not execute")),
   } as unknown as AgentTools;
   try {
     process.env.OPENROUTER_API_KEY = "test-only";
@@ -55,8 +55,8 @@ test("OpenRouter malformed tool calls become tool errors instead of crashing", a
 test("OpenRouter rejects tool calls that omit tool_call_id", async () => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.OPENROUTER_API_KEY;
-  const fakeFetch = (async () => new Response(JSON.stringify({ choices: [{ message: { role: "assistant", tool_calls: [{ function: { name: "read_file", arguments: "{}" } }] } }] }), { status: 200, headers: { "Content-Type": "application/json" } })) as typeof fetch;
-  const tools = { execute: async () => { throw new Error("malformed tool call must not execute"); } } as unknown as AgentTools;
+  const fakeFetch = (() => Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { role: "assistant", tool_calls: [{ function: { name: "read_file", arguments: "{}" } }] } }] }), { status: 200, headers: { "Content-Type": "application/json" } }))) as typeof fetch;
+  const tools = { execute: () => Promise.reject(new Error("malformed tool call must not execute")) } as unknown as AgentTools;
   try {
     process.env.OPENROUTER_API_KEY = "test-only";
     globalThis.fetch = fakeFetch;

@@ -130,7 +130,7 @@ test("host operations cannot race an active sandbox process", async () => {
     const running = fixture.runner.exec(session.id, ["cmd", "/d", "/s", "/c", "for /L %i in (1,1,2147483647) do @rem"], ".", 35_000);
     await new Promise((resolve) => setTimeout(resolve, 300));
     await assert.rejects(
-      fixture.sessions.runHostOperation(session.id, async () => "unexpected"),
+      fixture.sessions.runHostOperation(session.id, () => Promise.resolve("unexpected")),
       /active workspace\.exec operation/,
     );
     assert.equal(fixture.runner.cancel(session.id), true);
@@ -220,7 +220,7 @@ test("agent activity lease spans nested tools and blocks concurrent close", asyn
   let entered!: () => void;
   const enteredGate = new Promise<void>((resolve) => { entered = resolve; });
   const run = fixture.sessions.runActivity(session.id, "agent", async () => {
-    await fixture.sessions.runHostOperation(session.id, async () => undefined);
+    await fixture.sessions.runHostOperation(session.id, () => Promise.resolve(undefined));
     entered();
     await gate;
   });

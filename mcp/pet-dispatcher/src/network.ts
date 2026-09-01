@@ -25,6 +25,14 @@ export interface BrokeredFetchResult {
 
 const SAFE_RESPONSE_HEADERS = new Set(["content-type", "content-length", "etag", "last-modified", "location"]);
 const MAX_REDIRECTS = 5;
+
+function hasControlCharacter(value: string): boolean {
+  return [...value].some((char) => {
+    const code = char.charCodeAt(0);
+    return code <= 0x1f || code === 0x7f;
+  });
+}
+
 function hostMatches(hostname: string, rule: string): boolean {
   return hostname.toLowerCase() === rule.toLowerCase();
 }
@@ -86,7 +94,7 @@ export class NetworkBroker {
     if (!profile) throw new Error(`unknown network profile: ${session.network.profile}`);
 
     const method = request.method ?? "GET";
-    if (request.accept && (request.accept.length > 256 || /[\x00-\x1f\x7f]/u.test(request.accept))) {
+    if (request.accept && (request.accept.length > 256 || hasControlCharacter(request.accept))) {
       throw new Error("invalid Accept header");
     }
     let url = assertAllowedUrl(request.url, profile.hosts);

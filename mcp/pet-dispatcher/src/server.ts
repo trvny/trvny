@@ -203,7 +203,7 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
     description: "Cancel the currently running sandboxed command in a session.",
     inputSchema: { sessionId: z.string().uuid() },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
-  }, async ({ sessionId }) => response({ cancelled: runner.cancel(sessionId) }));
+  }, ({ sessionId }) => Promise.resolve(response({ cancelled: runner.cancel(sessionId) })));
 
   server.registerTool("agent_run", {
     description: "Run OpenRouter or Gemini as a coding agent over the same confined session tools.",
@@ -215,7 +215,7 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
       maxSteps: z.number().int().min(1).max(64).default(16),
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
-  }, async ({ sessionId, provider, goal, model, maxSteps }) =>
+  }, ({ sessionId, provider, goal, model, maxSteps }) =>
     sessions.runActivity(sessionId, "agent", async () => {
       if (provider === "openrouter") {
         return response(await runOpenRouter(config, agentTools, sessionId, goal, model, maxSteps));

@@ -14,7 +14,7 @@ export function validateRelativePath(input: string): string {
   return input;
 }
 
-export async function canonicalRoot(root: string): Promise<string> {
+export function canonicalRoot(root: string): Promise<string> {
   return realpath(resolve(root));
 }
 

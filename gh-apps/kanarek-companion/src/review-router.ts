@@ -263,9 +263,29 @@ function shouldTryNextAttempt(
   return false;
 }
 
+function badRequestText(preview: string): string {
+  try {
+    const parsed: unknown = JSON.parse(preview);
+    const root: unknown = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (isObject(root)) {
+      if (isObject(root.error) && typeof root.error.message === 'string') return root.error.message;
+      if (typeof root.message === 'string') return root.message;
+    }
+  } catch {
+    // Fall back to the bounded raw preview for non-JSON provider errors.
+  }
+  return preview;
+}
+
 function classifyBadRequest(preview: string | null): string {
+  if (preview === null) return 'http_400_unreadable';
   if (!preview) return 'http_400';
-  const normalized = preview.toLowerCase();
+  const normalized = badRequestText(preview).toLowerCase();
+  if (
+    normalized.includes('api key') &&
+    (normalized.includes('not valid') || normalized.includes('invalid') ||
+      normalized.includes('expired') || normalized.includes('revoked') || normalized.includes('blocked'))
+  ) return 'http_400_invalid_api_key';
   if (
     normalized.includes('context length') ||
     normalized.includes('context window') ||
@@ -297,6 +317,15 @@ function classifyBadRequest(preview: string | null): string {
     return 'http_400_moderation';
   }
   return 'http_400_invalid_request';
+}
+
+function isClientBadRequestCategory(category: string): boolean {
+  return category === 'http_400' ||
+    category === 'http_400_context_length' ||
+    category === 'http_400_unsupported_parameter' ||
+    category === 'http_400_invalid_message' ||
+    category === 'http_400_moderation' ||
+    category === 'http_400_invalid_request';
 }
 
 export async function handleReviewRouterRequest(
@@ -390,7 +419,7 @@ export async function handleReviewRouterRequest(
         const status = response.status;
         const preview = status === 400 ? await responsePreview(response, deadlineAt) : null;
         providerFailureCategory = status === 400 ? classifyBadRequest(preview) : `http_${status}`;
-        if (status !== 400) providerInvalidRequest = false;
+        if (status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) providerInvalidRequest = false;
         await discard(response);
         console.warn(JSON.stringify({
           kanarekReviewRouter: 'provider_failed',

@@ -298,6 +298,22 @@ test('review router returns an upstream 400 as an invalid client request', async
   assert.equal(payload.error?.code, 'invalid_request');
 });
 
+test('review router treats an unreadable upstream 400 as provider failure', async () => {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.error(new Error('upstream body read failed'));
+    },
+  });
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, ORCAROUTER_API_KEY: 'orca-key',
+  }, (() => Promise.resolve(new Response(body, { status: 400 }))) as typeof fetch);
+
+  assert.equal(response?.status, 502);
+  const payload = (await response?.json()) as { error?: { message?: string; code?: string } };
+  assert.equal(payload.error?.code, 'review_router_exhausted');
+  assert.equal(payload.error?.message, 'Review providers unavailable (orcarouter:http_400_unreadable)');
+});
+
 test('review router reports bounded provider diagnostics without upstream bodies', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(request(), {
@@ -346,6 +362,28 @@ test('review router classifies a bad parameter without exposing the upstream bod
   assert.equal(JSON.stringify(payload).includes('SECRET-UPSTREAM-BODY'), false);
 });
 
+test('review router classifies a Gemini invalid API key as provider failure', async () => {
+  let calls = 0;
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, GEMINI_API_KEY: 'stale-gemini-key',
+  }, (() => {
+    calls += 1;
+    return Promise.resolve(new Response(
+      '[{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT"}}]',
+      { status: 400 },
+    ));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 502);
+  assert.equal(calls, 3);
+  const payload = (await response?.json()) as { error?: { message?: string; code?: string } };
+  assert.equal(payload.error?.code, 'review_router_exhausted');
+  assert.equal(
+    payload.error?.message,
+    'Review providers unavailable (gemini:http_400_invalid_api_key)',
+  );
+  assert.equal(JSON.stringify(payload).includes('API key not valid'), false);
+});
 test('review router rejects provider credentials as router bearer', async () => {
   const response = await handleReviewRouterRequest(request('openrouter-key'), {
     KANAREK_REVIEW_ROUTER_TOKEN: routerToken, OPENROUTER_API_KEY: 'openrouter-key',

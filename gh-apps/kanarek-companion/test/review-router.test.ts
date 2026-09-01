@@ -298,6 +298,22 @@ test('review router returns an upstream 400 as an invalid client request', async
   assert.equal(payload.error?.code, 'invalid_request');
 });
 
+test('review router treats an unreadable upstream 400 as provider failure', async () => {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.error(new Error('upstream body read failed'));
+    },
+  });
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, ORCAROUTER_API_KEY: 'orca-key',
+  }, (() => Promise.resolve(new Response(body, { status: 400 }))) as typeof fetch);
+
+  assert.equal(response?.status, 502);
+  const payload = (await response?.json()) as { error?: { message?: string; code?: string } };
+  assert.equal(payload.error?.code, 'review_router_exhausted');
+  assert.equal(payload.error?.message, 'Review providers unavailable (orcarouter:http_400_unreadable)');
+});
+
 test('review router reports bounded provider diagnostics without upstream bodies', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(request(), {

@@ -278,6 +278,7 @@ function badRequestText(preview: string): string {
 }
 
 function classifyBadRequest(preview: string | null): string {
+  if (preview === null) return 'http_400_unreadable';
   if (!preview) return 'http_400';
   const normalized = badRequestText(preview).toLowerCase();
   if (

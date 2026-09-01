@@ -6,6 +6,10 @@ export const REVIEW_ROUTER_MODELS_PATH = '/review-router/v1/models';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
+const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
+const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
+const MIN_COOLDOWN_MS = 1_000;
+const MAX_COOLDOWN_MS = 30 * 60_000;
 const SOFT_FAILURE_PREVIEW_BYTES = 8_192;
 const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'nvidia/nemotron-3-ultra-550b-a55b:free',
@@ -27,20 +31,35 @@ export interface ReviewRouterEnv {
   OPENROUTER_API_KEY?: string;
   ORCAROUTER_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
+  KANAREK_REVIEW_QUOTA_COOLDOWN_MS?: string;
+  KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS?: string;
   KANAREK_REVIEW_OPENROUTER_MODELS?: string;
   KANAREK_OPENROUTER_MODELS?: string;
 }
 
 type JsonObject = Record<string, unknown>;
 
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter';
+
 type ReviewProvider = {
-  id: 'aihubmix' | 'openrouter' | 'orcarouter';
+  id: ReviewProviderId;
   url: string;
   model: string;
   fallbackModels?: readonly string[];
   apiKey: (env: ReviewRouterEnv) => string | undefined;
   headers?: Record<string, string>;
 };
+
+type ProviderCooldown = {
+  until: number;
+  category: string;
+};
+
+const providerCooldowns = new Map<ReviewProviderId, ProviderCooldown>();
+
+export function clearReviewRouterCooldownsForTest(): void {
+  providerCooldowns.clear();
+}
 
 function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
   const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
@@ -135,6 +154,60 @@ function timeoutMs(env: ReviewRouterEnv): number {
     return DEFAULT_TIMEOUT_MS;
   }
   return parsed;
+}
+
+function boundedCooldownMs(raw: string | undefined, fallback: number): number {
+  const value = raw?.trim();
+  if (!value || !/^\d+$/.test(value)) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < MIN_COOLDOWN_MS || parsed > MAX_COOLDOWN_MS) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | null {
+  if (category === 'soft_quota' || category === 'http_402' || category === 'http_429') {
+    return boundedCooldownMs(env.KANAREK_REVIEW_QUOTA_COOLDOWN_MS, DEFAULT_QUOTA_COOLDOWN_MS);
+  }
+  if (
+    category === 'timeout' ||
+    category === 'network' ||
+    category === 'preview_timeout' ||
+    category === 'http_408' ||
+    category === 'http_409' ||
+    category === 'http_425' ||
+    /^http_5\d\d$/.test(category)
+  ) {
+    return boundedCooldownMs(
+      env.KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS,
+      DEFAULT_TRANSIENT_COOLDOWN_MS,
+    );
+  }
+  return null;
+}
+
+function activeProviderCooldown(provider: ReviewProviderId): ProviderCooldown | null {
+  const cooldown = providerCooldowns.get(provider);
+  if (!cooldown) return null;
+  if (cooldown.until > Date.now()) return cooldown;
+  providerCooldowns.delete(provider);
+  return null;
+}
+
+function rememberProviderCooldown(
+  provider: ReviewProviderId,
+  category: string,
+  env: ReviewRouterEnv,
+): void {
+  const durationMs = cooldownDurationMs(env, category);
+  if (durationMs === null) return;
+  providerCooldowns.set(provider, { until: Date.now() + durationMs, category });
+}
+
+function isQuotaFailure(category: string): boolean {
+  const normalized = category.startsWith('cooldown_') ? category.slice('cooldown_'.length) : category;
+  return normalized === 'soft_quota' || normalized === 'http_402' || normalized === 'http_429';
 }
 
 function retryableStatus(status: number): boolean {
@@ -353,6 +426,15 @@ export async function handleReviewRouterRequest(
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
     configured += 1;
+    const cooldown = activeProviderCooldown(provider.id);
+    if (cooldown) {
+      const category = `cooldown_${cooldown.category}`;
+      failures.push(diagnostic(provider, category));
+      console.info(JSON.stringify({
+        kanarekReviewRouter: 'provider_cooldown', provider: provider.id, category: cooldown.category,
+      }));
+      continue;
+    }
     const controller = new AbortController();
     const providerTimeoutMs = timeoutMs(env);
     const deadlineAt = Date.now() + providerTimeoutMs;
@@ -445,6 +527,7 @@ export async function handleReviewRouterRequest(
     }
 
     clearTimeout(timeout);
+    rememberProviderCooldown(provider.id, providerFailureCategory, env);
     failures.push(diagnostic(provider, providerFailureCategory));
     if (providerInvalidRequest) invalidRequests += 1;
   }
@@ -458,6 +541,8 @@ export async function handleReviewRouterRequest(
   return jsonError(
     diagnosticMessage('Review providers unavailable', failures),
     'review_router_exhausted',
-    502,
+    failures.length > 0 && failures.every((failure) => isQuotaFailure(failure.split(':', 2)[1] ?? ''))
+      ? 429
+      : 502,
   );
 }

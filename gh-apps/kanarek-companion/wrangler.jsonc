@@ -67,6 +67,8 @@
     "KANAREK_PROVIDER_ORDER": "gemini,openai,xai,openai-fallback,anthropic,orcarouter,openrouter",
     "KANAREK_PROVIDER_TIMEOUT_MS": "10000",
     "KANAREK_REVIEW_ROUTER_TIMEOUT_MS": "30000",
+    "KANAREK_REVIEW_QUOTA_COOLDOWN_MS": "600000",
+    "KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS": "30000",
     "KANAREK_REVIEW_OPENROUTER_MODELS": "nvidia/nemotron-3-ultra-550b-a55b:free,poolside/laguna-s-2.1:free,cohere/north-mini-code:free,poolside/laguna-m.1:free,nvidia/nemotron-3-super-120b-a12b:free,openrouter/free",
     "KANAREK_REQUIRE_CI": "true",
     "KANAREK_REPOSITORIES": "trvny/trvny,trvny/feedseek,trvny/tvpi,twojstar/*",

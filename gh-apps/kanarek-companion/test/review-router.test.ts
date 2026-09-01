@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { handleReviewRouterRequest } from '../src/review-router.ts';
+import { clearReviewRouterCooldownsForTest, handleReviewRouterRequest } from '../src/review-router.ts';
+
+test.beforeEach(() => {
+  clearReviewRouterCooldownsForTest();
+});
 
 const base = 'https://kanarek-companion.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;
@@ -149,6 +153,61 @@ test('review router honors the shared configured OpenRouter model chain', async 
   assert.deepEqual(body.models, ['second/free']);
 });
 
+test('review router cools down a quota-limited provider across Copilot retries', async () => {
+  const env = {
+    ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
+  };
+  const firstUrls: string[] = [];
+  const first = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
+    firstUrls.push(String(input));
+    if (firstUrls.length === 1) return Promise.resolve(new Response('quota', { status: 429 }));
+    return Promise.resolve(new Response('{\"choices\":[]}', { status: 200 }));
+  }) as typeof fetch);
+  assert.equal(first?.status, 200);
+  assert.deepEqual(firstUrls, [
+    'https://openrouter.ai/api/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
+  ]);
+
+  const retryUrls: string[] = [];
+  const retry = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
+    retryUrls.push(String(input));
+    return Promise.resolve(new Response('{\"choices\":[]}', { status: 200 }));
+  }) as typeof fetch);
+  assert.equal(retry?.status, 200);
+  assert.deepEqual(retryUrls, ['https://api.orcarouter.ai/v1/chat/completions']);
+});
+
+test('review router fails fast while the whole free pool is quota-cooled', async () => {
+  const env = {
+    ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
+    AIHUBMIX_API_KEY: 'aihubmix-key',
+  };
+  let calls = 0;
+  const exhausted = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
+    calls += 1;
+    if (new URL(String(input)).hostname === 'aihubmix.com') {
+      return Promise.resolve(new Response(
+        'data: {\"choices\":[{\"delta\":{\"content\":\"to prevent abuse of free resources\"}}]}\n\n',
+        { status: 200, headers: { 'content-type': 'text/event-stream' } },
+      ));
+    }
+    return Promise.resolve(new Response('quota', { status: 429 }));
+  }) as typeof fetch);
+  assert.equal(exhausted?.status, 429);
+  assert.equal(calls, 3);
+
+  const retry = await handleReviewRouterRequest(request(), env, (() => {
+    calls += 1;
+    return Promise.resolve(new Response('{\"choices\":[]}', { status: 200 }));
+  }) as typeof fetch);
+  assert.equal(retry?.status, 429);
+  assert.equal(calls, 3);
+  const payload = (await retry?.json()) as { error?: { message?: string } };
+  assert.match(payload.error?.message ?? '', /cooldown_http_429/);
+  assert.match(payload.error?.message ?? '', /cooldown_soft_quota/);
+});
+
 test('review router falls through provider authentication errors', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(), {
@@ -226,7 +285,7 @@ test('review router treats AIHubMix HTTP 200 quota text as exhausted', async () 
     { status: 200, headers: { 'content-type': 'text/event-stream' } },
   ))) as typeof fetch);
 
-  assert.equal(response?.status, 502);
+  assert.equal(response?.status, 429);
 });
 
 test('review router preserves a normal AIHubMix stream after previewing it', async () => {

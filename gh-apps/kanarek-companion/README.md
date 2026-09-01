@@ -119,7 +119,10 @@ Kanarek Review has a separate `KANAREK_REVIEW_OPENROUTER_MODELS` chain because
 review is an agentic tool-calling workload: it prefers Nemotron 3 Ultra, Laguna
 S 2.1, North Mini Code, Laguna M.1, and Nemotron 3 Super before
 `openrouter/free`. This avoids pinning review to a model endpoint that cannot
-accept tools while leaving the cheaper quip path independent.
+accept tools while leaving the cheaper quip path independent. Review requests also keep
+quota-limited providers on a short circuit-breaker cooldown, so Copilot's own retries do
+not repeatedly burn the same exhausted free quota. Rapid PR updates settle for one minute
+before the agent starts, and the reusable workflow cancels older runs for the same PR.
 OrcaRouter uses `orcarouter/auto`; its allowed/default models remain controlled
 by the OrcaRouter workspace, so the workspace allowlist is the source of truth.
 

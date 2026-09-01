@@ -9,7 +9,7 @@
 **Polski** · [English](README.md) · [简体中文](README_zh.md)
 
 [![feedseek](https://img.shields.io/badge/feed-seek-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feedseek) [![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://trfny.com/tv/)
-[![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/trvny/wambridge)
+[![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/twojstar/wambridge)
 [![weather](https://img.shields.io/badge/weather-KOŚCIELEC-16a34a?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.trfny.com)  
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.trfny.com) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.trfny.com) [![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.travny.workers.dev)  
 [![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://trfny.com)
@@ -27,11 +27,11 @@
 | projekt | wejścia | co tam siedzi |
 |---|---|---|
 | 📡 **Feedseek** | [repo](https://github.com/trvny/feedseek) · [strona](https://trvny.github.io/feedseek) · [czytnik](https://trvny.github.io/feedseek/reader/) | Generator i publikator RSS/Atom dla źródeł bez użytecznych natywnych feedów. |
-| 🐤 **Kanarek** | [repo](https://github.com/trvny/kanarek) | Androidowy czytnik RSS/Atom, widżety oraz odtwarzacz radia/IPTV. |
+| 🐤 **Kanarek** | [repo](https://github.com/twojstar/kanarek) | Androidowy czytnik RSS/Atom, widżety oraz odtwarzacz radia/IPTV. |
 | 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [strona](https://trfny.com/tv/) · [playlista](https://tvpi.travny.workers.dev/playlist.m3u) | Stabilne wejścia IPTV do kanałów TVP, Worker oraz residential-push do odświeżania tokenów HLS. |
 | 🚗 **Autka** | [repo](https://github.com/twojstar/Autka) | Androidowy agregator ofert samochodów z Polski, UE i importu z USA, razem z kalkulacją kosztu sprowadzenia. |
 | 🤖 **LlmBench** | [repo](https://github.com/twojstar/llmbench) | Androidowy hub do czatów AI przez konta oraz darmowych providerów LLM. |
-| 🔊 **WAM Bridge** | [repo](https://github.com/trvny/wambridge) | Most audio do głośników Samsung Wireless Audio Multiroom oraz natywne wyjście foobar2000 dla Shape M5. |
+| 🔊 **WAM Bridge** | [repo](https://github.com/twojstar/wambridge) | Most audio do głośników Samsung Wireless Audio Multiroom oraz natywne wyjście foobar2000 dla Shape M5. |
 
 ### Narzędzia w tym monorepo
 

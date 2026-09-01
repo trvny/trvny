@@ -421,7 +421,7 @@ export function addReleaseReplaceOpenApi(document: JsonObject): void {
                 'assetName',
               ],
               properties: {
-                repository: { type: 'string', example: 'trvny/kanarek' },
+                repository: { type: 'string', example: 'twojstar/kanarek' },
                 releaseId: { type: 'integer', minimum: 1 },
                 expectedTag: { type: 'string' },
                 oldAssetId: { type: 'integer', minimum: 1 },

@@ -545,7 +545,7 @@ export function addReleaseEntryOpenApi(document: JsonObject): void {
                 'assetName',
               ],
               properties: {
-                repository: { type: 'string', example: 'trvny/kanarek' },
+                repository: { type: 'string', example: 'twojstar/kanarek' },
                 releaseId: { type: 'integer', minimum: 1 },
                 expectedTag: { type: 'string' },
                 artifactId: { type: 'integer', minimum: 1 },

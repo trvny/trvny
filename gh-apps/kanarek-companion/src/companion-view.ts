@@ -74,7 +74,7 @@ function rootLabel(root: string): string {
 function areaFor(file: string, repository = ''): string {
   const repo = repository.toLowerCase();
 
-  if (repo === 'trvny/kanarek') {
+  if (repo === 'twojstar/kanarek') {
     if (file.startsWith('.github/')) return 'GitHub automation';
     if (file.startsWith('docs/') || file.endsWith('.md')) return 'Documentation';
     if (file.startsWith('app/')) return 'Kanarek Android';

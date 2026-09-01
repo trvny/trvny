@@ -57,12 +57,9 @@ jobs:
           repos=(
             trvny/.ai
             trvny/.github
-            trvny/Autka
             trvny/WiFi-Automatic
             trvny/feedseek
-            trvny/kanarek
             trvny/tvpi
-            trvny/wambridge
           )
           gh api --paginate orgs/twojstar/repos \
             --jq '.[] | select(.archived == false and .disabled == false) | .full_name' \

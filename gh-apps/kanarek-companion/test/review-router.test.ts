@@ -289,14 +289,14 @@ test('review router reports bounded provider diagnostics without upstream bodies
     ORCAROUTER_API_KEY: 'orca-key', AIHUBMIX_API_KEY: 'aihubmix-key',
   }, ((input: RequestInfo | URL) => {
     calls += 1;
-    const url = String(input);
-    if (url.includes('generativelanguage.googleapis.com')) {
+    const hostname = new URL(String(input)).hostname;
+    if (hostname === 'generativelanguage.googleapis.com') {
       return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: 400 }));
     }
-    if (url.includes('openrouter.ai')) {
+    if (hostname === 'openrouter.ai') {
       return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: 429 }));
     }
-    if (url.includes('orcarouter.ai')) {
+    if (hostname === 'api.orcarouter.ai') {
       return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: 503 }));
     }
     return Promise.resolve(new Response(

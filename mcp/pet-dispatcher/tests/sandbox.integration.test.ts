@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -230,4 +230,22 @@ test("agent activity lease spans nested tools and blocks concurrent close", asyn
   await run;
   await fixture.sessions.close(session.id, true);
   await rm(fixture.base, { recursive: true, force: true });
+});
+
+test("batch executables reject cmd metacharacters in argv", { skip: process.platform !== "win32" }, async () => {
+  const fixture = await makeFixture();
+  const session = await fixture.sessions.open("fixture");
+  const batch = join(session.root, "echo-arg.cmd");
+  const marker = join(session.root, "injected.txt");
+  await writeFile(batch, "@echo %~1\r\n");
+  try {
+    await assert.rejects(
+      fixture.runner.exec(session.id, [".\\echo-arg.cmd", "safe&echo PWNED>injected.txt"]),
+      /cmd metacharacters/,
+    );
+    await assert.rejects(access(marker));
+  } finally {
+    await fixture.sessions.close(session.id, true);
+    await rm(fixture.base, { recursive: true, force: true });
+  }
 });

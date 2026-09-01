@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -102,4 +102,19 @@ test("dead-owner session directories are reclaimed before the next session opens
     if (session) await sessions.close(session.id, true);
     await rm(fixture.base, { recursive: true, force: true });
   }
+});
+
+test("session close canonicalizes a junction-backed workspace root", async () => {
+  const fixture = await gitFixture();
+  const realWorkspace = join(fixture.base, "worker-real");
+  const linkedWorkspace = join(fixture.base, "worker-link");
+  await mkdir(realWorkspace);
+  await symlink(realWorkspace, linkedWorkspace, process.platform === "win32" ? "junction" : "dir");
+  fixture.config.workspaceRoot = linkedWorkspace;
+  const sessions = new SessionManager(fixture.config);
+  const first = await sessions.open("fixture");
+  await sessions.close(first.id, true);
+  const second = await sessions.open("fixture");
+  await sessions.close(second.id, true);
+  await rm(fixture.base, { recursive: true, force: true });
 });

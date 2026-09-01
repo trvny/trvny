@@ -90,9 +90,12 @@ export class HostGit {
       }
 
       const treePath = value.replace(/\\/gu, "/");
-      const tracked = await this.#runUnlocked(session, ["cat-file", "-e", `HEAD:${treePath}`]);
-      if (tracked.exitCode !== 0) {
-        throw new Error(`missing Git path is not tracked by the session HEAD: ${value}`);
+      const indexed = await this.#runUnlocked(session, ["cat-file", "-e", `:${treePath}`]);
+      if (indexed.exitCode !== 0) {
+        const tracked = await this.#runUnlocked(session, ["cat-file", "-e", `HEAD:${treePath}`]);
+        if (tracked.exitCode !== 0) {
+          throw new Error(`missing Git path is not tracked by the session index or HEAD: ${value}`);
+        }
       }
       clean.push(value);
     }

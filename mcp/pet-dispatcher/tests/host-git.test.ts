@@ -129,6 +129,22 @@ test("host Git reports untracked files and rejects pathspec magic before Git", a
   } finally { await fixtureState.sessions.close(fixtureState.session.id, true); await rm(fixtureState.base, { recursive: true, force: true }); }
 });
 
+test("host Git removes staged additions after their parent directory is deleted", async () => {
+  const fixtureState = await fixture();
+  try {
+    await mkdir(join(fixtureState.session.root, "generated"));
+    await writeFile(join(fixtureState.session.root, "generated", "new.txt"), "new\n");
+    assert.equal((await fixtureState.git.add(fixtureState.session.id, ["generated/new.txt"])).exitCode, 0);
+    await rm(join(fixtureState.session.root, "generated"), { recursive: true, force: true });
+    const removal = await fixtureState.git.add(fixtureState.session.id, ["generated/new.txt"]);
+    assert.equal(removal.exitCode, 0, removal.stderr);
+    assert.doesNotMatch((await fixtureState.git.diff(fixtureState.session.id, true)).stdout, /generated\/new\.txt/);
+  } finally {
+    await fixtureState.sessions.close(fixtureState.session.id, true);
+    await rm(fixtureState.base, { recursive: true, force: true });
+  }
+});
+
 test("export rejects a session HEAD outside the initial commit lineage", async () => {
   const fixtureState = await fixture();
   try {

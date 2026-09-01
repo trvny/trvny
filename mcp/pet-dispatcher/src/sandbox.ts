@@ -17,6 +17,13 @@ export interface ExecResult {
 
 const WINDOWS_EXTENSIONS = [".exe", ".com", ".cmd", ".bat", ""];
 
+function quoteBatchArg(value: string): string {
+  if (/[\0\r\n"&|<>^%!]/u.test(value)) {
+    throw new Error("batch-file arguments may not contain cmd metacharacters");
+  }
+  return `"${value}"`;
+}
+
 function quoteWindowsArg(value: string): string {
   if (value === "") return '""';
   if (!/[\s"]/u.test(value)) return value;
@@ -114,8 +121,8 @@ export class CommandRunner {
       let commandLine: string;
       if (extension === ".cmd" || extension === ".bat") {
         const cmd = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe");
-        const inner = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
-        commandLine = `${quoteWindowsArg(cmd)} /d /s /c "${inner}"`;
+        const inner = [executable, ...argv.slice(1)].map(quoteBatchArg).join(" ");
+        commandLine = `${quoteWindowsArg(cmd)} /d /s /v:off /c "${inner}"`;
       } else {
         commandLine = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
       }

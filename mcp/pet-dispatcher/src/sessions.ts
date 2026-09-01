@@ -232,7 +232,7 @@ export class SessionManager {
       if (!discard && (state.dirty || (state.changedHead && !headIsExported))) {
         throw new Error("session has unexported changes; export the current commit or close with discard=true");
       }
-      const sessionsRoot = resolve(this.config.workspaceRoot, "sessions");
+      const sessionsRoot = await realpath(resolve(this.config.workspaceRoot, "sessions"));
       assertInside(sessionsRoot, session.sessionDir);
       await rm(session.sessionDir, { recursive: true, force: true });
       this.#sessions.delete(id);

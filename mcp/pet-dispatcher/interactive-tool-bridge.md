@@ -229,7 +229,7 @@ High-risk capabilities such as elevation, credential-store reads, firewall chang
 
 ## Repository/workdir ownership
 
-The dispatcher should prefer an existing maintained clone as the source repository while executing changes in worker-owned temporary checkouts. Phase 1 uses lightweight `git clone --shared --separate-git-dir` checkouts: the MXC-writable worktree contains only working files, while session Git metadata lives in a private sibling directory that is never granted to the sandbox.
+The dispatcher should prefer an existing maintained clone as the source repository while executing changes in worker-owned temporary checkouts. Phase 1 uses independent `git clone --no-local --no-checkout --separate-git-dir` checkouts: each session owns its reachable Git objects instead of borrowing them through source-repository alternates. The MXC-writable worktree contains only working files, while session Git metadata lives in a private sibling directory that is never granted to the sandbox.
 
 For interactive coding sessions:
 

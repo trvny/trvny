@@ -26,8 +26,8 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#337](https://github.com/trvny/feedseek/pull/337) | Add OPENOFFICE feed | @trvny | ready | 2026-08-31 |
-| trvny/trvny | [#392](https://github.com/trvny/trvny/pull/392) | feat: build local Pet Dispatcher MVP | @trvny | ready | 2026-08-31 |
+| trvny/trvny | [#405](https://github.com/trvny/trvny/pull/405) | fix(review): keep paid providers out of free reviews | @trvny | ready | 2026-09-01 |
+| trvny/trvny | [#406](https://github.com/trvny/trvny/pull/406) | feat: add Pet Dispatcher remote transport | @trvny | ready | 2026-09-01 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

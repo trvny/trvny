@@ -42,11 +42,11 @@ const [
 const origin = "https://streambench.trfny.com";
 assert(index.includes(`<link rel="canonical" href="${origin}/">`), "canonical URL is missing");
 assert(index.includes(`<meta property="og:url" content="${origin}/">`), "Open Graph URL is missing");
-assert(index.includes(`<meta name="twitter:card" content="summary_large_image">`), "Twitter card is missing");
+assert(index.includes('<meta name="twitter:card" content="summary_large_image">'), "Twitter card is missing");
 assert(index.includes("max-image-preview:large"), "crawler preview directives are missing");
-assert(index.includes(`<link rel="sitemap" type="application/xml" href="/sitemap.xml">`), "sitemap link is missing");
-assert(index.includes(`<link rel="alternate" type="text/markdown" href="/index.md"`), "Markdown alternate is missing");
-assert(index.includes(`<link rel="describedby" href="/llms.txt"`), "llms.txt describedby link is missing");
+assert(index.includes('<link rel="sitemap" type="application/xml" href="/sitemap.xml">'), "sitemap link is missing");
+assert(index.includes('<link rel="alternate" type="text/markdown" href="/index.md"'), "Markdown alternate is missing");
+assert(index.includes('<link rel="describedby" href="/llms.txt"'), "llms.txt describedby link is missing");
 assert(index.includes('application/ld+json'), "JSON-LD is missing");
 
 assert(robots.includes(`Sitemap: ${origin}/sitemap.xml`), "robots sitemap URL is missing");

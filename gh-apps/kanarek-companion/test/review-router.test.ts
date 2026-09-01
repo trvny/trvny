@@ -247,6 +247,34 @@ test('review router returns an upstream 400 as an invalid client request', async
   assert.equal(payload.error?.code, 'invalid_request');
 });
 
+test('review router reports bounded provider diagnostics without upstream bodies', async () => {
+  let calls = 0;
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, GEMINI_API_KEY: 'gemini-key', OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key', AIHUBMIX_API_KEY: 'aihubmix-key',
+  }, (() => {
+    calls += 1;
+    const statuses = [400, 429, 503];
+    if (calls <= statuses.length) {
+      return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: statuses[calls - 1] }));
+    }
+    return Promise.resolve(new Response(
+      'data: {"choices":[{"delta":{"content":"accounts that have not been recharged can only try 10 times"}}]}\n\n',
+      { status: 200, headers: { 'content-type': 'text/event-stream' } },
+    ));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 502);
+  const payload = (await response?.json()) as { error?: { message?: string; code?: string } };
+  assert.equal(payload.error?.code, 'review_router_exhausted');
+  assert.equal(
+    payload.error?.message,
+    'Review providers unavailable (gemini:http_400, openrouter:http_429, orcarouter:http_503, aihubmix:soft_quota)',
+  );
+  assert.equal(JSON.stringify(payload).includes('SECRET-UPSTREAM-BODY'), false);
+  assert.equal(JSON.stringify(payload).includes('accounts that have not been recharged'), false);
+});
+
 test('review router rejects provider credentials as router bearer', async () => {
   const response = await handleReviewRouterRequest(request('openrouter-key'), {
     KANAREK_REVIEW_ROUTER_TOKEN: routerToken, OPENROUTER_API_KEY: 'openrouter-key',

@@ -67,6 +67,14 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
   ];
 }
 
+function diagnostic(provider: ReviewProvider, category: string): string {
+  return `${provider.id}:${category}`;
+}
+
+function diagnosticMessage(message: string, failures: readonly string[]): string {
+  return failures.length ? `${message} (${failures.join(', ')})` : message;
+}
+
 function jsonError(message: string, code: string, status: number): Response {
   return Response.json(
     { error: { message, type: 'provider_error', code } },
@@ -228,6 +236,7 @@ export async function handleReviewRouterRequest(
 
   let configured = 0;
   let invalidRequests = 0;
+  const failures: string[] = [];
   for (const provider of providers(env)) {
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
@@ -257,6 +266,7 @@ export async function handleReviewRouterRequest(
           clearTimeout(timeout);
           if (preview === null) {
             await discard(response);
+            failures.push(diagnostic(provider, 'preview_timeout'));
             console.warn(JSON.stringify({
               kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'preview_timeout',
             }));
@@ -264,6 +274,7 @@ export async function handleReviewRouterRequest(
           }
           if (isAIHubMixSoftFailure(preview)) {
             await discard(response);
+            failures.push(diagnostic(provider, 'soft_quota'));
             console.warn(JSON.stringify({
               kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'soft_quota',
             }));
@@ -278,6 +289,7 @@ export async function handleReviewRouterRequest(
 
       clearTimeout(timeout);
       const status = response.status;
+      failures.push(diagnostic(provider, `http_${status}`));
       await discard(response);
       if (status === 400) {
         invalidRequests += 1;
@@ -290,11 +302,16 @@ export async function handleReviewRouterRequest(
         JSON.stringify({ kanarekReviewRouter: 'provider_failed', provider: provider.id, status }),
       );
       if (!retryableStatus(status)) {
-        return jsonError('Review provider configuration failed', 'provider_configuration_error', 502);
+        return jsonError(
+          diagnosticMessage('Review provider configuration failed', failures),
+          'provider_configuration_error',
+          502,
+        );
       }
     } catch (error) {
       clearTimeout(timeout);
       const category = error instanceof DOMException && error.name === 'AbortError' ? 'timeout' : 'network';
+      failures.push(diagnostic(provider, category));
       console.warn(
         JSON.stringify({ kanarekReviewRouter: 'provider_failed', provider: provider.id, category }),
       );
@@ -305,7 +322,11 @@ export async function handleReviewRouterRequest(
     return jsonError('Review router is not configured', 'review_router_unconfigured', 503);
   }
   if (invalidRequests === configured) {
-    return jsonError('Invalid review request', 'invalid_request', 400);
+    return jsonError(diagnosticMessage('Invalid review request', failures), 'invalid_request', 400);
   }
-  return jsonError('Review providers unavailable', 'review_router_exhausted', 502);
+  return jsonError(
+    diagnosticMessage('Review providers unavailable', failures),
+    'review_router_exhausted',
+    502,
+  );
 }

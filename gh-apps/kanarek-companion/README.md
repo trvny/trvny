@@ -37,8 +37,10 @@ companion.
   delivery.
 - `POST /review-router/v1/chat/completions` is the private OpenAI-compatible
   transport for free PR review. It authenticates with the synchronized router
-  bearer and falls through OpenRouter, OrcaRouter, then AIHubMix before a
-  successful upstream response starts streaming.
+  bearer and tries direct Gemini, OpenRouter, OrcaRouter, then AIHubMix before
+  a successful upstream response starts streaming. Gemini can step down across
+  compatible Flash generations, while OpenRouter can retry its primary model
+  without the fallback array when the array itself is rejected.
 
 PR, review, completed CI/check-suite, and commit-status events refresh the
 affected pull request. A per-PR Durable Object serializes overlapping
@@ -111,11 +113,13 @@ ceilings, reasoning/thinking settings, the xAI prompt-cache key, and the shared
 provider timeout are all visible beside it in `wrangler.jsonc`. Without
 provider secrets Kanarek uses the shared pool and presets.
 
-OpenRouter uses its native ordered `models` fallback over one shared
-free-only model list used by both Companion quips and Kanarek Review. Production
-prefers MiniMax M3, Nemotron 3 Ultra, Laguna S 2.1, North Mini Code, Laguna M.1,
-and Nemotron 3 Super before falling back to `openrouter/free`. The final free
-router keeps newly available tool-capable models reachable without code changes.
+OpenRouter uses native ordered `models` fallback lists. Companion quips keep the
+shared free model list, where MiniMax M3 remains a lightweight first choice.
+Kanarek Review has a separate `KANAREK_REVIEW_OPENROUTER_MODELS` chain because
+review is an agentic tool-calling workload: it prefers Nemotron 3 Ultra, Laguna
+S 2.1, North Mini Code, Laguna M.1, and Nemotron 3 Super before
+`openrouter/free`. This avoids pinning review to a model endpoint that cannot
+accept tools while leaving the cheaper quip path independent.
 OrcaRouter uses `orcarouter/auto`; its allowed/default models remain controlled
 by the OrcaRouter workspace, so the workspace allowlist is the source of truth.
 
@@ -214,10 +218,13 @@ closed. The gateway never returns Worker secret values or Pages build variables.
 the dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, and the Gemini/AIHubMix/OpenRouter/
 OrcaRouter review credentials into the `kanarek-companion` Worker. Its Cloudflare target is
 manual-only and never prints secret values. The router prefers direct
-Gemini 3.7 Flash, then OpenRouter with the shared ordered free-model chain,
-then OrcaRouter, then AIHubMix. Provider-specific
-request rejection, transient, quota, authentication, and availability failures fall
-through to the next provider. The review endpoint accepts only the dedicated router
+Gemini 3.7 Flash, with sequential 3.6/3.5 Flash compatibility fallbacks, then
+OpenRouter with the review-specific tool-capable free-model chain, then
+OrcaRouter, then AIHubMix. An OpenRouter HTTP 400 from the full model chain is
+retried once with the primary model only. Provider-specific request rejection,
+transient, quota, authentication, and availability failures fall through to the
+next provider. Terminal diagnostics expose only bounded provider/category codes,
+never upstream error bodies. The review endpoint accepts only the dedicated router
 bearer; provider API keys stay server-side.
 
 ## Secrets

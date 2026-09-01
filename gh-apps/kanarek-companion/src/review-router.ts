@@ -7,6 +7,16 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
 const SOFT_FAILURE_PREVIEW_BYTES = 8_192;
+const DEFAULT_REVIEW_OPENROUTER_MODELS = [
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'poolside/laguna-s-2.1:free',
+  'cohere/north-mini-code:free',
+  'poolside/laguna-m.1:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'openrouter/free',
+] as const;
+const GEMINI_REVIEW_FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash'] as const;
+
 const AIHUBMIX_RETRYABLE_MESSAGES = [
   'to prevent abuse of free resources',
   'accounts that have not been recharged can only try',
@@ -21,6 +31,7 @@ export interface ReviewRouterEnv {
   ORCAROUTER_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
   KANAREK_REVIEW_GEMINI_MODEL?: string;
+  KANAREK_REVIEW_OPENROUTER_MODELS?: string;
   KANAREK_OPENROUTER_MODELS?: string;
 }
 
@@ -31,17 +42,25 @@ type ReviewProvider = {
   url: string;
   model: string;
   fallbackModels?: readonly string[];
+  sequentialFallbackModels?: readonly string[];
   apiKey: (env: ReviewRouterEnv) => string | undefined;
   headers?: Record<string, string>;
 };
 
 function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
-  const openRouterModels = configuredOpenRouterModels(env.KANAREK_OPENROUTER_MODELS);
+  const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
+  const sharedOpenRouterModels = env.KANAREK_OPENROUTER_MODELS?.trim();
+  const openRouterModels = reviewOpenRouterModels
+    ? configuredOpenRouterModels(reviewOpenRouterModels)
+    : sharedOpenRouterModels
+      ? configuredOpenRouterModels(sharedOpenRouterModels)
+      : [...DEFAULT_REVIEW_OPENROUTER_MODELS];
   return [
     {
       id: 'gemini',
       url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
       model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || 'gemini-3.7-flash',
+      sequentialFallbackModels: GEMINI_REVIEW_FALLBACK_MODELS,
       apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
     },
     {
@@ -207,6 +226,79 @@ function isAIHubMixSoftFailure(preview: string): boolean {
   return AIHUBMIX_RETRYABLE_MESSAGES.some((message) => normalized.includes(message));
 }
 
+type ProviderAttempt = {
+  model: string;
+  fallbackModels?: readonly string[];
+  label: 'default' | 'model_fallback' | 'fallback_chain' | 'primary_only';
+};
+
+function providerAttempts(provider: ReviewProvider): readonly ProviderAttempt[] {
+  if (provider.id === 'gemini') {
+    const models = [...new Set([provider.model, ...(provider.sequentialFallbackModels ?? [])])];
+    return models.map((model, index) => ({
+      model,
+      label: index === 0 ? 'default' as const : 'model_fallback' as const,
+    }));
+  }
+  if (provider.id === 'openrouter' && provider.fallbackModels?.length) {
+    return [
+      { model: provider.model, fallbackModels: provider.fallbackModels, label: 'fallback_chain' },
+      { model: provider.model, label: 'primary_only' },
+    ];
+  }
+  return [{ model: provider.model, label: 'default' }];
+}
+
+function shouldTryNextAttempt(
+  provider: ReviewProvider,
+  status: number,
+  attemptIndex: number,
+  attemptCount: number,
+): boolean {
+  if (attemptIndex + 1 >= attemptCount) return false;
+  if (provider.id === 'openrouter') return status === 400;
+  if (provider.id === 'gemini') {
+    return status === 400 || status === 404 || status === 429 || status >= 500;
+  }
+  return false;
+}
+
+function classifyBadRequest(preview: string | null): string {
+  if (!preview) return 'http_400';
+  const normalized = preview.toLowerCase();
+  if (
+    normalized.includes('context length') ||
+    normalized.includes('context window') ||
+    normalized.includes('too many tokens') ||
+    normalized.includes('token limit')
+  ) return 'http_400_context_length';
+  if (
+    normalized.includes('models') &&
+    (normalized.includes('invalid') || normalized.includes('unknown') || normalized.includes('not found'))
+  ) return 'http_400_fallback_models';
+  if (
+    normalized.includes('model') &&
+    (normalized.includes('invalid') ||
+      normalized.includes('not found') ||
+      normalized.includes('does not exist') ||
+      normalized.includes('unavailable'))
+  ) return 'http_400_invalid_model';
+  if (
+    normalized.includes('unsupported parameter') ||
+    normalized.includes('unknown parameter') ||
+    normalized.includes('unknown field') ||
+    normalized.includes('stream_options')
+  ) return 'http_400_unsupported_parameter';
+  if (
+    normalized.includes('message') &&
+    (normalized.includes('invalid') || normalized.includes('required') || normalized.includes('must'))
+  ) return 'http_400_invalid_message';
+  if (normalized.includes('moderation') || normalized.includes('safety')) {
+    return 'http_400_moderation';
+  }
+  return 'http_400_invalid_request';
+}
+
 export async function handleReviewRouterRequest(
   request: Request,
   env: ReviewRouterEnv,
@@ -245,77 +337,96 @@ export async function handleReviewRouterRequest(
     const providerTimeoutMs = timeoutMs(env);
     const deadlineAt = Date.now() + providerTimeoutMs;
     const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
-    try {
-      const response = await fetcher(provider.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          ...provider.headers,
-        },
-        body: JSON.stringify({
-          ...input,
-          model: provider.model,
-          ...(provider.fallbackModels ? { models: provider.fallbackModels } : { models: undefined }),
-        }),
-        signal: controller.signal,
-      });
-      if (response.ok) {
-        if (provider.id === 'aihubmix') {
-          const preview = await responsePreview(response, deadlineAt);
-          clearTimeout(timeout);
-          if (preview === null) {
-            await discard(response);
-            failures.push(diagnostic(provider, 'preview_timeout'));
-            console.warn(JSON.stringify({
-              kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'preview_timeout',
-            }));
-            continue;
-          }
-          if (isAIHubMixSoftFailure(preview)) {
-            await discard(response);
-            failures.push(diagnostic(provider, 'soft_quota'));
-            console.warn(JSON.stringify({
-              kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'soft_quota',
-            }));
-            continue;
-          }
-        } else {
-          clearTimeout(timeout);
-        }
-        console.info(JSON.stringify({ kanarekReviewRouter: 'selected', provider: provider.id }));
-        return upstreamResponse(response, provider);
-      }
+    const attempts = providerAttempts(provider);
+    let providerFailureCategory = 'unknown';
+    let providerInvalidRequest = true;
 
-      clearTimeout(timeout);
-      const status = response.status;
-      failures.push(diagnostic(provider, `http_${status}`));
-      await discard(response);
-      if (status === 400) {
-        invalidRequests += 1;
-        console.warn(
-          JSON.stringify({ kanarekReviewRouter: 'provider_failed', provider: provider.id, status }),
-        );
-        continue;
-      }
-      console.warn(
-        JSON.stringify({ kanarekReviewRouter: 'provider_failed', provider: provider.id, status }),
-      );
-      if (!retryableStatus(status)) {
+    for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
+      const attempt = attempts[attemptIndex];
+      try {
+        const response = await fetcher(provider.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+            ...provider.headers,
+          },
+          body: JSON.stringify({
+            ...input,
+            model: attempt.model,
+            ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
+          }),
+          signal: controller.signal,
+        });
+        if (response.ok) {
+          if (provider.id === 'aihubmix') {
+            const preview = await responsePreview(response, deadlineAt);
+            if (preview === null) {
+              await discard(response);
+              providerFailureCategory = 'preview_timeout';
+              providerInvalidRequest = false;
+              console.warn(JSON.stringify({
+                kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'preview_timeout',
+              }));
+              break;
+            }
+            if (isAIHubMixSoftFailure(preview)) {
+              await discard(response);
+              providerFailureCategory = 'soft_quota';
+              providerInvalidRequest = false;
+              console.warn(JSON.stringify({
+                kanarekReviewRouter: 'provider_failed', provider: provider.id, category: 'soft_quota',
+              }));
+              break;
+            }
+          }
+          clearTimeout(timeout);
+          console.info(JSON.stringify({
+            kanarekReviewRouter: 'selected', provider: provider.id, attempt: attempt.label, model: attempt.model,
+          }));
+          return upstreamResponse(response, provider);
+        }
+
+        const status = response.status;
+        const preview = status === 400 ? await responsePreview(response, deadlineAt) : null;
+        providerFailureCategory = status === 400 ? classifyBadRequest(preview) : `http_${status}`;
+        if (status !== 400) providerInvalidRequest = false;
+        await discard(response);
+        console.warn(JSON.stringify({
+          kanarekReviewRouter: 'provider_failed',
+          provider: provider.id,
+          status,
+          category: providerFailureCategory,
+          attempt: attempt.label,
+          model: attempt.model,
+        }));
+
+        if (shouldTryNextAttempt(provider, status, attemptIndex, attempts.length)) {
+          continue;
+        }
+        if (status === 400 || retryableStatus(status)) break;
+        clearTimeout(timeout);
+        failures.push(diagnostic(provider, providerFailureCategory));
         return jsonError(
           diagnosticMessage('Review provider configuration failed', failures),
           'provider_configuration_error',
           502,
         );
+      } catch (error) {
+        const category = error instanceof DOMException && error.name === 'AbortError' ? 'timeout' : 'network';
+        providerFailureCategory = category;
+        providerInvalidRequest = false;
+        console.warn(JSON.stringify({
+          kanarekReviewRouter: 'provider_failed', provider: provider.id, category,
+          attempt: attempt.label, model: attempt.model,
+        }));
+        break;
       }
-    } catch (error) {
-      clearTimeout(timeout);
-      const category = error instanceof DOMException && error.name === 'AbortError' ? 'timeout' : 'network';
-      failures.push(diagnostic(provider, category));
-      console.warn(
-        JSON.stringify({ kanarekReviewRouter: 'provider_failed', provider: provider.id, category }),
-      );
     }
+
+    clearTimeout(timeout);
+    failures.push(diagnostic(provider, providerFailureCategory));
+    if (providerInvalidRequest) invalidRequests += 1;
   }
 
   if (!configured) {

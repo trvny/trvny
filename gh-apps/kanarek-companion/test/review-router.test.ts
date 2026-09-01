@@ -65,6 +65,40 @@ test('review router prefers direct Gemini when its free-tier key is configured',
   });
 });
 
+test('review router falls back across compatible Gemini Flash models', async () => {
+  const models: unknown[] = [];
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, GEMINI_API_KEY: 'gemini-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    models.push(body.model);
+    if (models.length === 1) {
+      return Promise.resolve(new Response('{"error":{"message":"invalid model"}}', { status: 400 }));
+    }
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini');
+  assert.deepEqual(models, ['gemini-3.7-flash', 'gemini-3.6-flash']);
+});
+
+test('review router keeps a Gemini transient failure retryable after fallback 400s', async () => {
+  let calls = 0;
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, GEMINI_API_KEY: 'gemini-key',
+  }, (() => {
+    calls += 1;
+    const status = [429, 400, 400][calls - 1] ?? 500;
+    return Promise.resolve(new Response('provider failure', { status }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 502);
+  assert.equal(calls, 3);
+  const payload = (await response?.json()) as { error?: { code?: string } };
+  assert.equal(payload.error?.code, 'review_router_exhausted');
+});
+
 test('review router prefers OpenRouter then falls through to OrcaRouter', async () => {
   const calls: Array<{ url: string; model: unknown; models: unknown; authorization: string | null }> = [];
   const fetcher = ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -88,9 +122,8 @@ test('review router prefers OpenRouter then falls through to OrcaRouter', async 
   assert.deepEqual(calls.map(({ url, model, models }) => ({ url, model, models })), [
     {
       url: 'https://openrouter.ai/api/v1/chat/completions',
-      model: 'minimax/minimax-m3:free',
+      model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
       models: [
-        'nvidia/nemotron-3-ultra-550b-a55b:free',
         'poolside/laguna-s-2.1:free',
         'cohere/north-mini-code:free',
         'poolside/laguna-m.1:free',
@@ -139,20 +172,38 @@ test('review router falls through provider authentication errors', async () => {
   assert.equal(urls.length, 2);
 });
 
-test('review router falls through a provider-specific 400', async () => {
+test('review router retries OpenRouter primary-only after a fallback-chain 400', async () => {
+  const bodies: Array<{ model?: unknown; models?: unknown }> = [];
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, OPENROUTER_API_KEY: 'openrouter-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown });
+    if (bodies.length === 1) return Promise.resolve(new Response('fallback list rejected', { status: 400 }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.equal(bodies.length, 2);
+  assert.ok(Array.isArray(bodies[0].models));
+  assert.equal('models' in bodies[1], false);
+});
+
+test('review router falls through after both OpenRouter 400 attempts fail', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(request(), {
     ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
   }, (() => {
     calls += 1;
-    if (calls === 1) return Promise.resolve(new Response('model rejected request', { status: 400 }));
+    if (calls <= 2) return Promise.resolve(new Response('model rejected request', { status: 400 }));
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
 });
+
 test('review router reaches AIHubMix after earlier providers fail', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(), {
@@ -242,7 +293,7 @@ test('review router returns an upstream 400 as an invalid client request', async
   }) as typeof fetch);
 
   assert.equal(response?.status, 400);
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
   const payload = (await response?.json()) as { error?: { code?: string } };
   assert.equal(payload.error?.code, 'invalid_request');
 });
@@ -252,11 +303,17 @@ test('review router reports bounded provider diagnostics without upstream bodies
   const response = await handleReviewRouterRequest(request(), {
     ...auth, GEMINI_API_KEY: 'gemini-key', OPENROUTER_API_KEY: 'openrouter-key',
     ORCAROUTER_API_KEY: 'orca-key', AIHUBMIX_API_KEY: 'aihubmix-key',
-  }, (() => {
+  }, ((input: RequestInfo | URL) => {
     calls += 1;
-    const statuses = [400, 429, 503];
-    if (calls <= statuses.length) {
-      return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: statuses[calls - 1] }));
+    const hostname = new URL(String(input)).hostname;
+    if (hostname === 'generativelanguage.googleapis.com') {
+      return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: 400 }));
+    }
+    if (hostname === 'openrouter.ai') {
+      return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: 429 }));
+    }
+    if (hostname === 'api.orcarouter.ai') {
+      return Promise.resolve(new Response(`SECRET-UPSTREAM-BODY-${calls}`, { status: 503 }));
     }
     return Promise.resolve(new Response(
       'data: {"choices":[{"delta":{"content":"accounts that have not been recharged can only try 10 times"}}]}\n\n',
@@ -269,10 +326,24 @@ test('review router reports bounded provider diagnostics without upstream bodies
   assert.equal(payload.error?.code, 'review_router_exhausted');
   assert.equal(
     payload.error?.message,
-    'Review providers unavailable (gemini:http_400, openrouter:http_429, orcarouter:http_503, aihubmix:soft_quota)',
+    'Review providers unavailable (gemini:http_400_invalid_request, openrouter:http_429, orcarouter:http_503, aihubmix:soft_quota)',
   );
   assert.equal(JSON.stringify(payload).includes('SECRET-UPSTREAM-BODY'), false);
   assert.equal(JSON.stringify(payload).includes('accounts that have not been recharged'), false);
+});
+
+test('review router classifies a bad parameter without exposing the upstream body', async () => {
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, GEMINI_API_KEY: 'gemini-key',
+  }, (() => Promise.resolve(new Response(
+    '{"error":{"message":"Unknown field stream_options SECRET-UPSTREAM-BODY"}}',
+    { status: 400 },
+  ))) as typeof fetch);
+
+  assert.equal(response?.status, 400);
+  const payload = (await response?.json()) as { error?: { message?: string } };
+  assert.equal(payload.error?.message, 'Invalid review request (gemini:http_400_unsupported_parameter)');
+  assert.equal(JSON.stringify(payload).includes('SECRET-UPSTREAM-BODY'), false);
 });
 
 test('review router rejects provider credentials as router bearer', async () => {

@@ -193,6 +193,23 @@ test('review router honors the shared configured OpenRouter model chain', async 
   assert.deepEqual(body.models, ['second/free']);
 });
 
+test('review cooldown store preserves a fresh extension when a stale alarm arrives', async () => {
+  const store = new ReviewProviderCooldownStore(cooldownState());
+  const extended = await store.fetch(new Request('https://review-cooldown.internal/extend', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ category: 'http_429', durationMs: 600_000 }),
+  }));
+  assert.equal(extended.status, 200);
+
+  await store.alarm();
+
+  const active = await store.fetch(new Request('https://review-cooldown.internal/active'));
+  const payload = (await active.json()) as { active?: boolean; category?: string };
+  assert.equal(payload.active, true);
+  assert.equal(payload.category, 'http_429');
+});
+
 test('review cooldown store never shortens an existing provider cooldown', async () => {
   const namespace = cooldownNamespace();
   const stub = namespace.get(namespace.idFromName('openrouter'));

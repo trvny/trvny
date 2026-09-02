@@ -92,6 +92,11 @@ export class ReviewProviderCooldownStore {
 
   async alarm(): Promise<void> {
     await this.enqueue(async () => {
+      const current = await this.state.storage.get<ProviderCooldown>(COOLDOWN_STORAGE_KEY);
+      if (validProviderCooldown(current) && current.until > Date.now()) {
+        await this.state.storage.setAlarm(current.until);
+        return;
+      }
       await this.state.storage.deleteAll();
     });
   }

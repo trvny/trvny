@@ -19,6 +19,9 @@ jobs:
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
     steps:
@@ -45,7 +48,7 @@ jobs:
                   },
                   **{
                       key: os.environ[key]
-                      for key in ("KANAREK_REVIEW_ROUTER_TOKEN", "GEMINI_API_KEY", "AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY")
+                      for key in ("KANAREK_REVIEW_ROUTER_TOKEN", "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY")
                       if os.environ.get(key)
                   },
               }),
@@ -56,7 +59,7 @@ jobs:
           npx --yes wrangler@4.127.1 secret bulk "$secrets_file" --name kanarek-companion
 
           current_secrets="$(npx --yes wrangler@4.127.1 secret list --name kanarek-companion --format json)"
-          for key in GEMINI_API_KEY AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY; do
+          for key in AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY; do
             if [ -n "${!key:-}" ]; then
               continue
             fi

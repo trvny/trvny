@@ -255,8 +255,10 @@ closed. The gateway never returns Worker secret values or Pages build variables.
 `automation-sync.yml` keeps Worker credential provisioning centralized. Its
 manual dispatch can copy the existing repository Cloudflare credentials, the
 dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the free review credentials
-(AIHubMix/OpenRouter/OrcaRouter), and the direct credentials used for quip
-generation into `kanarek-companion`, without printing secret values. Legacy
+(AIHubMix/OpenRouter/OrcaRouter), and any repository-held direct quip credentials
+(Gemini/OpenAI/Anthropic/xAI) into `kanarek-companion`, without printing secret
+values. Missing direct-provider provisioning copies are left untouched on the
+Worker. Legacy
 per-repository review callers and provider secrets were removed during the
 webhook cutover and are no longer maintained by a scheduled rollout job.
 
@@ -297,6 +299,10 @@ Optional direct AI secrets for quip generation:
 - `ANTHROPIC_API_KEY`
 - `GEMINI_API_KEY`
 - `XAI_API_KEY`
+
+The manual credential sync copies any matching provisioning secret present in
+`trvny/trvny`; an absent direct-provider copy does not delete an existing Worker
+secret.
 
 GitHub App metadata, companion/review repository scopes, provider
 order/model/generation controls, AI percentage ceiling, review debounce/context

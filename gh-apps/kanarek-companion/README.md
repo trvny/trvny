@@ -253,13 +253,14 @@ calls require fresh expected IDs, state, or snapshot hashes so stale reads fail
 closed. The gateway never returns Worker secret values or Pages build variables.
 
 `automation-sync.yml` keeps Worker credential provisioning centralized. Its
-manual Cloudflare target can copy the existing repository Cloudflare
-credentials, the dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the free review
-credentials (AIHubMix/OpenRouter/OrcaRouter), and the direct credentials used
-for quip generation into `kanarek-companion`, without printing secret values.
-The scheduled review-maintenance job now removes the retired
-`.github/workflows/kanarek-review.yml` callers and their review/provider secrets
-from target repositories instead of distributing them.
+manual dispatch can copy the existing repository Cloudflare credentials, the
+dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the free review credentials
+(AIHubMix/OpenRouter/OrcaRouter), and any repository-held direct quip credentials
+(Gemini/OpenAI/Anthropic/xAI) into `kanarek-companion`, without printing secret
+values. Missing direct-provider provisioning copies are left untouched on the
+Worker. Legacy
+per-repository review callers and provider secrets were removed during the
+webhook cutover and are no longer maintained by a scheduled rollout job.
 
 The review router uses OpenRouter with the review-specific free-model chain,
 then OrcaRouter, then AIHubMix. Direct Gemini, OpenAI, Anthropic, and xAI
@@ -278,15 +279,19 @@ Required Worker secrets:
 - `GITHUB_PRIVATE_KEY`
 - `GPTOMEK_PRIVATE_KEY` for GPTomek operations
 
-Review router secret, stored only on the Worker:
+Review router secret used at runtime only by the Worker:
 
 - `KANAREK_REVIEW_ROUTER_TOKEN`
 
-Optional free-review secrets, stored only on the Worker:
+Optional free-review secrets used at runtime only by the Worker:
 
 - `OPENROUTER_API_KEY`
 - `ORCAROUTER_API_KEY`
 - `AIHUBMIX_API_KEY`
+
+`trvny/trvny` retains provisioning copies of these values solely so the manual
+credential-sync workflow can update the Worker. Target repositories do not keep
+review-router or provider secrets.
 
 Optional direct AI secrets for quip generation:
 
@@ -294,6 +299,10 @@ Optional direct AI secrets for quip generation:
 - `ANTHROPIC_API_KEY`
 - `GEMINI_API_KEY`
 - `XAI_API_KEY`
+
+The manual credential sync copies any matching provisioning secret present in
+`trvny/trvny`; an absent direct-provider copy does not delete an existing Worker
+secret.
 
 GitHub App metadata, companion/review repository scopes, provider
 order/model/generation controls, AI percentage ceiling, review debounce/context

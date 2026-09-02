@@ -15,3 +15,4 @@ export function validateAdminToken(providedToken, expectedToken) {
 // post-cooldown probe 2026-09-02T22:39Z
 // provider probe 2026-09-02T22:54:08Z
 // final cooldown probe 2026-09-02T23:10:34Z
+// final route probe 2026-09-02T23:30:55Z

@@ -190,13 +190,13 @@ function upstreamError(status: number): EngramActionError {
 async function engramRequest(
   env: EngramActionEnv,
   fetcher: typeof fetch,
-  pathname: '/health' | '/v1/search' | '/v1/store',
+  pathname: '/v1/health' | '/v1/search' | '/v1/store',
   body?: JsonObject,
 ): Promise<unknown> {
   try {
     const response = await fetcher(`${ENGRAM_API}${pathname}`, {
       method: body ? 'POST' : 'GET',
-      headers: body ? upstreamHeaders(env) : { 'User-Agent': 'mechagremlin-kanarek-companion/1' },
+      headers: upstreamHeaders(env),
       body: body ? JSON.stringify(body) : undefined,
       redirect: 'error',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -223,7 +223,7 @@ async function statusAction(env: EngramActionEnv, fetcher: typeof fetch): Promis
     return json({ ok: true, configured: false, reachable: null });
   }
   try {
-    await engramRequest(env, fetcher, '/health');
+    await engramRequest(env, fetcher, '/v1/health');
     return json({ ok: true, configured: true, reachable: true });
   } catch (error) {
     if (error instanceof EngramActionError) {

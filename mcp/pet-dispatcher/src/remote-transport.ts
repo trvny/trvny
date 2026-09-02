@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { z } from "zod";
 import type { DispatcherConfig } from "./config.js";
 import {
@@ -18,11 +19,14 @@ import {
 const terminalStatuses = new Set(["completed", "failed", "cancelled", "recovery_required"]);
 const JOURNAL_RETENTION_MS = 25 * 60 * 60_000;
 
-function pause(ms: number, signal?: AbortSignal): Promise<void> {
-  if (signal?.aborted) return Promise.resolve();
-  if (!signal) return new Promise((resolve) => setTimeout(resolve, ms));
-  const waitSignal = AbortSignal.any([signal, AbortSignal.timeout(ms)]);
-  return new Promise((resolve) => waitSignal.addEventListener("abort", () => resolve(), { once: true }));
+async function pause(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return;
+  try {
+    await sleep(ms, undefined, signal ? { signal } : undefined);
+  } catch (error) {
+    if (signal?.aborted) return;
+    throw error;
+  }
 }
 
 const pulledMessageSchema = z.object({

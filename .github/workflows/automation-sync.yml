@@ -37,7 +37,8 @@ jobs:
           trap 'rm -f "$secrets_file"' EXIT
 
           live_tag=$(
-            curl --fail --silent --show-error "$KANAREK_COMPANION_HEALTH_URL" 2>/dev/null |
+            curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
+              "$KANAREK_COMPANION_HEALTH_URL" 2>/dev/null |
               jq -r '.gateway.workerVersion.tag // empty' || true
           )
           if [[ "$live_tag" =~ ^[0-9a-fA-F]{40}$ ]]; then
@@ -46,6 +47,18 @@ jobs:
             version_tag="$GITHUB_SHA"
           fi
           version_message="Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          rollback_message="Rollback failed Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+
+          previous_deployment=$(npx --yes wrangler@4.127.1 deployments status \
+            --name kanarek-companion --json)
+          mapfile -t previous_specs < <(
+            jq -r '.versions[] | "\(.version_id)@\(.percentage)%"' \
+              <<<"$previous_deployment"
+          )
+          if [ "${#previous_specs[@]}" -eq 0 ]; then
+            echo "Could not capture the current Worker deployment for rollback." >&2
+            exit 1
+          fi
 
           python3 - "$secrets_file" <<'PY'
           import json
@@ -83,8 +96,6 @@ jobs:
           PY
           chmod 600 "$secrets_file"
 
-          npx --yes wrangler@4.127.1 secret bulk "$secrets_file" \
-            --name kanarek-companion
           npx --yes wrangler@4.127.1 versions secret bulk "$secrets_file" \
             --name kanarek-companion \
             --tag "$version_tag" \
@@ -110,14 +121,24 @@ jobs:
 
           for _attempt in {1..12}; do
             if live_health=$(curl --fail --silent --show-error \
+              --connect-timeout 5 --max-time 10 \
               "$KANAREK_COMPANION_HEALTH_URL") &&
-              jq -e --arg tag "$version_tag" \
-                '.ok == true and .reviewWebhook.ready == true and .gateway.workerVersion.tag == $tag' \
+              jq -e --arg tag "$version_tag" --arg id "$version_id" \
+                '.ok == true and .reviewWebhook.ready == true and .gateway.workerVersion.id == $id and .gateway.workerVersion.tag == $tag' \
                 <<<"$live_health" >/dev/null
             then
               exit 0
             fi
             sleep 5
           done
-          echo "Credential sync deployed, but the tagged Worker did not become healthy." >&2
+
+          echo "Credential sync deployed, but the tagged Worker did not become healthy; rolling back." >&2
+          if ! npx --yes wrangler@4.127.1 versions deploy \
+            "${previous_specs[@]}" \
+            --name kanarek-companion \
+            --message "$rollback_message" \
+            --yes
+          then
+            echo "Rollback of the previous Worker deployment also failed." >&2
+          fi
           exit 1

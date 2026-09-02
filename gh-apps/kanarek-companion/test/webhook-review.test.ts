@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   parseReviewJson,
   patchAddedRightLines,
+  reviewFileCollectionComplete,
   reviewInputState,
   reviewMarker,
   selectReviewFiles,
@@ -127,13 +128,32 @@ test('review input does not mark missing GitHub patches as empty code', () => {
     'patch_unavailable',
   );
   assert.equal(
+    reviewInputState(
+      [
+        { filename: 'src/available.ts', patch: '@@ -0,0 +1 @@\n+ok' },
+        { filename: 'src/missing.ts' },
+      ],
+      1,
+    ),
+    'patch_unavailable',
+  );
+  assert.equal(
     reviewInputState([{ filename: 'README.md' }], 0),
     'no_code_diff',
   );
   assert.equal(
-    reviewInputState([{ filename: 'src/large.ts' }], 1),
+    reviewInputState([{ filename: 'src/large.ts', patch: '@@ -0,0 +1 @@\\n+ok' }], 1),
     'reviewable',
   );
+});
+
+test('review file collection stops once the diff budget is full', () => {
+  const patch = '@@ -0,0 +1 @@\n+' + 'x'.repeat(4_990);
+  const files = Array.from({ length: 2 }, (_, index) => ({
+    filename: `src/file-${index}.ts`,
+    patch,
+  }));
+  assert.equal(reviewFileCollectionComplete(files, 5_000), true);
 });
 
 test('deletion-only code patches stay reviewable without inline anchors', () => {

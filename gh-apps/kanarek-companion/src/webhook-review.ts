@@ -126,6 +126,11 @@ interface StoredJob {
   target: ReviewTarget;
 }
 
+type ReviewSubmitGate = (
+  target: ReviewTarget,
+  submit: () => Promise<WebhookReviewResult>,
+) => Promise<WebhookReviewResult>;
+
 interface PullRequestFile {
   filename?: string;
   patch?: string;
@@ -437,7 +442,6 @@ export function reviewInputState(
   files: Array<Pick<PullRequestFile, 'filename' | 'patch'>>,
   selectedCount: number,
 ): 'reviewable' | 'patch_unavailable' | 'no_code_diff' {
-  if (selectedCount > 0) return 'reviewable';
   const reviewableFiles = files.filter(
     (file) =>
       typeof file.filename === 'string' && reviewablePath(file.filename),
@@ -445,7 +449,24 @@ export function reviewInputState(
   const missingPatch = reviewableFiles.some(
     (file) => typeof file.patch !== 'string' || file.patch.length === 0,
   );
-  return missingPatch ? 'patch_unavailable' : 'no_code_diff';
+  if (missingPatch) return 'patch_unavailable';
+  return selectedCount > 0 ? 'reviewable' : 'no_code_diff';
+}
+
+export function reviewFileCollectionComplete(
+  files: PullRequestFile[],
+  maxDiffChars: number,
+): boolean {
+  const selected = selectReviewFiles(files, maxDiffChars);
+  if (reviewInputState(files, selected.length) === 'patch_unavailable') {
+    return true;
+  }
+  if (selected.length >= MAX_FILES) return true;
+  const selectedChars = selected.reduce(
+    (total, file) => total + file.patch.length,
+    0,
+  );
+  return selectedChars >= maxDiffChars;
 }
 
 function decodeBase64Text(value: string): string | null {
@@ -883,6 +904,7 @@ export async function runWebhookReview(
   job: StoredJob,
   env: WebhookReviewEnv,
   fetcher: typeof fetch = fetch,
+  submitGate?: ReviewSubmitGate,
 ): Promise<WebhookReviewResult> {
   const target = job.target;
   if (!env.KANAREK_REVIEW_ROUTER_TOKEN?.trim()) {
@@ -910,19 +932,21 @@ export async function runWebhookReview(
     };
   }
 
+  const maxDiffChars = configuredInteger(
+    env.KANAREK_WEBHOOK_REVIEW_MAX_DIFF_CHARS,
+    DEFAULT_MAX_DIFF_CHARS,
+    5_000,
+    250_000,
+  );
   const rawFiles = await client.paginate<PullRequestFile>(
     `/repos/${repoPath(target.repository)}/pulls/${target.number}/files`,
     'webhook_review_list_files',
+    {
+      maxPages: 30,
+      stopWhen: (items) => reviewFileCollectionComplete(items, maxDiffChars),
+    },
   );
-  const files = selectReviewFiles(
-    rawFiles,
-    configuredInteger(
-      env.KANAREK_WEBHOOK_REVIEW_MAX_DIFF_CHARS,
-      DEFAULT_MAX_DIFF_CHARS,
-      5_000,
-      250_000,
-    ),
-  );
+  const files = selectReviewFiles(rawFiles, maxDiffChars);
   const inputState = reviewInputState(rawFiles, files.length);
   if (inputState !== 'reviewable') {
     return {
@@ -956,61 +980,74 @@ export async function runWebhookReview(
   }
 
   const findings = normalizeFindings(generated.parsed, files);
-  const current = await currentPullRequest(client, target);
-  if (!targetStillCurrent(current, target)) {
-    return {
-      reviewed: false,
-      provider: generated.provider,
-      findingCount: 0,
-      skipped: 'stale_after_generation',
-    };
-  }
-
-  const summary = generated.parsed.summary || '未发现明确、可操作的缺陷。🐤';
-  const severity = { high: '高', medium: '中', low: '低' } as const;
-  const payload = {
-    commit_id: target.headSha,
-    event: 'COMMENT',
-    body: `${reviewMarker(target)}\n🐤 **Kanarek 免费代码审查** · ${providerLabel(generated.provider)}\n\n${summary}`,
-    comments: findings.map((finding) => ({
-      path: finding.path,
-      line: finding.line,
-      side: 'RIGHT',
-      body: `**${severity[finding.severity]} · ${finding.title}**\n\n${finding.body}`,
-    })),
-  };
-
-  try {
-    await client.json<unknown>(
-      `/repos/${repoPath(target.repository)}/pulls/${target.number}/reviews`,
-      'webhook_review_submit',
-      { method: 'POST', body: JSON.stringify(payload) },
-    );
-  } catch (error) {
-    let accepted = false;
-    try {
-      accepted = await existingSubmittedReview(client, target, appSlug);
-    } catch {
-      // Preserve the original submission error if verification is unavailable.
+  const submit = async (): Promise<WebhookReviewResult> => {
+    const current = await currentPullRequest(client, target);
+    if (!targetStillCurrent(current, target)) {
+      return {
+        reviewed: false,
+        provider: generated.provider,
+        findingCount: 0,
+        skipped: 'stale_after_generation',
+      };
     }
-    if (!accepted) throw error;
-  }
+    if (await existingSubmittedReview(client, target, appSlug)) {
+      return {
+        reviewed: true,
+        provider: generated.provider,
+        findingCount: 0,
+        skipped: 'already_submitted',
+      };
+    }
 
-  console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
-    JSON.stringify({
-      kanarekWebhookReview: 'submitted',
-      repository: target.repository,
-      pullRequestNumber: target.number,
-      headSha: target.headSha,
+    const summary = generated.parsed.summary || '未发现明确、可操作的缺陷。🐤';
+    const severity = { high: '高', medium: '中', low: '低' } as const;
+    const payload = {
+      commit_id: target.headSha,
+      event: 'COMMENT',
+      body: `${reviewMarker(target)}\n🐤 **Kanarek 免费代码审查** · ${providerLabel(generated.provider)}\n\n${summary}`,
+      comments: findings.map((finding) => ({
+        path: finding.path,
+        line: finding.line,
+        side: 'RIGHT',
+        body: `**${severity[finding.severity]} · ${finding.title}**\n\n${finding.body}`,
+      })),
+    };
+
+    try {
+      await client.json<unknown>(
+        `/repos/${repoPath(target.repository)}/pulls/${target.number}/reviews`,
+        'webhook_review_submit',
+        { method: 'POST', body: JSON.stringify(payload) },
+      );
+    } catch (error) {
+      let accepted = false;
+      try {
+        accepted = await existingSubmittedReview(client, target, appSlug);
+      } catch {
+        // Preserve the original submission error if verification is unavailable.
+      }
+      if (!accepted) throw error;
+    }
+
+    console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+      JSON.stringify({
+        kanarekWebhookReview: 'submitted',
+        repository: target.repository,
+        pullRequestNumber: target.number,
+        headSha: target.headSha,
+        provider: generated.provider,
+        findingCount: findings.length,
+      }),
+    );
+    return {
+      reviewed: true,
       provider: generated.provider,
       findingCount: findings.length,
-    }),
-  );
-  return {
-    reviewed: true,
-    provider: generated.provider,
-    findingCount: findings.length,
+    };
   };
+
+  return submitGate ? submitGate(target, submit) : submit();
+
 }
 
 async function enqueueWebhookReview(
@@ -1153,7 +1190,27 @@ export class WebhookReviewJob {
     await this.state.storage.put(STATUS_KEY, 'running');
     let result: WebhookReviewResult;
     try {
-      result = await runWebhookReview(started, this.env);
+      result = await runWebhookReview(
+        started,
+        this.env,
+        fetch,
+        (target, submit) =>
+          this.state.blockConcurrencyWhile(async () => {
+            const latest = await this.state.storage.get<StoredJob>(JOB_KEY);
+            if (
+              !validStoredJob(latest) ||
+              reviewTargetKey(latest.target) !== reviewTargetKey(target)
+            ) {
+              return {
+                reviewed: false,
+                provider: null,
+                findingCount: 0,
+                skipped: 'superseded_before_submit',
+              };
+            }
+            return submit();
+          }),
+      );
     } catch (error) {
       console.error( // skipcq: JS-0002 Cloudflare Worker runtime observability.
         JSON.stringify({

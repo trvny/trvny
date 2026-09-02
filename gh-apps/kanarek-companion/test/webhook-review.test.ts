@@ -185,6 +185,18 @@ test('review submission marker is target-specific and bot-authenticated', () => 
     ),
     false,
   );
+  const movedBaseTarget = { ...target, baseSha: headB };
+  assert.equal(
+    submittedReviewMatches(
+      {
+        body: `${marker}\nprovider summary mentions ${reviewMarker(movedBaseTarget)}`,
+        commit_id: headA,
+        user: { login: 'kanarek-companion[bot]' },
+      },
+      movedBaseTarget,
+    ),
+    false,
+  );
 });
 
 test('review JSON parser accepts fenced provider output', () => {

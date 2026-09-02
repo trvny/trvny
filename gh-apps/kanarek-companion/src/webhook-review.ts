@@ -845,7 +845,7 @@ export function submittedReviewMatches(
   return (
     review.commit_id === target.headSha &&
     typeof review.body === 'string' &&
-    review.body.includes(reviewMarker(target)) &&
+    review.body.startsWith(`${reviewMarker(target)}\n`) &&
     user.login === `${appSlug}[bot]`
   );
 }

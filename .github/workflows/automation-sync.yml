@@ -120,7 +120,17 @@ jobs:
               ORCAROUTER_API_KEY \
               AIHUBMIX_API_KEY
             do
-              gh secret delete "$key" --repo "$repo" 2>/dev/null || true
+              api_error=$(mktemp)
+              if gh secret delete "$key" --repo "$repo" 2>"$api_error"; then
+                :
+              elif grep -q 'HTTP 404' "$api_error"; then
+                :
+              else
+                cat "$api_error" >&2
+                rm -f "$api_error"
+                exit 1
+              fi
+              rm -f "$api_error"
             done
           done
 

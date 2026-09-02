@@ -514,7 +514,7 @@ async function fetchRepositoryContext(
     treeEntries = Array.isArray(tree.tree) ? tree.tree : [];
     treeTruncated = tree.truncated === true;
   } catch (error) {
-    console.warn(
+    console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'tree_unavailable',
         error: error instanceof Error ? error.message : 'unknown_error',
@@ -582,7 +582,7 @@ async function fetchRepositoryContext(
       });
       remaining -= content.length + path.length + 48;
     } catch (error) {
-      console.warn(
+      console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
         JSON.stringify({
           kanarekWebhookReview: 'context_file_unavailable',
           path,
@@ -767,7 +767,7 @@ async function askReviewRouter(
     fetcher,
   );
   if (!response || !response.ok) {
-    console.warn(
+    console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'providers_unavailable',
         status: response?.status ?? 500,
@@ -782,7 +782,7 @@ async function askReviewRouter(
   try {
     payload = objectValue(await response.json());
   } catch {
-    console.warn(
+    console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'provider_invalid_json',
         provider,
@@ -792,7 +792,7 @@ async function askReviewRouter(
   }
   const parsed = parseReviewJson(completionText(payload));
   if (!parsed || !reviewTextIsChinese(parsed)) {
-    console.warn(
+    console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'provider_invalid_output',
         provider,
@@ -996,7 +996,7 @@ export async function runWebhookReview(
     if (!accepted) throw error;
   }
 
-  console.log(
+  console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
     JSON.stringify({
       kanarekWebhookReview: 'submitted',
       repository: target.repository,
@@ -1022,7 +1022,7 @@ async function enqueueWebhookReview(
 
   const queue = env.KANAREK_REVIEW_JOBS;
   if (!queue) {
-    console.error(JSON.stringify({ kanarekWebhookReview: 'queue_not_configured' }));
+    console.error(JSON.stringify({ kanarekWebhookReview: 'queue_not_configured' })); // skipcq: JS-0002 Cloudflare Worker runtime observability.
     return;
   }
 
@@ -1050,7 +1050,7 @@ async function enqueueWebhookReview(
     },
   );
   if (!response.ok) {
-    console.error(
+    console.error( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'enqueue_failed',
         repository: target.repository,
@@ -1068,7 +1068,7 @@ export function scheduleWebhookReviewWebhook(
   ctx?: ExecutionContext,
 ): void {
   const task = enqueueWebhookReview(request, env).catch((error) => {
-    console.error(
+    console.error( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'enqueue_failed',
         error: error instanceof Error ? error.message : 'unknown_error',
@@ -1155,7 +1155,7 @@ export class WebhookReviewJob {
     try {
       result = await runWebhookReview(started, this.env);
     } catch (error) {
-      console.error(
+      console.error( // skipcq: JS-0002 Cloudflare Worker runtime observability.
         JSON.stringify({
           kanarekWebhookReview: 'job_failed',
           repository: started.target.repository,
@@ -1196,7 +1196,7 @@ export class WebhookReviewJob {
     }
     await this.state.storage.delete([JOB_KEY, STATUS_KEY]);
 
-    console.log(
+    console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'job_complete',
         repository: started.target.repository,

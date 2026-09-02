@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   parseReviewJson,
   patchAddedRightLines,
+  reviewInputState,
   scheduleWebhookReviewWebhook,
   WebhookReviewJob,
   type WebhookReviewEnv,
@@ -12,10 +13,11 @@ import {
 const headA = 'a'.repeat(40);
 const headB = 'b'.repeat(40);
 const base = 'c'.repeat(40);
+const baseB = 'd'.repeat(40);
 
 function payload(
   headSha = headA,
-  options: { action?: string; draft?: boolean; headRepository?: string } = {},
+  options: { action?: string; baseSha?: string; draft?: boolean; headRepository?: string } = {},
 ): Record<string, unknown> {
   return {
     action: options.action ?? 'synchronize',
@@ -24,7 +26,7 @@ function payload(
     repository: { full_name: 'twojstar/llmbench' },
     pull_request: {
       draft: options.draft ?? false,
-      base: { sha: base },
+      base: { sha: options.baseSha ?? base },
       head: {
         sha: headSha,
         repo: {
@@ -89,12 +91,12 @@ function fakeState(initial: Record<string, unknown> = {}): {
   };
 }
 
-function queuedJob(headSha = headA): Record<string, unknown> {
+function queuedJob(headSha = headA, baseSha = base): Record<string, unknown> {
   return {
-    body: JSON.stringify(payload(headSha)),
+    body: JSON.stringify(payload(headSha, { baseSha })),
     target: {
       action: 'synchronize',
-      baseSha: base,
+      baseSha,
       delivery: 'delivery-1',
       headSha,
       installationId: 123,
@@ -116,12 +118,34 @@ test('review line anchors include only added RIGHT-side lines', () => {
   assert.deepEqual([...patchAddedRightLines(patch)], [11, 12]);
 });
 
+test('review input does not mark missing GitHub patches as empty code', () => {
+  assert.equal(
+    reviewInputState([{ filename: 'src/large.ts' }], 0),
+    'patch_unavailable',
+  );
+  assert.equal(
+    reviewInputState([{ filename: 'README.md' }], 0),
+    'no_code_diff',
+  );
+  assert.equal(
+    reviewInputState([{ filename: 'src/large.ts' }], 1),
+    'reviewable',
+  );
+});
+
 test('review JSON parser accepts fenced provider output', () => {
   const parsed = parseReviewJson(
     '```json\n{"summary":"🐤 没发现问题","findings":[]}\n```',
   );
   assert.equal(parsed?.summary, '🐤 没发现问题');
   assert.deepEqual(parsed?.findings, []);
+});
+
+test('review JSON parser rejects non-object and incomplete output', () => {
+  assert.equal(parseReviewJson('[]'), null);
+  assert.equal(parseReviewJson('123'), null);
+  assert.equal(parseReviewJson('{"summary":"没问题"}'), null);
+  assert.equal(parseReviewJson('{"findings":[]}'), null);
 });
 
 test('webhook review scheduler ignores drafts and external forks', async () => {
@@ -195,22 +219,36 @@ test('webhook review job debounces to the newest head', async () => {
   assert.equal(stored.target?.headSha, headB);
 });
 
-test('webhook review job deduplicates an already completed head', async () => {
-  const { alarms, state } = fakeState({ 'completed-head': headA });
+test('webhook review job deduplicates only the same head and base', async () => {
+  const completedTarget = `${headA}:${base}`;
+  const { alarms, state } = fakeState({ 'completed-target': completedTarget });
   const job = new WebhookReviewJob(state, {} as WebhookReviewEnv);
-  const response = await job.fetch(
+  const duplicateResponse = await job.fetch(
     new Request('https://kanarek-review.internal/enqueue', {
       method: 'POST',
-      body: JSON.stringify(queuedJob(headA)),
+      body: JSON.stringify(queuedJob(headA, base)),
     }),
   );
-  const body = (await response.json()) as {
+  const duplicateBody = (await duplicateResponse.json()) as {
     duplicate?: boolean;
     queued?: boolean;
   };
 
-  assert.equal(response.status, 200);
-  assert.equal(body.duplicate, true);
-  assert.equal(body.queued, false);
+  assert.equal(duplicateBody.duplicate, true);
+  assert.equal(duplicateBody.queued, false);
   assert.equal(alarms.length, 0);
+
+  const rebasedResponse = await job.fetch(
+    new Request('https://kanarek-review.internal/enqueue', {
+      method: 'POST',
+      body: JSON.stringify(queuedJob(headA, baseB)),
+    }),
+  );
+  const rebasedBody = (await rebasedResponse.json()) as {
+    duplicate?: boolean;
+    queued?: boolean;
+  };
+  assert.equal(rebasedBody.duplicate, false);
+  assert.equal(rebasedBody.queued, true);
+  assert.equal(alarms.length, 1);
 });

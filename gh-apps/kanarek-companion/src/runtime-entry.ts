@@ -125,6 +125,25 @@ async function acceptedReviewWebhook(
   );
 }
 
+function reviewWebhookHealth(env: Env): JsonObject {
+  const enabled = !['0', 'false', 'no', 'off'].includes(
+    String(env.KANAREK_WEBHOOK_REVIEW_ENABLED ?? 'true').trim().toLowerCase(),
+  );
+  const queueConfigured = Boolean(env.KANAREK_REVIEW_JOBS);
+  const routerConfigured = Boolean(env.KANAREK_REVIEW_ROUTER_TOKEN?.trim());
+  const providerConfigured = Boolean(
+    env.OPENROUTER_API_KEY || env.ORCAROUTER_API_KEY || env.AIHUBMIX_API_KEY,
+  );
+  return {
+    enabled,
+    providerConfigured,
+    queueConfigured,
+    ready: enabled && queueConfigured && routerConfigured && providerConfigured,
+    routerConfigured,
+    trigger: 'github-app-webhook',
+  };
+}
+
 async function decorateGatewayResponse(
   request: Request,
   response: Response,
@@ -142,6 +161,7 @@ async function decorateGatewayResponse(
           {
             ...payload,
             gateway: await manifest(request, env),
+            reviewWebhook: reviewWebhookHealth(env),
           },
           response.status,
         )

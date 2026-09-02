@@ -23,7 +23,7 @@ const MAX_TREE_CHARS = 24_000;
 const MAX_FINDINGS = 8;
 const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
-const COMPLETED_HEAD_KEY = 'completed-head';
+const COMPLETED_TARGET_KEY = 'completed-target';
 const INTERNAL_REVIEW_ORIGIN = 'https://kanarek-review.internal';
 
 const CONTEXT_CONFIG_NAMES = new Set([
@@ -360,11 +360,16 @@ function contextEligiblePath(path: string): boolean {
 }
 
 function sharedSegments(left: string, right: string): number {
-  const a = left.split('/');
-  const b = right.split('/');
-  const length = Math.min(a.length, b.length);
+  const leftSegments = left.split('/');
+  const rightSegments = right.split('/');
+  const length = Math.min(leftSegments.length, rightSegments.length);
   let shared = 0;
-  while (shared < length && a[shared] === b[shared]) shared += 1;
+  while (
+    shared < length &&
+    leftSegments[shared] === rightSegments[shared]
+  ) {
+    shared += 1;
+  }
   return shared;
 }
 
@@ -425,6 +430,21 @@ function selectReviewFiles(
     remaining -= clipped.length;
   }
   return output;
+}
+
+export function reviewInputState(
+  files: Array<Pick<PullRequestFile, 'filename' | 'patch'>>,
+  selectedCount: number,
+): 'reviewable' | 'patch_unavailable' | 'no_code_diff' {
+  if (selectedCount > 0) return 'reviewable';
+  const reviewableFiles = files.filter(
+    (file) =>
+      typeof file.filename === 'string' && reviewablePath(file.filename),
+  );
+  const missingPatch = reviewableFiles.some(
+    (file) => typeof file.patch !== 'string' || file.patch.length === 0,
+  );
+  return missingPatch ? 'patch_unavailable' : 'no_code_diff';
 }
 
 function decodeBase64Text(value: string): string | null {
@@ -503,6 +523,7 @@ async function fetchRepositoryContext(
 
   const tree = boundedTree(treeEntries);
   const changedPaths = files.map((file) => file.path);
+  const changedPathSet = new Set(changedPaths);
   const entriesByPath = new Map(
     treeEntries
       .filter((entry): entry is GitTreeEntry & { path: string } =>
@@ -518,19 +539,20 @@ async function fetchRepositoryContext(
         typeof entry.sha === 'string' &&
         typeof entry.size === 'number' &&
         entry.size <= MAX_CONTEXT_BLOB_BYTES &&
-        !changedPaths.includes(path) &&
+        !changedPathSet.has(path) &&
         contextEligiblePath(path)
       );
     })
+    .map((entry) => ({
+      entry,
+      priority: contextPriority(entry.path ?? '', changedPaths),
+    }))
     .sort((left, right) => {
-      const leftPath = left.path ?? '';
-      const rightPath = right.path ?? '';
-      const priority =
-        contextPriority(leftPath, changedPaths) -
-        contextPriority(rightPath, changedPaths);
+      const priority = left.priority - right.priority;
       if (priority !== 0) return priority;
-      return (left.size ?? 0) - (right.size ?? 0);
-    });
+      return (left.entry.size ?? 0) - (right.entry.size ?? 0);
+    })
+    .map(({ entry }) => entry);
 
   const contextFiles: ReviewContextFile[] = [];
   let remaining = Math.max(
@@ -644,18 +666,18 @@ export function parseReviewJson(value: string): ParsedReview | null {
 
   for (const candidate of candidates) {
     try {
-      const parsed = objectValue(JSON.parse(candidate));
+      const value: unknown = JSON.parse(candidate);
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+      const parsed = value as Record<string, unknown>;
+      if (typeof parsed.summary !== 'string' || !Array.isArray(parsed.findings)) {
+        continue;
+      }
       return {
-        summary:
-          typeof parsed.summary === 'string'
-            ? parsed.summary.trim().slice(0, 600)
-            : '',
-        findings: Array.isArray(parsed.findings)
-          ? parsed.findings.filter(
-              (item): item is RawFinding =>
-                Boolean(item && typeof item === 'object'),
-            )
-          : [],
+        summary: parsed.summary.trim().slice(0, 600),
+        findings: parsed.findings.filter(
+          (item): item is RawFinding =>
+            Boolean(item && typeof item === 'object'),
+        ),
       };
     } catch {
       // Try the next bounded JSON candidate.
@@ -795,7 +817,7 @@ function noGoblin(pr: Record<string, unknown>): boolean {
   });
 }
 
-async function currentPullRequest(
+function currentPullRequest(
   client: Awaited<ReturnType<typeof createInstallationClient>>,
   target: ReviewTarget,
 ): Promise<Record<string, unknown>> {
@@ -803,6 +825,10 @@ async function currentPullRequest(
     `/repos/${repoPath(target.repository)}/pulls/${target.number}`,
     'webhook_review_get_pull_request',
   );
+}
+
+function reviewTargetKey(target: ReviewTarget): string {
+  return `${target.headSha}:${target.baseSha}`;
 }
 
 function targetStillCurrent(
@@ -856,8 +882,14 @@ export async function runWebhookReview(
       250_000,
     ),
   );
-  if (!files.length) {
-    return { reviewed: false, provider: null, findingCount: 0, skipped: 'no_code_diff' };
+  const inputState = reviewInputState(rawFiles, files.length);
+  if (inputState !== 'reviewable') {
+    return {
+      reviewed: false,
+      provider: null,
+      findingCount: 0,
+      skipped: inputState,
+    };
   }
 
   const context = await fetchRepositoryContext(
@@ -993,7 +1025,6 @@ export function scheduleWebhookReviewWebhook(
     );
   });
   if (ctx) ctx.waitUntil(task);
-  else void task;
 }
 
 function validStoredJob(value: unknown): value is StoredJob {
@@ -1042,8 +1073,8 @@ export class WebhookReviewJob {
       return Response.json({ error: 'invalid_job' }, { status: 400 });
     }
     const job = input;
-    const completedHead = await this.state.storage.get<string>(COMPLETED_HEAD_KEY);
-    if (completedHead === job.target.headSha) {
+    const completedTarget = await this.state.storage.get<string>(COMPLETED_TARGET_KEY);
+    if (completedTarget === reviewTargetKey(job.target)) {
       return Response.json({ ok: true, duplicate: true, queued: false });
     }
 
@@ -1091,7 +1122,10 @@ export class WebhookReviewJob {
     }
 
     const latest = await this.state.storage.get<StoredJob>(JOB_KEY);
-    if (validStoredJob(latest) && latest.target.headSha !== started.target.headSha) {
+    if (
+      validStoredJob(latest) &&
+      reviewTargetKey(latest.target) !== reviewTargetKey(started.target)
+    ) {
       await this.state.storage.put(STATUS_KEY, 'queued');
       const debounceMs = configuredInteger(
         this.env.KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS,
@@ -1104,7 +1138,10 @@ export class WebhookReviewJob {
     }
 
     if (result.reviewed || result.skipped === 'no_code_diff') {
-      await this.state.storage.put(COMPLETED_HEAD_KEY, started.target.headSha);
+      await this.state.storage.put(
+        COMPLETED_TARGET_KEY,
+        reviewTargetKey(started.target),
+      );
     }
     await this.state.storage.delete([JOB_KEY, STATUS_KEY]);
 

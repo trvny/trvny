@@ -32,14 +32,36 @@ jobs:
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ secrets.GH_PAT }}
+      KANAREK_COMPANION_HEALTH_URL: https://kanarek-companion.travny.workers.dev/health
     steps:
       - name: Remove legacy per-repository review callers
         shell: bash
         run: |
           set -euo pipefail
           : "${GH_TOKEN:?GH_PAT must be configured}"
+
+          live_health=$(mktemp)
           twojstar_repos_file=$(mktemp)
-          trap 'rm -f "$twojstar_repos_file"' EXIT
+          api_error=$(mktemp)
+          trap 'rm -f "$live_health" "$twojstar_repos_file" "$api_error"' EXIT
+
+          webhook_live=false
+          for _attempt in {1..12}; do
+            if curl --fail --silent --show-error \
+              "$KANAREK_COMPANION_HEALTH_URL" >"$live_health" 2>"$api_error" &&
+              jq -e --arg sha "$GITHUB_SHA" \
+                '.reviewWebhook.ready == true and .reviewWebhook.trigger == "github-app-webhook" and .gateway.workerVersion.tag == $sha' \
+                "$live_health" >/dev/null
+            then
+              webhook_live=true
+              break
+            fi
+            sleep 10
+          done
+          if [[ "$webhook_live" != true ]]; then
+            echo "Webhook review deployment for $GITHUB_SHA is not live yet; keeping legacy callers."
+            exit 0
+          fi
           repos=(
             trvny/.ai
             trvny/.github
@@ -55,11 +77,19 @@ jobs:
 
           for repo in "${repos[@]}"; do
             default_branch=$(gh api "repos/$repo" --jq .default_branch)
-            blob_sha=$(
+            : >"$api_error"
+            if blob_sha=$(
               gh api \
                 "repos/$repo/contents/.github/workflows/kanarek-review.yml?ref=$default_branch" \
-                --jq .sha 2>/dev/null || true
-            )
+                --jq .sha 2>"$api_error"
+            ); then
+              :
+            elif grep -q 'HTTP 404' "$api_error"; then
+              blob_sha=''
+            else
+              cat "$api_error" >&2
+              exit 1
+            fi
             if [ -n "$blob_sha" ]; then
               payload=$(jq -n \
                 --arg message 'Remove legacy Kanarek review caller' \

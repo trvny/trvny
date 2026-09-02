@@ -8,6 +8,7 @@ import {
 } from './agents-guidance-actions.ts';
 import {
   handleReviewRouterRequest,
+  ReviewProviderCooldownStore,
   type ReviewRouterEnv,
 } from './review-router.ts';
 import router, {
@@ -17,7 +18,7 @@ import router, {
   OperatorCheckpointStore,
 } from './router.ts';
 
-export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
+export { actionFetch, CommentProbeLock, OperatorCheckpointStore, ReviewProviderCooldownStore };
 
 type JsonObject = Record<string, unknown>;
 type RouterEnv = Parameters<typeof router.fetch>[1];

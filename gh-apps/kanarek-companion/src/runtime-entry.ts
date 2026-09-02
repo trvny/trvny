@@ -12,6 +12,7 @@ import worker, {
   CommentProbeLock,
   gatewayManifest,
   OperatorCheckpointStore,
+  ReviewProviderCooldownStore,
 } from './entry.ts';
 import { handleReleaseEntryAction, RELEASE_ENTRY_UPLOAD_PATH } from './release-entry-action.ts';
 import {
@@ -25,7 +26,7 @@ import {
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
 
-export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
+export { actionFetch, CommentProbeLock, OperatorCheckpointStore, ReviewProviderCooldownStore };
 
 type WorkerEnv = Parameters<typeof worker.fetch>[1];
 type JsonObject = Record<string, unknown>;

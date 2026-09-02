@@ -31,6 +31,7 @@ export interface ReviewRouterEnv {
   OPENROUTER_API_KEY?: string;
   ORCAROUTER_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
+  KANAREK_REVIEW_COOLDOWNS?: DurableObjectNamespace;
   KANAREK_REVIEW_QUOTA_COOLDOWN_MS?: string;
   KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS?: string;
   KANAREK_REVIEW_OPENROUTER_MODELS?: string;
@@ -55,10 +56,108 @@ type ProviderCooldown = {
   category: string;
 };
 
-const providerCooldowns = new Map<ReviewProviderId, ProviderCooldown>();
+const COOLDOWN_STORAGE_KEY = 'cooldown';
+const COOLDOWN_INTERNAL_ORIGIN = 'https://review-cooldown.internal';
 
-export function clearReviewRouterCooldownsForTest(): void {
-  providerCooldowns.clear();
+function validProviderCooldown(value: unknown): value is ProviderCooldown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const cooldown = value as Partial<ProviderCooldown>;
+  return (
+    typeof cooldown.until === 'number' &&
+    Number.isFinite(cooldown.until) &&
+    typeof cooldown.category === 'string' &&
+    cooldown.category.length > 0 &&
+    cooldown.category.length <= 64
+  );
+}
+
+function cooldownJson(body: unknown, status = 200): Response {
+  return Response.json(body, {
+    status,
+    headers: { 'cache-control': 'no-store' },
+  });
+}
+
+export class ReviewProviderCooldownStore {
+  private readonly state: DurableObjectState;
+  private queue: Promise<void> = Promise.resolve();
+
+  constructor(state: DurableObjectState) {
+    this.state = state;
+  }
+
+  fetch(request: Request): Promise<Response> {
+    return this.enqueue(() => this.handle(request));
+  }
+
+  async alarm(): Promise<void> {
+    await this.enqueue(async () => {
+      await this.state.storage.deleteAll();
+    });
+  }
+
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(task);
+    this.queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async handle(request: Request): Promise<Response> {
+    const pathname = new URL(request.url).pathname;
+    if (pathname === '/active' && request.method === 'GET') {
+      const current = await this.state.storage.get<ProviderCooldown>(COOLDOWN_STORAGE_KEY);
+      if (!validProviderCooldown(current) || current.until <= Date.now()) {
+        if (current !== undefined) {
+          await this.state.storage.delete(COOLDOWN_STORAGE_KEY);
+          await this.state.storage.deleteAlarm();
+        }
+        return cooldownJson({ active: false });
+      }
+      return cooldownJson({ active: true, ...current });
+    }
+
+    if (pathname === '/extend' && request.method === 'POST') {
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return cooldownJson({ error: 'invalid_json' }, 400);
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return cooldownJson({ error: 'invalid_cooldown' }, 400);
+      }
+      const input = body as { category?: unknown; durationMs?: unknown };
+      if (
+        typeof input.category !== 'string' ||
+        !input.category ||
+        input.category.length > 64 ||
+        typeof input.durationMs !== 'number' ||
+        !Number.isInteger(input.durationMs) ||
+        input.durationMs < MIN_COOLDOWN_MS ||
+        input.durationMs > MAX_COOLDOWN_MS
+      ) {
+        return cooldownJson({ error: 'invalid_cooldown' }, 400);
+      }
+
+      const candidate: ProviderCooldown = {
+        until: Date.now() + input.durationMs,
+        category: input.category,
+      };
+      const raw = await this.state.storage.get<ProviderCooldown>(COOLDOWN_STORAGE_KEY);
+      const current = validProviderCooldown(raw) ? raw : null;
+      const next = current && current.until >= candidate.until ? current : candidate;
+      if (next === candidate) {
+        await this.state.storage.put(COOLDOWN_STORAGE_KEY, candidate);
+        await this.state.storage.setAlarm(candidate.until);
+      }
+      return cooldownJson({ ok: true, ...next });
+    }
+
+    return cooldownJson({ error: 'not_found' }, 404);
+  }
 }
 
 function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
@@ -187,22 +286,63 @@ function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | nu
   return null;
 }
 
-function activeProviderCooldown(provider: ReviewProviderId): ProviderCooldown | null {
-  const cooldown = providerCooldowns.get(provider);
-  if (!cooldown) return null;
-  if (cooldown.until > Date.now()) return cooldown;
-  providerCooldowns.delete(provider);
+function providerCooldownStub(
+  env: ReviewRouterEnv,
+  provider: ReviewProviderId,
+): DurableObjectStub | null {
+  if (!env.KANAREK_REVIEW_COOLDOWNS) return null;
+  const id = env.KANAREK_REVIEW_COOLDOWNS.idFromName(provider);
+  return env.KANAREK_REVIEW_COOLDOWNS.get(id);
+}
+
+async function activeProviderCooldown(
+  env: ReviewRouterEnv,
+  provider: ReviewProviderId,
+): Promise<ProviderCooldown | null> {
+  const stub = providerCooldownStub(env, provider);
+  if (!stub) return null;
+  try {
+    const response = await stub.fetch(`${COOLDOWN_INTERNAL_ORIGIN}/active`);
+    if (!response.ok) return null;
+    const payload: unknown = await response.json();
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      !Array.isArray(payload) &&
+      (payload as { active?: unknown }).active === true &&
+      validProviderCooldown(payload)
+    ) {
+      return payload;
+    }
+  } catch {
+    console.warn(JSON.stringify({ kanarekReviewRouter: 'cooldown_read_failed', provider }));
+  }
   return null;
 }
 
-function rememberProviderCooldown(
+async function rememberProviderCooldown(
   provider: ReviewProviderId,
   category: string,
   env: ReviewRouterEnv,
-): void {
+): Promise<void> {
   const durationMs = cooldownDurationMs(env, category);
   if (durationMs === null) return;
-  providerCooldowns.set(provider, { until: Date.now() + durationMs, category });
+  const stub = providerCooldownStub(env, provider);
+  if (!stub) return;
+  try {
+    const response = await stub.fetch(`${COOLDOWN_INTERNAL_ORIGIN}/extend`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ category, durationMs }),
+    });
+    if (!response.ok) {
+      console.warn(JSON.stringify({
+        kanarekReviewRouter: 'cooldown_write_failed', provider, status: response.status,
+      }));
+    }
+  } catch {
+    console.warn(JSON.stringify({ kanarekReviewRouter: 'cooldown_write_failed', provider }));
+  }
 }
 
 function isQuotaFailure(category: string): boolean {
@@ -426,7 +566,7 @@ export async function handleReviewRouterRequest(
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
     configured += 1;
-    const cooldown = activeProviderCooldown(provider.id);
+    const cooldown = await activeProviderCooldown(env, provider.id);
     if (cooldown) {
       const category = `cooldown_${cooldown.category}`;
       failures.push(diagnostic(provider, category));
@@ -527,7 +667,7 @@ export async function handleReviewRouterRequest(
     }
 
     clearTimeout(timeout);
-    rememberProviderCooldown(provider.id, providerFailureCategory, env);
+    await rememberProviderCooldown(provider.id, providerFailureCategory, env);
     failures.push(diagnostic(provider, providerFailureCategory));
     if (providerInvalidRequest) invalidRequests += 1;
   }

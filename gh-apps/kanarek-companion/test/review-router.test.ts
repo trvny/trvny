@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { clearReviewRouterCooldownsForTest, handleReviewRouterRequest } from '../src/review-router.ts';
-
-test.beforeEach(() => {
-  clearReviewRouterCooldownsForTest();
-});
+import { handleReviewRouterRequest, ReviewProviderCooldownStore } from '../src/review-router.ts';
 
 const base = 'https://kanarek-companion.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;
@@ -23,6 +19,50 @@ function request(
 }
 
 const auth = { KANAREK_REVIEW_ROUTER_TOKEN: routerToken } as const;
+
+function cooldownState(): DurableObjectState {
+  const values = new Map<string, unknown>();
+  return {
+    storage: {
+      async get(key: string) {
+        return values.get(key);
+      },
+      async put(key: string, value: unknown) {
+        values.set(key, value);
+      },
+      async delete(key: string) {
+        return values.delete(key);
+      },
+      async deleteAll() {
+        values.clear();
+      },
+      async setAlarm() {},
+      async deleteAlarm() {},
+    },
+  } as unknown as DurableObjectState;
+}
+
+function cooldownNamespace(): DurableObjectNamespace {
+  const stores = new Map<string, ReviewProviderCooldownStore>();
+  return {
+    idFromName(name: string) {
+      return name as unknown as DurableObjectId;
+    },
+    get(id: DurableObjectId) {
+      const key = id as unknown as string;
+      let store = stores.get(key);
+      if (!store) {
+        store = new ReviewProviderCooldownStore(cooldownState());
+        stores.set(key, store);
+      }
+      return {
+        fetch(input: RequestInfo | URL, init?: RequestInit) {
+          return store.fetch(new Request(input, init));
+        },
+      } as DurableObjectStub;
+    },
+  } as unknown as DurableObjectNamespace;
+}
 
 test('review router rejects an invalid bearer before provider access', async () => {
   let calls = 0;
@@ -153,9 +193,30 @@ test('review router honors the shared configured OpenRouter model chain', async 
   assert.deepEqual(body.models, ['second/free']);
 });
 
+test('review cooldown store never shortens an existing provider cooldown', async () => {
+  const namespace = cooldownNamespace();
+  const stub = namespace.get(namespace.idFromName('openrouter'));
+  const extend = (category: string, durationMs: number) => stub.fetch(
+    'https://review-cooldown.internal/extend',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ category, durationMs }),
+    },
+  );
+
+  assert.equal((await extend('http_429', 600_000)).status, 200);
+  assert.equal((await extend('http_503', 30_000)).status, 200);
+  const active = await stub.fetch('https://review-cooldown.internal/active');
+  const payload = (await active.json()) as { active?: boolean; category?: string };
+  assert.equal(payload.active, true);
+  assert.equal(payload.category, 'http_429');
+});
+
 test('review router cools down a quota-limited provider across Copilot retries', async () => {
   const env = {
     ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
   };
   const firstUrls: string[] = [];
   const first = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
@@ -181,7 +242,7 @@ test('review router cools down a quota-limited provider across Copilot retries',
 test('review router fails fast while the whole free pool is quota-cooled', async () => {
   const env = {
     ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
-    AIHUBMIX_API_KEY: 'aihubmix-key',
+    AIHUBMIX_API_KEY: 'aihubmix-key', KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
   };
   let calls = 0;
   const exhausted = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {

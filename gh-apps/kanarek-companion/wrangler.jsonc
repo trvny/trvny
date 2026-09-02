@@ -18,6 +18,10 @@
       {
         "name": "OPERATOR_CHECKPOINTS",
         "class_name": "OperatorCheckpointStore"
+      },
+      {
+        "name": "KANAREK_REVIEW_COOLDOWNS",
+        "class_name": "ReviewProviderCooldownStore"
       }
     ]
   },
@@ -43,6 +47,10 @@
     {
       "tag": "v4",
       "deleted_classes": ["FreeReviewJob"]
+    },
+    {
+      "tag": "v5",
+      "new_sqlite_classes": ["ReviewProviderCooldownStore"]
     }
   ],
   "observability": {

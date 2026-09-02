@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { handleReviewRouterRequest } from '../src/review-router.ts';
+import { handleReviewRouterRequest, ReviewProviderCooldownStore } from '../src/review-router.ts';
 
 const base = 'https://kanarek-companion.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;
@@ -19,6 +19,50 @@ function request(
 }
 
 const auth = { KANAREK_REVIEW_ROUTER_TOKEN: routerToken } as const;
+
+function cooldownState(): DurableObjectState {
+  const values = new Map<string, unknown>();
+  return {
+    storage: {
+      get(key: string) {
+        return values.get(key);
+      },
+      put(key: string, value: unknown) {
+        values.set(key, value);
+      },
+      delete(key: string) {
+        return values.delete(key);
+      },
+      deleteAll() {
+        values.clear();
+      },
+      setAlarm() { return undefined; },
+      deleteAlarm() { return undefined; },
+    },
+  } as unknown as DurableObjectState;
+}
+
+function cooldownNamespace(): DurableObjectNamespace {
+  const stores = new Map<string, ReviewProviderCooldownStore>();
+  return {
+    idFromName(name: string) {
+      return name as unknown as DurableObjectId;
+    },
+    get(id: DurableObjectId) {
+      const key = id as unknown as string;
+      let store = stores.get(key);
+      if (!store) {
+        store = new ReviewProviderCooldownStore(cooldownState());
+        stores.set(key, store);
+      }
+      return {
+        fetch(input: RequestInfo | URL, init?: RequestInit) {
+          return store.fetch(new Request(input, init));
+        },
+      } as DurableObjectStub;
+    },
+  } as unknown as DurableObjectNamespace;
+}
 
 test('review router rejects an invalid bearer before provider access', async () => {
   let calls = 0;
@@ -149,6 +193,99 @@ test('review router honors the shared configured OpenRouter model chain', async 
   assert.deepEqual(body.models, ['second/free']);
 });
 
+test('review cooldown store preserves a fresh extension when a stale alarm arrives', async () => {
+  const store = new ReviewProviderCooldownStore(cooldownState());
+  const extended = await store.fetch(new Request('https://review-cooldown.internal/extend', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ category: 'http_429', durationMs: 600_000 }),
+  }));
+  assert.equal(extended.status, 200);
+
+  await store.alarm();
+
+  const active = await store.fetch(new Request('https://review-cooldown.internal/active'));
+  const payload = (await active.json()) as { active?: boolean; category?: string };
+  assert.equal(payload.active, true);
+  assert.equal(payload.category, 'http_429');
+});
+
+test('review cooldown store never shortens an existing provider cooldown', async () => {
+  const namespace = cooldownNamespace();
+  const stub = namespace.get(namespace.idFromName('openrouter'));
+  const extend = (category: string, durationMs: number) => stub.fetch(
+    'https://review-cooldown.internal/extend',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ category, durationMs }),
+    },
+  );
+
+  assert.equal((await extend('http_429', 600_000)).status, 200);
+  assert.equal((await extend('http_503', 30_000)).status, 200);
+  const active = await stub.fetch('https://review-cooldown.internal/active');
+  const payload = (await active.json()) as { active?: boolean; category?: string };
+  assert.equal(payload.active, true);
+  assert.equal(payload.category, 'http_429');
+});
+
+test('review router cools down a quota-limited provider across Copilot retries', async () => {
+  const env = {
+    ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+  };
+  const firstUrls: string[] = [];
+  const first = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
+    firstUrls.push(String(input));
+    if (firstUrls.length === 1) return Promise.resolve(new Response('quota', { status: 429 }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+  assert.equal(first?.status, 200);
+  assert.deepEqual(firstUrls, [
+    'https://openrouter.ai/api/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
+  ]);
+
+  const retryUrls: string[] = [];
+  const retry = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
+    retryUrls.push(String(input));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+  assert.equal(retry?.status, 200);
+  assert.deepEqual(retryUrls, ['https://api.orcarouter.ai/v1/chat/completions']);
+});
+
+test('review router fails fast while the whole free pool is quota-cooled', async () => {
+  const env = {
+    ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
+    AIHUBMIX_API_KEY: 'aihubmix-key', KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+  };
+  let calls = 0;
+  const exhausted = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
+    calls += 1;
+    if (new URL(String(input)).hostname === 'aihubmix.com') {
+      return Promise.resolve(new Response(
+        'data: {"choices":[{"delta":{"content":"to prevent abuse of free resources"}}]}\n\n',
+        { status: 200, headers: { 'content-type': 'text/event-stream' } },
+      ));
+    }
+    return Promise.resolve(new Response('quota', { status: 429 }));
+  }) as typeof fetch);
+  assert.equal(exhausted?.status, 429);
+  assert.equal(calls, 3);
+
+  const retry = await handleReviewRouterRequest(request(), env, (() => {
+    calls += 1;
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+  assert.equal(retry?.status, 429);
+  assert.equal(calls, 3);
+  const payload = (await retry?.json()) as { error?: { message?: string } };
+  assert.match(payload.error?.message ?? '', /cooldown_http_429/);
+  assert.match(payload.error?.message ?? '', /cooldown_soft_quota/);
+});
+
 test('review router falls through provider authentication errors', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(), {
@@ -226,7 +363,7 @@ test('review router treats AIHubMix HTTP 200 quota text as exhausted', async () 
     { status: 200, headers: { 'content-type': 'text/event-stream' } },
   ))) as typeof fetch);
 
-  assert.equal(response?.status, 502);
+  assert.equal(response?.status, 429);
 });
 
 test('review router preserves a normal AIHubMix stream after previewing it', async () => {

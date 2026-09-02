@@ -6,6 +6,10 @@ export const REVIEW_ROUTER_MODELS_PATH = '/review-router/v1/models';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
+const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
+const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
+const MIN_COOLDOWN_MS = 1_000;
+const MAX_COOLDOWN_MS = 30 * 60_000;
 const SOFT_FAILURE_PREVIEW_BYTES = 8_192;
 const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'nvidia/nemotron-3-ultra-550b-a55b:free',
@@ -27,20 +31,139 @@ export interface ReviewRouterEnv {
   OPENROUTER_API_KEY?: string;
   ORCAROUTER_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
+  KANAREK_REVIEW_COOLDOWNS?: DurableObjectNamespace;
+  KANAREK_REVIEW_QUOTA_COOLDOWN_MS?: string;
+  KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS?: string;
   KANAREK_REVIEW_OPENROUTER_MODELS?: string;
   KANAREK_OPENROUTER_MODELS?: string;
 }
 
 type JsonObject = Record<string, unknown>;
 
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter';
+
 type ReviewProvider = {
-  id: 'aihubmix' | 'openrouter' | 'orcarouter';
+  id: ReviewProviderId;
   url: string;
   model: string;
   fallbackModels?: readonly string[];
   apiKey: (env: ReviewRouterEnv) => string | undefined;
   headers?: Record<string, string>;
 };
+
+type ProviderCooldown = {
+  until: number;
+  category: string;
+};
+
+const COOLDOWN_STORAGE_KEY = 'cooldown';
+const COOLDOWN_INTERNAL_ORIGIN = 'https://review-cooldown.internal';
+
+function validProviderCooldown(value: unknown): value is ProviderCooldown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const cooldown = value as Partial<ProviderCooldown>;
+  return (
+    typeof cooldown.until === 'number' &&
+    Number.isFinite(cooldown.until) &&
+    typeof cooldown.category === 'string' &&
+    cooldown.category.length > 0 &&
+    cooldown.category.length <= 64
+  );
+}
+
+function cooldownJson(body: unknown, status = 200): Response {
+  return Response.json(body, {
+    status,
+    headers: { 'cache-control': 'no-store' },
+  });
+}
+
+export class ReviewProviderCooldownStore {
+  private readonly state: DurableObjectState;
+  private queue: Promise<void> = Promise.resolve();
+
+  constructor(state: DurableObjectState) {
+    this.state = state;
+  }
+
+  fetch(request: Request): Promise<Response> {
+    return this.enqueue(() => this.handle(request));
+  }
+
+  async alarm(): Promise<void> {
+    await this.enqueue(async () => {
+      const current = await this.state.storage.get<ProviderCooldown>(COOLDOWN_STORAGE_KEY);
+      if (validProviderCooldown(current) && current.until > Date.now()) {
+        await this.state.storage.setAlarm(current.until);
+        return;
+      }
+      await this.state.storage.deleteAll();
+    });
+  }
+
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(task);
+    this.queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async handle(request: Request): Promise<Response> {
+    const pathname = new URL(request.url).pathname;
+    if (pathname === '/active' && request.method === 'GET') {
+      const current = await this.state.storage.get<ProviderCooldown>(COOLDOWN_STORAGE_KEY);
+      if (!validProviderCooldown(current) || current.until <= Date.now()) {
+        if (current !== undefined) {
+          await this.state.storage.delete(COOLDOWN_STORAGE_KEY);
+          await this.state.storage.deleteAlarm();
+        }
+        return cooldownJson({ active: false });
+      }
+      return cooldownJson({ active: true, ...current });
+    }
+
+    if (pathname === '/extend' && request.method === 'POST') {
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return cooldownJson({ error: 'invalid_json' }, 400);
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return cooldownJson({ error: 'invalid_cooldown' }, 400);
+      }
+      const input = body as { category?: unknown; durationMs?: unknown };
+      if (
+        typeof input.category !== 'string' ||
+        !input.category ||
+        input.category.length > 64 ||
+        typeof input.durationMs !== 'number' ||
+        !Number.isInteger(input.durationMs) ||
+        input.durationMs < MIN_COOLDOWN_MS ||
+        input.durationMs > MAX_COOLDOWN_MS
+      ) {
+        return cooldownJson({ error: 'invalid_cooldown' }, 400);
+      }
+
+      const candidate: ProviderCooldown = {
+        until: Date.now() + input.durationMs,
+        category: input.category,
+      };
+      const raw = await this.state.storage.get<ProviderCooldown>(COOLDOWN_STORAGE_KEY);
+      const current = validProviderCooldown(raw) ? raw : null;
+      const next = current && current.until >= candidate.until ? current : candidate;
+      if (next === candidate) {
+        await this.state.storage.put(COOLDOWN_STORAGE_KEY, candidate);
+        await this.state.storage.setAlarm(candidate.until);
+      }
+      return cooldownJson({ ok: true, ...next });
+    }
+
+    return cooldownJson({ error: 'not_found' }, 404);
+  }
+}
 
 function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
   const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
@@ -135,6 +258,101 @@ function timeoutMs(env: ReviewRouterEnv): number {
     return DEFAULT_TIMEOUT_MS;
   }
   return parsed;
+}
+
+function boundedCooldownMs(raw: string | undefined, fallback: number): number {
+  const value = raw?.trim();
+  if (!value || !/^\d+$/.test(value)) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < MIN_COOLDOWN_MS || parsed > MAX_COOLDOWN_MS) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | null {
+  if (category === 'soft_quota' || category === 'http_402' || category === 'http_429') {
+    return boundedCooldownMs(env.KANAREK_REVIEW_QUOTA_COOLDOWN_MS, DEFAULT_QUOTA_COOLDOWN_MS);
+  }
+  if (
+    category === 'timeout' ||
+    category === 'network' ||
+    category === 'preview_timeout' ||
+    category === 'http_408' ||
+    category === 'http_409' ||
+    category === 'http_425' ||
+    /^http_5\d\d$/.test(category)
+  ) {
+    return boundedCooldownMs(
+      env.KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS,
+      DEFAULT_TRANSIENT_COOLDOWN_MS,
+    );
+  }
+  return null;
+}
+
+function providerCooldownStub(
+  env: ReviewRouterEnv,
+  provider: ReviewProviderId,
+): DurableObjectStub | null {
+  if (!env.KANAREK_REVIEW_COOLDOWNS) return null;
+  const id = env.KANAREK_REVIEW_COOLDOWNS.idFromName(provider);
+  return env.KANAREK_REVIEW_COOLDOWNS.get(id);
+}
+
+async function activeProviderCooldown(
+  env: ReviewRouterEnv,
+  provider: ReviewProviderId,
+): Promise<ProviderCooldown | null> {
+  const stub = providerCooldownStub(env, provider);
+  if (!stub) return null;
+  try {
+    const response = await stub.fetch(`${COOLDOWN_INTERNAL_ORIGIN}/active`);
+    if (!response.ok) return null;
+    const payload: unknown = await response.json();
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      !Array.isArray(payload) &&
+      (payload as { active?: unknown }).active === true &&
+      validProviderCooldown(payload)
+    ) {
+      return payload;
+    }
+  } catch {
+    console.warn(JSON.stringify({ kanarekReviewRouter: 'cooldown_read_failed', provider }));
+  }
+  return null;
+}
+
+async function rememberProviderCooldown(
+  provider: ReviewProviderId,
+  category: string,
+  env: ReviewRouterEnv,
+): Promise<void> {
+  const durationMs = cooldownDurationMs(env, category);
+  if (durationMs === null) return;
+  const stub = providerCooldownStub(env, provider);
+  if (!stub) return;
+  try {
+    const response = await stub.fetch(`${COOLDOWN_INTERNAL_ORIGIN}/extend`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ category, durationMs }),
+    });
+    if (!response.ok) {
+      console.warn(JSON.stringify({
+        kanarekReviewRouter: 'cooldown_write_failed', provider, status: response.status,
+      }));
+    }
+  } catch {
+    console.warn(JSON.stringify({ kanarekReviewRouter: 'cooldown_write_failed', provider }));
+  }
+}
+
+function isQuotaFailure(category: string): boolean {
+  const normalized = category.startsWith('cooldown_') ? category.slice('cooldown_'.length) : category;
+  return normalized === 'soft_quota' || normalized === 'http_402' || normalized === 'http_429';
 }
 
 function retryableStatus(status: number): boolean {
@@ -353,6 +571,15 @@ export async function handleReviewRouterRequest(
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
     configured += 1;
+    const cooldown = await activeProviderCooldown(env, provider.id);
+    if (cooldown) {
+      const category = `cooldown_${cooldown.category}`;
+      failures.push(diagnostic(provider, category));
+      console.info(JSON.stringify({
+        kanarekReviewRouter: 'provider_cooldown', provider: provider.id, category: cooldown.category,
+      }));
+      continue;
+    }
     const controller = new AbortController();
     const providerTimeoutMs = timeoutMs(env);
     const deadlineAt = Date.now() + providerTimeoutMs;
@@ -445,6 +672,7 @@ export async function handleReviewRouterRequest(
     }
 
     clearTimeout(timeout);
+    await rememberProviderCooldown(provider.id, providerFailureCategory, env);
     failures.push(diagnostic(provider, providerFailureCategory));
     if (providerInvalidRequest) invalidRequests += 1;
   }
@@ -458,6 +686,8 @@ export async function handleReviewRouterRequest(
   return jsonError(
     diagnosticMessage('Review providers unavailable', failures),
     'review_router_exhausted',
-    502,
+    failures.length > 0 && failures.every((failure) => isQuotaFailure(failure.split(':', 2)[1] ?? ''))
+      ? 429
+      : 502,
   );
 }

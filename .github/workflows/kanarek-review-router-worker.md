@@ -22,6 +22,10 @@ run-name: Kanarek review · #${{ inputs.pr_number }}
 
 timeout-minutes: 30
 
+concurrency:
+  group: kanarek-review-worker-${{ github.repository }}-${{ inputs.pr_number }}
+  cancel-in-progress: true
+
 engine:
   id: copilot
   env:
@@ -62,6 +66,9 @@ tools:
     min-integrity: approved
 
 steps:
+  - name: Let rapid pull request updates settle
+    shell: bash
+    run: sleep 60
   - name: Prepare pull request review context
     shell: bash
     env:

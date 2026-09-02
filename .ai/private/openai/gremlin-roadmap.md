@@ -63,6 +63,7 @@ Build outward in this order, keeping external capabilities high-level and guarde
 
 - [x] **On-demand specialist knowledge.** Manifest-backed `getGremlinKnowledge` loads private domain references only when needed; initial mastery packs cover Brainrot and Rickroll-Lang.
 - [x] **Cloudflare operator.** Guarded Workers/Pages/zone inventory and inspection, deployment history, routes, DNS and observability; preconditioned Worker/Pages rollback plus existing-route/DNS/subdomain updates. No raw destructive Cloudflare proxy.
+- [x] **Engram memory bridge.** OAuth-gated personal memory status/search/store backed by the server-side Engram credential. The Worker verifies `trvny` before touching the credential, keeps search scope personal and exposes no generic upstream proxy.
 - [ ] **Package intelligence.** Research npm, PyPI, crates.io, Maven Central, NuGet and other relevant ecosystems for current versions, maintenance health, releases, licenses, advisories, changelogs and alternatives. Start read-only and triangulate registry metadata with upstream repositories.
 - [ ] **Feed doctor.** Discover and validate RSS/Atom feeds, redirects, caching headers and icons, then produce Feedseek-ready source data.
 - [ ] **Web diagnostics.** Inspect HTTP/TLS, redirects, robots, sitemaps, cache behavior and broken links without turning Gremlin into a generic browser automation swamp.

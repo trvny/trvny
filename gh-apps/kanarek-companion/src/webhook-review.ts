@@ -116,11 +116,13 @@ export interface WebhookReviewEnv extends ReviewRouterEnv {
 interface ReviewTarget {
   action: string;
   baseSha: string;
+  beforeSha?: string;
   delivery: string;
   headSha: string;
   installationId: number;
   number: number;
   repository: string;
+  updatedAtMs?: number;
 }
 
 interface StoredJob {
@@ -291,6 +293,13 @@ function targetFromPayload(
       : 0;
   const headSha = typeof head.sha === 'string' ? head.sha.toLowerCase() : '';
   const baseSha = typeof base.sha === 'string' ? base.sha.toLowerCase() : '';
+  const rawBeforeSha =
+    typeof payload.before === 'string' ? payload.before.toLowerCase() : '';
+  const beforeSha = SHA_RE.test(rawBeforeSha) ? rawBeforeSha : undefined;
+  const updatedAtMs =
+    typeof pullRequest.updated_at === 'string'
+      ? Date.parse(pullRequest.updated_at)
+      : Number.NaN;
 
   if (
     !repositoryName ||
@@ -308,11 +317,13 @@ function targetFromPayload(
   return {
     action,
     baseSha,
+    beforeSha,
     delivery,
     headSha,
     installationId,
     number,
     repository: repositoryName,
+    updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : undefined,
   };
 }
 
@@ -866,6 +877,23 @@ function reviewTargetKey(target: ReviewTarget): string {
   return `${target.headSha}:${target.baseSha}`;
 }
 
+export function shouldReplaceQueuedTarget(
+  existing: ReviewTarget,
+  incoming: ReviewTarget,
+): boolean {
+  if (reviewTargetKey(existing) === reviewTargetKey(incoming)) return true;
+  if (
+    typeof existing.updatedAtMs === 'number' &&
+    typeof incoming.updatedAtMs === 'number'
+  ) {
+    if (incoming.updatedAtMs > existing.updatedAtMs) return true;
+    if (incoming.updatedAtMs < existing.updatedAtMs) return false;
+    return incoming.beforeSha === existing.headSha;
+  }
+  if (incoming.beforeSha === existing.headSha) return true;
+  return true;
+}
+
 export function reviewMarker(target: ReviewTarget): string {
   return `<!-- kanarek-review:${reviewTargetKey(target)} -->`;
 }
@@ -1147,7 +1175,13 @@ function validStoredJob(value: unknown): value is StoredJob {
       typeof target.headSha === 'string' &&
       SHA_RE.test(target.headSha) &&
       typeof target.baseSha === 'string' &&
-      SHA_RE.test(target.baseSha),
+      SHA_RE.test(target.baseSha) &&
+      (target.beforeSha === undefined ||
+        (typeof target.beforeSha === 'string' && SHA_RE.test(target.beforeSha))) &&
+      (target.updatedAtMs === undefined ||
+        (typeof target.updatedAtMs === 'number' &&
+          Number.isFinite(target.updatedAtMs) &&
+          target.updatedAtMs >= 0)),
   );
 }
 
@@ -1181,6 +1215,13 @@ export class WebhookReviewJob {
     const completedTarget = await this.state.storage.get<string>(COMPLETED_TARGET_KEY);
     if (completedTarget === reviewTargetKey(job.target)) {
       return Response.json({ ok: true, duplicate: true, queued: false });
+    }
+    const queued = await this.state.storage.get<StoredJob>(JOB_KEY);
+    if (
+      validStoredJob(queued) &&
+      !shouldReplaceQueuedTarget(queued.target, job.target)
+    ) {
+      return Response.json({ ok: true, stale: true, queued: false });
     }
 
     await this.state.storage.put({

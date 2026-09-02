@@ -96,17 +96,23 @@ function fakeState(initial: Record<string, unknown> = {}): {
   };
 }
 
-function queuedJob(headSha = headA, baseSha = base): Record<string, unknown> {
+function queuedJob(
+  headSha = headA,
+  baseSha = base,
+  options: { beforeSha?: string; updatedAtMs?: number } = {},
+): Record<string, unknown> {
   return {
     body: JSON.stringify(payload(headSha, { baseSha })),
     target: {
       action: 'synchronize',
       baseSha,
+      beforeSha: options.beforeSha,
       delivery: 'delivery-1',
       headSha,
       installationId: 123,
       number: 21,
       repository: 'twojstar/llmbench',
+      updatedAtMs: options.updatedAtMs,
     },
   };
 }
@@ -321,6 +327,36 @@ test('webhook review job debounces to the newest head', async () => {
     target?: { headSha?: string };
   };
   assert.equal(stored.target?.headSha, headB);
+});
+
+test('webhook review job preserves a newer queued target from stale redelivery', async () => {
+  const newer = queuedJob(headB, base, {
+    beforeSha: headA,
+    updatedAtMs: 2_000,
+  });
+  const { alarms, state, values } = fakeState({ job: newer, status: 'queued' });
+  const job = new WebhookReviewJob(state, {} as WebhookReviewEnv);
+  const response = await job.fetch(
+    new Request('https://kanarek-review.internal/enqueue', {
+      method: 'POST',
+      body: JSON.stringify(
+        queuedJob(headA, base, {
+          beforeSha: 'e'.repeat(40),
+          updatedAtMs: 1_000,
+        }),
+      ),
+    }),
+  );
+  const responseBody = (await response.json()) as {
+    queued?: boolean;
+    stale?: boolean;
+  };
+  const stored = values.get('job') as { target?: { headSha?: string } };
+
+  assert.equal(responseBody.stale, true);
+  assert.equal(responseBody.queued, false);
+  assert.equal(stored.target?.headSha, headB);
+  assert.equal(alarms.length, 0);
 });
 
 test('webhook review job deduplicates only the same head and base', async () => {

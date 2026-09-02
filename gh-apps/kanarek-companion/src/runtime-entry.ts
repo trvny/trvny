@@ -25,19 +25,33 @@ import {
   SYMBOL_INVESTIGATION_PATH,
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
+import {
+  scheduleWebhookReviewWebhook,
+  WebhookReviewJob,
+  type WebhookReviewEnv,
+} from './webhook-review.ts';
 
-export { actionFetch, CommentProbeLock, OperatorCheckpointStore, ReviewProviderCooldownStore };
+export {
+  actionFetch,
+  CommentProbeLock,
+  OperatorCheckpointStore,
+  ReviewProviderCooldownStore,
+  WebhookReviewJob,
+};
 
 type WorkerEnv = Parameters<typeof worker.fetch>[1];
 type JsonObject = Record<string, unknown>;
-type Env = WorkerEnv & {
-  CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
-};
+type Env = WorkerEnv &
+  WebhookReviewEnv & {
+    CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
+    KANAREK_REVIEW_REPOSITORIES?: string;
+  };
 
 const OPENAPI_PATH = '/gpt-actions/openapi.json';
 const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
 const SMOKE_PATH = '/gpt-actions/operator/smoke';
 const HEALTH_PATH = '/health';
+const WEBHOOK_PATH = '/webhooks/github';
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -69,6 +83,76 @@ async function responseObject(response: Response): Promise<JsonObject | null> {
   }
 }
 
+function configuredRepositoryAllowed(
+  configured: string | undefined,
+  repository: string,
+): boolean {
+  return String(configured ?? 'trvny/trvny')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .some((entry) => {
+      if (entry === repository) return true;
+      if (!entry.endsWith('/*')) return false;
+      return repository.startsWith(`${entry.slice(0, -2)}/`);
+    });
+}
+
+async function acceptedReviewWebhook(
+  request: Request,
+  response: Response,
+  env: Env,
+): Promise<boolean> {
+  if (request.headers.get('x-github-event') !== 'pull_request') return false;
+  const accepted = await responseObject(response);
+  if (accepted?.accepted !== true) return false;
+
+  let payload: JsonObject;
+  try {
+    const value: unknown = await request.clone().json();
+    if (!isObject(value)) return false;
+    payload = value;
+  } catch {
+    return false;
+  }
+  const repository = isObject(payload.repository) ? payload.repository : null;
+  const fullName =
+    typeof repository?.full_name === 'string' ? repository.full_name : '';
+  if (!fullName) return false;
+  return configuredRepositoryAllowed(
+    env.KANAREK_REVIEW_REPOSITORIES ?? env.KANAREK_REPOSITORIES,
+    fullName,
+  );
+}
+
+function reviewWebhookHealth(env: Env): JsonObject {
+  const enabled = !['0', 'false', 'no', 'off'].includes(
+    String(env.KANAREK_WEBHOOK_REVIEW_ENABLED ?? 'true').trim().toLowerCase(),
+  );
+  const githubConfigured = Boolean(
+    env.GITHUB_APP_ID?.trim() && env.GITHUB_PRIVATE_KEY?.trim(),
+  );
+  const queueConfigured = Boolean(env.KANAREK_REVIEW_JOBS);
+  const routerConfigured = Boolean(env.KANAREK_REVIEW_ROUTER_TOKEN?.trim());
+  const providerConfigured = Boolean(
+    env.OPENROUTER_API_KEY || env.ORCAROUTER_API_KEY || env.AIHUBMIX_API_KEY,
+  );
+  return {
+    enabled,
+    githubConfigured,
+    providerConfigured,
+    queueConfigured,
+    ready:
+      enabled &&
+      githubConfigured &&
+      queueConfigured &&
+      routerConfigured &&
+      providerConfigured,
+    routerConfigured,
+    trigger: 'github-app-webhook',
+  };
+}
+
 async function decorateGatewayResponse(
   request: Request,
   response: Response,
@@ -86,6 +170,7 @@ async function decorateGatewayResponse(
           {
             ...payload,
             gateway: await manifest(request, env),
+            reviewWebhook: reviewWebhookHealth(env),
           },
           response.status,
         )
@@ -115,7 +200,13 @@ async function decorateGatewayResponse(
 const runtime = {
   fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     return runWithActionRequestContext(async () => {
-      const url = new URL(request.url);if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
+      const url = new URL(request.url);
+      const webhookRequest =
+        url.pathname === WEBHOOK_PATH && request.method === 'POST'
+          ? request.clone()
+          : null;
+
+      if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
         return json(runtimeOpenApi(new URL(request.url).origin));
       }
       if (url.pathname === BUG_INVESTIGATION_PATH) {
@@ -179,7 +270,15 @@ const runtime = {
         if (response) return response;
       }
 
-      const baseResponse = await worker.fetch(request, env, ctx);const response = await decorateGatewayResponse(
+      const baseResponse = await worker.fetch(request, env, ctx);
+      if (
+        webhookRequest &&
+        baseResponse.status === 202 &&
+        (await acceptedReviewWebhook(webhookRequest, baseResponse, env))
+      ) {
+        scheduleWebhookReviewWebhook(webhookRequest, env, ctx);
+      }
+      const response = await decorateGatewayResponse(
         request,
         baseResponse,
         env,

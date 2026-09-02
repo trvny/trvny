@@ -22,6 +22,10 @@
       {
         "name": "KANAREK_REVIEW_COOLDOWNS",
         "class_name": "ReviewProviderCooldownStore"
+      },
+      {
+        "name": "KANAREK_REVIEW_JOBS",
+        "class_name": "WebhookReviewJob"
       }
     ]
   },
@@ -51,6 +55,10 @@
     {
       "tag": "v5",
       "new_sqlite_classes": ["ReviewProviderCooldownStore"]
+    },
+    {
+      "tag": "v6",
+      "new_sqlite_classes": ["WebhookReviewJob"]
     }
   ],
   "observability": {
@@ -78,6 +86,12 @@
     "KANAREK_REVIEW_QUOTA_COOLDOWN_MS": "600000",
     "KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS": "30000",
     "KANAREK_REVIEW_OPENROUTER_MODELS": "nvidia/nemotron-3-ultra-550b-a55b:free,poolside/laguna-s-2.1:free,cohere/north-mini-code:free,poolside/laguna-m.1:free,nvidia/nemotron-3-super-120b-a12b:free,openrouter/free",
+    "KANAREK_REVIEW_REPOSITORIES": "trvny/trvny,trvny/.ai,trvny/.github,trvny/WiFi-Automatic,trvny/feedseek,trvny/tvpi,twojstar/*",
+    "KANAREK_WEBHOOK_REVIEW_ENABLED": "true",
+    "KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS": "60000",
+    "KANAREK_WEBHOOK_REVIEW_MAX_DIFF_CHARS": "60000",
+    "KANAREK_WEBHOOK_REVIEW_MAX_CONTEXT_CHARS": "120000",
+    "KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS": "4096",
     "KANAREK_REQUIRE_CI": "true",
     "KANAREK_REPOSITORIES": "trvny/trvny,trvny/feedseek,trvny/tvpi,twojstar/*",
     "KANAREK_OPENROUTER_ENABLED": "true",

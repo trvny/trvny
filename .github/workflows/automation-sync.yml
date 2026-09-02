@@ -1,144 +1,16 @@
-name: Sync automation rollout
+name: Sync Kanarek credentials
 
 on:
   workflow_dispatch:
-    inputs:
-      target:
-        description: Automation credentials to sync
-        required: true
-        default: all
-        type: choice
-        options:
-          - all
-          - review
-          - cloudflare
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/automation-sync.yml
-  schedule:
-    - cron: "17 * * * *"
 
 permissions:
   contents: read
 
 jobs:
-  review:
-    concurrency:
-      group: automation-sync-review
-      cancel-in-progress: false
-    if: ${{ github.event_name == 'push' || github.event_name == 'schedule' || inputs.target == 'all' || inputs.target == 'review' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      GH_TOKEN: ${{ secrets.GH_PAT }}
-      KANAREK_COMPANION_HEALTH_URL: https://kanarek-companion.travny.workers.dev/health
-    steps:
-      - name: Remove legacy per-repository review callers
-        shell: bash
-        run: |
-          set -euo pipefail
-          : "${GH_TOKEN:?GH_PAT must be configured}"
-
-          live_health=$(mktemp)
-          twojstar_repos_file=$(mktemp)
-          api_error=$(mktemp)
-          trap 'rm -f "$live_health" "$twojstar_repos_file" "$api_error"' EXIT
-
-          webhook_live=false
-          for _attempt in {1..12}; do
-            if curl --fail --silent --show-error \
-              "$KANAREK_COMPANION_HEALTH_URL" >"$live_health" 2>"$api_error" &&
-              jq -e --arg sha "$GITHUB_SHA" \
-                '.reviewWebhook.ready == true and .reviewWebhook.trigger == "github-app-webhook" and .gateway.workerVersion.tag == $sha' \
-                "$live_health" >/dev/null
-            then
-              webhook_live=true
-              break
-            fi
-            sleep 10
-          done
-          if [[ "$webhook_live" != true ]]; then
-            echo "Webhook review deployment for $GITHUB_SHA is not live yet; keeping legacy callers."
-            exit 0
-          fi
-          repos=(
-            trvny/.ai
-            trvny/.github
-            trvny/WiFi-Automatic
-            trvny/feedseek
-            trvny/tvpi
-          )
-          gh api --paginate orgs/twojstar/repos \
-            --jq '.[] | select(.archived == false and .disabled == false) | .full_name' \
-            >"$twojstar_repos_file"
-          mapfile -t twojstar_repos <"$twojstar_repos_file"
-          repos+=("${twojstar_repos[@]}")
-
-          for repo in "${repos[@]}"; do
-            default_branch=$(gh api "repos/$repo" --jq .default_branch)
-            : >"$api_error"
-            if blob_sha=$(
-              gh api \
-                "repos/$repo/contents/.github/workflows/kanarek-review.yml?ref=$default_branch" \
-                --jq .sha 2>"$api_error"
-            ); then
-              :
-            elif grep -q 'HTTP 404' "$api_error"; then
-              blob_sha=''
-            else
-              cat "$api_error" >&2
-              exit 1
-            fi
-            if [ -n "$blob_sha" ]; then
-              payload=$(jq -n \
-                --arg message 'Remove legacy Kanarek review caller' \
-                --arg branch "$default_branch" \
-                --arg sha "$blob_sha" \
-                '{
-                  message: $message,
-                  branch: $branch,
-                  sha: $sha,
-                  author: {
-                    name: "GPTomek",
-                    email: "314538226+gptomek[bot]@users.noreply.github.com"
-                  },
-                  committer: {
-                    name: "GPTomek",
-                    email: "314538226+gptomek[bot]@users.noreply.github.com"
-                  }
-                }')
-              printf '%s' "$payload" |
-                gh api --method DELETE \
-                  "repos/$repo/contents/.github/workflows/kanarek-review.yml" \
-                  --input - >/dev/null
-            fi
-
-            for key in \
-              KANAREK_REVIEW_ROUTER_TOKEN \
-              OPENROUTER_API_KEY \
-              ORCAROUTER_API_KEY \
-              AIHUBMIX_API_KEY
-            do
-              api_error=$(mktemp)
-              if gh secret delete "$key" --repo "$repo" 2>"$api_error"; then
-                :
-              elif grep -q 'HTTP 404' "$api_error"; then
-                :
-              else
-                cat "$api_error" >&2
-                rm -f "$api_error"
-                exit 1
-              fi
-              rm -f "$api_error"
-            done
-          done
-
   cloudflare:
     concurrency:
       group: automation-sync-cloudflare
       cancel-in-progress: false
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'cloudflare') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:

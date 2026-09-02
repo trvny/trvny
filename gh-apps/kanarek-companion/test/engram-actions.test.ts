@@ -90,8 +90,12 @@ test('a forged successful identity response still fails closed', async () => {
 
 test('status never exposes the server-side Engram credential', async () => {
   const env = { ENGRAM_API_KEY: 'eng_live_super_secret' } satisfies EngramActionEnv;
-  const fetcher: typeof fetch = (input) => {
-    assert.equal(String(input), 'https://api.engrammemory.ai/health');
+  const fetcher: typeof fetch = (input, init) => {
+    assert.equal(String(input), 'https://api.engrammemory.ai/v1/health');
+    assert.equal(init?.method, 'GET');
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get('authorization'), 'Bearer eng_live_super_secret');
+    assert.equal(headers.get('x-api-version'), '1');
     return Promise.resolve(fakeResponse({ status: 'ok' }));
   };
   const response = await handleEngramAction(

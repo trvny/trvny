@@ -85,6 +85,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
           case "fs.read": return { content: await readWorkspace(session, call.path, 60_000) };
           case "git.status": return git.status(session.id);
           case "git.diff": return git.diff(session.id, call.staged, call.paths);
+          default: throw new Error("unsupported direct remote tool");
         }
       });
       const state = await this.sessions.status(session.id);

@@ -14,6 +14,7 @@ export interface CompanionEnv extends QuipEnv {
   KANAREK_UPDATE_BRANCH?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
+  ENGRAM_API_KEY?: string;
 }
 
 export interface CompanionTarget {

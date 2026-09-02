@@ -1,136 +1,16 @@
-name: Sync automation rollout
+name: Sync Kanarek credentials
 
 on:
   workflow_dispatch:
-    inputs:
-      target:
-        description: Automation credentials to sync
-        required: true
-        default: all
-        type: choice
-        options:
-          - all
-          - review
-          - cloudflare
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/kanarek-review.yml
-      - .github/workflows/automation-sync.yml
-  schedule:
-    - cron: "17 * * * *"
 
 permissions:
   contents: read
 
 jobs:
-  review:
-    concurrency:
-      group: automation-sync-review
-      cancel-in-progress: false
-    if: ${{ github.event_name == 'push' || github.event_name == 'schedule' || inputs.target == 'all' || inputs.target == 'review' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      GH_TOKEN: ${{ secrets.GH_PAT }}
-      KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
-    steps:
-      - name: Sync review bearer and caller
-        shell: bash
-        run: |
-          set -euo pipefail
-          : "${GH_TOKEN:?GH_PAT must be configured}"
-          : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
-          source_repo="$GITHUB_REPOSITORY"
-          source_path=.github/workflows/kanarek-review.yml
-          source_branch=$(gh api "repos/$source_repo" --jq .default_branch)
-          source_blob_sha=$(gh api \
-            "repos/$source_repo/contents/$source_path?ref=$source_branch" \
-            --jq .sha)
-          caller=$(mktemp)
-          twojstar_repos_file=$(mktemp)
-          trap 'rm -f "$caller" "$twojstar_repos_file"' EXIT
-          gh api \
-            -H 'Accept: application/vnd.github.raw+json' \
-            "repos/$source_repo/contents/$source_path?ref=$source_branch" \
-            >"$caller"
-          repos=(
-            trvny/.ai
-            trvny/.github
-            trvny/WiFi-Automatic
-            trvny/feedseek
-            trvny/tvpi
-          )
-          gh api --paginate orgs/twojstar/repos \
-            --jq '.[] | select(.archived == false and .disabled == false) | .full_name' \
-            >"$twojstar_repos_file"
-          mapfile -t twojstar_repos <"$twojstar_repos_file"
-          repos+=("${twojstar_repos[@]}")
-
-          for repo in "${repos[@]}"; do
-            printf '%s' "$KANAREK_REVIEW_ROUTER_TOKEN" |
-              gh secret set KANAREK_REVIEW_ROUTER_TOKEN --repo "$repo"
-            default_branch=$(gh api "repos/$repo" --jq .default_branch)
-            tmp=$(mktemp)
-            blob_sha=''
-            if gh api \
-              -H 'Accept: application/vnd.github.raw+json' \
-              "repos/$repo/contents/.github/workflows/kanarek-review.yml?ref=$default_branch" \
-              >"$tmp" 2>/dev/null; then
-              if cmp -s "$caller" "$tmp"; then
-                rm -f "$tmp"
-                for key in OPENROUTER_API_KEY ORCAROUTER_API_KEY AIHUBMIX_API_KEY; do
-                  gh secret delete "$key" --repo "$repo" 2>/dev/null || true
-                done
-                continue
-              fi
-              blob_sha=$(gh api \
-                "repos/$repo/contents/.github/workflows/kanarek-review.yml?ref=$default_branch" \
-                --jq .sha)
-            fi
-            rm -f "$tmp"
-
-            content=$(base64 -w0 "$caller")
-            payload=$(jq -n \
-              --arg message 'Sync Kanarek review caller' \
-              --arg content "$content" \
-              --arg branch "$default_branch" \
-              --arg sha "$blob_sha" \
-              '{
-                message: $message,
-                content: $content,
-                branch: $branch,
-                author: {
-                  name: "GPTomek",
-                  email: "314538226+gptomek[bot]@users.noreply.github.com"
-                },
-                committer: {
-                  name: "GPTomek",
-                  email: "314538226+gptomek[bot]@users.noreply.github.com"
-                }
-              } + (if $sha == "" then {} else {sha: $sha} end)')
-            current_source_blob_sha=$(gh api \
-              "repos/$source_repo/contents/$source_path?ref=$source_branch" \
-              --jq .sha)
-            if [[ "$current_source_blob_sha" != "$source_blob_sha" ]]; then
-              echo "Review caller changed on $source_branch; a newer sync will handle rollout."
-              exit 0
-            fi
-
-            printf '%s' "$payload" |
-              gh api --method PUT \
-                "repos/$repo/contents/.github/workflows/kanarek-review.yml" \
-                --input - >/dev/null
-            for key in OPENROUTER_API_KEY ORCAROUTER_API_KEY AIHUBMIX_API_KEY; do
-              gh secret delete "$key" --repo "$repo" 2>/dev/null || true
-            done
-          done
-
   cloudflare:
     concurrency:
       group: automation-sync-cloudflare
       cancel-in-progress: false
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'cloudflare') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -139,6 +19,9 @@ jobs:
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
     steps:
@@ -165,7 +48,7 @@ jobs:
                   },
                   **{
                       key: os.environ[key]
-                      for key in ("KANAREK_REVIEW_ROUTER_TOKEN", "GEMINI_API_KEY", "AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY")
+                      for key in ("KANAREK_REVIEW_ROUTER_TOKEN", "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY")
                       if os.environ.get(key)
                   },
               }),
@@ -176,7 +59,7 @@ jobs:
           npx --yes wrangler@4.127.1 secret bulk "$secrets_file" --name kanarek-companion
 
           current_secrets="$(npx --yes wrangler@4.127.1 secret list --name kanarek-companion --format json)"
-          for key in GEMINI_API_KEY AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY; do
+          for key in AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY; do
             if [ -n "${!key:-}" ]; then
               continue
             fi

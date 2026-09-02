@@ -26,8 +26,9 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#337](https://github.com/trvny/feedseek/pull/337) | Add OPENOFFICE feed | @trvny | ready | 2026-08-31 |
-| trvny/trvny | [#392](https://github.com/trvny/trvny/pull/392) | feat: build local Pet Dispatcher MVP | @trvny | ready | 2026-08-31 |
+| trvny/trvny | [#406](https://github.com/trvny/trvny/pull/406) | feat: add Pet Dispatcher remote transport | @trvny | ready | 2026-09-02 |
+| trvny/trvny | [#408](https://github.com/trvny/trvny/pull/408) | feat(review): move Kanarek review to webhooks | @trvny | ready | 2026-09-02 |
+| trvny/tvpi | [#79](https://github.com/trvny/tvpi/pull/79) | chore(deps-dev): bump wrangler from 4.125.0 to 4.127.1 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-09-02 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map
@@ -80,7 +81,7 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝The fact that keyboard have ‘Q’ ‘W’ ‘E’ ‘R’ ‘T’ ‘Y’ types of button: When keyboard was invented, it had buttons in alphabetical order, as a result, the typing speed was too fast and the computer used to hang. So, to reduce the speed of a person, qwerty keyboard were invented.❞</i>
+<i>❝“BASIC is to computer programming as QWERTY is to typing.”— Seymour Papert❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
@@ -92,7 +93,7 @@
 - [Urban Word of the Day — grebo](https://www.urbandictionary.com/define.php?term=grebo&defid=1975218)
 - [How to Engage with New Media: A Strategic Guide for Nonprofit Organizations](https://carnegieendowment.org/research/2026/08/how-to-engage-with-new-media-a-strategic-guide-for-nonprofit-organizations)
 - [Urban Word of the Day — board chow](https://www.urbandictionary.com/define.php?term=board%20chow&defid=2568411)
-- [BERDZENISHVILI MAMUKA - Gazeta Krakowska](https://news.google.com/atom/articles/CBMi0AFBVV95cUxQLV84Z0gzRmxEUHJWRjNpM2E5dlAzeENfcDBCTGtTU05kNDVhLUVZYzJHeFZSeGdYMkhra1FxRVJnaC1zMENSVmN1TW1lQmxFQ0owd3hUcmNWWnkwNkhyLTBtS1ItQnBQT3BEZFBzYUtTblRDZ2JTMWVMVzlqMzJMZFhzQ29Neml0dDJ3T0duRlZNa09SU3RUc29HSThGa3B2ZGJzUGlFMGtCejBKNnFYU2NHVzd6WTVxMTBSb3lsU2dpeTR5QWlnT243RWZHRVNz?oc=5)
+- [Operationalizing AI Sovereignty Through Agency, Interoperability, and Openness](https://carnegieendowment.org/research/2026/09/operationalizing-ai-sovereignty-through-agency-interoperability-and-openness)
 <!--README_FEED:END-->
 
 <div align="center">

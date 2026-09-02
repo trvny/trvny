@@ -323,12 +323,23 @@ export class GitHubInstallationClient {
     });
   }
 
-  async paginate<T>(path: string, operation: string): Promise<T[]> {
+  async paginate<T>(
+    path: string,
+    operation: string,
+    options?: {
+      maxPages?: number;
+      stopWhen?: (items: T[]) => boolean;
+    },
+  ): Promise<T[]> {
     const url = new URL(apiPath(path));
     url.searchParams.set('per_page', '100');
     const output: T[] = [];
+    const maxPages = Math.max(
+      1,
+      Math.min(options?.maxPages ?? MAX_PAGES, 30),
+    );
 
-    for (let page = 1; page <= MAX_PAGES; page += 1) {
+    for (let page = 1; page <= maxPages; page += 1) {
       url.searchParams.set('page', String(page));
       const response = await this.fetcher(url, {
         headers: githubHeaders(this.token),
@@ -338,7 +349,11 @@ export class GitHubInstallationClient {
       });
       if (!Array.isArray(data)) throw new Error(`${operation}_invalid_response`);
       output.push(...(data as T[]));
-      if (data.length < 100) return output;
+      if (options?.stopWhen?.(output)) return output;
+      const link = response.headers.get('link');
+      if (data.length < 100 || (link && !link.includes('rel="next"'))) {
+        return output;
+      }
     }
     throw new Error(`${operation}_pagination_limit`);
   }

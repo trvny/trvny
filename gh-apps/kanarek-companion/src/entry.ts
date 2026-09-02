@@ -6,8 +6,10 @@ import {
   addAgentGuidanceOpenApi,
   handleAgentGuidanceAction,
 } from './agents-guidance-actions.ts';
+import { addEngramOpenApi, handleEngramAction } from './engram-actions.ts';
 import {
   handleReviewRouterRequest,
+  ReviewProviderCooldownStore,
   type ReviewRouterEnv,
 } from './review-router.ts';
 import router, {
@@ -17,7 +19,7 @@ import router, {
   OperatorCheckpointStore,
 } from './router.ts';
 
-export { actionFetch, CommentProbeLock, OperatorCheckpointStore };
+export { actionFetch, CommentProbeLock, OperatorCheckpointStore, ReviewProviderCooldownStore };
 
 type JsonObject = Record<string, unknown>;
 type RouterEnv = Parameters<typeof router.fetch>[1];
@@ -41,6 +43,7 @@ const REQUIRED_SMOKE_OPERATIONS = [
   'getOperatorBootstrap',
   'getOperatorCapabilities',
   'getCloudflareOverview',
+  'searchEngramMemory',
   'runOperatorAutopilot',
   'runOperatorSmokeTest',
   'orchestrateRelease',
@@ -109,6 +112,7 @@ export function addCapabilityOpenApi(document: JsonObject): void {
 
 export function gatewayOpenApi(origin: string): JsonObject {
   const document = customGptOpenApi(origin);
+  addEngramOpenApi(document);
   addCapabilityOpenApi(document);
   addAccountAttentionOpenApi(document);
   addAgentGuidanceOpenApi(document);
@@ -356,6 +360,13 @@ const worker = {
     if (url.pathname === HEALTH_PATH && (request.method === 'GET' || request.method === 'HEAD')) {
       return decoratedHealth(request, env, ctx);
     }
+    const engramResponse = await handleEngramAction(
+      request,
+      env,
+      (internalRequest) => router.fetch(internalRequest, env, ctx),
+      actionFetch,
+    );
+    if (engramResponse) return engramResponse;
     const attentionResponse = await handleAccountAttentionAction(
       request,
       (internalRequest) => router.fetch(internalRequest, env, ctx),

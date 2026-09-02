@@ -1,7 +1,7 @@
 # Kanarek companion Worker
 
 Cloudflare Worker receiving GitHub App webhooks for `kanarek-companion` and
-maintaining the Kanarek PR status comment.
+maintaining the Kanarek PR status comment and free PR review.
 
 ## Mental model
 
@@ -11,40 +11,64 @@ A normal delivery follows this path:
 2. Normal PR, review, CI, check, and status activity is coalesced into a
    ten-minute per-PR refresh window by `CommentProbeLock`. GPTomek control
    traffic stays immediate.
-3. `companion.ts` reads the PR, branch, CI, review, files, and existing Kanarek
-   comment.
-4. `companion-view.ts` reduces that data to a semantic state such as `waiting`,
-   `ready`, or `blocked`, then renders the single status comment.
-5. A 16-character `quipKey` hashes the reusable quip context: status, blocker
+3. Review-eligible `pull_request` deliveries are independently queued in a
+   `WebhookReviewJob` Durable Object keyed by repository and PR. Each new head
+   resets a one-minute alarm, so rapid pushes replace stale queued work instead
+   of starting parallel reviews.
+4. The review job revalidates the exact open, same-repository PR head/base,
+   reads a bounded diff plus nearby repository context, then calls the shared
+   free review router in-process. The router tries only OpenRouter, OrcaRouter,
+   then AIHubMix and keeps exhausted providers behind Durable Object-backed
+   cooldowns.
+5. Review output must be bounded Simplified-Chinese JSON with high-confidence
+   findings anchored to added RIGHT-side lines. The job revalidates the PR
+   again immediately before publishing one native GitHub review as the Kanarek
+   App. Its prompt allows a light dry Kanarek voice while keeping serious
+   findings serious.
+6. Separately, `companion.ts` reads the PR, branch, CI, reviews, files, and the
+   existing Kanarek status comment. `companion-view.ts` reduces that data to a
+   semantic state such as `waiting`, `ready`, or `blocked` and renders the
+   single status comment.
+7. A 16-character `quipKey` hashes the reusable quip context: status, blocker
    kinds, primary project area, PR size, and language. `stateHash` also includes
    transient PR state and rotates selections without changing that context.
-6. For live `ready`/`blocked` states, Kanarek reuses the persistent KV bank,
+8. For live `ready`/`blocked` states, Kanarek reuses the persistent KV bank,
    optionally asks AI, or falls back to presets. The same semantic quip state
    reuses its current line instead of generating churn.
-7. A valid paid AI quip first gets a cheap, short-lived retry receipt. The
+9. A valid paid AI quip first gets a cheap, short-lived retry receipt. The
    comment is then upserted, maintenance is joined, and the quip is promoted to
    the persistent bank. If the receipt write fails, bank storage is attempted
    before GitHub work so a paid result still has durable protection.
 
+Quips and code review are separate generation flows. The quip bank, adaptive
+paid-AI budget, and paid-generation receipts are not reused by free code review.
+
 Add the `no-goblin` label to silence Kanarek on a PR. Removing it restores the
-companion.
+companion and makes later review-eligible PR activity eligible again.
 
 ## Endpoints
 
 - `GET` or `HEAD /health` reports webhook, installation auth, companion lock,
   KV bank, and optional AI readiness.
 - `POST /webhooks/github` verifies `X-Hub-Signature-256` before accepting a
-  delivery.
+  delivery. Accepted PR deliveries can feed both the status companion and the
+  independently scoped webhook review queue.
 - `POST /review-router/v1/chat/completions` is the private OpenAI-compatible
-  transport for free PR review. It authenticates with the synchronized router
-  bearer and tries direct Gemini, OpenRouter, OrcaRouter, then AIHubMix before
-  a successful upstream response starts streaming. Gemini can step down across
-  compatible Flash generations, while OpenRouter can retry its primary model
-  without the fallback array when the array itself is rejected.
+  transport shared by free PR review. It authenticates with the dedicated
+  router bearer and tries only OpenRouter, OrcaRouter, then AIHubMix.
+  Paid/direct provider credentials used for quip generation are never consumed
+  by the review router. OpenRouter can retry its primary model without the
+  fallback array when the array itself is rejected.
+
+`KANAREK_REPOSITORIES` controls status-companion scope.
+`KANAREK_REVIEW_REPOSITORIES` controls free-review scope independently, so a
+repository can receive reviews without also opting into the persistent status
+comment.
 
 PR, review, completed CI/check-suite, and commit-status events refresh the
-affected pull request. A per-PR Durable Object serializes overlapping
-deliveries and deduplicates redeliveries.
+affected pull request. A per-PR Durable Object serializes overlapping companion
+deliveries and deduplicates redeliveries. Free review has its own per-PR
+`WebhookReviewJob` with exact-head dedupe and stale-head/base validation.
 
 Safe same-repository PRs may be updated to the base branch automatically when
 CI and review are settled. The GitHub App needs `Pull requests: write` and
@@ -83,8 +107,8 @@ The effective percentage decreases linearly as the current `quipKey` fills the
 space it can actually retain. A missing value keeps the default `25`; an
 explicit value must be a decimal integer percentage. Malformed or empty values
 fail closed to `0` rather than restoring a paid default accidentally. The same
-gate applies to free router fallbacks: they are transport fallbacks for selected
-AI attempts, not an unlimited generation path.
+gate applies to free router fallbacks for quips: they are transport fallbacks
+for selected AI attempts, not an unlimited generation path.
 
 While the global cap is not binding, that space is 256 entries:
 
@@ -104,7 +128,7 @@ slot until the distribution changes.
 If the persistent KV bank cannot be measured, paid AI is skipped because the
 generated line could not be safely retained.
 
-`KANAREK_PROVIDER_ORDER` reorders enabled providers; it does not enable or
+`KANAREK_PROVIDER_ORDER` reorders enabled quip providers; it does not enable or
 disable them. The configured production order is Gemini, OpenAI, xAI, the
 OpenAI fallback, Anthropic, then OrcaRouter and OpenRouter. The free routers are
 deliberately last so request, quota, or credit failures from direct providers
@@ -115,28 +139,34 @@ provider secrets Kanarek uses the shared pool and presets.
 
 OpenRouter uses native ordered `models` fallback lists. Companion quips keep the
 shared free model list, where MiniMax M3 remains a lightweight first choice.
-Kanarek Review has a separate `KANAREK_REVIEW_OPENROUTER_MODELS` chain because
-review is an agentic tool-calling workload: it prefers Nemotron 3 Ultra, Laguna
-S 2.1, North Mini Code, Laguna M.1, and Nemotron 3 Super before
-`openrouter/free`. This avoids pinning review to a model endpoint that cannot
-accept tools while leaving the cheaper quip path independent.
+Kanarek Review has a separate `KANAREK_REVIEW_OPENROUTER_MODELS` chain and a
+bounded one-shot review context assembled by `webhook-review.ts`; it does not
+need the former per-repository gh-aw/Copilot agent. Review prefers Nemotron 3
+Ultra, Laguna S 2.1, North Mini Code, Laguna M.1, and Nemotron 3 Super before
+`openrouter/free`. Quota-limited review providers stay behind a Durable
+Object-backed circuit breaker so separate Worker invocations do not repeatedly
+burn the same exhausted free quota. Rapid PR updates reset a one-minute Durable
+Object alarm, and only the newest exact head is reviewed after the quiet window.
 OrcaRouter uses `orcarouter/auto`; its allowed/default models remain controlled
 by the OrcaRouter workspace, so the workspace allowlist is the source of truth.
 
-Current configured ceilings are 1024 tokens for all providers. OpenAI reasoning
-is configured as `auto`, preserving the model-aware `none`/`low` heuristic;
-Gemini Flash-Lite uses `medium`, and xAI uses `low`. Provider usage logs should
-be checked before tightening a ceiling.
+Quip providers currently use 1024-token ceilings. Webhook review has its own
+4096-token maximum because it returns a bounded structured finding set. OpenAI
+reasoning for quips is configured as `auto`, preserving the model-aware
+`none`/`low` heuristic; Gemini Flash-Lite uses `medium`, and xAI uses `low`.
+Provider usage logs should be checked before tightening a ceiling.
 
-Provider responses are accepted only after a normal completion and the learned
-45–110 character/language validation. Explicit token-limit and other incomplete
-stops never enter the bank.
+Quip provider responses are accepted only after a normal completion and the
+learned 45–110 character/language validation. Explicit token-limit and other
+incomplete stops never enter the bank. Review output is separately validated as
+JSON, Simplified Chinese, and exact diff-line anchors before GitHub mutation.
 
-A request/network/HTTP failure may fall through to the next configured
+A quip request/network/HTTP failure may fall through to the next configured
 provider. Once a provider returns a parsed successful HTTP response, however,
-that AI attempt never calls another provider: unusable output falls back to the
-bank/presets instead. This preserves the one-response budget boundary while
-allowing request-level failover.
+that quip AI attempt never calls another provider: unusable output falls back to
+the bank/presets instead. This preserves the one-response budget boundary while
+allowing request-level failover. The free review router has its own failure and
+cooldown categories and may fall through the free-only provider chain.
 
 A valid paid quip is temporarily cached by repository, pull request, semantic
 `stateHash`, and exact head SHA for up to seven days. If GitHub work fails after
@@ -145,18 +175,19 @@ visible update and persistent-bank retention succeed, the receipt is removed.
 These receipts are idempotency data and do not count toward the 256/4096
 learned-bank limits.
 
-Each real provider response emits a compact `kanarek_ai_generation` log with
-finish reason, provider-reported output and reasoning token counts, and final
-character count, but never the generated text or raw provider error bodies.
-Paid persistence emits separate receipt/bank diagnostics. Use complete response
-samples before tightening a ceiling.
+Each real quip provider response emits a compact `kanarek_ai_generation` log
+with finish reason, provider-reported output and reasoning token counts, and
+final character count, but never the generated text or raw provider error
+bodies. Paid persistence emits separate receipt/bank diagnostics. Use complete
+response samples before tightening a ceiling.
 
-A provider can be disabled without removing its secret by setting the matching
-`KANAREK_OPENROUTER_ENABLED`, `KANAREK_ORCAROUTER_ENABLED`,
+A quip provider can be disabled without removing its secret by setting the
+matching `KANAREK_OPENROUTER_ENABLED`, `KANAREK_ORCAROUTER_ENABLED`,
 `KANAREK_OPENAI_ENABLED`, `KANAREK_ANTHROPIC_ENABLED`,
 `KANAREK_GEMINI_ENABLED`, or `KANAREK_XAI_ENABLED` variable to a common false
 value (`false`, `0`, `no`, or `off`, case-insensitive). The same false values
-apply to `KANAREK_AI_ENABLED`.
+apply to `KANAREK_AI_ENABLED`. Webhook review has the separate
+`KANAREK_WEBHOOK_REVIEW_ENABLED` switch.
 
 ## GPTomek
 
@@ -173,16 +204,23 @@ delivery path, so GPTomek does not need another Worker or webhook endpoint.
 
 ## Where to look
 
-- `src/index.ts`: webhook routing, delivery dedupe, and event coalescing.
-- `src/companion.ts`: top-level orchestration and quip selection flow.
+- `src/index.ts`: webhook routing, signature validation, delivery dedupe, and
+  companion event coalescing.
+- `src/webhook-review.ts`: free-review queueing, debounce/dedupe, bounded
+  repository context, Kanarek review prompt, stale-head validation, and native
+  GitHub review publication.
+- `src/review-router.ts`: free-only provider routing and persistent provider
+  cooldowns shared by review transport.
+- `src/companion.ts`: top-level status-companion orchestration and quip
+  selection flow.
 - `src/companion-view.ts`: semantic PR state, badges, project areas, and the
   rendered comment.
 - `src/companion-github.ts`: GitHub reads and comment upsert operations.
 - `src/companion-bank.ts`: persistent quip storage, adaptive AI budget,
   selection, migration, and pruning.
 - `src/companion-paid.ts`: short-lived paid-generation retry receipts.
-- `src/quip.ts`: presets, provider adapters, prompt contract, sanitization, and
-  base AI rollout.
+- `src/quip.ts`: presets, quip provider adapters, prompt contract,
+  sanitization, and base AI rollout.
 - `src/companion-language.ts`: lightweight PL/EN detection and validation.
 - `src/companion-reactions.ts`: one semantic Kanarek reaction per PR state.
 - `src/companion-update.ts`: guarded same-repository branch update logic.
@@ -191,8 +229,8 @@ delivery path, so GPTomek does not need another Worker or webhook endpoint.
 
 When changing quip behavior, preserve the distinction between `quipKey`
 (reusable context) and `stateHash` (specific PR state). When changing webhook
-handling, preserve per-PR coalescing for normal companion activity and keep
-GPTomek control traffic immediate.
+handling, preserve per-PR coalescing for normal companion activity, review's
+separate one-minute debounce/dedupe, and immediate GPTomek control traffic.
 
 ## Cloudflare Workers Builds
 
@@ -214,18 +252,24 @@ workers.dev state, and updates to existing routes or DNS records. Mutation
 calls require fresh expected IDs, state, or snapshot hashes so stale reads fail
 closed. The gateway never returns Worker secret values or Pages build variables.
 
-`automation-sync.yml` can copy the existing repository Cloudflare credentials,
-the dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, and the Gemini/AIHubMix/OpenRouter/
-OrcaRouter review credentials into the `kanarek-companion` Worker. Its Cloudflare target is
-manual-only and never prints secret values. The router prefers direct
-Gemini 3.7 Flash, with sequential 3.6/3.5 Flash compatibility fallbacks, then
-OpenRouter with the review-specific tool-capable free-model chain, then
-OrcaRouter, then AIHubMix. An OpenRouter HTTP 400 from the full model chain is
-retried once with the primary model only. Provider-specific request rejection,
-transient, quota, authentication, and availability failures fall through to the
-next provider. Terminal diagnostics expose only bounded provider/category codes,
-never upstream error bodies. The review endpoint accepts only the dedicated router
-bearer; provider API keys stay server-side.
+`automation-sync.yml` keeps Worker credential provisioning centralized. Its
+manual dispatch can copy the existing repository Cloudflare credentials, the
+dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the free review credentials
+(AIHubMix/OpenRouter/OrcaRouter), and any repository-held direct quip credentials
+(Gemini/OpenAI/Anthropic/xAI) into `kanarek-companion`, without printing secret
+values. Missing direct-provider provisioning copies are left untouched on the
+Worker. Legacy
+per-repository review callers and provider secrets were removed during the
+webhook cutover and are no longer maintained by a scheduled rollout job.
+
+The review router uses OpenRouter with the review-specific free-model chain,
+then OrcaRouter, then AIHubMix. Direct Gemini, OpenAI, Anthropic, and xAI
+credentials remain quip-only. An OpenRouter HTTP 400 from the full model chain
+is retried once with the primary model only. Provider-specific request
+rejection, transient, quota, authentication, and availability failures fall
+through to the next free provider. Terminal diagnostics expose only bounded
+provider/category codes, never upstream error bodies. The review endpoint
+accepts only the dedicated router bearer; provider API keys stay server-side.
 
 ## Secrets
 
@@ -235,19 +279,32 @@ Required Worker secrets:
 - `GITHUB_PRIVATE_KEY`
 - `GPTOMEK_PRIVATE_KEY` for GPTomek operations
 
-Review router secret:
+Review router secret used at runtime only by the Worker:
 
 - `KANAREK_REVIEW_ROUTER_TOKEN`
 
-Optional AI secrets:
+Optional free-review secrets used at runtime only by the Worker:
 
 - `OPENROUTER_API_KEY`
 - `ORCAROUTER_API_KEY`
-- `AIHUBMIX_API_KEY` for the free review router
+- `AIHUBMIX_API_KEY`
+
+`trvny/trvny` retains provisioning copies of these values solely so the manual
+credential-sync workflow can update the Worker. Target repositories do not keep
+review-router or provider secrets.
+
+Optional direct AI secrets for quip generation:
+
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `GEMINI_API_KEY`
 - `XAI_API_KEY`
 
-GitHub App metadata, provider order/model/generation controls, AI percentage
-ceiling, and the KV binding are defined in `wrangler.jsonc`.
+The manual credential sync copies any matching provisioning secret present in
+`trvny/trvny`; an absent direct-provider copy does not delete an existing Worker
+secret.
+
+GitHub App metadata, companion/review repository scopes, provider
+order/model/generation controls, AI percentage ceiling, review debounce/context
+limits, Durable Object bindings, and the KV binding are defined in
+`wrangler.jsonc`.

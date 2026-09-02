@@ -24,20 +24,20 @@ function cooldownState(): DurableObjectState {
   const values = new Map<string, unknown>();
   return {
     storage: {
-      async get(key: string) {
+      get(key: string) {
         return values.get(key);
       },
-      async put(key: string, value: unknown) {
+      put(key: string, value: unknown) {
         values.set(key, value);
       },
-      async delete(key: string) {
+      delete(key: string) {
         return values.delete(key);
       },
-      async deleteAll() {
+      deleteAll() {
         values.clear();
       },
-      async setAlarm() {},
-      async deleteAlarm() {},
+      setAlarm() { return undefined; },
+      deleteAlarm() { return undefined; },
     },
   } as unknown as DurableObjectState;
 }

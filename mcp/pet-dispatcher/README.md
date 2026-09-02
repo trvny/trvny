@@ -47,7 +47,7 @@ HTTP pull must be enabled separately after the queue exists:
 npx wrangler queues consumer http add pet-dispatcher-tasks
 ```
 
-The pull client requires a Cloudflare API token scoped to Queues read+write because acknowledgements mutate queue state. The Free plan includes 10,000 Queue operations/day and 24-hour retention, which is sufficient for the intended personal control-plane workload.
+The pull client requires a Cloudflare API token scoped to Queues read+write because acknowledgements mutate queue state. The Free plan includes 10,000 Queue operations/day and 24-hour retention, which is sufficient for the intended personal control-plane workload. The control plane additionally caps new delegations at **500 per UTC day**. Empty HTTP pull polls do not consume Queue message operations; a normal task costs roughly three Queue operations (write, read, delete), leaving substantial headroom below the Free allowance. The Queue API token remains local-only and is never stored in the repository.
 
 ## Local setup
 

@@ -16,19 +16,13 @@ import {
 } from "./remote-protocol.js";
 
 const terminalStatuses = new Set(["completed", "failed", "cancelled", "recovery_required"]);
+const JOURNAL_RETENTION_MS = 25 * 60 * 60_000;
 
 function pause(ms: number, signal?: AbortSignal): Promise<void> {
   if (signal?.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    let timer: ReturnType<typeof setTimeout>;
-    const done = () => {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", done);
-      resolve();
-    };
-    timer = setTimeout(done, ms);
-    signal?.addEventListener("abort", done, { once: true });
-  });
+  if (!signal) return new Promise((resolve) => setTimeout(resolve, ms));
+  const waitSignal = AbortSignal.any([signal, AbortSignal.timeout(ms)]);
+  return new Promise((resolve) => waitSignal.addEventListener("abort", () => resolve(), { once: true }));
 }
 
 const pulledMessageSchema = z.object({
@@ -82,11 +76,25 @@ export class RemoteJournal {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       this.#data = { version: 1, entries: {} };
     }
+    if (this.#prune(this.#data)) await this.#save();
     return this.#data;
+  }
+
+  #prune(data: JournalData, now = Date.now()): boolean {
+    let changed = false;
+    for (const [taskId, entry] of Object.entries(data.entries)) {
+      if (!terminalStatuses.has(entry.status)) continue;
+      const updatedAt = Date.parse(entry.updatedAt);
+      if (!Number.isFinite(updatedAt) || now - updatedAt <= JOURNAL_RETENTION_MS) continue;
+      delete data.entries[taskId];
+      changed = true;
+    }
+    return changed;
   }
 
   async #save(): Promise<void> {
     const data = await this.#load();
+    this.#prune(data);
     await mkdir(dirname(this.path), { recursive: true });
     const temporary = `${this.path}.${process.pid}.${randomUUID()}.tmp`;
     await writeFile(temporary, `${JSON.stringify(data, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
@@ -268,7 +276,7 @@ export class RemoteWorker {
     }
   }
 
-  async pollOnce(): Promise<boolean> {
+  async pollOnce(signal?: AbortSignal): Promise<boolean> {
     const message = await this.transport.pull();
     if (!message) return false;
 
@@ -309,6 +317,13 @@ export class RemoteWorker {
 
     await this.journal.mark(taskId, "running");
     const controller = new AbortController();
+    const abortForShutdown = () => {
+      if (!controller.signal.aborted) {
+        controller.abort(signal?.reason ?? new Error("remote worker shutdown requested"));
+      }
+    };
+    if (signal?.aborted) abortForShutdown();
+    else signal?.addEventListener("abort", abortForShutdown, { once: true });
     const timeout = setTimeout(() => {
       controller.abort(new Error("remote task timeout exceeded"));
     }, signed.envelope.task.timeoutMinutes * 60_000);
@@ -341,6 +356,7 @@ export class RemoteWorker {
     } finally {
       clearTimeout(timeout);
       clearInterval(heartbeat);
+      signal?.removeEventListener("abort", abortForShutdown);
     }
 
     await this.journal.mark(taskId, result.status, result);
@@ -352,7 +368,7 @@ export class RemoteWorker {
     await this.recover();
     while (!signal?.aborted) {
       try {
-        const handled = await this.pollOnce();
+        const handled = await this.pollOnce(signal);
         if (!handled) {
           await pause(this.transport.config.pollIntervalMs, signal);
         }

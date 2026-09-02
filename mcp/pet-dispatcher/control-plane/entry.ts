@@ -1,4 +1,4 @@
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import {
   remoteResultSchema,
   remoteTaskSchema,
@@ -82,16 +82,35 @@ export class TaskStateStore {
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const body = await readBody(request);
-    if (url.pathname === "/quota/consume") {
+    if (url.pathname.startsWith("/quota/")) {
+      const { taskId } = z.object({ taskId: z.string().uuid() }).strict().parse(JSON.parse(body) as unknown);
       const day = new Date().toISOString().slice(0, 10);
-      const quota = await this.state.storage.get<{ day: string; count: number }>(QUOTA_KEY);
-      const count = quota?.day === day ? quota.count : 0;
-      if (count >= DAILY_DELEGATION_LIMIT) {
-        return json({ error: "free_tier_task_budget_exhausted", limit: DAILY_DELEGATION_LIMIT }, 429);
+      const stored = await this.state.storage.get<{ day: string; count: number; pending: string[] }>(QUOTA_KEY);
+      const quota = stored?.day === day ? stored : { day, count: 0, pending: [] };
+      const pending = new Set(quota.pending);
+      if (url.pathname === "/quota/reserve") {
+        if (pending.has(taskId)) return json({ ...quota, limit: DAILY_DELEGATION_LIMIT });
+        if (quota.count >= DAILY_DELEGATION_LIMIT) {
+          return json({ error: "free_tier_task_budget_exhausted", limit: DAILY_DELEGATION_LIMIT }, 429);
+        }
+        pending.add(taskId);
+        const next = { day, count: quota.count + 1, pending: [...pending] };
+        await this.state.storage.put(QUOTA_KEY, next);
+        return json({ ...next, limit: DAILY_DELEGATION_LIMIT }, 201);
       }
-      const next = { day, count: count + 1 };
-      await this.state.storage.put(QUOTA_KEY, next);
-      return json({ ...next, limit: DAILY_DELEGATION_LIMIT }, 201);
+      if (url.pathname === "/quota/release") {
+        if (pending.delete(taskId)) quota.count = Math.max(0, quota.count - 1);
+        const next = { day, count: quota.count, pending: [...pending] };
+        await this.state.storage.put(QUOTA_KEY, next);
+        return json({ ...next, limit: DAILY_DELEGATION_LIMIT });
+      }
+      if (url.pathname === "/quota/commit") {
+        pending.delete(taskId);
+        const next = { day, count: quota.count, pending: [...pending] };
+        await this.state.storage.put(QUOTA_KEY, next);
+        return json({ ...next, limit: DAILY_DELEGATION_LIMIT });
+      }
+      return json({ error: "not_found" }, 404);
     }
     if (url.pathname === "/init") {
       if (current) return json(current);
@@ -189,13 +208,14 @@ async function workerAuthorized(request: Request, env: Env, body: string): Promi
 async function delegate(request: Request, env: Env): Promise<Response> {
   const raw = await readBody(request);
   const task = remoteTaskSchema.parse(JSON.parse(raw) as unknown);
-  const quota = await quotaStub(env).fetch("https://state/quota/consume", { method: "POST", body: "{}" });
+  const now = Date.now();
+  const taskId = crypto.randomUUID();
+  const quotaBody = JSON.stringify({ taskId });
+  const quota = await quotaStub(env).fetch("https://state/quota/reserve", { method: "POST", body: quotaBody });
   if (!quota.ok) {
     if (quota.status === 429) return json({ error: "free_tier_task_budget_exhausted" }, 429);
     throw new Error(`failed to reserve free-tier task budget: HTTP ${quota.status}`);
   }
-  const now = Date.now();
-  const taskId = crypto.randomUUID();
   const envelope = {
     version: 1 as const,
     taskId,
@@ -215,21 +235,27 @@ async function delegate(request: Request, env: Env): Promise<Response> {
     updatedAt: createdAt,
     cancelRequested: false,
   };
-  const init = await stateStub(env, taskId).fetch("https://state/init", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(initial),
-  });
-  if (!init.ok) throw new Error(`failed to initialize remote task state: HTTP ${init.status}`);
+  let initialized = false;
   try {
-    await env.TASK_QUEUE.send(JSON.stringify(signed), { contentType: "text" });
-  } catch {
-    await stateStub(env, taskId).fetch("https://state/enqueue-failed", {
+    const init = await stateStub(env, taskId).fetch("https://state/init", {
       method: "POST",
-      body: "{}",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(initial),
     });
-    throw new Error("failed to enqueue remote task");
+    if (!init.ok) throw new Error(`failed to initialize remote task state: HTTP ${init.status}`);
+    initialized = true;
+    await env.TASK_QUEUE.send(JSON.stringify(signed), { contentType: "text" });
+  } catch (error) {
+    if (initialized) {
+      await stateStub(env, taskId).fetch("https://state/enqueue-failed", {
+        method: "POST",
+        body: "{}",
+      }).catch(() => undefined);
+    }
+    await quotaStub(env).fetch("https://state/quota/release", { method: "POST", body: quotaBody }).catch(() => undefined);
+    throw error;
   }
+  await quotaStub(env).fetch("https://state/quota/commit", { method: "POST", body: quotaBody }).catch(() => undefined);
   return json({ taskId, status: "queued", expiresAt: new Date(envelope.expiresAt).toISOString() }, 202);
 }
 

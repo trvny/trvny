@@ -16,7 +16,7 @@ export const remoteCapabilitySchema = z.enum([
 export const remoteNetworkSchema = z.object({
   mode: z.enum(["none", "brokered"]).default("none"),
   profile: z.string().min(1).optional(),
-}).superRefine((value, ctx) => {
+}).strict().superRefine((value, ctx) => {
   if (value.mode === "none" && value.profile) {
     ctx.addIssue({ code: "custom", message: "network profile is invalid when mode is none" });
   }
@@ -34,7 +34,7 @@ export const remoteTaskSchema = z.object({
   capabilities: z.array(remoteCapabilitySchema).max(16).default([]),
   network: remoteNetworkSchema.default({ mode: "none" }),
   timeoutMinutes: z.number().int().min(1).max(20).default(20),
-});
+}).strict();
 
 export type RemoteTask = z.infer<typeof remoteTaskSchema>;
 

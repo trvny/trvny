@@ -7,6 +7,7 @@ import {
   reviewFileCollectionComplete,
   reviewInputState,
   reviewMarker,
+  reviewRetryDelayMs,
   selectReviewFiles,
   submittedReviewMatches,
   scheduleWebhookReviewWebhook,
@@ -148,12 +149,29 @@ test('review input does not mark missing GitHub patches as empty code', () => {
 });
 
 test('review file collection stops once the diff budget is full', () => {
-  const patch = '@@ -0,0 +1 @@\n+' + 'x'.repeat(4_990);
+  const patch = `@@ -0,0 +1 @@\n+${'x'.repeat(4_990)}`;
   const files = Array.from({ length: 2 }, (_, index) => ({
     filename: `src/file-${index}.ts`,
     patch,
   }));
   assert.equal(reviewFileCollectionComplete(files, 5_000), true);
+});
+
+test('review retries are bounded and only cover transient failures', () => {
+  const transient = {
+    findingCount: 0,
+    provider: null,
+    reviewed: false,
+    skipped: 'providers_failed',
+  };
+  assert.equal(reviewRetryDelayMs(transient, 0), 2 * 60_000);
+  assert.equal(reviewRetryDelayMs(transient, 1), 10 * 60_000);
+  assert.equal(reviewRetryDelayMs(transient, 2), 30 * 60_000);
+  assert.equal(reviewRetryDelayMs(transient, 3), null);
+  assert.equal(
+    reviewRetryDelayMs({ ...transient, skipped: 'no_code_diff' }, 0),
+    null,
+  );
 });
 
 test('deletion-only code patches stay reviewable without inline anchors', () => {

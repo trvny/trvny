@@ -434,7 +434,10 @@ function decodeBase64Text(value: string): string | null {
     for (let index = 0; index < binary.length; index += 1) {
       bytes[index] = binary.charCodeAt(index);
     }
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return new TextDecoder('utf-8', {
+      fatal: true,
+      ignoreBOM: false,
+    }).decode(bytes);
   } catch {
     return null;
   }

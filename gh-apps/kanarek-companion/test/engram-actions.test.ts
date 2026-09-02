@@ -34,6 +34,10 @@ function fakeResponse(value: unknown, status = 200): Response {
   return Response.json(value, { status });
 }
 
+function unexpectedFetch(message: string): typeof fetch {
+  return () => Promise.reject(new Error(message));
+}
+
 test('Engram Actions expose OAuth-protected status/search/store operations', () => {
   const document: Record<string, unknown> = { paths: {} };
   addEngramOpenApi(document);
@@ -52,11 +56,11 @@ test('Engram Actions expose OAuth-protected status/search/store operations', () 
 
 test('operator authorization is checked before Engram or its credential is touched', async () => {
   let upstreamCalls = 0;
-  const invoke = async (): Promise<Response> =>
-    Response.json({ ok: false, error: 'github_user_not_allowed' }, { status: 403 });
-  const fetcher: typeof fetch = async () => {
+  const invoke = (): Promise<Response> =>
+    Promise.resolve(Response.json({ ok: false, error: 'github_user_not_allowed' }, { status: 403 }));
+  const fetcher: typeof fetch = () => {
     upstreamCalls += 1;
-    throw new Error('Engram must not be called');
+    return Promise.reject(new Error('Engram must not be called'));
   };
   const response = await handleEngramAction(
     request('/gpt-actions/engram/search', { query: 'private memory' }),
@@ -64,31 +68,31 @@ test('operator authorization is checked before Engram or its credential is touch
     invoke,
     fetcher,
   );
-  assert.equal(response?.status, 403);
+  assert.ok(response);
+  assert.equal(response.status, 403);
+  assert.equal((await response.text()).includes('eng_live_super_secret'), false);
   assert.equal(upstreamCalls, 0);
-  assert.equal((await response!.text()).includes('eng_live_super_secret'), false);
 });
 
 test('a forged successful identity response still fails closed', async () => {
-  const invoke = async (): Promise<Response> =>
-    Response.json({ ok: true, data: { login: 'someone-else' } });
+  const invoke = (): Promise<Response> =>
+    Promise.resolve(Response.json({ ok: true, data: { login: 'someone-else' } }));
   const response = await handleEngramAction(
     request('/gpt-actions/engram/status'),
     { ENGRAM_API_KEY: 'eng_live_test' },
     invoke,
-    async () => {
-      throw new Error('Engram must not be called');
-    },
+    unexpectedFetch('Engram must not be called'),
   );
-  assert.equal(response?.status, 403);
-  assert.deepEqual(await response!.json(), { ok: false, error: 'operator_not_allowed' });
+  assert.ok(response);
+  assert.equal(response.status, 403);
+  assert.deepEqual(await response.json(), { ok: false, error: 'operator_not_allowed' });
 });
 
 test('status never exposes the server-side Engram credential', async () => {
   const env = { ENGRAM_API_KEY: 'eng_live_super_secret' } satisfies EngramActionEnv;
-  const fetcher: typeof fetch = async (input) => {
+  const fetcher: typeof fetch = (input) => {
     assert.equal(String(input), 'https://api.engrammemory.ai/health');
-    return fakeResponse({ status: 'ok' });
+    return Promise.resolve(fakeResponse({ status: 'ok' }));
   };
   const response = await handleEngramAction(
     request('/gpt-actions/engram/status'),
@@ -96,15 +100,16 @@ test('status never exposes the server-side Engram credential', async () => {
     authorizedInvoke(),
     fetcher,
   );
-  assert.equal(response?.status, 200);
-  const text = await response!.text();
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  const text = await response.text();
   assert.equal(text.includes('eng_live_super_secret'), false);
   assert.deepEqual(JSON.parse(text), { ok: true, configured: true, reachable: true });
 });
 
 test('search sends a bounded personal query with the server-side credential', async () => {
   const env = { ENGRAM_API_KEY: 'eng_live_test' } satisfies EngramActionEnv;
-  const fetcher: typeof fetch = async (input, init) => {
+  const fetcher: typeof fetch = (input, init) => {
     assert.equal(String(input), 'https://api.engrammemory.ai/v1/search');
     assert.equal(init?.method, 'POST');
     const headers = new Headers(init?.headers);
@@ -115,10 +120,10 @@ test('search sends a bounded personal query with the server-side credential', as
       top_k: 4,
       scope: 'personal',
     });
-    return fakeResponse({
+    return Promise.resolve(fakeResponse({
       results: [{ id: 'm1', content: 'Use backoff.', score: 0.9 }],
       query_tokens: 7,
-    });
+    }));
   };
   const response = await handleEngramAction(
     request('/gpt-actions/engram/search', {
@@ -129,8 +134,9 @@ test('search sends a bounded personal query with the server-side credential', as
     authorizedInvoke(),
     fetcher,
   );
-  assert.equal(response?.status, 200);
-  assert.deepEqual(await response!.json(), {
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
     ok: true,
     results: [{
       id: 'm1',
@@ -150,7 +156,7 @@ test('search sends a bounded personal query with the server-side credential', as
 
 test('store stamps MechaGremlin source and keeps memory fields bounded', async () => {
   const env = { ENGRAM_API_KEY: 'eng_live_test' } satisfies EngramActionEnv;
-  const fetcher: typeof fetch = async (input, init) => {
+  const fetcher: typeof fetch = (input, init) => {
     assert.equal(String(input), 'https://api.engrammemory.ai/v1/store');
     assert.deepEqual(JSON.parse(String(init?.body)), {
       text: 'Prefer squash merges.',
@@ -159,13 +165,13 @@ test('store stamps MechaGremlin source and keeps memory fields bounded', async (
       metadata: { project: 'trvny/trvny', source: 'mechagremlin' },
       collection: 'agent-memory',
     });
-    return fakeResponse({
+    return Promise.resolve(fakeResponse({
       id: 'm2',
       status: 'stored',
       category: 'preference',
       duplicate: false,
       message: 'Memory stored [preference]',
-    });
+    }));
   };
   const response = await handleEngramAction(
     request('/gpt-actions/engram/store', {
@@ -178,8 +184,9 @@ test('store stamps MechaGremlin source and keeps memory fields bounded', async (
     authorizedInvoke(),
     fetcher,
   );
-  assert.equal(response?.status, 200);
-  assert.deepEqual(await response!.json(), {
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
     ok: true,
     id: 'm2',
     status: 'stored',
@@ -194,34 +201,33 @@ test('Engram actions fail closed when the credential or input is invalid', async
     request('/gpt-actions/engram/search', { query: 'test' }),
     {},
     authorizedInvoke(),
-    async () => {
-      throw new Error('Engram must not be called without a credential');
-    },
+    unexpectedFetch('Engram must not be called without a credential'),
   );
-  assert.equal(noSecret?.status, 503);
-  assert.deepEqual(await noSecret!.json(), { ok: false, error: 'engram_unconfigured' });
+  assert.ok(noSecret);
+  assert.equal(noSecret.status, 503);
+  assert.deepEqual(await noSecret.json(), { ok: false, error: 'engram_unconfigured' });
 
   const invalid = await handleEngramAction(
     request('/gpt-actions/engram/store', { text: 'x', category: 'made-up' }),
     { ENGRAM_API_KEY: 'eng_live_test' },
     authorizedInvoke(),
-    async () => {
-      throw new Error('Engram must not be called for invalid input');
-    },
+    unexpectedFetch('Engram must not be called for invalid input'),
   );
-  assert.equal(invalid?.status, 400);
-  assert.deepEqual(await invalid!.json(), { ok: false, error: 'invalid_category' });
+  assert.ok(invalid);
+  assert.equal(invalid.status, 400);
+  assert.deepEqual(await invalid.json(), { ok: false, error: 'invalid_category' });
 });
 
 test('upstream error bodies are never relayed to the Custom GPT', async () => {
-  const fetcher: typeof fetch = async () =>
-    new Response('secret upstream diagnostic', { status: 401 });
+  const fetcher: typeof fetch = () =>
+    Promise.resolve(new Response('secret upstream diagnostic', { status: 401 }));
   const response = await handleEngramAction(
     request('/gpt-actions/engram/search', { query: 'test' }),
     { ENGRAM_API_KEY: 'eng_live_bad' },
     authorizedInvoke(),
     fetcher,
   );
-  assert.equal(response?.status, 502);
-  assert.deepEqual(await response!.json(), { ok: false, error: 'engram_auth_failed' });
+  assert.ok(response);
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { ok: false, error: 'engram_auth_failed' });
 });

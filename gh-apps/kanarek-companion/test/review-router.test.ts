@@ -162,14 +162,13 @@ test('review router prefers OpenRouter then falls through to OrcaRouter', async 
       models: [
         'poolside/laguna-s-2.1:free',
         'cohere/north-mini-code:free',
-        'poolside/laguna-m.1:free',
         'nvidia/nemotron-3-super-120b-a12b:free',
         'openrouter/free',
       ],
     },
     {
       url: 'https://api.orcarouter.ai/v1/chat/completions',
-      model: 'deepseek/deepseek-v4-flash-free',
+      model: 'orcarouter/free',
       models: undefined,
     },
   ]);

@@ -50,6 +50,13 @@ do not wrap every GitHub endpoint for its own sake.
 - [ ] **Focused code-review pass.** Pre-merge analysis for missed callers, API-contract drift,
   unsafe null/state handling, race-prone changes, missing edge cases and accidental scope growth.
 
+## Organization operator
+
+- [ ] **`twojstar` organization administration.** Add guarded `twojstar`-only inventory and selected
+  organization management for repositories, members/teams and automation/security settings. Grant
+  only the GitHub App organization permissions required by implemented operations, require fresh
+  expected state for mutations, and never expose a generic organization-admin, billing or secrets proxy.
+
 ## Beyond GitHub
 
 Build outward in this order, keeping external capabilities high-level and guarded instead of mirroring entire provider APIs.
@@ -77,5 +84,6 @@ Build outward in this order, keeping external capabilities high-level and guarde
 - GPTomek performs normal bot-authored writes; intentionally human-authored operations stay `trvny`.
 - Policy may narrow behavior but never weakens hard runtime safety guards.
 - Never persist OAuth bearer tokens in checkpoints.
+- Private actions that use server-side credentials must verify the authorized operator before the credential is used.
 - Interrupted or uncertain mutations recover by verification, not blind replay.
 - Final merge/release gates require fresh state, exact expected snapshots and applicable green CI/review state.

@@ -1,0 +1,216 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  parseReviewJson,
+  patchAddedRightLines,
+  scheduleWebhookReviewWebhook,
+  WebhookReviewJob,
+  type WebhookReviewEnv,
+} from '../src/webhook-review.ts';
+
+const headA = 'a'.repeat(40);
+const headB = 'b'.repeat(40);
+const base = 'c'.repeat(40);
+
+function payload(
+  headSha = headA,
+  options: { action?: string; draft?: boolean; headRepository?: string } = {},
+): Record<string, unknown> {
+  return {
+    action: options.action ?? 'synchronize',
+    installation: { id: 123 },
+    number: 21,
+    repository: { full_name: 'twojstar/llmbench' },
+    pull_request: {
+      draft: options.draft ?? false,
+      base: { sha: base },
+      head: {
+        sha: headSha,
+        repo: {
+          full_name: options.headRepository ?? 'twojstar/llmbench',
+        },
+      },
+    },
+  };
+}
+
+function webhookRequest(body: Record<string, unknown>): Request {
+  return new Request('https://kanarek.example/webhooks/github', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-github-delivery': 'delivery-1',
+      'x-github-event': 'pull_request',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function fakeState(initial: Record<string, unknown> = {}): {
+  alarms: number[];
+  state: DurableObjectState;
+  values: Map<string, unknown>;
+} {
+  const values = new Map(Object.entries(initial));
+  const alarms: number[] = [];
+  const storage = {
+    get(key: string) {
+      return values.get(key);
+    },
+    put(
+      keyOrEntries: string | Record<string, unknown>,
+      value?: unknown,
+    ) {
+      if (typeof keyOrEntries === 'string') {
+        values.set(keyOrEntries, value);
+      } else {
+        for (const [key, entry] of Object.entries(keyOrEntries)) {
+          values.set(key, entry);
+        }
+      }
+    },
+    delete(keyOrKeys: string | string[]) {
+      if (Array.isArray(keyOrKeys)) {
+        let changed = false;
+        for (const key of keyOrKeys) changed = values.delete(key) || changed;
+        return changed;
+      }
+      return values.delete(keyOrKeys);
+    },
+    setAlarm(at: number) {
+      alarms.push(at);
+    },
+  };
+  return {
+    alarms,
+    values,
+    state: { storage } as unknown as DurableObjectState,
+  };
+}
+
+function queuedJob(headSha = headA): Record<string, unknown> {
+  return {
+    body: JSON.stringify(payload(headSha)),
+    target: {
+      action: 'synchronize',
+      baseSha: base,
+      delivery: 'delivery-1',
+      headSha,
+      installationId: 123,
+      number: 21,
+      repository: 'twojstar/llmbench',
+    },
+  };
+}
+
+test('review line anchors include only added RIGHT-side lines', () => {
+  const patch = [
+    '@@ -10,3 +10,4 @@',
+    ' context',
+    '-old',
+    '+new',
+    '+extra',
+    ' tail',
+  ].join('\n');
+  assert.deepEqual([...patchAddedRightLines(patch)], [11, 12]);
+});
+
+test('review JSON parser accepts fenced provider output', () => {
+  const parsed = parseReviewJson(
+    '```json\n{"summary":"🐤 没发现问题","findings":[]}\n```',
+  );
+  assert.equal(parsed?.summary, '🐤 没发现问题');
+  assert.deepEqual(parsed?.findings, []);
+});
+
+test('webhook review scheduler ignores drafts and external forks', async () => {
+  let calls = 0;
+  const env = {
+    KANAREK_REVIEW_JOBS: {
+      idFromName(name: string) {
+        return name as unknown as DurableObjectId;
+      },
+      get() {
+        return {
+          fetch() {
+            calls += 1;
+            return Promise.resolve(Response.json({ ok: true }));
+          },
+        } as DurableObjectStub;
+      },
+    } as unknown as DurableObjectNamespace,
+  } as WebhookReviewEnv;
+
+  const tasks: Promise<unknown>[] = [];
+  const ctx = {
+    waitUntil(task: Promise<unknown>) {
+      tasks.push(task);
+    },
+  } as unknown as ExecutionContext;
+
+  scheduleWebhookReviewWebhook(
+    webhookRequest(payload(headA, { draft: true })),
+    env,
+    ctx,
+  );
+  scheduleWebhookReviewWebhook(
+    webhookRequest(
+      payload(headA, { headRepository: 'someone/forked-llmbench' }),
+    ),
+    env,
+    ctx,
+  );
+  await Promise.all(tasks);
+  assert.equal(calls, 0);
+});
+
+test('webhook review job debounces to the newest head', async () => {
+  const { alarms, state, values } = fakeState();
+  const job = new WebhookReviewJob(state, {
+    KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS: '60000',
+  } as WebhookReviewEnv);
+
+  const before = Date.now();
+  const first = await job.fetch(
+    new Request('https://kanarek-review.internal/enqueue', {
+      method: 'POST',
+      body: JSON.stringify(queuedJob(headA)),
+    }),
+  );
+  const second = await job.fetch(
+    new Request('https://kanarek-review.internal/enqueue', {
+      method: 'POST',
+      body: JSON.stringify(queuedJob(headB)),
+    }),
+  );
+
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(alarms.length, 2);
+  assert.ok(alarms[1] >= before + 59_000);
+  const stored = values.get('job') as {
+    target?: { headSha?: string };
+  };
+  assert.equal(stored.target?.headSha, headB);
+});
+
+test('webhook review job deduplicates an already completed head', async () => {
+  const { alarms, state } = fakeState({ 'completed-head': headA });
+  const job = new WebhookReviewJob(state, {} as WebhookReviewEnv);
+  const response = await job.fetch(
+    new Request('https://kanarek-review.internal/enqueue', {
+      method: 'POST',
+      body: JSON.stringify(queuedJob(headA)),
+    }),
+  );
+  const body = (await response.json()) as {
+    duplicate?: boolean;
+    queued?: boolean;
+  };
+
+  assert.equal(response.status, 200);
+  assert.equal(body.duplicate, true);
+  assert.equal(body.queued, false);
+  assert.equal(alarms.length, 0);
+});

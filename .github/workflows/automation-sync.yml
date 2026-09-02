@@ -15,7 +15,6 @@ on:
   push:
     branches: [main]
     paths:
-      - .github/workflows/kanarek-review.yml
       - .github/workflows/automation-sync.yml
   schedule:
     - cron: "17 * * * *"
@@ -33,27 +32,14 @@ jobs:
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ secrets.GH_PAT }}
-      KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
     steps:
-      - name: Sync review bearer and caller
+      - name: Remove legacy per-repository review callers
         shell: bash
         run: |
           set -euo pipefail
           : "${GH_TOKEN:?GH_PAT must be configured}"
-          : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
-          source_repo="$GITHUB_REPOSITORY"
-          source_path=.github/workflows/kanarek-review.yml
-          source_branch=$(gh api "repos/$source_repo" --jq .default_branch)
-          source_blob_sha=$(gh api \
-            "repos/$source_repo/contents/$source_path?ref=$source_branch" \
-            --jq .sha)
-          caller=$(mktemp)
           twojstar_repos_file=$(mktemp)
-          trap 'rm -f "$caller" "$twojstar_repos_file"' EXIT
-          gh api \
-            -H 'Accept: application/vnd.github.raw+json' \
-            "repos/$source_repo/contents/$source_path?ref=$source_branch" \
-            >"$caller"
+          trap 'rm -f "$twojstar_repos_file"' EXIT
           repos=(
             trvny/.ai
             trvny/.github
@@ -68,60 +54,42 @@ jobs:
           repos+=("${twojstar_repos[@]}")
 
           for repo in "${repos[@]}"; do
-            printf '%s' "$KANAREK_REVIEW_ROUTER_TOKEN" |
-              gh secret set KANAREK_REVIEW_ROUTER_TOKEN --repo "$repo"
             default_branch=$(gh api "repos/$repo" --jq .default_branch)
-            tmp=$(mktemp)
-            blob_sha=''
-            if gh api \
-              -H 'Accept: application/vnd.github.raw+json' \
-              "repos/$repo/contents/.github/workflows/kanarek-review.yml?ref=$default_branch" \
-              >"$tmp" 2>/dev/null; then
-              if cmp -s "$caller" "$tmp"; then
-                rm -f "$tmp"
-                for key in OPENROUTER_API_KEY ORCAROUTER_API_KEY AIHUBMIX_API_KEY; do
-                  gh secret delete "$key" --repo "$repo" 2>/dev/null || true
-                done
-                continue
-              fi
-              blob_sha=$(gh api \
+            blob_sha=$(
+              gh api \
                 "repos/$repo/contents/.github/workflows/kanarek-review.yml?ref=$default_branch" \
-                --jq .sha)
-            fi
-            rm -f "$tmp"
-
-            content=$(base64 -w0 "$caller")
-            payload=$(jq -n \
-              --arg message 'Sync Kanarek review caller' \
-              --arg content "$content" \
-              --arg branch "$default_branch" \
-              --arg sha "$blob_sha" \
-              '{
-                message: $message,
-                content: $content,
-                branch: $branch,
-                author: {
-                  name: "GPTomek",
-                  email: "314538226+gptomek[bot]@users.noreply.github.com"
-                },
-                committer: {
-                  name: "GPTomek",
-                  email: "314538226+gptomek[bot]@users.noreply.github.com"
-                }
-              } + (if $sha == "" then {} else {sha: $sha} end)')
-            current_source_blob_sha=$(gh api \
-              "repos/$source_repo/contents/$source_path?ref=$source_branch" \
-              --jq .sha)
-            if [[ "$current_source_blob_sha" != "$source_blob_sha" ]]; then
-              echo "Review caller changed on $source_branch; a newer sync will handle rollout."
-              exit 0
+                --jq .sha 2>/dev/null || true
+            )
+            if [ -n "$blob_sha" ]; then
+              payload=$(jq -n \
+                --arg message 'Remove legacy Kanarek review caller' \
+                --arg branch "$default_branch" \
+                --arg sha "$blob_sha" \
+                '{
+                  message: $message,
+                  branch: $branch,
+                  sha: $sha,
+                  author: {
+                    name: "GPTomek",
+                    email: "314538226+gptomek[bot]@users.noreply.github.com"
+                  },
+                  committer: {
+                    name: "GPTomek",
+                    email: "314538226+gptomek[bot]@users.noreply.github.com"
+                  }
+                }')
+              printf '%s' "$payload" |
+                gh api --method DELETE \
+                  "repos/$repo/contents/.github/workflows/kanarek-review.yml" \
+                  --input - >/dev/null
             fi
 
-            printf '%s' "$payload" |
-              gh api --method PUT \
-                "repos/$repo/contents/.github/workflows/kanarek-review.yml" \
-                --input - >/dev/null
-            for key in OPENROUTER_API_KEY ORCAROUTER_API_KEY AIHUBMIX_API_KEY; do
+            for key in \
+              KANAREK_REVIEW_ROUTER_TOKEN \
+              OPENROUTER_API_KEY \
+              ORCAROUTER_API_KEY \
+              AIHUBMIX_API_KEY
+            do
               gh secret delete "$key" --repo "$repo" 2>/dev/null || true
             done
           done

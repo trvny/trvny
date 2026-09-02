@@ -5,6 +5,8 @@ import { HostGit } from "./host-git.js";
 import { SessionManager } from "./sessions.js";
 import { CommandRunner } from "./sandbox.js";
 import { createServer } from "./server.js";
+import { ConfinedRemoteExecutor } from "./remote-executor.js";
+import { CloudflareQueueTransport, RemoteJournal, RemoteWorker } from "./remote-transport.js";
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -22,8 +24,28 @@ async function main(): Promise<void> {
       },
       networkProfiles: Object.keys(config.networkProfiles).sort(),
       git: await git.probe(),
+      remote: config.remote ? {
+        enabled: config.remote.enabled,
+        deviceId: config.remote.deviceId,
+        queueToken: Boolean(process.env[config.remote.queueTokenEnv]),
+        signingSecret: Boolean(process.env[config.remote.signingSecretEnv]),
+      } : { enabled: false },
       activeSessions: sessions.list().length,
     }, null, 2));
+    return;
+  }
+
+  if (process.argv[2] === "remote") {
+    if (!config.remote?.enabled) throw new Error("remote worker is not enabled in dispatcher config");
+    const transport = new CloudflareQueueTransport(config.remote);
+    const journal = new RemoteJournal(config.remote.journalPath);
+    const executor = new ConfinedRemoteExecutor(config, sessions, runner);
+    const worker = new RemoteWorker(transport, journal, executor);
+    const controller = new AbortController();
+    process.once("SIGINT", () => controller.abort());
+    process.once("SIGTERM", () => controller.abort());
+    console.error(`pet-dispatcher remote worker polling for ${config.remote.deviceId}`);
+    await worker.run(controller.signal);
     return;
   }
 

@@ -1,6 +1,6 @@
 # Agent Dispatcher MCP — concept
 
-Status: **planning; local MVP is the next implementation step**
+Status: **Phase 2 remote transport implemented; live Cloudflare provisioning pending**
 
 ## Goal
 
@@ -145,7 +145,7 @@ The Legion currently has limited RAM, so default to:
 - concurrency: **1 active agent task**;
 - bounded CPU/runtime;
 - no resident model processes unless useful;
-- no duplicate object stores; prefer shared ephemeral checkouts with private session metadata.
+- session-owned independent object stores; active sessions must not depend on source-repository pruning.
 
 A warm OpenCode server is acceptable only if measurements show that avoiding repeated MCP/provider startup is worth the idle footprint.
 
@@ -153,7 +153,7 @@ A warm OpenCode server is acceptable only if measurements show that avoiding rep
 
 Avoid branch/checkout graveyards.
 
-1. create a detached shared checkout under one worker-owned root;
+1. create an independent non-local detached checkout under one worker-owned root;
 2. keep its Git metadata in a private sibling directory outside the sandbox-writable worktree;
 3. run the task and tests;
 4. if successful, preserve the commit and optionally publish a short-lived remote branch/PR;
@@ -306,7 +306,7 @@ Assume the remote broker can deliver a task more than once.
 
 The worker should maintain a small durable local journal keyed by `task_id`.
 
-**Phase 1 uses local claim state, not a broker lease:**
+**The local journal remains authoritative for every phase:**
 
 - atomically claim a `task_id` in the local journal before any side effect;
 - keep local `running/completed/failed/cancelled` state;
@@ -319,7 +319,7 @@ The worker should maintain a small durable local journal keyed by `task_id`.
 - deduplicate before any side effect;
 - store commit/artifact hashes in the completed record.
 
-**Phase 2 adds the remote broker lease + heartbeat** with bounded expiry. Broker lease expiry makes a task eligible for redelivery, but the local journal remains authoritative for duplicate suppression: the same `task_id` must not execute twice while its original process tree is still alive.
+**Phase 2 adds Cloudflare HTTP-pull delivery plus control-plane heartbeat state.** A Queue `visibility_timeout` supplies the delivery lease; the local journal is still authoritative for duplicate suppression. Interrupted `leased`/`running` claims become `recovery_required` and are never automatically replayed. Heartbeats report liveness and cancellation state, but they do not widen or replace the Queue lease.
 
 `cancel` is a request, not magic: the worker marks cancellation, terminates the owned process tree, then records whether cleanup completed.
 
@@ -357,7 +357,7 @@ Also viable:
 
 ### Recommendation
 
-Prototype the transport behind a tiny interface and start with **Cloudflare Queues + HTTP pull** unless testing shows a concrete drawback.
+Phase 2 starts with **Cloudflare Queues + HTTP pull** behind the transport interface. HTTP pull consumer activation is an explicit Wrangler CLI/dashboard operation rather than a `wrangler.jsonc` consumer binding, so the Worker config owns only the producer binding and state store.
 
 Do not use API Gateway merely because it exists. For this workload it adds complexity and its promotional free allowance is less attractive than SQS/Lambda Function URLs.
 
@@ -376,10 +376,11 @@ Security is part of the architecture, not a later hardening pass.
 
 ### Authentication and task integrity
 
-- MCP endpoint: OAuth/OIDC or equivalent strong identity.
-- Per-device worker identity.
-- Short-lived credentials where possible.
-- Signed task envelopes.
+- control-plane operator endpoint: bearer token in Phase 2; migrate to OAuth/OIDC if the endpoint becomes a general multi-client MCP surface.
+- per-device worker identity.
+- per-device HMAC signing secret in Phase 2, stored only as a Cloudflare secret and local Legion environment secret.
+- short-lived credentials where possible.
+- signed task envelopes and signed worker callbacks.
 - Nonce + timestamp + short TTL to prevent replay.
 - Monotonic task IDs / deduplication.
 - Rotate/revoke device keys independently.

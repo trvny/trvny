@@ -10,9 +10,13 @@
     "start": "node dist/src/index.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/sandbox.integration.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/agent-tools.test.ts tests/hardening.test.ts",
+    "test": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/sandbox.integration.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/agent-tools.test.ts tests/hardening.test.ts tests/remote.test.ts tests/remote-followup.test.ts",
     "test:sandbox": "tsx --test tests/sandbox.integration.test.ts",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test && npm run control:check",
+    "remote": "tsx src/index.ts remote",
+    "control:dev": "wrangler dev --config control-plane/wrangler.jsonc",
+    "control:deploy": "wrangler deploy --config control-plane/wrangler.jsonc",
+    "control:check": "tsc -p tsconfig.control-plane.json && wrangler deploy --dry-run --config control-plane/wrangler.jsonc --outdir dist/control-plane"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",
@@ -21,8 +25,10 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260828.1",
     "@types/node": "^26.4.0",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "wrangler": "^4.127.1"
   }
 }

@@ -81,17 +81,43 @@ export const agentToolDefinitions: AgentToolDefinition[] = [
     },
   },
 ];
+
+const TOOL_CAPABILITY: Readonly<Record<string, string>> = {
+  list_files: "workspace.read",
+  read_file: "workspace.read",
+  write_file: "workspace.write",
+  patch_file: "workspace.write",
+  exec: "process.exec",
+  git_status: "git.read",
+  git_diff: "git.read",
+  git_add: "git.commit",
+  git_commit: "git.commit",
+  http_fetch: "network.fetch",
+};
+
 export class AgentTools {
   constructor(
     readonly sessions: SessionManager,
     readonly runner: CommandRunner,
     readonly broker: NetworkBroker,
     readonly git: HostGit,
+    readonly capabilities?: ReadonlySet<string>,
+    readonly signal?: AbortSignal,
   ) {}
+
+  definitions(): AgentToolDefinition[] {
+    if (!this.capabilities) return agentToolDefinitions;
+    return agentToolDefinitions.filter((tool) => this.capabilities?.has(TOOL_CAPABILITY[tool.name] ?? ""));
+  }
 
   async execute(sessionId: string, name: string, raw: unknown): Promise<unknown> {
     const args = (raw ?? {}) as Record<string, unknown>;
+    this.signal?.throwIfAborted();
     this.sessions.get(sessionId);
+    const required = TOOL_CAPABILITY[name];
+    if (this.capabilities && (!required || !this.capabilities.has(required))) {
+      throw new Error(`agent tool is not permitted by the task capability profile: ${name}`);
+    }
     switch (name) {
       case "list_files":
         return this.sessions.runHostOperation(sessionId, (locked) => listWorkspace(locked, String(args.path ?? ".")));
@@ -115,7 +141,13 @@ export class AgentTools {
           }
           timeoutMs = value;
         }
-        return this.runner.exec(sessionId, argv, String(args.cwd ?? "."), timeoutMs);
+        const onAbort = () => { this.runner.cancel(sessionId); };
+        this.signal?.addEventListener("abort", onAbort, { once: true });
+        try {
+          return await this.runner.exec(sessionId, argv, String(args.cwd ?? "."), timeoutMs);
+        } finally {
+          this.signal?.removeEventListener("abort", onAbort);
+        }
       }
       case "git_status": return this.git.status(sessionId);
       case "git_diff":

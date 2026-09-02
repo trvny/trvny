@@ -162,6 +162,9 @@ test('store stamps MechaGremlin source and keeps memory fields bounded', async (
   const env = { ENGRAM_API_KEY: 'eng_live_test' } satisfies EngramActionEnv;
   const fetcher: typeof fetch = (input, init) => {
     assert.equal(String(input), 'https://api.engrammemory.ai/v1/store');
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get('authorization'), 'Bearer eng_live_test');
+    assert.equal(headers.get('x-api-version'), '1');
     assert.deepEqual(JSON.parse(String(init?.body)), {
       text: 'Prefer squash merges.',
       category: 'preference',

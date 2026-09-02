@@ -1,10 +1,12 @@
 import { z, ZodError } from "zod";
 import {
+  remoteDirectCallSchema,
   remoteResultSchema,
   remoteTaskSchema,
   remoteTaskStateSchema,
   signEnvelope,
   verifyWorkerRequest,
+  type RemoteTask,
   type RemoteTaskState,
 } from "../src/remote-protocol.js";
 
@@ -205,9 +207,7 @@ async function workerAuthorized(request: Request, env: Env, body: string): Promi
   );
 }
 
-async function delegate(request: Request, env: Env): Promise<Response> {
-  const raw = await readBody(request);
-  const task = remoteTaskSchema.parse(JSON.parse(raw) as unknown);
+async function enqueueTask(task: RemoteTask, env: Env): Promise<Response> {
   const now = Date.now();
   const taskId = crypto.randomUUID();
   const quotaBody = JSON.stringify({ taskId });
@@ -259,6 +259,31 @@ async function delegate(request: Request, env: Env): Promise<Response> {
   return json({ taskId, status: "queued", expiresAt: new Date(envelope.expiresAt).toISOString() }, 202);
 }
 
+async function delegate(request: Request, env: Env): Promise<Response> {
+  const raw = await readBody(request);
+  return enqueueTask(remoteTaskSchema.parse(JSON.parse(raw) as unknown), env);
+}
+
+async function directTool(request: Request, env: Env): Promise<Response> {
+  const raw = await readBody(request);
+  const input = z.object({
+    repo: z.string().min(1).max(128),
+    baseRef: z.string().min(1).max(256).default("main"),
+    call: remoteDirectCallSchema,
+  }).strict().parse(JSON.parse(raw) as unknown);
+  const task = remoteTaskSchema.parse({
+    repo: input.repo,
+    baseRef: input.baseRef,
+    executor: "direct",
+    direct: input.call,
+    profile: "inspect",
+    capabilities: ["workspace.read", "git.read"],
+    network: { mode: "none" },
+    timeoutMinutes: 2,
+  });
+  return enqueueTask(task, env);
+}
+
 async function workerUpdate(request: Request, env: Env, taskId: string, action: string): Promise<Response> {
   const body = await readBody(request);
   if (!await workerAuthorized(request, env, body)) return json({ error: "unauthorized" }, 401);
@@ -292,10 +317,16 @@ export default {
 
       if (!controlAuthorized(request, env)) return json({ error: "unauthorized" }, 401);
       if (request.method === "GET" && url.pathname === "/v1/meta") {
-        return json({ deviceId: deviceId(env), transport: "cloudflare-queues-http-pull", protocol: 1 });
+        return json({
+          deviceId: deviceId(env), transport: "cloudflare-queues-http-pull", protocol: 1,
+          directTools: ["fs.list", "fs.stat", "fs.read", "git.status", "git.diff"],
+        });
       }
       if (request.method === "POST" && url.pathname === "/v1/delegate") {
         return delegate(request, env);
+      }
+      if (request.method === "POST" && url.pathname === "/v1/tool") {
+        return directTool(request, env);
       }
 
       const taskMatch = url.pathname.match(/^\/v1\/tasks\/([0-9a-f-]{36})(\/cancel)?$/u);

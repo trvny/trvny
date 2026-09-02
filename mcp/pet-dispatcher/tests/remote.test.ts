@@ -58,6 +58,16 @@ test("remote envelopes are signed, device-bound and freshness-checked", async ()
   assert.throws(() => validateEnvelopeFreshness(expired, "legion"), /expired/u);
 });
 
+
+test("direct remote task schema is read-only and networkless", () => {
+  const direct = remoteTaskSchema.parse({ repo: "trvny", executor: "direct", profile: "inspect",
+    capabilities: ["workspace.read", "git.read"], network: { mode: "none" }, timeoutMinutes: 2,
+    direct: { tool: "fs.read", path: "README.md" } });
+  assert.equal(direct.executor, "direct");
+  assert.throws(() => remoteTaskSchema.parse({ ...direct, network: { mode: "brokered", profile: "github-read" } }), /network mode none/u);
+  assert.throws(() => remoteTaskSchema.parse({ ...direct, profile: "code" }), /inspect profile/u);
+});
+
 test("agent tool definitions honor task capability profiles", () => {
   const tools = new AgentTools({} as never, {} as never, {} as never, {} as never, new Set(["workspace.read", "git.read"]));
   assert.deepEqual(tools.definitions().map(({ name }) => name), ["list_files", "read_file", "git_status", "git_diff"]);

@@ -101,6 +101,7 @@ const REVIEW_SYSTEM_PROMPT = [
 
 export interface WebhookReviewEnv extends ReviewRouterEnv {
   GITHUB_APP_ID: string;
+  GITHUB_APP_SLUG?: string;
   GITHUB_PRIVATE_KEY: string;
   KANAREK_REVIEW_JOBS?: DurableObjectNamespace;
   KANAREK_WEBHOOK_REVIEW_ENABLED?: string;
@@ -402,7 +403,7 @@ function contextPriority(path: string, changedPaths: readonly string[]): number 
   return 100;
 }
 
-function selectReviewFiles(
+export function selectReviewFiles(
   files: PullRequestFile[],
   maxDiffChars: number,
 ): ReviewFile[] {
@@ -417,7 +418,7 @@ function selectReviewFiles(
 
     const clipped = patch.slice(0, Math.min(MAX_PATCH_CHARS, remaining));
     const rightLines = patchAddedRightLines(clipped);
-    if (!clipped || !rightLines.size) continue;
+    if (!clipped) continue;
     output.push({
       path,
       patch: clipped,
@@ -831,6 +832,36 @@ function reviewTargetKey(target: ReviewTarget): string {
   return `${target.headSha}:${target.baseSha}`;
 }
 
+export function reviewMarker(target: ReviewTarget): string {
+  return `<!-- kanarek-review:${reviewTargetKey(target)} -->`;
+}
+
+export function submittedReviewMatches(
+  review: Record<string, unknown>,
+  target: ReviewTarget,
+  appSlug = 'kanarek-companion',
+): boolean {
+  const user = objectValue(review.user);
+  return (
+    review.commit_id === target.headSha &&
+    typeof review.body === 'string' &&
+    review.body.includes(reviewMarker(target)) &&
+    user.login === `${appSlug}[bot]`
+  );
+}
+
+async function existingSubmittedReview(
+  client: Awaited<ReturnType<typeof createInstallationClient>>,
+  target: ReviewTarget,
+  appSlug: string,
+): Promise<boolean> {
+  const reviews = await client.paginate<Record<string, unknown>>(
+    `/repos/${repoPath(target.repository)}/pulls/${target.number}/reviews`,
+    'webhook_review_list_reviews',
+  );
+  return reviews.some((review) => submittedReviewMatches(review, target, appSlug));
+}
+
 function targetStillCurrent(
   pr: Record<string, unknown>,
   target: ReviewTarget,
@@ -867,6 +898,16 @@ export async function runWebhookReview(
   const pr = await currentPullRequest(client, target);
   if (!targetStillCurrent(pr, target)) {
     return { reviewed: false, provider: null, findingCount: 0, skipped: 'stale_or_unreviewable' };
+  }
+
+  const appSlug = env.GITHUB_APP_SLUG?.trim() || 'kanarek-companion';
+  if (await existingSubmittedReview(client, target, appSlug)) {
+    return {
+      reviewed: true,
+      provider: null,
+      findingCount: 0,
+      skipped: 'already_submitted',
+    };
   }
 
   const rawFiles = await client.paginate<PullRequestFile>(
@@ -930,7 +971,7 @@ export async function runWebhookReview(
   const payload = {
     commit_id: target.headSha,
     event: 'COMMENT',
-    body: `🐤 **Kanarek 免费代码审查** · ${providerLabel(generated.provider)}\n\n${summary}`,
+    body: `${reviewMarker(target)}\n🐤 **Kanarek 免费代码审查** · ${providerLabel(generated.provider)}\n\n${summary}`,
     comments: findings.map((finding) => ({
       path: finding.path,
       line: finding.line,
@@ -939,11 +980,21 @@ export async function runWebhookReview(
     })),
   };
 
-  await client.json<unknown>(
-    `/repos/${repoPath(target.repository)}/pulls/${target.number}/reviews`,
-    'webhook_review_submit',
-    { method: 'POST', body: JSON.stringify(payload) },
-  );
+  try {
+    await client.json<unknown>(
+      `/repos/${repoPath(target.repository)}/pulls/${target.number}/reviews`,
+      'webhook_review_submit',
+      { method: 'POST', body: JSON.stringify(payload) },
+    );
+  } catch (error) {
+    let accepted = false;
+    try {
+      accepted = await existingSubmittedReview(client, target, appSlug);
+    } catch {
+      // Preserve the original submission error if verification is unavailable.
+    }
+    if (!accepted) throw error;
+  }
 
   console.log(
     JSON.stringify({

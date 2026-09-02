@@ -129,6 +129,9 @@ function reviewWebhookHealth(env: Env): JsonObject {
   const enabled = !['0', 'false', 'no', 'off'].includes(
     String(env.KANAREK_WEBHOOK_REVIEW_ENABLED ?? 'true').trim().toLowerCase(),
   );
+  const githubConfigured = Boolean(
+    env.GITHUB_APP_ID?.trim() && env.GITHUB_PRIVATE_KEY?.trim(),
+  );
   const queueConfigured = Boolean(env.KANAREK_REVIEW_JOBS);
   const routerConfigured = Boolean(env.KANAREK_REVIEW_ROUTER_TOKEN?.trim());
   const providerConfigured = Boolean(
@@ -136,9 +139,15 @@ function reviewWebhookHealth(env: Env): JsonObject {
   );
   return {
     enabled,
+    githubConfigured,
     providerConfigured,
     queueConfigured,
-    ready: enabled && queueConfigured && routerConfigured && providerConfigured,
+    ready:
+      enabled &&
+      githubConfigured &&
+      queueConfigured &&
+      routerConfigured &&
+      providerConfigured,
     routerConfigured,
     trigger: 'github-app-webhook',
   };

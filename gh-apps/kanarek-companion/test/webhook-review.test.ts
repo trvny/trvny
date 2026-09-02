@@ -5,6 +5,9 @@ import {
   parseReviewJson,
   patchAddedRightLines,
   reviewInputState,
+  reviewMarker,
+  selectReviewFiles,
+  submittedReviewMatches,
   scheduleWebhookReviewWebhook,
   WebhookReviewJob,
   type WebhookReviewEnv,
@@ -130,6 +133,57 @@ test('review input does not mark missing GitHub patches as empty code', () => {
   assert.equal(
     reviewInputState([{ filename: 'src/large.ts' }], 1),
     'reviewable',
+  );
+});
+
+test('deletion-only code patches stay reviewable without inline anchors', () => {
+  const files = selectReviewFiles(
+    [
+      {
+        filename: 'src/deleted.ts',
+        patch: '@@ -10,2 +10,0 @@\n-old call\n-old guard',
+      },
+    ],
+    5_000,
+  );
+  assert.equal(files.length, 1);
+  assert.equal(files[0]?.rightLines.size, 0);
+  assert.equal(reviewInputState([{ filename: 'src/deleted.ts', patch: files[0]?.patch }], files.length), 'reviewable');
+});
+
+test('review submission marker is target-specific and bot-authenticated', () => {
+  const target = {
+    action: 'synchronize',
+    baseSha: base,
+    delivery: 'delivery-1',
+    headSha: headA,
+    installationId: 123,
+    number: 21,
+    repository: 'twojstar/llmbench',
+  };
+  const marker = reviewMarker(target);
+  assert.match(marker, /kanarek-review:/);
+  assert.equal(
+    submittedReviewMatches(
+      {
+        body: `${marker}\nreview`,
+        commit_id: headA,
+        user: { login: 'kanarek-companion[bot]' },
+      },
+      target,
+    ),
+    true,
+  );
+  assert.equal(
+    submittedReviewMatches(
+      {
+        body: `${marker}\nspoofed`,
+        commit_id: headA,
+        user: { login: 'someone' },
+      },
+      target,
+    ),
+    false,
   );
 });
 

@@ -26,6 +26,7 @@ const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
 const COMPLETED_TARGET_KEY = 'completed-target';
 const INTERNAL_REVIEW_ORIGIN = 'https://kanarek-review.internal';
+const runtimeFetch: typeof fetch = (input, init) => fetch(input, init);
 
 const CONTEXT_CONFIG_NAMES = new Set([
   'AGENTS.md',
@@ -944,7 +945,7 @@ function targetStillCurrent(
 export async function runWebhookReview(
   job: StoredJob,
   env: WebhookReviewEnv,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = runtimeFetch,
   submitGate?: ReviewSubmitGate,
 ): Promise<WebhookReviewResult> {
   const target = job.target;
@@ -1251,7 +1252,7 @@ export class WebhookReviewJob {
       result = await runWebhookReview(
         started,
         this.env,
-        fetch,
+        runtimeFetch,
         (target, submit) =>
           this.state.blockConcurrencyWhile(async () => {
             const latest = await this.state.storage.get<StoredJob>(JOB_KEY);

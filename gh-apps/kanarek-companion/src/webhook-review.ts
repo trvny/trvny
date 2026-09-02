@@ -886,11 +886,11 @@ export function shouldReplaceQueuedTarget(
     typeof existing.updatedAtMs === 'number' &&
     typeof incoming.updatedAtMs === 'number'
   ) {
-    if (incoming.updatedAtMs > existing.updatedAtMs) return true;
-    if (incoming.updatedAtMs < existing.updatedAtMs) return false;
+    if (incoming.updatedAtMs !== existing.updatedAtMs) {
+      return incoming.updatedAtMs > existing.updatedAtMs;
+    }
     return incoming.beforeSha === existing.headSha;
   }
-  if (incoming.beforeSha === existing.headSha) return true;
   return true;
 }
 

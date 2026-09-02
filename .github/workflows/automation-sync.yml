@@ -16,6 +16,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      KANAREK_COMPANION_HEALTH_URL: https://kanarek-companion.travny.workers.dev/health
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -34,43 +35,89 @@ jobs:
           : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
           secrets_file=$(mktemp)
           trap 'rm -f "$secrets_file"' EXIT
+
+          live_tag=$(
+            curl --fail --silent --show-error "$KANAREK_COMPANION_HEALTH_URL" 2>/dev/null |
+              jq -r '.gateway.workerVersion.tag // empty' || true
+          )
+          if [[ "$live_tag" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            version_tag="${live_tag,,}"
+          else
+            version_tag="$GITHUB_SHA"
+          fi
+          version_message="Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+
           python3 - "$secrets_file" <<'PY'
           import json
           import os
           import pathlib
           import sys
 
+          required = {
+              "CLOUDFLARE_API_TOKEN": os.environ["CLOUDFLARE_API_TOKEN"],
+              "CLOUDFLARE_ACCOUNT_ID": os.environ["CLOUDFLARE_ACCOUNT_ID"],
+              "KANAREK_REVIEW_ROUTER_TOKEN": os.environ["KANAREK_REVIEW_ROUTER_TOKEN"],
+          }
+          direct_optional = {
+              key: os.environ[key]
+              for key in (
+                  "GEMINI_API_KEY",
+                  "OPENAI_API_KEY",
+                  "ANTHROPIC_API_KEY",
+                  "XAI_API_KEY",
+              )
+              if os.environ.get(key)
+          }
+          free_review = {
+              key: os.environ.get(key) or None
+              for key in (
+                  "AIHUBMIX_API_KEY",
+                  "OPENROUTER_API_KEY",
+                  "ORCAROUTER_API_KEY",
+              )
+          }
           pathlib.Path(sys.argv[1]).write_text(
-              json.dumps({
-                  **{
-                      "CLOUDFLARE_API_TOKEN": os.environ["CLOUDFLARE_API_TOKEN"],
-                      "CLOUDFLARE_ACCOUNT_ID": os.environ["CLOUDFLARE_ACCOUNT_ID"],
-                  },
-                  **{
-                      key: os.environ[key]
-                      for key in ("KANAREK_REVIEW_ROUTER_TOKEN", "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY")
-                      if os.environ.get(key)
-                  },
-              }),
+              json.dumps({**required, **direct_optional, **free_review}),
               encoding="utf-8",
           )
           PY
           chmod 600 "$secrets_file"
-          npx --yes wrangler@4.127.1 secret bulk "$secrets_file" --name kanarek-companion
 
-          current_secrets="$(npx --yes wrangler@4.127.1 secret list --name kanarek-companion --format json)"
-          for key in AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY; do
-            if [ -n "${!key:-}" ]; then
-              continue
-            fi
-            if CURRENT_SECRETS="$current_secrets" SECRET_KEY="$key" python3 - <<'PY'
-          import json
-          import os
+          npx --yes wrangler@4.127.1 secret bulk "$secrets_file" \
+            --name kanarek-companion
+          npx --yes wrangler@4.127.1 versions secret bulk "$secrets_file" \
+            --name kanarek-companion \
+            --tag "$version_tag" \
+            --message "$version_message"
 
-          secrets = json.loads(os.environ["CURRENT_SECRETS"])
-          raise SystemExit(0 if any(item.get("name") == os.environ["SECRET_KEY"] for item in secrets) else 1)
-          PY
+          versions_json=$(npx --yes wrangler@4.127.1 versions list \
+            --name kanarek-companion --json)
+          version_id=$(jq -r \
+            --arg tag "$version_tag" \
+            --arg message "$version_message" \
+            '[.[] | select(.annotations["workers/tag"] == $tag and .annotations["workers/message"] == $message)] | last | .id // empty' \
+            <<<"$versions_json")
+          if [ -z "$version_id" ]; then
+            echo "Could not identify the tagged credential-sync Worker version." >&2
+            exit 1
+          fi
+
+          npx --yes wrangler@4.127.1 versions deploy \
+            "$version_id@100%" \
+            --name kanarek-companion \
+            --message "$version_message" \
+            --yes
+
+          for _attempt in {1..12}; do
+            if live_health=$(curl --fail --silent --show-error \
+              "$KANAREK_COMPANION_HEALTH_URL") &&
+              jq -e --arg tag "$version_tag" \
+                '.ok == true and .reviewWebhook.ready == true and .gateway.workerVersion.tag == $tag' \
+                <<<"$live_health" >/dev/null
             then
-              printf 'y\n' | npx --yes wrangler@4.127.1 secret delete "$key" --name kanarek-companion
+              exit 0
             fi
+            sleep 5
           done
+          echo "Credential sync deployed, but the tagged Worker did not become healthy." >&2
+          exit 1

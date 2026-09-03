@@ -46,6 +46,10 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
 
 export type RemoteDirectCall = z.infer<typeof remoteDirectCallSchema>;
 
+export const REMOTE_DIRECT_TOOLS = [
+  "session.open", "session.close", "fs.list", "fs.stat", "fs.read", "fs.write",
+  "git.status", "git.diff", "git.add", "git.commit",
+] as const satisfies readonly RemoteDirectCall["tool"][];
 export const REMOTE_DIRECT_READ_CAPABILITIES = ["workspace.read", "git.read"] as const;
 export const REMOTE_DIRECT_WRITE_CAPABILITIES = ["workspace.read", "workspace.write", "git.read", "git.commit"] as const;
 const REMOTE_DIRECT_WRITE_TOOLS = new Set<RemoteDirectCall["tool"]>([

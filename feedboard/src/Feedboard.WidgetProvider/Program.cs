@@ -46,7 +46,7 @@ public static class Program
         }
         else
         {
-            manager.GetDisposedEvent().WaitOne();
+            manager.ExitWaitHandle.WaitOne();
         }
     }
 

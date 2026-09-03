@@ -31,7 +31,7 @@ public sealed class FeedStore
 
             await using var stream = File.OpenRead(_path);
             return await JsonSerializer.DeserializeAsync<List<FeedSource>>(stream, JsonOptions, cancellationToken)
-                ?? Array.Empty<FeedSource>();
+                ?? new List<FeedSource>();
         }
         finally
         {

@@ -2,7 +2,7 @@
 
 A local-first RSS/Atom widget for the Windows 11 Widgets Board.
 
-> Status: early prototype. The provider, feed parser, OPML plumbing and adaptive-card renderer are scaffolded. The next Windows pass is packaging + install smoke testing on a real Windows 11 machine.
+> Status: early prototype. The provider, feed parser, OPML plumbing and adaptive-card renderer are scaffolded, and CI now produces an unsigned x64 MSIX. The next gate is an install/render smoke test on a real Windows 11 Widgets Board.
 
 ## Goal
 
@@ -25,10 +25,11 @@ Feedboard.WidgetProvider
 ├─ Services/Opml.cs            OPML import/export
 ├─ Widgets/FeedWidget.cs       widget lifecycle + refresh
 ├─ Widgets/WidgetCardRenderer  Adaptive Card JSON
-└─ Interop/                    packaged COM registration helper
+├─ Interop/                    packaged COM registration helper
+└─ Package.appxmanifest        single-project MSIX + widget registration
 ```
 
-The Windows 11 board is currently the Windows Widgets host. Third-party widgets are supplied by a packaged Win32 app (or PWA) and the widget UI is an Adaptive Card. This prototype follows Microsoft's C# packaged Win32 provider shape.
+The Windows 11 board is the Windows Widgets host. Third-party widgets are supplied by a packaged Win32 app (or PWA) and the widget UI is an Adaptive Card. Feedboard follows Microsoft's packaged C# provider shape.
 
 ## Current prototype commands
 
@@ -43,26 +44,45 @@ Feedboard.WidgetProvider.exe feeds export subscriptions.opml
 
 Feed definitions are stored in `%LOCALAPPDATA%\Feedboard\feeds.json`.
 
-## Build notes
+## MSIX package
 
-Requirements for the Windows pass:
+`Feedboard CI` builds the x64 provider as a single-project MSIX and uploads a `feedboard-msix-x64` artifact for each relevant PR/push. The artifact is intentionally unsigned for development, so no private signing key is stored in the repository or GitHub Actions.
 
-- Windows 11 with Developer Mode enabled
+To smoke-test it on Windows 11:
+
+1. Enable **Developer Mode** in Settings.
+2. Download and unzip the `feedboard-msix-x64` workflow artifact.
+3. Run `install-dev-package.ps1` from PowerShell.
+4. Open the Widgets Board, choose **Add widgets**, and look for Feedboard.
+
+The helper installs the package with `Add-AppxPackage -AllowUnsigned`. Production/Store packaging will use a real publisher identity and signing route later.
+
+### Local package build
+
+Requirements:
+
+- Windows 11
 - Visual Studio 2022+ with **WinUI application development**
 - .NET 8
 - Windows App SDK 2.4.x
 
-The sandbox used for this initial scaffold does not contain the Windows/.NET toolchain, so source structure and data formats are validated here, while the first compile/install smoke test must run on Windows.
+From a Developer PowerShell:
 
-### Packaging
-
-`packaging/Package.appxmanifest.template` contains the widget registration and COM server wiring. `assets/feedboard.png.b64` is a text-safe source asset; `tools/materialize-assets.ps1` turns it into the PNG files referenced by the manifest before packaging.
-
-The package identity/publisher values are placeholders until we choose the final signing/publishing route.
+```powershell
+msbuild feedboard\src\Feedboard.WidgetProvider\Feedboard.WidgetProvider.csproj `
+  /restore `
+  /p:Configuration=Release `
+  /p:Platform=x64 `
+  /p:RuntimeIdentifier=win-x64 `
+  /p:UapAppxPackageBuildMode=SideloadOnly `
+  /p:AppxBundle=Never `
+  /p:AppxPackageSigningEnabled=false `
+  /p:GenerateAppxPackageOnBuild=true
+```
 
 ## Next passes
 
-1. Materialize assets, wire the manifest into single-project MSIX and build/install on Windows 11.
+1. Install the CI artifact on Windows 11 and verify that Feedboard appears, renders, refreshes and opens articles in the real Widgets Board.
 2. Add a tiny WinUI settings window for feed CRUD, refresh interval and OPML import/export.
 3. Add per-widget feed selection, unread/read state and ordering.
 4. Add JSON Feed and better site icon discovery (`link rel=icon`).
@@ -70,7 +90,7 @@ The package identity/publisher values are placeholders until we choose the final
 
 ## References
 
-- Microsoft Learn: Windows widget providers and Widgets Board
+- Microsoft Learn: Windows widget providers, single-project MSIX and Windows app CI
 - Microsoft Windows App SDK Widgets sample (C# packaged provider)
 
 The COM registration helper is adapted from Microsoft's MIT-licensed Windows App SDK sample and retains its attribution comments.

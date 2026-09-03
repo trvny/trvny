@@ -21,9 +21,9 @@ concurrency:
 permissions: {}
 
 jobs:
-  build:
+  package:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       contents: read
 
@@ -38,11 +38,42 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Build x64 provider
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Build unsigned x64 MSIX
         shell: pwsh
-        run: >-
-          dotnet build feedboard/src/Feedboard.WidgetProvider/Feedboard.WidgetProvider.csproj
-          --configuration Release
-          --runtime win-x64
-          -p:Platform=x64
-          --no-self-contained
+        run: |
+          $project = "feedboard\src\Feedboard.WidgetProvider\Feedboard.WidgetProvider.csproj"
+          $packageDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix"
+          New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+
+          msbuild $project `
+            /restore `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:RuntimeIdentifier=win-x64 `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxBundle=Never `
+            /p:AppxPackageSigningEnabled=false `
+            /p:AppxPackageDir="$packageDir\" `
+            /p:GenerateAppxPackageOnBuild=true
+
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          $packages = @(Get-ChildItem $packageDir -Recurse -File -Filter *.msix)
+          if ($packages.Count -eq 0) {
+            throw "MSIX package was not produced."
+          }
+
+          Copy-Item "feedboard\tools\install-dev-package.ps1" $packageDir
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: feedboard-msix-x64
+          path: feedboard/artifacts/msix/
+          if-no-files-found: error
+          retention-days: 7

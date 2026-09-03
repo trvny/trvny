@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Feedboard.Core\Feedboard.Core.csproj" />
+    <ProjectReference Include="..\Feedboard.Settings\Feedboard.Settings.csproj" ReferenceOutputAssembly="false" OutputItemType="Content" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">

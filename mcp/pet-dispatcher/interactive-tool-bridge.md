@@ -1,6 +1,6 @@
 # Interactive tool bridge
 
-Status: **Phase 3b in progress: remote write sessions implemented; live deploy pending review**
+Status: **Phase 3c in progress: remote session-bound `workspace.exec` implemented; live deploy pending review**
 
 This note defines how Pet Dispatcher can become the normal local-tool connection for remote assistants such as ChatGPT, instead of requiring Desktop Commander to run in parallel.
 
@@ -115,11 +115,15 @@ Preferred request shape:
 
 ```json
 {
-  "session_id": "...",
-  "argv": ["./gradlew", "test"],
-  "cwd": ".",
-  "timeout_seconds": 900,
-  "env_profile": "build"
+  "repo": "trvny/wambridge",
+  "baseRef": "main",
+  "call": {
+    "tool": "workspace.exec",
+    "sessionId": "...",
+    "argv": ["./gradlew", "test"],
+    "cwd": ".",
+    "timeoutMs": 900000
+  }
 }
 ```
 

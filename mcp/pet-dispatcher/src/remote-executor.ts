@@ -3,15 +3,16 @@ import { AgentTools } from "./agent-tools.js";
 import { HostGit } from "./host-git.js";
 import { NetworkBroker } from "./network.js";
 import { runGemini, runOpenRouter } from "./providers.js";
-import type { CommandRunner } from "./sandbox.js";
+import type { CommandRunner, ExecResult } from "./sandbox.js";
 import type { Session, SessionManager } from "./sessions.js";
 import { listWorkspace, readWorkspace, statWorkspace, writeWorkspace } from "./workspace-fs.js";
-import { isRemoteDirectWriteTool, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
+import { isRemoteDirectExecTool, isRemoteDirectWriteTool, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
 import type { RemoteTaskExecutor } from "./remote-transport.js";
 
 const MAX_SUMMARY_CHARS = 20_000;
 const MAX_DIRECT_OUTPUT_CHARS = 65_536;
 const MAX_DIRECT_RESULT_BYTES = 96 * 1_024;
+const MAX_DIRECT_EXEC_STREAM_BYTES = 24 * 1_024;
 
 const PROFILE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
   inspect: ["workspace.read", "git.read", "network.fetch"],
@@ -55,6 +56,25 @@ function trimDiff(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   return trimmed.slice(0, 65_536);
+}
+
+function boundUtf8(value: string, maxBytes: number): { text: string; truncated: boolean } {
+  const bytes = Buffer.from(value, "utf8");
+  if (bytes.length <= maxBytes) return { text: value, truncated: false };
+  let end = maxBytes;
+  while (end > 0 && (((bytes[end] ?? 0) & 0xc0) === 0x80)) end -= 1;
+  return { text: bytes.subarray(0, end).toString("utf8"), truncated: true };
+}
+
+function boundedExecResult(value: ExecResult): ExecResult {
+  const stdout = boundUtf8(value.stdout, MAX_DIRECT_EXEC_STREAM_BYTES);
+  const stderr = boundUtf8(value.stderr, MAX_DIRECT_EXEC_STREAM_BYTES);
+  return {
+    ...value,
+    stdout: stdout.text,
+    stderr: stderr.text,
+    truncated: value.truncated || stdout.truncated || stderr.truncated,
+  };
 }
 
 export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
@@ -110,8 +130,13 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     const call = task.direct;
     if (!call) throw new Error("direct executor requires a direct tool call");
     const capabilities = resolveCapabilities(task);
-    if (signal?.aborted) throw signal.reason ?? new Error("remote direct call aborted");
+    if (signal?.aborted) {
+      const message = signal.reason instanceof Error ? signal.reason.message : String(signal.reason ?? "remote task aborted");
+      return { status: "cancelled", summary: `Direct remote tool ${call.tool} was cancelled.`, error: message.slice(0, 4_096) };
+    }
+    const execTool = isRemoteDirectExecTool(call.tool);
     const writeTool = isRemoteDirectWriteTool(call.tool);
+    if (execTool && !capabilities.has("process.exec")) throw new Error("direct exec tools require process.exec");
     if (writeTool && (!capabilities.has("workspace.write") || !capabilities.has("git.commit"))) throw new Error("direct write tools require workspace.write and git.commit");
     if (call.tool.startsWith("fs.") && !capabilities.has("workspace.read")) throw new Error("direct filesystem tools require workspace.read");
     if (call.tool.startsWith("git.") && !capabilities.has("git.read")) throw new Error("direct Git tools require git.read");
@@ -156,7 +181,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       if (sessionId) {
         session = this.#directSession(sessionId, task.repo);
       } else {
-        if (writeTool) throw new Error("direct write tools require a remote session");
+        if (writeTool || execTool) throw new Error("direct state-changing tools require a remote session");
         session = await this.sessions.open(task.repo, task.baseRef, "none", undefined, false);
         temporary = true;
       }
@@ -164,7 +189,9 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       if (!activeSession) throw new Error("failed to resolve direct session");
       const git = new HostGit(this.sessions, this.config);
       let exported: { commit: string; ref: string } | undefined;
-      const value = await this.sessions.runActivity(activeSession.id, "remote-direct", async () => {
+      const value = call.tool === "workspace.exec"
+        ? boundedExecResult(await this.runner.exec(activeSession.id, call.argv, call.cwd, call.timeoutMs, signal))
+        : await this.sessions.runActivity(activeSession.id, "remote-direct", async () => {
         switch (call.tool) {
           case "fs.list": return listWorkspace(activeSession, call.path);
           case "fs.stat": return statWorkspace(activeSession, call.path);
@@ -190,6 +217,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
           default: throw new Error("unsupported direct remote tool");
         }
       });
+      if (signal?.aborted) throw signal.reason ?? new Error("remote direct call aborted");
       if (temporary) {
         const state = await this.sessions.status(session.id);
         if (state.dirty || state.changedHead) throw new Error("read-only direct call unexpectedly changed the session");
@@ -208,7 +236,16 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       return result;
     } catch (error) {
       if (temporary && session) await this.sessions.close(session.id, true).catch(() => undefined);
-      return { status: "failed", summary: `Direct remote tool ${call.tool} failed.`, error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
+      const abortReason = signal?.aborted
+        ? signal.reason instanceof Error ? signal.reason.message : String(signal.reason ?? "remote task aborted")
+        : undefined;
+      const message = abortReason ?? (error instanceof Error ? error.message : String(error));
+      const cancelled = abortReason === "remote task cancellation requested";
+      return {
+        status: cancelled ? "cancelled" : "failed",
+        summary: cancelled ? `Direct remote tool ${call.tool} was cancelled.` : `Direct remote tool ${call.tool} failed.`,
+        error: message.slice(0, 4_096),
+      };
     }
   }
 

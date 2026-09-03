@@ -33,6 +33,12 @@ else {
     $GitHubCliPath = $ghCommand.Source
 }
 
+Write-Host 'Verifying installer provenance with GitHub...'
+& $GitHubCliPath attestation verify $PSCommandPath --repo $attestationRepo
+if ($LASTEXITCODE -ne 0) {
+    throw 'GitHub artifact attestation verification failed for install-dev-package.ps1.'
+}
+
 if (-not (Test-IsAdministrator)) {
     Write-Host 'Feedboard development MSIX needs administrator privileges to trust its local test certificate.'
     Write-Host 'Requesting elevation...'
@@ -119,7 +125,7 @@ else {
     $certificate = Get-Item -LiteralPath $certificatePathCandidate
 }
 
-Write-Host 'Verifying GitHub build provenance before trusting the development certificate...'
+Write-Host 'Verifying package and certificate provenance with GitHub...'
 foreach ($subject in @($mainPackage.FullName, $certificate.FullName)) {
     & $GitHubCliPath attestation verify $subject --repo $attestationRepo
     if ($LASTEXITCODE -ne 0) {

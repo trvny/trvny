@@ -15,14 +15,9 @@ public sealed partial class FeedClient
 
     public async Task<IReadOnlyList<FeedArticle>> LoadAsync(IEnumerable<FeedSource> sources, CancellationToken cancellationToken = default)
     {
-        var tasks = sources
-            .Where(x => x.Enabled)
-            .Take(32)
-            .Select(source => LoadSingleSafeAsync(source, cancellationToken));
-
+        var tasks = sources.Where(x => x.Enabled).Take(32).Select(source => LoadSingleSafeAsync(source, cancellationToken));
         var results = await Task.WhenAll(tasks);
-        return results
-            .SelectMany(x => x)
+        return results.SelectMany(x => x)
             .OrderByDescending(x => x.Published ?? DateTimeOffset.MinValue)
             .ThenBy(x => x.FeedTitle, StringComparer.CurrentCultureIgnoreCase)
             .Take(50)
@@ -61,8 +56,11 @@ public sealed partial class FeedClient
                 await buffer.WriteAsync(chunk.AsMemory(0, read), bodyCts.Token);
             }
 
-            var xml = Encoding.UTF8.GetString(buffer.ToArray());
-            return ParseXml(source, xml);
+            buffer.Position = 0;
+            var document = XDocument.Load(buffer, LoadOptions.None);
+            var finalUrl = response.RequestMessage?.RequestUri?.ToString() ?? source.Url;
+            var parseSource = source with { Url = finalUrl };
+            return ParseDocument(parseSource, document);
         }
         catch
         {
@@ -70,9 +68,11 @@ public sealed partial class FeedClient
         }
     }
 
-    internal static IReadOnlyList<FeedArticle> ParseXml(FeedSource source, string xml)
+    internal static IReadOnlyList<FeedArticle> ParseXml(FeedSource source, string xml) =>
+        ParseDocument(source, XDocument.Parse(xml, LoadOptions.None));
+
+    private static IReadOnlyList<FeedArticle> ParseDocument(FeedSource source, XDocument document)
     {
-        var document = XDocument.Parse(xml, LoadOptions.None);
         var root = document.Root ?? throw new FormatException("Feed XML has no root element.");
 
         if (root.Name.LocalName.Equals("feed", StringComparison.OrdinalIgnoreCase))

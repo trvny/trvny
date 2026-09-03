@@ -55,6 +55,8 @@ jobs:
           New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
           New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
 
+          & "feedboard\tools\materialize-widget-preview.ps1"
+
           $runNumber = [int64]"${{ github.run_number }}"
           $runAttempt = [int64]"${{ github.run_attempt }}"
           $minor = 2 + [math]::Floor(($runNumber - 1) / 65535)

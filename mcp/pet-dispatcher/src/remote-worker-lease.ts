@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import { createServer } from "node:net";
 
 export interface RemoteWorkerLease {
@@ -11,31 +12,22 @@ export async function acquireRemoteWorkerLease(key: string): Promise<RemoteWorke
     throw new Error("remote worker singleton lease currently requires Windows");
   }
   const digest = createHash("sha256").update(key).digest("hex").slice(0, 24);
-  const endpoint = String.raw`\\.\pipe\pet-dispatcher-${digest}`;
+  const endpoint = ["\\\\", ".", "\\pipe\\pet-dispatcher-", digest].join("");
   const server = createServer((socket) => socket.destroy());
 
-  await new Promise<void>((resolve, reject) => {
-    const onListening = () => {
-      server.removeListener("error", onError);
-      resolve();
-    };
-    const onError = (error: NodeJS.ErrnoException) => {
-      server.removeListener("listening", onListening);
-      if (error.code === "EADDRINUSE") {
-        reject(new Error("another Pet Dispatcher remote worker is already running"));
-        return;
-      }
-      reject(error);
-    };
-    server.once("error", onError);
-    server.once("listening", onListening);
+  try {
     server.listen(endpoint);
-  });
+    await once(server, "listening");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EADDRINUSE") {
+      throw new Error("another Pet Dispatcher remote worker is already running");
+    }
+    throw error;
+  }
   server.unref();
 
   let closed = false;
-  return {
-    endpoint,
+  return {    endpoint,
     async close() {
       if (closed) return;
       closed = true;

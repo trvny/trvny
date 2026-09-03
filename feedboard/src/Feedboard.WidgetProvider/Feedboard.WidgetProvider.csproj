@@ -19,7 +19,7 @@
     <Content Include="Assets\Square150x150Logo.png" />
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\WidgetPreview.png" />
-    <Content Include="$(SettingsPackageDir)\**\*" Link="%(RecursiveDir)%(Filename)%(Extension)" Condition="'$(SettingsPackageDir)' != ''" />
+    <Content Include="$(SettingsPackageDir)\**\*" Link="Settings\%(RecursiveDir)%(Filename)%(Extension)" Condition="'$(SettingsPackageDir)' != ''" />
   </ItemGroup>
 
   <ItemGroup>

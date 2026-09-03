@@ -28,8 +28,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Feedboard.Core\Feedboard.Core.csproj" />
-    <ProjectReference Include="..\Feedboard.Settings\Feedboard.Settings.csproj" ReferenceOutputAssembly="false" OutputItemType="Content" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="..\Feedboard.Settings\Feedboard.Settings.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <Target Name="IncludeSettingsRuntimeInPackage" BeforeTargets="_GenerateAppxPackageFileMap" DependsOnTargets="Build">
+    <ItemGroup>
+      <_SettingsRuntime Include="..\Feedboard.Settings\bin\$(Configuration)\net8.0-windows10.0.19041.0\win-$(Platform)\**\*" />
+      <Content Include="@(_SettingsRuntime)" Link="%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <ProjectCapability Include="Msix" />

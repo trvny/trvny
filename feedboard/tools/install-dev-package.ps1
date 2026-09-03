@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$PackagePath
+    [string]$PackagePath,
+    [string]$CertificatePath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -13,12 +14,15 @@ function Test-IsAdministrator {
 }
 
 if (-not (Test-IsAdministrator)) {
-    Write-Host 'Feedboard development MSIX contains executable code and needs administrator privileges.'
+    Write-Host 'Feedboard development MSIX needs administrator privileges to trust its local test certificate.'
     Write-Host 'Requesting elevation...'
 
     $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     if ($PackagePath) {
         $arguments += " -PackagePath `"$PackagePath`""
+    }
+    if ($CertificatePath) {
+        $arguments += " -CertificatePath `"$CertificatePath`""
     }
 
     $elevated = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
@@ -84,6 +88,32 @@ else {
     $mainPackage = $mainPackages[0]
 }
 
+if ($CertificatePath) {
+    $certificate = Get-Item -LiteralPath (Resolve-Path -LiteralPath $CertificatePath).Path
+}
+else {
+    $certificatePathCandidate = Join-Path $mainPackage.Directory.FullName 'Feedboard.cer'
+    if (-not (Test-Path -LiteralPath $certificatePathCandidate)) {
+        throw "Development signing certificate not found: $certificatePathCandidate"
+    }
+    $certificate = Get-Item -LiteralPath $certificatePathCandidate
+}
+
+$signature = Get-AuthenticodeSignature -FilePath $mainPackage.FullName
+if (-not $signature.SignerCertificate) {
+    throw 'Feedboard MSIX does not contain a signing certificate.'
+}
+
+$artifactCertificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new($certificate.FullName)
+if ($signature.SignerCertificate.Thumbprint -ne $artifactCertificate.Thumbprint) {
+    throw 'Feedboard.cer does not match the certificate that signed Feedboard.msix.'
+}
+
+Write-Host "Trusting Feedboard development certificate $($artifactCertificate.Thumbprint)..."
+Import-Certificate `
+    -FilePath $certificate.FullName `
+    -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
+
 $dependencyRoot = Join-Path $mainPackage.Directory.FullName 'Dependencies'
 if (-not (Test-Path $dependencyRoot)) {
     throw "Dependency folder not found: $dependencyRoot"
@@ -108,14 +138,12 @@ try {
     Add-AppxPackage `
         -Path $mainPackage.FullName `
         -DependencyPath $dependencyPackages.FullName `
-        -AllowUnsigned `
         -ForceUpdateFromAnyVersion `
         -ForceApplicationShutdown
 }
 catch {
     Write-Host ''
-    Write-Host 'Install failed. Make sure Windows 11 Developer Mode is enabled for widget sideloading.'
-    Write-Host 'This development package is intentionally unsigned and uses the Windows unsigned-package identity namespace.'
+    Write-Host 'Install failed. The package is a locally signed development build; the public test certificate was added only to LocalMachine\TrustedPeople.'
     throw
 }
 

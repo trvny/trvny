@@ -31,6 +31,11 @@
     <ProjectReference Include="..\Feedboard.Core\Feedboard.Core.csproj" />
   </ItemGroup>
 
+  <Target Name="ValidateSettingsPackagePayload" BeforeTargets="_ComputeAppxPackagePayload" Condition="'$(GenerateAppxPackageOnBuild)' == 'true'">
+    <Error Condition="'$(SettingsPackageDir)' == ''" Text="SettingsPackageDir must point to the published Feedboard.Settings payload when generating the Feedboard MSIX." />
+    <Error Condition="!Exists('$(SettingsPackageDir)\Feedboard.Settings.exe')" Text="SettingsPackageDir does not contain Feedboard.Settings.exe. Publish Feedboard.Settings before generating the Feedboard MSIX." />
+  </Target>
+
   <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
     <ProjectCapability Include="Msix" />
   </ItemGroup>

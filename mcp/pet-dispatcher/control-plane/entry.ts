@@ -1,6 +1,7 @@
 import { z, ZodError } from "zod";
 import {
   REMOTE_DIRECT_READ_CAPABILITIES,
+  REMOTE_DIRECT_TOOLS,
   REMOTE_DIRECT_WRITE_CAPABILITIES,
   isRemoteDirectWriteTool,
   remoteDirectCallSchema,
@@ -323,10 +324,7 @@ export default {
       if (request.method === "GET" && url.pathname === "/v1/meta") {
         return json({
           deviceId: deviceId(env), transport: "cloudflare-queues-http-pull", protocol: 1,
-          directTools: [
-            "session.open", "session.close", "fs.list", "fs.stat", "fs.read", "fs.write",
-            "git.status", "git.diff", "git.add", "git.commit",
-          ],
+          directTools: [...REMOTE_DIRECT_TOOLS],
         });
       }
       if (request.method === "POST" && url.pathname === "/v1/delegate") {
@@ -354,4 +352,3 @@ export default {
     }
   },
 };
-

@@ -62,7 +62,7 @@ public sealed class FeedStore
                 byUrl[source.Url] = source;
             }
 
-            var directory = Path.GetDirectoryName(_path)!;
+            var directory = GetDirectory();
             Directory.CreateDirectory(directory);
             var tempPath = Path.Combine(directory, $".{Path.GetFileName(_path)}.{Guid.NewGuid():N}.tmp");
 
@@ -130,7 +130,7 @@ public sealed class FeedStore
 
     private async Task<FileStream> AcquireProcessLockAsync(CancellationToken cancellationToken)
     {
-        var directory = Path.GetDirectoryName(_path)!;
+        var directory = GetDirectory();
         Directory.CreateDirectory(directory);
         var lockPath = _path + ".lock";
 
@@ -146,5 +146,11 @@ public sealed class FeedStore
                 await Task.Delay(50, cancellationToken);
             }
         }
+    }
+
+    private string GetDirectory()
+    {
+        var directory = Path.GetDirectoryName(_path);
+        return string.IsNullOrWhiteSpace(directory) ? Directory.GetCurrentDirectory() : directory;
     }
 }

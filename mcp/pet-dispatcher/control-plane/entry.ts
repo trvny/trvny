@@ -1,8 +1,10 @@
 import { z, ZodError } from "zod";
 import {
+  REMOTE_DIRECT_EXEC_CAPABILITIES,
   REMOTE_DIRECT_READ_CAPABILITIES,
   REMOTE_DIRECT_TOOLS,
   REMOTE_DIRECT_WRITE_CAPABILITIES,
+  isRemoteDirectExecTool,
   isRemoteDirectWriteTool,
   remoteDirectCallSchema,
   remoteResultSchema,
@@ -275,16 +277,21 @@ async function directTool(request: Request, env: Env): Promise<Response> {
     baseRef: z.string().min(1).max(256).default("main"),
     call: remoteDirectCallSchema,
   }).strict().parse(JSON.parse(raw) as unknown);
+  const execTool = isRemoteDirectExecTool(input.call.tool);
   const writeTool = isRemoteDirectWriteTool(input.call.tool);
+  const timeoutMinutes = input.call.tool === "workspace.exec"
+    ? Math.max(1, Math.ceil(input.call.timeoutMs / 60_000))
+    : 2;
   const task = remoteTaskSchema.parse({
     repo: input.repo,
     baseRef: input.baseRef,
     executor: "direct",
     direct: input.call,
-    profile: writeTool ? "code" : "inspect",
-    capabilities: writeTool ? [...REMOTE_DIRECT_WRITE_CAPABILITIES] : [...REMOTE_DIRECT_READ_CAPABILITIES],
+    profile: execTool || writeTool ? "code" : "inspect",
+    capabilities: execTool ? [...REMOTE_DIRECT_EXEC_CAPABILITIES]
+      : writeTool ? [...REMOTE_DIRECT_WRITE_CAPABILITIES] : [...REMOTE_DIRECT_READ_CAPABILITIES],
     network: { mode: "none" },
-    timeoutMinutes: 2,
+    timeoutMinutes,
   });
   return enqueueTask(task, env);
 }

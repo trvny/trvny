@@ -106,6 +106,30 @@ test("workspace cancellation terminates a long-running sandbox command", async (
   }
 });
 
+test("workspace AbortSignal terminates a long-running sandbox command", async () => {
+  const fixture = await makeFixture();
+  const session = await fixture.sessions.open("fixture");
+  const controller = new AbortController();
+  const marker = join(session.root, "abort-started.txt");
+  const script = join(session.root, "abort-loop.cmd");
+  try {
+    await writeFile(script, "@echo started>abort-started.txt\r\n@for /L %%i in (1,1,2147483647) do @rem\r\n");
+    const running = fixture.runner.exec(session.id, [".\\abort-loop.cmd"], ".", 35_000, controller.signal);
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try { await access(marker); break; } catch { await new Promise((resolve) => setTimeout(resolve, 20)); }
+    }
+    await access(marker);
+    controller.abort(new Error("remote task cancellation requested"));
+    await assert.rejects(running, /remote task cancellation requested/);
+    const after = await fixture.runner.exec(session.id, ["cmd", "/d", "/s", "/c", "echo AFTER_ABORT"]);
+    assert.equal(after.exitCode, 0);
+    assert.match(after.stdout, /AFTER_ABORT/);
+  } finally {
+    await fixture.sessions.close(session.id, true);
+    await rm(fixture.base, { recursive: true, force: true });
+  }
+});
+
 test("concurrent opens reserve the writer lease before asynchronous setup", async () => {
   const fixture = await makeFixture();
   try {

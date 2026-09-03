@@ -173,6 +173,32 @@ test("clean direct close exports a committed head that was not previously export
   }
 });
 
+test("expired direct write session is discarded on the next session-bound call", async () => {
+  const state = await fixture();
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
+  const originalNow = Date.now;
+  try {
+    const openedAt = originalNow();
+    const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 1 }, true), "open-expiry");
+    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    assert.ok(sessionId);
+    Date.now = () => openedAt + 61_000;
+    const expired = await executor.execute(directTask({
+      tool: "fs.read", sessionId, path: "README.md",
+    }), "read-expired");
+    assert.equal(expired.status, "failed");
+    assert.match(expired.error ?? "", /expired/u);
+    for (let attempt = 0; attempt < 50 && state.sessions.list().length; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(state.sessions.list().length, 0);
+  } finally {
+    Date.now = originalNow;
+    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
+    await rm(state.base, { recursive: true, force: true });
+  }
+});
+
 test("direct write schema rejects execution and network capabilities", () => {
   const parsed = remoteTaskSchema.safeParse({
     repo: "fixture", baseRef: "HEAD", executor: "direct", profile: "code",

@@ -1,5 +1,9 @@
 import { z, ZodError } from "zod";
 import {
+  REMOTE_DIRECT_READ_CAPABILITIES,
+  REMOTE_DIRECT_TOOLS,
+  REMOTE_DIRECT_WRITE_CAPABILITIES,
+  isRemoteDirectWriteTool,
   remoteDirectCallSchema,
   remoteResultSchema,
   remoteTaskSchema,
@@ -271,13 +275,14 @@ async function directTool(request: Request, env: Env): Promise<Response> {
     baseRef: z.string().min(1).max(256).default("main"),
     call: remoteDirectCallSchema,
   }).strict().parse(JSON.parse(raw) as unknown);
+  const writeTool = isRemoteDirectWriteTool(input.call.tool);
   const task = remoteTaskSchema.parse({
     repo: input.repo,
     baseRef: input.baseRef,
     executor: "direct",
     direct: input.call,
-    profile: "inspect",
-    capabilities: ["workspace.read", "git.read"],
+    profile: writeTool ? "code" : "inspect",
+    capabilities: writeTool ? [...REMOTE_DIRECT_WRITE_CAPABILITIES] : [...REMOTE_DIRECT_READ_CAPABILITIES],
     network: { mode: "none" },
     timeoutMinutes: 2,
   });
@@ -319,7 +324,7 @@ export default {
       if (request.method === "GET" && url.pathname === "/v1/meta") {
         return json({
           deviceId: deviceId(env), transport: "cloudflare-queues-http-pull", protocol: 1,
-          directTools: ["fs.list", "fs.stat", "fs.read", "git.status", "git.diff"],
+          directTools: [...REMOTE_DIRECT_TOOLS],
         });
       }
       if (request.method === "POST" && url.pathname === "/v1/delegate") {
@@ -347,4 +352,3 @@ export default {
     }
   },
 };
-

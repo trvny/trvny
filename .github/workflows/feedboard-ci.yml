@@ -47,15 +47,28 @@ jobs:
         shell: pwsh
         run: |
           $project = "feedboard\src\Feedboard.WidgetProvider\Feedboard.WidgetProvider.csproj"
+          $settingsProject = "feedboard\src\Feedboard.Settings\Feedboard.Settings.csproj"
           $manifestPath = "feedboard\src\Feedboard.WidgetProvider\Package.appxmanifest"
           $buildDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix-build"
           $artifactDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix"
+          $settingsStage = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\settings-stage"
           $pfxPath = Join-Path $env:RUNNER_TEMP "feedboard-dev.pfx"
           $cerPath = Join-Path $artifactDir "Feedboard.cer"
           New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
           New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $settingsStage -Force | Out-Null
 
           & "feedboard\tools\materialize-widget-preview.ps1"
+
+          dotnet publish $settingsProject `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained false `
+            --output $settingsStage `
+            -p:WindowsPackageType=None
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
 
           $runNumber = [int64]"${{ github.run_number }}"
           $runAttempt = [int64]"${{ github.run_attempt }}"
@@ -109,6 +122,7 @@ jobs:
               /p:Configuration=Release `
               /p:Platform=x64 `
               /p:RuntimeIdentifier=win-x64 `
+              /p:SettingsPackageDir="$settingsStage" `
               /p:UapAppxPackageBuildMode=SideloadOnly `
               /p:AppxBundle=Never `
               /p:AppxPackageSigningEnabled=true `

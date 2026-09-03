@@ -15,7 +15,8 @@ on:
       - feedboard/src/Feedboard.Core/**
       - .github/workflows/feedboard-settings-ci.yml
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   build:

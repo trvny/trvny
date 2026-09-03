@@ -103,7 +103,8 @@ export class CommandRunner {
     throw new Error(`executable is outside configured tool roots or missing: ${command}`);
   }
 
-  async exec(sessionId: string, argv: string[], cwd = ".", timeoutMs?: number): Promise<ExecResult> {
+  async exec(sessionId: string, argv: string[], cwd = ".", timeoutMs?: number, signal?: AbortSignal): Promise<ExecResult> {
+    if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
     if (argv.length === 0) throw new Error("argv must contain an executable");
     const releaseActivity = this.sessions.acquireActivity(sessionId, "workspace.exec");
     let child: ChildProcess | undefined;
@@ -112,6 +113,7 @@ export class CommandRunner {
       const session = this.sessions.get(sessionId);
       const workingDirectory = await resolveExisting(session.root, cwd);
       const executable = await this.#resolveExecutable(session, argv[0] ?? "");
+      if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
       const requestedTimeout = timeoutMs ?? this.config.defaultTimeoutMs;
       if (!Number.isFinite(requestedTimeout) || requestedTimeout < 1_000) {
         throw new Error("timeoutMs must be a finite value of at least 1000ms");
@@ -141,7 +143,11 @@ export class CommandRunner {
       child = spawnSandboxFromConfig(sandbox, { usePty: false }, workingDirectory);
       this.#running.set(sessionId, child);
       const runningChild = child;
-      return await new Promise<ExecResult>((resolveResult, reject) => {
+      const abort = () => {
+        if (this.#running.get(sessionId) === runningChild) runningChild.kill();
+      };
+      if (signal?.aborted) abort(); else signal?.addEventListener("abort", abort, { once: true });
+      const result = await new Promise<ExecResult>((resolveResult, reject) => {
         const stdoutChunks: Buffer[] = [];
         const stderrChunks: Buffer[] = [];
         let stdoutBytes = 0;
@@ -172,11 +178,13 @@ export class CommandRunner {
         });
         runningChild.once("error", (error) => {
           if (this.#running.get(sessionId) === runningChild) this.#running.delete(sessionId);
+          signal?.removeEventListener("abort", abort);
           releaseActivity();
           reject(error);
         });
         runningChild.once("close", (exitCode) => {
           if (this.#running.get(sessionId) === runningChild) this.#running.delete(sessionId);
+          signal?.removeEventListener("abort", abort);
           releaseActivity();
           resolveResult({
             exitCode,
@@ -187,6 +195,8 @@ export class CommandRunner {
           });
         });
       });
+      if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
+      return result;
     } catch (error) {
       if (!child) releaseActivity();
       throw error;

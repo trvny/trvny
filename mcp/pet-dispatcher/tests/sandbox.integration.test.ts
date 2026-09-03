@@ -106,6 +106,30 @@ test("workspace cancellation terminates a long-running sandbox command", async (
   }
 });
 
+test("workspace AbortSignal terminates a long-running sandbox command", async () => {
+  const fixture = await makeFixture();
+  const session = await fixture.sessions.open("fixture");
+  const controller = new AbortController();
+  try {
+    const running = fixture.runner.exec(
+      session.id,
+      ["cmd", "/d", "/s", "/c", "for /L %i in (1,1,2147483647) do @rem"],
+      ".",
+      35_000,
+      controller.signal,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    controller.abort(new Error("remote task cancellation requested"));
+    await assert.rejects(running, /remote task cancellation requested/);
+    const after = await fixture.runner.exec(session.id, ["cmd", "/d", "/s", "/c", "echo AFTER_ABORT"]);
+    assert.equal(after.exitCode, 0);
+    assert.match(after.stdout, /AFTER_ABORT/);
+  } finally {
+    await fixture.sessions.close(session.id, true);
+    await rm(fixture.base, { recursive: true, force: true });
+  }
+});
+
 test("concurrent opens reserve the writer lease before asynchronous setup", async () => {
   const fixture = await makeFixture();
   try {

@@ -34,6 +34,13 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("fs.stat"), path: z.string().min(1).max(1_024), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("fs.read"), path: z.string().min(1).max(1_024), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("fs.write"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024), content: z.string().max(65_536) }).strict(),
+  z.object({
+    tool: z.literal("workspace.exec"),
+    sessionId: remoteSessionIdSchema,
+    argv: z.array(z.string().max(4_096)).min(1).max(64),
+    cwd: z.string().min(1).max(1_024).default("."),
+    timeoutMs: z.number().int().min(1_000).max(900_000).default(60_000),
+  }).strict(),
   z.object({ tool: z.literal("git.status"), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({
     tool: z.literal("git.diff"), sessionId: remoteSessionIdSchema.optional(),
@@ -48,13 +55,19 @@ export type RemoteDirectCall = z.infer<typeof remoteDirectCallSchema>;
 
 export const REMOTE_DIRECT_TOOLS = [
   "session.open", "session.close", "fs.list", "fs.stat", "fs.read", "fs.write",
-  "git.status", "git.diff", "git.add", "git.commit",
+  "workspace.exec", "git.status", "git.diff", "git.add", "git.commit",
 ] as const satisfies readonly RemoteDirectCall["tool"][];
 export const REMOTE_DIRECT_READ_CAPABILITIES = ["workspace.read", "git.read"] as const;
 export const REMOTE_DIRECT_WRITE_CAPABILITIES = ["workspace.read", "workspace.write", "git.read", "git.commit"] as const;
+export const REMOTE_DIRECT_EXEC_CAPABILITIES = ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"] as const;
+const REMOTE_DIRECT_EXEC_TOOLS = new Set<RemoteDirectCall["tool"]>(["workspace.exec"]);
 const REMOTE_DIRECT_WRITE_TOOLS = new Set<RemoteDirectCall["tool"]>([
   "session.open", "session.close", "fs.write", "git.add", "git.commit",
 ]);
+
+export function isRemoteDirectExecTool(tool: RemoteDirectCall["tool"]): boolean {
+  return REMOTE_DIRECT_EXEC_TOOLS.has(tool);
+}
 
 export function isRemoteDirectWriteTool(tool: RemoteDirectCall["tool"]): boolean {
   return REMOTE_DIRECT_WRITE_TOOLS.has(tool);
@@ -75,10 +88,13 @@ export const remoteTaskSchema = z.object({
     if (!task.direct) ctx.addIssue({ code: "custom", path: ["direct"], message: "direct executor requires a direct tool call" });
     if (task.goal) ctx.addIssue({ code: "custom", path: ["goal"], message: "direct executor does not accept a goal" });
     const tool = task.direct?.tool;
+    const execTool = tool ? isRemoteDirectExecTool(tool) : false;
     const writeTool = tool ? isRemoteDirectWriteTool(tool) : false;
-    const allowedCapabilities = writeTool ? REMOTE_DIRECT_WRITE_CAPABILITIES : REMOTE_DIRECT_READ_CAPABILITIES;
-    const expectedProfile = writeTool ? "code" : "inspect";
-    if (task.profile !== expectedProfile) ctx.addIssue({ code: "custom", path: ["profile"], message: `direct ${writeTool ? "write" : "read"} tools require the ${expectedProfile} profile` });
+    const allowedCapabilities = execTool ? REMOTE_DIRECT_EXEC_CAPABILITIES
+      : writeTool ? REMOTE_DIRECT_WRITE_CAPABILITIES : REMOTE_DIRECT_READ_CAPABILITIES;
+    const expectedProfile = execTool || writeTool ? "code" : "inspect";
+    const directKind = execTool ? "exec" : writeTool ? "write" : "read";
+    if (task.profile !== expectedProfile) ctx.addIssue({ code: "custom", path: ["profile"], message: `direct ${directKind} tools require the ${expectedProfile} profile` });
     for (const capability of task.capabilities) {
       if (!(allowedCapabilities as readonly string[]).includes(capability)) ctx.addIssue({ code: "custom", path: ["capabilities"], message: `capability is not allowed for direct tool calls: ${capability}` });
     }
@@ -86,7 +102,8 @@ export const remoteTaskSchema = z.object({
       if (!task.capabilities.includes(capability)) ctx.addIssue({ code: "custom", path: ["capabilities"], message: `direct tools require capability: ${capability}` });
     }
     if (task.network.mode !== "none") ctx.addIssue({ code: "custom", path: ["network"], message: "direct tools require network mode none" });
-    if (task.timeoutMinutes > 5) ctx.addIssue({ code: "custom", path: ["timeoutMinutes"], message: "direct tools are limited to five minutes" });
+    const maxDirectMinutes = execTool ? 15 : 5;
+    if (task.timeoutMinutes > maxDirectMinutes) ctx.addIssue({ code: "custom", path: ["timeoutMinutes"], message: `direct ${directKind} tools are limited to ${maxDirectMinutes} minutes` });
   } else {
     if (!task.goal) ctx.addIssue({ code: "custom", path: ["goal"], message: "agent executor requires a goal" });
     if (task.direct) ctx.addIssue({ code: "custom", path: ["direct"], message: "agent executor does not accept a direct tool call" });

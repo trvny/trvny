@@ -9,6 +9,7 @@ import type { DispatcherConfig } from "../src/config.js";
 import { HostGit } from "../src/host-git.js";
 import { ConfinedRemoteExecutor } from "../src/remote-executor.js";
 import { remoteTaskSchema } from "../src/remote-protocol.js";
+import { CommandRunner } from "../src/sandbox.js";
 import { SessionManager } from "../src/sessions.js";
 
 const execFileAsync = promisify(execFile);
@@ -63,6 +64,41 @@ function directTask(call: Record<string, unknown>, write = false) {
     network: { mode: "none" }, timeoutMinutes: 2, direct: call,
   });
 }
+
+function directExecTask(call: Record<string, unknown>) {
+  return remoteTaskSchema.parse({
+    repo: "fixture", baseRef: "HEAD", executor: "direct", profile: "code",
+    capabilities: ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"],
+    network: { mode: "none" }, timeoutMinutes: 2, direct: call,
+  });
+}
+
+test("direct workspace.exec reuses a write session and returns bounded output", { skip: process.platform !== "win32" }, async () => {
+  const state = await fixture();
+  const runner = await CommandRunner.create(state.config, state.sessions);
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, runner);
+  try {
+    const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-exec");
+    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    assert.ok(sessionId);
+    const executed = await executor.execute(directExecTask({
+      tool: "workspace.exec", sessionId, argv: ["git", "--version"], timeoutMs: 10_000,
+    }), "exec");
+    assert.equal(executed.status, "completed");
+    const output = JSON.parse(executed.output ?? "{}") as { exitCode?: number; stdout?: string; truncated?: boolean };
+    assert.equal(output.exitCode, 0);
+    assert.match(output.stdout ?? "", /git version/i);
+    assert.equal(output.truncated, false);
+    assert.equal(state.sessions.list().length, 1);
+    const closed = await executor.execute(directTask({
+      tool: "session.close", sessionId, discard: true,
+    }, true), "close-exec");
+    assert.equal(closed.status, "completed");
+  } finally {
+    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
+    await rm(state.base, { recursive: true, force: true });
+  }
+});
 
 test("direct write session persists across calls and exports the committed head", async () => {
   const state = await fixture();
@@ -207,4 +243,31 @@ test("direct write schema rejects execution and network capabilities", () => {
     direct: { tool: "session.open", ttlMinutes: 30 },
   });
   assert.equal(parsed.success, false);
+});
+
+
+test("direct exec schema requires process.exec and caps task lifetime", () => {
+  const base = {
+    repo: "fixture", baseRef: "HEAD", executor: "direct", profile: "code",
+    network: { mode: "none" },
+    direct: { tool: "workspace.exec", sessionId: "11111111-1111-4111-8111-111111111111", argv: ["git", "--version"], timeoutMs: 900_000 },
+  };
+  const valid = remoteTaskSchema.safeParse({
+    ...base,
+    capabilities: ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"],
+    timeoutMinutes: 15,
+  });
+  assert.equal(valid.success, true);
+  const missingExec = remoteTaskSchema.safeParse({
+    ...base,
+    capabilities: ["workspace.read", "workspace.write", "git.read", "git.commit"],
+    timeoutMinutes: 15,
+  });
+  assert.equal(missingExec.success, false);
+  const tooLong = remoteTaskSchema.safeParse({
+    ...base,
+    capabilities: ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"],
+    timeoutMinutes: 16,
+  });
+  assert.equal(tooLong.success, false);
 });

@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import type { DispatcherConfig } from "../src/config.js";
+import { HostGit } from "../src/host-git.js";
 import { ConfinedRemoteExecutor } from "../src/remote-executor.js";
 import { remoteTaskSchema } from "../src/remote-protocol.js";
 import { SessionManager } from "../src/sessions.js";
@@ -128,6 +129,43 @@ test("direct write session survives a refused clean close until explicitly disca
       tool: "session.close", sessionId, discard: true,
     }, true), "close-discard");
     assert.equal(discarded.status, "completed");
+    assert.equal(state.sessions.list().length, 0);
+  } finally {
+    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
+    await rm(state.base, { recursive: true, force: true });
+  }
+});
+
+test("clean direct close exports a committed head that was not previously exported", async () => {
+  const state = await fixture();
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
+  try {
+    const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-recovery");
+    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    assert.ok(sessionId);
+    assert.equal((await executor.execute(directTask({
+      tool: "fs.write", sessionId, path: "README.md", content: "# recover export\n",
+    }, true), "write-recovery")).status, "completed");
+
+    const git = new HostGit(state.sessions, state.config);
+    assert.equal((await git.add(sessionId, ["README.md"])).exitCode, 0);
+    assert.equal((await git.commit(sessionId, "test: recovery commit")).exitCode, 0);
+    const before = await state.sessions.status(sessionId);
+    assert.equal(before.changedHead, true);
+    assert.equal(before.dirty, false);
+    assert.equal(before.session.exportedCommit, null);
+
+    const closed = await executor.execute(directTask({
+      tool: "session.close", sessionId, discard: false,
+    }, true), "close-recovery");
+    assert.equal(closed.status, "completed");
+    assert.match(closed.commit ?? "", /^[0-9a-f]{40}$/u);
+    assert.equal(closed.exportedRef, `refs/pet-dispatcher/${sessionId}`);
+    const resolved = await execFileAsync("git", [
+      "-C", state.config.repositories.fixture,
+      "rev-parse", "--verify", `${closed.exportedRef}^{commit}`,
+    ]);
+    assert.equal(resolved.stdout.trim(), closed.commit);
     assert.equal(state.sessions.list().length, 0);
   } finally {
     for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);

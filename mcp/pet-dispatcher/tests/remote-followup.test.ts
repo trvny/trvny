@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { remoteTaskSchema, signEnvelope, type RemoteTaskState } from "../src/remote-protocol.js";
 import { CloudflareQueueTransport, RemoteJournal, RemoteWorker, type RemoteTaskExecutor } from "../src/remote-transport.js";
+import { acquireRemoteWorkerLease } from "../src/remote-worker-lease.js";
 
 const SECRET = "pet-dispatcher-test-secret-0123456789abcdef";
 
@@ -114,4 +115,17 @@ test("worker shutdown aborts an active remote executor", async () => {
     delete process.env.PET_TEST_SIGNING_SECRET;
     await rm(root, { recursive: true, force: true });
   }
+});
+
+
+test("remote worker singleton lease rejects a second local worker", { skip: process.platform !== "win32" }, async () => {
+  const key = `test:${crypto.randomUUID()}`;
+  const first = await acquireRemoteWorkerLease(key);
+  try {
+    await assert.rejects(acquireRemoteWorkerLease(key), /already running/u);
+  } finally {
+    await first.close();
+  }
+  const replacement = await acquireRemoteWorkerLease(key);
+  await replacement.close();
 });

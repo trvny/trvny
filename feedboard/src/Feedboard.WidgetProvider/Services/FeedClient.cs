@@ -9,6 +9,8 @@ namespace Feedboard.Services;
 
 public sealed partial class FeedClient
 {
+    private const int MaxFeedBytes = 2 * 1024 * 1024;
+    private static readonly TimeSpan BodyTimeout = TimeSpan.FromSeconds(15);
     private static readonly HttpClient Http = CreateHttpClient();
 
     public async Task<IReadOnlyList<FeedArticle>> LoadAsync(IEnumerable<FeedSource> sources, CancellationToken cancellationToken = default)
@@ -33,7 +35,33 @@ public sealed partial class FeedClient
         {
             using var response = await Http.GetAsync(source.Url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             response.EnsureSuccessStatusCode();
-            var xml = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (response.Content.Headers.ContentLength is > MaxFeedBytes)
+            {
+                return Array.Empty<FeedArticle>();
+            }
+
+            using var bodyCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            bodyCts.CancelAfter(BodyTimeout);
+            await using var stream = await response.Content.ReadAsStreamAsync(bodyCts.Token);
+            using var buffer = new MemoryStream();
+            var chunk = new byte[16 * 1024];
+            while (true)
+            {
+                var read = await stream.ReadAsync(chunk.AsMemory(0, chunk.Length), bodyCts.Token);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                if (buffer.Length + read > MaxFeedBytes)
+                {
+                    return Array.Empty<FeedArticle>();
+                }
+
+                await buffer.WriteAsync(chunk.AsMemory(0, read), bodyCts.Token);
+            }
+
+            var xml = Encoding.UTF8.GetString(buffer.ToArray());
             return ParseXml(source, xml);
         }
         catch
@@ -93,12 +121,18 @@ public sealed partial class FeedClient
             .Select(entry =>
             {
                 var link = entry.Elements().FirstOrDefault(x => x.Name.LocalName == "link" && ((string?)x.Attribute("rel") is null or "alternate"));
-                var href = (string?)link?.Attribute("href") ?? Text(entry, "id") ?? source.Url;
+                var href = (string?)link?.Attribute("href");
+                var articleUrl = string.IsNullOrWhiteSpace(href) ? source.Url : ResolveUrl(source.Url, href);
+                if (string.IsNullOrWhiteSpace(articleUrl))
+                {
+                    articleUrl = source.Url;
+                }
+
                 return BuildArticle(
                     source,
                     feedTitle,
                     Text(entry, "title") ?? "(untitled)",
-                    ResolveUrl(source.Url, href),
+                    articleUrl,
                     Text(entry, "summary") ?? Text(entry, "content"),
                     ParseDate(Text(entry, "published") ?? Text(entry, "updated")),
                     ResolveUrl(source.Url, icon),
@@ -126,15 +160,7 @@ public sealed partial class FeedClient
             .ToList();
     }
 
-    private static FeedArticle BuildArticle(
-        FeedSource source,
-        string feedTitle,
-        string title,
-        string url,
-        string? summary,
-        DateTimeOffset? published,
-        string? favicon,
-        string? thumbnail)
+    private static FeedArticle BuildArticle(FeedSource source, string feedTitle, string title, string url, string? summary, DateTimeOffset? published, string? favicon, string? thumbnail)
     {
         var absoluteUrl = ResolveUrl(source.Url, url);
         return new FeedArticle(
@@ -150,51 +176,28 @@ public sealed partial class FeedClient
 
     private static string? FindThumbnail(XElement item, string baseUrl)
     {
-        var media = item.Descendants().FirstOrDefault(x =>
-            (x.Name.LocalName == "thumbnail" || x.Name.LocalName == "content") &&
-            (string?)x.Attribute("url") is not null);
-        if ((string?)media?.Attribute("url") is { Length: > 0 } mediaUrl)
-        {
-            return ResolveUrl(baseUrl, mediaUrl);
-        }
+        var media = item.Descendants().FirstOrDefault(x => (x.Name.LocalName == "thumbnail" || x.Name.LocalName == "content") && (string?)x.Attribute("url") is not null);
+        if ((string?)media?.Attribute("url") is { Length: > 0 } mediaUrl) return ResolveUrl(baseUrl, mediaUrl);
 
-        var enclosure = item.Elements().FirstOrDefault(x =>
-            x.Name.LocalName == "enclosure" &&
-            ((string?)x.Attribute("type"))?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true);
-        if ((string?)enclosure?.Attribute("url") is { Length: > 0 } enclosureUrl)
-        {
-            return ResolveUrl(baseUrl, enclosureUrl);
-        }
+        var enclosure = item.Elements().FirstOrDefault(x => x.Name.LocalName == "enclosure" && ((string?)x.Attribute("type"))?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true);
+        if ((string?)enclosure?.Attribute("url") is { Length: > 0 } enclosureUrl) return ResolveUrl(baseUrl, enclosureUrl);
 
-        var atomImage = item.Elements().FirstOrDefault(x =>
-            x.Name.LocalName == "link" &&
-            ((string?)x.Attribute("rel")) == "enclosure" &&
-            ((string?)x.Attribute("type"))?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true);
-        if ((string?)atomImage?.Attribute("href") is { Length: > 0 } atomUrl)
-        {
-            return ResolveUrl(baseUrl, atomUrl);
-        }
+        var atomImage = item.Elements().FirstOrDefault(x => x.Name.LocalName == "link" && ((string?)x.Attribute("rel")) == "enclosure" && ((string?)x.Attribute("type"))?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true);
+        if ((string?)atomImage?.Attribute("href") is { Length: > 0 } atomUrl) return ResolveUrl(baseUrl, atomUrl);
 
         var html = Text(item, "content") ?? Text(item, "encoded") ?? Text(item, "description") ?? Text(item, "summary");
         if (!string.IsNullOrWhiteSpace(html))
         {
             var match = ImgSrcRegex().Match(html);
-            if (match.Success)
-            {
-                return ResolveUrl(baseUrl, WebUtility.HtmlDecode(match.Groups[1].Value));
-            }
+            if (match.Success) return ResolveUrl(baseUrl, WebUtility.HtmlDecode(match.Groups[1].Value));
         }
 
         return null;
     }
 
-    private static string? Text(XElement? parent, string localName) =>
-        parent?.Elements().FirstOrDefault(x => x.Name.LocalName.Equals(localName, StringComparison.OrdinalIgnoreCase))?.Value;
-
+    private static string? Text(XElement? parent, string localName) => parent?.Elements().FirstOrDefault(x => x.Name.LocalName.Equals(localName, StringComparison.OrdinalIgnoreCase))?.Value;
     private static string? FirstUrl(XElement? parent, string localName) => Text(parent, localName)?.Trim();
-
-    private static DateTimeOffset? ParseDate(string? value) =>
-        DateTimeOffset.TryParse(value, out var date) ? date : null;
+    private static DateTimeOffset? ParseDate(string? value) => DateTimeOffset.TryParse(value, out var date) ? date : null;
 
     private static string CleanText(string value, int maxLength)
     {
@@ -206,30 +209,13 @@ public sealed partial class FeedClient
 
     private static string ResolveUrl(string baseUrl, string? candidate)
     {
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            return string.Empty;
-        }
-
-        if (Uri.TryCreate(candidate, UriKind.Absolute, out var absolute) && (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps))
-        {
-            return absolute.ToString();
-        }
-
-        if (Uri.TryCreate(new Uri(baseUrl), candidate, out var relative) && (relative.Scheme == Uri.UriSchemeHttp || relative.Scheme == Uri.UriSchemeHttps))
-        {
-            return relative.ToString();
-        }
-
+        if (string.IsNullOrWhiteSpace(candidate)) return string.Empty;
+        if (Uri.TryCreate(candidate, UriKind.Absolute, out var absolute) && (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps)) return absolute.ToString();
+        if (Uri.TryCreate(new Uri(baseUrl), candidate, out var relative) && (relative.Scheme == Uri.UriSchemeHttp || relative.Scheme == Uri.UriSchemeHttps)) return relative.ToString();
         return string.Empty;
     }
 
-    private static string FaviconFrom(string url)
-    {
-        var uri = new Uri(url);
-        return new Uri(uri, "/favicon.ico").ToString();
-    }
-
+    private static string FaviconFrom(string url) => new Uri(new Uri(url), "/favicon.ico").ToString();
     private static string HostName(string url) => new Uri(url).Host;
 
     private static string StableId(string url, string title)
@@ -251,10 +237,8 @@ public sealed partial class FeedClient
 
     [GeneratedRegex("<img[^>]+src=[\\\"']([^\\\"']+)[\\\"']", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ImgSrcRegex();
-
     [GeneratedRegex("<[^>]+>")]
     private static partial Regex HtmlTagRegex();
-
     [GeneratedRegex("\\s+")]
     private static partial Regex WhitespaceRegex();
 }

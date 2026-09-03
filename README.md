@@ -26,8 +26,7 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#406](https://github.com/trvny/trvny/pull/406) | feat: add Pet Dispatcher remote transport | @trvny | ready | 2026-09-02 |
-| trvny/trvny | [#408](https://github.com/trvny/trvny/pull/408) | feat(review): move Kanarek review to webhooks | @trvny | ready | 2026-09-02 |
+| trvny/trvny | [#412](https://github.com/trvny/trvny/pull/412) | docs(gremlin): track live documentation bridge | @trvny | ready | 2026-09-02 |
 | trvny/tvpi | [#79](https://github.com/trvny/tvpi/pull/79) | chore(deps-dev): bump wrangler from 4.125.0 to 4.127.1 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-09-02 |
 <!--OPEN_PRS:END-->
 

@@ -25,16 +25,42 @@ export const remoteNetworkSchema = z.object({
   }
 });
 
+export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
+  z.object({ tool: z.literal("fs.list"), path: z.string().max(1_024).default(".") }).strict(),
+  z.object({ tool: z.literal("fs.stat"), path: z.string().min(1).max(1_024) }).strict(),
+  z.object({ tool: z.literal("fs.read"), path: z.string().min(1).max(1_024) }).strict(),
+  z.object({ tool: z.literal("git.status") }).strict(),
+  z.object({
+    tool: z.literal("git.diff"),
+    staged: z.boolean().default(false),
+    paths: z.array(z.string().min(1).max(1_024)).max(64).default([]),
+  }).strict(),
+]);
+
+export type RemoteDirectCall = z.infer<typeof remoteDirectCallSchema>;
+
 export const remoteTaskSchema = z.object({
   repo: z.string().min(1).max(128),
   baseRef: z.string().min(1).max(256).default("main"),
-  goal: z.string().min(1).max(20_000),
-  executor: z.enum(["openrouter", "gemini"]).default("openrouter"),
+  goal: z.string().min(1).max(20_000).optional(),
+  executor: z.enum(["openrouter", "gemini", "direct"]).default("openrouter"),
+  direct: remoteDirectCallSchema.optional(),
   profile: z.enum(["inspect", "code", "android", "publish"]).default("code"),
   capabilities: z.array(remoteCapabilitySchema).max(16).default([]),
   network: remoteNetworkSchema.default({ mode: "none" }),
   timeoutMinutes: z.number().int().min(1).max(20).default(20),
-}).strict();
+}).strict().superRefine((task, ctx) => {
+  if (task.executor === "direct") {
+    if (!task.direct) ctx.addIssue({ code: "custom", path: ["direct"], message: "direct executor requires a direct tool call" });
+    if (task.goal) ctx.addIssue({ code: "custom", path: ["goal"], message: "direct executor does not accept a goal" });
+    if (task.profile !== "inspect") ctx.addIssue({ code: "custom", path: ["profile"], message: "direct tools currently require the inspect profile" });
+    if (task.network.mode !== "none") ctx.addIssue({ code: "custom", path: ["network"], message: "direct tools currently require network mode none" });
+    if (task.timeoutMinutes > 5) ctx.addIssue({ code: "custom", path: ["timeoutMinutes"], message: "direct tools are limited to five minutes" });
+  } else {
+    if (!task.goal) ctx.addIssue({ code: "custom", path: ["goal"], message: "agent executor requires a goal" });
+    if (task.direct) ctx.addIssue({ code: "custom", path: ["direct"], message: "agent executor does not accept a direct tool call" });
+  }
+});
 
 export type RemoteTask = z.infer<typeof remoteTaskSchema>;
 
@@ -63,6 +89,7 @@ export const remoteResultSchema = z.object({
   diff: z.string().max(65_536).optional(),
   commit: z.string().regex(/^[0-9a-f]{40}$/u).optional(),
   exportedRef: z.string().max(256).optional(),
+  output: z.string().max(65_536).optional(),
   error: z.string().max(4_096).optional(),
 });
 

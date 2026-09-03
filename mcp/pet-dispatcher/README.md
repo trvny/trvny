@@ -22,6 +22,7 @@ The broader architecture remains in [`agent-dispatcher-concept.md`](./agent-disp
 - durable local remote-task journal with fail-closed `recovery_required`,
 - Cloudflare Queue HTTP-pull transport with heartbeat/result callbacks,
 - Cloudflare Worker control plane backed by a SQLite Durable Object.
+- direct read-only remote tools (`fs.list`, `fs.stat`, `fs.read`, `git.status`, `git.diff`) without invoking a model.
 
 ## Security model
 
@@ -39,7 +40,7 @@ Remote envelopes and worker callbacks use an HMAC secret that stays in Cloudflar
 
 The first transport implementation uses Cloudflare Queues with an HTTP pull consumer. The Legion opens outbound HTTPS connections only. No public listener or router port-forward is required.
 
-The Worker exposes authenticated operator endpoints for delegate/status/cancel and signed worker-only lease/heartbeat/result callbacks. Task state lives in a SQLite-backed Durable Object. Queue delivery is still at-least-once; the local journal is authoritative for duplicate suppression and never automatically replays an interrupted task. Phase 2 caps remote execution at 20 minutes under a minimum 30-minute Queue visibility lease; heartbeat reports liveness/cancellation but does not extend the Queue lease.
+The Worker exposes authenticated operator endpoints for delegate/status/cancel, a `/v1/tool` endpoint for read-only direct calls, and signed worker-only lease/heartbeat/result callbacks. Task state lives in a SQLite-backed Durable Object. Queue delivery is still at-least-once; the local journal is authoritative for duplicate suppression and never automatically replays an interrupted task. Phase 2 caps remote execution at 20 minutes under a minimum 30-minute Queue visibility lease; heartbeat reports liveness/cancellation but does not extend the Queue lease.
 
 HTTP pull must be enabled separately after the queue exists:
 

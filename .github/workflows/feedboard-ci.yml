@@ -134,6 +134,14 @@ jobs:
             throw "Expected exactly one main MSIX package, found $($mainPackages.Count)."
           }
 
+          $unpackDir = Join-Path $env:RUNNER_TEMP "feedboard-msix-unpacked"
+          makeappx unpack /p $mainPackages[0].FullName /d $unpackDir /o | Out-Null
+          foreach ($required in @("Feedboard.Settings.exe", "Feedboard.Settings.dll", "Feedboard.Settings.deps.json", "Feedboard.Settings.runtimeconfig.json")) {
+            if (-not (Test-Path (Join-Path $unpackDir $required))) {
+              throw "MSIX is missing settings runtime file: $required"
+            }
+          }
+
           Copy-Item $mainPackages[0].FullName (Join-Path $artifactDir "Feedboard.msix")
 
           foreach ($arch in @("x86", "x64")) {

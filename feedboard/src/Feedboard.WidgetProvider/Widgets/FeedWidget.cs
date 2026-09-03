@@ -15,6 +15,7 @@ public sealed class FeedWidget : IDisposable
     private readonly FeedStore _store = new();
     private readonly FeedClient _client = new();
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private readonly object _lifecycleGate = new();
 
     private IReadOnlyList<FeedArticle> _articles = Array.Empty<FeedArticle>();
     private WidgetState _state;
@@ -30,17 +31,26 @@ public sealed class FeedWidget : IDisposable
 
     public void Activate()
     {
-        if (_disposed)
+        lock (_lifecycleGate)
         {
-            return;
-        }
+            if (_disposed)
+            {
+                return;
+            }
 
-        _timer ??= new Timer(_ => RefreshTimerCallback(), null, TimeSpan.Zero, RefreshInterval);
+            _timer ??= new Timer(_ => RefreshTimerCallback(), null, TimeSpan.Zero, RefreshInterval);
+        }
     }
 
     public void Deactivate()
     {
-        var timer = Interlocked.Exchange(ref _timer, null);
+        Timer? timer;
+        lock (_lifecycleGate)
+        {
+            timer = _timer;
+            _timer = null;
+        }
+
         timer?.Dispose();
     }
 
@@ -124,13 +134,19 @@ public sealed class FeedWidget : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
+        Timer? timer;
+        lock (_lifecycleGate)
         {
-            return;
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            timer = _timer;
+            _timer = null;
         }
 
-        _disposed = true;
-        var timer = Interlocked.Exchange(ref _timer, null);
         if (timer is not null)
         {
             using var drained = new ManualResetEvent(false);

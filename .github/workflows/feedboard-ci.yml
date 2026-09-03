@@ -63,9 +63,10 @@ jobs:
           dotnet publish $settingsProject `
             --configuration Release `
             --runtime win-x64 `
-            --self-contained false `
+            --self-contained true `
             --output $settingsStage `
-            -p:WindowsPackageType=None
+            -p:WindowsPackageType=None `
+            -p:WindowsAppSDKSelfContained=true
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
@@ -150,7 +151,13 @@ jobs:
 
           $unpackDir = Join-Path $env:RUNNER_TEMP "feedboard-msix-unpacked"
           makeappx unpack /p $mainPackages[0].FullName /d $unpackDir /o | Out-Null
-          foreach ($required in @("Feedboard.Settings.exe", "Feedboard.Settings.dll", "Feedboard.Settings.deps.json", "Feedboard.Settings.runtimeconfig.json")) {
+          foreach ($required in @(
+            "Feedboard.Settings.exe",
+            "Feedboard.Settings.dll",
+            "Feedboard.Settings.deps.json",
+            "Feedboard.Settings.runtimeconfig.json",
+            "coreclr.dll"
+          )) {
             if (-not (Test-Path (Join-Path $unpackDir $required))) {
               throw "MSIX is missing settings runtime file: $required"
             }

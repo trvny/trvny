@@ -21,6 +21,7 @@ The broader architecture remains in [`agent-dispatcher-concept.md`](./agent-disp
 - signed remote tasks bound to one device with nonce + expiry checks,
 - durable local remote-task journal with fail-closed `recovery_required`,
 - Cloudflare Queue HTTP-pull transport with heartbeat/result callbacks,
+- OS-backed singleton lease preventing multiple local Queue consumers for one remote worker identity,
 - Cloudflare Worker control plane backed by a SQLite Durable Object.
 - direct read-only remote tools (`fs.list`, `fs.stat`, `fs.read`, `git.status`, `git.diff`) without invoking a model.
 - short-lived direct write sessions with `fs.write`, `git.add`, `git.commit`, and MXC-confined `workspace.exec`, still without invoking a model.

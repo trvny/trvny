@@ -7,6 +7,7 @@ import { CommandRunner } from "./sandbox.js";
 import { createServer } from "./server.js";
 import { ConfinedRemoteExecutor } from "./remote-executor.js";
 import { CloudflareQueueTransport, RemoteJournal, RemoteWorker } from "./remote-transport.js";
+import { acquireRemoteWorkerLease } from "./remote-worker-lease.js";
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -37,15 +38,20 @@ async function main(): Promise<void> {
 
   if (process.argv[2] === "remote") {
     if (!config.remote?.enabled) throw new Error("remote worker is not enabled in dispatcher config");
-    const transport = new CloudflareQueueTransport(config.remote);
-    const journal = new RemoteJournal(config.remote.journalPath);
-    const executor = new ConfinedRemoteExecutor(config, sessions, runner);
-    const worker = new RemoteWorker(transport, journal, executor);
-    const controller = new AbortController();
-    process.once("SIGINT", () => controller.abort());
-    process.once("SIGTERM", () => controller.abort());
-    console.error(`pet-dispatcher remote worker polling for ${config.remote.deviceId}`);
-    await worker.run(controller.signal);
+    const lease = await acquireRemoteWorkerLease(`${config.remote.deviceId}:${config.remote.queueId}`);
+    try {
+      const transport = new CloudflareQueueTransport(config.remote);
+      const journal = new RemoteJournal(config.remote.journalPath);
+      const executor = new ConfinedRemoteExecutor(config, sessions, runner);
+      const worker = new RemoteWorker(transport, journal, executor);
+      const controller = new AbortController();
+      process.once("SIGINT", () => controller.abort());
+      process.once("SIGTERM", () => controller.abort());
+      console.error(`pet-dispatcher remote worker polling for ${config.remote.deviceId}`);
+      await worker.run(controller.signal);
+    } finally {
+      await lease.close().catch(() => undefined);
+    }
     return;
   }
 

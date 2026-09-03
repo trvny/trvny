@@ -45,6 +45,7 @@ jobs:
         shell: pwsh
         run: |
           $project = "feedboard\src\Feedboard.WidgetProvider\Feedboard.WidgetProvider.csproj"
+          $manifestPath = "feedboard\src\Feedboard.WidgetProvider\Package.appxmanifest"
           $buildDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix-build"
           $artifactDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix"
           New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
@@ -62,6 +63,19 @@ jobs:
           $packageVersion = "0.$minor.$build.$runAttempt"
           Write-Host "Packaging Feedboard $packageVersion"
 
+          [xml]$manifest = Get-Content -LiteralPath $manifestPath -Raw
+          $manifest.Package.Identity.Version = $packageVersion
+          $xmlSettings = [System.Xml.XmlWriterSettings]::new()
+          $xmlSettings.Encoding = [System.Text.UTF8Encoding]::new($false)
+          $xmlSettings.Indent = $true
+          $xmlWriter = [System.Xml.XmlWriter]::Create($manifestPath, $xmlSettings)
+          try {
+            $manifest.Save($xmlWriter)
+          }
+          finally {
+            $xmlWriter.Dispose()
+          }
+
           msbuild $project `
             /restore `
             /p:Configuration=Release `
@@ -70,7 +84,6 @@ jobs:
             /p:UapAppxPackageBuildMode=SideloadOnly `
             /p:AppxBundle=Never `
             /p:AppxPackageSigningEnabled=false `
-            /p:AppxPackageVersion=$packageVersion `
             /p:AppxPackageDir="$buildDir\" `
             /p:GenerateAppxPackageOnBuild=true
 

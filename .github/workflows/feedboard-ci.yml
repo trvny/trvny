@@ -1,0 +1,48 @@
+---
+name: Feedboard CI
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+    paths:
+      - feedboard/**
+      - .github/workflows/feedboard-ci.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - feedboard/**
+      - .github/workflows/feedboard-ci.yml
+  workflow_dispatch:
+
+concurrency:
+  group: feedboard-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build x64 provider
+        shell: pwsh
+        run: >-
+          dotnet build feedboard/src/Feedboard.WidgetProvider/Feedboard.WidgetProvider.csproj
+          --configuration Release
+          --runtime win-x64
+          -p:Platform=x64
+          --no-self-contained

@@ -26,6 +26,8 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout
@@ -149,6 +151,15 @@ jobs:
           }
 
           Copy-Item "feedboard\tools\install-dev-package.ps1" $artifactDir
+
+      - name: Attest development artifact provenance
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            feedboard/artifacts/msix/Feedboard.msix
+            feedboard/artifacts/msix/Feedboard.cer
+            feedboard/artifacts/msix/install-dev-package.ps1
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

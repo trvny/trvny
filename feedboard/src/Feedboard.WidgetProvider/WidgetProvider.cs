@@ -12,6 +12,7 @@ namespace Feedboard;
 public sealed class WidgetProvider : IWidgetProvider
 {
     private static readonly ConcurrentDictionary<string, FeedWidget> Widgets = new();
+    private static readonly object LifecycleGate = new();
     private static int _recovered;
 
     public WidgetProvider() => RecoverRunningWidgets();
@@ -23,8 +24,13 @@ public sealed class WidgetProvider : IWidgetProvider
             throw new InvalidOperationException($"Unknown widget definition: {widgetContext.DefinitionId}");
         }
 
-        var widget = new FeedWidget(widgetContext.Id, string.Empty);
-        Widgets[widgetContext.Id] = widget;
+        FeedWidget widget;
+        lock (LifecycleGate)
+        {
+            widget = new FeedWidget(widgetContext.Id, string.Empty);
+            Widgets[widgetContext.Id] = widget;
+        }
+
         widget.RefreshAsync().GetAwaiter().GetResult();
     }
 
@@ -72,16 +78,19 @@ public sealed class WidgetProvider : IWidgetProvider
         try
         {
             var manager = WidgetManager.GetDefault();
-            foreach (var info in manager.GetWidgetInfos())
+            lock (LifecycleGate)
             {
-                var context = info.WidgetContext;
-                if (!string.Equals(context.DefinitionId, FeedWidget.DefinitionId, StringComparison.Ordinal))
+                foreach (var info in manager.GetWidgetInfos())
                 {
-                    manager.DeleteWidget(context.Id);
-                    continue;
-                }
+                    var context = info.WidgetContext;
+                    if (!string.Equals(context.DefinitionId, FeedWidget.DefinitionId, StringComparison.Ordinal))
+                    {
+                        manager.DeleteWidget(context.Id);
+                        continue;
+                    }
 
-                Widgets.TryAdd(context.Id, new FeedWidget(context.Id, info.CustomState));
+                    Widgets.TryAdd(context.Id, new FeedWidget(context.Id, info.CustomState));
+                }
             }
         }
         catch
@@ -92,14 +101,16 @@ public sealed class WidgetProvider : IWidgetProvider
 
     private static void RemoveAndDispose(string widgetId)
     {
-        if (Widgets.TryRemove(widgetId, out var widget))
+        FeedWidget? widget = null;
+        lock (LifecycleGate)
         {
-            widget.Dispose();
+            Widgets.TryRemove(widgetId, out widget);
+            if (Widgets.IsEmpty)
+            {
+                RegistrationManager<WidgetProvider>.RequestExit();
+            }
         }
 
-        if (Widgets.IsEmpty)
-        {
-            RegistrationManager<WidgetProvider>.RequestExit();
-        }
+        widget?.Dispose();
     }
 }

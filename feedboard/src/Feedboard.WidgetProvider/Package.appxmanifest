@@ -64,9 +64,12 @@
                       <Capability><Size Name="large" /></Capability>
                     </Capabilities>
                     <ThemeResources>
-                      <Icons><Icon Path="Assets\Square44x44Logo.png" /></Icons>
-                      <DarkMode />
-                      <LightMode />
+                      <Icons>
+                        <Icon Path="Assets\Square44x44Logo.png" />
+                      </Icons>
+                      <Screenshots>
+                        <Screenshot Path="Assets\WidgetPreview.png" DisplayAltText="Feedboard headlines widget preview" />
+                      </Screenshots>
                     </ThemeResources>
                   </Definition>
                 </Definitions>

@@ -61,7 +61,9 @@ function trimDiff(value: string): string | undefined {
 function boundUtf8(value: string, maxBytes: number): { text: string; truncated: boolean } {
   const bytes = Buffer.from(value, "utf8");
   if (bytes.length <= maxBytes) return { text: value, truncated: false };
-  return { text: bytes.subarray(0, maxBytes).toString("utf8"), truncated: true };
+  let end = maxBytes;
+  while (end > 0 && (((bytes[end] ?? 0) & 0xc0) === 0x80)) end -= 1;
+  return { text: bytes.subarray(0, end).toString("utf8"), truncated: true };
 }
 
 function boundedExecResult(value: ExecResult): ExecResult {
@@ -128,7 +130,10 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     const call = task.direct;
     if (!call) throw new Error("direct executor requires a direct tool call");
     const capabilities = resolveCapabilities(task);
-    if (signal?.aborted) throw signal.reason ?? new Error("remote direct call aborted");
+    if (signal?.aborted) {
+      const message = signal.reason instanceof Error ? signal.reason.message : String(signal.reason ?? "remote task aborted");
+      return { status: "cancelled", summary: `Direct remote tool ${call.tool} was cancelled.`, error: message.slice(0, 4_096) };
+    }
     const execTool = isRemoteDirectExecTool(call.tool);
     const writeTool = isRemoteDirectWriteTool(call.tool);
     if (execTool && !capabilities.has("process.exec")) throw new Error("direct exec tools require process.exec");

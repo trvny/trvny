@@ -115,11 +115,15 @@ Preferred request shape:
 
 ```json
 {
-  "session_id": "...",
-  "argv": ["./gradlew", "test"],
-  "cwd": ".",
-  "timeout_seconds": 900,
-  "env_profile": "build"
+  "repo": "trvny/wambridge",
+  "baseRef": "main",
+  "call": {
+    "tool": "workspace.exec",
+    "sessionId": "...",
+    "argv": ["./gradlew", "test"],
+    "cwd": ".",
+    "timeoutMs": 900000
+  }
 }
 ```
 

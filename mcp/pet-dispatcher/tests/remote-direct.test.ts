@@ -100,6 +100,47 @@ test("direct workspace.exec reuses a write session and returns bounded output", 
   }
 });
 
+test("direct workspace.exec truncates UTF-8 on complete code point boundaries", async () => {
+  const state = await fixture();
+  const runner = {
+    exec: async () => ({ exitCode: 0, stdout: `a${"€".repeat(8192)}`, stderr: "", truncated: false, durationMs: 1 }),
+  } as never;
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, runner);
+  try {
+    const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-utf8");
+    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    assert.ok(sessionId);
+    const executed = await executor.execute(directExecTask({
+      tool: "workspace.exec", sessionId, argv: ["git", "--version"], timeoutMs: 10_000,
+    }), "exec-utf8");
+    assert.equal(executed.status, "completed");
+    const output = JSON.parse(executed.output ?? "{}") as { stdout?: string; truncated?: boolean };
+    assert.equal(output.truncated, true);
+    assert.ok(Buffer.byteLength(output.stdout ?? "", "utf8") <= 24 * 1_024);
+    assert.doesNotMatch(output.stdout ?? "", /�/u);
+  } finally {
+    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
+    await rm(state.base, { recursive: true, force: true });
+  }
+});
+
+test("pre-cancelled direct call returns cancelled without touching the session", async () => {
+  const state = await fixture();
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, { exec: async () => { throw new Error("should not run"); } } as never);
+  const controller = new AbortController();
+  controller.abort(new Error("remote task cancellation requested"));
+  try {
+    const result = await executor.execute(directExecTask({
+      tool: "workspace.exec", sessionId: "11111111-1111-4111-8111-111111111111", argv: ["git", "--version"], timeoutMs: 10_000,
+    }), "pre-cancelled", controller.signal);
+    assert.equal(result.status, "cancelled");
+    assert.match(result.error ?? "", /cancellation requested/u);
+    assert.equal(state.sessions.list().length, 0);
+  } finally {
+    await rm(state.base, { recursive: true, force: true });
+  }
+});
+
 test("direct write session persists across calls and exports the committed head", async () => {
   const state = await fixture();
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);

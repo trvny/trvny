@@ -82,7 +82,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
   #expireDirectSession(id: string): void {
     const lease = this.#directSessions.get(id);
     if (!lease) return;
-    void this.sessions.close(id, true).then(() => {
+    this.sessions.close(id, true).then(() => {
       if (this.#directSessions.get(id) === lease) this.#directSessions.delete(id);
     }).catch(() => {
       if (this.#directSessions.get(id) !== lease) return;
@@ -128,9 +128,22 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     if (call.tool === "session.close") {
       try {
         this.#directSession(call.sessionId, task.repo);
+        let exported: { commit: string; ref: string } | undefined;
+        if (!call.discard) {
+          const state = await this.sessions.status(call.sessionId);
+          if (!state.dirty && state.changedHead && state.session.exportedCommit !== state.head) {
+            exported = await new HostGit(this.sessions, this.config).exportCommit(call.sessionId);
+          }
+        }
         await this.sessions.close(call.sessionId, call.discard);
         this.#clearDirectSession(call.sessionId);
-        return { status: "completed", summary: "Direct remote write session closed.", output: JSON.stringify({ ok: true, discarded: call.discard }) };
+        return {
+          status: "completed",
+          summary: "Direct remote write session closed.",
+          output: JSON.stringify({ ok: true, discarded: call.discard, commit: exported?.commit, ref: exported?.ref }),
+          commit: exported?.commit,
+          exportedRef: exported?.ref,
+        };
       } catch (error) {
         return { status: "failed", summary: "Direct remote write session failed to close.", error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
       }

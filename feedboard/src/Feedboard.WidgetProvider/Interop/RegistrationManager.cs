@@ -10,7 +10,7 @@ namespace Feedboard.Interop;
 public sealed class RegistrationManager<TWidgetProvider> : IDisposable
     where TWidgetProvider : IWidgetProvider, new()
 {
-    private readonly ManualResetEvent _disposedEvent = new(false);
+    private static readonly ManualResetEvent ExitRequested = new(false);
     private readonly IDisposable _registeredProvider;
     private bool _disposed;
 
@@ -18,11 +18,14 @@ public sealed class RegistrationManager<TWidgetProvider> : IDisposable
 
     public static RegistrationManager<TWidgetProvider> RegisterProvider()
     {
+        ExitRequested.Reset();
         var registration = RegisterClass(typeof(TWidgetProvider).GUID, new WidgetProviderFactory<TWidgetProvider>());
         return new RegistrationManager<TWidgetProvider>(registration);
     }
 
-    public ManualResetEvent GetDisposedEvent() => _disposedEvent;
+    public static void RequestExit() => ExitRequested.Set();
+
+    public WaitHandle ExitWaitHandle => ExitRequested;
 
     public void Dispose()
     {
@@ -33,7 +36,6 @@ public sealed class RegistrationManager<TWidgetProvider> : IDisposable
 
         _registeredProvider.Dispose();
         _disposed = true;
-        _disposedEvent.Set();
         GC.SuppressFinalize(this);
     }
 

@@ -46,7 +46,7 @@ Feed definitions are stored in `%LOCALAPPDATA%\Feedboard\feeds.json`.
 
 ## MSIX package
 
-`Feedboard CI` builds the x64 provider as a single-project MSIX and uploads a `feedboard-msix-x64` artifact for each relevant PR/push. The artifact is intentionally unsigned for development, so no private signing key is stored in the repository or GitHub Actions.
+`Feedboard CI` builds the x64 provider as a single-project MSIX and uploads a `feedboard-msix-x64` artifact for each relevant PR/push. CI assigns a monotonically increasing development package version and includes the x86/x64 Windows App Runtime dependencies needed by the x64 package. The artifact is intentionally unsigned, so no private signing key is stored in the repository or GitHub Actions.
 
 To smoke-test it on Windows 11:
 
@@ -55,7 +55,7 @@ To smoke-test it on Windows 11:
 3. Run `install-dev-package.ps1` from PowerShell.
 4. Open the Widgets Board, choose **Add widgets**, and look for Feedboard.
 
-The helper installs the package with `Add-AppxPackage -AllowUnsigned`. Production/Store packaging will use a real publisher identity and signing route later.
+The helper identifies the main package by its MSIX identity, installs the bundled Windows App Runtime dependencies, and calls `Add-AppxPackage -AllowUnsigned -ForceUpdateFromAnyVersion`. Production/Store packaging will use a real publisher identity and signing route later.
 
 ### Local package build
 

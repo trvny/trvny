@@ -45,8 +45,22 @@ jobs:
         shell: pwsh
         run: |
           $project = "feedboard\src\Feedboard.WidgetProvider\Feedboard.WidgetProvider.csproj"
-          $packageDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix"
-          New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+          $buildDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix-build"
+          $artifactDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix"
+          New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+
+          $runNumber = [int64]"${{ github.run_number }}"
+          $runAttempt = [int64]"${{ github.run_attempt }}"
+          $minor = 2 + [math]::Floor(($runNumber - 1) / 65535)
+          $build = (($runNumber - 1) % 65535) + 1
+
+          if ($minor -gt 65535 -or $runAttempt -gt 65535) {
+            throw "GitHub run number cannot be represented as an MSIX version."
+          }
+
+          $packageVersion = "0.$minor.$build.$runAttempt"
+          Write-Host "Packaging Feedboard $packageVersion"
 
           msbuild $project `
             /restore `
@@ -56,19 +70,41 @@ jobs:
             /p:UapAppxPackageBuildMode=SideloadOnly `
             /p:AppxBundle=Never `
             /p:AppxPackageSigningEnabled=false `
-            /p:AppxPackageDir="$packageDir\" `
+            /p:AppxPackageVersion=$packageVersion `
+            /p:AppxPackageDir="$buildDir\" `
             /p:GenerateAppxPackageOnBuild=true
 
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
 
-          $packages = @(Get-ChildItem $packageDir -Recurse -File -Filter *.msix)
-          if ($packages.Count -eq 0) {
-            throw "MSIX package was not produced."
+          $mainPackages = @(
+            Get-ChildItem $buildDir -Recurse -File -Filter *.msix |
+              Where-Object { $_.FullName -notmatch '[\\/]Dependencies[\\/]' }
+          )
+          if ($mainPackages.Count -ne 1) {
+            throw "Expected exactly one main MSIX package, found $($mainPackages.Count)."
           }
 
-          Copy-Item "feedboard\tools\install-dev-package.ps1" $packageDir
+          Copy-Item $mainPackages[0].FullName (Join-Path $artifactDir "Feedboard.msix")
+
+          foreach ($arch in @("x86", "x64")) {
+            $sourceDir = Join-Path $mainPackages[0].Directory.FullName "Dependencies\$arch"
+            $dependencies = @(
+              Get-ChildItem $sourceDir -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Extension -in ".appx", ".msix" }
+            )
+
+            if ($dependencies.Count -eq 0) {
+              throw "No $arch dependency packages were produced."
+            }
+
+            $targetDir = Join-Path $artifactDir "Dependencies\$arch"
+            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+            $dependencies | Copy-Item -Destination $targetDir
+          }
+
+          Copy-Item "feedboard\tools\install-dev-package.ps1" $artifactDir
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

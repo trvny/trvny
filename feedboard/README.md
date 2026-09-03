@@ -2,7 +2,7 @@
 
 A local-first RSS/Atom widget for the Windows 11 Widgets Board.
 
-> Status: early prototype. The provider, feed parser, OPML plumbing and adaptive-card renderer are scaffolded, and CI now produces an attested, locally signed x64 MSIX development artifact. The next gate is an install/render smoke test on a real Windows 11 Widgets Board.
+> Status: early prototype. The provider, feed parser, OPML plumbing and adaptive-card renderer are scaffolded. CI produces an attested, locally signed x64 MSIX development artifact, and the package has passed a real Windows 11 install/picker/render/resize smoke test.
 
 ## Goal
 
@@ -63,6 +63,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-dev-package.ps
 4. Approve the administrator prompt. The helper verifies its own provenance, then verifies `Feedboard.msix` and `Feedboard.cer`, confirms that the certificate matches the package signature, imports the public certificate into `LocalMachine\TrustedPeople`, installs the bundled Windows App Runtime dependencies, and installs Feedboard.
 5. Open the Widgets Board, choose **Add widgets**, and look for Feedboard.
 
+The current development package has been verified on Windows 11: Feedboard installs, appears in the widget picker, renders live Atom headlines, reacts to small/medium/large size changes with size-specific content limits, collapses expanded content when shrinking, and keeps the provider running without a visible console window.
+
 The certificate is a development-only trust anchor for this CI artifact. Remove it from `LocalMachine\TrustedPeople` when the build is no longer needed. Production/Store packaging will use a stable publisher identity and a publicly trusted signing route instead.
 
 ### Local package build
@@ -79,11 +81,11 @@ The CI workflow is the reference packaging path because it creates the temporary
 
 ## Next passes
 
-1. Install the CI artifact on Windows 11 and verify that Feedboard appears, renders, refreshes and opens articles in the real Widgets Board.
-2. Add a tiny WinUI settings window for feed CRUD, refresh interval and OPML import/export.
-3. Add per-widget feed selection, unread/read state and ordering.
-4. Add JSON Feed and better site icon discovery (`link rel=icon`).
-5. Add cache/backoff, duplicate suppression and feed-level error status.
+1. Add a tiny WinUI settings window for feed CRUD, refresh interval and OPML import/export.
+2. Add per-widget feed selection, unread/read state and ordering.
+3. Add JSON Feed and better site icon discovery (`link rel=icon`).
+4. Add cache/backoff, duplicate suppression and feed-level error status.
+5. Polish widget density, empty/error states and visual hierarchy across all three sizes.
 
 ## References
 

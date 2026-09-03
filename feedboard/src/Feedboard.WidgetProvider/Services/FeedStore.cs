@@ -24,14 +24,8 @@ public sealed class FeedStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            if (!File.Exists(_path))
-            {
-                return Array.Empty<FeedSource>();
-            }
-
-            await using var stream = File.OpenRead(_path);
-            return await JsonSerializer.DeserializeAsync<List<FeedSource>>(stream, JsonOptions, cancellationToken)
-                ?? new List<FeedSource>();
+            await using var processLock = await AcquireProcessLockAsync(cancellationToken);
+            return await ReadSourcesAsync(cancellationToken);
         }
         finally
         {
@@ -54,14 +48,10 @@ public sealed class FeedStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            var current = new List<FeedSource>();
-            if (File.Exists(_path))
-            {
-                await using var read = File.OpenRead(_path);
-                current = await JsonSerializer.DeserializeAsync<List<FeedSource>>(read, JsonOptions, cancellationToken) ?? new();
-            }
-
+            await using var processLock = await AcquireProcessLockAsync(cancellationToken);
+            var current = (await ReadSourcesAsync(cancellationToken)).ToList();
             var byUrl = current.ToDictionary(x => x.Url, StringComparer.OrdinalIgnoreCase);
+
             foreach (var source in incoming)
             {
                 if (!Uri.TryCreate(source.Url, UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
@@ -72,13 +62,89 @@ public sealed class FeedStore
                 byUrl[source.Url] = source;
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            await using var write = File.Create(_path);
-            await JsonSerializer.SerializeAsync(write, byUrl.Values.OrderBy(x => x.Title ?? x.Url).ToList(), JsonOptions, cancellationToken);
+            var directory = Path.GetDirectoryName(_path)!;
+            Directory.CreateDirectory(directory);
+            var tempPath = Path.Combine(directory, $".{Path.GetFileName(_path)}.{Guid.NewGuid():N}.tmp");
+
+            try
+            {
+                await using (var write = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true))
+                {
+                    await JsonSerializer.SerializeAsync(write, byUrl.Values.OrderBy(x => x.Title ?? x.Url).ToList(), JsonOptions, cancellationToken);
+                    await write.FlushAsync(cancellationToken);
+                }
+
+                File.Move(tempPath, _path, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
         }
         finally
         {
             _gate.Release();
+        }
+    }
+
+    private async Task<IReadOnlyList<FeedSource>> ReadSourcesAsync(CancellationToken cancellationToken)
+    {
+        if (!File.Exists(_path))
+        {
+            return Array.Empty<FeedSource>();
+        }
+
+        try
+        {
+            await using var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
+            return await JsonSerializer.DeserializeAsync<List<FeedSource>>(stream, JsonOptions, cancellationToken)
+                ?? new List<FeedSource>();
+        }
+        catch (JsonException)
+        {
+            QuarantineCorruptStore();
+            return Array.Empty<FeedSource>();
+        }
+    }
+
+    private void QuarantineCorruptStore()
+    {
+        try
+        {
+            if (!File.Exists(_path))
+            {
+                return;
+            }
+
+            var corruptPath = $"{_path}.corrupt-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}";
+            File.Move(_path, corruptPath, overwrite: false);
+        }
+        catch (IOException)
+        {
+            // Best effort: a concurrent recovery may already have moved the file.
+        }
+    }
+
+    private async Task<FileStream> AcquireProcessLockAsync(CancellationToken cancellationToken)
+    {
+        var directory = Path.GetDirectoryName(_path)!;
+        Directory.CreateDirectory(directory);
+        var lockPath = _path + ".lock";
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, useAsync: true);
+            }
+            catch (IOException)
+            {
+                await Task.Delay(50, cancellationToken);
+            }
         }
     }
 }

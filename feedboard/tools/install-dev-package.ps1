@@ -1,16 +1,36 @@
 [CmdletBinding()]
 param(
     [string]$PackagePath,
-    [string]$CertificatePath
+    [string]$CertificatePath,
+    [string]$GitHubCliPath
 )
 
 $ErrorActionPreference = 'Stop'
 $expectedIdentity = 'trvny.Feedboard'
+$attestationRepo = 'trvny/trvny'
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = [Security.Principal.WindowsPrincipal]::new($identity)
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if ($PackagePath) {
+    $PackagePath = (Resolve-Path -LiteralPath $PackagePath).Path
+}
+if ($CertificatePath) {
+    $CertificatePath = (Resolve-Path -LiteralPath $CertificatePath).Path
+}
+
+if ($GitHubCliPath) {
+    $GitHubCliPath = (Resolve-Path -LiteralPath $GitHubCliPath).Path
+}
+else {
+    $ghCommand = Get-Command gh.exe -ErrorAction SilentlyContinue
+    if (-not $ghCommand) {
+        throw 'GitHub CLI (gh.exe) is required to verify Feedboard artifact provenance before trusting its development certificate.'
+    }
+    $GitHubCliPath = $ghCommand.Source
 }
 
 if (-not (Test-IsAdministrator)) {
@@ -24,6 +44,7 @@ if (-not (Test-IsAdministrator)) {
     if ($CertificatePath) {
         $arguments += " -CertificatePath `"$CertificatePath`""
     }
+    $arguments += " -GitHubCliPath `"$GitHubCliPath`""
 
     $elevated = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
     exit $elevated.ExitCode
@@ -66,8 +87,7 @@ function Get-MsixIdentityName {
 }
 
 if ($PackagePath) {
-    $resolvedPath = (Resolve-Path -LiteralPath $PackagePath).Path
-    $mainPackage = Get-Item -LiteralPath $resolvedPath
+    $mainPackage = Get-Item -LiteralPath $PackagePath
     if ((Get-MsixIdentityName -Path $mainPackage.FullName) -ne $expectedIdentity) {
         throw "Package '$($mainPackage.FullName)' is not the Feedboard MSIX."
     }
@@ -89,7 +109,7 @@ else {
 }
 
 if ($CertificatePath) {
-    $certificate = Get-Item -LiteralPath (Resolve-Path -LiteralPath $CertificatePath).Path
+    $certificate = Get-Item -LiteralPath $CertificatePath
 }
 else {
     $certificatePathCandidate = Join-Path $mainPackage.Directory.FullName 'Feedboard.cer'
@@ -97,6 +117,14 @@ else {
         throw "Development signing certificate not found: $certificatePathCandidate"
     }
     $certificate = Get-Item -LiteralPath $certificatePathCandidate
+}
+
+Write-Host 'Verifying GitHub build provenance before trusting the development certificate...'
+foreach ($subject in @($mainPackage.FullName, $certificate.FullName)) {
+    & $GitHubCliPath attestation verify $subject --repo $attestationRepo
+    if ($LASTEXITCODE -ne 0) {
+        throw "GitHub artifact attestation verification failed for '$subject'."
+    }
 }
 
 $signature = Get-AuthenticodeSignature -FilePath $mainPackage.FullName
@@ -109,7 +137,7 @@ if ($signature.SignerCertificate.Thumbprint -ne $artifactCertificate.Thumbprint)
     throw 'Feedboard.cer does not match the certificate that signed Feedboard.msix.'
 }
 
-Write-Host "Trusting Feedboard development certificate $($artifactCertificate.Thumbprint)..."
+Write-Host "Trusting attested Feedboard development certificate $($artifactCertificate.Thumbprint)..."
 Import-Certificate `
     -FilePath $certificate.FullName `
     -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
@@ -143,7 +171,7 @@ try {
 }
 catch {
     Write-Host ''
-    Write-Host 'Install failed. The package is a locally signed development build; the public test certificate was added only to LocalMachine\TrustedPeople.'
+    Write-Host "Install failed: $($_.Exception.Message)"
     throw
 }
 

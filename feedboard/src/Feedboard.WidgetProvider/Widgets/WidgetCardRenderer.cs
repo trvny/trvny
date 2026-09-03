@@ -193,9 +193,12 @@ public static class WidgetCardRenderer
             ["separator"] = true,
             ["spacing"] = "Small",
             ["items"] = rowItems,
-            ["selectAction"] = expanded
-                ? new JsonObject { ["type"] = "Action.OpenUrl", ["url"] = article.Url, ["title"] = "Open article" }
-                : new JsonObject { ["type"] = "Action.Execute", ["verb"] = $"expand:{article.Id}", ["title"] = "Show details" }
+            ["selectAction"] = new JsonObject
+            {
+                ["type"] = "Action.Execute",
+                ["verb"] = expanded ? $"open:{article.Id}" : $"expand:{article.Id}",
+                ["title"] = expanded ? "Open article" : "Show details"
+            }
         };
     }
 

@@ -1,0 +1,5 @@
+src/**/bin/
+src/**/obj/
+assets/generated/
+*.user
+*.suo

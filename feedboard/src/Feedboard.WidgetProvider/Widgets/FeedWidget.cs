@@ -1,6 +1,7 @@
 using Feedboard.Models;
 using Feedboard.Services;
 using Microsoft.Windows.Widgets.Providers;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Feedboard.Widgets;
@@ -34,13 +35,13 @@ public sealed class FeedWidget : IDisposable
             return;
         }
 
-        _timer ??= new Timer(_ => _ = RefreshAsync(), null, TimeSpan.Zero, RefreshInterval);
+        _timer ??= new Timer(_ => RefreshTimerCallback(), null, TimeSpan.Zero, RefreshInterval);
     }
 
     public void Deactivate()
     {
-        _timer?.Dispose();
-        _timer = null;
+        var timer = Interlocked.Exchange(ref _timer, null);
+        timer?.Dispose();
     }
 
     public async Task RefreshAsync(CancellationToken cancellationToken = default)
@@ -63,6 +64,13 @@ public sealed class FeedWidget : IDisposable
 
             PushCurrentCard();
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"Feedboard refresh failed: {ex}");
+        }
         finally
         {
             _refreshGate.Release();
@@ -72,16 +80,28 @@ public sealed class FeedWidget : IDisposable
     public void OnActionInvoked(WidgetActionInvokedArgs args)
     {
         const string expandPrefix = "expand:";
-        if (!args.Verb.StartsWith(expandPrefix, StringComparison.Ordinal))
+        const string openPrefix = "open:";
+
+        if (args.Verb.StartsWith(expandPrefix, StringComparison.Ordinal))
         {
+            var articleId = args.Verb[expandPrefix.Length..];
+            if (_articles.Any(x => x.Id == articleId))
+            {
+                _state = new WidgetState(articleId);
+                PushCurrentCard();
+            }
+
             return;
         }
 
-        var articleId = args.Verb[expandPrefix.Length..];
-        if (_articles.Any(x => x.Id == articleId))
+        if (args.Verb.StartsWith(openPrefix, StringComparison.Ordinal))
         {
-            _state = new WidgetState(articleId);
-            PushCurrentCard();
+            var articleId = args.Verb[openPrefix.Length..];
+            var article = _articles.FirstOrDefault(x => x.Id == articleId);
+            if (article is not null && Uri.TryCreate(article.Url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                Process.Start(new ProcessStartInfo(uri.ToString()) { UseShellExecute = true });
+            }
         }
     }
 
@@ -110,8 +130,31 @@ public sealed class FeedWidget : IDisposable
         }
 
         _disposed = true;
-        _timer?.Dispose();
+        var timer = Interlocked.Exchange(ref _timer, null);
+        if (timer is not null)
+        {
+            using var drained = new ManualResetEvent(false);
+            if (timer.Dispose(drained))
+            {
+                drained.WaitOne();
+            }
+        }
+
+        _refreshGate.Wait();
+        _refreshGate.Release();
         _refreshGate.Dispose();
+    }
+
+    private void RefreshTimerCallback()
+    {
+        try
+        {
+            RefreshAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceError($"Feedboard timer refresh failed: {ex}");
+        }
     }
 
     private static WidgetState ParseState(string customState)

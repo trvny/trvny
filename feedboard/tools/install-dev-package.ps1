@@ -6,6 +6,25 @@ param(
 $ErrorActionPreference = 'Stop'
 $expectedIdentity = 'trvny.Feedboard'
 
+function Test-IsAdministrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if (-not (Test-IsAdministrator)) {
+    Write-Host 'Feedboard development MSIX contains executable code and needs administrator privileges.'
+    Write-Host 'Requesting elevation...'
+
+    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    if ($PackagePath) {
+        $arguments += " -PackagePath `"$PackagePath`""
+    }
+
+    $elevated = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru
+    exit $elevated.ExitCode
+}
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Get-MsixIdentityName {
@@ -95,8 +114,8 @@ try {
 }
 catch {
     Write-Host ''
-    Write-Host 'Install failed. Feedboard development packages require Windows 11 Developer Mode.'
-    Write-Host 'Enable Developer Mode in Settings > System > Advanced > For developers, then retry.'
+    Write-Host 'Install failed. Make sure Windows 11 Developer Mode is enabled for widget sideloading.'
+    Write-Host 'This development package is intentionally unsigned and uses the Windows unsigned-package identity namespace.'
     throw
 }
 

@@ -47,15 +47,29 @@ jobs:
         shell: pwsh
         run: |
           $project = "feedboard\src\Feedboard.WidgetProvider\Feedboard.WidgetProvider.csproj"
+          $settingsProject = "feedboard\src\Feedboard.Settings\Feedboard.Settings.csproj"
           $manifestPath = "feedboard\src\Feedboard.WidgetProvider\Package.appxmanifest"
           $buildDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix-build"
           $artifactDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix"
+          $settingsStage = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\settings-stage"
           $pfxPath = Join-Path $env:RUNNER_TEMP "feedboard-dev.pfx"
           $cerPath = Join-Path $artifactDir "Feedboard.cer"
           New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
           New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $settingsStage -Force | Out-Null
 
           & "feedboard\tools\materialize-widget-preview.ps1"
+
+          dotnet publish $settingsProject `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --output $settingsStage `
+            -p:WindowsPackageType=None `
+            -p:WindowsAppSDKSelfContained=true
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
 
           $runNumber = [int64]"${{ github.run_number }}"
           $runAttempt = [int64]"${{ github.run_attempt }}"
@@ -109,6 +123,7 @@ jobs:
               /p:Configuration=Release `
               /p:Platform=x64 `
               /p:RuntimeIdentifier=win-x64 `
+              /p:SettingsPackageDir="$settingsStage" `
               /p:UapAppxPackageBuildMode=SideloadOnly `
               /p:AppxBundle=Never `
               /p:AppxPackageSigningEnabled=true `
@@ -132,6 +147,33 @@ jobs:
           )
           if ($mainPackages.Count -ne 1) {
             throw "Expected exactly one main MSIX package, found $($mainPackages.Count)."
+          }
+
+          $makeAppx = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windows.sdk.buildtools" -Recurse -File -Filter MakeAppx.exe |
+            Where-Object { $_.FullName -match '[\\/]x64[\\/]MakeAppx\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $makeAppx) {
+            throw "MakeAppx.exe was not found in the restored Windows SDK BuildTools package."
+          }
+
+          $unpackDir = Join-Path $env:RUNNER_TEMP "feedboard-msix-unpacked"
+          & $makeAppx unpack /p $mainPackages[0].FullName /d $unpackDir /o | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          $settingsDir = Join-Path $unpackDir "Settings"
+          foreach ($required in @(
+            "Feedboard.Settings.exe",
+            "Feedboard.Settings.dll",
+            "Feedboard.Settings.deps.json",
+            "Feedboard.Settings.runtimeconfig.json",
+            "coreclr.dll"
+          )) {
+            if (-not (Test-Path (Join-Path $settingsDir $required))) {
+              throw "MSIX is missing settings runtime file: Settings\$required"
+            }
           }
 
           Copy-Item $mainPackages[0].FullName (Join-Path $artifactDir "Feedboard.msix")

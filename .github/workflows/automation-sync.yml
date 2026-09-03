@@ -1,4 +1,4 @@
-name: Kanarek review smoke logs
+name: Sync Kanarek credentials
 
 on:
   workflow_dispatch:
@@ -7,20 +7,138 @@ permissions:
   contents: read
 
 jobs:
-  tail:
+  cloudflare:
+    concurrency:
+      group: automation-sync-cloudflare
+      cancel-in-progress: false
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 5
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      KANAREK_COMPANION_HEALTH_URL: https://kanarek-companion.travny.workers.dev/health
+      KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
+      AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
     steps:
-      - name: Tail Kanarek companion
+      - name: Sync Worker credentials
         shell: bash
         run: |
-          set -uo pipefail
-          code=0
-          timeout 180s npx --yes wrangler@4.127.1 tail kanarek-companion \
-            --format json || code=$?
-          if [ "$code" -ne 0 ] && [ "$code" -ne 124 ]; then
-            exit "$code"
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
+          : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
+          secrets_file=$(mktemp)
+          trap 'rm -f "$secrets_file"' EXIT
+
+          live_tag=$(
+            curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
+              "$KANAREK_COMPANION_HEALTH_URL" 2>/dev/null |
+              jq -r '.gateway.workerVersion.tag // empty' || true
+          )
+          if [[ "$live_tag" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            version_tag="${live_tag,,}"
+          else
+            version_tag="$GITHUB_SHA"
           fi
+          version_message="Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          rollback_message="Rollback failed Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+
+          previous_deployment=$(npx --yes wrangler@4.127.1 deployments status \
+            --name kanarek-companion --json)
+          mapfile -t previous_specs < <(
+            jq -r '.versions[] | "\(.version_id)@\(.percentage)%"' \
+              <<<"$previous_deployment"
+          )
+          if [ "${#previous_specs[@]}" -eq 0 ]; then
+            echo "Could not capture the current Worker deployment for rollback." >&2
+            exit 1
+          fi
+
+          python3 - "$secrets_file" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          required = {
+              "CLOUDFLARE_API_TOKEN": os.environ["CLOUDFLARE_API_TOKEN"],
+              "CLOUDFLARE_ACCOUNT_ID": os.environ["CLOUDFLARE_ACCOUNT_ID"],
+              "KANAREK_REVIEW_ROUTER_TOKEN": os.environ["KANAREK_REVIEW_ROUTER_TOKEN"],
+          }
+          direct_optional = {
+              key: os.environ[key]
+              for key in (
+                  "GEMINI_API_KEY",
+                  "OPENAI_API_KEY",
+                  "ANTHROPIC_API_KEY",
+                  "XAI_API_KEY",
+              )
+              if os.environ.get(key)
+          }
+          free_review = {
+              key: os.environ.get(key) or None
+              for key in (
+                  "AIHUBMIX_API_KEY",
+                  "OPENROUTER_API_KEY",
+                  "ORCAROUTER_API_KEY",
+              )
+          }
+          pathlib.Path(sys.argv[1]).write_text(
+              json.dumps({**required, **direct_optional, **free_review}),
+              encoding="utf-8",
+          )
+          PY
+          chmod 600 "$secrets_file"
+
+          npx --yes wrangler@4.127.1 versions secret bulk "$secrets_file" \
+            --name kanarek-companion \
+            --tag "$version_tag" \
+            --message "$version_message"
+
+          versions_json=$(npx --yes wrangler@4.127.1 versions list \
+            --name kanarek-companion --json)
+          version_id=$(jq -r \
+            --arg tag "$version_tag" \
+            --arg message "$version_message" \
+            '[.[] | select(.annotations["workers/tag"] == $tag and .annotations["workers/message"] == $message)] | last | .id // empty' \
+            <<<"$versions_json")
+          if [ -z "$version_id" ]; then
+            echo "Could not identify the tagged credential-sync Worker version." >&2
+            exit 1
+          fi
+
+          npx --yes wrangler@4.127.1 versions deploy \
+            "$version_id@100%" \
+            --name kanarek-companion \
+            --message "$version_message" \
+            --yes
+
+          for _attempt in {1..12}; do
+            if live_health=$(curl --fail --silent --show-error \
+              --connect-timeout 5 --max-time 10 \
+              "$KANAREK_COMPANION_HEALTH_URL") &&
+              jq -e --arg tag "$version_tag" --arg id "$version_id" \
+                '.ok == true and .reviewWebhook.ready == true and .gateway.workerVersion.id == $id and .gateway.workerVersion.tag == $tag' \
+                <<<"$live_health" >/dev/null
+            then
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Credential sync deployed, but the tagged Worker did not become healthy; rolling back." >&2
+          if ! npx --yes wrangler@4.127.1 versions deploy \
+            "${previous_specs[@]}" \
+            --name kanarek-companion \
+            --message "$rollback_message" \
+            --yes
+          then
+            echo "Rollback of the previous Worker deployment also failed." >&2
+          fi
+          exit 1

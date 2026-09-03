@@ -1,6 +1,6 @@
 # Interactive tool bridge
 
-Status: **Phase 3a in progress: remote read-only direct tools implemented**
+Status: **Phase 3b in progress: remote write sessions implemented; live deploy pending review**
 
 This note defines how Pet Dispatcher can become the normal local-tool connection for remote assistants such as ChatGPT, instead of requiring Desktop Commander to run in parallel.
 

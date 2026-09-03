@@ -149,8 +149,20 @@ jobs:
             throw "Expected exactly one main MSIX package, found $($mainPackages.Count)."
           }
 
+          $makeAppx = Get-ChildItem "$env:USERPROFILE\.nuget\packages\microsoft.windows.sdk.buildtools" -Recurse -File -Filter MakeAppx.exe |
+            Where-Object { $_.FullName -match '[\\/]x64[\\/]MakeAppx\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $makeAppx) {
+            throw "MakeAppx.exe was not found in the restored Windows SDK BuildTools package."
+          }
+
           $unpackDir = Join-Path $env:RUNNER_TEMP "feedboard-msix-unpacked"
-          makeappx unpack /p $mainPackages[0].FullName /d $unpackDir /o | Out-Null
+          & $makeAppx unpack /p $mainPackages[0].FullName /d $unpackDir /o | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
           $settingsDir = Join-Path $unpackDir "Settings"
           foreach ($required in @(
             "Feedboard.Settings.exe",

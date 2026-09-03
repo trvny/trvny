@@ -151,6 +151,7 @@ jobs:
 
           $unpackDir = Join-Path $env:RUNNER_TEMP "feedboard-msix-unpacked"
           makeappx unpack /p $mainPackages[0].FullName /d $unpackDir /o | Out-Null
+          $settingsDir = Join-Path $unpackDir "Settings"
           foreach ($required in @(
             "Feedboard.Settings.exe",
             "Feedboard.Settings.dll",
@@ -158,8 +159,8 @@ jobs:
             "Feedboard.Settings.runtimeconfig.json",
             "coreclr.dll"
           )) {
-            if (-not (Test-Path (Join-Path $unpackDir $required))) {
-              throw "MSIX is missing settings runtime file: $required"
+            if (-not (Test-Path (Join-Path $settingsDir $required))) {
+              throw "MSIX is missing settings runtime file: Settings\$required"
             }
           }
 

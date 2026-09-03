@@ -1,3 +1,4 @@
+using Feedboard.Interop;
 using Feedboard.Widgets;
 using Microsoft.Windows.Widgets.Providers;
 using System.Collections.Concurrent;
@@ -94,6 +95,11 @@ public sealed class WidgetProvider : IWidgetProvider
         if (Widgets.TryRemove(widgetId, out var widget))
         {
             widget.Dispose();
+        }
+
+        if (Widgets.IsEmpty)
+        {
+            RegistrationManager<WidgetProvider>.RequestExit();
         }
     }
 }

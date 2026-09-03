@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="Feedboard.Settings.app" />
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <maxversiontested Id="10.0.26100.0" />
+      <supportedOS Id="{4f476546-9374-4f4b-80f2-217748d77b51}" />
+    </application>
+  </compatibility>
+</assembly>

@@ -50,18 +50,18 @@ Feed definitions are stored in `%LOCALAPPDATA%\Feedboard\feeds.json`.
 
 To smoke-test it on Windows 11:
 
-1. Enable **Developer Mode** in Settings.
+1. Enable **Developer Mode** in Settings. Windows widget sideloading requires it.
 2. Download and unzip the `feedboard-msix-x64` workflow artifact.
-3. Run `install-dev-package.ps1` from PowerShell.
+3. Run `install-dev-package.ps1` from PowerShell and approve the administrator prompt.
 4. Open the Widgets Board, choose **Add widgets**, and look for Feedboard.
 
-The helper identifies the main package by its MSIX identity, installs the bundled Windows App Runtime dependencies, and calls `Add-AppxPackage -AllowUnsigned -ForceUpdateFromAnyVersion`. Production/Store packaging will use a real publisher identity and signing route later.
+The helper identifies the main package by its MSIX identity, requests elevation when needed, installs the bundled Windows App Runtime dependencies, and calls `Add-AppxPackage -AllowUnsigned -ForceUpdateFromAnyVersion`. The development manifest uses Microsoft's required unsigned-package OID publisher namespace. Production/Store packaging will remove that development OID, use the final publisher identity, and sign the package.
 
 ### Local package build
 
 Requirements:
 
-- Windows 11
+- Windows 11 with Developer Mode enabled
 - Visual Studio 2022+ with **WinUI application development**
 - .NET 8
 - Windows App SDK 2.4.x
@@ -90,7 +90,7 @@ msbuild feedboard\src\Feedboard.WidgetProvider\Feedboard.WidgetProvider.csproj `
 
 ## References
 
-- Microsoft Learn: Windows widget providers, single-project MSIX and Windows app CI
+- Microsoft Learn: Windows widget providers, unsigned MSIX packages, single-project MSIX and Windows app CI
 - Microsoft Windows App SDK Widgets sample (C# packaged provider)
 
 The COM registration helper is adapted from Microsoft's MIT-licensed Windows App SDK sample and retains its attribution comments.

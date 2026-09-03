@@ -15,6 +15,10 @@ export async function acquireRemoteWorkerLease(key: string): Promise<RemoteWorke
   const server = createServer((socket) => socket.destroy());
 
   await new Promise<void>((resolve, reject) => {
+    const onListening = () => {
+      server.removeListener("error", onError);
+      resolve();
+    };
     const onError = (error: NodeJS.ErrnoException) => {
       server.removeListener("listening", onListening);
       if (error.code === "EADDRINUSE") {
@@ -22,10 +26,6 @@ export async function acquireRemoteWorkerLease(key: string): Promise<RemoteWorke
         return;
       }
       reject(error);
-    };
-    const onListening = () => {
-      server.removeListener("error", onError);
-      resolve();
     };
     server.once("error", onError);
     server.once("listening", onListening);

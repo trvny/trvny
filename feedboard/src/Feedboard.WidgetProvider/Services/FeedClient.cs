@@ -62,6 +62,10 @@ public sealed partial class FeedClient
             var parseSource = source with { Url = finalUrl };
             return ParseDocument(parseSource, document);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch
         {
             return Array.Empty<FeedArticle>();

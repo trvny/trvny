@@ -13,6 +13,7 @@
     "preferredActions": [
       "getOperatorBootstrap",
       "getGremlinKnowledge",
+      "searchDocs",
       "searchEngramMemory",
       "getCloudflareOverview",
       "getOperatorCapabilities",

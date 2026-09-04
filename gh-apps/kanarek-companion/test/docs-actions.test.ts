@@ -65,7 +65,7 @@ test('operator authorization fails closed before documentation reads', async () 
 test('authorization failures return the unified internal error response', async () => {
   const response = await handleDocsAction(
     request('/gpt-actions/docs/index', { repository: 'trvny/trvny' }),
-    async () => { throw new Error('network failed'); },
+    () => Promise.reject(new Error('network failed')),
   );
   assert.ok(response);
   assert.equal(response.status, 500);

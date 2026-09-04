@@ -84,7 +84,9 @@ async function githubRead(request: Request, invoke: Invoke, path: string): Promi
 
 async function inputObject(request: Request): Promise<JsonObject> {
   const text = await request.clone().text();
-  if (text.length > MAX_REQUEST_BYTES) throw new DocsActionError('payload_too_large', 413);
+  if (new TextEncoder().encode(text).byteLength > MAX_REQUEST_BYTES) {
+    throw new DocsActionError('payload_too_large', 413);
+  }
   if (!text.trim()) return {};
   let value: unknown;
   try {
@@ -188,7 +190,7 @@ function decodeBase64Utf8(value: string): string {
   }
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(bytes);
   } catch {
     throw new DocsActionError('invalid_document_encoding', 502);
   }
@@ -337,10 +339,10 @@ export async function handleDocsAction(
   if (![INDEX_PATH, SEARCH_PATH, GET_PATH].includes(pathname)) return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
 
-  const unauthorized = await authorizeOperator(request, invoke);
-  if (unauthorized) return unauthorized;
-
   try {
+    const unauthorized = await authorizeOperator(request, invoke);
+    if (unauthorized) return unauthorized;
+
     const input = await inputObject(request);
     if (pathname === INDEX_PATH) return await indexAction(request, invoke, input);
     if (pathname === SEARCH_PATH) return await searchAction(request, invoke, input);

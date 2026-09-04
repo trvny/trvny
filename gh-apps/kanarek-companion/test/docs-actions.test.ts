@@ -62,6 +62,26 @@ test('operator authorization fails closed before documentation reads', async () 
   assert.deepEqual(await response.json(), { ok: false, error: 'operator_not_allowed' });
 });
 
+test('authorization failures return the unified internal error response', async () => {
+  const response = await handleDocsAction(
+    request('/gpt-actions/docs/index', { repository: 'trvny/trvny' }),
+    async () => { throw new Error('network failed'); },
+  );
+  assert.ok(response);
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), { ok: false, error: 'internal_error' });
+});
+
+test('request size limit is enforced in UTF-8 bytes', async () => {
+  const response = await handleDocsAction(
+    request('/gpt-actions/docs/search', { query: 'ą'.repeat(12_000) }),
+    invokeFor({}),
+  );
+  assert.ok(response);
+  assert.equal(response.status, 413);
+  assert.deepEqual(await response.json(), { ok: false, error: 'payload_too_large' });
+});
+
 test('docs index lists only bounded documentation-like files', async () => {
   const response = await handleDocsAction(
     request('/gpt-actions/docs/index', { repository: 'trvny/trvny' }),

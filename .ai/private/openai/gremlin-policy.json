@@ -25,6 +25,7 @@
       "prepareChange",
       "implementCodeChange",
       "investigateCode",
+      "reviewCodeChange",
       "inspectPullRequest",
       "finalizePullRequest",
       "orchestrateRelease",

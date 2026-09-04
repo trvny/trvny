@@ -11,6 +11,10 @@ import {
   handleDependencyGraphAction,
 } from './dependency-graph.ts';
 import {
+  buildFocusedCodeReview,
+  focusedReviewScopeBlockers,
+} from './focused-code-review.ts';
+import {
   handleTargetedTestsAction,
   TARGETED_TESTS_PATH,
 } from './test-discovery.ts';
@@ -1191,6 +1195,20 @@ async function inspect(source: Request, invoke: Invoke, core: CoreInput, pullReq
   })).payload;
 }
 
+function focusedReview(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  progress: Progress,
+): Promise<JsonObject> {
+  return buildFocusedCodeReview(source, invoke, {
+    repository: core.repository,
+    baseSha: core.expectedBaseSha,
+    headSha: progress.branchHead,
+    targetPaths: progress.refactor?.allowedPaths ?? core.targetPaths,
+  });
+}
+
 async function verifyRecoveredCommit(
   source: Request,
   invoke: Invoke,
@@ -1764,27 +1782,35 @@ async function run(
       };
       if (progress.pullRequest) {
         const next: Progress = { ...progress, stage: 'waiting_ci_review', verification };
-        const inspection = await inspect(request, invoke, core, progress.pullRequest.number);
+        const [inspection, review] = await Promise.all([
+          inspect(request, invoke, core, progress.pullRequest.number),
+          focusedReview(request, invoke, core, next),
+        ]);
         return pause(env, core, inputHash, next, {
           ok: true,
           stage: 'waiting_ci_review',
           verification,
           pullRequest: progress.pullRequest,
           inspection: inspection.data ?? null,
-          nextAction: { type: 'review', note: 'Wait for final-head CI/review, fix actionable findings, then submit semantic review completion.' },
+          focusedReview: review,
+          nextAction: { type: 'review', note: 'Use focusedReview plus final-head CI/review. Fix actionable findings, then submit semantic review completion.' },
         });
       }
       if (!submitted.pullRequest) throw new CodeChangeError('pull_request_required');
       const pullRequest = await createOrRecoverPullRequest(request, invoke, core, progress, submitted.pullRequest);
       const next: Progress = { ...progress, stage: 'waiting_ci_review', verification, pullRequest };
-      const inspection = await inspect(request, invoke, core, pullRequest.number);
+      const [inspection, review] = await Promise.all([
+        inspect(request, invoke, core, pullRequest.number),
+        focusedReview(request, invoke, core, next),
+      ]);
       return pause(env, core, inputHash, next, {
         ok: true,
         stage: 'waiting_ci_review',
         verification,
         pullRequest,
         inspection: inspection.data ?? null,
-        nextAction: { type: 'review', note: 'Wait for final-head CI/review, fix actionable findings, then submit semantic review completion.' },
+        focusedReview: review,
+        nextAction: { type: 'review', note: 'Use focusedReview plus final-head CI/review. Fix actionable findings, then submit semantic review completion.' },
       });
     }
 
@@ -1812,15 +1838,22 @@ async function run(
         });
       }
 
-      const inspection = await inspect(request, invoke, core, progress.pullRequest.number);
+      const [inspection, review] = await Promise.all([
+        inspect(request, invoke, core, progress.pullRequest.number),
+        focusedReview(request, invoke, core, progress),
+      ]);
       const snapshot = finalizeSnapshot(inspection);
-      const blockers = reviewGateBlockers(snapshot, progress.branchHead, progress.defaultBranch);
+      const blockers = [
+        ...reviewGateBlockers(snapshot, progress.branchHead, progress.defaultBranch),
+        ...focusedReviewScopeBlockers(review),
+      ];
       if (blockers.length) {
         return pause(env, core, inputHash, progress, {
           ok: false,
           stage: 'waiting_ci_review',
           blockers,
           inspection: inspection.data ?? null,
+          focusedReview: review,
           nextAction: blockers.some((blocker) => blocker.startsWith('ci:failure'))
             ? {
               type: 'edit',
@@ -1881,15 +1914,22 @@ async function run(
       });
     }
     if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
-    const inspection = await inspect(request, invoke, core, progress.pullRequest.number);
+    const [inspection, review] = await Promise.all([
+      inspect(request, invoke, core, progress.pullRequest.number),
+      focusedReview(request, invoke, core, progress),
+    ]);
     return pause(env, core, inputHash, progress, {
       ok: true,
       stage: 'waiting_ci_review',
       pullRequest: progress.pullRequest,
       verification: progress.verification ?? null,
       inspection: inspection.data ?? null,
-      blockers: reviewGateBlockers(finalizeSnapshot(inspection), progress.branchHead, progress.defaultBranch),
-      nextAction: { type: 'review', note: 'Fix actionable findings before marking semantic review complete.' },
+      focusedReview: review,
+      blockers: [
+        ...reviewGateBlockers(finalizeSnapshot(inspection), progress.branchHead, progress.defaultBranch),
+        ...focusedReviewScopeBlockers(review),
+      ],
+      nextAction: { type: 'review', note: 'Use focusedReview and fix actionable findings before marking semantic review complete.' },
     });
   } catch (error) {
     if (progress) {
@@ -1916,7 +1956,7 @@ export function addCodeChangeAutopilotOpenApi(document: JsonObject): void {
       operationId: 'implementCodeChange',
       summary: 'Run a resumable guarded code-change workflow',
       description:
-        'Composes exact-base preparation, scoped guidance/investigation, model-authored edits, optional guarded rename/move reference verification, GPTomek commits, targeted verification, trvny-authored PR creation, final-head CI/review gates, merge and cleanup. Reuse operationId to resume.',
+        'Composes exact-base preparation, scoped guidance/investigation, model-authored edits, optional guarded rename/move reference verification, GPTomek commits, targeted verification, focused semantic-review evidence, trvny-authored PR creation, final-head CI/review gates, merge and cleanup. Reuse operationId to resume.',
       requestBody: {
         required: true,
         content: {

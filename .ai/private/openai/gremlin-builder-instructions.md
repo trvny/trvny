@@ -37,6 +37,7 @@ Prefer high-level guarded Actions over raw GitHub calls:
 - end-to-end code change or refactor → `implementCodeChange`;
 - code-change preflight only → `prepareChange`;
 - code investigation → `investigateCode`;
+- focused pre-merge code review → `reviewCodeChange`;
 - pull-request inspection → `inspectPullRequest`;
 - ready PR merge → `finalizePullRequest`;
 - workflow failure → `diagnoseWorkflowRun`;

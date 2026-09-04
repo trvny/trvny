@@ -6,6 +6,10 @@ import {
 } from './code-change-orchestration.ts';
 import { CODE_HISTORY_PATH, handleCodeHistoryAction } from './code-history.ts';
 import { DEPENDENCY_GRAPH_PATH, handleDependencyGraphAction } from './dependency-graph.ts';
+import {
+  FOCUSED_CODE_REVIEW_PATH,
+  handleFocusedCodeReviewAction,
+} from './focused-code-review.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
 import worker, {
   actionFetch,
@@ -208,6 +212,13 @@ const runtime = {
 
       if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
         return json(runtimeOpenApi(new URL(request.url).origin));
+      }
+      if (url.pathname === FOCUSED_CODE_REVIEW_PATH) {
+        const response = await handleFocusedCodeReviewAction(
+          request,
+          (internalRequest) => worker.fetch(internalRequest, env, ctx),
+        );
+        if (response) return response;
       }
       if (url.pathname === BUG_INVESTIGATION_PATH) {
         const response = await handleBugInvestigationAction(

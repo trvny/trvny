@@ -20,6 +20,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        AttachTextBoxCommands(FeedUrlBox);
         _ = RunUiOperationAsync(ReloadAsync);
     }
 
@@ -178,6 +179,7 @@ public sealed partial class MainWindow : Window
                 PlaceholderText = "Website or feed URL",
                 MinWidth = 420
             };
+            AttachTextBoxCommands(input);
             var dialog = new ContentDialog
             {
                 Title = "Edit feed URL",
@@ -201,6 +203,25 @@ public sealed partial class MainWindow : Window
             StatusText.Text = $"Feed URL updated to {new Uri(feedUrl).Host}.";
         });
     }
+    private static void AttachTextBoxCommands(TextBox textBox)
+    {
+        var flyout = new MenuFlyout();
+        var cut = new MenuFlyoutItem { Text = "Cut" };
+        cut.Click += (_, _) => textBox.CutSelectionToClipboard();
+        var copy = new MenuFlyoutItem { Text = "Copy" };
+        copy.Click += (_, _) => textBox.CopySelectionToClipboard();
+        var paste = new MenuFlyoutItem { Text = "Paste" };
+        paste.Click += (_, _) => textBox.PasteFromClipboard();
+        var selectAll = new MenuFlyoutItem { Text = "Select all" };
+        selectAll.Click += (_, _) => textBox.SelectAll();
+        flyout.Items.Add(cut);
+        flyout.Items.Add(copy);
+        flyout.Items.Add(paste);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+        flyout.Items.Add(selectAll);
+        textBox.ContextFlyout = flyout;
+    }
+
     private async Task<string?> ProbeFeedAsync(FeedRow row)
     {
         await row.ProbeGate.WaitAsync();

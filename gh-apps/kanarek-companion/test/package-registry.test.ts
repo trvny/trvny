@@ -58,6 +58,23 @@ test('npm metadata is normalized from exact version and bounded search evidence'
   assert.equal(result.latestPublishedAt, '2026-08-01T00:00:00Z');
 });
 
+
+test('npm exact-version inspection gets latest from the registry latest endpoint, not search fallback', async () => {
+  const result = await inspectRegistryPackage(
+    'npm',
+    'demo',
+    '1.0.0',
+    jsonMap({
+      '/demo/1.0.0': { name: 'demo', version: '1.0.0' },
+      '/demo/latest': { name: 'demo', version: '2.0.0' },
+      '/-/v1/search': { objects: [] },
+    }),
+    noText,
+  );
+  assert.equal(result.selectedVersion, '1.0.0');
+  assert.equal(result.latestVersion, '2.0.0');
+});
+
 test('PyPI metadata keeps latest freshness while inspecting an exact version', async () => {
   const base = 'https://pypi.org/pypi/demo';
   const result = await inspectRegistryPackage(
@@ -149,6 +166,29 @@ test('Maven Central metadata combines search freshness with bounded POM metadata
   assert.equal(result.license, 'Apache-2.0');
   assert.equal(result.repositoryUrl, 'https://github.com/acme/demo');
   assert.equal(result.description, 'Demo library');
+});
+
+
+test('Maven exact-version lookup requires an exact returned version even for query syntax input', async () => {
+  const fetchJson = (url: string): Promise<unknown> => {
+    const parsed = new URL(url);
+    const query = parsed.searchParams.get('q') ?? '';
+    if (!query.includes(' v:')) {
+      return Promise.resolve({ response: { docs: [{ latestVersion: '3.0.0' }] } });
+    }
+    assert.ok(query.includes('\\"'));
+    return Promise.resolve({ response: { docs: [{ v: '1.0.0' }] } });
+  };
+  await assert.rejects(
+    inspectRegistryPackage(
+      'maven',
+      'com.example:demo',
+      '1.0" OR a:"*',
+      fetchJson,
+      noText,
+    ),
+    /package_version_not_found/,
+  );
 });
 
 test('Maven text fields reject embedded markup instead of stripping tags', async () => {
@@ -254,6 +294,36 @@ test('NuGet exact versions fetch only the matching and recent registration pages
   assert.ok(calls.some((url) => url.endsWith('/page-target.json')));
   assert.ok(calls.some((url) => url.endsWith('/page-latest.json')));
   assert.ok(!calls.some((url) => url.endsWith('/page-old.json')));
+});
+
+
+test('NuGet chooses the highest stable version regardless of fetched page order', async () => {
+  const fetchJson = (url: string): Promise<unknown> => {
+    if (url === 'https://api.nuget.org/v3/index.json') {
+      return Promise.resolve({
+        resources: [{
+          '@id': 'https://api.nuget.org/v3/registration5-semver2/',
+          '@type': 'RegistrationsBaseUrl/3.6.0',
+        }],
+      });
+    }
+    if (url.endsWith('/demo.package/index.json')) {
+      return Promise.resolve({ items: [
+        { '@id': 'https://api.nuget.org/page-old.json', lower: '2.0.0', upper: '2.9.9' },
+        { '@id': 'https://api.nuget.org/page-latest.json', lower: '3.0.0', upper: '3.9.9' },
+      ] });
+    }
+    if (url.endsWith('/page-latest.json')) {
+      return Promise.resolve({ items: [{ catalogEntry: { id: 'Demo.Package', version: '3.0.0' } }] });
+    }
+    if (url.endsWith('/page-old.json')) {
+      return Promise.resolve({ items: [{ catalogEntry: { id: 'Demo.Package', version: '2.5.0' } }] });
+    }
+    throw new Error(`unexpected JSON URL: ${url}`);
+  };
+  const result = await inspectRegistryPackage('nuget', 'Demo.Package', '3.0.0', fetchJson, noText);
+  assert.equal(result.selectedVersion, '3.0.0');
+  assert.equal(result.latestVersion, '3.0.0');
 });
 
 test('alternatives stay registry-specific and PyPI declines unsupported search', async () => {

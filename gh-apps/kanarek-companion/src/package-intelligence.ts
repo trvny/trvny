@@ -157,6 +157,7 @@ function externalHostAllowed(url: URL): boolean {
 async function boundedText(response: Response, maxBytes: number): Promise<string> {
   const declared = Number(response.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > maxBytes) {
+    await response.body?.cancel();
     throw new PackageIntelligenceError('external_response_too_large', 502);
   }
   if (!response.body) return '';
@@ -186,13 +187,17 @@ async function boundedText(response: Response, maxBytes: number): Promise<string
   }
 }
 
-function externalTransport(fetcher: DirectFetch): {
+export function createPackageExternalTransport(
+  fetcher: DirectFetch,
+  githubAuthorization: string | null,
+  timeoutMs = FETCH_TIMEOUT_MS,
+): {
   json: (url: string, init?: RequestInit) => Promise<unknown>;
   text: (url: string, init?: RequestInit) => Promise<string>;
   count: () => number;
 } {
   let used = 0;
-  async function response(urlValue: string, init: RequestInit = {}): Promise<Response> {
+  async function read(urlValue: string, init: RequestInit, maxBytes: number): Promise<string> {
     const url = new URL(urlValue);
     if (!externalHostAllowed(url)) throw new PackageIntelligenceError('external_host_not_allowed', 403);
     used += 1;
@@ -200,36 +205,47 @@ function externalTransport(fetcher: DirectFetch): {
       throw new PackageIntelligenceError('package_intelligence_fetch_budget_exceeded', 503);
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let result: Response;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const headers = new Headers(init.headers);
+      headers.delete('authorization');
       if (!headers.has('user-agent')) headers.set('user-agent', 'GPTomek-Package-Intelligence/1.0');
-      result = await fetcher(url.toString(), { ...init, headers, signal: controller.signal, redirect: 'error' });
-    } catch {
+      if (url.hostname === 'api.github.com' && githubAuthorization) {
+        headers.set('authorization', githubAuthorization);
+        headers.set('x-github-api-version', '2026-03-10');
+      }
+      const result = await fetcher(url.toString(), {
+        ...init,
+        headers,
+        signal: controller.signal,
+        redirect: 'error',
+      });
+      if (!result.ok) {
+        await result.body?.cancel();
+        throw new PackageIntelligenceError(
+          result.status === 404 ? 'external_not_found' : 'external_request_failed',
+          result.status === 404 ? 404 : 502,
+          { source: url.hostname, upstreamStatus: result.status },
+        );
+      }
+      return await boundedText(result, maxBytes);
+    } catch (error) {
+      if (error instanceof PackageIntelligenceError) throw error;
       throw new PackageIntelligenceError('external_request_failed', 502, { source: url.hostname });
     } finally {
       clearTimeout(timer);
     }
-    if (!result.ok) {
-      throw new PackageIntelligenceError(
-        result.status === 404 ? 'external_not_found' : 'external_request_failed',
-        result.status === 404 ? 404 : 502,
-        { source: url.hostname, upstreamStatus: result.status },
-      );
-    }
-    return result;
   }
   return {
-    json: async (url, init) => {
-      const value = await boundedText(await response(url, init), MAX_JSON_BYTES);
+    json: async (url, init = {}) => {
+      const value = await read(url, init, MAX_JSON_BYTES);
       try {
         return JSON.parse(value);
       } catch {
         throw new PackageIntelligenceError('external_invalid_json', 502);
       }
     },
-    text: async (url, init) => boundedText(await response(url, init), MAX_TEXT_BYTES),
+    text: (url, init = {}) => read(url, init, MAX_TEXT_BYTES),
     count: () => used,
   };
 }
@@ -286,7 +302,7 @@ function osvEcosystem(ecosystem: PackageEcosystem): string {
 
 async function advisories(
   registry: PackageRegistryResult,
-  transport: ReturnType<typeof externalTransport>,
+  transport: ReturnType<typeof createPackageExternalTransport>,
 ): Promise<JsonObject> {
   const raw = await transport.json('https://api.osv.dev/v1/query', {
     method: 'POST',
@@ -319,7 +335,7 @@ async function optionalExternal<T>(
 
 async function githubUpstream(
   repositoryUrl: string | null,
-  transport: ReturnType<typeof externalTransport>,
+  transport: ReturnType<typeof createPackageExternalTransport>,
   warnings: Warning[],
 ): Promise<JsonObject | null> {
   const repository = githubRepositoryFromUrl(repositoryUrl);
@@ -406,9 +422,10 @@ export function maintenanceSignals(
 async function inspect(
   fetcher: DirectFetch,
   input: Input,
+  githubAuthorization: string | null,
 ): Promise<Response> {
   const warnings: Warning[] = [];
-  const transport = externalTransport(fetcher);
+  const transport = createPackageExternalTransport(fetcher, githubAuthorization);
   let registry: PackageRegistryResult;
   try {
     registry = await inspectRegistryPackage(
@@ -465,7 +482,7 @@ export async function handlePackageIntelligenceAction(
     const unauthorized = await authorizeOperator(request, invoke);
     if (unauthorized) return unauthorized;
     const input = await inputObject(request);
-    return await inspect(fetcher, input);
+    return await inspect(fetcher, input, request.headers.get('authorization'));
   } catch (error) {
     if (error instanceof PackageRegistryError) return json({ ok: false, error: error.code }, error.status);
     if (error instanceof PackageIntelligenceError) {

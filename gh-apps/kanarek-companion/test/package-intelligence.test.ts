@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   addPackageIntelligenceOpenApi,
+  createPackageExternalTransport,
   githubRepositoryFromUrl,
   handlePackageIntelligenceAction,
   maintenanceSignals,
@@ -79,9 +80,15 @@ test('package input cannot smuggle an arbitrary URL or unknown request fields', 
 
 test('npm inspection triangulates registry, OSV and GitHub without relaying raw bodies', async () => {
   const calls: string[] = [];
-  const fetcher = ((input: RequestInfo | URL): Promise<Response> => {
+  const fetcher = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = urlString(input);
     calls.push(url);
+    const authorization = new Headers(init?.headers).get('authorization');
+    if (url.startsWith('https://api.github.com/')) {
+      assert.equal(authorization, 'Bearer github-oauth-token');
+    } else {
+      assert.equal(authorization, null);
+    }
     if (url.includes('registry.npmjs.org/demo/latest')) {
       return Promise.resolve(Response.json({
         name: 'demo',
@@ -157,6 +164,48 @@ test('npm inspection triangulates registry, OSV and GitHub without relaying raw 
   assert.equal(body.evidence.readOnly, true);
   assert.ok(body.evidence.externalFetches >= 5);
   assert.ok(calls.every((url) => !url.includes('evil.test')));
+});
+
+
+test('external transport keeps timeout active through body reads and cancels oversized bodies', async () => {
+  const stalled = createPackageExternalTransport(
+    ((_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const signal = init?.signal;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          signal?.addEventListener('abort', () => controller.error(new Error('aborted')), { once: true });
+        },
+      });
+      return Promise.resolve(new Response(body, { status: 200 }));
+    }) as typeof fetch,
+    null,
+    20,
+  );
+  await assert.rejects(
+    Promise.race([
+      stalled.text('https://registry.npmjs.org/demo'),
+      new Promise<string>((_resolve, reject) =>
+        setTimeout(() => reject(new Error('transport_timeout_not_applied')), 250)),
+    ]),
+    /external_request_failed/,
+  );
+
+  let cancelled = false;
+  const oversized = createPackageExternalTransport(
+    (() => Promise.resolve(new Response(new ReadableStream<Uint8Array>({
+      cancel() { cancelled = true; },
+    }), {
+      status: 200,
+      headers: { 'content-length': String(2 * 1024 * 1024) },
+    }))) as typeof fetch,
+    null,
+    100,
+  );
+  await assert.rejects(
+    oversized.text('https://registry.npmjs.org/demo'),
+    /external_response_too_large/,
+  );
+  assert.equal(cancelled, true);
 });
 
 test('GitHub repository parsing handles common registry SCM forms conservatively', () => {

@@ -138,18 +138,28 @@ async function npmRegistry(
   const searchUrl = new URL('https://registry.npmjs.org/-/v1/search');
   searchUrl.searchParams.set('text', `package:${name}`);
   searchUrl.searchParams.set('size', '5');
-  const [selectedRaw, searchRaw] = await Promise.all([
-    fetchJson(`https://registry.npmjs.org/${packagePath}/${encodeURIComponent(version ?? 'latest')}`),
+  const selectedPromise = fetchJson(
+    `https://registry.npmjs.org/${packagePath}/${encodeURIComponent(version ?? 'latest')}`,
+  );
+  const latestPromise = version
+    ? fetchJson(`https://registry.npmjs.org/${packagePath}/latest`)
+    : selectedPromise;
+  const [selectedRaw, latestRaw, searchRaw] = await Promise.all([
+    selectedPromise,
+    latestPromise,
     fetchJson(searchUrl.toString()),
   ]);
-  if (!isObject(selectedRaw)) throw new PackageRegistryError('invalid_registry_response', 502);
+  if (!isObject(selectedRaw) || !isObject(latestRaw)) {
+    throw new PackageRegistryError('invalid_registry_response', 502);
+  }
   const selectedVersion = text(selectedRaw.version);
+  const latestVersion = text(latestRaw.version);
   if (!selectedVersion) throw new PackageRegistryError('package_not_found', 404);
+  if (!latestVersion) throw new PackageRegistryError('invalid_registry_response', 502);
   const search = isObject(searchRaw) ? searchRaw : {};
   const exact = arrayObjects(search.objects)
     .map((entry) => objectValue(entry.package))
     .find((entry) => entry?.name === name) ?? null;
-  const latestVersion = text(exact?.version) ?? selectedVersion;
   const selectedRepository = repositoryUrl(selectedRaw.repository);
   const links = objectValue(exact?.links);
   const dist = objectValue(selectedRaw.dist);
@@ -393,16 +403,18 @@ async function mavenRegistry(
   if (!latestVersion) throw new PackageRegistryError('package_not_found', 404);
   const selectedVersion = version ?? latestVersion;
   if (version) {
+    const escapedVersion = version.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     const exactUrl = new URL('https://search.maven.org/solrsearch/select');
-    exactUrl.searchParams.set('q', `g:"${group}" AND a:"${artifact}" AND v:"${version}"`);
+    exactUrl.searchParams.set('q', `g:"${group}" AND a:"${artifact}" AND v:"${escapedVersion}"`);
     exactUrl.searchParams.set('core', 'gav');
-    exactUrl.searchParams.set('rows', '1');
+    exactUrl.searchParams.set('rows', '5');
     exactUrl.searchParams.set('wt', 'json');
     const exactRaw = await fetchJson(exactUrl.toString());
     const exactDocs = isObject(exactRaw) && isObject(exactRaw.response)
       ? arrayObjects(exactRaw.response.docs)
       : [];
-    if (!exactDocs.length) throw new PackageRegistryError('package_version_not_found', 404);
+    const exact = exactDocs.find((doc) => text(doc.v) === version);
+    if (!exact) throw new PackageRegistryError('package_version_not_found', 404);
   }
   const pom = await mavenPomWithParent(group, artifact, selectedVersion, fetchText);
   const timestamp = integer(latest?.timestamp);
@@ -556,9 +568,19 @@ function nugetCatalogSelection(
   requestedVersion: string | null,
 ): NugetCatalogSelection {
   if (!entries.length) throw new PackageRegistryError('package_not_found', 404);
+  const highestEntry = (items: JsonObject[]): JsonObject | undefined =>
+    items.reduce<JsonObject | undefined>((best, entry) => {
+      const entryVersion = text(entry.version);
+      if (!entryVersion || !parsedNugetVersion(entryVersion)) return best;
+      if (!best) return entry;
+      const bestVersion = text(best.version);
+      if (!bestVersion) return entry;
+      const order = compareNugetVersions(entryVersion, bestVersion);
+      return order !== null && order > 0 ? entry : best;
+    }, undefined);
   const listed = entries.filter((entry) => entry.listed !== false);
   const stable = listed.filter((entry) => !text(entry.version)?.includes('-'));
-  const latest = stable.at(-1) ?? listed.at(-1) ?? entries.at(-1);
+  const latest = highestEntry(stable) ?? highestEntry(listed) ?? highestEntry(entries);
   if (!latest) throw new PackageRegistryError('package_not_found', 404);
   const latestVersion = text(latest.version);
   if (!latestVersion) throw new PackageRegistryError('invalid_registry_response', 502);

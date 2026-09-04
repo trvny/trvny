@@ -52,11 +52,13 @@ jobs:
           $buildDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix-build"
           $artifactDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix"
           $settingsStage = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\settings-stage"
+          $settingsXamlStage = Join-Path $settingsStage "_xaml"
           $pfxPath = Join-Path $env:RUNNER_TEMP "feedboard-dev.pfx"
           $cerPath = Join-Path $artifactDir "Feedboard.cer"
           New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
           New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
           New-Item -ItemType Directory -Path $settingsStage -Force | Out-Null
+          New-Item -ItemType Directory -Path $settingsXamlStage -Force | Out-Null
 
           & "feedboard\tools\materialize-widget-preview.ps1"
 
@@ -69,6 +71,24 @@ jobs:
             -p:WindowsAppSDKSelfContained=true
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
+          }
+
+          # dotnet publish with WindowsPackageType=None omits compiled WinUI XAML
+          # from the publish directory. The secondary packaged app still loads
+          # App.xaml/MainWindow.xaml through package-root ms-appx URIs, so stage
+          # their generated XBF files at the root of the final MSIX.
+          $settingsObj = Join-Path $env:GITHUB_WORKSPACE "feedboard\src\Feedboard.Settings\obj"
+          foreach ($name in @("App.xbf", "MainWindow.xbf")) {
+            $candidates = @(
+              Get-ChildItem $settingsObj -Recurse -File -Filter $name -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTimeUtc -Descending
+            )
+            if ($candidates.Count -eq 0) {
+              throw "Compiled Settings XAML was not generated: $name"
+            }
+            $source = $candidates[0]
+            Write-Host "Staging Settings XAML: $($source.FullName)"
+            Copy-Item $source.FullName (Join-Path $settingsXamlStage $name)
           }
 
           $runNumber = [int64]"${{ github.run_number }}"
@@ -173,6 +193,12 @@ jobs:
           )) {
             if (-not (Test-Path (Join-Path $settingsDir $required))) {
               throw "MSIX is missing settings runtime file: Settings\$required"
+            }
+          }
+
+          foreach ($requiredXaml in @("App.xbf", "MainWindow.xbf")) {
+            if (-not (Test-Path (Join-Path $unpackDir $requiredXaml))) {
+              throw "MSIX is missing package-root Settings XAML: $requiredXaml"
             }
           }
 

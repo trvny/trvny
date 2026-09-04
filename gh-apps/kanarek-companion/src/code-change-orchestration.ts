@@ -30,6 +30,8 @@ const MAX_TARGETS = 6;
 const MAX_FILES = 12;
 const MAX_FILE_CONTENT = 96_000;
 const MAX_RECOVERED_COMMITS = 50;
+const MAX_REFACTOR_MOVES = 6;
+const MAX_REFACTOR_REFERENCE_FILES = MAX_FILES;
 const GPTOMEK_COMMIT_NAME = 'GPTomek';
 const GPTOMEK_COMMIT_EMAIL = '314538226+gptomek[bot]@users.noreply.github.com';
 const OPERATION_TRAILER = 'GPTomek-Operation';
@@ -51,6 +53,21 @@ type CoreInput = {
   issueNumber?: number;
   path?: string;
   language?: string;
+  refactor?: RefactorPlan;
+};
+
+type RefactorMove = { fromPath: string; toPath: string };
+type RefactorPlan = { moves: RefactorMove[]; referenceTerms: string[] };
+type RefactorReferenceTermSnapshot = {
+  term: string;
+  indexedCount: number | null;
+  incomplete: boolean;
+  matchingPaths: string[];
+};
+type RefactorSnapshot = {
+  ref: string;
+  moveFiles: TargetFileSnapshot[];
+  references: RefactorReferenceTermSnapshot[];
 };
 
 type EditFile = { path: string; content: string | null };
@@ -92,6 +109,10 @@ type Progress = JsonObject & {
   verification?: {
     status: 'passed' | 'unavailable';
     reason?: string;
+  };
+  refactor?: {
+    allowedPaths: string[];
+    before: RefactorSnapshot;
   };
 };
 
@@ -202,6 +223,45 @@ function terms(value: unknown): string[] {
   return result;
 }
 
+function refactorPlan(value: unknown, scope: string[]): RefactorPlan | undefined {
+  if (value === undefined) return undefined;
+  if (!isObject(value) || Object.keys(value).some((key) => key !== 'moves' && key !== 'referenceTerms')) {
+    throw new CodeChangeError('invalid_refactor');
+  }
+  if (!Array.isArray(value.moves) || value.moves.length < 1 || value.moves.length > MAX_REFACTOR_MOVES) {
+    throw new CodeChangeError('invalid_refactor_moves');
+  }
+  const allowed = new Set(scope);
+  const used = new Set<string>();
+  const moves = value.moves.map((entry) => {
+    if (!isObject(entry) || !validPath(entry.fromPath) || !validPath(entry.toPath)) {
+      throw new CodeChangeError('invalid_refactor_moves');
+    }
+    if (entry.fromPath === entry.toPath || !allowed.has(entry.fromPath) || !allowed.has(entry.toPath)) {
+      throw new CodeChangeError('refactor_outside_declared_scope', 409);
+    }
+    if (used.has(entry.fromPath) || used.has(entry.toPath)) {
+      throw new CodeChangeError('overlapping_refactor_moves', 409);
+    }
+    used.add(entry.fromPath);
+    used.add(entry.toPath);
+    return { fromPath: entry.fromPath, toPath: entry.toPath };
+  });
+  if (!Array.isArray(value.referenceTerms) || value.referenceTerms.length < 1 || value.referenceTerms.length > 6) {
+    throw new CodeChangeError('invalid_refactor_reference_terms');
+  }
+  const referenceTerms = value.referenceTerms.map((term) => {
+    if (typeof term !== 'string' || term.length < 2 || term.length > 80 || !/^[A-Za-z0-9_./@+-]+$/.test(term)) {
+      throw new CodeChangeError('invalid_refactor_reference_terms');
+    }
+    return term;
+  });
+  if (new Set(referenceTerms.map((term) => term.toLowerCase())).size !== referenceTerms.length) {
+    throw new CodeChangeError('invalid_refactor_reference_terms');
+  }
+  return { moves, referenceTerms };
+}
+
 function optionalIssue(value: unknown): number | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
@@ -250,14 +310,13 @@ export function recoveredChangedPathsAllowed(changed: string[], submitted: strin
   return changed.every((path) => allowed.has(path));
 }
 
-function editFiles(value: unknown, scope: string[]): EditFile[] {
+function editFiles(value: unknown): EditFile[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > MAX_FILES) {
     throw new CodeChangeError('invalid_files');
   }
-  const allowed = new Set(scope);
   const files = value.map((entry) => {
-    if (!isObject(entry) || !validPath(entry.path) || !allowed.has(entry.path)) {
-      throw new CodeChangeError('edit_outside_declared_scope', 409);
+    if (!isObject(entry) || !validPath(entry.path)) {
+      throw new CodeChangeError('invalid_file_path');
     }
     if (entry.content !== null && typeof entry.content !== 'string') {
       throw new CodeChangeError('invalid_file_content');
@@ -273,7 +332,7 @@ function editFiles(value: unknown, scope: string[]): EditFile[] {
   return files;
 }
 
-function action(value: unknown, scope: string[]): Action | undefined {
+function action(value: unknown): Action | undefined {
   if (value === undefined) return undefined;
   if (!isObject(value) || typeof value.type !== 'string') throw new CodeChangeError('invalid_action');
   if (value.type === 'edit') {
@@ -285,7 +344,7 @@ function action(value: unknown, scope: string[]): Action | undefined {
       headSha,
       revision,
       message: requiredText(value.message, 'commit_message', 1_000),
-      files: editFiles(value.files, scope),
+      files: editFiles(value.files),
     };
   }
   if (value.type === 'verification') {
@@ -361,29 +420,32 @@ async function parseInput(request: Request): Promise<{ core: CoreInput; action?:
   if (!isObject(raw)) throw new CodeChangeError('invalid_json_object');
   const allowed = new Set([
     'operationId', 'repository', 'goal', 'branch', 'expectedBaseSha', 'targetPaths',
-    'investigationTerms', 'issueNumber', 'path', 'language', 'action',
+    'investigationTerms', 'issueNumber', 'path', 'language', 'refactor', 'action',
   ]);
   if (Object.keys(raw).some((key) => !allowed.has(key))) {
     throw new CodeChangeError('invalid_code_change_request');
   }
   if (!operationIdAllowed(raw.operationId)) throw new CodeChangeError('invalid_operation_id');
+  const declaredTargets = targetPaths(raw.targetPaths);
+  const refactor = refactorPlan(raw.refactor, declaredTargets);
   const core: CoreInput = {
     operationId: String(raw.operationId),
     repository: repository(raw.repository),
     goal: requiredText(raw.goal, 'goal', 4_000),
     branch: branch(raw.branch),
     expectedBaseSha: expectedSha(raw.expectedBaseSha, 'expected_base_sha'),
-    targetPaths: targetPaths(raw.targetPaths),
+    targetPaths: declaredTargets,
     investigationTerms: terms(raw.investigationTerms),
     issueNumber: optionalIssue(raw.issueNumber),
     path: optionalFilter(raw.path, 'path'),
     language: optionalFilter(raw.language, 'language'),
+    ...(refactor ? { refactor } : {}),
   };
   const coreHash = { ...core } as JsonObject;
   delete coreHash.operationId;
   return {
     core,
-    action: action(raw.action, core.targetPaths),
+    action: action(raw.action),
     inputHash: await autopilotInputHash(coreHash),
   };
 }
@@ -470,8 +532,9 @@ async function targetGuidance(
   invoke: Invoke,
   core: CoreInput,
   ref: string,
+  paths = core.targetPaths,
 ): Promise<unknown> {
-  return loadAgentGuidance(core.targetPaths, ref, async (path, pinnedRef) => {
+  return loadAgentGuidance(paths, ref, async (path, pinnedRef) => {
     const { response, payload } = await invokePayload(
       source,
       invoke,
@@ -568,8 +631,183 @@ async function targetFileSnapshots(
   invoke: Invoke,
   core: CoreInput,
   ref: string,
+  paths = core.targetPaths,
 ): Promise<TargetFileSnapshot[]> {
-  return fileSnapshotsAtRef(source, invoke, core, ref, core.targetPaths);
+  return fileSnapshotsAtRef(source, invoke, core, ref, paths);
+}
+
+export function refactorEditBlockers(
+  plan: RefactorPlan,
+  files: EditFile[],
+  initialMove: boolean,
+): string[] {
+  const submitted = new Map(files.map((file) => [file.path, file.content]));
+  const blockers: string[] = [];
+  for (const move of plan.moves) {
+    if (initialMove) {
+      if (!submitted.has(move.fromPath) || submitted.get(move.fromPath) !== null) {
+        blockers.push(`source_delete_required:${move.fromPath}`);
+      }
+      if (!submitted.has(move.toPath) || submitted.get(move.toPath) === null) {
+        blockers.push(`destination_write_required:${move.toPath}`);
+      }
+      continue;
+    }
+    if (submitted.has(move.fromPath) && submitted.get(move.fromPath) !== null) {
+      blockers.push(`source_recreated:${move.fromPath}`);
+    }
+    if (submitted.has(move.toPath) && submitted.get(move.toPath) === null) {
+      blockers.push(`destination_deleted:${move.toPath}`);
+    }
+  }
+  return blockers;
+}
+
+export function refactorPreflightBlockers(
+  plan: RefactorPlan,
+  snapshots: Array<{ path: string; exists: boolean }>,
+): string[] {
+  const files = new Map(snapshots.map((snapshot) => [snapshot.path, snapshot.exists]));
+  const blockers: string[] = [];
+  for (const move of plan.moves) {
+    if (files.get(move.fromPath) !== true) blockers.push(`source_missing:${move.fromPath}`);
+    if (files.get(move.toPath) === true) blockers.push(`destination_exists:${move.toPath}`);
+  }
+  return blockers;
+}
+
+export function refactorVerificationBlockers(
+  plan: RefactorPlan,
+  snapshots: Array<{ path: string; exists: boolean }>,
+  references: RefactorReferenceTermSnapshot[],
+): string[] {
+  const files = new Map(snapshots.map((snapshot) => [snapshot.path, snapshot.exists]));
+  const blockers: string[] = [];
+  for (const move of plan.moves) {
+    if (files.get(move.fromPath) === true) blockers.push(`source_still_exists:${move.fromPath}`);
+    if (files.get(move.toPath) !== true) blockers.push(`destination_missing:${move.toPath}`);
+  }
+  for (const reference of references) {
+    if (reference.incomplete) blockers.push(`reference_scan_incomplete:${reference.term}`);
+    for (const path of reference.matchingPaths) blockers.push(`stale_reference:${reference.term}:${path}`);
+  }
+  return blockers;
+}
+
+function refactorSearchQuery(core: CoreInput, term: string): string {
+  return [
+    term,
+    `repo:${core.repository}`,
+    ...(core.path ? [`path:${core.path}`] : []),
+    ...(core.language ? [`language:${core.language}`] : []),
+  ].join(' ');
+}
+
+async function refactorSnapshotAtRef(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  ref: string,
+): Promise<RefactorSnapshot> {
+  if (!core.refactor) throw new CodeChangeError('missing_refactor_plan', 500);
+  const searches = await Promise.all(core.refactor.referenceTerms.map(async (term) => {
+    const raw = await readData(
+      source,
+      invoke,
+      `/search/code?q=${encodeURIComponent(refactorSearchQuery(core, term))}&per_page=${MAX_REFACTOR_REFERENCE_FILES}`,
+    );
+    if (!isObject(raw) || !Array.isArray(raw.items)) {
+      throw new CodeChangeError('invalid_refactor_reference_search', 502);
+    }
+    const indexedCount = numberValue(raw.total_count);
+    const paths = raw.items.flatMap((item) => {
+      if (!isObject(item)) return [];
+      const path = stringValue(item.path);
+      return path && validPath(path) ? [path] : [];
+    });
+    return {
+      term,
+      indexedCount,
+      incomplete: raw.incomplete_results === true || indexedCount === null || indexedCount > paths.length,
+      paths,
+    };
+  }));
+
+  const candidates = [...core.targetPaths];
+  const candidateSet = new Set(candidates);
+  const droppedTerms = new Set<string>();
+  for (const search of searches) {
+    for (const path of search.paths) {
+      if (candidateSet.has(path)) continue;
+      if (candidates.length >= MAX_REFACTOR_REFERENCE_FILES) {
+        droppedTerms.add(search.term);
+        continue;
+      }
+      candidateSet.add(path);
+      candidates.push(path);
+    }
+  }
+  const files = await fileSnapshotsAtRef(source, invoke, core, ref, candidates);
+  const references = searches.map((search): RefactorReferenceTermSnapshot => ({
+    term: search.term,
+    indexedCount: search.indexedCount,
+    incomplete: search.incomplete || droppedTerms.has(search.term),
+    matchingPaths: files
+      .filter((file) => file.exists && typeof file.content === 'string' && file.content.includes(search.term))
+      .map((file) => file.path),
+  }));
+  const movePaths = new Set(core.refactor.moves.flatMap((move) => [move.fromPath, move.toPath]));
+  return {
+    ref,
+    moveFiles: files.filter((file) => movePaths.has(file.path)),
+    references,
+  };
+}
+
+export function refactorAllowedPaths(core: CoreInput, snapshot: RefactorSnapshot): string[] {
+  const paths = [...core.targetPaths];
+  const seen = new Set(paths);
+  for (const reference of snapshot.references) {
+    for (const path of reference.matchingPaths) {
+      if (seen.has(path)) continue;
+      if (paths.length >= MAX_FILES) throw new CodeChangeError('refactor_scope_too_large', 409);
+      seen.add(path);
+      paths.push(path);
+    }
+  }
+  return paths;
+}
+
+async function refactorBeforeSnapshot(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+): Promise<RefactorSnapshot> {
+  const snapshot = await refactorSnapshotAtRef(source, invoke, core, core.expectedBaseSha);
+  if (!core.refactor) throw new CodeChangeError('missing_refactor_plan', 500);
+  const blockers = [
+    ...refactorPreflightBlockers(core.refactor, snapshot.moveFiles),
+    ...snapshot.references
+      .filter((reference) => reference.incomplete)
+      .map((reference) => `reference_scan_incomplete:${reference.term}`),
+  ];
+  if (blockers.length) throw new CodeChangeError('refactor_precondition_failed', 409, { blockers });
+  refactorAllowedPaths(core, snapshot);
+  return snapshot;
+}
+
+async function refactorAfterSnapshot(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  ref: string,
+): Promise<RefactorSnapshot & { blockers: string[] }> {
+  const snapshot = await refactorSnapshotAtRef(source, invoke, core, ref);
+  if (!core.refactor) throw new CodeChangeError('missing_refactor_plan', 500);
+  return {
+    ...snapshot,
+    blockers: refactorVerificationBlockers(core.refactor, snapshot.moveFiles, snapshot.references),
+  };
 }
 
 async function branchHead(source: Request, invoke: Invoke, core: CoreInput): Promise<string> {
@@ -664,7 +902,11 @@ async function recoverEvolvedBranch(
     throw new CodeChangeError('branch_history_not_recoverable', 409);
   }
 
-  const allowed = new Set(core.targetPaths);
+  const allowed = new Set(
+    core.refactor
+      ? refactorAllowedPaths(core, await refactorBeforeSnapshot(source, invoke, core))
+      : core.targetPaths,
+  );
   const files = Array.isArray(compare.files) ? compare.files : [];
   if (
     files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))
@@ -805,11 +1047,12 @@ async function targetedVerification(
   invoke: Invoke,
   core: CoreInput,
   ref: string,
+  paths = core.targetPaths,
 ): Promise<JsonObject> {
   const response = await handleTargetedTestsAction(
     internalRequest(source, TARGETED_TESTS_PATH, {
       repository: core.repository,
-      targetPaths: core.targetPaths,
+      targetPaths: paths,
       ref,
     }),
     invoke,
@@ -908,6 +1151,7 @@ async function verifyRecoveredCommit(
   previousHead: string,
   currentHead: string,
   edit: EditAction,
+  modeOverrides?: Map<string, string>,
 ): Promise<boolean> {
   const commit = await readData(
     source,
@@ -938,9 +1182,10 @@ async function verifyRecoveredCommit(
   return edit.files.every((file) => {
     const snapshot = byPath.get(file.path);
     if (!snapshot) return false;
-    return file.content === null
-      ? snapshot.exists === false
-      : snapshot.exists === true && snapshot.content === file.content;
+    if (file.content === null) return snapshot.exists === false;
+    if (snapshot.exists !== true || snapshot.content !== file.content) return false;
+    const expectedMode = modeOverrides?.get(file.path);
+    return !expectedMode || snapshot.mode === expectedMode;
   });
 }
 
@@ -951,10 +1196,11 @@ async function commitEdit(
   inputHash: string,
   progress: Progress,
   edit: EditAction,
+  modeOverrides?: Map<string, string>,
 ): Promise<string> {
   const current = await branchHead(source, invoke, core);
   if (current !== progress.branchHead) {
-    if (await verifyRecoveredCommit(source, invoke, core, inputHash, progress.branchHead, current, edit)) {
+    if (await verifyRecoveredCommit(source, invoke, core, inputHash, progress.branchHead, current, edit, modeOverrides)) {
       return current;
     }
     throw new CodeChangeError('branch_head_changed', 409, { expected: progress.branchHead, current });
@@ -964,7 +1210,10 @@ async function commitEdit(
     branch: core.branch,
     expectedHeadSha: progress.branchHead,
     message: operationCommitMessage(edit.message, core.operationId, inputHash),
-    files: edit.files,
+    files: edit.files.map((file) => ({
+      ...file,
+      ...(modeOverrides?.get(file.path) ? { mode: modeOverrides.get(file.path) } : {}),
+    })),
   });
   const sha = stringValue(payload.sha);
   if (!sha || !SHA_RE.test(sha)) throw new CodeChangeError('invalid_commit_response', 502);
@@ -1112,10 +1361,16 @@ async function editingResponse(
   core: CoreInput,
   progress: Progress,
 ): Promise<JsonObject> {
-  const [guidance, investigated, targetFiles] = await Promise.all([
-    targetGuidance(source, invoke, core, progress.branchHead),
+  const editPaths = progress.refactor?.allowedPaths ?? core.targetPaths;
+  const [guidance, investigated, targetFiles, refactor] = await Promise.all([
+    targetGuidance(source, invoke, core, progress.branchHead, editPaths),
     investigationContext(source, invoke, core, progress.branchHead),
-    targetFileSnapshots(source, invoke, core, progress.branchHead),
+    targetFileSnapshots(source, invoke, core, progress.branchHead, editPaths),
+    core.refactor
+      ? (progress.revision === 0
+          ? Promise.resolve(progress.refactor?.before ?? await refactorBeforeSnapshot(source, invoke, core))
+          : refactorAfterSnapshot(source, invoke, core, progress.branchHead))
+      : Promise.resolve(null),
   ]);
   return {
     ok: true,
@@ -1124,12 +1379,15 @@ async function editingResponse(
     branch: { name: core.branch, headSha: progress.branchHead },
     agentGuidance: guidance,
     targetFiles,
+    ...(refactor ? { refactor: { plan: core.refactor, snapshot: refactor, allowedPaths: editPaths } } : {}),
     ...investigated,
     nextAction: {
       type: 'edit',
       headSha: progress.branchHead,
       revision: progress.revision,
-      note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
+      note: core.refactor
+        ? 'Submit the declared move as source deletion plus destination full contents and update stale references within the returned refactor scope.'
+        : 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
     },
   };
 }
@@ -1164,16 +1422,48 @@ async function initialProgress(
     };
   }
 
+  const refactorBefore = core.refactor
+    ? await refactorBeforeSnapshot(source, invoke, core)
+    : null;
   const progress: Progress = {
     stage: revision > 0 ? 'verifying' : 'editing',
     defaultBranch,
     branchHead: branchSha.toLowerCase(),
     revision,
     ...(pullRequest ? { pullRequest } : {}),
+    ...(refactorBefore
+      ? { refactor: { allowedPaths: refactorAllowedPaths(core, refactorBefore), before: refactorBefore } }
+      : {}),
   };
 
   if (revision > 0) {
-    const verificationPlan = await targetedVerification(source, invoke, core, progress.branchHead);
+    const refactorVerification = core.refactor
+      ? await refactorAfterSnapshot(source, invoke, core, progress.branchHead)
+      : null;
+    if (refactorVerification?.blockers.length) {
+      const editingProgress: Progress = { ...progress, stage: 'editing' };
+      return {
+        progress: editingProgress,
+        body: {
+          ok: false,
+          recovered: true,
+          stage: 'editing',
+          revision,
+          headSha: progress.branchHead,
+          preparation: prepared,
+          refactor: { plan: core.refactor, snapshot: refactorVerification, allowedPaths: progress.refactor?.allowedPaths ?? core.targetPaths },
+          nextAction: {
+            type: 'edit',
+            headSha: progress.branchHead,
+            revision,
+            note: 'Finish the refactor by removing stale references without recreating moved source paths.',
+          },
+        },
+      };
+    }
+    const verificationPlan = await targetedVerification(
+      source, invoke, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths,
+    );
     return {
       progress,
       body: {
@@ -1183,6 +1473,7 @@ async function initialProgress(
         revision,
         headSha: progress.branchHead,
         preparation: prepared,
+        ...(refactorVerification ? { refactor: { plan: core.refactor, snapshot: refactorVerification, allowedPaths: progress.refactor?.allowedPaths ?? core.targetPaths } } : {}),
         verificationPlan,
         finalGate: 'Normal repository CI on the final PR head remains mandatory.',
         nextAction: verificationNextAction(progress),
@@ -1190,9 +1481,11 @@ async function initialProgress(
     };
   }
 
-  const [investigated, targetFiles] = await Promise.all([
+  const editPaths = progress.refactor?.allowedPaths ?? core.targetPaths;
+  const [guidance, investigated, targetFiles] = await Promise.all([
+    targetGuidance(source, invoke, core, progress.branchHead, editPaths),
     investigationContext(source, invoke, core, progress.branchHead),
-    targetFileSnapshots(source, invoke, core, progress.branchHead),
+    targetFileSnapshots(source, invoke, core, progress.branchHead, editPaths),
   ]);
   return {
     progress,
@@ -1202,16 +1495,31 @@ async function initialProgress(
       goal: core.goal,
       branch: { name: core.branch, headSha: progress.branchHead },
       preparation: prepared,
+      agentGuidance: guidance,
       targetFiles,
+      ...(progress.refactor ? { refactor: { plan: core.refactor, before: progress.refactor.before, allowedPaths: editPaths } } : {}),
       ...investigated,
       nextAction: {
         type: 'edit',
         headSha: progress.branchHead,
         revision: progress.revision,
-        note: 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
+        note: core.refactor
+          ? 'Submit each move as source deletion plus destination full contents and update every declared reference term.'
+          : 'Use targetFiles as the authoritative full snapshot. Submit complete replacement contents only for declared targetPaths; missing targets are marked exists:false.',
       },
     },
   };
+}
+
+function refactorModeOverrides(plan: RefactorPlan, snapshot: RefactorSnapshot): Map<string, string> {
+  const byPath = new Map(snapshot.moveFiles.map((file) => [file.path, file]));
+  const modes = new Map<string, string>();
+  for (const move of plan.moves) {
+    const source = byPath.get(move.fromPath);
+    if (!source?.mode) throw new CodeChangeError('missing_refactor_source_mode', 502, { path: move.fromPath });
+    modes.set(move.toPath, source.mode);
+  }
+  return modes;
 }
 
 async function run(
@@ -1251,6 +1559,24 @@ async function run(
         expectedRevision: progress.revision,
       });
     }
+    const editScope = new Set(progress.refactor?.allowedPaths ?? core.targetPaths);
+    if (submitted.files.some((file) => !editScope.has(file.path))) {
+      throw new CodeChangeError('edit_outside_declared_scope', 409, {
+        allowedPaths: [...editScope],
+      });
+    }
+    let modeOverrides: Map<string, string> | undefined;
+    if (core.refactor) {
+      const initialMove = progress.revision === 0;
+      const blockers = refactorEditBlockers(core.refactor, submitted.files, initialMove);
+      if (blockers.length) throw new CodeChangeError('invalid_refactor_edit', 409, { blockers });
+      if (initialMove) {
+        modeOverrides = refactorModeOverrides(
+          core.refactor,
+          progress.refactor?.before ?? await refactorBeforeSnapshot(request, invoke, core),
+        );
+      }
+    }
 
     let editProgress = progress;
     let recoveredEdit = false;
@@ -1258,7 +1584,7 @@ async function run(
       if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
       const current = await branchHead(request, invoke, core);
       if (current !== progress.branchHead) {
-        if (!await verifyRecoveredCommit(request, invoke, core, inputHash, progress.branchHead, current, submitted)) {
+        if (!await verifyRecoveredCommit(request, invoke, core, inputHash, progress.branchHead, current, submitted, modeOverrides)) {
           throw new CodeChangeError('branch_head_changed', 409, { expected: progress.branchHead, current });
         }
         editProgress = {
@@ -1274,7 +1600,7 @@ async function run(
     const previousHead = editProgress.branchHead;
     const newHead = recoveredEdit
       ? editProgress.branchHead
-      : await commitEdit(request, invoke, core, inputHash, editProgress, submitted);
+      : await commitEdit(request, invoke, core, inputHash, editProgress, submitted, modeOverrides);
     if (progress.stage === 'waiting_ci_review' && newHead !== previousHead) {
       editProgress = {
         ...editProgress,
@@ -1286,12 +1612,42 @@ async function run(
       await assertPullRequestEditable(request, invoke, core, editProgress);
     }
 
-    const verificationPlan = await targetedVerification(request, invoke, core, newHead);
+    const refactorVerification = core.refactor
+      ? await refactorAfterSnapshot(request, invoke, core, newHead)
+      : null;
+    const nextRevision = progress.revision + 1;
+    if (refactorVerification?.blockers.length) {
+      const next: Progress = {
+        ...editProgress,
+        stage: 'editing',
+        branchHead: newHead,
+        revision: nextRevision,
+        ...(editProgress.pullRequest
+          ? { pullRequest: { ...editProgress.pullRequest, headSha: newHead } }
+          : {}),
+      };
+      delete next.verification;
+      return pause(env, core, inputHash, next, {
+        ok: false,
+        stage: 'editing',
+        revision: next.revision,
+        headSha: newHead,
+        refactor: { plan: core.refactor, snapshot: refactorVerification, allowedPaths: progress.refactor?.allowedPaths ?? core.targetPaths },
+        nextAction: {
+          type: 'edit',
+          headSha: newHead,
+          revision: next.revision,
+          note: 'Remove the reported stale references or incomplete move state before targeted verification.',
+        },
+      }, 409);
+    }
+
+    const verificationPlan = await targetedVerification(request, invoke, core, newHead, progress.refactor?.allowedPaths ?? core.targetPaths);
     const next: Progress = {
       ...editProgress,
       stage: 'verifying',
       branchHead: newHead,
-      revision: progress.revision + 1,
+      revision: nextRevision,
       ...(editProgress.pullRequest
         ? { pullRequest: { ...editProgress.pullRequest, headSha: newHead } }
         : {}),
@@ -1302,6 +1658,7 @@ async function run(
       stage: 'verifying',
       revision: next.revision,
       headSha: newHead,
+      ...(refactorVerification ? { refactor: { plan: core.refactor, snapshot: refactorVerification, allowedPaths: progress.refactor?.allowedPaths ?? core.targetPaths } } : {}),
       verificationPlan,
       finalGate: 'Normal repository CI on the final PR head remains mandatory.',
       nextAction: verificationNextAction(next),
@@ -1318,7 +1675,7 @@ async function run(
           expectedRevision: progress.revision,
         });
       }
-      const verificationPlan = await targetedVerification(request, invoke, core, progress.branchHead);
+      const verificationPlan = await targetedVerification(request, invoke, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths);
       if (submitted.status === 'passed') {
         const missing = verificationEvidenceMissing(verificationPlan, submitted.results ?? []);
         if (missing.length) {
@@ -1447,7 +1804,7 @@ async function run(
       return pause(env, core, inputHash, progress, await editingResponse(request, invoke, core, progress));
     }
     if (progress.stage === 'verifying') {
-      const verificationPlan = await targetedVerification(request, invoke, core, progress.branchHead);
+      const verificationPlan = await targetedVerification(request, invoke, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths);
       return pause(env, core, inputHash, progress, {
         ok: true,
         stage: 'verifying',
@@ -1494,7 +1851,7 @@ export function addCodeChangeAutopilotOpenApi(document: JsonObject): void {
       operationId: 'implementCodeChange',
       summary: 'Run a resumable guarded code-change workflow',
       description:
-        'Composes exact-base preparation, scoped guidance/investigation, model-authored edits, GPTomek commits, targeted verification, trvny-authored PR creation, final-head CI/review gates, merge and cleanup. Reuse operationId to resume.',
+        'Composes exact-base preparation, scoped guidance/investigation, model-authored edits, optional guarded rename/move reference verification, GPTomek commits, targeted verification, trvny-authored PR creation, final-head CI/review gates, merge and cleanup. Reuse operationId to resume.',
       requestBody: {
         required: true,
         content: {
@@ -1516,6 +1873,32 @@ export function addCodeChangeAutopilotOpenApi(document: JsonObject): void {
                 issueNumber: { type: 'integer', minimum: 1 },
                 path: { type: 'string' },
                 language: { type: 'string' },
+                refactor: {
+                  type: 'object',
+                  required: ['moves', 'referenceTerms'],
+                  description: 'Optional rename/move plan. Every source/destination must also be declared in targetPaths; exact-base reference matches are added to the bounded edit scope and must disappear before targeted verification.',
+                  properties: {
+                    moves: {
+                      type: 'array',
+                      minItems: 1,
+                      maxItems: MAX_REFACTOR_MOVES,
+                      items: {
+                        type: 'object',
+                        required: ['fromPath', 'toPath'],
+                        properties: {
+                          fromPath: { type: 'string' },
+                          toPath: { type: 'string' },
+                        },
+                      },
+                    },
+                    referenceTerms: {
+                      type: 'array',
+                      minItems: 1,
+                      maxItems: 6,
+                      items: { type: 'string' },
+                    },
+                  },
+                },
                 action: {
                   description: 'Stage submission. Omit to inspect or resume the current stage.',
                   oneOf: [

@@ -34,7 +34,8 @@ For substantial GitHub work, call `getOperatorBootstrap` early and follow the re
 
 Prefer high-level guarded Actions over raw GitHub calls:
 - broad maintenance or “handle what is broken” → `runOperatorAutopilot`;
-- preparing a code change → `prepareChange`;
+- end-to-end code change or refactor → `implementCodeChange`;
+- code-change preflight only → `prepareChange`;
 - code investigation → `investigateCode`;
 - pull-request inspection → `inspectPullRequest`;
 - ready PR merge → `finalizePullRequest`;

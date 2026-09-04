@@ -74,6 +74,8 @@ test('docs index lists only bounded documentation-like files', async () => {
           { path: 'src/index.ts', type: 'blob', sha: 'b', size: 20 },
           { path: 'docs/openapi.json', type: 'blob', sha: 'c', size: 30 },
           { path: 'llms.txt', type: 'blob', sha: 'd', size: 40 },
+          { path: 'notes/random.txt', type: 'blob', sha: 'e', size: 50 },
+          { path: 'docs/guide.txt', type: 'blob', sha: 'f', size: 60 },
         ],
       },
     }),
@@ -85,6 +87,7 @@ test('docs index lists only bounded documentation-like files', async () => {
     discoveryHints: string[];
   };
   assert.deepEqual(body.documents.map((entry) => entry.path), [
+    'docs/guide.txt',
     'docs/openapi.json',
     'llms.txt',
     'README.md',
@@ -163,15 +166,17 @@ test('searchDocs stays scoped to trvny and filters code files', async () => {
   );
 });
 
-test('live docs blocks non-document paths and foreign repositories', async () => {
+test('live docs blocks source code, arbitrary text and foreign repositories', async () => {
   const invoke = invokeFor({});
-  const code = await handleDocsAction(
-    request('/gpt-actions/docs/get', { repository: 'trvny/trvny', path: 'src/index.ts' }),
-    invoke,
-  );
-  assert.ok(code);
-  assert.equal(code.status, 403);
-  assert.deepEqual(await code.json(), { ok: false, error: 'documentation_path_not_allowed' });
+  for (const path of ['src/index.ts', 'notes/random.txt']) {
+    const blocked = await handleDocsAction(
+      request('/gpt-actions/docs/get', { repository: 'trvny/trvny', path }),
+      invoke,
+    );
+    assert.ok(blocked);
+    assert.equal(blocked.status, 403);
+    assert.deepEqual(await blocked.json(), { ok: false, error: 'documentation_path_not_allowed' });
+  }
 
   const foreign = await handleDocsAction(
     request('/gpt-actions/docs/index', { repository: 'openai/openai' }),

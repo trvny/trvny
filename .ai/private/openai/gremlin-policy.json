@@ -14,6 +14,7 @@
       "getOperatorBootstrap",
       "getGremlinKnowledge",
       "searchDocs",
+      "inspectPackage",
       "searchEngramMemory",
       "getCloudflareOverview",
       "getOperatorCapabilities",

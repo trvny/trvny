@@ -59,6 +59,19 @@ public sealed class FeedStore
                 byUrl[normalizedUrl] = source with { Enabled = enabled };
         }, cancellationToken);
 
+    public Task SetTitleAsync(string url, string? title, CancellationToken cancellationToken = default)
+    {
+        var normalizedTitle = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+        if (normalizedTitle?.Length > 120)
+            throw new ArgumentException("Feed name must be 120 characters or fewer.", nameof(title));
+
+        return MutateAsync(byUrl =>
+        {
+            if (TryNormalizeUrl(url, out var normalizedUrl) && byUrl.TryGetValue(normalizedUrl, out var source))
+                byUrl[normalizedUrl] = source with { Title = normalizedTitle };
+        }, cancellationToken);
+    }
+
     private async Task MutateAsync(Action<Dictionary<string, FeedSource>> mutation, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);

@@ -104,7 +104,13 @@ public sealed partial class MainWindow : Window
         {
             var enabled = Feeds.Where(row => row.Enabled).ToList();
             if (enabled.Count == 0) { StatusText.Text = "No enabled feeds to test."; return; }
-            var results = await Task.WhenAll(enabled.Select(ProbeFeedAsync));
+            using var gate = new SemaphoreSlim(4);
+            var results = await Task.WhenAll(enabled.Select(async row =>
+            {
+                await gate.WaitAsync();
+                try { return await ProbeFeedAsync(row); }
+                finally { gate.Release(); }
+            }));
             StatusText.Text = $"{results.Count(error => error is null)}/{enabled.Count} enabled feeds healthy.";
         });
     }

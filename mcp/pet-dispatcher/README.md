@@ -14,7 +14,7 @@ The broader architecture remains in [`agent-dispatcher-concept.md`](./agent-disp
 - workspace-confined filesystem tools with bounded reads/listings,
 - structured host Git status/diff/add/commit/export,
 - `workspace_exec` through Microsoft MXC / Windows ProcessContainer,
-- process timeout, cancellation and bounded output,
+- process timeout, cancellation and bounded output; `workspace.exec` fails closed when MXC reports required host preparation,
 - OpenRouter and Gemini adapters using capability-filtered tools,
 - brokered HTTPS with exact destination validation,
 - direct sandbox sockets denied by default,

@@ -6,10 +6,17 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import type { DispatcherConfig } from "../src/config.js";
-import { CommandRunner } from "../src/sandbox.js";
+import { CommandRunner, requiresSystemDrivePrep } from "../src/sandbox.js";
 import { SessionManager } from "../src/sessions.js";
 
 const execFileAsync = promisify(execFile);
+
+test("system-drive prep warning is recognized before workspace execution", () => {
+  assert.equal(requiresSystemDrivePrep([
+    "AppContainer metadata warning: run wxc-host-prep prepare-system-drive before execution",
+  ]), true);
+  assert.equal(requiresSystemDrivePrep(["unrelated isolation warning"]), false);
+});
 
 async function makeFixture() {
   const base = await mkdtemp(join(tmpdir(), "pet-dispatcher-sandbox-"));

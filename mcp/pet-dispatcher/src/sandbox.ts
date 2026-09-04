@@ -17,6 +17,10 @@ export interface ExecResult {
 
 const WINDOWS_EXTENSIONS = [".exe", ".com", ".cmd", ".bat", ""];
 
+export function requiresSystemDrivePrep(warnings: readonly string[]): boolean {
+  return warnings.some((warning) => warning.includes("prepare-system-drive") || warning.includes("system-drive root"));
+}
+
 function quoteBatchArg(value: string): string {
   if (/[\0\r\n"&|<>^%!]/u.test(value)) {
     throw new Error("batch-file arguments may not contain cmd metacharacters");
@@ -62,7 +66,7 @@ export class CommandRunner {
   securityStatus(): object {
     const support = getPlatformSupport();
     const warnings = support.isolationWarnings ?? [];
-    const systemDrivePrepRequired = warnings.some((warning) => warning.includes("prepare-system-drive") || warning.includes("system-drive root"));
+    const systemDrivePrepRequired = requiresSystemDrivePrep(warnings);
     const nullDevicePrepRequired = warnings.some((warning) => warning.includes("prepare-null-device") || warning.includes("\\Device\\Null"));
     return {
       supported: support.isSupported,
@@ -106,6 +110,9 @@ export class CommandRunner {
   async exec(sessionId: string, argv: string[], cwd = ".", timeoutMs?: number, signal?: AbortSignal): Promise<ExecResult> {
     if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
     if (argv.length === 0) throw new Error("argv must contain an executable");
+    if (requiresSystemDrivePrep(getPlatformSupport().isolationWarnings ?? [])) {
+      throw new Error("workspace.exec unavailable: MXC system-drive host preparation is required; Pet Dispatcher will not apply it automatically");
+    }
     const releaseActivity = this.sessions.acquireActivity(sessionId, "workspace.exec");
     let child: ChildProcess | undefined;
     try {

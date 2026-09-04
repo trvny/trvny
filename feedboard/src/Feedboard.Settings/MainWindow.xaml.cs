@@ -14,6 +14,7 @@ public sealed partial class MainWindow : Window
     private readonly AppSettingsStore _settingsStore = new();
     private readonly FeedDiscovery _feedDiscovery = new();
     private bool _isReloading;
+    private readonly Dictionary<string, int> _urlEditGenerations = new(StringComparer.Ordinal);
     public ObservableCollection<FeedRow> Feeds { get; } = new();
 
     public MainWindow()
@@ -189,8 +190,11 @@ public sealed partial class MainWindow : Window
 
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
+            var generation = _urlEditGenerations.TryGetValue(row.Id, out var current) ? current + 1 : 1;
+            _urlEditGenerations[row.Id] = generation;
             StatusText.Text = "Looking for a feed…";
             var feedUrl = await _feedDiscovery.ResolveFeedUrlAsync(input.Text.Trim());
+            if (!_urlEditGenerations.TryGetValue(row.Id, out var latest) || latest != generation) return;
             await _store.SetUrlAsync(row.Id, feedUrl);
             await ReloadAsync();
             Feeds.FirstOrDefault(feed => feed.Id == row.Id)?.SetHealth("Healthy");

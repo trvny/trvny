@@ -1,6 +1,8 @@
 using Feedboard.Models;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -14,8 +16,9 @@ public sealed partial class FeedClient
     private const int MaxFeedBytes = 2 * 1024 * 1024;
     private const int MaxSiteHtmlBytes = 512 * 1024;
     private static readonly TimeSpan BodyTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan SiteIconCacheTtl = TimeSpan.FromHours(24);
     private static readonly HttpClient Http = CreateHttpClient();
-    private static readonly ConcurrentDictionary<string, Lazy<Task<string?>>> SiteIconCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, SiteIconCacheEntry> SiteIconCache = new(StringComparer.OrdinalIgnoreCase);
 
     public async Task<IReadOnlyList<FeedArticle>> LoadAsync(IEnumerable<FeedSource> sources, CancellationToken cancellationToken = default)
     {
@@ -95,48 +98,89 @@ public sealed partial class FeedClient
     {
         if (!Uri.TryCreate(feedUrl, UriKind.Absolute, out var feedUri)) return null;
         var origin = feedUri.GetLeftPart(UriPartial.Authority) + "/";
-        var lazy = SiteIconCache.GetOrAdd(origin, key => new Lazy<Task<string?>>(() => DiscoverSiteIconAsync(key), LazyThreadSafetyMode.ExecutionAndPublication));
-        return await lazy.Value.WaitAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        while (true)
+        {
+            if (SiteIconCache.TryGetValue(origin, out var cached) && cached.ExpiresAt > now)
+            {
+                return await cached.Value.Value.WaitAsync(cancellationToken);
+            }
+
+            var replacement = new SiteIconCacheEntry(
+                new Lazy<Task<string?>>(() => DiscoverSiteIconAsync(origin), LazyThreadSafetyMode.ExecutionAndPublication),
+                now + SiteIconCacheTtl);
+            if (cached is null)
+            {
+                if (SiteIconCache.TryAdd(origin, replacement)) return await replacement.Value.Value.WaitAsync(cancellationToken);
+            }
+            else if (SiteIconCache.TryUpdate(origin, replacement, cached))
+            {
+                return await replacement.Value.Value.WaitAsync(cancellationToken);
+            }
+        }
     }
 
-    private static async Task<string?> DiscoverSiteIconAsync(string siteUrl)
+    private static async Task<string?> DiscoverSiteIconAsync(string origin)
     {
         try
         {
-            using var response = await Http.GetAsync(siteUrl, HttpCompletionOption.ResponseHeadersRead);
+            using var timeoutCts = new CancellationTokenSource(BodyTimeout);
+            using var request = new HttpRequestMessage(HttpMethod.Get, origin);
+            request.Headers.Accept.Clear();
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
+            using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
             if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength is > MaxSiteHtmlBytes) return null;
-            await using var stream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 4096, leaveOpen: false);
-            var buffer = new char[4096];
-            var html = new StringBuilder();
-            while (html.Length < MaxSiteHtmlBytes)
+
+            await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token);
+            using var raw = new MemoryStream();
+            var chunk = new byte[16 * 1024];
+            while (true)
             {
-                var read = await reader.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, MaxSiteHtmlBytes - html.Length)));
+                var read = await stream.ReadAsync(chunk.AsMemory(0, chunk.Length), timeoutCts.Token);
                 if (read == 0) break;
-                html.Append(buffer, 0, read);
+                if (raw.Length + read > MaxSiteHtmlBytes) return null;
+                await raw.WriteAsync(chunk.AsMemory(0, read), timeoutCts.Token);
             }
 
-            foreach (Match tag in LinkTagRegex().Matches(html.ToString()))
+            raw.Position = 0;
+            using var reader = new StreamReader(raw, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 4096, leaveOpen: false);
+            var html = await reader.ReadToEndAsync(timeoutCts.Token);
+
+            // This deliberately uses a bounded lightweight tokenizer rather than a full HTML DOM parser.
+            foreach (Match tag in LinkTagRegex().Matches(html))
             {
                 var value = tag.Value;
                 var rel = AttributeValue(value, "rel");
                 if (rel is null || !rel.Split(' ', StringSplitOptions.RemoveEmptyEntries).Any(token => token.Equals("icon", StringComparison.OrdinalIgnoreCase))) continue;
                 var href = AttributeValue(value, "href");
-                var resolved = ResolveUrl(response.RequestMessage?.RequestUri?.ToString() ?? siteUrl, WebUtility.HtmlDecode(href));
+                var resolved = ResolveUrl(response.RequestMessage?.RequestUri?.ToString() ?? origin, WebUtility.HtmlDecode(href));
                 if (!string.IsNullOrWhiteSpace(resolved)) return resolved;
             }
         }
-        catch { }
+        catch (OperationCanceledException ex)
+        {
+            Trace.TraceWarning($"Feedboard site icon discovery timed out for {origin}: {ex.Message}");
+        }
+        catch (HttpRequestException ex)
+        {
+            Trace.TraceWarning($"Feedboard site icon discovery failed for {origin}: {ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            Trace.TraceWarning($"Feedboard site icon discovery I/O failed for {origin}: {ex.Message}");
+        }
+
         return null;
     }
 
     private static string? AttributeValue(string tag, string name)
     {
-        var match = HtmlAttributeRegex().Match(tag);
-        while (match.Success)
+        foreach (Match match in HtmlAttributeRegex().Matches(tag))
         {
-            if (match.Groups[1].Value.Equals(name, StringComparison.OrdinalIgnoreCase)) return match.Groups[3].Value;
-            match = match.NextMatch();
+            if (!match.Groups[1].Value.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+            if (match.Groups[3].Success) return match.Groups[3].Value;
+            if (match.Groups[4].Success) return match.Groups[4].Value;
+            if (match.Groups[5].Success) return match.Groups[5].Value;
         }
         return null;
     }
@@ -237,12 +281,14 @@ public sealed partial class FeedClient
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("Feedboard/0.1 (+https://github.com/trvny/trvny)");
-        client.DefaultRequestHeaders.Accept.ParseAdd("application/feed+json"); client.DefaultRequestHeaders.Accept.ParseAdd("application/json"); client.DefaultRequestHeaders.Accept.ParseAdd("application/rss+xml"); client.DefaultRequestHeaders.Accept.ParseAdd("application/atom+xml"); client.DefaultRequestHeaders.Accept.ParseAdd("application/xml"); client.DefaultRequestHeaders.Accept.ParseAdd("text/xml"); client.DefaultRequestHeaders.Accept.ParseAdd("text/html");
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/feed+json"); client.DefaultRequestHeaders.Accept.ParseAdd("application/json"); client.DefaultRequestHeaders.Accept.ParseAdd("application/rss+xml"); client.DefaultRequestHeaders.Accept.ParseAdd("application/atom+xml"); client.DefaultRequestHeaders.Accept.ParseAdd("application/xml"); client.DefaultRequestHeaders.Accept.ParseAdd("text/xml");
         return client;
     }
 
+    private sealed record SiteIconCacheEntry(Lazy<Task<string?>> Value, DateTimeOffset ExpiresAt);
+
     [GeneratedRegex("<link\\b[^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)] private static partial Regex LinkTagRegex();
-    [GeneratedRegex("([A-Za-z_:][-A-Za-z0-9_:.]*)\\s*=\\s*([\\\"'])(.*?)\\2", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)] private static partial Regex HtmlAttributeRegex();
+    [GeneratedRegex("([A-Za-z_:][-A-Za-z0-9_:.]*)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)] private static partial Regex HtmlAttributeRegex();
     [GeneratedRegex("<img[^>]+src=[\\\"']([^\\\"']+)[\\\"']", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)] private static partial Regex ImgSrcRegex();
     [GeneratedRegex("<[^>]+>")] private static partial Regex HtmlTagRegex();
     [GeneratedRegex("\\s+")] private static partial Regex WhitespaceRegex();

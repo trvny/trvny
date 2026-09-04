@@ -43,6 +43,13 @@ const OPENAPI_PATH = '/gpt-actions/openapi.json';
 const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
 const SMOKE_PATH = '/gpt-actions/operator/smoke';
 const HEALTH_PATH = '/health';
+const RUNTIME_ROLE = 'shared-automation-worker';
+const RUNTIME_SUBSYSTEMS = [
+  'kanarek-companion',
+  'gptomek-bridge',
+  'gremlin-operator',
+  'specialist-intelligence',
+] as const;
 const SMOKE_REPOSITORY = 'trvny/trvny';
 const REQUIRED_SMOKE_OPERATIONS = [
   'getOperatorBootstrap',
@@ -165,6 +172,8 @@ export async function gatewayManifest(
   return {
     manifestVersion: 1,
     service: 'kanarek-companion',
+    runtimeRole: RUNTIME_ROLE,
+    subsystems: [...RUNTIME_SUBSYSTEMS],
     workerVersion: workerVersion(metadata),
     openApi: {
       title: typeof info.title === 'string' ? info.title : null,
@@ -301,6 +310,8 @@ async function operatorSmokeResponse(request: Request, env: Env): Promise<Respon
   return json({
     ok: true,
     service: 'kanarek-companion',
+    runtimeRole: RUNTIME_ROLE,
+    subsystems: [...RUNTIME_SUBSYSTEMS],
     workerVersion: worker,
     capabilityDigest: openApi?.capabilityDigest ?? null,
     operationCount: openApi?.operationCount ?? ids.length,

@@ -568,16 +568,25 @@ function nugetCatalogSelection(
   requestedVersion: string | null,
 ): NugetCatalogSelection {
   if (!entries.length) throw new PackageRegistryError('package_not_found', 404);
-  const highestEntry = (items: JsonObject[]): JsonObject | undefined =>
-    items.reduce<JsonObject | undefined>((best, entry) => {
+  const highestEntry = (items: JsonObject[]): JsonObject | undefined => {
+    let best: JsonObject | undefined;
+    for (const entry of items) {
       const entryVersion = text(entry.version);
-      if (!entryVersion || !parsedNugetVersion(entryVersion)) return best;
-      if (!best) return entry;
+      if (!entryVersion || !parsedNugetVersion(entryVersion)) continue;
+      if (!best) {
+        best = entry;
+        continue;
+      }
       const bestVersion = text(best.version);
-      if (!bestVersion) return entry;
+      if (!bestVersion) {
+        best = entry;
+        continue;
+      }
       const order = compareNugetVersions(entryVersion, bestVersion);
-      return order !== null && order > 0 ? entry : best;
-    }, undefined);
+      if (order !== null && order > 0) best = entry;
+    }
+    return best;
+  };
   const listed = entries.filter((entry) => entry.listed !== false);
   const stable = listed.filter((entry) => !text(entry.version)?.includes('-'));
   const latest = highestEntry(stable) ?? highestEntry(listed) ?? highestEntry(entries);

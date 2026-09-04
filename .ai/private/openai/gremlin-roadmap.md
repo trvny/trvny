@@ -70,7 +70,8 @@ Build outward in this order, keeping external capabilities high-level and guarde
 - [ ] **Artifact inspector.** Inspect ZIP/JAR/APK/AAB-style artifacts for metadata, contents, versions and checksums without executing them.
 - [ ] **GitLab / F-Droid operator.** Extend guarded review, CI and packaging workflows where the GitHub operator patterns transfer cleanly.
 - [ ] **Research -> action.** Feed fresh documentation and release-note findings into guarded implementation/release work instead of relying on model memory.
-- [ ] **Live documentation bridge.** Keep project/API docs GitHub-backed and continuously synchronized to a documentation surface such as ReadMe; expose a small guarded `searchDocs` / `getDoc` / `getDocsIndex` Action layer to Gremlin so volatile technical knowledge is fetched live instead of baked into Custom GPT Knowledge. Treat `llms.txt` as an explicit discovery hint, not magic autodiscovery: point Gremlin directly at the live docs/index in its instructions and prefer machine-readable Markdown/OpenAPI sources.
+- [x] **Live documentation lookup.** Keep project/API docs GitHub-backed and expose guarded `searchDocs` / `getDoc` / `getDocsIndex` Actions so volatile technical knowledge is fetched live instead of baked into Custom GPT Knowledge. Treat `llms.txt` as an explicit discovery hint and prefer Markdown/OpenAPI sources.
+- [ ] **Documentation publishing bridge.** Synchronize GitHub-backed docs to a documentation surface such as ReadMe without creating a second source of truth.
 
 ## Architecture / ergonomics
 

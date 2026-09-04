@@ -161,12 +161,13 @@ function contentPath(value: string): string {
 function isDocumentationPath(path: string): boolean {
   const lower = path.toLowerCase();
   const base = lower.split('/').at(-1) ?? lower;
+  const docsDirectory = /(^|\/)(docs?|reference)\//.test(lower);
   if (base === 'llms.txt' || base === 'llms-full.txt') return true;
   if (base.startsWith('readme.')) return /\.(md|mdx|txt|rst|adoc)$/.test(base);
-  if (/\.(md|mdx|txt|rst|adoc)$/.test(lower)) return true;
+  if (/\.(md|mdx|rst|adoc)$/.test(lower)) return true;
+  if (/\.txt$/.test(lower)) return docsDirectory;
   if (/\.(ya?ml|json)$/.test(lower)) {
-    return /(^|\/)(openapi|swagger|asyncapi|schema)([._-]|$)/.test(lower) ||
-      /(^|\/)(docs?|reference)\//.test(lower);
+    return /(^|\/)(openapi|swagger|asyncapi|schema)([._-]|$)/.test(lower) || docsDirectory;
   }
   return false;
 }

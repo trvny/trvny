@@ -6,6 +6,7 @@ import {
   addAgentGuidanceOpenApi,
   handleAgentGuidanceAction,
 } from './agents-guidance-actions.ts';
+import { addDocsOpenApi, handleDocsAction } from './docs-actions.ts';
 import { addEngramOpenApi, handleEngramAction } from './engram-actions.ts';
 import {
   handleReviewRouterRequest,
@@ -43,6 +44,9 @@ const REQUIRED_SMOKE_OPERATIONS = [
   'getOperatorBootstrap',
   'getOperatorCapabilities',
   'getCloudflareOverview',
+  'getDocsIndex',
+  'searchDocs',
+  'getDoc',
   'searchEngramMemory',
   'runOperatorAutopilot',
   'runOperatorSmokeTest',
@@ -112,6 +116,7 @@ export function addCapabilityOpenApi(document: JsonObject): void {
 
 export function gatewayOpenApi(origin: string): JsonObject {
   const document = customGptOpenApi(origin);
+  addDocsOpenApi(document);
   addEngramOpenApi(document);
   addCapabilityOpenApi(document);
   addAccountAttentionOpenApi(document);
@@ -360,6 +365,11 @@ const worker = {
     if (url.pathname === HEALTH_PATH && (request.method === 'GET' || request.method === 'HEAD')) {
       return decoratedHealth(request, env, ctx);
     }
+    const docsResponse = await handleDocsAction(
+      request,
+      (internalRequest) => router.fetch(internalRequest, env, ctx),
+    );
+    if (docsResponse) return docsResponse;
     const engramResponse = await handleEngramAction(
       request,
       env,

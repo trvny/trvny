@@ -198,9 +198,16 @@ public sealed class FeedWidget : IDisposable
             var article = _articles.FirstOrDefault(x => x.Id == articleId);
             if (article is not null && Uri.TryCreate(article.Url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
             {
-                MarkArticleRead(articleId);
-                PushCurrentCard();
-                Process.Start(new ProcessStartInfo(uri.ToString()) { UseShellExecute = true });
+                try
+                {
+                    Process.Start(new ProcessStartInfo(uri.ToString()) { UseShellExecute = true });
+                    MarkArticleRead(articleId);
+                    PushCurrentCard();
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or PlatformNotSupportedException)
+                {
+                    Trace.TraceError($"Feedboard failed to open article: {ex}");
+                }
             }
         }
     }
@@ -259,7 +266,7 @@ public sealed class FeedWidget : IDisposable
 
     private void MarkArticleRead(string articleId)
     {
-        var readIds = _state.ReadArticleIds is null
+        var readIds = _state.ReadArticleIds is not { Count: > 0 }
             ? new List<string>()
             : _state.ReadArticleIds.Where(id => !string.Equals(id, articleId, StringComparison.Ordinal)).ToList();
 

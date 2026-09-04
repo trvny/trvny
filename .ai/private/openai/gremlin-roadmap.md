@@ -47,7 +47,7 @@ do not wrap every GitHub endpoint for its own sake.
   snapshots and verification that stale references were not left behind.
 - [x] **Bug investigation mode.** Connect issue/stack trace/CI failure -> relevant symbol/history ->
   reproduction or targeted test -> fix -> verification.
-- [ ] **Focused code-review pass.** Pre-merge analysis for missed callers, API-contract drift,
+- [x] **Focused code-review pass.** Pre-merge analysis for missed callers, API-contract drift,
   unsafe null/state handling, race-prone changes, missing edge cases and accidental scope growth.
 
 ## Organization operator

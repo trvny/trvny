@@ -214,6 +214,14 @@ public sealed partial class MainWindow : Window
         paste.Click += (_, _) => textBox.PasteFromClipboard();
         var selectAll = new MenuFlyoutItem { Text = "Select all" };
         selectAll.Click += (_, _) => textBox.SelectAll();
+        flyout.Opening += (_, _) =>
+        {
+            var hasSelection = textBox.SelectionLength > 0;
+            cut.IsEnabled = hasSelection && !textBox.IsReadOnly;
+            copy.IsEnabled = hasSelection;
+            paste.IsEnabled = !textBox.IsReadOnly && textBox.CanPasteClipboardContent;
+            selectAll.IsEnabled = textBox.Text.Length > 0;
+        };
         flyout.Items.Add(cut);
         flyout.Items.Add(copy);
         flyout.Items.Add(paste);

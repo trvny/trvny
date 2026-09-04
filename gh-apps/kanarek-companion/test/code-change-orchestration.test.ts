@@ -5,8 +5,13 @@ import {
   addCodeChangeAutopilotOpenApi,
   commitProvenanceMatches,
   decodeContent,
+  expandRefactorAllowedPaths,
   operationCommitMessage,
   recoveredChangedPathsAllowed,
+  refactorAllowedPaths,
+  refactorEditBlockers,
+  refactorPreflightBlockers,
+  refactorVerificationBlockers,
   reviewGateBlockers,
 } from '../src/code-change-orchestration.ts';
 
@@ -28,6 +33,65 @@ test('code-change autopilot exposes implementCodeChange with stage action contra
   assert.deepEqual(verification.required, ['type', 'status', 'headSha', 'revision']);
   assert.deepEqual(verification.properties.results.items.required, ['status', 'cwd', 'command']);
   assert.deepEqual(verification.properties.results.items.properties.status.enum, ['passed', 'failed']);
+  const refactor = operation.requestBody.content['application/json'].schema.properties.refactor;
+  assert.deepEqual(refactor.required, ['moves', 'referenceTerms']);
+  assert.deepEqual(refactor.properties.moves.items.required, ['fromPath', 'toPath']);
+  assert.equal(refactor.properties.moves.maxItems, 3);
+});
+
+test('refactor edits require an atomic source delete and destination write', () => {
+  const plan = {
+    moves: [{ fromPath: 'src/old.ts', toPath: 'src/new.ts' }],
+    referenceTerms: ['OldThing'],
+  };
+  assert.deepEqual(refactorEditBlockers(plan, [
+    { path: 'src/old.ts', content: null },
+    { path: 'src/new.ts', content: 'export const NewThing = 1;' },
+  ], true), []);
+  assert.deepEqual(refactorEditBlockers(plan, [
+    { path: 'src/new.ts', content: 'export const NewThing = 1;' },
+  ], true), ['source_delete_required:src/old.ts']);
+  assert.deepEqual(refactorEditBlockers(plan, [
+    { path: 'src/old.ts', content: 'recreated' },
+  ], false), ['source_recreated:src/old.ts']);
+});
+
+test('refactor scope expands only to exact-base reference matches', () => {
+  const core = {
+    operationId: 'op-example123', repository: 'trvny/trvny', goal: 'rename', branch: 'feat/rename',
+    expectedBaseSha: 'a'.repeat(40), targetPaths: ['src/old.ts', 'src/new.ts'], investigationTerms: ['OldThing'],
+  };
+  const snapshot = {
+    ref: 'a'.repeat(40), moveFiles: [],
+    references: [{ term: 'OldThing', indexedCount: 2, incomplete: false, matchingPaths: ['src/caller.ts', 'src/old.ts'] }],
+  };
+  assert.deepEqual(refactorAllowedPaths(core, snapshot), ['src/old.ts', 'src/new.ts', 'src/caller.ts']);
+  assert.deepEqual(
+    expandRefactorAllowedPaths(['src/old.ts', 'src/new.ts', 'src/first-caller.ts'], snapshot),
+    ['src/old.ts', 'src/new.ts', 'src/first-caller.ts', 'src/caller.ts'],
+  );
+});
+
+test('refactor snapshots fail closed on stale or incomplete references', () => {
+  const plan = {
+    moves: [{ fromPath: 'src/old.ts', toPath: 'src/new.ts' }],
+    referenceTerms: ['OldThing'],
+  };
+  assert.deepEqual(refactorPreflightBlockers(plan, [
+    { path: 'src/old.ts', exists: true },
+    { path: 'src/new.ts', exists: false },
+  ]), []);
+  assert.deepEqual(refactorVerificationBlockers(plan, [
+    { path: 'src/old.ts', exists: false },
+    { path: 'src/new.ts', exists: true },
+  ], [{ term: 'OldThing', indexedCount: 2, incomplete: false, matchingPaths: [] }]), []);
+  assert.deepEqual(refactorVerificationBlockers(plan, [
+    { path: 'src/old.ts', exists: false },
+    { path: 'src/new.ts', exists: true },
+  ], [{ term: 'OldThing', indexedCount: 41, incomplete: true, matchingPaths: ['src/caller.ts'] }]), [
+    'reference_scan_incomplete:OldThing',
+    'stale_reference:OldThing:src/caller.ts',
+  ]);
 });
 
 test('review gate requires exact base, reviewed head and successful final CI', () => {

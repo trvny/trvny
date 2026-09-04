@@ -23,6 +23,7 @@
       "runAccountMaintenanceAutofix",
       "getRepositoryContext",
       "prepareChange",
+      "implementCodeChange",
       "investigateCode",
       "inspectPullRequest",
       "finalizePullRequest",

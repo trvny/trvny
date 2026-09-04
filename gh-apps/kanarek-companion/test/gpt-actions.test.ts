@@ -80,8 +80,12 @@ test('OpenAPI advertises hybrid identities and OAuth token proxy', () => {
 
 test('commit tree mode preserves executable files and symlinks', () => {
   assert.equal(contentTreeMode(undefined), '100644');
+  assert.equal(contentTreeMode(undefined, '100755'), '100755');
+  assert.equal(contentTreeMode(undefined, '120000'), '120000');
   assert.equal(contentTreeMode({ type: 'blob', mode: '100644' }), '100644');
-  assert.equal(contentTreeMode({ type: 'blob', mode: '100755' }), '100755');
+  assert.equal(contentTreeMode({ type: 'blob', mode: '100755' }, '100755'), '100755');
   assert.equal(contentTreeMode({ type: 'blob', mode: '120000' }), '120000');
+  assert.throws(() => contentTreeMode(undefined, '160000'));
+  assert.throws(() => contentTreeMode({ type: 'blob', mode: '100644' }, '100755'));
   assert.throws(() => contentTreeMode({ type: 'commit', mode: '160000' }));
 });

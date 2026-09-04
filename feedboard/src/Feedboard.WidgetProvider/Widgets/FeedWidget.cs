@@ -81,15 +81,19 @@ public sealed class FeedWidget : IDisposable
                 sources = sources.Where(source => selected.Contains(source.Url)).ToList();
             }
 
-            _visibleFeedCount = sources.Count(source => source.Enabled);
-            _articles = await _client.LoadAsync(sources, cancellationToken);
+            var visibleFeedCount = sources.Count(source => source.Enabled);
+            var articles = await _client.LoadAsync(sources, cancellationToken);
             var errors = _client.GetErrorStatuses(sources)
                 .Select(status => status.FeedUrl)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            _feedErrorLabels = sources
+            var feedErrorLabels = sources
                 .Where(source => errors.Contains(source.Url))
                 .Select(source => source.Title ?? source.Url)
                 .ToList();
+
+            _visibleFeedCount = visibleFeedCount;
+            _articles = articles;
+            _feedErrorLabels = feedErrorLabels;
             _updatedAt = DateTimeOffset.Now;
 
             if (_state.ExpandedArticleId is not null && _articles.All(x => x.Id != _state.ExpandedArticleId))

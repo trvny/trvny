@@ -157,12 +157,12 @@ public sealed partial class MainWindow : Window
         try
         {
             await _feedDiscovery.ResolveFeedUrlAsync(row.Url);
-            row.HealthText = "Healthy";
+            row.SetHealth("Healthy");
             return null;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or HttpRequestException or OperationCanceledException or IOException)
         {
-            row.HealthText = "Problem";
+            row.SetHealth("Problem", ex is OperationCanceledException ? "Feed test timed out." : ex.Message);
             return ex is OperationCanceledException ? "Feed test timed out." : ex.Message;
         }
     }
@@ -231,6 +231,8 @@ public sealed partial class MainWindow : Window
 public sealed class FeedRow : INotifyPropertyChanged
 {
     private string _healthText = "Not tested";
+    private DateTimeOffset? _lastCheckedAt;
+    private string? _lastError;
 
     public FeedRow(FeedSource source)
     {
@@ -244,6 +246,23 @@ public sealed class FeedRow : INotifyPropertyChanged
     public string? CustomTitle { get; }
     public string DisplayName { get; }
     public bool Enabled { get; }
+    public DateTimeOffset? LastCheckedAt
+    {
+        get => _lastCheckedAt;
+        private set { _lastCheckedAt = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LastCheckedText))); }
+    }
+    public string LastCheckedText => LastCheckedAt is null ? "Never checked" : $"Checked {LastCheckedAt.Value.LocalDateTime:HH:mm}";
+    public string? LastError
+    {
+        get => _lastError;
+        private set { _lastError = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LastError))); }
+    }
+    public void SetHealth(string text, string? error = null)
+    {
+        HealthText = text;
+        LastError = error;
+        LastCheckedAt = DateTimeOffset.Now;
+    }
     public string HealthText
     {
         get => _healthText;

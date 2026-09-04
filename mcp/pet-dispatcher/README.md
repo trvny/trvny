@@ -23,8 +23,8 @@ The broader architecture remains in [`agent-dispatcher-concept.md`](./agent-disp
 - Cloudflare Queue HTTP-pull transport with heartbeat/result callbacks,
 - OS-backed singleton lease preventing multiple local Queue consumers for one remote worker identity,
 - Cloudflare Worker control plane backed by a SQLite Durable Object.
-- direct read-only remote tools (`fs.list`, `fs.stat`, `fs.read`, `git.status`, `git.diff`) without invoking a model.
-- short-lived direct write sessions with `fs.write`, `git.add`, `git.commit`, and MXC-confined `workspace.exec`, still without invoking a model.
+- direct read-only remote tools (`session.status`, `fs.list`, `fs.stat`, `fs.read`, `git.status`, `git.diff`) without invoking a model.
+- short-lived direct write sessions with `fs.write`, `fs.patch`, `fs.mkdir`, `fs.move`, `fs.delete`, `git.add`, `git.commit`, and MXC-confined `workspace.exec`, still without invoking a model.
 
 ## Security model
 

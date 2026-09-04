@@ -325,7 +325,7 @@ async function dependencyGraph(
   return response.ok && payload.ok === true ? payload : null;
 }
 
-async function dependencyEvidence(
+function dependencyEvidence(
   source: Request,
   invoke: Invoke,
   input: FocusedReviewInput,

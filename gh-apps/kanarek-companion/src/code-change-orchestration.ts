@@ -1195,7 +1195,7 @@ async function inspect(source: Request, invoke: Invoke, core: CoreInput, pullReq
   })).payload;
 }
 
-async function focusedReview(
+function focusedReview(
   source: Request,
   invoke: Invoke,
   core: CoreInput,

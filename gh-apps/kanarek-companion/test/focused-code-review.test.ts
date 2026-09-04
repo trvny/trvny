@@ -9,10 +9,38 @@ import {
   reviewLensSummary,
 } from '../src/focused-code-review.ts';
 
+type OpenApiOperation = {
+  operationId: string;
+  requestBody: {
+    content: {
+      'application/json': {
+        schema: { required: string[]; properties: { targetPaths: { maxItems: number } } };
+      };
+    };
+  };
+};
+type ReviewLensResult = {
+  scope: { unexpectedChangedPaths: string[] };
+  tests: { productionWithoutChangedTests: string[] };
+  missedCallers: { candidates: string[] };
+  apiContract: { signals: Array<{ path: string; line: string }> };
+  stateAndRace: { signals: Array<{ path: string; line: string }> };
+  edgeCases: { signals: Array<{ path: string; line: string }> };
+};
+type FocusedReviewResponse = {
+  ok: boolean;
+  snapshots: { baseSha: string; headSha: string };
+  summary: { changedFiles: number };
+  scope: { unexpectedChangedPaths: string[] };
+  nextAction: { reviewedHeadSha: string };
+};
+
 test('focused review is exposed as reviewCodeChange', () => {
-  const document: Record<string, any> = { paths: {} };
+  const document: Record<string, unknown> = { paths: {} };
   addFocusedCodeReviewOpenApi(document);
-  const operation = document.paths[FOCUSED_CODE_REVIEW_PATH].post;
+  const paths = document.paths as Record<string, { post?: OpenApiOperation }>;
+  const operation = paths[FOCUSED_CODE_REVIEW_PATH]?.post;
+  assert.ok(operation);
   assert.equal(operation.operationId, 'reviewCodeChange');
   assert.deepEqual(operation.requestBody.content['application/json'].schema.required, [
     'repository', 'baseSha', 'headSha',
@@ -42,7 +70,7 @@ test('review lenses surface scope drift, unmodified callers and missing focused 
       unmodifiedCallers: ['src/caller.ts'], incomplete: false,
     },
   ];
-  const result = reviewLensSummary(files, dependencies, ['src/api.ts']) as Record<string, any>;
+  const result = reviewLensSummary(files, dependencies, ['src/api.ts']) as ReviewLensResult;
   assert.deepEqual(result.scope.unexpectedChangedPaths, ['src/surprise.ts']);
   assert.deepEqual(result.tests.productionWithoutChangedTests, ['src/api.ts', 'src/surprise.ts']);
   assert.deepEqual(result.missedCallers.candidates, ['src/caller.ts']);
@@ -94,7 +122,7 @@ test('focused review pins exact snapshots and returns bounded diff evidence', as
   const response = await handleFocusedCodeReviewAction(request, invoke);
   assert.ok(response);
   assert.equal(response.status, 200);
-  const payload = await response.json() as Record<string, any>;
+  const payload = await response.json() as FocusedReviewResponse;
   assert.equal(payload.ok, true);
   assert.deepEqual(payload.snapshots, { baseSha, headSha });
   assert.equal(payload.summary.changedFiles, 1);

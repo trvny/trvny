@@ -108,12 +108,16 @@ public sealed partial class FeedClient
 
         return items.EnumerateArray().Select(item =>
         {
+            var itemId = JsonString(item, "id");
             var title = JsonString(item, "title") ?? "(untitled)";
             var articleUrl = JsonString(item, "url") ?? JsonString(item, "external_url") ?? source.Url;
             var summary = JsonString(item, "summary") ?? JsonString(item, "content_text") ?? JsonString(item, "content_html");
             var published = ParseDate(JsonString(item, "date_published") ?? JsonString(item, "date_modified"));
             var thumbnail = JsonString(item, "image") ?? JsonString(item, "banner_image");
-            return BuildArticle(source, feedTitle, title, articleUrl, summary, published, favicon, thumbnail);
+            var article = BuildArticle(source, feedTitle, title, articleUrl, summary, published, favicon, thumbnail);
+            return string.IsNullOrWhiteSpace(itemId)
+                ? article
+                : article with { Id = StableId(source.Url, itemId) };
         }).ToList();
     }
 

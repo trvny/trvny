@@ -4,6 +4,9 @@
 
 **Private command center: projects, services, tools, and drawers in one place.**
 
+<p align="center">
+  <img src="assets/132311.gif" width="69%">
+</p>
 <br>
 
 [Polski](README_pl.md) · **English** · [简体中文](README_zh.md)

@@ -142,7 +142,7 @@ test('focused review does not relay upstream read payloads through errors', asyn
   });
   const response = await handleFocusedCodeReviewAction(
     request,
-    async () => Response.json(
+    () => Response.json(
       { ok: true, error: 'upstream_read_failed', data: { secret: 'do-not-relay' } },
       { status: 502 },
     ),

@@ -43,7 +43,7 @@ do not wrap every GitHub endpoint for its own sake.
 - [x] **Code-change autopilot.** Compose goal -> scoped instructions -> investigation -> minimal
   edit -> targeted verification -> commit/PR -> CI/review -> merge/cleanup. Semantic code choices
   stay with the model; deterministic safety/state transitions stay in the Worker.
-- [ ] **Refactor-aware editing.** Support rename/move operations with before/after reference
+- [x] **Refactor-aware editing.** Support rename/move operations with before/after reference
   snapshots and verification that stale references were not left behind.
 - [x] **Bug investigation mode.** Connect issue/stack trace/CI failure -> relevant symbol/history ->
   reproduction or targeted test -> fix -> verification.

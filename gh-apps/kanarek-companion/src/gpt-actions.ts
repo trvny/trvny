@@ -397,14 +397,29 @@ async function commitData(
   return { tree: { sha: data.tree.sha } };
 }
 
-export function contentTreeMode(entry?: { mode?: unknown; type?: unknown }): '100644' | '100755' | '120000' {
-  if (!entry) return '100644';
+type ContentTreeMode = '100644' | '100755' | '120000';
+
+function explicitContentTreeMode(value: unknown): ContentTreeMode | undefined {
+  if (value === undefined) return undefined;
+  if (value !== '100644' && value !== '100755' && value !== '120000') {
+    throw new ActionError('unsupported_file_mode', 409);
+  }
+  return value;
+}
+
+export function contentTreeMode(
+  entry?: { mode?: unknown; type?: unknown },
+  requestedMode?: unknown,
+): ContentTreeMode {
+  const requested = explicitContentTreeMode(requestedMode);
+  if (!entry) return requested ?? '100644';
   if (
     entry.type !== 'blob' ||
     (entry.mode !== '100644' && entry.mode !== '100755' && entry.mode !== '120000')
   ) {
     throw new ActionError('unsupported_file_mode', 409);
   }
+  if (requested && requested !== entry.mode) throw new ActionError('file_mode_change_not_allowed', 409);
   return entry.mode;
 }
 
@@ -461,7 +476,11 @@ async function commitFiles(
     if (typeof file.content === 'string' && file.content.length > 96_000) {
       throw new ActionError('file_content_too_large');
     }
-    return { path: filePath(file.path), content: file.content as string | null };
+    return {
+      path: filePath(file.path),
+      content: file.content as string | null,
+      mode: explicitContentTreeMode(file.mode),
+    };
   });
   if (new Set(files.map((file) => file.path)).size !== files.length) {
     throw new ActionError('duplicate_file_path');
@@ -475,7 +494,7 @@ async function commitFiles(
 
   const tree = await Promise.all(
     files.map(async (file) => {
-      const mode = contentTreeMode(baseEntries.get(file.path));
+      const mode = contentTreeMode(baseEntries.get(file.path), file.mode);
       if (file.content === null) {
         return { path: file.path, mode, type: 'blob', sha: null };
       }
@@ -760,6 +779,11 @@ export function openApiDocument(origin: string): Record<string, unknown> {
                         properties: {
                           path: { type: 'string' },
                           content: { type: ['string', 'null'] },
+                          mode: {
+                            type: 'string',
+                            enum: ['100644', '100755', '120000'],
+                            description: 'Optional mode for a newly created path. Existing file modes cannot be changed here.',
+                          },
                         },
                       },
                     },

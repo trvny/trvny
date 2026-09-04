@@ -9,6 +9,10 @@ import {
 import { addDocsOpenApi, handleDocsAction } from './docs-actions.ts';
 import { addEngramOpenApi, handleEngramAction } from './engram-actions.ts';
 import {
+  addPackageIntelligenceOpenApi,
+  handlePackageIntelligenceAction,
+} from './package-intelligence.ts';
+import {
   handleReviewRouterRequest,
   ReviewProviderCooldownStore,
   type ReviewRouterEnv,
@@ -47,6 +51,7 @@ const REQUIRED_SMOKE_OPERATIONS = [
   'getDocsIndex',
   'searchDocs',
   'getDoc',
+  'inspectPackage',
   'searchEngramMemory',
   'runOperatorAutopilot',
   'runOperatorSmokeTest',
@@ -118,6 +123,7 @@ export function gatewayOpenApi(origin: string): JsonObject {
   const document = customGptOpenApi(origin);
   addDocsOpenApi(document);
   addEngramOpenApi(document);
+  addPackageIntelligenceOpenApi(document);
   addCapabilityOpenApi(document);
   addAccountAttentionOpenApi(document);
   addAgentGuidanceOpenApi(document);
@@ -370,6 +376,12 @@ const worker = {
       (internalRequest) => router.fetch(internalRequest, env, ctx),
     );
     if (docsResponse) return docsResponse;
+    const packageResponse = await handlePackageIntelligenceAction(
+      request,
+      (internalRequest) => router.fetch(internalRequest, env, ctx),
+      actionFetch,
+    );
+    if (packageResponse) return packageResponse;
     const engramResponse = await handleEngramAction(
       request,
       env,

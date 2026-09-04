@@ -30,10 +30,15 @@ const remoteSessionIdSchema = z.string().uuid();
 export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("session.open"), ttlMinutes: z.number().int().min(1).max(60).default(30) }).strict(),
   z.object({ tool: z.literal("session.close"), sessionId: remoteSessionIdSchema, discard: z.boolean().default(false) }).strict(),
+  z.object({ tool: z.literal("session.status"), sessionId: remoteSessionIdSchema }).strict(),
   z.object({ tool: z.literal("fs.list"), path: z.string().max(1_024).default("."), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("fs.stat"), path: z.string().min(1).max(1_024), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("fs.read"), path: z.string().min(1).max(1_024), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("fs.write"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024), content: z.string().max(65_536) }).strict(),
+  z.object({ tool: z.literal("fs.patch"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024), oldText: z.string().min(1).max(65_536), newText: z.string().max(65_536) }).strict(),
+  z.object({ tool: z.literal("fs.mkdir"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024) }).strict(),
+  z.object({ tool: z.literal("fs.move"), sessionId: remoteSessionIdSchema, from: z.string().min(1).max(1_024), to: z.string().min(1).max(1_024) }).strict(),
+  z.object({ tool: z.literal("fs.delete"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024) }).strict(),
   z.object({
     tool: z.literal("workspace.exec"),
     sessionId: remoteSessionIdSchema,
@@ -54,7 +59,8 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
 export type RemoteDirectCall = z.infer<typeof remoteDirectCallSchema>;
 
 export const REMOTE_DIRECT_TOOLS = [
-  "session.open", "session.close", "fs.list", "fs.stat", "fs.read", "fs.write",
+  "session.open", "session.close", "session.status",
+  "fs.list", "fs.stat", "fs.read", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete",
   "workspace.exec", "git.status", "git.diff", "git.add", "git.commit",
 ] as const satisfies readonly RemoteDirectCall["tool"][];
 export const REMOTE_DIRECT_READ_CAPABILITIES = ["workspace.read", "git.read"] as const;
@@ -62,7 +68,7 @@ export const REMOTE_DIRECT_WRITE_CAPABILITIES = ["workspace.read", "workspace.wr
 export const REMOTE_DIRECT_EXEC_CAPABILITIES = ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"] as const;
 const REMOTE_DIRECT_EXEC_TOOLS = new Set<RemoteDirectCall["tool"]>(["workspace.exec"]);
 const REMOTE_DIRECT_WRITE_TOOLS = new Set<RemoteDirectCall["tool"]>([
-  "session.open", "session.close", "fs.write", "git.add", "git.commit",
+  "session.open", "session.close", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete", "git.add", "git.commit",
 ]);
 
 export function isRemoteDirectExecTool(tool: RemoteDirectCall["tool"]): boolean {

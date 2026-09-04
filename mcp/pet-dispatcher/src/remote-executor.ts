@@ -5,7 +5,10 @@ import { NetworkBroker } from "./network.js";
 import { runGemini, runOpenRouter } from "./providers.js";
 import type { CommandRunner, ExecResult } from "./sandbox.js";
 import type { Session, SessionManager } from "./sessions.js";
-import { listWorkspace, readWorkspace, statWorkspace, writeWorkspace } from "./workspace-fs.js";
+import {
+  deleteWorkspace, listWorkspace, mkdirWorkspace, moveWorkspace, patchWorkspace,
+  readWorkspace, statWorkspace, writeWorkspace,
+} from "./workspace-fs.js";
 import { isRemoteDirectExecTool, isRemoteDirectWriteTool, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
 import type { RemoteTaskExecutor } from "./remote-transport.js";
 
@@ -64,6 +67,13 @@ function boundUtf8(value: string, maxBytes: number): { text: string; truncated: 
   let end = maxBytes;
   while (end > 0 && (((bytes[end] ?? 0) & 0xc0) === 0x80)) end -= 1;
   return { text: bytes.subarray(0, end).toString("utf8"), truncated: true };
+}
+
+function publicDirectSession(session: Session) {
+  return {
+    id: session.id, repo: session.repo, initialCommit: session.initialCommit, network: session.network,
+    exportedCommit: session.exportedCommit, exportedRef: session.exportedRef, createdAt: session.createdAt,
+  };
 }
 
 function boundedExecResult(value: ExecResult): ExecResult {
@@ -193,12 +203,32 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         ? boundedExecResult(await this.runner.exec(activeSession.id, call.argv, call.cwd, call.timeoutMs, signal))
         : await this.sessions.runActivity(activeSession.id, "remote-direct", async () => {
         switch (call.tool) {
+          case "session.status": {
+            const state = await this.sessions.status(activeSession.id);
+            return { ...state, session: publicDirectSession(state.session) };
+          }
           case "fs.list": return listWorkspace(activeSession, call.path);
           case "fs.stat": return statWorkspace(activeSession, call.path);
           case "fs.read": return { content: await readWorkspace(activeSession, call.path, 60_000) };
           case "fs.write": {
             if (Buffer.byteLength(call.content, "utf8") > 65_536) throw new Error("direct fs.write content exceeds 64 KiB");
             await writeWorkspace(activeSession, call.path, call.content);
+            return { ok: true };
+          }
+          case "fs.patch": {
+            await patchWorkspace(activeSession, call.path, call.oldText, call.newText);
+            return { ok: true };
+          }
+          case "fs.mkdir": {
+            await mkdirWorkspace(activeSession, call.path);
+            return { ok: true };
+          }
+          case "fs.move": {
+            await moveWorkspace(activeSession, call.from, call.to);
+            return { ok: true };
+          }
+          case "fs.delete": {
+            await deleteWorkspace(activeSession, call.path);
             return { ok: true };
           }
           case "git.status": return git.status(activeSession.id);

@@ -209,27 +209,28 @@ public static class WidgetCardRenderer
         var imageUrl = showThumbnail && !string.IsNullOrWhiteSpace(article.ThumbnailUrl)
             ? article.ThumbnailUrl
             : article.FaviconUrl;
-        var columns = new JsonArray();
-
-        if (!isRead)
+        var markerItems = isRead
+            ? new JsonArray()
+            : new JsonArray
+            {
+                new JsonObject
+                {
+                    ["type"] = "TextBlock",
+                    ["text"] = "●",
+                    ["size"] = "Small",
+                    ["spacing"] = "None"
+                }
+            };
+        var columns = new JsonArray
         {
-            columns.Add(new JsonObject
+            new JsonObject
             {
                 ["type"] = "Column",
                 ["width"] = "auto",
                 ["verticalContentAlignment"] = "Center",
-                ["items"] = new JsonArray
-                {
-                    new JsonObject
-                    {
-                        ["type"] = "TextBlock",
-                        ["text"] = "●",
-                        ["size"] = "Small",
-                        ["spacing"] = "None"
-                    }
-                }
-            });
-        }
+                ["items"] = markerItems
+            }
+        };
 
         if (!string.IsNullOrWhiteSpace(imageUrl))
         {

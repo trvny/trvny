@@ -52,7 +52,6 @@ jobs:
           $buildDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix-build"
           $artifactDir = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\msix"
           $settingsStage = Join-Path $env:GITHUB_WORKSPACE "feedboard\artifacts\settings-stage"
-          $settingsObjRoot = Join-Path $env:RUNNER_TEMP "feedboard-settings-obj"
           $settingsXamlStage = Join-Path $settingsStage "_xaml"
           $pfxPath = Join-Path $env:RUNNER_TEMP "feedboard-dev.pfx"
           $cerPath = Join-Path $artifactDir "Feedboard.cer"
@@ -69,8 +68,7 @@ jobs:
             --self-contained true `
             --output $settingsStage `
             -p:WindowsPackageType=None `
-            -p:WindowsAppSDKSelfContained=true `
-            -p:BaseIntermediateOutputPath="$settingsObjRoot\"
+            -p:WindowsAppSDKSelfContained=true
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
@@ -79,16 +77,14 @@ jobs:
           # from the publish directory. The secondary packaged app still loads
           # App.xaml/MainWindow.xaml through package-root ms-appx URIs, so stage
           # their generated XBF files at the root of the final MSIX.
+          $settingsObj = Join-Path $env:GITHUB_WORKSPACE "feedboard\src\Feedboard.Settings\obj\Release\net8.0-windows10.0.19041.0\win-x64"
           foreach ($name in @("App.xbf", "MainWindow.xbf")) {
-            $candidates = @(
-              Get-ChildItem $settingsObjRoot -Recurse -File -Filter $name -ErrorAction SilentlyContinue
-            )
-            if ($candidates.Count -ne 1) {
-              throw "Expected exactly one compiled Settings XAML file named $name in current publish intermediates, found $($candidates.Count)."
+            $source = Join-Path $settingsObj $name
+            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+              throw "Compiled Settings XAML was not generated at the expected path: $source"
             }
-            $source = $candidates[0]
-            Write-Host "Staging Settings XAML: $($source.FullName)"
-            Copy-Item $source.FullName (Join-Path $settingsXamlStage $name)
+            Write-Host "Staging Settings XAML: $source"
+            Copy-Item -LiteralPath $source -Destination (Join-Path $settingsXamlStage $name)
           }
 
           $runNumber = [int64]"${{ github.run_number }}"

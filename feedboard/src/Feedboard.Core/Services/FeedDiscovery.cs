@@ -11,6 +11,7 @@ public sealed partial class FeedDiscovery
     private const int MaxHtmlBytes = 512 * 1024;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
     private static readonly HttpClient Http = CreateHttpClient();
+    private static readonly char[] AsciiWhitespace = [' ', '\t', '\n', '\r', '\f'];
     private static readonly HashSet<string> AdvertisedFeedTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "application/rss+xml",
@@ -65,7 +66,7 @@ public sealed partial class FeedDiscovery
         foreach (Match tag in LinkTagRegex().Matches(html))
         {
             var rel = AttributeValue(tag.Value, "rel");
-            if (rel is null || !rel.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            if (rel is null || !rel.Split(AsciiWhitespace, StringSplitOptions.RemoveEmptyEntries)
                     .Any(token => token.Equals("alternate", StringComparison.OrdinalIgnoreCase))) continue;
 
             var type = AttributeValue(tag.Value, "type");

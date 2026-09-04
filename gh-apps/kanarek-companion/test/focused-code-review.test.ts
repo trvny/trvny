@@ -30,7 +30,7 @@ type ReviewLensResult = {
 type FocusedReviewResponse = {
   ok: boolean;
   snapshots: { baseSha: string; headSha: string };
-  summary: { changedFiles: number };
+  summary: { changedFiles: number; readBudget: { maxReadActions: number } };
   scope: { unexpectedChangedPaths: string[] };
   nextAction: { reviewedHeadSha: string };
 };
@@ -126,6 +126,33 @@ test('focused review pins exact snapshots and returns bounded diff evidence', as
   assert.equal(payload.ok, true);
   assert.deepEqual(payload.snapshots, { baseSha, headSha });
   assert.equal(payload.summary.changedFiles, 1);
+  assert.equal(payload.summary.readBudget.maxReadActions, 43);
   assert.deepEqual(payload.scope.unexpectedChangedPaths, []);
   assert.equal(payload.nextAction.reviewedHeadSha, headSha);
+});
+
+
+test('focused review does not relay upstream read payloads through errors', async () => {
+  const baseSha = 'c'.repeat(40);
+  const headSha = 'd'.repeat(40);
+  const request = new Request(`https://example.workers.dev${FOCUSED_CODE_REVIEW_PATH}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ repository: 'trvny/trvny', baseSha, headSha }),
+  });
+  const response = await handleFocusedCodeReviewAction(
+    request,
+    async () => Response.json(
+      { ok: true, error: 'upstream_read_failed', data: { secret: 'do-not-relay' } },
+      { status: 502 },
+    ),
+  );
+  assert.ok(response);
+  assert.equal(response.status, 502);
+  const payload = await response.json() as Record<string, unknown>;
+  assert.equal(payload.ok, false);
+  assert.equal(payload.error, 'upstream_read_failed');
+  assert.equal(payload.readStatus, 502);
+  assert.equal('data' in payload, false);
+  assert.equal('secret' in payload, false);
 });

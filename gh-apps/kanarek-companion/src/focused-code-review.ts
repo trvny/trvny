@@ -8,8 +8,11 @@ export const FOCUSED_CODE_REVIEW_PATH = '/gpt-actions/operator/code-review';
 const READ_PATH = '/gpt-actions/github/read';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_REVIEW_FILES = 12;
-const MAX_GRAPH_FILES = 6;
-const MAX_CALLERS = 6;
+const MAX_GRAPH_FILES = 2;
+const MAX_CALLERS = 4;
+const MAX_DEPENDENCY_CANDIDATES = 6;
+const MAX_DEPENDENCY_GRAPH_CALLS = 4;
+const MAX_REVIEW_READ_ACTIONS = 3 + MAX_DEPENDENCY_GRAPH_CALLS * (4 + MAX_DEPENDENCY_CANDIDATES);
 const MAX_PATCH_PER_FILE = 16_000;
 const MAX_PATCH_TOTAL = 64_000;
 const MAX_SIGNAL_LINES = 18;
@@ -178,7 +181,7 @@ async function readData(source: Request, invoke: Invoke, path: string): Promise<
     throw new FocusedReviewError(
       typeof payload.error === 'string' ? payload.error : `read_${response.status}`,
       response.status,
-      payload,
+      { readPath: path, readStatus: response.status },
     );
   }
   return payload.data;
@@ -317,15 +320,21 @@ async function dependencyGraph(
       path,
       ref,
       maxCallers: MAX_CALLERS,
+      maxCandidates: MAX_DEPENDENCY_CANDIDATES,
     }),
     invoke,
   );
   if (!response) throw new FocusedReviewError('dependency_route_missing', 502);
-  const payload = await responseObject(response);
-  return response.ok && payload.ok === true ? payload : null;
+  if (!response.ok) return null;
+  try {
+    const payload = await responseObject(response);
+    return payload.ok === true ? payload : null;
+  } catch {
+    return null;
+  }
 }
 
-function dependencyEvidence(
+async function dependencyEvidence(
   source: Request,
   invoke: Invoke,
   input: FocusedReviewInput,
@@ -338,20 +347,37 @@ function dependencyEvidence(
   const targets = files
     .filter((file) => !file.testFile && !file.docsFile)
     .slice(0, MAX_GRAPH_FILES);
+  let remainingGraphCalls = MAX_DEPENDENCY_GRAPH_CALLS;
+  const result: DependencyEvidence[] = [];
 
-  return Promise.all(targets.map(async (file) => {
+  for (const file of targets) {
     const basePath = file.status === 'added' ? null : (file.previousPath ?? file.path);
     const headPath = file.status === 'removed' ? null : file.path;
-    const [before, after] = await Promise.all([
-      basePath ? dependencyGraph(source, invoke, input, basePath, input.baseSha) : Promise.resolve(null),
-      headPath ? dependencyGraph(source, invoke, input, headPath, input.headSha) : Promise.resolve(null),
-    ]);
+    let before: JsonObject | null = null;
+    let after: JsonObject | null = null;
+    let budgetLimited = false;
+    if (basePath) {
+      if (remainingGraphCalls > 0) {
+        remainingGraphCalls -= 1;
+        before = await dependencyGraph(source, invoke, input, basePath, input.baseSha);
+      } else {
+        budgetLimited = true;
+      }
+    }
+    if (headPath) {
+      if (remainingGraphCalls > 0) {
+        remainingGraphCalls -= 1;
+        after = await dependencyGraph(source, invoke, input, headPath, input.headSha);
+      } else {
+        budgetLimited = true;
+      }
+    }
     const callersBefore = graphCallers(before);
     const callersAfter = graphCallers(after);
     const beforeSet = new Set(callersBefore);
     const afterSet = new Set(callersAfter);
     const union = new Set([...callersBefore, ...callersAfter]);
-    return {
+    result.push({
       path: file.path,
       basePath,
       headPath,
@@ -363,10 +389,12 @@ function dependencyEvidence(
       removedCallers: callersBefore.filter((path) => !afterSet.has(path)),
       unmodifiedCallers: [...union].filter((path) => !changed.has(path)),
       incomplete:
+        budgetLimited ||
         (basePath ? graphIncomplete(before) : false) ||
         (headPath ? graphIncomplete(after) : false),
-    };
-  }));
+    });
+  }
+  return result;
 }
 
 export function focusedReviewScopeBlockers(review: JsonObject): string[] {
@@ -455,6 +483,11 @@ export async function buildFocusedCodeReview(
       testFiles: files.filter((file) => file.testFile).length,
       docsFiles: files.filter((file) => file.docsFile).length,
       patchesTruncated: files.some((file) => file.patchTruncated),
+      readBudget: {
+        maxDependencyGraphCalls: MAX_DEPENDENCY_GRAPH_CALLS,
+        maxCandidatesPerGraph: MAX_DEPENDENCY_CANDIDATES,
+        maxReadActions: MAX_REVIEW_READ_ACTIONS,
+      },
     },
     scope,
     files,
@@ -543,7 +576,7 @@ export async function handleFocusedCodeReviewAction(
     return json(await buildFocusedCodeReview(request, invoke, parseInput(raw)));
   } catch (error) {
     if (error instanceof FocusedReviewError) {
-      return json({ ok: false, error: error.code, ...error.details }, error.status);
+      return json({ ...error.details, ok: false, error: error.code }, error.status);
     }
     console.error(JSON.stringify({
       focusedCodeReview: 'failed',

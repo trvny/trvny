@@ -1,7 +1,35 @@
-# Kanarek companion Worker
+# Shared automation Worker
 
-Cloudflare Worker receiving GitHub App webhooks for `kanarek-companion` and
-maintaining the Kanarek PR status comment and free PR review.
+`kanarek-companion` is the **deployment/package slug** of one shared Cloudflare
+Worker. It is not the architectural name for everything hosted here.
+
+The runtime deliberately co-locates several related subsystems so they can share
+GitHub authentication, bounded network plumbing, Durable Objects, policy and a
+single deployment without pretending that every feature belongs to Kanarek.
+
+## Runtime boundaries
+
+Use these names consistently in code, docs, PRs and logs:
+
+| Subsystem | Owns | Does not own |
+| --- | --- | --- |
+| **Kanarek Companion** | GitHub webhook handling, PR status comment, quips/reactions, free PR review and its provider router | GPT Actions, repository automation, package/docs intelligence |
+| **GPTomek Bridge** | `gptomek[bot]` identity, installation auth, control mailbox and bot-authored GitHub writes | workflow policy and semantic operator decisions |
+| **Gremlin Operator** | OAuth-protected GPT Actions, guarded GitHub coding/maintenance/release/workflow operations, policy and orchestration | Kanarek presentation or quip behavior |
+| **Specialist Intelligence** | bounded read-only or narrowly scoped domain tools such as package intelligence, live docs and Engram; future artifact/feed/web inspection belongs here | generic arbitrary network or admin proxies |
+| **Shared runtime core** | common GitHub/action transport, auth context, safety guards, OpenAPI composition, health/capability metadata and Durable Object plumbing | product-specific behavior |
+
+The physical Worker may keep the `kanarek-companion` slug for compatibility.
+When describing the whole deployment, call it the **shared automation Worker**
+or **shared Worker runtime**. Reserve **Kanarek** for the companion/review
+subsystem and **GPTomek** for bot identity/transport. **Gremlin** is the operator
+that composes guarded actions and specialists.
+
+Keep one Worker while sharing auth, policy and deployment is useful. A subsystem
+should move to a separate Worker only when it needs materially different
+credentials/permissions, public exposure, resource limits, deployment cadence,
+or independent consumers. Heavy artifact processing is the first likely split
+candidate; it should still start behind the Specialist Intelligence boundary.
 
 ## Mental model
 
@@ -204,28 +232,60 @@ delivery path, so GPTomek does not need another Worker or webhook endpoint.
 
 ## Where to look
 
+### Kanarek Companion
+
 - `src/index.ts`: webhook routing, signature validation, delivery dedupe, and
   companion event coalescing.
+- `src/companion*.ts`: status-companion orchestration, GitHub I/O, rendering,
+  quip bank/receipts, language, reactions, types, and guarded branch updates.
 - `src/webhook-review.ts`: free-review queueing, debounce/dedupe, bounded
-  repository context, Kanarek review prompt, stale-head validation, and native
-  GitHub review publication.
-- `src/review-router.ts`: free-only provider routing and persistent provider
-  cooldowns shared by review transport.
-- `src/companion.ts`: top-level status-companion orchestration and quip
-  selection flow.
-- `src/companion-view.ts`: semantic PR state, badges, project areas, and the
-  rendered comment.
-- `src/companion-github.ts`: GitHub reads and comment upsert operations.
-- `src/companion-bank.ts`: persistent quip storage, adaptive AI budget,
-  selection, migration, and pruning.
-- `src/companion-paid.ts`: short-lived paid-generation retry receipts.
-- `src/quip.ts`: presets, quip provider adapters, prompt contract,
-  sanitization, and base AI rollout.
-- `src/companion-language.ts`: lightweight PL/EN detection and validation.
-- `src/companion-reactions.ts`: one semantic Kanarek reaction per PR state.
-- `src/companion-update.ts`: guarded same-repository branch update logic.
-- `src/gptomek.ts`: mailbox command parser and GPTomek GitHub operations.
-- `test/`: regression coverage for each of the above behaviors.
+  repository context, stale-head validation, and native GitHub review publication.
+- `src/review-router.ts` and `src/openrouter-models.ts`: free-only review provider
+  routing, model chain and persistent provider cooldowns.
+- `src/quip.ts`: presets, quip provider adapters, prompt contract, sanitization,
+  and the base AI rollout.
+
+### GPTomek Bridge
+
+- `src/github-app.ts`: GitHub App signing, installation auth and shared App I/O.
+- `src/gptomek.ts` and `src/gptomek-issue.ts`: control mailbox parsing and
+  bot-authored GitHub operations.
+- `src/gpt-actions.ts`: low-level scoped GitHub read/bot gateways used by guarded
+  operator actions.
+
+### Gremlin Operator
+
+- `src/router.ts` and `src/entry.ts`: operator routing and OpenAPI composition.
+  They are composition roots, not homes for domain logic.
+- `src/operator-actions.ts`, `src/autopilot*.ts`, `src/policy*.ts`: operator
+  bootstrap/orchestration, checkpoints and runtime policy.
+- `src/change-actions.ts`, `src/code-*.ts`, `src/*investigation*.ts`,
+  `src/dependency-graph.ts`, `src/test-discovery.ts`: coding operator.
+- `src/maintenance*.ts`, `src/workflow*.ts`, `src/issue-actions.ts`,
+  `src/lifecycle-actions.ts`: repository/account operations.
+- `src/release*.ts` and `src/zip-entry.ts`: guarded release pipeline.
+- `src/cloudflare-actions.ts`: guarded Cloudflare operator adapter.
+
+### Specialist Intelligence
+
+- `src/package-intelligence.ts` and `src/package-registry.ts`: package metadata,
+  advisories, upstream signals and registry adapters.
+- `src/docs-actions.ts`: bounded live documentation lookup.
+- `src/engram-actions.ts`: bounded Engram memory bridge.
+- Future artifact inspector, feed doctor and web diagnostics belong in this
+  boundary first, even if they continue to share this Worker.
+
+### Shared runtime core
+
+- `src/action-context.ts`: request-local GitHub transport/caching.
+- `src/conflict-response.ts`, `src/git-tree.ts`, `src/review-thread-pagination.ts`:
+  shared safety/evidence utilities.
+- `src/runtime-entry.ts` and `src/runtime-openapi.ts`: runtime composition helpers.
+- `test/`: regression coverage across all subsystem boundaries.
+
+When adding a feature, put domain behavior in the owning subsystem and keep
+`entry.ts`/`router.ts` limited to wiring. Do not call a Gremlin or specialist
+feature a "Kanarek feature" merely because it deploys in the same Worker.
 
 When changing quip behavior, preserve the distinction between `quipKey`
 (reusable context) and `stateHash` (specific PR state). When changing webhook

@@ -75,8 +75,9 @@ Build outward in this order, keeping external capabilities high-level and guarde
 
 ## Architecture / ergonomics
 
+- [x] Define the shared Worker runtime boundaries: Kanarek Companion, GPTomek Bridge, Gremlin Operator, Specialist Intelligence and shared runtime core. Keep `kanarek-companion` as the deployment slug, not the umbrella architecture name.
 - [ ] Generate an optional compact Builder/Knowledge pack from private `.ai` sources.
-- [ ] Introduce a central Action registry if router/OpenAPI registration duplication keeps growing.
+- [ ] Introduce a central Action registry now that router/OpenAPI composition spans multiple operator and specialist domains; keep it as wiring metadata rather than a second policy source of truth.
 - [ ] Add further code-investigation ergonomics only when they demonstrably remove round trips.
 
 ## Design constraints

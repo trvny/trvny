@@ -2,7 +2,7 @@
   "name": "kanarek-companion",
   "version": "0.1.0",
   "private": true,
-  "description": "GitHub App webhook endpoint for Kanarek companion.",
+  "description": "Shared Cloudflare Worker runtime for Kanarek Companion, GPTomek, Gremlin Operator and specialist intelligence.",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",

@@ -29,6 +29,9 @@ test('gateway manifest reports exact operation IDs and Worker version metadata',
     timestamp: '2026-08-21T00:00:00.000Z',
   }) as {
     manifestVersion: number;
+    service: string;
+    runtimeRole: string;
+    subsystems: string[];
     workerVersion: { id: string; tag: string; timestamp: string };
     openApi: {
       operationCount: number;
@@ -38,6 +41,14 @@ test('gateway manifest reports exact operation IDs and Worker version metadata',
   };
 
   assert.equal(manifest.manifestVersion, 1);
+  assert.equal(manifest.service, 'kanarek-companion');
+  assert.equal(manifest.runtimeRole, 'shared-automation-worker');
+  assert.deepEqual(manifest.subsystems, [
+    'kanarek-companion',
+    'gptomek-bridge',
+    'gremlin-operator',
+    'specialist-intelligence',
+  ]);
   assert.equal(manifest.workerVersion.id, 'worker-version-id');
   assert.equal(manifest.workerVersion.tag, 'deploy-tag');
   assert.ok(manifest.openApi.operationIds.includes('getOperatorCapabilities'));

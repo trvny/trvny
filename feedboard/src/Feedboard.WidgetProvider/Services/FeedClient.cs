@@ -288,7 +288,7 @@ public sealed partial class FeedClient
     private sealed record SiteIconCacheEntry(Lazy<Task<string?>> Value, DateTimeOffset ExpiresAt);
 
     [GeneratedRegex("<link\\b[^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)] private static partial Regex LinkTagRegex();
-    [GeneratedRegex("([A-Za-z_:][-A-Za-z0-9_:.]*)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)] private static partial Regex HtmlAttributeRegex();
+    [GeneratedRegex("([A-Za-z_:][-A-Za-z0-9_:.]*)\\s*=\\s*(?:((?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)] private static partial Regex HtmlAttributeRegex();
     [GeneratedRegex("<img[^>]+src=[\\\"']([^\\\"']+)[\\\"']", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)] private static partial Regex ImgSrcRegex();
     [GeneratedRegex("<[^>]+>")] private static partial Regex HtmlTagRegex();
     [GeneratedRegex("\\s+")] private static partial Regex WhitespaceRegex();

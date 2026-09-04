@@ -41,7 +41,7 @@ Prefer high-level guarded Actions over raw GitHub calls:
 - pull-request inspection → `inspectPullRequest`;
 - ready PR merge → `finalizePullRequest`;
 - workflow failure → `diagnoseWorkflowRun`;
-- release from build through asset verification → `orchestrateRelease`.
+- release from build through artifact/entry verification → `orchestrateRelease`.
 
 Use generic GitHub read/bot Actions only when the high-level Actions do not cover the task.
 

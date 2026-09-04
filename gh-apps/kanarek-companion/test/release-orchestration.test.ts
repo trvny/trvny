@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  releaseArtifactEntryPath,
   releaseAssetRecoveryCandidate,
+  releaseAssetUploadPath,
   selectArtifact,
   selectDispatchedRun,
 } from '../src/release-orchestration.ts';
@@ -35,6 +37,19 @@ test('release orchestration is exposed in Custom GPT OpenAPI', () => {
 
   assert.ok(orchestration);
   assert.ok(!orchestration.description || orchestration.description.length <= 300);
+});
+
+test('release orchestration selects whole artifacts or exact entries explicitly', () => {
+  assert.equal(
+    releaseAssetUploadPath(),
+    '/gpt-actions/github/releases/assets/upload-artifact',
+  );
+  assert.equal(
+    releaseAssetUploadPath('dist/app-release.apk'),
+    '/gpt-actions/github/releases/assets/upload-entry',
+  );
+  assert.equal(releaseArtifactEntryPath('dist/app-release.apk'), 'dist/app-release.apk');
+  assert.throws(() => releaseArtifactEntryPath('../app-release.apk'), /invalid_zip_entry_path/);
 });
 
 test('workflow run discovery ignores baseline, wrong actor, stale and wrong-SHA runs', () => {

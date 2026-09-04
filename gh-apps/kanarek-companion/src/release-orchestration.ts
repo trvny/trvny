@@ -11,6 +11,7 @@ import {
 } from './policy-merge-release.ts';
 import { loadGremlinPolicy } from './policy-actions.ts';
 import { repositoryAllowedByPolicy } from './policy-enforcement.ts';
+import { handleReleaseEntryAction, RELEASE_ENTRY_UPLOAD_PATH } from './release-entry-action.ts';
 import { releaseAssetNameAllowed, releaseTagAllowed } from './release-actions.ts';
 import {
   handleWorkflowAction,
@@ -19,6 +20,7 @@ import {
   workflowRefAllowed,
 } from './workflow-actions.ts';
 import { handleEnhancedWorkflowDiagnosis } from './workflow-diagnosis-enhanced.ts';
+import { zipEntryPath, ZipEntryError } from './zip-entry.ts';
 
 export const RELEASE_ORCHESTRATION_PATH = '/gpt-actions/operator/releases/orchestrate';
 
@@ -55,6 +57,7 @@ interface ReleaseInput {
   workflowInputs: Record<string, string>;
   tag: string;
   artifactName: string;
+  artifactEntryPath?: string;
   assetName: string;
   assetLabel?: string;
   releaseName?: string;
@@ -151,6 +154,22 @@ function makeLatest(value: unknown): MakeLatest | undefined {
   return value;
 }
 
+export function releaseArtifactEntryPath(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return zipEntryPath(value);
+  } catch (error) {
+    if (error instanceof ZipEntryError) {
+      throw new ReleaseOrchestrationError(error.code, error.status);
+    }
+    throw error;
+  }
+}
+
+export function releaseAssetUploadPath(entryPath?: string): string {
+  return entryPath ? RELEASE_ENTRY_UPLOAD_PATH : RELEASE_ASSET_UPLOAD_PATH;
+}
+
 async function parseInput(
   request: Request,
 ): Promise<{ input: ReleaseInput; hashInput: JsonObject; inputHash: string }> {
@@ -171,6 +190,7 @@ async function parseInput(
     'inputs',
     'tag',
     'artifactName',
+    'artifactEntryPath',
     'assetName',
     'assetLabel',
     'releaseName',
@@ -211,6 +231,7 @@ async function parseInput(
     workflowInputs,
     tag: raw.tag,
     artifactName,
+    artifactEntryPath: releaseArtifactEntryPath(raw.artifactEntryPath),
     assetName: raw.assetName,
     assetLabel: optionalText(raw.assetLabel, 'asset_label', 255),
     releaseName: optionalText(raw.releaseName, 'release_name', 500),
@@ -675,21 +696,22 @@ async function invokeArtifactUpload(
   if (!progress.releaseId || !progress.runId || !progress.artifact) {
     throw new ReleaseOrchestrationError('incomplete_release_checkpoint', 500);
   }
-  const response = await handleMergeReleasePolicyAction(
-    internalRequest(request, RELEASE_ASSET_UPLOAD_PATH, {
-      repository: input.repository,
-      releaseId: progress.releaseId,
-      expectedTag: input.tag,
-      artifactId: progress.artifact.id,
-      expectedArtifactName: progress.artifact.name,
-      expectedArtifactSizeBytes: progress.artifact.sizeBytes,
-      expectedWorkflowRunId: progress.runId,
-      assetName: input.assetName,
-      ...(input.assetLabel !== undefined ? { label: input.assetLabel } : {}),
-    }),
-    env,
-    fetcher,
-  );
+  const uploadPath = releaseAssetUploadPath(input.artifactEntryPath);
+  const uploadRequest = internalRequest(request, uploadPath, {
+    repository: input.repository,
+    releaseId: progress.releaseId,
+    expectedTag: input.tag,
+    artifactId: progress.artifact.id,
+    expectedArtifactName: progress.artifact.name,
+    expectedArtifactSizeBytes: progress.artifact.sizeBytes,
+    expectedWorkflowRunId: progress.runId,
+    ...(input.artifactEntryPath !== undefined ? { entryPath: input.artifactEntryPath } : {}),
+    assetName: input.assetName,
+    ...(input.assetLabel !== undefined ? { label: input.assetLabel } : {}),
+  });
+  const response = input.artifactEntryPath
+    ? await handleReleaseEntryAction(uploadRequest, env, fetcher)
+    : await handleMergeReleasePolicyAction(uploadRequest, env, fetcher);
   if (!response) throw new ReleaseOrchestrationError('release_asset_route_missing', 500);
   return responseObject(response);
 }
@@ -1121,7 +1143,7 @@ export function addReleaseOrchestrationOpenApi(document: JsonObject): void {
       operationId: 'orchestrateRelease',
       summary: 'Build and publish a release through guarded GitHub actions',
       description:
-        'Runs a resumable release state machine: validate target, dispatch and verify a workflow, select an exact artifact, create/update the release, upload the asset and verify final state.',
+        'Runs a resumable release state machine: validate target, dispatch and verify a workflow, select an exact artifact, optionally extract one exact artifact entry, create/update the release, upload the asset and verify final state.',
       requestBody: {
         required: true,
         content: {
@@ -1154,6 +1176,11 @@ export function addReleaseOrchestrationOpenApi(document: JsonObject): void {
                 },
                 tag: { type: 'string', example: 'v1.2.3' },
                 artifactName: { type: 'string' },
+                artifactEntryPath: {
+                  type: 'string',
+                  example: 'app-release.apk',
+                  description: 'Optional exact ZIP entry to publish instead of the whole artifact archive.',
+                },
                 assetName: { type: 'string', example: 'app-release.zip' },
                 assetLabel: { type: 'string' },
                 releaseName: { type: 'string' },

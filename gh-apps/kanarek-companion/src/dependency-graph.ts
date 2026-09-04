@@ -19,6 +19,7 @@ type Input = {
   path: string;
   ref?: string;
   maxCallers: number;
+  maxCandidates: number;
 };
 
 export type ImportEvidence = {
@@ -109,6 +110,14 @@ function maxCallers(value: unknown): number {
   return value;
 }
 
+function maxCandidates(value: unknown, callerLimit: number): number {
+  if (value === undefined) return Math.min(MAX_CANDIDATES, Math.max(12, callerLimit * 3));
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_CANDIDATES) {
+    throw new DependencyGraphError('invalid_max_candidates');
+  }
+  return value;
+}
+
 async function inputObject(request: Request): Promise<Input> {
   const text = await request.clone().text();
   if (text.length > 16_000) throw new DependencyGraphError('payload_too_large', 413);
@@ -119,15 +128,17 @@ async function inputObject(request: Request): Promise<Input> {
     throw new DependencyGraphError('invalid_json');
   }
   if (!isObject(value)) throw new DependencyGraphError('invalid_json_object');
-  const allowed = new Set(['repository', 'path', 'ref', 'maxCallers']);
+  const allowed = new Set(['repository', 'path', 'ref', 'maxCallers', 'maxCandidates']);
   if (Object.keys(value).some((key) => !allowed.has(key))) {
     throw new DependencyGraphError('invalid_dependency_graph_request');
   }
+  const callerLimit = maxCallers(value.maxCallers);
   return {
     repository: repository(value.repository),
     path: pathValue(value.path),
     ref: optionalRef(value.ref),
-    maxCallers: maxCallers(value.maxCallers),
+    maxCallers: callerLimit,
+    maxCandidates: maxCandidates(value.maxCandidates, callerLimit),
   };
 }
 
@@ -435,7 +446,7 @@ async function dependencyGraph(source: Request, invoke: Invoke): Promise<Respons
   const directImports = extractImports(targetContent);
   const seed = searchSeed(input.path);
   if (!seed) throw new DependencyGraphError('invalid_search_seed');
-  const candidateLimit = Math.min(MAX_CANDIDATES, Math.max(12, input.maxCallers * 3));
+  const candidateLimit = input.maxCandidates;
   const query = `${seed} repo:${input.repository}`;
   const searchRaw = await readData(
     source,
@@ -556,6 +567,10 @@ export function addDependencyGraphOpenApi(document: JsonObject): void {
                 path: { type: 'string', example: 'gh-apps/kanarek-companion/src/runtime-entry.ts' },
                 ref: { type: 'string', description: 'Optional branch, tag or exact commit SHA.' },
                 maxCallers: { type: 'integer', minimum: 1, maximum: MAX_CALLERS, default: 8 },
+                maxCandidates: {
+                  type: 'integer', minimum: 1, maximum: MAX_CANDIDATES,
+                  description: 'Optional caller-search candidate cap for bounded composed workflows.',
+                },
               },
             },
           },

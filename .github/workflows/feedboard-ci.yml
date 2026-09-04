@@ -68,7 +68,10 @@ jobs:
             --self-contained true `
             --output $settingsStage `
             -p:WindowsPackageType=None `
-            -p:WindowsAppSDKSelfContained=true
+            -p:WindowsAppSDKSelfContained=false `
+            -p:WindowsAppSdkBootstrapInitialize=false `
+            -p:WindowsAppSdkDeploymentManagerInitialize=false `
+            -p:WindowsAppSdkUndockedRegFreeWinRTInitialize=false
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
           }
@@ -189,6 +192,12 @@ jobs:
           )) {
             if (-not (Test-Path (Join-Path $settingsDir $required))) {
               throw "MSIX is missing settings runtime file: Settings\$required"
+            }
+          }
+
+          foreach ($forbidden in @("CoreMessagingXP.dll", "Microsoft.UI.Xaml.dll")) {
+            if (Test-Path (Join-Path $settingsDir $forbidden)) {
+              throw "Settings unexpectedly contains Windows App SDK runtime file: Settings\$forbidden"
             }
           }
 

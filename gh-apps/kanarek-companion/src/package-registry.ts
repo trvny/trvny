@@ -262,15 +262,17 @@ async function cratesRegistry(
   };
 }
 
-function xmlDecode(value: string): string {
-  return value
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+function xmlScalar(value: string): string | null {
+  const trimmed = value.trim();
+  const cdata = /^<!\[CDATA\[([\s\S]*?)\]\]>$/.exec(trimmed);
+  const scalar = (cdata ? cdata[1] : trimmed).trim();
+  if (!scalar || /[<>]/.test(scalar)) return null;
+  const decoded = scalar
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&amp;/g, '&')
     .trim();
+  return decoded || null;
 }
 
 function xmlSection(xml: string, tag: string): string | null {
@@ -281,11 +283,12 @@ function xmlSection(xml: string, tag: string): string | null {
 function xmlText(xml: string | null, tag: string): string | null {
   if (!xml) return null;
   const match = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i').exec(xml);
-  return match ? xmlDecode(match[1].replace(/<[^>]+>/g, '')) || null : null;
+  return match ? xmlScalar(match[1]) : null;
 }
+
 function xmlAttribute(xml: string, tag: string, attribute: string): string | null {
   const match = new RegExp(`<${tag}\\b[^>]*\\b${attribute}=["']([^"']+)["'][^>]*>`, 'i').exec(xml);
-  return match ? xmlDecode(match[1]) || null : null;
+  return match ? xmlScalar(match[1]) : null;
 }
 
 type MavenPomMetadata = {
@@ -451,26 +454,28 @@ function parsedNugetVersion(value: string): NugetVersion | null {
 }
 
 function compareNugetVersions(left: string, right: string): number | null {
-  const a = parsedNugetVersion(left);
-  const b = parsedNugetVersion(right);
-  if (!a || !b) return null;
-  for (let index = 0; index < a.core.length; index += 1) {
-    if (a.core[index] !== b.core[index]) return a.core[index] - b.core[index];
+  const leftVersion = parsedNugetVersion(left);
+  const rightVersion = parsedNugetVersion(right);
+  if (!leftVersion || !rightVersion) return null;
+  for (let index = 0; index < leftVersion.core.length; index += 1) {
+    if (leftVersion.core[index] !== rightVersion.core[index]) {
+      return leftVersion.core[index] - rightVersion.core[index];
+    }
   }
-  if (a.prerelease === null && b.prerelease === null) return 0;
-  if (a.prerelease === null) return 1;
-  if (b.prerelease === null) return -1;
-  const length = Math.max(a.prerelease.length, b.prerelease.length);
+  if (leftVersion.prerelease === null && rightVersion.prerelease === null) return 0;
+  if (leftVersion.prerelease === null) return 1;
+  if (rightVersion.prerelease === null) return -1;
+  const length = Math.max(leftVersion.prerelease.length, rightVersion.prerelease.length);
   for (let index = 0; index < length; index += 1) {
-    const av = a.prerelease[index];
-    const bv = b.prerelease[index];
-    if (av === undefined) return -1;
-    if (bv === undefined) return 1;
-    if (av === bv) continue;
-    if (typeof av === 'number' && typeof bv === 'number') return av - bv;
-    if (typeof av === 'number') return -1;
-    if (typeof bv === 'number') return 1;
-    return av.localeCompare(bv);
+    const leftPart = leftVersion.prerelease[index];
+    const rightPart = rightVersion.prerelease[index];
+    if (leftPart === undefined) return -1;
+    if (rightPart === undefined) return 1;
+    if (leftPart === rightPart) continue;
+    if (typeof leftPart === 'number' && typeof rightPart === 'number') return leftPart - rightPart;
+    if (typeof leftPart === 'number') return -1;
+    if (typeof rightPart === 'number') return 1;
+    return leftPart.localeCompare(rightPart);
   }
   return 0;
 }
@@ -514,84 +519,143 @@ async function nugetLeaves(
   return leaves;
 }
 
+type NugetCatalogSelection = {
+  selected: JsonObject;
+  latest: JsonObject;
+  selectedVersion: string;
+  latestVersion: string;
+};
+
+function safeNugetBase(value: string | null): URL | null {
+  if (!value) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return null;
+  }
+  return parsed.protocol === 'https:' && parsed.hostname.endsWith('.nuget.org') ? parsed : null;
+}
+
+function nugetServiceBases(service: unknown): {
+  registrationBase: URL;
+  packageBase: URL | null;
+} {
+  if (!isObject(service)) throw new PackageRegistryError('invalid_registry_response', 502);
+  const resources = arrayObjects(service.resources);
+  const registrationBase = safeNugetBase(nugetResource(resources, 'RegistrationsBaseUrl'));
+  if (!registrationBase) throw new PackageRegistryError('registry_capability_unavailable', 502);
+  return {
+    registrationBase,
+    packageBase: safeNugetBase(nugetResource(resources, 'PackageBaseAddress')),
+  };
+}
+
+function nugetCatalogSelection(
+  entries: JsonObject[],
+  requestedVersion: string | null,
+): NugetCatalogSelection {
+  if (!entries.length) throw new PackageRegistryError('package_not_found', 404);
+  const listed = entries.filter((entry) => entry.listed !== false);
+  const stable = listed.filter((entry) => !text(entry.version)?.includes('-'));
+  const latest = stable.at(-1) ?? listed.at(-1) ?? entries.at(-1);
+  if (!latest) throw new PackageRegistryError('package_not_found', 404);
+  const latestVersion = text(latest.version);
+  if (!latestVersion) throw new PackageRegistryError('invalid_registry_response', 502);
+  const selectedVersion = requestedVersion ?? latestVersion;
+  const selected = entries.find(
+    (entry) => text(entry.version)?.toLowerCase() === selectedVersion.toLowerCase(),
+  );
+  if (!selected) throw new PackageRegistryError('package_version_not_found', 404);
+  return { selected, latest, selectedVersion, latestVersion };
+}
+
+async function nugetNuspec(
+  name: string,
+  selectedVersion: string,
+  packageBase: URL | null,
+  fetchText: TextFetcher,
+): Promise<{ content: string; url: string | null }> {
+  if (!packageBase) return { content: '', url: null };
+  const id = name.toLowerCase();
+  const version = selectedVersion.toLowerCase();
+  const url = new URL(
+    `${encodeURIComponent(id)}/${encodeURIComponent(version)}/${encodeURIComponent(id)}.nuspec`,
+    packageBase,
+  ).toString();
+  try {
+    return { content: await fetchText(url), url };
+  } catch {
+    return { content: '', url };
+  }
+}
+
+function nugetVulnerabilities(selected: JsonObject): Array<{ url: string | null; severity: string | null }> {
+  return arrayObjects(selected.vulnerabilities).slice(0, 16).map((entry) => ({
+    url: text(entry.advisoryUrl),
+    severity: entry.severity === undefined ? null : String(entry.severity),
+  }));
+}
+
+function nugetDeprecation(selected: JsonObject): string | null {
+  const deprecation = objectValue(selected.deprecation);
+  if (!Array.isArray(deprecation?.reasons)) return null;
+  const reasons = deprecation.reasons.filter((item): item is string => typeof item === 'string');
+  return reasons.length ? reasons.join(', ') : null;
+}
+
 async function nugetRegistry(
   name: string,
   version: string | null,
   fetchJson: JsonFetcher,
   fetchText: TextFetcher,
 ): Promise<PackageRegistryResult> {
-  const service = await fetchJson('https://api.nuget.org/v3/index.json');
-  if (!isObject(service)) throw new PackageRegistryError('invalid_registry_response', 502);
-  const resources = arrayObjects(service.resources);
-  const registrationBase = nugetResource(resources, 'RegistrationsBaseUrl');
-  if (!registrationBase) throw new PackageRegistryError('registry_capability_unavailable', 502);
-  const base = new URL(registrationBase);
-  if (base.protocol !== 'https:' || !base.hostname.endsWith('.nuget.org')) {
-    throw new PackageRegistryError('registry_capability_unavailable', 502);
-  }
-  const indexRaw = await fetchJson(new URL(`${encodeURIComponent(name.toLowerCase())}/index.json`, base).toString());
+  const bases = nugetServiceBases(await fetchJson('https://api.nuget.org/v3/index.json'));
+  const indexUrl = new URL(
+    `${encodeURIComponent(name.toLowerCase())}/index.json`,
+    bases.registrationBase,
+  ).toString();
+  const indexRaw = await fetchJson(indexUrl);
   if (!isObject(indexRaw)) throw new PackageRegistryError('package_not_found', 404);
   const leaves = await nugetLeaves(indexRaw, fetchJson, version);
-  if (!leaves.length) throw new PackageRegistryError('package_not_found', 404);
   const entries = leaves
     .map((leaf) => objectValue(leaf.catalogEntry))
     .filter((entry): entry is JsonObject => Boolean(entry));
-  const listed = entries.filter((entry) => entry.listed !== false);
-  const stable = listed.filter((entry) => !text(entry.version)?.includes('-'));
-  const latest = stable.at(-1) ?? listed.at(-1) ?? entries.at(-1) ?? null;
-  const latestVersion = text(latest?.version);
-  if (!latestVersion) throw new PackageRegistryError('invalid_registry_response', 502);
-  const selectedVersion = version ?? latestVersion;
-  const selected = entries.find((entry) => text(entry.version)?.toLowerCase() === selectedVersion.toLowerCase()) ?? null;
-  if (!selected) throw new PackageRegistryError('package_version_not_found', 404);
-  const repository = objectValue(selected.repository);
-  const packageBase = nugetResource(resources, 'PackageBaseAddress');
-  let nuspec = '';
-  let nuspecUrl: string | null = null;
-  if (packageBase) {
-    const packageBaseUrl = new URL(packageBase);
-    if (packageBaseUrl.protocol === 'https:' && packageBaseUrl.hostname.endsWith('.nuget.org')) {
-      const id = name.toLowerCase();
-      const normalizedVersion = (text(selected.version) ?? selectedVersion).toLowerCase();
-      nuspecUrl = new URL(
-        `${encodeURIComponent(id)}/${encodeURIComponent(normalizedVersion)}/${encodeURIComponent(id)}.nuspec`,
-        packageBaseUrl,
-      ).toString();
-      try {
-        nuspec = await fetchText(nuspecUrl);
-      } catch {
-        nuspec = '';
-      }
-    }
-  }
-  const nuspecMetadata = xmlSection(nuspec, 'metadata') ?? nuspec;
-  const vulnerabilities = arrayObjects(selected.vulnerabilities).slice(0, 16).map((entry) => ({
-    url: text(entry.advisoryUrl),
-    severity: entry.severity === undefined ? null : String(entry.severity),
-  }));
-  const deprecation = objectValue(selected.deprecation);
-  const reasons = Array.isArray(deprecation?.reasons) ? deprecation.reasons.filter((item): item is string => typeof item === 'string') : [];
+  const selection = nugetCatalogSelection(entries, version);
+  const selectedVersion = text(selection.selected.version) ?? selection.selectedVersion;
+  const nuspec = await nugetNuspec(name, selectedVersion, bases.packageBase, fetchText);
+  const nuspecMetadata = xmlSection(nuspec.content, 'metadata') ?? nuspec.content;
+  const repository = objectValue(selection.selected.repository);
   return {
     ecosystem: 'nuget',
-    name: text(selected.id) ?? name,
-    selectedVersion: text(selected.version) ?? selectedVersion,
-    latestVersion,
-    latestPublishedAt: text(latest?.published),
-    description: text(selected.description) ?? text(selected.summary) ?? xmlText(nuspecMetadata, 'description'),
-    license: text(selected.licenseExpression) ?? xmlText(nuspecMetadata, 'license') ?? text(selected.licenseUrl),
-    deprecated: reasons.length ? reasons.join(', ') : null,
-    yanked: selected.listed === false,
-    repositoryUrl: text(repository?.url) ?? xmlAttribute(nuspec, 'repository', 'url') ?? text(selected.projectUrl),
-    homepageUrl: text(selected.projectUrl) ?? xmlText(nuspecMetadata, 'projectUrl'),
+    name: text(selection.selected.id) ?? name,
+    selectedVersion,
+    latestVersion: selection.latestVersion,
+    latestPublishedAt: text(selection.latest.published),
+    description:
+      text(selection.selected.description) ??
+      text(selection.selected.summary) ??
+      xmlText(nuspecMetadata, 'description'),
+    license:
+      text(selection.selected.licenseExpression) ??
+      xmlText(nuspecMetadata, 'license') ??
+      text(selection.selected.licenseUrl),
+    deprecated: nugetDeprecation(selection.selected),
+    yanked: selection.selected.listed === false,
+    repositoryUrl:
+      text(repository?.url) ??
+      xmlAttribute(nuspec.content, 'repository', 'url') ??
+      text(selection.selected.projectUrl),
+    homepageUrl: text(selection.selected.projectUrl) ?? xmlText(nuspecMetadata, 'projectUrl'),
     registryUrl: `https://www.nuget.org/packages/${encodeURIComponent(name)}/${encodeURIComponent(selectedVersion)}`,
-    packageUrl: text(selected.packageContent) ?? nuspecUrl,
+    packageUrl: text(selection.selected.packageContent) ?? nuspec.url,
     checksum: null,
     requiresRuntime: null,
-    registryVulnerabilities: vulnerabilities,
+    registryVulnerabilities: nugetVulnerabilities(selection.selected),
   };
 }
 
-export async function inspectRegistryPackage(
+export function inspectRegistryPackage(
   ecosystem: PackageEcosystem,
   name: string,
   version: string | null,

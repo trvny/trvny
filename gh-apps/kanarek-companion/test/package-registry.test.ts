@@ -10,18 +10,17 @@ import {
 type JsonMap = Record<string, unknown>;
 
 function jsonMap(values: JsonMap) {
-  return async (url: string): Promise<unknown> => {
+  return (url: string): Promise<unknown> => {
     const direct = values[url];
-    if (direct !== undefined) return direct;
+    if (direct !== undefined) return Promise.resolve(direct);
     const entry = Object.entries(values).find(([key]) => url.includes(key));
-    if (entry) return entry[1];
-    throw new Error(`unexpected json URL: ${url}`);
+    if (entry) return Promise.resolve(entry[1]);
+    return Promise.reject(new Error(`unexpected json URL: ${url}`));
   };
 }
 
-const noText = async (url: string): Promise<string> => {
-  throw new Error(`unexpected text URL: ${url}`);
-};
+const noText = (url: string): Promise<string> =>
+  Promise.reject(new Error(`unexpected text URL: ${url}`));
 
 test('package names are ecosystem-scoped instead of becoming URL input', () => {
   assert.equal(packageName('npm', '@scope/pkg'), '@scope/pkg');
@@ -129,7 +128,7 @@ test('Maven Central metadata combines search freshness with bounded POM metadata
         response: { docs: [{ latestVersion: '3.0.0', timestamp: 1780000000000 }] },
       },
     }),
-    async (url) => url.includes('/demo/3.0.0/demo-3.0.0.pom')
+    (url) => Promise.resolve(url.includes('/demo/3.0.0/demo-3.0.0.pom')
       ? `
         <project>
           <parent>
@@ -144,12 +143,29 @@ test('Maven Central metadata combines search freshness with bounded POM metadata
           <url>https://example.com/demo</url>
           <licenses><license><name>Apache-2.0</name></license></licenses>
           <scm><url>https://github.com/acme/demo</url></scm>
-        </project>`,
+        </project>`),
   );
   assert.equal(result.latestVersion, '3.0.0');
   assert.equal(result.license, 'Apache-2.0');
   assert.equal(result.repositoryUrl, 'https://github.com/acme/demo');
   assert.equal(result.description, 'Demo library');
+});
+
+test('Maven text fields reject embedded markup instead of stripping tags', async () => {
+  const result = await inspectRegistryPackage(
+    'maven',
+    'com.example:unsafe',
+    null,
+    jsonMap({
+      'search.maven.org/solrsearch/select': {
+        response: { docs: [{ latestVersion: '1.0.0' }] },
+      },
+    }),
+    () => Promise.resolve(
+      '<project><description><![CDATA[<script>alert(1)</script>]]></description></project>',
+    ),
+  );
+  assert.equal(result.description, null);
 });
 
 test('NuGet discovers its registration resource before reading package metadata', async () => {
@@ -198,30 +214,30 @@ test('NuGet discovers its registration resource before reading package metadata'
 
 test('NuGet exact versions fetch only the matching and recent registration pages', async () => {
   const calls: string[] = [];
-  const fetchJson = async (url: string): Promise<unknown> => {
+  const fetchJson = (url: string): Promise<unknown> => {
     calls.push(url);
     if (url === 'https://api.nuget.org/v3/index.json') {
-      return {
+      return Promise.resolve({
         resources: [{
           '@id': 'https://api.nuget.org/v3/registration5-semver2/',
           '@type': 'RegistrationsBaseUrl/3.6.0',
         }],
-      };
+      });
     }
     if (url.endsWith('/demo.package/index.json')) {
-      return {
+      return Promise.resolve({
         items: [
           { '@id': 'https://api.nuget.org/page-old.json', lower: '1.0.0', upper: '1.9.9' },
           { '@id': 'https://api.nuget.org/page-target.json', lower: '2.0.0', upper: '2.9.9' },
           { '@id': 'https://api.nuget.org/page-latest.json', lower: '3.0.0', upper: '3.9.9' },
         ],
-      };
+      });
     }
     if (url.endsWith('/page-target.json')) {
-      return { items: [{ catalogEntry: { id: 'Demo.Package', version: '2.1.0' } }] };
+      return Promise.resolve({ items: [{ catalogEntry: { id: 'Demo.Package', version: '2.1.0' } }] });
     }
     if (url.endsWith('/page-latest.json')) {
-      return { items: [{ catalogEntry: { id: 'Demo.Package', version: '3.0.0' } }] };
+      return Promise.resolve({ items: [{ catalogEntry: { id: 'Demo.Package', version: '3.0.0' } }] });
     }
     throw new Error(`unexpected JSON URL: ${url}`);
   };
@@ -239,6 +255,7 @@ test('NuGet exact versions fetch only the matching and recent registration pages
   assert.ok(calls.some((url) => url.endsWith('/page-latest.json')));
   assert.ok(!calls.some((url) => url.endsWith('/page-old.json')));
 });
+
 test('alternatives stay registry-specific and PyPI declines unsupported search', async () => {
   assert.deepEqual(await registryAlternatives('pypi', 'demo', jsonMap({})), {
     supported: false,

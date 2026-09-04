@@ -49,9 +49,9 @@ test('operator authorization fails closed before package networks are touched', 
   const response = await handlePackageIntelligenceAction(
     request({ ecosystem: 'npm', package: 'demo' }),
     operatorInvoke('someone-else'),
-    (async () => {
+    (() => {
       externalCalls += 1;
-      return Response.json({});
+      return Promise.resolve(Response.json({}));
     }) as typeof fetch,
   );
   assert.ok(response);
@@ -62,9 +62,9 @@ test('operator authorization fails closed before package networks are touched', 
 
 test('package input cannot smuggle an arbitrary URL or unknown request fields', async () => {
   let externalCalls = 0;
-  const fetcher = (async () => {
+  const fetcher = (() => {
     externalCalls += 1;
-    return Response.json({});
+    return Promise.resolve(Response.json({}));
   }) as typeof fetch;
   for (const body of [
     { ecosystem: 'npm', package: 'https://evil.test/pkg' },
@@ -79,26 +79,26 @@ test('package input cannot smuggle an arbitrary URL or unknown request fields', 
 
 test('npm inspection triangulates registry, OSV and GitHub without relaying raw bodies', async () => {
   const calls: string[] = [];
-  const fetcher = (async (input: RequestInfo | URL): Promise<Response> => {
+  const fetcher = ((input: RequestInfo | URL): Promise<Response> => {
     const url = urlString(input);
     calls.push(url);
     if (url.includes('registry.npmjs.org/demo/latest')) {
-      return Response.json({
+      return Promise.resolve(Response.json({
         name: 'demo',
         version: '2.0.0',
         description: 'Demo package',
         license: 'MIT',
         repository: { url: 'git+https://github.com/acme/demo.git' },
         dist: { integrity: 'sha512-abc' },
-      });
+      }));
     }
     if (url.includes('registry.npmjs.org/-/v1/search')) {
-      return Response.json({
+      return Promise.resolve(Response.json({
         objects: [{ package: { name: 'demo', version: '2.0.0', date: '2026-08-01T00:00:00Z' } }],
-      });
+      }));
     }
     if (url === 'https://api.github.com/repos/acme/demo') {
-      return Response.json({
+      return Promise.resolve(Response.json({
         html_url: 'https://github.com/acme/demo',
         default_branch: 'main',
         archived: false,
@@ -107,26 +107,26 @@ test('npm inspection triangulates registry, OSV and GitHub without relaying raw 
         updated_at: '2026-08-21T00:00:00Z',
         stargazers_count: 42,
         open_issues_count: 3,
-      });
+      }));
     }
     if (url.endsWith('/releases/latest')) {
-      return Response.json({ message: 'Not Found', secret: 'must-not-leak' }, { status: 404 });
+      return Promise.resolve(Response.json({ message: 'Not Found', secret: 'must-not-leak' }, { status: 404 }));
     }
     if (url.includes('/contents/CHANGELOG.md?')) {
-      return Response.json({
+      return Promise.resolve(Response.json({
         type: 'file',
         html_url: 'https://github.com/acme/demo/blob/main/CHANGELOG.md',
-      });
+      }));
     }
     if (url === 'https://api.osv.dev/v1/query') {
-      return Response.json({
+      return Promise.resolve(Response.json({
         vulns: [{
           id: 'GHSA-demo',
           summary: 'Demo advisory',
           aliases: ['CVE-2026-1234'],
           severity: [{ type: 'CVSS_V3', score: '7.5' }],
         }],
-      });
+      }));
     }
     throw new Error(`unexpected URL ${url}`);
   }) as typeof fetch;

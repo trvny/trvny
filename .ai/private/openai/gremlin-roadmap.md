@@ -25,7 +25,7 @@ incidents or step-by-step session history here.
 - [x] Exact release-asset deletion.
 - [x] Extract one exact artifact entry (APK/AAB/checksum/etc.) and publish it as a release asset.
 - [x] Safe replace-release-asset flow: exact old snapshot -> delete -> fresh source snapshot -> upload -> verify.
-- [ ] Teach release orchestration to optionally use exact artifact entries instead of only whole artifact ZIPs.
+- [x] Teach release orchestration to optionally use exact artifact entries instead of only whole artifact ZIPs.
 
 ## Coding operator
 

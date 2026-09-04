@@ -30,7 +30,7 @@ const MAX_TARGETS = 6;
 const MAX_FILES = 12;
 const MAX_FILE_CONTENT = 96_000;
 const MAX_RECOVERED_COMMITS = 50;
-const MAX_REFACTOR_MOVES = 6;
+const MAX_REFACTOR_MOVES = Math.floor(MAX_TARGETS / 2);
 const MAX_REFACTOR_REFERENCE_FILES = MAX_FILES;
 const GPTOMEK_COMMIT_NAME = 'GPTomek';
 const GPTOMEK_COMMIT_EMAIL = '314538226+gptomek[bot]@users.noreply.github.com';
@@ -703,6 +703,34 @@ function refactorSearchQuery(core: CoreInput, term: string): string {
   ].join(' ');
 }
 
+function refactorPathMatchesFilter(path: string, filter?: string): boolean {
+  return !filter || path === filter || path.startsWith(`${filter}/`);
+}
+
+async function refactorChangedPathsAtRef(
+  source: Request,
+  invoke: Invoke,
+  core: CoreInput,
+  ref: string,
+): Promise<string[]> {
+  const metadata = await readData(source, invoke, `/repos/${repoPath(core.repository)}`);
+  const defaultBranch = isObject(metadata) ? stringValue(metadata.default_branch) : null;
+  if (!defaultBranch) throw new CodeChangeError('invalid_repository_response', 502);
+  const raw = await readData(
+    source,
+    invoke,
+    `/repos/${repoPath(core.repository)}/compare/${encodeURIComponent(defaultBranch)}...${encodeURIComponent(ref)}`,
+  );
+  if (!isObject(raw) || !Array.isArray(raw.files)) {
+    throw new CodeChangeError('invalid_refactor_compare_response', 502);
+  }
+  return raw.files.flatMap((entry) => {
+    if (!isObject(entry) || stringValue(entry.status) === 'removed') return [];
+    const path = stringValue(entry.filename);
+    return path && validPath(path) && refactorPathMatchesFilter(path, core.path) ? [path] : [];
+  });
+}
+
 async function refactorSnapshotAtRef(
   source: Request,
   invoke: Invoke,
@@ -710,7 +738,8 @@ async function refactorSnapshotAtRef(
   ref: string,
 ): Promise<RefactorSnapshot> {
   if (!core.refactor) throw new CodeChangeError('missing_refactor_plan', 500);
-  const searches = await Promise.all(core.refactor.referenceTerms.map(async (term) => {
+  const [searches, changedPaths] = await Promise.all([
+    Promise.all(core.refactor.referenceTerms.map(async (term) => {
     const raw = await readData(
       source,
       invoke,
@@ -731,7 +760,9 @@ async function refactorSnapshotAtRef(
       incomplete: raw.incomplete_results === true || indexedCount === null || indexedCount > paths.length,
       paths,
     };
-  }));
+    })),
+    refactorChangedPathsAtRef(source, invoke, core, ref),
+  ]);
 
   const candidates = [...core.targetPaths];
   const candidateSet = new Set(candidates);
@@ -747,11 +778,21 @@ async function refactorSnapshotAtRef(
       candidates.push(path);
     }
   }
+  let changedPathsDropped = false;
+  for (const path of changedPaths) {
+    if (candidateSet.has(path)) continue;
+    if (candidates.length >= MAX_REFACTOR_REFERENCE_FILES) {
+      changedPathsDropped = true;
+      continue;
+    }
+    candidateSet.add(path);
+    candidates.push(path);
+  }
   const files = await fileSnapshotsAtRef(source, invoke, core, ref, candidates);
   const references = searches.map((search): RefactorReferenceTermSnapshot => ({
     term: search.term,
     indexedCount: search.indexedCount,
-    incomplete: search.incomplete || droppedTerms.has(search.term),
+    incomplete: search.incomplete || droppedTerms.has(search.term) || changedPathsDropped,
     matchingPaths: files
       .filter((file) => file.exists && typeof file.content === 'string' && file.content.includes(search.term))
       .map((file) => file.path),
@@ -765,7 +806,11 @@ async function refactorSnapshotAtRef(
 }
 
 export function refactorAllowedPaths(core: CoreInput, snapshot: RefactorSnapshot): string[] {
-  const paths = [...core.targetPaths];
+  return expandRefactorAllowedPaths(core.targetPaths, snapshot);
+}
+
+export function expandRefactorAllowedPaths(current: string[], snapshot: RefactorSnapshot): string[] {
+  const paths = [...current];
   const seen = new Set(paths);
   for (const reference of snapshot.references) {
     for (const path of reference.matchingPaths) {
@@ -793,7 +838,10 @@ async function refactorBeforeSnapshot(
   ];
   if (blockers.length) throw new CodeChangeError('refactor_precondition_failed', 409, { blockers });
   refactorAllowedPaths(core, snapshot);
-  return snapshot;
+  return {
+    ...snapshot,
+    moveFiles: snapshot.moveFiles.map((file) => ({ ...file, content: null })),
+  };
 }
 
 async function refactorAfterSnapshot(
@@ -1441,7 +1489,17 @@ async function initialProgress(
       ? await refactorAfterSnapshot(source, invoke, core, progress.branchHead)
       : null;
     if (refactorVerification?.blockers.length) {
-      const editingProgress: Progress = { ...progress, stage: 'editing' };
+      const expandedPaths = expandRefactorAllowedPaths(
+        progress.refactor?.allowedPaths ?? core.targetPaths,
+        refactorVerification,
+      );
+      const editingProgress: Progress = {
+        ...progress,
+        stage: 'editing',
+        ...(progress.refactor
+          ? { refactor: { ...progress.refactor, allowedPaths: expandedPaths } }
+          : {}),
+      };
       return {
         progress: editingProgress,
         body: {
@@ -1451,7 +1509,7 @@ async function initialProgress(
           revision,
           headSha: progress.branchHead,
           preparation: prepared,
-          refactor: { plan: core.refactor, snapshot: refactorVerification, allowedPaths: progress.refactor?.allowedPaths ?? core.targetPaths },
+          refactor: { plan: core.refactor, snapshot: refactorVerification, allowedPaths: expandedPaths },
           nextAction: {
             type: 'edit',
             headSha: progress.branchHead,
@@ -1617,11 +1675,18 @@ async function run(
       : null;
     const nextRevision = progress.revision + 1;
     if (refactorVerification?.blockers.length) {
+      const expandedPaths = expandRefactorAllowedPaths(
+        progress.refactor?.allowedPaths ?? core.targetPaths,
+        refactorVerification,
+      );
       const next: Progress = {
         ...editProgress,
         stage: 'editing',
         branchHead: newHead,
         revision: nextRevision,
+        ...(editProgress.refactor
+          ? { refactor: { ...editProgress.refactor, allowedPaths: expandedPaths } }
+          : {}),
         ...(editProgress.pullRequest
           ? { pullRequest: { ...editProgress.pullRequest, headSha: newHead } }
           : {}),
@@ -1632,7 +1697,7 @@ async function run(
         stage: 'editing',
         revision: next.revision,
         headSha: newHead,
-        refactor: { plan: core.refactor, snapshot: refactorVerification, allowedPaths: progress.refactor?.allowedPaths ?? core.targetPaths },
+        refactor: { plan: core.refactor, snapshot: refactorVerification, allowedPaths: expandedPaths },
         nextAction: {
           type: 'edit',
           headSha: newHead,

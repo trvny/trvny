@@ -5,6 +5,7 @@ import {
   addCodeChangeAutopilotOpenApi,
   commitProvenanceMatches,
   decodeContent,
+  expandRefactorAllowedPaths,
   operationCommitMessage,
   recoveredChangedPathsAllowed,
   refactorAllowedPaths,
@@ -35,7 +36,7 @@ test('code-change autopilot exposes implementCodeChange with stage action contra
   const refactor = operation.requestBody.content['application/json'].schema.properties.refactor;
   assert.deepEqual(refactor.required, ['moves', 'referenceTerms']);
   assert.deepEqual(refactor.properties.moves.items.required, ['fromPath', 'toPath']);
-  assert.equal(refactor.properties.moves.maxItems, 6);
+  assert.equal(refactor.properties.moves.maxItems, 3);
 });
 
 test('refactor edits require an atomic source delete and destination write', () => {
@@ -65,6 +66,10 @@ test('refactor scope expands only to exact-base reference matches', () => {
     references: [{ term: 'OldThing', indexedCount: 2, incomplete: false, matchingPaths: ['src/caller.ts', 'src/old.ts'] }],
   };
   assert.deepEqual(refactorAllowedPaths(core, snapshot), ['src/old.ts', 'src/new.ts', 'src/caller.ts']);
+  assert.deepEqual(
+    expandRefactorAllowedPaths(['src/old.ts', 'src/new.ts', 'src/first-caller.ts'], snapshot),
+    ['src/old.ts', 'src/new.ts', 'src/first-caller.ts', 'src/caller.ts'],
+  );
 });
 
 test('refactor snapshots fail closed on stale or incomplete references', () => {

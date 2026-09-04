@@ -28,5 +28,18 @@
     "android-read": {
       "hosts": ["dl.google.com", "maven.google.com", "repo1.maven.org", "services.gradle.org"]
     }
+  },
+  "remote": {
+    "enabled": false,
+    "deviceId": "legion",
+    "accountId": "00000000000000000000000000000000",
+    "queueId": "00000000000000000000000000000000",
+    "controlPlaneUrl": "https://pet-dispatcher-control.example.workers.dev",
+    "queueTokenEnv": "PET_DISPATCHER_QUEUE_TOKEN",
+    "signingSecretEnv": "PET_DISPATCHER_SIGNING_SECRET",
+    "pollIntervalMs": 5000,
+    "heartbeatIntervalMs": 15000,
+    "visibilityTimeoutMs": 1800000,
+    "journalPath": "remote-journal.json"
   }
 }

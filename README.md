@@ -26,9 +26,9 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#406](https://github.com/trvny/trvny/pull/406) | feat: add Pet Dispatcher remote transport | @trvny | ready | 2026-09-02 |
-| trvny/trvny | [#408](https://github.com/trvny/trvny/pull/408) | feat(review): move Kanarek review to webhooks | @trvny | ready | 2026-09-02 |
-| trvny/tvpi | [#79](https://github.com/trvny/tvpi/pull/79) | chore(deps-dev): bump wrangler from 4.125.0 to 4.127.1 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-09-02 |
+| trvny/trvny | [#412](https://github.com/trvny/trvny/pull/412) | docs(gremlin): track live documentation bridge | @trvny | ready | 2026-09-02 |
+| trvny/trvny | [#424](https://github.com/trvny/trvny/pull/424) | fix(pet-dispatcher): enforce single remote worker | @trvny | ready | 2026-09-03 |
+| trvny/trvny | [#425](https://github.com/trvny/trvny/pull/425) | feat(feedboard): package settings app | @trvny | ready | 2026-09-03 |
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map
@@ -72,6 +72,12 @@
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
 
+## Ja i moje ziomki
+
+<p align="left">
+  <img src="assets/ziomki.png" width="420">
+</p>
+
 ## [License](LICENSE) [![code license](https://img.shields.io/github/license/trvny/trvny?label=code&logo=opensourceinitiative&logoColor=white&color=6f42c1&style=flat-square)](https://spdx.org/licenses/ISC)
 
 [ISC](https://spdx.org/licenses/ISC). [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md).
@@ -81,19 +87,19 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝“BASIC is to computer programming as QWERTY is to typing.”— Seymour Papert❞</i>
+<i>❝“Code generation, like drinking alcohol, is good in moderation.”— Alex Lowe❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
 ## 📰 Recently on the air
 
 <!--README_FEED:START-->
-- [Urban Word of the Day — Back when I lived in upstate new york](https://www.urbandictionary.com/define.php?term=Back%20when%20I%20lived%20in%20upstate%20new%20york&defid=5432275)
-- [Urban Word of the Day — Salad Days](https://www.urbandictionary.com/define.php?term=Salad%20Days&defid=6122902)
-- [Urban Word of the Day — grebo](https://www.urbandictionary.com/define.php?term=grebo&defid=1975218)
 - [How to Engage with New Media: A Strategic Guide for Nonprofit Organizations](https://carnegieendowment.org/research/2026/08/how-to-engage-with-new-media-a-strategic-guide-for-nonprofit-organizations)
-- [Urban Word of the Day — board chow](https://www.urbandictionary.com/define.php?term=board%20chow&defid=2568411)
-- [Operationalizing AI Sovereignty Through Agency, Interoperability, and Openness](https://carnegieendowment.org/research/2026/09/operationalizing-ai-sovereignty-through-agency-interoperability-and-openness)
+- [Powiatowi społecznicy spotkają się w Libiążu - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMilgFBVV95cUxQcEhKWlVWS1hZNE9yNGtrTVhmU29Jd2pxTEk2SFlIb2xybWxDVW9ybi1FLUVRanVjZERONVl5V2Y5WEhuZkVKRlM5V0FyVmI5aDNyYlZoSTJHZFNMemlWczZIRExSQnF2amNPVENBemo4UGRMekVKUUlCODVwWjBSRmE4MHI2dDljZGtGTHNsRVEtZ2hMWGc?oc=5)
+- [W Puszczy Dulowskiej powstanie rezerwat? Jest oficjalny wniosek - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMiuwFBVV95cUxNVmFGeGRzUF9JWjVoSVFpREs3cmY0U2ZZQ1VLc05VSlI2NUs2X05kM292YnVNdGpGR3VmVktDaHhodDVLd1k4eHNkOU9DdVRxbllhcV9YSzU3ZVk0VXlOVm1Fang5a0dMNEE5b29ZY0ZwUzQ4a3ZudEtlLXd0dGZKVDlSWmEwVXhGSHo5a2cxQVlELWdtSjI3R2hkTHdUMW42TWtYS0pzQUNsbS1TTENNdEdqV3UydzlJb1kw?oc=5)
+- [To będzie wyjątkowy dzień dla psów i ich właścicieli. Krzeszowice szykują akcję - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMiwgFBVV95cUxPMUFWanRpTDdQeU8tWE9KeXhEWDg5ZlN2eGtnczAzb1RkQXphbXJuLTZianZubnZoYS1DdUxfTW1VNkp0NjA2VVNQSGFWTTRVbTAwTlVrZFg4bkFnWWY3TmNvdlAwSHFEUk1qakcyODJCcF92RDNDejdxTk4wOTdFZkw3M0FGRTFUd3lweGxySjhfckFodUhzTmR5X3B0Y0kxQzRuZEJ5QTJHT2c1RWhhRl9sZGZuMDlOQ1NTYnhQYzdDUQ?oc=5)
+- [Uwaga! Zamknięta droga w Libiążu - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMihAFBVV95cUxOMnRqekw1a1owUDVVZjVVSXpMRXhVSUtwUnNMUzB0SG5acDVzZDVINW1kWlIydTBHTDRyWTFBazd5R295VXVKQnlsZWljVTJ1Rkt6TUxGenpoV3F3TnQxMFM2eWt1X0h2bE51czBwSVdldER6S3kwNHdrSTllbWt2RnJoTDc?oc=5)
+- [To oni będą ratować mieszkańców! Czterech nowych strażaków w Chrzanowie - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMiuAFBVV95cUxOcHRLczZTTTNJeEtjSDhuUDJFRWNqM0k2Ym9uSFhMcVBxSGFEX00waHM0NF9nbmczcDRFbFpXOGdzcjg5eWpHUjVnYlJBV2RVdnZ1ZEoxODZfN3dJbkJBQnU2NXZuejI0ZVRxQkwweGVRZzR1VmhpMkItV3E0a3VSQzRwWTAzY29MbkVuM3EyX29zdktXV2JMaVctNGVGMUpTb3Y5ZV9SM3lLSmFycU1Za1B3akZJYnd3?oc=5)
 <!--README_FEED:END-->
 
 <div align="center">

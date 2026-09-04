@@ -302,7 +302,9 @@ Optional direct AI secrets for quip generation:
 
 The manual credential sync copies any matching provisioning secret present in
 `trvny/trvny`; an absent direct-provider copy does not delete an existing Worker
-secret.
+secret. Missing free-review provisioning copies are removed. The sync then
+creates and activates a tagged secret-only Worker version, preserving the live
+source tag when available so `/health` keeps meaningful deployment provenance.
 
 GitHub App metadata, companion/review repository scopes, provider
 order/model/generation controls, AI percentage ceiling, review debounce/context

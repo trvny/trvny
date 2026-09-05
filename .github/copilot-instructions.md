@@ -1,6 +1,6 @@
 # GitHub Copilot adapter
 
-Use `AGENTS.md` as the repository-wide source of truth. Apply the nearest path-specific `.github/instructions/*.instructions.md` when one matches the changed files.
+Use the nearest applicable `AGENTS.md` for the files being reviewed; deeper instructions override broader ones. Apply matching path-specific `.github/instructions/*.instructions.md` files.
 
 For code review:
 

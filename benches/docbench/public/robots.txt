@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://docbench.travny.workers.dev/sitemap.xml

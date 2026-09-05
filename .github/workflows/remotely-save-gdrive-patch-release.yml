@@ -1,0 +1,97 @@
+name: Rolling release (remotely-save-gdrive-patch)
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: ["main"]
+    paths:
+      - "remotely-save-gdrive-patch/**"
+      - ".github/workflows/remotely-save-gdrive-patch-release.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: remotely-save-gdrive-patch-rolling-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      UPSTREAM_REPO: remotely-save/remotely-save
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve upstream release
+        id: upstream
+        run: |
+          version="$(gh api "repos/$UPSTREAM_REPO/releases/latest" --jq .tag_name)"
+          if [ -z "$version" ]; then
+            echo "::error::could not resolve $UPSTREAM_REPO's latest release"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Download upstream plugin assets
+        env:
+          UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
+        run: |
+          mkdir -p dist
+          for f in main.js manifest.json styles.css; do
+            gh release download "$UPSTREAM_VERSION" --repo "$UPSTREAM_REPO" --pattern "$f" --output "dist/$f"
+          done
+
+      - name: Apply Google Drive patch
+        run: python3 remotely-save-gdrive-patch/patch_gdrive.py dist/main.js --apply
+
+      - name: Build and run the patch test
+        run: |
+          python3 remotely-save-gdrive-patch/build_test.py dist/main.js dist/test.mjs
+          node dist/test.mjs
+
+      - name: Publish rolling release
+        env:
+          GH_REPO: ${{ github.repository }}
+          UPSTREAM_VERSION: ${{ steps.upstream.outputs.version }}
+        run: |
+          tag="remotely-save-gdrive-patch-latest"
+
+          cat > release-notes.md <<EOF
+          Patched Google Drive backend for [Remotely Save](https://github.com/$UPSTREAM_REPO),
+          built from \`${GITHUB_SHA}\` against upstream \`${UPSTREAM_VERSION}\`.
+
+          writeFile/mkdir update an existing Drive file/folder in place instead of always
+          creating a new one - see remotely-save-gdrive-patch/README.md for what changed
+          and how to install this instead of the community-listed plugin.
+
+          Rolling release. Assets are replaced after each successful build.
+          Upstream version patched: \`${UPSTREAM_VERSION}\`.
+          EOF
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/$GH_REPO/git/refs/tags/$tag" \
+              -f sha="$GITHUB_SHA" \
+              -F force=true
+            gh release edit "$tag" \
+              --title "remotely-save-gdrive-patch · rolling" \
+              --notes-file release-notes.md
+          else
+            gh release create "$tag" \
+              --draft \
+              --target "$GITHUB_SHA" \
+              --title "remotely-save-gdrive-patch · rolling" \
+              --notes-file release-notes.md
+          fi
+
+          gh release upload "$tag" \
+            dist/main.js \
+            dist/manifest.json \
+            dist/styles.css \
+            --clobber
+          gh release edit "$tag" --draft=false --latest

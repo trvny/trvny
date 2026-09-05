@@ -77,7 +77,7 @@ companion and makes later review-eligible PR activity eligible again.
 ## Endpoints
 
 - `GET` or `HEAD /health` reports webhook, installation auth, companion lock,
-  KV bank, and optional AI readiness.
+  KV bank, optional AI readiness, and live free-review provider cooldown state.
 - `POST /webhooks/github` verifies `X-Hub-Signature-256` before accepting a
   delivery. Accepted PR deliveries can feed both the status companion and the
   independently scoped webhook review queue.

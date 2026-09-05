@@ -324,6 +324,34 @@ async function activeProviderCooldown(
   return null;
 }
 
+export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
+  available: number;
+  configured: number;
+  providers: Array<{
+    available: boolean;
+    configured: boolean;
+    cooldown?: { category: string; until: number };
+    provider: ReviewProviderId;
+  }>;
+  ready: boolean;
+}> {
+  const states = await Promise.all(
+    providers(env).map(async (provider) => {
+      const configured = Boolean(provider.apiKey(env)?.trim());
+      if (!configured) {
+        return { available: false, configured: false, provider: provider.id };
+      }
+      const cooldown = await activeProviderCooldown(env, provider.id);
+      return cooldown
+        ? { available: false, configured: true, cooldown, provider: provider.id }
+        : { available: true, configured: true, provider: provider.id };
+    }),
+  );
+  const configured = states.filter((state) => state.configured).length;
+  const available = states.filter((state) => state.available).length;
+  return { available, configured, providers: states, ready: available > 0 };
+}
+
 async function rememberProviderCooldown(
   provider: ReviewProviderId,
   category: string,

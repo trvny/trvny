@@ -5,6 +5,7 @@ import {
   BANK_KEY,
   loadBank,
   maintainBank,
+  rememberQuip,
   shouldUsePool,
   storeBank,
 } from '../src/companion-bank.ts';
@@ -148,6 +149,17 @@ test('labels standalone split repositories from their root layout', () => {
     areas(['README.md', '.github/workflows/ci.yml'], 'trvny/feedseek'),
     ['Documentation', 'GitHub automation'],
   );
+});
+
+test('preserves learned quip language across ambiguous context changes', () => {
+  const quipKey = 'aaaaaaaaaaaaaaaa';
+  const quip = 'CI 2026: PR #198 OK; status green; merge queue ready now.';
+  let pool = rememberQuip([], quipKey, quip, 'ai', 'en');
+  assert.equal(pool[0]?.l, 'en');
+  pool = rememberQuip(pool, quipKey, quip, 'ai', 'pl');
+  assert.equal(pool[0]?.l, 'en');
+  pool = rememberQuip(pool, quipKey, quip, 'ai', 'en');
+  assert.equal(pool[0]?.l, 'en');
 });
 
 test('uses the bank outside the configured AI rollout', async () => {

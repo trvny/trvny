@@ -169,8 +169,11 @@ export function rememberQuip(
   ) {
     return pool;
   }
+  const storedLanguage = pool.find(
+    (entry) => entry.k === key && entry.q === value,
+  )?.l;
   return [
-    { k: key ?? '', l: language, q: value },
+    { k: key ?? '', l: storedLanguage ?? language, q: value },
     ...pool.filter((entry) => entry.k !== key || entry.q !== value),
   ].slice(0, POOL_LIMIT);
 }

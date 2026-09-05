@@ -3,17 +3,18 @@
 // extracted by build_test.py calls these directly. Kept as real exports (not text
 // substitution) so static analysis sees genuine uses instead of flagging them dead.
 
-export class Mp { async checkConnectCommonOps() { return true } }
+// Instance method on purpose (not static): mirrors the real base class Mp stands in
+// for, called as `this.checkConnectCommonOps()` - static would break that call site.
+export class Mp { checkConnectCommonOps() { return true } }
 
 export const r = (thisArg, _a, _P, generator) => new Promise((resolve, reject) => {
-  let gen
+  const gen = generator.call(thisArg)
   function step(f, v) {
     let res
     try { res = f.call(gen, v) } catch (e) { return reject(e) }
     if (res.done) return resolve(res.value)
     return Promise.resolve(res.value).then(x => step(gen.next, x), x => step(gen.throw, x))
   }
-  gen = generator.call(thisArg)
   step(gen.next)
 })
 
@@ -34,5 +35,5 @@ export const th = (size, chunk) => {
   for (let st = 0; st < size; st += chunk) out.push({ start: st, end: Math.min(st + chunk, size) - 1 })
   return out
 }
-export class vh { constructor() {} on() {} add(f) { return f() } async onIdle() {} pause() {} clear() {} }
-export const Eh = async () => ({ access_token: "tok", expires_in: 3600 })
+export class vh { on() {} add(f) { return f() } async onIdle() {} pause() {} clear() {} }
+export const Eh = () => ({ access_token: "tok", expires_in: 3600 })

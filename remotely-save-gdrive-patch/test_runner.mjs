@@ -13,35 +13,39 @@ const { default: Bh } = await import(pathToFileURL(classPath).href)
 // ---- fake Drive ----
 let calls = []
 let listing = []
-globalThis.fetch = async (url, opts = {}) => {
-  const u = typeof url === "string" ? url : String(url)
-  calls.push({ method: opts.method || "GET", url: u, body: opts.body })
-  if (u.includes("/drive/v3/files?q=")) {
-    const q = decodeURIComponent(u.split("q=")[1].split("&")[0])
-    const isFolderQ = q.includes("mimeType='application/vnd.google-apps.folder'")
-    return { status: 200, json: async () => ({ files: listing.filter(f => (f.mimeType === kh) === isFolderQ) }) }
+globalThis.fetch = (url, opts = {}) => {
+  const urlStr = typeof url === "string" ? url : String(url)
+  calls.push({ method: opts.method || "GET", url: urlStr, body: opts.body })
+  if (urlStr.includes("/drive/v3/files?q=")) {
+    const query = decodeURIComponent(urlStr.split("q=")[1].split("&")[0])
+    const isFolderQ = query.includes("mimeType='application/vnd.google-apps.folder'")
+    return { status: 200, json: () => ({ files: listing.filter(f => (f.mimeType === kh) === isFolderQ) }) }
   }
-  if (u.includes("/upload/drive/v3/files") && u.includes("resumable")) {
+  if (urlStr.includes("/upload/drive/v3/files") && urlStr.includes("resumable")) {
     return { status: 200, headers: { get: () => "https://upload.example/session" } }
   }
-  if (u === "https://upload.example/session") {
-    return { status: 200, json: async () => ({ id: "NEWBIG", name: "big.md" }) }
+  if (urlStr === "https://upload.example/session") {
+    return { status: 200, json: () => ({ id: "NEWBIG", name: "big.md" }) }
   }
-  if (u.includes("/upload/drive/v3/files")) {
-    return { status: 200, json: async () => ({ id: "NEW1", name: "loga.md" }) }
+  if (urlStr.includes("/upload/drive/v3/files")) {
+    return { status: 200, json: () => ({ id: "NEW1", name: "loga.md" }) }
   }
-  return { status: 200, json: async () => ({ id: "F1", name: "x", mimeType: kh }) }
+  return { status: 200, json: () => ({ id: "F1", name: "x", mimeType: kh }) }
 }
 
 const mkfs = () => {
-  const fs = new Bh({ accessToken: "tok", refreshToken: "ref", accessTokenExpiresAtTimeMs: Date.now() + 9e6 }, "Vault", async () => {})
+  // saveUpdatedConfigFunc - nothing to persist in this fake filesystem
+  const fs = new Bh({ accessToken: "tok", refreshToken: "ref", accessTokenExpiresAtTimeMs: Date.now() + 9e6 }, "Vault", () => {})
   fs.baseDirID = "BASE"; fs.vaultFolderExists = true
   return fs
 }
 
 const buf = (n) => new Uint8Array(n).buffer
 let failures = 0
-const check = (name, cond, extra) => { console.log((cond ? "PASS  " : "FAIL  ") + name + (cond ? "" : "  <<< " + JSON.stringify(extra))); if (!cond) failures++ }
+const check = (name, cond, extra) => {
+  console.log(`${cond ? "PASS  " : "FAIL  "}${name}${cond ? "" : `  <<< ${JSON.stringify(extra)}`}`)
+  if (!cond) failures++
+}
 
 // 1. small file, no remote copy -> POST create with parents
 calls = []; listing = []
@@ -97,7 +101,7 @@ check("new folder -> POST create", mk2.method === "POST", mk2)
 // 8. lookup failure -> falls back to old create behaviour instead of throwing
 calls = []; listing = []
 const realFetch = globalThis.fetch
-globalThis.fetch = async (url, opts) => (String(url).includes("?q=") ? { status: 500, json: async () => ({}) } : realFetch(url, opts))
+globalThis.fetch = (url, opts) => (String(url).includes("?q=") ? { status: 500, json: () => ({}) } : realFetch(url, opts))
 await mkfs().writeFile("loga.md", buf(10), Date.now(), Date.now())
 up = calls.find(c => c.url.includes("uploadType=multipart"))
 check("lookup HTTP 500 -> falls back to POST create", up.method === "POST", up)
@@ -106,8 +110,8 @@ globalThis.fetch = realFetch
 // 9. apostrophe in a name is escaped in the q filter
 calls = []; listing = []
 await mkfs().writeFile("it's a note.md", buf(10), Date.now(), Date.now())
-const q = decodeURIComponent(calls[0].url.split("q=")[1].split("&")[0])
-check("apostrophe escaped in query", q.includes("name='it" + String.fromCharCode(92) + "'s a note.md'"), q)
+const query = decodeURIComponent(calls[0].url.split("q=")[1].split("&")[0])
+check("apostrophe escaped in query", query.includes(`name='it${String.fromCharCode(92)}'s a note.md'`), query)
 
-console.log(failures === 0 ? "\nALL TESTS PASSED" : "\n" + failures + " TEST(S) FAILED")
+console.log(failures === 0 ? "\nALL TESTS PASSED" : `\n${failures} TEST(S) FAILED`)
 process.exit(failures === 0 ? 0 : 1)

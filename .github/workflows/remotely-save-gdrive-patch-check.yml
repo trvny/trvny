@@ -19,6 +19,9 @@ concurrency:
   group: remotely-save-gdrive-patch-check
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   check:
     if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'

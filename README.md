@@ -71,11 +71,15 @@ No open pull requests. 🎉
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
 
-## Ja i moje ziomki
+### Ja i moje ziomki
 
 <p align="left">
-  <img src="assets/ziomki.png" width="420">
+  <img src="https://github.com/trvny/trvny/blob/main/assets/ziomki.png" width="420">
 </p>
+<p align="center">
+  <img src="https://github.com/trvny/trvny/blob/main/assets/132311.gif" width="69%">
+</p>
+<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=VT323&weight=600&letterSpacing=-95%25&duration=1234&pause=100&color=D718CE&center=true&random=true&width=500&height=150&lines=Co%C5%9B+si%C4%99+popsu%C5%82o+i+nie+by%C5%82o+mnie+s%C5%82ycha%C4%87;KURDE;2137" alt="Typing-SVG" /></a>
 
 ## [License](LICENSE) [![code license](https://img.shields.io/github/license/trvny/trvny?label=code&logo=opensourceinitiative&logoColor=white&color=6f42c1&style=flat-square)](https://spdx.org/licenses/ISC)
 

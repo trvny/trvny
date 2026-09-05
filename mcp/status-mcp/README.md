@@ -3,7 +3,7 @@
 [![status-mcp](https://github.com/trvny/trvny/actions/workflows/status-mcp-ci.yml/badge.svg)](https://github.com/trvny/trvny/actions/workflows/status-mcp-ci.yml)
 
 One [MCP](https://modelcontextprotocol.io) server, one tool — health-checks all
-four travny projects in a single call. Cloudflare Worker, **free tier**: service
+four TRAVNY ecosystem projects in a single call. Cloudflare Worker, **free tier**: service
 bindings, no token, plus outbound GitHub fetches.
 
 ## Why one server, one tool

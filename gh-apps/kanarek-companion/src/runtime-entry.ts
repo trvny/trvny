@@ -24,6 +24,7 @@ import {
   RELEASE_ASSET_REPLACE_PATH,
 } from './release-replace-action.ts';
 import { runtimeOpenApi } from './runtime-openapi.ts';
+import { reviewProviderPoolHealth } from './review-router.ts';
 import {
   handleSymbolInvestigationAction,
   SYMBOL_INVESTIGATION_PATH,
@@ -129,7 +130,7 @@ async function acceptedReviewWebhook(
   );
 }
 
-function reviewWebhookHealth(env: Env): JsonObject {
+async function reviewWebhookHealth(env: Env): Promise<JsonObject> {
   const enabled = !['0', 'false', 'no', 'off'].includes(
     String(env.KANAREK_WEBHOOK_REVIEW_ENABLED ?? 'true').trim().toLowerCase(),
   );
@@ -138,20 +139,20 @@ function reviewWebhookHealth(env: Env): JsonObject {
   );
   const queueConfigured = Boolean(env.KANAREK_REVIEW_JOBS);
   const routerConfigured = Boolean(env.KANAREK_REVIEW_ROUTER_TOKEN?.trim());
-  const providerConfigured = Boolean(
-    env.OPENROUTER_API_KEY || env.ORCAROUTER_API_KEY || env.AIHUBMIX_API_KEY,
-  );
+  const providerPool = await reviewProviderPoolHealth(env);
   return {
     enabled,
     githubConfigured,
-    providerConfigured,
+    providerAvailable: providerPool.ready,
+    providerConfigured: providerPool.configured > 0,
+    providerPool,
     queueConfigured,
     ready:
       enabled &&
       githubConfigured &&
       queueConfigured &&
       routerConfigured &&
-      providerConfigured,
+      providerPool.ready,
     routerConfigured,
     trigger: 'github-app-webhook',
   };
@@ -174,7 +175,7 @@ async function decorateGatewayResponse(
           {
             ...payload,
             gateway: await manifest(request, env),
-            reviewWebhook: reviewWebhookHealth(env),
+            reviewWebhook: await reviewWebhookHealth(env),
           },
           response.status,
         )

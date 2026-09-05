@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { handleReviewRouterRequest, ReviewProviderCooldownStore } from '../src/review-router.ts';
+import {
+  handleReviewRouterRequest,
+  reviewProviderPoolHealth,
+  ReviewProviderCooldownStore,
+} from '../src/review-router.ts';
 
 const base = 'https://kanarek-companion.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;
@@ -283,6 +287,12 @@ test('review router fails fast while the whole free pool is quota-cooled', async
   const payload = (await retry?.json()) as { error?: { message?: string } };
   assert.match(payload.error?.message ?? '', /cooldown_http_429/);
   assert.match(payload.error?.message ?? '', /cooldown_soft_quota/);
+
+  const health = await reviewProviderPoolHealth(env);
+  assert.equal(health.configured, 3);
+  assert.equal(health.available, 0);
+  assert.equal(health.ready, false);
+  assert.equal(health.providers.every((provider) => provider.cooldown), true);
 });
 
 test('review router falls through provider authentication errors', async () => {

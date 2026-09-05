@@ -896,7 +896,7 @@ export function reviewDisposition(
   findings: readonly unknown[],
 ): 'clean' | 'invalid_findings' | 'publish' {
   if (!rawFindings.length) return 'clean';
-  return findings.length ? 'publish' : 'invalid_findings';
+  return findings.length ? 'clean' : 'invalid_findings';
 }
 
 function noGoblin(pr: Record<string, unknown>): boolean {

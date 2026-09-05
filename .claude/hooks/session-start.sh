@@ -51,8 +51,8 @@ sync_core
 
 # Each install root here commits a package-lock.json and its CI installs from it, so
 # `npm ci` reproduces exactly what the checks run against. Unlike the core sync
-# above this is gated: four installs are cheap on a fresh web container (~20s
-# total) but pure overhead for a local checkout that already has node_modules.
+# above this is gated: these installs are useful on a fresh web container but pure
+# overhead for a local checkout that already has node_modules.
 #
 # A failed install is a warning, not a dead session, for the same reason the
 # core sync is: the agent can still read code, it just cannot run that project's
@@ -61,7 +61,7 @@ install_workers() {
 	local failed=""
 	local dir
 
-	for dir in benches mcp/status-mcp gh-apps/kanarek-companion weather-feed; do
+	for dir in mcp/status-mcp gh-apps/kanarek-companion; do
 		echo "==> $dir: npm ci"
 		if ! (cd "$dir" && npm ci --no-audit --no-fund); then
 			failed="$failed $dir"

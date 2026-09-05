@@ -4,7 +4,7 @@ Prefer improving an existing home over creating a parallel structure. Inspect lo
 
 ## Repo map
 
-- `benches/`, `weather-feed/`, `feedboard/`, `xiaomi-adb-tools/` ? migration pointers only; active workshop sources live in `twojstar/twojstar`.
+- Bench, Weather Feed, Feedboard, Xiaomi ADB Tools, and Paint.NET ICO sources live in `twojstar/twojstar`; their former local directories have been retired.
 - `mcp/status-mcp/` — service health/status MCP.
 - `gh-apps/` — GitHub Apps, Kanarek Companion, GPTomek and GPT Actions.
 - `.ai/private/openai/` — private Gremlin policy/profile/operator material.

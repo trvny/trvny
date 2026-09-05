@@ -62,4 +62,4 @@ status-mcp has no behavior test script; its CI currently runs TypeScript only. X
 - `twojstar/twojstar/benches/docbench/package.json`, `twojstar/twojstar/benches/docbench/tests/pdf-core.test.mjs`
 - `twojstar/twojstar/benches/codebench/scripts/privacy-check.mjs`, `twojstar/twojstar/benches/streambench/scripts/relay-core-check.mjs`
 - `.github/workflows/kanarek-companion-ci.yml`, `.github/workflows/status-mcp-ci.yml`
-- `twojstar/twojstar/.github/workflows/weather-worker-ci.yml`, `twojstar/twojstar/.github/workflows/benches-ci.yml`, `twojstar/twojstar/.github/workflows/rolling-release.yml`, `twojstar/twojstar/.github/workflows/xiaomi-adb-tools-ci.yml`
+- `twojstar/twojstar/.github/workflows/weather-ci.yml`, `twojstar/twojstar/.github/workflows/benches-release.yml`, `twojstar/twojstar/.github/workflows/rolling-release.yml`, `twojstar/twojstar/.github/workflows/xiaomi-adb-tools-ci.yml`

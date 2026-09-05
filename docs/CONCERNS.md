@@ -9,8 +9,6 @@
 | high | Privileged Kanarek/GPTomek behavior is spread across very large, frequently changed modules | `gh-apps/kanarek-companion/src/code-change-orchestration.ts`, `cloudflare-actions.ts`, `router.ts`; 90-day Git history | Guard or routing regressions can affect GitHub/Cloudflare mutations | Keep changes narrow, preserve expected-state/idempotency tests, split only on stable seams |
 | medium | status-mcp has auth, token-path handling, caching and multi-service fan-out but no behavior tests | `mcp/status-mcp/src/entry.ts`, `package.json`, `.github/workflows/status-mcp-ci.yml` | Regressions can break the shared health surface or auth boundary | Add focused Node tests for auth, limits, caching and partial upstream failure |
 | medium | Non-Bench JS/TS subprojects keep independent validation roots and local Node has no declared support boundary | package manifests, Node 24 CI workflows, PR #265 historical validation | Tool/runtime drift remains possible outside the Bench family | Keep unrelated products independent; declare local Node support if a stable compatibility contract is wanted |
-| medium | Dependency-update coverage still omits Xiaomi Gradle | `.github/dependabot.yml`, `twojstar/twojstar/xiaomi-adb-tools/build.gradle` | Gradle dependency/security updates rely on manual discovery | Add a Gradle ecosystem entry as a separate maintenance change |
-| low | Documentation has two confirmed stale descriptions | root README status-mcp rows; `twojstar/twojstar/weather-feed/README.md` badge | Project map/status links mislead readers | Correct Weather in status-mcp row and point weather badge at the current workflow |
 
 No meaningful production `TODO`, `FIXME` or `HACK` markers were found by the acquisition scan.
 
@@ -58,7 +56,6 @@ No meaningful production `TODO`, `FIXME` or `HACK` markers were found by the acq
 The other previous intent questions are resolved by current repository evidence:
 
 - The npm workspace is scoped to the Bench family; PR #352 consolidated Codebench, Docbench and Streambench while current repo guidance keeps unrelated products independent.
-- Missing Xiaomi Gradle Dependabot coverage is a concrete maintenance gap; the default remediation is a separate Gradle update entry rather than another architecture decision.
 - Repository quality gates are project-specific checks plus final CI, with no numeric coverage gate. status-mcp's missing behavior suite is a concrete testing gap rather than an unknown policy.
 - No broad Kanarek, Docbench or Xiaomi rewrite is planned in current repository evidence. Existing guidance favors narrow extraction along stable seams when a concrete change or regression test justifies it.
 
@@ -70,4 +67,3 @@ The other previous intent questions are resolved by current repository evidence:
 - `mcp/status-mcp/src/entry.ts`, `mcp/status-mcp/src/index.ts`, `.github/workflows/status-mcp-ci.yml`
 - `gh-apps/kanarek-companion/src/cloudflare-actions.ts`, `gh-apps/kanarek-companion/src/policy-actions.ts`, `gh-apps/kanarek-companion/src/router.ts`
 - `twojstar/twojstar/benches/docbench/public/pdf-core.mjs`, `twojstar/twojstar/benches/streambench/src/relay-core.ts`, `twojstar/twojstar/xiaomi-adb-tools/src/main/kotlin/MainController.kt`
-- `.github/dependabot.yml`, `twojstar/twojstar/weather-feed/README.md`, root `README.md`, `README_pl.md`, `README_zh.md`

@@ -201,7 +201,11 @@ export function reviewRetryDelayMs(
   result: WebhookReviewResult,
   attempt: number,
 ): number | null {
-  if (result.skipped !== 'providers_failed' && result.skipped !== 'job_failed') {
+  if (
+    result.skipped !== 'providers_failed' &&
+    result.skipped !== 'invalid_findings' &&
+    result.skipped !== 'job_failed'
+  ) {
     return null;
   }
   return REVIEW_RETRY_DELAYS_MS[attempt] ?? null;
@@ -681,6 +685,25 @@ export function reviewPrompt(
   });
 }
 
+export function reviewAnchorLine(
+  rightLines: ReadonlySet<number>,
+  requestedLine: number,
+  maxDistance = 3,
+): number | null {
+  if (rightLines.has(requestedLine)) return requestedLine;
+  let nearest: number | null = null;
+  let distance = maxDistance + 1;
+  for (const line of rightLines) {
+    const candidateDistance = Math.abs(line - requestedLine);
+    if (candidateDistance > maxDistance || candidateDistance > distance) continue;
+    if (candidateDistance < distance || nearest === null || line < nearest) {
+      nearest = line;
+      distance = candidateDistance;
+    }
+  }
+  return nearest;
+}
+
 function completionText(response: Record<string, unknown>): string {
   const choices = Array.isArray(response.choices) ? response.choices : [];
   const first = objectValue(choices[0]);
@@ -750,7 +773,9 @@ function normalizeFindings(
       continue;
     }
     const file = byPath.get(raw.path);
-    if (!file || !file.rightLines.has(raw.line)) continue;
+    if (!file) continue;
+    const line = reviewAnchorLine(file.rightLines, raw.line);
+    if (line === null) continue;
 
     const severity =
       raw.severity === 'high' ||
@@ -764,12 +789,12 @@ function normalizeFindings(
       typeof raw.body === 'string' ? raw.body.trim().slice(0, 1_400) : '';
     if (!title || !findingBody || !containsHan(`${title}${findingBody}`)) continue;
 
-    const key = `${raw.path}:${raw.line}:${title.toLowerCase()}`;
+    const key = `${raw.path}:${line}:${title.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
     output.push({
       body: findingBody,
-      line: raw.line,
+      line,
       path: raw.path,
       severity,
       title,
@@ -866,8 +891,12 @@ export function reviewSourceLabel(provider: string, model: string | null): strin
   return safeModel ? `\`${safeModel}\`` : providerLabel(provider);
 }
 
-export function shouldPublishReview(findings: readonly unknown[]): boolean {
-  return findings.length > 0;
+export function reviewDisposition(
+  rawFindings: readonly unknown[],
+  findings: readonly unknown[],
+): 'clean' | 'invalid_findings' | 'publish' {
+  if (!rawFindings.length) return 'clean';
+  return findings.length ? 'publish' : 'invalid_findings';
 }
 
 function noGoblin(pr: Record<string, unknown>): boolean {
@@ -1036,7 +1065,8 @@ export async function runWebhookReview(
   }
 
   const findings = normalizeFindings(generated.parsed, files);
-  if (!shouldPublishReview(findings)) {
+  const disposition = reviewDisposition(generated.parsed.findings, findings);
+  if (disposition === 'clean') {
     console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'clean',
@@ -1052,6 +1082,25 @@ export async function runWebhookReview(
       provider: generated.provider,
       findingCount: 0,
       skipped: 'no_findings',
+    };
+  }
+  if (disposition === 'invalid_findings') {
+    console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+      JSON.stringify({
+        kanarekWebhookReview: 'findings_rejected',
+        repository: target.repository,
+        pullRequestNumber: target.number,
+        headSha: target.headSha,
+        provider: generated.provider,
+        model: generated.model,
+        rawFindingCount: generated.parsed.findings.length,
+      }),
+    );
+    return {
+      reviewed: false,
+      provider: generated.provider,
+      findingCount: 0,
+      skipped: 'invalid_findings',
     };
   }
 

@@ -44,7 +44,7 @@ function code(value: unknown): string {
  */
 export function behindState(behind: number | null): 'unknown' | 'current' | 'behind' {
   if (behind === null) return 'unknown';
-  return behind > 0 ? 'behind' : 'current';
+  return behind >= 0 ? 'behind' : 'current';
 }
 
 export function requireCi(env: CompanionEnv, repository: string): boolean {

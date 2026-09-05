@@ -60,8 +60,5 @@ FILTER_REGEX_EXCLUDE: "(package-lock\\.json|stuff/|\\.ai/private/claude/memory/(
 
 # Keep generic linting for bench assets, except where established DOM ids and
 # bundled CSS intentionally conflict with generic documentation-style rules.
-CSS_STYLELINT_FILTER_REGEX_EXCLUDE: "benches/streambench/public/styles\\.css"
-HTML_DJLINT_FILTER_REGEX_EXCLUDE: "(benches/codebench/public/index\\.html|benches/streambench/public/index\\.html)"
-HTML_HTMLHINT_FILTER_REGEX_EXCLUDE: "benches/codebench/public/index\\.html"
 
 MARKDOWN_MARKDOWNLINT_CONFIG_FILE: "https://raw.githubusercontent.com/trvny/feedseek/refs/heads/main/.github/linters/.markdownlint.json"

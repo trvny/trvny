@@ -1,39 +1,41 @@
 # Codebase Structure
 
+> Workshop sources under `twojstar/twojstar/...` were migrated out of this repository; these references point to their active home.
+
 ## 1) Top-Level Map
 
 | Path | Purpose | Evidence |
 | --- | --- | --- |
 | `.ai/` | Public AI configuration submodule plus private overlays/backups | `.ai/README.md`, `.gitmodules` |
 | `.github/` | CI, dependency updates, linting, agents and automation templates | `.github/workflows/`, `.github/dependabot.yml` |
-| `benches/` | Shared npm workspace for Codebench, Docbench and Streambench | `benches/package.json`, `benches/README.md` |
-| `weather-feed/` | Scheduled weather/IMGW aggregator and Atom feed | `weather-feed/README.md`, `weather-feed/src/index.ts` |
+| `twojstar/twojstar/benches/` | Shared npm workspace for Codebench, Docbench and Streambench | `twojstar/twojstar/benches/package.json`, `twojstar/twojstar/benches/README.md` |
+| `twojstar/twojstar/weather-feed/` | Scheduled weather/IMGW aggregator and Atom feed | `twojstar/twojstar/weather-feed/README.md`, `twojstar/twojstar/weather-feed/src/index.ts` |
 | `mcp/status-mcp/` | One-tool MCP health aggregator | `mcp/status-mcp/README.md` |
 | `gh-apps/` | Kanarek Companion Worker and GPTomek operator documentation/runtime | `gh-apps/README.md` |
-| `xiaomi-adb-tools/` | Kotlin/JavaFX ADB/Fastboot desktop application | `xiaomi-adb-tools/README.md` |
+| `twojstar/twojstar/xiaomi-adb-tools/` | Kotlin/JavaFX ADB/Fastboot desktop application | `twojstar/twojstar/xiaomi-adb-tools/README.md` |
 | `stuff/` | Personal data/config/feed/playlist drawers, excluded from normal linting | `AGENTS.md`, `.github/linters/.mega-linter.yml` |
 
-The repository is a mixed monorepo: the three Benches share an npm workspace and lockfile, while unrelated packages keep independent manifests and builds.
+The repository remains a mixed monorepo. Migrated workshop directories are lightweight pointers; active Bench, Weather, Feedboard and Xiaomi sources and builds live in `twojstar/twojstar`.
 
 ## 2) Entry Points
 
 | Component | Main entry | Selection |
 | --- | --- | --- |
-| Codebench | `benches/codebench/src/index.ts` | `benches/codebench/wrangler.jsonc` |
-| Docbench | `benches/docbench/src/index.ts` | `benches/docbench/wrangler.jsonc` |
-| Streambench | `benches/streambench/src/entry.ts` | `benches/streambench/wrangler.jsonc` |
-| Weather | `weather-feed/src/index.ts` | `weather-feed/wrangler.jsonc`; HTTP + scheduled handler |
+| Codebench | `twojstar/twojstar/benches/codebench/src/index.ts` | `twojstar/twojstar/benches/codebench/wrangler.jsonc` |
+| Docbench | `twojstar/twojstar/benches/docbench/src/index.ts` | `twojstar/twojstar/benches/docbench/wrangler.jsonc` |
+| Streambench | `twojstar/twojstar/benches/streambench/src/entry.ts` | `twojstar/twojstar/benches/streambench/wrangler.jsonc` |
+| Weather | `twojstar/twojstar/weather-feed/src/index.ts` | `twojstar/twojstar/weather-feed/wrangler.jsonc`; HTTP + scheduled handler |
 | Status MCP | `mcp/status-mcp/src/entry.ts` | `mcp/status-mcp/wrangler.jsonc`; wraps `src/index.ts` |
 | Kanarek/GPTomek | `gh-apps/kanarek-companion/src/runtime-entry.ts` | `gh-apps/kanarek-companion/wrangler.jsonc` |
-| Xiaomi | `xiaomi-adb-tools/src/main/kotlin/Main.kt` | Gradle `application.mainClass = 'Main'` |
+| Xiaomi | `twojstar/twojstar/xiaomi-adb-tools/src/main/kotlin/Main.kt` | Gradle `application.mainClass = 'Main'` |
 
 ## 3) Module Boundaries
 
 | Boundary | What belongs here | What must not be here | Evidence |
 | --- | --- | --- | --- |
-| Bench Worker `src/` | HTTP routing, security headers, provider/relay edge logic | Docbench document mutation and Codebench QR payload processing | `benches/codebench/src/index.ts`, `benches/docbench/src/index.ts`, `benches/streambench/src/entry.ts` |
+| Bench Worker `src/` | HTTP routing, security headers, provider/relay edge logic | Docbench document mutation and Codebench QR payload processing | `twojstar/twojstar/benches/codebench/src/index.ts`, `twojstar/twojstar/benches/docbench/src/index.ts`, `twojstar/twojstar/benches/streambench/src/entry.ts` |
 | Bench browser `client/` or `public/` | UI, local files, media/PDF/QR processing | Cloudflare secret access | browser modules and Wrangler bindings |
-| Weather `src/` | source adapters, normalization, state/feed rendering | unrelated project health or GitHub operations | `weather-feed/src/*` |
+| Weather `src/` | source adapters, normalization, state/feed rendering | unrelated project health or GitHub operations | `twojstar/twojstar/weather-feed/src/*` |
 | Status MCP `src/` | aggregate health reads and MCP transport/auth | mutations of monitored projects | `mcp/status-mcp/src/entry.ts`, `src/index.ts` |
 | Kanarek `src/` | webhook companion, guarded GitHub/Cloudflare/operator actions | unguarded raw privileged mutations | `gh-apps/kanarek-companion/src/router.ts` |
 | `.ai/private/` | active private AI/operator context | reusable public-core material | `.ai/private/README.md` |
@@ -50,6 +52,6 @@ The repository is a mixed monorepo: the three Benches share an npm workspace and
 ## 5) Evidence
 
 - `AGENTS.md`, `.gitmodules`, `.gitattributes`
-- `benches/codebench/wrangler.jsonc`, `benches/docbench/wrangler.jsonc`, `benches/streambench/wrangler.jsonc`
-- `weather-feed/wrangler.jsonc`, `mcp/status-mcp/wrangler.jsonc`
-- `gh-apps/kanarek-companion/wrangler.jsonc`, `xiaomi-adb-tools/build.gradle`
+- `twojstar/twojstar/benches/codebench/wrangler.jsonc`, `twojstar/twojstar/benches/docbench/wrangler.jsonc`, `twojstar/twojstar/benches/streambench/wrangler.jsonc`
+- `twojstar/twojstar/weather-feed/wrangler.jsonc`, `mcp/status-mcp/wrangler.jsonc`
+- `gh-apps/kanarek-companion/wrangler.jsonc`, `twojstar/twojstar/xiaomi-adb-tools/build.gradle`

@@ -1,16 +1,21 @@
 # Testing Patterns
 
+> Workshop sources under `twojstar/twojstar/...` were migrated out of this repository; these references point to their active home.
+
 ## 1) Test Stack and Commands
 
 - Primary test stack is deliberately mixed: Node's native `node:test`/`node:assert` for Kanarek and weather; direct Node assertion scripts for the Benches; Gradle build validation for Xiaomi.
-- `tsx` runs TypeScript weather tests without a separate test framework (`weather-feed/package.json`).
+- `tsx` runs TypeScript weather tests without a separate test framework (`twojstar/twojstar/weather-feed/package.json`).
 - Kanarek's `npm run check` combines TypeScript, native Node tests, syntax checks and Wrangler dry-run; its CI also performs a live production smoke after main pushes.
 
 ```bash
-cd gh-apps/kanarek-companion && npm run check
-cd weather-feed && npm run check
-cd benches && npm ci && npm run check
-cd mcp/status-mcp && npm run typecheck
+# From a trvny/trvny checkout:
+(cd gh-apps/kanarek-companion && npm run check)
+(cd mcp/status-mcp && npm run typecheck)
+
+# From a twojstar/twojstar checkout:
+(cd weather-feed && npm run check)
+(cd benches && npm ci && npm run check)
 # Xiaomi: CI runs ./gradlew jar; agent instructions prohibit local Gradle execution.
 ```
 
@@ -19,8 +24,8 @@ There is no root `test`/`check` command and no repo-wide test runner.
 ## 2) Test Layout
 
 - Kanarek: `gh-apps/kanarek-companion/test/*.test.ts`, using native Node tests and explicit network/runtime fakes.
-- Weather: `weather-feed/test/*.test.ts`, using native Node tests via `tsx`.
-- Docbench: `benches/docbench/tests/*.test.mjs` plus focused check scripts; many tests execute assertions directly rather than registering runner cases.
+- Weather: `twojstar/twojstar/weather-feed/test/*.test.ts`, using native Node tests via `tsx`.
+- Docbench: `twojstar/twojstar/benches/docbench/tests/*.test.mjs` plus focused check scripts; many tests execute assertions directly rather than registering runner cases.
 - Codebench and Streambench: focused invariant scripts under `scripts/`, commonly named `*-check.mjs`.
 - No shared repo-level setup/fixture package was found.
 
@@ -52,8 +57,8 @@ status-mcp has no behavior test script; its CI currently runs TypeScript only. X
 ## 6) Evidence
 
 - `gh-apps/kanarek-companion/package.json`, `gh-apps/kanarek-companion/test/webhook.test.ts`, `gh-apps/kanarek-companion/test/cloudflare-actions.test.ts`
-- `weather-feed/package.json`, `weather-feed/test/weather.test.ts`
-- `benches/docbench/package.json`, `benches/docbench/tests/pdf-core.test.mjs`
-- `benches/codebench/scripts/privacy-check.mjs`, `benches/streambench/scripts/relay-core-check.mjs`
-- `.github/workflows/kanarek-companion-ci.yml`, `.github/workflows/weather-ci.yml`, `.github/workflows/status-mcp-ci.yml`
-- `.github/workflows/benches-release.yml`, `.github/workflows/xiaomi-adb-tools-ci.yml`
+- `twojstar/twojstar/weather-feed/package.json`, `twojstar/twojstar/weather-feed/test/weather.test.ts`
+- `twojstar/twojstar/benches/docbench/package.json`, `twojstar/twojstar/benches/docbench/tests/pdf-core.test.mjs`
+- `twojstar/twojstar/benches/codebench/scripts/privacy-check.mjs`, `twojstar/twojstar/benches/streambench/scripts/relay-core-check.mjs`
+- `.github/workflows/kanarek-companion-ci.yml`, `.github/workflows/status-mcp-ci.yml`
+- `twojstar/twojstar/.github/workflows/weather-worker-ci.yml`, `twojstar/twojstar/.github/workflows/benches-ci.yml`, `twojstar/twojstar/.github/workflows/rolling-release.yml`, `twojstar/twojstar/.github/workflows/xiaomi-adb-tools-ci.yml`

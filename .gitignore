@@ -64,8 +64,6 @@ captures/
 megalinter-reports/
 mega-linter.log
 .ai/generated/
-benches/codebench/public/*.js
-benches/streambench/public/*.js
 
 # Logs and temporary files
 *.log

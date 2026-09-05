@@ -1,5 +1,7 @@
 # Architecture
 
+> Workshop sources under `twojstar/twojstar/...` were migrated out of this repository; these references point to their active home.
+
 ## 1) Architectural Style
 
 - Primary style: a collection of independently deployed applications/services, mostly feature-oriented, sharing repository-level CI and policy rather than a shared runtime.
@@ -24,10 +26,10 @@ Representative flows are implemented in the corresponding `src/index.ts`/entry f
 
 | Layer or module | Owns | Must not own | Evidence |
 | --- | --- | --- | --- |
-| Bench edge wrappers | headers, static assets, narrow APIs | local document/QR editing state | `benches/codebench/src/index.ts`, `benches/docbench/src/index.ts` |
-| Streambench providers/relay | provider adapters, URL validation, signed relay | arbitrary open proxy behavior | `benches/streambench/src/providers/`, `benches/streambench/src/relay-core.ts` |
-| Weather source adapters | external schema parsing/retries | feed state/history | `weather-feed/src/sources.ts` |
-| Weather orchestrator | parallel cycles, KV state, feed endpoints | provider-specific parsing | `weather-feed/src/index.ts` |
+| Bench edge wrappers | headers, static assets, narrow APIs | local document/QR editing state | `twojstar/twojstar/benches/codebench/src/index.ts`, `twojstar/twojstar/benches/docbench/src/index.ts` |
+| Streambench providers/relay | provider adapters, URL validation, signed relay | arbitrary open proxy behavior | `twojstar/twojstar/benches/streambench/src/providers/`, `twojstar/twojstar/benches/streambench/src/relay-core.ts` |
+| Weather source adapters | external schema parsing/retries | feed state/history | `twojstar/twojstar/weather-feed/src/sources.ts` |
+| Weather orchestrator | parallel cycles, KV state, feed endpoints | provider-specific parsing | `twojstar/twojstar/weather-feed/src/index.ts` |
 | Status transport | authentication, body limits, short cache | project-specific probe logic | `mcp/status-mcp/src/entry.ts` |
 | Status probes | read-only health fan-out | mutations | `mcp/status-mcp/src/index.ts` |
 | Kanarek runtime/router | capability dispatch and guards | capability internals | `gh-apps/kanarek-companion/src/runtime-entry.ts`, `src/router.ts` |
@@ -48,13 +50,13 @@ Representative flows are implemented in the corresponding `src/index.ts`/entry f
 
 - Kanarek/GPTomek is the most complex and privileged subsystem. Several feature modules exceed 900–1600 lines and `src/router.ts` is among the highest-churn files, increasing regression risk when capability routing changes (90-day `git log --name-only` churn and tracked-source line counts).
 - There is no root workspace/runtime pin or shared build orchestrator. Package independence limits coupling, but cross-project dependency/toolchain policy can drift (`package.json` absence at root; per-package manifests).
-- Docbench keeps substantial hand-maintained application code under `public/`; tooling or maintainers that treat `public/` as generated output could accidentally skip important source (`benches/docbench/public/pdf-core.mjs`, `benches/docbench/public/pdf-app.mjs`).
+- Docbench keeps substantial hand-maintained application code under `public/`; tooling or maintainers that treat `public/` as generated output could accidentally skip important source (`twojstar/twojstar/benches/docbench/public/pdf-core.mjs`, `twojstar/twojstar/benches/docbench/public/pdf-app.mjs`).
 
 ## 6) Evidence
 
-- `benches/codebench/src/index.ts`, `benches/docbench/src/index.ts`
-- `benches/streambench/src/entry.ts`, `benches/streambench/src/index.ts`, `benches/streambench/src/relay-core.ts`
-- `weather-feed/src/index.ts`, `weather-feed/src/sources.ts`
+- `twojstar/twojstar/benches/codebench/src/index.ts`, `twojstar/twojstar/benches/docbench/src/index.ts`
+- `twojstar/twojstar/benches/streambench/src/entry.ts`, `twojstar/twojstar/benches/streambench/src/index.ts`, `twojstar/twojstar/benches/streambench/src/relay-core.ts`
+- `twojstar/twojstar/weather-feed/src/index.ts`, `twojstar/twojstar/weather-feed/src/sources.ts`
 - `mcp/status-mcp/src/entry.ts`, `mcp/status-mcp/src/index.ts`
 - `gh-apps/kanarek-companion/src/runtime-entry.ts`, `gh-apps/kanarek-companion/src/router.ts`, `gh-apps/kanarek-companion/src/index.ts`
-- `xiaomi-adb-tools/src/main/kotlin/Main.kt`, `xiaomi-adb-tools/src/main/kotlin/Command.kt`
+- `twojstar/twojstar/xiaomi-adb-tools/src/main/kotlin/Main.kt`, `twojstar/twojstar/xiaomi-adb-tools/src/main/kotlin/Command.kt`

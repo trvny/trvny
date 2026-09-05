@@ -43,14 +43,14 @@ No open pull requests. 🎉
 | 🤖 **LlmBench** | [repo](https://github.com/twojstar/llmbench) | Android hub for account-backed AI chats and free-provider LLM access. |
 | 🔊 **WAM Bridge** | [repo](https://github.com/twojstar/wambridge) | Audio bridge for Samsung Wireless Audio Multiroom speakers and native foobar2000 output for Shape M5. |
 
-### Tools in this monorepo
+### Workshop tools and local services
 
-| project | live | purpose |
+| project | entry | purpose |
 |---|---|---|
-| 🔳 **[Codebench](benches/codebench/)** | [codebench.trfny.com](https://codebench.trfny.com) | Private browser-based QR and barcode studio. Data never leaves the browser. |
-| 📻 **[Streambench](benches/streambench/)** | [streambench.trfny.com](https://streambench.trfny.com) | Workshop for testing, organizing, and playing IPTV, radio, HLS, M3U, and XMLTV. |
-| 📄 **[Docbench](benches/docbench/)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | Local-first document and PDF studio for editing, previewing, validating, merging, page operations, and bookmarks. |
-| 🌦️ **[weather-feed](weather-feed/)** | [weather.trfny.com](https://weather.trfny.com) | Multi-source weather and IMGW alerts for Kościelec/Chrzanów, exposed as Atom and JSON. |
+| 🔳 **[Codebench](https://github.com/twojstar/twojstar/tree/main/benches/codebench)** | [codebench.trfny.com](https://codebench.trfny.com) | Private browser-based QR and barcode studio. Data never leaves the browser. |
+| 📻 **[Streambench](https://github.com/twojstar/twojstar/tree/main/benches/streambench)** | [streambench.trfny.com](https://streambench.trfny.com) | Workshop for testing, organizing, and playing IPTV, radio, HLS, M3U, and XMLTV. |
+| 📄 **[Docbench](https://github.com/twojstar/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | Local-first document and PDF studio for editing, previewing, validating, merging, page operations, and bookmarks. |
+| 🌦️ **[weather-feed](https://github.com/twojstar/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Multi-source weather and IMGW alerts for Kościelec/Chrzanów, exposed as Atom and JSON. |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | One tool for aggregate health checks of TVPI, Feedseek, and Autka. |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Public AI configuration core + private profile, archive, and project skills. |
 

@@ -1,25 +1,7 @@
-# Benches
+# Benches moved
 
-Shared npm workspace for the three browser tools in the Bench family:
+Active Codebench, Docbench and Streambench development moved to [`twojstar/twojstar`](https://github.com/twojstar/twojstar/tree/main/benches).
 
-- [`codebench/`](codebench/) — QR and barcode studio;
-- [`docbench/`](docbench/) — local-first document and PDF studio;
-- [`streambench/`](streambench/) — IPTV, radio, HLS, M3U and XMLTV workshop.
+The Cloudflare Workers keep their existing service names and public URLs; only their source repository and build triggers moved.
 
-The applications remain separate Cloudflare Workers with independent runtime
-boundaries and `wrangler.jsonc` files. The workspace only centralizes dependency
-installation, lockfile maintenance and common CI entry points.
-
-```sh
-cd benches
-npm ci
-npm run check
-```
-
-Run one project with `npm run check:<name>` or `npm run build:<name>`.
-Cloudflare Workers Builds uses `benches` as the root directory and the matching
-`build:<name>`, `deploy:<name>` and `preview:<name>` scripts for each Worker.
-
-A dependency or source change inside one Bench should normally trigger only that
-Worker. Changes to `benches/package.json` and `benches/package-lock.json` are shared policy and should trigger all
-three builds.
+Historical Bench source remains available in this repository's Git history.

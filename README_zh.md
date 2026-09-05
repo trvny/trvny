@@ -17,9 +17,6 @@
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.trfny.com) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.trfny.com) [![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.travny.workers.dev)  
 [![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://trfny.com)  
 <a href="https://deepwiki.com/trvny/trvny"><img src="https://deepwiki.com/badge.svg" alt="DeepWiki"></a>
-
-[![GitHub Stats](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)
-
 </div>
 
 ---
@@ -47,7 +44,7 @@
 | 🤖 **LlmBench** | [仓库](https://github.com/twojstar/llmbench) | Android AI 聊天中心，整合账号登录与免费 LLM 提供商。 |
 | 🔊 **WAM Bridge** | [仓库](https://github.com/twojstar/wambridge) | Samsung Wireless Audio Multiroom 音频桥接，以及面向 Shape M5 的原生 foobar2000 输出。 |
 
-### 已迁移到 twojstar/twojstar 的工具
+### 工具与服务
 
 | 项目 | 在线地址 | 用途 |
 |---|---|---|
@@ -56,6 +53,9 @@
 | 📄 **[Docbench](https://github.com/twojstar/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | 本地优先的文档与 PDF 工作台，可编辑、预览、验证、合并、整理页面和书签。 |
 | 🌦️ **[weather-feed](https://github.com/twojstar/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Kościelec/Chrzanów 的多源天气与 IMGW 警报，以 Atom 和 JSON 提供。 |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | 汇总检查 TVPI、Feedseek、Weather 和 Autka 健康状态的单一工具。 |
+| 🐾 **[Pet Dispatcher](mcp/pet-dispatcher/)** | 本地 MCP + Worker | 限定在工作区内的开发机工具，以及仅出站连接的 Cloudflare 控制平面。 |
+| 🌀 **[Loopling](loopling/)** | ChatGPT/Codex pet | 程序化生成的桌面宠物、安装脚本、预览与验证资源。 |
+| 💾 **[Remotely Save GDrive patch](remotely-save-gdrive-patch/)** | 本地补丁 | 仅供个人使用的 Google Drive 去重/更新补丁，以及不重新分发构建产物的验证工具。 |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | 公共 AI 配置核心，以及私有配置、归档和项目 skills。 |
 
 ## 🗄️ 抽屉

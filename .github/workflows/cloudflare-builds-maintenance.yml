@@ -72,8 +72,10 @@ jobs:
           set -euo pipefail
           expected_hls=$(jq -r '.dependencies["hls.js"]' source/benches/streambench/package.json)
           expected_pdf=$(jq -r '.dependencies["pdfjs-dist"]' source/benches/docbench/package.json)
-          curl -fsS https://streambench.trfny.com/vendor/hls.min.js | grep -Fq "$expected_hls"
-          curl -fsS https://docbench.travny.workers.dev/vendor/pdfjs/pdf.mjs | grep -Fq "$expected_pdf"
+          curl -fsS -o /tmp/hls.min.js https://streambench.trfny.com/vendor/hls.min.js
+          curl -fsS -o /tmp/pdf.mjs https://docbench.travny.workers.dev/vendor/pdfjs/pdf.mjs
+          grep -Fq "$expected_hls" /tmp/hls.min.js
+          grep -Fq "$expected_pdf" /tmp/pdf.mjs
           curl -fsS https://codebench.trfny.com/ >/dev/null
           curl -fsS https://weather.trfny.com/healthz | jq -e '.ok == true' >/dev/null
           echo "Production matches current twojstar/main assets and Weather is healthy."

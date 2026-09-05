@@ -8,7 +8,8 @@
 | Cloudflare Queues | Pet Dispatcher | remote task delivery to the Legion poller | Queue API token stays local to the Legion |
 | Durable Objects | Kanarek Companion, Pet Dispatcher | locks, checkpoints, review jobs and task state | Worker bindings |
 | Cloudflare KV | Kanarek Companion | learned quip bank | Worker binding `KANAREK_QUIP_KV` |
-| GitHub API | Kanarek/GPTomek, status-mcp | repo/PR/release actions and public health reads | GitHub App credentials or public reads |
+| GitHub API | Kanarek/GPTomek | repo, PR and release actions | GitHub App credentials |
+| GitHub public metadata | status-mcp | read-only Feedseek health data | public reads; no GitHub write credentials |
 | Cloudflare API | Kanarek operator actions | guarded account inspection and mutation | account ID + API token secrets |
 | AI providers | Kanarek Companion, Pet Dispatcher | quips/reviews/operator or delegated agent execution | provider API keys in runtime environment |
 | Microsoft MXC / ProcessContainer | Pet Dispatcher | confined local process execution | local machine only |

@@ -8,7 +8,7 @@
 | `.github/` | workflows, Dependabot, linters, agents and repository automation |
 | `assets/` | shared README/branding assets and status-mcp icon source |
 | `docs/` | repository-level technical documentation |
-| `gh-apps/` | Kanarek Companion Worker and GPTomek GitHub App support |
+| `gh-apps/` | Kanarek Companion, GPTomek bridge, GPT Actions and Gremlin Operator |
 | `loopling/` | ChatGPT/Codex pet source, generated assets, installers and previews |
 | `mcp/pet-dispatcher/` | local confined MCP worker plus Cloudflare remote control plane |
 | `mcp/status-mcp/` | authenticated aggregate health MCP Worker |
@@ -20,6 +20,7 @@
 | Component | Entry point / maintained source |
 | --- | --- |
 | Kanarek Companion | `gh-apps/kanarek-companion/src/runtime-entry.ts` |
+| GPT Actions / Gremlin Operator | `gh-apps/kanarek-companion/src/router.ts`, `src/gpt-actions.ts`, `src/operator-actions.ts` |
 | status-mcp | `mcp/status-mcp/src/entry.ts` |
 | Pet Dispatcher local worker | `mcp/pet-dispatcher/src/index.ts` |
 | Pet Dispatcher control plane | `mcp/pet-dispatcher/control-plane/entry.ts` |

@@ -8,6 +8,8 @@ There is no root test runner. Validation follows component boundaries.
 (cd gh-apps/kanarek-companion && npm ci && npm run check)
 (cd mcp/status-mcp && npm ci && npm run typecheck)
 (cd mcp/pet-dispatcher && npm ci && npm run check)
+python loopling/tools/generate.py
+git diff --exit-code -- loopling/pet loopling/gallery
 ```
 
 ## Coverage by component
@@ -15,6 +17,7 @@ There is no root test runner. Validation follows component boundaries.
 - **Kanarek Companion:** strict TypeScript, Node tests, script syntax checks, Wrangler dry-run, then a live production smoke on pushes to `main`.
 - **Pet Dispatcher:** strict TypeScript plus `tsx --test` suites for path confinement, networking, sandbox integration, MCP, Git, providers, hardening, remote transport and direct sessions; `control:check` also validates the Worker bundle.
 - **status-mcp:** strict TypeScript only in CI today; no behavior test suite is configured.
+- **Loopling:** no dedicated CI job; regenerate deterministically with `tools/generate.py` and require `pet/` plus `gallery/` to remain unchanged.
 - **Remotely Save patch:** workflow downloads the latest upstream `main.js`, applies the patch, builds a standalone test class and runs fake-Drive checks. It publishes nothing.
 - **Quarto report:** CI renders `stuff/other/token-worldcup.qmd` and fails if committed HTML differs.
 - **Repository docs/config:** MegaLinter checks changed files; a full sweep is manual via `workflow_dispatch`.

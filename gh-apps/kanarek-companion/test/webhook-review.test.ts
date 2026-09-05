@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   parseReviewJson,
   patchAddedRightLines,
+  reviewAnchorLine,
   reviewFileCollectionComplete,
   reviewInputState,
   reviewMarker,
@@ -129,6 +130,14 @@ test('review line anchors include only added RIGHT-side lines', () => {
   assert.deepEqual([...patchAddedRightLines(patch)], [11, 12]);
 });
 
+test('review anchors tolerate nearby context lines', () => {
+  const rightLines = new Set([11, 12]);
+  assert.equal(reviewAnchorLine(rightLines, 11), 11);
+  assert.equal(reviewAnchorLine(rightLines, 10), 11);
+  assert.equal(reviewAnchorLine(rightLines, 15), 12);
+  assert.equal(reviewAnchorLine(rightLines, 16), null);
+});
+
 test('review input does not mark missing GitHub patches as empty code', () => {
   assert.equal(
     reviewInputState([{ filename: 'src/large.ts' }], 0),
@@ -174,6 +183,10 @@ test('review retries are bounded and only cover transient failures', () => {
   assert.equal(reviewRetryDelayMs(transient, 1), 10 * 60_000);
   assert.equal(reviewRetryDelayMs(transient, 2), 30 * 60_000);
   assert.equal(reviewRetryDelayMs(transient, 3), null);
+  assert.equal(
+    reviewRetryDelayMs({ ...transient, skipped: 'invalid_findings' }, 0),
+    2 * 60_000,
+  );
   assert.equal(
     reviewRetryDelayMs({ ...transient, skipped: 'no_code_diff' }, 0),
     null,

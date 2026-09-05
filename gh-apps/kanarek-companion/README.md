@@ -192,6 +192,8 @@ Quip provider responses are accepted only after a normal completion and the
 learned 45–110 character/language validation. Explicit token-limit and other
 incomplete stops never enter the bank. Review output is separately validated as
 JSON, Simplified Chinese, and exact diff-line anchors before GitHub mutation.
+Provider findings that fail normalization are retried instead of being mislabeled
+as clean.
 
 A quip request/network/HTTP failure may fall through to the next configured
 provider. Once a provider returns a parsed successful HTTP response, however,

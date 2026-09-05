@@ -4,6 +4,9 @@
 
 **Prywatny hol dowodzenia: projekty, usługi, narzędzia i szuflady w jednym miejscu.**
 
+<p align="center">
+  <img src="assets/132311.gif" width="69%">
+</p>
 <br>
 
 **Polski** · [English](README.md) · [简体中文](README_zh.md)
@@ -12,13 +15,20 @@
 [![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/twojstar/wambridge)
 [![weather](https://img.shields.io/badge/weather-KOŚCIELEC-16a34a?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.trfny.com)  
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.trfny.com) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.trfny.com) [![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.travny.workers.dev)  
-[![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://trfny.com)
+[![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://trfny.com)  
+<a href="https://deepwiki.com/trvny/trvny"><img src="https://deepwiki.com/badge.svg" alt="DeepWiki"></a>
 
 [![GitHub Stats](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)
 
 </div>
 
 ---
+
+## 🔀 Otwarte pull requesty
+
+<!--OPEN_PRS:START-->
+Brak otwartych pull requestów. 🎉
+<!--OPEN_PRS:END-->
 
 ## 🧭 Mapa projektów
 
@@ -49,10 +59,8 @@
 [`playlists`](stuff/playlists/) · [`configs`](stuff/configs/) ·
 [`feeds`](stuff/feeds/) · [`quotes`](stuff/quotes/) · [`other`](stuff/other/)
 
-- **Playlisty**: robocze i testowe M3U/M3U8 dla Streambencha oraz
-  odtwarzaczy.
-- **Konfiguracje**: rzeczy współdzielone, których nie warto zamykać w osobnym
-  repo.
+- **Playlisty**: robocze i testowe M3U/M3U8 dla Streambencha oraz odtwarzaczy.
+- **Konfiguracje**: rzeczy współdzielone, których nie warto zamykać w osobnym repo.
 - **Feedy i cytaty**: źródła pomocnicze używane przez automaty i widżety.
 
 ## 🧪 Pozostałe repozytoria
@@ -63,11 +71,15 @@
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
 
-## [Licencja](LICENSE) i [materiały zewnętrzne](docs/THIRD_PARTY_NOTICES.md)
+## Ja i moje ziomki
 
-Oryginalny kod i dokumentację obejmuje [ISC](https://spdx.org/licenses/ISC).
-[THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md).
-[![code license](https://img.shields.io/github/license/trvny/trvny?label=code&logo=opensourceinitiative&logoColor=white&color=6f42c1&style=flat-square)](https://spdx.org/licenses/ISC)
+<p align="left">
+  <img src="assets/ziomki.png" width="420">
+</p>
+
+## [Licencja](LICENSE) [![licencja kodu](https://img.shields.io/github/license/trvny/trvny?label=code&logo=opensourceinitiative&logoColor=white&color=6f42c1&style=flat-square)](https://spdx.org/licenses/ISC)
+
+[ISC](https://spdx.org/licenses/ISC). [THIRD_PARTY_NOTICES](docs/THIRD_PARTY_NOTICES.md).
 
 ---
 ## 💬 Cytat z szuflady

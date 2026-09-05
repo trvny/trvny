@@ -26,7 +26,8 @@ There is no root `test`/`check` command and no repo-wide test runner.
 - Kanarek: `gh-apps/kanarek-companion/test/*.test.ts`, using native Node tests and explicit network/runtime fakes.
 - Weather: `twojstar/twojstar/weather-feed/test/*.test.ts`, using native Node tests via `tsx`.
 - Docbench: `twojstar/twojstar/benches/docbench/tests/*.test.mjs` plus focused check scripts; many tests execute assertions directly rather than registering runner cases.
-- Codebench and Streambench: focused invariant scripts under `scripts/`, commonly named `*-check.mjs`.
+- Codebench: focused invariant scripts under `twojstar/twojstar/benches/codebench/scripts/`, commonly named `*-check.mjs`.
+- Streambench: focused invariant scripts under `twojstar/twojstar/benches/streambench/scripts/`, commonly named `*-check.mjs`.
 - No shared repo-level setup/fixture package was found.
 
 ## 3) Test Scope Matrix

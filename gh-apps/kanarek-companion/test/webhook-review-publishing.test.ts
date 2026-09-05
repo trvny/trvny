@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  reviewDisposition,
   reviewSourceLabel,
-  shouldPublishReview,
 } from '../src/webhook-review.ts';
 
 test('review source label prefers the concrete upstream model', () => {
@@ -17,7 +17,8 @@ test('review source label falls back to the provider when model is unavailable',
   assert.equal(reviewSourceLabel('openrouter', null), 'OpenRouter');
 });
 
-test('clean reviews stay silent', () => {
-  assert.equal(shouldPublishReview([]), false);
-  assert.equal(shouldPublishReview([{}]), true);
+test('only genuinely clean reviews stay silent', () => {
+  assert.equal(reviewDisposition([], []), 'clean');
+  assert.equal(reviewDisposition([{}], []), 'invalid_findings');
+  assert.equal(reviewDisposition([{}], [{}]), 'publish');
 });

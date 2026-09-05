@@ -5,6 +5,7 @@ import {
   BANK_KEY,
   loadBank,
   maintainBank,
+  rememberQuip,
   shouldUsePool,
   storeBank,
 } from '../src/companion-bank.ts';
@@ -150,6 +151,17 @@ test('labels standalone split repositories from their root layout', () => {
   );
 });
 
+test('preserves learned quip language across ambiguous context changes', () => {
+  const quipKey = 'aaaaaaaaaaaaaaaa';
+  const quip = 'CI 2026: PR #198 OK; status green; merge queue ready now.';
+  let pool = rememberQuip([], quipKey, quip, 'ai', 'en');
+  assert.equal(pool[0]?.l, 'en');
+  pool = rememberQuip(pool, quipKey, quip, 'ai', 'pl');
+  assert.equal(pool[0]?.l, 'en');
+  pool = rememberQuip(pool, quipKey, quip, 'ai', 'en');
+  assert.equal(pool[0]?.l, 'en');
+});
+
 test('uses the bank outside the configured AI rollout', async () => {
   const quipKey = 'aaaaaaaaaaaaaaaa';
   const noAi = {} as CompanionEnv;
@@ -241,8 +253,8 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
   const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
 
   await Promise.all([
-    storeBank(env, [{ k: 'bbbbbbbbbbbbbbbb', q: firstParallel }]),
-    storeBank(env, [{ k: 'cccccccccccccccc', q: secondParallel }]),
+    storeBank(env, [{ k: 'bbbbbbbbbbbbbbbb', l: 'pl', q: firstParallel }]),
+    storeBank(env, [{ k: 'cccccccccccccccc', l: 'pl', q: secondParallel }]),
   ]);
 
   assert.equal(
@@ -285,7 +297,7 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
 
   const boundedKey = 'ffffffffffffffff';
   for (let index = 0; index < 270; index += 1) {
-    await storeBank(env, [{ k: boundedKey, q: boundedQuip(index) }]);
+    await storeBank(env, [{ k: boundedKey, l: 'en', q: boundedQuip(index) }]);
   }
   assert.equal(
     [...values.keys()].filter((key) =>

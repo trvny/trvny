@@ -1,5 +1,10 @@
 import { aiPercent, decoded, hash, sanitize, shouldAskAi, validQuipLength } from './quip.ts';
-import { matchesLanguage, type CompanionLanguage } from './companion-language.ts';
+import {
+  isCompanionLanguage,
+  reusableQuip,
+  reusableStoredQuip,
+  type CompanionLanguage,
+} from './companion-language.ts';
 import type { CompanionEnv, IssueComment, QuipEntry } from './companion-types.ts';
 
 export const BANK_KEY = 'kanarek:companion:quip-bank:v1';
@@ -108,17 +113,18 @@ function entriesFromValue(value: unknown): QuipEntry[] {
   }
   if (!Array.isArray(parsed)) return [];
   return parsed
-    .map((entry) => {
-      const candidate = entry as { k?: unknown; q?: unknown };
-      return {
-        k:
-          typeof candidate.k === 'string' && /^[a-f0-9]{16}$/.test(candidate.k)
-            ? candidate.k
-            : '',
-        q: sanitize(candidate.q),
-      };
+    .map((entry): QuipEntry | null => {
+      const candidate = entry as { k?: unknown; l?: unknown; q?: unknown };
+      if (candidate.l !== undefined && !isCompanionLanguage(candidate.l)) return null;
+      const k =
+        typeof candidate.k === 'string' && /^[a-f0-9]{16}$/.test(candidate.k)
+          ? candidate.k
+          : '';
+      const q = sanitize(candidate.q);
+      if (!k || !validQuipLength(q)) return null;
+      return candidate.l === undefined ? { k, q } : { k, l: candidate.l, q };
     })
-    .filter((entry) => entry.k && validQuipLength(entry.q))
+    .filter((entry): entry is QuipEntry => entry !== null)
     .slice(0, BANK_LIMIT);
 }
 
@@ -153,32 +159,34 @@ export function rememberQuip(
   key: string | undefined,
   quip: string,
   source: string,
+  language: CompanionLanguage,
 ): QuipEntry[] {
-  const value = sanitize(quip);
+  const value = reusableQuip(quip, language);
   if (
     !['ai', 'pool'].includes(source) ||
     !/^[a-f0-9]{16}$/.test(key ?? '') ||
-    !validQuipLength(value)
+    !value
   ) {
     return pool;
   }
+  const storedLanguage = pool.find(
+    (entry) => entry.k === key && entry.q === value,
+  )?.l;
   return [
-    { k: key ?? '', q: value },
+    { k: key ?? '', l: storedLanguage ?? language, q: value },
     ...pool.filter((entry) => entry.k !== key || entry.q !== value),
   ].slice(0, POOL_LIMIT);
 }
 
-function quipsFromComment(body: string | null | undefined, quipKey: string): string[] {
-  const values = poolEntries(body)
-    .filter((entry) => entry.k === quipKey)
-    .map((entry) => entry.q);
+function quipsFromComment(body: string | null | undefined, quipKey: string): QuipEntry[] {
+  const values = poolEntries(body).filter((entry) => entry.k === quipKey);
   const source = body?.match(SOURCE_RE)?.[1];
   if (
     ['ai', 'pool'].includes(source ?? '') &&
     body?.match(QUIP_KEY_RE)?.[1] === quipKey
   ) {
     const current = sanitize(decoded(body.match(QUIP_RE)?.[1] ?? ''));
-    if (validQuipLength(current)) values.unshift(current);
+    if (validQuipLength(current)) values.unshift({ k: quipKey, q: current });
   }
   return values;
 }
@@ -241,7 +249,7 @@ export async function bankContext(
     const legacy = mergeEntries(
       entriesFromValue(legacyValue).filter(
         (entry) =>
-          entry.k === quipKey && (!language || matchesLanguage(entry.q, language)),
+          entry.k === quipKey && (!language || reusableStoredQuip(entry.q, entry.l, language)),
       ),
     );
     let uniqueLegacy = 0;
@@ -352,7 +360,7 @@ async function loadEntryBank(
     if (value === null) continue;
     const parsed = entriesFromValue(value).filter(
       (entry) =>
-        entry.k === quipKey && (!language || matchesLanguage(entry.q, language)),
+        entry.k === quipKey && (!language || reusableStoredQuip(entry.q, entry.l, language)),
     );
     if (!parsed.length) invalid.push(selected[index]);
     else entries.push(...parsed);
@@ -538,7 +546,7 @@ export async function loadBank(
         language,
       );
       return mergeEntries(entries, context.legacy)
-        .filter((entry) => !language || matchesLanguage(entry.q, language))
+        .filter((entry) => !language || reusableStoredQuip(entry.q, entry.l, language))
         .slice(0, POOL_LIMIT);
     }
     const [legacy, entries] = await Promise.all([
@@ -549,7 +557,7 @@ export async function loadBank(
       entries,
       entriesFromValue(legacy).filter(
         (entry) =>
-          entry.k === quipKey && (!language || matchesLanguage(entry.q, language)),
+          entry.k === quipKey && (!language || reusableStoredQuip(entry.q, entry.l, language)),
       ),
     ).slice(0, POOL_LIMIT);
   } catch (error) {
@@ -567,7 +575,9 @@ export async function storeBank(
   const kv = env.KANAREK_QUIP_KV;
   if (!kv || !entries.length) return false;
   try {
-    const normalized = mergeEntries(entries);
+    const normalized = mergeEntries(entries).filter(
+      (entry) => entry.l && reusableQuip(entry.q, entry.l),
+    );
     if (!normalized.length) return false;
     const current = await listBankKeys(env);
     let retainedAll = true;
@@ -606,12 +616,19 @@ export async function pooledQuip(
 ): Promise<string | null> {
   const candidates = [
     ...oldComments.flatMap((item) => quipsFromComment(item.body, quipKey)),
-    ...bank.filter((entry) => entry.k === quipKey).map((entry) => entry.q),
+    ...bank.filter((entry) => entry.k === quipKey),
   ];
-  const unique = [...new Set(candidates)].filter(
-    (candidate) =>
-      candidate !== excluded && (!language || matchesLanguage(candidate, language)),
-  );
+  const unique = [
+    ...new Set(
+      candidates
+        .map((entry) =>
+          language
+            ? reusableStoredQuip(entry.q, entry.l, language)
+            : sanitize(entry.q),
+        )
+        .filter((candidate): candidate is string => Boolean(candidate)),
+    ),
+  ].filter((candidate) => candidate !== excluded);
   if (!unique.length) return null;
   const index =
     Number.parseInt((await hash(`${stateHash}:pool`)).slice(0, 8), 16) % unique.length;

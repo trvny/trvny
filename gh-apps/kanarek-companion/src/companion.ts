@@ -228,7 +228,10 @@ export async function refreshCompanion(
   const branchUpdateWarning = branchUpdateEligible
     ? branchUpdatePermissionWarning(client)
     : null;
-  const language = contextLanguage(`${pr.title ?? ''}\n${pr.body ?? ''}`);
+  const language = contextLanguage(
+    `${pr.title ?? ''}\n${pr.body ?? ''}`,
+    `${target.repository}#${target.pullRequestNumber}`,
+  );
   const quipFacts: QuipFacts = {
     status: current.key,
     blockers: kinds,
@@ -261,6 +264,7 @@ export async function refreshCompanion(
     previousKey,
     previousLearnedQuip,
     previousSource,
+    language,
   );
   const sameQuipState =
     previousKey === quipKey && Boolean(previousLearnedQuip);
@@ -394,7 +398,7 @@ export async function refreshCompanion(
       if (!paidReceiptStored) {
         await bankMaintenance;
         paidBankedBeforeGithub = await storeBank(env, [
-          { k: quipKey, q: quip },
+          { k: quipKey, l: language, q: quip },
         ]);
       }
       console.info(
@@ -417,7 +421,7 @@ export async function refreshCompanion(
     );
     source = 'preset';
   }
-  pool = rememberQuip(pool, quipKey, quip, source);
+  pool = rememberQuip(pool, quipKey, quip, source, language);
 
   const body = render(
     pr,
@@ -466,7 +470,7 @@ export async function refreshCompanion(
     paidQuipToBank !== null &&
     bank.some((entry) => entry.k === quipKey && entry.q === paidQuipToBank);
   if (paidQuipToBank && !paidBankedBeforeGithub && !bankHasPaidQuip) {
-    const retained = await storeBank(env, [{ k: quipKey, q: paidQuipToBank }]);
+    const retained = await storeBank(env, [{ k: quipKey, l: language, q: paidQuipToBank }]);
     if (retained && paidReceiptStored) {
       await deletePaidState(
         env,
@@ -485,7 +489,7 @@ export async function refreshCompanion(
     );
   }
   if (!sameQuipState && source === 'pool' && !bankHasQuip) {
-    await storeBank(env, [{ k: quipKey, q: quip }]);
+    await storeBank(env, [{ k: quipKey, l: language, q: quip }]);
   }
 
   if (branchUpdateEligible && !branchUpdateWarning) {

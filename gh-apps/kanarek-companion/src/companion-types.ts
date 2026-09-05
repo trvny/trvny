@@ -1,4 +1,4 @@
-import type { QuipEnv } from './quip.ts';
+import type { QuipEnv, QuipLanguage } from './quip.ts';
 
 export interface CompanionEnv extends QuipEnv {
   GITHUB_APP_ID: string;
@@ -34,6 +34,7 @@ export interface CompanionResult {
 
 export interface QuipEntry {
   k: string;
+  l?: QuipLanguage;
   q: string;
 }
 

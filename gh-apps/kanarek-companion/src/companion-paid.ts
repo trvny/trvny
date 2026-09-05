@@ -1,5 +1,6 @@
 import {
   reusableQuip,
+  reusableStoredQuip,
   type CompanionLanguage,
 } from './companion-language.ts';
 import type { CompanionEnv, QuipEntry } from './companion-types.ts';
@@ -48,7 +49,7 @@ export async function loadPaidState(
       await kv.delete(key);
       return null;
     }
-    const quip = reusableQuip(entry.q, language);
+    const quip = reusableStoredQuip(entry.q, entry.l, language);
     if (!quip) {
       await kv.delete(key);
       return null;
@@ -78,7 +79,7 @@ export async function storePaidState(
   try {
     await kv.put(
       key,
-      JSON.stringify({ k: quipKey, q: value } satisfies QuipEntry),
+      JSON.stringify({ k: quipKey, l: language, q: value } satisfies QuipEntry),
       { expirationTtl: PAID_STATE_TTL_SECONDS },
     );
     return true;

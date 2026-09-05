@@ -111,8 +111,12 @@ The persistent phrase bank lives in Workers KV under
 - Up to 256 learned quips are retained per `quipKey` context and 4096 total.
 - A live selection reads at most 24 entries from the current context, rotated
   by `stateHash`.
-- Learned AI/pool entries must satisfy the 45–110 character contract used for
-  new AI output. Presets are intentionally exempt and are never stored.
+- Learned AI/pool entries must satisfy the 45–110 character and language contract
+  used for new AI output. New persisted entries carry their validated language;
+  legacy untagged entries are classified on read. Presets are intentionally exempt
+  and are never stored.
+- Rare Chinese/Latin/Russian easter-egg selection is seeded by repository + PR
+  number, so editing a PR title/body cannot make its quip language jump around.
 - Invalid or wrong-language learned entries encountered in a live bank window
   are removed incrementally. Cleanup is best-effort: a failed delete never
   makes already-read valid bank entries unavailable.

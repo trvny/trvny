@@ -9,6 +9,15 @@ import {
 export type CompanionLanguage = QuipLanguage;
 type PrimaryLanguage = Extract<CompanionLanguage, 'en' | 'pl'>;
 
+const COMPANION_LANGUAGES = new Set<CompanionLanguage>(['en', 'pl', 'zh', 'la', 'ru']);
+
+export function isCompanionLanguage(value: unknown): value is CompanionLanguage {
+  return (
+    typeof value === 'string' &&
+    COMPANION_LANGUAGES.has(value as CompanionLanguage)
+  );
+}
+
 const CHINESE_EASTER_EGG_PERCENT = 3;
 const LATIN_EASTER_EGG_PERCENT = 2;
 const RUSSIAN_EASTER_EGG_PERCENT = 2;
@@ -293,8 +302,11 @@ function polyglotRoll(value: string): number {
   return (valueHash >>> 0) % 100;
 }
 
-export function contextLanguage(value: string): CompanionLanguage {
-  const roll = polyglotRoll(value);
+export function contextLanguage(
+  value: string,
+  stableSeed: string = value,
+): CompanionLanguage {
+  const roll = polyglotRoll(stableSeed);
   const chineseEnd = CHINESE_EASTER_EGG_PERCENT;
   const latinEnd = chineseEnd + LATIN_EASTER_EGG_PERCENT;
   const russianEnd = latinEnd + RUSSIAN_EASTER_EGG_PERCENT;
@@ -356,6 +368,21 @@ export function reusableQuip(
 ): string | null {
   const quip = sanitize(value);
   return validQuipLength(quip) && matchesLanguage(quip, language) ? quip : null;
+}
+
+export function reusableStoredQuip(
+  value: unknown,
+  storedLanguage: unknown,
+  expectedLanguage: CompanionLanguage,
+): string | null {
+  const quip = sanitize(value);
+  if (!validQuipLength(quip)) return null;
+  if (storedLanguage !== undefined) {
+    return isCompanionLanguage(storedLanguage) && storedLanguage === expectedLanguage
+      ? quip
+      : null;
+  }
+  return matchesLanguage(quip, expectedLanguage) ? quip : null;
 }
 
 export async function contextualPreset(

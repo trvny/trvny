@@ -1,4 +1,4 @@
-name: Repair twojstar Cloudflare Builds
+name: Deploy twojstar Cloudflare fallback
 
 on:
   workflow_dispatch:
@@ -7,145 +7,73 @@ permissions:
   contents: read
 
 jobs:
-  repair:
+  deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - name: Repair repository connection and production triggers
+      - name: Checkout twojstar workshop
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: twojstar/twojstar
+          ref: main
+          path: source
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            source/benches/package-lock.json
+            source/weather-feed/package-lock.json
+
+      - name: Verify Cloudflare deploy credentials
         shell: bash
         run: |
           set -euo pipefail
           : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
           : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
-
-          base="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
-          cf() {
-            curl --fail-with-body --silent --show-error \
-              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-              -H "Content-Type: application/json" "$@"
-          }
-
-          connection_payload=$(jq -nc '{
-            provider_type: "github",
-            provider_account_id: "322703530",
-            provider_account_name: "twojstar",
-            repo_id: "1358065173",
-            repo_name: "twojstar"
-          }')
-          connection_response=$(cf -X PUT "${base}/builds/repos/connections" -d "$connection_payload")
-          jq -e '.success == true' <<<"$connection_response" >/dev/null
-          connection_uuid=$(jq -r '.result.repo_connection_uuid // empty' <<<"$connection_response")
-          provider_id=$(jq -r '.result.provider_account_id // empty' <<<"$connection_response")
-          provider_name=$(jq -r '.result.provider_account_name // empty' <<<"$connection_response")
-          test -n "$connection_uuid"
-          test "$provider_id" = "322703530"
-          test "$provider_name" = "twojstar"
-          echo "Repository connection: ${connection_uuid} (${provider_name}/${provider_id})"
-
-          declare -A tags=(
-            [codebench]="75502b13a1e8492ca006e6ca969b050a"
-            [docbench]="3b04527e40334702b82f41287f0136af"
-            [streambench]="18adc3314c5b41a4b01e66aeffd87798"
-            [weather]="8dcae4c6f9134b89bc85edb907fd407b"
-          )
-          declare -A trigger_uuids=()
-
-          for name in codebench docbench streambench weather; do
-            tag="${tags[$name]}"
-            trigger_response=$(cf "${base}/builds/workers/${tag}/triggers")
-            trigger=$(jq -c '[.result[] | select(.deleted_on == null and ((.branch_includes // []) | index("main")))] | first // empty' <<<"$trigger_response")
-            if [ -z "$trigger" ]; then
-              echo "No active production trigger found for ${name}." >&2
-              exit 1
-            fi
-
-            old_uuid=$(jq -r '.trigger_uuid' <<<"$trigger")
-            old_connection=$(jq -r '.repo_connection.repo_connection_uuid // empty' <<<"$trigger")
-            if [ "$old_connection" = "$connection_uuid" ]; then
-              echo "${name}: trigger already uses repaired connection (${old_uuid})"
-              trigger_uuids[$name]="$old_uuid"
-              continue
-            fi
-
-            payload=$(jq -c --arg conn "$connection_uuid" '{
-              external_script_id: .external_script_id,
-              repo_connection_uuid: $conn,
-              build_token_uuid: .build_token_uuid,
-              trigger_name: .trigger_name,
-              build_command: .build_command,
-              deploy_command: .deploy_command,
-              root_directory: .root_directory,
-              branch_includes: .branch_includes,
-              branch_excludes: .branch_excludes,
-              path_includes: .path_includes,
-              path_excludes: .path_excludes,
-              build_caching_enabled: .build_caching_enabled
-            }' <<<"$trigger")
-            restore_payload=$(jq -c --arg conn "$old_connection" '.repo_connection_uuid = $conn' <<<"$payload")
-
-            echo "${name}: replacing trigger ${old_uuid} (${old_connection} -> ${connection_uuid})"
-            cf -X DELETE "${base}/builds/triggers/${old_uuid}" >/dev/null
-            set +e
-            create_response=$(cf -X POST "${base}/builds/triggers" -d "$payload" 2>&1)
-            create_status=$?
-            set -e
-            if [ "$create_status" -ne 0 ] || ! jq -e '.success == true' <<<"$create_response" >/dev/null 2>&1; then
-              echo "${name}: replacement trigger failed; restoring the previous trigger." >&2
-              cf -X POST "${base}/builds/triggers" -d "$restore_payload" >/dev/null || true
-              printf '%s\n' "$create_response" >&2
-              exit 1
-            fi
-            new_uuid=$(jq -r '.result.trigger_uuid // empty' <<<"$create_response")
-            test -n "$new_uuid"
-            trigger_uuids[$name]="$new_uuid"
+          for worker in codebench docbench streambench weather; do
+            npx --yes wrangler@4.128.0 deployments status --name "$worker" --json >/dev/null
+            echo "$worker: credentials OK"
           done
 
-          source_sha=$(curl --fail --silent --show-error \
-            https://api.github.com/repos/twojstar/twojstar/commits/main | jq -r '.sha')
-          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
-          echo "Building twojstar/twojstar@${source_sha}"
+      - name: Install Bench dependencies
+        working-directory: source/benches
+        run: npm ci
 
-          declare -A build_uuids=()
-          build_payload=$(jq -nc --arg sha "$source_sha" '{branch:"main", commit_hash:$sha}')
-          for name in codebench docbench streambench weather; do
-            response=$(cf -X POST "${base}/builds/triggers/${trigger_uuids[$name]}/builds" -d "$build_payload")
-            jq -e '.success == true' <<<"$response" >/dev/null
-            uuid=$(jq -r '.result.build_uuid // empty' <<<"$response")
-            test -n "$uuid"
-            build_uuids[$name]="$uuid"
-            echo "${name}: build ${uuid} queued"
-          done
+      - name: Build Benches
+        working-directory: source/benches
+        run: npm run build
 
-          for name in codebench docbench streambench weather; do
-            uuid="${build_uuids[$name]}"
-            outcome=""
-            for _attempt in {1..48}; do
-              build=$(cf "${base}/builds/builds/${uuid}")
-              status=$(jq -r '.result.status // empty' <<<"$build")
-              outcome=$(jq -r '.result.build_outcome // empty' <<<"$build")
-              if [ "$status" = "stopped" ]; then
-                break
-              fi
-              sleep 5
-            done
-            if [ "$outcome" != "success" ]; then
-              echo "${name}: build ${uuid} finished with outcome '${outcome}'." >&2
-              exit 1
-            fi
-            echo "${name}: build ${uuid} succeeded"
-          done
+      - name: Install and check Weather
+        working-directory: source/weather-feed
+        run: npm ci && npm run check
 
-      - name: Smoke current production assets
+      - name: Deploy Benches
+        working-directory: source/benches
         shell: bash
         run: |
           set -euo pipefail
-          expected_hls=$(curl -fsS https://raw.githubusercontent.com/twojstar/twojstar/main/benches/streambench/package.json | jq -r '.dependencies["hls.js"]')
-          expected_pdf=$(curl -fsS https://raw.githubusercontent.com/twojstar/twojstar/main/benches/docbench/package.json | jq -r '.dependencies["pdfjs-dist"]')
+          npm run deploy:codebench
+          npm run deploy:docbench
+          npm run deploy:streambench
+
+      - name: Deploy Weather
+        working-directory: source/weather-feed
+        run: npm run deploy
+
+      - name: Smoke current production
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_hls=$(jq -r '.dependencies["hls.js"]' source/benches/streambench/package.json)
+          expected_pdf=$(jq -r '.dependencies["pdfjs-dist"]' source/benches/docbench/package.json)
           curl -fsS https://streambench.trfny.com/vendor/hls.min.js | grep -Fq "$expected_hls"
           curl -fsS https://docbench.travny.workers.dev/vendor/pdfjs/pdf.mjs | grep -Fq "$expected_pdf"
           curl -fsS https://codebench.trfny.com/ >/dev/null
           curl -fsS https://weather.trfny.com/healthz | jq -e '.ok == true' >/dev/null
-          echo "Production matches current Bench dependencies and Weather is healthy."
+          echo "Production matches current twojstar/main assets and Weather is healthy."

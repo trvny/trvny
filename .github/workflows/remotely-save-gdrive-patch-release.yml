@@ -52,8 +52,8 @@ jobs:
 
       - name: Build and run the patch test
         run: |
-          python3 remotely-save-gdrive-patch/build_test.py dist/main.js dist/test.mjs
-          node dist/test.mjs
+          python3 remotely-save-gdrive-patch/build_test.py dist/main.js dist/test-class.mjs
+          node remotely-save-gdrive-patch/test_runner.mjs dist/test-class.mjs
 
       - name: Publish rolling release
         env:

@@ -163,17 +163,18 @@ def main():
     plugin = positional[0] if positional else DEFAULT_PLUGIN
     backup = plugin + '.orig'
 
-    s = open(plugin, encoding='utf-8').read()
+    with open(plugin, encoding='utf-8') as f:
+        s = f.read()
     if '_rsvFindExisting' in s:
         print('ALREADY PATCHED - nothing to do')
         return
     a, b = class_span(s)
     body = s[a:b]
-    print('class span %d..%d (%d chars)' % (a, b, b - a))
+    print(f'class span {a}..{b} ({b - a} chars)')
     ok = True
     for idx, (old, new) in enumerate(REPLACEMENTS):
         n = body.count(old)
-        print('anchor %d: %d match(es)  %r...' % (idx, n, old[:60]))
+        print(f'anchor {idx}: {n} match(es)  {old[:60]!r}...')
         if n != 1:
             ok = False
             continue
@@ -183,12 +184,13 @@ def main():
                           'renamed minified locals, anchors need re-deriving')
     out = s[:a] + body + s[b:]
     if not apply:
-        print('dry run OK (%d -> %d chars); re-run with --apply' % (len(s), len(out)))
+        print(f'dry run OK ({len(s)} -> {len(out)} chars); re-run with --apply')
         return
     shutil.copyfile(plugin, backup)
     print('backup ->', backup)
-    open(plugin, 'w', encoding='utf-8', newline='').write(out)
-    print('patched (%d -> %d chars)' % (len(s), len(out)))
+    with open(plugin, 'w', encoding='utf-8', newline='') as f:
+        f.write(out)
+    print(f'patched ({len(s)} -> {len(out)} chars)')
 
 
 if __name__ == '__main__':

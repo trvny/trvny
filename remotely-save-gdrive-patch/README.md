@@ -17,9 +17,14 @@ trashing extra duplicate **files** it finds along the way (folders are never tra
 - `patch_gdrive.py` - applies the patch to a `main.js`. `python patch_gdrive.py [path] [--apply]`;
   without `--apply` it only reports whether every anchor matches. Defaults to the local
   Obsidian vault's installed copy when no path is given.
-- `build_test.py` + `test_template.mjs` - `python build_test.py <patched_main.js> <out.mjs>`
-  extracts the patched class and drops it into a dependency-free Node test harness;
-  `node <out.mjs>` runs it. No Obsidian, no real Drive account, no network.
+- `build_test.py` - `python build_test.py <patched_main.js> <out.mjs>` extracts the patched
+  class and writes it as a standalone ES module importing `test_stubs.mjs`.
+- `test_stubs.mjs` - real exports for the handful of symbols the compiled bundle provides
+  around the Drive class (same short names as the actual minified build, on purpose - the
+  extracted class calls them directly).
+- `test_runner.mjs` - `node test_runner.mjs <out.mjs>` dynamically imports the generated
+  class module and runs 9 dedup/upload checks against a fake Drive. No Obsidian, no real
+  Drive account, no network.
 
 ## Anchors are pinned to a specific upstream build
 

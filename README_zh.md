@@ -43,7 +43,7 @@
 | 🤖 **LlmBench** | [仓库](https://github.com/twojstar/llmbench) | Android AI 聊天中心，整合账号登录与免费 LLM 提供商。 |
 | 🔊 **WAM Bridge** | [仓库](https://github.com/twojstar/wambridge) | Samsung Wireless Audio Multiroom 音频桥接，以及面向 Shape M5 的原生 foobar2000 输出。 |
 
-### 此 monorepo 中的工具
+### 已迁移到 twojstar/twojstar 的工具
 
 | 项目 | 在线地址 | 用途 |
 |---|---|---|

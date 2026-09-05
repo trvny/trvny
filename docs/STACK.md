@@ -20,7 +20,7 @@ Gap: Local Node support is not durably declared. PR #265 records a historical su
 | Component | High-impact runtime dependencies | Role | Evidence |
 | --- | --- | --- | --- |
 | Codebench | `qr-code-styling` 1.9.2, `bwip-js` 4.11.4, `zxing-wasm` 3.1.3 | QR/barcode generation and scanning in-browser | `twojstar/twojstar/benches/codebench/package.json` |
-| Docbench | `@cantoo/pdf-lib` 2.9.1, `pdfjs-dist` 6.2.108, `qpdf-run` 0.2.1, `marked` 18.0.10, `js-yaml` 5.3.0, `js-tiktoken` 1.0.21 | PDF/document parsing, mutation, rendering and token counting in-browser | `twojstar/twojstar/benches/docbench/package.json` |
+| Docbench | `@cantoo/pdf-lib` 2.9.1, `pdfjs-dist` 6.2.108, `qpdf-run` 0.2.1, `marked` 18.0.11, `js-yaml` 5.4.1, `js-tiktoken` 1.0.21 | PDF/document parsing, mutation, rendering and token counting in-browser | `twojstar/twojstar/benches/docbench/package.json` |
 | Streambench | `hls.js` 1.7.1 | Browser HLS playback | `twojstar/twojstar/benches/streambench/package.json` |
 | Weather, Status MCP, Kanarek | No production npm packages; platform Web APIs and Cloudflare bindings | Edge services | respective `package.json` files |
 | Xiaomi ADB Tools | JavaFX 21.0.12, `kotlinx-coroutines-javafx` 1.11.0 | Desktop UI and asynchronous device commands | `twojstar/twojstar/xiaomi-adb-tools/build.gradle` |

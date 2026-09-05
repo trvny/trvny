@@ -9,10 +9,13 @@
 - Kanarek's `npm run check` combines TypeScript, native Node tests, syntax checks and Wrangler dry-run; its CI also performs a live production smoke after main pushes.
 
 ```bash
-cd gh-apps/kanarek-companion && npm run check
-cd weather-feed && npm run check
-cd benches && npm ci && npm run check
-cd mcp/status-mcp && npm run typecheck
+# From a trvny/trvny checkout:
+(cd gh-apps/kanarek-companion && npm run check)
+(cd mcp/status-mcp && npm run typecheck)
+
+# From a twojstar/twojstar checkout:
+(cd weather-feed && npm run check)
+(cd benches && npm ci && npm run check)
 # Xiaomi: CI runs ./gradlew jar; agent instructions prohibit local Gradle execution.
 ```
 
@@ -57,5 +60,5 @@ status-mcp has no behavior test script; its CI currently runs TypeScript only. X
 - `twojstar/twojstar/weather-feed/package.json`, `twojstar/twojstar/weather-feed/test/weather.test.ts`
 - `twojstar/twojstar/benches/docbench/package.json`, `twojstar/twojstar/benches/docbench/tests/pdf-core.test.mjs`
 - `twojstar/twojstar/benches/codebench/scripts/privacy-check.mjs`, `twojstar/twojstar/benches/streambench/scripts/relay-core-check.mjs`
-- `.github/workflows/kanarek-companion-ci.yml`, `.github/workflows/weather-ci.yml`, `.github/workflows/status-mcp-ci.yml`
-- `.github/workflows/benches-release.yml`, `.github/workflows/xiaomi-adb-tools-ci.yml`
+- `.github/workflows/kanarek-companion-ci.yml`, `.github/workflows/status-mcp-ci.yml`
+- `twojstar/twojstar/.github/workflows/weather-worker-ci.yml`, `twojstar/twojstar/.github/workflows/benches-ci.yml`, `twojstar/twojstar/.github/workflows/rolling-release.yml`, `twojstar/twojstar/.github/workflows/xiaomi-adb-tools-ci.yml`

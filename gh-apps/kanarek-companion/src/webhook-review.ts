@@ -783,7 +783,7 @@ async function askReviewRouter(
   prompt: string,
   env: WebhookReviewEnv,
   fetcher: typeof fetch,
-): Promise<{ parsed: ParsedReview; provider: string } | null> {
+): Promise<{ model: string | null; parsed: ParsedReview; provider: string } | null> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) return null;
 
@@ -846,7 +846,11 @@ async function askReviewRouter(
     );
     return null;
   }
-  return { parsed, provider };
+  const model =
+    typeof payload.model === 'string' && payload.model.trim()
+      ? payload.model.trim().slice(0, 200)
+      : null;
+  return { model, parsed, provider };
 }
 
 function providerLabel(provider: string): string {
@@ -854,6 +858,16 @@ function providerLabel(provider: string): string {
   if (provider === 'orcarouter') return 'OrcaRouter';
   if (provider === 'aihubmix') return 'AIHubMix';
   return 'free router';
+}
+
+export function reviewSourceLabel(provider: string, model: string | null): string {
+  if (!model) return providerLabel(provider);
+  const safeModel = model.replace(/[\r\n`]/g, '').trim();
+  return safeModel ? `\`${safeModel}\`` : providerLabel(provider);
+}
+
+export function shouldPublishReview(findings: readonly unknown[]): boolean {
+  return findings.length > 0;
 }
 
 function noGoblin(pr: Record<string, unknown>): boolean {
@@ -1022,6 +1036,25 @@ export async function runWebhookReview(
   }
 
   const findings = normalizeFindings(generated.parsed, files);
+  if (!shouldPublishReview(findings)) {
+    console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+      JSON.stringify({
+        kanarekWebhookReview: 'clean',
+        repository: target.repository,
+        pullRequestNumber: target.number,
+        headSha: target.headSha,
+        provider: generated.provider,
+        model: generated.model,
+      }),
+    );
+    return {
+      reviewed: true,
+      provider: generated.provider,
+      findingCount: 0,
+      skipped: 'no_findings',
+    };
+  }
+
   const submit = async (): Promise<WebhookReviewResult> => {
     const current = await currentPullRequest(client, target);
     if (!targetStillCurrent(current, target)) {
@@ -1041,12 +1074,12 @@ export async function runWebhookReview(
       };
     }
 
-    const summary = generated.parsed.summary || '未发现明确、可操作的缺陷。🐤';
+    const summary = generated.parsed.summary || '发现了需要处理的问题。🐤';
     const severity = { high: '高', medium: '中', low: '低' } as const;
     const payload = {
       commit_id: target.headSha,
       event: 'COMMENT',
-      body: `${reviewMarker(target)}\n🐤 **Kanarek 免费代码审查** · ${providerLabel(generated.provider)}\n\n${summary}`,
+      body: `${reviewMarker(target)}\n🐤 **Kanarek 免费代码审查** · ${reviewSourceLabel(generated.provider, generated.model)}\n\n${summary}`,
       comments: findings.map((finding) => ({
         path: finding.path,
         line: finding.line,
@@ -1078,6 +1111,7 @@ export async function runWebhookReview(
         pullRequestNumber: target.number,
         headSha: target.headSha,
         provider: generated.provider,
+        model: generated.model,
         findingCount: findings.length,
       }),
     );

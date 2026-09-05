@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "_"
+title: "滚"
 message: kurde
 type: software
 authors:
@@ -7,6 +7,7 @@ authors:
   - name: claude
   - name: chatgpt
   - name: codex
+  - name: Copilot
   - name: actions-user
   - name: github-actions[bot]
   - name: dependabot[bot]

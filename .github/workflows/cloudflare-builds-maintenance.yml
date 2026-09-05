@@ -30,6 +30,39 @@ jobs:
             source/benches/package-lock.json
             source/weather-feed/package-lock.json
 
+      - name: Classify Cloudflare API token
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
+
+          status() {
+            local url="$1" out="$2"
+            curl -sS -o "$out" -w '%{http_code}' \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              "$url"
+          }
+
+          api="https://api.cloudflare.com/client/v4"
+          user_verify=$(status "$api/user/tokens/verify" /tmp/cf-user-token.json)
+          account_verify=$(status "$api/accounts/${CLOUDFLARE_ACCOUNT_ID}/tokens/verify" /tmp/cf-account-token.json)
+          scripts=$(status "$api/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts" /tmp/cf-scripts.json)
+          builds="not-tested"
+
+          if [[ "$scripts" == "200" ]]; then
+            tag=$(jq -r '.result[] | select(.id == "codebench") | .tag' /tmp/cf-scripts.json)
+            if [[ -n "$tag" && "$tag" != "null" ]]; then
+              builds=$(status "$api/accounts/${CLOUDFLARE_ACCOUNT_ID}/builds/workers/${tag}/triggers" /tmp/cf-builds.json)
+            fi
+          fi
+
+          echo "Cloudflare token diagnostics (no secret values):"
+          echo "  user token verify:    HTTP $user_verify"
+          echo "  account token verify: HTTP $account_verify"
+          echo "  Workers Scripts:      HTTP $scripts"
+          echo "  Workers Builds:       HTTP $builds"
+
       - name: Verify Cloudflare deploy credentials
         shell: bash
         run: |

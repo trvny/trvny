@@ -5,12 +5,16 @@ Obsidian plugin: its Google Drive backend `writeFile`/`mkdir` always `POST` a ne
 instead of updating the existing one, so Drive accumulates duplicate copies of every
 note on each sync.
 
-Upstream ships the Google Drive backend only in the built `main.js` - the source tree
-(`src/fsGoogleDrive.ts` and friends) is closed, "pro"-only, and does not exist in the
-public repo. There is nothing to fork or patch at the source level, so this patches the
-minified `main.js` directly by locating the Google Drive class body and splicing in a
-name+parent lookup, switching the upload calls to `PATCH` on an existing file id, and
-trashing extra duplicate **files** it finds along the way (folders are never trashed).
+Upstream's Google Drive backend (`pro/src/fsGoogleDrive.ts`) is source-available in the
+public repo, but under the
+[PolyForm Strict License 1.0.0](https://polyformproject.org/licenses/strict/1.0.0/) -
+personal/noncommercial use is a permitted purpose, **redistributing or modifying it is
+not**. So this patches your own compiled `main.js` in place rather than forking the
+source, and stays something you run yourself: there is no CI step or release that
+publishes a patched build (see "No redistribution" below). It locates the Google Drive
+class body in `main.js` and splices in a name+parent lookup, switches the upload calls
+to `PATCH` on an existing file id, and trashes extra duplicate **files** it finds along
+the way (folders are never trashed).
 
 ## Files
 
@@ -35,28 +39,32 @@ against the new build. `patch_gdrive.py` aborts loudly ("an anchor did not match
 once") instead of silently no-op'ing or writing something broken - that failure is the
 signal that this file needs updating, not a bug.
 
-## Rolling release
+## CI only verifies, it does not publish
 
-`.github/workflows/remotely-save-gdrive-patch-release.yml` downloads upstream's latest
-release assets (`main.js`, `manifest.json`, `styles.css`), applies the patch, runs the
-generated test, and republishes the three files under the moving
-`remotely-save-gdrive-patch-latest` tag - same pattern as `kanarek`/`autka`'s rolling
-releases (moving tag, assets replaced in place, no per-version history). It triggers on
-push to this directory or the workflow file,
-plus manual `workflow_dispatch` - deliberately **no schedule**, since a scheduled run
-would just fail loudly (burning private-repo Actions minutes) every time upstream ships
-a build the anchors do not match, with nobody watching. Re-run it by hand after an
-upstream release to notice a mismatch, or after fixing one.
+`.github/workflows/remotely-save-gdrive-patch-check.yml` downloads upstream's latest
+`main.js`, applies the patch, and runs the generated test - so an anchor mismatch against
+a new upstream release shows up here instead of only at the next local re-patch. It
+triggers on push to this directory or the workflow file, plus manual `workflow_dispatch`
+- deliberately **no schedule**, since a scheduled run would just fail loudly every time
+upstream ships a build the anchors do not match, with nobody watching. Re-run it by hand
+after an upstream release to notice a mismatch, or after fixing one.
+
+**No redistribution.** The job has no write permissions and does not create a release,
+tag, or artifact - the patched `main.js` it builds is discarded with the runner. Anything
+that published the patched build (a release, an artifact download, a gist) would be
+distributing a modified derivative of PolyForm-Strict-licensed code, which the license
+does not permit.
 
 ## Installing the patched build
 
 Obsidian's own plugin updater does not know about this fork and will overwrite the
 patched `main.js` with vanilla upstream on its next auto-update - that is what originally
-required re-applying the patch by hand after every plugin update. Two ways around it:
+required re-applying the patch by hand after every plugin update, and still does:
 
-- Manual: download `main.js`/`manifest.json`/`styles.css` from the
-  `remotely-save-gdrive-patch-latest` release and drop them into
-  `<vault>/.obsidian/plugins/remotely-save/`, replacing Obsidian's own copies. Disable
-  auto-update for this plugin so Obsidian does not silently revert it.
-- [BRAT](https://github.com/TfTHacker/obsidian42-brat) can track a manifest-carrying
-  release like this one directly, without going through the Obsidian community list.
+```
+python patch_gdrive.py --apply
+```
+
+run again against your own vault's installed copy (the default path) whenever Obsidian
+reverts it. Disabling auto-update for this plugin avoids the surprise, at the cost of
+missing upstream's own fixes until you update by hand.

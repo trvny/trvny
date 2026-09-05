@@ -27,11 +27,7 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-| Repository | PR | Title | Author | State | Updated |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#412](https://github.com/trvny/trvny/pull/412) | docs(gremlin): track live documentation bridge | @trvny | ready | 2026-09-02 |
-| trvny/trvny | [#424](https://github.com/trvny/trvny/pull/424) | fix(pet-dispatcher): enforce single remote worker | @trvny | ready | 2026-09-03 |
-| trvny/trvny | [#425](https://github.com/trvny/trvny/pull/425) | feat(feedboard): package settings app | @trvny | ready | 2026-09-03 |
+No open pull requests. 🎉
 <!--OPEN_PRS:END-->
 
 ## 🧭 Project map

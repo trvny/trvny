@@ -21,9 +21,10 @@ test('returns false when every offered bank entry is rejected by validation', as
 
   assert.equal(
     await storeBank(env, [
-      { k: 'aaaaaaaaaaaaaaaa', q: 'Za krótko.' },
+      { k: 'aaaaaaaaaaaaaaaa', l: 'pl', q: 'Za krótko.' },
       {
         k: 'bad-key',
+        l: 'pl',
         q: 'Kanarek pilnuje zielonych lampek i spokojnie zamyka skrzynke.',
       },
     ]),

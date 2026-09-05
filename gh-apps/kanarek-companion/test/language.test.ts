@@ -9,6 +9,7 @@ import {
   matchesLanguage,
   presetPool,
   reusableQuip,
+  reusableStoredQuip,
   russianPresetPool,
 } from '../src/companion-language.ts';
 import { PRESETS } from '../src/quip.ts';
@@ -28,6 +29,12 @@ test('occasionally selects generated quip languages deterministically', () => {
   assert.equal(contextLanguage('polyglot-18'), 'la');
   assert.equal(contextLanguage('polyglot-8'), 'ru');
   assert.equal(contextLanguage('polyglot-0'), 'en');
+});
+
+test('keeps the easter-egg language stable when PR text changes', () => {
+  assert.equal(contextLanguage('First title', 'polyglot-18'), 'la');
+  assert.equal(contextLanguage('Completely rewritten title and body', 'polyglot-18'), 'la');
+  assert.equal(contextLanguage('Napraw Kanarka', 'polyglot-0'), 'pl');
 });
 
 test('keeps every preset state in explicit language pools', () => {
@@ -104,6 +111,10 @@ test('validates generated text before caching it by language', () => {
   assert.equal(reusableQuip(chinese, 'zh'), chinese);
   assert.equal(reusableQuip(latin, 'la'), latin);
   assert.equal(reusableQuip(russian, 'ru'), russian);
+  assert.equal(reusableStoredQuip(latin, 'la', 'la'), latin);
+  assert.equal(reusableStoredQuip(latin, 'la', 'en'), null);
+  assert.equal(reusableStoredQuip(latin, undefined, 'la'), latin);
+  assert.equal(reusableStoredQuip(latin, 'xx', 'la'), null);
 });
 
 test('does not discard valid ASCII Polish paid quips', () => {

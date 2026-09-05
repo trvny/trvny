@@ -4,11 +4,7 @@ Prefer improving an existing home over creating a parallel structure. Inspect lo
 
 ## Repo map
 
-- `benches/` — shared npm workspace for Codebench, Docbench and Streambench.
-  - `benches/codebench/` — QR/barcode/scanner tools.
-  - `benches/docbench/` — local-first document/PDF tools; preserve text/EOL fidelity, bookmark integrity and offline/portable behavior.
-  - `benches/streambench/` — IPTV/radio/HLS/M3U/XMLTV tools.
-- `weather-feed/` — weather and IMGW feeds.
+- `benches/`, `weather-feed/`, `feedboard/`, `xiaomi-adb-tools/` ? migration pointers only; active workshop sources live in `twojstar/twojstar`.
 - `mcp/status-mcp/` — service health/status MCP.
 - `gh-apps/` — GitHub Apps, Kanarek Companion, GPTomek and GPT Actions.
 - `.ai/private/openai/` — private Gremlin policy/profile/operator material.

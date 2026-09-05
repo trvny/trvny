@@ -47,10 +47,10 @@
 
 | 项目 | 在线地址 | 用途 |
 |---|---|---|
-| 🔳 **[Codebench](benches/codebench/)** | [codebench.trfny.com](https://codebench.trfny.com) | 浏览器内运行的私有 QR/条码工作台，数据不会离开浏览器。 |
-| 📻 **[Streambench](benches/streambench/)** | [streambench.trfny.com](https://streambench.trfny.com) | 用于测试、整理和播放 IPTV、广播、HLS、M3U 与 XMLTV。 |
-| 📄 **[Docbench](benches/docbench/)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | 本地优先的文档与 PDF 工作台，可编辑、预览、验证、合并、整理页面和书签。 |
-| 🌦️ **[weather-feed](weather-feed/)** | [weather.trfny.com](https://weather.trfny.com) | Kościelec/Chrzanów 的多源天气与 IMGW 警报，以 Atom 和 JSON 提供。 |
+| 🔳 **[Codebench](https://github.com/twojstar/twojstar/tree/main/benches/codebench)** | [codebench.trfny.com](https://codebench.trfny.com) | 浏览器内运行的私有 QR/条码工作台，数据不会离开浏览器。 |
+| 📻 **[Streambench](https://github.com/twojstar/twojstar/tree/main/benches/streambench)** | [streambench.trfny.com](https://streambench.trfny.com) | 用于测试、整理和播放 IPTV、广播、HLS、M3U 与 XMLTV。 |
+| 📄 **[Docbench](https://github.com/twojstar/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | 本地优先的文档与 PDF 工作台，可编辑、预览、验证、合并、整理页面和书签。 |
+| 🌦️ **[weather-feed](https://github.com/twojstar/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Kościelec/Chrzanów 的多源天气与 IMGW 警报，以 Atom 和 JSON 提供。 |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | 汇总检查 TVPI、Feedseek 和 Autka 健康状态的单一工具。 |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | 公共 AI 配置核心，以及私有配置、归档和项目 skills。 |
 

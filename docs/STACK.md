@@ -1,15 +1,17 @@
 # Technology Stack
 
+> Workshop sources under `twojstar/twojstar/...` were migrated out of this repository; these references point to their active home.
+
 ## 1) Runtime Summary
 
-This is an organizational monorepo with one package-manager workspace scoped to the Bench family. The root has no `package.json` or Node version pin; `benches/` shares one npm workspace while unrelated applications keep independent toolchains.
+This repository remains an organizational monorepo, while the Bench family, Weather, Feedboard and Xiaomi ADB Tools now live in `twojstar/twojstar`. The root has no `package.json` or Node version pin; remaining local applications keep independent toolchains.
 
 | Area | Value | Evidence |
 | --- | --- | --- |
-| Primary languages | TypeScript/JavaScript for Workers and browser tools; Kotlin/JVM for Xiaomi ADB Tools | tracked `*.ts`/`*.js`/`*.mjs`/`*.kt` inventory, `xiaomi-adb-tools/build.gradle` |
-| Runtime + version | Cloudflare Workers/browser code targets ES2022; JS/TS CI uses Node 24; Xiaomi targets Java 21 | `*/tsconfig.json`, Bench/Weather/Status/Kanarek CI workflows, `xiaomi-adb-tools/build.gradle` |
-| Package manager | npm workspace for Benches; per-project npm for other JS/TS services; Gradle Wrapper for Xiaomi | `benches/package.json`, other package manifests, `xiaomi-adb-tools/gradle/wrapper/gradle-wrapper.properties` |
-| Module/build system | TypeScript 7 + Wrangler 4; Gradle 9.7.1 + Kotlin 2.4.10 | package manifests, `xiaomi-adb-tools/build.gradle` |
+| Primary languages | TypeScript/JavaScript for Workers and browser tools; Kotlin/JVM for Xiaomi ADB Tools | tracked `*.ts`/`*.js`/`*.mjs`/`*.kt` inventory, `twojstar/twojstar/xiaomi-adb-tools/build.gradle` |
+| Runtime + version | Cloudflare Workers/browser code targets ES2022; JS/TS CI uses Node 24; Xiaomi targets Java 21 | `*/tsconfig.json`, Bench/Weather/Status/Kanarek CI workflows, `twojstar/twojstar/xiaomi-adb-tools/build.gradle` |
+| Package manager | npm workspace for Benches; per-project npm for other JS/TS services; Gradle Wrapper for Xiaomi | `twojstar/twojstar/benches/package.json`, other package manifests, `twojstar/twojstar/xiaomi-adb-tools/gradle/wrapper/gradle-wrapper.properties` |
+| Module/build system | TypeScript 7 + Wrangler 4; Gradle 9.7.1 + Kotlin 2.4.10 | package manifests, `twojstar/twojstar/xiaomi-adb-tools/build.gradle` |
 
 Gap: Local Node support is not durably declared. PR #265 records a historical successful run on Node 22.22.2 while CI used Node 24, but current manifests and repository guidance do not define a supported local version.
 
@@ -17,11 +19,11 @@ Gap: Local Node support is not durably declared. PR #265 records a historical su
 
 | Component | High-impact runtime dependencies | Role | Evidence |
 | --- | --- | --- | --- |
-| Codebench | `qr-code-styling` 1.9.2, `bwip-js` 4.11.4, `zxing-wasm` 3.1.3 | QR/barcode generation and scanning in-browser | `benches/codebench/package.json` |
-| Docbench | `@cantoo/pdf-lib` 2.9.1, `pdfjs-dist` 6.2.108, `qpdf-run` 0.2.1, `marked` 18.0.10, `js-yaml` 5.3.0, `js-tiktoken` 1.0.21 | PDF/document parsing, mutation, rendering and token counting in-browser | `benches/docbench/package.json` |
-| Streambench | `hls.js` 1.7.1 | Browser HLS playback | `benches/streambench/package.json` |
+| Codebench | `qr-code-styling` 1.9.2, `bwip-js` 4.11.4, `zxing-wasm` 3.1.3 | QR/barcode generation and scanning in-browser | `twojstar/twojstar/benches/codebench/package.json` |
+| Docbench | `@cantoo/pdf-lib` 2.9.1, `pdfjs-dist` 6.2.108, `qpdf-run` 0.2.1, `marked` 18.0.10, `js-yaml` 5.3.0, `js-tiktoken` 1.0.21 | PDF/document parsing, mutation, rendering and token counting in-browser | `twojstar/twojstar/benches/docbench/package.json` |
+| Streambench | `hls.js` 1.7.1 | Browser HLS playback | `twojstar/twojstar/benches/streambench/package.json` |
 | Weather, Status MCP, Kanarek | No production npm packages; platform Web APIs and Cloudflare bindings | Edge services | respective `package.json` files |
-| Xiaomi ADB Tools | JavaFX 21.0.12, `kotlinx-coroutines-javafx` 1.11.0 | Desktop UI and asynchronous device commands | `xiaomi-adb-tools/build.gradle` |
+| Xiaomi ADB Tools | JavaFX 21.0.12, `kotlinx-coroutines-javafx` 1.11.0 | Desktop UI and asynchronous device commands | `twojstar/twojstar/xiaomi-adb-tools/build.gradle` |
 
 Fontsource packages are runtime build inputs for Codebench/Docbench, copied into static assets rather than fetched from Google Fonts in production.
 
@@ -33,13 +35,11 @@ Fontsource packages are runtime build inputs for Codebench/Docbench, copied into
 | Wrangler 4 | Cloudflare types, dev server, dry-run and deploy | JS/TS package manifests |
 | Node built-in test/assert + `tsx` | Worker and module tests | Kanarek/Weather manifests and tests |
 | MegaLinter + zizmor | Repository linting and Actions security checks | `.github/workflows/mega-linter.yml`, `.github/linters/.mega-linter.yml` |
-| Gradle Wrapper | Xiaomi build | `xiaomi-adb-tools/gradlew`, wrapper properties |
+| Gradle Wrapper | Xiaomi build | `twojstar/twojstar/xiaomi-adb-tools/gradlew`, wrapper properties |
 
 ## 4) Key Commands
 
 ```bash
-(cd benches && npm ci && npm run check)
-(cd weather-feed && npm ci && npm run check)
 (cd gh-apps/kanarek-companion && npm ci && npm run check)
 (cd mcp/status-mcp && npm ci && npm run typecheck)
 ```
@@ -53,7 +53,7 @@ Fontsource packages are runtime build inputs for Codebench/Docbench, copied into
 
 ## 6) Evidence
 
-- `benches/codebench/package.json`, `benches/docbench/package.json`, `benches/streambench/package.json`
-- `weather-feed/package.json`, `mcp/status-mcp/package.json`, `gh-apps/kanarek-companion/package.json`
-- `xiaomi-adb-tools/build.gradle`, `xiaomi-adb-tools/gradle/wrapper/gradle-wrapper.properties`
-- `.github/workflows/benches-release.yml`, `.gitmodules`
+- `twojstar/twojstar/benches/codebench/package.json`, `twojstar/twojstar/benches/docbench/package.json`, `twojstar/twojstar/benches/streambench/package.json`
+- `twojstar/twojstar/weather-feed/package.json`, `mcp/status-mcp/package.json`, `gh-apps/kanarek-companion/package.json`
+- `twojstar/twojstar/xiaomi-adb-tools/build.gradle`, `twojstar/twojstar/xiaomi-adb-tools/gradle/wrapper/gradle-wrapper.properties`
+- `twojstar/twojstar/.github/workflows/benches-release.yml`, `.gitmodules`

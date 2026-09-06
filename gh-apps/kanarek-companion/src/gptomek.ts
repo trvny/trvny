@@ -601,15 +601,13 @@ export function isGptomekControlPr(
   );
 }
 
-export async function handleGptomekControl(
-  target: CompanionTarget,
-  pr: PullRequest,
+export async function handleGptomekMailboxCommand(
+  body: string | null | undefined,
+  clearPath: string,
   env: CompanionEnv,
   fetcher: typeof fetch = fetch,
 ): Promise<GptomekControlResult> {
-  if (!isGptomekControlPr(target, pr)) return { control: false, handled: false };
-
-  const command = commandFromBody(pr.body);
+  const command = commandFromBody(body);
   if (!command) return { control: true, handled: false };
 
   const settings = config(env);
@@ -636,14 +634,10 @@ export async function handleGptomekControl(
         );
   await executeCommand(commandClient, command);
 
-  await controlClient.json<unknown>(
-    `/repos/${repoPath(CONTROL_REPOSITORY)}/pulls/${target.pullRequestNumber}`,
-    'gptomek_clear_command',
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ body: withoutCommand(pr.body) }),
-    },
-  );
+  await controlClient.json<unknown>(clearPath, 'gptomek_clear_command', {
+    method: 'PATCH',
+    body: JSON.stringify({ body: withoutCommand(body) }),
+  });
 
   console.log(
     JSON.stringify({
@@ -660,4 +654,19 @@ export async function handleGptomekControl(
     commandId: command.id,
     operation: command.op,
   };
+}
+
+export async function handleGptomekControl(
+  target: CompanionTarget,
+  pr: PullRequest,
+  env: CompanionEnv,
+  fetcher: typeof fetch = fetch,
+): Promise<GptomekControlResult> {
+  if (!isGptomekControlPr(target, pr)) return { control: false, handled: false };
+  return handleGptomekMailboxCommand(
+    pr.body,
+    `/repos/${repoPath(CONTROL_REPOSITORY)}/pulls/${target.pullRequestNumber}`,
+    env,
+    fetcher,
+  );
 }

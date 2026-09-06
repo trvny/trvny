@@ -2,13 +2,11 @@ import type {
   CompanionEnv,
   CompanionResult,
   CompanionTarget,
-  PullRequest,
 } from './companion-types.ts';
-import { handleGptomekControl } from './gptomek.ts';
+import { handleGptomekMailboxCommand } from './gptomek.ts';
 import { createInstallationClient } from './github-app.ts';
 
 const CONTROL_REPOSITORY = 'trvny/trvny';
-const LEGACY_CONTROL_PULL_REQUEST = 176;
 export const GPTOMEK_CONTROL_ISSUE = 203;
 export const GPTOMEK_WAKE_LABEL = 'gptomek-wake';
 const COMMAND_MARKER = '<!-- gptomek-command:';
@@ -58,32 +56,10 @@ export function isGptomekControlIssueEvent(
   );
 }
 
-function issueMailboxFetcher(fetcher: typeof fetch): typeof fetch {
-  const legacyPath = `/repos/${CONTROL_REPOSITORY}/pulls/${LEGACY_CONTROL_PULL_REQUEST}`;
-  const issuePath = `/repos/${CONTROL_REPOSITORY}/issues/${GPTOMEK_CONTROL_ISSUE}`;
-  return ((input: RequestInfo | URL, init?: RequestInit) => {
-    const raw =
-      typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url;
-    const url = new URL(raw);
-    const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
-    if (method === 'PATCH' && url.pathname === legacyPath) {
-      url.pathname = issuePath;
-      return input instanceof Request
-        ? fetcher(new Request(url, input), init)
-        : fetcher(url, init);
-    }
-    return fetcher(input, init);
-  }) as typeof fetch;
-}
-
 async function currentIssue(
   env: CompanionEnv,
   fetcher: typeof fetch,
-): Promise<Pick<PullRequest, 'body' | 'user'>> {
+): Promise<{ body: string | null; user: { login: string } }> {
   const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
   if (!Number.isInteger(installationId) || installationId <= 0) {
     throw new Error('invalid_gptomek_installation_id');
@@ -130,15 +106,11 @@ export async function handleGptomekIssueControl(
   }
 
   const controlIssue = await currentIssue(env, fetcher);
-  const legacyTarget: CompanionTarget = {
-    ...target,
-    pullRequestNumber: LEGACY_CONTROL_PULL_REQUEST,
-  };
-  const result = await handleGptomekControl(
-    legacyTarget,
-    controlIssue as PullRequest,
+  const result = await handleGptomekMailboxCommand(
+    controlIssue.body,
+    `/repos/${CONTROL_REPOSITORY}/issues/${GPTOMEK_CONTROL_ISSUE}`,
     env,
-    issueMailboxFetcher(fetcher),
+    fetcher,
   );
   return {
     changed: result.handled,

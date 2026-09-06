@@ -4,9 +4,11 @@ Prefer improving an existing home over creating a parallel structure. Inspect lo
 
 ## Repo map
 
-- Bench, Weather Feed, Feedboard, Xiaomi ADB Tools, and Paint.NET ICO sources live in `twojstar/twojstar`; their former local directories have been retired.
+- `mcp/pet-dispatcher/` — workspace-confined local MCP worker plus its Cloudflare remote control plane.
 - `mcp/status-mcp/` — service health/status MCP.
 - `gh-apps/` — GitHub Apps, Kanarek Companion, GPTomek and GPT Actions.
+- `loopling/` — ChatGPT/Codex pet source, generated assets and installers.
+- `remotely-save-gdrive-patch/` — local Remotely Save Google Drive patch and verification harness.
 - `.ai/private/openai/` — private Gremlin policy/profile/operator material.
 - `.ai/private/claude/` — private Claude notes and memory.
 - `stuff/` — small configs, feeds, playlists and miscellaneous assets.

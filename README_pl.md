@@ -17,9 +17,6 @@
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.trfny.com) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.trfny.com) [![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.travny.workers.dev)  
 [![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://trfny.com)  
 <a href="https://deepwiki.com/trvny/trvny"><img src="https://deepwiki.com/badge.svg" alt="DeepWiki"></a>
-
-[![GitHub Stats](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)](https://github-stats-extended.vercel.app/api/top-langs?username=trvny&layout=donut&hide_title=true&langs_count=10&theme=ambient_gradient)
-
 </div>
 
 ---
@@ -47,7 +44,7 @@
 | 🤖 **LlmBench** | [repo](https://github.com/twojstar/llmbench) | Androidowy hub do czatów AI przez konta oraz darmowych providerów LLM. |
 | 🔊 **WAM Bridge** | [repo](https://github.com/twojstar/wambridge) | Most audio do głośników Samsung Wireless Audio Multiroom oraz natywne wyjście foobar2000 dla Shape M5. |
 
-### Narzędzia przeniesione do twojstar/twojstar
+### Narzędzia i usługi
 
 | projekt | wejście | przeznaczenie |
 |---|---|---|
@@ -56,6 +53,9 @@
 | 📄 **[Docbench](https://github.com/twojstar/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | Lokalne studio dokumentów i PDF do edycji, podglądu, walidacji, łączenia, operacji na stronach i zakładkach. |
 | 🌦️ **[weather-feed](https://github.com/twojstar/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Wieloźródłowa pogoda i alerty IMGW dla Kościelca/Chrzanowa, wystawione jako Atom i JSON. |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | Jedno narzędzie do zbiorczego sprawdzania zdrowia TVPI, Feedseek, Weather i Autek. |
+| 🐾 **[Pet Dispatcher](mcp/pet-dispatcher/)** | lokalny MCP + Worker | Narzędzia do pracy na maszynie deweloperskiej ograniczone do workspace oraz wychodzący control plane Cloudflare. |
+| 🌀 **[Loopling](loopling/)** | pet ChatGPT/Codex | Proceduralnie generowany desktopowy pet, instalatory, podglądy i walidacja assetów. |
+| 💾 **[Remotely Save GDrive patch](remotely-save-gdrive-patch/)** | lokalny patch | Patch deduplikacji/aktualizacji Google Drive do użytku osobistego z testami bez redystrybucji buildu. |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Publiczny rdzeń konfiguracji AI + prywatny profil, archiwum i projektowe skillsy. |
 
 ## 🗄️ Szuflady

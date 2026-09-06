@@ -1,51 +1,30 @@
 # Coding Conventions
 
-> Workshop sources under `twojstar/twojstar/...` were migrated out of this repository; these references point to their active home.
+## Naming and layout
 
-## 1) Naming Rules
+- TypeScript/JavaScript modules are predominantly kebab-case; types/classes use PascalCase; functions use camelCase.
+- Worker bindings, secrets and major constants use uppercase names such as `STATUS_MCP_TOKEN` and `TASK_QUEUE`.
+- Imports are package-local and relative; there is no repository-wide barrel or path-alias convention.
+- Keep feature code inside its owning component instead of adding a parallel shared layer without a real reuse case.
 
-| Item | Rule | Example | Evidence |
-| --- | --- | --- | --- |
-| Files | Web code is mostly kebab-case; Kotlin class files are PascalCase | `source-signing.ts`, `MainController.kt` | `twojstar/twojstar/benches/streambench/src/`, `twojstar/twojstar/xiaomi-adb-tools/src/main/kotlin/` |
-| Functions/methods | camelCase | `fetchOpenMeteo`, `safeRemoteUrl`, `gatewayManifest` | representative source files |
-| Types/interfaces | PascalCase | `CycleStatus`, `RpcRequest`, `CompanionTarget` | Weather, Status, Kanarek source |
-| Constants/env vars | Constants often `UPPER_SNAKE_CASE`; Worker bindings/secrets are uppercase | `MAX_BODY_BYTES`, `STATUS_MCP_TOKEN` | `mcp/status-mcp/src/entry.ts` |
+## Formatting and modules
 
-## 2) Formatting and Linting
+- There is no root Prettier or ESLint configuration. Preserve the local style of the package being edited.
+- `.gitattributes` owns line-ending normalization. `.github/.editorconfig` applies only to the `.github` tree.
+- Worker and Node TypeScript code uses ES modules and strict TypeScript configurations.
+- MegaLinter is the repository-wide documentation/configuration gate; package checks remain component-specific.
 
-- There is no repository-wide Prettier/ESLint configuration. Formatting is maintained by local style plus MegaLinter/document checks.
-- `.github/.editorconfig` enforces UTF-8, two spaces and trailing-whitespace cleanup only inside the `.github` tree; it is not a root EditorConfig.
-- `.gitattributes` normalizes text to LF by default, with CRLF overrides for Windows script/project formats.
-- Kotlin explicitly uses `kotlin.code.style=official` (`twojstar/twojstar/xiaomi-adb-tools/gradle.properties`).
-- Worker TypeScript configs use `strict`, `noUnusedLocals`, `noUnusedParameters`, `isolatedModules`, and `forceConsistentCasingInFileNames`. Codebench's client compiler and four Streambench orchestrator modules use `noCheck`, so those client paths do not get equivalent semantic checking.
-- Main lint entry: GitHub Actions `MegaLinter`; package-specific validation uses each package's `npm run check` or Gradle build.
+## Errors, logging and secrets
 
-## 3) Import and Module Conventions
+- Public Workers return structured errors rather than stack traces.
+- Privileged actions validate identity, scope and expected state before mutation.
+- Secrets stay in Cloudflare/GitHub/runtime environment bindings and must not enter config examples, task payloads or logs.
+- status-mcp keeps invocation logs disabled because connector auth may appear in the URL path.
+- Pet Dispatcher keeps host authority local and exposes only capability-filtered tools to providers and remote callers.
 
-- Imports are relative; inspected TypeScript configs define no `paths` aliases or barrel requirement.
-- Cloudflare Worker modules are ES modules. Kanarek commonly includes `.ts` extensions; other packages often omit extensions in source or use emitted `.js` paths where needed.
-- Quote style is package-local rather than repository-global: Kanarek primarily uses single quotes, while Bench/Weather/Status code commonly uses double quotes.
-- Feature modules export focused functions/types directly; no repo-wide barrel-export pattern was found.
+## Tests
 
-## 4) Error and Logging Conventions
-
-- HTTP Workers prefer structured responses with stable error codes such as `method_not_allowed`, `provider_unavailable`, or JSON-RPC error objects rather than raw stack traces (`twojstar/twojstar/benches/streambench/src/index.ts`, `mcp/status-mcp/src/entry.ts`).
-- Weather treats upstream failure as expected partial degradation: source calls are caught independently, logged, and may fall back to last-good KV state (`twojstar/twojstar/weather-feed/src/index.ts`).
-- Kanarek catches operator exceptions at routing boundaries, logs JSON including a request ID, and returns a structured `worker_exception` (`gh-apps/kanarek-companion/src/router.ts`).
-- Logging is not unified behind a library. Weather and Kanarek use `console` with structured JSON in important paths; other packages are quieter.
-- Sensitive-data handling is capability-specific: Status MCP disables invocation logs because tokens may be in URL paths; Codebench remote-logo fetches omit credentials/referrer; secrets are supplied through Worker env bindings rather than checked-in values.
-
-## 5) Testing Conventions
-
-- Kanarek and Weather use Node's built-in `node:test` plus `node:assert/strict`; Kanarek tests live in `test/*.test.ts`, Weather in `test/**/*.test.ts`.
-- Docbench uses standalone assertion scripts in `tests/`; Streambench uses `scripts/*-check.mjs`, several run through `node --test`.
-- Network/Cloudflare dependencies are usually isolated with hand-written fetch/env/Durable Object stubs rather than a mocking framework.
-- No coverage tool or minimum threshold is configured; the current quality model relies on project-specific checks and CI gates.
-
-## 6) Evidence
-
-- `.gitattributes`, `.github/.editorconfig`, `.github/linters/.mega-linter.yml`
-- `twojstar/twojstar/benches/codebench/tsconfig.client.json`, `twojstar/twojstar/benches/streambench/tsconfig.client-orchestrators.json`
-- `twojstar/twojstar/weather-feed/src/index.ts`, `mcp/status-mcp/src/entry.ts`
-- `gh-apps/kanarek-companion/src/router.ts`, `gh-apps/kanarek-companion/test/webhook.test.ts`
-- `twojstar/twojstar/xiaomi-adb-tools/gradle.properties`
+- Kanarek Companion uses Node's built-in test runner plus explicit runtime/network fakes.
+- Pet Dispatcher uses `tsx --test` with unit and integration coverage around confinement, Git, providers, remote transport and direct sessions.
+- status-mcp currently relies on strict TypeScript checking.
+- Remotely Save patch verification uses Python plus a generated Node test harness against a fake Drive implementation.

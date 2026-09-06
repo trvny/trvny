@@ -4,7 +4,7 @@ import type {
   CompanionTarget,
 } from './companion-types.ts';
 import { handleGptomekMailboxCommand } from './gptomek.ts';
-import { createInstallationClient } from './github-app.ts';
+import { createInstallationClient, GitHubApiError } from './github-app.ts';
 
 const CONTROL_REPOSITORY = 'trvny/trvny';
 export const GPTOMEK_CONTROL_ISSUE = 203;
@@ -29,6 +29,14 @@ function issue(payload: Record<string, unknown>): IssuePayload | undefined {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as IssuePayload)
     : undefined;
+}
+
+function issueFailure(error: unknown): Record<string, unknown> {
+  if (error instanceof GitHubApiError) {
+    return { operation: error.operation, status: error.status };
+  }
+  if (error instanceof Error) return { reason: error.message };
+  return { reason: 'unknown_error' };
 }
 
 export function isGptomekControlIssueEvent(
@@ -105,17 +113,29 @@ export async function handleGptomekIssueControl(
     throw new Error('invalid_gptomek_issue_target');
   }
 
-  const controlIssue = await currentIssue(env, fetcher);
-  const result = await handleGptomekMailboxCommand(
-    controlIssue.body,
-    `/repos/${CONTROL_REPOSITORY}/issues/${GPTOMEK_CONTROL_ISSUE}`,
-    env,
-    fetcher,
-  );
-  return {
-    changed: result.handled,
-    commentId: null,
-    quipSource: 'preset',
-    state: 'gptomek-control',
-  };
+  try {
+    const controlIssue = await currentIssue(env, fetcher);
+    const result = await handleGptomekMailboxCommand(
+      controlIssue.body,
+      `/repos/${CONTROL_REPOSITORY}/issues/${GPTOMEK_CONTROL_ISSUE}`,
+      env,
+      fetcher,
+    );
+    return {
+      changed: result.handled,
+      commentId: null,
+      quipSource: 'preset',
+      state: 'gptomek-control',
+    };
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        gptomek: 'issue_control_failed',
+        failure: issueFailure(error),
+        issueNumber: target.pullRequestNumber,
+        repository: target.repository,
+      }),
+    );
+    throw error;
+  }
 }

@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
+import { generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 
-import type { CompanionEnv } from '../src/companion-types.ts';
+import type { CompanionEnv, CompanionTarget } from '../src/companion-types.ts';
+import { commandMarker } from '../src/gptomek.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
   GPTOMEK_WAKE_LABEL,
+  handleGptomekIssueControl,
   isGptomekControlIssueEvent,
 } from '../src/gptomek-issue.ts';
 import { companionTargets, isCompanionEvent } from '../src/index.ts';
@@ -101,4 +104,94 @@ test('maps a real issues payload into the serialized control target', async () =
       sourceEvent: 'issues',
     },
   ]);
+});
+
+
+test('executes and clears the issue mailbox without the legacy PR shim', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString();
+  const marker = commandMarker({
+    id: 'issue-native-1',
+    op: 'react_issue_comment',
+    repository: 'trvny/trvny',
+    commentId: 5296728014,
+    reaction: 'eyes',
+  });
+  const issueBody = `GPTomek control mailbox.\n\n${marker}`;
+  const calls: Array<{ method: string; path: string; body: string | null }> = [];
+  const json = (value: unknown) =>
+    new Response(JSON.stringify(value), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  const fetcher: typeof fetch = async (input, init = {}) => {
+    const url = new URL(
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url,
+    );
+    const method = (init.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+    const body = typeof init.body === 'string' ? init.body : null;
+    calls.push({ method, path: url.pathname, body });
+
+    if (method === 'POST' && url.pathname === '/app/installations/152126523/access_tokens') {
+      return json({
+        token: 'installation-token',
+        expires_at: '2099-01-01T00:00:00Z',
+        permissions: { issues: 'write', pull_requests: 'write', contents: 'write' },
+      });
+    }
+    if (method === 'GET' && url.pathname === '/repos/trvny/trvny/issues/203') {
+      return json({
+        body: issueBody,
+        number: 203,
+        state: 'open',
+        user: { login: 'trvny' },
+      });
+    }
+    if (method === 'GET' && url.pathname === '/repos/trvny/trvny/installation') {
+      return json({ id: 152126523 });
+    }
+    if (
+      method === 'POST' &&
+      url.pathname === '/repos/trvny/trvny/issues/comments/5296728014/reactions'
+    ) {
+      return json({ id: 1, content: 'eyes' });
+    }
+    if (method === 'PATCH' && url.pathname === '/repos/trvny/trvny/issues/203') {
+      return json({ body: 'GPTomek control mailbox.' });
+    }
+    return new Response('unexpected request', { status: 500 });
+  };
+  const target: CompanionTarget = {
+    delivery: 'issue-native-delivery',
+    installationId: 152126523,
+    pullRequestNumber: 203,
+    repository: 'trvny/trvny',
+    sourceEvent: 'issues',
+  };
+  const env = {
+    GPTOMEK_APP_ID: '4524407',
+    GPTOMEK_INSTALLATION_ID: '152126523',
+    GPTOMEK_PRIVATE_KEY: privateKey,
+  } as CompanionEnv;
+
+  const result = await handleGptomekIssueControl(target, env, fetcher);
+
+  assert.equal(result.changed, true);
+  assert.equal(result.state, 'gptomek-control');
+  assert.equal(calls.some((call) => call.path.includes('/pulls/176')), false);
+  assert.deepEqual(
+    calls.filter((call) => call.method === 'PATCH'),
+    [
+      {
+        method: 'PATCH',
+        path: '/repos/trvny/trvny/issues/203',
+        body: JSON.stringify({ body: 'GPTomek control mailbox.' }),
+      },
+    ],
+  );
 });

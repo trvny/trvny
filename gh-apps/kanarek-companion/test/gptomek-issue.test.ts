@@ -115,7 +115,7 @@ test('executes and clears the issue mailbox without the legacy PR shim', async (
     id: 'issue-native-1',
     op: 'react_issue_comment',
     repository: 'trvny/trvny',
-    commentId: 5296728014,
+    commentId: 12345,
     reaction: 'eyes',
   });
   const issueBody = `GPTomek control mailbox.\n\n${marker}`;
@@ -157,7 +157,7 @@ test('executes and clears the issue mailbox without the legacy PR shim', async (
     }
     if (
       method === 'POST' &&
-      url.pathname === '/repos/trvny/trvny/issues/comments/5296728014/reactions'
+      url.pathname === '/repos/trvny/trvny/issues/comments/12345/reactions'
     ) {
       return json({ id: 1, content: 'eyes' });
     }

@@ -5,6 +5,9 @@ is its deployment/package slug, not the name of every subsystem inside it.
 
 - **Kanarek Companion** owns webhook-driven PR status, quips/reactions and free PR review.
 - **GPTomek Bridge** owns bot identity, installation auth, control transport and bot-authored writes.
+- Before changing GPTomek transport, read `../gptomek/README.md`. Issue
+  `trvny/trvny#203` is the primary mailbox; closed PR `#176` plus
+  `gptomek/control` is the retained fallback and must not be casually cleaned up.
 - **Gremlin Operator** owns guarded GPT Actions, coding, maintenance, workflow, release and policy orchestration.
 - **Specialist Intelligence** owns bounded domain lookups such as packages, docs and Engram; new artifact/feed/web inspection starts here.
 - **Shared runtime core** owns reusable auth, transport, safety, OpenAPI and Durable Object plumbing only.

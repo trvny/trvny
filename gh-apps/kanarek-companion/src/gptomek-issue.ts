@@ -10,6 +10,7 @@ import { createInstallationClient } from './github-app.ts';
 const CONTROL_REPOSITORY = 'trvny/trvny';
 const LEGACY_CONTROL_PULL_REQUEST = 176;
 export const GPTOMEK_CONTROL_ISSUE = 203;
+export const GPTOMEK_WAKE_LABEL = 'gptomek-wake';
 const COMMAND_MARKER = '<!-- gptomek-command:';
 
 interface WebhookMetadataLike {
@@ -32,22 +33,26 @@ function issue(payload: Record<string, unknown>): IssuePayload | undefined {
     : undefined;
 }
 
-export function isGptomekControlIssueEdit(
+export function isGptomekControlIssueEvent(
   metadata: WebhookMetadataLike,
   payload: Record<string, unknown>,
 ): boolean {
   const controlIssue = issue(payload);
   const changes = payload.changes as { body?: unknown } | undefined;
   const sender = payload.sender as { login?: unknown } | undefined;
+  const label = payload.label as { name?: unknown } | undefined;
+  const wake =
+    (metadata.action === 'edited' && changes?.body !== undefined) ||
+    ((metadata.action === 'labeled' || metadata.action === 'unlabeled') &&
+      label?.name === GPTOMEK_WAKE_LABEL);
   return (
     metadata.event === 'issues' &&
-    metadata.action === 'edited' &&
+    wake &&
     metadata.repository === CONTROL_REPOSITORY &&
     controlIssue?.number === GPTOMEK_CONTROL_ISSUE &&
     controlIssue.state === 'open' &&
     controlIssue.user?.login === 'trvny' &&
     sender?.login === 'trvny' &&
-    changes?.body !== undefined &&
     typeof controlIssue.body === 'string' &&
     controlIssue.body.includes(COMMAND_MARKER)
   );

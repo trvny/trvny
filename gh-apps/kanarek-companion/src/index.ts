@@ -11,9 +11,8 @@ import {
   type InstallationAccessCheck,
 } from './github-app.ts';
 import {
-  GPTOMEK_CONTROL_ISSUE,
   handleGptomekIssueControl,
-  isGptomekControlIssueEdit,
+  isGptomekControlIssueEvent,
 } from './gptomek-issue.ts';
 import { hasAiProvider } from './quip.ts';
 
@@ -41,7 +40,6 @@ interface CompanionLockResponse {
 const MAX_BODY_BYTES = 1_048_576;
 const WEBHOOK_PATH = '/webhooks/github';
 const HEALTH_PATH = '/health';
-const GPTOMEK_WAKE_PATH = '/gptomek/wake';
 const COMMENT_WINDOW_MS = 10 * 60 * 1_000;
 const PENDING_TARGET_KEY = 'pending-target';
 const PENDING_DELIVERIES_KEY = 'pending-deliveries';
@@ -271,7 +269,7 @@ function isCompanionEvent(
   if (metadata.event === 'status') return true;
   if (!metadata.action) return false;
   if (metadata.event === 'issues') {
-    return isGptomekControlIssueEdit(metadata, payload);
+    return isGptomekControlIssueEvent(metadata, payload);
   }
   if (metadata.event === 'pull_request') {
     if (metadata.action === 'edited') {
@@ -618,43 +616,6 @@ function health(env: Env, method: string): Response {
 }
 
 
-async function wakeGptomekControlIssue(env: Env): Promise<Response> {
-  const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
-  if (!Number.isInteger(installationId) || installationId <= 0) {
-    return json({ ok: false, error: 'gptomek_not_configured' }, 503);
-  }
-
-  const target: CompanionTarget = {
-    delivery: `gptomek-wake:${crypto.randomUUID()}`,
-    installationId,
-    pullRequestNumber: GPTOMEK_CONTROL_ISSUE,
-    repository: 'trvny/trvny',
-    sourceEvent: 'issues',
-  };
-  const id = env.COMPANION_LOCK.idFromName(
-    `${target.repository}#${target.pullRequestNumber}`,
-  );
-  const response = await env.COMPANION_LOCK.get(id).fetch(
-    'https://kanarek-companion.internal/refresh',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(target),
-    },
-  );
-  const payload = (await response.json()) as CompanionLockResponse;
-  if (!response.ok || !payload.ok) {
-    console.error(JSON.stringify({ gptomek: 'wake_failed', status: response.status }));
-    return json({ ok: false, error: 'gptomek_wake_failed' }, 502);
-  }
-  return json({
-    ok: true,
-    handled: payload.result?.changed ?? false,
-    duplicate: payload.duplicate ?? false,
-    state: payload.result?.state ?? null,
-  });
-}
-
 export class CommentProbeLock {
   private readonly env: Env;
   private readonly state: DurableObjectState;
@@ -843,13 +804,6 @@ const worker = {
       return health(env, request.method);
     }
 
-    if (url.pathname === GPTOMEK_WAKE_PATH) {
-      if (request.method !== 'GET') {
-        return json({ error: 'method_not_allowed' }, 405);
-      }
-      return wakeGptomekControlIssue(env);
-    }
-
     if (url.pathname === WEBHOOK_PATH) {
       if (request.method !== 'POST') {
         return json({ error: 'method_not_allowed' }, 405);
@@ -864,7 +818,6 @@ const worker = {
 export default worker;
 export {
   COMMENT_WINDOW_MS,
-  GPTOMEK_WAKE_PATH,
   companionTargets,
   isCompanionEvent,
   readLimitedBody,

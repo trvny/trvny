@@ -138,9 +138,7 @@ The persistent phrase bank lives in Workers KV under
 The effective percentage decreases linearly as the current `quipKey` fills the
 space it can actually retain. A missing value keeps the default `25`; an
 explicit value must be a decimal integer percentage. Malformed or empty values
-fail closed to `0` rather than restoring a paid default accidentally. The same
-gate applies to free router fallbacks for quips: they are transport fallbacks
-for selected AI attempts, not an unlimited generation path.
+fail closed to `0` rather than restoring a paid default accidentally.
 
 While the global cap is not binding, that space is 256 entries:
 
@@ -162,25 +160,24 @@ generated line could not be safely retained.
 
 `KANAREK_PROVIDER_ORDER` reorders enabled quip providers; it does not enable or
 disable them. The configured production order is Gemini, OpenAI, xAI, the
-OpenAI fallback, Anthropic, then OrcaRouter and OpenRouter. The free routers are
-deliberately last so request, quota, or credit failures from direct providers
-can fall through to them. Provider enable switches, model names, output
+OpenAI fallback, then Anthropic. Free review providers are intentionally not
+part of quip generation, so quips use only direct paid providers plus the
+persistent bank/presets. Provider enable switches, model names, output
 ceilings, reasoning/thinking settings, the xAI prompt-cache key, and the shared
 provider timeout are all visible beside it in `wrangler.jsonc`. Without
-provider secrets Kanarek uses the shared pool and presets.
+provider secrets Kanarek uses the persistent bank/comment pool and presets.
 
-OpenRouter uses native ordered `models` fallback lists. Companion quips keep the
-shared free model list, where MiniMax M3 remains a lightweight first choice.
-Kanarek Review has a separate `KANAREK_REVIEW_OPENROUTER_MODELS` chain and a
+OpenRouter is review-only and uses the dedicated
+`KANAREK_REVIEW_OPENROUTER_MODELS` chain with a
 bounded one-shot review context assembled by `webhook-review.ts`; it does not
 need the former per-repository gh-aw/Copilot agent. Review prefers Nemotron 3
-Ultra, Laguna S 2.1, North Mini Code, Laguna M.1, and Nemotron 3 Super before
+Ultra, Laguna S 2.1, North Mini Code, and Nemotron 3 Super before
 `openrouter/free`. Quota-limited review providers stay behind a Durable
 Object-backed circuit breaker so separate Worker invocations do not repeatedly
 burn the same exhausted free quota. Rapid PR updates reset a one-minute Durable
 Object alarm, and only the newest exact head is reviewed after the quiet window.
-OrcaRouter uses `orcarouter/auto`; its allowed/default models remain controlled
-by the OrcaRouter workspace, so the workspace allowlist is the source of truth.
+OrcaRouter is also review-only; its free model selection stays behind the
+review router.
 
 Quip providers currently use 1024-token ceilings. Webhook review has its own
 4096-token maximum because it returns a bounded structured finding set. OpenAI
@@ -216,8 +213,7 @@ bodies. Paid persistence emits separate receipt/bank diagnostics. Use complete
 response samples before tightening a ceiling.
 
 A quip provider can be disabled without removing its secret by setting the
-matching `KANAREK_OPENROUTER_ENABLED`, `KANAREK_ORCAROUTER_ENABLED`,
-`KANAREK_OPENAI_ENABLED`, `KANAREK_ANTHROPIC_ENABLED`,
+matching `KANAREK_OPENAI_ENABLED`, `KANAREK_ANTHROPIC_ENABLED`,
 `KANAREK_GEMINI_ENABLED`, or `KANAREK_XAI_ENABLED` variable to a common false
 value (`false`, `0`, `no`, or `off`, case-insensitive). The same false values
 apply to `KANAREK_AI_ENABLED`. Webhook review has the separate

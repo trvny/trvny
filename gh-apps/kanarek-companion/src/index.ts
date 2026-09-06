@@ -12,7 +12,7 @@ import {
 } from './github-app.ts';
 import {
   handleGptomekIssueControl,
-  isGptomekControlIssueEdit,
+  isGptomekControlIssueEvent,
 } from './gptomek-issue.ts';
 import { hasAiProvider } from './quip.ts';
 
@@ -269,7 +269,7 @@ function isCompanionEvent(
   if (metadata.event === 'status') return true;
   if (!metadata.action) return false;
   if (metadata.event === 'issues') {
-    return isGptomekControlIssueEdit(metadata, payload);
+    return isGptomekControlIssueEvent(metadata, payload);
   }
   if (metadata.event === 'pull_request') {
     if (metadata.action === 'edited') {
@@ -614,6 +614,7 @@ function health(env: Env, method: string): Response {
   }
   return response;
 }
+
 
 export class CommentProbeLock {
   private readonly env: Env;

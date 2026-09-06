@@ -6,6 +6,22 @@
   "ai": {
     "binding": "AI"
   },
+  "queues": {
+    "producers": [
+      {
+        "binding": "TELEGRAM_UPDATES",
+        "queue": "travny-tg-assistant-updates"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "travny-tg-assistant-updates",
+        "max_batch_size": 5,
+        "max_batch_timeout": 1,
+        "max_retries": 5
+      }
+    ]
+  },
   "vars": {
     "ORCAROUTER_MODEL": "orcarouter/free",
     "OLLAMA_MODEL": "glm-5.3",

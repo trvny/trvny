@@ -6,18 +6,18 @@ Keep an always-on personal assistant on Cloudflare while leaving heavyweight mac
 
 ```text
                            ┌─ OrcaRouter Free
-Telegram ─► Cloudflare ────┼─ Ollama Cloud Free
-            assistant      ├─ OpenRouter Free
-               │           └─ Workers AI free allocation
-               │
-               ├─ RSS / notifications / drafts / reminders
-               ├─ future Engram memory
-               └─ future durable handoff queue
-                            │
-                    Hermes worker online?
-                       ┌────┴────┐
-                    Android    Legion
-                    Termux      desktop
+Telegram ─► Worker ─► Queue├─ Ollama Cloud Free
+                │          ├─ OpenRouter Free
+                │          └─ Workers AI free allocation
+                │
+                ├─ RSS / notifications / drafts / reminders
+                ├─ future Engram memory
+                └─ future Hermes handoff queue
+                             │
+                     Hermes worker online?
+                        ┌────┴────┐
+                     Android    Legion
+                     Termux      desktop
 ```
 
 ## Responsibilities
@@ -37,6 +37,8 @@ Good fit:
 
 Avoid turning it into a fake Linux machine. Repository clones, builds, package installation, arbitrary shell execution and long local jobs belong elsewhere.
 
+The Telegram ingress path uses Cloudflare Queues for durable processing/retries. That Queue is deliberately separate from the future Hermes work queue.
+
 ### Hermes workers
 
 Good fit:
@@ -48,7 +50,7 @@ Good fit:
 - inspect hardware/local files;
 - perform longer autonomous engineering tasks.
 
-A Hermes installation on Android and another on Legion can use the same logical task queue. They should have separate worker identities/capability metadata so the dispatcher can choose the appropriate machine.
+A Hermes installation on Android and another on Legion can use the same logical task queue later. They should have separate worker identities/capability metadata so the dispatcher can choose the appropriate machine.
 
 ## Hermes bot portability
 
@@ -67,13 +69,14 @@ Future slice:
 5. Cloudflare forwards a concise result to Telegram.
 6. Jobs are idempotent and lease-based so Android and Legion cannot execute the same job accidentally.
 
-Prefer Cloudflare Queues/D1/Workflows only when this slice is implemented. Do not add infrastructure before it has a consumer.
+Add D1/Workflows or a dedicated job Queue only when this handoff slice is implemented. Do not reuse the Telegram ingress Queue as an accidental general-purpose bus.
 
 ## Personal-assistant roadmap
 
 ### 1. MVP
 
-- owner-only Telegram webhook;
+- owner-only private Telegram webhook;
+- durable Telegram update queue;
 - provider fallback chain;
 - `/draft`;
 - Feedseek/RSS curation endpoint;
@@ -98,7 +101,7 @@ Start with human-in-the-loop drafts. Later, Telegram Business/Secretary-style au
 
 ### 5. Hermes handoff
 
-- durable queue;
+- durable job queue;
 - Android and Legion workers;
 - capability-based routing;
 - result/progress messages;

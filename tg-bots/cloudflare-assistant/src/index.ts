@@ -1,18 +1,33 @@
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
-import { chatWithFallback, completeWithFallback } from "./providers";
+import {
+  AllProvidersFailedError,
+  chatWithFallback,
+  completeWithFallback,
+} from "./providers";
 import {
   isTelegramWebhook,
   parseTelegramUpdate,
   sendTelegramMessage,
+  TelegramConfigurationError,
+  TelegramSendError,
 } from "./telegram";
-import type { Env, ExecutionContextLike, RssDecision, RssItem, TelegramUpdate } from "./types";
+import type { Env, QueueBatch, RssDecision, RssItem, TelegramUpdate } from "./types";
 
 const RSS_BODY_MAX_BYTES = 64 * 1024;
 const DEFAULT_RSS_MIN_SCORE = 75;
+const CURATOR_SUMMARY_MAX_CHARS = 800;
+const CURATOR_REASON_MAX_CHARS = 400;
 
 const ASSISTANT_SYSTEM = `You are a private Telegram assistant for one owner.
 Be concise, practical and friendly. Prefer Polish unless the user writes in another language.
 Never claim that you executed actions you did not actually execute.`;
+
+class AssistantConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AssistantConfigurationError";
+  }
+}
 
 function json(data: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(data, null, 2), {
@@ -83,6 +98,9 @@ async function handleTelegramUpdate(env: Env, update: TelegramUpdate): Promise<v
       `${result.text}\n\n[${result.provider} · ${result.model}]`,
     );
   } catch (error) {
+    if (error instanceof TelegramSendError || error instanceof TelegramConfigurationError) {
+      throw error;
+    }
     console.error("All chat providers failed", error);
     await sendTelegramMessage(
       env,
@@ -151,7 +169,9 @@ function parseRssDecision(text: string): RssDecision {
     decision.score < 0 ||
     decision.score > 100 ||
     typeof decision.reason !== "string" ||
-    typeof decision.summary !== "string"
+    decision.reason.length > CURATOR_REASON_MAX_CHARS ||
+    typeof decision.summary !== "string" ||
+    decision.summary.length > CURATOR_SUMMARY_MAX_CHARS
   ) {
     throw new Error("curator response has an invalid score/reason/summary");
   }
@@ -169,6 +189,17 @@ function rssThreshold(env: Env): number {
   return DEFAULT_RSS_MIN_SCORE;
 }
 
+function rssTelegramText(item: RssItem, decision: RssDecision): string {
+  const body = [
+    `RSS ${decision.score}/100${item.source ? ` · ${item.source}` : ""}`,
+    item.title,
+    decision.summary,
+    decision.reason,
+  ].join("\n\n");
+  const bodyLimit = Math.max(0, 4096 - item.url.length - 2);
+  return `${body.slice(0, bodyLimit)}\n\n${item.url}`;
+}
+
 async function curateRss(env: Env, item: RssItem): Promise<Response> {
   const result = await completeWithFallback(
     env,
@@ -177,6 +208,7 @@ async function curateRss(env: Env, item: RssItem): Promise<Response> {
         role: "system",
         content:
           "You curate a private RSS inbox. Score the item 0-100 for usefulness or interestingness. " +
+          `Keep summary under ${CURATOR_SUMMARY_MAX_CHARS} characters and reason under ${CURATOR_REASON_MAX_CHARS} characters. ` +
           "Return STRICT JSON only: {\"score\":number,\"reason\":string,\"summary\":string}. " +
           "Be selective; routine marketing and trivial changelogs should score low.",
       },
@@ -194,19 +226,9 @@ async function curateRss(env: Env, item: RssItem): Promise<Response> {
 
   if (selected) {
     if (!env.TELEGRAM_OWNER_CHAT_ID) {
-      throw new Error("TELEGRAM_OWNER_CHAT_ID is not configured");
+      throw new AssistantConfigurationError("TELEGRAM_OWNER_CHAT_ID is not configured");
     }
-    await sendTelegramMessage(
-      env,
-      env.TELEGRAM_OWNER_CHAT_ID,
-      [
-        `RSS ${decision.score}/100${item.source ? ` · ${item.source}` : ""}`,
-        item.title,
-        decision.summary,
-        decision.reason,
-        item.url,
-      ].join("\n\n"),
-    );
+    await sendTelegramMessage(env, env.TELEGRAM_OWNER_CHAT_ID, rssTelegramText(item, decision));
   }
 
   return json({ selected, threshold, decision, provider: result.provider, model: result.model });
@@ -219,8 +241,26 @@ function invalidBody(error: unknown): Response {
   return json({ error: "invalid JSON body" }, { status: 400 });
 }
 
+function rssFailure(error: unknown): Response {
+  if (error instanceof AllProvidersFailedError) {
+    return json({ error: "providers_unavailable", retryable: true }, { status: 503 });
+  }
+  if (error instanceof AssistantConfigurationError || error instanceof TelegramConfigurationError) {
+    return json({ error: "configuration_error", retryable: false }, { status: 500 });
+  }
+  if (error instanceof TelegramSendError) {
+    const retryable = error.status === 429 || error.status >= 500;
+    return json(
+      { error: "telegram_delivery_failed", retryable },
+      { status: retryable ? 502 : 500 },
+    );
+  }
+
+  return json({ error: "internal_error", retryable: false }, { status: 500 });
+}
+
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContextLike): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
@@ -237,11 +277,12 @@ export default {
         return invalidBody(error);
       }
 
-      ctx.waitUntil(
-        handleTelegramUpdate(env, update).catch((error) =>
-          console.error("Telegram update failed", error),
-        ),
-      );
+      try {
+        await env.TELEGRAM_UPDATES.send(update);
+      } catch (error) {
+        console.error("Failed to enqueue Telegram update", error);
+        return new Response("Service unavailable", { status: 503 });
+      }
       return new Response("OK");
     }
 
@@ -258,9 +299,27 @@ export default {
       if (!isRssItem(body)) {
         return json({ error: "invalid RSS item" }, { status: 400 });
       }
-      return curateRss(env, body);
+
+      try {
+        return await curateRss(env, body);
+      } catch (error) {
+        console.error("RSS processing failed", error);
+        return rssFailure(error);
+      }
     }
 
     return new Response("Not found", { status: 404 });
+  },
+
+  async queue(batch: QueueBatch<TelegramUpdate>, env: Env): Promise<void> {
+    for (const message of batch.messages) {
+      try {
+        await handleTelegramUpdate(env, message.body);
+        message.ack();
+      } catch (error) {
+        console.error("Telegram queue processing failed", error);
+        message.retry({ delaySeconds: 5 });
+      }
+    }
   },
 };

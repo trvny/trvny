@@ -4,6 +4,23 @@ import type { Env, TelegramUpdate } from "./types";
 const TELEGRAM_API = "https://api.telegram.org";
 const TELEGRAM_UPDATE_MAX_BYTES = 256 * 1024;
 
+export class TelegramConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TelegramConfigurationError";
+  }
+}
+
+export class TelegramSendError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "TelegramSendError";
+  }
+}
+
 export function isTelegramWebhook(request: Request, env: Env): boolean {
   const expected = env.TELEGRAM_WEBHOOK_SECRET;
   const actual = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
@@ -20,7 +37,7 @@ export async function sendTelegramMessage(
   text: string,
 ): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) {
-    throw new Error("TELEGRAM_BOT_TOKEN is not configured");
+    throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
   }
 
   const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
@@ -34,6 +51,9 @@ export async function sendTelegramMessage(
   });
 
   if (!response.ok) {
-    throw new Error(`Telegram sendMessage failed: ${response.status} ${await response.text()}`);
+    throw new TelegramSendError(
+      response.status,
+      `Telegram sendMessage failed: ${response.status} ${await response.text()}`,
+    );
   }
 }

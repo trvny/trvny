@@ -8,6 +8,13 @@ type ProviderAttempt = {
   run: () => Promise<string>;
 };
 
+export class AllProvidersFailedError extends Error {
+  constructor(readonly providerErrors: string[]) {
+    super(`All providers failed: ${providerErrors.join(" | ")}`);
+    this.name = "AllProvidersFailedError";
+  }
+}
+
 export type CompletionResult<T> = {
   value: T;
   provider: string;
@@ -148,7 +155,7 @@ export async function completeWithFallback<T>(
     }
   }
 
-  throw new Error(`All providers failed: ${errors.join(" | ")}`);
+  throw new AllProvidersFailedError(errors);
 }
 
 export async function chatWithFallback(env: Env, messages: ChatMessage[]) {

@@ -35,6 +35,9 @@
       "id": "1534e989ac23449fab8e18abc2bc250d"
     }
   ],
+  "ai": {
+    "binding": "AI"
+  },
   "migrations": [
     {
       "tag": "v1",

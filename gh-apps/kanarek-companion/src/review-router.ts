@@ -11,6 +11,7 @@ const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
 const MIN_COOLDOWN_MS = 1_000;
 const MAX_COOLDOWN_MS = 30 * 60_000;
 const SOFT_FAILURE_PREVIEW_BYTES = 8_192;
+const WORKERS_AI_REVIEW_MODEL = '@cf/zai-org/glm-4.7-flash' as const;
 const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'nvidia/nemotron-3-ultra-550b-a55b:free',
   'poolside/laguna-s-2.1:free',
@@ -25,6 +26,7 @@ const AIHUBMIX_RETRYABLE_MESSAGES = [
 ] as const;
 
 export interface ReviewRouterEnv {
+  AI?: Ai;
   KANAREK_REVIEW_ROUTER_TOKEN?: string;
   AIHUBMIX_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
@@ -39,7 +41,7 @@ export interface ReviewRouterEnv {
 
 type JsonObject = Record<string, unknown>;
 
-type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter';
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'workers-ai';
 
 type ReviewProvider = {
   id: ReviewProviderId;
@@ -196,8 +198,40 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
   ];
 }
 
-function diagnostic(provider: ReviewProvider, category: string): string {
-  return `${provider.id}:${category}`;
+
+function workersAiInput(input: JsonObject): ChatCompletionsInput | null {
+  if (!Array.isArray(input.messages)) return null;
+  const request = { ...input };
+  delete request.model;
+  delete request.models;
+  delete request.stream_options;
+  request.stream = false;
+  return request as ChatCompletionsInput;
+}
+
+function workersAiFailureCategory(error: unknown): string {
+  const value = error instanceof Error ? `${error.name} ${error.message}`.toLowerCase() : '';
+  if (/\b429\b|quota|daily limit|usage limit|neuron/.test(value)) return 'soft_quota';
+  if (/\b3040\b|capacity|\b503\b|temporar/.test(value)) return 'http_503';
+  if (/\b403\b|\b5035\b|paid plan|billing/.test(value)) return 'http_403';
+  return 'network';
+}
+
+function workersAiResponse(result: ChatCompletionsOutput): Response {
+  return Response.json(
+    { ...result, model: WORKERS_AI_REVIEW_MODEL },
+    {
+      headers: {
+        'cache-control': 'no-store',
+        'x-kanarek-review-provider': 'workers-ai',
+      },
+    },
+  );
+}
+
+function diagnostic(provider: ReviewProvider | ReviewProviderId, category: string): string {
+  const id = typeof provider === 'string' ? provider : provider.id;
+  return `${id}:${category}`;
 }
 
 function diagnosticMessage(message: string, failures: readonly string[]): string {
@@ -346,6 +380,17 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
         ? { available: false, configured: true, cooldown, provider: provider.id }
         : { available: true, configured: true, provider: provider.id };
     }),
+  );
+  const workersAiConfigured = Boolean(env.AI);
+  const workersAiCooldown = workersAiConfigured
+    ? await activeProviderCooldown(env, 'workers-ai')
+    : null;
+  states.push(
+    !workersAiConfigured
+      ? { available: false, configured: false, provider: 'workers-ai' }
+      : workersAiCooldown
+        ? { available: false, configured: true, cooldown: workersAiCooldown, provider: 'workers-ai' }
+        : { available: true, configured: true, provider: 'workers-ai' },
   );
   const configured = states.filter((state) => state.configured).length;
   const available = states.filter((state) => state.available).length;
@@ -702,6 +747,39 @@ export async function handleReviewRouterRequest(
     await rememberProviderCooldown(provider.id, providerFailureCategory, env);
     failures.push(diagnostic(provider, providerFailureCategory));
     if (providerInvalidRequest) invalidRequests += 1;
+  }
+
+  if (env.AI) {
+    configured += 1;
+    const provider: ReviewProviderId = 'workers-ai';
+    const cooldown = await activeProviderCooldown(env, provider);
+    if (cooldown) {
+      failures.push(diagnostic(provider, `cooldown_${cooldown.category}`));
+      console.info(JSON.stringify({
+        kanarekReviewRouter: 'provider_cooldown', provider, category: cooldown.category,
+      }));
+    } else {
+      const bindingInput = workersAiInput(input);
+      if (!bindingInput) {
+        failures.push(diagnostic(provider, 'invalid_request'));
+        invalidRequests += 1;
+      } else {
+        try {
+          const result = await env.AI.run(WORKERS_AI_REVIEW_MODEL, bindingInput);
+          console.info(JSON.stringify({
+            kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: WORKERS_AI_REVIEW_MODEL,
+          }));
+          return workersAiResponse(result);
+        } catch (error) {
+          const category = workersAiFailureCategory(error);
+          await rememberProviderCooldown(provider, category, env);
+          failures.push(diagnostic(provider, category));
+          console.warn(JSON.stringify({
+            kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
+          }));
+        }
+      }
+    }
   }
 
   if (!configured) {

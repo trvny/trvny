@@ -24,6 +24,13 @@ function request(
 
 const auth = { KANAREK_REVIEW_ROUTER_TOKEN: routerToken } as const;
 
+
+function workersAiBinding(
+  run: (model: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>,
+): Ai {
+  return { run } as unknown as Ai;
+}
+
 function cooldownState(): DurableObjectState {
   const values = new Map<string, unknown>();
   return {
@@ -292,7 +299,58 @@ test('review router fails fast while the whole free pool is quota-cooled', async
   assert.equal(health.configured, 3);
   assert.equal(health.available, 0);
   assert.equal(health.ready, false);
-  assert.equal(health.providers.every((provider) => provider.cooldown), true);
+  assert.equal(
+    health.providers.filter((provider) => provider.configured).every((provider) => provider.cooldown),
+    true,
+  );
+});
+
+test('review router falls back to Workers AI after HTTP free providers exhaust', async () => {
+  let aiModel = '';
+  let aiInput: Record<string, unknown> = {};
+  const AI = workersAiBinding(async (model, input) => {
+    aiModel = model;
+    aiInput = input;
+    return {
+      id: 'cf-review',
+      object: 'chat.completion',
+      created: 1,
+      model,
+      choices: [],
+    };
+  });
+  let httpCalls = 0;
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    AI,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key',
+    AIHUBMIX_API_KEY: 'aihubmix-key',
+  }, (() => {
+    httpCalls += 1;
+    return Promise.resolve(new Response('quota', { status: 429 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'workers-ai');
+  assert.equal(httpCalls, 3);
+  assert.equal(aiModel, '@cf/zai-org/glm-4.7-flash');
+  assert.equal(aiInput.stream, false);
+  assert.equal('model' in aiInput, false);
+  const payload = (await response?.json()) as { model?: string };
+  assert.equal(payload.model, '@cf/zai-org/glm-4.7-flash');
+});
+
+test('review provider health includes the Workers AI binding', async () => {
+  const AI = workersAiBinding(async () => ({}));
+  const health = await reviewProviderPoolHealth({ ...auth, AI });
+  assert.equal(health.configured, 1);
+  assert.equal(health.available, 1);
+  assert.equal(health.ready, true);
+  assert.deepEqual(
+    health.providers.find((provider) => provider.provider === 'workers-ai'),
+    { available: true, configured: true, provider: 'workers-ai' },
+  );
 });
 
 test('review router falls through provider authentication errors', async () => {

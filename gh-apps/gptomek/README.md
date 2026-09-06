@@ -7,8 +7,40 @@ GitHub App used for bot-authored repository operations.
 - Runtime module: `../kanarek-companion/src/gptomek.ts`
 - Shared Worker: `kanarek-companion`
 - Worker secret: `GPTOMEK_PRIVATE_KEY`
-- Control mailbox: `trvny/trvny#176` (closed PR body)
-- Control ref: `gptomek/control` (persistent transport anchor)
+- Primary control mailbox: `trvny/trvny#203` (open Issue body)
+- Wake relay: GitHub Actions → `POST /gptomek/wake` → shared Worker
+- Fallback mailbox: `trvny/trvny#176` (closed PR body)
+- Fallback control ref: `gptomek/control` (persistent transport anchor)
+
+## Read this first
+
+The **primary transport is Issue `trvny/trvny#203`**. Commands are hidden in
+its body as `<!-- gptomek-command:... -->`. A normal body edit wakes the GitHub
+Actions relay, which calls `/gptomek/wake`; the shared Worker executes the
+guarded command as `gptomek[bot]` and removes the marker after success.
+
+The old closed PR `trvny/trvny#176` and its `gptomek/control` head ref remain a
+**deliberate fallback**, not abandoned debris. Do not delete, merge, rebase,
+routinely sync, or repurpose that branch, and do not "clean up" PR #176 while
+this README still documents the fallback as active. Retire it only as an
+explicit change after the Issue path has a verified replacement and rollback is
+no longer wanted.
+
+When diagnosing the Issue path, check the chain in this order:
+
+1. the edit of Issue #203 and the `gptomek-wake` Actions run;
+2. the Worker's `/gptomek/wake` response and Cloudflare logs;
+3. the GPTomek command result and automatic marker removal.
+
+A known Cloudflare failure mode is passing the runtime `fetch` function around
+unbound. Inside Worker/Durable Object paths use a Worker-safe wrapper such as
+`(input, init) => fetch(input, init)` rather than defaulting a callback directly
+to `fetch`; otherwise Cloudflare can throw `Illegal invocation`.
+
+Do not assume that merely using Desktop Commander disables the GitHub
+connector. End-to-end Issue mailbox smoke tests were verified both before and
+after a harmless Desktop Commander call. Treat connector write failures as
+their own transient/tooling problem unless evidence shows otherwise.
 
 ## What this is
 
@@ -22,19 +54,18 @@ authorized `trvny` OAuth token instead.
 That split is intentional: commits, comments, reactions and routine automation can
 be visibly bot-authored, while pull requests stay opened as `trvny` so external
 automatic review continues to trigger from the expected author. The control
-mailbox below is an internal transport for GPTomek-only operations; it is not a
-queue humans should normally edit by hand.
+mailboxes are internal transport for GPTomek-only operations; they are not queues
+humans should normally edit by hand.
 
-A hidden command in the closed PR body is handled through the shared Worker's
-locked webhook path and removed after a successful operation. GitHub stops
-delivering that body-edit transport when the PR's head ref is deleted, so
-`gptomek/control` must remain present.
+Issue #203 is the maintained primary mailbox. PR #176 remains the fallback
+transport. GitHub stops delivering the legacy PR body-edit transport when its
+head ref is deleted, so `gptomek/control` must remain present while fallback
+support is retained.
 
-The control branch is not a working branch and is intentionally not kept current
+The fallback branch is not a working branch and is intentionally not kept current
 with `main`. Its tree and distance behind `main` are irrelevant to command
-handling; only the ref's continued existence anchors PR #176. Do not merge,
-delete, rebase, or routinely sync it. GPTomek also protects the ref from
-`delete_branch`.
+handling; only the ref's continued existence anchors PR #176. GPTomek also
+protects the ref from `delete_branch`.
 
 Supported operations:
 

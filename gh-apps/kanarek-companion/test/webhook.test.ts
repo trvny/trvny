@@ -110,6 +110,48 @@ test('reports runtime readiness and optional integrations', async () => {
   });
 });
 
+test('wakes the open GPTomek issue mailbox through the companion lock', async () => {
+  let target: unknown;
+  const response = await worker.fetch(new Request('https://example.test/gptomek/wake'), {
+    ...env,
+    GPTOMEK_INSTALLATION_ID: '152126523',
+    COMPANION_LOCK: {
+      idFromName: (name: string) => name,
+      get: () => ({
+        fetch: async (_url: string, init?: RequestInit) => {
+          target = JSON.parse(String(init?.body ?? '{}'));
+          return Response.json({
+            ok: true,
+            result: {
+              changed: true,
+              commentId: null,
+              quipSource: 'preset',
+              state: 'gptomek-control',
+            },
+          });
+        },
+      }),
+    } as unknown as DurableObjectNamespace,
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    handled: true,
+    duplicate: false,
+    state: 'gptomek-control',
+  });
+  assert.deepEqual(
+    { ...(target as Record<string, unknown>), delivery: '<generated>' },
+    {
+      delivery: '<generated>',
+      installationId: 152126523,
+      pullRequestNumber: 203,
+      repository: 'trvny/trvny',
+      sourceEvent: 'issues',
+    },
+  );
+});
+
 test('health honors per-provider disable switches', async () => {
   const disabled = await worker.fetch(new Request('https://example.test/health'), {
     ...env,

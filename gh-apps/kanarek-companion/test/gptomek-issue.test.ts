@@ -22,14 +22,14 @@ const payload = {
   issue: {
     body: '<!-- gptomek-command:dGVzdA -->',
     number: GPTOMEK_CONTROL_ISSUE,
-    state: 'closed',
+    state: 'open',
     user: { login: 'trvny' },
   },
   repository: { full_name: 'trvny/trvny' },
   sender: { login: 'trvny' },
 };
 
-test('routes only marked owner body edits of closed issue #203', () => {
+test('routes only marked owner body edits of open issue #203', () => {
   assert.equal(isGptomekControlIssueEdit(metadata, payload), true);
   assert.equal(isCompanionEvent(metadata, payload), true);
   assert.equal(
@@ -42,7 +42,7 @@ test('routes only marked owner body edits of closed issue #203', () => {
   assert.equal(
     isGptomekControlIssueEdit(metadata, {
       ...payload,
-      issue: { ...payload.issue, state: 'open' },
+      issue: { ...payload.issue, state: 'closed' },
     }),
     false,
   );

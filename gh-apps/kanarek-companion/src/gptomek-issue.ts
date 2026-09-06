@@ -44,7 +44,7 @@ export function isGptomekControlIssueEdit(
     metadata.action === 'edited' &&
     metadata.repository === CONTROL_REPOSITORY &&
     controlIssue?.number === GPTOMEK_CONTROL_ISSUE &&
-    controlIssue.state === 'closed' &&
+    controlIssue.state === 'open' &&
     controlIssue.user?.login === 'trvny' &&
     sender?.login === 'trvny' &&
     changes?.body !== undefined &&
@@ -100,7 +100,7 @@ async function currentIssue(
   );
   if (
     controlIssue.number !== GPTOMEK_CONTROL_ISSUE ||
-    controlIssue.state !== 'closed' ||
+    controlIssue.state !== 'open' ||
     controlIssue.user?.login !== 'trvny'
   ) {
     throw new Error('invalid_gptomek_control_issue');

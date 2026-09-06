@@ -1,11 +1,13 @@
 import type { ChatMessage, Env } from "./types";
 
-const EXTERNAL_PROVIDER_TIMEOUT_MS = 8_000;
+const ROUTER_TIMEOUT_MS = 20_000;
+const KANAREK_REVIEW_MODEL = "kanarek-review-free";
+const KANAREK_REVIEW_PATH = "/review-router/v1/chat/completions";
 
-type ProviderAttempt = {
-  name: string;
+type ProviderResult = {
+  text: string;
+  provider: string;
   model: string;
-  run: () => Promise<string>;
 };
 
 export class AllProvidersFailedError extends Error {
@@ -22,6 +24,7 @@ export type CompletionResult<T> = {
 };
 
 type OpenAIResponse = {
+  model?: string;
   choices?: Array<{ message?: { content?: string } }>;
 };
 
@@ -29,39 +32,39 @@ function clipError(text: string): string {
   return text.replace(/\s+/g, " ").slice(0, 240);
 }
 
-async function openAiCompatible(
-  url: string,
-  apiKey: string,
-  model: string,
-  messages: ChatMessage[],
-  headers: Record<string, string> = {},
-): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), EXTERNAL_PROVIDER_TIMEOUT_MS);
+async function kanarekFreeRouter(env: Env, messages: ChatMessage[]): Promise<ProviderResult> {
+  const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
+  if (!token) throw new Error("KANAREK_REVIEW_ROUTER_TOKEN is not configured");
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ROUTER_TIMEOUT_MS);
   try {
-    const response = await fetch(url, {
+    const request = new Request(`https://kanarek-companion.internal${KANAREK_REVIEW_PATH}`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
-        ...headers,
       },
-      body: JSON.stringify({ model, messages, temperature: 0.5 }),
+      body: JSON.stringify({ model: KANAREK_REVIEW_MODEL, messages, temperature: 0.5 }),
       signal: controller.signal,
     });
-
+    const response = await env.KANAREK_COMPANION.fetch(request);
     if (!response.ok) {
       throw new Error(`${response.status} ${clipError(await response.text())}`);
     }
 
     const data = (await response.json()) as OpenAIResponse;
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error("empty response");
-    return content;
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error("empty Kanarek router response");
+    const selected = response.headers.get("x-kanarek-review-provider") ?? "free-router";
+    return {
+      text,
+      provider: `Kanarek/${selected}`,
+      model: data.model ?? KANAREK_REVIEW_MODEL,
+    };
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error(`request timed out after ${EXTERNAL_PROVIDER_TIMEOUT_MS}ms`);
+      throw new Error(`Kanarek router timed out after ${ROUTER_TIMEOUT_MS}ms`);
     }
     throw error;
   } finally {
@@ -69,68 +72,13 @@ async function openAiCompatible(
   }
 }
 
-async function workersAi(env: Env, messages: ChatMessage[]): Promise<string> {
+async function workersAi(env: Env, messages: ChatMessage[]): Promise<ProviderResult> {
   const result = (await env.AI.run(env.WORKERS_AI_MODEL, { messages })) as {
     response?: string;
   };
-  const content = result.response?.trim();
-  if (!content) throw new Error("empty Workers AI response");
-  return content;
-}
-
-function providerAttempts(env: Env, messages: ChatMessage[]): ProviderAttempt[] {
-  const attempts: ProviderAttempt[] = [];
-
-  if (env.ORCAROUTER_API_KEY) {
-    attempts.push({
-      name: "OrcaRouter",
-      model: env.ORCAROUTER_MODEL,
-      run: () =>
-        openAiCompatible(
-          "https://api.orcarouter.ai/v1/chat/completions",
-          env.ORCAROUTER_API_KEY!,
-          env.ORCAROUTER_MODEL,
-          messages,
-        ),
-    });
-  }
-
-  if (env.OLLAMA_API_KEY) {
-    attempts.push({
-      name: "Ollama Cloud",
-      model: env.OLLAMA_MODEL,
-      run: () =>
-        openAiCompatible(
-          "https://ollama.com/v1/chat/completions",
-          env.OLLAMA_API_KEY!,
-          env.OLLAMA_MODEL,
-          messages,
-        ),
-    });
-  }
-
-  if (env.OPENROUTER_API_KEY) {
-    attempts.push({
-      name: "OpenRouter",
-      model: env.OPENROUTER_MODEL,
-      run: () =>
-        openAiCompatible(
-          "https://openrouter.ai/api/v1/chat/completions",
-          env.OPENROUTER_API_KEY!,
-          env.OPENROUTER_MODEL,
-          messages,
-          { "X-Title": "travny-tg-assistant" },
-        ),
-    });
-  }
-
-  attempts.push({
-    name: "Workers AI",
-    model: env.WORKERS_AI_MODEL,
-    run: () => workersAi(env, messages),
-  });
-
-  return attempts;
+  const text = result.response?.trim();
+  if (!text) throw new Error("empty Workers AI response");
+  return { text, provider: "Workers AI", model: env.WORKERS_AI_MODEL };
 }
 
 export async function completeWithFallback<T>(
@@ -138,20 +86,22 @@ export async function completeWithFallback<T>(
   messages: ChatMessage[],
   parse: (text: string) => T,
 ): Promise<CompletionResult<T>> {
+  const attempts = [
+    () => kanarekFreeRouter(env, messages),
+    () => workersAi(env, messages),
+  ];
   const errors: string[] = [];
 
-  for (const attempt of providerAttempts(env, messages)) {
+  for (const run of attempts) {
     try {
-      const text = await attempt.run();
+      const result = await run();
       return {
-        value: parse(text),
-        provider: attempt.name,
-        model: attempt.model,
+        value: parse(result.text),
+        provider: result.provider,
+        model: result.model,
       };
     } catch (error) {
-      errors.push(
-        `${attempt.name}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      errors.push(error instanceof Error ? error.message : String(error));
     }
   }
 

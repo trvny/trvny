@@ -1,16 +1,17 @@
+import { readJsonWithLimit } from "./http";
 import type { Env, TelegramUpdate } from "./types";
 
 const TELEGRAM_API = "https://api.telegram.org";
+const TELEGRAM_UPDATE_MAX_BYTES = 256 * 1024;
 
 export function isTelegramWebhook(request: Request, env: Env): boolean {
-  return (
-    request.headers.get("X-Telegram-Bot-Api-Secret-Token") ===
-    env.TELEGRAM_WEBHOOK_SECRET
-  );
+  const expected = env.TELEGRAM_WEBHOOK_SECRET;
+  const actual = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
+  return Boolean(expected && actual && actual === expected);
 }
 
 export async function parseTelegramUpdate(request: Request): Promise<TelegramUpdate> {
-  return (await request.json()) as TelegramUpdate;
+  return readJsonWithLimit<TelegramUpdate>(request, TELEGRAM_UPDATE_MAX_BYTES);
 }
 
 export async function sendTelegramMessage(
@@ -18,6 +19,10 @@ export async function sendTelegramMessage(
   chatId: string | number,
   text: string,
 ): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    throw new Error("TELEGRAM_BOT_TOKEN is not configured");
+  }
+
   const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

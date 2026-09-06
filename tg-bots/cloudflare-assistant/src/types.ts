@@ -9,11 +9,11 @@ export type AiBinding = {
 
 export type Env = {
   AI: AiBinding;
-  TELEGRAM_BOT_TOKEN: string;
-  TELEGRAM_WEBHOOK_SECRET: string;
-  INGEST_SECRET: string;
-  OWNER_TELEGRAM_USER_ID: string;
-  TELEGRAM_OWNER_CHAT_ID: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
+  INGEST_SECRET?: string;
+  OWNER_TELEGRAM_USER_ID?: string;
+  TELEGRAM_OWNER_CHAT_ID?: string;
   ORCAROUTER_API_KEY?: string;
   OLLAMA_API_KEY?: string;
   OPENROUTER_API_KEY?: string;

@@ -1,10 +1,14 @@
-import { chatWithFallback } from "./providers";
+import { PayloadTooLargeError, readJsonWithLimit } from "./http";
+import { chatWithFallback, completeWithFallback } from "./providers";
 import {
   isTelegramWebhook,
   parseTelegramUpdate,
   sendTelegramMessage,
 } from "./telegram";
 import type { Env, ExecutionContextLike, RssDecision, RssItem, TelegramUpdate } from "./types";
+
+const RSS_BODY_MAX_BYTES = 64 * 1024;
+const DEFAULT_RSS_MIN_SCORE = 75;
 
 const ASSISTANT_SYSTEM = `You are a private Telegram assistant for one owner.
 Be concise, practical and friendly. Prefer Polish unless the user writes in another language.
@@ -18,7 +22,7 @@ function json(data: unknown, init: ResponseInit = {}): Response {
 }
 
 function ownerConfigured(env: Env): boolean {
-  return /^-?\d+$/.test(env.OWNER_TELEGRAM_USER_ID);
+  return Boolean(env.OWNER_TELEGRAM_USER_ID && /^-?\d+$/.test(env.OWNER_TELEGRAM_USER_ID));
 }
 
 async function handleTelegramUpdate(env: Env, update: TelegramUpdate): Promise<void> {
@@ -85,49 +89,109 @@ async function handleTelegramUpdate(env: Env, update: TelegramUpdate): Promise<v
 }
 
 function validIngestAuth(request: Request, env: Env): boolean {
-  return request.headers.get("Authorization") === `Bearer ${env.INGEST_SECRET}`;
+  const secret = env.INGEST_SECRET;
+  return Boolean(secret && request.headers.get("Authorization") === `Bearer ${secret}`);
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function isRssItem(value: unknown): value is RssItem {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
-  return typeof item.title === "string" && typeof item.url === "string";
+
+  if (
+    typeof item.title !== "string" ||
+    item.title.length === 0 ||
+    item.title.length > 500 ||
+    typeof item.url !== "string" ||
+    item.url.length === 0 ||
+    item.url.length > 2048 ||
+    !isHttpUrl(item.url)
+  ) {
+    return false;
+  }
+
+  if (item.summary !== undefined && (typeof item.summary !== "string" || item.summary.length > 8_000)) {
+    return false;
+  }
+  if (item.source !== undefined && (typeof item.source !== "string" || item.source.length > 200)) {
+    return false;
+  }
+
+  return true;
 }
 
-async function curateRss(env: Env, item: RssItem): Promise<Response> {
-  const result = await chatWithFallback(env, [
-    {
-      role: "system",
-      content:
-        "You curate a private RSS inbox. Score the item 0-100 for usefulness or interestingness. " +
-        "Return STRICT JSON only: {\"score\":number,\"reason\":string,\"summary\":string}. " +
-        "Be selective; routine marketing and trivial changelogs should score low.",
-    },
-    {
-      role: "user",
-      content: JSON.stringify(item),
-    },
-  ]);
+function parseRssDecision(text: string): RssDecision {
+  const normalized = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
 
   let decision: RssDecision;
   try {
-    decision = JSON.parse(result.text) as RssDecision;
+    decision = JSON.parse(normalized) as RssDecision;
   } catch {
-    throw new Error(`Curator returned invalid JSON: ${result.text.slice(0, 300)}`);
+    throw new Error(`invalid curator JSON: ${text.slice(0, 240)}`);
   }
 
   if (
     typeof decision.score !== "number" ||
+    !Number.isFinite(decision.score) ||
+    decision.score < 0 ||
+    decision.score > 100 ||
     typeof decision.reason !== "string" ||
     typeof decision.summary !== "string"
   ) {
-    throw new Error("Curator response is missing score/reason/summary");
+    throw new Error("curator response has an invalid score/reason/summary");
   }
 
-  const threshold = Number(env.RSS_MIN_SCORE || "75");
+  return decision;
+}
+
+function rssThreshold(env: Env): number {
+  const configured = Number(env.RSS_MIN_SCORE);
+  if (Number.isFinite(configured) && configured >= 0 && configured <= 100) {
+    return configured;
+  }
+
+  console.warn(`Invalid RSS_MIN_SCORE=${env.RSS_MIN_SCORE}; using ${DEFAULT_RSS_MIN_SCORE}`);
+  return DEFAULT_RSS_MIN_SCORE;
+}
+
+async function curateRss(env: Env, item: RssItem): Promise<Response> {
+  const result = await completeWithFallback(
+    env,
+    [
+      {
+        role: "system",
+        content:
+          "You curate a private RSS inbox. Score the item 0-100 for usefulness or interestingness. " +
+          "Return STRICT JSON only: {\"score\":number,\"reason\":string,\"summary\":string}. " +
+          "Be selective; routine marketing and trivial changelogs should score low.",
+      },
+      {
+        role: "user",
+        content: JSON.stringify(item),
+      },
+    ],
+    parseRssDecision,
+  );
+
+  const decision = result.value;
+  const threshold = rssThreshold(env);
   const selected = decision.score >= threshold;
 
   if (selected) {
+    if (!env.TELEGRAM_OWNER_CHAT_ID) {
+      throw new Error("TELEGRAM_OWNER_CHAT_ID is not configured");
+    }
     await sendTelegramMessage(
       env,
       env.TELEGRAM_OWNER_CHAT_ID,
@@ -144,6 +208,13 @@ async function curateRss(env: Env, item: RssItem): Promise<Response> {
   return json({ selected, threshold, decision, provider: result.provider, model: result.model });
 }
 
+function invalidBody(error: unknown): Response {
+  if (error instanceof PayloadTooLargeError) {
+    return json({ error: error.message }, { status: 413 });
+  }
+  return json({ error: "invalid JSON body" }, { status: 400 });
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContextLike): Promise<Response> {
     const url = new URL(request.url);
@@ -154,7 +225,14 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/telegram/webhook") {
       if (!isTelegramWebhook(request, env)) return new Response("Forbidden", { status: 403 });
-      const update = await parseTelegramUpdate(request);
+
+      let update: TelegramUpdate;
+      try {
+        update = await parseTelegramUpdate(request);
+      } catch (error) {
+        return invalidBody(error);
+      }
+
       ctx.waitUntil(
         handleTelegramUpdate(env, update).catch((error) =>
           console.error("Telegram update failed", error),
@@ -165,8 +243,17 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/ingest/rss") {
       if (!validIngestAuth(request, env)) return new Response("Forbidden", { status: 403 });
-      const body = await request.json();
-      if (!isRssItem(body)) return json({ error: "title and url are required" }, { status: 400 });
+
+      let body: unknown;
+      try {
+        body = await readJsonWithLimit<unknown>(request, RSS_BODY_MAX_BYTES);
+      } catch (error) {
+        return invalidBody(error);
+      }
+
+      if (!isRssItem(body)) {
+        return json({ error: "invalid RSS item" }, { status: 400 });
+      }
       return curateRss(env, body);
     }
 

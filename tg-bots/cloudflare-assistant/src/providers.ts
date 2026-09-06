@@ -1,9 +1,17 @@
 import type { ChatMessage, Env } from "./types";
 
+const EXTERNAL_PROVIDER_TIMEOUT_MS = 8_000;
+
 type ProviderAttempt = {
   name: string;
   model: string;
   run: () => Promise<string>;
+};
+
+export type CompletionResult<T> = {
+  value: T;
+  provider: string;
+  model: string;
 };
 
 type OpenAIResponse = {
@@ -21,24 +29,37 @@ async function openAiCompatible(
   messages: ChatMessage[],
   headers: Record<string, string> = {},
 ): Promise<string> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      ...headers,
-    },
-    body: JSON.stringify({ model, messages, temperature: 0.5 }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), EXTERNAL_PROVIDER_TIMEOUT_MS);
 
-  if (!response.ok) {
-    throw new Error(`${response.status} ${clipError(await response.text())}`);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      body: JSON.stringify({ model, messages, temperature: 0.5 }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`${response.status} ${clipError(await response.text())}`);
+    }
+
+    const data = (await response.json()) as OpenAIResponse;
+    const content = data.choices?.[0]?.message?.content?.trim();
+    if (!content) throw new Error("empty response");
+    return content;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`request timed out after ${EXTERNAL_PROVIDER_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const data = (await response.json()) as OpenAIResponse;
-  const content = data.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error("empty response");
-  return content;
 }
 
 async function workersAi(env: Env, messages: ChatMessage[]): Promise<string> {
@@ -50,7 +71,7 @@ async function workersAi(env: Env, messages: ChatMessage[]): Promise<string> {
   return content;
 }
 
-export async function chatWithFallback(env: Env, messages: ChatMessage[]) {
+function providerAttempts(env: Env, messages: ChatMessage[]): ProviderAttempt[] {
   const attempts: ProviderAttempt[] = [];
 
   if (env.ORCAROUTER_API_KEY) {
@@ -102,18 +123,35 @@ export async function chatWithFallback(env: Env, messages: ChatMessage[]) {
     run: () => workersAi(env, messages),
   });
 
+  return attempts;
+}
+
+export async function completeWithFallback<T>(
+  env: Env,
+  messages: ChatMessage[],
+  parse: (text: string) => T,
+): Promise<CompletionResult<T>> {
   const errors: string[] = [];
-  for (const attempt of attempts) {
+
+  for (const attempt of providerAttempts(env, messages)) {
     try {
+      const text = await attempt.run();
       return {
-        text: await attempt.run(),
+        value: parse(text),
         provider: attempt.name,
         model: attempt.model,
       };
     } catch (error) {
-      errors.push(`${attempt.name}: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(
+        `${attempt.name}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
   throw new Error(`All providers failed: ${errors.join(" | ")}`);
+}
+
+export async function chatWithFallback(env: Env, messages: ChatMessage[]) {
+  const result = await completeWithFallback(env, messages, (text) => text);
+  return { text: result.value, provider: result.provider, model: result.model };
 }

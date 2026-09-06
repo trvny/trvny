@@ -10,6 +10,7 @@ const CONTROL_REPOSITORY = 'trvny/trvny';
 export const GPTOMEK_CONTROL_ISSUE = 203;
 export const GPTOMEK_WAKE_LABEL = 'gptomek-wake';
 const COMMAND_MARKER = '<!-- gptomek-command:';
+const runtimeFetch: typeof fetch = (input, init) => fetch(input, init);
 
 interface WebhookMetadataLike {
   action: string | null;
@@ -103,7 +104,7 @@ async function currentIssue(
 export async function handleGptomekIssueControl(
   target: CompanionTarget,
   env: CompanionEnv,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = runtimeFetch,
 ): Promise<CompanionResult> {
   if (
     target.repository !== CONTROL_REPOSITORY ||

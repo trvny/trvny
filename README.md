@@ -45,7 +45,7 @@
 | 🤖 **LlmBench** | [repo](https://github.com/twojstar/llmbench) | Android hub for account-backed AI chats and free-provider LLM access. |
 | 🔊 **WAM Bridge** | [repo](https://github.com/twojstar/wambridge) | Audio bridge for Samsung Wireless Audio Multiroom speakers and native foobar2000 output for Shape M5. |
 
-### Workshop tools and local services
+### Tools and services
 
 | project | entry | purpose |
 |---|---|---|
@@ -54,6 +54,9 @@
 | 📄 **[Docbench](https://github.com/twojstar/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | Local-first document and PDF studio for editing, previewing, validating, merging, page operations, and bookmarks. |
 | 🌦️ **[weather-feed](https://github.com/twojstar/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Multi-source weather and IMGW alerts for Kościelec/Chrzanów, exposed as Atom and JSON. |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | One tool for aggregate health checks of TVPI, Feedseek, Weather, and Autka. |
+| 🐾 **[Pet Dispatcher](mcp/pet-dispatcher/)** | local MCP + Worker | Workspace-confined development-machine tools with an outbound-only Cloudflare control plane. |
+| 🌀 **[Loopling](loopling/)** | ChatGPT/Codex pet | Procedurally generated desktop pet, installers, previews, and validation assets. |
+| 💾 **[Remotely Save GDrive patch](remotely-save-gdrive-patch/)** | local patch | Personal-use Google Drive dedup/update patch with a non-redistributing verification harness. |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Public AI configuration core + private profile, archive, and project skills. |
 
 ## 🗄️ Drawers

@@ -1,62 +1,42 @@
 # Architecture
 
-> Workshop sources under `twojstar/twojstar/...` were migrated out of this repository; these references point to their active home.
+`trvny/trvny` is a mixed repository of small independent tools and services. There is no shared application runtime at the root.
 
-## 1) Architectural Style
-
-- Primary style: a collection of independently deployed applications/services, mostly feature-oriented, sharing repository-level CI and policy rather than a shared runtime.
-- The three Benches pair browser-heavy applications with thin Cloudflare Worker shells. Weather and Status MCP are edge services. Kanarek Companion is an event-driven GitHub App plus a guarded operator gateway. Xiaomi is a standalone JavaFX desktop application.
-- Primary constraints are local-first browser processing for document/QR tools, Cloudflare Worker limits/bindings for edge services, and fail-closed/expected-state guards for privileged GPTomek operations.
-
-## 2) System Flow
+## Runtime components
 
 ```text
-Codebench: request -> Worker metadata/security wrapper -> static app -> local QR/barcode logic -> browser output
-Docbench: request -> security-header Worker -> static app -> local file/PDF engines -> browser save/download
-Streambench: request -> entry router -> signed/media/provider handlers -> validated external stream/provider -> browser playback
-Weather: cron -> parallel source adapters -> normalization/ensemble -> KV baselines/state -> Atom/JSON/HTML responses
-Status MCP: authenticated JSON-RPC -> project fan-out -> service bindings/GitHub reads -> compact verdict -> cached result
-Kanarek: GitHub webhook/GPT action -> runtime/router -> policy/guarded capability -> GitHub/Cloudflare/AI integration -> response/comment
-Xiaomi: Main -> JavaFX controller -> Command coroutine wrapper -> adb/fastboot process -> UI result
+GitHub webhook / GPT action
+  -> gh-apps/kanarek-companion
+  -> guarded GitHub / Cloudflare / AI capabilities
+
+MCP request
+  -> mcp/status-mcp
+  -> service bindings + public GitHub reads
+  -> compact health roll-up
+
+Remote task / direct tool call
+  -> mcp/pet-dispatcher/control-plane
+  -> Queue + Durable Object task state
+  -> outbound-only Legion poller
+  -> workspace-confined local session / MXC process sandbox
 ```
 
-Representative flows are implemented in the corresponding `src/index.ts`/entry files; Kanarek webhook refreshes are coalesced by `CommentProbeLock` before `refreshCompanion`.
+## Boundaries
 
-## 3) Layer/Module Responsibilities
-
-| Layer or module | Owns | Must not own | Evidence |
-| --- | --- | --- | --- |
-| Bench edge wrappers | headers, static assets, narrow APIs | local document/QR editing state | `twojstar/twojstar/benches/codebench/src/index.ts`, `twojstar/twojstar/benches/docbench/src/index.ts` |
-| Streambench providers/relay | provider adapters, URL validation, signed relay | arbitrary open proxy behavior | `twojstar/twojstar/benches/streambench/src/providers/`, `twojstar/twojstar/benches/streambench/src/relay-core.ts` |
-| Weather source adapters | external schema parsing/retries | feed state/history | `twojstar/twojstar/weather-feed/src/sources.ts` |
-| Weather orchestrator | parallel cycles, KV state, feed endpoints | provider-specific parsing | `twojstar/twojstar/weather-feed/src/index.ts` |
-| Status transport | authentication, body limits, short cache | project-specific probe logic | `mcp/status-mcp/src/entry.ts` |
-| Status probes | read-only health fan-out | mutations | `mcp/status-mcp/src/index.ts` |
-| Kanarek runtime/router | capability dispatch and guards | capability internals | `gh-apps/kanarek-companion/src/runtime-entry.ts`, `src/router.ts` |
-| Kanarek feature modules | one operator/review/release/investigation concern | global HTTP routing | `gh-apps/kanarek-companion/src/*-actions.ts` |
-
-## 4) Reused Patterns
-
-| Pattern | Where found | Why it exists |
+| Component | Owns | Must not own |
 | --- | --- | --- |
-| Thin edge adapter around static/browser logic | Codebench, Docbench, Streambench | Keep sensitive/heavy user processing in the browser while adding headers and narrow edge APIs |
-| Provider/adapter normalization | Streambench providers, Weather sources, Kanarek AI providers | Isolate heterogeneous upstream APIs behind stable internal shapes |
-| Bounded remote I/O | Streambench relay, Weather fetch helper, Status MCP | Timeouts/body caps/retries prevent an upstream from monopolizing a Worker request |
-| Parallel fan-out | Weather and Status MCP | Independent sources/checks complete concurrently |
-| Stateful edge coordination | Weather KV; Kanarek KV + Durable Objects | Persist feed baselines and serialize/coalesce webhook/operator work |
-| Generated capability surface | Kanarek OpenAPI manifest | Keep Custom GPT capabilities tied to the deployed Worker implementation |
+| `gh-apps/kanarek-companion/` | Kanarek Companion, GPTomek identity, review/operator/release actions | unguarded privileged mutations |
+| `mcp/status-mcp/` | authenticated read-only health aggregation | mutations of monitored projects |
+| `mcp/pet-dispatcher/src/` | local workspace confinement, Git sessions, provider/tool execution | unrestricted host-shell access |
+| `mcp/pet-dispatcher/control-plane/` | authenticated remote task state, Queue delivery, direct tool sessions | local filesystem authority |
+| `loopling/` | generated ChatGPT/Codex pet assets and installers | runtime service state |
+| `remotely-save-gdrive-patch/` | local patch + verification harness for Remotely Save | redistribution of patched upstream builds |
+| `.ai/` | AI configuration core, overlays and reference material | application runtime code |
 
-## 5) Known Architectural Risks
+## Design rules
 
-- Kanarek/GPTomek is the most complex and privileged subsystem. Several feature modules exceed 900–1600 lines and `src/router.ts` is among the highest-churn files, increasing regression risk when capability routing changes (90-day `git log --name-only` churn and tracked-source line counts).
-- There is no root workspace/runtime pin or shared build orchestrator. Package independence limits coupling, but cross-project dependency/toolchain policy can drift (`package.json` absence at root; per-package manifests).
-- Docbench keeps substantial hand-maintained application code under `public/`; tooling or maintainers that treat `public/` as generated output could accidentally skip important source (`twojstar/twojstar/benches/docbench/public/pdf-core.mjs`, `twojstar/twojstar/benches/docbench/public/pdf-app.mjs`).
-
-## 6) Evidence
-
-- `twojstar/twojstar/benches/codebench/src/index.ts`, `twojstar/twojstar/benches/docbench/src/index.ts`
-- `twojstar/twojstar/benches/streambench/src/entry.ts`, `twojstar/twojstar/benches/streambench/src/index.ts`, `twojstar/twojstar/benches/streambench/src/relay-core.ts`
-- `twojstar/twojstar/weather-feed/src/index.ts`, `twojstar/twojstar/weather-feed/src/sources.ts`
-- `mcp/status-mcp/src/entry.ts`, `mcp/status-mcp/src/index.ts`
-- `gh-apps/kanarek-companion/src/runtime-entry.ts`, `gh-apps/kanarek-companion/src/router.ts`, `gh-apps/kanarek-companion/src/index.ts`
-- `twojstar/twojstar/xiaomi-adb-tools/src/main/kotlin/Main.kt`, `twojstar/twojstar/xiaomi-adb-tools/src/main/kotlin/Command.kt`
+- Privileged paths fail closed and keep expected-state/idempotency checks close to the mutation.
+- Cloudflare Workers own transport, authentication and coordination; local machine authority stays in Pet Dispatcher.
+- Remote Pet Dispatcher traffic is outbound-only from the Legion. The public Worker does not expose a host shell.
+- Package boundaries are deliberate. Each runnable component owns its manifest, config and validation commands.
+- Generated artifacts keep a maintained source nearby: Loopling uses `tools/generate.py`; the Quarto report uses its `.qmd`; status-mcp generates its connector icon from `assets/status-mcp.svg`.

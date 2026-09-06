@@ -1,0 +1,34 @@
+name: Wake GPTomek issue mailbox
+
+on:
+  issues:
+    types: [edited, labeled, unlabeled]
+
+permissions: {}
+
+jobs:
+  wake:
+    if: >-
+      github.event.issue.number == 203 &&
+      github.event.issue.user.login == 'trvny' &&
+      github.actor == 'trvny' &&
+      contains(github.event.issue.body, '<!-- gptomek-command:') &&
+      (github.event.action == 'edited' ||
+       ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
+        github.event.label.name == 'gptomek-wake'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Wake GPTomek control mailbox
+        env:
+          GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${GPTOMEK_WAKE_TOKEN:?GPTOMEK_WAKE_TOKEN must be configured}"
+          curl --fail --silent --show-error --retry 2 \
+            --connect-timeout 5 --max-time 20 \
+            -X POST \
+            -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
+            https://kanarek-companion.travny.workers.dev/gptomek/wake \
+            >/dev/null

@@ -4,7 +4,8 @@ import test from 'node:test';
 import type { CompanionEnv } from '../src/companion-types.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
-  isGptomekControlIssueEdit,
+  GPTOMEK_WAKE_LABEL,
+  isGptomekControlIssueEvent,
 } from '../src/gptomek-issue.ts';
 import { companionTargets, isCompanionEvent } from '../src/index.ts';
 
@@ -22,46 +23,62 @@ const payload = {
   issue: {
     body: '<!-- gptomek-command:dGVzdA -->',
     number: GPTOMEK_CONTROL_ISSUE,
-    state: 'closed',
+    state: 'open',
     user: { login: 'trvny' },
   },
   repository: { full_name: 'trvny/trvny' },
   sender: { login: 'trvny' },
 };
 
-test('routes only marked owner body edits of closed issue #203', () => {
-  assert.equal(isGptomekControlIssueEdit(metadata, payload), true);
+test('routes marked body edits or wake-label toggles of open issue #203', () => {
+  assert.equal(isGptomekControlIssueEvent(metadata, payload), true);
   assert.equal(isCompanionEvent(metadata, payload), true);
+  const labelMetadata = { ...metadata, action: 'labeled' };
+  const labelPayload = {
+    ...payload,
+    action: 'labeled',
+    changes: undefined,
+    label: { name: GPTOMEK_WAKE_LABEL },
+  };
+  assert.equal(isGptomekControlIssueEvent(labelMetadata, labelPayload), true);
+  assert.equal(isCompanionEvent(labelMetadata, labelPayload), true);
   assert.equal(
-    isGptomekControlIssueEdit(metadata, {
+    isGptomekControlIssueEvent(labelMetadata, {
+      ...labelPayload,
+      label: { name: 'bug' },
+    }),
+    false,
+  );
+  assert.equal(
+    isGptomekControlIssueEvent(metadata, {
       ...payload,
       issue: { ...payload.issue, number: 204 },
     }),
     false,
   );
   assert.equal(
-    isGptomekControlIssueEdit(metadata, {
+    isGptomekControlIssueEvent(metadata, {
       ...payload,
-      issue: { ...payload.issue, state: 'open' },
+      issue: { ...payload.issue, state: 'closed' },
     }),
     false,
   );
   assert.equal(
-    isGptomekControlIssueEdit(metadata, {
+    isGptomekControlIssueEvent(metadata, {
       ...payload,
       issue: { ...payload.issue, body: 'idle' },
     }),
     false,
   );
   assert.equal(
-    isGptomekControlIssueEdit(metadata, {
+    isGptomekControlIssueEvent(metadata, {
       ...payload,
       changes: { title: { from: 'old' } },
     }),
     false,
   );
   assert.equal(
-    isGptomekControlIssueEdit(metadata, {
+    isGptomekControlIssueEvent(metadata, {
       ...payload,
       sender: { login: 'someone' },
     }),

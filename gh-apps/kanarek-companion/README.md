@@ -45,9 +45,9 @@ A normal delivery follows this path:
    of starting parallel reviews.
 4. The review job revalidates the exact open, same-repository PR head/base,
    reads a bounded diff plus nearby repository context, then calls the shared
-   free review router in-process. The router tries only OpenRouter, OrcaRouter,
-   then AIHubMix and keeps exhausted providers behind Durable Object-backed
-   cooldowns.
+   free review router in-process. The router tries OpenRouter, OrcaRouter,
+   AIHubMix, then the Cloudflare Workers AI binding and keeps exhausted
+   providers behind Durable Object-backed cooldowns.
 5. Review output must be bounded Simplified-Chinese JSON with high-confidence
    findings anchored to added RIGHT-side lines. The job revalidates the PR
    again immediately before publishing one native GitHub review as the Kanarek
@@ -83,7 +83,7 @@ companion and makes later review-eligible PR activity eligible again.
   independently scoped webhook review queue.
 - `POST /review-router/v1/chat/completions` is the private OpenAI-compatible
   transport shared by free PR review. It authenticates with the dedicated
-  router bearer and tries only OpenRouter, OrcaRouter, then AIHubMix.
+  router bearer and tries OpenRouter, OrcaRouter, AIHubMix, then Workers AI.
   Paid/direct provider credentials used for quip generation are never consumed
   by the review router. OpenRouter can retry its primary model without the
   fallback array when the array itself is rejected.
@@ -329,7 +329,8 @@ per-repository review callers and provider secrets were removed during the
 webhook cutover and are no longer maintained by a scheduled rollout job.
 
 The review router uses OpenRouter with the review-specific free-model chain,
-then OrcaRouter, then AIHubMix. Direct Gemini, OpenAI, Anthropic, and xAI
+then OrcaRouter, AIHubMix, and finally the Cloudflare Workers AI binding with
+`@cf/zai-org/glm-4.7-flash`. Direct Gemini, OpenAI, Anthropic, and xAI
 credentials remain quip-only. An OpenRouter HTTP 400 from the full model chain
 is retried once with the primary model only. Provider-specific request
 rejection, transient, quota, authentication, and availability failures fall

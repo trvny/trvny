@@ -171,7 +171,7 @@ OpenRouter is review-only and uses the dedicated
 `KANAREK_REVIEW_OPENROUTER_MODELS` chain with a
 bounded one-shot review context assembled by `webhook-review.ts`; it does not
 need the former per-repository gh-aw/Copilot agent. Review prefers Nemotron 3
-Ultra, Laguna S 2.1, North Mini Code, Laguna M.1, and Nemotron 3 Super before
+Ultra, Laguna S 2.1, North Mini Code, and Nemotron 3 Super before
 `openrouter/free`. Quota-limited review providers stay behind a Durable
 Object-backed circuit breaker so separate Worker invocations do not repeatedly
 burn the same exhausted free quota. Rapid PR updates reset a one-minute Durable

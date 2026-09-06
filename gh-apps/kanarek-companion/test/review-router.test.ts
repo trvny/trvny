@@ -341,6 +341,22 @@ test('review router falls back to Workers AI after HTTP free providers exhaust',
   assert.equal(payload.model, '@cf/zai-org/glm-4.7-flash');
 });
 
+test('review router bounds a stalled Workers AI binding', async () => {
+  const AI = workersAiBinding(() => new Promise(() => {}));
+  const startedAt = Date.now();
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    AI,
+    KANAREK_REVIEW_ROUTER_TIMEOUT_MS: '1000',
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+  });
+
+  assert.equal(response?.status, 502);
+  assert.ok(Date.now() - startedAt < 2_000);
+  const payload = (await response?.json()) as { error?: { message?: string } };
+  assert.match(payload.error?.message ?? '', /workers-ai:timeout/);
+});
+
 test('review provider health includes the Workers AI binding', async () => {
   const AI = workersAiBinding(async () => ({}));
   const health = await reviewProviderPoolHealth({ ...auth, AI });

@@ -210,6 +210,7 @@ function workersAiInput(input: JsonObject): ChatCompletionsInput | null {
 }
 
 function workersAiFailureCategory(error: unknown): string {
+  if (error instanceof DOMException && error.name === 'AbortError') return 'timeout';
   const value = error instanceof Error ? `${error.name} ${error.message}`.toLowerCase() : '';
   if (/\b429\b|quota|daily limit|usage limit|neuron/.test(value)) return 'soft_quota';
   if (/\b3040\b|capacity|\b503\b|temporar/.test(value)) return 'http_503';
@@ -764,8 +765,17 @@ export async function handleReviewRouterRequest(
         failures.push(diagnostic(provider, 'invalid_request'));
         invalidRequests += 1;
       } else {
+        let timeout: ReturnType<typeof setTimeout> | undefined;
         try {
-          const result = await env.AI.run(WORKERS_AI_REVIEW_MODEL, bindingInput);
+          const result = await Promise.race([
+            env.AI.run(WORKERS_AI_REVIEW_MODEL, bindingInput),
+            new Promise<never>((_, reject) => {
+              timeout = setTimeout(
+                () => reject(new DOMException('Workers AI timed out', 'AbortError')),
+                timeoutMs(env),
+              );
+            }),
+          ]);
           console.info(JSON.stringify({
             kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: WORKERS_AI_REVIEW_MODEL,
           }));
@@ -777,6 +787,8 @@ export async function handleReviewRouterRequest(
           console.warn(JSON.stringify({
             kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
           }));
+        } finally {
+          if (timeout) clearTimeout(timeout);
         }
       }
     }

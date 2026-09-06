@@ -2,8 +2,6 @@
 
 <img src="assets/banner.svg" alt="trvny" width="100%">
 
-**Private command center: projects, services, tools, and drawers in one place.**
-
 <p align="center">
   <img src="assets/132311.gif" width="69%">
 </p>
@@ -22,6 +20,13 @@
 
 ---
 
+### Ja i moje ziomki
+
+<p align="left">
+  <img src="https://github.com/trvny/trvny/blob/main/assets/ziomki.png" width="420">
+</p>
+<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=VT323&weight=600&letterSpacing=-95%25&duration=1234&pause=100&color=D718CE&center=true&random=true&width=500&height=150&lines=Co%C5%9B+si%C4%99+popsu%C5%82o+i+nie+by%C5%82o+mnie+s%C5%82ycha%C4%87;KURDE;2137" alt="Typing-SVG" /></a>
+
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
@@ -31,6 +36,8 @@
 | trvny/feedseek | [#368](https://github.com/trvny/feedseek/pull/368) | chore: disable 1337x feed | @trvny | ready | 2026-09-05 |
 | trvny/trvny | [#480](https://github.com/trvny/trvny/pull/480) | docs: align repository docs with current tree | @trvny | ready | 2026-09-05 |
 <!--OPEN_PRS:END-->
+
+**Private command center: projects, services, tools, and drawers in one place.**
 
 ## 🧭 Project map
 
@@ -59,7 +66,7 @@
 | 💾 **[Remotely Save GDrive patch](remotely-save-gdrive-patch/)** | local patch | Personal-use Google Drive dedup/update patch with a non-redistributing verification harness. |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Public AI configuration core + private profile, archive, and project skills. |
 
-## 🗄️ Drawers
+### 🗄️ Drawers
 
 [`playlists`](stuff/playlists/) · [`configs`](stuff/configs/) ·
 [`feeds`](stuff/feeds/) · [`quotes`](stuff/quotes/) · [`other`](stuff/other/)
@@ -68,20 +75,13 @@
 - **Configs**: shared pieces that are not worth putting in a separate repository.
 - **Feeds and quotes**: helper sources used by automations and widgets.
 
-## 🧪 Other repositories
+### 🧪 Other repositories
 
 | repo | role |
 |---|---|
 | [WiFi-Automatic](https://github.com/trvny/WiFi-Automatic) | fork of an Android app that automates Wi-Fi radio state |
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
-
-### Ja i moje ziomki
-
-<p align="left">
-  <img src="https://github.com/trvny/trvny/blob/main/assets/ziomki.png" width="420">
-</p>
-<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=VT323&weight=600&letterSpacing=-95%25&duration=1234&pause=100&color=D718CE&center=true&random=true&width=500&height=150&lines=Co%C5%9B+si%C4%99+popsu%C5%82o+i+nie+by%C5%82o+mnie+s%C5%82ycha%C4%87;KURDE;2137" alt="Typing-SVG" /></a>
 
 ## [License](LICENSE) [![code license](https://img.shields.io/github/license/trvny/trvny?label=code&logo=opensourceinitiative&logoColor=white&color=6f42c1&style=flat-square)](https://spdx.org/licenses/ISC)
 

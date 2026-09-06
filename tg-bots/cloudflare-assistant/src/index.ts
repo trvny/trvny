@@ -29,7 +29,11 @@ async function handleTelegramUpdate(env: Env, update: TelegramUpdate): Promise<v
   const message = update.message;
   if (!message?.text || !message.from) return;
 
-  if (!ownerConfigured(env) || String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID) {
+  if (
+    !ownerConfigured(env) ||
+    message.chat.type !== "private" ||
+    String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
+  ) {
     return;
   }
 

@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "travny-tg-assistant",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-07",
+  "ai": {
+    "binding": "AI"
+  },
+  "vars": {
+    "ORCAROUTER_MODEL": "orcarouter/free",
+    "OLLAMA_MODEL": "glm-5.3",
+    "OPENROUTER_MODEL": "openrouter/free",
+    "WORKERS_AI_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "RSS_MIN_SCORE": "75"
+  }
+}

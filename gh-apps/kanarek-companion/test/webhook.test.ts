@@ -110,6 +110,67 @@ test('reports runtime readiness and optional integrations', async () => {
   });
 });
 
+test('requires bearer auth before waking the GPTomek issue mailbox', async () => {
+  const unauthorized = await worker.fetch(
+    new Request('https://example.test/gptomek/wake', { method: 'POST' }),
+    { ...env, GPTOMEK_WAKE_TOKEN: 'wake-secret' },
+  );
+  assert.equal(unauthorized.status, 401);
+
+  let target: unknown;
+  const authorized = await worker.fetch(
+    new Request('https://example.test/gptomek/wake', {
+      method: 'POST',
+      headers: { authorization: 'Bearer wake-secret' },
+    }),
+    {
+      ...env,
+      GPTOMEK_INSTALLATION_ID: '152126523',
+      GPTOMEK_WAKE_TOKEN: 'wake-secret',
+      COMPANION_LOCK: {
+        idFromName: (name: string) => name,
+        get: () => ({
+          fetch: async (_url: string, init?: RequestInit) => {
+            target = JSON.parse(String(init?.body ?? '{}'));
+            return Response.json({
+              ok: true,
+              result: {
+                changed: true,
+                commentId: null,
+                quipSource: 'preset',
+                state: 'gptomek-control',
+              },
+            });
+          },
+        }),
+      } as unknown as DurableObjectNamespace,
+    },
+  );
+  assert.equal(authorized.status, 200);
+  assert.equal((await authorized.json() as { handled: boolean }).handled, true);
+  assert.equal((target as { pullRequestNumber?: number }).pullRequestNumber, 203);
+});
+
+test('normalizes GPTomek wake transport failures to 502', async () => {
+  const response = await worker.fetch(
+    new Request('https://example.test/gptomek/wake', {
+      method: 'POST',
+      headers: { authorization: 'Bearer wake-secret' },
+    }),
+    {
+      ...env,
+      GPTOMEK_INSTALLATION_ID: '152126523',
+      GPTOMEK_WAKE_TOKEN: 'wake-secret',
+      COMPANION_LOCK: {
+        idFromName: (name: string) => name,
+        get: () => ({ fetch: async () => { throw new Error('transport down'); } }),
+      } as unknown as DurableObjectNamespace,
+    },
+  );
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { ok: false, error: 'gptomek_wake_failed' });
+});
+
 test('health honors per-provider disable switches', async () => {
   const disabled = await worker.fetch(new Request('https://example.test/health'), {
     ...env,

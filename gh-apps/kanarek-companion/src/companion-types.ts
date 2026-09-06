@@ -7,6 +7,7 @@ export interface CompanionEnv extends QuipEnv {
   GPTOMEK_APP_ID?: string;
   GPTOMEK_INSTALLATION_ID?: string;
   GPTOMEK_PRIVATE_KEY?: string;
+  GPTOMEK_WAKE_TOKEN?: string;
   KANAREK_NO_CI_REPOS?: string;
   KANAREK_QUIP_KV?: KVNamespace;
   KANAREK_REQUIRE_CI?: string;

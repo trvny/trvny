@@ -1,3 +1,4 @@
+import { bearerAuthorized } from './auth.ts';
 import { configuredOpenRouterModels } from './openrouter-models.ts';
 
 export const REVIEW_ROUTER_PATH = '/review-router/v1/chat/completions';
@@ -263,25 +264,8 @@ function normalizeProviderInput(input: JsonObject): JsonObject {
   return changed ? { ...input, messages } : input;
 }
 
-function timingSafeEqual(left: string, right: string): boolean {
-  const encoder = new TextEncoder();
-  const leftBytes = encoder.encode(left);
-  const rightBytes = encoder.encode(right);
-  let diff = leftBytes.length ^ rightBytes.length;
-  const length = Math.max(leftBytes.length, rightBytes.length);
-  for (let index = 0; index < length; index += 1) {
-    diff |= (leftBytes[index] ?? 0) ^ (rightBytes[index] ?? 0);
-  }
-  return diff === 0;
-}
-
 function authorized(request: Request, env: ReviewRouterEnv): boolean {
-  const expected = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
-  if (!expected) return false;
-  const header = request.headers.get('authorization') ?? '';
-  const match = /^Bearer\s+(.+)$/i.exec(header);
-  if (!match) return false;
-  return timingSafeEqual(match[1].trim(), expected);
+  return bearerAuthorized(request, env.KANAREK_REVIEW_ROUTER_TOKEN);
 }
 
 function timeoutMs(env: ReviewRouterEnv): number {

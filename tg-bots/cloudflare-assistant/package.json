@@ -7,7 +7,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "check": "tsc --noEmit",
-    "queue:create": "wrangler queues create travny-tg-assistant-updates",
+    "queue:create": "wrangler queues create travny-tg-assistant-updates && wrangler queues create travny-tg-assistant-updates-dlq",
     "telegram:updates": "node scripts/telegram-webhook.mjs updates",
     "webhook:set": "node scripts/telegram-webhook.mjs set",
     "webhook:info": "node scripts/telegram-webhook.mjs info",

@@ -3,7 +3,7 @@
 <img src="assets/banner.svg" alt="trvny" width="100%">
 
 <p align="center">
-  <img src="assets/132311.gif" width="69%">
+  <img src="assets/132311.gif" width="75%">
 </p>
 <br>
 
@@ -23,9 +23,9 @@
 ### Ja i moje ziomki
 
 <p align="left">
-  <img src="https://github.com/trvny/trvny/blob/main/assets/ziomki.png" width="420">
+  <img src="assets/ziomki2.png" width="420">
 </p>
-<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=VT323&weight=600&letterSpacing=-95%25&duration=1234&pause=100&color=D718CE&center=true&random=true&width=500&height=150&lines=Co%C5%9B+si%C4%99+popsu%C5%82o+i+nie+by%C5%82o+mnie+s%C5%82ycha%C4%87;KURDE;2137" alt="Typing-SVG" /></a>
+<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=VT323&weight=600&letterSpacing=-95%25&duration=1234&pause=100&color=D718CE&center=true&random=true&width=500&height=150&lines=Co%C5%9B+si%C4%99+popsu%C5%82o+i+nie+by%C5%82o+mnie+s%C5%82ycha%C4%87;KURDE;2137;twojstarytotwojstary" alt="Typing-SVG" /></a>
 
 ## 🔀 Open pull requests
 

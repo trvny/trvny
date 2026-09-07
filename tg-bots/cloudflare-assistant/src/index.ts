@@ -1,3 +1,4 @@
+import { TelegramUpdateDedup } from "./dedup";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import {
   AllProvidersFailedError,
@@ -11,12 +12,24 @@ import {
   TelegramConfigurationError,
   TelegramSendError,
 } from "./telegram";
-import type { Env, QueueBatch, RssDecision, RssItem, TelegramUpdate } from "./types";
+import type {
+  Env,
+  QueueBatch,
+  RssDecision,
+  RssItem,
+  TelegramDeadLetter,
+  TelegramReply,
+  TelegramUpdate,
+  TelegramUpdateRecord,
+} from "./types";
+
+export { TelegramUpdateDedup };
 
 const RSS_BODY_MAX_BYTES = 64 * 1024;
 const DEFAULT_RSS_MIN_SCORE = 75;
 const CURATOR_SUMMARY_MAX_CHARS = 800;
 const CURATOR_REASON_MAX_CHARS = 400;
+const DEFAULT_RETRY_DELAY_SECONDS = 5;
 
 const ASSISTANT_SYSTEM = `You are a private Telegram assistant for one owner.
 Be concise, practical and friendly. Prefer Polish unless the user writes in another language.
@@ -40,45 +53,42 @@ function ownerConfigured(env: Env): boolean {
   return Boolean(env.OWNER_TELEGRAM_USER_ID && /^-?\d+$/.test(env.OWNER_TELEGRAM_USER_ID));
 }
 
-async function handleTelegramUpdate(env: Env, update: TelegramUpdate): Promise<void> {
+async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<TelegramReply | null> {
   const message = update.message;
-  if (!message?.text || !message.from) return;
+  if (!message?.text || !message.from) return null;
 
   if (
     !ownerConfigured(env) ||
     message.chat.type !== "private" ||
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) {
-    return;
+    return null;
   }
 
   const text = message.text.trim();
-  if (!text) return;
+  if (!text) return null;
 
   if (text === "/start" || text === "/help") {
-    await sendTelegramMessage(
-      env,
-      message.chat.id,
-      [
+    return {
+      chatId: message.chat.id,
+      text: [
         "Cloudflare assistant online.",
         "",
         "/status — provider chain",
         "/draft <tekst> — przygotuj odpowiedź, niczego nie wysyłaj",
         "Każdy inny tekst — zwykła rozmowa z asystentem.",
       ].join("\n"),
-    );
-    return;
+    };
   }
 
   if (text === "/status") {
-    const configured = [
-      env.ORCAROUTER_API_KEY && `OrcaRouter:${env.ORCAROUTER_MODEL}`,
-      env.OLLAMA_API_KEY && `Ollama:${env.OLLAMA_MODEL}`,
-      env.OPENROUTER_API_KEY && `OpenRouter:${env.OPENROUTER_MODEL}`,
-      `WorkersAI:${env.WORKERS_AI_MODEL}`,
-    ].filter(Boolean);
-    await sendTelegramMessage(env, message.chat.id, `Fallback chain:\n${configured.join("\n")}`);
-    return;
+    const router = env.KANAREK_REVIEW_ROUTER_TOKEN
+      ? "Kanarek free router: OpenRouter → OrcaRouter → AIHubMix → Workers AI"
+      : "Kanarek free router: token not configured";
+    return {
+      chatId: message.chat.id,
+      text: `Provider chain:\n${router}\nEmergency fallback: Workers AI (${env.WORKERS_AI_MODEL})`,
+    };
   }
 
   const isDraft = text.startsWith("/draft ");
@@ -92,21 +102,16 @@ async function handleTelegramUpdate(env: Env, update: TelegramUpdate): Promise<v
       { role: "system", content: system },
       { role: "user", content: prompt },
     ]);
-    await sendTelegramMessage(
-      env,
-      message.chat.id,
-      `${result.text}\n\n[${result.provider} · ${result.model}]`,
-    );
+    return {
+      chatId: message.chat.id,
+      text: `${result.text}\n\n[${result.provider} · ${result.model}]`,
+    };
   } catch (error) {
-    if (error instanceof TelegramSendError || error instanceof TelegramConfigurationError) {
-      throw error;
-    }
     console.error("All chat providers failed", error);
-    await sendTelegramMessage(
-      env,
-      message.chat.id,
-      "Nie udało się uzyskać odpowiedzi z żadnego providera. Spróbuj za chwilę.",
-    );
+    return {
+      chatId: message.chat.id,
+      text: "Nie udało się uzyskać odpowiedzi z żadnego providera. Spróbuj za chwilę.",
+    };
   }
 }
 
@@ -212,10 +217,7 @@ async function curateRss(env: Env, item: RssItem): Promise<Response> {
           "Return STRICT JSON only: {\"score\":number,\"reason\":string,\"summary\":string}. " +
           "Be selective; routine marketing and trivial changelogs should score low.",
       },
-      {
-        role: "user",
-        content: JSON.stringify(item),
-      },
+      { role: "user", content: JSON.stringify(item) },
     ],
     parseRssDecision,
   );
@@ -249,14 +251,145 @@ function rssFailure(error: unknown): Response {
     return json({ error: "configuration_error", retryable: false }, { status: 500 });
   }
   if (error instanceof TelegramSendError) {
-    const retryable = error.status === 429 || error.status >= 500;
     return json(
-      { error: "telegram_delivery_failed", retryable },
-      { status: retryable ? 502 : 500 },
+      {
+        error: "telegram_delivery_failed",
+        retryable: error.retryable,
+        ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
+      },
+      { status: error.retryable ? 502 : 500 },
     );
   }
 
   return json({ error: "internal_error", retryable: false }, { status: 500 });
+}
+
+function dedupStub(env: Env, updateId: number) {
+  return env.TELEGRAM_DEDUP.get(env.TELEGRAM_DEDUP.idFromName(String(updateId)));
+}
+
+async function dedupState(env: Env, updateId: number): Promise<TelegramUpdateRecord | null> {
+  const response = await dedupStub(env, updateId).fetch("https://dedup/state");
+  if (!response.ok) throw new Error(`dedup state read failed: HTTP ${response.status}`);
+  return (await response.json()) as TelegramUpdateRecord | null;
+}
+
+async function dedupTransition(
+  env: Env,
+  updateId: number,
+  action: "prepare" | "sending" | "retry" | "sent" | "failed" | "ambiguous",
+  reply?: TelegramReply,
+  detail?: string,
+): Promise<TelegramUpdateRecord> {
+  const response = await dedupStub(env, updateId).fetch(`https://dedup/${action}`, {
+    method: "POST",
+    headers: detail ? { "x-detail": detail.slice(0, 240), "content-type": "application/json" }
+      : { "content-type": "application/json" },
+    body: action === "prepare" ? JSON.stringify({ reply }) : "{}",
+  });
+  if (!response.ok) throw new Error(`dedup ${action} failed: HTTP ${response.status}`);
+  return (await response.json()) as TelegramUpdateRecord;
+}
+
+async function deadLetter(
+  env: Env,
+  update: TelegramUpdate,
+  reason: string,
+  detail?: string,
+): Promise<void> {
+  const record: TelegramDeadLetter = {
+    update,
+    reason,
+    ...(detail ? { detail: detail.slice(0, 500) } : {}),
+    createdAt: new Date().toISOString(),
+  };
+  await env.TELEGRAM_DLQ.send(record);
+}
+
+function terminalDedup(state: TelegramUpdateRecord | null): boolean {
+  return Boolean(state && (state.status === "sent" || state.status === "failed" || state.status === "ambiguous"));
+}
+
+async function processQueuedTelegram(
+  env: Env,
+  message: QueueBatch<TelegramUpdate>["messages"][number],
+): Promise<void> {
+  const update = message.body;
+  let state = await dedupState(env, update.update_id);
+
+  if (terminalDedup(state)) {
+    message.ack();
+    return;
+  }
+
+  if (state?.status === "sending") {
+    await dedupTransition(env, update.update_id, "ambiguous", undefined, "recovered from interrupted send window");
+    await deadLetter(env, update, "ambiguous_delivery", "previous attempt stopped while sending");
+    message.ack();
+    return;
+  }
+
+  let reply = state?.reply;
+  if (!reply) {
+    reply = await buildTelegramReply(env, update) ?? undefined;
+    if (!reply) {
+      await dedupTransition(env, update.update_id, "sent", undefined, "ignored update");
+      message.ack();
+      return;
+    }
+    state = await dedupTransition(env, update.update_id, "prepare", reply);
+  }
+
+  await dedupTransition(env, update.update_id, "sending");
+  try {
+    await sendTelegramMessage(env, reply.chatId, reply.text);
+  } catch (error) {
+    if (error instanceof TelegramSendError) {
+      if (error.ambiguous) {
+        await dedupTransition(env, update.update_id, "ambiguous", undefined, error.message);
+        await deadLetter(env, update, "ambiguous_delivery", error.message);
+        message.ack();
+        return;
+      }
+      if (error.retryable) {
+        await dedupTransition(env, update.update_id, "retry", undefined, error.message);
+        message.retry({
+          delaySeconds: error.retryAfterSeconds ?? DEFAULT_RETRY_DELAY_SECONDS,
+        });
+        return;
+      }
+      await dedupTransition(env, update.update_id, "failed", undefined, error.message);
+      await deadLetter(env, update, "telegram_rejected", error.message);
+      message.ack();
+      return;
+    }
+
+    if (error instanceof TelegramConfigurationError) {
+      await dedupTransition(env, update.update_id, "failed", undefined, error.message);
+      await deadLetter(env, update, "configuration_error", error.message);
+      message.ack();
+      return;
+    }
+
+    await dedupTransition(env, update.update_id, "retry", undefined, String(error));
+    message.retry({ delaySeconds: DEFAULT_RETRY_DELAY_SECONDS });
+    return;
+  }
+
+  try {
+    await dedupTransition(env, update.update_id, "sent");
+  } catch (error) {
+    const detail = `Telegram accepted the reply but the sent-state commit failed: ${String(error)}`;
+    try {
+      await dedupTransition(env, update.update_id, "ambiguous", undefined, detail);
+      await deadLetter(env, update, "sent_state_commit_failed", detail);
+    } catch (recoveryError) {
+      console.error("Failed to persist ambiguous Telegram delivery", recoveryError);
+    }
+    message.ack();
+    return;
+  }
+  message.ack();
 }
 
 export default {
@@ -296,9 +429,7 @@ export default {
         return invalidBody(error);
       }
 
-      if (!isRssItem(body)) {
-        return json({ error: "invalid RSS item" }, { status: 400 });
-      }
+      if (!isRssItem(body)) return json({ error: "invalid RSS item" }, { status: 400 });
 
       try {
         return await curateRss(env, body);
@@ -314,11 +445,10 @@ export default {
   async queue(batch: QueueBatch<TelegramUpdate>, env: Env): Promise<void> {
     for (const message of batch.messages) {
       try {
-        await handleTelegramUpdate(env, message.body);
-        message.ack();
+        await processQueuedTelegram(env, message);
       } catch (error) {
         console.error("Telegram queue processing failed", error);
-        message.retry({ delaySeconds: 5 });
+        message.retry({ delaySeconds: DEFAULT_RETRY_DELAY_SECONDS });
       }
     }
   },

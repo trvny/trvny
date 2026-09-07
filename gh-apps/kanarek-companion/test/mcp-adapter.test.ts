@@ -67,7 +67,15 @@ test('MCP tools/list is generated from the shared specialist registry', async ()
   assert.equal(payload.result.resultType, 'complete');
   assert.deepEqual(
     payload.result.tools.map((tool) => tool.name).sort(),
-    ['context7_search', 'engram_search', 'engram_status', 'engram_store'],
+    [
+      'context7_search',
+      'engram_search',
+      'engram_status',
+      'engram_store',
+      'feedseek_fetch',
+      'feedseek_recent',
+      'feedseek_search',
+    ],
   );
 });
 
@@ -117,10 +125,65 @@ test('MCP Context7 call executes the same bounded specialist core as Actions', a
   assert.equal(payload.result.structuredContent.snippets[0].content, 'Use the v2 context endpoint.');
 });
 
+test('MCP Feedseek call stays a fixed read-only remote MCP bridge', async () => {
+  const fetcher: typeof fetch = async (input, init) => {
+    assert.equal(String(input), 'https://feeds.trfny.com/mcp');
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get('mcp-protocol-version'), '2026-07-28');
+    const request = JSON.parse(String(init?.body)) as {
+      method: string;
+      params: { name: string; arguments: Record<string, unknown> };
+    };
+    assert.equal(request.method, 'tools/call');
+    assert.equal(request.params.name, 'recent');
+    assert.deepEqual(request.params.arguments, {
+      query: 'OpenAI',
+      sources: ['openai'],
+      limit: 5,
+    });
+    return Response.json({
+      jsonrpc: '2.0',
+      id: 'gremlin-recent',
+      result: {
+        resultType: 'complete',
+        content: [{ type: 'text', text: '{}' }],
+        structuredContent: {
+          indexed_from: '2026-09-07T00:00:00Z',
+          truncated: false,
+          skipped_sources: [],
+          count: 1,
+          entries: [{ id: 'entry:1', title: 'OpenAI update', url: 'https://example.test' }],
+        },
+      },
+    });
+  };
+  const body = {
+    jsonrpc: '2.0',
+    id: 4,
+    method: 'tools/call',
+    params: {
+      name: 'feedseek_recent',
+      arguments: { query: 'OpenAI', sources: ['openai'], limit: 5 },
+    },
+  };
+  const response = await handleSpecialistMcp(
+    rpcRequest(body, 'tools/call', 'feedseek_recent'),
+    {},
+    authorizedInvoke(),
+    fetcher,
+  );
+  assert.ok(response);
+  const payload = await response.json() as {
+    result: { structuredContent: { ok: boolean; count: number } };
+  };
+  assert.equal(payload.result.structuredContent.ok, true);
+  assert.equal(payload.result.structuredContent.count, 1);
+});
+
 test('MCP fails authentication before any specialist credential is touched', async () => {
   let upstreamCalls = 0;
   const response = await handleSpecialistMcp(
-    rpcRequest({ jsonrpc: '2.0', id: 4, method: 'tools/list', params: {} }, 'tools/list'),
+    rpcRequest({ jsonrpc: '2.0', id: 5, method: 'tools/list', params: {} }, 'tools/list'),
     { CONTEXT7_API_KEY: 'ctx7_secret', ENGRAM_API_KEY: 'engram_secret' },
     () => Promise.resolve(Response.json({ ok: false, error: 'forbidden' }, { status: 403 })),
     () => {
@@ -140,7 +203,7 @@ test('legacy initialize remains available for 2025 MCP clients', async () => {
   const request = rpcRequest(
     {
       jsonrpc: '2.0',
-      id: 5,
+      id: 6,
       method: 'initialize',
       params: {
         protocolVersion: '2025-11-25',

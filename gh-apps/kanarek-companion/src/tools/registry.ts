@@ -6,6 +6,11 @@ import {
   storeEngramMemory,
   type EngramToolEnv,
 } from './engram.ts';
+import {
+  fetchFeedseekEntry,
+  getRecentFeedseekEntries,
+  searchFeedseek,
+} from './feedseek.ts';
 import { SpecialistToolError, isObject, type JsonObject } from './common.ts';
 
 export interface SpecialistToolEnv extends EngramToolEnv, Context7ToolEnv {}
@@ -17,6 +22,14 @@ export interface SpecialistToolDefinition {
   inputSchema: JsonObject;
   annotations: JsonObject;
 }
+
+const READ_ONLY_EXTERNAL = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+  untrustedContentHint: true,
+};
 
 export const SPECIALIST_TOOLS = {
   engram_status: {
@@ -86,6 +99,53 @@ export const SPECIALIST_TOOLS = {
     },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
   },
+  feedseek_search: {
+    actionOperationId: 'searchFeedseek',
+    title: 'Search Feedseek',
+    description: 'Search the current Feedseek news and feed index by topic without copying its index into Gremlin.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', maxLength: 2_000, default: '' },
+      },
+      additionalProperties: false,
+    },
+    annotations: READ_ONLY_EXTERNAL,
+  },
+  feedseek_fetch: {
+    actionOperationId: 'fetchFeedseekEntry',
+    title: 'Fetch Feedseek entry',
+    description: 'Fetch one Feedseek result by the opaque immutable id returned by Feedseek search or recent.',
+    inputSchema: {
+      type: 'object',
+      required: ['id'],
+      properties: {
+        id: { type: 'string', minLength: 3, maxLength: 2_000 },
+      },
+      additionalProperties: false,
+    },
+    annotations: READ_ONLY_EXTERNAL,
+  },
+  feedseek_recent: {
+    actionOperationId: 'getRecentFeedseekEntries',
+    title: 'Get recent Feedseek entries',
+    description: 'Get compact current Feedseek digest candidates filtered by time, topic and source keys.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        since: { type: 'string', format: 'date-time', maxLength: 64 },
+        query: { type: 'string', maxLength: 2_000, default: '' },
+        sources: {
+          type: 'array',
+          items: { type: 'string', minLength: 1, maxLength: 120 },
+          maxItems: 20,
+        },
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+      },
+      additionalProperties: false,
+    },
+    annotations: READ_ONLY_EXTERNAL,
+  },
 } as const satisfies Record<string, SpecialistToolDefinition>;
 
 export type SpecialistToolName = keyof typeof SPECIALIST_TOOLS;
@@ -129,5 +189,11 @@ export async function invokeSpecialistTool(
       return storeEngramMemory(args, env, fetcher);
     case 'context7_search':
       return searchContext7Docs(args, env, fetcher);
+    case 'feedseek_search':
+      return searchFeedseek(args, fetcher);
+    case 'feedseek_fetch':
+      return fetchFeedseekEntry(args, fetcher);
+    case 'feedseek_recent':
+      return getRecentFeedseekEntries(args, fetcher);
   }
 }

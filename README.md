@@ -30,11 +30,7 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-| Repository | PR | Title | Author | State | Updated |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#367](https://github.com/trvny/feedseek/pull/367) | fix(sources): refresh stale upstreams | @trvny | ready | 2026-09-05 |
-| trvny/feedseek | [#368](https://github.com/trvny/feedseek/pull/368) | chore: disable 1337x feed | @trvny | ready | 2026-09-05 |
-| trvny/trvny | [#480](https://github.com/trvny/trvny/pull/480) | docs: align repository docs with current tree | @trvny | ready | 2026-09-05 |
+No open pull requests. 🎉
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

@@ -9,6 +9,7 @@ import {
 import { addContext7OpenApi, handleContext7Action } from './context7-actions.ts';
 import { addDocsOpenApi, handleDocsAction } from './docs-actions.ts';
 import { addEngramOpenApi, handleEngramAction } from './engram-actions.ts';
+import { addFeedseekOpenApi, handleFeedseekAction } from './feedseek-actions.ts';
 import { handleSpecialistMcp, mcpManifest, MCP_PATH } from './mcp-adapter.ts';
 import {
   addPackageIntelligenceOpenApi,
@@ -65,6 +66,9 @@ const REQUIRED_SMOKE_OPERATIONS = [
   'inspectPackage',
   'searchEngramMemory',
   'searchContext7Docs',
+  'searchFeedseek',
+  'fetchFeedseekEntry',
+  'getRecentFeedseekEntries',
   'runOperatorAutopilot',
   'runOperatorSmokeTest',
   'orchestrateRelease',
@@ -136,6 +140,7 @@ export function gatewayOpenApi(origin: string): JsonObject {
   addDocsOpenApi(document);
   addEngramOpenApi(document);
   addContext7OpenApi(document);
+  addFeedseekOpenApi(document);
   addPackageIntelligenceOpenApi(document);
   addCapabilityOpenApi(document);
   addAccountAttentionOpenApi(document);
@@ -372,6 +377,7 @@ async function decoratedHealth(
     specialists: {
       engram: { configured: Boolean(env.ENGRAM_API_KEY?.trim()) },
       context7: { configured: Boolean(env.CONTEXT7_API_KEY?.trim()) },
+      feedseek: { configured: true },
     },
   }, response.status);
 }
@@ -413,6 +419,13 @@ const worker = {
       actionFetch,
     );
     if (packageResponse) return packageResponse;
+    const feedseekResponse = await handleFeedseekAction(
+      request,
+      env,
+      (internalRequest) => router.fetch(internalRequest, env, ctx),
+      actionFetch,
+    );
+    if (feedseekResponse) return feedseekResponse;
     const context7Response = await handleContext7Action(
       request,
       env,

@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { gatewayManifest, gatewayOpenApi } from '../src/entry.ts';
 
-test('gateway OpenAPI exposes live capability and smoke actions', () => {
+test('gateway OpenAPI exposes live capability and specialist actions', () => {
   const document = gatewayOpenApi('https://example.workers.dev') as {
     paths: Record<string, Record<string, { operationId?: string; description?: string }>>;
   };
@@ -17,10 +17,17 @@ test('gateway OpenAPI exposes live capability and smoke actions', () => {
   const context7 = operations.find(
     (operation) => operation.operationId === 'searchContext7Docs',
   );
+  const feedseek = operations.filter(
+    (operation) => operation.operationId?.includes('Feedseek'),
+  );
 
   assert.ok(capability);
   assert.ok(smoke);
   assert.ok(context7);
+  assert.deepEqual(
+    feedseek.map((operation) => operation.operationId).sort(),
+    ['fetchFeedseekEntry', 'getRecentFeedseekEntries', 'searchFeedseek'],
+  );
   assert.ok(!capability.description || capability.description.length <= 300);
   assert.ok(!smoke.description || smoke.description.length <= 300);
 });
@@ -64,6 +71,9 @@ test('gateway manifest reports exact operation IDs, MCP tools and Worker version
   assert.ok(manifest.openApi.operationIds.includes('getOperatorCapabilities'));
   assert.ok(manifest.openApi.operationIds.includes('getCloudflareOverview'));
   assert.ok(manifest.openApi.operationIds.includes('searchContext7Docs'));
+  assert.ok(manifest.openApi.operationIds.includes('searchFeedseek'));
+  assert.ok(manifest.openApi.operationIds.includes('fetchFeedseekEntry'));
+  assert.ok(manifest.openApi.operationIds.includes('getRecentFeedseekEntries'));
   assert.ok(manifest.openApi.operationIds.includes('runOperatorSmokeTest'));
   assert.ok(manifest.openApi.operationIds.includes('runOperatorAutopilot'));
   assert.ok(manifest.openApi.operationIds.includes('orchestrateRelease'));
@@ -78,6 +88,14 @@ test('gateway manifest reports exact operation IDs, MCP tools and Worker version
   assert.equal(manifest.mcp.stateless, true);
   assert.deepEqual(
     manifest.mcp.toolNames.sort(),
-    ['context7_search', 'engram_search', 'engram_status', 'engram_store'],
+    [
+      'context7_search',
+      'engram_search',
+      'engram_status',
+      'engram_store',
+      'feedseek_fetch',
+      'feedseek_recent',
+      'feedseek_search',
+    ],
   );
 });

@@ -15,6 +15,10 @@ test('Gremlin Builder instructions stay compact and runtime-oriented', async () 
   assert.match(instructions, /getGremlinKnowledge/);
   assert.match(instructions, /searchContext7Docs/);
   assert.match(instructions, /searchEngramMemory/);
+  assert.match(instructions, /searchFeedseek/);
+  assert.match(instructions, /getRecentFeedseekEntries/);
+  assert.match(instructions, /fetchFeedseekEntry/);
+  assert.match(instructions, /untrusted external content/);
   assert.match(instructions, /getCloudflareOverview/);
   assert.match(instructions, /getOperatorCapabilities/);
   assert.match(instructions, /runOperatorSmokeTest/);

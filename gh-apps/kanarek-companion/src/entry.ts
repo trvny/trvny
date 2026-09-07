@@ -6,8 +6,10 @@ import {
   addAgentGuidanceOpenApi,
   handleAgentGuidanceAction,
 } from './agents-guidance-actions.ts';
+import { addContext7OpenApi, handleContext7Action } from './context7-actions.ts';
 import { addDocsOpenApi, handleDocsAction } from './docs-actions.ts';
 import { addEngramOpenApi, handleEngramAction } from './engram-actions.ts';
+import { handleSpecialistMcp, mcpManifest, MCP_PATH } from './mcp-adapter.ts';
 import {
   addPackageIntelligenceOpenApi,
   handlePackageIntelligenceAction,
@@ -37,6 +39,8 @@ interface WorkerVersionMetadataLike {
 
 type Env = RouterEnv & ReviewRouterEnv & {
   CF_VERSION_METADATA?: WorkerVersionMetadataLike;
+  CONTEXT7_API_KEY?: string;
+  ENGRAM_API_KEY?: string;
 };
 
 const OPENAPI_PATH = '/gpt-actions/openapi.json';
@@ -60,6 +64,7 @@ const REQUIRED_SMOKE_OPERATIONS = [
   'getDoc',
   'inspectPackage',
   'searchEngramMemory',
+  'searchContext7Docs',
   'runOperatorAutopilot',
   'runOperatorSmokeTest',
   'orchestrateRelease',
@@ -130,6 +135,7 @@ export function gatewayOpenApi(origin: string): JsonObject {
   const document = customGptOpenApi(origin);
   addDocsOpenApi(document);
   addEngramOpenApi(document);
+  addContext7OpenApi(document);
   addPackageIntelligenceOpenApi(document);
   addCapabilityOpenApi(document);
   addAccountAttentionOpenApi(document);
@@ -182,6 +188,7 @@ export async function gatewayManifest(
       operationIds: ids,
       capabilityDigest: `sha256:${await sha256(ids.join('\n'))}`,
     },
+    mcp: mcpManifest(),
   };
 }
 
@@ -362,12 +369,25 @@ async function decoratedHealth(
     cloudflare: {
       configured: Boolean(env.CLOUDFLARE_ACCOUNT_ID?.trim() && env.CLOUDFLARE_API_TOKEN?.trim()),
     },
+    specialists: {
+      engram: { configured: Boolean(env.ENGRAM_API_KEY?.trim()) },
+      context7: { configured: Boolean(env.CONTEXT7_API_KEY?.trim()) },
+    },
   }, response.status);
 }
 
 const worker = {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === MCP_PATH) {
+      const mcpResponse = await handleSpecialistMcp(
+        request,
+        env,
+        (internalRequest) => router.fetch(internalRequest, env, ctx),
+        actionFetch,
+      );
+      if (mcpResponse) return mcpResponse;
+    }
     const reviewRouterResponse = await handleReviewRouterRequest(request, env);
     if (reviewRouterResponse) return reviewRouterResponse;
     if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
@@ -393,6 +413,13 @@ const worker = {
       actionFetch,
     );
     if (packageResponse) return packageResponse;
+    const context7Response = await handleContext7Action(
+      request,
+      env,
+      (internalRequest) => router.fetch(internalRequest, env, ctx),
+      actionFetch,
+    );
+    if (context7Response) return context7Response;
     const engramResponse = await handleEngramAction(
       request,
       env,

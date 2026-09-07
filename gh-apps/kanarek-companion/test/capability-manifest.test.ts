@@ -14,14 +14,18 @@ test('gateway OpenAPI exposes live capability and smoke actions', () => {
   const smoke = operations.find(
     (operation) => operation.operationId === 'runOperatorSmokeTest',
   );
+  const context7 = operations.find(
+    (operation) => operation.operationId === 'searchContext7Docs',
+  );
 
   assert.ok(capability);
   assert.ok(smoke);
+  assert.ok(context7);
   assert.ok(!capability.description || capability.description.length <= 300);
   assert.ok(!smoke.description || smoke.description.length <= 300);
 });
 
-test('gateway manifest reports exact operation IDs and Worker version metadata', async () => {
+test('gateway manifest reports exact operation IDs, MCP tools and Worker version metadata', async () => {
   const document = gatewayOpenApi('https://example.workers.dev');
   const manifest = await gatewayManifest(document, {
     id: 'worker-version-id',
@@ -38,6 +42,12 @@ test('gateway manifest reports exact operation IDs and Worker version metadata',
       operationIds: string[];
       capabilityDigest: string;
     };
+    mcp: {
+      path: string;
+      protocolVersion: string;
+      stateless: boolean;
+      toolNames: string[];
+    };
   };
 
   assert.equal(manifest.manifestVersion, 1);
@@ -53,6 +63,7 @@ test('gateway manifest reports exact operation IDs and Worker version metadata',
   assert.equal(manifest.workerVersion.tag, 'deploy-tag');
   assert.ok(manifest.openApi.operationIds.includes('getOperatorCapabilities'));
   assert.ok(manifest.openApi.operationIds.includes('getCloudflareOverview'));
+  assert.ok(manifest.openApi.operationIds.includes('searchContext7Docs'));
   assert.ok(manifest.openApi.operationIds.includes('runOperatorSmokeTest'));
   assert.ok(manifest.openApi.operationIds.includes('runOperatorAutopilot'));
   assert.ok(manifest.openApi.operationIds.includes('orchestrateRelease'));
@@ -61,5 +72,12 @@ test('gateway manifest reports exact operation IDs and Worker version metadata',
   assert.deepEqual(
     manifest.openApi.operationIds,
     [...manifest.openApi.operationIds].sort(),
+  );
+  assert.equal(manifest.mcp.path, '/mcp');
+  assert.equal(manifest.mcp.protocolVersion, '2026-07-28');
+  assert.equal(manifest.mcp.stateless, true);
+  assert.deepEqual(
+    manifest.mcp.toolNames.sort(),
+    ['context7_search', 'engram_search', 'engram_status', 'engram_store'],
   );
 });

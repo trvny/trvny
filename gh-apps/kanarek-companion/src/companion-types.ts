@@ -16,6 +16,7 @@ export interface CompanionEnv extends QuipEnv {
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   ENGRAM_API_KEY?: string;
+  CONTEXT7_API_KEY?: string;
 }
 
 export interface CompanionTarget {

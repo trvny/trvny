@@ -2,22 +2,27 @@
 
 ## Goal
 
-Keep an always-on personal assistant on Cloudflare while leaving heavyweight machine work to Hermes. The Cloudflare side should remain useful even when every phone/laptop is asleep.
+Keep an always-on personal assistant on Cloudflare while leaving heavyweight machine work to Hermes. The Cloudflare side should remain useful even when every phone/laptop is asleep, while reusing the infrastructure that already exists in `trvny/trvny`.
 
 ```text
-                           ┌─ OrcaRouter Free
-Telegram ─► Worker ─► Queue├─ Ollama Cloud Free
-                │          ├─ OpenRouter Free
-                │          └─ Workers AI free allocation
-                │
-                ├─ RSS / notifications / drafts / reminders
-                ├─ future Engram memory
-                └─ future Hermes handoff queue
-                             │
-                     Hermes worker online?
-                        ┌────┴────┐
-                     Android    Legion
-                     Termux      desktop
+Telegram
+   │ webhook
+   ▼
+travny-tg-assistant
+   ├─ Queue + update-id state + DLQ
+   ├─ RSS / drafts / reminders / lightweight assistant work
+   │
+   ├─ service binding ─► kanarek-companion free router
+   │                    ├─ OpenRouter
+   │                    ├─ OrcaRouter
+   │                    ├─ AIHubMix
+   │                    └─ Workers AI
+   │
+   └─ heavy task ─────► existing pet-dispatcher-control
+                        └─ pet-dispatcher-tasks
+                               │
+                           Legion today
+                         Android later
 ```
 
 ## Responsibilities
@@ -37,7 +42,11 @@ Good fit:
 
 Avoid turning it into a fake Linux machine. Repository clones, builds, package installation, arbitrary shell execution and long local jobs belong elsewhere.
 
-The Telegram ingress path uses Cloudflare Queues for durable processing/retries. That Queue is deliberately separate from the future Hermes work queue.
+The Telegram ingress Queue is only for Telegram delivery. Heavy jobs should reuse the existing Pet Dispatcher control plane rather than creating another general-purpose queue/control protocol.
+
+### Shared free-model router
+
+The assistant should not duplicate provider credentials or fallback logic. `kanarek-companion` already exposes a private OpenAI-compatible free router with provider cooldowns and existing provisioning for OpenRouter, OrcaRouter, AIHubMix and Workers AI. The Telegram Worker calls it through a same-account Service Binding and keeps only the shared router bearer.
 
 ### Hermes workers
 
@@ -50,7 +59,7 @@ Good fit:
 - inspect hardware/local files;
 - perform longer autonomous engineering tasks.
 
-A Hermes installation on Android and another on Legion can use the same logical task queue later. They should have separate worker identities/capability metadata so the dispatcher can choose the appropriate machine.
+The existing Pet Dispatcher control plane already provides a signed durable task envelope, Queue delivery, task state, cancellation, heartbeats and result reporting. It currently identifies the worker as `legion`. Generalizing it to multiple worker identities/capabilities is a later change; do not build a parallel handoff protocol inside `tg-bots`.
 
 ## Hermes bot portability
 
@@ -60,16 +69,14 @@ Keep the Cloudflare assistant on a separate BotFather bot so its webhook never c
 
 ## Handoff design
 
-Future slice:
+Future slice, based on the existing Pet Dispatcher:
 
 1. Cloudflare receives a heavy request, for example `sprawdź trvny/feedseek i odpal testy`.
-2. It writes a durable job with status `queued`.
-3. An online Hermes worker claims the job using a scoped worker token.
-4. Hermes posts progress/result back to Cloudflare.
-5. Cloudflare forwards a concise result to Telegram.
-6. Jobs are idempotent and lease-based so Android and Legion cannot execute the same job accidentally.
-
-Add D1/Workflows or a dedicated job Queue only when this handoff slice is implemented. Do not reuse the Telegram ingress Queue as an accidental general-purpose bus.
+2. The assistant calls `pet-dispatcher-control` with a scoped control-plane credential.
+3. Pet Dispatcher creates the durable task state and enqueues the signed task on `pet-dispatcher-tasks`.
+4. The available Hermes/device worker claims the task, heartbeats, and reports a result.
+5. The assistant reads the result and forwards a concise summary to Telegram.
+6. Multi-worker routing extends the existing dispatcher with worker identity/capability selection rather than creating a second task system.
 
 ## Personal-assistant roadmap
 
@@ -77,7 +84,8 @@ Add D1/Workflows or a dedicated job Queue only when this handoff slice is implem
 
 - owner-only private Telegram webhook;
 - durable Telegram update queue;
-- provider fallback chain;
+- update-id deduplication + DLQ;
+- shared free-model router + local Workers AI fallback;
 - `/draft`;
 - Feedseek/RSS curation endpoint;
 - health/status.
@@ -101,20 +109,19 @@ Start with human-in-the-loop drafts. Later, Telegram Business/Secretary-style au
 
 ### 5. Hermes handoff
 
-- durable job queue;
-- Android and Legion workers;
-- capability-based routing;
-- result/progress messages;
-- timeouts and retry/lease rules.
+- reuse `pet-dispatcher-control` and `pet-dispatcher-tasks`;
+- add Android/Legion worker identities and capability-based routing;
+- surface progress/results back to Telegram;
+- keep task leases, signing and state in the existing control plane.
 
 ### 6. Mini App
 
 Optional dashboard for:
 
-- provider health and active fallback;
+- shared router/provider health;
 - RSS decisions;
 - schedules;
-- queued/running Hermes jobs;
+- queued/running Pet Dispatcher jobs;
 - worker presence (Android / Legion);
 - memory controls.
 

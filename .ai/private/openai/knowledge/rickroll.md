@@ -1,29 +1,29 @@
 # Gremlin knowledge: Rickroll-Lang
 
-Purpose: make Gremlin reliably understand, write, explain, translate and debug Rickroll-Lang while distinguishing documented syntax from half-implemented parser experiments.
+Purpose: make Gremlin reliably understand, write, explain, translate, review, test and debug Rickroll-Lang while distinguishing real syntax from lyric-shaped hallucinations and half-implemented parser experiments.
 
 ## Authority and freshness
 
 Primary upstream: `Rick-Lang/rickroll-lang`.
 Reference snapshot used for this guide: `5595a607ba782bd027e8d4102aa36f556e648015` (2025-02-08).
 
-Primary implementation sources at that snapshot are `src/Keywords.py`, `src/Lexer.py`, `src/pyrickroll.py`, `src/interpreter.py`, the English docs and examples.
+As of 2026-09-08, that is still the current upstream head. Primary implementation sources are `src/Keywords.py`, `src/Lexer.py`, `src/pyrickroll.py`, `src/interpreter.py`, tests/examples and the English docs.
 
 The README/docs sometimes describe features more broadly than individual execution modes implement. When exact behavior matters, prefer the code path the user will actually run.
 
 ## Mental model
 
-Rickroll-Lang is a Python-hosted esoteric language whose keyword spellings are based on Rick Astley references. The main practical execution path tokenizes Rickroll source and translates it to Python; the project also contains an interpreter and an experimental C++ translation path.
+Rickroll-Lang is a Python-hosted esoteric language whose keywords are Rick Astley lyric fragments. The main practical path tokenizes Rickroll source and translates it to Python. The repository also contains a direct interpreter and an experimental C++ translation path.
 
-The language is dynamic. Values can be integers, floats, strings and Python-like collections. A great deal of expression behavior inherits from the Python translation target.
+The language is dynamic. Values can be integers, floats, strings and Python-like collections. Much expression behavior inherits from the Python translation target, but statement syntax and block structure are Rickroll-specific.
 
-Typical invocation from the project:
+Typical invocation:
 
 ```sh
 python src/RickRoll.py program.rickroll
 ```
 
-Useful modes include:
+Useful modes:
 
 ```sh
 python src/RickRoll.py program.rickroll --time
@@ -32,27 +32,25 @@ python src/RickRoll.py -intpr program.rickroll
 python src/RickRoll.py -cpp program.rickroll
 ```
 
-Treat `-cpp` as experimental. Do not promise feature parity with the Python path.
+Treat `-cpp` as experimental. Do not promise parity with the Python path.
 
 ## Lexer rule that explains the weirdness
 
-Rickroll keywords are internally recognized in compact normalized forms. The lexer can merge whitespace-separated pieces into a known keyword, which is why keyword phrases may be split unusually and still parse.
+Rickroll keywords are recognized in compact normalized forms. The lexer can merge whitespace-separated pieces into a known keyword, so human-facing code may use readable spacing while the lexer normalizes it.
 
-For reasoning, use the compact forms below. When producing human-facing Rickroll code, normal readable spacing is fine only if it tokenizes back to the same compact keyword.
-
-Important compact keyword identifiers:
+For reasoning, use these compact forms:
 
 | Compact keyword | Meaning |
 | --- | --- |
 | `takemetourheart` | main block |
-| `saygoodbye` | close the current block |
+| `saygoodbye` | close current block |
 | `give` ... `up` | assignment / define variable |
 | `ijustwannatelluhowimfeeling` | print expression |
 | `andifuaskmehowimfeeling` | if |
 | `togetherforeverwith` | while |
 | `togetherforeverandnevertopart` | endless loop |
 | `gonna` | function definition |
-| `gotta` | function call form |
+| `gotta` | function call statement |
 | `whenigivemy` ... `itwillbecompletely` | return |
 | `weknowthe` ... `andweregonnaplayit` | import |
 | `thereaintnomistaking` | try |
@@ -61,30 +59,28 @@ Important compact keyword identifiers:
 | `runaround` | continue |
 | `py` | embedded Python escape |
 
-Comparison words normalize to forms representing greater-than, less-than, greater-or-equal, less-or-equal, equality and not-equal. The lexer/runtime also accepts ordinary operator spellings in several expression positions.
+Comparison words normalize to greater-than, less-than, greater-or-equal, less-or-equal, equality and not-equal forms. Ordinary operator spellings are also accepted in several expression positions.
 
-`~` and apostrophe tokens are ignored by the token model in relevant paths, so decorative spelling can be tolerated. Do not rely on decorative punctuation to carry semantics.
+`~` and apostrophe tokens are ignored in relevant lexer paths. Decorative punctuation is decoration, not semantics.
 
 ## Program structure
 
-Executable top-level code is normally placed inside the main block.
-
-Compact spelling example:
+Executable top-level code normally lives inside the main block:
 
 ```text
-takemetourheart
+take me to ur heart
     give msg up "hello\n"
-    ijustwannatelluhowimfeeling msg
-saygoodbye
+    i just wanna tell u how im feeling msg
+say goodbye
 ```
 
-Indentation is not the block delimiter. `saygoodbye` closes blocks. Indentation is still worth keeping because humans deserve at least one mercy.
+Indentation does not close blocks. `say goodbye` does. Keep indentation anyway because future archaeologists deserve a chance.
 
-The Python transpiler maps the main block to the usual Python `__main__` guard.
+The Python transpiler maps the main block to the normal Python `__main__` guard.
 
 ## Assignment and values
 
-Assignment is shaped as:
+Assignment:
 
 ```text
 give variable up expression
@@ -99,60 +95,89 @@ give name up "gremlin"
 give values up [1, 2, 3]
 ```
 
-Expressions are translated toward Python syntax. Collections can therefore look Pythonic where the tokenizer/transpiler accepts them.
+Rickroll-Lang is dynamic. Do not invent type declarations.
 
-Built-in expression helpers recognized by the token model include `len`, `int`, `float` and `str`.
-
-Do not invent a static type declaration system. Rickroll-Lang is dynamic.
+Expressions can use Python-like arithmetic, indexing, list literals and string concatenation where the lexer/transpiler accepts them. Built-in helpers recognized by the token model include `len`, `int`, `float` and `str`.
 
 ## Output
 
-The compact print keyword is `ijustwannatelluhowimfeeling`.
+Print:
 
 ```text
-ijustwannatelluhowimfeeling "status: "
-ijustwannatelluhowimfeeling n
+i just wanna tell u how im feeling "status: "
+i just wanna tell u how im feeling n
 ```
 
-The Python transpiler emits `print(expr, end="")`, so a newline is not automatically guaranteed. Include `\n` in a string when the output needs a line break.
+The Python backend emits `print(expr, end="")`, so output does not automatically gain a newline. Add `\n` deliberately when needed:
+
+```text
+i just wanna tell u how im feeling "done\n"
+```
 
 ## Conditions
 
-An if block is:
+If block:
 
 ```text
-andifuaskmehowimfeeling condition
-    ...
-saygoodbye
+and if u ask me how im feeling score > 10
+    i just wanna tell u how im feeling "W\n"
+say goodbye
 ```
 
-Expressions can use comparison operators and Python-like arithmetic where supported by tokenization.
+Nested blocks each need their own `say goodbye`.
 
-Nested blocks each require their own closing `saygoodbye`.
+There is no conventional authoritative `else` keyword at this snapshot. Do not invent one. When logic needs two branches, use a complementary condition, an early return, or a flag.
 
-There is no conventional `else` keyword in the authoritative keyword enum at the reference snapshot. Do not invent one from the song/theme.
+Example with complementary conditions:
+
+```text
+and if u ask me how im feeling score > 10
+    i just wanna tell u how im feeling "W\n"
+say goodbye
+
+and if u ask me how im feeling score <= 10
+    i just wanna tell u how im feeling "L\n"
+say goodbye
+```
 
 ## Loops
 
 Conditional loop:
 
 ```text
-togetherforeverwith condition
-    ...
-saygoodbye
+together forever with index < len(arr)
+    give index up index + 1
+say goodbye
 ```
 
 Endless loop:
 
 ```text
-togetherforeverandnevertopart
+together forever and never to part
     ...
-saygoodbye
+say goodbye
 ```
 
-`desertu` maps to break. `runaround` maps to continue in the Python translation path.
+`desert u` maps to break. `runaround` maps to continue in the Python translation path.
 
-Be wary of older parser code: some AST/parser branches contain placeholders even where the Python transpiler supports the corresponding keyword. Always reason about the selected execution mode.
+There is no normal `for` statement. Translate counted loops into initialize + `together forever with` + explicit increment.
+
+Python:
+
+```python
+for i in range(5):
+    print(i)
+```
+
+Rickroll-Lang shape:
+
+```text
+give i up 0
+together forever with i < 5
+    i just wanna tell u how im feeling str(i) + "\n"
+    give i up i + 1
+say goodbye
+```
 
 ## Functions
 
@@ -160,131 +185,289 @@ Definition:
 
 ```text
 gonna add a, b
-    whenigivemy a + b itwillbecompletely
-saygoodbye
+    when i give my a + b it will be completely
+say goodbye
 ```
 
-Call form uses `gotta` in the keyword model and Python-like call expressions in the transpiler path.
+Call statement:
 
-Function parameter/return behavior is dynamic because the primary backend is Python.
+```text
+gotta add(2, 3)
+```
 
-When debugging function calls, inspect the generated Python if possible. It often reveals whether the fault is Rickroll tokenization or ordinary Python expression syntax.
+The upstream examples use exactly this `gotta Function(args)` shape.
+
+Parameters and return values are dynamic because the primary backend is Python. When debugging calls, inspect generated Python if possible. That separates Rickroll tokenization failures from ordinary Python runtime errors.
+
+A real upstream-style example:
+
+```text
+gonna LinearSearch arr, target
+    give index up 0
+
+    together forever with index < len(arr)
+        and if u ask me how im feeling arr[index] == target
+            i just wanna tell u how im feeling "Found in index " + str(index) + "\n"
+            when i give my index it will be completely
+        say goodbye
+        give index up index + 1
+    say goodbye
+
+    i just wanna tell u how im feeling "give up " + str(target) + " :(\n"
+say good bye
+```
 
 ## Imports
 
 Import syntax uses the paired import keywords around a module name. The Python backend emits a normal Python import.
 
-This means imported-code capability is not a harmless toy feature. Execution inherits the power and risk of the Python environment.
+Imported code therefore inherits normal Python power and risk. Do not treat imports as sandboxed because the source language is funny.
 
 ## Embedded Python
 
-`py:` is an explicit escape hatch. The Python transpiler writes the remainder of that statement into generated Python.
+`py:` is an explicit escape hatch. The Python transpiler writes the remainder into generated Python.
 
-Treat any Rickroll program containing `py:` as arbitrary Python code for safety purposes.
+Treat Rickroll code containing `py:` as arbitrary Python for safety and review purposes.
 
 For untrusted programs:
 
 - do not execute with secrets in the environment;
-- do not expose a valuable filesystem;
+- do not expose valuable filesystem state;
 - do not provide unrestricted credentials or network access;
 - prefer a disposable sandbox.
 
-"Funny esolang" is not a security boundary.
+Use `py:` only when the user explicitly wants Python interop or when documenting the escape hatch. Do not use it to hide the fact that native Rickroll syntax cannot express something.
 
 ## Try/except
 
-The keyword model and Python transpiler include try/except forms:
+The keyword model and Python transpiler include try/except forms based on `there aint no mistaking` and `if they ever get u down`.
 
-```text
-thereaintnomistaking
-    ...
-saygoodbye
-```
-
-and an exception block introduced by `iftheyevergetudown`.
-
-The exact nesting emitted by older versions can be fragile. If producing code that depends on exception handling, verify the generated Python against the current source instead of relying on theme-based intuition.
+Older backend paths are fragile here. If code depends on exception behavior, verify generated Python against the current source and run it. Do not infer nesting from lyric aesthetics.
 
 ## Comments and strings
 
-`#` starts a comment outside a quoted string in the lexer.
+`#` starts a comment outside a quoted string.
 
-Double quotes control quoted-string scanning. Preserve quoting carefully because the lexer changes behavior while inside a string.
+Double quotes control quoted-string scanning. Preserve quoting carefully because lexer behavior changes inside strings.
 
-Because keywords can be merged across separated tokens, bizarre spacing may still be legal. Prefer readable canonical spacing unless the user explicitly wants maximum cursedness.
+Bizarre spacing may still tokenize, but Gremlin should default to readable canonical lyric spacing. Maximum cursedness is an optional presentation mode, not a correctness strategy.
 
 ## Execution modes
 
 ### Python translation
 
-This is the safest baseline for compatibility reasoning. Inspect generated Python when debugging.
+This is the compatibility baseline.
 
 Strengths:
+
 - broad expression support inherited from Python;
-- straightforward mapping for control flow and functions;
-- easiest backend to diagnose.
+- straightforward control-flow and function mapping;
+- easiest backend to inspect and debug.
+
+Whenever possible, inspect the generated Python before diagnosing a mysterious runtime result.
 
 ### Interpreter
 
-`-intpr` uses the project's interpreter path. Do not assume every transpiler feature behaves identically.
+`-intpr` uses the direct interpreter path. Do not assume every transpiler feature behaves identically.
 
 ### C++ translation
 
-`-cpp` exists but upstream itself describes it as immature/buggy. Only recommend it when the user specifically needs it, and verify the generated C++.
+`-cpp` is immature/buggy upstream. Only use it when the user specifically needs that backend, and inspect/compile the generated C++.
 
 ### Audio mode
 
-`--audio` generates/plays audio from Rickroll source. Treat this as an optional presentation feature, not part of core semantic correctness.
+`--audio` generates/plays audio from Rickroll source. Treat it as presentation, not semantic validation.
+
+## Programming cookbook
+
+Use these patterns instead of inventing missing syntax.
+
+### Counter / accumulator
+
+```text
+take me to ur heart
+    give i up 1
+    give total up 0
+
+    together forever with i <= 10
+        give total up total + i
+        give i up i + 1
+    say goodbye
+
+    i just wanna tell u how im feeling str(total) + "\n"
+say goodbye
+```
+
+### Array traversal
+
+```text
+take me to ur heart
+    give arr up [4, 8, 15, 16, 23, 42]
+    give i up 0
+
+    together forever with i < len(arr)
+        i just wanna tell u how im feeling str(arr[i]) + "\n"
+        give i up i + 1
+    say goodbye
+say goodbye
+```
+
+### Search with early return
+
+Prefer early return over emulating `else` when a function has a natural success/failure result:
+
+```text
+gonna Find arr, target
+    give i up 0
+    together forever with i < len(arr)
+        and if u ask me how im feeling arr[i] == target
+            when i give my i it will be completely
+        say goodbye
+        give i up i + 1
+    say goodbye
+    when i give my -1 it will be completely
+say goodbye
+```
+
+### State machine instead of unsupported constructs
+
+For parsers, menu loops or multi-stage logic:
+
+1. store state in a normal variable;
+2. use `together forever with` as the driver loop;
+3. use separate `and if u ask me how im feeling` blocks for each state;
+4. change the state explicitly;
+5. use `desert u` when complete.
+
+This is more reliable than inventing `switch`, `match`, `else` or classes.
+
+### String construction
+
+The Python translation path supports normal string concatenation patterns in expressions:
+
+```text
+give label up "item=" + str(value) + "\n"
+i just wanna tell u how im feeling label
+```
+
+Always convert non-string values deliberately with `str(...)` instead of assuming coercion.
+
+## Translation playbook
+
+### Python -> Rickroll-Lang
+
+Map only the supported subset:
+
+| Python | Rickroll-Lang strategy |
+| --- | --- |
+| `x = expr` | `give x up expr` |
+| `print(expr)` | `i just wanna tell u how im feeling expr + "\n"` when a newline is desired |
+| `if cond:` | `and if u ask me how im feeling cond` + `say goodbye` |
+| `while cond:` | `together forever with cond` + `say goodbye` |
+| `while True:` | `together forever and never to part` |
+| `for i in range(n)` | initialize `i`, while loop, explicit increment |
+| `def f(a, b)` | `gonna f a, b` |
+| `return expr` | `when i give my expr it will be completely` |
+| `f(a)` as statement | `gotta f(a)` |
+| `break` | `desert u` |
+| `continue` | `runaround` |
+
+Do not translate arbitrary Python classes, comprehensions, generators, async code, decorators or context managers as if equivalents existed. Rewrite the behavior into supported primitives or clearly state the limitation.
+
+### JavaScript -> Rickroll-Lang
+
+- variables become `give ... up ...`;
+- `while` maps naturally;
+- counted `for` loops become explicit while loops;
+- arrays map well to Python-like lists in the Python backend;
+- object/class-heavy code needs redesign, not word substitution;
+- promises/async/DOM APIs have no native equivalent;
+- stringify values explicitly when constructing output.
+
+### C/C++ -> Rickroll-Lang
+
+Treat Rickroll-Lang as dynamic/Python-like, not C-like:
+
+- remove static type declarations;
+- rewrite pointer/manual-memory code into high-level values/collections;
+- rewrite `for` loops to while loops;
+- replace `switch` with explicit conditions/state;
+- replace structs/classes with simpler collections only when semantics remain clear;
+- do not preserve undefined behavior or manual lifetime tricks.
+
+## Debugging model
+
+Classify the failure before changing code:
+
+1. lexer/tokenization: a lyric phrase did not normalize to a keyword;
+2. block structure: missing or extra `say goodbye`;
+3. transpilation: generated Python is syntactically wrong;
+4. Python runtime: generated Python is valid but behavior/expression fails;
+5. backend mismatch: transpiler works but `-intpr` / `-cpp` differs;
+6. environment: dependency/import/audio issue.
+
+Debug in that order. Do not rewrite a whole program because one lyric phrase tokenized badly.
+
+## Verification ladder
+
+For generated Rickroll-Lang, use the strongest available level and say which level was reached:
+
+1. **Keyword/source review**: verify every statement keyword against `src/Keywords.py` / `src/Lexer.py` and compare with examples.
+2. **Transpile**: run the standard Python translation path and inspect generated Python.
+3. **Execute**: run the generated Python/Rickroll program and check output/exit behavior.
+4. **Backend-specific**: if the user requests `-intpr`, `-cpp` or `--audio`, validate that exact mode separately.
+
+Never call code "tested" if it was only visually reviewed.
 
 ## Common failure modes
 
-1. Inventing a lyric-themed keyword that is not in `src/Keywords.py`.
+1. Inventing a lyric-themed keyword not in `src/Keywords.py`.
 2. Assuming indentation closes blocks.
-3. Forgetting a `saygoodbye`.
+3. Forgetting `say goodbye`.
 4. Assuming print adds a newline.
-5. Confusing an older AST parser placeholder with behavior of the Python transpiler.
-6. Claiming the C++ backend is equivalent to Python.
-7. Treating `py:` as sandboxed.
-8. Breaking a quoted string and accidentally changing lexer tokenization.
-9. Assuming conventional `else`, `for`, classes or type declarations exist because Python has them.
-10. Writing visually clever spacing without checking that the lexer rejoins it into a known keyword.
+5. Inventing conventional `else` or `for`.
+6. Confusing older AST/parser placeholders with Python-transpiler behavior.
+7. Claiming C++ backend parity.
+8. Treating `py:` as sandboxed.
+9. Breaking quoted strings and changing lexer behavior.
+10. Using decorative spacing without checking normalization.
+11. Translating arbitrary Python features instead of redesigning into the supported subset.
+12. Using `py:` to conceal unsupported Rickroll semantics.
 
 ## Gremlin operating procedure
 
 When asked to write Rickroll-Lang:
 
-1. Model the target behavior in simple Python-like pseudocode.
-2. Use only keyword families present in `src/Keywords.py`.
-3. Keep block structure explicit and balanced with `saygoodbye`.
-4. Prefer the Python translation path unless the user names another backend.
-5. Avoid `py:` unless direct Python is actually the point.
-6. If execution tools are available, run/transpile the program and inspect generated Python.
-7. If execution is unavailable, label the result syntax-reviewed rather than tested.
-8. For obscure or newly changed syntax, inspect current upstream first.
+1. model the behavior in simple Python-like pseudocode;
+2. restrict the design to supported Rickroll primitives;
+3. use only keywords present in the current keyword/lexer tables;
+4. keep every block balanced with `say goodbye`;
+5. prefer the Python translation path unless another backend is requested;
+6. avoid `py:` unless explicit interop is the point;
+7. transpile and execute when tools are available;
+8. inspect generated Python when something fails;
+9. if execution is unavailable, label the code source-reviewed rather than tested;
+10. favor readable lyric spacing over novelty spacing.
 
 When asked to debug:
 
-1. Tokenize mentally first: what compact keyword does each spaced phrase become?
-2. Check block balance.
-3. Check generated Python.
-4. Separate Rickroll syntax errors from Python runtime errors.
-5. Confirm whether the user is using Python translation, interpreter or C++ mode.
-6. Reduce to the smallest reproducer and keep the backend fixed while debugging.
+1. normalize/tokenize each keyword phrase;
+2. verify block balance;
+3. inspect generated Python;
+4. separate Rickroll syntax from Python runtime errors;
+5. keep the selected backend fixed;
+6. reduce to the smallest reproducer;
+7. repair the smallest mismatch and rerun.
 
-When translating Python to Rickroll-Lang:
-
-- use the supported subset, not arbitrary Python;
-- rewrite unsupported constructs into assignments, conditions, while/endless loops and functions;
-- do not hide unsupported semantics inside `py:` unless the user explicitly permits that shortcut;
-- preserve data/output behavior over theatrical spelling.
+When asked for substantial Rickroll-Lang code, correctness outranks rickroll density. The language has already committed to the bit.
 
 ## Upstream trail
 
 Use these in descending order when exactness matters:
 
 1. `src/Keywords.py` and `src/Lexer.py`;
-2. backend implementation actually being used, especially `src/pyrickroll.py`;
-3. tests and examples;
+2. the backend implementation actually being used, especially `src/pyrickroll.py`;
+3. examples and tests;
 4. English docs and README;
 5. older parser/AST code only as supporting evidence.
 

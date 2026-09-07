@@ -2,10 +2,8 @@
 
 <img src="assets/banner.svg" alt="trvny" width="100%">
 
-**私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**
-
 <p align="center">
-  <img src="assets/132311.gif" width="69%">
+  <img src="assets/132311.gif" width="75%">
 </p>
 <br>
 
@@ -17,9 +15,17 @@
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.trfny.com) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.trfny.com) [![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.travny.workers.dev)  
 [![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://trfny.com)  
 <a href="https://deepwiki.com/trvny/trvny"><img src="https://deepwiki.com/badge.svg" alt="DeepWiki"></a>
+
 </div>
 
 ---
+
+### 我和我的伙计们
+
+<p align="left">
+  <img src="assets/ziomki2.png" width="420">
+</p>
+<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=VT323&weight=600&letterSpacing=-95%25&duration=1234&pause=100&color=D718CE&center=true&random=true&width=500&height=150&lines=Co%C5%9B+si%C4%99+popsu%C5%82o+i+nie+by%C5%82o+mnie+s%C5%82ycha%C4%87;KURDE;2137;twojstarytotwojstary" alt="Typing-SVG" /></a>
 
 ## 🔀 开放的拉取请求
 
@@ -30,6 +36,8 @@
 | trvny/feedseek | [#368](https://github.com/trvny/feedseek/pull/368) | chore: disable 1337x feed | @trvny | 就绪 | 2026-09-05 |
 | trvny/trvny | [#480](https://github.com/trvny/trvny/pull/480) | docs: align repository docs with current tree | @trvny | 就绪 | 2026-09-05 |
 <!--OPEN_PRS:END-->
+
+**私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**
 
 ## 🧭 项目地图
 
@@ -58,7 +66,7 @@
 | 💾 **[Remotely Save GDrive patch](remotely-save-gdrive-patch/)** | 本地补丁 | 仅供个人使用的 Google Drive 去重/更新补丁，以及不重新分发构建产物的验证工具。 |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | 公共 AI 配置核心，以及私有配置、归档和项目 skills。 |
 
-## 🗄️ 抽屉
+### 🗄️ 抽屉
 
 [`playlists`](stuff/playlists/) · [`configs`](stuff/configs/) ·
 [`feeds`](stuff/feeds/) · [`quotes`](stuff/quotes/) · [`other`](stuff/other/)
@@ -67,19 +75,13 @@
 - **Configs**：值得共享，但没必要单独建仓库的配置片段。
 - **Feeds 与 quotes**：自动化和小组件使用的辅助源。
 
-## 🧪 其他仓库
+### 🧪 其他仓库
 
 | 仓库 | 作用 |
 |---|---|
 | [WiFi-Automatic](https://github.com/trvny/WiFi-Automatic) | 自动控制 Android Wi-Fi 无线状态的应用 fork |
 
 [![gist](https://github-stats-extended.vercel.app/api/gist?id=167d2271e3cf7d21e118aa7d906a7d2c&theme=synthwave)](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c)
-
-## 我和我的伙计们
-
-<p align="left">
-  <img src="assets/ziomki.png" width="420">
-</p>
 
 ## [许可证](LICENSE) [![代码许可证](https://img.shields.io/github/license/trvny/trvny?label=code&logo=opensourceinitiative&logoColor=white&color=6f42c1&style=flat-square)](https://spdx.org/licenses/ISC)
 

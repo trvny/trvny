@@ -69,15 +69,17 @@ Build outward in this order, keeping external capabilities high-level and guarde
 - [ ] **Web diagnostics.** Inspect HTTP/TLS, redirects, robots, sitemaps, cache behavior and broken links without turning Gremlin into a generic browser automation swamp.
 - [ ] **Artifact inspector.** Inspect ZIP/JAR/APK/AAB-style artifacts for metadata, contents, versions and checksums without executing them.
 - [ ] **GitLab / F-Droid operator.** Extend guarded review, CI and packaging workflows where the GitHub operator patterns transfer cleanly.
-- [ ] **Research -> action.** Feed fresh documentation and release-note findings into guarded implementation/release work instead of relying on model memory.
-- [x] **Live documentation lookup.** Keep project/API docs GitHub-backed and expose guarded `searchDocs` / `getDoc` / `getDocsIndex` Actions so volatile technical knowledge is fetched live instead of baked into Custom GPT Knowledge. Treat `llms.txt` as an explicit discovery hint and prefer Markdown/OpenAPI sources.
+- [x] **Research -> action.** Feed fresh documentation and release-note findings into guarded implementation/release work instead of relying on model memory.
+- [x] **Live repository documentation lookup.** Keep project/API docs GitHub-backed and expose guarded `searchDocs` / `getDoc` / `getDocsIndex` Actions so repository-owned technical knowledge is fetched live instead of baked into Custom GPT Knowledge. Treat `llms.txt` as an explicit discovery hint and prefer Markdown/OpenAPI sources.
+- [x] **Context7 documentation bridge.** Resolve third-party libraries and fetch bounded current documentation through `searchContext7Docs`, authenticated with a server-side Context7 credential and without exposing a raw HTTP/provider proxy.
 - [ ] **Documentation publishing bridge.** Synchronize GitHub-backed docs to a documentation surface such as ReadMe without creating a second source of truth.
 
 ## Architecture / ergonomics
 
 - [x] Define the shared Worker runtime boundaries: Kanarek Companion, GPTomek Bridge, Gremlin Operator, Specialist Intelligence and shared runtime core. Keep `kanarek-companion` as the deployment slug, not the umbrella architecture name.
+- [x] Introduce a central specialist tool registry as the maintained source of tool names, schemas and invocation. Keep provider logic in `src/tools/` and transport adapters thin.
+- [x] Expose the specialist registry through both Custom GPT Actions and a private stateless `/mcp` adapter, with MCP 2026-07-28 plus bounded 2025-11-25 compatibility.
 - [ ] Generate an optional compact Builder/Knowledge pack from private `.ai` sources.
-- [ ] Introduce a central Action registry now that router/OpenAPI composition spans multiple operator and specialist domains; keep it as wiring metadata rather than a second policy source of truth.
 - [ ] Add further code-investigation ergonomics only when they demonstrably remove round trips.
 
 ## Design constraints

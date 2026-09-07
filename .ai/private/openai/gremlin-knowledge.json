@@ -6,7 +6,7 @@
       "aliases": [
         "brainrotlang"
       ],
-      "description": "Brainrot language syntax, semantics, runtime, modules, pitfalls and verification workflow."
+      "description": "Brainrot programming mastery: current syntax and semantics, runtime and modules, coding recipes, translation patterns, debugging and execution-first verification."
     },
     "rickroll": {
       "path": ".ai/private/openai/knowledge/rickroll.md",
@@ -15,7 +15,7 @@
         "rick-lang",
         "rickroll-lang"
       ],
-      "description": "Rickroll-Lang lexer, syntax, backends, safety pitfalls and verification workflow."
+      "description": "Rickroll-Lang programming mastery: lexer and supported syntax, real coding patterns, translation strategy, backend differences, debugging and transpile/execute verification."
     }
   }
 }

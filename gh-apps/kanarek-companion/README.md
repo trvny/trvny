@@ -45,9 +45,9 @@ A normal delivery follows this path:
    of starting parallel reviews.
 4. The review job revalidates the exact open, same-repository PR head/base,
    reads a bounded diff plus nearby repository context, then calls the shared
-   free review router in-process. The router tries OpenRouter, OrcaRouter,
-   AIHubMix, then the Cloudflare Workers AI binding and keeps exhausted
-   providers behind Durable Object-backed cooldowns.
+   free review router in-process. The router tries the guarded Cloudflare
+   Workers AI binding first, then OpenRouter, OrcaRouter, AIHubMix, Ollama Cloud,
+   and Groq, while keeping exhausted providers behind Durable Object-backed cooldowns.
 5. Review output must be bounded Simplified-Chinese JSON with high-confidence
    findings anchored to added RIGHT-side lines. The job revalidates the PR
    again immediately before publishing one native GitHub review as the Kanarek
@@ -83,7 +83,8 @@ companion and makes later review-eligible PR activity eligible again.
   independently scoped webhook review queue.
 - `POST /review-router/v1/chat/completions` is the private OpenAI-compatible
   transport shared by free PR review. It authenticates with the dedicated
-  router bearer and tries OpenRouter, OrcaRouter, AIHubMix, then Workers AI.
+  router bearer and tries Workers AI, OpenRouter, OrcaRouter, AIHubMix,
+  Ollama Cloud, then Groq.
   Paid/direct provider credentials used for quip generation are never consumed
   by the review router. OpenRouter can retry its primary model without the
   fallback array when the array itself is rejected.
@@ -316,7 +317,7 @@ closed. The gateway never returns Worker secret values or Pages build variables.
 
 `automation-sync.yml` keeps Worker credential provisioning centralized. Its
 manual dispatch can copy the existing repository Cloudflare credentials, the
-dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the free review credentials
+dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the sync-managed free review credentials
 (AIHubMix/OpenRouter/OrcaRouter), and any repository-held direct quip credentials
 (Gemini/OpenAI/Anthropic/xAI) into `kanarek-companion`, without printing secret
 values. Missing direct-provider provisioning copies are left untouched on the
@@ -324,9 +325,9 @@ Worker. Legacy
 per-repository review callers and provider secrets were removed during the
 webhook cutover and are no longer maintained by a scheduled rollout job.
 
-The review router uses OpenRouter with the review-specific free-model chain,
-then OrcaRouter, AIHubMix, and finally the Cloudflare Workers AI binding with
-`@cf/zai-org/glm-4.7-flash`. Direct Gemini, OpenAI, Anthropic, and xAI
+The review router first uses the guarded Cloudflare Workers AI binding with
+`@cf/zai-org/glm-4.7-flash`, then OpenRouter with the review-specific free-model
+chain, OrcaRouter, AIHubMix, Ollama Cloud, and finally Groq. Direct Gemini, OpenAI, Anthropic, and xAI
 credentials remain quip-only. An OpenRouter HTTP 400 from the full model chain
 is retried once with the primary model only. Provider-specific request
 rejection, transient, quota, authentication, and availability failures fall
@@ -351,10 +352,14 @@ Optional free-review secrets used at runtime only by the Worker:
 - `OPENROUTER_API_KEY`
 - `ORCAROUTER_API_KEY`
 - `AIHUBMIX_API_KEY`
+- `OLLAMA_API_KEY`
+- `GROQ_API_KEY`
 
-`trvny/trvny` retains provisioning copies of these values solely so the manual
-credential-sync workflow can update the Worker. Target repositories do not keep
-review-router or provider secrets.
+`OPENROUTER_API_KEY`, `ORCAROUTER_API_KEY`, and `AIHUBMIX_API_KEY` may be kept as
+provisioning copies in `trvny/trvny` for the manual credential-sync workflow.
+`OLLAMA_API_KEY` and `GROQ_API_KEY` are intentionally Worker-only unless explicit
+repository provisioning copies are added later; the sync workflow does not overwrite
+or remove them. Target repositories do not keep review-router or provider secrets.
 
 Optional direct AI secrets for quip generation:
 
@@ -365,7 +370,8 @@ Optional direct AI secrets for quip generation:
 
 The manual credential sync copies any matching provisioning secret present in
 `trvny/trvny`; an absent direct-provider copy does not delete an existing Worker
-secret. Missing free-review provisioning copies are removed. The sync then
+secret. Missing sync-managed free-review provisioning copies are removed; Worker-only Ollama/Groq
+secrets are left untouched. The sync then
 creates and activates a tagged secret-only Worker version, preserving the live
 source tag when available so `/health` keeps meaningful deployment provenance.
 

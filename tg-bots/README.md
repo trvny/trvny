@@ -12,13 +12,14 @@ Telegram
 Cloudflare Worker
    ├─ chat / drafts
    ├─ RSS curator
-   ├─ provider fallback router
-   └─ future: memory + schedules + Hermes handoff
+   ├─ existing Kanarek free-model router
+   └─ future: memory + schedules + Pet Dispatcher handoff
 ```
 
 The intended split is simple:
 
-- **Cloudflare bot:** 24/7, cheap/free, event-driven, everyday assistant work.
-- **Hermes:** started on demand on Android/PC for Git, files, builds, tests and heavier agentic jobs.
+- **Cloudflare bot:** 24/7, cheap/free, event-driven, everyday assistant work;
+- **Kanarek Companion:** shared free-model routing and provider credentials;
+- **Pet Dispatcher + Hermes:** on-demand OS/repository work, builds and tests.
 
-See [`CONCEPT.md`](CONCEPT.md) for the roadmap and handoff design.
+See [`CONCEPT.md`](CONCEPT.md) for the roadmap and reuse boundaries.

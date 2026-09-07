@@ -13,6 +13,20 @@ const MIN_COOLDOWN_MS = 1_000;
 const MAX_COOLDOWN_MS = 30 * 60_000;
 const SOFT_FAILURE_PREVIEW_BYTES = 8_192;
 const WORKERS_AI_REVIEW_MODEL = '@cf/zai-org/glm-4.7-flash' as const;
+const DEFAULT_WORKERS_AI_DAILY_NEURONS = 5_000;
+const MAX_WORKERS_AI_DAILY_NEURONS = 5_000;
+const WORKERS_AI_INPUT_NEURONS_PER_MILLION = 5_500;
+const WORKERS_AI_OUTPUT_NEURONS_PER_MILLION = 36_400;
+const WORKERS_AI_MAX_OUTPUT_TOKENS = 4_096;
+const WORKERS_AI_HIDDEN_OUTPUT_TOKEN_FACTOR = 2;
+const WORKERS_AI_RESERVATION_SAFETY_FACTOR = 1.25;
+const WORKERS_AI_BUDGET_STORAGE_KEY = 'workers-ai-neuron-budget';
+const DEFAULT_REVIEW_OLLAMA_MODELS = [
+  'glm-5.3-flash',
+  'gpt-oss:120b',
+  'gpt-oss:20b',
+] as const;
+const DEFAULT_REVIEW_GROQ_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'nvidia/nemotron-3-ultra-550b-a55b:free',
   'poolside/laguna-s-2.1:free',
@@ -32,7 +46,13 @@ export interface ReviewRouterEnv {
   AIHUBMIX_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   ORCAROUTER_API_KEY?: string;
+  OLLAMA_API_KEY?: string;
+  GROQ_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
+  KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
+  KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
+  KANAREK_REVIEW_OLLAMA_MODELS?: string;
+  KANAREK_REVIEW_GROQ_MODEL?: string;
   KANAREK_REVIEW_COOLDOWNS?: DurableObjectNamespace;
   KANAREK_REVIEW_QUOTA_COOLDOWN_MS?: string;
   KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS?: string;
@@ -42,7 +62,7 @@ export interface ReviewRouterEnv {
 
 type JsonObject = Record<string, unknown>;
 
-type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'workers-ai';
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'workers-ai';
 
 type ReviewProvider = {
   id: ReviewProviderId;
@@ -99,7 +119,7 @@ export class ReviewProviderCooldownStore {
         await this.state.storage.setAlarm(current.until);
         return;
       }
-      await this.state.storage.deleteAll();
+      await this.state.storage.delete(COOLDOWN_STORAGE_KEY);
     });
   }
 
@@ -163,8 +183,94 @@ export class ReviewProviderCooldownStore {
       return cooldownJson({ ok: true, ...next });
     }
 
+    if (pathname === '/reserve-neurons' && request.method === 'POST') {
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return cooldownJson({ error: 'invalid_json' }, 400);
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return cooldownJson({ error: 'invalid_budget_reservation' }, 400);
+      }
+      const input = body as { day?: unknown; neurons?: unknown; limit?: unknown };
+      if (
+        typeof input.day !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(input.day) ||
+        typeof input.neurons !== 'number' ||
+        !Number.isInteger(input.neurons) ||
+        input.neurons < 1 ||
+        typeof input.limit !== 'number' ||
+        !Number.isInteger(input.limit) ||
+        input.limit < 1 ||
+        input.limit > MAX_WORKERS_AI_DAILY_NEURONS
+      ) {
+        return cooldownJson({ error: 'invalid_budget_reservation' }, 400);
+      }
+      const current = await this.state.storage.get<{ day: string; reserved: number }>(
+        WORKERS_AI_BUDGET_STORAGE_KEY,
+      );
+      const reserved = current?.day === input.day && Number.isInteger(current.reserved)
+        ? Math.max(0, current.reserved)
+        : 0;
+      if (reserved + input.neurons > input.limit) {
+        return cooldownJson({
+          allowed: false,
+          day: input.day,
+          reserved,
+          requested: input.neurons,
+          limit: input.limit,
+        }, 429);
+      }
+      const next = reserved + input.neurons;
+      await this.state.storage.put(WORKERS_AI_BUDGET_STORAGE_KEY, {
+        day: input.day,
+        reserved: next,
+      });
+      return cooldownJson({
+        allowed: true,
+        day: input.day,
+        reserved: next,
+        requested: input.neurons,
+        limit: input.limit,
+      });
+    }
+
+    if (pathname === '/neuron-budget' && request.method === 'GET') {
+      const url = new URL(request.url);
+      const day = url.searchParams.get('day');
+      const rawLimit = url.searchParams.get('limit');
+      const limit = rawLimit && /^\d+$/.test(rawLimit) ? Number.parseInt(rawLimit, 10) : NaN;
+      if (
+        !day ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
+        !Number.isSafeInteger(limit) ||
+        limit < 1 ||
+        limit > MAX_WORKERS_AI_DAILY_NEURONS
+      ) {
+        return cooldownJson({ error: 'invalid_budget_query' }, 400);
+      }
+      const current = await this.state.storage.get<{ day: string; reserved: number }>(
+        WORKERS_AI_BUDGET_STORAGE_KEY,
+      );
+      const reserved = current?.day === day && Number.isInteger(current.reserved)
+        ? Math.max(0, current.reserved)
+        : 0;
+      return cooldownJson({
+        day,
+        limit,
+        reserved,
+        remaining: Math.max(0, limit - reserved),
+      });
+    }
+
     return cooldownJson({ error: 'not_found' }, 404);
   }
+}
+
+function configuredModelList(raw: string | undefined, fallback: readonly string[]): string[] {
+  const configured = raw?.split(',').map((value) => value.trim()).filter(Boolean) ?? [];
+  return [...new Set(configured.length > 0 ? configured : fallback)];
 }
 
 function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
@@ -175,6 +281,10 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
     : sharedOpenRouterModels
       ? configuredOpenRouterModels(sharedOpenRouterModels)
       : [...DEFAULT_REVIEW_OPENROUTER_MODELS];
+  const ollamaModels = configuredModelList(
+    env.KANAREK_REVIEW_OLLAMA_MODELS,
+    DEFAULT_REVIEW_OLLAMA_MODELS,
+  );
   return [
     {
       id: 'openrouter',
@@ -196,6 +306,19 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
       model: 'coding-glm-5.3-free',
       apiKey: (providerEnv) => providerEnv.AIHUBMIX_API_KEY,
     },
+    {
+      id: 'ollama',
+      url: 'https://ollama.com/v1/chat/completions',
+      model: ollamaModels[0] ?? DEFAULT_REVIEW_OLLAMA_MODELS[0],
+      fallbackModels: ollamaModels.slice(1),
+      apiKey: (providerEnv) => providerEnv.OLLAMA_API_KEY,
+    },
+    {
+      id: 'groq',
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      model: env.KANAREK_REVIEW_GROQ_MODEL?.trim() || DEFAULT_REVIEW_GROQ_MODEL,
+      apiKey: (providerEnv) => providerEnv.GROQ_API_KEY,
+    },
   ];
 }
 
@@ -206,6 +329,16 @@ function workersAiInput(input: JsonObject): ChatCompletionsInput | null {
   delete request.model;
   delete request.models;
   delete request.stream_options;
+  const requestedMax = typeof request.max_tokens === 'number' && Number.isFinite(request.max_tokens)
+    ? request.max_tokens
+    : typeof request.max_completion_tokens === 'number' && Number.isFinite(request.max_completion_tokens)
+      ? request.max_completion_tokens
+      : WORKERS_AI_MAX_OUTPUT_TOKENS;
+  request.max_tokens = Math.min(
+    Math.max(1, Math.ceil(requestedMax)),
+    WORKERS_AI_MAX_OUTPUT_TOKENS,
+  );
+  delete request.max_completion_tokens;
   request.stream = false;
   return request as ChatCompletionsInput;
 }
@@ -318,6 +451,94 @@ function providerCooldownStub(
   return env.KANAREK_REVIEW_COOLDOWNS.get(id);
 }
 
+function explicitlyDisabled(raw: string | undefined): boolean {
+  const value = raw?.trim().toLowerCase();
+  return value === 'false' || value === '0' || value === 'no' || value === 'off';
+}
+
+function workersAiEnabled(env: ReviewRouterEnv): boolean {
+  return Boolean(
+    env.AI &&
+    env.KANAREK_REVIEW_COOLDOWNS &&
+    !explicitlyDisabled(env.KANAREK_REVIEW_WORKERS_AI_ENABLED)
+  );
+}
+
+function workersAiDailyNeuronLimit(env: ReviewRouterEnv): number {
+  const raw = env.KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?.trim();
+  if (!raw || !/^\d+$/.test(raw)) return DEFAULT_WORKERS_AI_DAILY_NEURONS;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) return DEFAULT_WORKERS_AI_DAILY_NEURONS;
+  return Math.min(parsed, MAX_WORKERS_AI_DAILY_NEURONS);
+}
+
+function workersAiNeuronReservation(input: ChatCompletionsInput): number {
+  const maxTokens = typeof input.max_tokens === 'number'
+    ? input.max_tokens
+    : WORKERS_AI_MAX_OUTPUT_TOKENS;
+  // UTF-8 bytes are deliberately used as a conservative upper bound for input tokens.
+  // Over-reserving can only stop this free-tier guard earlier; under-reserving could spend.
+  const conservativeInputTokens = new TextEncoder().encode(JSON.stringify(input)).byteLength;
+  const inputNeurons = conservativeInputTokens * WORKERS_AI_INPUT_NEURONS_PER_MILLION / 1_000_000;
+  const outputNeurons = maxTokens * WORKERS_AI_HIDDEN_OUTPUT_TOKEN_FACTOR
+    * WORKERS_AI_OUTPUT_NEURONS_PER_MILLION / 1_000_000;
+  return Math.max(
+    1,
+    Math.ceil((inputNeurons + outputNeurons) * WORKERS_AI_RESERVATION_SAFETY_FACTOR),
+  );
+}
+
+type WorkersAiReservationResult = 'reserved' | 'exhausted' | 'unavailable';
+type WorkersAiBudgetStatus = { day: string; limit: number; reserved: number; remaining: number };
+
+async function reserveWorkersAiNeurons(
+  env: ReviewRouterEnv,
+  input: ChatCompletionsInput,
+): Promise<WorkersAiReservationResult> {
+  const stub = providerCooldownStub(env, 'workers-ai');
+  if (!stub) return 'unavailable';
+  try {
+    const response = await stub.fetch(`${COOLDOWN_INTERNAL_ORIGIN}/reserve-neurons`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        day: new Date().toISOString().slice(0, 10),
+        neurons: workersAiNeuronReservation(input),
+        limit: workersAiDailyNeuronLimit(env),
+      }),
+    });
+    if (response.ok) return 'reserved';
+    return response.status === 429 ? 'exhausted' : 'unavailable';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+async function workersAiBudgetStatus(env: ReviewRouterEnv): Promise<WorkersAiBudgetStatus | null> {
+  const stub = providerCooldownStub(env, 'workers-ai');
+  if (!stub) return null;
+  const day = new Date().toISOString().slice(0, 10);
+  const limit = workersAiDailyNeuronLimit(env);
+  try {
+    const response = await stub.fetch(
+      `${COOLDOWN_INTERNAL_ORIGIN}/neuron-budget?day=${encodeURIComponent(day)}&limit=${limit}`,
+    );
+    if (!response.ok) return null;
+    const payload = await response.json() as Partial<WorkersAiBudgetStatus>;
+    if (
+      payload.day !== day ||
+      payload.limit !== limit ||
+      typeof payload.reserved !== 'number' ||
+      !Number.isInteger(payload.reserved) ||
+      typeof payload.remaining !== 'number' ||
+      !Number.isInteger(payload.remaining)
+    ) return null;
+    return payload as WorkersAiBudgetStatus;
+  } catch {
+    return null;
+  }
+}
+
 async function activeProviderCooldown(
   env: ReviewRouterEnv,
   provider: ReviewProviderId,
@@ -366,16 +587,21 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
         : { available: true, configured: true, provider: provider.id };
     }),
   );
-  const workersAiConfigured = Boolean(env.AI);
-  const workersAiCooldown = workersAiConfigured
-    ? await activeProviderCooldown(env, 'workers-ai')
-    : null;
+  const workersAiConfigured = workersAiEnabled(env);
+  const [workersAiCooldown, workersAiBudget] = workersAiConfigured
+    ? await Promise.all([
+        activeProviderCooldown(env, 'workers-ai'),
+        workersAiBudgetStatus(env),
+      ])
+    : [null, null];
   states.push(
     !workersAiConfigured
       ? { available: false, configured: false, provider: 'workers-ai' }
       : workersAiCooldown
         ? { available: false, configured: true, cooldown: workersAiCooldown, provider: 'workers-ai' }
-        : { available: true, configured: true, provider: 'workers-ai' },
+        : workersAiBudget && workersAiBudget.remaining > 0
+          ? { available: true, configured: true, provider: 'workers-ai' }
+          : { available: false, configured: true, provider: 'workers-ai' },
   );
   const configured = states.filter((state) => state.configured).length;
   const available = states.filter((state) => state.available).length;
@@ -515,6 +741,12 @@ function providerAttempts(provider: ReviewProvider): readonly ProviderAttempt[] 
       { model: provider.model, label: 'primary_only' },
     ];
   }
+  if (provider.id === 'ollama' && provider.fallbackModels?.length) {
+    return [provider.model, ...provider.fallbackModels].map((model, index) => ({
+      model,
+      label: index === 0 ? 'default' : 'model_fallback',
+    }));
+  }
   return [{ model: provider.model, label: 'default' }];
 }
 
@@ -526,6 +758,7 @@ function shouldTryNextAttempt(
 ): boolean {
   if (attemptIndex + 1 >= attemptCount) return false;
   if (provider.id === 'openrouter') return status === 400;
+  if (provider.id === 'ollama') return status === 400 || status === 404;
   return false;
 }
 
@@ -624,6 +857,61 @@ export async function handleReviewRouterRequest(
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
+
+  if (workersAiEnabled(env)) {
+    configured += 1;
+    const provider: ReviewProviderId = 'workers-ai';
+    const cooldown = await activeProviderCooldown(env, provider);
+    if (cooldown) {
+      failures.push(diagnostic(provider, `cooldown_${cooldown.category}`));
+      console.info(JSON.stringify({
+        kanarekReviewRouter: 'provider_cooldown', provider, category: cooldown.category,
+      }));
+    } else {
+      const bindingInput = workersAiInput(input);
+      if (!bindingInput) {
+        failures.push(diagnostic(provider, 'invalid_request'));
+        invalidRequests += 1;
+      } else {
+        const reservation = await reserveWorkersAiNeurons(env, bindingInput);
+        if (reservation !== 'reserved') {
+          const category = reservation === 'exhausted' ? 'soft_quota' : 'network';
+          await rememberProviderCooldown(provider, category, env);
+          failures.push(diagnostic(provider, category));
+          console.warn(JSON.stringify({
+            kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
+          }));
+        } else {
+          let timeout: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const result = await Promise.race([
+            env.AI!.run(WORKERS_AI_REVIEW_MODEL, bindingInput),
+            new Promise<never>((_, reject) => {
+              timeout = setTimeout(
+                () => reject(new DOMException('Workers AI timed out', 'AbortError')),
+                timeoutMs(env),
+              );
+            }),
+          ]);
+          console.info(JSON.stringify({
+            kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: WORKERS_AI_REVIEW_MODEL,
+          }));
+          return workersAiResponse(result);
+        } catch (error) {
+          const category = workersAiFailureCategory(error);
+          await rememberProviderCooldown(provider, category, env);
+          failures.push(diagnostic(provider, category));
+          console.warn(JSON.stringify({
+            kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
+          }));
+          } finally {
+            if (timeout) clearTimeout(timeout);
+          }
+        }
+      }
+    }
+  }
+
   for (const provider of providers(env)) {
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
@@ -734,49 +1022,6 @@ export async function handleReviewRouterRequest(
     if (providerInvalidRequest) invalidRequests += 1;
   }
 
-  if (env.AI) {
-    configured += 1;
-    const provider: ReviewProviderId = 'workers-ai';
-    const cooldown = await activeProviderCooldown(env, provider);
-    if (cooldown) {
-      failures.push(diagnostic(provider, `cooldown_${cooldown.category}`));
-      console.info(JSON.stringify({
-        kanarekReviewRouter: 'provider_cooldown', provider, category: cooldown.category,
-      }));
-    } else {
-      const bindingInput = workersAiInput(input);
-      if (!bindingInput) {
-        failures.push(diagnostic(provider, 'invalid_request'));
-        invalidRequests += 1;
-      } else {
-        let timeout: ReturnType<typeof setTimeout> | undefined;
-        try {
-          const result = await Promise.race([
-            env.AI.run(WORKERS_AI_REVIEW_MODEL, bindingInput),
-            new Promise<never>((_, reject) => {
-              timeout = setTimeout(
-                () => reject(new DOMException('Workers AI timed out', 'AbortError')),
-                timeoutMs(env),
-              );
-            }),
-          ]);
-          console.info(JSON.stringify({
-            kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: WORKERS_AI_REVIEW_MODEL,
-          }));
-          return workersAiResponse(result);
-        } catch (error) {
-          const category = workersAiFailureCategory(error);
-          await rememberProviderCooldown(provider, category, env);
-          failures.push(diagnostic(provider, category));
-          console.warn(JSON.stringify({
-            kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
-          }));
-        } finally {
-          if (timeout) clearTimeout(timeout);
-        }
-      }
-    }
-  }
 
   if (!configured) {
     return jsonError('Review router is not configured', 'review_router_unconfigured', 503);

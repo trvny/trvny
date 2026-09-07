@@ -305,7 +305,7 @@ test('review router fails fast while the whole free pool is quota-cooled', async
   );
 });
 
-test('review router falls back to Workers AI after HTTP free providers exhaust', async () => {
+test('review router prefers guarded Workers AI before HTTP free providers', async () => {
   let aiModel = '';
   let aiInput: Record<string, unknown> = {};
   const AI = workersAiBinding(async (model, input) => {
@@ -323,6 +323,7 @@ test('review router falls back to Workers AI after HTTP free providers exhaust',
   const response = await handleReviewRouterRequest(request(), {
     ...auth,
     AI,
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
     OPENROUTER_API_KEY: 'openrouter-key',
     ORCAROUTER_API_KEY: 'orca-key',
     AIHUBMIX_API_KEY: 'aihubmix-key',
@@ -333,7 +334,7 @@ test('review router falls back to Workers AI after HTTP free providers exhaust',
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'workers-ai');
-  assert.equal(httpCalls, 3);
+  assert.equal(httpCalls, 0);
   assert.equal(aiModel, '@cf/zai-org/glm-4.7-flash');
   assert.equal(aiInput.stream, false);
   assert.equal('model' in aiInput, false);
@@ -359,7 +360,7 @@ test('review router bounds a stalled Workers AI binding', async () => {
 
 test('review provider health includes the Workers AI binding', async () => {
   const AI = workersAiBinding(async () => ({}));
-  const health = await reviewProviderPoolHealth({ ...auth, AI });
+  const health = await reviewProviderPoolHealth({ ...auth, AI, KANAREK_REVIEW_COOLDOWNS: cooldownNamespace() });
   assert.equal(health.configured, 1);
   assert.equal(health.available, 1);
   assert.equal(health.ready, true);
@@ -367,6 +368,25 @@ test('review provider health includes the Workers AI binding', async () => {
     health.providers.find((provider) => provider.provider === 'workers-ai'),
     { available: true, configured: true, provider: 'workers-ai' },
   );
+});
+
+
+test('review provider state hard-caps Workers AI neuron reservations', async () => {
+  const namespace = cooldownNamespace();
+  const stub = namespace.get(namespace.idFromName('workers-ai'));
+  const reserve = (neurons: number) => stub.fetch('https://review-cooldown.internal/reserve-neurons', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ day: '2026-09-07', neurons, limit: 100 }),
+  });
+
+  assert.equal((await reserve(60)).status, 200);
+  const rejected = await reserve(50);
+  assert.equal(rejected.status, 429);
+  const payload = (await rejected.json()) as { allowed?: boolean; reserved?: number };
+  assert.equal(payload.allowed, false);
+  assert.equal(payload.reserved, 60);
+  assert.equal((await reserve(40)).status, 200);
 });
 
 test('review router falls through provider authentication errors', async () => {
@@ -435,6 +455,32 @@ test('review router reaches AIHubMix after earlier providers fail', async () => 
     'https://openrouter.ai/api/v1/chat/completions',
     'https://api.orcarouter.ai/v1/chat/completions',
     'https://aihubmix.com/v1/chat/completions',
+  ]);
+});
+
+
+test('review router tries Ollama models before Groq as the final HTTP fallback', async () => {
+  const calls: Array<{ url: string; model: unknown }> = [];
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    OLLAMA_API_KEY: 'ollama-key',
+    GROQ_API_KEY: 'groq-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    calls.push({ url: String(input), model: body.model });
+    if (String(input).startsWith('https://ollama.com/')) {
+      return Promise.resolve(new Response('model unavailable', { status: 404 }));
+    }
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'groq');
+  assert.deepEqual(calls, [
+    { url: 'https://ollama.com/v1/chat/completions', model: 'glm-5.3-flash' },
+    { url: 'https://ollama.com/v1/chat/completions', model: 'gpt-oss:120b' },
+    { url: 'https://ollama.com/v1/chat/completions', model: 'gpt-oss:20b' },
+    { url: 'https://api.groq.com/openai/v1/chat/completions', model: 'openai/gpt-oss-120b' },
   ]);
 });
 
@@ -576,4 +622,76 @@ test('review router rejects provider credentials as router bearer', async () => 
     KANAREK_REVIEW_ROUTER_TOKEN: routerToken, OPENROUTER_API_KEY: 'openrouter-key',
   });
   assert.equal(response?.status, 401);
+});
+
+
+test('review router accepts common false values for the Workers AI switch', async () => {
+  const AI = workersAiBinding(async () => ({}));
+  for (const value of ['false', '0', 'no', 'off', 'OFF']) {
+    const health = await reviewProviderPoolHealth({
+      ...auth,
+      AI,
+      KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+      KANAREK_REVIEW_WORKERS_AI_ENABLED: value,
+    });
+    assert.equal(health.configured, 0, value);
+    assert.equal(health.ready, false, value);
+  }
+});
+
+test('review provider health reports an exhausted Workers AI daily budget as unavailable', async () => {
+  const namespace = cooldownNamespace();
+  const stub = namespace.get(namespace.idFromName('workers-ai'));
+  const day = new Date().toISOString().slice(0, 10);
+  const reserved = await stub.fetch('https://review-cooldown.internal/reserve-neurons', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ day, neurons: 100, limit: 100 }),
+  });
+  assert.equal(reserved.status, 200);
+
+  const health = await reviewProviderPoolHealth({
+    ...auth,
+    AI: workersAiBinding(async () => ({})),
+    KANAREK_REVIEW_COOLDOWNS: namespace,
+    KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS: '100',
+  });
+  assert.equal(health.configured, 1);
+  assert.equal(health.available, 0);
+  assert.equal(health.ready, false);
+});
+
+test('review router classifies a failed Workers AI budget reservation as transient', async () => {
+  const cooldownCategories: string[] = [];
+  const namespace = {
+    idFromName(name: string) {
+      return name as unknown as DurableObjectId;
+    },
+    get() {
+      return {
+        fetch(input: RequestInfo | URL, init?: RequestInit) {
+          const pathname = new URL(String(input)).pathname;
+          if (pathname === '/active') return Promise.resolve(Response.json({ active: false }));
+          if (pathname === '/reserve-neurons') return Promise.resolve(new Response('down', { status: 500 }));
+          if (pathname === '/extend') {
+            const body = JSON.parse(String(init?.body)) as { category?: string };
+            if (body.category) cooldownCategories.push(body.category);
+            return Promise.resolve(Response.json({ ok: true, category: body.category, until: Date.now() + 30_000 }));
+          }
+          return Promise.resolve(new Response('not found', { status: 404 }));
+        },
+      } as DurableObjectStub;
+    },
+  } as unknown as DurableObjectNamespace;
+
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    AI: workersAiBinding(async () => ({ choices: [] })),
+    KANAREK_REVIEW_COOLDOWNS: namespace,
+    OPENROUTER_API_KEY: 'openrouter-key',
+  }, (() => Promise.resolve(new Response('{"choices":[]}', { status: 200 }))) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.deepEqual(cooldownCategories, ['network']);
 });

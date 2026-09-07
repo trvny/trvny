@@ -1,67 +1,84 @@
 version: 2
 updates:
-  - package-ecosystem: github-actions
-    directory: /
+  - package-ecosystem: "npm"
+    directory: "/mcp/status-mcp"
     schedule:
-      interval: monthly
+      interval: "weekly"
+      day: "monday"
+      time: "21:37"
+      timezone: "Europe/Warsaw"
+    commit-message:
+      prefix: "deps"
+    groups:
+      npm:
+        patterns:
+          - "*"
+  - package-ecosystem: "npm"
+    directory: "/mcp/pet-dispatcher"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "21:37"
+      timezone: "Europe/Warsaw"
+    commit-message:
+      prefix: "deps"
+    groups:
+      npm:
+        patterns:
+          - "*"
+  - package-ecosystem: "npm"
+    directory: "/gh-apps/kanarek-companion"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "21:37"
+      timezone: "Europe/Warsaw"
+    commit-message:
+      prefix: "deps"
+    groups:
+      npm:
+        patterns:
+          - "*"
+  - package-ecosystem: "npm"
+    directory: "/tg-bots/cloudflare-assistant"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "21:37"
+      timezone: "Europe/Warsaw"
+    commit-message:
+      prefix: "deps"
+    groups:
+      npm:
+        patterns:
+          - "*"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "21:37"
+      timezone: "Europe/Warsaw"
+    commit-message:
+      prefix: "ci"
+    # gh-aw action pins are compiler-owned. Upgrade them together with the
+    # compiler and generated workflow via `gh aw upgrade`, never independently.
+    ignore:
+      - dependency-name: "github/gh-aw-actions/*"
     groups:
       actions:
         patterns:
           - "*"
-    labels:
-      - dependencies
-
-  - package-ecosystem: npm
-    directory: /gh-apps/kanarek-companion
+  - package-ecosystem: "pre-commit"
+    directory: "/.github"
     schedule:
-      interval: weekly
+      interval: "weekly"
+      day: "monday"
+      time: "21:37"
+      timezone: "Europe/Warsaw"
+    commit-message:
+      prefix: "ci"
     groups:
-      kanarek-companion:
+      hooks:
         patterns:
           - "*"
-    labels:
-      - dependencies
-
-  - package-ecosystem: npm
-    directory: /mcp/pet-dispatcher
-    schedule:
-      interval: weekly
-    groups:
-      mcp-pet-dispatcher:
-        patterns:
-          - "*"
-    labels:
-      - dependencies
-
-  - package-ecosystem: npm
-    directory: /mcp/status-mcp
-    schedule:
-      interval: weekly
-    groups:
-      mcp-status-mcp:
-        patterns:
-          - "*"
-    labels:
-      - dependencies
-
-  - package-ecosystem: npm
-    directory: /tg-bots/cloudflare-assistant
-    schedule:
-      interval: weekly
-    groups:
-      tg-cloudflare-assistant:
-        patterns:
-          - "*"
-    labels:
-      - dependencies
-
-  - package-ecosystem: pre-commit
-    directory: /.github
-    schedule:
-      interval: weekly
-    groups:
-      pre-commit:
-        patterns:
-          - "*"
-    labels:
-      - dependencies

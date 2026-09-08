@@ -4,7 +4,9 @@ on:
   issues:
     types: [edited, labeled, unlabeled]
 
-permissions: {}
+permissions:
+  issues: write
+  pull-requests: write
 
 jobs:
   wake:
@@ -19,7 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Wake GPTomek control mailbox
+      - name: Wake primary Issue mailbox
+        id: primary
+        continue-on-error: true
         env:
           GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
         shell: bash
@@ -32,3 +36,87 @@ jobs:
             -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
             https://kanarek-companion.travny.workers.dev/gptomek/wake \
             >/dev/null
+
+      - name: Fail over to legacy PR mailbox
+        if: steps.primary.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          marker="$(python3 - "$GITHUB_EVENT_PATH" <<'PY'
+          import json, re, sys
+          body = json.load(open(sys.argv[1], encoding='utf-8'))['issue'].get('body') or ''
+          match = re.search(r'<!--\s*gptomek-command:[A-Za-z0-9+/_-]+={0,2}\s*-->', body)
+          if not match:
+              raise SystemExit('command marker missing from event payload')
+          print(match.group(0))
+          PY
+          )"
+
+          gh api repos/trvny/trvny/issues/203 >/tmp/gptomek-live-issue.json
+          live_marker="$(python3 - <<'PY'
+          import json, re
+          issue = json.load(open('/tmp/gptomek-live-issue.json', encoding='utf-8'))
+          match = re.search(
+              r'<!--\s*gptomek-command:[A-Za-z0-9+/_-]+={0,2}\s*-->',
+              issue.get('body') or '',
+          )
+          print(match.group(0) if match else '')
+          PY
+          )"
+          if [[ "$live_marker" != "$marker" ]]; then
+            echo 'Primary mailbox changed or cleared; skipping stale fallback.'
+            exit 0
+          fi
+
+          jq -n --arg body "$marker" '{body: $body}' >/tmp/gptomek-fallback.json
+          gh api --method PATCH repos/trvny/trvny/pulls/176 \
+            --input /tmp/gptomek-fallback.json >/dev/null
+
+          for _ in $(seq 1 20); do
+            gh api repos/trvny/trvny/pulls/176 >/tmp/gptomek-pr.json
+            if ! jq -r '.body // ""' /tmp/gptomek-pr.json | grep -q '<!-- gptomek-command:'; then
+              gh api repos/trvny/trvny/issues/203 >/tmp/gptomek-issue.json
+              current_marker="$(python3 - <<'PY'
+          import json, re
+          issue = json.load(open('/tmp/gptomek-issue.json', encoding='utf-8'))
+          match = re.search(
+              r'<!--\s*gptomek-command:[A-Za-z0-9+/_-]+={0,2}\s*-->',
+              issue.get('body') or '',
+          )
+          print(match.group(0) if match else '')
+          PY
+              )"
+              if [[ "$current_marker" != "$marker" ]]; then
+                echo 'Primary mailbox changed while fallback ran; preserving newer state.'
+                exit 0
+              fi
+
+              python3 - "$marker" <<'PY' >/tmp/gptomek-issue-body.txt
+          import json, re, sys
+          marker = sys.argv[1]
+          issue = json.load(open('/tmp/gptomek-issue.json', encoding='utf-8'))
+          fallback = json.load(open('/tmp/gptomek-pr.json', encoding='utf-8'))
+          body = issue.get('body') or ''
+          body = body.replace(marker, '', 1)
+          body = re.sub(r'<!--\s*gptomek-result:[A-Za-z0-9+/_-]+={0,2}\s*-->', '', body)
+          result = re.search(
+              r'<!--\s*gptomek-result:[A-Za-z0-9+/_-]+={0,2}\s*-->',
+              fallback.get('body') or '',
+          )
+          clean = re.sub(r'\n{3,}', '\n\n', body).strip()
+          print('\n\n'.join(part for part in [clean, result.group(0) if result else ''] if part))
+          PY
+              jq -n --rawfile body /tmp/gptomek-issue-body.txt '{body: ($body | sub("\\n$"; ""))}' \
+                >/tmp/gptomek-issue-update.json
+              gh api --method PATCH repos/trvny/trvny/issues/203 \
+                --input /tmp/gptomek-issue-update.json >/dev/null
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo 'Fallback mailbox did not consume the command within 20 seconds.' >&2
+          exit 1

@@ -4,6 +4,12 @@ import {
   GitHubApiError,
   type GitHubInstallationClient,
 } from './github-app.ts';
+import {
+  autopilotInputHash,
+  checkpointCall,
+  type AutopilotCheckpointEnv,
+} from './autopilot-checkpoint.ts';
+import { githubBotRequestAllowed } from './gpt-actions.ts';
 import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-types.ts';
 
 const GITHUB_API = 'https://api.github.com';
@@ -13,7 +19,10 @@ const CONTROL_PULL_REQUEST = 176;
 const CONTROL_BRANCH = 'gptomek/control';
 const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9+/_-]+={0,2})\s*-->/;
 const COMMAND_PREFIX_RE = /<!--\s*gptomek-command:/;
+const RESULT_RE = /<!--\s*gptomek-result:([A-Za-z0-9+/_-]+={0,2})\s*-->/g;
 const SHA_RE = /^[0-9a-f]{40}$/i;
+const MAX_BATCH_STEPS = 10;
+const MAX_RESULT_BYTES = 8_000;
 const ALLOWED_REPOSITORY_OWNERS = new Set(['trvny', 'twojstar']);
 const BOT_IDENTITY = {
   name: 'GPTomek',
@@ -29,6 +38,20 @@ const REACTIONS = new Set([
   'rocket',
   'eyes',
 ]);
+const SAFE_RETRY_ERRORS = new Set([
+  'base_is_not_branch_ancestor',
+  'branch_has_no_changes',
+  'branch_head_changed',
+  'invalid_branch_ref_response',
+  'invalid_commit_response',
+  'invalid_created_blob',
+  'invalid_created_commit',
+  'invalid_created_tree',
+  'protected_branch',
+]);
+
+type JsonObject = Record<string, unknown>;
+type GptomekTransport = 'issue' | 'pr';
 
 interface GptomekConfig {
   appId: string;
@@ -61,7 +84,7 @@ interface CommitFilesCommand {
   files: CommitFile[];
 }
 
-interface DeleteBranchCommand {
+export interface DeleteBranchCommand {
   id: string;
   op: 'delete_branch';
   repository: string;
@@ -94,19 +117,56 @@ interface ReactionCommand {
   reaction: string;
 }
 
-type GptomekCommand =
+interface OperatorActionCommand {
+  id: string;
+  op: 'operator_action';
+  repository: string;
+  method: string;
+  path: string;
+  body?: unknown;
+  expect: 'json' | 'empty';
+}
+
+type NonBatchGptomekCommand =
   | AdoptBranchCommand
   | CommitFilesCommand
   | DeleteBranchCommand
   | CommentCommand
   | ReplyReviewCommand
-  | ReactionCommand;
+  | ReactionCommand
+  | OperatorActionCommand;
+
+interface BatchCommand {
+  id: string;
+  op: 'batch';
+  repository: string;
+  steps: NonBatchGptomekCommand[];
+}
+
+type GptomekCommand = NonBatchGptomekCommand | BatchCommand;
+
+export interface GptomekResultEnvelope {
+  id: string;
+  operation: GptomekCommand['op'];
+  repository: string;
+  ok: boolean;
+  transport: GptomekTransport;
+  durationMs: number;
+  deduplicated?: boolean;
+  result?: unknown;
+  error?: string;
+}
 
 export interface GptomekControlResult {
   control: boolean;
   handled: boolean;
   commandId?: string;
   operation?: GptomekCommand['op'];
+  result?: GptomekResultEnvelope;
+}
+
+function isObject(value: unknown): value is JsonObject {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function requiredString(value: unknown, name: string, max = 65_000): string {
@@ -142,9 +202,7 @@ export function gptomekRepositoryAllowed(value: string): boolean {
 
 function repository(value: unknown): string {
   const result = requiredString(value, 'repository', 200);
-  if (!gptomekRepositoryAllowed(result)) {
-    throw new Error('repository_not_allowed');
-  }
+  if (!gptomekRepositoryAllowed(result)) throw new Error('repository_not_allowed');
   return result;
 }
 
@@ -182,7 +240,70 @@ function commandId(value: unknown): string {
   return result;
 }
 
-function parseCommand(value: unknown): GptomekCommand {
+function normalizeOperatorPath(path: string): URL {
+  if (!path.startsWith('/') || path.startsWith('//')) throw new Error('invalid_github_path');
+  const target = new URL(path, GITHUB_API);
+  if (target.origin !== GITHUB_API) throw new Error('invalid_github_path');
+  return target;
+}
+
+function operatorActionNeedsGuardedOperation(
+  repositoryName: string,
+  methodValue: string,
+  target: URL,
+): boolean {
+  const method = methodValue.toUpperCase();
+  const prefix = `/repos/${repositoryName}/`;
+  if (!target.pathname.startsWith(prefix)) return false;
+  const segments = target.pathname.slice(prefix.length).split('/').filter(Boolean);
+  const [root, area, scope] = segments;
+
+  if (root === 'contents' && (method === 'PUT' || method === 'DELETE')) return true;
+  if (root === 'git' && area === 'refs') {
+    if (method === 'POST' && segments.length === 2) return true;
+    if ((method === 'PATCH' || method === 'DELETE') && scope === 'heads' && segments.length >= 4) {
+      return true;
+    }
+  }
+  if (root === 'actions' && method === 'POST') {
+    if (area === 'runs') return true;
+    if (area === 'workflows' && segments.at(-1) === 'dispatches') return true;
+  }
+  return (
+    root === 'releases' &&
+    (method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE')
+  );
+}
+
+export function gptomekOperatorActionAllowed(
+  repositoryName: string,
+  method: string,
+  path: string,
+  body: unknown = null,
+): boolean {
+  if (!gptomekRepositoryAllowed(repositoryName)) return false;
+  let target: URL;
+  try {
+    target = normalizeOperatorPath(path);
+  } catch {
+    return false;
+  }
+  const prefix = `/repos/${repositoryName}`;
+  if (target.pathname !== prefix && !target.pathname.startsWith(`${prefix}/`)) return false;
+  if (operatorActionNeedsGuardedOperation(repositoryName, method, target)) return false;
+
+  const [owner] = repositoryName.split('/');
+  if (owner === 'trvny') {
+    return githubBotRequestAllowed(method, `${target.pathname}${target.search}`, body);
+  }
+
+  // GPT Actions keeps the mutation policy rooted at trvny/*. Re-map only for
+  // policy evaluation so twojstar/* uses the exact same guarded surface.
+  const policyPath = target.pathname.replace(/^\/repos\/twojstar\//, '/repos/trvny/');
+  return githubBotRequestAllowed(method, `${policyPath}${target.search}`, body);
+}
+
+function parseCommand(value: unknown, nested = false): GptomekCommand {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('invalid_command');
   }
@@ -207,9 +328,7 @@ function parseCommand(value: unknown): GptomekCommand {
       throw new Error('invalid_files');
     }
     const files = input.files.map((value) => {
-      if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        throw new Error('invalid_file');
-      }
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid_file');
       const file = value as Record<string, unknown>;
       if (file.content !== null && typeof file.content !== 'string') {
         throw new Error('invalid_file_content');
@@ -276,6 +395,46 @@ function parseCommand(value: unknown): GptomekCommand {
     };
   }
 
+  if (op === 'operator_action') {
+    const repositoryName = repository(input.repository);
+    const method = requiredString(input.method, 'method', 10).toUpperCase();
+    const path = requiredString(input.path, 'github_path', 2_000);
+    const body = input.body;
+    if (!gptomekOperatorActionAllowed(repositoryName, method, path, body)) {
+      throw new Error('operator_action_not_allowed');
+    }
+    return {
+      id,
+      op,
+      repository: repositoryName,
+      method,
+      path,
+      ...(body === undefined ? {} : { body }),
+      expect: input.expect === 'empty' || method === 'DELETE' ? 'empty' : 'json',
+    };
+  }
+
+  if (op === 'batch') {
+    if (nested) throw new Error('nested_batch_not_allowed');
+    const repositoryName = repository(input.repository);
+    if (!Array.isArray(input.steps) || input.steps.length < 1 || input.steps.length > MAX_BATCH_STEPS) {
+      throw new Error('invalid_batch_steps');
+    }
+    if (id.length > 90) throw new Error('batch_command_id_too_long');
+    const steps = input.steps.map((step, index): NonBatchGptomekCommand => {
+      if (!isObject(step) || step.id !== undefined || step.repository !== undefined) {
+        throw new Error('invalid_batch_step');
+      }
+      const parsed = parseCommand(
+        { ...step, id: `${id}.${index + 1}`, repository: repositoryName },
+        true,
+      );
+      if (parsed.op === 'batch') throw new Error('nested_batch_not_allowed');
+      return parsed;
+    });
+    return { id, op, repository: repositoryName, steps };
+  }
+
   throw new Error('unsupported_operation');
 }
 
@@ -299,6 +458,10 @@ export function commandMarker(command: unknown): string {
   return `<!-- gptomek-command:${encodeGptomekCommand(command)} -->`;
 }
 
+export function resultMarker(result: GptomekResultEnvelope): string {
+  return `<!-- gptomek-result:${encodeGptomekCommand(result)} -->`;
+}
+
 function commandFromBody(body: string | null | undefined): GptomekCommand | null {
   if (!body) return null;
   const match = body.match(COMMAND_RE);
@@ -320,6 +483,15 @@ function commandFromBody(body: string | null | undefined): GptomekCommand | null
 
 function withoutCommand(body: string | null | undefined): string {
   return (body ?? '').replace(COMMAND_RE, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function bodyWithResult(
+  body: string | null | undefined,
+  result: GptomekResultEnvelope,
+  removeCommand: boolean,
+): string {
+  const clean = (removeCommand ? withoutCommand(body) : (body ?? '').trim()).replace(RESULT_RE, '').trim();
+  return [clean, resultMarker(result)].filter(Boolean).join('\n\n');
 }
 
 function config(env: CompanionEnv): GptomekConfig {
@@ -392,9 +564,7 @@ async function commit(
     `/repos/${repoPath(repositoryName)}/git/commits/${commitSha}`,
     'gptomek_get_commit',
   );
-  if (!value.tree?.sha || !SHA_RE.test(value.tree.sha)) {
-    throw new Error('invalid_commit_response');
-  }
+  if (!value.tree?.sha || !SHA_RE.test(value.tree.sha)) throw new Error('invalid_commit_response');
   return { message: value.message ?? '', tree: { sha: value.tree.sha } };
 }
 
@@ -433,17 +603,14 @@ async function updateBranch(
   await client.json<unknown>(
     `/repos/${repoPath(repositoryName)}/git/refs/heads/${refPath(branchName)}`,
     'gptomek_update_branch',
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ sha: commitSha, force }),
-    },
+    { method: 'PATCH', body: JSON.stringify({ sha: commitSha, force }) },
   );
 }
 
 async function adoptBranch(
   client: GitHubInstallationClient,
   command: AdoptBranchCommand,
-): Promise<void> {
+): Promise<JsonObject> {
   const currentHead = await branchHead(client, command.repository, command.branch);
   if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
   if (command.baseSha === command.expectedHeadSha) throw new Error('branch_has_no_changes');
@@ -465,28 +632,24 @@ async function adoptBranch(
     command.baseSha,
   );
   await updateBranch(client, command.repository, command.branch, newSha, true);
+  return { sha: newSha };
 }
 
 async function commitFiles(
   client: GitHubInstallationClient,
   command: CommitFilesCommand,
-): Promise<void> {
+): Promise<JsonObject> {
   const currentHead = await branchHead(client, command.repository, command.branch);
   if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
   const baseCommit = await commit(client, command.repository, command.expectedHeadSha);
 
   const tree = await Promise.all(
     command.files.map(async (file) => {
-      if (file.content === null) {
-        return { path: file.path, mode: '100644', type: 'blob', sha: null };
-      }
+      if (file.content === null) return { path: file.path, mode: '100644', type: 'blob', sha: null };
       const blob = await client.json<{ sha?: string }>(
         `/repos/${repoPath(command.repository)}/git/blobs`,
         'gptomek_create_blob',
-        {
-          method: 'POST',
-          body: JSON.stringify({ content: file.content, encoding: 'utf-8' }),
-        },
+        { method: 'POST', body: JSON.stringify({ content: file.content, encoding: 'utf-8' }) },
       );
       if (!blob.sha || !SHA_RE.test(blob.sha)) throw new Error('invalid_created_blob');
       return { path: file.path, mode: '100644', type: 'blob', sha: blob.sha };
@@ -496,14 +659,9 @@ async function commitFiles(
   const createdTree = await client.json<{ sha?: string }>(
     `/repos/${repoPath(command.repository)}/git/trees`,
     'gptomek_create_tree',
-    {
-      method: 'POST',
-      body: JSON.stringify({ base_tree: baseCommit.tree.sha, tree }),
-    },
+    { method: 'POST', body: JSON.stringify({ base_tree: baseCommit.tree.sha, tree }) },
   );
-  if (!createdTree.sha || !SHA_RE.test(createdTree.sha)) {
-    throw new Error('invalid_created_tree');
-  }
+  if (!createdTree.sha || !SHA_RE.test(createdTree.sha)) throw new Error('invalid_created_tree');
 
   const newSha = await createCommit(
     client,
@@ -513,12 +671,10 @@ async function commitFiles(
     command.expectedHeadSha,
   );
   await updateBranch(client, command.repository, command.branch, newSha, false);
+  return { sha: newSha };
 }
 
-export function isProtectedBranch(
-  branchName: string,
-  defaultBranch: string,
-): boolean {
+export function isProtectedBranch(branchName: string, defaultBranch: string): boolean {
   return (
     branchName.toLowerCase() === 'main' ||
     branchName === defaultBranch ||
@@ -529,21 +685,19 @@ export function isProtectedBranch(
 export async function deleteBranch(
   client: GitHubInstallationClient,
   command: DeleteBranchCommand,
-): Promise<void> {
+): Promise<JsonObject> {
   const repositoryInfo = await client.json<{ default_branch?: unknown }>(
     `/repos/${repoPath(command.repository)}`,
     'gptomek_get_repository',
   );
   const defaultBranch = branch(repositoryInfo.default_branch);
-  if (isProtectedBranch(command.branch, defaultBranch)) {
-    throw new Error('protected_branch');
-  }
+  if (isProtectedBranch(command.branch, defaultBranch)) throw new Error('protected_branch');
 
   let currentHead: string;
   try {
     currentHead = await branchHead(client, command.repository, command.branch);
   } catch (error) {
-    if (error instanceof GitHubApiError && error.status === 404) return;
+    if (error instanceof GitHubApiError && error.status === 404) return { deleted: false, missing: true };
     throw error;
   }
   if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
@@ -553,46 +707,273 @@ export async function deleteBranch(
     'gptomek_delete_branch',
     { method: 'DELETE' },
   );
+  return { deleted: true };
+}
+
+function idempotencyMarker(id: string): string {
+  return `<!-- gptomek-id:${id} -->`;
+}
+
+function markedBody(body: string, id: string): string {
+  const marker = idempotencyMarker(id);
+  return body.includes(marker) ? body : `${body}\n\n${marker}`;
+}
+
+export function gptomekReplayCommentMatches(item: JsonObject, id: string): boolean {
+  const marker = idempotencyMarker(id);
+  const user = isObject(item.user) ? item.user : null;
+  return (
+    typeof item.body === 'string' &&
+    item.body.includes(marker) &&
+    user?.login === 'gptomek[bot]'
+  );
+}
+
+async function existingMarkedComment(
+  client: GitHubInstallationClient,
+  path: string,
+  id: string,
+): Promise<JsonObject | null> {
+  const comments = await client.paginate<JsonObject>(path, 'gptomek_find_existing_comment', {
+    maxPages: 5,
+    stopWhen: (items) => items.some((item) => gptomekReplayCommentMatches(item, id)),
+  });
+  return comments.find((item) => gptomekReplayCommentMatches(item, id)) ?? null;
+}
+
+function compactResult(value: unknown): unknown {
+  if (value === undefined) return null;
+  try {
+    const encoded = JSON.stringify(value);
+    if (encoded.length <= MAX_RESULT_BYTES) return value;
+    return { truncated: true, bytes: encoded.length };
+  } catch {
+    return { truncated: true, reason: 'non_serializable_result' };
+  }
 }
 
 async function executeCommand(
   client: GitHubInstallationClient,
   command: GptomekCommand,
-): Promise<void> {
+  env: CompanionEnv,
+): Promise<unknown> {
   if (command.op === 'adopt_branch') return adoptBranch(client, command);
   if (command.op === 'commit_files') return commitFiles(client, command);
   if (command.op === 'delete_branch') return deleteBranch(client, command);
 
   if (command.op === 'comment') {
-    await client.json<unknown>(
-      `/repos/${repoPath(command.repository)}/issues/${command.pullRequestNumber}/comments`,
-      'gptomek_create_comment',
-      { method: 'POST', body: JSON.stringify({ body: command.body }) },
+    const path = `/repos/${repoPath(command.repository)}/issues/${command.pullRequestNumber}/comments`;
+    const existing = await existingMarkedComment(client, path, command.id);
+    if (existing) return compactResult(existing);
+    return compactResult(
+      await client.json<unknown>(path, 'gptomek_create_comment', {
+        method: 'POST',
+        body: JSON.stringify({ body: markedBody(command.body, command.id) }),
+      }),
     );
-    return;
   }
 
   if (command.op === 'reply_review') {
-    await client.json<unknown>(
-      `/repos/${repoPath(command.repository)}/pulls/${command.pullRequestNumber}/comments/${command.commentId}/replies`,
-      'gptomek_reply_review',
-      { method: 'POST', body: JSON.stringify({ body: command.body }) },
+    const listPath = `/repos/${repoPath(command.repository)}/pulls/${command.pullRequestNumber}/comments`;
+    const existing = await existingMarkedComment(client, listPath, command.id);
+    if (existing) return compactResult(existing);
+    return compactResult(
+      await client.json<unknown>(
+        `/repos/${repoPath(command.repository)}/pulls/${command.pullRequestNumber}/comments/${command.commentId}/replies`,
+        'gptomek_reply_review',
+        {
+          method: 'POST',
+          body: JSON.stringify({ body: markedBody(command.body, command.id) }),
+        },
+      ),
     );
-    return;
   }
 
-  const collection = command.op === 'react_review_comment' ? 'pulls/comments' : 'issues/comments';
-  await client.json<unknown>(
-    `/repos/${repoPath(command.repository)}/${collection}/${command.commentId}/reactions`,
-    'gptomek_add_reaction',
-    { method: 'POST', body: JSON.stringify({ content: command.reaction }) },
-  );
+  if (command.op === 'react_issue_comment' || command.op === 'react_review_comment') {
+    const collection = command.op === 'react_review_comment' ? 'pulls/comments' : 'issues/comments';
+    return compactResult(
+      await client.json<unknown>(
+        `/repos/${repoPath(command.repository)}/${collection}/${command.commentId}/reactions`,
+        'gptomek_add_reaction',
+        { method: 'POST', body: JSON.stringify({ content: command.reaction }) },
+      ),
+    );
+  }
+
+  if (command.op === 'operator_action') {
+    if (command.expect === 'empty') {
+      await client.void(command.path, 'gptomek_operator_action', {
+        method: command.method,
+        body: command.body === undefined ? undefined : JSON.stringify(command.body),
+      });
+      return { ok: true };
+    }
+    return compactResult(
+      await client.json<unknown>(command.path, 'gptomek_operator_action', {
+        method: command.method,
+        body: command.body === undefined ? undefined : JSON.stringify(command.body),
+      }),
+    );
+  }
+
+  if (command.op === 'batch') {
+    const results: JsonObject[] = [];
+    for (const step of command.steps) {
+      const execution = await executeIdempotent(client, step, env);
+      results.push({
+        id: step.id,
+        operation: step.op,
+        deduplicated: execution.deduplicated,
+        result: execution.result,
+      });
+    }
+    return { count: results.length, steps: results };
+  }
+
+  throw new Error('unsupported_operation');
 }
 
-export function isGptomekControlPr(
-  target: CompanionTarget,
-  pr: PullRequest,
-): boolean {
+function checkpointNamespace(env: CompanionEnv): DurableObjectNamespace {
+  const namespace = (env as CompanionEnv & { OPERATOR_CHECKPOINTS?: DurableObjectNamespace }).OPERATOR_CHECKPOINTS;
+  if (!namespace) throw new Error('gptomek_checkpoint_not_configured');
+  return namespace;
+}
+
+async function commandCheckpointId(commandIdValue: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(commandIdValue));
+  const hex = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+  return `op-gptomek-${hex.slice(0, 48)}`;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function claimCheckpoint(
+  env: CompanionEnv,
+  command: GptomekCommand,
+): Promise<
+  | { state: 'execute'; operationId: string; inputHash: string }
+  | { state: 'complete'; result: unknown }
+> {
+  checkpointNamespace(env);
+  const operationId = await commandCheckpointId(command.id);
+  const inputHash = await autopilotInputHash(command as unknown as JsonObject);
+  const checkpointEnv = env as AutopilotCheckpointEnv;
+
+  for (let attempt = 0; attempt < 17; attempt += 1) {
+    const claim = await checkpointCall(checkpointEnv, operationId, '/claim', { operationId, inputHash });
+    const state = claim.payload.state;
+    const progress = isObject(claim.payload.progress) ? claim.payload.progress : null;
+    if (state === 'recover' && progress?.gptomekOutcome === 'uncertain') {
+      throw new Error('command_outcome_uncertain');
+    }
+    if (state === 'claimed' || state === 'recover') {
+      return { state: 'execute', operationId, inputHash };
+    }
+    if (state === 'complete') {
+      const stored = isObject(claim.payload.result) && isObject(claim.payload.result.body)
+        ? claim.payload.result.body
+        : null;
+      if (stored?.ok === false && stored.uncertain === true) {
+        throw new Error('command_outcome_uncertain');
+      }
+      if (!stored || stored.ok !== true) throw new Error('invalid_gptomek_checkpoint_result');
+      return { state: 'complete', result: stored.result ?? null };
+    }
+    if (state === 'input_mismatch') throw new Error('command_id_reused_with_different_input');
+    if (state !== 'in_progress') throw new Error('invalid_gptomek_checkpoint_claim');
+    if (attempt < 16) await sleep(250);
+  }
+  throw new Error('command_in_progress');
+}
+
+async function markCheckpointUncertain(
+  env: AutopilotCheckpointEnv,
+  operationId: string,
+  inputHash: string,
+): Promise<void> {
+  try {
+    const completed = await checkpointCall(env, operationId, '/complete', {
+      inputHash,
+      status: 409,
+      body: { ok: false, uncertain: true, error: 'command_outcome_uncertain' },
+    });
+    if (completed.response.ok) return;
+  } catch {
+    // Fall through to a recoverable progress marker if the completion response
+    // itself was lost.
+  }
+  try {
+    await checkpointCall(env, operationId, '/progress', {
+      inputHash,
+      progress: { gptomekOutcome: 'uncertain' },
+    });
+  } catch {
+    // Do not release the lease. If the checkpoint store is temporarily down,
+    // retaining the running claim is safer than making a duplicate write easy.
+  }
+}
+
+function executionFailureSafeToRetry(error: unknown): boolean {
+  if (error instanceof GitHubApiError) return true;
+  return error instanceof Error && SAFE_RETRY_ERRORS.has(error.message);
+}
+
+async function executeIdempotent(
+  client: GitHubInstallationClient,
+  command: GptomekCommand,
+  env: CompanionEnv,
+): Promise<{ result: unknown; deduplicated: boolean }> {
+  const claim = await claimCheckpoint(env, command);
+  if (claim.state === 'complete') return { result: claim.result, deduplicated: true };
+
+  const checkpointEnv = env as AutopilotCheckpointEnv;
+  let executionCompleted = false;
+  try {
+    const result = compactResult(await executeCommand(client, command, env));
+    executionCompleted = true;
+    const completed = await checkpointCall(checkpointEnv, claim.operationId, '/complete', {
+      inputHash: claim.inputHash,
+      status: 200,
+      body: { ok: true, result },
+    });
+    if (!completed.response.ok) {
+      await markCheckpointUncertain(checkpointEnv, claim.operationId, claim.inputHash);
+      throw new Error('command_outcome_uncertain');
+    }
+    return { result, deduplicated: false };
+  } catch (error) {
+    if (error instanceof Error && error.message === 'command_outcome_uncertain') throw error;
+    const ambiguous =
+      executionCompleted || (command.op !== 'batch' && !executionFailureSafeToRetry(error));
+    if (ambiguous) {
+      await markCheckpointUncertain(checkpointEnv, claim.operationId, claim.inputHash);
+      throw new Error('command_outcome_uncertain');
+    }
+    try {
+      await checkpointCall(checkpointEnv, claim.operationId, '/release', { inputHash: claim.inputHash });
+    } catch {
+      // Preserve the original operation error. A retained lease is safer than
+      // hiding it with checkpoint cleanup noise.
+    }
+    throw error;
+  }
+}
+
+function transportFromPath(clearPath: string): GptomekTransport {
+  return clearPath.includes('/issues/') ? 'issue' : 'pr';
+}
+
+function errorCode(error: unknown): string {
+  if (error instanceof GitHubApiError) return `${error.operation}:${error.status}`;
+  if (error instanceof Error) return error.message.slice(0, 500);
+  return 'unknown_error';
+}
+
+export function isGptomekControlPr(target: CompanionTarget, pr: PullRequest): boolean {
   const author = (pr as PullRequest & { user?: { login?: string | null } }).user?.login;
   return (
     target.repository === CONTROL_REPOSITORY &&
@@ -610,6 +991,8 @@ export async function handleGptomekMailboxCommand(
   const command = commandFromBody(body);
   if (!command) return { control: true, handled: false };
 
+  const startedAt = Date.now();
+  const transport = transportFromPath(clearPath);
   const settings = config(env);
   const controlClient = await createInstallationClient(
     settings.appId,
@@ -632,28 +1015,71 @@ export async function handleGptomekMailboxCommand(
           commandInstallationId,
           fetcher,
         );
-  await executeCommand(commandClient, command);
 
-  await controlClient.json<unknown>(clearPath, 'gptomek_clear_command', {
-    method: 'PATCH',
-    body: JSON.stringify({ body: withoutCommand(body) }),
-  });
-
-  console.log(
-    JSON.stringify({
-      gptomek: 'command_completed',
-      commandId: command.id,
+  try {
+    const execution = await executeIdempotent(commandClient, command, env);
+    const envelope: GptomekResultEnvelope = {
+      id: command.id,
       operation: command.op,
       repository: command.repository,
-      installationId: commandInstallationId,
-    }),
-  );
-  return {
-    control: true,
-    handled: true,
-    commandId: command.id,
-    operation: command.op,
-  };
+      ok: true,
+      transport,
+      durationMs: Date.now() - startedAt,
+      deduplicated: execution.deduplicated,
+      result: execution.result,
+    };
+    await controlClient.json<unknown>(clearPath, 'gptomek_clear_command', {
+      method: 'PATCH',
+      body: JSON.stringify({ body: bodyWithResult(body, envelope, true) }),
+    });
+
+    console.log(
+      JSON.stringify({
+        gptomek: 'command_completed',
+        commandId: command.id,
+        operation: command.op,
+        repository: command.repository,
+        installationId: commandInstallationId,
+        transport,
+        deduplicated: execution.deduplicated,
+        durationMs: envelope.durationMs,
+      }),
+    );
+    return {
+      control: true,
+      handled: true,
+      commandId: command.id,
+      operation: command.op,
+      result: envelope,
+    };
+  } catch (error) {
+    const errorValue = errorCode(error);
+    const uncertain = errorValue === 'command_outcome_uncertain';
+    const envelope: GptomekResultEnvelope = {
+      id: command.id,
+      operation: command.op,
+      repository: command.repository,
+      ok: false,
+      transport,
+      durationMs: Date.now() - startedAt,
+      error: errorValue,
+    };
+    try {
+      await controlClient.json<unknown>(clearPath, 'gptomek_write_error_result', {
+        method: 'PATCH',
+        body: JSON.stringify({ body: bodyWithResult(body, envelope, uncertain) }),
+      });
+    } catch (resultError) {
+      console.error(
+        JSON.stringify({
+          gptomek: 'result_write_failed',
+          commandId: command.id,
+          failure: errorCode(resultError),
+        }),
+      );
+    }
+    throw error;
+  }
 }
 
 export async function handleGptomekControl(

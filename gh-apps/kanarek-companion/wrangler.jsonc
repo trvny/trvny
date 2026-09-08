@@ -26,6 +26,10 @@
       {
         "name": "KANAREK_REVIEW_JOBS",
         "class_name": "WebhookReviewJob"
+      },
+      {
+        "name": "ANCHOR_MUTATION_REPLAYS",
+        "class_name": "AnchorMutationReplayStore"
       }
     ]
   },
@@ -62,6 +66,10 @@
     {
       "tag": "v6",
       "new_sqlite_classes": ["WebhookReviewJob"]
+    },
+    {
+      "tag": "v7",
+      "new_sqlite_classes": ["AnchorMutationReplayStore"]
     }
   ],
   "observability": {
@@ -81,6 +89,7 @@
     "GITHUB_APP_SLUG": "kanarek-companion",
     "GPTOMEK_APP_ID": "4524407",
     "GPTOMEK_INSTALLATION_ID": "152126523",
+    "GREMLIN_ANCHOR_FOLDER_ID": "01a07f52-1e05-7eeb-b9fe-53f7d75b3164",
     "KANAREK_AI_ENABLED": "true",
     "KANAREK_AI_PERCENT": "25",
     "KANAREK_PROVIDER_ORDER": "gemini,openai,xai,openai-fallback,anthropic",

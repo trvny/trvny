@@ -106,6 +106,49 @@ test('maps a real issues payload into the serialized control target', async () =
   ]);
 });
 
+function checkpointNamespace(): DurableObjectNamespace {
+  const completed = new Map<string, { inputHash: string; result: unknown }>();
+  return {
+    idFromName(name: string) {
+      return name as unknown as DurableObjectId;
+    },
+    get(id: DurableObjectId) {
+      const operationId = String(id);
+      return {
+        async fetch(input: RequestInfo | URL, init?: RequestInit) {
+          const url = new URL(typeof input === 'string' ? input : input.toString());
+          const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+          if (url.pathname === '/claim') {
+            const stored = completed.get(operationId);
+            if (stored) {
+              if (stored.inputHash !== body.inputHash) {
+                return Response.json({ ok: true, state: 'input_mismatch' });
+              }
+              return Response.json({
+                ok: true,
+                state: 'complete',
+                result: { status: 200, body: stored.result },
+              });
+            }
+            return Response.json({ ok: true, state: 'claimed' });
+          }
+          if (url.pathname === '/complete') {
+            completed.set(operationId, {
+              inputHash: String(body.inputHash),
+              result: body.body,
+            });
+            return Response.json({ ok: true });
+          }
+          if (url.pathname === '/release') {
+            completed.delete(operationId);
+            return Response.json({ ok: true, state: 'released' });
+          }
+          return Response.json({ error: 'unexpected_checkpoint_request' }, { status: 500 });
+        },
+      } as DurableObjectStub;
+    },
+  } as unknown as DurableObjectNamespace;
+}
 
 test('executes and clears the issue mailbox without the legacy PR shim', async () => {
   const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
@@ -177,21 +220,18 @@ test('executes and clears the issue mailbox without the legacy PR shim', async (
     GPTOMEK_APP_ID: '4524407',
     GPTOMEK_INSTALLATION_ID: '152126523',
     GPTOMEK_PRIVATE_KEY: privateKey,
-  } as CompanionEnv;
+    OPERATOR_CHECKPOINTS: checkpointNamespace(),
+  } as CompanionEnv & { OPERATOR_CHECKPOINTS: DurableObjectNamespace };
 
   const result = await handleGptomekIssueControl(target, env, fetcher);
 
   assert.equal(result.changed, true);
   assert.equal(result.state, 'gptomek-control');
   assert.equal(calls.some((call) => call.path.includes('/pulls/176')), false);
-  assert.deepEqual(
-    calls.filter((call) => call.method === 'PATCH'),
-    [
-      {
-        method: 'PATCH',
-        path: '/repos/trvny/trvny/issues/203',
-        body: JSON.stringify({ body: 'GPTomek control mailbox.' }),
-      },
-    ],
-  );
+  const patches = calls.filter((call) => call.method === 'PATCH');
+  assert.equal(patches.length, 1);
+  assert.equal(patches[0]?.path, '/repos/trvny/trvny/issues/203');
+  const patched = JSON.parse(patches[0]?.body ?? '{}') as { body?: string };
+  assert.match(patched.body ?? '', /^GPTomek control mailbox\.\n\n<!-- gptomek-result:/);
+  assert.equal((patched.body ?? '').includes('gptomek-command:'), false);
 });

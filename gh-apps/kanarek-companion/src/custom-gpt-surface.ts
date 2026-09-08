@@ -12,6 +12,7 @@ const HTTP_METHODS = new Set([
 ]);
 
 export const CUSTOM_GPT_OPERATION_LIMIT = 30;
+export const CUSTOM_GPT_DESCRIPTION_LIMIT = 300;
 
 // Keep the Builder-facing action surface intentionally small. The Worker may expose
 // additional guarded routes for internal composition and other clients; Custom GPTs
@@ -68,6 +69,36 @@ function operationIds(document: JsonObject): Set<string> {
   return ids;
 }
 
+function clippedDescription(value: string): string {
+  if (value.length <= CUSTOM_GPT_DESCRIPTION_LIMIT) return value;
+  const candidate = value.slice(0, CUSTOM_GPT_DESCRIPTION_LIMIT - 3).trimEnd();
+  const lastSpace = candidate.lastIndexOf(' ');
+  const clipped = lastSpace >= 240 ? candidate.slice(0, lastSpace).trimEnd() : candidate;
+  return `${clipped}...`;
+}
+
+function declaresObjectSchema(value: JsonObject): boolean {
+  if (value.type === 'object') return true;
+  return Array.isArray(value.type) && value.type.includes('object');
+}
+
+function normalizeBuilderCompatibility(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const entry of value) normalizeBuilderCompatibility(entry);
+    return;
+  }
+  if (!isObject(value)) return;
+
+  if (typeof value.description === 'string') {
+    value.description = clippedDescription(value.description);
+  }
+  if (declaresObjectSchema(value) && !isObject(value.properties)) {
+    value.properties = {};
+  }
+
+  for (const entry of Object.values(value)) normalizeBuilderCompatibility(entry);
+}
+
 export function curateCustomGptOpenApi(document: JsonObject): JsonObject {
   if (CUSTOM_GPT_OPERATION_IDS.length > CUSTOM_GPT_OPERATION_LIMIT) {
     throw new Error('custom_gpt_operation_limit_exceeded');
@@ -97,5 +128,7 @@ export function curateCustomGptOpenApi(document: JsonObject): JsonObject {
     }
     if (exposedOperations === 0) delete paths[path];
   }
+
+  normalizeBuilderCompatibility(document);
   return document;
 }

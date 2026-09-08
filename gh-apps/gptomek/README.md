@@ -148,6 +148,178 @@ Supported operations:
   already-completed GitHub side effects; retrying the outer command resumes via
   the per-step deduplication records.
 
+## Operator cheatsheet
+
+Use Issue #203 as the normal transport. The snippets below show the decoded
+command JSON; the transport itself carries the base64url-encoded JSON inside a
+`<!-- gptomek-command:... -->` marker.
+
+| Goal | Operation |
+| --- | --- |
+| Commit one or more files on an existing branch | `commit_files` |
+| Collapse a prepared branch into one GPTomek-authored commit | `adopt_branch` |
+| Remove a known branch safely | `delete_branch` |
+| Add a PR/issue conversation comment | `comment` |
+| Reply to an inline review comment | `reply_review` |
+| React to an issue/PR comment or review comment | `react_issue_comment` / `react_review_comment` |
+| Generic allowed GitHub metadata/status/deployment write | `operator_action` |
+| Run several same-repository operations in order | `batch` |
+
+Three rules prevent most foot-guns:
+
+1. Give every new logical command a fresh `id`. Reusing the same `id` with the
+   same input is a safe replay; reusing it with different input is rejected.
+2. For branch-changing typed operations, read the current head immediately
+   before the command and pass it as `expectedHeadSha`.
+3. A `batch` step must omit both `id` and `repository`; GPTomek derives the step
+   IDs from the outer command and injects the outer repository.
+
+### Commit files
+
+```json
+{
+  "id": "docs-readme-20260908-1",
+  "op": "commit_files",
+  "repository": "trvny/trvny",
+  "branch": "docs/example",
+  "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+  "message": "docs: update README",
+  "files": [
+    {
+      "path": "README.md",
+      "content": "replacement file contents\n"
+    }
+  ]
+}
+```
+
+Set `content` to `null` to delete a file. A command can contain up to 32 unique
+paths; individual string contents are limited to 48,000 characters.
+
+### Adopt a prepared branch
+
+```json
+{
+  "id": "adopt-example-20260908-1",
+  "op": "adopt_branch",
+  "repository": "trvny/trvny",
+  "branch": "feat/example",
+  "baseSha": "1111111111111111111111111111111111111111",
+  "expectedHeadSha": "2222222222222222222222222222222222222222",
+  "message": "feat: example change"
+}
+```
+
+Use this after a branch has the desired final tree but temporary commits should
+be replaced by one GPTomek-authored commit based on `baseSha`.
+
+### Reply to review
+
+```json
+{
+  "id": "pr510-review-3960644280-1",
+  "op": "reply_review",
+  "repository": "trvny/trvny",
+  "pullRequestNumber": 510,
+  "commentId": 3960644280,
+  "body": "Fixed in the final head."
+}
+```
+
+For a normal PR conversation comment instead, use `op: "comment"`, keep
+`pullRequestNumber`, remove `commentId`, and supply `body`.
+
+### React to a review comment
+
+```json
+{
+  "id": "pr510-review-3960644280-like-1",
+  "op": "react_review_comment",
+  "repository": "trvny/trvny",
+  "commentId": 3960644280,
+  "reaction": "+1"
+}
+```
+
+Use `react_issue_comment` for top-level issue/PR conversation comments. Allowed
+reactions are `+1`, `-1`, `laugh`, `confused`, `heart`, `hooray`, `rocket`, and
+`eyes`.
+
+### Generic allowed write
+
+Example: add an existing label to PR/Issue #510.
+
+```json
+{
+  "id": "pr510-label-docs-1",
+  "op": "operator_action",
+  "repository": "trvny/trvny",
+  "method": "POST",
+  "path": "/repos/trvny/trvny/issues/510/labels",
+  "body": {
+    "labels": ["documentation"]
+  },
+  "expect": "json"
+}
+```
+
+Use `operator_action` only for the generic surface allowed by the shared GPT
+Actions policy. Do not use it as a shortcut for raw contents/ref writes,
+workflow mutations, releases, or PR creation; those remain guarded or
+human-authored by design.
+
+### Ordered batch
+
+```json
+{
+  "id": "pr510-followup-1",
+  "op": "batch",
+  "repository": "trvny/trvny",
+  "steps": [
+    {
+      "op": "comment",
+      "pullRequestNumber": 510,
+      "body": "Docs follow-up applied."
+    },
+    {
+      "op": "react_review_comment",
+      "commentId": 3960644280,
+      "reaction": "+1"
+    },
+    {
+      "op": "operator_action",
+      "method": "POST",
+      "path": "/repos/trvny/trvny/issues/510/labels",
+      "body": {
+        "labels": ["documentation"]
+      },
+      "expect": "json"
+    }
+  ]
+}
+```
+
+A batch has 1–10 sequential steps, stops at the first error, and does not roll
+back earlier GitHub side effects. Completed steps keep their derived checkpoint,
+so retrying the same outer command resumes through deduplication instead of
+blindly repeating those steps.
+
+### Delete a branch
+
+```json
+{
+  "id": "delete-example-20260908-1",
+  "op": "delete_branch",
+  "repository": "trvny/trvny",
+  "branch": "feat/example",
+  "expectedHeadSha": "2222222222222222222222222222222222222222"
+}
+```
+
+Never substitute `main`, the repository default branch, or `gptomek/control`;
+GPTomek protects them. Fetch the branch head immediately before deletion and use
+that exact SHA as `expectedHeadSha`.
+
 `operator_action` is deliberately an adapter over the existing GPT Actions
 allowlist, not a replacement for guarded high-level actions. It still denies
 sensitive families such as collaborators, environments, hooks, keys, rulesets,

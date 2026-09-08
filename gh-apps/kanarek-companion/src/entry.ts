@@ -6,6 +6,12 @@ import {
   addAgentGuidanceOpenApi,
   handleAgentGuidanceAction,
 } from './agents-guidance-actions.ts';
+import {
+  ANCHOR_OPENAPI_PATH,
+  anchorStorageOpenApi,
+  handleAnchorStorageAction,
+  type AnchorStorageEnv,
+} from './anchor-storage.ts';
 import { addContext7OpenApi, handleContext7Action } from './context7-actions.ts';
 import { addDocsOpenApi, handleDocsAction } from './docs-actions.ts';
 import { addEngramOpenApi, handleEngramAction } from './engram-actions.ts';
@@ -27,7 +33,12 @@ import router, {
   OperatorCheckpointStore,
 } from './router.ts';
 
-export { actionFetch, CommentProbeLock, OperatorCheckpointStore, ReviewProviderCooldownStore };
+export {
+  actionFetch,
+  CommentProbeLock,
+  OperatorCheckpointStore,
+  ReviewProviderCooldownStore,
+};
 
 type JsonObject = Record<string, unknown>;
 type RouterEnv = Parameters<typeof router.fetch>[1];
@@ -38,7 +49,7 @@ interface WorkerVersionMetadataLike {
   timestamp?: string;
 }
 
-type Env = RouterEnv & ReviewRouterEnv & {
+type Env = RouterEnv & ReviewRouterEnv & AnchorStorageEnv & {
   CF_VERSION_METADATA?: WorkerVersionMetadataLike;
   CONTEXT7_API_KEY?: string;
   ENGRAM_API_KEY?: string;
@@ -54,13 +65,13 @@ const RUNTIME_SUBSYSTEMS = [
   'gptomek-bridge',
   'gremlin-operator',
   'specialist-intelligence',
+  'gremlin-storage',
 ] as const;
 const SMOKE_REPOSITORY = 'trvny/trvny';
 const REQUIRED_SMOKE_OPERATIONS = [
   'getOperatorBootstrap',
   'getOperatorCapabilities',
   'getCloudflareOverview',
-  'getDocsIndex',
   'searchDocs',
   'getDoc',
   'inspectPackage',
@@ -192,6 +203,11 @@ export async function gatewayManifest(
       operationCount: ids.length,
       operationIds: ids,
       capabilityDigest: `sha256:${await sha256(ids.join('\n'))}`,
+    },
+    anchorAction: {
+      path: ANCHOR_OPENAPI_PATH,
+      operationIds: operationIds(anchorStorageOpenApi('https://example.invalid')),
+      authentication: 'anchor-oauth',
     },
     mcp: mcpManifest(),
   };
@@ -375,6 +391,10 @@ async function decoratedHealth(
       configured: Boolean(env.CLOUDFLARE_ACCOUNT_ID?.trim() && env.CLOUDFLARE_API_TOKEN?.trim()),
     },
     specialists: {
+      anchor: {
+        configured: Boolean(env.GREMLIN_ANCHOR_FOLDER_ID?.trim()),
+        auth: 'direct-oauth-action',
+      },
       engram: { configured: Boolean(env.ENGRAM_API_KEY?.trim()) },
       context7: { configured: Boolean(env.CONTEXT7_API_KEY?.trim()) },
       feedseek: { configured: true },
@@ -385,6 +405,9 @@ async function decoratedHealth(
 const worker = {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === ANCHOR_OPENAPI_PATH && request.method === 'GET') {
+      return json(anchorStorageOpenApi(url.origin));
+    }
     if (url.pathname === MCP_PATH) {
       const mcpResponse = await handleSpecialistMcp(
         request,
@@ -413,6 +436,8 @@ const worker = {
       (internalRequest) => router.fetch(internalRequest, env, ctx),
     );
     if (docsResponse) return docsResponse;
+    const anchorResponse = await handleAnchorStorageAction(request, env, actionFetch);
+    if (anchorResponse) return anchorResponse;
     const packageResponse = await handlePackageIntelligenceAction(
       request,
       (internalRequest) => router.fetch(internalRequest, env, ctx),

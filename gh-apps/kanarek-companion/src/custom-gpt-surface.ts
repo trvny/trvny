@@ -14,9 +14,8 @@ const HTTP_METHODS = new Set([
 export const CUSTOM_GPT_OPERATION_LIMIT = 30;
 export const CUSTOM_GPT_DESCRIPTION_LIMIT = 300;
 
-// Keep the Builder-facing action surface intentionally small. The Worker may expose
-// additional guarded routes for internal composition and other clients; Custom GPTs
-// only need the high-level operator path plus a few generic escape hatches.
+// Keep the Builder-facing GitHub-authenticated surface intentionally small. Gremlin
+// uses 29 operations here plus one separately authenticated Anchor OAuth operation.
 export const CUSTOM_GPT_OPERATION_IDS = [
   'getOperatorBootstrap',
   'getGremlinKnowledge',
@@ -42,7 +41,6 @@ export const CUSTOM_GPT_OPERATION_IDS = [
   'finalizePullRequest',
   'orchestrateRelease',
   'diagnoseWorkflowRun',
-  'getDocsIndex',
   'getDoc',
   'storeEngramMemory',
   'githubRead',

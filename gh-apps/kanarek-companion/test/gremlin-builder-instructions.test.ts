@@ -13,6 +13,9 @@ test('Gremlin Builder instructions stay compact and runtime-oriented', async () 
   assert.ok(Buffer.byteLength(instructions, 'utf8') <= 8_000);
   assert.match(instructions, /getOperatorBootstrap/);
   assert.match(instructions, /getGremlinKnowledge/);
+  assert.match(instructions, /useGremlinStorage/);
+  assert.match(instructions, /separate Anchor-OAuth Action/);
+  assert.match(instructions, /never stores Anchor credentials/);
   assert.match(instructions, /searchContext7Docs/);
   assert.match(instructions, /searchEngramMemory/);
   assert.match(instructions, /searchFeedseek/);

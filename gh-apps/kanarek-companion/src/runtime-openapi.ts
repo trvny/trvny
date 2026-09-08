@@ -1,6 +1,7 @@
 import { addBugInvestigationOpenApi } from './bug-investigation.ts';
 import { addCodeChangeAutopilotOpenApi } from './code-change-orchestration.ts';
 import { addCodeHistoryOpenApi } from './code-history.ts';
+import { curateCustomGptOpenApi } from './custom-gpt-surface.ts';
 import { addDependencyGraphOpenApi } from './dependency-graph.ts';
 import { gatewayOpenApi } from './entry.ts';
 import { addFocusedCodeReviewOpenApi } from './focused-code-review.ts';
@@ -20,5 +21,5 @@ export function runtimeOpenApi(origin: string): Record<string, unknown> {
   addFocusedCodeReviewOpenApi(document);
   addBugInvestigationOpenApi(document);
   addCodeChangeAutopilotOpenApi(document);
-  return document;
+  return curateCustomGptOpenApi(document);
 }

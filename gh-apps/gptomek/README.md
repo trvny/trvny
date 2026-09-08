@@ -26,11 +26,42 @@ this README still documents the fallback as active. Retire it only as an
 explicit change after the Issue path has a verified replacement and rollback is
 no longer wanted.
 
+## Which transport to use
+
+Use Issue #203 for normal GPTomek operations. Use PR #176 only when the Issue
+mailbox or its Actions wake relay is unhealthy.
+
+Both transports feed the same GPTomek command parser and execution path, so they
+have the same operation surface and authorization. The legacy PR does not unlock
+extra capabilities.
+
+A same-operation smoke test on 2026-09-08 verified both paths end to end by
+adding a `gptomek[bot]` reaction and observing automatic command-marker cleanup.
+The Issue path completed in about 3 seconds from mailbox edit to side effect;
+the PR path also completed in about 3 seconds.
+
+| Property | Issue #203 | PR #176 |
+| --- | --- | --- |
+| Supported GPTomek operations | same shared command set | same shared command set |
+| Observed smoke latency | ~3 s | ~3 s |
+| Wake path | Issue edit → Actions relay → Worker | PR edit → Worker webhook |
+| Repository baggage | branchless | requires closed PR + persistent `gptomek/control` ref |
+| Best role | maintained default | independent transport fallback |
+
+The PR path has fewer transport hops, so it is useful specifically when GitHub
+Actions or the Issue relay is the failing component. That small architectural
+advantage is not a reason to use it routinely: the Issue mailbox is clearer,
+branchless, and easier to maintain, while measured interactive latency is
+effectively the same.
+
 When diagnosing the Issue path, check the chain in this order:
 
 1. the edit of Issue #203 and the `gptomek-wake` Actions run;
 2. the Worker's `/gptomek/wake` response and Cloudflare logs;
 3. the GPTomek command result and automatic marker removal.
+
+If that chain is broken, retry through PR #176 before treating GPTomek itself as
+down. A successful fallback command narrows the fault to the Issue/Actions relay.
 
 A known Cloudflare failure mode is passing the runtime `fetch` function around
 unbound. Inside Worker/Durable Object paths use a Worker-safe wrapper such as

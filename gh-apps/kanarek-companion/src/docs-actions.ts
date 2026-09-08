@@ -1,3 +1,5 @@
+import { searchLlmsDocs, type RemoteFetch } from './llms-docs.ts';
+
 const INDEX_PATH = '/gpt-actions/docs/index';
 const SEARCH_PATH = '/gpt-actions/docs/search';
 const GET_PATH = '/gpt-actions/docs/get';
@@ -283,11 +285,21 @@ function searchRepository(value: unknown): string | null {
   return repositoryValue(value);
 }
 
-async function searchAction(request: Request, invoke: Invoke, input: JsonObject): Promise<Response> {
+async function searchAction(
+  request: Request,
+  invoke: Invoke,
+  input: JsonObject,
+  fetchRemote: RemoteFetch,
+): Promise<Response> {
   const query = stringValue(input.query, 'query', 300).replace(/[\r\n\0]+/g, ' ').trim();
   if (!query) throw new DocsActionError('invalid_query');
-  const repository = searchRepository(input.repository);
   const limit = boundedInteger(input.limit, 'limit', 6, MAX_SEARCH_LIMIT);
+  if (input.siteUrl !== undefined || input.documentUrl !== undefined) {
+    if (input.siteUrl === undefined) throw new DocsActionError('invalid_site_url');
+    return searchLlmsDocs(input, query, limit, fetchRemote);
+  }
+
+  const repository = searchRepository(input.repository);
   const scope = repository ? `repo:${repository}` : `user:${EXPECTED_OWNER}`;
   const search = `${query} ${scope}`;
   const data = await githubRead(
@@ -334,6 +346,7 @@ async function searchAction(request: Request, invoke: Invoke, input: JsonObject)
 export async function handleDocsAction(
   request: Request,
   invoke: Invoke,
+  fetchRemote: RemoteFetch = (input, init) => fetch(input, init),
 ): Promise<Response | null> {
   const pathname = new URL(request.url).pathname;
   if (![INDEX_PATH, SEARCH_PATH, GET_PATH].includes(pathname)) return null;
@@ -345,7 +358,7 @@ export async function handleDocsAction(
 
     const input = await inputObject(request);
     if (pathname === INDEX_PATH) return await indexAction(request, invoke, input);
-    if (pathname === SEARCH_PATH) return await searchAction(request, invoke, input);
+    if (pathname === SEARCH_PATH) return await searchAction(request, invoke, input, fetchRemote);
     return await getDocAction(request, invoke, input);
   } catch (error) {
     if (error instanceof DocsActionError) return json({ ok: false, error: error.code }, error.status);
@@ -397,12 +410,14 @@ export function addDocsOpenApi(document: JsonObject): void {
   paths[SEARCH_PATH] = {
     post: {
       operationId: 'searchDocs',
-      summary: 'Search live documentation in trvny repositories',
-      description: 'Searches current GitHub code, filters results to documentation-like files, and returns exact repository/path matches. Call getDoc for the selected result instead of relying on model memory.',
+      summary: 'Search live GitHub or llms.txt documentation',
+      description: 'Searches current trvny GitHub docs by default. With siteUrl, reads that HTTPS docs root llms.txt and searches its curated links; documentUrl may then fetch one exact listed Markdown/text document.',
       security,
       requestBody: requestSchema({
-        query: { type: 'string' },
-        repository: { type: 'string', description: 'Optional trvny/name scope; omit to search across trvny repositories.' },
+        query: { type: 'string', description: 'Search terms, or * to list llms.txt entries.' },
+        repository: { type: 'string', description: 'Optional trvny/name scope for GitHub mode.' },
+        siteUrl: { type: 'string', format: 'uri', description: 'Optional HTTPS site/docs base or direct llms.txt URL. Switches to bounded llms.txt mode.' },
+        documentUrl: { type: 'string', format: 'uri', description: 'Optional exact readable URL returned by the same llms.txt index.' },
         limit: { type: 'integer', minimum: 1, maximum: MAX_SEARCH_LIMIT, default: 6 },
       }, ['query']),
       responses,

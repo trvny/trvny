@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { anchorStorageOpenApi } from '../src/anchor-storage.ts';
 import {
   CUSTOM_GPT_DESCRIPTION_LIMIT,
   CUSTOM_GPT_OPERATION_IDS,
@@ -52,22 +53,25 @@ function assertBuilderCompatible(value: unknown, path = '$'): void {
   }
 }
 
-test('runtime OpenAPI stays within the Custom GPT operation limit', () => {
-  const document = runtimeOpenApi('https://example.workers.dev');
-  const actual = operationIds(document);
+test('combined Custom GPT actions stay at the 30-operation limit', () => {
+  const main = operationIds(runtimeOpenApi('https://example.workers.dev'));
+  const anchor = operationIds(anchorStorageOpenApi('https://example.workers.dev'));
   const expected = [...CUSTOM_GPT_OPERATION_IDS].sort();
 
-  assert.equal(CUSTOM_GPT_OPERATION_IDS.length, CUSTOM_GPT_OPERATION_LIMIT);
+  assert.equal(CUSTOM_GPT_OPERATION_IDS.length, CUSTOM_GPT_OPERATION_LIMIT - 1);
   assert.equal(new Set(CUSTOM_GPT_OPERATION_IDS).size, CUSTOM_GPT_OPERATION_IDS.length);
-  assert.equal(actual.length, CUSTOM_GPT_OPERATION_LIMIT);
-  assert.deepEqual(actual, expected);
+  assert.equal(main.length, CUSTOM_GPT_OPERATION_LIMIT - 1);
+  assert.deepEqual(main, expected);
+  assert.deepEqual(anchor, ['useGremlinStorage']);
+  assert.equal(main.length + anchor.length, CUSTOM_GPT_OPERATION_LIMIT);
 });
 
 test('runtime OpenAPI satisfies Builder description and object-schema constraints', () => {
   assertBuilderCompatible(runtimeOpenApi('https://example.workers.dev'));
+  assertBuilderCompatible(anchorStorageOpenApi('https://example.workers.dev'));
 });
 
-test('curated surface keeps high-level workflows, specialists and generic fallbacks', () => {
+test('curated GitHub surface keeps high-level workflows, specialists and generic fallbacks', () => {
   const ids = new Set(operationIds(runtimeOpenApi('https://example.workers.dev')));
 
   for (const operationId of [
@@ -84,4 +88,5 @@ test('curated surface keeps high-level workflows, specialists and generic fallba
   ]) {
     assert.ok(ids.has(operationId), `missing ${operationId}`);
   }
+  assert.ok(!ids.has('useGremlinStorage'));
 });

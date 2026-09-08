@@ -1,4 +1,5 @@
 import { runWithActionRequestContext } from './action-context.ts';
+import { AnchorMutationReplayStore } from './anchor-replay.ts';
 import { BUG_INVESTIGATION_PATH, handleBugInvestigationAction } from './bug-investigation.ts';
 import {
   CODE_CHANGE_AUTOPILOT_PATH,
@@ -38,6 +39,7 @@ import {
 
 export {
   actionFetch,
+  AnchorMutationReplayStore,
   CommentProbeLock,
   OperatorCheckpointStore,
   ReviewProviderCooldownStore,

@@ -1,0 +1,43 @@
+name: Telegram Assistant CI
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+    paths:
+      - "tg-bots/cloudflare-assistant/**"
+      - ".github/workflows/tg-assistant-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "tg-bots/cloudflare-assistant/**"
+      - ".github/workflows/tg-assistant-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: tg-assistant-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check Telegram assistant
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tg-bots/cloudflare-assistant/package-lock.json
+
+      - name: Typecheck
+        working-directory: tg-bots/cloudflare-assistant
+        run: |
+          npm ci
+          npm run check

@@ -8,8 +8,11 @@ Prefer improving an existing home over creating a parallel structure. Inspect lo
 - `mcp/status-mcp/` — service health/status MCP.
 - `gh-apps/` — GitHub Apps, Kanarek Companion, GPTomek and GPT Actions.
   Before touching GPTomek control transport, read
-  `gh-apps/gptomek/README.md`. Issue `trvny/trvny#203` is the primary mailbox;
-  closed PR `#176` plus `gptomek/control` is the retained fallback.
+  `gh-apps/gptomek/README.md`. Use Issue `trvny/trvny#203` for normal commands.
+  It and closed PR `#176` expose the same GPTomek operations; `#176` plus
+  `gptomek/control` is an independent transport fallback for Issue/Actions relay
+  failures, not a faster or more capable path. Preserve the fallback ref while
+  the README documents it as active.
 - `loopling/` — ChatGPT/Codex pet source, generated assets and installers.
 - `remotely-save-gdrive-patch/` — local Remotely Save Google Drive patch and verification harness.
 - `.ai/private/openai/` — private Gremlin policy/profile/operator material.

@@ -50,8 +50,9 @@ A normal delivery follows this path:
    and Groq, while keeping exhausted providers behind Durable Object-backed cooldowns.
 5. Review output must be bounded Simplified-Chinese JSON with high-confidence
    findings anchored to added RIGHT-side lines. The job revalidates the PR
-   again immediately before publishing one native GitHub review as the Kanarek
-   App. Its prompt allows a light dry Kanarek voice while keeping serious
+   again immediately before dispatching a bounded review payload to GitHub Actions
+   in the target repository. The target repository publishes the native review with
+   its own `GITHUB_TOKEN`, so the visible author is `github-actions[bot]`. Its prompt allows a light dry Kanarek voice while keeping serious
    findings serious.
 6. Separately, `companion.ts` reads the PR, branch, CI, reviews, files, and the
    existing Kanarek status comment. `companion-view.ts` reduces that data to a
@@ -242,7 +243,7 @@ delivery path, so GPTomek does not need another Worker or webhook endpoint.
 - `src/companion*.ts`: status-companion orchestration, GitHub I/O, rendering,
   quip bank/receipts, language, reactions, types, and guarded branch updates.
 - `src/webhook-review.ts`: free-review queueing, debounce/dedupe, bounded
-  repository context, stale-head validation, and native GitHub review publication.
+  repository context, stale-head validation, and review dispatch to GitHub Actions.
 - `src/review-router.ts` and `src/openrouter-models.ts`: free-only review provider
   routing, model chain and persistent provider cooldowns.
 - `src/quip.ts`: presets, quip provider adapters, prompt contract, sanitization,

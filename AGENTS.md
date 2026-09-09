@@ -16,8 +16,7 @@ Prefer improving an existing home over creating a parallel structure. Inspect lo
   transport contract.
 - `loopling/` — ChatGPT/Codex pet source, generated assets and installers.
 - `remotely-save-gdrive-patch/` — local Remotely Save Google Drive patch and verification harness.
-- `.ai/private/openai/` — private Gremlin policy/profile/operator material.
-- `.ai/private/claude/` — private Claude notes and memory.
+- `.ai/private/` — repo-local AI overlays (OpenAI, Claude and personalities). It is tracked in this public repository despite the directory name; never treat it as a secret store.
 - `stuff/` — small configs, feeds, playlists and miscellaneous assets.
 
 For Quarto-backed reports, treat `.qmd` as the maintained content source and
@@ -32,7 +31,7 @@ Use the nearest `AGENTS.md` for the files being changed; deeper instructions ove
 - Check the target branch, open PRs and recent changes when work may overlap.
 - Detect the local stack from project files; this repository is mixed.
 - Keep one maintained source of truth per concern.
-- Use GPTomek for bot-authored writes; keep intentionally human-authored PR creation as `trvny`.
+- Use GPTomek for GitHub writes that should be attributable to `gptomek[bot]`; keep intentionally human-authored PR creation as `trvny`.
 - Keep one logical change per PR. Trivial low-risk fixes may go directly to `main` when allowed.
 - For substantial code changes, run one relevant final validation on the final head; do not rerun CI after every intermediate edit. Trivial/docs-only changes may skip CI.
 - Resolve actionable review threads when a review was actually requested. Prefer squash.

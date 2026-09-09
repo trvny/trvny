@@ -4,7 +4,7 @@ This directory is one **shared Cloudflare Worker runtime**. `kanarek-companion`
 is its deployment/package slug, not the name of every subsystem inside it.
 
 - **Kanarek Companion** owns webhook-driven PR status, quips/reactions and free PR review.
-- **GPTomek Bridge** owns bot identity, installation auth, control transport and bot-authored writes.
+- **GPTomek Bridge** owns `gptomek[bot]` identity, installation auth, control transport and GPTomek-attributed writes.
 - Before changing GPTomek transport, read `../gptomek/README.md`. Use Issue
   `trvny/trvny#203` by default. Closed PR `#176` plus `gptomek/control` exposes
   the same GPTomek operations and is retained as the independent transport

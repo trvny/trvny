@@ -103,7 +103,7 @@
     "KANAREK_REVIEW_GROQ_MODEL": "openai/gpt-oss-120b",
     "KANAREK_REVIEW_OPENROUTER_MODELS": "nvidia/nemotron-3-ultra-550b-a55b:free,poolside/laguna-s-2.1:free,cohere/north-mini-code:free,nvidia/nemotron-3-super-120b-a12b:free,openrouter/free",
     "KANAREK_REVIEW_REPOSITORIES": "trvny/trvny,trvny/.ai,trvny/.github,trvny/WiFi-Automatic,trvny/feedseek,trvny/tvpi,twojstar/*",
-    "KANAREK_WEBHOOK_REVIEW_ENABLED": "true",
+    "KANAREK_WEBHOOK_REVIEW_ENABLED": "false",
     "KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS": "60000",
     "KANAREK_WEBHOOK_REVIEW_MAX_DIFF_CHARS": "60000",
     "KANAREK_WEBHOOK_REVIEW_MAX_CONTEXT_CHARS": "120000",

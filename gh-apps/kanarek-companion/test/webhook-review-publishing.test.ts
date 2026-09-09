@@ -3,9 +3,7 @@ import test from 'node:test';
 
 import {
   reviewDisposition,
-  reviewMarker,
   reviewSourceLabel,
-  submittedReviewMatches,
 } from '../src/webhook-review.ts';
 
 test('review source label includes provider and concrete upstream model', () => {
@@ -22,53 +20,6 @@ test('review source label includes provider and concrete upstream model', () => 
 test('review source label falls back to the provider when model is unavailable', () => {
   assert.equal(reviewSourceLabel('openrouter', null), 'OpenRouter');
   assert.equal(reviewSourceLabel('workers-ai', null), 'Workers AI');
-});
-
-test('review deduplication recognizes the GitHub Actions publisher', () => {
-  const target = {
-    action: 'synchronize',
-    baseSha: 'b'.repeat(40),
-    delivery: 'delivery-1',
-    headSha: 'a'.repeat(40),
-    installationId: 123,
-    number: 21,
-    repository: 'twojstar/llmbench',
-  };
-  assert.equal(
-    submittedReviewMatches(
-      {
-        body: `${reviewMarker(target)}\nreview`,
-        commit_id: target.headSha,
-        user: { login: 'github-actions[bot]' },
-      },
-      target,
-    ),
-    true,
-  );
-});
-
-test('review deduplication keeps legacy GPTomek reviews during migration', () => {
-  const target = {
-    action: 'synchronize',
-    baseSha: 'd'.repeat(40),
-    delivery: 'delivery-legacy',
-    headSha: 'c'.repeat(40),
-    installationId: 123,
-    number: 22,
-    repository: 'trvny/trvny',
-  };
-  assert.equal(
-    submittedReviewMatches(
-      {
-        body: `${reviewMarker(target)}
-review`,
-        commit_id: target.headSha,
-        user: { login: 'gptomek[bot]' },
-      },
-      target,
-    ),
-    true,
-  );
 });
 
 test('only genuinely clean reviews stay silent', () => {

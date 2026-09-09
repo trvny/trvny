@@ -950,6 +950,7 @@ async function resolveReviewPublisher(
         headers: {
           Accept: 'application/vnd.github+json',
           Authorization: `Bearer ${jwt}`,
+          'User-Agent': 'kanarek-companion',
           'X-GitHub-Api-Version': GITHUB_API_VERSION,
         },
       },

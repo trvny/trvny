@@ -1,0 +1,63 @@
+name: Publish Kanarek review
+
+on:
+  repository_dispatch:
+    types: [kanarek-review]
+  workflow_call:
+    inputs:
+      payload:
+        description: Serialized Kanarek review dispatch payload
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REVIEW_PAYLOAD: ${{ inputs.payload || toJSON(github.event.client_payload) }}
+    steps:
+      - name: Publish exact-head native review
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=$(jq -er '.repository | strings' <<<"$REVIEW_PAYLOAD")
+          number=$(jq -er '.pull_request_number | numbers | select(. > 0 and . == floor)' <<<"$REVIEW_PAYLOAD")
+          head_sha=$(jq -er '.head_sha | strings | select(test("^[0-9a-f]{40}$"))' <<<"$REVIEW_PAYLOAD")
+          base_sha=$(jq -er '.base_sha | strings | select(test("^[0-9a-f]{40}$"))' <<<"$REVIEW_PAYLOAD")
+          marker=$(jq -er '.marker | strings | select(startswith("<!-- kanarek-review:"))' <<<"$REVIEW_PAYLOAD")
+
+          test "$repo" = "$GITHUB_REPOSITORY"
+          jq -e --arg head "$head_sha" --arg marker "$marker" '
+            .review |
+            .commit_id == $head and
+            .event == "COMMENT" and
+            ((.body // "") | startswith($marker + "\n")) and
+            ((.comments | type) == "array")
+          ' <<<"$REVIEW_PAYLOAD" >/dev/null
+
+          current=$(gh api "repos/$repo/pulls/$number")
+          jq -e --arg head "$head_sha" --arg base "$base_sha" '
+            .state == "open" and
+            .draft != true and
+            .head.sha == $head and
+            .base.sha == $base
+          ' <<<"$current" >/dev/null
+
+          reviews=$(gh api --paginate --slurp "repos/$repo/pulls/$number/reviews?per_page=100")
+          if jq -e --arg head "$head_sha" --arg marker "$marker" '
+            add | any(.[];
+              .commit_id == $head and
+              ((.body // "") | startswith($marker + "\n"))
+            )
+          ' <<<"$reviews" >/dev/null; then
+            exit 0
+          fi
+
+          jq -c '.review' <<<"$REVIEW_PAYLOAD" |
+            gh api --method POST "repos/$repo/pulls/$number/reviews" --input - >/dev/null

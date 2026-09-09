@@ -1,13 +1,12 @@
-import { createAppJwt, createInstallationClient } from './github-app.ts';
+import { createInstallationClient } from './github-app.ts';
 import {
   handleReviewRouterRequest,
   REVIEW_ROUTER_PATH,
   type ReviewRouterEnv,
 } from './review-router.ts';
 
-const GITHUB_API = 'https://api.github.com';
-const GITHUB_API_VERSION = '2026-03-10';
-const REVIEW_PUBLISHER_SLUG = 'gptomek';
+const ACTIONS_REVIEW_LOGIN = 'github-actions[bot]';
+const LEGACY_GPTOMEK_REVIEW_LOGIN = 'gptomek[bot]';
 const REVIEW_ACTIONS = new Set(['opened', 'reopened', 'synchronize', 'ready_for_review']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
 const SHA_RE = /^[0-9a-f]{40}$/i;
@@ -109,8 +108,6 @@ export interface WebhookReviewEnv extends ReviewRouterEnv {
   GITHUB_APP_ID: string;
   GITHUB_APP_SLUG?: string;
   GITHUB_PRIVATE_KEY: string;
-  GPTOMEK_APP_ID?: string;
-  GPTOMEK_PRIVATE_KEY?: string;
   KANAREK_REVIEW_JOBS?: DurableObjectNamespace;
   KANAREK_WEBHOOK_REVIEW_ENABLED?: string;
   KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS?: string;
@@ -926,61 +923,6 @@ function currentPullRequest(
   );
 }
 
-async function resolveReviewPublisher(
-  fallbackClient: Awaited<ReturnType<typeof createInstallationClient>>,
-  env: WebhookReviewEnv,
-  repository: string,
-  fetcher: typeof fetch,
-): Promise<{
-  appSlug: string;
-  client: Awaited<ReturnType<typeof createInstallationClient>>;
-}> {
-  const fallbackSlug = env.GITHUB_APP_SLUG?.trim() || 'kanarek-companion';
-  const appId = env.GPTOMEK_APP_ID?.trim();
-  const privateKey = env.GPTOMEK_PRIVATE_KEY?.trim();
-  if (!appId || !privateKey) {
-    return { appSlug: fallbackSlug, client: fallbackClient };
-  }
-
-  try {
-    const jwt = await createAppJwt(appId, privateKey);
-    const response = await fetcher(
-      `${GITHUB_API}/repos/${repoPath(repository)}/installation`,
-      {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: `Bearer ${jwt}`,
-          'User-Agent': 'kanarek-companion',
-          'X-GitHub-Api-Version': GITHUB_API_VERSION,
-        },
-      },
-    );
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new Error(`publisher_installation_${response.status}`);
-    }
-    const payload = objectValue(await response.json());
-    const installationId =
-      typeof payload.id === 'number' && Number.isInteger(payload.id) && payload.id > 0
-        ? payload.id
-        : 0;
-    if (!installationId) throw new Error('publisher_installation_invalid');
-    return {
-      appSlug: REVIEW_PUBLISHER_SLUG,
-      client: await createInstallationClient(appId, privateKey, installationId, fetcher),
-    };
-  } catch (error) {
-    console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
-      JSON.stringify({
-        kanarekWebhookReview: 'publisher_fallback',
-        repository,
-        error: error instanceof Error ? error.message : 'unknown_error',
-      }),
-    );
-    return { appSlug: fallbackSlug, client: fallbackClient };
-  }
-}
-
 function reviewTargetKey(target: ReviewTarget): string {
   return `${target.headSha}:${target.baseSha}`;
 }
@@ -1009,28 +951,32 @@ export function reviewMarker(target: ReviewTarget): string {
 export function submittedReviewMatches(
   review: Record<string, unknown>,
   target: ReviewTarget,
-  appSlugs: string | readonly string[] = ['kanarek-companion', REVIEW_PUBLISHER_SLUG],
+  logins: string | readonly string[] = [
+    'kanarek-companion[bot]',
+    LEGACY_GPTOMEK_REVIEW_LOGIN,
+    ACTIONS_REVIEW_LOGIN,
+  ],
 ): boolean {
   const user = objectValue(review.user);
-  const slugs = typeof appSlugs === 'string' ? [appSlugs] : appSlugs;
+  const acceptedLogins = typeof logins === 'string' ? [logins] : logins;
   return (
     review.commit_id === target.headSha &&
     typeof review.body === 'string' &&
     review.body.startsWith(`${reviewMarker(target)}\n`) &&
-    slugs.some((appSlug) => user.login === `${appSlug}[bot]`)
+    acceptedLogins.some((login) => user.login === login)
   );
 }
 
 async function existingSubmittedReview(
   client: Awaited<ReturnType<typeof createInstallationClient>>,
   target: ReviewTarget,
-  appSlugs: string | readonly string[],
+  logins: string | readonly string[],
 ): Promise<boolean> {
   const reviews = await client.paginate<Record<string, unknown>>(
     `/repos/${repoPath(target.repository)}/pulls/${target.number}/reviews`,
     'webhook_review_list_reviews',
   );
-  return reviews.some((review) => submittedReviewMatches(review, target, appSlugs));
+  return reviews.some((review) => submittedReviewMatches(review, target, logins));
 }
 
 function targetStillCurrent(
@@ -1073,8 +1019,12 @@ export async function runWebhookReview(
   }
 
   const legacyAppSlug = env.GITHUB_APP_SLUG?.trim() || 'kanarek-companion';
-  const reviewAppSlugs = [legacyAppSlug, REVIEW_PUBLISHER_SLUG];
-  if (await existingSubmittedReview(client, target, reviewAppSlugs)) {
+  const reviewAuthorLogins = [
+    `${legacyAppSlug}[bot]`,
+    LEGACY_GPTOMEK_REVIEW_LOGIN,
+    ACTIONS_REVIEW_LOGIN,
+  ];
+  if (await existingSubmittedReview(client, target, reviewAuthorLogins)) {
     return {
       reviewed: true,
       provider: null,
@@ -1180,7 +1130,7 @@ export async function runWebhookReview(
         skipped: 'stale_after_generation',
       };
     }
-    if (await existingSubmittedReview(client, target, reviewAppSlugs)) {
+    if (await existingSubmittedReview(client, target, reviewAuthorLogins)) {
       return {
         reviewed: true,
         provider: generated.provider,
@@ -1189,18 +1139,13 @@ export async function runWebhookReview(
       };
     }
 
-    const publisher = await resolveReviewPublisher(
-      client,
-      env,
-      target.repository,
-      fetcher,
-    );
     const summary = generated.parsed.summary || '发现了需要处理的问题。🐤';
     const severity = { high: '高', medium: '中', low: '低' } as const;
+    const marker = reviewMarker(target);
     const payload = {
       commit_id: target.headSha,
       event: 'COMMENT',
-      body: `${reviewMarker(target)}\n🐤 **Kanarek 免费代码审查** · ${reviewSourceLabel(generated.provider, generated.model)}\n\n${summary}`,
+      body: `${marker}\n🐤 **Kanarek 免费代码审查** · ${reviewSourceLabel(generated.provider, generated.model)}\n\n${summary}`,
       comments: findings.map((finding) => ({
         path: finding.path,
         line: finding.line,
@@ -1209,34 +1154,34 @@ export async function runWebhookReview(
       })),
     };
 
-    try {
-      await publisher.client.json<unknown>(
-        `/repos/${repoPath(target.repository)}/pulls/${target.number}/reviews`,
-        'webhook_review_submit',
-        { method: 'POST', body: JSON.stringify(payload) },
-      );
-    } catch (error) {
-      let accepted = false;
-      try {
-        accepted = await existingSubmittedReview(client, target, [
-          ...reviewAppSlugs,
-          publisher.appSlug,
-        ]);
-      } catch {
-        // Preserve the original submission error if verification is unavailable.
-      }
-      if (!accepted) throw error;
-    }
+    await client.void(
+      `/repos/${repoPath(target.repository)}/dispatches`,
+      'webhook_review_dispatch',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          event_type: 'kanarek-review',
+          client_payload: {
+            repository: target.repository,
+            pull_request_number: target.number,
+            head_sha: target.headSha,
+            base_sha: target.baseSha,
+            marker,
+            review: payload,
+          },
+        }),
+      },
+    );
 
     console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
-        kanarekWebhookReview: 'submitted',
+        kanarekWebhookReview: 'dispatched',
         repository: target.repository,
         pullRequestNumber: target.number,
         headSha: target.headSha,
         provider: generated.provider,
         model: generated.model,
-        publisher: publisher.appSlug,
+        publisher: 'github-actions',
         findingCount: findings.length,
       }),
     );

@@ -1,0 +1,23 @@
+name: Kanarek live health probe
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: github.event.pull_request.number == 524
+    runs-on: ubuntu-slim
+    timeout-minutes: 2
+    steps:
+      - name: Inspect public review health
+        shell: bash
+        run: |
+          set -euo pipefail
+          health=$(curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
+            https://kanarek-companion.travny.workers.dev/health)
+          jq '{ok, reviewWebhook, workerVersion: .gateway.workerVersion}' <<<"$health"
+          jq -e '.ok == true and .reviewWebhook.ready == true' <<<"$health" >/dev/null

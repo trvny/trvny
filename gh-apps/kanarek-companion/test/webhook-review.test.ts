@@ -9,6 +9,7 @@ import {
   reviewInputState,
   reviewMarker,
   reviewRetryDelayMs,
+  reviewRouterEnvForAttempt,
   selectReviewFiles,
   submittedReviewMatches,
   scheduleWebhookReviewWebhook,
@@ -190,6 +191,25 @@ test('review retries are bounded and only cover transient failures', () => {
   assert.equal(
     reviewRetryDelayMs({ ...transient, skipped: 'no_code_diff' }, 0),
     null,
+  );
+});
+
+
+test('review retries spend Workers AI at most once per head', () => {
+  const env = {
+    KANAREK_REVIEW_WORKERS_AI_ENABLED: 'true',
+  } as WebhookReviewEnv;
+
+  assert.equal(reviewRouterEnvForAttempt(env, undefined), env);
+  assert.equal(reviewRouterEnvForAttempt(env, 0), env);
+
+  const retry = reviewRouterEnvForAttempt(env, 1);
+  assert.notEqual(retry, env);
+  assert.equal(retry.KANAREK_REVIEW_WORKERS_AI_ENABLED, 'false');
+  assert.equal(env.KANAREK_REVIEW_WORKERS_AI_ENABLED, 'true');
+  assert.equal(
+    reviewRouterEnvForAttempt(retry, 3).KANAREK_REVIEW_WORKERS_AI_ENABLED,
+    'false',
   );
 });
 

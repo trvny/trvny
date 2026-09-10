@@ -400,9 +400,6 @@ function parseCommand(value: unknown, nested = false): GptomekCommand {
     const method = requiredString(input.method, 'method', 10).toUpperCase();
     const path = requiredString(input.path, 'github_path', 2_000);
     const body = input.body;
-    if (!gptomekOperatorActionAllowed(repositoryName, method, path, body)) {
-      throw new Error('operator_action_not_allowed');
-    }
     return {
       id,
       op,
@@ -436,6 +433,25 @@ function parseCommand(value: unknown, nested = false): GptomekCommand {
   }
 
   throw new Error('unsupported_operation');
+}
+
+function validateCommandPolicy(command: GptomekCommand): void {
+  if (command.op === 'operator_action') {
+    if (
+      !gptomekOperatorActionAllowed(
+        command.repository,
+        command.method,
+        command.path,
+        command.body,
+      )
+    ) {
+      throw new Error('operator_action_not_allowed');
+    }
+    return;
+  }
+  if (command.op === 'batch') {
+    for (const step of command.steps) validateCommandPolicy(step);
+  }
 }
 
 function decodeBase64Url(value: string): string {
@@ -1017,6 +1033,7 @@ export async function handleGptomekMailboxCommand(
         );
 
   try {
+    validateCommandPolicy(command);
     const execution = await executeIdempotent(commandClient, command, env);
     const envelope: GptomekResultEnvelope = {
       id: command.id,
@@ -1055,6 +1072,7 @@ export async function handleGptomekMailboxCommand(
   } catch (error) {
     const errorValue = errorCode(error);
     const uncertain = errorValue === 'command_outcome_uncertain';
+    const terminal = errorValue === 'operator_action_not_allowed';
     const envelope: GptomekResultEnvelope = {
       id: command.id,
       operation: command.op,
@@ -1064,11 +1082,15 @@ export async function handleGptomekMailboxCommand(
       durationMs: Date.now() - startedAt,
       error: errorValue,
     };
+    let resultWritten = false;
     try {
       await controlClient.json<unknown>(clearPath, 'gptomek_write_error_result', {
         method: 'PATCH',
-        body: JSON.stringify({ body: bodyWithResult(body, envelope, uncertain) }),
+        body: JSON.stringify({
+          body: bodyWithResult(body, envelope, uncertain || terminal),
+        }),
       });
+      resultWritten = true;
     } catch (resultError) {
       console.error(
         JSON.stringify({
@@ -1077,6 +1099,25 @@ export async function handleGptomekMailboxCommand(
           failure: errorCode(resultError),
         }),
       );
+    }
+    if (terminal && resultWritten) {
+      console.warn(
+        JSON.stringify({
+          gptomek: 'command_rejected',
+          commandId: command.id,
+          operation: command.op,
+          repository: command.repository,
+          error: errorValue,
+          transport,
+        }),
+      );
+      return {
+        control: true,
+        handled: true,
+        commandId: command.id,
+        operation: command.op,
+        result: envelope,
+      };
     }
     throw error;
   }

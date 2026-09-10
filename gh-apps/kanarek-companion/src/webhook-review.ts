@@ -211,6 +211,15 @@ export function reviewRetryDelayMs(
   return REVIEW_RETRY_DELAYS_MS[attempt] ?? null;
 }
 
+
+export function reviewRouterEnvForAttempt(
+  env: WebhookReviewEnv,
+  attempt: number | undefined,
+): WebhookReviewEnv {
+  if ((attempt ?? 0) === 0) return env;
+  return { ...env, KANAREK_REVIEW_WORKERS_AI_ENABLED: 'false' };
+}
+
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -1061,7 +1070,7 @@ export async function runWebhookReview(
 
   const generated = await askReviewRouter(
     reviewPrompt(target.number, pr.title, pr.body, files, context),
-    env,
+    reviewRouterEnvForAttempt(env, job.attempt),
     fetcher,
   );
   if (!generated) {

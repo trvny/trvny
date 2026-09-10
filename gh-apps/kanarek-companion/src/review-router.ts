@@ -858,60 +858,6 @@ export async function handleReviewRouterRequest(
   let invalidRequests = 0;
   const failures: string[] = [];
 
-  if (workersAiEnabled(env)) {
-    configured += 1;
-    const provider: ReviewProviderId = 'workers-ai';
-    const cooldown = await activeProviderCooldown(env, provider);
-    if (cooldown) {
-      failures.push(diagnostic(provider, `cooldown_${cooldown.category}`));
-      console.info(JSON.stringify({
-        kanarekReviewRouter: 'provider_cooldown', provider, category: cooldown.category,
-      }));
-    } else {
-      const bindingInput = workersAiInput(input);
-      if (!bindingInput) {
-        failures.push(diagnostic(provider, 'invalid_request'));
-        invalidRequests += 1;
-      } else {
-        const reservation = await reserveWorkersAiNeurons(env, bindingInput);
-        if (reservation !== 'reserved') {
-          const category = reservation === 'exhausted' ? 'soft_quota' : 'network';
-          await rememberProviderCooldown(provider, category, env);
-          failures.push(diagnostic(provider, category));
-          console.warn(JSON.stringify({
-            kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
-          }));
-        } else {
-          let timeout: ReturnType<typeof setTimeout> | undefined;
-        try {
-          const result = await Promise.race([
-            env.AI!.run(WORKERS_AI_REVIEW_MODEL, bindingInput),
-            new Promise<never>((_, reject) => {
-              timeout = setTimeout(
-                () => reject(new DOMException('Workers AI timed out', 'AbortError')),
-                timeoutMs(env),
-              );
-            }),
-          ]);
-          console.info(JSON.stringify({
-            kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: WORKERS_AI_REVIEW_MODEL,
-          }));
-          return workersAiResponse(result);
-        } catch (error) {
-          const category = workersAiFailureCategory(error);
-          await rememberProviderCooldown(provider, category, env);
-          failures.push(diagnostic(provider, category));
-          console.warn(JSON.stringify({
-            kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
-          }));
-          } finally {
-            if (timeout) clearTimeout(timeout);
-          }
-        }
-      }
-    }
-  }
-
   for (const provider of providers(env)) {
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
@@ -1022,6 +968,60 @@ export async function handleReviewRouterRequest(
     if (providerInvalidRequest) invalidRequests += 1;
   }
 
+
+  if (workersAiEnabled(env)) {
+    configured += 1;
+    const provider: ReviewProviderId = 'workers-ai';
+    const cooldown = await activeProviderCooldown(env, provider);
+    if (cooldown) {
+      failures.push(diagnostic(provider, `cooldown_${cooldown.category}`));
+      console.info(JSON.stringify({
+        kanarekReviewRouter: 'provider_cooldown', provider, category: cooldown.category,
+      }));
+    } else {
+      const bindingInput = workersAiInput(input);
+      if (!bindingInput) {
+        failures.push(diagnostic(provider, 'invalid_request'));
+        invalidRequests += 1;
+      } else {
+        const reservation = await reserveWorkersAiNeurons(env, bindingInput);
+        if (reservation !== 'reserved') {
+          const category = reservation === 'exhausted' ? 'soft_quota' : 'network';
+          await rememberProviderCooldown(provider, category, env);
+          failures.push(diagnostic(provider, category));
+          console.warn(JSON.stringify({
+            kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
+          }));
+        } else {
+          let timeout: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const result = await Promise.race([
+            env.AI!.run(WORKERS_AI_REVIEW_MODEL, bindingInput),
+            new Promise<never>((_, reject) => {
+              timeout = setTimeout(
+                () => reject(new DOMException('Workers AI timed out', 'AbortError')),
+                timeoutMs(env),
+              );
+            }),
+          ]);
+          console.info(JSON.stringify({
+            kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: WORKERS_AI_REVIEW_MODEL,
+          }));
+          return workersAiResponse(result);
+        } catch (error) {
+          const category = workersAiFailureCategory(error);
+          await rememberProviderCooldown(provider, category, env);
+          failures.push(diagnostic(provider, category));
+          console.warn(JSON.stringify({
+            kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
+          }));
+          } finally {
+            if (timeout) clearTimeout(timeout);
+          }
+        }
+      }
+    }
+  }
 
   if (!configured) {
     return jsonError('Review router is not configured', 'review_router_unconfigured', 503);

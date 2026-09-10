@@ -371,22 +371,22 @@ test('review provider health includes the Workers AI binding', async () => {
 });
 
 
-test('review provider state hard-caps Workers AI neuron reservations', async () => {
+test('review provider state uses the full Workers AI free daily allocation', async () => {
   const namespace = cooldownNamespace();
   const stub = namespace.get(namespace.idFromName('workers-ai'));
   const reserve = (neurons: number) => stub.fetch('https://review-cooldown.internal/reserve-neurons', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ day: '2026-09-07', neurons, limit: 100 }),
+    body: JSON.stringify({ day: '2026-09-07', neurons, limit: 10_000 }),
   });
 
-  assert.equal((await reserve(60)).status, 200);
-  const rejected = await reserve(50);
+  assert.equal((await reserve(6_000)).status, 200);
+  const rejected = await reserve(5_000);
   assert.equal(rejected.status, 429);
   const payload = (await rejected.json()) as { allowed?: boolean; reserved?: number };
   assert.equal(payload.allowed, false);
-  assert.equal(payload.reserved, 60);
-  assert.equal((await reserve(40)).status, 200);
+  assert.equal(payload.reserved, 6_000);
+  assert.equal((await reserve(4_000)).status, 200);
 });
 
 test('review router falls through provider authentication errors', async () => {

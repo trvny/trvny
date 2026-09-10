@@ -305,7 +305,36 @@ test('review router fails fast while the whole free pool is quota-cooled', async
   );
 });
 
-test('review router prefers guarded Workers AI before HTTP free providers', async () => {
+test('review router prefers HTTP free providers before guarded Workers AI', async () => {
+  let aiCalls = 0;
+  const AI = workersAiBinding(async (model) => {
+    aiCalls += 1;
+    return {
+      id: 'cf-review',
+      object: 'chat.completion',
+      created: 1,
+      model,
+      choices: [],
+    };
+  });
+  let httpCalls = 0;
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    AI,
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+    OPENROUTER_API_KEY: 'openrouter-key',
+  }, (() => {
+    httpCalls += 1;
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.equal(httpCalls, 1);
+  assert.equal(aiCalls, 0);
+});
+
+test('review router falls back to guarded Workers AI after HTTP free providers fail', async () => {
   let aiModel = '';
   let aiInput: Record<string, unknown> = {};
   const AI = workersAiBinding(async (model, input) => {
@@ -325,8 +354,6 @@ test('review router prefers guarded Workers AI before HTTP free providers', asyn
     AI,
     KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
     OPENROUTER_API_KEY: 'openrouter-key',
-    ORCAROUTER_API_KEY: 'orca-key',
-    AIHUBMIX_API_KEY: 'aihubmix-key',
   }, (() => {
     httpCalls += 1;
     return Promise.resolve(new Response('quota', { status: 429 }));
@@ -334,12 +361,10 @@ test('review router prefers guarded Workers AI before HTTP free providers', asyn
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'workers-ai');
-  assert.equal(httpCalls, 0);
+  assert.equal(httpCalls, 1);
   assert.equal(aiModel, '@cf/zai-org/glm-4.7-flash');
   assert.equal(aiInput.stream, false);
   assert.equal('model' in aiInput, false);
-  const payload = (await response?.json()) as { model?: string };
-  assert.equal(payload.model, '@cf/zai-org/glm-4.7-flash');
 });
 
 test('review router bounds a stalled Workers AI binding', async () => {
@@ -688,10 +713,8 @@ test('review router classifies a failed Workers AI budget reservation as transie
     ...auth,
     AI: workersAiBinding(async () => ({ choices: [] })),
     KANAREK_REVIEW_COOLDOWNS: namespace,
-    OPENROUTER_API_KEY: 'openrouter-key',
-  }, (() => Promise.resolve(new Response('{"choices":[]}', { status: 200 }))) as typeof fetch);
+  });
 
-  assert.equal(response?.status, 200);
-  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.equal(response?.status, 502);
   assert.deepEqual(cooldownCategories, ['network']);
 });

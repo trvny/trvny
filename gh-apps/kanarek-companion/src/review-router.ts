@@ -78,6 +78,38 @@ type ProviderCooldown = {
   category: string;
 };
 
+type WorkersAiBudgetState = {
+  day: string;
+  reserved: number;
+  pending?: Record<string, number>;
+};
+
+function validWorkersAiReservationId(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(value);
+}
+
+function normalizedWorkersAiPending(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const pending: Record<string, number> = {};
+  for (const [id, neurons] of Object.entries(value)) {
+    if (validWorkersAiReservationId(id) && Number.isInteger(neurons) && (neurons as number) >= 1) {
+      pending[id] = neurons as number;
+    }
+  }
+  return pending;
+}
+
+function normalizedWorkersAiBudget(
+  value: WorkersAiBudgetState | undefined,
+  day: string,
+): { reserved: number; pending: Record<string, number> } {
+  if (!value || value.day !== day) return { reserved: 0, pending: {} };
+  return {
+    reserved: Number.isInteger(value.reserved) ? Math.max(0, value.reserved) : 0,
+    pending: normalizedWorkersAiPending(value.pending),
+  };
+}
+
 const COOLDOWN_STORAGE_KEY = 'cooldown';
 const COOLDOWN_INTERNAL_ORIGIN = 'https://review-cooldown.internal';
 
@@ -193,7 +225,12 @@ export class ReviewProviderCooldownStore {
       if (!body || typeof body !== 'object' || Array.isArray(body)) {
         return cooldownJson({ error: 'invalid_budget_reservation' }, 400);
       }
-      const input = body as { day?: unknown; neurons?: unknown; limit?: unknown };
+      const input = body as {
+        day?: unknown;
+        neurons?: unknown;
+        limit?: unknown;
+        reservationId?: unknown;
+      };
       if (
         typeof input.day !== 'string' ||
         !/^\d{4}-\d{2}-\d{2}$/.test(input.day) ||
@@ -203,36 +240,116 @@ export class ReviewProviderCooldownStore {
         typeof input.limit !== 'number' ||
         !Number.isInteger(input.limit) ||
         input.limit < 1 ||
-        input.limit > MAX_WORKERS_AI_DAILY_NEURONS
+        input.limit > MAX_WORKERS_AI_DAILY_NEURONS ||
+        !validWorkersAiReservationId(input.reservationId)
       ) {
         return cooldownJson({ error: 'invalid_budget_reservation' }, 400);
       }
-      const current = await this.state.storage.get<{ day: string; reserved: number }>(
+      const current = await this.state.storage.get<WorkersAiBudgetState>(
         WORKERS_AI_BUDGET_STORAGE_KEY,
       );
-      const reserved = current?.day === input.day && Number.isInteger(current.reserved)
-        ? Math.max(0, current.reserved)
-        : 0;
-      if (reserved + input.neurons > input.limit) {
+      const budget = normalizedWorkersAiBudget(current, input.day);
+      const existing = budget.pending[input.reservationId];
+      if (existing !== undefined) {
+        if (existing !== input.neurons) {
+          return cooldownJson({ error: 'reservation_conflict' }, 409);
+        }
+        return cooldownJson({
+          allowed: true,
+          day: input.day,
+          reserved: budget.reserved,
+          requested: input.neurons,
+          reservationId: input.reservationId,
+          limit: input.limit,
+          deduplicated: true,
+        });
+      }
+      if (budget.reserved + input.neurons > input.limit) {
         return cooldownJson({
           allowed: false,
           day: input.day,
-          reserved,
+          reserved: budget.reserved,
           requested: input.neurons,
+          reservationId: input.reservationId,
           limit: input.limit,
         }, 429);
       }
-      const next = reserved + input.neurons;
+      const next = budget.reserved + input.neurons;
       await this.state.storage.put(WORKERS_AI_BUDGET_STORAGE_KEY, {
         day: input.day,
         reserved: next,
-      });
+        pending: { ...budget.pending, [input.reservationId]: input.neurons },
+      } satisfies WorkersAiBudgetState);
       return cooldownJson({
         allowed: true,
         day: input.day,
         reserved: next,
         requested: input.neurons,
+        reservationId: input.reservationId,
         limit: input.limit,
+        deduplicated: false,
+      });
+    }
+
+    if (pathname === '/settle-neurons' && request.method === 'POST') {
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return cooldownJson({ error: 'invalid_json' }, 400);
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return cooldownJson({ error: 'invalid_budget_settlement' }, 400);
+      }
+      const input = body as {
+        day?: unknown;
+        reservationId?: unknown;
+        actualNeurons?: unknown;
+      };
+      if (
+        typeof input.day !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(input.day) ||
+        !validWorkersAiReservationId(input.reservationId) ||
+        typeof input.actualNeurons !== 'number' ||
+        !Number.isInteger(input.actualNeurons) ||
+        input.actualNeurons < 1 ||
+        input.actualNeurons > MAX_WORKERS_AI_DAILY_NEURONS
+      ) {
+        return cooldownJson({ error: 'invalid_budget_settlement' }, 400);
+      }
+      const current = await this.state.storage.get<WorkersAiBudgetState>(
+        WORKERS_AI_BUDGET_STORAGE_KEY,
+      );
+      const budget = normalizedWorkersAiBudget(current, input.day);
+      const reservedNeurons = budget.pending[input.reservationId];
+      if (reservedNeurons === undefined) {
+        return cooldownJson({
+          settled: false,
+          missing: true,
+          day: input.day,
+          reserved: budget.reserved,
+          reservationId: input.reservationId,
+        });
+      }
+      const pending = { ...budget.pending };
+      delete pending[input.reservationId];
+      const next = Math.max(
+        0,
+        budget.reserved - reservedNeurons + input.actualNeurons,
+      );
+      await this.state.storage.put(WORKERS_AI_BUDGET_STORAGE_KEY, {
+        day: input.day,
+        reserved: next,
+        ...(Object.keys(pending).length ? { pending } : {}),
+      } satisfies WorkersAiBudgetState);
+      return cooldownJson({
+        settled: true,
+        missing: false,
+        day: input.day,
+        reserved: next,
+        reservationId: input.reservationId,
+        reservedNeurons,
+        actualNeurons: input.actualNeurons,
       });
     }
 
@@ -250,12 +367,10 @@ export class ReviewProviderCooldownStore {
       ) {
         return cooldownJson({ error: 'invalid_budget_query' }, 400);
       }
-      const current = await this.state.storage.get<{ day: string; reserved: number }>(
+      const current = await this.state.storage.get<WorkersAiBudgetState>(
         WORKERS_AI_BUDGET_STORAGE_KEY,
       );
-      const reserved = current?.day === day && Number.isInteger(current.reserved)
-        ? Math.max(0, current.reserved)
-        : 0;
+      const reserved = normalizedWorkersAiBudget(current, day).reserved;
       return cooldownJson({
         day,
         limit,
@@ -488,7 +603,14 @@ function workersAiNeuronReservation(input: ChatCompletionsInput): number {
   );
 }
 
-type WorkersAiReservationResult = 'reserved' | 'exhausted' | 'unavailable';
+type WorkersAiReservation = {
+  day: string;
+  neurons: number;
+  reservationId: string;
+};
+type WorkersAiReservationResult =
+  | { status: 'reserved'; reservation: WorkersAiReservation }
+  | { status: 'exhausted' | 'unavailable' };
 type WorkersAiBudgetStatus = { day: string; limit: number; reserved: number; remaining: number };
 
 async function reserveWorkersAiNeurons(
@@ -496,21 +618,76 @@ async function reserveWorkersAiNeurons(
   input: ChatCompletionsInput,
 ): Promise<WorkersAiReservationResult> {
   const stub = providerCooldownStub(env, 'workers-ai');
-  if (!stub) return 'unavailable';
+  if (!stub) return { status: 'unavailable' };
+  const reservation: WorkersAiReservation = {
+    day: new Date().toISOString().slice(0, 10),
+    neurons: workersAiNeuronReservation(input),
+    reservationId: crypto.randomUUID(),
+  };
   try {
     const response = await stub.fetch(`${COOLDOWN_INTERNAL_ORIGIN}/reserve-neurons`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        day: new Date().toISOString().slice(0, 10),
-        neurons: workersAiNeuronReservation(input),
+        day: reservation.day,
+        neurons: reservation.neurons,
+        reservationId: reservation.reservationId,
         limit: workersAiDailyNeuronLimit(env),
       }),
     });
-    if (response.ok) return 'reserved';
-    return response.status === 429 ? 'exhausted' : 'unavailable';
+    if (response.ok) return { status: 'reserved', reservation };
+    return { status: response.status === 429 ? 'exhausted' : 'unavailable' };
   } catch {
-    return 'unavailable';
+    return { status: 'unavailable' };
+  }
+}
+
+function workersAiActualNeurons(result: unknown): number | null {
+  if (!isObject(result) || !isObject(result.usage)) return null;
+  const usage = result.usage;
+  const promptTokens = usage.prompt_tokens ?? usage.input_tokens;
+  const completionTokens = usage.completion_tokens ?? usage.output_tokens;
+  if (
+    typeof promptTokens !== 'number' ||
+    !Number.isInteger(promptTokens) ||
+    promptTokens < 0 ||
+    typeof completionTokens !== 'number' ||
+    !Number.isInteger(completionTokens) ||
+    completionTokens < 0
+  ) return null;
+  const inputNeurons = promptTokens * WORKERS_AI_INPUT_NEURONS_PER_MILLION / 1_000_000;
+  const outputNeurons = completionTokens * WORKERS_AI_OUTPUT_NEURONS_PER_MILLION / 1_000_000;
+  return Math.max(1, Math.ceil(inputNeurons + outputNeurons));
+}
+
+async function settleWorkersAiNeurons(
+  env: ReviewRouterEnv,
+  reservation: WorkersAiReservation,
+  actualNeurons: number,
+): Promise<void> {
+  const stub = providerCooldownStub(env, 'workers-ai');
+  if (!stub) return;
+  try {
+    const response = await stub.fetch(`${COOLDOWN_INTERNAL_ORIGIN}/settle-neurons`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        day: reservation.day,
+        reservationId: reservation.reservationId,
+        actualNeurons,
+      }),
+    });
+    if (!response.ok) {
+      console.warn(JSON.stringify({
+        kanarekReviewRouter: 'workers_ai_budget_settlement_failed',
+        status: response.status,
+      }));
+    }
+  } catch {
+    console.warn(JSON.stringify({
+      kanarekReviewRouter: 'workers_ai_budget_settlement_failed',
+      status: null,
+    }));
   }
 }
 
@@ -984,37 +1161,44 @@ export async function handleReviewRouterRequest(
         failures.push(diagnostic(provider, 'invalid_request'));
         invalidRequests += 1;
       } else {
-        const reservation = await reserveWorkersAiNeurons(env, bindingInput);
-        if (reservation !== 'reserved') {
-          const category = reservation === 'exhausted' ? 'soft_quota' : 'network';
+        const reservationResult = await reserveWorkersAiNeurons(env, bindingInput);
+        if (reservationResult.status !== 'reserved') {
+          const category = reservationResult.status === 'exhausted' ? 'soft_quota' : 'network';
           await rememberProviderCooldown(provider, category, env);
           failures.push(diagnostic(provider, category));
           console.warn(JSON.stringify({
             kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
           }));
         } else {
+          const reservation = reservationResult.reservation;
           let timeout: ReturnType<typeof setTimeout> | undefined;
-        try {
-          const result = await Promise.race([
-            env.AI!.run(WORKERS_AI_REVIEW_MODEL, bindingInput),
-            new Promise<never>((_, reject) => {
-              timeout = setTimeout(
-                () => reject(new DOMException('Workers AI timed out', 'AbortError')),
-                timeoutMs(env),
-              );
-            }),
-          ]);
-          console.info(JSON.stringify({
-            kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: WORKERS_AI_REVIEW_MODEL,
-          }));
-          return workersAiResponse(result);
-        } catch (error) {
-          const category = workersAiFailureCategory(error);
-          await rememberProviderCooldown(provider, category, env);
-          failures.push(diagnostic(provider, category));
-          console.warn(JSON.stringify({
-            kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
-          }));
+          try {
+            const result = await Promise.race([
+              env.AI!.run(WORKERS_AI_REVIEW_MODEL, bindingInput),
+              new Promise<never>((_, reject) => {
+                timeout = setTimeout(
+                  () => reject(new DOMException('Workers AI timed out', 'AbortError')),
+                  timeoutMs(env),
+                );
+              }),
+            ]);
+            await settleWorkersAiNeurons(
+              env,
+              reservation,
+              workersAiActualNeurons(result) ?? reservation.neurons,
+            );
+            console.info(JSON.stringify({
+              kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: WORKERS_AI_REVIEW_MODEL,
+            }));
+            return workersAiResponse(result);
+          } catch (error) {
+            await settleWorkersAiNeurons(env, reservation, reservation.neurons);
+            const category = workersAiFailureCategory(error);
+            await rememberProviderCooldown(provider, category, env);
+            failures.push(diagnostic(provider, category));
+            console.warn(JSON.stringify({
+              kanarekReviewRouter: 'provider_failed', provider, category, model: WORKERS_AI_REVIEW_MODEL,
+            }));
           } finally {
             if (timeout) clearTimeout(timeout);
           }

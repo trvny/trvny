@@ -21,3 +21,5 @@ jobs:
             https://kanarek-companion.travny.workers.dev/health)
           jq '{ok, reviewWebhook, workerVersion: .gateway.workerVersion}' <<<"$health"
           jq -e '.ok == true and .reviewWebhook.ready == true' <<<"$health" >/dev/null
+
+# Retrigger the Kanarek reviewer after the free-provider pool recovered.

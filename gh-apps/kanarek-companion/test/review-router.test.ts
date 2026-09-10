@@ -396,13 +396,76 @@ test('review provider health includes the Workers AI binding', async () => {
 });
 
 
+test('review router settles successful Workers AI reservations to reported usage', async () => {
+  const namespace = cooldownNamespace();
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    AI: workersAiBinding(async (model) => ({
+      id: 'cf-review',
+      object: 'chat.completion',
+      created: 1,
+      model,
+      choices: [],
+      usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+    })),
+    KANAREK_REVIEW_COOLDOWNS: namespace,
+  });
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'workers-ai');
+  const day = new Date().toISOString().slice(0, 10);
+  const stub = namespace.get(namespace.idFromName('workers-ai'));
+  const budget = await stub.fetch(
+    `https://review-cooldown.internal/neuron-budget?day=${day}&limit=10000`,
+  );
+  const payload = (await budget.json()) as { reserved?: number; remaining?: number };
+  assert.equal(payload.reserved, 3);
+  assert.equal(payload.remaining, 9_997);
+});
+
+test('Workers AI neuron settlement is idempotent', async () => {
+  const namespace = cooldownNamespace();
+  const stub = namespace.get(namespace.idFromName('workers-ai'));
+  const day = '2026-09-08';
+  const reservationId = 'settlement-idempotency';
+  const reserved = await stub.fetch('https://review-cooldown.internal/reserve-neurons', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ day, neurons: 100, limit: 10_000, reservationId }),
+  });
+  assert.equal(reserved.status, 200);
+
+  const settle = () => stub.fetch('https://review-cooldown.internal/settle-neurons', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ day, reservationId, actualNeurons: 7 }),
+  });
+  const first = await settle();
+  const second = await settle();
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(((await second.json()) as { missing?: boolean }).missing, true);
+
+  const budget = await stub.fetch(
+    `https://review-cooldown.internal/neuron-budget?day=${day}&limit=10000`,
+  );
+  const payload = (await budget.json()) as { reserved?: number };
+  assert.equal(payload.reserved, 7);
+});
+
 test('review provider state uses the full Workers AI free daily allocation', async () => {
   const namespace = cooldownNamespace();
   const stub = namespace.get(namespace.idFromName('workers-ai'));
+  let reservation = 0;
   const reserve = (neurons: number) => stub.fetch('https://review-cooldown.internal/reserve-neurons', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ day: '2026-09-07', neurons, limit: 10_000 }),
+    body: JSON.stringify({
+      day: '2026-09-07',
+      neurons,
+      limit: 10_000,
+      reservationId: `allocation-${++reservation}`,
+    }),
   });
 
   assert.equal((await reserve(6_000)).status, 200);
@@ -671,7 +734,9 @@ test('review provider health reports an exhausted Workers AI daily budget as una
   const reserved = await stub.fetch('https://review-cooldown.internal/reserve-neurons', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ day, neurons: 100, limit: 100 }),
+    body: JSON.stringify({
+      day, neurons: 100, limit: 100, reservationId: 'health-exhaustion',
+    }),
   });
   assert.equal(reserved.status, 200);
 

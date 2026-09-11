@@ -31,10 +31,7 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-| Repository | PR | Title | Author | State | Updated |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#524](https://github.com/trvny/trvny/pull/524) | test: smoke Kanarek direct review publisher | @trvny | ready | 2026-09-09 |
-| trvny/tvpi | [#88](https://github.com/trvny/tvpi/pull/88) | chore(deps-dev): bump wrangler from 4.128.0 to 4.129.0 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-09-09 |
+No open pull requests. 🎉
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

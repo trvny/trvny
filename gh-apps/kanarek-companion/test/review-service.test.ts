@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   handleReviewRouterViaService,
   reviewProviderPoolHealthViaService,
+  reviewProviderPoolStateViaService,
   type ReviewServiceEnv,
 } from '../src/review-service.ts';
 import {
@@ -61,6 +62,25 @@ test('review service adapter forwards through the binding and preserves retry po
 });
 
 
+test('review service preserves all explicit Workers AI disable aliases', async () => {
+  for (const value of ['false', '0', 'no', 'off', 'OFF']) {
+    let workersAiHeader: string | null = null;
+    const response = await handleReviewRouterViaService(modelsRequest(), {
+      ...localEnv,
+      KANAREK_REVIEW_WORKERS_AI_ENABLED: value,
+      KANAREK_REVIEW_SERVICE: {
+        async fetch(input) {
+          const request = input instanceof Request ? input : new Request(input);
+          workersAiHeader = request.headers.get(REVIEW_WORKERS_AI_OVERRIDE_HEADER);
+          return Response.json({ object: 'list', data: [] });
+        },
+      },
+    });
+    assert.equal(response?.status, 200, value);
+    assert.equal(workersAiHeader, 'false', value);
+  }
+});
+
 test('review service never forwards an invalid external bearer', async () => {
   let called = false;
   const response = await handleReviewRouterViaService(
@@ -110,4 +130,44 @@ test('review health uses the bound worker provider pool when available', async (
   });
 
   assert.deepEqual(health, providerPool);
+});
+
+test('review service state distinguishes the bound worker from local fallback', async () => {
+  const providerPool = {
+    available: 1,
+    configured: 1,
+    ready: true,
+    providers: [{ provider: 'openrouter', configured: true, available: true }],
+  };
+  const bound = await reviewProviderPoolStateViaService({
+    ...localEnv,
+    KANAREK_REVIEW_SERVICE: {
+      fetch() {
+        return Promise.resolve(Response.json({ ok: true, providerPool }));
+      },
+    },
+  });
+  assert.deepEqual(bound, { providerPool, serviceConfigured: true, serviceReady: true });
+
+  const local = await reviewProviderPoolStateViaService(localEnv);
+  assert.equal(local.serviceConfigured, false);
+  assert.equal(local.serviceReady, false);
+});
+
+test('review service state stays unready when the bound provider pool is unready', async () => {
+  const providerPool = {
+    available: 0,
+    configured: 3,
+    ready: false,
+    providers: [],
+  };
+  const state = await reviewProviderPoolStateViaService({
+    ...localEnv,
+    KANAREK_REVIEW_SERVICE: {
+      fetch() {
+        return Promise.resolve(Response.json({ ok: true, providerPool }));
+      },
+    },
+  });
+  assert.deepEqual(state, { providerPool, serviceConfigured: true, serviceReady: false });
 });

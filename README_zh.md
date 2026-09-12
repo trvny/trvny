@@ -60,7 +60,6 @@
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | 汇总检查 TVPI、Feedseek、Weather 和 Autka 健康状态的单一工具。 |
 | 🐾 **[Pet Dispatcher](mcp/pet-dispatcher/)** | 本地 MCP + Worker | 限定在工作区内的开发机工具，以及仅出站连接的 Cloudflare 控制平面。 |
 | 🌀 **[Loopling](loopling/)** | ChatGPT/Codex pet | 程序化生成的桌面宠物、安装脚本、预览与验证资源。 |
-| 💾 **[Remotely Save GDrive patch](https://github.com/twojstar/twojstar/tree/main/remotely-save-gdrive-patch)** | 本地补丁 | 仅供个人使用的 Google Drive 去重/更新补丁，以及不重新分发构建产物的验证工具。 |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | 公共 AI 配置核心，以及私有配置、归档和项目 skills。 |
 
 ### 🗄️ 抽屉

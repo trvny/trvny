@@ -318,22 +318,24 @@ closed. The gateway never returns Worker secret values or Pages build variables.
 `automation-sync.yml` keeps Worker credential provisioning centralized. Its
 manual dispatch can copy the existing repository Cloudflare credentials, the
 dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the sync-managed free review credentials
-(AIHubMix/OpenRouter/OrcaRouter), and any repository-held direct quip credentials
+(AIHubMix/OpenRouter/OrcaRouter/Ollama), and any repository-held direct quip credentials
 (Gemini/OpenAI/Anthropic/xAI) into `kanarek-companion`, without printing secret
 values. Missing direct-provider provisioning copies are left untouched on the
 Worker. Legacy
 per-repository review callers and provider secrets were removed during the
 webhook cutover and are no longer maintained by a scheduled rollout job.
 
-The review router first uses the guarded Cloudflare Workers AI binding with
-`@cf/zai-org/glm-4.7-flash`, then OpenRouter with the review-specific free-model
-chain, OrcaRouter, AIHubMix, Ollama Cloud, and finally Groq. Direct Gemini, OpenAI, Anthropic, and xAI
-credentials remain quip-only. An OpenRouter HTTP 400 from the full model chain
-is retried once with the primary model only. Provider-specific request
-rejection, transient, quota, authentication, and availability failures fall
-through to the next free provider. Terminal diagnostics expose only bounded
-provider/category codes, never upstream error bodies. The review endpoint
-accepts only the dedicated router bearer; provider API keys stay server-side.
+The review router prefers stronger free models first: OrcaRouter runs its explicit
+GLM 5.3 Flash, Hy3, and DeepSeek V4 Flash chain; AIHubMix provides another GLM
+5.3 path; OpenRouter follows with Nemotron 3 Super, North Mini Code, and its free
+router fallback; Ollama Cloud uses GPT-OSS 120B then 20B; Groq remains an optional
+final HTTP fallback. Guarded Cloudflare Workers AI (`@cf/zai-org/glm-4.7-flash`)
+is deliberately last. Direct Gemini, OpenAI, Anthropic, and xAI credentials remain
+quip-only. Provider-specific request rejection, transient, quota, authentication,
+and availability failures fall through to the next free model/provider. Terminal
+diagnostics expose only bounded provider/category codes, never upstream error
+bodies. The review endpoint accepts only the dedicated router bearer; provider
+API keys stay server-side.
 
 ## Secrets
 
@@ -355,11 +357,10 @@ Optional free-review secrets used at runtime only by the Worker:
 - `OLLAMA_API_KEY`
 - `GROQ_API_KEY`
 
-`OPENROUTER_API_KEY`, `ORCAROUTER_API_KEY`, and `AIHUBMIX_API_KEY` may be kept as
-provisioning copies in `trvny/trvny` for the manual credential-sync workflow.
-`OLLAMA_API_KEY` and `GROQ_API_KEY` are intentionally Worker-only unless explicit
-repository provisioning copies are added later; the sync workflow does not overwrite
-or remove them. Target repositories do not keep review-router or provider secrets.
+`OPENROUTER_API_KEY`, `ORCAROUTER_API_KEY`, `AIHUBMIX_API_KEY`, and
+`OLLAMA_API_KEY` are provisioning copies in `trvny/trvny` for the manual
+credential-sync workflow. `GROQ_API_KEY` remains Worker-only unless an explicit
+repository provisioning copy is added later. Target repositories do not keep review-router or provider secrets.
 
 Optional direct AI secrets for quip generation:
 
@@ -370,8 +371,8 @@ Optional direct AI secrets for quip generation:
 
 The manual credential sync copies any matching provisioning secret present in
 `trvny/trvny`; an absent direct-provider copy does not delete an existing Worker
-secret. Missing sync-managed free-review provisioning copies are removed; Worker-only Ollama/Groq
-secrets are left untouched. The sync then
+secret. Missing sync-managed free-review provisioning copies are removed; a Worker-only Groq
+secret is left untouched. The sync then
 creates and activates a tagged secret-only Worker version, preserving the live
 source tag when available so `/health` keeps meaningful deployment provenance.
 

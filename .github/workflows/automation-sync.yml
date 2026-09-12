@@ -38,6 +38,7 @@ jobs:
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
     steps:
       - name: Sync Worker credentials
         shell: bash
@@ -102,6 +103,7 @@ jobs:
                   "AIHUBMIX_API_KEY",
                   "OPENROUTER_API_KEY",
                   "ORCAROUTER_API_KEY",
+                  "OLLAMA_API_KEY",
               )
           }
           pathlib.Path(sys.argv[1]).write_text(
@@ -171,6 +173,7 @@ jobs:
       AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
     steps:
       - name: Sync review provider credentials
         shell: bash
@@ -181,6 +184,7 @@ jobs:
           : "${AIHUBMIX_API_KEY:?AIHUBMIX_API_KEY must be configured}"
           : "${OPENROUTER_API_KEY:?OPENROUTER_API_KEY must be configured}"
           : "${ORCAROUTER_API_KEY:?ORCAROUTER_API_KEY must be configured}"
+          : "${OLLAMA_API_KEY:?OLLAMA_API_KEY must be configured}"
 
           secrets_file=$(mktemp)
           trap 'rm -f "$secrets_file"' EXIT
@@ -190,7 +194,7 @@ jobs:
           import pathlib
           import sys
 
-          names = ("AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY")
+          names = ("AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "OLLAMA_API_KEY")
           pathlib.Path(sys.argv[1]).write_text(
               json.dumps({name: os.environ[name] for name in names}),
               encoding="utf-8",
@@ -205,7 +209,7 @@ jobs:
             --name kanarek-review --format json)
           jq -e '
             ([.[].name] | sort) as $names |
-            ["AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY"] |
+            ["AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "OLLAMA_API_KEY"] |
             all(. as $required | $names | index($required))
           ' <<<"$secrets_json" >/dev/null
 

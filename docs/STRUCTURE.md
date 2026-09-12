@@ -12,7 +12,6 @@
 | `loopling/` | ChatGPT/Codex pet source, generated assets, installers and previews |
 | `mcp/pet-dispatcher/` | local confined MCP worker plus Cloudflare remote control plane |
 | `mcp/status-mcp/` | authenticated aggregate health MCP Worker |
-| `remotely-save-gdrive-patch/` | local Google Drive patch and non-redistributing verification harness |
 | `stuff/` | feeds, playlists, quotes, configs and miscellaneous personal tools/assets |
 
 ## Main entry points
@@ -25,7 +24,6 @@
 | Pet Dispatcher local worker | `mcp/pet-dispatcher/src/index.ts` |
 | Pet Dispatcher control plane | `mcp/pet-dispatcher/control-plane/entry.ts` |
 | Loopling | `loopling/tools/generate.py` and `loopling/pet/pet.json` |
-| Remotely Save patch | `remotely-save-gdrive-patch/patch_gdrive.py` |
 | Token Worldcup | `stuff/other/token-worldcup/token-worldcup.qmd` |
 
 ## Ownership rules

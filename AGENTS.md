@@ -15,7 +15,6 @@ Prefer improving an existing home over creating a parallel structure. Inspect lo
   result envelopes and cross-transport deduplication depend on the documented
   transport contract.
 - `loopling/` — ChatGPT/Codex pet source, generated assets and installers.
-- `remotely-save-gdrive-patch/` — local Remotely Save Google Drive patch and verification harness.
 - `.ai/private/` — repo-local AI overlays (OpenAI, Claude and personalities). It is tracked in this public repository despite the directory name; never treat it as a secret store.
 - `stuff/` — small configs, feeds, playlists and miscellaneous assets.
 

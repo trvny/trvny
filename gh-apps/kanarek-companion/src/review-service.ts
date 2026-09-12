@@ -1,3 +1,9 @@
+import { bearerAuthorized } from './auth.ts';
+import {
+  REVIEW_SERVICE_INTERNAL_BEARER,
+  REVIEW_SERVICE_TRUST_HEADER,
+  REVIEW_SERVICE_TRUST_VALUE,
+} from './review-service-protocol.ts';
 import {
   handleReviewRouterRequest,
   REVIEW_ROUTER_MODELS_PATH,
@@ -28,6 +34,8 @@ function reviewRouterRequest(request: Request): boolean {
 }
 function serviceRequest(request: Request, env: ReviewServiceEnv): Request {
   const headers = new Headers(request.headers);
+  headers.set('authorization', `Bearer ${REVIEW_SERVICE_INTERNAL_BEARER}`);
+  headers.set(REVIEW_SERVICE_TRUST_HEADER, REVIEW_SERVICE_TRUST_VALUE);
   headers.set(
     REVIEW_WORKERS_AI_OVERRIDE_HEADER,
     env.KANAREK_REVIEW_WORKERS_AI_ENABLED === 'false' ? 'false' : 'true',
@@ -51,6 +59,9 @@ export async function handleReviewRouterViaService(
   if (!reviewRouterRequest(request)) return null;
   const service = env.KANAREK_REVIEW_SERVICE;
   if (!service) return localFallback(request, env, fetcher);
+  if (!bearerAuthorized(request, env.KANAREK_REVIEW_ROUTER_TOKEN)) {
+    return localFallback(request, env, fetcher);
+  }
 
   try {
     return await service.fetch(serviceRequest(request, env));

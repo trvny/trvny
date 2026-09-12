@@ -1,3 +1,9 @@
+import { bearerAuthorized } from '../../kanarek-companion/src/auth.ts';
+import {
+  REVIEW_SERVICE_INTERNAL_BEARER,
+  REVIEW_SERVICE_TRUST_HEADER,
+  REVIEW_SERVICE_TRUST_VALUE,
+} from '../../kanarek-companion/src/review-service-protocol.ts';
 import {
   handleReviewRouterRequest,
   REVIEW_WORKERS_AI_OVERRIDE_HEADER,
@@ -22,9 +28,17 @@ function json(body: unknown, status = 200): Response {
 }
 
 export function reviewEnvForRequest(request: Request, env: Env): Env {
-  const workersAi = request.headers.get(REVIEW_WORKERS_AI_OVERRIDE_HEADER);
-  if (workersAi !== 'false') return env;
-  return { ...env, KANAREK_REVIEW_WORKERS_AI_ENABLED: 'false' };
+  const trusted =
+    request.headers.get(REVIEW_SERVICE_TRUST_HEADER) === REVIEW_SERVICE_TRUST_VALUE &&
+    bearerAuthorized(request, REVIEW_SERVICE_INTERNAL_BEARER);
+  const effective: Env = {
+    ...env,
+    KANAREK_REVIEW_ROUTER_TOKEN: trusted ? REVIEW_SERVICE_INTERNAL_BEARER : undefined,
+  };
+  if (request.headers.get(REVIEW_WORKERS_AI_OVERRIDE_HEADER) === 'false') {
+    effective.KANAREK_REVIEW_WORKERS_AI_ENABLED = 'false';
+  }
+  return effective;
 }
 
 async function health(env: Env): Promise<Response> {

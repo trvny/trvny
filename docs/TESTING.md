@@ -18,7 +18,6 @@ git diff --exit-code -- loopling/pet loopling/gallery
 - **Pet Dispatcher:** strict TypeScript plus `tsx --test` suites for path confinement, networking, sandbox integration, MCP, Git, providers, hardening, remote transport and direct sessions; `control:check` also validates the Worker bundle.
 - **status-mcp:** strict TypeScript only in CI today; no behavior test suite is configured.
 - **Loopling:** no dedicated CI job; regenerate deterministically with `tools/generate.py` and require `pet/` plus `gallery/` to remain unchanged.
-- **Remotely Save patch:** workflow downloads the latest upstream `main.js`, applies the patch, builds a standalone test class and runs fake-Drive checks. It publishes nothing.
 - **Quarto report:** CI renders `stuff/other/token-worldcup/token-worldcup.qmd` and fails if committed HTML differs.
 - **Repository docs/config:** MegaLinter checks changed files; a full sweep is manual via `workflow_dispatch`.
 

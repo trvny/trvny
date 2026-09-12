@@ -10,6 +10,7 @@ import {
   REVIEW_ROUTER_PATH,
   REVIEW_WORKERS_AI_OVERRIDE_HEADER,
   reviewProviderPoolHealth,
+  reviewWorkersAiExplicitlyDisabled,
   type ReviewRouterEnv,
 } from './review-router.ts';
 
@@ -38,7 +39,7 @@ function serviceRequest(request: Request, env: ReviewServiceEnv): Request {
   headers.set(REVIEW_SERVICE_TRUST_HEADER, REVIEW_SERVICE_TRUST_VALUE);
   headers.set(
     REVIEW_WORKERS_AI_OVERRIDE_HEADER,
-    env.KANAREK_REVIEW_WORKERS_AI_ENABLED === 'false' ? 'false' : 'true',
+    reviewWorkersAiExplicitlyDisabled(env.KANAREK_REVIEW_WORKERS_AI_ENABLED) ? 'false' : 'true',
   );
   return new Request(request.clone(), { headers });
 }
@@ -88,9 +89,15 @@ function providerPool(value: unknown): ProviderPoolHealth | null {
   return candidate as ProviderPoolHealth;
 }
 
-export async function reviewProviderPoolHealthViaService(
+export type ReviewProviderPoolState = {
+  providerPool: ProviderPoolHealth;
+  serviceConfigured: boolean;
+  serviceReady: boolean;
+};
+
+export async function reviewProviderPoolStateViaService(
   env: ReviewServiceEnv,
-): Promise<ProviderPoolHealth> {
+): Promise<ReviewProviderPoolState> {
   const service = env.KANAREK_REVIEW_SERVICE;
   if (service) {
     try {
@@ -99,7 +106,9 @@ export async function reviewProviderPoolHealthViaService(
       );
       if (response.ok) {
         const parsed = providerPool(await response.json());
-        if (parsed) return parsed;
+        if (parsed) {
+          return { providerPool: parsed, serviceConfigured: true, serviceReady: parsed.ready };
+        }
       }
       await response.body?.cancel();
     } catch (error) {
@@ -109,7 +118,17 @@ export async function reviewProviderPoolHealthViaService(
       }));
     }
   }
-  return reviewProviderPoolHealth(env);
+  return {
+    providerPool: await reviewProviderPoolHealth(env),
+    serviceConfigured: Boolean(service),
+    serviceReady: false,
+  };
+}
+
+export async function reviewProviderPoolHealthViaService(
+  env: ReviewServiceEnv,
+): Promise<ProviderPoolHealth> {
+  return (await reviewProviderPoolStateViaService(env)).providerPool;
 }
 
 export { REVIEW_WORKERS_AI_OVERRIDE_HEADER };

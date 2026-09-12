@@ -1,9 +1,9 @@
 import { createInstallationClient } from './github-app.ts';
+import { REVIEW_ROUTER_PATH } from './review-router.ts';
 import {
-  handleReviewRouterRequest,
-  REVIEW_ROUTER_PATH,
-  type ReviewRouterEnv,
-} from './review-router.ts';
+  handleReviewRouterViaService,
+  type ReviewServiceEnv,
+} from './review-service.ts';
 
 const REVIEW_ACTIONS = new Set(['opened', 'reopened', 'synchronize', 'ready_for_review']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
@@ -102,7 +102,7 @@ const REVIEW_SYSTEM_PROMPT = [
   `Return at most ${MAX_FINDINGS} findings. Use an empty findings array when no actionable defect exists.`,
 ].join('\n');
 
-export interface WebhookReviewEnv extends ReviewRouterEnv {
+export interface WebhookReviewEnv extends ReviewServiceEnv {
   GITHUB_APP_ID: string;
   GITHUB_APP_SLUG?: string;
   GITHUB_PRIVATE_KEY: string;
@@ -821,7 +821,7 @@ async function askReviewRouter(
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) return null;
 
-  const response = await handleReviewRouterRequest(
+  const response = await handleReviewRouterViaService(
     new Request(`${INTERNAL_REVIEW_ORIGIN}${REVIEW_ROUTER_PATH}`, {
       method: 'POST',
       headers: {

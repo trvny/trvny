@@ -1,0 +1,48 @@
+name: Kanarek review CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "gh-apps/kanarek-review/**"
+      - "gh-apps/kanarek-companion/src/review-router.ts"
+      - "gh-apps/kanarek-companion/src/auth.ts"
+      - "gh-apps/kanarek-companion/src/openrouter-models.ts"
+      - ".github/workflows/kanarek-review-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "gh-apps/kanarek-review/**"
+      - "gh-apps/kanarek-companion/src/review-router.ts"
+      - "gh-apps/kanarek-companion/src/auth.ts"
+      - "gh-apps/kanarek-companion/src/openrouter-models.ts"
+      - ".github/workflows/kanarek-review-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: kanarek-review-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-review
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-review/package-lock.json
+
+      - run: npm ci
+      - run: npm run check

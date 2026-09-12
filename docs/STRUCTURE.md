@@ -26,7 +26,7 @@
 | Pet Dispatcher control plane | `mcp/pet-dispatcher/control-plane/entry.ts` |
 | Loopling | `loopling/tools/generate.py` and `loopling/pet/pet.json` |
 | Remotely Save patch | `remotely-save-gdrive-patch/patch_gdrive.py` |
-| Token Worldcup | `stuff/other/token-worldcup.qmd` |
+| Token Worldcup | `stuff/other/token-worldcup/token-worldcup.qmd` |
 
 ## Ownership rules
 

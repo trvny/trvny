@@ -3,6 +3,7 @@ import { configuredOpenRouterModels } from './openrouter-models.ts';
 
 export const REVIEW_ROUTER_PATH = '/review-router/v1/chat/completions';
 export const REVIEW_ROUTER_MODELS_PATH = '/review-router/v1/models';
+export const REVIEW_WORKERS_AI_OVERRIDE_HEADER = 'x-kanarek-review-workers-ai-enabled';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_TIMEOUT_MS = 1_000;

@@ -21,11 +21,11 @@ import {
   addPackageIntelligenceOpenApi,
   handlePackageIntelligenceAction,
 } from './package-intelligence.ts';
+import { ReviewProviderCooldownStore } from './review-router.ts';
 import {
-  handleReviewRouterRequest,
-  ReviewProviderCooldownStore,
-  type ReviewRouterEnv,
-} from './review-router.ts';
+  handleReviewRouterViaService,
+  type ReviewServiceEnv,
+} from './review-service.ts';
 import router, {
   actionFetch,
   CommentProbeLock,
@@ -49,7 +49,7 @@ interface WorkerVersionMetadataLike {
   timestamp?: string;
 }
 
-type Env = RouterEnv & ReviewRouterEnv & AnchorStorageEnv & {
+type Env = RouterEnv & ReviewServiceEnv & AnchorStorageEnv & {
   CF_VERSION_METADATA?: WorkerVersionMetadataLike;
   CONTEXT7_API_KEY?: string;
   ENGRAM_API_KEY?: string;
@@ -417,7 +417,7 @@ const worker = {
       );
       if (mcpResponse) return mcpResponse;
     }
-    const reviewRouterResponse = await handleReviewRouterRequest(request, env);
+    const reviewRouterResponse = await handleReviewRouterViaService(request, env);
     if (reviewRouterResponse) return reviewRouterResponse;
     if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
       return json(gatewayOpenApi(url.origin));

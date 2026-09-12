@@ -22,17 +22,19 @@ const WORKERS_AI_MAX_OUTPUT_TOKENS = 4_096;
 const WORKERS_AI_HIDDEN_OUTPUT_TOKEN_FACTOR = 2;
 const WORKERS_AI_RESERVATION_SAFETY_FACTOR = 1.25;
 const WORKERS_AI_BUDGET_STORAGE_KEY = 'workers-ai-neuron-budget';
+const DEFAULT_REVIEW_ORCAROUTER_MODELS = [
+  'z-ai/glm-5.3-flash-free',
+  'tencent/hy3-free',
+  'deepseek/deepseek-v4-flash-free',
+] as const;
 const DEFAULT_REVIEW_OLLAMA_MODELS = [
-  'glm-5.3-flash',
   'gpt-oss:120b',
   'gpt-oss:20b',
 ] as const;
 const DEFAULT_REVIEW_GROQ_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_REVIEW_OPENROUTER_MODELS = [
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'poolside/laguna-s-2.1:free',
-  'cohere/north-mini-code:free',
   'nvidia/nemotron-3-super-120b-a12b:free',
+  'cohere/north-mini-code:free',
   'openrouter/free',
 ] as const;
 const AIHUBMIX_RETRYABLE_MESSAGES = [
@@ -52,6 +54,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
+  KANAREK_REVIEW_ORCAROUTER_MODELS?: string;
   KANAREK_REVIEW_OLLAMA_MODELS?: string;
   KANAREK_REVIEW_GROQ_MODEL?: string;
   KANAREK_REVIEW_COOLDOWNS?: DurableObjectNamespace;
@@ -397,23 +400,20 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
     : sharedOpenRouterModels
       ? configuredOpenRouterModels(sharedOpenRouterModels)
       : [...DEFAULT_REVIEW_OPENROUTER_MODELS];
+  const orcaRouterModels = configuredModelList(
+    env.KANAREK_REVIEW_ORCAROUTER_MODELS,
+    DEFAULT_REVIEW_ORCAROUTER_MODELS,
+  );
   const ollamaModels = configuredModelList(
     env.KANAREK_REVIEW_OLLAMA_MODELS,
     DEFAULT_REVIEW_OLLAMA_MODELS,
   );
   return [
     {
-      id: 'openrouter',
-      url: 'https://openrouter.ai/api/v1/chat/completions',
-      model: openRouterModels[0],
-      fallbackModels: openRouterModels.slice(1),
-      apiKey: (providerEnv) => providerEnv.OPENROUTER_API_KEY,
-      headers: { 'X-Title': 'Kanarek free review' },
-    },
-    {
       id: 'orcarouter',
       url: 'https://api.orcarouter.ai/v1/chat/completions',
-      model: 'orcarouter/free',
+      model: orcaRouterModels[0] ?? DEFAULT_REVIEW_ORCAROUTER_MODELS[0],
+      fallbackModels: orcaRouterModels.slice(1),
       apiKey: (providerEnv) => providerEnv.ORCAROUTER_API_KEY,
     },
     {
@@ -421,6 +421,14 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
       url: 'https://aihubmix.com/v1/chat/completions',
       model: 'coding-glm-5.3-free',
       apiKey: (providerEnv) => providerEnv.AIHUBMIX_API_KEY,
+    },
+    {
+      id: 'openrouter',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      model: openRouterModels[0],
+      fallbackModels: openRouterModels.slice(1),
+      apiKey: (providerEnv) => providerEnv.OPENROUTER_API_KEY,
+      headers: { 'X-Title': 'Kanarek free review' },
     },
     {
       id: 'ollama',
@@ -919,7 +927,7 @@ function providerAttempts(provider: ReviewProvider): readonly ProviderAttempt[] 
       { model: provider.model, label: 'primary_only' },
     ];
   }
-  if (provider.id === 'ollama' && provider.fallbackModels?.length) {
+  if ((provider.id === 'orcarouter' || provider.id === 'ollama') && provider.fallbackModels?.length) {
     return [provider.model, ...provider.fallbackModels].map((model, index) => ({
       model,
       label: index === 0 ? 'default' : 'model_fallback',
@@ -936,7 +944,14 @@ function shouldTryNextAttempt(
 ): boolean {
   if (attemptIndex + 1 >= attemptCount) return false;
   if (provider.id === 'openrouter') return status === 400;
-  if (provider.id === 'ollama') return status === 400 || status === 404;
+  if (provider.id === 'orcarouter') {
+    return status === 402 || status === 404 || status === 408 || status === 409 ||
+      status === 425 || status === 429 || status >= 500;
+  }
+  if (provider.id === 'ollama') {
+    return status === 400 || status === 402 || status === 404 || status === 408 ||
+      status === 409 || status === 425 || status === 429 || status >= 500;
+  }
   return false;
 }
 

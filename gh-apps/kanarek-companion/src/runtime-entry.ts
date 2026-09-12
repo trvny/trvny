@@ -25,7 +25,7 @@ import {
   RELEASE_ASSET_REPLACE_PATH,
 } from './release-replace-action.ts';
 import { runtimeOpenApi } from './runtime-openapi.ts';
-import { reviewProviderPoolHealthViaService } from './review-service.ts';
+import { reviewProviderPoolStateViaService } from './review-service.ts';
 import {
   handleSymbolInvestigationAction,
   SYMBOL_INVESTIGATION_PATH,
@@ -141,7 +141,8 @@ async function reviewWebhookHealth(env: Env): Promise<JsonObject> {
   );
   const queueConfigured = Boolean(env.KANAREK_REVIEW_JOBS);
   const routerConfigured = Boolean(env.KANAREK_REVIEW_ROUTER_TOKEN?.trim());
-  const providerPool = await reviewProviderPoolHealthViaService(env);
+  const reviewState = await reviewProviderPoolStateViaService(env);
+  const providerPool = reviewState.providerPool;
   return {
     enabled,
     githubConfigured,
@@ -149,6 +150,8 @@ async function reviewWebhookHealth(env: Env): Promise<JsonObject> {
     providerConfigured: providerPool.configured > 0,
     providerPool,
     queueConfigured,
+    serviceConfigured: reviewState.serviceConfigured,
+    serviceReady: reviewState.serviceReady,
     ready:
       enabled &&
       githubConfigured &&

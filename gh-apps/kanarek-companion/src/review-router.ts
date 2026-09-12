@@ -567,7 +567,7 @@ function providerCooldownStub(
   return env.KANAREK_REVIEW_COOLDOWNS.get(id);
 }
 
-function explicitlyDisabled(raw: string | undefined): boolean {
+export function reviewWorkersAiExplicitlyDisabled(raw: string | undefined): boolean {
   const value = raw?.trim().toLowerCase();
   return value === 'false' || value === '0' || value === 'no' || value === 'off';
 }
@@ -576,7 +576,7 @@ function workersAiEnabled(env: ReviewRouterEnv): boolean {
   return Boolean(
     env.AI &&
     env.KANAREK_REVIEW_COOLDOWNS &&
-    !explicitlyDisabled(env.KANAREK_REVIEW_WORKERS_AI_ENABLED)
+    !reviewWorkersAiExplicitlyDisabled(env.KANAREK_REVIEW_WORKERS_AI_ENABLED)
   );
 }
 

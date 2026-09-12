@@ -78,6 +78,9 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     if (health.ok !== true) throw new Error('/health reports not ready');
     const gateway = nestedObject(health, 'gateway');
     const liveOpenApi = gateway ? nestedObject(gateway, 'openApi') : null;
+    const reviewWebhook = nestedObject(health, 'reviewWebhook');
+    const reviewServiceConfigured = reviewWebhook?.serviceConfigured === true;
+    const reviewServiceReady = reviewWebhook?.serviceReady === true;
     const workerVersion = gateway
       ? nestedObject(gateway, 'workerVersion')
       : null;
@@ -88,13 +91,17 @@ for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const versionMatchesCommit = EXPECTED_COMMIT_SHA
       ? versionTag?.toLowerCase() === EXPECTED_COMMIT_SHA
       : Boolean(versionId && versionTimestamp);
-    lastSeen = `digest=${liveDigest ?? 'missing'} tag=${versionTag ?? 'none'}`;
+    lastSeen =
+      `digest=${liveDigest ?? 'missing'} tag=${versionTag ?? 'none'} ` +
+      `reviewService=${reviewServiceReady ? 'ready' : reviewServiceConfigured ? 'unready' : 'missing'}`;
 
     if (
       liveDigest !== expectedDigest ||
       !versionId ||
       !versionTimestamp ||
-      !versionMatchesCommit
+      !versionMatchesCommit ||
+      !reviewServiceConfigured ||
+      !reviewServiceReady
     ) {
       console.log(
         `smoke ${attempt}/${maxAttempts}: waiting for live deployment ` +

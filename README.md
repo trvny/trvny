@@ -60,7 +60,7 @@ No open pull requests. 🎉
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | One tool for aggregate health checks of TVPI, Feedseek, Weather, and Autka. |
 | 🐾 **[Pet Dispatcher](mcp/pet-dispatcher/)** | local MCP + Worker | Workspace-confined development-machine tools with an outbound-only Cloudflare control plane. |
 | 🌀 **[Loopling](loopling/)** | ChatGPT/Codex pet | Procedurally generated desktop pet, installers, previews, and validation assets. |
-| 💾 **[Remotely Save GDrive patch](remotely-save-gdrive-patch/)** | local patch | Personal-use Google Drive dedup/update patch with a non-redistributing verification harness. |
+| 💾 **[Remotely Save GDrive patch](https://github.com/twojstar/twojstar/tree/main/remotely-save-gdrive-patch)** | local patch | Personal-use Google Drive dedup/update patch with a non-redistributing verification harness. |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Public AI configuration core + private profile, archive, and project skills. |
 
 ### 🗄️ Drawers

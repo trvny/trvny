@@ -27,4 +27,3 @@
 - Kanarek Companion uses Node's built-in test runner plus explicit runtime/network fakes.
 - Pet Dispatcher uses `tsx --test` with unit and integration coverage around confinement, Git, providers, remote transport and direct sessions.
 - status-mcp currently relies on strict TypeScript checking.
-- Remotely Save patch verification uses Python plus a generated Node test harness against a fake Drive implementation.

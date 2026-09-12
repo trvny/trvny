@@ -1,3 +1,4 @@
+/// <reference path="./node-async-hooks.d.ts" />
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { paginateReviewThreadsGraphql } from './review-thread-pagination.ts';

@@ -1,0 +1,46 @@
+name: Gremlin operator CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "gh-apps/gremlin-operator/**"
+      - "gh-apps/kanarek-companion/src/**"
+      - "gh-apps/kanarek-companion/package.json"
+      - "gh-apps/kanarek-companion/wrangler.jsonc"
+      - ".github/workflows/gremlin-operator-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "gh-apps/gremlin-operator/**"
+      - "gh-apps/kanarek-companion/src/**"
+      - "gh-apps/kanarek-companion/package.json"
+      - "gh-apps/kanarek-companion/wrangler.jsonc"
+      - ".github/workflows/gremlin-operator-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: gremlin-operator-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: gh-apps/gremlin-operator
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/gremlin-operator/package-lock.json
+      - run: npm ci
+      - run: npm run check

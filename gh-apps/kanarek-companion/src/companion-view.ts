@@ -111,6 +111,7 @@ export function status(
   ci: CiState,
   review: ReviewState,
   ciRequired = true,
+  branchUpdatePending = false,
 ): StatusState {
   if (pr.merged) return { key: 'merged', title: '🟣 merged', blockers: [] };
   if (pr.state === 'closed') {
@@ -121,6 +122,7 @@ export function status(
   }
 
   const blockers: string[] = [];
+  if (branchUpdatePending) blockers.push('branch update pending');
   if (branch.behind === null) blockers.push('branch state unknown');
   if (pr.mergeable === false || pr.mergeable_state === 'dirty') {
     blockers.push('merge conflicts');
@@ -147,10 +149,12 @@ export function blockerKinds(
   ci: CiState,
   review: ReviewState,
   ciRequired = true,
+  branchUpdatePending = false,
 ): string[] {
   if (pr.merged || pr.state === 'closed') return [];
 
   const kinds = [
+    branchUpdatePending ? 'branch-update' : null,
     branch.behind === null ? 'branch-unknown' : null,
     pr.mergeable === false || pr.mergeable_state === 'dirty'
       ? 'conflict'

@@ -1,5 +1,5 @@
 import { createInstallationClient } from './github-app.ts';
-import { REVIEW_ROUTER_PATH } from './review-router.ts';
+import { REVIEW_ROUTER_PATH } from './review-service-protocol.ts';
 import {
   handleReviewRouterViaService,
   type ReviewServiceEnv,
@@ -816,7 +816,6 @@ function normalizeFindings(
 async function askReviewRouter(
   prompt: string,
   env: WebhookReviewEnv,
-  fetcher: typeof fetch,
 ): Promise<{ model: string | null; parsed: ParsedReview; provider: string } | null> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) return null;
@@ -844,7 +843,6 @@ async function askReviewRouter(
       }),
     }),
     env,
-    fetcher,
   );
   if (!response || !response.ok) {
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
@@ -1071,7 +1069,6 @@ export async function runWebhookReview(
   const generated = await askReviewRouter(
     reviewPrompt(target.number, pr.title, pr.body, files, context),
     reviewRouterEnvForAttempt(env, job.attempt),
-    fetcher,
   );
   if (!generated) {
     return { reviewed: false, provider: null, findingCount: 0, skipped: 'providers_failed' };

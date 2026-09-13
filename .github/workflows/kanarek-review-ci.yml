@@ -5,19 +5,17 @@ on:
     branches: [main]
     paths:
       - "gh-apps/kanarek-review/**"
-      - "gh-apps/kanarek-companion/src/review-router.ts"
       - "gh-apps/kanarek-companion/src/auth.ts"
       - "gh-apps/kanarek-companion/src/review-service-protocol.ts"
-      - "gh-apps/kanarek-companion/src/openrouter-models.ts"
+      - "gh-apps/kanarek-companion/src/review-cooldown-store.ts"
       - ".github/workflows/kanarek-review-ci.yml"
   pull_request:
     branches: [main]
     paths:
       - "gh-apps/kanarek-review/**"
-      - "gh-apps/kanarek-companion/src/review-router.ts"
       - "gh-apps/kanarek-companion/src/auth.ts"
       - "gh-apps/kanarek-companion/src/review-service-protocol.ts"
-      - "gh-apps/kanarek-companion/src/openrouter-models.ts"
+      - "gh-apps/kanarek-companion/src/review-cooldown-store.ts"
       - ".github/workflows/kanarek-review-ci.yml"
   workflow_dispatch:
 

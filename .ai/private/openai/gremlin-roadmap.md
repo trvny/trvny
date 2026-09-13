@@ -52,7 +52,7 @@ do not wrap every GitHub endpoint for its own sake.
 
 ## Organization operator
 
-- [ ] **`enclaro` organization administration.** Add guarded `enclaro`-only inventory and selected
+- [ ] **`travnie` organization administration.** Add guarded `travnie`-only inventory and selected
   organization management for repositories, members/teams and automation/security settings. Grant
   only the GitHub App organization permissions required by implemented operations, require fresh
   expected state for mutations, and never expose a generic organization-admin, billing or secrets proxy.

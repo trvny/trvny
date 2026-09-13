@@ -21,9 +21,11 @@ const json = (value: unknown, status = 200) =>
 async function refresh(options: {
   behind: number;
   head: string;
+  refreshedHead?: string;
   updateStatus?: number;
-}): Promise<{ body: string; state: string; updateCalls: number }> {
+}): Promise<{ body: string; pullCalls: number; state: string; updateCalls: number }> {
   let body = '';
+  let pullCalls = 0;
   let updateCalls = 0;
   const fetcher: typeof fetch = async (input, init = {}) => {
     const request = input instanceof Request ? input : null;
@@ -44,6 +46,8 @@ async function refresh(options: {
       });
     }
     if (method === 'GET' && url.pathname === '/repos/trvny/trvny/pulls/12') {
+      pullCalls += 1;
+      const head = pullCalls > 1 ? options.refreshedHead ?? options.head : options.head;
       return json({
         additions: 1,
         auto_merge: null,
@@ -54,7 +58,7 @@ async function refresh(options: {
         head: {
           ref: 'feature',
           repo: { full_name: 'trvny/trvny' },
-          sha: options.head,
+          sha: head,
         },
         labels: [],
         mergeable: true,
@@ -115,7 +119,7 @@ async function refresh(options: {
     } as CompanionEnv,
     fetcher,
   );
-  return { body, state: result.state, updateCalls };
+  return { body, pullCalls, state: result.state, updateCalls };
 }
 
 test('accepted auto-update stays waiting until the new head refreshes', async () => {
@@ -131,14 +135,34 @@ test('accepted auto-update stays waiting until the new head refreshes', async ()
   assert.match(refreshed.body, /Kanarek · 🟢 ready/);
 });
 
-test('rejected auto-update leaves behind state informational', async () => {
+test('rejected auto-update with an unchanged head leaves behind state informational', async () => {
   const rejected = await refresh({
     behind: 2,
     head: 'd'.repeat(40),
     updateStatus: 422,
   });
   assert.equal(rejected.updateCalls, 1);
+  assert.equal(rejected.pullCalls, 2);
   assert.equal(rejected.state, 'ready');
   assert.match(rejected.body, /Kanarek · 🟢 ready/);
   assert.match(rejected.body, /`main` ↓/);
+});
+
+test('stale-head rejection waits until the pushed head is refreshed', async () => {
+  const oldHead = 'd'.repeat(40);
+  const newHead = 'e'.repeat(40);
+  const stale = await refresh({
+    behind: 2,
+    head: oldHead,
+    refreshedHead: newHead,
+    updateStatus: 422,
+  });
+  assert.equal(stale.updateCalls, 1);
+  assert.equal(stale.pullCalls, 2);
+  assert.equal(stale.state, 'waiting');
+  assert.match(stale.body, /Kanarek · 🟡 waiting/);
+
+  const refreshed = await refresh({ behind: 0, head: newHead });
+  assert.equal(refreshed.state, 'ready');
+  assert.match(refreshed.body, /Kanarek · 🟢 ready/);
 });

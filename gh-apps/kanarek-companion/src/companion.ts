@@ -226,15 +226,29 @@ export async function refreshCompanion(
   const branchUpdateWarning = branchUpdateEligible
     ? branchUpdatePermissionWarning(client)
     : null;
-  const branchUpdatePending =
-    branchUpdateEligible && !branchUpdateWarning
-      ? await updateBranch(
+  let branchUpdatePending = false;
+  if (branchUpdateEligible && !branchUpdateWarning) {
+    const updateAccepted = await updateBranch(
+      client,
+      target.repository,
+      target.pullRequestNumber,
+      pr.head.sha,
+    );
+    if (updateAccepted) {
+      branchUpdatePending = true;
+    } else {
+      try {
+        const refreshedPr = await pull(
           client,
           target.repository,
           target.pullRequestNumber,
-          pr.head.sha,
-        )
-      : false;
+        );
+        branchUpdatePending = refreshedPr.head.sha !== pr.head.sha;
+      } catch {
+        branchUpdatePending = true;
+      }
+    }
+  }
   const current = status(pr, branch, ci, review, ciRequired, branchUpdatePending);
   const kinds = blockerKinds(pr, branch, ci, review, ciRequired, branchUpdatePending);
   const language = contextLanguage(

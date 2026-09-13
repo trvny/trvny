@@ -244,8 +244,9 @@ delivery path, so GPTomek does not need another Worker or webhook endpoint.
   quip bank/receipts, language, reactions, types, and guarded branch updates.
 - `src/webhook-review.ts`: free-review queueing, debounce/dedupe, bounded
   repository context, stale-head validation, and native GitHub review publication.
-- `src/review-router.ts` and `src/openrouter-models.ts`: free-only review provider
-  routing, model chain and persistent provider cooldowns.
+- `src/review-cooldown-store.ts`: compatibility host for the existing review
+  cooldown and Workers AI budget Durable Object used by `kanarek-review`.
+- `../kanarek-review/`: private free-review provider router and model chain.
 - `src/quip.ts`: presets, quip provider adapters, prompt contract, sanitization,
   and the base AI rollout.
 
@@ -318,11 +319,10 @@ closed. The gateway never returns Worker secret values or Pages build variables.
 
 `automation-sync.yml` keeps Worker credential provisioning centralized. Its
 manual dispatch can copy the existing repository Cloudflare credentials, the
-dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, the sync-managed free review credentials
-(AIHubMix/OpenRouter/OrcaRouter/Ollama), and any repository-held direct quip credentials
-(Gemini/OpenAI/Anthropic/xAI) into `kanarek-companion`, without printing secret
-values. Missing direct-provider provisioning copies are left untouched on the
-Worker. Legacy
+dedicated `KANAREK_REVIEW_ROUTER_TOKEN`, and any repository-held direct quip
+credentials (Gemini/OpenAI/Anthropic/xAI) into `kanarek-companion`, without printing
+secret values. Free-review provider credentials are synced only to `kanarek-review`.
+Missing direct-provider provisioning copies are left untouched on the Worker. Legacy
 per-repository review callers and provider secrets were removed during the
 webhook cutover and are no longer maintained by a scheduled rollout job.
 
@@ -350,18 +350,10 @@ Review router secret used at runtime only by the Worker:
 
 - `KANAREK_REVIEW_ROUTER_TOKEN`
 
-Optional free-review secrets used at runtime only by the Worker:
-
-- `OPENROUTER_API_KEY`
-- `ORCAROUTER_API_KEY`
-- `AIHUBMIX_API_KEY`
-- `OLLAMA_API_KEY`
-- `GROQ_API_KEY`
-
-`OPENROUTER_API_KEY`, `ORCAROUTER_API_KEY`, `AIHUBMIX_API_KEY`, and
-`OLLAMA_API_KEY` are provisioning copies in `trvny/trvny` for the manual
-credential-sync workflow. `GROQ_API_KEY` remains Worker-only unless an explicit
-repository provisioning copy is added later. Target repositories do not keep review-router or provider secrets.
+Free-review provider secrets (`OPENROUTER_API_KEY`, `ORCAROUTER_API_KEY`,
+`AIHUBMIX_API_KEY`, `OLLAMA_API_KEY`, and `GROQ_API_KEY`) are runtime credentials
+of the private `kanarek-review` Worker only. Repository copies exist solely for
+the manual credential-sync workflow; target repositories do not keep them.
 
 Optional direct AI secrets for quip generation:
 

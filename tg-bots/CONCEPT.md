@@ -46,7 +46,7 @@ The Telegram ingress Queue is only for Telegram delivery. Heavy jobs should reus
 
 ### Shared free-model router
 
-The assistant should not duplicate provider credentials or fallback logic. `kanarek-companion` already exposes a private OpenAI-compatible free router with provider cooldowns and existing provisioning for OpenRouter, OrcaRouter, AIHubMix and Workers AI. The Telegram Worker calls it through a same-account Service Binding and keeps only the shared router bearer.
+The assistant should not duplicate provider credentials or fallback logic. `kanarek-companion` exposes the OpenAI-compatible review endpoint while the private `kanarek-review` Worker owns provider credentials, cooldowns and provisioning for OpenRouter, OrcaRouter, AIHubMix and Workers AI. The Telegram Worker calls the companion endpoint through a same-account Service Binding and keeps only the shared router bearer.
 
 ### Hermes workers
 

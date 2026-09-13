@@ -33,7 +33,7 @@ kanarek-companion /review-router/v1/chat/completions
         └─ Workers AI
 ```
 
-The existing Kanarek router already owns provider credentials, fallback/cooldown behavior, and Workers AI fallback. The Telegram assistant needs only the existing `KANAREK_REVIEW_ROUTER_TOKEN`; if that route is unavailable it can still use its own Workers AI binding.
+The private `kanarek-review` Worker owns provider credentials, fallback/cooldown behavior, and Workers AI fallback behind the companion proxy. The Telegram assistant needs only the existing `KANAREK_REVIEW_ROUTER_TOKEN`; if that route is unavailable it can still use its own Workers AI binding.
 
 Future heavyweight jobs should reuse the existing `pet-dispatcher-control` + `pet-dispatcher-tasks` transport instead of creating another task-control plane. The current dispatcher targets the Legion; multi-worker Android/Legion routing is a later extension.
 
@@ -108,7 +108,7 @@ Deploy:
 npm run deploy
 ```
 
-The first deployment can run on Workers AI alone. After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `travny-tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in `kanarek-companion` and are not duplicated.
+The first deployment can run on Workers AI alone. After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `travny-tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated.
 
 Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook:
 
@@ -211,7 +211,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - Telegram and RSS request bodies are bounded before parsing/model use;
 - RSS input and curator output lengths are bounded;
 - RSS ingestion has a separate bearer secret;
-- free-provider API keys stay in `kanarek-companion`, not this Worker;
+- free-provider API keys stay in the private `kanarek-review` Worker, not this Worker;
 - API keys never belong in source control;
 - `/draft` produces text only and never sends messages on the owner's behalf;
 - automatic replies to third parties are intentionally not enabled in this MVP.

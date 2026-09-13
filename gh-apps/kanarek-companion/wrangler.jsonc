@@ -45,9 +45,6 @@
       "id": "1534e989ac23449fab8e18abc2bc250d"
     }
   ],
-  "ai": {
-    "binding": "AI"
-  },
   "migrations": [
     {
       "tag": "v1",
@@ -100,15 +97,6 @@
     "KANAREK_AI_PERCENT": "25",
     "KANAREK_PROVIDER_ORDER": "gemini,openai,xai,openai-fallback,anthropic",
     "KANAREK_PROVIDER_TIMEOUT_MS": "10000",
-    "KANAREK_REVIEW_ROUTER_TIMEOUT_MS": "30000",
-    "KANAREK_REVIEW_QUOTA_COOLDOWN_MS": "600000",
-    "KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS": "30000",
-    "KANAREK_REVIEW_WORKERS_AI_ENABLED": "true",
-    "KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS": "10000",
-    "KANAREK_REVIEW_ORCAROUTER_MODELS": "z-ai/glm-5.3-flash-free,tencent/hy3-free,deepseek/deepseek-v4-flash-free",
-    "KANAREK_REVIEW_OLLAMA_MODELS": "gpt-oss:120b,gpt-oss:20b",
-    "KANAREK_REVIEW_GROQ_MODEL": "openai/gpt-oss-120b",
-    "KANAREK_REVIEW_OPENROUTER_MODELS": "nvidia/nemotron-3-super-120b-a12b:free,cohere/north-mini-code:free,openrouter/free",
     "KANAREK_REVIEW_REPOSITORIES": "trvny/trvny,trvny/.ai,trvny/.github,trvny/WiFi-Automatic,trvny/feedseek,trvny/tvpi,travnie/*",
     "KANAREK_WEBHOOK_REVIEW_ENABLED": "true",
     "KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS": "60000",

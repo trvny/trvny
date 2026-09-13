@@ -4,10 +4,10 @@ import test from 'node:test';
 import {
   handleReviewRouterRequest,
   reviewProviderPoolHealth,
-  ReviewProviderCooldownStore,
 } from '../src/review-router.ts';
+import { ReviewProviderCooldownStore } from '../../kanarek-companion/src/review-cooldown-store.ts';
 
-const base = 'https://kanarek-companion.example/review-router/v1';
+const base = 'https://kanarek-review.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;
 const routerToken = 'router-token';
 

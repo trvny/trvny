@@ -3,13 +3,13 @@ import {
   REVIEW_SERVICE_INTERNAL_BEARER,
   REVIEW_SERVICE_TRUST_HEADER,
   REVIEW_SERVICE_TRUST_VALUE,
+  REVIEW_WORKERS_AI_OVERRIDE_HEADER,
 } from '../../kanarek-companion/src/review-service-protocol.ts';
 import {
   handleReviewRouterRequest,
-  REVIEW_WORKERS_AI_OVERRIDE_HEADER,
   reviewProviderPoolHealth,
   type ReviewRouterEnv,
-} from '../../kanarek-companion/src/review-router.ts';
+} from './review-router.ts';
 
 type Env = ReviewRouterEnv & {
   CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };

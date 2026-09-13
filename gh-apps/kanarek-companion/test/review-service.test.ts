@@ -8,14 +8,12 @@ import {
   type ReviewServiceEnv,
 } from '../src/review-service.ts';
 import {
+  REVIEW_ROUTER_MODELS_PATH,
   REVIEW_SERVICE_INTERNAL_BEARER,
   REVIEW_SERVICE_TRUST_HEADER,
   REVIEW_SERVICE_TRUST_VALUE,
-} from '../src/review-service-protocol.ts';
-import {
-  REVIEW_ROUTER_MODELS_PATH,
   REVIEW_WORKERS_AI_OVERRIDE_HEADER,
-} from '../src/review-router.ts';
+} from '../src/review-service-protocol.ts';
 
 function modelsRequest(): Request {
   return new Request(`https://kanarek.example${REVIEW_ROUTER_MODELS_PATH}`, {
@@ -27,11 +25,9 @@ const localEnv: ReviewServiceEnv = {
   KANAREK_REVIEW_ROUTER_TOKEN: 'test-token',
 };
 
-test('review service adapter keeps the local router as the default', async () => {
+test('review service fails closed when the private binding is absent', async () => {
   const response = await handleReviewRouterViaService(modelsRequest(), localEnv);
-  assert.equal(response?.status, 200);
-  const body = await response?.json() as { data?: Array<{ id?: string }> };
-  assert.equal(body.data?.[0]?.id, 'kanarek-review-free');
+  assert.equal(response?.status, 503);
 });
 
 test('review service adapter forwards through the binding and preserves retry policy', async () => {
@@ -101,7 +97,7 @@ test('review service never forwards an invalid external bearer', async () => {
   assert.equal(response?.status, 401);
 });
 
-test('review service adapter falls back locally when the binding transport fails', async () => {
+test('review service fails closed when the binding transport fails', async () => {
   const response = await handleReviewRouterViaService(modelsRequest(), {
     ...localEnv,
     KANAREK_REVIEW_SERVICE: {
@@ -110,7 +106,7 @@ test('review service adapter falls back locally when the binding transport fails
       },
     },
   });
-  assert.equal(response?.status, 200);
+  assert.equal(response?.status, 503);
 });
 
 test('review health uses the bound worker provider pool when available', async () => {
@@ -150,8 +146,7 @@ test('review service state distinguishes the bound worker from local fallback', 
   assert.deepEqual(bound, { providerPool, serviceConfigured: true, serviceReady: true });
 
   const local = await reviewProviderPoolStateViaService(localEnv);
-  assert.equal(local.serviceConfigured, false);
-  assert.equal(local.serviceReady, false);
+  assert.deepEqual(local, { providerPool: { available: 0, configured: 0, providers: [], ready: false }, serviceConfigured: false, serviceReady: false });
 });
 
 test('review service state stays unready when the bound provider pool is unready', async () => {

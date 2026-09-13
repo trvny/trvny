@@ -93,8 +93,18 @@ jobs:
               )
               if os.environ.get(key)
           }
+          retired_free_review = {
+              key: None
+              for key in (
+                  "AIHUBMIX_API_KEY",
+                  "OPENROUTER_API_KEY",
+                  "ORCAROUTER_API_KEY",
+                  "GROQ_API_KEY",
+                  "OLLAMA_API_KEY",
+              )
+          }
           pathlib.Path(sys.argv[1]).write_text(
-              json.dumps({**required, **direct_optional}),
+              json.dumps({**required, **direct_optional, **retired_free_review}),
               encoding="utf-8",
           )
           PY

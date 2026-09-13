@@ -193,7 +193,7 @@ const behindHash = (behind: number) =>
   commentStateHash(
     {
       status: 'ready',
-      blockers: behind > 0 ? ['behind'] : [],
+      blockers: [],
       area: 'Gh apps',
       size: 'tiny',
       language: 'en',

@@ -121,7 +121,6 @@ export function status(
   }
 
   const blockers: string[] = [];
-  if (branch.behind !== null && branch.behind > 0) blockers.push(`${branch.behind} behind ${pr.base.ref}`);
   if (branch.behind === null) blockers.push('branch state unknown');
   if (pr.mergeable === false || pr.mergeable_state === 'dirty') {
     blockers.push('merge conflicts');
@@ -152,7 +151,6 @@ export function blockerKinds(
   if (pr.merged || pr.state === 'closed') return [];
 
   const kinds = [
-    branch.behind !== null && branch.behind > 0 ? 'behind' : null,
     branch.behind === null ? 'branch-unknown' : null,
     pr.mergeable === false || pr.mergeable_state === 'dirty'
       ? 'conflict'
@@ -208,7 +206,6 @@ export function render(
   source: 'ai' | 'pool' | 'preset',
   pool: QuipEntry[],
   ciRequired = true,
-  branchUpdateWarning: string | null = null,
 ): string {
   const terminal = pr.merged || pr.state === 'closed';
   const badges = terminal
@@ -231,9 +228,6 @@ export function render(
   const blockers = details.length
     ? `\n\n<sub>${details.join(' · ')}</sub>`
     : '';
-  const updateWarning = branchUpdateWarning
-    ? `\n\n<sub>${branchUpdateWarning}</sub>`
-    : '';
   const scope =
     [
       ...new Set(
@@ -251,7 +245,7 @@ export function render(
 <!-- kanarek-source:${source} -->
 ### 🐤 Kanarek · ${current.title}
 
-${badges.filter(Boolean).join(' · ')}${blockers}${updateWarning}
+${badges.filter(Boolean).join(' · ')}${blockers}
 
 > ${quip}
 

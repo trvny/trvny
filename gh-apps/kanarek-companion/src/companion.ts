@@ -436,7 +436,6 @@ export async function refreshCompanion(
     source,
     pool,
     ciRequired,
-    branchUpdateWarning,
   );
   const result = await upsert(
     client,

@@ -3,12 +3,12 @@ name: Quarto report check
 on:
   pull_request:
     paths:
-      - "stuff/other/token-worldcup/**"
+      - "token-worldcup/**"
       - ".github/workflows/quarto-check.yml"
   push:
     branches: [main]
     paths:
-      - "stuff/other/token-worldcup/**"
+      - "token-worldcup/**"
       - ".github/workflows/quarto-check.yml"
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
           version: 1.10.18
       - name: Render maintained Quarto sources
         run: |
-          quarto render stuff/other/token-worldcup/token-worldcup.qmd
-          quarto render stuff/other/token-worldcup/effort-matrix.qmd
+          quarto render token-worldcup/token-worldcup.qmd
+          quarto render token-worldcup/effort-matrix.qmd
       - name: Verify committed HTML is current
-        run: git diff --exit-code -- stuff/other/token-worldcup
+        run: git diff --exit-code -- token-worldcup

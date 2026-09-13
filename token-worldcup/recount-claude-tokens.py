@@ -5,8 +5,9 @@ The committed ranking was counted on o200k_base, which is OpenAI's tokenizer.
 Claude tokenizes differently and publishes no offline tokenizer, so the only
 way to get real numbers is the Messages API's count_tokens endpoint.
 
-The 27 samples are read straight out of token-worldcup.qmd - the maintained
-source - so there is no second copy of the corpus to drift.
+The samples are read straight out of token-worldcup.qmd - the maintained source -
+so there is no second copy of the corpus to drift, and the count follows the
+report rather than being pinned here.
 
 Usage:
     export ANTHROPIC_API_KEY=sk-ant-...          # or: ant auth login

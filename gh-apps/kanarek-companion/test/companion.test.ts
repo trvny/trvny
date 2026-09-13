@@ -138,7 +138,7 @@ test('sanitizes contributor-controlled project area labels', () => {
 
 test('labels standalone split repositories from their root layout', () => {
   assert.deepEqual(
-    areas(['app/src/main/MainActivity.kt', 'worker/src/index.ts'], 'enclaro/kanarek'),
+    areas(['app/src/main/MainActivity.kt', 'worker/src/index.ts'], 'travnie/kanarek'),
     ['Kanarek Android', 'Kanarek Worker'],
   );
   assert.deepEqual(

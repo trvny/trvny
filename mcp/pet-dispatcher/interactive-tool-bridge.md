@@ -57,7 +57,7 @@ It asks for a logical workspace, for example:
 
 ```json
 {
-  "repo": "enclaro/wambridge",
+  "repo": "travnie/wambridge",
   "ref": "main",
   "mode": "interactive",
   "capabilities": [
@@ -115,7 +115,7 @@ Preferred request shape:
 
 ```json
 {
-  "repo": "enclaro/wambridge",
+  "repo": "travnie/wambridge",
   "baseRef": "main",
   "call": {
     "tool": "workspace.exec",

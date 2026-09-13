@@ -16,9 +16,10 @@ Prefer improving an existing home over creating a parallel structure. Inspect lo
   transport contract.
 - `loopling/` — ChatGPT/Codex pet source, generated assets and installers.
 - `.ai/private/` — repo-local AI overlays (OpenAI, Claude and personalities). It is tracked in this public repository despite the directory name; never treat it as a secret store.
-- `token-worldcup/` — Quarto token reports (language ranking, model x effort cost matrix)
-  plus the Claude tokenizer recount script. `.qmd` is the maintained source; the
-  `.html` beside it is generated and gated by the `quarto-check` workflow.
+- `token-worldcup/` — Quarto token reports (language ranking, model x effort
+  cost matrix) plus the Claude tokenizer recount script. `.qmd` is the
+  maintained source; the `.html` beside it is generated and gated by the
+  `quarto-check` workflow.
 - `stuff/` — small configs, feeds, playlists and miscellaneous assets.
 
 For Quarto-backed reports, treat `.qmd` as the maintained content source and

@@ -66,4 +66,16 @@ FILTER_REGEX_EXCLUDE: "(package-lock\\.json|stuff/|token-worldcup/[^/]+\\.html|\
 # Keep generic linting for bench assets, except where established DOM ids and
 # bundled CSS intentionally conflict with generic documentation-style rules.
 
+# CSS_STYLELINT: .stylelintrc.json beside this file replaces MegaLinter's
+# standard-based default with an explicit list of stylelint's error-level rules.
+# The standard preset adds formatting opinions, and one of them -
+# declaration-block-single-line-max-declarations - is incompatible with how both
+# stylesheets here are written: one compact line per rule, the style
+# token-worldcup.css already used before it moved out of stuff/. That single
+# rule produced 128 of the 130 findings on the move. The other two were real
+# (no-descending-specificity) and are fixed in the CSS, not configured away.
+# The rules are listed literally rather than via "extends" on purpose: extends
+# resolves relative to this directory, which has no node_modules, so a preset
+# name here is a config-load failure waiting to happen.
+
 MARKDOWN_MARKDOWNLINT_CONFIG_FILE: "https://raw.githubusercontent.com/trvny/feedseek/refs/heads/main/.github/linters/.markdownlint.json"

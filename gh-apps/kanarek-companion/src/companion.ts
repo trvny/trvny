@@ -214,8 +214,6 @@ export async function refreshCompanion(
   ]);
   const projectAreas = areas(changedFiles, target.repository);
   const prSize = size(pr);
-  const current = status(pr, branch, ci, review, ciRequired);
-  const kinds = blockerKinds(pr, branch, ci, review, ciRequired);
   const branchUpdateEligible = shouldUpdateBranch(
     pr,
     branch,
@@ -228,6 +226,31 @@ export async function refreshCompanion(
   const branchUpdateWarning = branchUpdateEligible
     ? branchUpdatePermissionWarning(client)
     : null;
+  let branchUpdatePending = false;
+  if (branchUpdateEligible && !branchUpdateWarning) {
+    const updateResult = await updateBranch(
+      client,
+      target.repository,
+      target.pullRequestNumber,
+      pr.head.sha,
+    );
+    if (updateResult !== 'rejected') {
+      branchUpdatePending = true;
+    } else {
+      try {
+        const refreshedPr = await pull(
+          client,
+          target.repository,
+          target.pullRequestNumber,
+        );
+        branchUpdatePending = refreshedPr.head.sha !== pr.head.sha;
+      } catch {
+        branchUpdatePending = true;
+      }
+    }
+  }
+  const current = status(pr, branch, ci, review, ciRequired, branchUpdatePending);
+  const kinds = blockerKinds(pr, branch, ci, review, ciRequired, branchUpdatePending);
   const language = contextLanguage(
     `${pr.title ?? ''}\n${pr.body ?? ''}`,
     `${target.repository}#${target.pullRequestNumber}`,
@@ -436,7 +459,6 @@ export async function refreshCompanion(
     source,
     pool,
     ciRequired,
-    branchUpdateWarning,
   );
   const result = await upsert(
     client,
@@ -490,15 +512,6 @@ export async function refreshCompanion(
   }
   if (!sameQuipState && source === 'pool' && !bankHasQuip) {
     await storeBank(env, [{ k: quipKey, l: language, q: quip }]);
-  }
-
-  if (branchUpdateEligible && !branchUpdateWarning) {
-    await updateBranch(
-      client,
-      target.repository,
-      target.pullRequestNumber,
-      pr.head.sha,
-    );
   }
 
   return {

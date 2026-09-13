@@ -55,25 +55,22 @@ test('reports the exact missing GitHub App permissions', () => {
   );
 });
 
-test('renders the permission warning in the Kanarek status comment', () => {
-  const warning = branchUpdatePermissionWarning(
-    client({ contents: 'read', pull_requests: 'write' }),
-  );
+test('keeps optional auto-update permission diagnostics out of the status comment', () => {
   const body = render(
     pr,
     { behind: 1 },
     { failed: [], passed: [{}], pending: [], total: 1 },
     { approvals: 0, changes: 0 },
     ['Kanarek'],
-    { key: 'waiting', title: '🟡 waiting', blockers: ['1 behind main'] },
-    'The machinery is chewing. Kanarek guards the cable.',
+    { key: 'ready', title: '🟢 ready', blockers: [] },
+    'Calm branch, green checks.',
     '0123456789abcdef',
     'fedcba9876543210',
     'preset',
     [],
     true,
-    warning,
   );
 
-  assert.match(body, /auto-update unavailable · needs Contents write/);
+  assert.match(body, /`main` ↓/);
+  assert.doesNotMatch(body, /auto-update unavailable|needs Contents write/);
 });

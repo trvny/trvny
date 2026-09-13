@@ -24,7 +24,9 @@
 | Pet Dispatcher local worker | `mcp/pet-dispatcher/src/index.ts` |
 | Pet Dispatcher control plane | `mcp/pet-dispatcher/control-plane/entry.ts` |
 | Loopling | `loopling/tools/generate.py` and `loopling/pet/pet.json` |
-| Token Worldcup | `stuff/other/token-worldcup/token-worldcup.qmd` |
+| Token Worldcup | `token-worldcup/token-worldcup.qmd` |
+| Model x effort cost matrix | `token-worldcup/effort-matrix.qmd` |
+| Claude tokenizer recount | `token-worldcup/recount-claude-tokens.py` |
 
 ## Ownership rules
 

@@ -32,6 +32,7 @@ import sys
 
 QMD = pathlib.Path(__file__).with_name("token-worldcup.qmd")
 DEFAULT_MODEL = "claude-opus-5"
+ANCHOR = "English"  # every index is expressed against this language at 100
 
 
 def load_samples(qmd: pathlib.Path) -> list[dict]:
@@ -41,9 +42,13 @@ def load_samples(qmd: pathlib.Path) -> list[dict]:
     if not m:
         raise SystemExit(f"{qmd.name}: could not find the sample array - has the page changed?")
     data = json.loads(m.group(1))
-    missing = [k for k in ("name", "lang", "text", "tokens") for d in data if k not in d]
+    if not data:
+        raise SystemExit(f"{qmd.name}: the sample array is empty")
+    missing = sorted({k for k in ("name", "lang", "text", "tokens") for d in data if k not in d})
     if missing:
-        raise SystemExit(f"{qmd.name}: sample entries are missing keys: {sorted(set(missing))}")
+        raise SystemExit(f"{qmd.name}: sample entries are missing keys: {missing}")
+    if not any(d["name"] == ANCHOR for d in data):
+        raise SystemExit(f"{qmd.name}: no {ANCHOR!r} sample - it anchors every index at 100")
     return data
 
 
@@ -80,6 +85,12 @@ def main() -> int:
             "Drop --out to check parsing, or drop --dry-run to measure for real."
         )
 
+    if args.out and args.out.resolve() == QMD.resolve():
+        raise SystemExit(
+            f"--out must not overwrite {QMD.name} - that is the file the samples are read from, "
+            "and the next run would find no sample array. Pick another path."
+        )
+
     samples = load_samples(QMD)
     print(f"{len(samples)} samples read from {QMD.name}", file=sys.stderr)
 
@@ -101,7 +112,7 @@ def main() -> int:
         })
 
     def index(rows: list[dict], key: str) -> None:
-        base = next(r[key] for r in rows if r["name"] == "English")
+        base = next(r[key] for r in rows if r["name"] == ANCHOR)
         for r in rows:
             r[key.replace("_tokens", "") + "_index"] = round(r[key] / base * 100) if base else 0
 

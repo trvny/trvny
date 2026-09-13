@@ -73,6 +73,13 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="parse and lay out the table without calling the API")
     args = ap.parse_args()
 
+    if args.dry_run and args.out:
+        raise SystemExit(
+            "--dry-run makes no measurements, so --out would write a result-shaped file "
+            "full of zeros that nothing downstream could tell from a real recount. "
+            "Drop --out to check parsing, or drop --dry-run to measure for real."
+        )
+
     samples = load_samples(QMD)
     print(f"{len(samples)} samples read from {QMD.name}", file=sys.stderr)
 
@@ -101,13 +108,30 @@ def main() -> int:
     index(rows, "o200k_tokens")
     index(rows, "claude_tokens")
 
-    by_o200k = sorted(rows, key=lambda r: r["o200k_tokens"])
-    by_claude = sorted(rows, key=lambda r: r["claude_tokens"])
-    for pos, r in enumerate(by_o200k, 1):
-        r["o200k_rank"] = pos
-    for pos, r in enumerate(by_claude, 1):
-        r["claude_rank"] = pos
-        r["rank_shift"] = r["o200k_rank"] - pos
+    def rank(rows: list[dict], key: str) -> list[dict]:
+        """Competition ranking (1,2,3,4,4,6...), the convention the report itself uses.
+
+        Enumerating positions instead would split tied languages - the corpus has
+        ties at 104 and 108 tokens - and every such split would show up as a rank
+        shift that only reflects array order, not a real move.
+        """
+        field = key.replace("_tokens", "") + "_rank"
+        ordered = sorted(rows, key=lambda r: r[key])
+        value = object()
+        held = 0
+        for pos, r in enumerate(ordered, 1):
+            if r[key] != value:
+                value, held = r[key], pos
+            r[field] = held
+            r[field + "_tied"] = False
+        for r in ordered:
+            r[field + "_tied"] = sum(1 for o in ordered if o[field] == r[field]) > 1
+        return ordered
+
+    rank(rows, "o200k_tokens")
+    by_claude = rank(rows, "claude_tokens")
+    for r in by_claude:
+        r["rank_shift"] = r["o200k_rank"] - r["claude_rank"]
 
     hdr = f"{'#':>3}  {'language':<12} {'o200k':>6} {'claude':>7} {'oIdx':>5} {'cIdx':>5} {'shift':>6}"
     print("\n" + hdr)
@@ -115,7 +139,8 @@ def main() -> int:
     for r in by_claude:
         shift = r["rank_shift"]
         arrow = "  -  " if shift == 0 else f"{shift:+d}".rjust(5)
-        print(f"{r['claude_rank']:>3}  {r['name']:<12} {r['o200k_tokens']:>6} {r['claude_tokens']:>7} "
+        pos = f"{r['claude_rank']}{'=' if r['claude_rank_tied'] else ''}"
+        print(f"{pos:>3}  {r['name']:<12} {r['o200k_tokens']:>6} {r['claude_tokens']:>7} "
               f"{r['o200k_index']:>5} {r['claude_index']:>5} {arrow:>6}")
 
     if args.out:

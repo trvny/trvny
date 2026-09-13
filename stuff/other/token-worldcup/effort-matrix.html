@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="pl" xml:lang="pl"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Kalkulator kosztu zadania dla Claude API: oś modelu, oś parametru effort i narzut językowy z Tokenowego Mundialu.">
+
+<title>Koszt: model × effort</title>
+<style>
+
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+width: 0.8em;
+margin: 0 0.8em 0.2em -1em;  vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+
+
+
+
+<style type="text/css">:root{--bg:#f4efe5;--panel:#fffdf8;--panel-soft:#ece4d6;--text:#181917;--muted:#6e685e;--line:#d8cebd;--track:#e8e0d3;--bar:#74879c;--en:#34495e;--zh:#387a61;--la:#b97922;--pl:#b84e52;--gold:#aa781d;--silver:#7d858d;--bronze:#98633c;--shadow:0 18px 50px rgba(73,59,35,.09)}
+@media(prefers-color-scheme:dark){:root{--bg:#151719;--panel:#1e2123;--panel-soft:#282c2f;--text:#f1eee8;--muted:#b8b0a5;--line:#34383b;--track:#303438;--bar:#8798ab;--en:#66809d;--zh:#5aa07f;--la:#d39a45;--pl:#d46c71;--gold:#d4a744;--silver:#a8b0b7;--bronze:#bd8355;--shadow:none}}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 8% 0%,color-mix(in srgb,var(--la) 9%,transparent),transparent 28rem),radial-gradient(circle at 96% 4%,color-mix(in srgb,var(--zh) 8%,transparent),transparent 26rem),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}.shell{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:34px 0 54px}.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--panel) 80%,transparent);color:var(--muted);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.dot{width:7px;height:7px;border-radius:50%;background:var(--zh);box-shadow:0 0 0 4px color-mix(in srgb,var(--zh) 15%,transparent)}header{padding:18px 2px 8px}h1{max-width:900px;margin:14px 0 10px;font-size:clamp(42px,7vw,82px);line-height:.94;letter-spacing:-.055em}.lede{max-width:780px;margin:0;color:var(--muted);font-size:clamp(15px,2vw,18px);line-height:1.58}.headline-stat{display:inline-block;margin-top:14px;font-weight:850;color:var(--pl)}
+.hero-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin:26px 0 18px}.panel{background:color-mix(in srgb,var(--panel) 96%,transparent);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
+.verdict{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:10px;padding:18px;min-height:280px;overflow:hidden;position:relative}.verdict::after{content:"MODEL \00d7 EFFORT";position:absolute;right:-18px;top:10px;font-size:clamp(34px,5.4vw,68px);font-weight:950;letter-spacing:-.07em;opacity:.035;pointer-events:none;white-space:nowrap}
+.pick{border-radius:16px 16px 9px 9px;padding:14px;border:1px solid var(--line);background:var(--panel-soft);position:relative;min-width:0}.pick .tag{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.pick .who{font-weight:900;margin-top:5px;font-size:13px}.pick .val{font-size:clamp(26px,4.2vw,42px);font-weight:950;line-height:1;letter-spacing:-.04em;margin:7px 0 2px;font-variant-numeric:tabular-nums}.pick .meta{color:var(--muted);font-size:12px}.pick.best{min-height:200px;border-top:5px solid var(--zh)}.pick.ref{min-height:166px;border-top:5px solid var(--en)}.pick.alt{min-height:142px;border-top:5px solid var(--la)}
+.spotlights{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:18px}.spot{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--panel-soft)}.spot small{color:var(--muted);display:block}.spot strong{display:block;font-size:30px;line-height:1.1;margin:4px 0;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.spot.ratio{border-top:4px solid var(--zh)}.spot.lang{border-top:4px solid var(--pl)}.spot.wide{grid-column:1/-1}.quote{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
+.section{margin-top:18px}.section-head{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;padding:16px 16px 4px}h2{margin:0;font-size:22px;letter-spacing:-.025em}.subtle{color:var(--muted);font-size:13px}
+.controls{display:flex;gap:6px;padding:4px;background:var(--panel-soft);border-radius:12px;border:1px solid var(--line)}.controls button{min-height:40px;border:0;border-radius:9px;padding:8px 12px;background:transparent;color:var(--muted);cursor:pointer;font-weight:800}.controls button[aria-pressed="true"]{background:var(--panel);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.08)}.controls button:focus-visible,.cell:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid color-mix(in srgb,var(--zh) 65%,white);outline-offset:2px}
+.knobs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px 16px 18px}.knob{border:1px solid var(--line);border-radius:14px;padding:13px 14px;background:var(--panel-soft)}.knob label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.knob .read{font-size:20px;font-weight:900;letter-spacing:-.02em;margin:5px 0 9px;font-variant-numeric:tabular-nums}.knob input[type=range]{width:100%;accent-color:var(--bar);min-height:26px}.knob select{width:100%;min-height:38px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);padding:6px 8px;margin-top:6px}.knob .hint{display:block;margin-top:7px;color:var(--muted);font-size:11px;line-height:1.45}
+.matrix{padding:6px 14px 16px;overflow-x:auto}.grid{min-width:640px;display:grid;grid-template-columns:150px repeat(5,minmax(0,1fr));gap:8px}.head-cell{padding:6px 4px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;text-align:center;align-self:end}.head-cell.est{color:var(--la)}.row-label{display:flex;flex-direction:column;justify-content:center;padding:8px 10px;border-radius:12px;background:var(--panel-soft);border:1px solid var(--line);min-height:62px}.row-label b{font-size:13px;letter-spacing:-.01em}.row-label small{color:var(--muted);font-size:11px;margin-top:3px;font-variant-numeric:tabular-nums}
+.cell{appearance:none;font:inherit;color:inherit;text-align:center;cursor:pointer;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:9px 6px;min-height:62px;display:flex;flex-direction:column;justify-content:center;gap:3px;position:relative;transition:transform .16s ease,border-color .16s ease}.cell:hover{transform:translateY(-2px)}.cell[aria-pressed="true"]{border-color:var(--zh);border-width:2px;background:color-mix(in srgb,var(--zh) 10%,var(--panel))}.cell.est{border-style:dashed}.cell .v{font-size:17px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.cell .s{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}.cell.span{grid-column:2/-1;flex-direction:row;gap:10px;align-items:baseline;justify-content:center}.cell.span .s{font-size:11px}.cell.cheap .v{color:var(--zh)}.cell.dear .v{color:var(--pl)}
+.readout{margin:8px 16px 4px;min-height:24px;color:var(--muted);font-size:13px;line-height:1.55}.readout b{color:var(--text)}.breakdown{margin:8px 16px 16px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel-soft)}.breakdown .bd-meta{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.bd-rows{margin:10px 0 0;display:grid;gap:6px}.bd-row{display:grid;grid-template-columns:1fr auto;gap:10px;font-size:13px;font-variant-numeric:tabular-nums}.bd-row span:last-child{font-weight:800}.bd-row.total{border-top:1px solid var(--line);padding-top:7px;margin-top:2px;font-size:15px}
+.table-wrap{overflow-x:auto;padding:0 14px 14px}table{width:100%;min-width:600px;border-collapse:collapse;font-size:13px}th,td{padding:9px 8px;border-bottom:1px solid var(--line)}th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}tbody tr:last-child td{border-bottom:0}.accent-fable td:first-child{border-left:4px solid var(--la)}.accent-opus td:first-child{border-left:4px solid var(--en)}.accent-sonnet td:first-child{border-left:4px solid var(--zh)}.accent-haiku td:first-child{border-left:4px solid var(--pl)}
+.method{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px}.method-card{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel-soft)}.method-card b{display:block;margin-bottom:5px}.method-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.55}.method-card p+p{margin-top:7px}footer{padding:18px 4px 0;color:var(--muted);font-size:12px;line-height:1.5}footer a{color:inherit}
+@media(max-width:820px){.hero-grid{grid-template-columns:1fr}.method{grid-template-columns:1fr}.knobs{grid-template-columns:1fr}}@media(max-width:560px){.shell{width:min(100% - 18px,1180px);padding-top:18px}.verdict{grid-template-columns:1fr;align-items:stretch;min-height:0}.pick.best,.pick.ref,.pick.alt{min-height:0}.verdict .ref{order:1}.verdict .best{order:2}.verdict .alt{order:3}.spotlights{grid-template-columns:1fr}.spot.wide{grid-column:auto}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.cell{transition:none}}@media print{body{background:white}.shell{width:auto;padding:0}.panel{box-shadow:none;break-inside:avoid}.controls,.knob input[type=range]{display:none}}
+</style>
+</head>
+
+<body>
+
+
+
+
+
+<!-- Maintained source. Render with Quarto 1.10.18; effort-matrix.html is generated. -->
+<main class="shell">
+    <header>
+      <div class="eyebrow"><span class="dot"></span> Claude API · cennik first-party</div>
+      <h1>Model × Effort</h1>
+      <p class="lede">Ile naprawdę kosztuje zadanie, kiedy zmienisz model albo parametr <code>effort</code>. Cennik jest stały, mnożniki effortu są zmierzone tylko częściowo (reszta oznaczona), a narzut językowy wchodzi z <a href="token-worldcup.html">Tokenowego Mundialu</a>. <span class="headline-stat">Silniejszy model na niższym efforcie zwykle bije słabszy model na wyższym.</span></p>
+    </header>
+    <section class="hero-grid" aria-label="Najważniejsze porównanie">
+      <div class="panel verdict">
+        <article class="pick ref"><div class="tag">Punkt odniesienia</div><div class="who">Opus 5 @ high</div><div class="val" id="refVal">—</div><div class="meta" id="refMeta">indeks 1.00</div></article>
+        <article class="pick best"><div class="tag">Zwykle wygrywa</div><div class="who">Opus 5 @ medium</div><div class="val" id="bestVal">—</div><div class="meta" id="bestMeta">—</div></article>
+        <article class="pick alt"><div class="tag">Pytanie wyjściowe</div><div class="who">Sonnet 5 @ xhigh</div><div class="val" id="altVal">—</div><div class="meta" id="altMeta">—</div></article>
+      </div>
+      <div class="panel spotlights">
+        <article class="spot ratio"><small>Oś modelu</small><strong id="ratioVal">0.40×</strong><small>Każdy model ma output wyceniony dokładnie 5× powyżej inputu, więc zmiana modelu to jeden skalar — niezależny od tego, jaki masz stosunek in/out.</small></article>
+        <article class="spot lang"><small>Oś językowa</small><strong id="langVal">—</strong><small id="langNote">Narzut języka dotyczy tylko inputu, więc na rachunku widać go słabiej niż w rankingu tokenów.</small></article>
+        <article class="spot wide"><small>Praktyczna konkluzja</small><div class="quote" id="punch">—</div><small style="margin-top:7px">Licz koszt na <b>ukończone</b> zadanie, nie na request. Tani run, który trzeba powtórzyć, nie jest tani.</small></article>
+      </div>
+    </section>
+    <section class="panel section" aria-labelledby="knobs-title">
+      <div class="section-head"><div><h2 id="knobs-title">Twój workload</h2><div class="subtle">Domyślne tokeny tak dobrane, żeby Opus 5 @ high <b>po angielsku</b> wypadł na zmierzonych ~$1.39 za zadanie z runów coding. Przełącz język, żeby zobaczyć, ile dokłada narzut wejściowy.</div></div></div>
+      <div class="knobs">
+        <div class="knob"><label for="inTok">Tokeny wejściowe (przed narzutem języka)</label><div class="read" id="inRead">—</div><input type="range" id="inTok" min="2000" max="400000" step="2000" value="40000"><small class="hint">Suma inputu na zadanie — w pętli agentowej historia doliczana jest w każdej turze.</small></div>
+        <div class="knob"><label for="outTok">Tokeny wyjściowe przy <code>high</code></label><div class="read" id="outRead">—</div><input type="range" id="outTok" min="2000" max="128000" step="2000" value="48000"><small class="hint">Thinking jest rozliczany jako output — to jego skaluje <code>effort</code>. To suma na całe zadanie, nie na jedną odpowiedź: <code>max_tokens</code> ogranicza pojedynczy response do 128k, a pętla agentowa składa się z wielu tur.</small></div>
+        <div class="knob"><label for="langSel">Język promptu</label><div class="read" id="langRead">—</div><select id="langSel"></select><small class="hint">Narzut z <code>o200k_base</code>, mnoży wyłącznie tokeny wejściowe.</small></div>
+      </div>
+    </section>
+    <section class="panel section" aria-labelledby="matrix-title">
+      <div class="section-head"><div><h2 id="matrix-title">Matryca</h2><div class="subtle">Kliknij komórkę, żeby zobaczyć rozbicie kosztu. Przerywana ramka = mnożnik szacowany dla tej komórki. Gwiazdka w nagłówku = poziom bez zmierzonego mnożnika na którymkolwiek modelu.</div></div><div class="controls" role="group" aria-label="Metryka matrycy"><button id="usdBtn" type="button" aria-pressed="true">Dolary</button><button id="idxBtn" type="button" aria-pressed="false">Indeks</button></div></div>
+      <div class="matrix"><div class="grid" id="grid"></div></div>
+      <div id="readout" class="readout" aria-live="polite"></div>
+      <div class="breakdown"><div class="bd-meta"><span>Rozbicie kosztu</span><span id="bdWho"></span></div><div class="bd-rows" id="bdRows"></div></div>
+    </section>
+    <section class="panel section" aria-labelledby="table-title"><div class="section-head"><div><h2 id="table-title">Pełna tabela</h2><div class="subtle">Koszt jednego zadania w USD przy obecnych ustawieniach. Gwiazdka = mnożnik effortu szacowany dla tej pary model + effort.</div></div></div><div class="table-wrap">
+<table class="caption-top">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th">Model</th>
+<th data-quarto-table-cell-role="th">Effort</th>
+<th class="num" data-quarto-table-cell-role="th">Input $</th>
+<th class="num" data-quarto-table-cell-role="th">Output $</th>
+<th class="num" data-quarto-table-cell-role="th">Razem $</th>
+<th class="num" data-quarto-table-cell-role="th">vs Opus high</th>
+</tr>
+</thead>
+<tbody id="tableBody">
+</tbody>
+</table>
+</div></section>
+    <section class="panel section" aria-labelledby="method-title"><div class="section-head"><h2 id="method-title">Jak to czytać</h2></div><div class="method">
+      <article class="method-card"><b>Co robi effort</b><p>Skaluje głębokość myślenia i liczbę wywołań narzędzi, czyli tokeny wyjściowe. Domyślny poziom to <code>high</code>. Haiku 4.5 nie przyjmuje tego parametru w ogóle.</p></article>
+      <article class="method-card"><b>Zmierzone vs szacowane</b><p><code>high</code> to punkt odniesienia: 1.00× z definicji, więc nigdy nie jest szacunkiem.</p><p>Mnożniki <code>low</code> ≈ 0.25× i <code>medium</code> ≈ 0.5× pochodzą ze zmierzonych runów long-horizon coding <b>na Opus 5</b> (oddają odpowiednio ~8 i ~2 punkty jakości). Na Fable i Sonnet te same liczby są tylko przeniesione, więc tam też są szacunkiem — stąd przerywana ramka w ich wierszach.</p><p><code>xhigh</code> i <code>max</code> nie mają opublikowanego mnożnika na żadnym modelu — 2× i 3× to przedłużenie krzywej. Stąd gwiazdka w nagłówku kolumny.</p></article>
+      <article class="method-card"><b>Krzywa zależy od miksu</b><p>Opublikowane „połowa kosztu na medium” zakłada rachunek zdominowany przez output. Podkręć suwak inputu, a krzywa effortu się spłaszczy — bo effort nie dotyka tokenów wejściowych.</p></article>
+      <article class="method-card"><b>Koszt na ukończone zadanie</b><p>W runach coding wszystko na <code>low</code> plus powtórka porażek na domyślnym efforcie dało ~93% pass za ~$0.70 na zadanie, wobec 91.7% za $1.39 przy domyślnym wszędzie. Ta sama jakość, połowa ceny.</p></article>
+      <article class="method-card"><b>Ogon zjada budżet</b><p>Porównuj modele na najtrudniejszej dziesiątce zadań, nie na medianie. Na jednym 20-zadaniowym runie dwa problemy wzięły 43% całego spendu.</p></article>
+      <article class="method-card"><b>Czego tu nie ma</b><p>Cache. Trafienie w prompt cache tnie stronę wejściową mocniej niż którykolwiek suwak powyżej i jest darmową wygraną — robi się je przed dotykaniem effortu i modelu. Zmiana effortu w trakcie sesji unieważnia cache.</p><p>Tokenizer: dane językowe policzono na <code>o200k_base</code> (OpenAI). Claude tokenizuje inaczej — pod realne liczby użyj <code>messages.count_tokens</code>.</p></article>
+    </div></section>
+    <footer>Ceny: Claude API first-party, $/1M tokenów — Fable 5.1 10/50, Opus 5 5/25, Sonnet 5 2/10, Haiku 4.5 1/5. Bedrock i Vertex mają własne cenniki. Narzut językowy pochodzi z <a href="token-worldcup.html">Tokenowego Mundialu</a> i dotyczy wyłącznie tokenów wejściowych.</footer>
+  </main>
+  <script>
+    (()=>{
+      const MODELS=[
+        {id:'fable',name:'Claude Fable 5.1',pin:10,pout:50,effort:true},
+        {id:'opus',name:'Claude Opus 5',pin:5,pout:25,effort:true},
+        {id:'sonnet',name:'Claude Sonnet 5',pin:2,pout:10,effort:true},
+        {id:'haiku',name:'Claude Haiku 4.5',pin:1,pout:5,effort:false}
+      ];
+      const EFFORT=[
+        {id:'low',f:.25},
+        {id:'medium',f:.5},
+        {id:'high',f:1},
+        {id:'xhigh',f:2},
+        {id:'max',f:3}
+      ];
+      // 'high' is the reference point: 1.00x by definition, so never an estimate.
+      // low and medium were measured on Opus 5 only - carried over to any other
+      // model they are estimates there. xhigh and max are extrapolated everywhere.
+      const alwaysEst=e=>e.id==='xhigh'||e.id==='max';
+      const isEst=(m,e)=>e.id!=='high'&&(alwaysEst(e)||m.id!=='opus');
+      const LANGS=[{"n":"Chinese","o":-6},{"n":"English","o":0},{"n":"Dutch","o":4},{"n":"Swedish","o":9},{"n":"Norwegian","o":9},{"n":"Spanish","o":12},{"n":"French","o":13},{"n":"German","o":14},{"n":"Turkish","o":14},{"n":"Vietnamese","o":14},{"n":"Portuguese","o":15},{"n":"Indonesian","o":16},{"n":"Arabic","o":17},{"n":"Hebrew","o":18},{"n":"Russian","o":20},{"n":"Latin","o":24},{"n":"Italian","o":26},{"n":"Finnish","o":27},{"n":"Polish","o":29},{"n":"Ukrainian","o":37},{"n":"Hindi","o":40},{"n":"Korean","o":41},{"n":"Slovak","o":42},{"n":"Czech","o":43},{"n":"Japanese","o":44},{"n":"Hungarian","o":48},{"n":"Greek","o":57}];
+
+      const $=id=>document.getElementById(id);
+      const grid=$('grid'),tableBody=$('tableBody'),readout=$('readout'),bdRows=$('bdRows'),bdWho=$('bdWho'),
+            inTok=$('inTok'),outTok=$('outTok'),langSel=$('langSel'),usdBtn=$('usdBtn'),idxBtn=$('idxBtn');
+      let mode='usd',sel={model:'sonnet',effort:'xhigh'};
+
+      langSel.innerHTML=LANGS.map((l,i)=>`<option value="${i}"${l.n==='Polish'?' selected':''}>${l.n} (${l.o>=0?'+':''}${l.o}%)</option>`).join('');
+
+      const model=id=>MODELS.find(m=>m.id===id);
+      const effort=id=>EFFORT.find(e=>e.id===id);
+      const lang=()=>LANGS[+langSel.value];
+      const langF=()=>1+lang().o/100;
+      const inputTokens=()=>Math.round(+inTok.value*langF());
+      const outputTokens=f=>Math.round(+outTok.value*f);
+      const parts=(m,f)=>{const i=inputTokens()/1e6*m.pin,o=outputTokens(f)/1e6*m.pout;return{i,o,t:i+o}};
+      const cost=(m,f)=>parts(m,f).t;
+      const ref=()=>cost(model('opus'),1);
+
+      const num=n=>n.toLocaleString('pl-PL');
+      const usd=v=>'$'+(v>=.1?v.toFixed(2):v.toFixed(3));
+      const idx=v=>(v/ref()).toFixed(2)+'×';
+      const show=v=>mode==='usd'?usd(v):idx(v);
+      const rel=v=>{const r=v/ref()-1;return (r>=0?'+':'')+Math.round(r*100)+'%'};
+
+      function renderHero(){
+        const r=ref(),b=cost(model('opus'),.5),a=cost(model('sonnet'),2);
+        $('refVal').textContent=usd(r);
+        $('bestVal').textContent=usd(b);$('bestMeta').textContent=`${(b/r).toFixed(2)}× · ${rel(b)} vs odniesienia`;
+        $('altVal').textContent=usd(a);$('altMeta').textContent=`${(a/r).toFixed(2)}× · ${rel(a)} vs odniesienia`;
+        $('ratioVal').textContent=(model('sonnet').pin/model('opus').pin).toFixed(2)+'×';
+        const m=model(sel.model),f=sel.effort?effort(sel.effort).f:1,
+              withL=cost(m,f),noL=(+inTok.value)/1e6*m.pin+outputTokens(f)/1e6*m.pout,
+              bump=noL>0?(withL/noL-1)*100:0;
+        $('langVal').textContent=(lang().o>=0?'+':'')+lang().o+'% → '+(bump>=0?'+':'')+bump.toFixed(1)+'%';
+        $('langNote').textContent=`${lang().n}: ${lang().o>=0?'+':''}${lang().o}% na tokenach wejściowych daje ${bump>=0?'+':''}${bump.toFixed(1)}% na rachunku wybranej komórki. Narzut języka dotyczy tylko inputu.`;
+        $('punch').textContent=b<a
+          ? `Opus 5 @ medium (${usd(b)}) jest tańszy od Sonnet 5 @ xhigh (${usd(a)}) — mocniejszy model, niższy rachunek.`
+          : `Przy tym miksie Sonnet 5 @ xhigh (${usd(a)}) schodzi poniżej Opus 5 @ medium (${usd(b)}) — sprawdź jakość na swoim evalu.`;
+      }
+
+      function renderGrid(){
+        grid.replaceChildren();
+        const frag=document.createDocumentFragment();
+        frag.appendChild(Object.assign(document.createElement('div'),{className:'head-cell'}));
+        EFFORT.forEach(e=>{const h=document.createElement('div');h.className='head-cell'+(alwaysEst(e)?' est':'');h.textContent=alwaysEst(e)?e.id+'*':e.id;frag.appendChild(h)});
+        MODELS.forEach(m=>{
+          const label=document.createElement('div');label.className='row-label';
+          label.innerHTML=`<b>${m.name}</b><small>$${m.pin} / $${m.pout} za 1M</small>`;
+          frag.appendChild(label);
+          if(!m.effort){
+            const v=cost(m,1),c=document.createElement('button');
+            c.type='button';c.className='cell span'+cls(v);c.dataset.model=m.id;c.dataset.effort='';
+            c.setAttribute('aria-pressed',String(sel.model===m.id));
+            c.setAttribute('aria-label',`${m.name}, bez parametru effort: ${usd(v)}`);
+            c.innerHTML=`<span class="v">${show(v)}</span><span class="s">brak parametru effort · jedna komórka</span>`;
+            frag.appendChild(c);return;
+          }
+          EFFORT.forEach(e=>{
+            const v=cost(m,e.f),c=document.createElement('button'),est=isEst(m,e);
+            c.type='button';c.className='cell'+(est?' est':'')+cls(v);c.dataset.model=m.id;c.dataset.effort=e.id;
+            c.setAttribute('aria-pressed',String(sel.model===m.id&&sel.effort===e.id));
+            c.setAttribute('aria-label',`${m.name} na efforcie ${e.id}: ${usd(v)}, indeks ${idx(v)}${est?', mnożnik szacowany':''}`);
+            c.innerHTML=`<span class="v">${show(v)}</span><span class="s">${mode==='usd'?idx(v):usd(v)}</span>`;
+            frag.appendChild(c);
+          });
+        });
+        grid.appendChild(frag);
+        grid.querySelectorAll('.cell').forEach(c=>c.addEventListener('click',()=>{
+          sel={model:c.dataset.model,effort:c.dataset.effort||null};render();
+        }));
+      }
+      function cls(v){const r=v/ref();return r<.9?' cheap':r>1.15?' dear':''}
+
+      function renderTable(){
+        const rows=[];
+        MODELS.forEach(m=>{
+          const list=m.effort?EFFORT:[{id:'—',f:1}];
+          list.forEach(e=>{const p=parts(m,e.f);rows.push(
+            `<tr class="accent-${m.id}"><td>${m.name}</td><td>${e.id}${m.effort&&isEst(m,e)?'*':''}</td><td class="num">${usd(p.i)}</td><td class="num">${usd(p.o)}</td><td class="num">${usd(p.t)}</td><td class="num">${rel(p.t)}</td></tr>`)});
+        });
+        tableBody.innerHTML=rows.join('');
+      }
+
+      function renderDetail(){
+        const m=model(sel.model),e=sel.effort?effort(sel.effort):null,f=e?e.f:1,p=parts(m,f);
+        bdWho.textContent=m.name+(e?' @ '+e.id:' (bez effortu)');
+        readout.innerHTML=`<b>${m.name}${e?' @ '+e.id:''}:</b> ${usd(p.t)} za zadanie · ${idx(p.t)} względem Opus 5 @ high · ${rel(p.t)}.`+
+          (e&&isEst(m,e)?(alwaysEst(e)
+            ? ' <b>Mnożnik tego poziomu jest ekstrapolowany</b>, nie zmierzony — na żadnym modelu.'
+            : ` <b>Mnożnik zmierzono na Opus 5</b> i przeniesiono na ${m.name} — tu jest szacunkiem.`):'')+
+          (m.effort?'':' Haiku 4.5 nie przyjmuje parametru <code>effort</code>, a jego liczba tokenów nie jest wprost porównywalna z pozostałymi.');
+        bdRows.innerHTML=[
+          ['Tokeny wejściowe',`${num(+inTok.value)} × ${langF().toFixed(2)} = ${num(inputTokens())}`],
+          ['Koszt inputu',`${num(inputTokens())} / 1M × $${m.pin} = ${usd(p.i)}`],
+          ['Tokeny wyjściowe',`${num(+outTok.value)} × ${f} = ${num(outputTokens(f))}`],
+          ['Koszt outputu',`${num(outputTokens(f))} / 1M × $${m.pout} = ${usd(p.o)}`]
+        ].map(r=>`<div class="bd-row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')+
+          `<div class="bd-row total"><span>Razem na zadanie</span><span>${usd(p.t)}</span></div>`;
+      }
+
+      function render(){
+        $('inRead').textContent=num(+inTok.value)+' tok';
+        $('outRead').textContent=num(+outTok.value)+' tok';
+        $('langRead').textContent=lang().n+' '+(lang().o>=0?'+':'')+lang().o+'%';
+        renderHero();renderGrid();renderTable();renderDetail();
+      }
+
+      [inTok,outTok].forEach(el=>el.addEventListener('input',render));
+      langSel.addEventListener('change',render);
+      usdBtn.addEventListener('click',()=>{mode='usd';usdBtn.setAttribute('aria-pressed','true');idxBtn.setAttribute('aria-pressed','false');render()});
+      idxBtn.addEventListener('click',()=>{mode='index';usdBtn.setAttribute('aria-pressed','false');idxBtn.setAttribute('aria-pressed','true');render()});
+      render();
+    })();
+  </script>
+
+
+
+
+
+</body></html>

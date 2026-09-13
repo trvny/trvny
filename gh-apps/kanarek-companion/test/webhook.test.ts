@@ -33,11 +33,11 @@ const testMetadata = {
 };
 
 test('allows repository wildcards without matching other owners', () => {
-  const wildcardEnv = { KANAREK_REPOSITORIES: 'trvny/trvny,twojstar/*' };
-  assert.equal(repositoryAllowed(wildcardEnv, 'twojstar/.github'), true);
-  assert.equal(repositoryAllowed(wildcardEnv, 'twojstar/Autka'), true);
+  const wildcardEnv = { KANAREK_REPOSITORIES: 'trvny/trvny,2137x/*' };
+  assert.equal(repositoryAllowed(wildcardEnv, '2137x/.github'), true);
+  assert.equal(repositoryAllowed(wildcardEnv, '2137x/Autka'), true);
   assert.equal(repositoryAllowed(wildcardEnv, 'trvny/trvny'), true);
-  assert.equal(repositoryAllowed(wildcardEnv, 'twojstar-evil/Autka'), false);
+  assert.equal(repositoryAllowed(wildcardEnv, '2137x-evil/Autka'), false);
   assert.equal(repositoryAllowed(wildcardEnv, 'trvny/feedseek'), false);
 });
 

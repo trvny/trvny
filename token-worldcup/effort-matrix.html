@@ -203,7 +203,12 @@ margin: 0 0.8em 0.2em -1em;  vertical-align: middle;
         });
         grid.appendChild(frag);
         grid.querySelectorAll('.cell').forEach(c=>c.addEventListener('click',()=>{
-          sel={model:c.dataset.model,effort:c.dataset.effort||null};render();
+          sel={model:c.dataset.model,effort:c.dataset.effort||null};
+          render();
+          // render() rebuilds the grid, so the button just activated no longer
+          // exists and focus would fall back to <body> - a keyboard user would
+          // lose their place after every pick. Put it on the replacement cell.
+          grid.querySelector(`.cell[data-model="${sel.model}"][data-effort="${sel.effort||''}"]`)?.focus();
         }));
       }
       function cls(v){const r=v/ref();return r<.9?' cheap':r>1.15?' dear':''}

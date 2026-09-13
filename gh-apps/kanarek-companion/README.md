@@ -13,7 +13,8 @@ Use these names consistently in code, docs, PRs and logs:
 
 | Subsystem | Owns | Does not own |
 | --- | --- | --- |
-| **Kanarek Companion** | GitHub webhook handling, PR status comment, quips/reactions, free PR review and its provider router | GPT Actions, repository automation, package/docs intelligence |
+| **Kanarek Companion** | GitHub webhook handling, PR status comment, quips/reactions, review queueing/context, and publication | Free-review provider routing, GPT Actions, repository automation, package/docs intelligence |
+| **Kanarek Review** | Private free-review provider router behind the `KANAREK_REVIEW_SERVICE` Service Binding | GitHub webhook handling, review publication, status comments, quips |
 | **GPTomek Bridge** | `gptomek[bot]` identity, installation auth, control mailbox and bot-authored GitHub writes | workflow policy and semantic operator decisions |
 | **Gremlin Operator** | OAuth-protected GPT Actions, guarded GitHub coding/maintenance/release/workflow operations, policy and orchestration | Kanarek presentation or quip behavior |
 | **Specialist Intelligence** | bounded read-only or narrowly scoped domain tools such as package intelligence, live docs and Engram; future artifact/feed/web inspection belongs here | generic arbitrary network or admin proxies |
@@ -25,11 +26,11 @@ or **shared Worker runtime**. Reserve **Kanarek** for the companion/review
 subsystem and **GPTomek** for bot identity/transport. **Gremlin** is the operator
 that composes guarded actions and specialists.
 
-Keep one Worker while sharing auth, policy and deployment is useful. A subsystem
-should move to a separate Worker only when it needs materially different
-credentials/permissions, public exposure, resource limits, deployment cadence,
-or independent consumers. Heavy artifact processing is the first likely split
-candidate; it should still start behind the Specialist Intelligence boundary.
+Keep the shared automation Worker for subsystems that benefit from shared auth, policy,
+and deployment. Free-review provider routing is the deliberate exception: it runs in
+the private `kanarek-review` Worker because its provider credentials and deployment
+boundary are independent. Heavy artifact processing is the next likely split candidate;
+it should still start behind the Specialist Intelligence boundary.
 
 ## Mental model
 
@@ -44,10 +45,10 @@ A normal delivery follows this path:
    resets a one-minute alarm, so rapid pushes replace stale queued work instead
    of starting parallel reviews.
 4. The review job revalidates the exact open, same-repository PR head/base,
-   reads a bounded diff plus nearby repository context, then calls the shared
-   free review router in-process. The router tries the guarded Cloudflare
-   Workers AI binding first, then OpenRouter, OrcaRouter, AIHubMix, Ollama Cloud,
-   and Groq, while keeping exhausted providers behind Durable Object-backed cooldowns.
+   reads a bounded diff plus nearby repository context, then calls the private
+   `kanarek-review` Worker through `KANAREK_REVIEW_SERVICE`. The review Worker
+   tries the configured free providers while keeping exhausted providers behind
+   Durable Object-backed cooldowns.
 5. Review output must be bounded Simplified-Chinese JSON with high-confidence
    findings anchored to added RIGHT-side lines. The job revalidates the PR
    again immediately before publishing one native GitHub review as the Kanarek

@@ -27,6 +27,9 @@ travny-tg-assistant
         │ service binding
         ▼
 kanarek-companion /review-router/v1/chat/completions
+        │ private service binding
+        ▼
+kanarek-review
         ├─ OpenRouter free pool
         ├─ OrcaRouter free
         ├─ AIHubMix free

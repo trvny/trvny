@@ -93,22 +93,23 @@ jobs:
               )
               if os.environ.get(key)
           }
-          retired_free_review = {
-              key: None
-              for key in (
-                  "AIHUBMIX_API_KEY",
-                  "OPENROUTER_API_KEY",
-                  "ORCAROUTER_API_KEY",
-                  "GROQ_API_KEY",
-                  "OLLAMA_API_KEY",
-              )
-          }
           pathlib.Path(sys.argv[1]).write_text(
-              json.dumps({**required, **direct_optional, **retired_free_review}),
+              json.dumps({**required, **direct_optional}),
               encoding="utf-8",
           )
           PY
           chmod 600 "$secrets_file"
+
+          secret_names=$(npx --yes wrangler@4.127.1 secret list \
+            --name kanarek-companion --format json | jq -r '.[].name')
+          for retired_secret in \
+            AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY GROQ_API_KEY OLLAMA_API_KEY
+          do
+            if grep -Fxq "$retired_secret" <<<"$secret_names"; then
+              npx --yes wrangler@4.127.1 secret delete "$retired_secret" \
+                --name kanarek-companion
+            fi
+          done
 
           npx --yes wrangler@4.127.1 versions secret bulk "$secrets_file" \
             --name kanarek-companion \

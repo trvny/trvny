@@ -11,6 +11,8 @@ import type {
 const WRITE_PERMISSIONS = new Set(['admin', 'write']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
 
+export type BranchUpdateResult = 'accepted' | 'rejected' | 'indeterminate';
+
 function disabled(value: string | undefined): boolean {
   return value ? FALSE_VALUES.has(value.trim().toLowerCase()) : false;
 }
@@ -59,8 +61,8 @@ export async function updateBranch(
   repository: string,
   pullRequestNumber: number,
   expectedHeadSha: string,
-): Promise<boolean> {
-  if (branchUpdatePermissionWarning(client)) return false;
+): Promise<BranchUpdateResult> {
+  if (branchUpdatePermissionWarning(client)) return 'rejected';
 
   const [owner, repo] = repoParts(repository);
   try {
@@ -80,7 +82,7 @@ export async function updateBranch(
         repository,
       }),
     );
-    return true;
+    return 'accepted';
   } catch (error) {
     console.warn(
       JSON.stringify({
@@ -91,6 +93,9 @@ export async function updateBranch(
         status: error instanceof GitHubApiError ? error.status : null,
       }),
     );
-    return false;
+    if (!(error instanceof GitHubApiError) || error.status >= 500) {
+      return 'indeterminate';
+    }
+    return 'rejected';
   }
 }

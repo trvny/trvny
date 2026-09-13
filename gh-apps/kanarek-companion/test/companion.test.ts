@@ -51,6 +51,20 @@ test('allows CI-less repositories to become ready', () => {
   assert.equal(status(pr, { behind: 0 }, emptyCi, review, false).key, 'ready');
 });
 
+test('treats a mergeable branch behind main as informational', () => {
+  const ci = { failed: [], passed: [{}], pending: [], total: 1 };
+  assert.equal(status(pr, { behind: 7 }, ci, review, true).key, 'ready');
+  assert.deepEqual(blockerKinds(pr, { behind: 7 }, ci, review, true), []);
+});
+
+test('keeps an actual automatic branch update pending until the new head refreshes', () => {
+  const ci = { failed: [], passed: [{}], pending: [], total: 1 };
+  const current = status(pr, { behind: 7 }, ci, review, true, true);
+  assert.equal(current.key, 'waiting');
+  assert.deepEqual(current.blockers, ['branch update pending']);
+  assert.deepEqual(blockerKinds(pr, { behind: 7 }, ci, review, true, true), ['branch-update']);
+});
+
 test('disables the companion only for the no-goblin label', () => {
   assert.equal(isCompanionDisabled({ labels: [{ name: 'no-goblin' }] }), true);
   assert.equal(isCompanionDisabled({ labels: [{ name: 'NO-GOBLIN' }] }), true);

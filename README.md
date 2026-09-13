@@ -10,11 +10,11 @@
 [Polski](README_pl.md) · **English** · [简体中文](README_zh.md)
 
 [![feedseek](https://img.shields.io/badge/feed-seek-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feedseek) [![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://trfny.com/tv/)
-[![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/2137x/wambridge)
+[![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/enclaro/wambridge)
 [![weather](https://img.shields.io/badge/weather-KOŚCIELEC-16a34a?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.trfny.com)  
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.trfny.com) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.trfny.com) [![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.travny.workers.dev)  
 [![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://trfny.com)  
-[![Docs7](https://raw.githubusercontent.com/2137x/.github/main/assets/badges/docs7.svg)](https://twojstar.docs7.io/)
+[![Docs7](https://raw.githubusercontent.com/enclaro/.github/main/assets/badges/docs7.svg)](https://twojstar.docs7.io/)
 <a href="https://deepwiki.com/trvny/trvny"><img src="https://deepwiki.com/badge.svg" alt="DeepWiki"></a>
 
 </div>
@@ -43,20 +43,20 @@ No open pull requests. 🎉
 | project | entry points | what's inside |
 |---|---|---|
 | 📡 **Feedseek** | [repo](https://github.com/trvny/feedseek) · [site](https://trvny.github.io/feedseek) · [reader](https://trvny.github.io/feedseek/reader/) | RSS/Atom feed generator and publisher for sources without useful native feeds. |
-| 🐤 **Kanarek** | [repo](https://github.com/2137x/kanarek) | Android RSS/Atom reader with widgets and radio/IPTV playback. |
+| 🐤 **Kanarek** | [repo](https://github.com/enclaro/kanarek) | Android RSS/Atom reader with widgets and radio/IPTV playback. |
 | 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [site](https://trfny.com/tv/) · [playlist](https://tvpi.travny.workers.dev/playlist.m3u) | Stable IPTV entry points for TVP channels, a Worker, and residential push for refreshing HLS tokens. |
-| 🚗 **Autka** | [repo](https://github.com/2137x/Autka) | Android aggregator of car listings from Poland, the EU, and US imports, including import cost calculations. |
-| 🤖 **LlmBench** | [repo](https://github.com/2137x/llmbench) | Android hub for account-backed AI chats and free-provider LLM access. |
-| 🔊 **WAM Bridge** | [repo](https://github.com/2137x/wambridge) | Audio bridge for Samsung Wireless Audio Multiroom speakers and native foobar2000 output for Shape M5. |
+| 🚗 **Autka** | [repo](https://github.com/enclaro/Autka) | Android aggregator of car listings from Poland, the EU, and US imports, including import cost calculations. |
+| 🤖 **LlmBench** | [repo](https://github.com/enclaro/llmbench) | Android hub for account-backed AI chats and free-provider LLM access. |
+| 🔊 **WAM Bridge** | [repo](https://github.com/enclaro/wambridge) | Audio bridge for Samsung Wireless Audio Multiroom speakers and native foobar2000 output for Shape M5. |
 
 ### Tools and services
 
 | project | entry | purpose |
 |---|---|---|
-| 🔳 **[Codebench](https://github.com/2137x/twojstar/tree/main/benches/codebench)** | [codebench.trfny.com](https://codebench.trfny.com) | Private browser-based QR and barcode studio. Data never leaves the browser. |
-| 📻 **[Streambench](https://github.com/2137x/twojstar/tree/main/benches/streambench)** | [streambench.trfny.com](https://streambench.trfny.com) | Workshop for testing, organizing, and playing IPTV, radio, HLS, M3U, and XMLTV. |
-| 📄 **[Docbench](https://github.com/2137x/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | Local-first document and PDF studio for editing, previewing, validating, merging, page operations, and bookmarks. |
-| 🌦️ **[weather-feed](https://github.com/2137x/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Multi-source weather and IMGW alerts for Kościelec/Chrzanów, exposed as Atom and JSON. |
+| 🔳 **[Codebench](https://github.com/enclaro/twojstar/tree/main/benches/codebench)** | [codebench.trfny.com](https://codebench.trfny.com) | Private browser-based QR and barcode studio. Data never leaves the browser. |
+| 📻 **[Streambench](https://github.com/enclaro/twojstar/tree/main/benches/streambench)** | [streambench.trfny.com](https://streambench.trfny.com) | Workshop for testing, organizing, and playing IPTV, radio, HLS, M3U, and XMLTV. |
+| 📄 **[Docbench](https://github.com/enclaro/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | Local-first document and PDF studio for editing, previewing, validating, merging, page operations, and bookmarks. |
+| 🌦️ **[weather-feed](https://github.com/enclaro/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Multi-source weather and IMGW alerts for Kościelec/Chrzanów, exposed as Atom and JSON. |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | One tool for aggregate health checks of TVPI, Feedseek, Weather, and Autka. |
 | 🐾 **[Pet Dispatcher](mcp/pet-dispatcher/)** | local MCP + Worker | Workspace-confined development-machine tools with an outbound-only Cloudflare control plane. |
 | 🌀 **[Loopling](loopling/)** | ChatGPT/Codex pet | Procedurally generated desktop pet, installers, previews, and validation assets. |

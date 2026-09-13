@@ -55,18 +55,18 @@ test('shares GPT Actions policy while keeping high-level raw writes out of opera
   );
   assert.equal(
     gptomekOperatorActionAllowed(
-      '2137x/twojstar',
+      'enclaro/twojstar',
       'PATCH',
-      '/repos/2137x/twojstar/issues/1',
+      '/repos/enclaro/twojstar/issues/1',
       { state: 'closed' },
     ),
     true,
   );
   assert.equal(
     gptomekOperatorActionAllowed(
-      '2137x/twojstar',
+      'enclaro/twojstar',
       'POST',
-      '/repos/2137x/twojstar/actions/workflows/test.yml/dispatches',
+      '/repos/enclaro/twojstar/actions/workflows/test.yml/dispatches',
       { ref: 'main' },
     ),
     false,
@@ -128,9 +128,9 @@ test('accepts operator_action commands before authentication', async () => {
   const body = commandMarker({
     id: 'operator-action-1',
     op: 'operator_action',
-    repository: '2137x/twojstar',
+    repository: 'enclaro/twojstar',
     method: 'PATCH',
-    path: '/repos/2137x/twojstar/issues/1',
+    path: '/repos/enclaro/twojstar/issues/1',
     body: { state: 'closed' },
   });
   await assert.rejects(

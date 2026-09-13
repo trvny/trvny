@@ -10,11 +10,11 @@
 [Polski](README_pl.md) · [English](README.md) · **简体中文**
 
 [![feedseek](https://img.shields.io/badge/feed-seek-ff7a18?style=for-the-badge&logo=rss&logoColor=white)](https://trvny.github.io/feedseek) [![tvpi](https://img.shields.io/badge/tvpi-IPTV-2563eb?style=for-the-badge&logo=jellyfin&logoColor=white)](https://trfny.com/tv/)
-[![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/2137x/wambridge)
+[![wambridge](https://img.shields.io/badge/wambridge-Samsung_M5-1428a0?style=for-the-badge&logo=samsung&logoColor=white)](https://github.com/enclaro/wambridge)
 [![weather](https://img.shields.io/badge/weather-KOŚCIELEC-16a34a?style=for-the-badge&logo=cloudflareworkers&logoColor=white)](https://weather.trfny.com)  
 [![codebench](https://img.shields.io/badge/codebench-barcodes-111827?style=for-the-badge&logo=qrcode&logoColor=white)](https://codebench.trfny.com) [![streambench](https://img.shields.io/badge/streambench-media-7c3aed?style=for-the-badge&logo=vlcmediaplayer&logoColor=white)](https://streambench.trfny.com) [![docbench](https://img.shields.io/badge/docbench-docs_%26_PDF-b45309?style=for-the-badge&logo=googledocs&logoColor=white)](https://docbench.travny.workers.dev)  
 [![Cloudflare](https://workers.cloudflare.com/built-with-cloudflare.svg)](https://trfny.com)  
-[![Docs7](https://raw.githubusercontent.com/2137x/.github/main/assets/badges/docs7.svg)](https://twojstar.docs7.io/)
+[![Docs7](https://raw.githubusercontent.com/enclaro/.github/main/assets/badges/docs7.svg)](https://twojstar.docs7.io/)
 <a href="https://deepwiki.com/trvny/trvny"><img src="https://deepwiki.com/badge.svg" alt="DeepWiki"></a>
 
 </div>
@@ -43,20 +43,20 @@
 | 项目 | 入口 | 内容 |
 |---|---|---|
 | 📡 **Feedseek** | [仓库](https://github.com/trvny/feedseek) · [网站](https://trvny.github.io/feedseek) · [阅读器](https://trvny.github.io/feedseek/reader/) | 为缺少可用原生订阅源的网站生成并发布 RSS/Atom。 |
-| 🐤 **Kanarek** | [仓库](https://github.com/2137x/kanarek) | Android RSS/Atom 阅读器，带桌面小组件以及广播/IPTV 播放。 |
+| 🐤 **Kanarek** | [仓库](https://github.com/enclaro/kanarek) | Android RSS/Atom 阅读器，带桌面小组件以及广播/IPTV 播放。 |
 | 📺 **TVPI** | [仓库](https://github.com/trvny/tvpi) · [网站](https://trfny.com/tv/) · [播放列表](https://tvpi.travny.workers.dev/playlist.m3u) | TVP 频道的稳定 IPTV 入口、Cloudflare Worker，以及用于刷新 HLS token 的住宅网络推送方案。 |
-| 🚗 **Autka** | [仓库](https://github.com/2137x/Autka) | Android 二手车聚合器，覆盖波兰、欧盟与美国进口，并包含进口成本计算。 |
-| 🤖 **LlmBench** | [仓库](https://github.com/2137x/llmbench) | Android AI 聊天中心，整合账号登录与免费 LLM 提供商。 |
-| 🔊 **WAM Bridge** | [仓库](https://github.com/2137x/wambridge) | Samsung Wireless Audio Multiroom 音频桥接，以及面向 Shape M5 的原生 foobar2000 输出。 |
+| 🚗 **Autka** | [仓库](https://github.com/enclaro/Autka) | Android 二手车聚合器，覆盖波兰、欧盟与美国进口，并包含进口成本计算。 |
+| 🤖 **LlmBench** | [仓库](https://github.com/enclaro/llmbench) | Android AI 聊天中心，整合账号登录与免费 LLM 提供商。 |
+| 🔊 **WAM Bridge** | [仓库](https://github.com/enclaro/wambridge) | Samsung Wireless Audio Multiroom 音频桥接，以及面向 Shape M5 的原生 foobar2000 输出。 |
 
 ### 工具与服务
 
 | 项目 | 在线地址 | 用途 |
 |---|---|---|
-| 🔳 **[Codebench](https://github.com/2137x/twojstar/tree/main/benches/codebench)** | [codebench.trfny.com](https://codebench.trfny.com) | 浏览器内运行的私有 QR/条码工作台，数据不会离开浏览器。 |
-| 📻 **[Streambench](https://github.com/2137x/twojstar/tree/main/benches/streambench)** | [streambench.trfny.com](https://streambench.trfny.com) | 用于测试、整理和播放 IPTV、广播、HLS、M3U 与 XMLTV。 |
-| 📄 **[Docbench](https://github.com/2137x/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | 本地优先的文档与 PDF 工作台，可编辑、预览、验证、合并、整理页面和书签。 |
-| 🌦️ **[weather-feed](https://github.com/2137x/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Kościelec/Chrzanów 的多源天气与 IMGW 警报，以 Atom 和 JSON 提供。 |
+| 🔳 **[Codebench](https://github.com/enclaro/twojstar/tree/main/benches/codebench)** | [codebench.trfny.com](https://codebench.trfny.com) | 浏览器内运行的私有 QR/条码工作台，数据不会离开浏览器。 |
+| 📻 **[Streambench](https://github.com/enclaro/twojstar/tree/main/benches/streambench)** | [streambench.trfny.com](https://streambench.trfny.com) | 用于测试、整理和播放 IPTV、广播、HLS、M3U 与 XMLTV。 |
+| 📄 **[Docbench](https://github.com/enclaro/twojstar/tree/main/benches/docbench)** | [docbench.travny.workers.dev](https://docbench.travny.workers.dev) | 本地优先的文档与 PDF 工作台，可编辑、预览、验证、合并、整理页面和书签。 |
+| 🌦️ **[weather-feed](https://github.com/enclaro/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Kościelec/Chrzanów 的多源天气与 IMGW 警报，以 Atom 和 JSON 提供。 |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | 汇总检查 TVPI、Feedseek、Weather 和 Autka 健康状态的单一工具。 |
 | 🐾 **[Pet Dispatcher](mcp/pet-dispatcher/)** | 本地 MCP + Worker | 限定在工作区内的开发机工具，以及仅出站连接的 Cloudflare 控制平面。 |
 | 🌀 **[Loopling](loopling/)** | ChatGPT/Codex pet | 程序化生成的桌面宠物、安装脚本、预览与验证资源。 |

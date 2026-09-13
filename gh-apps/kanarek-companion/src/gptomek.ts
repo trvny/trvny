@@ -23,7 +23,7 @@ const RESULT_RE = /<!--\s*gptomek-result:([A-Za-z0-9+/_-]+={0,2})\s*-->/g;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_BATCH_STEPS = 10;
 const MAX_RESULT_BYTES = 8_000;
-const ALLOWED_REPOSITORY_OWNERS = new Set(['trvny', '2137x']);
+const ALLOWED_REPOSITORY_OWNERS = new Set(['trvny', 'enclaro']);
 const BOT_IDENTITY = {
   name: 'GPTomek',
   email: '314538226+gptomek[bot]@users.noreply.github.com',
@@ -298,8 +298,8 @@ export function gptomekOperatorActionAllowed(
   }
 
   // GPT Actions keeps the mutation policy rooted at trvny/*. Re-map only for
-  // policy evaluation so 2137x/* uses the exact same guarded surface.
-  const policyPath = target.pathname.replace(/^\/repos\/2137x\//, '/repos/trvny/');
+  // policy evaluation so enclaro/* uses the exact same guarded surface.
+  const policyPath = target.pathname.replace(/^\/repos\/enclaro\//, '/repos/trvny/');
   return githubBotRequestAllowed(method, `${policyPath}${target.search}`, body);
 }
 

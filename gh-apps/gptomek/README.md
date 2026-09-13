@@ -138,7 +138,7 @@ Supported operations:
 - `operator_action`: perform a generic GitHub REST request through the existing
   GPT Actions bot-write policy. The declared repository must exactly match the
   REST path. Generic issue/label/PR metadata, status, deployment and repository
-  dispatch mutations are available for both `trvny/*` and `enclaro/*`.
+  dispatch mutations are available for both `trvny/*` and `travnie/*`.
   Raw contents/ref writes, workflow mutations and release writes stay blocked
   here because the shared runtime routes those families through guarded
   high-level operations instead of a generic REST escape hatch.

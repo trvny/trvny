@@ -49,7 +49,7 @@ test('closed PR branch cleanup requires exact repository, ref and head sha', () 
     42,
   );
   assert.equal(
-    matchingClosedPullRequestNumber(pulls, 'enclaro/kanarek', 'feat/done', sha),
+    matchingClosedPullRequestNumber(pulls, 'travnie/kanarek', 'feat/done', sha),
     null,
   );
   assert.equal(

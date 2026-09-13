@@ -30,14 +30,14 @@ function payload(
     action: options.action ?? 'synchronize',
     installation: { id: 123 },
     number: 21,
-    repository: { full_name: 'enclaro/llmbench' },
+    repository: { full_name: 'travnie/llmbench' },
     pull_request: {
       draft: options.draft ?? false,
       base: { sha: options.baseSha ?? base },
       head: {
         sha: headSha,
         repo: {
-          full_name: options.headRepository ?? 'enclaro/llmbench',
+          full_name: options.headRepository ?? 'travnie/llmbench',
         },
       },
     },
@@ -113,7 +113,7 @@ function queuedJob(
       headSha,
       installationId: 123,
       number: 21,
-      repository: 'enclaro/llmbench',
+      repository: 'travnie/llmbench',
       updatedAtMs: options.updatedAtMs,
     },
   };
@@ -236,7 +236,7 @@ test('review submission marker is target-specific and bot-authenticated', () => 
     headSha: headA,
     installationId: 123,
     number: 21,
-    repository: 'enclaro/llmbench',
+    repository: 'travnie/llmbench',
   };
   const marker = reviewMarker(target);
   assert.match(marker, /kanarek-review:/);

@@ -31,15 +31,10 @@ jobs:
       KANAREK_COMPANION_HEALTH_URL: https://kanarek-companion.travny.workers.dev/health
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
-      AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
     steps:
       - name: Sync Worker credentials
         shell: bash
@@ -98,8 +93,8 @@ jobs:
               )
               if os.environ.get(key)
           }
-          free_review = {
-              key: os.environ.get(key) or None
+          retired_free_review = {
+              key: None
               for key in (
                   "AIHUBMIX_API_KEY",
                   "OPENROUTER_API_KEY",
@@ -109,7 +104,7 @@ jobs:
               )
           }
           pathlib.Path(sys.argv[1]).write_text(
-              json.dumps({**required, **direct_optional, **free_review}),
+              json.dumps({**required, **direct_optional, **retired_free_review}),
               encoding="utf-8",
           )
           PY

@@ -22,11 +22,11 @@
     "@google/genai": "^2.21.0",
     "@microsoft/mxc-sdk": "^0.8.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^4.5.4"
+    "zod": "^4.6.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260904.1",
-    "@types/node": "^26.4.1",
+    "@types/node": "^26.5.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "wrangler": "^4.131.1"

@@ -1,2 +1,2 @@
 # Only recount-claude-tokens.py needs this; the reports themselves are static.
-anthropic>=0.40
+anthropic>=1.4.0

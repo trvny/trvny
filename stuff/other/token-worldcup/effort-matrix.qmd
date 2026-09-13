@@ -19,7 +19,7 @@ format:
     <header>
       <div class="eyebrow"><span class="dot"></span> Claude API · cennik first-party</div>
       <h1>Model × Effort</h1>
-      <p class="lede">Ile naprawdę kosztuje zadanie, kiedy zmienisz model albo parametr <code>effort</code>. Cennik jest stały, mnożniki effortu pochodzą ze zmierzonych runów, a narzut językowy wchodzi z <a href="token-worldcup.html">Tokenowego Mundialu</a>. <span class="headline-stat">Silniejszy model na niższym efforcie zwykle bije słabszy model na wyższym.</span></p>
+      <p class="lede">Ile naprawdę kosztuje zadanie, kiedy zmienisz model albo parametr <code>effort</code>. Cennik jest stały, mnożniki effortu są zmierzone tylko częściowo (reszta oznaczona), a narzut językowy wchodzi z <a href="token-worldcup.html">Tokenowego Mundialu</a>. <span class="headline-stat">Silniejszy model na niższym efforcie zwykle bije słabszy model na wyższym.</span></p>
     </header>
     <section class="hero-grid" aria-label="Najważniejsze porównanie">
       <div class="panel verdict">
@@ -37,20 +37,20 @@ format:
       <div class="section-head"><div><h2 id="knobs-title">Twój workload</h2><div class="subtle">Domyślne tokeny tak dobrane, żeby Opus 5 @ high <b>po angielsku</b> wypadł na zmierzonych ~$1.39 za zadanie z runów coding. Przełącz język, żeby zobaczyć, ile dokłada narzut wejściowy.</div></div></div>
       <div class="knobs">
         <div class="knob"><label for="inTok">Tokeny wejściowe (przed narzutem języka)</label><div class="read" id="inRead">—</div><input type="range" id="inTok" min="2000" max="400000" step="2000" value="40000"><small class="hint">Suma inputu na zadanie — w pętli agentowej historia doliczana jest w każdej turze.</small></div>
-        <div class="knob"><label for="outTok">Tokeny wyjściowe przy <code>high</code></label><div class="read" id="outRead">—</div><input type="range" id="outTok" min="2000" max="128000" step="2000" value="48000"><small class="hint">Thinking jest rozliczany jako output — to jego skaluje <code>effort</code>. Sufit <code>max_tokens</code> to 128k.</small></div>
+        <div class="knob"><label for="outTok">Tokeny wyjściowe przy <code>high</code></label><div class="read" id="outRead">—</div><input type="range" id="outTok" min="2000" max="128000" step="2000" value="48000"><small class="hint">Thinking jest rozliczany jako output — to jego skaluje <code>effort</code>. To suma na całe zadanie, nie na jedną odpowiedź: <code>max_tokens</code> ogranicza pojedynczy response do 128k, a pętla agentowa składa się z wielu tur.</small></div>
         <div class="knob"><label for="langSel">Język promptu</label><div class="read" id="langRead">—</div><select id="langSel"></select><small class="hint">Narzut z <code>o200k_base</code>, mnoży wyłącznie tokeny wejściowe.</small></div>
       </div>
     </section>
     <section class="panel section" aria-labelledby="matrix-title">
-      <div class="section-head"><div><h2 id="matrix-title">Matryca</h2><div class="subtle">Kliknij komórkę, żeby zobaczyć rozbicie kosztu. Przerywana ramka = mnożnik ekstrapolowany, nie zmierzony.</div></div><div class="controls" role="group" aria-label="Metryka matrycy"><button id="usdBtn" type="button" aria-pressed="true">Dolary</button><button id="idxBtn" type="button" aria-pressed="false">Indeks</button></div></div>
+      <div class="section-head"><div><h2 id="matrix-title">Matryca</h2><div class="subtle">Kliknij komórkę, żeby zobaczyć rozbicie kosztu. Przerywana ramka = mnożnik szacowany dla tej komórki. Gwiazdka w nagłówku = poziom bez zmierzonego mnożnika na którymkolwiek modelu.</div></div><div class="controls" role="group" aria-label="Metryka matrycy"><button id="usdBtn" type="button" aria-pressed="true">Dolary</button><button id="idxBtn" type="button" aria-pressed="false">Indeks</button></div></div>
       <div class="matrix"><div class="grid" id="grid"></div></div>
       <div id="readout" class="readout" aria-live="polite"></div>
       <div class="breakdown"><div class="bd-meta"><span>Rozbicie kosztu</span><span id="bdWho"></span></div><div class="bd-rows" id="bdRows"></div></div>
     </section>
-    <section class="panel section" aria-labelledby="table-title"><div class="section-head"><div><h2 id="table-title">Pełna tabela</h2><div class="subtle">Koszt jednego zadania w USD przy obecnych ustawieniach. Gwiazdka = mnożnik effortu ekstrapolowany, nie zmierzony.</div></div></div><div class="table-wrap"><table><thead><tr><th>Model</th><th>Effort</th><th class="num">Input $</th><th class="num">Output $</th><th class="num">Razem $</th><th class="num">vs Opus high</th></tr></thead><tbody id="tableBody"></tbody></table></div></section>
+    <section class="panel section" aria-labelledby="table-title"><div class="section-head"><div><h2 id="table-title">Pełna tabela</h2><div class="subtle">Koszt jednego zadania w USD przy obecnych ustawieniach. Gwiazdka = mnożnik effortu szacowany dla tej pary model + effort.</div></div></div><div class="table-wrap"><table><thead><tr><th>Model</th><th>Effort</th><th class="num">Input $</th><th class="num">Output $</th><th class="num">Razem $</th><th class="num">vs Opus high</th></tr></thead><tbody id="tableBody"></tbody></table></div></section>
     <section class="panel section" aria-labelledby="method-title"><div class="section-head"><h2 id="method-title">Jak to czytać</h2></div><div class="method">
       <article class="method-card"><b>Co robi effort</b><p>Skaluje głębokość myślenia i liczbę wywołań narzędzi, czyli tokeny wyjściowe. Domyślny poziom to <code>high</code>. Haiku 4.5 nie przyjmuje tego parametru w ogóle.</p></article>
-      <article class="method-card"><b>Zmierzone vs ekstrapolowane</b><p>Mnożniki <code>low</code> ≈ 0.25× i <code>medium</code> ≈ 0.5× pochodzą ze zmierzonych runów long-horizon coding na Opus 5 (oddają odpowiednio ~8 i ~2 punkty jakości).</p><p><code>xhigh</code> i <code>max</code> nie mają opublikowanego mnożnika — 2× i 3× to przedłużenie krzywej, nie pomiar. Stąd przerywana ramka.</p></article>
+      <article class="method-card"><b>Zmierzone vs szacowane</b><p><code>high</code> to punkt odniesienia: 1.00× z definicji, więc nigdy nie jest szacunkiem.</p><p>Mnożniki <code>low</code> ≈ 0.25× i <code>medium</code> ≈ 0.5× pochodzą ze zmierzonych runów long-horizon coding <b>na Opus 5</b> (oddają odpowiednio ~8 i ~2 punkty jakości). Na Fable i Sonnet te same liczby są tylko przeniesione, więc tam też są szacunkiem — stąd przerywana ramka w ich wierszach.</p><p><code>xhigh</code> i <code>max</code> nie mają opublikowanego mnożnika na żadnym modelu — 2× i 3× to przedłużenie krzywej. Stąd gwiazdka w nagłówku kolumny.</p></article>
       <article class="method-card"><b>Krzywa zależy od miksu</b><p>Opublikowane „połowa kosztu na medium” zakłada rachunek zdominowany przez output. Podkręć suwak inputu, a krzywa effortu się spłaszczy — bo effort nie dotyka tokenów wejściowych.</p></article>
       <article class="method-card"><b>Koszt na ukończone zadanie</b><p>W runach coding wszystko na <code>low</code> plus powtórka porażek na domyślnym efforcie dało ~93% pass za ~$0.70 na zadanie, wobec 91.7% za $1.39 przy domyślnym wszędzie. Ta sama jakość, połowa ceny.</p></article>
       <article class="method-card"><b>Ogon zjada budżet</b><p>Porównuj modele na najtrudniejszej dziesiątce zadań, nie na medianie. Na jednym 20-zadaniowym runie dwa problemy wzięły 43% całego spendu.</p></article>
@@ -67,12 +67,17 @@ format:
         {id:'haiku',name:'Claude Haiku 4.5',pin:1,pout:5,effort:false}
       ];
       const EFFORT=[
-        {id:'low',f:.25,est:false},
-        {id:'medium',f:.5,est:false},
-        {id:'high',f:1,est:false},
-        {id:'xhigh',f:2,est:true},
-        {id:'max',f:3,est:true}
+        {id:'low',f:.25},
+        {id:'medium',f:.5},
+        {id:'high',f:1},
+        {id:'xhigh',f:2},
+        {id:'max',f:3}
       ];
+      // 'high' is the reference point: 1.00x by definition, so never an estimate.
+      // low and medium were measured on Opus 5 only - carried over to any other
+      // model they are estimates there. xhigh and max are extrapolated everywhere.
+      const alwaysEst=e=>e.id==='xhigh'||e.id==='max';
+      const isEst=(m,e)=>e.id!=='high'&&(alwaysEst(e)||m.id!=='opus');
       const LANGS=[{"n":"Chinese","o":-6},{"n":"English","o":0},{"n":"Dutch","o":4},{"n":"Swedish","o":9},{"n":"Norwegian","o":9},{"n":"Spanish","o":12},{"n":"French","o":13},{"n":"German","o":14},{"n":"Turkish","o":14},{"n":"Vietnamese","o":14},{"n":"Portuguese","o":15},{"n":"Indonesian","o":16},{"n":"Arabic","o":17},{"n":"Hebrew","o":18},{"n":"Russian","o":20},{"n":"Latin","o":24},{"n":"Italian","o":26},{"n":"Finnish","o":27},{"n":"Polish","o":29},{"n":"Ukrainian","o":37},{"n":"Hindi","o":40},{"n":"Korean","o":41},{"n":"Slovak","o":42},{"n":"Czech","o":43},{"n":"Japanese","o":44},{"n":"Hungarian","o":48},{"n":"Greek","o":57}];
 
       const $=id=>document.getElementById(id);
@@ -108,7 +113,7 @@ format:
               withL=cost(m,f),noL=(+inTok.value)/1e6*m.pin+outputTokens(f)/1e6*m.pout,
               bump=noL>0?(withL/noL-1)*100:0;
         $('langVal').textContent=(lang().o>=0?'+':'')+lang().o+'% → '+(bump>=0?'+':'')+bump.toFixed(1)+'%';
-        $('langNote').textContent=`${lang().n}: +${lang().o}% na tokenach wejściowych daje ${bump>=0?'+':''}${bump.toFixed(1)}% na rachunku wybranej komórki. Narzut języka dotyczy tylko inputu.`;
+        $('langNote').textContent=`${lang().n}: ${lang().o>=0?'+':''}${lang().o}% na tokenach wejściowych daje ${bump>=0?'+':''}${bump.toFixed(1)}% na rachunku wybranej komórki. Narzut języka dotyczy tylko inputu.`;
         $('punch').textContent=b<a
           ? `Opus 5 @ medium (${usd(b)}) jest tańszy od Sonnet 5 @ xhigh (${usd(a)}) — mocniejszy model, niższy rachunek.`
           : `Przy tym miksie Sonnet 5 @ xhigh (${usd(a)}) schodzi poniżej Opus 5 @ medium (${usd(b)}) — sprawdź jakość na swoim evalu.`;
@@ -118,7 +123,7 @@ format:
         grid.replaceChildren();
         const frag=document.createDocumentFragment();
         frag.appendChild(Object.assign(document.createElement('div'),{className:'head-cell'}));
-        EFFORT.forEach(e=>{const h=document.createElement('div');h.className='head-cell'+(e.est?' est':'');h.textContent=e.est?e.id+'*':e.id;frag.appendChild(h)});
+        EFFORT.forEach(e=>{const h=document.createElement('div');h.className='head-cell'+(alwaysEst(e)?' est':'');h.textContent=alwaysEst(e)?e.id+'*':e.id;frag.appendChild(h)});
         MODELS.forEach(m=>{
           const label=document.createElement('div');label.className='row-label';
           label.innerHTML=`<b>${m.name}</b><small>$${m.pin} / $${m.pout} za 1M</small>`;
@@ -132,10 +137,10 @@ format:
             frag.appendChild(c);return;
           }
           EFFORT.forEach(e=>{
-            const v=cost(m,e.f),c=document.createElement('button');
-            c.type='button';c.className='cell'+(e.est?' est':'')+cls(v);c.dataset.model=m.id;c.dataset.effort=e.id;
+            const v=cost(m,e.f),c=document.createElement('button'),est=isEst(m,e);
+            c.type='button';c.className='cell'+(est?' est':'')+cls(v);c.dataset.model=m.id;c.dataset.effort=e.id;
             c.setAttribute('aria-pressed',String(sel.model===m.id&&sel.effort===e.id));
-            c.setAttribute('aria-label',`${m.name} na efforcie ${e.id}: ${usd(v)}, indeks ${idx(v)}`);
+            c.setAttribute('aria-label',`${m.name} na efforcie ${e.id}: ${usd(v)}, indeks ${idx(v)}${est?', mnożnik szacowany':''}`);
             c.innerHTML=`<span class="v">${show(v)}</span><span class="s">${mode==='usd'?idx(v):usd(v)}</span>`;
             frag.appendChild(c);
           });
@@ -150,9 +155,9 @@ format:
       function renderTable(){
         const rows=[];
         MODELS.forEach(m=>{
-          const list=m.effort?EFFORT:[{id:'—',f:1,est:false}];
+          const list=m.effort?EFFORT:[{id:'—',f:1}];
           list.forEach(e=>{const p=parts(m,e.f);rows.push(
-            `<tr class="accent-${m.id}"><td>${m.name}</td><td>${e.id}${e.est?'*':''}</td><td class="num">${usd(p.i)}</td><td class="num">${usd(p.o)}</td><td class="num">${usd(p.t)}</td><td class="num">${rel(p.t)}</td></tr>`)});
+            `<tr class="accent-${m.id}"><td>${m.name}</td><td>${e.id}${m.effort&&isEst(m,e)?'*':''}</td><td class="num">${usd(p.i)}</td><td class="num">${usd(p.o)}</td><td class="num">${usd(p.t)}</td><td class="num">${rel(p.t)}</td></tr>`)});
         });
         tableBody.innerHTML=rows.join('');
       }
@@ -161,7 +166,9 @@ format:
         const m=model(sel.model),e=sel.effort?effort(sel.effort):null,f=e?e.f:1,p=parts(m,f);
         bdWho.textContent=m.name+(e?' @ '+e.id:' (bez effortu)');
         readout.innerHTML=`<b>${m.name}${e?' @ '+e.id:''}:</b> ${usd(p.t)} za zadanie · ${idx(p.t)} względem Opus 5 @ high · ${rel(p.t)}.`+
-          (e&&e.est?' <b>Mnożnik tego poziomu jest ekstrapolowany</b>, nie zmierzony.':'')+
+          (e&&isEst(m,e)?(alwaysEst(e)
+            ? ' <b>Mnożnik tego poziomu jest ekstrapolowany</b>, nie zmierzony — na żadnym modelu.'
+            : ` <b>Mnożnik zmierzono na Opus 5</b> i przeniesiono na ${m.name} — tu jest szacunkiem.`):'')+
           (m.effort?'':' Haiku 4.5 nie przyjmuje parametru <code>effort</code>, a jego liczba tokenów nie jest wprost porównywalna z pozostałymi.');
         bdRows.innerHTML=[
           ['Tokeny wejściowe',`${num(+inTok.value)} × ${langF().toFixed(2)} = ${num(inputTokens())}`],

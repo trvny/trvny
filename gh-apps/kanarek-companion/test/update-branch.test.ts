@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { shouldUpdateBranch, updateBranch } from '../src/companion-update.ts';
-import type { GitHubInstallationClient } from '../src/github-app.ts';
+import { GitHubApiError, type GitHubInstallationClient } from '../src/github-app.ts';
 import type { PullRequest } from '../src/companion-types.ts';
 
 const pr: PullRequest = {
@@ -155,7 +155,7 @@ test('uses expected_head_sha with pull-requests and contents write permissions',
 
   assert.equal(
     await updateBranch(client, 'trvny/trvny', 162, pr.head.sha),
-    true,
+    'accepted',
   );
   assert.deepEqual(calls, [
     {
@@ -183,22 +183,39 @@ test('does not call update-branch without both required write permissions', asyn
 
     assert.equal(
       await updateBranch(client, 'trvny/trvny', 162, pr.head.sha),
-      false,
+      'rejected',
     );
     assert.equal(called, false);
   }
 });
 
-test('treats API and network update failures as best-effort skips', async () => {
-  const client = {
+test('distinguishes rejected and indeterminate update failures', async () => {
+  const rejected = {
+    permissions: { contents: 'write', pull_requests: 'write' },
+    async json() {
+      throw new GitHubApiError('update_pull_request_branch', 422);
+    },
+  } as unknown as GitHubInstallationClient;
+  const indeterminate = {
     permissions: { contents: 'write', pull_requests: 'write' },
     async json() {
       throw new TypeError('network down');
     },
   } as unknown as GitHubInstallationClient;
+  const serverFailure = {
+    permissions: { contents: 'write', pull_requests: 'write' },
+    async json() {
+      throw new GitHubApiError('update_pull_request_branch', 503);
+    },
+  } as unknown as GitHubInstallationClient;
 
+  assert.equal(await updateBranch(rejected, 'trvny/trvny', 162, pr.head.sha), 'rejected');
   assert.equal(
-    await updateBranch(client, 'trvny/trvny', 162, pr.head.sha),
-    false,
+    await updateBranch(indeterminate, 'trvny/trvny', 162, pr.head.sha),
+    'indeterminate',
+  );
+  assert.equal(
+    await updateBranch(serverFailure, 'trvny/trvny', 162, pr.head.sha),
+    'indeterminate',
   );
 });

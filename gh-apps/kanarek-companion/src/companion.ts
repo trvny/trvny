@@ -228,13 +228,13 @@ export async function refreshCompanion(
     : null;
   let branchUpdatePending = false;
   if (branchUpdateEligible && !branchUpdateWarning) {
-    const updateAccepted = await updateBranch(
+    const updateResult = await updateBranch(
       client,
       target.repository,
       target.pullRequestNumber,
       pr.head.sha,
     );
-    if (updateAccepted) {
+    if (updateResult !== 'rejected') {
       branchUpdatePending = true;
     } else {
       try {

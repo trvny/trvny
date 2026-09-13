@@ -23,6 +23,7 @@ async function refresh(options: {
   head: string;
   refreshedHead?: string;
   updateStatus?: number;
+  updateThrows?: boolean;
 }): Promise<{ body: string; pullCalls: number; state: string; updateCalls: number }> {
   let body = '';
   let pullCalls = 0;
@@ -89,6 +90,7 @@ async function refresh(options: {
     }
     if (method === 'PUT' && url.pathname === '/repos/trvny/trvny/pulls/12/update-branch') {
       updateCalls += 1;
+      if (options.updateThrows) throw new TypeError('response lost after write');
       const status = options.updateStatus ?? 202;
       return status < 400
         ? json({ message: 'Updating pull request branch.' }, status)
@@ -165,4 +167,16 @@ test('stale-head rejection waits until the pushed head is refreshed', async () =
   const refreshed = await refresh({ behind: 0, head: newHead });
   assert.equal(refreshed.state, 'ready');
   assert.match(refreshed.body, /Kanarek · 🟢 ready/);
+});
+
+test('indeterminate auto-update stays waiting on the old head', async () => {
+  const ambiguous = await refresh({
+    behind: 2,
+    head: 'f'.repeat(40),
+    updateThrows: true,
+  });
+  assert.equal(ambiguous.updateCalls, 1);
+  assert.equal(ambiguous.pullCalls, 1);
+  assert.equal(ambiguous.state, 'waiting');
+  assert.match(ambiguous.body, /Kanarek · 🟡 waiting/);
 });

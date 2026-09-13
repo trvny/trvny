@@ -30,7 +30,6 @@ Remote task / direct tool call
 | `mcp/pet-dispatcher/src/` | local workspace confinement, Git sessions, provider/tool execution | unrestricted host-shell access |
 | `mcp/pet-dispatcher/control-plane/` | authenticated remote task state, Queue delivery, direct tool sessions | local filesystem authority |
 | `loopling/` | generated ChatGPT/Codex pet assets and installers | runtime service state |
-| `remotely-save-gdrive-patch/` | local patch + verification harness for Remotely Save | redistribution of patched upstream builds |
 | `.ai/` | AI configuration core, overlays and reference material | application runtime code |
 
 ## Design rules

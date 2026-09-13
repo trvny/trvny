@@ -1,0 +1,82 @@
+name: TRAVNY Pages control
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Pages Git deployment control
+        required: true
+        default: status
+        type: choice
+        options:
+          - status
+          - disable-git-auto-deploy
+          - enable-git-auto-deploy
+
+permissions:
+  contents: read
+
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT_NAME: travny
+    steps:
+      - name: Read current Pages settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
+          current=$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "$endpoint")
+          jq -e '.success == true' <<<"$current" >/dev/null
+          jq '{
+            name: .result.name,
+            subdomain: .result.subdomain,
+            domains: .result.domains,
+            source: {
+              type: .result.source.type,
+              owner: .result.source.config.owner,
+              repo_name: .result.source.config.repo_name,
+              production_branch: .result.source.config.production_branch,
+              production_deployments_enabled: .result.source.config.production_deployments_enabled,
+              preview_deployment_setting: .result.source.config.preview_deployment_setting
+            }
+          }' <<<"$current"
+
+      - name: Update Git auto-deploy control
+        if: ${{ inputs.mode != 'status' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
+          case "${{ inputs.mode }}" in
+            disable-git-auto-deploy) enabled=false ;;
+            enable-git-auto-deploy) enabled=true ;;
+            *) echo "Unsupported mode" >&2; exit 2 ;;
+          esac
+          payload=$(jq -nc --argjson enabled "$enabled" \
+            '{source:{config:{production_deployments_enabled:$enabled,preview_deployment_setting:"none"}}}')
+          updated=$(curl --fail-with-body --silent --show-error \
+            -X PATCH \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$payload" \
+            "$endpoint")
+          jq -e --argjson expected "$enabled" '
+            .success == true and
+            .result.source.config.production_deployments_enabled == $expected and
+            .result.source.config.preview_deployment_setting == "none"
+          ' <<<"$updated" >/dev/null
+          jq '{
+            name: .result.name,
+            production_deployments_enabled: .result.source.config.production_deployments_enabled,
+            preview_deployment_setting: .result.source.config.preview_deployment_setting
+          }' <<<"$updated"

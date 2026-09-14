@@ -19,7 +19,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
 - owner voice notes transcribed with Workers AI Whisper before normal assistant routing;
-- owner-shared locations, venues and contacts normalized into bounded assistant context;
+- owner-shared locations, venues, contacts and polls normalized into bounded assistant context;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;
 - `POST /ingest/rss` for Feedseek/RSS curation;
@@ -238,6 +238,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - voice notes are capped at 3 minutes / 2 MB, transcribed transiently, and only the bounded transcript enters short conversation memory;
 - photos are capped at 5 MB, analyzed transiently, and only bounded text from the vision pass enters short conversation memory; image bytes are not persisted;
 - shared locations, venues and contacts are normalized to bounded text; contact vCards and third-party metadata are not injected into the model context;
+- shared polls are normalized to bounded question/options/vote context;
 - RSS input and curator output lengths are bounded;
 - RSS ingestion has a separate bearer secret;
 - free-provider API keys stay in the private `kanarek-review` Worker, not this Worker;

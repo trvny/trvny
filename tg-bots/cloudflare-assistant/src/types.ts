@@ -100,11 +100,25 @@ export type TelegramPhotoSize = {
   file_size?: number;
 };
 
+export type TelegramPoll = {
+  id: string;
+  question: string;
+  options: Array<{ text: string; voter_count: number }>;
+  total_voter_count: number;
+  is_closed: boolean;
+  is_anonymous: boolean;
+  type: "regular" | "quiz" | string;
+  allows_multiple_answers: boolean;
+  correct_option_id?: number;
+  explanation?: string;
+};
+
 export type TelegramMessage = {
   message_id: number;
   text?: string;
   caption?: string;
   photo?: TelegramPhotoSize[];
+  poll?: TelegramPoll;
   location?: TelegramLocation;
   venue?: TelegramVenue;
   contact?: TelegramContact;

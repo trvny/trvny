@@ -1,0 +1,69 @@
+name: Token worldcup Claude refresh
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/token-worldcup-claude-toggle]
+    paths:
+      - ".github/workflows/token-worldcup-claude-refresh.yml"
+      - "token-worldcup/recount-claude-tokens.py"
+      - "token-worldcup/sync-claude-results.py"
+
+permissions:
+  contents: write
+
+jobs:
+  recount:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Restore maintained reports from main
+        run: |
+          git fetch origin main
+          git checkout origin/main -- \
+            token-worldcup/token-worldcup.qmd \
+            token-worldcup/token-worldcup.html \
+            token-worldcup/effort-matrix.qmd \
+            token-worldcup/effort-matrix.html
+      - name: Install recount dependency
+        run: python -m pip install -r token-worldcup/requirements.txt
+      - name: Recount Claude tokens
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          test -n "$ANTHROPIC_API_KEY"
+          python token-worldcup/recount-claude-tokens.py \
+            --model claude-opus-5 \
+            --out token-worldcup/claude-token-counts.json
+      - name: Integrate measured results
+        run: |
+          python -m py_compile token-worldcup/recount-claude-tokens.py token-worldcup/sync-claude-results.py
+          python token-worldcup/sync-claude-results.py
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 1.10.18
+      - name: Render both reports
+        run: |
+          quarto render token-worldcup/token-worldcup.qmd
+          quarto render token-worldcup/effort-matrix.qmd
+      - name: Verify generated change
+        run: |
+          git diff --check
+          git status --short
+          test -s token-worldcup/claude-token-counts.json
+          grep -q "claude_tokens" token-worldcup/token-worldcup.qmd
+          grep -q "LANGS_CLAUDE" token-worldcup/effort-matrix.qmd
+      - name: Commit measured report refresh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add token-worldcup/claude-token-counts.json \
+            token-worldcup/token-worldcup.qmd token-worldcup/token-worldcup.html \
+            token-worldcup/effort-matrix.qmd token-worldcup/effort-matrix.html
+          git commit -m "temp: integrate measured Claude tokenizer results"
+          git push origin HEAD:feat/token-worldcup-claude-toggle

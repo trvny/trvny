@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+const telegramConfig = JSON.parse(readFileSync(new URL("../telegram-config.json", import.meta.url), "utf8"));
 
 function loadDevVars() {
   if (!existsSync(".dev.vars")) return;
@@ -41,7 +42,7 @@ switch (command) {
     const result = await telegram("setWebhook", {
       url: webhookUrl,
       secret_token: secret,
-      allowed_updates: ["message", "callback_query"],
+      allowed_updates: telegramConfig.allowedUpdates,
     });
     console.log("Webhook set:", result);
     break;

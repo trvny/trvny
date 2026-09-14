@@ -1,6 +1,8 @@
 import type { ChatMessage, Env } from "./types";
 
 const ROUTER_TIMEOUT_MS = 20_000;
+const INLINE_ROUTER_TIMEOUT_MS = 2_500;
+const INLINE_WORKERS_AI_TIMEOUT_MS = 3_500;
 const KANAREK_REVIEW_MODEL = "kanarek-review-free";
 const KANAREK_REVIEW_PATH = "/review-router/v1/chat/completions";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
@@ -84,12 +86,16 @@ export async function kanarekProviderPoolStatus(
     return null;
   }
 }
-async function kanarekFreeRouter(env: Env, messages: ChatMessage[]): Promise<ProviderResult> {
+async function kanarekFreeRouter(
+  env: Env,
+  messages: ChatMessage[],
+  timeoutMs = ROUTER_TIMEOUT_MS,
+): Promise<ProviderResult> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) throw new Error("KANAREK_REVIEW_ROUTER_TOKEN is not configured");
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ROUTER_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const request = new Request(`https://kanarek-companion.internal${KANAREK_REVIEW_PATH}`, {
       method: "POST",
@@ -116,7 +122,7 @@ async function kanarekFreeRouter(env: Env, messages: ChatMessage[]): Promise<Pro
     };
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error(`Kanarek router timed out after ${ROUTER_TIMEOUT_MS}ms`);
+      throw new Error(`Kanarek router timed out after ${timeoutMs}ms`);
     }
     throw error;
   } finally {
@@ -131,6 +137,20 @@ async function workersAi(env: Env, messages: ChatMessage[]): Promise<ProviderRes
   const text = result.response?.trim();
   if (!text) throw new Error("empty Workers AI response");
   return { text, provider: "Workers AI", model: env.WORKERS_AI_MODEL };
+}
+
+async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
 }
 
 export async function completeWithFallback<T>(
@@ -157,6 +177,25 @@ export async function completeWithFallback<T>(
     }
   }
 
+  throw new AllProvidersFailedError(errors);
+}
+
+export async function chatWithInlineFallback(env: Env, messages: ChatMessage[]) {
+  const errors: string[] = [];
+  try {
+    return await kanarekFreeRouter(env, messages, INLINE_ROUTER_TIMEOUT_MS);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+  try {
+    return await withDeadline(
+      workersAi(env, messages),
+      INLINE_WORKERS_AI_TIMEOUT_MS,
+      "Workers AI inline fallback",
+    );
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
   throw new AllProvidersFailedError(errors);
 }
 

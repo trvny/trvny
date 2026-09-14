@@ -91,6 +91,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - owner-scoped Telegram commands and command menu self-synced from the Worker;
 - bounded recent conversation context with reset generations;
 - native reply-to delivery plus ephemeral Telegram thinking drafts with typing fallback for model-backed replies;
+- best-effort native message reactions for model-backed owner messages (`👀` while processing, `👍` after delivery);
 - inline `/status` refresh using callback queries and in-place message editing;
 - native clipboard action on short `/draft` suggestions;
 - owner voice notes transcribed through Workers AI Whisper and routed into normal chat;
@@ -114,7 +115,7 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 1. **Native chat UX** — reply-to delivery, native thinking drafts with typing fallback and in-place `/status` refresh are implemented; add Telegram formatting and broader message editing instead of chains of status messages.
 2. **Inline keyboards and callbacks** — callback plumbing, `/status` refresh and short-draft clipboard actions are implemented; extend buttons to confirmations, task controls, model choices, retries and other frequent actions.
 3. **Command/menu synchronization** — owner-scoped commands and the native command menu are synced from code on `/start` or `/help`; add localization when Botek gains additional user-facing languages.
-4. **Reactions and lightweight feedback** — use reactions when they communicate state better than another message.
+4. **Reactions and lightweight feedback** — model-backed owner messages now use best-effort processing/completion reactions; extend reactions only where they communicate state better than another message.
 5. **Inline mode** — support `@trvny_bot ...` in other chats for quick ask/summarize/translate flows without opening the Botek conversation.
 6. **Media and Telegram inputs** — use voice notes, photos, files, locations, contacts and polls as first-class inputs where they improve a workflow.
 7. **Groups, topics and Business** — deliberately extend the owner-only core to selected group/topic or Telegram Business workflows while preserving explicit approval boundaries for third-party replies.

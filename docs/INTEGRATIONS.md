@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | Cloudflare Workers | Kanarek Companion, status-mcp, Pet Dispatcher control plane, Telegram assistant | public edge runtime | deployment credentials stay outside source |
 | Cloudflare Queues | Pet Dispatcher, Telegram assistant | remote task delivery and durable Telegram processing | Queue API token stays local to the Legion; Worker Queue bindings need no copied token |
-| Durable Objects | Kanarek Companion, Pet Dispatcher, Telegram assistant | locks, checkpoints, review jobs, task state and Telegram update idempotency | Worker bindings |
+| Durable Objects | Kanarek Companion, Pet Dispatcher, Telegram assistant | locks, checkpoints, review jobs, task state, Telegram update idempotency and bounded chat context | Worker bindings |
 | Cloudflare KV | Kanarek Companion | learned quip bank | Worker binding `KANAREK_QUIP_KV` |
 | GitHub API | Kanarek/GPTomek | repo, PR and release actions | GitHub App credentials |
 | GitHub public metadata | status-mcp | read-only Feedseek health data | public reads; no GitHub write credentials |
@@ -24,7 +24,7 @@ The Telegram assistant should reuse this control plane for future heavyweight He
 
 ## Telegram assistant
 
-`travny-tg-assistant` is the lightweight always-on Telegram side. Telegram webhook updates are queued through `travny-tg-assistant-updates`; a SQLite Durable Object records `update_id` delivery state, and exhausted/ambiguous failures go to `travny-tg-assistant-updates-dlq`.
+`travny-tg-assistant` is the lightweight always-on Telegram side. Telegram webhook updates are queued through `travny-tg-assistant-updates`; one SQLite Durable Object records `update_id` delivery state, a second stores bounded per-chat conversation context, and exhausted/ambiguous failures go to `travny-tg-assistant-updates-dlq`.
 
 Model calls first use a same-account Service Binding to the private OpenAI-compatible router in `kanarek-companion`. That keeps OpenRouter, OrcaRouter, AIHubMix, provider cooldowns and the Workers AI provider pool in one maintained place. The assistant retains its own Workers AI binding only as an emergency fallback when the shared router is unavailable.
 

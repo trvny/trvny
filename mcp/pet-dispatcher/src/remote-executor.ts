@@ -313,7 +313,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       });
       const state = await this.sessions.status(session.id);
       const [unstaged, staged] = state.dirty
-        ? await Promise.all([git.diff(session.id), git.diff(session.id, true)])
+        ? [await git.diff(session.id), await git.diff(session.id, true)]
         : [{ stdout: "" }, { stdout: "" }];
       const diff = trimDiff(`${unstaged.stdout}\n${staged.stdout}`);
 
@@ -344,7 +344,8 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       const message = abortReason ?? (error instanceof Error ? error.message : String(error));
       let diff: string | undefined;
       try {
-        const [unstaged, staged] = await Promise.all([git.diff(session.id), git.diff(session.id, true)]);
+        const unstaged = await git.diff(session.id);
+        const staged = await git.diff(session.id, true);
         diff = trimDiff(`${unstaged.stdout}\n${staged.stdout}`);
       } catch { /* best-effort diagnostics only */ }
       await this.sessions.close(session.id, true).catch(() => undefined);

@@ -20,6 +20,7 @@ import {
 interface Env {
   TASK_QUEUE: Queue;
   TASK_STATE: DurableObjectNamespace;
+  CF_VERSION_METADATA: WorkerVersionMetadata;
   CONTROL_PLANE_TOKEN?: string;
   TASK_SIGNING_SECRET?: string;
   DEVICE_ID?: string;
@@ -354,7 +355,11 @@ export default {
     try {
       const url = new URL(request.url);
       if (request.method === "GET" && url.pathname === "/health") {
-        return json({ ok: true, service: "pet-dispatcher-control" });
+        return json({
+          ok: true,
+          service: "pet-dispatcher-control",
+          versionId: env.CF_VERSION_METADATA.id,
+        });
       }
 
       const workerMatch = url.pathname.match(/^\/v1\/worker\/tasks\/([0-9a-f-]{36})\/(lease|heartbeat|result)$/u);

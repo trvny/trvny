@@ -6,11 +6,13 @@ on:
     paths:
       - "mcp/pet-dispatcher/**"
       - ".github/workflows/pet-dispatcher-ci.yml"
+      - ".github/workflows/pet-dispatcher-control-deploy.yml"
   pull_request:
     branches: [main]
     paths:
       - "mcp/pet-dispatcher/**"
       - ".github/workflows/pet-dispatcher-ci.yml"
+      - ".github/workflows/pet-dispatcher-control-deploy.yml"
   workflow_dispatch:
 
 concurrency:

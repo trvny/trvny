@@ -255,11 +255,11 @@ test("expired direct write session is discarded on the next session-bound call",
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
   const originalNow = Date.now;
   try {
-    const openedAt = originalNow();
     const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 1 }, true), "open-expiry");
-    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    const { sessionId, expiresAt } = JSON.parse(opened.output ?? "{}") as { sessionId?: string; expiresAt?: string };
     assert.ok(sessionId);
-    Date.now = () => openedAt + 61_000;
+    assert.ok(expiresAt);
+    Date.now = () => Date.parse(expiresAt) + 1;
     const expired = await executor.execute(directTask({
       tool: "fs.read", sessionId, path: "README.md",
     }), "read-expired");

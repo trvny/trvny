@@ -10,12 +10,15 @@ import {
   transcribeAudio,
 } from "./providers";
 import {
+  answerTelegramCallbackQuery,
   downloadTelegramFile,
+  editTelegramMessage,
   isTelegramWebhook,
   parseTelegramUpdate,
   sendTelegramMessage,
   sendTelegramTyping,
   syncTelegramCommandMenu,
+  syncTelegramWebhook,
   TELEGRAM_MESSAGE_MAX_CHARS,
   TelegramConfigurationError,
   TelegramSendError,
@@ -27,6 +30,7 @@ import type {
   RssItem,
   TelegramConversationHistory,
   TelegramDeadLetter,
+  TelegramInlineKeyboardMarkup,
   TelegramReply,
   TelegramUpdate,
   TelegramUpdateRecord,
@@ -70,6 +74,23 @@ function providerPoolLines(pool: Awaited<ReturnType<typeof kanarekProviderPoolSt
     }),
   ];
 }
+
+const STATUS_KEYBOARD: TelegramInlineKeyboardMarkup = {
+  inline_keyboard: [[{ text: "🔄 Odśwież", callback_data: "status:refresh" }]],
+};
+
+async function providerStatusText(env: Env): Promise<string> {
+  const pool = env.KANAREK_REVIEW_ROUTER_TOKEN ? await kanarekProviderPoolStatus(env) : null;
+  const routerLines = env.KANAREK_REVIEW_ROUTER_TOKEN
+    ? providerPoolLines(pool)
+    : ["Kanarek pool: router token not configured"];
+  return [
+    "Provider status:",
+    ...routerLines,
+    `Local emergency: Workers AI (${env.WORKERS_AI_MODEL})`,
+  ].join("\n");
+}
+
 class AssistantConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -121,6 +142,28 @@ async function appendConversation(env: Env, chatId: string | number, reply: Tele
 }
 
 async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<TelegramReply | null> {
+  const callback = update.callback_query;
+  if (callback) {
+    const callbackMessage = callback.message;
+    if (
+      !callbackMessage ||
+      !ownerConfigured(env) ||
+      callbackMessage.chat.type !== "private" ||
+      String(callback.from.id) !== env.OWNER_TELEGRAM_USER_ID
+    ) {
+      return null;
+    }
+    if (callback.data === "status:refresh") {
+      return {
+        chatId: callbackMessage.chat.id,
+        editMessageId: callbackMessage.message_id,
+        text: await providerStatusText(env),
+        replyMarkup: STATUS_KEYBOARD,
+      };
+    }
+    return null;
+  }
+
   const message = update.message;
   if (!message?.from || (!message.text && !message.voice)) return null;
 
@@ -173,18 +216,11 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   if (text === "/status") {
-    const pool = env.KANAREK_REVIEW_ROUTER_TOKEN ? await kanarekProviderPoolStatus(env) : null;
-    const routerLines = env.KANAREK_REVIEW_ROUTER_TOKEN
-      ? providerPoolLines(pool)
-      : ["Kanarek pool: router token not configured"];
     return {
       chatId: message.chat.id,
       replyToMessageId: message.message_id,
-      text: [
-        "Provider status:",
-        ...routerLines,
-        `Local emergency: Workers AI (${env.WORKERS_AI_MODEL})`,
-      ].join("\n"),
+      text: await providerStatusText(env),
+      replyMarkup: STATUS_KEYBOARD,
     };
   }
 
@@ -475,6 +511,10 @@ async function processQueuedTelegram(
     return;
   }
 
+  if (!state && update.callback_query?.id) {
+    await answerTelegramCallbackQuery(env, update.callback_query.id);
+  }
+
   let reply = state?.reply;
   if (!reply) {
     reply = await buildTelegramReply(env, update) ?? undefined;
@@ -488,9 +528,20 @@ async function processQueuedTelegram(
 
   await dedupTransition(env, update.update_id, "sending");
   try {
-    await sendTelegramMessage(env, reply.chatId, reply.text, {
-      replyToMessageId: reply.replyToMessageId,
-    });
+    if (reply.editMessageId !== undefined) {
+      await editTelegramMessage(
+        env,
+        reply.chatId,
+        reply.editMessageId,
+        reply.text,
+        reply.replyMarkup,
+      );
+    } else {
+      await sendTelegramMessage(env, reply.chatId, reply.text, {
+        replyToMessageId: reply.replyToMessageId,
+        replyMarkup: reply.replyMarkup,
+      });
+    }
   } catch (error) {
     if (error instanceof TelegramSendError) {
       if (error.ambiguous) {
@@ -562,6 +613,15 @@ export default {
         update = await parseTelegramUpdate(request);
       } catch (error) {
         return invalidBody(error);
+      }
+
+      const controlCommand = update.message?.text?.trim();
+      if (controlCommand === "/start" || controlCommand === "/help") {
+        try {
+          await syncTelegramWebhook(env, `${url.origin}/telegram/webhook`);
+        } catch (error) {
+          console.warn("Telegram webhook update sync failed", error);
+        }
       }
 
       try {

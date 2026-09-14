@@ -2,8 +2,10 @@ name: Token worldcup UI fix
 
 on:
   push:
-    branches: [feat/token-worldcup-claude-toggle]
-    paths: [.github/workflows/token-worldcup-ui-fix.yml]
+    branches:
+      - feat/token-worldcup-claude-toggle
+    paths:
+      - ".github/workflows/token-worldcup-ui-fix.yml"
 
 permissions:
   contents: write
@@ -17,25 +19,20 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          p=Path('token-worldcup/token-worldcup.qmd')
-          s=p.read_text(encoding='utf-8')
-          old="""        const rows=ordered(),values=rows.map(r=>stat(r).tokens),min=Math.min(...values),max=Math.max(...values),span=Math.max(max-min,1);
-        ranking.replaceChildren();
-        rows.forEach(row=>{
-          const s=stat(row),button=document.createElement('button');
-          button.type='button';button.className='rank-row';button.dataset.lang=row.name;button.setAttribute('aria-pressed',String(row.name===selected));
-          const width=24+76*(s.tokens-min)/span,value=mode==='tokens'?`${s.tokens} tok`:`${signed(s.overhead)}`;
-          button.innerHTML=`<span class=\"rank-no\">${placeText(s)}</span><span class=\"rank-name\">${row.name}</span><span class=\"track\"><span class=\"bar\" style=\"width:${width.toFixed(1)}%\"></span></span><span class=\"rank-value\">${value}</span>`;"""
-          new="""        const rows=ordered(),metrics=rows.map(r=>{const s=stat(r);return mode==='tokens'?s.tokens:Math.abs(s.overhead)}),max=Math.max(...metrics,1);
-        ranking.replaceChildren();
-        rows.forEach(row=>{
-          const s=stat(row),button=document.createElement('button'),metric=mode==='tokens'?s.tokens:Math.abs(s.overhead);
-          button.type='button';button.className='rank-row';button.dataset.lang=row.name;button.setAttribute('aria-pressed',String(row.name===selected));
-          button.setAttribute('aria-label',`${row.name}: ${s.tokens} tokenów, ${signed(s.overhead)} względem angielskiego, ${s.tied?'miejsce '+s.rank+' (remis)':'miejsce '+s.rank}, ${spec().label}`);
-          const width=metric/max*100,value=mode==='tokens'?`${s.tokens} tok`:`${signed(s.overhead)}`;
-          button.innerHTML=`<span class=\"rank-no\">${placeText(s)}</span><span class=\"rank-name\">${row.name}</span><span class=\"track\" aria-hidden=\"true\"><span class=\"bar\" style=\"width:${width.toFixed(1)}%\"></span></span><span class=\"rank-value\">${value}</span>`;"""
-          if s.count(old)!=1: raise SystemExit(f'expected one ranking block, got {s.count(old)}')
-          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          p = Path('token-worldcup/token-worldcup.qmd')
+          s = p.read_text(encoding='utf-8')
+          pairs = [
+              ("const rows=ordered(),values=rows.map(r=>stat(r).tokens),min=Math.min(...values),max=Math.max(...values),span=Math.max(max-min,1);", "const rows=ordered(),metrics=rows.map(r=>{const s=stat(r);return mode==='tokens'?s.tokens:Math.abs(s.overhead)}),max=Math.max(...metrics,1);"),
+              ("const s=stat(row),button=document.createElement('button');", "const s=stat(row),button=document.createElement('button'),metric=mode==='tokens'?s.tokens:Math.abs(s.overhead);"),
+              ("button.type='button';button.className='rank-row';button.dataset.lang=row.name;button.setAttribute('aria-pressed',String(row.name===selected));", "button.type='button';button.className='rank-row';button.dataset.lang=row.name;button.setAttribute('aria-pressed',String(row.name===selected));button.setAttribute('aria-label',`${row.name}: ${s.tokens} tokenów, ${signed(s.overhead)} względem angielskiego, ${s.tied?'miejsce '+s.rank+' (remis)':'miejsce '+s.rank}, ${spec().label}`);"),
+              ("const width=24+76*(s.tokens-min)/span,value=mode==='tokens'?`${s.tokens} tok`:`${signed(s.overhead)}`;", "const width=metric/max*100,value=mode==='tokens'?`${s.tokens} tok`:`${signed(s.overhead)}`;"),
+              ("<span class=\"track\"><span class=\"bar\" style=\"width:${width.toFixed(1)}%\"></span></span>", "<span class=\"track\" aria-hidden=\"true\"><span class=\"bar\" style=\"width:${width.toFixed(1)}%\"></span></span>"),
+          ]
+          for old, new in pairs:
+              if s.count(old) != 1:
+                  raise SystemExit(f'expected one match, got {s.count(old)}: {old[:60]}')
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
           PY
       - uses: quarto-dev/quarto-actions/setup@v2
         with:
@@ -47,9 +44,9 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-          s=Path('token-worldcup/token-worldcup.qmd').read_text(encoding='utf-8')
-          js=next(x for x in re.findall(r'<script>(.*?)</script>',s,re.S) if 'const SOURCES=' in x)
-          Path('/tmp/worldcup.js').write_text(js,encoding='utf-8')
+          s = Path('token-worldcup/token-worldcup.qmd').read_text(encoding='utf-8')
+          js = next(x for x in re.findall(r'<script>(.*?)</script>', s, re.S) if 'const SOURCES=' in x)
+          Path('/tmp/worldcup.js').write_text(js, encoding='utf-8')
           PY
           node --check /tmp/worldcup.js
       - name: Commit

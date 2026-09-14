@@ -39,4 +39,10 @@ jobs:
           cache-dependency-path: mcp/pet-dispatcher/package-lock.json
 
       - run: npm ci
+
+      - name: Prepare ephemeral MXC host
+        shell: pwsh
+        run: |
+          & ".\node_modules\@microsoft\mxc-sdk\bin\x64\wxc-host-prep.exe" prepare-system-drive
+
       - run: npm run check

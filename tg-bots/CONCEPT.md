@@ -97,6 +97,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - manual `/task <repo> <polecenie>` delegation to the Legion through the scoped Pet Dispatcher RPC entrypoint, with inline status/cancel controls;
 - owner-only stateless Telegram inline answers for `@trvny_bot <query>` plus an inline-mode shortcut, Durable Object debounce for rapid edits, and an inline-specific response deadline;
 - owner voice notes transcribed through Workers AI Whisper and routed into normal chat;
+- owner photos and screenshots analyzed transiently through Workers AI vision, with bounded text-only context persisted;
 - owner-shared locations, venues and contacts normalized into bounded chat context;
 - Feedseek/RSS curation endpoint;
 - health/status endpoint.
@@ -105,7 +106,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 
 1. **Hermes / Legion handoff** — manual bounded `code` delegation through Pet Dispatcher RPC plus inline status/cancel is implemented. Next add automatic heavy-task routing, richer task profiles, progress/result notifications and broader local-tool workflows without bypassing the dispatcher security boundary.
 2. **Long-term memory** — add explicit remember/forget flows and Engram-backed retrieval on top of the current short conversation window, with clear retention boundaries for private chat data.
-3. **Multimodal work** — voice notes are implemented through bounded Workers AI transcription; add images, screenshots and documents, then route vision and document handling to the appropriate backend.
+3. **Multimodal work** — voice notes and owner photos/screenshots are implemented through bounded Workers AI transcription/vision; add general documents next, then route richer media handling to the appropriate backend.
 4. **Tool routing** — let normal language invoke approved GitHub/GPTomek, Cloudflare/status, Feedseek/RSS, web/search and other integrations without requiring a dedicated command for every capability.
 5. **Scheduler and proactive assistance** — add briefings, reminders, condition watches, important RSS/CI/service alerts and completed-task notifications while avoiding noisy low-value notifications.
 6. **Reply assistant** — keep human-in-the-loop drafts first. Telegram Business/Secretary-style automation may later auto-answer only low-risk categories; money, commitments, dates, private matters and ambiguous requests remain approval-only.
@@ -120,7 +121,7 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 3. **Command/menu synchronization** — owner-scoped commands and the native command menu are synced from code on `/start` or `/help`; add localization when Botek gains additional user-facing languages.
 4. **Reactions and lightweight feedback** — model-backed owner messages now use best-effort state reactions for processing, success, handled failure and ambiguous delivery. Native reaction feedback from the owner is not relied on in the private chat because Bot API reaction updates require bot administrator access; use callbacks for explicit feedback where needed.
 5. **Inline mode** — owner-only stateless `@trvny_bot ...` answers are implemented for quick ask/summarize/translate flows; next add richer inline result types and optional feedback telemetry.
-6. **Media and Telegram inputs** — voice notes plus owner-shared locations, venues and contacts are implemented; add photos, files and polls where they improve a workflow.
+6. **Media and Telegram inputs** — voice notes, owner photos/screenshots, locations, venues and contacts are implemented; add files and polls where they improve a workflow.
 7. **Groups, topics and Business** — deliberately extend the owner-only core to selected group/topic or Telegram Business workflows while preserving explicit approval boundaries for third-party replies.
 8. **Mini App** — provide a Telegram-native dashboard for Memory, Tasks, GitHub, Feeds, Models, Legion and service status. Use Mini App capabilities such as theme integration, QR scanning, device storage or biometrics only where they improve a concrete workflow.
 

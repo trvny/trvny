@@ -92,9 +92,19 @@ export type TelegramVenue = {
   google_place_type?: string;
 };
 
+export type TelegramPhotoSize = {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
+};
+
 export type TelegramMessage = {
   message_id: number;
   text?: string;
+  caption?: string;
+  photo?: TelegramPhotoSize[];
   location?: TelegramLocation;
   venue?: TelegramVenue;
   contact?: TelegramContact;

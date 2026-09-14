@@ -235,6 +235,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - chat accepts only `OWNER_TELEGRAM_USER_ID` in a private chat;
 - Telegram and RSS request bodies are bounded before parsing/model use;
 - voice notes are capped at 3 minutes / 2 MB, transcribed transiently, and only the bounded transcript enters short conversation memory;
+- photos are capped at 5 MB, analyzed transiently, and only bounded text from the vision pass enters short conversation memory; image bytes are not persisted;
 - shared locations, venues and contacts are normalized to bounded text; contact vCards and third-party metadata are not injected into the model context;
 - RSS input and curator output lengths are bounded;
 - RSS ingestion has a separate bearer secret;

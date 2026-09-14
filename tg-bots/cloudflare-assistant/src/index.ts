@@ -141,6 +141,14 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     };
   }
 
+  if (text === "/draft") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /draft <tekst>",
+    };
+  }
+
   if (text === "/status") {
     const router = env.KANAREK_REVIEW_ROUTER_TOKEN
       ? "Kanarek free router: OpenRouter → OrcaRouter → AIHubMix → Workers AI"

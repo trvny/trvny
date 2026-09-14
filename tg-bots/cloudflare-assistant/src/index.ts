@@ -10,6 +10,7 @@ import {
   isTelegramWebhook,
   parseTelegramUpdate,
   sendTelegramMessage,
+  TELEGRAM_MESSAGE_MAX_CHARS,
   TelegramConfigurationError,
   TelegramSendError,
 } from "./telegram";
@@ -18,7 +19,7 @@ import type {
   QueueBatch,
   RssDecision,
   RssItem,
-  TelegramConversationTurn,
+  TelegramConversationHistory,
   TelegramDeadLetter,
   TelegramReply,
   TelegramUpdate,
@@ -60,9 +61,15 @@ function conversationStub(env: Env, chatId: string | number) {
 }
 
 async function conversationHistory(env: Env, chatId: string | number) {
-  const response = await conversationStub(env, chatId).fetch("https://conversation/history");
-  if (!response.ok) throw new Error(`conversation history read failed: HTTP ${response.status}`);
-  return conversationMessages((await response.json()) as TelegramConversationTurn[]);
+  try {
+    const response = await conversationStub(env, chatId).fetch("https://conversation/history");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const history = (await response.json()) as TelegramConversationHistory;
+    return { messages: conversationMessages(history.turns), generation: history.generation };
+  } catch (error) {
+    console.warn("Conversation history unavailable; continuing stateless", error);
+    return { messages: [], generation: null };
+  }
 }
 
 async function clearConversation(env: Env, chatId: string | number): Promise<void> {
@@ -77,6 +84,7 @@ async function appendConversation(env: Env, chatId: string | number, reply: Tele
     headers: { "content-type": "application/json" },
     body: JSON.stringify(reply.memoryTurn),
   });
+  if (response.status === 409) return;
   if (!response.ok) throw new Error(`conversation append failed: HTTP ${response.status}`);
 }
 
@@ -131,16 +139,22 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     : ASSISTANT_SYSTEM;
 
   try {
-    const history = isDraft ? [] : await conversationHistory(env, message.chat.id);
+    const history = isDraft
+      ? { messages: [], generation: null }
+      : await conversationHistory(env, message.chat.id);
     const result = await chatWithFallback(env, [
       { role: "system", content: system },
-      ...history,
+      ...history.messages,
       { role: "user", content: prompt },
     ]);
+    const footer = `\n\n[${result.provider} · ${result.model}]`;
+    const assistant = result.text.slice(0, Math.max(0, TELEGRAM_MESSAGE_MAX_CHARS - footer.length));
     return {
       chatId: message.chat.id,
-      text: `${result.text}\n\n[${result.provider} · ${result.model}]`,
-      ...(!isDraft ? { memoryTurn: { user: prompt, assistant: result.text } } : {}),
+      text: `${assistant}${footer}`.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
+      ...(!isDraft && history.generation !== null
+        ? { memoryTurn: { user: prompt, assistant, generation: history.generation } }
+        : {}),
     };
   } catch (error) {
     console.error("Telegram reply generation failed", error);

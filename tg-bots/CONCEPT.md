@@ -90,6 +90,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - `/draft`, `/status`, `/help` and `/reset`;
 - bounded recent conversation context with reset generations;
 - native reply-to delivery and typing indicators for model-backed replies;
+- owner voice notes transcribed through Workers AI Whisper and routed into normal chat;
 - Feedseek/RSS curation endpoint;
 - health/status endpoint.
 
@@ -97,7 +98,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 
 1. **Hermes / Legion handoff** — implement the handoff design above using the existing Pet Dispatcher control plane. Botek should delegate heavyweight repo, build, test, Android and local-tool work, surface progress, support cancellation and return concise results to Telegram.
 2. **Long-term memory** — add explicit remember/forget flows and Engram-backed retrieval on top of the current short conversation window, with clear retention boundaries for private chat data.
-3. **Multimodal work** — accept voice notes, images, screenshots and documents, then route transcription, vision and document handling to the appropriate backend.
+3. **Multimodal work** — voice notes are implemented through bounded Workers AI transcription; add images, screenshots and documents, then route vision and document handling to the appropriate backend.
 4. **Tool routing** — let normal language invoke approved GitHub/GPTomek, Cloudflare/status, Feedseek/RSS, web/search and other integrations without requiring a dedicated command for every capability.
 5. **Scheduler and proactive assistance** — add briefings, reminders, condition watches, important RSS/CI/service alerts and completed-task notifications while avoiding noisy low-value notifications.
 6. **Reply assistant** — keep human-in-the-loop drafts first. Telegram Business/Secretary-style automation may later auto-answer only low-risk categories; money, commitments, dates, private matters and ambiguous requests remain approval-only.

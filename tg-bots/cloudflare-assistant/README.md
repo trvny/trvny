@@ -11,6 +11,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - `/help`, `/status`, `/draft <message>`, and `/reset`;
 - bounded per-chat conversation context for ordinary messages;
 - native Telegram reply-to behavior plus best-effort typing indicators for model-backed replies;
+- owner voice notes transcribed with Workers AI Whisper before normal assistant routing;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;
 - `POST /ingest/rss` for Feedseek/RSS curation;
@@ -222,6 +223,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - missing webhook/ingest secrets fail closed;
 - chat accepts only `OWNER_TELEGRAM_USER_ID` in a private chat;
 - Telegram and RSS request bodies are bounded before parsing/model use;
+- voice notes are capped at 3 minutes / 2 MB, transcribed transiently, and only the bounded transcript enters short conversation memory;
 - RSS input and curator output lengths are bounded;
 - RSS ingestion has a separate bearer secret;
 - free-provider API keys stay in the private `kanarek-review` Worker, not this Worker;

@@ -1,4 +1,4 @@
-name: Token worldcup Claude refresh
+name: Token worldcup Claude finalize
 
 on:
   workflow_dispatch:
@@ -6,15 +6,12 @@ on:
     branches: [feat/token-worldcup-claude-toggle]
     paths:
       - ".github/workflows/token-worldcup-claude-refresh.yml"
-      - "token-worldcup/recount-claude-tokens.py"
-      - "token-worldcup/recount-openrouter-fallback.py"
-      - "token-worldcup/sync-claude-results.py"
 
 permissions:
   contents: write
 
 jobs:
-  recount:
+  finalize:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -23,27 +20,38 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - name: Restore maintained reports from main
+      - name: Make provenance wording exact
         run: |
-          git fetch origin main
-          git checkout origin/main -- \
-            token-worldcup/token-worldcup.qmd \
-            token-worldcup/token-worldcup.html \
-            token-worldcup/effort-matrix.qmd \
-            token-worldcup/effort-matrix.html
-      - name: Recount Claude tokens through native-model fallback
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: |
-          test -n "$OPENROUTER_API_KEY"
-          python token-worldcup/recount-openrouter-fallback.py
-      - name: Integrate measured results
-        run: |
-          python -m py_compile \
-            token-worldcup/recount-claude-tokens.py \
-            token-worldcup/recount-openrouter-fallback.py \
-            token-worldcup/sync-claude-results.py
-          python token-worldcup/sync-claude-results.py
+          python - <<'PY'
+          from pathlib import Path
+
+          world = Path("token-worldcup/token-worldcup.qmd")
+          text = world.read_text(encoding="utf-8")
+          old = '<article class="method-card"><b>Tokenizer</b><p>Wyniki policzono na <code>o200k_base</code> — tokenizerze OpenAI. Claude tokenizuje inaczej i nie publikuje tokenizera offline, więc ten ranking jest dla niego orientacyjny, a nie zmierzony.</p><p>Przeliczenie realnym tokenizerem Claude\'a robi <a href="recount-claude-tokens.py"><code>recount-claude-tokens.py</code></a> obok, przez <code>messages.count_tokens</code>. To pojedyncza próbka demonstracyjna, więc inny tekst lub tokenizer może przetasować ranking.</p></article>'
+          new = '<article class="method-card"><b>Tokenizer</b><p>Przełącznik porównuje ten sam korpus na <code>o200k_base</code> i Claude Opus 5. Ranking, podium, tabela i narzut względem EN zmieniają się razem.</p><p>Pomiar Claude w <a href="claude-token-counts.json"><code>claude-token-counts.json</code></a> pochodzi z natywnego licznika wejścia przez OpenRouter <code>/v1/messages</code> i zgadza się 1:1 z pięcioma znanymi punktami wcześniejszego bezpośredniego <code>messages.count_tokens</code>. Stały framing 6 tokenów jest odejmowany.</p></article>'
+          if old not in text:
+              raise SystemExit("worldcup static tokenizer copy not found")
+          text = text.replace(old, new, 1)
+          text = text.replace('const claudeLabel="Claude Opus 5",claudeModel="claude-opus-5",claudeFraming=6;', 'const claudeLabel="Claude Opus 5",claudeFraming=6;', 1)
+          old_dynamic = 'Claude jest zmierzony przez <code>messages.count_tokens</code>; stały framing requestu'
+          new_dynamic = 'Claude Opus 5 jest zmierzony natywnym licznikiem wejścia przez <code>OpenRouter /v1/messages</code>; pomiar zgadza się 1:1 z pięcioma znanymi punktami wcześniejszego bezpośredniego <code>messages.count_tokens</code>. Stały framing requestu'
+          if old_dynamic not in text:
+              raise SystemExit("worldcup dynamic tokenizer copy not found")
+          world.write_text(text.replace(old_dynamic, new_dynamic, 1), encoding="utf-8")
+
+          effort = Path("token-worldcup/effort-matrix.qmd")
+          text = effort.read_text(encoding="utf-8")
+          old = '<p>Tokenizer: dane językowe policzono na <code>o200k_base</code> (OpenAI). Claude tokenizuje inaczej — pod realne liczby użyj <code>messages.count_tokens</code>.</p>'
+          new = '<p>Tokenizer językowy domyślnie używa zmierzonego Claude Opus 5; przełącznik zachowuje <code>o200k_base</code> jako punkt porównania. Pomiar Claude jest zweryfikowany z wcześniejszym bezpośrednim <code>messages.count_tokens</code>.</p>'
+          if old not in text:
+              raise SystemExit("effort static tokenizer copy not found")
+          text = text.replace(old, new, 1)
+          old_dynamic = 'Claude jest zmierzony przez <code>messages.count_tokens</code>; przełącznik zachowuje stary o200k jako punkt porównania.'
+          new_dynamic = 'Claude Opus 5 używa zweryfikowanego natywnego pomiaru tokenów; przełącznik zachowuje o200k jako punkt porównania.'
+          if old_dynamic not in text:
+              raise SystemExit("effort dynamic tokenizer copy not found")
+          effort.write_text(text.replace(old_dynamic, new_dynamic, 1), encoding="utf-8")
+          PY
       - uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: 1.10.18
@@ -51,20 +59,43 @@ jobs:
         run: |
           quarto render token-worldcup/token-worldcup.qmd
           quarto render token-worldcup/effort-matrix.qmd
-      - name: Verify generated change
+      - name: Check generated UI scripts
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          checks = {
+              "token-worldcup.qmd": ("const SOURCES=", "/tmp/token-worldcup.js"),
+              "effort-matrix.qmd": ("const LANGS_CLAUDE=", "/tmp/effort-matrix.js"),
+          }
+          for name, (marker, out) in checks.items():
+              text = Path("token-worldcup", name).read_text(encoding="utf-8")
+              scripts = re.findall(r"<script>(.*?)</script>", text, re.S)
+              script = next((part for part in scripts if marker in part), None)
+              if script is None:
+                  raise SystemExit(f"{name}: integrated script not found")
+              Path(out).write_text(script, encoding="utf-8")
+          PY
+          node --check /tmp/token-worldcup.js
+          node --check /tmp/effort-matrix.js
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("token-worldcup/claude-token-counts.json").read_text(encoding="utf-8"))
+          rows = {row["name"]: row["claude_tokens"] for row in data["rows"]}
+          expected = {"Chinese":117,"English":128,"Polish":199,"Greek":260,"Hindi":275}
+          assert data["framing_overhead"] == 6
+          assert len(data["rows"]) == 27
+          assert {name: rows[name] for name in expected} == expected
+          PY
           git diff --check
-          git status --short
-          test -s token-worldcup/claude-token-counts.json
-          grep -q '"framing_overhead": 6' token-worldcup/claude-token-counts.json
-          grep -q "claude_tokens" token-worldcup/token-worldcup.qmd
-          grep -q "LANGS_CLAUDE" token-worldcup/effort-matrix.qmd
-      - name: Commit measured report refresh
+      - name: Commit final report wording
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add token-worldcup/claude-token-counts.json \
-            token-worldcup/token-worldcup.qmd token-worldcup/token-worldcup.html \
+          git add token-worldcup/token-worldcup.qmd token-worldcup/token-worldcup.html \
             token-worldcup/effort-matrix.qmd token-worldcup/effort-matrix.html
-          git commit -m "temp: integrate measured Claude tokenizer results"
+          git diff --cached --quiet && exit 0
+          git commit -m "temp: finalize tokenizer report integration"
           git push origin HEAD:feat/token-worldcup-claude-toggle

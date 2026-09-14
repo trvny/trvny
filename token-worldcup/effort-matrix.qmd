@@ -38,7 +38,7 @@ format:
       <div class="knobs">
         <div class="knob"><label for="inTok">Tokeny wejściowe (przed narzutem języka)</label><div class="read" id="inRead">—</div><input type="range" id="inTok" min="2000" max="400000" step="2000" value="40000"><small class="hint">Suma inputu na zadanie — w pętli agentowej historia doliczana jest w każdej turze.</small></div>
         <div class="knob"><label for="outTok">Tokeny wyjściowe przy <code>high</code></label><div class="read" id="outRead">—</div><input type="range" id="outTok" min="2000" max="128000" step="2000" value="48000"><small class="hint">Thinking jest rozliczany jako output — to jego skaluje <code>effort</code>. To suma na całe zadanie, nie na jedną odpowiedź: <code>max_tokens</code> ogranicza pojedynczy response do 128k, a pętla agentowa składa się z wielu tur.</small></div>
-        <div class="knob"><label for="langSel">Język promptu</label><div class="read" id="langRead">—</div><select id="langSel"></select><small class="hint">Narzut z <code>o200k_base</code>, mnoży wyłącznie tokeny wejściowe.</small></div>
+        <div class="knob"><label for="langSel">Język promptu</label><div class="read" id="langRead">—</div><select id="langSel"></select><small class="hint" id="tokenizerHint">Narzut z <code>Claude Opus 5</code>, mnoży wyłącznie tokeny wejściowe.</small></div>
       </div>
     </section>
     <section class="panel section" aria-labelledby="matrix-title">
@@ -54,7 +54,7 @@ format:
       <article class="method-card"><b>Krzywa zależy od miksu</b><p>Opublikowane „połowa kosztu na medium” zakłada rachunek zdominowany przez output. Podkręć suwak inputu, a krzywa effortu się spłaszczy — bo effort nie dotyka tokenów wejściowych.</p></article>
       <article class="method-card"><b>Koszt na ukończone zadanie</b><p>W runach coding wszystko na <code>low</code> plus powtórka porażek na domyślnym efforcie dało ~93% pass za ~$0.70 na zadanie, wobec 91.7% za $1.39 przy domyślnym wszędzie. Ta sama jakość, połowa ceny.</p></article>
       <article class="method-card"><b>Ogon zjada budżet</b><p>Porównuj modele na najtrudniejszej dziesiątce zadań, nie na medianie. Na jednym 20-zadaniowym runie dwa problemy wzięły 43% całego spendu.</p></article>
-      <article class="method-card"><b>Czego tu nie ma</b><p>Cache. Trafienie w prompt cache tnie stronę wejściową mocniej niż którykolwiek suwak powyżej i jest darmową wygraną — robi się je przed dotykaniem effortu i modelu. Zmiana effortu w trakcie sesji unieważnia cache.</p><p>Tokenizer: dane językowe policzono na <code>o200k_base</code> (OpenAI). Claude tokenizuje inaczej — pod realne liczby użyj <code>messages.count_tokens</code>.</p></article>
+      <article class="method-card"><b>Czego tu nie ma</b><p>Cache. Trafienie w prompt cache tnie stronę wejściową mocniej niż którykolwiek suwak powyżej i jest darmową wygraną — robi się je przed dotykaniem effortu i modelu. Zmiana effortu w trakcie sesji unieważnia cache.</p><p>Tokenizer językowy domyślnie używa zmierzonego Claude Opus 5; przełącznik zachowuje <code>o200k_base</code> jako punkt porównania. Pomiar Claude jest zweryfikowany z wcześniejszym bezpośrednim <code>messages.count_tokens</code>.</p></article>
     </div></section>
     <footer>Ceny: Claude API first-party, $/1M tokenów — Fable 5.1 10/50, Opus 5 5/25, Sonnet 5 2/10, Haiku 4.5 1/5. Bedrock i Vertex mają własne cenniki. Narzut językowy pochodzi z <a href="token-worldcup.html">Tokenowego Mundialu</a> i dotyczy wyłącznie tokenów wejściowych.</footer>
   </main>
@@ -78,18 +78,28 @@ format:
       // model they are estimates there. xhigh and max are extrapolated everywhere.
       const alwaysEst=e=>e.id==='xhigh'||e.id==='max';
       const isEst=(m,e)=>e.id!=='high'&&(alwaysEst(e)||m.id!=='opus');
-      const LANGS=[{"n":"Chinese","o":-6},{"n":"English","o":0},{"n":"Dutch","o":4},{"n":"Swedish","o":9},{"n":"Norwegian","o":9},{"n":"Spanish","o":12},{"n":"French","o":13},{"n":"German","o":14},{"n":"Turkish","o":14},{"n":"Vietnamese","o":14},{"n":"Portuguese","o":15},{"n":"Indonesian","o":16},{"n":"Arabic","o":17},{"n":"Hebrew","o":18},{"n":"Russian","o":20},{"n":"Latin","o":24},{"n":"Italian","o":26},{"n":"Finnish","o":27},{"n":"Polish","o":29},{"n":"Ukrainian","o":37},{"n":"Hindi","o":40},{"n":"Korean","o":41},{"n":"Slovak","o":42},{"n":"Czech","o":43},{"n":"Japanese","o":44},{"n":"Hungarian","o":48},{"n":"Greek","o":57}];
+      const LANGS_O200K=[{"n":"Chinese","o":-6},{"n":"English","o":0},{"n":"Dutch","o":4},{"n":"Swedish","o":9},{"n":"Norwegian","o":9},{"n":"Spanish","o":12},{"n":"French","o":13},{"n":"German","o":14},{"n":"Turkish","o":14},{"n":"Vietnamese","o":14},{"n":"Portuguese","o":15},{"n":"Indonesian","o":16},{"n":"Arabic","o":17},{"n":"Hebrew","o":18},{"n":"Russian","o":20},{"n":"Latin","o":24},{"n":"Italian","o":26},{"n":"Finnish","o":27},{"n":"Polish","o":29},{"n":"Ukrainian","o":37},{"n":"Hindi","o":40},{"n":"Korean","o":41},{"n":"Slovak","o":42},{"n":"Czech","o":43},{"n":"Japanese","o":44},{"n":"Hungarian","o":48},{"n":"Greek","o":57}];
+      const LANGS_CLAUDE=[{"n":"Chinese","o":-9},{"n":"English","o":0},{"n":"Dutch","o":46},{"n":"Swedish","o":21},{"n":"Norwegian","o":20},{"n":"Spanish","o":26},{"n":"French","o":30},{"n":"German","o":59},{"n":"Turkish","o":54},{"n":"Vietnamese","o":74},{"n":"Portuguese","o":46},{"n":"Indonesian","o":66},{"n":"Arabic","o":66},{"n":"Hebrew","o":62},{"n":"Russian","o":20},{"n":"Latin","o":48},{"n":"Italian","o":41},{"n":"Finnish","o":67},{"n":"Polish","o":55},{"n":"Ukrainian","o":33},{"n":"Hindi","o":115},{"n":"Korean","o":62},{"n":"Slovak","o":42},{"n":"Czech","o":25},{"n":"Japanese","o":22},{"n":"Hungarian","o":38},{"n":"Greek","o":103}];
+      let tokenizer='claude';
+      const langs=()=>tokenizer==='claude'?LANGS_CLAUDE:LANGS_O200K;
 
       const $=id=>document.getElementById(id);
       const grid=$('grid'),tableBody=$('tableBody'),readout=$('readout'),bdRows=$('bdRows'),bdWho=$('bdWho'),
             inTok=$('inTok'),outTok=$('outTok'),langSel=$('langSel'),usdBtn=$('usdBtn'),idxBtn=$('idxBtn');
       let mode='usd',sel={model:'sonnet',effort:'xhigh'};
+      const tokenizerControls=document.createElement('div');
+      tokenizerControls.className='controls';tokenizerControls.style.marginTop='18px';tokenizerControls.style.width='fit-content';
+      tokenizerControls.setAttribute('role','group');tokenizerControls.setAttribute('aria-label','Tokenizer narzutu językowego');
+      tokenizerControls.innerHTML='<button id="o200kTokenizerBtn" type="button" aria-pressed="false">o200k_base</button><button id="claudeTokenizerBtn" type="button" aria-pressed="true">Claude Opus 5</button>';
+      document.querySelector('header').appendChild(tokenizerControls);
+      const o200kTokenizerBtn=$('o200kTokenizerBtn'),claudeTokenizerBtn=$('claudeTokenizerBtn');
 
-      langSel.innerHTML=LANGS.map((l,i)=>`<option value="${i}"${l.n==='Polish'?' selected':''}>${l.n} (${l.o>=0?'+':''}${l.o}%)</option>`).join('');
+      const fillLangSelect=(wanted='Polish')=>{const list=langs(),idx=Math.max(0,list.findIndex(l=>l.n===wanted));langSel.innerHTML=list.map((l,i)=>`<option value="${i}">${l.n} (${l.o>=0?'+':''}${l.o}%)</option>`).join('');langSel.value=String(idx)};
+      fillLangSelect();
 
       const model=id=>MODELS.find(m=>m.id===id);
       const effort=id=>EFFORT.find(e=>e.id===id);
-      const lang=()=>LANGS[+langSel.value];
+      const lang=()=>langs()[+langSel.value];
       const langF=()=>1+lang().o/100;
       const inputTokens=()=>Math.round(+inTok.value*langF());
       const outputTokens=f=>Math.round(+outTok.value*f);
@@ -185,6 +195,12 @@ format:
       }
 
       function render(){
+        o200kTokenizerBtn.setAttribute('aria-pressed',String(tokenizer==='o200k'));
+        claudeTokenizerBtn.setAttribute('aria-pressed',String(tokenizer==='claude'));
+        $('tokenizerHint').innerHTML=`Narzut z <code>${tokenizer==='claude'?'Claude Opus 5':'o200k_base'}</code>, mnoży wyłącznie tokeny wejściowe.`;
+        const method=[...document.querySelectorAll('.method-card')].find(c=>c.querySelector('b')?.textContent==='Czego tu nie ma');
+        const methodPs=method?.querySelectorAll('p');
+        if(methodPs?.[1])methodPs[1].innerHTML=`Tokenizer językowy: aktywny <code>${tokenizer==='claude'?'Claude Opus 5':'o200k_base'}</code>. Claude Opus 5 używa zweryfikowanego natywnego pomiaru tokenów; przełącznik zachowuje o200k jako punkt porównania.`;
         $('inRead').textContent=num(+inTok.value)+' tok';
         $('outRead').textContent=num(+outTok.value)+' tok';
         $('langRead').textContent=lang().n+' '+(lang().o>=0?'+':'')+lang().o+'%';
@@ -193,6 +209,9 @@ format:
 
       [inTok,outTok].forEach(el=>el.addEventListener('input',render));
       langSel.addEventListener('change',render);
+      const setTokenizer=next=>{const keep=lang().n;tokenizer=next;fillLangSelect(keep);render()};
+      o200kTokenizerBtn.addEventListener('click',()=>setTokenizer('o200k'));
+      claudeTokenizerBtn.addEventListener('click',()=>setTokenizer('claude'));
       usdBtn.addEventListener('click',()=>{mode='usd';usdBtn.setAttribute('aria-pressed','true');idxBtn.setAttribute('aria-pressed','false');render()});
       idxBtn.addEventListener('click',()=>{mode='index';usdBtn.setAttribute('aria-pressed','false');idxBtn.setAttribute('aria-pressed','true');render()});
       render();

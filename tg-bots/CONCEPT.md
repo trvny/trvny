@@ -87,7 +87,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - owner-only private Telegram webhook;
 - durable Telegram update queue, update-id deduplication and DLQ;
 - shared free-model router with local Workers AI fallback;
-- /draft, /status, /help and /reset;
+- /draft, /status, /help, /poll and /reset;
 - owner-scoped Telegram commands and command menu self-synced from the Worker;
 - bounded recent conversation context with reset generations;
 - native reply-to delivery plus ephemeral Telegram thinking drafts with typing fallback for model-backed replies;
@@ -100,6 +100,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - owner voice notes transcribed through Workers AI Whisper and routed into normal chat;
 - owner photos and screenshots analyzed transiently through Workers AI vision, with bounded text-only context persisted;
 - owner-shared locations, venues, contacts and polls normalized into bounded chat context;
+- native owner-created polls through `/poll question | option 1 | option 2`;
 - owner-shared text/code documents read transiently with bounded UTF-8 content and untrusted-data framing;
 - Feedseek/RSS curation endpoint;
 - health/status endpoint.

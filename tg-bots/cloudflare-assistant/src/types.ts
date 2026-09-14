@@ -192,6 +192,11 @@ export type TelegramMemoryTurn = Omit<TelegramConversationTurn, "createdAt"> & {
   generation: number;
 };
 
+export type TelegramPollReply = {
+  question: string;
+  options: string[];
+};
+
 export type TelegramReply = {
   chatId: string | number;
   text: string;
@@ -201,6 +206,7 @@ export type TelegramReply = {
   memoryTurn?: TelegramMemoryTurn;
   finalReaction?: "👍" | "👎" | "🤨";
   richMarkdown?: boolean;
+  poll?: TelegramPollReply;
 };
 
 export type TelegramDeadLetter = {

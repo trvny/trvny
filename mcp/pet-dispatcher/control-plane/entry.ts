@@ -11,7 +11,9 @@ import {
   remoteResultSchema,
   remoteTaskSchema,
   remoteTaskStateSchema,
+  signedTaskEnvelopeSchema,
   signEnvelope,
+  type SignedTaskEnvelope,
   verifyWorkerRequest,
   type RemoteTask,
   type RemoteTaskState,
@@ -29,9 +31,15 @@ const MAX_BODY_BYTES = 128 * 1024;
 const WORKER_CLOCK_SKEW_MS = 5 * 60_000;
 const NONCE_HISTORY_LIMIT = 64;
 const STATE_KEY = "state";
+const OUTBOX_KEY = "enqueue-outbox";
 const NONCES_KEY = "worker-nonces";
 const QUOTA_KEY = "daily-delegation-quota";
 const DAILY_DELEGATION_LIMIT = 500;
+const enqueueOutboxSchema = z.object({
+  envelope: signedTaskEnvelopeSchema,
+  sent: z.boolean(),
+}).strict();
+type EnqueueOutbox = z.infer<typeof enqueueOutboxSchema>;
 
 function json(value: unknown, status = 200): Response {
   return Response.json(value, { status, headers: { "cache-control": "no-store" } });
@@ -98,6 +106,10 @@ export class TaskStateStore {
     if (request.method === "GET" && url.pathname === "/state") {
       return current ? json(current) : json({ error: "task_not_found" }, 404);
     }
+    if (request.method === "GET" && url.pathname === "/outbox") {
+      const outbox = await this.state.storage.get<EnqueueOutbox>(OUTBOX_KEY);
+      return outbox ? json(enqueueOutboxSchema.parse(outbox)) : json({ error: "outbox_not_found" }, 404);
+    }
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const body = await readBody(request);
@@ -133,11 +145,25 @@ export class TaskStateStore {
     }
     if (url.pathname === "/init") {
       if (current) return json(current);
-      const next = remoteTaskStateSchema.parse(JSON.parse(body) as unknown);
-      await this.state.storage.put(STATE_KEY, next);
-      return json(next, 201);
+      const parsed = z.object({
+        state: remoteTaskStateSchema,
+        envelope: signedTaskEnvelopeSchema,
+      }).strict().parse(JSON.parse(body) as unknown);
+      await this.state.storage.transaction(async (txn) => {
+        await txn.put(STATE_KEY, parsed.state);
+        await txn.put(OUTBOX_KEY, { envelope: parsed.envelope, sent: false } satisfies EnqueueOutbox);
+      });
+      return json(parsed.state, 201);
     }
     if (!current) return json({ error: "task_not_found" }, 404);
+
+    if (url.pathname === "/outbox/sent") {
+      const outbox = await this.state.storage.get<EnqueueOutbox>(OUTBOX_KEY);
+      if (!outbox) return json({ error: "outbox_not_found" }, 404);
+      const next = enqueueOutboxSchema.parse({ ...outbox, sent: true });
+      await this.state.storage.put(OUTBOX_KEY, next);
+      return json(next);
+    }
 
     if (url.pathname === "/enqueue-failed") {
       if (terminal(current.status)) return json(current);
@@ -224,20 +250,43 @@ async function workerAuthorized(request: Request, env: Env, body: string): Promi
   );
 }
 
+async function deliverOutbox(env: Env, taskId: string, envelope: SignedTaskEnvelope, quotaBody: string): Promise<void> {
+  try {
+    await env.TASK_QUEUE.send(JSON.stringify(envelope), { contentType: "text" });
+  } catch (error) {
+    await stateStub(env, taskId).fetch("https://state/enqueue-failed", {
+      method: "POST",
+      body: "{}",
+    }).catch(() => undefined);
+    await quotaStub(env).fetch("https://state/quota/release", { method: "POST", body: quotaBody }).catch(() => undefined);
+    throw error;
+  }
+  const marked = await stateStub(env, taskId).fetch("https://state/outbox/sent", { method: "POST", body: "{}" });
+  if (!marked.ok) throw new Error(`failed to persist queue delivery receipt: HTTP ${marked.status}`);
+  await quotaStub(env).fetch("https://state/quota/commit", { method: "POST", body: quotaBody }).catch(() => undefined);
+}
+
 async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string): Promise<Response> {
   const now = Date.now();
   const taskId = stableTaskId ?? crypto.randomUUID();
+  const quotaBody = JSON.stringify({ taskId });
   if (stableTaskId) {
     const existingResponse = await readState(env, taskId);
     if (existingResponse.ok) {
       const existing = remoteTaskStateSchema.parse(await existingResponse.json());
+      if (!terminal(existing.status)) {
+        const outboxResponse = await stateStub(env, taskId).fetch("https://state/outbox");
+        if (!outboxResponse.ok) throw new Error(`failed to read queue outbox: HTTP ${outboxResponse.status}`);
+        const outbox = enqueueOutboxSchema.parse(await outboxResponse.json());
+        if (!outbox.sent) await deliverOutbox(env, taskId, outbox.envelope, quotaBody);
+        else await quotaStub(env).fetch("https://state/quota/commit", { method: "POST", body: quotaBody }).catch(() => undefined);
+      }
       return json({ taskId, status: existing.status }, 202);
     }
     if (existingResponse.status !== 404) {
       throw new Error(`failed to check idempotent task state: HTTP ${existingResponse.status}`);
     }
   }
-  const quotaBody = JSON.stringify({ taskId });
   const quota = await quotaStub(env).fetch("https://state/quota/reserve", { method: "POST", body: quotaBody });
   if (!quota.ok) {
     if (quota.status === 429) return json({ error: "free_tier_task_budget_exhausted" }, 429);
@@ -262,27 +311,18 @@ async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string): P
     updatedAt: createdAt,
     cancelRequested: false,
   };
-  let initialized = false;
   try {
     const init = await stateStub(env, taskId).fetch("https://state/init", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(initial),
+      body: JSON.stringify({ state: initial, envelope: signed }),
     });
     if (!init.ok) throw new Error(`failed to initialize remote task state: HTTP ${init.status}`);
-    initialized = true;
-    await env.TASK_QUEUE.send(JSON.stringify(signed), { contentType: "text" });
   } catch (error) {
-    if (initialized) {
-      await stateStub(env, taskId).fetch("https://state/enqueue-failed", {
-        method: "POST",
-        body: "{}",
-      }).catch(() => undefined);
-    }
     await quotaStub(env).fetch("https://state/quota/release", { method: "POST", body: quotaBody }).catch(() => undefined);
     throw error;
   }
-  await quotaStub(env).fetch("https://state/quota/commit", { method: "POST", body: quotaBody }).catch(() => undefined);
+  await deliverOutbox(env, taskId, signed, quotaBody);
   return json({ taskId, status: "queued", expiresAt: new Date(envelope.expiresAt).toISOString() }, 202);
 }
 

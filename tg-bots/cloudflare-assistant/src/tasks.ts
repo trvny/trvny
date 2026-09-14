@@ -10,6 +10,8 @@ export type BotekTaskState = {
     status?: string;
     summary?: string;
     output?: string;
+    commit?: string;
+    exportedRef?: string;
     error?: string;
   };
 };
@@ -112,6 +114,8 @@ export function taskText(task: BotekTaskState, repo?: string, goal?: string): st
     ...(goal ? ["", goal.slice(0, 700)] : []),
   ];
   if (task.result?.summary) lines.push("", task.result.summary.slice(0, 2_000));
+  if (task.result?.commit) lines.push(`Commit: ${task.result.commit}`);
+  if (task.result?.exportedRef) lines.push(`Ref: ${task.result.exportedRef}`);
   if (task.result?.error) lines.push("", `Błąd: ${task.result.error.slice(0, 900)}`);
   return lines.join("\n").slice(0, 4_000);
 }

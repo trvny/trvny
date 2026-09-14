@@ -3,6 +3,15 @@ import { conversationMessages, TelegramConversationMemory } from "./conversation
 import { TelegramUpdateDedup } from "./dedup";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import {
+  cancelBotekTask,
+  delegateBotekTask,
+  getBotekTask,
+  parseTaskCommand,
+  taskCallback,
+  taskKeyboard,
+  taskText,
+} from "./tasks";
+import {
   AllProvidersFailedError,
   chatWithFallback,
   completeWithFallback,
@@ -168,6 +177,27 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         replyMarkup: STATUS_KEYBOARD,
       };
     }
+    const taskAction = taskCallback(callback.data);
+    if (taskAction) {
+      try {
+        const task = taskAction.action === "cancel"
+          ? await cancelBotekTask(env, taskAction.taskId)
+          : await getBotekTask(env, taskAction.taskId);
+        return {
+          chatId: callbackMessage.chat.id,
+          editMessageId: callbackMessage.message_id,
+          text: taskText(task),
+          replyMarkup: taskKeyboard(task),
+        };
+      } catch (error) {
+        console.error("Pet Dispatcher task callback failed", error);
+        return {
+          chatId: callbackMessage.chat.id,
+          editMessageId: callbackMessage.message_id,
+          text: `Nie udało się odświeżyć zadania ${taskAction.taskId}.`,
+        };
+      }
+    }
     return null;
   }
 
@@ -229,6 +259,41 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       text: await providerStatusText(env),
       replyMarkup: STATUS_KEYBOARD,
     };
+  }
+
+  if (text === "/task") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /task <repo> <polecenie>",
+    };
+  }
+
+  if (text.startsWith("/task ")) {
+    const taskRequest = parseTaskCommand(text);
+    if (!taskRequest) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /task <repo> <polecenie>",
+      };
+    }
+    try {
+      const task = await delegateBotekTask(env, taskRequest.repo, taskRequest.goal);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: taskText(task, taskRequest.repo, taskRequest.goal),
+        replyMarkup: taskKeyboard(task),
+      };
+    } catch (error) {
+      console.error("Pet Dispatcher delegation failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się wysłać zadania na Legiona. Spróbuj ponownie za chwilę.",
+      };
+    }
   }
 
   const isDraft = text.startsWith("/draft ");

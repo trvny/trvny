@@ -6,7 +6,17 @@
   "workers_dev": true,
   "preview_urls": false,
   "observability": {
-    "enabled": false
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true,
+      "redact_query_string": true
+    },
+    "traces": {
+      "enabled": false
+    }
   },
   "queues": {
     "producers": [

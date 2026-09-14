@@ -1,3 +1,4 @@
+import { WorkerEntrypoint } from "cloudflare:workers";
 import { z, ZodError } from "zod";
 import {
   REMOTE_DIRECT_EXEC_CAPABILITIES,
@@ -20,7 +21,6 @@ interface Env {
   TASK_QUEUE: Queue;
   TASK_STATE: DurableObjectNamespace;
   CONTROL_PLANE_TOKEN?: string;
-  TELEGRAM_ASSISTANT_TOKEN?: string;
   TASK_SIGNING_SECRET?: string;
   DEVICE_ID?: string;
 }
@@ -62,11 +62,6 @@ function controlAuthorized(request: Request, env: Env): boolean {
   return request.headers.get("authorization") === `Bearer ${token}`;
 }
 
-function assistantAuthorized(request: Request, env: Env): boolean {
-  const token = env.TELEGRAM_ASSISTANT_TOKEN;
-  if (!token) return false;
-  return request.headers.get("authorization") === `Bearer ${token}`;
-}
 
 function stateStub(env: Env, taskId: string): DurableObjectStub {
   return env.TASK_STATE.get(env.TASK_STATE.idFromName(taskId));
@@ -277,16 +272,41 @@ async function delegate(request: Request, env: Env): Promise<Response> {
   return enqueueTask(remoteTaskSchema.parse(JSON.parse(raw) as unknown), env);
 }
 
-async function assistantDelegate(request: Request, env: Env): Promise<Response> {
-  const raw = await readBody(request);
-  const task = remoteTaskSchema.parse(JSON.parse(raw) as unknown);
+function assistantTask(value: unknown): RemoteTask {
+  const task = remoteTaskSchema.parse(value);
   if (task.executor === "direct" || !["inspect", "code"].includes(task.profile)) {
-    return json({ error: "assistant_task_profile_forbidden" }, 403);
+    throw new Error("assistant_task_profile_forbidden");
   }
   if (task.capabilities.length > 0 || task.network.mode !== "none") {
-    return json({ error: "assistant_task_scope_forbidden" }, 403);
+    throw new Error("assistant_task_scope_forbidden");
   }
-  return enqueueTask(task, env);
+  return task;
+}
+
+type RpcResult = { status: number; body: unknown };
+
+async function rpcResult(response: Response): Promise<RpcResult> {
+  return { status: response.status, body: await response.json() };
+}
+
+export class TelegramAssistantEntrypoint extends WorkerEntrypoint<Env> {
+  async meta() {
+    return { deviceId: deviceId(this.env), transport: "cloudflare-queues-http-pull", protocol: 1 };
+  }
+
+  async delegate(value: unknown): Promise<RpcResult> {
+    return rpcResult(await enqueueTask(assistantTask(value), this.env));
+  }
+
+  async getTask(taskId: string): Promise<RpcResult> {
+    const id = z.string().uuid().parse(taskId);
+    return rpcResult(await readState(this.env, id));
+  }
+
+  async cancelTask(taskId: string): Promise<RpcResult> {
+    const id = z.string().uuid().parse(taskId);
+    return rpcResult(await stateStub(this.env, id).fetch("https://state/cancel", { method: "POST", body: "{}" }));
+  }
 }
 
 async function directTool(request: Request, env: Env): Promise<Response> {
@@ -346,20 +366,17 @@ export default {
         return workerUpdate(request, env, taskId, action);
       }
 
-      const operator = controlAuthorized(request, env);
-      const assistant = assistantAuthorized(request, env);
-      if (!operator && !assistant) return json({ error: "unauthorized" }, 401);
+      if (!controlAuthorized(request, env)) return json({ error: "unauthorized" }, 401);
       if (request.method === "GET" && url.pathname === "/v1/meta") {
         return json({
           deviceId: deviceId(env), transport: "cloudflare-queues-http-pull", protocol: 1,
-          directTools: operator ? [...REMOTE_DIRECT_TOOLS] : [],
+          directTools: [...REMOTE_DIRECT_TOOLS],
         });
       }
       if (request.method === "POST" && url.pathname === "/v1/delegate") {
-        return operator ? delegate(request, env) : assistantDelegate(request, env);
+        return delegate(request, env);
       }
       if (request.method === "POST" && url.pathname === "/v1/tool") {
-        if (!operator) return json({ error: "forbidden" }, 403);
         return directTool(request, env);
       }
 

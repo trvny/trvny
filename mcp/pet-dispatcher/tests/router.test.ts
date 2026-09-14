@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import {
   probeExecutorAdapters,
@@ -91,4 +94,18 @@ test("PATH probe rejects path-like command names before filesystem lookup", asyn
   await assert.rejects(findCommandOnPath("../secret", cleanEnv), /safe command basename/u);
   await assert.rejects(findCommandOnPath("sub/tool", cleanEnv), /safe command basename/u);
   await assert.rejects(findCommandOnPath("sub\\tool", cleanEnv), /safe command basename/u);
+});
+
+test("PATH probe ignores directories named like commands", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pet-router-"));
+  const candidate = process.platform === "win32" ? "codex.EXE" : "codex";
+  await mkdir(join(root, candidate));
+  const cleanEnv = process.platform === "win32"
+    ? { PATH: root, PATHEXT: ".EXE" } as NodeJS.ProcessEnv
+    : { PATH: root } as NodeJS.ProcessEnv;
+  try {
+    assert.equal(await findCommandOnPath("codex", cleanEnv), undefined);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

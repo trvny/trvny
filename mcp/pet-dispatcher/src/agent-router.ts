@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access } from "node:fs/promises";
+import { access, stat } from "node:fs/promises";
 import { delimiter, extname, join } from "node:path";
 import type { RemoteCapability } from "./remote-protocol.js";
 
@@ -71,6 +71,8 @@ export async function findCommandOnPath(command: string, env: NodeJS.ProcessEnv 
     for (const extension of extensions) {
       const candidate = join(directory, `${command}${extension}`);
       try {
+        const metadata = await stat(candidate);
+        if (!metadata.isFile()) continue;
         await access(candidate, process.platform === "win32" ? constants.F_OK : constants.X_OK);
         return candidate;
       } catch { /* keep searching */ }

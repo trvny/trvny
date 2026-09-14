@@ -8,7 +8,8 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - durable Telegram update delivery through Cloudflare Queues;
 - persistent `update_id` state in a SQLite Durable Object;
 - dead-letter queue for exhausted or non-replayable Telegram deliveries;
-- `/help`, `/status`, and `/draft <message>`;
+- `/help`, `/status`, `/draft <message>`, and `/reset`;
+- bounded per-chat conversation context for ordinary messages;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;
 - `POST /ingest/rss` for Feedseek/RSS curation;
@@ -16,7 +17,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - `GET /health` for smoke checks;
 - no server, polling loop, or always-on phone process.
 
-Conversation memory, Engram, Telegram Business reply assistance, and Hermes handoff are deliberately left for later slices rather than faked into the MVP.
+Engram-backed long-term memory, Telegram Business reply assistance, and Hermes handoff are deliberately left for later slices rather than faked into the MVP.
 
 ## Reused infrastructure
 
@@ -45,7 +46,7 @@ Future heavyweight jobs should reuse the existing `pet-dispatcher-control` + `pe
 - Cloudflare Workers, TypeScript, Wrangler;
 - same-account Service Binding to `kanarek-companion`;
 - Cloudflare Queues for reliable Telegram update processing;
-- SQLite Durable Object for Telegram update state/deduplication;
+- SQLite Durable Objects for Telegram update deduplication and bounded conversation context;
 - Workers AI as the local emergency fallback;
 - Telegram Bot API webhook.
 
@@ -151,6 +152,10 @@ Normal requests first go over the `KANAREK_COMPANION` service binding to the exi
 4. Workers AI.
 
 If the internal router itself is unavailable, times out, or its token is not configured, this Worker falls back to its own Workers AI binding (`@cf/zai-org/glm-4.7-flash`). Structured RSS validation remains part of the local fallback loop, so malformed curator output can still fall through to local Workers AI.
+
+## Conversation context
+
+Ordinary owner messages load up to eight recent successful chat turns from `TelegramConversationMemory`, with the model-facing history capped at roughly 8,000 characters. `/draft` stays stateless, command replies are not stored, and `/reset` clears the chat context. A turn is persisted only after Telegram accepts the reply and delivery is committed as `sent`; memory persistence failures are logged without retrying an already-delivered message.
 
 ## RSS curator
 

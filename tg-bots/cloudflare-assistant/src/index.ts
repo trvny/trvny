@@ -1,3 +1,4 @@
+import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { TelegramUpdateDedup } from "./dedup";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import {
@@ -17,13 +18,14 @@ import type {
   QueueBatch,
   RssDecision,
   RssItem,
+  TelegramConversationTurn,
   TelegramDeadLetter,
   TelegramReply,
   TelegramUpdate,
   TelegramUpdateRecord,
 } from "./types";
 
-export { TelegramUpdateDedup };
+export { TelegramConversationMemory, TelegramUpdateDedup };
 
 const RSS_BODY_MAX_BYTES = 64 * 1024;
 const DEFAULT_RSS_MIN_SCORE = 75;
@@ -53,6 +55,31 @@ function ownerConfigured(env: Env): boolean {
   return Boolean(env.OWNER_TELEGRAM_USER_ID && /^-?\d+$/.test(env.OWNER_TELEGRAM_USER_ID));
 }
 
+function conversationStub(env: Env, chatId: string | number) {
+  return env.TELEGRAM_MEMORY.get(env.TELEGRAM_MEMORY.idFromName(String(chatId)));
+}
+
+async function conversationHistory(env: Env, chatId: string | number) {
+  const response = await conversationStub(env, chatId).fetch("https://conversation/history");
+  if (!response.ok) throw new Error(`conversation history read failed: HTTP ${response.status}`);
+  return conversationMessages((await response.json()) as TelegramConversationTurn[]);
+}
+
+async function clearConversation(env: Env, chatId: string | number): Promise<void> {
+  const response = await conversationStub(env, chatId).fetch("https://conversation/clear", { method: "POST" });
+  if (!response.ok) throw new Error(`conversation clear failed: HTTP ${response.status}`);
+}
+
+async function appendConversation(env: Env, chatId: string | number, reply: TelegramReply): Promise<void> {
+  if (!reply.memoryTurn) return;
+  const response = await conversationStub(env, chatId).fetch("https://conversation/append", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(reply.memoryTurn),
+  });
+  if (!response.ok) throw new Error(`conversation append failed: HTTP ${response.status}`);
+}
+
 async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<TelegramReply | null> {
   const message = update.message;
   if (!message?.text || !message.from) return null;
@@ -76,9 +103,15 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         "",
         "/status — provider chain",
         "/draft <tekst> — przygotuj odpowiedź, niczego nie wysyłaj",
-        "Każdy inny tekst — zwykła rozmowa z asystentem.",
+        "/reset — wyczyść kontekst rozmowy",
+        "Każdy inny tekst — zwykła rozmowa z krótką pamięcią kontekstu.",
       ].join("\n"),
     };
+  }
+
+  if (text === "/reset") {
+    await clearConversation(env, message.chat.id);
+    return { chatId: message.chat.id, text: "Kontekst rozmowy wyczyszczony." };
   }
 
   if (text === "/status") {
@@ -98,19 +131,22 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     : ASSISTANT_SYSTEM;
 
   try {
+    const history = isDraft ? [] : await conversationHistory(env, message.chat.id);
     const result = await chatWithFallback(env, [
       { role: "system", content: system },
+      ...history,
       { role: "user", content: prompt },
     ]);
     return {
       chatId: message.chat.id,
       text: `${result.text}\n\n[${result.provider} · ${result.model}]`,
+      ...(!isDraft ? { memoryTurn: { user: prompt, assistant: result.text } } : {}),
     };
   } catch (error) {
-    console.error("All chat providers failed", error);
+    console.error("Telegram reply generation failed", error);
     return {
       chatId: message.chat.id,
-      text: "Nie udało się uzyskać odpowiedzi z żadnego providera. Spróbuj za chwilę.",
+      text: "Nie udało się przygotować odpowiedzi. Spróbuj za chwilę.",
     };
   }
 }
@@ -388,6 +424,12 @@ async function processQueuedTelegram(
     }
     message.ack();
     return;
+  }
+
+  try {
+    await appendConversation(env, reply.chatId, reply);
+  } catch (error) {
+    console.error("Failed to persist Telegram conversation context", error);
   }
   message.ack();
 }

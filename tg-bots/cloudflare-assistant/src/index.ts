@@ -16,7 +16,7 @@ import {
   isTelegramWebhook,
   parseTelegramUpdate,
   sendTelegramMessage,
-  sendTelegramTyping,
+  sendTelegramThinking,
   syncTelegramCommandMenu,
   syncTelegramWebhook,
   TELEGRAM_MESSAGE_MAX_CHARS,
@@ -238,7 +238,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       };
     }
     try {
-      await sendTelegramTyping(env, message.chat.id);
+      await sendTelegramThinking(env, message.chat.id, update.update_id);
       const audio = await downloadTelegramFile(env, message.voice.file_id, TELEGRAM_VOICE_MAX_BYTES);
       const transcript = await transcribeAudio(env, audio);
       prompt = `Telegram voice note transcript:\n${transcript}`.slice(
@@ -271,7 +271,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     const history = isDraft
       ? { messages: [], generation: null }
       : await conversationHistory(env, message.chat.id);
-    await sendTelegramTyping(env, message.chat.id);
+    await sendTelegramThinking(env, message.chat.id, update.update_id);
     const result = await chatWithFallback(env, [
       { role: "system", content: system },
       ...history.messages,

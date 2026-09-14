@@ -55,8 +55,14 @@ jobs:
         run: |
           set -euo pipefail
           npm run control:deploy
-          version_id=$(jq -rs '[.[] | select(.type == "deploy")] | last | .version_id // empty' "$WRANGLER_OUTPUT_FILE")
-          test -n "$version_id"
+          version_id=$(node --input-type=module -e '
+            import fs from "node:fs";
+            const rows = fs.readFileSync(process.env.WRANGLER_OUTPUT_FILE, "utf8")
+              .trim().split(/\r?\n/u).filter(Boolean).map(JSON.parse);
+            const deploy = rows.findLast((row) => row.type === "deploy");
+            if (!deploy?.version_id) process.exit(1);
+            process.stdout.write(deploy.version_id);
+          ')
           echo "version_id=$version_id" >> "$GITHUB_OUTPUT"
 
       - name: Verify live health
@@ -67,9 +73,12 @@ jobs:
           set -euo pipefail
           for _ in {1..12}; do
             if body=$(curl --fail --silent --show-error --connect-timeout 5 --max-time 10 "$HEALTH_URL") &&
-              jq -e --arg version_id "$DEPLOYED_VERSION_ID" \
-                '.ok == true and .service == "pet-dispatcher-control" and .versionId == $version_id' \
-                <<<"$body" >/dev/null
+              BODY="$body" node --input-type=module -e '
+                const body = JSON.parse(process.env.BODY);
+                if (!(body.ok === true &&
+                  body.service === "pet-dispatcher-control" &&
+                  body.versionId === process.env.DEPLOYED_VERSION_ID)) process.exit(1);
+              '
             then
               exit 0
             fi

@@ -41,6 +41,10 @@
       {
         "name": "TELEGRAM_DEDUP",
         "class_name": "TelegramUpdateDedup"
+      },
+      {
+        "name": "TELEGRAM_MEMORY",
+        "class_name": "TelegramConversationMemory"
       }
     ]
   },
@@ -48,6 +52,10 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["TelegramUpdateDedup"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["TelegramConversationMemory"]
     }
   ],
   "vars": {

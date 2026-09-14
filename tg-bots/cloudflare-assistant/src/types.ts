@@ -59,9 +59,16 @@ export type TelegramUpdate = {
   message?: TelegramMessage;
 };
 
+export type TelegramConversationTurn = {
+  user: string;
+  assistant: string;
+  createdAt: string;
+};
+
 export type TelegramReply = {
   chatId: string | number;
   text: string;
+  memoryTurn?: Omit<TelegramConversationTurn, "createdAt">;
 };
 
 export type TelegramDeadLetter = {
@@ -84,6 +91,7 @@ export type Env = {
   TELEGRAM_UPDATES: QueueBinding<TelegramUpdate>;
   TELEGRAM_DLQ: QueueBinding<TelegramDeadLetter>;
   TELEGRAM_DEDUP: DurableObjectNamespaceLike;
+  TELEGRAM_MEMORY: DurableObjectNamespaceLike;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   INGEST_SECRET?: string;

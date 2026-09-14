@@ -113,11 +113,20 @@ export type TelegramPoll = {
   explanation?: string;
 };
 
+export type TelegramDocument = {
+  file_id: string;
+  file_unique_id: string;
+  file_name?: string;
+  mime_type?: string;
+  file_size?: number;
+};
+
 export type TelegramMessage = {
   message_id: number;
   text?: string;
   caption?: string;
   photo?: TelegramPhotoSize[];
+  document?: TelegramDocument;
   poll?: TelegramPoll;
   location?: TelegramLocation;
   venue?: TelegramVenue;

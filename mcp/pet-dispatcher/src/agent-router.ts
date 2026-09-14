@@ -58,7 +58,10 @@ export interface ExecutorAdapter {
   probe(context?: ProbeContext): Promise<ExecutorProbe>;
 }
 
-async function defaultFindCommand(command: string, env: NodeJS.ProcessEnv): Promise<string | undefined> {
+export async function findCommandOnPath(command: string, env: NodeJS.ProcessEnv = process.env): Promise<string | undefined> {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$/u.test(command)) {
+    throw new Error("command must be a safe command basename");
+  }
   const pathValue = env.PATH ?? env.Path ?? "";
   const extensions = process.platform === "win32" && !extname(command)
     ? (env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)
@@ -145,7 +148,7 @@ function cliExecutor(definition: Omit<ExecutorAdapter, "probe"> & { command: str
     ...definition,
     async probe(context = {}) {
       const env = context.env ?? process.env;
-      const findCommand = context.findCommand ?? ((command: string) => defaultFindCommand(command, env));
+      const findCommand = context.findCommand ?? ((command: string) => findCommandOnPath(command, env));
       try {
         const found = await findCommand(definition.command);
         return executorProbe(this, found ? "available" : "unavailable", found ? undefined : `command not found: ${definition.command}`);

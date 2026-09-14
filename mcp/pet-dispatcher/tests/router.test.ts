@@ -4,6 +4,7 @@ import {
   probeExecutorAdapters,
   probeModelBackends,
   probeRouting,
+  findCommandOnPath,
   rankExecutorProbes,
   rankModelBackendProbes,
   type ModelBackendProbe,
@@ -83,4 +84,11 @@ test("degraded executors are diagnostic only, never automatic", async () => {
     ? { ...probe, availability: "degraded" as const }
     : probe);
   assert.deepEqual(rankExecutorProbes(degraded, { taskKind: "agent" }), []);
+});
+
+test("PATH probe rejects path-like command names before filesystem lookup", async () => {
+  const cleanEnv = { PATH: "C:/safe/bin" } as NodeJS.ProcessEnv;
+  await assert.rejects(findCommandOnPath("../secret", cleanEnv), /safe command basename/u);
+  await assert.rejects(findCommandOnPath("sub/tool", cleanEnv), /safe command basename/u);
+  await assert.rejects(findCommandOnPath("sub\\tool", cleanEnv), /safe command basename/u);
 });

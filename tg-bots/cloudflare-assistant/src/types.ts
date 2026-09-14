@@ -77,6 +77,7 @@ export type TelegramMemoryTurn = Omit<TelegramConversationTurn, "createdAt"> & {
 export type TelegramReply = {
   chatId: string | number;
   text: string;
+  replyToMessageId?: number;
   memoryTurn?: TelegramMemoryTurn;
 };
 

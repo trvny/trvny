@@ -10,6 +10,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - dead-letter queue for exhausted or non-replayable Telegram deliveries;
 - `/help`, `/status`, `/draft <message>`, and `/reset`;
 - bounded per-chat conversation context for ordinary messages;
+- native Telegram reply-to behavior plus best-effort typing indicators for model-backed replies;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;
 - `POST /ingest/rss` for Feedseek/RSS curation;

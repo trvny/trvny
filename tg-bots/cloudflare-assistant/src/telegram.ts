@@ -40,10 +40,27 @@ export async function parseTelegramUpdate(request: Request): Promise<TelegramUpd
   return readJsonWithLimit<TelegramUpdate>(request, TELEGRAM_UPDATE_MAX_BYTES);
 }
 
+export async function sendTelegramTyping(env: Env, chatId: string | number): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) return;
+  try {
+    const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+    });
+    if (!response.ok) {
+      console.warn(`Telegram sendChatAction failed: HTTP ${response.status}`);
+    }
+  } catch (error) {
+    console.warn("Telegram sendChatAction failed", error);
+  }
+}
+
 export async function sendTelegramMessage(
   env: Env,
   chatId: string | number,
   text: string,
+  options: { replyToMessageId?: number } = {},
 ): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) {
     throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
@@ -58,6 +75,14 @@ export async function sendTelegramMessage(
         chat_id: chatId,
         text: text.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
         disable_web_page_preview: true,
+        ...(options.replyToMessageId !== undefined
+          ? {
+              reply_parameters: {
+                message_id: options.replyToMessageId,
+                allow_sending_without_reply: true,
+              },
+            }
+          : {}),
       }),
     });
   } catch (error) {

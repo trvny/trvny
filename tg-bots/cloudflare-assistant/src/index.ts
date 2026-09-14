@@ -1,4 +1,4 @@
-import { botCommandPayload, botHelpLines } from "./commands";
+import { botCommandPayload, botHelpLines, parsePollCommand } from "./commands";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { TelegramUpdateDedup } from "./dedup";
 import { TelegramInlineQueryGate } from "./inline";
@@ -27,6 +27,7 @@ import {
   isTelegramWebhook,
   parseTelegramUpdate,
   sendTelegramMessage,
+  sendTelegramPoll,
   sendTelegramRichMessage,
   sendTelegramThinking,
   setTelegramMessageReaction,
@@ -429,6 +430,32 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       replyToMessageId: message.message_id,
       text: await providerStatusText(env),
       replyMarkup: STATUS_KEYBOARD,
+    };
+  }
+
+  if (text === "/poll") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /poll pytanie | opcja 1 | opcja 2 [| opcja 3 ...]",
+    };
+  }
+
+  if (text.startsWith("/poll ")) {
+    const poll = parsePollCommand(text);
+    if (!poll) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nieprawidłowa ankieta. Pytanie: 1–300 znaków, 2–12 opcji po maks. 100 znaków.",
+        finalReaction: "👎",
+      };
+    }
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: `Ankieta: ${poll.question}`,
+      poll,
     };
   }
 
@@ -838,7 +865,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) return null;
   const text = message.text?.trim() ?? "";
-  if (["/start", "/help", "/reset", "/status", "/draft"].includes(text)) return null;
+  if (["/start", "/help", "/reset", "/status", "/draft", "/poll"].includes(text)) return null;
   if (
     !text &&
     !message.voice &&
@@ -901,6 +928,8 @@ async function processQueuedTelegram(
         reply.text,
         reply.replyMarkup,
       );
+    } else if (reply.poll) {
+      await sendTelegramPoll(env, reply.chatId, reply.poll.question, reply.poll.options);
     } else {
       const options = {
         replyToMessageId: reply.replyToMessageId,

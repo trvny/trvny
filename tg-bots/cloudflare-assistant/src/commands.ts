@@ -42,10 +42,11 @@ export type BotekVenueRequest = BotekLocationRequest & { title: string; address:
 export type BotekContactRequest = { phoneNumber: string; firstName: string; lastName?: string };
 
 function parseCoordinates(value: string): BotekLocationRequest | null {
-  const match = value.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)$/u);
-  if (!match) return null;
-  const latitude = Number(match[1]);
-  const longitude = Number(match[2]);
+  if (value.length > 80) return null;
+  const parts = value.trim().replaceAll(",", " ").replaceAll(";", " ").split(" ").filter(Boolean);
+  if (parts.length !== 2) return null;
+  const latitude = Number(parts[0]);
+  const longitude = Number(parts[1]);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
   return { latitude, longitude };

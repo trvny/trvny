@@ -57,8 +57,9 @@ export type DurableObjectStateLike = {
 };
 
 export type TelegramInlineKeyboardButton =
-  | { text: string; callback_data: string; copy_text?: never }
-  | { text: string; copy_text: { text: string }; callback_data?: never };
+  | { text: string; callback_data: string; copy_text?: never; switch_inline_query?: never }
+  | { text: string; copy_text: { text: string }; callback_data?: never; switch_inline_query?: never }
+  | { text: string; switch_inline_query: string; callback_data?: never; copy_text?: never };
 
 export type TelegramInlineKeyboardMarkup = {
   inline_keyboard: TelegramInlineKeyboardButton[][];
@@ -77,6 +78,25 @@ export type TelegramMessage = {
   from?: { id: number; username?: string; first_name?: string };
 };
 
+export type TelegramInlineQuery = {
+  id: string;
+  from: { id: number; username?: string; first_name?: string };
+  query: string;
+  offset: string;
+  chat_type?: string;
+};
+
+export type TelegramInlineQueryResultArticle = {
+  type: "article";
+  id: string;
+  title: string;
+  description?: string;
+  input_message_content: {
+    message_text: string;
+    link_preview_options?: { is_disabled: boolean };
+  };
+};
+
 export type TelegramCallbackQuery = {
   id: string;
   data?: string;
@@ -90,6 +110,7 @@ export type TelegramCallbackQuery = {
 export type TelegramUpdate = {
   update_id: number;
   message?: TelegramMessage;
+  inline_query?: TelegramInlineQuery;
   callback_query?: TelegramCallbackQuery;
 };
 
@@ -139,6 +160,7 @@ export type Env = {
   TELEGRAM_DLQ: QueueBinding<TelegramDeadLetter>;
   TELEGRAM_DEDUP: DurableObjectNamespaceLike;
   TELEGRAM_MEMORY: DurableObjectNamespaceLike;
+  TELEGRAM_INLINE: DurableObjectNamespaceLike;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   INGEST_SECRET?: string;

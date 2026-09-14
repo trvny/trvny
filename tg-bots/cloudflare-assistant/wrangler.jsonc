@@ -51,6 +51,10 @@
       {
         "name": "TELEGRAM_MEMORY",
         "class_name": "TelegramConversationMemory"
+      },
+      {
+        "name": "TELEGRAM_INLINE",
+        "class_name": "TelegramInlineQueryGate"
       }
     ]
   },
@@ -62,6 +66,10 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["TelegramConversationMemory"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["TelegramInlineQueryGate"]
     }
   ],
   "vars": {

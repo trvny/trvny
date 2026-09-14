@@ -95,6 +95,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - inline `/status` refresh using callback queries and in-place message editing;
 - native clipboard action on short `/draft` suggestions;
 - manual `/task <repo> <polecenie>` delegation to the Legion through the scoped Pet Dispatcher RPC entrypoint, with inline status/cancel controls;
+- owner-only stateless Telegram inline answers for `@trvny_bot <query>` plus an inline-mode shortcut, Durable Object debounce for rapid edits, and an inline-specific response deadline;
 - owner voice notes transcribed through Workers AI Whisper and routed into normal chat;
 - Feedseek/RSS curation endpoint;
 - health/status endpoint.
@@ -117,7 +118,7 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 2. **Inline keyboards and callbacks** — callback plumbing, `/status` refresh and short-draft clipboard actions are implemented; extend buttons to confirmations, task controls, model choices, retries and other frequent actions.
 3. **Command/menu synchronization** — owner-scoped commands and the native command menu are synced from code on `/start` or `/help`; add localization when Botek gains additional user-facing languages.
 4. **Reactions and lightweight feedback** — model-backed owner messages now use best-effort processing/completion reactions; extend reactions only where they communicate state better than another message.
-5. **Inline mode** — support `@trvny_bot ...` in other chats for quick ask/summarize/translate flows without opening the Botek conversation.
+5. **Inline mode** — owner-only stateless `@trvny_bot ...` answers are implemented for quick ask/summarize/translate flows; next add richer inline result types and optional feedback telemetry.
 6. **Media and Telegram inputs** — use voice notes, photos, files, locations, contacts and polls as first-class inputs where they improve a workflow.
 7. **Groups, topics and Business** — deliberately extend the owner-only core to selected group/topic or Telegram Business workflows while preserving explicit approval boundaries for third-party replies.
 8. **Mini App** — provide a Telegram-native dashboard for Memory, Tasks, GitHub, Feeds, Models, Legion and service status. Use Mini App capabilities such as theme integration, QR scanning, device storage or biometrics only where they improve a concrete workflow.

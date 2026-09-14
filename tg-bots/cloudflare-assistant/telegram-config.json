@@ -1,0 +1,3 @@
+{
+  "allowedUpdates": ["message", "inline_query", "callback_query"]
+}

@@ -16,6 +16,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - inline `/status` refresh button backed by Telegram callback queries and message editing;
 - native clipboard button on short `/draft` suggestions;
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;
+- owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
 - owner voice notes transcribed with Workers AI Whisper before normal assistant routing;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;
@@ -125,7 +126,7 @@ npm run deploy
 
 The first deployment can run on Workers AI alone. After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `travny-tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated.
 
-Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to both `message` and `callback_query` updates:
+Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, and `callback_query` updates:
 
 ```bash
 npm run webhook:set -- https://<worker>.workers.dev/telegram/webhook
@@ -133,6 +134,10 @@ npm run webhook:info
 ```
 
 `/start` and `/help` also best-effort reassert the current webhook URL, secret and allowed update types, so Telegram-native controls can self-heal after a deployment. Telegram can point a bot to only one webhook at a time. Keep the Cloudflare assistant on a separate BotFather bot from the Hermes polling bot.
+
+### Enable Telegram inline mode
+
+Inline mode itself is a BotFather capability and cannot be enabled through the Bot API. In `@BotFather`, run `/setinline`, choose `@trvny_bot`, and set a placeholder such as `Zapytaj Botka…`. Then send `/start` to Botek once so the Worker reasserts the webhook update types. Inline queries are owner-only and stateless. A small Durable Object debounce keeps superseded keystroke queries from fanning out model calls, while an inline-specific short router/fallback deadline keeps answers inside Telegram's query lifetime. The generated answer is sent only after the owner taps the result. Runtime webhook sync and the setup helper both read allowed update types from `telegram-config.json`.
 
 ## Cloudflare Workers Builds
 

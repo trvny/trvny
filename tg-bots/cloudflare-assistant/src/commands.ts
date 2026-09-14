@@ -9,6 +9,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "help", usage: "/help", description: "Pokaż dostępne komendy" },
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
+  { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "reset", usage: "/reset", description: "Wyczyść krótki kontekst rozmowy" },
 ];
 

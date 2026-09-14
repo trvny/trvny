@@ -11,6 +11,12 @@
       "binding": "KANAREK_COMPANION",
       "service": "kanarek-companion",
       "remote": true
+    },
+    {
+      "binding": "PET_DISPATCHER",
+      "service": "pet-dispatcher-control",
+      "entrypoint": "TelegramAssistantEntrypoint",
+      "remote": true
     }
   ],
   "queues": {

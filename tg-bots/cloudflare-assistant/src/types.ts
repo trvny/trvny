@@ -15,6 +15,15 @@ export type QueueBinding<T> = {
   send(body: T): Promise<void>;
 };
 
+export type PetDispatcherRpcResult = { status: number; body: unknown };
+
+export type PetDispatcherBinding = {
+  meta(): Promise<{ deviceId: string; transport: string; protocol: number }>;
+  delegate(task: unknown, idempotencyKey?: string): Promise<PetDispatcherRpcResult>;
+  getTask(taskId: string): Promise<PetDispatcherRpcResult>;
+  cancelTask(taskId: string): Promise<PetDispatcherRpcResult>;
+};
+
 export type QueueMessage<T> = {
   body: T;
   ack(): void;
@@ -125,6 +134,7 @@ export type TelegramUpdateRecord = {
 export type Env = {
   AI: AiBinding;
   KANAREK_COMPANION: FetcherBinding;
+  PET_DISPATCHER?: PetDispatcherBinding;
   TELEGRAM_UPDATES: QueueBinding<TelegramUpdate>;
   TELEGRAM_DLQ: QueueBinding<TelegramDeadLetter>;
   TELEGRAM_DEDUP: DurableObjectNamespaceLike;

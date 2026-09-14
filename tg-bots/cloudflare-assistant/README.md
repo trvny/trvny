@@ -13,6 +13,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - bounded per-chat conversation context for ordinary messages;
 - native Telegram reply-to behavior plus ephemeral native thinking drafts with typing fallback for model-backed replies;
 - inline `/status` refresh button backed by Telegram callback queries and message editing;
+- native clipboard button on short `/draft` suggestions;
 - owner voice notes transcribed with Workers AI Whisper before normal assistant routing;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;

@@ -17,6 +17,7 @@ import {
   parseTelegramUpdate,
   sendTelegramMessage,
   sendTelegramThinking,
+  setTelegramMessageReaction,
   syncTelegramCommandMenu,
   syncTelegramWebhook,
   TELEGRAM_MESSAGE_MAX_CHARS,
@@ -501,6 +502,19 @@ function terminalDedup(state: TelegramUpdateRecord | null): boolean {
   return Boolean(state && (state.status === "sent" || state.status === "failed" || state.status === "ambiguous"));
 }
 
+function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; messageId: number } | null {
+  const message = update.message;
+  if (
+    !message?.from ||
+    message.chat.type !== "private" ||
+    String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
+  ) return null;
+  const text = message.text?.trim() ?? "";
+  if (["/start", "/help", "/reset", "/status", "/draft"].includes(text)) return null;
+  if (!text && !message.voice) return null;
+  return { chatId: message.chat.id, messageId: message.message_id };
+}
+
 async function processQueuedTelegram(
   env: Env,
   message: QueueBatch<TelegramUpdate>["messages"][number],
@@ -522,6 +536,11 @@ async function processQueuedTelegram(
 
   if (!state && update.callback_query?.id) {
     await answerTelegramCallbackQuery(env, update.callback_query.id);
+  }
+
+  const reaction = reactionTarget(env, update);
+  if (reaction) {
+    await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "👀");
   }
 
   let reply = state?.reply;
@@ -596,6 +615,10 @@ async function processQueuedTelegram(
     }
     message.ack();
     return;
+  }
+
+  if (reaction) {
+    await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "👍", true);
   }
 
   try {

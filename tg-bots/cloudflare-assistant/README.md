@@ -8,7 +8,8 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - durable Telegram update delivery through Cloudflare Queues;
 - persistent `update_id` state in a SQLite Durable Object;
 - dead-letter queue for exhausted or non-replayable Telegram deliveries;
-- `/help`, `/status`, `/draft <message>`, and `/reset`;
+- /help, /status, /draft <message>, and /reset;
+- /start and /help self-sync the owner-scoped Telegram command list and command menu from code;
 - bounded per-chat conversation context for ordinary messages;
 - native Telegram reply-to behavior plus best-effort typing indicators for model-backed replies;
 - owner voice notes transcribed with Workers AI Whisper before normal assistant routing;

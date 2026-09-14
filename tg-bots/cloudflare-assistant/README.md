@@ -20,6 +20,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
 - owner voice notes transcribed with Workers AI Whisper before normal assistant routing;
 - owner-shared locations, venues, contacts and polls normalized into bounded assistant context;
+- owner-shared text/code documents downloaded transiently with strict size/type bounds and injected as untrusted document data;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;
 - `POST /ingest/rss` for Feedseek/RSS curation;
@@ -239,6 +240,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - photos are capped at 5 MB, analyzed transiently, and only bounded text from the vision pass enters short conversation memory; image bytes are not persisted;
 - shared locations, venues and contacts are normalized to bounded text; contact vCards and third-party metadata are not injected into the model context;
 - shared polls are normalized to bounded question/options/vote context;
+- text/code documents are capped at 512 KB, decoded as UTF-8, clipped before model use, and never persisted as raw file bytes;
 - RSS input and curator output lengths are bounded;
 - RSS ingestion has a separate bearer secret;
 - free-provider API keys stay in the private `kanarek-review` Worker, not this Worker;

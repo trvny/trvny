@@ -210,7 +210,7 @@ export async function sendTelegramThinking(
 
 async function telegramDelivery(
   env: Env,
-  method: "sendMessage" | "editMessageText",
+  method: "sendMessage" | "sendRichMessage" | "editMessageText",
   body: Record<string, unknown>,
   acceptNotModified = false,
 ): Promise<void> {
@@ -283,6 +283,42 @@ export async function sendTelegramMessage(
       : {}),
     ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
   });
+}
+
+export async function sendTelegramRichMessage(
+  env: Env,
+  chatId: string | number,
+  markdown: string,
+  options: { replyToMessageId?: number; replyMarkup?: TelegramInlineKeyboardMarkup } = {},
+): Promise<void> {
+  const text = markdown.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+  try {
+    await telegramDelivery(env, "sendRichMessage", {
+      chat_id: chatId,
+      rich_message: { markdown: text },
+      ...(options.replyToMessageId !== undefined
+        ? {
+            reply_parameters: {
+              message_id: options.replyToMessageId,
+              allow_sending_without_reply: true,
+            },
+          }
+        : {}),
+      ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+    });
+  } catch (error) {
+    if (
+      error instanceof TelegramSendError &&
+      error.status === 400 &&
+      !error.retryable &&
+      !error.ambiguous
+    ) {
+      console.warn("Telegram rejected rich Markdown; falling back to plain sendMessage");
+      await sendTelegramMessage(env, chatId, text, options);
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function answerTelegramInlineQuery(

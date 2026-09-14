@@ -166,6 +166,7 @@ export type TelegramReply = {
   editMessageId?: number;
   replyMarkup?: TelegramInlineKeyboardMarkup;
   memoryTurn?: TelegramMemoryTurn;
+  finalReaction?: "👍" | "👎" | "🤨";
 };
 
 export type TelegramDeadLetter = {

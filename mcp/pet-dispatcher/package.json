@@ -11,7 +11,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:portable && npm run test:sandbox",
-    "test:portable": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/agent-tools.test.ts tests/hardening.test.ts tests/remote-cleanup.test.ts tests/remote.test.ts tests/remote-followup.test.ts tests/remote-direct.test.ts",
+    "test:portable": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/agent-tools.test.ts tests/hardening.test.ts tests/remote-cleanup.test.ts tests/router.test.ts tests/remote.test.ts tests/remote-followup.test.ts tests/remote-direct.test.ts",
     "test:sandbox": "tsx --test tests/sandbox.integration.test.ts",
     "check": "npm run typecheck && npm test && npm run control:check",
     "check:portable": "npm run typecheck && npm run test:portable && npm run control:check",

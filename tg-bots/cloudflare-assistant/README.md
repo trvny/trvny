@@ -19,6 +19,35 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 
 Engram-backed long-term memory, Telegram Business reply assistance, and Hermes handoff are deliberately left for later slices rather than faked into the MVP.
 
+## Roadmap
+
+The long-term goal is to make Botek both a capable personal agent and a first-class Telegram bot. These are two parallel tracks, not competing implementations. Keep Cloudflare as the cheap always-on edge and reuse existing infrastructure instead of cloning it.
+
+### Agent brain and integrations
+
+- **Long-term memory** — add explicit remember/forget flows and Engram-backed retrieval on top of the current short conversation window.
+- **Hermes / Legion handoff** — delegate heavyweight repo, build, test, Android and local-tool work through the existing Pet Dispatcher control plane, then report progress and results back to Telegram.
+- **Tool routing** — let ordinary language invoke GitHub/GPTomek, Cloudflare/status checks, Feedseek/RSS, web/search and other approved tools without requiring a command for every capability.
+- **Proactive assistance** — deliver useful digests and alerts such as important RSS items, CI failures, completed Legion tasks and service incidents without turning the bot into notification sludge.
+- **Multimodal work** — accept voice notes, images, screenshots, documents and other Telegram attachments, with transcription/vision/document handling routed to the appropriate backend.
+- **Task UX** — expose active/delegated work through commands such as `/tasks`, status updates, cancellation and result retrieval.
+
+Suggested order: Hermes/Legion handoff → long-term memory → multimodal input → tool routing → proactive workflows.
+
+### Telegram-native experience
+
+- **Native chat UX** — use typing indicators, replies to the originating message, Telegram-native formatting and message editing instead of emitting a trail of status messages.
+- **Inline keyboards and callbacks** — add compact action buttons for confirmations, task controls, model choices, retries and other frequent interactions.
+- **Command/menu synchronization** — manage BotFather-style commands and scopes from code so the visible Telegram command set stays in sync with the Worker.
+- **Reactions and lightweight feedback** — use reactions where they communicate state better than another message.
+- **Inline mode** — support `@trvny_bot ...` from other chats for quick summarize/translate/ask flows without opening the Botek conversation.
+- **Media features** — make Telegram voice notes, photos, files, locations, contacts and polls usable inputs where they meaningfully improve a workflow.
+- **Groups, topics and Business** — later extend the owner-only core to deliberate group/topic or Telegram Business workflows, retaining explicit approval boundaries for third-party replies.
+- **Mini App** — eventually expose a Telegram-native Botek dashboard for Memory, Tasks, GitHub, Feeds, Models, Legion and service status, launched from the bot profile/menu; selectively use Telegram-native Mini App capabilities such as theme integration, QR scanning, device storage or biometrics when a workflow actually benefits from them.
+
+Suggested order: typing/replies/formatting/buttons → callbacks/editing/reactions → inline mode → richer media → Mini App and broader Telegram surfaces.
+
+The two tracks should converge: a Telegram-native control surface on top of one maintained Botek brain, not a pile of separate command handlers and parallel backends.
 ## Reused infrastructure
 
 This Worker intentionally does not own another copy of the free-provider stack.

@@ -72,4 +72,4 @@ $env:PET_DISPATCHER_SIGNING_SECRET = '<same HMAC secret as Cloudflare>'
 npm run remote
 ```
 
-For the control plane, create the Queue, set `CONTROL_PLANE_TOKEN` and `TASK_SIGNING_SECRET` as Worker secrets, deploy `control-plane/wrangler.jsonc`, then enable the HTTP pull consumer. `npm run control:check` validates the Worker bundle without deploying it.
+For the control plane, create the Queue, set `CONTROL_PLANE_TOKEN` and `TASK_SIGNING_SECRET` as Worker secrets, deploy `control-plane/wrangler.jsonc`, then enable the HTTP pull consumer. `TELEGRAM_ASSISTANT_TOKEN` is an optional separate bearer for Botek: it can delegate only `inspect`/`code` agent tasks with default capabilities and `network=none`, read task state, cancel tasks, and read limited metadata, but cannot call `/v1/tool` or request direct/publish/custom-capability work. `npm run control:check` validates the Worker bundle without deploying it.

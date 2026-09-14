@@ -210,7 +210,7 @@ export async function sendTelegramThinking(
 
 async function telegramDelivery(
   env: Env,
-  method: "sendMessage" | "sendRichMessage" | "editMessageText",
+  method: "sendMessage" | "sendRichMessage" | "sendPoll" | "editMessageText",
   body: Record<string, unknown>,
   acceptNotModified = false,
 ): Promise<void> {
@@ -261,6 +261,21 @@ async function telegramDelivery(
       ? Math.max(1, Math.ceil(retryAfter))
       : undefined,
   );
+}
+
+export async function sendTelegramPoll(
+  env: Env,
+  chatId: string | number,
+  question: string,
+  options: string[],
+): Promise<void> {
+  await telegramDelivery(env, "sendPoll", {
+    chat_id: chatId,
+    question,
+    options: options.map((text) => ({ text })),
+    is_anonymous: false,
+    type: "regular",
+  });
 }
 
 export async function sendTelegramMessage(

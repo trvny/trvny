@@ -18,7 +18,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - native clipboard button on short `/draft` suggestions;
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
-- owner voice notes transcribed with Workers AI Whisper before normal assistant routing;
+- owner voice notes and bounded audio uploads transcribed with Workers AI Whisper before normal assistant routing;
 - owner-shared locations, venues, contacts and polls normalized into bounded assistant context;
 - `/poll question | option 1 | option 2` sends a native non-anonymous Telegram poll with 2–12 options;
 - `/location`, `/venue` and `/contact` send native Telegram structured messages from bounded owner-only command input;
@@ -238,7 +238,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - missing webhook/ingest secrets fail closed;
 - chat accepts only `OWNER_TELEGRAM_USER_ID` in a private chat;
 - Telegram and RSS request bodies are bounded before parsing/model use;
-- voice notes are capped at 3 minutes / 2 MB, transcribed transiently, and only the bounded transcript enters short conversation memory;
+- voice notes are capped at 3 minutes / 2 MB; audio uploads are capped at 10 minutes / 5 MB; both are transcribed transiently and only bounded transcript context enters short conversation memory;
 - photos are capped at 5 MB, analyzed transiently, and only bounded text from the vision pass enters short conversation memory; image bytes are not persisted;
 - shared locations, venues and contacts are normalized to bounded text; contact vCards and third-party metadata are not injected into the model context;
 - shared polls are normalized to bounded question/options/vote context;

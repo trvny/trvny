@@ -38,9 +38,14 @@ test("MCP surface initializes and exposes the confined tool set", async () => {
     const content = (status as { content?: Array<{ type: string; text?: string }> }).content ?? [];
     const text = content.find((part) => part.type === "text");
     assert.equal(text?.type, "text");
-    const body = JSON.parse(text?.text ?? "{}") as { sandbox?: { networkModes?: Record<string, boolean> } };
+    const body = JSON.parse(text?.text ?? "{}") as {
+      sandbox?: { networkModes?: Record<string, boolean> };
+      routing?: { preferred?: { direct?: string[] }; executors?: Array<{ id?: string }> };
+    };
     assert.equal(body.sandbox?.networkModes?.brokered, true);
     assert.equal(body.sandbox?.networkModes?.restricted, false);
+    assert.deepEqual(body.routing?.preferred?.direct, ["direct"]);
+    assert.equal(body.routing?.executors?.some(({ id }) => id === "direct"), true);
   } finally {
     await client.close();
     await server.close();

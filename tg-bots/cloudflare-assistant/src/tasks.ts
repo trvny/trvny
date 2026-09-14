@@ -24,10 +24,12 @@ function rpcBody<T>(result: { status: number; body: unknown }): T {
   return result.body as T;
 }
 export function parseTaskCommand(text: string): { repo: string; goal: string } | null {
-  const match = text.match(/^\/task\s+(\S+)\s+([\s\S]+)$/u);
-  if (!match) return null;
-  const repo = match[1]?.trim() ?? "";
-  const goal = match[2]?.trim() ?? "";
+  if (!text.startsWith("/task ")) return null;
+  const rest = text.slice("/task ".length).trim();
+  const separator = rest.indexOf(" ");
+  if (separator <= 0) return null;
+  const repo = rest.slice(0, separator);
+  const goal = rest.slice(separator + 1).trim();
   if (!/^[A-Za-z0-9._/-]{1,128}$/u.test(repo) || !goal) return null;
   return { repo, goal: goal.slice(0, 20_000) };
 }

@@ -10,6 +10,7 @@ import {
   isTelegramWebhook,
   parseTelegramUpdate,
   sendTelegramMessage,
+  sendTelegramTyping,
   TELEGRAM_MESSAGE_MAX_CHARS,
   TelegramConfigurationError,
   TelegramSendError,
@@ -106,6 +107,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   if (text === "/start" || text === "/help") {
     return {
       chatId: message.chat.id,
+      replyToMessageId: message.message_id,
       text: [
         "Cloudflare assistant online.",
         "",
@@ -119,7 +121,11 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
 
   if (text === "/reset") {
     await clearConversation(env, message.chat.id);
-    return { chatId: message.chat.id, text: "Kontekst rozmowy wyczyszczony." };
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Kontekst rozmowy wyczyszczony.",
+    };
   }
 
   if (text === "/status") {
@@ -128,6 +134,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       : "Kanarek free router: token not configured";
     return {
       chatId: message.chat.id,
+      replyToMessageId: message.message_id,
       text: `Provider chain:\n${router}\nEmergency fallback: Workers AI (${env.WORKERS_AI_MODEL})`,
     };
   }
@@ -142,6 +149,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     const history = isDraft
       ? { messages: [], generation: null }
       : await conversationHistory(env, message.chat.id);
+    await sendTelegramTyping(env, message.chat.id);
     const result = await chatWithFallback(env, [
       { role: "system", content: system },
       ...history.messages,
@@ -151,6 +159,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     const assistant = result.text.slice(0, Math.max(0, TELEGRAM_MESSAGE_MAX_CHARS - footer.length));
     return {
       chatId: message.chat.id,
+      replyToMessageId: message.message_id,
       text: `${assistant}${footer}`.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
       ...(!isDraft && history.generation !== null
         ? { memoryTurn: { user: prompt, assistant, generation: history.generation } }
@@ -160,6 +169,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     console.error("Telegram reply generation failed", error);
     return {
       chatId: message.chat.id,
+      replyToMessageId: message.message_id,
       text: "Nie udało się przygotować odpowiedzi. Spróbuj za chwilę.",
     };
   }
@@ -392,7 +402,9 @@ async function processQueuedTelegram(
 
   await dedupTransition(env, update.update_id, "sending");
   try {
-    await sendTelegramMessage(env, reply.chatId, reply.text);
+    await sendTelegramMessage(env, reply.chatId, reply.text, {
+      replyToMessageId: reply.replyToMessageId,
+    });
   } catch (error) {
     if (error instanceof TelegramSendError) {
       if (error.ambiguous) {

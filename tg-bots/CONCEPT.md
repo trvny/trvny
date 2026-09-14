@@ -89,6 +89,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - shared free-model router with local Workers AI fallback;
 - `/draft`, `/status`, `/help` and `/reset`;
 - bounded recent conversation context with reset generations;
+- native reply-to delivery and typing indicators for model-backed replies;
 - Feedseek/RSS curation endpoint;
 - health/status endpoint.
 
@@ -106,7 +107,7 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 
 ### Track B: Telegram-native experience
 
-1. **Native chat UX** — typing indicators, replies to the originating message, Telegram formatting and message editing instead of chains of status messages.
+1. **Native chat UX** — reply-to delivery and typing indicators are implemented; add Telegram formatting and message editing instead of chains of status messages.
 2. **Inline keyboards and callbacks** — compact buttons for confirmations, task controls, model choices, retries and other frequent actions.
 3. **Command/menu synchronization** — manage Telegram commands, scopes and localization from code so BotFather-visible commands stay aligned with the Worker.
 4. **Reactions and lightweight feedback** — use reactions when they communicate state better than another message.

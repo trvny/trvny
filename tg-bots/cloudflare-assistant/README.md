@@ -15,6 +15,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - best-effort native reactions acknowledge model-backed owner messages (`👀` while working, `👍` after successful delivery);
 - inline `/status` refresh button backed by Telegram callback queries and message editing;
 - native clipboard button on short `/draft` suggestions;
+- `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;
 - owner voice notes transcribed with Workers AI Whisper before normal assistant routing;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;

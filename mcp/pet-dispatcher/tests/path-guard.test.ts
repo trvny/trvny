@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { lstat, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -40,7 +40,7 @@ test("allows creating a file only below an existing in-root parent", async () =>
   try {
     await mkdir(join(root, "nested"));
     const target = await resolveForCreate(root, "nested/new.txt");
-    assert.equal(target, join(root, "nested", "new.txt"));
+    assert.equal(target, join(await realpath(root), "nested", "new.txt"));
     await assert.rejects(resolveForCreate(root, "../new.txt"), /escapes/);
   } finally { await rm(base, { recursive: true, force: true }); }
 });

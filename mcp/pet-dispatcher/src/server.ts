@@ -7,6 +7,7 @@ import type { CommandRunner } from "./sandbox.js";
 import { AgentTools } from "./agent-tools.js";
 import { NetworkBroker } from "./network.js";
 import { runGemini, runOpenRouter } from "./providers.js";
+import { probeRouting } from "./agent-router.js";
 import {
   deleteWorkspace, listWorkspace, mkdirWorkspace, moveWorkspace, patchWorkspace,
   readWorkspace, statWorkspace, writeWorkspace,
@@ -42,17 +43,21 @@ export function createServer(config: DispatcherConfig, sessions: SessionManager,
   server.registerTool("security_status", {
     description: "Report the local sandbox backend, configured repositories and provider availability.",
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async () => response({
-    sandbox: runner.securityStatus(),
-    repositories: Object.keys(config.repositories).sort(),
-    providers: {
-      openrouter: Boolean(process.env.OPENROUTER_API_KEY),
-      gemini: Boolean(process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY),
-      claude: "planned adapter; not exposed by the Phase 1 worker",
-    },
-    networkProfiles: broker.profileNames(),
-    git: await git.probe(),
-  }));
+  }, async () => {
+    const routing = await probeRouting();
+    const backends = new Map(routing.backends.map((backend) => [backend.id, backend.availability]));
+    return response({
+      sandbox: runner.securityStatus(),
+      repositories: Object.keys(config.repositories).sort(),
+      providers: {
+        openrouter: backends.get("openrouter") === "available",
+        gemini: backends.get("gemini") === "available",
+      },
+      routing,
+      networkProfiles: broker.profileNames(),
+      git: await git.probe(),
+    });
+  });
 
   server.registerTool("open_session", {
     description: "Create one isolated writable checkout for a configured repository. Host paths are never accepted.",

@@ -12,6 +12,7 @@ export const remoteCapabilitySchema = z.enum([
   "adb.install",
   "github.pr.create",
 ]);
+export type RemoteCapability = z.infer<typeof remoteCapabilitySchema>;
 
 export const remoteNetworkSchema = z.object({
   mode: z.enum(["none", "brokered"]).default("none"),

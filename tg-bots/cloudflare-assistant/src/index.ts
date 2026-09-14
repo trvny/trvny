@@ -1,6 +1,7 @@
 import { botCommandPayload, botHelpLines } from "./commands";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { TelegramUpdateDedup } from "./dedup";
+import { TelegramInlineQueryGate } from "./inline";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import {
   cancelBotekTask,
@@ -46,7 +47,7 @@ import type {
   TelegramUpdateRecord,
 } from "./types";
 
-export { TelegramConversationMemory, TelegramUpdateDedup };
+export { TelegramConversationMemory, TelegramInlineQueryGate, TelegramUpdateDedup };
 
 const RSS_BODY_MAX_BYTES = 64 * 1024;
 const DEFAULT_RSS_MIN_SCORE = 75;
@@ -84,6 +85,10 @@ function providerPoolLines(pool: Awaited<ReturnType<typeof kanarekProviderPoolSt
     }),
   ];
 }
+
+const HELP_KEYBOARD: TelegramInlineKeyboardMarkup = {
+  inline_keyboard: [[{ text: "✨ Użyj Botka w innym czacie", switch_inline_query: "" }]],
+};
 
 const STATUS_KEYBOARD: TelegramInlineKeyboardMarkup = {
   inline_keyboard: [[{ text: "🔄 Odśwież", callback_data: "status:refresh" }]],
@@ -158,6 +163,21 @@ async function appendConversation(env: Env, chatId: string | number, reply: Tele
   if (!response.ok) throw new Error(`conversation append failed: HTTP ${response.status}`);
 }
 
+function inlineQueryStub(env: Env, userId: number) {
+  return env.TELEGRAM_INLINE.get(env.TELEGRAM_INLINE.idFromName(String(userId)));
+}
+
+async function enqueueTelegramInlineQuery(env: Env, update: TelegramUpdate): Promise<void> {
+  const inline = update.inline_query;
+  if (!inline) return;
+  const response = await inlineQueryStub(env, inline.from.id).fetch("https://inline/enqueue", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ updateId: update.update_id, query: inline }),
+  });
+  if (!response.ok) throw new Error(`inline query enqueue failed: HTTP ${response.status}`);
+}
+
 async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<TelegramReply | null> {
   const callback = update.callback_query;
   if (callback) {
@@ -216,7 +236,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   const text = message.text?.trim() ?? "";
   if (!text && !message.voice) return null;
 
-  if (text === "/start" || text === "/help") {
+  if (text === "/start" || text.startsWith("/start ") || text === "/help") {
     try {
       await syncTelegramCommandMenu(env, message.chat.id, botCommandPayload());
     } catch (error) {
@@ -232,7 +252,9 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         "",
         "Wyślij głosówkę - przepiszę ją i odpowiem.",
         "Każdy inny tekst - zwykła rozmowa z krótką pamięcią kontekstu.",
+        "Inline: wpisz @trvny_bot w dowolnym czacie i dodaj pytanie.",
       ].join("\n"),
+      replyMarkup: HELP_KEYBOARD,
     };
   }
 
@@ -712,8 +734,18 @@ export default {
         return invalidBody(error);
       }
 
+      if (update.inline_query) {
+        try {
+          await enqueueTelegramInlineQuery(env, update);
+        } catch (error) {
+          console.error("Telegram inline query enqueue failed", error);
+          return new Response("Service unavailable", { status: 503 });
+        }
+        return new Response("OK");
+      }
+
       const controlCommand = update.message?.text?.trim();
-      if (controlCommand === "/start" || controlCommand === "/help") {
+      if (controlCommand === "/start" || controlCommand?.startsWith("/start ") || controlCommand === "/help") {
         try {
           await syncTelegramWebhook(env, `${url.origin}/telegram/webhook`);
         } catch (error) {

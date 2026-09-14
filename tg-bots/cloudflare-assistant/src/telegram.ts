@@ -1,8 +1,15 @@
+import telegramConfig from "../telegram-config.json";
 import { readJsonWithLimit } from "./http";
-import type { Env, TelegramInlineKeyboardMarkup, TelegramUpdate } from "./types";
+import type {
+  Env,
+  TelegramInlineKeyboardMarkup,
+  TelegramInlineQueryResultArticle,
+  TelegramUpdate,
+} from "./types";
 
 const TELEGRAM_API = "https://api.telegram.org";
 export const TELEGRAM_MESSAGE_MAX_CHARS = 4096;
+export const TELEGRAM_ALLOWED_UPDATES = telegramConfig.allowedUpdates;
 const TELEGRAM_UPDATE_MAX_BYTES = 256 * 1024;
 
 type TelegramErrorPayload = {
@@ -127,7 +134,7 @@ export async function syncTelegramWebhook(env: Env, webhookUrl: string): Promise
     body: JSON.stringify({
       url: webhookUrl,
       secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-      allowed_updates: ["message", "callback_query"],
+      allowed_updates: TELEGRAM_ALLOWED_UPDATES,
     }),
   });
   if (!response.ok) {
@@ -276,6 +283,33 @@ export async function sendTelegramMessage(
       : {}),
     ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
   });
+}
+
+export async function answerTelegramInlineQuery(
+  env: Env,
+  inlineQueryId: string,
+  results: TelegramInlineQueryResultArticle[],
+  button?: { text: string; start_parameter: string },
+): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
+  }
+  const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/answerInlineQuery`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      inline_query_id: inlineQueryId,
+      results,
+      cache_time: 0,
+      is_personal: true,
+      next_offset: "",
+      ...(button ? { button } : {}),
+    }),
+  });
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 240);
+    throw new Error(`Telegram answerInlineQuery failed: HTTP ${response.status} ${detail}`);
+  }
 }
 
 export async function answerTelegramCallbackQuery(

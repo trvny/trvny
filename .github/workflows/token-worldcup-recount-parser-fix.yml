@@ -1,0 +1,40 @@
+name: Token worldcup recount parser fix
+
+on:
+  push:
+    branches:
+      - feat/token-worldcup-claude-toggle
+    paths:
+      - ".github/workflows/token-worldcup-recount-parser-fix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Repair parser and verify dry run
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('token-worldcup/recount-claude-tokens.py')
+          s = p.read_text(encoding='utf-8')
+          old = 'm = re.search(r"const data=(\\[.*?\\]);const base=", src, re.S)'
+          new = 'm = re.search(r"const data=(\\[.*?\\]);", src, re.S)'
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one parser anchor, got {s.count(old)}')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+          python token-worldcup/recount-claude-tokens.py --dry-run >/tmp/recount.txt
+          grep -q "Polish" /tmp/recount.txt
+          python -m py_compile token-worldcup/recount-claude-tokens.py
+          git diff --check
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add token-worldcup/recount-claude-tokens.py
+          git commit -m "fix(token-worldcup): keep Claude recount parser compatible"
+          git push origin HEAD:feat/token-worldcup-claude-toggle

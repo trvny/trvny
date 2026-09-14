@@ -1,0 +1,42 @@
+name: Pet Dispatcher CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mcp/pet-dispatcher/**"
+      - ".github/workflows/pet-dispatcher-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mcp/pet-dispatcher/**"
+      - ".github/workflows/pet-dispatcher-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pet-dispatcher-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mcp/pet-dispatcher
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mcp/pet-dispatcher/package-lock.json
+
+      - run: npm ci
+      - run: npm run check

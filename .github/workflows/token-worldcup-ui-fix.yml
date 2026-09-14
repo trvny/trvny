@@ -1,0 +1,61 @@
+name: Token worldcup UI fix
+
+on:
+  push:
+    branches: [feat/token-worldcup-claude-toggle]
+    paths: [.github/workflows/token-worldcup-ui-fix.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Fix ranking metric and accessibility
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('token-worldcup/token-worldcup.qmd')
+          s=p.read_text(encoding='utf-8')
+          old="""        const rows=ordered(),values=rows.map(r=>stat(r).tokens),min=Math.min(...values),max=Math.max(...values),span=Math.max(max-min,1);
+        ranking.replaceChildren();
+        rows.forEach(row=>{
+          const s=stat(row),button=document.createElement('button');
+          button.type='button';button.className='rank-row';button.dataset.lang=row.name;button.setAttribute('aria-pressed',String(row.name===selected));
+          const width=24+76*(s.tokens-min)/span,value=mode==='tokens'?`${s.tokens} tok`:`${signed(s.overhead)}`;
+          button.innerHTML=`<span class=\"rank-no\">${placeText(s)}</span><span class=\"rank-name\">${row.name}</span><span class=\"track\"><span class=\"bar\" style=\"width:${width.toFixed(1)}%\"></span></span><span class=\"rank-value\">${value}</span>`;"""
+          new="""        const rows=ordered(),metrics=rows.map(r=>{const s=stat(r);return mode==='tokens'?s.tokens:Math.abs(s.overhead)}),max=Math.max(...metrics,1);
+        ranking.replaceChildren();
+        rows.forEach(row=>{
+          const s=stat(row),button=document.createElement('button'),metric=mode==='tokens'?s.tokens:Math.abs(s.overhead);
+          button.type='button';button.className='rank-row';button.dataset.lang=row.name;button.setAttribute('aria-pressed',String(row.name===selected));
+          button.setAttribute('aria-label',`${row.name}: ${s.tokens} tokenów, ${signed(s.overhead)} względem angielskiego, ${s.tied?'miejsce '+s.rank+' (remis)':'miejsce '+s.rank}, ${spec().label}`);
+          const width=metric/max*100,value=mode==='tokens'?`${s.tokens} tok`:`${signed(s.overhead)}`;
+          button.innerHTML=`<span class=\"rank-no\">${placeText(s)}</span><span class=\"rank-name\">${row.name}</span><span class=\"track\" aria-hidden=\"true\"><span class=\"bar\" style=\"width:${width.toFixed(1)}%\"></span></span><span class=\"rank-value\">${value}</span>`;"""
+          if s.count(old)!=1: raise SystemExit(f'expected one ranking block, got {s.count(old)}')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 1.10.18
+      - name: Render and validate
+        run: |
+          quarto render token-worldcup/token-worldcup.qmd
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('token-worldcup/token-worldcup.qmd').read_text(encoding='utf-8')
+          js=next(x for x in re.findall(r'<script>(.*?)</script>',s,re.S) if 'const SOURCES=' in x)
+          Path('/tmp/worldcup.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/worldcup.js
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add token-worldcup/token-worldcup.qmd token-worldcup/token-worldcup.html
+          git commit -m "temp: fix tokenizer ranking UI"
+          git push origin HEAD:feat/token-worldcup-claude-toggle

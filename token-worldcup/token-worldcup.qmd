@@ -93,13 +93,13 @@ format:
       }
 
       function renderRanking(){
-        const rows=ordered(),values=rows.map(r=>stat(r).tokens),min=Math.min(...values),max=Math.max(...values),span=Math.max(max-min,1);
+        const rows=ordered(),metrics=rows.map(r=>{const s=stat(r);return mode==='tokens'?s.tokens:Math.abs(s.overhead)}),max=Math.max(...metrics,1);
         ranking.replaceChildren();
         rows.forEach(row=>{
-          const s=stat(row),button=document.createElement('button');
-          button.type='button';button.className='rank-row';button.dataset.lang=row.name;button.setAttribute('aria-pressed',String(row.name===selected));
-          const width=24+76*(s.tokens-min)/span,value=mode==='tokens'?`${s.tokens} tok`:`${signed(s.overhead)}`;
-          button.innerHTML=`<span class="rank-no">${placeText(s)}</span><span class="rank-name">${row.name}</span><span class="track"><span class="bar" style="width:${width.toFixed(1)}%"></span></span><span class="rank-value">${value}</span>`;
+          const s=stat(row),button=document.createElement('button'),metric=mode==='tokens'?s.tokens:Math.abs(s.overhead);
+          button.type='button';button.className='rank-row';button.dataset.lang=row.name;button.setAttribute('aria-pressed',String(row.name===selected));button.setAttribute('aria-label',`${row.name}: ${s.tokens} tokenów, ${signed(s.overhead)} względem angielskiego, ${s.tied?'miejsce '+s.rank+' (remis)':'miejsce '+s.rank}, ${spec().label}`);
+          const width=metric/max*100,value=mode==='tokens'?`${s.tokens} tok`:`${signed(s.overhead)}`;
+          button.innerHTML=`<span class="rank-no">${placeText(s)}</span><span class="rank-name">${row.name}</span><span class="track" aria-hidden="true"><span class="bar" style="width:${width.toFixed(1)}%"></span></span><span class="rank-value">${value}</span>`;
           button.addEventListener('click',()=>{selected=row.name;renderRanking();showSelected(row)});
           ranking.appendChild(button);
         });

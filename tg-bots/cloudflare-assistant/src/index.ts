@@ -1,3 +1,4 @@
+import { botCommandPayload, botHelpLines } from "./commands";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { TelegramUpdateDedup } from "./dedup";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
@@ -13,6 +14,7 @@ import {
   parseTelegramUpdate,
   sendTelegramMessage,
   sendTelegramTyping,
+  syncTelegramCommandMenu,
   TELEGRAM_MESSAGE_MAX_CHARS,
   TelegramConfigurationError,
   TelegramSendError,
@@ -111,17 +113,21 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   if (!text && !message.voice) return null;
 
   if (text === "/start" || text === "/help") {
+    try {
+      await syncTelegramCommandMenu(env, message.chat.id, botCommandPayload());
+    } catch (error) {
+      console.warn("Telegram command/menu sync failed", error);
+    }
     return {
       chatId: message.chat.id,
       replyToMessageId: message.message_id,
       text: [
         "Cloudflare assistant online.",
         "",
-        "/status — provider chain",
-        "/draft <tekst> — przygotuj odpowiedź, niczego nie wysyłaj",
-        "/reset — wyczyść kontekst rozmowy",
-        "Wyślij głosówkę — przepiszę ją i odpowiem.",
-        "Każdy inny tekst — zwykła rozmowa z krótką pamięcią kontekstu.",
+        ...botHelpLines(),
+        "",
+        "Wyślij głosówkę - przepiszę ją i odpowiem.",
+        "Każdy inny tekst - zwykła rozmowa z krótką pamięcią kontekstu.",
       ].join("\n"),
     };
   }

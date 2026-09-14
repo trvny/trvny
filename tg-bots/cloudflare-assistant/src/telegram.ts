@@ -84,6 +84,38 @@ export async function downloadTelegramFile(
   return buffer;
 }
 
+export async function syncTelegramCommandMenu(
+  env: Env,
+  chatId: number,
+  commands: Array<{ command: string; description: string }>,
+): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
+  }
+
+  const calls = [
+    {
+      method: "setMyCommands",
+      body: { commands, scope: { type: "chat", chat_id: chatId } },
+    },
+    {
+      method: "setChatMenuButton",
+      body: { chat_id: chatId, menu_button: { type: "commands" } },
+    },
+  ] as const;
+
+  for (const call of calls) {
+    const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/${call.method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(call.body),
+    });
+    if (!response.ok) {
+      throw new Error(`Telegram ${call.method} failed: HTTP ${response.status}`);
+    }
+  }
+}
+
 export async function sendTelegramTyping(env: Env, chatId: string | number): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) return;
   try {

@@ -279,7 +279,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       };
     }
     try {
-      const task = await delegateBotekTask(env, taskRequest.repo, taskRequest.goal);
+      const task = await delegateBotekTask(env, taskRequest.repo, taskRequest.goal, update.update_id);
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,

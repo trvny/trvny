@@ -48,6 +48,15 @@ function deviceId(env: Env): string {
   return env.DEVICE_ID;
 }
 
+async function idempotentTaskId(key: string): Promise<string> {
+  const normalized = z.string().min(1).max(200).parse(key);
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized)));
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x50;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = [...bytes.slice(0, 16)].map((value) => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
 async function readBody(request: Request): Promise<string> {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) throw new Error("request body is too large");
@@ -215,9 +224,19 @@ async function workerAuthorized(request: Request, env: Env, body: string): Promi
   );
 }
 
-async function enqueueTask(task: RemoteTask, env: Env): Promise<Response> {
+async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string): Promise<Response> {
   const now = Date.now();
-  const taskId = crypto.randomUUID();
+  const taskId = stableTaskId ?? crypto.randomUUID();
+  if (stableTaskId) {
+    const existingResponse = await readState(env, taskId);
+    if (existingResponse.ok) {
+      const existing = remoteTaskStateSchema.parse(await existingResponse.json());
+      return json({ taskId, status: existing.status }, 202);
+    }
+    if (existingResponse.status !== 404) {
+      throw new Error(`failed to check idempotent task state: HTTP ${existingResponse.status}`);
+    }
+  }
   const quotaBody = JSON.stringify({ taskId });
   const quota = await quotaStub(env).fetch("https://state/quota/reserve", { method: "POST", body: quotaBody });
   if (!quota.ok) {
@@ -294,8 +313,9 @@ export class TelegramAssistantEntrypoint extends WorkerEntrypoint<Env> {
     return { deviceId: deviceId(this.env), transport: "cloudflare-queues-http-pull", protocol: 1 };
   }
 
-  async delegate(value: unknown): Promise<RpcResult> {
-    return rpcResult(await enqueueTask(assistantTask(value), this.env));
+  async delegate(value: unknown, idempotencyKey?: string): Promise<RpcResult> {
+    const taskId = idempotencyKey ? await idempotentTaskId(idempotencyKey) : undefined;
+    return rpcResult(await enqueueTask(assistantTask(value), this.env, taskId));
   }
 
   async getTask(taskId: string): Promise<RpcResult> {

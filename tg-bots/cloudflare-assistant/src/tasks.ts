@@ -23,6 +23,20 @@ function rpcBody<T>(result: { status: number; body: unknown }): T {
   }
   return result.body as T;
 }
+
+function dispatcher(env: Env) {
+  if (!env.PET_DISPATCHER) throw new Error("PET_DISPATCHER binding is not configured");
+  return env.PET_DISPATCHER;
+}
+
+function parseTaskState(value: unknown): BotekTaskState {
+  if (!value || typeof value !== "object") throw new Error("Pet Dispatcher returned invalid task state");
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.taskId !== "string" || !TASK_ID_RE.test(raw.taskId) || typeof raw.status !== "string") {
+    throw new Error("Pet Dispatcher returned invalid task state");
+  }
+  return value as BotekTaskState;
+}
 export function parseTaskCommand(text: string): { repo: string; goal: string } | null {
   if (!text.startsWith("/task ")) return null;
   const rest = text.slice("/task ".length).trim();
@@ -34,8 +48,13 @@ export function parseTaskCommand(text: string): { repo: string; goal: string } |
   return { repo, goal: goal.slice(0, 20_000) };
 }
 
-export async function delegateBotekTask(env: Env, repo: string, goal: string): Promise<BotekTaskState> {
-  const result = await env.PET_DISPATCHER.delegate({
+export async function delegateBotekTask(
+  env: Env,
+  repo: string,
+  goal: string,
+  updateId: number,
+): Promise<BotekTaskState> {
+  const result = await dispatcher(env).delegate({
     repo,
     baseRef: "main",
     goal,
@@ -44,7 +63,7 @@ export async function delegateBotekTask(env: Env, repo: string, goal: string): P
     capabilities: [],
     network: { mode: "none" },
     timeoutMinutes: 20,
-  });
+  }, `telegram-update:${updateId}`);
   const body = rpcBody<{ taskId?: unknown; status?: unknown }>(result);
   if (typeof body.taskId !== "string" || !TASK_ID_RE.test(body.taskId)) {
     throw new Error("Pet Dispatcher returned an invalid task id");
@@ -53,12 +72,12 @@ export async function delegateBotekTask(env: Env, repo: string, goal: string): P
 }
 export async function getBotekTask(env: Env, taskId: string): Promise<BotekTaskState> {
   if (!TASK_ID_RE.test(taskId)) throw new Error("Invalid task id");
-  return rpcBody<BotekTaskState>(await env.PET_DISPATCHER.getTask(taskId));
+  return parseTaskState(rpcBody<unknown>(await dispatcher(env).getTask(taskId)));
 }
 
 export async function cancelBotekTask(env: Env, taskId: string): Promise<BotekTaskState> {
   if (!TASK_ID_RE.test(taskId)) throw new Error("Invalid task id");
-  return rpcBody<BotekTaskState>(await env.PET_DISPATCHER.cancelTask(taskId));
+  return parseTaskState(rpcBody<unknown>(await dispatcher(env).cancelTask(taskId)));
 }
 
 export function taskKeyboard(task: BotekTaskState): TelegramInlineKeyboardMarkup {

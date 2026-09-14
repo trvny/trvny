@@ -210,7 +210,7 @@ export async function sendTelegramThinking(
 
 async function telegramDelivery(
   env: Env,
-  method: "sendMessage" | "sendRichMessage" | "sendPoll" | "editMessageText",
+  method: "sendMessage" | "sendRichMessage" | "sendPoll" | "sendLocation" | "sendVenue" | "sendContact" | "editMessageText",
   body: Record<string, unknown>,
   acceptNotModified = false,
 ): Promise<void> {
@@ -261,6 +261,41 @@ async function telegramDelivery(
       ? Math.max(1, Math.ceil(retryAfter))
       : undefined,
   );
+}
+
+export async function sendTelegramLocation(
+  env: Env,
+  chatId: string | number,
+  latitude: number,
+  longitude: number,
+): Promise<void> {
+  await telegramDelivery(env, "sendLocation", { chat_id: chatId, latitude, longitude });
+}
+
+export async function sendTelegramVenue(
+  env: Env,
+  chatId: string | number,
+  latitude: number,
+  longitude: number,
+  title: string,
+  address: string,
+): Promise<void> {
+  await telegramDelivery(env, "sendVenue", { chat_id: chatId, latitude, longitude, title, address });
+}
+
+export async function sendTelegramContact(
+  env: Env,
+  chatId: string | number,
+  phoneNumber: string,
+  firstName: string,
+  lastName?: string,
+): Promise<void> {
+  await telegramDelivery(env, "sendContact", {
+    chat_id: chatId,
+    phone_number: phoneNumber,
+    first_name: firstName,
+    ...(lastName ? { last_name: lastName } : {}),
+  });
 }
 
 export async function sendTelegramPoll(

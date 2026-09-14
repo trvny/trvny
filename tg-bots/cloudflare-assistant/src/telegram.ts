@@ -150,6 +150,29 @@ export async function sendTelegramTyping(env: Env, chatId: string | number): Pro
     console.warn("Telegram sendChatAction failed", error);
   }
 }
+export async function sendTelegramThinking(
+  env: Env,
+  chatId: string | number,
+  draftId: number,
+): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) return;
+  try {
+    const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessageDraft`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        draft_id: draftId === 0 ? 1 : draftId,
+        text: "",
+      }),
+    });
+    if (response.ok) return;
+    console.warn(`Telegram sendMessageDraft failed: HTTP ${response.status}; falling back to typing`);
+  } catch (error) {
+    console.warn("Telegram sendMessageDraft failed; falling back to typing", error);
+  }
+  await sendTelegramTyping(env, chatId);
+}
 
 async function telegramDelivery(
   env: Env,

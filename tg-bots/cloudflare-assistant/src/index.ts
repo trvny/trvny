@@ -42,6 +42,7 @@ import type {
   TelegramConversationHistory,
   TelegramDeadLetter,
   TelegramInlineKeyboardMarkup,
+  TelegramMessage,
   TelegramReply,
   TelegramUpdate,
   TelegramUpdateRecord,
@@ -57,10 +58,12 @@ const DEFAULT_RETRY_DELAY_SECONDS = 5;
 const TELEGRAM_VOICE_MAX_BYTES = 2 * 1024 * 1024;
 const TELEGRAM_VOICE_MAX_DURATION_SECONDS = 180;
 const TELEGRAM_VOICE_TRANSCRIPT_MAX_CHARS = 4_000;
+const TELEGRAM_STRUCTURED_INPUT_MAX_CHARS = 2_000;
 
 const ASSISTANT_SYSTEM = `You are a private Telegram assistant for one owner.
 Be concise, practical and friendly. Prefer Polish unless the user writes in another language.
 Messages prefixed with "Telegram voice note transcript:" are transcriptions of the owner's voice notes; answer them naturally.
+Messages prefixed with "Telegram shared" describe a location, venue or contact the owner intentionally shared; use only the supplied fields and do not invent missing details.
 Never claim that you executed actions you did not actually execute.`;
 
 const KANAREK_PROVIDER_LABELS: Record<string, string> = {
@@ -93,6 +96,63 @@ const HELP_KEYBOARD: TelegramInlineKeyboardMarkup = {
 const STATUS_KEYBOARD: TelegramInlineKeyboardMarkup = {
   inline_keyboard: [[{ text: "🔄 Odśwież", callback_data: "status:refresh" }]],
 };
+
+function compactTelegramField(value: string | undefined, maxChars: number): string {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/\s+/gu, " ").slice(0, maxChars);
+}
+
+function validCoordinate(value: number, min: number, max: number): boolean {
+  return Number.isFinite(value) && value >= min && value <= max;
+}
+
+function telegramStructuredInput(message: TelegramMessage): string {
+  const location = message.venue?.location ?? message.location;
+  const locationLines = location &&
+      validCoordinate(location.latitude, -90, 90) &&
+      validCoordinate(location.longitude, -180, 180)
+    ? [
+        `latitude: ${location.latitude.toFixed(6)}`,
+        `longitude: ${location.longitude.toFixed(6)}`,
+        ...(Number.isFinite(location.horizontal_accuracy)
+          ? [`accuracy_m: ${Math.max(0, Math.min(1500, location.horizontal_accuracy ?? 0)).toFixed(1)}`]
+          : []),
+      ]
+    : [];
+
+  if (message.venue && locationLines.length) {
+    const title = compactTelegramField(message.venue.title, 256);
+    const address = compactTelegramField(message.venue.address, 512);
+    return [
+      "Telegram shared venue:",
+      ...(title ? [`name: ${title}`] : []),
+      ...(address ? [`address: ${address}`] : []),
+      ...locationLines,
+    ].join("\n").slice(0, TELEGRAM_STRUCTURED_INPUT_MAX_CHARS);
+  }
+
+  if (message.location && locationLines.length) {
+    return ["Telegram shared location:", ...locationLines]
+      .join("\n")
+      .slice(0, TELEGRAM_STRUCTURED_INPUT_MAX_CHARS);
+  }
+
+  if (message.contact) {
+    const firstName = compactTelegramField(message.contact.first_name, 128);
+    const lastName = compactTelegramField(message.contact.last_name, 128);
+    const phone = compactTelegramField(message.contact.phone_number, 64);
+    if (!firstName && !lastName && !phone) return "";
+    const name = [firstName, lastName].filter(Boolean).join(" ");
+    return [
+      "Telegram shared contact:",
+      ...(name ? [`name: ${name}`] : []),
+      ...(phone ? [`phone: ${phone}`] : []),
+      ...(Number.isSafeInteger(message.contact.user_id) ? [`telegram_user_id: ${message.contact.user_id}`] : []),
+    ].join("\n").slice(0, TELEGRAM_STRUCTURED_INPUT_MAX_CHARS);
+  }
+
+  return "";
+}
 
 function draftCopyKeyboard(text: string): TelegramInlineKeyboardMarkup | undefined {
   if (text.length === 0 || text.length > 256) return undefined;
@@ -223,7 +283,9 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   const message = update.message;
-  if (!message?.from || (!message.text && !message.voice)) return null;
+  if (!message?.from) return null;
+  const structuredInput = telegramStructuredInput(message);
+  if (!message.text && !message.voice && !structuredInput) return null;
 
   if (
     !ownerConfigured(env) ||
@@ -234,7 +296,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   const text = message.text?.trim() ?? "";
-  if (!text && !message.voice) return null;
+  if (!text && !message.voice && !structuredInput) return null;
 
   if (text === "/start" || text.startsWith("/start ") || text === "/help") {
     try {
@@ -251,6 +313,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         ...botHelpLines(),
         "",
         "Wyślij głosówkę - przepiszę ją i odpowiem.",
+        "Udostępnij lokalizację, miejsce lub kontakt - użyję go jako kontekstu.",
         "Każdy inny tekst - zwykła rozmowa z krótką pamięcią kontekstu.",
         "Inline: wpisz @trvny_bot w dowolnym czacie i dodaj pytanie.",
       ].join("\n"),
@@ -320,7 +383,9 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   const isDraft = text.startsWith("/draft ");
-  let prompt = isDraft ? text.slice("/draft ".length).trim() : text;
+  let prompt = isDraft
+    ? text.slice("/draft ".length).trim()
+    : [text, structuredInput].filter(Boolean).join("\n\n");
   if (message.voice) {
     if (
       message.voice.duration > TELEGRAM_VOICE_MAX_DURATION_SECONDS ||
@@ -598,7 +663,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
   ) return null;
   const text = message.text?.trim() ?? "";
   if (["/start", "/help", "/reset", "/status", "/draft"].includes(text)) return null;
-  if (!text && !message.voice) return null;
+  if (!text && !message.voice && !telegramStructuredInput(message)) return null;
   return { chatId: message.chat.id, messageId: message.message_id };
 }
 

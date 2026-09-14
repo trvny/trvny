@@ -51,13 +51,13 @@ jobs:
         id: deploy
         shell: bash
         env:
-          WRANGLER_OUTPUT_FILE: ${{ runner.temp }}/wrangler-output.jsonl
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.jsonl
         run: |
           set -euo pipefail
           npm run control:deploy
           version_id=$(node --input-type=module -e '
             import fs from "node:fs";
-            const rows = fs.readFileSync(process.env.WRANGLER_OUTPUT_FILE, "utf8")
+            const rows = fs.readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH, "utf8")
               .trim().split(/\r?\n/u).filter(Boolean).map(JSON.parse);
             const deploy = rows.findLast((row) => row.type === "deploy");
             if (!deploy?.version_id) process.exit(1);

@@ -1,5 +1,5 @@
 import { readJsonWithLimit } from "./http";
-import type { Env, TelegramUpdate } from "./types";
+import type { Env, TelegramInlineKeyboardMarkup, TelegramUpdate } from "./types";
 
 const TELEGRAM_API = "https://api.telegram.org";
 export const TELEGRAM_MESSAGE_MAX_CHARS = 4096;
@@ -116,6 +116,25 @@ export async function syncTelegramCommandMenu(
   }
 }
 
+export async function syncTelegramWebhook(env: Env, webhookUrl: string): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_WEBHOOK_SECRET) {
+    throw new TelegramConfigurationError("Telegram webhook credentials are not configured");
+  }
+
+  const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/setWebhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: webhookUrl,
+      secret_token: env.TELEGRAM_WEBHOOK_SECRET,
+      allowed_updates: ["message", "callback_query"],
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Telegram setWebhook failed: HTTP ${response.status}`);
+  }
+}
+
 export async function sendTelegramTyping(env: Env, chatId: string | number): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) return;
   try {
@@ -132,11 +151,11 @@ export async function sendTelegramTyping(env: Env, chatId: string | number): Pro
   }
 }
 
-export async function sendTelegramMessage(
+async function telegramDelivery(
   env: Env,
-  chatId: string | number,
-  text: string,
-  options: { replyToMessageId?: number } = {},
+  method: "sendMessage" | "editMessageText",
+  body: Record<string, unknown>,
+  acceptNotModified = false,
 ): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) {
     throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
@@ -144,22 +163,10 @@ export async function sendTelegramMessage(
 
   let response: Response;
   try {
-    response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/${method}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: text.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
-        disable_web_page_preview: true,
-        ...(options.replyToMessageId !== undefined
-          ? {
-              reply_parameters: {
-                message_id: options.replyToMessageId,
-                allow_sending_without_reply: true,
-              },
-            }
-          : {}),
-      }),
+      body: JSON.stringify(body),
     });
   } catch (error) {
     throw new TelegramSendError(
@@ -180,14 +187,83 @@ export async function sendTelegramMessage(
   } catch {
     // Keep the bounded raw response in the error below.
   }
+  if (
+    acceptNotModified &&
+    response.status === 400 &&
+    payload?.description?.toLowerCase().includes("message is not modified")
+  ) {
+    return;
+  }
   const retryAfter = payload?.parameters?.retry_after;
   const retryable = response.status === 429 || response.status >= 500;
   throw new TelegramSendError(
     response.status,
-    `Telegram sendMessage failed: ${response.status} ${(payload?.description ?? raw).slice(0, 240)}`,
+    `Telegram ${method} failed: ${response.status} ${(payload?.description ?? raw).slice(0, 240)}`,
     retryable,
     typeof retryAfter === "number" && Number.isFinite(retryAfter)
       ? Math.max(1, Math.ceil(retryAfter))
       : undefined,
+  );
+}
+
+export async function sendTelegramMessage(
+  env: Env,
+  chatId: string | number,
+  text: string,
+  options: { replyToMessageId?: number; replyMarkup?: TelegramInlineKeyboardMarkup } = {},
+): Promise<void> {
+  await telegramDelivery(env, "sendMessage", {
+    chat_id: chatId,
+    text: text.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
+    disable_web_page_preview: true,
+    ...(options.replyToMessageId !== undefined
+      ? {
+          reply_parameters: {
+            message_id: options.replyToMessageId,
+            allow_sending_without_reply: true,
+          },
+        }
+      : {}),
+    ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+  });
+}
+
+export async function answerTelegramCallbackQuery(
+  env: Env,
+  callbackQueryId: string,
+): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) return;
+  try {
+    const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callback_query_id: callbackQueryId }),
+    });
+    if (!response.ok) {
+      console.warn(`Telegram answerCallbackQuery failed: HTTP ${response.status}`);
+    }
+  } catch (error) {
+    console.warn("Telegram answerCallbackQuery failed", error);
+  }
+}
+
+export async function editTelegramMessage(
+  env: Env,
+  chatId: string | number,
+  messageId: number,
+  text: string,
+  replyMarkup?: TelegramInlineKeyboardMarkup,
+): Promise<void> {
+  await telegramDelivery(
+    env,
+    "editMessageText",
+    {
+      chat_id: chatId,
+      message_id: messageId,
+      text: text.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
+      disable_web_page_preview: true,
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+    },
+    true,
   );
 }

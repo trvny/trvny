@@ -12,6 +12,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - /start and /help self-sync the owner-scoped Telegram command list and command menu from code;
 - bounded per-chat conversation context for ordinary messages;
 - native Telegram reply-to behavior plus best-effort typing indicators for model-backed replies;
+- inline `/status` refresh button backed by Telegram callback queries and message editing;
 - owner voice notes transcribed with Workers AI Whisper before normal assistant routing;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;
@@ -121,14 +122,14 @@ npm run deploy
 
 The first deployment can run on Workers AI alone. After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `travny-tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated.
 
-Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook:
+Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to both `message` and `callback_query` updates:
 
 ```bash
 npm run webhook:set -- https://<worker>.workers.dev/telegram/webhook
 npm run webhook:info
 ```
 
-Telegram can point a bot to only one webhook at a time. Keep the Cloudflare assistant on a separate BotFather bot from the Hermes polling bot.
+`/start` and `/help` also best-effort reassert the current webhook URL, secret and allowed update types, so Telegram-native controls can self-heal after a deployment. Telegram can point a bot to only one webhook at a time. Keep the Cloudflare assistant on a separate BotFather bot from the Hermes polling bot.
 
 ## Cloudflare Workers Builds
 

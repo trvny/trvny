@@ -41,7 +41,7 @@ switch (command) {
     const result = await telegram("setWebhook", {
       url: webhookUrl,
       secret_token: secret,
-      allowed_updates: ["message"],
+      allowed_updates: ["message", "callback_query"],
     });
     console.log("Webhook set:", result);
     break;

@@ -47,8 +47,12 @@ export type DurableObjectStateLike = {
   storage: DurableObjectStorageLike;
 };
 
+export type TelegramInlineKeyboardButton =
+  | { text: string; callback_data: string; copy_text?: never }
+  | { text: string; copy_text: { text: string }; callback_data?: never };
+
 export type TelegramInlineKeyboardMarkup = {
-  inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
+  inline_keyboard: TelegramInlineKeyboardButton[][];
 };
 
 export type TelegramMessage = {

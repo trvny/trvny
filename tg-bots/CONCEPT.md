@@ -92,6 +92,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - bounded recent conversation context with reset generations;
 - native reply-to delivery plus ephemeral Telegram thinking drafts with typing fallback for model-backed replies;
 - inline `/status` refresh using callback queries and in-place message editing;
+- native clipboard action on short `/draft` suggestions;
 - owner voice notes transcribed through Workers AI Whisper and routed into normal chat;
 - Feedseek/RSS curation endpoint;
 - health/status endpoint.
@@ -111,7 +112,7 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 ### Track B: Telegram-native experience
 
 1. **Native chat UX** — reply-to delivery, native thinking drafts with typing fallback and in-place `/status` refresh are implemented; add Telegram formatting and broader message editing instead of chains of status messages.
-2. **Inline keyboards and callbacks** — callback plumbing and the first `/status` refresh button are implemented; extend buttons to confirmations, task controls, model choices, retries and other frequent actions.
+2. **Inline keyboards and callbacks** — callback plumbing, `/status` refresh and short-draft clipboard actions are implemented; extend buttons to confirmations, task controls, model choices, retries and other frequent actions.
 3. **Command/menu synchronization** — owner-scoped commands and the native command menu are synced from code on `/start` or `/help`; add localization when Botek gains additional user-facing languages.
 4. **Reactions and lightweight feedback** — use reactions when they communicate state better than another message.
 5. **Inline mode** — support `@trvny_bot ...` in other chats for quick ask/summarize/translate flows without opening the Botek conversation.

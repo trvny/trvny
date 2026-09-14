@@ -79,6 +79,13 @@ const STATUS_KEYBOARD: TelegramInlineKeyboardMarkup = {
   inline_keyboard: [[{ text: "🔄 Odśwież", callback_data: "status:refresh" }]],
 };
 
+function draftCopyKeyboard(text: string): TelegramInlineKeyboardMarkup | undefined {
+  if (text.length === 0 || text.length > 256) return undefined;
+  return {
+    inline_keyboard: [[{ text: "📋 Kopiuj", copy_text: { text } }]],
+  };
+}
+
 async function providerStatusText(env: Env): Promise<string> {
   const pool = env.KANAREK_REVIEW_ROUTER_TOKEN ? await kanarekProviderPoolStatus(env) : null;
   const routerLines = env.KANAREK_REVIEW_ROUTER_TOKEN
@@ -279,10 +286,12 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     ]);
     const footer = `\n\n[${result.provider} · ${result.model}]`;
     const assistant = result.text.slice(0, Math.max(0, TELEGRAM_MESSAGE_MAX_CHARS - footer.length));
+    const replyMarkup = isDraft ? draftCopyKeyboard(assistant) : undefined;
     return {
       chatId: message.chat.id,
       replyToMessageId: message.message_id,
       text: `${assistant}${footer}`.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
+      ...(replyMarkup ? { replyMarkup } : {}),
       ...(!isDraft && history.generation !== null
         ? { memoryTurn: { user: prompt, assistant, generation: history.generation } }
         : {}),

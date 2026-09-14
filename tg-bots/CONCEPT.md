@@ -78,52 +78,46 @@ Future slice, based on the existing Pet Dispatcher:
 5. The assistant reads the result and forwards a concise summary to Telegram.
 6. Multi-worker routing extends the existing dispatcher with worker identity/capability selection rather than creating a second task system.
 
-## Personal-assistant roadmap
+## Botek roadmap
 
-### 1. MVP
+The target is not just an AI behind a Telegram chat. Botek should become a capable personal agent and a first-class Telegram application. Development therefore has two parallel tracks that converge on one maintained backend.
+
+### Implemented baseline
 
 - owner-only private Telegram webhook;
-- durable Telegram update queue;
-- update-id deduplication + DLQ;
-- shared free-model router + local Workers AI fallback;
-- `/draft`;
+- durable Telegram update queue, update-id deduplication and DLQ;
+- shared free-model router with local Workers AI fallback;
+- `/draft`, `/status`, `/help` and `/reset`;
+- bounded recent conversation context with reset generations;
 - Feedseek/RSS curation endpoint;
-- health/status.
+- health/status endpoint.
 
-### 2. Memory
+### Track A: agent brain and integrations
 
-- Engram MCP/API when the integration is stable;
-- short local conversation history only where needed;
-- explicit retention boundaries for private chats.
+1. **Hermes / Legion handoff** — implement the handoff design above using the existing Pet Dispatcher control plane. Botek should delegate heavyweight repo, build, test, Android and local-tool work, surface progress, support cancellation and return concise results to Telegram.
+2. **Long-term memory** — add explicit remember/forget flows and Engram-backed retrieval on top of the current short conversation window, with clear retention boundaries for private chat data.
+3. **Multimodal work** — accept voice notes, images, screenshots and documents, then route transcription, vision and document handling to the appropriate backend.
+4. **Tool routing** — let normal language invoke approved GitHub/GPTomek, Cloudflare/status, Feedseek/RSS, web/search and other integrations without requiring a dedicated command for every capability.
+5. **Scheduler and proactive assistance** — add briefings, reminders, condition watches, important RSS/CI/service alerts and completed-task notifications while avoiding noisy low-value notifications.
+6. **Reply assistant** — keep human-in-the-loop drafts first. Telegram Business/Secretary-style automation may later auto-answer only low-risk categories; money, commitments, dates, private matters and ambiguous requests remain approval-only.
+7. **Task UX** — expose delegated work through commands or controls such as `/tasks`, status, cancellation and result retrieval.
 
-### 3. Scheduler
+Suggested order: Hermes/Legion handoff → long-term memory → multimodal input → tool routing → proactive workflows.
 
-- briefings;
-- reminders;
-- RSS polling only where push from Feedseek is unavailable;
-- condition watches that notify only on meaningful changes.
+### Track B: Telegram-native experience
 
-### 4. Reply assistant
+1. **Native chat UX** — typing indicators, replies to the originating message, Telegram formatting and message editing instead of chains of status messages.
+2. **Inline keyboards and callbacks** — compact buttons for confirmations, task controls, model choices, retries and other frequent actions.
+3. **Command/menu synchronization** — manage Telegram commands, scopes and localization from code so BotFather-visible commands stay aligned with the Worker.
+4. **Reactions and lightweight feedback** — use reactions when they communicate state better than another message.
+5. **Inline mode** — support `@trvny_bot ...` in other chats for quick ask/summarize/translate flows without opening the Botek conversation.
+6. **Media and Telegram inputs** — use voice notes, photos, files, locations, contacts and polls as first-class inputs where they improve a workflow.
+7. **Groups, topics and Business** — deliberately extend the owner-only core to selected group/topic or Telegram Business workflows while preserving explicit approval boundaries for third-party replies.
+8. **Mini App** — provide a Telegram-native dashboard for Memory, Tasks, GitHub, Feeds, Models, Legion and service status. Use Mini App capabilities such as theme integration, QR scanning, device storage or biometrics only where they improve a concrete workflow.
 
-Start with human-in-the-loop drafts. Later, Telegram Business/Secretary-style automation may auto-answer only low-risk categories. Money, commitments, dates, private matters and ambiguous requests remain approval-only.
+Suggested order: typing/replies/formatting/buttons → callbacks/editing/reactions → inline mode → richer media → Mini App and broader Telegram surfaces.
 
-### 5. Hermes handoff
-
-- reuse `pet-dispatcher-control` and `pet-dispatcher-tasks`;
-- add Android/Legion worker identities and capability-based routing;
-- surface progress/results back to Telegram;
-- keep task leases, signing and state in the existing control plane.
-
-### 6. Mini App
-
-Optional dashboard for:
-
-- shared router/provider health;
-- RSS decisions;
-- schedules;
-- queued/running Pet Dispatcher jobs;
-- worker presence (Android / Legion);
-- memory controls.
+The two tracks should converge: Telegram is the control surface, while Cloudflare, the shared model router, Engram and Pet Dispatcher remain the maintained backend pieces. Do not grow parallel command-specific backends when an existing service already owns the concern.
 
 ## Bot identities
 

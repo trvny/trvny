@@ -8,6 +8,7 @@ import { createServer } from "./server.js";
 import { ConfinedRemoteExecutor } from "./remote-executor.js";
 import { CloudflareQueueTransport, RemoteJournal, RemoteWorker } from "./remote-transport.js";
 import { acquireRemoteWorkerLease } from "./remote-worker-lease.js";
+import { probeRouting } from "./agent-router.js";
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -16,13 +17,16 @@ async function main(): Promise<void> {
   const git = new HostGit(sessions, config);
 
   if (process.argv[2] === "doctor") {
+    const routing = await probeRouting();
+    const backends = new Map(routing.backends.map((backend) => [backend.id, backend.availability]));
     console.log(JSON.stringify({
       sandbox: runner.securityStatus(),
       repositories: Object.keys(config.repositories).sort(),
       providers: {
-        openrouter: Boolean(process.env.OPENROUTER_API_KEY),
-        gemini: Boolean(process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY),
+        openrouter: backends.get("openrouter") === "available",
+        gemini: backends.get("gemini") === "available",
       },
+      routing,
       networkProfiles: Object.keys(config.networkProfiles).sort(),
       git: await git.probe(),
       remote: config.remote ? {

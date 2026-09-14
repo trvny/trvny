@@ -1,4 +1,11 @@
-import { botCommandPayload, botHelpLines, parsePollCommand } from "./commands";
+import {
+  botCommandPayload,
+  botHelpLines,
+  parseContactCommand,
+  parseLocationCommand,
+  parsePollCommand,
+  parseVenueCommand,
+} from "./commands";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { TelegramUpdateDedup } from "./dedup";
 import { TelegramInlineQueryGate } from "./inline";
@@ -26,8 +33,11 @@ import {
   editTelegramMessage,
   isTelegramWebhook,
   parseTelegramUpdate,
+  sendTelegramContact,
+  sendTelegramLocation,
   sendTelegramMessage,
   sendTelegramPoll,
+  sendTelegramVenue,
   sendTelegramRichMessage,
   sendTelegramThinking,
   setTelegramMessageReaction,
@@ -431,6 +441,48 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       text: await providerStatusText(env),
       replyMarkup: STATUS_KEYBOARD,
     };
+  }
+
+  if (text === "/location") {
+    return { chatId: message.chat.id, replyToMessageId: message.message_id, text: "Użycie: /location 50.123,19.456" };
+  }
+  if (text.startsWith("/location ")) {
+    const location = parseLocationCommand(text);
+    if (!location) return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Nieprawidłowe współrzędne. Użycie: /location szerokość,długość",
+      finalReaction: "👎",
+    };
+    return { chatId: message.chat.id, text: "Lokalizacja", location };
+  }
+
+  if (text === "/venue") {
+    return { chatId: message.chat.id, replyToMessageId: message.message_id, text: "Użycie: /venue 50.123,19.456 | Nazwa | Adres" };
+  }
+  if (text.startsWith("/venue ")) {
+    const venue = parseVenueCommand(text);
+    if (!venue) return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Nieprawidłowe miejsce. Użycie: /venue lat,lon | nazwa | adres",
+      finalReaction: "👎",
+    };
+    return { chatId: message.chat.id, text: `Miejsce: ${venue.title}`, venue };
+  }
+
+  if (text === "/contact") {
+    return { chatId: message.chat.id, replyToMessageId: message.message_id, text: "Użycie: /contact +48123456789 | Imię | Nazwisko" };
+  }
+  if (text.startsWith("/contact ")) {
+    const contact = parseContactCommand(text);
+    if (!contact) return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Nieprawidłowy kontakt. Użycie: /contact telefon | imię [| nazwisko]",
+      finalReaction: "👎",
+    };
+    return { chatId: message.chat.id, text: `Kontakt: ${contact.firstName}`, contact };
   }
 
   if (text === "/poll") {
@@ -865,7 +917,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) return null;
   const text = message.text?.trim() ?? "";
-  if (["/start", "/help", "/reset", "/status", "/draft", "/poll"].includes(text)) return null;
+  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/location", "/venue", "/contact"].includes(text)) return null;
   if (
     !text &&
     !message.voice &&
@@ -930,6 +982,25 @@ async function processQueuedTelegram(
       );
     } else if (reply.poll) {
       await sendTelegramPoll(env, reply.chatId, reply.poll.question, reply.poll.options);
+    } else if (reply.location) {
+      await sendTelegramLocation(env, reply.chatId, reply.location.latitude, reply.location.longitude);
+    } else if (reply.venue) {
+      await sendTelegramVenue(
+        env,
+        reply.chatId,
+        reply.venue.latitude,
+        reply.venue.longitude,
+        reply.venue.title,
+        reply.venue.address,
+      );
+    } else if (reply.contact) {
+      await sendTelegramContact(
+        env,
+        reply.chatId,
+        reply.contact.phoneNumber,
+        reply.contact.firstName,
+        reply.contact.lastName,
+      );
     } else {
       const options = {
         replyToMessageId: reply.replyToMessageId,

@@ -8,7 +8,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - durable Telegram update delivery through Cloudflare Queues;
 - persistent `update_id` state in a SQLite Durable Object;
 - dead-letter queue for exhausted or non-replayable Telegram deliveries;
-- /help, /status, /draft <message>, /poll <question | options>, and /reset;
+- /help, /status, /draft <message>, /poll, /location, /venue, /contact, and /reset;
 - /start and /help self-sync the owner-scoped Telegram command list and command menu from code;
 - bounded per-chat conversation context for ordinary messages;
 - native Telegram reply-to behavior plus ephemeral native thinking drafts with typing fallback for model-backed replies;
@@ -21,6 +21,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - owner voice notes transcribed with Workers AI Whisper before normal assistant routing;
 - owner-shared locations, venues, contacts and polls normalized into bounded assistant context;
 - `/poll question | option 1 | option 2` sends a native non-anonymous Telegram poll with 2–12 options;
+- `/location`, `/venue` and `/contact` send native Telegram structured messages from bounded owner-only command input;
 - owner-shared text/code documents downloaded transiently with strict size/type bounds and injected as untrusted document data;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;

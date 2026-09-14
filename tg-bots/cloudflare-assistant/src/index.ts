@@ -6,6 +6,7 @@ import {
   AllProvidersFailedError,
   chatWithFallback,
   completeWithFallback,
+  kanarekProviderPoolStatus,
   transcribeAudio,
 } from "./providers";
 import {
@@ -47,6 +48,28 @@ Be concise, practical and friendly. Prefer Polish unless the user writes in anot
 Messages prefixed with "Telegram voice note transcript:" are transcriptions of the owner's voice notes; answer them naturally.
 Never claim that you executed actions you did not actually execute.`;
 
+const KANAREK_PROVIDER_LABELS: Record<string, string> = {
+  orcarouter: "OrcaRouter",
+  aihubmix: "AIHubMix",
+  openrouter: "OpenRouter",
+  ollama: "Ollama",
+  groq: "Groq",
+  "workers-ai": "Workers AI",
+};
+
+function providerPoolLines(pool: Awaited<ReturnType<typeof kanarekProviderPoolStatus>>): string[] {
+  if (!pool) return ["Kanarek pool: status unavailable"];
+  return [
+    `Kanarek pool: ${pool.available}/${pool.configured} available`,
+    ...pool.providers.map((provider) => {
+      const label = KANAREK_PROVIDER_LABELS[provider.provider] ?? provider.provider;
+      if (!provider.configured) return `⚪ ${label} — not configured`;
+      if (provider.available) return `✅ ${label}`;
+      const category = provider.cooldown?.category;
+      return `⏳ ${label}${category ? ` — cooldown ${category}` : " — unavailable"}`;
+    }),
+  ];
+}
 class AssistantConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -150,13 +173,18 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   if (text === "/status") {
-    const router = env.KANAREK_REVIEW_ROUTER_TOKEN
-      ? "Kanarek free router: OpenRouter → OrcaRouter → AIHubMix → Workers AI"
-      : "Kanarek free router: token not configured";
+    const pool = env.KANAREK_REVIEW_ROUTER_TOKEN ? await kanarekProviderPoolStatus(env) : null;
+    const routerLines = env.KANAREK_REVIEW_ROUTER_TOKEN
+      ? providerPoolLines(pool)
+      : ["Kanarek pool: router token not configured"];
     return {
       chatId: message.chat.id,
       replyToMessageId: message.message_id,
-      text: `Provider chain:\n${router}\nEmergency fallback: Workers AI (${env.WORKERS_AI_MODEL})`,
+      text: [
+        "Provider status:",
+        ...routerLines,
+        `Local emergency: Workers AI (${env.WORKERS_AI_MODEL})`,
+      ].join("\n"),
     };
   }
 

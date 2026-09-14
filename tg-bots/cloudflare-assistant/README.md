@@ -155,7 +155,7 @@ If the internal router itself is unavailable, times out, or its token is not con
 
 ## Conversation context
 
-Ordinary owner messages load up to eight recent successful chat turns from `TelegramConversationMemory`, with the model-facing history capped at roughly 8,000 characters. `/draft` stays stateless, command replies are not stored, and `/reset` clears the chat context. A turn is persisted only after Telegram accepts the reply and delivery is committed as `sent`; memory persistence failures are logged without retrying an already-delivered message.
+Ordinary owner messages load up to eight recent successful chat turns from `TelegramConversationMemory`, with the model-facing history capped at roughly 8,000 characters. `/draft` stays stateless, command replies are not stored, and `/reset` clears the chat context. Conversation reads fail open to stateless chat, while reset generations prevent older retried deliveries from restoring cleared context. A turn is persisted only after Telegram accepts the reply and delivery is committed as `sent`; remembered assistant text is clipped to what fits in the delivered Telegram message, and memory persistence failures are logged without retrying an already-delivered message.
 
 ## RSS curator
 

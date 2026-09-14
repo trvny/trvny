@@ -2,6 +2,7 @@ import { readJsonWithLimit } from "./http";
 import type { Env, TelegramUpdate } from "./types";
 
 const TELEGRAM_API = "https://api.telegram.org";
+export const TELEGRAM_MESSAGE_MAX_CHARS = 4096;
 const TELEGRAM_UPDATE_MAX_BYTES = 256 * 1024;
 
 type TelegramErrorPayload = {
@@ -55,7 +56,7 @@ export async function sendTelegramMessage(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        text: text.slice(0, 4096),
+        text: text.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
         disable_web_page_preview: true,
       }),
     });

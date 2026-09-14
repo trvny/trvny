@@ -65,10 +65,19 @@ export type TelegramConversationTurn = {
   createdAt: string;
 };
 
+export type TelegramConversationHistory = {
+  turns: TelegramConversationTurn[];
+  generation: number;
+};
+
+export type TelegramMemoryTurn = Omit<TelegramConversationTurn, "createdAt"> & {
+  generation: number;
+};
+
 export type TelegramReply = {
   chatId: string | number;
   text: string;
-  memoryTurn?: Omit<TelegramConversationTurn, "createdAt">;
+  memoryTurn?: TelegramMemoryTurn;
 };
 
 export type TelegramDeadLetter = {

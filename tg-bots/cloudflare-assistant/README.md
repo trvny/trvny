@@ -12,7 +12,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - /start and /help self-sync the owner-scoped Telegram command list and command menu from code;
 - bounded per-chat conversation context for ordinary messages;
 - native Telegram reply-to behavior plus ephemeral native thinking drafts with typing fallback for model-backed replies;
-- best-effort native reactions acknowledge model-backed owner messages (`👀` while working, `👍` after successful delivery);
+- best-effort native reactions show state for model-backed owner messages (`👀` while working, `👍` after successful delivery, `👎` on handled failures, `🤨` when delivery is ambiguous);
 - inline `/status` refresh button backed by Telegram callback queries and message editing;
 - native clipboard button on short `/draft` suggestions;
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;

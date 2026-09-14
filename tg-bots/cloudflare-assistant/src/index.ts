@@ -378,6 +378,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
         text: "Nie udało się wysłać zadania na Legiona. Spróbuj ponownie za chwilę.",
+        finalReaction: "👎",
       };
     }
   }
@@ -395,6 +396,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
         text: "Głosówka jest za długa lub za duża. Na razie limit to 3 minuty i 2 MB.",
+        finalReaction: "👎",
       };
     }
     try {
@@ -411,6 +413,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
           chatId: message.chat.id,
           replyToMessageId: message.message_id,
           text: "Głosówka jest za długa lub za duża. Na razie limit to 3 minuty i 2 MB.",
+          finalReaction: "👎",
         };
       }
       console.error("Telegram voice transcription failed", error);
@@ -418,6 +421,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
         text: "Nie udało się przepisać tej głosówki. Spróbuj ponownie za chwilę.",
+        finalReaction: "👎",
       };
     }
   }
@@ -455,6 +459,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       chatId: message.chat.id,
       replyToMessageId: message.message_id,
       text: "Nie udało się przygotować odpowiedzi. Spróbuj za chwilę.",
+      finalReaction: "👎",
     };
   }
 }
@@ -682,6 +687,8 @@ async function processQueuedTelegram(
   if (state?.status === "sending") {
     await dedupTransition(env, update.update_id, "ambiguous", undefined, "recovered from interrupted send window");
     await deadLetter(env, update, "ambiguous_delivery", "previous attempt stopped while sending");
+    const reaction = reactionTarget(env, update);
+    if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "🤨");
     message.ack();
     return;
   }
@@ -727,6 +734,7 @@ async function processQueuedTelegram(
       if (error.ambiguous) {
         await dedupTransition(env, update.update_id, "ambiguous", undefined, error.message);
         await deadLetter(env, update, "ambiguous_delivery", error.message);
+        if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "🤨");
         message.ack();
         return;
       }
@@ -739,6 +747,7 @@ async function processQueuedTelegram(
       }
       await dedupTransition(env, update.update_id, "failed", undefined, error.message);
       await deadLetter(env, update, "telegram_rejected", error.message);
+      if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "👎");
       message.ack();
       return;
     }
@@ -746,6 +755,7 @@ async function processQueuedTelegram(
     if (error instanceof TelegramConfigurationError) {
       await dedupTransition(env, update.update_id, "failed", undefined, error.message);
       await deadLetter(env, update, "configuration_error", error.message);
+      if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "👎");
       message.ack();
       return;
     }
@@ -762,6 +772,7 @@ async function processQueuedTelegram(
     try {
       await dedupTransition(env, update.update_id, "ambiguous", undefined, detail);
       await deadLetter(env, update, "sent_state_commit_failed", detail);
+      if (reaction) await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "🤨");
     } catch (recoveryError) {
       console.error("Failed to persist ambiguous Telegram delivery", recoveryError);
     }
@@ -770,7 +781,8 @@ async function processQueuedTelegram(
   }
 
   if (reaction) {
-    await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, "👍", true);
+    const emoji = reply.finalReaction ?? "👍";
+    await setTelegramMessageReaction(env, reaction.chatId, reaction.messageId, emoji, emoji === "👍");
   }
 
   try {

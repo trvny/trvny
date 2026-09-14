@@ -2,7 +2,7 @@
   "name": "travny-tg-assistant",
   "version": "0.1.0",
   "private": true,
-  "description": "Cloudflare Telegram assistant deployed through Workers Builds.",
+  "description": "Cloudflare Telegram assistant automatically deployed through Workers Builds.",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",

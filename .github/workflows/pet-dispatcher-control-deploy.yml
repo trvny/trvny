@@ -21,6 +21,7 @@ permissions:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-slim
     timeout-minutes: 10
     defaults:
@@ -47,19 +48,32 @@ jobs:
         run: npm run control:check
 
       - name: Deploy control plane
-        run: npm run control:deploy
+        id: deploy
+        shell: bash
+        env:
+          WRANGLER_OUTPUT_FILE: ${{ runner.temp }}/wrangler-output.jsonl
+        run: |
+          set -euo pipefail
+          npm run control:deploy
+          version_id=$(jq -rs '[.[] | select(.type == "deploy")] | last | .version_id // empty' "$WRANGLER_OUTPUT_FILE")
+          test -n "$version_id"
+          echo "version_id=$version_id" >> "$GITHUB_OUTPUT"
 
       - name: Verify live health
         shell: bash
+        env:
+          DEPLOYED_VERSION_ID: ${{ steps.deploy.outputs.version_id }}
         run: |
           set -euo pipefail
           for _ in {1..12}; do
             if body=$(curl --fail --silent --show-error --connect-timeout 5 --max-time 10 "$HEALTH_URL") &&
-              jq -e '.ok == true and .service == "pet-dispatcher-control"' <<<"$body" >/dev/null
+              jq -e --arg version_id "$DEPLOYED_VERSION_ID" \
+                '.ok == true and .service == "pet-dispatcher-control" and .versionId == $version_id' \
+                <<<"$body" >/dev/null
             then
               exit 0
             fi
             sleep 5
           done
-          echo "Pet Dispatcher control plane did not become healthy after deployment." >&2
+          echo "Pet Dispatcher control plane did not expose deployed version $DEPLOYED_VERSION_ID." >&2
           exit 1

@@ -192,6 +192,10 @@ export type TelegramMemoryTurn = Omit<TelegramConversationTurn, "createdAt"> & {
   generation: number;
 };
 
+export type TelegramLocationReply = { latitude: number; longitude: number };
+export type TelegramVenueReply = TelegramLocationReply & { title: string; address: string };
+export type TelegramContactReply = { phoneNumber: string; firstName: string; lastName?: string };
+
 export type TelegramPollReply = {
   question: string;
   options: string[];
@@ -207,6 +211,9 @@ export type TelegramReply = {
   finalReaction?: "👍" | "👎" | "🤨";
   richMarkdown?: boolean;
   poll?: TelegramPollReply;
+  location?: TelegramLocationReply;
+  venue?: TelegramVenueReply;
+  contact?: TelegramContactReply;
 };
 
 export type TelegramDeadLetter = {

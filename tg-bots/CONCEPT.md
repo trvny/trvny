@@ -91,6 +91,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - owner-scoped Telegram commands and command menu self-synced from the Worker;
 - bounded recent conversation context with reset generations;
 - native reply-to delivery plus ephemeral Telegram thinking drafts with typing fallback for model-backed replies;
+- model-backed replies sent as Telegram Rich Messages with simple Markdown and deterministic plain-text fallback when Telegram rejects rich formatting;
 - best-effort native message reactions for model-backed owner messages (`👀` while processing, `👍` after successful delivery, `👎` on handled failures, `🤨` on ambiguous delivery);
 - inline `/status` refresh using callback queries and in-place message editing;
 - native clipboard action on short `/draft` suggestions;
@@ -116,7 +117,7 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 
 ### Track B: Telegram-native experience
 
-1. **Native chat UX** — reply-to delivery, native thinking drafts with typing fallback and in-place `/status` refresh are implemented; add Telegram formatting and broader message editing instead of chains of status messages.
+1. **Native chat UX** — reply-to delivery, native thinking drafts with typing fallback, Telegram Rich Message formatting and in-place `/status` refresh are implemented; next add richer streaming/editing instead of chains of status messages.
 2. **Inline keyboards and callbacks** — callback plumbing, `/status` refresh and short-draft clipboard actions are implemented; extend buttons to confirmations, task controls, model choices, retries and other frequent actions.
 3. **Command/menu synchronization** — owner-scoped commands and the native command menu are synced from code on `/start` or `/help`; add localization when Botek gains additional user-facing languages.
 4. **Reactions and lightweight feedback** — model-backed owner messages now use best-effort state reactions for processing, success, handled failure and ambiguous delivery. Native reaction feedback from the owner is not relied on in the private chat because Bot API reaction updates require bot administrator access; use callbacks for explicit feedback where needed.

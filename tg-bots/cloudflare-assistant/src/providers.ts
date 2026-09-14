@@ -3,6 +3,7 @@ import type { ChatMessage, Env } from "./types";
 const ROUTER_TIMEOUT_MS = 20_000;
 const KANAREK_REVIEW_MODEL = "kanarek-review-free";
 const KANAREK_REVIEW_PATH = "/review-router/v1/chat/completions";
+const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
 
 type ProviderResult = {
   text: string;
@@ -30,6 +31,30 @@ type OpenAIResponse = {
 
 function clipError(text: string): string {
   return text.replace(/\s+/g, " ").slice(0, 240);
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunks: string[] = [];
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + chunkSize)));
+  }
+  return btoa(chunks.join(""));
+}
+
+export async function transcribeAudio(env: Env, audio: ArrayBuffer): Promise<string> {
+  const result = (await env.AI.run(WHISPER_MODEL, {
+    audio: arrayBufferToBase64(audio),
+    task: "transcribe",
+    vad_filter: true,
+  })) as {
+    text?: string;
+    transcription_info?: { text?: string };
+  };
+  const text = (result.text ?? result.transcription_info?.text)?.trim();
+  if (!text) throw new Error("empty Whisper transcription");
+  return text;
 }
 
 async function kanarekFreeRouter(env: Env, messages: ChatMessage[]): Promise<ProviderResult> {

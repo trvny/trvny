@@ -5,8 +5,10 @@ import {
   AllProvidersFailedError,
   chatWithFallback,
   completeWithFallback,
+  transcribeAudio,
 } from "./providers";
 import {
+  downloadTelegramFile,
   isTelegramWebhook,
   parseTelegramUpdate,
   sendTelegramMessage,
@@ -34,9 +36,13 @@ const DEFAULT_RSS_MIN_SCORE = 75;
 const CURATOR_SUMMARY_MAX_CHARS = 800;
 const CURATOR_REASON_MAX_CHARS = 400;
 const DEFAULT_RETRY_DELAY_SECONDS = 5;
+const TELEGRAM_VOICE_MAX_BYTES = 2 * 1024 * 1024;
+const TELEGRAM_VOICE_MAX_DURATION_SECONDS = 180;
+const TELEGRAM_VOICE_TRANSCRIPT_MAX_CHARS = 4_000;
 
 const ASSISTANT_SYSTEM = `You are a private Telegram assistant for one owner.
 Be concise, practical and friendly. Prefer Polish unless the user writes in another language.
+Messages prefixed with "Telegram voice note transcript:" are transcriptions of the owner's voice notes; answer them naturally.
 Never claim that you executed actions you did not actually execute.`;
 
 class AssistantConfigurationError extends Error {
@@ -91,7 +97,7 @@ async function appendConversation(env: Env, chatId: string | number, reply: Tele
 
 async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<TelegramReply | null> {
   const message = update.message;
-  if (!message?.text || !message.from) return null;
+  if (!message?.from || (!message.text && !message.voice)) return null;
 
   if (
     !ownerConfigured(env) ||
@@ -101,8 +107,8 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     return null;
   }
 
-  const text = message.text.trim();
-  if (!text) return null;
+  const text = message.text?.trim() ?? "";
+  if (!text && !message.voice) return null;
 
   if (text === "/start" || text === "/help") {
     return {
@@ -114,6 +120,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         "/status — provider chain",
         "/draft <tekst> — przygotuj odpowiedź, niczego nie wysyłaj",
         "/reset — wyczyść kontekst rozmowy",
+        "Wyślij głosówkę — przepiszę ją i odpowiem.",
         "Każdy inny tekst — zwykła rozmowa z krótką pamięcią kontekstu.",
       ].join("\n"),
     };
@@ -140,7 +147,44 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   const isDraft = text.startsWith("/draft ");
-  const prompt = isDraft ? text.slice("/draft ".length).trim() : text;
+  let prompt = isDraft ? text.slice("/draft ".length).trim() : text;
+  if (message.voice) {
+    if (
+      message.voice.duration > TELEGRAM_VOICE_MAX_DURATION_SECONDS ||
+      (message.voice.file_size ?? 0) > TELEGRAM_VOICE_MAX_BYTES
+    ) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Głosówka jest za długa lub za duża. Na razie limit to 3 minuty i 2 MB.",
+      };
+    }
+    try {
+      await sendTelegramTyping(env, message.chat.id);
+      const audio = await downloadTelegramFile(env, message.voice.file_id, TELEGRAM_VOICE_MAX_BYTES);
+      const transcript = await transcribeAudio(env, audio);
+      prompt = `Telegram voice note transcript:\n${transcript}`.slice(
+        0,
+        TELEGRAM_VOICE_TRANSCRIPT_MAX_CHARS,
+      );
+    } catch (error) {
+      if (error instanceof RangeError) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Głosówka jest za długa lub za duża. Na razie limit to 3 minuty i 2 MB.",
+        };
+      }
+      console.error("Telegram voice transcription failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się przepisać tej głosówki. Spróbuj ponownie za chwilę.",
+      };
+    }
+  }
+  if (!prompt) return null;
+
   const system = isDraft
     ? `${ASSISTANT_SYSTEM}\nDraft a reply to the message supplied by the owner. Return only the suggested reply. Never send it yourself.`
     : ASSISTANT_SYSTEM;

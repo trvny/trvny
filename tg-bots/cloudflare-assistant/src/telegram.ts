@@ -10,6 +10,12 @@ type TelegramErrorPayload = {
   parameters?: { retry_after?: number };
 };
 
+type TelegramFilePayload = {
+  ok?: boolean;
+  description?: string;
+  result?: { file_path?: string; file_size?: number };
+};
+
 export class TelegramConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -38,6 +44,44 @@ export function isTelegramWebhook(request: Request, env: Env): boolean {
 
 export async function parseTelegramUpdate(request: Request): Promise<TelegramUpdate> {
   return readJsonWithLimit<TelegramUpdate>(request, TELEGRAM_UPDATE_MAX_BYTES);
+}
+
+export async function downloadTelegramFile(
+  env: Env,
+  fileId: string,
+  maxBytes: number,
+): Promise<ArrayBuffer> {
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
+  }
+
+  const metadataResponse = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/getFile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_id: fileId }),
+  });
+  const metadata = (await metadataResponse.json()) as TelegramFilePayload;
+  const filePath = metadata.result?.file_path;
+  if (!metadataResponse.ok || !metadata.ok || !filePath) {
+    throw new Error(`Telegram getFile failed: ${metadata.description ?? `HTTP ${metadataResponse.status}`}`);
+  }
+  if ((metadata.result?.file_size ?? 0) > maxBytes) {
+    throw new RangeError(`Telegram file exceeds ${maxBytes} bytes`);
+  }
+
+  const fileResponse = await fetch(`${TELEGRAM_API}/file/bot${env.TELEGRAM_BOT_TOKEN}/${filePath}`);
+  if (!fileResponse.ok) {
+    throw new Error(`Telegram file download failed: HTTP ${fileResponse.status}`);
+  }
+  const contentLength = Number(fileResponse.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new RangeError(`Telegram file exceeds ${maxBytes} bytes`);
+  }
+  const buffer = await fileResponse.arrayBuffer();
+  if (buffer.byteLength > maxBytes) {
+    throw new RangeError(`Telegram file exceeds ${maxBytes} bytes`);
+  }
+  return buffer;
 }
 
 export async function sendTelegramTyping(env: Env, chatId: string | number): Promise<void> {

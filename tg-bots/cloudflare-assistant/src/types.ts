@@ -50,6 +50,12 @@ export type DurableObjectStateLike = {
 export type TelegramMessage = {
   message_id: number;
   text?: string;
+  voice?: {
+    file_id: string;
+    duration: number;
+    mime_type?: string;
+    file_size?: number;
+  };
   chat: { id: number; type: string };
   from?: { id: number; username?: string; first_name?: string };
 };

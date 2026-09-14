@@ -135,6 +135,33 @@ export async function syncTelegramWebhook(env: Env, webhookUrl: string): Promise
   }
 }
 
+export async function setTelegramMessageReaction(
+  env: Env,
+  chatId: string | number,
+  messageId: number,
+  emoji: string,
+  isBig = false,
+): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) return;
+  try {
+    const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/setMessageReaction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        reaction: [{ type: "emoji", emoji }],
+        is_big: isBig,
+      }),
+    });
+    if (!response.ok) {
+      console.warn(`Telegram setMessageReaction failed: HTTP ${response.status}`);
+    }
+  } catch (error) {
+    console.warn("Telegram setMessageReaction failed", error);
+  }
+}
+
 export async function sendTelegramTyping(env: Env, chatId: string | number): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) return;
   try {

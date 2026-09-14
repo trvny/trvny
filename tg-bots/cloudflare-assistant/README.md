@@ -19,6 +19,10 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 
 Engram-backed long-term memory, Telegram Business reply assistance, and Hermes handoff are deliberately left for later slices rather than faked into the MVP.
 
+## Roadmap
+
+The detailed Botek roadmap lives in [`../CONCEPT.md`](../CONCEPT.md#botek-roadmap) so the agent/integration plan and Telegram-native feature plan have one maintained source of truth.
+
 ## Reused infrastructure
 
 This Worker intentionally does not own another copy of the free-provider stack.

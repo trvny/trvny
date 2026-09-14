@@ -306,7 +306,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   const text = message.text?.trim() ?? "";
-  const caption = message.caption?.trim().slice(0, 1_024) ?? "";
+  const caption = (message.caption?.trim() ?? "").slice(0, 1_024);
   if (!text && !message.voice && !structuredInput && !photo) return null;
 
   if (text === "/start" || text.startsWith("/start ") || text === "/help") {

@@ -5,6 +5,18 @@ const KANAREK_REVIEW_MODEL = "kanarek-review-free";
 const KANAREK_REVIEW_PATH = "/review-router/v1/chat/completions";
 const WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
 
+type KanarekProviderHealth = {
+  available: boolean;
+  configured: boolean;
+  provider: string;
+  cooldown?: { category?: string; until?: number };
+};
+
+export type KanarekProviderPoolStatus = {
+  available: number;
+  configured: number;
+  providers: KanarekProviderHealth[];
+};
 type ProviderResult = {
   text: string;
   provider: string;
@@ -57,6 +69,21 @@ export async function transcribeAudio(env: Env, audio: ArrayBuffer): Promise<str
   return text;
 }
 
+export async function kanarekProviderPoolStatus(
+  env: Env,
+): Promise<KanarekProviderPoolStatus | null> {
+  try {
+    const response = await env.KANAREK_COMPANION.fetch("https://kanarek-companion.internal/health");
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      reviewWebhook?: { providerPool?: KanarekProviderPoolStatus };
+    };
+    return data.reviewWebhook?.providerPool ?? null;
+  } catch (error) {
+    console.warn("Kanarek provider health unavailable", error);
+    return null;
+  }
+}
 async function kanarekFreeRouter(env: Env, messages: ChatMessage[]): Promise<ProviderResult> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) throw new Error("KANAREK_REVIEW_ROUTER_TOKEN is not configured");

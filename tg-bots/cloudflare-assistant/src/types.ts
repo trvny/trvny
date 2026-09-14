@@ -47,6 +47,10 @@ export type DurableObjectStateLike = {
   storage: DurableObjectStorageLike;
 };
 
+export type TelegramInlineKeyboardMarkup = {
+  inline_keyboard: Array<Array<{ text: string; callback_data: string }>>;
+};
+
 export type TelegramMessage = {
   message_id: number;
   text?: string;
@@ -60,9 +64,20 @@ export type TelegramMessage = {
   from?: { id: number; username?: string; first_name?: string };
 };
 
+export type TelegramCallbackQuery = {
+  id: string;
+  data?: string;
+  from: { id: number; username?: string; first_name?: string };
+  message?: {
+    message_id: number;
+    chat: { id: number; type: string };
+  };
+};
+
 export type TelegramUpdate = {
   update_id: number;
   message?: TelegramMessage;
+  callback_query?: TelegramCallbackQuery;
 };
 
 export type TelegramConversationTurn = {
@@ -84,6 +99,8 @@ export type TelegramReply = {
   chatId: string | number;
   text: string;
   replyToMessageId?: number;
+  editMessageId?: number;
+  replyMarkup?: TelegramInlineKeyboardMarkup;
   memoryTurn?: TelegramMemoryTurn;
 };
 

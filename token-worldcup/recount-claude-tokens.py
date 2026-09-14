@@ -39,7 +39,7 @@ ANCHOR = "English"  # every index is expressed against this language at 100
 def load_samples(qmd: pathlib.Path) -> list[dict]:
     """Pull the sample array out of the maintained Quarto source."""
     src = qmd.read_text(encoding="utf-8")
-    m = re.search(r"const data=(\[.*?\]);const base=", src, re.S)
+    m = re.search(r"const data=(\[.*?\]);", src, re.S)
     if not m:
         raise SystemExit(f"{qmd.name}: could not find the sample array - has the page changed?")
     data = json.loads(m.group(1))

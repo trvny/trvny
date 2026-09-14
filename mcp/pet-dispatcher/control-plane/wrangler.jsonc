@@ -11,8 +11,7 @@
       "enabled": true,
       "head_sampling_rate": 1,
       "persist": true,
-      "invocation_logs": true,
-      "redact_query_string": true
+      "invocation_logs": true
     },
     "traces": {
       "enabled": false

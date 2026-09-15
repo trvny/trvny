@@ -1,5 +1,6 @@
 import {
   botCommandPayload,
+  botGroupCommandPayload,
   botHelpLines,
   parseAskCommand,
   parseContactCommand,
@@ -13,6 +14,7 @@ import {
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { TelegramUpdateDedup } from "./dedup";
 import { TelegramInlineQueryGate } from "./inline";
+import { handleTelegramEphemeralAsk } from "./ephemeral";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import { handleTelegramGuestMessage } from "./guest";
 import {
@@ -53,6 +55,7 @@ import {
   sendTelegramTyping,
   setTelegramMessageReaction,
   syncTelegramCommandMenu,
+  syncTelegramGroupCommandMenu,
   syncTelegramWebhook,
   TELEGRAM_MESSAGE_MAX_CHARS,
   TELEGRAM_RICH_MESSAGE_MAX_CHARS,
@@ -594,6 +597,18 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   const rawText = message.text?.trim() ?? "";
   const askPrompt = message.forward_origin ? null : parseAskCommand(rawText);
   if (groupChat && askPrompt === null) return null;
+  if (groupChat && askPrompt !== null) {
+    try {
+      await syncTelegramGroupCommandMenu(
+        env,
+        message.chat.id,
+        message.from.id,
+        botGroupCommandPayload(),
+      );
+    } catch (error) {
+      console.warn("Telegram owner group command sync failed", error);
+    }
+  }
   if (askPrompt !== null && !askPrompt) {
     return {
       chatId: message.chat.id,
@@ -1652,6 +1667,16 @@ export default {
           return new Response("Service unavailable", { status: 503 });
         }
         return new Response("OK");
+      }
+
+      if (update.message) {
+        try {
+          if (await handleTelegramEphemeralAsk(env, update.message)) return new Response("OK");
+        } catch (error) {
+          // Ephemeral replies have a short one-shot delivery window. Avoid webhook replay after an ambiguous send.
+          console.error("Telegram ephemeral ask failed", error);
+          return new Response("OK");
+        }
       }
 
       if (update.guest_message) {

@@ -25,10 +25,16 @@ type TelegramFilePayload = {
 };
 
 type TelegramThreadOptions = { messageThreadId?: number };
+type TelegramEphemeralOptions = {
+  receiverUserId: number;
+  replyEphemeralMessageId: number;
+};
 type TelegramMessageOptions = TelegramThreadOptions & {
   replyToMessageId?: number;
   replyMarkup?: TelegramInlineKeyboardMarkup;
+  ephemeral?: TelegramEphemeralOptions;
 };
+type TelegramBotCommand = { command: string; description: string; is_ephemeral?: boolean };
 
 export function escapeTelegramRichHtml(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -38,6 +44,28 @@ function telegramThreadFields(messageThreadId?: number): Record<string, number> 
   return Number.isSafeInteger(messageThreadId) && (messageThreadId ?? 0) > 0
     ? { message_thread_id: messageThreadId as number }
     : {};
+}
+
+function telegramReplyFields(options: TelegramMessageOptions): Record<string, unknown> {
+  if (options.ephemeral) {
+    return {
+      ephemeral_message_parameters: {
+        receiver_user_id: options.ephemeral.receiverUserId,
+      },
+      reply_parameters: {
+        ephemeral_message_id: options.ephemeral.replyEphemeralMessageId,
+      },
+    };
+  }
+  if (options.replyToMessageId !== undefined) {
+    return {
+      reply_parameters: {
+        message_id: options.replyToMessageId,
+        allow_sending_without_reply: true,
+      },
+    };
+  }
+  return {};
 }
 
 export class TelegramConfigurationError extends Error {
@@ -111,7 +139,7 @@ export async function downloadTelegramFile(
 export async function syncTelegramCommandMenu(
   env: Env,
   chatId: number,
-  commands: Array<{ command: string; description: string }>,
+  commands: TelegramBotCommand[],
 ): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) {
     throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
@@ -137,6 +165,28 @@ export async function syncTelegramCommandMenu(
     if (!response.ok) {
       throw new Error(`Telegram ${call.method} failed: HTTP ${response.status}`);
     }
+  }
+}
+
+export async function syncTelegramGroupCommandMenu(
+  env: Env,
+  chatId: number,
+  userId: number,
+  commands: TelegramBotCommand[],
+): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
+  }
+  const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/setMyCommands`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      commands,
+      scope: { type: "chat_member", chat_id: chatId, user_id: userId },
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Telegram setMyCommands for group member failed: HTTP ${response.status}`);
   }
 }
 
@@ -474,14 +524,7 @@ export async function sendTelegramMessage(
     ...telegramThreadFields(options.messageThreadId),
     text: text.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
     disable_web_page_preview: true,
-    ...(options.replyToMessageId !== undefined
-      ? {
-          reply_parameters: {
-            message_id: options.replyToMessageId,
-            allow_sending_without_reply: true,
-          },
-        }
-      : {}),
+    ...telegramReplyFields(options),
     ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
   });
 }
@@ -496,14 +539,7 @@ export async function sendTelegramRichMessage(
   const bodyBase = {
     chat_id: chatId,
     ...telegramThreadFields(options.messageThreadId),
-    ...(options.replyToMessageId !== undefined
-      ? {
-          reply_parameters: {
-            message_id: options.replyToMessageId,
-            allow_sending_without_reply: true,
-          },
-        }
-      : {}),
+    ...telegramReplyFields(options),
     ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
   };
   try {

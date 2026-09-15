@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { botGroupCommandPayload, parseAskCommand, parseWhisperCommand } from "../src/commands.ts";
+import { botGroupCommandPayload, botHelpLines, parseAskCommand, parseWhisperCommand } from "../src/commands.ts";
 
 test("parses explicit ask commands for private and group chats", () => {
   assert.equal(parseAskCommand("/ask"), "");
@@ -32,4 +32,5 @@ test("marks the owner group whisper command as ephemeral", () => {
   assert.equal(parseWhisperCommand("/whisper@trvny_bot sekret"), "sekret");
   assert.equal(parseWhisperCommand("/whisper"), "");
   assert.equal(parseWhisperCommand("/ask nie whisper"), null);
+  assert.equal(botHelpLines().some((line) => line.startsWith("/whisper ")), false);
 });

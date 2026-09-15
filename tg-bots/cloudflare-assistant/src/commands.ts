@@ -42,7 +42,9 @@ export function botGroupCommandPayload() {
 }
 
 export function botHelpLines(): string[] {
-  return BOTEK_COMMANDS.map(({ usage, description }) => `${usage} - ${description}`);
+  return BOTEK_COMMANDS
+    .filter((command) => command.private !== false)
+    .map(({ usage, description }) => `${usage} - ${description}`);
 }
 
 

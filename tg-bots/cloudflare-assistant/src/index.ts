@@ -1,6 +1,7 @@
 import {
   botCommandPayload,
   botHelpLines,
+  parseAskCommand,
   parseContactCommand,
   parseDiceCommand,
   parseLocationCommand,
@@ -48,6 +49,7 @@ import {
   sendTelegramSticker,
   sendTelegramStreamingDraft,
   sendTelegramThinking,
+  sendTelegramTyping,
   setTelegramMessageReaction,
   syncTelegramCommandMenu,
   syncTelegramWebhook,
@@ -580,7 +582,24 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   const message = update.message;
-  if (!message?.from) return null;
+  if (!message?.from || !ownerConfigured(env) || String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID) {
+    return null;
+  }
+  const privateChat = message.chat.type === "private";
+  const groupChat = message.chat.type === "group" || message.chat.type === "supergroup";
+  if (!privateChat && !groupChat) return null;
+
+  const rawText = message.text?.trim() ?? "";
+  const askPrompt = message.forward_origin ? null : parseAskCommand(rawText);
+  if (groupChat && askPrompt === null) return null;
+  if (askPrompt !== null && !askPrompt) {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /ask <pytanie>",
+    };
+  }
+
   const structuredInput = telegramStructuredInput(message);
   const stickerInput = telegramStickerInput(message);
   const diceInput = telegramDiceInput(message);
@@ -592,18 +611,10 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   const replyContext = telegramReplyContext(message);
   if (!message.text && !message.voice && !message.audio && !structuredInput && !stickerInput && !diceInput && !pollInput && !photo && !visualMedia && !document) return null;
 
-  if (
-    !ownerConfigured(env) ||
-    message.chat.type !== "private" ||
-    String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
-  ) {
-    return null;
-  }
-
   const messageThreadId = telegramMessageThreadId(message);
-  const rawText = message.text?.trim() ?? "";
   const rawCaption = (message.caption?.trim() ?? "").slice(0, 1_024);
   const text = message.forward_origin ? "" : rawText;
+  const modelText = askPrompt !== null ? askPrompt : text;
   const caption = message.forward_origin ? "" : rawCaption;
   if (!rawText && !message.voice && !message.audio && !structuredInput && !stickerInput && !diceInput && !pollInput && !photo && !visualMedia && !document && !forwardedContext && !replyContext) return null;
 
@@ -853,7 +864,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   const contextSections = [forwardedContext, replyContext].filter(Boolean);
   let prompt = isDraft
     ? text.slice("/draft ".length).trim()
-    : [text, ...contextSections, structuredInput, stickerInput, diceInput, pollInput].filter(Boolean).join("\n\n");
+    : [modelText, ...contextSections, structuredInput, stickerInput, diceInput, pollInput].filter(Boolean).join("\n\n");
   if (visualMedia) {
     let thumbnailAnalysis = "";
     let thumbnailAnalyzed = false;
@@ -1088,16 +1099,23 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
   if (!prompt) return null;
 
-  const system = isDraft
-    ? `${ASSISTANT_SYSTEM}\nDraft a reply to the message supplied by the owner. Return only the suggested reply. Never send it yourself.`
+  const chatSystem = groupChat
+    ? `${ASSISTANT_SYSTEM}\nThe owner explicitly invoked /ask in a Telegram group or topic. Answer only that owner request. The reply is visible to other chat members, so do not expose private conversation context beyond what belongs to this chat/topic.`
     : ASSISTANT_SYSTEM;
+  const system = isDraft
+    ? `${chatSystem}\nDraft a reply to the message supplied by the owner. Return only the suggested reply. Never send it yourself.`
+    : chatSystem;
 
   let lastGeneratedPartial = "";
   try {
     const history = isDraft
       ? { messages: [], generation: null }
       : await conversationHistory(env, message.chat.id, messageThreadId);
-    await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId, true);
+    if (privateChat) {
+      await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId, true);
+    } else {
+      await sendTelegramTyping(env, message.chat.id, messageThreadId);
+    }
     let draftMode: "rich" | "plain" = "rich";
     let lastDraftUpdateAt = 0;
     let lastDraftLength = 0;
@@ -1123,12 +1141,17 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       );
     };
     const shouldStop = () => generationStopRequested(env, update.update_id);
-    const result = await chatWithStreamingFallback(env, [
-      { role: "system", content: system },
-      ...history.messages,
-      { role: "user", content: prompt },
-    ], streamDraft, shouldStop);
-    if (await shouldStop()) throw new GenerationStoppedError(result.text);
+    const result = await chatWithStreamingFallback(
+      env,
+      [
+        { role: "system", content: system },
+        ...history.messages,
+        { role: "user", content: prompt },
+      ],
+      privateChat ? streamDraft : undefined,
+      privateChat ? shouldStop : undefined,
+    );
+    if (privateChat && await shouldStop()) throw new GenerationStoppedError(result.text);
     const footer = `\n\n[${result.provider} · ${result.model}]`;
     const assistant = result.text.slice(0, Math.max(0, TELEGRAM_MESSAGE_MAX_CHARS - footer.length));
     const replyMarkup = isDraft ? draftCopyKeyboard(assistant) : undefined;

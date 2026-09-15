@@ -140,6 +140,26 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 8. **Mini App** — provide a Telegram-native dashboard for Memory, Tasks, GitHub, Feeds, Models, Legion and service status. Use Mini App capabilities such as theme integration, QR scanning, device storage or biometrics only where they improve a concrete workflow.
 
 Suggested order: typing/replies/formatting/buttons → callbacks/editing/reactions → inline mode → richer media → Mini App and broader Telegram surfaces.
+### Telegram capability backlog
+
+Keep this list as the single roadmap for Telegram-platform features that are interesting but not all worth shipping at once. Prefer features that improve the owner's daily Botek workflow; keep Business/Secretary and account-management surfaces explicitly opt-in.
+
+- **Rich Message blocks (next)** — move selected structured replies beyond Markdown into native rich blocks: compact tables, expandable details/quotes, document/media blocks, maps, collage/slideshow, draft-only thinking blocks and inline actions. Use these for status, GitHub/Pet Dispatcher reports and research summaries, while retaining the current Rich Markdown/HTML/plain fallbacks.
+- **Media groups / albums** — aggregate messages sharing `media_group_id` for a short bounded window so multi-screenshot, photo/video and document batches are analyzed as one owner request instead of unrelated messages.
+- **Richer inline mode** — expose focused summarize/translate/explain/reply/code/search result variants, richer inline result types and `chosen_inline_result` telemetry without persisting unrelated chat contents.
+- **Mini App control center** — a small Telegram-native dashboard for Models, Memory, Tasks, GitHub, Feeds, Legion and health. Start read-mostly; add device storage, QR/biometric features or prepared inline messages only for concrete workflows.
+- **Secretary / Business mode** — investigate Secretary Bot and Business connection surfaces, including bounded `getUserPersonalChatMessages`, as a separate owner-enabled module. Reading/sending on behalf of the owner must be independently permissioned; payments, commitments, scheduling, private matters and ambiguous third-party replies stay approval-only.
+- **Bot-to-bot delegation** — allow narrowly scoped handoffs to specialist bots such as Kanarek/research helpers when bot-to-bot communication is enabled. Add loop prevention, hop limits, provenance and cost/token guards before any autonomous chaining.
+- **Managed Bots** — optional future bot-factory flow for creating/configuring tightly scoped helper bots and managing their access settings. Never expose or persist managed-bot tokens outside the existing secret-management path.
+- **Communities and broader chat topology** — understand Telegram Communities, linked channels/groups/bots and direct-message topics only when there is a real multi-chat workflow that benefits from shared routing or context.
+- **Profile polish** — support `setMyProfilePhoto`, profile audio where exposed, custom emoji and other bot-profile capabilities as small cosmetic/identity improvements without coupling them to assistant logic.
+- **Reactions and feedback** — keep state reactions, then add richer reaction-driven feedback only where Telegram permissions allow reliable updates; otherwise prefer callbacks. Do not turn ambient reaction changes into unsolicited assistant replies.
+- **Message effects and presentation** — optionally use message effects, silent/protected delivery and other small send-time affordances for deliberate owner-facing UX, never as default noise.
+- **Stories / business media** — business story posting, paid media and related monetization surfaces stay off by default; consider only with an explicit owner workflow and separate permission boundary.
+- **Local Bot API server** — keep `logOut`/`close` migration support documented as an escape hatch for large-file or local-hosted workflows. Do not move the always-on Cloudflare bot off the hosted Bot API without a concrete operational reason.
+- **Large/local files and richer documents** — if PDF/Office/media workflows outgrow hosted Bot API or Worker limits, prefer a bounded Pet Dispatcher/local extraction path rather than silently downloading huge files in the Worker.
+
+Platform constraints to preserve: Guest/ephemeral/Secretary/Business capabilities have different delivery windows and permission models; reactions may require administrator rights in chats; some profile/business surfaces require specific rights; `sendChecklist` is business-account-only; draft-only rich blocks such as thinking must not leak into normal persisted messages.
 
 The two tracks should converge: Telegram is the control surface, while Cloudflare, the shared model router, Engram and Pet Dispatcher remain the maintained backend pieces. Do not grow parallel command-specific backends when an existing service already owns the concern.
 

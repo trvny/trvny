@@ -10,7 +10,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
   { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
-  { command: "poll", usage: "/poll pytanie | opcja 1 | opcja 2", description: "Wyślij natywną ankietę" },
+  { command: "poll", usage: "/poll pytanie | opcja | +poprawna", description: "Wyślij ankietę lub quiz" },
   { command: "dice", usage: "/dice [🎲|🎯|🏀|⚽|🎳|🎰]", description: "Rzuć natywną kostką Telegrama" },
   { command: "sticker", usage: "/sticker", description: "Odeślij sticker z wiadomości, na którą odpowiadasz" },
   { command: "location", usage: "/location szerokość,długość", description: "Wyślij pinezkę na mapie" },
@@ -40,13 +40,22 @@ export function parseDiceCommand(text: string): TelegramDiceEmoji | null {
     : null;
 }
 
+function pollOptionText(option: string): string {
+  if (option.startsWith("++")) return option.slice(1).trim();
+  if (option.startsWith("+")) return option.slice(1).trim();
+  return option;
+}
+
 export function parsePollCommand(text: string): BotekPollRequest | null {
   if (!text.startsWith("/poll ")) return null;
   const [questionRaw, ...optionParts] = text.slice("/poll ".length).split("|");
   const question = questionRaw?.trim() ?? "";
   const options = optionParts.map((option) => option.trim()).filter(Boolean);
   if (!question || question.length > 300 || options.length < 2 || options.length > 12) return null;
-  if (options.some((option) => option.length > 100)) return null;
+  if (options.some((option) => {
+    const displayed = pollOptionText(option);
+    return !displayed || displayed.length > 100;
+  })) return null;
   return { question, options };
 }
 

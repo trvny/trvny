@@ -39,9 +39,13 @@ ANCHOR = "English"  # every index is expressed against this language at 100
 def load_samples(qmd: pathlib.Path) -> list[dict]:
     """Pull the sample array out of the maintained Quarto source."""
     src = qmd.read_text(encoding="utf-8")
-    m = re.search(r"const data=(\[.*?\]);", src, re.S)
+    m = re.search(
+        r"<script\b[^>]*\bid=['\"]token-worldcup-data['\"][^>]*>(.*?)</script>",
+        src,
+        re.S,
+    )
     if not m:
-        raise SystemExit(f"{qmd.name}: could not find the sample array - has the page changed?")
+        raise SystemExit(f"{qmd.name}: could not find the sample data block - has the page changed?")
     data = json.loads(m.group(1))
     if not data:
         raise SystemExit(f"{qmd.name}: the sample array is empty")
@@ -89,7 +93,7 @@ def main() -> int:
     if args.out and args.out.resolve() == QMD.resolve():
         raise SystemExit(
             f"--out must not overwrite {QMD.name} - that is the file the samples are read from, "
-            "and the next run would find no sample array. Pick another path."
+            "and the next run would find no sample data block. Pick another path."
         )
 
     samples = load_samples(QMD)

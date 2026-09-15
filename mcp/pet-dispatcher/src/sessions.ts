@@ -262,19 +262,24 @@ export class SessionManager {
     const existing = this.get(id);
     if (this.#terminateProcesses) await this.#terminateProcesses(id).catch(() => undefined);
     const release = this.acquireActivity(id, "close");
-    let cleanupError: unknown;
     try {
-      const session = this.get(id);
-      if (!discard && session.targetKind === "repository") {
-        const state = await this.#statusUnlocked(session);
-        const headIsExported = session.exportedCommit === state.head;
+      if (!discard && existing.targetKind === "repository") {
+        const state = await this.#statusUnlocked(existing);
+        const headIsExported = existing.exportedCommit === state.head;
         if (state.dirty || (state.changedHead && !headIsExported)) {
           throw new Error("session has unexported changes; export the current commit or close with discard=true");
         }
       }
+    } catch (error) {
+      release();
+      throw error;
+    }
+
+    let cleanupError: unknown;
+    try {
       const sessionsRoot = await realpath(resolve(this.config.workspaceRoot, "sessions"));
-      assertInside(sessionsRoot, session.sessionDir);
-      await rm(session.sessionDir, { recursive: true, force: true });
+      assertInside(sessionsRoot, existing.sessionDir);
+      await rm(existing.sessionDir, { recursive: true, force: true });
     } catch (error) {
       cleanupError = error;
     } finally {

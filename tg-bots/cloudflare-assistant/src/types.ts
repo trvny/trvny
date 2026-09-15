@@ -56,10 +56,12 @@ export type DurableObjectStateLike = {
   storage: DurableObjectStorageLike;
 };
 
+export type TelegramButtonStyle = "danger" | "success" | "primary";
+
 export type TelegramInlineKeyboardButton =
-  | { text: string; callback_data: string; copy_text?: never; switch_inline_query?: never }
-  | { text: string; copy_text: { text: string }; callback_data?: never; switch_inline_query?: never }
-  | { text: string; switch_inline_query: string; callback_data?: never; copy_text?: never };
+  | { text: string; style?: TelegramButtonStyle; callback_data: string; copy_text?: never; switch_inline_query?: never }
+  | { text: string; style?: TelegramButtonStyle; copy_text: { text: string }; callback_data?: never; switch_inline_query?: never }
+  | { text: string; style?: TelegramButtonStyle; switch_inline_query: string; callback_data?: never; copy_text?: never };
 
 export type TelegramInlineKeyboardMarkup = {
   inline_keyboard: TelegramInlineKeyboardButton[][];

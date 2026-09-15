@@ -17,6 +17,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - model-backed replies use Telegram Rich Messages with simple Markdown and fall back to plain text only after a deterministic rich-format rejection;
 - best-effort native reactions show state for model-backed owner messages (`👀` while working, `👍` after successful delivery, `👎` on handled failures, `🤨` when delivery is ambiguous);
 - inline `/status` refresh button backed by Telegram callback queries and message editing;
+- Telegram-native button styles distinguish primary actions, successful copy actions and destructive task cancellation;
 - native clipboard button on short `/draft` suggestions;
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;

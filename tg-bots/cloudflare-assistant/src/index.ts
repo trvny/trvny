@@ -24,7 +24,7 @@ import {
 } from "./tasks";
 import {
   AllProvidersFailedError,
-  chatWithFallback,
+  chatWithStreamingFallback,
   completeWithFallback,
   describeImage,
   kanarekProviderPoolStatus,
@@ -45,6 +45,7 @@ import {
   sendTelegramVenue,
   sendTelegramRichMessage,
   sendTelegramSticker,
+  sendTelegramStreamingDraft,
   sendTelegramThinking,
   setTelegramMessageReaction,
   syncTelegramCommandMenu,
@@ -94,6 +95,9 @@ const TELEGRAM_DOCUMENT_MAX_BYTES = 512 * 1024;
 const TELEGRAM_DOCUMENT_CONTEXT_MAX_CHARS = 3_500;
 const TELEGRAM_REPLY_BODY_MAX_CHARS = 900;
 const TELEGRAM_REPLY_QUOTE_MAX_CHARS = 500;
+// Live drafts share Telegram typing/draft rate limits; one update per second leaves headroom.
+const TELEGRAM_DRAFT_UPDATE_INTERVAL_MS = 1_000;
+const TELEGRAM_DRAFT_FIRST_UPDATE_CHARS = 48;
 
 const ASSISTANT_SYSTEM = `You are a private Telegram assistant for one owner.
 Be concise, practical and friendly. Prefer Polish unless the user writes in another language.
@@ -1092,11 +1096,34 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       ? { messages: [], generation: null }
       : await conversationHistory(env, message.chat.id, messageThreadId);
     await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
-    const result = await chatWithFallback(env, [
+    let draftMode: "rich" | "plain" = "rich";
+    let lastDraftUpdateAt = 0;
+    let lastDraftLength = 0;
+    const streamDraft = async (partial: string) => {
+      const draftText = partial.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+      if (!draftText || draftText.length <= lastDraftLength) return;
+      const now = Date.now();
+      if (lastDraftUpdateAt === 0) {
+        if (draftText.length < TELEGRAM_DRAFT_FIRST_UPDATE_CHARS) return;
+      } else if (now - lastDraftUpdateAt < TELEGRAM_DRAFT_UPDATE_INTERVAL_MS) {
+        return;
+      }
+      lastDraftUpdateAt = now;
+      lastDraftLength = draftText.length;
+      draftMode = await sendTelegramStreamingDraft(
+        env,
+        message.chat.id,
+        update.update_id,
+        draftText,
+        messageThreadId,
+        draftMode,
+      );
+    };
+    const result = await chatWithStreamingFallback(env, [
       { role: "system", content: system },
       ...history.messages,
       { role: "user", content: prompt },
-    ]);
+    ], streamDraft);
     const footer = `\n\n[${result.provider} · ${result.model}]`;
     const assistant = result.text.slice(0, Math.max(0, TELEGRAM_MESSAGE_MAX_CHARS - footer.length));
     const replyMarkup = isDraft ? draftCopyKeyboard(assistant) : undefined;

@@ -45,6 +45,16 @@ type OpenAIResponse = {
   choices?: Array<{ message?: { content?: string } }>;
 };
 
+type OpenAIStreamChunk = {
+  model?: string;
+  choices?: Array<{
+    delta?: { content?: string };
+    message?: { content?: string };
+  }>;
+};
+
+type PartialTextHandler = (text: string) => void | Promise<void>;
+
 function clipError(text: string): string {
   return text.replace(/\s+/g, " ").slice(0, 240);
 }
@@ -124,11 +134,13 @@ export async function kanarekProviderPoolStatus(
     return null;
   }
 }
-async function kanarekFreeRouter(
+async function withKanarekFreeRouter<T>(
   env: Env,
   messages: ChatMessage[],
-  timeoutMs = ROUTER_TIMEOUT_MS,
-): Promise<ProviderResult> {
+  timeoutMs: number,
+  stream: boolean,
+  consume: (response: Response) => Promise<T>,
+): Promise<T> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) throw new Error("KANAREK_REVIEW_ROUTER_TOKEN is not configured");
 
@@ -141,23 +153,19 @@ async function kanarekFreeRouter(
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ model: KANAREK_REVIEW_MODEL, messages, temperature: 0.5 }),
+      body: JSON.stringify({
+        model: KANAREK_REVIEW_MODEL,
+        messages,
+        temperature: 0.5,
+        ...(stream ? { stream: true } : {}),
+      }),
       signal: controller.signal,
     });
     const response = await env.KANAREK_COMPANION.fetch(request);
     if (!response.ok) {
       throw new Error(`${response.status} ${clipError(await response.text())}`);
     }
-
-    const data = (await response.json()) as OpenAIResponse;
-    const text = data.choices?.[0]?.message?.content?.trim();
-    if (!text) throw new Error("empty Kanarek router response");
-    const selected = response.headers.get("x-kanarek-review-provider") ?? "free-router";
-    return {
-      text,
-      provider: `Kanarek/${selected}`,
-      model: data.model ?? KANAREK_REVIEW_MODEL,
-    };
+    return await consume(response);
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(`Kanarek router timed out after ${timeoutMs}ms`);
@@ -166,6 +174,124 @@ async function kanarekFreeRouter(
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function providerResult(response: Response, data: OpenAIResponse): ProviderResult {
+  const text = data.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error("empty Kanarek router response");
+  const selected = response.headers.get("x-kanarek-review-provider") ?? "free-router";
+  return {
+    text,
+    provider: `Kanarek/${selected}`,
+    model: data.model ?? KANAREK_REVIEW_MODEL,
+  };
+}
+
+async function kanarekFreeRouter(
+  env: Env,
+  messages: ChatMessage[],
+  timeoutMs = ROUTER_TIMEOUT_MS,
+): Promise<ProviderResult> {
+  return withKanarekFreeRouter(env, messages, timeoutMs, false, async (response) => {
+    const data = (await response.json()) as OpenAIResponse;
+    return providerResult(response, data);
+  });
+}
+
+async function consumeOpenAIStream(
+  response: Response,
+  onPartial?: PartialTextHandler,
+): Promise<ProviderResult> {
+  if (!response.headers.get("content-type")?.toLowerCase().includes("text/event-stream")) {
+    return providerResult(response, (await response.json()) as OpenAIResponse);
+  }
+  if (!response.body) throw new Error("empty Kanarek router stream");
+
+  const selected = response.headers.get("x-kanarek-review-provider") ?? "free-router";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let lineBuffer = "";
+  let eventData: string[] = [];
+  let text = "";
+  let model = KANAREK_REVIEW_MODEL;
+  let streamDone = false;
+
+  const flushEvent = async () => {
+    if (eventData.length === 0) return;
+    const payload = eventData.join("\n").trim();
+    eventData = [];
+    if (!payload) return;
+    if (payload === "[DONE]") {
+      streamDone = true;
+      return;
+    }
+
+    let chunk: OpenAIStreamChunk;
+    try {
+      chunk = JSON.parse(payload) as OpenAIStreamChunk;
+    } catch {
+      return;
+    }
+    if (chunk.model) model = chunk.model;
+    const choice = chunk.choices?.[0];
+    const delta = choice?.delta?.content;
+    if (typeof delta === "string" && delta) {
+      text += delta;
+      await onPartial?.(text);
+      return;
+    }
+    const complete = choice?.message?.content;
+    if (!text && typeof complete === "string" && complete) {
+      text = complete;
+      await onPartial?.(text);
+    }
+  };
+
+  const consumeLine = async (rawLine: string) => {
+    const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+    if (line === "") {
+      await flushEvent();
+      return;
+    }
+    if (line.startsWith("data:")) eventData.push(line.slice(5).trimStart());
+  };
+
+  streamLoop: while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    lineBuffer += decoder.decode(value, { stream: true });
+    const lines = lineBuffer.split("\n");
+    lineBuffer = lines.pop() ?? "";
+    for (const line of lines) {
+      await consumeLine(line);
+      if (streamDone) break streamLoop;
+    }
+  }
+  if (streamDone) {
+    await reader.cancel().catch(() => undefined);
+  } else {
+    lineBuffer += decoder.decode();
+    if (lineBuffer) await consumeLine(lineBuffer);
+    await flushEvent();
+  }
+
+  const finalText = text.trim();
+  if (!finalText) throw new Error("empty Kanarek router stream");
+  return { text: finalText, provider: `Kanarek/${selected}`, model };
+}
+
+async function kanarekFreeRouterStream(
+  env: Env,
+  messages: ChatMessage[],
+  onPartial?: PartialTextHandler,
+): Promise<ProviderResult> {
+  return withKanarekFreeRouter(
+    env,
+    messages,
+    ROUTER_TIMEOUT_MS,
+    true,
+    (response) => consumeOpenAIStream(response, onPartial),
+  );
 }
 
 async function workersAi(env: Env, messages: ChatMessage[]): Promise<ProviderResult> {
@@ -231,6 +357,25 @@ export async function chatWithInlineFallback(env: Env, messages: ChatMessage[]) 
       INLINE_WORKERS_AI_TIMEOUT_MS,
       "Workers AI inline fallback",
     );
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+  throw new AllProvidersFailedError(errors);
+}
+
+export async function chatWithStreamingFallback(
+  env: Env,
+  messages: ChatMessage[],
+  onPartial?: PartialTextHandler,
+) {
+  const errors: string[] = [];
+  try {
+    return await kanarekFreeRouterStream(env, messages, onPartial);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+  try {
+    return await workersAi(env, messages);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }

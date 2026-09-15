@@ -232,7 +232,7 @@ export async function sendTelegramThinking(
 
 async function telegramDelivery(
   env: Env,
-  method: "sendMessage" | "sendRichMessage" | "sendPoll" | "sendDice" | "sendSticker" | "sendLocation" | "sendVenue" | "sendContact" | "createForumTopic" | "editMessageText",
+  method: "sendMessage" | "sendMessageDraft" | "sendRichMessage" | "sendRichMessageDraft" | "sendPoll" | "sendDice" | "sendSticker" | "sendLocation" | "sendVenue" | "sendContact" | "createForumTopic" | "editMessageText",
   body: Record<string, unknown>,
   acceptNotModified = false,
 ): Promise<void> {
@@ -283,6 +283,54 @@ async function telegramDelivery(
       ? Math.max(1, Math.ceil(retryAfter))
       : undefined,
   );
+}
+
+export type TelegramStreamingDraftMode = "rich" | "plain";
+
+export async function sendTelegramStreamingDraft(
+  env: Env,
+  chatId: string | number,
+  draftId: number,
+  markdown: string,
+  messageThreadId?: number,
+  mode: TelegramStreamingDraftMode = "rich",
+): Promise<TelegramStreamingDraftMode> {
+  const text = markdown.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+  if (!text || !env.TELEGRAM_BOT_TOKEN) return mode;
+  const bodyBase = {
+    chat_id: chatId,
+    ...telegramThreadFields(messageThreadId),
+    draft_id: draftId === 0 ? 1 : draftId,
+  };
+
+  if (mode === "rich") {
+    try {
+      await telegramDelivery(env, "sendRichMessageDraft", {
+        ...bodyBase,
+        rich_message: { markdown: text },
+      });
+      return "rich";
+    } catch (error) {
+      if (
+        error instanceof TelegramSendError &&
+        error.status === 400 &&
+        !error.retryable &&
+        !error.ambiguous
+      ) {
+        console.warn("Telegram rejected a partial rich draft; switching this stream to plain drafts");
+      } else {
+        console.warn("Telegram rich draft update failed", error);
+        return mode;
+      }
+    }
+  }
+
+  try {
+    await telegramDelivery(env, "sendMessageDraft", { ...bodyBase, text });
+  } catch (error) {
+    console.warn("Telegram plain draft update failed", error);
+  }
+  return "plain";
 }
 
 export async function createTelegramForumTopic(

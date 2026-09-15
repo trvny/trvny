@@ -2,12 +2,15 @@ export type BotekCommand = {
   command: string;
   usage: string;
   description: string;
+  private?: boolean;
+  groupMode?: "visible" | "ephemeral";
 };
 
 export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "start", usage: "/start", description: "Uruchom Botka i pokaż pomoc" },
   { command: "help", usage: "/help", description: "Pokaż dostępne komendy" },
-  { command: "ask", usage: "/ask <pytanie>", description: "Zapytaj Botka jawnie, także w grupie" },
+  { command: "ask", usage: "/ask <pytanie>", description: "Zapytaj Botka jawnie, także w grupie", groupMode: "visible" },
+  { command: "whisper", usage: "/whisper <pytanie>", description: "Zapytaj prywatnie w grupie", private: false, groupMode: "ephemeral" },
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
   { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
@@ -23,11 +26,25 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
 ];
 
 export function botCommandPayload() {
-  return BOTEK_COMMANDS.map(({ command, description }) => ({ command, description }));
+  return BOTEK_COMMANDS
+    .filter((command) => command.private !== false)
+    .map(({ command, description }) => ({ command, description }));
+}
+
+export function botGroupCommandPayload() {
+  return BOTEK_COMMANDS
+    .filter((command) => command.groupMode)
+    .map(({ command, description, groupMode }) => ({
+      command,
+      description,
+      ...(groupMode === "ephemeral" ? { is_ephemeral: true } : {}),
+    }));
 }
 
 export function botHelpLines(): string[] {
-  return BOTEK_COMMANDS.map(({ usage, description }) => `${usage} - ${description}`);
+  return BOTEK_COMMANDS
+    .filter((command) => command.private !== false)
+    .map(({ usage, description }) => `${usage} - ${description}`);
 }
 
 
@@ -36,6 +53,14 @@ export function parseAskCommand(text: string): string | null {
   const space = trimmed.indexOf(" ");
   const command = (space < 0 ? trimmed : trimmed.slice(0, space)).toLowerCase();
   if (command !== "/ask" && !/^\/ask@[a-z0-9_]{5,32}$/u.test(command)) return null;
+  return space < 0 ? "" : trimmed.slice(space + 1).trim();
+}
+
+export function parseWhisperCommand(text: string): string | null {
+  const trimmed = text.trim();
+  const space = trimmed.indexOf(" ");
+  const command = (space < 0 ? trimmed : trimmed.slice(0, space)).toLowerCase();
+  if (command !== "/whisper" && !/^\/whisper@[a-z0-9_]{5,32}$/u.test(command)) return null;
   return space < 0 ? "" : trimmed.slice(space + 1).trim();
 }
 

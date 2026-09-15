@@ -18,8 +18,8 @@ export type SessionTargetKind = "repository" | "workspace";
 export interface Session {
   id: string;
   repo: string;
-  targetKind: SessionTargetKind;
-  writable: boolean;
+  targetKind?: SessionTargetKind;
+  writable?: boolean;
   sessionDir: string;
   root: string;
   gitDir: string;
@@ -30,7 +30,7 @@ export interface Session {
   exportedCommit: string | null;
   exportedRef: string | null;
   createdAt: string;
-  expiresAt: string;
+  expiresAt?: string;
 }
 
 interface Activity { kind: string; token: symbol }
@@ -229,7 +229,7 @@ export class SessionManager {
   }
 
   #assertGitSession(session: Session): void {
-    if (session.targetKind !== "repository") throw new Error("workspace session is not a Git target");
+    if (session.targetKind === "workspace") throw new Error("workspace session is not a Git target");
   }
 
   async #statusUnlocked(session: Session): Promise<{ session: Session; head: string; dirty: boolean; changedHead: boolean }> {
@@ -263,7 +263,7 @@ export class SessionManager {
     if (this.#terminateProcesses) await this.#terminateProcesses(id).catch(() => undefined);
     const release = this.acquireActivity(id, "close");
     try {
-      if (!discard && existing.targetKind === "repository") {
+      if (!discard && existing.targetKind !== "workspace") {
         const state = await this.#statusUnlocked(existing);
         const headIsExported = existing.exportedCommit === state.head;
         if (state.dirty || (state.changedHead && !headIsExported)) {
@@ -285,7 +285,7 @@ export class SessionManager {
     } finally {
       this.#sessions.delete(id);
       this.#activity.delete(id);
-      if (existing.writable && this.#writers.get(existing.repo) === id) this.#writers.delete(existing.repo);
+      if (existing.writable !== false && this.#writers.get(existing.repo) === id) this.#writers.delete(existing.repo);
       release();
     }
     if (cleanupError) throw cleanupError;
@@ -294,7 +294,7 @@ export class SessionManager {
   async reclaim(id: string, now = Date.now()): Promise<boolean> {
     const session = this.#sessions.get(id);
     if (!session) return false;
-    const expiresAt = Date.parse(session.expiresAt);
+    const expiresAt = session.expiresAt ? Date.parse(session.expiresAt) : Number.POSITIVE_INFINITY;
     if (!Number.isFinite(expiresAt) || expiresAt > now) throw new Error("session is not expired and cannot be reclaimed");
     await this.close(id, true).catch(() => undefined);
     return !this.#sessions.has(id);
@@ -304,7 +304,7 @@ export class SessionManager {
     await this.#ready();
     let reclaimed = 0;
     for (const session of [...this.#sessions.values()]) {
-      const expiresAt = Date.parse(session.expiresAt);
+      const expiresAt = session.expiresAt ? Date.parse(session.expiresAt) : Number.POSITIVE_INFINITY;
       if (Number.isFinite(expiresAt) && expiresAt <= now && await this.reclaim(session.id, now)) reclaimed += 1;
     }
     await this.#cleanupOrphanedSessions();

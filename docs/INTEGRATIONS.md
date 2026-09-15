@@ -18,7 +18,7 @@
 
 ## Pet Dispatcher control plane
 
-`pet-dispatcher-control` uses Queue `pet-dispatcher-tasks`, SQLite Durable Object `TaskStateStore`, `CONTROL_PLANE_TOKEN`, `TASK_SIGNING_SECRET`, and device id `legion`. The Legion polls outbound; no inbound host listener is required.
+`pet-dispatcher-control` uses Queue `pet-dispatcher-tasks`, SQLite Durable Object `TaskStateStore`, `CONTROL_PLANE_TOKEN`, `TASK_SIGNING_SECRET`, and device id `legion`. Private connector URL auth mirrors repository secret `PET_DISPATCHER_MCP_CONNECTOR_TOKEN` into Worker secret `MCP_CONNECTOR_TOKEN` through the shared `.github/scripts/sync-cloudflare-worker-secret.sh` helper; both the deploy workflow and central `Sync Worker credentials` workflow use that same path. The Legion polls outbound; no inbound host listener is required.
 
 The Telegram assistant should reuse this control plane for future heavyweight Hermes handoff. Multi-worker Android/Legion routing should extend Pet Dispatcher worker identity/capability handling rather than introduce a parallel task queue/protocol.
 
@@ -41,3 +41,4 @@ The Worker reads TVPI, Weather and Autka through same-account service bindings a
 - Kanarek strips sensitive Cloudflare values from inspection responses and uses guarded mutation checkpoints.
 - status-mcp invocation logging remains disabled because its compatibility auth form can place a token in the request path.
 - The Telegram assistant reuses the Kanarek router bearer instead of duplicating OpenRouter/OrcaRouter/AIHubMix credentials.
+- Pet Dispatcher connector URL auth uses a dedicated MCP-only secret; the operator control-plane bearer is never copied into the connector URL.

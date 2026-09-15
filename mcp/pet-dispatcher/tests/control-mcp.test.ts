@@ -23,7 +23,7 @@ async function rpc(operations: ControlMcpOperations, body: unknown) {
 
 function baseOperations(overrides: Partial<ControlMcpOperations> = {}): ControlMcpOperations {
   return {
-    meta: async () => ({ status: 200, body: { deviceId: "test-device" } }),
+    meta: async () => ({ status: 200, body: { deviceId: "test-device", transport: "cloudflare-queues-http-pull", protocol: 1, directTools: ["fs.read"] } }),
     delegate: async () => ({ status: 202, body: { taskId: TASK_ID, status: "queued" } }),
     direct: async () => ({ status: 202, body: { taskId: TASK_ID, status: "queued" } }),
     getTask: async () => ({ status: 200, body: { taskId: TASK_ID, status: "running" } }),
@@ -43,7 +43,11 @@ async function initialize(operations: ControlMcpOperations): Promise<void> {
     },
   });
   assert.equal(result.response.status, 200);
-  assert.equal((result.body?.result as { serverInfo?: { name?: string } })?.serverInfo?.name, "pet-dispatcher-control");
+  const info = (result.body?.result as { serverInfo?: { name?: string; title?: string; description?: string; icons?: Array<{ src?: string }> } })?.serverInfo;
+  assert.equal(info?.name, "pet-dispatcher-control");
+  assert.equal(info?.title, "Pet Dispatcher");
+  assert.match(info?.description ?? "", /remote bridge/u);
+  assert.equal(info?.icons?.[0]?.src, "https://pet-dispatcher-control.travny.workers.dev/icon.png");
 }
 
 test("remote MCP exposes the control-plane task surface", async () => {
@@ -51,10 +55,12 @@ test("remote MCP exposes the control-plane task surface", async () => {
   await initialize(operations);
   const listed = await rpc(operations, { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
   assert.equal(listed.response.status, 200);
-  const tools = ((listed.body?.result as { tools?: Array<{ name: string }> })?.tools ?? []).map(({ name }) => name);
+  const listedTools = ((listed.body?.result as { tools?: Array<{ name: string; outputSchema?: unknown }> })?.tools ?? []);
+  const tools = listedTools.map(({ name }) => name);
   assert.deepEqual(tools.sort(), [
     "pet_delegate", "pet_direct", "pet_meta", "pet_task_cancel", "pet_task_get",
   ]);
+  assert.ok(listedTools.every((tool) => tool.outputSchema));
 
   const meta = await rpc(operations, {
     jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "pet_meta", arguments: {} },

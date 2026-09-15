@@ -11,10 +11,15 @@ import { assertInside } from "./path-guard.js";
 
 const execFileAsync = promisify(execFile);
 const LEGACY_SESSION_GRACE_MS = 24 * 60 * 60 * 1_000;
+const DEFAULT_SESSION_TTL_MINUTES = 30;
+
+export type SessionTargetKind = "repository" | "workspace";
 
 export interface Session {
   id: string;
   repo: string;
+  targetKind: SessionTargetKind;
+  writable: boolean;
   sessionDir: string;
   root: string;
   gitDir: string;
@@ -25,19 +30,15 @@ export interface Session {
   exportedCommit: string | null;
   exportedRef: string | null;
   createdAt: string;
+  expiresAt: string;
 }
 
-interface Activity {
-  kind: string;
-  token: symbol;
-}
+interface Activity { kind: string; token: symbol }
 
 function processIsAlive(pid: number): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
+  try { process.kill(pid, 0); return true; }
+  catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     return code !== "ESRCH" && code !== "EINVAL";
   }
@@ -49,14 +50,29 @@ export class SessionManager {
   readonly #activity = new Map<string, Activity>();
   readonly #activityContext = new AsyncLocalStorage<{ id: string; token: symbol }>();
   readonly #initialization: Promise<void>;
+  readonly #reaper: NodeJS.Timeout;
   #initializationError?: Error;
   #gitExecutable?: Promise<string>;
+  #terminateProcesses?: (sessionId: string) => Promise<boolean | void>;
 
   constructor(readonly config: DispatcherConfig) {
     this.#initialization = this.#cleanupOrphanedSessions().catch((error: unknown) => {
       this.#initializationError = error instanceof Error ? error : new Error(String(error));
     });
+    this.#reaper = setInterval(() => {
+      this.reap().catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`[pet-dispatcher] session reaper warning: ${message}\n`);
+      });
+    }, config.sessionReaperIntervalMs ?? 15_000);
+    this.#reaper.unref();
   }
+
+  setProcessTerminator(terminate: (sessionId: string) => Promise<boolean | void>): void {
+    this.#terminateProcesses = terminate;
+  }
+
+  dispose(): void { clearInterval(this.#reaper); }
 
   async #ready(): Promise<void> {
     await this.#initialization;
@@ -71,13 +87,11 @@ export class SessionManager {
       if (!entry.isDirectory() || this.#sessions.has(entry.name)) continue;
       const candidate = resolve(sessionsRoot, entry.name);
       assertInside(sessionsRoot, candidate);
-
       let ownerPid: number | undefined;
       try {
         const owner = JSON.parse(await readFile(join(candidate, "owner.json"), "utf8")) as { pid?: unknown };
         if (typeof owner.pid === "number" && Number.isInteger(owner.pid) && owner.pid > 0) ownerPid = owner.pid;
       } catch { /* legacy or partially-created session */ }
-
       if (ownerPid !== undefined) {
         if (processIsAlive(ownerPid)) continue;
       } else {
@@ -95,6 +109,8 @@ export class SessionManager {
   }
 
   list(): Session[] { return [...this.#sessions.values()]; }
+  activeCount(): number { return this.#sessions.size; }
+  activeOperationCount(): number { return this.#activity.size; }
 
   #gitPath(): Promise<string> {
     this.#gitExecutable ??= resolveTrustedGitExecutable(this.config);
@@ -142,64 +158,82 @@ export class SessionManager {
     }
     if (!profile) throw new Error(`${mode} network mode requires a configured profile`);
     if (!this.config.networkProfiles[profile]) throw new Error(`unknown network profile: ${profile}`);
-    if (mode === "restricted") {
-      throw new Error("restricted direct egress is not available yet on this host; use brokered mode");
-    }
+    if (mode === "restricted") throw new Error("restricted direct egress is not available yet on this host; use brokered mode");
     return { mode, profile };
   }
 
-  async open(
-    repo: string,
-    ref = "HEAD",
-    networkMode: NetworkMode = "none",
-    networkProfile?: string,
-    sync = false,
-  ): Promise<Session> {
+  async open(repo: string, ref = "HEAD", networkMode: NetworkMode = "none", networkProfile?: string, sync = false, ttlMinutes = DEFAULT_SESSION_TTL_MINUTES): Promise<Session> {
+    return this.#open(repo, ref, networkMode, networkProfile, sync, ttlMinutes, true);
+  }
+
+  async openRead(repo: string, ref = "HEAD", networkMode: NetworkMode = "none", networkProfile?: string, ttlMinutes = 5): Promise<Session> {
+    return this.#open(repo, ref, networkMode, networkProfile, false, ttlMinutes, false);
+  }
+
+  async #open(repo: string, ref: string, networkMode: NetworkMode, networkProfile: string | undefined, sync: boolean, ttlMinutes: number, writable: boolean): Promise<Session> {
     await this.#ready();
-    const sourceConfigured = this.config.repositories[repo];
-    if (!sourceConfigured) throw new Error(`repository is not configured: ${repo}`);
+    if (!Number.isFinite(ttlMinutes) || ttlMinutes < 1 || ttlMinutes > 60) throw new Error("session TTL must be 1-60 minutes");
+    const repoRoot = this.config.repositories[repo];
+    const workspaceRoot = this.config.workspaces?.[repo];
+    const targetKind: SessionTargetKind = repoRoot ? "repository" : workspaceRoot ? "workspace" : (() => { throw new Error(`target is not configured: ${repo}`); })();
+    const configuredRoot = repoRoot ?? workspaceRoot;
+    if (!configuredRoot) throw new Error(`target is not configured: ${repo}`);
     if (sync) throw new Error("session sync requires restricted host egress and is unavailable in Phase 1");
-    if (this.#writers.has(repo)) throw new Error(`repository already has a writer session: ${repo}`);
-    if (!/^(?!-)[A-Za-z0-9._/@+:-]+$/.test(ref)) throw new Error("invalid git ref");
+    if (writable && this.#writers.has(repo)) throw new Error(`target already has a writer session: ${repo}`);
+    if (targetKind === "repository" && !/^(?!-)[A-Za-z0-9._/@+:-]+$/.test(ref)) throw new Error("invalid git ref");
     const network = this.#network(networkMode, networkProfile);
     const id = randomUUID();
-    this.#writers.set(repo, id);
+    if (writable) this.#writers.set(repo, id);
     let sessionDir: string | undefined;
     try {
-      const sourceRoot = await realpath(sourceConfigured);
-      const gitExecutable = await this.#gitPath();
+      const sourceRoot = await realpath(configuredRoot);
       const sessionsRoot = resolve(this.config.workspaceRoot, "sessions");
       await mkdir(sessionsRoot, { recursive: true });
       sessionDir = resolve(sessionsRoot, id);
       assertInside(sessionsRoot, sessionDir);
-      const root = resolve(sessionDir, "worktree");
-      const gitDir = resolve(sessionDir, "git");
-      const hostHome = resolve(sessionDir, "host-home");
-      await mkdir(hostHome, { recursive: true });
-      await writeFile(join(sessionDir, "owner.json"), JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() }), "utf8");
-      const gitOptions = this.#gitOptions(gitExecutable, hostHome);
-      const { stdout } = await execFileAsync(gitExecutable, [...gitSafetyArgs, "-C", sourceRoot, "rev-parse", "--verify", `${ref}^{commit}`], gitOptions);
-      const initialCommit = stdout.trim();
+      await mkdir(sessionDir, { recursive: true });
+      const createdAt = new Date().toISOString();
+      const expiresAt = new Date(Date.now() + ttlMinutes * 60_000).toISOString();
+      await writeFile(join(sessionDir, "owner.json"), JSON.stringify({ pid: process.pid, createdAt, expiresAt, alias: repo, targetKind }), "utf8");
 
-      await execFileAsync(gitExecutable, [...gitSafetyArgs, "clone", "--no-local", "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root], gitOptions);
-      await execFileAsync(gitExecutable, [...gitSafetyArgs, "--git-dir", gitDir, "--work-tree", root, "checkout", "--detach", initialCommit], gitOptions);
-      await rm(join(root, ".git"), { force: true });
-      const readonlyRoots: string[] = [];
+      let root = sourceRoot;
+      let gitDir = "";
+      let initialCommit = "";
+      if (targetKind === "repository") {
+        const gitExecutable = await this.#gitPath();
+        root = resolve(sessionDir, "worktree");
+        gitDir = resolve(sessionDir, "git");
+        const hostHome = resolve(sessionDir, "host-home");
+        await mkdir(hostHome, { recursive: true });
+        const gitOptions = this.#gitOptions(gitExecutable, hostHome);
+        const { stdout } = await execFileAsync(gitExecutable, [...gitSafetyArgs, "-C", sourceRoot, "rev-parse", "--verify", `${ref}^{commit}`], gitOptions);
+        initialCommit = stdout.trim();
+        await execFileAsync(gitExecutable, [...gitSafetyArgs, "clone", "--no-local", "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root], gitOptions);
+        await execFileAsync(gitExecutable, [...gitSafetyArgs, "--git-dir", gitDir, "--work-tree", root, "checkout", "--detach", initialCommit], gitOptions);
+        await rm(join(root, ".git"), { force: true });
+        root = await realpath(root);
+        gitDir = await realpath(gitDir);
+      }
       const session: Session = {
-        id, repo, sessionDir: await realpath(sessionDir), root: await realpath(root), gitDir: await realpath(gitDir),
-        sourceRoot, initialCommit, readonlyRoots, network, exportedCommit: null, exportedRef: null,
-        createdAt: new Date().toISOString(),
+        id, repo, targetKind, writable, sessionDir: await realpath(sessionDir), root,
+        gitDir, sourceRoot, initialCommit, readonlyRoots: [], network,
+        exportedCommit: null, exportedRef: null, createdAt, expiresAt,
       };
       this.#sessions.set(id, session);
       return session;
     } catch (error) {
       if (sessionDir) await rm(sessionDir, { recursive: true, force: true }).catch(() => undefined);
-      if (this.#writers.get(repo) === id) this.#writers.delete(repo);
+      if (writable && this.#writers.get(repo) === id) this.#writers.delete(repo);
       throw error;
     }
   }
 
+  #assertGitSession(session: Session): void {
+    if (session.targetKind !== "repository") throw new Error("workspace session is not a Git target");
+  }
+
   async #statusUnlocked(session: Session): Promise<{ session: Session; head: string; dirty: boolean; changedHead: boolean }> {
+    this.#assertGitSession(session);
     const gitExecutable = await this.#gitPath();
     const home = join(session.gitDir, "pet-dispatcher-home");
     await mkdir(home, { recursive: true });
@@ -219,24 +253,56 @@ export class SessionManager {
 
   markExported(id: string, commit: string, ref: string): void {
     const session = this.get(id);
+    this.#assertGitSession(session);
     session.exportedCommit = commit;
     session.exportedRef = ref;
   }
 
   async close(id: string, discard = false): Promise<void> {
+    const existing = this.get(id);
+    if (this.#terminateProcesses) await this.#terminateProcesses(id).catch(() => undefined);
     const release = this.acquireActivity(id, "close");
+    let cleanupError: unknown;
     try {
       const session = this.get(id);
-      const state = await this.#statusUnlocked(session);
-      const headIsExported = session.exportedCommit === state.head;
-      if (!discard && (state.dirty || (state.changedHead && !headIsExported))) {
-        throw new Error("session has unexported changes; export the current commit or close with discard=true");
+      if (!discard && session.targetKind === "repository") {
+        const state = await this.#statusUnlocked(session);
+        const headIsExported = session.exportedCommit === state.head;
+        if (state.dirty || (state.changedHead && !headIsExported)) {
+          throw new Error("session has unexported changes; export the current commit or close with discard=true");
+        }
       }
       const sessionsRoot = await realpath(resolve(this.config.workspaceRoot, "sessions"));
       assertInside(sessionsRoot, session.sessionDir);
       await rm(session.sessionDir, { recursive: true, force: true });
+    } catch (error) {
+      cleanupError = error;
+    } finally {
       this.#sessions.delete(id);
-      if (this.#writers.get(session.repo) === id) this.#writers.delete(session.repo);
-    } finally { release(); }
+      this.#activity.delete(id);
+      if (existing.writable && this.#writers.get(existing.repo) === id) this.#writers.delete(existing.repo);
+      release();
+    }
+    if (cleanupError) throw cleanupError;
+  }
+
+  async reclaim(id: string, now = Date.now()): Promise<boolean> {
+    const session = this.#sessions.get(id);
+    if (!session) return false;
+    const expiresAt = Date.parse(session.expiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt > now) throw new Error("session is not expired and cannot be reclaimed");
+    await this.close(id, true).catch(() => undefined);
+    return !this.#sessions.has(id);
+  }
+
+  async reap(now = Date.now()): Promise<number> {
+    await this.#ready();
+    let reclaimed = 0;
+    for (const session of [...this.#sessions.values()]) {
+      const expiresAt = Date.parse(session.expiresAt);
+      if (Number.isFinite(expiresAt) && expiresAt <= now && await this.reclaim(session.id, now)) reclaimed += 1;
+    }
+    await this.#cleanupOrphanedSessions();
+    return reclaimed;
   }
 }

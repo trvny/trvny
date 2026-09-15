@@ -132,10 +132,30 @@ export type TelegramAudio = {
   file_size?: number;
 };
 
+export type TelegramMessageOrigin = {
+  type: string;
+  date?: number;
+  sender_user?: { id: number; first_name?: string; last_name?: string; username?: string };
+  sender_user_name?: string;
+  sender_chat?: { id: number; type: string; title?: string; username?: string };
+  chat?: { id: number; type: string; title?: string; username?: string };
+  message_id?: number;
+  author_signature?: string;
+};
+
+export type TelegramTextQuote = {
+  text: string;
+  position?: number;
+  is_manual?: true;
+};
+
 export type TelegramMessage = {
   message_id: number;
   text?: string;
   caption?: string;
+  forward_origin?: TelegramMessageOrigin;
+  reply_to_message?: TelegramMessage;
+  quote?: TelegramTextQuote;
   photo?: TelegramPhotoSize[];
   document?: TelegramDocument;
   audio?: TelegramAudio;

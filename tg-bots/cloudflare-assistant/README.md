@@ -23,6 +23,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - `/poll question | option 1 | option 2` sends a native non-anonymous Telegram poll with 2–12 options;
 - `/location`, `/venue` and `/contact` send native Telegram structured messages from bounded owner-only command input;
 - owner-shared text/code documents downloaded transiently with strict size/type bounds and injected as untrusted document data;
+- replies and forwarded messages are normalized into bounded untrusted context; forwarded command-looking text cannot trigger owner commands;
 - shared free-model routing through the existing Kanarek Companion router;
 - local Workers AI emergency fallback;
 - `POST /ingest/rss` for Feedseek/RSS curation;
@@ -243,6 +244,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - shared locations, venues and contacts are normalized to bounded text; contact vCards and third-party metadata are not injected into the model context;
 - shared polls are normalized to bounded question/options/vote context;
 - text/code documents are capped at 512 KB, decoded as UTF-8, clipped before model use, and never persisted as raw file bytes;
+- replied-to and forwarded message bodies are bounded and framed as untrusted data; forwarded text cannot enter the owner command parser;
 - RSS input and curator output lengths are bounded;
 - RSS ingestion has a separate bearer secret;
 - free-provider API keys stay in the private `kanarek-review` Worker, not this Worker;

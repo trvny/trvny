@@ -1097,7 +1097,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     const history = isDraft
       ? { messages: [], generation: null }
       : await conversationHistory(env, message.chat.id, messageThreadId);
-    await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
+    await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId, true);
     let draftMode: "rich" | "plain" = "rich";
     let lastDraftUpdateAt = 0;
     let lastDraftLength = 0;

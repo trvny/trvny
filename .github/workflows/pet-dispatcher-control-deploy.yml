@@ -50,7 +50,7 @@ jobs:
         env:
           PET_DISPATCHER_MCP_CONNECTOR_TOKEN: ${{ secrets.PET_DISPATCHER_MCP_CONNECTOR_TOKEN }}
         run: >-
-          "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
           pet-dispatcher-control MCP_CONNECTOR_TOKEN PET_DISPATCHER_MCP_CONNECTOR_TOKEN optional
 
       - name: Validate control plane

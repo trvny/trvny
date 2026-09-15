@@ -233,7 +233,7 @@ jobs:
       - name: Sync shared free-router credential
         shell: bash
         run: >-
-          "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
           travny-tg-assistant KANAREK_REVIEW_ROUTER_TOKEN KANAREK_REVIEW_ROUTER_TOKEN required
 
       - name: Verify Telegram assistant health
@@ -270,7 +270,7 @@ jobs:
       - name: Sync private MCP connector credential
         shell: bash
         run: >-
-          "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
           pet-dispatcher-control MCP_CONNECTOR_TOKEN PET_DISPATCHER_MCP_CONNECTOR_TOKEN optional
       - name: Verify Pet Dispatcher health
         shell: bash

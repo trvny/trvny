@@ -30,6 +30,10 @@ type TelegramMessageOptions = TelegramThreadOptions & {
   replyMarkup?: TelegramInlineKeyboardMarkup;
 };
 
+function telegramRichPlainHtml(text: string): string {
+  return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
 function telegramThreadFields(messageThreadId?: number): Record<string, number> {
   return Number.isSafeInteger(messageThreadId) && (messageThreadId ?? 0) > 0
     ? { message_thread_id: messageThreadId as number }
@@ -489,34 +493,52 @@ export async function sendTelegramRichMessage(
   options: TelegramMessageOptions = {},
 ): Promise<void> {
   const text = markdown.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS);
+  const bodyBase = {
+    chat_id: chatId,
+    ...telegramThreadFields(options.messageThreadId),
+    ...(options.replyToMessageId !== undefined
+      ? {
+          reply_parameters: {
+            message_id: options.replyToMessageId,
+            allow_sending_without_reply: true,
+          },
+        }
+      : {}),
+    ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+  };
   try {
     await telegramDelivery(env, "sendRichMessage", {
-      chat_id: chatId,
-      ...telegramThreadFields(options.messageThreadId),
+      ...bodyBase,
       rich_message: { markdown: text },
-      ...(options.replyToMessageId !== undefined
-        ? {
-            reply_parameters: {
-              message_id: options.replyToMessageId,
-              allow_sending_without_reply: true,
-            },
-          }
-        : {}),
-      ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
     });
+    return;
   } catch (error) {
-    if (
+    if (!(
       error instanceof TelegramSendError &&
       error.status === 400 &&
       !error.retryable &&
       !error.ambiguous
-    ) {
-      console.warn("Telegram rejected rich Markdown; falling back to plain sendMessage");
-      await sendTelegramMessage(env, chatId, text, options);
-      return;
-    }
-    throw error;
+    )) throw error;
   }
+
+  console.warn("Telegram rejected rich Markdown; retrying as escaped Rich HTML");
+  try {
+    await telegramDelivery(env, "sendRichMessage", {
+      ...bodyBase,
+      rich_message: { html: telegramRichPlainHtml(text) },
+    });
+    return;
+  } catch (error) {
+    if (!(
+      error instanceof TelegramSendError &&
+      error.status === 400 &&
+      !error.retryable &&
+      !error.ambiguous
+    )) throw error;
+  }
+
+  console.warn("Telegram rejected both rich formats; falling back to bounded plain sendMessage");
+  await sendTelegramMessage(env, chatId, text, options);
 }
 
 export async function answerTelegramInlineQuery(

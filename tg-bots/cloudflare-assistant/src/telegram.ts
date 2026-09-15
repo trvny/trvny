@@ -232,7 +232,7 @@ export async function sendTelegramThinking(
 
 async function telegramDelivery(
   env: Env,
-  method: "sendMessage" | "sendRichMessage" | "sendPoll" | "sendDice" | "sendSticker" | "sendLocation" | "sendVenue" | "sendContact" | "editMessageText",
+  method: "sendMessage" | "sendRichMessage" | "sendPoll" | "sendDice" | "sendSticker" | "sendLocation" | "sendVenue" | "sendContact" | "createForumTopic" | "editMessageText",
   body: Record<string, unknown>,
   acceptNotModified = false,
 ): Promise<void> {
@@ -283,6 +283,17 @@ async function telegramDelivery(
       ? Math.max(1, Math.ceil(retryAfter))
       : undefined,
   );
+}
+
+export async function createTelegramForumTopic(
+  env: Env,
+  chatId: string | number,
+  name: string,
+): Promise<void> {
+  await telegramDelivery(env, "createForumTopic", {
+    chat_id: chatId,
+    name,
+  });
 }
 
 export async function sendTelegramLocation(

@@ -1,5 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { z, ZodError } from "zod";
+import { isMcpPath, mcpAuthorized } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
 import {
   REMOTE_DIRECT_EXEC_CAPABILITIES,
@@ -25,6 +26,7 @@ interface Env {
   TASK_STATE: DurableObjectNamespace;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   CONTROL_PLANE_TOKEN?: string;
+  MCP_CONNECTOR_TOKEN?: string;
   TASK_SIGNING_SECRET?: string;
   DEVICE_ID?: string;
 }
@@ -476,8 +478,8 @@ export default {
         });
       }
 
-      if (url.pathname === "/mcp") {
-        if (!controlAuthorized(request, env)) return unauthorized();
+      if (isMcpPath(url.pathname)) {
+        if (!mcpAuthorized(request, env)) return unauthorized();
         return handleControlMcp(await boundedMcpRequest(request), mcpOperations(env));
       }
 

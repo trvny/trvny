@@ -14,7 +14,9 @@
       "enabled": true,
       "head_sampling_rate": 1,
       "persist": true,
-      "invocation_logs": true
+      // Connector compatibility can place MCP_CONNECTOR_TOKEN in /mcp/<token>.
+      // Keep invocation logs off so that secret URL never lands in Worker logs.
+      "invocation_logs": false
     },
     "traces": {
       "enabled": false

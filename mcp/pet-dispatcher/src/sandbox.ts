@@ -1,18 +1,36 @@
-import { type ChildProcess } from "node:child_process";
+import { execFile, type ChildProcess } from "node:child_process";
 import { constants } from "node:fs";
 import { access, realpath } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
+import { promisify } from "node:util";
 import { createConfigFromPolicy, getPlatformSupport, spawnSandboxFromConfig } from "@microsoft/mxc-sdk";
 import type { DispatcherConfig } from "./config.js";
 import { resolveExisting } from "./path-guard.js";
 import type { Session, SessionManager } from "./sessions.js";
+import { WindowsJobGuard, type JobGuardLimits, type JobGuardStats } from "./windows-job-guard.js";
 
+const execFileAsync = promisify(execFile);
+
+export interface ExecLimits { memoryMiB?: number; processLimit?: number }
 export interface ExecResult {
   exitCode: number | null;
   stdout: string;
   stderr: string;
   truncated: boolean;
   durationMs: number;
+  peakMemoryBytes?: number;
+  killReason?: string | null;
+  memoryLimitMiB?: number;
+  processLimit?: number;
+}
+
+interface RunningProcess {
+  child: ChildProcess;
+  jobId: string;
+  limits: Required<JobGuardLimits>;
+  closed: Promise<void>;
+  resolveClosed(): void;
+  requestedKillReason: string | null;
 }
 
 const WINDOWS_EXTENSIONS = [".exe", ".com", ".cmd", ".bat", ""];
@@ -22,9 +40,7 @@ export function requiresSystemDrivePrep(warnings: readonly string[]): boolean {
 }
 
 function quoteBatchArg(value: string): string {
-  if (/[\0\r\n"&|<>^%!]/u.test(value)) {
-    throw new Error("batch-file arguments may not contain cmd metacharacters");
-  }
+  if (/[\0\r\n"&|<>^%!]/u.test(value)) throw new Error("batch-file arguments may not contain cmd metacharacters");
   return `"${value}"`;
 }
 
@@ -42,13 +58,22 @@ function quoteWindowsArg(value: string): string {
   return `${out}${"\\".repeat(slashes * 2)}"`;
 }
 
+function boundedLimit(value: number | undefined, fallback: number, maximum: number, name: string, minimum: number): number {
+  const selected = value ?? fallback;
+  if (!Number.isFinite(selected) || !Number.isInteger(selected) || selected < minimum || selected > maximum) {
+    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);
+  }
+  return selected;
+}
+
 export class CommandRunner {
-  readonly #running = new Map<string, ChildProcess>();
+  readonly #running = new Map<string, RunningProcess>();
 
   private constructor(
     readonly config: DispatcherConfig,
     readonly sessions: SessionManager,
     readonly toolRoots: string[],
+    readonly jobGuard: WindowsJobGuard | undefined,
   ) {}
 
   static async create(config: DispatcherConfig, sessions: SessionManager): Promise<CommandRunner> {
@@ -60,14 +85,22 @@ export class CommandRunner {
       if (!candidate) continue;
       try { roots.add(await realpath(candidate)); } catch { /* unavailable local tool root */ }
     }
-    return new CommandRunner(config, sessions, [...roots]);
+    const watchdogIntervalMs = config.resourceLimits?.watchdogIntervalMs ?? 250;
+    const guard = await WindowsJobGuard.create(watchdogIntervalMs);
+    if (process.platform === "win32" && !guard) throw new Error("Windows Job Object resource guardian is unavailable");
+    const runner = new CommandRunner(config, sessions, [...roots], guard);
+    sessions.setProcessTerminator((sessionId) => runner.terminateSession(sessionId));
+    return runner;
   }
+
+  activeProcessCount(): number { return this.#running.size; }
 
   securityStatus(): object {
     const support = getPlatformSupport();
     const warnings = support.isolationWarnings ?? [];
     const systemDrivePrepRequired = requiresSystemDrivePrep(warnings);
     const nullDevicePrepRequired = warnings.some((warning) => warning.includes("prepare-null-device") || warning.includes("\\Device\\Null"));
+    const limits = this.config.resourceLimits;
     return {
       supported: support.isSupported,
       backend: support.availableMethods,
@@ -82,6 +115,13 @@ export class CommandRunner {
       networkModes: { none: true, brokered: true, restricted: false },
       childEnvironment: "cleared",
       configuredToolRoots: this.toolRoots.length,
+      processGuard: process.platform === "win32" ? "windows-job-object" : "sandbox-backend",
+      resourceLimits: {
+        defaultMemoryMiB: limits?.defaultMemoryMiB ?? 2_048,
+        maxMemoryMiB: limits?.maxMemoryMiB ?? 6_144,
+        defaultProcessCount: limits?.defaultProcessCount ?? 32,
+        maxProcessCount: limits?.maxProcessCount ?? 64,
+      },
     };
   }
 
@@ -92,7 +132,6 @@ export class CommandRunner {
       await access(local, constants.F_OK);
       return local;
     }
-
     for (const root of this.toolRoots) {
       for (const extension of WINDOWS_EXTENSIONS) {
         const candidate = resolve(root, command + extension);
@@ -107,7 +146,48 @@ export class CommandRunner {
     throw new Error(`executable is outside configured tool roots or missing: ${command}`);
   }
 
-  async exec(sessionId: string, argv: string[], cwd = ".", timeoutMs?: number, signal?: AbortSignal): Promise<ExecResult> {
+  #limits(requested: ExecLimits): Required<JobGuardLimits> {
+    const configured = this.config.resourceLimits;
+    const maxMemoryMiB = configured?.maxMemoryMiB ?? 6_144;
+    const maxProcessCount = configured?.maxProcessCount ?? 64;
+    return {
+      memoryMiB: boundedLimit(requested.memoryMiB, configured?.defaultMemoryMiB ?? 2_048, maxMemoryMiB, "memoryMiB", 256),
+      processLimit: boundedLimit(requested.processLimit, configured?.defaultProcessCount ?? 32, maxProcessCount, "processLimit", 1),
+    };
+  }
+
+  async #fallbackTreeKill(child: ChildProcess): Promise<void> {
+    if (!child.pid) { child.kill(); return; }
+    if (process.platform === "win32") {
+      const taskkill = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe");
+      await execFileAsync(taskkill, ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, timeout: 10_000 }).catch(() => undefined);
+      return;
+    }
+    child.kill("SIGKILL");
+  }
+
+  async #killRunning(running: RunningProcess, reason: string): Promise<void> {
+    if (!running.requestedKillReason) running.requestedKillReason = reason;
+    let guarded = false;
+    if (this.jobGuard) {
+      try { await this.jobGuard.kill(running.jobId, reason); guarded = true; } catch { /* fallback below */ }
+    }
+    if (!guarded) await this.#fallbackTreeKill(running.child);
+  }
+
+  async terminateSession(sessionId: string, reason = "session_close"): Promise<boolean> {
+    const running = this.#running.get(sessionId);
+    if (!running) return false;
+    await this.#killRunning(running, reason);
+    await Promise.race([
+      running.closed,
+      new Promise<void>((resolveWait) => { const timer = setTimeout(resolveWait, 5_000); timer.unref(); }),
+    ]);
+    if (this.#running.get(sessionId) === running) await this.#fallbackTreeKill(running.child);
+    return true;
+  }
+
+  async exec(sessionId: string, argv: string[], cwd = ".", timeoutMs?: number, signal?: AbortSignal, requestedLimits: ExecLimits = {}): Promise<ExecResult> {
     if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
     if (argv.length === 0) throw new Error("argv must contain an executable");
     if (requiresSystemDrivePrep(getPlatformSupport().isolationWarnings ?? [])) {
@@ -115,6 +195,9 @@ export class CommandRunner {
     }
     const releaseActivity = this.sessions.acquireActivity(sessionId, "workspace.exec");
     let child: ChildProcess | undefined;
+    let running: RunningProcess | undefined;
+    let activityReleased = false;
+    const release = () => { if (!activityReleased) { activityReleased = true; releaseActivity(); } };
     try {
       if (this.#running.has(sessionId)) throw new Error("session already has a running command");
       const session = this.sessions.get(sessionId);
@@ -122,19 +205,17 @@ export class CommandRunner {
       const executable = await this.#resolveExecutable(session, argv[0] ?? "");
       if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
       const requestedTimeout = timeoutMs ?? this.config.defaultTimeoutMs;
-      if (!Number.isFinite(requestedTimeout) || requestedTimeout < 1_000) {
-        throw new Error("timeoutMs must be a finite value of at least 1000ms");
-      }
+      if (!Number.isFinite(requestedTimeout) || requestedTimeout < 1_000) throw new Error("timeoutMs must be a finite value of at least 1000ms");
       const timeout = Math.min(Math.trunc(requestedTimeout), 3_600_000);
+      const limits = this.#limits(requestedLimits);
       const extension = extname(executable).toLowerCase();
       let commandLine: string;
       if (extension === ".cmd" || extension === ".bat") {
         const cmd = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe");
         const inner = [executable, ...argv.slice(1)].map(quoteBatchArg).join(" ");
         commandLine = `${quoteWindowsArg(cmd)} /d /s /v:off /c "${inner}"`;
-      } else {
-        commandLine = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
-      }
+      } else commandLine = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
+
       const policy = {
         version: "0.7.0-alpha",
         filesystem: { readwritePaths: [session.root], readonlyPaths: [...this.toolRoots, ...session.readonlyRoots] },
@@ -148,71 +229,96 @@ export class CommandRunner {
       sandbox.process.cwd = workingDirectory;
       const started = Date.now();
       child = spawnSandboxFromConfig(sandbox, { usePty: false }, workingDirectory);
-      this.#running.set(sessionId, child);
-      const runningChild = child;
-      const abort = () => {
-        if (this.#running.get(sessionId) === runningChild) runningChild.kill();
-      };
+      if (!child.pid) { await this.#fallbackTreeKill(child); throw new Error("MXC process started without a pid"); }
+      const jobId = `${sessionId}:${started}`;
+      if (this.jobGuard) {
+        try { await this.jobGuard.attach(jobId, child.pid, limits); }
+        catch (error) {
+          await this.#fallbackTreeKill(child);
+          throw new Error(`failed to attach process resource guard: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      let resolveClosed!: () => void;
+      const closed = new Promise<void>((resolvePromise) => { resolveClosed = resolvePromise; });
+      running = { child, jobId, limits, closed, resolveClosed, requestedKillReason: null };
+      this.#running.set(sessionId, running);
+      const active = running;
+      const abort = () => { void this.#killRunning(active, "cancelled"); };
       if (signal?.aborted) abort(); else signal?.addEventListener("abort", abort, { once: true });
+      const timeoutTimer = setTimeout(() => { void this.#killRunning(active, "timeout"); }, timeout);
+      timeoutTimer.unref();
+
       const result = await new Promise<ExecResult>((resolveResult, reject) => {
         const stdoutChunks: Buffer[] = [];
         const stderrChunks: Buffer[] = [];
         let stdoutBytes = 0;
         let stderrBytes = 0;
         let truncated = false;
-
+        let settled = false;
         const capture = (chunks: Buffer[], usedBytes: number, chunk: Buffer | string): number => {
-          if (usedBytes >= this.config.maxOutputBytes) {
-            truncated = true;
-            return usedBytes;
-          }
+          if (usedBytes >= this.config.maxOutputBytes) { truncated = true; return usedBytes; }
           const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
           const remaining = this.config.maxOutputBytes - usedBytes;
-          if (buffer.length <= remaining) {
-            chunks.push(buffer);
-            return usedBytes + buffer.length;
-          }
+          if (buffer.length <= remaining) { chunks.push(buffer); return usedBytes + buffer.length; }
           if (remaining > 0) chunks.push(buffer.subarray(0, remaining));
-          truncated = true;
-          return this.config.maxOutputBytes;
+          truncated = true; return this.config.maxOutputBytes;
         };
-
-        runningChild.stdout?.on("data", (chunk: Buffer | string) => {
-          stdoutBytes = capture(stdoutChunks, stdoutBytes, chunk);
-        });
-        runningChild.stderr?.on("data", (chunk: Buffer | string) => {
-          stderrBytes = capture(stderrChunks, stderrBytes, chunk);
-        });
-        runningChild.once("error", (error) => {
-          if (this.#running.get(sessionId) === runningChild) this.#running.delete(sessionId);
+        child!.stdout?.on("data", (chunk: Buffer | string) => { stdoutBytes = capture(stdoutChunks, stdoutBytes, chunk); });
+        child!.stderr?.on("data", (chunk: Buffer | string) => { stderrBytes = capture(stderrChunks, stderrBytes, chunk); });
+        child!.once("error", (error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeoutTimer);
           signal?.removeEventListener("abort", abort);
-          releaseActivity();
+          if (this.#running.get(sessionId) === active) this.#running.delete(sessionId);
+          active.resolveClosed(); release();
+          void this.jobGuard?.release(active.jobId).catch(() => undefined);
           reject(error);
         });
-        runningChild.once("close", (exitCode) => {
-          if (this.#running.get(sessionId) === runningChild) this.#running.delete(sessionId);
+        child!.once("close", (exitCode) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeoutTimer);
           signal?.removeEventListener("abort", abort);
-          releaseActivity();
-          resolveResult({
-            exitCode,
-            stdout: Buffer.concat(stdoutChunks, stdoutBytes).toString("utf8"),
-            stderr: Buffer.concat(stderrChunks, stderrBytes).toString("utf8"),
-            truncated,
-            durationMs: Date.now() - started,
-          });
+          if (this.#running.get(sessionId) === active) this.#running.delete(sessionId);
+          void (async () => {
+            let stats: JobGuardStats | undefined;
+            try { stats = await this.jobGuard?.release(active.jobId); } catch { /* bounded telemetry only */ }
+            const memoryThreshold = active.limits.memoryMiB * 1_048_576 * 0.85;
+            const killReason = stats?.killReason ?? active.requestedKillReason ?? ((exitCode ?? 0) !== 0 && (stats?.peakMemoryBytes ?? 0) >= memoryThreshold ? "memory_limit" : null);
+            active.resolveClosed(); release();
+            resolveResult({
+              exitCode,
+              stdout: Buffer.concat(stdoutChunks, stdoutBytes).toString("utf8"),
+              stderr: Buffer.concat(stderrChunks, stderrBytes).toString("utf8"),
+              truncated,
+              durationMs: Date.now() - started,
+              peakMemoryBytes: stats?.peakMemoryBytes,
+              killReason,
+              memoryLimitMiB: active.limits.memoryMiB,
+              processLimit: active.limits.processLimit,
+            });
+          })();
         });
       });
       if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
       return result;
     } catch (error) {
-      if (!child) releaseActivity();
+      if (!running && child && this.jobGuard) await this.jobGuard.release(`${sessionId}:${Date.now()}`).catch(() => undefined);
+      if (!running) release();
       throw error;
     }
   }
 
   cancel(sessionId: string): boolean {
-    const child = this.#running.get(sessionId);
-    if (!child) return false;
-    return child.kill();
+    const running = this.#running.get(sessionId);
+    if (!running) return false;
+    void this.#killRunning(running, "cancelled");
+    return true;
+  }
+
+  async close(): Promise<void> {
+    await Promise.all([...this.#running.keys()].map((sessionId) => this.terminateSession(sessionId, "worker_shutdown").catch(() => false)));
+    await this.jobGuard?.close();
   }
 }

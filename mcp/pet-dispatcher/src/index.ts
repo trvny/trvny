@@ -39,6 +39,8 @@ async function main(): Promise<void> {
       } : { enabled: false },
       activeSessions: sessions.list().length,
     }, null, 2));
+    await runner.close();
+    sessions.dispose();
     return;
   }
 
@@ -67,6 +69,8 @@ async function main(): Promise<void> {
       console.error(`pet-dispatcher remote worker polling for ${config.remote.deviceId}`);
       await worker.run(controller.signal);
     } finally {
+      await runner.close().catch(() => undefined);
+      sessions.dispose();
       await lease.close().catch(() => undefined);
     }
     return;

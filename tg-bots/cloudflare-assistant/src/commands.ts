@@ -7,6 +7,7 @@ export type BotekCommand = {
 export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "start", usage: "/start", description: "Uruchom Botka i pokaż pomoc" },
   { command: "help", usage: "/help", description: "Pokaż dostępne komendy" },
+  { command: "ask", usage: "/ask <pytanie>", description: "Zapytaj Botka jawnie, także w grupie" },
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
   { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
@@ -27,6 +28,15 @@ export function botCommandPayload() {
 
 export function botHelpLines(): string[] {
   return BOTEK_COMMANDS.map(({ usage, description }) => `${usage} - ${description}`);
+}
+
+
+export function parseAskCommand(text: string): string | null {
+  const trimmed = text.trim();
+  const space = trimmed.indexOf(" ");
+  const command = (space < 0 ? trimmed : trimmed.slice(0, space)).toLowerCase();
+  if (command !== "/ask" && !/^\/ask@[a-z0-9_]{5,32}$/u.test(command)) return null;
+  return space < 0 ? "" : trimmed.slice(space + 1).trim();
 }
 
 export type BotekPollRequest = { question: string; options: string[] };

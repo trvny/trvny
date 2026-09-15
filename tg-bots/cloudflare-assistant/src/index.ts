@@ -1099,9 +1099,12 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
   if (!prompt) return null;
 
-  const system = isDraft
-    ? `${ASSISTANT_SYSTEM}\nDraft a reply to the message supplied by the owner. Return only the suggested reply. Never send it yourself.`
+  const chatSystem = groupChat
+    ? `${ASSISTANT_SYSTEM}\nThe owner explicitly invoked /ask in a Telegram group or topic. Answer only that owner request. The reply is visible to other chat members, so do not expose private conversation context beyond what belongs to this chat/topic.`
     : ASSISTANT_SYSTEM;
+  const system = isDraft
+    ? `${chatSystem}\nDraft a reply to the message supplied by the owner. Return only the suggested reply. Never send it yourself.`
+    : chatSystem;
 
   let lastGeneratedPartial = "";
   try {

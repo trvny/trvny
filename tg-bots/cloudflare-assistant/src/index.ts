@@ -24,6 +24,7 @@ import {
 } from "./tasks";
 import {
   AllProvidersFailedError,
+  GenerationStoppedError,
   chatWithStreamingFallback,
   completeWithFallback,
   describeImage,
@@ -1091,6 +1092,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     ? `${ASSISTANT_SYSTEM}\nDraft a reply to the message supplied by the owner. Return only the suggested reply. Never send it yourself.`
     : ASSISTANT_SYSTEM;
 
+  let lastGeneratedPartial = "";
   try {
     const history = isDraft
       ? { messages: [], generation: null }
@@ -1100,6 +1102,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     let lastDraftUpdateAt = 0;
     let lastDraftLength = 0;
     const streamDraft = async (partial: string) => {
+      lastGeneratedPartial = partial;
       const draftText = partial.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
       if (!draftText || draftText.length <= lastDraftLength) return;
       const now = Date.now();
@@ -1119,11 +1122,13 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         draftMode,
       );
     };
+    const shouldStop = () => generationStopRequested(env, update.update_id);
     const result = await chatWithStreamingFallback(env, [
       { role: "system", content: system },
       ...history.messages,
       { role: "user", content: prompt },
-    ], streamDraft);
+    ], streamDraft, shouldStop);
+    if (await shouldStop()) throw new GenerationStoppedError(result.text);
     const footer = `\n\n[${result.provider} · ${result.model}]`;
     const assistant = result.text.slice(0, Math.max(0, TELEGRAM_MESSAGE_MAX_CHARS - footer.length));
     const replyMarkup = isDraft ? draftCopyKeyboard(assistant) : undefined;
@@ -1138,6 +1143,15 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         : {}),
     };
   } catch (error) {
+    if (error instanceof GenerationStoppedError) {
+      const partial = (error.partialText || lastGeneratedPartial).trim();
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: partial.slice(0, TELEGRAM_MESSAGE_MAX_CHARS) || "⏹️ Zatrzymano.",
+        ...(partial ? { richMarkdown: true } : {}),
+      };
+    }
     console.error("Telegram reply generation failed", error);
     return {
       chatId: message.chat.id,
@@ -1305,6 +1319,36 @@ async function dedupState(env: Env, updateId: number): Promise<TelegramUpdateRec
   const response = await dedupStub(env, updateId).fetch("https://dedup/state");
   if (!response.ok) throw new Error(`dedup state read failed: HTTP ${response.status}`);
   return (await response.json()) as TelegramUpdateRecord | null;
+}
+
+async function generationStopRequested(env: Env, draftId: number): Promise<boolean> {
+  try {
+    const response = await dedupStub(env, draftId).fetch("https://dedup/stop-state");
+    if (!response.ok) return false;
+    const payload = (await response.json()) as { requested?: boolean };
+    return payload.requested === true;
+  } catch (error) {
+    console.warn("Telegram generation stop state unavailable", error);
+    return false;
+  }
+}
+
+async function requestGenerationStop(env: Env, draftId: number): Promise<void> {
+  const response = await dedupStub(env, draftId).fetch("https://dedup/stop", { method: "POST" });
+  if (!response.ok) throw new Error(`dedup stop failed: HTTP ${response.status}`);
+}
+
+function ownerGenerationStop(env: Env, update: TelegramUpdate): number | null {
+  const stopped = update.stopped_message_generation;
+  if (
+    !stopped ||
+    !ownerConfigured(env) ||
+    stopped.chat.type !== "private" ||
+    String(stopped.chat.id) !== env.OWNER_TELEGRAM_USER_ID ||
+    !Number.isSafeInteger(stopped.draft_id) ||
+    stopped.draft_id === 0
+  ) return null;
+  return stopped.draft_id;
 }
 
 async function dedupTransition(
@@ -1568,6 +1612,17 @@ export default {
         update = await parseTelegramUpdate(request);
       } catch (error) {
         return invalidBody(error);
+      }
+
+      const stoppedDraftId = ownerGenerationStop(env, update);
+      if (stoppedDraftId !== null) {
+        try {
+          await requestGenerationStop(env, stoppedDraftId);
+        } catch (error) {
+          console.error("Failed to record Telegram generation stop", error);
+          return new Response("Service unavailable", { status: 503 });
+        }
+        return new Response("OK");
       }
 
       if (update.inline_query) {

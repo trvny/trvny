@@ -176,14 +176,14 @@ public static class PetJobGuard {
     }
 
     public static void CloseAll() {
-        Monitor?.Dispose();
+        if (Monitor != null) Monitor.Dispose();
         foreach (var id in Jobs.Keys) {
             State state;
             if (!Jobs.TryRemove(id, out state)) continue;
             lock (state.Gate) {
                 var handle = state.Handle;
                 state.Handle = IntPtr.Zero;
-                if (handle != IntPtr.Zero) CloseHandle(handle);
+                if (handle != IntPtr.Zero) { TerminateJobObject(handle, 137); CloseHandle(handle); }
             }
         }
     }

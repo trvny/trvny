@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import { WindowsJobGuard } from "../src/windows-job-guard.js";
 
 function waitForExit(child: ChildProcessWithoutNullStreams, timeoutMs = 10_000): Promise<number | null> {
+  if (child.exitCode !== null) return Promise.resolve(child.exitCode);
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("child did not exit")), timeoutMs);
     child.once("exit", (code) => { clearTimeout(timer); resolve(code); });

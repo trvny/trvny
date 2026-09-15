@@ -9,6 +9,7 @@ import type {
 
 const TELEGRAM_API = "https://api.telegram.org";
 export const TELEGRAM_MESSAGE_MAX_CHARS = 4096;
+export const TELEGRAM_RICH_MESSAGE_MAX_CHARS = 32768;
 export const TELEGRAM_ALLOWED_UPDATES = telegramConfig.allowedUpdates;
 const TELEGRAM_UPDATE_MAX_BYTES = 256 * 1024;
 
@@ -28,6 +29,10 @@ type TelegramMessageOptions = TelegramThreadOptions & {
   replyToMessageId?: number;
   replyMarkup?: TelegramInlineKeyboardMarkup;
 };
+
+function telegramRichPlainHtml(text: string): string {
+  return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
 
 function telegramThreadFields(messageThreadId?: number): Record<string, number> {
   return Number.isSafeInteger(messageThreadId) && (messageThreadId ?? 0) > 0
@@ -297,8 +302,9 @@ export async function sendTelegramStreamingDraft(
   messageThreadId?: number,
   mode: TelegramStreamingDraftMode = "rich",
 ): Promise<TelegramStreamingDraftMode> {
-  const text = markdown.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
-  if (!text || !env.TELEGRAM_BOT_TOKEN) return mode;
+  const richText = markdown.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS);
+  const plainText = markdown.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+  if (!richText || !env.TELEGRAM_BOT_TOKEN) return mode;
   const bodyBase = {
     chat_id: chatId,
     ...telegramThreadFields(messageThreadId),
@@ -311,7 +317,7 @@ export async function sendTelegramStreamingDraft(
     try {
       await telegramDelivery(env, "sendRichMessageDraft", {
         ...bodyBase,
-        rich_message: { markdown: text },
+        rich_message: { markdown: richText },
       });
       return "rich";
     } catch (error) {
@@ -330,7 +336,7 @@ export async function sendTelegramStreamingDraft(
   }
 
   try {
-    await telegramDelivery(env, "sendMessageDraft", { ...bodyBase, text });
+    await telegramDelivery(env, "sendMessageDraft", { ...bodyBase, text: plainText });
   } catch (error) {
     console.warn("Telegram plain draft update failed", error);
   }
@@ -486,35 +492,53 @@ export async function sendTelegramRichMessage(
   markdown: string,
   options: TelegramMessageOptions = {},
 ): Promise<void> {
-  const text = markdown.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+  const text = markdown.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS);
+  const bodyBase = {
+    chat_id: chatId,
+    ...telegramThreadFields(options.messageThreadId),
+    ...(options.replyToMessageId !== undefined
+      ? {
+          reply_parameters: {
+            message_id: options.replyToMessageId,
+            allow_sending_without_reply: true,
+          },
+        }
+      : {}),
+    ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+  };
   try {
     await telegramDelivery(env, "sendRichMessage", {
-      chat_id: chatId,
-      ...telegramThreadFields(options.messageThreadId),
+      ...bodyBase,
       rich_message: { markdown: text },
-      ...(options.replyToMessageId !== undefined
-        ? {
-            reply_parameters: {
-              message_id: options.replyToMessageId,
-              allow_sending_without_reply: true,
-            },
-          }
-        : {}),
-      ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
     });
+    return;
   } catch (error) {
-    if (
+    if (!(
       error instanceof TelegramSendError &&
       error.status === 400 &&
       !error.retryable &&
       !error.ambiguous
-    ) {
-      console.warn("Telegram rejected rich Markdown; falling back to plain sendMessage");
-      await sendTelegramMessage(env, chatId, text, options);
-      return;
-    }
-    throw error;
+    )) throw error;
   }
+
+  console.warn("Telegram rejected rich Markdown; retrying as escaped Rich HTML");
+  try {
+    await telegramDelivery(env, "sendRichMessage", {
+      ...bodyBase,
+      rich_message: { html: telegramRichPlainHtml(text) },
+    });
+    return;
+  } catch (error) {
+    if (!(
+      error instanceof TelegramSendError &&
+      error.status === 400 &&
+      !error.retryable &&
+      !error.ambiguous
+    )) throw error;
+  }
+
+  console.warn("Telegram rejected both rich formats; falling back to bounded plain sendMessage");
+  await sendTelegramMessage(env, chatId, text, options);
 }
 
 export async function answerTelegramInlineQuery(

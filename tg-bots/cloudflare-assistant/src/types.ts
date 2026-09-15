@@ -121,6 +121,27 @@ export type TelegramVideoNote = {
   file_size?: number;
 };
 
+export type TelegramSticker = {
+  file_id: string;
+  file_unique_id: string;
+  type: "regular" | "mask" | "custom_emoji" | string;
+  width: number;
+  height: number;
+  is_animated: boolean;
+  is_video: boolean;
+  thumbnail?: TelegramPhotoSize;
+  emoji?: string;
+  set_name?: string;
+  custom_emoji_id?: string;
+  needs_repainting?: true;
+  file_size?: number;
+};
+
+export type TelegramDice = {
+  emoji: string;
+  value: number;
+};
+
 export type TelegramPoll = {
   id: string;
   question: string;
@@ -178,6 +199,8 @@ export type TelegramMessage = {
   reply_to_message?: TelegramMessage;
   quote?: TelegramTextQuote;
   photo?: TelegramPhotoSize[];
+  sticker?: TelegramSticker;
+  dice?: TelegramDice;
   animation?: TelegramVisualMedia;
   video?: TelegramVisualMedia;
   video_note?: TelegramVideoNote;

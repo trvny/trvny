@@ -539,7 +539,7 @@ test('review router reaches AIHubMix after the OrcaRouter model chain fails', as
 });
 
 
-test('review router tries Ollama models before Groq as the final HTTP fallback', async () => {
+test('review router tries Ollama models before Groq', async () => {
   const calls: Array<{ url: string; model: unknown }> = [];
   const response = await handleReviewRouterRequest(request(), {
     ...auth,
@@ -561,6 +561,54 @@ test('review router tries Ollama models before Groq as the final HTTP fallback',
     { url: 'https://ollama.com/v1/chat/completions', model: 'gpt-oss:20b' },
     { url: 'https://api.groq.com/openai/v1/chat/completions', model: 'openai/gpt-oss-120b' },
   ]);
+});
+
+test('review router uses Vercel AI Gateway as the final HTTP reserve', async () => {
+  const calls: Array<{ url: string; model: unknown; authorization: string | null }> = [];
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    GROQ_API_KEY: 'groq-key',
+    AI_GATEWAY_API_KEY: 'vercel-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    calls.push({
+      url: String(input),
+      model: body.model,
+      authorization: new Headers(init?.headers).get('authorization'),
+    });
+    if (String(input).startsWith('https://api.groq.com/')) {
+      return Promise.resolve(new Response('quota', { status: 429 }));
+    }
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'vercel');
+  assert.deepEqual(calls, [
+    {
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      model: 'openai/gpt-oss-120b',
+      authorization: 'Bearer groq-key',
+    },
+    {
+      url: 'https://ai-gateway.vercel.sh/v1/chat/completions',
+      model: 'alibaba/qwen3-coder-30b-a3b',
+      authorization: 'Bearer vercel-key',
+    },
+  ]);
+});
+
+test('review provider health includes Vercel AI Gateway', async () => {
+  const health = await reviewProviderPoolHealth({
+    ...auth, AI_GATEWAY_API_KEY: 'vercel-key',
+  });
+  assert.equal(health.configured, 1);
+  assert.equal(health.available, 1);
+  assert.equal(health.ready, true);
+  assert.deepEqual(
+    health.providers.find((provider) => provider.provider === 'vercel'),
+    { available: true, configured: true, provider: 'vercel' },
+  );
 });
 
 test('review router treats AIHubMix HTTP 200 quota text as exhausted', async () => {

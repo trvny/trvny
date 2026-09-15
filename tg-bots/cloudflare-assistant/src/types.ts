@@ -304,6 +304,7 @@ export type TelegramReply = {
   location?: TelegramLocationReply;
   venue?: TelegramVenueReply;
   contact?: TelegramContactReply;
+  createTopic?: { name: string };
 };
 
 export type TelegramDeadLetter = {

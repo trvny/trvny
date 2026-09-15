@@ -12,6 +12,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - /start and /help self-sync the owner-scoped Telegram command list and command menu from code;
 - bounded per-chat conversation context for ordinary messages;
 - private-chat topics keep replies, thinking indicators and short conversation memory inside the originating topic;
+- `/topic <name>` creates a native private-chat topic when Botek topic mode is enabled in Telegram;
 - native Telegram reply-to behavior plus ephemeral native thinking drafts with typing fallback for model-backed replies;
 - model-backed replies use Telegram Rich Messages with simple Markdown and fall back to plain text only after a deterministic rich-format rejection;
 - best-effort native reactions show state for model-backed owner messages (`👀` while working, `👍` after successful delivery, `👎` on handled failures, `🤨` when delivery is ambiguous);

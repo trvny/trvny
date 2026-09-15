@@ -6,6 +6,7 @@ import {
   parseLocationCommand,
   parsePollCommand,
   parseQuizCommand,
+  parseTopicCommand,
   parseVenueCommand,
 } from "./commands";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
@@ -31,6 +32,7 @@ import {
 } from "./providers";
 import {
   answerTelegramCallbackQuery,
+  createTelegramForumTopic,
   downloadTelegramFile,
   editTelegramMessage,
   isTelegramWebhook,
@@ -780,6 +782,32 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     };
   }
 
+  if (text === "/topic") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /topic <nazwa>",
+    };
+  }
+
+  if (text.startsWith("/topic ")) {
+    const name = parseTopicCommand(text);
+    if (!name) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nazwa tematu musi mieć 1–128 znaków.",
+        finalReaction: "👎",
+      };
+    }
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: `Temat: ${name}`,
+      createTopic: { name },
+    };
+  }
+
   if (text === "/task") {
     return {
       chatId: message.chat.id,
@@ -1296,7 +1324,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) return null;
   const text = message.forward_origin ? "" : message.text?.trim() ?? "";
-  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/quiz", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
+  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/quiz", "/topic", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
   if (
     !text &&
     !message.voice &&
@@ -1368,6 +1396,8 @@ async function processQueuedTelegram(
         reply.text,
         reply.replyMarkup,
       );
+    } else if (reply.createTopic) {
+      await createTelegramForumTopic(env, reply.chatId, reply.createTopic.name);
     } else if (reply.sticker) {
       await sendTelegramSticker(
         env,

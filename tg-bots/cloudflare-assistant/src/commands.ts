@@ -12,6 +12,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "poll", usage: "/poll pytanie | opcja 1 | opcja 2", description: "Wyślij natywną ankietę" },
   { command: "quiz", usage: "/quiz pytanie | +poprawna | błędna", description: "Wyślij natywny quiz" },
+  { command: "topic", usage: "/topic <nazwa>", description: "Utwórz prywatny temat" },
   { command: "dice", usage: "/dice [🎲|🎯|🏀|⚽|🎳|🎰]", description: "Rzuć natywną kostką Telegrama" },
   { command: "sticker", usage: "/sticker", description: "Odeślij sticker z wiadomości, na którą odpowiadasz" },
   { command: "location", usage: "/location szerokość,długość", description: "Wyślij pinezkę na mapie" },
@@ -50,6 +51,12 @@ export function parsePollCommand(text: string): BotekPollRequest | null {
   if (!question || question.length > 300 || options.length < 2 || options.length > 12) return null;
   if (options.some((option) => option.length > 100)) return null;
   return { question, options };
+}
+
+export function parseTopicCommand(text: string): string | null {
+  if (!text.startsWith("/topic ")) return null;
+  const name = text.slice("/topic ".length).trim().replace(/\s+/gu, " ");
+  return name && name.length <= 128 ? name : null;
 }
 
 export function parseQuizCommand(text: string): BotekQuizRequest | null {

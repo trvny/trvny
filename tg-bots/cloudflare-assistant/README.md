@@ -16,7 +16,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - `/topic <name>` creates a native private-chat topic when Botek topic mode is enabled in Telegram;
 - native Telegram reply-to behavior plus rate-bounded live `sendRichMessageDraft` streaming for model-backed replies, with plain-draft and typing fallbacks;
 - Bot API 10.3 generation-stop controls abort active streamed replies, bypass the serialized update queue, and preserve the generated partial as a normal message when possible;
-- model-backed replies use Telegram Rich Messages with simple Markdown and fall back to plain text only after a deterministic rich-format rejection;
+- model-backed replies use Telegram Rich Messages up to 32,768 characters; deterministic Markdown rejection retries as escaped Rich HTML before the legacy 4,096-character plain-text fallback;
 - best-effort native reactions show state for model-backed owner messages (`👀` while working, `👍` after successful delivery, `👎` on handled failures, `🤨` when delivery is ambiguous);
 - inline `/status` refresh button backed by Telegram callback queries and message editing;
 - Telegram-native button styles distinguish primary actions, successful copy actions and destructive task cancellation;
@@ -182,7 +182,7 @@ Normal requests first go over the `KANAREK_COMPANION` service binding to the exi
 3. AIHubMix `coding-glm-5.3-free`;
 4. Workers AI.
 
-Normal chat asks the shared OpenAI-compatible router for `stream: true`. Streaming providers are consumed incrementally and coalesced into at most one Telegram draft update per second; if the router selects a non-streaming fallback, Botek simply keeps the native Thinking placeholder until the final reply. If a partial rich draft is rejected deterministically, that generation switches to plain Telegram drafts instead of failing the answer. Drafts expose Telegram's native stop control. A `stopped_message_generation` update is written directly to the draft's Durable Object instead of waiting behind the serialized queue; the active stream polls that state, cancels consumption, skips provider fallback, and sends the bounded partial text as the final message so Telegram's temporary stopped draft does not evaporate.
+Normal chat asks the shared OpenAI-compatible router for `stream: true`. Final Rich Messages use Telegram's 32,768-character rich-text budget while short conversation memory stays deliberately bounded to 4,096 assistant characters per turn. Streaming providers are consumed incrementally and coalesced into at most one Telegram draft update per second; if the router selects a non-streaming fallback, Botek simply keeps the native Thinking placeholder until the final reply. If a partial rich draft is rejected deterministically, that generation switches to plain Telegram drafts instead of failing the answer. Drafts expose Telegram's native stop control. A `stopped_message_generation` update is written directly to the draft's Durable Object instead of waiting behind the serialized queue; the active stream polls that state, cancels consumption, skips provider fallback, and sends the bounded partial text as the final message so Telegram's temporary stopped draft does not evaporate.
 
 If the internal router itself is unavailable, times out, or its token is not configured, this Worker falls back to its own Workers AI binding (`@cf/zai-org/glm-4.7-flash`). Structured RSS validation remains part of the local fallback loop, so malformed curator output can still fall through to local Workers AI.
 

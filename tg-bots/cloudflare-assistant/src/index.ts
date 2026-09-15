@@ -54,6 +54,7 @@ import {
   syncTelegramCommandMenu,
   syncTelegramWebhook,
   TELEGRAM_MESSAGE_MAX_CHARS,
+  TELEGRAM_RICH_MESSAGE_MAX_CHARS,
   TelegramConfigurationError,
   TelegramSendError,
 } from "./telegram";
@@ -1121,7 +1122,10 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     let lastDraftLength = 0;
     const streamDraft = async (partial: string) => {
       lastGeneratedPartial = partial;
-      const draftText = partial.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+      const draftLimit = draftMode === "rich"
+        ? TELEGRAM_RICH_MESSAGE_MAX_CHARS
+        : TELEGRAM_MESSAGE_MAX_CHARS;
+      const draftText = partial.slice(0, draftLimit);
       if (!draftText || draftText.length <= lastDraftLength) return;
       const now = Date.now();
       if (lastDraftUpdateAt === 0) {
@@ -1153,16 +1157,16 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     );
     if (privateChat && await shouldStop()) throw new GenerationStoppedError(result.text);
     const footer = `\n\n[${result.provider} · ${result.model}]`;
-    const assistant = result.text.slice(0, Math.max(0, TELEGRAM_MESSAGE_MAX_CHARS - footer.length));
+    const assistant = result.text.slice(0, Math.max(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS - footer.length));
     const replyMarkup = isDraft ? draftCopyKeyboard(assistant) : undefined;
     return {
       chatId: message.chat.id,
       replyToMessageId: message.message_id,
-      text: `${assistant}${footer}`.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
+      text: `${assistant}${footer}`.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS),
       richMarkdown: true,
       ...(replyMarkup ? { replyMarkup } : {}),
       ...(!isDraft && history.generation !== null
-        ? { memoryTurn: { user: prompt, assistant, generation: history.generation } }
+        ? { memoryTurn: { user: prompt, assistant: assistant.slice(0, TELEGRAM_MESSAGE_MAX_CHARS), generation: history.generation } }
         : {}),
     };
   } catch (error) {
@@ -1171,7 +1175,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
-        text: partial.slice(0, TELEGRAM_MESSAGE_MAX_CHARS) || "⏹️ Zatrzymano.",
+        text: partial.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS) || "⏹️ Zatrzymano.",
         ...(partial ? { richMarkdown: true } : {}),
       };
     }

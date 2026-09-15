@@ -93,7 +93,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - private-chat topic mode and explicit group `/ask` keep Telegram delivery and short memory isolated per chat/topic;
 - native private-chat topic creation through `/topic <name>`;
 - native reply-to delivery plus rate-bounded live Rich Message drafts with plain-draft and typing fallback for model-backed replies, including Bot API 10.3 stop-generation handling;
-- model-backed replies sent as Telegram Rich Messages with simple Markdown and deterministic plain-text fallback when Telegram rejects rich formatting;
+- model-backed replies sent as Telegram Rich Messages with the 32,768-character rich-text budget and deterministic escaped-Rich-HTML/plain fallback when Telegram rejects Markdown formatting;
 - best-effort native message reactions for model-backed owner messages (`👀` while processing, `👍` after successful delivery, `👎` on handled failures, `🤨` on ambiguous delivery);
 - inline `/status` refresh using callback queries and in-place message editing;
 - native button colors distinguish primary, success and destructive inline actions;

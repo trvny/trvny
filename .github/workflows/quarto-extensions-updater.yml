@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GH_PAT }}
 
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
@@ -23,6 +25,6 @@ jobs:
       - name: Update extensions
         uses: mcanouil/quarto-extensions-updater@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           scan-directories: token-worldcup
           update-strategy: minor

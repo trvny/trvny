@@ -9,6 +9,7 @@ import type {
 
 const TELEGRAM_API = "https://api.telegram.org";
 export const TELEGRAM_MESSAGE_MAX_CHARS = 4096;
+export const TELEGRAM_RICH_MESSAGE_MAX_CHARS = 32768;
 export const TELEGRAM_ALLOWED_UPDATES = telegramConfig.allowedUpdates;
 const TELEGRAM_UPDATE_MAX_BYTES = 256 * 1024;
 
@@ -297,8 +298,9 @@ export async function sendTelegramStreamingDraft(
   messageThreadId?: number,
   mode: TelegramStreamingDraftMode = "rich",
 ): Promise<TelegramStreamingDraftMode> {
-  const text = markdown.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
-  if (!text || !env.TELEGRAM_BOT_TOKEN) return mode;
+  const richText = markdown.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS);
+  const plainText = markdown.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+  if (!richText || !env.TELEGRAM_BOT_TOKEN) return mode;
   const bodyBase = {
     chat_id: chatId,
     ...telegramThreadFields(messageThreadId),
@@ -311,7 +313,7 @@ export async function sendTelegramStreamingDraft(
     try {
       await telegramDelivery(env, "sendRichMessageDraft", {
         ...bodyBase,
-        rich_message: { markdown: text },
+        rich_message: { markdown: richText },
       });
       return "rich";
     } catch (error) {
@@ -330,7 +332,7 @@ export async function sendTelegramStreamingDraft(
   }
 
   try {
-    await telegramDelivery(env, "sendMessageDraft", { ...bodyBase, text });
+    await telegramDelivery(env, "sendMessageDraft", { ...bodyBase, text: plainText });
   } catch (error) {
     console.warn("Telegram plain draft update failed", error);
   }
@@ -486,7 +488,7 @@ export async function sendTelegramRichMessage(
   markdown: string,
   options: TelegramMessageOptions = {},
 ): Promise<void> {
-  const text = markdown.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+  const text = markdown.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS);
   try {
     await telegramDelivery(env, "sendRichMessage", {
       chat_id: chatId,

@@ -11,6 +11,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
   { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "poll", usage: "/poll pytanie | opcja 1 | opcja 2", description: "Wyślij natywną ankietę" },
+  { command: "dice", usage: "/dice [🎲|🎯|🏀|⚽|🎳|🎰]", description: "Rzuć natywną kostką Telegrama" },
   { command: "location", usage: "/location szerokość,długość", description: "Wyślij pinezkę na mapie" },
   { command: "venue", usage: "/venue lat,lon | nazwa | adres", description: "Wyślij natywne miejsce" },
   { command: "contact", usage: "/contact telefon | imię | nazwisko", description: "Wyślij natywny kontakt" },
@@ -26,6 +27,17 @@ export function botHelpLines(): string[] {
 }
 
 export type BotekPollRequest = { question: string; options: string[] };
+export const TELEGRAM_DICE_EMOJIS = ["🎲", "🎯", "🏀", "⚽", "🎳", "🎰"] as const;
+export type TelegramDiceEmoji = (typeof TELEGRAM_DICE_EMOJIS)[number];
+
+export function parseDiceCommand(text: string): TelegramDiceEmoji | null {
+  if (text === "/dice") return "🎲";
+  if (!text.startsWith("/dice ")) return null;
+  const emoji = text.slice("/dice ".length).trim();
+  return (TELEGRAM_DICE_EMOJIS as readonly string[]).includes(emoji)
+    ? emoji as TelegramDiceEmoji
+    : null;
+}
 
 export function parsePollCommand(text: string): BotekPollRequest | null {
   if (!text.startsWith("/poll ")) return null;

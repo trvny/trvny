@@ -2,6 +2,7 @@ import {
   botCommandPayload,
   botHelpLines,
   parseContactCommand,
+  parseDiceCommand,
   parseLocationCommand,
   parsePollCommand,
   parseVenueCommand,
@@ -34,6 +35,7 @@ import {
   isTelegramWebhook,
   parseTelegramUpdate,
   sendTelegramContact,
+  sendTelegramDice,
   sendTelegramLocation,
   sendTelegramMessage,
   sendTelegramPoll,
@@ -677,6 +679,19 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     return { chatId: message.chat.id, text: `Kontakt: ${contact.firstName}`, contact };
   }
 
+  if (text === "/dice" || text.startsWith("/dice ")) {
+    const emoji = parseDiceCommand(text);
+    if (!emoji) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /dice [🎲|🎯|🏀|⚽|🎳|🎰]",
+        finalReaction: "👎",
+      };
+    }
+    return { chatId: message.chat.id, text: `Losowanie ${emoji}`, dice: { emoji } };
+  }
+
   if (text === "/poll") {
     return {
       chatId: message.chat.id,
@@ -1219,7 +1234,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) return null;
   const text = message.forward_origin ? "" : message.text?.trim() ?? "";
-  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/location", "/venue", "/contact"].includes(text)) return null;
+  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/dice", "/location", "/venue", "/contact"].includes(text)) return null;
   if (
     !text &&
     !message.voice &&
@@ -1288,6 +1303,8 @@ async function processQueuedTelegram(
         reply.text,
         reply.replyMarkup,
       );
+    } else if (reply.dice) {
+      await sendTelegramDice(env, reply.chatId, reply.dice.emoji);
     } else if (reply.poll) {
       await sendTelegramPoll(env, reply.chatId, reply.poll.question, reply.poll.options);
     } else if (reply.location) {

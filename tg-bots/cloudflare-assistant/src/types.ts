@@ -280,6 +280,8 @@ export type TelegramPollReply = {
   options: string[];
 };
 
+export type TelegramDiceReply = { emoji: string };
+
 export type TelegramReply = {
   chatId: string | number;
   text: string;
@@ -289,6 +291,7 @@ export type TelegramReply = {
   memoryTurn?: TelegramMemoryTurn;
   finalReaction?: "👍" | "👎" | "🤨";
   richMarkdown?: boolean;
+  dice?: TelegramDiceReply;
   poll?: TelegramPollReply;
   location?: TelegramLocationReply;
   venue?: TelegramVenueReply;

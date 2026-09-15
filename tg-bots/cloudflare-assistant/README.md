@@ -13,7 +13,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - bounded per-chat conversation context for ordinary messages;
 - private-chat topics keep replies, thinking indicators and short conversation memory inside the originating topic;
 - `/topic <name>` creates a native private-chat topic when Botek topic mode is enabled in Telegram;
-- native Telegram reply-to behavior plus ephemeral native thinking drafts with typing fallback for model-backed replies;
+- native Telegram reply-to behavior plus rate-bounded live `sendRichMessageDraft` streaming for model-backed replies, with plain-draft and typing fallbacks;
 - model-backed replies use Telegram Rich Messages with simple Markdown and fall back to plain text only after a deterministic rich-format rejection;
 - best-effort native reactions show state for model-backed owner messages (`👀` while working, `👍` after successful delivery, `👎` on handled failures, `🤨` when delivery is ambiguous);
 - inline `/status` refresh button backed by Telegram callback queries and message editing;
@@ -179,6 +179,8 @@ Normal requests first go over the `KANAREK_COMPANION` service binding to the exi
 2. OrcaRouter `orcarouter/free`;
 3. AIHubMix `coding-glm-5.3-free`;
 4. Workers AI.
+
+Normal chat asks the shared OpenAI-compatible router for `stream: true`. Streaming providers are consumed incrementally and coalesced into at most one Telegram draft update per second; if the router selects a non-streaming fallback, Botek simply keeps the native Thinking placeholder until the final reply. If a partial rich draft is rejected deterministically, that generation switches to plain Telegram drafts instead of failing the answer.
 
 If the internal router itself is unavailable, times out, or its token is not configured, this Worker falls back to its own Workers AI binding (`@cf/zai-org/glm-4.7-flash`). Structured RSS validation remains part of the local fallback loop, so malformed curator output can still fall through to local Workers AI.
 

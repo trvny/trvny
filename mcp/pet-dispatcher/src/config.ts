@@ -14,55 +14,39 @@ const resourceLimitsSchema = z.object({
   maxProcessCount: z.number().int().min(1).max(64).default(64),
   watchdogIntervalMs: z.number().int().min(100).max(5_000).default(250),
 }).default({}).superRefine((value, ctx) => {
-  if (value.defaultMemoryMiB > value.maxMemoryMiB) {
-    ctx.addIssue({ code: "custom", path: ["defaultMemoryMiB"], message: "default memory limit may not exceed the maximum" });
-  }
-  if (value.defaultProcessCount > value.maxProcessCount) {
-    ctx.addIssue({ code: "custom", path: ["defaultProcessCount"], message: "default process limit may not exceed the maximum" });
-  }
+  if (value.defaultMemoryMiB > value.maxMemoryMiB) ctx.addIssue({ code: "custom", path: ["defaultMemoryMiB"], message: "default memory limit may not exceed the maximum" });
+  if (value.defaultProcessCount > value.maxProcessCount) ctx.addIssue({ code: "custom", path: ["defaultProcessCount"], message: "default process limit may not exceed the maximum" });
 });
 
 const remoteSchema = z.object({
-  enabled: z.boolean().default(false),
-  deviceId: z.string().min(1).max(128),
-  accountId: z.string().regex(/^[0-9a-f]{32}$/u),
+  enabled: z.boolean().default(false), deviceId: z.string().min(1).max(128), accountId: z.string().regex(/^[0-9a-f]{32}$/u),
   queueId: z.string().regex(/^[0-9a-f]{32}$/u),
   controlPlaneUrl: z.string().url().refine((value) => new URL(value).protocol === "https:", "controlPlaneUrl must use HTTPS"),
   queueTokenEnv: z.string().min(1).default("PET_DISPATCHER_QUEUE_TOKEN"),
   signingSecretEnv: z.string().min(1).default("PET_DISPATCHER_SIGNING_SECRET"),
-  pollIntervalMs: z.number().int().min(1_000).max(60_000).default(5_000),
-  heartbeatIntervalMs: z.number().int().min(5_000).max(60_000).default(15_000),
-  visibilityTimeoutMs: z.number().int().min(1_800_000).max(43_200_000).default(1_800_000),
-  journalPath: z.string().min(1).default("remote-journal.json"),
+  pollIntervalMs: z.number().int().min(1_000).max(60_000).default(5_000), heartbeatIntervalMs: z.number().int().min(5_000).max(60_000).default(15_000),
+  visibilityTimeoutMs: z.number().int().min(1_800_000).max(43_200_000).default(1_800_000), journalPath: z.string().min(1).default("remote-journal.json"),
 });
 
 const configSchema = z.object({
-  workspaceRoot: z.string().min(1),
-  repositories: z.record(z.string(), z.string().min(1)),
-  workspaces: z.record(z.string(), z.string().min(1)).default({}),
-  toolRoots: z.array(z.string().min(1)).default([]),
-  networkProfiles: z.record(z.string(), networkProfileSchema).default({}),
+  workspaceRoot: z.string().min(1), repositories: z.record(z.string(), z.string().min(1)), workspaces: z.record(z.string(), z.string().min(1)).default({}),
+  toolRoots: z.array(z.string().min(1)).default([]), networkProfiles: z.record(z.string(), networkProfileSchema).default({}),
   defaultTimeoutMs: z.number().int().min(1_000).max(3_600_000).default(120_000),
-  maxOutputBytes: z.number().int().min(4_096).max(16_777_216).default(1_048_576),
-  maxBrokerResponseBytes: z.number().int().min(1_024).max(8_388_608).default(2_097_152),
-  sessionReaperIntervalMs: z.number().int().min(1_000).max(60_000).default(15_000),
-  resourceLimits: resourceLimitsSchema,
-  openRouterModel: z.string().min(1).default("openrouter/free"),
-  geminiModel: z.string().min(1).default("gemini-2.5-flash"),
-  remote: remoteSchema.optional(),
+  maxOutputBytes: z.number().int().min(4_096).max(16_777_216).default(1_048_576), maxBrokerResponseBytes: z.number().int().min(1_024).max(8_388_608).default(2_097_152),
+  sessionReaperIntervalMs: z.number().int().min(1_000).max(60_000).default(15_000), resourceLimits: resourceLimitsSchema,
+  openRouterModel: z.string().min(1).default("openrouter/free"), geminiModel: z.string().min(1).default("gemini-2.5-flash"), remote: remoteSchema.optional(),
 }).superRefine((value, ctx) => {
-  for (const alias of Object.keys(value.workspaces)) {
-    if (alias in value.repositories) {
-      ctx.addIssue({ code: "custom", path: ["workspaces", alias], message: "workspace and repository aliases must be unique" });
-    }
-  }
+  for (const alias of Object.keys(value.workspaces)) if (alias in value.repositories) ctx.addIssue({ code: "custom", path: ["workspaces", alias], message: "workspace and repository aliases must be unique" });
 });
 
-export type DispatcherConfig = z.infer<typeof configSchema>;
+type ParsedDispatcherConfig = z.infer<typeof configSchema>;
+export type DispatcherConfig = Omit<ParsedDispatcherConfig, "workspaces" | "sessionReaperIntervalMs" | "resourceLimits"> & {
+  workspaces?: ParsedDispatcherConfig["workspaces"];
+  sessionReaperIntervalMs?: number;
+  resourceLimits?: ParsedDispatcherConfig["resourceLimits"];
+};
 
-function resolveLocalPath(value: string, base: string): string {
-  return resolve(isAbsolute(value) ? value : resolve(base, value));
-}
+function resolveLocalPath(value: string, base: string): string { return resolve(isAbsolute(value) ? value : resolve(base, value)); }
 
 export async function loadConfig(configPath = process.env.PET_DISPATCHER_CONFIG): Promise<DispatcherConfig> {
   if (!configPath) throw new Error("PET_DISPATCHER_CONFIG must point to a local dispatcher config file");
@@ -77,9 +61,7 @@ export async function loadConfig(configPath = process.env.PET_DISPATCHER_CONFIG)
     workspaces: Object.fromEntries(Object.entries(parsed.workspaces).map(([name, path]) => [name, resolveLocalPath(path, base)])),
     toolRoots: parsed.toolRoots.map((path) => resolveLocalPath(path, base)),
     remote: parsed.remote ? { ...parsed.remote, journalPath: resolveLocalPath(parsed.remote.journalPath, base) } : undefined,
-    networkProfiles: Object.fromEntries(Object.entries(parsed.networkProfiles).map(([name, profile]) => [
-      name, { hosts: [...new Set(profile.hosts.map((host) => host.toLowerCase()))] },
-    ])),
+    networkProfiles: Object.fromEntries(Object.entries(parsed.networkProfiles).map(([name, profile]) => [name, { hosts: [...new Set(profile.hosts.map((host) => host.toLowerCase()))] }])),
   };
 }
 

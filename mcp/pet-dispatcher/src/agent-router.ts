@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 import { delimiter, extname, join } from "node:path";
 import type { RemoteCapability } from "./remote-protocol.js";
+import { backendReadinessReason, OPENAI_COMPATIBLE_BACKENDS, OPENAI_COMPATIBLE_BACKEND_IDS } from "./openai-backends.js";
 
 
 export type ProbeAvailability = "available" | "degraded" | "unavailable";
@@ -85,28 +86,35 @@ function configured(env: NodeJS.ProcessEnv, names: readonly string[]): boolean {
   return names.some((name) => Boolean(env[name]));
 }
 
-function backend(definition: Omit<ModelBackend, "probe">): ModelBackend {
+type BackendDefinition = Omit<ModelBackend, "probe"> & { readiness?: (env: NodeJS.ProcessEnv) => string | undefined };
+
+function backend(definition: BackendDefinition): ModelBackend {
+  const { readiness, ...publicDefinition } = definition;
   return {
-    ...definition,
+    ...publicDefinition,
     async probe(context = {}) {
       const env = context.env ?? process.env;
+      const hasAuth = configured(env, definition.authEnv);
+      const readinessReason = hasAuth ? readiness?.(env) : undefined;
       return {
         id: definition.id,
-        availability: configured(env, definition.authEnv) ? "available" : "unavailable",
+        availability: !hasAuth ? "unavailable" : readinessReason ? "degraded" : "available",
         costClass: definition.costClass,
         priority: definition.priority,
-        reason: configured(env, definition.authEnv) ? undefined : `missing auth env: ${definition.authEnv.join(" or ")}`,
+        reason: !hasAuth ? `missing auth env: ${definition.authEnv.join(" or ")}` : readinessReason,
       };
     },
   };
 }
 
 export const MODEL_BACKENDS: readonly ModelBackend[] = [
-  backend({ id: "openrouter", authEnv: ["OPENROUTER_API_KEY"], costClass: "free-tier", priority: 10 }),
-  backend({ id: "orcarouter", authEnv: ["ORCAROUTER_API_KEY"], costClass: "free-tier", priority: 20 }),
-  backend({ id: "aihubmix", authEnv: ["AIHUBMIX_API_KEY"], costClass: "free-tier", priority: 30 }),
-  backend({ id: "ollama-cloud", authEnv: ["OLLAMA_API_KEY"], costClass: "free-tier", priority: 40 }),
-  backend({ id: "groq", authEnv: ["GROQ_API_KEY"], costClass: "free-tier", priority: 50 }),
+  ...OPENAI_COMPATIBLE_BACKENDS.map((definition) => backend({
+    id: definition.id,
+    authEnv: [definition.credentialEnv],
+    costClass: definition.costClass,
+    priority: definition.priority,
+    readiness: (env) => backendReadinessReason(definition, env),
+  })),
   backend({ id: "gemini", authEnv: ["GEMINI_API_KEY", "GOOGLE_API_KEY"], costClass: "free-tier", priority: 60 }),
 ];
 const AGENT_CAPABILITIES = [
@@ -137,11 +145,16 @@ function embeddedExecutor(definition: Omit<ExecutorAdapter, "probe">): ExecutorA
   return {
     ...definition,
     async probe(context = {}) {
-      const backendId = definition.backendIds[0];
-      const target = MODEL_BACKENDS.find((item) => item.id === backendId);
-      if (!target) return executorProbe(this, "degraded", `unknown fixed backend: ${backendId ?? "none"}`);
-      const result = await target.probe(context);
-      return executorProbe(this, result.availability, result.reason);
+      const targets = definition.backendIds.map((backendId) => MODEL_BACKENDS.find((item) => item.id === backendId));
+      if (targets.some((target) => !target)) {
+        const missing = definition.backendIds.find((backendId) => !MODEL_BACKENDS.some((item) => item.id === backendId));
+        return executorProbe(this, "degraded", `unknown backend: ${missing ?? "none"}`);
+      }
+      const results = await Promise.all(targets.map((target) => target!.probe(context)));
+      const available = results.find((result) => result.availability === "available");
+      if (available) return executorProbe(this, "available");
+      const degraded = results.find((result) => result.availability === "degraded");
+      return executorProbe(this, degraded ? "degraded" : "unavailable", degraded?.reason ?? results[0]?.reason);
     },
   };
 }
@@ -165,7 +178,7 @@ export const EXECUTOR_ADAPTERS: readonly ExecutorAdapter[] = [
   { id: "direct", lifecycle: "active", implementation: "direct", backendMode: "none", backendIds: [],
     taskKinds: ["direct"], capabilities: DIRECT_CAPABILITIES, costClass: "free", priority: 0,
     async probe() { return executorProbe(this, "available"); } },
-  embeddedExecutor({ id: "openrouter", lifecycle: "active", implementation: "embedded", backendMode: "fixed", backendIds: ["openrouter"],
+  embeddedExecutor({ id: "openrouter", lifecycle: "active", implementation: "embedded", backendMode: "selectable", backendIds: OPENAI_COMPATIBLE_BACKEND_IDS,
     taskKinds: ["agent"], capabilities: AGENT_CAPABILITIES, costClass: "free-tier", priority: 10 }),
   embeddedExecutor({ id: "gemini", lifecycle: "active", implementation: "embedded", backendMode: "fixed", backendIds: ["gemini"],
     taskKinds: ["agent"], capabilities: AGENT_CAPABILITIES, costClass: "free-tier", priority: 20 }),

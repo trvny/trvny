@@ -28,6 +28,19 @@ test("backend probes expose availability without leaking credential values", asy
   assert.equal(serialized.includes("test-openrouter-key"), false);
   assert.equal(serialized.includes("test-aihubmix-key"), false);
 });
+
+test("zero-cost router defaults are ready while ambiguous model choices require opt-in", async () => {
+  const probes = await probeModelBackends({ env: {
+    ORCAROUTER_API_KEY: "test-orca-key",
+    OLLAMA_API_KEY: "test-ollama-key",
+    GROQ_API_KEY: "test-groq-key",
+  } as NodeJS.ProcessEnv });
+  const byId = new Map(probes.map((probe) => [probe.id, probe]));
+  assert.equal(byId.get("orcarouter")?.availability, "available");
+  assert.equal(byId.get("ollama-cloud")?.availability, "degraded");
+  assert.equal(byId.get("groq")?.availability, "degraded");
+  assert.equal(JSON.stringify(probes).includes("test-orca-key"), false);
+});
 test("executor probes expose contracts and degrade safely", async () => {
   const probes = await probeExecutorAdapters({
     env,
@@ -39,7 +52,8 @@ test("executor probes expose contracts and degrade safely", async () => {
   });
   const byId = new Map(probes.map((probe) => [probe.id, probe]));
   assert.equal(byId.get("direct")?.availability, "available");
-  assert.equal(byId.get("openrouter")?.backendMode, "fixed");
+  assert.equal(byId.get("openrouter")?.backendMode, "selectable");
+  assert.deepEqual(byId.get("openrouter")?.backendIds, ["openrouter", "orcarouter", "aihubmix", "ollama-cloud", "groq"]);
   assert.equal(byId.get("copilot")?.availability, "available");
   assert.equal(byId.get("opencode")?.availability, "degraded");
   assert.equal(byId.get("opencode")?.backendMode, "selectable");
@@ -48,6 +62,16 @@ test("executor probes expose contracts and degrade safely", async () => {
   assert.equal(byId.get("gemini")?.availability, "unavailable");
 });
 
+
+test("embedded OpenAI executor is available through any configured compatible backend", async () => {
+  const probes = await probeExecutorAdapters({
+    env: { AIHUBMIX_API_KEY: "test-aihubmix-key", PET_DISPATCHER_AIHUBMIX_MODEL: "coding-glm-5.3-free" } as NodeJS.ProcessEnv,
+    findCommand: async () => undefined,
+  });
+  const openai = probes.find(({ id }) => id === "openrouter");
+  assert.equal(openai?.availability, "available");
+  assert.equal(openai?.backendMode, "selectable");
+});
 test("backend ranking is deterministic, healthy-first and free-first", () => {
   const probes: ModelBackendProbe[] = [
     { id: "paid", availability: "available", costClass: "metered", priority: 1 },

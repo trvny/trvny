@@ -15,7 +15,7 @@ The broader architecture remains in [`agent-dispatcher-concept.md`](./agent-disp
 - structured host Git status/diff/add/commit/export,
 - `workspace_exec` through Microsoft MXC / Windows ProcessContainer,
 - process timeout, cancellation and bounded output; `workspace.exec` fails closed when MXC reports required host preparation,
-- OpenRouter and Gemini adapters using capability-filtered tools,
+- OpenAI-compatible free-tier routing across OpenRouter, OrcaRouter, AIHubMix, Ollama Cloud and Groq, plus Gemini, using capability-filtered tools,
 - brokered HTTPS with exact destination validation,
 - direct sandbox sockets denied by default,
 - signed remote tasks bound to one device with nonce + expiry checks,
@@ -63,6 +63,8 @@ npm run doctor
 npm run check
 npm run dev
 ```
+
+The legacy remote executor id `openrouter` now selects from the OpenAI-compatible backend registry. OpenRouter uses `openRouterModel`; OrcaRouter defaults to `orcarouter/free`; AIHubMix defaults to `coding-glm-5.3-free`. Ollama Cloud and Groq require `PET_DISPATCHER_OLLAMA_CLOUD_MODEL` and `PET_DISPATCHER_GROQ_MODEL` respectively, so the router never guesses a potentially metered model. Only `available` backends enter automatic routing. A provider failure may fall through to the next backend only before any tool call has executed; after a tool side effect, the task fails closed instead of risking duplicate actions.
 
 For remote polling, configure the `remote` block and set only local environment secrets:
 

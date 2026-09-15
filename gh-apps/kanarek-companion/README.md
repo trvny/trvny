@@ -351,7 +351,7 @@ Review router secret used at runtime only by the Worker:
 - `KANAREK_REVIEW_ROUTER_TOKEN`
 
 Free-review provider secrets (`OPENROUTER_API_KEY`, `ORCAROUTER_API_KEY`,
-`AIHUBMIX_API_KEY`, `OLLAMA_API_KEY`, and `GROQ_API_KEY`) are runtime credentials
+`AIHUBMIX_API_KEY`, `OLLAMA_API_KEY`, `GROQ_API_KEY`, and `AI_GATEWAY_API_KEY`) are runtime credentials
 of the private `kanarek-review` Worker only. Repository copies exist solely for
 the manual credential-sync workflow; target repositories do not keep them.
 

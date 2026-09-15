@@ -38,6 +38,7 @@
     "KANAREK_REVIEW_ORCAROUTER_MODELS": "z-ai/glm-5.3-flash-free,tencent/hy3-free,deepseek/deepseek-v4-flash-free",
     "KANAREK_REVIEW_OLLAMA_MODELS": "gpt-oss:120b,gpt-oss:20b",
     "KANAREK_REVIEW_GROQ_MODEL": "openai/gpt-oss-120b",
+    "KANAREK_REVIEW_VERCEL_MODEL": "alibaba/qwen3-coder-30b-a3b",
     "KANAREK_REVIEW_OPENROUTER_MODELS": "nvidia/nemotron-3-super-120b-a12b:free,cohere/north-mini-code:free,openrouter/free"
   }
 }

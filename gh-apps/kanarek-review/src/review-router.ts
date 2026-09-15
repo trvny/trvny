@@ -31,6 +31,7 @@ const DEFAULT_REVIEW_OLLAMA_MODELS = [
   'gpt-oss:20b',
 ] as const;
 const DEFAULT_REVIEW_GROQ_MODEL = 'openai/gpt-oss-120b';
+const DEFAULT_REVIEW_VERCEL_MODEL = 'alibaba/qwen3-coder-30b-a3b';
 const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'nvidia/nemotron-3-super-120b-a12b:free',
   'cohere/north-mini-code:free',
@@ -50,12 +51,14 @@ export interface ReviewRouterEnv {
   ORCAROUTER_API_KEY?: string;
   OLLAMA_API_KEY?: string;
   GROQ_API_KEY?: string;
+  AI_GATEWAY_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
   KANAREK_REVIEW_ORCAROUTER_MODELS?: string;
   KANAREK_REVIEW_OLLAMA_MODELS?: string;
   KANAREK_REVIEW_GROQ_MODEL?: string;
+  KANAREK_REVIEW_VERCEL_MODEL?: string;
   KANAREK_REVIEW_COOLDOWNS?: DurableObjectNamespace;
   KANAREK_REVIEW_QUOTA_COOLDOWN_MS?: string;
   KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS?: string;
@@ -65,7 +68,7 @@ export interface ReviewRouterEnv {
 
 type JsonObject = Record<string, unknown>;
 
-type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'workers-ai';
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'workers-ai';
 
 type ReviewProvider = {
   id: ReviewProviderId;
@@ -148,6 +151,12 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
       url: 'https://api.groq.com/openai/v1/chat/completions',
       model: env.KANAREK_REVIEW_GROQ_MODEL?.trim() || DEFAULT_REVIEW_GROQ_MODEL,
       apiKey: (providerEnv) => providerEnv.GROQ_API_KEY,
+    },
+    {
+      id: 'vercel',
+      url: 'https://ai-gateway.vercel.sh/v1/chat/completions',
+      model: env.KANAREK_REVIEW_VERCEL_MODEL?.trim() || DEFAULT_REVIEW_VERCEL_MODEL,
+      apiKey: (providerEnv) => providerEnv.AI_GATEWAY_API_KEY,
     },
   ];
 }

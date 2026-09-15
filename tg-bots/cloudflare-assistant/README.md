@@ -20,7 +20,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
 - owner voice notes and bounded audio uploads transcribed with Workers AI Whisper before normal assistant routing;
 - videos, video notes and animations use bounded Telegram metadata plus best-effort thumbnail vision; full media bytes are not downloaded or claimed as inspected;
-- owner-shared locations, venues, contacts and polls normalized into bounded assistant context;
+- owner-shared locations, venues, contacts, polls, stickers and Telegram dice normalized into bounded assistant context;
 - `/poll question | option 1 | option 2` sends a native non-anonymous Telegram poll with 2–12 options;
 - `/location`, `/venue` and `/contact` send native Telegram structured messages from bounded owner-only command input;
 - owner-shared text/code documents downloaded transiently with strict size/type bounds and injected as untrusted document data;
@@ -245,6 +245,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - video/animation previews use only Telegram metadata and thumbnails capped at 512 KB; the full media file is not downloaded;
 - shared locations, venues and contacts are normalized to bounded text; contact vCards and third-party metadata are not injected into the model context;
 - shared polls are normalized to bounded question/options/vote context;
+- stickers and dice expose only bounded Telegram metadata such as emoji/set/type and dice result; sticker files are not downloaded in this slice;
 - text/code documents are capped at 512 KB, decoded as UTF-8, clipped before model use, and never persisted as raw file bytes;
 - replied-to and forwarded message bodies are bounded and framed as untrusted data; forwarded text cannot enter the owner command parser;
 - RSS input and curator output lengths are bounded;

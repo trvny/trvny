@@ -132,7 +132,7 @@ test("stops the local Workers AI fallback before delivery", async () => {
   let stop = false;
   const env = envWithRouter(
     async () => new Response("router unavailable", { status: 502 }),
-    async () => new Promise((resolve) => setTimeout(() => resolve({ response: "late local answer" }), 2_000)),
+    async () => new Promise(() => {}),
   );
   setTimeout(() => { stop = true; }, 30);
 
@@ -145,4 +145,29 @@ test("stops the local Workers AI fallback before delivery", async () => {
     ),
     GenerationStoppedError,
   );
+});
+
+
+test("stops while waiting for shared-router response headers", async () => {
+  let stop = false;
+  let localCalls = 0;
+  const env = envWithRouter(
+    async () => new Promise(() => {}),
+    async () => {
+      localCalls += 1;
+      return { response: "must not run" };
+    },
+  );
+  setTimeout(() => { stop = true; }, 30);
+
+  await assert.rejects(
+    chatWithStreamingFallback(
+      env,
+      [{ role: "user", content: "hi" }],
+      undefined,
+      () => stop,
+    ),
+    GenerationStoppedError,
+  );
+  assert.equal(localCalls, 0);
 });

@@ -173,6 +173,7 @@ async function withKanarekFreeRouter<T>(
   timeoutMs: number,
   stream: boolean,
   consume: (response: Response) => Promise<T>,
+  shouldStop?: ShouldStopHandler,
 ): Promise<T> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) throw new Error("KANAREK_REVIEW_ROUTER_TOKEN is not configured");
@@ -194,12 +195,20 @@ async function withKanarekFreeRouter<T>(
       }),
       signal: controller.signal,
     });
-    const response = await env.KANAREK_COMPANION.fetch(request);
+    const response = await awaitWithStop(
+      env.KANAREK_COMPANION.fetch(request),
+      shouldStop,
+      () => "",
+    );
     if (!response.ok) {
       throw new Error(`${response.status} ${clipError(await response.text())}`);
     }
     return await consume(response);
   } catch (error) {
+    if (error instanceof GenerationStoppedError) {
+      controller.abort();
+      throw error;
+    }
     if (controller.signal.aborted) {
       throw new Error(`Kanarek router timed out after ${timeoutMs}ms`);
     }
@@ -237,7 +246,8 @@ async function consumeOpenAIStream(
   shouldStop?: ShouldStopHandler,
 ): Promise<ProviderResult> {
   if (!response.headers.get("content-type")?.toLowerCase().includes("text/event-stream")) {
-    return providerResult(response, (await response.json()) as OpenAIResponse);
+    const data = await awaitWithStop(response.json(), shouldStop, () => "");
+    return providerResult(response, data as OpenAIResponse);
   }
   if (!response.body) throw new Error("empty Kanarek router stream");
 
@@ -328,6 +338,7 @@ async function kanarekFreeRouterStream(
     ROUTER_TIMEOUT_MS,
     true,
     (response) => consumeOpenAIStream(response, onPartial, shouldStop),
+    shouldStop,
   );
 }
 

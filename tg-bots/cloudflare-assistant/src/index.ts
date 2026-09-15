@@ -1614,8 +1614,9 @@ export default {
         return invalidBody(error);
       }
 
-      const stoppedDraftId = ownerGenerationStop(env, update);
-      if (stoppedDraftId !== null) {
+      if (update.stopped_message_generation) {
+        const stoppedDraftId = ownerGenerationStop(env, update);
+        if (stoppedDraftId === null) return new Response("OK");
         try {
           await requestGenerationStop(env, stoppedDraftId);
         } catch (error) {

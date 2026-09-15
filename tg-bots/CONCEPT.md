@@ -100,6 +100,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - native clipboard action on short `/draft` suggestions;
 - manual `/task <repo> <polecenie>` delegation to the Legion through the scoped Pet Dispatcher RPC entrypoint, with inline status/cancel controls;
 - owner-only stateless Telegram inline answers for `@trvny_bot <query>` plus an inline-mode shortcut, Durable Object debounce for rapid edits, and an inline-specific response deadline;
+- owner-only Telegram Guest Mode for one-shot stateless replies in chats where Botek is not a member, with no private-memory/tool access and no acting on behalf of the owner;
 - owner voice notes and bounded audio uploads transcribed through Workers AI Whisper and routed into normal chat;
 - owner photos and screenshots analyzed transiently through Workers AI vision, with bounded text-only context persisted;
 - video, video-note and animation inputs use bounded metadata plus thumbnail-only vision without downloading the full media;
@@ -134,7 +135,7 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 4. **Reactions and lightweight feedback** — model-backed owner messages now use best-effort state reactions for processing, success, handled failure and ambiguous delivery. Native reaction feedback from the owner is not relied on in the private chat because Bot API reaction updates require bot administrator access; use callbacks for explicit feedback where needed.
 5. **Inline mode** — owner-only stateless `@trvny_bot ...` answers are implemented for quick ask/summarize/translate flows; next add richer inline result types and optional feedback telemetry.
 6. **Media and Telegram inputs** — voice notes, audio uploads, owner photos/screenshots, thumbnail-based video/video-note/animation previews, stickers, dice, text/code files, locations, venues, contacts, polls, reply context and forwarded-message context are implemented; add PDF/office documents and richer media backends where they improve a workflow.
-7. **Groups, topics and Business** — explicit owner-only `/ask` replies are implemented for groups/supergroups with chat/topic-isolated memory; extend only selected workflows further while preserving explicit approval boundaries for third-party replies.
+7. **Groups, topics and Business** — explicit owner-only `/ask` replies are implemented for groups/supergroups with chat/topic-isolated memory, and owner-only Guest Mode provides stateless one-shot replies without joining the chat; extend only selected workflows further while preserving explicit approval boundaries for third-party replies.
 8. **Mini App** — provide a Telegram-native dashboard for Memory, Tasks, GitHub, Feeds, Models, Legion and service status. Use Mini App capabilities such as theme integration, QR scanning, device storage or biometrics only where they improve a concrete workflow.
 
 Suggested order: typing/replies/formatting/buttons → callbacks/editing/reactions → inline mode → richer media → Mini App and broader Telegram surfaces.

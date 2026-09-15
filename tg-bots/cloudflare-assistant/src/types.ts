@@ -222,6 +222,7 @@ export type TelegramMessage = {
   };
   chat: { id: number; type: string };
   from?: { id: number; username?: string; first_name?: string };
+  guest_query_id?: string;
 };
 
 export type TelegramInlineQuery = {
@@ -232,15 +233,21 @@ export type TelegramInlineQuery = {
   chat_type?: string;
 };
 
+export type TelegramInputMessageContent =
+  | {
+      message_text: string;
+      link_preview_options?: { is_disabled: boolean };
+    }
+  | {
+      rich_message: { markdown?: string; html?: string };
+    };
+
 export type TelegramInlineQueryResultArticle = {
   type: "article";
   id: string;
   title: string;
   description?: string;
-  input_message_content: {
-    message_text: string;
-    link_preview_options?: { is_disabled: boolean };
-  };
+  input_message_content: TelegramInputMessageContent;
 };
 
 export type TelegramCallbackQuery = {
@@ -263,6 +270,7 @@ export type TelegramMessageGenerationStopped = {
 export type TelegramUpdate = {
   update_id: number;
   message?: TelegramMessage;
+  guest_message?: TelegramMessage;
   inline_query?: TelegramInlineQuery;
   callback_query?: TelegramCallbackQuery;
   stopped_message_generation?: TelegramMessageGenerationStopped;

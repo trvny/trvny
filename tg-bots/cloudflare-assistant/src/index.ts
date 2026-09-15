@@ -14,6 +14,7 @@ import { conversationMessages, TelegramConversationMemory } from "./conversation
 import { TelegramUpdateDedup } from "./dedup";
 import { TelegramInlineQueryGate } from "./inline";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
+import { handleTelegramGuestMessage } from "./guest";
 import {
   cancelBotekTask,
   delegateBotekTask,
@@ -1649,6 +1650,16 @@ export default {
         } catch (error) {
           console.error("Failed to record Telegram generation stop", error);
           return new Response("Service unavailable", { status: 503 });
+        }
+        return new Response("OK");
+      }
+
+      if (update.guest_message) {
+        try {
+          await handleTelegramGuestMessage(env, update.guest_message, update.update_id);
+        } catch (error) {
+          // Guest queries are single-shot. Never ask Telegram to redeliver after an ambiguous answer attempt.
+          console.error("Telegram guest query handling failed", error);
         }
         return new Response("OK");
       }

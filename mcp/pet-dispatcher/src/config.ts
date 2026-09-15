@@ -7,16 +7,24 @@ const hostRule = z.string().min(1)
   .regex(/^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/, "network host rules must be exact DNS names");
 const networkProfileSchema = z.object({ hosts: z.array(hostRule).min(1).max(64) });
 
+const DEFAULT_RESOURCE_LIMITS = {
+  defaultMemoryMiB: 2_048,
+  maxMemoryMiB: 6_144,
+  defaultProcessCount: 32,
+  maxProcessCount: 64,
+  watchdogIntervalMs: 250,
+} as const;
+
 const resourceLimitsSchema = z.object({
-  defaultMemoryMiB: z.number().int().min(256).max(6_144).default(2_048),
-  maxMemoryMiB: z.number().int().min(512).max(6_144).default(6_144),
-  defaultProcessCount: z.number().int().min(1).max(64).default(32),
-  maxProcessCount: z.number().int().min(1).max(64).default(64),
-  watchdogIntervalMs: z.number().int().min(100).max(5_000).default(250),
-}).default({}).superRefine((value, ctx) => {
+  defaultMemoryMiB: z.number().int().min(256).max(6_144).default(DEFAULT_RESOURCE_LIMITS.defaultMemoryMiB),
+  maxMemoryMiB: z.number().int().min(512).max(6_144).default(DEFAULT_RESOURCE_LIMITS.maxMemoryMiB),
+  defaultProcessCount: z.number().int().min(1).max(64).default(DEFAULT_RESOURCE_LIMITS.defaultProcessCount),
+  maxProcessCount: z.number().int().min(1).max(64).default(DEFAULT_RESOURCE_LIMITS.maxProcessCount),
+  watchdogIntervalMs: z.number().int().min(100).max(5_000).default(DEFAULT_RESOURCE_LIMITS.watchdogIntervalMs),
+}).superRefine((value, ctx) => {
   if (value.defaultMemoryMiB > value.maxMemoryMiB) ctx.addIssue({ code: "custom", path: ["defaultMemoryMiB"], message: "default memory limit may not exceed the maximum" });
   if (value.defaultProcessCount > value.maxProcessCount) ctx.addIssue({ code: "custom", path: ["defaultProcessCount"], message: "default process limit may not exceed the maximum" });
-});
+}).default(DEFAULT_RESOURCE_LIMITS);
 
 const remoteSchema = z.object({
   enabled: z.boolean().default(false), deviceId: z.string().min(1).max(128), accountId: z.string().regex(/^[0-9a-f]{32}$/u),

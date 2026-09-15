@@ -1,8 +1,13 @@
 import { GoogleGenAI, type Content, type FunctionDeclaration } from "@google/genai";
 import type { DispatcherConfig } from "./config.js";
 import { AgentTools, agentToolDefinitions } from "./agent-tools.js";
+import { probeModelBackends, rankModelBackendProbes } from "./agent-router.js";
+import {
+  backendModel, OPENAI_COMPATIBLE_BACKENDS,
+  type OpenAICompatibleBackendDefinition, type OpenAICompatibleBackendId,
+} from "./openai-backends.js";
 
-export type AgentProvider = "openrouter" | "gemini";
+export type AgentProvider = "openrouter" | "orcarouter" | "aihubmix" | "ollama-cloud" | "groq" | "gemini";
 
 const SYSTEM_PROMPT = `You are a coding worker inside a Pet Dispatcher session.
 Use the provided tools to inspect, edit and validate the assigned repository.
@@ -26,12 +31,70 @@ async function toolResult(tools: AgentTools, sessionId: string, name: string, ar
   catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
 }
 
-export async function runOpenRouter(
-  config: DispatcherConfig, tools: AgentTools, sessionId: string, goal: string, model = config.openRouterModel, maxSteps = 16,
+type OpenAIProvider = OpenAICompatibleBackendId;
+interface RuntimeOpenAIBackend {
+  id: OpenAIProvider;
+  endpoint: string;
+  apiKey: string;
+  model: string;
+  headers: Record<string, string>;
+}
+
+function runtimeBackend(
+  definition: OpenAICompatibleBackendDefinition,
+  config: DispatcherConfig,
+  env: NodeJS.ProcessEnv,
+  openRouterModel?: string,
+): RuntimeOpenAIBackend | undefined {
+  const apiKey = env[definition.credentialEnv]?.trim();
+  const model = definition.id === "openrouter"
+    ? openRouterModel ?? backendModel(definition, config, env)
+    : backendModel(definition, config, env);
+  if (!apiKey || !model) return undefined;
+  return {
+    id: definition.id,
+    endpoint: definition.endpoint,
+    apiKey,
+    model,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      ...definition.extraHeaders,
+    },
+  };
+}
+
+async function healthyOpenAIBackends(
+  config: DispatcherConfig, env: NodeJS.ProcessEnv = process.env, openRouterModel?: string,
+): Promise<RuntimeOpenAIBackend[]> {
+  const probes = rankModelBackendProbes(await probeModelBackends({ env }));
+  return probes
+    .filter(({ availability }) => availability === "available")
+    .map(({ id }) => OPENAI_COMPATIBLE_BACKENDS.find((backend) => backend.id === id))
+    .filter((backend): backend is OpenAICompatibleBackendDefinition => Boolean(backend))
+    .map((backend) => runtimeBackend(backend, config, env, openRouterModel))
+    .filter((backend): backend is RuntimeOpenAIBackend => Boolean(backend));
+}
+
+class OpenAIBackendAttemptError extends Error {
+  constructor(
+    readonly backendId: OpenAIProvider,
+    readonly toolCallsExecuted: number,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+  }
+}
+
+async function runOpenAIBackend(
+  tools: AgentTools,
+  sessionId: string,
+  goal: string,
+  backend: RuntimeOpenAIBackend,
+  maxSteps: number,
   signal?: AbortSignal,
-): Promise<{ provider: "openrouter"; model: string; text: string; steps: number }> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY is not configured on the worker");
+): Promise<{ provider: OpenAIProvider; model: string; text: string; steps: number }> {
   const messages: OpenRouterMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     { role: "user", content: goal },
@@ -40,46 +103,87 @@ export async function runOpenRouter(
     type: "function",
     function: { name: tool.name, description: tool.description, parameters: tool.parameters },
   }));
+  let toolCallsExecuted = 0;
 
-  for (let step = 1; step <= maxSteps; step++) {
-    signal?.throwIfAborted();
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/trvny/trvny",
-        "X-OpenRouter-Title": "Pet Dispatcher",
-      },
-      body: JSON.stringify({ model, messages, tools: apiTools, tool_choice: "auto" }),
-      signal: signal ? AbortSignal.any([AbortSignal.timeout(120_000), signal]) : AbortSignal.timeout(120_000),
-    });
-    if (!response.ok) throw new Error(`OpenRouter ${response.status}: ${(await response.text()).slice(0, 1000)}`);
-    const body = await response.json() as { choices?: Array<{ message?: OpenRouterMessage }> };
-    const message = body.choices?.[0]?.message;
-    if (!message) throw new Error("OpenRouter returned no assistant message");
-    messages.push(message);
-    const calls = message.tool_calls ?? [];
-    if (calls.length === 0) {
-      return { provider: "openrouter", model, text: message.content ?? "", steps: step };
-    }
-    for (const call of calls) {
-      const fn = call?.function;
-      if (!call?.id) throw new Error("OpenRouter returned malformed tool_call without id");
-      const toolCallId = call.id;
-      if (!fn?.name) {
-        messages.push({ role: "tool", tool_call_id: toolCallId, name: "invalid_tool_call", content: JSON.stringify({ error: "malformed tool_call" }) });
-        continue;
+  try {
+    for (let step = 1; step <= maxSteps; step++) {
+      signal?.throwIfAborted();
+      const response = await fetch(backend.endpoint, {
+        method: "POST",
+        headers: backend.headers,
+        body: JSON.stringify({ model: backend.model, messages, tools: apiTools, tool_choice: "auto" }),
+        signal: signal ? AbortSignal.any([AbortSignal.timeout(120_000), signal]) : AbortSignal.timeout(120_000),
+      });
+      if (!response.ok) {
+        const detail = (await response.text()).replaceAll(backend.apiKey, "[redacted]").slice(0, 1000);
+        throw new Error(`${backend.id} ${response.status}: ${detail}`);
       }
-      let args: unknown = {};
-      try { args = JSON.parse(fn.arguments || "{}"); }
-      catch { args = { parseError: "invalid JSON tool arguments" }; }
-      const result = await toolResult(tools, sessionId, fn.name, args);
-      messages.push({ role: "tool", tool_call_id: toolCallId, name: fn.name, content: JSON.stringify(result) });
+      const body = await response.json() as { choices?: Array<{ message?: OpenRouterMessage }> };
+      const message = body.choices?.[0]?.message;
+      if (!message) throw new Error(`${backend.id} returned no assistant message`);
+      messages.push(message);
+      const calls = message.tool_calls ?? [];
+      if (calls.length === 0) {
+        return { provider: backend.id, model: backend.model, text: message.content ?? "", steps: step };
+      }
+      for (const call of calls) {
+        const fn = call?.function;
+        if (!call?.id) throw new Error(`${backend.id} returned malformed tool_call without id`);
+        const toolCallId = call.id;
+        if (!fn?.name) {
+          messages.push({ role: "tool", tool_call_id: toolCallId, name: "invalid_tool_call", content: JSON.stringify({ error: "malformed tool_call" }) });
+          continue;
+        }
+        let args: unknown = {};
+        try { args = JSON.parse(fn.arguments || "{}"); }
+        catch { args = { parseError: "invalid JSON tool arguments" }; }
+        toolCallsExecuted += 1;
+        const result = await toolResult(tools, sessionId, fn.name, args);
+        messages.push({ role: "tool", tool_call_id: toolCallId, name: fn.name, content: JSON.stringify(result) });
+      }
+    }
+    throw new Error(`${backend.id} agent exceeded ${maxSteps} steps`);
+  } catch (error) {
+    if (error instanceof OpenAIBackendAttemptError) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw new OpenAIBackendAttemptError(backend.id, toolCallsExecuted, message, { cause: error });
+  }
+}
+
+export async function runOpenRouter(
+  config: DispatcherConfig, tools: AgentTools, sessionId: string, goal: string, model = config.openRouterModel, maxSteps = 16,
+  signal?: AbortSignal,
+): Promise<{ provider: "openrouter"; model: string; text: string; steps: number }> {
+  const definition = OPENAI_COMPATIBLE_BACKENDS.find(({ id }) => id === "openrouter");
+  if (!definition) throw new Error("OpenRouter backend definition is missing");
+  const backend = runtimeBackend(definition, config, process.env, model);
+  if (!backend) throw new Error("OPENROUTER_API_KEY is not configured on the worker");
+  return runOpenAIBackend(tools, sessionId, goal, backend, maxSteps, signal) as Promise<{
+    provider: "openrouter"; model: string; text: string; steps: number;
+  }>;
+}
+
+export async function runRoutedOpenAI(
+  config: DispatcherConfig, tools: AgentTools, sessionId: string, goal: string, maxSteps = 16,
+  signal?: AbortSignal,
+): Promise<{ provider: OpenAIProvider; model: string; text: string; steps: number }> {
+  const backends = await healthyOpenAIBackends(config);
+  if (backends.length === 0) throw new Error("No healthy OpenAI-compatible backend is configured on the worker");
+  const failures: string[] = [];
+  for (const backend of backends) {
+    signal?.throwIfAborted();
+    try {
+      return await runOpenAIBackend(tools, sessionId, goal, backend, maxSteps, signal);
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      if (error instanceof OpenAIBackendAttemptError && error.toolCallsExecuted > 0) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${backend.id}: ${message}`);
     }
   }
-  throw new Error(`OpenRouter agent exceeded ${maxSteps} steps`);
+  throw new Error(`All healthy OpenAI-compatible backends failed before tool execution: ${failures.join(" | ")}`);
 }
+
 export async function runGemini(
   config: DispatcherConfig, tools: AgentTools, sessionId: string, goal: string, model = config.geminiModel, maxSteps = 16,
   signal?: AbortSignal,

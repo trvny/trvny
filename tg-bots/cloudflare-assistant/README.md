@@ -4,14 +4,14 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 
 ## What exists now
 
-- owner-only Telegram webhook; private chat is conversational, while groups/supergroups require explicit `/ask`;
+- owner-only Telegram webhook; private chat is conversational, while groups/supergroups require explicit owner `/ask` or native ephemeral `/whisper`;
 - durable Telegram update delivery through Cloudflare Queues;
 - persistent `update_id` state in a SQLite Durable Object;
 - dead-letter queue for exhausted or non-replayable Telegram deliveries;
-- /help, /ask <question>, /status, /draft <message>, /poll, /quiz, /dice, /sticker, /location, /venue, /contact, and /reset;
+- /help, /ask <question>, /status, /draft <message>, /poll, /quiz, /dice, /sticker, /location, /venue, /contact, and /reset; group-only `/whisper <question>` is advertised as an ephemeral command only to the owner;
 - /start and /help self-sync the owner-scoped Telegram command list and command menu from code;
 - bounded per-chat conversation context for ordinary messages;
-- owner `/ask <question>` works in groups and forum topics; other group traffic is ignored, replies use typing instead of private-chat drafts, and short memory stays isolated by chat/topic;
+- owner `/ask <question>` works in groups and forum topics; other group traffic is ignored, replies use typing instead of private-chat drafts, and short memory stays isolated by chat/topic; the first visible `/ask` in a chat also syncs the owner-only group command scope so `/whisper <question>` can arrive as a native ephemeral command and receive a stateless private reply within Telegram's short delivery window;
 - private-chat topics keep replies, thinking indicators and short conversation memory inside the originating topic;
 - `/topic <name>` creates a native private-chat topic when Botek topic mode is enabled in Telegram;
 - native Telegram reply-to behavior plus rate-bounded live `sendRichMessageDraft` streaming for model-backed replies, with plain-draft and typing fallbacks;

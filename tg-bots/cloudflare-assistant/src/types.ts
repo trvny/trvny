@@ -222,6 +222,8 @@ export type TelegramMessage = {
   };
   chat: { id: number; type: string };
   from?: { id: number; username?: string; first_name?: string };
+  receiver_user?: { id: number; username?: string; first_name?: string };
+  ephemeral_message_id?: number;
   guest_query_id?: string;
 };
 

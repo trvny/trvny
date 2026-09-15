@@ -19,6 +19,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
 - owner voice notes and bounded audio uploads transcribed with Workers AI Whisper before normal assistant routing;
+- videos, video notes and animations use bounded Telegram metadata plus best-effort thumbnail vision; full media bytes are not downloaded or claimed as inspected;
 - owner-shared locations, venues, contacts and polls normalized into bounded assistant context;
 - `/poll question | option 1 | option 2` sends a native non-anonymous Telegram poll with 2–12 options;
 - `/location`, `/venue` and `/contact` send native Telegram structured messages from bounded owner-only command input;
@@ -241,6 +242,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - Telegram and RSS request bodies are bounded before parsing/model use;
 - voice notes are capped at 3 minutes / 2 MB; audio uploads are capped at 10 minutes / 5 MB; both are transcribed transiently and only bounded transcript context enters short conversation memory;
 - photos are capped at 5 MB, analyzed transiently, and only bounded text from the vision pass enters short conversation memory; image bytes are not persisted;
+- video/animation previews use only Telegram metadata and thumbnails capped at 512 KB; the full media file is not downloaded;
 - shared locations, venues and contacts are normalized to bounded text; contact vCards and third-party metadata are not injected into the model context;
 - shared polls are normalized to bounded question/options/vote context;
 - text/code documents are capped at 512 KB, decoded as UTF-8, clipped before model use, and never persisted as raw file bytes;

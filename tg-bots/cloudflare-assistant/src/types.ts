@@ -100,6 +100,27 @@ export type TelegramPhotoSize = {
   file_size?: number;
 };
 
+export type TelegramVisualMedia = {
+  file_id: string;
+  file_unique_id: string;
+  width: number;
+  height: number;
+  duration: number;
+  thumbnail?: TelegramPhotoSize;
+  file_name?: string;
+  mime_type?: string;
+  file_size?: number;
+};
+
+export type TelegramVideoNote = {
+  file_id: string;
+  file_unique_id: string;
+  length: number;
+  duration: number;
+  thumbnail?: TelegramPhotoSize;
+  file_size?: number;
+};
+
 export type TelegramPoll = {
   id: string;
   question: string;
@@ -157,6 +178,9 @@ export type TelegramMessage = {
   reply_to_message?: TelegramMessage;
   quote?: TelegramTextQuote;
   photo?: TelegramPhotoSize[];
+  animation?: TelegramVisualMedia;
+  video?: TelegramVisualMedia;
+  video_note?: TelegramVideoNote;
   document?: TelegramDocument;
   audio?: TelegramAudio;
   poll?: TelegramPoll;

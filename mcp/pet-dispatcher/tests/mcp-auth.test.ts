@@ -12,8 +12,9 @@ function request(path: string, authorization?: string): Request {
   return new Request(`https://pet.example${path}`, { method: "POST", headers });
 }
 
-test("operator bearer continues to authorize the canonical MCP endpoint", () => {
+test("operator bearer authorizes only the canonical MCP endpoint", () => {
   assert.equal(mcpAuthorized(request("/mcp", "Bearer operator-secret"), env), true);
+  assert.equal(mcpAuthorized(request("/mcp/wrong", "Bearer operator-secret"), env), false);
 });
 
 test("connector token authorizes only the single-secret MCP URL", () => {

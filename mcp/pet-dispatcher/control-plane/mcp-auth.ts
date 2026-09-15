@@ -27,11 +27,13 @@ export function isMcpPath(pathname: string): boolean {
 }
 
 export function mcpAuthorized(request: Request, env: McpAuthEnv): boolean {
+  const pathname = new URL(request.url).pathname;
   const operatorToken = env.CONTROL_PLANE_TOKEN;
   const authorization = request.headers.get("authorization") ?? "";
   const bearerPrefix = "Bearer ";
   if (
-    operatorToken
+    pathname === "/mcp"
+    && operatorToken
     && authorization.startsWith(bearerPrefix)
     && secretsMatch(authorization.slice(bearerPrefix.length), operatorToken)
   ) {
@@ -40,6 +42,6 @@ export function mcpAuthorized(request: Request, env: McpAuthEnv): boolean {
 
   const expectedConnectorToken = env.MCP_CONNECTOR_TOKEN;
   if (!expectedConnectorToken) return false;
-  const suppliedConnectorToken = connectorToken(new URL(request.url).pathname);
+  const suppliedConnectorToken = connectorToken(pathname);
   return suppliedConnectorToken !== undefined && secretsMatch(suppliedConnectorToken, expectedConnectorToken);
 }

@@ -22,7 +22,8 @@ The broader architecture remains in [`agent-dispatcher-concept.md`](./agent-disp
 - durable local remote-task journal with fail-closed `recovery_required`,
 - Cloudflare Queue HTTP-pull transport with heartbeat/result callbacks,
 - OS-backed singleton lease preventing multiple local Queue consumers for one remote worker identity,
-- Cloudflare Worker control plane backed by a SQLite Durable Object.
+- Cloudflare Worker control plane backed by a SQLite Durable Object,
+- authenticated Streamable HTTP MCP facade at `/mcp` for remote ChatGPT/tool clients,
 - direct read-only remote tools (`session.status`, `fs.list`, `fs.stat`, `fs.read`, `git.status`, `git.diff`) without invoking a model.
 - short-lived direct write sessions with `fs.write`, `fs.patch`, `fs.mkdir`, `fs.move`, `fs.delete`, `git.add`, `git.commit`, and MXC-confined `workspace.exec`, still without invoking a model.
 
@@ -43,6 +44,8 @@ Remote envelopes and worker callbacks use an HMAC secret that stays in Cloudflar
 The first transport implementation uses Cloudflare Queues with an HTTP pull consumer. The Legion opens outbound HTTPS connections only. No public listener or router port-forward is required.
 
 The Worker exposes authenticated operator endpoints for delegate/status/cancel, a `/v1/tool` endpoint for stateless reads and session-bound direct writes/exec, and signed worker-only lease/heartbeat/result callbacks. Task state lives in a SQLite-backed Durable Object. Queue delivery is still at-least-once; the local journal is authoritative for duplicate suppression and never automatically replays an interrupted task. Phase 2 caps remote execution at 20 minutes under a minimum 30-minute Queue visibility lease; heartbeat reports liveness/cancellation but does not extend the Queue lease. Direct write sessions are opened explicitly, default to a 30-minute TTL (maximum 60), force `network=none`, use exact capability sets, cap `fs.write` at 64 KiB UTF-8, and export successful commits under `refs/pet-dispatcher/<session-id>`. `workspace.exec` requires an existing session plus `process.exec`, uses argv-style MXC execution, caps a call at 15 minutes, and returns bounded stdout/stderr. Expired sessions discard their isolated scratch checkout.
+
+`/mcp` is a stateless Streamable HTTP MCP endpoint protected by the same `CONTROL_PLANE_TOKEN` bearer credential as the operator REST surface. It exposes only `pet_meta`, `pet_delegate`, `pet_direct`, `pet_task_get` and `pet_task_cancel`; those tools reuse the existing task schemas, assistant guard and direct-tool capability derivation instead of defining a second authority model. `pet_delegate` and `pet_direct` can wait briefly for a terminal result and otherwise return the task id for later polling. Optional idempotency keys make client retries resolve to the same task. This is sufficient for private remote-MCP clients that can present a bearer token; a public ChatGPT app still needs a proper multi-user OAuth/pairing layer rather than sharing this operator token.
 
 HTTP pull must be enabled separately after the queue exists:
 

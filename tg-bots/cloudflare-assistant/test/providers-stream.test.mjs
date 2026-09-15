@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { chatWithStreamingFallback } from "../src/providers.ts";
+import { GenerationStoppedError, chatWithStreamingFallback } from "../src/providers.ts";
 
 function envWithRouter(fetcher, aiRun = async () => ({ response: "local fallback" })) {
   return {
@@ -85,4 +85,89 @@ test("falls back to the local Workers AI binding when the router fails", async (
     provider: "Workers AI",
     model: "@cf/test/model",
   });
+});
+
+
+test("stops an active shared-router stream without falling back", async () => {
+  const encoder = new TextEncoder();
+  let cancelled = false;
+  let stop = false;
+  let localCalls = 0;
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode('data: {"model":"m-stop","choices":[{"delta":{"content":"Partial answer"}}]}\n\n'));
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const env = envWithRouter(
+    async () => new Response(stream, {
+      headers: {
+        "content-type": "text/event-stream",
+        "x-kanarek-review-provider": "openrouter",
+      },
+    }),
+    async () => {
+      localCalls += 1;
+      return { response: "must not run" };
+    },
+  );
+
+  await assert.rejects(
+    chatWithStreamingFallback(
+      env,
+      [{ role: "user", content: "hi" }],
+      () => { stop = true; },
+      () => stop,
+    ),
+    (error) => error instanceof GenerationStoppedError && error.partialText === "Partial answer",
+  );
+
+  assert.equal(localCalls, 0);
+  assert.equal(cancelled, true);
+});
+
+test("stops the local Workers AI fallback before delivery", async () => {
+  let stop = false;
+  const env = envWithRouter(
+    async () => new Response("router unavailable", { status: 502 }),
+    async () => new Promise(() => {}),
+  );
+  setTimeout(() => { stop = true; }, 30);
+
+  await assert.rejects(
+    chatWithStreamingFallback(
+      env,
+      [{ role: "user", content: "hi" }],
+      undefined,
+      () => stop,
+    ),
+    GenerationStoppedError,
+  );
+});
+
+
+test("stops while waiting for shared-router response headers", async () => {
+  let stop = false;
+  let localCalls = 0;
+  const env = envWithRouter(
+    async () => new Promise(() => {}),
+    async () => {
+      localCalls += 1;
+      return { response: "must not run" };
+    },
+  );
+  setTimeout(() => { stop = true; }, 30);
+
+  await assert.rejects(
+    chatWithStreamingFallback(
+      env,
+      [{ role: "user", content: "hi" }],
+      undefined,
+      () => stop,
+    ),
+    GenerationStoppedError,
+  );
+  assert.equal(localCalls, 0);
 });

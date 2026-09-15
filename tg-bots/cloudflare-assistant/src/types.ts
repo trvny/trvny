@@ -193,6 +193,8 @@ export type TelegramTextQuote = {
 
 export type TelegramMessage = {
   message_id: number;
+  message_thread_id?: number;
+  is_topic_message?: boolean;
   text?: string;
   caption?: string;
   forward_origin?: TelegramMessageOrigin;
@@ -245,6 +247,7 @@ export type TelegramCallbackQuery = {
   from: { id: number; username?: string; first_name?: string };
   message?: {
     message_id: number;
+    message_thread_id?: number;
     chat: { id: number; type: string };
   };
 };
@@ -287,6 +290,7 @@ export type TelegramStickerReply = { fileId: string; emoji?: string };
 
 export type TelegramReply = {
   chatId: string | number;
+  messageThreadId?: number;
   text: string;
   replyToMessageId?: number;
   editMessageId?: number;

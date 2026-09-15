@@ -12,6 +12,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "poll", usage: "/poll pytanie | opcja 1 | opcja 2", description: "Wyślij natywną ankietę" },
   { command: "dice", usage: "/dice [🎲|🎯|🏀|⚽|🎳|🎰]", description: "Rzuć natywną kostką Telegrama" },
+  { command: "sticker", usage: "/sticker", description: "Odeślij sticker z wiadomości, na którą odpowiadasz" },
   { command: "location", usage: "/location szerokość,długość", description: "Wyślij pinezkę na mapie" },
   { command: "venue", usage: "/venue lat,lon | nazwa | adres", description: "Wyślij natywne miejsce" },
   { command: "contact", usage: "/contact telefon | imię | nazwisko", description: "Wyślij natywny kontakt" },

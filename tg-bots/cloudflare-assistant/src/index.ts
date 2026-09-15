@@ -41,6 +41,7 @@ import {
   sendTelegramPoll,
   sendTelegramVenue,
   sendTelegramRichMessage,
+  sendTelegramSticker,
   sendTelegramThinking,
   setTelegramMessageReaction,
   syncTelegramCommandMenu,
@@ -679,6 +680,23 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     return { chatId: message.chat.id, text: `Kontakt: ${contact.firstName}`, contact };
   }
 
+  if (text === "/sticker") {
+    const sticker = message.reply_to_message?.sticker;
+    if (!sticker?.file_id) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Odpowiedz komendą /sticker na sticker, który mam odesłać.",
+        finalReaction: "👎",
+      };
+    }
+    return {
+      chatId: message.chat.id,
+      text: sticker.emoji ? `Sticker ${sticker.emoji}` : "Sticker",
+      sticker: { fileId: sticker.file_id, emoji: sticker.emoji },
+    };
+  }
+
   if (text === "/dice" || text.startsWith("/dice ")) {
     const emoji = parseDiceCommand(text);
     if (!emoji) {
@@ -1234,7 +1252,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) return null;
   const text = message.forward_origin ? "" : message.text?.trim() ?? "";
-  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/dice", "/location", "/venue", "/contact"].includes(text)) return null;
+  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
   if (
     !text &&
     !message.voice &&
@@ -1303,6 +1321,8 @@ async function processQueuedTelegram(
         reply.text,
         reply.replyMarkup,
       );
+    } else if (reply.sticker) {
+      await sendTelegramSticker(env, reply.chatId, reply.sticker.fileId, reply.sticker.emoji);
     } else if (reply.dice) {
       await sendTelegramDice(env, reply.chatId, reply.dice.emoji);
     } else if (reply.poll) {

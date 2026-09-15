@@ -210,7 +210,7 @@ export async function sendTelegramThinking(
 
 async function telegramDelivery(
   env: Env,
-  method: "sendMessage" | "sendRichMessage" | "sendPoll" | "sendDice" | "sendLocation" | "sendVenue" | "sendContact" | "editMessageText",
+  method: "sendMessage" | "sendRichMessage" | "sendPoll" | "sendDice" | "sendSticker" | "sendLocation" | "sendVenue" | "sendContact" | "editMessageText",
   body: Record<string, unknown>,
   acceptNotModified = false,
 ): Promise<void> {
@@ -295,6 +295,19 @@ export async function sendTelegramContact(
     phone_number: phoneNumber,
     first_name: firstName,
     ...(lastName ? { last_name: lastName } : {}),
+  });
+}
+
+export async function sendTelegramSticker(
+  env: Env,
+  chatId: string | number,
+  fileId: string,
+  emoji?: string,
+): Promise<void> {
+  await telegramDelivery(env, "sendSticker", {
+    chat_id: chatId,
+    sticker: fileId,
+    ...(emoji ? { emoji } : {}),
   });
 }
 

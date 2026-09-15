@@ -10,7 +10,7 @@
     "start": "node dist/src/index.js",
     "build": "tsc",
     "build:icon": "node scripts/build-icon.mjs",
-    "check:icon": "npm run build:icon && git diff --exit-code -- ../../assets/pet-dispatcher.png control-plane/icon.ts",
+    "check:icon": "node scripts/check-icon.mjs",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:portable && npm run test:sandbox",
     "test:portable": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/mcp-auth.test.ts tests/control-mcp.test.ts tests/agent-tools.test.ts tests/hardening.test.ts tests/remote-cleanup.test.ts tests/router.test.ts tests/remote.test.ts tests/remote-followup.test.ts tests/remote-direct.test.ts",

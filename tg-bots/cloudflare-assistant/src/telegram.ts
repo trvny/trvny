@@ -30,7 +30,7 @@ type TelegramMessageOptions = TelegramThreadOptions & {
   replyMarkup?: TelegramInlineKeyboardMarkup;
 };
 
-function telegramRichPlainHtml(text: string): string {
+export function escapeTelegramRichHtml(text: string): string {
   return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
@@ -525,7 +525,7 @@ export async function sendTelegramRichMessage(
   try {
     await telegramDelivery(env, "sendRichMessage", {
       ...bodyBase,
-      rich_message: { html: telegramRichPlainHtml(text) },
+      rich_message: { html: escapeTelegramRichHtml(text) },
     });
     return;
   } catch (error) {

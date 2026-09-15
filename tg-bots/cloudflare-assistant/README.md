@@ -14,6 +14,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - private-chat topics keep replies, thinking indicators and short conversation memory inside the originating topic;
 - `/topic <name>` creates a native private-chat topic when Botek topic mode is enabled in Telegram;
 - native Telegram reply-to behavior plus rate-bounded live `sendRichMessageDraft` streaming for model-backed replies, with plain-draft and typing fallbacks;
+- Bot API 10.3 generation-stop controls abort active streamed replies, bypass the serialized update queue, and preserve the generated partial as a normal message when possible;
 - model-backed replies use Telegram Rich Messages with simple Markdown and fall back to plain text only after a deterministic rich-format rejection;
 - best-effort native reactions show state for model-backed owner messages (`👀` while working, `👍` after successful delivery, `👎` on handled failures, `🤨` when delivery is ambiguous);
 - inline `/status` refresh button backed by Telegram callback queries and message editing;
@@ -139,7 +140,7 @@ npm run deploy
 
 The first deployment can run on Workers AI alone. After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `travny-tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated.
 
-Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, and `callback_query` updates:
+Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, and `stopped_message_generation` updates:
 
 ```bash
 npm run webhook:set -- https://<worker>.workers.dev/telegram/webhook
@@ -180,7 +181,7 @@ Normal requests first go over the `KANAREK_COMPANION` service binding to the exi
 3. AIHubMix `coding-glm-5.3-free`;
 4. Workers AI.
 
-Normal chat asks the shared OpenAI-compatible router for `stream: true`. Streaming providers are consumed incrementally and coalesced into at most one Telegram draft update per second; if the router selects a non-streaming fallback, Botek simply keeps the native Thinking placeholder until the final reply. If a partial rich draft is rejected deterministically, that generation switches to plain Telegram drafts instead of failing the answer.
+Normal chat asks the shared OpenAI-compatible router for `stream: true`. Streaming providers are consumed incrementally and coalesced into at most one Telegram draft update per second; if the router selects a non-streaming fallback, Botek simply keeps the native Thinking placeholder until the final reply. If a partial rich draft is rejected deterministically, that generation switches to plain Telegram drafts instead of failing the answer. Drafts expose Telegram's native stop control. A `stopped_message_generation` update is written directly to the draft's Durable Object instead of waiting behind the serialized queue; the active stream polls that state, cancels consumption, skips provider fallback, and sends the bounded partial text as the final message so Telegram's temporary stopped draft does not evaporate.
 
 If the internal router itself is unavailable, times out, or its token is not configured, this Worker falls back to its own Workers AI binding (`@cf/zai-org/glm-4.7-flash`). Structured RSS validation remains part of the local fallback loop, so malformed curator output can still fall through to local Workers AI.
 

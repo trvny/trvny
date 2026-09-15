@@ -5,6 +5,7 @@ import type {
 } from "./types";
 
 const RECORD_KEY = "record";
+const STOP_REQUESTED_KEY = "stop-requested";
 const RETENTION_MS = 7 * 24 * 60 * 60_000;
 
 function json(value: unknown, status = 200): Response {
@@ -25,9 +26,18 @@ export class TelegramUpdateDedup {
     if (request.method === "GET" && url.pathname === "/state") {
       return json(current ?? null);
     }
+    if (request.method === "GET" && url.pathname === "/stop-state") {
+      const requested = await this.state.storage.get<boolean>(STOP_REQUESTED_KEY);
+      return json({ requested: requested === true });
+    }
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const now = new Date().toISOString();
+    if (url.pathname === "/stop") {
+      await this.state.storage.put(STOP_REQUESTED_KEY, true);
+      await this.state.storage.setAlarm(Date.now() + RETENTION_MS);
+      return json({ requested: true });
+    }
     if (url.pathname === "/prepare") {
       if (current && terminal(current.status)) return json(current);
       const payload = (await request.json()) as { reply?: TelegramReply };

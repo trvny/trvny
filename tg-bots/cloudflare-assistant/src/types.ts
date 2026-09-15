@@ -254,11 +254,18 @@ export type TelegramCallbackQuery = {
   };
 };
 
+export type TelegramMessageGenerationStopped = {
+  chat: { id: number; type: string };
+  message_thread_id?: number;
+  draft_id: number;
+};
+
 export type TelegramUpdate = {
   update_id: number;
   message?: TelegramMessage;
   inline_query?: TelegramInlineQuery;
   callback_query?: TelegramCallbackQuery;
+  stopped_message_generation?: TelegramMessageGenerationStopped;
 };
 
 export type TelegramConversationTurn = {

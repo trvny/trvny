@@ -34,6 +34,13 @@ export class AllProvidersFailedError extends Error {
   }
 }
 
+export class GenerationStoppedError extends Error {
+  constructor(readonly partialText = "") {
+    super("Telegram message generation stopped by user");
+    this.name = "GenerationStoppedError";
+  }
+}
+
 export type CompletionResult<T> = {
   value: T;
   provider: string;
@@ -54,6 +61,32 @@ type OpenAIStreamChunk = {
 };
 
 type PartialTextHandler = (text: string) => void | Promise<void>;
+type ShouldStopHandler = () => boolean | Promise<boolean>;
+
+const GENERATION_STOP_POLL_MS = 250;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function awaitWithStop<T>(
+  pending: Promise<T>,
+  shouldStop: ShouldStopHandler | undefined,
+  partialText: () => string,
+): Promise<T> {
+  if (!shouldStop) return pending;
+  while (true) {
+    if (await shouldStop()) throw new GenerationStoppedError(partialText());
+    const result = await Promise.race([
+      pending.then((value) => ({ done: true as const, value })),
+      delay(GENERATION_STOP_POLL_MS).then(() => ({ done: false as const })),
+    ]);
+    if (result.done) {
+      if (await shouldStop()) throw new GenerationStoppedError(partialText());
+      return result.value;
+    }
+  }
+}
 
 function clipError(text: string): string {
   return text.replace(/\s+/g, " ").slice(0, 240);
@@ -140,6 +173,7 @@ async function withKanarekFreeRouter<T>(
   timeoutMs: number,
   stream: boolean,
   consume: (response: Response) => Promise<T>,
+  shouldStop?: ShouldStopHandler,
 ): Promise<T> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) throw new Error("KANAREK_REVIEW_ROUTER_TOKEN is not configured");
@@ -161,12 +195,20 @@ async function withKanarekFreeRouter<T>(
       }),
       signal: controller.signal,
     });
-    const response = await env.KANAREK_COMPANION.fetch(request);
+    const response = await awaitWithStop(
+      env.KANAREK_COMPANION.fetch(request),
+      shouldStop,
+      () => "",
+    );
     if (!response.ok) {
       throw new Error(`${response.status} ${clipError(await response.text())}`);
     }
     return await consume(response);
   } catch (error) {
+    if (error instanceof GenerationStoppedError) {
+      controller.abort();
+      throw error;
+    }
     if (controller.signal.aborted) {
       throw new Error(`Kanarek router timed out after ${timeoutMs}ms`);
     }
@@ -201,9 +243,11 @@ async function kanarekFreeRouter(
 async function consumeOpenAIStream(
   response: Response,
   onPartial?: PartialTextHandler,
+  shouldStop?: ShouldStopHandler,
 ): Promise<ProviderResult> {
   if (!response.headers.get("content-type")?.toLowerCase().includes("text/event-stream")) {
-    return providerResult(response, (await response.json()) as OpenAIResponse);
+    const data = await awaitWithStop(response.json(), shouldStop, () => "");
+    return providerResult(response, data as OpenAIResponse);
   }
   if (!response.body) throw new Error("empty Kanarek router stream");
 
@@ -256,23 +300,25 @@ async function consumeOpenAIStream(
     if (line.startsWith("data:")) eventData.push(line.slice(5).trimStart());
   };
 
-  streamLoop: while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    lineBuffer += decoder.decode(value, { stream: true });
-    const lines = lineBuffer.split("\n");
-    lineBuffer = lines.pop() ?? "";
-    for (const line of lines) {
-      await consumeLine(line);
-      if (streamDone) break streamLoop;
+  try {
+    streamLoop: while (true) {
+      const { done, value } = await awaitWithStop(reader.read(), shouldStop, () => text.trimEnd());
+      if (done) break;
+      lineBuffer += decoder.decode(value, { stream: true });
+      const lines = lineBuffer.split("\n");
+      lineBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        await consumeLine(line);
+        if (streamDone) break streamLoop;
+      }
     }
-  }
-  if (streamDone) {
+    if (!streamDone) {
+      lineBuffer += decoder.decode();
+      if (lineBuffer) await consumeLine(lineBuffer);
+      await flushEvent();
+    }
+  } finally {
     await reader.cancel().catch(() => undefined);
-  } else {
-    lineBuffer += decoder.decode();
-    if (lineBuffer) await consumeLine(lineBuffer);
-    await flushEvent();
   }
 
   const finalText = text.trim();
@@ -284,18 +330,28 @@ async function kanarekFreeRouterStream(
   env: Env,
   messages: ChatMessage[],
   onPartial?: PartialTextHandler,
+  shouldStop?: ShouldStopHandler,
 ): Promise<ProviderResult> {
   return withKanarekFreeRouter(
     env,
     messages,
     ROUTER_TIMEOUT_MS,
     true,
-    (response) => consumeOpenAIStream(response, onPartial),
+    (response) => consumeOpenAIStream(response, onPartial, shouldStop),
+    shouldStop,
   );
 }
 
-async function workersAi(env: Env, messages: ChatMessage[]): Promise<ProviderResult> {
-  const result = (await env.AI.run(env.WORKERS_AI_MODEL, { messages })) as {
+async function workersAi(
+  env: Env,
+  messages: ChatMessage[],
+  shouldStop?: ShouldStopHandler,
+): Promise<ProviderResult> {
+  const result = (await awaitWithStop(
+    env.AI.run(env.WORKERS_AI_MODEL, { messages }),
+    shouldStop,
+    () => "",
+  )) as {
     response?: string;
   };
   const text = result.response?.trim();
@@ -367,16 +423,19 @@ export async function chatWithStreamingFallback(
   env: Env,
   messages: ChatMessage[],
   onPartial?: PartialTextHandler,
+  shouldStop?: ShouldStopHandler,
 ) {
   const errors: string[] = [];
   try {
-    return await kanarekFreeRouterStream(env, messages, onPartial);
+    return await kanarekFreeRouterStream(env, messages, onPartial, shouldStop);
   } catch (error) {
+    if (error instanceof GenerationStoppedError) throw error;
     errors.push(error instanceof Error ? error.message : String(error));
   }
   try {
-    return await workersAi(env, messages);
+    return await workersAi(env, messages, shouldStop);
   } catch (error) {
+    if (error instanceof GenerationStoppedError) throw error;
     errors.push(error instanceof Error ? error.message : String(error));
   }
   throw new AllProvidersFailedError(errors);

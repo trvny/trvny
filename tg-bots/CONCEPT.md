@@ -92,7 +92,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - bounded recent conversation context with reset generations;
 - private-chat topic mode keeps Telegram delivery and short memory isolated per topic;
 - native private-chat topic creation through `/topic <name>`;
-- native reply-to delivery plus rate-bounded live Rich Message drafts with plain-draft and typing fallback for model-backed replies;
+- native reply-to delivery plus rate-bounded live Rich Message drafts with plain-draft and typing fallback for model-backed replies, including Bot API 10.3 stop-generation handling;
 - model-backed replies sent as Telegram Rich Messages with simple Markdown and deterministic plain-text fallback when Telegram rejects rich formatting;
 - best-effort native message reactions for model-backed owner messages (`👀` while processing, `👍` after successful delivery, `👎` on handled failures, `🤨` on ambiguous delivery);
 - inline `/status` refresh using callback queries and in-place message editing;
@@ -128,7 +128,7 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 
 ### Track B: Telegram-native experience
 
-1. **Native chat UX** — reply-to delivery, live Rich Message streaming with safe fallbacks, Telegram Rich Message formatting and in-place `/status` refresh are implemented; next add generation stop/cancel handling and richer editing without chains of status messages.
+1. **Native chat UX** — reply-to delivery, live Rich Message streaming with safe fallbacks, native generation stop, Telegram Rich Message formatting and in-place `/status` refresh are implemented; next add richer editing without chains of status messages.
 2. **Inline keyboards and callbacks** — callback plumbing, `/status` refresh and short-draft clipboard actions are implemented; extend buttons to confirmations, task controls, model choices, retries and other frequent actions.
 3. **Command/menu synchronization** — owner-scoped commands and the native command menu are synced from code on `/start` or `/help`; add localization when Botek gains additional user-facing languages.
 4. **Reactions and lightweight feedback** — model-backed owner messages now use best-effort state reactions for processing, success, handled failure and ambiguous delivery. Native reaction feedback from the owner is not relied on in the private chat because Bot API reaction updates require bot administrator access; use callbacks for explicit feedback where needed.

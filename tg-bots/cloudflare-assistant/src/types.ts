@@ -281,6 +281,7 @@ export type TelegramPollReply = {
 };
 
 export type TelegramDiceReply = { emoji: string };
+export type TelegramStickerReply = { fileId: string; emoji?: string };
 
 export type TelegramReply = {
   chatId: string | number;
@@ -291,6 +292,7 @@ export type TelegramReply = {
   memoryTurn?: TelegramMemoryTurn;
   finalReaction?: "👍" | "👎" | "🤨";
   richMarkdown?: boolean;
+  sticker?: TelegramStickerReply;
   dice?: TelegramDiceReply;
   poll?: TelegramPollReply;
   location?: TelegramLocationReply;

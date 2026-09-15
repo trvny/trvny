@@ -91,6 +91,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - owner-scoped Telegram commands and command menu self-synced from the Worker;
 - bounded recent conversation context with reset generations;
 - private-chat topic mode keeps Telegram delivery and short memory isolated per topic;
+- native private-chat topic creation through `/topic <name>`;
 - native reply-to delivery plus ephemeral Telegram thinking drafts with typing fallback for model-backed replies;
 - model-backed replies sent as Telegram Rich Messages with simple Markdown and deterministic plain-text fallback when Telegram rejects rich formatting;
 - best-effort native message reactions for model-backed owner messages (`👀` while processing, `👍` after successful delivery, `👎` on handled failures, `🤨` on ambiguous delivery);

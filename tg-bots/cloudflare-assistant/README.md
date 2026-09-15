@@ -23,6 +23,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - native clipboard button on short `/draft` suggestions;
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
+- optional Telegram Guest Mode lets the owner summon Botek with `@trvny_bot` in chats where the bot is not a member; guest replies are stateless, bounded, one-shot, and explicitly barred from private memory or acting on the owner's behalf;
 - owner voice notes and bounded audio uploads transcribed with Workers AI Whisper before normal assistant routing;
 - videos, video notes and animations use bounded Telegram metadata plus best-effort thumbnail vision; full media bytes are not downloaded or claimed as inspected;
 - owner-shared locations, venues, contacts, polls, stickers and Telegram dice normalized into bounded assistant context;
@@ -141,7 +142,7 @@ npm run deploy
 
 The first deployment can run on Workers AI alone. After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `travny-tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated.
 
-Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, and `stopped_message_generation` updates:
+Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, `stopped_message_generation`, and `guest_message` updates:
 
 ```bash
 npm run webhook:set -- https://<worker>.workers.dev/telegram/webhook
@@ -153,6 +154,12 @@ npm run webhook:info
 ### Enable Telegram inline mode
 
 Inline mode itself is a BotFather capability and cannot be enabled through the Bot API. In `@BotFather`, run `/setinline`, choose `@trvny_bot`, and set a placeholder such as `Zapytaj Botka…`. Then send `/start` to Botek once so the Worker reasserts the webhook update types. Inline queries are owner-only and stateless. A small Durable Object debounce keeps superseded keystroke queries from fanning out model calls, while an inline-specific short router/fallback deadline keeps answers inside Telegram's query lifetime. The generated answer is sent only after the owner taps the result. Runtime webhook sync and the setup helper both read allowed update types from `telegram-config.json`.
+
+### Enable Telegram Guest Mode
+
+Guest Mode is also opt-in at Telegram, not something the Worker can enable itself. In BotFather's bot settings, enable **Guest Mode** for `@trvny_bot`, then send `/start` to Botek once so the webhook subscription is refreshed. Telegram can then deliver a `guest_message` when the owner mentions Botek in a supported chat or replies to one of its guest replies, even if Botek is not a member of that chat. Botek answers exactly one guest query through `answerGuestQuery`.
+
+The Worker accepts guest queries only when `guest_message.from.id` matches `OWNER_TELEGRAM_USER_ID`. Guest mode deliberately has no private conversation memory or tool/action surface: quoted chat content is untrusted context, and Botek will not make commitments, authorize payments, schedule work, or claim to act on the owner's behalf from a guest query. Failed/ambiguous guest delivery is logged but never turned into an automatic webhook retry that could duplicate a one-shot reply.
 
 ## Cloudflare Workers Builds
 

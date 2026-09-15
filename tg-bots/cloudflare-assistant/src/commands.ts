@@ -62,8 +62,8 @@ export function parseQuizCommand(text: string): BotekQuizRequest | null {
   const options: string[] = [];
   const correctOptionIds: number[] = [];
   for (const marked of markedOptions) {
-    const escapedPlus = marked.startsWith("++");
-    const correct = marked.startsWith("+") && !escapedPlus;
+    const escapedPlus = marked.startsWith("\\+");
+    const correct = marked.startsWith("+");
     const option = (escapedPlus ? marked.slice(1) : correct ? marked.slice(1) : marked).trim();
     if (!option || option.length > 100) return null;
     if (correct) correctOptionIds.push(options.length);

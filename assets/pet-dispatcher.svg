@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Pet Dispatcher</title><desc id="desc">Friendly dog dispatcher with routing nodes and wireless signal.</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#168CFF"/><stop offset="1" stop-color="#0046D8"/></linearGradient></defs>
+  <rect x="20" y="20" width="472" height="472" rx="96" fill="url(#bg)"/>
+  <path d="M126 176c-21 15-36 39-31 58 5 21 26 31 44 19 16-11 26-38 35-69-17-14-30-18-48-8Z" fill="#fff"/>
+  <path d="M386 176c21 15 36 39 31 58-5 21-26 31-44 19-16-11-26-38-35-69 17-14 30-18 48-8Z" fill="#fff"/>
+  <path d="M164 173c20-24 51-38 92-38s72 14 92 38c17 21 28 53 28 90 0 79-46 127-120 127S136 342 136 263c0-37 11-69 28-90Z" fill="#fff"/>
+  <ellipse cx="214" cy="232" rx="14" ry="20" fill="#0A1E46"/><ellipse cx="298" cy="232" rx="14" ry="20" fill="#0A1E46"/>
+  <circle cx="218" cy="226" r="4" fill="#fff"/><circle cx="302" cy="226" r="4" fill="#fff"/>
+  <path d="M238 263c8-9 28-9 36 0 3 4 1 10-4 14l-14 10-14-10c-5-4-7-10-4-14Z" fill="#0A1E46"/>
+  <path d="M213 292c9 19 33 23 43 5 10 18 34 14 43-5" fill="none" stroke="#0A1E46" stroke-width="8" stroke-linecap="round"/>
+  <path d="M245 300c7 9 15 9 22 0 0 22-4 34-11 34s-11-12-11-34Z" fill="#1D73FF"/>
+  <path d="M146 405c37-21 74-31 110-31s73 10 110 31" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="132" cy="412" r="24" fill="#fff"/><circle cx="132" cy="412" r="10" fill="#0B64F4"/>
+  <circle cx="380" cy="412" r="24" fill="#fff"/><circle cx="380" cy="412" r="10" fill="#0B64F4"/>
+  <path d="M256 337c-28 0-50 22-50 50 0 37 50 77 50 77s50-40 50-77c0-28-22-50-50-50Z" fill="#fff" stroke="#0B64F4" stroke-width="12"/>
+  <circle cx="256" cy="387" r="15" fill="#0B64F4"/>
+  <path d="M347 126c34 11 61 39 73 74" fill="none" stroke="#66D2FF" stroke-width="16" stroke-linecap="round"/>
+  <path d="M348 159c20 8 36 24 44 44" fill="none" stroke="#66D2FF" stroke-width="16" stroke-linecap="round"/>
+</svg>

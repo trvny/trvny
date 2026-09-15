@@ -1,5 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { z, ZodError } from "zod";
+import { ICON_BYTES } from "./icon.js";
 import { isMcpPath, mcpAuthorized } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
 import {
@@ -470,6 +471,15 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       const url = new URL(request.url);
+      if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/icon.png") {
+        return new Response(request.method === "HEAD" ? null : ICON_BYTES, {
+          headers: {
+            "content-type": "image/png",
+            "cache-control": "public, max-age=86400",
+            "access-control-allow-origin": "*",
+          },
+        });
+      }
       if (request.method === "GET" && url.pathname === "/health") {
         return json({
           ok: true,

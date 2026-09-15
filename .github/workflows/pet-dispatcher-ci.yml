@@ -7,12 +7,18 @@ on:
       - "mcp/pet-dispatcher/**"
       - ".github/workflows/pet-dispatcher-ci.yml"
       - ".github/workflows/pet-dispatcher-control-deploy.yml"
+      - ".github/scripts/sync-cloudflare-worker-secret.sh"
+      - "assets/pet-dispatcher.svg"
+      - "assets/pet-dispatcher.png"
   pull_request:
     branches: [main]
     paths:
       - "mcp/pet-dispatcher/**"
       - ".github/workflows/pet-dispatcher-ci.yml"
       - ".github/workflows/pet-dispatcher-control-deploy.yml"
+      - ".github/scripts/sync-cloudflare-worker-secret.sh"
+      - "assets/pet-dispatcher.svg"
+      - "assets/pet-dispatcher.png"
   workflow_dispatch:
 
 concurrency:

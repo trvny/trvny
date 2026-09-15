@@ -111,7 +111,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - native sticker resend by replying `/sticker` to an existing Telegram sticker;
 - native owner-only location, venue and contact sends through structured commands;
 - owner-shared text/code documents read transiently with bounded UTF-8 content and untrusted-data framing;
-- owner-shared Telegram checklists plus task-added/task-status service updates normalized into bounded untrusted context;
+- owner-shared Telegram checklists normalized directly, with task-added/task-status service updates captured as bounded untrusted reply/forward context rather than standalone triggers;
 - same-chat reply context and forwarded messages normalized into bounded untrusted context, with forwarded command text kept outside the owner-command path;
 - Feedseek/RSS curation endpoint;
 - health/status endpoint.

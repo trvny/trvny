@@ -1,5 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { z, ZodError } from "zod";
+import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
 import {
   REMOTE_DIRECT_EXEC_CAPABILITIES,
   REMOTE_DIRECT_READ_CAPABILITIES,
@@ -78,6 +79,13 @@ function controlAuthorized(request: Request, env: Env): boolean {
   const token = env.CONTROL_PLANE_TOKEN;
   if (!token) return false;
   return request.headers.get("authorization") === `Bearer ${token}`;
+}
+
+function unauthorized(): Response {
+  return Response.json({ error: "unauthorized" }, {
+    status: 401,
+    headers: { "cache-control": "no-store", "www-authenticate": 'Bearer realm="pet-dispatcher-control"' },
+  });
 }
 
 
@@ -349,34 +357,75 @@ async function rpcResult(response: Response): Promise<RpcResult> {
   return { status: response.status, body: await response.json() };
 }
 
+function controlMeta(env: Env) {
+  return {
+    deviceId: deviceId(env),
+    transport: "cloudflare-queues-http-pull",
+    protocol: 1,
+    directTools: [...REMOTE_DIRECT_TOOLS],
+  };
+}
+
+async function delegateAssistant(value: unknown, env: Env, idempotencyKey?: string): Promise<RpcResult> {
+  const taskId = idempotencyKey ? await idempotentTaskId(idempotencyKey) : undefined;
+  return rpcResult(await enqueueTask(assistantTask(value), env, taskId));
+}
+
+async function getTaskResult(taskId: string, env: Env): Promise<RpcResult> {
+  const id = z.string().uuid().parse(taskId);
+  return rpcResult(await readState(env, id));
+}
+
+async function cancelTaskResult(taskId: string, env: Env): Promise<RpcResult> {
+  const id = z.string().uuid().parse(taskId);
+  return rpcResult(await stateStub(env, id).fetch("https://state/cancel", { method: "POST", body: "{}" }));
+}
+
+function mcpOperations(env: Env): ControlMcpOperations {
+  return {
+    meta: async () => ({ status: 200, body: controlMeta(env) }),
+    delegate: (value, key) => delegateAssistant(value, env, key),
+    direct: async (value, key) => {
+      const taskId = key ? await idempotentTaskId(key) : undefined;
+      return rpcResult(await enqueueDirectTool(value, env, taskId));
+    },
+    getTask: (taskId) => getTaskResult(taskId, env),
+    cancelTask: (taskId) => cancelTaskResult(taskId, env),
+  };
+}
+
+async function boundedMcpRequest(request: Request): Promise<Request> {
+  if (request.method !== "POST") return request;
+  const body = await readBody(request);
+  return new Request(request.url, { method: request.method, headers: request.headers, body });
+}
+
 export class TelegramAssistantEntrypoint extends WorkerEntrypoint<Env> {
   async meta() {
-    return { deviceId: deviceId(this.env), transport: "cloudflare-queues-http-pull", protocol: 1 };
+    return controlMeta(this.env);
   }
 
   async delegate(value: unknown, idempotencyKey?: string): Promise<RpcResult> {
-    const taskId = idempotencyKey ? await idempotentTaskId(idempotencyKey) : undefined;
-    return rpcResult(await enqueueTask(assistantTask(value), this.env, taskId));
+    return delegateAssistant(value, this.env, idempotencyKey);
   }
 
   async getTask(taskId: string): Promise<RpcResult> {
-    const id = z.string().uuid().parse(taskId);
-    return rpcResult(await readState(this.env, id));
+    return getTaskResult(taskId, this.env);
   }
 
   async cancelTask(taskId: string): Promise<RpcResult> {
-    const id = z.string().uuid().parse(taskId);
-    return rpcResult(await stateStub(this.env, id).fetch("https://state/cancel", { method: "POST", body: "{}" }));
+    return cancelTaskResult(taskId, this.env);
   }
 }
 
-async function directTool(request: Request, env: Env): Promise<Response> {
-  const raw = await readBody(request);
-  const input = z.object({
-    repo: z.string().min(1).max(128),
-    baseRef: z.string().min(1).max(256).default("main"),
-    call: remoteDirectCallSchema,
-  }).strict().parse(JSON.parse(raw) as unknown);
+const directToolInputSchema = z.object({
+  repo: z.string().min(1).max(128),
+  baseRef: z.string().min(1).max(256).default("main"),
+  call: remoteDirectCallSchema,
+}).strict();
+
+async function enqueueDirectTool(value: unknown, env: Env, stableTaskId?: string): Promise<Response> {
+  const input = directToolInputSchema.parse(value);
   const execTool = isRemoteDirectExecTool(input.call.tool);
   const writeTool = isRemoteDirectWriteTool(input.call.tool);
   const timeoutMinutes = input.call.tool === "workspace.exec"
@@ -393,7 +442,12 @@ async function directTool(request: Request, env: Env): Promise<Response> {
     network: { mode: "none" },
     timeoutMinutes,
   });
-  return enqueueTask(task, env);
+  return enqueueTask(task, env, stableTaskId);
+}
+
+async function directTool(request: Request, env: Env): Promise<Response> {
+  const raw = await readBody(request);
+  return enqueueDirectTool(JSON.parse(raw) as unknown, env);
 }
 
 async function workerUpdate(request: Request, env: Env, taskId: string, action: string): Promise<Response> {
@@ -422,6 +476,11 @@ export default {
         });
       }
 
+      if (url.pathname === "/mcp") {
+        if (!controlAuthorized(request, env)) return unauthorized();
+        return handleControlMcp(await boundedMcpRequest(request), mcpOperations(env));
+      }
+
       const workerMatch = url.pathname.match(/^\/v1\/worker\/tasks\/([0-9a-f-]{36})\/(lease|heartbeat|result)$/u);
       if (workerMatch) {
         if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -431,12 +490,9 @@ export default {
         return workerUpdate(request, env, taskId, action);
       }
 
-      if (!controlAuthorized(request, env)) return json({ error: "unauthorized" }, 401);
+      if (!controlAuthorized(request, env)) return unauthorized();
       if (request.method === "GET" && url.pathname === "/v1/meta") {
-        return json({
-          deviceId: deviceId(env), transport: "cloudflare-queues-http-pull", protocol: 1,
-          directTools: [...REMOTE_DIRECT_TOOLS],
-        });
+        return json(controlMeta(env));
       }
       if (request.method === "POST" && url.pathname === "/v1/delegate") {
         return delegate(request, env);

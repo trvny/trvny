@@ -96,6 +96,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - model-backed replies sent as Telegram Rich Messages with simple Markdown and deterministic plain-text fallback when Telegram rejects rich formatting;
 - best-effort native message reactions for model-backed owner messages (`👀` while processing, `👍` after successful delivery, `👎` on handled failures, `🤨` on ambiguous delivery);
 - inline `/status` refresh using callback queries and in-place message editing;
+- native button colors distinguish primary, success and destructive inline actions;
 - native clipboard action on short `/draft` suggestions;
 - manual `/task <repo> <polecenie>` delegation to the Legion through the scoped Pet Dispatcher RPC entrypoint, with inline status/cancel controls;
 - owner-only stateless Telegram inline answers for `@trvny_bot <query>` plus an inline-mode shortcut, Durable Object debounce for rapid edits, and an inline-specific response deadline;

@@ -134,11 +134,11 @@ function providerPoolLines(pool: Awaited<ReturnType<typeof kanarekProviderPoolSt
 }
 
 const HELP_KEYBOARD: TelegramInlineKeyboardMarkup = {
-  inline_keyboard: [[{ text: "✨ Użyj Botka w innym czacie", switch_inline_query: "" }]],
+  inline_keyboard: [[{ text: "✨ Użyj Botka w innym czacie", style: "primary", switch_inline_query: "" }]],
 };
 
 const STATUS_KEYBOARD: TelegramInlineKeyboardMarkup = {
-  inline_keyboard: [[{ text: "🔄 Odśwież", callback_data: "status:refresh" }]],
+  inline_keyboard: [[{ text: "🔄 Odśwież", style: "primary", callback_data: "status:refresh" }]],
 };
 
 function largestTelegramPhoto(message: TelegramMessage) {
@@ -436,7 +436,7 @@ function telegramStructuredInput(message: TelegramMessage): string {
 function draftCopyKeyboard(text: string): TelegramInlineKeyboardMarkup | undefined {
   if (text.length === 0 || text.length > 256) return undefined;
   return {
-    inline_keyboard: [[{ text: "📋 Kopiuj", copy_text: { text } }]],
+    inline_keyboard: [[{ text: "📋 Kopiuj", style: "success", copy_text: { text } }]],
   };
 }
 

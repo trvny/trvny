@@ -83,12 +83,12 @@ export async function cancelBotekTask(env: Env, taskId: string): Promise<BotekTa
 }
 
 export function taskKeyboard(task: BotekTaskState): TelegramInlineKeyboardMarkup {
-  const refresh = { text: "🔄 Status", callback_data: `task:refresh:${task.taskId}` } as const;
+  const refresh = { text: "🔄 Status", style: "primary", callback_data: `task:refresh:${task.taskId}` } as const;
   if (TERMINAL.has(task.status) || task.status === "cancel_requested") return { inline_keyboard: [[refresh]] };
   return {
     inline_keyboard: [[
       refresh,
-      { text: "🛑 Anuluj", callback_data: `task:cancel:${task.taskId}` },
+      { text: "🛑 Anuluj", style: "danger", callback_data: `task:cancel:${task.taskId}` },
     ]],
   };
 }

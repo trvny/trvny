@@ -324,13 +324,26 @@ export async function sendTelegramPoll(
   chatId: string | number,
   question: string,
   options: string[],
+  correctOptionIds: number[] = [],
 ): Promise<void> {
+  const quiz = correctOptionIds.length > 0;
+  const validCorrectOptionIds = [...new Set(correctOptionIds)]
+    .filter((index) => Number.isSafeInteger(index) && index >= 0 && index < options.length)
+    .sort((a, b) => a - b);
+  if (quiz && validCorrectOptionIds.length !== correctOptionIds.length) {
+    throw new RangeError("Telegram quiz has invalid correct option indexes");
+  }
+
   await telegramDelivery(env, "sendPoll", {
     chat_id: chatId,
     question,
     options: options.map((text) => ({ text })),
     is_anonymous: false,
-    type: "regular",
+    type: quiz ? "quiz" : "regular",
+    ...(quiz ? {
+      correct_option_ids: validCorrectOptionIds,
+      allows_multiple_answers: validCorrectOptionIds.length > 1,
+    } : {}),
   });
 }
 

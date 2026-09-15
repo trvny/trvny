@@ -26,7 +26,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - optional Telegram Guest Mode lets the owner summon Botek with `@trvny_bot` in chats where the bot is not a member; guest replies are stateless, bounded, one-shot, and explicitly barred from private memory or acting on the owner's behalf;
 - owner voice notes and bounded audio uploads transcribed with Workers AI Whisper before normal assistant routing;
 - videos, video notes and animations use bounded Telegram metadata plus best-effort thumbnail vision; full media bytes are not downloaded or claimed as inspected;
-- owner-shared locations, venues, contacts, polls, stickers and Telegram dice normalized into bounded assistant context;
+- owner-shared locations, venues, contacts, polls, checklists, stickers and Telegram dice normalized into bounded assistant context; checklist task additions/status changes are also understood as bounded untrusted data;
 - `/poll question | option 1 | option 2` sends a native non-anonymous Telegram poll with 2–12 options;
 - `/quiz question | +correct | wrong | +also correct` sends a native quiz; prefix each correct answer with `+` (`++text` escapes a literal leading plus);
 - `/dice [🎲|🎯|🏀|⚽|🎳|🎰]` sends Telegram's native random dice/game animation;

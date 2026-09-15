@@ -157,6 +157,32 @@ export type TelegramPoll = {
   explanation?: string;
 };
 
+export type TelegramChecklistTask = {
+  id: number;
+  text: string;
+  completed_by_user?: { id: number; first_name?: string; username?: string };
+  completed_by_chat?: { id: number; type: string; title?: string; username?: string };
+  completion_date?: number;
+};
+
+export type TelegramChecklist = {
+  title: string;
+  tasks: TelegramChecklistTask[];
+  others_can_add_tasks?: true;
+  others_can_mark_tasks_as_done?: true;
+};
+
+export type TelegramChecklistTasksDone = {
+  checklist_message?: TelegramMessage;
+  marked_as_done_task_ids?: number[];
+  marked_as_not_done_task_ids?: number[];
+};
+
+export type TelegramChecklistTasksAdded = {
+  checklist_message?: TelegramMessage;
+  tasks: TelegramChecklistTask[];
+};
+
 export type TelegramDocument = {
   file_id: string;
   file_unique_id: string;
@@ -211,6 +237,10 @@ export type TelegramMessage = {
   document?: TelegramDocument;
   audio?: TelegramAudio;
   poll?: TelegramPoll;
+  checklist?: TelegramChecklist;
+  checklist_tasks_done?: TelegramChecklistTasksDone;
+  checklist_tasks_added?: TelegramChecklistTasksAdded;
+  reply_to_checklist_task_id?: number;
   location?: TelegramLocation;
   venue?: TelegramVenue;
   contact?: TelegramContact;

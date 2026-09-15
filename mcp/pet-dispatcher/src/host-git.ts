@@ -28,7 +28,7 @@ export class HostGit {
   }
 
   #assertGitTarget(session: Session): void {
-    if (session.targetKind !== "repository") throw new Error("workspace session is not a Git target");
+    if (session.targetKind === "workspace") throw new Error("workspace session is not a Git target");
   }
 
   async #runUnlocked(session: Session, args: string[]): Promise<GitResult> {

@@ -8,7 +8,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - durable Telegram update delivery through Cloudflare Queues;
 - persistent `update_id` state in a SQLite Durable Object;
 - dead-letter queue for exhausted or non-replayable Telegram deliveries;
-- /help, /status, /draft <message>, /poll, /dice, /sticker, /location, /venue, /contact, and /reset;
+- /help, /status, /draft <message>, /poll, /quiz, /dice, /sticker, /location, /venue, /contact, and /reset;
 - /start and /help self-sync the owner-scoped Telegram command list and command menu from code;
 - bounded per-chat conversation context for ordinary messages;
 - native Telegram reply-to behavior plus ephemeral native thinking drafts with typing fallback for model-backed replies;
@@ -22,6 +22,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - videos, video notes and animations use bounded Telegram metadata plus best-effort thumbnail vision; full media bytes are not downloaded or claimed as inspected;
 - owner-shared locations, venues, contacts, polls, stickers and Telegram dice normalized into bounded assistant context;
 - `/poll question | option 1 | option 2` sends a native non-anonymous Telegram poll with 2–12 options;
+- `/quiz question | +correct | wrong | +also correct` sends a native quiz; prefix each correct answer with `+` (`++text` escapes a literal leading plus);
 - `/dice [🎲|🎯|🏀|⚽|🎳|🎰]` sends Telegram's native random dice/game animation;
 - replying `/sticker` to a sticker resends that exact Telegram sticker by `file_id`;
 - `/location`, `/venue` and `/contact` send native Telegram structured messages from bounded owner-only command input;

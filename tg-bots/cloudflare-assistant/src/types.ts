@@ -151,7 +151,7 @@ export type TelegramPoll = {
   is_anonymous: boolean;
   type: "regular" | "quiz" | string;
   allows_multiple_answers: boolean;
-  correct_option_id?: number;
+  correct_option_ids?: number[];
   explanation?: string;
 };
 
@@ -278,6 +278,8 @@ export type TelegramContactReply = { phoneNumber: string; firstName: string; las
 export type TelegramPollReply = {
   question: string;
   options: string[];
+  type?: "regular" | "quiz";
+  correctOptionIds?: number[];
 };
 
 export type TelegramDiceReply = { emoji: string };

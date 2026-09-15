@@ -5,6 +5,7 @@ import {
   parseDiceCommand,
   parseLocationCommand,
   parsePollCommand,
+  parseQuizCommand,
   parseVenueCommand,
 } from "./commands";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
@@ -359,10 +360,13 @@ function telegramDiceInput(message: TelegramMessage): string {
 function telegramPollInput(poll: TelegramPoll | undefined): string {
   if (!poll) return "";
   const question = compactTelegramField(poll.question, 400);
+  const correctOptionIds = new Set(
+    (poll.correct_option_ids ?? []).filter((index) => Number.isSafeInteger(index)),
+  );
   const options = poll.options.slice(0, 20).map((option, index) => {
     const text = compactTelegramField(option.text, 200);
     const votes = Number.isSafeInteger(option.voter_count) ? Math.max(0, option.voter_count) : 0;
-    const correct = poll.correct_option_id === index ? " [correct]" : "";
+    const correct = correctOptionIds.has(index) ? " [correct]" : "";
     return `${index + 1}. ${text || "(empty option)"} — ${votes} votes${correct}`;
   });
   const explanation = compactTelegramField(poll.explanation, 500);
@@ -733,6 +737,32 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       replyToMessageId: message.message_id,
       text: `Ankieta: ${poll.question}`,
       poll,
+    };
+  }
+
+  if (text === "/quiz") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /quiz pytanie | +poprawna | błędna [| +druga poprawna ...]",
+    };
+  }
+
+  if (text.startsWith("/quiz ")) {
+    const quiz = parseQuizCommand(text);
+    if (!quiz) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nieprawidłowy quiz. Pytanie: 1–300 znaków, 2–12 opcji po maks. 100 znaków; oznacz poprawne odpowiedzi prefiksem +.",
+        finalReaction: "👎",
+      };
+    }
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: `Quiz: ${quiz.question}`,
+      poll: { ...quiz, type: "quiz" },
     };
   }
 
@@ -1252,7 +1282,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) return null;
   const text = message.forward_origin ? "" : message.text?.trim() ?? "";
-  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
+  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/quiz", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
   if (
     !text &&
     !message.voice &&
@@ -1326,7 +1356,7 @@ async function processQueuedTelegram(
     } else if (reply.dice) {
       await sendTelegramDice(env, reply.chatId, reply.dice.emoji);
     } else if (reply.poll) {
-      await sendTelegramPoll(env, reply.chatId, reply.poll.question, reply.poll.options);
+      await sendTelegramPoll(env, reply.chatId, reply.poll.question, reply.poll.options, reply.poll.correctOptionIds);
     } else if (reply.location) {
       await sendTelegramLocation(env, reply.chatId, reply.location.latitude, reply.location.longitude);
     } else if (reply.venue) {

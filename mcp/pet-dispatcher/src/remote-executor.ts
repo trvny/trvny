@@ -2,7 +2,7 @@ import type { DispatcherConfig } from "./config.js";
 import { AgentTools } from "./agent-tools.js";
 import { HostGit } from "./host-git.js";
 import { NetworkBroker } from "./network.js";
-import { runGemini, runOpenRouter } from "./providers.js";
+import { runGemini, runRoutedOpenAI } from "./providers.js";
 import type { CommandRunner, ExecResult } from "./sandbox.js";
 import type { Session, SessionManager } from "./sessions.js";
 import {
@@ -309,7 +309,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         if (task.executor === "gemini") {
           return runGemini(this.config, tools, session.id, goal, undefined, 16, signal);
         }
-        return runOpenRouter(this.config, tools, session.id, goal, undefined, 16, signal);
+        return runRoutedOpenAI(this.config, tools, session.id, goal, 16, signal);
       });
       const state = await this.sessions.status(session.id);
       const [unstaged, staged] = state.dirty

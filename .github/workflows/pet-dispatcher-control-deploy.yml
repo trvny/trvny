@@ -44,6 +44,18 @@ jobs:
 
       - run: npm ci
 
+      - name: Sync private connector token
+        shell: bash
+        env:
+          MCP_CONNECTOR_TOKEN: ${{ secrets.PET_DISPATCHER_MCP_CONNECTOR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${MCP_CONNECTOR_TOKEN:-}" ]]; then
+            echo "PET_DISPATCHER_MCP_CONNECTOR_TOKEN is not configured; connector URL auth stays disabled."
+            exit 0
+          fi
+          printf '%s' "$MCP_CONNECTOR_TOKEN" | npx wrangler secret put MCP_CONNECTOR_TOKEN --config control-plane/wrangler.jsonc
+
       - name: Validate control plane
         run: npm run control:check
 

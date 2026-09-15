@@ -34,6 +34,13 @@ export class AllProvidersFailedError extends Error {
   }
 }
 
+export class GenerationStoppedError extends Error {
+  constructor() {
+    super("Telegram message generation stopped by user");
+    this.name = "GenerationStoppedError";
+  }
+}
+
 export type CompletionResult<T> = {
   value: T;
   provider: string;
@@ -256,23 +263,25 @@ async function consumeOpenAIStream(
     if (line.startsWith("data:")) eventData.push(line.slice(5).trimStart());
   };
 
-  streamLoop: while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    lineBuffer += decoder.decode(value, { stream: true });
-    const lines = lineBuffer.split("\n");
-    lineBuffer = lines.pop() ?? "";
-    for (const line of lines) {
-      await consumeLine(line);
-      if (streamDone) break streamLoop;
+  try {
+    streamLoop: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      lineBuffer += decoder.decode(value, { stream: true });
+      const lines = lineBuffer.split("\n");
+      lineBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        await consumeLine(line);
+        if (streamDone) break streamLoop;
+      }
     }
-  }
-  if (streamDone) {
+    if (!streamDone) {
+      lineBuffer += decoder.decode();
+      if (lineBuffer) await consumeLine(lineBuffer);
+      await flushEvent();
+    }
+  } finally {
     await reader.cancel().catch(() => undefined);
-  } else {
-    lineBuffer += decoder.decode();
-    if (lineBuffer) await consumeLine(lineBuffer);
-    await flushEvent();
   }
 
   const finalText = text.trim();
@@ -372,6 +381,7 @@ export async function chatWithStreamingFallback(
   try {
     return await kanarekFreeRouterStream(env, messages, onPartial);
   } catch (error) {
+    if (error instanceof GenerationStoppedError) throw error;
     errors.push(error instanceof Error ? error.message : String(error));
   }
   try {

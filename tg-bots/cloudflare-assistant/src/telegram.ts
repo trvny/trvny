@@ -220,6 +220,8 @@ export async function sendTelegramThinking(
         ...telegramThreadFields(messageThreadId),
         draft_id: draftId === 0 ? 1 : draftId,
         text: "",
+        can_stop: true,
+        keep_on_stop: true,
       }),
     });
     if (response.ok) return;
@@ -301,6 +303,8 @@ export async function sendTelegramStreamingDraft(
     chat_id: chatId,
     ...telegramThreadFields(messageThreadId),
     draft_id: draftId === 0 ? 1 : draftId,
+    can_stop: true,
+    keep_on_stop: true,
   };
 
   if (mode === "rich") {

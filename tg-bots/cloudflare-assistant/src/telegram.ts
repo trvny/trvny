@@ -239,7 +239,7 @@ export async function sendTelegramThinking(
 
 async function telegramDelivery(
   env: Env,
-  method: "sendMessage" | "sendMessageDraft" | "sendRichMessage" | "sendRichMessageDraft" | "sendPoll" | "sendDice" | "sendSticker" | "sendLocation" | "sendVenue" | "sendContact" | "createForumTopic" | "editMessageText",
+  method: "sendMessage" | "sendMessageDraft" | "sendRichMessage" | "sendRichMessageDraft" | "sendPoll" | "sendDice" | "sendSticker" | "sendLocation" | "sendVenue" | "sendContact" | "createForumTopic" | "editMessageText" | "answerGuestQuery",
   body: Record<string, unknown>,
   acceptNotModified = false,
 ): Promise<void> {
@@ -539,6 +539,17 @@ export async function sendTelegramRichMessage(
 
   console.warn("Telegram rejected both rich formats; falling back to bounded plain sendMessage");
   await sendTelegramMessage(env, chatId, text, options);
+}
+
+export async function answerTelegramGuestQuery(
+  env: Env,
+  guestQueryId: string,
+  result: TelegramInlineQueryResultArticle,
+): Promise<void> {
+  await telegramDelivery(env, "answerGuestQuery", {
+    guest_query_id: guestQueryId,
+    result,
+  });
 }
 
 export async function answerTelegramInlineQuery(

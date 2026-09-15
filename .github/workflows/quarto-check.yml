@@ -1,6 +1,7 @@
 name: Quarto report check
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "token-worldcup/**"
@@ -24,9 +25,24 @@ jobs:
       - uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: 1.10.18
-      - name: Render maintained Quarto sources
-        run: |
-          quarto render token-worldcup/token-worldcup.qmd
-          quarto render token-worldcup/effort-matrix.qmd
+      - name: Render token worldcup
+        uses: quarto-dev/quarto-actions/render@v2
+        with:
+          path: token-worldcup/token-worldcup.qmd
+      - name: Render effort matrix
+        uses: quarto-dev/quarto-actions/render@v2
+        with:
+          path: token-worldcup/effort-matrix.qmd
+      - name: Upload manually rendered HTML
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: token-worldcup-html-${{ github.sha }}
+          path: |
+            token-worldcup/token-worldcup.html
+            token-worldcup/effort-matrix.html
+          if-no-files-found: error
+          retention-days: 7
       - name: Verify committed HTML is current
+        if: github.event_name != 'workflow_dispatch'
         run: git diff --exit-code -- token-worldcup

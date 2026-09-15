@@ -23,6 +23,18 @@ type TelegramFilePayload = {
   result?: { file_path?: string; file_size?: number };
 };
 
+type TelegramThreadOptions = { messageThreadId?: number };
+type TelegramMessageOptions = TelegramThreadOptions & {
+  replyToMessageId?: number;
+  replyMarkup?: TelegramInlineKeyboardMarkup;
+};
+
+function telegramThreadFields(messageThreadId?: number): Record<string, number> {
+  return Number.isSafeInteger(messageThreadId) && (messageThreadId ?? 0) > 0
+    ? { message_thread_id: messageThreadId as number }
+    : {};
+}
+
 export class TelegramConfigurationError extends Error {
   constructor(message: string) {
     super(message);
@@ -169,13 +181,21 @@ export async function setTelegramMessageReaction(
   }
 }
 
-export async function sendTelegramTyping(env: Env, chatId: string | number): Promise<void> {
+export async function sendTelegramTyping(
+  env: Env,
+  chatId: string | number,
+  messageThreadId?: number,
+): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) return;
   try {
     const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendChatAction`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, action: "typing" }),
+      body: JSON.stringify({
+        chat_id: chatId,
+        ...telegramThreadFields(messageThreadId),
+        action: "typing",
+      }),
     });
     if (!response.ok) {
       console.warn(`Telegram sendChatAction failed: HTTP ${response.status}`);
@@ -188,6 +208,7 @@ export async function sendTelegramThinking(
   env: Env,
   chatId: string | number,
   draftId: number,
+  messageThreadId?: number,
 ): Promise<void> {
   if (!env.TELEGRAM_BOT_TOKEN) return;
   try {
@@ -196,6 +217,7 @@ export async function sendTelegramThinking(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
+        ...telegramThreadFields(messageThreadId),
         draft_id: draftId === 0 ? 1 : draftId,
         text: "",
       }),
@@ -205,7 +227,7 @@ export async function sendTelegramThinking(
   } catch (error) {
     console.warn("Telegram sendMessageDraft failed; falling back to typing", error);
   }
-  await sendTelegramTyping(env, chatId);
+  await sendTelegramTyping(env, chatId, messageThreadId);
 }
 
 async function telegramDelivery(
@@ -268,8 +290,14 @@ export async function sendTelegramLocation(
   chatId: string | number,
   latitude: number,
   longitude: number,
+  options: TelegramThreadOptions = {},
 ): Promise<void> {
-  await telegramDelivery(env, "sendLocation", { chat_id: chatId, latitude, longitude });
+  await telegramDelivery(env, "sendLocation", {
+    chat_id: chatId,
+    ...telegramThreadFields(options.messageThreadId),
+    latitude,
+    longitude,
+  });
 }
 
 export async function sendTelegramVenue(
@@ -279,8 +307,16 @@ export async function sendTelegramVenue(
   longitude: number,
   title: string,
   address: string,
+  options: TelegramThreadOptions = {},
 ): Promise<void> {
-  await telegramDelivery(env, "sendVenue", { chat_id: chatId, latitude, longitude, title, address });
+  await telegramDelivery(env, "sendVenue", {
+    chat_id: chatId,
+    ...telegramThreadFields(options.messageThreadId),
+    latitude,
+    longitude,
+    title,
+    address,
+  });
 }
 
 export async function sendTelegramContact(
@@ -289,9 +325,11 @@ export async function sendTelegramContact(
   phoneNumber: string,
   firstName: string,
   lastName?: string,
+  options: TelegramThreadOptions = {},
 ): Promise<void> {
   await telegramDelivery(env, "sendContact", {
     chat_id: chatId,
+    ...telegramThreadFields(options.messageThreadId),
     phone_number: phoneNumber,
     first_name: firstName,
     ...(lastName ? { last_name: lastName } : {}),
@@ -303,9 +341,11 @@ export async function sendTelegramSticker(
   chatId: string | number,
   fileId: string,
   emoji?: string,
+  options: TelegramThreadOptions = {},
 ): Promise<void> {
   await telegramDelivery(env, "sendSticker", {
     chat_id: chatId,
+    ...telegramThreadFields(options.messageThreadId),
     sticker: fileId,
     ...(emoji ? { emoji } : {}),
   });
@@ -315,8 +355,13 @@ export async function sendTelegramDice(
   env: Env,
   chatId: string | number,
   emoji: string,
+  options: TelegramThreadOptions = {},
 ): Promise<void> {
-  await telegramDelivery(env, "sendDice", { chat_id: chatId, emoji });
+  await telegramDelivery(env, "sendDice", {
+    chat_id: chatId,
+    ...telegramThreadFields(options.messageThreadId),
+    emoji,
+  });
 }
 
 export async function sendTelegramPoll(
@@ -325,6 +370,7 @@ export async function sendTelegramPoll(
   question: string,
   options: string[],
   correctOptionIds: number[] = [],
+  deliveryOptions: TelegramThreadOptions = {},
 ): Promise<void> {
   const quiz = correctOptionIds.length > 0;
   const validCorrectOptionIds = [...new Set(correctOptionIds)]
@@ -336,6 +382,7 @@ export async function sendTelegramPoll(
 
   await telegramDelivery(env, "sendPoll", {
     chat_id: chatId,
+    ...telegramThreadFields(deliveryOptions.messageThreadId),
     question,
     options: options.map((text) => ({ text })),
     is_anonymous: false,
@@ -351,10 +398,11 @@ export async function sendTelegramMessage(
   env: Env,
   chatId: string | number,
   text: string,
-  options: { replyToMessageId?: number; replyMarkup?: TelegramInlineKeyboardMarkup } = {},
+  options: TelegramMessageOptions = {},
 ): Promise<void> {
   await telegramDelivery(env, "sendMessage", {
     chat_id: chatId,
+    ...telegramThreadFields(options.messageThreadId),
     text: text.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
     disable_web_page_preview: true,
     ...(options.replyToMessageId !== undefined
@@ -373,12 +421,13 @@ export async function sendTelegramRichMessage(
   env: Env,
   chatId: string | number,
   markdown: string,
-  options: { replyToMessageId?: number; replyMarkup?: TelegramInlineKeyboardMarkup } = {},
+  options: TelegramMessageOptions = {},
 ): Promise<void> {
   const text = markdown.slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
   try {
     await telegramDelivery(env, "sendRichMessage", {
       chat_id: chatId,
+      ...telegramThreadFields(options.messageThreadId),
       rich_message: { markdown: text },
       ...(options.replyToMessageId !== undefined
         ? {

@@ -468,13 +468,19 @@ function ownerConfigured(env: Env): boolean {
   return Boolean(env.OWNER_TELEGRAM_USER_ID && /^-?\d+$/.test(env.OWNER_TELEGRAM_USER_ID));
 }
 
-function conversationStub(env: Env, chatId: string | number) {
-  return env.TELEGRAM_MEMORY.get(env.TELEGRAM_MEMORY.idFromName(String(chatId)));
+function telegramMessageThreadId(message: TelegramMessage): number | undefined {
+  const id = message.message_thread_id;
+  return Number.isSafeInteger(id) && (id ?? 0) > 0 ? id : undefined;
 }
 
-async function conversationHistory(env: Env, chatId: string | number) {
+function conversationStub(env: Env, chatId: string | number, messageThreadId?: number) {
+  const key = messageThreadId === undefined ? String(chatId) : `${chatId}:thread:${messageThreadId}`;
+  return env.TELEGRAM_MEMORY.get(env.TELEGRAM_MEMORY.idFromName(key));
+}
+
+async function conversationHistory(env: Env, chatId: string | number, messageThreadId?: number) {
   try {
-    const response = await conversationStub(env, chatId).fetch("https://conversation/history");
+    const response = await conversationStub(env, chatId, messageThreadId).fetch("https://conversation/history");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const history = (await response.json()) as TelegramConversationHistory;
     return { messages: conversationMessages(history.turns), generation: history.generation };
@@ -484,14 +490,21 @@ async function conversationHistory(env: Env, chatId: string | number) {
   }
 }
 
-async function clearConversation(env: Env, chatId: string | number): Promise<void> {
-  const response = await conversationStub(env, chatId).fetch("https://conversation/clear", { method: "POST" });
+async function clearConversation(
+  env: Env,
+  chatId: string | number,
+  messageThreadId?: number,
+): Promise<void> {
+  const response = await conversationStub(env, chatId, messageThreadId).fetch(
+    "https://conversation/clear",
+    { method: "POST" },
+  );
   if (!response.ok) throw new Error(`conversation clear failed: HTTP ${response.status}`);
 }
 
 async function appendConversation(env: Env, chatId: string | number, reply: TelegramReply): Promise<void> {
   if (!reply.memoryTurn) return;
-  const response = await conversationStub(env, chatId).fetch("https://conversation/append", {
+  const response = await conversationStub(env, chatId, reply.messageThreadId).fetch("https://conversation/append", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(reply.memoryTurn),
@@ -580,6 +593,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     return null;
   }
 
+  const messageThreadId = telegramMessageThreadId(message);
   const rawText = message.text?.trim() ?? "";
   const rawCaption = (message.caption?.trim() ?? "").slice(0, 1_024);
   const text = message.forward_origin ? "" : rawText;
@@ -617,7 +631,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   }
 
   if (text === "/reset") {
-    await clearConversation(env, message.chat.id);
+    await clearConversation(env, message.chat.id, messageThreadId);
     return {
       chatId: message.chat.id,
       replyToMessageId: message.message_id,
@@ -813,7 +827,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     const thumbnail = visualMedia.thumbnail;
     if (thumbnail && (thumbnail.file_size ?? 0) <= TELEGRAM_MEDIA_THUMBNAIL_MAX_BYTES) {
       try {
-        await sendTelegramThinking(env, message.chat.id, update.update_id);
+        await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
         const image = await downloadTelegramFile(env, thumbnail.file_id, TELEGRAM_MEDIA_THUMBNAIL_MAX_BYTES);
         const vision = await describeImage(env, image, caption);
         thumbnailAnalysis = vision.text.slice(0, 1_800);
@@ -870,7 +884,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       };
     }
     try {
-      await sendTelegramThinking(env, message.chat.id, update.update_id);
+      await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
       const bytes = await downloadTelegramFile(env, document.file_id, TELEGRAM_DOCUMENT_MAX_BYTES);
       const fullContent = decodeTelegramTextDocument(bytes);
       const header = [
@@ -916,7 +930,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       };
     }
     try {
-      await sendTelegramThinking(env, message.chat.id, update.update_id);
+      await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
       const image = await downloadTelegramFile(env, photo.file_id, TELEGRAM_PHOTO_MAX_BYTES);
       const vision = await describeImage(env, image, caption);
       prompt = [
@@ -950,7 +964,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       };
     }
     try {
-      await sendTelegramThinking(env, message.chat.id, update.update_id);
+      await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
       const audioBytes = await downloadTelegramFile(env, message.audio.file_id, TELEGRAM_AUDIO_MAX_BYTES);
       const transcript = await transcribeAudio(env, audioBytes);
       const header = [
@@ -1011,7 +1025,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       };
     }
     try {
-      await sendTelegramThinking(env, message.chat.id, update.update_id);
+      await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
       const audio = await downloadTelegramFile(env, message.voice.file_id, TELEGRAM_VOICE_MAX_BYTES);
       const transcript = await transcribeAudio(env, audio);
       const voiceLabel = message.forward_origin
@@ -1048,8 +1062,8 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   try {
     const history = isDraft
       ? { messages: [], generation: null }
-      : await conversationHistory(env, message.chat.id);
-    await sendTelegramThinking(env, message.chat.id, update.update_id);
+      : await conversationHistory(env, message.chat.id, messageThreadId);
+    await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
     const result = await chatWithFallback(env, [
       { role: "system", content: system },
       ...history.messages,
@@ -1338,6 +1352,9 @@ async function processQueuedTelegram(
       message.ack();
       return;
     }
+    if (update.message) {
+      reply.messageThreadId ??= telegramMessageThreadId(update.message);
+    }
     state = await dedupTransition(env, update.update_id, "prepare", reply);
   }
 
@@ -1352,13 +1369,37 @@ async function processQueuedTelegram(
         reply.replyMarkup,
       );
     } else if (reply.sticker) {
-      await sendTelegramSticker(env, reply.chatId, reply.sticker.fileId, reply.sticker.emoji);
+      await sendTelegramSticker(
+        env,
+        reply.chatId,
+        reply.sticker.fileId,
+        reply.sticker.emoji,
+        { messageThreadId: reply.messageThreadId },
+      );
     } else if (reply.dice) {
-      await sendTelegramDice(env, reply.chatId, reply.dice.emoji);
+      await sendTelegramDice(
+        env,
+        reply.chatId,
+        reply.dice.emoji,
+        { messageThreadId: reply.messageThreadId },
+      );
     } else if (reply.poll) {
-      await sendTelegramPoll(env, reply.chatId, reply.poll.question, reply.poll.options, reply.poll.correctOptionIds);
+      await sendTelegramPoll(
+        env,
+        reply.chatId,
+        reply.poll.question,
+        reply.poll.options,
+        reply.poll.correctOptionIds,
+        { messageThreadId: reply.messageThreadId },
+      );
     } else if (reply.location) {
-      await sendTelegramLocation(env, reply.chatId, reply.location.latitude, reply.location.longitude);
+      await sendTelegramLocation(
+        env,
+        reply.chatId,
+        reply.location.latitude,
+        reply.location.longitude,
+        { messageThreadId: reply.messageThreadId },
+      );
     } else if (reply.venue) {
       await sendTelegramVenue(
         env,
@@ -1367,6 +1408,7 @@ async function processQueuedTelegram(
         reply.venue.longitude,
         reply.venue.title,
         reply.venue.address,
+        { messageThreadId: reply.messageThreadId },
       );
     } else if (reply.contact) {
       await sendTelegramContact(
@@ -1375,9 +1417,11 @@ async function processQueuedTelegram(
         reply.contact.phoneNumber,
         reply.contact.firstName,
         reply.contact.lastName,
+        { messageThreadId: reply.messageThreadId },
       );
     } else {
       const options = {
+        messageThreadId: reply.messageThreadId,
         replyToMessageId: reply.replyToMessageId,
         replyMarkup: reply.replyMarkup,
       };

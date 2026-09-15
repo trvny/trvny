@@ -31,7 +31,9 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-No open pull requests. 🎉
+| Repository | PR | Title | Author | State | Updated |
+| --- | ---: | --- | --- | --- | --- |
+| trvny/trvny | [#631](https://github.com/trvny/trvny/pull/631) | Harden Pet Dispatcher sessions, workspaces and process limits | @trvny | ready | 2026-09-15 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

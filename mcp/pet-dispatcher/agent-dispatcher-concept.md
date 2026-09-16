@@ -1,6 +1,6 @@
 # Agent Dispatcher MCP — concept
 
-Status: **Phase 2 remote transport implemented; live Cloudflare provisioning pending**
+Status: **Core local worker, Cloudflare remote control plane, direct MCP bridge, non-Git workspaces and brokered build networking are live. Remaining roadmap work is wake/resume, typed host adapters and optional additional agent/routing layers.**
 
 ## Goal
 
@@ -559,7 +559,24 @@ A remote task should be able to use this sequence:
 
 The cloud should not be able to force hibernation or arbitrary power operations except through explicitly defined, local-policy-controlled capabilities.
 
+## Current roadmap — 2026-09-17
+
+- [x] Local session/workspace confinement, non-Git workspaces, bounded filesystem/Git tools and MXC `workspace.exec`.
+- [x] Windows Job Object process-tree cleanup plus memory/process/runtime ceilings.
+- [x] Stable installed runtime, config, journal and secrets outside disposable `.dc` checkouts.
+- [x] Cloudflare Queues remote control plane with signed tasks, duplicate suppression, heartbeat/cancel and Streamable HTTP MCP.
+- [x] Direct interactive fast path with auto-sessions, `session.finish`, `fs.readMany`/tree/search, `git.summary` and `workspace.inspect`.
+- [x] Brokered HTTPS/build networking while direct sandbox sockets remain denied by default.
+- [x] Multi-provider free-tier routing behind the same capability-filtered tool layer.
+- [ ] Restricted wake/resume path: verify S4 WoL on the Legion, choose a fixed relay and auto-check-in after wake.
+- [ ] Add typed host adapters such as ADB only where hardware access cannot stay inside the normal sandbox.
+- [ ] Add provider-native harness adapters (Codex/Claude/Antigravity/OpenCode) only when they materially improve the current runner.
+- [ ] Add quota/success metrics and review/repair routing only after live measurements justify the extra machinery.
+- [ ] Keep hardening recovery/operations from real failures without widening host filesystem, shell or egress authority.
+
 ## Implementation phases
+
+The phase list below is retained as the original design plan. The checklist above is the maintained current status.
 
 ### Phase 0 — design
 

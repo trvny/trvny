@@ -51,6 +51,22 @@ function validFeedback(value: unknown): value is { messageId: number; rating: "u
     (feedback.rating === "up" || feedback.rating === "down");
 }
 
+function optionalBoundedString(value: unknown, maxChars: number): boolean {
+  return value === undefined || (typeof value === "string" && value.length > 0 && value.length <= maxChars);
+}
+
+function optionalTimestamp(value: unknown): boolean {
+  return value === undefined || (
+    typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+  );
+}
+
+function optionalMessageId(value: unknown): boolean {
+  return value === undefined || (
+    typeof value === "number" && Number.isSafeInteger(value) && value > 0
+  );
+}
+
 function validSecretaryContextEntry(value: unknown): value is SecretaryContextEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Record<string, unknown>;
@@ -58,9 +74,19 @@ function validSecretaryContextEntry(value: unknown): value is SecretaryContextEn
     Number.isSafeInteger(entry.messageId) && entry.messageId > 0 &&
     (entry.direction === "owner" || entry.direction === "contact") &&
     typeof entry.text === "string" && entry.text.length > 0 && entry.text.length <= 600 &&
-    (entry.date === undefined || (
-      typeof entry.date === "number" && Number.isSafeInteger(entry.date) && entry.date >= 0
-    ));
+    optionalTimestamp(entry.date) &&
+    optionalTimestamp(entry.editedAt) &&
+    optionalMessageId(entry.replyToMessageId) &&
+    optionalBoundedString(entry.replyPreview, 240) &&
+    optionalBoundedString(entry.quote, 180);
+}
+
+function validSecretaryDelete(value: unknown): value is { messageIds: number[] } {
+  if (!value || typeof value !== "object") return false;
+  const messageIds = (value as Record<string, unknown>).messageIds;
+  return Array.isArray(messageIds) &&
+    messageIds.length > 0 && messageIds.length <= 100 &&
+    messageIds.every((id) => typeof id === "number" && Number.isSafeInteger(id) && id > 0);
 }
 
 export class TelegramConversationMemory {
@@ -92,6 +118,18 @@ export class TelegramConversationMemory {
       ].slice(-MAX_STORED_SECRETARY_CONTEXT);
       await this.state.storage.put(SECRETARY_CONTEXT_KEY, entries);
       return json({ ok: true, entries: entries.length }, 201);
+    }
+
+    if (url.pathname === "/secretary-context/delete") {
+      const payload = await request.json();
+      if (!validSecretaryDelete(payload)) return json({ error: "invalid_secretary_delete" }, 400);
+      const currentEntries = await this.state.storage.get<SecretaryContextEntry[]>(SECRETARY_CONTEXT_KEY) ?? [];
+      const deleted = new Set(payload.messageIds);
+      const entries = currentEntries.filter((entry) => !deleted.has(entry.messageId));
+      if (entries.length !== currentEntries.length) {
+        await this.state.storage.put(SECRETARY_CONTEXT_KEY, entries);
+      }
+      return json({ ok: true, entries: entries.length });
     }
 
     if (url.pathname === "/feedback") {

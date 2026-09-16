@@ -79,16 +79,17 @@ function isPublicConnectAddress(address: string, family: 4 | 6): boolean {
   return family === 4 ? !NON_PUBLIC_IPV4.check(address, "ipv4") : !NON_PUBLIC_IPV6.check(address, "ipv6");
 }
 
-export async function resolvePublicConnectTarget(
+export async function resolvePublicConnectTargets(
   hostname: string,
   resolver: ConnectResolver = defaultConnectResolver,
-): Promise<ResolvedConnectTarget> {
+): Promise<ResolvedConnectTarget[]> {
   const addresses = await resolver(hostname);
   if (addresses.length === 0) throw new Error(`DNS returned no addresses for ${hostname}`);
   if (addresses.some(({ address, family }) => !isPublicConnectAddress(address, family))) {
     throw new Error(`DNS returned a non-public address for ${hostname}`);
   }
-  return addresses[0]!;
+  return addresses.filter((target, index) =>
+    addresses.findIndex((candidate) => candidate.address === target.address && candidate.family === target.family) === index);
 }
 
 export function assertAllowedConnectAuthority(authority: string, hosts: readonly string[]): { host: string; port: number } {
@@ -180,25 +181,45 @@ export class NetworkBroker {
       let destination: { host: string; port: number };
       try { destination = assertAllowedConnectAuthority(request.url ?? "", profile.hosts); }
       catch { client.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
-      let target: ResolvedConnectTarget;
-      try { target = await resolvePublicConnectTarget(destination.host, this.connectResolver); }
+      let targets: ResolvedConnectTarget[];
+      try { targets = await resolvePublicConnectTargets(destination.host, this.connectResolver); }
       catch { client.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
       if (closed || client.destroyed) return;
-      const upstream = this.connectImpl({ host: target.address, port: destination.port, family: target.family });
-      trackSocket(upstream);
+      let activeUpstream: Duplex | undefined;
+      let targetIndex = 0;
       let established = false;
-      upstream.once("connect", () => {
-        established = true;
-        client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
-        if (head.length > 0) upstream.write(head);
-        client.pipe(upstream); upstream.pipe(client);
-      });
-      upstream.once("error", () => {
-        if (!client.destroyed && !established) client.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
-        else client.destroy();
-      });
-      client.once("error", () => upstream.destroy());
-      client.once("close", () => upstream.destroy());
+      const tryNextTarget = (): void => {
+        if (closed || client.destroyed) return;
+        const target = targets[targetIndex++];
+        if (!target) { client.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n"); return; }
+        let upstream: Duplex;
+        try { upstream = this.connectImpl({ host: target.address, port: destination.port, family: target.family }); }
+        catch {
+          if (targetIndex < targets.length) tryNextTarget();
+          else client.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+          return;
+        }
+        activeUpstream = upstream;
+        trackSocket(upstream);
+        upstream.once("connect", () => {
+          if (activeUpstream !== upstream || closed || client.destroyed) { upstream.destroy(); return; }
+          established = true;
+          client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+          if (head.length > 0) upstream.write(head);
+          client.pipe(upstream); upstream.pipe(client);
+        });
+        upstream.once("error", () => {
+          if (activeUpstream !== upstream) return;
+          activeUpstream = undefined;
+          if (closed || client.destroyed) return;
+          if (established) { client.destroy(); return; }
+          if (targetIndex < targets.length) tryNextTarget();
+          else client.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+        });
+      };
+      client.once("error", () => activeUpstream?.destroy());
+      client.once("close", () => activeUpstream?.destroy());
+      tryNextTarget();
     });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");

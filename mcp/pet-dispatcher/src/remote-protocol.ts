@@ -45,6 +45,17 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
     maxFiles: z.number().int().min(1).max(1_000).default(250), maxFileBytes: z.number().int().min(1).max(1_048_576).default(131_072),
     maxDepth: z.number().int().min(0).max(12).default(6),
   }).strict(),
+  z.object({
+    tool: z.literal("workspace.inspect"), path: z.string().max(1_024).default("."), sessionId: remoteSessionIdSchema.optional(),
+    include: z.array(z.enum(["tree", "git"])).min(1).max(2).default(["tree", "git"]),
+    query: z.string().min(1).max(512).optional(),
+    depth: z.number().int().min(0).max(8).default(2), maxEntries: z.number().int().min(1).max(1_000).default(120),
+    maxTreeBytes: z.number().int().min(256).max(32_768).default(16_384),
+    maxMatches: z.number().int().min(1).max(200).default(25), maxFiles: z.number().int().min(1).max(1_000).default(250),
+    maxFileBytes: z.number().int().min(1).max(1_048_576).default(131_072), maxDepth: z.number().int().min(0).max(12).default(6),
+    maxSearchBytes: z.number().int().min(256).max(32_768).default(16_384),
+    maxCommits: z.number().int().min(1).max(10).default(3), maxGitPaths: z.number().int().min(0).max(50).default(10),
+  }).strict(),
   z.object({ tool: z.literal("fs.write"), ...autoSessionFields, path: z.string().min(1).max(1_024), content: z.string().max(65_536) }).strict(),
   z.object({ tool: z.literal("fs.patch"), ...autoSessionFields, path: z.string().min(1).max(1_024), oldText: z.string().min(1).max(65_536), newText: z.string().max(65_536) }).strict(),
   z.object({ tool: z.literal("fs.mkdir"), ...autoSessionFields, path: z.string().min(1).max(1_024) }).strict(),
@@ -78,7 +89,7 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
 export type RemoteDirectCall = z.infer<typeof remoteDirectCallSchema>;
 export const REMOTE_DIRECT_TOOLS = [
   "session.open", "session.close", "session.finish", "session.status", "session.list", "session.reclaim",
-  "fs.list", "fs.stat", "fs.read", "fs.readMany", "fs.tree", "fs.search", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete",
+  "fs.list", "fs.stat", "fs.read", "fs.readMany", "fs.tree", "fs.search", "workspace.inspect", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete",
   "workspace.exec", "git.status", "git.diff", "git.summary", "git.add", "git.commit",
 ] as const satisfies readonly RemoteDirectCall["tool"][];
 export const REMOTE_DIRECT_READ_CAPABILITIES = ["workspace.read", "git.read"] as const;

@@ -1,13 +1,11 @@
 # Repo-local overlay
 
-The downstream side of what `.ai/core` provides publicly. The core carries what
-is reusable; this directory carries non-secret personal, project-specific, or
-provider-specific overlays.
+Downstream overlays for public `.ai/core`: non-secret personal,
+project-specific, or provider-specific material. Reusable material lives in core.
 
-`private` is a path/overlay label, not a confidentiality boundary. This
-directory is tracked in the public repository and must contain only material
-safe to publish. Secrets, private endpoints, private paths, and private Git
-history stay out of Git.
+`private` is an overlay label, not a confidentiality boundary. This directory
+is publicly tracked: publish-safe material only. Keep secrets, private endpoints,
+private paths, and private Git history out of Git.
 
 ```text
 .ai/private/
@@ -16,15 +14,12 @@ history stay out of Git.
 └── claude/          Claude-specific counterparts of the core's Claude material
 ```
 
-`personalities/` contains provider-neutral voices that can be copied or adapted
-where needed. Other directories are split per tool, named after it, and mirror
-how the core keeps provider defaults side by side. Add another provider
-directory the same way when there is something to put in it; do not pile one
-tool's material into another directory.
+You may copy or adapt provider-neutral voices from `personalities/`. Other
+directories are named per tool, mirroring core's provider defaults. Add a
+provider directory when needed; do not mix one tool's material into another's.
 
-This is active material: read it. Historical storage lives in `.ai/backups/` and
-is deliberately outside this tree, so nothing here needs to be filtered out on a
-normal pass.
+Read this active material; filter nothing here on a normal pass. Historical
+storage lives outside this tree in `.ai/backups/`.
 
 ## Direction of changes
 
@@ -32,5 +27,5 @@ Reusable profiles, schemas, tools, templates, styles, instructions, provider
 defaults and intentionally public skills belong in `trvny/.ai`. Non-secret
 personal, workflow, project-specific, or provider-specific overlays belong here.
 
-Do not copy a public core file here to customize it. Add an overlay, or change
-the public source.
+To customize a public core file, add an overlay or change the public source;
+do not copy it here.

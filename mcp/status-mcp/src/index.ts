@@ -13,6 +13,7 @@
  */
 
 import { ICON_BYTES } from "./icon";
+import { autkaVerdict, feedVerdict, type HealthVerdict } from "./status-logic";
 
 const PROTOCOL_VERSION = "2025-06-18";
 // Everything a client shows about this server comes from here, in the reply to
@@ -71,7 +72,7 @@ async function badgeStatus(owner: string, repo: string, workflow: string): Promi
   }
 }
 
-type Verdict = "ok" | "degraded" | "down" | "error";
+type Verdict = HealthVerdict | "error";
 
 interface ProjectResult {
   project: string;
@@ -171,28 +172,38 @@ function parseRegistryNames(yaml: string): string[] {
   return names;
 }
 
-async function listFeedFiles(): Promise<Array<{ name: string; size: number }> | null> {
+interface FeedInventory {
+  files: Array<{ name: string; size: number }> | null;
+  error?: string;
+}
+
+async function listFeedFiles(): Promise<FeedInventory> {
   try {
     const res = await fetch(`${FEEDS_API}/contents/${FEEDS_PREFIX}feeds?ref=main`, {
       headers: { "User-Agent": UA, Accept: "application/vnd.github+json" },
       signal: timeout(FETCH_TIMEOUT_MS),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { files: null, error: `HTTP ${res.status}` };
     const json = (await res.json()) as Array<{ name: string; size: number; type: string }>;
-    return json.filter((f) => f.type === "file" && f.name.endsWith(".xml")).map((f) => ({ name: f.name, size: f.size }));
-  } catch {
-    return null;
+    return {
+      files: json.filter((f) => f.type === "file" && f.name.endsWith(".xml")).map((f) => ({ name: f.name, size: f.size })),
+    };
+  } catch (error) {
+    return { files: null, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
 async function checkFeeds(): Promise<ProjectResult> {
   try {
-    const [yamlRes, files, pipeline] = await Promise.all([
+    const [yamlRes, inventory, pipeline] = await Promise.all([
       fetch(`${FEEDS_RAW}/${FEEDS_PREFIX}feeds.yaml`, { signal: timeout(FETCH_TIMEOUT_MS) }),
       listFeedFiles(),
       badgeStatus(FEEDS_OWNER, FEEDS_REPO, FEEDS_WORKFLOW),
     ]);
-    const registered = yamlRes.ok ? parseRegistryNames(await yamlRes.text()) : [];
+    const registryAvailable = yamlRes.ok;
+    const registered = registryAvailable ? parseRegistryNames(await yamlRes.text()) : [];
+    const files = inventory.files;
+    const inventoryAvailable = files !== null;
     const name = (f: string) => f.replace(/^feed_/, "").replace(/\.xml$/, "");
 
     let missing: string[] = [];
@@ -205,23 +216,36 @@ async function checkFeeds(): Promise<ProjectResult> {
       tiny = files.filter((f) => f.size < TINY_BYTES).map((f) => name(f.name)).sort();
     }
 
-    const pipelineOk = pipeline === "passing";
-    const verdict: Verdict = !pipelineOk ? "down" : missing.length || tiny.length ? "degraded" : "ok";
+    const verdict: Verdict = feedVerdict({
+      pipelineOk: pipeline === "passing", registryAvailable, inventoryAvailable,
+      missing: missing.length, tiny: tiny.length,
+    });
 
-    const lines: string[] = [`    pipeline: ${pipeline}`];
+    const lines: string[] = [
+      `    pipeline: ${pipeline}`,
+      `    registry: ${registryAvailable ? `${registered.length} feeds` : `unavailable (HTTP ${yamlRes.status})`}`,
+    ];
     if (files) {
-      lines.push(`    files: ${present}/${registered.length} present`);
-      if (missing.length) lines.push(`    MISSING: ${missing.join(", ")}`);
+      lines.push(`    files: ${registryAvailable ? `${present}/${registered.length} present` : `${present} files seen (registry unavailable)`}`);
+      if (registryAvailable && missing.length) lines.push(`    MISSING: ${missing.join(", ")}`);
       if (tiny.length) lines.push(`    TINY: ${tiny.join(", ")}`);
     } else {
-      lines.push(`    registry: ${registered.length} feeds (dir cross-check unavailable — API rate limit)`);
+      lines.push(`    files: inventory unavailable${inventory.error ? ` (${inventory.error})` : ""}`);
     }
+    const fileHeadline = files
+      ? registryAvailable ? `${present} files, ${missing.length} missing` : `${present} files seen`
+      : "inventory unavailable";
     return {
       project: "feeds",
       verdict,
-      headline: `pipeline ${pipeline}` + (files ? `, ${present}/${registered.length} files, ${missing.length} missing` : `, ${registered.length} registered`),
+      headline: `pipeline ${pipeline}, ${registryAvailable ? `${registered.length} registered` : "registry unavailable"}, ${fileHeadline}`,
       lines,
-      data: { pipeline, registered: registered.length, present, missing, tiny, inventoryAvailable: files !== null },
+      data: {
+        pipeline, registered: registryAvailable ? registered.length : null, registryAvailable,
+        present: inventoryAvailable ? present : null,
+        missing: registryAvailable && inventoryAvailable ? missing : null,
+        tiny: inventoryAvailable ? tiny : null, inventoryAvailable, inventoryError: inventory.error ?? null,
+      },
     };
   } catch (e) {
     return errorResult("feeds", e);
@@ -306,30 +330,36 @@ async function checkAutka(env: Env): Promise<ProjectResult> {
     ]);
 
     const healthy = !!healthRes && healthRes.ok;
+    let offersAvailable = false;
     let offers: number | null = null;
-    if (offersRes && offersRes.ok) {
+    if (offersRes?.ok) {
       const j = (await offersRes.json()) as { count?: number };
-      offers = typeof j.count === "number" ? j.count : null;
+      if (typeof j.count === "number") { offers = j.count; offersAvailable = true; }
     }
+    let sourcesAvailable = false;
     let enabled: string[] = [];
-    if (sourcesRes && sourcesRes.ok) {
+    if (sourcesRes?.ok) {
       const j = (await sourcesRes.json()) as { sources?: Array<{ id: string; enabled: boolean }> };
-      enabled = (j.sources ?? []).filter((s) => s.enabled).map((s) => s.id);
+      if (Array.isArray(j.sources)) {
+        enabled = j.sources.filter((source) => source.enabled).map((source) => source.id);
+        sourcesAvailable = true;
+      }
     }
 
-    const verdict: Verdict = !healthy ? "down" : offers === 0 ? "degraded" : "ok";
+    const verdict: Verdict = autkaVerdict({ healthy, offersAvailable, sourcesAvailable, offers });
+    const unavailable = (response: Response | null) => response ? `HTTP ${response.status}` : "request failed";
     const lines = [
       `    backend: ${healthy ? "healthy" : "DOWN"}`,
-      `    offers: ${offers ?? "?"}`,
-      `    enabled sources: ${enabled.length ? enabled.join(", ") : "none"}`,
+      `    offers: ${offersAvailable ? (offers ?? "?") : `unavailable (${unavailable(offersRes)})`}`,
+      `    enabled sources: ${sourcesAvailable ? (enabled.length ? enabled.join(", ") : "none") : `unavailable (${unavailable(sourcesRes)})`}`,
       `    CI: ${ci}`,
     ];
     return {
       project: "autka",
       verdict,
-      headline: `backend ${healthy ? "healthy" : "DOWN"}, ${offers ?? "?"} offers, CI ${ci}`,
+      headline: `backend ${healthy ? "healthy" : "DOWN"}, ${offersAvailable ? `${offers ?? "?"} offers` : "offers unavailable"}, ${sourcesAvailable ? `${enabled.length} sources` : "sources unavailable"}, CI ${ci}`,
       lines,
-      data: { healthy, offers, enabledSources: enabled, ci },
+      data: { healthy, offers, offersAvailable, enabledSources: sourcesAvailable ? enabled : null, sourcesAvailable, ci },
     };
   } catch (e) {
     return errorResult("autka", e);

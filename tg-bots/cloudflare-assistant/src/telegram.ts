@@ -577,6 +577,62 @@ export async function sendTelegramRichMessage(
   await sendTelegramMessage(env, chatId, text, options);
 }
 
+export async function sendTelegramRichHtml(
+  env: Env,
+  chatId: string | number,
+  html: string,
+  fallbackText: string,
+  options: TelegramMessageOptions = {},
+): Promise<void> {
+  const bodyBase = {
+    chat_id: chatId,
+    ...telegramThreadFields(options.messageThreadId),
+    ...telegramReplyFields(options),
+    ...(options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+  };
+  try {
+    await telegramDelivery(env, "sendRichMessage", {
+      ...bodyBase,
+      rich_message: { html: html.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS) },
+    });
+  } catch (error) {
+    if (!(
+      error instanceof TelegramSendError &&
+      error.status === 400 &&
+      !error.retryable &&
+      !error.ambiguous
+    )) throw error;
+    console.warn("Telegram rejected structured Rich HTML; falling back to plain text");
+    await sendTelegramMessage(env, chatId, fallbackText, options);
+  }
+}
+
+export async function editTelegramRichHtml(
+  env: Env,
+  chatId: string | number,
+  messageId: number,
+  html: string,
+  fallbackText: string,
+  replyMarkup?: TelegramInlineKeyboardMarkup,
+): Promise<void> {
+  try {
+    await telegramDelivery(env, "editMessageText", {
+      chat_id: chatId,
+      message_id: messageId,
+      rich_message: { html: html.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS) },
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+    }, true);
+  } catch (error) {
+    if (!(
+      error instanceof TelegramSendError &&
+      error.status === 400 &&
+      !error.retryable &&
+      !error.ambiguous
+    )) throw error;
+    console.warn("Telegram rejected edited Rich HTML; falling back to plain edit");
+    await editTelegramMessage(env, chatId, messageId, fallbackText, replyMarkup);
+  }
+}
 export async function answerTelegramGuestQuery(
   env: Env,
   guestQueryId: string,

@@ -102,3 +102,34 @@ test("startup command uses native Windows quoting", async () => {
   assert.equal(module.windowsStartupCommand(String.raw`C:\Program Files\PowerShell\powershell.exe`, String.raw`C:\Users\travn\.local\share\pet-dispatcher\bin\pet-dispatcher-launch.ps1`),
     '"C:\\Program Files\\PowerShell\\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\\Users\\travn\\.local\\share\\pet-dispatcher\\bin\\pet-dispatcher-launch.ps1"');
 });
+
+
+test("local installer can run npm build on Windows", { skip: process.platform !== "win32" }, async () => {
+  const base = await mkdtemp(join(tmpdir(), "pet-local-npm-"));
+  const source = join(base, "source");
+  try {
+    await mkdir(join(source, "scripts"), { recursive: true });
+    await writeFile(join(source, "package.json"), JSON.stringify({
+      name: "pet-fixture", version: "1.0.0",
+      scripts: { build: "node -e \"const fs=require('node:fs');fs.mkdirSync('dist/src',{recursive:true});fs.writeFileSync('dist/src/index.js','fixture')\"" },
+    }));
+    await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({
+      workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {},
+    }));
+    for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-secrets.ps1"]) {
+      await writeFile(join(source, "scripts", name), "# fixture\n");
+    }
+    await execFileAsync("git", ["init", source]);
+    await execFileAsync("git", ["-C", source, "add", "."]);
+    await execFileAsync("git", ["-C", source, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "fixture"]);
+
+    const result = await installLocalRuntime({
+      sourceRoot: source, installRoot: join(base, "install"), dcRoot: join(base, "dc"),
+      workspaceRoot: join(base, "dc", "workspace"), repoUrl: source,
+      installDependencies: false, registerStartup: false,
+    });
+    assert.ok((await stat(join(result.releaseRoot, "dist", "src", "index.js"))).isFile());
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});

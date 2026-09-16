@@ -39,6 +39,13 @@ async function run(file: string, args: string[], cwd?: string): Promise<string> 
   return stdout.trim();
 }
 
+async function runNpm(args: string[], cwd: string): Promise<string> {
+  if (process.platform === "win32") {
+    return run(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", "npm.cmd", ...args], cwd);
+  }
+  return run("npm", args, cwd);
+}
+
 async function copyIfPresent(source: string, target: string): Promise<void> {
   if (await exists(source)) await copyFile(source, target);
 }
@@ -92,7 +99,7 @@ async function publishBin(sourceRoot: string, paths: LocalRuntimePaths): Promise
   }
 }
 async function publishRelease(options: InstallLocalRuntimeOptions, paths: LocalRuntimePaths, sourceCommit: string): Promise<string> {
-  if (options.build !== false) await run(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build"], options.sourceRoot);
+  if (options.build !== false) await runNpm(["run", "build"], options.sourceRoot);
   const releaseRoot = join(paths.releasesRoot, sourceCommit);
   if (await exists(releaseRoot)) return releaseRoot;
   const staging = `${releaseRoot}.staging-${process.pid}-${Date.now()}`;
@@ -103,7 +110,7 @@ async function publishRelease(options: InstallLocalRuntimeOptions, paths: LocalR
     await copyFile(join(options.sourceRoot, "package.json"), join(staging, "package.json"));
     await copyIfPresent(join(options.sourceRoot, "package-lock.json"), join(staging, "package-lock.json"));
     if (options.installDependencies !== false) {
-      await run(process.platform === "win32" ? "npm.cmd" : "npm", ["ci", "--omit=dev", "--no-audit", "--no-fund"], staging);
+      await runNpm(["ci", "--omit=dev", "--no-audit", "--no-fund"], staging);
     }
     await mkdir(paths.releasesRoot, { recursive: true });
     await rename(staging, releaseRoot);

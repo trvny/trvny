@@ -24,6 +24,25 @@ test("parses profile photo removal", () => {
   assert.deepEqual(parseProfileCommand(["remove"]), { action: "remove" });
 });
 
+test("parses bounded profile audio inspection", () => {
+  assert.deepEqual(parseProfileCommand(["audio"]), { action: "audio", limit: 20 });
+  assert.deepEqual(parseProfileCommand(["audio", "123456", "--limit", "5"]), {
+    action: "audio",
+    userId: 123456,
+    limit: 5,
+  });
+  assert.deepEqual(parseProfileCommand(["audio", "--limit", "100"]), {
+    action: "audio",
+    limit: 100,
+  });
+});
+
+test("rejects invalid profile audio targets and limits", () => {
+  assert.throws(() => parseProfileCommand(["audio", "abc"]), /user id/i);
+  assert.throws(() => parseProfileCommand(["audio", "1", "--limit", "0"]), /limit/i);
+  assert.throws(() => parseProfileCommand(["audio", "1", "--limit", "101"]), /limit/i);
+});
+
 test("rejects unsupported profile media and invalid frame timestamps", () => {
   assert.throws(() => parseProfileCommand(["set", "botek.png"]), /JPG or MP4/);
   assert.throws(() => parseProfileCommand(["set", "botek.mp4", "--frame", "-1"]), /frame/i);

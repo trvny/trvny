@@ -15,7 +15,7 @@
     "test": "npm run test:portable && npm run test:sandbox",
     "test:portable": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/mcp-auth.test.ts tests/control-mcp.test.ts tests/agent-tools.test.ts tests/hardening.test.ts tests/remote-cleanup.test.ts tests/router.test.ts tests/remote.test.ts tests/remote-followup.test.ts tests/remote-direct.test.ts tests/fast-path.test.ts tests/host-tool-discovery.test.ts tests/usability.test.ts tests/workspace-session.test.ts tests/local-runtime.test.ts tests/local-runtime-install.test.ts tests/windows-job-guard.test.ts",
     "test:sandbox": "tsx --test tests/sandbox.integration.test.ts",
-    "test:windows-guard": "tsx --test tests/windows-job-guard.test.ts tests/windows-tool-launch.test.ts",
+    "test:windows-guard": "tsx --test tests/windows-job-guard.test.ts tests/windows-tool-launch.test.ts tests/local-runtime-install.test.ts",
     "check": "npm run check:icon && npm run typecheck && npm test && npm run control:check",
     "check:portable": "npm run check:icon && npm run typecheck && npm run test:portable && npm run control:check",
     "remote": "tsx src/index.ts remote",

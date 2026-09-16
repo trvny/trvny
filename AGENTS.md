@@ -1,45 +1,42 @@
 # AGENTS.md
 
-Prefer improving an existing home over creating a parallel structure. Inspect local conventions first and preserve them unless the task is to change them.
+Prefer improving existing homes over parallel structures. Inspect local conventions first; keep them unless tasked to change them.
 
 ## Repo map
 
-- `mcp/pet-dispatcher/` — workspace-confined local MCP worker plus its Cloudflare remote control plane.
+- `mcp/pet-dispatcher/` — workspace-confined local MCP worker and Cloudflare remote control plane.
 - `mcp/status-mcp/` — service health/status MCP.
 - `gh-apps/` — GitHub Apps, Kanarek Companion, GPTomek and GPT Actions.
-  Before touching GPTomek control transport, read
-  `gh-apps/gptomek/README.md`. Use Issue `trvny/trvny#203` for normal commands.
-  It and closed PR `#176` expose the same GPTomek operations; the Issue relay
-  automatically falls back to `#176` plus `gptomek/control` only when its primary
-  Worker wake fails. Preserve the fallback PR/ref and command IDs: replay safety,
-  result envelopes and cross-transport deduplication depend on the documented
-  transport contract.
+  Before touching GPTomek control transport, read `gh-apps/gptomek/README.md`.
+  Use Issue `trvny/trvny#203` for normal commands. It and closed PR `#176` expose
+  the same GPTomek operations. Issue relay auto-fallback to `#176` plus
+  `gptomek/control` runs only if primary Worker wake fails. Keep fallback PR/ref
+  and command IDs: replay safety, result envelopes and cross-transport deduplication
+  depend on the documented transport contract.
 - `loopling/` — ChatGPT/Codex pet source, generated assets and installers.
-- `.ai/private/` — repo-local AI overlays (OpenAI, Claude and personalities). It is tracked in this public repository despite the directory name; never treat it as a secret store.
+- `.ai/private/` — repo-local AI overlays (OpenAI, Claude and personalities), tracked in this public repo despite the name. Never treat as a secret store.
 - `token-worldcup/` — Quarto token reports (language ranking, model x effort
-  cost matrix) plus the Claude tokenizer recount script. `.qmd` is the
-  maintained source; the `.html` beside it is generated and gated by the
-  `quarto-check` workflow.
+  cost matrix) and Claude tokenizer recount script. Maintain `.qmd`; adjacent
+  `.html` is generated, gated by `quarto-check` workflow.
 - `stuff/` — small configs, feeds, playlists and miscellaneous assets.
 
-For Quarto-backed reports, treat `.qmd` as the maintained content source and
-committed rendered outputs (`.html`/`.md`) as generated artifacts. Keep the
-Quarto version pinned and verify generated outputs in CI. Do not convert
-dynamic README files merely to adopt Quarto.
+For Quarto reports, maintain `.qmd`; committed renders (`.html`/`.md`) are generated.
+Pin Quarto version; verify generated outputs in CI. Do not convert dynamic README
+files just to adopt Quarto.
 
-Use the nearest `AGENTS.md` for the files being changed; deeper instructions override broader ones.
+Use nearest `AGENTS.md` for changed files; deeper instructions override broader ones.
 
 ## Workflow
 
-- Check the target branch, open PRs and recent changes when work may overlap.
-- Detect the local stack from project files; this repository is mixed.
+- Check target branch, open PRs and recent changes when work may overlap.
+- Detect local stack from project files; this repo is mixed.
 - Keep one maintained source of truth per concern.
-- Use GPTomek for GitHub writes that should be attributable to `gptomek[bot]`; keep intentionally human-authored PR creation as `trvny`.
+- Use GPTomek for GitHub writes meant for `gptomek[bot]` attribution; create intentionally human-authored PRs as `trvny`.
 - Keep one logical change per PR. Trivial low-risk fixes may go directly to `main` when allowed.
-- For substantial code changes, run one relevant final validation on the final head; do not rerun CI after every intermediate edit. Trivial/docs-only changes may skip CI.
-- Resolve actionable review threads when a review was actually requested. Prefer squash.
+- For substantial code changes, run one relevant final validation on final head; do not rerun CI after every intermediate edit. Trivial/docs-only changes may skip CI.
+- Resolve actionable review threads when review was actually requested. Prefer squash.
 - Keep PR descriptions, comments and changelogs brief.
 
 ## Persistence
 
-Resolve ambiguity from repository context and continue. Ask only when progress is genuinely blocked or the next step would be materially unsafe or destructive.
+Resolve ambiguity from repo context; continue. Ask only if blocked or next step is materially unsafe or destructive.

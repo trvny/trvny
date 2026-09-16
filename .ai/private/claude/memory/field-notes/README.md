@@ -1,23 +1,19 @@
 # Field notes
 
-Notes written **here**, by whoever was working in this repository. The rest of
-`memory/` flows the other way — exported from a local store and read-only at
-this end. Nothing is ever written from both sides, which is what keeps either
-direction free of merge conflicts and silent drift.
+Anyone working in this repository writes notes **here**. The rest of `memory/`
+is exported from a local store and read-only here. Each file has one authoring
+side, preventing merge conflicts and silent drift.
 
-Write one when you establish something that cost real work and would otherwise
-have to be re-derived: a measurement, a disproved hypothesis, a decision and its
-reason, a trap that looks like a bug but is not. Do not write one for what you
-just did — the commit message and the diff already record that.
+Record hard-won findings others would need to re-derive: measurements, disproved
+hypotheses, decisions with reasons, or traps that look like bugs but are not.
+Do not log what you just did; the commit message and diff already do.
 
-A note may later be promoted into the local store. **Promotion is a move, not a
-copy:** the note leaves this directory in the same change, and comes back as an
-exported note in the parent. Leaving the original here would give one fact two
-authoring locations, which is the exact thing the two-direction split exists to
-prevent.
+A note may later enter the local store. **Promotion is a move, not a copy:**
+remove it here in the same change; it returns as an exported note in the parent.
+Keeping the original would give one fact two authoring locations.
 
-A note is worth more when it says how to check it again. Date anything that can
-go stale, and name the command or the file that settles it.
+Prefer notes that explain how to re-check them. Date anything that can go stale;
+name the command or file that settles it.
 
 ## How
 
@@ -35,35 +31,29 @@ metadata:
 <the fact, then how to verify it>
 ```
 
-`node_type: memory` matches the local store's format, so promoting a note is a
-copy rather than a copy plus a fix.
+`node_type: memory` matches the local store, so promotion needs no format fix.
 
-Link related notes as `[[name]]`. The parent `../README.md` is authoritative on
-what a link resolves against; the short version is that anything outside this
-directory and the exported notes points into a local store you cannot reach,
-which is expected rather than broken.
+Link related notes as `[[name]]`. `../README.md` defines resolution: links
+outside this directory and the exported notes point into the unreachable local
+store. That is expected, not broken.
 
-**There is no index here, on purpose.** A shared index file is the one thing two
-agents working in parallel would both have to edit, and it would conflict even
-when their notes are unrelated — which is exactly the write-back design this is
-supposed to avoid. Discovery goes through the filenames and the `description`
-line instead:
+**No index, by design.** Parallel agents would edit the shared index and conflict
+even on unrelated notes, defeating this write-back design. Discover notes by
+filename and `description`:
 
 ```bash
 grep -h --exclude=README.md '^description:' .ai/private/claude/memory/field-notes/*.md
 ```
 
-`--exclude=README.md` is not optional: the template above contains a matching
-`description:` line, so without it the scan reports this file's placeholder as
-though it were a note.
+`--exclude=README.md` is required; otherwise the scan reports this template's
+`description:` placeholder as a note.
 
-So the description carries the weight an index entry would have. Write it as the
-one line you would want to read when scanning for whether this note is relevant.
+The description replaces an index entry. Make it one line that helps a reader
+judge relevance.
 
 ## When you are a delegated agent
 
-Writing a note is in scope only if the task said so, or if you hit something the
-next agent would waste the same hour on. Say in your final report that you added
-one. Do not edit the exported notes in the parent directory to correct them —
-that fix would be lost on the next export; report the correction instead and it
-will be made at the source.
+Write a note only if the task says so or the next agent would waste the same
+hour on your finding. Mention it in your final report. Do not correct exported
+notes in the parent; the next export would lose the fix. Report the correction
+for a source fix instead.

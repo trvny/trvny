@@ -4,6 +4,7 @@ import type {
   TelegramMessage,
   TelegramPhotoSize,
   TelegramUpdate,
+  TelegramVisualMedia,
 } from "./types";
 
 const STATE_KEY = "media-group";
@@ -93,17 +94,24 @@ export class TelegramMediaGroupGate {
       return;
     }
 
-    if (!ordered.every((update) => Boolean(update.message?.photo?.length))) {
+    const supportedVisualAlbum = ordered.every((update) => Boolean(
+      update.message?.photo?.length || update.message?.video,
+    ));
+    if (!supportedVisualAlbum) {
       for (const update of ordered) await this.env.TELEGRAM_UPDATES.send(update);
       await this.state.storage.deleteAll();
       return;
     }
 
+    const caption = ordered
+      .map((update) => update.message?.caption?.trim())
+      .find((value): value is string => Boolean(value));
     const aggregate: TelegramUpdate = {
       ...first,
       update_id: Math.min(...ordered.map((update) => update.update_id)),
       message: {
         ...first.message,
+        ...(caption ? { caption } : {}),
         media_group_items: ordered.flatMap((update) => update.message ? [update.message] : []),
       },
     };
@@ -112,20 +120,35 @@ export class TelegramMediaGroupGate {
   }
 }
 
-export function telegramAlbumPhotos(message: TelegramMessage) {
+export type TelegramAlbumVisualMediaItem =
+  | { kind: "photo"; messageId: number; photo: TelegramPhotoSize }
+  | { kind: "video"; messageId: number; video: TelegramVisualMedia };
+
+export function telegramAlbumVisualMedia(message: TelegramMessage): TelegramAlbumVisualMediaItem[] {
   const items = message.media_group_items?.length ? message.media_group_items : [message];
-  const selected: TelegramPhotoSize[] = [];
+  const selected: TelegramAlbumVisualMediaItem[] = [];
   const seen = new Set<string>();
   for (const item of items) {
     const photo = item.photo?.length
       ? [...item.photo].sort((a, b) => (b.width * b.height) - (a.width * a.height))[0]
       : undefined;
-    if (!photo || seen.has(photo.file_unique_id)) continue;
-    seen.add(photo.file_unique_id);
-    selected.push(photo);
-    if (selected.length >= MAX_ANALYZED_PHOTOS) break;
+    if (photo && !seen.has(photo.file_unique_id)) {
+      seen.add(photo.file_unique_id);
+      selected.push({ kind: "photo", messageId: item.message_id, photo });
+      continue;
+    }
+    if (item.video && !seen.has(item.video.file_unique_id)) {
+      seen.add(item.video.file_unique_id);
+      selected.push({ kind: "video", messageId: item.message_id, video: item.video });
+    }
   }
   return selected;
+}
+
+export function telegramAlbumPhotos(message: TelegramMessage) {
+  return telegramAlbumVisualMedia(message)
+    .flatMap((item) => item.kind === "photo" ? [item.photo] : [])
+    .slice(0, MAX_ANALYZED_PHOTOS);
 }
 
 export async function analyzeTelegramAlbumPhotos(

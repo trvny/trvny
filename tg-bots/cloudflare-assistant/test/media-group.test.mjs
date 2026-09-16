@@ -125,7 +125,7 @@ test("analyzes album photos independently and keeps partial success", async () =
   ]);
 });
 
-test("preserves existing per-message handling for mixed-media albums", async () => {
+test("coalesces photo and video items into one mixed-media album", async () => {
   const sent = [];
   const gate = new mediaGroupModule.TelegramMediaGroupGate(state(), {
     TELEGRAM_UPDATES: { async send(update) { sent.push(update); } },
@@ -133,12 +133,19 @@ test("preserves existing per-message handling for mixed-media albums", async () 
   const photo = albumUpdate(201, 50, "photo");
   const video = albumUpdate(202, 51, "unused-photo");
   delete video.message.photo;
+  video.message.caption = "Porównaj te materiały";
   video.message.video = {
     file_id: "video-1",
     file_unique_id: "video-1-unique",
     width: 1280,
     height: 720,
     duration: 8,
+    thumbnail: {
+      file_id: "video-thumb",
+      file_unique_id: "video-thumb-unique",
+      width: 320,
+      height: 180,
+    },
   };
 
   for (const update of [photo, video]) {
@@ -150,7 +157,36 @@ test("preserves existing per-message handling for mixed-media albums", async () 
   }
   await gate.alarm();
 
-  assert.equal(sent.length, 2);
-  assert.deepEqual(sent.map((update) => update.update_id), [201, 202]);
-  assert.equal(sent.some((update) => update.message.media_group_items), false);
+  assert.equal(sent.length, 1);
+  assert.deepEqual(sent[0].message.media_group_items.map((item) => item.message_id), [50, 51]);
+  assert.equal(sent[0].message.caption, "Porównaj te materiały");
+});
+
+test("selects ordered photo and video entries from a mixed-media album", () => {
+  assert.ok(mediaGroupModule?.telegramAlbumVisualMedia, "mixed album selector should exist");
+  const photo = albumUpdate(201, 50, "small").message;
+  photo.photo.push({
+    file_id: "large",
+    file_unique_id: "large-unique",
+    width: 1280,
+    height: 960,
+  });
+  const video = albumUpdate(202, 51, "unused").message;
+  delete video.photo;
+  video.video = {
+    file_id: "video-1",
+    file_unique_id: "video-1-unique",
+    width: 1920,
+    height: 1080,
+    duration: 9,
+  };
+  const aggregate = { ...photo, media_group_items: [photo, video] };
+
+  assert.deepEqual(mediaGroupModule.telegramAlbumVisualMedia(aggregate).map((item) => ({
+    kind: item.kind,
+    fileId: item.kind === "photo" ? item.photo.file_id : item.video.file_id,
+  })), [
+    { kind: "photo", fileId: "large" },
+    { kind: "video", fileId: "video-1" },
+  ]);
 });

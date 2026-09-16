@@ -24,6 +24,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
 - optional Telegram Guest Mode lets the owner summon Botek with `@trvny_bot` in chats where the bot is not a member; guest replies are stateless, bounded, one-shot, and explicitly barred from private memory or acting on the owner's behalf;
+- optional Telegram Business/Secretary draft mode watches only the owner's enabled Business connection and turns supported incoming third-party text/captions into a private stateless reply suggestion; it never sends the suggestion back to the third party automatically;
 - owner voice notes and bounded audio uploads transcribed with Workers AI Whisper before normal assistant routing;
 - owner photos/screenshots support native Telegram albums: items sharing `media_group_id` are briefly coalesced, ordered, deduplicated and up to six photos are analyzed as one request instead of unrelated messages;
 - videos, video notes and animations use bounded Telegram metadata plus best-effort thumbnail vision; full media bytes are not downloaded or claimed as inspected;
@@ -42,7 +43,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - `GET /health` for smoke checks;
 - no server, polling loop, or always-on phone process.
 
-Engram-backed long-term memory, Telegram Business reply assistance, and Hermes handoff are deliberately left for later slices rather than faked into the MVP.
+Engram-backed long-term memory, broader Telegram Business send-on-behalf workflows, and Hermes handoff are deliberately left for later slices rather than faked into the MVP.
 
 ## Roadmap
 
@@ -61,8 +62,8 @@ kanarek-companion /review-router/v1/chat/completions
         ▼
 kanarek-review
         ├─ OpenRouter free pool
-        ├─ OrcaRouter free
-        ├─ AIHubMix free
+        ├─ OrcaRouter `orcarouter/free`
+        ├─ AIHubMix `coding-glm-5.3-free`
         └─ Workers AI
 ```
 
@@ -143,7 +144,7 @@ npm run deploy
 
 The first deployment can run on Workers AI alone. After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `travny-tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated.
 
-Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, `stopped_message_generation`, and `guest_message` updates:
+Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, `stopped_message_generation`, `guest_message`, `business_connection`, and `business_message` updates:
 
 ```bash
 npm run webhook:set -- https://<worker>.workers.dev/telegram/webhook
@@ -161,6 +162,14 @@ Inline mode itself is a BotFather capability and cannot be enabled through the B
 Guest Mode is also opt-in at Telegram, not something the Worker can enable itself. In BotFather's bot settings, enable **Guest Mode** for `@trvny_bot`, then send `/start` to Botek once so the webhook subscription is refreshed. Telegram can then deliver a `guest_message` when the owner mentions Botek in a supported chat or replies to one of its guest replies, even if Botek is not a member of that chat. Botek answers exactly one guest query through `answerGuestQuery`.
 
 The Worker accepts guest queries only when `guest_message.from.id` matches `OWNER_TELEGRAM_USER_ID`. Guest mode deliberately has no private conversation memory or tool/action surface: quoted chat content is untrusted context, and Botek will not make commitments, authorize payments, schedule work, or claim to act on the owner's behalf from a guest query. Failed/ambiguous guest delivery is logged but never turned into an automatic webhook retry that could duplicate a one-shot reply.
+
+### Enable Telegram Business / Secretary drafts
+
+Connect Botek as a Telegram Business bot for the owner's account and grant only the rights needed for the workflow being tested. The webhook subscribes to `business_connection` and `business_message`. Every incoming Business message is revalidated with `getBusinessConnection`; the connection must be enabled and its `user.id` must match `OWNER_TELEGRAM_USER_ID`.
+
+This first Secretary slice is deliberately **draft-only**. It accepts only bounded text or captions from third parties, ignores messages sent by the owner or another business bot, treats the incoming message as untrusted data, and asks the stateless short-deadline model path for a suggested reply. The suggestion is sent privately to `TELEGRAM_OWNER_CHAT_ID` (or the connection's `user_chat_id` fallback) with an explicit `Nic nie zostało wysłane za Ciebie.` footer. The model has no private Botek memory or tool/action surface in this path.
+
+No Business API method that acts on the owner's behalf is used here: no automatic reply, read receipt, deletion, scheduling, payment, task execution or commitment. Broader Secretary actions belong to later opt-in slices with separate permissions and explicit approval boundaries.
 
 ## Cloudflare Workers Builds
 
@@ -266,6 +275,8 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - stickers and dice expose only bounded Telegram metadata such as emoji/set/type and dice result; sticker files are not downloaded in this slice;
 - text/code documents are capped at 512 KB, decoded as UTF-8, clipped before model use, and never persisted as raw file bytes;
 - replied-to and forwarded message bodies are bounded and framed as untrusted data; forwarded text cannot enter the owner command parser;
+- Secretary/Business messages are accepted only through an enabled owner Business connection, clipped before model use, treated as untrusted third-party data, and never written into private conversation memory;
+- Secretary mode produces a private suggestion only; it does not reply through the Business connection, mark messages read, delete messages, schedule work, make payments or take other third-party actions;
 - RSS input and curator output lengths are bounded;
 - RSS ingestion has a separate bearer secret;
 - free-provider API keys stay in the private `kanarek-review` Worker, not this Worker;

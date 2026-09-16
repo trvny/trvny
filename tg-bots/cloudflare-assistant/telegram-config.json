@@ -1,3 +1,11 @@
 {
-  "allowedUpdates": ["message", "inline_query", "callback_query", "stopped_message_generation", "guest_message"]
+  "allowedUpdates": [
+    "message",
+    "inline_query",
+    "callback_query",
+    "stopped_message_generation",
+    "guest_message",
+    "business_connection",
+    "business_message"
+  ]
 }

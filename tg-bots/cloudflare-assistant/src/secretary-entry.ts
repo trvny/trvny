@@ -4,6 +4,7 @@ import worker, {
   TelegramMediaGroupGate,
   TelegramUpdateDedup,
 } from "./index";
+import { handleMiniAppStatusRequest } from "./mini-app";
 import { handleTelegramSecretaryUpdate } from "./secretary-runtime";
 import { isTelegramWebhook, parseTelegramUpdate } from "./telegram";
 import type { Env, QueueBatch, TelegramUpdate } from "./types";
@@ -35,6 +36,9 @@ function hasSecretaryPayload(update: TelegramUpdate): boolean {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/mini-app/api/status") {
+      return handleMiniAppStatusRequest(request, env);
+    }
     if (
       request.method === "POST" &&
       url.pathname === "/telegram/webhook" &&

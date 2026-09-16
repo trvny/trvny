@@ -2,12 +2,14 @@ import type {
   DurableObjectStateLike,
   Env,
   TelegramMessage,
+  TelegramPhotoSize,
   TelegramUpdate,
 } from "./types";
 
 const STATE_KEY = "media-group";
 const DEBOUNCE_MS = 900;
 const MAX_ITEMS = 10;
+const MAX_ANALYZED_PHOTOS = 6;
 
 type MediaGroupState = {
   updates: TelegramUpdate[];
@@ -102,4 +104,43 @@ export class TelegramMediaGroupGate {
     await this.env.TELEGRAM_UPDATES.send(aggregate);
     await this.state.storage.deleteAll();
   }
+}
+
+export function telegramAlbumPhotos(message: TelegramMessage) {
+  const items = message.media_group_items?.length ? message.media_group_items : [message];
+  const selected: TelegramPhotoSize[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    const photo = item.photo?.length
+      ? [...item.photo].sort((a, b) => (b.width * b.height) - (a.width * a.height))[0]
+      : undefined;
+    if (!photo || seen.has(photo.file_unique_id)) continue;
+    seen.add(photo.file_unique_id);
+    selected.push(photo);
+    if (selected.length >= MAX_ANALYZED_PHOTOS) break;
+  }
+  return selected;
+}
+
+export async function analyzeTelegramAlbumPhotos(
+  message: TelegramMessage,
+  analyze: (photo: ReturnType<typeof telegramAlbumPhotos>[number], index: number) => Promise<string>,
+) {
+  const photos = telegramAlbumPhotos(message);
+  const items: Array<{ index: number; description?: string; error?: "too_large" | "analysis_failed" }> = [];
+  for (let index = 0; index < photos.length; index += 1) {
+    try {
+      const description = (await analyze(photos[index], index)).trim();
+      items.push({ index: index + 1, ...(description ? { description } : { error: "analysis_failed" as const }) });
+    } catch (error) {
+      items.push({
+        index: index + 1,
+        error: error instanceof RangeError ? "too_large" : "analysis_failed",
+      });
+    }
+  }
+  return {
+    totalItems: message.media_group_items?.length ?? (message.photo?.length ? 1 : 0),
+    items,
+  };
 }

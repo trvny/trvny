@@ -83,3 +83,44 @@ test("coalesces album updates into one queued request", async () => {
   assert.deepEqual(sent[0].message.media_group_items.map((item) => item.message_id), [44, 45]);
   assert.equal(sent[0].message.media_group_id, "album-7");
 });
+test("selects one largest photo per album item in message order", () => {
+  assert.ok(mediaGroupModule?.telegramAlbumPhotos, "album photo selector should exist");
+  const first = albumUpdate(101, 44, "small").message;
+  first.photo.push({
+    file_id: "large",
+    file_unique_id: "large-unique",
+    width: 1280,
+    height: 960,
+  });
+  const second = albumUpdate(102, 45, "second").message;
+  const aggregate = {
+    ...first,
+    media_group_items: [first, second],
+  };
+
+  const selected = mediaGroupModule.telegramAlbumPhotos(aggregate);
+  assert.deepEqual(selected.map((item) => item.file_id), ["large", "second"]);
+});
+test("analyzes album photos independently and keeps partial success", async () => {
+  assert.ok(mediaGroupModule?.analyzeTelegramAlbumPhotos, "album analyzer should exist");
+  const first = albumUpdate(101, 44, "photo-1").message;
+  const second = albumUpdate(102, 45, "photo-2").message;
+  const aggregate = { ...first, media_group_items: [first, second] };
+  const calls = [];
+
+  const result = await mediaGroupModule.analyzeTelegramAlbumPhotos(
+    aggregate,
+    async (photo, index) => {
+      calls.push(photo.file_id);
+      if (index === 1) throw new RangeError("too large");
+      return `description:${photo.file_id}`;
+    },
+  );
+
+  assert.deepEqual(calls, ["photo-1", "photo-2"]);
+  assert.equal(result.totalItems, 2);
+  assert.deepEqual(result.items, [
+    { index: 1, description: "description:photo-1" },
+    { index: 2, error: "too_large" },
+  ]);
+});

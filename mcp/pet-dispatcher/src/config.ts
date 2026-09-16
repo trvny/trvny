@@ -32,8 +32,14 @@ const remoteSchema = z.object({
   controlPlaneUrl: z.string().url().refine((value) => new URL(value).protocol === "https:", "controlPlaneUrl must use HTTPS"),
   queueTokenEnv: z.string().min(1).default("PET_DISPATCHER_QUEUE_TOKEN"),
   signingSecretEnv: z.string().min(1).default("PET_DISPATCHER_SIGNING_SECRET"),
-  pollIntervalMs: z.number().int().min(1_000).max(60_000).default(5_000), heartbeatIntervalMs: z.number().int().min(5_000).max(60_000).default(15_000),
+  pollIntervalMs: z.number().int().min(1_000).max(60_000).default(5_000),
+  pollMaxIntervalMs: z.number().int().min(1_000).max(300_000).default(60_000),
+  heartbeatIntervalMs: z.number().int().min(5_000).max(60_000).default(15_000),
   visibilityTimeoutMs: z.number().int().min(1_800_000).max(43_200_000).default(1_800_000), journalPath: z.string().min(1).default("remote-journal.json"),
+}).superRefine((value, ctx) => {
+  if (value.pollMaxIntervalMs < value.pollIntervalMs) {
+    ctx.addIssue({ code: "custom", path: ["pollMaxIntervalMs"], message: "maximum poll interval may not be lower than the base interval" });
+  }
 });
 
 const configSchema = z.object({
@@ -48,10 +54,12 @@ const configSchema = z.object({
 });
 
 type ParsedDispatcherConfig = z.infer<typeof configSchema>;
-export type DispatcherConfig = Omit<ParsedDispatcherConfig, "workspaces" | "sessionReaperIntervalMs" | "resourceLimits"> & {
+type ParsedRemoteConfig = NonNullable<ParsedDispatcherConfig["remote"]>;
+export type DispatcherConfig = Omit<ParsedDispatcherConfig, "workspaces" | "sessionReaperIntervalMs" | "resourceLimits" | "remote"> & {
   workspaces?: ParsedDispatcherConfig["workspaces"];
   sessionReaperIntervalMs?: number;
   resourceLimits?: ParsedDispatcherConfig["resourceLimits"];
+  remote?: Omit<ParsedRemoteConfig, "pollMaxIntervalMs"> & { pollMaxIntervalMs?: number };
 };
 
 function resolveLocalPath(value: string, base: string): string { return resolve(isAbsolute(value) ? value : resolve(base, value)); }

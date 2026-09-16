@@ -115,6 +115,24 @@ test("remote MCP exposes compact target/tool/args direct calls", async () => {
   assert.deepEqual(direct, { repo: "trvny", baseRef: "main", call: { tool: "fs.read", path: "README.md" } });
 });
 
+test("remote MCP auto-opens state-changing tools unless disabled", async () => {
+  let direct: unknown;
+  const result = await rpc(baseOperations({ direct: async (value) => {
+    direct = value;
+    return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
+  } }), {
+    jsonrpc: "2.0", id: 7, method: "tools/call", params: {
+      name: "pet_direct",
+      arguments: { target: "trvny", tool: "fs.write", args: { path: "note.txt", content: "hello\n" }, waitSeconds: 0 },
+    },
+  });
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(direct, {
+    repo: "trvny", baseRef: "main",
+    call: { tool: "fs.write", path: "note.txt", content: "hello\n", autoSession: true },
+  });
+});
+
 test("remote MCP waits briefly for a terminal task result", async () => {
   let polls = 0;
   const operations = baseOperations({ getTask: async () => {
@@ -122,7 +140,7 @@ test("remote MCP waits briefly for a terminal task result", async () => {
     return { status: 200, body: { taskId: TASK_ID, status: "completed", result: { status: "completed", summary: "done" } } };
   } });
   const result = await rpc(operations, {
-    jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "pet_delegate", arguments: { repo: "trvny", goal: "inspect", waitSeconds: 1 } },
+    jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "pet_delegate", arguments: { repo: "trvny", goal: "inspect", waitSeconds: 1 } },
   });
   assert.equal(result.response.status, 200);
   assert.equal(polls, 1);
@@ -142,7 +160,7 @@ test("completed MCP tasks keep payload only in structured content", async () => 
     },
   }) });
   const compact = await rpc(operations, {
-    jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "pet_task_get", arguments: { taskId: TASK_ID } },
+    jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "pet_task_get", arguments: { taskId: TASK_ID } },
   });
   const result = compact.body?.result as {
     content?: Array<{ text?: string }>;
@@ -156,7 +174,7 @@ test("completed MCP tasks keep payload only in structured content", async () => 
   assert.equal(JSON.stringify(result.structuredContent).includes(marker), true);
 
   const debug = await rpc(operations, {
-    jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "pet_task_get", arguments: { taskId: TASK_ID, debug: true } },
+    jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "pet_task_get", arguments: { taskId: TASK_ID, debug: true } },
   });
   const debugBody = (debug.body?.result as { structuredContent?: { body?: Record<string, unknown> } })?.structuredContent?.body;
   assert.equal(debugBody?.createdAt, "2026-09-15T23:00:00.000Z");

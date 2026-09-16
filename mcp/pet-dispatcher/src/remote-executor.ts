@@ -51,8 +51,8 @@ function boundUtf8(value: string, maxBytes: number): { text: string; truncated: 
 }
 function publicDirectSession(session: Session) {
   return {
-    id: session.id, alias: session.repo, targetKind: session.targetKind, writable: session.writable,
-    initialCommit: session.targetKind === "repository" ? session.initialCommit : undefined,
+    id: session.id, repo: session.repo, alias: session.repo, targetKind: session.targetKind ?? "repository", writable: session.writable ?? true,
+    initialCommit: session.targetKind !== "workspace" ? session.initialCommit : undefined,
     network: session.network, exportedCommit: session.exportedCommit, exportedRef: session.exportedRef,
     createdAt: session.createdAt, expiresAt: session.expiresAt,
   };
@@ -124,7 +124,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       try {
         const session = await this.sessions.open(task.repo, task.baseRef, "none", undefined, false, call.ttlMinutes);
         const expiresAt = this.#scheduleDirectSession(session.id, task.repo, call.ttlMinutes);
-        return { status: "completed", summary: "Direct remote write session opened.", output: JSON.stringify({ sessionId: session.id, alias: session.repo, targetKind: session.targetKind, expiresAt: new Date(expiresAt).toISOString() }) };
+        return { status: "completed", summary: "Direct remote write session opened.", output: JSON.stringify({ sessionId: session.id, repo: session.repo, alias: session.repo, targetKind: session.targetKind ?? "repository", expiresAt: new Date(expiresAt).toISOString() }) };
       } catch (error) {
         return { status: "failed", summary: "Direct remote write session failed to open.", error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
       }

@@ -3,6 +3,9 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 
 import { parseProfileCommand, profilePhotoDescriptor } from "./telegram-profile-lib.mjs";
 
+const STATIC_PROFILE_MAX_BYTES = 10 * 1024 * 1024;
+const ANIMATED_PROFILE_MAX_BYTES = 50 * 1024 * 1024;
+
 function loadDevVars() {
   if (!existsSync(".dev.vars")) return;
   for (const raw of readFileSync(".dev.vars", "utf8").split(/\r?\n/)) {
@@ -36,8 +39,13 @@ async function telegramJson(api, method, body) {
 
 async function setProfilePhoto(api, command) {
   const filePath = resolve(command.path);
-  if (!existsSync(filePath) || !statSync(filePath).isFile()) {
-    throw new Error(`Profile media file not found: ${command.path}`);
+  if (!existsSync(filePath)) throw new Error(`Profile media file not found: ${command.path}`);
+  const stat = statSync(filePath);
+  if (!stat.isFile()) throw new Error(`Profile media path is not a file: ${command.path}`);
+
+  const maxBytes = command.kind === "static" ? STATIC_PROFILE_MAX_BYTES : ANIMATED_PROFILE_MAX_BYTES;
+  if (stat.size > maxBytes) {
+    throw new Error(`Profile media exceeds the hosted Bot API upload limit (${maxBytes / 1024 / 1024} MB)`);
   }
 
   const bytes = readFileSync(filePath);
@@ -54,17 +62,25 @@ async function setProfilePhoto(api, command) {
   if (!response.ok || !payload.ok) throw telegramError("setMyProfilePhoto", response, payload);
 }
 
-loadDevVars();
+async function main() {
+  loadDevVars();
+  const command = parseProfileCommand(process.argv.slice(2));
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw new Error("TELEGRAM_BOT_TOKEN is missing (.dev.vars is supported)");
+  const api = `https://api.telegram.org/bot${token}`;
 
-const command = parseProfileCommand(process.argv.slice(2));
-const token = process.env.TELEGRAM_BOT_TOKEN;
-if (!token) throw new Error("TELEGRAM_BOT_TOKEN is missing (.dev.vars is supported)");
-const api = `https://api.telegram.org/bot${token}`;
-
-if (command.action === "remove") {
-  await telegramJson(api, "removeMyProfilePhoto");
-  console.log("Botek profile photo removed.");
-} else {
+  if (command.action === "remove") {
+    await telegramJson(api, "removeMyProfilePhoto");
+    console.log("Botek profile photo removed.");
+    return;
+  }
   await setProfilePhoto(api, command);
   console.log(`Botek ${command.kind} profile photo updated.`);
+}
+
+try {
+  await main();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
 }

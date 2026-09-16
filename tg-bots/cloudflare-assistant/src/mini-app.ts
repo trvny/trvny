@@ -84,7 +84,8 @@ type MiniAppDispatcher = {
 };
 
 type MiniAppEnv = {
-  TELEGRAM_BOT_TOKEN?: string;  OWNER_TELEGRAM_USER_ID?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  OWNER_TELEGRAM_USER_ID?: string;
   PET_DISPATCHER?: unknown;
 };
 

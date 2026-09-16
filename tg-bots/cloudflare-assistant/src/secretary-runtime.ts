@@ -1,12 +1,12 @@
 import { chatWithInlineFallback } from "./providers";
 import {
+  formatSecretaryNotification,
   isOwnerBusinessConnection,
   secretaryDraftInput,
   secretaryDraftSystemPrompt,
 } from "./secretary";
 import {
   sendTelegramMessage,
-  TELEGRAM_MESSAGE_MAX_CHARS,
   TelegramConfigurationError,
 } from "./telegram";
 import type { Env } from "./types";
@@ -87,17 +87,11 @@ async function draftIncomingBusinessMessage(
       content: `Incoming Telegram Business message from ${input.sender}:\n${input.text}`,
     },
   ]);
-  const draft = result.text.trim().slice(0, TELEGRAM_MESSAGE_MAX_CHARS) || "Brak propozycji odpowiedzi.";
-  const source = input.text.replace(/\s+/gu, " ").slice(0, 900);
-  const notification = [
-    `🧑‍💼 Sekretarz · ${input.sender}`,
-    `Wiadomość: ${source}`,
-    "",
-    "Propozycja odpowiedzi:",
-    draft,
-    "",
-    "Nic nie zostało wysłane za Ciebie.",
-  ].join("\n").slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+  const notification = formatSecretaryNotification({
+    sender: input.sender,
+    source: input.text,
+    draft: result.text.trim() || "Brak propozycji odpowiedzi.",
+  });
   await sendTelegramMessage(env, ownerChatId(env, connection), notification);
 }
 

@@ -16,6 +16,11 @@ export type BotekTaskState = {
   };
 };
 
+export type BotekTaskControlRequest = {
+  action: "status" | "cancel";
+  taskId: string;
+};
+
 const TASK_ID_RE = /^[0-9a-f-]{36}$/iu;
 const TERMINAL = new Set(["completed", "failed", "cancelled", "recovery_required"]);
 
@@ -48,6 +53,15 @@ export function parseTaskCommand(text: string): { repo: string; goal: string } |
   const goal = rest.slice(separator + 1).trim();
   if (!/^[A-Za-z0-9._/-]{1,128}$/u.test(repo) || !goal) return null;
   return { repo, goal: goal.slice(0, 20_000) };
+}
+
+export function parseTaskControlCommand(text: string): BotekTaskControlRequest | null {
+  const match = text.trim().match(/^\/task_(status|cancel)\s+([0-9a-f-]{36})$/iu);
+  if (!match || !TASK_ID_RE.test(match[2])) return null;
+  return {
+    action: match[1].toLowerCase() as BotekTaskControlRequest["action"],
+    taskId: match[2].toLowerCase(),
+  };
 }
 
 export async function delegateBotekTask(

@@ -36,6 +36,13 @@ test("marks the owner group whisper command as ephemeral", () => {
 });
 
 
+test("lists task recovery commands in private help", () => {
+  const help = botHelpLines();
+  assert.equal(help.some((line) => line.startsWith("/task_status <id>")), true);
+  assert.equal(help.some((line) => line.startsWith("/task_cancel <id>")), true);
+});
+
+
 test("accepts a visible group ask from a media caption", async () => {
   const commands = await import("../src/commands.ts");
   assert.ok(commands.parseAskMessageCommand, "message-level ask parser should exist");

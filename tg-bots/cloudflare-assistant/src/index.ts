@@ -31,6 +31,7 @@ import {
   delegateBotekTask,
   getBotekTask,
   parseTaskCommand,
+  parseTaskControlCommand,
   taskCallback,
   taskKeyboard,
   taskText,
@@ -920,6 +921,47 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       text: `Temat: ${name}`,
       createTopic: { name },
     };
+  }
+
+  if (text === "/task_status" || text === "/task_cancel") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: text === "/task_status"
+        ? "Użycie: /task_status <id>"
+        : "Użycie: /task_cancel <id>",
+    };
+  }
+
+  if (text.startsWith("/task_status ") || text.startsWith("/task_cancel ")) {
+    const taskControl = parseTaskControlCommand(text);
+    if (!taskControl) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nieprawidłowe ID zadania. Użyj /task_status <id> albo /task_cancel <id>.",
+        finalReaction: "👎",
+      };
+    }
+    try {
+      const task = taskControl.action === "cancel"
+        ? await cancelBotekTask(env, taskControl.taskId)
+        : await getBotekTask(env, taskControl.taskId);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: taskText(task),
+        replyMarkup: taskKeyboard(task),
+      };
+    } catch (error) {
+      console.error("Pet Dispatcher task recovery failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się odczytać tego zadania z Pet Dispatchera.",
+        finalReaction: "👎",
+      };
+    }
   }
 
   if (text === "/task") {

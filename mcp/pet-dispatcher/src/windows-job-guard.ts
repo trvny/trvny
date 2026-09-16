@@ -83,7 +83,7 @@ export class WindowsJobGuard {
       for (const pending of this.#pending.values()) pending.reject(error);
       this.#pending.clear();
     });
-    const timer = setTimeout(() => readyReject(new Error(`Windows Job Object guardian did not become ready${stderr ? `: ${stderr}` : ""}`)), 8_000);
+    const timer = setTimeout(() => readyReject(new Error(`Windows Job Object guardian did not become ready${stderr ? `: ${stderr}` : ""}`)), 20_000);
     timer.unref();
     try { await ready; } catch (error) { this.#child.kill(); throw error; }
     finally { clearTimeout(timer); }

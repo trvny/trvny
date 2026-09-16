@@ -222,6 +222,8 @@ export type TelegramTextQuote = {
 export type TelegramMessage = {
   message_id: number;
   message_thread_id?: number;
+  media_group_id?: string;
+  media_group_items?: TelegramMessage[];
   is_topic_message?: boolean;
   text?: string;
   caption?: string;
@@ -380,6 +382,7 @@ export type Env = {
   TELEGRAM_DEDUP: DurableObjectNamespaceLike;
   TELEGRAM_MEMORY: DurableObjectNamespaceLike;
   TELEGRAM_INLINE: DurableObjectNamespaceLike;
+  TELEGRAM_MEDIA_GROUPS: DurableObjectNamespaceLike;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   INGEST_SECRET?: string;

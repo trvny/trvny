@@ -115,6 +115,21 @@ test("remote MCP exposes compact target/tool/args direct calls", async () => {
   assert.deepEqual(direct, { repo: "trvny", baseRef: "main", call: { tool: "fs.read", path: "README.md" } });
 });
 
+test("remote MCP accepts cached legacy pet_direct arguments", async () => {
+  let direct: unknown;
+  const result = await rpc(baseOperations({ direct: async (value) => {
+    direct = value;
+    return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
+  } }), {
+    jsonrpc: "2.0", id: 61, method: "tools/call", params: {
+      name: "pet_direct",
+      arguments: { repo: "trvny", baseRef: "main", call: { tool: "fs.read", path: "README.md" }, waitSeconds: 0 },
+    },
+  });
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(direct, { repo: "trvny", baseRef: "main", call: { tool: "fs.read", path: "README.md" } });
+});
+
 test("remote MCP auto-opens state-changing tools unless disabled", async () => {
   let direct: unknown;
   const result = await rpc(baseOperations({ direct: async (value) => {

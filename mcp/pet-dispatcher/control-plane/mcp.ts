@@ -210,7 +210,45 @@ function createServer(operations: ControlMcpOperations): McpServer {
 
   return server;
 }
+function recordOf(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
+
+function normalizeLegacyDirectRpc(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    let changed = false;
+    const items = value.map((item) => {
+      const normalized = normalizeLegacyDirectRpc(item);
+      if (normalized !== item) changed = true;
+      return normalized;
+    });
+    return changed ? items : value;
+  }
+  const rpc = recordOf(value);
+  const params = recordOf(rpc?.params);
+  const args = recordOf(params?.arguments);
+  const call = recordOf(args?.call);
+  if (!rpc || rpc.method !== "tools/call" || params?.name !== "pet_direct" || !args || !call) return value;
+  if (typeof args.repo !== "string" || typeof call.tool !== "string" || "target" in args || "tool" in args) return value;
+  const { repo, call: _legacyCall, ...rest } = args;
+  const { tool, ...callArgs } = call;
+  return { ...rpc, params: { ...params, arguments: { ...rest, target: repo, tool, args: callArgs } } };
+}
+
+async function normalizeLegacyDirectRequest(request: Request): Promise<Request> {
+  if (request.method !== "POST") return request;
+  let body: unknown;
+  try { body = await request.clone().json(); }
+  catch { return request; }
+  const normalized = normalizeLegacyDirectRpc(body);
+  if (normalized === body) return request;
+  const headers = new Headers(request.headers);
+  headers.delete("content-length");
+  return new Request(request, { headers, body: JSON.stringify(normalized) });
+}
+
 export async function handleControlMcp(request: Request, operations: ControlMcpOperations): Promise<Response> {
+  request = await normalizeLegacyDirectRequest(request);
   const server = createServer(operations);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

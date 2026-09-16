@@ -1,7 +1,12 @@
 import { extname } from "node:path";
 
-const USAGE = "Usage: telegram:profile -- set <photo.jpg|animation.mp4> [--frame <seconds>] | remove | audio [user-id] [--limit 1..100]";
+const USAGE = "Usage: telegram:profile -- set <photo.jpg|animation.mp4> [--frame <seconds>] | remove | audio [user-id] [--limit 1..100] | name <text> [--lang xx] | description <text> [--lang xx] | short-description <text> [--lang xx]";
 const DEFAULT_PROFILE_AUDIO_LIMIT = 20;
+const PROFILE_TEXT_FIELDS = {
+  name: { maxChars: 64, method: "setMyName", bodyKey: "name" },
+  description: { maxChars: 512, method: "setMyDescription", bodyKey: "description" },
+  "short-description": { maxChars: 120, method: "setMyShortDescription", bodyKey: "short_description" },
+};
 
 function setCommand(args) {
   const [path, ...rest] = args;
@@ -34,6 +39,25 @@ function parseUserId(raw) {
   return userId;
 }
 
+function profileTextCommand(action, args) {
+  const field = PROFILE_TEXT_FIELDS[action];
+  const [value, ...rest] = args;
+  if (!field || value === undefined) throw new Error(USAGE);
+  if ([...value].length > field.maxChars) {
+    throw new Error(`Telegram profile ${action} must be at most ${field.maxChars} characters`);
+  }
+
+  let languageCode;
+  if (rest.length) {
+    if (rest.length !== 2 || rest[0] !== "--lang") throw new Error(USAGE);
+    if (!/^[a-z]{2}$/iu.test(rest[1])) {
+      throw new Error("Telegram profile language code must be a two-letter ISO 639-1 code");
+    }
+    languageCode = rest[1].toLowerCase();
+  }
+  return { action, value, ...(languageCode === undefined ? {} : { languageCode }) };
+}
+
 function audioCommand(args) {
   const rest = [...args];
   let userId;
@@ -58,7 +82,20 @@ export function parseProfileCommand(args) {
   }
   if (action === "set") return setCommand(rest);
   if (action === "audio") return audioCommand(rest);
+  if (action in PROFILE_TEXT_FIELDS) return profileTextCommand(action, rest);
   throw new Error(USAGE);
+}
+
+export function profileTextRequest(command) {
+  const field = PROFILE_TEXT_FIELDS[command?.action];
+  if (!field) throw new Error("Profile text request requires a profile text command");
+  return {
+    method: field.method,
+    body: {
+      [field.bodyKey]: command.value,
+      ...(command.languageCode === undefined ? {} : { language_code: command.languageCode }),
+    },
+  };
 }
 
 export function profileAudioSummary(result) {

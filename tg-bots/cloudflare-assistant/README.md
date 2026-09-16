@@ -173,7 +173,7 @@ No Business API method that acts on the owner's behalf is used here: no automati
 
 ### Telegram profile tooling
 
-The local helper can manage Botek's profile photo without adding runtime webhook code: `npm run telegram:profile -- set <photo.jpg>`, `npm run telegram:profile -- set <animation.mp4> [--frame <seconds>]`, or `npm run telegram:profile -- remove`. It loads `TELEGRAM_BOT_TOKEN` from the environment or local `.dev.vars` and never logs it.
+The local helper can manage Botek's profile photo without adding runtime webhook code: `npm run telegram:profile -- set <photo.jpg>`, `npm run telegram:profile -- set <animation.mp4> [--frame <seconds>]`, or `npm run telegram:profile -- remove`. It also manages Telegram's localized bot text surfaces: `name <text>`, `description <text>`, and `short-description <text>`, each with optional `--lang <xx>`. Telegram's limits are validated locally (64 / 512 / 120 characters) before the API call. The helper loads `TELEGRAM_BOT_TOKEN` from the environment or local `.dev.vars` and never logs it.
 
 Telegram currently exposes profile audio to bots only as a read surface. Inspect the configured owner's profile audio with `npm run telegram:profile -- audio`, or inspect another numeric user ID with `npm run telegram:profile -- audio <user-id> --limit <1..100>`. The helper prints bounded audio metadata only; it does not download audio files, and Bot API does not expose a method for Botek to set profile audio.
 

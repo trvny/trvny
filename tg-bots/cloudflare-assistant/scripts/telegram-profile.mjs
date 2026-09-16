@@ -5,6 +5,7 @@ import {
   parseProfileCommand,
   profileAudioSummary,
   profilePhotoDescriptor,
+  profileTextRequest,
 } from "./telegram-profile-lib.mjs";
 
 const STATIC_PROFILE_MAX_BYTES = 10 * 1024 * 1024;
@@ -89,6 +90,13 @@ async function main() {
       limit: command.limit,
     });
     console.log(JSON.stringify(profileAudioSummary(result), null, 2));
+    return;
+  }
+
+  if (["name", "description", "short-description"].includes(command.action)) {
+    const request = profileTextRequest(command);
+    await telegramJson(api, request.method, request.body);
+    console.log(`Botek ${command.action} updated.`);
     return;
   }
 

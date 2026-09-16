@@ -5,6 +5,7 @@ import {
   parseProfileCommand,
   profileAudioSummary,
   profilePhotoDescriptor,
+  profileTextRequest,
 } from "../scripts/telegram-profile-lib.mjs";
 
 test("parses static and animated profile photo commands", () => {
@@ -70,6 +71,44 @@ test("summarizes profile audio metadata without unrelated Telegram fields", () =
       mimeType: "audio/mpeg",
       fileSize: 1234,
     }],
+  });
+});
+
+test("parses bounded bot profile text commands", () => {
+  assert.deepEqual(parseProfileCommand(["name", "Botek"]), {
+    action: "name",
+    value: "Botek",
+  });
+  assert.deepEqual(parseProfileCommand(["description", "Always-on assistant", "--lang", "pl"]), {
+    action: "description",
+    value: "Always-on assistant",
+    languageCode: "pl",
+  });
+  assert.deepEqual(parseProfileCommand(["short-description", "Quick AI helper"]), {
+    action: "short-description",
+    value: "Quick AI helper",
+  });
+});
+
+test("validates bot profile text limits and language codes", () => {
+  assert.throws(() => parseProfileCommand(["name", "x".repeat(65)]), /64/u);
+  assert.throws(() => parseProfileCommand(["description", "x".repeat(513)]), /512/u);
+  assert.throws(() => parseProfileCommand(["short-description", "x".repeat(121)]), /120/u);
+  assert.throws(() => parseProfileCommand(["name", "Botek", "--lang", "pol"]), /language/u);
+});
+
+test("maps bot profile text commands to Bot API methods", () => {
+  assert.deepEqual(profileTextRequest({ action: "name", value: "Botek", languageCode: "pl" }), {
+    method: "setMyName",
+    body: { name: "Botek", language_code: "pl" },
+  });
+  assert.deepEqual(profileTextRequest({ action: "description", value: "Longer text" }), {
+    method: "setMyDescription",
+    body: { description: "Longer text" },
+  });
+  assert.deepEqual(profileTextRequest({ action: "short-description", value: "Short" }), {
+    method: "setMyShortDescription",
+    body: { short_description: "Short" },
   });
 });
 

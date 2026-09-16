@@ -1,63 +1,55 @@
 # Delegating to a subagent
 
-A checklist for whoever writes the task prompt, so the prompt itself can stay
-short. Everything here is standing context; only the task differs.
+A task-prompt checklist. Keep prompts short; this is standing context, only the
+task differs.
 
-Written after the first real run (2026-08-15), which produced five findings and
-three lessons. The lessons are the numbered rules below.
+The first real run (2026-08-15) produced five findings and three lessons: the
+numbered rules below.
 
 ## What this has to survive
 
-Today a delegated agent runs from a session on the author's machine, so anything
-missing can be handed to it. Do not design for that. The case worth being ready
-for is the opposite one: a cold session from `claude.ai/code`, from a phone,
-with the laptop off — *"CI has failed ten times in a row, help"*.
+Today delegated agents run from the author's machine, where missing context can
+be handed over. Design for a cold `claude.ai/code` session from a phone, laptop off:
+*"CI has failed ten times in a row, help"*.
 
-That session gets the repository and nothing else. Whatever it needs to be
-useful has to already be committed here. It is also the reason `field-notes/`
-exists: a session like that cannot write back to the local store, but it can
-leave what it learned in the repository.
+That session gets only the repository. Commit everything it needs here.
+`field-notes/` lets it leave findings when it cannot write to the local store.
 
 ## What the agent already has
 
-It gets its own git worktree under `.claude/worktrees/agent-<id>/`, a full
-checkout of this repository, and `AGENTS.md` — which points it at
-`.ai/private/claude/memory/` and the core. The `SessionStart` hook syncs
-`.ai/core` there; a linked worktree gets its own submodule gitdir, so this does
-not disturb the main checkout (measured on git 2.55, not assumed).
+It gets a full checkout in its own git worktree at `.claude/worktrees/agent-<id>/`
+and `AGENTS.md`, which points to `.ai/private/claude/memory/` and the core.
+`SessionStart` syncs `.ai/core` there. Linked worktrees get their own submodule
+gitdir, leaving the main checkout undisturbed (measured on git 2.55).
 
-So do **not** spend prompt on: where the guidance lives, what the repository is,
-the `trvny` conventions, or anything already in the memory export. Naming those
-files in the prompt also destroys any chance of testing whether the pointers
-work on their own.
+Do **not** repeat guidance locations, repository context, `trvny` conventions,
+or exported memory in the prompt. Naming those files also prevents testing
+whether the pointers work alone.
 
 ## 1. Scope by paths, not by commit range
 
-The first run was scoped `3ae924f..HEAD` and described as "six commits of
-documentation and a hook". The range also contained 18 copied memory notes and
-53 renames, so the agent reviewed roughly a thousand lines nobody wanted
-reviewed. It cannot ask, so it takes the range literally.
+The first run used `3ae924f..HEAD`: "six commits of documentation and a hook".
+It also held 18 copied memory notes and 53 renames, causing roughly a thousand
+unwanted lines of review. Agents cannot ask; they take ranges literally.
 
-Give an explicit file list. Use a commit range only when the range *is* the
-subject and you have checked what is actually in it.
+Give an explicit file list. Use a commit range only when it *is* the subject
+and you have checked its contents.
 
 ## 2. Demand measurement, and let it say "nothing wrong"
 
-The one finding that did not survive was the one reasoned from a config file
-rather than executed. The agent flagged it honestly as untested — good — but it
-still cost a round to disprove. Ask for a verdict per claim: measured, or
-reasoned and why it was not measured.
+The only disproved finding came from config reasoning without execution.
+Correctly flagged as untested, it still cost a round to disprove. Require each
+claim to say: measured, or reasoned with why it was not measured.
 
-Say plainly that a short correct review beats a padded one, and that "I found
-nothing in this category" is an acceptable and useful answer. Without that,
-findings get invented to fill the shape of the request.
+Explicitly prefer short, correct reviews over padded ones. Say "I found nothing
+in this category" is acceptable and useful, lest agents invent findings to fill
+the request.
 
 ## 3. State the write boundary in the prompt
 
-"Do not fix anything. Do not commit, push, or open a pull request." A
-review-only agent will otherwise start editing, and a worktree makes that
-invisible until it is merged back. When the task *is* to change code, say which
-paths it may touch and whether it should commit.
+For reviews: "Do not fix anything. Do not commit, push, or open a pull request."
+Otherwise agents start editing, hidden in the worktree until merged back.
+For code changes, state allowed paths and whether to commit.
 
 ## Ask for an environment report when the plumbing is what you are testing
 
@@ -69,8 +61,8 @@ Three questions, phrased without naming `.ai`:
    and say what you saw.
 3. Did a session-start hook run? Say how you know, or say you cannot tell.
 
-This is what caught the hook that never ran on Windows. Ask for it only when
-testing the mechanism — it is wasted tokens on an ordinary task.
+This caught the hook that never ran on Windows. Ask only when testing the
+mechanism; omit it on ordinary tasks.
 
 ## Known-good prompt shape
 

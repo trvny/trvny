@@ -1,7 +1,7 @@
 import { execFile, type ChildProcess } from "node:child_process";
 import { constants } from "node:fs";
 import { access, realpath } from "node:fs/promises";
-import { dirname, extname, isAbsolute, join, parse, relative, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, parse, relative, resolve, win32 } from "node:path";
 import { promisify } from "node:util";
 import { createConfigFromPolicy, getPlatformSupport, spawnSandboxFromConfig } from "@microsoft/mxc-sdk";
 import { findCommandOnPath } from "./agent-router.js";
@@ -73,6 +73,17 @@ function pathInside(root: string, target: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
+export function discoveredToolGrantRoot(executable: string, platform = process.platform): string {
+  if (platform !== "win32") return dirname(executable);
+  const normalized = win32.normalize(executable);
+  const match = /^(.*?\\scoop\\apps\\[^\\]+\\[^\\]+)(?:\\|$)/iu.exec(normalized);
+  return match?.[1] ?? win32.dirname(normalized);
+}
+
+export function allowWindowsForExecutable(hostTool: boolean, platform = process.platform): boolean {
+  return platform === "win32" && hostTool;
+}
+
 export class CommandRunner {
   readonly #running = new Map<string, RunningProcess>();
   readonly #pathTools = new Map<string, Promise<string | undefined>>();
@@ -122,6 +133,9 @@ export class CommandRunner {
       networkDefault: "deny",
       networkModes: { none: true, brokered: true, restricted: false },
       childEnvironment: "cleared",
+      uiPolicy: process.platform === "win32"
+        ? { hostTools: "win32k-allowed", workspaceExecutables: "win32k-denied", clipboard: "deny", inputInjection: "deny" }
+        : { hostTools: "backend-default", workspaceExecutables: "backend-default", clipboard: "deny", inputInjection: "deny" },
       configuredToolRoots: this.toolRoots.length,
       processGuard: process.platform === "win32" ? "windows-job-object" : "sandbox-backend",
       resourceLimits: {
@@ -140,7 +154,7 @@ export class CommandRunner {
     const pending = (async () => {
       const executable = await findCommandOnPath(command);
       if (!executable) return undefined;
-      const root = await realpath(dirname(executable));
+      const root = await realpath(discoveredToolGrantRoot(executable));
       if (pathKey(root) === pathKey(parse(root).root)) throw new Error("refusing filesystem root as a discovered tool root");
       if (!this.toolRoots.some((item) => pathKey(item) === pathKey(root))) this.toolRoots.push(root);
       return executable;
@@ -152,12 +166,12 @@ export class CommandRunner {
     return pending;
   }
 
-  async #resolveExecutable(session: Session, command: string): Promise<string> {
+  async #resolveExecutable(session: Session, command: string): Promise<{ path: string; hostTool: boolean }> {
     if (!command || command.includes("\0")) throw new Error("command is required");
     if (command.includes("/") || command.includes("\\")) {
       const local = await resolveExisting(session.root, command);
       await access(local, constants.F_OK);
-      return local;
+      return { path: local, hostTool: false };
     }
     for (const root of this.toolRoots) {
       for (const extension of WINDOWS_EXTENSIONS) {
@@ -165,12 +179,12 @@ export class CommandRunner {
         try {
           await access(candidate, constants.F_OK);
           const target = await realpath(candidate);
-          if (pathInside(root, target)) return target;
+          if (pathInside(root, target)) return { path: target, hostTool: true };
         } catch { /* keep searching configured roots */ }
       }
     }
     const discovered = await this.#discoverPathExecutable(command);
-    if (discovered) return discovered;
+    if (discovered) return { path: discovered, hostTool: true };
     throw new Error(`executable is outside configured tool roots and host PATH or missing: ${command}`);
   }
 
@@ -230,7 +244,8 @@ export class CommandRunner {
       if (this.#running.has(sessionId)) throw new Error("session already has a running command");
       const session = this.sessions.get(sessionId);
       const workingDirectory = await resolveExisting(session.root, cwd);
-      const executable = await this.#resolveExecutable(session, argv[0] ?? "");
+      const resolvedExecutable = await this.#resolveExecutable(session, argv[0] ?? "");
+      const executable = resolvedExecutable.path;
       if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
       const requestedTimeout = timeoutMs ?? this.config.defaultTimeoutMs;
       if (!Number.isFinite(requestedTimeout) || requestedTimeout < 1_000) throw new Error("timeoutMs must be a finite value of at least 1000ms");
@@ -248,7 +263,7 @@ export class CommandRunner {
         version: "0.7.0-alpha",
         filesystem: { readwritePaths: [session.root], readonlyPaths: [...this.toolRoots, ...session.readonlyRoots] },
         network: { allowOutbound: false, allowLocalNetwork: false },
-        ui: { allowWindows: false, clipboard: "none" as const, allowInputInjection: false },
+        ui: { allowWindows: allowWindowsForExecutable(resolvedExecutable.hostTool), clipboard: "none" as const, allowInputInjection: false },
         timeoutMs: timeout,
       };
       const sandbox = createConfigFromPolicy(policy, "process", `pet-dispatcher-${session.id}`);

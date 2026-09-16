@@ -15,10 +15,15 @@ export const remoteNetworkSchema = z.object({
 });
 
 const remoteSessionIdSchema = z.string().uuid();
+const autoSessionFields = {
+  sessionId: remoteSessionIdSchema.optional(),
+  autoSession: z.boolean().default(false),
+} as const;
 
 export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("session.open"), ttlMinutes: z.number().int().min(1).max(60).default(30) }).strict(),
   z.object({ tool: z.literal("session.close"), sessionId: remoteSessionIdSchema, discard: z.boolean().default(false) }).strict(),
+  z.object({ tool: z.literal("session.finish"), sessionId: remoteSessionIdSchema, message: z.string().min(1).max(500).optional() }).strict(),
   z.object({ tool: z.literal("session.status"), sessionId: remoteSessionIdSchema }).strict(),
   z.object({ tool: z.literal("session.list") }).strict(),
   z.object({ tool: z.literal("session.reclaim"), sessionId: remoteSessionIdSchema }).strict(),
@@ -40,13 +45,13 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
     maxFiles: z.number().int().min(1).max(1_000).default(250), maxFileBytes: z.number().int().min(1).max(1_048_576).default(131_072),
     maxDepth: z.number().int().min(0).max(12).default(6),
   }).strict(),
-  z.object({ tool: z.literal("fs.write"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024), content: z.string().max(65_536) }).strict(),
-  z.object({ tool: z.literal("fs.patch"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024), oldText: z.string().min(1).max(65_536), newText: z.string().max(65_536) }).strict(),
-  z.object({ tool: z.literal("fs.mkdir"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024) }).strict(),
-  z.object({ tool: z.literal("fs.move"), sessionId: remoteSessionIdSchema, from: z.string().min(1).max(1_024), to: z.string().min(1).max(1_024) }).strict(),
-  z.object({ tool: z.literal("fs.delete"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024) }).strict(),
+  z.object({ tool: z.literal("fs.write"), ...autoSessionFields, path: z.string().min(1).max(1_024), content: z.string().max(65_536) }).strict(),
+  z.object({ tool: z.literal("fs.patch"), ...autoSessionFields, path: z.string().min(1).max(1_024), oldText: z.string().min(1).max(65_536), newText: z.string().max(65_536) }).strict(),
+  z.object({ tool: z.literal("fs.mkdir"), ...autoSessionFields, path: z.string().min(1).max(1_024) }).strict(),
+  z.object({ tool: z.literal("fs.move"), ...autoSessionFields, from: z.string().min(1).max(1_024), to: z.string().min(1).max(1_024) }).strict(),
+  z.object({ tool: z.literal("fs.delete"), ...autoSessionFields, path: z.string().min(1).max(1_024) }).strict(),
   z.object({
-    tool: z.literal("workspace.exec"), sessionId: remoteSessionIdSchema,
+    tool: z.literal("workspace.exec"), ...autoSessionFields,
     argv: z.array(z.string().max(4_096)).min(1).max(64),
     cwd: z.string().min(1).max(1_024).default("."),
     timeoutMs: z.number().int().min(1_000).max(900_000).default(60_000),
@@ -60,11 +65,19 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("git.summary"), sessionId: remoteSessionIdSchema.optional(), maxCommits: z.number().int().min(1).max(10).default(5) }).strict(),
   z.object({ tool: z.literal("git.add"), sessionId: remoteSessionIdSchema, paths: z.array(z.string().min(1).max(1_024)).min(1).max(64) }).strict(),
   z.object({ tool: z.literal("git.commit"), sessionId: remoteSessionIdSchema, message: z.string().min(1).max(500) }).strict(),
-]);
+]).superRefine((call, ctx) => {
+  if (!("autoSession" in call)) return;
+  if (call.autoSession && call.sessionId) {
+    ctx.addIssue({ code: "custom", path: ["autoSession"], message: "choose either sessionId or autoSession, not both" });
+  }
+  if (!call.autoSession && !call.sessionId) {
+    ctx.addIssue({ code: "custom", path: ["sessionId"], message: "state-changing direct tools require sessionId or autoSession=true" });
+  }
+});
 
 export type RemoteDirectCall = z.infer<typeof remoteDirectCallSchema>;
 export const REMOTE_DIRECT_TOOLS = [
-  "session.open", "session.close", "session.status", "session.list", "session.reclaim",
+  "session.open", "session.close", "session.finish", "session.status", "session.list", "session.reclaim",
   "fs.list", "fs.stat", "fs.read", "fs.readMany", "fs.tree", "fs.search", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete",
   "workspace.exec", "git.status", "git.diff", "git.summary", "git.add", "git.commit",
 ] as const satisfies readonly RemoteDirectCall["tool"][];
@@ -73,7 +86,7 @@ export const REMOTE_DIRECT_WRITE_CAPABILITIES = ["workspace.read", "workspace.wr
 export const REMOTE_DIRECT_EXEC_CAPABILITIES = ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"] as const;
 const REMOTE_DIRECT_EXEC_TOOLS = new Set<RemoteDirectCall["tool"]>(["workspace.exec"]);
 const REMOTE_DIRECT_WRITE_TOOLS = new Set<RemoteDirectCall["tool"]>([
-  "session.open", "session.close", "session.reclaim", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete", "git.add", "git.commit",
+  "session.open", "session.close", "session.finish", "session.reclaim", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete", "git.add", "git.commit",
 ]);
 
 export function isRemoteDirectExecTool(tool: RemoteDirectCall["tool"]): boolean { return REMOTE_DIRECT_EXEC_TOOLS.has(tool); }

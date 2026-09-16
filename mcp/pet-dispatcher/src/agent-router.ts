@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, stat } from "node:fs/promises";
+import { access, realpath, stat } from "node:fs/promises";
 import { delimiter, extname, join } from "node:path";
 import type { RemoteCapability } from "./remote-protocol.js";
 import { backendReadinessReason, OPENAI_COMPATIBLE_BACKENDS, OPENAI_COMPATIBLE_BACKEND_IDS } from "./openai-backends.js";
@@ -75,7 +75,7 @@ export async function findCommandOnPath(command: string, env: NodeJS.ProcessEnv 
         const metadata = await stat(candidate);
         if (!metadata.isFile()) continue;
         await access(candidate, process.platform === "win32" ? constants.F_OK : constants.X_OK);
-        return candidate;
+        return await realpath(candidate);
       } catch { /* keep searching */ }
     }
   }

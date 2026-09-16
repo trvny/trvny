@@ -14,17 +14,19 @@ The broader architecture remains in [`agent-dispatcher-concept.md`](./agent-disp
 - workspace-confined filesystem tools with bounded reads/listings and batched `fs.readMany`, `fs.tree`, and `fs.search`,
 - structured host Git status/diff/add/commit/export plus one-call `git.summary`,
 - `workspace.exec` through Microsoft MXC / Windows ProcessContainer,
+- canonical host-PATH discovery for Git and sandbox commands, with only the discovered tool directory added read-only,
 - Windows Job Object process-tree cleanup, memory/process ceilings, timeout/cancellation and bounded process output,
 - OpenAI-compatible free-tier routing across OpenRouter, OrcaRouter, AIHubMix, Ollama Cloud and Groq, plus Gemini, using capability-filtered tools,
 - brokered HTTPS with exact destination validation,
 - direct sandbox sockets denied by default,
 - signed remote tasks bound to one device with nonce + expiry checks,
 - durable local remote-task journal with fail-closed `recovery_required`,
-- Cloudflare Queue HTTP-pull transport with heartbeat/result callbacks,
+- Cloudflare Queue HTTP-pull transport with heartbeat/result callbacks and bounded idle backoff,
 - OS-backed singleton lease preventing multiple local Queue consumers for one remote worker identity,
 - Cloudflare Worker control plane backed by a SQLite Durable Object,
 - authenticated Streamable HTTP MCP facade at `/mcp` for remote ChatGPT/tool clients,
 - compact `pet_direct(target, tool, args)` calls validated against the full server-side tool schema,
+- auto-opened direct write/exec sessions finalized by one `session.finish` call,
 - structured direct results in `result.data` instead of JSON strings nested inside task JSON.
 
 ## Security model
@@ -35,6 +37,8 @@ The remote transport does not widen the local authority boundary. Every delegate
 
 Session Git objects are copied through a non-local clone path instead of borrowing the source clone object database. Source-side pruning therefore cannot invalidate an active session. Non-Git workspaces use the same realpath/symlink confinement but never pretend to be repositories.
 
+Host commands are resolved to canonical absolute paths. PATH discovery adds only the executable's canonical directory to the MXC read-only policy; filesystem roots are rejected. `toolRoots` remains available for explicit pinned roots, but normal PATH-visible tools do not need to be duplicated there.
+
 Remote envelopes and worker callbacks use an HMAC secret that stays in Cloudflare secrets and the Legion environment. Cloudflare Queue bearer credentials also remain local to the Legion. Neither belongs in `dispatcher.local.json`, task payloads, logs or Git.
 
 `restricted` direct egress is still fail-closed. Remote tasks may request `none` or a configured `brokered` network profile only.
@@ -43,11 +47,11 @@ Remote envelopes and worker callbacks use an HMAC secret that stays in Cloudflar
 
 The first transport implementation uses Cloudflare Queues with an HTTP pull consumer. The Legion opens outbound HTTPS connections only. No public listener or router port-forward is required.
 
-The Worker exposes authenticated operator endpoints for delegate/status/cancel, a `/v1/tool` endpoint for confined direct work, and signed worker-only lease/heartbeat/result callbacks. Task state lives in a SQLite-backed Durable Object. Queue delivery is still at-least-once; the local journal is authoritative for duplicate suppression and never automatically replays an interrupted task. Phase 2 caps remote execution at 20 minutes under a minimum 30-minute Queue visibility lease; heartbeat reports liveness/cancellation but does not extend the Queue lease. Direct write sessions default to a 30-minute TTL (maximum 60), force `network=none`, use exact capability sets, cap `fs.write` at 64 KiB UTF-8, and export successful commits under `refs/pet-dispatcher/<session-id>`. `workspace.exec` requires an existing session plus `process.exec`, uses argv-style MXC execution, enforces Job Object resource limits, and returns structured bounded stdout/stderr with optional head/tail shaping. Expired sessions discard their isolated scratch checkout.
+The Worker exposes authenticated operator endpoints for delegate/status/cancel, a `/v1/tool` endpoint for confined direct work, and signed worker-only lease/heartbeat/result callbacks. Task state lives in a SQLite-backed Durable Object. Queue delivery is still at-least-once; the local journal is authoritative for duplicate suppression and never automatically replays an interrupted task. Phase 2 caps remote execution at 20 minutes under a minimum 30-minute Queue visibility lease; heartbeat reports liveness/cancellation but does not extend the Queue lease. Direct write/exec calls may auto-open a 30-minute session, return its `sessionId`, and reuse it for later calls. `session.finish` stages all session changes, commits when necessary, exports the resulting commit under `refs/pet-dispatcher/<session-id>`, and closes the session. Explicit sessions remain available, expired sessions discard their isolated scratch checkout, and direct calls always force `network=none`. `workspace.exec` requires `process.exec`, uses argv-style MXC execution, enforces Job Object resource limits, and returns structured bounded stdout/stderr with optional head/tail shaping.
 
 `/mcp` is a stateless Streamable HTTP MCP endpoint. Operator clients may keep using `Authorization: Bearer <CONTROL_PLANE_TOKEN>`. Custom-connector UIs that offer a URL but no arbitrary header can instead use `https://<worker>/mcp/<MCP_CONNECTOR_TOKEN>` with connector auth set to **None**. `MCP_CONNECTOR_TOKEN` is a separate secret accepted only on the MCP route, never on `/v1/*`; do not reuse `CONTROL_PLANE_TOKEN` in the URL. Invocation logs are disabled so the secret path is not persisted by Worker logging.
 
-The MCP endpoint exposes `pet_meta`, `pet_delegate`, `pet_direct`, `pet_task_get` and `pet_task_cancel`. The normal direct shape is `pet_direct(target, tool, args)`; the server reconstructs and validates the full discriminated tool call internally. Completed task payloads live in structured content only, while MCP text stays short. Task timestamps, heartbeat state and similar transport metadata are omitted by default and available with `debug: true`. `pet_meta` is an optional compact capability dashboard, not a required preflight round trip.
+The MCP endpoint exposes `pet_meta`, `pet_delegate`, `pet_direct`, `pet_task_get` and `pet_task_cancel`. The normal direct shape is `pet_direct(target, tool, args)`; the server reconstructs and validates the full discriminated tool call internally. For state-changing filesystem and exec tools, MCP defaults `autoSession` to true when no `sessionId` is supplied. The returned `sessionId` can be reused, then finalized with `session.finish`. Completed task payloads live in structured content only, while MCP text stays short. Task timestamps, heartbeat state and similar transport metadata are omitted by default and available with `debug: true`. `pet_meta` is an optional compact capability dashboard, not a required preflight round trip.
 
 MCP `initialize` advertises the display title **Pet Dispatcher**, a concise description, the repository URL and the public `https://pet-dispatcher-control.travny.workers.dev/icon.png` icon. `assets/pet-dispatcher.svg` is the maintained icon source; `npm run build:icon` regenerates both `assets/pet-dispatcher.png` and the inlined Worker module.
 
@@ -57,7 +61,7 @@ HTTP pull must be enabled separately after the queue exists:
 npx wrangler queues consumer http add pet-dispatcher-tasks
 ```
 
-The pull client requires a Cloudflare API token scoped to Queues read+write because acknowledgements mutate queue state. The control plane additionally caps new delegations at **500 per UTC day**. The Queue API token remains local-only and is never stored in the repository.
+The pull client requires a Cloudflare API token scoped to Queues read+write because acknowledgements mutate queue state. Empty/error polls back off exponentially from `pollIntervalMs` to `pollMaxIntervalMs`; handling a task resets the interval immediately. The control plane additionally caps new delegations at **500 per UTC day**. The Queue API token remains local-only and is never stored in the repository.
 
 ## Local setup
 
@@ -70,6 +74,8 @@ npm run doctor
 npm run check
 npm run dev
 ```
+
+`toolRoots` may stay empty for normal PATH-visible host tools. Add explicit roots only when pinning a tool outside PATH or deliberately granting an additional read-only tool directory.
 
 The legacy remote executor id `openrouter` selects from the OpenAI-compatible backend registry. Only `available` backends enter automatic routing. A provider failure may fall through to the next backend only before any tool call has executed; after a tool side effect, the task fails closed instead of risking duplicate actions.
 

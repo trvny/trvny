@@ -1,9 +1,10 @@
 import { execFile, type ChildProcess } from "node:child_process";
 import { constants } from "node:fs";
 import { access, realpath } from "node:fs/promises";
-import { dirname, extname, join, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, parse, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { createConfigFromPolicy, getPlatformSupport, spawnSandboxFromConfig } from "@microsoft/mxc-sdk";
+import { findCommandOnPath } from "./agent-router.js";
 import type { DispatcherConfig } from "./config.js";
 import { resolveExisting } from "./path-guard.js";
 import type { Session, SessionManager } from "./sessions.js";
@@ -66,8 +67,15 @@ function boundedLimit(value: number | undefined, fallback: number, maximum: numb
   return selected;
 }
 
+function pathKey(value: string): string { return process.platform === "win32" ? value.toLowerCase() : value; }
+function pathInside(root: string, target: string): boolean {
+  const rel = relative(root, target);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
 export class CommandRunner {
   readonly #running = new Map<string, RunningProcess>();
+  readonly #pathTools = new Map<string, Promise<string | undefined>>();
 
   private constructor(
     readonly config: DispatcherConfig,
@@ -125,6 +133,25 @@ export class CommandRunner {
     };
   }
 
+  async #discoverPathExecutable(command: string): Promise<string | undefined> {
+    const key = pathKey(command);
+    const existing = this.#pathTools.get(key);
+    if (existing) return existing;
+    const pending = (async () => {
+      const executable = await findCommandOnPath(command);
+      if (!executable) return undefined;
+      const root = await realpath(dirname(executable));
+      if (pathKey(root) === pathKey(parse(root).root)) throw new Error("refusing filesystem root as a discovered tool root");
+      if (!this.toolRoots.some((item) => pathKey(item) === pathKey(root))) this.toolRoots.push(root);
+      return executable;
+    })().catch((error) => {
+      this.#pathTools.delete(key);
+      throw error;
+    });
+    this.#pathTools.set(key, pending);
+    return pending;
+  }
+
   async #resolveExecutable(session: Session, command: string): Promise<string> {
     if (!command || command.includes("\0")) throw new Error("command is required");
     if (command.includes("/") || command.includes("\\")) {
@@ -138,12 +165,13 @@ export class CommandRunner {
         try {
           await access(candidate, constants.F_OK);
           const target = await realpath(candidate);
-          const rootPrefix = root.endsWith("\\") ? root.toLowerCase() : `${root.toLowerCase()}\\`;
-          if (target.toLowerCase() === root.toLowerCase() || target.toLowerCase().startsWith(rootPrefix)) return target;
+          if (pathInside(root, target)) return target;
         } catch { /* keep searching configured roots */ }
       }
     }
-    throw new Error(`executable is outside configured tool roots or missing: ${command}`);
+    const discovered = await this.#discoverPathExecutable(command);
+    if (discovered) return discovered;
+    throw new Error(`executable is outside configured tool roots and host PATH or missing: ${command}`);
   }
 
   #limits(requested: ExecLimits): Required<JobGuardLimits> {

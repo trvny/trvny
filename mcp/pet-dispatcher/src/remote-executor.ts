@@ -15,6 +15,7 @@ import type { RemoteTaskExecutor } from "./remote-transport.js";
 const MAX_SUMMARY_CHARS = 20_000;
 const MAX_DIRECT_RESULT_BYTES = 96 * 1_024;
 const MAX_DIRECT_EXEC_STREAM_BYTES = 24 * 1_024;
+const AUTO_SESSION_TTL_MINUTES = 30;
 const ANSI_ESCAPE = /\u001B\[[0-?]*[ -/]*[@-~]/gu;
 
 const PROFILE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
@@ -193,14 +194,55 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         return { status: "failed", summary: "Direct remote write session failed to close.", error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
       }
     }
+    if (call.tool === "session.finish") {
+      try {
+        const directSession = this.#directSession(call.sessionId, task.repo);
+        if (directSession.targetKind === "workspace") {
+          await this.sessions.close(call.sessionId, false);
+          this.#clearDirectSession(call.sessionId);
+          return { status: "completed", summary: "Direct workspace session finished.", data: { ok: true, targetKind: "workspace", committed: false } };
+        }
+        const git = new HostGit(this.sessions, this.config);
+        let state = await this.sessions.status(call.sessionId);
+        let committed = false;
+        if (state.dirty) {
+          if (!call.message) throw new Error("session.finish requires a commit message when the repository has uncommitted changes");
+          const staged = await git.stageAll(call.sessionId);
+          if (staged.exitCode !== 0) throw new Error(`git add -A failed: ${staged.stderr || staged.stdout}`);
+          const commitResult = await git.commit(call.sessionId, call.message);
+          if (commitResult.exitCode !== 0) throw new Error(`git commit failed: ${commitResult.stderr || commitResult.stdout}`);
+          committed = true;
+          state = await this.sessions.status(call.sessionId);
+        }
+        let exported: { commit: string; ref: string } | undefined;
+        if (state.changedHead && state.session.exportedCommit !== state.head) exported = await git.exportCommit(call.sessionId);
+        const commit = exported?.commit ?? (state.changedHead ? state.head : state.session.exportedCommit ?? undefined);
+        const ref = exported?.ref ?? state.session.exportedRef ?? undefined;
+        await this.sessions.close(call.sessionId, false);
+        this.#clearDirectSession(call.sessionId);
+        return {
+          status: "completed", summary: "Direct remote session finished.",
+          data: { ok: true, targetKind: "repository", committed, commit, ref },
+          commit, exportedRef: ref,
+        };
+      } catch (error) {
+        return { status: "failed", summary: "Direct remote session failed to finish.", error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
+      }
+    }
 
     const sessionId = "sessionId" in call ? call.sessionId : undefined;
+    const autoSession = "autoSession" in call && call.autoSession === true;
     let temporary = false;
+    let autoOpened = false;
     let session: Session | undefined;
     try {
       if (sessionId) session = this.#directSession(sessionId, task.repo);
-      else {
-        if (writeTool || execTool) throw new Error("direct state-changing tools require a remote session");
+      else if (writeTool || execTool) {
+        if (!autoSession) throw new Error("direct state-changing tools require a remote session or autoSession=true");
+        session = await this.sessions.open(task.repo, task.baseRef, "none", undefined, false, AUTO_SESSION_TTL_MINUTES);
+        this.#scheduleDirectSession(session.id, task.repo, AUTO_SESSION_TTL_MINUTES);
+        autoOpened = true;
+      } else {
         session = await this.sessions.openRead(task.repo, task.baseRef, "none", undefined, 5);
         temporary = true;
       }
@@ -261,11 +303,17 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         }
         await this.sessions.close(session.id, false);
       }
-      const result: RemoteResult = { status: "completed", summary: `Direct remote tool ${call.tool} completed.`, data: value, commit: exported?.commit, exportedRef: exported?.ref };
+      const data = autoOpened && value && typeof value === "object" && !Array.isArray(value)
+        ? { ...(value as Record<string, unknown>), sessionId: activeSession.id }
+        : value;
+      const result: RemoteResult = { status: "completed", summary: `Direct remote tool ${call.tool} completed.`, data, commit: exported?.commit, exportedRef: exported?.ref };
       if (Buffer.byteLength(JSON.stringify(result), "utf8") > MAX_DIRECT_RESULT_BYTES) throw new Error("direct tool result exceeds remote callback limit");
       return result;
     } catch (error) {
-      if (temporary && session) await this.sessions.close(session.id, true).catch(() => undefined);
+      if ((temporary || autoOpened) && session) {
+        await this.sessions.close(session.id, true).catch(() => undefined);
+        if (autoOpened) this.#clearDirectSession(session.id);
+      }
       const abortReason = signal?.aborted ? signal.reason instanceof Error ? signal.reason.message : String(signal.reason ?? "remote task aborted") : undefined;
       const message = abortReason ?? (error instanceof Error ? error.message : String(error));
       const cancelled = abortReason === "remote task cancellation requested";

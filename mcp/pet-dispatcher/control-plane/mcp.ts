@@ -29,10 +29,14 @@ const delegateInputSchema = z.object({
   debug: debugSchema,
 }).strict();
 const directToolSchema = z.enum(REMOTE_DIRECT_TOOLS);
+const AUTO_SESSION_TOOLS = new Set([
+  "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete", "workspace.exec",
+]);
 const directInputSchema = z.object({
   target: z.string().min(1).max(128).describe("Repository or workspace alias"),
   tool: directToolSchema.describe("Confined direct tool"),
   args: z.record(z.string(), z.unknown()).default({}).describe("Arguments for the selected tool"),
+  autoSession: z.boolean().default(true).describe("Auto-open a reusable write/exec session when no sessionId is supplied"),
   baseRef: z.string().min(1).max(256).default("main").describe("Git base ref when target is a repository"),
   idempotencyKey: z.string().min(1).max(200).optional(),
   waitSeconds: z.number().int().min(0).max(45).default(20),
@@ -154,7 +158,7 @@ function createServer(operations: ControlMcpOperations): McpServer {
     websiteUrl: "https://github.com/trvny/trvny/tree/main/mcp/pet-dispatcher",
     icons: [{ src: "https://pet-dispatcher-control.travny.workers.dev/icon.png", mimeType: "image/png", sizes: ["512x512"] }],
   }, {
-    instructions: "Dispatch confined work to the paired machine. Calls may queue briefly while the device polls for work.",
+    instructions: "Dispatch confined work to the paired machine. State-changing direct calls auto-open a short-lived session; finish it with session.finish.",
   });
 
   server.registerTool("pet_meta", {
@@ -176,12 +180,14 @@ function createServer(operations: ControlMcpOperations): McpServer {
   });
 
   server.registerTool("pet_direct", {
-    description: "Run one confined direct tool using a target alias, tool name and validated args.",
+    description: "Run one confined direct tool. Write/exec calls auto-open a reusable session by default; use session.finish to commit/export/close it.",
     inputSchema: directInputSchema,
     outputSchema: taskOutputSchema,
     annotations: { title: "Run direct tool", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
-  }, async ({ target, tool, args, baseRef, idempotencyKey, waitSeconds, debug }) => {
-    const call = remoteDirectCallSchema.parse({ ...args, tool });
+  }, async ({ target, tool, args, autoSession, baseRef, idempotencyKey, waitSeconds, debug }) => {
+    const callArgs: Record<string, unknown> = { ...args };
+    if (AUTO_SESSION_TOOLS.has(tool) && !("sessionId" in callArgs) && !("autoSession" in callArgs)) callArgs.autoSession = autoSession;
+    const call = remoteDirectCallSchema.parse({ ...callArgs, tool });
     const value = { repo: target, baseRef, call };
     const stableKey = idempotencyKey ? await scopedIdempotencyKey("direct", idempotencyKey, value) : undefined;
     const submitted = await operations.direct(value, stableKey);

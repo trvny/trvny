@@ -1,12 +1,17 @@
 import { inlineModeInstruction, inlineModeLabel, parseInlineMode } from "./inline-mode";
 import { chatWithInlineFallback } from "./providers";
-import { answerTelegramInlineQuery, TELEGRAM_MESSAGE_MAX_CHARS } from "./telegram";
+import {
+  answerTelegramInlineQuery,
+  TELEGRAM_MESSAGE_MAX_CHARS,
+  TELEGRAM_RICH_MESSAGE_MAX_CHARS,
+} from "./telegram";
 import type {
   DurableObjectStateLike,
   Env,
   TelegramInlineQuery,
   TelegramInlineQueryResultArticle,
 } from "./types";
+import type { InlineMode } from "./inline-mode";
 
 const STATE_KEY = "latest-inline-query";
 const INLINE_QUERY_MAX_CHARS = 256;
@@ -28,6 +33,30 @@ function validInlineWork(value: unknown): value is InlineWork {
 
 function openBotButton() {
   return { text: "Otwórz Botka", start_parameter: "inline-help" };
+}
+
+export function inlineAnswerArticle(input: {
+  mode: InlineMode;
+  query: string;
+  answer: string;
+  updateId: number;
+}, rich = true): TelegramInlineQueryResultArticle {
+  const answer = input.answer.trim() || "Brak odpowiedzi.";
+  const title = input.mode === "ask"
+    ? `Botek: ${input.query}`
+    : `${inlineModeLabel(input.mode)} · Botek: ${input.query}`;
+  return {
+    type: "article",
+    id: `answer-${input.mode}-${input.updateId}`.slice(0, 64),
+    title: title.slice(0, 80),
+    description: answer.replace(/\s+/gu, " ").slice(0, 160),
+    input_message_content: rich
+      ? { rich_message: { markdown: answer.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS) } }
+      : {
+          message_text: answer.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
+          link_preview_options: { is_disabled: true },
+        },
+  };
 }
 
 export class TelegramInlineQueryGate {
@@ -92,7 +121,7 @@ export class TelegramInlineQueryGate {
         },
         { role: "user", content: query },
       ]);
-      answer = result.text.trim().slice(0, TELEGRAM_MESSAGE_MAX_CHARS);
+      answer = result.text.trim().slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS);
     } catch (error) {
       console.error("Telegram inline generation failed", error);
       const current = await this.state.storage.get<InlineWork>(STATE_KEY);
@@ -109,20 +138,13 @@ export class TelegramInlineQueryGate {
     const current = await this.state.storage.get<InlineWork>(STATE_KEY);
     if (current?.query.id !== work.query.id) return;
 
-    const title = request.mode === "ask"
-      ? `Botek: ${query}`
-      : `${inlineModeLabel(request.mode)} · Botek: ${query}`;
-    const article: TelegramInlineQueryResultArticle = {
-      type: "article",
-      id: `answer-${request.mode}-${work.updateId}`.slice(0, 64),
-      title: title.slice(0, 80),
-      description: answer.replace(/\s+/gu, " ").slice(0, 160),
-      input_message_content: {
-        message_text: answer || "Brak odpowiedzi.",
-        link_preview_options: { is_disabled: true },
-      },
-    };
-    await answerTelegramInlineQuery(this.env, work.query.id, [article]);
+    const articleInput = { mode: request.mode, query, answer, updateId: work.updateId };
+    try {
+      await answerTelegramInlineQuery(this.env, work.query.id, [inlineAnswerArticle(articleInput)]);
+    } catch (error) {
+      console.warn("Telegram rejected rich inline result; retrying as bounded plain text", error);
+      await answerTelegramInlineQuery(this.env, work.query.id, [inlineAnswerArticle(articleInput, false)]);
+    }
 
     const afterSend = await this.state.storage.get<InlineWork>(STATE_KEY);
     if (afterSend?.query.id === work.query.id) await this.state.storage.deleteAll();

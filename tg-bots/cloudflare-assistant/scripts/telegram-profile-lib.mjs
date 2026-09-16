@@ -61,6 +61,24 @@ export function parseProfileCommand(args) {
   throw new Error(USAGE);
 }
 
+export function profileAudioSummary(result) {
+  return {
+    totalCount: Number.isSafeInteger(result?.total_count) ? result.total_count : 0,
+    audios: Array.isArray(result?.audios)
+      ? result.audios.map((audio) => ({
+          fileId: audio.file_id,
+          fileUniqueId: audio.file_unique_id,
+          durationSeconds: audio.duration,
+          ...(audio.performer === undefined ? {} : { performer: audio.performer }),
+          ...(audio.title === undefined ? {} : { title: audio.title }),
+          ...(audio.file_name === undefined ? {} : { fileName: audio.file_name }),
+          ...(audio.mime_type === undefined ? {} : { mimeType: audio.mime_type }),
+          ...(audio.file_size === undefined ? {} : { fileSize: audio.file_size }),
+        }))
+      : [],
+  };
+}
+
 export function profilePhotoDescriptor(command) {
   if (command.action !== "set") throw new Error("Profile photo descriptor requires a set command");
   if (command.kind === "static") {

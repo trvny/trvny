@@ -21,6 +21,11 @@ export type BotekTaskControlRequest = {
   taskId: string;
 };
 
+export type BotekTaskView = {
+  plain: string;
+  richHtml: string;
+};
+
 const TASK_ID_RE = /^[0-9a-f-]{36}$/iu;
 const TERMINAL = new Set(["completed", "failed", "cancelled", "recovery_required"]);
 
@@ -44,6 +49,15 @@ function parseTaskState(value: unknown): BotekTaskState {
   }
   return value as BotekTaskState;
 }
+
+function escapeRichHtml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+function richLines(value: string, maxChars: number): string {
+  return escapeRichHtml(value.slice(0, maxChars)).replaceAll("\n", "<br>");
+}
+
 export function parseTaskCommand(text: string): { repo: string; goal: string } | null {
   if (!text.startsWith("/task ")) return null;
   const rest = text.slice("/task ".length).trim();
@@ -86,6 +100,7 @@ export async function delegateBotekTask(
   }
   return { taskId: body.taskId, status: typeof body.status === "string" ? body.status : "queued" };
 }
+
 export async function getBotekTask(env: Env, taskId: string): Promise<BotekTaskState> {
   if (!TASK_ID_RE.test(taskId)) throw new Error("Invalid task id");
   return parseTaskState(rpcBody<unknown>(await dispatcher(env).getTask(taskId)));
@@ -120,18 +135,48 @@ function taskStatusLabel(status: string): string {
   return labels[status] ?? `ℹ️ ${status}`;
 }
 
-export function taskText(task: BotekTaskState, repo?: string, goal?: string): string {
-  const lines = [
+export function taskView(task: BotekTaskState, repo?: string, goal?: string): BotekTaskView {
+  const plainLines = [
     `Legion: ${taskStatusLabel(task.status)}`,
     `Task: ${task.taskId}`,
     ...(repo ? [`Repo: ${repo}`] : []),
+    ...(task.deviceId ? [`Device: ${task.deviceId}`] : []),
+    ...(task.updatedAt ? [`Updated: ${task.updatedAt}`] : []),
+    ...(task.heartbeatAt ? [`Heartbeat: ${task.heartbeatAt}`] : []),
     ...(goal ? ["", goal.slice(0, 700)] : []),
   ];
-  if (task.result?.summary) lines.push("", task.result.summary.slice(0, 2_000));
-  if (task.result?.commit) lines.push(`Commit: ${task.result.commit}`);
-  if (task.result?.exportedRef) lines.push(`Ref: ${task.result.exportedRef}`);
-  if (task.result?.error) lines.push("", `Błąd: ${task.result.error.slice(0, 900)}`);
-  return lines.join("\n").slice(0, 4_000);
+  if (task.result?.summary) plainLines.push("", task.result.summary.slice(0, 2_000));
+  if (task.result?.commit) plainLines.push(`Commit: ${task.result.commit}`);
+  if (task.result?.exportedRef) plainLines.push(`Ref: ${task.result.exportedRef}`);
+  if (task.result?.output) plainLines.push("", `Output: ${task.result.output.slice(0, 1_200)}`);
+  if (task.result?.error) plainLines.push("", `Błąd: ${task.result.error.slice(0, 900)}`);
+
+  const rows = [
+    ["Status", taskStatusLabel(task.status)],
+    ["Task", task.taskId],
+    ...(repo ? [["Repo", repo]] : []),
+    ...(task.deviceId ? [["Device", task.deviceId]] : []),
+    ...(task.updatedAt ? [["Updated", task.updatedAt]] : []),
+    ...(task.heartbeatAt ? [["Heartbeat", task.heartbeatAt]] : []),
+  ].map(([label, value]) => `<tr><td>${escapeRichHtml(label)}</td><td>${escapeRichHtml(value)}</td></tr>`).join("");
+
+  const result = task.result;
+  const richHtml = [
+    "<h2>Legion task</h2>",
+    `<table>${rows}</table>`,
+    ...(goal ? [`<details><summary>Goal</summary><p>${richLines(goal, 1_200)}</p></details>`] : []),
+    ...(result?.summary ? [`<h3>Result</h3><p>${richLines(result.summary, 4_000)}</p>`] : []),
+    ...(result?.commit ? [`<p><b>Commit:</b> <code>${escapeRichHtml(result.commit.slice(0, 200))}</code></p>`] : []),
+    ...(result?.exportedRef ? [`<p><b>Ref:</b> <code>${escapeRichHtml(result.exportedRef.slice(0, 500))}</code></p>`] : []),
+    ...(result?.output ? [`<details><summary>Output</summary><p>${richLines(result.output, 6_000)}</p></details>`] : []),
+    ...(result?.error ? [`<details><summary>Error</summary><p>${richLines(result.error, 2_000)}</p></details>`] : []),
+  ].join("");
+
+  return { plain: plainLines.join("\n").slice(0, 4_000), richHtml };
+}
+
+export function taskText(task: BotekTaskState, repo?: string, goal?: string): string {
+  return taskView(task, repo, goal).plain;
 }
 
 export function taskCallback(data: string | undefined): { action: "refresh" | "cancel"; taskId: string } | null {

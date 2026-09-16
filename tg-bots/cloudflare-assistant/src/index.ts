@@ -34,7 +34,7 @@ import {
   parseTaskControlCommand,
   taskCallback,
   taskKeyboard,
-  taskText,
+  taskView,
 } from "./tasks";
 import {
   AllProvidersFailedError,
@@ -642,10 +642,12 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         const task = taskAction.action === "cancel"
           ? await cancelBotekTask(env, taskAction.taskId)
           : await getBotekTask(env, taskAction.taskId);
+        const view = taskView(task);
         return {
           chatId: callbackMessage.chat.id,
           editMessageId: callbackMessage.message_id,
-          text: taskText(task),
+          text: view.plain,
+          richHtml: view.richHtml,
           replyMarkup: taskKeyboard(task),
         };
       } catch (error) {
@@ -947,10 +949,12 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       const task = taskControl.action === "cancel"
         ? await cancelBotekTask(env, taskControl.taskId)
         : await getBotekTask(env, taskControl.taskId);
+      const view = taskView(task);
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
-        text: taskText(task),
+        text: view.plain,
+        richHtml: view.richHtml,
         replyMarkup: taskKeyboard(task),
       };
     } catch (error) {
@@ -983,10 +987,12 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     }
     try {
       const task = await delegateBotekTask(env, taskRequest.repo, taskRequest.goal, update.update_id);
+      const view = taskView(task, taskRequest.repo, taskRequest.goal);
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
-        text: taskText(task, taskRequest.repo, taskRequest.goal),
+        text: view.plain,
+        richHtml: view.richHtml,
         replyMarkup: taskKeyboard(task),
       };
     } catch (error) {

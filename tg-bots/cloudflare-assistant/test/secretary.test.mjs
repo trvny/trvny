@@ -54,3 +54,14 @@ test("uses captions but ignores unsupported empty business messages", () => {
   assert.equal(normalize(message({ text: undefined, caption: "Sprawdź proszę ten plik" }), connection)?.text, "Sprawdź proszę ten plik");
   assert.equal(normalize(message({ text: undefined, caption: undefined }), connection), null);
 });
+
+test("keeps the draft-only footer visible within Telegram's message limit", () => {
+  assert.ok(secretary.formatSecretaryNotification, "secretary notification formatter should exist");
+  const output = secretary.formatSecretaryNotification({
+    sender: "Ada (@ada)",
+    source: "x".repeat(2_000),
+    draft: "y".repeat(5_000),
+  });
+  assert.ok(output.length <= 4096);
+  assert.match(output, /Nic nie zostało wysłane za Ciebie\.$/u);
+});

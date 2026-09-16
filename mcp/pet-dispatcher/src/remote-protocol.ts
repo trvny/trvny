@@ -149,6 +149,24 @@ export const remoteTaskSchema = z.object({
 });
 
 export type RemoteTask = z.infer<typeof remoteTaskSchema>;
+
+export function buildRemoteDirectTask(input: { repo: string; baseRef?: string; call: RemoteDirectCall }): RemoteTask {
+  const execTool = isRemoteDirectExecTool(input.call.tool);
+  const writeTool = isRemoteDirectWriteTool(input.call.tool);
+  const networkProfile = input.call.tool === "workspace.exec" ? input.call.networkProfile : undefined;
+  const timeoutMinutes = input.call.tool === "workspace.exec"
+    ? Math.max(1, Math.ceil(input.call.timeoutMs / 60_000))
+    : 2;
+  return remoteTaskSchema.parse({
+    repo: input.repo, baseRef: input.baseRef ?? "main", executor: "direct", direct: input.call,
+    profile: execTool || writeTool ? "code" : "inspect",
+    capabilities: networkProfile ? [...REMOTE_DIRECT_NETWORK_EXEC_CAPABILITIES]
+      : execTool ? [...REMOTE_DIRECT_EXEC_CAPABILITIES]
+      : writeTool ? [...REMOTE_DIRECT_WRITE_CAPABILITIES] : [...REMOTE_DIRECT_READ_CAPABILITIES],
+    network: networkProfile ? { mode: "brokered", profile: networkProfile } : { mode: "none" },
+    timeoutMinutes,
+  });
+}
 export const taskEnvelopeSchema = z.object({
   version: z.literal(1), taskId: z.string().uuid(), deviceId: z.string().min(1).max(128), nonce: z.string().uuid(),
   issuedAt: z.number().int().nonnegative(), expiresAt: z.number().int().positive(), task: remoteTaskSchema,

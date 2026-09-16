@@ -148,8 +148,8 @@ test("frames secretary history as bounded untrusted context", () => {
   }));
   const block = secretary.secretaryContextBlock(entries);
   assert.match(block, /UNTRUSTED Telegram Business conversation context/u);
-  assert.match(block, /contact:/u);
-  assert.match(block, /owner:/u);
+  assert.match(block, /contact @\d+:/u);
+  assert.match(block, /owner @\d+:/u);
   assert.ok(block.length <= 3_500);
   assert.doesNotMatch(block, /0: z/u, "oldest entries should fall outside the six-message window");
 });

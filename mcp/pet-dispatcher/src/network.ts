@@ -1,4 +1,8 @@
-import { isIP } from "node:net";
+import { lookup } from "node:dns/promises";
+import { once } from "node:events";
+import { createServer } from "node:http";
+import { BlockList, connect, isIP } from "node:net";
+import type { Duplex } from "node:stream";
 import type { DispatcherConfig } from "./config.js";
 import type { Session } from "./sessions.js";
 
@@ -23,6 +27,12 @@ export interface BrokeredFetchResult {
   truncated: boolean;
 }
 
+export interface SubprocessNetworkProxy {
+  url: string;
+  port: number;
+  close(): Promise<void>;
+}
+
 const SAFE_RESPONSE_HEADERS = new Set(["content-type", "content-length", "etag", "last-modified", "location"]);
 const MAX_REDIRECTS = 5;
 
@@ -33,8 +43,63 @@ function hasControlCharacter(value: string): boolean {
   });
 }
 
-function hostMatches(hostname: string, rule: string): boolean {
-  return hostname.toLowerCase() === rule.toLowerCase();
+function isAllowedHost(hostname: string, hosts: readonly string[]): boolean {
+  const normalized = hostname.toLowerCase();
+  return hosts.some((host) => normalized === host.toLowerCase());
+}
+
+function configuredNetworkProfile(config: DispatcherConfig, name: string) {
+  const profile = config.networkProfiles[name];
+  if (!profile) throw new Error(`unknown network profile: ${name}`);
+  return profile;
+}
+
+const NON_PUBLIC_IPV4 = new BlockList();
+for (const [address, prefix] of [
+  ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8],
+  ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.0.2.0", 24],
+  ["192.88.99.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24],
+  ["203.0.113.0", 24], ["224.0.0.0", 4], ["240.0.0.0", 4],
+] as const) NON_PUBLIC_IPV4.addSubnet(address, prefix, "ipv4");
+
+const NON_PUBLIC_IPV6 = new BlockList();
+for (const [address, prefix] of [
+  ["::", 128], ["::1", 128], ["::ffff:0:0", 96], ["100::", 64], ["2001:2::", 48],
+  ["2001:db8::", 32], ["fc00::", 7], ["fe80::", 10], ["ff00::", 8],
+] as const) NON_PUBLIC_IPV6.addSubnet(address, prefix, "ipv6");
+
+export interface ResolvedConnectTarget { address: string; family: 4 | 6 }
+type ConnectResolver = (hostname: string) => Promise<ResolvedConnectTarget[]>;
+const defaultConnectResolver: ConnectResolver = async (host) =>
+  lookup(host, { all: true, verbatim: true }) as Promise<ResolvedConnectTarget[]>;
+const DEFAULT_MAX_PROXY_CONNECTIONS = 32;
+
+function isPublicConnectAddress(address: string, family: 4 | 6): boolean {
+  if (isIP(address) !== family) return false;
+  return family === 4 ? !NON_PUBLIC_IPV4.check(address, "ipv4") : !NON_PUBLIC_IPV6.check(address, "ipv6");
+}
+
+export async function resolvePublicConnectTarget(
+  hostname: string,
+  resolver: ConnectResolver = defaultConnectResolver,
+): Promise<ResolvedConnectTarget> {
+  const addresses = await resolver(hostname);
+  if (addresses.length === 0) throw new Error(`DNS returned no addresses for ${hostname}`);
+  if (addresses.some(({ address, family }) => !isPublicConnectAddress(address, family))) {
+    throw new Error(`DNS returned a non-public address for ${hostname}`);
+  }
+  return addresses[0]!;
+}
+
+export function assertAllowedConnectAuthority(authority: string, hosts: readonly string[]): { host: string; port: number } {
+  const match = /^([^:/?#]+):(\d{1,5})$/u.exec(authority.trim());
+  if (!match) throw new Error("proxy CONNECT destination must be host:443");
+  const host = match[1]?.toLowerCase() ?? "";
+  const port = Number(match[2]);
+  if (port !== 443) throw new Error("proxy CONNECT permits HTTPS port 443 only");
+  if (isIP(host) !== 0) throw new Error("IP-literal destinations are not allowed");
+  if (!isAllowedHost(host, hosts)) throw new Error(`destination is outside the session network profile: ${host}`);
+  return { host, port };
 }
 
 export function assertAllowedUrl(rawUrl: string, hosts: readonly string[]): URL {
@@ -44,7 +109,7 @@ export function assertAllowedUrl(rawUrl: string, hosts: readonly string[]): URL 
   if (url.port && url.port !== "443") throw new Error("brokered HTTPS is restricted to port 443");
   const ipCandidate = url.hostname.startsWith("[") && url.hostname.endsWith("]") ? url.hostname.slice(1, -1) : url.hostname;
   if (isIP(ipCandidate) !== 0) throw new Error("IP-literal destinations are not allowed");
-  if (!hosts.some((rule) => hostMatches(url.hostname, rule))) {
+  if (!isAllowedHost(url.hostname, hosts)) {
     throw new Error(`destination is outside the session network profile: ${url.hostname}`);
   }
   return url;
@@ -82,16 +147,80 @@ export class NetworkBroker {
   constructor(
     readonly config: DispatcherConfig,
     readonly fetchImpl: typeof fetch = fetch,
+    readonly connectResolver: ConnectResolver = defaultConnectResolver,
+    readonly connectImpl: typeof connect = connect,
+    readonly maxProxyConnections = DEFAULT_MAX_PROXY_CONNECTIONS,
   ) {}
 
   profileNames(): string[] { return Object.keys(this.config.networkProfiles).sort(); }
+
+  async openProxy(session: Session): Promise<SubprocessNetworkProxy> {
+    if (session.network.mode !== "brokered" || !session.network.profile) throw new Error("session has no brokered network capability");
+    const profile = configuredNetworkProfile(this.config, session.network.profile);
+    const sockets = new Set<Duplex>();
+    const clients = new Set<Duplex>();
+    let closed = false;
+    const trackSocket = (socket: Duplex): void => {
+      sockets.add(socket);
+      socket.once("close", () => sockets.delete(socket));
+    };
+    const server = createServer((_request, response) => {
+      response.writeHead(405, { Connection: "close", "Content-Type": "text/plain" });
+      response.end("HTTPS CONNECT only\\n");
+    });
+    server.on("connect", async (request, client, head) => {
+      if (closed) { client.destroy(); return; }
+      if (clients.size >= this.maxProxyConnections) {
+        client.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+        return;
+      }
+      clients.add(client);
+      client.once("close", () => clients.delete(client));
+      trackSocket(client);
+      let destination: { host: string; port: number };
+      try { destination = assertAllowedConnectAuthority(request.url ?? "", profile.hosts); }
+      catch { client.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
+      let target: ResolvedConnectTarget;
+      try { target = await resolvePublicConnectTarget(destination.host, this.connectResolver); }
+      catch { client.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
+      if (closed || client.destroyed) return;
+      const upstream = this.connectImpl({ host: target.address, port: destination.port, family: target.family });
+      trackSocket(upstream);
+      let established = false;
+      upstream.once("connect", () => {
+        established = true;
+        client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+        if (head.length > 0) upstream.write(head);
+        client.pipe(upstream); upstream.pipe(client);
+      });
+      upstream.once("error", () => {
+        if (!client.destroyed && !established) client.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+        else client.destroy();
+      });
+      client.once("error", () => upstream.destroy());
+      client.once("close", () => upstream.destroy());
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    if (!address || typeof address === "string") { server.close(); throw new Error("failed to allocate subprocess proxy port"); }
+    return {
+      url: `http://127.0.0.1:${address.port}`,
+      port: address.port,
+      close: async () => {
+        if (closed) return; closed = true;
+        for (const socket of sockets) socket.destroy();
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      },
+    };
+  }
+
   async request(session: Session, request: BrokeredFetchRequest): Promise<BrokeredFetchResult> {
     if (session.network.mode !== "brokered" && session.network.mode !== "restricted") {
       throw new Error("session has no brokered network capability");
     }
     if (!session.network.profile) throw new Error("session network profile is missing");
-    const profile = this.config.networkProfiles[session.network.profile];
-    if (!profile) throw new Error(`unknown network profile: ${session.network.profile}`);
+    const profile = configuredNetworkProfile(this.config, session.network.profile);
 
     const method = request.method ?? "GET";
     if (request.accept && (request.accept.length > 256 || hasControlCharacter(request.accept))) {

@@ -51,7 +51,7 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("fs.move"), ...autoSessionFields, from: z.string().min(1).max(1_024), to: z.string().min(1).max(1_024) }).strict(),
   z.object({ tool: z.literal("fs.delete"), ...autoSessionFields, path: z.string().min(1).max(1_024) }).strict(),
   z.object({
-    tool: z.literal("workspace.exec"), ...autoSessionFields,
+    tool: z.literal("workspace.exec"), ...autoSessionFields, networkProfile: z.string().min(1).max(128).optional(),
     argv: z.array(z.string().max(4_096)).min(1).max(64),
     cwd: z.string().min(1).max(1_024).default("."),
     timeoutMs: z.number().int().min(1_000).max(900_000).default(60_000),
@@ -84,6 +84,7 @@ export const REMOTE_DIRECT_TOOLS = [
 export const REMOTE_DIRECT_READ_CAPABILITIES = ["workspace.read", "git.read"] as const;
 export const REMOTE_DIRECT_WRITE_CAPABILITIES = ["workspace.read", "workspace.write", "git.read", "git.commit"] as const;
 export const REMOTE_DIRECT_EXEC_CAPABILITIES = ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"] as const;
+export const REMOTE_DIRECT_NETWORK_EXEC_CAPABILITIES = [...REMOTE_DIRECT_EXEC_CAPABILITIES, "network.fetch"] as const;
 const REMOTE_DIRECT_EXEC_TOOLS = new Set<RemoteDirectCall["tool"]>(["workspace.exec"]);
 const REMOTE_DIRECT_WRITE_TOOLS = new Set<RemoteDirectCall["tool"]>([
   "session.open", "session.close", "session.finish", "session.reclaim", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete", "git.add", "git.commit",
@@ -109,7 +110,10 @@ export const remoteTaskSchema = z.object({
     const tool = task.direct?.tool;
     const execTool = tool ? isRemoteDirectExecTool(tool) : false;
     const writeTool = tool ? isRemoteDirectWriteTool(tool) : false;
-    const allowedCapabilities = execTool ? REMOTE_DIRECT_EXEC_CAPABILITIES : writeTool ? REMOTE_DIRECT_WRITE_CAPABILITIES : REMOTE_DIRECT_READ_CAPABILITIES;
+    const directNetworkProfile = task.direct?.tool === "workspace.exec" ? task.direct.networkProfile : undefined;
+    const networkedExec = directNetworkProfile !== undefined;
+    const allowedCapabilities = networkedExec ? REMOTE_DIRECT_NETWORK_EXEC_CAPABILITIES
+      : execTool ? REMOTE_DIRECT_EXEC_CAPABILITIES : writeTool ? REMOTE_DIRECT_WRITE_CAPABILITIES : REMOTE_DIRECT_READ_CAPABILITIES;
     const expectedProfile = execTool || writeTool ? "code" : "inspect";
     const directKind = execTool ? "exec" : writeTool ? "write" : "read";
     if (task.profile !== expectedProfile) ctx.addIssue({ code: "custom", path: ["profile"], message: `direct ${directKind} tools require the ${expectedProfile} profile` });
@@ -119,7 +123,12 @@ export const remoteTaskSchema = z.object({
     for (const capability of allowedCapabilities) {
       if (!task.capabilities.includes(capability)) ctx.addIssue({ code: "custom", path: ["capabilities"], message: `direct tools require capability: ${capability}` });
     }
-    if (task.network.mode !== "none") ctx.addIssue({ code: "custom", path: ["network"], message: "direct tools require network mode none" });
+    if (networkedExec) {
+      if (task.network.mode !== "brokered") ctx.addIssue({ code: "custom", path: ["network"], message: "networked workspace.exec requires brokered network mode" });
+      if (task.network.profile !== directNetworkProfile) ctx.addIssue({ code: "custom", path: ["network"], message: "workspace.exec network profile must match the signed task network profile" });
+    } else if (task.network.mode !== "none") {
+      ctx.addIssue({ code: "custom", path: ["network"], message: "direct tools require network mode none unless workspace.exec requests a network profile" });
+    }
     const maxDirectMinutes = execTool ? 15 : 5;
     if (task.timeoutMinutes > maxDirectMinutes) ctx.addIssue({ code: "custom", path: ["timeoutMinutes"], message: `direct ${directKind} tools are limited to ${maxDirectMinutes} minutes` });
   } else {

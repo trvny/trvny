@@ -6,6 +6,8 @@ import { promisify } from "node:util";
 import { createConfigFromPolicy, getPlatformSupport, spawnSandboxFromConfig } from "@microsoft/mxc-sdk";
 import { findCommandOnPath } from "./agent-router.js";
 import type { DispatcherConfig } from "./config.js";
+import { prepareSandboxEnvironment } from "./environment.js";
+import { NetworkBroker, type SubprocessNetworkProxy } from "./network.js";
 import { resolveExisting } from "./path-guard.js";
 import type { Session, SessionManager } from "./sessions.js";
 import { WindowsJobGuard, type JobGuardLimits, type JobGuardStats } from "./windows-job-guard.js";
@@ -36,8 +38,43 @@ interface RunningProcess {
 
 const WINDOWS_EXTENSIONS = [".exe", ".com", ".cmd", ".bat", ""];
 
-export function requiresSystemDrivePrep(warnings: readonly string[]): boolean {
+export function requiresSystemDrivePrep(
+  warnings: readonly string[],
+  aclReady?: boolean,
+  platform = process.platform,
+): boolean {
+  if (platform === "win32" && aclReady !== undefined) return !aclReady;
   return warnings.some((warning) => warning.includes("prepare-system-drive") || warning.includes("system-drive root"));
+}
+
+let systemDrivePrepAclProbe: Promise<boolean | undefined> | undefined;
+
+function probeSystemDrivePrepAcl(): Promise<boolean | undefined> {
+  systemDrivePrepAclProbe ??= probeSystemDrivePrepAclUncached();
+  return systemDrivePrepAclProbe;
+}
+
+async function probeSystemDrivePrepAclUncached(): Promise<boolean | undefined> {
+  if (process.platform !== "win32") return undefined;
+  const systemRoot = process.env.SystemRoot ?? "C:\\Windows";
+  const driveRoot = parse(systemRoot).root;
+  const powershell = join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+  const script = [
+    `$target=${JSON.stringify(driveRoot)};`,
+    "$want=@('S-1-15-2-1','S-1-15-2-2');",
+    "$acl=([System.IO.DirectoryInfo]::new($target)).GetAccessControl();",
+    "$aces=@($acl.GetAccessRules($true,$false,[System.Security.Principal.SecurityIdentifier]));",
+    "$ok=$true; foreach($sid in $want){",
+    "  $match=@($aces | Where-Object { $_.IdentityReference.Value -eq $sid -and $_.AccessControlType -eq 'Allow' -and [int64]$_.FileSystemRights -eq 0x00120088 -and $_.InheritanceFlags -eq 'None' -and $_.PropagationFlags -eq 'None' });",
+    "  if($match.Count -eq 0){$ok=$false}",
+    "}; if($ok){Write-Output 'ready'; exit 0}else{Write-Output 'missing'; exit 0}",
+  ].join(" ");
+  try {
+    const { stdout } = await execFileAsync(powershell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], { windowsHide: true, timeout: 20_000 });
+    return stdout.trim() === "ready";
+  } catch {
+    return false;
+  }
 }
 
 function quoteBatchArg(value: string): string {
@@ -87,13 +124,15 @@ export function allowWindowsForExecutable(hostTool: boolean, platform = process.
 export class CommandRunner {
   readonly #running = new Map<string, RunningProcess>();
   readonly #pathTools = new Map<string, Promise<string | undefined>>();
+  readonly #networkBroker: NetworkBroker;
 
   private constructor(
     readonly config: DispatcherConfig,
     readonly sessions: SessionManager,
     readonly toolRoots: string[],
     readonly jobGuard: WindowsJobGuard | undefined,
-  ) {}
+    readonly systemDrivePrepRequired: boolean,
+  ) { this.#networkBroker = new NetworkBroker(config); }
 
   static async create(config: DispatcherConfig, sessions: SessionManager): Promise<CommandRunner> {
     const support = getPlatformSupport();
@@ -107,7 +146,9 @@ export class CommandRunner {
     const watchdogIntervalMs = config.resourceLimits?.watchdogIntervalMs ?? 250;
     const guard = await WindowsJobGuard.create(watchdogIntervalMs);
     if (process.platform === "win32" && !guard) throw new Error("Windows Job Object resource guardian is unavailable");
-    const runner = new CommandRunner(config, sessions, [...roots], guard);
+    const aclReady = await probeSystemDrivePrepAcl();
+    const systemDrivePrepRequired = requiresSystemDrivePrep(support.isolationWarnings ?? [], aclReady);
+    const runner = new CommandRunner(config, sessions, [...roots], guard, systemDrivePrepRequired);
     sessions.setProcessTerminator((sessionId) => runner.terminateSession(sessionId));
     return runner;
   }
@@ -117,7 +158,7 @@ export class CommandRunner {
   securityStatus(): object {
     const support = getPlatformSupport();
     const warnings = support.isolationWarnings ?? [];
-    const systemDrivePrepRequired = requiresSystemDrivePrep(warnings);
+    const systemDrivePrepRequired = this.systemDrivePrepRequired;
     const nullDevicePrepRequired = warnings.some((warning) => warning.includes("prepare-null-device") || warning.includes("\\Device\\Null"));
     const limits = this.config.resourceLimits;
     return {
@@ -232,12 +273,13 @@ export class CommandRunner {
   async exec(sessionId: string, argv: string[], cwd = ".", timeoutMs?: number, signal?: AbortSignal, requestedLimits: ExecLimits = {}): Promise<ExecResult> {
     if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
     if (argv.length === 0) throw new Error("argv must contain an executable");
-    if (requiresSystemDrivePrep(getPlatformSupport().isolationWarnings ?? [])) {
-      throw new Error("workspace.exec unavailable: MXC system-drive host preparation is required; Pet Dispatcher will not apply it automatically");
+    if (this.systemDrivePrepRequired) {
+      throw new Error("workspace.exec unavailable: MXC system-drive host preparation is required; run elevated `wxc-host-prep prepare-system-drive`, then restart Pet Dispatcher");
     }
     const releaseActivity = this.sessions.acquireActivity(sessionId, "workspace.exec");
     let child: ChildProcess | undefined;
     let running: RunningProcess | undefined;
+    let proxy: SubprocessNetworkProxy | undefined;
     let activityReleased = false;
     const release = () => { if (!activityReleased) { activityReleased = true; releaseActivity(); } };
     try {
@@ -246,6 +288,11 @@ export class CommandRunner {
       const workingDirectory = await resolveExisting(session.root, cwd);
       const resolvedExecutable = await this.#resolveExecutable(session, argv[0] ?? "");
       const executable = resolvedExecutable.path;
+      const prepared = await prepareSandboxEnvironment(this.config, session, this.toolRoots);
+      if (session.network.mode === "brokered" && session.network.profile) {
+        proxy = await this.#networkBroker.openProxy(session);
+        for (const name of ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]) prepared.env[name] = proxy.url;
+      }
       if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
       const requestedTimeout = timeoutMs ?? this.config.defaultTimeoutMs;
       if (!Number.isFinite(requestedTimeout) || requestedTimeout < 1_000) throw new Error("timeoutMs must be a finite value of at least 1000ms");
@@ -259,10 +306,19 @@ export class CommandRunner {
         commandLine = `${quoteWindowsArg(cmd)} /d /s /v:off /c "${inner}"`;
       } else commandLine = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
 
+      const networkPolicy = proxy ? {
+        egress: { default: "deny" as const, allow: [{
+          to: [{ cidr: "127.0.0.1/32" }], ports: [{ protocol: "tcp" as const, port: proxy.port }],
+        }] },
+        ingress: { default: "deny" as const, hostLoopback: "allow" as const },
+      } : {
+        egress: { default: "deny" as const },
+        ingress: { default: "deny" as const, hostLoopback: "deny" as const },
+      };
       const policy = {
-        version: "0.7.0-alpha",
-        filesystem: { readwritePaths: [session.root], readonlyPaths: [...this.toolRoots, ...session.readonlyRoots] },
-        network: { allowOutbound: false, allowLocalNetwork: false },
+        version: "0.8.0-alpha",
+        filesystem: { readwritePaths: [session.root, ...prepared.readwriteRoots], readonlyPaths: [...this.toolRoots, ...session.readonlyRoots, ...prepared.readonlyRoots] },
+        network: networkPolicy,
         ui: { allowWindows: allowWindowsForExecutable(resolvedExecutable.hostTool), clipboard: "none" as const, allowInputInjection: false },
         timeoutMs: timeout,
       };
@@ -271,7 +327,7 @@ export class CommandRunner {
       sandbox.process.commandLine = commandLine;
       sandbox.process.cwd = workingDirectory;
       const started = Date.now();
-      child = spawnSandboxFromConfig(sandbox, { usePty: false }, workingDirectory);
+      child = spawnSandboxFromConfig(sandbox, { usePty: false }, workingDirectory, prepared.env);
       if (!child.pid) { await this.#fallbackTreeKill(child); throw new Error("MXC process started without a pid"); }
       const jobId = `${sessionId}:${started}`;
       if (this.jobGuard) {
@@ -350,6 +406,8 @@ export class CommandRunner {
       if (!running && child && this.jobGuard) await this.jobGuard.release(`${sessionId}:${Date.now()}`).catch(() => undefined);
       if (!running) release();
       throw error;
+    } finally {
+      await proxy?.close().catch(() => undefined);
     }
   }
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { inlineAnswerArticle } from "../src/inline.ts";
 import * as inlineModule from "../src/inline-mode.ts";
 
 test("parses focused inline modes without changing plain asks", () => {
@@ -32,6 +33,18 @@ test("supports Polish and English translate, explain, reply and code aliases", (
   assert.deepEqual(parse("CODE: debounce in JavaScript"), { mode: "code", prompt: "debounce in JavaScript" });
   assert.equal(inlineModule.inlineModeLabel("code"), "Kod");
   assert.match(inlineModule.inlineModeInstruction("code"), /directly usable code/u);
+});
+
+test("builds rich inline results with a bounded plain fallback", () => {
+  const answer = "```ts\nconst answer = 42;\n```";
+  const input = { mode: "code", query: "stała answer", answer, updateId: 123 };
+  const rich = inlineAnswerArticle(input);
+  assert.deepEqual(rich.input_message_content, { rich_message: { markdown: answer } });
+  assert.equal(rich.title, "Kod · Botek: stała answer");
+
+  const fallback = inlineAnswerArticle({ ...input, answer: "x".repeat(5_000) }, false);
+  assert.equal(fallback.input_message_content.message_text.length, 4_096);
+  assert.deepEqual(fallback.input_message_content.link_preview_options, { is_disabled: true });
 });
 
 test("keeps colons inside the inline payload and trims only the mode prefix", () => {

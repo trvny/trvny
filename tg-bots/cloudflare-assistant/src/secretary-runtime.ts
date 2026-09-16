@@ -3,6 +3,7 @@ import {
   formatSecretaryNotification,
   isOwnerBusinessConnection,
   secretaryDraftInput,
+  secretaryDraftKeyboard,
   secretaryDraftSystemPrompt,
 } from "./secretary";
 import {
@@ -87,12 +88,19 @@ async function draftIncomingBusinessMessage(
       content: `Incoming Telegram Business message from ${input.sender}:\n${input.text}`,
     },
   ]);
+  const draft = result.text.trim() || "Brak propozycji odpowiedzi.";
   const notification = formatSecretaryNotification({
     sender: input.sender,
     source: input.text,
-    draft: result.text.trim() || "Brak propozycji odpowiedzi.",
+    draft,
   });
-  await sendTelegramMessage(env, ownerChatId(env, connection), notification);
+  const keyboard = secretaryDraftKeyboard(draft);
+  await sendTelegramMessage(
+    env,
+    ownerChatId(env, connection),
+    notification,
+    keyboard ? { replyMarkup: keyboard } : {},
+  );
 }
 
 export async function handleTelegramSecretaryUpdate(env: Env, update: unknown): Promise<boolean> {

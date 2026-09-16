@@ -5,6 +5,7 @@ import { resolveExisting, resolveExistingEntry, resolveForCreate, resolveForWrit
 const MAX_DIRECTORY_ENTRIES = 500;
 const DEFAULT_READ_MANY_FILE_BYTES = 32 * 1_024;
 const DEFAULT_READ_MANY_TOTAL_BYTES = 64 * 1_024;
+const DEFAULT_DISCOVERY_BYTES = 48 * 1_024;
 
 function slash(path: string): string { return path.replaceAll("\\", "/"); }
 
@@ -15,6 +16,12 @@ function utf8Prefix(buffer: Buffer, maxBytes: number): string {
     try { return decoder.decode(buffer.subarray(0, end)); } catch { /* trim an incomplete trailing code point */ }
   }
   return buffer.subarray(0, limit).toString("utf8");
+}
+
+function arrayBytesAfterPush<T>(items: T[], item: T): number {
+  const itemBytes = Buffer.byteLength(JSON.stringify(item), "utf8");
+  const existing = items.reduce((sum, value) => sum + Buffer.byteLength(JSON.stringify(value), "utf8"), 0);
+  return 2 + existing + itemBytes + Math.max(0, items.length);
 }
 
 export async function listWorkspace(session: Session, path = "."): Promise<object[]> {
@@ -101,12 +108,13 @@ export async function readManyWorkspace(session: Session, paths: string[], optio
   return { files, totalBytes, truncated };
 }
 
-export interface TreeOptions { depth?: number; maxEntries?: number }
+export interface TreeOptions { depth?: number; maxEntries?: number; maxBytes?: number }
 export interface TreeEntry { path: string; type: "directory" | "file" | "symlink" | "other" }
 
 export async function treeWorkspace(session: Session, path = ".", options: TreeOptions = {}) {
   const depth = Math.min(8, Math.max(0, options.depth ?? 2));
   const maxEntries = Math.min(1_000, Math.max(1, options.maxEntries ?? 250));
+  const maxBytes = Math.min(65_536, Math.max(2, options.maxBytes ?? DEFAULT_DISCOVERY_BYTES));
   await resolveExisting(session.root, path);
   const entries: TreeEntry[] = [];
   let truncated = false;
@@ -118,16 +126,19 @@ export async function treeWorkspace(session: Session, path = ".", options: TreeO
       if (entries.length >= maxEntries) { truncated = true; return; }
       const childPath = relative === "." ? child.name : `${slash(relative)}/${child.name}`;
       const type = child.isDirectory() ? "directory" : child.isFile() ? "file" : child.isSymbolicLink() ? "symlink" : "other";
-      entries.push({ path: slash(childPath), type });
+      const entry: TreeEntry = { path: slash(childPath), type };
+      if (arrayBytesAfterPush(entries, entry) > maxBytes) { truncated = true; return; }
+      entries.push(entry);
       if (child.isDirectory() && level < depth) await visit(childPath, level + 1);
+      if (truncated) return;
     }
   };
   await visit(path, 0);
-  return { entries, truncated, depth, limit: maxEntries };
+  return { entries, truncated, depth, limit: maxEntries, maxBytes };
 }
 
 export interface SearchOptions {
-  query: string; path?: string; maxMatches?: number; maxFiles?: number; maxFileBytes?: number; maxDepth?: number;
+  query: string; path?: string; maxMatches?: number; maxFiles?: number; maxFileBytes?: number; maxDepth?: number; maxBytes?: number;
 }
 
 export async function searchWorkspace(session: Session, options: SearchOptions) {
@@ -137,6 +148,7 @@ export async function searchWorkspace(session: Session, options: SearchOptions) 
   const maxFiles = Math.min(1_000, Math.max(1, options.maxFiles ?? 250));
   const maxFileBytes = Math.min(1_048_576, Math.max(1, options.maxFileBytes ?? 131_072));
   const maxDepth = Math.min(12, Math.max(0, options.maxDepth ?? 6));
+  const maxBytes = Math.min(65_536, Math.max(2, options.maxBytes ?? DEFAULT_DISCOVERY_BYTES));
   await resolveExisting(session.root, root);
   const matches: Array<{ path: string; line: number; preview: string }> = [];
   let filesScanned = 0;
@@ -151,6 +163,7 @@ export async function searchWorkspace(session: Session, options: SearchOptions) 
       const childPath = relative === "." ? child.name : `${slash(relative)}/${child.name}`;
       if (child.isDirectory()) {
         if (level < maxDepth) await visit(childPath, level + 1);
+        if (truncated) return;
         continue;
       }
       if (!child.isFile()) continue;
@@ -163,13 +176,15 @@ export async function searchWorkspace(session: Session, options: SearchOptions) 
       for (let index = 0; index < lines.length; index += 1) {
         const line = lines[index] ?? "";
         if (!line.includes(options.query)) continue;
-        matches.push({ path: slash(childPath), line: index + 1, preview: line.slice(0, 240) });
+        const match = { path: slash(childPath), line: index + 1, preview: line.slice(0, 240) };
+        if (arrayBytesAfterPush(matches, match) > maxBytes) { truncated = true; return; }
+        matches.push(match);
         if (matches.length >= maxMatches) { truncated = true; return; }
       }
     }
   };
   await visit(root, 0);
-  return { matches, filesScanned, skippedLargeFiles, truncated };
+  return { matches, filesScanned, skippedLargeFiles, truncated, maxBytes };
 }
 
 export async function writeWorkspace(session: Session, path: string, content: string): Promise<void> {

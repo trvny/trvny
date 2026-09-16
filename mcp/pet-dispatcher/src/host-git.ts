@@ -155,6 +155,10 @@ export class HostGit {
     return this.sessions.runHostOperation(sessionId, async (session) => this.#runUnlocked(session, ["add", "--", ...await this.#cleanPaths(session, paths)]));
   }
 
+  stageAll(sessionId: string): Promise<GitResult> {
+    return this.sessions.runHostOperation(sessionId, (session) => this.#runUnlocked(session, ["add", "-A", "--", "."]));
+  }
+
   commit(sessionId: string, message: string): Promise<GitResult> {
     const trimmed = message.trim();
     if (!trimmed || trimmed.length > 500) throw new Error("commit message must be 1-500 characters");

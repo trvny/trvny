@@ -6,11 +6,7 @@
   "workspaces": {
     "dc": "C:\\Users\\travn\\dir\\.dc"
   },
-  "toolRoots": [
-    "C:\\Program Files\\Git\\cmd",
-    "C:\\Program Files\\nodejs",
-    "C:\\path\\to\\platform-tools"
-  ],
+  "toolRoots": [],
   "resourceLimits": {
     "defaultMemoryMiB": 2048,
     "maxMemoryMiB": 6144,
@@ -49,6 +45,7 @@
     "queueTokenEnv": "PET_DISPATCHER_QUEUE_TOKEN",
     "signingSecretEnv": "PET_DISPATCHER_SIGNING_SECRET",
     "pollIntervalMs": 5000,
+    "pollMaxIntervalMs": 60000,
     "heartbeatIntervalMs": 15000,
     "visibilityTimeoutMs": 1800000,
     "journalPath": "remote-journal.json"

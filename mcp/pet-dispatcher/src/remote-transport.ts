@@ -30,6 +30,15 @@ async function pause(ms: number, signal?: AbortSignal): Promise<void> {
   }
 }
 
+export function nextPollInterval(currentMs: number, handled: boolean, minMs: number, maxMs: number): number {
+  if (![currentMs, minMs, maxMs].every((value) => Number.isFinite(value) && value > 0)) {
+    throw new Error("poll intervals must be positive finite values");
+  }
+  if (maxMs < minMs) throw new Error("maximum poll interval may not be lower than the base interval");
+  if (handled) return minMs;
+  return Math.min(maxMs, Math.max(minMs, currentMs * 2));
+}
+
 const pulledMessageSchema = z.object({
   lease_id: z.string().min(1),
   body: z.unknown(),
@@ -140,6 +149,7 @@ export class RemoteJournal {
     await this.#save();
     return { kind: "claimed", entry };
   }
+
   async mark(taskId: string, status: JournalEntry["status"], result?: RemoteResult): Promise<JournalEntry> {
     const data = await this.#load();
     const entry = data.entries[taskId];
@@ -397,16 +407,25 @@ export class RemoteWorker {
   async run(signal?: AbortSignal): Promise<void> {
     await this.recover();
     await this.#publishMeta();
+    const baseInterval = this.transport.config.pollIntervalMs;
+    const maxInterval = this.transport.config.pollMaxIntervalMs ?? Math.max(baseInterval, 60_000);
+    let interval = baseInterval;
     while (!signal?.aborted) {
       try {
         const handled = await this.pollOnce(signal);
-        if (!handled) {
-          await pause(this.transport.config.pollIntervalMs, signal);
+        if (handled) {
+          interval = nextPollInterval(interval, true, baseInterval, maxInterval);
+          continue;
         }
+        const wait = interval;
+        interval = nextPollInterval(interval, false, baseInterval, maxInterval);
+        await pause(wait, signal);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`[pet-dispatcher] remote poll error: ${message}\n`);
-        await pause(this.transport.config.pollIntervalMs, signal);
+        const wait = interval;
+        interval = nextPollInterval(interval, false, baseInterval, maxInterval);
+        await pause(wait, signal);
       }
     }
   }

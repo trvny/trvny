@@ -1,6 +1,7 @@
 import { constants } from "node:fs";
 import { access, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { findCommandOnPath } from "./agent-router.js";
 import type { DispatcherConfig } from "./config.js";
 
 const nullDevice = process.platform === "win32" ? "NUL" : "/dev/null";
@@ -49,5 +50,7 @@ export async function resolveTrustedGitExecutable(config: DispatcherConfig): Pro
       } catch { /* try the next configured tool root */ }
     }
   }
-  throw new Error("trusted Git executable was not found in configured toolRoots");
+  const discovered = await findCommandOnPath("git");
+  if (discovered) return discovered;
+  throw new Error("trusted Git executable was not found in configured toolRoots or host PATH");
 }

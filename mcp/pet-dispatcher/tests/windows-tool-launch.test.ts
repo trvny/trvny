@@ -3,11 +3,16 @@ import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { getPlatformSupport } from "@microsoft/mxc-sdk";
 import type { DispatcherConfig } from "../src/config.js";
-import { CommandRunner } from "../src/sandbox.js";
+import { CommandRunner, requiresSystemDrivePrep } from "../src/sandbox.js";
 import { SessionManager } from "../src/sessions.js";
 
-test("Windows MXC launches PATH-resolved Node without inheriting dispatcher secrets", { skip: process.platform !== "win32" }, async () => {
+test("Windows MXC launches PATH-resolved Node without inheriting dispatcher secrets", { skip: process.platform !== "win32" }, async (t) => {
+  if (requiresSystemDrivePrep(getPlatformSupport().isolationWarnings ?? [])) {
+    t.skip("MXC host requires system-drive preparation");
+    return;
+  }
   const base = await mkdtemp(join(tmpdir(), "pet-windows-tool-"));
   const workspace = join(base, "workspace");
   const worker = join(base, "worker");

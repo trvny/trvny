@@ -80,6 +80,10 @@ export function discoveredToolGrantRoot(executable: string, platform = process.p
   return match?.[1] ?? win32.dirname(normalized);
 }
 
+export function allowWindowsForExecutable(hostTool: boolean, platform = process.platform): boolean {
+  return platform === "win32" && hostTool;
+}
+
 export class CommandRunner {
   readonly #running = new Map<string, RunningProcess>();
   readonly #pathTools = new Map<string, Promise<string | undefined>>();
@@ -259,7 +263,7 @@ export class CommandRunner {
         version: "0.7.0-alpha",
         filesystem: { readwritePaths: [session.root], readonlyPaths: [...this.toolRoots, ...session.readonlyRoots] },
         network: { allowOutbound: false, allowLocalNetwork: false },
-        ui: { allowWindows: process.platform === "win32" && resolvedExecutable.hostTool, clipboard: "none" as const, allowInputInjection: false },
+        ui: { allowWindows: allowWindowsForExecutable(resolvedExecutable.hostTool), clipboard: "none" as const, allowInputInjection: false },
         timeoutMs: timeout,
       };
       const sandbox = createConfigFromPolicy(policy, "process", `pet-dispatcher-${session.id}`);

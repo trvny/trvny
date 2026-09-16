@@ -4,7 +4,7 @@ import test from "node:test";
 import { findCommandOnPath } from "../src/agent-router.js";
 import type { DispatcherConfig } from "../src/config.js";
 import { resolveTrustedGitExecutable } from "../src/git-runtime.js";
-import { discoveredToolGrantRoot } from "../src/sandbox.js";
+import { allowWindowsForExecutable, discoveredToolGrantRoot } from "../src/sandbox.js";
 
 function configWithoutToolRoots(): DispatcherConfig {
   return {
@@ -22,4 +22,10 @@ test("host Git falls back to the same canonical PATH discovery used by tool prob
 
 test("Scoop PATH tools grant only their versioned app root", () => {
   assert.equal(discoveredToolGrantRoot("C:\\Users\\me\\scoop\\apps\\git\\2.55.0.5\\cmd\\git.exe", "win32"), "C:\\Users\\me\\scoop\\apps\\git\\2.55.0.5");
+});
+
+test("Windows UI allowance stays limited to trusted host tools", () => {
+  assert.equal(allowWindowsForExecutable(true, "win32"), true);
+  assert.equal(allowWindowsForExecutable(false, "win32"), false);
+  assert.equal(allowWindowsForExecutable(true, "linux"), false);
 });

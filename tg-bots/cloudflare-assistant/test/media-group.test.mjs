@@ -133,6 +133,7 @@ test("coalesces photo and video items into one mixed-media album", async () => {
   const photo = albumUpdate(201, 50, "photo");
   const video = albumUpdate(202, 51, "unused-photo");
   delete video.message.photo;
+  video.message.caption = "Porównaj te materiały";
   video.message.video = {
     file_id: "video-1",
     file_unique_id: "video-1-unique",
@@ -158,6 +159,7 @@ test("coalesces photo and video items into one mixed-media album", async () => {
 
   assert.equal(sent.length, 1);
   assert.deepEqual(sent[0].message.media_group_items.map((item) => item.message_id), [50, 51]);
+  assert.equal(sent[0].message.caption, "Porównaj te materiały");
 });
 
 test("selects ordered photo and video entries from a mixed-media album", () => {

@@ -277,6 +277,24 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
               query: call.query, path: call.path, maxMatches: call.maxMatches, maxFiles: call.maxFiles,
               maxFileBytes: call.maxFileBytes, maxDepth: call.maxDepth,
             });
+            case "workspace.inspect": {
+              const includeTree = call.include.includes("tree");
+              const includeGit = call.include.includes("git");
+              const [tree, search, gitSummary] = await Promise.all([
+                includeTree ? treeWorkspace(activeSession, call.path, { depth: call.depth, maxEntries: call.maxEntries, maxBytes: call.maxTreeBytes }) : undefined,
+                call.query ? searchWorkspace(activeSession, {
+                  query: call.query, path: call.path, maxMatches: call.maxMatches, maxFiles: call.maxFiles,
+                  maxFileBytes: call.maxFileBytes, maxDepth: call.maxDepth, maxBytes: call.maxSearchBytes,
+                }) : undefined,
+                includeGit && activeSession.targetKind !== "workspace" ? git.summary(activeSession.id, call.maxCommits) : undefined,
+              ]);
+              const compactGit = gitSummary ? {
+                ...gitSummary,
+                staged: { ...gitSummary.staged, paths: gitSummary.staged.paths.slice(0, call.maxGitPaths) },
+                unstaged: { ...gitSummary.unstaged, paths: gitSummary.unstaged.paths.slice(0, call.maxGitPaths) },
+              } : includeGit ? null : undefined;
+              return { targetKind: activeSession.targetKind ?? "repository", path: call.path, tree, search, git: compactGit };
+            }
             case "fs.write": {
               if (Buffer.byteLength(call.content, "utf8") > 65_536) throw new Error("direct fs.write content exceeds 64 KiB");
               await writeWorkspace(activeSession, call.path, call.content); return { ok: true };

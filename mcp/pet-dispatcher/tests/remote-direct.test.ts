@@ -293,6 +293,68 @@ test("direct exec schema requires process.exec and caps task lifetime", () => {
   assert.equal(remoteTaskSchema.safeParse({ ...base, capabilities: ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"], timeoutMinutes: 16 }).success, false);
 });
 
+test("workspace inspect combines bounded tree, optional search and Git summary", async () => {
+  const state = await fixture();
+  const repo = state.config.repositories.fixture;
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
+  try {
+    await mkdir(join(repo, "src"));
+    await writeFile(join(repo, "src", "main.ts"), "alpha\nneedle here\nomega\n");
+    await execFileAsync("git", ["-C", repo, "add", "src/main.ts"]);
+    await execFileAsync("git", ["-C", repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "add source"]);
+
+    const result = await executor.execute(directTask({
+      tool: "workspace.inspect", path: ".", query: "needle", include: ["tree", "git"],
+      depth: 2, maxEntries: 20, maxMatches: 10, maxFiles: 20, maxFileBytes: 4_096, maxDepth: 3, maxCommits: 2,
+    }), "workspace-inspect");
+    assert.equal(result.status, "completed");
+    const data = dataOf<{
+      targetKind?: string; tree?: { entries?: Array<{ path?: string }> };
+      search?: { matches?: Array<{ path?: string; line?: number }> };
+      git?: { head?: string; recent?: unknown[] };
+    }>(result);
+    assert.equal(data.targetKind, "repository");
+    assert.ok(data.tree?.entries?.some((entry) => entry.path === "src/main.ts"));
+    assert.equal(data.search?.matches?.[0]?.path, "src/main.ts");
+    assert.equal(data.search?.matches?.[0]?.line, 2);
+    assert.match(data.git?.head ?? "", /^[0-9a-f]{40}$/u);
+    assert.ok((data.git?.recent?.length ?? 0) <= 2);
+    assert.equal(state.sessions.list().length, 0);
+  } finally { await cleanup(state); }
+});
+
+test("workspace inspect keeps non-Git workspaces Git-free", async () => {
+  const base = await mkdtemp(join(tmpdir(), "pet-inspect-workspace-"));
+  const workspace = join(base, "dc");
+  await mkdir(workspace);
+  await writeFile(join(workspace, "notes.txt"), "needle in workspace\n");
+  const config = {
+    workspaceRoot: join(base, "worker"), repositories: {}, workspaces: { dc: workspace }, toolRoots: [], networkProfiles: {},
+    defaultTimeoutMs: 15_000, maxOutputBytes: 1_048_576, maxBrokerResponseBytes: 2_097_152,
+    openRouterModel: "openrouter/free", geminiModel: "gemini-2.5-flash",
+  } satisfies DispatcherConfig;
+  const sessions = new SessionManager(config);
+  const executor = new ConfinedRemoteExecutor(config, sessions, {} as never);
+  try {
+    const task = remoteTaskSchema.parse({
+      repo: "dc", baseRef: "main", executor: "direct", profile: "inspect",
+      capabilities: ["workspace.read", "git.read"], network: { mode: "none" }, timeoutMinutes: 2,
+      direct: { tool: "workspace.inspect", path: ".", query: "needle", include: ["tree", "git"], maxEntries: 20 },
+    });
+    const result = await executor.execute(task, "inspect-workspace");
+    assert.equal(result.status, "completed");
+    const data = dataOf<{ targetKind?: string; git?: unknown; tree?: { entries?: Array<{ path?: string }> }; search?: { matches?: Array<{ path?: string }> } }>(result);
+    assert.equal(data.targetKind, "workspace");
+    assert.equal(data.git, null);
+    assert.ok(data.tree?.entries?.some((entry) => entry.path === "notes.txt"));
+    assert.equal(data.search?.matches?.[0]?.path, "notes.txt");
+    assert.equal(sessions.list().length, 0);
+  } finally {
+    for (const session of sessions.list()) await sessions.close(session.id, true).catch(() => undefined);
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
 test("direct fast-path filesystem and Git summaries stay structured", async () => {
   const state = await fixture();
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);

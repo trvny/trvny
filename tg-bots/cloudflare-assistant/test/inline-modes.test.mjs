@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import * as inlineModule from "../src/inline.ts";
+import * as inlineModule from "../src/inline-mode.ts";
 
 test("parses focused inline modes without changing plain asks", () => {
   assert.ok(inlineModule.parseInlineMode, "inline mode parser should exist");

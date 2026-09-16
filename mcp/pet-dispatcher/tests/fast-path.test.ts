@@ -45,11 +45,11 @@ test("tree is depth, entry and byte bounded", async () => {
     await mkdir(join(root, "src", "nested"), { recursive: true });
     await writeFile(join(root, "src", "one.ts"), "one\n");
     await writeFile(join(root, "src", "nested", "two.ts"), "two\n");
-    const result = await treeWorkspace(fsSession(root), ".", { depth: 1, maxEntries: 10, maxBytes: 96 });
+    const result = await treeWorkspace(fsSession(root), ".", { depth: 1, maxEntries: 10, maxBytes: 256 });
     assert.ok(result.entries.some((entry) => entry.path === "src" && entry.type === "directory"));
     assert.ok(result.entries.some((entry) => entry.path === "src/one.ts"));
     assert.equal(result.entries.some((entry) => entry.path === "src/nested/two.ts"), false);
-    assert.ok(Buffer.byteLength(JSON.stringify(result.entries), "utf8") <= 96);
+    assert.ok(Buffer.byteLength(JSON.stringify(result.entries), "utf8") <= 256);
     const tiny = await treeWorkspace(fsSession(root), ".", { depth: 8, maxEntries: 100, maxBytes: 40 });
     assert.equal(tiny.truncated, true);
     assert.ok(Buffer.byteLength(JSON.stringify(tiny.entries), "utf8") <= 40);

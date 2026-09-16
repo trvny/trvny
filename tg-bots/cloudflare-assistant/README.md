@@ -26,7 +26,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - optional Telegram Guest Mode lets the owner summon Botek with `@trvny_bot` in chats where the bot is not a member; guest replies are stateless, bounded, one-shot, and explicitly barred from private memory or acting on the owner's behalf;
 - optional Telegram Business/Secretary draft mode watches only the owner's enabled Business connection and turns supported incoming third-party text/captions into a private stateless reply suggestion; it never sends the suggestion back to the third party automatically;
 - owner voice notes and bounded audio uploads transcribed with Workers AI Whisper before normal assistant routing;
-- owner photos/screenshots support native Telegram albums: items sharing `media_group_id` are briefly coalesced, ordered, deduplicated and up to six photos are analyzed as one request instead of unrelated messages;
+- owner photos/screenshots support native Telegram albums: items sharing `media_group_id` are briefly coalesced, ordered and deduplicated; pure photo albums analyze up to six photos, while mixed photo/video albums keep one ordered request with full photo analysis plus video metadata and bounded thumbnail analysis;
 - videos, video notes and animations use bounded Telegram metadata plus best-effort thumbnail vision; full media bytes are not downloaded or claimed as inspected;
 - owner-shared locations, venues, contacts, polls, checklists, stickers and Telegram dice normalized into bounded assistant context; checklist task additions/status changes are captured when quoted or forwarded instead of causing unsolicited bot replies;
 - `/poll question | option 1 | option 2` sends a native non-anonymous Telegram poll with 2–12 options;
@@ -274,7 +274,7 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - chat accepts only `OWNER_TELEGRAM_USER_ID` in a private chat;
 - Telegram and RSS request bodies are bounded before parsing/model use;
 - voice notes are capped at 3 minutes / 2 MB; audio uploads are capped at 10 minutes / 5 MB; both are transcribed transiently and only bounded transcript context enters short conversation memory;
-- photos are capped at 5 MB each and analyzed transiently; photo albums analyze at most six images and persist only bounded text summaries, never raw image bytes;
+- photos are capped at 5 MB each and analyzed transiently; photo/video albums inspect at most six visual items, video files themselves are not downloaded, and only bounded text/metadata summaries persist, never raw image or video bytes;
 - video/animation previews use only Telegram metadata and thumbnails capped at 512 KB; the full media file is not downloaded;
 - shared locations, venues and contacts are normalized to bounded text; contact vCards and third-party metadata are not injected into the model context;
 - shared polls are normalized to bounded question/options/vote context;

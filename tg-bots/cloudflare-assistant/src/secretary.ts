@@ -26,6 +26,9 @@ export type SecretaryDraftInput = {
 };
 
 const SECRETARY_INPUT_MAX_CHARS = 2_000;
+const SECRETARY_NOTIFICATION_MAX_CHARS = 4_096;
+const SECRETARY_SOURCE_PREVIEW_MAX_CHARS = 900;
+const SECRETARY_FOOTER = "Nic nie zostało wysłane za Ciebie.";
 
 function displaySender(sender: NonNullable<TelegramBusinessMessage["from"]>): string {
   const name = [sender.first_name, sender.last_name].filter(Boolean).join(" ").trim() || "Telegram user";
@@ -70,4 +73,23 @@ export function secretaryDraftSystemPrompt(): string {
     "Do not make payments, commitments, scheduling promises, or other consequential decisions for the owner.",
     "When the message asks for one of those, draft a neutral holding reply that leaves the decision to the owner.",
   ].join(" ");
+}
+
+export function formatSecretaryNotification(input: {
+  sender: string;
+  source: string;
+  draft: string;
+}): string {
+  const sender = input.sender.trim().slice(0, 180) || "Telegram user";
+  const source = input.source.trim().replace(/\s+/gu, " ").slice(0, SECRETARY_SOURCE_PREVIEW_MAX_CHARS);
+  const prefix = [
+    `🧑‍💼 Sekretarz · ${sender}`,
+    `Wiadomość: ${source}`,
+    "",
+    "Propozycja odpowiedzi:",
+  ].join("\n");
+  const suffix = `\n\n${SECRETARY_FOOTER}`;
+  const draftBudget = Math.max(0, SECRETARY_NOTIFICATION_MAX_CHARS - prefix.length - suffix.length - 1);
+  const draft = input.draft.trim().slice(0, draftBudget) || "Brak propozycji odpowiedzi.";
+  return `${prefix}\n${draft}${suffix}`.slice(0, SECRETARY_NOTIFICATION_MAX_CHARS);
 }

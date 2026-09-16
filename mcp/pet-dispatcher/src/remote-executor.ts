@@ -148,7 +148,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       try {
         const directSession = this.#directSession(call.sessionId, task.repo);
         let exported: { commit: string; ref: string } | undefined;
-        if (!call.discard && directSession.targetKind === "repository") {
+        if (!call.discard && directSession.targetKind !== "workspace") {
           const state = await this.sessions.status(call.sessionId);
           if (!state.dirty && state.changedHead && state.session.exportedCommit !== state.head) exported = await new HostGit(this.sessions, this.config).exportCommit(call.sessionId);
         }
@@ -215,7 +215,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         });
       if (signal?.aborted) throw signal.reason ?? new Error("remote direct call aborted");
       if (temporary) {
-        if (session.targetKind === "repository") {
+        if (session.targetKind !== "workspace") {
           const state = await this.sessions.status(session.id);
           if (state.dirty || state.changedHead) throw new Error("read-only direct call unexpectedly changed the session");
         }
@@ -242,7 +242,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     let git: HostGit | undefined;
     try {
       session = await this.sessions.open(task.repo, task.baseRef, task.network.mode, task.network.profile, false, Math.min(60, task.timeoutMinutes + 5));
-      if (session.targetKind !== "repository") throw new Error("delegated agents are disabled for non-Git workspaces; use confined direct tools");
+      if (session.targetKind === "workspace") throw new Error("delegated agents are disabled for non-Git workspaces; use confined direct tools");
       git = new HostGit(this.sessions, this.config);
       const tools = new AgentTools(this.sessions, this.runner, new NetworkBroker(this.config), git, capabilities, signal);
       const commitInstruction = capabilities.has("git.commit")
@@ -269,7 +269,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       const abortReason = signal?.aborted ? signal.reason instanceof Error ? signal.reason.message : String(signal.reason ?? "remote task aborted") : undefined;
       const message = abortReason ?? (error instanceof Error ? error.message : String(error));
       let diff: string | undefined;
-      if (session && git && session.targetKind === "repository") {
+      if (session && git && session.targetKind !== "workspace") {
         try {
           const unstaged = await git.diff(session.id); const staged = await git.diff(session.id, true);
           diff = trimDiff(`${unstaged.stdout}\n${staged.stdout}`);

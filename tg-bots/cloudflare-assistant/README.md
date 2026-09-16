@@ -25,7 +25,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
 - optional Telegram Guest Mode lets the owner summon Botek with `@trvny_bot` in chats where the bot is not a member; guest replies are stateless, bounded, one-shot, and explicitly barred from private memory or acting on the owner's behalf;
-- optional Telegram Business/Secretary draft mode watches only the owner's enabled Business connection and turns supported incoming third-party text/captions into a private stateless reply suggestion; it never sends the suggestion back to the third party automatically;
+- optional Telegram Business/Secretary draft mode watches only the owner's enabled Business connection, keeps an isolated six-entry text/caption context per connection+chat from updates Botek actually receives, and turns supported incoming third-party messages into a private suggestion; it never sends the suggestion back to the third party automatically;
 - owner voice notes and bounded audio uploads transcribed with Workers AI Whisper before normal assistant routing;
 - owner photos/screenshots support native Telegram albums: items sharing `media_group_id` are briefly coalesced, ordered and deduplicated; pure photo albums analyze up to six photos, while mixed photo/video albums keep one ordered request with full photo analysis plus video metadata and bounded thumbnail analysis;
 - videos, video notes and animations use bounded Telegram metadata plus best-effort thumbnail vision; full media bytes are not downloaded or claimed as inspected;
@@ -168,7 +168,9 @@ The Worker accepts guest queries only when `guest_message.from.id` matches `OWNE
 
 Connect Botek as a Telegram Business bot for the owner's account and grant only the rights needed for the workflow being tested. The webhook subscribes to `business_connection` and `business_message`. Every incoming Business message is revalidated with `getBusinessConnection`; the connection must be enabled and its `user.id` must match `OWNER_TELEGRAM_USER_ID`.
 
-This first Secretary slice is deliberately **draft-only**. It accepts only bounded text or captions from third parties, ignores messages sent by the owner or another business bot, treats the incoming message as untrusted data, and asks the stateless short-deadline model path for a suggested reply. The suggestion is sent privately to `TELEGRAM_OWNER_CHAT_ID` (or the connection's `user_chat_id` fallback) with an explicit `Nic nie zostało wysłane za Ciebie.` footer. The model has no private Botek memory or tool/action surface in this path.
+Secretary mode remains deliberately **draft-only**. Botek keeps at most six recent text/caption Business updates per Business connection + chat in an isolated `TELEGRAM_MEMORY` Durable Object instance. Each entry is capped at 600 characters and carries only owner/contact direction plus the Telegram timestamp when present. Media bytes and private Botek conversation memory are never added to this context. Context reads/writes fail open, so a Durable Object problem falls back to the existing single-message draft behavior, and private `/reset` does not erase Business context.
+
+The model sees that tiny history and the current incoming message as explicitly **untrusted data**, then produces a suggested reply through the stateless short-deadline path. The suggestion is sent privately to `TELEGRAM_OWNER_CHAT_ID` (or the connection's `user_chat_id` fallback) with an explicit `Nic nie zostało wysłane za Ciebie.` footer. `getUserPersonalChatMessages` is not used for this: Telegram defines it as the user's profile personal-chat surface, not direct-message conversation history.
 
 No Business API method that acts on the owner's behalf is used here: no automatic reply, read receipt, deletion, scheduling, payment, task execution or commitment. Broader Secretary actions belong to later opt-in slices with separate permissions and explicit approval boundaries.
 
@@ -284,7 +286,8 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - stickers and dice expose only bounded Telegram metadata such as emoji/set/type and dice result; sticker files are not downloaded in this slice;
 - text/code documents are capped at 512 KB, decoded as UTF-8, clipped before model use, and never persisted as raw file bytes;
 - replied-to and forwarded message bodies are bounded and framed as untrusted data; forwarded text cannot enter the owner command parser;
-- Secretary/Business messages are accepted only through an enabled owner Business connection, clipped before model use, treated as untrusted third-party data, and never written into private conversation memory;
+- Secretary/Business messages are accepted only through an enabled owner Business connection; text/captions are bounded before model use, and at most six 600-character entries per connection+chat are kept in an isolated fail-open context that never enters private Botek conversation memory;
+- Secretary history and the current message are explicitly framed as untrusted data; media is not retained, private `/reset` does not touch Business context, and `getUserPersonalChatMessages` is not treated as DM history;
 - Secretary mode produces a private suggestion only; it does not reply through the Business connection, mark messages read, delete messages, schedule work, make payments or take other third-party actions;
 - RSS input and curator output lengths are bounded;
 - RSS ingestion has a separate bearer secret;

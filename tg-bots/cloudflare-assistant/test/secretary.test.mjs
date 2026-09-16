@@ -65,3 +65,16 @@ test("keeps the draft-only footer visible within Telegram's message limit", () =
   assert.ok(output.length <= 4096);
   assert.match(output, /Nic nie zostało wysłane za Ciebie\.$/u);
 });
+
+test("offers native copy only when Telegram can copy the full draft", () => {
+  assert.ok(secretary.secretaryDraftKeyboard, "secretary draft keyboard should exist");
+  assert.deepEqual(secretary.secretaryDraftKeyboard("Jasne, dam znać jutro."), {
+    inline_keyboard: [[{
+      text: "📋 Kopiuj",
+      style: "success",
+      copy_text: { text: "Jasne, dam znać jutro." },
+    }]],
+  });
+  assert.equal(secretary.secretaryDraftKeyboard("x".repeat(257)), undefined);
+  assert.equal(secretary.secretaryDraftKeyboard(""), undefined);
+});

@@ -28,6 +28,7 @@ export type SecretaryDraftInput = {
 const SECRETARY_INPUT_MAX_CHARS = 2_000;
 const SECRETARY_NOTIFICATION_MAX_CHARS = 4_096;
 const SECRETARY_SOURCE_PREVIEW_MAX_CHARS = 900;
+const SECRETARY_COPY_MAX_CHARS = 256;
 const SECRETARY_FOOTER = "Nic nie zostało wysłane za Ciebie.";
 
 function displaySender(sender: NonNullable<TelegramBusinessMessage["from"]>): string {
@@ -73,6 +74,18 @@ export function secretaryDraftSystemPrompt(): string {
     "Do not make payments, commitments, scheduling promises, or other consequential decisions for the owner.",
     "When the message asks for one of those, draft a neutral holding reply that leaves the decision to the owner.",
   ].join(" ");
+}
+
+export function secretaryDraftKeyboard(draft: string) {
+  const text = draft.trim();
+  if (!text || text.length > SECRETARY_COPY_MAX_CHARS) return undefined;
+  return {
+    inline_keyboard: [[{
+      text: "📋 Kopiuj",
+      style: "success" as const,
+      copy_text: { text },
+    }]],
+  };
 }
 
 export function formatSecretaryNotification(input: {

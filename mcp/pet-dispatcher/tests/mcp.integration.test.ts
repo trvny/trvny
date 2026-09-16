@@ -49,5 +49,7 @@ test("MCP surface initializes and exposes the confined tool set", async () => {
   } finally {
     await client.close();
     await server.close();
+    await runner.close();
+    sessions.dispose();
   }
 });

@@ -34,6 +34,9 @@
     },
     "android-read": {
       "hosts": ["dl.google.com", "maven.google.com", "repo1.maven.org", "services.gradle.org"]
+    },
+    "cloudflare-api": {
+      "hosts": ["api.cloudflare.com"]
     }
   },
   "remote": {

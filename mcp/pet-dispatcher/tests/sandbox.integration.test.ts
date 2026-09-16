@@ -10,12 +10,18 @@ import { CommandRunner, requiresSystemDrivePrep } from "../src/sandbox.js";
 import { SessionManager } from "../src/sessions.js";
 
 const execFileAsync = promisify(execFile);
+const fixtureRunners = new Set<CommandRunner>();
+test.after(async () => {
+  await Promise.all([...fixtureRunners].map((runner) => runner.close().catch(() => undefined)));
+});
 
-test("system-drive prep warning is recognized before workspace execution", () => {
-  assert.equal(requiresSystemDrivePrep([
-    "AppContainer metadata warning: run wxc-host-prep prepare-system-drive before execution",
-  ]), true);
-  assert.equal(requiresSystemDrivePrep(["unrelated isolation warning"]), false);
+test("system-drive prep requirement prefers the Windows ACL probe over stale MXC warnings", () => {
+  const warning = ["AppContainer metadata warning: run wxc-host-prep prepare-system-drive before execution"];
+  assert.equal(requiresSystemDrivePrep(warning, true, "win32"), false);
+  assert.equal(requiresSystemDrivePrep(warning, undefined, "win32"), true);
+  assert.equal(requiresSystemDrivePrep(["unrelated isolation warning"], false, "win32"), true);
+  assert.equal(requiresSystemDrivePrep([], true, "win32"), false);
+  assert.equal(requiresSystemDrivePrep([], false, "linux"), false);
 });
 
 async function makeFixture() {
@@ -45,6 +51,7 @@ async function makeFixture() {
   };
   const sessions = new SessionManager(config);
   const runner = await CommandRunner.create(config, sessions);
+  fixtureRunners.add(runner);
   return { base, repo, workspaceRoot, sessions, runner };
 }
 
@@ -64,14 +71,18 @@ test("MXC permits session files but denies files outside the assigned workspace"
     await rm(fixture.base, { recursive: true, force: true });
   }
 });
-test("brokered sessions still deny direct sandbox sockets", async () => {
+test("brokered sessions allow only profiled HTTPS through the loopback broker", async () => {
   const fixture = await makeFixture();
   const session = await fixture.sessions.open("fixture", "HEAD", "brokered", "github");
   try {
-    const result = await fixture.runner.exec(session.id, [
-      "curl.exe", "--head", "--silent", "--show-error", "--max-time", "5", "https://api.github.com",
+    const allowed = await fixture.runner.exec(session.id, [
+      "curl.exe", "--head", "--silent", "--show-error", "--ssl-revoke-best-effort", "--max-time", "8", "https://api.github.com",
+    ], ".", 12_000);
+    assert.equal(allowed.exitCode, 0, allowed.stderr || allowed.stdout);
+    const denied = await fixture.runner.exec(session.id, [
+      "curl.exe", "--head", "--silent", "--show-error", "--ssl-revoke-best-effort", "--max-time", "5", "https://example.com",
     ], ".", 10_000);
-    assert.notEqual(result.exitCode, 0);
+    assert.notEqual(denied.exitCode, 0);
   } finally {
     await fixture.sessions.close(session.id, true);
     await rm(fixture.base, { recursive: true, force: true });

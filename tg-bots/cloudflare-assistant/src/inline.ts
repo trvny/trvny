@@ -1,3 +1,4 @@
+import { inlineModeInstruction, inlineModeLabel, parseInlineMode } from "./inline-mode";
 import { chatWithInlineFallback } from "./providers";
 import { answerTelegramInlineQuery, TELEGRAM_MESSAGE_MAX_CHARS } from "./telegram";
 import type {
@@ -65,8 +66,18 @@ export class TelegramInlineQueryGate {
   async alarm(): Promise<void> {
     const work = await this.state.storage.get<InlineWork>(STATE_KEY);
     if (!work) return;
-    const query = work.query.query.trim().slice(0, INLINE_QUERY_MAX_CHARS);
-    if (!query) return;
+    const rawQuery = work.query.query.trim().slice(0, INLINE_QUERY_MAX_CHARS);
+    if (!rawQuery) return;
+    const request = parseInlineMode(rawQuery);
+    const query = request.prompt;
+    if (!query) {
+      await answerTelegramInlineQuery(this.env, work.query.id, [], openBotButton()).catch((error) => {
+        console.warn("Telegram empty inline mode response failed", error);
+      });
+      const afterEmpty = await this.state.storage.get<InlineWork>(STATE_KEY);
+      if (afterEmpty?.query.id === work.query.id) await this.state.storage.deleteAll();
+      return;
+    }
 
     let answer: string;
     try {
@@ -74,9 +85,10 @@ export class TelegramInlineQueryGate {
         {
           role: "system",
           content:
-            "You are Botek in Telegram inline mode. Answer the owner's query so the result can be shared in another chat. " +
+            "You are Botek in Telegram inline mode. The result may be shared in another chat. " +
             "Inline mode is stateless: do not refer to private conversation memory or hidden context. " +
-            "Return only the useful answer, without provider/model footers. Be concise and use the query's language.",
+            "Return only useful output, without provider/model footers. Use the query's language unless translation requires another language. " +
+            inlineModeInstruction(request.mode),
         },
         { role: "user", content: query },
       ]);
@@ -97,10 +109,13 @@ export class TelegramInlineQueryGate {
     const current = await this.state.storage.get<InlineWork>(STATE_KEY);
     if (current?.query.id !== work.query.id) return;
 
+    const title = request.mode === "ask"
+      ? `Botek: ${query}`
+      : `${inlineModeLabel(request.mode)} · Botek: ${query}`;
     const article: TelegramInlineQueryResultArticle = {
       type: "article",
-      id: `answer-${work.updateId}`.slice(0, 64),
-      title: `Botek: ${query}`.slice(0, 80),
+      id: `answer-${request.mode}-${work.updateId}`.slice(0, 64),
+      title: title.slice(0, 80),
       description: answer.replace(/\s+/gu, " ").slice(0, 160),
       input_message_content: {
         message_text: answer || "Brak odpowiedzi.",

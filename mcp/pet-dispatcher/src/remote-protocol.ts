@@ -25,6 +25,21 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
   z.object({ tool: z.literal("fs.list"), path: z.string().max(1_024).default("."), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("fs.stat"), path: z.string().min(1).max(1_024), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("fs.read"), path: z.string().min(1).max(1_024), sessionId: remoteSessionIdSchema.optional() }).strict(),
+  z.object({
+    tool: z.literal("fs.readMany"), paths: z.array(z.string().min(1).max(1_024)).min(1).max(32),
+    sessionId: remoteSessionIdSchema.optional(), maxBytesPerFile: z.number().int().min(1).max(65_536).optional(),
+    maxTotalBytes: z.number().int().min(1).max(81_920).optional(),
+  }).strict(),
+  z.object({
+    tool: z.literal("fs.tree"), path: z.string().max(1_024).default("."), sessionId: remoteSessionIdSchema.optional(),
+    depth: z.number().int().min(0).max(8).default(2), maxEntries: z.number().int().min(1).max(1_000).default(250),
+  }).strict(),
+  z.object({
+    tool: z.literal("fs.search"), query: z.string().min(1).max(512), path: z.string().max(1_024).default("."),
+    sessionId: remoteSessionIdSchema.optional(), maxMatches: z.number().int().min(1).max(200).default(50),
+    maxFiles: z.number().int().min(1).max(1_000).default(250), maxFileBytes: z.number().int().min(1).max(1_048_576).default(131_072),
+    maxDepth: z.number().int().min(0).max(12).default(6),
+  }).strict(),
   z.object({ tool: z.literal("fs.write"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024), content: z.string().max(65_536) }).strict(),
   z.object({ tool: z.literal("fs.patch"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024), oldText: z.string().min(1).max(65_536), newText: z.string().max(65_536) }).strict(),
   z.object({ tool: z.literal("fs.mkdir"), sessionId: remoteSessionIdSchema, path: z.string().min(1).max(1_024) }).strict(),
@@ -37,9 +52,12 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
     timeoutMs: z.number().int().min(1_000).max(900_000).default(60_000),
     memoryMiB: z.number().int().min(256).max(6_144).optional(),
     processLimit: z.number().int().min(1).max(64).optional(),
+    maxOutputBytes: z.number().int().min(256).max(24_576).default(24_576),
+    outputMode: z.enum(["head", "tail"]).default("tail"), stripAnsi: z.boolean().default(true),
   }).strict(),
   z.object({ tool: z.literal("git.status"), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("git.diff"), sessionId: remoteSessionIdSchema.optional(), staged: z.boolean().default(false), paths: z.array(z.string().min(1).max(1_024)).max(64).default([]) }).strict(),
+  z.object({ tool: z.literal("git.summary"), sessionId: remoteSessionIdSchema.optional(), maxCommits: z.number().int().min(1).max(10).default(5) }).strict(),
   z.object({ tool: z.literal("git.add"), sessionId: remoteSessionIdSchema, paths: z.array(z.string().min(1).max(1_024)).min(1).max(64) }).strict(),
   z.object({ tool: z.literal("git.commit"), sessionId: remoteSessionIdSchema, message: z.string().min(1).max(500) }).strict(),
 ]);
@@ -47,8 +65,8 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
 export type RemoteDirectCall = z.infer<typeof remoteDirectCallSchema>;
 export const REMOTE_DIRECT_TOOLS = [
   "session.open", "session.close", "session.status", "session.list", "session.reclaim",
-  "fs.list", "fs.stat", "fs.read", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete",
-  "workspace.exec", "git.status", "git.diff", "git.add", "git.commit",
+  "fs.list", "fs.stat", "fs.read", "fs.readMany", "fs.tree", "fs.search", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete",
+  "workspace.exec", "git.status", "git.diff", "git.summary", "git.add", "git.commit",
 ] as const satisfies readonly RemoteDirectCall["tool"][];
 export const REMOTE_DIRECT_READ_CAPABILITIES = ["workspace.read", "git.read"] as const;
 export const REMOTE_DIRECT_WRITE_CAPABILITIES = ["workspace.read", "workspace.write", "git.read", "git.commit"] as const;
@@ -109,15 +127,17 @@ export const remoteResultSchema = z.object({
   status: z.enum(["completed", "failed", "cancelled", "recovery_required"]), summary: z.string().max(20_000),
   tests: z.string().max(20_000).optional(), diff: z.string().max(65_536).optional(),
   commit: z.string().regex(/^[0-9a-f]{40}$/u).optional(), exportedRef: z.string().max(256).optional(),
-  output: z.string().max(65_536).optional(), error: z.string().max(4_096).optional(),
-});
+  data: z.unknown().optional(),
+  output: z.string().max(65_536).optional(),
+  error: z.string().max(4_096).optional(),
+}).strict();
 export type RemoteResult = z.infer<typeof remoteResultSchema>;
 export const remoteTaskStateSchema = z.object({
   taskId: z.string().uuid(), deviceId: z.string().min(1).max(128),
   status: z.enum(["queued", "leased", "running", "cancel_requested", "completed", "failed", "cancelled", "recovery_required"]),
   createdAt: z.string().datetime(), updatedAt: z.string().datetime(), heartbeatAt: z.string().datetime().optional(),
   cancelRequested: z.boolean().default(false), result: remoteResultSchema.optional(),
-});
+}).strict();
 export type RemoteTaskState = z.infer<typeof remoteTaskStateSchema>;
 
 function sortValue(value: unknown): unknown {

@@ -26,19 +26,15 @@ export async function prepareSandboxEnvironment(
   const runtime = join(session.sessionDir, "runtime");
   const home = join(runtime, "home");
   const temp = join(runtime, "tmp");
-  const appData = join(runtime, "appdata");
-  const localAppData = join(runtime, "localappdata");
   const cache = join(runtime, "cache");
-  const npmCache = join(cache, "npm");
-  const gradleCache = join(cache, "gradle");
-  const nugetCache = join(cache, "nuget");
-  await Promise.all([home, temp, appData, localAppData, npmCache, gradleCache, nugetCache].map((path) => mkdir(path, { recursive: true })));
-
-  const env: NodeJS.ProcessEnv = {
-    PATH: [...new Set(toolRoots)].join(delimiter), HOME: home, USERPROFILE: home,
-    TEMP: temp, TMP: temp, APPDATA: appData, LOCALAPPDATA: localAppData,
-    NPM_CONFIG_CACHE: npmCache, GRADLE_USER_HOME: gradleCache, NUGET_PACKAGES: nugetCache,
+  const runtimeEnv = {
+    HOME: home, USERPROFILE: home, TEMP: temp, TMP: temp,
+    APPDATA: join(runtime, "appdata"), LOCALAPPDATA: join(runtime, "localappdata"),
+    NPM_CONFIG_CACHE: join(cache, "npm"), GRADLE_USER_HOME: join(cache, "gradle"), NUGET_PACKAGES: join(cache, "nuget"),
   };
+  await Promise.all([...new Set(Object.values(runtimeEnv))].map((path) => mkdir(path, { recursive: true })));
+
+  const env: NodeJS.ProcessEnv = { PATH: [...new Set(toolRoots)].join(delimiter), ...runtimeEnv };
   for (const name of ["SystemRoot", "WINDIR", "ComSpec", "PATHEXT"] as const) {
     const value = hostValue(hostEnv, name); if (value) env[name] = value;
   }

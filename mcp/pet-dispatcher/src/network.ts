@@ -1,6 +1,8 @@
 import { lookup } from "node:dns/promises";
+import { once } from "node:events";
 import { createServer } from "node:http";
 import { BlockList, connect, isIP } from "node:net";
+import type { Duplex } from "node:stream";
 import type { DispatcherConfig } from "./config.js";
 import type { Session } from "./sessions.js";
 
@@ -41,8 +43,15 @@ function hasControlCharacter(value: string): boolean {
   });
 }
 
-function hostMatches(hostname: string, rule: string): boolean {
-  return hostname.toLowerCase() === rule.toLowerCase();
+function isAllowedHost(hostname: string, hosts: readonly string[]): boolean {
+  const normalized = hostname.toLowerCase();
+  return hosts.some((host) => normalized === host.toLowerCase());
+}
+
+function configuredNetworkProfile(config: DispatcherConfig, name: string) {
+  const profile = config.networkProfiles[name];
+  if (!profile) throw new Error(`unknown network profile: ${name}`);
+  return profile;
 }
 
 const NON_PUBLIC_IPV4 = new BlockList();
@@ -86,7 +95,7 @@ export function assertAllowedConnectAuthority(authority: string, hosts: readonly
   const port = Number(match[2]);
   if (port !== 443) throw new Error("proxy CONNECT permits HTTPS port 443 only");
   if (isIP(host) !== 0) throw new Error("IP-literal destinations are not allowed");
-  if (!hosts.some((rule) => hostMatches(host, rule))) throw new Error(`destination is outside the session network profile: ${host}`);
+  if (!isAllowedHost(host, hosts)) throw new Error(`destination is outside the session network profile: ${host}`);
   return { host, port };
 }
 
@@ -97,7 +106,7 @@ export function assertAllowedUrl(rawUrl: string, hosts: readonly string[]): URL 
   if (url.port && url.port !== "443") throw new Error("brokered HTTPS is restricted to port 443");
   const ipCandidate = url.hostname.startsWith("[") && url.hostname.endsWith("]") ? url.hostname.slice(1, -1) : url.hostname;
   if (isIP(ipCandidate) !== 0) throw new Error("IP-literal destinations are not allowed");
-  if (!hosts.some((rule) => hostMatches(url.hostname, rule))) {
+  if (!isAllowedHost(url.hostname, hosts)) {
     throw new Error(`destination is outside the session network profile: ${url.hostname}`);
   }
   return url;
@@ -141,9 +150,12 @@ export class NetworkBroker {
 
   async openProxy(session: Session): Promise<SubprocessNetworkProxy> {
     if (session.network.mode !== "brokered" || !session.network.profile) throw new Error("session has no brokered network capability");
-    const profile = this.config.networkProfiles[session.network.profile];
-    if (!profile) throw new Error(`unknown network profile: ${session.network.profile}`);
-    const sockets = new Set<{ destroy(): void }>();
+    const profile = configuredNetworkProfile(this.config, session.network.profile);
+    const sockets = new Set<Duplex>();
+    const trackSocket = (socket: Duplex): void => {
+      sockets.add(socket);
+      socket.once("close", () => sockets.delete(socket));
+    };
     const server = createServer((_request, response) => {
       response.writeHead(405, { Connection: "close", "Content-Type": "text/plain" });
       response.end("HTTPS CONNECT only\\n");
@@ -155,11 +167,9 @@ export class NetworkBroker {
       let target: ResolvedConnectTarget;
       try { target = await resolvePublicConnectTarget(destination.host); }
       catch { client.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
-      sockets.add(client);
-      client.once("close", () => sockets.delete(client));
+      trackSocket(client);
       const upstream = connect({ host: target.address, port: destination.port, family: target.family });
-      sockets.add(upstream);
-      upstream.once("close", () => sockets.delete(upstream));
+      trackSocket(upstream);
       let established = false;
       upstream.once("connect", () => {
         established = true;
@@ -174,11 +184,8 @@ export class NetworkBroker {
       client.once("error", () => upstream.destroy());
       client.once("close", () => upstream.destroy());
     });
-    await new Promise<void>((resolve, reject) => {
-      const onError = (error: Error) => { server.off("listening", onListening); reject(error); };
-      const onListening = () => { server.off("error", onError); resolve(); };
-      server.once("error", onError); server.once("listening", onListening); server.listen(0, "127.0.0.1");
-    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
     const address = server.address();
     if (!address || typeof address === "string") { server.close(); throw new Error("failed to allocate subprocess proxy port"); }
     let closed = false;
@@ -198,8 +205,7 @@ export class NetworkBroker {
       throw new Error("session has no brokered network capability");
     }
     if (!session.network.profile) throw new Error("session network profile is missing");
-    const profile = this.config.networkProfiles[session.network.profile];
-    if (!profile) throw new Error(`unknown network profile: ${session.network.profile}`);
+    const profile = configuredNetworkProfile(this.config, session.network.profile);
 
     const method = request.method ?? "GET";
     if (request.accept && (request.accept.length > 256 || hasControlCharacter(request.accept))) {

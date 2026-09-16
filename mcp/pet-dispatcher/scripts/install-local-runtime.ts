@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { loadConfig } from "../src/config.js";
-import { localRuntimePaths, migrateDispatcherConfig, type LocalRuntimePaths } from "../src/local-runtime.js";
+import { localRuntimePaths, migrateDispatcherConfig, objectRecord, type LocalRuntimePaths } from "../src/local-runtime.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -77,18 +77,10 @@ async function migrateConfig(options: InstallLocalRuntimeOptions, paths: LocalRu
       : join(options.sourceRoot, "dispatcher.config.example.json");
   const raw = JSON.parse(await readFile(sourcePath, "utf8")) as unknown;
   const defaults = JSON.parse(await readFile(join(options.sourceRoot, "dispatcher.config.example.json"), "utf8")) as unknown;
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("dispatcher config must be an object");
-  if (!defaults || typeof defaults !== "object" || Array.isArray(defaults)) throw new Error("default dispatcher config must be an object");
-  const sourceConfig = raw as Record<string, unknown>;
-  const defaultConfig = defaults as Record<string, unknown>;
-  if (sourceConfig.networkProfiles !== undefined && (!sourceConfig.networkProfiles || typeof sourceConfig.networkProfiles !== "object" || Array.isArray(sourceConfig.networkProfiles))) {
-    throw new Error("networkProfiles must be an object");
-  }
-  if (defaultConfig.networkProfiles !== undefined && (!defaultConfig.networkProfiles || typeof defaultConfig.networkProfiles !== "object" || Array.isArray(defaultConfig.networkProfiles))) {
-    throw new Error("default networkProfiles must be an object");
-  }
-  const sourceProfiles = (sourceConfig.networkProfiles ?? {}) as Record<string, unknown>;
-  const defaultProfiles = (defaultConfig.networkProfiles ?? {}) as Record<string, unknown>;
+  const sourceConfig = objectRecord(raw, "dispatcher config");
+  const defaultConfig = objectRecord(defaults, "default dispatcher config");
+  const sourceProfiles = objectRecord(sourceConfig.networkProfiles ?? {}, "networkProfiles");
+  const defaultProfiles = objectRecord(defaultConfig.networkProfiles ?? {}, "default networkProfiles");
   const migrated = migrateDispatcherConfig({ ...sourceConfig, networkProfiles: { ...defaultProfiles, ...sourceProfiles } }, {
     paths,
     dcRoot: options.dcRoot,

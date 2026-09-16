@@ -124,6 +124,7 @@ export function allowWindowsForExecutable(hostTool: boolean, platform = process.
 export class CommandRunner {
   readonly #running = new Map<string, RunningProcess>();
   readonly #pathTools = new Map<string, Promise<string | undefined>>();
+  readonly #networkBroker: NetworkBroker;
 
   private constructor(
     readonly config: DispatcherConfig,
@@ -131,7 +132,7 @@ export class CommandRunner {
     readonly toolRoots: string[],
     readonly jobGuard: WindowsJobGuard | undefined,
     readonly systemDrivePrepRequired: boolean,
-  ) {}
+  ) { this.#networkBroker = new NetworkBroker(config); }
 
   static async create(config: DispatcherConfig, sessions: SessionManager): Promise<CommandRunner> {
     const support = getPlatformSupport();
@@ -289,9 +290,8 @@ export class CommandRunner {
       const executable = resolvedExecutable.path;
       const prepared = await prepareSandboxEnvironment(this.config, session, this.toolRoots);
       if (session.network.mode === "brokered" && session.network.profile) {
-        proxy = await new NetworkBroker(this.config).openProxy(session);
-        prepared.env.HTTP_PROXY = proxy.url; prepared.env.HTTPS_PROXY = proxy.url;
-        prepared.env.http_proxy = proxy.url; prepared.env.https_proxy = proxy.url;
+        proxy = await this.#networkBroker.openProxy(session);
+        for (const name of ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]) prepared.env[name] = proxy.url;
       }
       if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
       const requestedTimeout = timeoutMs ?? this.config.defaultTimeoutMs;

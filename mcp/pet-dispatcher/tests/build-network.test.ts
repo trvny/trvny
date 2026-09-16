@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { connect as connectSocket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { loadConfig, type DispatcherConfig } from "../src/config.js";
 import { prepareSandboxEnvironment } from "../src/environment.js";
-import { assertAllowedConnectAuthority, resolvePublicConnectTarget } from "../src/network.js";
+import { assertAllowedConnectAuthority, NetworkBroker, resolvePublicConnectTarget } from "../src/network.js";
 import { remoteTaskSchema } from "../src/remote-protocol.js";
 import type { Session } from "../src/sessions.js";
 
@@ -91,9 +93,6 @@ test("CONNECT pins only public DNS results", async () => {
     network: { mode: "brokered", profile: "github" },
   }), /network profile/i);
 });
-import { connect as connectSocket } from "node:net";
-import { once } from "node:events";
-import { NetworkBroker } from "../src/network.js";
 
 test("subprocess proxy rejects an unprofiled CONNECT before upstream access", async () => {
   const root = await mkdtemp(join(tmpdir(), "pet-proxy-"));

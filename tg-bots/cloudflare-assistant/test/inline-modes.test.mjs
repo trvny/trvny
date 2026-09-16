@@ -19,7 +19,7 @@ test("parses focused inline modes without changing plain asks", () => {
   });
 });
 
-test("supports Polish and English translate, explain and reply aliases", () => {
+test("supports Polish and English translate, explain, reply and code aliases", () => {
   const parse = inlineModule.parseInlineMode;
   assert.ok(parse, "inline mode parser should exist");
   assert.deepEqual(parse("tłumacz: Good morning"), { mode: "translate", prompt: "Good morning" });
@@ -28,6 +28,10 @@ test("supports Polish and English translate, explain and reply aliases", () => {
   assert.deepEqual(parse("explain: mutex"), { mode: "explain", prompt: "mutex" });
   assert.deepEqual(parse("odpisz: dzięki za info"), { mode: "reply", prompt: "dzięki za info" });
   assert.deepEqual(parse("reply: thanks for the update"), { mode: "reply", prompt: "thanks for the update" });
+  assert.deepEqual(parse("kod: fetch JSON w TypeScript"), { mode: "code", prompt: "fetch JSON w TypeScript" });
+  assert.deepEqual(parse("CODE: debounce in JavaScript"), { mode: "code", prompt: "debounce in JavaScript" });
+  assert.equal(inlineModule.inlineModeLabel("code"), "Kod");
+  assert.match(inlineModule.inlineModeInstruction("code"), /directly usable code/u);
 });
 
 test("keeps colons inside the inline payload and trims only the mode prefix", () => {

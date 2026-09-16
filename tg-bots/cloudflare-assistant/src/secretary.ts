@@ -75,7 +75,8 @@ function boundedText(value: string | undefined, maxChars: number): string {
 }
 
 function businessText(message: { text?: string; caption?: string }, maxChars: number): string {
-  return boundedText(message.text || message.caption, maxChars);
+  const text = boundedText(message.text, maxChars);
+  return text || boundedText(message.caption, maxChars);
 }
 
 function telegramTimestamp(value: unknown): number | undefined {

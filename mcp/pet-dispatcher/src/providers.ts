@@ -9,6 +9,11 @@ import {
 
 export type AgentProvider = "openrouter" | "orcarouter" | "aihubmix" | "ollama-cloud" | "groq" | "gemini";
 
+export const AGENT_PROVIDER_ENV_NAMES = [...new Set([
+  ...OPENAI_COMPATIBLE_BACKENDS.flatMap(({ credentialEnv, modelEnv }) => modelEnv ? [credentialEnv, modelEnv] : [credentialEnv]),
+  "GEMINI_API_KEY", "GOOGLE_API_KEY",
+])].sort();
+
 const SYSTEM_PROMPT = `You are a coding worker inside a Pet Dispatcher session.
 Use the provided tools to inspect, edit and validate the assigned repository.
 Never assume host filesystem access outside the session. Finish with a concise summary and validation evidence.`;

@@ -14,6 +14,7 @@ import {
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { TelegramUpdateDedup } from "./dedup";
 import { TelegramInlineQueryGate } from "./inline";
+import { enqueueTelegramMediaGroup, TelegramMediaGroupGate } from "./media-group";
 import { handleTelegramEphemeralAsk } from "./ephemeral";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import { formatProviderStatus } from "./status";
@@ -82,7 +83,7 @@ import type {
   TelegramUpdateRecord,
 } from "./types";
 
-export { TelegramConversationMemory, TelegramInlineQueryGate, TelegramUpdateDedup };
+export { TelegramConversationMemory, TelegramInlineQueryGate, TelegramMediaGroupGate, TelegramUpdateDedup };
 
 const RSS_BODY_MAX_BYTES = 64 * 1024;
 const DEFAULT_RSS_MIN_SCORE = 75;
@@ -1724,6 +1725,15 @@ export default {
           return new Response("Service unavailable", { status: 503 });
         }
         return new Response("OK");
+      }
+
+      if (update.message?.media_group_id) {
+        try {
+          if (await enqueueTelegramMediaGroup(env, update)) return new Response("OK");
+        } catch (error) {
+          console.error("Telegram media-group enqueue failed", error);
+          return new Response("Service unavailable", { status: 503 });
+        }
       }
 
       if (update.message) {

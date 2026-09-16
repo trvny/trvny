@@ -1,7 +1,11 @@
 import { basename, resolve } from "node:path";
 import { existsSync, readFileSync, statSync } from "node:fs";
 
-import { parseProfileCommand, profilePhotoDescriptor } from "./telegram-profile-lib.mjs";
+import {
+  parseProfileCommand,
+  profileAudioSummary,
+  profilePhotoDescriptor,
+} from "./telegram-profile-lib.mjs";
 
 const STATIC_PROFILE_MAX_BYTES = 10 * 1024 * 1024;
 const ANIMATED_PROFILE_MAX_BYTES = 50 * 1024 * 1024;
@@ -74,6 +78,20 @@ async function main() {
     console.log("Botek profile photo removed.");
     return;
   }
+
+  if (command.action === "audio") {
+    const rawUserId = command.userId ?? Number(process.env.OWNER_TELEGRAM_USER_ID);
+    if (!Number.isSafeInteger(rawUserId) || rawUserId <= 0) {
+      throw new Error("Profile audio requires a user id or OWNER_TELEGRAM_USER_ID");
+    }
+    const result = await telegramJson(api, "getUserProfileAudios", {
+      user_id: rawUserId,
+      limit: command.limit,
+    });
+    console.log(JSON.stringify(profileAudioSummary(result), null, 2));
+    return;
+  }
+
   await setProfilePhoto(api, command);
   console.log(`Botek ${command.kind} profile photo updated.`);
 }

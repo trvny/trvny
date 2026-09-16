@@ -48,7 +48,7 @@
 | 🐤 **Kanarek** | [仓库](https://github.com/travnie/kanarek) | Android RSS/Atom 阅读器，带桌面小组件以及广播/IPTV 播放。 |
 | 📺 **TVPI** | [仓库](https://github.com/trvny/tvpi) · [网站](https://trfny.com/tv/) · [播放列表](https://tvpi.travny.workers.dev/playlist.m3u) | TVP 频道的稳定 IPTV 入口、Cloudflare Worker，以及用于刷新 HLS token 的住宅网络推送方案。 |
 | 🚗 **Autka** | [仓库](https://github.com/travnie/Autka) | Android 二手车聚合器，覆盖波兰、欧盟与美国进口，并包含进口成本计算。 |
-| 🤖 **LlmBench** | [仓库](https://github.com/travnie/llmbench) | Android AI 聊天中心，整合账号登录与免费 LLM 提供商。 |
+| 🤖 **Aistee** | [仓库](https://github.com/travnie/aistee) | 基于 Kotlin Multiplatform 的多服务 AI 工作区，整合账号 WebView、原生/API 聊天与共享工具。 |
 | 🔊 **WAM Bridge** | [仓库](https://github.com/travnie/wambridge) | Samsung Wireless Audio Multiroom 音频桥接，以及面向 Shape M5 的原生 foobar2000 输出。 |
 
 ### 工具与服务

@@ -9,6 +9,8 @@ import { ConfinedRemoteExecutor } from "./remote-executor.js";
 import { CloudflareQueueTransport, RemoteJournal, RemoteWorker } from "./remote-transport.js";
 import { acquireRemoteWorkerLease } from "./remote-worker-lease.js";
 import { probeRouting } from "./agent-router.js";
+import { deviceMetaSchema } from "./device-meta.js";
+import { REMOTE_DIRECT_TOOLS } from "./remote-protocol.js";
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -37,6 +39,8 @@ async function main(): Promise<void> {
       } : { enabled: false },
       activeSessions: sessions.list().length,
     }, null, 2));
+    await runner.close();
+    sessions.dispose();
     return;
   }
 
@@ -47,13 +51,26 @@ async function main(): Promise<void> {
       const transport = new CloudflareQueueTransport(config.remote);
       const journal = new RemoteJournal(config.remote.journalPath);
       const executor = new ConfinedRemoteExecutor(config, sessions, runner);
-      const worker = new RemoteWorker(transport, journal, executor);
+      const metaProvider = () => {
+        const sandbox = runner.securityStatus() as { supported?: boolean; processGuard?: string; networkDefault?: string; isolationTier?: string | null };
+        return deviceMetaSchema.parse({
+          deviceId: config.remote?.deviceId ?? "unknown", transport: "cloudflare-queues-http-pull", protocol: 1,
+          updatedAt: new Date().toISOString(), repositories: Object.keys(config.repositories).sort(),
+          workspaces: Object.keys(config.workspaces ?? {}).sort(), directTools: [...REMOTE_DIRECT_TOOLS], localTools: [],
+          activeSessions: sessions.activeCount(), activeProcesses: runner.activeProcessCount(),
+          sandbox: { supported: sandbox.supported === true, processGuard: sandbox.processGuard ?? "unknown",
+            networkDefault: sandbox.networkDefault ?? "deny", isolationTier: sandbox.isolationTier ?? null },
+        });
+      };
+      const worker = new RemoteWorker(transport, journal, executor, metaProvider);
       const controller = new AbortController();
       process.once("SIGINT", () => controller.abort());
       process.once("SIGTERM", () => controller.abort());
       console.error(`pet-dispatcher remote worker polling for ${config.remote.deviceId}`);
       await worker.run(controller.signal);
     } finally {
+      await runner.close().catch(() => undefined);
+      sessions.dispose();
       await lease.close().catch(() => undefined);
     }
     return;

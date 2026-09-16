@@ -96,6 +96,7 @@ test("direct workspace.exec reuses a write session and returns bounded output", 
     assert.equal(closed.status, "completed");
   } finally {
     for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
+    await runner.close();
     await rm(state.base, { recursive: true, force: true });
   }
 });
@@ -293,6 +294,8 @@ test("direct remote filesystem workflow exposes safe session status and cleanup"
     const statusOutput = JSON.parse(status.output ?? "{}") as { dirty?: boolean; session?: Record<string, unknown> };
     assert.equal(statusOutput.dirty, true);
     assert.equal(statusOutput.session?.id, sessionId);
+    assert.equal(statusOutput.session?.repo, "fixture");
+    assert.equal(statusOutput.session?.alias, "fixture");
     for (const privateField of ["root", "sessionDir", "sourceRoot", "gitDir"]) {
       assert.equal(privateField in (statusOutput.session ?? {}), false);
     }

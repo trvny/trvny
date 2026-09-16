@@ -3,6 +3,7 @@ import { z, ZodError } from "zod";
 import { ICON_BYTES } from "./icon.js";
 import { isMcpPath, mcpAuthorized } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
+import { deviceMetaSchema } from "../src/device-meta.js";
 import {
   REMOTE_DIRECT_EXEC_CAPABILITIES,
   REMOTE_DIRECT_READ_CAPABILITIES,
@@ -38,6 +39,7 @@ const NONCE_HISTORY_LIMIT = 64;
 const STATE_KEY = "state";
 const OUTBOX_KEY = "enqueue-outbox";
 const NONCES_KEY = "worker-nonces";
+const DEVICE_META_KEY = "device-meta";
 const QUOTA_KEY = "daily-delegation-quota";
 const DAILY_DELEGATION_LIMIT = 500;
 const enqueueOutboxSchema = z.object({
@@ -100,6 +102,10 @@ function quotaStub(env: Env): DurableObjectStub {
   return env.TASK_STATE.get(env.TASK_STATE.idFromName("__pet-free-tier-budget__"));
 }
 
+function deviceMetaStub(env: Env): DurableObjectStub {
+  return env.TASK_STATE.get(env.TASK_STATE.idFromName("__pet-device-meta__"));
+}
+
 async function readState(env: Env, taskId: string): Promise<Response> {
   return stateStub(env, taskId).fetch("https://state/state");
 }
@@ -113,6 +119,19 @@ export class TaskStateStore {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/device-meta") {
+      if (request.method === "GET") {
+        const stored = await this.state.storage.get(DEVICE_META_KEY);
+        return stored ? json(deviceMetaSchema.parse(stored)) : json({ error: "device_meta_not_found" }, 404);
+      }
+      if (request.method === "POST") {
+        const body = await readBody(request);
+        const meta = deviceMetaSchema.parse(JSON.parse(body) as unknown);
+        await this.state.storage.put(DEVICE_META_KEY, meta);
+        return json(meta);
+      }
+      return json({ error: "method_not_allowed" }, 405);
+    }
     const current = await this.state.storage.get<RemoteTaskState>(STATE_KEY);
 
     if (request.method === "GET" && url.pathname === "/state") {
@@ -360,12 +379,17 @@ async function rpcResult(response: Response): Promise<RpcResult> {
   return { status: response.status, body: await response.json() };
 }
 
-function controlMeta(env: Env) {
+async function controlMeta(env: Env) {
+  const response = await deviceMetaStub(env).fetch("https://state/device-meta");
+  if (response.ok) {
+    const meta = deviceMetaSchema.parse(await response.json());
+    return { ...meta, stale: Date.now() - Date.parse(meta.updatedAt) > 60_000 };
+  }
   return {
-    deviceId: deviceId(env),
-    transport: "cloudflare-queues-http-pull",
-    protocol: 1,
-    directTools: [...REMOTE_DIRECT_TOOLS],
+    deviceId: deviceId(env), transport: "cloudflare-queues-http-pull" as const, protocol: 1 as const,
+    updatedAt: null, repositories: [], workspaces: [], directTools: [...REMOTE_DIRECT_TOOLS], localTools: [],
+    activeSessions: 0, activeProcesses: 0, stale: true,
+    sandbox: { supported: false, processGuard: "unknown", networkDefault: "deny", isolationTier: null },
   };
 }
 
@@ -386,7 +410,7 @@ async function cancelTaskResult(taskId: string, env: Env): Promise<RpcResult> {
 
 function mcpOperations(env: Env): ControlMcpOperations {
   return {
-    meta: async () => ({ status: 200, body: controlMeta(env) }),
+    meta: async () => ({ status: 200, body: await controlMeta(env) }),
     delegate: (value, key) => delegateAssistant(value, env, key),
     direct: async (value, key) => {
       const taskId = key ? await idempotentTaskId(key) : undefined;
@@ -453,6 +477,16 @@ async function directTool(request: Request, env: Env): Promise<Response> {
   return enqueueDirectTool(JSON.parse(raw) as unknown, env);
 }
 
+async function workerMetaUpdate(request: Request, env: Env): Promise<Response> {
+  const body = await readBody(request);
+  if (!await workerAuthorized(request, env, body)) return json({ error: "unauthorized" }, 401);
+  const meta = deviceMetaSchema.parse(JSON.parse(body) as unknown);
+  if (meta.deviceId !== deviceId(env)) return json({ error: "device_mismatch" }, 400);
+  return deviceMetaStub(env).fetch("https://state/device-meta", {
+    method: "POST", headers: { "content-type": "application/json" }, body,
+  });
+}
+
 async function workerUpdate(request: Request, env: Env, taskId: string, action: string): Promise<Response> {
   const body = await readBody(request);
   if (!await workerAuthorized(request, env, body)) return json({ error: "unauthorized" }, 401);
@@ -493,6 +527,11 @@ export default {
         return handleControlMcp(await boundedMcpRequest(request), mcpOperations(env));
       }
 
+      if (url.pathname === "/v1/worker/meta") {
+        if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+        return workerMetaUpdate(request, env);
+      }
+
       const workerMatch = url.pathname.match(/^\/v1\/worker\/tasks\/([0-9a-f-]{36})\/(lease|heartbeat|result)$/u);
       if (workerMatch) {
         if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -504,7 +543,7 @@ export default {
 
       if (!controlAuthorized(request, env)) return unauthorized();
       if (request.method === "GET" && url.pathname === "/v1/meta") {
-        return json(controlMeta(env));
+        return json(await controlMeta(env));
       }
       if (request.method === "POST" && url.pathname === "/v1/delegate") {
         return delegate(request, env);

@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { z } from "zod";
 import type { DispatcherConfig } from "./config.js";
+import { deviceMetaSchema, type DeviceMeta } from "./device-meta.js";
 import {
   remoteResultSchema,
   remoteTaskStateSchema,
@@ -227,6 +228,23 @@ export class CloudflareQueueTransport {
     return signed;
   }
 
+  async reportMeta(payload: DeviceMeta): Promise<void> {
+    const base = new URL(this.config.controlPlaneUrl);
+    const path = "/v1/worker/meta";
+    const target = new URL(path, base);
+    const body = JSON.stringify(deviceMetaSchema.parse(payload));
+    const timestamp = Date.now().toString();
+    const nonce = randomUUID();
+    const signature = await signWorkerRequest(this.#signingSecret, "POST", path, timestamp, nonce, body);
+    const response = await this.fetcher(target, {
+      method: "POST", headers: {
+        "content-type": "application/json", "x-pet-device": this.config.deviceId,
+        "x-pet-timestamp": timestamp, "x-pet-nonce": nonce, "x-pet-signature": signature,
+      }, body, signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) throw new Error(`Pet Dispatcher meta callback returned HTTP ${response.status}`);
+  }
+
   async report(taskId: string, action: "lease" | "heartbeat" | "result", payload: unknown): Promise<unknown> {
     const base = new URL(this.config.controlPlaneUrl);
     const path = `/v1/worker/tasks/${taskId}/${action}`;
@@ -263,7 +281,13 @@ export class RemoteWorker {
     readonly transport: CloudflareQueueTransport,
     readonly journal: RemoteJournal,
     readonly executor: RemoteTaskExecutor,
+    readonly metaProvider?: () => DeviceMeta,
   ) {}
+
+  async #publishMeta(): Promise<void> {
+    if (!this.metaProvider) return;
+    await this.transport.reportMeta(this.metaProvider()).catch(() => undefined);
+  }
 
   async #publishTerminal(taskId: string, leaseId: string, result: RemoteResult): Promise<void> {
     try {
@@ -344,6 +368,7 @@ export class RemoteWorker {
         })
         .catch(() => undefined)
         .finally(() => { heartbeatBusy = false; });
+      this.#publishMeta().catch(() => undefined);
     }, this.transport.config.heartbeatIntervalMs);
 
     let result: RemoteResult;
@@ -365,11 +390,13 @@ export class RemoteWorker {
 
     await this.journal.mark(taskId, result.status, result);
     await this.#publishTerminal(taskId, message.lease_id, result);
+    await this.#publishMeta();
     return true;
   }
 
   async run(signal?: AbortSignal): Promise<void> {
     await this.recover();
+    await this.#publishMeta();
     while (!signal?.aborted) {
       try {
         const handled = await this.pollOnce(signal);

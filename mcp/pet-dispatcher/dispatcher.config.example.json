@@ -3,11 +3,22 @@
   "repositories": {
     "trvny": "C:\\path\\to\\trvny"
   },
+  "workspaces": {
+    "dc": "C:\\Users\\travn\\dir\\.dc"
+  },
   "toolRoots": [
     "C:\\Program Files\\Git\\cmd",
     "C:\\Program Files\\nodejs",
     "C:\\path\\to\\platform-tools"
   ],
+  "resourceLimits": {
+    "defaultMemoryMiB": 2048,
+    "maxMemoryMiB": 6144,
+    "defaultProcessCount": 32,
+    "maxProcessCount": 64,
+    "watchdogIntervalMs": 250
+  },
+  "sessionReaperIntervalMs": 15000,
   "networkProfiles": {
     "github-read": {
       "hosts": [

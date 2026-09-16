@@ -23,7 +23,12 @@ async function rpc(operations: ControlMcpOperations, body: unknown) {
 
 function baseOperations(overrides: Partial<ControlMcpOperations> = {}): ControlMcpOperations {
   return {
-    meta: async () => ({ status: 200, body: { deviceId: "test-device", transport: "cloudflare-queues-http-pull", protocol: 1, directTools: ["fs.read"] } }),
+    meta: async () => ({ status: 200, body: {
+      deviceId: "test-device", transport: "cloudflare-queues-http-pull", protocol: 1, updatedAt: "2026-09-15T23:00:00.000Z",
+      repositories: ["trvny"], workspaces: ["dc"], directTools: ["fs.read"], localTools: [],
+      activeSessions: 1, activeProcesses: 0, stale: false,
+      sandbox: { supported: true, processGuard: "windows-job-object", networkDefault: "deny", isolationTier: "appcontainer-dacl" },
+    } }),
     delegate: async () => ({ status: 202, body: { taskId: TASK_ID, status: "queued" } }),
     direct: async () => ({ status: 202, body: { taskId: TASK_ID, status: "queued" } }),
     getTask: async () => ({ status: 200, body: { taskId: TASK_ID, status: "running" } }),
@@ -66,8 +71,12 @@ test("remote MCP exposes the control-plane task surface", async () => {
     jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "pet_meta", arguments: {} },
   });
   assert.equal(meta.response.status, 200);
-  const result = meta.body?.result as { structuredContent?: { body?: { deviceId?: string } } };
+  const result = meta.body?.result as { structuredContent?: { body?: { deviceId?: string; repositories?: string[]; workspaces?: string[]; activeSessions?: number; sandbox?: { processGuard?: string } } } };
   assert.equal(result.structuredContent?.body?.deviceId, "test-device");
+  assert.deepEqual(result.structuredContent?.body?.repositories, ["trvny"]);
+  assert.deepEqual(result.structuredContent?.body?.workspaces, ["dc"]);
+  assert.equal(result.structuredContent?.body?.activeSessions, 1);
+  assert.equal(result.structuredContent?.body?.sandbox?.processGuard, "windows-job-object");
 });
 test("remote MCP delegates through the existing assistant guard shape", async () => {
   let delegated: unknown;

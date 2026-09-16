@@ -8,13 +8,17 @@ import { promisify } from "node:util";
 import type { DispatcherConfig } from "../src/config.js";
 import { HostGit } from "../src/host-git.js";
 import { ConfinedRemoteExecutor } from "../src/remote-executor.js";
-import { remoteTaskSchema } from "../src/remote-protocol.js";
+import { remoteTaskSchema, type RemoteResult } from "../src/remote-protocol.js";
 import { CommandRunner } from "../src/sandbox.js";
 import { SessionManager } from "../src/sessions.js";
 
 const execFileAsync = promisify(execFile);
 
-async function fixture() {
+function dataOf<T>(result: RemoteResult): T {
+  return result.data as T;
+}
+
+async function fixture(maxOutputBytes = 1_048_576) {
   const base = await mkdtemp(join(tmpdir(), "pet-direct-"));
   const repo = join(base, "repo");
   await mkdir(repo);
@@ -26,33 +30,11 @@ async function fixture() {
   const gitRoot = dirname(gitWhere.stdout.split(/\r?\n/u)[0] ?? "");
   const config = {
     workspaceRoot: join(base, "worker"), repositories: { fixture: repo }, toolRoots: [gitRoot], networkProfiles: {},
-    defaultTimeoutMs: 15_000, maxOutputBytes: 1_048_576, maxBrokerResponseBytes: 2_097_152,
+    defaultTimeoutMs: 15_000, maxOutputBytes, maxBrokerResponseBytes: 2_097_152,
     openRouterModel: "openrouter/free", geminiModel: "gemini-2.5-flash",
   } satisfies DispatcherConfig;
   return { base, config, sessions: new SessionManager(config) };
 }
-
-test("direct remote fs.read uses an isolated session and returns bounded output", async () => {
-  const state = await fixture();
-  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
-  const task = remoteTaskSchema.parse({
-    repo: "fixture", baseRef: "HEAD", executor: "direct", profile: "inspect",
-    capabilities: ["workspace.read", "git.read"], network: { mode: "none" }, timeoutMinutes: 2,
-    direct: { tool: "fs.read", path: "README.md" },
-  });
-  try {
-    const result = await executor.execute(task, "direct-test");
-    assert.equal(result.status, "completed");
-    const output = JSON.parse(result.output ?? "{}") as { content?: string };
-    assert.equal(output.content, "# direct bridge\n");
-    assert.equal(state.sessions.list().length, 0);
-  } finally {
-    for (const session of state.sessions.list()) {
-      await state.sessions.close(session.id, true).catch(() => undefined);
-    }
-    await rm(state.base, { recursive: true, force: true });
-  }
-});
 
 function directTask(call: Record<string, unknown>, write = false) {
   return remoteTaskSchema.parse({
@@ -73,56 +55,64 @@ function directExecTask(call: Record<string, unknown>) {
   });
 }
 
-test("direct workspace.exec reuses a write session and returns bounded output", { skip: process.platform !== "win32" }, async () => {
+async function cleanup(state: Awaited<ReturnType<typeof fixture>>): Promise<void> {
+  for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
+  await rm(state.base, { recursive: true, force: true });
+}
+
+test("direct remote fs.read uses an isolated session and structured output", async () => {
+  const state = await fixture();
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
+  try {
+    const result = await executor.execute(directTask({ tool: "fs.read", path: "README.md" }), "direct-test");
+    assert.equal(result.status, "completed");
+    assert.deepEqual(dataOf(result), { content: "# direct bridge\n" });
+    assert.equal(result.output, undefined);
+    assert.equal(state.sessions.list().length, 0);
+  } finally { await cleanup(state); }
+});
+
+test("direct workspace.exec reuses a write session without depending on Git inside MXC", { skip: process.platform !== "win32" }, async () => {
   const state = await fixture();
   const runner = await CommandRunner.create(state.config, state.sessions);
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, runner);
   try {
     const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-exec");
-    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    const { sessionId } = dataOf<{ sessionId?: string }>(opened);
     assert.ok(sessionId);
     const executed = await executor.execute(directExecTask({
-      tool: "workspace.exec", sessionId, argv: ["git", "--version"], timeoutMs: 10_000,
+      tool: "workspace.exec", sessionId, argv: ["cmd", "/d", "/s", "/c", "echo PET_OK"], timeoutMs: 10_000,
     }), "exec");
     assert.equal(executed.status, "completed");
-    const output = JSON.parse(executed.output ?? "{}") as { exitCode?: number; stdout?: string; truncated?: boolean };
+    const output = dataOf<{ exitCode?: number; stdout?: string; truncated?: boolean }>(executed);
     assert.equal(output.exitCode, 0);
-    assert.match(output.stdout ?? "", /git version/i);
+    assert.match(output.stdout ?? "", /PET_OK/u);
     assert.equal(output.truncated, false);
     assert.equal(state.sessions.list().length, 1);
-    const closed = await executor.execute(directTask({
-      tool: "session.close", sessionId, discard: true,
-    }, true), "close-exec");
-    assert.equal(closed.status, "completed");
+    assert.equal((await executor.execute(directTask({ tool: "session.close", sessionId, discard: true }, true), "close-exec")).status, "completed");
   } finally {
-    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
     await runner.close();
-    await rm(state.base, { recursive: true, force: true });
+    await cleanup(state);
   }
 });
 
 test("direct workspace.exec truncates UTF-8 on complete code point boundaries", async () => {
   const state = await fixture();
-  const runner = {
-    exec: async () => ({ exitCode: 0, stdout: `a${"€".repeat(8192)}`, stderr: "", truncated: false, durationMs: 1 }),
-  } as never;
+  const runner = { exec: async () => ({ exitCode: 0, stdout: `a${"€".repeat(8192)}`, stderr: "", truncated: false, durationMs: 1 }) } as never;
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, runner);
   try {
     const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-utf8");
-    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    const { sessionId } = dataOf<{ sessionId?: string }>(opened);
     assert.ok(sessionId);
     const executed = await executor.execute(directExecTask({
       tool: "workspace.exec", sessionId, argv: ["git", "--version"], timeoutMs: 10_000,
     }), "exec-utf8");
+    const output = dataOf<{ stdout?: string; truncated?: boolean }>(executed);
     assert.equal(executed.status, "completed");
-    const output = JSON.parse(executed.output ?? "{}") as { stdout?: string; truncated?: boolean };
     assert.equal(output.truncated, true);
     assert.ok(Buffer.byteLength(output.stdout ?? "", "utf8") <= 24 * 1_024);
     assert.doesNotMatch(output.stdout ?? "", /�/u);
-  } finally {
-    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
-    await rm(state.base, { recursive: true, force: true });
-  }
+  } finally { await cleanup(state); }
 });
 
 test("pre-cancelled direct call returns cancelled without touching the session", async () => {
@@ -137,9 +127,7 @@ test("pre-cancelled direct call returns cancelled without touching the session",
     assert.equal(result.status, "cancelled");
     assert.match(result.error ?? "", /cancellation requested/u);
     assert.equal(state.sessions.list().length, 0);
-  } finally {
-    await rm(state.base, { recursive: true, force: true });
-  }
+  } finally { await cleanup(state); }
 });
 
 test("direct write session persists across calls and exports the committed head", async () => {
@@ -147,44 +135,21 @@ test("direct write session persists across calls and exports the committed head"
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
   try {
     const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open");
-    assert.equal(opened.status, "completed");
-    const openOutput = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
-    assert.ok(openOutput.sessionId);
-    const sessionId = openOutput.sessionId;
-    assert.equal((await executor.execute(directTask({
-      tool: "fs.write", sessionId, path: "README.md", content: "# direct write bridge\n",
-    }, true), "write")).status, "completed");
-    const readBack = await executor.execute(directTask({
-      tool: "fs.read", sessionId, path: "README.md",
-    }), "read-back");
-    assert.equal(readBack.status, "completed");
-    const readOutput = JSON.parse(readBack.output ?? "{}") as { content?: string };
-    assert.equal(readOutput.content, "# direct write bridge\n");
-    assert.equal((await executor.execute(directTask({
-      tool: "git.add", sessionId, paths: ["README.md"],
-    }, true), "add")).status, "completed");
-    const committed = await executor.execute(directTask({
-      tool: "git.commit", sessionId, message: "test: direct write bridge",
-    }, true), "commit");
+    const { sessionId } = dataOf<{ sessionId?: string }>(opened);
+    assert.ok(sessionId);
+    assert.equal((await executor.execute(directTask({ tool: "fs.write", sessionId, path: "README.md", content: "# direct write bridge\n" }, true), "write")).status, "completed");
+    const readBack = await executor.execute(directTask({ tool: "fs.read", sessionId, path: "README.md" }), "read-back");
+    assert.deepEqual(dataOf(readBack), { content: "# direct write bridge\n" });
+    assert.equal((await executor.execute(directTask({ tool: "git.add", sessionId, paths: ["README.md"] }, true), "add")).status, "completed");
+    const committed = await executor.execute(directTask({ tool: "git.commit", sessionId, message: "test: direct write bridge" }, true), "commit");
     assert.equal(committed.status, "completed");
     assert.match(committed.commit ?? "", /^[0-9a-f]{40}$/u);
     assert.equal(committed.exportedRef, `refs/pet-dispatcher/${sessionId}`);
-    const resolved = await execFileAsync("git", [
-      "-C", state.config.repositories.fixture,
-      "rev-parse", "--verify", `${committed.exportedRef}^{commit}`,
-    ]);
+    const resolved = await execFileAsync("git", ["-C", state.config.repositories.fixture, "rev-parse", "--verify", `${committed.exportedRef}^{commit}`]);
     assert.equal(resolved.stdout.trim(), committed.commit);
-    const closed = await executor.execute(directTask({
-      tool: "session.close", sessionId, discard: false,
-    }, true), "close");
-    assert.equal(closed.status, "completed");
+    assert.equal((await executor.execute(directTask({ tool: "session.close", sessionId, discard: false }, true), "close")).status, "completed");
     assert.equal(state.sessions.list().length, 0);
-  } finally {
-    for (const session of state.sessions.list()) {
-      await state.sessions.close(session.id, true).catch(() => undefined);
-    }
-    await rm(state.base, { recursive: true, force: true });
-  }
+  } finally { await cleanup(state); }
 });
 
 test("direct write session survives a refused clean close until explicitly discarded", async () => {
@@ -192,26 +157,16 @@ test("direct write session survives a refused clean close until explicitly disca
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
   try {
     const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-dirty");
-    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    const { sessionId } = dataOf<{ sessionId?: string }>(opened);
     assert.ok(sessionId);
-    assert.equal((await executor.execute(directTask({
-      tool: "fs.write", sessionId, path: "dirty.txt", content: "still here\n",
-    }, true), "dirty-write")).status, "completed");
-    const refused = await executor.execute(directTask({
-      tool: "session.close", sessionId, discard: false,
-    }, true), "close-refused");
+    assert.equal((await executor.execute(directTask({ tool: "fs.write", sessionId, path: "dirty.txt", content: "still here\n" }, true), "dirty-write")).status, "completed");
+    const refused = await executor.execute(directTask({ tool: "session.close", sessionId, discard: false }, true), "close-refused");
     assert.equal(refused.status, "failed");
     assert.match(refused.error ?? "", /unexported changes/u);
     assert.equal(state.sessions.list().length, 1);
-    const discarded = await executor.execute(directTask({
-      tool: "session.close", sessionId, discard: true,
-    }, true), "close-discard");
-    assert.equal(discarded.status, "completed");
+    assert.equal((await executor.execute(directTask({ tool: "session.close", sessionId, discard: true }, true), "close-discard")).status, "completed");
     assert.equal(state.sessions.list().length, 0);
-  } finally {
-    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
-    await rm(state.base, { recursive: true, force: true });
-  }
+  } finally { await cleanup(state); }
 });
 
 test("clean direct close exports a committed head that was not previously exported", async () => {
@@ -219,12 +174,9 @@ test("clean direct close exports a committed head that was not previously export
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
   try {
     const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-recovery");
-    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    const { sessionId } = dataOf<{ sessionId?: string }>(opened);
     assert.ok(sessionId);
-    assert.equal((await executor.execute(directTask({
-      tool: "fs.write", sessionId, path: "README.md", content: "# recover export\n",
-    }, true), "write-recovery")).status, "completed");
-
+    assert.equal((await executor.execute(directTask({ tool: "fs.write", sessionId, path: "README.md", content: "# recover export\n" }, true), "write-recovery")).status, "completed");
     const git = new HostGit(state.sessions, state.config);
     assert.equal((await git.add(sessionId, ["README.md"])).exitCode, 0);
     assert.equal((await git.commit(sessionId, "test: recovery commit")).exitCode, 0);
@@ -232,23 +184,13 @@ test("clean direct close exports a committed head that was not previously export
     assert.equal(before.changedHead, true);
     assert.equal(before.dirty, false);
     assert.equal(before.session.exportedCommit, null);
-
-    const closed = await executor.execute(directTask({
-      tool: "session.close", sessionId, discard: false,
-    }, true), "close-recovery");
-    assert.equal(closed.status, "completed");
+    const closed = await executor.execute(directTask({ tool: "session.close", sessionId, discard: false }, true), "close-recovery");
     assert.match(closed.commit ?? "", /^[0-9a-f]{40}$/u);
     assert.equal(closed.exportedRef, `refs/pet-dispatcher/${sessionId}`);
-    const resolved = await execFileAsync("git", [
-      "-C", state.config.repositories.fixture,
-      "rev-parse", "--verify", `${closed.exportedRef}^{commit}`,
-    ]);
+    const resolved = await execFileAsync("git", ["-C", state.config.repositories.fixture, "rev-parse", "--verify", `${closed.exportedRef}^{commit}`]);
     assert.equal(resolved.stdout.trim(), closed.commit);
     assert.equal(state.sessions.list().length, 0);
-  } finally {
-    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
-    await rm(state.base, { recursive: true, force: true });
-  }
+  } finally { await cleanup(state); }
 });
 
 test("expired direct write session is discarded on the next session-bound call", async () => {
@@ -257,23 +199,18 @@ test("expired direct write session is discarded on the next session-bound call",
   const originalNow = Date.now;
   try {
     const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 1 }, true), "open-expiry");
-    const { sessionId, expiresAt } = JSON.parse(opened.output ?? "{}") as { sessionId?: string; expiresAt?: string };
+    const { sessionId, expiresAt } = dataOf<{ sessionId?: string; expiresAt?: string }>(opened);
     assert.ok(sessionId);
     assert.ok(expiresAt);
     Date.now = () => Date.parse(expiresAt) + 1;
-    const expired = await executor.execute(directTask({
-      tool: "fs.read", sessionId, path: "README.md",
-    }), "read-expired");
+    const expired = await executor.execute(directTask({ tool: "fs.read", sessionId, path: "README.md" }), "read-expired");
     assert.equal(expired.status, "failed");
     assert.match(expired.error ?? "", /expired/u);
-    for (let attempt = 0; attempt < 50 && state.sessions.list().length; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
+    for (let attempt = 0; attempt < 50 && state.sessions.list().length; attempt += 1) await new Promise((resolve) => setTimeout(resolve, 10));
     assert.equal(state.sessions.list().length, 0);
   } finally {
     Date.now = originalNow;
-    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
-    await rm(state.base, { recursive: true, force: true });
+    await cleanup(state);
   }
 });
 
@@ -282,69 +219,94 @@ test("direct remote filesystem workflow exposes safe session status and cleanup"
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
   try {
     const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-fs");
-    const { sessionId } = JSON.parse(opened.output ?? "{}") as { sessionId?: string };
+    const { sessionId } = dataOf<{ sessionId?: string }>(opened);
     assert.ok(sessionId);
     assert.equal((await executor.execute(directTask({ tool: "fs.mkdir", sessionId, path: "scratch" }, true), "mkdir")).status, "completed");
     assert.equal((await executor.execute(directTask({ tool: "fs.write", sessionId, path: "scratch/a.txt", content: "alpha beta\n" }, true), "write")).status, "completed");
     assert.equal((await executor.execute(directTask({ tool: "fs.patch", sessionId, path: "scratch/a.txt", oldText: "beta", newText: "gamma" }, true), "patch")).status, "completed");
     assert.equal((await executor.execute(directTask({ tool: "fs.move", sessionId, from: "scratch/a.txt", to: "scratch/b.txt" }, true), "move")).status, "completed");
-
     const status = await executor.execute(directTask({ tool: "session.status", sessionId }), "status");
-    assert.equal(status.status, "completed");
-    const statusOutput = JSON.parse(status.output ?? "{}") as { dirty?: boolean; session?: Record<string, unknown> };
-    assert.equal(statusOutput.dirty, true);
-    assert.equal(statusOutput.session?.id, sessionId);
-    assert.equal(statusOutput.session?.repo, "fixture");
-    assert.equal(statusOutput.session?.alias, "fixture");
-    for (const privateField of ["root", "sessionDir", "sourceRoot", "gitDir"]) {
-      assert.equal(privateField in (statusOutput.session ?? {}), false);
-    }
-
+    const statusData = dataOf<{ dirty?: boolean; session?: Record<string, unknown> }>(status);
+    assert.equal(statusData.dirty, true);
+    assert.equal(statusData.session?.id, sessionId);
+    assert.equal(statusData.session?.repo, "fixture");
+    assert.equal(statusData.session?.alias, "fixture");
+    for (const privateField of ["root", "sessionDir", "sourceRoot", "gitDir"]) assert.equal(privateField in (statusData.session ?? {}), false);
     const read = await executor.execute(directTask({ tool: "fs.read", sessionId, path: "scratch/b.txt" }), "read-patched");
-    assert.equal(JSON.parse(read.output ?? "{}").content, "alpha gamma\n");
+    assert.equal(dataOf<{ content?: string }>(read).content, "alpha gamma\n");
     assert.equal((await executor.execute(directTask({ tool: "fs.delete", sessionId, path: "scratch" }, true), "delete")).status, "completed");
-    const closed = await executor.execute(directTask({ tool: "session.close", sessionId, discard: false }, true), "close-fs");
-    assert.equal(closed.status, "completed");
+    assert.equal((await executor.execute(directTask({ tool: "session.close", sessionId, discard: false }, true), "close-fs")).status, "completed");
     assert.equal(state.sessions.list().length, 0);
-  } finally {
-    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
-    await rm(state.base, { recursive: true, force: true });
-  }
+  } finally { await cleanup(state); }
 });
 
 test("direct write schema rejects execution and network capabilities", () => {
   const parsed = remoteTaskSchema.safeParse({
     repo: "fixture", baseRef: "HEAD", executor: "direct", profile: "code",
     capabilities: ["workspace.read", "workspace.write", "git.read", "git.commit", "process.exec"],
-    network: { mode: "none" }, timeoutMinutes: 2,
-    direct: { tool: "session.open", ttlMinutes: 30 },
+    network: { mode: "none" }, timeoutMinutes: 2, direct: { tool: "session.open", ttlMinutes: 30 },
   });
   assert.equal(parsed.success, false);
 });
 
-
 test("direct exec schema requires process.exec and caps task lifetime", () => {
   const base = {
-    repo: "fixture", baseRef: "HEAD", executor: "direct", profile: "code",
-    network: { mode: "none" },
+    repo: "fixture", baseRef: "HEAD", executor: "direct", profile: "code", network: { mode: "none" },
     direct: { tool: "workspace.exec", sessionId: "11111111-1111-4111-8111-111111111111", argv: ["git", "--version"], timeoutMs: 900_000 },
   };
-  const valid = remoteTaskSchema.safeParse({
-    ...base,
-    capabilities: ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"],
-    timeoutMinutes: 15,
-  });
-  assert.equal(valid.success, true);
-  const missingExec = remoteTaskSchema.safeParse({
-    ...base,
-    capabilities: ["workspace.read", "workspace.write", "git.read", "git.commit"],
-    timeoutMinutes: 15,
-  });
-  assert.equal(missingExec.success, false);
-  const tooLong = remoteTaskSchema.safeParse({
-    ...base,
-    capabilities: ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"],
-    timeoutMinutes: 16,
-  });
-  assert.equal(tooLong.success, false);
+  assert.equal(remoteTaskSchema.safeParse({ ...base, capabilities: ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"], timeoutMinutes: 15 }).success, true);
+  assert.equal(remoteTaskSchema.safeParse({ ...base, capabilities: ["workspace.read", "workspace.write", "git.read", "git.commit"], timeoutMinutes: 15 }).success, false);
+  assert.equal(remoteTaskSchema.safeParse({ ...base, capabilities: ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"], timeoutMinutes: 16 }).success, false);
+});
+
+test("direct fast-path filesystem and Git summaries stay structured", async () => {
+  const state = await fixture();
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
+  try {
+    const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-fast");
+    const { sessionId } = dataOf<{ sessionId?: string }>(opened);
+    assert.ok(sessionId);
+    assert.equal((await executor.execute(directTask({ tool: "fs.write", sessionId, path: "notes.txt", content: "alpha\nneedle here\nomega\n" }, true), "notes")).status, "completed");
+    const readMany = await executor.execute(directTask({ tool: "fs.readMany", sessionId, paths: ["README.md", "notes.txt"] }), "read-many");
+    const many = dataOf<{ files?: Array<{ path?: string; content?: string }> }>(readMany);
+    assert.equal(many.files?.length, 2);
+    const tree = dataOf<{ entries?: Array<{ path?: string }> }>(await executor.execute(directTask({ tool: "fs.tree", sessionId, depth: 2, maxEntries: 20 }), "tree"));
+    assert.ok(tree.entries?.some((entry) => entry.path === "notes.txt"));
+    const search = dataOf<{ matches?: Array<{ path?: string; line?: number }> }>(await executor.execute(directTask({ tool: "fs.search", sessionId, query: "needle" }), "search"));
+    assert.equal(search.matches?.[0]?.path, "notes.txt");
+    assert.equal(search.matches?.[0]?.line, 2);
+    const summary = dataOf<{ head?: string; dirty?: boolean; recent?: unknown[] }>(await executor.execute(directTask({ tool: "git.summary", sessionId, maxCommits: 2 }), "git-summary"));
+    assert.match(summary.head ?? "", /^[0-9a-f]{40}$/u);
+    assert.equal(summary.dirty, true);
+    assert.ok((summary.recent?.length ?? 0) >= 1);
+  } finally { await cleanup(state); }
+});
+
+test("direct exec strips ANSI and enforces one combined tail budget", async () => {
+  const state = await fixture(1_024);
+  const runner = {
+    exec: async () => ({
+      exitCode: 7,
+      stdout: `\u001b[31m${"out-".repeat(500)}TAIL_OUT\u001b[0m`,
+      stderr: `\u001b[33m${"err-".repeat(500)}TAIL_ERR\u001b[0m`,
+      truncated: false, durationMs: 3, peakMemoryBytes: 1234, killReason: null,
+    }),
+  } as never;
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, runner);
+  try {
+    const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-output");
+    const { sessionId } = dataOf<{ sessionId?: string }>(opened);
+    assert.ok(sessionId);
+    const executed = await executor.execute(directExecTask({
+      tool: "workspace.exec", sessionId, argv: ["fake"], timeoutMs: 10_000,
+      maxOutputBytes: 1_024, outputMode: "tail", stripAnsi: true,
+    }), "exec-output");
+    const data = dataOf<{ stdout?: string; stderr?: string; truncated?: boolean; peakMemoryBytes?: number }>(executed);
+    assert.equal(executed.status, "completed");
+    assert.equal(data.truncated, true);
+    assert.equal(data.peakMemoryBytes, 1234);
+    assert.doesNotMatch(`${data.stdout ?? ""}${data.stderr ?? ""}`, /\u001b\[/u);
+    assert.ok(Buffer.byteLength(`${data.stdout ?? ""}${data.stderr ?? ""}`, "utf8") <= 1_024);
+    assert.match(data.stderr ?? "", /TAIL_ERR/u);
+  } finally { await cleanup(state); }
 });

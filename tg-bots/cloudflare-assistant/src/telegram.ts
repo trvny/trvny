@@ -1,5 +1,6 @@
 import telegramConfig from "../telegram-config.json";
 import { readJsonWithLimit } from "./http";
+import { telegramMiniAppMenuButton } from "./mini-app-menu";
 import type {
   Env,
   TelegramInlineKeyboardMarkup,
@@ -144,27 +145,34 @@ export async function syncTelegramCommandMenu(
   if (!env.TELEGRAM_BOT_TOKEN) {
     throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
   }
+  const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/setMyCommands`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ commands, scope: { type: "chat", chat_id: chatId } }),
+  });
+  if (!response.ok) {
+    throw new Error(`Telegram setMyCommands failed: HTTP ${response.status}`);
+  }
+}
 
-  const calls = [
-    {
-      method: "setMyCommands",
-      body: { commands, scope: { type: "chat", chat_id: chatId } },
-    },
-    {
-      method: "setChatMenuButton",
-      body: { chat_id: chatId, menu_button: { type: "commands" } },
-    },
-  ] as const;
-
-  for (const call of calls) {
-    const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/${call.method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(call.body),
-    });
-    if (!response.ok) {
-      throw new Error(`Telegram ${call.method} failed: HTTP ${response.status}`);
-    }
+export async function syncTelegramMiniAppMenu(
+  env: Env,
+  chatId: number,
+  miniAppUrl: string,
+): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    throw new TelegramConfigurationError("TELEGRAM_BOT_TOKEN is not configured");
+  }
+  const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/setChatMenuButton`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      menu_button: telegramMiniAppMenuButton(miniAppUrl),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Telegram setChatMenuButton failed: HTTP ${response.status}`);
   }
 }
 

@@ -68,6 +68,7 @@ import {
   setTelegramMessageReaction,
   syncTelegramCommandMenu,
   syncTelegramGroupCommandMenu,
+  syncTelegramMiniAppMenu,
   syncTelegramWebhook,
   TELEGRAM_MESSAGE_MAX_CHARS,
   TELEGRAM_RICH_MESSAGE_MAX_CHARS,
@@ -1935,6 +1936,15 @@ export default {
           await syncTelegramWebhook(env, `${url.origin}/telegram/webhook`);
         } catch (error) {
           console.warn("Telegram webhook update sync failed", error);
+        }
+        const privateOwner = update.message?.chat.type === "private" &&
+          update.message.from && String(update.message.from.id) === env.OWNER_TELEGRAM_USER_ID;
+        if (privateOwner) {
+          try {
+            await syncTelegramMiniAppMenu(env, update.message!.chat.id, `${url.origin}/mini-app`);
+          } catch (error) {
+            console.warn("Telegram Mini App menu sync failed", error);
+          }
         }
       }
 

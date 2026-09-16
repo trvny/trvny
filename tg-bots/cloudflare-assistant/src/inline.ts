@@ -142,7 +142,9 @@ export class TelegramInlineQueryGate {
       await answerTelegramInlineQuery(this.env, work.query.id, [inlineAnswerArticle(articleInput)]);
     } catch (error) {
       console.warn("Telegram rejected rich inline result; retrying as bounded plain text", error);
-      await answerTelegramInlineQuery(this.env, work.query.id, [inlineAnswerArticle(articleInput, false)]);
+      await answerTelegramInlineQuery(this.env, work.query.id, [inlineAnswerArticle(articleInput, false)]).catch((fallbackError) => {
+        console.warn("Telegram plain inline fallback failed", fallbackError);
+      });
     }
 
     const afterSend = await this.state.storage.get<InlineWork>(STATE_KEY);

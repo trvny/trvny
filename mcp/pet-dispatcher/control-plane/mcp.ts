@@ -52,10 +52,11 @@ const taskBodySchema = z.object({
 const metaOutputSchema = z.object({
   httpStatus: z.number().int().min(100).max(599),
   body: z.object({
-    deviceId: z.string().min(1).max(128),
-    transport: z.literal("cloudflare-queues-http-pull"),
-    protocol: z.literal(1),
-    directTools: z.array(z.string()),
+    deviceId: z.string().min(1).max(128), transport: z.literal("cloudflare-queues-http-pull"), protocol: z.literal(1),
+    updatedAt: z.string().datetime().nullable(), repositories: z.array(z.string()), workspaces: z.array(z.string()),
+    directTools: z.array(z.string()), localTools: z.array(z.string()), activeSessions: z.number().int().min(0),
+    activeProcesses: z.number().int().min(0), stale: z.boolean(),
+    sandbox: z.object({ supported: z.boolean(), processGuard: z.string(), networkDefault: z.string(), isolationTier: z.string().nullable().optional() }).passthrough(),
   }).strict(),
 }).strict();
 const taskOutputSchema = z.object({
@@ -126,11 +127,11 @@ function createServer(operations: ControlMcpOperations): McpServer {
     websiteUrl: "https://github.com/trvny/trvny/tree/main/mcp/pet-dispatcher",
     icons: [{ src: "https://pet-dispatcher-control.travny.workers.dev/icon.png", mimeType: "image/png", sizes: ["512x512"] }],
   }, {
-    instructions: "Dispatch confined work to the paired machine. Prefer pet_meta before complex work; calls may queue briefly while the device polls for work.",
+    instructions: "Dispatch confined work to the paired machine. Calls may queue briefly while the device polls for work.",
   });
 
   server.registerTool("pet_meta", {
-    description: "Report the paired device, transport and direct-tool capabilities.",
+    description: "Compact capability dashboard for the paired device: target aliases, direct tools, local tools, active work and sandbox status.",
     outputSchema: metaOutputSchema,
     annotations: { title: "Pet Dispatcher status", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async () => asToolResult(await operations.meta()));

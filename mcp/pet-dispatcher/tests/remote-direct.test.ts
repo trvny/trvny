@@ -29,7 +29,7 @@ async function fixture(maxOutputBytes = 1_048_576) {
   const gitWhere = await execFileAsync(process.platform === "win32" ? "where.exe" : "which", ["git"]);
   const gitRoot = dirname(gitWhere.stdout.split(/\r?\n/u)[0] ?? "");
   const config = {
-    workspaceRoot: join(base, "worker"), repositories: { fixture: repo }, toolRoots: [gitRoot], networkProfiles: {},
+    workspaceRoot: join(base, "worker"), repositories: { fixture: repo }, toolRoots: [gitRoot], networkProfiles: { build: { hosts: ["registry.npmjs.org"] } },
     defaultTimeoutMs: 15_000, maxOutputBytes, maxBrokerResponseBytes: 2_097_152,
     openRouterModel: "openrouter/free", geminiModel: "gemini-2.5-flash",
   } satisfies DispatcherConfig;
@@ -55,6 +55,14 @@ function directExecTask(call: Record<string, unknown>) {
   });
 }
 
+function directNetworkExecTask(call: Record<string, unknown>) {
+  return remoteTaskSchema.parse({
+    repo: "fixture", baseRef: "HEAD", executor: "direct", profile: "code",
+    capabilities: ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit", "network.fetch"],
+    network: { mode: "brokered", profile: "build" }, timeoutMinutes: 2,
+    direct: { networkProfile: "build", ...call },
+  });
+}
 async function cleanup(state: Awaited<ReturnType<typeof fixture>>): Promise<void> {
   for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
   await rm(state.base, { recursive: true, force: true });
@@ -96,6 +104,32 @@ test("direct workspace.exec reuses a write session without depending on Git insi
   }
 });
 
+test("networked direct workspace.exec opens and preserves the signed profile", async () => {
+  const state = await fixture();
+  const runner = {
+    exec: async (sessionId: string) => {
+      assert.deepEqual(state.sessions.get(sessionId).network, { mode: "brokered", profile: "build" });
+      return { exitCode: 0, stdout: "NET_OK\n", stderr: "", truncated: false, durationMs: 1 };
+    },
+  } as never;
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, runner);
+  try {
+    const executed = await executor.execute(directNetworkExecTask({
+      tool: "workspace.exec", autoSession: true, argv: ["node", "--version"], timeoutMs: 10_000,
+    }), "network-exec");
+    assert.equal(executed.status, "completed");
+    const data = dataOf<{ sessionId?: string; stdout?: string }>(executed);
+    assert.ok(data.sessionId);
+    assert.match(data.stdout ?? "", /NET_OK/u);
+    assert.deepEqual(state.sessions.get(data.sessionId).network, { mode: "brokered", profile: "build" });
+    const downgraded = await executor.execute(directExecTask({
+      tool: "workspace.exec", sessionId: data.sessionId, argv: ["node", "--version"], timeoutMs: 10_000,
+    }), "network-downgrade");
+    assert.equal(downgraded.status, "failed");
+    assert.match(downgraded.error ?? "", /network profile does not match/u);
+    assert.equal((await executor.execute(directTask({ tool: "session.close", sessionId: data.sessionId, discard: true }, true), "network-close")).status, "completed");
+  } finally { await cleanup(state); }
+});
 test("direct workspace.exec truncates UTF-8 on complete code point boundaries", async () => {
   const state = await fixture();
   const runner = { exec: async () => ({ exitCode: 0, stdout: `a${"€".repeat(8192)}`, stderr: "", truncated: false, durationMs: 1 }) } as never;

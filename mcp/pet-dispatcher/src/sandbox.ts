@@ -6,6 +6,8 @@ import { promisify } from "node:util";
 import { createConfigFromPolicy, getPlatformSupport, spawnSandboxFromConfig } from "@microsoft/mxc-sdk";
 import { findCommandOnPath } from "./agent-router.js";
 import type { DispatcherConfig } from "./config.js";
+import { prepareSandboxEnvironment } from "./environment.js";
+import { NetworkBroker, type SubprocessNetworkProxy } from "./network.js";
 import { resolveExisting } from "./path-guard.js";
 import type { Session, SessionManager } from "./sessions.js";
 import { WindowsJobGuard, type JobGuardLimits, type JobGuardStats } from "./windows-job-guard.js";
@@ -238,6 +240,7 @@ export class CommandRunner {
     const releaseActivity = this.sessions.acquireActivity(sessionId, "workspace.exec");
     let child: ChildProcess | undefined;
     let running: RunningProcess | undefined;
+    let proxy: SubprocessNetworkProxy | undefined;
     let activityReleased = false;
     const release = () => { if (!activityReleased) { activityReleased = true; releaseActivity(); } };
     try {
@@ -246,6 +249,12 @@ export class CommandRunner {
       const workingDirectory = await resolveExisting(session.root, cwd);
       const resolvedExecutable = await this.#resolveExecutable(session, argv[0] ?? "");
       const executable = resolvedExecutable.path;
+      const prepared = await prepareSandboxEnvironment(this.config, session, this.toolRoots);
+      if (session.network.mode === "brokered" && session.network.profile) {
+        proxy = await new NetworkBroker(this.config).openProxy(session);
+        prepared.env.HTTP_PROXY = proxy.url; prepared.env.HTTPS_PROXY = proxy.url;
+        prepared.env.http_proxy = proxy.url; prepared.env.https_proxy = proxy.url;
+      }
       if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
       const requestedTimeout = timeoutMs ?? this.config.defaultTimeoutMs;
       if (!Number.isFinite(requestedTimeout) || requestedTimeout < 1_000) throw new Error("timeoutMs must be a finite value of at least 1000ms");
@@ -259,10 +268,19 @@ export class CommandRunner {
         commandLine = `${quoteWindowsArg(cmd)} /d /s /v:off /c "${inner}"`;
       } else commandLine = [executable, ...argv.slice(1)].map(quoteWindowsArg).join(" ");
 
+      const networkPolicy = proxy ? {
+        egress: { default: "deny" as const, allow: [{
+          to: [{ cidr: "127.0.0.1/32" }], ports: [{ protocol: "tcp" as const, port: proxy.port }],
+        }] },
+        ingress: { default: "deny" as const, hostLoopback: "allow" as const },
+      } : {
+        egress: { default: "deny" as const },
+        ingress: { default: "deny" as const, hostLoopback: "deny" as const },
+      };
       const policy = {
-        version: "0.7.0-alpha",
-        filesystem: { readwritePaths: [session.root], readonlyPaths: [...this.toolRoots, ...session.readonlyRoots] },
-        network: { allowOutbound: false, allowLocalNetwork: false },
+        version: "0.8.0-alpha",
+        filesystem: { readwritePaths: [session.root, ...prepared.readwriteRoots], readonlyPaths: [...this.toolRoots, ...session.readonlyRoots, ...prepared.readonlyRoots] },
+        network: networkPolicy,
         ui: { allowWindows: allowWindowsForExecutable(resolvedExecutable.hostTool), clipboard: "none" as const, allowInputInjection: false },
         timeoutMs: timeout,
       };
@@ -271,7 +289,7 @@ export class CommandRunner {
       sandbox.process.commandLine = commandLine;
       sandbox.process.cwd = workingDirectory;
       const started = Date.now();
-      child = spawnSandboxFromConfig(sandbox, { usePty: false }, workingDirectory);
+      child = spawnSandboxFromConfig(sandbox, { usePty: false }, workingDirectory, prepared.env);
       if (!child.pid) { await this.#fallbackTreeKill(child); throw new Error("MXC process started without a pid"); }
       const jobId = `${sessionId}:${started}`;
       if (this.jobGuard) {
@@ -350,6 +368,8 @@ export class CommandRunner {
       if (!running && child && this.jobGuard) await this.jobGuard.release(`${sessionId}:${Date.now()}`).catch(() => undefined);
       if (!running) release();
       throw error;
+    } finally {
+      await proxy?.close().catch(() => undefined);
     }
   }
 

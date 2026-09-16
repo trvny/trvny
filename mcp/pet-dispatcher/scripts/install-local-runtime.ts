@@ -70,16 +70,30 @@ async function copyDpapiSecrets(sourceRoot: string | undefined, targetRoot: stri
   }
 }
 async function migrateConfig(options: InstallLocalRuntimeOptions, paths: LocalRuntimePaths): Promise<void> {
+  await mkdir(paths.configRoot, { recursive: true });
+  await copyFile(join(options.sourceRoot, "environment-policy.json"), paths.environmentPolicyPath);
   const sourcePath = await exists(paths.configPath) ? paths.configPath
     : options.legacyConfigPath && await exists(options.legacyConfigPath) ? options.legacyConfigPath
       : join(options.sourceRoot, "dispatcher.config.example.json");
   const raw = JSON.parse(await readFile(sourcePath, "utf8")) as unknown;
-  const migrated = migrateDispatcherConfig(raw, {
+  const defaults = JSON.parse(await readFile(join(options.sourceRoot, "dispatcher.config.example.json"), "utf8")) as unknown;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("dispatcher config must be an object");
+  if (!defaults || typeof defaults !== "object" || Array.isArray(defaults)) throw new Error("default dispatcher config must be an object");
+  const sourceConfig = raw as Record<string, unknown>;
+  const defaultConfig = defaults as Record<string, unknown>;
+  if (sourceConfig.networkProfiles !== undefined && (!sourceConfig.networkProfiles || typeof sourceConfig.networkProfiles !== "object" || Array.isArray(sourceConfig.networkProfiles))) {
+    throw new Error("networkProfiles must be an object");
+  }
+  if (defaultConfig.networkProfiles !== undefined && (!defaultConfig.networkProfiles || typeof defaultConfig.networkProfiles !== "object" || Array.isArray(defaultConfig.networkProfiles))) {
+    throw new Error("default networkProfiles must be an object");
+  }
+  const sourceProfiles = (sourceConfig.networkProfiles ?? {}) as Record<string, unknown>;
+  const defaultProfiles = (defaultConfig.networkProfiles ?? {}) as Record<string, unknown>;
+  const migrated = migrateDispatcherConfig({ ...sourceConfig, networkProfiles: { ...defaultProfiles, ...sourceProfiles } }, {
     paths,
     dcRoot: options.dcRoot,
     workspaceRoot: options.workspaceRoot,
   });
-  await mkdir(paths.configRoot, { recursive: true });
   const temporary = `${paths.configPath}.tmp-${process.pid}`;
   await writeFile(temporary, `${JSON.stringify(migrated, null, 2)}\n`, "utf8");
   await loadConfig(temporary);

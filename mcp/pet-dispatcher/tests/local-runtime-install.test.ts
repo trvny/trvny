@@ -8,6 +8,14 @@ import { promisify } from "node:util";
 import { installLocalRuntime } from "../scripts/install-local-runtime.js";
 
 const execFileAsync = promisify(execFile);
+const environmentPolicyFixture = {
+  secretNamePattern: "TOKEN|KEY|SECRET|PASS|AUTH",
+  sandboxPassthrough: [], sandboxReadonlyPathVariables: [], networkProfileSecrets: {},
+};
+
+async function writeEnvironmentPolicyFixture(source: string): Promise<void> {
+  await writeFile(join(source, "environment-policy.json"), JSON.stringify(environmentPolicyFixture));
+}
 
 test("local installer publishes runtime and migrates control state away from dc", async () => {
   const base = await mkdtemp(join(tmpdir(), "pet-local-install-"));
@@ -23,6 +31,7 @@ test("local installer publishes runtime and migrates control state away from dc"
     await mkdir(legacyRoot, { recursive: true });
     await writeFile(join(source, "dist", "src", "index.js"), "console.log('fixture')\n");
     await writeFile(join(source, "package.json"), JSON.stringify({ name: "pet-fixture", version: "1.0.0" }));
+    await writeEnvironmentPolicyFixture(source);
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({ workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {} }));
     await writeFile(join(source, "scripts", "pet-dispatcher-launch.ps1"), "# launcher fixture\n");
     await writeFile(join(source, "scripts", "pet-dispatcher-secrets.ps1"), "# secrets fixture\n");
@@ -53,6 +62,8 @@ test("local installer publishes runtime and migrates control state away from dc"
     const config = JSON.parse(await readFile(result.paths.configPath, "utf8")) as Record<string, any>;
     assert.equal(config.repositories.trvny, result.paths.repoMirror);
     assert.equal(config.remote.journalPath, result.paths.journalPath);
+    assert.equal(config.environmentPolicyPath, result.paths.environmentPolicyPath);
+    assert.deepEqual(JSON.parse(await readFile(result.paths.environmentPolicyPath, "utf8")), environmentPolicyFixture);
     assert.equal(await readFile(result.paths.journalPath, "utf8"), "journal\n");
     assert.equal(await readFile(join(result.paths.secretsRoot, "PET_DISPATCHER_QUEUE_TOKEN.dpapi"), "utf8"), "queue-cipher");
     assert.equal(await readFile(join(result.paths.binRoot, "pet-dispatcher-launch.ps1"), "utf8"), "# launcher fixture\n");
@@ -78,6 +89,7 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
     await mkdir(join(source, "scripts"), { recursive: true });
     await writeFile(join(source, "dist", "src", "index.js"), "console.log('fixture')\n");
     await writeFile(join(source, "package.json"), JSON.stringify({ name: "pet-fixture", version: "1.0.0" }));
+    await writeEnvironmentPolicyFixture(source);
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({ workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {} }));
     for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-secrets.ps1", "windows-job-guard.ps1"]) await writeFile(join(source, "scripts", name), "# fixture\n");
     await execFileAsync("git", ["init", source]);
@@ -115,6 +127,7 @@ test("local installer can run npm build on Windows", { skip: process.platform !=
       name: "pet-fixture", version: "1.0.0",
       scripts: { build: "node -e \"const fs=require('node:fs');fs.mkdirSync('dist/src',{recursive:true});fs.writeFileSync('dist/src/index.js','fixture')\"" },
     }));
+    await writeEnvironmentPolicyFixture(source);
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({
       workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {},
     }));

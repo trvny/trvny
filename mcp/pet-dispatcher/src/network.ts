@@ -1,5 +1,6 @@
+import { lookup } from "node:dns/promises";
 import { createServer } from "node:http";
-import { connect, isIP } from "node:net";
+import { BlockList, connect, isIP } from "node:net";
 import type { DispatcherConfig } from "./config.js";
 import type { Session } from "./sessions.js";
 
@@ -26,6 +27,7 @@ export interface BrokeredFetchResult {
 
 export interface SubprocessNetworkProxy {
   url: string;
+  port: number;
   close(): Promise<void>;
 }
 
@@ -41,6 +43,40 @@ function hasControlCharacter(value: string): boolean {
 
 function hostMatches(hostname: string, rule: string): boolean {
   return hostname.toLowerCase() === rule.toLowerCase();
+}
+
+const NON_PUBLIC_IPV4 = new BlockList();
+for (const [address, prefix] of [
+  ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8],
+  ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.0.2.0", 24],
+  ["192.88.99.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24],
+  ["203.0.113.0", 24], ["224.0.0.0", 4], ["240.0.0.0", 4],
+] as const) NON_PUBLIC_IPV4.addSubnet(address, prefix, "ipv4");
+
+const NON_PUBLIC_IPV6 = new BlockList();
+for (const [address, prefix] of [
+  ["::", 128], ["::1", 128], ["::ffff:0:0", 96], ["100::", 64], ["2001:2::", 48],
+  ["2001:db8::", 32], ["fc00::", 7], ["fe80::", 10], ["ff00::", 8],
+] as const) NON_PUBLIC_IPV6.addSubnet(address, prefix, "ipv6");
+
+export interface ResolvedConnectTarget { address: string; family: 4 | 6 }
+type ConnectResolver = (hostname: string) => Promise<ResolvedConnectTarget[]>;
+
+function isPublicConnectAddress(address: string, family: 4 | 6): boolean {
+  if (isIP(address) !== family) return false;
+  return family === 4 ? !NON_PUBLIC_IPV4.check(address, "ipv4") : !NON_PUBLIC_IPV6.check(address, "ipv6");
+}
+
+export async function resolvePublicConnectTarget(
+  hostname: string,
+  resolver: ConnectResolver = async (host) => lookup(host, { all: true, verbatim: true }) as Promise<ResolvedConnectTarget[]>,
+): Promise<ResolvedConnectTarget> {
+  const addresses = await resolver(hostname);
+  if (addresses.length === 0) throw new Error(`DNS returned no addresses for ${hostname}`);
+  if (addresses.some(({ address, family }) => !isPublicConnectAddress(address, family))) {
+    throw new Error(`DNS returned a non-public address for ${hostname}`);
+  }
+  return addresses[0]!;
 }
 
 export function assertAllowedConnectAuthority(authority: string, hosts: readonly string[]): { host: string; port: number } {
@@ -112,13 +148,16 @@ export class NetworkBroker {
       response.writeHead(405, { Connection: "close", "Content-Type": "text/plain" });
       response.end("HTTPS CONNECT only\\n");
     });
-    server.on("connect", (request, client, head) => {
+    server.on("connect", async (request, client, head) => {
       let destination: { host: string; port: number };
       try { destination = assertAllowedConnectAuthority(request.url ?? "", profile.hosts); }
       catch { client.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
+      let target: ResolvedConnectTarget;
+      try { target = await resolvePublicConnectTarget(destination.host); }
+      catch { client.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
       sockets.add(client);
       client.once("close", () => sockets.delete(client));
-      const upstream = connect(destination.port, destination.host);
+      const upstream = connect({ host: target.address, port: destination.port, family: target.family });
       sockets.add(upstream);
       upstream.once("close", () => sockets.delete(upstream));
       let established = false;
@@ -145,6 +184,7 @@ export class NetworkBroker {
     let closed = false;
     return {
       url: `http://127.0.0.1:${address.port}`,
+      port: address.port,
       close: async () => {
         if (closed) return; closed = true;
         for (const socket of sockets) socket.destroy();

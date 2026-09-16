@@ -7,6 +7,7 @@ export interface LocalRuntimePaths {
   currentManifest: string;
   configRoot: string;
   configPath: string;
+  environmentPolicyPath: string;
   stateRoot: string;
   journalPath: string;
   secretsRoot: string;
@@ -30,6 +31,7 @@ export function localRuntimePaths(root: string, pathApi: PathApi = { join: platf
     currentManifest: pathApi.join(appRoot, "current.json"),
     configRoot,
     configPath: pathApi.join(configRoot, "dispatcher.json"),
+    environmentPolicyPath: pathApi.join(configRoot, "environment-policy.json"),
     stateRoot,
     journalPath: pathApi.join(stateRoot, "remote-journal.json"),
     secretsRoot: pathApi.join(root, "secrets"),
@@ -63,6 +65,7 @@ export function migrateDispatcherConfig(legacy: unknown, options: MigrateDispatc
     workspaceRoot: options.workspaceRoot,
     repositories: { ...repositories, trvny: options.paths.repoMirror },
     workspaces: { ...workspaces, dc: options.dcRoot },
+    environmentPolicyPath: options.paths.environmentPolicyPath,
   };
   if (remote) migrated.remote = { ...remote, journalPath: options.paths.journalPath };
   return migrated;

@@ -1,0 +1,12 @@
+{
+  "secretNamePattern": "TOKEN|KEY|SECRET|PASS|PASSWORD|AUTH|PAT|CREDENTIAL|COOKIE",
+  "sandboxPassthrough": [
+    "GIT_INSTALL_ROOT", "JAVA_HOME", "ANDROID_HOME", "ANDROID_SDK_ROOT", "PIPX_HOME"
+  ],
+  "sandboxReadonlyPathVariables": [
+    "GIT_INSTALL_ROOT", "JAVA_HOME", "ANDROID_HOME", "ANDROID_SDK_ROOT", "PIPX_HOME"
+  ],
+  "networkProfileSecrets": {
+    "cloudflare-api": ["CLOUDFLARE_API_TOKEN"]
+  }
+}

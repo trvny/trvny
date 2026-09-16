@@ -7,9 +7,11 @@ const hostRule = z.string().min(1)
   .regex(/^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/, "network host rules must be exact DNS names");
 const networkProfileSchema = z.object({ hosts: z.array(hostRule).min(1).max(64) });
 const envName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/u, "environment variable names must be portable identifiers");
+const regexPattern = z.string().min(1).max(512).refine((value) => {
+  try { new RegExp(value, "iu"); return true; } catch { return false; }
+}, "secretNamePattern must be a valid regular expression");
 const environmentPolicySchema = z.object({
-  secretNamePattern: z.string().min(1).max(512),
-  expandNames: z.array(envName).max(128).default([]),
+  secretNamePattern: regexPattern,
   sandboxPassthrough: z.array(envName).max(128).default([]),
   sandboxReadonlyPathVariables: z.array(envName).max(64).default([]),
   networkProfileSecrets: z.record(z.string(), z.array(envName).max(32)).default({}),

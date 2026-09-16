@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { loadConfig, type DispatcherConfig } from "../src/config.js";
 import { prepareSandboxEnvironment } from "../src/environment.js";
-import { assertAllowedConnectAuthority } from "../src/network.js";
+import { assertAllowedConnectAuthority, resolvePublicConnectTarget } from "../src/network.js";
 import { remoteTaskSchema } from "../src/remote-protocol.js";
 import type { Session } from "../src/sessions.js";
 
@@ -22,15 +22,21 @@ test("config loads one external environment policy", async () => {
   const root = await mkdtemp(join(tmpdir(), "pet-env-config-"));
   try {
     await writeFile(join(root, "env-policy.json"), JSON.stringify({
-      secretNamePattern: "TOKEN|KEY|SECRET|PASS|AUTH", expandNames: ["JAVA_HOME"],
+      secretNamePattern: "TOKEN|KEY|SECRET|PASS|AUTH",
       sandboxPassthrough: ["JAVA_HOME"], sandboxReadonlyPathVariables: ["JAVA_HOME"],
       networkProfileSecrets: { cloudflare: ["CLOUDFLARE_API_TOKEN"] },
     }));
     await writeFile(join(root, "dispatcher.json"), JSON.stringify({ workspaceRoot: "./work", repositories: {}, environmentPolicyPath: "./env-policy.json" }));
     const loaded = await loadConfig(join(root, "dispatcher.json"));
     assert.deepEqual(loaded.environmentPolicy?.sandboxPassthrough, ["JAVA_HOME"]);
+    await writeFile(join(root, "env-policy.json"), JSON.stringify({
+      secretNamePattern: "(", sandboxPassthrough: [], sandboxReadonlyPathVariables: [], networkProfileSecrets: {},
+    }));
+    await assert.rejects(loadConfig(join(root, "dispatcher.json")), /valid regular expression/u);
   } finally { await rm(root, { recursive: true, force: true }); }
-});test("sandbox environment keeps custom tool paths but drops unrelated secrets", async () => {
+});
+
+test("sandbox environment keeps custom tool paths but drops unrelated secrets", async () => {
   const root = await mkdtemp(join(tmpdir(), "pet-env-"));
   const java = join(root, "jdk");
   await mkdir(java, { recursive: true });
@@ -39,7 +45,7 @@ test("config loads one external environment policy", async () => {
     defaultTimeoutMs: 10_000, maxOutputBytes: 1_048_576, maxBrokerResponseBytes: 1_048_576,
     openRouterModel: "openrouter/free", geminiModel: "gemini-2.5-flash",
     environmentPolicy: {
-      secretNamePattern: "TOKEN|KEY|SECRET|PASS|AUTH", expandNames: ["JAVA_HOME"],
+      secretNamePattern: "TOKEN|KEY|SECRET|PASS|AUTH",
       sandboxPassthrough: ["JAVA_HOME"], sandboxReadonlyPathVariables: ["JAVA_HOME"],
       networkProfileSecrets: { cloudflare: ["CLOUDFLARE_API_TOKEN"] },
     },
@@ -60,6 +66,13 @@ test("CONNECT authority uses the same exact-host profile and HTTPS port", () => 
   assert.throws(() => assertAllowedConnectAuthority("evil.example:443", ["registry.npmjs.org"]), /outside/);
   assert.throws(() => assertAllowedConnectAuthority("registry.npmjs.org:80", ["registry.npmjs.org"]), /443/);
   assert.throws(() => assertAllowedConnectAuthority("127.0.0.1:443", ["127.0.0.1"]), /IP-literal/);
+});
+
+test("CONNECT pins only public DNS results", async () => {
+  const target = await resolvePublicConnectTarget("registry.npmjs.org", async () => [{ address: "104.16.24.34", family: 4 }]);
+  assert.deepEqual(target, { address: "104.16.24.34", family: 4 });
+  await assert.rejects(resolvePublicConnectTarget("registry.npmjs.org", async () => [{ address: "127.0.0.1", family: 4 }]), /non-public/);
+  await assert.rejects(resolvePublicConnectTarget("registry.npmjs.org", async () => [{ address: "::1", family: 6 }]), /non-public/);
 });test("direct workspace.exec can request one brokered network profile", () => {
   const parsed = remoteTaskSchema.parse({
     repo: "trvny", executor: "direct", profile: "code", timeoutMinutes: 2,

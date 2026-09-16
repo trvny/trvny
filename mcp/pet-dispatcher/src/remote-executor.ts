@@ -239,7 +239,8 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       if (sessionId) session = this.#directSession(sessionId, task.repo);
       else if (writeTool || execTool) {
         if (!autoSession) throw new Error("direct state-changing tools require a remote session or autoSession=true");
-        session = await this.sessions.open(task.repo, task.baseRef, "none", undefined, false, AUTO_SESSION_TTL_MINUTES);
+        const networkProfile = call.tool === "workspace.exec" ? call.networkProfile : undefined;
+        session = await this.sessions.open(task.repo, task.baseRef, networkProfile ? task.network.mode : "none", networkProfile, false, AUTO_SESSION_TTL_MINUTES);
         this.#scheduleDirectSession(session.id, task.repo, AUTO_SESSION_TTL_MINUTES);
         autoOpened = true;
       } else {
@@ -247,6 +248,13 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         temporary = true;
       }
       const activeSession = session;
+      if (call.tool === "workspace.exec") {
+        const expectedProfile = call.networkProfile ?? null;
+        const expectedMode = expectedProfile ? "brokered" : "none";
+        if (activeSession.network.mode !== expectedMode || activeSession.network.profile !== expectedProfile) {
+          throw new Error("workspace.exec network profile does not match the active session");
+        }
+      }
       const git = new HostGit(this.sessions, this.config);
       let exported: { commit: string; ref: string } | undefined;
       const value = call.tool === "workspace.exec"

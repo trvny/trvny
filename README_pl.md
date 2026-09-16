@@ -36,7 +36,6 @@
 | trvny/feedseek | [#423](https://github.com/trvny/feedseek/pull/423) | chore(deps-dev): bump feedsearch-crawler from 2.1.3 to 2.1.4 | @dependabot[bot] | gotowy | 2026-09-16 |
 | trvny/feedseek | [#424](https://github.com/trvny/feedseek/pull/424) | chore(deps-dev): bump ruff from 0.16.6 to 0.16.7 | @dependabot[bot] | gotowy | 2026-09-16 |
 | trvny/feedseek | [#425](https://github.com/trvny/feedseek/pull/425) | chore(deps): bump the actions group with 3 updates | @dependabot[bot] | gotowy | 2026-09-16 |
-| trvny/trvny | [#669](https://github.com/trvny/trvny/pull/669) | feat(pet-dispatcher): add workspace inspect fast path | @trvny | gotowy | 2026-09-16 |
 <!--OPEN_PRS:END-->
 
 **Prywatny hol dowodzenia: projekty, usługi, narzędzia i szuflady w jednym miejscu.**
@@ -93,7 +92,7 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝The worst breach of U.S. military computers in history happened when someone picked up a memory stick (infected by a foreign intelligence agency) they found in the parking lot and plugged it into their computer, which was attached to United States Central Command.❞</i>
+<i>❝HDMI charges its licensed manufacturers $10,000 per year plus $0.15 per cable, reduced to $0.05 if the HDMI logo is on the socket.❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 

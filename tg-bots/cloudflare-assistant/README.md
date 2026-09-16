@@ -18,6 +18,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - Bot API 10.3 generation-stop controls abort active streamed replies, bypass the serialized update queue, and preserve the generated partial as a normal message when possible;
 - model-backed replies use Telegram Rich Messages up to 32,768 characters; deterministic Markdown rejection retries as escaped Rich HTML before the legacy 4,096-character plain-text fallback;
 - best-effort native reactions show state for model-backed owner messages (`👀` while working, `👍` after successful delivery, `👎` on handled failures, `🤨` when delivery is ambiguous);
+- ordinary private model replies expose owner-only `👍 Pomogło` / `👎 Słabo` callback feedback; one rating per bot reply is kept as bounded telemetry and never enters model context;
 - `/status` uses a native Rich Message table plus expandable fallback details, with the existing refresh callback editing the same structured view and a plain-text fallback for deterministic Rich Message rejection;
 - Telegram-native button styles distinguish primary actions, successful copy actions and destructive task cancellation;
 - native clipboard button on short `/draft` suggestions;
@@ -212,6 +213,8 @@ If the internal router itself is unavailable, times out, or its token is not con
 ## Conversation context
 
 Ordinary owner messages load up to eight recent successful chat turns from `TelegramConversationMemory`, with the model-facing history capped at roughly 8,000 characters. `/draft` stays stateless, command replies are not stored, and `/reset` clears the chat context. Conversation reads fail open to stateless chat, while reset generations prevent older retried deliveries from restoring cleared context. A turn is persisted only after Telegram accepts the reply and delivery is committed as `sent`; remembered assistant text is clipped to what fits in the delivered Telegram message, and memory persistence failures are logged without retrying an already-delivered message.
+
+Private model replies also keep a separate bounded feedback ledger in the same Durable Object: at most 64 bot message IDs with the owner's latest `up`/`down` rating. Re-rating the same reply overwrites the previous value. This telemetry is not returned by `/history`, never enters a model prompt, and survives `/reset` because resetting conversational context is a separate concern.
 
 ## RSS curator
 

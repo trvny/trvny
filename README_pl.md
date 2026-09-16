@@ -48,7 +48,7 @@
 | 🐤 **Kanarek** | [repo](https://github.com/travnie/kanarek) | Androidowy czytnik RSS/Atom, widżety oraz odtwarzacz radia/IPTV. |
 | 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [strona](https://trfny.com/tv/) · [playlista](https://tvpi.travny.workers.dev/playlist.m3u) | Stabilne wejścia IPTV do kanałów TVP, Worker oraz residential-push do odświeżania tokenów HLS. |
 | 🚗 **Autka** | [repo](https://github.com/travnie/Autka) | Androidowy agregator ofert samochodów z Polski, UE i importu z USA, razem z kalkulacją kosztu sprowadzenia. |
-| 🤖 **LlmBench** | [repo](https://github.com/travnie/llmbench) | Androidowy hub do czatów AI przez konta oraz darmowych providerów LLM. |
+| 🤖 **Aistee** | [repo](https://github.com/travnie/aistee) | Wieloplatformowy hub AI w Kotlin Multiplatform: konta w WebView, natywne/API czaty i wspólne narzędzia. |
 | 🔊 **WAM Bridge** | [repo](https://github.com/travnie/wambridge) | Most audio do głośników Samsung Wireless Audio Multiroom oraz natywne wyjście foobar2000 dla Shape M5. |
 
 ### Narzędzia i usługi

@@ -7,10 +7,7 @@ const TASK_ID = "11111111-1111-4111-8111-111111111111";
 function request(body: unknown): Request {
   return new Request("https://pet.example/mcp", {
     method: "POST",
-    headers: {
-      accept: "application/json, text/event-stream",
-      "content-type": "application/json",
-    },
+    headers: { accept: "application/json, text/event-stream", "content-type": "application/json" },
     body: JSON.stringify(body),
   });
 }
@@ -36,16 +33,11 @@ function baseOperations(overrides: Partial<ControlMcpOperations> = {}): ControlM
     ...overrides,
   };
 }
+
 async function initialize(operations: ControlMcpOperations): Promise<void> {
   const result = await rpc(operations, {
-    jsonrpc: "2.0",
-    id: 1,
-    method: "initialize",
-    params: {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "pet-test", version: "1" },
-    },
+    jsonrpc: "2.0", id: 1, method: "initialize",
+    params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "pet-test", version: "1" } },
   });
   assert.equal(result.response.status, 200);
   const info = (result.body?.result as { serverInfo?: { name?: string; title?: string; description?: string; icons?: Array<{ src?: string }> } })?.serverInfo;
@@ -61,16 +53,13 @@ test("remote MCP exposes the control-plane task surface", async () => {
   const listed = await rpc(operations, { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
   assert.equal(listed.response.status, 200);
   const listedTools = ((listed.body?.result as { tools?: Array<{ name: string; outputSchema?: unknown }> })?.tools ?? []);
-  const tools = listedTools.map(({ name }) => name);
-  assert.deepEqual(tools.sort(), [
+  assert.deepEqual(listedTools.map(({ name }) => name).sort(), [
     "pet_delegate", "pet_direct", "pet_meta", "pet_task_cancel", "pet_task_get",
   ]);
   assert.ok(listedTools.every((tool) => tool.outputSchema));
-
   const meta = await rpc(operations, {
     jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "pet_meta", arguments: {} },
   });
-  assert.equal(meta.response.status, 200);
   const result = meta.body?.result as { structuredContent?: { body?: { deviceId?: string; repositories?: string[]; workspaces?: string[]; activeSessions?: number; sandbox?: { processGuard?: string } } } };
   assert.equal(result.structuredContent?.body?.deviceId, "test-device");
   assert.deepEqual(result.structuredContent?.body?.repositories, ["trvny"]);
@@ -78,23 +67,20 @@ test("remote MCP exposes the control-plane task surface", async () => {
   assert.equal(result.structuredContent?.body?.activeSessions, 1);
   assert.equal(result.structuredContent?.body?.sandbox?.processGuard, "windows-job-object");
 });
+
 test("remote MCP delegates through the existing assistant guard shape", async () => {
   let delegated: unknown;
   let key: string | undefined;
   const operations = baseOperations({
     delegate: async (task, idempotencyKey) => {
-      delegated = task;
-      key = idempotencyKey;
+      delegated = task; key = idempotencyKey;
       return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
     },
   });
   const result = await rpc(operations, {
     jsonrpc: "2.0", id: 4, method: "tools/call", params: {
       name: "pet_delegate",
-      arguments: {
-        repo: "trvny", goal: "inspect status", profile: "inspect",
-        idempotencyKey: "delegate-once", waitSeconds: 0,
-      },
+      arguments: { repo: "trvny", goal: "inspect status", profile: "inspect", idempotencyKey: "delegate-once", waitSeconds: 0 },
     },
   });
   assert.equal(result.response.status, 200);
@@ -106,48 +92,72 @@ test("remote MCP delegates through the existing assistant guard shape", async ()
   });
 });
 
-test("remote MCP forwards direct calls without widening their contract", async () => {
+test("remote MCP exposes compact target/tool/args direct calls", async () => {
+  const operations = baseOperations();
+  await initialize(operations);
+  const listed = await rpc(operations, { jsonrpc: "2.0", id: 5, method: "tools/list", params: {} });
+  const tool = ((listed.body?.result as { tools?: Array<{ name: string; inputSchema?: Record<string, unknown> }> })?.tools ?? [])
+    .find((item) => item.name === "pet_direct");
+  const schemaText = JSON.stringify(tool?.inputSchema ?? {});
+  assert.ok(schemaText.length < 5_000, `pet_direct schema is too large: ${schemaText.length}`);
+  assert.doesNotMatch(schemaText, /"call"|oneOf|anyOf/u);
+
   let direct: unknown;
-  const operations = baseOperations({
-    direct: async (value) => {
-      direct = value;
-      return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
-    },
-  });
-  const result = await rpc(operations, {
-    jsonrpc: "2.0", id: 5, method: "tools/call", params: {
-      name: "pet_direct",
-      arguments: {
-        repo: "trvny", waitSeconds: 0,
-        call: { tool: "fs.read", path: "README.md" },
-      },
+  const result = await rpc(baseOperations({ direct: async (value) => {
+    direct = value;
+    return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
+  } }), {
+    jsonrpc: "2.0", id: 6, method: "tools/call", params: {
+      name: "pet_direct", arguments: { target: "trvny", tool: "fs.read", args: { path: "README.md" }, waitSeconds: 0 },
     },
   });
   assert.equal(result.response.status, 200);
-  assert.deepEqual(direct, {
-    repo: "trvny", baseRef: "main", call: { tool: "fs.read", path: "README.md" },
-  });
+  assert.deepEqual(direct, { repo: "trvny", baseRef: "main", call: { tool: "fs.read", path: "README.md" } });
 });
 
 test("remote MCP waits briefly for a terminal task result", async () => {
   let polls = 0;
-  const operations = baseOperations({
-    getTask: async () => {
-      polls += 1;
-      return {
-        status: 200,
-        body: { taskId: TASK_ID, status: "completed", result: { status: "completed", summary: "done" } },
-      };
-    },
-  });
+  const operations = baseOperations({ getTask: async () => {
+    polls += 1;
+    return { status: 200, body: { taskId: TASK_ID, status: "completed", result: { status: "completed", summary: "done" } } };
+  } });
   const result = await rpc(operations, {
-    jsonrpc: "2.0", id: 6, method: "tools/call", params: {
-      name: "pet_delegate",
-      arguments: { repo: "trvny", goal: "inspect", waitSeconds: 1 },
-    },
+    jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "pet_delegate", arguments: { repo: "trvny", goal: "inspect", waitSeconds: 1 } },
   });
   assert.equal(result.response.status, 200);
   assert.equal(polls, 1);
   const call = result.body?.result as { structuredContent?: { body?: { status?: string } } };
   assert.equal(call.structuredContent?.body?.status, "completed");
+});
+
+test("completed MCP tasks keep payload only in structured content", async () => {
+  const marker = "payload-only-in-structured-content";
+  const operations = baseOperations({ getTask: async () => ({
+    status: 200,
+    body: {
+      taskId: TASK_ID, status: "completed", deviceId: "test-device",
+      createdAt: "2026-09-15T23:00:00.000Z", updatedAt: "2026-09-15T23:00:01.000Z", heartbeatAt: "2026-09-15T23:00:01.000Z",
+      cancelRequested: false,
+      result: { status: "completed", summary: "done", data: { marker } },
+    },
+  }) });
+  const compact = await rpc(operations, {
+    jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "pet_task_get", arguments: { taskId: TASK_ID } },
+  });
+  const result = compact.body?.result as {
+    content?: Array<{ text?: string }>;
+    structuredContent?: { body?: Record<string, unknown> };
+  };
+  assert.equal(result.structuredContent?.body?.status, "completed");
+  assert.equal("createdAt" in (result.structuredContent?.body ?? {}), false);
+  assert.equal("heartbeatAt" in (result.structuredContent?.body ?? {}), false);
+  assert.equal(result.content?.[0]?.text, "done");
+  assert.equal(JSON.stringify(result.content).includes(marker), false);
+  assert.equal(JSON.stringify(result.structuredContent).includes(marker), true);
+
+  const debug = await rpc(operations, {
+    jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "pet_task_get", arguments: { taskId: TASK_ID, debug: true } },
+  });
+  const debugBody = (debug.body?.result as { structuredContent?: { body?: Record<string, unknown> } })?.structuredContent?.body;
+  assert.equal(debugBody?.createdAt, "2026-09-15T23:00:00.000Z");
 });

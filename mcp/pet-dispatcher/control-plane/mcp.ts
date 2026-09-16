@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
-import { remoteDirectCallSchema, remoteResultSchema } from "../src/remote-protocol.js";
+import { REMOTE_DIRECT_TOOLS, remoteDirectCallSchema, remoteResultSchema } from "../src/remote-protocol.js";
 
 export interface ControlRpcResult {
   status: number;
@@ -16,22 +16,27 @@ export interface ControlMcpOperations {
   cancelTask(taskId: string): Promise<ControlRpcResult>;
 }
 
+const debugSchema = z.boolean().default(false).describe("Return full task metadata instead of the compact view");
 const delegateInputSchema = z.object({
-  repo: z.string().min(1).max(128).describe("Repository in owner/name form"),
-  baseRef: z.string().min(1).max(256).default("main").describe("Git ref used as the isolated checkout base"),
+  repo: z.string().min(1).max(128).describe("Repository alias"),
+  baseRef: z.string().min(1).max(256).default("main").describe("Git base ref"),
   goal: z.string().min(1).max(20_000).describe("Concrete coding or inspection goal"),
-  executor: z.enum(["openrouter", "gemini"]).default("openrouter").describe("Free routed agent backend"),
-  profile: z.enum(["inspect", "code"]).default("code").describe("inspect for read-oriented work, code for changes"),
-  timeoutMinutes: z.number().int().min(1).max(20).default(20).describe("Hard task timeout in minutes"),
-  idempotencyKey: z.string().min(1).max(200).optional().describe("Optional retry key; same key and payload resolve to the same task"),
-  waitSeconds: z.number().int().min(0).max(45).default(20).describe("How long to poll for a terminal result before returning a task snapshot"),
+  executor: z.enum(["openrouter", "gemini"]).default("openrouter"),
+  profile: z.enum(["inspect", "code"]).default("code"),
+  timeoutMinutes: z.number().int().min(1).max(20).default(20),
+  idempotencyKey: z.string().min(1).max(200).optional(),
+  waitSeconds: z.number().int().min(0).max(45).default(20),
+  debug: debugSchema,
 }).strict();
+const directToolSchema = z.enum(REMOTE_DIRECT_TOOLS);
 const directInputSchema = z.object({
-  repo: z.string().min(1).max(128).describe("Repository in owner/name form"),
-  baseRef: z.string().min(1).max(256).default("main").describe("Git ref used as the isolated checkout base"),
-  call: remoteDirectCallSchema.describe("One confined direct filesystem, Git, session or process call"),
-  idempotencyKey: z.string().min(1).max(200).optional().describe("Optional retry key; same key and payload resolve to the same task"),
-  waitSeconds: z.number().int().min(0).max(45).default(20).describe("How long to poll for a terminal result before returning a task snapshot"),
+  target: z.string().min(1).max(128).describe("Repository or workspace alias"),
+  tool: directToolSchema.describe("Confined direct tool"),
+  args: z.record(z.string(), z.unknown()).default({}).describe("Arguments for the selected tool"),
+  baseRef: z.string().min(1).max(256).default("main").describe("Git base ref when target is a repository"),
+  idempotencyKey: z.string().min(1).max(200).optional(),
+  waitSeconds: z.number().int().min(0).max(45).default(20),
+  debug: debugSchema,
 }).strict();
 
 const taskStatusSchema = z.enum([
@@ -107,12 +112,34 @@ async function awaitTask(
   return current;
 }
 
-function asToolResult(result: ControlRpcResult) {
-  const structured = { httpStatus: result.status, body: result.body };
-  const bodyStatus = result.body && typeof result.body === "object"
-    ? (result.body as { status?: unknown }).status : undefined;
+function compactTaskBody(body: unknown, debug: boolean): unknown {
+  if (debug || !body || typeof body !== "object") return body;
+  const task = body as Record<string, unknown>;
+  if (typeof task.taskId !== "string" || typeof task.status !== "string") return body;
+  const compact: Record<string, unknown> = { taskId: task.taskId, status: task.status };
+  if (task.result !== undefined) compact.result = task.result;
+  if (task.cancelRequested === true) compact.cancelRequested = true;
+  return compact;
+}
+
+function shortText(result: ControlRpcResult, body: unknown): string {
+  if (body && typeof body === "object") {
+    const task = body as { status?: unknown; result?: unknown };
+    if (task.result && typeof task.result === "object") {
+      const summary = (task.result as { summary?: unknown }).summary;
+      if (typeof summary === "string" && summary) return summary.slice(0, 1_000);
+    }
+    if (typeof task.status === "string") return `Pet Dispatcher task: ${task.status}.`;
+  }
+  return result.status >= 400 ? `Pet Dispatcher request failed with HTTP ${result.status}.` : "Pet Dispatcher request completed.";
+}
+
+function asToolResult(result: ControlRpcResult, debug = false) {
+  const body = compactTaskBody(result.body, debug);
+  const structured = { httpStatus: result.status, body };
+  const bodyStatus = body && typeof body === "object" ? (body as { status?: unknown }).status : undefined;
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(structured) }],
+    content: [{ type: "text" as const, text: shortText(result, body) }],
     structuredContent: structured,
     isError: result.status >= 400 || bodyStatus === "failed" || bodyStatus === "recovery_required",
   };
@@ -134,42 +161,43 @@ function createServer(operations: ControlMcpOperations): McpServer {
     description: "Compact capability dashboard for the paired device: target aliases, direct tools, local tools, active work and sandbox status.",
     outputSchema: metaOutputSchema,
     annotations: { title: "Pet Dispatcher status", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async () => asToolResult(await operations.meta()));
+  }, async () => asToolResult(await operations.meta(), true));
 
   server.registerTool("pet_delegate", {
-    description: "Delegate a confined coding or inspection task to the paired machine. Returns a task snapshot or terminal result.",
+    description: "Delegate a confined coding or inspection task to the paired machine.",
     inputSchema: delegateInputSchema,
     outputSchema: taskOutputSchema,
     annotations: { title: "Delegate task", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
-  }, async ({ repo, baseRef, goal, executor, profile, timeoutMinutes, idempotencyKey, waitSeconds }) => {
+  }, async ({ repo, baseRef, goal, executor, profile, timeoutMinutes, idempotencyKey, waitSeconds, debug }) => {
     const task = { repo, baseRef, goal, executor, profile, capabilities: [], network: { mode: "none" }, timeoutMinutes };
     const stableKey = idempotencyKey ? await scopedIdempotencyKey("delegate", idempotencyKey, task) : undefined;
     const submitted = await operations.delegate(task, stableKey);
-    return asToolResult(await awaitTask(operations, submitted, waitSeconds));
+    return asToolResult(await awaitTask(operations, submitted, waitSeconds), debug);
   });
 
   server.registerTool("pet_direct", {
-    description: "Run one confined filesystem, Git, session or process call on the paired machine. Returns a task snapshot or terminal result.",
+    description: "Run one confined direct tool using a target alias, tool name and validated args.",
     inputSchema: directInputSchema,
     outputSchema: taskOutputSchema,
     annotations: { title: "Run direct tool", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
-  }, async ({ repo, baseRef, call, idempotencyKey, waitSeconds }) => {
-    const value = { repo, baseRef, call };
+  }, async ({ target, tool, args, baseRef, idempotencyKey, waitSeconds, debug }) => {
+    const call = remoteDirectCallSchema.parse({ ...args, tool });
+    const value = { repo: target, baseRef, call };
     const stableKey = idempotencyKey ? await scopedIdempotencyKey("direct", idempotencyKey, value) : undefined;
     const submitted = await operations.direct(value, stableKey);
-    return asToolResult(await awaitTask(operations, submitted, waitSeconds));
+    return asToolResult(await awaitTask(operations, submitted, waitSeconds), debug);
   });
 
   server.registerTool("pet_task_get", {
     description: "Read the current state and bounded result of a Pet Dispatcher task.",
-    inputSchema: z.object({ taskId: z.string().uuid().describe("Task UUID returned by pet_delegate or pet_direct") }).strict(),
+    inputSchema: z.object({ taskId: z.string().uuid(), debug: debugSchema }).strict(),
     outputSchema: taskOutputSchema,
     annotations: { title: "Get task state", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  }, async ({ taskId }) => asToolResult(await operations.getTask(taskId)));
+  }, async ({ taskId, debug }) => asToolResult(await operations.getTask(taskId), debug));
 
   server.registerTool("pet_task_cancel", {
     description: "Request cancellation of a queued or running Pet Dispatcher task.",
-    inputSchema: z.object({ taskId: z.string().uuid().describe("Task UUID returned by pet_delegate or pet_direct") }).strict(),
+    inputSchema: z.object({ taskId: z.string().uuid() }).strict(),
     outputSchema: taskOutputSchema,
     annotations: { title: "Cancel task", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   }, async ({ taskId }) => asToolResult(await operations.cancelTask(taskId)));

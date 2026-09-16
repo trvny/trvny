@@ -65,7 +65,10 @@ export function migrateDispatcherConfig(legacy: unknown, options: MigrateDispatc
     workspaceRoot: options.workspaceRoot,
     repositories: { ...repositories, trvny: options.paths.repoMirror },
     workspaces: { ...workspaces, dc: options.dcRoot },
-    environmentPolicyPath: options.paths.environmentPolicyPath,
+    environmentPolicyPath:
+      typeof cloned.environmentPolicyPath === "string" && cloned.environmentPolicyPath.trim()
+        ? cloned.environmentPolicyPath
+        : options.paths.environmentPolicyPath,
   };
   if (remote) migrated.remote = { ...remote, journalPath: options.paths.journalPath };
   return migrated;

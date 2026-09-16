@@ -9,12 +9,15 @@ export interface PreparedSandboxEnvironment {
   readwriteRoots: string[];
 }
 
-function expandWindowsVariables(value: string, hostEnv: NodeJS.ProcessEnv): string {
-  return value.replace(/%([^%]+)%/gu, (match, name: string) => hostEnv[name] ?? hostEnv[name.toUpperCase()] ?? match);
+function hostValue(hostEnv: NodeJS.ProcessEnv, name: string): string | undefined {
+  const direct = hostEnv[name] ?? hostEnv[name.toUpperCase()] ?? hostEnv[name.toLowerCase()];
+  if (direct !== undefined) return direct;
+  const wanted = name.toLowerCase();
+  return Object.entries(hostEnv).find(([key]) => key.toLowerCase() === wanted)?.[1];
 }
 
-function hostValue(hostEnv: NodeJS.ProcessEnv, name: string): string | undefined {
-  return hostEnv[name] ?? hostEnv[name.toUpperCase()] ?? hostEnv[name.toLowerCase()];
+function expandWindowsVariables(value: string, allowedEnv: NodeJS.ProcessEnv): string {
+  return value.replace(/%([^%]+)%/gu, (match, name: string) => hostValue(allowedEnv, name) ?? match);
 }
 
 export async function prepareSandboxEnvironment(
@@ -41,11 +44,18 @@ export async function prepareSandboxEnvironment(
   const policy = config.environmentPolicy;
   const secretPattern = policy ? new RegExp(policy.secretNamePattern, "iu") : undefined;
   const allowedSecrets = new Set(session.network.profile ? policy?.networkProfileSecrets[session.network.profile] ?? [] : []);
+  const passthrough = new Map<string, string>();
   for (const name of policy?.sandboxPassthrough ?? []) {
-    if (secretPattern?.test(name) && !allowedSecrets.has(name)) continue;
+    if (allowedSecrets.has(name) || secretPattern?.test(name)) continue;
     const value = hostValue(hostEnv, name);
-    if (value) env[name] = expandWindowsVariables(value, hostEnv);
+    if (value) passthrough.set(name, value);
   }
+  const expansionEnv: NodeJS.ProcessEnv = { ...env };
+  for (const [name, value] of passthrough) {
+    expansionEnv[name] = value;
+    expansionEnv[name.toUpperCase()] = value;
+  }
+  for (const [name, value] of passthrough) env[name] = expandWindowsVariables(value, expansionEnv);
   for (const name of allowedSecrets) {
     const value = hostValue(hostEnv, name);
     if (value) env[name] = value;

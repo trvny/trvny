@@ -99,6 +99,8 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
       build: false, installDependencies: false, registerStartup: false };
     const first = await installLocalRuntime(options);
     const head = (await execFileAsync("git", ["-C", first.paths.repoMirror, "rev-parse", "HEAD"])).stdout.trim();
+    const customPolicy = { ...environmentPolicyFixture, sandboxPassthrough: ["JAVA_HOME"] };
+    await writeFile(first.paths.environmentPolicyPath, JSON.stringify(customPolicy));
     await execFileAsync("git", ["-C", first.paths.repoMirror, "update-ref", "refs/pet-dispatcher/keep-me", head]);
     await writeFile(join(source, "second.txt"), "two\n");
     await execFileAsync("git", ["-C", source, "add", "second.txt"]);
@@ -108,6 +110,7 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
     const updated = (await execFileAsync("git", ["-C", second.paths.repoMirror, "rev-parse", "HEAD"])).stdout.trim();
     assert.equal(kept, head);
     assert.notEqual(updated, head);
+    assert.deepEqual(JSON.parse(await readFile(second.paths.environmentPolicyPath, "utf8")), customPolicy);
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 

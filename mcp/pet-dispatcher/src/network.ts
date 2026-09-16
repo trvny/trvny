@@ -70,6 +70,9 @@ for (const [address, prefix] of [
 
 export interface ResolvedConnectTarget { address: string; family: 4 | 6 }
 type ConnectResolver = (hostname: string) => Promise<ResolvedConnectTarget[]>;
+const defaultConnectResolver: ConnectResolver = async (host) =>
+  lookup(host, { all: true, verbatim: true }) as Promise<ResolvedConnectTarget[]>;
+const DEFAULT_MAX_PROXY_CONNECTIONS = 32;
 
 function isPublicConnectAddress(address: string, family: 4 | 6): boolean {
   if (isIP(address) !== family) return false;
@@ -78,7 +81,7 @@ function isPublicConnectAddress(address: string, family: 4 | 6): boolean {
 
 export async function resolvePublicConnectTarget(
   hostname: string,
-  resolver: ConnectResolver = async (host) => lookup(host, { all: true, verbatim: true }) as Promise<ResolvedConnectTarget[]>,
+  resolver: ConnectResolver = defaultConnectResolver,
 ): Promise<ResolvedConnectTarget> {
   const addresses = await resolver(hostname);
   if (addresses.length === 0) throw new Error(`DNS returned no addresses for ${hostname}`);
@@ -144,6 +147,9 @@ export class NetworkBroker {
   constructor(
     readonly config: DispatcherConfig,
     readonly fetchImpl: typeof fetch = fetch,
+    readonly connectResolver: ConnectResolver = defaultConnectResolver,
+    readonly connectImpl: typeof connect = connect,
+    readonly maxProxyConnections = DEFAULT_MAX_PROXY_CONNECTIONS,
   ) {}
 
   profileNames(): string[] { return Object.keys(this.config.networkProfiles).sort(); }
@@ -152,6 +158,8 @@ export class NetworkBroker {
     if (session.network.mode !== "brokered" || !session.network.profile) throw new Error("session has no brokered network capability");
     const profile = configuredNetworkProfile(this.config, session.network.profile);
     const sockets = new Set<Duplex>();
+    const clients = new Set<Duplex>();
+    let closed = false;
     const trackSocket = (socket: Duplex): void => {
       sockets.add(socket);
       socket.once("close", () => sockets.delete(socket));
@@ -161,14 +169,22 @@ export class NetworkBroker {
       response.end("HTTPS CONNECT only\\n");
     });
     server.on("connect", async (request, client, head) => {
+      if (closed) { client.destroy(); return; }
+      if (clients.size >= this.maxProxyConnections) {
+        client.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+        return;
+      }
+      clients.add(client);
+      client.once("close", () => clients.delete(client));
+      trackSocket(client);
       let destination: { host: string; port: number };
       try { destination = assertAllowedConnectAuthority(request.url ?? "", profile.hosts); }
       catch { client.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
       let target: ResolvedConnectTarget;
-      try { target = await resolvePublicConnectTarget(destination.host); }
+      try { target = await resolvePublicConnectTarget(destination.host, this.connectResolver); }
       catch { client.end("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n"); return; }
-      trackSocket(client);
-      const upstream = connect({ host: target.address, port: destination.port, family: target.family });
+      if (closed || client.destroyed) return;
+      const upstream = this.connectImpl({ host: target.address, port: destination.port, family: target.family });
       trackSocket(upstream);
       let established = false;
       upstream.once("connect", () => {
@@ -188,7 +204,6 @@ export class NetworkBroker {
     await once(server, "listening");
     const address = server.address();
     if (!address || typeof address === "string") { server.close(); throw new Error("failed to allocate subprocess proxy port"); }
-    let closed = false;
     return {
       url: `http://127.0.0.1:${address.port}`,
       port: address.port,

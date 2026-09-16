@@ -48,16 +48,21 @@ test("sandbox environment keeps custom tool paths but drops unrelated secrets", 
     openRouterModel: "openrouter/free", geminiModel: "gemini-2.5-flash",
     environmentPolicy: {
       secretNamePattern: "TOKEN|KEY|SECRET|PASS|AUTH",
-      sandboxPassthrough: ["JAVA_HOME"], sandboxReadonlyPathVariables: ["JAVA_HOME"],
+      sandboxPassthrough: ["JAVA_HOME", "MAVEN_HOME"], sandboxReadonlyPathVariables: ["JAVA_HOME"],
       networkProfileSecrets: { cloudflare: ["CLOUDFLARE_API_TOKEN"] },
     },
   } satisfies DispatcherConfig;
-  const hostEnv = { SystemRoot: "C:\\Windows", JAVA_HOME: java, OPENROUTER_API_KEY: "nope", CLOUDFLARE_API_TOKEN: "allowed" };
+  const hostEnv = {
+    SystemRoot: "C:\\Windows", JAVA_HOME: java,
+    MAVEN_HOME: "%JAVA_HOME%\\maven-%OPENROUTER_API_KEY%",
+    OPENROUTER_API_KEY: "nope", CLOUDFLARE_API_TOKEN: "allowed",
+  };
   try {
     const prepared = await prepareSandboxEnvironment(config, session(root, { mode: "brokered", profile: "cloudflare" }), ["C:\\Windows\\System32"], hostEnv);
     assert.equal(prepared.env.JAVA_HOME, java);
     assert.equal(prepared.env.CLOUDFLARE_API_TOKEN, "allowed");
     assert.equal(prepared.env.OPENROUTER_API_KEY, undefined);
+    assert.equal(prepared.env.MAVEN_HOME, `${java}\\maven-%OPENROUTER_API_KEY%`);
     assert.ok(prepared.readonlyRoots.includes(java));
     assert.equal(prepared.env.USERPROFILE?.startsWith(`${root}-session`), true, "sandbox home must live under the session runtime, not the repository");
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -112,6 +117,50 @@ test("subprocess proxy rejects an unprofiled CONNECT before upstream access", as
     assert.match(chunk.toString("ascii"), /^HTTP\/1\.1 403 /u);
     client.destroy();
   } finally {
+    await opened.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+
+test("subprocess proxy caps pending tunnels and opens no upstream after close", { timeout: 5_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "pet-proxy-limit-"));
+  const proxyConfig = {
+    workspaceRoot: root, repositories: {}, toolRoots: [], networkProfiles: { build: { hosts: ["registry.npmjs.org"] } },
+    defaultTimeoutMs: 10_000, maxOutputBytes: 1_048_576, maxBrokerResponseBytes: 1_048_576,
+    openRouterModel: "openrouter/free", geminiModel: "gemini-2.5-flash",
+  } satisfies DispatcherConfig;
+  let releaseDns!: (value: Array<{ address: string; family: 4 | 6 }>) => void;
+  let signalDns!: () => void;
+  const dnsStarted = new Promise<void>((resolve) => { signalDns = resolve; });
+  const dnsResult = new Promise<Array<{ address: string; family: 4 | 6 }>>((resolve) => { releaseDns = resolve; });
+  let dnsCalls = 0; let upstreamCalls = 0;
+  const broker = new NetworkBroker(proxyConfig, fetch, async () => { dnsCalls += 1; signalDns(); return dnsResult; },
+    (() => { upstreamCalls += 1; throw new Error("late upstream"); }) as typeof connectSocket, 1);
+  const opened = await broker.openProxy(session(root, { mode: "brokered", profile: "build" }));
+  const url = new URL(opened.url);
+  const first = connectSocket(Number(url.port), url.hostname); first.on("error", () => undefined);
+  let second: ReturnType<typeof connectSocket> | undefined;
+  try {
+    await once(first, "connect");
+    first.write("CONNECT registry.npmjs.org:443 HTTP/1.1\r\nHost: registry.npmjs.org:443\r\n\r\n");
+    await dnsStarted;
+    second = connectSocket(Number(url.port), url.hostname); second.on("error", () => undefined);
+    await once(second, "connect");
+    const secondData = once(second, "data");
+    second.write("CONNECT registry.npmjs.org:443 HTTP/1.1\r\nHost: registry.npmjs.org:443\r\n\r\n");
+    const [chunk] = await secondData as [Buffer];
+    assert.match(chunk.toString("ascii"), /^HTTP\/1\.1 503 /u);
+    assert.equal(dnsCalls, 1);
+    second.destroy();
+    const closing = opened.close();
+    releaseDns([{ address: "104.16.24.34", family: 4 }]);
+    await closing;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(upstreamCalls, 0);
+  } finally {
+    first.destroy(); second?.destroy();
+    releaseDns([{ address: "104.16.24.34", family: 4 }]);
     await opened.close();
     await rm(root, { recursive: true, force: true });
   }

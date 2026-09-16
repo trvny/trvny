@@ -71,14 +71,24 @@ async function copyDpapiSecrets(sourceRoot: string | undefined, targetRoot: stri
 }
 async function migrateConfig(options: InstallLocalRuntimeOptions, paths: LocalRuntimePaths): Promise<void> {
   await mkdir(paths.configRoot, { recursive: true });
-  await copyFile(join(options.sourceRoot, "environment-policy.json"), paths.environmentPolicyPath);
+  const defaultConfigPath = join(options.sourceRoot, "dispatcher.config.example.json");
   const sourcePath = await exists(paths.configPath) ? paths.configPath
     : options.legacyConfigPath && await exists(options.legacyConfigPath) ? options.legacyConfigPath
-      : join(options.sourceRoot, "dispatcher.config.example.json");
+      : defaultConfigPath;
   const raw = JSON.parse(await readFile(sourcePath, "utf8")) as unknown;
-  const defaults = JSON.parse(await readFile(join(options.sourceRoot, "dispatcher.config.example.json"), "utf8")) as unknown;
+  const defaults = JSON.parse(await readFile(defaultConfigPath, "utf8")) as unknown;
   const sourceConfig = objectRecord(raw, "dispatcher config");
   const defaultConfig = objectRecord(defaults, "default dispatcher config");
+  const configuredPolicy = typeof sourceConfig.environmentPolicyPath === "string"
+    ? sourceConfig.environmentPolicyPath.trim() : "";
+  if (resolve(sourcePath) !== resolve(defaultConfigPath) && configuredPolicy) {
+    sourceConfig.environmentPolicyPath = resolve(dirname(sourcePath), configuredPolicy);
+  } else {
+    if (!await exists(paths.environmentPolicyPath)) {
+      await copyFile(join(options.sourceRoot, "environment-policy.json"), paths.environmentPolicyPath);
+    }
+    sourceConfig.environmentPolicyPath = paths.environmentPolicyPath;
+  }
   const sourceProfiles = objectRecord(sourceConfig.networkProfiles ?? {}, "networkProfiles");
   const defaultProfiles = objectRecord(defaultConfig.networkProfiles ?? {}, "default networkProfiles");
   const migrated = migrateDispatcherConfig({ ...sourceConfig, networkProfiles: { ...defaultProfiles, ...sourceProfiles } }, {

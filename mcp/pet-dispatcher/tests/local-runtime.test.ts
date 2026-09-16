@@ -24,6 +24,7 @@ test("legacy dispatcher config migrates control state and repository seed only",
     workspaces: { dc: dcRoot },
     toolRoots: [String.raw`C:\Program Files\nodejs`],
     networkProfiles: {},
+    environmentPolicyPath: String.raw`C:\custom\environment-policy.json`,
     resourceLimits: { defaultMemoryMiB: 2048, maxMemoryMiB: 6144, defaultProcessCount: 32, maxProcessCount: 64, watchdogIntervalMs: 250 },
     remote: { enabled: true, deviceId: "legion", journalPath: win32.join(dcRoot, "pet-dispatcher", "remote-journal.json") },
   };
@@ -35,6 +36,7 @@ test("legacy dispatcher config migrates control state and repository seed only",
   assert.deepEqual(migrated.workspaces, { dc: dcRoot });
   assert.deepEqual(migrated.toolRoots, legacy.toolRoots);
   assert.deepEqual(migrated.resourceLimits, legacy.resourceLimits);
+  assert.equal(migrated.environmentPolicyPath, legacy.environmentPolicyPath);
   assert.equal((migrated.remote as { journalPath: string }).journalPath, paths.journalPath);
 });
 

@@ -3,6 +3,7 @@
   "name": "pet-dispatcher-control",
   "main": "entry.ts",
   "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": false,
   "version_metadata": {

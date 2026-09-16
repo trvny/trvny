@@ -1,6 +1,6 @@
 # Interactive tool bridge
 
-Status: **Phase 3d in progress: remote session status and structured filesystem edits implemented; live deploy pending review**
+Status: **Core remote interactive bridge is deployed: session-confined filesystem/Git/exec, non-Git workspaces, fast inspection and brokered build networking are live. Remaining work is typed host adapters and optional ergonomics, not an unrestricted shell.**
 
 This note defines how Pet Dispatcher can become the normal local-tool connection for remote assistants such as ChatGPT, instead of requiring Desktop Commander to run in parallel.
 
@@ -268,7 +268,21 @@ The critical property is:
 
 That means confinement belongs below the MCP/tool layer, ideally at the OS/container/VM/process boundary plus canonical path checks. Tool allowlists alone are insufficient.
 
+## Current bridge checklist — 2026-09-17
+
+- [x] Remote MCP direct calls share the same local session/policy engine as delegated tasks.
+- [x] Repository and explicitly configured non-Git workspaces use canonical path/symlink confinement.
+- [x] Filesystem reads/edits plus compact tree/search/inspect fast paths are bounded.
+- [x] `workspace.exec` runs argv-style through MXC with Job Object cleanup and resource limits.
+- [x] Direct sessions can auto-open and finalize through the maintained session lifecycle.
+- [x] `network=none` remains the default; approved build traffic uses brokered HTTPS rather than raw sandbox egress.
+- [ ] Add narrow typed host adapters for hardware-facing workflows such as ADB when needed.
+- [ ] Keep `restricted` direct egress disabled until a per-session host boundary can be proven on the actual Windows host.
+- [ ] Continue trimming round trips/payloads only where measurements show a real interactive win.
+
 ## Phase-1 addition
+
+The original local-MVP acceptance list is retained below for design history; the maintained current state is the checklist above.
 
 The local MVP should prove the interactive bridge before remote deployment:
 

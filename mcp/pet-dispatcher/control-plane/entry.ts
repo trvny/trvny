@@ -3,6 +3,13 @@ import { z, ZodError } from "zod";
 import { ICON_BYTES } from "./icon.js";
 import { isMcpPath, mcpAuthorized } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
+import {
+  RECENT_TASK_LIMIT,
+  compactRecentTask,
+  type RecentTaskRef,
+  type RecentTaskSnapshot,
+  upsertRecentTaskRef,
+} from "./recent-task-index.js";
 import { deviceMetaSchema } from "../src/device-meta.js";
 import {
   REMOTE_DIRECT_EXEC_CAPABILITIES,
@@ -40,6 +47,7 @@ const STATE_KEY = "state";
 const OUTBOX_KEY = "enqueue-outbox";
 const NONCES_KEY = "worker-nonces";
 const DEVICE_META_KEY = "device-meta";
+const RECENT_TASKS_KEY = "recent-tasks";
 const QUOTA_KEY = "daily-delegation-quota";
 const DAILY_DELEGATION_LIMIT = 500;
 const enqueueOutboxSchema = z.object({
@@ -106,6 +114,23 @@ function deviceMetaStub(env: Env): DurableObjectStub {
   return env.TASK_STATE.get(env.TASK_STATE.idFromName("__pet-device-meta__"));
 }
 
+function recentTasksStub(env: Env): DurableObjectStub {
+  return env.TASK_STATE.get(env.TASK_STATE.idFromName("__pet-recent-tasks__"));
+}
+
+async function indexRecentTask(env: Env, state: RemoteTaskState): Promise<void> {
+  try {
+    const response = await recentTasksStub(env).fetch("https://state/recent-tasks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(state),
+    });
+    if (!response.ok) console.warn(`Recent task index update failed: HTTP ${response.status}`);
+  } catch (error) {
+    console.warn("Recent task index update failed", error);
+  }
+}
+
 async function readState(env: Env, taskId: string): Promise<Response> {
   return stateStub(env, taskId).fetch("https://state/state");
 }
@@ -119,6 +144,21 @@ export class TaskStateStore {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/recent-tasks") {
+      if (request.method === "GET") {
+        const stored = (await this.state.storage.get<RecentTaskRef[]>(RECENT_TASKS_KEY)) ?? [];
+        return json(stored.slice(0, RECENT_TASK_LIMIT));
+      }
+      if (request.method === "POST") {
+        const body = await readBody(request);
+        const task = remoteTaskStateSchema.parse(JSON.parse(body) as unknown);
+        const stored = (await this.state.storage.get<RecentTaskRef[]>(RECENT_TASKS_KEY)) ?? [];
+        const next = upsertRecentTaskRef(stored, task);
+        await this.state.storage.put(RECENT_TASKS_KEY, next);
+        return json(next);
+      }
+      return json({ error: "method_not_allowed" }, 405);
+    }
     if (url.pathname === "/device-meta") {
       if (request.method === "GET") {
         const stored = await this.state.storage.get(DEVICE_META_KEY);
@@ -184,6 +224,7 @@ export class TaskStateStore {
         await txn.put(STATE_KEY, parsed.state);
         await txn.put(OUTBOX_KEY, { envelope: parsed.envelope, sent: false } satisfies EnqueueOutbox);
       });
+      await indexRecentTask(this.env, parsed.state);
       return json(parsed.state, 201);
     }
     if (!current) return json({ error: "task_not_found" }, 404);
@@ -408,6 +449,19 @@ async function cancelTaskResult(taskId: string, env: Env): Promise<RpcResult> {
   return rpcResult(await stateStub(env, id).fetch("https://state/cancel", { method: "POST", body: "{}" }));
 }
 
+async function recentTaskSnapshots(env: Env, limit = 10): Promise<RecentTaskSnapshot[]> {
+  const bounded = Math.max(1, Math.min(z.number().int().parse(limit), RECENT_TASK_LIMIT));
+  const response = await recentTasksStub(env).fetch("https://state/recent-tasks");
+  if (!response.ok) throw new Error(`failed to read recent task index: HTTP ${response.status}`);
+  const refs = (await response.json() as RecentTaskRef[]).slice(0, bounded);
+  const states = await Promise.all(refs.map(async ({ taskId }) => {
+    const state = await readState(env, taskId);
+    if (!state.ok) return null;
+    return remoteTaskStateSchema.parse(await state.json());
+  }));
+  return states.filter((state): state is RemoteTaskState => state !== null).map(compactRecentTask);
+}
+
 function mcpOperations(env: Env): ControlMcpOperations {
   return {
     meta: async () => ({ status: 200, body: await controlMeta(env) }),
@@ -438,6 +492,10 @@ export class TelegramAssistantEntrypoint extends WorkerEntrypoint<Env> {
 
   async getTask(taskId: string): Promise<RpcResult> {
     return getTaskResult(taskId, this.env);
+  }
+
+  async recentTasks(limit = 10): Promise<RecentTaskSnapshot[]> {
+    return recentTaskSnapshots(this.env, limit);
   }
 
   async cancelTask(taskId: string): Promise<RpcResult> {

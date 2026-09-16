@@ -17,6 +17,7 @@ import type {
   SecretaryContextEntry,
   TelegramBusinessConnection,
   TelegramBusinessMessage,
+  TelegramBusinessMessagesDeleted,
 } from "./secretary";
 
 const TELEGRAM_API = "https://api.telegram.org";
@@ -25,6 +26,8 @@ type BusinessUpdate = {
   update_id?: number;
   business_connection?: TelegramBusinessConnection;
   business_message?: TelegramBusinessMessage;
+  edited_business_message?: TelegramBusinessMessage;
+  deleted_business_messages?: TelegramBusinessMessagesDeleted;
 };
 
 type BusinessConnectionResponse = {
@@ -82,6 +85,25 @@ async function appendSecretaryContext(
   }
 }
 
+async function removeSecretaryContext(
+  env: Env,
+  connectionId: string,
+  chatId: number,
+  messageIds: number[],
+): Promise<void> {
+  if (messageIds.length === 0) return;
+  try {
+    const response = await secretaryContextStub(env, connectionId, chatId).fetch("https://conversation/secretary-context/delete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messageIds: messageIds.slice(0, 100) }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  } catch (error) {
+    console.warn("Telegram secretary context delete failed; continuing with stale bounded memory", error);
+  }
+}
+
 async function getBusinessConnection(
   env: Env,
   connectionId: string,
@@ -119,6 +141,37 @@ async function notifyConnection(env: Env, connection: TelegramBusinessConnection
   );
 }
 
+async function syncEditedBusinessMessage(
+  env: Env,
+  message: TelegramBusinessMessage,
+): Promise<void> {
+  const connectionId = message.business_connection_id?.trim();
+  if (!connectionId || !Number.isSafeInteger(message.chat?.id) || !Number.isSafeInteger(message.message_id) || message.message_id <= 0) return;
+  const connection = await getBusinessConnection(env, connectionId);
+  if (!isOwnerBusinessConnection(connection, env.OWNER_TELEGRAM_USER_ID)) return;
+  const entry = secretaryContextEntry(message, connection);
+  if (entry) {
+    await appendSecretaryContext(env, connection.id, message.chat.id, entry);
+  } else {
+    await removeSecretaryContext(env, connection.id, message.chat.id, [message.message_id]);
+  }
+}
+
+async function syncDeletedBusinessMessages(
+  env: Env,
+  deleted: TelegramBusinessMessagesDeleted,
+): Promise<void> {
+  const connectionId = deleted.business_connection_id?.trim();
+  if (!connectionId || !Number.isSafeInteger(deleted.chat?.id)) return;
+  const messageIds = Array.from(new Set(
+    (deleted.message_ids ?? []).filter((id) => Number.isSafeInteger(id) && id > 0),
+  )).slice(0, 100);
+  if (messageIds.length === 0) return;
+  const connection = await getBusinessConnection(env, connectionId);
+  if (!isOwnerBusinessConnection(connection, env.OWNER_TELEGRAM_USER_ID)) return;
+  await removeSecretaryContext(env, connection.id, deleted.chat.id, messageIds);
+}
+
 async function draftIncomingBusinessMessage(
   env: Env,
   message: TelegramBusinessMessage,
@@ -137,7 +190,7 @@ async function draftIncomingBusinessMessage(
   }
 
   const previousContext = await loadSecretaryContext(env, connection.id, input.chatId);
-  const contextBlock = secretaryContextBlock(previousContext);
+  const contextBlock = secretaryContextBlock([...previousContext, contextEntry]);
   try {
     const result = await chatWithInlineFallback(env, [
       { role: "system", content: secretaryDraftSystemPrompt() },
@@ -145,7 +198,7 @@ async function draftIncomingBusinessMessage(
         role: "user",
         content: [
           contextBlock,
-          `Current UNTRUSTED Telegram Business message from ${input.sender}:\n${input.text}`,
+          `The final context entry is the current UNTRUSTED Telegram Business message from ${input.sender}. Draft a reply to that entry only.`,
         ].filter(Boolean).join("\n\n"),
       },
     ]);
@@ -176,6 +229,14 @@ export async function handleTelegramSecretaryUpdate(env: Env, update: unknown): 
   }
   if (business.business_message) {
     await draftIncomingBusinessMessage(env, business.business_message);
+    return true;
+  }
+  if (business.edited_business_message) {
+    await syncEditedBusinessMessage(env, business.edited_business_message);
+    return true;
+  }
+  if (business.deleted_business_messages) {
+    await syncDeletedBusinessMessages(env, business.deleted_business_messages);
     return true;
   }
   return false;

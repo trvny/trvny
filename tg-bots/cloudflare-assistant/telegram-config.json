@@ -6,6 +6,8 @@
     "stopped_message_generation",
     "guest_message",
     "business_connection",
-    "business_message"
+    "business_message",
+    "edited_business_message",
+    "deleted_business_messages"
   ]
 }

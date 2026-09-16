@@ -109,6 +109,28 @@ test("normalizes bounded secretary conversation entries", () => {
   assert.equal(outgoing?.text, "Jasne, dam znać.");
 });
 
+test("keeps bounded reply quote and edit metadata in secretary context", () => {
+  const entry = secretary.secretaryContextEntry(message({
+    date: 1_700_000_000,
+    edit_date: 1_700_000_123,
+    reply_to_message: {
+      message_id: 6,
+      from: { id: 42, first_name: "Owner" },
+      text: `Poprzednia ${"r".repeat(400)}`,
+    },
+    quote: { text: `konkretny fragment ${"q".repeat(300)}`, is_manual: true },
+  }), connection);
+
+  assert.equal(entry?.editedAt, 1_700_000_123);
+  assert.equal(entry?.replyToMessageId, 6);
+  assert.equal(entry?.replyPreview.length, 240);
+  assert.equal(entry?.quote.length, 180);
+  const block = secretary.secretaryContextBlock([entry]);
+  assert.match(block, /edited@1700000123/u);
+  assert.match(block, /reply#6=/u);
+  assert.match(block, /quote=/u);
+});
+
 test("keeps six deduplicated secretary context entries outside chat history", async () => {
   const state = durableState();
   const memory = new TelegramConversationMemory(state);
@@ -123,17 +145,36 @@ test("keeps six deduplicated secretary context entries outside chat history", as
   await memory.fetch(new Request("https://conversation/secretary-context", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ messageId: 7, direction: "owner", text: "updated", date: 8 }),
+    body: JSON.stringify({
+      messageId: 7,
+      direction: "owner",
+      text: "updated",
+      date: 8,
+      editedAt: 9,
+      replyToMessageId: 6,
+      replyPreview: "m6",
+      quote: "m",
+    }),
   }));
 
   const context = await (await memory.fetch(new Request("https://conversation/secretary-context"))).json();
   assert.deepEqual(context.entries.map((entry) => entry.messageId), [2, 3, 4, 5, 6, 7]);
   assert.equal(context.entries.at(-1).direction, "owner");
   assert.equal(context.entries.at(-1).text, "updated");
+  assert.equal(context.entries.at(-1).editedAt, 9);
+
+  const deleted = await memory.fetch(new Request("https://conversation/secretary-context/delete", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messageIds: [3, 7] }),
+  }));
+  assert.equal(deleted.status, 200);
+  const afterDelete = await (await memory.fetch(new Request("https://conversation/secretary-context"))).json();
+  assert.deepEqual(afterDelete.entries.map((entry) => entry.messageId), [2, 4, 5, 6]);
 
   await memory.fetch(new Request("https://conversation/clear", { method: "POST" }));
   const afterReset = await (await memory.fetch(new Request("https://conversation/secretary-context"))).json();
-  assert.deepEqual(afterReset.entries, context.entries);
+  assert.deepEqual(afterReset.entries, afterDelete.entries);
   const history = await (await memory.fetch(new Request("https://conversation/history"))).json();
   assert.deepEqual(history.turns, []);
 });

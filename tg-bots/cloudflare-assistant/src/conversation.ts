@@ -1,3 +1,4 @@
+import type { SecretaryContextEntry } from "./secretary";
 import type {
   ChatMessage,
   DurableObjectStateLike,
@@ -7,8 +8,10 @@ import type {
 } from "./types";
 
 const STATE_KEY = "conversation";
+const SECRETARY_CONTEXT_KEY = "secretary-context";
 const MAX_STORED_TURNS = 8;
 const MAX_STORED_FEEDBACK = 64;
+const MAX_STORED_SECRETARY_CONTEXT = 6;
 const MAX_CONTEXT_CHARS = 8_000;
 
 type ReplyFeedback = {
@@ -48,6 +51,18 @@ function validFeedback(value: unknown): value is { messageId: number; rating: "u
     (feedback.rating === "up" || feedback.rating === "down");
 }
 
+function validSecretaryContextEntry(value: unknown): value is SecretaryContextEntry {
+  if (!value || typeof value !== "object") return false;
+  const entry = value as Record<string, unknown>;
+  return typeof entry.messageId === "number" &&
+    Number.isSafeInteger(entry.messageId) && entry.messageId > 0 &&
+    (entry.direction === "owner" || entry.direction === "contact") &&
+    typeof entry.text === "string" && entry.text.length > 0 && entry.text.length <= 600 &&
+    (entry.date === undefined || (
+      typeof entry.date === "number" && Number.isSafeInteger(entry.date) && entry.date >= 0
+    ));
+}
+
 export class TelegramConversationMemory {
   constructor(private readonly state: DurableObjectStateLike) {}
 
@@ -61,7 +76,23 @@ export class TelegramConversationMemory {
         generation: currentGeneration(current),
       } satisfies TelegramConversationHistory);
     }
+    if (request.method === "GET" && url.pathname === "/secretary-context") {
+      const entries = await this.state.storage.get<SecretaryContextEntry[]>(SECRETARY_CONTEXT_KEY);
+      return json({ entries: entries ?? [] });
+    }
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+    if (url.pathname === "/secretary-context") {
+      const payload = await request.json();
+      if (!validSecretaryContextEntry(payload)) return json({ error: "invalid_secretary_context" }, 400);
+      const currentEntries = await this.state.storage.get<SecretaryContextEntry[]>(SECRETARY_CONTEXT_KEY) ?? [];
+      const entries = [
+        ...currentEntries.filter((entry) => entry.messageId !== payload.messageId),
+        payload,
+      ].slice(-MAX_STORED_SECRETARY_CONTEXT);
+      await this.state.storage.put(SECRETARY_CONTEXT_KEY, entries);
+      return json({ ok: true, entries: entries.length }, 201);
+    }
 
     if (url.pathname === "/feedback") {
       const payload = await request.json();

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { DispatcherConfig } from "../src/config.js";
 import type { AgentTools } from "../src/agent-tools.js";
-import { runOpenRouter, runRoutedOpenAI } from "../src/providers.js";
+import { AGENT_PROVIDER_ENV_NAMES, runOpenRouter, runRoutedOpenAI } from "../src/providers.js";
 
 const config: DispatcherConfig = {
   workspaceRoot: "C:\\work",
@@ -15,6 +15,14 @@ const config: DispatcherConfig = {
   openRouterModel: "openrouter/free",
   geminiModel: "gemini-2.5-flash",
 };
+
+test("provider environment names come from the shared backend registry", () => {
+  assert.deepEqual(AGENT_PROVIDER_ENV_NAMES, [
+    "AIHUBMIX_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY", "OLLAMA_API_KEY",
+    "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "PET_DISPATCHER_AIHUBMIX_MODEL",
+    "PET_DISPATCHER_GROQ_MODEL", "PET_DISPATCHER_OLLAMA_CLOUD_MODEL",
+  ]);
+});
 
 test("OpenRouter malformed tool calls become tool errors instead of crashing", async () => {
   const originalFetch = globalThis.fetch;

@@ -39,6 +39,23 @@ try {
 
         $queueToken = Read-DpapiSecret 'PET_DISPATCHER_QUEUE_TOKEN'
         $signingSecret = Read-DpapiSecret 'TASK_SIGNING_SECRET'
+        $providerEnvNames = @(& $nodePath $entry provider-env-names | ConvertFrom-Json)
+        $importedProviderEnv = [Collections.Generic.List[string]]::new()
+        $providerEnvOriginal = @{}
+        $providerEnvOriginallyPresent = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($name in $providerEnvNames) {
+            $name = [string]$name
+            $processEntry = Get-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+            if ($null -ne $processEntry) {
+                $providerEnvOriginal[$name] = [string]$processEntry.Value
+                [void]$providerEnvOriginallyPresent.Add($name)
+            }
+            $value = [Environment]::GetEnvironmentVariable($name, 'User')
+            if ($value) {
+                Set-Item -LiteralPath "Env:$name" -Value $value
+                $importedProviderEnv.Add($name)
+            }
+        }
         $env:PET_DISPATCHER_CONFIG = $configPath
         $env:PET_DISPATCHER_QUEUE_TOKEN = $queueToken
         $env:PET_DISPATCHER_SIGNING_SECRET = $signingSecret
@@ -47,6 +64,13 @@ try {
             & $nodePath $entry remote *>> $logPath
             $exitCode = $LASTEXITCODE
         } finally {
+            foreach ($name in $importedProviderEnv) {
+                if ($providerEnvOriginallyPresent.Contains($name)) {
+                    Set-Item -LiteralPath "Env:$name" -Value $providerEnvOriginal[$name]
+                } else {
+                    Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+                }
+            }
             Remove-Item Env:PET_DISPATCHER_QUEUE_TOKEN -ErrorAction SilentlyContinue
             Remove-Item Env:PET_DISPATCHER_SIGNING_SECRET -ErrorAction SilentlyContinue
             Remove-Item Env:PET_DISPATCHER_CONFIG -ErrorAction SilentlyContinue

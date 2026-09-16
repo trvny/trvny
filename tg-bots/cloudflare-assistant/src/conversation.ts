@@ -8,10 +8,18 @@ import type {
 
 const STATE_KEY = "conversation";
 const MAX_STORED_TURNS = 8;
+const MAX_STORED_FEEDBACK = 64;
 const MAX_CONTEXT_CHARS = 8_000;
+
+type ReplyFeedback = {
+  messageId: number;
+  rating: "up" | "down";
+  updatedAt: string;
+};
 
 type ConversationState = {
   turns: TelegramConversationTurn[];
+  feedback?: ReplyFeedback[];
   generation?: number;
   updatedAt: string;
 };
@@ -32,6 +40,14 @@ function validTurn(value: unknown): value is TelegramMemoryTurn {
     typeof turn.generation === "number" && Number.isInteger(turn.generation) && turn.generation >= 0;
 }
 
+function validFeedback(value: unknown): value is { messageId: number; rating: "up" | "down" } {
+  if (!value || typeof value !== "object") return false;
+  const feedback = value as Record<string, unknown>;
+  return typeof feedback.messageId === "number" &&
+    Number.isSafeInteger(feedback.messageId) && feedback.messageId > 0 &&
+    (feedback.rating === "up" || feedback.rating === "down");
+}
+
 export class TelegramConversationMemory {
   constructor(private readonly state: DurableObjectStateLike) {}
 
@@ -47,10 +63,28 @@ export class TelegramConversationMemory {
     }
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
+    if (url.pathname === "/feedback") {
+      const payload = await request.json();
+      if (!validFeedback(payload)) return json({ error: "invalid_feedback" }, 400);
+      const updatedAt = new Date().toISOString();
+      const feedback = [
+        ...(current?.feedback ?? []).filter((item) => item.messageId !== payload.messageId),
+        { messageId: payload.messageId, rating: payload.rating, updatedAt },
+      ].slice(-MAX_STORED_FEEDBACK);
+      await this.state.storage.put(STATE_KEY, {
+        turns: current?.turns ?? [],
+        feedback,
+        generation: currentGeneration(current),
+        updatedAt,
+      } satisfies ConversationState);
+      return json({ ok: true, feedback: feedback.length }, 201);
+    }
+
     if (url.pathname === "/clear") {
       const now = new Date().toISOString();
       const next: ConversationState = {
         turns: [],
+        feedback: current?.feedback ?? [],
         generation: currentGeneration(current) + 1,
         updatedAt: now,
       };
@@ -69,6 +103,7 @@ export class TelegramConversationMemory {
       const turns = [...(current?.turns ?? []), turn].slice(-MAX_STORED_TURNS);
       await this.state.storage.put(STATE_KEY, {
         turns,
+        feedback: current?.feedback ?? [],
         generation: currentGeneration(current),
         updatedAt: turn.createdAt,
       } satisfies ConversationState);

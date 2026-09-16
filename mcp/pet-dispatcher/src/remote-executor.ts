@@ -280,7 +280,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
             case "workspace.inspect": {
               const includeTree = call.include.includes("tree");
               const includeGit = call.include.includes("git");
-              const [tree, search, gitSummary] = await Promise.all([
+              const [treeResult, searchResult, gitResult] = await Promise.allSettled([
                 includeTree ? treeWorkspace(activeSession, call.path, { depth: call.depth, maxEntries: call.maxEntries, maxBytes: call.maxTreeBytes }) : undefined,
                 call.query ? searchWorkspace(activeSession, {
                   query: call.query, path: call.path, maxMatches: call.maxMatches, maxFiles: call.maxFiles,
@@ -288,12 +288,29 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
                 }) : undefined,
                 includeGit && activeSession.targetKind !== "workspace" ? git.summary(activeSession.id, call.maxCommits) : undefined,
               ]);
+              for (const result of [treeResult, searchResult, gitResult]) {
+                if (result.status === "rejected") throw result.reason;
+              }
+              const tree = treeResult.status === "fulfilled" ? treeResult.value : undefined;
+              const search = searchResult.status === "fulfilled" ? searchResult.value : undefined;
+              const gitSummary = gitResult.status === "fulfilled" ? gitResult.value : undefined;
               const compactGit = gitSummary ? {
                 ...gitSummary,
                 staged: { ...gitSummary.staged, paths: gitSummary.staged.paths.slice(0, call.maxGitPaths) },
                 unstaged: { ...gitSummary.unstaged, paths: gitSummary.unstaged.paths.slice(0, call.maxGitPaths) },
               } : includeGit ? null : undefined;
-              return { targetKind: activeSession.targetKind ?? "repository", path: call.path, tree, search, git: compactGit };
+              const data = { targetKind: activeSession.targetKind ?? "repository", path: call.path, tree, search, git: compactGit };
+              if (compactGit) {
+                const resultBytes = () => Buffer.byteLength(JSON.stringify({
+                  status: "completed", summary: `Direct remote tool ${call.tool} completed.`, data,
+                }), "utf8");
+                while (resultBytes() > MAX_DIRECT_RESULT_BYTES && (compactGit.staged.paths.length || compactGit.unstaged.paths.length)) {
+                  const paths = compactGit.staged.paths.length >= compactGit.unstaged.paths.length
+                    ? compactGit.staged.paths : compactGit.unstaged.paths;
+                  paths.pop();
+                }
+              }
+              return data;
             }
             case "fs.write": {
               if (Buffer.byteLength(call.content, "utf8") > 65_536) throw new Error("direct fs.write content exceeds 64 KiB");

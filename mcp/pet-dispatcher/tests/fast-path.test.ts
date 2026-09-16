@@ -78,6 +78,31 @@ test("search returns bounded line previews without dumping files", async () => {
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("tree and search skip dependency/build directories unless targeted directly", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pet-fast-ignore-"));
+  try {
+    await mkdir(join(root, "node_modules"), { recursive: true });
+    await mkdir(join(root, "src"), { recursive: true });
+    await Promise.all(Array.from({ length: 251 }, (_, index) =>
+      writeFile(join(root, "node_modules", `dep-${String(index).padStart(3, "0")}.txt`), "dependency needle\n"),
+    ));
+    await writeFile(join(root, "src", "main.ts"), "export const needle = true;\n");
+
+    const search = await searchWorkspace(fsSession(root), { query: "needle", path: ".", maxFiles: 250 });
+    assert.equal(search.matches[0]?.path, "src/main.ts");
+    assert.equal(search.filesScanned, 1);
+    assert.equal(search.skippedDirectories, 1);
+
+    const tree = await treeWorkspace(fsSession(root), ".", { depth: 2, maxEntries: 300 });
+    assert.ok(tree.entries.some((entry) => entry.path === "node_modules"));
+    assert.equal(tree.entries.some((entry) => entry.path.startsWith("node_modules/dep-")), false);
+    assert.equal(tree.skippedDirectories, 1);
+
+    const explicit = await searchWorkspace(fsSession(root), { query: "dependency needle", path: "node_modules", maxFiles: 1 });
+    assert.equal(explicit.matches[0]?.path, "node_modules/dep-000.txt");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("git summary returns branch/head/status/log in one structured call", async () => {
   const base = await mkdtemp(join(tmpdir(), "pet-fast-git-"));
   const repo = join(base, "repo");

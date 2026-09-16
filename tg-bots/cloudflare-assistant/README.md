@@ -18,7 +18,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - Bot API 10.3 generation-stop controls abort active streamed replies, bypass the serialized update queue, and preserve the generated partial as a normal message when possible;
 - model-backed replies use Telegram Rich Messages up to 32,768 characters; deterministic Markdown rejection retries as escaped Rich HTML before the legacy 4,096-character plain-text fallback;
 - best-effort native reactions show state for model-backed owner messages (`👀` while working, `👍` after successful delivery, `👎` on handled failures, `🤨` when delivery is ambiguous);
-- inline `/status` refresh button backed by Telegram callback queries and message editing;
+- `/status` uses a native Rich Message table plus expandable fallback details, with the existing refresh callback editing the same structured view and a plain-text fallback for deterministic Rich Message rejection;
 - Telegram-native button styles distinguish primary actions, successful copy actions and destructive task cancellation;
 - native clipboard button on short `/draft` suggestions;
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls;

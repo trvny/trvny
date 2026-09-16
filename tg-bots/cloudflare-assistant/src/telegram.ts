@@ -596,7 +596,12 @@ export async function sendTelegramRichHtml(
       rich_message: { html: html.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS) },
     });
   } catch (error) {
-    if (!(error instanceof TelegramSendError && error.status === 400 && !error.retryable && !error.ambiguous)) throw error;
+    if (!(
+      error instanceof TelegramSendError &&
+      error.status === 400 &&
+      !error.retryable &&
+      !error.ambiguous
+    )) throw error;
     console.warn("Telegram rejected structured Rich HTML; falling back to plain text");
     await sendTelegramMessage(env, chatId, fallbackText, options);
   }
@@ -618,7 +623,12 @@ export async function editTelegramRichHtml(
       ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
     }, true);
   } catch (error) {
-    if (!(error instanceof TelegramSendError && error.status === 400 && !error.retryable && !error.ambiguous)) throw error;
+    if (!(
+      error instanceof TelegramSendError &&
+      error.status === 400 &&
+      !error.retryable &&
+      !error.ambiguous
+    )) throw error;
     console.warn("Telegram rejected edited Rich HTML; falling back to plain edit");
     await editTelegramMessage(env, chatId, messageId, fallbackText, replyMarkup);
   }

@@ -1548,9 +1548,22 @@ async function processQueuedTelegram(
   try {
     if (reply.editMessageId !== undefined) {
       if (reply.richHtml) {
-        await editTelegramRichHtml(env, reply.chatId, reply.editMessageId, reply.richHtml, reply.text, reply.replyMarkup);
+        await editTelegramRichHtml(
+          env,
+          reply.chatId,
+          reply.editMessageId,
+          reply.richHtml,
+          reply.text,
+          reply.replyMarkup,
+        );
       } else {
-        await editTelegramMessage(env, reply.chatId, reply.editMessageId, reply.text, reply.replyMarkup);
+        await editTelegramMessage(
+          env,
+          reply.chatId,
+          reply.editMessageId,
+          reply.text,
+          reply.replyMarkup,
+        );
       }
     } else if (reply.createTopic) {
       await createTelegramForumTopic(env, reply.chatId, reply.createTopic.name);

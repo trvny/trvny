@@ -171,6 +171,12 @@ This first Secretary slice is deliberately **draft-only**. It accepts only bound
 
 No Business API method that acts on the owner's behalf is used here: no automatic reply, read receipt, deletion, scheduling, payment, task execution or commitment. Broader Secretary actions belong to later opt-in slices with separate permissions and explicit approval boundaries.
 
+### Telegram profile tooling
+
+The local helper can manage Botek's profile photo without adding runtime webhook code: `npm run telegram:profile -- set <photo.jpg>`, `npm run telegram:profile -- set <animation.mp4> [--frame <seconds>]`, or `npm run telegram:profile -- remove`. It loads `TELEGRAM_BOT_TOKEN` from the environment or local `.dev.vars` and never logs it.
+
+Telegram currently exposes profile audio to bots only as a read surface. Inspect the configured owner's profile audio with `npm run telegram:profile -- audio`, or inspect another numeric user ID with `npm run telegram:profile -- audio <user-id> --limit <1..100>`. The helper prints bounded audio metadata only; it does not download audio files, and Bot API does not expose a method for Botek to set profile audio.
+
 ## Cloudflare Workers Builds
 
 The one-time Queue creation and bot-specific runtime secrets must exist before enabling automatic production deploys.

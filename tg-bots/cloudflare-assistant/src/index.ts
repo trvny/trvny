@@ -12,6 +12,7 @@ import {
   parseVenueCommand,
 } from "./commands";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
+import { replyFeedbackKeyboard, replyFeedbackRequest } from "./feedback";
 import { TelegramUpdateDedup } from "./dedup";
 import { TelegramInlineQueryGate } from "./inline";
 import {
@@ -571,6 +572,21 @@ async function appendConversation(env: Env, chatId: string | number, reply: Tele
   if (!response.ok) throw new Error(`conversation append failed: HTTP ${response.status}`);
 }
 
+async function recordConversationFeedback(
+  env: Env,
+  chatId: string | number,
+  messageThreadId: number | undefined,
+  messageId: number,
+  rating: "up" | "down",
+): Promise<void> {
+  const response = await conversationStub(env, chatId, messageThreadId).fetch("https://conversation/feedback", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messageId, rating }),
+  });
+  if (!response.ok) throw new Error(`conversation feedback failed: HTTP ${response.status}`);
+}
+
 function inlineQueryStub(env: Env, userId: number) {
   return env.TELEGRAM_INLINE.get(env.TELEGRAM_INLINE.idFromName(String(userId)));
 }
@@ -589,6 +605,17 @@ async function enqueueTelegramInlineQuery(env: Env, update: TelegramUpdate): Pro
 async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<TelegramReply | null> {
   const callback = update.callback_query;
   if (callback) {
+    const feedback = replyFeedbackRequest(callback, env.OWNER_TELEGRAM_USER_ID);
+    if (feedback && callback.message) {
+      await recordConversationFeedback(
+        env,
+        callback.message.chat.id,
+        feedback.messageThreadId,
+        feedback.messageId,
+        feedback.rating,
+      );
+      return null;
+    }
     const callbackMessage = callback.message;
     if (
       !callbackMessage ||
@@ -1304,7 +1331,9 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     if (privateChat && await shouldStop()) throw new GenerationStoppedError(result.text);
     const footer = `\n\n[${result.provider} · ${result.model}]`;
     const assistant = result.text.slice(0, Math.max(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS - footer.length));
-    const replyMarkup = isDraft ? draftCopyKeyboard(assistant) : undefined;
+    const replyMarkup = isDraft
+      ? draftCopyKeyboard(assistant)
+      : privateChat ? replyFeedbackKeyboard() : undefined;
     return {
       chatId: message.chat.id,
       replyToMessageId: message.message_id,

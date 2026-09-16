@@ -9,10 +9,15 @@ import { ConfinedRemoteExecutor } from "./remote-executor.js";
 import { CloudflareQueueTransport, RemoteJournal, RemoteWorker } from "./remote-transport.js";
 import { acquireRemoteWorkerLease } from "./remote-worker-lease.js";
 import { probeRouting } from "./agent-router.js";
+import { AGENT_PROVIDER_ENV_NAMES } from "./providers.js";
 import { deviceMetaSchema } from "./device-meta.js";
 import { REMOTE_DIRECT_TOOLS } from "./remote-protocol.js";
 
 async function main(): Promise<void> {
+  if (process.argv[2] === "provider-env-names") {
+    console.log(JSON.stringify(AGENT_PROVIDER_ENV_NAMES));
+    return;
+  }
   const config = await loadConfig();
   const sessions = new SessionManager(config);
   const runner = await CommandRunner.create(config, sessions);

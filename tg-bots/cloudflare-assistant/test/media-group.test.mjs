@@ -124,3 +124,33 @@ test("analyzes album photos independently and keeps partial success", async () =
     { index: 2, error: "too_large" },
   ]);
 });
+
+test("preserves existing per-message handling for mixed-media albums", async () => {
+  const sent = [];
+  const gate = new mediaGroupModule.TelegramMediaGroupGate(state(), {
+    TELEGRAM_UPDATES: { async send(update) { sent.push(update); } },
+  });
+  const photo = albumUpdate(201, 50, "photo");
+  const video = albumUpdate(202, 51, "unused-photo");
+  delete video.message.photo;
+  video.message.video = {
+    file_id: "video-1",
+    file_unique_id: "video-1-unique",
+    width: 1280,
+    height: 720,
+    duration: 8,
+  };
+
+  for (const update of [photo, video]) {
+    await gate.fetch(new Request("https://media-group/enqueue", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ update }),
+    }));
+  }
+  await gate.alarm();
+
+  assert.equal(sent.length, 2);
+  assert.deepEqual(sent.map((update) => update.update_id), [201, 202]);
+  assert.equal(sent.some((update) => update.message.media_group_items), false);
+});

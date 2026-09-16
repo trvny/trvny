@@ -93,6 +93,12 @@ export class TelegramMediaGroupGate {
       return;
     }
 
+    if (!ordered.every((update) => Boolean(update.message?.photo?.length))) {
+      for (const update of ordered) await this.env.TELEGRAM_UPDATES.send(update);
+      await this.state.storage.deleteAll();
+      return;
+    }
+
     const aggregate: TelegramUpdate = {
       ...first,
       update_id: Math.min(...ordered.map((update) => update.update_id)),

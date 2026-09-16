@@ -6,6 +6,14 @@ const MAX_DIRECTORY_ENTRIES = 500;
 const DEFAULT_READ_MANY_FILE_BYTES = 32 * 1_024;
 const DEFAULT_READ_MANY_TOTAL_BYTES = 64 * 1_024;
 const DEFAULT_DISCOVERY_BYTES = 48 * 1_024;
+const DEFAULT_TRAVERSAL_IGNORES = new Set([
+  ".git", ".gradle", ".next", ".nuxt", ".turbo", ".cache", ".venv",
+  "node_modules", "build", "coverage", "dist", "out", "target", "venv",
+]);
+
+function ignoredTraversalDirectory(name: string): boolean {
+  return DEFAULT_TRAVERSAL_IGNORES.has(name);
+}
 
 function slash(path: string): string { return path.replaceAll("\\", "/"); }
 
@@ -118,6 +126,7 @@ export async function treeWorkspace(session: Session, path = ".", options: TreeO
   await resolveExisting(session.root, path);
   const entries: TreeEntry[] = [];
   let truncated = false;
+  let skippedDirectories = 0;
   const visit = async (relative: string, level: number): Promise<void> => {
     if (entries.length >= maxEntries) { truncated = true; return; }
     const target = await resolveExisting(session.root, relative);
@@ -129,12 +138,15 @@ export async function treeWorkspace(session: Session, path = ".", options: TreeO
       const entry: TreeEntry = { path: slash(childPath), type };
       if (arrayBytesAfterPush(entries, entry) > maxBytes) { truncated = true; return; }
       entries.push(entry);
-      if (child.isDirectory() && level < depth) await visit(childPath, level + 1);
+      if (child.isDirectory() && level < depth) {
+        if (ignoredTraversalDirectory(child.name)) skippedDirectories += 1;
+        else await visit(childPath, level + 1);
+      }
       if (truncated) return;
     }
   };
   await visit(path, 0);
-  return { entries, truncated, depth, limit: maxEntries, maxBytes };
+  return { entries, truncated, depth, limit: maxEntries, maxBytes, skippedDirectories };
 }
 
 export interface SearchOptions {
@@ -154,6 +166,7 @@ export async function searchWorkspace(session: Session, options: SearchOptions) 
   let filesScanned = 0;
   let skippedLargeFiles = 0;
   let truncated = false;
+  let skippedDirectories = 0;
   const visit = async (relative: string, level: number): Promise<void> => {
     if (matches.length >= maxMatches || filesScanned >= maxFiles) { truncated = true; return; }
     const target = await resolveExisting(session.root, relative);
@@ -162,6 +175,7 @@ export async function searchWorkspace(session: Session, options: SearchOptions) 
       if (matches.length >= maxMatches || filesScanned >= maxFiles) { truncated = true; return; }
       const childPath = relative === "." ? child.name : `${slash(relative)}/${child.name}`;
       if (child.isDirectory()) {
+        if (ignoredTraversalDirectory(child.name)) { skippedDirectories += 1; continue; }
         if (level < maxDepth) await visit(childPath, level + 1);
         if (truncated) return;
         continue;
@@ -184,7 +198,7 @@ export async function searchWorkspace(session: Session, options: SearchOptions) 
     }
   };
   await visit(root, 0);
-  return { matches, filesScanned, skippedLargeFiles, truncated, maxBytes };
+  return { matches, filesScanned, skippedLargeFiles, skippedDirectories, truncated, maxBytes };
 }
 
 export async function writeWorkspace(session: Session, path: string, content: string): Promise<void> {

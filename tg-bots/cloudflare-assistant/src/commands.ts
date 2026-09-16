@@ -56,6 +56,11 @@ export function parseAskCommand(text: string): string | null {
   return space < 0 ? "" : trimmed.slice(space + 1).trim();
 }
 
+export function parseAskMessageCommand(text?: string, caption?: string): string | null {
+  const source = text?.trim() || caption?.trim() || "";
+  return parseAskCommand(source);
+}
+
 export function parseWhisperCommand(text: string): string | null {
   const trimmed = text.trim();
   const space = trimmed.indexOf(" ");

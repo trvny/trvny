@@ -34,3 +34,11 @@ test("marks the owner group whisper command as ephemeral", () => {
   assert.equal(parseWhisperCommand("/ask nie whisper"), null);
   assert.equal(botHelpLines().some((line) => line.startsWith("/whisper ")), false);
 });
+
+
+test("accepts a visible group ask from a media caption", async () => {
+  const commands = await import("../src/commands.ts");
+  assert.ok(commands.parseAskMessageCommand, "message-level ask parser should exist");
+  assert.equal(commands.parseAskMessageCommand(undefined, "/ask porównaj te screeny"), "porównaj te screeny");
+  assert.equal(commands.parseAskMessageCommand("/ask tekst", "/ask podpis"), "tekst");
+});

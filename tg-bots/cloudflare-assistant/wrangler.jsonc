@@ -55,6 +55,10 @@
       {
         "name": "TELEGRAM_INLINE",
         "class_name": "TelegramInlineQueryGate"
+      },
+      {
+        "name": "TELEGRAM_MEDIA_GROUPS",
+        "class_name": "TelegramMediaGroupGate"
       }
     ]
   },
@@ -70,6 +74,10 @@
     {
       "tag": "v3",
       "new_sqlite_classes": ["TelegramInlineQueryGate"]
+    },
+    {
+      "tag": "v4",
+      "new_sqlite_classes": ["TelegramMediaGroupGate"]
     }
   ],
   "vars": {

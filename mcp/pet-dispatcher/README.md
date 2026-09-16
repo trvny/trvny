@@ -37,7 +37,7 @@ The remote transport does not widen the local authority boundary. Every delegate
 
 Session Git objects are copied through a non-local clone path instead of borrowing the source clone object database. Source-side pruning therefore cannot invalidate an active session. Non-Git workspaces use the same realpath/symlink confinement but never pretend to be repositories.
 
-Host commands are resolved to canonical absolute paths. PATH discovery adds only the executable's canonical directory to the MXC read-only policy; filesystem roots are rejected. `toolRoots` remains available for explicit pinned roots, but normal PATH-visible tools do not need to be duplicated there.
+Host commands are resolved to canonical absolute paths. PATH discovery adds only the executable's canonical tool directory to the MXC read-only policy; Scoop tools grant only their versioned app root so launchers can reach sibling runtime files. Filesystem roots are rejected. On Windows, trusted host tools run with Win32k available because MXC requires it for many normal CLI executables, while workspace-local executables keep Win32k denied; clipboard access and input injection remain denied. `toolRoots` remains available for explicit pinned roots, but normal PATH-visible tools do not need to be duplicated there.
 
 Remote envelopes and worker callbacks use an HMAC secret that stays in Cloudflare secrets and the Legion environment. Cloudflare Queue bearer credentials also remain local to the Legion. Neither belongs in `dispatcher.local.json`, task payloads, logs or Git.
 

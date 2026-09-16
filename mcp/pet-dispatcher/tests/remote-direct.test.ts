@@ -323,6 +323,65 @@ test("workspace inspect combines bounded tree, optional search and Git summary",
   } finally { await cleanup(state); }
 });
 
+test("workspace inspect waits for every started branch before failing", async () => {
+  const state = await fixture();
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
+  const originalSummary = HostGit.prototype.summary;
+  let releaseSummary!: () => void;
+  let summaryStarted = false;
+  const summaryGate = new Promise<void>((resolve) => { releaseSummary = resolve; });
+  HostGit.prototype.summary = async () => {
+    summaryStarted = true;
+    await summaryGate;
+    return {
+      branch: "main", head: "0".repeat(40), upstream: null, ahead: null, behind: null, dirty: false,
+      staged: { files: 0, paths: [] }, unstaged: { files: 0, paths: [] }, recent: [],
+    };
+  };
+  try {
+    let settled = false;
+    const observed = executor.execute(directTask({
+      tool: "workspace.inspect", path: "../escape", include: ["tree", "git"],
+    }), "workspace-inspect-settle").then((value) => { settled = true; return value; });
+    while (!summaryStarted) await new Promise((resolve) => setTimeout(resolve, 1));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(settled, false);
+    releaseSummary();
+    const outcome = await observed;
+    assert.equal(outcome.status, "failed");
+    assert.equal(state.sessions.list().length, 0);
+  } finally {
+    HostGit.prototype.summary = originalSummary;
+    releaseSummary?.();
+    await cleanup(state);
+  }
+});
+
+test("workspace inspect trims Git paths to the shared callback budget", async () => {
+  const state = await fixture();
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
+  const originalSummary = HostGit.prototype.summary;
+  HostGit.prototype.summary = async () => {
+    const paths = Array.from({ length: 50 }, (_, index) => `${"deep/".repeat(300)}file-${index}.txt`);
+    return {
+      branch: "main", head: "0".repeat(40), upstream: null, ahead: 0, behind: 0, dirty: true,
+      staged: { files: paths.length, paths: [...paths] }, unstaged: { files: paths.length, paths: [...paths] }, recent: [],
+    };
+  };
+  try {
+    const result = await executor.execute(directTask({
+      tool: "workspace.inspect", path: ".", include: ["tree", "git"], maxTreeBytes: 32_768, maxGitPaths: 50,
+    }), "workspace-inspect-budget");
+    assert.equal(result.status, "completed");
+    const data = dataOf<{ git?: { staged: { paths: string[] }; unstaged: { paths: string[] } } }>(result);
+    assert.ok((data.git?.staged.paths.length ?? 50) < 50 || (data.git?.unstaged.paths.length ?? 50) < 50);
+    assert.ok(Buffer.byteLength(JSON.stringify(result), "utf8") <= 96 * 1_024);
+  } finally {
+    HostGit.prototype.summary = originalSummary;
+    await cleanup(state);
+  }
+});
+
 test("workspace inspect keeps non-Git workspaces Git-free", async () => {
   const base = await mkdtemp(join(tmpdir(), "pet-inspect-workspace-"));
   const workspace = join(base, "dc");

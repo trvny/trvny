@@ -39,17 +39,20 @@ test("readMany returns bounded structured file results", async () => {
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test("tree is depth and entry bounded", async () => {
+test("tree is depth, entry and byte bounded", async () => {
   const root = await mkdtemp(join(tmpdir(), "pet-fast-tree-"));
   try {
     await mkdir(join(root, "src", "nested"), { recursive: true });
     await writeFile(join(root, "src", "one.ts"), "one\n");
     await writeFile(join(root, "src", "nested", "two.ts"), "two\n");
-    const result = await treeWorkspace(fsSession(root), ".", { depth: 1, maxEntries: 10 });
+    const result = await treeWorkspace(fsSession(root), ".", { depth: 1, maxEntries: 10, maxBytes: 96 });
     assert.ok(result.entries.some((entry) => entry.path === "src" && entry.type === "directory"));
     assert.ok(result.entries.some((entry) => entry.path === "src/one.ts"));
     assert.equal(result.entries.some((entry) => entry.path === "src/nested/two.ts"), false);
-    assert.equal(result.truncated, false);
+    assert.ok(Buffer.byteLength(JSON.stringify(result.entries), "utf8") <= 96);
+    const tiny = await treeWorkspace(fsSession(root), ".", { depth: 8, maxEntries: 100, maxBytes: 40 });
+    assert.equal(tiny.truncated, true);
+    assert.ok(Buffer.byteLength(JSON.stringify(tiny.entries), "utf8") <= 40);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -60,13 +63,18 @@ test("search returns bounded line previews without dumping files", async () => {
     await writeFile(join(root, "src", "one.ts"), "alpha\nneedle first\nomega\n");
     await writeFile(join(root, "src", "two.ts"), "needle second\n");
     const result = await searchWorkspace(fsSession(root), {
-      query: "needle", path: "src", maxMatches: 1, maxFiles: 10, maxFileBytes: 4_096, maxDepth: 3,
+      query: "needle", path: "src", maxMatches: 10, maxFiles: 10, maxFileBytes: 4_096, maxDepth: 3, maxBytes: 96,
     });
-    assert.equal(result.matches.length, 1);
+    assert.ok(result.matches.length >= 1);
     assert.equal(result.matches[0]?.path, "src/one.ts");
     assert.equal(result.matches[0]?.line, 2);
     assert.match(result.matches[0]?.preview ?? "", /needle first/u);
-    assert.equal(result.truncated, true);
+    assert.ok(Buffer.byteLength(JSON.stringify(result.matches), "utf8") <= 96);
+    const tiny = await searchWorkspace(fsSession(root), {
+      query: "needle", path: "src", maxMatches: 10, maxFiles: 10, maxFileBytes: 4_096, maxDepth: 3, maxBytes: 48,
+    });
+    assert.equal(tiny.truncated, true);
+    assert.ok(Buffer.byteLength(JSON.stringify(tiny.matches), "utf8") <= 48);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

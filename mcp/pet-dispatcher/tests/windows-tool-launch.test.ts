@@ -4,16 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import test from "node:test";
-import { getPlatformSupport } from "@microsoft/mxc-sdk";
 import type { DispatcherConfig } from "../src/config.js";
-import { CommandRunner, requiresSystemDrivePrep } from "../src/sandbox.js";
+import { CommandRunner } from "../src/sandbox.js";
 import { SessionManager } from "../src/sessions.js";
 
-test("Windows MXC launches PATH-resolved Node without inheriting dispatcher secrets", { skip: process.platform !== "win32" }, async (t) => {
-  if (requiresSystemDrivePrep(getPlatformSupport().isolationWarnings ?? [])) {
-    t.skip("MXC host requires system-drive preparation");
-    return;
-  }
+test("Windows MXC launches PATH-resolved Node without inheriting dispatcher secrets", { skip: process.platform !== "win32" }, async () => {
   const base = await mkdtemp(join(tmpdir(), "pet-windows-tool-"));
   const workspace = join(base, "workspace");
   const worker = join(base, "worker");
@@ -32,12 +27,22 @@ test("Windows MXC launches PATH-resolved Node without inheriting dispatcher secr
   try {
     const session = await sessions.open("fixture");
     sessionId = session.id;
+    if (runner.systemDrivePrepRequired) {
+      await assert.rejects(
+        runner.exec(session.id, ["node", "--version"]),
+        /wxc-host-prep prepare-system-drive/u,
+      );
+      return;
+    }
     const result = await runner.exec(session.id, [
       "node", "-e", "console.log('NODE_OK|' + (process.env.PET_SECRET_SENTINEL || 'clean'))",
     ]);
     assert.equal(result.exitCode, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /NODE_OK\|clean/u);
     assert.doesNotMatch(result.stdout, /MUST_NOT_LEAK/u);
+    const npmVersion = await runner.exec(session.id, ["npm", "--version"]);
+    assert.equal(npmVersion.exitCode, 0, npmVersion.stderr || npmVersion.stdout);
+    assert.match(npmVersion.stdout.trim(), /^\d+\.\d+\.\d+$/u);
   } finally {
     if (previous === undefined) delete process.env.PET_SECRET_SENTINEL;
     else process.env.PET_SECRET_SENTINEL = previous;
@@ -50,7 +55,6 @@ test("Windows MXC launches PATH-resolved Node without inheriting dispatcher secr
 
 
 test("Windows MXC brokered exec allows only the exact-host proxy port", { skip: process.platform !== "win32" }, async (t) => {
-  if (requiresSystemDrivePrep(getPlatformSupport().isolationWarnings ?? [])) { t.skip("MXC host requires system-drive preparation"); return; }
   const base = await mkdtemp(join(tmpdir(), "pet-windows-network-"));
   const workspace = join(base, "workspace");
   const worker = join(base, "worker");
@@ -65,6 +69,12 @@ test("Windows MXC brokered exec allows only the exact-host proxy port", { skip: 
   };
   const sessions = new SessionManager(config);
   const runner = await CommandRunner.create(config, sessions);
+  if (runner.systemDrivePrepRequired) {
+    t.skip("MXC host requires system-drive preparation");
+    await runner.close().catch(() => undefined); sessions.dispose();
+    await rm(base, { recursive: true, force: true });
+    return;
+  }
   const trap = createServer((socket) => { socket.on("error", () => undefined); socket.end("unexpected"); });
   const trap6 = createServer((socket) => { socket.on("error", () => undefined); socket.end("unexpected-v6"); });
   await new Promise<void>((resolve, reject) => { trap.once("error", reject); trap.listen(0, "127.0.0.1", () => { trap.off("error", reject); resolve(); }); });

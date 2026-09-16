@@ -15,11 +15,13 @@ test.after(async () => {
   await Promise.all([...fixtureRunners].map((runner) => runner.close().catch(() => undefined)));
 });
 
-test("system-drive prep warning is recognized before workspace execution", () => {
-  assert.equal(requiresSystemDrivePrep([
-    "AppContainer metadata warning: run wxc-host-prep prepare-system-drive before execution",
-  ]), true);
-  assert.equal(requiresSystemDrivePrep(["unrelated isolation warning"]), false);
+test("system-drive prep requirement prefers the Windows ACL probe over stale MXC warnings", () => {
+  const warning = ["AppContainer metadata warning: run wxc-host-prep prepare-system-drive before execution"];
+  assert.equal(requiresSystemDrivePrep(warning, true, "win32"), false);
+  assert.equal(requiresSystemDrivePrep(warning, undefined, "win32"), true);
+  assert.equal(requiresSystemDrivePrep(["unrelated isolation warning"], false, "win32"), true);
+  assert.equal(requiresSystemDrivePrep([], true, "win32"), false);
+  assert.equal(requiresSystemDrivePrep([], false, "linux"), false);
 });
 
 async function makeFixture() {

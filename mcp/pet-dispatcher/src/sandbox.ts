@@ -38,8 +38,43 @@ interface RunningProcess {
 
 const WINDOWS_EXTENSIONS = [".exe", ".com", ".cmd", ".bat", ""];
 
-export function requiresSystemDrivePrep(warnings: readonly string[]): boolean {
+export function requiresSystemDrivePrep(
+  warnings: readonly string[],
+  aclReady?: boolean,
+  platform = process.platform,
+): boolean {
+  if (platform === "win32" && aclReady !== undefined) return !aclReady;
   return warnings.some((warning) => warning.includes("prepare-system-drive") || warning.includes("system-drive root"));
+}
+
+let systemDrivePrepAclProbe: Promise<boolean | undefined> | undefined;
+
+function probeSystemDrivePrepAcl(): Promise<boolean | undefined> {
+  systemDrivePrepAclProbe ??= probeSystemDrivePrepAclUncached();
+  return systemDrivePrepAclProbe;
+}
+
+async function probeSystemDrivePrepAclUncached(): Promise<boolean | undefined> {
+  if (process.platform !== "win32") return undefined;
+  const systemRoot = process.env.SystemRoot ?? "C:\\Windows";
+  const driveRoot = parse(systemRoot).root;
+  const powershell = join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+  const script = [
+    `$target=${JSON.stringify(driveRoot)};`,
+    "$want=@('S-1-15-2-1','S-1-15-2-2');",
+    "$acl=([System.IO.DirectoryInfo]::new($target)).GetAccessControl();",
+    "$aces=@($acl.GetAccessRules($true,$false,[System.Security.Principal.SecurityIdentifier]));",
+    "$ok=$true; foreach($sid in $want){",
+    "  $match=@($aces | Where-Object { $_.IdentityReference.Value -eq $sid -and $_.AccessControlType -eq 'Allow' -and [int64]$_.FileSystemRights -eq 0x00120088 -and $_.InheritanceFlags -eq 'None' -and $_.PropagationFlags -eq 'None' });",
+    "  if($match.Count -eq 0){$ok=$false}",
+    "}; if($ok){Write-Output 'ready'; exit 0}else{Write-Output 'missing'; exit 0}",
+  ].join(" ");
+  try {
+    const { stdout } = await execFileAsync(powershell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], { windowsHide: true, timeout: 20_000 });
+    return stdout.trim() === "ready";
+  } catch {
+    return false;
+  }
 }
 
 function quoteBatchArg(value: string): string {
@@ -95,6 +130,7 @@ export class CommandRunner {
     readonly sessions: SessionManager,
     readonly toolRoots: string[],
     readonly jobGuard: WindowsJobGuard | undefined,
+    readonly systemDrivePrepRequired: boolean,
   ) {}
 
   static async create(config: DispatcherConfig, sessions: SessionManager): Promise<CommandRunner> {
@@ -109,7 +145,9 @@ export class CommandRunner {
     const watchdogIntervalMs = config.resourceLimits?.watchdogIntervalMs ?? 250;
     const guard = await WindowsJobGuard.create(watchdogIntervalMs);
     if (process.platform === "win32" && !guard) throw new Error("Windows Job Object resource guardian is unavailable");
-    const runner = new CommandRunner(config, sessions, [...roots], guard);
+    const aclReady = await probeSystemDrivePrepAcl();
+    const systemDrivePrepRequired = requiresSystemDrivePrep(support.isolationWarnings ?? [], aclReady);
+    const runner = new CommandRunner(config, sessions, [...roots], guard, systemDrivePrepRequired);
     sessions.setProcessTerminator((sessionId) => runner.terminateSession(sessionId));
     return runner;
   }
@@ -119,7 +157,7 @@ export class CommandRunner {
   securityStatus(): object {
     const support = getPlatformSupport();
     const warnings = support.isolationWarnings ?? [];
-    const systemDrivePrepRequired = requiresSystemDrivePrep(warnings);
+    const systemDrivePrepRequired = this.systemDrivePrepRequired;
     const nullDevicePrepRequired = warnings.some((warning) => warning.includes("prepare-null-device") || warning.includes("\\Device\\Null"));
     const limits = this.config.resourceLimits;
     return {
@@ -234,8 +272,8 @@ export class CommandRunner {
   async exec(sessionId: string, argv: string[], cwd = ".", timeoutMs?: number, signal?: AbortSignal, requestedLimits: ExecLimits = {}): Promise<ExecResult> {
     if (signal?.aborted) throw signal.reason ?? new Error("workspace exec aborted");
     if (argv.length === 0) throw new Error("argv must contain an executable");
-    if (requiresSystemDrivePrep(getPlatformSupport().isolationWarnings ?? [])) {
-      throw new Error("workspace.exec unavailable: MXC system-drive host preparation is required; Pet Dispatcher will not apply it automatically");
+    if (this.systemDrivePrepRequired) {
+      throw new Error("workspace.exec unavailable: MXC system-drive host preparation is required; run elevated `wxc-host-prep prepare-system-drive`, then restart Pet Dispatcher");
     }
     const releaseActivity = this.sessions.acquireActivity(sessionId, "workspace.exec");
     let child: ChildProcess | undefined;

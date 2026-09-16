@@ -28,7 +28,7 @@
     "@google/genai": "^2.22.0",
     "@microsoft/mxc-sdk": "^0.8.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^4.6.2"
+    "zod": "^4.6.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260904.1",

@@ -18,11 +18,18 @@ export {
 type SecretaryUpdate = TelegramUpdate & {
   business_connection?: unknown;
   business_message?: unknown;
+  edited_business_message?: unknown;
+  deleted_business_messages?: unknown;
 };
 
 function hasSecretaryPayload(update: TelegramUpdate): boolean {
   const candidate = update as SecretaryUpdate;
-  return Boolean(candidate.business_connection || candidate.business_message);
+  return Boolean(
+    candidate.business_connection ||
+    candidate.business_message ||
+    candidate.edited_business_message ||
+    candidate.deleted_business_messages
+  );
 }
 
 export default {

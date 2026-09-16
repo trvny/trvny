@@ -146,12 +146,15 @@ async function syncEditedBusinessMessage(
   message: TelegramBusinessMessage,
 ): Promise<void> {
   const connectionId = message.business_connection_id?.trim();
-  if (!connectionId) return;
+  if (!connectionId || !Number.isSafeInteger(message.chat?.id) || !Number.isSafeInteger(message.message_id) || message.message_id <= 0) return;
   const connection = await getBusinessConnection(env, connectionId);
   if (!isOwnerBusinessConnection(connection, env.OWNER_TELEGRAM_USER_ID)) return;
   const entry = secretaryContextEntry(message, connection);
-  if (!entry) return;
-  await appendSecretaryContext(env, connection.id, message.chat.id, entry);
+  if (entry) {
+    await appendSecretaryContext(env, connection.id, message.chat.id, entry);
+  } else {
+    await removeSecretaryContext(env, connection.id, message.chat.id, [message.message_id]);
+  }
 }
 
 async function syncDeletedBusinessMessages(

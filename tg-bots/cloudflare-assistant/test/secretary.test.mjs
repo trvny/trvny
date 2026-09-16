@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { TelegramConversationMemory } from "../src/conversation.ts";
 import * as secretary from "../src/secretary.ts";
 
 const connection = {
@@ -20,6 +21,19 @@ function message(overrides = {}) {
     from: { id: 77, first_name: "Ada", username: "ada" },
     text: "Hej, dasz radę jutro?",
     ...overrides,
+  };
+}
+
+function durableState() {
+  const values = new Map();
+  return {
+    values,
+    storage: {
+      async get(key) { return values.get(key); },
+      async put(key, value) { values.set(key, value); },
+      async deleteAll() { values.clear(); },
+      async setAlarm() {},
+    },
   };
 }
 
@@ -77,4 +91,65 @@ test("offers native copy only when Telegram can copy the full draft", () => {
   });
   assert.equal(secretary.secretaryDraftKeyboard("x".repeat(257)), undefined);
   assert.equal(secretary.secretaryDraftKeyboard(""), undefined);
+});
+
+test("normalizes bounded secretary conversation entries", () => {
+  assert.ok(secretary.secretaryContextEntry, "secretary context normalizer should exist");
+  const incoming = secretary.secretaryContextEntry(message({ text: "x".repeat(900), date: 1_700_000_000 }), connection);
+  assert.equal(incoming?.direction, "contact");
+  assert.equal(incoming?.messageId, 7);
+  assert.equal(incoming?.text.length, 600);
+  assert.equal(incoming?.date, 1_700_000_000);
+
+  const outgoing = secretary.secretaryContextEntry(message({
+    from: { id: 42, first_name: "Owner" },
+    text: "Jasne, dam znać.",
+  }), connection);
+  assert.equal(outgoing?.direction, "owner");
+  assert.equal(outgoing?.text, "Jasne, dam znać.");
+});
+
+test("keeps six deduplicated secretary context entries outside chat history", async () => {
+  const state = durableState();
+  const memory = new TelegramConversationMemory(state);
+  for (let index = 1; index <= 7; index += 1) {
+    const response = await memory.fetch(new Request("https://conversation/secretary-context", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messageId: index, direction: "contact", text: `m${index}`, date: index }),
+    }));
+    assert.equal(response.status, 201);
+  }
+  await memory.fetch(new Request("https://conversation/secretary-context", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messageId: 7, direction: "owner", text: "updated", date: 8 }),
+  }));
+
+  const context = await (await memory.fetch(new Request("https://conversation/secretary-context"))).json();
+  assert.deepEqual(context.entries.map((entry) => entry.messageId), [2, 3, 4, 5, 6, 7]);
+  assert.equal(context.entries.at(-1).direction, "owner");
+  assert.equal(context.entries.at(-1).text, "updated");
+
+  await memory.fetch(new Request("https://conversation/clear", { method: "POST" }));
+  const afterReset = await (await memory.fetch(new Request("https://conversation/secretary-context"))).json();
+  assert.deepEqual(afterReset.entries, context.entries);
+  const history = await (await memory.fetch(new Request("https://conversation/history"))).json();
+  assert.deepEqual(history.turns, []);
+});
+
+test("frames secretary history as bounded untrusted context", () => {
+  assert.ok(secretary.secretaryContextBlock, "secretary context formatter should exist");
+  const entries = Array.from({ length: 8 }, (_, index) => ({
+    messageId: index + 1,
+    direction: index % 2 === 0 ? "contact" : "owner",
+    text: `${index}: ${"z".repeat(900)}`,
+    date: 1_700_000_000 + index,
+  }));
+  const block = secretary.secretaryContextBlock(entries);
+  assert.match(block, /UNTRUSTED Telegram Business conversation context/u);
+  assert.match(block, /contact:/u);
+  assert.match(block, /owner:/u);
+  assert.ok(block.length <= 3_500);
+  assert.doesNotMatch(block, /0: z/u, "oldest entries should fall outside the six-message window");
 });

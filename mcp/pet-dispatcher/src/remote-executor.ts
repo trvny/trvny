@@ -7,15 +7,15 @@ import type { CommandRunner, ExecResult } from "./sandbox.js";
 import type { Session, SessionManager } from "./sessions.js";
 import {
   deleteWorkspace, listWorkspace, mkdirWorkspace, moveWorkspace, patchWorkspace,
-  readWorkspace, statWorkspace, writeWorkspace,
+  readManyWorkspace, readWorkspace, searchWorkspace, statWorkspace, treeWorkspace, writeWorkspace,
 } from "./workspace-fs.js";
 import { isRemoteDirectExecTool, isRemoteDirectWriteTool, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
 import type { RemoteTaskExecutor } from "./remote-transport.js";
 
 const MAX_SUMMARY_CHARS = 20_000;
-const MAX_DIRECT_OUTPUT_CHARS = 65_536;
 const MAX_DIRECT_RESULT_BYTES = 96 * 1_024;
 const MAX_DIRECT_EXEC_STREAM_BYTES = 24 * 1_024;
+const ANSI_ESCAPE = /\u001B\[[0-?]*[ -/]*[@-~]/gu;
 
 const PROFILE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
   inspect: ["workspace.read", "git.read", "network.fetch"],
@@ -42,12 +42,25 @@ function boundedSummary(value: string, fallback: string): string { return (value
 function trimDiff(value: string): string | undefined {
   const trimmed = value.trim(); return trimmed ? trimmed.slice(0, 65_536) : undefined;
 }
-function boundUtf8(value: string, maxBytes: number): { text: string; truncated: boolean } {
+function stripAnsi(value: string): string { return value.replace(ANSI_ESCAPE, ""); }
+function utf8Head(value: string, maxBytes: number): { text: string; truncated: boolean } {
   const bytes = Buffer.from(value, "utf8");
   if (bytes.length <= maxBytes) return { text: value, truncated: false };
-  let end = maxBytes;
-  while (end > 0 && (((bytes[end] ?? 0) & 0xc0) === 0x80)) end -= 1;
-  return { text: bytes.subarray(0, end).toString("utf8"), truncated: true };
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  for (let end = maxBytes; end >= Math.max(0, maxBytes - 4); end -= 1) {
+    try { return { text: decoder.decode(bytes.subarray(0, end)), truncated: true }; } catch { /* trim incomplete code point */ }
+  }
+  return { text: bytes.subarray(0, maxBytes).toString("utf8"), truncated: true };
+}
+function utf8Tail(value: string, maxBytes: number): { text: string; truncated: boolean } {
+  const bytes = Buffer.from(value, "utf8");
+  if (bytes.length <= maxBytes) return { text: value, truncated: false };
+  let start = Math.max(0, bytes.length - maxBytes);
+  while (start < bytes.length && ((bytes[start] ?? 0) & 0xc0) === 0x80) start += 1;
+  return { text: bytes.subarray(start).toString("utf8"), truncated: true };
+}
+function boundUtf8(value: string, maxBytes: number, mode: "head" | "tail") {
+  return mode === "head" ? utf8Head(value, maxBytes) : utf8Tail(value, maxBytes);
 }
 function publicDirectSession(session: Session) {
   return {
@@ -57,10 +70,27 @@ function publicDirectSession(session: Session) {
     createdAt: session.createdAt, expiresAt: session.expiresAt,
   };
 }
-function boundedExecResult(value: ExecResult): ExecResult {
-  const stdout = boundUtf8(value.stdout, MAX_DIRECT_EXEC_STREAM_BYTES);
-  const stderr = boundUtf8(value.stderr, MAX_DIRECT_EXEC_STREAM_BYTES);
-  return { ...value, stdout: stdout.text, stderr: stderr.text, truncated: value.truncated || stdout.truncated || stderr.truncated };
+function boundedExecResult(
+  value: ExecResult,
+  maxOutputBytes = MAX_DIRECT_EXEC_STREAM_BYTES,
+  mode: "head" | "tail" = "tail",
+  shouldStripAnsi = true,
+): ExecResult {
+  const limit = Math.min(MAX_DIRECT_EXEC_STREAM_BYTES, Math.max(256, maxOutputBytes));
+  const stdoutValue = shouldStripAnsi ? stripAnsi(value.stdout) : value.stdout;
+  const stderrValue = shouldStripAnsi ? stripAnsi(value.stderr) : value.stderr;
+  const stderrFirst = (value.exitCode ?? 0) !== 0 && stderrValue.length > 0;
+  const primaryValue = stderrFirst ? stderrValue : stdoutValue;
+  const secondaryValue = stderrFirst ? stdoutValue : stderrValue;
+  const primary = boundUtf8(primaryValue, limit, mode);
+  const remaining = Math.max(0, limit - Buffer.byteLength(primary.text, "utf8"));
+  const secondary = boundUtf8(secondaryValue, remaining, mode);
+  return {
+    ...value,
+    stdout: stderrFirst ? secondary.text : primary.text,
+    stderr: stderrFirst ? primary.text : secondary.text,
+    truncated: value.truncated || primary.truncated || secondary.truncated,
+  };
 }
 
 export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
@@ -124,14 +154,14 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       try {
         const session = await this.sessions.open(task.repo, task.baseRef, "none", undefined, false, call.ttlMinutes);
         const expiresAt = this.#scheduleDirectSession(session.id, task.repo, call.ttlMinutes);
-        return { status: "completed", summary: "Direct remote write session opened.", output: JSON.stringify({ sessionId: session.id, repo: session.repo, alias: session.repo, targetKind: session.targetKind ?? "repository", expiresAt: new Date(expiresAt).toISOString() }) };
+        return { status: "completed", summary: "Direct remote write session opened.", data: { sessionId: session.id, repo: session.repo, alias: session.repo, targetKind: session.targetKind ?? "repository", expiresAt: new Date(expiresAt).toISOString() } };
       } catch (error) {
         return { status: "failed", summary: "Direct remote write session failed to open.", error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
       }
     }
     if (call.tool === "session.list") {
       const value = this.sessions.list().map(publicDirectSession);
-      return { status: "completed", summary: "Active Pet Dispatcher sessions listed.", output: JSON.stringify({ sessions: value }) };
+      return { status: "completed", summary: "Active Pet Dispatcher sessions listed.", data: { sessions: value } };
     }
     if (call.tool === "session.reclaim") {
       try {
@@ -139,7 +169,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         if (session.repo !== task.repo) throw new Error("remote direct session target mismatch");
         const reclaimed = await this.sessions.reclaim(call.sessionId);
         if (reclaimed) this.#clearDirectSession(call.sessionId);
-        return { status: "completed", summary: reclaimed ? "Expired session reclaimed." : "Session was already absent.", output: JSON.stringify({ reclaimed, sessionId: call.sessionId }) };
+        return { status: "completed", summary: reclaimed ? "Expired session reclaimed." : "Session was already absent.", data: { reclaimed, sessionId: call.sessionId } };
       } catch (error) {
         return { status: "failed", summary: "Session reclaim refused.", error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
       }
@@ -156,7 +186,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         this.#clearDirectSession(call.sessionId);
         return {
           status: "completed", summary: "Direct remote write session closed.",
-          output: JSON.stringify({ ok: true, discarded: call.discard, commit: exported?.commit, ref: exported?.ref }),
+          data: { ok: true, discarded: call.discard, commit: exported?.commit, ref: exported?.ref },
           commit: exported?.commit, exportedRef: exported?.ref,
         };
       } catch (error) {
@@ -178,7 +208,10 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       const git = new HostGit(this.sessions, this.config);
       let exported: { commit: string; ref: string } | undefined;
       const value = call.tool === "workspace.exec"
-        ? boundedExecResult(await this.runner.exec(activeSession.id, call.argv, call.cwd, call.timeoutMs, signal, { memoryMiB: call.memoryMiB, processLimit: call.processLimit }))
+        ? boundedExecResult(
+            await this.runner.exec(activeSession.id, call.argv, call.cwd, call.timeoutMs, signal, { memoryMiB: call.memoryMiB, processLimit: call.processLimit }),
+            call.maxOutputBytes, call.outputMode, call.stripAnsi,
+          )
         : await this.sessions.runActivity(activeSession.id, "remote-direct", async () => {
           switch (call.tool) {
             case "session.status": {
@@ -189,6 +222,12 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
             case "fs.list": return listWorkspace(activeSession, call.path);
             case "fs.stat": return statWorkspace(activeSession, call.path);
             case "fs.read": return { content: await readWorkspace(activeSession, call.path, 60_000) };
+            case "fs.readMany": return readManyWorkspace(activeSession, call.paths, { maxBytesPerFile: call.maxBytesPerFile, maxTotalBytes: call.maxTotalBytes });
+            case "fs.tree": return treeWorkspace(activeSession, call.path, { depth: call.depth, maxEntries: call.maxEntries });
+            case "fs.search": return searchWorkspace(activeSession, {
+              query: call.query, path: call.path, maxMatches: call.maxMatches, maxFiles: call.maxFiles,
+              maxFileBytes: call.maxFileBytes, maxDepth: call.maxDepth,
+            });
             case "fs.write": {
               if (Buffer.byteLength(call.content, "utf8") > 65_536) throw new Error("direct fs.write content exceeds 64 KiB");
               await writeWorkspace(activeSession, call.path, call.content); return { ok: true };
@@ -199,6 +238,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
             case "fs.delete": await deleteWorkspace(activeSession, call.path); return { ok: true };
             case "git.status": return git.status(activeSession.id);
             case "git.diff": return git.diff(activeSession.id, call.staged, call.paths);
+            case "git.summary": return git.summary(activeSession.id, call.maxCommits);
             case "git.add": {
               const result = await git.add(activeSession.id, call.paths);
               if (result.exitCode !== 0) throw new Error(`git add failed: ${result.stderr || result.stdout}`);
@@ -221,9 +261,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         }
         await this.sessions.close(session.id, false);
       }
-      const output = JSON.stringify(value);
-      if (output.length > MAX_DIRECT_OUTPUT_CHARS) throw new Error("direct tool output exceeds remote result limit");
-      const result: RemoteResult = { status: "completed", summary: `Direct remote tool ${call.tool} completed.`, output, commit: exported?.commit, exportedRef: exported?.ref };
+      const result: RemoteResult = { status: "completed", summary: `Direct remote tool ${call.tool} completed.`, data: value, commit: exported?.commit, exportedRef: exported?.ref };
       if (Buffer.byteLength(JSON.stringify(result), "utf8") > MAX_DIRECT_RESULT_BYTES) throw new Error("direct tool result exceeds remote callback limit");
       return result;
     } catch (error) {

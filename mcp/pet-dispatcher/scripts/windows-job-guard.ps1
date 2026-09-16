@@ -57,14 +57,45 @@ public static class PetJobGuard {
         public uint TotalPageFaultCount, TotalProcesses, ActiveProcesses, TotalTerminatedProcesses;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    struct JOBOBJECT_NOTIFICATION_LIMIT_INFORMATION {
+        public ulong IoReadBytesLimit;
+        public ulong IoWriteBytesLimit;
+        public long PerJobUserTimeLimit;
+        public ulong JobMemoryLimit;
+        public int RateControlTolerance;
+        public int RateControlToleranceInterval;
+        public uint LimitFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct JOBOBJECT_LIMIT_VIOLATION_INFORMATION {
+        public uint LimitFlags;
+        public uint ViolationLimitFlags;
+        public ulong IoReadBytes;
+        public ulong IoReadBytesLimit;
+        public ulong IoWriteBytes;
+        public ulong IoWriteBytesLimit;
+        public long PerJobUserTime;
+        public long PerJobUserTimeLimit;
+        public ulong JobMemory;
+        public ulong JobMemoryLimit;
+        public int RateControlTolerance;
+        public int RateControlToleranceLimit;
+    }
+
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     static extern IntPtr CreateJobObjectW(IntPtr securityAttributes, string name);
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool SetInformationJobObject(IntPtr job, int infoClass, ref JOBOBJECT_EXTENDED_LIMIT_INFORMATION info, uint length);
+    [DllImport("kernel32.dll", EntryPoint = "SetInformationJobObject", SetLastError = true)]
+    static extern bool SetNotificationLimit(IntPtr job, int infoClass, ref JOBOBJECT_NOTIFICATION_LIMIT_INFORMATION info, uint length);
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool QueryInformationJobObject(IntPtr job, int infoClass, ref JOBOBJECT_EXTENDED_LIMIT_INFORMATION info, uint length, IntPtr returnLength);
-    [DllImport("kernel32.dll", SetLastError = true)]
-    static extern bool QueryInformationJobObject(IntPtr job, int infoClass, ref JOBOBJECT_BASIC_ACCOUNTING_INFORMATION info, uint length, IntPtr returnLength);
+    [DllImport("kernel32.dll", EntryPoint = "QueryInformationJobObject", SetLastError = true)]
+    static extern bool QueryAccounting(IntPtr job, int infoClass, ref JOBOBJECT_BASIC_ACCOUNTING_INFORMATION info, uint length, IntPtr returnLength);
+    [DllImport("kernel32.dll", EntryPoint = "QueryInformationJobObject", SetLastError = true)]
+    static extern bool QueryLimitViolation(IntPtr job, int infoClass, ref JOBOBJECT_LIMIT_VIOLATION_INFORMATION info, uint length, IntPtr returnLength);
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern IntPtr OpenProcess(uint access, bool inheritHandle, int processId);
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -90,19 +121,26 @@ public static class PetJobGuard {
         Monitor = new Timer(_ => Tick(), null, intervalMs, intervalMs);
     }
 
+    static bool RefreshMemoryState(State state) {
+        if (state.Handle == IntPtr.Zero) return false;
+        var extended = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
+        if (QueryInformationJobObject(state.Handle, 9, ref extended, (uint)Marshal.SizeOf<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>(), IntPtr.Zero)) {
+            long peak = unchecked((long)extended.PeakJobMemoryUsed.ToUInt64());
+            if (peak > state.Peak) state.Peak = peak;
+        }
+        var violation = new JOBOBJECT_LIMIT_VIOLATION_INFORMATION();
+        if (!QueryLimitViolation(state.Handle, 13, ref violation, (uint)Marshal.SizeOf<JOBOBJECT_LIMIT_VIOLATION_INFORMATION>(), IntPtr.Zero)) return false;
+        if (unchecked((long)violation.JobMemory) > state.Peak) state.Peak = unchecked((long)violation.JobMemory);
+        bool memoryExceeded = (violation.ViolationLimitFlags & JOB_OBJECT_LIMIT_JOB_MEMORY) != 0;
+        if (memoryExceeded && state.Reason == null) state.Reason = "memory_limit";
+        return memoryExceeded;
+    }
+
     static void Tick() {
         foreach (var pair in Jobs) {
             var state = pair.Value;
             lock (state.Gate) {
-                if (state.Handle == IntPtr.Zero) continue;
-                var info = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
-                if (!QueryInformationJobObject(state.Handle, 9, ref info, (uint)Marshal.SizeOf<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>(), IntPtr.Zero)) continue;
-                long peak = unchecked((long)info.PeakJobMemoryUsed.ToUInt64());
-                if (peak > state.Peak) state.Peak = peak;
-                if (state.MemoryLimit > 0 && peak >= state.MemoryLimit * 9 / 10 && state.Reason == null) {
-                    state.Reason = "memory_limit";
-                    TerminateJobObject(state.Handle, 137);
-                }
+                if (RefreshMemoryState(state) && state.Handle != IntPtr.Zero) TerminateJobObject(state.Handle, 137);
             }
         }
     }
@@ -118,6 +156,13 @@ public static class PetJobGuard {
             limits.JobMemoryLimit = new UIntPtr(unchecked((ulong)memoryBytes));
             if (!SetInformationJobObject(handle, 9, ref limits, (uint)Marshal.SizeOf<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>()))
                 throw new Win32Exception(Marshal.GetLastWin32Error(), "SetInformationJobObject");
+
+            var notification = new JOBOBJECT_NOTIFICATION_LIMIT_INFORMATION();
+            notification.JobMemoryLimit = unchecked((ulong)(memoryBytes * 9 / 10));
+            notification.LimitFlags = JOB_OBJECT_LIMIT_JOB_MEMORY;
+            if (!SetNotificationLimit(handle, 12, ref notification, (uint)Marshal.SizeOf<JOBOBJECT_NOTIFICATION_LIMIT_INFORMATION>()))
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "SetInformationJobObject notification limit");
+
             var process = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
             if (process == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error(), "OpenProcess");
             try {
@@ -150,14 +195,10 @@ public static class PetJobGuard {
     static PetJobSnapshot Snapshot(State state) {
         lock (state.Gate) {
             uint active = 0;
+            RefreshMemoryState(state);
             if (state.Handle != IntPtr.Zero) {
-                var extended = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
-                if (QueryInformationJobObject(state.Handle, 9, ref extended, (uint)Marshal.SizeOf<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>(), IntPtr.Zero)) {
-                    long peak = unchecked((long)extended.PeakJobMemoryUsed.ToUInt64());
-                    if (peak > state.Peak) state.Peak = peak;
-                }
                 var accounting = new JOBOBJECT_BASIC_ACCOUNTING_INFORMATION();
-                if (QueryInformationJobObject(state.Handle, 1, ref accounting, (uint)Marshal.SizeOf<JOBOBJECT_BASIC_ACCOUNTING_INFORMATION>(), IntPtr.Zero)) active = accounting.ActiveProcesses;
+                if (QueryAccounting(state.Handle, 1, ref accounting, (uint)Marshal.SizeOf<JOBOBJECT_BASIC_ACCOUNTING_INFORMATION>(), IntPtr.Zero)) active = accounting.ActiveProcesses;
             }
             return new PetJobSnapshot { peakMemoryBytes = state.Peak, activeProcesses = active, killReason = state.Reason };
         }

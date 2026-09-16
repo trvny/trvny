@@ -10,6 +10,26 @@ import type { Session, SessionManager } from "./sessions.js";
 const execFileAsync = promisify(execFile);
 
 export interface GitResult { stdout: string; stderr: string; exitCode: number }
+export interface GitSummary {
+  branch: string | null;
+  head: string;
+  upstream: string | null;
+  ahead: number | null;
+  behind: number | null;
+  dirty: boolean;
+  staged: { files: number; paths: string[] };
+  unstaged: { files: number; paths: string[] };
+  recent: Array<{ commit: string; subject: string }>;
+}
+
+function porcelainPath(line: string): string {
+  if (line.startsWith("? ") || line.startsWith("! ")) return line.slice(2);
+  const parts = line.split(" ");
+  if (line.startsWith("1 ")) return parts.slice(8).join(" ");
+  if (line.startsWith("2 ")) return parts.slice(9).join(" ").split("\t", 1)[0] ?? "";
+  if (line.startsWith("u ")) return parts.slice(10).join(" ");
+  return "";
+}
 
 export class HostGit {
   #gitExecutable?: Promise<string>;
@@ -75,6 +95,51 @@ export class HostGit {
 
   status(sessionId: string): Promise<GitResult> {
     return this.sessions.runHostOperation(sessionId, (session) => this.#runUnlocked(session, ["status", "--short", "--branch"]));
+  }
+
+  summary(sessionId: string, maxCommits = 5): Promise<GitSummary> {
+    if (!Number.isInteger(maxCommits) || maxCommits < 1 || maxCommits > 10) throw new Error("maxCommits must be an integer between 1 and 10");
+    return this.sessions.runHostOperation(sessionId, async (session) => {
+      const status = await this.#runUnlocked(session, ["status", "--porcelain=v2", "--branch", "--untracked-files=normal"]);
+      if (status.exitCode !== 0) throw new Error(`git status failed: ${status.stderr || status.stdout}`);
+      const recent = await this.#runUnlocked(session, ["log", `-${maxCommits}`, "--format=%H%x09%s"]);
+      if (recent.exitCode !== 0) throw new Error(`git log failed: ${recent.stderr || recent.stdout}`);
+      let branch: string | null = null;
+      let head = "";
+      let upstream: string | null = null;
+      let ahead: number | null = null;
+      let behind: number | null = null;
+      const stagedPaths: string[] = [];
+      const unstagedPaths: string[] = [];
+      for (const line of status.stdout.split(/\r?\n/u)) {
+        if (line.startsWith("# branch.oid ")) { head = line.slice(13).trim(); continue; }
+        if (line.startsWith("# branch.head ")) { const value = line.slice(14).trim(); branch = value === "(detached)" ? null : value; continue; }
+        if (line.startsWith("# branch.upstream ")) { upstream = line.slice(18).trim() || null; continue; }
+        if (line.startsWith("# branch.ab ")) {
+          const match = /^# branch\.ab \+(\d+) -(\d+)$/u.exec(line);
+          if (match) { ahead = Number(match[1]); behind = Number(match[2]); }
+          continue;
+        }
+        if (line.startsWith("? ")) { if (unstagedPaths.length < 50) unstagedPaths.push(porcelainPath(line)); continue; }
+        const match = /^[12u] ([^ ]{2}) /u.exec(line);
+        if (!match) continue;
+        const xy = match[1] ?? "..";
+        const path = porcelainPath(line);
+        if (xy[0] !== "." && stagedPaths.length < 50) stagedPaths.push(path);
+        if (xy[1] !== "." && unstagedPaths.length < 50) unstagedPaths.push(path);
+      }
+      const recentEntries = recent.stdout.split(/\r?\n/u).filter(Boolean).map((line) => {
+        const tab = line.indexOf("\t");
+        return tab < 0 ? { commit: line.trim(), subject: "" } : { commit: line.slice(0, tab), subject: line.slice(tab + 1).slice(0, 240) };
+      });
+      return {
+        branch, head, upstream, ahead, behind,
+        dirty: stagedPaths.length > 0 || unstagedPaths.length > 0,
+        staged: { files: stagedPaths.length, paths: stagedPaths },
+        unstaged: { files: unstagedPaths.length, paths: unstagedPaths },
+        recent: recentEntries,
+      };
+    });
   }
 
   diff(sessionId: string, staged = false, paths: string[] = []): Promise<GitResult> {

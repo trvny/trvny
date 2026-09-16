@@ -104,3 +104,30 @@ test("expired sessions can be reclaimed safely while the worker stays alive", as
     await rm(state.base, { recursive: true, force: true });
   }
 });
+
+test("bare repository mirror can seed and receive exported Pet sessions", async () => {
+  const state = await fixture();
+  const mirror = join(state.base, "mirror.git");
+  try {
+    await execFileAsync("git", ["clone", "--mirror", state.repo, mirror]);
+    const config = { ...state.config, repositories: { fixture: mirror } } as DispatcherConfig;
+    const sessions = new SessionManager(config);
+    try {
+      const session = await sessions.open("fixture");
+      await writeWorkspace(session, "mirror.txt", "from bare mirror\n");
+      const git = new HostGit(sessions, config);
+      assert.equal((await git.stageAll(session.id)).exitCode, 0);
+      assert.equal((await git.commit(session.id, "test bare mirror export")).exitCode, 0);
+      const exported = await git.exportCommit(session.id);
+      const resolved = await execFileAsync("git", ["-C", mirror, "rev-parse", `${exported.ref}^{commit}`]);
+      assert.equal(resolved.stdout.trim(), exported.commit);
+      await sessions.close(session.id, false);
+    } finally {
+      for (const session of sessions.list()) await sessions.close(session.id, true).catch(() => undefined);
+      sessions.dispose();
+    }
+  } finally {
+    state.sessions.dispose();
+    await rm(state.base, { recursive: true, force: true });
+  }
+});

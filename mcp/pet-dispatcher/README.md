@@ -65,17 +65,18 @@ The pull client requires a Cloudflare API token scoped to Queues read+write beca
 
 ## Local setup
 
+Development still runs from the repository, but the live remote worker is installed outside disposable checkouts:
+
 ```powershell
 cd mcp/pet-dispatcher
-npm install
-Copy-Item dispatcher.config.example.json $env:LOCALAPPDATA\pet-dispatcher.json
-$env:PET_DISPATCHER_CONFIG = "$env:LOCALAPPDATA\pet-dispatcher.json"
-npm run doctor
+npm ci
 npm run check
-npm run dev
+npm run install:local
 ```
 
-`toolRoots` may stay empty for normal PATH-visible host tools. Add explicit roots only when pinning a tool outside PATH or deliberately granting an additional read-only tool directory.
+The Windows installer publishes an immutable release under `%USERPROFILE%\.local\share\pet-dispatcher\app\releases`, keeps the live config/state/DPAPI secrets and a bare `trvny.git` mirror under the same stable root, and registers the installed launcher for the current user at logon. Re-run `npm run install:local` from any clean checkout to update it; use `npm run install:local -- --no-startup` when startup registration is not wanted.
+
+Only disposable Pet session workspaces remain under `.dc\pet-dispatcher-workspace`. The live worker does not execute from `.dc\git` or any repository worktree. `toolRoots` may stay empty for normal PATH-visible host tools; add explicit roots only when pinning a tool outside PATH or deliberately granting an additional read-only tool directory.
 
 The legacy remote executor id `openrouter` selects from the OpenAI-compatible backend registry. Only `available` backends enter automatic routing. A provider failure may fall through to the next backend only before any tool call has executed; after a tool side effect, the task fails closed instead of risking duplicate actions.
 

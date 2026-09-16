@@ -13,7 +13,7 @@
     "check:icon": "node scripts/check-icon.mjs",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:portable && npm run test:sandbox",
-    "test:portable": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/mcp-auth.test.ts tests/control-mcp.test.ts tests/agent-tools.test.ts tests/hardening.test.ts tests/remote-cleanup.test.ts tests/router.test.ts tests/remote.test.ts tests/remote-followup.test.ts tests/remote-direct.test.ts tests/fast-path.test.ts tests/host-tool-discovery.test.ts tests/usability.test.ts tests/workspace-session.test.ts tests/windows-job-guard.test.ts",
+    "test:portable": "tsx --test tests/path-guard.test.ts tests/network.test.ts tests/mcp.integration.test.ts tests/host-git.test.ts tests/providers.test.ts tests/mcp-auth.test.ts tests/control-mcp.test.ts tests/agent-tools.test.ts tests/hardening.test.ts tests/remote-cleanup.test.ts tests/router.test.ts tests/remote.test.ts tests/remote-followup.test.ts tests/remote-direct.test.ts tests/fast-path.test.ts tests/host-tool-discovery.test.ts tests/usability.test.ts tests/workspace-session.test.ts tests/local-runtime.test.ts tests/local-runtime-install.test.ts tests/windows-job-guard.test.ts",
     "test:sandbox": "tsx --test tests/sandbox.integration.test.ts",
     "test:windows-guard": "tsx --test tests/windows-job-guard.test.ts tests/windows-tool-launch.test.ts",
     "check": "npm run check:icon && npm run typecheck && npm test && npm run control:check",
@@ -21,7 +21,8 @@
     "remote": "tsx src/index.ts remote",
     "control:dev": "wrangler dev --config control-plane/wrangler.jsonc",
     "control:deploy": "wrangler deploy --config control-plane/wrangler.jsonc",
-    "control:check": "tsc -p tsconfig.control-plane.json && wrangler deploy --dry-run --config control-plane/wrangler.jsonc --outdir dist/control-plane"
+    "control:check": "tsc -p tsconfig.control-plane.json && wrangler deploy --dry-run --config control-plane/wrangler.jsonc --outdir dist/control-plane",
+    "install:local": "tsx scripts/install-local-runtime.ts"
   },
   "dependencies": {
     "@google/genai": "^2.22.0",

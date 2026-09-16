@@ -107,6 +107,8 @@ async function publishRelease(options: InstallLocalRuntimeOptions, paths: LocalR
   await mkdir(staging, { recursive: true });
   try {
     await cp(join(options.sourceRoot, "dist"), join(staging, "dist"), { recursive: true });
+    await mkdir(join(staging, "scripts"), { recursive: true });
+    await copyFile(join(options.sourceRoot, "scripts", "windows-job-guard.ps1"), join(staging, "scripts", "windows-job-guard.ps1"));
     await copyFile(join(options.sourceRoot, "package.json"), join(staging, "package.json"));
     await copyIfPresent(join(options.sourceRoot, "package-lock.json"), join(staging, "package-lock.json"));
     if (options.installDependencies !== false) {

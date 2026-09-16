@@ -12,12 +12,8 @@ import {
 } from "./recent-task-index.js";
 import { deviceMetaSchema } from "../src/device-meta.js";
 import {
-  REMOTE_DIRECT_EXEC_CAPABILITIES,
-  REMOTE_DIRECT_READ_CAPABILITIES,
   REMOTE_DIRECT_TOOLS,
-  REMOTE_DIRECT_WRITE_CAPABILITIES,
-  isRemoteDirectExecTool,
-  isRemoteDirectWriteTool,
+  buildRemoteDirectTask,
   remoteDirectCallSchema,
   remoteResultSchema,
   remoteTaskSchema,
@@ -511,22 +507,7 @@ const directToolInputSchema = z.object({
 
 async function enqueueDirectTool(value: unknown, env: Env, stableTaskId?: string): Promise<Response> {
   const input = directToolInputSchema.parse(value);
-  const execTool = isRemoteDirectExecTool(input.call.tool);
-  const writeTool = isRemoteDirectWriteTool(input.call.tool);
-  const timeoutMinutes = input.call.tool === "workspace.exec"
-    ? Math.max(1, Math.ceil(input.call.timeoutMs / 60_000))
-    : 2;
-  const task = remoteTaskSchema.parse({
-    repo: input.repo,
-    baseRef: input.baseRef,
-    executor: "direct",
-    direct: input.call,
-    profile: execTool || writeTool ? "code" : "inspect",
-    capabilities: execTool ? [...REMOTE_DIRECT_EXEC_CAPABILITIES]
-      : writeTool ? [...REMOTE_DIRECT_WRITE_CAPABILITIES] : [...REMOTE_DIRECT_READ_CAPABILITIES],
-    network: { mode: "none" },
-    timeoutMinutes,
-  });
+  const task = buildRemoteDirectTask(input);
   return enqueueTask(task, env, stableTaskId);
 }
 

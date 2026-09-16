@@ -4,11 +4,12 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { connect as connectSocket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import { loadConfig, type DispatcherConfig } from "../src/config.js";
 import { prepareSandboxEnvironment } from "../src/environment.js";
-import { assertAllowedConnectAuthority, NetworkBroker, resolvePublicConnectTarget } from "../src/network.js";
-import { remoteTaskSchema } from "../src/remote-protocol.js";
+import { assertAllowedConnectAuthority, NetworkBroker, resolvePublicConnectTargets } from "../src/network.js";
+import { buildRemoteDirectTask, remoteDirectCallSchema, remoteTaskSchema } from "../src/remote-protocol.js";
 import type { Session } from "../src/sessions.js";
 
 function session(root: string, network: Session["network"]): Session {
@@ -75,11 +76,15 @@ test("CONNECT authority uses the same exact-host profile and HTTPS port", () => 
   assert.throws(() => assertAllowedConnectAuthority("127.0.0.1:443", ["127.0.0.1"]), /IP-literal/);
 });
 
-test("CONNECT pins only public DNS results", async () => {
-  const target = await resolvePublicConnectTarget("registry.npmjs.org", async () => [{ address: "104.16.24.34", family: 4 }]);
-  assert.deepEqual(target, { address: "104.16.24.34", family: 4 });
-  await assert.rejects(resolvePublicConnectTarget("registry.npmjs.org", async () => [{ address: "127.0.0.1", family: 4 }]), /non-public/);
-  await assert.rejects(resolvePublicConnectTarget("registry.npmjs.org", async () => [{ address: "::1", family: 6 }]), /non-public/);
+test("CONNECT pins every public DNS result", async () => {
+  const targets = await resolvePublicConnectTargets("registry.npmjs.org", async () => [
+    { address: "104.16.24.34", family: 4 }, { address: "104.16.25.34", family: 4 },
+  ]);
+  assert.deepEqual(targets, [
+    { address: "104.16.24.34", family: 4 }, { address: "104.16.25.34", family: 4 },
+  ]);
+  await assert.rejects(resolvePublicConnectTargets("registry.npmjs.org", async () => [{ address: "127.0.0.1", family: 4 }]), /non-public/);
+  await assert.rejects(resolvePublicConnectTargets("registry.npmjs.org", async () => [{ address: "::1", family: 6 }]), /non-public/);
 });test("direct workspace.exec can request one brokered network profile", () => {
   const parsed = remoteTaskSchema.parse({
     repo: "trvny", executor: "direct", profile: "code", timeoutMinutes: 2,
@@ -97,6 +102,19 @@ test("CONNECT pins only public DNS results", async () => {
     ...parsed,
     network: { mode: "brokered", profile: "github" },
   }), /network profile/i);
+});
+
+test("direct task builder propagates workspace.exec network authority", () => {
+  const task = buildRemoteDirectTask({
+    repo: "trvny",
+    call: remoteDirectCallSchema.parse({
+      tool: "workspace.exec", autoSession: true, networkProfile: "build", argv: ["npm", "view", "typescript", "version"],
+    }),
+  });
+  assert.equal(task.profile, "code");
+  assert.deepEqual(task.network, { mode: "brokered", profile: "build" });
+  assert.ok(task.capabilities.includes("network.fetch"));
+  assert.equal(task.timeoutMinutes, 1);
 });
 
 test("subprocess proxy rejects an unprofiled CONNECT before upstream access", async () => {
@@ -122,6 +140,46 @@ test("subprocess proxy rejects an unprofiled CONNECT before upstream access", as
   }
 });
 
+
+test("subprocess proxy retries already-validated DNS targets without another lookup", { timeout: 5_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "pet-proxy-retry-"));
+  const proxyConfig = {
+    workspaceRoot: root, repositories: {}, toolRoots: [], networkProfiles: { build: { hosts: ["registry.npmjs.org"] } },
+    defaultTimeoutMs: 10_000, maxOutputBytes: 1_048_576, maxBrokerResponseBytes: 1_048_576,
+    openRouterModel: "openrouter/free", geminiModel: "gemini-2.5-flash",
+  } satisfies DispatcherConfig;
+  let dnsCalls = 0;
+  const attempted: string[] = [];
+  const connectImpl = ((options: { host?: string }) => {
+    attempted.push(String(options.host));
+    const upstream = new PassThrough() as unknown as ReturnType<typeof connectSocket>;
+    queueMicrotask(() => {
+      if (attempted.length === 1) upstream.emit("error", new Error("first target unavailable"));
+      else upstream.emit("connect");
+    });
+    return upstream;
+  }) as unknown as typeof connectSocket;
+  const broker = new NetworkBroker(proxyConfig, fetch, async () => {
+    dnsCalls += 1;
+    return [{ address: "104.16.24.34", family: 4 }, { address: "104.16.25.34", family: 4 }];
+  }, connectImpl);
+  const opened = await broker.openProxy(session(root, { mode: "brokered", profile: "build" }));
+  const url = new URL(opened.url);
+  const client = connectSocket(Number(url.port), url.hostname); client.on("error", () => undefined);
+  try {
+    await once(client, "connect");
+    const response = once(client, "data");
+    client.write("CONNECT registry.npmjs.org:443 HTTP/1.1\r\nHost: registry.npmjs.org:443\r\n\r\n");
+    const [chunk] = await response as [Buffer];
+    assert.match(chunk.toString("ascii"), /^HTTP\/1\.1 200 /u);
+    assert.equal(dnsCalls, 1);
+    assert.deepEqual(attempted, ["104.16.24.34", "104.16.25.34"]);
+  } finally {
+    client.destroy();
+    await opened.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("subprocess proxy caps pending tunnels and opens no upstream after close", { timeout: 5_000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), "pet-proxy-limit-"));

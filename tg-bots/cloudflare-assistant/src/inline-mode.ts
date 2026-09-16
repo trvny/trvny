@@ -1,4 +1,4 @@
-export type InlineMode = "ask" | "summarize" | "translate" | "explain" | "reply";
+export type InlineMode = "ask" | "summarize" | "translate" | "explain" | "reply" | "code";
 
 export type InlineModeRequest = {
   mode: InlineMode;
@@ -10,6 +10,7 @@ const PREFIXES: ReadonlyArray<{ mode: Exclude<InlineMode, "ask">; aliases: reado
   { mode: "translate", aliases: ["tłumacz", "przetłumacz", "translate"] },
   { mode: "explain", aliases: ["wyjaśnij", "explain"] },
   { mode: "reply", aliases: ["odpisz", "reply"] },
+  { mode: "code", aliases: ["kod", "code"] },
 ];
 
 export function parseInlineMode(rawQuery: string): InlineModeRequest {
@@ -32,6 +33,7 @@ export function inlineModeLabel(mode: InlineMode): string {
     case "translate": return "Tłumaczenie";
     case "explain": return "Wyjaśnienie";
     case "reply": return "Propozycja odpowiedzi";
+    case "code": return "Kod";
     default: return "Odpowiedź";
   }
 }
@@ -46,6 +48,8 @@ export function inlineModeInstruction(mode: InlineMode): string {
       return "Explain the supplied topic clearly and compactly, prioritizing the details needed to understand it.";
     case "reply":
       return "Draft a concise natural reply to the supplied message. Return only the reply text, without commentary about the drafting process.";
+    case "code":
+      return "Return the smallest directly usable code answer for the supplied programming task. Prefer one fenced code block when code is sufficient; add only brief essential notes when needed. Do not invent APIs or claim execution you did not perform.";
     default:
       return "Answer the supplied query directly and concisely.";
   }

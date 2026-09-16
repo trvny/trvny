@@ -95,7 +95,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - native reply-to delivery plus rate-bounded live Rich Message drafts with plain-draft and typing fallback for model-backed replies, including Bot API 10.3 stop-generation handling;
 - model-backed replies sent as Telegram Rich Messages with the 32,768-character rich-text budget and deterministic escaped-Rich-HTML/plain fallback when Telegram rejects Markdown formatting;
 - best-effort native message reactions for model-backed owner messages (`👀` while processing, `👍` after successful delivery, `👎` on handled failures, `🤨` on ambiguous delivery);
-- inline `/status` refresh using callback queries and in-place message editing;
+- `/status` rendered as a native Rich Message provider table with expandable fallback details, refreshed in place through callback queries;
 - native button colors distinguish primary, success and destructive inline actions;
 - native clipboard action on short `/draft` suggestions;
 - manual `/task <repo> <polecenie>` delegation to the Legion through the scoped Pet Dispatcher RPC entrypoint, with inline status/cancel controls;
@@ -130,7 +130,7 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 
 ### Track B: Telegram-native experience
 
-1. **Native chat UX** — reply-to delivery, live Rich Message streaming with safe fallbacks, native generation stop, Telegram Rich Message formatting and in-place `/status` refresh are implemented; next add richer editing without chains of status messages.
+1. **Native chat UX** — reply-to delivery, live Rich Message streaming with safe fallbacks, native generation stop, Telegram Rich Message formatting and a structured Rich Message `/status` view are implemented; next expand structured blocks to task/GitHub/research reports and richer editing without chains of status messages.
 2. **Inline keyboards and callbacks** — callback plumbing, `/status` refresh and short-draft clipboard actions are implemented; extend buttons to confirmations, task controls, model choices, retries and other frequent actions.
 3. **Command/menu synchronization** — owner-scoped commands and the native command menu are synced from code on `/start` or `/help`; add localization when Botek gains additional user-facing languages.
 4. **Reactions and lightweight feedback** — model-backed owner messages now use best-effort state reactions for processing, success, handled failure and ambiguous delivery. Native reaction feedback from the owner is not relied on in the private chat because Bot API reaction updates require bot administrator access; use callbacks for explicit feedback where needed.
@@ -144,7 +144,7 @@ Suggested order: typing/replies/formatting/buttons → callbacks/editing/reactio
 
 Keep this list as the single roadmap for Telegram-platform features that are interesting but not all worth shipping at once. Prefer features that improve the owner's daily Botek workflow; keep Business/Secretary and account-management surfaces explicitly opt-in.
 
-- **Rich Message blocks (next)** — move selected structured replies beyond Markdown into native rich blocks: compact tables, expandable details/quotes, document/media blocks, maps, collage/slideshow, draft-only thinking blocks and inline actions. Use these for status, GitHub/Pet Dispatcher reports and research summaries, while retaining the current Rich Markdown/HTML/plain fallbacks.
+- **Rich Message blocks (in progress)** — `/status` now uses a compact native table and expandable fallback details. Next extend selected structured replies with details/quotes, document/media blocks, maps, collage/slideshow, draft-only thinking blocks and inline actions for GitHub/Pet Dispatcher reports and research summaries, while retaining Rich Markdown/HTML/plain fallbacks.
 - **Media groups / albums** — aggregate messages sharing `media_group_id` for a short bounded window so multi-screenshot, photo/video and document batches are analyzed as one owner request instead of unrelated messages.
 - **Richer inline mode** — expose focused summarize/translate/explain/reply/code/search result variants, richer inline result types and `chosen_inline_result` telemetry without persisting unrelated chat contents.
 - **Mini App control center** — a small Telegram-native dashboard for Models, Memory, Tasks, GitHub, Feeds, Legion and health. Start read-mostly; add device storage, QR/biometric features or prepared inline messages only for concrete workflows.

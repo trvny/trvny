@@ -347,6 +347,7 @@ export type TelegramReply = {
   memoryTurn?: TelegramMemoryTurn;
   finalReaction?: "👍" | "👎" | "🤨";
   richMarkdown?: boolean;
+  richHtml?: string;
   sticker?: TelegramStickerReply;
   dice?: TelegramDiceReply;
   poll?: TelegramPollReply;

@@ -1,3 +1,4 @@
+import { inlineResultContent } from "./inline-content";
 import { inlineModeInstruction, inlineModeLabel, parseInlineMode } from "./inline-mode";
 import { chatWithInlineFallback } from "./providers";
 import {
@@ -50,12 +51,10 @@ export function inlineAnswerArticle(input: {
     id: `answer-${input.mode}-${input.updateId}`.slice(0, 64),
     title: title.slice(0, 80),
     description: answer.replace(/\s+/gu, " ").slice(0, 160),
-    input_message_content: rich
-      ? { rich_message: { markdown: answer.slice(0, TELEGRAM_RICH_MESSAGE_MAX_CHARS) } }
-      : {
-          message_text: answer.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
-          link_preview_options: { is_disabled: true },
-        },
+    input_message_content: inlineResultContent(answer, rich, {
+      plain: TELEGRAM_MESSAGE_MAX_CHARS,
+      rich: TELEGRAM_RICH_MESSAGE_MAX_CHARS,
+    }),
   };
 }
 

@@ -406,13 +406,19 @@ async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string): P
   return json({ taskId, status: "queued", expiresAt: new Date(envelope.expiresAt).toISOString() }, 202);
 }
 
+function submittedTask(value: unknown): RemoteTask {
+  const task = remoteTaskSchema.parse(value);
+  z.enum(["openrouter", "direct"]).parse(task.executor);
+  return task;
+}
+
 async function delegate(request: Request, env: Env): Promise<Response> {
   const raw = await readBody(request);
-  return enqueueTask(remoteTaskSchema.parse(JSON.parse(raw) as unknown), env);
+  return enqueueTask(submittedTask(JSON.parse(raw) as unknown), env);
 }
 
 function assistantTask(value: unknown): RemoteTask {
-  const task = remoteTaskSchema.parse(value);
+  const task = submittedTask(value);
   assertAssistantTaskAllowed(task);
   return task;
 }

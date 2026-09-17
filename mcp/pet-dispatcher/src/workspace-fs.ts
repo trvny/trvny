@@ -26,10 +26,9 @@ function utf8Prefix(buffer: Buffer, maxBytes: number): string {
   return buffer.subarray(0, limit).toString("utf8");
 }
 
-function arrayBytesAfterPush<T>(items: T[], item: T): number {
-  const itemBytes = Buffer.byteLength(JSON.stringify(item), "utf8");
-  const existing = items.reduce((sum, value) => sum + Buffer.byteLength(JSON.stringify(value), "utf8"), 0);
-  return 2 + existing + itemBytes + Math.max(0, items.length);
+function jsonArrayBytesAfterPush(itemCount: number, currentBytes: number, item: unknown): number {
+  const separatorBytes = itemCount > 0 ? 1 : 0;
+  return currentBytes + separatorBytes + Buffer.byteLength(JSON.stringify(item), "utf8");
 }
 
 export async function listWorkspace(session: Session, path = "."): Promise<object[]> {
@@ -125,6 +124,7 @@ export async function treeWorkspace(session: Session, path = ".", options: TreeO
   const maxBytes = Math.min(65_536, Math.max(2, options.maxBytes ?? DEFAULT_DISCOVERY_BYTES));
   await resolveExisting(session.root, path);
   const entries: TreeEntry[] = [];
+  let entriesBytes = 2;
   let truncated = false;
   let skippedDirectories = 0;
   const visit = async (relative: string, level: number): Promise<void> => {
@@ -136,8 +136,10 @@ export async function treeWorkspace(session: Session, path = ".", options: TreeO
       const childPath = relative === "." ? child.name : `${slash(relative)}/${child.name}`;
       const type = child.isDirectory() ? "directory" : child.isFile() ? "file" : child.isSymbolicLink() ? "symlink" : "other";
       const entry: TreeEntry = { path: slash(childPath), type };
-      if (arrayBytesAfterPush(entries, entry) > maxBytes) { truncated = true; return; }
+      const nextBytes = jsonArrayBytesAfterPush(entries.length, entriesBytes, entry);
+      if (nextBytes > maxBytes) { truncated = true; return; }
       entries.push(entry);
+      entriesBytes = nextBytes;
       if (child.isDirectory() && level < depth) {
         if (ignoredTraversalDirectory(child.name)) skippedDirectories += 1;
         else await visit(childPath, level + 1);
@@ -163,6 +165,7 @@ export async function searchWorkspace(session: Session, options: SearchOptions) 
   const maxBytes = Math.min(65_536, Math.max(2, options.maxBytes ?? DEFAULT_DISCOVERY_BYTES));
   await resolveExisting(session.root, root);
   const matches: Array<{ path: string; line: number; preview: string }> = [];
+  let matchesBytes = 2;
   let filesScanned = 0;
   let skippedLargeFiles = 0;
   let truncated = false;
@@ -191,8 +194,10 @@ export async function searchWorkspace(session: Session, options: SearchOptions) 
         const line = lines[index] ?? "";
         if (!line.includes(options.query)) continue;
         const match = { path: slash(childPath), line: index + 1, preview: line.slice(0, 240) };
-        if (arrayBytesAfterPush(matches, match) > maxBytes) { truncated = true; return; }
+        const nextBytes = jsonArrayBytesAfterPush(matches.length, matchesBytes, match);
+        if (nextBytes > maxBytes) { truncated = true; return; }
         matches.push(match);
+        matchesBytes = nextBytes;
         if (matches.length >= maxMatches) { truncated = true; return; }
       }
     }

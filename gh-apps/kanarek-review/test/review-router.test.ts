@@ -160,8 +160,7 @@ test('review router prefers the explicit OrcaRouter free model chain', async () 
   }) as typeof fetch;
 
   const response = await handleReviewRouterRequest(request(), {
-    ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
-    AIHUBMIX_API_KEY: 'aihubmix-key',
+    ...auth, ORCAROUTER_API_KEY: 'orca-key',
   }, fetcher);
 
   assert.equal(response?.status, 200);
@@ -240,10 +239,10 @@ test('review router cools down a quota-limited provider across Copilot retries',
   }) as typeof fetch);
   assert.equal(first?.status, 200);
   assert.deepEqual(firstUrls, [
-    'https://api.orcarouter.ai/v1/chat/completions',
-    'https://api.orcarouter.ai/v1/chat/completions',
-    'https://api.orcarouter.ai/v1/chat/completions',
     'https://openrouter.ai/api/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
   ]);
 
   const retryUrls: string[] = [];
@@ -252,7 +251,7 @@ test('review router cools down a quota-limited provider across Copilot retries',
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
   assert.equal(retry?.status, 200);
-  assert.deepEqual(retryUrls, ['https://openrouter.ai/api/v1/chat/completions']);
+  assert.deepEqual(retryUrls, ['https://api.orcarouter.ai/v1/chat/completions']);
 });
 
 test('review router fails fast while the whole free pool is quota-cooled', async () => {
@@ -477,7 +476,7 @@ test('review router falls through provider authentication errors', async () => {
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(urls.length, 2);
 });
 
@@ -515,26 +514,23 @@ test('review router falls through after both OpenRouter 400 attempts fail', asyn
   assert.equal(calls, 3);
 });
 
-test('review router reaches AIHubMix after the OrcaRouter model chain fails', async () => {
+test('review router reaches OrcaRouter as the last resort after AIHubMix fails', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(), {
-    ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
-    AIHUBMIX_API_KEY: 'aihubmix-key',
+    ...auth, AIHUBMIX_API_KEY: 'aihubmix-key', ORCAROUTER_API_KEY: 'orca-key',
   }, ((input: RequestInfo | URL) => {
     urls.push(String(input));
     if (urls.length <= 3) return Promise.resolve(new Response('busy', { status: 503 }));
-    return Promise.resolve(new Response('data: {"choices":[]}\n\n', {
-      status: 200, headers: { 'content-type': 'text/event-stream' },
-    }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'aihubmix');
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.deepEqual(urls, [
-    'https://api.orcarouter.ai/v1/chat/completions',
-    'https://api.orcarouter.ai/v1/chat/completions',
-    'https://api.orcarouter.ai/v1/chat/completions',
     'https://aihubmix.com/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
   ]);
 });
 
@@ -724,7 +720,7 @@ test('review router reports bounded provider diagnostics without upstream bodies
   assert.equal(payload.error?.code, 'review_router_exhausted');
   assert.equal(
     payload.error?.message,
-    'Review providers unavailable (orcarouter:http_503, aihubmix:soft_quota, openrouter:http_429)',
+    'Review providers unavailable (aihubmix:soft_quota, openrouter:http_429, orcarouter:http_503)',
   );
   assert.equal(JSON.stringify(payload).includes('SECRET-UPSTREAM-BODY'), false);
   assert.equal(JSON.stringify(payload).includes('accounts that have not been recharged'), false);

@@ -670,6 +670,9 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
           chatId: callbackMessage.chat.id,
           editMessageId: callbackMessage.message_id,
           text: "Nie udało się odświeżyć statusu Legiona.",
+          // Keep the button pointed at the same task - a transient getBotekTask failure
+          // shouldn't strand the user with no way to retry short of a fresh /legion.
+          replyMarkup: legionStatusKeyboard(legionTaskId),
         };
       }
     }

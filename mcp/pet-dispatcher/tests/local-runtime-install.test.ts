@@ -17,12 +17,11 @@ async function writeEnvironmentPolicyFixture(source: string): Promise<void> {
   await writeFile(join(source, "environment-policy.json"), JSON.stringify(environmentPolicyFixture));
 }
 
-test("remote launcher does not import provider credentials", async () => {
+test("remote launcher strips inherited provider credentials before starting Node", async () => {
   const launcher = await readFile(new URL("../scripts/pet-dispatcher-launch.ps1", import.meta.url), "utf8");
-  assert.equal(launcher.includes("provider-env-names"), false);
-  for (const name of ["OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "AIHUBMIX_API_KEY", "OLLAMA_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"]) {
-    assert.equal(launcher.includes(name), false, `${name} must stay out of the remote launcher`);
-  }
+  assert.equal(launcher.includes("provider-credential-env-names"), true);
+  assert.equal(launcher.includes('Remove-Item -LiteralPath "Env:$([string]$name)"'), true);
+  assert.equal(launcher.includes("GetEnvironmentVariable($name, 'User')"), false);
 });
 
 test("local installer publishes runtime and migrates control state away from dc", async () => {

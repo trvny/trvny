@@ -239,6 +239,12 @@ test("remote worker honors cancellation before starting the confined executor", 
     await rm(root, { recursive: true, force: true });
   }
 });
+test("remote protocol rejects direct Gemini executor credentials", () => {
+  assert.throws(() => remoteTaskSchema.parse({
+    repo: "trvny", goal: "inspect", executor: "gemini", profile: "inspect", network: { mode: "none" },
+  }), /executor/u);
+});
+
 test("remote task timeout stays below the default queue visibility lease", () => {
   assert.throws(() => remoteTaskSchema.parse({
     repo: "trvny",

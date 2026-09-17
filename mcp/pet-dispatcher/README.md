@@ -80,7 +80,7 @@ Only disposable Pet session workspaces remain under `.dc\pet-dispatcher-workspac
 
 The legacy remote executor id `openrouter` now uses the control plane's signed free-router proxy when running as the remote Legion worker. The proxy holds only `KANAREK_REVIEW_ROUTER_TOKEN` and reaches Kanarek Companion through a same-account Service Binding; raw provider credentials remain centralized in the private `kanarek-review` Worker. Local/manual dispatcher runs still use the direct OpenAI-compatible backend registry. The managed router may choose any healthy free provider for the first model step. Once a tool call executes, Pet Dispatcher pins that underlying provider identity from the router response and fails closed if a later step switches providers, avoiding duplicate or divergent side effects.
 
-For remote polling, configure the `remote` block and set only the transport/signing secrets below. The installed remote launcher deliberately does not import provider API keys; those stay centralized behind the managed free-router.
+For remote polling, configure the `remote` block and set only the transport/signing secrets below. Before the installed remote launcher starts Node, it removes all known direct-provider credential variables inherited from the Windows logon environment; remote model credentials stay centralized behind the managed free-router.
 
 ```powershell
 $env:PET_DISPATCHER_QUEUE_TOKEN = '<queues read+write token>'

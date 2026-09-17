@@ -55,6 +55,17 @@ try {
         if (-not (Test-Path -LiteralPath $nodePath -PathType Leaf)) { throw "Configured Node executable is missing: $nodePath" }
         if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) { throw "Pet Dispatcher release entry is missing: $entry" }
 
+        # The logon process can already carry User-scope provider credentials.
+        # Remote model calls use the managed free-router, so fail closed unless
+        # we can discover and remove every provider credential before Node starts.
+        $providerCredentialEnvNames = @(& $nodePath $entry provider-credential-env-names | ConvertFrom-Json)
+        if ($LASTEXITCODE -ne 0 -or $providerCredentialEnvNames.Count -eq 0) {
+            throw 'Could not discover provider credential environment names.'
+        }
+        foreach ($name in $providerCredentialEnvNames) {
+            Remove-Item -LiteralPath "Env:$([string]$name)" -ErrorAction SilentlyContinue
+        }
+
         $queueToken = Read-DpapiSecret 'PET_DISPATCHER_QUEUE_TOKEN'
         $signingSecret = Read-DpapiSecret 'TASK_SIGNING_SECRET'
         $env:PET_DISPATCHER_CONFIG = $configPath

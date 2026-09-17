@@ -3,6 +3,7 @@ import test from "node:test";
 import type { DispatcherConfig } from "../src/config.js";
 import type { AgentTools } from "../src/agent-tools.js";
 import { runOpenRouter, runRoutedOpenAI } from "../src/providers.js";
+import { PROVIDER_CREDENTIAL_ENV_NAMES } from "../src/provider-credentials.js";
 
 const config: DispatcherConfig = {
   workspaceRoot: "C:\\work",
@@ -15,6 +16,13 @@ const config: DispatcherConfig = {
   openRouterModel: "openrouter/free",
   geminiModel: "gemini-2.5-flash",
 };
+
+test("remote credential scrub list covers every direct provider secret", () => {
+  assert.deepEqual(PROVIDER_CREDENTIAL_ENV_NAMES, [
+    "AIHUBMIX_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY",
+    "OLLAMA_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY",
+  ]);
+});
 
 test("remote managed free router works without local provider credentials", async () => {
   const saved = Object.fromEntries(

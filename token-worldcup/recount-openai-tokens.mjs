@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { countTokens as countCl100k } from 'gpt-tokenizer/encoding/cl100k_base';
-import { countTokens as countO200k } from 'gpt-tokenizer/encoding/o200k_base';
+import { countTokens as countGpt5 } from 'gpt-tokenizer/model/gpt-5';
 import { countTokens as countR50k } from 'gpt-tokenizer/encoding/r50k_base';
 import { countTokens as countHarmony } from 'gpt-tokenizer/encoding/o200k_harmony';
 
@@ -15,7 +15,7 @@ const CHECK = process.argv.includes('--check');
 const DATA_RE = /(<script\b[^>]*\bid=["']token-worldcup-data["'][^>]*>)(.*?)(<\/script>)/s;
 
 const ENCODINGS = [
-  { id: 'o200k', prefix: '', count: countO200k },
+  { id: 'gpt5', prefix: '', count: countGpt5 },
   { id: 'cl100k', prefix: 'cl100k_', count: countCl100k },
   { id: 'r50k', prefix: 'r50k_', count: countR50k },
   { id: 'harmony', prefix: 'harmony_', count: countHarmony },

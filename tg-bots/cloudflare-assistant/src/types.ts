@@ -17,11 +17,28 @@ export type QueueBinding<T> = {
 
 export type PetDispatcherRpcResult = { status: number; body: unknown };
 
+export type PetDispatcherRecentTask = {
+  taskId: string;
+  deviceId?: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+  heartbeatAt?: string;
+  result?: {
+    status?: string;
+    summary?: string;
+    commit?: string;
+    exportedRef?: string;
+    error?: string;
+  };
+};
+
 export type PetDispatcherBinding = {
   meta(): Promise<{ deviceId: string; transport: string; protocol: number }>;
   delegate(task: unknown, idempotencyKey?: string): Promise<PetDispatcherRpcResult>;
   getTask(taskId: string): Promise<PetDispatcherRpcResult>;
   cancelTask(taskId: string): Promise<PetDispatcherRpcResult>;
+  recentTasks(limit?: number): Promise<PetDispatcherRecentTask[]>;
 };
 
 export type QueueMessage<T> = {

@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { legionRefreshPlan, parseTaskControlCommand, resolveLegionStatus, taskView } from "../src/tasks.ts";
+import {
+  delegateLegionStatus,
+  fetchRecentTasks,
+  isTasksRefreshCallback,
+  legionRefreshPlan,
+  parseTaskControlCommand,
+  recentTasksKeyboard,
+  recentTasksView,
+  resolveLegionStatus,
+  taskView,
+} from "../src/tasks.ts";
 
 const TASK_ID = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -44,6 +54,21 @@ test("renders a bounded rich task report with escaped dispatcher output", () => 
   assert.match(view.richHtml, /Tests passed &lt;all&gt;/u);
   assert.match(view.richHtml, /52\/52 &amp; green/u);
   assert.doesNotMatch(view.richHtml, /Fix <thing>/u);
+});
+
+test("delegateLegionStatus submits a host probe without fake repo authority", async () => {
+  let delegated;
+  let key;
+  const env = { PET_DISPATCHER: { async delegate(task, idempotencyKey) {
+    delegated = task; key = idempotencyKey;
+    return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
+  } } };
+  await delegateLegionStatus(env, 42);
+  assert.equal(key, "telegram-legion-status:42");
+  assert.deepEqual(delegated, {
+    target: "host", executor: "direct", direct: { tool: "system.status" }, profile: "inspect",
+    capabilities: [], network: { mode: "none" }, timeoutMinutes: 2,
+  });
 });
 
 test("resolveLegionStatus never waits - returns a non-terminal status immediately with no RPC", async () => {
@@ -112,4 +137,55 @@ test("legionRefreshPlan renders a cancelled task and asks for a follow-up probe"
   const plan = legionRefreshPlan(cancelled);
   assert.equal(plan.render, cancelled);
   assert.equal(plan.needsNewProbe, true);
+});
+
+test("fetchRecentTasks asks the dispatcher for a bounded limit in a single call", async () => {
+  let calls = 0;
+  let receivedLimit;
+  const env = {
+    PET_DISPATCHER: {
+      async recentTasks(limit) {
+        calls += 1;
+        receivedLimit = limit;
+        return [];
+      },
+    },
+  };
+  await fetchRecentTasks(env);
+  assert.equal(calls, 1);
+  assert.equal(receivedLimit, 5);
+});
+
+test("recentTasksView shows an empty-state message with no tasks", () => {
+  const view = recentTasksView([]);
+  assert.match(view.plain, /Brak ostatnich zadań/u);
+  assert.match(view.richHtml, /Brak ostatnich zadań/u);
+});
+
+test("recentTasksView renders status, short id, device and result per task", () => {
+  const view = recentTasksView([
+    { taskId: TASK_ID, deviceId: "legion", status: "completed", result: { summary: "Tests passed <all>" } },
+    { taskId: "223e4567-e89b-12d3-a456-426614174000", status: "failed", result: { error: "boom <bad>" } },
+  ]);
+  assert.match(view.plain, /completed/u);
+  assert.match(view.plain, /123e4567/u);
+  assert.match(view.plain, /legion/u);
+  assert.match(view.plain, /Tests passed <all>/u);
+  assert.match(view.plain, /Błąd: boom <bad>/u);
+  assert.match(view.richHtml, /<table>/u);
+  assert.match(view.richHtml, /Tests passed &lt;all&gt;/u);
+  assert.doesNotMatch(view.richHtml, /Tests passed <all>/u);
+});
+
+test("recentTasksKeyboard exposes a single refresh callback", () => {
+  const keyboard = recentTasksKeyboard();
+  assert.equal(keyboard.inline_keyboard.length, 1);
+  assert.equal(keyboard.inline_keyboard[0][0].callback_data, "tasks:refresh");
+});
+
+test("isTasksRefreshCallback matches only the exact refresh token", () => {
+  assert.equal(isTasksRefreshCallback("tasks:refresh"), true);
+  assert.equal(isTasksRefreshCallback("tasks:refresh:extra"), false);
+  assert.equal(isTasksRefreshCallback("task:refresh:" + TASK_ID), false);
+  assert.equal(isTasksRefreshCallback(undefined), false);
 });

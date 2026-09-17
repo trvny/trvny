@@ -119,13 +119,6 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
   );
   return [
     {
-      id: 'orcarouter',
-      url: 'https://api.orcarouter.ai/v1/chat/completions',
-      model: orcaRouterModels[0] ?? DEFAULT_REVIEW_ORCAROUTER_MODELS[0],
-      fallbackModels: orcaRouterModels.slice(1),
-      apiKey: (providerEnv) => providerEnv.ORCAROUTER_API_KEY,
-    },
-    {
       id: 'aihubmix',
       url: 'https://aihubmix.com/v1/chat/completions',
       model: 'coding-glm-5.3-free',
@@ -157,6 +150,16 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
       url: 'https://ai-gateway.vercel.sh/v1/chat/completions',
       model: env.KANAREK_REVIEW_VERCEL_MODEL?.trim() || DEFAULT_REVIEW_VERCEL_MODEL,
       apiKey: (providerEnv) => providerEnv.AI_GATEWAY_API_KEY,
+    },
+    {
+      // Tried last: OrcaRouter's free tier applies an undisclosed, small per-request
+      // prompt-token cap for accounts below a lifetime-spend threshold, independent of
+      // the model's real context window - our diff+context payload routinely exceeds it.
+      id: 'orcarouter',
+      url: 'https://api.orcarouter.ai/v1/chat/completions',
+      model: orcaRouterModels[0] ?? DEFAULT_REVIEW_ORCAROUTER_MODELS[0],
+      fallbackModels: orcaRouterModels.slice(1),
+      apiKey: (providerEnv) => providerEnv.ORCAROUTER_API_KEY,
     },
   ];
 }

@@ -645,18 +645,21 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     if (legionTaskId) {
       try {
         const existing = await getBotekTask(env, legionTaskId);
-        // A terminal task's vitals are frozen at probe time - re-probing while pending would
-        // just abandon the in-flight one, but once it's done "refresh" should mean fresh data.
-        const task = isTerminalTaskStatus(existing.status)
-          ? await delegateLegionStatus(env, update.update_id)
-          : existing;
-        const view = legionStatusView(task);
+        const view = legionStatusView(existing);
+        // Show this result now - a fresh delegate() response is normally "queued" with no
+        // result yet, so rendering it instead of `existing` would hide real vitals/errors
+        // behind a false "pending" message forever. Once existing is terminal, its data is
+        // frozen, so line up a new probe for the *next* tap instead, without touching what
+        // this reply shows.
+        const nextTaskId = isTerminalTaskStatus(existing.status)
+          ? (await delegateLegionStatus(env, update.update_id)).taskId
+          : legionTaskId;
         return {
           chatId: callbackMessage.chat.id,
           editMessageId: callbackMessage.message_id,
           text: view.plain,
           richHtml: view.richHtml,
-          replyMarkup: legionStatusKeyboard(task.taskId),
+          replyMarkup: legionStatusKeyboard(nextTaskId),
         };
       } catch (error) {
         console.error("Legion status refresh failed", error);

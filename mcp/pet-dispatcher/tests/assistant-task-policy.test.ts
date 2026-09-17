@@ -34,8 +34,25 @@ test("rejects an agent task that requests capabilities or network access", () =>
   );
 });
 
-test("allows the system.status probe despite being a direct executor call", () => {
-  assert.doesNotThrow(() => assertAssistantTaskAllowed(directTask("system.status")));
+test("allows a host-scoped system.status probe with no workspace authority", () => {
+  const task = remoteTaskSchema.parse({
+    target: "host", executor: "direct", profile: "inspect", capabilities: [],
+    network: { mode: "none" }, timeoutMinutes: 2, direct: { tool: "system.status" },
+  });
+  assert.equal(task.repo, undefined);
+  assert.doesNotThrow(() => assertAssistantTaskAllowed(task));
+});
+
+test("host target rejects workspace tools and fake workspace authority", () => {
+  assert.equal(remoteTaskSchema.safeParse({
+    target: "host", executor: "direct", profile: "inspect", capabilities: [],
+    network: { mode: "none" }, timeoutMinutes: 2, direct: { tool: "fs.read", path: "README.md" },
+  }).success, false);
+  assert.equal(remoteTaskSchema.safeParse({
+    target: "host", repo: "legion", executor: "direct", profile: "inspect",
+    capabilities: ["workspace.read", "git.read"], network: { mode: "none" }, timeoutMinutes: 2,
+    direct: { tool: "system.status" },
+  }).success, false);
 });
 
 test("rejects every other direct tool, including read-only ones", () => {

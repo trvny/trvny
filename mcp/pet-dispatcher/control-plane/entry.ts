@@ -14,6 +14,7 @@ import {
 import { deviceMetaSchema } from "../src/device-meta.js";
 import {
   REMOTE_DIRECT_TOOLS,
+  assertAssistantTaskAllowed,
   buildRemoteDirectTask,
   remoteDirectCallSchema,
   remoteResultSchema,
@@ -412,12 +413,7 @@ async function delegate(request: Request, env: Env): Promise<Response> {
 
 function assistantTask(value: unknown): RemoteTask {
   const task = remoteTaskSchema.parse(value);
-  if (task.executor === "direct" || !["inspect", "code"].includes(task.profile)) {
-    throw new Error("assistant_task_profile_forbidden");
-  }
-  if (task.capabilities.length > 0 || task.network.mode !== "none") {
-    throw new Error("assistant_task_scope_forbidden");
-  }
+  assertAssistantTaskAllowed(task);
   return task;
 }
 

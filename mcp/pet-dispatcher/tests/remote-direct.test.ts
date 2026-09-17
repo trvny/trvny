@@ -85,7 +85,16 @@ test("direct system.status answers without opening a session or touching the rep
   const runner = { activeProcessCount: () => 0 } as never;
   const executor = new ConfinedRemoteExecutor(state.config, state.sessions, runner);
   try {
-    const result = await executor.execute(directTask({ tool: "system.status" }), "status-test");
+    // Deliberately not using directTask()'s "fixture" repo (a real, configured one) - a repo
+    // absent from config.repositories proves the executor never dereferences it for this tool,
+    // matching what production actually sends (tg-bots' delegateLegionStatus uses a placeholder
+    // repo name that was never meant to resolve to anything real).
+    const task = remoteTaskSchema.parse({
+      repo: "repo-not-in-dispatcher-config", baseRef: "HEAD", executor: "direct", profile: "inspect",
+      capabilities: ["workspace.read", "git.read"], network: { mode: "none" }, timeoutMinutes: 2,
+      direct: { tool: "system.status" },
+    });
+    const result = await executor.execute(task, "status-test");
     assert.equal(result.status, "completed");
     const data = dataOf<{
       hostname: string; uptimeSeconds: number; freeMemBytes: number; totalMemBytes: number;

@@ -1,3 +1,4 @@
+import { freemem, hostname, totalmem, uptime } from "node:os";
 import type { DispatcherConfig } from "./config.js";
 import { AgentTools } from "./agent-tools.js";
 import { HostGit } from "./host-git.js";
@@ -198,6 +199,16 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       } catch (error) {
         return { status: "failed", summary: "Direct remote write session failed to close.", error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
       }
+    }
+    if (call.tool === "system.status") {
+      return {
+        status: "completed", summary: "Legion host status.",
+        data: {
+          hostname: hostname(), uptimeSeconds: Math.round(uptime()),
+          freeMemBytes: freemem(), totalMemBytes: totalmem(),
+          activeSessions: this.sessions.activeCount(), activeProcesses: this.runner.activeProcessCount(),
+        },
+      };
     }
     if (call.tool === "session.finish") {
       try {

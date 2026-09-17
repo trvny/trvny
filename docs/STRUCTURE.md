@@ -26,6 +26,7 @@
 | Loopling | `loopling/tools/generate.py` and `loopling/pet/pet.json` |
 | Token Worldcup | `token-worldcup/token-worldcup.qmd` |
 | Model x effort cost matrix | `token-worldcup/effort-matrix.qmd` |
+| OpenAI tokenizer recount | `token-worldcup/recount-openai-tokens.mjs` |
 | Claude tokenizer recount | `token-worldcup/recount-claude-tokens.py` |
 
 ## Ownership rules

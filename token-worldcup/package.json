@@ -1,0 +1,12 @@
+{
+  "name": "token-worldcup-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "recount:openai": "node recount-openai-tokens.mjs",
+    "check:openai": "node recount-openai-tokens.mjs --check"
+  },
+  "dependencies": {
+    "gpt-tokenizer": "4.0.0"
+  }
+}

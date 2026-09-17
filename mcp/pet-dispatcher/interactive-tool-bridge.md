@@ -1,299 +1,349 @@
 # Interactive tool bridge
 
-Status: **Core remote interactive bridge is deployed: session-confined filesystem/Git/exec, non-Git workspaces, fast inspection and brokered build networking are live. Remaining work is typed host adapters and optional ergonomics, not an unrestricted shell.**
+Status: **The workspace-confined bridge is live. The target is broader: Pet Dispatcher should become the managed local orchestration layer for the Legion, with workspace isolation as the safe default rather than the ceiling of its authority.**
 
-This note defines how Pet Dispatcher can become the normal local-tool connection for remote assistants such as ChatGPT, instead of requiring Desktop Commander to run in parallel.
+This note is the maintained source of truth for interactive/local authority. Older design notes that describe host access as typed-adapter-only apply to untrusted delegated agents, not to the maximum capability of the dispatcher itself.
 
-The goal is broad local capability with a narrow, enforceable authority boundary:
+## Goal
 
-> The assistant may use many tools, but every local action is confined to the workdir and capability lease assigned by the dispatcher.
+Pet Dispatcher should replace Desktop Commander as the normal local connection for remote assistants while fixing the things that make an unrestricted desktop bridge messy or fragile.
 
-## Why
+The target is not "less access". It is **broad capability with explicit ownership, lifecycle and policy**:
 
-Desktop Commander is useful as a general desktop bridge, but Pet Dispatcher should eventually cover the development workflow directly:
+> The dispatcher may reach the workspace, host, devices and LAN when the current identity and task are allowed to do so. Every resource and side effect must still have an owner, purpose and cleanup/recovery path.
 
-- repository filesystem access;
-- command/process execution;
-- Git and GitHub CLI;
-- Gradle, ADB, npm, Python, ffmpeg and other installed developer tools;
-- structured file edits and patches;
-- builds, tests and diagnostics;
-- optional provider agents such as OpenCode/Codex behind the same boundary.
+That includes normal development work plus awkward real-world cases such as ADB, Foobar, Wambridge, DLNA/UPnP, local services, logs, installed CLIs, non-repository files and Windows diagnostics.
 
-A remote assistant should not need a second local MCP connection merely because the task changes from "delegate this coding problem" to "run Gradle", "inspect this file" or "use adb".
+## Core principles
 
-Desktop Commander may remain an emergency/manual adapter, but it is not the intended primary transport once the bridge is mature.
+1. **Sandbox by default, not by definition.** A normal coding task starts confined. Host access can be granted when the task genuinely needs it.
+2. **Authority depends on who is acting.** A trusted interactive ChatGPT session may receive much broader authority than a spawned free-tier model.
+3. **Capability escalation is explicit and temporary.** A session can gain another filesystem root, host execution, device/LAN access or elevation without rebuilding the whole tool surface.
+4. **Universal primitives must exist.** Typed adapters improve safety and ergonomics, but they must not be the only way to use a new CLI, Windows feature or attached device.
+5. **Everything has an owner and lifetime.** Processes, worktrees, temp files, downloads, ports, logs and child agents belong to a session/task and are reconciled when it ends.
+6. **Cleanup is part of success.** `exit 0` is not enough if the task leaves clones, scripts, processes or temporary state behind.
+7. **Recovery beats amnesia.** A transport/model crash should leave a journaled session that can be resumed, inspected or cleaned deterministically.
+8. **One policy engine.** Interactive calls, deterministic local tools and delegated provider agents all pass through the same local authority/lifecycle layer.
 
-## Two execution modes, one policy engine
+## Trust and identity
 
-Pet Dispatcher should expose two modes through the same worker and policy engine.
+Do not use one global permission set for every caller.
 
-### Delegated task
+The local policy decision should consider at least:
 
-Longer autonomous task with journaled lifecycle, provider routing, timeout, result collection and cleanup.
+- caller/client identity;
+- execution identity (direct assistant vs delegated provider/model);
+- selected device;
+- task/session purpose;
+- requested capability profile;
+- current repository/workspace;
+- requested lifetime and persistence;
+- risk of the requested action.
 
-```text
-delegate -> isolated task workspace -> direct tools / agent -> result
-```
-
-### Interactive tool session
-
-Short-lived tool calls initiated directly by the remote assistant during an active conversation.
-
-```text
-open_session
-   -> assigned workdir + capability lease
-   -> fs.read / fs.write / workspace.exec / git / adb / ...
-   -> close_session
-```
-
-The interactive mode is **not** a bypass around delegated-task security. Both modes pass through the same path canonicalization, process isolation, network rules, audit log and secret policy.
-
-## Session contract
-
-The remote side never supplies an arbitrary host path as authority.
-
-It asks for a logical workspace, for example:
-
-```json
-{
-  "repo": "travnie/wambridge",
-  "ref": "main",
-  "mode": "interactive",
-  "capabilities": [
-    "workspace.read",
-    "workspace.write",
-    "process.exec",
-    "git.local",
-    "adb.inspect"
-  ],
-  "ttl_minutes": 60
-}
-```
-
-The worker resolves that request to an internal session:
-
-```json
-{
-  "session_id": "...",
-  "workspace_id": "...",
-  "root": "<worker-owned canonical path>",
-  "capabilities": ["..."],
-  "expires_at": "..."
-}
-```
-
-`root` is informational to the remote client. The client does not gain authority by sending that path back in later requests.
-
-Every subsequent tool call references `session_id` and uses paths relative to the assigned workspace root.
-
-## Filesystem confinement
-
-Filesystem confinement must be enforced locally, independently of prompts or client behavior.
-
-For every path-bearing operation:
-
-1. accept only a workspace-relative path from the remote side;
-2. join it to the canonical session root;
-3. resolve `.` / `..`, symlinks, junctions and Windows reparse points;
-4. reject the operation unless the final resolved target remains inside an allowed root;
-5. repeat the check on the parent/final target immediately before a write, rename or delete to reduce TOCTOU escape opportunities.
-
-Absolute paths, UNC paths, drive-qualified paths and device paths are rejected unless a separate narrowly scoped host capability explicitly supports them.
-
-The default session has exactly one writable root: its assigned worktree/workdir.
-
-Optional read-only mounts can be granted explicitly, for example a Gradle cache or Android SDK. They remain read-only even if a process inside the session asks otherwise.
-
-## `workspace.exec`, not an unrestricted host shell
-
-Interactive work needs real command execution. Hiding every executable behind a bespoke MCP method would recreate Desktop Commander's limitations with more YAML.
-
-Pet Dispatcher should therefore expose a general execution primitive, but its authority is the **session**, not the command string.
-
-Preferred request shape:
-
-```json
-{
-  "repo": "travnie/wambridge",
-  "baseRef": "main",
-  "call": {
-    "tool": "workspace.exec",
-    "sessionId": "...",
-    "argv": ["./gradlew", "test"],
-    "cwd": ".",
-    "timeoutMs": 900000
-  }
-}
-```
-
-Rules:
-
-- `cwd` is workspace-relative and cannot escape the session root;
-- prefer argv execution without an intermediate shell;
-- shell execution is a separate capability and disabled by default;
-- the process runs as the worker's non-admin identity;
-- the whole process tree belongs to a per-call/per-session job boundary and can be terminated;
-- inherited environment is minimal;
-- secrets are injected only by named local profiles;
-- executable lookup follows local policy, not caller-provided absolute host paths;
-- stdout/stderr are bounded and streamed/returned with secret redaction;
-- direct sockets are denied for `none` and `brokered`; brokered HTTPS goes through the dispatcher allowlist, while direct `restricted` egress requires a separately proven host boundary;
-- child processes inherit the same containment boundary.
-
-This gives ChatGPT access to `git`, `gh`, Gradle, ADB, npm, Python, ffmpeg and future tools without adding a new MCP method for every binary.
-
-## Host-tool capabilities
-
-Some useful tools cannot live entirely inside a WSL/container filesystem boundary because they interact with Windows or attached hardware.
-
-Treat these as host adapters with the same session model, for example:
+Example profiles:
 
 ```text
-adb.inspect
-adb.install
-git.credentials
-github.auth
-windows.process.inspect
+operator-interactive
+  trusted remote assistant
+  workspace + scoped host access
+  dynamic capability escalation
+  publication when explicitly requested
+
+trusted-delegate
+  known coding agent/provider
+  isolated workspace
+  normal build/test network profiles
+  no automatic host-wide authority
+
+untrusted-delegate
+  unknown/free provider model
+  isolated scratch/worktree only
+  minimal secrets and egress
+  no host shell, arbitrary LAN or credential access
 ```
 
-A host adapter receives:
+A provider agent can request more authority, but it cannot grant it to itself.
 
-- the session identity;
-- the canonical workdir;
-- a typed capability;
-- validated structured arguments.
+## Session modes
 
-It does not receive a free-form "run PowerShell as host" escape hatch.
+The dispatcher should support authority levels through one session model rather than separate products.
 
-For ADB specifically, a session can be allowed to call the host ADB server while still preventing arbitrary host filesystem access.
+### Workspace mode
 
-## Tool surface
+Default for repository work and delegated agents.
 
-A practical interactive MCP surface can remain compact:
+- workspace-relative filesystem;
+- `workspace.exec`;
+- structured Git operations;
+- bounded build/test networking;
+- session-owned process tree and temporary state.
+
+### Host mode
+
+For trusted interactive work that needs the actual Windows machine.
+
+Examples:
+
+- files outside the repo;
+- PowerShell/CMD or installed host CLIs;
+- process/service inspection and control;
+- ADB and attached hardware;
+- Foobar/Wambridge/local media stack;
+- LAN discovery such as DLNA/UPnP;
+- local application logs/configuration;
+- package/tool diagnostics.
+
+Host mode is still session-scoped and audited. It is not synonymous with elevation.
+
+### Elevated mode
+
+Administrative authority stays separate. Use it only for operations that actually require elevation, with a narrow lifetime and an explicit policy/approval step.
+
+Examples include system-wide installation, protected registry/service changes or security configuration.
+
+## Dynamic authority
+
+A session should not be forced to predict every path and tool before work starts.
+
+It may begin with:
 
 ```text
-open_session
-close_session
-session_status
+workspace: travnie/wambridge
+profile: code
+```
 
-fs.list
-fs.stat
-fs.read
-fs.write
-fs.patch
-fs.mkdir
-fs.move
-fs.delete
+and later request:
 
+```text
++ host.exec
++ host.fs:C:\Users\travn\.local\share
++ lan.local
++ device.adb
+```
+
+The dispatcher records the requested expansion, policy decision, lifetime and resulting capability lease. Expiry/revocation removes the extra authority without destroying unrelated session state.
+
+## Universal primitives and typed tools
+
+Typed tools are preferred when they materially improve safety, validation or UX. They are **not a prerequisite for doing useful work**.
+
+The base surface should retain universal escape hatches controlled by policy:
+
+```text
+fs.*
 workspace.exec
-workspace.cancel
-
-git.status
-git.diff
+host.fs.*
+host.exec
+process.*
+network/lan capability
+session capability request/revoke
 ```
 
-`git.*` methods are the authoritative repository operations. Phase 1 deliberately keeps Git metadata outside the MXC-writable worktree, so `workspace.exec ["git", ...]` is not relied on for repository state even when the Git binary itself is allowlisted.
+`host.exec` should prefer argv-style execution where possible, but a shell-capable path may be granted to trusted sessions because Windows administration and odd third-party tools sometimes require it.
 
-Do not create a separate MCP namespace for every installed CLI unless structured arguments materially improve safety or ergonomics.
+Typed helpers such as `adb.install`, `windows.service.restart` or `foobar.play` may be layered on top later. If a new program exposes a CLI/API today, the dispatcher should be able to use it today instead of waiting for a bespoke MCP namespace.
 
-## Capability profiles
+## Real workflow examples
 
-Avoid prompting for dozens of individual tool permissions on every task. Define locally maintained profiles that expand into concrete capabilities.
-
-Example:
+A Wambridge session should be able to:
 
 ```text
-inspect
-  workspace.read
-  process.exec:read-oriented
-  git.read
-
-code
-  workspace.read
-  workspace.write
-  process.exec
-  git.local
-  tests.run
-
-android
-  code
-  adb.inspect
-  adb.install-to-test-device
-
-publish
-  code
-  git.commit
-  github.pr.create
+inspect/edit repo
+-> run tests/build
+-> launch Wambridge test instance
+-> inspect ports/processes/logs
+-> discover the speaker on the LAN
+-> launch/control Foobar when needed
+-> exercise playback/renderer flow
+-> stop test-only processes
+-> preserve only intentional outputs
 ```
 
-The remote assistant may request a profile, but the worker decides whether it is available for the selected repository/device.
+An Android session should be able to:
 
-High-risk capabilities such as elevation, credential-store reads, firewall changes, registry writes, arbitrary host filesystem access and force-push remain separate and denied by default.
+```text
+build APK
+-> adb devices
+-> install/reinstall
+-> start activity
+-> capture logcat/screenshot/UI state
+-> reproduce bug
+-> edit/build/reinstall
+-> clean temporary artifacts and test processes
+```
 
-## Repository/workdir ownership
+Neither workflow should require a new architectural adapter merely because an unexpected command becomes necessary halfway through.
 
-The dispatcher should prefer an existing maintained clone as the source repository while executing changes in worker-owned temporary checkouts. Phase 1 uses independent `git clone --no-local --no-checkout --separate-git-dir` checkouts: each session owns its reachable Git objects instead of borrowing them through source-repository alternates. The MXC-writable worktree contains only working files, while session Git metadata lives in a private sibling directory that is never granted to the sandbox.
+## Resource ownership
 
-For interactive coding sessions:
+Every resource created or adopted for work should carry session/task metadata where practical:
 
-1. resolve the configured repository;
-2. create or reuse one session-owned isolated checkout under the worker workspace root;
-3. make that checkout the only writable filesystem root;
-4. keep the session alive while ChatGPT is actively using tools;
-5. preserve commits/results as requested;
-6. remove the checkout when the session closes or expires, unless explicitly retained for recovery.
+```text
+owner session/task id
+purpose
+ephemeral | persistent | recovery-retained
+created/adopted at
+cleanup policy
+```
 
-This keeps "current repo state" and "assistant scratch state" separate and avoids an expanding zoo of dirty clones.
+This applies to:
+
+- process trees;
+- temporary scripts/files/directories;
+- repository checkouts/worktrees;
+- downloads/build artifacts;
+- logs;
+- ports/listeners;
+- spawned provider agents;
+- device sessions where relevant.
+
+A temporary helper script belongs in session scratch, not randomly beside user files. A process started only for a test dies with the session. A deliberately started persistent service is explicitly marked persistent and is not killed by generic cleanup.
+
+## Repository/workspace lifecycle
+
+Avoid clone and branch graveyards.
+
+- Prefer maintained source clones/mirrors as reusable bases.
+- Prefer lightweight isolated worktrees/checkouts for concurrent or risky edits.
+- Reuse safe caches/object stores instead of fully rebuilding seventeen copies of the same repository.
+- Give every temporary checkout a session owner and TTL.
+- Preserve a failed/dirty workspace only when it is useful for recovery; otherwise remove it.
+- Never delete unrelated user repositories or state just because cleanup is running.
+
+The final implementation may choose worktrees, independent Git metadata or another strategy per threat model, but the observable contract is the same: isolation where useful without leaving a landfill behind.
+
+## Process lifecycle
+
+Every launched process tree belongs to a call/session unless explicitly promoted to persistent state.
+
+Use Windows Job Objects or an equivalent host boundary so cancellation, timeout and session cleanup can terminate descendants rather than only the first PID.
+
+Track enough metadata to answer:
+
+- who started this process;
+- for what purpose;
+- whether it should survive the session;
+- how to stop/recover it;
+- whether cleanup succeeded.
+
+After crashes/reconnects, reconcile recorded processes with live host state instead of assuming either that everything died or that everything should be killed.
+
+## Session finalization
+
+`session.finish` should be a reconciliation operation, not merely a close flag.
+
+A successful finish should account for:
+
+1. requested results/commits/artifacts;
+2. running child processes;
+3. temporary files and scripts;
+4. worktrees/checkouts;
+5. open ports/listeners or local servers;
+6. injected credentials/secrets;
+7. persistent resources intentionally left running;
+8. recovery state when cleanup could not be completed safely.
+
+The result should make leftovers visible instead of silently abandoning them.
+
+## Stability and recovery
+
+The dispatcher is supposed to reduce local-tool flakiness, not merely move it behind Cloudflare.
+
+Required properties:
+
+- durable task/session journal;
+- idempotent remote delivery where possible;
+- reconnectable interactive sessions;
+- bounded retries with structured errors;
+- process/workspace reconciliation after worker restart;
+- cancellation that records cleanup outcome;
+- stale-session watchdog;
+- no duplicate side effects merely because a queue/control response was lost;
+- actionable diagnostics when the local worker, broker or host tool is unavailable.
+
+A dropped MCP connection or crashed model must not automatically become orphaned processes plus mystery directories.
+
+## Filesystem and path policy
+
+Workspace mode keeps canonical path/symlink/junction/reparse-point confinement.
+
+Host filesystem authority is a separate capability. Trusted sessions may be granted configured roots or, when explicitly allowed, broad host filesystem access. Path canonicalization and audit still apply; host mode changes **scope**, not basic correctness checks.
+
+Absolute paths are therefore not universally forbidden. They are forbidden in a workspace-only lease and valid in an appropriate host lease.
+
+## Network and LAN
+
+`network=none` and brokered build traffic remain useful defaults for untrusted/delegated work.
+
+Trusted interactive host sessions may need direct local-network or internet access for real tasks such as DLNA discovery, device control or diagnostics. Represent that authority explicitly instead of pretending every useful network operation fits an HTTPS fetch broker.
+
+Network access should be scoped by profile/lifetime when practical, but lack of a perfect per-process hostname firewall must not force the entire dispatcher to become incapable of trusted local administration.
+
+## Secrets
+
+Keep cloud/provider credentials out of remote task payloads and logs. Inject secrets locally according to identity/profile and remove ephemeral credentials during finalization.
+
+A trusted operator session may legitimately use locally configured credentials. A spawned untrusted model should normally receive none or only the minimum scoped credential required for its isolated task.
 
 ## Concurrent clients
 
-Pet Dispatcher should be the arbiter when ChatGPT, OpenCode, Codex or another client wants the same repository.
+Pet Dispatcher is the arbiter when ChatGPT, OpenCode, Codex or another client wants the same machine/repository.
 
-- one writer lease per worktree;
-- multiple read-only sessions may coexist where safe;
-- provider agents launched inside an interactive/delegated session inherit that session's authority;
-- no second local bridge may silently write into the same worktree;
-- conflicts are reported as structured lease/session state instead of relying on Git lock-file accidents.
+- one writer lease per mutable worktree where needed;
+- multiple safe read sessions may coexist;
+- delegated providers inherit no more authority than their parent grant;
+- host-wide operations are visible to the session journal;
+- collisions are reported as structured lease/resource conflicts rather than Git lock-file surprises.
 
-This is the main reason the dispatcher should replace parallel Desktop Commander usage rather than merely sit beside it.
+This is one reason the dispatcher should replace parallel ad-hoc local bridges rather than merely sit beside them.
 
 ## Security invariant
 
-The critical property is not "the assistant cannot call powerful tools".
+The invariant is not "powerful tools are forbidden".
 
-The critical property is:
+It is:
 
-> Even a powerful tool, malformed command, compromised model or prompt-injected agent cannot access resources outside the authority assigned to its dispatcher session.
+> No caller or delegated model may exceed the authority granted to its current identity/session, and the dispatcher must know what resources that authority created or changed.
 
-That means confinement belongs below the MCP/tool layer, ideally at the OS/container/VM/process boundary plus canonical path checks. Tool allowlists alone are insufficient.
+For an untrusted provider, that authority may be a tiny sandbox. For a trusted interactive operator, it may deliberately include the host, ADB, LAN and shell access. Those are different policies over the same dispatcher.
 
-## Current bridge checklist — 2026-09-17
+## Current state and roadmap — 2026-09-17
 
-- [x] Remote MCP direct calls share the same local session/policy engine as delegated tasks.
-- [x] Repository and explicitly configured non-Git workspaces use canonical path/symlink confinement.
-- [x] Filesystem reads/edits plus compact tree/search/inspect fast paths are bounded.
-- [x] `workspace.exec` runs argv-style through MXC with Job Object cleanup and resource limits.
-- [x] Direct sessions can auto-open and finalize through the maintained session lifecycle.
-- [x] `network=none` remains the default; approved build traffic uses brokered HTTPS rather than raw sandbox egress.
-- [ ] Add narrow typed host adapters for hardware-facing workflows such as ADB when needed.
-- [ ] Keep `restricted` direct egress disabled until a per-session host boundary can be proven on the actual Windows host.
-- [ ] Continue trimming round trips/payloads only where measurements show a real interactive win.
+Already live:
 
-## Phase-1 addition
+- [x] Remote MCP direct calls and delegated tasks share the local session/policy engine.
+- [x] Repository and configured non-Git workspaces use canonical confinement.
+- [x] Bounded filesystem read/write/tree/search/inspect paths.
+- [x] `workspace.exec` through MXC with Job Object cleanup/resource limits.
+- [x] Direct-session auto-open/finalize lifecycle.
+- [x] Brokered build networking while raw sandbox egress stays denied by default.
 
-The original local-MVP acceptance list is retained below for design history; the maintained current state is the checklist above.
+Next architecture work:
 
-The local MVP should prove the interactive bridge before remote deployment:
+- [ ] Add identity/trust-aware authority profiles instead of one effective permission ceiling.
+- [ ] Add managed `host.exec` and host filesystem capabilities for trusted interactive sessions.
+- [ ] Add dynamic capability grant/revoke during an existing session.
+- [ ] Make ADB, LAN and Windows-host workflows usable through universal host capability first; add typed adapters only where they add value.
+- [ ] Strengthen resource ownership/finalization so worktrees, temp files, processes and listeners are reconciled automatically.
+- [ ] Add reconnect/recovery paths for interrupted interactive sessions.
+- [ ] Add restricted elevation as a distinct high-risk capability, not as the normal host mode.
+- [ ] Verify real workflows end to end: Android/ADB and Wambridge/Foobar/DLNA.
+- [ ] Continue optimizing round trips/payloads only when measurements show a real win.
 
-1. open a session for a test repository;
-2. read/write/patch files only inside its worktree;
-3. run arbitrary normal developer CLIs through `workspace.exec`;
-4. prove `..`, symlink/junction/reparse-point and absolute-path escapes fail;
-5. prove a child process cannot outlive cancellation/timeout;
-6. prove a second writer cannot acquire the same worktree;
-7. prove host adapters such as ADB receive only their typed capability;
-8. close the session and confirm cleanup leaves no stray worktree/process;
-9. run the same fixture through the MCP surface used by ChatGPT.
+## Acceptance target
 
-Once this works, a remote assistant can use Pet Dispatcher as its normal Legion tool connection, while Desktop Commander becomes optional rather than a required companion process.
+Desktop Commander becomes optional when a trusted interactive session can complete normal and awkward Legion workflows without a second local bridge, while a delegated untrusted model remains strongly confined.
+
+Acceptance should prove both sides:
+
+1. a low-trust provider cannot escape its workspace, steal host secrets or widen its lease;
+2. a trusted interactive session can intentionally gain host/filesystem/shell/device/LAN authority;
+3. ADB works without requiring a bespoke adapter for every command;
+4. a Wambridge test can control the relevant local/LAN components;
+5. cancellation kills session-owned temporary process trees;
+6. intentionally persistent processes survive cleanup;
+7. temporary scripts/worktrees/downloads are removed or explicitly retained for recovery;
+8. reconnect can recover or reconcile an interrupted session;
+9. final status reports any leftovers that could not be cleaned safely.
+
+The desired result is not "Desktop Commander with a different API". It is a cleaner superset: broader orchestration, different trust levels, deterministic lifecycle and far less local debris.

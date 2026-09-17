@@ -408,7 +408,7 @@ async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string): P
 
 function submittedTask(value: unknown): RemoteTask {
   const task = remoteTaskSchema.parse(value);
-  if (task.executor === "gemini") throw new Error("remote_gemini_executor_retired");
+  z.enum(["openrouter", "direct"]).parse(task.executor);
   return task;
 }
 

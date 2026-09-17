@@ -21,7 +21,7 @@ const delegateInputSchema = z.object({
   repo: z.string().min(1).max(128).describe("Repository alias"),
   baseRef: z.string().min(1).max(256).default("main").describe("Git base ref"),
   goal: z.string().min(1).max(20_000).describe("Concrete coding or inspection goal"),
-  executor: z.enum(["openrouter", "gemini"]).default("openrouter"),
+  executor: z.literal("openrouter").default("openrouter"),
   profile: z.enum(["inspect", "code"]).default("code"),
   timeoutMinutes: z.number().int().min(1).max(20).default(20),
   idempotencyKey: z.string().min(1).max(200).optional(),

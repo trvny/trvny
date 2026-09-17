@@ -100,6 +100,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - native button colors distinguish primary, success and destructive inline actions;
 - native clipboard action on short `/draft` suggestions;
 - manual `/task <repo> <polecenie>` delegation to the Legion through the scoped Pet Dispatcher RPC entrypoint, with inline status/cancel controls;
+- `/tasks` shows the last few Pet Dispatcher tasks (any surface, not just Botek) via the control plane's existing recent-task index, with a refresh button;
 - owner-only stateless Telegram inline answers for `@trvny_bot <query>` plus an inline-mode shortcut, Durable Object debounce for rapid edits, and an inline-specific response deadline;
 - owner-only Telegram Guest Mode for one-shot stateless replies in chats where Botek is not a member, with no private-memory/tool access and no acting on behalf of the owner;
 - owner-only Telegram Business/Secretary draft mode for bounded incoming third-party text/captions: the Business connection is revalidated against the owner, up to six recent text/caption Business updates for that connection+chat are kept as separate untrusted context, and only a private suggestion is delivered to the owner with no automatic send-on-behalf;
@@ -126,7 +127,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 4. **Tool routing** — let normal language invoke approved GitHub/GPTomek, Cloudflare/status, Feedseek/RSS, web/search and other integrations without requiring a dedicated command for every capability.
 5. **Scheduler and proactive assistance** — add briefings, reminders, condition watches, important RSS/CI/service alerts and completed-task notifications while avoiding noisy low-value notifications.
 6. **Reply assistant** — human-in-the-loop Telegram Business/Secretary drafts now use a tiny per-connection+chat context built only from text/caption Business updates Botek actually receives. The six-entry window is separate from private Botek memory and framed as untrusted data. Future low-risk auto-answering remains opt-in; money, commitments, dates, private matters and ambiguous requests stay approval-only.
-7. **Task UX** — expose delegated work through commands or controls such as `/tasks`, status, cancellation and result retrieval.
+7. **Task UX** — `/tasks` lists the last few delegated tasks with a refresh control; per-task status/cancel controls already exist on `/task` and `/legion` replies. Next add richer result rendering and pruning stale entries from the list.
 
 Suggested order: Hermes/Legion handoff → long-term memory → multimodal input → tool routing → proactive workflows.
 

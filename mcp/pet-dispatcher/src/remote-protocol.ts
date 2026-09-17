@@ -106,7 +106,8 @@ export function isRemoteDirectExecTool(tool: RemoteDirectCall["tool"]): boolean 
 export function isRemoteDirectWriteTool(tool: RemoteDirectCall["tool"]): boolean { return REMOTE_DIRECT_WRITE_TOOLS.has(tool); }
 
 export const remoteTaskSchema = z.object({
-  repo: z.string().min(1).max(128),
+  target: z.literal("host").optional(),
+  repo: z.string().min(1).max(128).optional(),
   baseRef: z.string().min(1).max(256).default("main"),
   goal: z.string().min(1).max(20_000).optional(),
   executor: z.enum(["openrouter", "gemini", "direct"]).default("openrouter"),
@@ -116,6 +117,18 @@ export const remoteTaskSchema = z.object({
   network: remoteNetworkSchema.default({ mode: "none" }),
   timeoutMinutes: z.number().int().min(1).max(20).default(20),
 }).strict().superRefine((task, ctx) => {
+  const hostTarget = task.target === "host";
+  if (hostTarget) {
+    if (task.repo) ctx.addIssue({ code: "custom", path: ["repo"], message: "host tasks do not accept a repository" });
+    if (task.executor !== "direct") ctx.addIssue({ code: "custom", path: ["executor"], message: "host tasks require the direct executor" });
+    if (task.direct?.tool !== "system.status") ctx.addIssue({ code: "custom", path: ["direct"], message: "host target is not allowed for this direct tool" });
+    if (task.profile !== "inspect") ctx.addIssue({ code: "custom", path: ["profile"], message: "host probes require the inspect profile" });
+    if (task.capabilities.length) ctx.addIssue({ code: "custom", path: ["capabilities"], message: "system.status requires no workspace capabilities" });
+    if (task.network.mode !== "none") ctx.addIssue({ code: "custom", path: ["network"], message: "host status requires network mode none" });
+    if (task.timeoutMinutes > 5) ctx.addIssue({ code: "custom", path: ["timeoutMinutes"], message: "host status is limited to 5 minutes" });
+    return;
+  }
+  if (!task.repo) ctx.addIssue({ code: "custom", path: ["repo"], message: "workspace tasks require a repository" });
   if (task.executor === "direct") {
     if (!task.direct) ctx.addIssue({ code: "custom", path: ["direct"], message: "direct executor requires a direct tool call" });
     if (task.goal) ctx.addIssue({ code: "custom", path: ["goal"], message: "direct executor does not accept a goal" });

@@ -27,8 +27,10 @@ import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import { formatProviderStatus } from "./status";
 import { handleTelegramGuestMessage } from "./guest";
 import {
+  awaitLegionStatus,
   cancelBotekTask,
   delegateBotekTask,
+  delegateLegionStatus,
   getBotekTask,
   parseTaskCommand,
   parseTaskControlCommand,
@@ -36,6 +38,7 @@ import {
   taskKeyboard,
   taskView,
 } from "./tasks";
+import { isLegionRefreshCallback, legionStatusKeyboard, legionStatusView } from "./legion-status";
 import {
   AllProvidersFailedError,
   GenerationStoppedError,
@@ -637,6 +640,26 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         replyMarkup: STATUS_KEYBOARD,
       };
     }
+    if (isLegionRefreshCallback(callback.data)) {
+      try {
+        const task = await awaitLegionStatus(env, await delegateLegionStatus(env, update.update_id), 8);
+        const view = legionStatusView(task);
+        return {
+          chatId: callbackMessage.chat.id,
+          editMessageId: callbackMessage.message_id,
+          text: view.plain,
+          richHtml: view.richHtml,
+          replyMarkup: legionStatusKeyboard(),
+        };
+      } catch (error) {
+        console.error("Legion status refresh failed", error);
+        return {
+          chatId: callbackMessage.chat.id,
+          editMessageId: callbackMessage.message_id,
+          text: "Nie udało się odświeżyć statusu Legiona.",
+        };
+      }
+    }
     const taskAction = taskCallback(callback.data);
     if (taskAction) {
       try {
@@ -774,6 +797,28 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       richHtml: status.richHtml,
       replyMarkup: STATUS_KEYBOARD,
     };
+  }
+
+  if (text === "/legion") {
+    try {
+      const task = await awaitLegionStatus(env, await delegateLegionStatus(env, update.update_id), 8);
+      const view = legionStatusView(task);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: view.plain,
+        richHtml: view.richHtml,
+        replyMarkup: legionStatusKeyboard(),
+      };
+    } catch (error) {
+      console.error("Legion status delegation failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się zapytać Legiona o status.",
+        finalReaction: "👎",
+      };
+    }
   }
 
   if (text === "/location") {
@@ -1646,7 +1691,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) return null;
   const text = message.forward_origin ? "" : message.text?.trim() ?? "";
-  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/quiz", "/topic", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
+  if (["/start", "/help", "/reset", "/status", "/legion", "/draft", "/poll", "/quiz", "/topic", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
   if (
     !text &&
     !message.voice &&

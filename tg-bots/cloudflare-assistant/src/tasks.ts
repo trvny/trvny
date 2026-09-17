@@ -13,6 +13,7 @@ export type BotekTaskState = {
     commit?: string;
     exportedRef?: string;
     error?: string;
+    data?: unknown;
   };
 };
 
@@ -99,6 +100,52 @@ export async function delegateBotekTask(
     throw new Error("Pet Dispatcher returned an invalid task id");
   }
   return { taskId: body.taskId, status: typeof body.status === "string" ? body.status : "queued" };
+}
+
+/** Placeholder repo name for direct tools that don't touch a workspace (e.g. system.status) -
+ *  remoteTaskSchema always requires a repo string, but this tool never dereferences it. */
+const LEGION_STATUS_REPO = "legion";
+
+export async function delegateLegionStatus(env: Env, updateId: number): Promise<BotekTaskState> {
+  const result = await dispatcher(env).delegate({
+    repo: LEGION_STATUS_REPO,
+    baseRef: "main",
+    executor: "direct",
+    direct: { tool: "system.status" },
+    profile: "inspect",
+    capabilities: ["workspace.read", "git.read"],
+    network: { mode: "none" },
+    timeoutMinutes: 2,
+  }, `telegram-legion-status:${updateId}`);
+  const body = rpcBody<{ taskId?: unknown; status?: unknown }>(result);
+  if (typeof body.taskId !== "string" || !TASK_ID_RE.test(body.taskId)) {
+    throw new Error("Pet Dispatcher returned an invalid task id");
+  }
+  return { taskId: body.taskId, status: typeof body.status === "string" ? body.status : "queued" };
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Short-polls a just-submitted task until it reaches a terminal state or waitSeconds elapses -
+ *  system.status has no checkout/agent work, so it should resolve almost immediately whenever
+ *  Legion's dispatcher loop is actually running; a still-non-terminal result after the deadline
+ *  means Legion is unreachable (asleep or the loop isn't running), not a slow task. */
+export async function awaitLegionStatus(
+  env: Env,
+  initial: BotekTaskState,
+  waitSeconds: number,
+): Promise<BotekTaskState> {
+  if (TERMINAL.has(initial.status)) return initial;
+  const deadline = Date.now() + waitSeconds * 1_000;
+  let current = initial;
+  while (Date.now() < deadline) {
+    current = await getBotekTask(env, initial.taskId);
+    if (TERMINAL.has(current.status)) return current;
+    await delay(Math.min(1_000, Math.max(0, deadline - Date.now())));
+  }
+  return current;
 }
 
 export async function getBotekTask(env: Env, taskId: string): Promise<BotekTaskState> {

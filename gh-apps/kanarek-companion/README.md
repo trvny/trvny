@@ -84,8 +84,8 @@ companion and makes later review-eligible PR activity eligible again.
   independently scoped webhook review queue.
 - `POST /review-router/v1/chat/completions` is the private OpenAI-compatible
   transport shared by free PR review. It authenticates with the dedicated
-  router bearer and tries Workers AI, OpenRouter, OrcaRouter, AIHubMix,
-  Ollama Cloud, then Groq.
+  router bearer and tries AIHubMix, OpenRouter, Ollama Cloud, Groq, Vercel AI
+  Gateway, and OrcaRouter last, then guarded Workers AI as final fallback.
   Paid/direct provider credentials used for quip generation are never consumed
   by the review router. OpenRouter can retry its primary model without the
   fallback array when the array itself is rejected.
@@ -326,12 +326,15 @@ Missing direct-provider provisioning copies are left untouched on the Worker. Le
 per-repository review callers and provider secrets were removed during the
 webhook cutover and are no longer maintained by a scheduled rollout job.
 
-The review router prefers stronger free models first: OrcaRouter runs its explicit
-GLM 5.3 Flash, Hy3, and DeepSeek V4 Flash chain; AIHubMix provides another GLM
-5.3 path; OpenRouter follows with Nemotron 3 Super, North Mini Code, and its free
-router fallback; Ollama Cloud uses GPT-OSS 120B then 20B; Groq remains an optional
-final HTTP fallback. Guarded Cloudflare Workers AI (`@cf/zai-org/glm-4.7-flash`)
-is deliberately last. Direct Gemini, OpenAI, Anthropic, and xAI credentials remain
+The review router prefers stronger free models first: AIHubMix provides a GLM 5.3
+path; OpenRouter follows with Nemotron 3 Super, North Mini Code, and its free
+router fallback; Ollama Cloud uses GPT-OSS 120B then 20B; Groq and Vercel AI
+Gateway are optional HTTP fallbacks. OrcaRouter (GLM 5.3 Flash, Hy3, and
+DeepSeek V4 Flash chain) is tried last - its free tier applies an undisclosed,
+small per-request prompt-token cap below a lifetime-spend threshold, and this
+router's diff+context payload routinely exceeds it. Guarded Cloudflare Workers
+AI (`@cf/zai-org/glm-4.7-flash`) is deliberately the final fallback after every
+HTTP provider. Direct Gemini, OpenAI, Anthropic, and xAI credentials remain
 quip-only. Provider-specific request rejection, transient, quota, authentication,
 and availability failures fall through to the next free model/provider. Terminal
 diagnostics expose only bounded provider/category codes, never upstream error

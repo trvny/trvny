@@ -32,7 +32,7 @@ test("renders completed Legion vitals as plain text and a safe rich table", () =
 test("shows a pending message for any non-terminal status, without claiming Legion is asleep", () => {
   for (const status of ["queued", "leased", "running", "cancel_requested"]) {
     const view = legionStatusView({ taskId: TASK_ID, status });
-    assert.match(view.plain, new RegExp(LEGION_STATUS_PENDING_TEXT.replaceAll(/[.]/gu, "\\.")), `status: ${status}`);
+    assert.ok(view.plain.includes(LEGION_STATUS_PENDING_TEXT), `status: ${status}`);
   }
 });
 

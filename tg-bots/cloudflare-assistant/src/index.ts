@@ -31,6 +31,7 @@ import {
   delegateBotekTask,
   delegateLegionStatus,
   getBotekTask,
+  isTerminalTaskStatus,
   parseTaskCommand,
   parseTaskControlCommand,
   resolveLegionStatus,
@@ -643,14 +644,19 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     const legionTaskId = legionRefreshCallback(callback.data);
     if (legionTaskId) {
       try {
-        const task = await getBotekTask(env, legionTaskId);
+        const existing = await getBotekTask(env, legionTaskId);
+        // A terminal task's vitals are frozen at probe time - re-probing while pending would
+        // just abandon the in-flight one, but once it's done "refresh" should mean fresh data.
+        const task = isTerminalTaskStatus(existing.status)
+          ? await delegateLegionStatus(env, update.update_id)
+          : existing;
         const view = legionStatusView(task);
         return {
           chatId: callbackMessage.chat.id,
           editMessageId: callbackMessage.message_id,
           text: view.plain,
           richHtml: view.richHtml,
-          replyMarkup: legionStatusKeyboard(legionTaskId),
+          replyMarkup: legionStatusKeyboard(task.taskId),
         };
       } catch (error) {
         console.error("Legion status refresh failed", error);

@@ -30,6 +30,10 @@ export type BotekTaskView = {
 const TASK_ID_RE = /^[0-9a-f-]{36}$/iu;
 const TERMINAL = new Set(["completed", "failed", "cancelled", "recovery_required"]);
 
+export function isTerminalTaskStatus(status: string): boolean {
+  return TERMINAL.has(status);
+}
+
 function rpcBody<T>(result: { status: number; body: unknown }): T {
   if (result.status < 200 || result.status >= 300) {
     throw new Error(`Pet Dispatcher RPC failed: HTTP ${result.status}`);

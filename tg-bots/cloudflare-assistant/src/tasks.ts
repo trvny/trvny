@@ -1,4 +1,4 @@
-import type { Env, TelegramInlineKeyboardMarkup } from "./types";
+import type { Env, PetDispatcherRecentTask, TelegramInlineKeyboardMarkup } from "./types";
 
 export type BotekTaskState = {
   taskId: string;
@@ -186,7 +186,7 @@ export function taskKeyboard(task: BotekTaskState): TelegramInlineKeyboardMarkup
   };
 }
 
-function taskStatusLabel(status: string): string {
+export function taskStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     queued: "🕓 queued",
     running: "🦾 running",
@@ -247,4 +247,53 @@ export function taskCallback(data: string | undefined): { action: "refresh" | "c
   const match = data?.match(/^task:(refresh|cancel):([0-9a-f-]{36})$/iu);
   if (!match || !match[1] || !match[2]) return null;
   return { action: match[1] as "refresh" | "cancel", taskId: match[2] };
+}
+
+/** recentTasks() reads each task's real Durable Object state server-side (control-plane's
+ *  entry.ts, recentTaskSnapshots) - unlike delegate()'s bare {taskId,status} redelivery shape,
+ *  a terminal snapshot here always carries its result. No extra round trip needed, and this is
+ *  a single RPC call regardless of how many tasks it returns - the N per-task reads happen
+ *  inside the dispatcher, not as separate calls from this consumer. */
+const RECENT_TASKS_LIMIT = 5;
+
+export async function fetchRecentTasks(env: Env): Promise<PetDispatcherRecentTask[]> {
+  return dispatcher(env).recentTasks(RECENT_TASKS_LIMIT);
+}
+
+function shortTaskId(taskId: string): string {
+  return taskId.slice(0, 8);
+}
+
+export function recentTasksView(tasks: PetDispatcherRecentTask[]): BotekTaskView {
+  if (!tasks.length) {
+    return { plain: "Brak ostatnich zadań.", richHtml: "<p>Brak ostatnich zadań.</p>" };
+  }
+  const plainEntries = tasks.map((task) => {
+    const lines = [
+      `${taskStatusLabel(task.status)} · ${shortTaskId(task.taskId)}${task.deviceId ? ` · ${task.deviceId}` : ""}`,
+    ];
+    if (task.result?.summary) lines.push(task.result.summary.slice(0, 200));
+    if (task.result?.error) lines.push(`Błąd: ${task.result.error.slice(0, 200)}`);
+    return lines.join("\n");
+  });
+  const rows = tasks.map((task) => {
+    const detail = task.result?.summary ?? task.result?.error ?? "";
+    const header = `<tr><td>${escapeRichHtml(taskStatusLabel(task.status))}</td>`
+      + `<td><code>${escapeRichHtml(shortTaskId(task.taskId))}</code></td>`
+      + `<td>${escapeRichHtml(task.deviceId ?? "")}</td></tr>`;
+    return detail ? `${header}<tr><td colspan="3">${richLines(detail, 300)}</td></tr>` : header;
+  }).join("");
+
+  return {
+    plain: plainEntries.join("\n\n").slice(0, 4_000),
+    richHtml: `<h2>Ostatnie zadania</h2><table>${rows}</table>`,
+  };
+}
+
+export function recentTasksKeyboard(): TelegramInlineKeyboardMarkup {
+  return { inline_keyboard: [[{ text: "🔄 Odśwież", style: "primary", callback_data: "tasks:refresh" }]] };
+}
+
+export function isTasksRefreshCallback(data: string | undefined): boolean {
+  return data === "tasks:refresh";
 }

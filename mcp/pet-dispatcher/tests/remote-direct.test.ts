@@ -80,6 +80,27 @@ test("direct remote fs.read uses an isolated session and structured output", asy
   } finally { await cleanup(state); }
 });
 
+test("direct system.status answers without opening a session or touching the repo", async () => {
+  const state = await fixture();
+  const runner = { activeProcessCount: () => 0 } as never;
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, runner);
+  try {
+    const result = await executor.execute(directTask({ tool: "system.status" }), "status-test");
+    assert.equal(result.status, "completed");
+    const data = dataOf<{
+      hostname: string; uptimeSeconds: number; freeMemBytes: number; totalMemBytes: number;
+      activeSessions: number; activeProcesses: number;
+    }>(result);
+    assert.equal(typeof data.hostname, "string");
+    assert.ok(data.uptimeSeconds >= 0);
+    assert.ok(data.freeMemBytes > 0);
+    assert.ok(data.totalMemBytes > 0);
+    assert.equal(data.activeSessions, 0);
+    assert.equal(data.activeProcesses, 0);
+    assert.equal(state.sessions.list().length, 0);
+  } finally { await cleanup(state); }
+});
+
 test("direct workspace.exec reuses a write session without depending on Git inside MXC", { skip: process.platform !== "win32" }, async () => {
   const state = await fixture();
   const runner = await CommandRunner.create(state.config, state.sessions);

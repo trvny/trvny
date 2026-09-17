@@ -71,6 +71,7 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
     maxOutputBytes: z.number().int().min(256).max(24_576).default(24_576),
     outputMode: z.enum(["head", "tail"]).default("tail"), stripAnsi: z.boolean().default(true),
   }).strict(),
+  z.object({ tool: z.literal("system.status") }).strict(),
   z.object({ tool: z.literal("git.status"), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("git.diff"), sessionId: remoteSessionIdSchema.optional(), staged: z.boolean().default(false), paths: z.array(z.string().min(1).max(1_024)).max(64).default([]) }).strict(),
   z.object({ tool: z.literal("git.summary"), sessionId: remoteSessionIdSchema.optional(), maxCommits: z.number().int().min(1).max(10).default(5) }).strict(),
@@ -90,7 +91,7 @@ export type RemoteDirectCall = z.infer<typeof remoteDirectCallSchema>;
 export const REMOTE_DIRECT_TOOLS = [
   "session.open", "session.close", "session.finish", "session.status", "session.list", "session.reclaim",
   "fs.list", "fs.stat", "fs.read", "fs.readMany", "fs.tree", "fs.search", "workspace.inspect", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete",
-  "workspace.exec", "git.status", "git.diff", "git.summary", "git.add", "git.commit",
+  "workspace.exec", "system.status", "git.status", "git.diff", "git.summary", "git.add", "git.commit",
 ] as const satisfies readonly RemoteDirectCall["tool"][];
 export const REMOTE_DIRECT_READ_CAPABILITIES = ["workspace.read", "git.read"] as const;
 export const REMOTE_DIRECT_WRITE_CAPABILITIES = ["workspace.read", "workspace.write", "git.read", "git.commit"] as const;

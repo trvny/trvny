@@ -379,6 +379,13 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
 
   async execute(task: RemoteTask, taskId: string, signal?: AbortSignal): Promise<RemoteResult> {
     if (task.executor === "direct") return this.#executeDirect(task, signal);
+    if (task.executor === "gemini") {
+      return {
+        status: "failed",
+        summary: "Legacy remote Gemini task was not executed.",
+        error: "remote Gemini executor is retired; resubmit through the managed free-router",
+      };
+    }
     const capabilities = resolveCapabilities(task);
     let session: Session | undefined;
     let git: HostGit | undefined;

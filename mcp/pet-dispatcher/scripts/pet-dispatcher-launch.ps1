@@ -29,6 +29,7 @@ $manifestPath = Join-Path $Root 'app\current.json'
 $configPath = Join-Path $Root 'config\dispatcher.json'
 $secretRoot = Join-Path $Root 'secrets'
 $logRoot = Join-Path $Root 'logs'
+$providerCredentialPath = Join-Path $PSScriptRoot 'provider-credential-env-names.json'
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 
 function Read-DpapiSecret([string]$Name) {
@@ -56,12 +57,12 @@ try {
         if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) { throw "Pet Dispatcher release entry is missing: $entry" }
 
         # The logon process can already carry User-scope provider credentials.
-        # Remote model calls use the managed free-router, so fail closed unless
-        # we can discover and remove every provider credential before Node starts.
-        $providerCredentialEnvNames = @(& $nodePath $entry provider-credential-env-names | ConvertFrom-Json)
-        if ($LASTEXITCODE -ne 0 -or $providerCredentialEnvNames.Count -eq 0) {
-            throw 'Could not discover provider credential environment names.'
+        # Read the installer-published scrub list without launching any child first.
+        if (-not (Test-Path -LiteralPath $providerCredentialPath -PathType Leaf)) {
+            throw "Missing provider credential scrub list: $providerCredentialPath"
         }
+        $providerCredentialEnvNames = @(Get-Content -LiteralPath $providerCredentialPath -Raw | ConvertFrom-Json)
+        if ($providerCredentialEnvNames.Count -eq 0) { throw 'Provider credential scrub list is empty.' }
         foreach ($name in $providerCredentialEnvNames) {
             Remove-Item -LiteralPath "Env:$([string]$name)" -ErrorAction SilentlyContinue
         }

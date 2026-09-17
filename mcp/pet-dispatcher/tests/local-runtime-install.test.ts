@@ -6,6 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import { installLocalRuntime } from "../scripts/install-local-runtime.js";
+import { PROVIDER_CREDENTIAL_ENV_NAMES } from "../src/provider-credentials.js";
 
 const execFileAsync = promisify(execFile);
 const environmentPolicyFixture = {
@@ -19,8 +20,9 @@ async function writeEnvironmentPolicyFixture(source: string): Promise<void> {
 
 test("remote launcher strips inherited provider credentials before starting Node", async () => {
   const launcher = await readFile(new URL("../scripts/pet-dispatcher-launch.ps1", import.meta.url), "utf8");
-  assert.equal(launcher.includes("provider-credential-env-names"), true);
+  assert.equal(launcher.includes("provider-credential-env-names.json"), true);
   assert.equal(launcher.includes('Remove-Item -LiteralPath "Env:$([string]$name)"'), true);
+  assert.equal(launcher.includes("& $nodePath $entry provider-credential"), false);
   assert.equal(launcher.includes("GetEnvironmentVariable($name, 'User')"), false);
 });
 
@@ -74,6 +76,7 @@ test("local installer publishes runtime and migrates control state away from dc"
     assert.equal(await readFile(result.paths.journalPath, "utf8"), "journal\n");
     assert.equal(await readFile(join(result.paths.secretsRoot, "PET_DISPATCHER_QUEUE_TOKEN.dpapi"), "utf8"), "queue-cipher");
     assert.equal(await readFile(join(result.paths.binRoot, "pet-dispatcher-launch.ps1"), "utf8"), "# launcher fixture\n");
+    assert.deepEqual(JSON.parse(await readFile(join(result.paths.binRoot, "provider-credential-env-names.json"), "utf8")), PROVIDER_CREDENTIAL_ENV_NAMES);
     assert.equal((await execFileAsync("git", ["-C", result.paths.repoMirror, "rev-parse", "--is-bare-repository"])).stdout.trim(), "true");
     assert.ok((await stat(join(result.releaseRoot, "dist", "src", "index.js"))).isFile());
     assert.equal(await readFile(join(result.releaseRoot, "scripts", "windows-job-guard.ps1"), "utf8"), "# guard fixture\n");

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { AgentTools } from "../src/agent-tools.js";
 import { loadConfig } from "../src/config.js";
+import { ConfinedRemoteExecutor } from "../src/remote-executor.js";
 import {
   remoteTaskSchema,
   signEnvelope,
@@ -239,10 +240,21 @@ test("remote worker honors cancellation before starting the confined executor", 
     await rm(root, { recursive: true, force: true });
   }
 });
-test("remote protocol rejects direct Gemini executor credentials", () => {
-  assert.throws(() => remoteTaskSchema.parse({
+test("remote protocol keeps legacy Gemini envelopes decodable", () => {
+  const legacy = remoteTaskSchema.parse({
     repo: "trvny", goal: "inspect", executor: "gemini", profile: "inspect", network: { mode: "none" },
-  }), /executor/u);
+  });
+  assert.equal(legacy.executor, "gemini");
+});
+
+test("legacy remote Gemini tasks fail explicitly without opening a workspace", async () => {
+  const legacy = remoteTaskSchema.parse({
+    repo: "trvny", goal: "inspect", executor: "gemini", profile: "inspect", network: { mode: "none" },
+  });
+  const executor = new ConfinedRemoteExecutor({} as never, {} as never, {} as never);
+  const result = await executor.execute(legacy, "11111111-1111-4111-8111-111111111111");
+  assert.equal(result.status, "failed");
+  assert.match(result.error ?? "", /Gemini executor is retired/u);
 });
 
 test("remote task timeout stays below the default queue visibility lease", () => {

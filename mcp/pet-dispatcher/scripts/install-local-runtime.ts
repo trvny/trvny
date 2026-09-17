@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { loadConfig } from "../src/config.js";
+import { PROVIDER_CREDENTIAL_ENV_NAMES } from "../src/provider-credentials.js";
 import { localRuntimePaths, migrateDispatcherConfig, objectRecord, type LocalRuntimePaths } from "../src/local-runtime.js";
 
 const execFileAsync = promisify(execFile);
@@ -113,6 +114,11 @@ async function publishBin(sourceRoot: string, paths: LocalRuntimePaths): Promise
   for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-secrets.ps1"]) {
     await copyFile(join(sourceRoot, "scripts", name), join(paths.binRoot, name));
   }
+  await writeFile(
+    join(paths.binRoot, "provider-credential-env-names.json"),
+    `${JSON.stringify(PROVIDER_CREDENTIAL_ENV_NAMES)}\n`,
+    "utf8",
+  );
 }
 async function publishRelease(options: InstallLocalRuntimeOptions, paths: LocalRuntimePaths, sourceCommit: string): Promise<string> {
   if (options.build !== false) await runNpm(["run", "build"], options.sourceRoot);

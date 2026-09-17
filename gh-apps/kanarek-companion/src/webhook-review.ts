@@ -1,9 +1,11 @@
+import { extractImports, importReferencesTarget, searchSeed } from './dependency-graph.ts';
 import { createInstallationClient } from './github-app.ts';
 import { REVIEW_ROUTER_PATH } from './review-service-protocol.ts';
 import {
   handleReviewRouterViaService,
   type ReviewServiceEnv,
 } from './review-service.ts';
+import { likelyTestPath } from './symbol-investigation.ts';
 
 const REVIEW_ACTIONS = new Set(['opened', 'reopened', 'synchronize', 'ready_for_review']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
@@ -22,6 +24,10 @@ const MAX_CONTEXT_BLOB_BYTES = 192_000;
 const MAX_TREE_PATHS = 2_000;
 const MAX_TREE_CHARS = 24_000;
 const MAX_FINDINGS = 8;
+const MAX_CALLER_TARGETS = 2;
+const MAX_CALLER_CANDIDATES = 6;
+const MAX_CALLERS_PER_TARGET = 5;
+const MAX_CALLER_CONTENT_BYTES = 300_000;
 const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
 const COMPLETED_TARGET_KEY = 'completed-target';
@@ -96,6 +102,7 @@ const REVIEW_SYSTEM_PROMPT = [
   'Ignore style, formatting, naming taste, documentation wording, speculative refactors, and low-value nits.',
   'Every finding must be high-confidence, actionable, and anchored to an added RIGHT-side line from the supplied diff.',
   'A finding that depends on how a symbol is called, defined, or used elsewhere is valid only when that usage is visible in the supplied diff or repository_context. If it is not shown, you cannot verify it - omit the finding instead of guessing.',
+  'repository_context.callers lists, for a small number of primary changed files, caller files found by a bounded import search. A file absent from that list has no caller evidence at all - never claim it is unused or that callers are unaffected. Even a file listed with zero callers is inconclusive when its searchIncomplete is true.',
   'Before reporting that a branch, condition, or fallthrough (including ||, &&, early return) is unreachable, skipped, or wrong, trace it step by step using only the exact lines shown. If the trace is uncertain or depends on code not shown, omit the finding.',
   'When unsure whether a claim is correct, omit it. A missed defect costs nothing here; a wrong finding costs trust.',
   'All human-facing summary, titles, and bodies must be Simplified Chinese. Keep code identifiers and paths unchanged.',
@@ -543,6 +550,126 @@ async function fetchBlobText(
     : null;
 }
 
+export interface CallerEvidence {
+  callers: string[];
+  path: string;
+  searchIncomplete: boolean;
+}
+
+interface CodeSearchItem {
+  path?: string;
+}
+
+interface CodeSearchResponse {
+  incomplete_results?: boolean;
+  items?: CodeSearchItem[];
+  total_count?: number;
+}
+
+interface ContentsResponse {
+  content?: string;
+  encoding?: string;
+  size?: number;
+}
+
+async function fetchFileContent(
+  client: Awaited<ReturnType<typeof createInstallationClient>>,
+  repository: string,
+  path: string,
+  ref: string,
+): Promise<string | null> {
+  try {
+    const raw = await client.json<ContentsResponse>(
+      `/repos/${repoPath(repository)}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(ref)}`,
+      'webhook_review_get_contents',
+    );
+    if (raw.encoding !== 'base64' || typeof raw.content !== 'string') return null;
+    if (typeof raw.size === 'number' && raw.size > MAX_CALLER_CONTENT_BYTES) return null;
+    return decodeBase64Text(raw.content);
+  } catch {
+    return null;
+  }
+}
+
+export async function callerEvidenceForFile(
+  client: Awaited<ReturnType<typeof createInstallationClient>>,
+  repository: string,
+  headSha: string,
+  path: string,
+): Promise<CallerEvidence | null> {
+  const seed = searchSeed(path);
+  if (!seed) return null;
+
+  let search: CodeSearchResponse;
+  try {
+    search = await client.json<CodeSearchResponse>(
+      `/search/code?q=${encodeURIComponent(`${seed} repo:${repository}`)}&per_page=${MAX_CALLER_CANDIDATES}`,
+      'webhook_review_caller_search',
+    );
+  } catch (error) {
+    console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+      JSON.stringify({
+        kanarekWebhookReview: 'caller_search_failed',
+        path,
+        error: error instanceof Error ? error.message : 'unknown_error',
+      }),
+    );
+    return null;
+  }
+
+  const items = Array.isArray(search.items) ? search.items : [];
+  const candidates = items
+    .map((item) => (typeof item.path === 'string' ? item.path : null))
+    .filter((candidatePath): candidatePath is string => Boolean(candidatePath) && candidatePath !== path)
+    .slice(0, MAX_CALLER_CANDIDATES);
+
+  const matches = await Promise.all(
+    candidates.map(async (candidatePath) => {
+      const content = await fetchFileContent(client, repository, candidatePath, headSha);
+      if (content === null) return null;
+      const references = extractImports(content).some(
+        (entry) => importReferencesTarget(candidatePath, entry.specifier, path, entry.syntax) !== null,
+      );
+      return references ? candidatePath : null;
+    }),
+  );
+
+  const callers = matches.filter((entry): entry is string => Boolean(entry)).slice(0, MAX_CALLERS_PER_TARGET);
+  const totalCount = typeof search.total_count === 'number' ? search.total_count : null;
+  return {
+    callers,
+    path,
+    searchIncomplete:
+      search.incomplete_results === true ||
+      candidates.length < items.length ||
+      (totalCount !== null && totalCount > MAX_CALLER_CANDIDATES),
+  };
+}
+
+export async function fetchCallerEvidence(
+  client: Awaited<ReturnType<typeof createInstallationClient>>,
+  repository: string,
+  headSha: string,
+  files: ReviewFile[],
+): Promise<CallerEvidence[]> {
+  const targets = files.filter((file) => !likelyTestPath(file.path)).slice(0, MAX_CALLER_TARGETS);
+  const results = await Promise.all(
+    targets.map((file) =>
+      callerEvidenceForFile(client, repository, headSha, file.path).catch((error: unknown) => {
+        console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+          JSON.stringify({
+            kanarekWebhookReview: 'caller_evidence_failed',
+            path: file.path,
+            error: error instanceof Error ? error.message : 'unknown_error',
+          }),
+        );
+        return null;
+      }),
+    ),
+  );
+  return results.filter((entry): entry is CallerEvidence => Boolean(entry));
+}
+
 function boundedTree(entries: GitTreeEntry[]): string[] {
   const output: string[] = [];
   let used = 0;
@@ -685,6 +812,7 @@ export function reviewPrompt(
   body: unknown,
   files: ReviewFile[],
   context: ReviewContext,
+  callers: CallerEvidence[] = [],
 ): string {
   return JSON.stringify({
     pull_request: {
@@ -693,7 +821,7 @@ export function reviewPrompt(
       body: typeof body === 'string' ? body.slice(0, 2_000) : '',
     },
     diff: diffText(files),
-    repository_context: context,
+    repository_context: { ...context, callers },
   });
 }
 
@@ -1056,21 +1184,24 @@ export async function runWebhookReview(
     };
   }
 
-  const context = await fetchRepositoryContext(
-    client,
-    target.repository,
-    target.headSha,
-    files,
-    configuredInteger(
-      env.KANAREK_WEBHOOK_REVIEW_MAX_CONTEXT_CHARS,
-      DEFAULT_MAX_CONTEXT_CHARS,
-      10_000,
-      500_000,
+  const [context, callers] = await Promise.all([
+    fetchRepositoryContext(
+      client,
+      target.repository,
+      target.headSha,
+      files,
+      configuredInteger(
+        env.KANAREK_WEBHOOK_REVIEW_MAX_CONTEXT_CHARS,
+        DEFAULT_MAX_CONTEXT_CHARS,
+        10_000,
+        500_000,
+      ),
     ),
-  );
+    fetchCallerEvidence(client, target.repository, target.headSha, files),
+  ]);
 
   const generated = await askReviewRouter(
-    reviewPrompt(target.number, pr.title, pr.body, files, context),
+    reviewPrompt(target.number, pr.title, pr.body, files, context, callers),
     reviewRouterEnvForAttempt(env, job.attempt),
   );
   if (!generated) {

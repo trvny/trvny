@@ -24,6 +24,48 @@ test("provider environment names come from the shared backend registry", () => {
   ]);
 });
 
+test("remote managed free router works without local provider credentials", async () => {
+  const saved = Object.fromEntries(
+    ["OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "AIHUBMIX_API_KEY", "OLLAMA_API_KEY", "GROQ_API_KEY"]
+      .map((name) => [name, process.env[name]]),
+  );
+  for (const name of Object.keys(saved)) delete process.env[name];
+  let payload: Record<string, unknown> | undefined;
+  const managed = async (value: unknown) => {
+    payload = value as Record<string, unknown>;
+    return Response.json({ choices: [{ message: { role: "assistant", content: "central done" } }] }, { headers: { "x-kanarek-review-provider": "orcarouter" } });
+  };
+  try {
+    const tools = { execute: () => Promise.reject(new Error("no tools expected")) } as unknown as AgentTools;
+    const result = await runRoutedOpenAI(config, tools, "session", "goal", 16, undefined, managed);
+    assert.equal(result.provider, "kanarek-review");
+    assert.equal(result.model, "kanarek-review-free");
+    assert.equal(result.text, "central done");
+    assert.equal(payload?.model, "kanarek-review-free");
+  } finally {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+});
+
+test("managed free router fails closed if its underlying provider changes after a tool call", async () => {
+  let call = 0;
+  let toolCalls = 0;
+  const managed = async () => {
+    call += 1;
+    if (call === 1) return new Response(JSON.stringify({ choices: [{ message: {
+      role: "assistant", tool_calls: [{ id: "call-1", function: { name: "read_file", arguments: "{}" } }],
+    } }] }), { status: 200, headers: { "content-type": "application/json", "x-kanarek-review-provider": "orcarouter" } });
+    return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "switched" } }] }), {
+      status: 200, headers: { "content-type": "application/json", "x-kanarek-review-provider": "openrouter" },
+    });
+  };
+  const tools = { execute: async () => { toolCalls += 1; return { content: "x" }; } } as unknown as AgentTools;
+  await assert.rejects(runRoutedOpenAI(config, tools, "session", "goal", 2, undefined, managed), /provider changed after tool execution/u);
+  assert.equal(toolCalls, 1);
+});
+
 test("OpenRouter malformed tool calls become tool errors instead of crashing", async () => {
   const originalFetch = globalThis.fetch;
   const originalKey = process.env.OPENROUTER_API_KEY;

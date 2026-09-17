@@ -10,6 +10,7 @@ import {
   signEnvelope,
   validateEnvelopeFreshness,
   verifyEnvelope,
+  verifyWorkerRequest,
   type RemoteTaskState,
 } from "../src/remote-protocol.js";
 import {
@@ -122,6 +123,36 @@ function transportConfig(journalPath: string) {
     journalPath,
   };
 }
+
+test("free-router requests reuse signed worker identity without exposing router credentials", async () => {
+  process.env.PET_TEST_QUEUE_TOKEN = "queue-token";
+  process.env.PET_TEST_SIGNING_SECRET = SECRET;
+  let captured: { path: string; body: string; headers: Headers } | undefined;
+  const fakeFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input));
+    const headers = new Headers(init?.headers);
+    const body = String(init?.body ?? "");
+    captured = { path: url.pathname, body, headers };
+    return Response.json({ choices: [{ message: { role: "assistant", content: "ok" } }] });
+  }) as typeof fetch;
+  try {
+    const transport = new CloudflareQueueTransport(transportConfig("unused.json"), fakeFetch);
+    const payload = { model: "kanarek-review-free", messages: [{ role: "user", content: "hi" }] };
+    const response = await transport.freeRouter(payload);
+    assert.equal(response.ok, true);
+    assert.equal(captured?.path, "/v1/worker/providers/free/chat/completions");
+    assert.deepEqual(JSON.parse(captured?.body ?? "{}"), payload);
+    const timestamp = captured?.headers.get("x-pet-timestamp") ?? "";
+    const nonce = captured?.headers.get("x-pet-nonce") ?? "";
+    const signature = captured?.headers.get("x-pet-signature") ?? "";
+    assert.equal(captured?.headers.get("x-pet-device"), "legion");
+    assert.equal(await verifyWorkerRequest(SECRET, signature, "POST", captured?.path ?? "", timestamp, nonce, captured?.body ?? ""), true);
+    assert.equal(captured?.headers.has("authorization"), false);
+  } finally {
+    delete process.env.PET_TEST_QUEUE_TOKEN;
+    delete process.env.PET_TEST_SIGNING_SECRET;
+  }
+});
 
 test("remote worker executes one signed queue task and acknowledges after publishing result", async () => {
   const root = await mkdtemp(join(tmpdir(), "pet-remote-worker-"));

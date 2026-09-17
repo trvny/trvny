@@ -1,5 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { z, ZodError } from "zod";
+import { FREE_ROUTER_WORKER_PATH, proxyKanarekFreeRouter, type FreeRouterEnv } from "./free-router.js";
 import { ICON_BYTES } from "./icon.js";
 import { isMcpPath, mcpAuthorized } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
@@ -26,7 +27,7 @@ import {
   type RemoteTaskState,
 } from "../src/remote-protocol.js";
 
-interface Env {
+interface Env extends FreeRouterEnv {
   TASK_QUEUE: Queue;
   TASK_STATE: DurableObjectNamespace;
   CF_VERSION_METADATA: WorkerVersionMetadata;
@@ -39,6 +40,7 @@ interface Env {
 const MAX_BODY_BYTES = 128 * 1024;
 const WORKER_CLOCK_SKEW_MS = 5 * 60_000;
 const NONCE_HISTORY_LIMIT = 64;
+const DEVICE_NONCE_HISTORY_LIMIT = 512;
 const STATE_KEY = "state";
 const OUTBOX_KEY = "enqueue-outbox";
 const NONCES_KEY = "worker-nonces";
@@ -167,6 +169,15 @@ export class TaskStateStore {
         return json(meta);
       }
       return json({ error: "method_not_allowed" }, 405);
+    }
+    if (url.pathname === "/worker-nonce") {
+      if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+      const body = await readBody(request);
+      const { nonce } = z.object({ nonce: z.string().uuid() }).strict().parse(JSON.parse(body) as unknown);
+      const nonces = (await this.state.storage.get<string[]>(NONCES_KEY)) ?? [];
+      if (nonces.includes(nonce)) return json({ error: "replayed_worker_request" }, 409);
+      await this.state.storage.put(NONCES_KEY, [nonce, ...nonces].slice(0, DEVICE_NONCE_HISTORY_LIMIT));
+      return json({ ok: true }, 201);
     }
     const current = await this.state.storage.get<RemoteTaskState>(STATE_KEY);
 
@@ -516,6 +527,21 @@ async function directTool(request: Request, env: Env): Promise<Response> {
   return enqueueDirectTool(JSON.parse(raw) as unknown, env);
 }
 
+async function workerFreeRouter(request: Request, env: Env): Promise<Response> {
+  const body = await readBody(request);
+  if (!await workerAuthorized(request, env, body)) return json({ error: "unauthorized" }, 401);
+  const nonce = request.headers.get("x-pet-nonce");
+  if (!nonce) return json({ error: "missing_worker_nonce" }, 400);
+  const claimed = await deviceMetaStub(env).fetch("https://state/worker-nonce", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nonce }),
+  });
+  if (!claimed.ok) {
+    if (claimed.status === 409) return json({ error: "replayed_worker_request" }, 409);
+    return json({ error: "worker_nonce_store_failed" }, 503);
+  }
+  return proxyKanarekFreeRouter(body, env, request.signal);
+}
+
 async function workerMetaUpdate(request: Request, env: Env): Promise<Response> {
   const body = await readBody(request);
   if (!await workerAuthorized(request, env, body)) return json({ error: "unauthorized" }, 401);
@@ -564,6 +590,11 @@ export default {
       if (isMcpPath(url.pathname)) {
         if (!mcpAuthorized(request, env)) return unauthorized();
         return handleControlMcp(await boundedMcpRequest(request), mcpOperations(env));
+      }
+
+      if (url.pathname === FREE_ROUTER_WORKER_PATH) {
+        if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+        return workerFreeRouter(request, env);
       }
 
       if (url.pathname === "/v1/worker/meta") {

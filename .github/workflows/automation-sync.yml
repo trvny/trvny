@@ -264,6 +264,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PET_DISPATCHER_MCP_CONNECTOR_TOKEN: ${{ secrets.PET_DISPATCHER_MCP_CONNECTOR_TOKEN }}
+      KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       PET_DISPATCHER_HEALTH_URL: https://pet-dispatcher-control.travny.workers.dev/health
     steps:
       - uses: actions/checkout@v7
@@ -274,6 +275,11 @@ jobs:
         run: >-
           bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
           pet-dispatcher-control MCP_CONNECTOR_TOKEN PET_DISPATCHER_MCP_CONNECTOR_TOKEN optional
+      - name: Sync shared free-router credential
+        shell: bash
+        run: >-
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
+          pet-dispatcher-control KANAREK_REVIEW_ROUTER_TOKEN KANAREK_REVIEW_ROUTER_TOKEN required
       - name: Verify Pet Dispatcher health
         shell: bash
         run: |

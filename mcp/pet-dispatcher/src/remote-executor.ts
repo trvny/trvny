@@ -2,7 +2,7 @@ import type { DispatcherConfig } from "./config.js";
 import { AgentTools } from "./agent-tools.js";
 import { HostGit } from "./host-git.js";
 import { NetworkBroker } from "./network.js";
-import { runGemini, runRoutedOpenAI } from "./providers.js";
+import { runGemini, runRoutedOpenAI, type ManagedFreeRouter } from "./providers.js";
 import type { CommandRunner, ExecResult } from "./sandbox.js";
 import type { Session, SessionManager } from "./sessions.js";
 import {
@@ -95,7 +95,10 @@ function boundedExecResult(
 }
 
 export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
-  constructor(readonly config: DispatcherConfig, readonly sessions: SessionManager, readonly runner: CommandRunner) {}
+  constructor(
+    readonly config: DispatcherConfig, readonly sessions: SessionManager, readonly runner: CommandRunner,
+    readonly managedFreeRouter?: ManagedFreeRouter,
+  ) {}
   readonly #directSessions = new Map<string, { repo: string; expiresAt: number; timer: NodeJS.Timeout }>();
 
   #directSession(id: string, repo: string) {
@@ -380,7 +383,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       const goal = `[remote task ${taskId}] ${task.goal}${commitInstruction}`;
       const agent = await this.sessions.runActivity(session.id, "remote-agent", async () => {
         if (task.executor === "gemini") return runGemini(this.config, tools, session!.id, goal, undefined, 16, signal);
-        return runRoutedOpenAI(this.config, tools, session!.id, goal, 16, signal);
+        return runRoutedOpenAI(this.config, tools, session!.id, goal, 16, signal, this.managedFreeRouter);
       });
       const state = await this.sessions.status(session.id);
       const [unstaged, staged] = state.dirty ? [await git.diff(session.id), await git.diff(session.id, true)] : [{ stdout: "" }, { stdout: "" }];

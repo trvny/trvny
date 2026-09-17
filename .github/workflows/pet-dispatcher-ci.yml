@@ -47,6 +47,10 @@ jobs:
       - name: Install MXC process backend
         run: sudo apt-get update && sudo apt-get install --yes bubblewrap
       - run: npm ci
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Run focused security regression suite
+        run: npm run test:security
       - run: npm run check:portable
 
   windows-guard:

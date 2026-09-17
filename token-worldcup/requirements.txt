@@ -1,2 +1,2 @@
-# Only recount-claude-tokens.py needs this; the reports themselves are static.
+# Python dependency for Claude recount; OpenAI recount tooling lives in package.json.
 anthropic>=1.5.0

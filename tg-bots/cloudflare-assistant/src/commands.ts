@@ -13,6 +13,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "whisper", usage: "/whisper <pytanie>", description: "Zapytaj prywatnie w grupie", private: false, groupMode: "ephemeral" },
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },
   { command: "legion", usage: "/legion", description: "Pokaż status Legiona przez Pet Dispatcher" },
+  { command: "tasks", usage: "/tasks", description: "Pokaż ostatnie zadania Pet Dispatchera" },
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
   { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "task_status", usage: "/task_status <id>", description: "Odzyskaj stan i wynik zadania Legiona" },

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { awaitLegionStatus, parseTaskControlCommand, taskView } from "../src/tasks.ts";
+import { parseTaskControlCommand, resolveLegionStatus, taskView } from "../src/tasks.ts";
 
 const TASK_ID = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -46,10 +46,19 @@ test("renders a bounded rich task report with escaped dispatcher output", () => 
   assert.doesNotMatch(view.richHtml, /Fix <thing>/u);
 });
 
-test("refetches full state when the initial response is terminal but carries no result", async () => {
+test("resolveLegionStatus never waits - returns a non-terminal status immediately with no RPC", async () => {
+  let getTaskCalls = 0;
+  const env = { PET_DISPATCHER: { async getTask() { getTaskCalls += 1; } } };
+  const initial = { taskId: TASK_ID, status: "queued" };
+  const task = await resolveLegionStatus(env, initial);
+  assert.equal(getTaskCalls, 0);
+  assert.equal(task, initial);
+});
+
+test("resolveLegionStatus refetches once when a terminal response carries no result", async () => {
   // Regression: delegate()'s response is bare {taskId, status} even on an idempotent redelivery
   // that hits an already-completed task (control-plane/entry.ts's enqueueTask early-return) - a
-  // naive "terminal means done" short-circuit would render the timeout view for a real success.
+  // naive "terminal means done" short-circuit would render a blank/pending view for a real success.
   let getTaskCalls = 0;
   const env = {
     PET_DISPATCHER: {
@@ -63,16 +72,16 @@ test("refetches full state when the initial response is terminal but carries no 
       },
     },
   };
-  const task = await awaitLegionStatus(env, { taskId: TASK_ID, status: "completed" }, 5);
+  const task = await resolveLegionStatus(env, { taskId: TASK_ID, status: "completed" });
   assert.equal(getTaskCalls, 1);
   assert.equal(task.result?.data?.hostname, "legion");
 });
 
-test("skips the extra round trip when the initial response already carries a result", async () => {
+test("resolveLegionStatus skips the extra round trip when the initial response already carries a result", async () => {
   let getTaskCalls = 0;
   const env = { PET_DISPATCHER: { async getTask() { getTaskCalls += 1; } } };
   const initial = { taskId: TASK_ID, status: "completed", result: { data: { hostname: "legion" } } };
-  const task = await awaitLegionStatus(env, initial, 5);
+  const task = await resolveLegionStatus(env, initial);
   assert.equal(getTaskCalls, 0);
   assert.equal(task, initial);
 });

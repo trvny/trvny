@@ -124,37 +124,24 @@ export async function delegateLegionStatus(env: Env, updateId: number): Promise<
   return { taskId: body.taskId, status: typeof body.status === "string" ? body.status : "queued" };
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Comfortably above pollMaxIntervalMs's 60s default backoff ceiling (src/config.ts) - see
- *  awaitLegionStatus's doc for why the wait needs to cover that, not just the tool's own runtime. */
-export const LEGION_STATUS_WAIT_SECONDS = 65;
-
-/** Short-polls a just-submitted task until it reaches a terminal state with a result, or
- *  waitSeconds elapses. system.status itself has no checkout/agent work and answers instantly
- *  once claimed - the wait budget exists because Legion's remote worker backs off its Queue pull
- *  interval up to pollMaxIntervalMs (60s by default, config: src/config.ts) when idle, so a task
- *  can sit unclaimed for up to that long even though the machine is fully awake. A shorter budget
- *  would misreport "Legion asleep" during the common steady-state-idle case. `initial` never
- *  carries a result (delegate()'s response is bare {taskId,status}, including on an idempotent
- *  redelivery hitting an already-terminal task - see control-plane/entry.ts's enqueueTask), so
- *  the terminal-with-result check below still fetches full state at least once in that case. */
-export async function awaitLegionStatus(
-  env: Env,
-  initial: BotekTaskState,
-  waitSeconds: number,
-): Promise<BotekTaskState> {
-  if (TERMINAL.has(initial.status) && initial.result) return initial;
-  const deadline = Date.now() + waitSeconds * 1_000;
-  let current = initial;
-  while (Date.now() < deadline) {
-    current = await getBotekTask(env, initial.taskId);
-    if (TERMINAL.has(current.status)) return current;
-    await delay(Math.min(1_000, Math.max(0, deadline - Date.now())));
-  }
-  return current;
+/** Never waits/polls - the Telegram update queue consumer is max_concurrency: 1 and processes a
+ *  batch of messages sequentially (wrangler.jsonc), so blocking inside a handler stalls the whole
+ *  bot for every other chat, not just this one caller. Legion's remote worker also backs its
+ *  Queue pull interval off up to pollMaxIntervalMs (60s default, src/config.ts) when idle, so even
+ *  a bounded wait would routinely time out during ordinary steady-state idle - there's no wait
+ *  budget that's both safe for the consumer and long enough to usually see a real answer. Instead,
+ *  same pattern as /task: return immediately, let legion:refresh (a separate, cheap consumer
+ *  invocation per tap) check again.
+ *
+ *  `initial` never carries a result (delegate()'s response is bare {taskId,status}), except that
+ *  an idempotent redelivery hitting an already-terminal task also returns just {taskId,status}
+ *  with no result attached (control-plane/entry.ts's enqueueTask early-return) - so a terminal
+ *  status here still needs exactly one follow-up fetch to show real data instead of a blank
+ *  "completed" view. That's the only case this makes an extra call; the common "just submitted,
+ *  still queued" case returns immediately with zero extra RPCs. */
+export async function resolveLegionStatus(env: Env, initial: BotekTaskState): Promise<BotekTaskState> {
+  if (!TERMINAL.has(initial.status) || initial.result) return initial;
+  return getBotekTask(env, initial.taskId);
 }
 
 export async function getBotekTask(env: Env, taskId: string): Promise<BotekTaskState> {

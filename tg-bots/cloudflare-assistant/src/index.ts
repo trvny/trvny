@@ -27,19 +27,18 @@ import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import { formatProviderStatus } from "./status";
 import { handleTelegramGuestMessage } from "./guest";
 import {
-  awaitLegionStatus,
   cancelBotekTask,
   delegateBotekTask,
   delegateLegionStatus,
   getBotekTask,
-  LEGION_STATUS_WAIT_SECONDS,
   parseTaskCommand,
   parseTaskControlCommand,
+  resolveLegionStatus,
   taskCallback,
   taskKeyboard,
   taskView,
 } from "./tasks";
-import { isLegionRefreshCallback, legionStatusKeyboard, legionStatusView } from "./legion-status";
+import { legionRefreshCallback, legionStatusKeyboard, legionStatusView } from "./legion-status";
 import {
   AllProvidersFailedError,
   GenerationStoppedError,
@@ -641,16 +640,17 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         replyMarkup: STATUS_KEYBOARD,
       };
     }
-    if (isLegionRefreshCallback(callback.data)) {
+    const legionTaskId = legionRefreshCallback(callback.data);
+    if (legionTaskId) {
       try {
-        const task = await awaitLegionStatus(env, await delegateLegionStatus(env, update.update_id), LEGION_STATUS_WAIT_SECONDS);
+        const task = await getBotekTask(env, legionTaskId);
         const view = legionStatusView(task);
         return {
           chatId: callbackMessage.chat.id,
           editMessageId: callbackMessage.message_id,
           text: view.plain,
           richHtml: view.richHtml,
-          replyMarkup: legionStatusKeyboard(),
+          replyMarkup: legionStatusKeyboard(legionTaskId),
         };
       } catch (error) {
         console.error("Legion status refresh failed", error);
@@ -802,14 +802,14 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
 
   if (text === "/legion") {
     try {
-      const task = await awaitLegionStatus(env, await delegateLegionStatus(env, update.update_id), LEGION_STATUS_WAIT_SECONDS);
+      const task = await resolveLegionStatus(env, await delegateLegionStatus(env, update.update_id));
       const view = legionStatusView(task);
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
         text: view.plain,
         richHtml: view.richHtml,
-        replyMarkup: legionStatusKeyboard(),
+        replyMarkup: legionStatusKeyboard(task.taskId),
       };
     } catch (error) {
       console.error("Legion status delegation failed", error);

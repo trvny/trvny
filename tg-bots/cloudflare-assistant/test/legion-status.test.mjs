@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { LEGION_STATUS_TIMEOUT_TEXT, isLegionRefreshCallback, legionStatusKeyboard, legionStatusView } from "../src/legion-status.ts";
+import { LEGION_STATUS_PENDING_TEXT, legionRefreshCallback, legionStatusKeyboard, legionStatusView } from "../src/legion-status.ts";
+
+const TASK_ID = "123e4567-e89b-12d3-a456-426614174000";
 
 test("renders completed Legion vitals as plain text and a safe rich table", () => {
   const view = legionStatusView({
@@ -27,24 +29,32 @@ test("renders completed Legion vitals as plain text and a safe rich table", () =
   assert.doesNotMatch(view.richHtml, /legion<box>/u);
 });
 
-test("shows a graceful timeout message when the task never completes", () => {
-  const view = legionStatusView({ taskId: "123e4567-e89b-12d3-a456-426614174000", status: "queued" });
-  assert.match(view.plain, new RegExp(LEGION_STATUS_TIMEOUT_TEXT));
+test("shows a pending message for any non-terminal status, without claiming Legion is asleep", () => {
+  for (const status of ["queued", "leased", "running", "cancel_requested"]) {
+    const view = legionStatusView({ taskId: TASK_ID, status });
+    assert.match(view.plain, new RegExp(LEGION_STATUS_PENDING_TEXT.replaceAll(/[.]/gu, "\\.")), `status: ${status}`);
+  }
+});
+
+test("shows a distinct message for a cancelled task", () => {
+  const view = legionStatusView({ taskId: TASK_ID, status: "cancelled" });
+  assert.match(view.plain, /anulowane/u);
 });
 
 test("surfaces the dispatcher error text on a failed task", () => {
   const view = legionStatusView({
-    taskId: "123e4567-e89b-12d3-a456-426614174000",
+    taskId: TASK_ID,
     status: "failed",
     result: { error: "unknown direct tool" },
   });
   assert.match(view.plain, /unknown direct tool/u);
 });
 
-test("keyboard and callback matcher agree on the refresh action", () => {
-  const keyboard = legionStatusKeyboard();
-  assert.equal(keyboard.inline_keyboard[0][0].callback_data, "legion:refresh");
-  assert.equal(isLegionRefreshCallback("legion:refresh"), true);
-  assert.equal(isLegionRefreshCallback("status:refresh"), false);
-  assert.equal(isLegionRefreshCallback(undefined), false);
+test("keyboard embeds the task id and the callback matcher round-trips it", () => {
+  const keyboard = legionStatusKeyboard(TASK_ID);
+  assert.equal(keyboard.inline_keyboard[0][0].callback_data, `legion:refresh:${TASK_ID}`);
+  assert.equal(legionRefreshCallback(`legion:refresh:${TASK_ID}`), TASK_ID);
+  assert.equal(legionRefreshCallback("legion:refresh"), null);
+  assert.equal(legionRefreshCallback("status:refresh"), null);
+  assert.equal(legionRefreshCallback(undefined), null);
 });

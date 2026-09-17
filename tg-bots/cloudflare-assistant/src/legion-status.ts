@@ -27,14 +27,21 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1_024 * 1_024 * 1_024)).toFixed(1)} GB`;
 }
 
-export const LEGION_STATUS_TIMEOUT_TEXT =
-  "Legion nie odpowiedziało w porę - może spać albo dispatcher tam nie działa.";
+/** Shown for any non-terminal status (queued/leased/running/cancel_requested) - deliberately
+ *  doesn't guess whether Legion is asleep. There's no wait/poll before this renders (see
+ *  resolveLegionStatus's doc: blocking the single-concurrency Telegram queue consumer to find
+ *  out would stall the whole bot), so "still queued" here says nothing about whether Legion is
+ *  actually reachable - only a refresh a few seconds later can tell. */
+export const LEGION_STATUS_PENDING_TEXT =
+  "Zapytanie wysłane do Legiona - odśwież za chwilę, żeby zobaczyć wynik.";
 
 export function legionStatusView(task: BotekTaskState): LegionStatusView {
   if (task.status !== "completed" || !task.result?.data) {
     const reason = task.status === "failed" || task.status === "recovery_required"
       ? (task.result?.error ?? "Zadanie zakończyło się błędem.")
-      : LEGION_STATUS_TIMEOUT_TEXT;
+      : task.status === "cancelled"
+        ? "Zapytanie anulowane."
+        : LEGION_STATUS_PENDING_TEXT;
     return {
       plain: `Legion: ${reason}`,
       richHtml: `<p>Legion: ${escapeRichHtml(reason)}</p>`,
@@ -63,10 +70,13 @@ export function legionStatusView(task: BotekTaskState): LegionStatusView {
   return { plain, richHtml };
 }
 
-export function legionStatusKeyboard(): TelegramInlineKeyboardMarkup {
-  return { inline_keyboard: [[{ text: "🔄 Odśwież", style: "primary", callback_data: "legion:refresh" }]] };
+const LEGION_TASK_ID_RE = /^[0-9a-f-]{36}$/iu;
+
+export function legionStatusKeyboard(taskId: string): TelegramInlineKeyboardMarkup {
+  return { inline_keyboard: [[{ text: "🔄 Odśwież", style: "primary", callback_data: `legion:refresh:${taskId}` }]] };
 }
 
-export function isLegionRefreshCallback(data: string | undefined): boolean {
-  return data === "legion:refresh";
+export function legionRefreshCallback(data: string | undefined): string | null {
+  const match = data?.match(/^legion:refresh:([0-9a-f-]{36})$/iu);
+  return match && LEGION_TASK_ID_RE.test(match[1]) ? match[1] : null;
 }

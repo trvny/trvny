@@ -18,7 +18,7 @@ git diff --exit-code -- loopling/pet loopling/gallery
 - **Pet Dispatcher:** strict TypeScript plus `tsx --test` suites for path confinement, networking, sandbox integration, MCP, Git, providers, hardening, remote transport and direct sessions; `control:check` also validates the Worker bundle.
 - **status-mcp:** strict TypeScript plus focused Node tests for status verdict semantics and partial failures.
 - **Loopling:** no dedicated CI job; regenerate deterministically with `tools/generate.py` and require `pet/` plus `gallery/` to remain unchanged.
-- **Quarto reports:** CI renders both `token-worldcup/token-worldcup.qmd` and `token-worldcup/effort-matrix.qmd`, and fails if either committed HTML differs.
+- **Quarto reports:** CI verifies generated OpenAI token counts, renders both `token-worldcup/token-worldcup.qmd` and `token-worldcup/effort-matrix.qmd`, and fails if generated data or committed HTML differs.
 - **Repository docs/config:** MegaLinter checks changed files; a full sweep is manual via `workflow_dispatch`.
 
 ## Test style

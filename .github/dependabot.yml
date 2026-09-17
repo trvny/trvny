@@ -106,6 +106,19 @@ updates:
       hooks:
         patterns:
           - "*"
+  - package-ecosystem: "npm"
+    directory: "/token-worldcup"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "21:37"
+      timezone: "Europe/Warsaw"
+    commit-message:
+      prefix: "deps"
+    groups:
+      npm:
+        patterns:
+          - "*"
   - package-ecosystem: "pip"
     directory: "/token-worldcup"
     schedule:

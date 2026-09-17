@@ -33,9 +33,7 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#423](https://github.com/trvny/feedseek/pull/423) | chore(deps-dev): bump feedsearch-crawler from 2.1.3 to 2.1.4 | @dependabot[bot] | ready | 2026-09-16 |
-| trvny/feedseek | [#424](https://github.com/trvny/feedseek/pull/424) | chore(deps-dev): bump ruff from 0.16.6 to 0.16.7 | @dependabot[bot] | ready | 2026-09-16 |
-| trvny/feedseek | [#425](https://github.com/trvny/feedseek/pull/425) | chore(deps): bump the actions group with 3 updates | @dependabot[bot] | ready | 2026-09-16 |
+| trvny/trvny | [#680](https://github.com/trvny/trvny/pull/680) | docs(pet-dispatcher): record S4 WoL findings from the physical Legion | @trvny | ready | 2026-09-17 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

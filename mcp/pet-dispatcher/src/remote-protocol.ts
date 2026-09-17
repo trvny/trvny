@@ -232,6 +232,29 @@ export async function verifyWorkerRequest(secret: string, signature: string, met
   const key = await hmacKey(secret);
   return crypto.subtle.verify("HMAC", key, fromBase64Url(signature), new TextEncoder().encode(requestPayload(method, path, timestamp, nonce, body)));
 }
+/** Direct tool calls the Telegram assistant entrypoint may submit despite [assertAssistantTaskAllowed]'s
+ *  general restriction to agent-goal tasks. Each entry here must be read-only and safe to expose
+ *  with no extra authorization - the executor ignores the capabilities/profile the schema still
+ *  forces the caller to supply for any "read" bucket direct tool. */
+const ASSISTANT_ALLOWED_DIRECT_TOOLS = new Set<RemoteDirectCall["tool"]>(["system.status"]);
+
+/** Enforced by the Telegram assistant RPC entrypoint (`TelegramAssistantEntrypoint.delegate` in
+ *  control-plane/entry.ts): the assistant may submit an inspect/code agent-goal task with no extra
+ *  capabilities or network access, or one of the always-safe read-only direct probes above -
+ *  nothing else. Throws `assistant_task_profile_forbidden`/`assistant_task_scope_forbidden` on
+ *  anything wider (e.g. arbitrary `direct` tool calls like `fs.write`/`workspace.exec`). */
+export function assertAssistantTaskAllowed(task: RemoteTask): void {
+  const isAllowedDirectProbe = task.executor === "direct" && task.direct !== undefined
+    && ASSISTANT_ALLOWED_DIRECT_TOOLS.has(task.direct.tool);
+  if (isAllowedDirectProbe) return;
+  if (task.executor === "direct" || !["inspect", "code"].includes(task.profile)) {
+    throw new Error("assistant_task_profile_forbidden");
+  }
+  if (task.capabilities.length > 0 || task.network.mode !== "none") {
+    throw new Error("assistant_task_scope_forbidden");
+  }
+}
+
 export function validateEnvelopeFreshness(signed: SignedTaskEnvelope, expectedDeviceId: string, now = Date.now()): void {
   const { envelope } = signed;
   if (envelope.deviceId !== expectedDeviceId) throw new Error("remote task targets a different device");

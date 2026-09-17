@@ -29,13 +29,17 @@ import { handleTelegramGuestMessage } from "./guest";
 import {
   cancelBotekTask,
   delegateBotekTask,
+  delegateLegionStatus,
   getBotekTask,
+  legionRefreshPlan,
   parseTaskCommand,
   parseTaskControlCommand,
+  resolveLegionStatus,
   taskCallback,
   taskKeyboard,
   taskView,
 } from "./tasks";
+import { legionRefreshCallback, legionStatusKeyboard, legionStatusView } from "./legion-status";
 import {
   AllProvidersFailedError,
   GenerationStoppedError,
@@ -637,6 +641,41 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         replyMarkup: STATUS_KEYBOARD,
       };
     }
+    const legionTaskId = legionRefreshCallback(callback.data);
+    if (legionTaskId) {
+      try {
+        const plan = legionRefreshPlan(await getBotekTask(env, legionTaskId));
+        const view = legionStatusView(plan.render);
+        // The next probe is best-effort: view/text are already decided from data we have in
+        // hand, so a submission failure here (e.g. the daily delegation quota) falls back to
+        // the current (stale but harmless) task id rather than discarding a real result.
+        let nextTaskId = legionTaskId;
+        if (plan.needsNewProbe) {
+          try {
+            nextTaskId = (await delegateLegionStatus(env, update.update_id)).taskId;
+          } catch (error) {
+            console.error("Legion follow-up probe failed", error);
+          }
+        }
+        return {
+          chatId: callbackMessage.chat.id,
+          editMessageId: callbackMessage.message_id,
+          text: view.plain,
+          richHtml: view.richHtml,
+          replyMarkup: legionStatusKeyboard(nextTaskId),
+        };
+      } catch (error) {
+        console.error("Legion status refresh failed", error);
+        return {
+          chatId: callbackMessage.chat.id,
+          editMessageId: callbackMessage.message_id,
+          text: "Nie udało się odświeżyć statusu Legiona.",
+          // Keep the button pointed at the same task - a transient getBotekTask failure
+          // shouldn't strand the user with no way to retry short of a fresh /legion.
+          replyMarkup: legionStatusKeyboard(legionTaskId),
+        };
+      }
+    }
     const taskAction = taskCallback(callback.data);
     if (taskAction) {
       try {
@@ -774,6 +813,28 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       richHtml: status.richHtml,
       replyMarkup: STATUS_KEYBOARD,
     };
+  }
+
+  if (text === "/legion") {
+    try {
+      const task = await resolveLegionStatus(env, await delegateLegionStatus(env, update.update_id));
+      const view = legionStatusView(task);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: view.plain,
+        richHtml: view.richHtml,
+        replyMarkup: legionStatusKeyboard(task.taskId),
+      };
+    } catch (error) {
+      console.error("Legion status delegation failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się zapytać Legiona o status.",
+        finalReaction: "👎",
+      };
+    }
   }
 
   if (text === "/location") {
@@ -1646,7 +1707,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) return null;
   const text = message.forward_origin ? "" : message.text?.trim() ?? "";
-  if (["/start", "/help", "/reset", "/status", "/draft", "/poll", "/quiz", "/topic", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
+  if (["/start", "/help", "/reset", "/status", "/legion", "/draft", "/poll", "/quiz", "/topic", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
   if (
     !text &&
     !message.voice &&

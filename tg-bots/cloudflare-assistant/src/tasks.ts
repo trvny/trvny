@@ -13,6 +13,7 @@ export type BotekTaskState = {
     commit?: string;
     exportedRef?: string;
     error?: string;
+    data?: unknown;
   };
 };
 
@@ -28,6 +29,10 @@ export type BotekTaskView = {
 
 const TASK_ID_RE = /^[0-9a-f-]{36}$/iu;
 const TERMINAL = new Set(["completed", "failed", "cancelled", "recovery_required"]);
+
+export function isTerminalTaskStatus(status: string): boolean {
+  return TERMINAL.has(status);
+}
 
 function rpcBody<T>(result: { status: number; body: unknown }): T {
   if (result.status < 200 || result.status >= 300) {
@@ -99,6 +104,65 @@ export async function delegateBotekTask(
     throw new Error("Pet Dispatcher returned an invalid task id");
   }
   return { taskId: body.taskId, status: typeof body.status === "string" ? body.status : "queued" };
+}
+
+/** Placeholder repo name for direct tools that don't touch a workspace (e.g. system.status) -
+ *  remoteTaskSchema always requires a repo string, but this tool never dereferences it. */
+const LEGION_STATUS_REPO = "legion";
+
+export async function delegateLegionStatus(env: Env, updateId: number): Promise<BotekTaskState> {
+  const result = await dispatcher(env).delegate({
+    repo: LEGION_STATUS_REPO,
+    baseRef: "main",
+    executor: "direct",
+    direct: { tool: "system.status" },
+    profile: "inspect",
+    capabilities: ["workspace.read", "git.read"],
+    network: { mode: "none" },
+    timeoutMinutes: 2,
+  }, `telegram-legion-status:${updateId}`);
+  const body = rpcBody<{ taskId?: unknown; status?: unknown }>(result);
+  if (typeof body.taskId !== "string" || !TASK_ID_RE.test(body.taskId)) {
+    throw new Error("Pet Dispatcher returned an invalid task id");
+  }
+  return { taskId: body.taskId, status: typeof body.status === "string" ? body.status : "queued" };
+}
+
+/** Never waits/polls - the Telegram update queue consumer is max_concurrency: 1 and processes a
+ *  batch of messages sequentially (wrangler.jsonc), so blocking inside a handler stalls the whole
+ *  bot for every other chat, not just this one caller. Legion's remote worker also backs its
+ *  Queue pull interval off up to pollMaxIntervalMs (60s default, src/config.ts) when idle, so even
+ *  a bounded wait would routinely time out during ordinary steady-state idle - there's no wait
+ *  budget that's both safe for the consumer and long enough to usually see a real answer. Instead,
+ *  same pattern as /task: return immediately, let legion:refresh (a separate, cheap consumer
+ *  invocation per tap) check again.
+ *
+ *  `initial` never carries a result (delegate()'s response is bare {taskId,status}), except that
+ *  an idempotent redelivery hitting an already-terminal task also returns just {taskId,status}
+ *  with no result attached (control-plane/entry.ts's enqueueTask early-return) - so a terminal
+ *  status here still needs exactly one follow-up fetch to show real data instead of a blank
+ *  "completed" view. That's the only case this makes an extra call; the common "just submitted,
+ *  still queued" case returns immediately with zero extra RPCs. */
+export async function resolveLegionStatus(env: Env, initial: BotekTaskState): Promise<BotekTaskState> {
+  if (!TERMINAL.has(initial.status) || initial.result) return initial;
+  return getBotekTask(env, initial.taskId);
+}
+
+export type LegionRefreshPlan = {
+  /** What legion:refresh's reply should render - always the task just fetched, never a
+   *  freshly-submitted one (which is normally "queued" with no result yet - rendering that
+   *  instead would hide real vitals/errors, as a previous version of this code actually did). */
+  render: BotekTaskState;
+  /** True once `render` is terminal - its data is now frozen, so the caller should submit a new
+   *  probe for the *next* tap's keyboard to target, without touching what this reply shows. */
+  needsNewProbe: boolean;
+};
+
+/** Pure decision for legion:refresh, pulled out of index.ts (which has no test coverage) after
+ *  two consecutive real bugs landed exactly in this logic: what to render, and whether a follow-
+ *  up probe is needed. Keep every branch here, not in the Telegram handler, so it stays testable. */
+export function legionRefreshPlan(existing: BotekTaskState): LegionRefreshPlan {
+  return { render: existing, needsNewProbe: isTerminalTaskStatus(existing.status) };
 }
 
 export async function getBotekTask(env: Env, taskId: string): Promise<BotekTaskState> {

@@ -30,10 +30,14 @@ import {
   cancelBotekTask,
   delegateBotekTask,
   delegateLegionStatus,
+  fetchRecentTasks,
   getBotekTask,
+  isTasksRefreshCallback,
   legionRefreshPlan,
   parseTaskCommand,
   parseTaskControlCommand,
+  recentTasksKeyboard,
+  recentTasksView,
   resolveLegionStatus,
   taskCallback,
   taskKeyboard,
@@ -676,6 +680,26 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         };
       }
     }
+    if (isTasksRefreshCallback(callback.data)) {
+      try {
+        const view = recentTasksView(await fetchRecentTasks(env));
+        return {
+          chatId: callbackMessage.chat.id,
+          editMessageId: callbackMessage.message_id,
+          text: view.plain,
+          richHtml: view.richHtml,
+          replyMarkup: recentTasksKeyboard(),
+        };
+      } catch (error) {
+        console.error("Recent task list refresh failed", error);
+        return {
+          chatId: callbackMessage.chat.id,
+          editMessageId: callbackMessage.message_id,
+          text: "Nie udało się odświeżyć listy zadań.",
+          replyMarkup: recentTasksKeyboard(),
+        };
+      }
+    }
     const taskAction = taskCallback(callback.data);
     if (taskAction) {
       try {
@@ -832,6 +856,27 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
         text: "Nie udało się zapytać Legiona o status.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/tasks") {
+    try {
+      const view = recentTasksView(await fetchRecentTasks(env));
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: view.plain,
+        richHtml: view.richHtml,
+        replyMarkup: recentTasksKeyboard(),
+      };
+    } catch (error) {
+      console.error("Recent task list failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się pobrać listy zadań.",
         finalReaction: "👎",
       };
     }
@@ -1707,7 +1752,7 @@ function reactionTarget(env: Env, update: TelegramUpdate): { chatId: number; mes
     String(message.from.id) !== env.OWNER_TELEGRAM_USER_ID
   ) return null;
   const text = message.forward_origin ? "" : message.text?.trim() ?? "";
-  if (["/start", "/help", "/reset", "/status", "/legion", "/draft", "/poll", "/quiz", "/topic", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
+  if (["/start", "/help", "/reset", "/status", "/legion", "/tasks", "/draft", "/poll", "/quiz", "/topic", "/dice", "/sticker", "/location", "/venue", "/contact"].includes(text)) return null;
   if (
     !text &&
     !message.voice &&

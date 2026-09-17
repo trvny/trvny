@@ -17,6 +17,14 @@ async function writeEnvironmentPolicyFixture(source: string): Promise<void> {
   await writeFile(join(source, "environment-policy.json"), JSON.stringify(environmentPolicyFixture));
 }
 
+test("remote launcher does not import provider credentials", async () => {
+  const launcher = await readFile(new URL("../scripts/pet-dispatcher-launch.ps1", import.meta.url), "utf8");
+  assert.equal(launcher.includes("provider-env-names"), false);
+  for (const name of ["OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "AIHUBMIX_API_KEY", "OLLAMA_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"]) {
+    assert.equal(launcher.includes(name), false, `${name} must stay out of the remote launcher`);
+  }
+});
+
 test("local installer publishes runtime and migrates control state away from dc", async () => {
   const base = await mkdtemp(join(tmpdir(), "pet-local-install-"));
   const source = join(base, "source");

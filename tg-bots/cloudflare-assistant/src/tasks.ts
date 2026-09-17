@@ -128,16 +128,25 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Short-polls a just-submitted task until it reaches a terminal state or waitSeconds elapses -
- *  system.status has no checkout/agent work, so it should resolve almost immediately whenever
- *  Legion's dispatcher loop is actually running; a still-non-terminal result after the deadline
- *  means Legion is unreachable (asleep or the loop isn't running), not a slow task. */
+/** Comfortably above pollMaxIntervalMs's 60s default backoff ceiling (src/config.ts) - see
+ *  awaitLegionStatus's doc for why the wait needs to cover that, not just the tool's own runtime. */
+export const LEGION_STATUS_WAIT_SECONDS = 65;
+
+/** Short-polls a just-submitted task until it reaches a terminal state with a result, or
+ *  waitSeconds elapses. system.status itself has no checkout/agent work and answers instantly
+ *  once claimed - the wait budget exists because Legion's remote worker backs off its Queue pull
+ *  interval up to pollMaxIntervalMs (60s by default, config: src/config.ts) when idle, so a task
+ *  can sit unclaimed for up to that long even though the machine is fully awake. A shorter budget
+ *  would misreport "Legion asleep" during the common steady-state-idle case. `initial` never
+ *  carries a result (delegate()'s response is bare {taskId,status}, including on an idempotent
+ *  redelivery hitting an already-terminal task - see control-plane/entry.ts's enqueueTask), so
+ *  the terminal-with-result check below still fetches full state at least once in that case. */
 export async function awaitLegionStatus(
   env: Env,
   initial: BotekTaskState,
   waitSeconds: number,
 ): Promise<BotekTaskState> {
-  if (TERMINAL.has(initial.status)) return initial;
+  if (TERMINAL.has(initial.status) && initial.result) return initial;
   const deadline = Date.now() + waitSeconds * 1_000;
   let current = initial;
   while (Date.now() < deadline) {

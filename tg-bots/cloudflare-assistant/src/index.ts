@@ -32,6 +32,7 @@ import {
   delegateBotekTask,
   delegateLegionStatus,
   getBotekTask,
+  LEGION_STATUS_WAIT_SECONDS,
   parseTaskCommand,
   parseTaskControlCommand,
   taskCallback,
@@ -642,7 +643,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     }
     if (isLegionRefreshCallback(callback.data)) {
       try {
-        const task = await awaitLegionStatus(env, await delegateLegionStatus(env, update.update_id), 8);
+        const task = await awaitLegionStatus(env, await delegateLegionStatus(env, update.update_id), LEGION_STATUS_WAIT_SECONDS);
         const view = legionStatusView(task);
         return {
           chatId: callbackMessage.chat.id,
@@ -801,7 +802,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
 
   if (text === "/legion") {
     try {
-      const task = await awaitLegionStatus(env, await delegateLegionStatus(env, update.update_id), 8);
+      const task = await awaitLegionStatus(env, await delegateLegionStatus(env, update.update_id), LEGION_STATUS_WAIT_SECONDS);
       const view = legionStatusView(task);
       return {
         chatId: message.chat.id,

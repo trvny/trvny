@@ -28,6 +28,9 @@
       { "binding": "TASK_QUEUE", "queue": "pet-dispatcher-tasks" }
     ]
   },
+  "services": [
+    { "binding": "KANAREK_COMPANION", "service": "kanarek-companion" }
+  ],
   "durable_objects": {
     "bindings": [
       { "name": "TASK_STATE", "class_name": "TaskStateStore" }

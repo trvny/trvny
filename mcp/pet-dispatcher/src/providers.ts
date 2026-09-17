@@ -7,7 +7,7 @@ import {
   type OpenAICompatibleBackendDefinition, type OpenAICompatibleBackendId,
 } from "./openai-backends.js";
 
-export type AgentProvider = "openrouter" | "orcarouter" | "aihubmix" | "ollama-cloud" | "groq" | "gemini";
+export type AgentProvider = "kanarek-review" | "openrouter" | "orcarouter" | "aihubmix" | "ollama-cloud" | "groq" | "gemini";
 
 export const AGENT_PROVIDER_ENV_NAMES = [...new Set([
   ...OPENAI_COMPATIBLE_BACKENDS.flatMap(({ credentialEnv, modelEnv }) => modelEnv ? [credentialEnv, modelEnv] : [credentialEnv]),
@@ -36,13 +36,13 @@ async function toolResult(tools: AgentTools, sessionId: string, name: string, ar
   catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
 }
 
-type OpenAIProvider = OpenAICompatibleBackendId;
+type OpenAIProvider = OpenAICompatibleBackendId | "kanarek-review";
+export type ManagedFreeRouter = (payload: unknown, signal?: AbortSignal) => Promise<Response>;
 interface RuntimeOpenAIBackend {
   id: OpenAIProvider;
-  endpoint: string;
-  apiKey: string;
+  apiKey?: string;
   model: string;
-  headers: Record<string, string>;
+  request(payload: unknown, signal?: AbortSignal): Promise<Response>;
 }
 
 function runtimeBackend(
@@ -56,17 +56,23 @@ function runtimeBackend(
     ? openRouterModel ?? backendModel(definition, config, env)
     : backendModel(definition, config, env);
   if (!apiKey || !model) return undefined;
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+    ...definition.extraHeaders,
+  };
   return {
     id: definition.id,
-    endpoint: definition.endpoint,
     apiKey,
     model,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      ...definition.extraHeaders,
+    request(payload, signal) {
+      return fetch(definition.endpoint, { method: "POST", headers, body: JSON.stringify(payload), signal });
     },
   };
+}
+
+function managedFreeRouterBackend(request: ManagedFreeRouter): RuntimeOpenAIBackend {
+  return { id: "kanarek-review", model: "kanarek-review-free", request };
 }
 
 async function healthyOpenAIBackends(
@@ -109,19 +115,28 @@ async function runOpenAIBackend(
     function: { name: tool.name, description: tool.description, parameters: tool.parameters },
   }));
   let toolCallsExecuted = 0;
+  let pinnedManagedProvider: string | undefined;
 
   try {
     for (let step = 1; step <= maxSteps; step++) {
       signal?.throwIfAborted();
-      const response = await fetch(backend.endpoint, {
-        method: "POST",
-        headers: backend.headers,
-        body: JSON.stringify({ model: backend.model, messages, tools: apiTools, tool_choice: "auto" }),
-        signal: signal ? AbortSignal.any([AbortSignal.timeout(120_000), signal]) : AbortSignal.timeout(120_000),
-      });
+      const requestSignal = signal ? AbortSignal.any([AbortSignal.timeout(120_000), signal]) : AbortSignal.timeout(120_000);
+      const response = await backend.request(
+        { model: backend.model, messages, tools: apiTools, tool_choice: "auto" },
+        requestSignal,
+      );
       if (!response.ok) {
-        const detail = (await response.text()).replaceAll(backend.apiKey, "[redacted]").slice(0, 1000);
+        let detail = (await response.text()).slice(0, 1000);
+        if (backend.apiKey) detail = detail.replaceAll(backend.apiKey, "[redacted]");
         throw new Error(`${backend.id} ${response.status}: ${detail}`);
+      }
+      if (backend.id === "kanarek-review") {
+        const selectedProvider = response.headers.get("x-kanarek-review-provider")?.trim();
+        if (!selectedProvider) throw new Error("kanarek-review response did not identify its selected provider");
+        if (toolCallsExecuted > 0 && pinnedManagedProvider && selectedProvider !== pinnedManagedProvider) {
+          throw new Error(`kanarek-review provider changed after tool execution: ${pinnedManagedProvider} -> ${selectedProvider}`);
+        }
+        pinnedManagedProvider ??= selectedProvider;
       }
       const body = await response.json() as { choices?: Array<{ message?: OpenRouterMessage }> };
       const message = body.choices?.[0]?.message;
@@ -170,9 +185,9 @@ export async function runOpenRouter(
 
 export async function runRoutedOpenAI(
   config: DispatcherConfig, tools: AgentTools, sessionId: string, goal: string, maxSteps = 16,
-  signal?: AbortSignal,
+  signal?: AbortSignal, managedFreeRouter?: ManagedFreeRouter,
 ): Promise<{ provider: OpenAIProvider; model: string; text: string; steps: number }> {
-  const backends = await healthyOpenAIBackends(config);
+  const backends = managedFreeRouter ? [managedFreeRouterBackend(managedFreeRouter)] : await healthyOpenAIBackends(config);
   if (backends.length === 0) throw new Error("No healthy OpenAI-compatible backend is configured on the worker");
   const failures: string[] = [];
   for (const backend of backends) {

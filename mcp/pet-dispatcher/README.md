@@ -16,7 +16,7 @@ The broader architecture remains in [`agent-dispatcher-concept.md`](./agent-disp
 - `workspace.exec` through Microsoft MXC / Windows ProcessContainer,
 - canonical host-PATH discovery for Git and sandbox commands, with only the discovered tool directory added read-only,
 - Windows Job Object process-tree cleanup, memory/process ceilings, timeout/cancellation and bounded process output,
-- OpenAI-compatible free-tier routing across OpenRouter, OrcaRouter, AIHubMix, Ollama Cloud and Groq, plus Gemini, using capability-filtered tools,
+- remote embedded free-model routing through the signed control plane and shared Kanarek Review router, while local/manual mode retains the direct OpenAI-compatible backend registry plus Gemini,
 - brokered HTTPS with exact destination validation and MXC/WFP confinement to one ephemeral loopback proxy port,
 - direct sandbox sockets denied by default, including unrelated host-loopback ports,
 - signed remote tasks bound to one device with nonce + expiry checks,
@@ -78,7 +78,7 @@ The Windows installer publishes an immutable release under `%USERPROFILE%\.local
 
 Only disposable Pet session workspaces remain under `.dc\pet-dispatcher-workspace`. The live worker does not execute from `.dc\git` or any repository worktree. `toolRoots` may stay empty for normal PATH-visible host tools; add explicit roots only when pinning a tool outside PATH or deliberately granting an additional read-only tool directory.
 
-The legacy remote executor id `openrouter` selects from the OpenAI-compatible backend registry. Only `available` backends enter automatic routing. A provider failure may fall through to the next backend only before any tool call has executed; after a tool side effect, the task fails closed instead of risking duplicate actions.
+The legacy remote executor id `openrouter` now uses the control plane's signed free-router proxy when running as the remote Legion worker. The proxy holds only `KANAREK_REVIEW_ROUTER_TOKEN` and reaches Kanarek Companion through a same-account Service Binding; raw provider credentials remain centralized in the private `kanarek-review` Worker. Local/manual dispatcher runs still use the direct OpenAI-compatible backend registry. The managed router may choose any healthy free provider for the first model step. Once a tool call executes, Pet Dispatcher pins that underlying provider identity from the router response and fails closed if a later step switches providers, avoiding duplicate or divergent side effects.
 
 For remote polling, configure the `remote` block and set only local environment secrets:
 

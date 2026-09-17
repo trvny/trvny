@@ -6,6 +6,24 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Reset PSModulePath to the Windows PowerShell 5.1 defaults before anything
+# else runs. This script always executes under powershell.exe (5.1), but a
+# parent further up the process chain (this runs from a Run-key startup
+# entry, so the parent is whatever built that logon session's environment)
+# can carry PowerShell 7's own Modules folder. When 5.1 inherits that,
+# autoloading a built-in like Microsoft.PowerShell.Security resolves the PS7
+# copy instead of the native one, and the two engines' type-extension XML
+# collide on load ("member AuditToString is already present" etc.) - the
+# import throws before Read-DpapiSecret's ConvertTo-SecureString call ever
+# runs. Reproduced 17.09.2026: killed the logon launch with zero log output,
+# since the throw happens before the log file is even opened.
+$env:PSModulePath = @(
+    (Join-Path $env:USERPROFILE 'Documents\WindowsPowerShell\Modules'),
+    (Join-Path $env:ProgramFiles 'WindowsPowerShell\Modules'),
+    (Join-Path $env:WINDIR 'system32\WindowsPowerShell\v1.0\Modules')
+) -join ';'
+
 if (-not $Root) { $Root = Split-Path -Parent $PSScriptRoot }
 $manifestPath = Join-Path $Root 'app\current.json'
 $configPath = Join-Path $Root 'config\dispatcher.json'
@@ -61,9 +79,17 @@ try {
         $env:PET_DISPATCHER_SIGNING_SECRET = $signingSecret
         $logPath = Join-Path $logRoot ("remote-{0}.log" -f (Get-Date -Format 'yyyy-MM-dd'))
         try {
+            # $ErrorActionPreference = 'Stop' turns any line the worker writes to
+            # stderr into a script-terminating error the moment *>> captures it as
+            # an error record - killing the worker on its own startup banner before
+            # it ever begins polling. Relax it only around this call. Reproduced
+            # 17.09.2026: died on "pet-dispatcher remote worker polling for legion",
+            # its first line of output.
+            $ErrorActionPreference = 'Continue'
             & $nodePath $entry remote *>> $logPath
             $exitCode = $LASTEXITCODE
         } finally {
+            $ErrorActionPreference = 'Stop'
             foreach ($name in $importedProviderEnv) {
                 if ($providerEnvOriginallyPresent.Contains($name)) {
                     Set-Item -LiteralPath "Env:$name" -Value $providerEnvOriginal[$name]

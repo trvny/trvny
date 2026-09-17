@@ -31,7 +31,7 @@ import {
   delegateBotekTask,
   delegateLegionStatus,
   getBotekTask,
-  isTerminalTaskStatus,
+  legionRefreshPlan,
   parseTaskCommand,
   parseTaskControlCommand,
   resolveLegionStatus,
@@ -644,16 +644,19 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     const legionTaskId = legionRefreshCallback(callback.data);
     if (legionTaskId) {
       try {
-        const existing = await getBotekTask(env, legionTaskId);
-        const view = legionStatusView(existing);
-        // Show this result now - a fresh delegate() response is normally "queued" with no
-        // result yet, so rendering it instead of `existing` would hide real vitals/errors
-        // behind a false "pending" message forever. Once existing is terminal, its data is
-        // frozen, so line up a new probe for the *next* tap instead, without touching what
-        // this reply shows.
-        const nextTaskId = isTerminalTaskStatus(existing.status)
-          ? (await delegateLegionStatus(env, update.update_id)).taskId
-          : legionTaskId;
+        const plan = legionRefreshPlan(await getBotekTask(env, legionTaskId));
+        const view = legionStatusView(plan.render);
+        // The next probe is best-effort: view/text are already decided from data we have in
+        // hand, so a submission failure here (e.g. the daily delegation quota) falls back to
+        // the current (stale but harmless) task id rather than discarding a real result.
+        let nextTaskId = legionTaskId;
+        if (plan.needsNewProbe) {
+          try {
+            nextTaskId = (await delegateLegionStatus(env, update.update_id)).taskId;
+          } catch (error) {
+            console.error("Legion follow-up probe failed", error);
+          }
+        }
         return {
           chatId: callbackMessage.chat.id,
           editMessageId: callbackMessage.message_id,

@@ -148,6 +148,23 @@ export async function resolveLegionStatus(env: Env, initial: BotekTaskState): Pr
   return getBotekTask(env, initial.taskId);
 }
 
+export type LegionRefreshPlan = {
+  /** What legion:refresh's reply should render - always the task just fetched, never a
+   *  freshly-submitted one (which is normally "queued" with no result yet - rendering that
+   *  instead would hide real vitals/errors, as a previous version of this code actually did). */
+  render: BotekTaskState;
+  /** True once `render` is terminal - its data is now frozen, so the caller should submit a new
+   *  probe for the *next* tap's keyboard to target, without touching what this reply shows. */
+  needsNewProbe: boolean;
+};
+
+/** Pure decision for legion:refresh, pulled out of index.ts (which has no test coverage) after
+ *  two consecutive real bugs landed exactly in this logic: what to render, and whether a follow-
+ *  up probe is needed. Keep every branch here, not in the Telegram handler, so it stays testable. */
+export function legionRefreshPlan(existing: BotekTaskState): LegionRefreshPlan {
+  return { render: existing, needsNewProbe: isTerminalTaskStatus(existing.status) };
+}
+
 export async function getBotekTask(env: Env, taskId: string): Promise<BotekTaskState> {
   if (!TASK_ID_RE.test(taskId)) throw new Error("Invalid task id");
   return parseTaskState(rpcBody<unknown>(await dispatcher(env).getTask(taskId)));

@@ -41,6 +41,10 @@ function resolveCapabilities(task: RemoteTask): ReadonlySet<string> {
 }
 
 function boundedSummary(value: string, fallback: string): string { return (value || fallback).slice(0, MAX_SUMMARY_CHARS); }
+function taskRepo(task: RemoteTask): string {
+  if (!task.repo) throw new Error("workspace-scoped remote task requires a repository");
+  return task.repo;
+}
 function trimDiff(value: string): string | undefined {
   const trimmed = value.trim(); return trimmed ? trimmed.slice(0, 65_536) : undefined;
 }
@@ -143,7 +147,18 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
   async #executeDirect(task: RemoteTask, signal?: AbortSignal): Promise<RemoteResult> {
     const call = task.direct;
     if (!call) throw new Error("direct executor requires a direct tool call");
+    if (call.tool === "system.status") {
+      return {
+        status: "completed", summary: "Legion host status.",
+        data: {
+          hostname: hostname(), uptimeSeconds: Math.round(uptime()),
+          freeMemBytes: freemem(), totalMemBytes: totalmem(),
+          activeSessions: this.sessions.activeCount(), activeProcesses: this.runner.activeProcessCount(),
+        },
+      };
+    }
     const capabilities = resolveCapabilities(task);
+    const repo = taskRepo(task);
     if (signal?.aborted) {
       const message = signal.reason instanceof Error ? signal.reason.message : String(signal.reason ?? "remote task aborted");
       return { status: "cancelled", summary: `Direct remote tool ${call.tool} was cancelled.`, error: message.slice(0, 4_096) };
@@ -159,8 +174,8 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
 
     if (call.tool === "session.open") {
       try {
-        const session = await this.sessions.open(task.repo, task.baseRef, "none", undefined, false, call.ttlMinutes);
-        const expiresAt = this.#scheduleDirectSession(session.id, task.repo, call.ttlMinutes);
+        const session = await this.sessions.open(repo, task.baseRef, "none", undefined, false, call.ttlMinutes);
+        const expiresAt = this.#scheduleDirectSession(session.id, repo, call.ttlMinutes);
         return { status: "completed", summary: "Direct remote write session opened.", data: { sessionId: session.id, repo: session.repo, alias: session.repo, targetKind: session.targetKind ?? "repository", expiresAt: new Date(expiresAt).toISOString() } };
       } catch (error) {
         return { status: "failed", summary: "Direct remote write session failed to open.", error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
@@ -173,7 +188,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     if (call.tool === "session.reclaim") {
       try {
         const session = this.sessions.get(call.sessionId);
-        if (session.repo !== task.repo) throw new Error("remote direct session target mismatch");
+        if (session.repo !== repo) throw new Error("remote direct session target mismatch");
         const reclaimed = await this.sessions.reclaim(call.sessionId);
         if (reclaimed) this.#clearDirectSession(call.sessionId);
         return { status: "completed", summary: reclaimed ? "Expired session reclaimed." : "Session was already absent.", data: { reclaimed, sessionId: call.sessionId } };
@@ -183,7 +198,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     }
     if (call.tool === "session.close") {
       try {
-        const directSession = this.#directSession(call.sessionId, task.repo);
+        const directSession = this.#directSession(call.sessionId, repo);
         let exported: { commit: string; ref: string } | undefined;
         if (!call.discard && directSession.targetKind !== "workspace") {
           const state = await this.sessions.status(call.sessionId);
@@ -200,19 +215,9 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         return { status: "failed", summary: "Direct remote write session failed to close.", error: (error instanceof Error ? error.message : String(error)).slice(0, 4_096) };
       }
     }
-    if (call.tool === "system.status") {
-      return {
-        status: "completed", summary: "Legion host status.",
-        data: {
-          hostname: hostname(), uptimeSeconds: Math.round(uptime()),
-          freeMemBytes: freemem(), totalMemBytes: totalmem(),
-          activeSessions: this.sessions.activeCount(), activeProcesses: this.runner.activeProcessCount(),
-        },
-      };
-    }
     if (call.tool === "session.finish") {
       try {
-        const directSession = this.#directSession(call.sessionId, task.repo);
+        const directSession = this.#directSession(call.sessionId, repo);
         if (directSession.targetKind === "workspace") {
           await this.sessions.close(call.sessionId, false);
           this.#clearDirectSession(call.sessionId);
@@ -252,14 +257,14 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     let autoOpened = false;
     let session: Session | undefined;
     try {
-      if (sessionId) session = this.#directSession(sessionId, task.repo);
+      if (sessionId) session = this.#directSession(sessionId, repo);
       else if (writeTool || execTool) {
         if (!autoSession) throw new Error("direct state-changing tools require a remote session or autoSession=true");
-        session = await this.sessions.open(task.repo, task.baseRef, networkMode, networkProfile, false, AUTO_SESSION_TTL_MINUTES);
-        this.#scheduleDirectSession(session.id, task.repo, AUTO_SESSION_TTL_MINUTES);
+        session = await this.sessions.open(repo, task.baseRef, networkMode, networkProfile, false, AUTO_SESSION_TTL_MINUTES);
+        this.#scheduleDirectSession(session.id, repo, AUTO_SESSION_TTL_MINUTES);
         autoOpened = true;
       } else {
-        session = await this.sessions.openRead(task.repo, task.baseRef, "none", undefined, 5);
+        session = await this.sessions.openRead(repo, task.baseRef, "none", undefined, 5);
         temporary = true;
       }
       const activeSession = session;
@@ -386,11 +391,12 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         error: "remote Gemini executor is retired; resubmit through the managed free-router",
       };
     }
+    const repo = taskRepo(task);
     const capabilities = resolveCapabilities(task);
     let session: Session | undefined;
     let git: HostGit | undefined;
     try {
-      session = await this.sessions.open(task.repo, task.baseRef, task.network.mode, task.network.profile, false, Math.min(60, task.timeoutMinutes + 5));
+      session = await this.sessions.open(repo, task.baseRef, task.network.mode, task.network.profile, false, Math.min(60, task.timeoutMinutes + 5));
       if (session.targetKind === "workspace") throw new Error("delegated agents are disabled for non-Git workspaces; use confined direct tools");
       git = new HostGit(this.sessions, this.config);
       const tools = new AgentTools(this.sessions, this.runner, new NetworkBroker(this.config), git, capabilities, signal);

@@ -1,7 +1,7 @@
 ---
 pagetitle: "Tokenowy Mundial AI"
 lang: pl
-description: "Porównanie tokenizacji równoważnego tekstu w 27 językach: cztery otwarte kodowania GPT i zmierzony Claude Opus 5."
+description: "Porównanie tokenizacji równoważnego tekstu w 27 językach: GPT-5, trzy dodatkowe kodowania GPT i zmierzony Claude Opus 5."
 format:
   html:
     minimal: true
@@ -54,25 +54,25 @@ extensions:
 :::
 
 ```{=html}
-    <section class="panel section" aria-labelledby="method-title"><div class="section-head"><h2 id="method-title">Jak to czytać</h2></div><div class="method"><article class="method-card"><b>Jeden sens</b><p>Każda wersja przekazuje ten sam neutralny zestaw faktów o kulkach, liczbach, porównaniu i równym podziale.</p></article><article class="method-card"><b>Naturalny język</b><p>To nie tłumaczenie zdanie po zdaniu. Każdy wariant jest zapisany tak, jak naturalnie można przekazać te informacje w danym języku; cyfry pozostają identyczne.</p></article><article class="method-card"><b>Tokenizer</b><p>Przełącznik porównuje ten sam korpus na <code>r50k_base</code>, <code>cl100k_base</code>, <code>o200k_base</code>, <code>o200k_harmony</code> i Claude Opus 5. Ranking, podium, tabela i narzut względem EN zmieniają się razem.</p><p>Otwarte kodowania GPT przelicza lokalnie <a href="https://github.com/niieani/gpt-tokenizer"><code>gpt-tokenizer</code></a>; <a href="recount-openai-tokens.mjs"><code>recount-openai-tokens.mjs</code></a> odświeża wartości, a CI pilnuje zgodności. <code>o200k_harmony</code> współdzieli z <code>o200k_base</code> BPE zwykłego tekstu, więc w tym korpusie remisuje 1:1; różni się tokenami specjalnymi. Pomiar Claude w <a href="claude-token-counts.json"><code>claude-token-counts.json</code></a> pochodzi z natywnego licznika wejścia przez OpenRouter <code>/v1/messages</code>; stały framing 6 tokenów jest odejmowany.</p></article></div></section>
+    <section class="panel section" aria-labelledby="method-title"><div class="section-head"><h2 id="method-title">Jak to czytać</h2></div><div class="method"><article class="method-card"><b>Jeden sens</b><p>Każda wersja przekazuje ten sam neutralny zestaw faktów o kulkach, liczbach, porównaniu i równym podziale.</p></article><article class="method-card"><b>Naturalny język</b><p>To nie tłumaczenie zdanie po zdaniu. Każdy wariant jest zapisany tak, jak naturalnie można przekazać te informacje w danym języku; cyfry pozostają identyczne.</p></article><article class="method-card"><b>Tokenizer</b><p>Główne porównanie to GPT-5 i Claude Opus 5; dodatkowo można podejrzeć <code>r50k_base</code>, <code>cl100k_base</code> i <code>o200k_harmony</code>. Ranking, podium, tabela i narzut względem EN zmieniają się razem.</p><p>GPT-5 i dodatkowe kodowania GPT przelicza lokalnie <a href="https://github.com/niieani/gpt-tokenizer"><code>gpt-tokenizer</code></a>; <a href="recount-openai-tokens.mjs"><code>recount-openai-tokens.mjs</code></a> odświeża wartości, a CI pilnuje zgodności. <code>o200k_harmony</code> współdzieli z <code>o200k_base</code> BPE zwykłego tekstu, więc w tym korpusie remisuje 1:1; różni się tokenami specjalnymi. Pomiar Claude w <a href="claude-token-counts.json"><code>claude-token-counts.json</code></a> pochodzi z natywnego licznika wejścia przez OpenRouter <code>/v1/messages</code>; stały framing 6 tokenów jest odejmowany.</p></article></div></section>
     <footer>Neutralny benchmark tokenizacji: 27 naturalnych wersji tego samego zestawu informacji na wielu tokenizerach. Kliknięcie języka pokazuje dokładny tekst użyty w pomiarze.</footer>
   </main>
   <script>
     (()=>{
       const data=JSON.parse(document.getElementById('token-worldcup-data').textContent);
-      const claudeLabel="Claude Opus 5",claudeFraming=6;
+      const gpt5Label="GPT-5",claudeLabel="Claude Opus 5",claudeFraming=6;
       const SOURCES={
-        o200k:{label:'o200k_base',family:'GPT-5 / GPT-4.1 / GPT-4o / o-series',tokens:'tokens',rank:'rank',tied:'tied',index:'index',overhead:'overhead'},
+        gpt5:{label:gpt5Label,family:'OpenAI · o200k_base',tokens:'tokens',rank:'rank',tied:'tied',index:'index',overhead:'overhead'},
+        claude:{label:claudeLabel,family:'Anthropic',tokens:'claude_tokens',rank:'claude_rank',tied:'claude_tied',index:'claude_index',overhead:'claude_overhead'},
         cl100k:{label:'cl100k_base',family:'GPT-4 / GPT-3.5',tokens:'cl100k_tokens',rank:'cl100k_rank',tied:'cl100k_tied',index:'cl100k_index',overhead:'cl100k_overhead'},
         r50k:{label:'r50k_base',family:'GPT-2 / GPT-3 legacy',tokens:'r50k_tokens',rank:'r50k_rank',tied:'r50k_tied',index:'r50k_index',overhead:'r50k_overhead'},
         harmony:{label:'o200k_harmony',family:'gpt-oss',tokens:'harmony_tokens',rank:'harmony_rank',tied:'harmony_tied',index:'harmony_index',overhead:'harmony_overhead'},
-        claude:{label:claudeLabel,family:'Anthropic',tokens:'claude_tokens',rank:'claude_rank',tied:'claude_tied',index:'claude_index',overhead:'claude_overhead'}
       };
       const $=id=>document.getElementById(id);
       const ranking=$('ranking'),tableBody=$('tableBody'),selectedInfo=$('selectedInfo'),sampleText=$('sampleText'),sampleLanguage=$('sampleLanguage'),tokensBtn=$('tokensBtn'),overheadBtn=$('overheadBtn'),tokenizerScatter=$('tokenizerScatter'),plotNote=$('plotNote');
       const podium=document.querySelector('.podium'),latinSpot=document.querySelector('.spot.latin'),polishSpot=document.querySelector('.spot.polish'),wideSpot=document.querySelector('.spot.wide');
       const eyebrow=document.querySelector('.eyebrow'),headline=document.querySelector('.headline-stat'),footer=document.querySelector('footer');
-      let source='o200k',mode='tokens',selected='Polish';
+      let source='gpt5',mode='tokens',selected='Polish';
 
       const make=(tag,className,textValue)=>{
         const el=document.createElement(tag);
@@ -89,7 +89,7 @@ extensions:
       const sourceButton=(id,label,pressed)=>{const button=make('button','',label);button.id=id;button.type='button';button.setAttribute('aria-pressed',String(pressed));return button};
       const sourceButtons={};
       Object.entries(SOURCES).forEach(([id,sourceSpec])=>{
-        const button=sourceButton(`${id}SourceBtn`,sourceSpec.label,id==='o200k');
+        const button=sourceButton(`${id}SourceBtn`,sourceSpec.label,id==='gpt5');
         button.dataset.source=id;sourceButtons[id]=button;switcher.appendChild(button);
       });
       document.querySelector('header').appendChild(switcher);
@@ -160,8 +160,8 @@ extensions:
       function renderScatter(){
         if(!tokenizerScatter)return;
         const ns='http://www.w3.org/2000/svg',W=900,H=470,pad={l:62,r:28,t:26,b:54};
-        const compare=source==='o200k'?'claude':source,compareSpec=SOURCES[compare];
-        const pairs=data.map(d=>({row:d,x:statFor(d,'o200k').index,y:statFor(d,compare).index}));
+        const compare=source==='gpt5'?'claude':source,compareSpec=SOURCES[compare];
+        const pairs=data.map(d=>({row:d,x:statFor(d,'gpt5').index,y:statFor(d,compare).index}));
         const values=pairs.flatMap(d=>[d.x,d.y]),lo=Math.floor((Math.min(...values)-5)/10)*10,hi=Math.ceil((Math.max(...values)+5)/10)*10;
         const x=v=>pad.l+(v-lo)/(hi-lo)*(W-pad.l-pad.r),y=v=>H-pad.b-(v-lo)/(hi-lo)*(H-pad.t-pad.b);
         const svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.setAttribute('aria-hidden','true');
@@ -169,19 +169,19 @@ extensions:
         const ticks=[];for(let v=Math.ceil(lo/20)*20;v<=hi;v+=20)ticks.push(v);
         ticks.forEach(v=>{add('line',{x1:x(v),y1:pad.t,x2:x(v),y2:H-pad.b,class:'scatter-grid'});add('line',{x1:pad.l,y1:y(v),x2:W-pad.r,y2:y(v),class:'scatter-grid'});const tx=add('text',{x:x(v),y:H-pad.b+22,class:'scatter-tick','text-anchor':'middle'});tx.textContent=v;const ty=add('text',{x:pad.l-10,y:y(v)+4,class:'scatter-tick','text-anchor':'end'});ty.textContent=v});
         add('line',{x1:x(lo),y1:y(lo),x2:x(hi),y2:y(hi),class:'scatter-diagonal'});
-        const xLabel=add('text',{x:(pad.l+W-pad.r)/2,y:H-10,class:'scatter-axis','text-anchor':'middle'});xLabel.textContent='o200k_base · indeks EN=100 →';
+        const xLabel=add('text',{x:(pad.l+W-pad.r)/2,y:H-10,class:'scatter-axis','text-anchor':'middle'});xLabel.textContent=`${gpt5Label} · indeks EN=100 →`;
         const yLabel=add('text',{x:16,y:(pad.t+H-pad.b)/2,class:'scatter-axis',transform:`rotate(-90 16 ${(pad.t+H-pad.b)/2})`,'text-anchor':'middle'});yLabel.textContent=`${compareSpec.label} · indeks EN=100 →`;
         const focus=new Set(['Polish','Latin','Dutch','Hindi','Japanese','English','Chinese']);
         pairs.forEach(({row:d,x:xIndex,y:yIndex})=>{const g=add('g',{},svg),cls=accent(d.name)||'default';const dot=add('circle',{cx:x(xIndex),cy:y(yIndex),r:focus.has(d.name)?6:4.5,class:`token-dot ${cls}`},g);const title=add('title',{},dot);const drift=yIndex-xIndex;title.textContent=`${d.name} · o200k ${xIndex} · ${compareSpec.label} ${yIndex} · różnica ${drift>0?'+':''}${drift} pkt`;if(focus.has(d.name)){const label=add('text',{x:x(xIndex)+(d.name==='Chinese'?-9:9),y:y(yIndex)-10,class:'scatter-label','text-anchor':d.name==='Chinese'?'end':'start'},g);label.textContent=d.name}});
-        tokenizerScatter.setAttribute('aria-label',`Porównanie indeksu tokenizacji o200k_base i ${compareSpec.label} dla ${data.length} języków`);
+        tokenizerScatter.setAttribute('aria-label',`Porównanie indeksu tokenizacji ${gpt5Label} i ${compareSpec.label} dla ${data.length} języków`);
         tokenizerScatter.replaceChildren(svg);
-        if(plotNote)plotNote.replaceChildren(make('b','','Nad przekątną: '),txt(`${compareSpec.label} zużywa relatywnie więcej tokenów niż o200k_base. `),make('b','','Pod nią: '),txt(`${compareSpec.label} wypada relatywnie oszczędniej. Najedź na punkt po dokładne wartości.`));
+        if(plotNote)plotNote.replaceChildren(make('b','','Nad przekątną: '),txt(`${compareSpec.label} zużywa relatywnie więcej tokenów niż ${gpt5Label}. `),make('b','','Pod nią: '),txt(`${compareSpec.label} wypada relatywnie oszczędniej względem ${gpt5Label}. Najedź na punkt po dokładne wartości.`));
       }
 
       function renderMethod(){
         const card=[...document.querySelectorAll('.method-card')].find(c=>c.querySelector('b')?.textContent==='Tokenizer');
         if(card){
-          const p1=make('p');p1.append(txt('Przełącznik porównuje ten sam korpus na '),make('code','','r50k_base'),txt(' (GPT-2/3 legacy), '),make('code','','cl100k_base'),txt(' (GPT-4/3.5), '),make('code','','o200k_base'),txt(' (GPT-5/4.1/4o/o-series), '),make('code','','o200k_harmony'),txt(` (gpt-oss) i ${claudeLabel}. Ranking, podium, tabela i narzut względem EN przeliczają się razem.`));
+          const p1=make('p');p1.append(txt(`Główne porównanie to ${gpt5Label} i ${claudeLabel}. `),txt('GPT-5 jest liczony przez modelowy moduł '),make('code','','gpt-tokenizer/model/gpt-5'),txt(' (BPE '),make('code','','o200k_base'),txt('); dodatkowo dostępne są '),make('code','','cl100k_base'),txt(', '),make('code','','r50k_base'),txt(' i '),make('code','','o200k_harmony'),txt('. Ranking, podium, tabela i narzut względem EN przeliczają się razem.'));
           const p2=make('p');p2.append(txt('Otwarte kodowania GPT są przeliczane lokalnie przez '),codeLink('https://github.com/niieani/gpt-tokenizer','gpt-tokenizer'),txt(' z tego samego bloku danych; '),codeLink('recount-openai-tokens.mjs','recount-openai-tokens.mjs'),txt(' odświeża wartości, a CI pilnuje zgodności. '),make('code','','o200k_harmony'),txt(' współdzieli z '),make('code','','o200k_base'),txt(' BPE zwykłego tekstu, więc w tym korpusie remisuje 1:1; różni się tokenami specjalnymi. Claude Opus 5 jest zmierzony przez '),make('code','','OpenRouter /v1/messages'),txt(`; stały framing requestu (${claudeFraming} tokenów) jest odejmowany. Surowy wynik zostaje w `),codeLink('claude-token-counts.json','claude-token-counts.json'),txt('.'));
           card.replaceChildren(make('b','','Tokenizer'),p1,p2);
         }

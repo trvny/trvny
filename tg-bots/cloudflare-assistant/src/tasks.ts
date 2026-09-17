@@ -106,18 +106,13 @@ export async function delegateBotekTask(
   return { taskId: body.taskId, status: typeof body.status === "string" ? body.status : "queued" };
 }
 
-/** Placeholder repo name for direct tools that don't touch a workspace (e.g. system.status) -
- *  remoteTaskSchema always requires a repo string, but this tool never dereferences it. */
-const LEGION_STATUS_REPO = "legion";
-
 export async function delegateLegionStatus(env: Env, updateId: number): Promise<BotekTaskState> {
   const result = await dispatcher(env).delegate({
-    repo: LEGION_STATUS_REPO,
-    baseRef: "main",
+    target: "host",
     executor: "direct",
     direct: { tool: "system.status" },
     profile: "inspect",
-    capabilities: ["workspace.read", "git.read"],
+    capabilities: [],
     network: { mode: "none" },
     timeoutMinutes: 2,
   }, `telegram-legion-status:${updateId}`);

@@ -27,5 +27,5 @@ test('Gremlin Builder instructions stay compact and runtime-oriented', async () 
   assert.match(instructions, /runOperatorSmokeTest/);
   assert.match(instructions, /runOperatorAutopilot/);
   assert.match(instructions, /orchestrateRelease/);
-  assert.match(instructions, /Runtime policy is authoritative/);
+  assert.match(instructions, /Runtime policy controls automation/);
 });

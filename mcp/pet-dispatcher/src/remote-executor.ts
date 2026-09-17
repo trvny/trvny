@@ -3,7 +3,7 @@ import type { DispatcherConfig } from "./config.js";
 import { AgentTools } from "./agent-tools.js";
 import { HostGit } from "./host-git.js";
 import { NetworkBroker } from "./network.js";
-import { runGemini, runRoutedOpenAI, type ManagedFreeRouter } from "./providers.js";
+import { runRoutedOpenAI, type ManagedFreeRouter } from "./providers.js";
 import type { CommandRunner, ExecResult } from "./sandbox.js";
 import type { Session, SessionManager } from "./sessions.js";
 import {
@@ -379,6 +379,13 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
 
   async execute(task: RemoteTask, taskId: string, signal?: AbortSignal): Promise<RemoteResult> {
     if (task.executor === "direct") return this.#executeDirect(task, signal);
+    if (task.executor === "gemini") {
+      return {
+        status: "failed",
+        summary: "Legacy remote Gemini task was not executed.",
+        error: "remote Gemini executor is retired; resubmit through the managed free-router",
+      };
+    }
     const capabilities = resolveCapabilities(task);
     let session: Session | undefined;
     let git: HostGit | undefined;
@@ -393,7 +400,6 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       if (!task.goal) throw new Error("agent executor requires a goal");
       const goal = `[remote task ${taskId}] ${task.goal}${commitInstruction}`;
       const agent = await this.sessions.runActivity(session.id, "remote-agent", async () => {
-        if (task.executor === "gemini") return runGemini(this.config, tools, session!.id, goal, undefined, 16, signal);
         return runRoutedOpenAI(this.config, tools, session!.id, goal, 16, signal, this.managedFreeRouter);
       });
       const state = await this.sessions.status(session.id);

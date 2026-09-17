@@ -29,6 +29,7 @@ $manifestPath = Join-Path $Root 'app\current.json'
 $configPath = Join-Path $Root 'config\dispatcher.json'
 $secretRoot = Join-Path $Root 'secrets'
 $logRoot = Join-Path $Root 'logs'
+$providerCredentialPath = Join-Path $PSScriptRoot 'provider-credential-env-names.json'
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 
 function Read-DpapiSecret([string]$Name) {
@@ -55,25 +56,19 @@ try {
         if (-not (Test-Path -LiteralPath $nodePath -PathType Leaf)) { throw "Configured Node executable is missing: $nodePath" }
         if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) { throw "Pet Dispatcher release entry is missing: $entry" }
 
+        # The logon process can already carry User-scope provider credentials.
+        # Read the installer-published scrub list without launching any child first.
+        if (-not (Test-Path -LiteralPath $providerCredentialPath -PathType Leaf)) {
+            throw "Missing provider credential scrub list: $providerCredentialPath"
+        }
+        $providerCredentialEnvNames = @(Get-Content -LiteralPath $providerCredentialPath -Raw | ConvertFrom-Json)
+        if ($providerCredentialEnvNames.Count -eq 0) { throw 'Provider credential scrub list is empty.' }
+        foreach ($name in $providerCredentialEnvNames) {
+            Remove-Item -LiteralPath "Env:$([string]$name)" -ErrorAction SilentlyContinue
+        }
+
         $queueToken = Read-DpapiSecret 'PET_DISPATCHER_QUEUE_TOKEN'
         $signingSecret = Read-DpapiSecret 'TASK_SIGNING_SECRET'
-        $providerEnvNames = @(& $nodePath $entry provider-env-names | ConvertFrom-Json)
-        $importedProviderEnv = [Collections.Generic.List[string]]::new()
-        $providerEnvOriginal = @{}
-        $providerEnvOriginallyPresent = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-        foreach ($name in $providerEnvNames) {
-            $name = [string]$name
-            $processEntry = Get-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
-            if ($null -ne $processEntry) {
-                $providerEnvOriginal[$name] = [string]$processEntry.Value
-                [void]$providerEnvOriginallyPresent.Add($name)
-            }
-            $value = [Environment]::GetEnvironmentVariable($name, 'User')
-            if ($value) {
-                Set-Item -LiteralPath "Env:$name" -Value $value
-                $importedProviderEnv.Add($name)
-            }
-        }
         $env:PET_DISPATCHER_CONFIG = $configPath
         $env:PET_DISPATCHER_QUEUE_TOKEN = $queueToken
         $env:PET_DISPATCHER_SIGNING_SECRET = $signingSecret
@@ -90,13 +85,6 @@ try {
             $exitCode = $LASTEXITCODE
         } finally {
             $ErrorActionPreference = 'Stop'
-            foreach ($name in $importedProviderEnv) {
-                if ($providerEnvOriginallyPresent.Contains($name)) {
-                    Set-Item -LiteralPath "Env:$name" -Value $providerEnvOriginal[$name]
-                } else {
-                    Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
-                }
-            }
             Remove-Item Env:PET_DISPATCHER_QUEUE_TOKEN -ErrorAction SilentlyContinue
             Remove-Item Env:PET_DISPATCHER_SIGNING_SECRET -ErrorAction SilentlyContinue
             Remove-Item Env:PET_DISPATCHER_CONFIG -ErrorAction SilentlyContinue

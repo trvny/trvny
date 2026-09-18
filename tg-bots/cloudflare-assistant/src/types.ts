@@ -407,6 +407,7 @@ export type Env = {
   TELEGRAM_INLINE: DurableObjectNamespaceLike;
   TELEGRAM_MEDIA_GROUPS: DurableObjectNamespaceLike;
   TELEGRAM_TASK_WATCH: DurableObjectNamespaceLike;
+  TELEGRAM_REMINDERS: DurableObjectNamespaceLike;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   INGEST_SECRET?: string;

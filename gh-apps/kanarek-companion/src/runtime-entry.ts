@@ -14,6 +14,7 @@ import {
 import { enrichConflictResponse } from './conflict-response.ts';
 import worker, {
   actionFetch,
+  BotekSpecialistEntrypoint,
   CommentProbeLock,
   gatewayManifest,
   OperatorCheckpointStore,
@@ -40,6 +41,7 @@ import {
 export {
   actionFetch,
   AnchorMutationReplayStore,
+  BotekSpecialistEntrypoint,
   CommentProbeLock,
   OperatorCheckpointStore,
   ReviewProviderCooldownStore,

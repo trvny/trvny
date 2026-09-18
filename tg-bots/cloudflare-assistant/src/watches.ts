@@ -210,14 +210,10 @@ export class TelegramWatchStore {
     if (url.pathname === "/release") {
       if (index >= 0) {
         const current = watches[index];
-        const delayMs =
-          payload && typeof payload === "object" &&
-          typeof (payload as Record<string, unknown>).delayMs === "number"
-            ? Math.max(60_000, Math.min(
-                30 * 60_000,
-                Math.trunc((payload as Record<string, number>).delayMs),
-              ))
-            : 2 * 60_000;
+        const delayRaw = (payload as { id: string; delayMs?: unknown }).delayMs;
+        const delayMs = typeof delayRaw === "number" && Number.isFinite(delayRaw)
+          ? Math.max(60_000, Math.min(30 * 60_000, Math.trunc(delayRaw)))
+          : 2 * 60_000;
         const released: ConditionWatch = {
           ...current,
           status: "active",

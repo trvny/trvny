@@ -17,6 +17,9 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "remind", usage: "/remind 15m | tekst", description: "Ustaw jednorazowe przypomnienie" },
   { command: "reminders", usage: "/reminders", description: "Pokaż aktywne przypomnienia" },
   { command: "remind_cancel", usage: "/remind_cancel <id>", description: "Anuluj przypomnienie po ID" },
+  { command: "remember", usage: "/remember <tekst>", description: "Zapisz coś w pamięci długoterminowej" },
+  { command: "recall", usage: "/recall <pytanie>", description: "Przeszukaj pamięć długoterminową" },
+  { command: "memory_status", usage: "/memory_status", description: "Sprawdź stan pamięci Engram" },
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
   { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "task_status", usage: "/task_status <id>", description: "Odzyskaj stan i wynik zadania Legiona" },
@@ -97,6 +100,18 @@ export function parseReminderCommand(text: string): BotekReminderRequest | null 
 export function parseReminderCancelCommand(text: string): string | null {
   const match = text.trim().toLowerCase().match(/^\/remind_cancel\s+(r[0-9a-z]{1,16})$/u);
   return match && REMINDER_ID_RE.test(match[1]) ? match[1] : null;
+}
+
+export function parseRememberCommand(text: string): string | null {
+  if (!text.startsWith("/remember ")) return null;
+  const value = text.slice("/remember ".length).trim();
+  return value && value.length <= 2_000 ? value : null;
+}
+
+export function parseRecallCommand(text: string): string | null {
+  if (!text.startsWith("/recall ")) return null;
+  const value = text.slice("/recall ".length).trim();
+  return value && value.length <= 2_000 ? value : null;
 }
 
 export function parseAskCommand(text: string): string | null {

@@ -6,6 +6,8 @@ import {
   botHelpLines,
   botStartLines,
   parseAskCommand,
+  parseRecallCommand,
+  parseRememberCommand,
   parseReminderCancelCommand,
   parseReminderCommand,
   parseWhisperCommand,
@@ -89,4 +91,13 @@ test("parses reminder cancellation ids", () => {
   assert.equal(parseReminderCancelCommand("/remind_cancel rabc123"), "rabc123");
   assert.equal(parseReminderCancelCommand("/REMIND_CANCEL RABC123"), "rabc123");
   assert.equal(parseReminderCancelCommand("/remind_cancel nope"), null);
+});
+
+
+test("parses bounded durable-memory commands", () => {
+  assert.equal(parseRememberCommand("/remember lubię krótkie odpowiedzi"), "lubię krótkie odpowiedzi");
+  assert.equal(parseRecallCommand("/recall jak robię merge?"), "jak robię merge?");
+  assert.equal(parseRememberCommand("/remember"), null);
+  assert.equal(parseRecallCommand("/recall "), null);
+  assert.equal(parseRememberCommand("/remember " + "x".repeat(2_001)), null);
 });

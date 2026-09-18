@@ -88,13 +88,14 @@ export async function delegateBotekTask(
   repo: string,
   goal: string,
   updateId: number,
+  profile: "inspect" | "code" = "code",
 ): Promise<BotekTaskState> {
   const result = await dispatcher(env).delegate({
     repo,
     baseRef: "main",
     goal,
     executor: "openrouter",
-    profile: "code",
+    profile,
     capabilities: [],
     network: { mode: "none" },
     timeoutMinutes: 20,

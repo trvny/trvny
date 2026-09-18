@@ -14,6 +14,12 @@
       "remote": true
     },
     {
+      "binding": "BOTEK_SPECIALISTS",
+      "service": "kanarek-companion",
+      "entrypoint": "BotekSpecialistEntrypoint",
+      "remote": true
+    },
+    {
       "binding": "PET_DISPATCHER",
       "service": "pet-dispatcher-control",
       "entrypoint": "TelegramAssistantEntrypoint",

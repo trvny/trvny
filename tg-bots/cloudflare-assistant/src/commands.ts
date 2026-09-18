@@ -17,6 +17,9 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "remind", usage: "/remind 15m | tekst", description: "Ustaw jednorazowe przypomnienie" },
   { command: "reminders", usage: "/reminders", description: "Pokaż aktywne przypomnienia" },
   { command: "remind_cancel", usage: "/remind_cancel <id>", description: "Anuluj przypomnienie po ID" },
+  { command: "watch", usage: "/watch <źródło> ...", description: "Powiadom, gdy zajdzie warunek" },
+  { command: "watches", usage: "/watches", description: "Pokaż aktywne watchery" },
+  { command: "watch_cancel", usage: "/watch_cancel <id>", description: "Anuluj watcher po ID" },
   { command: "remember", usage: "/remember <tekst>", description: "Zapisz coś w pamięci długoterminowej" },
   { command: "recall", usage: "/recall <pytanie>", description: "Przeszukaj pamięć długoterminową" },
   { command: "memory_status", usage: "/memory_status", description: "Sprawdź stan pamięci Engram" },
@@ -62,12 +65,84 @@ export function botStartLines(): string[] {
     "🤖 Botek online.",
     "Napisz wiadomość albo wyślij głosówkę, zdjęcie lub plik.",
     "",
-    "Na szybko: /status · /legion · /tasks · /remind",
+    "Na szybko: /status · /legion · /tasks · /watch",
     "Wszystkie komendy i możliwości: /help",
     "Inline: @trvny_bot <pytanie>",
   ];
 }
 
+
+export type BotekWatchRequest =
+  | { kind: "legion"; condition: "offline" | "online" }
+  | {
+      kind: "github";
+      repository: string;
+      number: number;
+      condition: "ci-failed" | "ci-green" | "merged" | "closed";
+    }
+  | { kind: "feedseek"; query: string };
+
+const WATCH_ID_RE = /^w[0-9a-z]{1,16}$/u;
+
+export function parseWatchCommand(text: string): BotekWatchRequest | null {
+  const trimmed = text.trim();
+  const prefix = "/watch ";
+  if (!trimmed.toLowerCase().startsWith(prefix)) return null;
+
+  const payload = trimmed.slice(prefix.length).trim();
+  const separator = payload.indexOf(" ");
+  if (separator <= 0) return null;
+  const source = payload.slice(0, separator).toLowerCase();
+  const rest = payload.slice(separator + 1).trim();
+
+  if (source === "legion") {
+    const condition = rest.toLowerCase();
+    return condition === "offline" || condition === "online"
+      ? { kind: "legion", condition }
+      : null;
+  }
+
+  if (source === "feedseek") {
+    return rest && rest.length <= 500 ? { kind: "feedseek", query: rest } : null;
+  }
+
+  if (source !== "github") return null;
+  const conditionSeparator = rest.lastIndexOf(" ");
+  if (conditionSeparator <= 0) return null;
+  const target = rest.slice(0, conditionSeparator).trim();
+  const condition = rest.slice(conditionSeparator + 1).trim().toLowerCase();
+  if (!["ci-failed", "ci-green", "merged", "closed"].includes(condition)) return null;
+
+  const hash = target.lastIndexOf("#");
+  if (hash <= 0 || hash === target.length - 1) return null;
+  const repository = target.slice(0, hash);
+  const numberText = target.slice(hash + 1);
+  const [owner, name, extra] = repository.split("/");
+  if (
+    extra ||
+    !name ||
+    !["trvny", "travnie"].includes(owner?.toLowerCase() ?? "") ||
+    name.length > 100 ||
+    !/^[A-Za-z0-9_.-]+$/u.test(name) ||
+    !/^\d{1,7}$/u.test(numberText)
+  ) {
+    return null;
+  }
+
+  const number = Number(numberText);
+  if (!Number.isSafeInteger(number) || number < 1 || number > 1_000_000) return null;
+  return {
+    kind: "github",
+    repository: `${owner}/${name}`,
+    number,
+    condition: condition as "ci-failed" | "ci-green" | "merged" | "closed",
+  };
+}
+
+export function parseWatchCancelCommand(text: string): string | null {
+  const match = text.trim().toLowerCase().match(/^\/watch_cancel\s+(w[0-9a-z]{1,16})$/u);
+  return match && WATCH_ID_RE.test(match[1]) ? match[1] : null;
+}
 
 export type BotekReminderRequest = { delayMs: number; text: string };
 

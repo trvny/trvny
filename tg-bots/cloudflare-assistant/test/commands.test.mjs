@@ -10,6 +10,8 @@ import {
   parseRememberCommand,
   parseReminderCancelCommand,
   parseReminderCommand,
+  parseWatchCancelCommand,
+  parseWatchCommand,
   parseWhisperCommand,
 } from "../src/commands.ts";
 
@@ -100,4 +102,36 @@ test("parses bounded durable-memory commands", () => {
   assert.equal(parseRememberCommand("/remember"), null);
   assert.equal(parseRecallCommand("/recall "), null);
   assert.equal(parseRememberCommand("/remember " + "x".repeat(2_001)), null);
+});
+
+
+test("parses proactive watch commands", () => {
+  assert.deepEqual(parseWatchCommand("/watch legion offline"), {
+    kind: "legion",
+    condition: "offline",
+  });
+  assert.deepEqual(parseWatchCommand("/watch github trvny/trvny#709 ci-failed"), {
+    kind: "github",
+    repository: "trvny/trvny",
+    number: 709,
+    condition: "ci-failed",
+  });
+  assert.deepEqual(parseWatchCommand("/watch github travnie/Kanarek#12 merged"), {
+    kind: "github",
+    repository: "travnie/Kanarek",
+    number: 12,
+    condition: "merged",
+  });
+  assert.deepEqual(parseWatchCommand("/watch feedseek OpenAI nowe modele"), {
+    kind: "feedseek",
+    query: "OpenAI nowe modele",
+  });
+  assert.equal(parseWatchCommand("/watch github someone/else#1 merged"), null);
+  assert.equal(parseWatchCommand("/watch feedseek "), null);
+});
+
+test("parses proactive watch cancellation ids", () => {
+  assert.equal(parseWatchCancelCommand("/watch_cancel wabc123"), "wabc123");
+  assert.equal(parseWatchCancelCommand("/WATCH_CANCEL WABC123"), "wabc123");
+  assert.equal(parseWatchCancelCommand("/watch_cancel nope"), null);
 });

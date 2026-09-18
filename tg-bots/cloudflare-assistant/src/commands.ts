@@ -14,6 +14,9 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },
   { command: "legion", usage: "/legion", description: "Pokaż status Legiona przez Pet Dispatcher" },
   { command: "tasks", usage: "/tasks", description: "Pokaż ostatnie zadania Pet Dispatchera" },
+  { command: "remind", usage: "/remind 15m | tekst", description: "Ustaw jednorazowe przypomnienie" },
+  { command: "reminders", usage: "/reminders", description: "Pokaż aktywne przypomnienia" },
+  { command: "remind_cancel", usage: "/remind_cancel <id>", description: "Anuluj przypomnienie po ID" },
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
   { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "task_status", usage: "/task_status <id>", description: "Odzyskaj stan i wynik zadania Legiona" },
@@ -56,12 +59,45 @@ export function botStartLines(): string[] {
     "🤖 Botek online.",
     "Napisz wiadomość albo wyślij głosówkę, zdjęcie lub plik.",
     "",
-    "Na szybko: /status · /legion · /tasks · /draft",
+    "Na szybko: /status · /legion · /tasks · /remind",
     "Wszystkie komendy i możliwości: /help",
     "Inline: @trvny_bot <pytanie>",
   ];
 }
 
+
+export type BotekReminderRequest = { delayMs: number; text: string };
+
+const REMINDER_MAX_DELAY_MS = 30 * 24 * 60 * 60 * 1_000;
+const REMINDER_ID_RE = /^r[0-9a-z]{1,16}$/u;
+
+export function parseReminderCommand(text: string): BotekReminderRequest | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("/remind ")) return null;
+  const payload = trimmed.slice("/remind ".length);
+  const separator = payload.indexOf("|");
+  if (separator <= 0) return null;
+  const duration = payload.slice(0, separator).trim();
+  const reminderText = payload.slice(separator + 1).trim();
+  const match = duration.match(/^(\d{1,5})(m|min|h|g|d)$/iu);
+  if (!match || !reminderText || reminderText.length > 1_500) return null;
+
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const multiplier = unit === "m" || unit === "min"
+    ? 60_000
+    : unit === "h" || unit === "g"
+      ? 60 * 60_000
+      : 24 * 60 * 60_000;
+  const delayMs = amount * multiplier;
+  if (!Number.isSafeInteger(delayMs) || delayMs < 60_000 || delayMs > REMINDER_MAX_DELAY_MS) return null;
+  return { delayMs, text: reminderText };
+}
+
+export function parseReminderCancelCommand(text: string): string | null {
+  const match = text.trim().toLowerCase().match(/^\/remind_cancel\s+(r[0-9a-z]{1,16})$/u);
+  return match && REMINDER_ID_RE.test(match[1]) ? match[1] : null;
+}
 
 export function parseAskCommand(text: string): string | null {
   const trimmed = text.trim();

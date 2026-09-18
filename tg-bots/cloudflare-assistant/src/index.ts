@@ -9,6 +9,8 @@ import {
   parseLocationCommand,
   parsePollCommand,
   parseQuizCommand,
+  parseReminderCancelCommand,
+  parseReminderCommand,
   parseTopicCommand,
   parseVenueCommand,
 } from "./commands";
@@ -28,6 +30,15 @@ import { handleTelegramEphemeralAsk } from "./ephemeral";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import { formatProviderStatus } from "./status";
 import { handleTelegramGuestMessage } from "./guest";
+import { processDueReminders } from "./reminder-notifications";
+import {
+  cancelReminder,
+  createReminder,
+  formatReminderDueAt,
+  listReminders,
+  reminderListView,
+  TelegramReminderStore,
+} from "./reminders";
 import { processTaskNotifications } from "./task-notifications";
 import { TelegramTaskWatch, watchTask } from "./task-watch";
 import {
@@ -108,6 +119,7 @@ export {
   TelegramConversationMemory,
   TelegramInlineQueryGate,
   TelegramMediaGroupGate,
+  TelegramReminderStore,
   TelegramTaskWatch,
   TelegramUpdateDedup,
 };
@@ -910,6 +922,103 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
         text: "Nie udało się pobrać listy zadań.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/remind") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /remind 15m | tekst  (jednostki: m/min, h/g, d; maks. 30 dni)",
+    };
+  }
+
+  if (text.startsWith("/remind ")) {
+    const request = parseReminderCommand(text);
+    if (!request) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nieprawidłowe przypomnienie. Użycie: /remind 15m | tekst  (maks. 30 dni)",
+        finalReaction: "👎",
+      };
+    }
+    try {
+      const reminder = await createReminder(env, {
+        updateId: update.update_id,
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        ...(messageThreadId ? { messageThreadId } : {}),
+        text: request.text,
+        delayMs: request.delayMs,
+      });
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: `⏰ Ustawione na ${formatReminderDueAt(reminder.dueAt)}.\nID: ${reminder.id}\n${reminder.text}`,
+      };
+    } catch (error) {
+      console.error("Reminder creation failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się zapisać przypomnienia.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/reminders") {
+    try {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: reminderListView(await listReminders(env)),
+      };
+    } catch (error) {
+      console.error("Reminder list failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się pobrać przypomnień.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/remind_cancel") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /remind_cancel <id>",
+    };
+  }
+
+  if (text.startsWith("/remind_cancel ")) {
+    const reminderId = parseReminderCancelCommand(text);
+    if (!reminderId) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nieprawidłowe ID przypomnienia. Użycie: /remind_cancel <id>",
+        finalReaction: "👎",
+      };
+    }
+    try {
+      const cancelled = await cancelReminder(env, reminderId);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: cancelled ? `🛑 Anulowano przypomnienie ${reminderId}.` : `Nie ma aktywnego przypomnienia ${reminderId}.`,
+      };
+    } catch (error) {
+      console.error("Reminder cancellation failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się anulować przypomnienia.",
         finalReaction: "👎",
       };
     }
@@ -2191,5 +2300,6 @@ export default {
 
   async scheduled(_controller: unknown, env: Env): Promise<void> {
     await processTaskNotifications(env);
+    await processDueReminders(env);
   },
 };

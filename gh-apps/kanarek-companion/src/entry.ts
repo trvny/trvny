@@ -1,3 +1,4 @@
+import { WorkerEntrypoint } from 'cloudflare:workers';
 import {
   addAccountAttentionOpenApi,
   handleAccountAttentionAction,
@@ -12,6 +13,12 @@ import {
   handleAnchorStorageAction,
   type AnchorStorageEnv,
 } from './anchor-storage.ts';
+import {
+  botekEngramSearch,
+  botekEngramStatus,
+  botekEngramStore,
+  type BotekEngramStoreInput,
+} from './botek-specialists.ts';
 import { addContext7OpenApi, handleContext7Action } from './context7-actions.ts';
 import { addDocsOpenApi, handleDocsAction } from './docs-actions.ts';
 import { addEngramOpenApi, handleEngramAction } from './engram-actions.ts';
@@ -87,6 +94,20 @@ const REQUIRED_SMOKE_OPERATIONS = [
 
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+export class BotekSpecialistEntrypoint extends WorkerEntrypoint<Env> {
+  async engramStatus(): Promise<JsonObject> {
+    return botekEngramStatus(this.env, actionFetch);
+  }
+
+  async engramSearch(query: string, limit = 6): Promise<JsonObject> {
+    return botekEngramSearch(this.env, query, limit, actionFetch);
+  }
+
+  async engramStore(input: BotekEngramStoreInput): Promise<JsonObject> {
+    return botekEngramStore(this.env, input, actionFetch);
+  }
 }
 
 function json(body: unknown, status = 200): Response {

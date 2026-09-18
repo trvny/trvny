@@ -569,6 +569,17 @@ The cloud should not be able to force hibernation or arbitrary power operations 
 - [x] Brokered HTTPS/build networking while direct sandbox sockets remain denied by default.
 - [x] Multi-provider free-tier routing behind the same capability-filtered tool layer.
 - [ ] Restricted wake/resume path: verify S4 WoL on the Legion, choose a fixed relay and auto-check-in after wake.
+  Checked on the physical Legion 2026-09-17: hibernate (S4) is available (`powercfg /a`). The
+  active NIC is Wi-Fi (Intel AX201) - no Wake-related advanced driver property exists for it at
+  all, so Wi-Fi is a dead end for S4 wake regardless of relay choice. The wired NIC (Realtek
+  PCIe GbE) has "Magic Packet Wake" already enabled at the driver level and is listed under
+  `powercfg /devicequery wake_from_any`; armed it via `powercfg -deviceenablewake "Realtek PCIe
+  GbE Family Controller"`, now shows under `wake_armed`. Not yet verified end to end: the cable
+  is normally unplugged (Ethernet showed `Disconnected`), the BIOS-level WoL/"Power On by
+  PCI-E" toggle couldn't be checked from software (`Lenovo_BiosSetting` WMI class isn't exposed
+  on this model - needs a UEFI setup boot), and an actual magic-packet wake from S4 needs a
+  second LAN device to send it, which a single unattended session can't do to itself. Next: plug
+  the cable in, confirm the BIOS setting, then test a real wake from another device.
 - [ ] Add typed host adapters such as ADB only where hardware access cannot stay inside the normal sandbox.
 - [ ] Add provider-native harness adapters (Codex/Claude/Antigravity/OpenCode) only when they materially improve the current runner.
 - [ ] Add quota/success metrics and review/repair routing only after live measurements justify the extra machinery.

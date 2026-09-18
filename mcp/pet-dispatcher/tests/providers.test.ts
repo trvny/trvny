@@ -216,8 +216,12 @@ test("routed OpenAI never switches providers after a tool side effect", async ()
 
 test("aggregate backend failures redact every credential", async () => {
   const originalFetch = globalThis.fetch;
-  const originalOpenRouter = process.env.OPENROUTER_API_KEY;
-  const originalOrca = process.env.ORCAROUTER_API_KEY;
+  // Every provider credential must be pinned for the test's two fake secrets, not just
+  // OpenRouter/OrcaRouter: a third real credential already in the environment (e.g. a
+  // developer machine with AIHUBMIX_API_KEY set) pulls in an extra healthy backend the
+  // fetch mock below never anticipated, and that backend echoes back the OTHER mocked
+  // backend's fake secret unredacted (it only redacts its own key). Reproduced 2026-09-19.
+  const saved = Object.fromEntries(PROVIDER_CREDENTIAL_ENV_NAMES.map((name) => [name, process.env[name]]));
   const openKey = "secret-openrouter-value";
   const orcaKey = "secret-orca-value";
   globalThis.fetch = ((input: string | URL | Request) => {
@@ -225,6 +229,7 @@ test("aggregate backend failures redact every credential", async () => {
     return Promise.resolve(new Response(body, { status: 503 }));
   }) as typeof fetch;
   try {
+    for (const name of PROVIDER_CREDENTIAL_ENV_NAMES) delete process.env[name];
     process.env.OPENROUTER_API_KEY = openKey; process.env.ORCAROUTER_API_KEY = orcaKey;
     const tools = { execute: () => Promise.reject(new Error("no tools expected")) } as unknown as AgentTools;
     await assert.rejects(runRoutedOpenAI(config, tools, "session", "goal"), (error: unknown) => {
@@ -235,7 +240,8 @@ test("aggregate backend failures redact every credential", async () => {
     });
   } finally {
     globalThis.fetch = originalFetch;
-    if (originalOpenRouter === undefined) delete process.env.OPENROUTER_API_KEY; else process.env.OPENROUTER_API_KEY = originalOpenRouter;
-    if (originalOrca === undefined) delete process.env.ORCAROUTER_API_KEY; else process.env.ORCAROUTER_API_KEY = originalOrca;
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
   }
 });

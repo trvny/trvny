@@ -17,6 +17,9 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "remind", usage: "/remind 15m | tekst", description: "Ustaw jednorazowe przypomnienie" },
   { command: "reminders", usage: "/reminders", description: "Pokaż aktywne przypomnienia" },
   { command: "remind_cancel", usage: "/remind_cancel <id>", description: "Anuluj przypomnienie po ID" },
+  { command: "watch", usage: "/watch <źródło> ...", description: "Powiadom, gdy zajdzie warunek" },
+  { command: "watches", usage: "/watches", description: "Pokaż aktywne watchery" },
+  { command: "watch_cancel", usage: "/watch_cancel <id>", description: "Anuluj watcher po ID" },
   { command: "remember", usage: "/remember <tekst>", description: "Zapisz coś w pamięci długoterminowej" },
   { command: "recall", usage: "/recall <pytanie>", description: "Przeszukaj pamięć długoterminową" },
   { command: "memory_status", usage: "/memory_status", description: "Sprawdź stan pamięci Engram" },
@@ -62,12 +65,58 @@ export function botStartLines(): string[] {
     "🤖 Botek online.",
     "Napisz wiadomość albo wyślij głosówkę, zdjęcie lub plik.",
     "",
-    "Na szybko: /status · /legion · /tasks · /remind",
+    "Na szybko: /status · /legion · /tasks · /watch",
     "Wszystkie komendy i możliwości: /help",
     "Inline: @trvny_bot <pytanie>",
   ];
 }
 
+
+export type BotekWatchRequest =
+  | { kind: "legion"; condition: "offline" | "online" }
+  | {
+      kind: "github";
+      repository: string;
+      number: number;
+      condition: "ci-failed" | "ci-green" | "merged" | "closed";
+    }
+  | { kind: "feedseek"; query: string };
+
+const WATCH_ID_RE = /^w[0-9a-z]{1,16}$/u;
+
+export function parseWatchCommand(text: string): BotekWatchRequest | null {
+  const trimmed = text.trim();
+
+  const legion = trimmed.match(/^\/watch\s+legion\s+(offline|online)$/iu);
+  if (legion) {
+    return { kind: "legion", condition: legion[1].toLowerCase() as "offline" | "online" };
+  }
+
+  const github = trimmed.match(
+    /^\/watch\s+github\s+((?:trvny|travnie)\/[A-Za-z0-9_.-]{1,100})#(\d{1,7})\s+(ci-failed|ci-green|merged|closed)$/iu,
+  );
+  if (github) {
+    const number = Number(github[2]);
+    if (!Number.isSafeInteger(number) || number < 1 || number > 1_000_000) return null;
+    return {
+      kind: "github",
+      repository: github[1],
+      number,
+      condition: github[3].toLowerCase() as "ci-failed" | "ci-green" | "merged" | "closed",
+    };
+  }
+
+  const feedseek = trimmed.match(/^\/watch\s+feedseek\s+(.+)$/isu);
+  const query = feedseek?.[1]?.trim() ?? "";
+  if (query && query.length <= 500) return { kind: "feedseek", query };
+
+  return null;
+}
+
+export function parseWatchCancelCommand(text: string): string | null {
+  const match = text.trim().toLowerCase().match(/^\/watch_cancel\s+(w[0-9a-z]{1,16})$/u);
+  return match && WATCH_ID_RE.test(match[1]) ? match[1] : null;
+}
 
 export type BotekReminderRequest = { delayMs: number; text: string };
 

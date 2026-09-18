@@ -416,6 +416,7 @@ export type TelegramUpdateRecord = {
 
 export type Env = {
   AI: AiBinding;
+  CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
   KANAREK_COMPANION: FetcherBinding;
   BOTEK_SPECIALISTS?: BotekSpecialistBinding;
   PET_DISPATCHER?: PetDispatcherBinding;

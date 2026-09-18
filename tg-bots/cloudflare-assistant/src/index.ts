@@ -2391,7 +2391,11 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
-      return json({ ok: true, service: "travny-tg-assistant" });
+      return json({
+        ok: true,
+        service: "travny-tg-assistant",
+        version: env.CF_VERSION_METADATA ?? null,
+      });
     }
 
     if (request.method === "POST" && url.pathname === "/telegram/webhook") {

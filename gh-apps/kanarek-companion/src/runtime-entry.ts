@@ -17,6 +17,8 @@ import {
   botekEngramSearch,
   botekEngramStatus,
   botekEngramStore,
+  botekFeedseekRecent,
+  botekGithubPullStatus,
   type BotekEngramStoreInput,
 } from './botek-specialists.ts';
 import worker, {
@@ -72,6 +74,19 @@ export class BotekSpecialistEntrypoint extends WorkerEntrypoint<Env> {
 
   async engramStore(input: BotekEngramStoreInput): Promise<JsonObject> {
     return botekEngramStore(this.env, input, actionFetch);
+  }
+
+  async feedseekRecent(input: {
+    query?: string;
+    since?: string;
+    limit?: number;
+    sources?: string[];
+  }): Promise<JsonObject> {
+    return botekFeedseekRecent(this.env, input, actionFetch);
+  }
+
+  async githubPullStatus(repository: string, number: number): Promise<JsonObject> {
+    return botekGithubPullStatus(this.env, repository, number, actionFetch);
   }
 }
 

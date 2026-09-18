@@ -34,7 +34,13 @@ export type PetDispatcherRecentTask = {
 };
 
 export type PetDispatcherBinding = {
-  meta(): Promise<{ deviceId: string; transport: string; protocol: number }>;
+  meta(): Promise<{
+    deviceId: string;
+    transport: string;
+    protocol: number;
+    repositories?: string[];
+    stale?: boolean;
+  }>;
   delegate(task: unknown, idempotencyKey?: string): Promise<PetDispatcherRpcResult>;
   getTask(taskId: string): Promise<PetDispatcherRpcResult>;
   cancelTask(taskId: string): Promise<PetDispatcherRpcResult>;

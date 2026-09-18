@@ -121,7 +121,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 
 ### Track A: agent brain and integrations
 
-1. **Hermes / Legion handoff** — manual bounded `code` delegation through Pet Dispatcher RPC plus inline status/cancel is implemented. Next add automatic heavy-task routing, richer task profiles, progress/result notifications and broader local-tool workflows without bypassing the dispatcher security boundary.
+1. **Hermes / Legion handoff** — manual bounded delegation plus inline status/cancel is implemented. Ordinary private owner text now auto-routes conservatively when it contains both an explicit configured repo alias/path and a repo-work action; read-only requests use `inspect`, mutation requests use `code`. Next add progress/result notifications and broader local-tool workflows without bypassing the dispatcher security boundary.
 2. **Long-term memory** — add explicit remember/forget flows and Engram-backed retrieval on top of the current short conversation window, with clear retention boundaries for private chat data.
 3. **Multimodal work** — voice notes, bounded audio uploads, owner photos/screenshots and bounded text/code documents are implemented; add PDF/office extraction and richer media backends next.
 4. **Tool routing** — let normal language invoke approved GitHub/GPTomek, Cloudflare/status, Feedseek/RSS, web/search and other integrations without requiring a dedicated command for every capability.

@@ -28,6 +28,8 @@ import { handleTelegramEphemeralAsk } from "./ephemeral";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import { formatProviderStatus } from "./status";
 import { handleTelegramGuestMessage } from "./guest";
+import { processTaskNotifications } from "./task-notifications";
+import { TelegramTaskWatch, watchTask } from "./task-watch";
 import {
   cancelBotekTask,
   delegateBotekTask,
@@ -102,7 +104,13 @@ import type {
   TelegramUpdateRecord,
 } from "./types";
 
-export { TelegramConversationMemory, TelegramInlineQueryGate, TelegramMediaGroupGate, TelegramUpdateDedup };
+export {
+  TelegramConversationMemory,
+  TelegramInlineQueryGate,
+  TelegramMediaGroupGate,
+  TelegramTaskWatch,
+  TelegramUpdateDedup,
+};
 
 const RSS_BODY_MAX_BYTES = 64 * 1024;
 const DEFAULT_RSS_MIN_SCORE = 75;
@@ -582,6 +590,28 @@ async function appendConversation(env: Env, chatId: string | number, reply: Tele
   });
   if (response.status === 409) return;
   if (!response.ok) throw new Error(`conversation append failed: HTTP ${response.status}`);
+}
+
+async function watchDelegatedTask(
+  env: Env,
+  taskId: string,
+  message: TelegramMessage,
+  repo: string,
+  goal: string,
+  messageThreadId?: number,
+): Promise<void> {
+  try {
+    await watchTask(env, {
+      taskId,
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      ...(messageThreadId ? { messageThreadId } : {}),
+      repo,
+      goal,
+    });
+  } catch (error) {
+    console.warn("Task completion notification registration failed", taskId, error);
+  }
 }
 
 async function recordConversationFeedback(
@@ -1097,6 +1127,14 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     }
     try {
       const task = await delegateBotekTask(env, taskRequest.repo, taskRequest.goal, update.update_id);
+      await watchDelegatedTask(
+        env,
+        task.taskId,
+        message,
+        taskRequest.repo,
+        taskRequest.goal,
+        messageThreadId,
+      );
       const view = taskView(task, taskRequest.repo, taskRequest.goal);
       return {
         chatId: message.chat.id,
@@ -1135,6 +1173,14 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
             automaticTask.goal,
             update.update_id,
             automaticTask.profile,
+          );
+          await watchDelegatedTask(
+            env,
+            task.taskId,
+            message,
+            automaticTask.repo,
+            automaticTask.goal,
+            messageThreadId,
           );
           const view = taskView(task, automaticTask.repo, automaticTask.goal);
           return {
@@ -2141,5 +2187,9 @@ export default {
         message.retry({ delaySeconds: DEFAULT_RETRY_DELAY_SECONDS });
       }
     }
+  },
+
+  async scheduled(_controller: unknown, env: Env): Promise<void> {
+    await processTaskNotifications(env);
   },
 };

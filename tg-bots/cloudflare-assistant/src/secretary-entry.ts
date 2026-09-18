@@ -2,6 +2,7 @@ import worker, {
   TelegramConversationMemory,
   TelegramInlineQueryGate,
   TelegramMediaGroupGate,
+  TelegramTaskWatch,
   TelegramUpdateDedup,
 } from "./index";
 import { handleMiniAppStatusRequest } from "./mini-app";
@@ -14,6 +15,7 @@ export {
   TelegramConversationMemory,
   TelegramInlineQueryGate,
   TelegramMediaGroupGate,
+  TelegramTaskWatch,
   TelegramUpdateDedup,
 };
 
@@ -70,5 +72,9 @@ export default {
 
   async queue(batch: QueueBatch<TelegramUpdate>, env: Env): Promise<void> {
     await worker.queue(batch, env);
+  },
+
+  async scheduled(controller: unknown, env: Env): Promise<void> {
+    await worker.scheduled(controller, env);
   },
 };

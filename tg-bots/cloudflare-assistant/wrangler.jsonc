@@ -43,6 +43,9 @@
       }
     ]
   },
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
   "durable_objects": {
     "bindings": [
       {
@@ -60,6 +63,10 @@
       {
         "name": "TELEGRAM_MEDIA_GROUPS",
         "class_name": "TelegramMediaGroupGate"
+      },
+      {
+        "name": "TELEGRAM_TASK_WATCH",
+        "class_name": "TelegramTaskWatch"
       }
     ]
   },
@@ -79,6 +86,10 @@
     {
       "tag": "v4",
       "new_sqlite_classes": ["TelegramMediaGroupGate"]
+    },
+    {
+      "tag": "v5",
+      "new_sqlite_classes": ["TelegramTaskWatch"]
     }
   ],
   "vars": {

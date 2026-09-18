@@ -99,7 +99,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - `/status` rendered as a native Rich Message provider table with expandable fallback details, refreshed in place through callback queries;
 - native button colors distinguish primary, success and destructive inline actions;
 - native clipboard action on short `/draft` suggestions;
-- manual `/task <repo> <polecenie>` delegation to the Legion through the scoped Pet Dispatcher RPC entrypoint, with inline status/cancel controls;
+- manual `/task <repo> <polecenie>` delegation to the Legion through the scoped Pet Dispatcher RPC entrypoint, with inline status/cancel controls and proactive terminal-result notifications;
 - `/tasks` shows the last few Pet Dispatcher tasks (any surface, not just Botek) via the control plane's existing recent-task index, with a refresh button;
 - owner-only stateless Telegram inline answers for `@trvny_bot <query>` plus an inline-mode shortcut, Durable Object debounce for rapid edits, and an inline-specific response deadline;
 - owner-only Telegram Guest Mode for one-shot stateless replies in chats where Botek is not a member, with no private-memory/tool access and no acting on behalf of the owner;
@@ -121,11 +121,11 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 
 ### Track A: agent brain and integrations
 
-1. **Hermes / Legion handoff** — manual bounded delegation plus inline status/cancel is implemented. Ordinary private owner text now auto-routes conservatively when it contains both an explicit configured repo alias/path and a repo-work action; read-only requests use `inspect`, mutation requests use `code`. Next add progress/result notifications and broader local-tool workflows without bypassing the dispatcher security boundary.
+1. **Hermes / Legion handoff** — manual bounded delegation plus inline status/cancel is implemented. Ordinary private owner text auto-routes conservatively when it contains both an explicit configured repo alias/path and a repo-work action; read-only requests use `inspect`, mutation requests use `code`. Botek-submitted tasks are watched durably and terminal results are pushed back to the originating Telegram message. Next add richer in-progress updates and broader local-tool workflows without bypassing the dispatcher security boundary.
 2. **Long-term memory** — add explicit remember/forget flows and Engram-backed retrieval on top of the current short conversation window, with clear retention boundaries for private chat data.
 3. **Multimodal work** — voice notes, bounded audio uploads, owner photos/screenshots and bounded text/code documents are implemented; add PDF/office extraction and richer media backends next.
 4. **Tool routing** — let normal language invoke approved GitHub/GPTomek, Cloudflare/status, Feedseek/RSS, web/search and other integrations without requiring a dedicated command for every capability.
-5. **Scheduler and proactive assistance** — add briefings, reminders, condition watches, important RSS/CI/service alerts and completed-task notifications while avoiding noisy low-value notifications.
+5. **Scheduler and proactive assistance** — completed Botek task notifications are implemented on the shared minute cron. Next add briefings, reminders, condition watches and important RSS/CI/service alerts while avoiding noisy low-value notifications.
 6. **Reply assistant** — human-in-the-loop Telegram Business/Secretary drafts now use a tiny per-connection+chat context built only from text/caption Business updates Botek actually receives. The six-entry window is separate from private Botek memory and framed as untrusted data. Future low-risk auto-answering remains opt-in; money, commitments, dates, private matters and ambiguous requests stay approval-only.
 7. **Task UX** — `/tasks` lists the last few delegated tasks with a refresh control; per-task status/cancel controls already exist on `/task` and `/legion` replies. Next add richer result rendering and pruning stale entries from the list.
 

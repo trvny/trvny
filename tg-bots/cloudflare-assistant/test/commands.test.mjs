@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { botGroupCommandPayload, botHelpLines, botStartLines, parseAskCommand, parseWhisperCommand } from "../src/commands.ts";
+import {
+  botGroupCommandPayload,
+  botHelpLines,
+  botStartLines,
+  parseAskCommand,
+  parseReminderCancelCommand,
+  parseReminderCommand,
+  parseWhisperCommand,
+} from "../src/commands.ts";
 
 test("parses explicit ask commands for private and group chats", () => {
   assert.equal(parseAskCommand("/ask"), "");
@@ -56,4 +64,29 @@ test("accepts a visible group ask from a media caption", async () => {
   assert.ok(commands.parseAskMessageCommand, "message-level ask parser should exist");
   assert.equal(commands.parseAskMessageCommand(undefined, "/ask porównaj te screeny"), "porównaj te screeny");
   assert.equal(commands.parseAskMessageCommand("/ask tekst", "/ask podpis"), "tekst");
+});
+
+
+test("parses bounded relative reminder commands", () => {
+  assert.deepEqual(parseReminderCommand("/remind 15m | wyjmij pranie"), {
+    delayMs: 15 * 60_000,
+    text: "wyjmij pranie",
+  });
+  assert.deepEqual(parseReminderCommand("/remind 2g | sprawdź build"), {
+    delayMs: 2 * 60 * 60_000,
+    text: "sprawdź build",
+  });
+  assert.deepEqual(parseReminderCommand("/remind 1d | coś jutro"), {
+    delayMs: 24 * 60 * 60_000,
+    text: "coś jutro",
+  });
+  assert.equal(parseReminderCommand("/remind 0m | nope"), null);
+  assert.equal(parseReminderCommand("/remind 31d | nope"), null);
+  assert.equal(parseReminderCommand("/remind jutro | nope"), null);
+});
+
+test("parses reminder cancellation ids", () => {
+  assert.equal(parseReminderCancelCommand("/remind_cancel rabc123"), "rabc123");
+  assert.equal(parseReminderCancelCommand("/REMIND_CANCEL RABC123"), "rabc123");
+  assert.equal(parseReminderCancelCommand("/remind_cancel nope"), null);
 });

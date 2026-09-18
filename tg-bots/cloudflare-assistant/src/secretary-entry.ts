@@ -2,6 +2,7 @@ import worker, {
   TelegramConversationMemory,
   TelegramInlineQueryGate,
   TelegramMediaGroupGate,
+  TelegramReminderStore,
   TelegramTaskWatch,
   TelegramUpdateDedup,
 } from "./index";
@@ -15,6 +16,7 @@ export {
   TelegramConversationMemory,
   TelegramInlineQueryGate,
   TelegramMediaGroupGate,
+  TelegramReminderStore,
   TelegramTaskWatch,
   TelegramUpdateDedup,
 };

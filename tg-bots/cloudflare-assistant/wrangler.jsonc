@@ -67,6 +67,10 @@
       {
         "name": "TELEGRAM_TASK_WATCH",
         "class_name": "TelegramTaskWatch"
+      },
+      {
+        "name": "TELEGRAM_REMINDERS",
+        "class_name": "TelegramReminderStore"
       }
     ]
   },
@@ -90,6 +94,10 @@
     {
       "tag": "v5",
       "new_sqlite_classes": ["TelegramTaskWatch"]
+    },
+    {
+      "tag": "v6",
+      "new_sqlite_classes": ["TelegramReminderStore"]
     }
   ],
   "vars": {

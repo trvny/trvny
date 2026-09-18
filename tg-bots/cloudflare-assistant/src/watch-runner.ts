@@ -12,8 +12,7 @@ import {
   type FeedseekConditionWatch,
   type GithubConditionWatch,
   type LegionConditionWatch,
-} from "./watches";
-import { sendTelegramMessage, TelegramSendError } from "./telegram";
+} from "./watches.ts";
 import type { Env, TelegramMessage } from "./types";
 
 const LEGION_INTERVAL_MS = 2 * 60_000;
@@ -274,7 +273,14 @@ async function sendTransition(
     });
     return "sent";
   } catch (error) {
-    if (error instanceof TelegramSendError && error.ambiguous) return "ambiguous";
+    if (
+      error &&
+      typeof error === "object" &&
+      "ambiguous" in error &&
+      (error as { ambiguous?: unknown }).ambiguous === true
+    ) {
+      return "ambiguous";
+    }
     console.error("Condition watch Telegram delivery failed", watch.id, error);
     return "failed";
   }
@@ -383,7 +389,7 @@ async function processClaimedWatch(
 
 export async function processConditionWatches(
   env: Env,
-  send: WatchSender = sendTelegramMessage,
+  send: WatchSender,
   now = Date.now(),
 ): Promise<void> {
   let due: ConditionWatch[];

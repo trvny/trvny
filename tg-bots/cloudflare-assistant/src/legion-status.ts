@@ -27,13 +27,18 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1_024 * 1_024 * 1_024)).toFixed(1)} GB`;
 }
 
-/** Shown for any non-terminal status (queued/leased/running/cancel_requested) - deliberately
- *  doesn't guess whether Legion is asleep. There's no wait/poll before this renders (see
- *  resolveLegionStatus's doc: blocking the single-concurrency Telegram queue consumer to find
- *  out would stall the whole bot), so "still queued" here says nothing about whether Legion is
- *  actually reachable - only a refresh a few seconds later can tell. */
+/** A fresh probe is queued without blocking Telegram's single-concurrency consumer.
+ *  Legion's idle Queue polling backs off to roughly one minute, so queued is a normal state
+ *  even while the laptop and worker are online. */
 export const LEGION_STATUS_PENDING_TEXT =
-  "Zapytanie wysłane do Legiona - odśwież za chwilę, żeby zobaczyć wynik.";
+  "🕓 czeka w kolejce. Legion sprawdza kolejkę maks. co ~60 s; sprawdź wynik za minutę.";
+
+function legionPendingText(status: BotekTaskState["status"]): string {
+  if (status === "leased") return "📥 odebrał zapytanie; wynik powinien być za moment.";
+  if (status === "running") return "🦾 sprawdza hosta; sprawdź wynik za moment.";
+  if (status === "cancel_requested") return "🛑 trwa anulowanie zapytania.";
+  return LEGION_STATUS_PENDING_TEXT;
+}
 
 export function legionStatusView(task: BotekTaskState): LegionStatusView {
   if (task.status !== "completed" || !task.result?.data) {
@@ -41,7 +46,7 @@ export function legionStatusView(task: BotekTaskState): LegionStatusView {
       ? (task.result?.error ?? "Zadanie zakończyło się błędem.")
       : task.status === "cancelled"
         ? "Zapytanie anulowane."
-        : LEGION_STATUS_PENDING_TEXT;
+        : legionPendingText(task.status);
     return {
       plain: `Legion: ${reason}`,
       richHtml: `<p>Legion: ${escapeRichHtml(reason)}</p>`,
@@ -73,7 +78,7 @@ export function legionStatusView(task: BotekTaskState): LegionStatusView {
 const LEGION_TASK_ID_RE = /^[0-9a-f-]{36}$/iu;
 
 export function legionStatusKeyboard(taskId: string): TelegramInlineKeyboardMarkup {
-  return { inline_keyboard: [[{ text: "🔄 Odśwież", style: "primary", callback_data: `legion:refresh:${taskId}` }]] };
+  return { inline_keyboard: [[{ text: "🔄 Sprawdź wynik", style: "primary", callback_data: `legion:refresh:${taskId}` }]] };
 }
 
 export function legionRefreshCallback(data: string | undefined): string | null {

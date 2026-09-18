@@ -1,3 +1,4 @@
+import { WorkerEntrypoint } from 'cloudflare:workers';
 import { runWithActionRequestContext } from './action-context.ts';
 import { AnchorMutationReplayStore } from './anchor-replay.ts';
 import { BUG_INVESTIGATION_PATH, handleBugInvestigationAction } from './bug-investigation.ts';
@@ -12,6 +13,12 @@ import {
   handleFocusedCodeReviewAction,
 } from './focused-code-review.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
+import {
+  botekEngramSearch,
+  botekEngramStatus,
+  botekEngramStore,
+  type BotekEngramStoreInput,
+} from './botek-specialists.ts';
 import worker, {
   actionFetch,
   CommentProbeLock,
@@ -53,6 +60,20 @@ type Env = WorkerEnv &
     CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
     KANAREK_REVIEW_REPOSITORIES?: string;
   };
+
+export class BotekSpecialistEntrypoint extends WorkerEntrypoint<Env> {
+  async engramStatus(): Promise<JsonObject> {
+    return botekEngramStatus(this.env, actionFetch);
+  }
+
+  async engramSearch(query: string, limit = 6): Promise<JsonObject> {
+    return botekEngramSearch(this.env, query, limit, actionFetch);
+  }
+
+  async engramStore(input: BotekEngramStoreInput): Promise<JsonObject> {
+    return botekEngramStore(this.env, input, actionFetch);
+  }
+}
 
 const OPENAPI_PATH = '/gpt-actions/openapi.json';
 const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';

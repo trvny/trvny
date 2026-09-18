@@ -77,6 +77,10 @@
       {
         "name": "TELEGRAM_REMINDERS",
         "class_name": "TelegramReminderStore"
+      },
+      {
+        "name": "TELEGRAM_WATCHES",
+        "class_name": "TelegramWatchStore"
       }
     ]
   },
@@ -104,6 +108,10 @@
     {
       "tag": "v6",
       "new_sqlite_classes": ["TelegramReminderStore"]
+    },
+    {
+      "tag": "v7",
+      "new_sqlite_classes": ["TelegramWatchStore"]
     }
   ],
   "vars": {

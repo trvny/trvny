@@ -20,6 +20,13 @@ export type BotekSpecialistBinding = {
     importance?: number;
     metadata?: Record<string, unknown>;
   }): Promise<unknown>;
+  feedseekRecent(input: {
+    query?: string;
+    since?: string;
+    limit?: number;
+    sources?: string[];
+  }): Promise<unknown>;
+  githubPullStatus(repository: string, number: number): Promise<unknown>;
 };
 
 export type QueueBinding<T> = {
@@ -420,6 +427,7 @@ export type Env = {
   TELEGRAM_MEDIA_GROUPS: DurableObjectNamespaceLike;
   TELEGRAM_TASK_WATCH: DurableObjectNamespaceLike;
   TELEGRAM_REMINDERS: DurableObjectNamespaceLike;
+  TELEGRAM_WATCHES: DurableObjectNamespaceLike;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   INGEST_SECRET?: string;

@@ -5,6 +5,7 @@ import worker, {
   TelegramReminderStore,
   TelegramTaskWatch,
   TelegramUpdateDedup,
+  TelegramWatchStore,
 } from "./index";
 import { handleMiniAppStatusRequest } from "./mini-app";
 import { miniAppHtmlResponse } from "./mini-app-ui";
@@ -19,6 +20,7 @@ export {
   TelegramReminderStore,
   TelegramTaskWatch,
   TelegramUpdateDedup,
+  TelegramWatchStore,
 };
 
 type SecretaryUpdate = TelegramUpdate & {

@@ -277,9 +277,10 @@ delivery path, so GPTomek does not need another Worker or webhook endpoint.
   advisories, upstream signals and registry adapters.
 - `src/docs-actions.ts`: bounded live documentation lookup.
 - `src/engram-actions.ts`: bounded Engram memory bridge.
-- `src/botek-specialists.ts`: narrow same-account Botek adapter over the same
-  Engram specialist core; the named `BotekSpecialistEntrypoint` exposes only
-  status/search/store RPC and keeps `ENGRAM_API_KEY` in this Worker.
+- `src/botek-specialists.ts`: narrow same-account Botek adapter over the
+  shared specialist/GitHub backends. The named `BotekSpecialistEntrypoint`
+  keeps Engram credentials in this Worker and exposes bounded Engram
+  status/search/store plus read-only Feedseek recent and GitHub PR-status RPCs.
 - Future artifact inspector, feed doctor and web diagnostics belong in this
   boundary first, even if they continue to share this Worker.
 

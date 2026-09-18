@@ -86,31 +86,57 @@ const WATCH_ID_RE = /^w[0-9a-z]{1,16}$/u;
 
 export function parseWatchCommand(text: string): BotekWatchRequest | null {
   const trimmed = text.trim();
+  const prefix = "/watch ";
+  if (!trimmed.toLowerCase().startsWith(prefix)) return null;
 
-  const legion = trimmed.match(/^\/watch\s+legion\s+(offline|online)$/iu);
-  if (legion) {
-    return { kind: "legion", condition: legion[1].toLowerCase() as "offline" | "online" };
+  const payload = trimmed.slice(prefix.length).trim();
+  const separator = payload.indexOf(" ");
+  if (separator <= 0) return null;
+  const source = payload.slice(0, separator).toLowerCase();
+  const rest = payload.slice(separator + 1).trim();
+
+  if (source === "legion") {
+    const condition = rest.toLowerCase();
+    return condition === "offline" || condition === "online"
+      ? { kind: "legion", condition }
+      : null;
   }
 
-  const github = trimmed.match(
-    /^\/watch\s+github\s+((?:trvny|travnie)\/[A-Za-z0-9_.-]{1,100})#(\d{1,7})\s+(ci-failed|ci-green|merged|closed)$/iu,
-  );
-  if (github) {
-    const number = Number(github[2]);
-    if (!Number.isSafeInteger(number) || number < 1 || number > 1_000_000) return null;
-    return {
-      kind: "github",
-      repository: github[1],
-      number,
-      condition: github[3].toLowerCase() as "ci-failed" | "ci-green" | "merged" | "closed",
-    };
+  if (source === "feedseek") {
+    return rest && rest.length <= 500 ? { kind: "feedseek", query: rest } : null;
   }
 
-  const feedseek = trimmed.match(/^\/watch\s+feedseek\s+(.+)$/isu);
-  const query = feedseek?.[1]?.trim() ?? "";
-  if (query && query.length <= 500) return { kind: "feedseek", query };
+  if (source !== "github") return null;
+  const conditionSeparator = rest.lastIndexOf(" ");
+  if (conditionSeparator <= 0) return null;
+  const target = rest.slice(0, conditionSeparator).trim();
+  const condition = rest.slice(conditionSeparator + 1).trim().toLowerCase();
+  if (!["ci-failed", "ci-green", "merged", "closed"].includes(condition)) return null;
 
-  return null;
+  const hash = target.lastIndexOf("#");
+  if (hash <= 0 || hash === target.length - 1) return null;
+  const repository = target.slice(0, hash);
+  const numberText = target.slice(hash + 1);
+  const [owner, name, extra] = repository.split("/");
+  if (
+    extra ||
+    !name ||
+    !["trvny", "travnie"].includes(owner?.toLowerCase() ?? "") ||
+    name.length > 100 ||
+    !/^[A-Za-z0-9_.-]+$/u.test(name) ||
+    !/^\d{1,7}$/u.test(numberText)
+  ) {
+    return null;
+  }
+
+  const number = Number(numberText);
+  if (!Number.isSafeInteger(number) || number < 1 || number > 1_000_000) return null;
+  return {
+    kind: "github",
+    repository: `${owner}/${name}`,
+    number,
+    condition: condition as "ci-failed" | "ci-green" | "merged" | "closed",
+  };
 }
 
 export function parseWatchCancelCommand(text: string): string | null {

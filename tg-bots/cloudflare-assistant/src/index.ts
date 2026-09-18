@@ -9,6 +9,8 @@ import {
   parseLocationCommand,
   parsePollCommand,
   parseQuizCommand,
+  parseRecallCommand,
+  parseRememberCommand,
   parseReminderCancelCommand,
   parseReminderCommand,
   parseTopicCommand,
@@ -28,6 +30,13 @@ import {
 } from "./media-group";
 import { handleTelegramEphemeralAsk } from "./ephemeral";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
+import {
+  durableMemoryStatus,
+  durableMemoryStatusView,
+  durableMemoryView,
+  recallDurableMemory,
+  rememberDurably,
+} from "./memory";
 import { formatProviderStatus } from "./status";
 import { handleTelegramGuestMessage } from "./guest";
 import { processDueReminders } from "./reminder-notifications";
@@ -1019,6 +1028,95 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
         text: "Nie udało się anulować przypomnienia.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/remember") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /remember <tekst>",
+    };
+  }
+
+  if (text.startsWith("/remember ")) {
+    const memory = parseRememberCommand(text);
+    if (!memory) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Pamięć jest pusta albo za długa. Limit: 2000 znaków.",
+        finalReaction: "👎",
+      };
+    }
+    try {
+      const stored = await rememberDurably(env, memory);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: stored.duplicate ? "🧠 Już to mam w pamięci." : "🧠 Zapamiętane.",
+      };
+    } catch (error) {
+      console.error("Durable memory store failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się zapisać pamięci długoterminowej.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/recall") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /recall <pytanie>",
+    };
+  }
+
+  if (text.startsWith("/recall ")) {
+    const query = parseRecallCommand(text);
+    if (!query) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Zapytanie do pamięci jest puste albo za długie. Limit: 2000 znaków.",
+        finalReaction: "👎",
+      };
+    }
+    try {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: durableMemoryView(await recallDurableMemory(env, query)),
+      };
+    } catch (error) {
+      console.error("Durable memory recall failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się przeszukać pamięci długoterminowej.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/memory_status") {
+    try {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: durableMemoryStatusView(await durableMemoryStatus(env)),
+      };
+    } catch (error) {
+      console.error("Durable memory status failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "🧠 Engram: status niedostępny.",
         finalReaction: "👎",
       };
     }

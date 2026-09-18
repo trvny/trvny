@@ -2519,6 +2519,6 @@ export default {
   async scheduled(_controller: unknown, env: Env): Promise<void> {
     await processTaskNotifications(env);
     await processDueReminders(env);
-    await processConditionWatches(env);
+    await processConditionWatches(env, sendTelegramMessage);
   },
 };

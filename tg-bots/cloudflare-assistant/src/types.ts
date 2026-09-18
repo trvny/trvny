@@ -11,6 +11,17 @@ export type FetcherBinding = {
   fetch(input: Request | string, init?: RequestInit): Promise<Response>;
 };
 
+export type BotekSpecialistBinding = {
+  engramStatus(): Promise<unknown>;
+  engramSearch(query: string, limit?: number): Promise<unknown>;
+  engramStore(input: {
+    text: string;
+    category?: "preference" | "fact" | "decision" | "entity" | "other";
+    importance?: number;
+    metadata?: Record<string, unknown>;
+  }): Promise<unknown>;
+};
+
 export type QueueBinding<T> = {
   send(body: T): Promise<void>;
 };
@@ -399,6 +410,7 @@ export type TelegramUpdateRecord = {
 export type Env = {
   AI: AiBinding;
   KANAREK_COMPANION: FetcherBinding;
+  BOTEK_SPECIALISTS?: BotekSpecialistBinding;
   PET_DISPATCHER?: PetDispatcherBinding;
   TELEGRAM_UPDATES: QueueBinding<TelegramUpdate>;
   TELEGRAM_DLQ: QueueBinding<TelegramDeadLetter>;

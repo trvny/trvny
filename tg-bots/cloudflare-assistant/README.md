@@ -8,7 +8,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - durable Telegram update delivery through Cloudflare Queues;
 - persistent `update_id` state in a SQLite Durable Object;
 - dead-letter queue for exhausted or non-replayable Telegram deliveries;
-- /help, /ask <question>, /status, /draft <message>, /remind, /reminders, /remind_cancel, /poll, /quiz, /dice, /sticker, /location, /venue, /contact, and /reset; group-only `/whisper <question>` is advertised as an ephemeral command only to the owner;
+- /help, /ask <question>, /status, /draft <message>, /remember, /recall, /memory_status, /remind, /reminders, /remind_cancel, /poll, /quiz, /dice, /sticker, /location, /venue, /contact, and /reset; group-only `/whisper <question>` is advertised as an ephemeral command only to the owner;
 - /start and /help self-sync the owner-scoped Telegram command list and command menu from code;
 - bounded per-chat conversation context for ordinary messages;
 - owner `/ask <question>` works in groups and forum topics; other group traffic is ignored, replies use typing instead of private-chat drafts, and short memory stays isolated by chat/topic; the first visible `/ask` in a chat also syncs the owner-only group command scope so `/whisper <question>` can arrive as a native ephemeral command and receive a stateless private reply within Telegram's short delivery window;
@@ -24,6 +24,7 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 - native clipboard button on short `/draft` suggestions;
 - `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls and proactive terminal-result notifications;
 - `/remind 15m | tekst` stores a bounded one-shot reminder (relative minutes/hours/days, up to 30 days); `/reminders` lists active entries and `/remind_cancel <id>` removes one; delivery reuses the existing minute cron;
+- `/remember <tekst>`, `/recall <pytanie>` and `/memory_status` use the existing Engram specialist core through a narrow same-account Service Binding; the Telegram Worker never receives the Engram credential;
 - owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
 - optional Telegram Guest Mode lets the owner summon Botek with `@trvny_bot` in chats where the bot is not a member; guest replies are stateless, bounded, one-shot, and explicitly barred from private memory or acting on the owner's behalf;
 - optional Telegram Business/Secretary draft mode watches only the owner's enabled Business connection, keeps an isolated six-entry text/caption context per connection+chat from updates Botek actually receives, and turns supported incoming third-party messages into a private suggestion; it never sends the suggestion back to the third party automatically;

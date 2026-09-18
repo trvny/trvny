@@ -12,6 +12,7 @@ import {
   parseTopicCommand,
   parseVenueCommand,
 } from "./commands";
+import { automaticTaskRequest, looksLikeAutomaticTaskCandidate } from "./auto-task";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
 import { replyFeedbackKeyboard, replyFeedbackRequest } from "./feedback";
 import { TelegramUpdateDedup } from "./dedup";
@@ -1112,6 +1113,49 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         text: "Nie udało się wysłać zadania na Legiona. Spróbuj ponownie za chwilę.",
         finalReaction: "👎",
       };
+    }
+  }
+
+  if (
+    privateChat &&
+    message.text &&
+    !forwardedContext &&
+    !replyContext &&
+    env.PET_DISPATCHER &&
+    looksLikeAutomaticTaskCandidate(rawText)
+  ) {
+    try {
+      const meta = await env.PET_DISPATCHER.meta();
+      const automaticTask = automaticTaskRequest(rawText, meta.repositories ?? []);
+      if (automaticTask) {
+        try {
+          const task = await delegateBotekTask(
+            env,
+            automaticTask.repo,
+            automaticTask.goal,
+            update.update_id,
+            automaticTask.profile,
+          );
+          const view = taskView(task, automaticTask.repo, automaticTask.goal);
+          return {
+            chatId: message.chat.id,
+            replyToMessageId: message.message_id,
+            text: view.plain,
+            richHtml: view.richHtml,
+            replyMarkup: taskKeyboard(task),
+          };
+        } catch (error) {
+          console.error("Automatic Pet Dispatcher delegation failed", error);
+          return {
+            chatId: message.chat.id,
+            replyToMessageId: message.message_id,
+            text: "Wyłapałem zadanie dla Legiona, ale nie udało się go wysłać. Spróbuj ponownie za chwilę.",
+            finalReaction: "👎",
+          };
+        }
+      }
+    } catch (error) {
+      console.warn("Automatic Pet Dispatcher routing unavailable; continuing in chat", error);
     }
   }
 

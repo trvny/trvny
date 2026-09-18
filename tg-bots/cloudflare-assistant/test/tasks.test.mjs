@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  delegateBotekTask,
   delegateLegionStatus,
   fetchRecentTasks,
   isTasksRefreshCallback,
@@ -54,6 +55,19 @@ test("renders a bounded rich task report with escaped dispatcher output", () => 
   assert.match(view.richHtml, /Tests passed &lt;all&gt;/u);
   assert.match(view.richHtml, /52\/52 &amp; green/u);
   assert.doesNotMatch(view.richHtml, /Fix <thing>/u);
+});
+
+test("delegateBotekTask can submit a read-only inspect profile", async () => {
+  let delegated;
+  const env = { PET_DISPATCHER: { async delegate(task) {
+    delegated = task;
+    return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
+  } } };
+  await delegateBotekTask(env, "trvny", "zaudytuj repo", 41, "inspect");
+  assert.equal(delegated.profile, "inspect");
+  assert.equal(delegated.repo, "trvny");
+  assert.deepEqual(delegated.capabilities, []);
+  assert.deepEqual(delegated.network, { mode: "none" });
 });
 
 test("delegateLegionStatus submits a host probe without fake repo authority", async () => {

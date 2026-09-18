@@ -72,8 +72,16 @@ const REMINDER_MAX_DELAY_MS = 30 * 24 * 60 * 60 * 1_000;
 const REMINDER_ID_RE = /^r[0-9a-z]{1,16}$/u;
 
 export function parseReminderCommand(text: string): BotekReminderRequest | null {
-  const match = text.trim().match(/^\/remind\s+(\d{1,5})(m|min|h|g|d)\s*\|\s*(.+)$/isu);
-  if (!match) return null;
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("/remind ")) return null;
+  const payload = trimmed.slice("/remind ".length);
+  const separator = payload.indexOf("|");
+  if (separator <= 0) return null;
+  const duration = payload.slice(0, separator).trim();
+  const reminderText = payload.slice(separator + 1).trim();
+  const match = duration.match(/^(\d{1,5})(m|min|h|g|d)$/iu);
+  if (!match || !reminderText || reminderText.length > 1_500) return null;
+
   const amount = Number(match[1]);
   const unit = match[2].toLowerCase();
   const multiplier = unit === "m" || unit === "min"
@@ -82,9 +90,7 @@ export function parseReminderCommand(text: string): BotekReminderRequest | null 
       ? 60 * 60_000
       : 24 * 60 * 60_000;
   const delayMs = amount * multiplier;
-  const reminderText = match[3].trim();
   if (!Number.isSafeInteger(delayMs) || delayMs < 60_000 || delayMs > REMINDER_MAX_DELAY_MS) return null;
-  if (!reminderText || reminderText.length > 1_500) return null;
   return { delayMs, text: reminderText };
 }
 

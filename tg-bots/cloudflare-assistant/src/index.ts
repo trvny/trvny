@@ -31,11 +31,13 @@ import {
 import { handleTelegramEphemeralAsk } from "./ephemeral";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
 import {
+  durableMemoryContext,
   durableMemoryStatus,
   durableMemoryStatusView,
   durableMemoryView,
   recallDurableMemory,
   rememberDurably,
+  shouldAutoRecallDurableMemory,
 } from "./memory";
 import { formatProviderStatus } from "./status";
 import { handleTelegramGuestMessage } from "./guest";
@@ -1736,6 +1738,18 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
 
   let lastGeneratedPartial = "";
   try {
+    let durableContext: string | null = null;
+    const autoRecallQuery = privateChat && !isDraft && message.text && !forwardedContext && !replyContext
+      ? message.text.trim()
+      : "";
+    if (autoRecallQuery && shouldAutoRecallDurableMemory(autoRecallQuery)) {
+      try {
+        durableContext = durableMemoryContext(await recallDurableMemory(env, autoRecallQuery, 4));
+      } catch (error) {
+        console.warn("Automatic durable memory recall unavailable; continuing without it", error);
+      }
+    }
+
     const history = isDraft
       ? { messages: [], generation: null }
       : await conversationHistory(env, message.chat.id, messageThreadId);
@@ -1776,6 +1790,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       env,
       [
         { role: "system", content: system },
+        ...(durableContext ? [{ role: "system" as const, content: durableContext }] : []),
         ...history.messages,
         { role: "user", content: prompt },
       ],

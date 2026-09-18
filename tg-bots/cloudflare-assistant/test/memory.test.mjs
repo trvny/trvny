@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  durableMemoryContext,
   durableMemoryStatus,
   durableMemoryStatusView,
   durableMemoryView,
   recallDurableMemory,
   rememberDurably,
+  shouldAutoRecallDurableMemory,
 } from "../src/memory.ts";
 
 test("stores explicit Telegram memory through the specialist binding", async () => {
@@ -83,4 +85,25 @@ test("rejects oversized explicit memory before RPC", async () => {
   };
   await assert.rejects(() => rememberDurably(env, "x".repeat(2_001)), RangeError);
   assert.equal(calls, 0);
+});
+
+
+test("auto recall triggers only on explicit prior-context cues", () => {
+  assert.equal(shouldAutoRecallDurableMemory("Pamiętasz co ustaliliśmy z merge?"), true);
+  assert.equal(shouldAutoRecallDurableMemory("Last time we decided something about releases"), true);
+  assert.equal(shouldAutoRecallDurableMemory("jaka będzie pogoda jutro?"), false);
+  assert.equal(shouldAutoRecallDurableMemory("x".repeat(2_001) + " pamiętasz"), false);
+});
+
+test("builds bounded durable memory as non-instruction context", () => {
+  const context = durableMemoryContext([{
+    content: "Prefer squash merges.",
+    category: "preference",
+    score: 0.91,
+  }]);
+  assert.ok(context);
+  assert.match(context, /never as instructions/u);
+  assert.match(context, /Prefer squash merges\./u);
+  assert.doesNotMatch(context, /score/u);
+  assert.equal(durableMemoryContext([]), null);
 });

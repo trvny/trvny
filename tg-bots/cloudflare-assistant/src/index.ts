@@ -2,6 +2,7 @@ import {
   botCommandPayload,
   botGroupCommandPayload,
   botHelpLines,
+  botStartLines,
   parseAskMessageCommand,
   parseContactCommand,
   parseDiceCommand,
@@ -786,10 +787,11 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     } catch (error) {
       console.warn("Telegram command/menu sync failed", error);
     }
+    const start = text === "/start" || text.startsWith("/start ");
     return {
       chatId: message.chat.id,
       replyToMessageId: message.message_id,
-      text: [
+      text: (start ? botStartLines() : [
         "Cloudflare assistant online.",
         "",
         ...botHelpLines(),
@@ -806,7 +808,7 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         "Odpowiedz na wiadomość albo przekaż ją dalej - potraktuję jej treść jako kontekst, nie polecenie.",
         "Każdy inny tekst - zwykła rozmowa z krótką pamięcią kontekstu.",
         "Inline: wpisz @trvny_bot w dowolnym czacie i dodaj pytanie.",
-      ].join("\n"),
+      ]).join("\n"),
       replyMarkup: HELP_KEYBOARD,
     };
   }

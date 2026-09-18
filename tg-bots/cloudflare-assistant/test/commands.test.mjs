@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { botGroupCommandPayload, botHelpLines, parseAskCommand, parseWhisperCommand } from "../src/commands.ts";
+import { botGroupCommandPayload, botHelpLines, botStartLines, parseAskCommand, parseWhisperCommand } from "../src/commands.ts";
 
 test("parses explicit ask commands for private and group chats", () => {
   assert.equal(parseAskCommand("/ask"), "");
@@ -40,6 +40,14 @@ test("lists task recovery commands in private help", () => {
   const help = botHelpLines();
   assert.equal(help.some((line) => line.startsWith("/task_status <id>")), true);
   assert.equal(help.some((line) => line.startsWith("/task_cancel <id>")), true);
+});
+
+test("keeps /start compact and points to full /help", () => {
+  const start = botStartLines();
+  assert.ok(start.length <= 6);
+  assert.equal(start.some((line) => line.includes("/help")), true);
+  assert.equal(start.some((line) => line.includes("/legion")), true);
+  assert.equal(start.some((line) => line.includes("/task_status")), false);
 });
 
 

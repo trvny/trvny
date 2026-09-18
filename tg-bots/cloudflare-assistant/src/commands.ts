@@ -7,7 +7,7 @@ export type BotekCommand = {
 };
 
 export const BOTEK_COMMANDS: readonly BotekCommand[] = [
-  { command: "start", usage: "/start", description: "Uruchom Botka i pokaż pomoc" },
+  { command: "start", usage: "/start", description: "Uruchom Botka" },
   { command: "help", usage: "/help", description: "Pokaż dostępne komendy" },
   { command: "ask", usage: "/ask <pytanie>", description: "Zapytaj Botka jawnie, także w grupie", groupMode: "visible" },
   { command: "whisper", usage: "/whisper <pytanie>", description: "Zapytaj prywatnie w grupie", private: false, groupMode: "ephemeral" },
@@ -49,6 +49,17 @@ export function botHelpLines(): string[] {
   return BOTEK_COMMANDS
     .filter((command) => command.private !== false)
     .map(({ usage, description }) => `${usage} - ${description}`);
+}
+
+export function botStartLines(): string[] {
+  return [
+    "🤖 Botek online.",
+    "Napisz wiadomość albo wyślij głosówkę, zdjęcie lub plik.",
+    "",
+    "Na szybko: /status · /legion · /tasks · /draft",
+    "Wszystkie komendy i możliwości: /help",
+    "Inline: @trvny_bot <pytanie>",
+  ];
 }
 
 

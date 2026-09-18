@@ -29,11 +29,17 @@ test("renders completed Legion vitals as plain text and a safe rich table", () =
   assert.doesNotMatch(view.richHtml, /legion<box>/u);
 });
 
-test("shows a pending message for any non-terminal status, without claiming Legion is asleep", () => {
-  for (const status of ["queued", "leased", "running", "cancel_requested"]) {
-    const view = legionStatusView({ taskId: TASK_ID, status });
-    assert.ok(view.plain.includes(LEGION_STATUS_PENDING_TEXT), `status: ${status}`);
-  }
+test("explains queued Legion probes can take about a minute", () => {
+  const view = legionStatusView({ taskId: TASK_ID, status: "queued" });
+  assert.ok(view.plain.includes(LEGION_STATUS_PENDING_TEXT));
+  assert.match(view.plain, /60 s/u);
+  assert.doesNotMatch(view.plain, /offline|śpi/u);
+});
+
+test("shows progress for leased, running, and cancellation states", () => {
+  assert.match(legionStatusView({ taskId: TASK_ID, status: "leased" }).plain, /📥/u);
+  assert.match(legionStatusView({ taskId: TASK_ID, status: "running" }).plain, /🦾/u);
+  assert.match(legionStatusView({ taskId: TASK_ID, status: "cancel_requested" }).plain, /anulowanie/u);
 });
 
 test("shows a distinct message for a cancelled task", () => {
@@ -52,6 +58,7 @@ test("surfaces the dispatcher error text on a failed task", () => {
 
 test("keyboard embeds the task id and the callback matcher round-trips it", () => {
   const keyboard = legionStatusKeyboard(TASK_ID);
+  assert.equal(keyboard.inline_keyboard[0][0].text, "🔄 Sprawdź wynik");
   assert.equal(keyboard.inline_keyboard[0][0].callback_data, `legion:refresh:${TASK_ID}`);
   assert.equal(legionRefreshCallback(`legion:refresh:${TASK_ID}`), TASK_ID);
   assert.equal(legionRefreshCallback("legion:refresh"), null);

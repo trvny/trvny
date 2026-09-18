@@ -14,6 +14,8 @@ import {
   parseReminderCancelCommand,
   parseReminderCommand,
   parseTopicCommand,
+  parseWatchCancelCommand,
+  parseWatchCommand,
   parseVenueCommand,
 } from "./commands";
 import { automaticTaskRequest, looksLikeAutomaticTaskCandidate } from "./auto-task";
@@ -52,6 +54,13 @@ import {
 } from "./reminders";
 import { processTaskNotifications } from "./task-notifications";
 import { TelegramTaskWatch, watchTask } from "./task-watch";
+import {
+  activeConditionWatchList,
+  conditionWatchListView,
+  initializeConditionWatch,
+  processConditionWatches,
+} from "./watch-runner";
+import { cancelConditionWatch, TelegramWatchStore } from "./watches";
 import {
   cancelBotekTask,
   delegateBotekTask,
@@ -133,6 +142,7 @@ export {
   TelegramReminderStore,
   TelegramTaskWatch,
   TelegramUpdateDedup,
+  TelegramWatchStore,
 };
 
 const RSS_BODY_MAX_BYTES = 64 * 1024;
@@ -1030,6 +1040,101 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
         text: "Nie udało się anulować przypomnienia.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/watch") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: [
+        "Użycie:",
+        "/watch legion offline|online",
+        "/watch github trvny/trvny#123 ci-failed|ci-green|merged|closed",
+        "/watch feedseek <temat>",
+      ].join("\n"),
+    };
+  }
+
+  if (text.startsWith("/watch ")) {
+    const request = parseWatchCommand(text);
+    if (!request) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie rozumiem watchera. Użyj /watch bez argumentów, żeby zobaczyć przykłady.",
+        finalReaction: "👎",
+      };
+    }
+    try {
+      const watch = await initializeConditionWatch(env, request, update.update_id, message);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: `👁️ Watcher ustawiony.\n${conditionWatchListView([watch])}`,
+      };
+    } catch (error) {
+      console.error("Condition watch creation failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się ustawić watchera. Źródło może być chwilowo niedostępne.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/watches") {
+    try {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: await activeConditionWatchList(env),
+      };
+    } catch (error) {
+      console.error("Condition watch list failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się pobrać watcherów.",
+        finalReaction: "👎",
+      };
+    }
+  }
+
+  if (text === "/watch_cancel") {
+    return {
+      chatId: message.chat.id,
+      replyToMessageId: message.message_id,
+      text: "Użycie: /watch_cancel <id>",
+    };
+  }
+
+  if (text.startsWith("/watch_cancel ")) {
+    const watchId = parseWatchCancelCommand(text);
+    if (!watchId) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nieprawidłowe ID watchera. Użycie: /watch_cancel <id>",
+        finalReaction: "👎",
+      };
+    }
+    try {
+      const cancelled = await cancelConditionWatch(env, watchId);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: cancelled ? `🛑 Anulowano watcher ${watchId}.` : `Nie ma aktywnego watchera ${watchId}.`,
+      };
+    } catch (error) {
+      console.error("Condition watch cancellation failed", error);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Nie udało się anulować watchera.",
         finalReaction: "👎",
       };
     }
@@ -2414,5 +2519,6 @@ export default {
   async scheduled(_controller: unknown, env: Env): Promise<void> {
     await processTaskNotifications(env);
     await processDueReminders(env);
+    await processConditionWatches(env);
   },
 };

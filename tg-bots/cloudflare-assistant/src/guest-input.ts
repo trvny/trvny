@@ -3,6 +3,11 @@ import type { TelegramMessage } from "./types";
 const GUEST_PROMPT_MAX_CHARS = 2_500;
 const GUEST_QUOTE_MAX_CHARS = 1_200;
 
+const GUEST_JESTER_WITH_REPLY =
+  "No explicit instruction was provided. Enter Jester Mode: use the quoted Telegram message as the target/context and write one short, context-aware joke, bait, or roast. Pick whichever fits best.";
+const GUEST_JESTER_NO_REPLY =
+  "No explicit instruction was provided. Enter Jester Mode: write one short playful joke, bait, or roast that works as a standalone chat reply.";
+
 function compact(value: string | undefined, maxChars: number): string {
   return typeof value === "string" ? value.trim().replace(/\s+/gu, " ").slice(0, maxChars) : "";
 }
@@ -41,8 +46,9 @@ export function guestMessageBelongsToOwner(message: TelegramMessage, ownerId: st
 export function buildGuestPrompt(message: TelegramMessage): string {
   const body = stripLeadingMention(compact(message.text ?? message.caption, GUEST_PROMPT_MAX_CHARS));
   const replyContext = guestReplyContext(message);
-  return [body, replyContext]
+  const instruction = body || (replyContext ? GUEST_JESTER_WITH_REPLY : GUEST_JESTER_NO_REPLY);
+  return [instruction, replyContext]
     .filter(Boolean)
     .join("\n\n")
-    .slice(0, GUEST_PROMPT_MAX_CHARS + GUEST_QUOTE_MAX_CHARS + 128);
+    .slice(0, GUEST_PROMPT_MAX_CHARS + GUEST_QUOTE_MAX_CHARS + 384);
 }

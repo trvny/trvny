@@ -396,7 +396,14 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     let session: Session | undefined;
     let git: HostGit | undefined;
     try {
-      session = await this.sessions.open(repo, task.baseRef, task.network.mode, task.network.profile, false, Math.min(60, task.timeoutMinutes + 5));
+      session = await this.sessions.open(
+        repo,
+        task.baseRef,
+        task.network.mode,
+        task.network.profile,
+        this.config.remote?.syncRepositories ?? false,
+        Math.min(60, task.timeoutMinutes + 5),
+      );
       if (session.targetKind === "workspace") throw new Error("delegated agents are disabled for non-Git workspaces; use confined direct tools");
       git = new HostGit(this.sessions, this.config);
       const tools = new AgentTools(this.sessions, this.runner, new NetworkBroker(this.config), git, capabilities, signal);

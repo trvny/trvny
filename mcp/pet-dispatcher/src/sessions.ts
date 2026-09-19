@@ -49,6 +49,7 @@ export class SessionManager {
   readonly #writers = new Map<string, string>();
   readonly #activity = new Map<string, Activity>();
   readonly #activityContext = new AsyncLocalStorage<{ id: string; token: symbol }>();
+  readonly #repositorySyncs = new Map<string, Promise<void>>();
   readonly #initialization: Promise<void>;
   readonly #reaper: NodeJS.Timeout;
   #initializationError?: Error;
@@ -121,6 +122,46 @@ export class SessionManager {
     return { env: isolatedGitEnvironment(gitExecutable, home), maxBuffer: this.config.maxOutputBytes, windowsHide: true };
   }
 
+  async #syncRepository(repo: string, sourceRoot: string): Promise<void> {
+    const existing = this.#repositorySyncs.get(repo);
+    if (existing) return existing;
+
+    const sync = (async () => {
+      const gitExecutable = await this.#gitPath();
+      const home = resolve(this.config.workspaceRoot, "sync-home");
+      await mkdir(home, { recursive: true });
+      const options = this.#gitOptions(gitExecutable, home);
+      const { stdout: bareOutput } = await execFileAsync(
+        gitExecutable,
+        [...gitSafetyArgs, "-C", sourceRoot, "rev-parse", "--is-bare-repository"],
+        options,
+      );
+      if (bareOutput.trim() !== "true") {
+        throw new Error("repository sync requires a configured bare mirror");
+      }
+
+      // The task never supplies a URL. Fetch only the configured mirror's existing
+      // origin, with credential helpers/prompts disabled by isolatedGitEnvironment.
+      await execFileAsync(
+        gitExecutable,
+        [
+          ...gitSafetyArgs,
+          "-C", sourceRoot,
+          "fetch", "--prune", "origin",
+          "+refs/heads/*:refs/heads/*",
+          "+refs/tags/*:refs/tags/*",
+        ],
+        options,
+      );
+    })();
+
+    this.#repositorySyncs.set(repo, sync);
+    try { await sync; }
+    finally {
+      if (this.#repositorySyncs.get(repo) === sync) this.#repositorySyncs.delete(repo);
+    }
+  }
+
   acquireActivity(id: string, kind: string): () => void {
     this.get(id);
     const current = this.#activity.get(id);
@@ -178,7 +219,6 @@ export class SessionManager {
     const targetKind: SessionTargetKind = repoRoot ? "repository" : workspaceRoot ? "workspace" : (() => { throw new Error(`target is not configured: ${repo}`); })();
     const configuredRoot = repoRoot ?? workspaceRoot;
     if (!configuredRoot) throw new Error(`target is not configured: ${repo}`);
-    if (sync) throw new Error("session sync requires restricted host egress and is unavailable in Phase 1");
     if (writable && this.#writers.has(repo)) throw new Error(`target already has a writer session: ${repo}`);
     if (targetKind === "repository" && !/^(?!-)[A-Za-z0-9._/@+:-]+$/.test(ref)) throw new Error("invalid git ref");
     const network = this.#network(networkMode, networkProfile);
@@ -187,6 +227,10 @@ export class SessionManager {
     let sessionDir: string | undefined;
     try {
       const sourceRoot = await realpath(configuredRoot);
+      if (sync) {
+        if (targetKind !== "repository") throw new Error("workspace targets cannot be repository-synced");
+        await this.#syncRepository(repo, sourceRoot);
+      }
       const sessionsRoot = resolve(this.config.workspaceRoot, "sessions");
       await mkdir(sessionsRoot, { recursive: true });
       sessionDir = resolve(sessionsRoot, id);

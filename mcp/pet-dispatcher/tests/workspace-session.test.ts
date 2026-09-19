@@ -131,3 +131,38 @@ test("bare repository mirror can seed and receive exported Pet sessions", async 
     await rm(state.base, { recursive: true, force: true });
   }
 });
+
+test("synced bare mirror refreshes origin before opening a session without pruning exported refs", async () => {
+  const state = await fixture();
+  const mirror = join(state.base, "sync-mirror.git");
+  try {
+    await execFileAsync("git", ["clone", "--mirror", state.repo, mirror]);
+    const before = (await execFileAsync("git", ["-C", mirror, "rev-parse", "HEAD"])).stdout.trim();
+    await execFileAsync("git", ["-C", mirror, "update-ref", "refs/pet-dispatcher/keep-me", before]);
+
+    await writeFile(join(state.repo, "fresh.txt"), "fresh from origin\n");
+    await execFileAsync("git", ["-C", state.repo, "add", "fresh.txt"]);
+    await execFileAsync("git", [
+      "-C", state.repo, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid",
+      "commit", "-m", "fresh upstream",
+    ]);
+    const upstream = (await execFileAsync("git", ["-C", state.repo, "rev-parse", "HEAD"])).stdout.trim();
+
+    const config = { ...state.config, repositories: { fixture: mirror } } as DispatcherConfig;
+    const sessions = new SessionManager(config);
+    try {
+      const session = await sessions.open("fixture", "HEAD", "none", undefined, true);
+      assert.equal(session.initialCommit, upstream);
+      assert.equal(await readWorkspace(session, "fresh.txt"), "fresh from origin\n");
+      const kept = (await execFileAsync("git", ["-C", mirror, "rev-parse", "refs/pet-dispatcher/keep-me"])).stdout.trim();
+      assert.equal(kept, before);
+      await sessions.close(session.id, true);
+    } finally {
+      for (const session of sessions.list()) await sessions.close(session.id, true).catch(() => undefined);
+      sessions.dispose();
+    }
+  } finally {
+    state.sessions.dispose();
+    await rm(state.base, { recursive: true, force: true });
+  }
+});

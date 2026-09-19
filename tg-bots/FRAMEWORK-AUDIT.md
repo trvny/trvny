@@ -63,7 +63,9 @@ matching into a small typed router:
 The goal is not a generic framework. It is a compact internal dispatch table
 that makes adding one Telegram feature stop growing one giant function.
 
-**Worth implementing:** yes, near term.
+**Status:** callback routing implemented as the first slice. Expand the same
+typed first-match router to owner message/command routing next; keep media and
+domain handlers in their existing focused modules.
 
 ### 2. Small middleware pipeline
 

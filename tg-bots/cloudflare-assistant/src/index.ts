@@ -54,6 +54,7 @@ import {
 } from "./reminders";
 import { processTaskNotifications } from "./task-notifications";
 import { TelegramTaskWatch, watchTask } from "./task-watch";
+import { definePredicateRoute, routeFirst, type PredicateRoute } from "./router";
 import {
   activeConditionWatchList,
   conditionWatchListView,
@@ -123,6 +124,7 @@ import type {
   QueueBatch,
   RssDecision,
   RssItem,
+  TelegramCallbackQuery,
   TelegramConversationHistory,
   TelegramDeadLetter,
   TelegramDocument,
@@ -677,41 +679,46 @@ async function enqueueTelegramInlineQuery(env: Env, update: TelegramUpdate): Pro
   if (!response.ok) throw new Error(`inline query enqueue failed: HTTP ${response.status}`);
 }
 
-async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<TelegramReply | null> {
-  const callback = update.callback_query;
-  if (callback) {
-    const feedback = replyFeedbackRequest(callback, env.OWNER_TELEGRAM_USER_ID);
-    if (feedback && callback.message) {
-      await recordConversationFeedback(
-        env,
-        callback.message.chat.id,
-        feedback.messageThreadId,
-        feedback.messageId,
-        feedback.rating,
-      );
-      return null;
-    }
-    const callbackMessage = callback.message;
-    if (
-      !callbackMessage ||
-      !ownerConfigured(env) ||
-      callbackMessage.chat.type !== "private" ||
-      String(callback.from.id) !== env.OWNER_TELEGRAM_USER_ID
-    ) {
-      return null;
-    }
-    if (callback.data === "status:refresh") {
+type OwnerCallbackRouteContext = {
+  env: Env;
+  update: TelegramUpdate;
+  callback: TelegramCallbackQuery;
+  message: NonNullable<TelegramCallbackQuery["message"]>;
+};
+
+function ownerCallbackRoute<Match>(
+  name: string,
+  match: (context: OwnerCallbackRouteContext) => Match | undefined,
+  handle: (
+    context: OwnerCallbackRouteContext,
+    match: Match,
+  ) => TelegramReply | null | Promise<TelegramReply | null>,
+): PredicateRoute<OwnerCallbackRouteContext, TelegramReply | null> {
+  return definePredicateRoute(name, match, handle);
+}
+
+const OWNER_CALLBACK_ROUTES: readonly PredicateRoute<
+  OwnerCallbackRouteContext,
+  TelegramReply | null
+>[] = [
+  ownerCallbackRoute(
+    "status-refresh",
+    ({ callback }) => callback.data === "status:refresh" ? true : undefined,
+    async ({ env, message }) => {
       const status = await providerStatusView(env);
       return {
-        chatId: callbackMessage.chat.id,
-        editMessageId: callbackMessage.message_id,
+        chatId: message.chat.id,
+        editMessageId: message.message_id,
         text: status.plain,
         richHtml: status.richHtml,
         replyMarkup: STATUS_KEYBOARD,
       };
-    }
-    const legionTaskId = legionRefreshCallback(callback.data);
-    if (legionTaskId) {
+    },
+  ),
+  ownerCallbackRoute(
+    "legion-refresh",
+    ({ callback }) => legionRefreshCallback(callback.data) ?? undefined,
+    async ({ env, update, message }, legionTaskId) => {
       try {
         const plan = legionRefreshPlan(await getBotekTask(env, legionTaskId));
         const view = legionStatusView(plan.render);
@@ -727,8 +734,8 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
           }
         }
         return {
-          chatId: callbackMessage.chat.id,
-          editMessageId: callbackMessage.message_id,
+          chatId: message.chat.id,
+          editMessageId: message.message_id,
           text: view.plain,
           richHtml: view.richHtml,
           replyMarkup: legionStatusKeyboard(nextTaskId),
@@ -736,21 +743,25 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       } catch (error) {
         console.error("Legion status refresh failed", error);
         return {
-          chatId: callbackMessage.chat.id,
-          editMessageId: callbackMessage.message_id,
+          chatId: message.chat.id,
+          editMessageId: message.message_id,
           text: "Nie udało się odświeżyć statusu Legiona.",
           // Keep the button pointed at the same task - a transient getBotekTask failure
           // shouldn't strand the user with no way to retry short of a fresh /legion.
           replyMarkup: legionStatusKeyboard(legionTaskId),
         };
       }
-    }
-    if (isTasksRefreshCallback(callback.data)) {
+    },
+  ),
+  ownerCallbackRoute(
+    "tasks-refresh",
+    ({ callback }) => isTasksRefreshCallback(callback.data) ? true : undefined,
+    async ({ env, message }) => {
       try {
         const view = recentTasksView(await fetchRecentTasks(env));
         return {
-          chatId: callbackMessage.chat.id,
-          editMessageId: callbackMessage.message_id,
+          chatId: message.chat.id,
+          editMessageId: message.message_id,
           text: view.plain,
           richHtml: view.richHtml,
           replyMarkup: recentTasksKeyboard(),
@@ -758,23 +769,26 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       } catch (error) {
         console.error("Recent task list refresh failed", error);
         return {
-          chatId: callbackMessage.chat.id,
-          editMessageId: callbackMessage.message_id,
+          chatId: message.chat.id,
+          editMessageId: message.message_id,
           text: "Nie udało się odświeżyć listy zadań.",
           replyMarkup: recentTasksKeyboard(),
         };
       }
-    }
-    const taskAction = taskCallback(callback.data);
-    if (taskAction) {
+    },
+  ),
+  ownerCallbackRoute(
+    "task-control",
+    ({ callback }) => taskCallback(callback.data) ?? undefined,
+    async ({ env, message }, taskAction) => {
       try {
         const task = taskAction.action === "cancel"
           ? await cancelBotekTask(env, taskAction.taskId)
           : await getBotekTask(env, taskAction.taskId);
         const view = taskView(task);
         return {
-          chatId: callbackMessage.chat.id,
-          editMessageId: callbackMessage.message_id,
+          chatId: message.chat.id,
+          editMessageId: message.message_id,
           text: view.plain,
           richHtml: view.richHtml,
           replyMarkup: taskKeyboard(task),
@@ -782,13 +796,45 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       } catch (error) {
         console.error("Pet Dispatcher task callback failed", error);
         return {
-          chatId: callbackMessage.chat.id,
-          editMessageId: callbackMessage.message_id,
+          chatId: message.chat.id,
+          editMessageId: message.message_id,
           text: `Nie udało się odświeżyć zadania ${taskAction.taskId}.`,
         };
       }
+    },
+  ),
+];
+
+async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<TelegramReply | null> {
+  const callback = update.callback_query;
+  if (callback) {
+    const feedback = replyFeedbackRequest(callback, env.OWNER_TELEGRAM_USER_ID);
+    if (feedback && callback.message) {
+      await recordConversationFeedback(
+        env,
+        callback.message.chat.id,
+        feedback.messageThreadId,
+        feedback.messageId,
+        feedback.rating,
+      );
+      return null;
     }
-    return null;
+
+    const callbackMessage = callback.message;
+    if (
+      !callbackMessage ||
+      !ownerConfigured(env) ||
+      callbackMessage.chat.type !== "private" ||
+      String(callback.from.id) !== env.OWNER_TELEGRAM_USER_ID
+    ) {
+      return null;
+    }
+
+    const routed = await routeFirst(
+      { env, update, callback, message: callbackMessage },
+      OWNER_CALLBACK_ROUTES,
+    );
+    return routed.matched ? routed.value : null;
   }
 
   const message = update.message;

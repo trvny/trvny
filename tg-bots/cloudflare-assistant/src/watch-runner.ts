@@ -1,4 +1,6 @@
 import type { BotekWatchRequest } from "./commands";
+import { chatWithInlineFallback } from "./providers.ts";
+import { secretaryAutoReplyEnabled, secretaryAutoReplySystemPrompt } from "./secretary.ts";
 import {
   cancelConditionWatch,
   claimConditionWatch,
@@ -12,6 +14,7 @@ import {
   type FeedseekConditionWatch,
   type GithubConditionWatch,
   type LegionConditionWatch,
+  type SecretaryIdleWatch,
 } from "./watches.ts";
 import type { Env, TelegramMessage } from "./types";
 
@@ -44,7 +47,7 @@ type WatchSender = (
   env: Env,
   chatId: string | number,
   text: string,
-  options?: { messageThreadId?: number; replyToMessageId?: number },
+  options?: { messageThreadId?: number; replyToMessageId?: number; businessConnectionId?: string },
 ) => Promise<void>;
 
 function nextAt(now: number, intervalMs: number): string {
@@ -365,6 +368,51 @@ async function processFeedseek(
   });
 }
 
+async function processSecretary(
+  env: Env,
+  watch: SecretaryIdleWatch,
+  send: WatchSender,
+): Promise<void> {
+  if (!secretaryAutoReplyEnabled(env.SECRETARY_AUTO_REPLY_SCOPE)) {
+    await cancelConditionWatch(env, watch.id);
+    return;
+  }
+
+  const result = await chatWithInlineFallback(env, [
+    { role: "system", content: secretaryAutoReplySystemPrompt() },
+    {
+      role: "user",
+      content: [
+        watch.contextBlock,
+        `The final contact is ${watch.sender}. The owner still has not replied after about 12 hours. Write Botek's automatic reply now.`,
+      ].join("\n\n"),
+    },
+  ]);
+  const text = result.text.trim().slice(0, 400);
+  if (!text) {
+    await cancelConditionWatch(env, watch.id);
+    return;
+  }
+
+  try {
+    await send(env, watch.chatId, text, {
+      replyToMessageId: watch.replyToMessageId,
+      businessConnectionId: watch.connectionId,
+    });
+  } catch (error) {
+    const delivery = error as { ambiguous?: unknown; retryable?: unknown };
+    if (delivery.ambiguous === true || delivery.retryable === false) {
+      await cancelConditionWatch(env, watch.id);
+      return;
+    }
+    console.error("Secretary idle auto-reply delivery failed", watch.id, error);
+    await releaseConditionWatch(env, watch.id, FAILURE_RETRY_MS);
+    return;
+  }
+
+  await cancelConditionWatch(env, watch.id);
+}
+
 async function processClaimedWatch(
   env: Env,
   watch: ConditionWatch,
@@ -376,6 +424,8 @@ async function processClaimedWatch(
       await processLegion(env, watch, send, now);
     } else if (watch.kind === "github") {
       await processGithub(env, watch, send, now);
+    } else if (watch.kind === "secretary") {
+      await processSecretary(env, watch, send);
     } else {
       await processFeedseek(env, watch, send, now);
     }
@@ -423,6 +473,9 @@ export function conditionWatchListView(watches: ConditionWatch[]): string {
     }
     if (watch.kind === "github") {
       return `👁️ ${watch.id} · GitHub ${watch.repository}#${watch.number} · ${watch.condition}`;
+    }
+    if (watch.kind === "secretary") {
+      return `👁️ ${watch.id} · Sekretarz · ${watch.sender} · idle 12 h`;
     }
     return `👁️ ${watch.id} · Feedseek · „${watch.query}”`;
   }).join("\n").slice(0, 4_000);

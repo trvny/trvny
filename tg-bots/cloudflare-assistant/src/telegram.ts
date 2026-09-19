@@ -34,6 +34,7 @@ type TelegramMessageOptions = TelegramThreadOptions & {
   replyToMessageId?: number;
   replyMarkup?: TelegramInlineKeyboardMarkup;
   ephemeral?: TelegramEphemeralOptions;
+  businessConnectionId?: string;
 };
 type TelegramBotCommand = { command: string; description: string; is_ephemeral?: boolean };
 
@@ -530,6 +531,7 @@ export async function sendTelegramMessage(
   await telegramDelivery(env, "sendMessage", {
     chat_id: chatId,
     ...telegramThreadFields(options.messageThreadId),
+    ...(options.businessConnectionId ? { business_connection_id: options.businessConnectionId } : {}),
     text: text.slice(0, TELEGRAM_MESSAGE_MAX_CHARS),
     disable_web_page_preview: true,
     ...telegramReplyFields(options),

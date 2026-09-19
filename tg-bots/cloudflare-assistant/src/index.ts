@@ -4,19 +4,6 @@ import {
   botHelpLines,
   botStartLines,
   parseAskMessageCommand,
-  parseContactCommand,
-  parseDiceCommand,
-  parseLocationCommand,
-  parsePollCommand,
-  parseQuizCommand,
-  parseRecallCommand,
-  parseRememberCommand,
-  parseReminderCancelCommand,
-  parseReminderCommand,
-  parseTopicCommand,
-  parseWatchCancelCommand,
-  parseWatchCommand,
-  parseVenueCommand,
 } from "./commands";
 import { automaticTaskRequest, looksLikeAutomaticTaskCandidate } from "./auto-task";
 import { conversationMessages, TelegramConversationMemory } from "./conversation";
@@ -32,6 +19,7 @@ import {
 } from "./media-group";
 import { handleTelegramEphemeralAsk } from "./ephemeral";
 import { PayloadTooLargeError, readJsonWithLimit } from "./http";
+import { routeOwnerCommand, type OwnerCommand } from "./owner-command-router";
 import {
   durableMemoryContext,
   durableMemoryStatus,
@@ -70,8 +58,6 @@ import {
   getBotekTask,
   isTasksRefreshCallback,
   legionRefreshPlan,
-  parseTaskCommand,
-  parseTaskControlCommand,
   recentTasksKeyboard,
   recentTasksView,
   resolveLegionStatus,
@@ -805,6 +791,600 @@ const OWNER_CALLBACK_ROUTES: readonly PredicateRoute<
   ),
 ];
 
+type OwnerCommandContext = {
+  env: Env;
+  update: TelegramUpdate;
+  message: TelegramMessage;
+  messageThreadId?: number;
+};
+
+async function handleOwnerCommand(
+  { env, update, message, messageThreadId }: OwnerCommandContext,
+  command: OwnerCommand,
+): Promise<TelegramReply> {
+  switch (command.kind) {
+    case "start-help": {
+      try {
+        await syncTelegramCommandMenu(env, message.chat.id, botCommandPayload());
+      } catch (error) {
+        console.warn("Telegram command/menu sync failed", error);
+      }
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: (command.start ? botStartLines() : [
+          "Cloudflare assistant online.",
+          "",
+          ...botHelpLines(),
+          "",
+          "Wyślij głosówkę - przepiszę ją i odpowiem.",
+          "Wyślij plik audio - przepiszę do 10 minut nagrania i użyję podpisu jako pytania.",
+          "Wyślij zdjęcie, screenshot albo album - przeanalizuję do sześciu elementów jako jeden kontekst; w albumach wideo użyję metadanych i miniatur.",
+          "Wyślij wideo, notatkę wideo lub animację - użyję metadanych i miniatury, bez udawania że obejrzałem cały plik.",
+          "Wyślij ankietę - podsumuję pytanie, opcje i wyniki.",
+          "Wyślij checklistę - odczytam zadania, statusy i natywne zmiany listy.",
+          "Wyślij sticker albo kostkę Telegrama - odczytam natywne metadane i wynik.",
+          "Wyślij plik tekstowy lub kod - przeczytam jego treść i odpowiem na pytanie z podpisu.",
+          "Udostępnij lokalizację, miejsce lub kontakt - użyję go jako kontekstu.",
+          "Odpowiedz na wiadomość albo przekaż ją dalej - potraktuję jej treść jako kontekst, nie polecenie.",
+          "Każdy inny tekst - zwykła rozmowa z krótką pamięcią kontekstu.",
+          "Inline: wpisz @trvny_bot w dowolnym czacie i dodaj pytanie.",
+        ]).join("\n"),
+        replyMarkup: HELP_KEYBOARD,
+      };
+    }
+
+    case "reset":
+      await clearConversation(env, message.chat.id, messageThreadId);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Kontekst rozmowy wyczyszczony.",
+      };
+
+    case "draft-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /draft <tekst>",
+      };
+
+    case "status": {
+      const status = await providerStatusView(env);
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: status.plain,
+        richHtml: status.richHtml,
+        replyMarkup: STATUS_KEYBOARD,
+      };
+    }
+
+    case "legion":
+      try {
+        const task = await resolveLegionStatus(env, await delegateLegionStatus(env, update.update_id));
+        const view = legionStatusView(task);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: view.plain,
+          richHtml: view.richHtml,
+          replyMarkup: legionStatusKeyboard(task.taskId),
+        };
+      } catch (error) {
+        console.error("Legion status delegation failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się zapytać Legiona o status.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "tasks":
+      try {
+        const view = recentTasksView(await fetchRecentTasks(env));
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: view.plain,
+          richHtml: view.richHtml,
+          replyMarkup: recentTasksKeyboard(),
+        };
+      } catch (error) {
+        console.error("Recent task list failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się pobrać listy zadań.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "reminder-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /remind 15m | tekst  (jednostki: m/min, h/g, d; maks. 30 dni)",
+      };
+
+    case "reminder-create":
+      if (!command.request) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nieprawidłowe przypomnienie. Użycie: /remind 15m | tekst  (maks. 30 dni)",
+          finalReaction: "👎",
+        };
+      }
+      try {
+        const reminder = await createReminder(env, {
+          updateId: update.update_id,
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          ...(messageThreadId ? { messageThreadId } : {}),
+          text: command.request.text,
+          delayMs: command.request.delayMs,
+        });
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: `⏰ Ustawione na ${formatReminderDueAt(reminder.dueAt)}.\nID: ${reminder.id}\n${reminder.text}`,
+        };
+      } catch (error) {
+        console.error("Reminder creation failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się zapisać przypomnienia.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "reminder-list":
+      try {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: reminderListView(await listReminders(env)),
+        };
+      } catch (error) {
+        console.error("Reminder list failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się pobrać przypomnień.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "reminder-cancel-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /remind_cancel <id>",
+      };
+
+    case "reminder-cancel":
+      if (!command.id) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nieprawidłowe ID przypomnienia. Użycie: /remind_cancel <id>",
+          finalReaction: "👎",
+        };
+      }
+      try {
+        const cancelled = await cancelReminder(env, command.id);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: cancelled ? `🛑 Anulowano przypomnienie ${command.id}.` : `Nie ma aktywnego przypomnienia ${command.id}.`,
+        };
+      } catch (error) {
+        console.error("Reminder cancellation failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się anulować przypomnienia.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "watch-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: [
+          "Użycie:",
+          "/watch legion offline|online",
+          "/watch github trvny/trvny#123 ci-failed|ci-green|merged|closed",
+          "/watch feedseek <temat>",
+        ].join("\n"),
+      };
+
+    case "watch-create":
+      if (!command.request) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie rozumiem watchera. Użyj /watch bez argumentów, żeby zobaczyć przykłady.",
+          finalReaction: "👎",
+        };
+      }
+      try {
+        const watch = await initializeConditionWatch(env, command.request, update.update_id, message);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: `👁️ Watcher ustawiony.\n${conditionWatchListView([watch])}`,
+        };
+      } catch (error) {
+        console.error("Condition watch creation failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się ustawić watchera. Źródło może być chwilowo niedostępne.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "watch-list":
+      try {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: await activeConditionWatchList(env),
+        };
+      } catch (error) {
+        console.error("Condition watch list failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się pobrać watcherów.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "watch-cancel-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /watch_cancel <id>",
+      };
+
+    case "watch-cancel":
+      if (!command.id) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nieprawidłowe ID watchera. Użycie: /watch_cancel <id>",
+          finalReaction: "👎",
+        };
+      }
+      try {
+        const cancelled = await cancelConditionWatch(env, command.id);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: cancelled ? `🛑 Anulowano watcher ${command.id}.` : `Nie ma aktywnego watchera ${command.id}.`,
+        };
+      } catch (error) {
+        console.error("Condition watch cancellation failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się anulować watchera.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "remember-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /remember <tekst>",
+      };
+
+    case "remember":
+      if (!command.memory) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Pamięć jest pusta albo za długa. Limit: 2000 znaków.",
+          finalReaction: "👎",
+        };
+      }
+      try {
+        const stored = await rememberDurably(env, command.memory);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: stored.duplicate ? "🧠 Już to mam w pamięci." : "🧠 Zapamiętane.",
+        };
+      } catch (error) {
+        console.error("Durable memory store failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się zapisać pamięci długoterminowej.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "recall-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /recall <pytanie>",
+      };
+
+    case "recall":
+      if (!command.query) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Zapytanie do pamięci jest puste albo za długie. Limit: 2000 znaków.",
+          finalReaction: "👎",
+        };
+      }
+      try {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: durableMemoryView(await recallDurableMemory(env, command.query)),
+        };
+      } catch (error) {
+        console.error("Durable memory recall failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się przeszukać pamięci długoterminowej.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "memory-status":
+      try {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: durableMemoryStatusView(await durableMemoryStatus(env)),
+        };
+      } catch (error) {
+        console.error("Durable memory status failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "🧠 Engram: status niedostępny.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "location-usage":
+      return { chatId: message.chat.id, replyToMessageId: message.message_id, text: "Użycie: /location 50.123,19.456" };
+
+    case "location":
+      if (!command.location) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nieprawidłowe współrzędne. Użycie: /location szerokość,długość",
+          finalReaction: "👎",
+        };
+      }
+      return { chatId: message.chat.id, text: "Lokalizacja", location: command.location };
+
+    case "venue-usage":
+      return { chatId: message.chat.id, replyToMessageId: message.message_id, text: "Użycie: /venue 50.123,19.456 | Nazwa | Adres" };
+
+    case "venue":
+      if (!command.venue) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nieprawidłowe miejsce. Użycie: /venue lat,lon | nazwa | adres",
+          finalReaction: "👎",
+        };
+      }
+      return { chatId: message.chat.id, text: `Miejsce: ${command.venue.title}`, venue: command.venue };
+
+    case "contact-usage":
+      return { chatId: message.chat.id, replyToMessageId: message.message_id, text: "Użycie: /contact +48123456789 | Imię | Nazwisko" };
+
+    case "contact":
+      if (!command.contact) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nieprawidłowy kontakt. Użycie: /contact telefon | imię [| nazwisko]",
+          finalReaction: "👎",
+        };
+      }
+      return { chatId: message.chat.id, text: `Kontakt: ${command.contact.firstName}`, contact: command.contact };
+
+    case "sticker": {
+      const sticker = message.reply_to_message?.sticker;
+      if (!sticker?.file_id) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Odpowiedz komendą /sticker na sticker, który mam odesłać.",
+          finalReaction: "👎",
+        };
+      }
+      return {
+        chatId: message.chat.id,
+        text: sticker.emoji ? `Sticker ${sticker.emoji}` : "Sticker",
+        sticker: { fileId: sticker.file_id, emoji: sticker.emoji },
+      };
+    }
+
+    case "dice":
+      if (!command.emoji) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Użycie: /dice [🎲|🎯|🏀|⚽|🎳|🎰]",
+          finalReaction: "👎",
+        };
+      }
+      return { chatId: message.chat.id, text: `Losowanie ${command.emoji}`, dice: { emoji: command.emoji } };
+
+    case "poll-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /poll pytanie | opcja 1 | opcja 2 [| opcja 3 ...]",
+      };
+
+    case "poll":
+      if (!command.poll) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nieprawidłowa ankieta. Pytanie: 1–300 znaków, 2–12 opcji po maks. 100 znaków.",
+          finalReaction: "👎",
+        };
+      }
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: `Ankieta: ${command.poll.question}`,
+        poll: command.poll,
+      };
+
+    case "quiz-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /quiz pytanie | +poprawna | błędna [| +druga poprawna ...]",
+      };
+
+    case "quiz":
+      if (!command.quiz) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nieprawidłowy quiz. Pytanie: 1–300 znaków, 2–12 opcji po maks. 100 znaków; oznacz poprawne odpowiedzi prefiksem +.",
+          finalReaction: "👎",
+        };
+      }
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: `Quiz: ${command.quiz.question}`,
+        poll: { ...command.quiz, type: "quiz" },
+      };
+
+    case "topic-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /topic <nazwa>",
+      };
+
+    case "topic":
+      if (!command.name) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nazwa tematu musi mieć 1–128 znaków.",
+          finalReaction: "👎",
+        };
+      }
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: `Temat: ${command.name}`,
+        createTopic: { name: command.name },
+      };
+
+    case "task-control-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: command.action === "status"
+          ? "Użycie: /task_status <id>"
+          : "Użycie: /task_cancel <id>",
+      };
+
+    case "task-control":
+      if (!command.request) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nieprawidłowe ID zadania. Użyj /task_status <id> albo /task_cancel <id>.",
+          finalReaction: "👎",
+        };
+      }
+      try {
+        const task = command.request.action === "cancel"
+          ? await cancelBotekTask(env, command.request.taskId)
+          : await getBotekTask(env, command.request.taskId);
+        const view = taskView(task);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: view.plain,
+          richHtml: view.richHtml,
+          replyMarkup: taskKeyboard(task),
+        };
+      } catch (error) {
+        console.error("Pet Dispatcher task recovery failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się odczytać tego zadania z Pet Dispatchera.",
+          finalReaction: "👎",
+        };
+      }
+
+    case "task-usage":
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Użycie: /task <repo> <polecenie>",
+      };
+
+    case "task":
+      if (!command.request) {
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Użycie: /task <repo> <polecenie>",
+        };
+      }
+      try {
+        const task = await delegateBotekTask(env, command.request.repo, command.request.goal, update.update_id);
+        await watchDelegatedTask(
+          env,
+          task.taskId,
+          message,
+          command.request.repo,
+          command.request.goal,
+          messageThreadId,
+        );
+        const view = taskView(task, command.request.repo, command.request.goal);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: view.plain,
+          richHtml: view.richHtml,
+          replyMarkup: taskKeyboard(task),
+        };
+      } catch (error) {
+        console.error("Pet Dispatcher delegation failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się wysłać zadania na Legiona. Spróbuj ponownie za chwilę.",
+          finalReaction: "👎",
+        };
+      }
+  }
+}
+
 async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<TelegramReply | null> {
   const callback = update.callback_query;
   if (callback) {
@@ -891,627 +1471,12 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
   const caption = message.forward_origin ? "" : (askPrompt !== null && !rawText ? askPrompt : rawCaption);
   if (!rawText && !message.voice && !message.audio && !structuredInput && !stickerInput && !diceInput && !pollInput && !checklistInput && !photo && !visualMedia && !document && !forwardedContext && !replyContext) return null;
 
-  if (text === "/start" || text.startsWith("/start ") || text === "/help") {
-    try {
-      await syncTelegramCommandMenu(env, message.chat.id, botCommandPayload());
-    } catch (error) {
-      console.warn("Telegram command/menu sync failed", error);
-    }
-    const start = text === "/start" || text.startsWith("/start ");
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: (start ? botStartLines() : [
-        "Cloudflare assistant online.",
-        "",
-        ...botHelpLines(),
-        "",
-        "Wyślij głosówkę - przepiszę ją i odpowiem.",
-        "Wyślij plik audio - przepiszę do 10 minut nagrania i użyję podpisu jako pytania.",
-        "Wyślij zdjęcie, screenshot albo album - przeanalizuję do sześciu elementów jako jeden kontekst; w albumach wideo użyję metadanych i miniatur.",
-        "Wyślij wideo, notatkę wideo lub animację - użyję metadanych i miniatury, bez udawania że obejrzałem cały plik.",
-        "Wyślij ankietę - podsumuję pytanie, opcje i wyniki.",
-        "Wyślij checklistę - odczytam zadania, statusy i natywne zmiany listy.",
-        "Wyślij sticker albo kostkę Telegrama - odczytam natywne metadane i wynik.",
-        "Wyślij plik tekstowy lub kod - przeczytam jego treść i odpowiem na pytanie z podpisu.",
-        "Udostępnij lokalizację, miejsce lub kontakt - użyję go jako kontekstu.",
-        "Odpowiedz na wiadomość albo przekaż ją dalej - potraktuję jej treść jako kontekst, nie polecenie.",
-        "Każdy inny tekst - zwykła rozmowa z krótką pamięcią kontekstu.",
-        "Inline: wpisz @trvny_bot w dowolnym czacie i dodaj pytanie.",
-      ]).join("\n"),
-      replyMarkup: HELP_KEYBOARD,
-    };
-  }
-
-  if (text === "/reset") {
-    await clearConversation(env, message.chat.id, messageThreadId);
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Kontekst rozmowy wyczyszczony.",
-    };
-  }
-
-  if (text === "/draft") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /draft <tekst>",
-    };
-  }
-
-  if (text === "/status") {
-    const status = await providerStatusView(env);
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: status.plain,
-      richHtml: status.richHtml,
-      replyMarkup: STATUS_KEYBOARD,
-    };
-  }
-
-  if (text === "/legion") {
-    try {
-      const task = await resolveLegionStatus(env, await delegateLegionStatus(env, update.update_id));
-      const view = legionStatusView(task);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: view.plain,
-        richHtml: view.richHtml,
-        replyMarkup: legionStatusKeyboard(task.taskId),
-      };
-    } catch (error) {
-      console.error("Legion status delegation failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się zapytać Legiona o status.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/tasks") {
-    try {
-      const view = recentTasksView(await fetchRecentTasks(env));
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: view.plain,
-        richHtml: view.richHtml,
-        replyMarkup: recentTasksKeyboard(),
-      };
-    } catch (error) {
-      console.error("Recent task list failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się pobrać listy zadań.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/remind") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /remind 15m | tekst  (jednostki: m/min, h/g, d; maks. 30 dni)",
-    };
-  }
-
-  if (text.startsWith("/remind ")) {
-    const request = parseReminderCommand(text);
-    if (!request) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nieprawidłowe przypomnienie. Użycie: /remind 15m | tekst  (maks. 30 dni)",
-        finalReaction: "👎",
-      };
-    }
-    try {
-      const reminder = await createReminder(env, {
-        updateId: update.update_id,
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        ...(messageThreadId ? { messageThreadId } : {}),
-        text: request.text,
-        delayMs: request.delayMs,
-      });
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: `⏰ Ustawione na ${formatReminderDueAt(reminder.dueAt)}.\nID: ${reminder.id}\n${reminder.text}`,
-      };
-    } catch (error) {
-      console.error("Reminder creation failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się zapisać przypomnienia.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/reminders") {
-    try {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: reminderListView(await listReminders(env)),
-      };
-    } catch (error) {
-      console.error("Reminder list failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się pobrać przypomnień.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/remind_cancel") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /remind_cancel <id>",
-    };
-  }
-
-  if (text.startsWith("/remind_cancel ")) {
-    const reminderId = parseReminderCancelCommand(text);
-    if (!reminderId) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nieprawidłowe ID przypomnienia. Użycie: /remind_cancel <id>",
-        finalReaction: "👎",
-      };
-    }
-    try {
-      const cancelled = await cancelReminder(env, reminderId);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: cancelled ? `🛑 Anulowano przypomnienie ${reminderId}.` : `Nie ma aktywnego przypomnienia ${reminderId}.`,
-      };
-    } catch (error) {
-      console.error("Reminder cancellation failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się anulować przypomnienia.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/watch") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: [
-        "Użycie:",
-        "/watch legion offline|online",
-        "/watch github trvny/trvny#123 ci-failed|ci-green|merged|closed",
-        "/watch feedseek <temat>",
-      ].join("\n"),
-    };
-  }
-
-  if (text.startsWith("/watch ")) {
-    const request = parseWatchCommand(text);
-    if (!request) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie rozumiem watchera. Użyj /watch bez argumentów, żeby zobaczyć przykłady.",
-        finalReaction: "👎",
-      };
-    }
-    try {
-      const watch = await initializeConditionWatch(env, request, update.update_id, message);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: `👁️ Watcher ustawiony.\n${conditionWatchListView([watch])}`,
-      };
-    } catch (error) {
-      console.error("Condition watch creation failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się ustawić watchera. Źródło może być chwilowo niedostępne.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/watches") {
-    try {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: await activeConditionWatchList(env),
-      };
-    } catch (error) {
-      console.error("Condition watch list failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się pobrać watcherów.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/watch_cancel") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /watch_cancel <id>",
-    };
-  }
-
-  if (text.startsWith("/watch_cancel ")) {
-    const watchId = parseWatchCancelCommand(text);
-    if (!watchId) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nieprawidłowe ID watchera. Użycie: /watch_cancel <id>",
-        finalReaction: "👎",
-      };
-    }
-    try {
-      const cancelled = await cancelConditionWatch(env, watchId);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: cancelled ? `🛑 Anulowano watcher ${watchId}.` : `Nie ma aktywnego watchera ${watchId}.`,
-      };
-    } catch (error) {
-      console.error("Condition watch cancellation failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się anulować watchera.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/remember") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /remember <tekst>",
-    };
-  }
-
-  if (text.startsWith("/remember ")) {
-    const memory = parseRememberCommand(text);
-    if (!memory) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Pamięć jest pusta albo za długa. Limit: 2000 znaków.",
-        finalReaction: "👎",
-      };
-    }
-    try {
-      const stored = await rememberDurably(env, memory);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: stored.duplicate ? "🧠 Już to mam w pamięci." : "🧠 Zapamiętane.",
-      };
-    } catch (error) {
-      console.error("Durable memory store failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się zapisać pamięci długoterminowej.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/recall") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /recall <pytanie>",
-    };
-  }
-
-  if (text.startsWith("/recall ")) {
-    const query = parseRecallCommand(text);
-    if (!query) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Zapytanie do pamięci jest puste albo za długie. Limit: 2000 znaków.",
-        finalReaction: "👎",
-      };
-    }
-    try {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: durableMemoryView(await recallDurableMemory(env, query)),
-      };
-    } catch (error) {
-      console.error("Durable memory recall failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się przeszukać pamięci długoterminowej.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/memory_status") {
-    try {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: durableMemoryStatusView(await durableMemoryStatus(env)),
-      };
-    } catch (error) {
-      console.error("Durable memory status failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "🧠 Engram: status niedostępny.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/location") {
-    return { chatId: message.chat.id, replyToMessageId: message.message_id, text: "Użycie: /location 50.123,19.456" };
-  }
-  if (text.startsWith("/location ")) {
-    const location = parseLocationCommand(text);
-    if (!location) return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Nieprawidłowe współrzędne. Użycie: /location szerokość,długość",
-      finalReaction: "👎",
-    };
-    return { chatId: message.chat.id, text: "Lokalizacja", location };
-  }
-
-  if (text === "/venue") {
-    return { chatId: message.chat.id, replyToMessageId: message.message_id, text: "Użycie: /venue 50.123,19.456 | Nazwa | Adres" };
-  }
-  if (text.startsWith("/venue ")) {
-    const venue = parseVenueCommand(text);
-    if (!venue) return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Nieprawidłowe miejsce. Użycie: /venue lat,lon | nazwa | adres",
-      finalReaction: "👎",
-    };
-    return { chatId: message.chat.id, text: `Miejsce: ${venue.title}`, venue };
-  }
-
-  if (text === "/contact") {
-    return { chatId: message.chat.id, replyToMessageId: message.message_id, text: "Użycie: /contact +48123456789 | Imię | Nazwisko" };
-  }
-  if (text.startsWith("/contact ")) {
-    const contact = parseContactCommand(text);
-    if (!contact) return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Nieprawidłowy kontakt. Użycie: /contact telefon | imię [| nazwisko]",
-      finalReaction: "👎",
-    };
-    return { chatId: message.chat.id, text: `Kontakt: ${contact.firstName}`, contact };
-  }
-
-  if (text === "/sticker") {
-    const sticker = message.reply_to_message?.sticker;
-    if (!sticker?.file_id) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Odpowiedz komendą /sticker na sticker, który mam odesłać.",
-        finalReaction: "👎",
-      };
-    }
-    return {
-      chatId: message.chat.id,
-      text: sticker.emoji ? `Sticker ${sticker.emoji}` : "Sticker",
-      sticker: { fileId: sticker.file_id, emoji: sticker.emoji },
-    };
-  }
-
-  if (text === "/dice" || text.startsWith("/dice ")) {
-    const emoji = parseDiceCommand(text);
-    if (!emoji) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Użycie: /dice [🎲|🎯|🏀|⚽|🎳|🎰]",
-        finalReaction: "👎",
-      };
-    }
-    return { chatId: message.chat.id, text: `Losowanie ${emoji}`, dice: { emoji } };
-  }
-
-  if (text === "/poll") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /poll pytanie | opcja 1 | opcja 2 [| opcja 3 ...]",
-    };
-  }
-
-  if (text.startsWith("/poll ")) {
-    const poll = parsePollCommand(text);
-    if (!poll) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nieprawidłowa ankieta. Pytanie: 1–300 znaków, 2–12 opcji po maks. 100 znaków.",
-        finalReaction: "👎",
-      };
-    }
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: `Ankieta: ${poll.question}`,
-      poll,
-    };
-  }
-
-  if (text === "/quiz") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /quiz pytanie | +poprawna | błędna [| +druga poprawna ...]",
-    };
-  }
-
-  if (text.startsWith("/quiz ")) {
-    const quiz = parseQuizCommand(text);
-    if (!quiz) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nieprawidłowy quiz. Pytanie: 1–300 znaków, 2–12 opcji po maks. 100 znaków; oznacz poprawne odpowiedzi prefiksem +.",
-        finalReaction: "👎",
-      };
-    }
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: `Quiz: ${quiz.question}`,
-      poll: { ...quiz, type: "quiz" },
-    };
-  }
-
-  if (text === "/topic") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /topic <nazwa>",
-    };
-  }
-
-  if (text.startsWith("/topic ")) {
-    const name = parseTopicCommand(text);
-    if (!name) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nazwa tematu musi mieć 1–128 znaków.",
-        finalReaction: "👎",
-      };
-    }
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: `Temat: ${name}`,
-      createTopic: { name },
-    };
-  }
-
-  if (text === "/task_status" || text === "/task_cancel") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: text === "/task_status"
-        ? "Użycie: /task_status <id>"
-        : "Użycie: /task_cancel <id>",
-    };
-  }
-
-  if (text.startsWith("/task_status ") || text.startsWith("/task_cancel ")) {
-    const taskControl = parseTaskControlCommand(text);
-    if (!taskControl) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nieprawidłowe ID zadania. Użyj /task_status <id> albo /task_cancel <id>.",
-        finalReaction: "👎",
-      };
-    }
-    try {
-      const task = taskControl.action === "cancel"
-        ? await cancelBotekTask(env, taskControl.taskId)
-        : await getBotekTask(env, taskControl.taskId);
-      const view = taskView(task);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: view.plain,
-        richHtml: view.richHtml,
-        replyMarkup: taskKeyboard(task),
-      };
-    } catch (error) {
-      console.error("Pet Dispatcher task recovery failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się odczytać tego zadania z Pet Dispatchera.",
-        finalReaction: "👎",
-      };
-    }
-  }
-
-  if (text === "/task") {
-    return {
-      chatId: message.chat.id,
-      replyToMessageId: message.message_id,
-      text: "Użycie: /task <repo> <polecenie>",
-    };
-  }
-
-  if (text.startsWith("/task ")) {
-    const taskRequest = parseTaskCommand(text);
-    if (!taskRequest) {
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Użycie: /task <repo> <polecenie>",
-      };
-    }
-    try {
-      const task = await delegateBotekTask(env, taskRequest.repo, taskRequest.goal, update.update_id);
-      await watchDelegatedTask(
-        env,
-        task.taskId,
-        message,
-        taskRequest.repo,
-        taskRequest.goal,
-        messageThreadId,
-      );
-      const view = taskView(task, taskRequest.repo, taskRequest.goal);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: view.plain,
-        richHtml: view.richHtml,
-        replyMarkup: taskKeyboard(task),
-      };
-    } catch (error) {
-      console.error("Pet Dispatcher delegation failed", error);
-      return {
-        chatId: message.chat.id,
-        replyToMessageId: message.message_id,
-        text: "Nie udało się wysłać zadania na Legiona. Spróbuj ponownie za chwilę.",
-        finalReaction: "👎",
-      };
-    }
+  const commandRoute = await routeOwnerCommand(text);
+  if (commandRoute.matched) {
+    return handleOwnerCommand(
+      { env, update, message, ...(messageThreadId ? { messageThreadId } : {}) },
+      commandRoute.value,
+    );
   }
 
   if (

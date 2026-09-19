@@ -25,6 +25,7 @@ import {
   parseTaskCommand,
   parseTaskControlCommand,
   type BotekTaskControlRequest,
+  type BotekTaskRequest,
 } from "./tasks.ts";
 import {
   definePredicateRoute,
@@ -72,7 +73,7 @@ export type OwnerCommand =
   | { kind: "task-control-usage"; action: "status" | "cancel" }
   | { kind: "task-control"; request: BotekTaskControlRequest | null }
   | { kind: "task-usage" }
-  | { kind: "task"; request: { repo: string; goal: string } | null };
+  | { kind: "task"; request: BotekTaskRequest | null };
 
 type TextRoute = PredicateRoute<string, OwnerCommand>;
 

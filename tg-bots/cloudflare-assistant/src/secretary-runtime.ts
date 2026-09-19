@@ -2,6 +2,8 @@ import { chatWithInlineFallback } from "./providers";
 import {
   formatSecretaryNotification,
   isOwnerBusinessConnection,
+  secretaryAutoReplyDueAt,
+  secretaryAutoReplyEnabled,
   secretaryContextBlock,
   secretaryContextEntry,
   secretaryDraftInput,
@@ -19,6 +21,14 @@ import type {
   TelegramBusinessMessage,
   TelegramBusinessMessagesDeleted,
 } from "./secretary";
+import {
+  cancelConditionWatch,
+  createConditionWatch,
+  listConditionWatches,
+  updateConditionWatch,
+  watchIdForUpdate,
+  type SecretaryIdleWatch,
+} from "./watches";
 
 const TELEGRAM_API = "https://api.telegram.org";
 
@@ -49,6 +59,90 @@ function ownerChatId(env: Env, connection: TelegramBusinessConnection): string |
 function secretaryContextStub(env: Env, connectionId: string, chatId: number) {
   const id = env.TELEGRAM_MEMORY.idFromName(`secretary:${connectionId}:${chatId}`);
   return env.TELEGRAM_MEMORY.get(id);
+}
+
+function secretaryWatchMatches(
+  watch: SecretaryIdleWatch,
+  connectionId: string,
+  chatId?: number,
+): boolean {
+  return watch.connectionId === connectionId &&
+    (chatId === undefined || watch.chatId === chatId);
+}
+
+async function matchingSecretaryWatches(
+  env: Env,
+  connectionId: string,
+  chatId?: number,
+): Promise<SecretaryIdleWatch[]> {
+  const watches = await listConditionWatches(env);
+  return watches.filter((watch): watch is SecretaryIdleWatch =>
+    watch.kind === "secretary" && secretaryWatchMatches(watch, connectionId, chatId)
+  );
+}
+
+async function cancelSecretaryAutoReplies(
+  env: Env,
+  connectionId: string,
+  chatId?: number,
+): Promise<void> {
+  try {
+    const watches = await matchingSecretaryWatches(env, connectionId, chatId);
+    await Promise.all(watches.map((watch) => cancelConditionWatch(env, watch.id)));
+  } catch (error) {
+    console.warn("Telegram secretary idle watch cancel failed", error);
+  }
+}
+
+async function refreshSecretaryAutoReplyContext(
+  env: Env,
+  connectionId: string,
+  chatId: number,
+  contextBlock: string,
+): Promise<void> {
+  if (!contextBlock) return;
+  try {
+    const watches = await matchingSecretaryWatches(env, connectionId, chatId);
+    await Promise.all(watches.map((watch) =>
+      updateConditionWatch(env, { ...watch, contextBlock })
+    ));
+  } catch (error) {
+    console.warn("Telegram secretary idle watch refresh failed", error);
+  }
+}
+
+async function scheduleSecretaryAutoReply(
+  env: Env,
+  updateId: number | undefined,
+  connection: TelegramBusinessConnection,
+  input: { chatId: number; messageId: number; sender: string },
+  contextBlock: string,
+  messageDate?: number,
+): Promise<void> {
+  if (!secretaryAutoReplyEnabled(env.SECRETARY_AUTO_REPLY_SCOPE)) return;
+  if (!connection.rights?.can_reply || !Number.isSafeInteger(updateId) || !contextBlock) return;
+
+  try {
+    const existing = await matchingSecretaryWatches(env, connection.id, input.chatId);
+    await Promise.all(existing.map((watch) => cancelConditionWatch(env, watch.id)));
+
+    const now = Date.now();
+    await createConditionWatch(env, {
+      id: watchIdForUpdate(updateId as number),
+      chatId: input.chatId,
+      replyToMessageId: input.messageId,
+      createdAt: new Date(now).toISOString(),
+      nextCheckAt: secretaryAutoReplyDueAt(messageDate, now),
+      status: "active",
+      failures: 0,
+      kind: "secretary",
+      connectionId: connection.id,
+      sender: input.sender,
+      contextBlock,
+    });
+  } catch (error) {
+    console.warn("Telegram secretary idle watch schedule failed", error);
+  }
 }
 
 async function loadSecretaryContext(
@@ -134,10 +228,16 @@ async function notifyConnection(env: Env, connection: TelegramBusinessConnection
     connection.rights?.can_reply ? "reply" : null,
     connection.rights?.can_read_messages ? "read-receipts" : null,
   ].filter(Boolean).join(", ") || "brak dodatkowych praw";
+  if (!connection.is_enabled || !connection.rights?.can_reply) {
+    await cancelSecretaryAutoReplies(env, connection.id);
+  }
+  const idle = secretaryAutoReplyEnabled(env.SECRETARY_AUTO_REPLY_SCOPE)
+    ? "Auto-reply po 12 h: contacts-only."
+    : "Auto-reply po 12 h: wyłączony.";
   await sendTelegramMessage(
     env,
     ownerChatId(env, connection),
-    `🧑‍💼 Sekretarz Telegram: ${state}. Uprawnienia Telegrama: ${rights}. Botek pozostaje w trybie draft-only i nie odpowiada za Ciebie automatycznie.`,
+    `🧑‍💼 Sekretarz Telegram: ${state}. Uprawnienia Telegrama: ${rights}. ${idle}`,
   );
 }
 
@@ -152,6 +252,17 @@ async function syncEditedBusinessMessage(
   const entry = secretaryContextEntry(message, connection);
   if (entry) {
     await appendSecretaryContext(env, connection.id, message.chat.id, entry);
+    if (entry.direction === "owner") {
+      await cancelSecretaryAutoReplies(env, connection.id, message.chat.id);
+    } else {
+      const context = await loadSecretaryContext(env, connection.id, message.chat.id);
+      await refreshSecretaryAutoReplyContext(
+        env,
+        connection.id,
+        message.chat.id,
+        secretaryContextBlock(context),
+      );
+    }
   } else {
     await removeSecretaryContext(env, connection.id, message.chat.id, [message.message_id]);
   }
@@ -170,11 +281,13 @@ async function syncDeletedBusinessMessages(
   const connection = await getBusinessConnection(env, connectionId);
   if (!isOwnerBusinessConnection(connection, env.OWNER_TELEGRAM_USER_ID)) return;
   await removeSecretaryContext(env, connection.id, deleted.chat.id, messageIds);
+  await cancelSecretaryAutoReplies(env, connection.id, deleted.chat.id);
 }
 
 async function draftIncomingBusinessMessage(
   env: Env,
   message: TelegramBusinessMessage,
+  updateId?: number,
 ): Promise<void> {
   const connectionId = message.business_connection_id?.trim();
   if (!connectionId) return;
@@ -186,6 +299,9 @@ async function draftIncomingBusinessMessage(
   const input = secretaryDraftInput(message, connection);
   if (!input) {
     await appendSecretaryContext(env, connection.id, message.chat.id, contextEntry);
+    if (contextEntry.direction === "owner") {
+      await cancelSecretaryAutoReplies(env, connection.id, message.chat.id);
+    }
     return;
   }
 
@@ -217,6 +333,14 @@ async function draftIncomingBusinessMessage(
     );
   } finally {
     await appendSecretaryContext(env, connection.id, input.chatId, contextEntry);
+    await scheduleSecretaryAutoReply(
+      env,
+      updateId,
+      connection,
+      input,
+      contextBlock,
+      message.date,
+    );
   }
 }
 
@@ -228,7 +352,8 @@ export async function handleTelegramSecretaryUpdate(env: Env, update: unknown): 
     return true;
   }
   if (business.business_message) {
-    await draftIncomingBusinessMessage(env, business.business_message);
+    const updateId = Number.isSafeInteger(business.update_id) ? business.update_id : undefined;
+    await draftIncomingBusinessMessage(env, business.business_message, updateId);
     return true;
   }
   if (business.edited_business_message) {

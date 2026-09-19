@@ -5,6 +5,10 @@ INGEST_SECRET=replace-with-a-long-random-string
 OWNER_TELEGRAM_USER_ID=123456789
 TELEGRAM_OWNER_CHAT_ID=123456789
 
+# Leave empty unless Telegram Business recipients are configured to Contacts only.
+# Set to contacts-only to enable the 12h Secretary idle auto-reply.
+SECRETARY_AUTO_REPLY_SCOPE=
+
 # Optional locally. Production can copy the existing repo secret through
 # .github/workflows/automation-sync.yml after the Worker exists.
 KANAREK_REVIEW_ROUTER_TOKEN=

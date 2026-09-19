@@ -23,13 +23,27 @@ test("allows an ordinary inspect/code agent-goal task with no extra scope", () =
   assert.doesNotThrow(() => assertAssistantTaskAllowed(agentTask({ profile: "code", goal: "fix the bug" })));
 });
 
-test("rejects an agent task that requests capabilities or network access", () => {
+test("allows only approved brokered network profiles for assistant agent tasks", () => {
+  assert.doesNotThrow(() => assertAssistantTaskAllowed(agentTask({
+    profile: "code",
+    network: { mode: "brokered", profile: "github-npm-read" },
+  })));
+  assert.doesNotThrow(() => assertAssistantTaskAllowed(agentTask({
+    network: { mode: "brokered", profile: "github-read" },
+  })));
   assert.throws(
-    () => assertAssistantTaskAllowed(agentTask({ capabilities: ["workspace.read"] })),
+    () => assertAssistantTaskAllowed(agentTask({ network: { mode: "brokered", profile: "cloudflare-api" } })),
     /assistant_task_scope_forbidden/u,
   );
   assert.throws(
-    () => assertAssistantTaskAllowed(agentTask({ network: { mode: "brokered", profile: "build" } })),
+    () => assertAssistantTaskAllowed(agentTask({ network: { mode: "brokered", profile: "anything" } })),
+    /assistant_task_scope_forbidden/u,
+  );
+});
+
+test("assistant agent tasks still cannot request explicit capabilities", () => {
+  assert.throws(
+    () => assertAssistantTaskAllowed(agentTask({ capabilities: ["workspace.read"] })),
     /assistant_task_scope_forbidden/u,
   );
 });

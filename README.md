@@ -31,9 +31,7 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-| Repository | PR | Title | Author | State | Updated |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#680](https://github.com/trvny/trvny/pull/680) | docs(pet-dispatcher): record S4 WoL findings from the physical Legion | @trvny | ready | 2026-09-17 |
+No open pull requests. 🎉
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

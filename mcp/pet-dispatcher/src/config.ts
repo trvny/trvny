@@ -74,7 +74,7 @@ export type DispatcherConfig = Omit<ParsedDispatcherConfig, "workspaces" | "sess
   workspaces?: ParsedDispatcherConfig["workspaces"];
   sessionReaperIntervalMs?: number;
   resourceLimits?: ParsedDispatcherConfig["resourceLimits"];
-  remote?: Omit<ParsedRemoteConfig, "pollMaxIntervalMs"> & { pollMaxIntervalMs?: number };
+  remote?: Omit<ParsedRemoteConfig, "pollMaxIntervalMs" | "syncRepositories"> & { pollMaxIntervalMs?: number; syncRepositories?: boolean };
 };
 
 function resolveLocalPath(value: string, base: string): string { return resolve(isAbsolute(value) ? value : resolve(base, value)); }

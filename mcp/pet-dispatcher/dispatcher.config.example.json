@@ -51,6 +51,7 @@
     "pollMaxIntervalMs": 60000,
     "heartbeatIntervalMs": 15000,
     "visibilityTimeoutMs": 1800000,
+    "syncRepositories": true,
     "journalPath": "remote-journal.json"
   }
 }

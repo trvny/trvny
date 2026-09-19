@@ -46,7 +46,9 @@ const remoteSchema = z.object({
   pollIntervalMs: z.number().int().min(1_000).max(60_000).default(5_000),
   pollMaxIntervalMs: z.number().int().min(1_000).max(300_000).default(60_000),
   heartbeatIntervalMs: z.number().int().min(5_000).max(60_000).default(15_000),
-  visibilityTimeoutMs: z.number().int().min(1_800_000).max(43_200_000).default(1_800_000), journalPath: z.string().min(1).default("remote-journal.json"),
+  visibilityTimeoutMs: z.number().int().min(1_800_000).max(43_200_000).default(1_800_000),
+  syncRepositories: z.boolean().default(true),
+  journalPath: z.string().min(1).default("remote-journal.json"),
 }).superRefine((value, ctx) => {
   if (value.pollMaxIntervalMs < value.pollIntervalMs) {
     ctx.addIssue({ code: "custom", path: ["pollMaxIntervalMs"], message: "maximum poll interval may not be lower than the base interval" });
@@ -72,7 +74,7 @@ export type DispatcherConfig = Omit<ParsedDispatcherConfig, "workspaces" | "sess
   workspaces?: ParsedDispatcherConfig["workspaces"];
   sessionReaperIntervalMs?: number;
   resourceLimits?: ParsedDispatcherConfig["resourceLimits"];
-  remote?: Omit<ParsedRemoteConfig, "pollMaxIntervalMs"> & { pollMaxIntervalMs?: number };
+  remote?: Omit<ParsedRemoteConfig, "pollMaxIntervalMs" | "syncRepositories"> & { pollMaxIntervalMs?: number; syncRepositories?: boolean };
 };
 
 function resolveLocalPath(value: string, base: string): string { return resolve(isAbsolute(value) ? value : resolve(base, value)); }

@@ -143,6 +143,23 @@ Suggested order: Hermes/Legion handoff → long-term memory → multimodal input
 8. **Mini App** — provide a Telegram-native dashboard for Memory, Tasks, GitHub, Feeds, Models, Legion and service status. Use Mini App capabilities such as theme integration, QR scanning, device storage or biometrics only where they improve a concrete workflow.
 
 Suggested order: typing/replies/formatting/buttons → callbacks/editing/reactions → inline mode → richer media → Mini App and broader Telegram surfaces.
+
+### Framework audit
+
+The maintained audit of Go Telegram frameworks lives in
+[`FRAMEWORK-AUDIT.md`](FRAMEWORK-AUDIT.md). Botek stays on TypeScript and
+Cloudflare; the useful ideas are internal patterns, not a rewrite.
+
+The main ideas worth importing are:
+
+- typed predicate-based update routing instead of growing one giant handler;
+- a small middleware layer for owner scope, callback ACK and shared guards;
+- durable typed multi-step flows/FSMs with timeout, cancel and versioning;
+- opaque expiring callback payload IDs for richer buttons and approvals;
+- Bot API version/drift review without chasing full API coverage;
+- an injectable fake Telegram transport for contract tests;
+- small UI builders only where repeated structures justify them.
+
 ### Telegram capability backlog
 
 Keep this list as the single roadmap for Telegram-platform features that are interesting but not all worth shipping at once. Prefer features that improve the owner's daily Botek workflow; keep Business/Secretary and account-management surfaces explicitly opt-in.

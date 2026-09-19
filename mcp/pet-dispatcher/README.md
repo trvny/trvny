@@ -43,6 +43,8 @@ Remote envelopes and worker callbacks use an HMAC secret that stays in Cloudflar
 
 `restricted` direct egress is still fail-closed. Remote tasks may request `none` or a configured `brokered` network profile only.
 
+The Telegram assistant is narrower than the general control plane. It may request brokered networking only through the fixed `github-read`, `npm-read`, `github-npm-read`, or `android-read` profiles, with no explicit capability expansion. `cloudflare-api` and arbitrary profile names are rejected server-side. The sandbox still receives only the ephemeral localhost proxy and a scrubbed environment, not host credentials or unrestricted sockets.
+
 ## Remote control plane
 
 The first transport implementation uses Cloudflare Queues with an HTTP pull consumer. The Legion opens outbound HTTPS connections only. No public listener or router port-forward is required.

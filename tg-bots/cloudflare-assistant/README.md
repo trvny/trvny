@@ -51,7 +51,14 @@ Engram-backed long-term memory, broader Telegram Business send-on-behalf workflo
 
 ## Roadmap
 
-The detailed Botek roadmap lives in [`../CONCEPT.md`](../CONCEPT.md#botek-roadmap) so the agent/integration plan and Telegram-native feature plan have one maintained source of truth.
+The detailed Botek roadmap lives in
+[`../CONCEPT.md`](../CONCEPT.md#botek-roadmap), so the agent/integration plan
+and Telegram-native feature plan have one maintained source of truth.
+
+The framework-pattern audit lives in
+[`../FRAMEWORK-AUDIT.md`](../FRAMEWORK-AUDIT.md). It records which ideas from
+Go Telegram frameworks are worth porting into Botek without replacing the
+Cloudflare/TypeScript runtime.
 
 ## Reused infrastructure
 

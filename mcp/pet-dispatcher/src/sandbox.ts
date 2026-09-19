@@ -117,6 +117,16 @@ export function discoveredToolGrantRoot(executable: string, platform = process.p
   return match?.[1] ?? win32.dirname(normalized);
 }
 
+export function configuredHostToolGrantRoots(
+  configuredRoot: string,
+  executable: string,
+  platform = process.platform,
+): string[] {
+  const runtimeRoot = discoveredToolGrantRoot(executable, platform);
+  const key = (value: string) => platform === "win32" ? win32.normalize(value).toLowerCase() : resolve(value);
+  return key(runtimeRoot) === key(configuredRoot) ? [configuredRoot] : [configuredRoot, runtimeRoot];
+}
+
 export function allowWindowsForExecutable(hostTool: boolean, platform = process.platform): boolean {
   return platform === "win32" && hostTool;
 }
@@ -220,7 +230,16 @@ export class CommandRunner {
         try {
           await access(candidate, constants.F_OK);
           const target = await realpath(candidate);
-          if (pathInside(root, target)) return { path: target, hostTool: true };
+          if (!pathInside(root, target)) continue;
+          for (const grantCandidate of configuredHostToolGrantRoots(root, target)) {
+            const grantRoot = await realpath(grantCandidate);
+            if (pathKey(grantRoot) === pathKey(parse(grantRoot).root)) {
+              throw new Error("refusing filesystem root as a host tool grant");
+            }
+            if (!pathInside(grantRoot, target)) throw new Error("host tool grant does not contain executable");
+            if (!this.toolRoots.some((item) => pathKey(item) === pathKey(grantRoot))) this.toolRoots.push(grantRoot);
+          }
+          return { path: target, hostTool: true };
         } catch { /* keep searching configured roots */ }
       }
     }

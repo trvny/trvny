@@ -24,6 +24,27 @@ test("builds a stateless prompt and strips a leading bot mention", () => {
   assert.equal(buildGuestPrompt(message({ text: "@trvny_bot   co to jest?" })), "co to jest?");
 });
 
+test("defaults a bare guest summon to standalone jester mode", () => {
+  const prompt = buildGuestPrompt(message({ text: "@trvny_bot" }));
+  assert.match(prompt, /Jester Mode/u);
+  assert.match(prompt, /joke, bait, or roast/u);
+  assert.match(prompt, /standalone chat reply/u);
+});
+
+test("defaults a bare reply summon to contextual jester mode", () => {
+  const prompt = buildGuestPrompt(message({
+    text: "@trvny_bot",
+    reply_to_message: {
+      message_id: 2,
+      chat: { id: -100, type: "supergroup" },
+      text: "jutro na pewno będę punktualnie",
+    },
+  }));
+  assert.match(prompt, /Jester Mode/u);
+  assert.match(prompt, /quoted Telegram message as the target\/context/u);
+  assert.match(prompt, /jutro na pewno będę punktualnie/u);
+});
+
 test("frames replied-to content as untrusted bounded context", () => {
   const prompt = buildGuestPrompt(message({
     text: "streść",

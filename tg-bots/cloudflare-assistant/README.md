@@ -191,7 +191,11 @@ Secretary mode remains deliberately **draft-only**. Botek keeps at most six rece
 
 The model sees that tiny history and the current incoming message as explicitly **untrusted data**, then produces a suggested reply through the stateless short-deadline path. The suggestion is sent privately to `TELEGRAM_OWNER_CHAT_ID` (or the connection's `user_chat_id` fallback) with an explicit `Nic nie zostało wysłane za Ciebie.` footer. `getUserPersonalChatMessages` is not used for this: Telegram defines it as the user's profile personal-chat surface, not direct-message conversation history.
 
-No Business API method that acts on the owner's behalf is used here: no automatic reply, read receipt, deletion, scheduling, payment, task execution or commitment. Broader Secretary actions belong to later opt-in slices with separate permissions and explicit approval boundaries.
+The default remains draft-only. Optional idle auto-reply is deliberately fail-closed: set `SECRETARY_AUTO_REPLY_SCOPE=contacts-only` only after the Telegram Business bot recipients are configured to **Contacts** with **Non-contacts** disabled. Bot API does not expose per-message contact membership, so the Worker cannot independently verify that recipient filter.
+
+With that explicit contacts-only gate enabled, each incoming contact message replaces the previous pending reply for the same Business chat. An owner reply cancels it. If the owner stays silent for 12 hours, the existing minute cron asks the normal free-model router for one short, context-aware Botek reply and sends it on behalf of the Business connection. The prompt must identify Botek as the assistant instead of impersonating the owner, may use dry/edgy humor when it fits, and must not make commitments about money, dates, appointments, work, purchases, consent or other consequential decisions. Ambiguous delivery is never retried.
+
+No other Business action is automated: no read receipt, deletion, payment, task execution or commitment. Broader Secretary actions remain opt-in with separate permissions and approval boundaries.
 
 ### Telegram profile tooling
 

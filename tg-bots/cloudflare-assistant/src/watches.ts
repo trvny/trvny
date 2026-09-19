@@ -37,10 +37,18 @@ export type FeedseekConditionWatch = WatchBase & {
   seenIds: string[];
 };
 
+export type SecretaryIdleWatch = WatchBase & {
+  kind: "secretary";
+  connectionId: string;
+  sender: string;
+  contextBlock: string;
+};
+
 export type ConditionWatch =
   | LegionConditionWatch
   | GithubConditionWatch
-  | FeedseekConditionWatch;
+  | FeedseekConditionWatch
+  | SecretaryIdleWatch;
 
 const STORE_KEY = "condition-watches";
 const MAX_WATCHES = 32;
@@ -112,6 +120,13 @@ function validWatch(value: unknown): value is ConditionWatch {
       Array.isArray(item.seenIds) &&
       item.seenIds.length <= MAX_SEEN_IDS &&
       item.seenIds.every((entry) => typeof entry === "string" && entry.length > 0 && entry.length <= FEEDSEEK_ID_MAX);
+  }
+
+  if (item.kind === "secretary") {
+    return typeof item.connectionId === "string" &&
+      item.connectionId.length > 0 && item.connectionId.length <= 256 &&
+      typeof item.sender === "string" && item.sender.length > 0 && item.sender.length <= 180 &&
+      typeof item.contextBlock === "string" && item.contextBlock.length > 0 && item.contextBlock.length <= 3_500;
   }
 
   return false;

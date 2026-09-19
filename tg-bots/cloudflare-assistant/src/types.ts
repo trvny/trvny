@@ -434,6 +434,7 @@ export type Env = {
   INGEST_SECRET?: string;
   OWNER_TELEGRAM_USER_ID?: string;
   TELEGRAM_OWNER_CHAT_ID?: string;
+  SECRETARY_AUTO_REPLY_SCOPE?: string;
   KANAREK_REVIEW_ROUTER_TOKEN?: string;
   WORKERS_AI_MODEL: string;
   RSS_MIN_SCORE: string;

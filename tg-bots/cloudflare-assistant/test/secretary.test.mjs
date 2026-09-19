@@ -37,6 +37,21 @@ function durableState() {
   };
 }
 
+test("gates idle auto-replies to explicit contacts-only mode and waits 12 hours", () => {
+  assert.equal(secretary.secretaryAutoReplyEnabled("contacts-only"), true);
+  assert.equal(secretary.secretaryAutoReplyEnabled("CONTACTS-ONLY"), true);
+  assert.equal(secretary.secretaryAutoReplyEnabled(undefined), false);
+  assert.equal(secretary.secretaryAutoReplyEnabled("all"), false);
+
+  const now = 1_700_000_000_000;
+  assert.equal(
+    secretary.secretaryAutoReplyDueAt(now / 1000, now),
+    new Date(now + 12 * 60 * 60_000).toISOString(),
+  );
+  assert.match(secretary.secretaryAutoReplySystemPrompt(), /Botek/u);
+  assert.match(secretary.secretaryAutoReplySystemPrompt(), /Never impersonate the owner/u);
+});
+
 test("accepts only enabled owner business connections", () => {
   assert.ok(secretary.isOwnerBusinessConnection, "owner connection guard should exist");
   assert.equal(secretary.isOwnerBusinessConnection(connection, "42"), true);

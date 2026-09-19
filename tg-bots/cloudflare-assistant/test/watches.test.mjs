@@ -158,6 +158,48 @@ test("GitHub watch compares compact PR state and finishes after the condition ma
   assert.equal((await listConditionWatches(env)).length, 0);
 });
 
+test("Secretary idle watch sends one contextual Business reply and then disappears", async () => {
+  const env = baseEnv({
+    SECRETARY_AUTO_REPLY_SCOPE: "contacts-only",
+    WORKERS_AI_MODEL: "@cf/test/model",
+    AI: {
+      async run() {
+        return {
+          response: "🤖 Botek tu. Tomek najwyraźniej wpadł do czarnej dziury powiadomień, ale szturchnąłem go w ten temat.",
+        };
+      },
+    },
+  });
+  const now = Date.now();
+  await createConditionWatch(env, {
+    id: watchIdForUpdate(3001),
+    chatId: 555,
+    replyToMessageId: 99,
+    createdAt: new Date(now - 13 * 60 * 60_000).toISOString(),
+    nextCheckAt: new Date(now - 1_000).toISOString(),
+    status: "active",
+    failures: 0,
+    kind: "secretary",
+    connectionId: "business-1",
+    sender: "Ada (@ada)",
+    contextBlock: 'UNTRUSTED Telegram Business conversation context.\ncontact: "Hej, żyjesz?"',
+  });
+
+  const sends = [];
+  await processConditionWatches(
+    env,
+    async (_env, chatId, text, options) => sends.push({ chatId, text, options }),
+    now,
+  );
+
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0].chatId, 555);
+  assert.match(sends[0].text, /Botek/u);
+  assert.equal(sends[0].options.businessConnectionId, "business-1");
+  assert.equal(sends[0].options.replyToMessageId, 99);
+  assert.deepEqual(await listConditionWatches(env), []);
+});
+
 test("Feedseek watch seeds old entries and only announces unseen later matches", async () => {
   let phase = "seed";
   const calls = [];

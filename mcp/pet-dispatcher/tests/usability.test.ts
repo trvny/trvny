@@ -142,5 +142,6 @@ test("remote config preserves a bounded maximum poll interval", async () => {
     }));
     const config = await loadConfig(configPath);
     assert.equal((config.remote as typeof config.remote & { pollMaxIntervalMs?: number })?.pollMaxIntervalMs, 8_000);
+    assert.equal(config.remote?.syncRepositories, true);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

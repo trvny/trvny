@@ -87,6 +87,23 @@ const MINI_APP_HTML = `<!doctype html>
     .row { display: grid; grid-template-columns: 110px 1fr; gap: 12px; min-width: 0; }
     .row > span:first-child { color: var(--muted); }
     .list { overflow-wrap: anywhere; }
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .tool-card {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface);
+      color: var(--text);
+      text-align: left;
+    }
+    .tool-icon { display: block; margin-bottom: 12px; font-size: 24px; line-height: 1; }
+    .tool-name { display: block; font-weight: 750; }
+    .tool-desc { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
     .task-list { display: grid; gap: 1px; border-radius: 18px; overflow: hidden; background: var(--line); }
     .task { padding: 14px 16px; background: var(--surface); }
     .task-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
@@ -107,6 +124,9 @@ const MINI_APP_HTML = `<!doctype html>
     .empty, .error { padding: 20px 16px; text-align: center; color: var(--muted); background: var(--surface); }
     .error { color: var(--warn); }
     footer { margin-top: 18px; color: var(--muted); font-size: 12px; text-align: center; }
+    @media (max-width: 560px) {
+      .tool-grid { grid-template-columns: 1fr; }
+    }
     @media (max-width: 420px) {
       .app { padding-left: 12px; padding-right: 12px; }
       h1 { font-size: 23px; }
@@ -141,6 +161,30 @@ const MINI_APP_HTML = `<!doctype html>
           <div class="row"><span>Workspace</span><div id="workspaces" class="list">–</div></div>
           <div class="row"><span>Sandbox</span><div id="sandbox" class="list">–</div></div>
         </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="benches-title">
+      <div class="section-head">
+        <h2 id="benches-title">Benches</h2>
+        <span class="muted">narzędzia</span>
+      </div>
+      <div class="tool-grid">
+        <button class="tool-card" type="button" data-tool-url="https://codebench.trfny.com">
+          <span class="tool-icon" aria-hidden="true">🔳</span>
+          <span class="tool-name">Codebench</span>
+          <span class="tool-desc">QR i kody kreskowe</span>
+        </button>
+        <button class="tool-card" type="button" data-tool-url="https://streambench.trfny.com">
+          <span class="tool-icon" aria-hidden="true">📻</span>
+          <span class="tool-name">Streambench</span>
+          <span class="tool-desc">Radio, IPTV, HLS i playlisty</span>
+        </button>
+        <button class="tool-card" type="button" data-tool-url="https://docbench.travny.workers.dev">
+          <span class="tool-icon" aria-hidden="true">📄</span>
+          <span class="tool-name">Docbench</span>
+          <span class="tool-desc">PDF i dokumenty lokalnie</span>
+        </button>
       </div>
     </section>
 
@@ -260,6 +304,17 @@ const MINI_APP_HTML = `<!doctype html>
       webApp.expand();
       if (webApp.setHeaderColor) webApp.setHeaderColor("bg_color");
       if (webApp.setBackgroundColor) webApp.setBackgroundColor("bg_color");
+    }
+    for (const card of document.querySelectorAll("[data-tool-url]")) {
+      card.addEventListener("click", () => {
+        const url = card.getAttribute("data-tool-url");
+        if (!url) return;
+        if (webApp && webApp.openLink) {
+          webApp.openLink(url);
+        } else {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+      });
     }
     refreshButton.addEventListener("click", refresh);
     refresh();

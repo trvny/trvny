@@ -18,6 +18,17 @@ test("serves a Telegram-native Control Center shell", async () => {
   assert.match(html, /Ostatnie zadania/u);
   assert.doesNotMatch(html, /TELEGRAM_BOT_TOKEN|PET_DISPATCHER/u);
 });
+test("renders Bench launch tiles through Telegram openLink", async () => {
+  const response = miniAppHtmlResponse();
+  const html = await response.text();
+
+  assert.match(html, /https:\/\/codebench\.trfny\.com/u);
+  assert.match(html, /https:\/\/streambench\.trfny\.com/u);
+  assert.match(html, /https:\/\/docbench\.travny\.workers\.dev/u);
+  assert.match(html, /data-tool-url/u);
+  assert.match(html, /webApp\.openLink\(url\)/u);
+});
+
 test("builds the HTTPS Web App menu button used for the owner chat", () => {
   assert.deepEqual(telegramMiniAppMenuButton("https://bot.example/mini-app"), {
     type: "web_app",

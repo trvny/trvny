@@ -20,18 +20,18 @@ import {
   type BotekVenueRequest,
   type BotekWatchRequest,
   type TelegramDiceEmoji,
-} from "./commands";
+} from "./commands.ts";
 import {
   parseTaskCommand,
   parseTaskControlCommand,
   type BotekTaskControlRequest,
-} from "./tasks";
+} from "./tasks.ts";
 import {
   definePredicateRoute,
   routeFirst,
   type PredicateRoute,
   type RouteDecision,
-} from "./router";
+} from "./router.ts";
 
 export type OwnerCommand =
   | { kind: "start-help"; start: boolean }

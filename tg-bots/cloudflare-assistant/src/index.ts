@@ -1344,7 +1344,7 @@ async function handleOwnerCommand(
       return {
         chatId: message.chat.id,
         replyToMessageId: message.message_id,
-        text: "Użycie: /task <repo> <polecenie>",
+        text: "Użycie: /task <repo> [--net <github-read|npm-read|github-npm-read|android-read>] <polecenie>",
       };
 
     case "task":
@@ -1352,11 +1352,18 @@ async function handleOwnerCommand(
         return {
           chatId: message.chat.id,
           replyToMessageId: message.message_id,
-          text: "Użycie: /task <repo> <polecenie>",
+          text: "Użycie: /task <repo> [--net <github-read|npm-read|github-npm-read|android-read>] <polecenie>",
         };
       }
       try {
-        const task = await delegateBotekTask(env, command.request.repo, command.request.goal, update.update_id);
+        const task = await delegateBotekTask(
+          env,
+          command.request.repo,
+          command.request.goal,
+          update.update_id,
+          "code",
+          command.request.networkProfile,
+        );
         await watchDelegatedTask(
           env,
           task.taskId,

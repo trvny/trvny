@@ -250,12 +250,18 @@ export async function verifyWorkerRequest(secret: string, signature: string, met
  *  with no extra authorization - the executor ignores the capabilities/profile the schema still
  *  forces the caller to supply for any "read" bucket direct tool. */
 const ASSISTANT_ALLOWED_DIRECT_TOOLS = new Set<RemoteDirectCall["tool"]>(["system.status"]);
+const ASSISTANT_ALLOWED_NETWORK_PROFILES = new Set([
+  "github-read",
+  "npm-read",
+  "github-npm-read",
+  "android-read",
+]);
 
 /** Enforced by the Telegram assistant RPC entrypoint (`TelegramAssistantEntrypoint.delegate` in
  *  control-plane/entry.ts): the assistant may submit an inspect/code agent-goal task with no extra
- *  capabilities or network access, or one of the always-safe read-only direct probes above -
- *  nothing else. Throws `assistant_task_profile_forbidden`/`assistant_task_scope_forbidden` on
- *  anything wider (e.g. arbitrary `direct` tool calls like `fs.write`/`workspace.exec`). */
+ *  capabilities and either no network or one explicitly approved brokered build/read profile.
+ *  The profile names are enforced here as defense in depth; the assistant cannot request arbitrary
+ *  hosts, Cloudflare credentials or direct tools other than the safe probe above. */
 export function assertAssistantTaskAllowed(task: RemoteTask): void {
   const isAllowedDirectProbe = task.executor === "direct" && task.direct !== undefined
     && ASSISTANT_ALLOWED_DIRECT_TOOLS.has(task.direct.tool);
@@ -263,7 +269,13 @@ export function assertAssistantTaskAllowed(task: RemoteTask): void {
   if (task.executor === "direct" || !["inspect", "code"].includes(task.profile)) {
     throw new Error("assistant_task_profile_forbidden");
   }
-  if (task.capabilities.length > 0 || task.network.mode !== "none") {
+  if (task.capabilities.length > 0) throw new Error("assistant_task_scope_forbidden");
+  if (task.network.mode === "none") return;
+  if (
+    task.network.mode !== "brokered"
+    || !task.network.profile
+    || !ASSISTANT_ALLOWED_NETWORK_PROFILES.has(task.network.profile)
+  ) {
     throw new Error("assistant_task_scope_forbidden");
   }
 }

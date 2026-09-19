@@ -82,6 +82,15 @@ The private `kanarek-review` Worker owns provider credentials, fallback/cooldown
 
 Future heavyweight jobs should reuse the existing `pet-dispatcher-control` + `pet-dispatcher-tasks` transport instead of creating another task-control plane. The current dispatcher targets the Legion; multi-worker Android/Legion routing is a later extension.
 
+Manual `/task` delegation can opt into a bounded network profile with
+`/task <repo> --net <profile> <polecenie>`. Allowed profiles are
+`github-read`, `npm-read`, `github-npm-read`, and `android-read`.
+Without `--net`, delegated agents keep `network=none`; automatic
+natural-language task routing never grants network access. The Pet Dispatcher
+control plane independently enforces the same profile allowlist. Brokered CLI
+traffic is confined to the profile's exact HTTPS hosts through the local proxy,
+so this is not general Internet access and does not expose host credentials.
+
 ## Stack
 
 - Cloudflare Workers, TypeScript, Wrangler;

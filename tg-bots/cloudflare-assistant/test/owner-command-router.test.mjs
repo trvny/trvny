@@ -39,6 +39,14 @@ test("extracts parsed command payloads before the handler runs", async () => {
     kind: "task",
     request: { repo: "trvny/trvny", goal: "odpal testy" },
   });
+
+  const networkTask = await routeOwnerCommand("/task trvny --net github-npm-read npm ci");
+  assert.equal(networkTask.matched, true);
+  if (!networkTask.matched) return;
+  assert.deepEqual(networkTask.value, {
+    kind: "task",
+    request: { repo: "trvny", goal: "npm ci", networkProfile: "github-npm-read" },
+  });
 });
 
 test("keeps malformed known commands matched instead of leaking into chat", async () => {
@@ -56,6 +64,11 @@ test("keeps malformed known commands matched instead of leaking into chat", asyn
     matched: true,
     route: "task-control",
     value: { kind: "task-control", request: null },
+  });
+  assert.deepEqual(await routeOwnerCommand("/task trvny --net cloudflare-api nope"), {
+    matched: true,
+    route: "task",
+    value: { kind: "task", request: null },
   });
 });
 

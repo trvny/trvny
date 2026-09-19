@@ -24,7 +24,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "recall", usage: "/recall <pytanie>", description: "Przeszukaj pamięć długoterminową" },
   { command: "memory_status", usage: "/memory_status", description: "Sprawdź stan pamięci Engram" },
   { command: "draft", usage: "/draft <tekst>", description: "Przygotuj odpowiedź bez wysyłania" },
-  { command: "task", usage: "/task <repo> <polecenie>", description: "Wyślij zadanie na Legiona" },
+  { command: "task", usage: "/task <repo> [--net <profil>] <polecenie>", description: "Wyślij zadanie na Legiona" },
   { command: "task_status", usage: "/task_status <id>", description: "Odzyskaj stan i wynik zadania Legiona" },
   { command: "task_cancel", usage: "/task_cancel <id>", description: "Anuluj zadanie Legiona po ID" },
   { command: "poll", usage: "/poll pytanie | opcja 1 | opcja 2", description: "Wyślij natywną ankietę" },

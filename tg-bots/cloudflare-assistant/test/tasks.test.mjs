@@ -7,6 +7,7 @@ import {
   fetchRecentTasks,
   isTasksRefreshCallback,
   legionRefreshPlan,
+  parseTaskCommand,
   parseTaskControlCommand,
   recentTasksKeyboard,
   recentTasksView,
@@ -31,6 +32,25 @@ test("rejects malformed task recovery commands", () => {
   assert.equal(parseTaskControlCommand("/task_status"), null);
   assert.equal(parseTaskControlCommand("/task_cancel nope"), null);
   assert.equal(parseTaskControlCommand(`/task_delete ${TASK_ID}`), null);
+});
+
+test("parses optional allowlisted network profiles for manual tasks", () => {
+  assert.deepEqual(parseTaskCommand("/task trvny napraw testy"), {
+    repo: "trvny",
+    goal: "napraw testy",
+  });
+  assert.deepEqual(parseTaskCommand("/task trvny --net github-npm-read npm ci i odpal testy"), {
+    repo: "trvny",
+    goal: "npm ci i odpal testy",
+    networkProfile: "github-npm-read",
+  });
+  assert.deepEqual(parseTaskCommand("/task trvny --net=github-read sklonuj publiczne repo"), {
+    repo: "trvny",
+    goal: "sklonuj publiczne repo",
+    networkProfile: "github-read",
+  });
+  assert.equal(parseTaskCommand("/task trvny --net cloudflare-api zrób coś"), null);
+  assert.equal(parseTaskCommand("/task trvny --net github-read"), null);
 });
 
 test("renders a bounded rich task report with escaped dispatcher output", () => {
@@ -68,6 +88,17 @@ test("delegateBotekTask can submit a read-only inspect profile", async () => {
   assert.equal(delegated.repo, "trvny");
   assert.deepEqual(delegated.capabilities, []);
   assert.deepEqual(delegated.network, { mode: "none" });
+});
+
+test("delegateBotekTask submits an approved brokered profile only when explicitly requested", async () => {
+  let delegated;
+  const env = { PET_DISPATCHER: { async delegate(task) {
+    delegated = task;
+    return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
+  } } };
+  await delegateBotekTask(env, "trvny", "npm ci", 42, "code", "github-npm-read");
+  assert.deepEqual(delegated.network, { mode: "brokered", profile: "github-npm-read" });
+  assert.deepEqual(delegated.capabilities, []);
 });
 
 test("delegateLegionStatus submits a host probe without fake repo authority", async () => {

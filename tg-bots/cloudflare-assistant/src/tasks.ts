@@ -17,6 +17,21 @@ export type BotekTaskState = {
   };
 };
 
+export const BOTEK_TASK_NETWORK_PROFILES = [
+  "github-read",
+  "npm-read",
+  "github-npm-read",
+  "android-read",
+] as const;
+
+export type BotekTaskNetworkProfile = typeof BOTEK_TASK_NETWORK_PROFILES[number];
+
+export type BotekTaskRequest = {
+  repo: string;
+  goal: string;
+  networkProfile?: BotekTaskNetworkProfile;
+};
+
 export type BotekTaskControlRequest = {
   action: "status" | "cancel";
   taskId: string;
@@ -63,15 +78,39 @@ function richLines(value: string, maxChars: number): string {
   return escapeRichHtml(value.slice(0, maxChars)).replaceAll("\n", "<br>");
 }
 
-export function parseTaskCommand(text: string): { repo: string; goal: string } | null {
+function isBotekTaskNetworkProfile(value: string): value is BotekTaskNetworkProfile {
+  return (BOTEK_TASK_NETWORK_PROFILES as readonly string[]).includes(value);
+}
+
+export function parseTaskCommand(text: string): BotekTaskRequest | null {
   if (!text.startsWith("/task ")) return null;
   const rest = text.slice("/task ".length).trim();
   const separator = rest.indexOf(" ");
   if (separator <= 0) return null;
   const repo = rest.slice(0, separator);
-  const goal = rest.slice(separator + 1).trim();
+  let goal = rest.slice(separator + 1).trim();
   if (!/^[A-Za-z0-9._/-]{1,128}$/u.test(repo) || !goal) return null;
-  return { repo, goal: goal.slice(0, 20_000) };
+
+  let networkProfile: BotekTaskNetworkProfile | undefined;
+  if (goal.startsWith("--net=")) {
+    const optionEnd = goal.indexOf(" ");
+    if (optionEnd <= "--net=".length) return null;
+    const value = goal.slice("--net=".length, optionEnd);
+    if (!isBotekTaskNetworkProfile(value)) return null;
+    networkProfile = value;
+    goal = goal.slice(optionEnd + 1).trim();
+  } else if (goal.startsWith("--net ")) {
+    const optionRest = goal.slice("--net ".length);
+    const profileEnd = optionRest.indexOf(" ");
+    if (profileEnd <= 0) return null;
+    const value = optionRest.slice(0, profileEnd);
+    if (!isBotekTaskNetworkProfile(value)) return null;
+    networkProfile = value;
+    goal = optionRest.slice(profileEnd + 1).trim();
+  }
+
+  if (!goal) return null;
+  return { repo, goal: goal.slice(0, 20_000), ...(networkProfile ? { networkProfile } : {}) };
 }
 
 export function parseTaskControlCommand(text: string): BotekTaskControlRequest | null {
@@ -89,7 +128,11 @@ export async function delegateBotekTask(
   goal: string,
   updateId: number,
   profile: "inspect" | "code" = "code",
+  networkProfile?: BotekTaskNetworkProfile,
 ): Promise<BotekTaskState> {
+  if (networkProfile && !isBotekTaskNetworkProfile(networkProfile)) {
+    throw new Error("unsupported Botek task network profile");
+  }
   const result = await dispatcher(env).delegate({
     repo,
     baseRef: "main",
@@ -97,7 +140,9 @@ export async function delegateBotekTask(
     executor: "openrouter",
     profile,
     capabilities: [],
-    network: { mode: "none" },
+    network: networkProfile
+      ? { mode: "brokered", profile: networkProfile }
+      : { mode: "none" },
     timeoutMinutes: 20,
   }, `telegram-update:${updateId}`);
   const body = rpcBody<{ taskId?: unknown; status?: unknown }>(result);

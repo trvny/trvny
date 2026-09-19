@@ -1,3 +1,5 @@
+import type * as TelegramTypes from "@grammyjs/types";
+
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
@@ -97,258 +99,36 @@ export type DurableObjectStateLike = {
   storage: DurableObjectStorageLike;
 };
 
-export type TelegramButtonStyle = "danger" | "success" | "primary";
-
-export type TelegramInlineKeyboardButton =
-  | { text: string; style?: TelegramButtonStyle; callback_data: string; copy_text?: never; switch_inline_query?: never }
-  | { text: string; style?: TelegramButtonStyle; copy_text: { text: string }; callback_data?: never; switch_inline_query?: never }
-  | { text: string; style?: TelegramButtonStyle; switch_inline_query: string; callback_data?: never; copy_text?: never };
-
-export type TelegramInlineKeyboardMarkup = {
-  inline_keyboard: TelegramInlineKeyboardButton[][];
-};
-
-export type TelegramLocation = {
-  latitude: number;
-  longitude: number;
-  horizontal_accuracy?: number;
-  live_period?: number;
-  heading?: number;
-  proximity_alert_radius?: number;
-};
-
-export type TelegramContact = {
-  phone_number: string;
-  first_name: string;
-  last_name?: string;
-  user_id?: number;
-  vcard?: string;
-};
-
-export type TelegramVenue = {
-  location: TelegramLocation;
-  title: string;
-  address: string;
-  foursquare_id?: string;
-  foursquare_type?: string;
-  google_place_id?: string;
-  google_place_type?: string;
-};
-
-export type TelegramPhotoSize = {
-  file_id: string;
-  file_unique_id: string;
-  width: number;
-  height: number;
-  file_size?: number;
-};
-
-export type TelegramVisualMedia = {
-  file_id: string;
-  file_unique_id: string;
-  width: number;
-  height: number;
-  duration: number;
-  thumbnail?: TelegramPhotoSize;
-  file_name?: string;
-  mime_type?: string;
-  file_size?: number;
-};
-
-export type TelegramVideoNote = {
-  file_id: string;
-  file_unique_id: string;
-  length: number;
-  duration: number;
-  thumbnail?: TelegramPhotoSize;
-  file_size?: number;
-};
-
-export type TelegramSticker = {
-  file_id: string;
-  file_unique_id: string;
-  type: "regular" | "mask" | "custom_emoji" | string;
-  width: number;
-  height: number;
-  is_animated: boolean;
-  is_video: boolean;
-  thumbnail?: TelegramPhotoSize;
-  emoji?: string;
-  set_name?: string;
-  custom_emoji_id?: string;
-  needs_repainting?: true;
-  file_size?: number;
-};
-
-export type TelegramDice = {
-  emoji: string;
-  value: number;
-};
-
-export type TelegramPoll = {
-  id: string;
-  question: string;
-  options: Array<{ text: string; voter_count: number }>;
-  total_voter_count: number;
-  is_closed: boolean;
-  is_anonymous: boolean;
-  type: "regular" | "quiz" | string;
-  allows_multiple_answers: boolean;
-  correct_option_ids?: number[];
-  explanation?: string;
-};
-
-export type TelegramChecklistTask = {
-  id: number;
-  text: string;
-  completed_by_user?: { id: number; first_name?: string; username?: string };
-  completed_by_chat?: { id: number; type: string; title?: string; username?: string };
-  completion_date?: number;
-};
-
-export type TelegramChecklist = {
-  title: string;
-  tasks: TelegramChecklistTask[];
-  others_can_add_tasks?: true;
-  others_can_mark_tasks_as_done?: true;
-};
-
-export type TelegramChecklistTasksDone = {
-  checklist_message?: TelegramMessage;
-  marked_as_done_task_ids?: number[];
-  marked_as_not_done_task_ids?: number[];
-};
-
-export type TelegramChecklistTasksAdded = {
-  checklist_message?: TelegramMessage;
-  tasks: TelegramChecklistTask[];
-};
-
-export type TelegramDocument = {
-  file_id: string;
-  file_unique_id: string;
-  file_name?: string;
-  mime_type?: string;
-  file_size?: number;
-};
-
-export type TelegramAudio = {
-  file_id: string;
-  file_unique_id: string;
-  duration: number;
-  performer?: string;
-  title?: string;
-  file_name?: string;
-  mime_type?: string;
-  file_size?: number;
-};
-
-export type TelegramMessageOrigin = {
-  type: string;
-  date?: number;
-  sender_user?: { id: number; first_name?: string; last_name?: string; username?: string };
-  sender_user_name?: string;
-  sender_chat?: { id: number; type: string; title?: string; username?: string };
-  chat?: { id: number; type: string; title?: string; username?: string };
-  message_id?: number;
-  author_signature?: string;
-};
-
-export type TelegramTextQuote = {
-  text: string;
-  position?: number;
-  is_manual?: true;
-};
-
-export type TelegramMessage = {
-  message_id: number;
-  message_thread_id?: number;
-  media_group_id?: string;
-  media_group_items?: TelegramMessage[];
-  is_topic_message?: boolean;
-  text?: string;
-  caption?: string;
-  forward_origin?: TelegramMessageOrigin;
-  reply_to_message?: TelegramMessage;
-  quote?: TelegramTextQuote;
-  photo?: TelegramPhotoSize[];
-  sticker?: TelegramSticker;
-  dice?: TelegramDice;
-  animation?: TelegramVisualMedia;
-  video?: TelegramVisualMedia;
-  video_note?: TelegramVideoNote;
-  document?: TelegramDocument;
-  audio?: TelegramAudio;
-  poll?: TelegramPoll;
-  checklist?: TelegramChecklist;
-  checklist_tasks_done?: TelegramChecklistTasksDone;
-  checklist_tasks_added?: TelegramChecklistTasksAdded;
-  reply_to_checklist_task_id?: number;
-  location?: TelegramLocation;
-  venue?: TelegramVenue;
-  contact?: TelegramContact;
-  voice?: {
-    file_id: string;
-    duration: number;
-    mime_type?: string;
-    file_size?: number;
-  };
-  chat: { id: number; type: string };
-  from?: { id: number; username?: string; first_name?: string };
-  receiver_user?: { id: number; username?: string; first_name?: string };
-  ephemeral_message_id?: number;
-  guest_query_id?: string;
-};
-
-export type TelegramInlineQuery = {
-  id: string;
-  from: { id: number; username?: string; first_name?: string };
-  query: string;
-  offset: string;
-  chat_type?: string;
-};
-
-export type TelegramInputMessageContent =
-  | {
-      message_text: string;
-      link_preview_options?: { is_disabled: boolean };
-    }
-  | {
-      rich_message: { markdown?: string; html?: string };
-    };
-
-export type TelegramInlineQueryResultArticle = {
-  type: "article";
-  id: string;
-  title: string;
-  description?: string;
-  input_message_content: TelegramInputMessageContent;
-};
-
-export type TelegramCallbackQuery = {
-  id: string;
-  data?: string;
-  from: { id: number; username?: string; first_name?: string };
-  message?: {
-    message_id: number;
-    message_thread_id?: number;
-    chat: { id: number; type: string };
-  };
-};
-
-export type TelegramMessageGenerationStopped = {
-  chat: { id: number; type: string };
-  message_thread_id?: number;
-  draft_id: number;
-};
-
-export type TelegramUpdate = {
-  update_id: number;
-  message?: TelegramMessage;
-  guest_message?: TelegramMessage;
-  inline_query?: TelegramInlineQuery;
-  callback_query?: TelegramCallbackQuery;
-  stopped_message_generation?: TelegramMessageGenerationStopped;
+export type TelegramButtonStyle = NonNullable<TelegramTypes.InlineKeyboardButton["style"]>;
+export type TelegramInlineKeyboardButton = TelegramTypes.InlineKeyboardButton;
+export type TelegramInlineKeyboardMarkup = TelegramTypes.InlineKeyboardMarkup;
+export type TelegramLocation = TelegramTypes.Location;
+export type TelegramContact = TelegramTypes.Contact;
+export type TelegramVenue = TelegramTypes.Venue;
+export type TelegramPhotoSize = TelegramTypes.PhotoSize;
+export type TelegramVisualMedia = TelegramTypes.Animation | TelegramTypes.Video;
+export type TelegramVideoNote = TelegramTypes.VideoNote;
+export type TelegramSticker = TelegramTypes.Sticker;
+export type TelegramDice = TelegramTypes.Dice;
+export type TelegramPoll = TelegramTypes.Poll;
+export type TelegramChecklistTask = TelegramTypes.ChecklistTask;
+export type TelegramChecklist = TelegramTypes.Checklist;
+export type TelegramChecklistTasksDone = TelegramTypes.ChecklistTasksDone;
+export type TelegramChecklistTasksAdded = TelegramTypes.ChecklistTasksAdded;
+export type TelegramDocument = TelegramTypes.Document;
+export type TelegramAudio = TelegramTypes.Audio;
+export type TelegramMessageOrigin = TelegramTypes.MessageOrigin;
+export type TelegramTextQuote = TelegramTypes.TextQuote;
+export type TelegramMessage = TelegramTypes.Message & { media_group_items?: TelegramMessage[] };
+export type TelegramUpdateMessage = TelegramMessage & TelegramTypes.Update.NonChannel;
+export type TelegramInlineQuery = TelegramTypes.InlineQuery;
+export type TelegramInputMessageContent = TelegramTypes.InputMessageContent;
+export type TelegramInlineQueryResultArticle = TelegramTypes.InlineQueryResultArticle;
+export type TelegramCallbackQuery = TelegramTypes.CallbackQuery;
+export type TelegramMessageGenerationStopped = TelegramTypes.MessageGenerationStopped;
+export type TelegramUpdate = Omit<TelegramTypes.Update, "message" | "guest_message"> & {
+  message?: TelegramUpdateMessage;
+  guest_message?: TelegramUpdateMessage;
 };
 
 export type TelegramConversationTurn = {

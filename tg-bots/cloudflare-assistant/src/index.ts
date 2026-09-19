@@ -317,24 +317,41 @@ function telegramMessageDataSummary(message: TelegramMessage): Record<string, un
 function telegramForwardOriginSummary(message: TelegramMessage): Record<string, unknown> | undefined {
   const origin = message.forward_origin;
   if (!origin) return undefined;
-  const userName = origin.sender_user
-    ? [compactTelegramField(origin.sender_user.first_name, 80), compactTelegramField(origin.sender_user.last_name, 80)]
-        .filter(Boolean).join(" ")
-    : "";
-  const chat = origin.sender_chat ?? origin.chat;
-  return {
+
+  const base = {
     type: compactTelegramField(origin.type, 32),
     ...(Number.isSafeInteger(origin.date) ? { date: origin.date } : {}),
-    ...(userName || origin.sender_user?.username ? { user: {
-      name: userName || undefined,
-      username: compactTelegramField(origin.sender_user?.username, 64) || undefined,
-    } } : {}),
-    ...(origin.sender_user_name ? { hidden_user_name: compactTelegramField(origin.sender_user_name, 120) } : {}),
-    ...(chat ? { chat: {
+  };
+
+  if (origin.type === "user") {
+    const name = [
+      compactTelegramField(origin.sender_user.first_name, 80),
+      compactTelegramField(origin.sender_user.last_name, 80),
+    ].filter(Boolean).join(" ");
+    return {
+      ...base,
+      user: {
+        name: name || undefined,
+        username: compactTelegramField(origin.sender_user.username, 64) || undefined,
+      },
+    };
+  }
+
+  if (origin.type === "hidden_user") {
+    return {
+      ...base,
+      hidden_user_name: compactTelegramField(origin.sender_user_name, 120),
+    };
+  }
+
+  const chat = origin.type === "chat" ? origin.sender_chat : origin.chat;
+  return {
+    ...base,
+    chat: {
       title: compactTelegramField(chat.title, 160) || undefined,
       username: compactTelegramField(chat.username, 64) || undefined,
       type: compactTelegramField(chat.type, 32),
-    } } : {}),
+    },
   };
 }
 const TELEGRAM_TEXT_DOCUMENT_MIME_TYPES = new Set([
@@ -415,7 +432,6 @@ function telegramStickerInput(message: TelegramMessage): string {
       animated: Boolean(sticker.is_animated),
       video: Boolean(sticker.is_video),
       custom_emoji_id: compactTelegramField(sticker.custom_emoji_id, 128) || undefined,
-      needs_repainting: Boolean(sticker.needs_repainting),
     })}`,
   ].join("\n").slice(0, TELEGRAM_LIGHTWEIGHT_INPUT_MAX_CHARS);
 }

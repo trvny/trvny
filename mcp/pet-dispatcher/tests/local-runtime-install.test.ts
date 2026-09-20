@@ -43,6 +43,7 @@ test("local installer publishes runtime and migrates control state away from dc"
     await writeEnvironmentPolicyFixture(source);
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({ workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {} }));
     await writeFile(join(source, "scripts", "pet-dispatcher-launch.ps1"), "# launcher fixture\n");
+    await writeFile(join(source, "scripts", "pet-dispatcher-launch-hidden.js"), "// shim fixture\n");
     await writeFile(join(source, "scripts", "pet-dispatcher-secrets.ps1"), "# secrets fixture\n");
     await writeFile(join(source, "scripts", "pet-dispatcher-restart.ps1"), "# restart fixture\n");
     await writeFile(join(source, "scripts", "windows-job-guard.ps1"), "# guard fixture\n");
@@ -103,7 +104,7 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
     await writeFile(join(source, "package.json"), JSON.stringify({ name: "pet-fixture", version: "1.0.0" }));
     await writeEnvironmentPolicyFixture(source);
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({ workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {} }));
-    for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "windows-job-guard.ps1"]) await writeFile(join(source, "scripts", name), "# fixture\n");
+    for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "windows-job-guard.ps1"]) await writeFile(join(source, "scripts", name), "# fixture\n");
     await execFileAsync("git", ["init", source]);
     await execFileAsync("git", ["-C", source, "add", "."]);
     await execFileAsync("git", ["-C", source, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "one"]);
@@ -128,8 +129,15 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
 
 test("startup command uses native Windows quoting", async () => {
   const module = await import("../scripts/install-local-runtime.js");
-  assert.equal(module.windowsStartupCommand(String.raw`C:\Program Files\PowerShell\powershell.exe`, String.raw`C:\Users\travn\.local\share\pet-dispatcher\bin\pet-dispatcher-launch.ps1`),
-    '"C:\\Program Files\\PowerShell\\powershell.exe" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\\Users\\travn\\.local\\share\\pet-dispatcher\\bin\\pet-dispatcher-launch.ps1"');
+  assert.equal(module.windowsStartupCommand(String.raw`C:\Program Files\Windows\wscript.exe`, String.raw`C:\Users\travn\.local\share\pet-dispatcher\bin\pet-dispatcher-launch-hidden.js`),
+    '"C:\\Program Files\\Windows\\wscript.exe" //B //Nologo "C:\\Users\\travn\\.local\\share\\pet-dispatcher\\bin\\pet-dispatcher-launch-hidden.js"');
+});
+
+test("hidden launch shim starts the launcher with SW_HIDE", async () => {
+  const shim = await readFile(new URL("../scripts/pet-dispatcher-launch-hidden.js", import.meta.url), "utf8");
+  assert.match(shim, /pet-dispatcher-launch\.ps1/u);
+  assert.match(shim, /-WindowStyle Hidden/u);
+  assert.match(shim, /, 0, false\)/u);
 });
 
 
@@ -146,7 +154,7 @@ test("local installer can run npm build on Windows", { skip: process.platform !=
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({
       workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {},
     }));
-    for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "windows-job-guard.ps1"]) {
+    for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "windows-job-guard.ps1"]) {
       await writeFile(join(source, "scripts", name), "# fixture\n");
     }
     await execFileAsync("git", ["init", source]);

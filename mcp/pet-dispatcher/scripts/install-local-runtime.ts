@@ -111,7 +111,7 @@ async function migrateJournal(sourcePath: string | undefined, targetPath: string
 
 async function publishBin(sourceRoot: string, paths: LocalRuntimePaths): Promise<void> {
   await mkdir(paths.binRoot, { recursive: true });
-  for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-secrets.ps1"]) {
+  for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js", "pet-dispatcher-restart.ps1", "pet-dispatcher-secrets.ps1"]) {
     await copyFile(join(sourceRoot, "scripts", name), join(paths.binRoot, name));
   }
   await writeFile(
@@ -163,18 +163,18 @@ async function pruneReleases(paths: LocalRuntimePaths, activeRelease: string, ke
   }
 }
 
-export function windowsStartupCommand(powershell: string, launcher: string): string {
-  for (const value of [powershell, launcher]) {
+export function windowsStartupCommand(wscript: string, shim: string): string {
+  for (const value of [wscript, shim]) {
     if (!value || /["\r\n]/u.test(value)) throw new Error("invalid Windows startup path");
   }
-  return `"${powershell}" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "${launcher}"`;
+  return `"${wscript}" //B //Nologo "${shim}"`;
 }
 
 async function registerStartup(paths: LocalRuntimePaths): Promise<void> {
   if (process.platform !== "win32") throw new Error("Pet Dispatcher startup registration is Windows-only");
-  const powershell = join(process.env.SystemRoot ?? String.raw`C:\Windows`, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-  const launcher = join(paths.binRoot, "pet-dispatcher-launch.ps1");
-  const command = windowsStartupCommand(powershell, launcher);
+  const wscript = join(process.env.SystemRoot ?? String.raw`C:\Windows`, "System32", "wscript.exe");
+  const shim = join(paths.binRoot, "pet-dispatcher-launch-hidden.js");
+  const command = windowsStartupCommand(wscript, shim);
   await run("reg.exe", ["add", String.raw`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, "/v", "PetDispatcher", "/t", "REG_SZ", "/d", command, "/f"]);
 }
 

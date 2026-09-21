@@ -296,9 +296,24 @@ export function taskCallback(data: string | undefined): { action: "refresh" | "c
  *  a single RPC call regardless of how many tasks it returns - the N per-task reads happen
  *  inside the dispatcher, not as separate calls from this consumer. */
 const RECENT_TASKS_LIMIT = 5;
+const RECENT_TASKS_FETCH_LIMIT = 20;
+const RECENT_TERMINAL_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
+
+export function pruneRecentTasks(
+  tasks: PetDispatcherRecentTask[],
+  nowMs = Date.now(),
+): PetDispatcherRecentTask[] {
+  return tasks
+    .filter((task) => {
+      if (!TERMINAL.has(task.status)) return true;
+      const timestamp = Date.parse(task.updatedAt ?? task.createdAt ?? "");
+      return !Number.isFinite(timestamp) || nowMs - timestamp <= RECENT_TERMINAL_MAX_AGE_MS;
+    })
+    .slice(0, RECENT_TASKS_LIMIT);
+}
 
 export async function fetchRecentTasks(env: Env): Promise<PetDispatcherRecentTask[]> {
-  return dispatcher(env).recentTasks(RECENT_TASKS_LIMIT);
+  return pruneRecentTasks(await dispatcher(env).recentTasks(RECENT_TASKS_FETCH_LIMIT));
 }
 
 function shortTaskId(taskId: string): string {
@@ -313,16 +328,28 @@ export function recentTasksView(tasks: PetDispatcherRecentTask[]): BotekTaskView
     const lines = [
       `${taskStatusLabel(task.status)} · ${shortTaskId(task.taskId)}${task.deviceId ? ` · ${task.deviceId}` : ""}`,
     ];
-    if (task.result?.summary) lines.push(task.result.summary.slice(0, 200));
-    if (task.result?.error) lines.push(`Błąd: ${task.result.error.slice(0, 200)}`);
+    if (task.updatedAt) lines.push(`Updated: ${task.updatedAt}`);
+    if (task.result?.summary) lines.push(task.result.summary.slice(0, 300));
+    if (task.result?.error) lines.push(`Błąd: ${task.result.error.slice(0, 300)}`);
+    if (task.result?.commit) lines.push(`Commit: ${task.result.commit.slice(0, 120)}`);
+    if (task.result?.exportedRef) lines.push(`Ref: ${task.result.exportedRef.slice(0, 180)}`);
     return lines.join("\n");
   });
   const rows = tasks.map((task) => {
-    const detail = task.result?.summary ?? task.result?.error ?? "";
+    const result = task.result;
     const header = `<tr><td>${escapeRichHtml(taskStatusLabel(task.status))}</td>`
       + `<td><code>${escapeRichHtml(shortTaskId(task.taskId))}</code></td>`
       + `<td>${escapeRichHtml(task.deviceId ?? "")}</td></tr>`;
-    return detail ? `${header}<tr><td colspan="3">${richLines(detail, 300)}</td></tr>` : header;
+    const details = [
+      ...(task.updatedAt ? [`<span>Updated: ${escapeRichHtml(task.updatedAt)}</span>`] : []),
+      ...(result?.summary ? [richLines(result.summary, 600)] : []),
+      ...(result?.error ? [`<b>Error:</b> ${richLines(result.error, 600)}`] : []),
+      ...(result?.commit ? [`<b>Commit:</b> <code>${escapeRichHtml(result.commit.slice(0, 200))}</code>`] : []),
+      ...(result?.exportedRef ? [`<b>Ref:</b> <code>${escapeRichHtml(result.exportedRef.slice(0, 300))}</code>`] : []),
+    ];
+    return details.length
+      ? `${header}<tr><td colspan="3">${details.join("<br>")}</td></tr>`
+      : header;
   }).join("");
 
   return {

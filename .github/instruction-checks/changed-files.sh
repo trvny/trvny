@@ -10,8 +10,23 @@ if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2
   exit 0
 fi
 
-git diff --name-only --diff-filter=ACMRT "$base" "$head" \
-  | grep -E "$pattern" \
-  | while IFS= read -r path; do
-      [[ -f "$path" ]] && printf '%s\n' "$path"
-    done
+mapfile -t changed < <(git diff --name-only --diff-filter=ACMRT "$base" "$head")
+matched=0
+
+for path in "${changed[@]}"; do
+  if [[ "$path" =~ $pattern && -f "$path" ]]; then
+    printf '%s\n' "$path"
+    matched=1
+  fi
+done
+
+if (( matched == 0 )); then
+  for path in "${changed[@]}"; do
+    case "$path" in
+      .github/instruction-checks/*|.github/workflows/instruction-rot.yml)
+        [[ -f AGENTS.md ]] && printf '%s\n' AGENTS.md
+        break
+        ;;
+    esac
+  done
+fi

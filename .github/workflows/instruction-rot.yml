@@ -8,6 +8,8 @@ on: # yamllint disable-line rule:truthy
       - CLAUDE.md
       - "**/AGENTS.md"
       - "**/CLAUDE.md"
+      - ".github/instruction-checks/**"
+      - ".github/workflows/instruction-rot.yml"
   push:
     branches: [main]
     paths:
@@ -15,6 +17,8 @@ on: # yamllint disable-line rule:truthy
       - CLAUDE.md
       - "**/AGENTS.md"
       - "**/CLAUDE.md"
+      - ".github/instruction-checks/**"
+      - ".github/workflows/instruction-rot.yml"
   workflow_dispatch:
 
 concurrency:
@@ -31,7 +35,7 @@ env:
 jobs:
   rotcheck:
     name: rotcheck 🧠
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v7
         with:
@@ -42,7 +46,7 @@ jobs:
 
   yaplint:
     name: yaplint 📢
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v7
         with:
@@ -53,7 +57,7 @@ jobs:
 
   rickcheck:
     name: Never Gonna Deploy You 🎤
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v7
         with:

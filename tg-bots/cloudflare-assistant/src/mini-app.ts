@@ -81,6 +81,7 @@ export async function validateMiniAppInitData(
 type MiniAppDispatcher = {
   meta(): Promise<unknown>;
   recentTasks(limit?: number): Promise<unknown[]>;
+  cancelTask(taskId: string): Promise<unknown>;
 };
 
 type MiniAppEnv = {
@@ -96,13 +97,15 @@ function miniAppJson(data: unknown, status = 200): Response {
   });
 }
 
-export async function handleMiniAppStatusRequest(
+type MiniAppContext =
+  | { dispatcher: MiniAppDispatcher }
+  | { response: Response };
+
+async function authorizeMiniAppRequest(
   request: Request,
   env: MiniAppEnv,
-  nowMs = Date.now(),
-): Promise<Response> {
-  if (request.method !== "GET") return miniAppJson({ error: "method_not_allowed" }, 405);
-
+  nowMs: number,
+): Promise<MiniAppContext> {
   const validation = await validateMiniAppInitData(
     request.headers.get("x-telegram-init-data") ?? "",
     env.TELEGRAM_BOT_TOKEN,
@@ -111,20 +114,62 @@ export async function handleMiniAppStatusRequest(
   );
   if (!validation.ok) {
     const status = validation.reason === "configuration" ? 503 : 401;
-    return miniAppJson({ error: validation.reason === "configuration" ? "mini_app_not_configured" : "unauthorized" }, status);
+    return {
+      response: miniAppJson(
+        { error: validation.reason === "configuration" ? "mini_app_not_configured" : "unauthorized" },
+        status,
+      ),
+    };
   }
 
   const dispatcher = env.PET_DISPATCHER as MiniAppDispatcher | undefined;
-  if (!dispatcher) return miniAppJson({ error: "pet_dispatcher_unavailable" }, 503);
+  if (!dispatcher) {
+    return { response: miniAppJson({ error: "pet_dispatcher_unavailable" }, 503) };
+  }
+  return { dispatcher };
+}
+
+export async function handleMiniAppStatusRequest(
+  request: Request,
+  env: MiniAppEnv,
+  nowMs = Date.now(),
+): Promise<Response> {
+  if (request.method !== "GET") return miniAppJson({ error: "method_not_allowed" }, 405);
+
+  const context = await authorizeMiniAppRequest(request, env, nowMs);
+  if ("response" in context) return context.response;
 
   try {
     const [legion, tasks] = await Promise.all([
-      dispatcher.meta(),
-      dispatcher.recentTasks(10),
+      context.dispatcher.meta(),
+      context.dispatcher.recentTasks(10),
     ]);
     return miniAppJson({ ok: true, legion, tasks });
   } catch (error) {
     console.error("Mini App Pet Dispatcher status failed", error);
+    return miniAppJson({ error: "pet_dispatcher_unavailable" }, 503);
+  }
+}
+
+const MINI_APP_TASK_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+
+export async function handleMiniAppTaskCancelRequest(
+  request: Request,
+  env: MiniAppEnv,
+  taskId: string,
+  nowMs = Date.now(),
+): Promise<Response> {
+  if (request.method !== "POST") return miniAppJson({ error: "method_not_allowed" }, 405);
+
+  const context = await authorizeMiniAppRequest(request, env, nowMs);
+  if ("response" in context) return context.response;
+  if (!MINI_APP_TASK_ID.test(taskId)) return miniAppJson({ error: "invalid_task_id" }, 400);
+
+  try {
+    const task = await context.dispatcher.cancelTask(taskId);
+    return miniAppJson({ ok: true, task });
+  } catch (error) {
+    console.error("Mini App task cancellation failed", error);
     return miniAppJson({ error: "pet_dispatcher_unavailable" }, 503);
   }
 }

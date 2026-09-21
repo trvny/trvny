@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
 
-import { handleMiniAppStatusRequest, validateMiniAppInitData } from "../src/mini-app.ts";
+import { handleMiniAppStatusRequest, handleMiniAppTaskCancelRequest, validateMiniAppInitData } from "../src/mini-app.ts";
 
 const BOT_TOKEN = "botek-test-token";
 const OWNER_ID = "279058397";
@@ -84,5 +84,72 @@ test("rejects Mini App API requests before dispatcher access", async () => {
   );
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(touched, false);
+});
+
+
+test("cancels an owner task through the Mini App API", async () => {
+  const taskId = "11111111-1111-4111-8111-111111111111";
+  let cancelled = "";
+  const env = {
+    TELEGRAM_BOT_TOKEN: BOT_TOKEN,
+    OWNER_TELEGRAM_USER_ID: OWNER_ID,
+    PET_DISPATCHER: {
+      meta: async () => ({}),
+      recentTasks: async () => [],
+      cancelTask: async (id) => {
+        cancelled = id;
+        return { taskId: id, status: "cancel_requested" };
+      },
+    },
+  };
+  const response = await handleMiniAppTaskCancelRequest(
+    new Request("https://bot.example/mini-app/api/tasks/" + taskId + "/cancel", {
+      method: "POST",
+      headers: { "x-telegram-init-data": INIT_DATA },
+    }),
+    env,
+    taskId,
+    (AUTH_DATE + 60) * 1000,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(cancelled, taskId);
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    task: { taskId, status: "cancel_requested" },
+  });
+});
+
+test("rejects invalid or unauthenticated Mini App cancellation before mutation", async () => {
+  let touched = false;
+  const env = {
+    TELEGRAM_BOT_TOKEN: BOT_TOKEN,
+    OWNER_TELEGRAM_USER_ID: OWNER_ID,
+    PET_DISPATCHER: {
+      meta: async () => ({}),
+      recentTasks: async () => [],
+      cancelTask: async () => { touched = true; return {}; },
+    },
+  };
+
+  const unauthorized = await handleMiniAppTaskCancelRequest(
+    new Request("https://bot.example/mini-app/api/tasks/11111111-1111-4111-8111-111111111111/cancel", { method: "POST" }),
+    env,
+    "11111111-1111-4111-8111-111111111111",
+    (AUTH_DATE + 60) * 1000,
+  );
+  assert.equal(unauthorized.status, 401);
+  assert.equal(touched, false);
+
+  const invalid = await handleMiniAppTaskCancelRequest(
+    new Request("https://bot.example/mini-app/api/tasks/nope/cancel", {
+      method: "POST",
+      headers: { "x-telegram-init-data": INIT_DATA },
+    }),
+    env,
+    "nope",
+    (AUTH_DATE + 60) * 1000,
+  );
+  assert.equal(invalid.status, 400);
   assert.equal(touched, false);
 });

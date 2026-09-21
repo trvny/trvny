@@ -1,0 +1,63 @@
+---
+name: Instruction Rot
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    paths:
+      - AGENTS.md
+      - CLAUDE.md
+      - "**/AGENTS.md"
+      - "**/CLAUDE.md"
+  push:
+    branches: [main]
+    paths:
+      - AGENTS.md
+      - CLAUDE.md
+      - "**/AGENTS.md"
+      - "**/CLAUDE.md"
+  workflow_dispatch:
+
+concurrency:
+  group: instruction-rot-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+  HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  rotcheck:
+    name: rotcheck 🧠
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run Brainrot structural check
+        run: .github/instruction-checks/run-brainrot.sh rotcheck
+
+  yaplint:
+    name: yaplint 📢
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run Brainrot yap budget
+        run: .github/instruction-checks/run-brainrot.sh yaplint
+
+  rickcheck:
+    name: Never Gonna Deploy You 🎤
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run RickLang reference guard
+        run: .github/instruction-checks/run-ricklang.sh

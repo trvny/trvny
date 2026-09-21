@@ -7,7 +7,7 @@ import worker, {
   TelegramUpdateDedup,
   TelegramWatchStore,
 } from "./index";
-import { handleMiniAppStatusRequest } from "./mini-app";
+import { handleMiniAppStatusRequest, handleMiniAppTaskCancelRequest } from "./mini-app";
 import { miniAppHtmlResponse } from "./mini-app-ui";
 import { handleTelegramSecretaryUpdate } from "./secretary-runtime";
 import { isTelegramWebhook, parseTelegramUpdate } from "./telegram";
@@ -48,6 +48,12 @@ export default {
     }
     if (url.pathname === "/mini-app/api/status") {
       return handleMiniAppStatusRequest(request, env);
+    }
+    const miniAppTaskCancel = url.pathname.match(
+      /^\/mini-app\/api\/tasks\/([0-9a-f-]{36})\/cancel$/iu,
+    );
+    if (miniAppTaskCancel?.[1]) {
+      return handleMiniAppTaskCancelRequest(request, env, miniAppTaskCancel[1]);
     }
     if (
       request.method === "POST" &&

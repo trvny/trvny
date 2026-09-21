@@ -16,6 +16,9 @@ test("serves a Telegram-native Control Center shell", async () => {
   assert.match(html, /\.initData/u);
   assert.match(html, /Legion/u);
   assert.match(html, /Ostatnie zadania/u);
+  assert.match(html, /\/mini-app\/api\/tasks\//u);
+  assert.match(html, /showConfirm/u);
+  assert.match(html, /Anuluj/u);
   assert.doesNotMatch(html, /TELEGRAM_BOT_TOKEN|PET_DISPATCHER/u);
 });
 test("renders Bench launch tiles through Telegram openLink", async () => {

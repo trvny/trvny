@@ -55,6 +55,7 @@
 
 ### Task 4: Follow-up controls after read-only MVP
 
-- [ ] Reuse existing task cancellation/delegation APIs for explicit Mini App buttons only after the read-only view is stable.
-- [ ] Add confirmation for destructive actions and preserve Pet Dispatcher confinement.
+- [x] Reuse the existing task-cancellation API for active-task controls in the Mini App.
+- [x] Require owner-authenticated requests plus an explicit confirmation before cancellation.
+- [ ] Add task creation/delegation controls only when there is a clear Mini App workflow for them; keep Pet Dispatcher as the control backend.
 - [ ] Add other read-mostly panels (providers, GitHub, feeds, memory) one concern per PR rather than creating a second control backend.

@@ -35,6 +35,7 @@ Use nearest `AGENTS.md` for changed files; deeper instructions override broader 
 - Keep one logical change per PR. Trivial low-risk fixes may go directly to `main` when allowed.
 - For substantial code changes, run one relevant final validation on final head; do not rerun CI after every intermediate edit. Trivial/docs-only changes may skip CI.
 - Resolve actionable review threads when review was actually requested. Prefer squash.
+- Changes to `AGENTS.md` / `CLAUDE.md` run the experimental Instruction Rot checks (`rotcheck`, `yaplint`, RickLang reference guard).
 - Keep PR descriptions, comments and changelogs brief.
 
 ## Persistence

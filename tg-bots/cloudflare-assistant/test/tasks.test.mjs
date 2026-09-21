@@ -9,6 +9,7 @@ import {
   legionRefreshPlan,
   parseTaskCommand,
   parseTaskControlCommand,
+  pruneRecentTasks,
   recentTasksKeyboard,
   recentTasksView,
   resolveLegionStatus,
@@ -198,7 +199,7 @@ test("fetchRecentTasks asks the dispatcher for a bounded limit in a single call"
   };
   await fetchRecentTasks(env);
   assert.equal(calls, 1);
-  assert.equal(receivedLimit, 5);
+  assert.equal(receivedLimit, 20);
 });
 
 test("recentTasksView shows an empty-state message with no tasks", () => {
@@ -233,4 +234,47 @@ test("isTasksRefreshCallback matches only the exact refresh token", () => {
   assert.equal(isTasksRefreshCallback("tasks:refresh:extra"), false);
   assert.equal(isTasksRefreshCallback("task:refresh:" + TASK_ID), false);
   assert.equal(isTasksRefreshCallback(undefined), false);
+});
+
+
+test("pruneRecentTasks drops stale terminal entries but keeps active tasks", () => {
+  const now = Date.parse("2026-09-21T12:00:00Z");
+  const recent = "2026-09-20T12:00:00Z";
+  const stale = "2026-09-01T12:00:00Z";
+  const tasks = pruneRecentTasks([
+    { taskId: TASK_ID, status: "completed", updatedAt: stale },
+    { taskId: "223e4567-e89b-12d3-a456-426614174000", status: "running", updatedAt: stale },
+    { taskId: "323e4567-e89b-12d3-a456-426614174000", status: "failed", updatedAt: recent },
+  ], now);
+  assert.deepEqual(tasks.map((task) => task.taskId), [
+    "223e4567-e89b-12d3-a456-426614174000",
+    "323e4567-e89b-12d3-a456-426614174000",
+  ]);
+});
+
+test("pruneRecentTasks keeps at most five display entries after filtering", () => {
+  const tasks = Array.from({ length: 8 }, (_, index) => ({
+    taskId: `123e4567-e89b-12d3-a456-42661417400${index}`,
+    status: "running",
+  }));
+  assert.equal(pruneRecentTasks(tasks, Date.now()).length, 5);
+});
+
+test("recentTasksView includes update time, commit and exported ref", () => {
+  const view = recentTasksView([{
+    taskId: TASK_ID,
+    deviceId: "legion",
+    status: "completed",
+    updatedAt: "2026-09-21T10:00:00Z",
+    result: {
+      summary: "done",
+      commit: "abc123",
+      exportedRef: "refs/heads/feat/example",
+    },
+  }]);
+  assert.match(view.plain, /Updated: 2026-09-21T10:00:00Z/u);
+  assert.match(view.plain, /Commit: abc123/u);
+  assert.match(view.plain, /Ref: refs\/heads\/feat\/example/u);
+  assert.match(view.richHtml, /<b>Commit:<\/b> <code>abc123<\/code>/u);
+  assert.match(view.richHtml, /refs\/heads\/feat\/example/u);
 });

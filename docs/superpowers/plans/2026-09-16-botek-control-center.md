@@ -1,6 +1,6 @@
 # Botek Control Center Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a Telegram Mini App control center whose first working view reports Legion/Pet Dispatcher status and recent tasks.
 
@@ -9,6 +9,8 @@
 **Tech Stack:** Cloudflare Workers, Durable Objects, Service Bindings, TypeScript, native HTML/CSS/JS, Telegram Mini Apps API.
 
 **Spec:** `tg-bots/CONTROL_CENTER.md`
+
+**Status (2026-09-21):** Tasks 1-3 are implemented and merged. Task 4 is the maintained follow-up backlog; the unchecked items below are intentional remaining work.
 
 ## Global Constraints
 
@@ -24,32 +26,32 @@
 
 **Files:** `mcp/pet-dispatcher/control-plane/entry.ts`, focused tests under `mcp/pet-dispatcher/tests/`.
 
-- [ ] Write a failing test proving recent snapshots are newest-first, deduplicated by task ID and bounded.
-- [ ] Implement the minimal pure index helper and run the focused test green.
-- [ ] Wire task init/state transitions to update the index and expose `recentTasks(limit)` on `TelegramAssistantEntrypoint`.
-- [ ] Run Pet Dispatcher typecheck, focused tests and control-plane dry-run.
-- [ ] Open a focused PR and merge only after final CI/review is clean.
+- [x] Write a failing test proving recent snapshots are newest-first, deduplicated by task ID and bounded.
+- [x] Implement the minimal pure index helper and run the focused test green.
+- [x] Wire task init/state transitions to update the index and expose `recentTasks(limit)` on `TelegramAssistantEntrypoint`.
+- [x] Run Pet Dispatcher typecheck, focused tests and control-plane dry-run.
+- [x] Open a focused PR and merge only after final CI/review is clean.
 
 ### Task 2: Owner-only Mini App API
 
 **Files:** `tg-bots/cloudflare-assistant/src/mini-app.ts`, `src/types.ts`, `src/index.ts`, focused tests.
 
-- [ ] Write failing tests for Telegram `initData` HMAC validation, auth-date freshness and owner ID enforcement.
-- [ ] Implement validation using Web Crypto and the existing `TELEGRAM_BOT_TOKEN` / `OWNER_TELEGRAM_USER_ID`.
-- [ ] Extend the Pet Dispatcher binding type with `recentTasks(limit)` and add a read-only `/mini-app/api/status` route.
-- [ ] Return only bounded device metadata and recent task summaries; use `cache-control: no-store`.
-- [ ] Run Telegram assistant typecheck and tests, then open and review a separate PR.
+- [x] Write failing tests for Telegram `initData` HMAC validation, auth-date freshness and owner ID enforcement.
+- [x] Implement validation using Web Crypto and the existing `TELEGRAM_BOT_TOKEN` / `OWNER_TELEGRAM_USER_ID`.
+- [x] Extend the Pet Dispatcher binding type with `recentTasks(limit)` and add a read-only `/mini-app/api/status` route.
+- [x] Return only bounded device metadata and recent task summaries; use `cache-control: no-store`.
+- [x] Run Telegram assistant typecheck and tests, then open and review a separate PR.
 
 ### Task 3: Telegram-native Control Center UI
 
 **Files:** `tg-bots/cloudflare-assistant/src/mini-app-ui.ts`, `src/index.ts`, `src/telegram.ts` or menu-sync helper, focused tests.
 
-- [ ] Write a failing test for the HTML shell and its API/bootstrap contract.
-- [ ] Serve a dependency-free responsive Mini App at `/mini-app` using Telegram theme CSS variables and `telegram-web-app.js`.
-- [ ] Render Legion freshness, last report, sessions/processes, repositories/workspaces and recent task cards with compact states.
-- [ ] Add explicit refresh and safe empty/error states; no direct task mutation in MVP.
-- [ ] Sync an owner-visible Bot Menu Button to the Mini App URL through the existing `/start` / `/help` configuration path.
-- [ ] Run final Telegram CI-equivalent checks and open the UI PR.
+- [x] Write a failing test for the HTML shell and its API/bootstrap contract.
+- [x] Serve a dependency-free responsive Mini App at `/mini-app` using Telegram theme CSS variables and `telegram-web-app.js`.
+- [x] Render Legion freshness, last report, sessions/processes, repositories/workspaces and recent task cards with compact states.
+- [x] Add explicit refresh and safe empty/error states; no direct task mutation in MVP.
+- [x] Sync an owner-visible Bot Menu Button to the Mini App URL through the existing `/start` / `/help` configuration path.
+- [x] Run final Telegram CI-equivalent checks and open the UI PR.
 
 ### Task 4: Follow-up controls after read-only MVP
 

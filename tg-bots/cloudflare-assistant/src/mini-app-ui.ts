@@ -53,6 +53,7 @@ const MINI_APP_HTML = `<!doctype html>
       cursor: pointer;
     }
     button:disabled { opacity: .55; cursor: default; }
+    button.danger { background: var(--warn); color: #fff; }
     section { margin-top: 22px; }
     .section-head {
       display: flex;
@@ -121,6 +122,8 @@ const MINI_APP_HTML = `<!doctype html>
     }
     .task p { margin: 8px 0 0; overflow-wrap: anywhere; }
     .task-meta { margin-top: 6px; color: var(--muted); font-size: 12px; }
+    .task-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    .task-actions button { padding: 7px 11px; font-size: 12px; }
     .empty, .error { padding: 20px 16px; text-align: center; color: var(--muted); background: var(--surface); }
     .error { color: var(--warn); }
     footer { margin-top: 18px; color: var(--muted); font-size: 12px; text-align: center; }
@@ -192,7 +195,7 @@ const MINI_APP_HTML = `<!doctype html>
       <div class="section-head"><h2 id="tasks-title">Ostatnie zadania</h2><span id="task-count" class="muted"></span></div>
       <div id="tasks" class="task-list"><div class="empty">Ładowanie…</div></div>
     </section>
-    <footer id="footer">Botek · read-only MVP</footer>
+    <footer id="footer">Botek · Control Center</footer>
   </main>
   <script>
     const webApp = window.Telegram && window.Telegram.WebApp;
@@ -264,6 +267,15 @@ const MINI_APP_HTML = `<!doctype html>
           "Aktualizacja: " + formatDate(task.updatedAt || task.createdAt),
         );
         card.append(head, summary, meta);
+        const status = String(task.status || "");
+        if (task.taskId && ["queued", "leased", "running"].includes(status)) {
+          const actions = element("div", "task-actions");
+          const cancel = element("button", "danger", "Anuluj");
+          cancel.type = "button";
+          cancel.addEventListener("click", () => cancelTask(String(task.taskId), cancel));
+          actions.append(cancel);
+          card.append(actions);
+        }
         taskList.append(card);
       }
     }
@@ -272,6 +284,40 @@ const MINI_APP_HTML = `<!doctype html>
       taskList.replaceChildren(element("div", "error", message));
       setText("task-count", "");
     }
+
+    async function confirmCancel() {
+      const message = "Anulować to zadanie?";
+      if (webApp && webApp.showConfirm) {
+        return new Promise((resolve) => webApp.showConfirm(message, resolve));
+      }
+      return window.confirm(message);
+    }
+
+    async function cancelTask(taskId, button) {
+      if (!(await confirmCancel())) return;
+      button.disabled = true;
+      try {
+        const initData = webApp && webApp.initData ? webApp.initData : "";
+        if (!initData) throw new Error("Sesja Telegram jest niedostępna.");
+        const response = await fetch("/mini-app/api/tasks/" + encodeURIComponent(taskId) + "/cancel", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "x-telegram-init-data": initData },
+        });
+        if (!response.ok) {
+          if (response.status === 401) throw new Error("Sesja Telegram wygasła. Otwórz panel ponownie.");
+          throw new Error("Nie udało się anulować zadania.");
+        }
+        if (webApp && webApp.HapticFeedback) webApp.HapticFeedback.notificationOccurred("success");
+        await refresh();
+      } catch (error) {
+        if (webApp && webApp.showAlert) {
+          webApp.showAlert(error instanceof Error ? error.message : "Nie udało się anulować zadania.");
+        }
+        button.disabled = false;
+      }
+    }
+
     async function refresh() {
       refreshButton.disabled = true;
       try {

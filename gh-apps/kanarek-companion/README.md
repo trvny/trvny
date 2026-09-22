@@ -85,7 +85,10 @@ companion and makes later review-eligible PR activity eligible again.
 - `POST /review-router/v1/chat/completions` is the private OpenAI-compatible
   transport shared by free PR review. It authenticates with the dedicated
   router bearer and tries AIHubMix, OpenRouter, Ollama Cloud, Groq, Vercel AI
-  Gateway, and OrcaRouter last, then guarded Workers AI as final fallback.
+  Gateway, OrcaRouter, and Hugging Face/Public AI as the final HTTP reserve,
+  then guarded Workers AI as final fallback. The HF route pins Public AI and
+  consumes Hugging Face Inference Providers credits rather than a separate
+  Public AI account.
   Paid/direct provider credentials used for quip generation are never consumed
   by the review router. OpenRouter can retry its primary model without the
   fallback array when the array itself is rejected.
@@ -358,7 +361,8 @@ Review router secret used at runtime only by the Worker:
 - `KANAREK_REVIEW_ROUTER_TOKEN`
 
 Free-review provider secrets (`OPENROUTER_API_KEY`, `ORCAROUTER_API_KEY`,
-`AIHUBMIX_API_KEY`, `OLLAMA_API_KEY`, `GROQ_API_KEY`, and `AI_GATEWAY_API_KEY`) are runtime credentials
+`AIHUBMIX_API_KEY`, `OLLAMA_API_KEY`, `GROQ_API_KEY`, `AI_GATEWAY_API_KEY`, and
+`HUGGINGFACE_API_KEY`) are runtime credentials
 of the private `kanarek-review` Worker only. Repository copies exist solely for
 the manual credential-sync workflow; target repositories do not keep them.
 

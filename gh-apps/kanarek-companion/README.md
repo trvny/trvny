@@ -87,7 +87,8 @@ companion and makes later review-eligible PR activity eligible again.
   router bearer and tries AIHubMix, OpenRouter, Ollama Cloud, Groq, Vercel AI
   Gateway, OrcaRouter, and Hugging Face/Public AI as the final HTTP reserve,
   then guarded Workers AI as final fallback. The HF route pins Public AI and
-  consumes Hugging Face Inference Providers credits rather than a separate Public AI account.
+  consumes Hugging Face Inference Providers credits rather than a separate
+  Public AI account.
   Paid/direct provider credentials used for quip generation are never consumed
   by the review router. OpenRouter can retry its primary model without the
   fallback array when the array itself is rejected.

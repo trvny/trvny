@@ -4,7 +4,7 @@ One **shared Cloudflare Worker runtime**. `kanarek-companion` is its
 deployment/package slug, not every subsystem's name.
 
 - **Kanarek Companion** owns webhook-driven PR status, quips/reactions, review
-  queueing/context and publication. Free-review provider router runs in private
+  queueing/context and publication. Shared free-provider routing runs in private
   `kanarek-review` Worker behind a Service Binding.
 - **GPTomek Bridge** owns `gptomek[bot]` identity, installation auth, control transport and GPTomek-attributed writes.
 - Before changing GPTomek transport, read `../gptomek/README.md`. Default: Issue

@@ -1,22 +1,39 @@
-name: Quarto report check
+name: Quarto
 
-on:
-  workflow_dispatch:
+on: # yamllint disable-line rule:truthy
   pull_request:
     paths:
       - "token-worldcup/**"
-      - ".github/workflows/quarto-check.yml"
+      - ".github/workflows/quarto.yml"
   push:
     branches: [main]
     paths:
       - "token-worldcup/**"
-      - ".github/workflows/quarto-check.yml"
+      - ".github/workflows/quarto.yml"
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Quarto task
+        required: true
+        default: check
+        type: choice
+        options:
+          - check
+          - update
+          - all
 
 permissions:
   contents: read
 
 jobs:
-  render:
+  check:
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (inputs.task == 'check' || inputs.task == 'all'))
     runs-on: ubuntu-slim
     steps:
       - uses: actions/checkout@v7
@@ -50,3 +67,27 @@ jobs:
       - name: Verify committed HTML is current
         if: github.event_name != 'workflow_dispatch'
         run: git diff --exit-code -- token-worldcup
+
+  update:
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (inputs.task == 'update' || inputs.task == 'all'))
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GH_PAT }}
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: "1.10.18"
+      - name: Update extensions
+        uses: mcanouil/quarto-extensions-updater@v2
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          scan-directories: token-worldcup
+          update-strategy: minor

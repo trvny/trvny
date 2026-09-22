@@ -62,6 +62,28 @@ export async function handleReviewRouterViaService(
   }
 }
 
+export async function reviewRouterChatViaService(
+  body: JsonObject,
+  env: ReviewServiceEnv,
+): Promise<Response | null> {
+  const service = env.KANAREK_REVIEW_SERVICE;
+  if (!service) return null;
+  const request = new Request(`${INTERNAL_REVIEW_ORIGIN}${REVIEW_ROUTER_PATH}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  try {
+    return await service.fetch(serviceRequest(request, env));
+  } catch (error) {
+    console.warn(JSON.stringify({
+      kanarekReviewService: 'chat_binding_failed',
+      error: error instanceof Error ? error.message : 'unknown_error',
+    }));
+    return null;
+  }
+}
+
 function providerPool(value: unknown): ReviewProviderPoolHealth | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const pool = (value as JsonObject).providerPool;

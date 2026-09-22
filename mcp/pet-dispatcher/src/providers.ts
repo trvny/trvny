@@ -7,7 +7,7 @@ import {
   type OpenAICompatibleBackendDefinition, type OpenAICompatibleBackendId,
 } from "./openai-backends.js";
 
-export type AgentProvider = "kanarek-review" | "openrouter" | "orcarouter" | "aihubmix" | "ollama-cloud" | "groq" | "gemini";
+export type AgentProvider = "kanarek-review" | "openrouter" | "orcarouter" | "aihubmix" | "ollama-cloud" | "groq" | "huggingface-publicai" | "gemini";
 
 const SYSTEM_PROMPT = `You are a coding worker inside a Pet Dispatcher session.
 Use the provided tools to inspect, edit and validate the assigned repository.

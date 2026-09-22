@@ -31,7 +31,9 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-No open pull requests. 🎉
+| Repository | PR | Title | Author | State | Updated |
+| --- | ---: | --- | --- | --- | --- |
+| trvny/trvny | [#730](https://github.com/trvny/trvny/pull/730) | deps: bump wrangler from 4.131.2 to 4.135.0 in /tg-bots/cloudflare-assistant in the npm group | @dependabot[bot] | ready | 2026-09-21 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

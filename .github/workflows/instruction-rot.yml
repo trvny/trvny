@@ -42,6 +42,7 @@ on: # yamllint disable-line rule:truthy
 permissions: {}
 
 jobs:
+  # Shared implementation lives in trvny/.github.
   instruction-rot:
     permissions:
       contents: read

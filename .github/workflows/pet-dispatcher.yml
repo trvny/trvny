@@ -1,0 +1,220 @@
+name: Pet Dispatcher
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+    paths:
+      - "mcp/pet-dispatcher/**"
+      - ".github/workflows/pet-dispatcher.yml"
+      - ".github/scripts/sync-cloudflare-worker-secret.sh"
+      - "assets/pet-dispatcher.svg"
+      - "assets/pet-dispatcher.png"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mcp/pet-dispatcher/**"
+      - ".github/workflows/pet-dispatcher.yml"
+      - ".github/scripts/sync-cloudflare-worker-secret.sh"
+      - "assets/pet-dispatcher.svg"
+      - "assets/pet-dispatcher.png"
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Pet Dispatcher task
+        required: true
+        default: check
+        type: choice
+        options:
+          - check
+          - deploy
+          - all
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Linux check
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      inputs.task == 'check' ||
+      inputs.task == 'all'
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    concurrency:
+      group: pet-dispatcher-check-linux-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: mcp/pet-dispatcher
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mcp/pet-dispatcher/package-lock.json
+      - name: Install MXC process backend
+        run: sudo apt-get update && sudo apt-get install --yes bubblewrap
+      - run: npm ci
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Run focused security regression suite
+        run: npm run test:security
+      - run: npm run check:portable
+
+  windows-guard:
+    name: Windows guard
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      inputs.task == 'check' ||
+      inputs.task == 'all'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    concurrency:
+      group: pet-dispatcher-check-windows-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: mcp/pet-dispatcher
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mcp/pet-dispatcher/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:windows-guard
+
+  deploy:
+    name: Deploy control plane
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' &&
+        (inputs.task == 'deploy' || inputs.task == 'all')))
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    concurrency:
+      group: pet-dispatcher-control-deploy
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: mcp/pet-dispatcher
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
+      HEALTH_URL: https://pet-dispatcher-control.travny.workers.dev/health
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: scope
+        name: Check deployment scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" =~ ^0+$ ]]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed=$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA")
+          if grep -Eq '^(mcp/pet-dispatcher/control-plane/|mcp/pet-dispatcher/src/remote-protocol\.ts$|mcp/pet-dispatcher/package(-lock)?\.json$|mcp/pet-dispatcher/tsconfig\.control-plane\.json$|\.github/workflows/pet-dispatcher\.yml$|\.github/scripts/sync-cloudflare-worker-secret\.sh$)' <<<"$changed"; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "No control-plane changes; deployment skipped."
+          fi
+
+      - name: Setup Node
+        if: steps.scope.outputs.deploy == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mcp/pet-dispatcher/package-lock.json
+
+      - name: Install dependencies
+        if: steps.scope.outputs.deploy == 'true'
+        run: npm ci
+
+      - name: Sync private connector token
+        if: steps.scope.outputs.deploy == 'true'
+        shell: bash
+        env:
+          PET_DISPATCHER_MCP_CONNECTOR_TOKEN: ${{ secrets.PET_DISPATCHER_MCP_CONNECTOR_TOKEN }}
+        run: >-
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
+          pet-dispatcher-control MCP_CONNECTOR_TOKEN PET_DISPATCHER_MCP_CONNECTOR_TOKEN optional
+
+      - name: Sync shared free-router credential
+        if: steps.scope.outputs.deploy == 'true'
+        shell: bash
+        run: >-
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
+          pet-dispatcher-control KANAREK_REVIEW_ROUTER_TOKEN KANAREK_REVIEW_ROUTER_TOKEN required
+
+      - name: Validate control plane
+        if: steps.scope.outputs.deploy == 'true'
+        run: npm run control:check
+
+      - name: Deploy control plane
+        if: steps.scope.outputs.deploy == 'true'
+        id: deploy
+        shell: bash
+        env:
+          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.jsonl
+        run: |
+          set -euo pipefail
+          npm run control:deploy
+          version_id=$(node --input-type=module -e '
+            import fs from "node:fs";
+            const rows = fs.readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH, "utf8")
+              .trim().split(/\r?\n/u).filter(Boolean).map(JSON.parse);
+            const deploy = rows.findLast((row) => row.type === "deploy");
+            if (!deploy?.version_id) process.exit(1);
+            process.stdout.write(deploy.version_id);
+          ')
+          echo "version_id=$version_id" >> "$GITHUB_OUTPUT"
+
+      - name: Verify live health
+        if: steps.scope.outputs.deploy == 'true'
+        shell: bash
+        env:
+          DEPLOYED_VERSION_ID: ${{ steps.deploy.outputs.version_id }}
+        run: |
+          set -euo pipefail
+          for _ in {1..12}; do
+            if body=$(curl --fail --silent --show-error --connect-timeout 5 --max-time 10 "$HEALTH_URL") &&
+              BODY="$body" node --input-type=module -e '
+                const body = JSON.parse(process.env.BODY);
+                if (!(body.ok === true &&
+                  body.service === "pet-dispatcher-control" &&
+                  body.versionId === process.env.DEPLOYED_VERSION_ID)) process.exit(1);
+              '
+            then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Pet Dispatcher control plane did not expose deployed version $DEPLOYED_VERSION_ID." >&2
+          exit 1

@@ -32,6 +32,7 @@ const DEFAULT_REVIEW_OLLAMA_MODELS = [
 ] as const;
 const DEFAULT_REVIEW_GROQ_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_REVIEW_VERCEL_MODEL = 'alibaba/qwen3-coder-30b-a3b';
+const DEFAULT_REVIEW_HUGGINGFACE_MODEL = 'aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai';
 const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'nvidia/nemotron-3-super-120b-a12b:free',
   'cohere/north-mini-code:free',
@@ -52,6 +53,7 @@ export interface ReviewRouterEnv {
   OLLAMA_API_KEY?: string;
   GROQ_API_KEY?: string;
   AI_GATEWAY_API_KEY?: string;
+  HUGGINGFACE_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
@@ -59,6 +61,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_OLLAMA_MODELS?: string;
   KANAREK_REVIEW_GROQ_MODEL?: string;
   KANAREK_REVIEW_VERCEL_MODEL?: string;
+  KANAREK_REVIEW_HUGGINGFACE_MODEL?: string;
   KANAREK_REVIEW_COOLDOWNS?: DurableObjectNamespace;
   KANAREK_REVIEW_QUOTA_COOLDOWN_MS?: string;
   KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS?: string;
@@ -68,7 +71,7 @@ export interface ReviewRouterEnv {
 
 type JsonObject = Record<string, unknown>;
 
-type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'workers-ai';
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'huggingface-publicai' | 'workers-ai';
 
 type ReviewProvider = {
   id: ReviewProviderId;
@@ -152,7 +155,7 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
       apiKey: (providerEnv) => providerEnv.AI_GATEWAY_API_KEY,
     },
     {
-      // Tried last: OrcaRouter's free tier applies an undisclosed, small per-request
+      // Tried before the credit-backed HF reserve: OrcaRouter's free tier applies an undisclosed, small per-request
       // prompt-token cap for accounts below a lifetime-spend threshold, independent of
       // the model's real context window - our diff+context payload routinely exceeds it.
       id: 'orcarouter',
@@ -160,6 +163,14 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
       model: orcaRouterModels[0] ?? DEFAULT_REVIEW_ORCAROUTER_MODELS[0],
       fallbackModels: orcaRouterModels.slice(1),
       apiKey: (providerEnv) => providerEnv.ORCAROUTER_API_KEY,
+    },
+    {
+      // Final HTTP reserve. The :publicai suffix prevents HF from silently selecting
+      // another inference provider when the Public AI route is unavailable.
+      id: 'huggingface-publicai',
+      url: 'https://router.huggingface.co/v1/chat/completions',
+      model: env.KANAREK_REVIEW_HUGGINGFACE_MODEL?.trim() || DEFAULT_REVIEW_HUGGINGFACE_MODEL,
+      apiKey: (providerEnv) => providerEnv.HUGGINGFACE_API_KEY,
     },
   ];
 }

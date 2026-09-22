@@ -7,6 +7,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   ollama: "Ollama",
   groq: "Groq",
   vercel: "Vercel",
+  "huggingface-publicai": "HF / Public AI",
   "workers-ai": "Workers AI",
 };
 

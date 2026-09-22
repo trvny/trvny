@@ -559,7 +559,7 @@ test('review router tries Ollama models before Groq', async () => {
   ]);
 });
 
-test('review router uses Vercel AI Gateway as the final HTTP reserve', async () => {
+test('review router uses Vercel AI Gateway after Groq quota', async () => {
   const calls: Array<{ url: string; model: unknown; authorization: string | null }> = [];
   const response = await handleReviewRouterRequest(request(), {
     ...auth,
@@ -604,6 +604,48 @@ test('review provider health includes Vercel AI Gateway', async () => {
   assert.deepEqual(
     health.providers.find((provider) => provider.provider === 'vercel'),
     { available: true, configured: true, provider: 'vercel' },
+  );
+});
+
+test('review router uses Hugging Face PublicAI as the final HTTP reserve', async () => {
+  const calls: Array<{ url: string; model: unknown; authorization: string | null }> = [];
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orca-key',
+    HUGGINGFACE_API_KEY: 'hf-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    calls.push({
+      url: String(input),
+      model: body.model,
+      authorization: new Headers(init?.headers).get('authorization'),
+    });
+    if (String(input).startsWith('https://api.orcarouter.ai/')) {
+      return Promise.resolve(new Response('quota', { status: 429 }));
+    }
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'huggingface-publicai');
+  assert.deepEqual(calls.slice(-1), [{
+    url: 'https://router.huggingface.co/v1/chat/completions',
+    model: 'aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai',
+    authorization: 'Bearer hf-key',
+  }]);
+  assert.equal(calls.filter((call) => call.url.startsWith('https://api.orcarouter.ai/')).length, 3);
+});
+
+test('review provider health includes Hugging Face PublicAI', async () => {
+  const health = await reviewProviderPoolHealth({
+    ...auth, HUGGINGFACE_API_KEY: 'hf-key',
+  });
+  assert.equal(health.configured, 1);
+  assert.equal(health.available, 1);
+  assert.equal(health.ready, true);
+  assert.deepEqual(
+    health.providers.find((provider) => provider.provider === 'huggingface-publicai'),
+    { available: true, configured: true, provider: 'huggingface-publicai' },
   );
 });
 

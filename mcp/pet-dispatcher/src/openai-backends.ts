@@ -6,6 +6,7 @@ export const OPENAI_COMPATIBLE_BACKEND_IDS = [
   "aihubmix",
   "ollama-cloud",
   "groq",
+  "huggingface-publicai",
 ] as const;
 
 export type OpenAICompatibleBackendId = typeof OPENAI_COMPATIBLE_BACKEND_IDS[number];
@@ -50,6 +51,12 @@ export const OPENAI_COMPATIBLE_BACKENDS: readonly OpenAICompatibleBackendDefinit
     endpoint: "https://api.groq.com/openai/v1/chat/completions", costClass: "free-tier", priority: 50,
     modelEnv: "PET_DISPATCHER_GROQ_MODEL",
   },
+  {
+    id: "huggingface-publicai", credentialEnv: "HUGGINGFACE_API_KEY",
+    endpoint: "https://router.huggingface.co/v1/chat/completions", costClass: "free-tier", priority: 55,
+    defaultModel: "aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai",
+    modelEnv: "PET_DISPATCHER_HUGGINGFACE_MODEL",
+  },
 ];
 
 export function backendModel(
@@ -69,5 +76,8 @@ export function backendReadinessReason(
   const model = env[definition.modelEnv]?.trim() || definition.defaultModel;
   if (!model) return `missing model env: ${definition.modelEnv}`;
   if (definition.id === "aihubmix" && !model.endsWith("-free")) return "AIHubMix routed model must use a -free id";
+  if (definition.id === "huggingface-publicai" && !model.endsWith(":publicai")) {
+    return "Hugging Face model must pin the :publicai provider";
+  }
   return undefined;
 }

@@ -41,6 +41,21 @@ test("zero-cost router defaults are ready while ambiguous model choices require 
   assert.equal(byId.get("groq")?.availability, "degraded");
   assert.equal(JSON.stringify(probes).includes("test-orca-key"), false);
 });
+
+test("Hugging Face PublicAI has a pinned ready default and rejects unpinned overrides", async () => {
+  const ready = await probeModelBackends({ env: {
+    HUGGINGFACE_API_KEY: "test-hf-key",
+  } as NodeJS.ProcessEnv });
+  assert.equal(ready.find(({ id }) => id === "huggingface-publicai")?.availability, "available");
+
+  const unpinned = await probeModelBackends({ env: {
+    HUGGINGFACE_API_KEY: "test-hf-key",
+    PET_DISPATCHER_HUGGINGFACE_MODEL: "aisingapore/Qwen-SEA-LION-v4-32B-IT",
+  } as NodeJS.ProcessEnv });
+  const hf = unpinned.find(({ id }) => id === "huggingface-publicai");
+  assert.equal(hf?.availability, "degraded");
+  assert.match(hf?.reason ?? "", /:publicai/u);
+});
 test("executor probes expose contracts and degrade safely", async () => {
   const probes = await probeExecutorAdapters({
     env,
@@ -53,7 +68,7 @@ test("executor probes expose contracts and degrade safely", async () => {
   const byId = new Map(probes.map((probe) => [probe.id, probe]));
   assert.equal(byId.get("direct")?.availability, "available");
   assert.equal(byId.get("openrouter")?.backendMode, "selectable");
-  assert.deepEqual(byId.get("openrouter")?.backendIds, ["openrouter", "orcarouter", "aihubmix", "ollama-cloud", "groq"]);
+  assert.deepEqual(byId.get("openrouter")?.backendIds, ["openrouter", "orcarouter", "aihubmix", "ollama-cloud", "groq", "huggingface-publicai"]);
   assert.equal(byId.get("copilot")?.availability, "available");
   assert.equal(byId.get("opencode")?.availability, "degraded");
   assert.equal(byId.get("opencode")?.backendMode, "selectable");

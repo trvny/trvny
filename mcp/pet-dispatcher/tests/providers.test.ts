@@ -20,14 +20,13 @@ const config: DispatcherConfig = {
 test("remote credential scrub list covers every direct provider secret", () => {
   assert.deepEqual(PROVIDER_CREDENTIAL_ENV_NAMES, [
     "AIHUBMIX_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY",
-    "OLLAMA_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY",
+    "HUGGINGFACE_API_KEY", "OLLAMA_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY",
   ]);
 });
 
 test("remote managed free router works without local provider credentials", async () => {
   const saved = Object.fromEntries(
-    ["OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "AIHUBMIX_API_KEY", "OLLAMA_API_KEY", "GROQ_API_KEY"]
-      .map((name) => [name, process.env[name]]),
+    PROVIDER_CREDENTIAL_ENV_NAMES.map((name) => [name, process.env[name]]),
   );
   for (const name of Object.keys(saved)) delete process.env[name];
   let payload: Record<string, unknown> | undefined;
@@ -143,6 +142,38 @@ test("OpenRouter compatibility executor falls back to the next healthy OpenAI ba
     globalThis.fetch = originalFetch;
     if (originalOpenRouter === undefined) delete process.env.OPENROUTER_API_KEY; else process.env.OPENROUTER_API_KEY = originalOpenRouter;
     if (originalOrca === undefined) delete process.env.ORCAROUTER_API_KEY; else process.env.ORCAROUTER_API_KEY = originalOrca;
+  }
+});
+
+test("local routed OpenAI can use Hugging Face PublicAI directly", async () => {
+  const originalFetch = globalThis.fetch;
+  const saved = Object.fromEntries(PROVIDER_CREDENTIAL_ENV_NAMES.map((name) => [name, process.env[name]]));
+  let requestUrl = "";
+  let authorization = "";
+  let model = "";
+  globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
+    requestUrl = String(input);
+    authorization = new Headers(init?.headers).get("Authorization") ?? "";
+    model = (JSON.parse(String(init?.body ?? "{}")) as { model?: string }).model ?? "";
+    return Promise.resolve(new Response(JSON.stringify({
+      choices: [{ message: { role: "assistant", content: "hf done" } }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+  }) as typeof fetch;
+  try {
+    for (const name of PROVIDER_CREDENTIAL_ENV_NAMES) delete process.env[name];
+    process.env.HUGGINGFACE_API_KEY = "test-hf-only";
+    const tools = { execute: () => Promise.reject(new Error("no tools expected")) } as unknown as AgentTools;
+    const result = await runRoutedOpenAI(config, tools, "session", "goal");
+    assert.equal(result.provider, "huggingface-publicai");
+    assert.equal(result.model, "aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai");
+    assert.equal(requestUrl, "https://router.huggingface.co/v1/chat/completions");
+    assert.equal(authorization, "Bearer test-hf-only");
+    assert.equal(model, "aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai");
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
   }
 });
 

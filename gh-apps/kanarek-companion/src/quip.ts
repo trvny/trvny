@@ -1,3 +1,5 @@
+import { reviewRouterChatViaService, type ReviewServiceBinding } from './review-service.ts';
+
 const PRIMARY_MODEL = 'gpt-5.6-luna';
 const FALLBACK_MODEL = 'gpt-5.4-nano';
 const ANTHROPIC_MODEL = 'claude-haiku-4-5';
@@ -10,6 +12,7 @@ const DEFAULT_XAI_QUIP_OUTPUT_TOKEN_LIMIT = 1_024;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 const PROVIDER_STATS_PREFIX = 'kanarek:companion:provider-stats:v1:';
 const PROVIDER_SLOTS = [
+  'free-router',
   'gemini',
   'openai',
   'xai',
@@ -54,6 +57,8 @@ export interface QuipEnv {
   KANAREK_GEMINI_MAX_OUTPUT_TOKENS?: string;
   KANAREK_GEMINI_MODEL?: string;
   KANAREK_GEMINI_THINKING_LEVEL?: string;
+  KANAREK_FREE_ROUTER_ENABLED?: string;
+  KANAREK_FREE_ROUTER_MAX_TOKENS?: string;
   KANAREK_OPENAI_ENABLED?: string;
   KANAREK_OPENAI_FALLBACK_MODEL?: string;
   KANAREK_OPENAI_MAX_OUTPUT_TOKENS?: string;
@@ -66,6 +71,7 @@ export interface QuipEnv {
   KANAREK_XAI_MODEL?: string;
   KANAREK_XAI_PROMPT_CACHE_KEY?: string;
   KANAREK_XAI_REASONING?: string;
+  KANAREK_REVIEW_SERVICE?: ReviewServiceBinding;
   OPENAI_API_KEY?: string;
   XAI_API_KEY?: string;
 }
@@ -289,7 +295,8 @@ function providerEnabled(value: string | undefined): boolean {
 
 export function hasAiProvider(env: QuipEnv): boolean {
   return Boolean(
-    (env.OPENAI_API_KEY && providerEnabled(env.KANAREK_OPENAI_ENABLED)) ||
+    (env.KANAREK_REVIEW_SERVICE && providerEnabled(env.KANAREK_FREE_ROUTER_ENABLED)) ||
+      (env.OPENAI_API_KEY && providerEnabled(env.KANAREK_OPENAI_ENABLED)) ||
       (env.ANTHROPIC_API_KEY && providerEnabled(env.KANAREK_ANTHROPIC_ENABLED)) ||
       (env.GEMINI_API_KEY && providerEnabled(env.KANAREK_GEMINI_ENABLED)) ||
       (env.XAI_API_KEY && providerEnabled(env.KANAREK_XAI_ENABLED)),
@@ -386,6 +393,7 @@ interface ProviderUsage {
 interface ProviderResult {
   complete: boolean;
   finishReason: string | null;
+  providerLabel?: string;
   text: string;
   usage: ProviderUsage;
 }
@@ -553,6 +561,86 @@ async function postJson(
   }
 }
 
+function chatCompletionOutputText(response: Record<string, unknown>): string {
+  const choices = Array.isArray(response.choices) ? response.choices : [];
+  const first = objectValue(choices[0]);
+  const message = objectValue(first.message);
+  if (typeof message.content === 'string') return message.content;
+  const content = Array.isArray(message.content) ? message.content : [];
+  return content
+    .map((part) => {
+      const value = objectValue(part);
+      return value.type === 'text' && typeof value.text === 'string' ? value.text : '';
+    })
+    .filter(Boolean)
+    .join(' ');
+}
+
+function chatCompletionResult(
+  response: Record<string, unknown>,
+  providerLabel?: string,
+): ProviderResult {
+  const choices = Array.isArray(response.choices) ? response.choices : [];
+  const first = objectValue(choices[0]);
+  const finishReason =
+    typeof first.finish_reason === 'string' ? first.finish_reason : null;
+  const usage = objectValue(response.usage);
+  const completionDetails = objectValue(usage.completion_tokens_details);
+  return {
+    complete: finishReason === 'stop',
+    finishReason,
+    providerLabel,
+    text: sanitize(chatCompletionOutputText(response)),
+    usage: {
+      outputTokens: finiteNumber(usage.completion_tokens ?? usage.output_tokens),
+      reasoningTokens: finiteNumber(completionDetails.reasoning_tokens),
+    },
+  };
+}
+
+async function requestFreeRouter(
+  facts: string,
+  env: QuipEnv,
+): Promise<ProviderResult> {
+  const response = await reviewRouterChatViaService(
+    {
+      model: 'kanarek-review-free',
+      max_tokens: configuredInteger(
+        env.KANAREK_FREE_ROUTER_MAX_TOKENS,
+        DEFAULT_QUIP_OUTPUT_TOKEN_LIMIT,
+        1,
+        4_096,
+      ),
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: facts },
+      ],
+      stream: false,
+    },
+    env,
+  );
+  if (!response) throw new Error('Kanarek free router unavailable');
+  const raw = await response.text();
+  if (!response.ok) throw new Error(`Kanarek free router returned ${response.status}`);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('Kanarek free router returned invalid JSON');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Kanarek free router returned invalid JSON');
+  }
+  const provider = response.headers
+    .get('x-kanarek-review-provider')
+    ?.replace(/[^a-z0-9._-]/gi, '')
+    .slice(0, 64);
+  return chatCompletionResult(
+    parsed as Record<string, unknown>,
+    provider ? `Free ${provider}` : 'Kanarek free router',
+  );
+}
+
 async function requestOpenAi(
   model: string,
   facts: string,
@@ -713,6 +801,12 @@ function providerCandidates(
   fetcher: typeof fetch,
 ): ProviderCandidate[] {
   const candidates = new Map<ProviderSlot, ProviderCandidate>();
+  if (env.KANAREK_REVIEW_SERVICE && providerEnabled(env.KANAREK_FREE_ROUTER_ENABLED)) {
+    candidates.set('free-router', {
+      label: 'Kanarek free router',
+      request: () => requestFreeRouter(facts, env),
+    });
+  }
   if (env.OPENAI_API_KEY && providerEnabled(env.KANAREK_OPENAI_ENABLED)) {
     const primaryModel = env.KANAREK_OPENAI_MODEL || PRIMARY_MODEL;
     const fallbackModel = env.KANAREK_OPENAI_FALLBACK_MODEL || FALLBACK_MODEL;
@@ -767,19 +861,20 @@ export async function aiQuip(
     const hasFallback = index + 1 < candidates.length;
     try {
       const result = await candidate.request();
-      logProviderResult(candidate.label, result);
+      const providerLabel = result.providerLabel ?? candidate.label;
+      logProviderResult(providerLabel, result);
       const success = result.complete && validQuipLength(result.text);
       const lastError = success
         ? null
         : result.complete
           ? 'invalid_output'
           : 'incomplete';
-      await recordProviderStats(env, candidate.label, success, lastError);
+      await recordProviderStats(env, providerLabel, success, lastError);
       if (success) return result.text;
       const reason = result.complete
         ? `unusable quip (${result.text.length} chars)`
         : `incomplete generation (${result.finishReason ?? 'unknown reason'})`;
-      console.warn(`${candidate.label} returned ${reason}; using bank/preset.`);
+      console.warn(`${providerLabel} returned ${reason}; using bank/preset.`);
       return null;
     } catch (error) {
       await recordProviderStats(env, candidate.label, false, providerErrorCategory(error));

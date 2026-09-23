@@ -1,0 +1,78 @@
+{
+  "source_repo": "travnie/.github",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready: a tiny patch to derive Android version codes from git history.",
+      "repo": "travnie/.github",
+      "first_seen": "2026-09-22T23:49:09Z",
+      "last_seen": "2026-09-22T23:49:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "Tiny GitHub automation gate is ready; iOS frameworks now face the macOS runner.",
+      "repo": "travnie/.github",
+      "first_seen": "2026-09-05T18:44:49Z",
+      "last_seen": "2026-09-05T18:44:49Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "CI is red; the small GitHub automation release is nesting until checks turn green.",
+      "repo": "travnie/.github",
+      "first_seen": "2026-09-01T21:45:53Z",
+      "last_seen": "2026-09-01T23:21:56Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "GitHub automation is blocked; CI tripped over a small release-baseline mismatch.",
+      "repo": "travnie/.github",
+      "first_seen": "2026-09-01T21:27:10Z",
+      "last_seen": "2026-09-01T21:27:10Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Small automation, dramatic CI: the release baseline waits while checks sulk.",
+      "repo": "travnie/.github",
+      "first_seen": "2026-09-01T23:21:56Z",
+      "last_seen": "2026-09-01T23:21:56Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "b0e0b3283e5ff2f3",
+      "l": "en",
+      "q": "The large Frontend docs hub is fully ready, having peacefully relocated to the organization site.",
+      "repo": "travnie/.github",
+      "first_seen": "2026-09-06T09:38:09Z",
+      "last_seen": "2026-09-06T09:38:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    }
+  ]
+}

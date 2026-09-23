@@ -1,0 +1,186 @@
+{
+  "source_repo": "trvny/trvny",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready: a tiny patch to derive Android version codes from git history.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-22T23:50:03Z",
+      "last_seen": "2026-09-23T05:18:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "Gremlin live documentation lookup stalled: medium PR blocked by CI failure.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-16T08:32:29Z",
+      "last_seen": "2026-09-16T08:32:29Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "3df40130011d2596",
+      "l": "en",
+      "q": "Small Mcp dependency bump for pet-dispatcher is ready; four npm packages safely updated.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-21T22:15:08Z",
+      "last_seen": "2026-09-21T22:15:08Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "3df40130011d2596",
+      "l": "en",
+      "q": "Small Mcp dependency bump for workers-types and wrangler is ready to land with zero blockers.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-21T22:13:56Z",
+      "last_seen": "2026-09-21T22:13:56Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "A small scrub of the repository docs; stale README variants are now history.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-23T21:19:23Z",
+      "last_seen": "2026-09-23T21:19:23Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready: a small patch, no blockers, and the footnotes behave.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-16T04:37:21Z",
+      "last_seen": "2026-09-16T04:37:21Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Small documentation patch for Engram bot context recall is ready with zero blockers.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-18T20:19:35Z",
+      "last_seen": "2026-09-18T20:19:35Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "5cac34179d7dd5f0",
+      "l": "en",
+      "q": "The tiny documentation trim is ready with zero blockers and rules intact.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-18T22:14:26Z",
+      "last_seen": "2026-09-18T22:14:26Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "Small GitHub automation update is ready, smoothly bumping three actions with zero blockers.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-22T18:41:07Z",
+      "last_seen": "2026-09-22T18:41:07Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "Small GitHub automation update ready with zero alerts and an empty dependency graph.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-22T13:06:37Z",
+      "last_seen": "2026-09-22T13:06:37Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "82672d3e031d0eb8",
+      "l": "en",
+      "q": "Token worldcup is ready for the tiny anthropic 1.7.0 bump with zero blockers in sight.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-21T22:12:59Z",
+      "last_seen": "2026-09-21T22:12:59Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "a3179193030ed2a8",
+      "l": "en",
+      "q": "Kanarek is ready: tiny Gh apps polish, with the noise floor neatly lowered.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-17T16:20:07Z",
+      "last_seen": "2026-09-17T16:20:07Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "a3179193030ed2a8",
+      "l": "en",
+      "q": "Tiny Gh apps npm dependency bump is ready with zero blockers and two updates.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-17T18:22:36Z",
+      "last_seen": "2026-09-17T18:22:36Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "b7e66c163c13d894",
+      "l": "en",
+      "q": "Gh apps are ready; a small polish pass, with no blockers hiding in the wiring.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-16T13:47:59Z",
+      "last_seen": "2026-09-23T05:19:02Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "b7f64f961b7101c2",
+      "l": "en",
+      "q": "Two npm feathers updated; Kanarek is ready to fly without blockers.",
+      "repo": "trvny/trvny",
+      "first_seen": "2026-09-16T13:46:53Z",
+      "last_seen": "2026-09-19T16:08:48Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 4
+    }
+  ]
+}

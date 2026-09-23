@@ -1,0 +1,654 @@
+{
+  "source_repo": "travnie/Autka",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "Cache warmed, pipeline chirping—Kanarek approves the tiny featherweight upgrade.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-10T04:46:49Z",
+      "last_seen": "2026-08-10T04:46:49Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "GitHub automation is ready; MegaLinter 10 made the tiny upgrade without burning CI.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-18T04:27:39Z",
+      "last_seen": "2026-08-18T04:27:39Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "This tiny GitHub automation update is ready, handing Worker deployment cleanly to Cloudflare Builds.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-27T05:04:57Z",
+      "last_seen": "2026-08-27T05:04:57Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "Tiny GitHub automation gate is ready; iOS frameworks now face the macOS runner.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-19T00:27:25Z",
+      "last_seen": "2026-08-19T00:27:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "Tiny GitHub automation update ready: ignoring forty-eight phantom Dependabot alerts.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-22T22:15:31Z",
+      "last_seen": "2026-08-28T16:12:19Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": null,
+      "q": "App import-preset wiring is small and unblocked; Kanarek finds the assumptions card in tune.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-18T21:44:33Z",
+      "last_seen": "2026-08-18T21:44:33Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": null,
+      "q": "App is ready to ship: a small search fallback, neatly kept outside the marketplace pantry.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T00:52:25Z",
+      "last_seen": "2026-08-11T00:52:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": null,
+      "q": "App is ready to ship: a small search fallback, neatly scoped and properly caged.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T00:52:25Z",
+      "last_seen": "2026-08-11T04:25:56Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": null,
+      "q": "App is ready; the small search detour has cleared review without ruffling feathers.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T00:52:25Z",
+      "last_seen": "2026-08-19T04:30:00Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": null,
+      "q": "App is ready: a small web-search fallback, neatly contained and mildly suspicious.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T00:52:25Z",
+      "last_seen": "2026-08-11T00:52:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": null,
+      "q": "App refactor is ready: small models crossed into shared waters without blocking the merge.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-18T23:39:01Z",
+      "last_seen": "2026-08-19T04:30:00Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": null,
+      "q": "Small App change is greenlit; the fallback is ready to browse, not to hoard.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T00:52:25Z",
+      "last_seen": "2026-08-18T04:44:20Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": null,
+      "q": "Small App change ready: import estimates can now share their assumptions, neatly itemized.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-18T05:09:25Z",
+      "last_seen": "2026-08-18T05:09:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "18498bc2b337892b",
+      "l": null,
+      "q": "Backend cache fix waits on CI and a little rebase archaeology before takeoff.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-08T22:09:40Z",
+      "last_seen": "2026-08-08T22:09:40Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1ed913237b515e48",
+      "l": null,
+      "q": "iOS marketplace hand-off is ready; the calculator has left the shared kitchen.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-19T02:02:35Z",
+      "last_seen": "2026-08-19T02:02:35Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1ed913237b515e48",
+      "l": null,
+      "q": "iOS marketplace hand-off is ready; the shared builder now has a native sidekick.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-19T02:02:35Z",
+      "last_seen": "2026-08-19T02:02:35Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "36fad6e1b82938d5",
+      "l": "en",
+      "q": "A tiny batch of 11 minor dependency bumps in the App is blocked by a CI failure.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-15T10:08:16Z",
+      "last_seen": "2026-09-15T14:13:02Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "36fad6e1b82938d5",
+      "l": "en",
+      "q": "Even a tiny Coil 3 App migration cannot escape CI failure jail.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-20T10:52:19Z",
+      "last_seen": "2026-09-20T10:52:19Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "459d375619b9853b",
+      "l": "en",
+      "q": "Backend’s five minor updates are lined up; the small PR is ready to fly.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-18T04:27:26Z",
+      "last_seen": "2026-09-15T10:04:21Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 4
+    },
+    {
+      "k": "459d375619b9853b",
+      "l": "en",
+      "q": "The small backend bump for Hono and Wrangler is fully ready with zero blockers.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-08T16:59:37Z",
+      "last_seen": "2026-09-08T16:59:37Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4b3788b51cea8027",
+      "l": null,
+      "q": "Tiny App fix ready: listing labels now speak EN/PL without hardcoded static.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-08T23:25:30Z",
+      "last_seen": "2026-08-11T04:30:11Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "5d579efea8f9337d",
+      "l": null,
+      "q": "App’s medium-sized flight is grounded by CI; the saved searches await a green runway.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T02:49:44Z",
+      "last_seen": "2026-08-18T05:45:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Blocked by CI: a small automation patch awaiting its ceremonial red build.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-23T01:18:18Z",
+      "last_seen": "2026-08-23T01:18:18Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "GitHub automation is blocked: CI found a small cog out of alignment.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-12T06:17:35Z",
+      "last_seen": "2026-08-12T06:17:35Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Kanarek is blocked: CI found a tiny GitHub automation puzzle hiding in plain sight.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-23T01:18:18Z",
+      "last_seen": "2026-08-23T01:18:18Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Small GitHub automation PR blocked by CI; even Windows packaging awaits a green light.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-12T06:17:35Z",
+      "last_seen": "2026-08-12T06:17:35Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Tiny GitHub automation PR blocked by CI; the canary is waiting for one green light.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-23T01:18:18Z",
+      "last_seen": "2026-08-23T01:18:18Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "791ac8422b2a6fc5",
+      "l": "en",
+      "q": "Tiny GitHub automation change blocked: CI is missing, failed, and feeling experimental.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-23T00:00:13Z",
+      "last_seen": "2026-09-23T00:00:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "791ac8422b2a6fc5",
+      "l": "en",
+      "q": "Tiny GitHub automation patch grounded, while CI remains an unconvincing rumor.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-23T00:00:13Z",
+      "last_seen": "2026-09-23T00:00:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "CodeQL coverage is back on the perch; this small automation patch is ready to fly.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-12T06:17:35Z",
+      "last_seen": "2026-08-23T01:18:18Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "Small GitHub automation update is ready, smoothly bumping three actions with zero blockers.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-15T10:08:08Z",
+      "last_seen": "2026-09-15T10:08:08Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "Small GitHub automation update ready: one-shot Gemini PR reviews trigger on creation.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-08T18:25:46Z",
+      "last_seen": "2026-09-08T18:25:46Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "97a813b4a65447a3",
+      "l": "en",
+      "q": "Small App PR blocked by failed CI; the providers await a green signal.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-20T10:53:12Z",
+      "last_seen": "2026-09-20T10:53:12Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "9bf7acb2fb12d590",
+      "l": "en",
+      "q": "A tiny Gradle patch group of seven updates sits blocked after a sudden CI failure.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-21T22:31:43Z",
+      "last_seen": "2026-09-21T22:31:43Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "9d9a7a5bccb0a5fb",
+      "l": "en",
+      "q": "This small Vibe tracking docs update is blocked because CI is both missing and failing.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-15T12:26:11Z",
+      "last_seen": "2026-09-15T12:26:11Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "c76db5ad47baf999",
+      "l": null,
+      "q": "App patch is small, but CI and the branch are still buffering behind the curtain.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-08T22:53:47Z",
+      "last_seen": "2026-08-08T22:53:47Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "This small Autka design foundation documentation is currently blocked by a failing CI check.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-09-15T12:26:11Z",
+      "last_seen": "2026-09-15T12:26:11Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready; one medium-sized note now hums at lossless speed.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-10T08:03:50Z",
+      "last_seen": "2026-08-10T08:03:50Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App changes are ready; saved searches now persist neatly through the local state layer.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T02:49:44Z",
+      "last_seen": "2026-08-11T02:49:44Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App changes are ready: medium-sized saved searches, neatly filed in local storage.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T02:49:44Z",
+      "last_seen": "2026-08-11T02:49:44Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App is ready; the medium-sized fallback has cleared the runway.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T00:52:25Z",
+      "last_seen": "2026-08-11T00:52:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App is ready: a medium-sized web-search fallback, neatly avoiding unnecessary data plumbing.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T00:52:25Z",
+      "last_seen": "2026-08-11T00:52:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App is ready: filters align, diagnostics speak, and listings scan without drama.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T04:26:01Z",
+      "last_seen": "2026-08-11T04:26:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App is ready: medium-sized listings polish, with filters now minding their context.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T04:26:01Z",
+      "last_seen": "2026-08-11T04:26:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App is ready: medium-sized saved searches, neatly filed away for later.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T02:49:44Z",
+      "last_seen": "2026-08-11T02:49:44Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App is ready: saved searches now persist their little memories without drama.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T02:49:44Z",
+      "last_seen": "2026-08-11T02:49:44Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App is ready: saved searches now survive locally, with no blockers in sight.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T02:49:44Z",
+      "last_seen": "2026-08-11T02:49:44Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App is ready: the medium-sized search fallback has cleared the runway.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T00:52:25Z",
+      "last_seen": "2026-08-11T00:52:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App listings are flight-ready: filters polished, feedback wired, and no blockers on the runway.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T04:26:01Z",
+      "last_seen": "2026-08-11T04:26:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App polish is staged: filters aligned, feedback wired, and listings ready to ship.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T04:26:01Z",
+      "last_seen": "2026-08-11T04:26:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App polish is staged: filters behave, errors report, and the bird approves the medium lift.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T04:26:01Z",
+      "last_seen": "2026-08-11T04:26:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "Saved searches are nested, indexed, and patiently awaiting their next query.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T02:49:44Z",
+      "last_seen": "2026-08-11T02:49:44Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "Saved searches are ready; App has tucked the filters neatly into DataStore.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T02:49:44Z",
+      "last_seen": "2026-08-11T02:49:44Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "Saved searches are ready; the App now remembers what future-you meant to find.",
+      "repo": "travnie/Autka",
+      "first_seen": "2026-08-11T02:49:44Z",
+      "last_seen": "2026-08-11T02:49:44Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    }
+  ]
+}

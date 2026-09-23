@@ -1,0 +1,680 @@
+{
+  "source_repo": "travnie/aistee",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "03493325179a58bd",
+      "l": "en",
+      "q": "This tiny Gradle xmlutil core bump is fully ready and awaiting merge.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-13T00:28:20Z",
+      "last_seen": "2026-09-22T04:58:03Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "A tiny tweak to GitHub automation; the shared Instruction Rot is now ready for the agents.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T00:01:37Z",
+      "last_seen": "2026-09-23T00:01:37Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready; MegaLinter 10 made the tiny upgrade without burning CI.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-14T04:26:50Z",
+      "last_seen": "2026-09-22T11:39:54Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready: a tiny patch to derive Android version codes from git history.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-14T20:54:25Z",
+      "last_seen": "2026-09-14T20:54:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "Tiny GitHub automation update ready: ignoring forty-eight phantom Dependabot alerts.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T00:01:37Z",
+      "last_seen": "2026-09-23T00:01:37Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0b2110cd8adeae01",
+      "l": "en",
+      "q": "Large documentation updates for Bench tools are currently stalled by CI failures.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T22:47:00Z",
+      "last_seen": "2026-09-23T22:47:00Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App import-preset wiring is small and unblocked; Kanarek finds the assumptions card in tune.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-15T13:33:03Z",
+      "last_seen": "2026-09-15T13:33:03Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App is ready to ship: a small search fallback, neatly scoped and properly caged.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-20T16:27:05Z",
+      "last_seen": "2026-09-20T16:27:05Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App is ready; the small search detour has cleared review without ruffling feathers.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-15T15:07:26Z",
+      "last_seen": "2026-09-15T16:03:52Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App is ready: a small web-search fallback, neatly contained and mildly suspicious.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-20T19:52:50Z",
+      "last_seen": "2026-09-20T19:52:50Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App refactor is ready: small models crossed into shared waters without blocking the merge.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-15T11:17:51Z",
+      "last_seen": "2026-09-15T11:17:51Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App widget is ready to surface the three recent native chats in a small footprint.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-20T19:10:40Z",
+      "last_seen": "2026-09-23T04:37:46Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "Small app change is ready: waving goodbye to fixed Claude token caps via the models API.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-15T14:50:42Z",
+      "last_seen": "2026-09-20T17:52:12Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "Small App update for SSE chat streaming via the OpenAI gateway is ready. Kanarek watches the deltas.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-20T15:52:09Z",
+      "last_seen": "2026-09-20T15:52:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "Small App widget PR is ready, delivering privacy-safe quick actions with zero friction.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-12T21:06:45Z",
+      "last_seen": "2026-09-12T21:06:45Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "The small App Action PR for shortcuts.xml is ready to route Assistant messages.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-13T01:45:53Z",
+      "last_seen": "2026-09-13T01:45:53Z",
+      "evidence": [
+        "pool",
+        "current-ai"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": "en",
+      "q": "GitHub automation stalls this large LlmBench rename as CI fails to cooperate.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-14T03:37:32Z",
+      "last_seen": "2026-09-14T03:37:32Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": "en",
+      "q": "Large macrobenchmark foundation halted in GitHub automation as CI failed.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-16T19:16:25Z",
+      "last_seen": "2026-09-16T19:16:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "Gremlin live documentation lookup stalled: medium PR blocked by CI failure.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-22T01:15:31Z",
+      "last_seen": "2026-09-23T21:38:34Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "Medium documentation for the semantic provider is blocked by CI failure during intent compilation.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-22T18:05:10Z",
+      "last_seen": "2026-09-23T21:38:34Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "Medium Documentation for the semantic provider layer is blocked by a failing CI run.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-22T01:15:31Z",
+      "last_seen": "2026-09-22T01:15:31Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "223c70a630a5f192",
+      "l": "en",
+      "q": "Medium App PR for Markdown skill renaming is blocked by missing and failing CI.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-21T08:18:18Z",
+      "last_seen": "2026-09-23T08:00:08Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "223c70a630a5f192",
+      "l": "en",
+      "q": "Medium App widget blocked as CI checks are both missing and failing.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-21T16:55:57Z",
+      "last_seen": "2026-09-21T16:55:57Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "36fad6e1b82938d5",
+      "l": "en",
+      "q": "A tiny batch of 11 minor dependency bumps in the App is blocked by a CI failure.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-21T16:55:57Z",
+      "last_seen": "2026-09-21T16:55:57Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "36fad6e1b82938d5",
+      "l": "en",
+      "q": "Even a tiny Coil 3 App migration cannot escape CI failure jail.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-22T12:51:21Z",
+      "last_seen": "2026-09-22T12:51:21Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready; the URL token note is small, tidy, and unblocked.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-15T11:22:43Z",
+      "last_seen": "2026-09-15T11:22:43Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready: a small patch, no blockers, and the footnotes behave.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T01:52:24Z",
+      "last_seen": "2026-09-23T01:52:24Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready: two pointers aligned, with no blockers hiding in the margins.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T16:08:08Z",
+      "last_seen": "2026-09-23T16:08:08Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Kanarek updates only safe same-repo branches: open, mergeable, conflict-free, and green.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T16:08:08Z",
+      "last_seen": "2026-09-23T16:08:08Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Small feedboard diagnostics documentation is ready to merge with zero blockers.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-22T18:18:08Z",
+      "last_seen": "2026-09-22T18:18:08Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4b3788b51cea8027",
+      "l": "en",
+      "q": "This tiny App PR is ready; workbench shapes now map neatly to instructions with zero blockers.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-15T15:33:02Z",
+      "last_seen": "2026-09-15T15:33:02Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4b3788b51cea8027",
+      "l": "en",
+      "q": "Tiny App fix ready: listing labels now speak EN/PL without hardcoded static.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-14T17:19:37Z",
+      "last_seen": "2026-09-15T15:33:26Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 5
+    },
+    {
+      "k": "4b3788b51cea8027",
+      "l": "en",
+      "q": "Tiny App fix: detaching the WebView before teardown keeps Android's lifecycle happy and is ready.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-12T21:24:31Z",
+      "last_seen": "2026-09-12T21:24:31Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "5ad8b7311c7dd4cc",
+      "l": "en",
+      "q": "GitHub automation is ready: a large PR now shifts the feed cache out of main and into R2.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-16T19:16:25Z",
+      "last_seen": "2026-09-16T19:16:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "5c4e121084b1d807",
+      "l": "zh",
+      "q": "App 模块的大型 WebView 导航改造已彻底就绪，跨主导航稳妥保留聊天宿主实例，目前零阻塞。",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-18T04:59:01Z",
+      "last_seen": "2026-09-18T04:59:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "5cac34179d7dd5f0",
+      "l": "en",
+      "q": "The tiny documentation trim is ready with zero blockers and rules intact.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-16T22:03:52Z",
+      "last_seen": "2026-09-16T22:03:52Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "5d579efea8f9337d",
+      "l": "en",
+      "q": "App’s medium-sized flight is grounded by CI; the saved searches await a green runway.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-17T11:29:49Z",
+      "last_seen": "2026-09-23T14:47:03Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 5
+    },
+    {
+      "k": "5d579efea8f9337d",
+      "l": "en",
+      "q": "Kanarek's medium App PR for editing local skills is blocked while CI sorts itself out.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-14T15:23:34Z",
+      "last_seen": "2026-09-22T22:50:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": "en",
+      "q": "Small GitHub automation PR blocked by CI; the runner awaits a green-light ceremony.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-22T12:02:59Z",
+      "last_seen": "2026-09-22T12:02:59Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "This small GitHub automation PR is ready, tidying up the post-rename Kanarek org references.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-14T07:11:04Z",
+      "last_seen": "2026-09-14T07:11:04Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "97a813b4a65447a3",
+      "l": "en",
+      "q": "Kanarek halts the small App patch for local skill libraries due to a CI failure.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-17T11:29:49Z",
+      "last_seen": "2026-09-22T22:50:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "97a813b4a65447a3",
+      "l": "en",
+      "q": "Small App PR blocked by failed CI; the providers await a green signal.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-12T21:06:45Z",
+      "last_seen": "2026-09-22T22:50:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "9afab1aac8e7d72a",
+      "l": "en",
+      "q": "The large documentation batch is ready, quietly cataloging new Audacity and Netlify feed sources.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-22T18:05:10Z",
+      "last_seen": "2026-09-22T18:05:10Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ae06a6930c1f1c1f",
+      "l": "en",
+      "q": "Medium Android share docs are blocked: CI is both missing and failed.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T21:38:34Z",
+      "last_seen": "2026-09-23T21:38:34Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "A small addition to the provider registry, currently held hostage by a failing CI pipeline.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T16:08:08Z",
+      "last_seen": "2026-09-23T16:08:08Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "Small documentation PR blocked by CI—the prose awaits a green build.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T01:52:24Z",
+      "last_seen": "2026-09-23T01:52:24Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "dfaa6a220b765cb4",
+      "l": "en",
+      "q": "Large documentation update for Kościelec weather stalled on a failed CI check.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T22:47:00Z",
+      "last_seen": "2026-09-23T22:47:00Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "dfaa6a220b765cb4",
+      "l": "en",
+      "q": "Large Kościelec weather documentation blocked; CI checks refuse to forecast.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T22:47:00Z",
+      "last_seen": "2026-09-23T22:47:00Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "e063dd0ee96343a8",
+      "l": "en",
+      "q": "A large expansion of Bench chat tools and Project Library is currently held hostage by CI failures.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T22:47:00Z",
+      "last_seen": "2026-09-23T22:47:00Z",
+      "evidence": [
+        "pool",
+        "current-ai"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "Medium-sized documentation for finding text in account-backed chats is ready and unblocked.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-22T01:15:31Z",
+      "last_seen": "2026-09-22T01:15:31Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "Medium-weight Vercel AI Gateway documentation is ready, featuring a live token-priced model catalog.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-15T21:22:34Z",
+      "last_seen": "2026-09-15T21:22:34Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "App is ready: medium-sized saved searches, neatly filed away for later.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T14:47:03Z",
+      "last_seen": "2026-09-23T14:47:03Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "App listings are flight-ready: filters polished, feedback wired, and no blockers on the runway.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-21T16:55:57Z",
+      "last_seen": "2026-09-21T16:55:57Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "Kanarek marks the medium App PR ready, keeping warm WebViews alive until memory pressure wakes them.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-17T11:29:49Z",
+      "last_seen": "2026-09-21T08:18:18Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "Saved searches are nested, indexed, and patiently awaiting their next query.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-14T15:23:34Z",
+      "last_seen": "2026-09-14T15:23:34Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "Saved searches are ready; the App now remembers what future-you meant to find.",
+      "repo": "travnie/aistee",
+      "first_seen": "2026-09-23T05:03:13Z",
+      "last_seen": "2026-09-23T05:03:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    }
+  ]
+}

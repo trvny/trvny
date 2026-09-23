@@ -8,6 +8,7 @@ import {
 import type { CompanionEnv, IssueComment, QuipEntry } from './companion-types.ts';
 
 export const BANK_KEY = 'kanarek:companion:quip-bank:v2';
+export const ARCHIVE_PREFIX = 'kanarek:companion:quip-archive:v1:';
 export const QUIP_KEY_RE = /<!-- kanarek-quip-key:([a-f0-9]+) -->/;
 export const QUIP_RE = /<!-- kanarek-quip:([A-Za-z0-9_-]+) -->/;
 const POOL_RE = /<!-- kanarek-pool:([A-Za-z0-9_-]+) -->/;
@@ -565,6 +566,49 @@ export async function loadBank(
       `Kanarek quip bank unavailable: ${error instanceof Error ? error.message : 'unknown_error'}`,
     );
     return [];
+  }
+}
+
+export async function archiveQuip(
+  env: CompanionEnv,
+  repository: string,
+  quipKey: string,
+  quip: string,
+  language: CompanionLanguage,
+): Promise<boolean> {
+  const kv = env.KANAREK_QUIP_KV;
+  const normalizedRepository = repository.trim().toLowerCase();
+  const value = reusableQuip(quip, language);
+  if (
+    !kv ||
+    !/^[^/]+\/[^/]+$/.test(normalizedRepository) ||
+    !/^[a-f0-9]{16}$/.test(quipKey) ||
+    !value
+  ) {
+    return false;
+  }
+  try {
+    const repositoryHash = await hash(normalizedRepository);
+    const identity = await hash(
+      `${normalizedRepository}\u0000${quipKey}\u0000${value}`,
+    );
+    await kv.put(
+      `${ARCHIVE_PREFIX}${repositoryHash}:${quipKey}:${identity}`,
+      JSON.stringify({
+        repository: normalizedRepository,
+        k: quipKey,
+        l: language,
+        q: value,
+      }),
+    );
+    return true;
+  } catch (error) {
+    console.warn(
+      `Kanarek quip archive update failed: ${
+        error instanceof Error ? error.message : 'unknown_error'
+      }`,
+    );
+    return false;
   }
 }
 

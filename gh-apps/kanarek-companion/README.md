@@ -66,10 +66,11 @@ A normal delivery follows this path:
    free-provider router, with direct paid providers retained as request-level
    fallback. The same semantic quip state reuses its current line instead of
    generating churn.
-9. A valid AI quip first gets a cheap, short-lived retry receipt. The comment is
-   then upserted, maintenance is joined, and the quip is promoted to the
-   persistent bank. If the receipt write fails, bank storage is attempted before
-   GitHub work so a generated result still has durable protection.
+9. A valid AI quip is first copied to the append-only archive, then gets a
+   cheap, short-lived retry receipt. The comment is upserted, maintenance is
+   joined, and the quip is promoted to the bounded active bank. If the receipt
+   write fails, active-bank storage is attempted before GitHub work so a
+   generated result still has durable protection.
 
 Quips and code review remain separate generation flows. They share only the
 private provider router and its cooldowns; quip bank/receipts and review output
@@ -131,10 +132,15 @@ The persistent phrase bank lives in Workers KV under
 - Invalid or wrong-language learned entries encountered in a live bank window
   are removed incrementally. Cleanup is best-effort: a failed delete never
   makes already-read valid bank entries unavailable.
-- Learned entries have no age TTL. Concurrent, throttled maintenance removes
-  legacy expirations, rejects invalid migration candidates, and trims overflow.
-- AI-generated quips are stored. Historical pool quips are promoted to KV when
-  selected and missing there.
+- Learned entries in the active bank have no age TTL. Concurrent, throttled
+  maintenance removes legacy expirations, rejects invalid migration candidates,
+  and trims active-bank overflow.
+- Every valid AI-generated quip is also written to the separate append-only
+  `kanarek:companion:quip-archive:v1:` namespace before GitHub mutation.
+  Archive entries have no TTL and are never read by bank selection, capacity
+  measurement, maintenance, or pruning.
+- AI-generated quips are stored in the active bank. Historical pool quips are
+  promoted to KV when selected and missing there.
 - Legacy `BANK_KEY` entries remain readable; only reusable legacy values count
   toward the current context fullness.
 - Per-entry occupancy is deliberately conservative until invalid values are
@@ -165,6 +171,10 @@ would immediately reject or replace. The final partial retention pass is
 ordered by `quipKey`, so quotas can differ by one slot at the boundary and an
 extremely crowded bank can leave a late-sorting new context with no retainable
 slot until the distribution changes.
+
+The archive is deliberately not part of this calculation. Only active-bank
+occupancy lowers the effective AI percentage, so preserving old generated text
+cannot accidentally change the rollout curve.
 
 If the persistent KV bank cannot be measured, AI generation is skipped because
 the generated line could not be safely retained.
@@ -215,7 +225,10 @@ A valid AI quip is temporarily cached by repository, pull request, semantic
 generation, a retry reuses that receipt instead of generating again. Once the
 visible update and persistent-bank retention succeed, the receipt is removed.
 These receipts are idempotency data and do not count toward the 256/4096
-learned-bank limits.
+learned-bank limits. The append-only archive is recovery data and likewise does
+not participate in selection or the bank-fill percentage. Never bump or clear
+the active bank namespace as a reset strategy; schema changes must preserve or
+explicitly migrate learned data first.
 
 Each real quip provider response emits a compact `kanarek_ai_generation` log
 with finish reason, provider-reported output and reasoning token counts, and

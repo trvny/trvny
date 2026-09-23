@@ -1,0 +1,318 @@
+{
+  "source_repo": "travnie/twojstar",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready: a tiny patch to derive Android version codes from git history.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-16T06:54:42Z",
+      "last_seen": "2026-09-22T23:49:49Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "Tiny GitHub automation update ready: ignoring forty-eight phantom Dependabot alerts.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-18T21:37:22Z",
+      "last_seen": "2026-09-18T21:37:22Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": "en",
+      "q": "Large Xiaomi ADB Tools migration is currently blocked by GitHub automation CI failures.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-12T18:30:01Z",
+      "last_seen": "2026-09-12T18:30:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": "en",
+      "q": "This large GitHub automation retiring old bench sources is currently blocked by a CI failure.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-12T18:30:01Z",
+      "last_seen": "2026-09-18T04:59:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "1e736dd0466c7c2f",
+      "l": "en",
+      "q": "Small GitHub automation for CodeQL monorepo coverage is blocked: CI is missing and failing.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-12T14:09:17Z",
+      "last_seen": "2026-09-12T14:09:17Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "301bf7118eb98654",
+      "l": "en",
+      "q": "Large automation move stalled: CI is both missing and failing, covering all bases.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-12T18:30:01Z",
+      "last_seen": "2026-09-12T18:30:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "301bf7118eb98654",
+      "l": "en",
+      "q": "Large GitHub automation for Windows ML blocked: CI is both missing and failing.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-18T04:59:13Z",
+      "last_seen": "2026-09-18T04:59:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "301bf7118eb98654",
+      "l": "en",
+      "q": "The large Windows ML PR for Paint.NET is blocked by GitHub automation due to missing and failing CI.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-18T04:59:13Z",
+      "last_seen": "2026-09-18T04:59:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "38e18b606915acde",
+      "l": "en",
+      "q": "Feedboard's tiny WindowsAppSDK dotnet bump is ready, clean and unblocked.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-18T21:38:14Z",
+      "last_seen": "2026-09-18T21:38:14Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "3924df8046da817c",
+      "l": "en",
+      "q": "Feedboard local backup is ready; a small addition for safe JSON state.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-21T17:31:38Z",
+      "last_seen": "2026-09-21T17:31:38Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready; the URL token note is small, tidy, and unblocked.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-16T17:33:38Z",
+      "last_seen": "2026-09-16T17:33:38Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Small documentation tweak for zero startup silence is ready to roll with zero blockers.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-16T23:39:23Z",
+      "last_seen": "2026-09-16T23:39:23Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Small documentation update for Pet Dispatcher Windows host tool launches is ready to land.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-16T17:33:38Z",
+      "last_seen": "2026-09-16T17:33:38Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Small feedboard diagnostics documentation is ready to merge with zero blockers.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-21T17:31:34Z",
+      "last_seen": "2026-09-21T17:31:34Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "5ad8b7311c7dd4cc",
+      "l": "en",
+      "q": "GitHub automation is ready; the large patch has all its ducks in the webhook queue.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-17T12:43:15Z",
+      "last_seen": "2026-09-17T12:43:15Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "696e17adce6c0192",
+      "l": "en",
+      "q": "This tiny GitHub automation for the Paint.NET SDK is blocked: behind, with missing and failing CI.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-12T16:02:47Z",
+      "last_seen": "2026-09-12T16:02:47Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": "en",
+      "q": "GitHub automation hit a CI pothole; this small release is waiting by the roadside.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-12T14:09:17Z",
+      "last_seen": "2026-09-12T14:09:17Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "GitHub automation reports the small Auto Declip format matrix is ready for landing.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-16T08:03:06Z",
+      "last_seen": "2026-09-16T08:03:06Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "Small GitHub automation update ready with zero alerts and an empty dependency graph.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-15T21:24:58Z",
+      "last_seen": "2026-09-17T03:30:17Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "Small GitHub automation update ready: one-shot Gemini PR reviews trigger on creation.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-12T16:53:43Z",
+      "last_seen": "2026-09-12T16:53:43Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "9ba2d04d0fc2b883",
+      "l": "en",
+      "q": "Small dependency bump applied to the weather feed; status is ready and clear.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-18T21:39:16Z",
+      "last_seen": "2026-09-19T20:24:23Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "cd1ec77441c11e89",
+      "l": "en",
+      "q": "GitHub automation is blocked—behind and CI-failed, though the patch is small.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-12T16:53:43Z",
+      "last_seen": "2026-09-12T16:53:43Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "Small documentation PR blocked by CI—the prose awaits a green build.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-16T17:33:38Z",
+      "last_seen": "2026-09-16T17:33:38Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "e55f48e91008dfa7",
+      "l": "en",
+      "q": "Medium GitHub automation is ready, packing rolling releases into one atomic snapshot.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-13T15:13:26Z",
+      "last_seen": "2026-09-13T15:13:26Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "The medium OPENOFFICE documentation is ready, neatly structuring the API changelog for Next.js.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-22T14:51:52Z",
+      "last_seen": "2026-09-22T14:51:52Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "f1c671cab4fcbe94",
+      "l": "ru",
+      "q": "Маленькая автоматизация GitHub заблокирована: CI упал и пропал, воркфлоу ждет помощи.",
+      "repo": "travnie/twojstar",
+      "first_seen": "2026-09-16T21:54:52Z",
+      "last_seen": "2026-09-16T21:54:52Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    }
+  ]
+}

@@ -1,0 +1,203 @@
+{
+  "source_repo": "travnie/aistee",
+  "part": "pages13+",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "Tiny GitHub automation update ready: ignoring forty-eight phantom Dependabot alerts.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": null,
+      "q": "App is ready to ship: a small search fallback, neatly kept outside the marketplace pantry.",
+      "repo": "travnie/aistee",
+      "occurrences": 2
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Medium documentation update for llms.txt v2 discovery paused by a stubborn CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Medium documentation update for web composers halts; CI failure blocks the Studio bridge.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Medium-sized Docbench preview documentation remains blocked by a CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "This medium documentation PR on feed improvement philosophy is stalled by a CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "3f03e05e0ccde662",
+      "l": null,
+      "q": "Kanarek's provider fallback fix in GitHub automation is blocked because CI tripped on the worker.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "5d579efea8f9337d",
+      "l": null,
+      "q": "App’s medium-sized flight is grounded by CI; the saved searches await a green runway.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "631ea3490c66bfb9",
+      "l": null,
+      "q": "Небольшая документация по пулу WebView заблокирована: CI упал и пропал.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "6e4a9dea1943cdf6",
+      "l": null,
+      "q": "Hardening the docs: this small WebView patch waits on missing tests, failed CI, and branch drift.",
+      "repo": "travnie/aistee",
+      "occurrences": 2
+    },
+    {
+      "k": "74d69b40031b0e41",
+      "l": null,
+      "q": "This small documentation update for WebViews is blocked by CI failure and branch drift.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "97a813b4a65447a3",
+      "l": null,
+      "q": "Small App PR blocked by failed CI; the providers await a green signal.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "9bf7acb2fb12d590",
+      "l": null,
+      "q": "A tiny Gradle patch group of seven updates sits blocked after a sudden CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 2
+    },
+    {
+      "k": "9bf7acb2fb12d590",
+      "l": null,
+      "q": "Tiny Gradle bump, sizeable CI thump; Kanarek remains perched on the red build.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "9d9a7a5bccb0a5fb",
+      "l": null,
+      "q": "Small docs patch grounded by missing CI and a failed check.",
+      "repo": "travnie/aistee",
+      "occurrences": 2
+    },
+    {
+      "k": "9d9a7a5bccb0a5fb",
+      "l": null,
+      "q": "This small Vibe tracking docs update is blocked because CI is both missing and failing.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ab8c0b2f555c3f4b",
+      "l": null,
+      "q": "This tiny App fix for provider display mode is currently blocked by missing and failing CI checks.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ae06a6930c1f1c1f",
+      "l": null,
+      "q": "Medium provider diagnostics docs remain blocked, thwarted by a missing and failing CI pipeline.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ae06a6930c1f1c1f",
+      "l": null,
+      "q": "This medium provider streaming documentation is blocked by missing and failed CI checks.",
+      "repo": "travnie/aistee",
+      "occurrences": 2
+    },
+    {
+      "k": "bca5007aec694d4d",
+      "l": null,
+      "q": "Large web chat activity docs are grounded; falling behind and a CI failure block the runway.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "d3ade9eab6d4dfd5",
+      "l": null,
+      "q": "This tiny Gradle update is currently blocked because CI failed and it fell behind.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "d3ade9eab6d4dfd5",
+      "l": null,
+      "q": "Tiny Gradle bump: behind and CI-failed, proving seven updates can still queue one blocker.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": null,
+      "q": "A small Documentation fix for the Uber Newsroom feed sits blocked while CI sorts its issues.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": null,
+      "q": "Documentation PR, small in scope but CI has declared the footnotes noncompliant.",
+      "repo": "travnie/aistee",
+      "occurrences": 2
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": null,
+      "q": "Small documentation PR blocked by CI—the prose awaits a green build.",
+      "repo": "travnie/aistee",
+      "occurrences": 3
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": null,
+      "q": "Small documentation update for feed sources is blocked due to a CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "App is ready: saved searches now survive locally, with no blockers in sight.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": null,
+      "q": "Saved searches are ready; the App now remembers what future-you meant to find.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    }
+  ]
+}

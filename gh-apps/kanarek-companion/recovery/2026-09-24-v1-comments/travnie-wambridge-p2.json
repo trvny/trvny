@@ -1,0 +1,147 @@
+{
+  "source_repo": "travnie/wambridge",
+  "part": "pages6+",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "GitHub automation is ready for this tiny actions/setup-java bump from 5 to 6.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "GitHub automation is ready; MegaLinter 10 made the tiny upgrade without burning CI.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "301bf7118eb98654",
+      "l": null,
+      "q": "Large GitHub automation move: CI is absent and failing, achieving impressive consistency.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation is ready; the URL token note is small, tidy, and unblocked.",
+      "repo": "travnie/wambridge",
+      "occurrences": 2
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation is ready: a small patch, no blockers, and the footnotes behave.",
+      "repo": "travnie/wambridge",
+      "occurrences": 2
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation is ready: two pointers aligned, with no blockers hiding in the margins.",
+      "repo": "travnie/wambridge",
+      "occurrences": 2
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation size small and ready: live capability manifest deployment entrypoint is fully exposed.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Small documentation tweak for zero startup silence is ready to roll with zero blockers.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "5ad8b7311c7dd4cc",
+      "l": null,
+      "q": "GitHub automation is ready; the large patch has all its ducks in the webhook queue.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Kanarek is blocked: CI found a tiny GitHub automation puzzle hiding in plain sight.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "6e1631ab1236e495",
+      "l": null,
+      "q": "A small mobile gradle dependency bump is ready and entirely unblocked.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "6e1631ab1236e495",
+      "l": null,
+      "q": "Mobile is tuned, TuneIn rides along, and the small payload is ready to land.",
+      "repo": "travnie/wambridge",
+      "occurrences": 2
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "CodeQL coverage is back on the perch; this small automation patch is ready to fly.",
+      "repo": "travnie/wambridge",
+      "occurrences": 4
+    },
+    {
+      "k": "9a78b3a3a8bf869e",
+      "l": null,
+      "q": "Tiny automation bump blocked: CI is singing off-key and the branch trails behind.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "9afab1aac8e7d72a",
+      "l": null,
+      "q": "Documentation is ready; the large patch now gives the stream a proper closing note.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "9afab1aac8e7d72a",
+      "l": null,
+      "q": "Documentation is ready: a large pass, with shutdown behavior finally documented end to end.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "9afab1aac8e7d72a",
+      "l": null,
+      "q": "Documentation is ready: a large patch teaching the stream to say goodbye before shutdown.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready; one medium-sized note now hums at lossless speed.",
+      "repo": "travnie/wambridge",
+      "occurrences": 2
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready: the WAM Bridge settings now have a proper home, not just an INI address.",
+      "repo": "travnie/wambridge",
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready: the WAM Bridge settings now have a proper paper trail.",
+      "repo": "travnie/wambridge",
+      "occurrences": 2
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import { createInstallationClient } from './github-app.ts';
 import { handleGptomekControl } from './gptomek.ts';
 import {
+  archiveQuip,
   bankContext,
   canUsePool,
   loadBank,
@@ -415,6 +416,13 @@ export async function refreshCompanion(
       quip = generated;
       source = 'ai';
       pendingPaidQuip = quip;
+      const archived = await archiveQuip(
+        env,
+        target.repository,
+        quipKey,
+        quip,
+        language,
+      );
       paidReceiptStored = await storePaidState(
         env,
         target.repository,
@@ -433,6 +441,7 @@ export async function refreshCompanion(
       console.info(
         JSON.stringify({
           event: 'kanarek_ai_persistence',
+          archived,
           banked_before_github: paidBankedBeforeGithub,
           receipt_stored: paidReceiptStored,
           quip_key: quipKey,
@@ -498,6 +507,13 @@ export async function refreshCompanion(
     paidQuipToBank !== null &&
     bank.some((entry) => entry.k === quipKey && entry.q === paidQuipToBank);
   if (paidQuipToBank && !paidBankedBeforeGithub && !bankHasPaidQuip) {
+    const archived = await archiveQuip(
+      env,
+      target.repository,
+      quipKey,
+      paidQuipToBank,
+      language,
+    );
     const retained = await storeBank(env, [{ k: quipKey, l: language, q: paidQuipToBank }]);
     if (retained && paidReceiptStored) {
       await deletePaidState(
@@ -510,6 +526,7 @@ export async function refreshCompanion(
     console.info(
       JSON.stringify({
         event: paidRecovered ? 'kanarek_ai_recovered' : 'kanarek_ai_bank',
+        archived,
         retained,
         receipt_stored: retained ? false : paidReceiptStored,
         quip_key: quipKey,

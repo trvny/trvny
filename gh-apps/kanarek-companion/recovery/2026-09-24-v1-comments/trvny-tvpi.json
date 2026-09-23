@@ -1,0 +1,390 @@
+{
+  "source_repo": "trvny/tvpi",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "A tiny tweak to pin the Instruction Rot workflow and scrub some redundant permissions.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-09-22T23:50:28Z",
+      "last_seen": "2026-09-22T23:50:28Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "Cache warmed, pipeline chirping—Kanarek approves the tiny featherweight upgrade.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-12T13:50:35Z",
+      "last_seen": "2026-08-12T13:50:35Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready: a tiny patch to derive Android version codes from git history.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-09-23T05:24:07Z",
+      "last_seen": "2026-09-23T05:24:07Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "3f03e05e0ccde662",
+      "l": null,
+      "q": "CI has grounded this medium automation change; Kanarek awaits a passing pipeline.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-08T09:59:51Z",
+      "last_seen": "2026-08-08T09:59:51Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Blocked by CI: a small automation patch awaiting its ceremonial red build.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T02:56:09Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "CI failed, so this small GitHub automation PR remains politely parked in the canary lane.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T02:56:09Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "CI failed; this small automation PR is waiting for its credentials to stop sulking.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T02:56:09Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Small automation PR blocked by CI; the canary is waiting for its green reboot.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T02:56:09Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Small GitHub automation PR blocked by CI; even Windows packaging awaits a green light.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-10T09:53:31Z",
+      "last_seen": "2026-08-10T09:53:31Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Small GitHub automation PR blocked by CI; the runner awaits a green-light ceremony.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T02:56:09Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Small PR, large CI opinion: GitHub automation is currently blocking the runway.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T02:56:09Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Tiny GitHub automation change stalled by CI—the canary is waiting for green lights.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T02:56:09Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Tiny GitHub automation PR blocked by CI; the canary is waiting for one green light.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T02:56:09Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Windows automation is small, but CI has parked this canary before takeoff.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-10T09:53:31Z",
+      "last_seen": "2026-08-10T09:53:31Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "76f9a27f0bdc0f54",
+      "l": null,
+      "q": "Tiny documentation patch; CI is the only bridge still down.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-09-01T21:46:13Z",
+      "last_seen": "2026-09-01T21:46:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "787328b283abd909",
+      "l": "en",
+      "q": "Small Worker wrangler bump is ready, quietly advancing from 4.125.0 to 4.127.1 without a fuss.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-09-03T05:38:55Z",
+      "last_seen": "2026-09-23T19:52:39Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 4
+    },
+    {
+      "k": "787328b283abd909",
+      "l": null,
+      "q": "Small wrangler version bump in the Worker area is ready to merge; no blockers found.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-09-05T18:02:24Z",
+      "last_seen": "2026-09-05T18:02:24Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "787328b283abd909",
+      "l": null,
+      "q": "The small wrangler dependency bump for Worker is polished and ready.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-26T09:02:00Z",
+      "last_seen": "2026-08-26T09:02:00Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "787328b283abd909",
+      "l": null,
+      "q": "Worker is ready to fly; a small toolchain bump cleared the runway.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-10T06:08:08Z",
+      "last_seen": "2026-08-19T05:59:16Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "CodeQL coverage is back on the perch; this small automation patch is ready to fly.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-12T13:50:35Z",
+      "last_seen": "2026-08-12T13:50:35Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "GitHub automation reports the small Auto Declip format matrix is ready for landing.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-09-23T17:57:35Z",
+      "last_seen": "2026-09-23T17:57:35Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "Small GitHub automation update ready with zero alerts and an empty dependency graph.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-27T05:04:49Z",
+      "last_seen": "2026-08-27T05:04:49Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "a33332128a1edf34",
+      "l": null,
+      "q": "Worker is ready; a tiny Wrangler upgrade has cleared the runway.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-12T13:43:53Z",
+      "last_seen": "2026-08-12T13:43:53Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "a33332128a1edf34",
+      "l": null,
+      "q": "Worker is ready; a tiny Wrangler upgrade, with the gears quietly aligned.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-12T13:43:53Z",
+      "last_seen": "2026-08-12T13:43:53Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "bc88fd0e998f5ccb",
+      "l": null,
+      "q": "GitHub automation is blocked: CI found a small nest of red lights.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T03:04:05Z",
+      "last_seen": "2026-08-11T03:04:05Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "bc88fd0e998f5ccb",
+      "l": null,
+      "q": "Release is small; CI remains a tiny GitHub automation roadblock.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T02:56:09Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "bc88fd0e998f5ccb",
+      "l": null,
+      "q": "Small automation PR grounded by CI: one check pending, another has chosen interpretive failure.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-10T09:53:31Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "bc88fd0e998f5ccb",
+      "l": null,
+      "q": "Small automation PR grounded by CI: the canary waits while checks negotiate their feelings.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-10T09:53:31Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "bc88fd0e998f5ccb",
+      "l": null,
+      "q": "Small GitHub automation PR blocked by CI: the canary awaits two green lights.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-10T09:53:31Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "bc88fd0e998f5ccb",
+      "l": null,
+      "q": "Small GitHub automation, large CI mood: the merge queue remains unconvinced.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-10T09:53:31Z",
+      "last_seen": "2026-08-11T02:56:09Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "cd1ec77441c11e89",
+      "l": null,
+      "q": "GitHub automation is blocked—behind and CI-failed, though the patch is small.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-08-11T03:04:05Z",
+      "last_seen": "2026-08-11T03:04:05Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "A small documentation sweep for travnie, currently grounded by a CI failure.",
+      "repo": "trvny/tvpi",
+      "first_seen": "2026-09-13T13:43:27Z",
+      "last_seen": "2026-09-13T13:43:27Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    }
+  ]
+}

@@ -1,0 +1,534 @@
+{
+  "source_repo": "trvny/feedseek",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "AGP 9.4.0 and Gradle 9.7.1 docs are ready; GitHub automation has cleared this tiny refresh.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-23T20:27:12Z",
+      "last_seen": "2026-09-23T20:27:12Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready; MegaLinter 10 made the tiny upgrade without burning CI.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-14T19:29:35Z",
+      "last_seen": "2026-09-14T19:29:42Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready: a tiny patch to derive Android version codes from git history.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-22T23:50:25Z",
+      "last_seen": "2026-09-22T23:50:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "Tiny GitHub automation update ready: ignoring forty-eight phantom Dependabot alerts.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-05T17:46:58Z",
+      "last_seen": "2026-09-05T17:46:58Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "Tiny GitHub automation update: MegaLinter Python bump is ready and blocker-free.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-09T20:41:07Z",
+      "last_seen": "2026-09-14T19:29:38Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": "en",
+      "q": "Large Xiaomi ADB Tools migration is currently blocked by GitHub automation CI failures.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-07T18:57:33Z",
+      "last_seen": "2026-09-07T18:57:33Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": "en",
+      "q": "This large GitHub automation retiring old bench sources is currently blocked by a CI failure.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-07T18:57:33Z",
+      "last_seen": "2026-09-07T18:57:33Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "Gremlin live documentation lookup stalled: medium PR blocked by CI failure.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-23T19:12:32Z",
+      "last_seen": "2026-09-23T19:12:32Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Medium-sized Docbench preview documentation remains blocked by a CI failure.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-29T22:06:01Z",
+      "last_seen": "2026-08-29T22:06:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "This medium documentation PR on feed improvement philosophy is stalled by a CI failure.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-31T00:09:30Z",
+      "last_seen": "2026-08-31T00:09:30Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1e736dd0466c7c2f",
+      "l": null,
+      "q": "Small WebMCP GitHub automation PR currently blocked by missing and failing CI checks.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-30T23:49:50Z",
+      "last_seen": "2026-08-30T23:49:50Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1f428df76f7aa2e5",
+      "l": null,
+      "q": "Feedseek's medium SkillsLLM drop stalls: behind, missing CI, and a failing check halt the queue.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-30T22:58:08Z",
+      "last_seen": "2026-08-30T22:58:08Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "293e97dbae7522cb",
+      "l": null,
+      "q": "Feedseek is grounded by CI; its small cache fix awaits a green signal.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-03T21:01:50Z",
+      "last_seen": "2026-09-03T21:01:50Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "293e97dbae7522cb",
+      "l": null,
+      "q": "Feedseek is grounded by CI; the icon payload awaits a cleaner runway.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-29T22:06:01Z",
+      "last_seen": "2026-08-29T22:06:01Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "293e97dbae7522cb",
+      "l": null,
+      "q": "Feedseek's small Postman release notes patch is blocked by a CI failure.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-31T02:34:56Z",
+      "last_seen": "2026-09-01T12:56:51Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "301bf7118eb98654",
+      "l": "en",
+      "q": "GitHub automation is grounded: CI has misplaced its runway and failed to deploy.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-07T18:57:33Z",
+      "last_seen": "2026-09-07T18:57:33Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "39d038bb90094cad",
+      "l": "ru",
+      "q": "Крошечное обновление ruff до 0.16.7 в Feedseek полностью готово.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-16T22:06:02Z",
+      "last_seen": "2026-09-16T22:06:02Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "3f03e05e0ccde662",
+      "l": "en",
+      "q": "Medium GitHub automation blocked by CI failure; free providers are still cooling their jets.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-07T18:57:33Z",
+      "last_seen": "2026-09-07T18:57:33Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready: a small patch, no blockers, and the footnotes behave.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-02T16:59:00Z",
+      "last_seen": "2026-09-05T23:32:55Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "5ad8b7311c7dd4cc",
+      "l": "en",
+      "q": "GitHub automation is ready: a large PR now shifts the feed cache out of main and into R2.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-15T15:44:16Z",
+      "last_seen": "2026-09-15T15:44:16Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "5ad8b7311c7dd4cc",
+      "l": "en",
+      "q": "Large Feedseek ChatGPT MCP app is ready, with GitHub automation clear.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-07T18:57:33Z",
+      "last_seen": "2026-09-07T18:57:33Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "74d69b40031b0e41",
+      "l": null,
+      "q": "This small documentation update for WebViews is blocked by CI failure and branch drift.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-01T16:33:02Z",
+      "last_seen": "2026-09-01T16:33:02Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "CodeQL coverage is back on the perch; this small automation patch is ready to fly.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-28T16:12:13Z",
+      "last_seen": "2026-08-28T16:12:13Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "Small GitHub automation update ready with zero alerts and an empty dependency graph.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-16T22:05:57Z",
+      "last_seen": "2026-09-16T22:05:57Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "This small GitHub automation PR is ready, tidying up the post-rename Kanarek org references.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-13T12:05:06Z",
+      "last_seen": "2026-09-13T15:15:19Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "80a852c8725640be",
+      "l": "en",
+      "q": "Feedseek is ready for a tiny feedsearch-crawler bump from 2.1.3 to 2.1.4 with zero blockers.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-16T22:06:07Z",
+      "last_seen": "2026-09-16T22:06:07Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "80a852c8725640be",
+      "l": "en",
+      "q": "Feedseek is ready with a tiny ruff bump to 0.16.5 and zero blockers standing in the way.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-02T13:59:18Z",
+      "last_seen": "2026-09-14T19:29:30Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "80a852c8725640be",
+      "l": "en",
+      "q": "Feedseek tiny PR ready: shared writer migration for Anthropic.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-02T13:58:51Z",
+      "last_seen": "2026-09-23T20:32:11Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "9afab1aac8e7d72a",
+      "l": "en",
+      "q": "The large documentation batch is ready, quietly cataloging new Audacity and Netlify feed sources.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-06T15:57:23Z",
+      "last_seen": "2026-09-06T15:57:23Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "9d9a7a5bccb0a5fb",
+      "l": "en",
+      "q": "Small docs patch grounded by missing CI and a failed check.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-02T23:55:16Z",
+      "last_seen": "2026-09-07T19:24:41Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "a10d85a69a78206f",
+      "l": "en",
+      "q": "A small Feedseek patch is ready, restoring soundtrack downloads via the verified proxy route.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-03T13:46:22Z",
+      "last_seen": "2026-09-23T15:24:26Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 4
+    },
+    {
+      "k": "a10d85a69a78206f",
+      "l": null,
+      "q": "Feedseek's small PR is ready, skipping redundant cache JSON rewrites to keep lastupdated honest.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-02T13:57:35Z",
+      "last_seen": "2026-09-02T13:59:00Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "a10d85a69a78206f",
+      "l": "en",
+      "q": "Feedseek's small Unicode-safe title dedupe is ready, keeping combining marks intact.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-05T18:15:06Z",
+      "last_seen": "2026-09-23T20:33:55Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 4
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": null,
+      "q": "A small Documentation fix for the Uber Newsroom feed sits blocked while CI sorts its issues.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-29T23:36:39Z",
+      "last_seen": "2026-08-29T23:36:39Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "Small documentation PR blocked by CI—the prose awaits a green build.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-07T19:24:41Z",
+      "last_seen": "2026-09-07T19:24:41Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": null,
+      "q": "Small documentation update for feed sources is blocked due to a CI failure.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-01T16:33:02Z",
+      "last_seen": "2026-09-01T16:33:02Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "dfaa6a220b765cb4",
+      "l": null,
+      "q": "Large documentation update for Kościelec weather stalled on a failed CI check.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-03T11:29:17Z",
+      "last_seen": "2026-09-03T11:29:17Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "dfaa6a220b765cb4",
+      "l": null,
+      "q": "Large Kościelec weather documentation blocked; CI checks refuse to forecast.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-03T11:29:17Z",
+      "last_seen": "2026-09-03T11:29:17Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready; one medium-sized note now hums at lossless speed.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-29T23:36:39Z",
+      "last_seen": "2026-09-05T09:56:59Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "Documentation is ready: the WAM Bridge settings now have a proper home, not just an INI address.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-23T21:19:26Z",
+      "last_seen": "2026-09-23T21:19:26Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready: the WAM Bridge settings now have a proper paper trail.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-31T00:22:00Z",
+      "last_seen": "2026-08-31T00:22:00Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "The medium OPENOFFICE documentation is ready, neatly structuring the API changelog for Next.js.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-01T22:27:47Z",
+      "last_seen": "2026-09-23T19:12:32Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "f33445533a01579f",
+      "l": null,
+      "q": "Feedseek’s large flight is blocked: behind, conflicted, and missing CI.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-09-01T16:33:02Z",
+      "last_seen": "2026-09-01T16:33:02Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "f9739db910013ef8",
+      "l": null,
+      "q": "Medium Uber Newsroom documentation is blocked by CI failure, merge conflicts, and branch lag.",
+      "repo": "trvny/feedseek",
+      "first_seen": "2026-08-29T23:36:39Z",
+      "last_seen": "2026-08-29T23:36:39Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    }
+  ]
+}

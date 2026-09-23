@@ -1,0 +1,406 @@
+{
+  "source_repo": "trvny/trvny",
+  "part": "pages16+",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "036d53285d606cbd",
+      "l": null,
+      "q": "Our large ICO plugin branch is stalled by failing CI and lagging behind main.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "036d53285d606cbd",
+      "l": null,
+      "q": "This large Paint.NET ICO branch hit a wall with a failed CI and upstream drift.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "Tiny GitHub automation update ready: ignoring forty-eight phantom Dependabot alerts.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "0b502053cce7287b",
+      "l": null,
+      "q": "Codebench is ready; its tiny install upgrade has cleared the runway.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "13f6a6e91197d92e",
+      "l": null,
+      "q": "Gh apps await CI judgment; the branch is medium-sized and mildly under interrogation.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "13f6a6e91197d92e",
+      "l": null,
+      "q": "Gh apps await CI: Kanarek is perched on a medium-sized merge queue.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "158e53f1aa6078b5",
+      "l": null,
+      "q": "Kanarek's medium ICO plugin PR is blocked; CI failed and the branch fell behind.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Medium documentation update for llms.txt v2 discovery paused by a stubborn CI failure.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Medium-sized Docbench preview documentation remains blocked by a CI failure.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "1e736dd0466c7c2f",
+      "l": null,
+      "q": "Small WebMCP GitHub automation PR currently blocked by missing and failing CI checks.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "1f0d4b123ae6ae4c",
+      "l": null,
+      "q": "Medium Docbench PDF documentation is blocked by a CI failure and a lagging branch.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "3df40130011d2596",
+      "l": null,
+      "q": "Mcp is ready; a small Wrangler upgrade cleared the runway with no blockers.",
+      "repo": "trvny/trvny",
+      "occurrences": 3
+    },
+    {
+      "k": "3df40130011d2596",
+      "l": null,
+      "q": "MCP is ready; Wrangler took one small step, and the build remains unruffled.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "3df40130011d2596",
+      "l": null,
+      "q": "Small Mcp npm dependency bump is fully unblocked and ready for merge.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "3f03e05e0ccde662",
+      "l": null,
+      "q": "Kanarek's provider fallback fix in GitHub automation is blocked because CI tripped on the worker.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "3f03e05e0ccde662",
+      "l": null,
+      "q": "Medium GitHub automation blocked by CI failure; free providers are still cooling their jets.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation is ready; the URL token note is small, tidy, and unblocked.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation is ready: a small patch, no blockers, and the footnotes behave.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation is ready: two pointers aligned, with no blockers hiding in the margins.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation size small and ready: live capability manifest deployment entrypoint is fully exposed.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Kanarek updates only safe same-repo branches: open, mergeable, conflict-free, and green.",
+      "repo": "trvny/trvny",
+      "occurrences": 5
+    },
+    {
+      "k": "482e7a477103da56",
+      "l": null,
+      "q": "Streambench small npm bump blocked by CI failure.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "482e7a477103da56",
+      "l": null,
+      "q": "Streambench’s small npm lift is grounded by failing CI; the runway awaits green checks.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "482e7a477103da56",
+      "l": null,
+      "q": "Streambench’s small TS migration hit a CI snag; the canary remains grounded.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "482e7a477103da56",
+      "l": null,
+      "q": "Streambench’s small TS migration is parked; CI found a loose bolt in the media API.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "4e954be5756555d8",
+      "l": null,
+      "q": "Our large GitHub automation PR is blocked, falling behind upstream while wrestling with failing CI.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "4e954be5756555d8",
+      "l": null,
+      "q": "This large GitHub automation removing AI docs is blocked: CI failed and the branch fell behind.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "5ad8b7311c7dd4cc",
+      "l": null,
+      "q": "GitHub automation is ready; the large patch has all its ducks in the webhook queue.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "5ba1a85d3b355918",
+      "l": null,
+      "q": "Medium SEO fix for Codebench is ready. Public .trfny.com canonicals lock in cleanly with zero blockers.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "6acdc3705cdc7e42",
+      "l": null,
+      "q": "This small Assets fix for the status-mcp icon is stalled by a CI failure.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": null,
+      "q": "Kanarek is blocked: CI found a tiny GitHub automation puzzle hiding in plain sight.",
+      "repo": "trvny/trvny",
+      "occurrences": 3
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "CodeQL coverage is back on the perch; this small automation patch is ready to fly.",
+      "repo": "trvny/trvny",
+      "occurrences": 3
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "Small GitHub automation update ready: one-shot Gemini PR reviews trigger on creation.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "7e9dec1d1f989a19",
+      "l": null,
+      "q": "Kanarek czeka na zielone CI — dziś pipeline śpiewa trochę fałszywie.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "86fb966d64ae1b7e",
+      "l": null,
+      "q": "Streambench’s favicon helpers are now typed, tidy, and ready to land.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "8f235035bfcd0dcc",
+      "l": null,
+      "q": "The large Claude workspace bench refactor is blocked by missing and failing CI.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "9a78b3a3a8bf869e",
+      "l": null,
+      "q": "Tiny automation bump blocked: CI is singing off-key and the branch trails behind.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "9afab1aac8e7d72a",
+      "l": null,
+      "q": "Documentation is ready: a large pass, with shutdown behavior finally documented end to end.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "a3179193030ed2a8",
+      "l": null,
+      "q": "Kanarek is ready: tiny Gh apps polish, with the noise floor neatly lowered.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "a3179193030ed2a8",
+      "l": null,
+      "q": "Ready for review: tiny Gh apps change, with the noise filter properly calibrated.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "a3179193030ed2a8",
+      "l": null,
+      "q": "Tiny GH app patch is ready; Kanarek now ignores cosmetic status flutter.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "a3179193030ed2a8",
+      "l": null,
+      "q": "Tiny Gh apps patch ready; Kanarek now ignores hash-shaped rustling in the reeds.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "b7e66c163c13d894",
+      "l": null,
+      "q": "Gh apps are ready to ship: small diff, no blockers, and barely any comment churn.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "b7e66c163c13d894",
+      "l": null,
+      "q": "Gh apps are ready; a small polish pass, with no blockers hiding in the wiring.",
+      "repo": "trvny/trvny",
+      "occurrences": 4
+    },
+    {
+      "k": "b7e66c163c13d894",
+      "l": null,
+      "q": "Gh apps dependency bump is ready: two npm updates, no blockers, minimal turbulence.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "b7e66c163c13d894",
+      "l": null,
+      "q": "Kanarek is ready; GitHub app refresh noise now travels in a tidy little flock.",
+      "repo": "trvny/trvny",
+      "occurrences": 4
+    },
+    {
+      "k": "b7f64f961b7101c2",
+      "l": null,
+      "q": "Two npm feathers updated; Kanarek is ready to fly without blockers.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "b89f3558e907bd6a",
+      "l": null,
+      "q": "Kanarek got the language key right—no blockers, just a chirpy clean match.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "bca5007aec694d4d",
+      "l": null,
+      "q": "Documentation PR grounded; CI failed and branch trails behind, so the large draft waits.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "bca5007aec694d4d",
+      "l": null,
+      "q": "Large web chat activity docs are grounded; falling behind and a CI failure block the runway.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "bf37e6c43018ac96",
+      "l": null,
+      "q": "Weather feed dependency bump blocked by CI failure.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "c6e692361c6c826a",
+      "l": null,
+      "q": "Bench common is ready to ship: small patch, now wearing its installable boots.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "cd1ec77441c11e89",
+      "l": null,
+      "q": "GitHub automation is blocked—behind and CI-failed, though the patch is small.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": null,
+      "q": "Small documentation PR blocked by CI—the prose awaits a green build.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "dfaa6a220b765cb4",
+      "l": null,
+      "q": "A CI failure stalls the large pet dispatcher documentation, leaving the remote transport guide grounded.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready; one medium-sized note now hums at lossless speed.",
+      "repo": "trvny/trvny",
+      "occurrences": 4
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready: the WAM Bridge settings now have a proper home, not just an INI address.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    }
+  ]
+}

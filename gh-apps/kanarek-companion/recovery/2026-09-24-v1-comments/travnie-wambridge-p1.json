@@ -1,0 +1,294 @@
+{
+  "source_repo": "travnie/wambridge",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready: a tiny patch to derive Android version codes from git history.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-22T19:49:28Z",
+      "last_seen": "2026-09-23T07:16:26Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "Tiny GitHub automation gate is ready; iOS frameworks now face the macOS runner.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-17T21:34:25Z",
+      "last_seen": "2026-09-17T21:34:25Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": null,
+      "q": "Tiny GitHub automation update ready: ignoring forty-eight phantom Dependabot alerts.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-28T16:12:21Z",
+      "last_seen": "2026-08-28T16:12:21Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "1e736dd0466c7c2f",
+      "l": null,
+      "q": "Small WebMCP GitHub automation PR currently blocked by missing and failing CI checks.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-01T21:02:17Z",
+      "last_seen": "2026-09-01T21:02:17Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "3f03e05e0ccde662",
+      "l": null,
+      "q": "Medium GitHub automation blocked by CI failure while aligning Ruff rules with pyproject.toml.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-30T14:00:17Z",
+      "last_seen": "2026-08-30T14:00:17Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "A small documentation polish for radio MediaSession controls, ready for departure.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-22T18:06:07Z",
+      "last_seen": "2026-09-22T18:06:07Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready; the URL token note is small, tidy, and unblocked.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-27T20:37:42Z",
+      "last_seen": "2026-09-15T13:01:10Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 3
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation is ready: a small patch, no blockers, and the footnotes behave.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-29T23:42:05Z",
+      "last_seen": "2026-08-29T23:42:05Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Kanarek updates only safe same-repo branches: open, mergeable, conflict-free, and green.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-28T08:06:54Z",
+      "last_seen": "2026-08-28T08:06:54Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Small documentation patch ready, keeping the desktop catalogue reader in step with mobile.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-28T10:24:03Z",
+      "last_seen": "2026-08-28T10:24:03Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Small documentation tweak for zero startup silence is ready to roll with zero blockers.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-28T13:15:59Z",
+      "last_seen": "2026-09-23T12:11:26Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Small feedboard diagnostics documentation is ready to merge with zero blockers.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-23T17:37:04Z",
+      "last_seen": "2026-09-23T17:37:04Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "56eceeb842e9e4b4",
+      "l": null,
+      "q": "Medium documentation updates for foobar sleep are blocked by missing CI, failures, and review changes.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-30T02:12:38Z",
+      "last_seen": "2026-08-30T02:12:38Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": "en",
+      "q": "GitHub automation is blocked; CI tripped over a small release-baseline mismatch.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-23T07:16:26Z",
+      "last_seen": "2026-09-23T07:16:26Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "6e1631ab1236e495",
+      "l": null,
+      "q": "Small mobile fix is ready, leaving TuneIn startup exceptions unshielded and properly exposed.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-28T16:01:36Z",
+      "last_seen": "2026-08-28T16:01:36Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "76f9a27f0bdc0f54",
+      "l": "en",
+      "q": "Tiny documentation patch; CI is the only bridge still down.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-13T05:01:34Z",
+      "last_seen": "2026-09-13T05:01:34Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "778bde4874e996ed",
+      "l": null,
+      "q": "Kanarek halts the small TuneIn mobile fix while CI fails and checks go missing.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-03T22:03:46Z",
+      "last_seen": "2026-09-03T22:03:46Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "CodeQL coverage is back on the perch; this small automation patch is ready to fly.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-05T17:45:05Z",
+      "last_seen": "2026-09-05T17:45:05Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "c37bc5900eee3207",
+      "l": null,
+      "q": "Small documentation update blocked by CI and review changes, even if we stopped guessing at exit.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-29T17:26:17Z",
+      "last_seen": "2026-08-29T17:26:17Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "Small documentation for TuneIn preset writes is blocked by a CI failure; radio silence.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-12T22:23:52Z",
+      "last_seen": "2026-09-12T22:23:52Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "Documentation is ready; one medium-sized note now hums at lossless speed.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-28T13:15:59Z",
+      "last_seen": "2026-09-21T18:57:15Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "Documentation is ready: the WAM Bridge settings now have a proper home, not just an INI address.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-28T13:15:59Z",
+      "last_seen": "2026-09-23T19:29:57Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 2
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready: the WAM Bridge settings now have a proper paper trail.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-08-28T13:15:59Z",
+      "last_seen": "2026-08-28T13:15:59Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "With zero blockers, Kanarek clears the medium Documentation for the model-backed semantic provider layer.",
+      "repo": "travnie/wambridge",
+      "first_seen": "2026-09-23T10:14:27Z",
+      "last_seen": "2026-09-23T10:14:27Z",
+      "evidence": [
+        "pool"
+      ],
+      "occurrences": 1
+    }
+  ]
+}

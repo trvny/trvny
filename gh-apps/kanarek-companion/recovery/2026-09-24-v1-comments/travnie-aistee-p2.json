@@ -1,0 +1,259 @@
+{
+  "source_repo": "travnie/aistee",
+  "part": "pages6+",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "03493325179a58bd",
+      "l": "en",
+      "q": "This tiny Gradle xmlutil core bump is fully ready and awaiting merge.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "03493325179a58bd",
+      "l": "en",
+      "q": "Tiny Gradle tune-up: AGP 9.4.0 is ready, with no blockers in sight.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "A small App PR for Markdown documents is ready to merge, quietly reusing the bounded UTF-8 importer.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App import-preset wiring is small and unblocked; Kanarek finds the assumptions card in tune.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App is ready to ship: a small search fallback, neatly kept outside the marketplace pantry.",
+      "repo": "travnie/aistee",
+      "occurrences": 3
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App is ready to ship: a small search fallback, neatly scoped and properly caged.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App is ready; the small search detour has cleared review without ruffling feathers.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "App refactor is ready: small models crossed into shared waters without blocking the merge.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "Small app change is ready: waving goodbye to fixed Claude token caps via the models API.",
+      "repo": "travnie/aistee",
+      "occurrences": 2
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "Small App update for SSE chat streaming via the OpenAI gateway is ready. Kanarek watches the deltas.",
+      "repo": "travnie/aistee",
+      "occurrences": 4
+    },
+    {
+      "k": "0d15c04dd8f14a16",
+      "l": "en",
+      "q": "The small App change cleanly extracts the Android SAF text I/O boundary and is ready for review.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Medium documentation update for llms.txt v2 discovery paused by a stubborn CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Medium documentation update for web composers halts; CI failure blocks the Studio bridge.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Medium-sized Docbench preview documentation remains blocked by a CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "223c70a630a5f192",
+      "l": "en",
+      "q": "Medium App PR for Markdown skill renaming is blocked by missing and failing CI.",
+      "repo": "travnie/aistee",
+      "occurrences": 4
+    },
+    {
+      "k": "23854e1cca1540da",
+      "l": "en",
+      "q": "Kanarek watches the small Gradle XML validation patch stall on a CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "34b5284ac943a6a1",
+      "l": "en",
+      "q": "Gradle checks out the medium SKILL.md manifest parser and Kanarek calls it ready.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "34b5284ac943a6a1",
+      "l": "en",
+      "q": "Gradle is ready to parse portable SKILL.md manifests, no blockers found in this medium pass.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "4b3788b51cea8027",
+      "l": "en",
+      "q": "Tiny App fix ready: listing labels now speak EN/PL without hardcoded static.",
+      "repo": "travnie/aistee",
+      "occurrences": 2
+    },
+    {
+      "k": "5b4d83c7531299ae",
+      "l": "en",
+      "q": "Medium Shared slice blocked: CI failed and branch fell behind during text diagnostics port.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "5d579efea8f9337d",
+      "l": "en",
+      "q": "App’s medium-sized flight is grounded by CI; the saved searches await a green runway.",
+      "repo": "travnie/aistee",
+      "occurrences": 4
+    },
+    {
+      "k": "5d579efea8f9337d",
+      "l": "en",
+      "q": "Kanarek's medium App PR for editing local skills is blocked while CI sorts itself out.",
+      "repo": "travnie/aistee",
+      "occurrences": 4
+    },
+    {
+      "k": "76f9a27f0bdc0f54",
+      "l": null,
+      "q": "Tiny documentation patch; CI is the only bridge still down.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "97a813b4a65447a3",
+      "l": "en",
+      "q": "Kanarek halts the small App patch for local skill libraries due to a CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "97a813b4a65447a3",
+      "l": "en",
+      "q": "Small App PR blocked by failed CI; the providers await a green signal.",
+      "repo": "travnie/aistee",
+      "occurrences": 6
+    },
+    {
+      "k": "9d9a7a5bccb0a5fb",
+      "l": null,
+      "q": "A small documentation cleanup removing the AI Studio shortcut is currently stalled by missing and failed CI.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ae06a6930c1f1c1f",
+      "l": null,
+      "q": "Android share target docs stalled at medium size due to missing and failing CI.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ae06a6930c1f1c1f",
+      "l": null,
+      "q": "Medium Android share docs are blocked: CI is both missing and failed.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ae06a6930c1f1c1f",
+      "l": null,
+      "q": "Medium documentation for the Android share target is blocked by missing and failing CI pipelines.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "A small Documentation fix for the Uber Newsroom feed sits blocked while CI sorts its issues.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "Small documentation update for feed sources is blocked due to a CI failure.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "App changes are ready: medium-sized saved searches, neatly filed in local storage.",
+      "repo": "travnie/aistee",
+      "occurrences": 3
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "App is ready: saved searches now survive locally, with no blockers in sight.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "App ready with medium Markdown MRU shortcuts; URI metadata safely tucked away.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "Saved searches are nested, indexed, and patiently awaiting their next query.",
+      "repo": "travnie/aistee",
+      "occurrences": 3
+    },
+    {
+      "k": "ff04978c61aeabd5",
+      "l": "en",
+      "q": "Saved searches are ready; App has tucked the filters neatly into DataStore.",
+      "repo": "travnie/aistee",
+      "occurrences": 1
+    }
+  ]
+}

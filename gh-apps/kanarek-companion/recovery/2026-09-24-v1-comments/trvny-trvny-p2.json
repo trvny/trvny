@@ -1,0 +1,196 @@
+{
+  "source_repo": "trvny/trvny",
+  "part": "pages6+",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "Tiny GitHub automation actions bump is ready; checkout and setup-node updates have zero blockers.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": "en",
+      "q": "GitHub automation stalls this large LlmBench rename as CI fails to cooperate.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": null,
+      "q": "This large GitHub automation retiring old bench sources is currently blocked by a CI failure.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": null,
+      "q": "Gremlin live documentation lookup stalled: medium PR blocked by CI failure.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "3df40130011d2596",
+      "l": "en",
+      "q": "Mcp is ready; a small Wrangler upgrade cleared the runway with no blockers.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "3df40130011d2596",
+      "l": "en",
+      "q": "MCP is ready; Wrangler took one small step, and the build remains unruffled.",
+      "repo": "trvny/trvny",
+      "occurrences": 3
+    },
+    {
+      "k": "3df40130011d2596",
+      "l": "en",
+      "q": "The small pet-dispatcher dependency bump for Mcp is ready with three tidy npm updates.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "410a15e306d855e5",
+      "l": "en",
+      "q": "A failing CI and falling behind leave this tiny Gh apps free-review smoke test firmly blocked.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": null,
+      "q": "Documentation is ready; the URL token note is small, tidy, and unblocked.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready: a small patch, no blockers, and the footnotes behave.",
+      "repo": "trvny/trvny",
+      "occurrences": 4
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready: two pointers aligned, with no blockers hiding in the margins.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Small documentation update for Pet Dispatcher Windows host tool launches is ready to land.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "50198047c36b8fb1",
+      "l": "en",
+      "q": "A CI failure leaves this tiny Gh apps free-review smoke test blocked.",
+      "repo": "trvny/trvny",
+      "occurrences": 3
+    },
+    {
+      "k": "6c3e8b30721f28d3",
+      "l": "en",
+      "q": "Kanarek is blocked: CI found a tiny GitHub automation puzzle hiding in plain sight.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "CodeQL coverage is back on the perch; this small automation patch is ready to fly.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "Small GitHub automation update ready: one-shot Gemini PR reviews trigger on creation.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "82672d3e031d0eb8",
+      "l": "en",
+      "q": "Token worldcup's tiny anthropic dependency bump is ready and unblocked.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "89f1f0008f7aa15b",
+      "l": "ru",
+      "q": "Небольшой npm-апдейт для Gh apps готов к вливанию, блоккеров не наблюдается.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "89f1f0008f7aa15b",
+      "l": "ru",
+      "q": "Небольшой npm-апдейт для gh-apps: wrangler и workers-types готовы к бою.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "9a78b3a3a8bf869e",
+      "l": "en",
+      "q": "Tiny automation bump blocked: CI is singing off-key and the branch trails behind.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "a3179193030ed2a8",
+      "l": "en",
+      "q": "A tiny Gh apps smoke test is ready for departure, keeping the webhook publisher grounded.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "b7e66c163c13d894",
+      "l": null,
+      "q": "Gh apps are ready; a small polish pass, with no blockers hiding in the wiring.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "b7f64f961b7101c2",
+      "l": "en",
+      "q": "Two npm feathers updated; Kanarek is ready to fly without blockers.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "e55f48e91008dfa7",
+      "l": "en",
+      "q": "Medium GitHub automation is ready, packing rolling releases into one atomic snapshot.",
+      "repo": "trvny/trvny",
+      "occurrences": 2
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": null,
+      "q": "Documentation is ready: the WAM Bridge settings now have a proper home, not just an INI address.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "Documentation is ready: the WAM Bridge settings now have a proper paper trail.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "Medium-weight Vercel AI Gateway documentation is ready, featuring a live token-priced model catalog.",
+      "repo": "trvny/trvny",
+      "occurrences": 1
+    }
+  ]
+}

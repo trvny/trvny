@@ -1,0 +1,210 @@
+{
+  "source_repo": "travnie/twojstar",
+  "part": "pages6+",
+  "captured_at": "2026-09-24",
+  "entries": [
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "GitHub automation is ready for this tiny actions/setup-java bump from 5 to 6.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "09861d6e0a1c066e",
+      "l": "en",
+      "q": "This tiny GitHub automation update is ready, handing Worker deployment cleanly to Cloudflare Builds.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": null,
+      "q": "Large Xiaomi ADB Tools migration is currently blocked by GitHub automation CI failures.",
+      "repo": "travnie/twojstar",
+      "occurrences": 2
+    },
+    {
+      "k": "1568766c56cec167",
+      "l": null,
+      "q": "This large GitHub automation retiring old bench sources is currently blocked by a CI failure.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "CI choked on the semantic docs; Kanarek pauses the medium-sized intent and tone layer.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "Medium documentation for the semantic provider is blocked by CI failure during intent compilation.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "Medium Documentation for the semantic provider layer is blocked by a failing CI run.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "Medium documentation update for llms.txt v2 discovery paused by a stubborn CI failure.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "1a0915421193d384",
+      "l": "en",
+      "q": "Medium documentation update for web composers halts; CI failure blocks the Studio bridge.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "301bf7118eb98654",
+      "l": null,
+      "q": "GitHub automation is blocked: CI is missing, failing, and admirably unhurried.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "301bf7118eb98654",
+      "l": "en",
+      "q": "GitHub automation is grounded: CI is missing and failing, so this large refactor awaits a runway.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "3f03e05e0ccde662",
+      "l": "en",
+      "q": "The medium Swing desktop companion PR is blocked by GitHub automation CI failures.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "3f03e05e0ccde662",
+      "l": "en",
+      "q": "tomation.\" -> 70 characters. Perfect. CI halted the Android semantic keyboard slice inside GitHub automation.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Documentation is ready: a small patch, no blockers, and the footnotes behave.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "4575e3bdb8ce9802",
+      "l": "en",
+      "q": "Kanarek updates only safe same-repo branches: open, mergeable, conflict-free, and green.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "4e954be5756555d8",
+      "l": null,
+      "q": "Our large GitHub automation PR is blocked, falling behind upstream while wrestling with failing CI.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "4e954be5756555d8",
+      "l": null,
+      "q": "This large GitHub automation is blocked: CI failed and the weather-feed branch fell behind.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "5ad8b7311c7dd4cc",
+      "l": "en",
+      "q": "GitHub automation is ready; the large patch has all its ducks in the webhook queue.",
+      "repo": "travnie/twojstar",
+      "occurrences": 3
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "CodeQL coverage is back on the perch; this small automation patch is ready to fly.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": "en",
+      "q": "Small GitHub automation update ready with zero alerts and an empty dependency graph.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "7ab88a236f3b80ba",
+      "l": null,
+      "q": "Small GitHub automation update ready: one-shot Gemini PR reviews trigger on creation.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "9afab1aac8e7d72a",
+      "l": "en",
+      "q": "Large documentation migration is ready to merge, bringing all Mintlify sources into the repository.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "9d9a7a5bccb0a5fb",
+      "l": "en",
+      "q": "This small Vibe tracking docs update is blocked because CI is both missing and failing.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "ae06a6930c1f1c1f",
+      "l": "en",
+      "q": "Android share target docs stalled at medium size due to missing and failing CI.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "bfa680a8330264bd",
+      "l": null,
+      "q": "Bilingual benches UI is currently blocked as CI checks are both missing and failing.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "d6cb25057a53eec9",
+      "l": "en",
+      "q": "Small documentation PR blocked by CI—the prose awaits a green build.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "e55f48e91008dfa7",
+      "l": "en",
+      "q": "Medium GitHub automation is ready, packing rolling releases into one atomic snapshot.",
+      "repo": "travnie/twojstar",
+      "occurrences": 2
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "Medium documentation for the opt-in remote provider fallback is ready.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    },
+    {
+      "k": "ee99e72f84beb042",
+      "l": "en",
+      "q": "With zero blockers, Kanarek clears the medium Documentation for the model-backed semantic provider layer.",
+      "repo": "travnie/twojstar",
+      "occurrences": 1
+    }
+  ]
+}

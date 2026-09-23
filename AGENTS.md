@@ -17,7 +17,7 @@ Prefer improving existing homes over parallel structures. Inspect local conventi
 - `.ai/private/` — repo-local AI overlays (OpenAI, Claude and personalities), tracked in this public repo despite the name. Never treat as a secret store.
 - `token-worldcup/` — Quarto token reports (language ranking, model x effort
   cost matrix) and tokenizer recount scripts. Maintain `.qmd`; adjacent
-  `.html` is generated, gated by `quarto-check` workflow.
+  `.html` is generated, gated by `.github/workflows/quarto.yml`.
 - `stuff/` — small configs, feeds, playlists and miscellaneous assets.
 
 For Quarto reports, maintain `.qmd`; committed renders (`.html`/`.md`) are generated.

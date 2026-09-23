@@ -19,5 +19,5 @@
 ## Operational gaps
 
 - There is no root build/test command because runnable components are independent.
-- Pet Dispatcher has a comprehensive package `check`, but no dedicated GitHub Actions workflow in this repository.
+- Pet Dispatcher has a comprehensive package `check` and is covered by the consolidated `.github/workflows/pet-dispatcher.yml`; keep both aligned.
 - There is no repository-wide coverage threshold or credential-rotation policy.

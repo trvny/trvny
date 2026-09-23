@@ -31,9 +31,7 @@
 ## 🔀 Otwarte pull requesty
 
 <!--OPEN_PRS:START-->
-| Repozytorium | PR | Tytuł | Autor | Stan | Aktualizacja |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#730](https://github.com/trvny/trvny/pull/730) | deps: bump wrangler from 4.131.2 to 4.135.0 in /tg-bots/cloudflare-assistant in the npm group | @dependabot[bot] | gotowy | 2026-09-21 |
+_Brak otwartych pull requestów._
 <!--OPEN_PRS:END-->
 
 **Prywatny hol dowodzenia: projekty, usługi, narzędzia i szuflady w jednym miejscu.**

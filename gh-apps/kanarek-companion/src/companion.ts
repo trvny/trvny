@@ -70,6 +70,9 @@ const COMMENT_STATE_RE = /<!-- kanarek-state:([a-f0-9]{16}) -->/;
 const LEGACY_RECEIPT_FALLBACK_UNTIL = Date.UTC(2026, 7, 19);
 
 type QuipFacts = {
+  scopeVersion: 2;
+  repository: string;
+  areas: string[];
   status: string;
   blockers: string[];
   area: string;
@@ -256,6 +259,9 @@ export async function refreshCompanion(
     `${target.repository}#${target.pullRequestNumber}`,
   );
   const quipFacts: QuipFacts = {
+    scopeVersion: 2,
+    repository: target.repository.toLowerCase(),
+    areas: [...projectAreas].sort(),
     status: current.key,
     blockers: kinds,
     area: projectAreas[0] ?? 'Other',

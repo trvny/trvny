@@ -12,6 +12,7 @@ import {
 import {
   areas,
   blockerKinds,
+  commentStateHash,
   isCompanionDisabled,
   MARKER,
   render,
@@ -163,6 +164,55 @@ test('labels standalone split repositories from their root layout', () => {
     areas(['README.md', '.github/workflows/ci.yml'], 'trvny/feedseek'),
     ['Documentation', 'GitHub automation'],
   );
+});
+
+test('scopes learned quip contexts by repository and the complete area set', async () => {
+  const state = {
+    head: 'b'.repeat(40),
+    behind: 0,
+    reviews: { approvals: 0, changes: 0 },
+    autoMerge: null,
+    files: 27,
+  };
+  const baseFacts = {
+    scopeVersion: 2 as const,
+    status: 'blocked',
+    blockers: ['ci-failed'],
+    area: 'Documentation',
+    size: 'large',
+    language: 'en',
+  };
+  const aistee = await commentStateHash(
+    {
+      ...baseFacts,
+      repository: 'travnie/aistee',
+      areas: ['App', 'Documentation', 'Shared'],
+    },
+    state,
+  );
+  const weather = await commentStateHash(
+    {
+      ...baseFacts,
+      repository: 'travnie/twojstar',
+      areas: ['App', 'Documentation', 'Shared'],
+    },
+    state,
+  );
+  const narrowerAistee = await commentStateHash(
+    {
+      ...baseFacts,
+      repository: 'travnie/aistee',
+      areas: ['Documentation'],
+    },
+    state,
+  );
+
+  assert.notEqual(aistee, weather);
+  assert.notEqual(aistee, narrowerAistee);
+});
+
+test('starts learned quips in a clean v2 bank after context scoping', () => {
+  assert.equal(BANK_KEY, 'kanarek:companion:quip-bank:v2');
 });
 
 test('preserves learned quip language across ambiguous context changes', () => {

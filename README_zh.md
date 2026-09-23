@@ -31,9 +31,7 @@
 ## 🔀 开放的拉取请求
 
 <!--OPEN_PRS:START-->
-| 仓库 | PR | 标题 | 作者 | 状态 | 更新 |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#730](https://github.com/trvny/trvny/pull/730) | deps: bump wrangler from 4.131.2 to 4.135.0 in /tg-bots/cloudflare-assistant in the npm group | @dependabot[bot] | 就绪 | 2026-09-21 |
+_暂无开放的拉取请求。_
 <!--OPEN_PRS:END-->
 
 **私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**

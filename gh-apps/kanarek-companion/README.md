@@ -114,8 +114,11 @@ this.
 ## Quips, bank, and AI budget
 
 The persistent phrase bank lives in Workers KV under
-`kanarek:companion:quip-bank:v1` using per-entry keys.
+`kanarek:companion:quip-bank:v2` using per-entry keys.
 
+- A context key includes the normalized repository and the complete sorted area
+  set, so learned lines cannot leak across repositories or collapse unrelated
+  monorepo areas.
 - Up to 256 learned quips are retained per `quipKey` context and 4096 total.
 - A live selection reads at most 24 entries from the current context, rotated
   by `stateHash`.

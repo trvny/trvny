@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  ARCHIVE_PREFIX,
   BANK_KEY,
   BANK_LIMIT,
+  archiveQuip,
   bankCapacity,
   bankContext,
   effectiveAiPercent,
@@ -57,6 +59,47 @@ test('a full context always falls back to the pool even with a 100 percent ceili
 
   assert.equal(await shouldAskAiForBank(12, quipKey, 'ready', env, full), false);
   assert.equal(await shouldUsePool(12, quipKey, 'ready', env, full), true);
+});
+
+test('keeps the archive outside active-bank fullness and AI scaling', async () => {
+  const values = new Map<string, string>();
+  const kv = {
+    async get(key: string) {
+      return values.get(key) ?? null;
+    },
+    async put(key: string, value: string) {
+      values.set(key, value);
+    },
+    async list(options: { prefix?: string }) {
+      const keys = [...values.keys()]
+        .filter((name) => !options.prefix || name.startsWith(options.prefix))
+        .map((name) => ({ name }));
+      return { keys, list_complete: true, cursor: '' };
+    },
+  } as unknown as KVNamespace;
+  const env = {
+    ...aiEnv,
+    KANAREK_QUIP_KV: kv,
+  } as unknown as CompanionEnv;
+
+  assert.equal(
+    await archiveQuip(
+      env,
+      'travnie/aistee',
+      quipKey,
+      'Archived Kanarek prose stays durable without changing active bank fullness or AI rollout.',
+      'en',
+    ),
+    true,
+  );
+  assert.equal(
+    [...values.keys()].some((key) => key.startsWith(ARCHIVE_PREFIX)),
+    true,
+  );
+
+  const result = await bankCapacity(env, quipKey);
+  assert.deepEqual(result, { available: true, limit: BANK_LIMIT, size: 0 });
+  assert.equal(effectiveAiPercent(env, result), 25);
 });
 
 test('counts legacy quips in the current context fullness', async () => {

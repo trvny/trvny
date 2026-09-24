@@ -58,7 +58,10 @@ import {
   sanitize,
   shouldAskAi,
 } from './quip.ts';
-import type { BankContext } from './companion-bank.ts';
+import type {
+  BankContext,
+  RecoveredBankScope,
+} from './companion-bank.ts';
 import type {
   CompanionEnv,
   CompanionResult,
@@ -259,17 +262,27 @@ export async function refreshCompanion(
     `${pr.title ?? ''}\n${pr.body ?? ''}`,
     `${target.repository}#${target.pullRequestNumber}`,
   );
-  const quipFacts: QuipFacts = {
-    scopeVersion: 2,
-    repository: target.repository.toLowerCase(),
-    areas: [...projectAreas].sort(),
+  const legacyQuipFacts = {
     status: current.key,
     blockers: kinds,
     area: projectAreas[0] ?? 'Other',
     size: prSize.key,
     language,
   };
-  const quipKey = await hash(quipFacts);
+  const quipFacts: QuipFacts = {
+    scopeVersion: 2,
+    repository: target.repository.toLowerCase(),
+    areas: [...projectAreas].sort(),
+    ...legacyQuipFacts,
+  };
+  const [quipKey, recoveredQuipKey] = await Promise.all([
+    hash(quipFacts),
+    hash(legacyQuipFacts),
+  ]);
+  const recoveredBankScope: RecoveredBankScope = {
+    repository: target.repository,
+    quipKey: recoveredQuipKey,
+  };
   const stateInput: CommentStateInput = {
     head: pr.head.sha,
     behind: branch.behind,
@@ -314,7 +327,14 @@ export async function refreshCompanion(
   const tryPool = async (): Promise<void> => {
     if (poolAttempted || !canUsePool(current.key)) return;
     poolAttempted = true;
-    bank = await loadBank(env, quipKey, stateHash, measuredBank, language);
+    bank = await loadBank(
+      env,
+      quipKey,
+      stateHash,
+      measuredBank,
+      language,
+      recoveredBankScope,
+    );
     const pooled = await pooledQuip(
       quipKey,
       stateHash,
@@ -387,7 +407,12 @@ export async function refreshCompanion(
       env,
     );
     if (baseAiSelected) {
-      measuredBank = await bankContext(env, quipKey, language);
+      measuredBank = await bankContext(
+        env,
+        quipKey,
+        language,
+        recoveredBankScope,
+      );
       aiSelected = await shouldAskAiForBank(
         target.pullRequestNumber,
         quipKey,

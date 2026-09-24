@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  detectNpmMajorBumps,
+  fetchReviewDependencyEvidence,
   parseReviewJson,
   patchAddedRightLines,
   reviewAnchorLine,
@@ -137,6 +139,81 @@ test('review anchors tolerate nearby context lines', () => {
   assert.equal(reviewAnchorLine(rightLines, 10), 11);
   assert.equal(reviewAnchorLine(rightLines, 15), 12);
   assert.equal(reviewAnchorLine(rightLines, 16), null);
+});
+
+test('dependency evidence detection keeps only npm semver-major bumps', () => {
+  const bumps = detectNpmMajorBumps([
+    {
+      path: 'worker/package.json',
+      patch: [
+        '@@ -16,7 +16,7 @@',
+        '   "dependencies": {',
+        '-    "feedsmith": "^2.9.6",',
+        '+    "feedsmith": "^3.0.0",',
+        '-    "tiny": "~1.2.3"',
+        '+    "tiny": "~1.3.0"',
+        '   }',
+      ].join('\n'),
+    },
+    {
+      path: 'worker/package-lock.json',
+      patch: '- "other": "1.0.0"\n+ "other": "2.0.0"',
+    },
+  ]);
+
+  assert.deepEqual(bumps, [
+    { package: 'feedsmith', fromVersion: '2.9.6', toVersion: '3.0.0' },
+  ]);
+});
+
+test('dependency evidence verifies the exact npm target and captures matching upstream release notes', async () => {
+  const calls: string[] = [];
+  const fetcher = ((input: RequestInfo | URL): Promise<Response> => {
+    const url = String(input);
+    calls.push(url);
+    if (url === 'https://registry.npmjs.org/feedsmith/3.0.0') {
+      return Promise.resolve(Response.json({
+        name: 'feedsmith',
+        version: '3.0.0',
+        repository: { url: 'git+https://github.com/macieklamberski/feedsmith.git' },
+        dist: { integrity: 'sha512-demo' },
+      }));
+    }
+    if (url === 'https://registry.npmjs.org/feedsmith/latest') {
+      return Promise.resolve(Response.json({
+        name: 'feedsmith',
+        version: '3.0.0',
+      }));
+    }
+    if (url.startsWith('https://registry.npmjs.org/-/v1/search')) {
+      return Promise.resolve(Response.json({
+        objects: [{ package: { name: 'feedsmith', version: '3.0.0' } }],
+      }));
+    }
+    if (url.endsWith('/releases/tags/v3.0.0')) {
+      return Promise.resolve(Response.json({
+        tag_name: 'v3.0.0',
+        name: 'Feedsmith 3.0',
+        html_url: 'https://github.com/macieklamberski/feedsmith/releases/tag/v3.0.0',
+        body: 'Breaking: Atom text fields now use text constructs. RSS person fields are structured objects.',
+      }));
+    }
+    throw new Error(`unexpected URL ${url}`);
+  }) as typeof fetch;
+
+  const evidence = await fetchReviewDependencyEvidence(
+    [{
+      path: 'worker/package.json',
+      patch: '-    "feedsmith": "^2.9.6"\n+    "feedsmith": "^3.0.0"',
+    }],
+    fetcher,
+  );
+
+  assert.equal(evidence.length, 1);
+  assert.equal(evidence[0]?.verified, true);
+  assert.equal(evidence[0]?.repository, 'macieklamberski/feedsmith');
+  assert.match(evidence[0]?.release?.bodyExcerpt ?? '', /Atom text fields/);
+  assert.ok(calls.some((url) => url.endsWith('/releases/tags/v3.0.0')));
 });
 
 test('review input does not mark missing GitHub patches as empty code', () => {

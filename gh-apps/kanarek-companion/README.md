@@ -139,6 +139,11 @@ The persistent phrase bank lives in Workers KV under
   `kanarek:companion:quip-archive:v1:` namespace before GitHub mutation.
   Archive entries have no TTL and are never read by bank selection, capacity
   measurement, maintenance, or pruning.
+- The safely attributable part of the recovered v1 corpus is exposed as a
+  read-only repo-scoped legacy seed. It is matched by repository plus the old
+  context hash, counts toward the same bank fullness used by AI decay, and is
+  never shared across repositories. Ambiguous multi-repo recovery evidence
+  stays inert rather than risking another context leak.
 - AI-generated quips are stored in the active bank. Historical pool quips are
   promoted to KV when selected and missing there.
 - Legacy `BANK_KEY` entries remain readable; only reusable legacy values count

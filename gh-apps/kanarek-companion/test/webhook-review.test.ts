@@ -278,16 +278,16 @@ test('review submission marker is target-specific and bot-authenticated', () => 
 
 test('review JSON parser accepts fenced provider output', () => {
   const parsed = parseReviewJson(
-    '```json\n{"summary":"🐤 没发现问题","findings":[]}\n```',
+    '```json\n{"summary":"🐤 No issues found","findings":[]}\n```',
   );
-  assert.equal(parsed?.summary, '🐤 没发现问题');
+  assert.equal(parsed?.summary, '🐤 No issues found');
   assert.deepEqual(parsed?.findings, []);
 });
 
 test('review JSON parser rejects non-object and incomplete output', () => {
   assert.equal(parseReviewJson('[]'), null);
   assert.equal(parseReviewJson('123'), null);
-  assert.equal(parseReviewJson('{"summary":"没问题"}'), null);
+  assert.equal(parseReviewJson('{"summary":"No issues"}'), null);
   assert.equal(parseReviewJson('{"findings":[]}'), null);
 });
 

@@ -105,7 +105,7 @@ const REVIEW_SYSTEM_PROMPT = [
   'repository_context.callers lists, for a small number of primary changed files, caller files found by a bounded import search. A file absent from that list has no caller evidence at all - never claim it is unused or that callers are unaffected. Even a file listed with zero callers is inconclusive when its searchIncomplete is true.',
   'Before reporting that a branch, condition, or fallthrough (including ||, &&, early return) is unreachable, skipped, or wrong, trace it step by step using only the exact lines shown. If the trace is uncertain or depends on code not shown, omit the finding.',
   'When unsure whether a claim is correct, omit it. A missed defect costs nothing here; a wrong finding costs trust.',
-  'All human-facing summary, titles, and bodies must be Simplified Chinese. Keep code identifiers and paths unchanged.',
+  'All human-facing summary, titles, and bodies must be concise English. Keep code identifiers and paths unchanged.',
   'Voice: dry, charming, lightly technical Kanarek. A subtle bird/canary flourish or 🐤 is welcome in the summary or a minor finding, but never let humor obscure severity, uncertainty, or the concrete fix. Serious security, data-loss, and high-severity findings stay serious. Avoid forced jokes and repetitive catchphrases.',
   'Do not praise or summarize the implementation. Return JSON only, with exactly this shape:',
   '{"summary":"short review note","findings":[{"severity":"high|medium|low","path":"exact/path","line":123,"title":"short title","body":"why this is a bug and what should change"}]}',
@@ -274,19 +274,6 @@ function extension(path: string): string {
 function directory(path: string): string {
   const slash = path.lastIndexOf('/');
   return slash >= 0 ? path.slice(0, slash) : '';
-}
-
-function containsHan(value: string): boolean {
-  return /[\u3400-\u9fff]/u.test(value);
-}
-
-function reviewTextIsChinese(review: ParsedReview): boolean {
-  if (review.summary && !containsHan(review.summary)) return false;
-  return review.findings.every((finding) => {
-    const title = typeof finding.title === 'string' ? finding.title : '';
-    const body = typeof finding.body === 'string' ? finding.body : '';
-    return containsHan(title) && containsHan(body);
-  });
 }
 
 function targetFromPayload(
@@ -927,7 +914,7 @@ function normalizeFindings(
       typeof raw.title === 'string' ? raw.title.trim().slice(0, 140) : '';
     const findingBody =
       typeof raw.body === 'string' ? raw.body.trim().slice(0, 1_400) : '';
-    if (!title || !findingBody || !containsHan(`${title}${findingBody}`)) continue;
+    if (!title || !findingBody) continue;
 
     const key = `${raw.path}:${line}:${title.toLowerCase()}`;
     if (seen.has(key)) continue;
@@ -1000,7 +987,7 @@ async function askReviewRouter(
     return null;
   }
   const parsed = parseReviewJson(completionText(payload));
-  if (!parsed || !reviewTextIsChinese(parsed)) {
+  if (!parsed) {
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'provider_invalid_output',

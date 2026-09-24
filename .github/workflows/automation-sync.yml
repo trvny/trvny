@@ -1,12 +1,6 @@
 name: Sync Worker credentials
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/scripts/migrate-kanarek-quip-recovery.py
-      - .github/workflows/automation-sync.yml
   workflow_dispatch:
     inputs:
       target:
@@ -167,9 +161,7 @@ jobs:
           exit 1
 
   kanarek-quip-recovery:
-    if: >-
-      ${{ github.event_name == 'push' ||
-          inputs.target == 'kanarek-quips-recovery' }}
+    if: ${{ inputs.target == 'kanarek-quips-recovery' }}
     concurrency:
       group: automation-sync-kanarek-quips-recovery
       cancel-in-progress: false

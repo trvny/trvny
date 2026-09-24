@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - .github/scripts/migrate-kanarek-quip-recovery.py
+      - .github/workflows/automation-sync.yml
   workflow_dispatch:
     inputs:
       target:
@@ -218,14 +219,15 @@ jobs:
               gh-apps/kanarek-companion/wrangler.jsonc
           )
           listing="${RUNNER_TEMP}/kanarek-v2-keys.json"
-          curl --fail --silent --show-error \
-            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            --get \
-            --data-urlencode "prefix=kanarek:companion:quip-bank:v2:entry:" \
-            --data-urlencode "limit=1000" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${namespace_id}/keys" \
-            >"$listing"
-          python3 - "${RUNNER_TEMP}/kanarek-recovered-quips.json" "$listing" <<'PY'
+          for _attempt in {1..12}; do
+            curl --fail --silent --show-error \
+              --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+              --get \
+              --data-urlencode "prefix=kanarek:companion:quip-bank:v2:entry:" \
+              --data-urlencode "limit=1000" \
+              "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${namespace_id}/keys" \
+              >"$listing"
+            if python3 - "${RUNNER_TEMP}/kanarek-recovered-quips.json" "$listing" <<'PY'
           import json
           import pathlib
           import sys
@@ -243,6 +245,13 @@ jobs:
               raise SystemExit(f"missing {len(missing)} recovered v2 keys")
           print(f"verified {len(expected)} recovered v2 keys")
           PY
+            then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Recovered v2 keys did not converge in time." >&2
+          exit 1
 
   kanarek-review:
     if: ${{ inputs.target == 'kanarek-review' || inputs.target == 'all' }}

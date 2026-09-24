@@ -8,6 +8,7 @@ import sys
 
 BANK_KEY = "kanarek:companion:quip-bank:v2"
 EXPECTED_SAFE = 221
+LEGACY_CUTOFF = "2026-09-23T22:16:21Z"
 
 
 def js_hash(value: object) -> str:
@@ -36,6 +37,9 @@ def main() -> int:
             quip = item.get("q")
             repository = item.get("repo")
             language = item.get("l")
+            first_seen = item.get("first_seen")
+            if isinstance(first_seen, str) and first_seen >= LEGACY_CUTOFF:
+                continue
             if not (
                 isinstance(legacy_key, str)
                 and len(legacy_key) == 16

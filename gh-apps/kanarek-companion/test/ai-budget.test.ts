@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   ARCHIVE_PREFIX,
   BANK_KEY,
+  RECOVERED_BANK_PREFIX,
   BANK_LIMIT,
   archiveQuip,
   bankCapacity,
@@ -14,6 +15,7 @@ import {
   shouldUsePool,
 } from '../src/companion-bank.ts';
 import type { CompanionEnv } from '../src/companion-types.ts';
+import { hash } from '../src/quip.ts';
 
 const quipKey = 'aaaaaaaaaaaaaaaa';
 const aiEnv = {
@@ -100,6 +102,63 @@ test('keeps the archive outside active-bank fullness and AI scaling', async () =
   const result = await bankCapacity(env, quipKey);
   assert.deepEqual(result, { available: true, limit: BANK_LIMIT, size: 0 });
   assert.equal(effectiveAiPercent(env, result), 25);
+});
+
+test('reuses repo-scoped recovered v1 quips for bank fullness and selection', async () => {
+  const repository = 'travnie/aistee';
+  const recoveredQuipKey = 'bbbbbbbbbbbbbbbb';
+  const repositoryHash = await hash(repository);
+  const values = new Map<string, string>();
+  for (let index = 0; index < 128; index += 1) {
+    const identity = index.toString(16).padStart(16, '0');
+    values.set(
+      `${RECOVERED_BANK_PREFIX}${repositoryHash}:${recoveredQuipKey}:${identity}`,
+      JSON.stringify([
+        {
+          k: recoveredQuipKey,
+          l: 'en',
+          q: `Recovered Aistee bank quip number ${index} remains safely scoped to its original repository.`,
+        },
+      ]),
+    );
+  }
+  const kv = {
+    async get(key: string) {
+      return values.get(key) ?? null;
+    },
+    async list(options: { prefix?: string }) {
+      const keys = [...values.keys()]
+        .filter((name) => !options.prefix || name.startsWith(options.prefix))
+        .map((name) => ({ name }));
+      return { keys, list_complete: true, cursor: '' };
+    },
+  } as unknown as KVNamespace;
+  const env = {
+    ...aiEnv,
+    KANAREK_QUIP_KV: kv,
+  } as unknown as CompanionEnv;
+  const recoveredScope = { repository, quipKey: recoveredQuipKey };
+
+  const context = await bankContext(env, quipKey, 'en', recoveredScope);
+  const bank = await loadBank(
+    env,
+    quipKey,
+    '0000000000000000',
+    context,
+    'en',
+    recoveredScope,
+  );
+
+  assert.equal(context.size, 128);
+  assert.equal(effectiveAiPercent(aiEnv, context), 13);
+  assert.equal(bank.length, 24);
+  assert.equal(bank.every((entry) => entry.k === quipKey), true);
+
+  const otherRepo = await bankContext(env, quipKey, 'en', {
+    repository: 'travnie/twojstar',
+    quipKey: recoveredQuipKey,
+  });
+  assert.equal(otherRepo.size, 0);
 });
 
 test('counts legacy quips in the current context fullness', async () => {

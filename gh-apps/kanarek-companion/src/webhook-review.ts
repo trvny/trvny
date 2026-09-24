@@ -1,5 +1,10 @@
 import { extractImports, importReferencesTarget, searchSeed } from './dependency-graph.ts';
 import { createInstallationClient } from './github-app.ts';
+import {
+  createPackageExternalTransport,
+  githubRepositoryFromUrl,
+} from './package-intelligence.ts';
+import { inspectRegistryPackage } from './package-registry.ts';
 import { REVIEW_ROUTER_PATH } from './review-service-protocol.ts';
 import {
   handleReviewRouterViaService,
@@ -28,6 +33,8 @@ const MAX_CALLER_TARGETS = 2;
 const MAX_CALLER_CANDIDATES = 6;
 const MAX_CALLERS_PER_TARGET = 5;
 const MAX_CALLER_CONTENT_BYTES = 300_000;
+const MAX_DEPENDENCY_EVIDENCE = 3;
+const MAX_RELEASE_NOTES_CHARS = 12_000;
 const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
 const COMPLETED_TARGET_KEY = 'completed-target';
@@ -103,6 +110,7 @@ const REVIEW_SYSTEM_PROMPT = [
   'Every finding must be high-confidence, actionable, and anchored to an added RIGHT-side line from the supplied diff.',
   'A finding that depends on how a symbol is called, defined, or used elsewhere is valid only when that usage is visible in the supplied diff or repository_context. If it is not shown, you cannot verify it - omit the finding instead of guessing.',
   'repository_context.callers lists, for a small number of primary changed files, caller files found by a bounded import search. A file absent from that list has no caller evidence at all - never claim it is unused or that callers are unaffected. Even a file listed with zero callers is inconclusive when its searchIncomplete is true.',
+  'repository_context.dependency_evidence contains bounded live registry and upstream-release evidence for detected npm major-version bumps. For claims about an external package API, required fields, removed fields, or migration behavior, require a matching verified evidence entry and direct support in its release notes or in repository_context code. Never infer such details from the pull-request title/body, Dependabot prose, or a semver-major number alone. If the evidence is absent or inconclusive, omit the compatibility finding rather than inventing an API detail.',
   'Before reporting that a branch, condition, or fallthrough (including ||, &&, early return) is unreachable, skipped, or wrong, trace it step by step using only the exact lines shown. If the trace is uncertain or depends on code not shown, omit the finding.',
   'When unsure whether a claim is correct, omit it. A missed defect costs nothing here; a wrong finding costs trust.',
   'All human-facing summary, titles, and bodies must be Simplified Chinese. Keep code identifiers and paths unchanged.',
@@ -486,6 +494,162 @@ export function selectReviewFiles(
   return output;
 }
 
+export interface ReviewDependencyEvidence {
+  ecosystem: 'npm';
+  package: string;
+  fromVersion: string;
+  toVersion: string;
+  verified: boolean;
+  registryUrl: string | null;
+  repository: string | null;
+  release: {
+    tag: string | null;
+    name: string | null;
+    url: string | null;
+    bodyExcerpt: string | null;
+  } | null;
+  warning: string | null;
+}
+
+interface NpmMajorBump {
+  package: string;
+  fromVersion: string;
+  toVersion: string;
+}
+
+function exactSemver(value: string): { normalized: string; major: number } | null {
+  const match = value.trim().match(/^[~^]?\s*(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?$/);
+  if (!match) return null;
+  return {
+    normalized: `${match[1]}.${match[2]}.${match[3]}`,
+    major: Number(match[1]),
+  };
+}
+
+export function detectNpmMajorBumps(
+  files: Array<Pick<ReviewFile, 'path' | 'patch'>>,
+): NpmMajorBump[] {
+  const output: NpmMajorBump[] = [];
+  const seen = new Set<string>();
+  const ignoredKeys = new Set([
+    'name',
+    'version',
+    'private',
+    'type',
+    'packageManager',
+    'description',
+    'license',
+  ]);
+
+  for (const file of files) {
+    if (basename(file.path) !== 'package.json') continue;
+    const removed = new Map<string, string>();
+    const added = new Map<string, string>();
+
+    for (const line of file.patch.split('\n')) {
+      if ((!line.startsWith('-') && !line.startsWith('+')) || line.startsWith('---') || line.startsWith('+++')) {
+        continue;
+      }
+      const match = line.slice(1).match(/^\s*"([^"]+)"\s*:\s*"([^"]+)"\s*,?\s*$/);
+      if (!match || ignoredKeys.has(match[1])) continue;
+      (line.startsWith('-') ? removed : added).set(match[1], match[2]);
+    }
+
+    for (const [name, oldRaw] of removed) {
+      const newRaw = added.get(name);
+      if (!newRaw || seen.has(name)) continue;
+      const oldVersion = exactSemver(oldRaw);
+      const newVersion = exactSemver(newRaw);
+      if (!oldVersion || !newVersion || newVersion.major <= oldVersion.major) continue;
+      seen.add(name);
+      output.push({
+        package: name,
+        fromVersion: oldVersion.normalized,
+        toVersion: newVersion.normalized,
+      });
+      if (output.length >= MAX_DEPENDENCY_EVIDENCE) return output;
+    }
+  }
+  return output;
+}
+
+async function releaseEvidence(
+  repositoryUrl: string | null,
+  version: string,
+  transport: ReturnType<typeof createPackageExternalTransport>,
+): Promise<ReviewDependencyEvidence['release']> {
+  const repository = githubRepositoryFromUrl(repositoryUrl);
+  if (!repository) return null;
+  const path = `${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.repo)}`;
+  for (const tag of [`v${version}`, version]) {
+    try {
+      const raw = objectValue(
+        await transport.json(
+          `https://api.github.com/repos/${path}/releases/tags/${encodeURIComponent(tag)}`,
+          { headers: { accept: 'application/vnd.github+json' } },
+        ),
+      );
+      const body = typeof raw.body === 'string' ? raw.body.trim() : '';
+      return {
+        tag: typeof raw.tag_name === 'string' ? raw.tag_name : tag,
+        name: typeof raw.name === 'string' ? raw.name : null,
+        url: typeof raw.html_url === 'string' ? raw.html_url : null,
+        bodyExcerpt: body ? body.slice(0, MAX_RELEASE_NOTES_CHARS) : null,
+      };
+    } catch {
+      // Try the common alternate tag form; absence of release notes is not fatal.
+    }
+  }
+  return null;
+}
+
+export async function fetchReviewDependencyEvidence(
+  files: Array<Pick<ReviewFile, 'path' | 'patch'>>,
+  fetcher: typeof fetch = runtimeFetch,
+): Promise<ReviewDependencyEvidence[]> {
+  const bumps = detectNpmMajorBumps(files);
+  if (!bumps.length) return [];
+  const transport = createPackageExternalTransport(fetcher, null);
+  const output: ReviewDependencyEvidence[] = [];
+
+  for (const bump of bumps) {
+    try {
+      const registry = await inspectRegistryPackage(
+        'npm',
+        bump.package,
+        bump.toVersion,
+        transport.json,
+        transport.text,
+      );
+      const repository = githubRepositoryFromUrl(registry.repositoryUrl);
+      output.push({
+        ecosystem: 'npm',
+        package: bump.package,
+        fromVersion: bump.fromVersion,
+        toVersion: bump.toVersion,
+        verified: registry.selectedVersion === bump.toVersion,
+        registryUrl: registry.registryUrl,
+        repository: repository ? `${repository.owner}/${repository.repo}` : null,
+        release: await releaseEvidence(registry.repositoryUrl, bump.toVersion, transport),
+        warning: null,
+      });
+    } catch (error) {
+      output.push({
+        ecosystem: 'npm',
+        package: bump.package,
+        fromVersion: bump.fromVersion,
+        toVersion: bump.toVersion,
+        verified: false,
+        registryUrl: null,
+        repository: null,
+        release: null,
+        warning: error instanceof Error ? error.message.slice(0, 160) : 'dependency_evidence_unavailable',
+      });
+    }
+  }
+  return output;
+}
+
 export function reviewInputState(
   files: Array<Pick<PullRequestFile, 'filename' | 'patch'>>,
   selectedCount: number,
@@ -813,6 +977,7 @@ export function reviewPrompt(
   files: ReviewFile[],
   context: ReviewContext,
   callers: CallerEvidence[] = [],
+  dependencyEvidence: ReviewDependencyEvidence[] = [],
 ): string {
   return JSON.stringify({
     pull_request: {
@@ -821,7 +986,7 @@ export function reviewPrompt(
       body: typeof body === 'string' ? body.slice(0, 2_000) : '',
     },
     diff: diffText(files),
-    repository_context: { ...context, callers },
+    repository_context: { ...context, callers, dependency_evidence: dependencyEvidence },
   });
 }
 
@@ -1184,7 +1349,7 @@ export async function runWebhookReview(
     };
   }
 
-  const [context, callers] = await Promise.all([
+  const [context, callers, dependencyEvidence] = await Promise.all([
     fetchRepositoryContext(
       client,
       target.repository,
@@ -1198,10 +1363,19 @@ export async function runWebhookReview(
       ),
     ),
     fetchCallerEvidence(client, target.repository, target.headSha, files),
+    fetchReviewDependencyEvidence(files, fetcher),
   ]);
 
   const generated = await askReviewRouter(
-    reviewPrompt(target.number, pr.title, pr.body, files, context, callers),
+    reviewPrompt(
+      target.number,
+      pr.title,
+      pr.body,
+      files,
+      context,
+      callers,
+      dependencyEvidence,
+    ),
     reviewRouterEnvForAttempt(env, job.attempt),
   );
   if (!generated) {

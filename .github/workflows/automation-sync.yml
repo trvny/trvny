@@ -1,6 +1,11 @@
 name: Sync Worker credentials
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/scripts/migrate-kanarek-quip-recovery.py
   workflow_dispatch:
     inputs:
       target:
@@ -10,6 +15,7 @@ on:
         type: choice
         options:
           - kanarek-companion
+          - kanarek-quips-recovery
           - kanarek-review
           - travny-tg-assistant
           - pet-dispatcher
@@ -158,6 +164,85 @@ jobs:
             echo "Rollback of the previous Worker deployment also failed." >&2
           fi
           exit 1
+
+  kanarek-quip-recovery:
+    if: >-
+      ${{ github.event_name == 'push' ||
+          inputs.target == 'kanarek-quips-recovery' }}
+    concurrency:
+      group: automation-sync-kanarek-quips-recovery
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build safe recovered quip batch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/migrate-kanarek-quip-recovery.py \
+            gh-apps/kanarek-companion/recovery/2026-09-24-v1-comments \
+            "${RUNNER_TEMP}/kanarek-recovered-quips.json"
+          jq -e 'length == 221' "${RUNNER_TEMP}/kanarek-recovered-quips.json" >/dev/null
+      - name: Import recovered quips into the active v2 bank
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
+          namespace_id=$(
+            jq -r '.kv_namespaces[] | select(.binding == "KANAREK_QUIP_KV") | .id' \
+              gh-apps/kanarek-companion/wrangler.jsonc
+          )
+          test -n "$namespace_id"
+          response="${RUNNER_TEMP}/kanarek-recovery-response.json"
+          curl --fail-with-body --silent --show-error \
+            --request PUT \
+            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data-binary "@${RUNNER_TEMP}/kanarek-recovered-quips.json" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${namespace_id}/bulk" \
+            >"$response"
+          jq -e '.success == true' "$response" >/dev/null
+      - name: Verify every recovered key exists in v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          namespace_id=$(
+            jq -r '.kv_namespaces[] | select(.binding == "KANAREK_QUIP_KV") | .id' \
+              gh-apps/kanarek-companion/wrangler.jsonc
+          )
+          listing="${RUNNER_TEMP}/kanarek-v2-keys.json"
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            --get \
+            --data-urlencode "prefix=kanarek:companion:quip-bank:v2:entry:" \
+            --data-urlencode "limit=1000" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${namespace_id}/keys" \
+            >"$listing"
+          python3 - "${RUNNER_TEMP}/kanarek-recovered-quips.json" "$listing" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          expected = {
+              item["key"]
+              for item in json.loads(pathlib.Path(sys.argv[1]).read_text())
+          }
+          response = json.loads(pathlib.Path(sys.argv[2]).read_text())
+          if not response.get("success"):
+              raise SystemExit("Cloudflare KV listing failed")
+          actual = {item["name"] for item in response.get("result", [])}
+          missing = expected - actual
+          if missing:
+              raise SystemExit(f"missing {len(missing)} recovered v2 keys")
+          print(f"verified {len(expected)} recovered v2 keys")
+          PY
 
   kanarek-review:
     if: ${{ inputs.target == 'kanarek-review' || inputs.target == 'all' }}

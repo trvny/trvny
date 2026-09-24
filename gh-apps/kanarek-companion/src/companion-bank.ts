@@ -9,7 +9,6 @@ import type { CompanionEnv, IssueComment, QuipEntry } from './companion-types.ts
 
 export const BANK_KEY = 'kanarek:companion:quip-bank:v2';
 export const ARCHIVE_PREFIX = 'kanarek:companion:quip-archive:v1:';
-export const RECOVERED_BANK_PREFIX = 'kanarek:companion:quip-bank:v1-recovered:';
 export const QUIP_KEY_RE = /<!-- kanarek-quip-key:([a-f0-9]+) -->/;
 export const QUIP_RE = /<!-- kanarek-quip:([A-Za-z0-9_-]+) -->/;
 const POOL_RE = /<!-- kanarek-pool:([A-Za-z0-9_-]+) -->/;
@@ -38,16 +37,9 @@ export interface BankCapacity {
   size: number;
 }
 
-export interface RecoveredBankScope {
-  quipKey: string;
-  repository: string;
-}
-
 export interface BankContext extends BankCapacity {
   keys: string[];
   legacy: QuipEntry[];
-  recoveredKeys: string[];
-  recoveredQuipKey: string | null;
 }
 
 interface EntryKeyParts {
@@ -204,6 +196,23 @@ export function canUsePool(stateKey: string): boolean {
   return LIVE_STATUSES.has(stateKey);
 }
 
+export async function scopedBankKey(
+  repository: string,
+  legacyQuipKey: string,
+): Promise<string> {
+  const normalizedRepository = repository.trim().toLowerCase();
+  if (
+    !/^[^/]+\/[^/]+$/.test(normalizedRepository) ||
+    !/^[a-f0-9]{16}$/.test(legacyQuipKey)
+  ) {
+    throw new Error('invalid_quip_bank_scope');
+  }
+  return hash({
+    repository: normalizedRepository,
+    legacyQuipKey,
+  });
+}
+
 function retainedContextLimit(keys: BankKey[], quipKey: string): number {
   const counts = new Map<string, number>();
   for (const key of keys) {
@@ -231,52 +240,20 @@ function retainedContextLimit(keys: BankKey[], quipKey: string): number {
   return target;
 }
 
-async function recoveredBankPrefix(
-  scope?: RecoveredBankScope,
-): Promise<string | null> {
-  if (!scope) return null;
-  const repository = scope.repository.trim().toLowerCase();
-  if (
-    !/^[^/]+\/[^/]+$/.test(repository) ||
-    !/^[a-f0-9]{16}$/.test(scope.quipKey)
-  ) {
-    return null;
-  }
-  return `${RECOVERED_BANK_PREFIX}${await hash(repository)}:${scope.quipKey}:`;
-}
-
 export async function bankContext(
   env: CompanionEnv,
   quipKey: string,
   language?: CompanionLanguage,
-  recoveredScope?: RecoveredBankScope,
 ): Promise<BankContext> {
   const kv = env.KANAREK_QUIP_KV;
   if (!kv) {
-    return {
-      available: false,
-      keys: [],
-      legacy: [],
-      limit: BANK_LIMIT,
-      recoveredKeys: [],
-      recoveredQuipKey: null,
-      size: 0,
-    };
+    return { available: false, keys: [], legacy: [], limit: BANK_LIMIT, size: 0 };
   }
   try {
-    const [allKeys, legacyValue, recoveredPrefix] = await Promise.all([
+    const [allKeys, legacyValue] = await Promise.all([
       listBankKeys(env),
       kv.get(BANK_KEY),
-      recoveredBankPrefix(recoveredScope),
     ]);
-    const recoveredKeys = recoveredPrefix
-      ? (
-          await kv.list({
-            prefix: recoveredPrefix,
-            limit: BANK_LIMIT,
-          })
-        ).keys.map((key) => key.name)
-      : [];
     const retained = retainedBankNames(allKeys);
     const retainedKeys = allKeys.filter((key) => retained.has(key.name));
     const currentKeys = retainedKeys.filter(
@@ -306,26 +283,13 @@ export async function bankContext(
       keys: currentKeys.map((key) => key.name),
       legacy,
       limit,
-      recoveredKeys,
-      recoveredQuipKey: recoveredScope?.quipKey ?? null,
-      size: Math.min(
-        limit,
-        currentKeys.length + uniqueLegacy + recoveredKeys.length,
-      ),
+      size: Math.min(limit, currentKeys.length + uniqueLegacy),
     };
   } catch (error) {
     console.warn(
       `Kanarek quip bank capacity unavailable: ${error instanceof Error ? error.message : 'unknown_error'}`,
     );
-    return {
-      available: false,
-      keys: [],
-      legacy: [],
-      limit: BANK_LIMIT,
-      recoveredKeys: [],
-      recoveredQuipKey: null,
-      size: 0,
-    };
+    return { available: false, keys: [], legacy: [], limit: BANK_LIMIT, size: 0 };
   }
 }
 
@@ -431,46 +395,6 @@ async function loadEntryBank(
     );
   }
   return mergeEntries(entries);
-}
-
-async function loadRecoveredEntryBank(
-  env: CompanionEnv,
-  quipKey: string,
-  stateHash: string,
-  scope?: RecoveredBankScope,
-  listedKeys?: string[],
-  language?: CompanionLanguage,
-): Promise<QuipEntry[]> {
-  const kv = env.KANAREK_QUIP_KV;
-  if (!kv || !scope) return [];
-  const prefix = await recoveredBankPrefix(scope);
-  if (!prefix) return [];
-  const keys =
-    listedKeys ??
-    (
-      await kv.list({
-        prefix,
-        limit: BANK_LIMIT,
-      })
-    ).keys.map((key) => key.name);
-  if (!keys.length) return [];
-  const offset = Number.parseInt(stateHash.slice(0, 8), 16) % keys.length;
-  const selected = [...keys.slice(offset), ...keys.slice(0, offset)].slice(
-    0,
-    POOL_LIMIT,
-  );
-  const values = await Promise.all(selected.map((key) => kv.get(key)));
-  return mergeEntries(
-    values.flatMap((value) =>
-      entriesFromValue(value)
-        .filter(
-          (entry) =>
-            entry.k === scope.quipKey &&
-            (!language || reusableStoredQuip(entry.q, entry.l, language)),
-        )
-        .map((entry) => ({ ...entry, k: quipKey })),
-    ),
-  );
 }
 
 async function listBankKeys(env: CompanionEnv): Promise<BankKey[]> {
@@ -627,48 +551,28 @@ export async function loadBank(
   stateHash: string,
   context?: BankContext,
   language?: CompanionLanguage,
-  recoveredScope?: RecoveredBankScope,
 ): Promise<QuipEntry[]> {
   const kv = env.KANAREK_QUIP_KV;
   if (!kv) return [];
   try {
     if (context?.available) {
-      const [entries, recovered] = await Promise.all([
-        loadEntryBank(
-          env,
-          quipKey,
-          stateHash,
-          context.keys,
-          language,
-        ),
-        loadRecoveredEntryBank(
-          env,
-          quipKey,
-          stateHash,
-          recoveredScope,
-          context.recoveredKeys,
-          language,
-        ),
-      ]);
-      return mergeEntries(entries, recovered, context.legacy)
-        .filter((entry) => !language || reusableStoredQuip(entry.q, entry.l, language))
-        .slice(0, POOL_LIMIT);
-    }
-    const [legacy, entries, recovered] = await Promise.all([
-      kv.get(BANK_KEY),
-      loadEntryBank(env, quipKey, stateHash, undefined, language),
-      loadRecoveredEntryBank(
+      const entries = await loadEntryBank(
         env,
         quipKey,
         stateHash,
-        recoveredScope,
-        undefined,
+        context.keys,
         language,
-      ),
+      );
+      return mergeEntries(entries, context.legacy)
+        .filter((entry) => !language || reusableStoredQuip(entry.q, entry.l, language))
+        .slice(0, POOL_LIMIT);
+    }
+    const [legacy, entries] = await Promise.all([
+      kv.get(BANK_KEY),
+      loadEntryBank(env, quipKey, stateHash, undefined, language),
     ]);
     return mergeEntries(
       entries,
-      recovered,
       entriesFromValue(legacy).filter(
         (entry) =>
           entry.k === quipKey && (!language || reusableStoredQuip(entry.q, entry.l, language)),

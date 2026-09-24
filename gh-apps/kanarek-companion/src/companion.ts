@@ -11,6 +11,7 @@ import {
   QUIP_KEY_RE,
   QUIP_RE,
   rememberQuip,
+  scopedBankKey,
   shouldAskAiForBank,
   SOURCE_RE,
   storeBank,
@@ -58,10 +59,7 @@ import {
   sanitize,
   shouldAskAi,
 } from './quip.ts';
-import type {
-  BankContext,
-  RecoveredBankScope,
-} from './companion-bank.ts';
+import type { BankContext } from './companion-bank.ts';
 import type {
   CompanionEnv,
   CompanionResult,
@@ -275,14 +273,8 @@ export async function refreshCompanion(
     areas: [...projectAreas].sort(),
     ...legacyQuipFacts,
   };
-  const [quipKey, recoveredQuipKey] = await Promise.all([
-    hash(quipFacts),
-    hash(legacyQuipFacts),
-  ]);
-  const recoveredBankScope: RecoveredBankScope = {
-    repository: target.repository,
-    quipKey: recoveredQuipKey,
-  };
+  const legacyQuipKey = await hash(legacyQuipFacts);
+  const quipKey = await scopedBankKey(target.repository, legacyQuipKey);
   const stateInput: CommentStateInput = {
     head: pr.head.sha,
     behind: branch.behind,
@@ -327,14 +319,7 @@ export async function refreshCompanion(
   const tryPool = async (): Promise<void> => {
     if (poolAttempted || !canUsePool(current.key)) return;
     poolAttempted = true;
-    bank = await loadBank(
-      env,
-      quipKey,
-      stateHash,
-      measuredBank,
-      language,
-      recoveredBankScope,
-    );
+    bank = await loadBank(env, quipKey, stateHash, measuredBank, language);
     const pooled = await pooledQuip(
       quipKey,
       stateHash,
@@ -407,12 +392,7 @@ export async function refreshCompanion(
       env,
     );
     if (baseAiSelected) {
-      measuredBank = await bankContext(
-        env,
-        quipKey,
-        language,
-        recoveredBankScope,
-      );
+      measuredBank = await bankContext(env, quipKey, language);
       aiSelected = await shouldAskAiForBank(
         target.pullRequestNumber,
         quipKey,

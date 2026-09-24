@@ -58,9 +58,10 @@ A normal delivery follows this path:
    existing Kanarek status comment. `companion-view.ts` reduces that data to a
    semantic state such as `waiting`, `ready`, or `blocked` and renders the
    single status comment.
-7. A 16-character `quipKey` hashes the reusable quip context: status, blocker
-   kinds, primary project area, PR size, and language. `stateHash` also includes
-   transient PR state and rotates selections without changing that context.
+7. A 16-character `quipKey` scopes the reusable quip context by repository
+   plus the legacy semantic key (status, blocker kinds, primary project area,
+   PR size, and language). `stateHash` additionally tracks the complete sorted
+   area set and transient PR state without fragmenting the active bank.
 8. For live `ready`/`blocked` states, Kanarek reuses the persistent KV bank,
    optionally asks AI, or falls back to presets. AI requests prefer the shared
    free-provider router, with direct paid providers retained as request-level
@@ -117,9 +118,11 @@ this.
 The persistent phrase bank lives in Workers KV under
 `kanarek:companion:quip-bank:v2` using per-entry keys.
 
-- A context key includes the normalized repository and the complete sorted area
-  set, so learned lines cannot leak across repositories or collapse unrelated
-  monorepo areas.
+- There is one active bank. Its context key combines the normalized repository
+  with the legacy semantic context key, so recovered v1 entries can be migrated
+  into the same v2 entry format without allowing cross-repository reuse.
+  The complete sorted area set remains part of `stateHash` for comment-state
+  accuracy, not a second bank namespace.
 - Up to 256 learned quips are retained per `quipKey` context and 4096 total.
 - A live selection reads at most 24 entries from the current context, rotated
   by `stateHash`.
@@ -139,11 +142,10 @@ The persistent phrase bank lives in Workers KV under
   `kanarek:companion:quip-archive:v1:` namespace before GitHub mutation.
   Archive entries have no TTL and are never read by bank selection, capacity
   measurement, maintenance, or pruning.
-- The safely attributable part of the recovered v1 corpus is exposed as a
-  read-only repo-scoped legacy seed. It is matched by repository plus the old
-  context hash, counts toward the same bank fullness used by AI decay, and is
-  never shared across repositories. Ambiguous multi-repo recovery evidence
-  stays inert rather than risking another context leak.
+- Recovery JSON and the append-only archive are backup/audit data only. They
+  are never separate runtime banks. Safely attributable recovered entries are
+  migrated into normal `quip-bank:v2:entry:*` keys before they can affect
+  selection or the bank-fill percentage.
 - AI-generated quips are stored in the active bank. Historical pool quips are
   promoted to KV when selected and missing there.
 - Legacy `BANK_KEY` entries remain readable; only reusable legacy values count

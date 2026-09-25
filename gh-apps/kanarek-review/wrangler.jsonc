@@ -40,6 +40,7 @@
     "KANAREK_REVIEW_GROQ_MODEL": "openai/gpt-oss-120b",
     "KANAREK_REVIEW_VERCEL_MODEL": "alibaba/qwen3-coder-30b-a3b",
     "KANAREK_REVIEW_HUGGINGFACE_MODEL": "speakleash/Bielik-11B-v3.0-Instruct:publicai",
+    "KANAREK_REVIEW_GEMINI_MODEL": "gemini-3.8-flash",
     "KANAREK_REVIEW_OPENROUTER_MODELS": "nvidia/nemotron-3-super-120b-a12b:free,cohere/north-mini-code:free,openrouter/free"
   }
 }

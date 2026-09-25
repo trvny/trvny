@@ -25,7 +25,7 @@ jobs:
     concurrency:
       group: automation-sync-cloudflare
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -165,7 +165,7 @@ jobs:
     concurrency:
       group: automation-sync-kanarek-quips-recovery
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -250,7 +250,7 @@ jobs:
     concurrency:
       group: automation-sync-kanarek-review
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -316,7 +316,7 @@ jobs:
     concurrency:
       group: automation-sync-travny-tg-assistant
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -353,7 +353,7 @@ jobs:
     concurrency:
       group: automation-sync-pet-dispatcher
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

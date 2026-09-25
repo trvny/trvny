@@ -5,7 +5,7 @@ import {
   githubRepositoryFromUrl,
 } from './package-intelligence.ts';
 import { inspectRegistryPackage } from './package-registry.ts';
-import { REVIEW_ROUTER_PATH } from './review-service-protocol.ts';
+import { REVIEW_ROUTER_PATH, REVIEW_ROUTER_REVIEW_MODEL } from './review-service-protocol.ts';
 import {
   handleReviewRouterViaService,
   type ReviewServiceEnv,
@@ -1124,7 +1124,7 @@ async function askReviewRouter(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'kanarek-review-free',
+        model: REVIEW_ROUTER_REVIEW_MODEL,
         stream: false,
         max_tokens: configuredInteger(
           env.KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS,
@@ -1187,6 +1187,7 @@ function providerLabel(provider: string): string {
   if (provider === 'aihubmix') return 'AIHubMix';
   if (provider === 'ollama') return 'Ollama';
   if (provider === 'groq') return 'Groq';
+  if (provider === 'gemini-flex') return 'Gemini Flex';
   if (provider === 'workers-ai') return 'Workers AI';
   return 'free router';
 }

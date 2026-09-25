@@ -94,15 +94,22 @@ test('review router exposes its synthetic OpenAI model', async () => {
   }), auth);
   assert.equal(response?.status, 200);
   const payload = (await response?.json()) as { data?: Array<{ id?: string }> };
-  assert.equal(payload.data?.[0]?.id, 'kanarek-review-free');
+  assert.deepEqual(payload.data?.map((model) => model.id), [
+    'kanarek-review-free',
+    'kanarek-review',
+  ]);
 });
 
-test('review router ignores paid Gemini credentials and prefers OpenRouter', async () => {
+test('review router prefers OpenRouter before the paid Gemini Flex reserve', async () => {
   let call: { url?: string; model?: unknown; authorization?: string | null } = {};
   const env = {
-    ...auth, GEMINI_API_KEY: 'paid-quip-only-key', OPENROUTER_API_KEY: 'openrouter-key',
+    ...auth, GEMINI_API_KEY: 'gemini-key', OPENROUTER_API_KEY: 'openrouter-key',
   };
-  const response = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL, init?: RequestInit) => {
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review',
+    stream: true,
+    messages: [{ role: 'user', content: 'review' }],
+  }), env, ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: unknown };
     call = {
       url: String(input),
@@ -116,6 +123,56 @@ test('review router ignores paid Gemini credentials and prefers OpenRouter', asy
   assert.equal(call.url, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(call.model, 'nvidia/nemotron-3-super-120b-a12b:free');
   assert.equal(call.authorization, 'Bearer openrouter-key');
+});
+
+test('review router uses Gemini 3.8 Flash Flex as an optional reserve', async () => {
+  let call: {
+    url?: string;
+    model?: unknown;
+    serviceTier?: unknown;
+    authorization?: string | null;
+  } = {};
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review',
+    stream: true,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth, GEMINI_API_KEY: 'gemini-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown; service_tier?: unknown };
+    call = {
+      url: String(input),
+      model: body.model,
+      serviceTier: body.service_tier,
+      authorization: new Headers(init?.headers).get('authorization'),
+    };
+    return Promise.resolve(new Response('{"choices":[],"model":"gemini-3.8-flash"}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
+  assert.equal(call.url, 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+  assert.equal(call.model, 'gemini-3.8-flash');
+  assert.equal(call.serviceTier, 'flex');
+  assert.equal(call.authorization, 'Bearer gemini-key');
+});
+
+
+test('free router contract never spends the Gemini Flex reserve', async () => {
+  let calls = 0;
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'quip' }],
+  }), {
+    ...auth, GEMINI_API_KEY: 'gemini-key',
+  }, (() => {
+    calls += 1;
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 503);
+  assert.equal(calls, 0);
 });
 
 test('review router normalizes Copilot tool follow-ups for free providers', async () => {

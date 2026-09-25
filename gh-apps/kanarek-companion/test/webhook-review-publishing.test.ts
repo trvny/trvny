@@ -15,6 +15,10 @@ test('review source label includes provider and concrete upstream model', () => 
     reviewSourceLabel('aihubmix', 'deepseek-v4-flash-ga-260731'),
     'AIHubMix · `deepseek-v4-flash-ga-260731`',
   );
+  assert.equal(
+    reviewSourceLabel('gemini-flex', 'gemini-3.8-flash'),
+    'Gemini Flex · `gemini-3.8-flash`',
+  );
 });
 
 test('review source label falls back to the provider when model is unavailable', () => {

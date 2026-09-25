@@ -1,8 +1,10 @@
 import { bearerAuthorized } from '../../kanarek-companion/src/auth.ts';
 import { configuredOpenRouterModels } from './openrouter-models.ts';
 import {
+  REVIEW_ROUTER_FREE_MODEL,
   REVIEW_ROUTER_MODELS_PATH,
   REVIEW_ROUTER_PATH,
+  REVIEW_ROUTER_REVIEW_MODEL,
 } from '../../kanarek-companion/src/review-service-protocol.ts';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -33,6 +35,7 @@ const DEFAULT_REVIEW_OLLAMA_MODELS = [
 const DEFAULT_REVIEW_GROQ_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_REVIEW_VERCEL_MODEL = 'alibaba/qwen3-coder-30b-a3b';
 const DEFAULT_REVIEW_HUGGINGFACE_MODEL = 'aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai';
+const DEFAULT_REVIEW_GEMINI_MODEL = 'gemini-3.8-flash';
 const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'nvidia/nemotron-3-super-120b-a12b:free',
   'cohere/north-mini-code:free',
@@ -54,6 +57,7 @@ export interface ReviewRouterEnv {
   GROQ_API_KEY?: string;
   AI_GATEWAY_API_KEY?: string;
   HUGGINGFACE_API_KEY?: string;
+  GEMINI_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
@@ -62,6 +66,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_GROQ_MODEL?: string;
   KANAREK_REVIEW_VERCEL_MODEL?: string;
   KANAREK_REVIEW_HUGGINGFACE_MODEL?: string;
+  KANAREK_REVIEW_GEMINI_MODEL?: string;
   KANAREK_REVIEW_COOLDOWNS?: DurableObjectNamespace;
   KANAREK_REVIEW_QUOTA_COOLDOWN_MS?: string;
   KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS?: string;
@@ -71,7 +76,7 @@ export interface ReviewRouterEnv {
 
 type JsonObject = Record<string, unknown>;
 
-type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'huggingface-publicai' | 'workers-ai';
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'huggingface-publicai' | 'gemini-flex' | 'workers-ai';
 
 type ReviewProvider = {
   id: ReviewProviderId;
@@ -80,6 +85,7 @@ type ReviewProvider = {
   fallbackModels?: readonly string[];
   apiKey: (env: ReviewRouterEnv) => string | undefined;
   headers?: Record<string, string>;
+  requestFields?: JsonObject;
 };
 
 type ProviderCooldown = {
@@ -104,7 +110,7 @@ function configuredModelList(raw: string | undefined, fallback: readonly string[
   return [...new Set(configured.length > 0 ? configured : fallback)];
 }
 
-function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
+function providers(env: ReviewRouterEnv, includeGeminiFlex = false): readonly ReviewProvider[] {
   const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
   const sharedOpenRouterModels = env.KANAREK_OPENROUTER_MODELS?.trim();
   const openRouterModels = reviewOpenRouterModels
@@ -120,7 +126,7 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
     env.KANAREK_REVIEW_OLLAMA_MODELS,
     DEFAULT_REVIEW_OLLAMA_MODELS,
   );
-  return [
+  const freeProviders: ReviewProvider[] = [
     {
       id: 'aihubmix',
       url: 'https://aihubmix.com/v1/chat/completions',
@@ -171,6 +177,20 @@ function providers(env: ReviewRouterEnv): readonly ReviewProvider[] {
       url: 'https://router.huggingface.co/v1/chat/completions',
       model: env.KANAREK_REVIEW_HUGGINGFACE_MODEL?.trim() || DEFAULT_REVIEW_HUGGINGFACE_MODEL,
       apiKey: (providerEnv) => providerEnv.HUGGINGFACE_API_KEY,
+    },
+  ];
+  if (!includeGeminiFlex) return freeProviders;
+  return [
+    ...freeProviders,
+    {
+      // Optional paid reserve for the dedicated PR-review contract only. Gemini
+      // Flex is cheaper than Standard but can shed traffic with 503, which the
+      // normal provider cooldown/fallback path handles.
+      id: 'gemini-flex',
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || DEFAULT_REVIEW_GEMINI_MODEL,
+      apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
+      requestFields: { service_tier: 'flex' },
     },
   ];
 }
@@ -491,7 +511,7 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
   ready: boolean;
 }> {
   const states = await Promise.all(
-    providers(env).map(async (provider) => {
+    providers(env, true).map(async (provider) => {
       const configured = Boolean(provider.apiKey(env)?.trim());
       if (!configured) {
         return { available: false, configured: false, provider: provider.id };
@@ -760,7 +780,10 @@ export async function handleReviewRouterRequest(
     if (!authorized(request, env)) return jsonError('Unauthorized', 'unauthorized', 401);
     return Response.json({
       object: 'list',
-      data: [{ id: 'kanarek-review-free', object: 'model', owned_by: 'kanarek' }],
+      data: [
+        { id: REVIEW_ROUTER_FREE_MODEL, object: 'model', owned_by: 'kanarek' },
+        { id: REVIEW_ROUTER_REVIEW_MODEL, object: 'model', owned_by: 'kanarek' },
+      ],
     }, { headers: { 'cache-control': 'no-store' } });
   }
   if (url.pathname !== REVIEW_ROUTER_PATH) return null;
@@ -776,11 +799,12 @@ export async function handleReviewRouterRequest(
     return jsonError('Invalid JSON body', 'invalid_json', 400);
   }
 
+  const includeGeminiFlex = input.model === REVIEW_ROUTER_REVIEW_MODEL;
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
 
-  for (const provider of providers(env)) {
+  for (const provider of providers(env, includeGeminiFlex)) {
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
     configured += 1;
@@ -813,6 +837,7 @@ export async function handleReviewRouterRequest(
           },
           body: JSON.stringify({
             ...input,
+            ...provider.requestFields,
             model: attempt.model,
             ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
           }),

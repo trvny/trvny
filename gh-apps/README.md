@@ -8,6 +8,8 @@ GitHub App infrastructure for `trvny`.
   reached from the companion through a Cloudflare Service Binding.
 - [GPTomek](gptomek/) is the coding bot identity and reuses the same Worker for
   installation authentication and GitHub API operations.
+- [Claudiusz](claudiusz/) is a standalone MCP Worker (`claudiusz-mcp`) for
+  Claude's comments, reactions and reviews as `claudiusz69[bot]`.
 
 The Worker remains named `kanarek-companion` in Cloudflare. Keep private keys
 only in Worker secrets.

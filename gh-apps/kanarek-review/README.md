@@ -1,11 +1,12 @@
 # Kanarek Review
 
-`kanarek-review` is the private free-provider Worker used by the shared
+`kanarek-review` is the private review-provider Worker used by the shared
 `kanarek-companion` runtime. It owns provider credentials, routing, cooldowns,
-and model fallback. It does **not** own GitHub webhook handling, PR context
+and model fallback. The normal pool is free-first, with an optional paid Gemini
+Flex reserve. It does **not** own GitHub webhook handling, PR context
 collection, review publication, status comments, or quip-bank semantics.
 
-Keeping this boundary separate means the free-provider credential set and deploy
+Keeping this boundary separate means the provider credential set and deploy
 cadence can evolve without turning the shared automation Worker into a bag of
 provider secrets.
 
@@ -26,6 +27,11 @@ The internal OpenAI-compatible surface is:
 - `GET /review-router/v1/models`
 - `GET` or `HEAD /health`
 
+It exposes two synthetic model contracts: `kanarek-review-free` stays strictly
+on the free pool for quips, Telegram, Pet Dispatcher, and other shared callers;
+`kanarek-review` is the PR-review contract and may use the optional paid Gemini
+Flex reserve after the free HTTP providers are exhausted.
+
 `workers_dev` and preview URLs are disabled. The shared Worker adds an internal
 trust header/bearer before invoking the service binding; callers do not receive
 provider credentials.
@@ -43,11 +49,22 @@ errors, or provider unavailability. Current families are:
 5. Vercel AI Gateway
 6. OrcaRouter
 7. Hugging Face Inference Providers pinned to Public AI
-8. guarded Cloudflare Workers AI as the final fallback
+8. Gemini 3.8 Flash through the paid Flex tier, only for the `kanarek-review`
+   PR-review contract when `GEMINI_API_KEY` is configured
+9. guarded Cloudflare Workers AI as the final fallback
 
-Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter may
-retry its primary model without a fallback array when the provider rejects the
-array itself.
+Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter's
+official `openrouter/free` model can be used directly and lets OpenRouter choose
+a compatible free model automatically. The configured explicit `:free` models
+are therefore a quality/order policy rather than a technical requirement;
+`openrouter/free` remains the catch-all fallback. OpenRouter may retry its
+primary model without a fallback array when the provider rejects the array itself.
+
+Gemini uses the OpenAI-compatible Gemini endpoint with
+`service_tier: "flex"`. Flex is a paid, lower-cost, sheddable tier: 429/503
+responses enter the same cooldown/fallback path as other transient provider
+failures. It is deliberately excluded from `kanarek-review-free`, so shared
+free-router consumers cannot spend the Gemini reserve.
 
 Quota-limited providers use `KANAREK_REVIEW_COOLDOWNS`, a Durable Object hosted
 by the shared `kanarek-companion` Worker. Cooldowns survive separate Worker
@@ -94,6 +111,7 @@ Important variables include:
 - `KANAREK_REVIEW_GROQ_MODEL`
 - `KANAREK_REVIEW_VERCEL_MODEL`
 - `KANAREK_REVIEW_HUGGINGFACE_MODEL`
+- `KANAREK_REVIEW_GEMINI_MODEL`
 
 The shared runtime independently controls whether webhook review is enabled,
 which repositories are eligible, debounce/context/output limits, and whether its
@@ -110,10 +128,12 @@ Provider credentials belong here:
 - `AI_GATEWAY_API_KEY`
 - `ORCAROUTER_API_KEY`
 - `HUGGINGFACE_API_KEY`
+- `GEMINI_API_KEY` (optional paid Flex reserve)
 
 The shared runtime keeps only `KANAREK_REVIEW_ROUTER_TOKEN` for its private
-proxy contract. Direct Gemini/OpenAI/Anthropic/xAI credentials are quip-only and
-must not be consumed by this router.
+proxy contract. The Gemini key is centralized in this private router as well as
+being available to the companion's direct quip route; OpenAI/Anthropic/xAI
+credentials remain quip-only.
 
 Repository copies of provider secrets, when present, exist only for the manual
 credential-sync workflow. Target repositories do not need provider credentials.

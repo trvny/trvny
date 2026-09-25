@@ -262,6 +262,7 @@ jobs:
       OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
       AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
       HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - name: Sync review provider credentials
         shell: bash
@@ -286,8 +287,11 @@ jobs:
           import sys
 
           names = ("AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "GROQ_API_KEY", "OLLAMA_API_KEY", "AI_GATEWAY_API_KEY", "HUGGINGFACE_API_KEY")
+          secrets = {name: os.environ[name] for name in names}
+          if os.environ.get("GEMINI_API_KEY"):
+              secrets["GEMINI_API_KEY"] = os.environ["GEMINI_API_KEY"]
           pathlib.Path(sys.argv[1]).write_text(
-              json.dumps({name: os.environ[name] for name in names}),
+              json.dumps(secrets),
               encoding="utf-8",
           )
           PY
@@ -303,6 +307,9 @@ jobs:
             ["AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "GROQ_API_KEY", "OLLAMA_API_KEY", "AI_GATEWAY_API_KEY", "HUGGINGFACE_API_KEY"] |
             all(. as $required | $names | index($required))
           ' <<<"$secrets_json" >/dev/null
+          if [ -n "${GEMINI_API_KEY:-}" ]; then
+            jq -e '([.[].name] | index("GEMINI_API_KEY")) != null' <<<"$secrets_json" >/dev/null
+          fi
 
   telegram-assistant:
     if: ${{ inputs.target == 'travny-tg-assistant' || inputs.target == 'all' }}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4.135.0/config-schema.json",
+  "name": "claudiusz-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-24",
+  // A claude.ai connector needs a public URL. The token check in src/index.ts
+  // fails closed while CLAUDIUSZ_MCP_TOKEN is unset.
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      // Off: the token arrives in the URL path and would land in invocation logs.
+      "invocation_logs": false
+    }
+  },
+  "vars": {
+    "CLAUDIUSZ_APP_ID": "4454097",
+    "ALLOWED_OWNERS": "trvny,travnie"
+  }
+  // Secrets: CLAUDIUSZ_MCP_TOKEN, GH_APP_PRIVATE_KEY (PKCS#1 or PKCS#8 PEM).
+}

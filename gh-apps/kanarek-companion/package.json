@@ -21,6 +21,7 @@
     "sharp": "0.35.3"
   },
   "exports": {
-    "./gremlin-core": "./src/gremlin-router.ts"
+    "./gremlin-core": "./src/gremlin-router.ts",
+    "./github-app": "./src/github-app.ts"
   }
 }

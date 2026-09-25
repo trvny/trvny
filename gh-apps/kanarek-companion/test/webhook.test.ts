@@ -32,13 +32,14 @@ const testMetadata = {
   installationId: 123,
 };
 
-test('allows repository wildcards without matching other owners', () => {
-  const wildcardEnv = { KANAREK_REPOSITORIES: 'trvny/trvny,travnie/*' };
+test('allows owner repository wildcards without matching lookalike owners', () => {
+  const wildcardEnv = { KANAREK_REPOSITORIES: 'trvny/*,travnie/*' };
+  assert.equal(repositoryAllowed(wildcardEnv, 'trvny/trvny'), true);
+  assert.equal(repositoryAllowed(wildcardEnv, 'trvny/feedseek'), true);
   assert.equal(repositoryAllowed(wildcardEnv, 'travnie/.github'), true);
   assert.equal(repositoryAllowed(wildcardEnv, 'travnie/Autka'), true);
-  assert.equal(repositoryAllowed(wildcardEnv, 'trvny/trvny'), true);
+  assert.equal(repositoryAllowed(wildcardEnv, 'trvny-evil/feedseek'), false);
   assert.equal(repositoryAllowed(wildcardEnv, 'travnie-evil/Autka'), false);
-  assert.equal(repositoryAllowed(wildcardEnv, 'trvny/feedseek'), false);
 });
 
 const controlEdit = {

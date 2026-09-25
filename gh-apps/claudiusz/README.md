@@ -25,12 +25,20 @@ Installations are resolved per owner and limited to `ALLOWED_OWNERS`
 
 Issues, Pull requests and Discussions: read and write.
 
+## Icon
+
+`GET /icon.png` (no token) proxies the app avatar and is advertised in
+`serverInfo.icons`.
+
 ## Connector
 
 `https://claudiusz-mcp.travny.workers.dev/<CLAUDIUSZ_MCP_TOKEN>`
 
 ## Deploy
 
-`npm run deploy`, or upload a bundle through the Cloudflare API (multipart
-`PUT /workers/scripts/claudiusz-mcp`) with `keep_bindings: ["secret_text"]` in
-the metadata so the secrets survive.
+Workers Builds deploys on pushes to `main` that touch this directory
+(`npm run check`, then `npm run deploy`).
+
+Manual: `npm run deploy`, or upload a bundle through the Cloudflare API
+(multipart `PUT /workers/scripts/claudiusz-mcp`) with
+`keep_bindings: ["secret_text"]` in the metadata so the secrets survive.

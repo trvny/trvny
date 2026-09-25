@@ -18,7 +18,7 @@ jobs:
       (github.event.action == 'edited' ||
        ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
         github.event.label.name == 'gptomek-wake'))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 2
     steps:
       - name: Wake primary Issue mailbox

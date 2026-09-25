@@ -44,6 +44,7 @@ test('owner allowlist is case-insensitive and exact', () => {
 test('initialize negotiates a supported protocol version', async () => {
   const known = await call({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } });
   assert.equal(known.body.result.protocolVersion, '2025-06-18');
+  assert.equal(known.body.result.serverInfo.icons[0].src, 'https://claudiusz-mcp.test/icon.png');
   const unknown = await call({ jsonrpc: '2.0', id: 2, method: 'initialize', params: { protocolVersion: '1999-01-01' } });
   assert.equal(unknown.body.result.protocolVersion, '2025-11-25');
 });

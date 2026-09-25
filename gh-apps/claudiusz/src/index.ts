@@ -23,6 +23,8 @@ const SERVER_INFO = {
   version: '1.0.0',
   description: 'Comments, reactions and reviews on GitHub as claudiusz69[bot].',
 };
+const ICON_PATH = '/icon.png';
+const ICON_TTL_SECONDS = 86_400;
 const JSON_HEADERS = {
   'Content-Type': 'application/json',
   'Cache-Control': 'no-store',
@@ -66,7 +68,23 @@ export function authorized(request: Request, env: Env): boolean {
   return secretsMatch(path, expected);
 }
 
-async function handleRpc(req: RpcRequest, env: Env): Promise<object | null> {
+// Same-origin icon for the connector list, proxied from the app's own avatar
+// so it follows the app instead of living as a binary in the repo.
+async function icon(env: Env): Promise<Response> {
+  const upstream = await fetch(`https://avatars.githubusercontent.com/in/${env.CLAUDIUSZ_APP_ID}?s=460&v=4`, {
+    cf: { cacheTtl: ICON_TTL_SECONDS, cacheEverything: true },
+  });
+  if (!upstream.ok) return new Response('icon unavailable\n', { status: 502 });
+  return new Response(upstream.body, {
+    headers: {
+      'Content-Type': upstream.headers.get('Content-Type') ?? 'image/png',
+      'Cache-Control': `public, max-age=${ICON_TTL_SECONDS}`,
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+}
+
+async function handleRpc(req: RpcRequest, env: Env, origin: string): Promise<object | null> {
   if (!req || typeof req !== 'object' || typeof req.method !== 'string') {
     return err(null, -32600, 'Invalid request');
   }
@@ -75,7 +93,11 @@ async function handleRpc(req: RpcRequest, env: Env): Promise<object | null> {
       const requested = req.params?.protocolVersion;
       const protocolVersion =
         typeof requested === 'string' && PROTOCOL_VERSIONS.includes(requested) ? requested : PROTOCOL_VERSIONS[0];
-      return ok(req.id, { protocolVersion, capabilities: { tools: {} }, serverInfo: SERVER_INFO });
+      const serverInfo = {
+        ...SERVER_INFO,
+        icons: [{ src: `${origin}${ICON_PATH}`, mimeType: 'image/png', sizes: ['460x460'] }],
+      };
+      return ok(req.id, { protocolVersion, capabilities: { tools: {} }, serverInfo });
     }
     case 'notifications/initialized':
     case 'notifications/cancelled':
@@ -121,6 +143,8 @@ export default {
       });
     }
     if (request.method === 'GET' || request.method === 'HEAD') {
+      // Unauthenticated on purpose: connector lists fetch the icon anonymously.
+      if (new URL(request.url).pathname === ICON_PATH) return icon(env);
       return new Response('claudiusz-mcp. POST JSON-RPC to the tokenized URL.\n', {
         headers: { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' },
       });
@@ -134,6 +158,7 @@ export default {
     const text = await request.text();
     if (text.length > MAX_BODY_BYTES) return json(err(null, -32600, 'Request too large'), 413);
 
+    const origin = new URL(request.url).origin;
     let payload: unknown;
     try {
       payload = JSON.parse(text);
@@ -143,13 +168,13 @@ export default {
 
     if (Array.isArray(payload)) {
       if (payload.length > MAX_BATCH) return json(err(null, -32600, 'Batch too large'), 413);
-      const responses = (await Promise.all(payload.map((entry) => handleRpc(entry as RpcRequest, env)))).filter(
+      const responses = (await Promise.all(payload.map((entry) => handleRpc(entry as RpcRequest, env, origin)))).filter(
         (entry): entry is object => entry !== null,
       );
       return responses.length ? json(responses) : new Response(null, { status: 202, headers: JSON_HEADERS });
     }
 
-    const response = await handleRpc(payload as RpcRequest, env);
+    const response = await handleRpc(payload as RpcRequest, env, origin);
     return response ? json(response) : new Response(null, { status: 202, headers: JSON_HEADERS });
   },
 } satisfies ExportedHandler<Env>;

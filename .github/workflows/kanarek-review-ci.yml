@@ -46,3 +46,24 @@ jobs:
 
       - run: npm ci
       - run: npm run check
+
+
+  sync-gemini-secret:
+    if: ${{ github.event_name == 'push' }}
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Sync Gemini Flex credential
+        shell: bash
+        run: >-
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
+          kanarek-review GEMINI_API_KEY GEMINI_API_KEY optional

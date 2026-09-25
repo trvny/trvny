@@ -1,0 +1,21 @@
+{
+  "name": "claudiusz-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server acting on GitHub as claudiusz69[bot].",
+  "type": "module",
+  "scripts": {
+    "dev": "npx wrangler@4.135.0 dev",
+    "deploy": "npx wrangler@4.135.0 deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "check": "npm run typecheck && npm test && npx --yes wrangler@4.135.0 deploy --dry-run --outdir dist"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260918.1",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "kanarek-companion": "file:../kanarek-companion"
+  }
+}

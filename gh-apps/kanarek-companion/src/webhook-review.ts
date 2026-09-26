@@ -19,7 +19,7 @@ const SHA_RE = /^[0-9a-f]{40}$/i;
 const DEFAULT_DEBOUNCE_MS = 60_000;
 const DEFAULT_MAX_DIFF_CHARS = 60_000;
 const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
-const DEFAULT_MAX_OUTPUT_TOKENS = 4_096;
+const DEFAULT_MAX_OUTPUT_TOKENS = 16_384;
 const REVIEW_RETRY_DELAYS_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000] as const;
 const MAX_DEBOUNCE_MS = 10 * 60_000;
 const MAX_FILES = 60;
@@ -261,6 +261,10 @@ function configuredInteger(
   return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum
     ? parsed
     : fallback;
+}
+
+export function reviewMaxOutputTokens(value: string | undefined): number {
+  return configuredInteger(value, DEFAULT_MAX_OUTPUT_TOKENS, 512, 65_536);
 }
 
 function basename(path: string): string {
@@ -1120,11 +1124,8 @@ async function askReviewRouter(
       body: JSON.stringify({
         model: REVIEW_ROUTER_REVIEW_MODEL,
         stream: false,
-        max_tokens: configuredInteger(
+        max_tokens: reviewMaxOutputTokens(
           env.KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS,
-          DEFAULT_MAX_OUTPUT_TOKENS,
-          512,
-          16_384,
         ),
         messages: [
           { role: 'system', content: REVIEW_SYSTEM_PROMPT },

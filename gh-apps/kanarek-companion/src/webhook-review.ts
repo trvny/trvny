@@ -5,7 +5,12 @@ import {
   githubRepositoryFromUrl,
 } from './package-intelligence.ts';
 import { inspectRegistryPackage } from './package-registry.ts';
-import { REVIEW_ROUTER_PATH, REVIEW_ROUTER_REVIEW_MODEL } from './review-service-protocol.ts';
+import {
+  REVIEW_PROVIDER_EXCLUDE_HEADER,
+  REVIEW_ROUTER_FREE_MODEL,
+  REVIEW_ROUTER_PATH,
+  REVIEW_ROUTER_REVIEW_MODEL,
+} from './review-service-protocol.ts';
 import {
   handleReviewRouterViaService,
   type ReviewServiceEnv,
@@ -20,6 +25,7 @@ const DEFAULT_DEBOUNCE_MS = 60_000;
 const DEFAULT_MAX_DIFF_CHARS = 60_000;
 const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
 const DEFAULT_MAX_OUTPUT_TOKENS = 16_384;
+const DEFAULT_JUDGE_THRESHOLD = 0.7;
 const REVIEW_RETRY_DELAYS_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000] as const;
 const MAX_DEBOUNCE_MS = 10 * 60_000;
 const MAX_FILES = 60;
@@ -133,6 +139,8 @@ export interface WebhookReviewEnv extends ReviewServiceEnv {
   KANAREK_WEBHOOK_REVIEW_MAX_CONTEXT_CHARS?: string;
   KANAREK_WEBHOOK_REVIEW_MAX_DIFF_CHARS?: string;
   KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS?: string;
+  KANAREK_WEBHOOK_REVIEW_JUDGE_ENABLED?: string;
+  KANAREK_WEBHOOK_REVIEW_JUDGE_THRESHOLD?: string;
 }
 
 interface ReviewTarget {
@@ -206,6 +214,7 @@ interface ParsedReview {
 
 interface ReviewFinding {
   body: string;
+  existingCode: string;
   line: number;
   path: string;
   severity: 'high' | 'medium' | 'low';
@@ -1208,6 +1217,7 @@ export function verifyReviewFindings(
     seen.add(key);
     output.push({
       body: findingBody,
+      existingCode,
       line: selected.anchorLine,
       path: selected.path,
       severity,
@@ -1216,6 +1226,202 @@ export function verifyReviewFindings(
     if (output.length >= MAX_FINDINGS) break;
   }
   return output;
+}
+
+export function reviewJudgeThreshold(value: string | undefined): number {
+  const raw = value?.trim();
+  if (!raw || !/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/.test(raw)) return DEFAULT_JUDGE_THRESHOLD;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1
+    ? parsed
+    : DEFAULT_JUDGE_THRESHOLD;
+}
+
+function strictJudgeConfidence(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value >= 0 && value <= 1 ? value : null;
+  }
+  if (typeof value !== 'string') return null;
+  const raw = value.trim();
+  if (!/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/.test(raw)) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : null;
+}
+
+export function applyReviewJudge(
+  findings: readonly ReviewFinding[],
+  value: string,
+  threshold = DEFAULT_JUDGE_THRESHOLD,
+): ReviewFinding[] | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripCodeFence(value));
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const groupsRaw = (parsed as Record<string, unknown>).groups;
+  if (groupsRaw === undefined || groupsRaw === null) return [...findings];
+  if (!Array.isArray(groupsRaw)) return null;
+
+  const covered = new Set<number>();
+  const selected = new Set<number>();
+
+  for (const rawGroup of groupsRaw) {
+    if (!rawGroup || typeof rawGroup !== 'object' || Array.isArray(rawGroup)) return null;
+    const group = rawGroup as Record<string, unknown>;
+    if (!Array.isArray(group.member_ids) || group.member_ids.length === 0) return null;
+    const memberIds = group.member_ids.filter(
+      (id): id is number =>
+        typeof id === 'number' &&
+        Number.isInteger(id) &&
+        id >= 0 &&
+        id < findings.length,
+    );
+    if (memberIds.length !== group.member_ids.length || new Set(memberIds).size !== memberIds.length) {
+      return null;
+    }
+    if (memberIds.some((id) => covered.has(id))) return null;
+    memberIds.forEach((id) => covered.add(id));
+
+    const representative =
+      typeof group.representative_id === 'number' &&
+      Number.isInteger(group.representative_id) &&
+      memberIds.includes(group.representative_id)
+        ? group.representative_id
+        : memberIds[0];
+    const confidence = strictJudgeConfidence(group.confidence);
+    const keep =
+      group.keep === true ||
+      (typeof group.keep === 'string' && group.keep.trim().toLowerCase() === 'true');
+
+    if (keep && confidence !== null && confidence >= threshold) {
+      selected.add(representative);
+    }
+  }
+
+  for (let index = 0; index < findings.length; index += 1) {
+    if (!covered.has(index)) selected.add(index);
+  }
+  return findings.filter((_finding, index) => selected.has(index));
+}
+
+const REVIEW_JUDGE_SYSTEM_PROMPT = [
+  'You are a strict senior code-review precision gate over another reviewer\'s findings for one pull request.',
+  'The findings already passed deterministic existing_code verification, but a matching snippet proves location only, not that the claim is correct.',
+  'Cluster findings that share one root cause. Score each cluster from 0.0 to 1.0 for being a concrete, correct, high-value defect introduced or exposed by this change. Recommend keep=true only when it is worth posting.',
+  'Lower confidence for speculation, unsupported preconditions, subjective style, or claims not supported by the supplied finding and exact source snippet.',
+  'For access control, authentication, authorization, privilege or tier bypass, injection, unsafe deserialization, and secret exposure, comments or variable names claiming safety are not enforcement. When uncertain about a plausible security bypass, keep it.',
+  'Choose representative_id as the best file/line for each surviving root cause.',
+  'Return JSON only: {"groups":[{"member_ids":[0],"representative_id":0,"confidence":0.9,"keep":true,"root_cause":"short","reason":"short"}]}. Every finding id should appear in exactly one group.',
+].join('\n');
+
+interface JudgedFindings {
+  findings: ReviewFinding[];
+  model: string | null;
+  provider: string;
+}
+
+async function askReviewJudge(
+  findings: ReviewFinding[],
+  reviewerProvider: string,
+  reviewerModel: string | null,
+  env: WebhookReviewEnv,
+): Promise<JudgedFindings | null> {
+  if (
+    !findings.length ||
+    disabled(env.KANAREK_WEBHOOK_REVIEW_JUDGE_ENABLED) ||
+    reviewerProvider === 'free-router'
+  ) {
+    return null;
+  }
+  const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
+  if (!token) return null;
+
+  const judgeInput = findings.map((finding, id) => ({
+    id,
+    severity: finding.severity,
+    file: finding.path,
+    line: finding.line,
+    title: finding.title,
+    body: finding.body,
+    existing_code: finding.existingCode,
+  }));
+  const response = await handleReviewRouterViaService(
+    new Request(`${INTERNAL_REVIEW_ORIGIN}${REVIEW_ROUTER_PATH}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        [REVIEW_PROVIDER_EXCLUDE_HEADER]: reviewerProvider,
+      },
+      body: JSON.stringify({
+        model: REVIEW_ROUTER_FREE_MODEL,
+        stream: false,
+        max_tokens: reviewMaxOutputTokens(
+          env.KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS,
+        ),
+        messages: [
+          { role: 'system', content: REVIEW_JUDGE_SYSTEM_PROMPT },
+          { role: 'user', content: `Findings (JSON):\n${JSON.stringify(judgeInput)}` },
+        ],
+      }),
+    }),
+    env,
+  );
+  if (!response || !response.ok) {
+    console.warn(JSON.stringify({
+      kanarekWebhookReview: 'judge_unavailable',
+      reviewerProvider,
+      status: response?.status ?? 500,
+    }));
+    await response?.body?.cancel();
+    return null;
+  }
+
+  const provider = response.headers.get('x-kanarek-review-provider') ?? 'free-router';
+  let payload: Record<string, unknown>;
+  try {
+    payload = objectValue(await response.json());
+  } catch {
+    console.warn(JSON.stringify({
+      kanarekWebhookReview: 'judge_invalid_json',
+      provider,
+    }));
+    return null;
+  }
+  const model =
+    typeof payload.model === 'string' && payload.model.trim()
+      ? payload.model.trim().slice(0, 200)
+      : null;
+  if (
+    provider === reviewerProvider ||
+    (reviewerModel && model && reviewerModel.trim().toLowerCase() === model.trim().toLowerCase())
+  ) {
+    console.warn(JSON.stringify({
+      kanarekWebhookReview: 'judge_not_independent',
+      reviewerProvider,
+      reviewerModel,
+      judgeProvider: provider,
+      judgeModel: model,
+    }));
+    return null;
+  }
+
+  const judged = applyReviewJudge(
+    findings,
+    completionText(payload),
+    reviewJudgeThreshold(env.KANAREK_WEBHOOK_REVIEW_JUDGE_THRESHOLD),
+  );
+  if (!judged) {
+    console.warn(JSON.stringify({
+      kanarekWebhookReview: 'judge_invalid_output',
+      provider,
+      model,
+    }));
+    return null;
+  }
+  return { findings: judged, model, provider };
 }
 
 async function askReviewRouter(
@@ -1473,6 +1679,7 @@ export async function runWebhookReview(
     fetchReviewDependencyEvidence(files, fetcher),
   ]);
 
+  const reviewEnv = reviewRouterEnvForAttempt(env, job.attempt);
   const generated = await askReviewRouter(
     reviewPrompt(
       target.number,
@@ -1483,7 +1690,7 @@ export async function runWebhookReview(
       callers,
       dependencyEvidence,
     ),
-    reviewRouterEnvForAttempt(env, job.attempt),
+    reviewEnv,
   );
   if (!generated) {
     return { reviewed: false, provider: null, findingCount: 0, skipped: 'providers_failed' };
@@ -1529,6 +1736,33 @@ export async function runWebhookReview(
     };
   }
 
+  const judged = await askReviewJudge(
+    findings,
+    generated.provider,
+    generated.model,
+    reviewEnv,
+  );
+  const publishFindings = judged?.findings ?? findings;
+  if (judged && publishFindings.length === 0) {
+    console.log(JSON.stringify({
+      kanarekWebhookReview: 'judge_clean',
+      repository: target.repository,
+      pullRequestNumber: target.number,
+      headSha: target.headSha,
+      reviewerProvider: generated.provider,
+      reviewerModel: generated.model,
+      judgeProvider: judged.provider,
+      judgeModel: judged.model,
+      findingCountBeforeJudge: findings.length,
+    }));
+    return {
+      reviewed: true,
+      provider: generated.provider,
+      findingCount: 0,
+      skipped: 'no_findings_judged',
+    };
+  }
+
   const submit = async (): Promise<WebhookReviewResult> => {
     const current = await currentPullRequest(client, target);
     if (!targetStillCurrent(current, target)) {
@@ -1553,8 +1787,8 @@ export async function runWebhookReview(
     const payload = {
       commit_id: target.headSha,
       event: 'COMMENT',
-      body: `${reviewMarker(target)}\n🐤 **Kanarek 免费代码审查** · ${reviewSourceLabel(generated.provider, generated.model)}\n\n${summary}`,
-      comments: findings.map((finding) => ({
+      body: `${reviewMarker(target)}\n🐤 **Kanarek 免费代码审查** · ${reviewSourceLabel(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceLabel(judged.provider, judged.model)}` : ''}\n\n${summary}`,
+      comments: publishFindings.map((finding) => ({
         path: finding.path,
         line: finding.line,
         side: 'RIGHT',
@@ -1586,13 +1820,15 @@ export async function runWebhookReview(
         headSha: target.headSha,
         provider: generated.provider,
         model: generated.model,
-        findingCount: findings.length,
+        findingCount: publishFindings.length,
+        judgeProvider: judged?.provider ?? null,
+        judgeModel: judged?.model ?? null,
       }),
     );
     return {
       reviewed: true,
       provider: generated.provider,
-      findingCount: findings.length,
+      findingCount: publishFindings.length,
     };
   };
 

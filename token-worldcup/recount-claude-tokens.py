@@ -16,6 +16,9 @@ Usage:
     python3 recount-claude-tokens.py --model claude-sonnet-5
     python3 recount-claude-tokens.py --dry-run            # no API, check parsing
 
+    export OPENROUTER_API_KEY=sk-or-...           # no Anthropic key: go through OpenRouter
+    python3 recount-claude-tokens.py --openrouter --model anthropic/claude-opus-5.5
+
 Method: count_tokens measures a whole request, so every count carries a fixed
 framing overhead. We measure that overhead once with a one-character message
 and subtract it. That is exact to within a token or two at the seam, which is
@@ -27,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import re
 import sys
@@ -57,20 +61,41 @@ def load_samples(qmd: pathlib.Path) -> list[dict]:
     return data
 
 
-def count_with_api(texts: list[str], model: str) -> tuple[list[int], int]:
-    """Return (raw counts, framing overhead) from the Messages API."""
+OPENROUTER_BASE_URL = "https://openrouter.ai/api"
+
+
+def count_with_api(texts: list[str], model: str, openrouter: bool = False) -> tuple[list[int], int]:
+    """Return (raw counts, framing overhead) from the Messages API.
+
+    With openrouter=True the counts come from usage.input_tokens of a one-token
+    /v1/messages call through OpenRouter, which has no count_tokens endpoint.
+    Same tokenizer, same framing correction; it just costs a few input tokens.
+    """
     try:
         import anthropic
     except ImportError:
         raise SystemExit("pip install anthropic  (or: uv pip install anthropic)")
 
-    client = anthropic.Anthropic()  # picks up ANTHROPIC_API_KEY or an `ant auth login` profile
+    if openrouter:
+        key = os.environ.get("OPENROUTER_API_KEY")
+        if not key:
+            raise SystemExit("--openrouter needs OPENROUTER_API_KEY")
+        client = anthropic.Anthropic(base_url=OPENROUTER_BASE_URL, api_key=None, auth_token=key)
 
-    def count(text: str) -> int:
-        return client.messages.count_tokens(
-            model=model,
-            messages=[{"role": "user", "content": text}],
-        ).input_tokens
+        def count(text: str) -> int:
+            return client.messages.create(
+                model=model,
+                max_tokens=1,
+                messages=[{"role": "user", "content": text}],
+            ).usage.input_tokens
+    else:
+        client = anthropic.Anthropic()  # picks up ANTHROPIC_API_KEY or an `ant auth login` profile
+
+        def count(text: str) -> int:
+            return client.messages.count_tokens(
+                model=model,
+                messages=[{"role": "user", "content": text}],
+            ).input_tokens
 
     overhead = count(".") - 1  # one message, one content token
     return [count(t) for t in texts], overhead
@@ -81,6 +106,8 @@ def main() -> int:
     ap.add_argument("--model", default=DEFAULT_MODEL, help=f"model whose tokenizer to use (default: {DEFAULT_MODEL})")
     ap.add_argument("--out", type=pathlib.Path, help="write the full comparison as JSON here")
     ap.add_argument("--dry-run", action="store_true", help="parse and lay out the table without calling the API")
+    ap.add_argument("--openrouter", action="store_true",
+                    help="measure via OpenRouter /v1/messages usage (needs OPENROUTER_API_KEY; model like anthropic/claude-opus-5.5)")
     args = ap.parse_args()
 
     if args.dry_run and args.out:
@@ -103,7 +130,7 @@ def main() -> int:
         counts, overhead = [0] * len(samples), 0
         print("dry run: no API calls, Claude columns will read 0", file=sys.stderr)
     else:
-        counts, overhead = count_with_api([s["text"] for s in samples], args.model)
+        counts, overhead = count_with_api([s["text"] for s in samples], args.model, args.openrouter)
         print(f"framing overhead per request: {overhead} tokens (subtracted)", file=sys.stderr)
 
     rows = []
@@ -163,6 +190,7 @@ def main() -> int:
         payload = {
             "model": args.model,
             "framing_overhead": overhead,
+            "measurement_transport": "OpenRouter /v1/messages usage.input_tokens" if args.openrouter else "Anthropic count_tokens",
             "note": "claude_tokens = claude_raw - framing_overhead; o200k_* come from token-worldcup.qmd",
             "rows": by_claude,
         }

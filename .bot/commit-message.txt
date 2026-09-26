@@ -1,0 +1,6 @@
+deps(gremlin): bump wrangler to 4.136.2 and workers-types to 5.20260922.1
+
+Catch up with kanarek-companion; Dependabot has not opened updates for this
+directory since early September.
+
+Co-Authored-By: Claude <noreply@anthropic.com>

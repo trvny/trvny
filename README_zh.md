@@ -33,8 +33,7 @@
 <!--OPEN_PRS:START-->
 | 仓库 | PR | 标题 | 作者 | 状态 | 更新 |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/tvpi | [#106](https://github.com/trvny/tvpi/pull/106) | revert: remove ChatGPT WAF automation | @trvny | 就绪 | 2026-09-23 |
-| trvny/tvpi | [#107](https://github.com/trvny/tvpi/pull/107) | chore(deps-dev): bump wrangler from 4.131.1 to 4.135.0 in /worker in the worker-toolchain group | @dependabot[bot] | 就绪 | 2026-09-23 |
+| trvny/WiFi-Automatic | [#46](https://github.com/trvny/WiFi-Automatic/pull/46) | [pull] master from j4velin:master | @pull[bot] | 就绪 | 2026-09-25 |
 <!--OPEN_PRS:END-->
 
 **私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**
@@ -91,19 +90,19 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝Go put your creed into the deed. Nor speak with double tongue. — Ralph Emerson❞</i>
+<i>❝4004 was the name given to the first microprocessor by Intel.❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
 ## 📰 最近播报
 
 <!--README_FEED:START-->
-- [Untangling the Nuclear Knot: A Constructive Agenda for Managing China’s Nuclear Relations with the United States and Its Allies](https://carnegieendowment.org/research/2026/09/untangling-the-nuclear-knot-a-constructive-agenda-for-managing-chinas-nuclear-relations-with-the-united-states-and-its-allies)
-- [Ponad 620 tys. zł przepadło. 33-latek uwierzył oszustom - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMiowFBVV95cUxOb2U5dGY5S2tzcXR6WWdwZHBFN2ZNTUhhMFQydnpuNDF3blFPNG0tS3dTdjlOeHVHUjRPdTd4T29wUXRST09ORGZHMjZ2bG9mSXRlbG1qYVdrSllCeDhKX2ZFWnRyWWRjUml0eHhaNmxMTFZfZU9SX196aHJ2NUh4YnR6aWNEUHJtaG9fdmZnMW5BX0I0eUFTS2dtVlhyMzk3X1FR?oc=5)
-- [Incident across several services](https://www.githubstatus.com/incidents/8zc63m64hy36)
-- [More ways to request and configure Copilot code reviews](https://github.blog/changelog/2026-09-23-copilot-code-review-more-ways-to-request-and-configure-reviews)
-- [Warcraft III: Forsaken Kingdom - to już nie jest RTS](https://antyweb.pl/warcraft-iii-forsaken-kingdom-to-juz-nie-jest-rts)
-- [EXCLUSIVE: Hacked FBI data has sensitive information about employees’ intelligence roles](https://www.reuters.com/world/hacked-fbi-data-has-sensitive-information-about-employees-intelligence-roles-2026-09-23/)
+- [Battery Ecosystems: A Comparative Analysis of Lithium-Ion Tech Policy](https://carnegieendowment.org/research/2026/09/battery-ecosystems-a-comparative-analysis-of-lithium-ion-tech-policy)
+- [Już jutro wielkie otwarcie w Krzeszowicach. Cennik Parku Wodnego wzbudza emocje - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMiwwFBVV95cUxNaFhRTTFoLW1xWURhaGQ5NzB3MFV0RE90REJXU3FjVGUyZjVESGRxY0NyanlwcTc0VHg3Y3dCemRlMVZibmtUUUhnd3RRSXFZOEhrMXZlVHZLSEVfekNheTR2SFFEOEhIemdIZGFYNTVES244TkZyWjc0Um9mY1Q4TG0zWll4b2lCVjNYMC03aDRGVS1NaFYzeElHY2dEN1pXRC1aVUl4UG1WRUp5ZXBTb1BvdmMxWE9FUjE1Ty1sOFR4NVk?oc=5)
+- [Obława w powiecie chrzanowskim. 13 osób zatrzymanych - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMioAFBVV95cUxQb1lkb3ZXUGVRQ09pRWJvdWtadk5vczJBRzZBYi02N0pXQjBHcWE0bVRRSnlsLVQ2dTdNWFp4X1JpNXZhQnVqUzkwcFcxVmZhWHVzRmZGREZQelFsczRPSWlXb2dxVzFwOS1pajcyc25tc0hXTWQyMDNlb2Zxa0RKZjRMbkFCbXFkWEdZZkdLeVNXSEp5MXZOakFTSVZWaEdF?oc=5)
+- [Lipowiec wkrótce zamknięty na ponad dwa lata. Będzie wielki remont zamku - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMiwwFBVV95cUxQQ3c0RXB5NFRRZHA4QnpYVjZ2R0JSMDlKdEhudFZ6QV9xQmRuSG5BcU5KU3hNZFJlXy1fLXpISEh2VVBJdktabkQzbFNicFZVa3g4dzZQaFZBcmtYZFZjN1FyR1cyaDExR1RXazlmQ2VlMTBpOEFOVWFra1B5c1RYMWowb2FEdzY3WEJsUnllNFRmR1JfcjNxb1pDYWkycHA3NEROOWtZcjU5VzhwaHZRU21wTGREb0FNcGdSUEZQM19fMUk?oc=5)
+- [US appeals court rules against Kalshi, says states can regulate prediction markets](https://www.reuters.com/business/finance/us-appeals-court-rules-against-kalshi-says-states-can-regulate-prediction-2026-09-25/)
+- [Zbyt płytkie groby na cmentarzu w Jaworznie? Mieszkaniec mówi o nieprawidłowościach - jaw.pl](https://news.google.com/atom/articles/CBMiYkFVX3lxTE9LdFB4MUZtb3J4N3ZTUmh1MllxZFBHNmV1ZkxQSDgwTmlXcUJpRDhUNzZwSktHWmFMRTlScy05aXVxOWpMa1VrdzJBRFJhTHNkZGd1Szh6Z0FJSDNGQlVZMUdB?oc=5)
 <!--README_FEED:END-->
 
 <div align="center">

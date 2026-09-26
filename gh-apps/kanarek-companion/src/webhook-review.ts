@@ -1499,6 +1499,8 @@ function providerLabel(provider: string): string {
   if (provider === 'aihubmix') return 'AIHubMix';
   if (provider === 'ollama') return 'Ollama';
   if (provider === 'groq') return 'Groq';
+  if (provider === 'vercel') return 'Vercel AI Gateway';
+  if (provider === 'huggingface-publicai') return 'Hugging Face PublicAI';
   if (provider === 'gemini-flex') return 'Gemini Flex';
   if (provider === 'workers-ai') return 'Workers AI';
   return 'free router';

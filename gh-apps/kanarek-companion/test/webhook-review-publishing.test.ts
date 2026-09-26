@@ -23,6 +23,14 @@ test('review source label includes provider and concrete upstream model', () => 
     reviewSourceLabel('gemini-flex', 'gemini-3.8-flash'),
     'Gemini Flex · `gemini-3.8-flash`',
   );
+  assert.equal(
+    reviewSourceLabel('vercel', 'alibaba/qwen3-coder-30b-a3b'),
+    'Vercel AI Gateway · `alibaba/qwen3-coder-30b-a3b`',
+  );
+  assert.equal(
+    reviewSourceLabel('huggingface-publicai', 'aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai'),
+    'Hugging Face PublicAI · `aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai`',
+  );
 });
 
 test('review source label falls back to the provider when model is unavailable', () => {

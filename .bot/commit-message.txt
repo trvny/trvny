@@ -1,8 +1,0 @@
-fix(deps): drop stale sharp 0.35.3 override (GHSA-rgj7-g3m4-5g8c)
-
-miniflare now depends on sharp 0.35.4 directly; the override added in August
-forced the vulnerable 0.35.3 back in and kept Dependabot from fixing it.
-Removed from kanarek-companion, kanarek-review, gremlin-operator and
-status-mcp; lockfiles regenerated on Node 24.
-
-Co-Authored-By: Claude <noreply@anthropic.com>

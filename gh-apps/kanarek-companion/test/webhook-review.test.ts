@@ -9,6 +9,7 @@ import {
   reviewAnchorLine,
   reviewFileCollectionComplete,
   reviewInputState,
+  reviewMaxOutputTokens,
   reviewMarker,
   reviewRetryDelayMs,
   reviewRouterEnvForAttempt,
@@ -501,4 +502,12 @@ test('webhook review job deduplicates only the same head and base', async () => 
   assert.equal(rebasedBody.duplicate, false);
   assert.equal(rebasedBody.queued, true);
   assert.equal(alarms.length, 1);
+});
+
+test('PR review output headroom defaults to 16k and allows provider-sized ceilings', () => {
+  assert.equal(reviewMaxOutputTokens(undefined), 16_384);
+  assert.equal(reviewMaxOutputTokens('32768'), 32_768);
+  assert.equal(reviewMaxOutputTokens('65536'), 65_536);
+  assert.equal(reviewMaxOutputTokens('65537'), 16_384);
+  assert.equal(reviewMaxOutputTokens('wat'), 16_384);
 });

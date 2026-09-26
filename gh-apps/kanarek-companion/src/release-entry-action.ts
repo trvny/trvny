@@ -9,6 +9,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, ZipEntryError, zipEntryPath } from './zip-entry.ts';
+import { isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 export const RELEASE_ENTRY_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-entry';
 
@@ -18,8 +19,6 @@ const GITHUB_API_VERSION = '2026-03-10';
 const READ_PATH = '/gpt-actions/github/read';
 const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024;
 const SHA_RE = /^[0-9a-f]{40}$/i;
-
-type JsonObject = Record<string, unknown>;
 
 type Input = {
   repository: string;
@@ -51,10 +50,6 @@ class ReleaseEntryError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -185,10 +180,6 @@ async function readData(
 ): Promise<unknown> {
   const response = await handleGptActions(internalReadRequest(source, path), env, fetcher);
   return (await responseObject(response)).data;
-}
-
-function repoPath(repositoryName: string): string {
-  return repositoryName.split('/').map(encodeURIComponent).join('/');
 }
 
 function tokenHeaders(token: string, contentType = 'application/json'): Headers {

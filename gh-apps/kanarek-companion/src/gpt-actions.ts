@@ -5,6 +5,7 @@ import {
 } from './github-app.ts';
 import type { CompanionEnv } from './companion-types.ts';
 import { resolveGitTreeEntries, type GitTreeEntry } from './git-tree.ts';
+import { repoPath } from './tools/common.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
@@ -133,13 +134,6 @@ function filePath(value: unknown): string {
     throw new ActionError('invalid_path');
   }
   return result;
-}
-
-function repoPath(repositoryName: string): string {
-  return repositoryName
-    .split('/')
-    .map((part) => encodeURIComponent(part))
-    .join('/');
 }
 
 function refPath(branchName: string): string {

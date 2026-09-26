@@ -1,13 +1,12 @@
 import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { branchNameAllowed, handleLifecycleAction } from './lifecycle-actions.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const CREATE_BRANCH_PATH = '/gpt-actions/github/branches/create';
 const PREPARE_CHANGE_PATH = '/gpt-actions/github/changes/prepare';
 const SHA_RE = /^[0-9a-f]{40}$/i;
-
-type JsonObject = Record<string, unknown>;
 
 class ChangeError extends Error {
   readonly code: string;
@@ -19,10 +18,6 @@ class ChangeError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -55,22 +50,8 @@ function positiveInteger(value: unknown, name: string): number {
   return value;
 }
 
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
-}
-
 function refPath(value: string): string {
   return value.split('/').map(encodeURIComponent).join('/');
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
@@ -118,32 +99,24 @@ async function readData(
   return (await responsePayload(await readResponse(source, env, fetcher, path))).data;
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function labelNames(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) => (isObject(entry) ? stringValue(entry.name) : null))
+    .map((entry) => (isObject(entry) ? stringOrNull(entry.name) : null))
     .filter((entry): entry is string => Boolean(entry));
 }
 
 function compactIssue(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   return {
-    number: numberValue(value.number),
-    title: stringValue(value.title),
-    state: stringValue(value.state),
-    stateReason: stringValue(value.state_reason),
+    number: numberOrNull(value.number),
+    title: stringOrNull(value.title),
+    state: stringOrNull(value.state),
+    stateReason: stringOrNull(value.state_reason),
     isPullRequest: isObject(value.pull_request),
     labels: labelNames(value.labels),
-    htmlUrl: stringValue(value.html_url),
-    updatedAt: stringValue(value.updated_at),
+    htmlUrl: stringOrNull(value.html_url),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
@@ -152,15 +125,15 @@ function compactPullRequest(value: unknown): JsonObject | null {
   const head = isObject(value.head) ? value.head : {};
   const base = isObject(value.base) ? value.base : {};
   return {
-    number: numberValue(value.number),
-    title: stringValue(value.title),
-    state: stringValue(value.state),
+    number: numberOrNull(value.number),
+    title: stringOrNull(value.title),
+    state: stringOrNull(value.state),
     draft: value.draft === true,
-    headRef: stringValue(head.ref),
-    headSha: stringValue(head.sha),
-    baseRef: stringValue(base.ref),
-    htmlUrl: stringValue(value.html_url),
-    updatedAt: stringValue(value.updated_at),
+    headRef: stringOrNull(head.ref),
+    headSha: stringOrNull(head.sha),
+    baseRef: stringOrNull(base.ref),
+    htmlUrl: stringOrNull(value.html_url),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
@@ -293,7 +266,7 @@ async function prepareChange(
       name: repositoryName,
       defaultBranch,
       baseSha,
-      htmlUrl: stringValue(repositoryRaw.html_url),
+      htmlUrl: stringOrNull(repositoryRaw.html_url),
     },
     branch: { name: branchName, sha: baseSha, created: true },
     agentInstructions: agentGuidance.root,

@@ -1,4 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const BOT_PATH = '/gpt-actions/github/bot';
@@ -6,7 +7,6 @@ const WORKFLOW_CONTROL_PATH = '/gpt-actions/github/workflows/control';
 const WORKFLOW_DISPATCH_PATH = '/gpt-actions/github/workflows/dispatch';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
-type JsonObject = Record<string, unknown>;
 type WorkflowControl = 'rerun_failed' | 'rerun_all' | 'cancel';
 
 class WorkflowActionError extends Error {
@@ -19,10 +19,6 @@ class WorkflowActionError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -112,22 +108,8 @@ export function workflowDispatchInputs(value: unknown): Record<string, string> {
   return result;
 }
 
-function repoPath(value: string): string {
-  return value.split('/').map((part) => encodeURIComponent(part)).join('/');
-}
-
 function refPath(value: string): string {
   return value.split('/').map((part) => encodeURIComponent(part)).join('/');
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
@@ -198,28 +180,20 @@ async function botEmpty(
   await actionPayload(response);
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function compactRun(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   return {
-    id: numberValue(value.id),
-    name: stringValue(value.name),
-    status: stringValue(value.status),
-    conclusion: stringValue(value.conclusion),
-    event: stringValue(value.event),
-    headBranch: stringValue(value.head_branch),
-    headSha: stringValue(value.head_sha),
-    runAttempt: numberValue(value.run_attempt),
-    htmlUrl: stringValue(value.html_url),
-    createdAt: stringValue(value.created_at),
-    updatedAt: stringValue(value.updated_at),
+    id: numberOrNull(value.id),
+    name: stringOrNull(value.name),
+    status: stringOrNull(value.status),
+    conclusion: stringOrNull(value.conclusion),
+    event: stringOrNull(value.event),
+    headBranch: stringOrNull(value.head_branch),
+    headSha: stringOrNull(value.head_sha),
+    runAttempt: numberOrNull(value.run_attempt),
+    htmlUrl: stringOrNull(value.html_url),
+    createdAt: stringOrNull(value.created_at),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
@@ -385,10 +359,10 @@ async function dispatchWorkflow(
     accepted: true,
     workflow: {
       id: workflowRaw.id,
-      name: stringValue(workflowRaw.name),
-      path: stringValue(workflowRaw.path),
-      state: stringValue(workflowRaw.state),
-      htmlUrl: stringValue(workflowRaw.html_url),
+      name: stringOrNull(workflowRaw.name),
+      path: stringOrNull(workflowRaw.path),
+      state: stringOrNull(workflowRaw.state),
+      htmlUrl: stringOrNull(workflowRaw.html_url),
     },
     ref: { name: ref, kind: resolvedRef.kind, sha: resolvedRef.sha },
     inputNames: Object.keys(inputs),

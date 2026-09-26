@@ -1,3 +1,5 @@
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+
 export const CODE_HISTORY_PATH = '/gpt-actions/github/code/history';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -8,7 +10,6 @@ const MAX_BLAME_RANGES = 80;
 const MAX_PR_LOOKUPS = 12;
 const MAX_SYMBOL_LINES = 50;
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 
 type Input = {
@@ -49,10 +50,6 @@ class CodeHistoryError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -187,16 +184,6 @@ async function inputObject(request: Request): Promise<Input> {
   };
 }
 
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
-}
-
 async function responseObject(response: Response): Promise<JsonObject> {
   let value: unknown;
   try {
@@ -235,25 +222,13 @@ async function graphqlData(
   return isObject(raw) ? raw.data : null;
 }
 
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
-}
-
 function filePath(value: string): string {
   return value.split('/').map(encodeURIComponent).join('/');
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function decodeContent(value: unknown): string | null {
   if (!isObject(value) || value.encoding !== 'base64' || typeof value.content !== 'string') return null;
-  const size = numberValue(value.size);
+  const size = numberOrNull(value.size);
   if (size !== null && size > MAX_CONTENT_BYTES) return null;
   try {
     const binary = atob(value.content.replace(/\s/g, ''));
@@ -409,14 +384,14 @@ function compactPull(value: unknown): JsonObject | null {
   const base = isObject(value.base) ? value.base : {};
   const head = isObject(value.head) ? value.head : {};
   return {
-    number: numberValue(value.number),
-    title: stringValue(value.title),
-    state: stringValue(value.state),
+    number: numberOrNull(value.number),
+    title: stringOrNull(value.title),
+    state: stringOrNull(value.state),
     merged: value.merged_at !== null && value.merged_at !== undefined,
-    mergedAt: stringValue(value.merged_at),
-    htmlUrl: stringValue(value.html_url),
-    base: stringValue(base.ref),
-    head: stringValue(head.ref),
+    mergedAt: stringOrNull(value.merged_at),
+    htmlUrl: stringOrNull(value.html_url),
+    base: stringOrNull(base.ref),
+    head: stringOrNull(head.ref),
   };
 }
 
@@ -452,18 +427,18 @@ function compactCommit(
   const commit = isObject(value.commit) ? value.commit : {};
   const author = isObject(commit.author) ? commit.author : {};
   const githubAuthor = isObject(value.author) ? value.author : {};
-  const message = stringValue(commit.message);
+  const message = stringOrNull(commit.message);
   return {
     sha: value.sha,
     abbreviatedSha: value.sha.slice(0, 12),
     message: message ? message.split('\n')[0].slice(0, 300) : null,
-    committedAt: stringValue(author.date),
+    committedAt: stringOrNull(author.date),
     author: {
-      login: stringValue(githubAuthor.login),
-      name: stringValue(author.name),
-      email: stringValue(author.email),
+      login: stringOrNull(githubAuthor.login),
+      name: stringOrNull(author.name),
+      email: stringOrNull(author.email),
     },
-    htmlUrl: stringValue(value.html_url),
+    htmlUrl: stringOrNull(value.html_url),
     pullRequests: pulls,
     pullRequestsQueried,
   };
@@ -479,15 +454,15 @@ function blameCommit(
   const user = isObject(author.user) ? author.user : {};
   return {
     sha: value.oid,
-    abbreviatedSha: stringValue(value.abbreviatedOid) ?? value.oid.slice(0, 12),
-    message: stringValue(value.messageHeadline),
-    committedAt: stringValue(value.committedDate),
+    abbreviatedSha: stringOrNull(value.abbreviatedOid) ?? value.oid.slice(0, 12),
+    message: stringOrNull(value.messageHeadline),
+    committedAt: stringOrNull(value.committedDate),
     author: {
-      login: stringValue(user.login),
-      name: stringValue(author.name),
-      email: stringValue(author.email),
+      login: stringOrNull(user.login),
+      name: stringOrNull(author.name),
+      email: stringOrNull(author.email),
     },
-    url: stringValue(value.url),
+    url: stringOrNull(value.url),
     pullRequests: pulls,
     pullRequestsQueried,
   };
@@ -527,8 +502,8 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
     allRanges
       .map((range): BlameRangeLike => ({
         ...range,
-        startingLine: numberValue(range.startingLine) ?? 0,
-        endingLine: numberValue(range.endingLine) ?? 0,
+        startingLine: numberOrNull(range.startingLine) ?? 0,
+        endingLine: numberOrNull(range.endingLine) ?? 0,
       }))
       .filter((range) => range.startingLine > 0 && range.endingLine >= range.startingLine),
     input.startLine,
@@ -573,7 +548,7 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
     return {
       startingLine: range.startingLine,
       endingLine: range.endingLine,
-      age: numberValue(range.age),
+      age: numberOrNull(range.age),
       commit: rawCommit
         ? blameCommit(rawCommit, pullMap.get(sha) ?? [], queriedShas.has(sha))
         : null,
@@ -589,8 +564,8 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
 
   const matchingRanges = focused
     ? allRanges.filter((range) => {
-        const start = numberValue(range.startingLine) ?? 0;
-        const end = numberValue(range.endingLine) ?? 0;
+        const start = numberOrNull(range.startingLine) ?? 0;
+        const end = numberOrNull(range.endingLine) ?? 0;
         const lineRange =
           input.startLine !== undefined && input.endLine !== undefined
             ? start <= input.endLine && end >= input.startLine

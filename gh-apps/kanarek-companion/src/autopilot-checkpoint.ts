@@ -1,5 +1,6 @@
 import { handleAutopilotAction } from './autopilot-actions.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject } from './tools/common.ts';
 
 const AUTOPILOT_PATH = '/gpt-actions/operator/autopilot';
 const CHECKPOINT_KEY = 'checkpoint';
@@ -9,7 +10,6 @@ const MAX_CHECKPOINT_RESULT_BYTES = 128_000;
 const MAX_CHECKPOINT_PROGRESS_BYTES = 64_000;
 const OPERATION_ID_RE = /^op-[A-Za-z0-9][A-Za-z0-9._:-]{7,95}$/;
 
-type JsonObject = Record<string, unknown>;
 type CheckpointStatus = 'running' | 'paused' | 'complete' | 'uncertain';
 
 export interface AutopilotCheckpointEnv extends GptActionsEnv {
@@ -37,10 +37,6 @@ export type CheckpointClaimDecision =
   | { action: 'in_progress'; retryAfterSeconds: number }
   | { action: 'recover' }
   | { action: 'input_mismatch' };
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function json(body: unknown, status = 200, extraHeaders: HeadersInit = {}): Response {
   return Response.json(body, {

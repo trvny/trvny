@@ -1,4 +1,5 @@
-type JsonObject = Record<string, unknown>;
+import { isObject } from './tools/common.ts';
+
 
 const MAX_TARGET_PATHS = 6;
 const MAX_CANDIDATES = 24;
@@ -25,10 +26,6 @@ export interface AgentGuidance {
 }
 
 export type AgentFileReader = (path: string, ref: string) => Promise<unknown | null>;
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function validRepositoryPath(value: string): boolean {
   if (!value || value.length > 500 || value.startsWith('/') || value.endsWith('/')) return false;

@@ -1,4 +1,5 @@
 import { searchLlmsDocs, type RemoteFetch } from './llms-docs.ts';
+import { isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 const INDEX_PATH = '/gpt-actions/docs/index';
 const SEARCH_PATH = '/gpt-actions/docs/search';
@@ -11,7 +12,6 @@ const MAX_DOC_BYTES = 192_000;
 const MAX_INDEX_LIMIT = 160;
 const MAX_SEARCH_LIMIT = 10;
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 
 class DocsActionError extends Error {
@@ -24,10 +24,6 @@ class DocsActionError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -152,10 +148,6 @@ function boundedInteger(value: unknown, name: string, fallback: number, max: num
     throw new DocsActionError(`invalid_${name}`);
   }
   return value;
-}
-
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
 }
 
 function contentPath(value: string): string {

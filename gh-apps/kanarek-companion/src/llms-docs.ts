@@ -1,10 +1,10 @@
+import { type JsonObject } from './tools/common.ts';
+
 const MAX_REMOTE_DOC_BYTES = 192_000;
 const MAX_LLMS_LINKS = 160;
 const REMOTE_FETCH_TIMEOUT_MS = 10_000;
 
 export type RemoteFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-
-type JsonObject = Record<string, unknown>;
 
 interface LlmsEntry {
   title: string;

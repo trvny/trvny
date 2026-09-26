@@ -5,6 +5,7 @@ import {
 } from './maintenance-account.ts';
 import { handleMaintenanceAction } from './maintenance-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
@@ -19,7 +20,6 @@ const DEFAULT_MAX_ACTIONS = 12;
 const MAX_ACTIONS = 20;
 const MAX_REPOSITORIES = 8;
 
-type JsonObject = Record<string, unknown>;
 type ActionHandler = (
   request: Request,
   env: GptActionsEnv,
@@ -55,20 +55,8 @@ class MaintenanceAutofixError extends Error {
   }
 }
 
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function repositoryName(value: unknown): string {
@@ -76,10 +64,6 @@ function repositoryName(value: unknown): string {
     throw new MaintenanceAutofixError('repository_not_allowed', 403);
   }
   return value;
-}
-
-function repoPath(value: string): string {
-  return value.split('/').map((part) => encodeURIComponent(part)).join('/');
 }
 
 function refPath(value: string): string {
@@ -361,8 +345,8 @@ async function collectPlans(
   const workflows = isObject(report.workflows) ? report.workflows : {};
   const workflow = objectArray(workflows, 'recentProblemRuns').find(workflowAutofixCandidate);
   if (workflow) {
-    const headBranch = stringValue(workflow.headBranch);
-    const headSha = stringValue(workflow.headSha);
+    const headBranch = stringOrNull(workflow.headBranch);
+    const headSha = stringOrNull(workflow.headSha);
     if (headBranch && headSha) {
       try {
         const currentHead = await branchHeadSha(request, env, fetcher, repository, headBranch);
@@ -388,8 +372,8 @@ async function collectPlans(
 
   const branches = isObject(report.branches) ? report.branches : {};
   for (const branch of objectArray(branches, 'unattached').slice(0, 8)) {
-    const name = stringValue(branch.name);
-    const headSha = stringValue(branch.headSha);
+    const name = stringOrNull(branch.name);
+    const headSha = stringOrNull(branch.headSha);
     if (!name || !headSha || !SHA_RE.test(headSha) || branch.protected === true) continue;
     try {
       const pullRequestNumber = await resolveClosedPullRequest(
@@ -422,9 +406,9 @@ async function collectPlans(
   const cache = isObject(report.cache) ? report.cache : {};
   const cacheBranchState = new Map<string, string | null>();
   for (const item of objectArray(cache, 'items').slice(0, 30)) {
-    const id = numberValue(item.id);
-    const key = stringValue(item.key);
-    const ref = stringValue(item.ref);
+    const id = numberOrNull(item.id);
+    const key = stringOrNull(item.key);
+    const ref = stringOrNull(item.ref);
     const branch = cacheBranchFromRef(ref);
     if (!id || !key || !ref || !branch) continue;
     let currentHead = cacheBranchState.get(branch);
@@ -455,9 +439,9 @@ async function collectPlans(
 
   const artifacts = isObject(report.artifacts) ? report.artifacts : {};
   for (const item of objectArray(artifacts, 'items').slice(0, 30)) {
-    const id = numberValue(item.id);
-    const name = stringValue(item.name);
-    const sizeBytes = numberValue(item.sizeBytes);
+    const id = numberOrNull(item.id);
+    const name = stringOrNull(item.name);
+    const sizeBytes = numberOrNull(item.sizeBytes);
     if (!id || !name || sizeBytes === null || item.expired !== true) continue;
     plans.push({
       kind: 'delete_expired_artifact',
@@ -520,7 +504,7 @@ async function selectedRepositories(
   const account = await invoke(handleAccountMaintenanceAction, request, env, fetcher, ACCOUNT_PATH);
   const repositories = arrayValue(account.repositories)
     .filter(isObject)
-    .map((value) => stringValue(value.name))
+    .map((value) => stringOrNull(value.name))
     .filter((value): value is string => Boolean(value))
     .map(repositoryName);
   return {

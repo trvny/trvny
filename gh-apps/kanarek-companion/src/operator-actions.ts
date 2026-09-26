@@ -1,4 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const BOT_PATH = '/gpt-actions/github/bot';
@@ -9,8 +10,6 @@ const DIAGNOSE_RUN_PATH = '/gpt-actions/github/workflows/diagnose';
 const FINALIZE_PR_PATH = '/gpt-actions/github/pull-requests/finalize';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const OK_CHECK_CONCLUSIONS = new Set(['success', 'neutral', 'skipped']);
-
-type JsonObject = Record<string, unknown>;
 
 class OperatorError extends Error {
   readonly code: string;
@@ -38,10 +37,6 @@ export interface FinalizeSnapshot {
 export interface CiSummary {
   state: FinalizeSnapshot['ciState'];
   [key: string]: unknown;
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -86,13 +81,6 @@ function expectedRef(value: unknown): string {
     throw new OperatorError('invalid_expected_base_ref');
   }
   return value;
-}
-
-function repoPath(repositoryName: string): string {
-  return repositoryName
-    .split('/')
-    .map((part) => encodeURIComponent(part))
-    .join('/');
 }
 
 function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
@@ -197,14 +185,6 @@ async function inputObject(request: Request): Promise<JsonObject> {
   return value;
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function arrayValue(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
@@ -212,8 +192,8 @@ function arrayValue(value: unknown): unknown[] {
 function compactUser(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   return {
-    login: stringValue(value.login),
-    id: numberValue(value.id),
+    login: stringOrNull(value.login),
+    id: numberOrNull(value.id),
   };
 }
 
@@ -222,19 +202,19 @@ function compactPullRequest(value: unknown): JsonObject | null {
   const head = isObject(value.head) ? value.head : {};
   const base = isObject(value.base) ? value.base : {};
   return {
-    number: numberValue(value.number),
-    title: stringValue(value.title),
-    state: stringValue(value.state),
+    number: numberOrNull(value.number),
+    title: stringOrNull(value.title),
+    state: stringOrNull(value.state),
     draft: value.draft === true,
     user: compactUser(value.user),
-    headRef: stringValue(head.ref),
-    headSha: stringValue(head.sha),
-    baseRef: stringValue(base.ref),
-    baseSha: stringValue(base.sha),
+    headRef: stringOrNull(head.ref),
+    headSha: stringOrNull(head.sha),
+    baseRef: stringOrNull(base.ref),
+    baseSha: stringOrNull(base.sha),
     mergeable: typeof value.mergeable === 'boolean' ? value.mergeable : null,
-    mergeableState: stringValue(value.mergeable_state),
-    htmlUrl: stringValue(value.html_url),
-    updatedAt: stringValue(value.updated_at),
+    mergeableState: stringOrNull(value.mergeable_state),
+    htmlUrl: stringOrNull(value.html_url),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
@@ -254,16 +234,16 @@ function decodeGithubContent(value: unknown): string | null {
 function compactWorkflowRun(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   return {
-    id: numberValue(value.id),
-    name: stringValue(value.name),
-    event: stringValue(value.event),
-    status: stringValue(value.status),
-    conclusion: stringValue(value.conclusion),
-    headBranch: stringValue(value.head_branch),
-    headSha: stringValue(value.head_sha),
-    htmlUrl: stringValue(value.html_url),
-    createdAt: stringValue(value.created_at),
-    updatedAt: stringValue(value.updated_at),
+    id: numberOrNull(value.id),
+    name: stringOrNull(value.name),
+    event: stringOrNull(value.event),
+    status: stringOrNull(value.status),
+    conclusion: stringOrNull(value.conclusion),
+    headBranch: stringOrNull(value.head_branch),
+    headSha: stringOrNull(value.head_sha),
+    htmlUrl: stringOrNull(value.html_url),
+    createdAt: stringOrNull(value.created_at),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
@@ -272,49 +252,49 @@ function compactCommit(value: unknown): JsonObject | null {
   const commit = isObject(value.commit) ? value.commit : {};
   const author = isObject(commit.author) ? commit.author : {};
   return {
-    sha: stringValue(value.sha),
-    message: stringValue(commit.message),
-    author: stringValue(author.name),
-    date: stringValue(author.date),
-    htmlUrl: stringValue(value.html_url),
+    sha: stringOrNull(value.sha),
+    message: stringOrNull(commit.message),
+    author: stringOrNull(author.name),
+    date: stringOrNull(author.date),
+    htmlUrl: stringOrNull(value.html_url),
   };
 }
 
 function compactComment(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
-  const body = stringValue(value.body);
+  const body = stringOrNull(value.body);
   return {
-    id: numberValue(value.id),
+    id: numberOrNull(value.id),
     user: compactUser(value.user),
     body: body ? body.slice(0, 2_000) : null,
-    htmlUrl: stringValue(value.html_url),
-    createdAt: stringValue(value.created_at),
-    updatedAt: stringValue(value.updated_at),
+    htmlUrl: stringOrNull(value.html_url),
+    createdAt: stringOrNull(value.created_at),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
 function compactReview(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
-  const body = stringValue(value.body);
+  const body = stringOrNull(value.body);
   return {
-    id: numberValue(value.id),
+    id: numberOrNull(value.id),
     user: compactUser(value.user),
-    state: stringValue(value.state),
+    state: stringOrNull(value.state),
     body: body ? body.slice(0, 2_000) : null,
-    submittedAt: stringValue(value.submitted_at),
-    htmlUrl: stringValue(value.html_url),
+    submittedAt: stringOrNull(value.submitted_at),
+    htmlUrl: stringOrNull(value.html_url),
   };
 }
 
 function compactChangedFile(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
-  const patch = stringValue(value.patch);
+  const patch = stringOrNull(value.patch);
   return {
-    filename: stringValue(value.filename),
-    status: stringValue(value.status),
-    additions: numberValue(value.additions),
-    deletions: numberValue(value.deletions),
-    changes: numberValue(value.changes),
+    filename: stringOrNull(value.filename),
+    status: stringOrNull(value.status),
+    additions: numberOrNull(value.additions),
+    deletions: numberOrNull(value.deletions),
+    changes: numberOrNull(value.changes),
     patch: patch ? patch.slice(0, 4_000) : null,
   };
 }
@@ -324,8 +304,8 @@ function activeChangeRequests(reviews: unknown[]): JsonObject[] {
   for (const item of reviews) {
     if (!isObject(item) || !isObject(item.user) || typeof item.user.login !== 'string') continue;
     const previous = latest.get(item.user.login);
-    const submittedAt = stringValue(item.submitted_at) ?? '';
-    const previousAt = previous ? stringValue(previous.submitted_at) ?? '' : '';
+    const submittedAt = stringOrNull(item.submitted_at) ?? '';
+    const previousAt = previous ? stringOrNull(previous.submitted_at) ?? '' : '';
     if (!previous || submittedAt >= previousAt) latest.set(item.user.login, item);
   }
   return [...latest.values()]
@@ -349,7 +329,7 @@ export function summarizeCi(statusValue: unknown, checksValue: unknown): CiSumma
   const pendingChecks = checks.filter((check) => check.status !== 'completed');
   const hasStatuses = statuses.length > 0;
   const hasChecks = checks.length > 0;
-  const statusState = stringValue(status.state);
+  const statusState = stringOrNull(status.state);
   const statusFailed = hasStatuses && (statusState === 'failure' || statusState === 'error');
   const statusPending = hasStatuses && statusState === 'pending';
 
@@ -363,20 +343,20 @@ export function summarizeCi(statusValue: unknown, checksValue: unknown): CiSumma
     state,
     combinedStatus: statusState,
     statuses: statuses.slice(0, 30).map((entry) => ({
-      context: stringValue(entry.context),
-      state: stringValue(entry.state),
-      description: stringValue(entry.description),
-      targetUrl: stringValue(entry.target_url),
+      context: stringOrNull(entry.context),
+      state: stringOrNull(entry.state),
+      description: stringOrNull(entry.description),
+      targetUrl: stringOrNull(entry.target_url),
     })),
     checks: checks.slice(0, 50).map((check) => ({
-      id: numberValue(check.id),
-      name: stringValue(check.name),
-      status: stringValue(check.status),
-      conclusion: stringValue(check.conclusion),
-      htmlUrl: stringValue(check.html_url),
+      id: numberOrNull(check.id),
+      name: stringOrNull(check.name),
+      status: stringOrNull(check.status),
+      conclusion: stringOrNull(check.conclusion),
+      htmlUrl: stringOrNull(check.html_url),
     })),
-    failedChecks: failedChecks.map((check) => stringValue(check.name)).filter(Boolean),
-    pendingChecks: pendingChecks.map((check) => stringValue(check.name)).filter(Boolean),
+    failedChecks: failedChecks.map((check) => stringOrNull(check.name)).filter(Boolean),
+    pendingChecks: pendingChecks.map((check) => stringOrNull(check.name)).filter(Boolean),
   };
 }
 
@@ -389,17 +369,17 @@ function reviewThreads(graphqlValue: unknown): JsonObject[] {
     .map((thread) => {
       const comments = isObject(thread.comments) ? arrayValue(thread.comments.nodes) : [];
       const first = comments.find(isObject);
-      const body = first ? stringValue(first.body) : null;
+      const body = first ? stringOrNull(first.body) : null;
       return {
-        id: stringValue(thread.id),
+        id: stringOrNull(thread.id),
         isResolved: thread.isResolved === true,
         isOutdated: thread.isOutdated === true,
         comment: first
           ? {
-              id: stringValue(first.id),
-              author: isObject(first.author) ? stringValue(first.author.login) : null,
+              id: stringOrNull(first.id),
+              author: isObject(first.author) ? stringOrNull(first.author.login) : null,
               body: body ? body.slice(0, 2_000) : null,
-              url: stringValue(first.url),
+              url: stringOrNull(first.url),
             }
           : null,
       };
@@ -418,8 +398,8 @@ async function inspectPullRequestData(
   if (!isObject(prRaw)) throw new OperatorError('invalid_pull_request_response', 502);
   const head = isObject(prRaw.head) ? prRaw.head : {};
   const base = isObject(prRaw.base) ? prRaw.base : {};
-  const headSha = stringValue(head.sha);
-  const nodeId = stringValue(prRaw.node_id);
+  const headSha = stringOrNull(head.sha);
+  const nodeId = stringOrNull(prRaw.node_id);
   if (!headSha || !SHA_RE.test(headSha) || !nodeId) {
     throw new OperatorError('invalid_pull_request_response', 502);
   }
@@ -476,10 +456,10 @@ async function inspectPullRequestData(
     unresolvedThreads,
     ci,
     finalizeSnapshot: {
-      state: stringValue(prRaw.state) ?? 'unknown',
+      state: stringOrNull(prRaw.state) ?? 'unknown',
       draft: prRaw.draft === true,
       headSha: headSha.toLowerCase(),
-      baseRef: stringValue(base.ref),
+      baseRef: stringOrNull(base.ref),
       mergeable: typeof prRaw.mergeable === 'boolean' ? prRaw.mergeable : null,
       ciState: ci.state,
       unresolvedThreads: unresolvedThreads.length,
@@ -534,7 +514,7 @@ async function repositoryContext(
   ]);
 
   const headObject = isObject(headRaw) && isObject(headRaw.object) ? headRaw.object : null;
-  const headSha = headObject ? stringValue(headObject.sha) : null;
+  const headSha = headObject ? stringOrNull(headObject.sha) : null;
   const pulls = arrayValue(pullsRaw);
   const commits = arrayValue(commitsRaw);
   const runs = isObject(runsRaw) ? arrayValue(runsRaw.workflow_runs) : [];
@@ -548,11 +528,11 @@ async function repositoryContext(
   return json({
     ok: true,
     repository: {
-      fullName: stringValue(repositoryRaw.full_name),
+      fullName: stringOrNull(repositoryRaw.full_name),
       defaultBranch,
       private: repositoryRaw.private === true,
       archived: repositoryRaw.archived === true,
-      htmlUrl: stringValue(repositoryRaw.html_url),
+      htmlUrl: stringOrNull(repositoryRaw.html_url),
     },
     headSha,
     agents,
@@ -592,18 +572,18 @@ function compactJob(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   const steps = arrayValue(value.steps).filter(isObject);
   return {
-    id: numberValue(value.id),
-    name: stringValue(value.name),
-    status: stringValue(value.status),
-    conclusion: stringValue(value.conclusion),
-    htmlUrl: stringValue(value.html_url),
+    id: numberOrNull(value.id),
+    name: stringOrNull(value.name),
+    status: stringOrNull(value.status),
+    conclusion: stringOrNull(value.conclusion),
+    htmlUrl: stringOrNull(value.html_url),
     failedSteps: steps
       .filter((step) => step.conclusion && !OK_CHECK_CONCLUSIONS.has(String(step.conclusion)))
       .map((step) => ({
-        number: numberValue(step.number),
-        name: stringValue(step.name),
-        status: stringValue(step.status),
-        conclusion: stringValue(step.conclusion),
+        number: numberOrNull(step.number),
+        name: stringOrNull(step.name),
+        status: stringOrNull(step.status),
+        conclusion: stringOrNull(step.conclusion),
       })),
   };
 }
@@ -634,7 +614,7 @@ async function diagnoseWorkflowRun(
   const logJobs = failedJobs.slice(0, 3);
   const logs = await Promise.all(
     logJobs.map(async (job) => {
-      const id = numberValue(job.id);
+      const id = numberOrNull(job.id);
       if (!id) return { jobId: null, excerpt: null };
       const response = await readResponse(request, env, fetcher, `/repos/${repo}/actions/jobs/${id}/logs`);
       if (!response.ok) {

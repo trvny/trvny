@@ -1,4 +1,5 @@
 import { likelyTestPath } from './symbol-investigation.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 export const DEPENDENCY_GRAPH_PATH = '/gpt-actions/github/code/dependencies';
 
@@ -9,7 +10,6 @@ const MAX_IMPORTS = 80;
 const MAX_CALLERS = 12;
 const MAX_CANDIDATES = 40;
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 type ImportSyntax = 'module' | 'python' | 'rust';
 type Confidence = 'high' | 'medium';
@@ -40,10 +40,6 @@ class DependencyGraphError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -173,25 +169,13 @@ async function readData(source: Request, invoke: Invoke, path: string): Promise<
   return (await responseObject(await invoke(internalRequest(source, path)))).data;
 }
 
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
-}
-
 function filePath(value: string): string {
   return value.split('/').map(encodeURIComponent).join('/');
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function decodeContent(value: unknown): string | null {
   if (!isObject(value) || value.encoding !== 'base64' || typeof value.content !== 'string') return null;
-  const size = numberValue(value.size);
+  const size = numberOrNull(value.size);
   if (size !== null && size > MAX_CONTENT_BYTES) return null;
   try {
     const binary = atob(value.content.replace(/\s/g, ''));
@@ -486,8 +470,8 @@ async function dependencyGraph(source: Request, invoke: Invoke): Promise<Respons
       return {
         path,
         testFile: likelyTestPath(path),
-        contentSha: isObject(raw) ? stringValue(raw.sha) : null,
-        size: isObject(raw) ? numberValue(raw.size) : null,
+        contentSha: isObject(raw) ? stringOrNull(raw.sha) : null,
+        size: isObject(raw) ? numberOrNull(raw.size) : null,
         matches,
       };
     }),
@@ -497,7 +481,7 @@ async function dependencyGraph(source: Request, invoke: Invoke): Promise<Respons
   const callers = allCallers.slice(0, input.maxCallers);
   const affectedModules = callers.map((caller) => caller.path);
   const tests = callers.filter((caller) => caller.testFile).map((caller) => caller.path);
-  const totalCount = numberValue(searchRaw.total_count);
+  const totalCount = numberOrNull(searchRaw.total_count);
 
   return json({
     ok: true,
@@ -510,8 +494,8 @@ async function dependencyGraph(source: Request, invoke: Invoke): Promise<Respons
     },
     target: {
       path: input.path,
-      contentSha: isObject(targetRaw) ? stringValue(targetRaw.sha) : null,
-      size: isObject(targetRaw) ? numberValue(targetRaw.size) : null,
+      contentSha: isObject(targetRaw) ? stringOrNull(targetRaw.sha) : null,
+      size: isObject(targetRaw) ? numberOrNull(targetRaw.size) : null,
       imports: directImports,
       importsTruncated: directImports.length >= MAX_IMPORTS,
     },

@@ -32,6 +32,7 @@ import router, {
   customGptOpenApi,
   OperatorCheckpointStore,
 } from './router.ts';
+import { isObject, type JsonObject } from './tools/common.ts';
 
 export {
   actionFetch,
@@ -40,7 +41,6 @@ export {
   ReviewProviderCooldownStore,
 };
 
-type JsonObject = Record<string, unknown>;
 type RouterEnv = Parameters<typeof router.fetch>[1];
 
 interface WorkerVersionMetadataLike {
@@ -84,10 +84,6 @@ const REQUIRED_SMOKE_OPERATIONS = [
   'runOperatorSmokeTest',
   'orchestrateRelease',
 ] as const;
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, {

@@ -1,17 +1,13 @@
 import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
 import router from './router.ts';
+import { isObject, type JsonObject, repoPath } from './tools/common.ts';
 
-type JsonObject = Record<string, unknown>;
 type Env = Parameters<typeof router.fetch>[1];
 
 const CONTEXT_PATH = '/gpt-actions/github/context';
 const INVESTIGATION_PATH = '/gpt-actions/github/code/investigate';
 const READ_PATH = '/gpt-actions/github/read';
 const SHA_RE = /^[0-9a-f]{40}$/i;
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, {
@@ -21,10 +17,6 @@ function json(body: unknown, status = 200): Response {
       'content-type': 'application/json; charset=utf-8',
     },
   });
-}
-
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
 }
 
 function contentPath(value: string): string {

@@ -38,6 +38,7 @@ import {
   handleEnhancedWorkflowDiagnosis,
 } from './workflow-diagnosis-enhanced.ts';
 import { addWorkflowOpenApi, handleWorkflowAction } from './workflow-actions.ts';
+import { isObject, type JsonObject } from './tools/common.ts';
 
 export { OperatorCheckpointStore, actionFetch };
 
@@ -45,18 +46,12 @@ export type GremlinRouterEnv = CompanionEnv & {
   OPERATOR_CHECKPOINTS: DurableObjectNamespace;
 };
 
-type JsonObject = Record<string, unknown>;
-
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const OAUTH_AUTHORIZE_PATH = '/gpt-actions/oauth/authorize';
 const BOT_ACTION_PATH = '/gpt-actions/github/bot';
 const BRANCH_DELETE_PATH = '/gpt-actions/github/branches/delete';
 const AUTOPILOT_ACTION_PATH = '/gpt-actions/operator/autopilot';
 const SHA_RE = /^[0-9a-f]{40}$/i;
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function normalizeObjectSchemas(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalizeObjectSchemas);

@@ -8,6 +8,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, zipEntryPath } from './zip-entry.ts';
+import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 export const RELEASE_ASSET_REPLACE_PATH = '/gpt-actions/github/releases/assets/replace-entry';
 
@@ -18,7 +19,6 @@ const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
 const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024;
 
-type JsonObject = Record<string, unknown>;
 type Env = GptActionsEnv;
 type Dispatch = (request: Request) => Promise<Response>;
 
@@ -49,10 +49,6 @@ class ReplaceError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -152,16 +148,6 @@ async function requestInput(request: Request): Promise<Input> {
   }
 }
 
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
-}
-
 async function responseObject(response: Response): Promise<JsonObject> {
   let value: unknown;
   try {
@@ -192,10 +178,6 @@ async function readData(
 ): Promise<unknown> {
   const response = await dispatch(internalRequest(source, READ_PATH, { path }));
   return (await actionObject(response)).data;
-}
-
-function repoPath(repositoryName: string): string {
-  return repositoryName.split('/').map(encodeURIComponent).join('/');
 }
 
 function tokenHeaders(token: string): Headers {

@@ -21,6 +21,7 @@ import {
 } from './workflow-actions.ts';
 import { handleEnhancedWorkflowDiagnosis } from './workflow-diagnosis-enhanced.ts';
 import { zipEntryPath, ZipEntryError } from './zip-entry.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull } from './tools/common.ts';
 
 export const RELEASE_ORCHESTRATION_PATH = '/gpt-actions/operator/releases/orchestrate';
 
@@ -37,7 +38,6 @@ const WORKFLOW_POLL_ATTEMPTS = 4;
 const WORKFLOW_POLL_DELAY_MS = 2_500;
 const RUN_TIMESTAMP_SKEW_MS = 5_000;
 
-type JsonObject = Record<string, unknown>;
 type RefKind = 'branch' | 'tag';
 type MakeLatest = 'true' | 'false' | 'legacy';
 type Stage =
@@ -105,10 +105,6 @@ class ReleaseOrchestrationError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200, extraHeaders: HeadersInit = {}): Response {
@@ -246,22 +242,8 @@ async function parseInput(
   return { input, hashInput, inputHash: await autopilotInputHash(hashInput) };
 }
 
-function repoPath(repository: string): string {
-  return repository.split('/').map((part) => encodeURIComponent(part)).join('/');
-}
-
 function refPath(value: string): string {
   return value.split('/').map((part) => encodeURIComponent(part)).join('/');
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {
@@ -315,10 +297,6 @@ function positiveInteger(value: unknown): number | null {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
 function objectArray(value: unknown): JsonObject[] {
   return Array.isArray(value) ? value.filter(isObject) : [];
 }
@@ -359,7 +337,7 @@ async function resolveTarget(
     fetcher,
     `/repos/${repo}/commits/${encodeURIComponent(ref)}`,
   );
-  const sha = isObject(commit) ? stringValue(commit.sha) : null;
+  const sha = isObject(commit) ? stringOrNull(commit.sha) : null;
   if (!sha || !SHA_RE.test(sha)) {
     throw new ReleaseOrchestrationError('invalid_workflow_ref_response', 502);
   }
@@ -423,7 +401,7 @@ async function workflowMetadata(
     throw new ReleaseOrchestrationError('invalid_workflow_response', 502);
   }
   if (raw.state !== 'active') throw new ReleaseOrchestrationError('workflow_not_active', 409);
-  return { id: raw.id as number, name: stringValue(raw.name), path: stringValue(raw.path) };
+  return { id: raw.id as number, name: stringOrNull(raw.name), path: stringOrNull(raw.path) };
 }
 
 async function workflowRuns(

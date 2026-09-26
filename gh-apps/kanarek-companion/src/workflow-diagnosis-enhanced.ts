@@ -1,5 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { handleOperatorAction } from './operator-actions.ts';
+import { isObject, type JsonObject, numberOrNull } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const DIAGNOSE_RUN_PATH = '/gpt-actions/github/workflows/diagnose';
@@ -12,8 +13,6 @@ const MAX_SIGNAL_WINDOWS = 12;
 const ANSI_RE = /\x1B\[[0-?]*[ -/]*[@-~]/g;
 const FAILURE_SIGNAL_RE = /(?:^|[\s:])(error|fatal|exception|traceback|failed|failure|assertionerror|panic|npm err!|::error\b|ts\d{4}:)/i;
 
-type JsonObject = Record<string, unknown>;
-
 export interface FailureFocusedExcerpt {
   excerpt: string;
   strategy: 'failure-signals-plus-tail' | 'tail-only';
@@ -21,10 +20,6 @@ export interface FailureFocusedExcerpt {
   selectedLineCount: number;
   matchedSignals: number;
   truncated: boolean;
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -119,10 +114,6 @@ export function failureFocusedLogExcerpt(
   };
 }
 
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function objectArray(value: unknown): JsonObject[] {
   return Array.isArray(value) ? value.filter(isObject) : [];
 }
@@ -130,7 +121,7 @@ function objectArray(value: unknown): JsonObject[] {
 function legacyLogByJob(payload: JsonObject): Map<number, JsonObject> {
   const map = new Map<number, JsonObject>();
   for (const entry of objectArray(payload.logExcerpts)) {
-    const jobId = numberValue(entry.jobId);
+    const jobId = numberOrNull(entry.jobId);
     if (jobId) map.set(jobId, entry);
   }
   return map;
@@ -173,7 +164,7 @@ export async function handleEnhancedWorkflowDiagnosis(
 
   const focusedLogs = await Promise.all(
     failingJobs.map(async (job) => {
-      const jobId = numberValue(job.id);
+      const jobId = numberOrNull(job.id);
       if (!jobId) return { jobId: null, excerpt: null, strategy: 'unavailable' };
       const log = await readLogText(
         request,

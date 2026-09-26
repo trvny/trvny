@@ -1,6 +1,7 @@
 import { handleOperatorAction } from './operator-actions.ts';
 import { handlePolicyEnforcementAction } from './policy-enforcement.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull } from './tools/common.ts';
 
 const AUTOPILOT_PATH = '/gpt-actions/operator/autopilot';
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
@@ -11,7 +12,6 @@ const HARD_MAX_TASKS = 12;
 const DEFAULT_MAX_TASKS = 8;
 const INSPECTION_CONCURRENCY = 3;
 
-type JsonObject = Record<string, unknown>;
 type ActionHandler = (
   request: Request,
   env: GptActionsEnv,
@@ -42,22 +42,8 @@ class AutopilotError extends Error {
   }
 }
 
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject = {}): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function inputObject(request: Request): Promise<AutopilotInput> {
@@ -141,20 +127,12 @@ function objectArray(value: unknown, key: string): JsonObject[] {
   return value[key].filter(isObject);
 }
 
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
 function selectedRepositories(payload: JsonObject, explicit: string[] | null): JsonObject[] {
   const repositories = objectArray(payload, 'repositories');
   if (!explicit) return repositories;
   const allowed = new Set(explicit);
   return repositories.filter((repository) => {
-    const name = stringValue(repository.name);
+    const name = stringOrNull(repository.name);
     return Boolean(name && allowed.has(name));
   });
 }
@@ -168,11 +146,11 @@ function selectedSummary(repositories: JsonObject[]): JsonObject {
       const cache = isObject(repository.cache) ? repository.cache : {};
       const attention = Array.isArray(repository.attention) ? repository.attention : [];
       const errors = Array.isArray(repository.errors) ? repository.errors : [];
-      summary.openPullRequests = Number(summary.openPullRequests) + (numberValue(pulls.openCount) ?? 0);
-      summary.unattachedBranches = Number(summary.unattachedBranches) + (numberValue(branches.unattachedCount) ?? 0);
-      summary.problemWorkflowRuns = Number(summary.problemWorkflowRuns) + (numberValue(workflows.problemCount) ?? 0);
-      summary.pendingWorkflowRuns = Number(summary.pendingWorkflowRuns) + (numberValue(workflows.pendingCount) ?? 0);
-      summary.activeCacheBytes = Number(summary.activeCacheBytes) + (numberValue(cache.activeBytes) ?? 0);
+      summary.openPullRequests = Number(summary.openPullRequests) + (numberOrNull(pulls.openCount) ?? 0);
+      summary.unattachedBranches = Number(summary.unattachedBranches) + (numberOrNull(branches.unattachedCount) ?? 0);
+      summary.problemWorkflowRuns = Number(summary.problemWorkflowRuns) + (numberOrNull(workflows.problemCount) ?? 0);
+      summary.pendingWorkflowRuns = Number(summary.pendingWorkflowRuns) + (numberOrNull(workflows.pendingCount) ?? 0);
+      summary.activeCacheBytes = Number(summary.activeCacheBytes) + (numberOrNull(cache.activeBytes) ?? 0);
       summary.repositoriesWithAttention = Number(summary.repositoriesWithAttention) + Number(attention.length > 0);
       summary.partialRepositories = Number(summary.partialRepositories) + Number(errors.length > 0);
       return summary;
@@ -197,23 +175,23 @@ function compactAccount(payload: JsonObject, explicit: string[] | null): JsonObj
       : isObject(payload.summary)
         ? payload.summary
         : selectedSummary(repositories),
-    repositoryCount: numberValue(payload.repositoryCount),
+    repositoryCount: numberOrNull(payload.repositoryCount),
     scannedCount: repositories.length,
     policyExcluded: Array.isArray(payload.policyExcluded) ? payload.policyExcluded : [],
     repositories: repositories.map((repository) => ({
-      name: stringValue(repository.name),
+      name: stringOrNull(repository.name),
       attention: Array.isArray(repository.attention) ? repository.attention : [],
       openPullRequests: isObject(repository.pullRequests)
-        ? numberValue(repository.pullRequests.openCount)
+        ? numberOrNull(repository.pullRequests.openCount)
         : null,
       unattachedBranches: isObject(repository.branches)
-        ? numberValue(repository.branches.unattachedCount)
+        ? numberOrNull(repository.branches.unattachedCount)
         : null,
       problemWorkflowRuns: isObject(repository.workflows)
-        ? numberValue(repository.workflows.problemCount)
+        ? numberOrNull(repository.workflows.problemCount)
         : null,
       pendingWorkflowRuns: isObject(repository.workflows)
-        ? numberValue(repository.workflows.pendingCount)
+        ? numberOrNull(repository.workflows.pendingCount)
         : null,
       errors: Array.isArray(repository.errors) ? repository.errors.length : 0,
     })),
@@ -222,7 +200,7 @@ function compactAccount(payload: JsonObject, explicit: string[] | null): JsonObj
 
 function summaryNumber(payload: JsonObject, key: string): number {
   if (!isObject(payload.summary)) return 0;
-  return numberValue(payload.summary[key]) ?? 0;
+  return numberOrNull(payload.summary[key]) ?? 0;
 }
 
 export function maintenanceDelta(before: JsonObject, after: JsonObject): JsonObject {
@@ -242,28 +220,28 @@ export function maintenanceDelta(before: JsonObject, after: JsonObject): JsonObj
 }
 
 function workflowTasks(repository: JsonObject): AutopilotTask[] {
-  const name = stringValue(repository.name);
+  const name = stringOrNull(repository.name);
   if (!name || !isObject(repository.workflows)) return [];
   return objectArray(repository.workflows, 'recentProblemRuns').map((run) => ({
     priority: 10,
     kind: 'workflow_failure',
     repository: name,
-    runId: numberValue(run.id),
-    workflow: stringValue(run.name),
-    headBranch: stringValue(run.headBranch),
-    headSha: stringValue(run.headSha),
+    runId: numberOrNull(run.id),
+    workflow: stringOrNull(run.name),
+    headBranch: stringOrNull(run.headBranch),
+    headSha: stringOrNull(run.headSha),
     nextAction: 'diagnoseWorkflowRun',
   }));
 }
 
 function repositoryTasks(repository: JsonObject): AutopilotTask[] {
-  const name = stringValue(repository.name);
+  const name = stringOrNull(repository.name);
   if (!name) return [];
   const tasks: AutopilotTask[] = [];
   tasks.push(...workflowTasks(repository));
 
   const branches = isObject(repository.branches) ? repository.branches : {};
-  const unattachedCount = numberValue(branches.unattachedCount) ?? 0;
+  const unattachedCount = numberOrNull(branches.unattachedCount) ?? 0;
   if (unattachedCount > 0) {
     tasks.push({
       priority: 40,
@@ -292,10 +270,10 @@ function repositoryTasks(repository: JsonObject): AutopilotTask[] {
         priority: 60,
         kind: 'workflow_pending',
         repository: name,
-        runId: numberValue(run.id),
-        workflow: stringValue(run.name),
-        headBranch: stringValue(run.headBranch),
-        headSha: stringValue(run.headSha),
+        runId: numberOrNull(run.id),
+        workflow: stringOrNull(run.name),
+        headBranch: stringOrNull(run.headBranch),
+        headSha: stringOrNull(run.headSha),
         nextAction: null,
         waitForCompletion: true,
       });
@@ -316,17 +294,17 @@ interface PullRequestCandidate {
 function pullRequestCandidates(repositories: JsonObject[]): PullRequestCandidate[] {
   const candidates: PullRequestCandidate[] = [];
   for (const repository of repositories) {
-    const name = stringValue(repository.name);
+    const name = stringOrNull(repository.name);
     if (!name || !isObject(repository.pullRequests)) continue;
     for (const pullRequest of objectArray(repository.pullRequests, 'items')) {
-      const number = numberValue(pullRequest.number);
-      const headSha = stringValue(pullRequest.headSha);
+      const number = numberOrNull(pullRequest.number);
+      const headSha = stringOrNull(pullRequest.headSha);
       if (!number || !headSha) continue;
       candidates.push({
         repository: name,
         number,
         headSha,
-        title: stringValue(pullRequest.title),
+        title: stringOrNull(pullRequest.title),
         draft: pullRequest.draft === true,
       });
     }
@@ -339,11 +317,11 @@ export function classifyPullRequestSnapshot(
   snapshotValue: unknown,
 ): AutopilotTask {
   const snapshot = isObject(snapshotValue) ? snapshotValue : {};
-  const ciState = stringValue(snapshot.ciState) ?? 'unknown';
-  const unresolvedThreads = numberValue(snapshot.unresolvedThreads) ?? 0;
-  const activeChangeRequests = numberValue(snapshot.activeChangeRequests) ?? 0;
+  const ciState = stringOrNull(snapshot.ciState) ?? 'unknown';
+  const unresolvedThreads = numberOrNull(snapshot.unresolvedThreads) ?? 0;
+  const activeChangeRequests = numberOrNull(snapshot.activeChangeRequests) ?? 0;
   const mergeable = typeof snapshot.mergeable === 'boolean' ? snapshot.mergeable : null;
-  const state = stringValue(snapshot.state) ?? 'unknown';
+  const state = stringOrNull(snapshot.state) ?? 'unknown';
   const draft = candidate.draft || snapshot.draft === true;
 
   if (draft) {
@@ -515,7 +493,7 @@ async function operatorAutopilot(
   if (input.repositories) {
     const available = new Set(
       initialRepositories
-        .map((repository) => stringValue(repository.name))
+        .map((repository) => stringOrNull(repository.name))
         .filter((name): name is string => Boolean(name)),
     );
     if (input.repositories.some((repository) => !available.has(repository))) {
@@ -523,7 +501,7 @@ async function operatorAutopilot(
     }
   }
   const selectedNames = initialRepositories
-    .map((repository) => stringValue(repository.name))
+    .map((repository) => stringOrNull(repository.name))
     .filter((name): name is string => Boolean(name));
 
   let maintenance: JsonObject | null = null;

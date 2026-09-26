@@ -1,13 +1,12 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { unattachedBranches, workflowRunIsProblem } from './maintenance-actions.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const ACCOUNT_MAINTENANCE_PATH = '/gpt-actions/github/maintenance/account';
 const PAGE_SIZE = 100;
 const MAX_REPOSITORIES = 200;
 const REPOSITORY_CONCURRENCY = 4;
-
-type JsonObject = Record<string, unknown>;
 
 type ReadResult =
   | { ok: true; data: unknown }
@@ -55,10 +54,6 @@ class AccountMaintenanceError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -119,44 +114,32 @@ async function safeReadData(
   }
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function repoPath(repository: string): string {
-  return repository.split('/').map((part) => encodeURIComponent(part)).join('/');
-}
-
 function compactPullRequest(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   const head = isObject(value.head) ? value.head : {};
   return {
-    number: numberValue(value.number),
-    title: stringValue(value.title),
+    number: numberOrNull(value.number),
+    title: stringOrNull(value.title),
     draft: value.draft === true,
-    headRef: stringValue(head.ref),
-    headSha: stringValue(head.sha),
-    updatedAt: stringValue(value.updated_at),
-    htmlUrl: stringValue(value.html_url),
+    headRef: stringOrNull(head.ref),
+    headSha: stringOrNull(head.sha),
+    updatedAt: stringOrNull(value.updated_at),
+    htmlUrl: stringOrNull(value.html_url),
   };
 }
 
 function compactRun(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   return {
-    id: numberValue(value.id),
-    name: stringValue(value.name),
-    status: stringValue(value.status),
-    conclusion: stringValue(value.conclusion),
-    event: stringValue(value.event),
-    headBranch: stringValue(value.head_branch),
-    headSha: stringValue(value.head_sha),
-    htmlUrl: stringValue(value.html_url),
-    updatedAt: stringValue(value.updated_at),
+    id: numberOrNull(value.id),
+    name: stringOrNull(value.name),
+    status: stringOrNull(value.status),
+    conclusion: stringOrNull(value.conclusion),
+    event: stringOrNull(value.event),
+    headBranch: stringOrNull(value.head_branch),
+    headSha: stringOrNull(value.head_sha),
+    htmlUrl: stringOrNull(value.html_url),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
@@ -218,8 +201,8 @@ async function scanRepository(
   fetcher: typeof fetch,
   repositoryRaw: JsonObject,
 ): Promise<AccountRepositoryMaintenance | null> {
-  const name = stringValue(repositoryRaw.full_name);
-  const defaultBranch = stringValue(repositoryRaw.default_branch);
+  const name = stringOrNull(repositoryRaw.full_name);
+  const defaultBranch = stringOrNull(repositoryRaw.default_branch);
   if (!name?.startsWith('trvny/') || !defaultBranch) return null;
 
   const repo = repoPath(name);
@@ -270,7 +253,7 @@ async function scanRepository(
     archived: repositoryRaw.archived === true,
     private: repositoryRaw.private === true,
     defaultBranch,
-    htmlUrl: stringValue(repositoryRaw.html_url),
+    htmlUrl: stringOrNull(repositoryRaw.html_url),
     pullRequests: {
       openCount: pulls.length,
       truncated: pulls.length === 100,
@@ -290,8 +273,8 @@ async function scanRepository(
       pendingRuns: pendingItems,
     },
     cache: {
-      activeCount: numberValue(cache.active_caches_count),
-      activeBytes: numberValue(cache.active_caches_size_in_bytes),
+      activeCount: numberOrNull(cache.active_caches_count),
+      activeBytes: numberOrNull(cache.active_caches_size_in_bytes),
     },
     attention: accountMaintenanceAttention(unattached.length, problemRuns.length, errors.length),
     errors,
@@ -374,7 +357,7 @@ async function accountMaintenance(
     repositoryCount: owned.repositories.length,
     scannedCount: repositories.length,
     archivedSkipped: archived
-      .map((repository) => stringValue(repository.full_name))
+      .map((repository) => stringOrNull(repository.full_name))
       .filter((name): name is string => Boolean(name)),
     repositoriesTruncated: owned.truncated,
     summary: summarizeAccountMaintenance(repositories),

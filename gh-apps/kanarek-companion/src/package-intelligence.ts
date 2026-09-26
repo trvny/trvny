@@ -8,6 +8,7 @@ import {
   type PackageEcosystem,
   type PackageRegistryResult,
 } from './package-registry.ts';
+import { isObject, type JsonObject } from './tools/common.ts';
 
 export const PACKAGE_INTELLIGENCE_PATH = '/gpt-actions/packages/inspect';
 
@@ -21,7 +22,6 @@ const FETCH_TIMEOUT_MS = 8_000;
 const MAX_ADVISORIES = 12;
 const CHANGELOG_CANDIDATES = ['CHANGELOG.md', 'CHANGES.md', 'HISTORY.md', 'RELEASES.md'] as const;
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 type DirectFetch = typeof fetch;
 
@@ -51,10 +51,6 @@ export class PackageIntelligenceError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {

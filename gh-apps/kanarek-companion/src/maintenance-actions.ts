@@ -3,14 +3,13 @@ import {
   type GitHubInstallationClient,
 } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const MAINTENANCE_PATH = '/gpt-actions/github/maintenance/report';
 const ARTIFACT_DELETE_PATH = '/gpt-actions/github/maintenance/artifacts/delete';
 const CACHE_DELETE_PATH = '/gpt-actions/github/maintenance/caches/delete';
 const NON_PROBLEM_CONCLUSIONS = new Set(['success', 'neutral', 'skipped']);
-
-type JsonObject = Record<string, unknown>;
 
 class MaintenanceError extends Error {
   readonly code: string;
@@ -22,10 +21,6 @@ class MaintenanceError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -58,20 +53,6 @@ function nonNegativeInteger(value: unknown, name: string): number {
     throw new MaintenanceError(`invalid_${name}`);
   }
   return value;
-}
-
-function repoPath(value: string): string {
-  return value.split('/').map((part) => encodeURIComponent(part)).join('/');
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
@@ -135,43 +116,35 @@ async function gptomekClient(
   return createInstallationClient(appId, privateKey, installationId, fetcher);
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function compactPullRequest(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   const head = isObject(value.head) ? value.head : {};
   const headRepo = isObject(head.repo) ? head.repo : {};
   return {
-    number: numberValue(value.number),
-    title: stringValue(value.title),
+    number: numberOrNull(value.number),
+    title: stringOrNull(value.title),
     draft: value.draft === true,
-    headRef: stringValue(head.ref),
-    headSha: stringValue(head.sha),
-    headRepository: stringValue(headRepo.full_name),
-    htmlUrl: stringValue(value.html_url),
-    updatedAt: stringValue(value.updated_at),
+    headRef: stringOrNull(head.ref),
+    headSha: stringOrNull(head.sha),
+    headRepository: stringOrNull(headRepo.full_name),
+    htmlUrl: stringOrNull(value.html_url),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
 function compactRun(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   return {
-    id: numberValue(value.id),
-    name: stringValue(value.name),
-    status: stringValue(value.status),
-    conclusion: stringValue(value.conclusion),
-    event: stringValue(value.event),
-    headBranch: stringValue(value.head_branch),
-    headSha: stringValue(value.head_sha),
-    runAttempt: numberValue(value.run_attempt),
-    htmlUrl: stringValue(value.html_url),
-    updatedAt: stringValue(value.updated_at),
+    id: numberOrNull(value.id),
+    name: stringOrNull(value.name),
+    status: stringOrNull(value.status),
+    conclusion: stringOrNull(value.conclusion),
+    event: stringOrNull(value.event),
+    headBranch: stringOrNull(value.head_branch),
+    headSha: stringOrNull(value.head_sha),
+    runAttempt: numberOrNull(value.run_attempt),
+    htmlUrl: stringOrNull(value.html_url),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
@@ -179,27 +152,27 @@ function compactArtifact(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   const workflowRun = isObject(value.workflow_run) ? value.workflow_run : {};
   return {
-    id: numberValue(value.id),
-    name: stringValue(value.name),
-    sizeBytes: numberValue(value.size_in_bytes),
+    id: numberOrNull(value.id),
+    name: stringOrNull(value.name),
+    sizeBytes: numberOrNull(value.size_in_bytes),
     expired: value.expired === true,
-    createdAt: stringValue(value.created_at),
-    updatedAt: stringValue(value.updated_at),
-    expiresAt: stringValue(value.expires_at),
-    workflowRunId: numberValue(workflowRun.id),
+    createdAt: stringOrNull(value.created_at),
+    updatedAt: stringOrNull(value.updated_at),
+    expiresAt: stringOrNull(value.expires_at),
+    workflowRunId: numberOrNull(workflowRun.id),
   };
 }
 
 function compactCache(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   return {
-    id: numberValue(value.id),
-    key: stringValue(value.key),
-    ref: stringValue(value.ref),
-    version: stringValue(value.version),
-    sizeBytes: numberValue(value.size_in_bytes),
-    createdAt: stringValue(value.created_at),
-    lastAccessedAt: stringValue(value.last_accessed_at),
+    id: numberOrNull(value.id),
+    key: stringOrNull(value.key),
+    ref: stringOrNull(value.ref),
+    version: stringOrNull(value.version),
+    sizeBytes: numberOrNull(value.size_in_bytes),
+    createdAt: stringOrNull(value.created_at),
+    lastAccessedAt: stringOrNull(value.last_accessed_at),
   };
 }
 
@@ -264,8 +237,8 @@ export function unattachedBranches(
       const branch = raw as JsonObject;
       const commit = isObject(branch.commit) ? branch.commit : {};
       return {
-        name: stringValue(branch.name),
-        headSha: stringValue(commit.sha),
+        name: stringOrNull(branch.name),
+        headSha: stringOrNull(commit.sha),
         protected: branch.protected === true,
       };
     });
@@ -328,7 +301,7 @@ async function maintenanceReport(
       name: repositoryName,
       defaultBranch: repositoryRaw.default_branch,
       archived: repositoryRaw.archived === true,
-      visibility: stringValue(repositoryRaw.visibility),
+      visibility: stringOrNull(repositoryRaw.visibility),
     },
     branches: {
       listedCount: branches.length,
@@ -341,7 +314,7 @@ async function maintenanceReport(
       recentProblemRuns: problemRuns,
     },
     artifacts: {
-      totalCount: isObject(artifactsRaw) ? numberValue(artifactsRaw.total_count) : null,
+      totalCount: isObject(artifactsRaw) ? numberOrNull(artifactsRaw.total_count) : null,
       listedCount: artifacts.length,
       listedBytes: listedArtifactBytes,
       expiredListedCount: expiredArtifacts,
@@ -352,9 +325,9 @@ async function maintenanceReport(
           : false,
     },
     cache: {
-      activeCount: isObject(cacheRaw) ? numberValue(cacheRaw.active_caches_count) : null,
-      activeBytes: isObject(cacheRaw) ? numberValue(cacheRaw.active_caches_size_in_bytes) : null,
-      totalCount: isObject(cachesRaw) ? numberValue(cachesRaw.total_count) : null,
+      activeCount: isObject(cacheRaw) ? numberOrNull(cacheRaw.active_caches_count) : null,
+      activeBytes: isObject(cacheRaw) ? numberOrNull(cacheRaw.active_caches_size_in_bytes) : null,
+      totalCount: isObject(cachesRaw) ? numberOrNull(cachesRaw.total_count) : null,
       listedCount: caches.length,
       items: cacheItems,
       truncated:

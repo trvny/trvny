@@ -5,6 +5,7 @@ import {
 } from './autopilot-checkpoint.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
 import { loadGremlinPolicy, type GremlinPolicy } from './policy-actions.ts';
+import { isObject, type JsonObject } from './tools/common.ts';
 
 const CLOUDFLARE_API = 'https://api.cloudflare.com/client/v4';
 const OVERVIEW_PATH = '/gpt-actions/cloudflare/overview';
@@ -27,7 +28,6 @@ const MAX_ZONE_PAGES = 20;
 const MAX_PAGES_PROJECT_PAGES = 20;
 const ROUTE_SCAN_BATCH_SIZE = 25;
 
-type JsonObject = Record<string, unknown>;
 type MutationKey = keyof GremlinPolicy['runtime']['cloudflare']['mutations'];
 
 interface CloudflareActionEnv extends GptActionsEnv {
@@ -59,10 +59,6 @@ class CloudflareActionError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {

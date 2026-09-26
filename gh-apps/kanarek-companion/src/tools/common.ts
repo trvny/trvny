@@ -16,6 +16,31 @@ export function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+export function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+export function numberOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+// `owner/name` for GitHub API paths, each segment encoded.
+export function repoPath(repository: string): string {
+  return repository.split('/').map(encodeURIComponent).join('/');
+}
+
+// POST to another route of this Worker with the caller's headers, for
+// composing actions in-process.
+export function internalRequest(source: Request, pathname: string, body: JsonObject = {}): Request {
+  const url = new URL(source.url);
+  url.pathname = pathname;
+  url.search = '';
+  const headers = new Headers(source.headers);
+  headers.set('content-type', 'application/json');
+  headers.delete('content-length');
+  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
+}
+
 export function assertSerializedSize(value: unknown, maxBytes: number): void {
   let serialized: string;
   try {

@@ -1,14 +1,11 @@
-type JsonObject = Record<string, unknown>;
+import { isObject, type JsonObject } from './tools/common.ts';
+
 
 const GRAPHQL_PATH = '/graphql';
 const PAGE_SIZE = 100;
 const MAX_PAGES = 10;
 const THREAD_FIELD = 'reviewThreads(first: 100)';
 const QUERY_HEAD = 'query($id: ID!)';
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function pageConnection(payload: unknown): JsonObject | null {
   if (!isObject(payload) || !isObject(payload.data) || !isObject(payload.data.node)) return null;

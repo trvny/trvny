@@ -1,3 +1,5 @@
+import { isObject, type JsonObject } from './tools/common.ts';
+
 export type PackageEcosystem = 'npm' | 'pypi' | 'crates' | 'maven' | 'nuget';
 
 export type PackageAlternative = {
@@ -26,7 +28,6 @@ export type PackageRegistryResult = {
   registryVulnerabilities: Array<{ url: string | null; severity: string | null }>;
 };
 
-type JsonObject = Record<string, unknown>;
 type JsonFetcher = (url: string, init?: RequestInit) => Promise<unknown>;
 type TextFetcher = (url: string, init?: RequestInit) => Promise<string>;
 
@@ -40,10 +41,6 @@ export class PackageRegistryError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function text(value: unknown): string | null {

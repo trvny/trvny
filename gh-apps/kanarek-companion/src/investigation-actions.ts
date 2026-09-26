@@ -1,10 +1,9 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const CODE_INVESTIGATION_PATH = '/gpt-actions/github/code/investigate';
 const SHA_RE = /^[0-9a-f]{40}$/i;
-
-type JsonObject = Record<string, unknown>;
 
 class InvestigationError extends Error {
   readonly code: string;
@@ -16,10 +15,6 @@ class InvestigationError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -130,22 +125,8 @@ export function buildCodeSearchQuery(
   ].join(' ');
 }
 
-function repoPath(value: string): string {
-  return value.split('/').map((part) => encodeURIComponent(part)).join('/');
-}
-
 function filePath(value: string): string {
   return value.split('/').map((part) => encodeURIComponent(part)).join('/');
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
@@ -249,24 +230,16 @@ export function buildCodeSnippets(
   }));
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function compactHistory(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
   const commit = isObject(value.commit) ? value.commit : {};
   const author = isObject(commit.author) ? commit.author : {};
-  const message = stringValue(commit.message);
+  const message = stringOrNull(commit.message);
   return {
-    sha: stringValue(value.sha),
+    sha: stringOrNull(value.sha),
     message: message ? message.split(/\r?\n/, 1)[0].slice(0, 500) : null,
-    date: stringValue(author.date),
-    htmlUrl: stringValue(value.html_url),
+    date: stringOrNull(author.date),
+    htmlUrl: stringOrNull(value.html_url),
   };
 }
 
@@ -338,9 +311,9 @@ async function investigateCode(
       if (contentResponse.status === 404) {
         return {
           path: raw.path,
-          searchSha: stringValue(raw.sha),
+          searchSha: stringOrNull(raw.sha),
           contentSha: null,
-          searchHtmlUrl: stringValue(raw.html_url),
+          searchHtmlUrl: stringOrNull(raw.html_url),
           size: null,
           snippets: [],
           contentAvailable: false,
@@ -365,10 +338,10 @@ async function investigateCode(
         : [];
       return {
         path: raw.path,
-        searchSha: stringValue(raw.sha),
-        contentSha: isObject(contentRaw) ? stringValue(contentRaw.sha) : null,
-        searchHtmlUrl: stringValue(raw.html_url),
-        size: isObject(contentRaw) ? numberValue(contentRaw.size) : null,
+        searchSha: stringOrNull(raw.sha),
+        contentSha: isObject(contentRaw) ? stringOrNull(contentRaw.sha) : null,
+        searchHtmlUrl: stringOrNull(raw.html_url),
+        size: isObject(contentRaw) ? numberOrNull(contentRaw.size) : null,
         snippets: content ? buildCodeSnippets(content, searchTerms) : [],
         contentAvailable: content !== null,
         missingAtRef: false,
@@ -388,7 +361,7 @@ async function investigateCode(
     },
     filters: { path: path ?? null, language: language ?? null },
     terms: searchTerms,
-    totalCount: numberValue(search.total_count),
+    totalCount: numberOrNull(search.total_count),
     incompleteResults: search.incomplete_results === true,
     note:
       snapshot.requestedRef === snapshot.defaultBranch

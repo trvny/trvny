@@ -1,13 +1,10 @@
-type JsonObject = Record<string, unknown>;
+import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+
 
 type WorkerFetch = (request: Request) => Promise<Response>;
 
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const REPOSITORY_RE = /^trvny\/[A-Za-z0-9_.-]+$/;
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 async function responseObject(response: Response): Promise<JsonObject | null> {
   try {
@@ -25,10 +22,6 @@ async function requestObject(request: Request): Promise<JsonObject | null> {
   } catch {
     return null;
   }
-}
-
-function repoPath(repository: string): string {
-  return repository.split('/').map(encodeURIComponent).join('/');
 }
 
 function refPath(branch: string): string {

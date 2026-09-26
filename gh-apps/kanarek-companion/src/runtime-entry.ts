@@ -45,6 +45,7 @@ import {
   WebhookReviewJob,
   type WebhookReviewEnv,
 } from './webhook-review.ts';
+import { isObject, type JsonObject } from './tools/common.ts';
 
 export {
   actionFetch,
@@ -56,7 +57,6 @@ export {
 };
 
 type WorkerEnv = Parameters<typeof worker.fetch>[1];
-type JsonObject = Record<string, unknown>;
 type Env = WorkerEnv &
   WebhookReviewEnv & {
     CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
@@ -95,10 +95,6 @@ const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
 const SMOKE_PATH = '/gpt-actions/operator/smoke';
 const HEALTH_PATH = '/health';
 const WEBHOOK_PATH = '/webhooks/github';
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, {

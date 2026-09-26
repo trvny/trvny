@@ -1,11 +1,10 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const BOT_PATH = '/gpt-actions/github/bot';
 const ISSUE_CONTEXT_PATH = '/gpt-actions/github/issues/context';
 const ISSUE_TRIAGE_PATH = '/gpt-actions/github/issues/triage';
-
-type JsonObject = Record<string, unknown>;
 
 class IssueActionError extends Error {
   readonly code: string;
@@ -17,10 +16,6 @@ class IssueActionError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -39,20 +34,6 @@ function issueNumber(value: unknown): number {
     throw new IssueActionError('invalid_issue_number');
   }
   return value;
-}
-
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
@@ -115,69 +96,61 @@ async function botData(
   return (await responsePayload(response)).data;
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function compactUser(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
-  return { login: stringValue(value.login), id: numberValue(value.id) };
+  return { login: stringOrNull(value.login), id: numberOrNull(value.id) };
 }
 
 function labelNames(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) => (isObject(entry) ? stringValue(entry.name) : stringValue(entry)))
+    .map((entry) => (isObject(entry) ? stringOrNull(entry.name) : stringOrNull(entry)))
     .filter((entry): entry is string => Boolean(entry));
 }
 
 function assigneeNames(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
-    .map((entry) => (isObject(entry) ? stringValue(entry.login) : null))
+    .map((entry) => (isObject(entry) ? stringOrNull(entry.login) : null))
     .filter((entry): entry is string => Boolean(entry));
 }
 
 function compactIssue(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
-  const body = stringValue(value.body);
+  const body = stringOrNull(value.body);
   const milestone = isObject(value.milestone) ? value.milestone : null;
   return {
-    number: numberValue(value.number),
-    title: stringValue(value.title),
+    number: numberOrNull(value.number),
+    title: stringOrNull(value.title),
     body: body ? body.slice(0, 12_000) : null,
-    state: stringValue(value.state),
-    stateReason: stringValue(value.state_reason),
+    state: stringOrNull(value.state),
+    stateReason: stringOrNull(value.state_reason),
     isPullRequest: isObject(value.pull_request),
     user: compactUser(value.user),
     labels: labelNames(value.labels),
     assignees: assigneeNames(value.assignees),
     milestone: milestone
-      ? { number: numberValue(milestone.number), title: stringValue(milestone.title) }
+      ? { number: numberOrNull(milestone.number), title: stringOrNull(milestone.title) }
       : null,
-    comments: numberValue(value.comments),
+    comments: numberOrNull(value.comments),
     locked: value.locked === true,
-    htmlUrl: stringValue(value.html_url),
-    createdAt: stringValue(value.created_at),
-    updatedAt: stringValue(value.updated_at),
-    closedAt: stringValue(value.closed_at),
+    htmlUrl: stringOrNull(value.html_url),
+    createdAt: stringOrNull(value.created_at),
+    updatedAt: stringOrNull(value.updated_at),
+    closedAt: stringOrNull(value.closed_at),
   };
 }
 
 function compactComment(value: unknown): JsonObject | null {
   if (!isObject(value)) return null;
-  const body = stringValue(value.body);
+  const body = stringOrNull(value.body);
   return {
-    id: numberValue(value.id),
+    id: numberOrNull(value.id),
     user: compactUser(value.user),
     body: body ? body.slice(0, 4_000) : null,
-    htmlUrl: stringValue(value.html_url),
-    createdAt: stringValue(value.created_at),
-    updatedAt: stringValue(value.updated_at),
+    htmlUrl: stringOrNull(value.html_url),
+    createdAt: stringOrNull(value.created_at),
+    updatedAt: stringOrNull(value.updated_at),
   };
 }
 
@@ -188,27 +161,27 @@ function compactTimelineEvent(value: unknown): JsonObject | null {
   const rename = isObject(value.rename) ? value.rename : null;
   const label = isObject(value.label) ? value.label : null;
   const assignee = isObject(value.assignee) ? value.assignee : null;
-  const body = stringValue(value.body);
+  const body = stringOrNull(value.body);
   return {
-    id: numberValue(value.id),
-    event: stringValue(value.event),
+    id: numberOrNull(value.id),
+    event: stringOrNull(value.event),
     actor: compactUser(value.actor ?? value.user),
-    commitId: stringValue(value.commit_id),
-    createdAt: stringValue(value.created_at),
+    commitId: stringOrNull(value.commit_id),
+    createdAt: stringOrNull(value.created_at),
     body: body ? body.slice(0, 2_000) : null,
-    label: label ? stringValue(label.name) : null,
-    assignee: assignee ? stringValue(assignee.login) : null,
+    label: label ? stringOrNull(label.name) : null,
+    assignee: assignee ? stringOrNull(assignee.login) : null,
     rename: rename
-      ? { from: stringValue(rename.from), to: stringValue(rename.to) }
+      ? { from: stringOrNull(rename.from), to: stringOrNull(rename.to) }
       : null,
     sourceIssue: sourceIssue
       ? {
-          number: numberValue(sourceIssue.number),
-          title: stringValue(sourceIssue.title),
-          state: stringValue(sourceIssue.state),
+          number: numberOrNull(sourceIssue.number),
+          title: stringOrNull(sourceIssue.title),
+          state: stringOrNull(sourceIssue.state),
           isPullRequest: isObject(sourceIssue.pull_request),
-          htmlUrl: stringValue(sourceIssue.html_url),
-          repositoryUrl: stringValue(sourceIssue.repository_url),
+          htmlUrl: stringOrNull(sourceIssue.html_url),
+          repositoryUrl: stringOrNull(sourceIssue.repository_url),
         }
       : null,
   };
@@ -223,14 +196,14 @@ function relatedFromTimeline(events: unknown[]): { pullRequests: JsonObject[]; c
     const source = isObject(raw.source) ? raw.source : null;
     const issue = source && isObject(source.issue) ? source.issue : null;
     if (!issue || !isObject(issue.pull_request)) continue;
-    const url = stringValue(issue.html_url);
-    const key = url ?? `${stringValue(issue.repository_url)}#${numberValue(issue.number)}`;
+    const url = stringOrNull(issue.html_url);
+    const key = url ?? `${stringOrNull(issue.repository_url)}#${numberOrNull(issue.number)}`;
     pullRequests.set(key, {
-      number: numberValue(issue.number),
-      title: stringValue(issue.title),
-      state: stringValue(issue.state),
+      number: numberOrNull(issue.number),
+      title: stringOrNull(issue.title),
+      state: stringOrNull(issue.state),
       htmlUrl: url,
-      repositoryUrl: stringValue(issue.repository_url),
+      repositoryUrl: stringOrNull(issue.repository_url),
     });
   }
   return { pullRequests: [...pullRequests.values()], commits: [...commits] };

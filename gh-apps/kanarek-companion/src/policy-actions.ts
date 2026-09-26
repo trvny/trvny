@@ -1,4 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const BOOTSTRAP_PATH = '/gpt-actions/operator/bootstrap';
@@ -18,7 +19,6 @@ const DEFAULT_CACHE_STALE_DAYS = 5;
 const MIN_CACHE_MAX_BYTES = 64 * 1024 * 1024;
 const MAX_CACHE_MAX_BYTES = 100 * 1024 * 1024 * 1024;
 
-type JsonObject = Record<string, unknown>;
 type Autonomy = 'low' | 'medium' | 'high';
 type OperatingMode = 'ask_first' | 'plan_then_act' | 'act_then_report';
 type MergeMethod = 'merge' | 'squash' | 'rebase';
@@ -145,10 +145,6 @@ const GATEWAY_CAPABILITIES = [
   'domain_knowledge',
   'cloudflare_operator',
 ] as const;
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
@@ -516,10 +512,6 @@ export function parseGremlinPolicy(value: unknown): GremlinPolicy {
       },
     },
   };
-}
-
-function repoPath(repository: string): string {
-  return repository.split('/').map((part) => encodeURIComponent(part)).join('/');
 }
 
 function contentPath(path: string): string {

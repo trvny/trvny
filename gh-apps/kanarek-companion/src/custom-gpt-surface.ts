@@ -1,4 +1,5 @@
-type JsonObject = Record<string, unknown>;
+import { isObject, type JsonObject } from './tools/common.ts';
+
 
 const HTTP_METHODS = new Set([
   'get',
@@ -49,10 +50,6 @@ export const CUSTOM_GPT_OPERATION_IDS = [
 ] as const;
 
 const CUSTOM_GPT_OPERATION_SET = new Set<string>(CUSTOM_GPT_OPERATION_IDS);
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
 
 function operationIds(document: JsonObject): Set<string> {
   const ids = new Set<string>();

@@ -1,3 +1,5 @@
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+
 export const SYMBOL_INVESTIGATION_PATH = '/gpt-actions/github/code/symbol';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -5,7 +7,6 @@ const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_CONTENT_BYTES = 400_000;
 const MAX_OCCURRENCES_PER_FILE = 30;
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 type SymbolKind = 'definition' | 'import' | 'implementation' | 'reference';
 type Confidence = 'high' | 'medium';
@@ -37,10 +38,6 @@ class SymbolInvestigationError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -194,25 +191,13 @@ async function readData(source: Request, invoke: Invoke, path: string): Promise<
   return (await responseObject(await invoke(internalRequest(source, path)))).data;
 }
 
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
-}
-
 function filePath(value: string): string {
   return value.split('/').map(encodeURIComponent).join('/');
 }
 
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function decodeContent(value: unknown): string | null {
   if (!isObject(value) || value.encoding !== 'base64' || typeof value.content !== 'string') return null;
-  const size = numberValue(value.size);
+  const size = numberOrNull(value.size);
   if (size !== null && size > MAX_CONTENT_BYTES) return null;
   try {
     const binary = atob(value.content.replace(/\s/g, ''));
@@ -416,9 +401,9 @@ async function investigateSymbol(source: Request, invoke: Invoke): Promise<Respo
         testFile: likelyTestPath(path),
         contentAvailable: content !== null,
         missingAtRef: false,
-        contentSha: isObject(contentRaw) ? stringValue(contentRaw.sha) : null,
-        size: isObject(contentRaw) ? numberValue(contentRaw.size) : null,
-        searchHtmlUrl: stringValue(item.html_url),
+        contentSha: isObject(contentRaw) ? stringOrNull(contentRaw.sha) : null,
+        size: isObject(contentRaw) ? numberOrNull(contentRaw.size) : null,
+        searchHtmlUrl: stringOrNull(item.html_url),
         occurrences,
       };
     }),
@@ -448,7 +433,7 @@ async function investigateSymbol(source: Request, invoke: Invoke): Promise<Respo
       language: input.language ?? null,
       maxFiles: input.maxFiles,
     },
-    totalCount: numberValue(searchRaw.total_count),
+    totalCount: numberOrNull(searchRaw.total_count),
     incompleteResults: searchRaw.incomplete_results === true,
     summary: {
       files: files.length,

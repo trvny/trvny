@@ -25,10 +25,10 @@ jobs:
         with:
           node-version: 24
       - name: Run .bot/run.sh
-        if: hashFiles('.bot/run.sh') != ''
+        if: hashFiles('.bot/run.sh') != '' && hashFiles('.bot/cleanup') == ''
         run: bash .bot/run.sh
       - name: Commit result
-        if: hashFiles('.bot/run.sh') != ''
+        if: hashFiles('.bot/run.sh') != '' && hashFiles('.bot/cleanup') == ''
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
         run: |
@@ -48,5 +48,22 @@ jobs:
             exit 1
           fi
           echo "GITHUB_TOKEN push failed; retrying with GH_PAT."
+          git -c http.https://github.com/.extraheader= push \
+            "https://x-access-token:${GH_PAT}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"
+      # GITHUB_TOKEN may not touch workflow files, so removing this runner
+      # needs GH_PAT with workflow scope. Its push also triggers normal CI.
+      - name: Remove runner
+        if: hashFiles('.bot/cleanup') != ''
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "$GH_PAT" ]; then
+            echo "::error::GH_PAT is required to delete workflow files."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -rq .bot .github/workflows/bot-run.yml
+          git commit -m "chore(bot): remove runner" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
           git -c http.https://github.com/.extraheader= push \
             "https://x-access-token:${GH_PAT}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${GITHUB_REF_NAME}"

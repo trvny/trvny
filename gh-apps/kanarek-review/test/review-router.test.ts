@@ -6,6 +6,7 @@ import {
   reviewProviderPoolHealth,
 } from '../src/review-router.ts';
 import { ReviewProviderCooldownStore } from '../../kanarek-companion/src/review-cooldown-store.ts';
+import { REVIEW_PROVIDER_EXCLUDE_HEADER } from '../../kanarek-companion/src/review-service-protocol.ts';
 
 const base = 'https://kanarek-review.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;
@@ -85,6 +86,65 @@ test('review router rejects an invalid bearer before provider access', async () 
   }) as typeof fetch);
 
   assert.equal(response?.status, 401);
+  assert.equal(calls, 0);
+});
+
+test('review router excludes the reviewer provider for an independent judge call', async () => {
+  const calls: string[] = [];
+  const judgeRequest = new Request(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${routerToken}`,
+      'Content-Type': 'application/json',
+      [REVIEW_PROVIDER_EXCLUDE_HEADER]: 'openrouter',
+    },
+    body: JSON.stringify({
+      model: 'kanarek-review-free',
+      stream: false,
+      messages: [{ role: 'user', content: 'judge' }],
+    }),
+  });
+  const response = await handleReviewRouterRequest(judgeRequest, {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key',
+  }, ((input: RequestInfo | URL) => {
+    calls.push(String(input));
+    return Promise.resolve(Response.json({
+      model: 'different/free-model',
+      choices: [{ message: { role: 'assistant', content: '{}' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.deepEqual(calls, ['https://api.orcarouter.ai/v1/chat/completions']);
+});
+
+test('review router fails closed when the judge excludes the only configured provider', async () => {
+  let calls = 0;
+  const judgeRequest = new Request(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${routerToken}`,
+      'Content-Type': 'application/json',
+      [REVIEW_PROVIDER_EXCLUDE_HEADER]: 'orcarouter',
+    },
+    body: JSON.stringify({
+      model: 'kanarek-review-free',
+      stream: false,
+      messages: [{ role: 'user', content: 'judge' }],
+    }),
+  });
+  const response = await handleReviewRouterRequest(judgeRequest, {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orca-key',
+  }, (() => {
+    calls += 1;
+    return Promise.resolve(new Response());
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 503);
   assert.equal(calls, 0);
 });
 

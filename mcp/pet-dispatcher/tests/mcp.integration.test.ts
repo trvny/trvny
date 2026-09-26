@@ -19,9 +19,20 @@ const config: DispatcherConfig = {
   geminiModel: "gemini-2.5-flash",
 };
 
-test("MCP surface initializes and exposes the confined tool set", async () => {
+test("MCP surface initializes and exposes the confined tool set", async (t) => {
   const sessions = new SessionManager(config);
-  const runner = await CommandRunner.create(config, sessions);
+  let runner: CommandRunner;
+  try {
+    runner = await CommandRunner.create(config, sessions);
+  } catch (error) {
+    sessions.dispose();
+    // CI installs the MXC backend and must keep failing loudly without it.
+    if (!process.env.CI && String(error).includes("MXC sandbox is unavailable")) {
+      t.skip("MXC sandbox backend is not installed here");
+      return;
+    }
+    throw error;
+  }
   const server = createServer(config, sessions, runner);
   const client = new Client({ name: "pet-dispatcher-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

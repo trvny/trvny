@@ -23,11 +23,7 @@ const WORKERS_AI_OUTPUT_NEURONS_PER_MILLION = 36_400;
 const WORKERS_AI_MAX_OUTPUT_TOKENS = 4_096;
 const WORKERS_AI_HIDDEN_OUTPUT_TOKEN_FACTOR = 2;
 const WORKERS_AI_RESERVATION_SAFETY_FACTOR = 1.25;
-const DEFAULT_REVIEW_ORCAROUTER_MODELS = [
-  'z-ai/glm-5.3-flash-free',
-  'tencent/hy3-free',
-  'deepseek/deepseek-v4-flash-free',
-] as const;
+const DEFAULT_REVIEW_ORCAROUTER_MODELS = ['orcarouter/free'] as const;
 const DEFAULT_REVIEW_OLLAMA_MODELS = [
   'gpt-oss:120b',
   'gpt-oss:20b',
@@ -161,9 +157,9 @@ function providers(env: ReviewRouterEnv, includeGeminiFlex = false): readonly Re
       apiKey: (providerEnv) => providerEnv.AI_GATEWAY_API_KEY,
     },
     {
-      // Tried before the credit-backed HF reserve: OrcaRouter's free tier applies an undisclosed, small per-request
-      // prompt-token cap for accounts below a lifetime-spend threshold, independent of
-      // the model's real context window - our diff+context payload routinely exceeds it.
+      // Tried before the credit-backed HF reserve. orcarouter/free resolves the workspace's
+      // current zero-cost pool server-side, so this router does not pin rotating -free aliases.
+      // OrcaRouter's free tier can still enforce account-level per-request limits.
       id: 'orcarouter',
       url: 'https://api.orcarouter.ai/v1/chat/completions',
       model: orcaRouterModels[0] ?? DEFAULT_REVIEW_ORCAROUTER_MODELS[0],

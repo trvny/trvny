@@ -1,7 +1,0 @@
-chore(deps): pin status-mcp and pet-dispatcher to locked versions
-
-Replace ^ ranges with the exact versions already in the lockfiles, matching
-the other projects; resolution is unchanged. Add status-mcp `check`
-(typecheck, tests, dry-run bundle) so Workers Builds can gate on it.
-
-Co-Authored-By: Claude <noreply@anthropic.com>

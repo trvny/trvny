@@ -24,6 +24,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 1.10.18
       - name: Run .bot/run.sh
         if: hashFiles('.bot/run.sh') != '' && hashFiles('.bot/cleanup') == ''
         env:

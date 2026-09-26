@@ -135,7 +135,7 @@ test("OpenRouter compatibility executor falls back to the next healthy OpenAI ba
     const tools = { execute: () => Promise.reject(new Error("no tools expected")) } as unknown as AgentTools;
     const result = await runRoutedOpenAI(config, tools, "session", "goal");
     assert.equal(result.provider, "orcarouter");
-    assert.equal(result.model, "orcarouter/free");
+    assert.equal(result.model, "orcarouter/auto");
     assert.equal(requestUrl, "https://api.orcarouter.ai/v1/chat/completions");
     assert.equal(authorization, "Bearer test-orca-only");
   } finally {

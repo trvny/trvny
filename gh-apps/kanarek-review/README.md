@@ -60,6 +60,12 @@ are therefore a quality/order policy rather than a technical requirement;
 `openrouter/free` remains the catch-all fallback. OpenRouter may retry its
 primary model without a fallback array when the provider rejects the array itself.
 
+OrcaRouter is configured through `orcarouter/free` rather than pinned `-free`
+model aliases. OrcaRouter resolves the workspace's current free pool at request
+time and does not consume wallet balance. `orcarouter/auto` is intentionally
+not part of the strict free pool because the adaptive route may select paid
+models.
+
 Gemini uses the OpenAI-compatible Gemini endpoint with
 `service_tier: "flex"`. Flex is a paid, lower-cost, sheddable tier: 429/503
 responses enter the same cooldown/fallback path as other transient provider

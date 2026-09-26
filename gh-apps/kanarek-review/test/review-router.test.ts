@@ -203,7 +203,7 @@ test('review router normalizes Copilot tool follow-ups for free providers', asyn
   assert.deepEqual(messages[2], { role: 'tool', tool_call_id: 'call_1', content: 'diff' });
 });
 
-test('review router prefers the explicit OrcaRouter free model chain', async () => {
+test('review router uses the OrcaRouter free route alias', async () => {
   const calls: Array<{ url: string; model: unknown; models: unknown; authorization: string | null }> = [];
   const fetcher = ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
@@ -212,7 +212,6 @@ test('review router prefers the explicit OrcaRouter free model chain', async () 
       url: String(input), model: body.model, models: body.models,
       authorization: headers.get('authorization'),
     });
-    if (calls.length < 3) return Promise.resolve(new Response('quota', { status: 429 }));
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch;
 
@@ -223,9 +222,7 @@ test('review router prefers the explicit OrcaRouter free model chain', async () 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.deepEqual(calls.map(({ url, model, models }) => ({ url, model, models })), [
-    { url: 'https://api.orcarouter.ai/v1/chat/completions', model: 'z-ai/glm-5.3-flash-free', models: undefined },
-    { url: 'https://api.orcarouter.ai/v1/chat/completions', model: 'tencent/hy3-free', models: undefined },
-    { url: 'https://api.orcarouter.ai/v1/chat/completions', model: 'deepseek/deepseek-v4-flash-free', models: undefined },
+    { url: 'https://api.orcarouter.ai/v1/chat/completions', model: 'orcarouter/free', models: undefined },
   ]);
   assert.equal(calls.every((call) => call.authorization === 'Bearer orca-key'), true);
 });
@@ -291,14 +288,12 @@ test('review router cools down a quota-limited provider across Copilot retries',
   const firstUrls: string[] = [];
   const first = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
     firstUrls.push(String(input));
-    if (firstUrls.length <= 3) return Promise.resolve(new Response('quota', { status: 429 }));
+    if (firstUrls.length <= 1) return Promise.resolve(new Response('quota', { status: 429 }));
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
   assert.equal(first?.status, 200);
   assert.deepEqual(firstUrls, [
     'https://openrouter.ai/api/v1/chat/completions',
-    'https://api.orcarouter.ai/v1/chat/completions',
-    'https://api.orcarouter.ai/v1/chat/completions',
     'https://api.orcarouter.ai/v1/chat/completions',
   ]);
 
@@ -328,14 +323,14 @@ test('review router fails fast while the whole free pool is quota-cooled', async
     return Promise.resolve(new Response('quota', { status: 429 }));
   }) as typeof fetch);
   assert.equal(exhausted?.status, 429);
-  assert.equal(calls, 5);
+  assert.equal(calls, 3);
 
   const retry = await handleReviewRouterRequest(request(), env, (() => {
     calls += 1;
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
   assert.equal(retry?.status, 429);
-  assert.equal(calls, 5);
+  assert.equal(calls, 3);
   const payload = (await retry?.json()) as { error?: { message?: string } };
   assert.match(payload.error?.message ?? '', /cooldown_http_429/);
   assert.match(payload.error?.message ?? '', /cooldown_soft_quota/);
@@ -577,7 +572,7 @@ test('review router reaches OrcaRouter as the last resort after AIHubMix fails',
     ...auth, AIHUBMIX_API_KEY: 'aihubmix-key', ORCAROUTER_API_KEY: 'orca-key',
   }, ((input: RequestInfo | URL) => {
     urls.push(String(input));
-    if (urls.length <= 3) return Promise.resolve(new Response('busy', { status: 503 }));
+    if (urls.length <= 1) return Promise.resolve(new Response('busy', { status: 503 }));
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
   }) as typeof fetch);
 
@@ -585,8 +580,6 @@ test('review router reaches OrcaRouter as the last resort after AIHubMix fails',
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.deepEqual(urls, [
     'https://aihubmix.com/v1/chat/completions',
-    'https://api.orcarouter.ai/v1/chat/completions',
-    'https://api.orcarouter.ai/v1/chat/completions',
     'https://api.orcarouter.ai/v1/chat/completions',
   ]);
 });
@@ -690,7 +683,7 @@ test('review router uses Hugging Face PublicAI as the final HTTP reserve', async
     model: 'aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai',
     authorization: 'Bearer hf-key',
   }]);
-  assert.equal(calls.filter((call) => call.url.startsWith('https://api.orcarouter.ai/')).length, 3);
+  assert.equal(calls.filter((call) => call.url.startsWith('https://api.orcarouter.ai/')).length, 1);
 });
 
 test('review provider health includes Hugging Face PublicAI', async () => {

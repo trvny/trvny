@@ -9,6 +9,7 @@ import {
 } from '../src/review-service.ts';
 import {
   REVIEW_ROUTER_MODELS_PATH,
+  REVIEW_ROUTER_PATH,
   REVIEW_SERVICE_INTERNAL_BEARER,
   REVIEW_SERVICE_TRUST_HEADER,
   REVIEW_SERVICE_TRUST_VALUE,
@@ -55,6 +56,60 @@ test('review service adapter forwards through the binding and preserves retry po
   assert.equal(trustHeader, REVIEW_SERVICE_TRUST_VALUE);
   const body = await response?.json() as { data?: Array<{ id?: string }> };
   assert.equal(body.data?.[0]?.id, 'remote-review');
+});
+
+test('review service keeps the PR-review contract separate from the shared router', async () => {
+  const requestBody = {
+    model: 'kanarek-review',
+    stream: false,
+    max_tokens: 4_096,
+    messages: [
+      { role: 'system', content: 'Review-specific system contract.' },
+      { role: 'user', content: 'Fake PR context.' },
+    ],
+  };
+  let forwardedBody: Record<string, unknown> = {};
+  const fakeReview = {
+    model: 'deepseek/deepseek-v4-flash-free',
+    choices: [{
+      finish_reason: 'stop',
+      message: {
+        role: 'assistant',
+        content: JSON.stringify({
+          summary: '测试完成。',
+          findings: [],
+        }),
+      },
+    }],
+  };
+
+  const response = await handleReviewRouterViaService(
+    new Request(`https://kanarek.example${REVIEW_ROUTER_PATH}`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    }),
+    {
+      ...localEnv,
+      KANAREK_REVIEW_SERVICE: {
+        async fetch(input) {
+          const request = input instanceof Request ? input : new Request(input);
+          forwardedBody = JSON.parse(await request.text()) as Record<string, unknown>;
+          return Response.json(fakeReview, {
+            headers: { 'x-kanarek-review-provider': 'orcarouter' },
+          });
+        },
+      },
+    },
+  );
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.deepEqual(forwardedBody, requestBody);
+  assert.deepEqual(await response?.json(), fakeReview);
 });
 
 

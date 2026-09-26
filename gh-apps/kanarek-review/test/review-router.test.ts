@@ -227,6 +227,88 @@ test('review router uses the OrcaRouter auto resolver', async () => {
   assert.equal(calls.every((call) => call.authorization === 'Bearer orca-key'), true);
 });
 
+test('OrcaRouter auto keeps generic free-router calls provider-only', async () => {
+  const messages = [
+    { role: 'system', content: 'Write one short quip. No code review.' },
+    { role: 'user', content: '{"status":"ready"}' },
+  ];
+  let upstreamBody: Record<string, unknown> = {};
+  const upstreamPayload = {
+    id: 'fake-quip',
+    model: 'deepseek/deepseek-v4-flash-free',
+    choices: [{
+      finish_reason: 'stop',
+      message: { role: 'assistant', content: 'Fake quip from the shared free router.' },
+    }],
+  };
+
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 256,
+    messages,
+  }), {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orca-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    upstreamBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json(upstreamPayload));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.equal(upstreamBody.model, 'orcarouter/auto');
+  assert.deepEqual(upstreamBody.messages, messages);
+  assert.equal(upstreamBody.max_tokens, 256);
+  assert.deepEqual(await response?.json(), upstreamPayload);
+});
+
+test('OrcaRouter auto passes a fake PR-review payload without owning review semantics', async () => {
+  const messages = [
+    { role: 'system', content: 'Return the caller-defined review JSON contract.' },
+    { role: 'user', content: 'Fake diff: + return unsafe(input)' },
+  ];
+  let upstreamBody: Record<string, unknown> = {};
+  const reviewJson = JSON.stringify({
+    summary: '发现一个问题。',
+    findings: [{
+      severity: 'high',
+      path: 'src/demo.ts',
+      line: 7,
+      title: '输入未经校验',
+      body: '普通调用路径会接受未校验输入。',
+    }],
+  });
+  const upstreamPayload = {
+    id: 'fake-review',
+    model: 'deepseek/deepseek-v4-flash-free',
+    choices: [{
+      finish_reason: 'stop',
+      message: { role: 'assistant', content: reviewJson },
+    }],
+  };
+
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review',
+    stream: false,
+    max_tokens: 4_096,
+    messages,
+  }), {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orca-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    upstreamBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json(upstreamPayload));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.equal(upstreamBody.model, 'orcarouter/auto');
+  assert.deepEqual(upstreamBody.messages, messages);
+  assert.equal(upstreamBody.max_tokens, 4_096);
+  assert.deepEqual(await response?.json(), upstreamPayload);
+});
+
 test('review router honors the shared configured OpenRouter model chain', async () => {
   let body: { model?: unknown; models?: unknown } = {};
   const response = await handleReviewRouterRequest(request(), {

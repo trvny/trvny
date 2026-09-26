@@ -227,6 +227,129 @@ test('review router uses the OrcaRouter auto resolver', async () => {
   assert.equal(calls.every((call) => call.authorization === 'Bearer orca-key'), true);
 });
 
+test('judge-style fake call falls through after OrcaRouter rejects an oversized payload', async () => {
+  const calls: Array<{ url: string; model: unknown; maxTokens: unknown }> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 1_024,
+    messages: [
+      { role: 'system', content: 'Judge only the supplied findings.' },
+      { role: 'user', content: JSON.stringify({ findings: ['x'.repeat(12_000)] }) },
+    ],
+  }), {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orca-key',
+    HUGGINGFACE_API_KEY: 'hf-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const body = JSON.parse(String(init?.body)) as { model?: unknown; max_tokens?: unknown };
+    calls.push({ url, model: body.model, maxTokens: body.max_tokens });
+    if (url.includes('orcarouter.ai')) {
+      return Promise.resolve(new Response('payload too large', { status: 413 }));
+    }
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'huggingface-publicai');
+  assert.deepEqual(calls.map(({ url }) => url), [
+    'https://api.orcarouter.ai/v1/chat/completions',
+    'https://router.huggingface.co/v1/chat/completions',
+  ]);
+  assert.equal(calls[0]?.model, 'orcarouter/auto');
+  assert.equal(calls.every(({ maxTokens }) => maxTokens === 1_024), true);
+});
+
+test('OrcaRouter context-window rejection falls through without poisoning later compact calls', async () => {
+  const env = {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orca-key',
+    HUGGINGFACE_API_KEY: 'hf-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+  };
+  const firstUrls: string[] = [];
+  const first = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 1_024,
+    messages: [{ role: 'user', content: 'x'.repeat(20_000) }],
+  }), env, ((input: RequestInfo | URL) => {
+    const url = String(input);
+    firstUrls.push(url);
+    if (url.includes('orcarouter.ai')) {
+      return Promise.resolve(Response.json(
+        { error: { message: 'context length exceeded: too many tokens' } },
+        { status: 400 },
+      ));
+    }
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(first?.status, 200);
+  assert.deepEqual(firstUrls, [
+    'https://api.orcarouter.ai/v1/chat/completions',
+    'https://router.huggingface.co/v1/chat/completions',
+  ]);
+
+  const secondUrls: string[] = [];
+  const second = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 512,
+    messages: [{ role: 'user', content: 'compact judge request' }],
+  }), env, ((input: RequestInfo | URL) => {
+    secondUrls.push(String(input));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(second?.status, 200);
+  assert.equal(second?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.deepEqual(secondUrls, ['https://api.orcarouter.ai/v1/chat/completions']);
+});
+
+test('OrcaRouter judge quota is cooled down and the fake judge falls through', async () => {
+  const env = {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orca-key',
+    HUGGINGFACE_API_KEY: 'hf-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
+  };
+  const firstUrls: string[] = [];
+  const first = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 512,
+    messages: [{ role: 'user', content: 'judge these findings' }],
+  }), env, ((input: RequestInfo | URL) => {
+    const url = String(input);
+    firstUrls.push(url);
+    if (url.includes('orcarouter.ai')) return Promise.resolve(new Response('quota', { status: 429 }));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(first?.status, 200);
+  assert.deepEqual(firstUrls, [
+    'https://api.orcarouter.ai/v1/chat/completions',
+    'https://router.huggingface.co/v1/chat/completions',
+  ]);
+
+  const retryUrls: string[] = [];
+  const retry = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 512,
+    messages: [{ role: 'user', content: 'judge these findings again' }],
+  }), env, ((input: RequestInfo | URL) => {
+    retryUrls.push(String(input));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(retry?.status, 200);
+  assert.equal(retry?.headers.get('x-kanarek-review-provider'), 'huggingface-publicai');
+  assert.deepEqual(retryUrls, ['https://router.huggingface.co/v1/chat/completions']);
+});
+
 test('OrcaRouter auto keeps generic free-router calls provider-only', async () => {
   const messages = [
     { role: 'system', content: 'Write one short quip. No code review.' },

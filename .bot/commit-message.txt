@@ -1,0 +1,5 @@
+data(token-worldcup): measure Claude Opus 5.5 token counts
+
+Anthropic count_tokens via recount-claude-tokens.py --model claude-opus-5-5.
+
+Co-Authored-By: Claude <noreply@anthropic.com>

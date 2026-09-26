@@ -34,7 +34,7 @@ export const OPENAI_COMPATIBLE_BACKENDS: readonly OpenAICompatibleBackendDefinit
   {
     id: "orcarouter", credentialEnv: "ORCAROUTER_API_KEY",
     endpoint: "https://api.orcarouter.ai/v1/chat/completions", costClass: "free-tier", priority: 20,
-    defaultModel: "orcarouter/free",
+    defaultModel: "orcarouter/auto",
   },
   {
     id: "aihubmix", credentialEnv: "AIHUBMIX_API_KEY",

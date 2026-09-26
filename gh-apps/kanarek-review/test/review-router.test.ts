@@ -203,7 +203,7 @@ test('review router normalizes Copilot tool follow-ups for free providers', asyn
   assert.deepEqual(messages[2], { role: 'tool', tool_call_id: 'call_1', content: 'diff' });
 });
 
-test('review router uses the OrcaRouter free route alias', async () => {
+test('review router uses the OrcaRouter auto resolver', async () => {
   const calls: Array<{ url: string; model: unknown; models: unknown; authorization: string | null }> = [];
   const fetcher = ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
@@ -222,7 +222,7 @@ test('review router uses the OrcaRouter free route alias', async () => {
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.deepEqual(calls.map(({ url, model, models }) => ({ url, model, models })), [
-    { url: 'https://api.orcarouter.ai/v1/chat/completions', model: 'orcarouter/free', models: undefined },
+    { url: 'https://api.orcarouter.ai/v1/chat/completions', model: 'orcarouter/auto', models: undefined },
   ]);
   assert.equal(calls.every((call) => call.authorization === 'Bearer orca-key'), true);
 });

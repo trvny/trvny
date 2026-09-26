@@ -1,8 +1,0 @@
-feat(token-worldcup): make Claude Opus 5.5 the main comparison
-
-Opus 5.5 counts match Opus 5 in all 27 languages (only request framing
-differs, 8 vs 6), so rankings are unchanged; labels, framing and the data
-link now point at claude-opus-5-5-token-counts.json. HTML re-rendered with
-Quarto 1.10.18.
-
-Co-Authored-By: Claude <noreply@anthropic.com>

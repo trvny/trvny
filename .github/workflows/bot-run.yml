@@ -27,7 +27,7 @@ jobs:
       - name: Run .bot/run.sh
         if: hashFiles('.bot/run.sh') != '' && hashFiles('.bot/cleanup') == ''
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: bash .bot/run.sh
       - name: Commit result
         if: hashFiles('.bot/run.sh') != '' && hashFiles('.bot/cleanup') == ''

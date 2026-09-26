@@ -1,5 +1,6 @@
 data(token-worldcup): measure Claude Opus 5.5 token counts
 
-Anthropic count_tokens via recount-claude-tokens.py --model claude-opus-5-5.
+OpenRouter /v1/messages usage via recount-claude-tokens.py --openrouter,
+after an Opus 5 control run reproduced the committed counts.
 
 Co-Authored-By: Claude <noreply@anthropic.com>

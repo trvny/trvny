@@ -2,6 +2,7 @@ import {
   DEPENDENCY_GRAPH_PATH,
   handleDependencyGraphAction,
 } from './dependency-graph.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 export const FOCUSED_CODE_REVIEW_PATH = '/gpt-actions/operator/code-review';
 
@@ -28,7 +29,6 @@ export type FocusedReviewInput = {
   targetPaths?: string[];
 };
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 type ChangedFile = {
   path: string;
@@ -68,10 +68,6 @@ class FocusedReviewError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -153,16 +149,6 @@ function parseInput(value: JsonObject): FocusedReviewInput {
   };
 }
 
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
-}
-
 async function responseObject(response: Response): Promise<JsonObject> {
   let value: unknown;
   try {
@@ -185,18 +171,6 @@ async function readData(source: Request, invoke: Invoke, path: string): Promise<
     );
   }
   return payload.data;
-}
-
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function likelyTestPath(path: string): boolean {
@@ -262,8 +236,8 @@ function changedFiles(rawFiles: unknown[]): ChangedFile[] {
   let remainingPatch = MAX_PATCH_TOTAL;
   return rawFiles.map((value) => {
     if (!isObject(value)) throw new FocusedReviewError('invalid_compare_response', 502);
-    const path = stringValue(value.filename);
-    const status = stringValue(value.status);
+    const path = stringOrNull(value.filename);
+    const status = stringOrNull(value.status);
     if (!path || !validPath(path) || !status) {
       throw new FocusedReviewError('invalid_compare_response', 502);
     }
@@ -273,9 +247,9 @@ function changedFiles(rawFiles: unknown[]): ChangedFile[] {
       path,
       previousPath: validPath(value.previous_filename) ? value.previous_filename : null,
       status,
-      additions: numberValue(value.additions) ?? 0,
-      deletions: numberValue(value.deletions) ?? 0,
-      changes: numberValue(value.changes) ?? 0,
+      additions: numberOrNull(value.additions) ?? 0,
+      deletions: numberOrNull(value.deletions) ?? 0,
+      changes: numberOrNull(value.changes) ?? 0,
       patch: compact.patch,
       patchTruncated: compact.truncated,
       testFile: likelyTestPath(path),
@@ -296,8 +270,8 @@ function graphIncomplete(payload: JsonObject | null): boolean {
   if (!payload) return true;
   const search = isObject(payload.callerSearch) ? payload.callerSearch : null;
   const repository = isObject(payload.repository) ? payload.repository : null;
-  const requestedRef = repository ? stringValue(repository.requestedRef) : null;
-  const searchIndexedBranch = repository ? stringValue(repository.searchIndexedBranch) : null;
+  const requestedRef = repository ? stringOrNull(repository.requestedRef) : null;
+  const searchIndexedBranch = repository ? stringOrNull(repository.searchIndexedBranch) : null;
   return Boolean(
     search?.incompleteResults === true ||
     search?.callersTruncated === true ||
@@ -452,8 +426,8 @@ export async function buildFocusedCodeReview(
     readData(source, invoke, `/repos/${repo}/commits/${input.headSha}`),
     readData(source, invoke, `/repos/${repo}/compare/${input.baseSha}...${input.headSha}`),
   ]);
-  const resolvedBase = isObject(baseCommit) ? stringValue(baseCommit.sha) : null;
-  const resolvedHead = isObject(headCommit) ? stringValue(headCommit.sha) : null;
+  const resolvedBase = isObject(baseCommit) ? stringOrNull(baseCommit.sha) : null;
+  const resolvedHead = isObject(headCommit) ? stringOrNull(headCommit.sha) : null;
   if (resolvedBase?.toLowerCase() !== input.baseSha || resolvedHead?.toLowerCase() !== input.headSha) {
     throw new FocusedReviewError('review_snapshot_changed', 409);
   }

@@ -8,6 +8,7 @@ import {
   symbolOccurrences,
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
 
 export const BUG_INVESTIGATION_PATH = '/gpt-actions/operator/bug-investigate';
 
@@ -25,7 +26,6 @@ const SOURCE_EXTENSIONS = new Set([
 ]);
 const DEPENDENCY_PATH_SEGMENTS = new Set(['node_modules', 'vendor', '.venv', 'venv', '.gradle']);
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 
 type BugSource =
@@ -83,10 +83,6 @@ class BugInvestigationError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -246,16 +242,6 @@ async function inputObject(request: Request): Promise<Input> {
   };
 }
 
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
-}
-
 async function responseObject(response: Response): Promise<JsonObject> {
   let value: unknown;
   try {
@@ -278,20 +264,8 @@ async function readData(source: Request, invoke: Invoke, path: string): Promise<
   return payload.data;
 }
 
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
-}
-
 function contentPath(value: string): string {
   return value.split('/').map(encodeURIComponent).join('/');
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function compactText(value: string, max = MAX_SOURCE_TEXT): string {
@@ -301,7 +275,7 @@ function compactText(value: string, max = MAX_SOURCE_TEXT): string {
 
 function decodeSnapshotContent(value: unknown): string | null {
   if (!isObject(value) || value.encoding !== 'base64' || typeof value.content !== 'string') return null;
-  const size = numberValue(value.size);
+  const size = numberOrNull(value.size);
   if (size !== null && size > MAX_FALLBACK_FILE_BYTES) return null;
   try {
     const binary = atob(value.content.replace(/\s/g, ''));
@@ -422,21 +396,21 @@ export async function bugHandoffFingerprint(value: BugHandoffIdentity): Promise<
 async function resolveIssue(source: Request, invoke: Invoke, repositoryName: string, issueNumber: number): Promise<ResolvedSource> {
   const raw = await readData(source, invoke, `/repos/${repoPath(repositoryName)}/issues/${issueNumber}`);
   if (!isObject(raw)) throw new BugInvestigationError('invalid_issue_response', 502);
-  const title = stringValue(raw.title) ?? `Issue #${issueNumber}`;
-  const body = stringValue(raw.body) ?? '';
+  const title = stringOrNull(raw.title) ?? `Issue #${issueNumber}`;
+  const body = stringOrNull(raw.body) ?? '';
   return {
     kind: 'issue',
     id: String(issueNumber),
     text: compactText(`${title}\n\n${body}`),
     label: `Issue #${issueNumber}: ${title}`,
-    url: stringValue(raw.html_url),
+    url: stringOrNull(raw.html_url),
     suggestedRef: null,
     details: {
-      number: numberValue(raw.number),
+      number: numberOrNull(raw.number),
       title,
-      state: stringValue(raw.state),
+      state: stringOrNull(raw.state),
       labels: Array.isArray(raw.labels)
-        ? raw.labels.slice(0, 12).map((label) => isObject(label) ? stringValue(label.name) : null).filter(Boolean)
+        ? raw.labels.slice(0, 12).map((label) => isObject(label) ? stringOrNull(label.name) : null).filter(Boolean)
         : [],
     },
   };
@@ -445,18 +419,18 @@ async function resolveIssue(source: Request, invoke: Invoke, repositoryName: str
 export function workflowEvidenceText(payload: JsonObject): string {
   const logs = Array.isArray(payload.logExcerpts) ? payload.logExcerpts.filter(isObject) : [];
   const excerpts = logs
-    .map((entry) => stringValue(entry.excerpt))
+    .map((entry) => stringOrNull(entry.excerpt))
     .filter((value): value is string => Boolean(value));
   if (excerpts.length) return compactText(excerpts.join('\n\n'));
 
   const names: string[] = [];
   const failingJobs = Array.isArray(payload.failingJobs) ? payload.failingJobs.filter(isObject) : [];
   for (const job of failingJobs) {
-    const jobName = stringValue(job.name);
+    const jobName = stringOrNull(job.name);
     if (jobName) names.push(jobName);
     const steps = Array.isArray(job.failedSteps) ? job.failedSteps.filter(isObject) : [];
     for (const step of steps) {
-      const stepName = stringValue(step.name);
+      const stepName = stringOrNull(step.name);
       if (stepName) names.push(stepName);
     }
   }
@@ -468,13 +442,13 @@ async function resolveWorkflow(source: Request, invoke: Invoke, repositoryName: 
     await invoke(internalRequest(source, DIAGNOSE_RUN_PATH, { repository: repositoryName, runId })),
   );
   const run = isObject(payload.run) ? payload.run : {};
-  const headSha = stringValue(run.headSha);
+  const headSha = stringOrNull(run.headSha);
   return {
     kind: 'workflow',
     id: String(runId),
     text: workflowEvidenceText(payload),
-    label: `Workflow run ${runId}${stringValue(run.name) ? `: ${String(run.name)}` : ''}`,
-    url: stringValue(run.htmlUrl),
+    label: `Workflow run ${runId}${stringOrNull(run.name) ? `: ${String(run.name)}` : ''}`,
+    url: stringOrNull(run.htmlUrl),
     suggestedRef: headSha && SHA_RE.test(headSha) ? headSha.toLowerCase() : null,
     details: {
       run,
@@ -554,7 +528,7 @@ export async function existingTargetPaths(
   const rawCommit = await readData(source, invoke, `/repos/${repo}/commits/${encodeURIComponent(ref)}`);
   const commit = isObject(rawCommit) && isObject(rawCommit.commit) ? rawCommit.commit : null;
   const tree = commit && isObject(commit.tree) ? commit.tree : null;
-  const treeSha = tree ? stringValue(tree.sha) : null;
+  const treeSha = tree ? stringOrNull(tree.sha) : null;
   if (!treeSha || !SHA_RE.test(treeSha)) throw new BugInvestigationError('invalid_commit_tree_response', 502);
 
   const entries = await resolveGitTreeEntries(treeSha, paths, async (sha) => {
@@ -564,10 +538,10 @@ export async function existingTargetPaths(
     }
     return raw.tree.flatMap((value): GitTreeEntry[] => {
       if (!isObject(value)) return [];
-      const path = stringValue(value.path);
-      const mode = stringValue(value.mode);
-      const type = stringValue(value.type);
-      const entrySha = stringValue(value.sha);
+      const path = stringOrNull(value.path);
+      const mode = stringOrNull(value.mode);
+      const type = stringOrNull(value.type);
+      const entrySha = stringOrNull(value.sha);
       return path && mode && type && entrySha && SHA_RE.test(entrySha)
         ? [{ path, mode, type, sha: entrySha.toLowerCase() }]
         : [];
@@ -606,8 +580,8 @@ async function snapshotFallbackInvestigations(
   if (!isObject(compare) || !Array.isArray(compare.files)) return investigations;
   const paths = compare.files
     .filter(isObject)
-    .filter((entry) => stringValue(entry.status) !== 'removed')
-    .map((entry) => stringValue(entry.filename))
+    .filter((entry) => stringOrNull(entry.status) !== 'removed')
+    .map((entry) => stringOrNull(entry.filename))
     .filter((path): path is string => Boolean(path))
     .filter((path) => validCandidatePath(path) && !dependencyPath(path) && pathMatchesFilter(path, input.path))
     .slice(0, Math.min(40, input.maxFiles * 4));
@@ -716,7 +690,7 @@ function collectTargetPaths(
   verifiedStackPaths.forEach((path) => add(path, 120));
   for (const investigation of investigations) {
     if (investigation.ok !== true) continue;
-    const symbol = stringValue(investigation.symbol) ?? undefined;
+    const symbol = stringOrNull(investigation.symbol) ?? undefined;
     objectArray(investigation.definitions).forEach((item) => add(item.path, item.testFile === true ? 45 : 100, symbol));
     objectArray(investigation.implementations).forEach((item) => add(item.path, item.testFile === true ? 40 : 80, symbol));
     objectArray(investigation.references).forEach((item) => add(item.path, item.testFile === true ? 35 : 55, symbol));

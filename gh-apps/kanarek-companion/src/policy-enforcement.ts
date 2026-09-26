@@ -13,6 +13,7 @@ import {
 } from './policy-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull } from './tools/common.ts';
 
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
 const AUTOFIX_PATH = '/gpt-actions/github/maintenance/autofix';
@@ -25,7 +26,6 @@ const HARD_MAX_REPOSITORIES = 8;
 const HARD_MAX_ACTIONS = 20;
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
-type JsonObject = Record<string, unknown>;
 type ActionHandler = (
   request: Request,
   env: GptActionsEnv,
@@ -64,22 +64,8 @@ class PolicyEnforcementError extends Error {
   }
 }
 
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject = {}): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {
@@ -156,14 +142,6 @@ function patternMatches(pattern: string, repository: string): boolean {
   return pattern === 'trvny/*' ? repository.startsWith('trvny/') : pattern === repository;
 }
 
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
 function objectArray(value: unknown): JsonObject[] {
   return Array.isArray(value) ? value.filter(isObject) : [];
 }
@@ -216,7 +194,7 @@ function withMaintenanceAttention(
     ? repository.attention.filter((entry): entry is string => typeof entry === 'string')
     : [];
   const cache = isObject(repository.cache) ? repository.cache : {};
-  const activeBytes = numberValue(cache.activeBytes);
+  const activeBytes = numberOrNull(cache.activeBytes);
   if (activeBytes !== null && activeBytes >= effective.cacheMaxBytes && !attention.includes('cache_pressure')) {
     attention.push('cache_pressure');
   }
@@ -364,14 +342,14 @@ function staleCachePlans(
   now: number,
 ): JsonObject[] {
   const cache = isObject(report.cache) ? report.cache : {};
-  const activeBytes = numberValue(cache.activeBytes);
+  const activeBytes = numberOrNull(cache.activeBytes);
   if (activeBytes === null || activeBytes < policy.cacheMaxBytes) return [];
   const cutoff = now - policy.cacheStaleDays * DAY_MS;
 
   return objectArray(cache.items)
     .map((item) => ({ item, lastAccessedEpoch: epoch(item.lastAccessedAt) }))
     .filter(({ item, lastAccessedEpoch }) => {
-      const id = numberValue(item.id);
+      const id = numberOrNull(item.id);
       return (
         id !== null &&
         Number.isInteger(id) &&
@@ -410,8 +388,8 @@ async function collectThresholdPlans(
 ): Promise<{ plans: JsonObject[]; diagnostics: JsonObject[] }> {
   const excludedIds = new Map<string, Set<number>>();
   for (const plan of basePlans) {
-    const repository = stringValue(plan.repository);
-    const cacheId = numberValue(plan.cacheId);
+    const repository = stringOrNull(plan.repository);
+    const cacheId = numberOrNull(plan.cacheId);
     if (!repository || cacheId === null || !Number.isInteger(cacheId)) continue;
     const ids = excludedIds.get(repository) ?? new Set<number>();
     ids.add(cacheId);
@@ -462,14 +440,14 @@ async function verifyStaleCachePlan(
   const effective = effectiveMaintenancePolicy(policy, repository);
   const report = await reportForRepository(request, env, fetcher, repository);
   const cache = isObject(report.cache) ? report.cache : {};
-  const activeBytes = numberValue(cache.activeBytes);
+  const activeBytes = numberOrNull(cache.activeBytes);
   if (activeBytes === null || activeBytes < effective.cacheMaxBytes) {
     return failure(409, 'cache_pressure_cleared', true);
   }
-  const cacheId = numberValue(plan.cacheId);
-  const expectedKey = stringValue(plan.expectedKey);
-  const expectedRef = stringValue(plan.expectedRef);
-  const expectedLastAccessedAt = stringValue(plan.expectedLastAccessedAt);
+  const cacheId = numberOrNull(plan.cacheId);
+  const expectedKey = stringOrNull(plan.expectedKey);
+  const expectedRef = stringOrNull(plan.expectedRef);
+  const expectedLastAccessedAt = stringOrNull(plan.expectedLastAccessedAt);
   if (cacheId === null || !expectedKey || !expectedRef || !expectedLastAccessedAt) {
     return failure(422, 'invalid_stale_cache_plan', true);
   }

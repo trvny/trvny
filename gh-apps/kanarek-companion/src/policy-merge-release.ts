@@ -3,6 +3,7 @@ import { handleOperatorAction } from './operator-actions.ts';
 import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts';
 import { repositoryAllowedByPolicy } from './policy-enforcement.ts';
 import { handleReleaseAction, releaseTagAllowed } from './release-actions.ts';
+import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const FINALIZE_PATH = '/gpt-actions/github/pull-requests/finalize';
@@ -11,7 +12,6 @@ const RELEASE_ASSET_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-ar
 const RELEASE_ASSET_DELETE_PATH = '/gpt-actions/github/releases/assets/delete';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
-type JsonObject = Record<string, unknown>;
 type MergeMethod = 'merge' | 'squash' | 'rebase';
 
 class MergeReleasePolicyError extends Error {
@@ -28,22 +28,8 @@ class MergeReleasePolicyError extends Error {
   }
 }
 
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function inputObject(request: Request, maxBytes = 160_000): Promise<JsonObject> {
@@ -120,10 +106,6 @@ async function readData(
   path: string,
 ): Promise<unknown> {
   return (await responseObject(await readResponse(source, env, fetcher, path))).data;
-}
-
-function repoPath(repository: string): string {
-  return repository.split('/').map((part) => encodeURIComponent(part)).join('/');
 }
 
 function policyMetadata(

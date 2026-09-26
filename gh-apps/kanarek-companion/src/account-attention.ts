@@ -1,3 +1,5 @@
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+
 export const ACCOUNT_ATTENTION_PATH = '/gpt-actions/operator/attention';
 
 const MAINTENANCE_PATH = '/gpt-actions/github/maintenance/account';
@@ -12,7 +14,6 @@ const HARD_ISSUES_PER_REPOSITORY = 10;
 const STALE_ISSUE_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 
 type Input = {
@@ -30,20 +31,8 @@ type PullRequestRef = {
   htmlUrl: string | null;
 };
 
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function integerOption(value: unknown, fallback: number, max: number): number {
@@ -74,16 +63,6 @@ async function inputObject(request: Request): Promise<Input> {
   };
 }
 
-function internalRequest(source: Request, pathname: string, body: JsonObject = {}): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
-}
-
 async function responseObject(response: Response): Promise<JsonObject | null> {
   try {
     const value: unknown = await response.clone().json();
@@ -91,10 +70,6 @@ async function responseObject(response: Response): Promise<JsonObject | null> {
   } catch {
     return null;
   }
-}
-
-function repoPath(repository: string): string {
-  return repository.split('/').map(encodeURIComponent).join('/');
 }
 
 async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
@@ -131,21 +106,21 @@ function repositoriesFromMaintenance(payload: JsonObject): JsonObject[] {
 function pullRequestRefs(repositories: JsonObject[]): PullRequestRef[] {
   const refs: PullRequestRef[] = [];
   for (const repository of repositories) {
-    const name = stringValue(repository.name);
+    const name = stringOrNull(repository.name);
     const pulls = isObject(repository.pullRequests) && Array.isArray(repository.pullRequests.items)
       ? repository.pullRequests.items.filter(isObject)
       : [];
     if (!name) continue;
     for (const pull of pulls) {
-      const number = numberValue(pull.number);
+      const number = numberOrNull(pull.number);
       if (number === null || !Number.isInteger(number) || number < 1) continue;
       refs.push({
         repository: name,
         number,
-        title: stringValue(pull.title),
+        title: stringOrNull(pull.title),
         draft: pull.draft === true,
-        updatedAt: stringValue(pull.updatedAt),
-        htmlUrl: stringValue(pull.htmlUrl),
+        updatedAt: stringOrNull(pull.updatedAt),
+        htmlUrl: stringOrNull(pull.htmlUrl),
       });
     }
   }
@@ -159,10 +134,10 @@ function pullRequestRefs(repositories: JsonObject[]): PullRequestRef[] {
 
 function prReasons(snapshot: JsonObject): string[] {
   const reasons: string[] = [];
-  const ciState = stringValue(snapshot.ciState);
-  const unresolved = numberValue(snapshot.unresolvedThreads) ?? 0;
-  const changes = numberValue(snapshot.activeChangeRequests) ?? 0;
-  const state = stringValue(snapshot.state);
+  const ciState = stringOrNull(snapshot.ciState);
+  const unresolved = numberOrNull(snapshot.unresolvedThreads) ?? 0;
+  const changes = numberOrNull(snapshot.activeChangeRequests) ?? 0;
+  const state = stringOrNull(snapshot.state);
   const mergeable = typeof snapshot.mergeable === 'boolean' ? snapshot.mergeable : null;
 
   if (snapshot.draft === true) reasons.push('draft');
@@ -226,11 +201,11 @@ async function inspectPullRequest(
   return {
     type: 'pull_request',
     ...ref,
-    headSha: stringValue(snapshot.headSha),
-    ciState: stringValue(snapshot.ciState),
+    headSha: stringOrNull(snapshot.headSha),
+    ciState: stringOrNull(snapshot.ciState),
     mergeable: typeof snapshot.mergeable === 'boolean' ? snapshot.mergeable : null,
-    unresolvedThreads: numberValue(snapshot.unresolvedThreads) ?? 0,
-    activeChangeRequests: numberValue(snapshot.activeChangeRequests) ?? 0,
+    unresolvedThreads: numberOrNull(snapshot.unresolvedThreads) ?? 0,
+    activeChangeRequests: numberOrNull(snapshot.activeChangeRequests) ?? 0,
     reasons,
     attentionScore: prScore(reasons),
   };
@@ -238,15 +213,15 @@ async function inspectPullRequest(
 
 function compactIssue(repository: string, value: JsonObject): JsonObject | null {
   if (isObject(value.pull_request)) return null;
-  const number = numberValue(value.number);
+  const number = numberOrNull(value.number);
   if (number === null || !Number.isInteger(number) || number < 1) return null;
   const assignees = Array.isArray(value.assignees)
-    ? value.assignees.filter(isObject).map((assignee) => stringValue(assignee.login)).filter(Boolean)
+    ? value.assignees.filter(isObject).map((assignee) => stringOrNull(assignee.login)).filter(Boolean)
     : [];
   const labels = Array.isArray(value.labels)
-    ? value.labels.map((label) => (isObject(label) ? stringValue(label.name) : stringValue(label))).filter(Boolean)
+    ? value.labels.map((label) => (isObject(label) ? stringOrNull(label.name) : stringOrNull(label))).filter(Boolean)
     : [];
-  const updatedAt = stringValue(value.updated_at);
+  const updatedAt = stringOrNull(value.updated_at);
   const updatedEpoch = updatedAt ? Date.parse(updatedAt) : Number.NaN;
   const staleDays = Number.isFinite(updatedEpoch)
     ? Math.floor((Date.now() - updatedEpoch) / DAY_MS)
@@ -258,14 +233,14 @@ function compactIssue(repository: string, value: JsonObject): JsonObject | null 
     type: 'issue',
     repository,
     number,
-    title: stringValue(value.title),
-    user: isObject(value.user) ? stringValue(value.user.login) : null,
+    title: stringOrNull(value.title),
+    user: isObject(value.user) ? stringOrNull(value.user.login) : null,
     assignees,
     labels,
-    comments: numberValue(value.comments) ?? 0,
+    comments: numberOrNull(value.comments) ?? 0,
     updatedAt,
     staleDays,
-    htmlUrl: stringValue(value.html_url),
+    htmlUrl: stringOrNull(value.html_url),
     reasons,
     attentionScore: reasons.includes('unassigned_issue') ? 35 : reasons.includes('stale_issue') ? 25 : 20,
   };
@@ -305,17 +280,17 @@ function maintenanceItems(repositories: JsonObject[]): JsonObject[] {
     .filter((repository) => Array.isArray(repository.attention) && repository.attention.length > 0)
     .map((repository) => ({
       type: 'repository_maintenance',
-      repository: stringValue(repository.name),
+      repository: stringOrNull(repository.name),
       reasons: repository.attention,
       attentionScore: 45,
     }));
 }
 
 function attentionSort(left: JsonObject, right: JsonObject): number {
-  const score = (numberValue(right.attentionScore) ?? 0) - (numberValue(left.attentionScore) ?? 0);
+  const score = (numberOrNull(right.attentionScore) ?? 0) - (numberOrNull(left.attentionScore) ?? 0);
   if (score) return score;
-  const leftKey = `${stringValue(left.repository) ?? ''}#${numberValue(left.number) ?? 0}`;
-  const rightKey = `${stringValue(right.repository) ?? ''}#${numberValue(right.number) ?? 0}`;
+  const leftKey = `${stringOrNull(left.repository) ?? ''}#${numberOrNull(left.number) ?? 0}`;
+  const rightKey = `${stringOrNull(right.repository) ?? ''}#${numberOrNull(right.number) ?? 0}`;
   return leftKey.localeCompare(rightKey);
 }
 
@@ -327,7 +302,7 @@ async function accountAttention(request: Request, invoke: Invoke): Promise<Respo
 
   const repositories = repositoriesFromMaintenance(maintenance).slice(0, input.maxRepositories);
   const repositoryNames = repositories
-    .map((repository) => stringValue(repository.name))
+    .map((repository) => stringOrNull(repository.name))
     .filter((name): name is string => Boolean(name));
   const prRefs = pullRequestRefs(repositories).slice(0, input.maxPullRequests);
 

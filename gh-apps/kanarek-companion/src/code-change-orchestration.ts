@@ -18,6 +18,7 @@ import {
   handleTargetedTestsAction,
   TARGETED_TESTS_PATH,
 } from './test-discovery.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull } from './tools/common.ts';
 
 export const CODE_CHANGE_AUTOPILOT_PATH = '/gpt-actions/operator/code-change';
 
@@ -41,7 +42,6 @@ const GPTOMEK_COMMIT_EMAIL = '314538226+gptomek[bot]@users.noreply.github.com';
 const OPERATION_TRAILER = 'GPTomek-Operation';
 const INPUT_HASH_TRAILER = 'GPTomek-Input-Hash';
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 type Stage = 'editing' | 'verifying' | 'waiting_ci_review';
 type MergeMethod = 'squash' | 'merge' | 'rebase';
@@ -143,10 +143,6 @@ class CodeChangeError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200, headers: HeadersInit = {}): Response {
@@ -454,16 +450,6 @@ async function parseInput(request: Request): Promise<{ core: CoreInput; action?:
   };
 }
 
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
-}
-
 async function responseObject(response: Response): Promise<JsonObject> {
   let value: unknown;
   try {
@@ -499,20 +485,12 @@ async function readData(source: Request, invoke: Invoke, path: string): Promise<
   return payload.data;
 }
 
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
-}
-
 function refPath(value: string): string {
   return value.split('/').map(encodeURIComponent).join('/');
 }
 
 function contentPath(value: string): string {
   return value.split('/').map(encodeURIComponent).join('/');
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
 }
 
 function numberValue(value: unknown): number | null {
@@ -571,7 +549,7 @@ async function treeEntriesAtRef(
   );
   const commit = isObject(rawCommit) && isObject(rawCommit.commit) ? rawCommit.commit : null;
   const tree = commit && isObject(commit.tree) ? commit.tree : null;
-  const treeSha = tree ? stringValue(tree.sha) : null;
+  const treeSha = tree ? stringOrNull(tree.sha) : null;
   if (!treeSha || !SHA_RE.test(treeSha)) throw new CodeChangeError('invalid_commit_tree_response', 502);
 
   return resolveGitTreeEntries(treeSha, paths, async (sha) => {
@@ -581,10 +559,10 @@ async function treeEntriesAtRef(
     }
     return raw.tree.flatMap((value): GitTreeEntry[] => {
       if (!isObject(value)) return [];
-      const path = stringValue(value.path);
-      const mode = stringValue(value.mode);
-      const type = stringValue(value.type);
-      const entrySha = stringValue(value.sha);
+      const path = stringOrNull(value.path);
+      const mode = stringOrNull(value.mode);
+      const type = stringOrNull(value.type);
+      const entrySha = stringOrNull(value.sha);
       return path && mode && type && entrySha && SHA_RE.test(entrySha)
         ? [{ path, mode, type, sha: entrySha.toLowerCase() }]
         : [];
@@ -718,7 +696,7 @@ async function refactorChangedPathsAtRef(
   ref: string,
 ): Promise<string[]> {
   const metadata = await readData(source, invoke, `/repos/${repoPath(core.repository)}`);
-  const defaultBranch = isObject(metadata) ? stringValue(metadata.default_branch) : null;
+  const defaultBranch = isObject(metadata) ? stringOrNull(metadata.default_branch) : null;
   if (!defaultBranch) throw new CodeChangeError('invalid_repository_response', 502);
   const raw = await readData(
     source,
@@ -729,8 +707,8 @@ async function refactorChangedPathsAtRef(
     throw new CodeChangeError('invalid_refactor_compare_response', 502);
   }
   return raw.files.flatMap((entry) => {
-    if (!isObject(entry) || stringValue(entry.status) === 'removed') return [];
-    const path = stringValue(entry.filename);
+    if (!isObject(entry) || stringOrNull(entry.status) === 'removed') return [];
+    const path = stringOrNull(entry.filename);
     return path && validPath(path) && refactorPathMatchesFilter(path, core.path) ? [path] : [];
   });
 }
@@ -755,7 +733,7 @@ async function refactorSnapshotAtRef(
     const indexedCount = numberValue(raw.total_count);
     const paths = raw.items.flatMap((item) => {
       if (!isObject(item)) return [];
-      const path = stringValue(item.path);
+      const path = stringOrNull(item.path);
       return path && validPath(path) ? [path] : [];
     });
     return {
@@ -868,7 +846,7 @@ async function branchHead(source: Request, invoke: Invoke, core: CoreInput): Pro
     invoke,
     `/repos/${repoPath(core.repository)}/git/ref/heads/${refPath(core.branch)}`,
   );
-  const sha = isObject(raw) && isObject(raw.object) ? stringValue(raw.object.sha) : null;
+  const sha = isObject(raw) && isObject(raw.object) ? stringOrNull(raw.object.sha) : null;
   if (!sha || !SHA_RE.test(sha)) throw new CodeChangeError('invalid_branch_ref_response', 502);
   return sha.toLowerCase();
 }
@@ -879,14 +857,14 @@ async function defaultBranchHead(
   core: CoreInput,
 ): Promise<{ defaultBranch: string; sha: string }> {
   const metadata = await readData(source, invoke, `/repos/${repoPath(core.repository)}`);
-  const defaultBranch = isObject(metadata) ? stringValue(metadata.default_branch) : null;
+  const defaultBranch = isObject(metadata) ? stringOrNull(metadata.default_branch) : null;
   if (!defaultBranch) throw new CodeChangeError('invalid_repository_response', 502);
   const raw = await readData(
     source,
     invoke,
     `/repos/${repoPath(core.repository)}/git/ref/heads/${refPath(defaultBranch)}`,
   );
-  const sha = isObject(raw) && isObject(raw.object) ? stringValue(raw.object.sha) : null;
+  const sha = isObject(raw) && isObject(raw.object) ? stringOrNull(raw.object.sha) : null;
   if (!sha || !SHA_RE.test(sha)) throw new CodeChangeError('invalid_default_branch_ref', 502);
   return { defaultBranch, sha: sha.toLowerCase() };
 }
@@ -898,7 +876,7 @@ type RecoveredBranch = {
 
 function commitIdentityMatches(value: unknown): boolean {
   if (!isObject(value)) return false;
-  return stringValue(value.name) === GPTOMEK_COMMIT_NAME && stringValue(value.email) === GPTOMEK_COMMIT_EMAIL;
+  return stringOrNull(value.name) === GPTOMEK_COMMIT_NAME && stringOrNull(value.email) === GPTOMEK_COMMIT_EMAIL;
 }
 
 async function recoverEvolvedBranch(
@@ -933,8 +911,8 @@ async function recoverEvolvedBranch(
     if (!isObject(value) || !Array.isArray(value.parents) || value.parents.length !== 1) {
       throw new CodeChangeError('branch_history_not_recoverable', 409);
     }
-    const sha = stringValue(value.sha);
-    const parent = isObject(value.parents[0]) ? stringValue(value.parents[0].sha) : null;
+    const sha = stringOrNull(value.sha);
+    const parent = isObject(value.parents[0]) ? stringOrNull(value.parents[0].sha) : null;
     const commit = isObject(value.commit) ? value.commit : null;
     if (
       !sha ||
@@ -944,7 +922,7 @@ async function recoverEvolvedBranch(
       !commit ||
       !commitIdentityMatches(commit.author) ||
       !commitIdentityMatches(commit.committer) ||
-      !commitProvenanceMatches(stringValue(commit.message), core.operationId, inputHash)
+      !commitProvenanceMatches(stringOrNull(commit.message), core.operationId, inputHash)
     ) {
       throw new CodeChangeError('branch_history_not_recoverable', 409);
     }
@@ -961,7 +939,7 @@ async function recoverEvolvedBranch(
   );
   const files = Array.isArray(compare.files) ? compare.files : [];
   if (
-    files.some((value) => !isObject(value) || !stringValue(value.filename) || !allowed.has(String(value.filename)))
+    files.some((value) => !isObject(value) || !stringOrNull(value.filename) || !allowed.has(String(value.filename)))
   ) {
     throw new CodeChangeError('branch_scope_changed', 409);
   }
@@ -978,13 +956,13 @@ async function recoverEvolvedBranch(
   const raw = pullRequests[0];
   const head = isObject(raw.head) ? raw.head : {};
   const base = isObject(raw.base) ? raw.base : {};
-  if (stringValue(raw.state) !== 'open' || typeof raw.merged_at === 'string') {
+  if (stringOrNull(raw.state) !== 'open' || typeof raw.merged_at === 'string') {
     throw new CodeChangeError('pull_request_not_open', 409);
   }
-  if (stringValue(head.ref) !== core.branch) {
+  if (stringOrNull(head.ref) !== core.branch) {
     throw new CodeChangeError('pull_request_branch_changed', 409);
   }
-  if (stringValue(base.ref) !== defaultBranch) {
+  if (stringOrNull(base.ref) !== defaultBranch) {
     throw new CodeChangeError('pull_request_base_changed', 409);
   }
   return {
@@ -1125,7 +1103,7 @@ function verificationCommands(plan: JsonObject): Array<{ cwd: string; command: s
   if (!Array.isArray(plan.recommendedCommands)) return [];
   return plan.recommendedCommands
     .filter(isObject)
-    .map((entry) => ({ cwd: stringValue(entry.cwd) ?? '.', command: stringValue(entry.command) ?? '' }))
+    .map((entry) => ({ cwd: stringOrNull(entry.cwd) ?? '.', command: stringOrNull(entry.command) ?? '' }))
     .filter((entry) => Boolean(entry.command));
 }
 
@@ -1170,7 +1148,7 @@ function finalizeSnapshot(inspection: JsonObject): ReviewGateSnapshot {
   const data = isObject(inspection.data) ? inspection.data : null;
   const raw = data && isObject(data.finalizeSnapshot) ? data.finalizeSnapshot : null;
   const pullRequest = data && isObject(data.pullRequest) ? data.pullRequest : null;
-  const baseRef = pullRequest ? stringValue(pullRequest.baseRef) : null;
+  const baseRef = pullRequest ? stringOrNull(pullRequest.baseRef) : null;
   if (
     !raw ||
     !baseRef ||
@@ -1225,15 +1203,15 @@ async function verifyRecoveredCommit(
     `/repos/${repoPath(core.repository)}/commits/${currentHead}`,
   );
   if (!isObject(commit) || !Array.isArray(commit.parents) || commit.parents.length !== 1) return false;
-  const parent = isObject(commit.parents[0]) ? stringValue(commit.parents[0].sha) : null;
-  const message = isObject(commit.commit) ? stringValue(commit.commit.message) : null;
+  const parent = isObject(commit.parents[0]) ? stringOrNull(commit.parents[0].sha) : null;
+  const message = isObject(commit.commit) ? stringOrNull(commit.commit.message) : null;
   if (
     parent?.toLowerCase() !== previousHead ||
     message !== operationCommitMessage(edit.message, core.operationId, inputHash)
   ) return false;
   const files = Array.isArray(commit.files) ? commit.files : [];
   const changed = files
-    .map((file) => (isObject(file) ? stringValue(file.filename) : null))
+    .map((file) => (isObject(file) ? stringOrNull(file.filename) : null))
     .filter((path): path is string => Boolean(path));
   if (!recoveredChangedPathsAllowed(changed, edit.files.map((file) => file.path))) return false;
 
@@ -1281,7 +1259,7 @@ async function commitEdit(
       ...(modeOverrides?.get(file.path) ? { mode: modeOverrides.get(file.path) } : {}),
     })),
   });
-  const sha = stringValue(payload.sha);
+  const sha = stringOrNull(payload.sha);
   if (!sha || !SHA_RE.test(sha)) throw new CodeChangeError('invalid_commit_response', 502);
   return sha.toLowerCase();
 }
@@ -1300,11 +1278,11 @@ async function findOpenPullRequest(source: Request, invoke: Invoke, core: CoreIn
 function pullRequestProgress(raw: JsonObject, expectedHeadSha: string): PullRequestProgress {
   const head = isObject(raw.head) ? raw.head : {};
   const number = numberValue(raw.number);
-  const sha = stringValue(head.sha);
+  const sha = stringOrNull(head.sha);
   if (!number || !sha || sha.toLowerCase() !== expectedHeadSha) {
     throw new CodeChangeError('pull_request_head_changed', 409);
   }
-  return { number, headSha: sha.toLowerCase(), htmlUrl: stringValue(raw.html_url) };
+  return { number, headSha: sha.toLowerCase(), htmlUrl: stringOrNull(raw.html_url) };
 }
 
 async function createOrRecoverPullRequest(
@@ -1317,7 +1295,7 @@ async function createOrRecoverPullRequest(
   const existing = await findOpenPullRequest(source, invoke, core);
   if (existing) {
     const recovered = pullRequestProgress(existing, progress.branchHead);
-    if (stringValue(existing.title) !== input.title) throw new CodeChangeError('pull_request_metadata_mismatch', 409);
+    if (stringOrNull(existing.title) !== input.title) throw new CodeChangeError('pull_request_metadata_mismatch', 409);
     return recovered;
   }
   const { payload } = await invokePayload(source, invoke, CREATE_PR_PATH, {
@@ -1347,8 +1325,8 @@ async function mergedPullRequest(
 function validateMergedPullRequest(raw: JsonObject, progress: Progress): void {
   const head = isObject(raw.head) ? raw.head : {};
   const base = isObject(raw.base) ? raw.base : {};
-  const headSha = stringValue(head.sha);
-  const baseRef = stringValue(base.ref);
+  const headSha = stringOrNull(head.sha);
+  const baseRef = stringOrNull(base.ref);
   if (!headSha || headSha.toLowerCase() !== progress.branchHead) {
     throw new CodeChangeError('pull_request_head_changed', 409, { expected: progress.branchHead, current: headSha });
   }
@@ -1368,10 +1346,10 @@ async function assertPullRequestEditable(
   if (!isObject(raw)) throw new CodeChangeError('invalid_pull_request_response', 502);
   const head = isObject(raw.head) ? raw.head : {};
   const base = isObject(raw.base) ? raw.base : {};
-  const state = stringValue(raw.state);
-  const headRef = stringValue(head.ref);
-  const headSha = stringValue(head.sha);
-  const baseRef = stringValue(base.ref);
+  const state = stringOrNull(raw.state);
+  const headRef = stringOrNull(head.ref);
+  const headSha = stringOrNull(head.sha);
+  const baseRef = stringOrNull(base.ref);
   if (state !== 'open' || typeof raw.merged_at === 'string') throw new CodeChangeError('pull_request_not_open', 409, { state });
   if (headRef !== core.branch) throw new CodeChangeError('pull_request_branch_changed', 409, { expected: core.branch, current: headRef });
   if (!headSha || headSha.toLowerCase() !== progress.branchHead) throw new CodeChangeError('pull_request_head_changed', 409, { expected: progress.branchHead, current: headSha });
@@ -1467,8 +1445,8 @@ async function initialProgress(
   const prepared = await preparationContext(source, invoke, core, inputHash);
   const repositoryData = isObject(prepared.repository) ? prepared.repository : {};
   const branchData = isObject(prepared.branch) ? prepared.branch : {};
-  const defaultBranch = stringValue(repositoryData.defaultBranch);
-  const branchSha = stringValue(branchData.sha);
+  const defaultBranch = stringOrNull(repositoryData.defaultBranch);
+  const branchSha = stringOrNull(branchData.sha);
   const revision = numberValue(branchData.revision) ?? 0;
   if (!defaultBranch || !branchSha || !SHA_RE.test(branchSha) || revision < 0) {
     throw new CodeChangeError('invalid_prepare_change_response', 502);
@@ -1477,14 +1455,14 @@ async function initialProgress(
   let pullRequest: PullRequestProgress | undefined;
   if (isObject(prepared.pullRequest)) {
     const number = numberValue(prepared.pullRequest.number);
-    const headSha = stringValue(prepared.pullRequest.headSha);
+    const headSha = stringOrNull(prepared.pullRequest.headSha);
     if (!number || !headSha || headSha.toLowerCase() !== branchSha.toLowerCase()) {
       throw new CodeChangeError('invalid_prepare_change_response', 502);
     }
     pullRequest = {
       number,
       headSha: headSha.toLowerCase(),
-      htmlUrl: stringValue(prepared.pullRequest.htmlUrl),
+      htmlUrl: stringOrNull(prepared.pullRequest.htmlUrl),
     };
   }
 
@@ -1833,7 +1811,7 @@ async function run(
           stage: 'merged',
           recovered: true,
           pullRequest: progress.pullRequest,
-          mergedAt: stringValue(alreadyMerged.merged_at),
+          mergedAt: stringOrNull(alreadyMerged.merged_at),
           cleanup: cleanupResult,
         });
       }
@@ -1893,7 +1871,7 @@ async function run(
         pullRequest: progress.pullRequest,
         mergeMethod: submitted.mergeMethod,
         merge: finalized.payload,
-        mergedAt: stringValue(merged.merged_at),
+        mergedAt: stringOrNull(merged.merged_at),
         cleanup: cleanupResult,
       });
     }

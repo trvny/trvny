@@ -1,5 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
+import { isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
@@ -9,8 +10,6 @@ const CREATE_BRANCH_PATH = '/gpt-actions/github/branches/create';
 const PR_STATE_PATH = '/gpt-actions/github/pull-requests/state';
 const CLEANUP_BRANCH_PATH = '/gpt-actions/github/pull-requests/cleanup-branch';
 const SHA_RE = /^[0-9a-f]{40}$/i;
-
-type JsonObject = Record<string, unknown>;
 
 class LifecycleError extends Error {
   readonly code: string;
@@ -22,10 +21,6 @@ class LifecycleError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -73,13 +68,6 @@ function positiveInteger(value: unknown, name: string): number {
     throw new LifecycleError(`invalid_${name}`);
   }
   return value;
-}
-
-function repoPath(repositoryName: string): string {
-  return repositoryName
-    .split('/')
-    .map((part) => encodeURIComponent(part))
-    .join('/');
 }
 
 function refPath(branchName: string): string {

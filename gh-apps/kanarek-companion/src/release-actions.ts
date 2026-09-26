@@ -1,5 +1,6 @@
 import { createAppJwt } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_UPLOADS = 'https://uploads.github.com';
@@ -12,7 +13,6 @@ const RELEASE_ASSET_DELETE_PATH = '/gpt-actions/github/releases/assets/delete';
 const MAX_RELEASE_ASSET_BYTES = 64 * 1024 * 1024;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
-type JsonObject = Record<string, unknown>;
 type MakeLatest = 'true' | 'false' | 'legacy';
 
 interface GptomekToken {
@@ -30,10 +30,6 @@ class ReleaseError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -112,28 +108,11 @@ function assetName(value: unknown): string {
   return value;
 }
 
-function repoPath(repositoryName: string): string {
-  return repositoryName
-    .split('/')
-    .map((part) => encodeURIComponent(part))
-    .join('/');
-}
-
 function refPath(value: string): string {
   return value
     .split('/')
     .map((part) => encodeURIComponent(part))
     .join('/');
-}
-
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {

@@ -3,12 +3,11 @@ import {
   handleGptActions,
   type GptActionsEnv,
 } from './gpt-actions.ts';
+import { isObject, type JsonObject } from './tools/common.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const BATCH_READ_PATH = '/gpt-actions/github/read-batch';
 const MAX_BATCH_READS = 10;
-
-type JsonObject = Record<string, unknown>;
 
 class BatchReadError extends Error {
   readonly code: string;
@@ -20,10 +19,6 @@ class BatchReadError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {

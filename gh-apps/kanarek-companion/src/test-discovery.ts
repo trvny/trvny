@@ -1,4 +1,5 @@
 import { likelyTestPath } from './symbol-investigation.ts';
+import { isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 export const TARGETED_TESTS_PATH = '/gpt-actions/github/code/tests';
 
@@ -9,7 +10,6 @@ const MAX_ANCESTORS = 32;
 const MAX_TEST_CANDIDATES = 64;
 const MAX_CONTENT_BYTES = 300_000;
 
-type JsonObject = Record<string, unknown>;
 type Invoke = (request: Request) => Promise<Response>;
 export type ProjectKind = 'node' | 'gradle' | 'python' | 'rust' | 'go';
 type CommandKind = 'test' | 'typecheck' | 'lint' | 'build' | 'check';
@@ -47,10 +47,6 @@ class TestDiscoveryError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function json(body: unknown, status = 200): Response {
@@ -178,10 +174,6 @@ async function readOptional(source: Request, invoke: Invoke, path: string): Prom
     if (error instanceof TestDiscoveryError && error.status === 404) return null;
     throw error;
   }
-}
-
-function repoPath(value: string): string {
-  return value.split('/').map(encodeURIComponent).join('/');
 }
 
 function filePath(value: string): string {

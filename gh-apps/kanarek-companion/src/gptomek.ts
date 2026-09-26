@@ -11,6 +11,7 @@ import {
 } from './autopilot-checkpoint.ts';
 import { githubBotRequestAllowed } from './gpt-actions.ts';
 import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-types.ts';
+import { isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
@@ -50,7 +51,6 @@ const SAFE_RETRY_ERRORS = new Set([
   'protected_branch',
 ]);
 
-type JsonObject = Record<string, unknown>;
 type GptomekTransport = 'issue' | 'pr';
 
 interface GptomekConfig {
@@ -163,10 +163,6 @@ export interface GptomekControlResult {
   commandId?: string;
   operation?: GptomekCommand['op'];
   result?: GptomekResultEnvelope;
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 function requiredString(value: unknown, name: string, max = 65_000): string {
@@ -518,13 +514,6 @@ function config(env: CompanionEnv): GptomekConfig {
     throw new Error('invalid_gptomek_installation_id');
   }
   return { appId, privateKey, installationId };
-}
-
-function repoPath(repositoryName: string): string {
-  return repositoryName
-    .split('/')
-    .map((part) => encodeURIComponent(part))
-    .join('/');
 }
 
 function refPath(branchName: string): string {

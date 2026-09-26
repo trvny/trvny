@@ -8,6 +8,7 @@ import {
   REVIEW_WORKERS_AI_OVERRIDE_HEADER,
   type ReviewProviderPoolHealth,
 } from './review-service-protocol.ts';
+import { type JsonObject } from './tools/common.ts';
 
 const REVIEW_HEALTH_PATH = '/health';
 const INTERNAL_REVIEW_ORIGIN = 'https://kanarek-review.internal';
@@ -21,8 +22,6 @@ export interface ReviewServiceEnv {
   KANAREK_REVIEW_SERVICE?: ReviewServiceBinding;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
 }
-
-type JsonObject = Record<string, unknown>;
 
 function reviewRouterRequest(request: Request): boolean {
   const pathname = new URL(request.url).pathname;

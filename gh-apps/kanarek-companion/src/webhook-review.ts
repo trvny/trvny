@@ -11,6 +11,7 @@ import {
   type ReviewServiceEnv,
 } from './review-service.ts';
 import { likelyTestPath } from './symbol-investigation.ts';
+import { repoPath } from './tools/common.ts';
 
 const REVIEW_ACTIONS = new Set(['opened', 'reopened', 'synchronize', 'ready_for_review']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
@@ -260,13 +261,6 @@ function configuredInteger(
   return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum
     ? parsed
     : fallback;
-}
-
-function repoPath(repository: string): string {
-  return repository
-    .split('/')
-    .map((part) => encodeURIComponent(part))
-    .join('/');
 }
 
 function basename(path: string): string {

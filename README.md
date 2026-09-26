@@ -33,8 +33,7 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/tvpi | [#106](https://github.com/trvny/tvpi/pull/106) | revert: remove ChatGPT WAF automation | @trvny | ready | 2026-09-23 |
-| trvny/tvpi | [#107](https://github.com/trvny/tvpi/pull/107) | chore(deps-dev): bump wrangler from 4.131.1 to 4.135.0 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-09-23 |
+| trvny/WiFi-Automatic | [#46](https://github.com/trvny/WiFi-Automatic/pull/46) | [pull] master from j4velin:master | @pull[bot] | ready | 2026-09-25 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

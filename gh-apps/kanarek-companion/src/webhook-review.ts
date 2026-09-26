@@ -276,7 +276,7 @@ function configuredInteger(
 }
 
 export function reviewMaxOutputTokens(value: string | undefined): number {
-  return configuredInteger(value, DEFAULT_MAX_OUTPUT_TOKENS, 512, 65_536);
+  return configuredInteger(value, DEFAULT_MAX_OUTPUT_TOKENS, 65_536, 512);
 }
 
 function basename(path: string): string {

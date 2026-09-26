@@ -109,6 +109,8 @@ const REVIEW_SYSTEM_PROMPT = [
   'Prioritize correctness, security, regressions, data loss, races, broken error handling, compatibility, and materially unsafe edge cases.',
   'Ignore style, formatting, naming taste, documentation wording, speculative refactors, and low-value nits.',
   'Every finding must be high-confidence, actionable, and anchored to an added RIGHT-side line from the supplied diff.',
+  'Every finding must include existing_code copied verbatim from the changed file as visible on the RIGHT side of the supplied diff. Use the smallest exact source snippet that uniquely identifies the defect; do not include diff markers or invent omitted code.',
+  'path and line are location hints. A deterministic verifier checks existing_code against the supplied diff, may re-home a finding to the unique changed file containing that exact snippet, and rejects unverifiable or ambiguous findings.',
   'A finding that depends on how a symbol is called, defined, or used elsewhere is valid only when that usage is visible in the supplied diff or repository_context. If it is not shown, you cannot verify it - omit the finding instead of guessing.',
   'repository_context.callers lists, for a small number of primary changed files, caller files found by a bounded import search. A file absent from that list has no caller evidence at all - never claim it is unused or that callers are unaffected. Even a file listed with zero callers is inconclusive when its searchIncomplete is true.',
   'repository_context.dependency_evidence contains bounded live registry and upstream-release evidence for detected npm major-version bumps. For claims about an external package API, required fields, removed fields, or migration behavior, require a matching verified evidence entry and direct support in its release notes or in repository_context code. Never infer such details from the pull-request title/body, Dependabot prose, or a semver-major number alone. If the evidence is absent or inconclusive, omit the compatibility finding rather than inventing an API detail.',
@@ -117,7 +119,7 @@ const REVIEW_SYSTEM_PROMPT = [
   'All human-facing summary, titles, and bodies must be Simplified Chinese. Keep code identifiers and paths unchanged.',
   'Voice: dry, charming, lightly technical Kanarek. A subtle bird/canary flourish or 🐤 is welcome in the summary or a minor finding, but never let humor obscure severity, uncertainty, or the concrete fix. Serious security, data-loss, and high-severity findings stay serious. Avoid forced jokes and repetitive catchphrases.',
   'Do not praise or summarize the implementation. Return JSON only, with exactly this shape:',
-  '{"summary":"short review note","findings":[{"severity":"high|medium|low","path":"exact/path","line":123,"title":"short title","body":"why this is a bug and what should change"}]}',
+  '{"summary":"short review note","findings":[{"severity":"high|medium|low","path":"exact/path","line":123,"existing_code":"exact source copied verbatim from the RIGHT side of the diff","title":"short title","body":"why this is a bug and what should change"}]}',
   `Return at most ${MAX_FINDINGS} findings. Use an empty findings array when no actionable defect exists.`,
 ].join('\n');
 
@@ -190,6 +192,7 @@ interface ReviewContext {
 
 interface RawFinding {
   body?: unknown;
+  existing_code?: unknown;
   line?: unknown;
   path?: unknown;
   severity?: unknown;
@@ -1059,26 +1062,134 @@ export function parseReviewJson(value: string): ParsedReview | null {
   return null;
 }
 
-function normalizeFindings(
+interface PatchSourceLine {
+  line: number;
+  text: string;
+}
+
+function patchRightSideSource(patch: string): PatchSourceLine[] {
+  const output: PatchSourceLine[] = [];
+  let rightLine = 0;
+  let inHunk = false;
+
+  for (const text of patch.split('\n')) {
+    const hunk = text.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunk) {
+      rightLine = Number.parseInt(hunk[1], 10);
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk || text.startsWith('\\ No newline at end of file')) continue;
+    if (text.startsWith('-')) continue;
+    if (text.startsWith('+') || text.startsWith(' ')) {
+      output.push({ line: rightLine, text: text.slice(1) });
+      rightLine += 1;
+    }
+  }
+  return output;
+}
+
+interface ExistingCodeMatch {
+  anchorLine: number;
+  path: string;
+  sourceLine: number;
+}
+
+function exactExistingCodeMatches(
+  file: ReviewFile,
+  existingCode: string,
+  requestedLine: number | null,
+): ExistingCodeMatch[] {
+  const normalized = existingCode.replace(/\r\n/g, '\n').replace(/\n$/, '');
+  if (!normalized.trim()) return [];
+  const snippet = normalized.split('\n');
+  const source = patchRightSideSource(file.patch);
+  const output: ExistingCodeMatch[] = [];
+
+  for (let index = 0; index + snippet.length <= source.length; index += 1) {
+    let matches = true;
+    for (let offset = 0; offset < snippet.length; offset += 1) {
+      const current = source[index + offset];
+      const first = source[index];
+      if (
+        !current ||
+        !first ||
+        current.line !== first.line + offset ||
+        current.text !== snippet[offset]
+      ) {
+        matches = false;
+        break;
+      }
+    }
+    if (!matches) continue;
+
+    const first = source[index]!;
+    const last = source[index + snippet.length - 1]!;
+    const addedInSnippet = [...file.rightLines].filter(
+      (line) => line >= first.line && line <= last.line,
+    );
+    const candidates = addedInSnippet.length
+      ? addedInSnippet
+      : [reviewAnchorLine(file.rightLines, first.line)].filter(
+          (line): line is number => line !== null,
+        );
+    if (!candidates.length) continue;
+    const anchorLine = candidates.reduce((best, candidate) => {
+      if (requestedLine === null) return Math.min(best, candidate);
+      const bestDistance = Math.abs(best - requestedLine);
+      const candidateDistance = Math.abs(candidate - requestedLine);
+      return candidateDistance < bestDistance ||
+        (candidateDistance === bestDistance && candidate < best)
+        ? candidate
+        : best;
+    });
+    output.push({ anchorLine, path: file.path, sourceLine: first.line });
+  }
+  return output;
+}
+
+export function verifyReviewFindings(
   parsed: ParsedReview,
   files: ReviewFile[],
 ): ReviewFinding[] {
-  const byPath = new Map(files.map((file) => [file.path, file]));
   const output: ReviewFinding[] = [];
   const seen = new Set<string>();
 
   for (const raw of parsed.findings.slice(0, MAX_FINDINGS * 2)) {
     if (
       typeof raw.path !== 'string' ||
-      typeof raw.line !== 'number' ||
-      !Number.isInteger(raw.line)
+      typeof raw.existing_code !== 'string'
     ) {
       continue;
     }
-    const file = byPath.get(raw.path);
-    if (!file) continue;
-    const line = reviewAnchorLine(file.rightLines, raw.line);
-    if (line === null) continue;
+    const requestedLine =
+      typeof raw.line === 'number' && Number.isInteger(raw.line)
+        ? raw.line
+        : null;
+    const existingCode = raw.existing_code;
+    const matches = files.flatMap((file) =>
+      exactExistingCodeMatches(file, existingCode, requestedLine),
+    );
+    const claimed = matches.filter((match) => match.path === raw.path);
+    const candidatePaths = new Set(matches.map((match) => match.path));
+    const eligible = claimed.length
+      ? claimed
+      : candidatePaths.size === 1
+        ? matches
+        : [];
+    if (!eligible.length) continue;
+
+    const selected = eligible.reduce((best, candidate) => {
+      if (requestedLine === null) {
+        return candidate.sourceLine < best.sourceLine ? candidate : best;
+      }
+      const bestDistance = Math.abs(best.anchorLine - requestedLine);
+      const candidateDistance = Math.abs(candidate.anchorLine - requestedLine);
+      return candidateDistance < bestDistance ||
+        (candidateDistance === bestDistance && candidate.sourceLine < best.sourceLine)
+        ? candidate
+        : best;
+    });
 
     const severity =
       raw.severity === 'high' ||
@@ -1092,13 +1203,13 @@ function normalizeFindings(
       typeof raw.body === 'string' ? raw.body.trim().slice(0, 1_400) : '';
     if (!title || !findingBody || !containsHan(`${title}${findingBody}`)) continue;
 
-    const key = `${raw.path}:${line}:${title.toLowerCase()}`;
+    const key = `${selected.path}:${selected.anchorLine}:${existingCode.replace(/\s+/g, ' ').trim()}`;
     if (seen.has(key)) continue;
     seen.add(key);
     output.push({
       body: findingBody,
-      line,
-      path: raw.path,
+      line: selected.anchorLine,
+      path: selected.path,
       severity,
       title,
     });
@@ -1378,7 +1489,7 @@ export async function runWebhookReview(
     return { reviewed: false, provider: null, findingCount: 0, skipped: 'providers_failed' };
   }
 
-  const findings = normalizeFindings(generated.parsed, files);
+  const findings = verifyReviewFindings(generated.parsed, files);
   const disposition = reviewDisposition(generated.parsed.findings, findings);
   if (disposition === 'clean') {
     console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.

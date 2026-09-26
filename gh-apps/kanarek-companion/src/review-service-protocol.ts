@@ -6,6 +6,7 @@ export const REVIEW_ROUTER_MODELS_PATH = '/review-router/v1/models';
 export const REVIEW_ROUTER_FREE_MODEL = 'kanarek-review-free';
 export const REVIEW_ROUTER_REVIEW_MODEL = 'kanarek-review';
 export const REVIEW_WORKERS_AI_OVERRIDE_HEADER = 'x-kanarek-review-workers-ai-enabled';
+export const REVIEW_PROVIDER_EXCLUDE_HEADER = 'x-kanarek-review-exclude-provider';
 
 export type ReviewProviderPoolHealth = {
   available: number;

@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  applyReviewJudge,
   parseReviewJson,
   reviewDisposition,
+  reviewJudgeThreshold,
   reviewSourceLabel,
   verifyReviewFindings,
 } from '../src/webhook-review.ts';
@@ -115,6 +117,7 @@ test('L1 verifier keeps exact existing_code and anchors it to the added RIGHT-si
     severity: 'high',
     path: 'src/auth.ts',
     line: 11,
+    existingCode: '  const result = unsafeCall(input);',
     title: '输入未经校验',
     body: '正常路径会把未经校验的输入传给下游调用。',
   }]);
@@ -223,4 +226,118 @@ test('L1 verifier deduplicates repeated findings for the same exact code locator
 
   assert.equal(findings.length, 1);
   assert.equal(findings[0]?.title, '第一次报告');
+});
+
+test('L2 judge clusters root causes, keeps the representative, and drops low-confidence groups', () => {
+  const findings = [
+    {
+      severity: 'high' as const,
+      path: 'src/a.ts',
+      line: 10,
+      existingCode: 'const value = risky();',
+      title: '第一个症状',
+      body: '这是同一个根因的第一个症状。',
+    },
+    {
+      severity: 'medium' as const,
+      path: 'src/a.ts',
+      line: 12,
+      existingCode: 'return value;',
+      title: '第二个症状',
+      body: '这是同一个根因的第二个症状。',
+    },
+    {
+      severity: 'low' as const,
+      path: 'src/b.ts',
+      line: 3,
+      existingCode: 'const style = true;',
+      title: '低价值问题',
+      body: '这个问题没有足够证据支持。',
+    },
+  ];
+  const judged = applyReviewJudge(findings, JSON.stringify({
+    groups: [
+      {
+        member_ids: [0, 1],
+        representative_id: 1,
+        confidence: 0.95,
+        keep: true,
+        root_cause: 'same bug',
+        reason: 'verified',
+      },
+      {
+        member_ids: [2],
+        representative_id: 2,
+        confidence: 0.4,
+        keep: true,
+        root_cause: 'weak',
+        reason: 'speculative',
+      },
+    ],
+  }), 0.7);
+
+  assert.deepEqual(judged, [findings[1]]);
+});
+
+test('L2 judge fails open for findings it did not classify', () => {
+  const findings = [
+    {
+      severity: 'high' as const,
+      path: 'src/a.ts',
+      line: 1,
+      existingCode: 'const a = risky();',
+      title: '问题 A',
+      body: '这是一个需要保留的问题。',
+    },
+    {
+      severity: 'medium' as const,
+      path: 'src/b.ts',
+      line: 2,
+      existingCode: 'const b = risky();',
+      title: '问题 B',
+      body: '这个问题没有被 judge 分类。',
+    },
+  ];
+  const judged = applyReviewJudge(findings, JSON.stringify({
+    groups: [{
+      member_ids: [0],
+      representative_id: 0,
+      confidence: 0.2,
+      keep: false,
+      root_cause: 'drop A',
+      reason: 'not convincing',
+    }],
+  }), 0.7);
+
+  assert.deepEqual(judged, [findings[1]]);
+});
+
+test('L2 judge rejects malformed overlapping groups instead of silently losing findings', () => {
+  const findings = [{
+    severity: 'high' as const,
+    path: 'src/a.ts',
+    line: 1,
+    existingCode: 'const a = risky();',
+    title: '问题 A',
+    body: '这是一个需要审查的问题。',
+  }];
+  assert.equal(
+    applyReviewJudge(findings, JSON.stringify({
+      groups: [
+        { member_ids: [0], representative_id: 0, confidence: 0.9, keep: true },
+        { member_ids: [0], representative_id: 0, confidence: 0.9, keep: true },
+      ],
+    })),
+    null,
+  );
+  assert.equal(applyReviewJudge(findings, '{"groups":"nope"}'), null);
+});
+
+test('L2 judge threshold is strict and bounded', () => {
+  assert.equal(reviewJudgeThreshold(undefined), 0.7);
+  assert.equal(reviewJudgeThreshold('0'), 0);
+  assert.equal(reviewJudgeThreshold('0.85'), 0.85);
+  assert.equal(reviewJudgeThreshold('1.0'), 1);
+  assert.equal(reviewJudgeThreshold('1.1'), 0.7);
+  assert.equal(reviewJudgeThreshold('0.7oops'), 0.7);
 });

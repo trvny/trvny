@@ -1,6 +1,7 @@
 import { bearerAuthorized } from '../../kanarek-companion/src/auth.ts';
 import { configuredOpenRouterModels } from './openrouter-models.ts';
 import {
+  REVIEW_PROVIDER_EXCLUDE_HEADER,
   REVIEW_ROUTER_FREE_MODEL,
   REVIEW_ROUTER_MODELS_PATH,
   REVIEW_ROUTER_PATH,
@@ -73,6 +74,24 @@ export interface ReviewRouterEnv {
 type JsonObject = Record<string, unknown>;
 
 type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'huggingface-publicai' | 'gemini-flex' | 'workers-ai';
+
+function excludedProvider(request: Request): ReviewProviderId | null {
+  const value = request.headers.get(REVIEW_PROVIDER_EXCLUDE_HEADER)?.trim().toLowerCase();
+  if (
+    value === 'aihubmix' ||
+    value === 'openrouter' ||
+    value === 'orcarouter' ||
+    value === 'ollama' ||
+    value === 'groq' ||
+    value === 'vercel' ||
+    value === 'huggingface-publicai' ||
+    value === 'gemini-flex' ||
+    value === 'workers-ai'
+  ) {
+    return value;
+  }
+  return null;
+}
 
 type ReviewProvider = {
   id: ReviewProviderId;
@@ -796,11 +815,18 @@ export async function handleReviewRouterRequest(
   }
 
   const includeGeminiFlex = input.model === REVIEW_ROUTER_REVIEW_MODEL;
+  const excluded = excludedProvider(request);
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
 
   for (const provider of providers(env, includeGeminiFlex)) {
+    if (provider.id === excluded) {
+      console.info(JSON.stringify({
+        kanarekReviewRouter: 'provider_excluded', provider: provider.id,
+      }));
+      continue;
+    }
     const apiKey = provider.apiKey(env)?.trim();
     if (!apiKey) continue;
     configured += 1;
@@ -912,7 +938,7 @@ export async function handleReviewRouterRequest(
   }
 
 
-  if (workersAiEnabled(env)) {
+  if (workersAiEnabled(env) && excluded !== 'workers-ai') {
     configured += 1;
     const provider: ReviewProviderId = 'workers-ai';
     const cooldown = await activeProviderCooldown(env, provider);

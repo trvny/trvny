@@ -105,7 +105,7 @@ jobs:
           secret_names=$(npx --yes wrangler@4.127.1 secret list \
             --name kanarek-companion --format json | jq -r '.[].name')
           for retired_secret in \
-            AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY GROQ_API_KEY OLLAMA_API_KEY AI_GATEWAY_API_KEY HUGGINGFACE_API_KEY
+            AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY GROQ_API_KEY OLLAMA_API_KEY AI_GATEWAY_API_KEY HUGGINGFACE_API_KEY DEEPSEEK_API_KEY
           do
             if grep -Fxq "$retired_secret" <<<"$secret_names"; then
               npx --yes wrangler@4.127.1 secret delete "$retired_secret" \
@@ -262,6 +262,7 @@ jobs:
       OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
       AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
       HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - name: Sync review provider credentials
@@ -288,6 +289,8 @@ jobs:
 
           names = ("AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "GROQ_API_KEY", "OLLAMA_API_KEY", "AI_GATEWAY_API_KEY", "HUGGINGFACE_API_KEY")
           secrets = {name: os.environ[name] for name in names}
+          if os.environ.get("DEEPSEEK_API_KEY"):
+              secrets["DEEPSEEK_API_KEY"] = os.environ["DEEPSEEK_API_KEY"]
           if os.environ.get("GEMINI_API_KEY"):
               secrets["GEMINI_API_KEY"] = os.environ["GEMINI_API_KEY"]
           pathlib.Path(sys.argv[1]).write_text(
@@ -307,6 +310,9 @@ jobs:
             ["AIHUBMIX_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY", "GROQ_API_KEY", "OLLAMA_API_KEY", "AI_GATEWAY_API_KEY", "HUGGINGFACE_API_KEY"] |
             all(. as $required | $names | index($required))
           ' <<<"$secrets_json" >/dev/null
+          if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
+            jq -e '([.[].name] | index("DEEPSEEK_API_KEY")) != null' <<<"$secrets_json" >/dev/null
+          fi
           if [ -n "${GEMINI_API_KEY:-}" ]; then
             jq -e '([.[].name] | index("GEMINI_API_KEY")) != null' <<<"$secrets_json" >/dev/null
           fi

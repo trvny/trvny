@@ -160,7 +160,7 @@ test('review router exposes its synthetic OpenAI model', async () => {
   ]);
 });
 
-test('review router prefers OpenRouter before the paid Gemini Flex reserve', async () => {
+test('review router prefers OpenRouter before the paid review reserves', async () => {
   let call: { url?: string; model?: unknown; authorization?: string | null } = {};
   const env = {
     ...auth, GEMINI_API_KEY: 'gemini-key', OPENROUTER_API_KEY: 'openrouter-key',
@@ -183,6 +183,75 @@ test('review router prefers OpenRouter before the paid Gemini Flex reserve', asy
   assert.equal(call.url, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(call.model, 'nvidia/nemotron-3-super-120b-a12b:free');
   assert.equal(call.authorization, 'Bearer openrouter-key');
+});
+
+test('review router uses direct DeepSeek Flash before Gemini Flex as the first paid reserve', async () => {
+  const calls: Array<{
+    url: string;
+    model: unknown;
+    thinking: unknown;
+    reasoningEffort: unknown;
+    responseFormat: unknown;
+    authorization: string | null;
+  }> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review',
+    stream: false,
+    max_tokens: 16_384,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    DEEPSEEK_API_KEY: 'deepseek-key',
+    GEMINI_API_KEY: 'gemini-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    calls.push({
+      url: String(input),
+      model: body.model,
+      thinking: body.thinking,
+      reasoningEffort: body.reasoning_effort,
+      responseFormat: body.response_format,
+      authorization: new Headers(init?.headers).get('authorization'),
+    });
+    return Promise.resolve(new Response('{"choices":[],"model":"deepseek-flash"}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'deepseek');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.url, 'https://api.deepseek.com/chat/completions');
+  assert.equal(calls[0]?.model, 'deepseek-flash');
+  assert.deepEqual(calls[0]?.thinking, { type: 'enabled' });
+  assert.equal(calls[0]?.reasoningEffort, 'high');
+  assert.deepEqual(calls[0]?.responseFormat, { type: 'json_object' });
+  assert.equal(calls[0]?.authorization, 'Bearer deepseek-key');
+});
+
+test('DeepSeek balance exhaustion falls through to Gemini Flex', async () => {
+  const urls: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    DEEPSEEK_API_KEY: 'deepseek-key',
+    GEMINI_API_KEY: 'gemini-key',
+  }, ((input: RequestInfo | URL) => {
+    const url = String(input);
+    urls.push(url);
+    if (new URL(url).hostname === 'api.deepseek.com') {
+      return Promise.resolve(new Response('insufficient balance', { status: 402 }));
+    }
+    return Promise.resolve(new Response('{"choices":[],"model":"gemini-3.8-flash"}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
+  assert.deepEqual(urls, [
+    'https://api.deepseek.com/chat/completions',
+    'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+  ]);
 });
 
 test('review router uses Gemini 3.8 Flash Flex as an optional reserve', async () => {
@@ -218,14 +287,14 @@ test('review router uses Gemini 3.8 Flash Flex as an optional reserve', async ()
 });
 
 
-test('free router contract never spends the Gemini Flex reserve', async () => {
+test('free router contract never spends DeepSeek or Gemini paid reserves', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-review-free',
     stream: false,
     messages: [{ role: 'user', content: 'quip' }],
   }), {
-    ...auth, GEMINI_API_KEY: 'gemini-key',
+    ...auth, DEEPSEEK_API_KEY: 'deepseek-key', GEMINI_API_KEY: 'gemini-key',
   }, (() => {
     calls += 1;
     return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));

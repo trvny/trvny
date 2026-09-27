@@ -33,7 +33,8 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/WiFi-Automatic | [#46](https://github.com/trvny/WiFi-Automatic/pull/46) | [pull] master from j4velin:master | @pull[bot] | ready | 2026-09-26 |
+| trvny/trvny | [#792](https://github.com/trvny/trvny/pull/792) | Add MechaGremlin plugin migration foundation | @trvny | draft | 2026-09-27 |
+| trvny/WiFi-Automatic | [#46](https://github.com/trvny/WiFi-Automatic/pull/46) | [pull] master from j4velin:master | @pull[bot] | ready | 2026-09-27 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

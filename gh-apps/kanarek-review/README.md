@@ -2,8 +2,8 @@
 
 `kanarek-review` is the private review-provider Worker used by the shared
 `kanarek-companion` runtime. It owns provider credentials, routing, cooldowns,
-and model fallback. The normal pool is free-first, with an optional paid Gemini
-Flex reserve. It does **not** own GitHub webhook handling, PR context
+and model fallback. The normal pool is free-first, with optional paid DeepSeek
+and Gemini Flex reserves. It does **not** own GitHub webhook handling, PR context
 collection, review publication, status comments, or quip-bank semantics.
 
 Keeping this boundary separate means the provider credential set and deploy
@@ -29,8 +29,8 @@ The internal OpenAI-compatible surface is:
 
 It exposes two synthetic model contracts: `kanarek-review-free` stays strictly
 on the free pool for quips, Telegram, Pet Dispatcher, and other shared callers;
-`kanarek-review` is the PR-review contract and may use the optional paid Gemini
-Flex reserve after the free HTTP providers are exhausted.
+`kanarek-review` is the PR-review contract and may use optional paid DeepSeek
+and Gemini Flex reserves after the free HTTP providers are exhausted.
 
 `workers_dev` and preview URLs are disabled. The shared Worker adds an internal
 trust header/bearer before invoking the service binding; callers do not receive
@@ -49,9 +49,11 @@ errors, or provider unavailability. Current families are:
 5. Vercel AI Gateway
 6. OrcaRouter
 7. Hugging Face Inference Providers pinned to Public AI
-8. Gemini 3.8 Flash through the paid Flex tier, only for the `kanarek-review`
+8. DeepSeek V4.1 Flash through the direct DeepSeek API, only for the
+   `kanarek-review` PR-review contract when `DEEPSEEK_API_KEY` is configured
+9. Gemini 3.8 Flash through the paid Flex tier, only for the `kanarek-review`
    PR-review contract when `GEMINI_API_KEY` is configured
-9. guarded Cloudflare Workers AI as the final fallback
+10. guarded Cloudflare Workers AI as the final fallback
 
 Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter's
 official `openrouter/free` model can be used directly and lets OpenRouter choose
@@ -65,6 +67,12 @@ rather than pinned model aliases. The OrcaRouter workspace is the maintained
 source of truth for which current free models that route should prefer, so model
 rotation does not require a repository change. Spend limits and routing policy
 must remain enforced in OrcaRouter itself.
+
+DeepSeek uses the official OpenAI-compatible endpoint with `deepseek-flash`,
+thinking enabled at high effort, and JSON output mode. It is deliberately kept
+out of `kanarek-review-free`, so only dedicated PR review can spend the user's
+DeepSeek balance. HTTP 402 balance exhaustion enters the normal quota
+cooldown/fallback path.
 
 Gemini uses the OpenAI-compatible Gemini endpoint with
 `service_tier: "flex"`. Flex is a paid, lower-cost, sheddable tier: 429/503
@@ -117,6 +125,7 @@ Important variables include:
 - `KANAREK_REVIEW_GROQ_MODEL`
 - `KANAREK_REVIEW_VERCEL_MODEL`
 - `KANAREK_REVIEW_HUGGINGFACE_MODEL`
+- `KANAREK_REVIEW_DEEPSEEK_MODEL`
 - `KANAREK_REVIEW_GEMINI_MODEL`
 
 The shared runtime independently controls whether webhook review is enabled,
@@ -134,6 +143,7 @@ Provider credentials belong here:
 - `AI_GATEWAY_API_KEY`
 - `ORCAROUTER_API_KEY`
 - `HUGGINGFACE_API_KEY`
+- `DEEPSEEK_API_KEY` (optional direct paid PR-review reserve)
 - `GEMINI_API_KEY` (optional paid Flex reserve)
 
 The shared runtime keeps only `KANAREK_REVIEW_ROUTER_TOKEN` for its private

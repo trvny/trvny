@@ -31,6 +31,10 @@ test('review source label includes provider and concrete upstream model', () => 
     reviewSourceLabel('huggingface-publicai', 'aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai'),
     'Hugging Face PublicAI · `aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai`',
   );
+  assert.equal(
+    reviewSourceLabel('deepseek', 'deepseek-flash'),
+    'DeepSeek · `deepseek-flash`',
+  );
 });
 
 test('review source label falls back to the provider when model is unavailable', () => {

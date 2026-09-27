@@ -32,6 +32,7 @@ const DEFAULT_REVIEW_OLLAMA_MODELS = [
 const DEFAULT_REVIEW_GROQ_MODEL = 'openai/gpt-oss-120b';
 const DEFAULT_REVIEW_VERCEL_MODEL = 'alibaba/qwen3-coder-30b-a3b';
 const DEFAULT_REVIEW_HUGGINGFACE_MODEL = 'aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai';
+const DEFAULT_REVIEW_DEEPSEEK_MODEL = 'deepseek-flash';
 const DEFAULT_REVIEW_GEMINI_MODEL = 'gemini-3.8-flash';
 const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'nvidia/nemotron-3-super-120b-a12b:free',
@@ -54,6 +55,7 @@ export interface ReviewRouterEnv {
   GROQ_API_KEY?: string;
   AI_GATEWAY_API_KEY?: string;
   HUGGINGFACE_API_KEY?: string;
+  DEEPSEEK_API_KEY?: string;
   GEMINI_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
@@ -63,6 +65,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_GROQ_MODEL?: string;
   KANAREK_REVIEW_VERCEL_MODEL?: string;
   KANAREK_REVIEW_HUGGINGFACE_MODEL?: string;
+  KANAREK_REVIEW_DEEPSEEK_MODEL?: string;
   KANAREK_REVIEW_GEMINI_MODEL?: string;
   KANAREK_REVIEW_COOLDOWNS?: DurableObjectNamespace;
   KANAREK_REVIEW_QUOTA_COOLDOWN_MS?: string;
@@ -73,7 +76,7 @@ export interface ReviewRouterEnv {
 
 type JsonObject = Record<string, unknown>;
 
-type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'huggingface-publicai' | 'gemini-flex' | 'workers-ai';
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'huggingface-publicai' | 'deepseek' | 'gemini-flex' | 'workers-ai';
 
 function excludedProvider(request: Request): ReviewProviderId | null {
   const value = request.headers.get(REVIEW_PROVIDER_EXCLUDE_HEADER)?.trim().toLowerCase();
@@ -85,6 +88,7 @@ function excludedProvider(request: Request): ReviewProviderId | null {
     value === 'groq' ||
     value === 'vercel' ||
     value === 'huggingface-publicai' ||
+    value === 'deepseek' ||
     value === 'gemini-flex' ||
     value === 'workers-ai'
   ) {
@@ -125,7 +129,7 @@ function configuredModelList(raw: string | undefined, fallback: readonly string[
   return [...new Set(configured.length > 0 ? configured : fallback)];
 }
 
-function providers(env: ReviewRouterEnv, includeGeminiFlex = false): readonly ReviewProvider[] {
+function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly ReviewProvider[] {
   const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
   const sharedOpenRouterModels = env.KANAREK_OPENROUTER_MODELS?.trim();
   const openRouterModels = reviewOpenRouterModels
@@ -194,9 +198,23 @@ function providers(env: ReviewRouterEnv, includeGeminiFlex = false): readonly Re
       apiKey: (providerEnv) => providerEnv.HUGGINGFACE_API_KEY,
     },
   ];
-  if (!includeGeminiFlex) return freeProviders;
+  if (!includePaidReserves) return freeProviders;
   return [
     ...freeProviders,
+    {
+      // First paid reserve for the dedicated PR-review contract only. The direct
+      // DeepSeek account consumes existing balance only after the zero-cost pool
+      // is exhausted. JSON mode matches the review contract.
+      id: 'deepseek',
+      url: 'https://api.deepseek.com/chat/completions',
+      model: env.KANAREK_REVIEW_DEEPSEEK_MODEL?.trim() || DEFAULT_REVIEW_DEEPSEEK_MODEL,
+      apiKey: (providerEnv) => providerEnv.DEEPSEEK_API_KEY,
+      requestFields: {
+        thinking: { type: 'enabled' },
+        reasoning_effort: 'high',
+        response_format: { type: 'json_object' },
+      },
+    },
     {
       // Optional paid reserve for the dedicated PR-review contract only. Gemini
       // Flex is cheaper than Standard but can shed traffic with 503, which the
@@ -814,13 +832,13 @@ export async function handleReviewRouterRequest(
     return jsonError('Invalid JSON body', 'invalid_json', 400);
   }
 
-  const includeGeminiFlex = input.model === REVIEW_ROUTER_REVIEW_MODEL;
+  const includePaidReserves = input.model === REVIEW_ROUTER_REVIEW_MODEL;
   const excluded = excludedProvider(request);
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
 
-  for (const provider of providers(env, includeGeminiFlex)) {
+  for (const provider of providers(env, includePaidReserves)) {
     if (provider.id === excluded) {
       console.info(JSON.stringify({
         kanarekReviewRouter: 'provider_excluded', provider: provider.id,

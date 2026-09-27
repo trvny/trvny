@@ -49,22 +49,34 @@ sync_core() {
 
 sync_core
 
-# Each install root here commits a package-lock.json and its CI installs from it, so
-# `npm ci` reproduces exactly what the checks run against. Unlike the core sync
-# above this is gated: these installs are useful on a fresh web container but pure
-# overhead for a local checkout that already has node_modules.
+# Every install root here commits a package-lock.json and its CI installs from
+# it, so `npm ci` reproduces exactly what the checks run against. Roots are
+# discovered from git instead of listed by hand, so a new Worker is covered the
+# day it lands. Installs run in parallel, and a root whose node_modules is
+# already newer than its lockfile is skipped: hooks also fire on resume, and a
+# second `npm ci` would wipe and rebuild node_modules for nothing.
 #
 # A failed install is a warning, not a dead session, for the same reason the
 # core sync is: the agent can still read code, it just cannot run that project's
 # checks. Installs are independent, so one failure must not skip the rest.
 install_workers() {
 	local failed=""
-	local dir
+	local dir pids=() dirs=()
 
-	for dir in mcp/status-mcp gh-apps/kanarek-companion; do
-		echo "==> $dir: npm ci"
-		if ! (cd "$dir" && npm ci --no-audit --no-fund); then
-			failed="$failed $dir"
+	while IFS= read -r lock; do
+		dir="$(dirname "$lock")"
+		[ "$dir/node_modules/.package-lock.json" -nt "$lock" ] && continue
+		(cd "$dir" && npm ci --no-audit --no-fund --no-update-notifier --loglevel=error >/dev/null) &
+		pids+=("$!")
+		dirs+=("$dir")
+	done < <(git ls-files '*package-lock.json')
+
+	local i
+	for i in "${!pids[@]}"; do
+		if wait "${pids[$i]}"; then
+			echo "==> ${dirs[$i]}: npm ci"
+		else
+			failed="$failed ${dirs[$i]}"
 		fi
 	done
 

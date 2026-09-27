@@ -10,6 +10,7 @@ import {
   REVIEW_ROUTER_FREE_MODEL,
   REVIEW_ROUTER_PATH,
   REVIEW_ROUTER_REVIEW_MODEL,
+  REVIEW_ROUTER_PAID_MODEL,
 } from './review-service-protocol.ts';
 import {
   handleReviewRouterViaService,
@@ -24,12 +25,15 @@ const SHA_RE = /^[0-9a-f]{40}$/i;
 const DEFAULT_DEBOUNCE_MS = 60_000;
 const DEFAULT_MAX_DIFF_CHARS = 60_000;
 const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
+const DEFAULT_PAID_MAX_DIFF_CHARS = 250_000;
+const DEFAULT_PAID_MAX_CONTEXT_CHARS = 500_000;
 const DEFAULT_MAX_OUTPUT_TOKENS = 16_384;
 const DEFAULT_JUDGE_THRESHOLD = 0.7;
 const REVIEW_RETRY_DELAYS_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000] as const;
 const MAX_DEBOUNCE_MS = 10 * 60_000;
 const MAX_FILES = 60;
 const MAX_PATCH_CHARS = 14_000;
+const PAID_MAX_PATCH_CHARS = 48_000;
 const MAX_CONTEXT_FILES = 24;
 const MAX_CONTEXT_FILE_CHARS = 32_000;
 const MAX_CONTEXT_BLOB_BYTES = 192_000;
@@ -139,6 +143,8 @@ export interface WebhookReviewEnv extends ReviewServiceEnv {
   KANAREK_WEBHOOK_REVIEW_MAX_CONTEXT_CHARS?: string;
   KANAREK_WEBHOOK_REVIEW_MAX_DIFF_CHARS?: string;
   KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS?: string;
+  KANAREK_WEBHOOK_REVIEW_PAID_MAX_CONTEXT_CHARS?: string;
+  KANAREK_WEBHOOK_REVIEW_PAID_MAX_DIFF_CHARS?: string;
   KANAREK_WEBHOOK_REVIEW_JUDGE_ENABLED?: string;
   KANAREK_WEBHOOK_REVIEW_JUDGE_THRESHOLD?: string;
 }
@@ -477,6 +483,7 @@ function contextPriority(path: string, changedPaths: readonly string[]): number 
 export function selectReviewFiles(
   files: PullRequestFile[],
   maxDiffChars: number,
+  maxPatchChars = MAX_PATCH_CHARS,
 ): ReviewFile[] {
   const output: ReviewFile[] = [];
   let remaining = maxDiffChars;
@@ -487,7 +494,7 @@ export function selectReviewFiles(
     const patch = typeof file.patch === 'string' ? file.patch : '';
     if (!path || !patch || !reviewablePath(path)) continue;
 
-    const clipped = patch.slice(0, Math.min(MAX_PATCH_CHARS, remaining));
+    const clipped = patch.slice(0, Math.min(maxPatchChars, remaining));
     const rightLines = patchAddedRightLines(clipped);
     if (!clipped) continue;
     output.push({
@@ -678,8 +685,9 @@ export function reviewInputState(
 export function reviewFileCollectionComplete(
   files: PullRequestFile[],
   maxDiffChars: number,
+  maxPatchChars = MAX_PATCH_CHARS,
 ): boolean {
-  const selected = selectReviewFiles(files, maxDiffChars);
+  const selected = selectReviewFiles(files, maxDiffChars, maxPatchChars);
   if (reviewInputState(files, selected.length) === 'patch_unavailable') {
     return true;
   }
@@ -1427,6 +1435,7 @@ async function askReviewJudge(
 async function askReviewRouter(
   prompt: string,
   env: WebhookReviewEnv,
+  routerModel = REVIEW_ROUTER_REVIEW_MODEL,
 ): Promise<{ model: string | null; parsed: ParsedReview; provider: string } | null> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) return null;
@@ -1439,7 +1448,7 @@ async function askReviewRouter(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: REVIEW_ROUTER_REVIEW_MODEL,
+        model: routerModel,
         stream: false,
         max_tokens: reviewMaxOutputTokens(
           env.KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS,
@@ -1456,6 +1465,7 @@ async function askReviewRouter(
     console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'providers_unavailable',
+        routerModel,
         status: response?.status ?? 500,
       }),
     );
@@ -1654,7 +1664,7 @@ export async function runWebhookReview(
       stopWhen: (items) => reviewFileCollectionComplete(items, maxDiffChars),
     },
   );
-  const files = selectReviewFiles(rawFiles, maxDiffChars);
+  let files = selectReviewFiles(rawFiles, maxDiffChars);
   const inputState = reviewInputState(rawFiles, files.length);
   if (inputState !== 'reviewable') {
     return {
@@ -1683,7 +1693,7 @@ export async function runWebhookReview(
   ]);
 
   const reviewEnv = reviewRouterEnvForAttempt(env, job.attempt);
-  const generated = await askReviewRouter(
+  let generated = await askReviewRouter(
     reviewPrompt(
       target.number,
       pr.title,
@@ -1694,13 +1704,89 @@ export async function runWebhookReview(
       dependencyEvidence,
     ),
     reviewEnv,
+    REVIEW_ROUTER_FREE_MODEL,
   );
-  if (!generated) {
-    return { reviewed: false, provider: null, findingCount: 0, skipped: 'providers_failed' };
+  let findings = generated ? verifyReviewFindings(generated.parsed, files) : [];
+  let disposition = generated
+    ? reviewDisposition(generated.parsed.findings, findings)
+    : null;
+
+  if (!generated || disposition === 'invalid_findings') {
+    const paidMaxDiffChars = configuredInteger(
+      env.KANAREK_WEBHOOK_REVIEW_PAID_MAX_DIFF_CHARS,
+      DEFAULT_PAID_MAX_DIFF_CHARS,
+      maxDiffChars,
+      500_000,
+    );
+    const paidRawFiles = await client.paginate<PullRequestFile>(
+      `/repos/${repoPath(target.repository)}/pulls/${target.number}/files`,
+      'webhook_review_list_files_paid',
+      {
+        maxPages: 30,
+        stopWhen: (items) =>
+          reviewFileCollectionComplete(items, paidMaxDiffChars, PAID_MAX_PATCH_CHARS),
+      },
+    );
+    const paidFiles = selectReviewFiles(
+      paidRawFiles,
+      paidMaxDiffChars,
+      PAID_MAX_PATCH_CHARS,
+    );
+    if (reviewInputState(paidRawFiles, paidFiles.length) === 'reviewable') {
+      const [paidContext, paidCallers, paidDependencyEvidence] = await Promise.all([
+        fetchRepositoryContext(
+          client,
+          target.repository,
+          target.headSha,
+          paidFiles,
+          configuredInteger(
+            env.KANAREK_WEBHOOK_REVIEW_PAID_MAX_CONTEXT_CHARS,
+            DEFAULT_PAID_MAX_CONTEXT_CHARS,
+            DEFAULT_MAX_CONTEXT_CHARS,
+            750_000,
+          ),
+        ),
+        fetchCallerEvidence(client, target.repository, target.headSha, paidFiles),
+        fetchReviewDependencyEvidence(paidFiles, fetcher),
+      ]);
+      const paidGenerated = await askReviewRouter(
+        reviewPrompt(
+          target.number,
+          pr.title,
+          pr.body,
+          paidFiles,
+          paidContext,
+          paidCallers,
+          paidDependencyEvidence,
+        ),
+        reviewEnv,
+        REVIEW_ROUTER_PAID_MODEL,
+      );
+      if (paidGenerated) {
+        generated = paidGenerated;
+        files = paidFiles;
+        findings = verifyReviewFindings(generated.parsed, files);
+        disposition = reviewDisposition(generated.parsed.findings, findings);
+        console.info(JSON.stringify({
+          kanarekWebhookReview: 'paid_escalation',
+          repository: target.repository,
+          pullRequestNumber: target.number,
+          headSha: target.headSha,
+          provider: generated.provider,
+          model: generated.model,
+          diffChars: paidFiles.reduce((total, file) => total + file.patch.length, 0),
+          contextChars: paidContext.files.reduce(
+            (total, file) => total + file.content.length,
+            0,
+          ),
+        }));
+      }
+    }
   }
 
-  const findings = verifyReviewFindings(generated.parsed, files);
-  const disposition = reviewDisposition(generated.parsed.findings, findings);
+  if (!generated || disposition === null) {
+    return { reviewed: false, provider: null, findingCount: 0, skipped: 'providers_failed' };
+  }
   if (disposition === 'clean') {
     console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({

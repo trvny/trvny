@@ -157,6 +157,7 @@ test('review router exposes its synthetic OpenAI model', async () => {
   assert.deepEqual(payload.data?.map((model) => model.id), [
     'kanarek-review-free',
     'kanarek-review',
+    'kanarek-review-paid',
   ]);
 });
 
@@ -222,9 +223,67 @@ test('review router uses direct DeepSeek Flash before Gemini Flex as the first p
   assert.equal(calls[0]?.url, 'https://api.deepseek.com/chat/completions');
   assert.equal(calls[0]?.model, 'deepseek-flash');
   assert.deepEqual(calls[0]?.thinking, { type: 'enabled' });
-  assert.equal(calls[0]?.reasoningEffort, 'high');
+  assert.equal(calls[0]?.reasoningEffort, 'max');
   assert.deepEqual(calls[0]?.responseFormat, { type: 'json_object' });
   assert.equal(calls[0]?.authorization, 'Bearer deepseek-key');
+});
+
+test('paid review contract skips the free pool and gives DeepSeek the heavy reasoning budget', async () => {
+  const calls: Array<{ url: string; maxTokens: unknown; reasoningEffort: unknown }> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    max_tokens: 16_384,
+    messages: [{ role: 'user', content: 'expanded paid review' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    DEEPSEEK_API_KEY: 'deepseek-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    calls.push({
+      url: String(input),
+      maxTokens: body.max_tokens,
+      reasoningEffort: body.reasoning_effort,
+    });
+    return Promise.resolve(new Response('{"choices":[],"model":"deepseek-flash"}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'deepseek');
+  assert.deepEqual(calls, [{
+    url: 'https://api.deepseek.com/chat/completions',
+    maxTokens: 131_072,
+    reasoningEffort: 'max',
+  }]);
+});
+
+test('paid review contract falls through from DeepSeek to Gemini without retrying free providers', async () => {
+  const urls: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'expanded paid review' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    DEEPSEEK_API_KEY: 'deepseek-key',
+    GEMINI_API_KEY: 'gemini-key',
+  }, ((input: RequestInfo | URL) => {
+    const url = String(input);
+    urls.push(url);
+    if (new URL(url).hostname === 'api.deepseek.com') {
+      return Promise.resolve(new Response('insufficient balance', { status: 402 }));
+    }
+    return Promise.resolve(new Response('{"choices":[],"model":"gemini-3.8-flash"}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
+  assert.deepEqual(urls, [
+    'https://api.deepseek.com/chat/completions',
+    'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+  ]);
 });
 
 test('DeepSeek balance exhaustion falls through to Gemini Flex', async () => {

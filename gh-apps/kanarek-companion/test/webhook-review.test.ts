@@ -242,6 +242,22 @@ test('review input does not mark missing GitHub patches as empty code', () => {
   );
 });
 
+test('expanded paid diff profile can retain more of one large patch', () => {
+  const patch = '@@ -1 +1 @@\n+' + 'x'.repeat(40_000);
+  const compact = selectReviewFiles(
+    [{ filename: 'src/large.ts', patch, sha: 'a'.repeat(40) }],
+    60_000,
+  );
+  const expanded = selectReviewFiles(
+    [{ filename: 'src/large.ts', patch, sha: 'a'.repeat(40) }],
+    250_000,
+    48_000,
+  );
+
+  assert.equal(compact[0]?.patch.length, 14_000);
+  assert.equal(expanded[0]?.patch.length, patch.length);
+});
+
 test('review file collection stops once the diff budget is full', () => {
   const patch = `@@ -0,0 +1 @@\n+${'x'.repeat(4_990)}`;
   const files = Array.from({ length: 2 }, (_, index) => ({

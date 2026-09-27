@@ -6,6 +6,7 @@ import {
   REVIEW_ROUTER_MODELS_PATH,
   REVIEW_ROUTER_PATH,
   REVIEW_ROUTER_REVIEW_MODEL,
+  REVIEW_ROUTER_PAID_MODEL,
 } from '../../kanarek-companion/src/review-service-protocol.ts';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -105,6 +106,7 @@ type ReviewProvider = {
   apiKey: (env: ReviewRouterEnv) => string | undefined;
   headers?: Record<string, string>;
   requestFields?: JsonObject;
+  timeoutMs?: number;
 };
 
 type ProviderCooldown = {
@@ -199,26 +201,29 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
     },
   ];
   if (!includePaidReserves) return freeProviders;
+  return [...freeProviders, ...paidProviders(env)];
+}
+
+function paidProviders(env: ReviewRouterEnv): readonly ReviewProvider[] {
   return [
-    ...freeProviders,
     {
-      // First paid reserve for the dedicated PR-review contract only. The direct
-      // DeepSeek account consumes existing balance only after the zero-cost pool
-      // is exhausted. JSON mode matches the review contract.
+      // Heavy paid reserve for difficult PRs. It receives the expanded-context
+      // pass only after the free pool fails or L1 rejects the free findings.
       id: 'deepseek',
       url: 'https://api.deepseek.com/chat/completions',
       model: env.KANAREK_REVIEW_DEEPSEEK_MODEL?.trim() || DEFAULT_REVIEW_DEEPSEEK_MODEL,
       apiKey: (providerEnv) => providerEnv.DEEPSEEK_API_KEY,
+      timeoutMs: MAX_TIMEOUT_MS,
       requestFields: {
         thinking: { type: 'enabled' },
-        reasoning_effort: 'high',
+        reasoning_effort: 'max',
+        max_tokens: 131_072,
         response_format: { type: 'json_object' },
       },
     },
     {
-      // Optional paid reserve for the dedicated PR-review contract only. Gemini
-      // Flex is cheaper than Standard but can shed traffic with 503, which the
-      // normal provider cooldown/fallback path handles.
+      // Gemini remains the second paid reserve. It keeps the caller's smaller
+      // output cap rather than inheriting DeepSeek's large reasoning budget.
       id: 'gemini-flex',
       url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
       model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || DEFAULT_REVIEW_GEMINI_MODEL,
@@ -816,6 +821,7 @@ export async function handleReviewRouterRequest(
       data: [
         { id: REVIEW_ROUTER_FREE_MODEL, object: 'model', owned_by: 'kanarek' },
         { id: REVIEW_ROUTER_REVIEW_MODEL, object: 'model', owned_by: 'kanarek' },
+        { id: REVIEW_ROUTER_PAID_MODEL, object: 'model', owned_by: 'kanarek' },
       ],
     }, { headers: { 'cache-control': 'no-store' } });
   }
@@ -832,13 +838,14 @@ export async function handleReviewRouterRequest(
     return jsonError('Invalid JSON body', 'invalid_json', 400);
   }
 
+  const paidOnly = input.model === REVIEW_ROUTER_PAID_MODEL;
   const includePaidReserves = input.model === REVIEW_ROUTER_REVIEW_MODEL;
   const excluded = excludedProvider(request);
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
 
-  for (const provider of providers(env, includePaidReserves)) {
+  for (const provider of paidOnly ? paidProviders(env) : providers(env, includePaidReserves)) {
     if (provider.id === excluded) {
       console.info(JSON.stringify({
         kanarekReviewRouter: 'provider_excluded', provider: provider.id,
@@ -858,7 +865,7 @@ export async function handleReviewRouterRequest(
       continue;
     }
     const controller = new AbortController();
-    const providerTimeoutMs = timeoutMs(env);
+    const providerTimeoutMs = provider.timeoutMs ?? timeoutMs(env);
     const deadlineAt = Date.now() + providerTimeoutMs;
     const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
     const attempts = providerAttempts(provider);
@@ -956,7 +963,7 @@ export async function handleReviewRouterRequest(
   }
 
 
-  if (workersAiEnabled(env) && excluded !== 'workers-ai') {
+  if (!paidOnly && workersAiEnabled(env) && excluded !== 'workers-ai') {
     configured += 1;
     const provider: ReviewProviderId = 'workers-ai';
     const cooldown = await activeProviderCooldown(env, provider);

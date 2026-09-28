@@ -7,11 +7,13 @@ import {
   REVIEW_ROUTER_PATH,
   REVIEW_ROUTER_REVIEW_MODEL,
   REVIEW_ROUTER_PAID_MODEL,
+  REVIEW_ROUTER_WORK_MODEL,
 } from '../../kanarek-companion/src/review-service-protocol.ts';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
+const WORK_PROVIDER_TIMEOUT_MS = 5 * 60_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
 const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
 const MIN_COOLDOWN_MS = 1_000;
@@ -204,33 +206,41 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
   return [...freeProviders, ...paidProviders(env)];
 }
 
+function deepSeekPaidProvider(
+  env: ReviewRouterEnv,
+  mode: 'review' | 'work',
+): ReviewProvider {
+  return {
+    id: 'deepseek',
+    url: 'https://api.deepseek.com/chat/completions',
+    model: env.KANAREK_REVIEW_DEEPSEEK_MODEL?.trim() || DEFAULT_REVIEW_DEEPSEEK_MODEL,
+    apiKey: (providerEnv) => providerEnv.DEEPSEEK_API_KEY,
+    timeoutMs: mode === 'work' ? WORK_PROVIDER_TIMEOUT_MS : MAX_TIMEOUT_MS,
+    requestFields: {
+      thinking: { type: 'enabled' },
+      reasoning_effort: 'max',
+      max_tokens: 131_072,
+      ...(mode === 'review' ? { response_format: { type: 'json_object' } } : {}),
+    },
+  };
+}
+
+function geminiPaidProvider(env: ReviewRouterEnv): ReviewProvider {
+  return {
+    id: 'gemini-flex',
+    url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || DEFAULT_REVIEW_GEMINI_MODEL,
+    apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
+    requestFields: { service_tier: 'flex' },
+  };
+}
+
 function paidProviders(env: ReviewRouterEnv): readonly ReviewProvider[] {
-  return [
-    {
-      // Heavy paid reserve for difficult PRs. It receives the expanded-context
-      // pass only after the free pool fails or L1 rejects the free findings.
-      id: 'deepseek',
-      url: 'https://api.deepseek.com/chat/completions',
-      model: env.KANAREK_REVIEW_DEEPSEEK_MODEL?.trim() || DEFAULT_REVIEW_DEEPSEEK_MODEL,
-      apiKey: (providerEnv) => providerEnv.DEEPSEEK_API_KEY,
-      timeoutMs: MAX_TIMEOUT_MS,
-      requestFields: {
-        thinking: { type: 'enabled' },
-        reasoning_effort: 'max',
-        max_tokens: 131_072,
-        response_format: { type: 'json_object' },
-      },
-    },
-    {
-      // Gemini remains the second paid reserve. It keeps the caller's smaller
-      // output cap rather than inheriting DeepSeek's large reasoning budget.
-      id: 'gemini-flex',
-      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-      model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || DEFAULT_REVIEW_GEMINI_MODEL,
-      apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
-      requestFields: { service_tier: 'flex' },
-    },
-  ];
+  return [deepSeekPaidProvider(env, 'review'), geminiPaidProvider(env)];
+}
+
+function workProviders(env: ReviewRouterEnv): readonly ReviewProvider[] {
+  return [deepSeekPaidProvider(env, 'work'), geminiPaidProvider(env)];
 }
 
 
@@ -822,6 +832,7 @@ export async function handleReviewRouterRequest(
         { id: REVIEW_ROUTER_FREE_MODEL, object: 'model', owned_by: 'kanarek' },
         { id: REVIEW_ROUTER_REVIEW_MODEL, object: 'model', owned_by: 'kanarek' },
         { id: REVIEW_ROUTER_PAID_MODEL, object: 'model', owned_by: 'kanarek' },
+        { id: REVIEW_ROUTER_WORK_MODEL, object: 'model', owned_by: 'kanarek' },
       ],
     }, { headers: { 'cache-control': 'no-store' } });
   }
@@ -839,13 +850,19 @@ export async function handleReviewRouterRequest(
   }
 
   const paidOnly = input.model === REVIEW_ROUTER_PAID_MODEL;
+  const workOnly = input.model === REVIEW_ROUTER_WORK_MODEL;
   const includePaidReserves = input.model === REVIEW_ROUTER_REVIEW_MODEL;
   const excluded = excludedProvider(request);
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
 
-  for (const provider of paidOnly ? paidProviders(env) : providers(env, includePaidReserves)) {
+  const selectedProviders = workOnly
+    ? workProviders(env)
+    : paidOnly
+      ? paidProviders(env)
+      : providers(env, includePaidReserves);
+  for (const provider of selectedProviders) {
     if (provider.id === excluded) {
       console.info(JSON.stringify({
         kanarekReviewRouter: 'provider_excluded', provider: provider.id,
@@ -963,7 +980,7 @@ export async function handleReviewRouterRequest(
   }
 
 
-  if (!paidOnly && workersAiEnabled(env) && excluded !== 'workers-ai') {
+  if (!paidOnly && !workOnly && workersAiEnabled(env) && excluded !== 'workers-ai') {
     configured += 1;
     const provider: ReviewProviderId = 'workers-ai';
     const cooldown = await activeProviderCooldown(env, provider);

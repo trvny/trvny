@@ -3,7 +3,7 @@ import type { DispatcherConfig } from "./config.js";
 import { AgentTools } from "./agent-tools.js";
 import { HostGit } from "./host-git.js";
 import { NetworkBroker } from "./network.js";
-import { runRoutedOpenAI, type ManagedFreeRouter } from "./providers.js";
+import { runManagedWork, runRoutedOpenAI, type ManagedFreeRouter, type ManagedWorkRouter } from "./providers.js";
 import type { CommandRunner, ExecResult } from "./sandbox.js";
 import type { Session, SessionManager } from "./sessions.js";
 import {
@@ -101,8 +101,11 @@ function boundedExecResult(
 
 export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
   constructor(
-    readonly config: DispatcherConfig, readonly sessions: SessionManager, readonly runner: CommandRunner,
+    readonly config: DispatcherConfig,
+    readonly sessions: SessionManager,
+    readonly runner: CommandRunner,
     readonly managedFreeRouter?: ManagedFreeRouter,
+    readonly managedWorkRouter?: ManagedWorkRouter,
   ) {}
   readonly #directSessions = new Map<string, { repo: string; expiresAt: number; timer: NodeJS.Timeout }>();
 
@@ -413,6 +416,10 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       if (!task.goal) throw new Error("agent executor requires a goal");
       const goal = `[remote task ${taskId}] ${task.goal}${commitInstruction}`;
       const agent = await this.sessions.runActivity(session.id, "remote-agent", async () => {
+        if (task.executor === "deepseek") {
+          if (!this.managedWorkRouter) throw new Error("managed DeepSeek work router is not configured");
+          return runManagedWork(tools, session!.id, goal, this.managedWorkRouter, 32, signal);
+        }
         return runRoutedOpenAI(this.config, tools, session!.id, goal, 16, signal, this.managedFreeRouter);
       });
       const state = await this.sessions.status(session.id);

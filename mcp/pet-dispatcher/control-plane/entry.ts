@@ -1,6 +1,6 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { z, ZodError } from "zod";
-import { FREE_ROUTER_WORKER_PATH, proxyKanarekFreeRouter, type FreeRouterEnv } from "./free-router.js";
+import { FREE_ROUTER_WORKER_PATH, WORK_ROUTER_WORKER_PATH, proxyKanarekFreeRouter, proxyKanarekWorkRouter, type FreeRouterEnv } from "./free-router.js";
 import { ICON_BYTES } from "./icon.js";
 import { isMcpPath, mcpAuthorized } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
@@ -39,6 +39,7 @@ interface Env extends FreeRouterEnv {
 }
 
 const MAX_BODY_BYTES = 128 * 1024;
+const MAX_MANAGED_ROUTER_BODY_BYTES = 4 * 1024 * 1024;
 const WORKER_CLOCK_SKEW_MS = 5 * 60_000;
 const NONCE_HISTORY_LIMIT = 64;
 const DEVICE_NONCE_HISTORY_LIMIT = 512;
@@ -79,11 +80,11 @@ async function idempotentTaskId(key: string): Promise<string> {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
-async function readBody(request: Request): Promise<string> {
+async function readBody(request: Request, maxBytes = MAX_BODY_BYTES): Promise<string> {
   const declared = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) throw new Error("request body is too large");
+  if (Number.isFinite(declared) && declared > maxBytes) throw new Error("request body is too large");
   const body = await request.text();
-  if (new TextEncoder().encode(body).byteLength > MAX_BODY_BYTES) throw new Error("request body is too large");
+  if (new TextEncoder().encode(body).byteLength > maxBytes) throw new Error("request body is too large");
   return body;
 }
 
@@ -408,7 +409,7 @@ async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string): P
 
 function submittedTask(value: unknown): RemoteTask {
   const task = remoteTaskSchema.parse(value);
-  z.enum(["openrouter", "direct"]).parse(task.executor);
+  z.enum(["openrouter", "deepseek", "direct"]).parse(task.executor);
   return task;
 }
 
@@ -529,8 +530,18 @@ async function directTool(request: Request, env: Env): Promise<Response> {
   return enqueueDirectTool(JSON.parse(raw) as unknown, env);
 }
 
-async function workerFreeRouter(request: Request, env: Env): Promise<Response> {
-  const body = await readBody(request);
+type ManagedRouterProxy = (
+  body: string,
+  env: Env,
+  signal?: AbortSignal,
+) => Promise<Response>;
+
+async function workerManagedRouter(
+  request: Request,
+  env: Env,
+  proxy: ManagedRouterProxy,
+): Promise<Response> {
+  const body = await readBody(request, MAX_MANAGED_ROUTER_BODY_BYTES);
   if (!await workerAuthorized(request, env, body)) return json({ error: "unauthorized" }, 401);
   const nonce = request.headers.get("x-pet-nonce");
   if (!nonce) return json({ error: "missing_worker_nonce" }, 400);
@@ -541,7 +552,7 @@ async function workerFreeRouter(request: Request, env: Env): Promise<Response> {
     if (claimed.status === 409) return json({ error: "replayed_worker_request" }, 409);
     return json({ error: "worker_nonce_store_failed" }, 503);
   }
-  return proxyKanarekFreeRouter(body, env, request.signal);
+  return proxy(body, env, request.signal);
 }
 
 async function workerMetaUpdate(request: Request, env: Env): Promise<Response> {
@@ -596,7 +607,11 @@ export default {
 
       if (url.pathname === FREE_ROUTER_WORKER_PATH) {
         if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-        return workerFreeRouter(request, env);
+        return workerManagedRouter(request, env, proxyKanarekFreeRouter);
+      }
+      if (url.pathname === WORK_ROUTER_WORKER_PATH) {
+        if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+        return workerManagedRouter(request, env, proxyKanarekWorkRouter);
       }
 
       if (url.pathname === "/v1/worker/meta") {

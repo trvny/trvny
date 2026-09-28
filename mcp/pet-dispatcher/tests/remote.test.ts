@@ -155,6 +155,47 @@ test("free-router requests reuse signed worker identity without exposing router 
   }
 });
 
+test("work-router requests use the signed paid-work endpoint", async () => {
+  process.env.PET_TEST_QUEUE_TOKEN = "queue-token";
+  process.env.PET_TEST_SIGNING_SECRET = SECRET;
+  let captured: { path: string; body: string; headers: Headers } | undefined;
+  const fakeFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input));
+    captured = {
+      path: url.pathname,
+      body: String(init?.body ?? ""),
+      headers: new Headers(init?.headers),
+    };
+    return Response.json({ choices: [{ message: { role: "assistant", content: "ok" } }] });
+  }) as typeof fetch;
+  try {
+    const transport = new CloudflareQueueTransport(transportConfig("unused.json"), fakeFetch);
+    const payload = { model: "kanarek-work-paid", messages: [{ role: "user", content: "work" }] };
+    const response = await transport.workRouter(payload);
+    assert.equal(response.ok, true);
+    assert.equal(captured?.path, "/v1/worker/providers/work/chat/completions");
+    assert.deepEqual(JSON.parse(captured?.body ?? "{}"), payload);
+    const timestamp = captured?.headers.get("x-pet-timestamp") ?? "";
+    const nonce = captured?.headers.get("x-pet-nonce") ?? "";
+    const signature = captured?.headers.get("x-pet-signature") ?? "";
+    assert.equal(
+      await verifyWorkerRequest(
+        SECRET,
+        signature,
+        "POST",
+        captured?.path ?? "",
+        timestamp,
+        nonce,
+        captured?.body ?? "",
+      ),
+      true,
+    );
+  } finally {
+    delete process.env.PET_TEST_QUEUE_TOKEN;
+    delete process.env.PET_TEST_SIGNING_SECRET;
+  }
+});
+
 test("remote worker executes one signed queue task and acknowledges after publishing result", async () => {
   const root = await mkdtemp(join(tmpdir(), "pet-remote-worker-"));
   const signed = await signedTask();

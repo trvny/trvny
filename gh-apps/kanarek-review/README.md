@@ -40,9 +40,17 @@ provider credentials.
 
 ## Provider chain
 
-The router prefers the stronger configured free routes first and falls through
-on request rejection, transient failures, quota exhaustion, authentication
-errors, or provider unavailability. Current families are:
+The free HTTP provider order is configured in `wrangler.jsonc` through
+`KANAREK_REVIEW_PROVIDER_ORDER`. Unknown names and duplicates are ignored,
+and omitted known providers are appended in the default order, matching the
+quip provider-order behavior. Guarded Workers AI remains the explicit final
+free fallback because it has its own daily neuron budget and cooldown policy.
+The live `/health` payload exposes the effective free queue as
+`providerPool.freeOrder`.
+
+The router falls through on request rejection, transient failures, quota
+exhaustion, authentication errors, or provider unavailability. Current
+families are:
 
 1. AIHubMix
 2. OpenRouter

@@ -27,6 +27,7 @@
 | Token Worldcup | `token-worldcup/token-worldcup.qmd` |
 | Model x effort cost matrix | `token-worldcup/effort-matrix.qmd` |
 | OpenAI tokenizer recount | `token-worldcup/recount-openai-tokens.mjs` |
+| DeepSeek V4 tokenizer recount | `token-worldcup/recount-deepseek-tokens.py` |
 | Claude tokenizer recount | `token-worldcup/recount-claude-tokens.py` |
 
 ## Ownership rules

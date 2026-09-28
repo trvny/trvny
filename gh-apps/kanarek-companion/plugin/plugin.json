@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "mechagremlin",
+  "version": "0.0.1",
+  "description": "Migration foundation for MechaGremlin backed by the existing Kanarek Companion Gremlin runtime.",
+  "author": { "name": "trvny", "url": "https://github.com/trvny" },
+  "homepage": "https://github.com/trvny/trvny/tree/main/gh-apps/kanarek-companion/plugin",
+  "repository": "https://github.com/trvny/trvny",
+  "keywords": ["mechagremlin", "gremlin", "github", "cloudflare", "mcp"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "MechaGremlin",
+        "shortDescription": "Guarded repo and automation operator",
+        "longDescription": "Migration-ready MechaGremlin shell backed by the existing Gremlin Operator and specialist runtime.",
+        "developerName": "trvny",
+        "capabilities": ["Read"],
+        "websiteURL": "https://github.com/trvny/trvny",
+        "defaultPrompt": [
+          "Inspect my repositories and tell me what needs attention.",
+          "Use MechaGremlin specialist tools to investigate this project."
+        ]
+      }
+    }
+  }
+}

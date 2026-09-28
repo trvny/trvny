@@ -93,6 +93,9 @@ It is responsible for:
 - review-eligible PR actions;
 - exact-head debounce/dedupe with `WebhookReviewJob`;
 - bounded diff, file, tree, nearby-code, caller, test, and dependency context;
+- compact free review and expanded paid escalation run in separate Durable Object
+  alarm invocations so the heavier pass receives a fresh Cloudflare subrequest
+  budget instead of sharing the first pass's GitHub/API calls;
 - treating repository content as untrusted data except scoped `AGENTS.md`
   guidance;
 - a strict output contract with at most eight findings;

@@ -5,15 +5,15 @@ description: Use when MechaGremlin needs to inspect projects, consult specialist
 
 # MechaGremlin
 
-Use the existing `kanarek-companion` Gremlin runtime. Do not create a parallel
-GitHub, Cloudflare, memory, or automation backend inside this plugin.
+Use the existing Gremlin Operator runtime. Do not create a parallel GitHub,
+Cloudflare, memory, or automation backend inside this plugin.
 
 ## Current boundary
 
-The bundled `gremlin` MCP is the existing OAuth-protected specialist MCP.
-Use only tools actually exposed by the live MCP schema. Do not claim that legacy
-Custom GPT Actions are available through the plugin until they have explicit MCP
-parity.
+The bundled `gremlin` MCP uses the existing OAuth-protected specialist
+transport. Use only tools actually exposed by the live MCP schema. Do not claim
+that legacy Custom GPT Actions are available through the plugin until they have
+explicit MCP parity.
 
 The live Worker capability manifest and runtime schemas are authoritative. This
 skill describes routing and safety policy, not copied API contracts.
@@ -30,7 +30,7 @@ credentials, provider keys, or other secrets in plugin files or responses.
 
 ## Migration
 
-Before declaring migration complete, read
-`references/migration.md` and satisfy every acceptance gate. Until then, the
-legacy Custom GPT remains the behavioral reference for instructions and
-knowledge, while this package is only the plugin-side integration source.
+Before declaring migration complete, read `references/migration.md` and satisfy
+every acceptance gate. Until then, the legacy Custom GPT remains the behavioral
+reference for instructions and knowledge, while this package is only the
+plugin-side integration source.

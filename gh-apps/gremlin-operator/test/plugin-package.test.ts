@@ -8,6 +8,7 @@ test('MechaGremlin plugin foundation reuses the shared specialist MCP', async ()
   const plugin = JSON.parse(await readFile(new URL('plugin.json', pluginRoot), 'utf8')) as {
     name?: string;
     version?: string;
+    homepage?: string;
   };
   const mcpText = await readFile(new URL('mcp.json', pluginRoot), 'utf8');
   const mcp = JSON.parse(mcpText) as {
@@ -16,6 +17,7 @@ test('MechaGremlin plugin foundation reuses the shared specialist MCP', async ()
 
   assert.equal(plugin.name, 'mechagremlin');
   assert.equal(plugin.version, '0.0.1');
+  assert.match(plugin.homepage ?? '', /gh-apps\/gremlin-operator\/plugin$/);
   assert.equal(mcp.mcpServers?.gremlin?.type, 'streamable-http');
   assert.equal(
     mcp.mcpServers?.gremlin?.url,

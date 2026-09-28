@@ -51,7 +51,11 @@ async function main(): Promise<void> {
       const transport = new CloudflareQueueTransport(config.remote);
       const journal = new RemoteJournal(config.remote.journalPath);
       const executor = new ConfinedRemoteExecutor(
-        config, sessions, runner, (payload, signal) => transport.freeRouter(payload, signal),
+        config,
+        sessions,
+        runner,
+        (payload, signal) => transport.freeRouter(payload, signal),
+        (payload, signal) => transport.workRouter(payload, signal),
       );
       const metaProvider = () => {
         const sandbox = runner.securityStatus() as { supported?: boolean; processGuard?: string; networkDefault?: string; isolationTier?: string | null };

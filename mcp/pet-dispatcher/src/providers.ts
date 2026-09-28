@@ -7,7 +7,7 @@ import {
   type OpenAICompatibleBackendDefinition, type OpenAICompatibleBackendId,
 } from "./openai-backends.js";
 
-export type AgentProvider = "kanarek-review" | "openrouter" | "orcarouter" | "aihubmix" | "ollama-cloud" | "groq" | "huggingface-publicai" | "gemini";
+export type AgentProvider = "kanarek-review" | "kanarek-work" | "openrouter" | "orcarouter" | "aihubmix" | "ollama-cloud" | "groq" | "huggingface-publicai" | "gemini";
 
 const SYSTEM_PROMPT = `You are a coding worker inside a Pet Dispatcher session.
 Use the provided tools to inspect, edit and validate the assigned repository.
@@ -21,6 +21,7 @@ interface OpenRouterToolCall {
 interface OpenRouterMessage {
   role: string;
   content?: string | null;
+  reasoning_content?: string | null;
   tool_calls?: OpenRouterToolCall[];
   tool_call_id?: string;
   name?: string;
@@ -31,12 +32,15 @@ async function toolResult(tools: AgentTools, sessionId: string, name: string, ar
   catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
 }
 
-type OpenAIProvider = OpenAICompatibleBackendId | "kanarek-review";
+type OpenAIProvider = OpenAICompatibleBackendId | "kanarek-review" | "kanarek-work";
 export type ManagedFreeRouter = (payload: unknown, signal?: AbortSignal) => Promise<Response>;
+export type ManagedWorkRouter = ManagedFreeRouter;
 interface RuntimeOpenAIBackend {
   id: OpenAIProvider;
   apiKey?: string;
   model: string;
+  managed?: boolean;
+  requestTimeoutMs?: number;
   request(payload: unknown, signal?: AbortSignal): Promise<Response>;
 }
 
@@ -67,7 +71,23 @@ function runtimeBackend(
 }
 
 function managedFreeRouterBackend(request: ManagedFreeRouter): RuntimeOpenAIBackend {
-  return { id: "kanarek-review", model: "kanarek-review-free", request };
+  return {
+    id: "kanarek-review",
+    model: "kanarek-review-free",
+    managed: true,
+    requestTimeoutMs: 120_000,
+    request,
+  };
+}
+
+function managedWorkRouterBackend(request: ManagedWorkRouter): RuntimeOpenAIBackend {
+  return {
+    id: "kanarek-work",
+    model: "kanarek-work-paid",
+    managed: true,
+    requestTimeoutMs: 5 * 60_000,
+    request,
+  };
 }
 
 async function healthyOpenAIBackends(
@@ -115,7 +135,10 @@ async function runOpenAIBackend(
   try {
     for (let step = 1; step <= maxSteps; step++) {
       signal?.throwIfAborted();
-      const requestSignal = signal ? AbortSignal.any([AbortSignal.timeout(120_000), signal]) : AbortSignal.timeout(120_000);
+      const requestTimeoutMs = backend.requestTimeoutMs ?? 120_000;
+      const requestSignal = signal
+        ? AbortSignal.any([AbortSignal.timeout(requestTimeoutMs), signal])
+        : AbortSignal.timeout(requestTimeoutMs);
       const response = await backend.request(
         { model: backend.model, messages, tools: apiTools, tool_choice: "auto" },
         requestSignal,
@@ -125,11 +148,11 @@ async function runOpenAIBackend(
         if (backend.apiKey) detail = detail.replaceAll(backend.apiKey, "[redacted]");
         throw new Error(`${backend.id} ${response.status}: ${detail}`);
       }
-      if (backend.id === "kanarek-review") {
+      if (backend.managed) {
         const selectedProvider = response.headers.get("x-kanarek-review-provider")?.trim();
-        if (!selectedProvider) throw new Error("kanarek-review response did not identify its selected provider");
+        if (!selectedProvider) throw new Error("managed router response did not identify its selected provider");
         if (toolCallsExecuted > 0 && pinnedManagedProvider && selectedProvider !== pinnedManagedProvider) {
-          throw new Error(`kanarek-review provider changed after tool execution: ${pinnedManagedProvider} -> ${selectedProvider}`);
+          throw new Error(`managed router provider changed after tool execution: ${pinnedManagedProvider} -> ${selectedProvider}`);
         }
         pinnedManagedProvider ??= selectedProvider;
       }
@@ -197,6 +220,24 @@ export async function runRoutedOpenAI(
     }
   }
   throw new Error(`All healthy OpenAI-compatible backends failed before tool execution: ${failures.join(" | ")}`);
+}
+
+export async function runManagedWork(
+  tools: AgentTools,
+  sessionId: string,
+  goal: string,
+  managedWorkRouter: ManagedWorkRouter,
+  maxSteps = 32,
+  signal?: AbortSignal,
+): Promise<{ provider: "kanarek-work"; model: string; text: string; steps: number }> {
+  return runOpenAIBackend(
+    tools,
+    sessionId,
+    goal,
+    managedWorkRouterBackend(managedWorkRouter),
+    maxSteps,
+    signal,
+  ) as Promise<{ provider: "kanarek-work"; model: string; text: string; steps: number }>;
 }
 
 export async function runGemini(

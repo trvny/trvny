@@ -92,6 +92,39 @@ test("remote MCP delegates through the existing assistant guard shape", async ()
   });
 });
 
+test("remote MCP can delegate concrete work to the paid DeepSeek executor", async () => {
+  let delegated: unknown;
+  const operations = baseOperations({
+    delegate: async (task) => {
+      delegated = task;
+      return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
+    },
+  });
+  const result = await rpc(operations, {
+    jsonrpc: "2.0", id: 41, method: "tools/call", params: {
+      name: "pet_delegate",
+      arguments: {
+        repo: "trvny",
+        goal: "implement and validate the requested change",
+        executor: "deepseek",
+        profile: "code",
+        waitSeconds: 0,
+      },
+    },
+  });
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(delegated, {
+    repo: "trvny",
+    baseRef: "main",
+    goal: "implement and validate the requested change",
+    executor: "deepseek",
+    profile: "code",
+    capabilities: [],
+    network: { mode: "none" },
+    timeoutMinutes: 20,
+  });
+});
+
 test("remote MCP exposes compact target/tool/args direct calls", async () => {
   const operations = baseOperations();
   await initialize(operations);

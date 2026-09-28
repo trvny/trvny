@@ -238,15 +238,19 @@ export class CloudflareQueueTransport {
     return signed;
   }
 
-  async freeRouter(payload: unknown, signal?: AbortSignal): Promise<Response> {
+  async #managedRouter(
+    path: string,
+    payload: unknown,
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ): Promise<Response> {
     const base = new URL(this.config.controlPlaneUrl);
-    const path = "/v1/worker/providers/free/chat/completions";
     const target = new URL(path, base);
     const body = JSON.stringify(payload);
     const timestamp = Date.now().toString();
     const nonce = randomUUID();
     const signature = await signWorkerRequest(this.#signingSecret, "POST", path, timestamp, nonce, body);
-    const timeout = AbortSignal.timeout(120_000);
+    const timeout = AbortSignal.timeout(timeoutMs);
     const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     return this.fetcher(target, {
       method: "POST",
@@ -256,6 +260,14 @@ export class CloudflareQueueTransport {
       },
       body, signal: requestSignal,
     });
+  }
+
+  freeRouter(payload: unknown, signal?: AbortSignal): Promise<Response> {
+    return this.#managedRouter("/v1/worker/providers/free/chat/completions", payload, 120_000, signal);
+  }
+
+  workRouter(payload: unknown, signal?: AbortSignal): Promise<Response> {
+    return this.#managedRouter("/v1/worker/providers/work/chat/completions", payload, 5 * 60_000, signal);
   }
 
   async reportMeta(payload: DeviceMeta): Promise<void> {

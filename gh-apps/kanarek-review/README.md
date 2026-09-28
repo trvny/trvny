@@ -27,11 +27,12 @@ The internal OpenAI-compatible surface is:
 - `GET /review-router/v1/models`
 - `GET` or `HEAD /health`
 
-It exposes three synthetic model contracts: `kanarek-review-free` stays strictly
-on the free pool for quips, Telegram, Pet Dispatcher, and other shared callers;
-`kanarek-review` preserves the combined free-first PR-review contract; and
-`kanarek-review-paid` is the paid-only escalation path used by webhook review
-after the free pass fails or its findings are rejected by deterministic L1.
+It exposes four synthetic model contracts: `kanarek-review-free` stays strictly
+on the free pool for quips, Telegram, lightweight Pet Dispatcher work, and other
+shared callers; `kanarek-review` preserves the combined free-first PR-review
+contract; `kanarek-review-paid` is the paid-only review escalation path; and
+`kanarek-work-paid` is the paid agent-work contract used by Pet Dispatcher for
+explicit concrete multi-step work.
 
 `workers_dev` and preview URLs are disabled. The shared Worker adds an internal
 trust header/bearer before invoking the service binding; callers do not receive
@@ -69,13 +70,14 @@ source of truth for which current free models that route should prefer, so model
 rotation does not require a repository change. Spend limits and routing policy
 must remain enforced in OrcaRouter itself.
 
-DeepSeek uses the official OpenAI-compatible endpoint with `deepseek-flash`,
-thinking enabled at max effort, a 128K generation ceiling, a longer provider
-timeout, and JSON output mode. Webhook review gives the paid escalation pass a
-larger input profile (250K diff characters and 500K repository-context
-characters by default). It is deliberately kept out of `kanarek-review-free`,
-so only dedicated PR review can spend the user's DeepSeek balance. HTTP 402
-balance exhaustion enters the normal quota cooldown/fallback path.
+DeepSeek uses the official OpenAI-compatible endpoint with `deepseek-flash`.
+Both paid contracts enable max-effort thinking with a 128K generation ceiling.
+The review contract additionally forces JSON output and uses the expanded
+review context profile; the work contract deliberately does not force JSON so
+native tool calls remain available and allows a longer model-turn timeout.
+Both are kept out of `kanarek-review-free`, so lightweight callers cannot spend
+the user's DeepSeek balance. HTTP 402 balance exhaustion enters the normal quota
+cooldown/fallback path.
 
 Gemini uses the OpenAI-compatible Gemini endpoint with
 `service_tier: "flex"`. Flex is a paid, lower-cost, sheddable tier: 429/503

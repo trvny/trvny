@@ -161,9 +161,12 @@ interface ReviewTarget {
   updatedAtMs?: number;
 }
 
+type ReviewPhase = 'free' | 'paid';
+
 interface StoredJob {
   attempt?: number;
   body: string;
+  phase?: ReviewPhase;
   target: ReviewTarget;
 }
 
@@ -232,6 +235,15 @@ export interface WebhookReviewResult {
   provider: string | null;
   reviewed: boolean;
   skipped?: string;
+}
+
+export function nextReviewPhase(
+  result: WebhookReviewResult,
+  phase: ReviewPhase = 'free',
+): ReviewPhase | null {
+  return result.skipped === 'paid_escalation_needed' && phase === 'free'
+    ? 'paid'
+    : null;
 }
 
 export function reviewRetryDelayMs(
@@ -1650,21 +1662,26 @@ export async function runWebhookReview(
     };
   }
 
+  const paidPhase = job.phase === 'paid';
   const maxDiffChars = configuredInteger(
-    env.KANAREK_WEBHOOK_REVIEW_MAX_DIFF_CHARS,
-    DEFAULT_MAX_DIFF_CHARS,
+    paidPhase
+      ? env.KANAREK_WEBHOOK_REVIEW_PAID_MAX_DIFF_CHARS
+      : env.KANAREK_WEBHOOK_REVIEW_MAX_DIFF_CHARS,
+    paidPhase ? DEFAULT_PAID_MAX_DIFF_CHARS : DEFAULT_MAX_DIFF_CHARS,
     5_000,
-    250_000,
+    paidPhase ? 500_000 : 250_000,
   );
+  const maxPatchChars = paidPhase ? PAID_MAX_PATCH_CHARS : MAX_PATCH_CHARS;
   const rawFiles = await client.paginate<PullRequestFile>(
     `/repos/${repoPath(target.repository)}/pulls/${target.number}/files`,
-    'webhook_review_list_files',
+    paidPhase ? 'webhook_review_list_files_paid' : 'webhook_review_list_files',
     {
       maxPages: 30,
-      stopWhen: (items) => reviewFileCollectionComplete(items, maxDiffChars),
+      stopWhen: (items) =>
+        reviewFileCollectionComplete(items, maxDiffChars, maxPatchChars),
     },
   );
-  let files = selectReviewFiles(rawFiles, maxDiffChars);
+  const files = selectReviewFiles(rawFiles, maxDiffChars, maxPatchChars);
   const inputState = reviewInputState(rawFiles, files.length);
   if (inputState !== 'reviewable') {
     return {
@@ -1682,10 +1699,12 @@ export async function runWebhookReview(
       target.headSha,
       files,
       configuredInteger(
-        env.KANAREK_WEBHOOK_REVIEW_MAX_CONTEXT_CHARS,
-        DEFAULT_MAX_CONTEXT_CHARS,
+        paidPhase
+          ? env.KANAREK_WEBHOOK_REVIEW_PAID_MAX_CONTEXT_CHARS
+          : env.KANAREK_WEBHOOK_REVIEW_MAX_CONTEXT_CHARS,
+        paidPhase ? DEFAULT_PAID_MAX_CONTEXT_CHARS : DEFAULT_MAX_CONTEXT_CHARS,
         10_000,
-        500_000,
+        paidPhase ? 750_000 : 500_000,
       ),
     ),
     fetchCallerEvidence(client, target.repository, target.headSha, files),
@@ -1693,7 +1712,7 @@ export async function runWebhookReview(
   ]);
 
   const reviewEnv = reviewRouterEnvForAttempt(env, job.attempt);
-  let generated = await askReviewRouter(
+  const generated = await askReviewRouter(
     reviewPrompt(
       target.number,
       pr.title,
@@ -1704,88 +1723,33 @@ export async function runWebhookReview(
       dependencyEvidence,
     ),
     reviewEnv,
-    REVIEW_ROUTER_FREE_MODEL,
+    paidPhase ? REVIEW_ROUTER_PAID_MODEL : REVIEW_ROUTER_FREE_MODEL,
   );
-  let findings = generated ? verifyReviewFindings(generated.parsed, files) : [];
-  let disposition = generated
-    ? reviewDisposition(generated.parsed.findings, findings)
-    : null;
-
-  if (!generated || disposition === 'invalid_findings') {
-    const paidMaxDiffChars = configuredInteger(
-      env.KANAREK_WEBHOOK_REVIEW_PAID_MAX_DIFF_CHARS,
-      DEFAULT_PAID_MAX_DIFF_CHARS,
-      maxDiffChars,
-      500_000,
-    );
-    const paidRawFiles = await client.paginate<PullRequestFile>(
-      `/repos/${repoPath(target.repository)}/pulls/${target.number}/files`,
-      'webhook_review_list_files_paid',
-      {
-        maxPages: 30,
-        stopWhen: (items) =>
-          reviewFileCollectionComplete(items, paidMaxDiffChars, PAID_MAX_PATCH_CHARS),
-      },
-    );
-    const paidFiles = selectReviewFiles(
-      paidRawFiles,
-      paidMaxDiffChars,
-      PAID_MAX_PATCH_CHARS,
-    );
-    if (reviewInputState(paidRawFiles, paidFiles.length) === 'reviewable') {
-      const [paidContext, paidCallers, paidDependencyEvidence] = await Promise.all([
-        fetchRepositoryContext(
-          client,
-          target.repository,
-          target.headSha,
-          paidFiles,
-          configuredInteger(
-            env.KANAREK_WEBHOOK_REVIEW_PAID_MAX_CONTEXT_CHARS,
-            DEFAULT_PAID_MAX_CONTEXT_CHARS,
-            DEFAULT_MAX_CONTEXT_CHARS,
-            750_000,
-          ),
-        ),
-        fetchCallerEvidence(client, target.repository, target.headSha, paidFiles),
-        fetchReviewDependencyEvidence(paidFiles, fetcher),
-      ]);
-      const paidGenerated = await askReviewRouter(
-        reviewPrompt(
-          target.number,
-          pr.title,
-          pr.body,
-          paidFiles,
-          paidContext,
-          paidCallers,
-          paidDependencyEvidence,
-        ),
-        reviewEnv,
-        REVIEW_ROUTER_PAID_MODEL,
-      );
-      if (paidGenerated) {
-        generated = paidGenerated;
-        files = paidFiles;
-        findings = verifyReviewFindings(generated.parsed, files);
-        disposition = reviewDisposition(generated.parsed.findings, findings);
-        console.info(JSON.stringify({
-          kanarekWebhookReview: 'paid_escalation',
-          repository: target.repository,
-          pullRequestNumber: target.number,
-          headSha: target.headSha,
-          provider: generated.provider,
-          model: generated.model,
-          diffChars: paidFiles.reduce((total, file) => total + file.patch.length, 0),
-          contextChars: paidContext.files.reduce(
-            (total, file) => total + file.content.length,
-            0,
-          ),
-        }));
-      }
-    }
+  if (!generated) {
+    return {
+      reviewed: false,
+      provider: null,
+      findingCount: 0,
+      skipped: paidPhase ? 'providers_failed' : 'paid_escalation_needed',
+    };
   }
 
-  if (!generated || disposition === null) {
-    return { reviewed: false, provider: null, findingCount: 0, skipped: 'providers_failed' };
+  const findings = verifyReviewFindings(generated.parsed, files);
+  const disposition = reviewDisposition(generated.parsed.findings, findings);
+  if (paidPhase) {
+    console.info(JSON.stringify({
+      kanarekWebhookReview: 'paid_escalation',
+      repository: target.repository,
+      pullRequestNumber: target.number,
+      headSha: target.headSha,
+      provider: generated.provider,
+      model: generated.model,
+      diffChars: files.reduce((total, file) => total + file.patch.length, 0),
+      contextChars: context.files.reduce(
+        (total, file) => total + file.content.length,
+        0,
+      ),
+    }));
   }
   if (disposition === 'clean') {
     console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
@@ -1821,7 +1785,7 @@ export async function runWebhookReview(
       reviewed: false,
       provider: generated.provider,
       findingCount: 0,
-      skipped: 'invalid_findings',
+      skipped: paidPhase ? 'invalid_findings' : 'paid_escalation_needed',
     };
   }
 
@@ -2000,6 +1964,7 @@ function validStoredJob(value: unknown): value is StoredJob {
         (Number.isInteger(job.attempt) &&
           job.attempt >= 0 &&
           job.attempt <= REVIEW_RETRY_DELAYS_MS.length)) &&
+      (job.phase === undefined || job.phase === 'free' || job.phase === 'paid') &&
       target &&
       typeof target.repository === 'string' &&
       typeof target.number === 'number' &&
@@ -2059,7 +2024,7 @@ export class WebhookReviewJob {
     }
 
     await this.state.storage.put({
-      [JOB_KEY]: { ...job, attempt: 0 },
+      [JOB_KEY]: { ...job, attempt: 0, phase: 'free' },
       [STATUS_KEY]: 'queued',
     });
     const debounceMs = configuredInteger(
@@ -2138,6 +2103,24 @@ export class WebhookReviewJob {
     }
 
     const attempt = started.attempt ?? 0;
+    const escalationPhase = nextReviewPhase(result, started.phase ?? 'free');
+    if (escalationPhase) {
+      await this.state.storage.put({
+        [JOB_KEY]: { ...started, attempt: 0, phase: escalationPhase },
+        [STATUS_KEY]: 'escalating',
+      });
+      await this.state.storage.setAlarm(Date.now() + 1_000);
+      console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+        JSON.stringify({
+          kanarekWebhookReview: 'paid_escalation_scheduled',
+          repository: started.target.repository,
+          pullRequestNumber: started.target.number,
+          headSha: started.target.headSha,
+        }),
+      );
+      return;
+    }
+
     const retryDelayMs = reviewRetryDelayMs(result, attempt);
     if (retryDelayMs !== null) {
       await this.state.storage.put({

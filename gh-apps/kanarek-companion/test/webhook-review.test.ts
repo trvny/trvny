@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   detectNpmMajorBumps,
   fetchReviewDependencyEvidence,
+  nextReviewPhase,
   parseReviewJson,
   patchAddedRightLines,
   reviewAnchorLine,
@@ -267,6 +268,18 @@ test('review file collection stops once the diff budget is full', () => {
   assert.equal(reviewFileCollectionComplete(files, 5_000), true);
 });
 
+test('review paid escalation uses a fresh phase instead of retry backoff', () => {
+  const escalation = {
+    findingCount: 0,
+    provider: 'vercel',
+    reviewed: false,
+    skipped: 'paid_escalation_needed',
+  };
+  assert.equal(nextReviewPhase(escalation, 'free'), 'paid');
+  assert.equal(nextReviewPhase(escalation, 'paid'), null);
+  assert.equal(reviewRetryDelayMs(escalation, 0), null);
+});
+
 test('review retries are bounded and only cover transient failures', () => {
   const transient = {
     findingCount: 0,
@@ -451,9 +464,11 @@ test('webhook review job debounces to the newest head', async () => {
   assert.equal(alarms.length, 2);
   assert.ok(alarms[1] >= before + 59_000);
   const stored = values.get('job') as {
+    phase?: string;
     target?: { headSha?: string };
   };
   assert.equal(stored.target?.headSha, headB);
+  assert.equal(stored.phase, 'free');
 });
 
 test('webhook review job preserves a newer queued target from stale redelivery', async () => {

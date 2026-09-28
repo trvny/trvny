@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Recount Token Worldcup samples with the official DeepSeek V4 tokenizer."""
+"""Recount Token Worldcup samples with the official DeepSeek V4.1 tokenizer."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ PREFIX = "deepseek_"
 TOKENIZER_REVISION = "8cadfede7063c896b944e7bae05daa3549ae97ea"
 TOKENIZER_URL = (
     "https://raw.githubusercontent.com/deepseek-ai/deepseek-recipe/"
-    f"{TOKENIZER_REVISION}/static/tokenizers/v4/tokenizer.json"
+    f"{TOKENIZER_REVISION}/static/tokenizers/v41/tokenizer.json"
 )
-TOKENIZER_SHA256 = "97d2f31b020d18b5aee5c9b3d5b4efb10ea210f3fe3f7dffe3f1cd90542d6b19"
+TOKENIZER_SHA256 = "81f64d1248a68ce3663e07ab3ee48b851e5df0e32d27cb98e4c9a268151e8d99"
 EXPECTED_SPECIAL = {
     "<think>": 128821,
     "</think>": 128822,
@@ -54,7 +54,7 @@ def tokenizer():
     digest = hashlib.sha256(raw).hexdigest()
     if digest != TOKENIZER_SHA256:
         raise SystemExit(
-            f"DeepSeek V4 tokenizer SHA-256 mismatch: {digest}, expected {TOKENIZER_SHA256}"
+            f"DeepSeek V4.1 tokenizer SHA-256 mismatch: {digest}, expected {TOKENIZER_SHA256}"
         )
 
     tok = Tokenizer.from_str(raw.decode("utf-8"))
@@ -125,16 +125,16 @@ def main() -> int:
             if changed:
                 stale.append({"name": before["name"], **changed})
         if stale:
-            print("DeepSeek V4 token counts are stale:")
+            print("DeepSeek V4.1 token counts are stale:")
             print(json.dumps(stale, ensure_ascii=False, separators=(",", ":")))
             return 1
-        print(f"DeepSeek V4 token counts current for {len(samples)} samples.")
+        print(f"DeepSeek V4.1 token counts current for {len(samples)} samples.")
         return 0
 
     payload = json.dumps(rebuilt, ensure_ascii=False, separators=(",", ":"))
     next_source = source[: match.start(2)] + payload + source[match.end(2) :]
     QMD.write_text(next_source, encoding="utf-8")
-    print(f"Recounted {len(samples)} samples with DeepSeek V4.")
+    print(f"Recounted {len(samples)} samples with DeepSeek V4.1.")
     return 0
 
 

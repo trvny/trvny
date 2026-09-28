@@ -27,7 +27,7 @@
 | Token Worldcup | `token-worldcup/token-worldcup.qmd` |
 | Model x effort cost matrix | `token-worldcup/effort-matrix.qmd` |
 | OpenAI tokenizer recount | `token-worldcup/recount-openai-tokens.mjs` |
-| DeepSeek V4 tokenizer recount | `token-worldcup/recount-deepseek-tokens.py` |
+| DeepSeek V4.1 tokenizer recount | `token-worldcup/recount-deepseek-tokens.py` |
 | Claude tokenizer recount | `token-worldcup/recount-claude-tokens.py` |
 
 ## Ownership rules
@@ -37,3 +37,9 @@
 - Treat `.qmd` as the source for Quarto-backed reports and generated HTML as derived output.
 - Treat `.ai/backups/` as reference material, not active configuration.
 - Use deeper `AGENTS.md` files when present; they override root guidance for their subtree.
+
+## Follow-ups
+
+- Token Worldcup can later add full prompt/chat-template tokenization, especially
+  for DeepSeek V4.1 special tokens and reasoning history; plain-text V4.1 and V4
+  currently match on all 27 corpus samples.

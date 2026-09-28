@@ -31,6 +31,7 @@
   },
   "vars": {
     "KANAREK_REVIEW_ROUTER_TIMEOUT_MS": "30000",
+    "KANAREK_REVIEW_PROVIDER_ORDER": "aihubmix,openrouter,ollama,groq,vercel,orcarouter,huggingface-publicai",
     "KANAREK_REVIEW_QUOTA_COOLDOWN_MS": "600000",
     "KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS": "30000",
     "KANAREK_REVIEW_WORKERS_AI_ENABLED": "true",

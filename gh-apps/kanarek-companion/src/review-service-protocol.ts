@@ -13,6 +13,7 @@ export const REVIEW_PROVIDER_EXCLUDE_HEADER = 'x-kanarek-review-exclude-provider
 export type ReviewProviderPoolHealth = {
   available: number;
   configured: number;
+  freeOrder?: string[];
   providers: Array<{
     available: boolean;
     configured: boolean;

@@ -988,6 +988,37 @@ test('review router falls through after both OpenRouter 400 attempts fail', asyn
   assert.equal(calls, 3);
 });
 
+test('review router follows configured free provider order and appends omitted providers', async () => {
+  const urls: string[] = [];
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key',
+    AIHUBMIX_API_KEY: 'aihubmix-key',
+    KANAREK_REVIEW_PROVIDER_ORDER: 'orcarouter,openrouter,orcarouter,unknown',
+  };
+  const response = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
+    urls.push(String(input));
+    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.deepEqual(urls, ['https://api.orcarouter.ai/v1/chat/completions']);
+
+  const health = await reviewProviderPoolHealth(env);
+  assert.deepEqual(health.freeOrder, [
+    'orcarouter',
+    'openrouter',
+    'aihubmix',
+    'ollama',
+    'groq',
+    'vercel',
+    'huggingface-publicai',
+    'workers-ai',
+  ]);
+});
+
 test('review router reaches OrcaRouter as the last resort after AIHubMix fails', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(), {

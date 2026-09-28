@@ -110,7 +110,7 @@ export const remoteTaskSchema = z.object({
   repo: z.string().min(1).max(128).optional(),
   baseRef: z.string().min(1).max(256).default("main"),
   goal: z.string().min(1).max(20_000).optional(),
-  executor: z.enum(["openrouter", "gemini", "direct"]).default("openrouter"),
+  executor: z.enum(["openrouter", "deepseek", "gemini", "direct"]).default("openrouter"),
   direct: remoteDirectCallSchema.optional(),
   profile: z.enum(["inspect", "code", "android", "publish"]).default("code"),
   capabilities: z.array(remoteCapabilitySchema).max(16).default([]),

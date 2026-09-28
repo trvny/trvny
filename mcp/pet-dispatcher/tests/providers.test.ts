@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { DispatcherConfig } from "../src/config.js";
 import type { AgentTools } from "../src/agent-tools.js";
-import { runOpenRouter, runRoutedOpenAI } from "../src/providers.js";
+import { runManagedWork, runOpenRouter, runRoutedOpenAI } from "../src/providers.js";
 import { PROVIDER_CREDENTIAL_ENV_NAMES } from "../src/provider-credentials.js";
 
 const config: DispatcherConfig = {
@@ -19,7 +19,7 @@ const config: DispatcherConfig = {
 
 test("remote credential scrub list covers every direct provider secret", () => {
   assert.deepEqual(PROVIDER_CREDENTIAL_ENV_NAMES, [
-    "AIHUBMIX_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY",
+    "AIHUBMIX_API_KEY", "DEEPSEEK_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "GROQ_API_KEY",
     "HUGGINGFACE_API_KEY", "OLLAMA_API_KEY", "OPENROUTER_API_KEY", "ORCAROUTER_API_KEY",
   ]);
 });
@@ -46,6 +46,64 @@ test("remote managed free router works without local provider credentials", asyn
       if (value === undefined) delete process.env[name]; else process.env[name] = value;
     }
   }
+});
+
+test("managed DeepSeek work preserves reasoning_content across tool turns", async () => {
+  const requests: Array<Record<string, unknown>> = [];
+  let call = 0;
+  const managed = async (value: unknown) => {
+    requests.push(value as Record<string, unknown>);
+    call += 1;
+    if (call === 1) {
+      return new Response(JSON.stringify({
+        choices: [{
+          message: {
+            role: "assistant",
+            content: "I will inspect the file.",
+            reasoning_content: "Need repository evidence before editing.",
+            tool_calls: [{
+              id: "call-1",
+              type: "function",
+              function: { name: "read_file", arguments: "{}" },
+            }],
+          },
+        }],
+      }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "x-kanarek-review-provider": "deepseek",
+        },
+      });
+    }
+    return new Response(JSON.stringify({
+      choices: [{ message: { role: "assistant", content: "done", reasoning_content: "Validated." } }],
+    }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "x-kanarek-review-provider": "deepseek",
+      },
+    });
+  };
+  const tools = {
+    definitions: () => [{
+      name: "read_file",
+      description: "Read a file",
+      parameters: { type: "object", properties: {} },
+    }],
+    execute: async () => ({ content: "file contents" }),
+  } as unknown as AgentTools;
+
+  const result = await runManagedWork(tools, "session", "fix the bug", managed, 4);
+  assert.equal(result.provider, "kanarek-work");
+  assert.equal(result.model, "kanarek-work-paid");
+  assert.equal(result.text, "done");
+  assert.equal(requests.length, 2);
+  const secondMessages = requests[1]?.messages as Array<Record<string, unknown>>;
+  const priorAssistant = secondMessages.find((message) => message.role === "assistant");
+  assert.equal(priorAssistant?.reasoning_content, "Need repository evidence before editing.");
+  assert.equal(requests[0]?.model, "kanarek-work-paid");
 });
 
 test("managed free router fails closed if its underlying provider changes after a tool call", async () => {

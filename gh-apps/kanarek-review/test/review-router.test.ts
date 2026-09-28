@@ -158,6 +158,7 @@ test('review router exposes its synthetic OpenAI model', async () => {
     'kanarek-review-free',
     'kanarek-review',
     'kanarek-review-paid',
+    'kanarek-work-paid',
   ]);
 });
 
@@ -226,6 +227,34 @@ test('review router uses direct DeepSeek Flash before Gemini Flex as the first p
   assert.equal(calls[0]?.reasoningEffort, 'max');
   assert.deepEqual(calls[0]?.responseFormat, { type: 'json_object' });
   assert.equal(calls[0]?.authorization, 'Bearer deepseek-key');
+});
+
+test('paid work contract uses DeepSeek max reasoning without JSON mode', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-work-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'edit repository' }],
+    tools: [{ type: 'function', function: { name: 'read_file', parameters: { type: 'object' } } }],
+  }), {
+    ...auth,
+    DEEPSEEK_API_KEY: 'test-value',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return Promise.resolve(new Response(JSON.stringify({
+      choices: [{ message: { role: 'assistant', content: 'done' } }],
+      model: 'deepseek-flash',
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'deepseek');
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0]?.model, 'deepseek-flash');
+  assert.equal(bodies[0]?.reasoning_effort, 'max');
+  assert.equal(bodies[0]?.max_tokens, 131_072);
+  assert.equal('response_format' in (bodies[0] ?? {}), false);
+  assert.ok(Array.isArray(bodies[0]?.tools));
 });
 
 test('paid review contract skips the free pool and gives DeepSeek the heavy reasoning budget', async () => {

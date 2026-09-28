@@ -88,13 +88,31 @@ function providerPool(value: unknown): ReviewProviderPoolHealth | null {
   const pool = (value as JsonObject).providerPool;
   if (!pool || typeof pool !== 'object' || Array.isArray(pool)) return null;
   const candidate = pool as Partial<ReviewProviderPoolHealth>;
-  if (typeof candidate.available !== 'number' || typeof candidate.configured !== 'number' || typeof candidate.ready !== 'boolean' || !Array.isArray(candidate.providers)) return null;
+  if (
+    typeof candidate.available !== 'number'
+    || typeof candidate.configured !== 'number'
+    || typeof candidate.ready !== 'boolean'
+    || (
+      candidate.freeOrder !== undefined
+      && (
+        !Array.isArray(candidate.freeOrder)
+        || !candidate.freeOrder.every((provider) => typeof provider === 'string')
+      )
+    )
+    || !Array.isArray(candidate.providers)
+  ) return null;
   return candidate as ReviewProviderPoolHealth;
 }
 
 export type ReviewProviderPoolState = { providerPool: ReviewProviderPoolHealth; serviceConfigured: boolean; serviceReady: boolean };
 
-const EMPTY_PROVIDER_POOL: ReviewProviderPoolHealth = { available: 0, configured: 0, providers: [], ready: false };
+const EMPTY_PROVIDER_POOL: ReviewProviderPoolHealth = {
+  available: 0,
+  configured: 0,
+  freeOrder: [],
+  providers: [],
+  ready: false,
+};
 
 export async function reviewProviderPoolStateViaService(env: ReviewServiceEnv): Promise<ReviewProviderPoolState> {
   const service = env.KANAREK_REVIEW_SERVICE;

@@ -169,6 +169,7 @@ test('review health uses the bound worker provider pool when available', async (
     available: 1,
     configured: 1,
     ready: true,
+    freeOrder: ['openrouter', 'workers-ai'],
     providers: [{ provider: 'openrouter', configured: true, available: true }],
   };
   const health = await reviewProviderPoolHealthViaService({
@@ -188,6 +189,7 @@ test('review service state distinguishes the bound worker from local fallback', 
     available: 1,
     configured: 1,
     ready: true,
+    freeOrder: ['openrouter', 'workers-ai'],
     providers: [{ provider: 'openrouter', configured: true, available: true }],
   };
   const bound = await reviewProviderPoolStateViaService({
@@ -201,7 +203,11 @@ test('review service state distinguishes the bound worker from local fallback', 
   assert.deepEqual(bound, { providerPool, serviceConfigured: true, serviceReady: true });
 
   const local = await reviewProviderPoolStateViaService(localEnv);
-  assert.deepEqual(local, { providerPool: { available: 0, configured: 0, providers: [], ready: false }, serviceConfigured: false, serviceReady: false });
+  assert.deepEqual(local, {
+    providerPool: { available: 0, configured: 0, freeOrder: [], providers: [], ready: false },
+    serviceConfigured: false,
+    serviceReady: false,
+  });
 });
 
 test('review service state stays unready when the bound provider pool is unready', async () => {
@@ -209,6 +215,7 @@ test('review service state stays unready when the bound provider pool is unready
     available: 0,
     configured: 3,
     ready: false,
+    freeOrder: ['openrouter', 'workers-ai'],
     providers: [],
   };
   const state = await reviewProviderPoolStateViaService({

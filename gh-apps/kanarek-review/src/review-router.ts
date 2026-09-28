@@ -42,6 +42,16 @@ const DEFAULT_REVIEW_OPENROUTER_MODELS = [
   'cohere/north-mini-code:free',
   'openrouter/free',
 ] as const;
+const DEFAULT_FREE_PROVIDER_ORDER = [
+  'aihubmix',
+  'openrouter',
+  'ollama',
+  'groq',
+  'vercel',
+  'orcarouter',
+  'huggingface-publicai',
+] as const;
+type FreeReviewProviderId = (typeof DEFAULT_FREE_PROVIDER_ORDER)[number];
 const AIHUBMIX_RETRYABLE_MESSAGES = [
   'to prevent abuse of free resources',
   'accounts that have not been recharged can only try',
@@ -61,6 +71,7 @@ export interface ReviewRouterEnv {
   DEEPSEEK_API_KEY?: string;
   GEMINI_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
+  KANAREK_REVIEW_PROVIDER_ORDER?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
   KANAREK_REVIEW_ORCAROUTER_MODELS?: string;
@@ -133,6 +144,28 @@ function configuredModelList(raw: string | undefined, fallback: readonly string[
   return [...new Set(configured.length > 0 ? configured : fallback)];
 }
 
+function configuredFreeProviderOrder(raw: string | undefined): FreeReviewProviderId[] {
+  const allowed = new Set<string>(DEFAULT_FREE_PROVIDER_ORDER);
+  const ordered: FreeReviewProviderId[] = [];
+  const seen = new Set<FreeReviewProviderId>();
+  for (const value of raw?.split(',') ?? []) {
+    const normalized = value.trim().toLowerCase();
+    if (!allowed.has(normalized)) continue;
+    const provider = normalized as FreeReviewProviderId;
+    if (seen.has(provider)) continue;
+    seen.add(provider);
+    ordered.push(provider);
+  }
+  for (const provider of DEFAULT_FREE_PROVIDER_ORDER) {
+    if (!seen.has(provider)) ordered.push(provider);
+  }
+  return ordered;
+}
+
+function freeProviderOrder(env: ReviewRouterEnv): ReviewProviderId[] {
+  return [...configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER), 'workers-ai'];
+}
+
 function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly ReviewProvider[] {
   const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
   const sharedOpenRouterModels = env.KANAREK_OPENROUTER_MODELS?.trim();
@@ -149,7 +182,7 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
     env.KANAREK_REVIEW_OLLAMA_MODELS,
     DEFAULT_REVIEW_OLLAMA_MODELS,
   );
-  const freeProviders: ReviewProvider[] = [
+  const unorderedFreeProviders: ReviewProvider[] = [
     {
       id: 'aihubmix',
       url: 'https://aihubmix.com/v1/chat/completions',
@@ -202,6 +235,9 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
       apiKey: (providerEnv) => providerEnv.HUGGINGFACE_API_KEY,
     },
   ];
+  const freeProviders = configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER)
+    .map((id) => unorderedFreeProviders.find((provider) => provider.id === id))
+    .filter((provider): provider is ReviewProvider => Boolean(provider));
   if (!includePaidReserves) return freeProviders;
   return [...freeProviders, ...paidProviders(env)];
 }
@@ -557,6 +593,7 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
     provider: ReviewProviderId;
   }>;
   ready: boolean;
+  freeOrder: ReviewProviderId[];
 }> {
   const states = await Promise.all(
     providers(env, true).map(async (provider) => {
@@ -588,7 +625,13 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
   );
   const configured = states.filter((state) => state.configured).length;
   const available = states.filter((state) => state.available).length;
-  return { available, configured, providers: states, ready: available > 0 };
+  return {
+    available,
+    configured,
+    providers: states,
+    ready: available > 0,
+    freeOrder: freeProviderOrder(env),
+  };
 }
 
 async function rememberProviderCooldown(

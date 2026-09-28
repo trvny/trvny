@@ -9,6 +9,18 @@ routes to the maintained core implementation in
 `../kanarek-companion/src/gremlin-router.ts` and its domain modules. This keeps
 one source of truth for operator policy instead of cloning it into two Workers.
 
+## MechaGremlin plugin
+
+`plugin/` is the maintained plugin-side migration source for MechaGremlin. It
+belongs here because Gremlin Operator owns the user-facing guarded operator
+surface. The package may still point at a shared public MCP transport while the
+runtime implementation remains imported from `kanarek-companion`; transport
+location does not change subsystem ownership.
+
+The legacy Custom GPT remains untouched until the migrated plugin reaches
+capability parity and passes the migration acceptance gates in
+`plugin/skills/mechagremlin/references/migration.md`.
+
 ## Boundary
 
 Gremlin owns semantic operator decisions and guarded high-level actions. It does

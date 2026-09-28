@@ -2,9 +2,9 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mechagremlin",
   "version": "0.0.1",
-  "description": "Migration foundation for MechaGremlin backed by the existing Kanarek Companion Gremlin runtime.",
+  "description": "Migration foundation for MechaGremlin backed by the existing Gremlin Operator runtime.",
   "author": { "name": "trvny", "url": "https://github.com/trvny" },
-  "homepage": "https://github.com/trvny/trvny/tree/main/gh-apps/kanarek-companion/plugin",
+  "homepage": "https://github.com/trvny/trvny/tree/main/gh-apps/gremlin-operator/plugin",
   "repository": "https://github.com/trvny/trvny",
   "keywords": ["mechagremlin", "gremlin", "github", "cloudflare", "mcp"],
   "extensions": {

@@ -8,11 +8,12 @@ the source of truth for exact operation names and schemas.
 
 - Custom GPT instructions and knowledge: handled by ChatGPT's GPT-to-plugin
   migration flow, not copied into this repository.
-- Specialist MCP transport: the shared Worker already exposes an authenticated
+- Specialist MCP transport: the shared runtime already exposes an authenticated
   stateless MCP at `/mcp`.
 - Specialist backend logic: Engram, Feedseek, and Context7 stay in the existing
   Specialist Intelligence subsystem.
-- Shared authorization and safety plumbing stays in `kanarek-companion`.
+- Gremlin Operator remains the owner package while its maintained core is
+  imported from `kanarek-companion`.
 
 ## Still required before retiring the GPT
 

@@ -144,42 +144,5 @@ jobs:
       - name: Validate control plane
         run: npm run control:check
 
-      - name: Deploy control plane
-        id: deploy
-        shell: bash
-        env:
-          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.jsonl
-        run: |
-          set -euo pipefail
-          npm run control:deploy
-          version_id=$(node --input-type=module -e '
-            import fs from "node:fs";
-            const rows = fs.readFileSync(process.env.WRANGLER_OUTPUT_FILE_PATH, "utf8")
-              .trim().split(/\r?\n/u).filter(Boolean).map(JSON.parse);
-            const deploy = rows.findLast((row) => row.type === "deploy");
-            if (!deploy?.version_id) process.exit(1);
-            process.stdout.write(deploy.version_id);
-          ')
-          echo "version_id=$version_id" >> "$GITHUB_OUTPUT"
-
-      - name: Verify live health
-        shell: bash
-        env:
-          DEPLOYED_VERSION_ID: ${{ steps.deploy.outputs.version_id }}
-        run: |
-          set -euo pipefail
-          for _ in {1..12}; do
-            if body=$(curl --fail --silent --show-error --connect-timeout 5 --max-time 10 "$HEALTH_URL") &&
-              BODY="$body" node --input-type=module -e '
-                const body = JSON.parse(process.env.BODY);
-                if (!(body.ok === true &&
-                  body.service === "pet-dispatcher-control" &&
-                  body.versionId === process.env.DEPLOYED_VERSION_ID)) process.exit(1);
-              '
-            then
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Pet Dispatcher control plane did not expose deployed version $DEPLOYED_VERSION_ID." >&2
-          exit 1
+      - name: Deploy and verify control plane
+        run: npm run control:deploy

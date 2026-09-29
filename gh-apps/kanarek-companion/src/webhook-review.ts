@@ -27,7 +27,8 @@ const DEFAULT_MAX_DIFF_CHARS = 60_000;
 const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
 const DEFAULT_PAID_MAX_DIFF_CHARS = 250_000;
 const DEFAULT_PAID_MAX_CONTEXT_CHARS = 500_000;
-const DEFAULT_MAX_OUTPUT_TOKENS = 16_384;
+const DEFAULT_MAX_OUTPUT_TOKENS = 36_864;
+const DEFAULT_PAID_MAX_OUTPUT_TOKENS = 16_384;
 const DEFAULT_JUDGE_THRESHOLD = 0.7;
 const REVIEW_RETRY_DELAYS_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000] as const;
 const MAX_DEBOUNCE_MS = 10 * 60_000;
@@ -145,6 +146,7 @@ export interface WebhookReviewEnv extends ReviewServiceEnv {
   KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS?: string;
   KANAREK_WEBHOOK_REVIEW_PAID_MAX_CONTEXT_CHARS?: string;
   KANAREK_WEBHOOK_REVIEW_PAID_MAX_DIFF_CHARS?: string;
+  KANAREK_WEBHOOK_REVIEW_PAID_MAX_OUTPUT_TOKENS?: string;
   KANAREK_WEBHOOK_REVIEW_JUDGE_ENABLED?: string;
   KANAREK_WEBHOOK_REVIEW_JUDGE_THRESHOLD?: string;
 }
@@ -295,6 +297,24 @@ function configuredInteger(
 
 export function reviewMaxOutputTokens(value: string | undefined): number {
   return configuredInteger(value, DEFAULT_MAX_OUTPUT_TOKENS, 512, 65_536);
+}
+
+export function reviewOutputTokens(
+  env: Pick<
+    WebhookReviewEnv,
+    'KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS' |
+      'KANAREK_WEBHOOK_REVIEW_PAID_MAX_OUTPUT_TOKENS'
+  >,
+  routerModel: string,
+): number {
+  return routerModel === REVIEW_ROUTER_PAID_MODEL
+    ? configuredInteger(
+        env.KANAREK_WEBHOOK_REVIEW_PAID_MAX_OUTPUT_TOKENS,
+        DEFAULT_PAID_MAX_OUTPUT_TOKENS,
+        512,
+        65_536,
+      )
+    : reviewMaxOutputTokens(env.KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS);
 }
 
 function basename(path: string): string {
@@ -1462,9 +1482,7 @@ async function askReviewRouter(
       body: JSON.stringify({
         model: routerModel,
         stream: false,
-        max_tokens: reviewMaxOutputTokens(
-          env.KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS,
-        ),
+        max_tokens: reviewOutputTokens(env, routerModel),
         messages: [
           { role: 'system', content: REVIEW_SYSTEM_PROMPT },
           { role: 'user', content: prompt },

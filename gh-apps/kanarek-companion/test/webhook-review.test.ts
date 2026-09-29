@@ -11,6 +11,7 @@ import {
   reviewFileCollectionComplete,
   reviewInputState,
   reviewMaxOutputTokens,
+  reviewOutputTokens,
   reviewMarker,
   reviewRetryDelayMs,
   reviewRouterEnvForAttempt,
@@ -535,10 +536,19 @@ test('webhook review job deduplicates only the same head and base', async () => 
   assert.equal(alarms.length, 1);
 });
 
-test('PR review output headroom defaults to 16k and allows provider-sized ceilings', () => {
-  assert.equal(reviewMaxOutputTokens(undefined), 16_384);
+test('free and paid review output budgets stay independent', () => {
+  const env = {
+    KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS: '36864',
+    KANAREK_WEBHOOK_REVIEW_PAID_MAX_OUTPUT_TOKENS: '16384',
+  };
+  assert.equal(reviewOutputTokens(env, 'kanarek-review-free'), 36_864);
+  assert.equal(reviewOutputTokens(env, 'kanarek-review-paid'), 16_384);
+});
+
+test('PR review output headroom defaults to 36k and allows provider-sized ceilings', () => {
+  assert.equal(reviewMaxOutputTokens(undefined), 36_864);
   assert.equal(reviewMaxOutputTokens('32768'), 32_768);
   assert.equal(reviewMaxOutputTokens('65536'), 65_536);
-  assert.equal(reviewMaxOutputTokens('65537'), 16_384);
-  assert.equal(reviewMaxOutputTokens('wat'), 16_384);
+  assert.equal(reviewMaxOutputTokens('65537'), 36_864);
+  assert.equal(reviewMaxOutputTokens('wat'), 36_864);
 });

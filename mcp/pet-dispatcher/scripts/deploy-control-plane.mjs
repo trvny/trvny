@@ -11,17 +11,25 @@ const RETRY_MS = 5_000;
 const REQUEST_TIMEOUT_MS = 10_000;
 
 function runWrangler(outputFile) {
-  const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const args = [
+    '--no-install',
+    'wrangler',
+    'deploy',
+    '--config',
+    'control-plane/wrangler.jsonc',
+  ];
+  const executable =
+    process.platform === 'win32'
+      ? (process.env.ComSpec ?? 'cmd.exe')
+      : 'npx';
+  const executableArgs =
+    process.platform === 'win32'
+      ? ['/d', '/s', '/c', 'npx.cmd', ...args]
+      : args;
   return new Promise((resolve, reject) => {
     const child = spawn(
       executable,
-      [
-        '--no-install',
-        'wrangler',
-        'deploy',
-        '--config',
-        'control-plane/wrangler.jsonc',
-      ],
+      executableArgs,
       {
         stdio: 'inherit',
         env: {

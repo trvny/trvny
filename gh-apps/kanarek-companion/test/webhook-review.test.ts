@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -48,13 +49,16 @@ function payload(
   };
 }
 
-function webhookRequest(body: Record<string, unknown>): Request {
+function webhookRequest(
+  body: Record<string, unknown>,
+  event = 'pull_request',
+): Request {
   return new Request('https://kanarek.example/webhooks/github', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'x-github-delivery': 'delivery-1',
-      'x-github-event': 'pull_request',
+      'x-github-event': event,
     },
     body: JSON.stringify(body),
   });
@@ -437,6 +441,159 @@ test('webhook review scheduler ignores drafts and external forks', async () => {
   );
   await Promise.all(tasks);
   assert.equal(calls, 0);
+});
+
+test('check-run recovery queues the exact current PR head when synchronize is missing', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString();
+  const queued: Array<{ id: string; input: unknown }> = [];
+  const env = {
+    GITHUB_APP_ID: '123',
+    GITHUB_PRIVATE_KEY: privateKey,
+    KANAREK_REVIEW_JOBS: {
+      idFromName(name: string) {
+        return name as unknown as DurableObjectId;
+      },
+      get(id: DurableObjectId) {
+        return {
+          async fetch(_url: string, init?: RequestInit) {
+            queued.push({
+              id: String(id),
+              input: JSON.parse(String(init?.body ?? '{}')),
+            });
+            return Response.json({ ok: true });
+          },
+        } as DurableObjectStub;
+      },
+    } as unknown as DurableObjectNamespace,
+  } as WebhookReviewEnv;
+  const fetcher = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/app/installations/123/access_tokens')) {
+      return Response.json({
+        token: 'installation-token',
+        expires_at: '2026-09-29T12:00:00Z',
+        permissions: { pull_requests: 'read' },
+      });
+    }
+    if (url.includes('/repos/travnie/llmbench/pulls/21')) {
+      return Response.json({
+        state: 'open',
+        draft: false,
+        updated_at: '2026-09-29T09:33:41Z',
+        labels: [],
+        head: {
+          sha: headA,
+          repo: { full_name: 'travnie/llmbench' },
+        },
+        base: { sha: base },
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  }) as typeof fetch;
+  const tasks: Promise<unknown>[] = [];
+  const ctx = {
+    waitUntil(task: Promise<unknown>) {
+      tasks.push(task);
+    },
+  } as unknown as ExecutionContext;
+
+  scheduleWebhookReviewWebhook(
+    webhookRequest({
+      action: 'created',
+      installation: { id: 123 },
+      repository: { full_name: 'travnie/llmbench' },
+      check_run: {
+        head_sha: headA,
+        pull_requests: [{ number: 21 }],
+      },
+    }, 'check_run'),
+    env,
+    ctx,
+    fetcher,
+  );
+  await Promise.all(tasks);
+
+  assert.equal(queued.length, 1);
+  assert.equal(queued[0]?.id, 'travnie/llmbench#21');
+  const input = queued[0]?.input as {
+    target?: { action?: string; baseSha?: string; headSha?: string };
+  };
+  assert.equal(input.target?.action, 'check_run');
+  assert.equal(input.target?.headSha, headA);
+  assert.equal(input.target?.baseSha, base);
+});
+
+test('check-run recovery ignores stale check heads', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString();
+  let queueCalls = 0;
+  const env = {
+    GITHUB_APP_ID: '123',
+    GITHUB_PRIVATE_KEY: privateKey,
+    KANAREK_REVIEW_JOBS: {
+      idFromName(name: string) {
+        return name as unknown as DurableObjectId;
+      },
+      get() {
+        return {
+          fetch() {
+            queueCalls += 1;
+            return Promise.resolve(Response.json({ ok: true }));
+          },
+        } as DurableObjectStub;
+      },
+    } as unknown as DurableObjectNamespace,
+  } as WebhookReviewEnv;
+  const fetcher = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith('/app/installations/123/access_tokens')) {
+      return Response.json({
+        token: 'installation-token',
+        expires_at: '2026-09-29T12:00:00Z',
+        permissions: { pull_requests: 'read' },
+      });
+    }
+    if (url.includes('/repos/travnie/llmbench/pulls/21')) {
+      return Response.json({
+        state: 'open',
+        draft: false,
+        updated_at: '2026-09-29T09:33:41Z',
+        labels: [],
+        head: {
+          sha: headB,
+          repo: { full_name: 'travnie/llmbench' },
+        },
+        base: { sha: base },
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  }) as typeof fetch;
+  const tasks: Promise<unknown>[] = [];
+  const ctx = {
+    waitUntil(task: Promise<unknown>) {
+      tasks.push(task);
+    },
+  } as unknown as ExecutionContext;
+
+  scheduleWebhookReviewWebhook(
+    webhookRequest({
+      action: 'completed',
+      installation: { id: 123 },
+      repository: { full_name: 'travnie/llmbench' },
+      check_run: {
+        head_sha: headA,
+        pull_requests: [{ number: 21 }],
+      },
+    }, 'check_run'),
+    env,
+    ctx,
+    fetcher,
+  );
+  await Promise.all(tasks);
+  assert.equal(queueCalls, 0);
 });
 
 test('webhook review job debounces to the newest head', async () => {

@@ -20,6 +20,7 @@ import { likelyTestPath } from './symbol-investigation.ts';
 import { repoPath } from './tools/common.ts';
 
 const REVIEW_ACTIONS = new Set(['opened', 'reopened', 'synchronize', 'ready_for_review']);
+const REVIEW_TRIGGER_EVENTS = new Set(['pull_request', 'check_run']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const DEFAULT_DEBOUNCE_MS = 60_000;
@@ -1889,33 +1890,11 @@ export async function runWebhookReview(
 
 }
 
-async function enqueueWebhookReview(
-  request: Request,
-  env: WebhookReviewEnv,
+async function enqueueReviewTarget(
+  queue: DurableObjectNamespace,
+  body: string,
+  target: ReviewTarget,
 ): Promise<void> {
-  if (disabled(env.KANAREK_WEBHOOK_REVIEW_ENABLED)) return;
-  if (request.headers.get('x-github-event') !== 'pull_request') return;
-
-  const queue = env.KANAREK_REVIEW_JOBS;
-  if (!queue) {
-    console.error(JSON.stringify({ kanarekWebhookReview: 'queue_not_configured' })); // skipcq: JS-0002 Cloudflare Worker runtime observability.
-    return;
-  }
-
-  let body: string;
-  let payload: Record<string, unknown>;
-  try {
-    body = await request.text();
-    payload = objectValue(JSON.parse(body));
-  } catch {
-    return;
-  }
-  const target = targetFromPayload(
-    payload,
-    request.headers.get('x-github-delivery') ?? '',
-  );
-  if (!target) return;
-
   const id = queue.idFromName(`${target.repository}#${target.number}`);
   const response = await queue.get(id).fetch(
     `${INTERNAL_REVIEW_ORIGIN}/enqueue`,
@@ -1938,12 +1917,148 @@ async function enqueueWebhookReview(
   }
 }
 
+async function checkRunReviewTargets(
+  payload: Record<string, unknown>,
+  delivery: string,
+  env: WebhookReviewEnv,
+  fetcher: typeof fetch,
+): Promise<ReviewTarget[]> {
+  const repository = objectValue(payload.repository);
+  const repositoryName =
+    typeof repository.full_name === 'string' ? repository.full_name : '';
+  const installation = objectValue(payload.installation);
+  const installationId =
+    typeof installation.id === 'number' && Number.isInteger(installation.id)
+      ? installation.id
+      : 0;
+  const checkRun = objectValue(payload.check_run);
+  const signalHeadSha =
+    typeof checkRun.head_sha === 'string' ? checkRun.head_sha.toLowerCase() : '';
+  const pullRequests = Array.isArray(checkRun.pull_requests)
+    ? checkRun.pull_requests
+    : [];
+  const numbers = [
+    ...new Set(
+      pullRequests
+        .map((value) => objectValue(value).number)
+        .filter(
+          (value): value is number =>
+            typeof value === 'number' && Number.isInteger(value) && value > 0,
+        ),
+    ),
+  ].slice(0, 10);
+
+  if (
+    !repositoryName ||
+    !installationId ||
+    !SHA_RE.test(signalHeadSha) ||
+    !numbers.length ||
+    !env.GITHUB_APP_ID?.trim() ||
+    !env.GITHUB_PRIVATE_KEY?.trim()
+  ) {
+    return [];
+  }
+
+  const client = await createInstallationClient(
+    env.GITHUB_APP_ID,
+    env.GITHUB_PRIVATE_KEY,
+    installationId,
+    fetcher,
+  );
+  const targets: ReviewTarget[] = [];
+  for (const number of numbers) {
+    let pr: Record<string, unknown>;
+    try {
+      pr = await client.json<Record<string, unknown>>(
+        `/repos/${repoPath(repositoryName)}/pulls/${number}`,
+        'webhook_review_recover_pull_request',
+      );
+    } catch (error) {
+      console.warn(JSON.stringify({
+        kanarekWebhookReview: 'recovery_target_unavailable',
+        repository: repositoryName,
+        pullRequestNumber: number,
+        error: error instanceof Error ? error.message : 'unknown_error',
+      }));
+      continue;
+    }
+
+    const head = objectValue(pr.head);
+    const headRepository = objectValue(head.repo);
+    const base = objectValue(pr.base);
+    const headSha = typeof head.sha === 'string' ? head.sha.toLowerCase() : '';
+    const baseSha = typeof base.sha === 'string' ? base.sha.toLowerCase() : '';
+    const updatedAtMs =
+      typeof pr.updated_at === 'string' ? Date.parse(pr.updated_at) : Number.NaN;
+    if (
+      pr.state !== 'open' ||
+      pr.draft === true ||
+      noGoblin(pr) ||
+      headRepository.full_name !== repositoryName ||
+      headSha !== signalHeadSha ||
+      !SHA_RE.test(headSha) ||
+      !SHA_RE.test(baseSha)
+    ) {
+      continue;
+    }
+
+    targets.push({
+      action: 'check_run',
+      baseSha,
+      delivery,
+      headSha,
+      installationId,
+      number,
+      repository: repositoryName,
+      updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : undefined,
+    });
+  }
+  return targets;
+}
+
+async function enqueueWebhookReview(
+  request: Request,
+  env: WebhookReviewEnv,
+  fetcher: typeof fetch = runtimeFetch,
+): Promise<void> {
+  if (disabled(env.KANAREK_WEBHOOK_REVIEW_ENABLED)) return;
+  const event = request.headers.get('x-github-event') ?? '';
+  if (!REVIEW_TRIGGER_EVENTS.has(event)) return;
+
+  const queue = env.KANAREK_REVIEW_JOBS;
+  if (!queue) {
+    console.error(JSON.stringify({ kanarekWebhookReview: 'queue_not_configured' })); // skipcq: JS-0002 Cloudflare Worker runtime observability.
+    return;
+  }
+
+  let body: string;
+  let payload: Record<string, unknown>;
+  try {
+    body = await request.text();
+    payload = objectValue(JSON.parse(body));
+  } catch {
+    return;
+  }
+  const delivery = request.headers.get('x-github-delivery') ?? '';
+  const targets =
+    event === 'pull_request'
+      ? [targetFromPayload(payload, delivery)].filter(
+          (target): target is ReviewTarget => Boolean(target),
+        )
+      : await checkRunReviewTargets(payload, delivery, env, fetcher);
+
+  await Promise.all(
+    targets.map((target) => enqueueReviewTarget(queue, body, target)),
+  );
+}
+
 export function scheduleWebhookReviewWebhook(
   request: Request,
   env: WebhookReviewEnv,
   ctx?: ExecutionContext,
+  fetcher: typeof fetch = runtimeFetch,
 ): void {
-  const task = enqueueWebhookReview(request, env).catch((error) => {
+  const task = enqueueWebhookReview(request, env, fetcher).catch((error) => {
     console.error( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'enqueue_failed',

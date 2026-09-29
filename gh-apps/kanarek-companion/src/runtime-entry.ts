@@ -142,7 +142,8 @@ async function acceptedReviewWebhook(
   response: Response,
   env: Env,
 ): Promise<boolean> {
-  if (request.headers.get('x-github-event') !== 'pull_request') return false;
+  const event = request.headers.get('x-github-event');
+  if (event !== 'pull_request' && event !== 'check_run') return false;
   const accepted = await responseObject(response);
   if (accepted?.accepted !== true) return false;
 

@@ -43,6 +43,6 @@
     "KANAREK_REVIEW_HUGGINGFACE_MODEL": "speakleash/Bielik-11B-v3.0-Instruct:publicai",
     "KANAREK_REVIEW_DEEPSEEK_MODEL": "deepseek-flash",
     "KANAREK_REVIEW_GEMINI_MODEL": "gemini-3.8-flash",
-    "KANAREK_REVIEW_OPENROUTER_MODELS": "nvidia/nemotron-3-super-120b-a12b:free,cohere/north-mini-code:free,openrouter/free"
+    "KANAREK_REVIEW_OPENROUTER_MODELS": "nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,cohere/north-mini-code:free,openrouter/free"
   }
 }

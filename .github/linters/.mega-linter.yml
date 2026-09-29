@@ -7,6 +7,10 @@ APPLY_FIXES: all
 # Formatter output in the report artifact can be used as ready-made patches.
 # Review and apply useful fixes selectively; accepting every fix is optional.
 
+LLM_ADVISOR_ENABLED: true
+LLM_PROVIDER: orcarouter
+LLM_MODEL_NAME: orcarouter/free
+
 # The checkout does not persist credentials. Point changed-file mode at the
 # already-fetched base branch so MegaLinter does not try to fetch origin/HEAD
 # from this private repository without authentication.

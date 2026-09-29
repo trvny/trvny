@@ -22,7 +22,7 @@
     "remote": "tsx src/index.ts remote",
     "control:dev": "wrangler dev --config control-plane/wrangler.jsonc",
     "control:deploy": "node scripts/deploy-control-plane.mjs",
-    "control:check": "tsc -p tsconfig.control-plane.json && wrangler deploy --dry-run --config control-plane/wrangler.jsonc --outdir dist/control-plane",
+    "control:check": "node --check scripts/deploy-control-plane.mjs && tsc -p tsconfig.control-plane.json && wrangler deploy --dry-run --config control-plane/wrangler.jsonc --outdir dist/control-plane",
     "install:local": "tsx scripts/install-local-runtime.ts"
   },
   "dependencies": {

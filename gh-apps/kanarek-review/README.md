@@ -41,7 +41,11 @@ provider credentials.
 ## Provider chain
 
 The free HTTP provider order is configured in `wrangler.jsonc` through
-`KANAREK_REVIEW_PROVIDER_ORDER`. Unknown names and duplicates are ignored,
+`KANAREK_REVIEW_PROVIDER_ORDER`.
+AIHubMix and OrcaRouter use the shorter
+`KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS` (10 seconds by default), so an
+unresponsive early free provider cannot hold the whole review queue for the
+full 30-second general router timeout. Unknown names and duplicates are ignored,
 and omitted known providers are appended in the default order, matching the
 quip provider-order behavior. Guarded Workers AI remains the explicit final
 free fallback because it has its own daily neuron budget and cooldown policy.

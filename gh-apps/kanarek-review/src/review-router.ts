@@ -11,6 +11,7 @@ import {
 } from '../../kanarek-companion/src/review-service-protocol.ts';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_FREE_PROBE_TIMEOUT_MS = 10_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
 const WORK_PROVIDER_TIMEOUT_MS = 5 * 60_000;
@@ -71,6 +72,7 @@ export interface ReviewRouterEnv {
   DEEPSEEK_API_KEY?: string;
   GEMINI_API_KEY?: string;
   KANAREK_REVIEW_ROUTER_TIMEOUT_MS?: string;
+  KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS?: string;
   KANAREK_REVIEW_PROVIDER_ORDER?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
@@ -188,6 +190,10 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
       url: 'https://aihubmix.com/v1/chat/completions',
       model: 'coding-glm-5.3-free',
       apiKey: (providerEnv) => providerEnv.AIHUBMIX_API_KEY,
+      timeoutMs: reviewFreeProbeTimeoutMs(
+        env.KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS,
+        timeoutMs(env),
+      ),
     },
     {
       id: 'openrouter',
@@ -225,6 +231,7 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
       model: orcaRouterModels[0] ?? DEFAULT_REVIEW_ORCAROUTER_MODELS[0],
       fallbackModels: orcaRouterModels.slice(1),
       apiKey: (providerEnv) => providerEnv.ORCAROUTER_API_KEY,
+      timeoutMs: reviewFreeProbeTimeoutMs(env.KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS),
     },
     {
       // Final HTTP reserve. The :publicai suffix prevents HF from silently selecting
@@ -366,6 +373,25 @@ function timeoutMs(env: ReviewRouterEnv): number {
     return DEFAULT_TIMEOUT_MS;
   }
   return parsed;
+}
+
+export function reviewFreeProbeTimeoutMs(
+  raw: string | undefined,
+  routerTimeoutMs = DEFAULT_TIMEOUT_MS,
+): number {
+  const value = raw?.trim();
+  let configured = DEFAULT_FREE_PROBE_TIMEOUT_MS;
+  if (value && /^\d+$/.test(value)) {
+    const parsed = Number.parseInt(value, 10);
+    if (
+      Number.isSafeInteger(parsed)
+      && parsed >= MIN_TIMEOUT_MS
+      && parsed <= DEFAULT_TIMEOUT_MS
+    ) {
+      configured = parsed;
+    }
+  }
+  return Math.min(configured, routerTimeoutMs);
 }
 
 function boundedCooldownMs(raw: string | undefined, fallback: number): number {

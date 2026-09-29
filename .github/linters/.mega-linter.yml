@@ -30,7 +30,7 @@ GITHUB_STATUS_REPORTER: false
 
 LLM_ADVISOR_ENABLED: true
 LLM_PROVIDER: orcarouter
-LLM_MODEL_NAME: orcarouter/free
+LLM_MODEL_NAME: tencent/hy4-preview-free
 
 # Keep MegaLinter cross-cutting. Project-specific build/type/test rules live in
 # each package's own CI; these linters cover portable correctness and formatting.

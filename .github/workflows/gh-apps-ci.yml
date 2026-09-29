@@ -1,0 +1,125 @@
+name: GitHub Apps CI
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+    paths:
+      - "gh-apps/claudiusz/**"
+      - "!gh-apps/claudiusz/**/*.md"
+      - "gh-apps/gremlin-operator/**"
+      - "gh-apps/kanarek-companion/src/**"
+      - "gh-apps/kanarek-companion/package.json"
+      - "gh-apps/kanarek-companion/wrangler.jsonc"
+      - ".github/workflows/gh-apps-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "gh-apps/claudiusz/**"
+      - "!gh-apps/claudiusz/**/*.md"
+      - "gh-apps/gremlin-operator/**"
+      - "gh-apps/kanarek-companion/src/**"
+      - "gh-apps/kanarek-companion/package.json"
+      - "gh-apps/kanarek-companion/wrangler.jsonc"
+      - ".github/workflows/gh-apps-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: gh-apps-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-slim
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            gh-apps/claudiusz/package-lock.json
+            gh-apps/gremlin-operator/package-lock.json
+
+      - name: Select affected apps
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          claudiusz=false
+          gremlin=false
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            claudiusz=true
+            gremlin=true
+            files=""
+          else
+            if [[ "$EVENT_NAME" == "pull_request" ]]; then
+              base="$PR_BASE_SHA"
+              head="$PR_HEAD_SHA"
+            else
+              base="$BEFORE_SHA"
+              head="$HEAD_SHA"
+            fi
+
+            if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+              claudiusz=true
+              gremlin=true
+              files=""
+            else
+              files="$(git diff --name-only "$base" "$head")"
+            fi
+
+            if grep -qx '.github/workflows/gh-apps-ci.yml' <<<"$files"; then
+              claudiusz=true
+              gremlin=true
+            fi
+
+            if grep -Eq '^gh-apps/kanarek-companion/src/github-app\.ts$|^gh-apps/kanarek-companion/package\.json$' <<<"$files"; then
+              claudiusz=true
+            fi
+            if grep '^gh-apps/claudiusz/' <<<"$files" | grep -Ev '\.md$' >/dev/null; then
+              claudiusz=true
+            fi
+
+            if grep -Eq '^gh-apps/gremlin-operator/|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
+              gremlin=true
+            fi
+          fi
+
+          echo "claudiusz=$claudiusz" >> "$GITHUB_OUTPUT"
+          echo "gremlin=$gremlin" >> "$GITHUB_OUTPUT"
+          {
+            echo "### GitHub Apps CI scope"
+            echo
+            echo "- Claudiusz: $claudiusz"
+            echo "- Gremlin Operator: $gremlin"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check Claudiusz
+        if: steps.scope.outputs.claudiusz == 'true'
+        working-directory: gh-apps/claudiusz
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Gremlin Operator
+        if: steps.scope.outputs.gremlin == 'true'
+        working-directory: gh-apps/gremlin-operator
+        run: |
+          npm ci
+          npm run check

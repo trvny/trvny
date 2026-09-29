@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   handleReviewRouterRequest,
+  reviewFreeProbeTimeoutMs,
   reviewProviderPoolHealth,
 } from '../src/review-router.ts';
 import { ReviewProviderCooldownStore } from '../../kanarek-companion/src/review-cooldown-store.ts';
@@ -765,6 +766,17 @@ test('review router fails fast while the whole free pool is quota-cooled', async
     health.providers.filter((provider) => provider.configured).every((provider) => provider.cooldown),
     true,
   );
+});
+
+test('free probe timeout defaults to 10s and stays below the normal router ceiling', () => {
+  assert.equal(reviewFreeProbeTimeoutMs(undefined), 10_000);
+  assert.equal(reviewFreeProbeTimeoutMs('5000'), 5_000);
+  assert.equal(reviewFreeProbeTimeoutMs('30000'), 30_000);
+  assert.equal(reviewFreeProbeTimeoutMs('999'), 10_000);
+  assert.equal(reviewFreeProbeTimeoutMs('30001'), 10_000);
+  assert.equal(reviewFreeProbeTimeoutMs('wat'), 10_000);
+  assert.equal(reviewFreeProbeTimeoutMs(undefined, 1_000), 1_000);
+  assert.equal(reviewFreeProbeTimeoutMs('5000', 2_000), 2_000);
 });
 
 test('review router prefers HTTP free providers before guarded Workers AI', async () => {

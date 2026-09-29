@@ -207,6 +207,7 @@ function branch(value: unknown): string {
   if (
     result.startsWith('/') ||
     result.endsWith('/') ||
+    result.split('/').includes('.') ||
     result.includes('..') ||
     result.includes('//') ||
     !/^[A-Za-z0-9._/-]+$/.test(result)
@@ -517,7 +518,7 @@ function config(env: CompanionEnv): GptomekConfig {
 }
 
 function refPath(branchName: string): string {
-  return encodeURIComponent(branchName);
+  return branchName.split('/').map(encodeURIComponent).join('/');
 }
 
 async function repositoryInstallationId(

@@ -88,6 +88,25 @@ test('encodes commands in a single hidden marker', () => {
   assert.equal(marker.includes('hello'), false);
 });
 
+test('rejects dot path components in branch names', async () => {
+  const marker = commandMarker({
+    id: 'dot-branch',
+    op: 'delete_branch',
+    repository: 'trvny/trvny',
+    branch: 'feature/./victim',
+    expectedHeadSha: 'c'.repeat(40),
+  });
+
+  await assert.rejects(
+    handleGptomekControl(
+      target,
+      { ...controlPr, body: marker },
+      {} as CompanionEnv,
+    ),
+    /invalid_branch/,
+  );
+});
+
 test('protects main, the default branch, and GPTomek control transport', () => {
   assert.equal(isProtectedBranch('main', 'develop'), true);
   assert.equal(isProtectedBranch('MAIN', 'develop'), true);
@@ -134,12 +153,12 @@ test('deletes only a branch still pointing at the expected head', async () => {
     },
     {
       operation: 'gptomek_get_branch_ref',
-      path: '/repos/trvny/trvny/git/ref/heads/feature%2Fdelete-me',
+      path: '/repos/trvny/trvny/git/ref/heads/feature/delete-me',
     },
     {
       method: 'DELETE',
       operation: 'gptomek_delete_branch',
-      path: '/repos/trvny/trvny/git/refs/heads/feature%2Fdelete-me',
+      path: '/repos/trvny/trvny/git/refs/heads/feature/delete-me',
     },
   ]);
 });

@@ -12,7 +12,15 @@ FAIL_IF_UPDATED_SOURCES: false
 
 # Apply safe formatter fixes only inside the runner. Updated Sources Reporter
 # packages the resulting files in the workflow artifact; CI never commits them.
-APPLY_FIXES: all
+APPLY_FIXES:
+  - BASH_SHFMT
+  - CSS_STYLELINT
+  - JAVASCRIPT_PRETTIER
+  - JSON_PRETTIER
+  - MARKDOWN_MARKDOWNLINT
+  - PYTHON_RUFF_FORMAT
+  - TYPESCRIPT_PRETTIER
+  - YAML_PRETTIER
 UPDATED_SOURCES_REPORTER: true
 UPDATED_SOURCES_REPORTER_DIR: updated_sources
 

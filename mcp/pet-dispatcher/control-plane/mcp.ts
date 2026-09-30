@@ -68,7 +68,7 @@ const readFilesInputSchema = z.object({
 const finishSessionInputSchema = z.object({
   target: z.string().min(1).max(128).describe("Repository or workspace alias that owns the session"),
   sessionId: z.string().uuid().describe("Session to stage, commit/export when applicable, and close"),
-  message: z.string().min(1).max(500).optional().describe("Optional commit message"),
+  message: z.string().min(1).max(500).describe("Commit message for finalizing the session"),
   idempotencyKey: z.string().min(1).max(200).optional(),
   waitSeconds: z.number().int().min(0).max(45).default(20),
   debug: debugSchema,
@@ -267,7 +267,7 @@ function createServer(operations: ControlMcpOperations): McpServer {
     }, idempotencyKey, waitSeconds, debug));
 
   server.registerTool("pet_session_finish", {
-    description: "Use this when a Pet Dispatcher direct write/exec session is ready to be finalized. It stages and commits/exports changes when applicable, then closes the session. Do not use it to discard work.",
+    description: "Use this when a Pet Dispatcher direct write/exec session is ready to be finalized. Provide a concise commit message; the tool stages and commits/exports changes when applicable, then closes the session. Do not use it to discard work.",
     inputSchema: finishSessionInputSchema,
     outputSchema: taskOutputSchema,
     annotations: { title: "Finish Pet session", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },

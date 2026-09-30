@@ -54,7 +54,7 @@ test("remote MCP exposes the control-plane task surface", async () => {
   assert.equal(listed.response.status, 200);
   const listedTools = ((listed.body?.result as { tools?: Array<{ name: string; outputSchema?: unknown }> })?.tools ?? []);
   assert.deepEqual(listedTools.map(({ name }) => name).sort(), [
-    "pet_delegate", "pet_direct", "pet_meta", "pet_read_files", "pet_session_finish", "pet_task_cancel", "pet_task_get", "pet_workspace_inspect",
+    "pet_cockpit_open", "pet_delegate", "pet_direct", "pet_meta", "pet_read_files", "pet_session_finish", "pet_task_cancel", "pet_task_get", "pet_workspace_inspect",
   ]);
   assert.ok(listedTools.every((tool) => tool.outputSchema));
   const meta = await rpc(operations, {
@@ -285,4 +285,52 @@ test("focused MCP facades preserve the direct task contract and metadata", async
       call: { tool: "session.finish", sessionId: TASK_ID, message: "finish work" },
     },
   ]);
+});
+
+
+test("cockpit exposes a versioned app-only MCP App with global and thread entrypoints", async () => {
+  const operations = baseOperations();
+  const listed = await rpc(operations, { jsonrpc: "2.0", id: 30, method: "tools/list", params: {} });
+  const cockpit = ((listed.body?.result as {
+    tools?: Array<{ name: string; _meta?: Record<string, unknown>; annotations?: { readOnlyHint?: boolean } }>;
+  })?.tools ?? []).find((tool) => tool.name === "pet_cockpit_open");
+  assert.ok(cockpit);
+  assert.equal(cockpit.annotations?.readOnlyHint, true);
+  const meta = cockpit._meta as {
+    ui?: { resourceUri?: string; visibility?: string[] };
+    "openai/ui"?: { entrypoints?: Array<{ type?: string }> };
+  } | undefined;
+  assert.equal(meta?.ui?.resourceUri, "ui://pet-dispatcher/cockpit/v1");
+  assert.deepEqual(meta?.ui?.visibility, ["app"]);
+  assert.deepEqual(meta?.["openai/ui"]?.entrypoints?.map(({ type }) => type), ["global", "thread"]);
+
+  const resources = await rpc(operations, { jsonrpc: "2.0", id: 31, method: "resources/list", params: {} });
+  const resource = ((resources.body?.result as {
+    resources?: Array<{ uri?: string; title?: string; mimeType?: string }>;
+  })?.resources ?? []).find(({ uri }) => uri === "ui://pet-dispatcher/cockpit/v1");
+  assert.equal(resource?.title, "Pet Dispatcher Cockpit");
+  assert.equal(resource?.mimeType, "text/html;profile=mcp-app");
+
+  const read = await rpc(operations, {
+    jsonrpc: "2.0", id: 32, method: "resources/read",
+    params: { uri: "ui://pet-dispatcher/cockpit/v1" },
+  });
+  const html = ((read.body?.result as {
+    contents?: Array<{ text?: string; mimeType?: string; _meta?: Record<string, unknown> }>;
+  })?.contents ?? [])[0];
+  assert.equal(html?.mimeType, "text/html;profile=mcp-app");
+  assert.match(html?.text ?? "", /tools\/call/u);
+  assert.match(html?.text ?? "", /pet_meta/u);
+  assert.match(html?.text ?? "", /ui\/update-model-context/u);
+  assert.doesNotMatch(html?.text ?? "", /<script[^>]+src=|<link[^>]+href=/u);
+
+  const opened = await rpc(operations, {
+    jsonrpc: "2.0", id: 33, method: "tools/call",
+    params: { name: "pet_cockpit_open", arguments: {} },
+  });
+  const body = (opened.body?.result as {
+    structuredContent?: { body?: { deviceId?: string; activeSessions?: number } };
+  })?.structuredContent?.body;
+  assert.equal(body?.deviceId, "test-device");
+  assert.equal(body?.activeSessions, 1);
 });

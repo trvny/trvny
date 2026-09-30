@@ -23,7 +23,15 @@ Status: **Foundation in progress.** The existing Cloudflare control plane and lo
 
 ## Phase 2 - Pet Dispatcher Cockpit
 
-Add an optional MCP App at a versioned resource URI such as `ui://pet-dispatcher/cockpit/v1`.
+The first cockpit slice is live in the MCP server at `ui://pet-dispatcher/cockpit/v1`.
+
+- [x] Versioned self-contained MCP App resource with no external runtime assets.
+- [x] App-only render tool with global/sidebar and conversation/thread entrypoints.
+- [x] Worker freshness, device, active session/process counts, sandbox summary and configured targets.
+- [x] In-app refresh through the existing `pet_meta` data tool.
+- [x] Target selection synchronized to the conversation through Model-App Context.
+- [ ] Active task/session identifiers plus bounded result/tests/diff details.
+- [ ] Explicit task cancel and session finish controls once identifiers are available in the cockpit data model.
 
 Target view:
 

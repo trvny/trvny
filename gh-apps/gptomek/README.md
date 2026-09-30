@@ -7,7 +7,7 @@ GitHub App used for bot-authored repository operations.
 - Runtime module: `../kanarek-companion/src/gptomek.ts`
 - Shared Worker: `kanarek-companion`
 - Worker secret: `GPTOMEK_PRIVATE_KEY`
-- Primary control mailbox: `trvny/trvny#203` (open Issue body)
+- Primary control mailbox: `trvny/trvny#203` ([open Issue body](https://github.com/trvny/trvny/issues/203#issue-5154105174))
 - Wake relay: GitHub Actions → `POST /gptomek/wake` → shared Worker
 - Fallback mailbox: `trvny/trvny#176` (closed PR body)
 - Fallback control ref: `gptomek/control` (persistent transport anchor)

@@ -322,15 +322,45 @@ test("cockpit exposes a versioned app-only MCP App with global and thread entryp
   assert.match(html?.text ?? "", /tools\/call/u);
   assert.match(html?.text ?? "", /pet_meta/u);
   assert.match(html?.text ?? "", /ui\/update-model-context/u);
+  assert.match(html?.text ?? "", /ui\/initialize/u);
+  assert.match(html?.text ?? "", /ui\/notifications\/initialized/u);
+  assert.match(html?.text ?? "", /result\.isError/u);
+  assert.match(html?.text ?? "", /setTimeout/u);
   assert.doesNotMatch(html?.text ?? "", /<script[^>]+src=|<link[^>]+href=/u);
+
+  const metaTool = ((listed.body?.result as {
+    tools?: Array<{ name: string; _meta?: { ui?: { visibility?: string[] } } }>;
+  })?.tools ?? []).find((tool) => tool.name === "pet_meta");
+  assert.deepEqual(metaTool?._meta?.ui?.visibility, ["model", "app"]);
 
   const opened = await rpc(operations, {
     jsonrpc: "2.0", id: 33, method: "tools/call",
     params: { name: "pet_cockpit_open", arguments: {} },
   });
-  const body = (opened.body?.result as {
-    structuredContent?: { body?: { deviceId?: string; activeSessions?: number } };
-  })?.structuredContent?.body;
-  assert.equal(body?.deviceId, "test-device");
-  assert.equal(body?.activeSessions, 1);
+  assert.deepEqual(opened.body?.result, {
+    content: [{ type: "text", text: "Pet Dispatcher request completed." }],
+    structuredContent: {
+      httpStatus: 200,
+      body: {
+        deviceId: "test-device",
+        transport: "cloudflare-queues-http-pull",
+        protocol: 1,
+        updatedAt: "2026-09-15T23:00:00.000Z",
+        repositories: ["trvny"],
+        workspaces: ["dc"],
+        directTools: ["fs.read"],
+        localTools: [],
+        activeSessions: 1,
+        activeProcesses: 0,
+        stale: false,
+        sandbox: {
+          supported: true,
+          processGuard: "windows-job-object",
+          networkDefault: "deny",
+          isolationTier: "appcontainer-dacl",
+        },
+      },
+    },
+    isError: false,
+  });
 });

@@ -272,6 +272,8 @@ test("focused MCP facades preserve the direct task contract and metadata", async
       repo: "trvny", baseRef: "main",
       call: {
         tool: "workspace.inspect", path: ".", query: "Pet Dispatcher", include: ["tree", "git"],
+        depth: 2, maxEntries: 120, maxDepth: 6, maxFileBytes: 131_072, maxFiles: 250,
+        maxMatches: 25, maxSearchBytes: 16_384, maxTreeBytes: 16_384, maxCommits: 3, maxGitPaths: 10,
       },
     },
     {

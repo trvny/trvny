@@ -54,7 +54,7 @@ test("remote MCP exposes the control-plane task surface", async () => {
   assert.equal(listed.response.status, 200);
   const listedTools = ((listed.body?.result as { tools?: Array<{ name: string; outputSchema?: unknown }> })?.tools ?? []);
   assert.deepEqual(listedTools.map(({ name }) => name).sort(), [
-    "pet_delegate", "pet_direct", "pet_meta", "pet_task_cancel", "pet_task_get",
+    "pet_delegate", "pet_direct", "pet_meta", "pet_read_files", "pet_session_finish", "pet_task_cancel", "pet_task_get", "pet_workspace_inspect",
   ]);
   assert.ok(listedTools.every((tool) => tool.outputSchema));
   const meta = await rpc(operations, {
@@ -226,4 +226,61 @@ test("completed MCP tasks keep payload only in structured content", async () => 
   });
   const debugBody = (debug.body?.result as { structuredContent?: { body?: Record<string, unknown> } })?.structuredContent?.body;
   assert.equal(debugBody?.createdAt, "2026-09-15T23:00:00.000Z");
+});
+
+
+test("focused MCP facades preserve the direct task contract and metadata", async () => {
+  const directCalls: unknown[] = [];
+  const operations = baseOperations({ direct: async (value) => {
+    directCalls.push(value);
+    return { status: 202, body: { taskId: TASK_ID, status: "queued" } };
+  } });
+  const listed = await rpc(operations, { jsonrpc: "2.0", id: 20, method: "tools/list", params: {} });
+  const tools = ((listed.body?.result as {
+    tools?: Array<{ name: string; description?: string; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean } }>;
+  })?.tools ?? []);
+  const byName = new Map(tools.map((tool) => [tool.name, tool]));
+  for (const name of ["pet_workspace_inspect", "pet_read_files", "pet_session_finish"]) {
+    assert.match(byName.get(name)?.description ?? "", /^Use this when/u);
+  }
+  assert.equal(byName.get("pet_workspace_inspect")?.annotations?.readOnlyHint, true);
+  assert.equal(byName.get("pet_read_files")?.annotations?.readOnlyHint, true);
+  assert.equal(byName.get("pet_session_finish")?.annotations?.readOnlyHint, false);
+  assert.equal(byName.get("pet_session_finish")?.annotations?.destructiveHint, false);
+
+  await rpc(operations, {
+    jsonrpc: "2.0", id: 21, method: "tools/call", params: {
+      name: "pet_workspace_inspect",
+      arguments: { target: "trvny", query: "Pet Dispatcher", waitSeconds: 0 },
+    },
+  });
+  await rpc(operations, {
+    jsonrpc: "2.0", id: 22, method: "tools/call", params: {
+      name: "pet_read_files",
+      arguments: { target: "trvny", paths: ["README.md", "AGENTS.md"], waitSeconds: 0 },
+    },
+  });
+  await rpc(operations, {
+    jsonrpc: "2.0", id: 23, method: "tools/call", params: {
+      name: "pet_session_finish",
+      arguments: { target: "trvny", sessionId: TASK_ID, message: "finish work", waitSeconds: 0 },
+    },
+  });
+
+  assert.deepEqual(directCalls, [
+    {
+      repo: "trvny", baseRef: "main",
+      call: {
+        tool: "workspace.inspect", path: ".", query: "Pet Dispatcher", include: ["tree", "git"],
+      },
+    },
+    {
+      repo: "trvny", baseRef: "main",
+      call: { tool: "fs.readMany", paths: ["README.md", "AGENTS.md"] },
+    },
+    {
+      repo: "trvny", baseRef: "main",
+      call: { tool: "session.finish", sessionId: TASK_ID, message: "finish work" },
+    },
+  ]);
 });

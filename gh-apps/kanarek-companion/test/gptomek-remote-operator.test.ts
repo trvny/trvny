@@ -201,6 +201,101 @@ test('clears terminal operator-action policy rejections from the mailbox', async
   assert.equal(calls.some((call) => call.includes('/actions/workflows/')), false);
 });
 
+test('records failed commands without escalating them to a wake failure', async () => {
+  const body = commandMarker({
+    id: 'comment-without-checkpoints',
+    op: 'comment',
+    repository: 'trvny/trvny',
+    pullRequestNumber: 176,
+    body: 'hello',
+  });
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs1', format: 'pem' })
+    .toString();
+  let patchedBody = '';
+  let commented = false;
+  const fetcher = async (
+    input: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    const url = String(input);
+    const method = init?.method ?? 'GET';
+    if (url.endsWith('/app/installations/123/access_tokens')) {
+      return Response.json({
+        token: 'ghs_gptomek_test',
+        expires_at: '2099-01-01T00:00:00Z',
+      });
+    }
+    if (url.endsWith('/repos/trvny/trvny/installation')) {
+      return Response.json({ id: 123 });
+    }
+    if (url.endsWith('/repos/trvny/trvny/issues/203') && method === 'PATCH') {
+      const payload = JSON.parse(String(init?.body)) as { body?: string };
+      patchedBody = payload.body ?? '';
+      return Response.json({ id: 203 });
+    }
+    if (url.includes('/comments') && method === 'POST') commented = true;
+    return new Response(null, { status: 404 });
+  };
+
+  const result = await handleGptomekMailboxCommand(
+    body,
+    '/repos/trvny/trvny/issues/203',
+    {
+      GPTOMEK_APP_ID: '4524407',
+      GPTOMEK_INSTALLATION_ID: '123',
+      GPTOMEK_PRIVATE_KEY: privateKey,
+    } as CompanionEnv,
+    fetcher as typeof fetch,
+  );
+
+  assert.equal(result.handled, true);
+  assert.equal(result.result?.ok, false);
+  assert.equal(commented, false);
+  assert.equal(patchedBody.includes('gptomek-result:'), true);
+  // Non-terminal failures keep the marker for an explicit, safe retry.
+  assert.equal(patchedBody.includes('gptomek-command:'), true);
+});
+
+test('still fails the wake when the failed outcome cannot be recorded', async () => {
+  const body = commandMarker({
+    id: 'comment-unrecorded',
+    op: 'comment',
+    repository: 'trvny/trvny',
+    pullRequestNumber: 176,
+    body: 'hello',
+  });
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs1', format: 'pem' })
+    .toString();
+  const fetcher = async (input: string | URL | Request): Promise<Response> => {
+    const url = String(input);
+    if (url.endsWith('/app/installations/123/access_tokens')) {
+      return Response.json({
+        token: 'ghs_gptomek_test',
+        expires_at: '2099-01-01T00:00:00Z',
+      });
+    }
+    if (url.endsWith('/repos/trvny/trvny/installation')) {
+      return Response.json({ id: 123 });
+    }
+    return new Response(null, { status: 502 });
+  };
+
+  await assert.rejects(
+    handleGptomekMailboxCommand(
+      body,
+      '/repos/trvny/trvny/issues/203',
+      {
+        GPTOMEK_APP_ID: '4524407',
+        GPTOMEK_INSTALLATION_ID: '123',
+        GPTOMEK_PRIVATE_KEY: privateKey,
+      } as CompanionEnv,
+      fetcher as typeof fetch,
+    ),
+  );
+});
+
 test('accepts ordered batches and rejects nested batches', async () => {
   const batch = {
     id: 'batch-remote-1',

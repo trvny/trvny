@@ -34,7 +34,9 @@ marker to #176 only when the primary Worker wake fails; successful fallback
 handling then clears the primary marker and carries the hidden result back to
 Issue #203. The relay verifies that the live Issue still contains that exact
 marker before failover and again before result synchronization, so a stale run
-does not overwrite a newer command.
+does not overwrite a newer command. A command that fails but whose error
+envelope is recorded is not a wake failure: the wake returns 200 and the relay
+does not fail over. Only an unrecorded outcome returns 502.
 
 Both transports feed the same GPTomek command parser and execution path, so they
 have the same operation surface and authorization. The legacy PR does not unlock

@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
 import { REMOTE_DIRECT_TOOLS, remoteDirectCallSchema, remoteResultSchema } from "../src/remote-protocol.js";
+import { PET_COCKPIT_HTML, PET_COCKPIT_URI } from "./cockpit.js";
 
 export interface ControlRpcResult {
   status: number;
@@ -204,6 +205,38 @@ function createServer(operations: ControlMcpOperations): McpServer {
   }, {
     instructions: "Use focused tools first: pet_workspace_inspect for reconnaissance, pet_read_files for bounded reads, and pet_session_finish to finalize a direct session. Use pet_delegate for multi-step reasoning or coding. Use pet_direct only when no focused facade covers the required direct operation. Call pet_meta only when target or capability discovery is actually needed.",
   });
+
+  server.registerResource("pet-cockpit", PET_COCKPIT_URI, {
+    title: "Pet Dispatcher Cockpit",
+    description: "Interactive status and target selector for the paired Pet Dispatcher worker.",
+    mimeType: "text/html;profile=mcp-app",
+  }, async (uri) => ({
+    contents: [{
+      uri: uri.href,
+      mimeType: "text/html;profile=mcp-app",
+      text: PET_COCKPIT_HTML,
+      _meta: {
+        ui: { prefersBorder: false },
+        "openai/ui": {
+          preferredDisplayMode: "fullscreen",
+          availableDisplayModes: ["inline", "fullscreen"],
+        },
+      },
+    }],
+  }));
+
+  server.registerTool("pet_cockpit_open", {
+    description: "Open the Pet Dispatcher Cockpit UI. Use the focused data tools for normal conversational status answers instead.",
+    inputSchema: z.object({}).strict(),
+    outputSchema: metaOutputSchema,
+    annotations: { title: "Open Pet Dispatcher Cockpit", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    _meta: {
+      ui: { resourceUri: PET_COCKPIT_URI, visibility: ["app"] },
+      "openai/ui": { entrypoints: [{ type: "global" }, { type: "thread" }] },
+      "openai/toolInvocation/invoking": "Opening Pet Dispatcher...",
+      "openai/toolInvocation/invoked": "Pet Dispatcher ready.",
+    },
+  }, async () => asToolResult(await operations.meta(), true));
 
   server.registerTool("pet_meta", {
     description: "Use this when target aliases, device freshness, capabilities, active work, or sandbox status are needed. Do not use it as a mandatory preflight for every Pet Dispatcher call.",

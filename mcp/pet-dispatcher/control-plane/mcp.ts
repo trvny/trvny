@@ -243,7 +243,11 @@ function createServer(operations: ControlMcpOperations): McpServer {
   }, async ({ target, path, query, include, sessionId, baseRef, idempotencyKey, waitSeconds, debug }) =>
     runDirectTool(operations, {
       repo: target, baseRef,
-      call: { tool: "workspace.inspect", path, query, include, sessionId },
+      call: {
+        tool: "workspace.inspect", path, include,
+        ...(query === undefined ? {} : { query }),
+        ...(sessionId === undefined ? {} : { sessionId }),
+      },
     }, idempotencyKey, waitSeconds, debug));
 
   server.registerTool("pet_read_files", {
@@ -254,7 +258,12 @@ function createServer(operations: ControlMcpOperations): McpServer {
   }, async ({ target, paths, sessionId, maxBytesPerFile, maxTotalBytes, baseRef, idempotencyKey, waitSeconds, debug }) =>
     runDirectTool(operations, {
       repo: target, baseRef,
-      call: { tool: "fs.readMany", paths, sessionId, maxBytesPerFile, maxTotalBytes },
+      call: {
+        tool: "fs.readMany", paths,
+        ...(sessionId === undefined ? {} : { sessionId }),
+        ...(maxBytesPerFile === undefined ? {} : { maxBytesPerFile }),
+        ...(maxTotalBytes === undefined ? {} : { maxTotalBytes }),
+      },
     }, idempotencyKey, waitSeconds, debug));
 
   server.registerTool("pet_session_finish", {

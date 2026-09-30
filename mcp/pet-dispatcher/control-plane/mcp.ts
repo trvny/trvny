@@ -242,6 +242,7 @@ function createServer(operations: ControlMcpOperations): McpServer {
     description: "Use this when target aliases, device freshness, capabilities, active work, or sandbox status are needed. Do not use it as a mandatory preflight for every Pet Dispatcher call.",
     outputSchema: metaOutputSchema,
     annotations: { title: "Pet Dispatcher status", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    _meta: { ui: { visibility: ["model", "app"] } },
   }, async () => asToolResult(await operations.meta(), true));
 
   server.registerTool("pet_delegate", {

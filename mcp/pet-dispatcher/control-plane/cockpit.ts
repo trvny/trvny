@@ -39,7 +39,7 @@ export const PET_COCKPIT_HTML = String.raw`
       <h1>Pet Dispatcher</h1>
       <div class="muted">Confined work on the paired machine</div>
     </div>
-    <button id="refresh" type="button">Refresh</button>
+    <button id="refresh" type="button" disabled>Refresh</button>
   </header>
 
   <section class="card">
@@ -72,13 +72,27 @@ export const PET_COCKPIT_HTML = String.raw`
   var pending = new Map();
   var nextId = 1;
   var selectedTarget = null;
+  var initialized = false;
+  var hasSnapshot = false;
 
-  function request(method, params) {
+  function request(method, params, timeoutMs) {
     var id = nextId++;
-    window.parent.postMessage({ jsonrpc: "2.0", id: id, method: method, params: params }, "*");
+    var timeout = typeof timeoutMs === "number" ? timeoutMs : 10000;
     return new Promise(function (resolve, reject) {
-      pending.set(id, { resolve: resolve, reject: reject });
+      var timer = setTimeout(function () {
+        pending.delete(id);
+        reject(new Error(method + " timed out"));
+      }, timeout);
+      pending.set(id, {
+        resolve: function (value) { clearTimeout(timer); resolve(value); },
+        reject: function (error) { clearTimeout(timer); reject(error); }
+      });
+      window.parent.postMessage({ jsonrpc: "2.0", id: id, method: method, params: params }, "*");
     });
+  }
+
+  function notify(method, params) {
+    window.parent.postMessage({ jsonrpc: "2.0", method: method, params: params }, "*");
   }
 
   function text(id, value) {
@@ -89,6 +103,37 @@ export const PET_COCKPIT_HTML = String.raw`
     return result && result.structuredContent && result.structuredContent.body
       ? result.structuredContent.body
       : null;
+  }
+
+  function resultErrorText(result) {
+    if (!result || !Array.isArray(result.content)) return "Pet Dispatcher tool failed.";
+    var lines = result.content
+      .filter(function (item) { return item && item.type === "text" && typeof item.text === "string"; })
+      .map(function (item) { return item.text; });
+    return lines.length ? lines.join("\n") : "Pet Dispatcher tool failed.";
+  }
+
+  function handleToolResult(result) {
+    if (result && result.isError === true) {
+      text("error", "Snapshot not updated. " + resultErrorText(result));
+      return false;
+    }
+    var body = metaBody(result);
+    if (!body) {
+      text("error", "Snapshot not updated. Pet Dispatcher returned no status data.");
+      return false;
+    }
+    render(result);
+    hasSnapshot = true;
+    text("error", "");
+    return true;
+  }
+
+  function setInteractive(value) {
+    document.getElementById("refresh").disabled = !value;
+    document.querySelectorAll(".target").forEach(function (button) {
+      button.disabled = !value;
+    });
   }
 
   function render(result) {
@@ -117,6 +162,7 @@ export const PET_COCKPIT_HTML = String.raw`
       button.className = "target";
       button.textContent = target;
       button.setAttribute("aria-pressed", String(target === selectedTarget));
+      button.disabled = !initialized;
       button.onclick = function () { selectTarget(target); };
       root.appendChild(button);
     });
@@ -129,6 +175,7 @@ export const PET_COCKPIT_HTML = String.raw`
   }
 
   async function selectTarget(target) {
+    if (!initialized) return;
     selectedTarget = target;
     text("selection", "Selected target: " + target);
     document.querySelectorAll(".target").forEach(function (button) {
@@ -146,16 +193,36 @@ export const PET_COCKPIT_HTML = String.raw`
   }
 
   async function refresh() {
+    if (!initialized) return;
     var button = document.getElementById("refresh");
     button.disabled = true;
     try {
       var result = await request("tools/call", { name: "pet_meta", arguments: {} });
-      render(result);
-      text("error", "");
+      handleToolResult(result);
     } catch (error) {
-      text("error", "Refresh failed: " + String(error));
+      text("error", "Snapshot not updated. Refresh failed: " + String(error));
     } finally {
       button.disabled = false;
+    }
+  }
+
+  async function initialize() {
+    setInteractive(false);
+    try {
+      await request("ui/initialize", {
+        protocolVersion: "2026-01-26",
+        appInfo: { name: "Pet Dispatcher Cockpit", version: "1.0.0" },
+        appCapabilities: {}
+      });
+      notify("ui/notifications/initialized", {});
+      initialized = true;
+      setInteractive(true);
+      if (!hasSnapshot) await refresh();
+    } catch (error) {
+      var status = document.getElementById("status");
+      status.className = "status warn";
+      status.querySelector("span:last-child").textContent = "Cockpit bridge unavailable";
+      text("error", "Initialization failed: " + String(error));
     }
   }
 
@@ -171,11 +238,12 @@ export const PET_COCKPIT_HTML = String.raw`
       return;
     }
     if (message.method === "ui/notifications/tool-result") {
-      render(message.params);
+      handleToolResult(message.params);
     }
   }, { passive: true });
 
   document.getElementById("refresh").onclick = refresh;
+  initialize();
 }());
 </script>
 </body>

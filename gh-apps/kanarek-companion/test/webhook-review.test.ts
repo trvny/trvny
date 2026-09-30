@@ -317,8 +317,13 @@ test('review retries are bounded and only cover transient failures', () => {
   assert.equal(reviewRetryDelayMs(transient, 2), 30 * 60_000);
   assert.equal(reviewRetryDelayMs(transient, 3), null);
   assert.equal(
-    reviewRetryDelayMs({ ...transient, skipped: 'invalid_findings' }, 0),
+    reviewRetryDelayMs({ ...transient, skipped: 'job_failed' }, 0),
     2 * 60_000,
+  );
+  // A billed completion that failed verification is not retried.
+  assert.equal(
+    reviewRetryDelayMs({ ...transient, skipped: 'invalid_findings' }, 0),
+    null,
   );
   assert.equal(
     reviewRetryDelayMs({ ...transient, skipped: 'no_code_diff' }, 0),
@@ -869,6 +874,8 @@ test('free and paid review output budgets stay independent', () => {
   };
   assert.equal(reviewOutputTokens(env, 'kanarek-review-free'), 36_864);
   assert.equal(reviewOutputTokens(env, 'kanarek-review-paid'), 16_384);
+  assert.equal(reviewOutputTokens({}, 'kanarek-review-paid'), 36_864);
+  assert.equal(reviewOutputTokens({}, 'kanarek-review-free'), 36_864);
 });
 
 test('PR review output headroom defaults to 36k and allows provider-sized ceilings', () => {

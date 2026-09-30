@@ -1,10 +1,19 @@
 import { reviewRouterChatViaService, type ReviewServiceBinding } from './review-service.ts';
 
-const PRIMARY_MODEL = 'gpt-5.6-luna';
-const FALLBACK_MODEL = 'gpt-5.4-nano';
-const ANTHROPIC_MODEL = 'claude-haiku-4-5';
-const GEMINI_MODEL = 'gemini-3.5-flash-lite';
-const XAI_MODEL = 'grok-4.6';
+// Fallbacks for a missing var. wrangler.jsonc is the source of truth; a test
+// keeps these equal to it.
+export const QUIP_MODEL_DEFAULTS = {
+  KANAREK_OPENAI_MODEL: 'gpt-6-luna',
+  KANAREK_OPENAI_FALLBACK_MODEL: 'gpt-5.4-nano',
+  KANAREK_ANTHROPIC_MODEL: 'claude-haiku-4-5',
+  KANAREK_GEMINI_MODEL: 'gemini-3.5-flash-lite',
+  KANAREK_XAI_MODEL: 'grok-4.7',
+} as const;
+const PRIMARY_MODEL = QUIP_MODEL_DEFAULTS.KANAREK_OPENAI_MODEL;
+const FALLBACK_MODEL = QUIP_MODEL_DEFAULTS.KANAREK_OPENAI_FALLBACK_MODEL;
+const ANTHROPIC_MODEL = QUIP_MODEL_DEFAULTS.KANAREK_ANTHROPIC_MODEL;
+const GEMINI_MODEL = QUIP_MODEL_DEFAULTS.KANAREK_GEMINI_MODEL;
+const XAI_MODEL = QUIP_MODEL_DEFAULTS.KANAREK_XAI_MODEL;
 const AI_STATUSES = new Set(['ready', 'blocked']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
 const DEFAULT_QUIP_OUTPUT_TOKEN_LIMIT = 256;
@@ -372,7 +381,7 @@ function geminiOutputText(response: Record<string, unknown>): string {
     .join(' ');
 }
 
-function openAiReasoningEffort(
+export function openAiReasoningEffort(
   model: string,
   configured?: string,
 ): string | null {

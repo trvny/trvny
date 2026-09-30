@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   handleReviewRouterRequest,
+  REVIEW_ROUTER_MODEL_DEFAULTS,
   reviewFreeProbeTimeoutMs,
   reviewProviderPoolHealth,
 } from '../src/review-router.ts';
@@ -184,7 +185,7 @@ test('review router prefers OpenRouter before the paid review reserves', async (
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
   assert.equal(call.url, 'https://openrouter.ai/api/v1/chat/completions');
-  assert.equal(call.model, 'nvidia/nemotron-3-super-120b-a12b:free');
+  assert.equal(call.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS[0]);
   assert.equal(call.authorization, 'Bearer openrouter-key');
 });
 
@@ -1145,7 +1146,7 @@ test('review router uses Hugging Face PublicAI as the final HTTP reserve', async
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'huggingface-publicai');
   assert.deepEqual(calls.slice(-1), [{
     url: 'https://router.huggingface.co/v1/chat/completions',
-    model: 'aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai',
+    model: REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_HUGGINGFACE_MODEL,
     authorization: 'Bearer hf-key',
   }]);
   assert.equal(calls.filter((call) => call.url.startsWith('https://api.orcarouter.ai/')).length, 1);

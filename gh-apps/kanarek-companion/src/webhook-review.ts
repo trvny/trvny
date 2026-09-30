@@ -28,7 +28,7 @@ const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
 const DEFAULT_PAID_MAX_DIFF_CHARS = 250_000;
 const DEFAULT_PAID_MAX_CONTEXT_CHARS = 500_000;
 const DEFAULT_MAX_OUTPUT_TOKENS = 36_864;
-const DEFAULT_PAID_MAX_OUTPUT_TOKENS = 16_384;
+const DEFAULT_PAID_MAX_OUTPUT_TOKENS = 36_864;
 const DEFAULT_JUDGE_THRESHOLD = 0.9;
 const REVIEW_RETRY_DELAYS_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000] as const;
 const MAX_DEBOUNCE_MS = 10 * 60_000;
@@ -253,9 +253,11 @@ export function reviewRetryDelayMs(
   result: WebhookReviewResult,
   attempt: number,
 ): number | null {
+  // invalid_findings is not retried: in the free phase it escalates to paid,
+  // and in the paid phase a billed completion that failed verification would
+  // most likely fail the same way again.
   if (
     result.skipped !== 'providers_failed' &&
-    result.skipped !== 'invalid_findings' &&
     result.skipped !== 'job_failed'
   ) {
     return null;
@@ -1886,13 +1888,18 @@ export async function runWebhookReview(
     };
   }
 
-  const judged = await askReviewJudge(
-    findings,
-    generated.provider,
-    generated.model,
-    reviewInput,
-    reviewEnv,
-  );
+  // The paid pass carries up to 500k chars of context, which the free judge
+  // pool cannot hold; skip L2 there instead of burning the free pool on a
+  // judge that fails open anyway.
+  const judged = paidPhase
+    ? null
+    : await askReviewJudge(
+        findings,
+        generated.provider,
+        generated.model,
+        reviewInput,
+        reviewEnv,
+      );
   const publishFindings = judged?.findings ?? findings;
   if (judged && publishFindings.length === 0) {
     console.log(JSON.stringify({

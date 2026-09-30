@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { aiQuip } from '../src/quip.ts';
+import { aiQuip, QUIP_MODEL_DEFAULTS } from '../src/quip.ts';
 
 const VALID_QUIP = 'Kanarek checks the provider panel and finds every dial behaving.';
 
-test('uses Grok 4.6 as the xAI default', async () => {
+test('uses the configured xAI default', async () => {
   let requestBody: Record<string, unknown> = {};
   const fetcher = (async (_input: RequestInfo | URL, init?: RequestInit) => {
     requestBody = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
@@ -14,7 +14,7 @@ test('uses Grok 4.6 as the xAI default', async () => {
 
   await aiQuip('{}', { XAI_API_KEY: 'xai' }, fetcher);
 
-  assert.equal(requestBody.model, 'grok-4.6');
+  assert.equal(requestBody.model, QUIP_MODEL_DEFAULTS.KANAREK_XAI_MODEL);
   assert.equal(requestBody.max_output_tokens, 1_024);
   assert.deepEqual(requestBody.reasoning, { effort: 'low' });
 });

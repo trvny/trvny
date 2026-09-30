@@ -54,7 +54,7 @@ test("remote MCP exposes the control-plane task surface", async () => {
   assert.equal(listed.response.status, 200);
   const listedTools = ((listed.body?.result as { tools?: Array<{ name: string; outputSchema?: unknown }> })?.tools ?? []);
   assert.deepEqual(listedTools.map(({ name }) => name).sort(), [
-    "pet_delegate", "pet_direct", "pet_meta", "pet_read_files", "pet_session_finish", "pet_task_cancel", "pet_task_get", "pet_workspace_inspect",
+    "pet_cockpit_open", "pet_delegate", "pet_direct", "pet_meta", "pet_read_files", "pet_session_finish", "pet_task_cancel", "pet_task_get", "pet_workspace_inspect",
   ]);
   assert.ok(listedTools.every((tool) => tool.outputSchema));
   const meta = await rpc(operations, {
@@ -285,4 +285,82 @@ test("focused MCP facades preserve the direct task contract and metadata", async
       call: { tool: "session.finish", sessionId: TASK_ID, message: "finish work" },
     },
   ]);
+});
+
+
+test("cockpit exposes a versioned app-only MCP App with global and thread entrypoints", async () => {
+  const operations = baseOperations();
+  const listed = await rpc(operations, { jsonrpc: "2.0", id: 30, method: "tools/list", params: {} });
+  const cockpit = ((listed.body?.result as {
+    tools?: Array<{ name: string; _meta?: Record<string, unknown>; annotations?: { readOnlyHint?: boolean } }>;
+  })?.tools ?? []).find((tool) => tool.name === "pet_cockpit_open");
+  assert.ok(cockpit);
+  assert.equal(cockpit.annotations?.readOnlyHint, true);
+  const meta = cockpit._meta as {
+    ui?: { resourceUri?: string; visibility?: string[] };
+    "openai/ui"?: { entrypoints?: Array<{ type?: string }> };
+  } | undefined;
+  assert.equal(meta?.ui?.resourceUri, "ui://pet-dispatcher/cockpit/v1");
+  assert.deepEqual(meta?.ui?.visibility, ["app"]);
+  assert.deepEqual(meta?.["openai/ui"]?.entrypoints?.map(({ type }) => type), ["global", "thread"]);
+
+  const resources = await rpc(operations, { jsonrpc: "2.0", id: 31, method: "resources/list", params: {} });
+  const resource = ((resources.body?.result as {
+    resources?: Array<{ uri?: string; title?: string; mimeType?: string }>;
+  })?.resources ?? []).find(({ uri }) => uri === "ui://pet-dispatcher/cockpit/v1");
+  assert.equal(resource?.title, "Pet Dispatcher Cockpit");
+  assert.equal(resource?.mimeType, "text/html;profile=mcp-app");
+
+  const read = await rpc(operations, {
+    jsonrpc: "2.0", id: 32, method: "resources/read",
+    params: { uri: "ui://pet-dispatcher/cockpit/v1" },
+  });
+  const html = ((read.body?.result as {
+    contents?: Array<{ text?: string; mimeType?: string; _meta?: Record<string, unknown> }>;
+  })?.contents ?? [])[0];
+  assert.equal(html?.mimeType, "text/html;profile=mcp-app");
+  assert.match(html?.text ?? "", /tools\/call/u);
+  assert.match(html?.text ?? "", /pet_meta/u);
+  assert.match(html?.text ?? "", /ui\/update-model-context/u);
+  assert.match(html?.text ?? "", /ui\/initialize/u);
+  assert.match(html?.text ?? "", /ui\/notifications\/initialized/u);
+  assert.match(html?.text ?? "", /result\.isError/u);
+  assert.match(html?.text ?? "", /setTimeout/u);
+  assert.doesNotMatch(html?.text ?? "", /<script[^>]+src=|<link[^>]+href=/u);
+
+  const metaTool = ((listed.body?.result as {
+    tools?: Array<{ name: string; _meta?: { ui?: { visibility?: string[] } } }>;
+  })?.tools ?? []).find((tool) => tool.name === "pet_meta");
+  assert.deepEqual(metaTool?._meta?.ui?.visibility, ["model", "app"]);
+
+  const opened = await rpc(operations, {
+    jsonrpc: "2.0", id: 33, method: "tools/call",
+    params: { name: "pet_cockpit_open", arguments: {} },
+  });
+  assert.deepEqual(opened.body?.result, {
+    content: [{ type: "text", text: "Pet Dispatcher request completed." }],
+    structuredContent: {
+      httpStatus: 200,
+      body: {
+        deviceId: "test-device",
+        transport: "cloudflare-queues-http-pull",
+        protocol: 1,
+        updatedAt: "2026-09-15T23:00:00.000Z",
+        repositories: ["trvny"],
+        workspaces: ["dc"],
+        directTools: ["fs.read"],
+        localTools: [],
+        activeSessions: 1,
+        activeProcesses: 0,
+        stale: false,
+        sandbox: {
+          supported: true,
+          processGuard: "windows-job-object",
+          networkDefault: "deny",
+          isolationTier: "appcontainer-dacl",
+        },
+      },
+    },
+    isError: false,
+  });
 });

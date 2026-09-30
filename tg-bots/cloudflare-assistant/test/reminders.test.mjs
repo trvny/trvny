@@ -47,7 +47,7 @@ test("uses Telegram update ids for compact idempotent reminder ids", () => {
 test("creates and lists one idempotent reminder", async () => {
   const store = new TelegramReminderStore(state());
   const env = { TELEGRAM_REMINDERS: namespace(store) };
-  const now = Date.parse("2026-09-18T18:00:00Z");
+  const now = Date.now();
 
   const first = await createReminder(env, {
     updateId: 12345,
@@ -66,7 +66,7 @@ test("creates and lists one idempotent reminder", async () => {
 
   assert.equal(first.id, "r9ix");
   assert.equal(duplicate.text, "wyjmij pranie");
-  assert.equal(duplicate.dueAt, "2026-09-18T18:15:00.000Z");
+  assert.equal(duplicate.dueAt, new Date(now + 15 * 60_000).toISOString());
   assert.equal((await listReminders(env)).length, 1);
 });
 

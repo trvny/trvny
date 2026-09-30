@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "pet-dispatcher",
+  "version": "0.1.0",
+  "description": "Confined repository work on a paired development machine through Pet Dispatcher.",
+  "author": { "name": "trvny", "url": "https://github.com/trvny" },
+  "homepage": "https://github.com/trvny/trvny/tree/main/mcp/pet-dispatcher/plugin",
+  "repository": "https://github.com/trvny/trvny",
+  "keywords": ["pet-dispatcher", "development", "mcp", "cloudflare", "coding"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Pet Dispatcher",
+        "shortDescription": "Confined work on a paired dev machine",
+        "longDescription": "Inspect repositories, delegate bounded coding work, and manage confined Pet Dispatcher sessions through the existing Cloudflare control plane.",
+        "developerName": "trvny",
+        "websiteURL": "https://github.com/trvny/trvny/tree/main/mcp/pet-dispatcher",
+        "defaultPrompt": [
+          "Inspect this repository on my paired machine before making changes.",
+          "Use Pet Dispatcher to implement and validate this repository change."
+        ]
+      }
+    }
+  }
+}

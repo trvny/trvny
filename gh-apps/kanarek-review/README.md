@@ -176,7 +176,6 @@ credential-sync workflow. Target repositories do not need provider credentials.
 - `src/index.ts`: health surface and trusted service-binding request adaptation.
 - `src/review-router.ts`: provider definitions, model chains, error
   categorization, cooldown handling, health, and completion routing.
-- `src/openrouter-models.ts`: OpenRouter model-list helpers.
 - `test/`: provider routing, fallback, cooldown, and protocol regression tests.
 - `../kanarek-companion/src/review-service.ts`: caller-side Service Binding
   adapter.

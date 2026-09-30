@@ -33,8 +33,13 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#792](https://github.com/trvny/trvny/pull/792) | Add MechaGremlin plugin migration foundation | @trvny | draft | 2026-09-27 |
-| trvny/WiFi-Automatic | [#46](https://github.com/trvny/WiFi-Automatic/pull/46) | [pull] master from j4velin:master | @pull[bot] | ready | 2026-09-27 |
+| trvny/trvny | [#808](https://github.com/trvny/trvny/pull/808) | Preserve Kanarek paid review phase on redelivery | @trvny | ready | 2026-09-29 |
+| trvny/trvny | [#813](https://github.com/trvny/trvny/pull/813) | deps: update anthropic requirement from >=1.7.0 to >=1.8.0 in /token-worldcup in the pip group | @dependabot[bot] | ready | 2026-09-29 |
+| trvny/trvny | [#814](https://github.com/trvny/trvny/pull/814) | deps: bump wrangler from 4.136.2 to 4.141.0 in /tg-bots/cloudflare-assistant in the npm group | @dependabot[bot] | ready | 2026-09-29 |
+| trvny/trvny | [#815](https://github.com/trvny/trvny/pull/815) | deps: bump the npm group in /gh-apps/kanarek-companion with 2 updates | @dependabot[bot] | ready | 2026-09-29 |
+| trvny/trvny | [#816](https://github.com/trvny/trvny/pull/816) | deps: bump the npm group in /gh-apps/kanarek-review with 2 updates | @dependabot[bot] | ready | 2026-09-29 |
+| trvny/trvny | [#817](https://github.com/trvny/trvny/pull/817) | deps: bump the npm group in /mcp/pet-dispatcher with 4 updates | @dependabot[bot] | ready | 2026-09-29 |
+| trvny/WiFi-Automatic | [#49](https://github.com/trvny/WiFi-Automatic/pull/49) | [pull] master from j4velin:master | @pull[bot] | ready | 2026-09-29 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

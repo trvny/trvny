@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "pet-dispatcher": {
+      "type": "streamable-http",
+      "url": "https://pet-dispatcher-control.travny.workers.dev/mcp",
+      "bearer_token_env_var": "PET_DISPATCHER_CONTROL_TOKEN"
+    }
+  }
+}

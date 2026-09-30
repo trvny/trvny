@@ -169,6 +169,7 @@ interface StoredJob {
   attempt?: number;
   body: string;
   phase?: ReviewPhase;
+  supersededHeadShas?: string[];
   target: ReviewTarget;
 }
 
@@ -1584,11 +1585,37 @@ function reviewTargetKey(target: ReviewTarget): string {
   return `${target.headSha}:${target.baseSha}`;
 }
 
+const MAX_SUPERSEDED_REVIEW_HEADS = 16;
+
+function reviewSupersededHeads(job: StoredJob): string[] {
+  const candidates = [
+    ...(job.supersededHeadShas ?? []),
+    job.target.beforeSha,
+  ].filter((sha): sha is string => typeof sha === 'string' && SHA_RE.test(sha));
+  return [...new Set(candidates)]
+    .filter((sha) => sha !== job.target.headSha)
+    .slice(-MAX_SUPERSEDED_REVIEW_HEADS);
+}
+
+function withSupersededReviewHeads(
+  job: StoredJob,
+  ...heads: Array<string | undefined>
+): StoredJob {
+  const merged = [
+    ...reviewSupersededHeads(job),
+    ...heads.filter((sha): sha is string => typeof sha === 'string' && SHA_RE.test(sha)),
+  ];
+  const supersededHeadShas = [...new Set(merged)]
+    .filter((sha) => sha !== job.target.headSha)
+    .slice(-MAX_SUPERSEDED_REVIEW_HEADS);
+  return supersededHeadShas.length ? { ...job, supersededHeadShas } : job;
+}
+
 export function shouldReplaceQueuedTarget(
   existing: ReviewTarget,
   incoming: ReviewTarget,
 ): boolean {
-  if (reviewTargetKey(existing) === reviewTargetKey(incoming)) return true;
+  if (reviewTargetKey(existing) === reviewTargetKey(incoming)) return false;
   if (
     typeof existing.updatedAtMs === 'number' &&
     typeof incoming.updatedAtMs === 'number'
@@ -1596,9 +1623,100 @@ export function shouldReplaceQueuedTarget(
     if (incoming.updatedAtMs !== existing.updatedAtMs) {
       return incoming.updatedAtMs > existing.updatedAtMs;
     }
+    if (existing.beforeSha === incoming.headSha) return false;
     return incoming.beforeSha === existing.headSha;
   }
   return true;
+}
+
+export function reviewTargetNeedsCurrentCheck(
+  existing: StoredJob,
+  incoming: StoredJob,
+): boolean {
+  return (
+    reviewTargetKey(existing.target) !== reviewTargetKey(incoming.target) &&
+    typeof existing.target.updatedAtMs === 'number' &&
+    existing.target.updatedAtMs === incoming.target.updatedAtMs &&
+    incoming.target.beforeSha === existing.target.headSha &&
+    reviewSupersededHeads(existing).includes(incoming.target.headSha)
+  );
+}
+
+export function shouldReplaceQueuedJob(
+  existing: StoredJob,
+  incoming: StoredJob,
+): boolean {
+  if (reviewTargetKey(existing.target) === reviewTargetKey(incoming.target)) {
+    return false;
+  }
+  const existingUpdated = existing.target.updatedAtMs;
+  const incomingUpdated = incoming.target.updatedAtMs;
+  if (
+    typeof existingUpdated === 'number' &&
+    typeof incomingUpdated === 'number'
+  ) {
+    if (incomingUpdated > existingUpdated) return true;
+    if (incomingUpdated < existingUpdated) return false;
+    if (reviewSupersededHeads(existing).includes(incoming.target.headSha)) {
+      return false;
+    }
+    return incoming.target.beforeSha === existing.target.headSha;
+  }
+  if (reviewSupersededHeads(existing).includes(incoming.target.headSha)) {
+    return false;
+  }
+  return shouldReplaceQueuedTarget(existing.target, incoming.target);
+}
+
+function shouldRefreshSameTarget(
+  existing: ReviewTarget,
+  incoming: ReviewTarget,
+): boolean {
+  if (reviewTargetKey(existing) !== reviewTargetKey(incoming)) return false;
+  if (typeof incoming.updatedAtMs !== 'number') return false;
+  if (typeof existing.updatedAtMs !== 'number') return true;
+  return incoming.updatedAtMs >= existing.updatedAtMs;
+}
+
+function mergeSameReviewTarget(
+  existing: StoredJob,
+  incoming: StoredJob,
+): StoredJob {
+  const refreshed = shouldRefreshSameTarget(existing.target, incoming.target)
+    ? { ...existing, body: incoming.body, target: incoming.target }
+    : existing;
+  return withSupersededReviewHeads(
+    refreshed,
+    existing.target.beforeSha,
+    incoming.target.beforeSha,
+  );
+}
+
+function replacementReviewJob(
+  existing: StoredJob | undefined,
+  incoming: StoredJob,
+): StoredJob {
+  const replacement = { ...incoming, attempt: 0, phase: 'free' as const };
+  return existing
+    ? withSupersededReviewHeads(
+      replacement,
+      ...reviewSupersededHeads(existing),
+      existing.target.headSha,
+      incoming.target.beforeSha,
+    )
+    : withSupersededReviewHeads(replacement, incoming.target.beforeSha);
+}
+
+export function reviewContinuationJob(
+  started: StoredJob,
+  latest: StoredJob | undefined,
+): StoredJob {
+  return (
+    validStoredJob(latest) &&
+    reviewTargetKey(latest.target) === reviewTargetKey(started.target)
+  )
+    ? latest
+    : started;
 }
 
 export function reviewMarker(target: ReviewTarget): string {
@@ -1983,6 +2101,12 @@ function validStoredJob(value: unknown): value is StoredJob {
           job.attempt >= 0 &&
           job.attempt <= REVIEW_RETRY_DELAYS_MS.length)) &&
       (job.phase === undefined || job.phase === 'free' || job.phase === 'paid') &&
+      (job.supersededHeadShas === undefined ||
+        (Array.isArray(job.supersededHeadShas) &&
+          job.supersededHeadShas.length <= MAX_SUPERSEDED_REVIEW_HEADS &&
+          job.supersededHeadShas.every(
+            (sha) => typeof sha === 'string' && SHA_RE.test(sha),
+          ))) &&
       target &&
       typeof target.repository === 'string' &&
       typeof target.number === 'number' &&
@@ -2002,13 +2126,32 @@ function validStoredJob(value: unknown): value is StoredJob {
   );
 }
 
+type ReviewTargetVerifier = (target: ReviewTarget) => Promise<boolean>;
+
 export class WebhookReviewJob {
   private readonly state: DurableObjectState;
   private readonly env: WebhookReviewEnv;
+  private readonly verifyTargetCurrent?: ReviewTargetVerifier;
 
-  constructor(state: DurableObjectState, env: WebhookReviewEnv) {
+  constructor(
+    state: DurableObjectState,
+    env: WebhookReviewEnv,
+    verifyTargetCurrent?: ReviewTargetVerifier,
+  ) {
     this.state = state;
     this.env = env;
+    this.verifyTargetCurrent = verifyTargetCurrent;
+  }
+
+  private async targetIsCurrent(target: ReviewTarget): Promise<boolean> {
+    if (this.verifyTargetCurrent) return this.verifyTargetCurrent(target);
+    const client = await createInstallationClient(
+      this.env.GITHUB_APP_ID,
+      this.env.GITHUB_PRIVATE_KEY,
+      target.installationId,
+      runtimeFetch,
+    );
+    return targetStillCurrent(await currentPullRequest(client, target), target);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -2029,22 +2172,111 @@ export class WebhookReviewJob {
       return Response.json({ error: 'invalid_job' }, { status: 400 });
     }
     const job = input;
-    const completedTarget = await this.state.storage.get<string>(COMPLETED_TARGET_KEY);
-    if (completedTarget === reviewTargetKey(job.target)) {
+    const enqueue = await this.state.storage.transaction(async (txn) => {
+      const completedTarget = await txn.get<string>(COMPLETED_TARGET_KEY);
+      if (completedTarget === reviewTargetKey(job.target)) {
+        return { kind: 'completed-duplicate' as const };
+      }
+
+      const queued = await txn.get<StoredJob>(JOB_KEY);
+      if (validStoredJob(queued)) {
+        if (reviewTargetKey(queued.target) === reviewTargetKey(job.target)) {
+          await txn.put(JOB_KEY, mergeSameReviewTarget(queued, job));
+          const status = await txn.get<string>(STATUS_KEY);
+          return { kind: 'active-duplicate' as const, status };
+        }
+        if (reviewTargetNeedsCurrentCheck(queued, job)) {
+          return {
+            kind: 'verify-current' as const,
+            queuedKey: reviewTargetKey(queued.target),
+          };
+        }
+        if (!shouldReplaceQueuedJob(queued, job)) {
+          return { kind: 'stale' as const };
+        }
+        await txn.put({
+          [JOB_KEY]: replacementReviewJob(queued, job),
+          [STATUS_KEY]: 'queued',
+        });
+        return { kind: 'queued' as const };
+      }
+
+      await txn.put({
+        [JOB_KEY]: replacementReviewJob(undefined, job),
+        [STATUS_KEY]: 'queued',
+      });
+      return { kind: 'queued' as const };
+    });
+
+    if (enqueue.kind === 'completed-duplicate') {
       return Response.json({ ok: true, duplicate: true, queued: false });
     }
-    const queued = await this.state.storage.get<StoredJob>(JOB_KEY);
-    if (
-      validStoredJob(queued) &&
-      !shouldReplaceQueuedTarget(queued.target, job.target)
-    ) {
+    if (enqueue.kind === 'verify-current') {
+      let verified: 'queued' | 'stale';
+      try {
+        verified = await this.state.blockConcurrencyWhile(async () => {
+          const latest = await this.state.storage.get<StoredJob>(JOB_KEY);
+          if (!validStoredJob(latest)) {
+            await this.state.storage.put({
+              [JOB_KEY]: replacementReviewJob(undefined, job),
+              [STATUS_KEY]: 'queued',
+            });
+            return 'queued' as const;
+          }
+          if (reviewTargetKey(latest.target) === reviewTargetKey(job.target)) {
+            await this.state.storage.put(JOB_KEY, mergeSameReviewTarget(latest, job));
+            return 'queued' as const;
+          }
+          if (reviewTargetKey(latest.target) !== enqueue.queuedKey) {
+            if (!shouldReplaceQueuedJob(latest, job)) return 'stale' as const;
+            await this.state.storage.put({
+              [JOB_KEY]: replacementReviewJob(latest, job),
+              [STATUS_KEY]: 'queued',
+            });
+            return 'queued' as const;
+          }
+          if (!(await this.targetIsCurrent(job.target))) return 'stale' as const;
+          await this.state.storage.put({
+            [JOB_KEY]: replacementReviewJob(latest, job),
+            [STATUS_KEY]: 'queued',
+          });
+          return 'queued' as const;
+        });
+      } catch (error) {
+        console.error( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+          JSON.stringify({
+            kanarekWebhookReview: 'current_target_verification_failed',
+            repository: job.target.repository,
+            pullRequestNumber: job.target.number,
+            headSha: job.target.headSha,
+            error: error instanceof Error ? error.message : 'unknown_error',
+          }),
+        );
+        return Response.json({ error: 'current_target_verification_failed' }, { status: 503 });
+      }
+      if (verified === 'stale') {
+        return Response.json({ ok: true, stale: true, queued: false });
+      }
+      const debounceMs = configuredInteger(
+        this.env.KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS,
+        DEFAULT_DEBOUNCE_MS,
+        1_000,
+        MAX_DEBOUNCE_MS,
+      );
+      await this.state.storage.setAlarm(Date.now() + debounceMs);
+      return Response.json({ ok: true, duplicate: false, queued: true });
+    }
+    if (enqueue.kind === 'stale') {
       return Response.json({ ok: true, stale: true, queued: false });
     }
+    if (enqueue.kind === 'active-duplicate') {
+      const alarm = await this.state.storage.getAlarm();
+      if (enqueue.status !== 'running' && alarm === null) {
+        await this.state.storage.setAlarm(Date.now() + 1_000);
+      }
+      return Response.json({ ok: true, duplicate: true, queued: true });
+    }
 
-    await this.state.storage.put({
-      [JOB_KEY]: { ...job, attempt: 0, phase: 'free' },
-      [STATUS_KEY]: 'queued',
-    });
     const debounceMs = configuredInteger(
       this.env.KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS,
       DEFAULT_DEBOUNCE_MS,
@@ -2104,12 +2336,59 @@ export class WebhookReviewJob {
       };
     }
 
-    const latest = await this.state.storage.get<StoredJob>(JOB_KEY);
-    if (
-      validStoredJob(latest) &&
-      reviewTargetKey(latest.target) !== reviewTargetKey(started.target)
-    ) {
-      await this.state.storage.put(STATUS_KEY, 'queued');
+    const transition = await this.state.storage.transaction(async (txn) => {
+      const latest = await txn.get<StoredJob>(JOB_KEY);
+      if (
+        validStoredJob(latest) &&
+        reviewTargetKey(latest.target) !== reviewTargetKey(started.target)
+      ) {
+        await txn.put(STATUS_KEY, 'queued');
+        return { kind: 'superseded' as const, target: latest.target };
+      }
+
+      const continuation = reviewContinuationJob(started, latest);
+      const attempt = continuation.attempt ?? 0;
+      const escalationPhase = nextReviewPhase(
+        result,
+        continuation.phase ?? 'free',
+      );
+      if (escalationPhase) {
+        await txn.put({
+          [JOB_KEY]: { ...continuation, attempt: 0, phase: escalationPhase },
+          [STATUS_KEY]: 'escalating',
+        });
+        return {
+          kind: 'escalating' as const,
+          delayMs: 1_000,
+          target: continuation.target,
+        };
+      }
+
+      const retryDelayMs = reviewRetryDelayMs(result, attempt);
+      if (retryDelayMs !== null) {
+        await txn.put({
+          [JOB_KEY]: { ...continuation, attempt: attempt + 1 },
+          [STATUS_KEY]: 'retrying',
+        });
+        return {
+          kind: 'retrying' as const,
+          attempt: attempt + 1,
+          delayMs: retryDelayMs,
+          target: continuation.target,
+        };
+      }
+
+      if (result.reviewed || result.skipped === 'no_code_diff') {
+        await txn.put(
+          COMPLETED_TARGET_KEY,
+          reviewTargetKey(continuation.target),
+        );
+      }
+      await txn.delete([JOB_KEY, STATUS_KEY]);
+      return { kind: 'complete' as const, target: continuation.target };
+    });
+
+    if (transition.kind === 'superseded') {
       const debounceMs = configuredInteger(
         this.env.KANAREK_WEBHOOK_REVIEW_DEBOUNCE_MS,
         DEFAULT_DEBOUNCE_MS,
@@ -2120,60 +2399,41 @@ export class WebhookReviewJob {
       return;
     }
 
-    const attempt = started.attempt ?? 0;
-    const escalationPhase = nextReviewPhase(result, started.phase ?? 'free');
-    if (escalationPhase) {
-      await this.state.storage.put({
-        [JOB_KEY]: { ...started, attempt: 0, phase: escalationPhase },
-        [STATUS_KEY]: 'escalating',
-      });
-      await this.state.storage.setAlarm(Date.now() + 1_000);
+    if (transition.kind === 'escalating') {
+      await this.state.storage.setAlarm(Date.now() + transition.delayMs);
       console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
         JSON.stringify({
           kanarekWebhookReview: 'paid_escalation_scheduled',
-          repository: started.target.repository,
-          pullRequestNumber: started.target.number,
-          headSha: started.target.headSha,
+          repository: transition.target.repository,
+          pullRequestNumber: transition.target.number,
+          headSha: transition.target.headSha,
         }),
       );
       return;
     }
 
-    const retryDelayMs = reviewRetryDelayMs(result, attempt);
-    if (retryDelayMs !== null) {
-      await this.state.storage.put({
-        [JOB_KEY]: { ...started, attempt: attempt + 1 },
-        [STATUS_KEY]: 'retrying',
-      });
-      await this.state.storage.setAlarm(Date.now() + retryDelayMs);
+    if (transition.kind === 'retrying') {
+      await this.state.storage.setAlarm(Date.now() + transition.delayMs);
       console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
         JSON.stringify({
           kanarekWebhookReview: 'retry_scheduled',
-          repository: started.target.repository,
-          pullRequestNumber: started.target.number,
-          headSha: started.target.headSha,
-          attempt: attempt + 1,
-          delayMs: retryDelayMs,
+          repository: transition.target.repository,
+          pullRequestNumber: transition.target.number,
+          headSha: transition.target.headSha,
+          attempt: transition.attempt,
+          delayMs: transition.delayMs,
           skipped: result.skipped,
         }),
       );
       return;
     }
 
-    if (result.reviewed || result.skipped === 'no_code_diff') {
-      await this.state.storage.put(
-        COMPLETED_TARGET_KEY,
-        reviewTargetKey(started.target),
-      );
-    }
-    await this.state.storage.delete([JOB_KEY, STATUS_KEY]);
-
     console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({
         kanarekWebhookReview: 'job_complete',
-        repository: started.target.repository,
-        pullRequestNumber: started.target.number,
-        headSha: started.target.headSha,
+        repository: transition.target.repository,
+        pullRequestNumber: transition.target.number,
+        headSha: transition.target.headSha,
         reviewed: result.reviewed,
         provider: result.provider,
         findingCount: result.findingCount,

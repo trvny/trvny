@@ -12,12 +12,15 @@ import {
   reviewInputState,
   reviewMaxOutputTokens,
   reviewOutputTokens,
+  reviewContinuationJob,
   reviewMarker,
   reviewRetryDelayMs,
   reviewRouterEnvForAttempt,
   selectReviewFiles,
   submittedReviewMatches,
   scheduleWebhookReviewWebhook,
+  shouldReplaceQueuedJob,
+  shouldReplaceQueuedTarget,
   WebhookReviewJob,
   type WebhookReviewEnv,
 } from '../src/webhook-review.ts';
@@ -61,13 +64,19 @@ function webhookRequest(body: Record<string, unknown>): Request {
   });
 }
 
-function fakeState(initial: Record<string, unknown> = {}): {
+function fakeState(
+  initial: Record<string, unknown> = {},
+  initialAlarm: number | null = null,
+): {
   alarms: number[];
   state: DurableObjectState;
+  transactions: number[];
   values: Map<string, unknown>;
 } {
   const values = new Map(Object.entries(initial));
   const alarms: number[] = [];
+  const transactions: number[] = [];
+  let alarmAt = initialAlarm;
   const storage = {
     get(key: string) {
       return values.get(key);
@@ -92,12 +101,23 @@ function fakeState(initial: Record<string, unknown> = {}): {
       }
       return values.delete(keyOrKeys);
     },
+    getAlarm() {
+      return alarmAt;
+    },
     setAlarm(at: number) {
+      alarmAt = at;
       alarms.push(at);
+    },
+    transaction<T>(
+      callback: (txn: DurableObjectTransaction) => Promise<T>,
+    ): Promise<T> {
+      transactions.push(1);
+      return callback(storage as unknown as DurableObjectTransaction);
     },
   };
   return {
     alarms,
+    transactions,
     values,
     state: { storage } as unknown as DurableObjectState,
   };
@@ -470,6 +490,202 @@ test('webhook review job debounces to the newest head', async () => {
   };
   assert.equal(stored.target?.headSha, headB);
   assert.equal(stored.phase, 'free');
+});
+
+test('same review target is never considered a replacement target', () => {
+  const existing = (queuedJob(headA, base) as {
+    target: Parameters<typeof shouldReplaceQueuedTarget>[0];
+  }).target;
+  const incoming = (queuedJob(headA, base) as {
+    target: Parameters<typeof shouldReplaceQueuedTarget>[1];
+  }).target;
+  assert.equal(shouldReplaceQueuedTarget(existing, incoming), false);
+});
+
+test('same-target redelivery preserves paid phase and retry backoff', async () => {
+  const paidJob = {
+    ...queuedJob(headA, base),
+    attempt: 2,
+    phase: 'paid' as const,
+  };
+  const { alarms, state, transactions, values } = fakeState(
+    { job: paidJob, status: 'retrying' },
+    Date.now() + 120_000,
+  );
+  const job = new WebhookReviewJob(state, {} as WebhookReviewEnv);
+
+  const response = await job.fetch(
+    new Request('https://kanarek-review.internal/enqueue', {
+      method: 'POST',
+      body: JSON.stringify(queuedJob(headA, base)),
+    }),
+  );
+  const stored = values.get('job') as {
+    attempt?: number;
+    phase?: string;
+  };
+
+  assert.equal(response.status, 200);
+  assert.equal(stored.phase, 'paid');
+  assert.equal(stored.attempt, 2);
+  assert.equal(values.get('status'), 'retrying');
+  assert.equal(alarms.length, 0);
+  assert.equal(transactions.length, 1);
+});
+
+test('same-target redelivery re-arms a missing alarm without resetting paid state', async () => {
+  const paidJob = {
+    ...queuedJob(headA, base),
+    attempt: 1,
+    phase: 'paid' as const,
+  };
+  const { alarms, state, values } = fakeState({
+    job: paidJob,
+    status: 'retrying',
+  });
+  const job = new WebhookReviewJob(state, {} as WebhookReviewEnv);
+
+  const before = Date.now();
+  await job.fetch(
+    new Request('https://kanarek-review.internal/enqueue', {
+      method: 'POST',
+      body: JSON.stringify(queuedJob(headA, base)),
+    }),
+  );
+
+  const stored = values.get('job') as { attempt?: number; phase?: string };
+  assert.equal(stored.phase, 'paid');
+  assert.equal(stored.attempt, 1);
+  assert.equal(values.get('status'), 'retrying');
+  assert.equal(alarms.length, 1);
+  assert.ok(alarms[0] >= before + 900 && alarms[0] <= Date.now() + 1_100);
+});
+
+test('equal-timestamp A-B-A return verifies current PR and rejects delayed B', async () => {
+  const queuedB = {
+    ...queuedJob(headB, base, {
+      beforeSha: headA,
+      updatedAtMs: 1_000,
+    }),
+    phase: 'free' as const,
+    supersededHeadShas: [headA],
+  };
+  const { alarms, state, values } = fakeState(
+    { job: queuedB, status: 'queued' },
+    Date.now() + 120_000,
+  );
+  const verifiedHeads: string[] = [];
+  const job = new WebhookReviewJob(
+    state,
+    {} as WebhookReviewEnv,
+    async (target) => {
+      verifiedHeads.push(target.headSha);
+      return target.headSha === headA;
+    },
+  );
+
+  const returned = await job.fetch(
+    new Request('https://kanarek-review.internal/enqueue', {
+      method: 'POST',
+      body: JSON.stringify(
+        queuedJob(headA, base, {
+          beforeSha: headB,
+          updatedAtMs: 1_000,
+        }),
+      ),
+    }),
+  );
+  const returnedBody = (await returned.json()) as {
+    queued?: boolean;
+    stale?: boolean;
+  };
+  let stored = values.get('job') as {
+    supersededHeadShas?: string[];
+    target?: { headSha?: string; beforeSha?: string };
+  };
+  assert.equal(returnedBody.queued, true);
+  assert.equal(returnedBody.stale, undefined);
+  assert.equal(stored.target?.headSha, headA);
+  assert.equal(stored.target?.beforeSha, headB);
+  assert.ok(stored.supersededHeadShas?.includes(headB));
+
+  const delayed = await job.fetch(
+    new Request('https://kanarek-review.internal/enqueue', {
+      method: 'POST',
+      body: JSON.stringify(
+        queuedJob(headB, base, {
+          beforeSha: headA,
+          updatedAtMs: 1_000,
+        }),
+      ),
+    }),
+  );
+  const delayedBody = (await delayed.json()) as {
+    queued?: boolean;
+    stale?: boolean;
+  };
+  stored = values.get('job') as {
+    supersededHeadShas?: string[];
+    target?: { headSha?: string; beforeSha?: string };
+  };
+  assert.equal(delayedBody.stale, true);
+  assert.equal(delayedBody.queued, false);
+  assert.equal(stored.target?.headSha, headA);
+  assert.deepEqual(verifiedHeads, [headA, headB]);
+  assert.equal(alarms.length, 1);
+});
+
+test('newer replacement accepts a later head despite previous history', () => {
+  const existing = {
+    ...queuedJob(headA, base, {
+      beforeSha: 'e'.repeat(40),
+      updatedAtMs: 1_000,
+    }),
+    supersededHeadShas: [headB],
+  };
+  const incoming = queuedJob(headB, base, {
+    beforeSha: headA,
+    updatedAtMs: 2_000,
+  });
+  assert.equal(
+    shouldReplaceQueuedJob(
+      existing as Parameters<typeof shouldReplaceQueuedJob>[0],
+      incoming as Parameters<typeof shouldReplaceQueuedJob>[1],
+    ),
+    true,
+  );
+});
+
+test('continuation keeps refreshed same-target metadata after a running attempt', () => {
+  const started = {
+    ...queuedJob(headA, base, {
+      beforeSha: 'e'.repeat(40),
+      updatedAtMs: 1_000,
+    }),
+    attempt: 0,
+    phase: 'free' as const,
+  };
+  const refreshed = {
+    ...started,
+    body: JSON.stringify({ refreshed: true }),
+    supersededHeadShas: [headB],
+    target: {
+      ...(started as { target: Record<string, unknown> }).target,
+      beforeSha: headB,
+      updatedAtMs: 2_000,
+    },
+  };
+
+  const continuation = reviewContinuationJob(
+    started as Parameters<typeof reviewContinuationJob>[0],
+    refreshed as Parameters<typeof reviewContinuationJob>[1],
+  );
+  assert.equal(continuation.body, refreshed.body);
+  assert.equal(continuation.target.beforeSha, headB);
+  assert.equal(continuation.target.updatedAtMs, 2_000);
+  assert.deepEqual(continuation.supersededHeadShas, [headB]);
+  assert.equal(continuation.phase, 'free');
+  assert.equal(continuation.attempt, 0);
 });
 
 test('webhook review job preserves a newer queued target from stale redelivery', async () => {

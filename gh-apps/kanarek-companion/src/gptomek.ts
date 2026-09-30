@@ -1090,10 +1090,15 @@ export async function handleGptomekMailboxCommand(
         }),
       );
     }
-    if (terminal && resultWritten) {
+    // A written error envelope means the mailbox transport worked: the command
+    // reached the Worker and its outcome is recorded. Throwing here would turn
+    // a command failure into a wake failure and make the Issue relay replay the
+    // same command through the #176 fallback. Only an unrecorded outcome is a
+    // transport failure.
+    if (resultWritten) {
       console.warn(
         JSON.stringify({
-          gptomek: 'command_rejected',
+          gptomek: terminal ? 'command_rejected' : 'command_failed',
           commandId: command.id,
           operation: command.op,
           repository: command.repository,

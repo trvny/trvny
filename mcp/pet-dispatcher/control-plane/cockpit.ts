@@ -175,20 +175,24 @@ export const PET_COCKPIT_HTML = String.raw`
   }
 
   async function selectTarget(target) {
-    if (!initialized) return;
-    selectedTarget = target;
-    text("selection", "Selected target: " + target);
-    document.querySelectorAll(".target").forEach(function (button) {
-      button.setAttribute("aria-pressed", String(button.textContent === target));
-    });
+    if (!initialized || target === selectedTarget) return;
+    setInteractive(false);
+    text("selection", "Syncing target: " + target + "...");
     try {
       await request("ui/update-model-context", {
         content: [{ type: "text", text: "Selected Pet Dispatcher target: " + target + "." }],
         structuredContent: { target: target }
       });
-      text("error", "");
+      selectedTarget = target;
+      text("selection", "Selected target: " + target);
+      document.querySelectorAll(".target").forEach(function (button) {
+        button.setAttribute("aria-pressed", String(button.textContent === target));
+      });
     } catch (error) {
-      text("error", "Could not sync target with the conversation: " + String(error));
+      text("selection", selectedTarget ? "Selected target: " + selectedTarget : "No target selected.");
+      text("error", "Target selection was not changed: " + String(error));
+    } finally {
+      setInteractive(true);
     }
   }
 

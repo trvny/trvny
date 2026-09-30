@@ -102,7 +102,9 @@ It is responsible for:
 - Simplified-Chinese human-facing review text;
 - RIGHT-side added-line anchors only;
 - revalidating the PR immediately before publication;
-- bounded retry scheduling for provider/normalization/job failures.
+- an L2 judge on the free pass only (the paid pass skips it);
+- bounded retry scheduling for provider/job failures; findings that fail
+  verification escalate to paid once and are never retried.
 
 `review-service.ts` translates internal router calls into the private
 `KANAREK_REVIEW_SERVICE` binding. `review-service-protocol.ts` is the small shared

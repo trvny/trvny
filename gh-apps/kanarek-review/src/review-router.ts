@@ -1,5 +1,4 @@
 import { bearerAuthorized } from '../../kanarek-companion/src/auth.ts';
-import { configuredOpenRouterModels } from './openrouter-models.ts';
 import {
   REVIEW_PROVIDER_EXCLUDE_HEADER,
   REVIEW_ROUTER_FREE_MODEL,
@@ -28,21 +27,33 @@ const WORKERS_AI_OUTPUT_NEURONS_PER_MILLION = 36_400;
 const WORKERS_AI_MAX_OUTPUT_TOKENS = 4_096;
 const WORKERS_AI_HIDDEN_OUTPUT_TOKEN_FACTOR = 2;
 const WORKERS_AI_RESERVATION_SAFETY_FACTOR = 1.25;
-const DEFAULT_REVIEW_ORCAROUTER_MODELS = ['orcarouter/auto'] as const;
-const DEFAULT_REVIEW_OLLAMA_MODELS = [
-  'gpt-oss:120b',
-  'gpt-oss:20b',
-] as const;
-const DEFAULT_REVIEW_GROQ_MODEL = 'openai/gpt-oss-120b';
-const DEFAULT_REVIEW_VERCEL_MODEL = 'alibaba/qwen3-coder-30b-a3b';
-const DEFAULT_REVIEW_HUGGINGFACE_MODEL = 'aisingapore/Qwen-SEA-LION-v4-32B-IT:publicai';
-const DEFAULT_REVIEW_DEEPSEEK_MODEL = 'deepseek-flash';
-const DEFAULT_REVIEW_GEMINI_MODEL = 'gemini-3.8-flash';
-const DEFAULT_REVIEW_OPENROUTER_MODELS = [
-  'nvidia/nemotron-3-super-120b-a12b:free',
-  'cohere/north-mini-code:free',
-  'openrouter/free',
-] as const;
+// Fallbacks for a missing var. wrangler.jsonc is the source of truth; a test
+// keeps these equal to it.
+export const REVIEW_ROUTER_MODEL_DEFAULTS = {
+  KANAREK_REVIEW_ORCAROUTER_MODELS: ['orcarouter/auto'],
+  KANAREK_REVIEW_OLLAMA_MODELS: ['gpt-oss:120b', 'gpt-oss:20b'],
+  KANAREK_REVIEW_GROQ_MODEL: 'openai/gpt-oss-120b',
+  KANAREK_REVIEW_VERCEL_MODEL: 'alibaba/qwen3-coder-30b-a3b',
+  KANAREK_REVIEW_HUGGINGFACE_MODEL: 'speakleash/Bielik-11B-v3.0-Instruct:publicai',
+  KANAREK_REVIEW_DEEPSEEK_MODEL: 'deepseek-flash',
+  KANAREK_REVIEW_GEMINI_MODEL: 'gemini-3.8-flash',
+  KANAREK_REVIEW_OPENROUTER_MODELS: [
+    'stealth/space-bunny-alpha',
+    'nvidia/nemotron-3.5-lightning:free',
+    'dots-studio/dots-3-note-preview:free',
+    'nvidia/nemotron-3-ultra-550b-a55b:free',
+    'cohere/north-mini-code:free',
+    'openrouter/free',
+  ],
+} as const;
+const DEFAULT_REVIEW_ORCAROUTER_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS;
+const DEFAULT_REVIEW_OLLAMA_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OLLAMA_MODELS;
+const DEFAULT_REVIEW_GROQ_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_GROQ_MODEL;
+const DEFAULT_REVIEW_VERCEL_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_VERCEL_MODEL;
+const DEFAULT_REVIEW_HUGGINGFACE_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_HUGGINGFACE_MODEL;
+const DEFAULT_REVIEW_DEEPSEEK_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_DEEPSEEK_MODEL;
+const DEFAULT_REVIEW_GEMINI_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_GEMINI_MODEL;
+const DEFAULT_REVIEW_OPENROUTER_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS;
 const DEFAULT_FREE_PROVIDER_ORDER = [
   'aihubmix',
   'openrouter',
@@ -171,11 +182,10 @@ function freeProviderOrder(env: ReviewRouterEnv): ReviewProviderId[] {
 function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly ReviewProvider[] {
   const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
   const sharedOpenRouterModels = env.KANAREK_OPENROUTER_MODELS?.trim();
-  const openRouterModels = reviewOpenRouterModels
-    ? configuredOpenRouterModels(reviewOpenRouterModels)
-    : sharedOpenRouterModels
-      ? configuredOpenRouterModels(sharedOpenRouterModels)
-      : [...DEFAULT_REVIEW_OPENROUTER_MODELS];
+  const openRouterModels = configuredModelList(
+    reviewOpenRouterModels || sharedOpenRouterModels,
+    DEFAULT_REVIEW_OPENROUTER_MODELS,
+  );
   const orcaRouterModels = configuredModelList(
     env.KANAREK_REVIEW_ORCAROUTER_MODELS,
     DEFAULT_REVIEW_ORCAROUTER_MODELS,

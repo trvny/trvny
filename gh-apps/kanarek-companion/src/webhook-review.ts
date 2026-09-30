@@ -1587,6 +1587,7 @@ function reviewTargetKey(target: ReviewTarget): string {
 
 const MAX_SUPERSEDED_REVIEW_HEADS = 16;
 
+/** Returns bounded, unique, valid superseded heads, excluding the job's current head. */
 function reviewSupersededHeads(job: StoredJob): string[] {
   const candidates = [
     ...(job.supersededHeadShas ?? []),
@@ -1597,6 +1598,7 @@ function reviewSupersededHeads(job: StoredJob): string[] {
     .slice(-MAX_SUPERSEDED_REVIEW_HEADS);
 }
 
+/** Merges valid superseded heads into a job while bounding history and excluding its current head. */
 function withSupersededReviewHeads(
   job: StoredJob,
   ...heads: Array<string | undefined>
@@ -1611,6 +1613,10 @@ function withSupersededReviewHeads(
   return supersededHeadShas.length ? { ...job, supersededHeadShas } : job;
 }
 
+/**
+ * Rejects identical targets and orders replacements by timestamp, then push ancestry.
+ * Accepts distinct targets when either timestamp is unavailable.
+ */
 export function shouldReplaceQueuedTarget(
   existing: ReviewTarget,
   incoming: ReviewTarget,
@@ -1629,6 +1635,7 @@ export function shouldReplaceQueuedTarget(
   return true;
 }
 
+/** Identifies equal-timestamp returns to a superseded head that require current PR verification. */
 export function reviewTargetNeedsCurrentCheck(
   existing: StoredJob,
   incoming: StoredJob,
@@ -1642,6 +1649,10 @@ export function reviewTargetNeedsCurrentCheck(
   );
 }
 
+/**
+ * Accepts newer targets and rejects duplicates or stale deliveries.
+ * Uses superseded-head history and push ancestry when timestamps cannot establish order.
+ */
 export function shouldReplaceQueuedJob(
   existing: StoredJob,
   incoming: StoredJob,
@@ -1668,6 +1679,7 @@ export function shouldReplaceQueuedJob(
   return shouldReplaceQueuedTarget(existing.target, incoming.target);
 }
 
+/** Allows metadata refresh only for an identical target with a non-older incoming timestamp. */
 function shouldRefreshSameTarget(
   existing: ReviewTarget,
   incoming: ReviewTarget,
@@ -1678,6 +1690,7 @@ function shouldRefreshSameTarget(
   return incoming.updatedAtMs >= existing.updatedAtMs;
 }
 
+/** Refreshes eligible same-target metadata and head history while preserving phase and retries. */
 function mergeSameReviewTarget(
   existing: StoredJob,
   incoming: StoredJob,
@@ -1692,6 +1705,7 @@ function mergeSameReviewTarget(
   );
 }
 
+/** Starts a replacement in the free phase with no retries, carrying bounded superseded-head history. */
 function replacementReviewJob(
   existing: StoredJob | undefined,
   incoming: StoredJob,
@@ -1707,6 +1721,7 @@ function replacementReviewJob(
     : withSupersededReviewHeads(replacement, incoming.target.beforeSha);
 }
 
+/** Uses the latest valid same-target job for continuation, falling back to the started job. */
 export function reviewContinuationJob(
   started: StoredJob,
   latest: StoredJob | undefined,

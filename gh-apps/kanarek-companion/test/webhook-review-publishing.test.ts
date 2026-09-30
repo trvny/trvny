@@ -240,7 +240,7 @@ test('L1 verifier deduplicates repeated findings for the same exact code locator
   assert.equal(findings[0]?.title, '第一次报告');
 });
 
-test('L2 judge clusters root causes, keeps the representative, and drops low-confidence groups', () => {
+test('L2 judge clusters confident duplicates but fails open on low-confidence groups', () => {
   const findings = [
     {
       severity: 'high' as const,
@@ -288,7 +288,53 @@ test('L2 judge clusters root causes, keeps the representative, and drops low-con
     ],
   }), 0.7);
 
-  assert.deepEqual(judged, [findings[1]]);
+  assert.deepEqual(judged, [findings[1], findings[2]]);
+});
+
+test('L2 judge fails open when a covered rejection is not highly confident', () => {
+  const findings = [{
+    severity: 'high' as const,
+    path: 'src/a.ts',
+    line: 1,
+    existingCode: 'const a = risky();',
+    title: '问题 A',
+    body: '这是一个需要保留的问题。',
+  }];
+  const judged = applyReviewJudge(findings, JSON.stringify({
+    groups: [{
+      member_ids: [0],
+      representative_id: 0,
+      confidence: 0.7,
+      keep: false,
+      root_cause: 'uncertain rejection',
+      reason: 'not enough context',
+    }],
+  }), 0.9);
+
+  assert.deepEqual(judged, findings);
+});
+
+test('L2 judge can veto only a high-confidence covered rejection', () => {
+  const findings = [{
+    severity: 'low' as const,
+    path: 'src/a.ts',
+    line: 1,
+    existingCode: 'const a = true;',
+    title: '问题 A',
+    body: '这是一个可以被明确反驳的问题。',
+  }];
+  const judged = applyReviewJudge(findings, JSON.stringify({
+    groups: [{
+      member_ids: [0],
+      representative_id: 0,
+      confidence: 0.98,
+      keep: false,
+      root_cause: 'contradicted',
+      reason: 'review context directly disproves the claim',
+    }],
+  }), 0.9);
+
+  assert.deepEqual(judged, []);
 });
 
 test('L2 judge fails open for findings it did not classify', () => {
@@ -321,7 +367,7 @@ test('L2 judge fails open for findings it did not classify', () => {
     }],
   }), 0.7);
 
-  assert.deepEqual(judged, [findings[1]]);
+  assert.deepEqual(judged, findings);
 });
 
 test('L2 judge rejects malformed overlapping groups instead of silently losing findings', () => {
@@ -346,10 +392,10 @@ test('L2 judge rejects malformed overlapping groups instead of silently losing f
 });
 
 test('L2 judge threshold is strict and bounded', () => {
-  assert.equal(reviewJudgeThreshold(undefined), 0.7);
+  assert.equal(reviewJudgeThreshold(undefined), 0.9);
   assert.equal(reviewJudgeThreshold('0'), 0);
   assert.equal(reviewJudgeThreshold('0.85'), 0.85);
   assert.equal(reviewJudgeThreshold('1.0'), 1);
-  assert.equal(reviewJudgeThreshold('1.1'), 0.7);
-  assert.equal(reviewJudgeThreshold('0.7oops'), 0.7);
+  assert.equal(reviewJudgeThreshold('1.1'), 0.9);
+  assert.equal(reviewJudgeThreshold('0.7oops'), 0.9);
 });

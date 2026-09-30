@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "kind": "direct",
+      "prompt": "Use Pet Dispatcher to inspect the configured trvny target and show me the tree plus git summary.",
+      "expectedTool": "pet_workspace_inspect"
+    },
+    {
+      "kind": "indirect",
+      "prompt": "Before touching the paired repo, figure out its current structure and git state.",
+      "expectedTool": "pet_workspace_inspect"
+    },
+    {
+      "kind": "direct",
+      "prompt": "Read README.md and AGENTS.md from the trvny target.",
+      "expectedTool": "pet_read_files"
+    },
+    {
+      "kind": "indirect",
+      "prompt": "I already know the two files I need from the paired workspace; fetch their contents without a broad scan.",
+      "expectedTool": "pet_read_files"
+    },
+    {
+      "kind": "direct",
+      "prompt": "Finish Pet Dispatcher session 11111111-1111-4111-8111-111111111111 for trvny with commit message 'Finish plugin work'.",
+      "expectedTool": "pet_session_finish"
+    },
+    {
+      "kind": "direct",
+      "prompt": "Use Pet Dispatcher to implement and validate this multi-step fix in the configured trvny target.",
+      "expectedTool": "pet_delegate"
+    },
+    {
+      "kind": "negative",
+      "prompt": "Explain what a Git worktree is.",
+      "expectedTool": null
+    },
+    {
+      "kind": "negative",
+      "prompt": "Search the public web for today's Cloudflare news.",
+      "expectedTool": null
+    }
+  ]
+}

@@ -43,6 +43,37 @@ const directInputSchema = z.object({
   debug: debugSchema,
 }).strict();
 
+const workspaceInspectInputSchema = z.object({
+  target: z.string().min(1).max(128).describe("Configured repository or workspace alias"),
+  path: z.string().max(1_024).default(".").describe("Workspace-relative path to inspect"),
+  query: z.string().min(1).max(512).optional().describe("Optional bounded text search"),
+  include: z.array(z.enum(["tree", "git"])).min(1).max(2).default(["tree", "git"]).describe("Inspection sections to include"),
+  sessionId: z.string().uuid().optional().describe("Existing session to inspect, including uncommitted changes"),
+  baseRef: z.string().min(1).max(256).default("main").describe("Git base ref when opening the target"),
+  idempotencyKey: z.string().min(1).max(200).optional(),
+  waitSeconds: z.number().int().min(0).max(45).default(20),
+  debug: debugSchema,
+}).strict();
+const readFilesInputSchema = z.object({
+  target: z.string().min(1).max(128).describe("Configured repository or workspace alias"),
+  paths: z.array(z.string().min(1).max(1_024)).min(1).max(32).describe("Workspace-relative text file paths"),
+  sessionId: z.string().uuid().optional().describe("Existing session to read from"),
+  maxBytesPerFile: z.number().int().min(1).max(65_536).optional(),
+  maxTotalBytes: z.number().int().min(1).max(81_920).optional(),
+  baseRef: z.string().min(1).max(256).default("main").describe("Git base ref when opening the target"),
+  idempotencyKey: z.string().min(1).max(200).optional(),
+  waitSeconds: z.number().int().min(0).max(45).default(20),
+  debug: debugSchema,
+}).strict();
+const finishSessionInputSchema = z.object({
+  target: z.string().min(1).max(128).describe("Repository or workspace alias that owns the session"),
+  sessionId: z.string().uuid().describe("Session to stage, commit/export when applicable, and close"),
+  message: z.string().min(1).max(500).describe("Commit message for finalizing the session"),
+  idempotencyKey: z.string().min(1).max(200).optional(),
+  waitSeconds: z.number().int().min(0).max(45).default(20),
+  debug: debugSchema,
+}).strict();
+
 const taskStatusSchema = z.enum([
   "queued", "leased", "running", "cancel_requested",
   "completed", "failed", "cancelled", "recovery_required",
@@ -149,6 +180,19 @@ function asToolResult(result: ControlRpcResult, debug = false) {
   };
 }
 
+async function runDirectTool(
+  operations: ControlMcpOperations,
+  input: { repo: string; baseRef: string; call: unknown },
+  idempotencyKey: string | undefined,
+  waitSeconds: number,
+  debug: boolean,
+) {
+  const value = { ...input, call: remoteDirectCallSchema.parse(input.call) };
+  const stableKey = idempotencyKey ? await scopedIdempotencyKey("direct", idempotencyKey, value) : undefined;
+  const submitted = await operations.direct(value, stableKey);
+  return asToolResult(await awaitTask(operations, submitted, waitSeconds), debug);
+}
+
 function createServer(operations: ControlMcpOperations): McpServer {
   const server = new McpServer({
     name: "pet-dispatcher-control",
@@ -158,17 +202,17 @@ function createServer(operations: ControlMcpOperations): McpServer {
     websiteUrl: "https://github.com/trvny/trvny/tree/main/mcp/pet-dispatcher",
     icons: [{ src: "https://pet-dispatcher-control.travny.workers.dev/icon.png", mimeType: "image/png", sizes: ["512x512"] }],
   }, {
-    instructions: "Dispatch confined work to the paired machine. State-changing direct calls auto-open a short-lived session; finish it with session.finish.",
+    instructions: "Use focused tools first: pet_workspace_inspect for reconnaissance, pet_read_files for bounded reads, and pet_session_finish to finalize a direct session. Use pet_delegate for multi-step reasoning or coding. Use pet_direct only when no focused facade covers the required direct operation. Call pet_meta only when target or capability discovery is actually needed.",
   });
 
   server.registerTool("pet_meta", {
-    description: "Compact capability dashboard for the paired device: target aliases, direct tools, local tools, active work and sandbox status.",
+    description: "Use this when target aliases, device freshness, capabilities, active work, or sandbox status are needed. Do not use it as a mandatory preflight for every Pet Dispatcher call.",
     outputSchema: metaOutputSchema,
     annotations: { title: "Pet Dispatcher status", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async () => asToolResult(await operations.meta(), true));
 
   server.registerTool("pet_delegate", {
-    description: "Delegate a confined coding or inspection task to the paired machine.",
+    description: "Use this when the user needs multi-step reasoning, coding, debugging, or investigation on the paired machine. Do not use it for simple workspace reconnaissance or bounded file reads covered by focused tools.",
     inputSchema: delegateInputSchema,
     outputSchema: taskOutputSchema,
     annotations: { title: "Delegate task", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
@@ -180,7 +224,7 @@ function createServer(operations: ControlMcpOperations): McpServer {
   });
 
   server.registerTool("pet_direct", {
-    description: "Run one confined direct tool. Write/exec calls auto-open a reusable session by default; use session.finish to commit/export/close it.",
+    description: "Use this only as the advanced compatibility fallback when no focused Pet Dispatcher tool covers the required direct operation. Write/exec calls auto-open a reusable session by default; finish it with pet_session_finish.",
     inputSchema: directInputSchema,
     outputSchema: taskOutputSchema,
     annotations: { title: "Run direct tool", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
@@ -188,21 +232,60 @@ function createServer(operations: ControlMcpOperations): McpServer {
     const callArgs: Record<string, unknown> = { ...args };
     if (AUTO_SESSION_TOOLS.has(tool) && !("sessionId" in callArgs) && !("autoSession" in callArgs)) callArgs.autoSession = autoSession;
     const call = remoteDirectCallSchema.parse({ ...callArgs, tool });
-    const value = { repo: target, baseRef, call };
-    const stableKey = idempotencyKey ? await scopedIdempotencyKey("direct", idempotencyKey, value) : undefined;
-    const submitted = await operations.direct(value, stableKey);
-    return asToolResult(await awaitTask(operations, submitted, waitSeconds), debug);
+    return runDirectTool(operations, { repo: target, baseRef, call }, idempotencyKey, waitSeconds, debug);
   });
 
+  server.registerTool("pet_workspace_inspect", {
+    description: "Use this when you need bounded repository or workspace reconnaissance: a compact tree, optional text search, and Git summary. Prefer it over pet_delegate for initial inspection.",
+    inputSchema: workspaceInspectInputSchema,
+    outputSchema: taskOutputSchema,
+    annotations: { title: "Inspect workspace", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async ({ target, path, query, include, sessionId, baseRef, idempotencyKey, waitSeconds, debug }) =>
+    runDirectTool(operations, {
+      repo: target, baseRef,
+      call: {
+        tool: "workspace.inspect", path, include,
+        ...(query === undefined ? {} : { query }),
+        ...(sessionId === undefined ? {} : { sessionId }),
+      },
+    }, idempotencyKey, waitSeconds, debug));
+
+  server.registerTool("pet_read_files", {
+    description: "Use this when you need the contents of one or more known text files from a configured target. Prefer it over pet_direct fs.read/fs.readMany and do not use it for broad discovery.",
+    inputSchema: readFilesInputSchema,
+    outputSchema: taskOutputSchema,
+    annotations: { title: "Read workspace files", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async ({ target, paths, sessionId, maxBytesPerFile, maxTotalBytes, baseRef, idempotencyKey, waitSeconds, debug }) =>
+    runDirectTool(operations, {
+      repo: target, baseRef,
+      call: {
+        tool: "fs.readMany", paths,
+        ...(sessionId === undefined ? {} : { sessionId }),
+        ...(maxBytesPerFile === undefined ? {} : { maxBytesPerFile }),
+        ...(maxTotalBytes === undefined ? {} : { maxTotalBytes }),
+      },
+    }, idempotencyKey, waitSeconds, debug));
+
+  server.registerTool("pet_session_finish", {
+    description: "Use this when a Pet Dispatcher direct write/exec session is ready to be finalized. Provide a concise commit message; the tool stages and commits/exports changes when applicable, then closes the session. Do not use it to discard work.",
+    inputSchema: finishSessionInputSchema,
+    outputSchema: taskOutputSchema,
+    annotations: { title: "Finish Pet session", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  }, async ({ target, sessionId, message, idempotencyKey, waitSeconds, debug }) =>
+    runDirectTool(operations, {
+      repo: target, baseRef: "main",
+      call: { tool: "session.finish", sessionId, message },
+    }, idempotencyKey, waitSeconds, debug));
+
   server.registerTool("pet_task_get", {
-    description: "Read the current state and bounded result of a Pet Dispatcher task.",
+    description: "Use this when a previously submitted Pet Dispatcher task is still pending or its bounded result is needed.",
     inputSchema: z.object({ taskId: z.string().uuid(), debug: debugSchema }).strict(),
     outputSchema: taskOutputSchema,
     annotations: { title: "Get task state", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, async ({ taskId, debug }) => asToolResult(await operations.getTask(taskId), debug));
 
   server.registerTool("pet_task_cancel", {
-    description: "Request cancellation of a queued or running Pet Dispatcher task.",
+    description: "Use this when the user wants to stop a queued or running Pet Dispatcher task. Do not use it for already terminal tasks.",
     inputSchema: z.object({ taskId: z.string().uuid() }).strict(),
     outputSchema: taskOutputSchema,
     annotations: { title: "Cancel task", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },

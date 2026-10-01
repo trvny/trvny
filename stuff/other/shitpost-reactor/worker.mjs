@@ -1,5 +1,7 @@
+import { iconAsset } from './icons.mjs';
+
 const SITE_URL = 'https://shitpost.trfny.com';
-const FEED_TITLE = 'trvny Shitpost Reactor';
+const FEED_TITLE = 'Shitpost Reactor';
 const FEED_DESCRIPTION = 'Automatycznie generowane polskie shitposty z Shitpost Reactora.';
 const FEED_LIMIT = 50;
 const INDEX_LIMIT = 250;
@@ -163,7 +165,7 @@ function feedContentHtml(post) {
 export function renderRss(posts) {
   const latest = posts[0]?.published_at || new Date(0).toISOString();
   const items = posts.map((post) => `    <item>\n      <title>${escapeXml(shortTitle(post.meme.caption))}</title>\n      <link>${escapeXml(post.url)}</link>\n      <guid isPermaLink="true">${escapeXml(post.url)}</guid>\n      <pubDate>${escapeXml(new Date(post.published_at).toUTCString())}</pubDate>\n      <category>${escapeXml(post.meme.dialect)}</category>\n      <category>${escapeXml(post.meme.format)}</category>\n      <description>${escapeXml(post.meme.caption)}</description>\n      <content:encoded>${cdata(feedContentHtml(post))}</content:encoded>\n    </item>`).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">\n  <channel>\n    <title>${escapeXml(FEED_TITLE)}</title>\n    <link>${escapeXml(`${SITE_URL}/`)}</link>\n    <description>${escapeXml(FEED_DESCRIPTION)}</description>\n    <language>pl-PL</language>\n    <lastBuildDate>${escapeXml(new Date(latest).toUTCString())}</lastBuildDate>\n    <generator>trvny/shitpost-reactor</generator>\n    <ttl>5</ttl>\n    <atom:link href="${escapeXml(`${SITE_URL}/rss.xml`)}" rel="self" type="application/rss+xml" />\n${items}\n  </channel>\n</rss>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">\n  <channel>\n    <title>${escapeXml(FEED_TITLE)}</title>\n    <link>${escapeXml(`${SITE_URL}/`)}</link>\n    <description>${escapeXml(FEED_DESCRIPTION)}</description>\n    <language>pl-PL</language>\n    <lastBuildDate>${escapeXml(new Date(latest).toUTCString())}</lastBuildDate>\n    <generator>trvny/shitpost-reactor</generator>\n    <ttl>5</ttl>\n    <image>\n      <url>${escapeXml(`${SITE_URL}/favicon-96x96.png`)}</url>\n      <title>${escapeXml(FEED_TITLE)}</title>\n      <link>${escapeXml(`${SITE_URL}/`)}</link>\n      <width>96</width>\n      <height>96</height>\n    </image>\n    <atom:link href="${escapeXml(`${SITE_URL}/rss.xml`)}" rel="self" type="application/rss+xml" />\n${items}\n  </channel>\n</rss>\n`;
 }
 
 export function renderAtom(posts) {
@@ -172,7 +174,7 @@ export function renderAtom(posts) {
     const html = feedContentHtml(post);
     return `  <entry>\n    <title>${escapeXml(shortTitle(post.meme.caption))}</title>\n    <id>${escapeXml(post.url)}</id>\n    <link href="${escapeXml(post.url)}" rel="alternate" type="text/html" />\n    <published>${escapeXml(post.published_at)}</published>\n    <updated>${escapeXml(post.published_at)}</updated>\n    <category term="${escapeXml(post.meme.dialect)}" />\n    <category term="${escapeXml(post.meme.format)}" />\n    <summary type="text">${escapeXml(post.meme.caption)}</summary>\n    <content type="html">${escapeXml(html)}</content>\n  </entry>`;
   }).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="pl">\n  <title>${escapeXml(FEED_TITLE)}</title>\n  <subtitle>${escapeXml(FEED_DESCRIPTION)}</subtitle>\n  <id>${escapeXml(`${SITE_URL}/`)}</id>\n  <link href="${escapeXml(`${SITE_URL}/`)}" rel="alternate" type="text/html" />\n  <link href="${escapeXml(`${SITE_URL}/atom.xml`)}" rel="self" type="application/atom+xml" />\n  <updated>${escapeXml(latest)}</updated>\n  <generator uri="https://github.com/trvny/trvny">trvny/shitpost-reactor</generator>\n  <author><name>trvny Shitpost Reactor</name></author>\n${entries}\n</feed>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="pl">\n  <title>${escapeXml(FEED_TITLE)}</title>\n  <subtitle>${escapeXml(FEED_DESCRIPTION)}</subtitle>\n  <id>${escapeXml(`${SITE_URL}/`)}</id>\n  <link href="${escapeXml(`${SITE_URL}/`)}" rel="alternate" type="text/html" />\n  <link href="${escapeXml(`${SITE_URL}/atom.xml`)}" rel="self" type="application/atom+xml" />\n  <updated>${escapeXml(latest)}</updated>\n  <generator uri="https://github.com/trvny/trvny">trvny/shitpost-reactor</generator>\n  <icon>${escapeXml(`${SITE_URL}/favicon.svg`)}</icon>\n  <logo>${escapeXml(`${SITE_URL}/icon-512.png`)}</logo>\n  <author><name>Shitpost Reactor</name></author>\n${entries}\n</feed>\n`;
 }
 
 export function renderJsonFeed(posts) {
@@ -183,6 +185,8 @@ export function renderJsonFeed(posts) {
     feed_url: `${SITE_URL}/feed.json`,
     description: FEED_DESCRIPTION,
     language: 'pl-PL',
+    icon: `${SITE_URL}/icon-512.png`,
+    favicon: `${SITE_URL}/favicon-32x32.png`,
     items: posts.map((post) => ({
       id: post.url,
       url: post.url,
@@ -201,8 +205,138 @@ function renderSitemap(posts) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
-function htmlPage(title, body) {
-  return `<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><meta name="description" content="${escapeHtml(FEED_DESCRIPTION)}"><link rel="alternate" type="application/rss+xml" title="${escapeHtml(FEED_TITLE)} RSS" href="/rss.xml"><link rel="alternate" type="application/atom+xml" title="${escapeHtml(FEED_TITLE)} Atom" href="/atom.xml"><style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem;white-space:pre-wrap}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}</style></head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p>${escapeHtml(FEED_DESCRIPTION)}</p><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a></p></header>${body}</body></html>`;
+function renderRobots() {
+  return `# AI crawlers and user-triggered fetchers explicitly welcome.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: OAI-AdsBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot
+User-agent: Applebot-Extended
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
+Allow: /
+
+User-agent: *
+Content-Signal: ai-train=yes, search=yes, ai-input=yes
+Allow: /
+
+Sitemap: ${SITE_URL}/sitemap.xml
+`;
+}
+
+function renderLlms() {
+  return `# Shitpost Reactor
+
+> Public archive and machine-readable feeds of automatically generated Polish shitposts.
+
+Canonical site: ${SITE_URL}/
+
+## Main routes
+
+- [Archive](${SITE_URL}/)
+- [RSS 2.0](${SITE_URL}/rss.xml)
+- [Atom 1.0](${SITE_URL}/atom.xml)
+- [JSON Feed 1.1](${SITE_URL}/feed.json)
+
+## Content
+
+- New entries are generated by the scheduled Shitpost Reactor workflow in \`trvny/trvny\`.
+- Style instructions come from the canonical \`trvny/.ai/skills/edgy-dark-meme.zip\` skill instead of being duplicated here.
+- Each published entry has a stable canonical URL under \`/posts/gh-<run_id>-<run_attempt>\`.
+- Feeds expose the caption, dialect, format, publication time and a compact visual brief.
+
+## Discovery
+
+- [Sitemap](${SITE_URL}/sitemap.xml)
+- [Robots policy](${SITE_URL}/robots.txt)
+- [Web manifest](${SITE_URL}/site.webmanifest)
+- [Source](https://github.com/trvny/trvny/tree/main/stuff/other/shitpost-reactor)
+`;
+}
+
+function renderManifest() {
+  return `${JSON.stringify({
+    id: '/',
+    name: FEED_TITLE,
+    short_name: 'Shitpost',
+    description: FEED_DESCRIPTION,
+    lang: 'pl-PL',
+    dir: 'ltr',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    orientation: 'any',
+    categories: ['entertainment'],
+    background_color: '#111111',
+    theme_color: '#111111',
+    icons: [
+      { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  }, null, 2)}\n`;
+}
+
+function renderBrowserConfig() {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<browserconfig>
+  <msapplication>
+    <tile>
+      <square150x150logo src="/mstile-150x150.png"/>
+      <TileColor>#111111</TileColor>
+    </tile>
+  </msapplication>
+</browserconfig>
+`;
+}
+
+function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`) {
+  return `<!doctype html><html lang="pl"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(title)}</title>
+<meta name="description" content="${escapeHtml(FEED_DESCRIPTION)}">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#111111">
+<meta name="msapplication-TileColor" content="#111111">
+<meta name="msapplication-TileImage" content="/mstile-150x150.png">
+<meta property="og:locale" content="pl_PL">
+<meta property="og:site_name" content="${escapeHtml(FEED_TITLE)}">
+<meta property="og:title" content="${escapeHtml(title)}">
+<meta property="og:description" content="${escapeHtml(FEED_DESCRIPTION)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${escapeHtml(canonicalUrl)}">
+<meta property="og:image" content="${SITE_URL}/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="${escapeHtml(title)}">
+<meta name="twitter:description" content="${escapeHtml(FEED_DESCRIPTION)}">
+<meta name="twitter:image" content="${SITE_URL}/icon-512.png">
+<link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+<link rel="alternate" type="text/plain" href="/llms.txt" title="${escapeHtml(FEED_TITLE)} llms.txt">
+<link rel="describedby" href="/llms.txt" title="${escapeHtml(FEED_TITLE)} llms.txt">
+<link rel="alternate" type="application/rss+xml" title="${escapeHtml(FEED_TITLE)} RSS" href="/rss.xml">
+<link rel="alternate" type="application/atom+xml" title="${escapeHtml(FEED_TITLE)} Atom" href="/atom.xml">
+<link rel="alternate" type="application/feed+json" title="${escapeHtml(FEED_TITLE)} JSON Feed" href="/feed.json">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="mask-icon" href="/favicon.svg" color="#f5e94e">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Shitpost">
+<style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem;white-space:pre-wrap}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}</style>
+</head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a></p></header>${body}</body></html>`;
 }
 
 function response(body, contentType, { cache = 'public, max-age=300, stale-while-revalidate=600', status = 200, lastModified } = {}) {
@@ -332,13 +466,24 @@ async function publish(request, env) {
 
 async function handleGet(url, env) {
   if (url.pathname === '/healthz') return response('ok\n', 'text/plain; charset=utf-8', { cache: 'no-store' });
-  if (url.pathname === '/robots.txt') return response(`User-agent: *\nAllow: /\nSitemap: ${SITE_URL}/sitemap.xml\n`, 'text/plain; charset=utf-8', { cache: 'public, max-age=86400' });
+
+  const icon = iconAsset(url.pathname);
+  if (icon) return response(icon.body, icon.contentType, { cache: 'public, max-age=31536000, immutable' });
+
+  if (url.pathname === '/robots.txt') return response(renderRobots(), 'text/plain; charset=utf-8', { cache: 'public, max-age=86400' });
+  if (url.pathname === '/llms.txt') return response(renderLlms(), 'text/plain; charset=utf-8', { cache: 'public, max-age=3600' });
+  if (url.pathname === '/site.webmanifest' || url.pathname === '/manifest.json') {
+    return response(renderManifest(), 'application/manifest+json; charset=utf-8', { cache: 'public, max-age=86400' });
+  }
+  if (url.pathname === '/browserconfig.xml') {
+    return response(renderBrowserConfig(), 'application/xml; charset=utf-8', { cache: 'public, max-age=86400' });
+  }
 
   const match = url.pathname.match(/^\/posts\/(gh-\d+-\d+)$/u);
   if (match) {
     const post = await readPost(env, match[1]);
     if (!post) return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
-    return response(htmlPage(shortTitle(post.meme.caption), postHtml(post)), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
+    return response(htmlPage(shortTitle(post.meme.caption), postHtml(post), post.url), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
   }
 
   const aggregatePaths = new Set(['/', '/rss.xml', '/feed.xml', '/atom.xml', '/feed.json', '/sitemap.xml']);

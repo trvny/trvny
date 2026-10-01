@@ -1,4 +1,5 @@
 import { iconAsset } from './icons.mjs';
+import { getMemeTemplate, memeImageUrl } from './templates.mjs';
 
 const SITE_URL = 'https://shitpost.trfny.com';
 const FEED_TITLE = 'Shitpost Reactor';
@@ -64,22 +65,20 @@ function nonEmptyString(value, field, maxLength) {
 
 export function validateRecord(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('invalid_record');
-  if (input.schema_version !== 1) throw new Error('invalid_schema_version');
+  if (input.schema_version !== 1 && input.schema_version !== 2) throw new Error('invalid_schema_version');
   const generatedAt = nonEmptyString(input.generated_at, 'generated_at', 64);
   if (!Number.isFinite(Date.parse(generatedAt))) throw new Error('invalid_generated_at');
 
   const skill = input.skill;
   if (!skill || typeof skill !== 'object' || Array.isArray(skill)) throw new Error('invalid_skill');
-  const meme = input.meme;
-  if (!meme || typeof meme !== 'object' || Array.isArray(meme)) throw new Error('invalid_meme');
 
   let topic = null;
   if (input.topic !== null && input.topic !== undefined) {
     topic = nonEmptyString(input.topic, 'topic', 2_000);
   }
 
-  return {
-    schema_version: 1,
+  const common = {
+    schema_version: input.schema_version,
     generated_at: new Date(generatedAt).toISOString(),
     provider: nonEmptyString(input.provider, 'provider', 200),
     model: nonEmptyString(input.model, 'model', 200),
@@ -88,14 +87,55 @@ export function validateRecord(input) {
       sha256: nonEmptyString(skill.sha256, 'skill_sha256', 128),
     },
     topic,
-    meme: {
-      dialect: nonEmptyString(meme.dialect, 'dialect', 200),
-      format: nonEmptyString(meme.format, 'format', 200),
-      caption: nonEmptyString(meme.caption, 'caption', 700),
-      visual: nonEmptyString(meme.visual, 'visual', 2_000),
-      alt_text: nonEmptyString(meme.alt_text, 'alt_text', 1_000),
-    },
   };
+
+  if (input.schema_version === 1) {
+    const meme = input.meme;
+    if (!meme || typeof meme !== 'object' || Array.isArray(meme)) throw new Error('invalid_meme');
+    return {
+      ...common,
+      meme: {
+        dialect: nonEmptyString(meme.dialect, 'dialect', 200),
+        format: nonEmptyString(meme.format, 'format', 200),
+        caption: nonEmptyString(meme.caption, 'caption', 700),
+        visual: nonEmptyString(meme.visual, 'visual', 2_000),
+        alt_text: nonEmptyString(meme.alt_text, 'alt_text', 1_000),
+      },
+    };
+  }
+
+  const content = input.content;
+  if (!content || typeof content !== 'object' || Array.isArray(content)) throw new Error('invalid_content');
+  if (content.kind === 'text') {
+    return {
+      ...common,
+      content: {
+        kind: 'text',
+        text: nonEmptyString(content.text, 'text', 700),
+      },
+    };
+  }
+  if (content.kind === 'meme') {
+    const template = nonEmptyString(content.template, 'template', 80);
+    if (!getMemeTemplate(template)) throw new Error('invalid_meme_template');
+    if (typeof content.top_text !== 'string' || typeof content.bottom_text !== 'string') {
+      throw new Error('invalid_meme_text');
+    }
+    const topText = content.top_text.trim();
+    const bottomText = content.bottom_text.trim();
+    if (!topText && !bottomText) throw new Error('invalid_meme_text');
+    if (topText.length > 220 || bottomText.length > 220) throw new Error('invalid_meme_text_length');
+    return {
+      ...common,
+      content: {
+        kind: 'meme',
+        template,
+        top_text: topText,
+        bottom_text: bottomText,
+      },
+    };
+  }
+  throw new Error('invalid_content_kind');
 }
 
 function normalizeIndex(value) {
@@ -153,28 +193,115 @@ async function readPosts(env, limit = FEED_LIMIT) {
   return posts.filter(Boolean);
 }
 
+function postSummary(post) {
+  if (post.schema_version === 2 && post.content?.kind === 'text') return post.content.text;
+  if (post.schema_version === 2 && post.content?.kind === 'meme') {
+    return [post.content.top_text, post.content.bottom_text].filter(Boolean).join(' / ');
+  }
+  return post.meme?.caption || 'Shitpost';
+}
+
+function postKind(post) {
+  return post.schema_version === 2 ? post.content?.kind || 'text' : 'text';
+}
+
+function postImageUrl(post) {
+  if (post.schema_version !== 2 || post.content?.kind !== 'meme') return null;
+  return memeImageUrl(post.content.template, post.content.top_text, post.content.bottom_text);
+}
+
+function postAlt(post) {
+  if (post.schema_version !== 2 || post.content?.kind !== 'meme') return postSummary(post);
+  const template = getMemeTemplate(post.content.template);
+  const text = [post.content.top_text, post.content.bottom_text].filter(Boolean).join(' / ');
+  return `${template?.name || 'Meme'}: ${text}`;
+}
+
 function postHtml(post) {
-  const caption = escapeHtml(post.meme.caption).replaceAll('\n', '<br>');
-  return `<article><h1>${caption}</h1><dl><dt>Format</dt><dd>${escapeHtml(post.meme.format)}</dd><dt>Dialekt</dt><dd>${escapeHtml(post.meme.dialect)}</dd><dt>Visual brief</dt><dd>${escapeHtml(post.meme.visual)}</dd><dt>Alt</dt><dd>${escapeHtml(post.meme.alt_text)}</dd><dt>Wygenerowano</dt><dd><time datetime="${escapeHtml(post.generated_at)}">${escapeHtml(post.generated_at)}</time></dd></dl></article>`;
+  const image = postImageUrl(post);
+  const content = image
+    ? `<figure><img class="meme" src="${escapeHtml(image)}" alt="${escapeHtml(postAlt(post))}" loading="eager"></figure>`
+    : `<h1>${escapeHtml(postSummary(post)).replaceAll('\n', '<br>')}</h1>`;
+  return `<article>${content}<p class="meta"><time datetime="${escapeHtml(post.generated_at)}">${escapeHtml(post.generated_at)}</time></p></article>`;
 }
 
 function feedContentHtml(post) {
-  return `<p>${escapeHtml(post.meme.caption).replaceAll('\n', '<br>')}</p><p><strong>Format:</strong> ${escapeHtml(post.meme.format)}<br><strong>Dialekt:</strong> ${escapeHtml(post.meme.dialect)}<br><strong>Visual brief:</strong> ${escapeHtml(post.meme.visual)}</p>`;
+  const image = postImageUrl(post);
+  if (image) {
+    return `<p><img src="${escapeHtml(image)}" alt="${escapeHtml(postAlt(post))}"></p>`;
+  }
+  return `<p>${escapeHtml(postSummary(post)).replaceAll('\n', '<br>')}</p>`;
 }
 
 export function renderRss(posts) {
   const latest = posts[0]?.published_at || new Date(0).toISOString();
-  const items = posts.map((post) => `    <item>\n      <title>${escapeXml(shortTitle(post.meme.caption))}</title>\n      <link>${escapeXml(post.url)}</link>\n      <guid isPermaLink="true">${escapeXml(post.url)}</guid>\n      <pubDate>${escapeXml(new Date(post.published_at).toUTCString())}</pubDate>\n      <category>${escapeXml(post.meme.dialect)}</category>\n      <category>${escapeXml(post.meme.format)}</category>\n      <description>${escapeXml(post.meme.caption)}</description>\n      <content:encoded>${cdata(feedContentHtml(post))}</content:encoded>\n    </item>`).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">\n  <channel>\n    <title>${escapeXml(FEED_TITLE)}</title>\n    <link>${escapeXml(`${SITE_URL}/`)}</link>\n    <description>${escapeXml(FEED_DESCRIPTION)}</description>\n    <language>pl-PL</language>\n    <lastBuildDate>${escapeXml(new Date(latest).toUTCString())}</lastBuildDate>\n    <generator>trvny/shitpost-reactor</generator>\n    <ttl>5</ttl>\n    <image>\n      <url>${escapeXml(`${SITE_URL}/favicon-96x96.png`)}</url>\n      <title>${escapeXml(FEED_TITLE)}</title>\n      <link>${escapeXml(`${SITE_URL}/`)}</link>\n      <width>96</width>\n      <height>96</height>\n    </image>\n    <atom:link href="${escapeXml(`${SITE_URL}/rss.xml`)}" rel="self" type="application/rss+xml" />\n${items}\n  </channel>\n</rss>\n`;
+  const items = posts.map((post) => {
+    const summary = postSummary(post);
+    return `    <item>
+      <title>${escapeXml(shortTitle(summary))}</title>
+      <link>${escapeXml(post.url)}</link>
+      <guid isPermaLink="true">${escapeXml(post.url)}</guid>
+      <pubDate>${escapeXml(new Date(post.published_at).toUTCString())}</pubDate>
+      <category>${escapeXml(postKind(post))}</category>
+      <description>${escapeXml(summary)}</description>
+      <content:encoded>${cdata(feedContentHtml(post))}</content:encoded>
+    </item>`;
+  }).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>${escapeXml(FEED_TITLE)}</title>
+    <link>${escapeXml(`${SITE_URL}/`)}</link>
+    <description>${escapeXml(FEED_DESCRIPTION)}</description>
+    <language>pl-PL</language>
+    <lastBuildDate>${escapeXml(new Date(latest).toUTCString())}</lastBuildDate>
+    <generator>trvny/shitpost-reactor</generator>
+    <ttl>5</ttl>
+    <image>
+      <url>${escapeXml(`${SITE_URL}/favicon-96x96.png`)}</url>
+      <title>${escapeXml(FEED_TITLE)}</title>
+      <link>${escapeXml(`${SITE_URL}/`)}</link>
+      <width>96</width>
+      <height>96</height>
+    </image>
+    <atom:link href="${escapeXml(`${SITE_URL}/rss.xml`)}" rel="self" type="application/rss+xml" />
+${items}
+  </channel>
+</rss>
+`;
 }
 
 export function renderAtom(posts) {
   const latest = posts[0]?.published_at || new Date(0).toISOString();
   const entries = posts.map((post) => {
+    const summary = postSummary(post);
     const html = feedContentHtml(post);
-    return `  <entry>\n    <title>${escapeXml(shortTitle(post.meme.caption))}</title>\n    <id>${escapeXml(post.url)}</id>\n    <link href="${escapeXml(post.url)}" rel="alternate" type="text/html" />\n    <published>${escapeXml(post.published_at)}</published>\n    <updated>${escapeXml(post.published_at)}</updated>\n    <category term="${escapeXml(post.meme.dialect)}" />\n    <category term="${escapeXml(post.meme.format)}" />\n    <summary type="text">${escapeXml(post.meme.caption)}</summary>\n    <content type="html">${escapeXml(html)}</content>\n  </entry>`;
+    return `  <entry>
+    <title>${escapeXml(shortTitle(summary))}</title>
+    <id>${escapeXml(post.url)}</id>
+    <link href="${escapeXml(post.url)}" rel="alternate" type="text/html" />
+    <published>${escapeXml(post.published_at)}</published>
+    <updated>${escapeXml(post.published_at)}</updated>
+    <category term="${escapeXml(postKind(post))}" />
+    <summary type="text">${escapeXml(summary)}</summary>
+    <content type="html">${escapeXml(html)}</content>
+  </entry>`;
   }).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="pl">\n  <title>${escapeXml(FEED_TITLE)}</title>\n  <subtitle>${escapeXml(FEED_DESCRIPTION)}</subtitle>\n  <id>${escapeXml(`${SITE_URL}/`)}</id>\n  <link href="${escapeXml(`${SITE_URL}/`)}" rel="alternate" type="text/html" />\n  <link href="${escapeXml(`${SITE_URL}/atom.xml`)}" rel="self" type="application/atom+xml" />\n  <updated>${escapeXml(latest)}</updated>\n  <generator uri="https://github.com/trvny/trvny">trvny/shitpost-reactor</generator>\n  <icon>${escapeXml(`${SITE_URL}/favicon.svg`)}</icon>\n  <logo>${escapeXml(`${SITE_URL}/icon-512.png`)}</logo>\n  <author><name>Shitpost Reactor</name></author>\n${entries}\n</feed>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="pl">
+  <title>${escapeXml(FEED_TITLE)}</title>
+  <subtitle>${escapeXml(FEED_DESCRIPTION)}</subtitle>
+  <id>${escapeXml(`${SITE_URL}/`)}</id>
+  <link href="${escapeXml(`${SITE_URL}/`)}" rel="alternate" type="text/html" />
+  <link href="${escapeXml(`${SITE_URL}/atom.xml`)}" rel="self" type="application/atom+xml" />
+  <updated>${escapeXml(latest)}</updated>
+  <generator uri="https://github.com/trvny/trvny">trvny/shitpost-reactor</generator>
+  <icon>${escapeXml(`${SITE_URL}/favicon.svg`)}</icon>
+  <logo>${escapeXml(`${SITE_URL}/icon-512.png`)}</logo>
+  <author><name>Shitpost Reactor</name></author>
+${entries}
+</feed>
+`;
 }
 
 export function renderJsonFeed(posts) {
@@ -187,16 +314,21 @@ export function renderJsonFeed(posts) {
     language: 'pl-PL',
     icon: `${SITE_URL}/icon-512.png`,
     favicon: `${SITE_URL}/favicon-32x32.png`,
-    items: posts.map((post) => ({
-      id: post.url,
-      url: post.url,
-      title: shortTitle(post.meme.caption),
-      content_html: feedContentHtml(post),
-      summary: post.meme.caption,
-      date_published: post.published_at,
-      date_modified: post.published_at,
-      tags: [post.meme.dialect, post.meme.format],
-    })),
+    items: posts.map((post) => {
+      const summary = postSummary(post);
+      const image = postImageUrl(post);
+      return {
+        id: post.url,
+        url: post.url,
+        title: shortTitle(summary),
+        content_html: feedContentHtml(post),
+        summary,
+        date_published: post.published_at,
+        date_modified: post.published_at,
+        tags: [postKind(post)],
+        ...(image ? { image } : {}),
+      };
+    }),
   }, null, 2)}\n`;
 }
 
@@ -297,7 +429,7 @@ function renderBrowserConfig() {
 `;
 }
 
-function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`) {
+function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${SITE_URL}/icon-512.png`) {
   return `<!doctype html><html lang="pl"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -313,11 +445,11 @@ function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`) {
 <meta property="og:description" content="${escapeHtml(FEED_DESCRIPTION)}">
 <meta property="og:type" content="website">
 <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
-<meta property="og:image" content="${SITE_URL}/icon-512.png">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="${escapeHtml(socialImage)}">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(FEED_DESCRIPTION)}">
-<meta name="twitter:image" content="${SITE_URL}/icon-512.png">
+<meta name="twitter:image" content="${escapeHtml(socialImage)}">
 <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
 <link rel="alternate" type="text/plain" href="/llms.txt" title="${escapeHtml(FEED_TITLE)} llms.txt">
 <link rel="describedby" href="/llms.txt" title="${escapeHtml(FEED_TITLE)} llms.txt">
@@ -335,7 +467,7 @@ function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`) {
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Shitpost">
-<style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem;white-space:pre-wrap}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}</style>
+<style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem;white-space:pre-wrap}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}.meme{display:block;max-width:100%;height:auto;margin:1rem 0;border-radius:.5rem}</style>
 </head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a></p></header>${body}</body></html>`;
 }
 
@@ -483,7 +615,8 @@ async function handleGet(url, env) {
   if (match) {
     const post = await readPost(env, match[1]);
     if (!post) return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
-    return response(htmlPage(shortTitle(post.meme.caption), postHtml(post), post.url), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
+    const summary = postSummary(post);
+    return response(htmlPage(shortTitle(summary), postHtml(post), post.url, postImageUrl(post) || `${SITE_URL}/icon-512.png`), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
   }
 
   const aggregatePaths = new Set(['/', '/rss.xml', '/feed.xml', '/atom.xml', '/feed.json', '/sitemap.xml']);
@@ -506,7 +639,14 @@ async function handleGet(url, env) {
     return response(renderSitemap(posts), 'application/xml; charset=utf-8', { lastModified: latest });
   }
 
-  const items = posts.slice(0, 20).map((post) => `<article><h2><a href="/posts/${escapeHtml(post.id)}">${escapeHtml(shortTitle(post.meme.caption))}</a></h2><p>${escapeHtml(post.meme.caption).replaceAll('\n', '<br>')}</p><p class="meta">${escapeHtml(post.published_at)} · ${escapeHtml(post.meme.dialect)} · ${escapeHtml(post.meme.format)}</p></article>`).join('');
+  const items = posts.slice(0, 20).map((post) => {
+    const summary = postSummary(post);
+    const image = postImageUrl(post);
+    const preview = image
+      ? `<a href="/posts/${escapeHtml(post.id)}"><img class="meme" src="${escapeHtml(image)}" alt="${escapeHtml(postAlt(post))}" loading="lazy"></a>`
+      : `<p>${escapeHtml(summary).replaceAll('\n', '<br>')}</p>`;
+    return `<article><h2><a href="/posts/${escapeHtml(post.id)}">${escapeHtml(shortTitle(summary))}</a></h2>${preview}<p class="meta">${escapeHtml(post.published_at)}</p></article>`;
+  }).join('');
   return response(htmlPage(FEED_TITLE, items || '<p>Jeszcze pusto. Automat dopiero ostrzy kredki.</p>'), 'text/html; charset=utf-8', { lastModified: latest });
 }
 

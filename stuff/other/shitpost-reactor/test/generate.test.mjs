@@ -4,11 +4,12 @@ import { deflateRawSync } from 'node:zlib';
 import {
   buildMessages,
   extractZipEntry,
-  parseMeme,
+  parseContent,
   renderMarkdown,
   requestCompletion,
-  validateMeme,
+  validateContent,
 } from '../generate.mjs';
+import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from '../templates.mjs';
 
 function zipEntry(name, text, method = 0) {
   const nameBytes = Buffer.from(name);
@@ -55,21 +56,55 @@ test('extractZipEntry inflates a deflated SKILL.md entry', () => {
   assert.equal(extractZipEntry(archive, 'SKILL.md').toString('utf8'), '# compressed skill\nhello');
 });
 
-test('buildMessages embeds the skill and requests one JSON object', () => {
-  const messages = buildMessages('# skill', 'Teams o 07:59', '123.1');
+test('buildMessages treats the skill as advice instead of an output schema', () => {
+  const messages = buildMessages('# skill\nDIALECT: dzida-core', 'Teams o 07:59', '123.1', 'text');
   assert.equal(messages.length, 2);
-  assert.match(messages[0].content, /jeden najmocniejszy/);
+  assert.match(messages[0].content, /wyłącznie dodatkowym źródłem inspiracji/);
+  assert.match(messages[0].content, /zryty/);
+  assert.match(messages[0].content, /absurdalny/);
+  assert.match(messages[0].content, /"kind":"text"/);
+  assert.doesNotMatch(messages[0].content, /Wybierz najwyżej dwa dialekty/);
   assert.match(messages[1].content, /Teams o 07:59/);
-  assert.match(messages[1].content, /123\.1/);
 });
 
-test('parseMeme accepts a fenced JSON response', () => {
-  const meme = parseMeme('```json\n{"dialect":"dzida-core","format":"fake-ui","caption":"deploy przeszedł. aplikacja nie.","visual":"okno błędu","alt_text":"proste okno błędu"}\n```');
-  assert.equal(meme.format, 'fake-ui');
+test('buildMessages pins a meme template and asks only for overlay text', () => {
+  const template = chooseMemeTemplate('123.1');
+  const messages = buildMessages('# skill', 'deploy', '123.1', 'meme', template);
+  assert.match(messages[0].content, new RegExp(`"template":"${template.id}"`));
+  assert.match(messages[0].content, /top_text/);
+  assert.doesNotMatch(messages[0].content, /visual brief/i);
 });
 
-test('validateMeme rejects missing fields', () => {
-  assert.throws(() => validateMeme({ caption: 'x' }), /meme_invalid_dialect/);
+test('parseContent accepts a text shitpost', () => {
+  const content = parseContent('{"kind":"text","text":"deploy przeszedł. aplikacja nie."}', { mode: 'text' });
+  assert.deepEqual(content, { kind: 'text', text: 'deploy przeszedł. aplikacja nie.' });
+});
+
+test('validateContent accepts a pinned meme and rejects invented templates', () => {
+  const content = validateContent({
+    kind: 'meme',
+    template: 'bad',
+    top_text: 'deploy przeszedł',
+    bottom_text: 'aplikacja nie',
+  }, { mode: 'meme', templateId: 'bad' });
+  assert.equal(content.template, 'bad');
+  assert.throws(
+    () => validateContent({ ...content, template: 'whatever' }, { mode: 'meme', templateId: 'bad' }),
+    /content_unexpected_template/,
+  );
+});
+
+test('mode and template choices are deterministic', () => {
+  assert.equal(resolveShitpostMode('text', 'anything'), 'text');
+  assert.equal(resolveShitpostMode('meme', 'anything'), 'meme');
+  assert.equal(resolveShitpostMode('auto', 'same-seed'), resolveShitpostMode('auto', 'same-seed'));
+  assert.equal(chooseMemeTemplate('same-seed').id, chooseMemeTemplate('same-seed').id);
+});
+
+test('memeImageUrl produces a stateless image URL', () => {
+  const url = memeImageUrl('bad', 'góra?', 'dół / dalej');
+  assert.match(url, /^https:\/\/api\.memegen\.link\/images\/bad\//);
+  assert.match(url, /\.webp$/);
 });
 
 test('requestCompletion keeps provider metadata without exposing the token', async () => {
@@ -77,24 +112,40 @@ test('requestCompletion keeps provider metadata without exposing the token', asy
     assert.match(init.headers.authorization, /^Bearer /);
     return new Response(JSON.stringify({
       model: 'free-model',
-      choices: [{ message: { content: '{"dialect":"shitpost","format":"deadpan-caption","caption":"x","visual":"y","alt_text":"z"}' } }],
+      choices: [{ message: { content: '{"kind":"text","text":"x"}' } }],
     }), {
       status: 200,
       headers: { 'content-type': 'application/json', 'x-kanarek-review-provider': 'groq' },
     });
   };
-  const result = await requestCompletion({ endpoint: 'https://example.test', token: 'secret', messages: [], fetchImpl: fakeFetch });
+  const result = await requestCompletion({
+    endpoint: 'https://example.test',
+    token: 'secret',
+    messages: [],
+    fetchImpl: fakeFetch,
+  });
   assert.equal(result.provider, 'groq');
   assert.equal(result.model, 'free-model');
 });
 
-test('renderMarkdown produces a compact reviewable artifact', () => {
+test('renderMarkdown produces a compact text artifact', () => {
   const output = renderMarkdown({
     generated_at: '2026-10-01T19:37:00.000Z',
     provider: 'openrouter',
     model: 'free-model',
-    meme: { dialect: 'kajmak', format: 'shitpost-one-panel', caption: 'no i leci', visual: 'jpeg', alt_text: 'jpeg' },
+    content: { kind: 'text', text: 'no i leci' },
   });
   assert.match(output, /> no i leci/);
   assert.match(output, /openrouter/);
+});
+
+test('renderMarkdown embeds the rendered meme URL', () => {
+  const output = renderMarkdown({
+    generated_at: '2026-10-01T19:37:00.000Z',
+    provider: 'groq',
+    model: 'free-model',
+    content: { kind: 'meme', template: 'bihw', top_text: 'nie dużo', bottom_text: 'ale deploy' },
+  });
+  assert.match(output, /api\.memegen\.link/);
+  assert.match(output, /kind:\*\* meme/);
 });

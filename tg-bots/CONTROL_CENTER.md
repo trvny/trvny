@@ -10,7 +10,7 @@ The first useful slice is Legion / Pet Dispatcher: show whether the device is fr
 
 - `pet-dispatcher-control` remains the source of truth for device metadata and individual task state.
 - A bounded recent-task index is maintained only as a query accelerator; canonical task state still lives in each task Durable Object.
-- `travny-tg-assistant` reads Pet Dispatcher through the existing `TelegramAssistantEntrypoint` service binding.
+- `tg-assistant` reads Pet Dispatcher through the existing `TelegramAssistantEntrypoint` service binding.
 - The Mini App is served by the existing Telegram assistant Worker, not a separate service.
 - Mini App API requests are owner-only and validate `Telegram.WebApp.initData` server-side with the existing bot token.
 - The browser never receives Pet Dispatcher credentials or direct service-binding access.

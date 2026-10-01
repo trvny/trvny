@@ -24,7 +24,7 @@ The Telegram assistant should reuse this control plane for future heavyweight He
 
 ## Telegram assistant
 
-`travny-tg-assistant` is the lightweight always-on Telegram side. Telegram webhook updates are queued through `travny-tg-assistant-updates`; one SQLite Durable Object records `update_id` delivery state, a second stores bounded per-chat conversation context, and exhausted/ambiguous failures go to `travny-tg-assistant-updates-dlq`.
+`tg-assistant` is the lightweight always-on Telegram side. Telegram webhook updates are queued through `travny-tg-assistant-updates`; one SQLite Durable Object records `update_id` delivery state, a second stores bounded per-chat conversation context, and exhausted/ambiguous failures go to `travny-tg-assistant-updates-dlq`.
 
 Model calls first use a same-account Service Binding to the private OpenAI-compatible router in `kanarek-companion`. That keeps OpenRouter, OrcaRouter, AIHubMix, provider cooldowns and the Workers AI provider pool in one maintained place. The assistant retains its own Workers AI binding only as an emergency fallback when the shared router is unavailable.
 

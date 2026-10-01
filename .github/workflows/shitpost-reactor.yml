@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: shitpost-reactor
@@ -28,6 +29,8 @@ jobs:
     env:
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       SHITPOST_TOPIC: ${{ github.event.inputs.topic || '' }}
+      SHITPOST_PUBLISH_URL: https://shitpost.trfny.com/api/publish
+      SHITPOST_PUBLISH_AUDIENCE: https://shitpost.trfny.com
     steps:
       - uses: actions/checkout@v7
         with:
@@ -37,7 +40,7 @@ jobs:
         with:
           node-version: 24
 
-      - name: Test generator
+      - name: Test generator and feed
         run: npm test
 
       - name: Generate draft
@@ -49,7 +52,13 @@ jobs:
           : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
           npm run generate
 
+      - name: Publish to public feed
+        env:
+          SHITPOST_OUTPUT_DIR: ${{ runner.temp }}/shitpost-reactor
+        run: npm run publish
+
       - name: Upload draft
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: shitpost-${{ github.run_id }}-${{ github.run_attempt }}

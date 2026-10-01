@@ -34,6 +34,7 @@ test('RSS exposes stable permalink and escaped text content', () => {
   assert.match(rss, /<guid isPermaLink="true">https:\/\/shitpost\.trfny\.com\/posts\/gh-123-1<\/guid>/);
   assert.match(rss, /deploy &lt;przeszedł&gt; &amp; aplikacja nie/);
   assert.match(rss, /<category>text<\/category>/);
+  assert.doesNotMatch(rss, /<language>pl-PL<\/language>/);
 });
 
 test('Atom exposes self link and stable entry id', () => {
@@ -41,6 +42,7 @@ test('Atom exposes self link and stable entry id', () => {
   assert.match(atom, /<feed xmlns="http:\/\/www\.w3\.org\/2005\/Atom"/);
   assert.match(atom, /rel="self" type="application\/atom\+xml"/);
   assert.match(atom, /<id>https:\/\/shitpost\.trfny\.com\/posts\/gh-123-1<\/id>/);
+  assert.doesNotMatch(atom, /xml:lang="pl"/);
 });
 
 test('JSON Feed exposes a rendered image only for meme entries', () => {

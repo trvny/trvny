@@ -62,6 +62,8 @@ test('buildMessages treats the skill as advice instead of an output schema', () 
   assert.match(messages[0].content, /wyłącznie dodatkowym źródłem inspiracji/);
   assert.match(messages[0].content, /zryty/);
   assert.match(messages[0].content, /absurdalny/);
+  assert.match(messages[0].content, /Język jest dowolny/);
+  assert.doesNotMatch(messages[0].content, /oryginalny polski shitpost/);
   assert.match(messages[0].content, /"kind":"text"/);
   assert.doesNotMatch(messages[0].content, /Wybierz najwyżej dwa dialekty/);
   assert.match(messages[1].content, /Teams o 07:59/);

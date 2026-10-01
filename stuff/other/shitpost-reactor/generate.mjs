@@ -100,7 +100,7 @@ export function buildMessages(skill, topic = '', seed = '', mode = 'text', templ
 
   const rules = [
     'Tworzysz jeden oryginalny polski shitpost. Humor ma być szeroko rozumiany i zryty: absurdalny, internetowy, deadpan, antyhumorystyczny albo celowo głupi.',
-    'Ma być śmieszne jako gotowy post, nie jako opis pomysłu. Nie tłumacz żartu, nie opisuj procesu i nie dodawaj etykiet typu dialekt, archetyp, format albo visual brief.',
+    'Ma być śmieszne jako gotowy post, nie jako opis pomysłu. Nie tłumacz żartu, nie opisuj procesu i nie dodawaj etykiet typu dialekt, archetyp albo format.',
     'Załączony skill jest wyłącznie dodatkowym źródłem inspiracji i wskazówek o tonie. Nie kopiuj jego schematu, nazw sekcji, dialektów, formatów ani archetypów. Jeśli jego struktura przeszkadza żartowi, zignoruj ją.',
     'Nie kopiuj istniejących postów ani catchphrase 1:1.',
     'Nie targetuj prywatnych osób ani nie wymyślaj faktycznie brzmiących oskarżeń.',

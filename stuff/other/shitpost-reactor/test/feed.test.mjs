@@ -117,3 +117,12 @@ test('OIDC validation rejects a different repository', () => {
     exp: now + 300,
   }, now), /oidc_invalid_repository/);
 });
+
+test('a meme post with a retired template degrades to text instead of failing the feed', () => {
+  const retired = { ...memePost, id: 'gh-125-1', content: { ...memePost.content, template: 'retired-template' } };
+  const feed = JSON.parse(renderJsonFeed([textPost, retired]));
+  assert.equal(feed.items.length, 2);
+  assert.ok(!('image' in feed.items[1]));
+  assert.match(renderRss([retired]), /<rss version="2\.0"/);
+  assert.match(renderAtom([retired]), /<feed /);
+});

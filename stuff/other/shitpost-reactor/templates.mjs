@@ -36,13 +36,21 @@ export function chooseMemeTemplate(seed = '') {
 function memegenSegment(value) {
   const text = String(value || '').trim();
   if (!text) return '_';
+  // memegen has no escape for a literal '~', so swap it for a lookalike before
+  // the '~x' escape sequences below are introduced.
   const escaped = text
+    .replaceAll('~', '\u223c')
     .replaceAll('-', '--')
     .replaceAll('_', '__')
     .replaceAll('?', '~q')
+    .replaceAll('&', '~a')
     .replaceAll('%', '~p')
     .replaceAll('#', '~h')
     .replaceAll('/', '~s')
+    .replaceAll('\\', '~b')
+    .replaceAll('<', '~l')
+    .replaceAll('>', '~g')
+    .replaceAll('"', "''")
     .replaceAll('\n', '~n')
     .replaceAll(' ', '_');
   return encodeURIComponent(escaped);

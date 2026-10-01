@@ -149,3 +149,10 @@ test('renderMarkdown embeds the rendered meme URL', () => {
   assert.match(output, /api\.memegen\.link/);
   assert.match(output, /kind:\*\* meme/);
 });
+
+test('memeImageUrl applies memegen escapes and neutralises literal tildes', () => {
+  const url = memeImageUrl('bad', 'a&b <c> "d" \\e', '~q stays text');
+  const [, top, bottom] = url.match(/\/bad\/([^/]+)\/([^/]+)\.webp$/);
+  assert.equal(decodeURIComponent(top), "a~ab_~lc~g_''d''_~be");
+  assert.equal(decodeURIComponent(bottom), '∼q_stays_text');
+});

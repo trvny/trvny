@@ -3,6 +3,7 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
+import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from './templates.mjs';
 
 export const DEFAULT_ENDPOINT = 'https://kanarek-companion.travny.workers.dev/review-router/v1/chat/completions';
 export const DEFAULT_SKILL_URL = 'https://raw.githubusercontent.com/trvny/.ai/main/skills/edgy-dark-meme.zip';
@@ -87,28 +88,42 @@ export async function loadSkill(skillUrl = DEFAULT_SKILL_URL, fetchImpl = fetch)
   return extractZipEntry(archive, 'SKILL.md').toString('utf8');
 }
 
-export function buildMessages(skill, topic = '', seed = '') {
+export function buildMessages(skill, topic = '', seed = '', mode = 'text', template = null) {
   const chosenTopic = topic.trim() || [
     'Wymyśl sam konkretny temat z codziennej technologii, pracy, polskiego internetu, biurokracji albo zwykłej życiowej porażki.',
     'Nie opieraj żartu na bieżącej wiadomości, której nie dostałeś w promptcie.',
   ].join(' ');
 
-  const overlay = [
-    'Tworzysz jeden najmocniejszy, oryginalny polski shitpost, nie trzy warianty.',
-    'Wybierz najwyżej dwa dialekty ze skilla i jeden format archetypowy.',
-    'To jest automatyczny draft do późniejszej publikacji, więc nie targetuj prywatnych osób, grup chronionych ani rozpoznawalnych ofiar świeżych tragedii.',
-    'Nie wymyślaj faktycznie brzmiących oskarżeń. Nie twórz agitacji wyborczej ani rekomendacji politycznych. Jeśli pojawia się polityka, ma być oczywistą satyrą sytuacji lub publicznego dyskursu.',
-    'Nie kopiuj istniejących postów, catchphrase ani konkretnego chronionego kadru. Visual ma działać jako oryginalna scena albo tani montaż.',
-    'Zwróć wyłącznie jeden obiekt JSON, bez markdownu i bez komentarza.',
-    'Pola: dialect, format, caption, visual, alt_text. Wszystkie wartości muszą być niepustymi stringami.',
-    'caption ma być gotowym tekstem mema, najlepiej do 280 znaków. visual ma być krótką instrukcją renderu. alt_text ma opisywać obraz bez powtarzania całego żartu.',
+  const outputRule = mode === 'meme'
+    ? `Zrób prosty klasyczny meme macro na gotowym template "${template?.name || template?.id || 'meme'}" (id: ${template?.id || 'unknown'}). Napisz tylko tekst nakładany na obraz. Zwróć wyłącznie JSON: {"kind":"meme","template":"${template?.id || 'unknown'}","top_text":"...","bottom_text":"..."}. Jedna z dwóch linii może być pusta, ale nie obie.`
+    : 'Zwróć wyłącznie JSON: {"kind":"text","text":"..."}. Pole text ma być całym gotowym shitpostem i niczym więcej.';
+
+  const rules = [
+    'Tworzysz jeden oryginalny polski shitpost. Humor ma być szeroko rozumiany i zryty: absurdalny, internetowy, deadpan, antyhumorystyczny albo celowo głupi.',
+    'Ma być śmieszne jako gotowy post, nie jako opis pomysłu. Nie tłumacz żartu, nie opisuj procesu i nie dodawaj etykiet typu dialekt, archetyp albo format.',
+    'Załączony skill jest wyłącznie dodatkowym źródłem inspiracji i wskazówek o tonie. Nie kopiuj jego schematu, nazw sekcji, dialektów, formatów ani archetypów. Jeśli jego struktura przeszkadza żartowi, zignoruj ją.',
+    'Nie kopiuj istniejących postów ani catchphrase 1:1.',
+    'Nie targetuj prywatnych osób ani nie wymyślaj faktycznie brzmiących oskarżeń.',
+    'Nie twórz agitacji wyborczej ani rekomendacji politycznych. Jeśli pojawia się polityka, ma być oczywistą satyrą sytuacji lub publicznego dyskursu.',
+    outputRule,
   ].join('\n');
-  const system = `${skill.trim()}\n\n## Automation overlay\n\n${overlay}`;
+
+  const system = [
+    '## Shitpost Reactor rules',
+    rules,
+    '',
+    '## Optional style reference',
+    'Poniższy skill to materiał referencyjny, nie kontrakt odpowiedzi. Reguły Shitpost Reactora powyżej mają pierwszeństwo.',
+    '<style_reference>',
+    skill.trim(),
+    '</style_reference>',
+  ].join('\n');
 
   const user = [
     `TEMAT: ${chosenTopic}`,
     seed ? `SEED RUNU: ${seed}` : '',
-    'Nie tłumacz żartu. Punch word last. Jeśli temat jest zbyt szeroki, wybierz jeden konkretny detal i jedź.',
+    mode === 'meme' ? `TEMPLATE: ${template?.id || ''} / ${template?.name || ''}` : '',
+    'Wybierz jeden konkretny detal i jedź. Bez wstępu, bez komentarza po żarcie.',
   ].filter(Boolean).join('\n');
 
   return [
@@ -123,32 +138,43 @@ function stripCodeFence(value) {
   return match ? match[1].trim() : trimmed;
 }
 
-export function validateMeme(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('meme_not_object');
-  }
-  const keys = ['dialect', 'format', 'caption', 'visual', 'alt_text'];
-  const result = {};
-  for (const key of keys) {
-    const raw = value[key];
-    if (typeof raw !== 'string' || !raw.trim()) throw new Error(`meme_invalid_${key}`);
-    result[key] = raw.trim();
-  }
-  if (result.caption.length > 700) throw new Error('meme_caption_too_long');
-  if (result.visual.length > 2_000) throw new Error('meme_visual_too_long');
-  if (result.alt_text.length > 1_000) throw new Error('meme_alt_text_too_long');
+function boundedString(value, field, maxLength, { allowEmpty = false } = {}) {
+  if (typeof value !== 'string') throw new Error(`content_invalid_${field}`);
+  const result = value.trim();
+  if (!allowEmpty && !result) throw new Error(`content_invalid_${field}`);
+  if (result.length > maxLength) throw new Error(`content_invalid_${field}_length`);
   return result;
 }
 
-export function parseMeme(content) {
+export function validateContent(value, { mode, templateId } = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('content_not_object');
+  }
+  if (value.kind === 'text') {
+    if (mode && mode !== 'text') throw new Error('content_unexpected_kind');
+    return { kind: 'text', text: boundedString(value.text, 'text', 700) };
+  }
+  if (value.kind === 'meme') {
+    if (mode && mode !== 'meme') throw new Error('content_unexpected_kind');
+    const template = boundedString(value.template, 'template', 80);
+    if (templateId && template !== templateId) throw new Error('content_unexpected_template');
+    const topText = boundedString(value.top_text, 'top_text', 220, { allowEmpty: true });
+    const bottomText = boundedString(value.bottom_text, 'bottom_text', 220, { allowEmpty: true });
+    if (!topText && !bottomText) throw new Error('content_empty_meme_text');
+    return { kind: 'meme', template, top_text: topText, bottom_text: bottomText };
+  }
+  throw new Error('content_invalid_kind');
+}
+
+export function parseContent(content, options = {}) {
   const cleaned = stripCodeFence(content);
   try {
-    return validateMeme(JSON.parse(cleaned));
+    return validateContent(JSON.parse(cleaned), options);
   } catch (firstError) {
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
     if (start === -1 || end <= start) throw firstError;
-    return validateMeme(JSON.parse(cleaned.slice(start, end + 1)));
+    return validateContent(JSON.parse(cleaned.slice(start, end + 1)), options);
   }
 }
 
@@ -185,16 +211,21 @@ export async function requestCompletion({ endpoint, token, messages, fetchImpl =
 }
 
 export function renderMarkdown(record) {
-  const meme = record.meme;
+  const content = record.content;
+  const body = content.kind === 'meme'
+    ? [
+        `![meme](${memeImageUrl(content.template, content.top_text, content.bottom_text)})`,
+        '',
+        [content.top_text, content.bottom_text].filter(Boolean).map((line) => `> ${line.replaceAll('\n', ' ')}`).join('\n'),
+      ].join('\n')
+    : `> ${content.text.replaceAll('\n', ' ')}`;
+
   return [
     '# Shitpost Reactor',
     '',
-    `> ${meme.caption.replaceAll('\n', ' ')}`,
+    body,
     '',
-    `- **dialekt:** ${meme.dialect}`,
-    `- **format:** ${meme.format}`,
-    `- **visual:** ${meme.visual}`,
-    `- **alt:** ${meme.alt_text}`,
+    `- **kind:** ${content.kind}`,
     `- **provider:** ${record.provider}`,
     `- **model:** ${record.model}`,
     `- **generated:** ${record.generated_at}`,
@@ -209,6 +240,7 @@ export async function main() {
   const endpoint = process.env.KANAREK_REVIEW_ROUTER_URL?.trim() || DEFAULT_ENDPOINT;
   const skillUrl = process.env.EDGY_DARK_MEME_SKILL_URL?.trim() || DEFAULT_SKILL_URL;
   const topic = process.env.SHITPOST_TOPIC || '';
+  const requestedMode = process.env.SHITPOST_MODE || 'auto';
   const seed = process.env.GITHUB_RUN_ID
     ? `${process.env.GITHUB_RUN_ID}.${process.env.GITHUB_RUN_ATTEMPT || '1'}`
     : new Date().toISOString().slice(0, 10);
@@ -216,11 +248,13 @@ export async function main() {
 
   const skill = await loadSkill(skillUrl);
   const skillHash = createHash('sha256').update(skill).digest('hex');
-  const messages = buildMessages(skill, topic, seed);
+  const mode = resolveShitpostMode(requestedMode, seed);
+  const template = mode === 'meme' ? chooseMemeTemplate(seed) : null;
+  const messages = buildMessages(skill, topic, seed, mode, template);
   const completion = await requestCompletion({ endpoint, token, messages });
-  const meme = parseMeme(completion.content);
+  const content = parseContent(completion.content, { mode, templateId: template?.id });
   const record = {
-    schema_version: 1,
+    schema_version: 2,
     generated_at: new Date().toISOString(),
     provider: completion.provider,
     model: completion.model,
@@ -229,7 +263,7 @@ export async function main() {
       sha256: skillHash,
     },
     topic: topic.trim() || null,
-    meme,
+    content,
   };
 
   await mkdir(outputDir, { recursive: true });

@@ -2427,7 +2427,7 @@ export default {
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) {
       return json({
         ok: true,
-        service: "travny-tg-assistant",
+        service: "tg-assistant",
         version: env.CF_VERSION_METADATA ?? null,
       });
     }

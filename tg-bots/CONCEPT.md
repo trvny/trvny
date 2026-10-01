@@ -8,7 +8,7 @@ Keep an always-on personal assistant on Cloudflare while leaving heavyweight mac
 Telegram
    │ webhook
    ▼
-travny-tg-assistant
+tg-assistant
    ├─ Queue + update-id state + DLQ
    ├─ RSS / drafts / reminders / lightweight assistant work
    │

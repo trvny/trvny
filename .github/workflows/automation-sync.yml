@@ -12,7 +12,7 @@ on:
           - kanarek-companion
           - kanarek-quips-recovery
           - kanarek-review
-          - travny-tg-assistant
+          - tg-assistant
           - pet-dispatcher
           - all
 
@@ -318,9 +318,9 @@ jobs:
           fi
 
   telegram-assistant:
-    if: ${{ inputs.target == 'travny-tg-assistant' || inputs.target == 'all' }}
+    if: ${{ inputs.target == 'tg-assistant' || inputs.target == 'all' }}
     concurrency:
-      group: automation-sync-travny-tg-assistant
+      group: automation-sync-tg-assistant
       cancel-in-progress: false
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -328,7 +328,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
-      TELEGRAM_ASSISTANT_HEALTH_URL: https://travny-tg-assistant.travny.workers.dev/health
+      TELEGRAM_ASSISTANT_HEALTH_URL: https://tg-assistant.travny.workers.dev/health
     steps:
       - uses: actions/checkout@v7
         with:
@@ -337,7 +337,7 @@ jobs:
         shell: bash
         run: >-
           bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
-          travny-tg-assistant KANAREK_REVIEW_ROUTER_TOKEN KANAREK_REVIEW_ROUTER_TOKEN required
+          tg-assistant KANAREK_REVIEW_ROUTER_TOKEN KANAREK_REVIEW_ROUTER_TOKEN required
 
       - name: Verify Telegram assistant health
         shell: bash
@@ -346,7 +346,7 @@ jobs:
           for _attempt in {1..12}; do
             if curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
               "$TELEGRAM_ASSISTANT_HEALTH_URL" |
-              jq -e '.ok == true and .service == "travny-tg-assistant"' >/dev/null
+              jq -e '.ok == true and .service == "tg-assistant"' >/dev/null
             then
               exit 0
             fi

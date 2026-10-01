@@ -13,9 +13,9 @@
     "check": "npm run typecheck && npm test && wrangler deploy --dry-run --outdir dist"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260925.2",
+    "@cloudflare/workers-types": "5.20260928.1",
     "typescript": "7.0.2",
-    "wrangler": "4.141.0"
+    "wrangler": "4.143.0"
   },
   "overrides": {
     "undici": "7.29.0"

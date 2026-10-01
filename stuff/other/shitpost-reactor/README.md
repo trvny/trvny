@@ -5,7 +5,7 @@ Small scheduled shitpost generator and public feed. GitHub Actions is the only c
 ## Flow
 
 1. `.github/workflows/shitpost-reactor.yml` runs daily at **21:37 Europe/Warsaw** or manually with an optional topic. The lightweight job stays on `ubuntu-slim`.
-2. `generate.mjs` downloads `trvny/.ai/skills/edgy-dark-meme.zip` and extracts `SKILL.md` at runtime. The prompt is not copied into this repo.
+2. `generate.mjs` downloads `trvny/.ai/skills/edgy-dark-meme.zip` and extracts `SKILL.md` at runtime. The skill is advisory style material only; the Reactor owns the prompt and output contract.
 3. The Action calls the authenticated public proxy at `kanarek-companion.travny.workers.dev` with synthetic model `kanarek-review-free`.
 4. `kanarek-companion` forwards the call through its same-account Service Binding to private `kanarek-review`, which owns the free provider order, credentials, cooldowns and Workers AI fallback.
 5. The draft is validated and saved as `latest.json` plus a readable `latest.md`.
@@ -37,19 +37,17 @@ RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categor
 
 ## Output
 
-The model must return one JSON object with:
+New records use schema v2 and contain only finished publishable content:
 
-- `dialect`
-- `format`
-- `caption`
-- `visual`
-- `alt_text`
+- `{"kind":"text","text":"..."}` for a standalone post;
+- `{"kind":"meme","template":"...","top_text":"...","bottom_text":"..."}` for a classic meme macro rendered through `api.memegen.link`.
 
-The artifact adds generation time, actual provider/model metadata and a SHA-256 of the loaded skill. Invalid model output fails the run instead of becoming publishable content.
+There is no generated `dialect`, `format`, `visual` or `alt_text` taxonomy anymore. The model sees the canonical style skill as optional inspiration, not as a response schema. The Worker still reads schema v1 so already-published posts remain valid.
 
+Scheduled runs use `auto`, deterministically choosing text or meme from the run seed. Manual runs can force `auto`, `text` or `meme`.
 ## Manual run
 
-Use **Actions → Shitpost Reactor → Run workflow** on `main` and optionally provide a topic. Scheduled runs deliberately use evergreen Polish tech/work/internet absurdity instead of inventing current news.
+Use **Actions → Shitpost Reactor → Run workflow** on `main`, optionally provide a topic, and choose `auto`, `text` or `meme`. Scheduled runs deliberately use evergreen Polish tech/work/internet absurdity instead of inventing current news.
 
 For local testing:
 

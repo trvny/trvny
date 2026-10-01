@@ -12,14 +12,8 @@ const post = {
   model: 'free-model',
   skill: { source: 'https://example.test/skill.zip', sha256: 'abc' },
   topic: null,
-  schema_version: 1,
-  meme: {
-    dialect: 'dzida-core',
-    format: 'fake-ui',
-    caption: 'deploy przeszedł. aplikacja nie.',
-    visual: 'okno błędu',
-    alt_text: 'okno błędu',
-  },
+  schema_version: 2,
+  content: { kind: 'text', text: 'deploy przeszedł. aplikacja nie.' },
 };
 
 test('feed title drops the trvny prefix and feeds carry icon metadata', () => {

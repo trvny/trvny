@@ -10,6 +10,15 @@ on:
         description: Optional topic or setup for this one draft
         required: false
         type: string
+      mode:
+        description: Output type
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - text
+          - meme
 
 permissions:
   contents: read
@@ -29,6 +38,7 @@ jobs:
     env:
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       SHITPOST_TOPIC: ${{ github.event.inputs.topic || '' }}
+      SHITPOST_MODE: ${{ github.event.inputs.mode || 'auto' }}
       SHITPOST_PUBLISH_URL: https://shitpost.trfny.com/api/publish
       SHITPOST_PUBLISH_AUDIENCE: https://shitpost.trfny.com
     steps:

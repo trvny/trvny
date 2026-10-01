@@ -66,7 +66,7 @@ Cloudflare/TypeScript runtime.
 This Worker intentionally does not own another copy of the free-provider stack.
 
 ```text
-travny-tg-assistant
+tg-assistant
         │ service binding
         ▼
 kanarek-companion /review-router/v1/chat/completions
@@ -163,7 +163,7 @@ Deploy:
 npm run deploy
 ```
 
-The first deployment can run on Workers AI alone. After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `travny-tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated.
+The first deployment can run on Workers AI alone. After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated.
 
 Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, `stopped_message_generation`, `guest_message`, `business_connection`, and `business_message` updates:
 
@@ -212,7 +212,7 @@ Recommended monorepo settings:
 
 | Setting | Value |
 | --- | --- |
-| Worker name | `travny-tg-assistant` |
+| Worker name | `tg-assistant` |
 | Repository | `trvny/trvny` |
 | Production branch | `main` |
 | Root directory | `tg-bots/cloudflare-assistant` |
@@ -319,3 +319,6 @@ Non-retryable configuration/4xx errors are also copied to the DLQ and acknowledg
 - API keys never belong in source control;
 - `/draft` produces text only and never sends messages on the owner's behalf;
 - automatic replies to third parties are intentionally not enabled in this MVP.
+### Worker rename
+
+The Worker is `tg-assistant`; its existing `travny-tg-assistant-updates` queues and Durable Object namespaces keep their names and stored data. Use `https://tg-assistant.travny.workers.dev/telegram/webhook` for Telegram webhook registration and `/mini-app` for the menu button. Renaming the Worker does not update Telegram URLs: run `npm run webhook:set -- https://tg-assistant.travny.workers.dev/telegram/webhook` with the existing local credentials, then check `npm run webhook:info`. Do not recreate queues or Durable Objects to match the new display name.

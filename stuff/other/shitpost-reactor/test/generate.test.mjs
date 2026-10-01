@@ -73,7 +73,7 @@ test('validateMeme rejects missing fields', () => {
 });
 
 test('requestCompletion keeps provider metadata without exposing the token', async () => {
-  const fakeFetch = async (_url, init) => {
+  const fakeFetch = (_url, init) => {
     assert.match(init.headers.authorization, /^Bearer /);
     return new Response(JSON.stringify({
       model: 'free-model',

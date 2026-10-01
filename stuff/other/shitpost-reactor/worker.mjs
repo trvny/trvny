@@ -3,7 +3,7 @@ import { getMemeTemplate, memeImageUrl } from './templates.mjs';
 
 const SITE_URL = 'https://shitpost.trfny.com';
 const FEED_TITLE = 'Shitpost Reactor';
-const FEED_DESCRIPTION = 'Automatycznie generowane polskie shitposty z Shitpost Reactora.';
+const FEED_DESCRIPTION = 'Automatycznie generowane shitposty z Shitpost Reactora.';
 const FEED_LIMIT = 50;
 const INDEX_LIMIT = 250;
 const MAX_BODY_BYTES = 64 * 1024;
@@ -259,7 +259,6 @@ export function renderRss(posts) {
     <title>${escapeXml(FEED_TITLE)}</title>
     <link>${escapeXml(`${SITE_URL}/`)}</link>
     <description>${escapeXml(FEED_DESCRIPTION)}</description>
-    <language>pl-PL</language>
     <lastBuildDate>${escapeXml(new Date(latest).toUTCString())}</lastBuildDate>
     <generator>trvny/shitpost-reactor</generator>
     <ttl>5</ttl>
@@ -294,7 +293,7 @@ export function renderAtom(posts) {
   </entry>`;
   }).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="pl">
+<feed xmlns="http://www.w3.org/2005/Atom">
   <title>${escapeXml(FEED_TITLE)}</title>
   <subtitle>${escapeXml(FEED_DESCRIPTION)}</subtitle>
   <id>${escapeXml(`${SITE_URL}/`)}</id>

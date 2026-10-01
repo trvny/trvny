@@ -211,6 +211,7 @@ export type Env = {
   TELEGRAM_WATCHES: DurableObjectNamespaceLike;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
+  TELEGRAM_WEBHOOK_URL?: string;
   INGEST_SECRET?: string;
   OWNER_TELEGRAM_USER_ID?: string;
   TELEGRAM_OWNER_CHAT_ID?: string;

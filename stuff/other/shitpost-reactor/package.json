@@ -1,10 +1,15 @@
 {
   "name": "trvny-shitpost-reactor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
     "generate": "node generate.mjs",
-    "test": "node --test test/*.test.mjs"
+    "publish": "node publish.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "npm test && wrangler deploy --dry-run --outdir dist"
+  },
+  "devDependencies": {
+    "wrangler": "4.142.0"
   }
 }

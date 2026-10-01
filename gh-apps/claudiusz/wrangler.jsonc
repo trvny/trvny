@@ -12,7 +12,7 @@
     "logs": {
       "enabled": true,
       "head_sampling_rate": 0.01,
-      "persist": true,
+      "persist": false,
       // Off: the token arrives in the URL path and would land in invocation logs.
       "invocation_logs": false
     }

@@ -28,7 +28,6 @@ jobs:
     env:
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       SHITPOST_TOPIC: ${{ github.event.inputs.topic || '' }}
-      SHITPOST_OUTPUT_DIR: ${{ runner.temp }}/shitpost-reactor
     steps:
       - uses: actions/checkout@v7
         with:
@@ -43,6 +42,8 @@ jobs:
 
       - name: Generate draft
         shell: bash
+        env:
+          SHITPOST_OUTPUT_DIR: ${{ runner.temp }}/shitpost-reactor
         run: |
           set -euo pipefail
           : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"

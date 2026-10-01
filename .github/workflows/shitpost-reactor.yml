@@ -1,0 +1,58 @@
+name: Shitpost Reactor
+
+on:
+  schedule:
+    - cron: "37 21 * * *"
+      timezone: "Europe/Warsaw"
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: Optional topic or setup for this one draft
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shitpost-reactor
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: stuff/other/shitpost-reactor
+    env:
+      KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
+      SHITPOST_TOPIC: ${{ github.event.inputs.topic || '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Test generator
+        run: npm test
+
+      - name: Generate draft
+        shell: bash
+        env:
+          SHITPOST_OUTPUT_DIR: ${{ runner.temp }}/shitpost-reactor
+        run: |
+          set -euo pipefail
+          : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
+          npm run generate
+
+      - name: Upload draft
+        uses: actions/upload-artifact@v7
+        with:
+          name: shitpost-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/shitpost-reactor/
+          if-no-files-found: error
+          retention-days: 14

@@ -3,6 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { z } from "zod";
 import { REMOTE_DIRECT_TOOLS, remoteDirectCallSchema, remoteResultSchema } from "../src/remote-protocol.js";
 import { PET_COCKPIT_HTML, PET_COCKPIT_URI } from "./cockpit.js";
+import type { RecentTaskSnapshot } from "./recent-task-index.js";
 
 export interface ControlRpcResult {
   status: number;
@@ -11,6 +12,7 @@ export interface ControlRpcResult {
 
 export interface ControlMcpOperations {
   meta(): Promise<ControlRpcResult>;
+  recentTasks(limit: number): Promise<RecentTaskSnapshot[]>;
   delegate(task: unknown, idempotencyKey?: string): Promise<ControlRpcResult>;
   direct(value: unknown, idempotencyKey?: string): Promise<ControlRpcResult>;
   getTask(taskId: string): Promise<ControlRpcResult>;
@@ -104,6 +106,10 @@ const taskOutputSchema = z.object({
   httpStatus: z.number().int().min(100).max(599),
   body: taskBodySchema,
 }).strict();
+const recentTasksSchema = z.array(taskBodySchema.omit({ result: true }).extend({
+  result: z.object({ status: z.string(), summary: z.string().max(2_000), commit: z.string().optional(), exportedRef: z.string().optional(), error: z.string().max(1_000).optional() }).strict().optional(),
+})).max(20);
+const cockpitOutputSchema = metaOutputSchema.extend({ tasks: recentTasksSchema });
 
 function terminalBody(body: unknown): boolean {
   if (!body || typeof body !== "object") return false;
@@ -228,7 +234,7 @@ function createServer(operations: ControlMcpOperations): McpServer {
   server.registerTool("pet_cockpit_open", {
     description: "Open the Pet Dispatcher Cockpit UI. Use the focused data tools for normal conversational status answers instead.",
     inputSchema: z.object({}).strict(),
-    outputSchema: metaOutputSchema,
+    outputSchema: cockpitOutputSchema,
     annotations: { title: "Open Pet Dispatcher Cockpit", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     _meta: {
       ui: { resourceUri: PET_COCKPIT_URI, visibility: ["app"] },
@@ -236,7 +242,19 @@ function createServer(operations: ControlMcpOperations): McpServer {
       "openai/toolInvocation/invoking": "Opening Pet Dispatcher...",
       "openai/toolInvocation/invoked": "Pet Dispatcher ready.",
     },
-  }, async () => asToolResult(await operations.meta(), true));
+  }, async () => {
+    const [meta, tasks] = await Promise.all([operations.meta(), operations.recentTasks(20)]);
+    const result = asToolResult(meta, true);
+    return meta.status < 400 ? { ...result, structuredContent: { ...result.structuredContent, tasks } } : result;
+  });
+
+  server.registerTool("pet_recent_tasks", {
+    description: "List up to 20 recent tasks from the canonical control-plane task index, including bounded result summaries.",
+    inputSchema: z.object({ limit: z.number().int().min(1).max(20).default(10) }).strict(),
+    outputSchema: z.object({ tasks: recentTasksSchema }).strict(),
+    annotations: { title: "Recent Pet tasks", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    _meta: { ui: { visibility: ["model", "app"] } },
+  }, async ({ limit }) => ({ content: [{ type: "text", text: "Recent Pet Dispatcher tasks." }], structuredContent: { tasks: await operations.recentTasks(limit) } }));
 
   server.registerTool("pet_meta", {
     description: "Use this when target aliases, device freshness, capabilities, active work, or sandbox status are needed. Do not use it as a mandatory preflight for every Pet Dispatcher call.",

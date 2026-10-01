@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { deflateRawSync } from 'node:zlib';
 import {
   buildMessages,
   extractZipEntry,
@@ -9,15 +10,16 @@ import {
   validateMeme,
 } from '../generate.mjs';
 
-function storedZip(name, text) {
+function zipEntry(name, text, method = 0) {
   const nameBytes = Buffer.from(name);
   const body = Buffer.from(text);
+  const compressed = method === 8 ? deflateRawSync(body) : body;
   const local = Buffer.alloc(30 + nameBytes.length);
   local.writeUInt32LE(0x04034b50, 0);
   local.writeUInt16LE(20, 4);
   local.writeUInt16LE(0, 6);
-  local.writeUInt16LE(0, 8);
-  local.writeUInt32LE(body.length, 18);
+  local.writeUInt16LE(method, 8);
+  local.writeUInt32LE(compressed.length, 18);
   local.writeUInt32LE(body.length, 22);
   local.writeUInt16LE(nameBytes.length, 26);
   nameBytes.copy(local, 30);
@@ -27,8 +29,8 @@ function storedZip(name, text) {
   central.writeUInt16LE(20, 4);
   central.writeUInt16LE(20, 6);
   central.writeUInt16LE(0, 8);
-  central.writeUInt16LE(0, 10);
-  central.writeUInt32LE(body.length, 20);
+  central.writeUInt16LE(method, 10);
+  central.writeUInt32LE(compressed.length, 20);
   central.writeUInt32LE(body.length, 24);
   central.writeUInt16LE(nameBytes.length, 28);
   central.writeUInt32LE(0, 42);
@@ -39,13 +41,18 @@ function storedZip(name, text) {
   eocd.writeUInt16LE(1, 8);
   eocd.writeUInt16LE(1, 10);
   eocd.writeUInt32LE(central.length, 12);
-  eocd.writeUInt32LE(local.length + body.length, 16);
-  return Buffer.concat([local, body, central, eocd]);
+  eocd.writeUInt32LE(local.length + compressed.length, 16);
+  return Buffer.concat([local, compressed, central, eocd]);
 }
 
 test('extractZipEntry reads the canonical SKILL.md entry', () => {
-  const archive = storedZip('SKILL.md', '# skill\nhello');
+  const archive = zipEntry('SKILL.md', '# skill\nhello');
   assert.equal(extractZipEntry(archive, 'SKILL.md').toString('utf8'), '# skill\nhello');
+});
+
+test('extractZipEntry inflates a deflated SKILL.md entry', () => {
+  const archive = zipEntry('SKILL.md', '# compressed skill\nhello', 8);
+  assert.equal(extractZipEntry(archive, 'SKILL.md').toString('utf8'), '# compressed skill\nhello');
 });
 
 test('buildMessages embeds the skill and requests one JSON object', () => {

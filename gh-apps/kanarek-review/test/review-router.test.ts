@@ -91,6 +91,65 @@ test('review router rejects an invalid bearer before provider access', async () 
   assert.equal(calls, 0);
 });
 
+test('free router skips a successful provider response with no assistant content', async () => {
+  const calls: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'write one short quip' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key',
+  }, ((input: RequestInfo | URL) => {
+    const url = String(input);
+    calls.push(url);
+    if (url.includes('openrouter.ai')) {
+      return Promise.resolve(Response.json({
+        model: 'empty-free-model',
+        choices: [{ finish_reason: 'length', message: { role: 'assistant', content: '' } }],
+      }));
+    }
+    return Promise.resolve(Response.json({
+      model: 'fallback-free-model',
+      choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: 'fallback worked' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.deepEqual(calls, [
+    'https://openrouter.ai/api/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
+  ]);
+  const payload = (await response?.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  assert.equal(payload.choices?.[0]?.message?.content, 'fallback worked');
+});
+
+test('free router preserves an explicit refusal instead of bypassing it', async () => {
+  let calls = 0;
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'request' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key',
+  }, (() => {
+    calls += 1;
+    return Promise.resolve(Response.json({
+      choices: [{ message: { role: 'assistant', content: null, refusal: 'Cannot comply.' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.equal(calls, 1);
+});
+
 test('review router excludes the reviewer provider for an independent judge call', async () => {
   const calls: string[] = [];
   const judgeRequest = new Request(endpoint, {
@@ -180,7 +239,7 @@ test('review router prefers OpenRouter before the paid review reserves', async (
       model: body.model,
       authorization: new Headers(init?.headers).get('authorization'),
     };
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
@@ -387,7 +446,7 @@ test('free router contract never spends DeepSeek or Gemini paid reserves', async
     ...auth, DEEPSEEK_API_KEY: 'deepseek-key', GEMINI_API_KEY: 'gemini-key',
   }, (() => {
     calls += 1;
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 503);
@@ -413,7 +472,7 @@ test('review router normalizes Copilot tool follow-ups for free providers', asyn
   }), { ...auth, OPENROUTER_API_KEY: 'openrouter-key' }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { messages?: unknown[] };
     messages = body.messages ?? [];
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
   assert.equal(response?.status, 200);
   const assistant = messages[1] as Record<string, unknown>;
@@ -431,7 +490,7 @@ test('review router uses the OrcaRouter auto resolver', async () => {
       url: String(input), model: body.model, models: body.models,
       authorization: headers.get('authorization'),
     });
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch;
 
   const response = await handleReviewRouterRequest(request(), {
@@ -467,7 +526,7 @@ test('judge-style fake call falls through after OrcaRouter rejects an oversized 
     if (url.includes('orcarouter.ai')) {
       return Promise.resolve(new Response('payload too large', { status: 413 }));
     }
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -502,7 +561,7 @@ test('OrcaRouter context-window rejection falls through without poisoning later 
         { status: 400 },
       ));
     }
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(first?.status, 200);
@@ -519,7 +578,7 @@ test('OrcaRouter context-window rejection falls through without poisoning later 
     messages: [{ role: 'user', content: 'compact judge request' }],
   }), env, ((input: RequestInfo | URL) => {
     secondUrls.push(String(input));
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(second?.status, 200);
@@ -544,7 +603,7 @@ test('OrcaRouter judge quota is cooled down and the fake judge falls through', a
     const url = String(input);
     firstUrls.push(url);
     if (url.includes('orcarouter.ai')) return Promise.resolve(new Response('quota', { status: 429 }));
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(first?.status, 200);
@@ -561,7 +620,7 @@ test('OrcaRouter judge quota is cooled down and the fake judge falls through', a
     messages: [{ role: 'user', content: 'judge these findings again' }],
   }), env, ((input: RequestInfo | URL) => {
     retryUrls.push(String(input));
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(retry?.status, 200);
@@ -659,7 +718,7 @@ test('review router honors the shared configured OpenRouter model chain', async 
     KANAREK_OPENROUTER_MODELS: 'first/free, second/free,first/free',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -713,7 +772,7 @@ test('review router cools down a quota-limited provider across Copilot retries',
   const first = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
     firstUrls.push(String(input));
     if (firstUrls.length <= 1) return Promise.resolve(new Response('quota', { status: 429 }));
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
   assert.equal(first?.status, 200);
   assert.deepEqual(firstUrls, [
@@ -724,7 +783,7 @@ test('review router cools down a quota-limited provider across Copilot retries',
   const retryUrls: string[] = [];
   const retry = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
     retryUrls.push(String(input));
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
   assert.equal(retry?.status, 200);
   assert.deepEqual(retryUrls, ['https://api.orcarouter.ai/v1/chat/completions']);
@@ -751,7 +810,7 @@ test('review router fails fast while the whole free pool is quota-cooled', async
 
   const retry = await handleReviewRouterRequest(request(), env, (() => {
     calls += 1;
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
   assert.equal(retry?.status, 429);
   assert.equal(calls, 3);
@@ -800,7 +859,7 @@ test('review router prefers HTTP free providers before guarded Workers AI', asyn
     OPENROUTER_API_KEY: 'openrouter-key',
   }, (() => {
     httpCalls += 1;
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -959,7 +1018,7 @@ test('review router falls through provider authentication errors', async () => {
   }, ((input: RequestInfo | URL) => {
     urls.push(String(input));
     if (urls.length === 1) return Promise.resolve(new Response('forbidden', { status: 403 }));
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -974,7 +1033,7 @@ test('review router retries OpenRouter primary-only after a fallback-chain 400',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     bodies.push(JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown });
     if (bodies.length === 1) return Promise.resolve(new Response('fallback list rejected', { status: 400 }));
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -993,7 +1052,7 @@ test('review router falls through after both OpenRouter 400 attempts fail', asyn
     if (new URL(String(input)).hostname === 'openrouter.ai') {
       return Promise.resolve(new Response('model rejected request', { status: 400 }));
     }
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -1012,7 +1071,7 @@ test('review router follows configured free provider order and appends omitted p
   };
   const response = await handleReviewRouterRequest(request(), env, ((input: RequestInfo | URL) => {
     urls.push(String(input));
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -1039,7 +1098,7 @@ test('review router reaches OrcaRouter as the last resort after AIHubMix fails',
   }, ((input: RequestInfo | URL) => {
     urls.push(String(input));
     if (urls.length <= 1) return Promise.resolve(new Response('busy', { status: 503 }));
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -1063,7 +1122,7 @@ test('review router tries Ollama models before Groq', async () => {
     if (String(input).startsWith('https://ollama.com/')) {
       return Promise.resolve(new Response('model unavailable', { status: 404 }));
     }
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -1091,7 +1150,7 @@ test('review router uses Vercel AI Gateway after Groq quota', async () => {
     if (String(input).startsWith('https://api.groq.com/')) {
       return Promise.resolve(new Response('quota', { status: 429 }));
     }
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
@@ -1139,7 +1198,7 @@ test('review router uses Hugging Face PublicAI as the final HTTP reserve', async
     if (String(input).startsWith('https://api.orcarouter.ai/')) {
       return Promise.resolve(new Response('quota', { status: 429 }));
     }
-    return Promise.resolve(new Response('{"choices":[]}', { status: 200 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);

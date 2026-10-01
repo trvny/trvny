@@ -371,6 +371,27 @@ function normalizeProviderInput(input: JsonObject): JsonObject {
   return changed ? { ...input, messages } : input;
 }
 
+function usableFreeCompletionPayload(value: unknown): boolean {
+  if (!isObject(value) || !Array.isArray(value.choices)) return false;
+  return value.choices.some((choice) => {
+    if (!isObject(choice) || !isObject(choice.message)) return false;
+    const message = choice.message;
+    if (typeof message.content === 'string' && message.content.trim()) return true;
+    if (typeof message.refusal === 'string' && message.refusal.trim()) return true;
+    if (Array.isArray(message.tool_calls) && message.tool_calls.length > 0) return true;
+    return isObject(message.function_call);
+  });
+}
+
+async function usableFreeCompletionResponse(response: Response, input: JsonObject): Promise<boolean> {
+  if (input.model !== REVIEW_ROUTER_FREE_MODEL || input.stream === true) return true;
+  try {
+    return usableFreeCompletionPayload(await response.clone().json());
+  } catch {
+    return false;
+  }
+}
+
 function authorized(request: Request, env: ReviewRouterEnv): boolean {
   return bearerAuthorized(request, env.KANAREK_REVIEW_ROUTER_TOKEN);
 }
@@ -1007,6 +1028,19 @@ export async function handleReviewRouterRequest(
               }));
               break;
             }
+          }
+          if (!(await usableFreeCompletionResponse(response, input))) {
+            await discard(response);
+            providerFailureCategory = 'invalid_response';
+            providerInvalidRequest = false;
+            console.warn(JSON.stringify({
+              kanarekReviewRouter: 'provider_failed',
+              provider: provider.id,
+              category: providerFailureCategory,
+              attempt: attempt.label,
+              model: attempt.model,
+            }));
+            break;
           }
           clearTimeout(timeout);
           console.info(JSON.stringify({

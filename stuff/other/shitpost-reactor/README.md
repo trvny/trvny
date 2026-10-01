@@ -22,14 +22,16 @@ The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROU
 - `https://shitpost.trfny.com/feed.xml` — RSS compatibility alias;
 - `https://shitpost.trfny.com/atom.xml` — Atom 1.0;
 - `https://shitpost.trfny.com/feed.json` — JSON Feed 1.1;
-- `https://shitpost.trfny.com/sitemap.xml` and `/robots.txt` — discovery helpers;
+- `https://shitpost.trfny.com/sitemap.xml`, `/robots.txt` and `/llms.txt` — crawler and agent discovery;
+- `/site.webmanifest` and `/browserconfig.xml` — installability/platform metadata;
+- `/favicon.svg`, classic `/favicon.ico`, PNG favicon sizes, Apple touch icon and manifest icons — one generated icon propagated across browsers, feeds and install surfaces;
 - `/posts/gh-<run_id>-<run_attempt>` — stable canonical page for each published entry.
 
-RSS and Atom expose self-links, stable entry IDs/URLs, publication dates, categories, content and correct feed MIME types. The Worker keeps the newest 250 entries in its index and emits up to 50 in feeds.
+RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categories and icon metadata. RSS and Atom also expose self-links and content with the correct feed MIME types. The Worker keeps the newest 250 entries in its index and emits up to 50 in feeds. The visible archive header intentionally omits the descriptive subtitle; the description remains available to metadata, feeds and crawlers.
 
 ## Worker
 
-`worker.mjs` is intentionally read-mostly. The only write route is `POST /api/publish`, accepted only with a valid GitHub Actions OIDC token from the scheduled/manual workflow on `main`. A repeated request from the same GitHub run/attempt is idempotent.
+`worker.mjs` is intentionally read-mostly. `icons.mjs` is the single generated-icon implementation used for SVG, PNG, ICO, Apple touch, Windows tile and manifest surfaces. The only write route is `POST /api/publish`, accepted only with a valid GitHub Actions OIDC token from the scheduled/manual workflow on `main`. A repeated request from the same GitHub run/attempt is idempotent.
 
 `wrangler.jsonc` binds the R2 bucket and configures Workers Logs at **1%** (`head_sampling_rate: 0.01`), with invocation logs and traces disabled. `shitpost.trfny.com` is the production custom domain; `workers.dev` remains available as an emergency/debug route.
 

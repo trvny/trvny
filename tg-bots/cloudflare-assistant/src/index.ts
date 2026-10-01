@@ -105,6 +105,7 @@ import {
   TelegramConfigurationError,
   TelegramSendError,
 } from "./telegram";
+import { healTelegramWebhook } from "./webhook-heal";
 import type {
   Env,
   QueueBatch,
@@ -2554,7 +2555,17 @@ export default {
     }
   },
 
-  async scheduled(_controller: unknown, env: Env): Promise<void> {
+  async scheduled(controller: unknown, env: Env): Promise<void> {
+    const scheduledTime = (controller as { scheduledTime?: number } | undefined)?.scheduledTime ?? Date.now();
+    try {
+      await healTelegramWebhook(env, scheduledTime, {
+        fetcher: (input, init) => fetch(input, init),
+        setWebhook: syncTelegramWebhook,
+        setMenu: syncTelegramMiniAppMenu,
+      });
+    } catch (error) {
+      console.warn("Telegram webhook heal failed", error);
+    }
     await processTaskNotifications(env);
     await processDueReminders(env);
     await processConditionWatches(env, sendTelegramMessage);

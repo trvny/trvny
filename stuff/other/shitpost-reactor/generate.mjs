@@ -90,7 +90,7 @@ export async function loadSkill(skillUrl = DEFAULT_SKILL_URL, fetchImpl = fetch)
 
 export function buildMessages(skill, topic = '', seed = '', mode = 'text', template = null) {
   const chosenTopic = topic.trim() || [
-    'Wymyśl sam konkretny temat z codziennej technologii, pracy, polskiego internetu, biurokracji albo zwykłej życiowej porażki.',
+    'Wymyśl sam konkretny temat z internetu, technologii, pracy, codzienności, popkultury, gier, biurokracji albo dowolnego absurdu, który daje dobry shitpost.',
     'Nie opieraj żartu na bieżącej wiadomości, której nie dostałeś w promptcie.',
   ].join(' ');
 
@@ -99,7 +99,7 @@ export function buildMessages(skill, topic = '', seed = '', mode = 'text', templ
     : 'Zwróć wyłącznie JSON: {"kind":"text","text":"..."}. Pole text ma być całym gotowym shitpostem i niczym więcej.';
 
   const rules = [
-    'Tworzysz jeden oryginalny polski shitpost. Humor ma być szeroko rozumiany i zryty: absurdalny, internetowy, deadpan, antyhumorystyczny albo celowo głupi.',
+    'Tworzysz jeden oryginalny shitpost. Język jest dowolny: polski, angielski, mieszany, slang, brainrot albo cokolwiek najlepiej niesie żart. Humor ma być szeroko rozumiany i zryty: absurdalny, internetowy, deadpan, antyhumorystyczny albo celowo głupi.',
     'Ma być śmieszne jako gotowy post, nie jako opis pomysłu. Nie tłumacz żartu, nie opisuj procesu i nie dodawaj etykiet typu dialekt, archetyp albo format.',
     'Załączony skill jest wyłącznie dodatkowym źródłem inspiracji i wskazówek o tonie. Nie kopiuj jego schematu, nazw sekcji, dialektów, formatów ani archetypów. Jeśli jego struktura przeszkadza żartowi, zignoruj ją.',
     'Nie kopiuj istniejących postów ani catchphrase 1:1.',

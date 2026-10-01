@@ -93,7 +93,7 @@ export function buildMessages(skill, topic = '', seed = '') {
     'Nie opieraj żartu na bieżącej wiadomości, której nie dostałeś w promptcie.',
   ].join(' ');
 
-  const system = `${skill.trim()}\n\n## Automation overlay\n\n` + [
+  const overlay = [
     'Tworzysz jeden najmocniejszy, oryginalny polski shitpost, nie trzy warianty.',
     'Wybierz najwyżej dwa dialekty ze skilla i jeden format archetypowy.',
     'To jest automatyczny draft do późniejszej publikacji, więc nie targetuj prywatnych osób, grup chronionych ani rozpoznawalnych ofiar świeżych tragedii.',
@@ -103,6 +103,7 @@ export function buildMessages(skill, topic = '', seed = '') {
     'Pola: dialect, format, caption, visual, alt_text. Wszystkie wartości muszą być niepustymi stringami.',
     'caption ma być gotowym tekstem mema, najlepiej do 280 znaków. visual ma być krótką instrukcją renderu. alt_text ma opisywać obraz bez powtarzania całego żartu.',
   ].join('\n');
+  const system = `${skill.trim()}\n\n## Automation overlay\n\n${overlay}`;
 
   const user = [
     `TEMAT: ${chosenTopic}`,
@@ -241,14 +242,14 @@ export async function main() {
     await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8');
   }
 
-  console.log(`shitpost generated via ${record.provider}/${record.model}`);
-  console.log(`artifact: ${resolve(outputDir, 'latest.json')}`);
+  process.stdout.write(`shitpost generated via ${record.provider}/${record.model}\n`);
+  process.stdout.write(`artifact: ${resolve(outputDir, 'latest.json')}\n`);
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : '';
 if (invokedPath && fileURLToPath(import.meta.url) === invokedPath) {
   main().catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error));
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;
   });
 }

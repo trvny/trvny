@@ -154,16 +154,16 @@ test('an unusable free-router quip still lets the next provider answer', async (
     '{}',
     {
       KANAREK_REVIEW_SERVICE: {
-        fetch: async () => Response.json({
+        fetch: () => Promise.resolve(Response.json({
           choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: 'Too short.' } }],
-        }),
+        })),
       },
       OPENAI_API_KEY: 'paid-fallback',
       KANAREK_PROVIDER_ORDER: 'free-router,openai',
     },
-    (async () => {
+    (() => {
       directCalls += 1;
-      return Response.json({ status: 'completed', output_text: quip });
+      return Promise.resolve(Response.json({ status: 'completed', output_text: quip }));
     }) as typeof fetch,
   );
 

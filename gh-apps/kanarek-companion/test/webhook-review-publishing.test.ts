@@ -467,9 +467,9 @@ test('provider sweep excludes providers with unusable output until one verifies'
     { kind: 'ok', review: { ...sweepReview('not in the diff'), provider: 'orcarouter' } },
     { kind: 'ok', review: { ...sweepReview('  const result = unsafeCall(input);'), provider: 'openrouter' } },
   ];
-  const result = await sweepReviewProviders(async (excluded) => {
+  const result = await sweepReviewProviders((excluded) => {
     seen.push([...excluded]);
-    return outcomes.shift() ?? { kind: 'unavailable' };
+    return Promise.resolve<ReviewRouterOutcome>(outcomes.shift() ?? { kind: 'unavailable' });
   }, sweepFiles);
 
   assert.deepEqual(seen, [[], ['aihubmix'], ['aihubmix', 'orcarouter']]);
@@ -484,7 +484,7 @@ test('provider sweep stops on an exhausted pool and keeps the last rejected revi
     { kind: 'unavailable' },
   ];
   const result = await sweepReviewProviders(
-    async () => outcomes.shift() ?? { kind: 'unavailable' },
+    () => Promise.resolve(outcomes.shift() ?? { kind: 'unavailable' }),
     sweepFiles,
   );
   assert.equal(result.attempts, 2);
@@ -494,9 +494,9 @@ test('provider sweep stops on an exhausted pool and keeps the last rejected revi
 
 test('provider sweep accepts a clean review without asking anyone else', async () => {
   let calls = 0;
-  const result = await sweepReviewProviders(async () => {
+  const result = await sweepReviewProviders(() => {
     calls += 1;
-    return { kind: 'ok', review: { model: null, provider: 'vercel', parsed: { summary: '', findings: [] } } };
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'ok', review: { model: null, provider: 'vercel', parsed: { summary: '', findings: [] } } });
   }, sweepFiles);
   assert.equal(calls, 1);
   assert.equal(result.disposition, 'clean');
@@ -504,17 +504,17 @@ test('provider sweep accepts a clean review without asking anyone else', async (
 
 test('provider sweep cannot loop on an unidentified or repeated provider', async () => {
   let calls = 0;
-  const unknown = await sweepReviewProviders(async () => {
+  const unknown = await sweepReviewProviders(() => {
     calls += 1;
-    return { kind: 'invalid', provider: 'free-router' };
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: 'free-router' });
   }, sweepFiles);
   assert.equal(calls, 1);
   assert.equal(unknown.generated, null);
 
   calls = 0;
-  await sweepReviewProviders(async () => {
+  await sweepReviewProviders(() => {
     calls += 1;
-    return { kind: 'invalid', provider: 'groq' };
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: 'groq' });
   }, sweepFiles);
   assert.equal(calls, 2);
 });
@@ -522,17 +522,17 @@ test('provider sweep cannot loop on an unidentified or repeated provider', async
 test('provider sweep respects attempt and time budgets', async () => {
   let calls = 0;
   let clock = 0;
-  await sweepReviewProviders(async () => {
+  await sweepReviewProviders(() => {
     calls += 1;
     clock += 4 * 60_000;
-    return { kind: 'invalid', provider: `p${calls}` };
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: `p${calls}` });
   }, sweepFiles, { now: () => clock });
   assert.equal(calls, 2);
 
   calls = 0;
-  await sweepReviewProviders(async () => {
+  await sweepReviewProviders(() => {
     calls += 1;
-    return { kind: 'invalid', provider: `p${calls}` };
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: `p${calls}` });
   }, sweepFiles, { maxAttempts: 3 });
   assert.equal(calls, 3);
 });

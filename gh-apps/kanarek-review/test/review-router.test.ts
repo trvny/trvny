@@ -1904,3 +1904,36 @@ test('review router classifies a failed Workers AI budget reservation as transie
   assert.equal(response?.status, 502);
   assert.deepEqual(cooldownCategories, ['network']);
 });
+
+test('review router skips every provider in a comma-separated exclusion sweep', async () => {
+  const calls: string[] = [];
+  const response = await handleReviewRouterRequest(new Request(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${routerToken}`,
+      'Content-Type': 'application/json',
+      [REVIEW_PROVIDER_EXCLUDE_HEADER]: 'openrouter, ORCAROUTER,unknown',
+    },
+    body: JSON.stringify({
+      model: 'kanarek-review-free',
+      stream: false,
+      messages: [{ role: 'user', content: 'review' }],
+    }),
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key',
+    GROQ_API_KEY: 'groq-key',
+  }, ((input: RequestInfo | URL) => {
+    calls.push(String(input));
+    return Promise.resolve(Response.json({
+      model: 'groq/model',
+      choices: [{ message: { role: 'assistant', content: '{}' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'groq');
+  assert.equal(calls.length, 1);
+  assert.match(calls[0] ?? '', /groq/);
+});

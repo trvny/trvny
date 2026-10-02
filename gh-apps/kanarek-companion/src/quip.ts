@@ -801,6 +801,7 @@ async function requestXai(
 }
 
 interface ProviderCandidate {
+  free?: boolean;
   label: string;
   request: () => Promise<ProviderResult>;
 }
@@ -813,6 +814,7 @@ function providerCandidates(
   const candidates = new Map<ProviderSlot, ProviderCandidate>();
   if (env.KANAREK_REVIEW_SERVICE && providerEnabled(env.KANAREK_FREE_ROUTER_ENABLED)) {
     candidates.set('free-router', {
+      free: true,
       label: 'Kanarek free router',
       request: () => requestFreeRouter(facts, env),
     });
@@ -884,6 +886,12 @@ export async function aiQuip(
       const reason = result.complete
         ? `unusable quip (${result.text.length} chars)`
         : `incomplete generation (${result.finishReason ?? 'unknown reason'})`;
+      // A parsed paid response was billed; never pay a second provider for the
+      // same quip. An unusable free-router answer cost nothing, so move on.
+      if (candidate.free && hasFallback) {
+        console.warn(`${providerLabel} returned ${reason}; trying next provider.`); // skipcq: JS-0002 Cloudflare Worker runtime observability.
+        continue;
+      }
       console.warn(`${providerLabel} returned ${reason}; using bank/preset.`);
       return null;
     } catch (error) {

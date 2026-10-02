@@ -197,23 +197,28 @@ type JsonObject = Record<string, unknown>;
 
 type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'huggingface-publicai' | 'deepseek' | 'gemini-flex' | 'workers-ai';
 
-function excludedProvider(request: Request): ReviewProviderId | null {
-  const value = request.headers.get(REVIEW_PROVIDER_EXCLUDE_HEADER)?.trim().toLowerCase();
-  if (
-    value === 'aihubmix' ||
-    value === 'openrouter' ||
-    value === 'orcarouter' ||
-    value === 'ollama' ||
-    value === 'groq' ||
-    value === 'vercel' ||
-    value === 'huggingface-publicai' ||
-    value === 'deepseek' ||
-    value === 'gemini-flex' ||
-    value === 'workers-ai'
-  ) {
-    return value;
+const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
+  'aihubmix',
+  'openrouter',
+  'orcarouter',
+  'ollama',
+  'groq',
+  'vercel',
+  'huggingface-publicai',
+  'deepseek',
+  'gemini-flex',
+  'workers-ai',
+]);
+
+// Comma-separated so a caller can sweep the pool one provider at a time; a
+// single id (the judge's independence exclusion) is the one-element case.
+export function excludedProviders(request: Request): ReadonlySet<ReviewProviderId> {
+  const excluded = new Set<ReviewProviderId>();
+  for (const raw of request.headers.get(REVIEW_PROVIDER_EXCLUDE_HEADER)?.split(',') ?? []) {
+    const value = raw.trim().toLowerCase();
+    if (REVIEW_PROVIDER_IDS.has(value)) excluded.add(value as ReviewProviderId);
   }
-  return null;
+  return excluded;
 }
 
 type ReviewProvider = {
@@ -1356,7 +1361,7 @@ export async function handleReviewRouterRequest(
   const workOnly = input.model === REVIEW_ROUTER_WORK_MODEL;
   const includePaidReserves = input.model === REVIEW_ROUTER_REVIEW_MODEL;
   const task = reviewRouterTaskProfile(input.model);
-  const excluded = excludedProvider(request);
+  const excluded = excludedProviders(request);
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
@@ -1367,7 +1372,7 @@ export async function handleReviewRouterRequest(
       ? paidProviders(env)
       : providers(env, includePaidReserves, task);
   for (const provider of selectedProviders) {
-    if (provider.id === excluded) {
+    if (excluded.has(provider.id)) {
       console.info(JSON.stringify({
         kanarekReviewRouter: 'provider_excluded', provider: provider.id,
       }));
@@ -1542,7 +1547,7 @@ export async function handleReviewRouterRequest(
   }
 
 
-  if (!paidOnly && !workOnly && workersAiEnabled(env) && excluded !== 'workers-ai') {
+  if (!paidOnly && !workOnly && workersAiEnabled(env) && !excluded.has('workers-ai')) {
     configured += 1;
     const provider: ReviewProviderId = 'workers-ai';
     const workersModel = workersAiModel(env);

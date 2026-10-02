@@ -10,6 +10,7 @@ on: # yamllint disable-line rule:truthy
       - "gh-apps/kanarek-companion/src/**"
       - "gh-apps/kanarek-companion/package.json"
       - "gh-apps/kanarek-companion/wrangler.jsonc"
+      - "gh-apps/shitpost-reactor/**"
       - ".github/workflows/gh-apps-ci.yml"
   pull_request:
     branches: [main]
@@ -20,6 +21,7 @@ on: # yamllint disable-line rule:truthy
       - "gh-apps/kanarek-companion/src/**"
       - "gh-apps/kanarek-companion/package.json"
       - "gh-apps/kanarek-companion/wrangler.jsonc"
+      - "gh-apps/shitpost-reactor/**"
       - ".github/workflows/gh-apps-ci.yml"
   workflow_dispatch:
 
@@ -47,6 +49,7 @@ jobs:
           cache-dependency-path: |
             gh-apps/claudiusz/package-lock.json
             gh-apps/gremlin-operator/package-lock.json
+            gh-apps/shitpost-reactor/package-lock.json
 
       - name: Select affected apps
         id: scope
@@ -62,10 +65,12 @@ jobs:
 
           claudiusz=false
           gremlin=false
+          shitpost=false
 
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             claudiusz=true
             gremlin=true
+            shitpost=true
             files=""
           else
             if [[ "$EVENT_NAME" == "pull_request" ]]; then
@@ -79,6 +84,7 @@ jobs:
             if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
               claudiusz=true
               gremlin=true
+              shitpost=true
               files=""
             else
               files="$(git diff --name-only "$base" "$head")"
@@ -87,6 +93,7 @@ jobs:
             if grep -qx '.github/workflows/gh-apps-ci.yml' <<<"$files"; then
               claudiusz=true
               gremlin=true
+              shitpost=true
             fi
 
             if grep -Eq '^gh-apps/kanarek-companion/src/github-app\.ts$|^gh-apps/kanarek-companion/package\.json$' <<<"$files"; then
@@ -99,15 +106,22 @@ jobs:
             if grep -Eq '^gh-apps/gremlin-operator/|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
               gremlin=true
             fi
+            if grep -Eq '^gh-apps/shitpost-reactor/' <<<"$files"; then
+              shitpost=true
+            fi
           fi
 
-          echo "claudiusz=$claudiusz" >> "$GITHUB_OUTPUT"
-          echo "gremlin=$gremlin" >> "$GITHUB_OUTPUT"
+          {
+            echo "claudiusz=$claudiusz"
+            echo "gremlin=$gremlin"
+            echo "shitpost=$shitpost"
+          } >> "$GITHUB_OUTPUT"
           {
             echo "### GitHub Apps CI scope"
             echo
             echo "- Claudiusz: $claudiusz"
             echo "- Gremlin Operator: $gremlin"
+            echo "- Shitpost Reactor: $shitpost"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check Claudiusz
@@ -120,6 +134,13 @@ jobs:
       - name: Check Gremlin Operator
         if: steps.scope.outputs.gremlin == 'true'
         working-directory: gh-apps/gremlin-operator
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Shitpost Reactor
+        if: steps.scope.outputs.shitpost == 'true'
+        working-directory: gh-apps/shitpost-reactor
         run: |
           npm ci
           npm run check

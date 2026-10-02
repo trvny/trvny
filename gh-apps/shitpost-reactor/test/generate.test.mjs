@@ -67,6 +67,7 @@ test('buildMessages treats the skill as advice instead of an output schema', () 
   assert.match(messages[0].content, /absurdalny/);
   assert.match(messages[0].content, /Język jest dowolny/);
   assert.match(messages[0].content, /Priorytetem jest jakość i puenta/);
+  assert.match(messages[0].content, /Budżet generacji jest po to, żeby myśleć/);
   assert.match(messages[0].content, /Nie dobijaj do żadnego limitu/);
   assert.match(messages[0].content, /Quality kernel/);
   assert.match(messages[0].content, /Receipt check/);
@@ -197,7 +198,7 @@ test('requestCompletion keeps provider metadata without exposing the token', asy
   const fakeFetch = (_url, init) => {
     assert.match(init.headers.authorization, /^Bearer /);
     const body = JSON.parse(init.body);
-    assert.equal(body.max_tokens, 2_048);
+    assert.equal(body.max_tokens, 8_192);
     return new Response(JSON.stringify({
       model: 'free-model',
       choices: [{ message: { content: '{"kind":"text","text":"x"}' } }],

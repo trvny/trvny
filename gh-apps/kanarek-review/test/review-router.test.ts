@@ -6,6 +6,8 @@ import {
   REVIEW_ROUTER_MODEL_DEFAULTS,
   reviewFreeProbeTimeoutMs,
   reviewProviderPoolHealth,
+  reviewRouterTaskProfile,
+  taskProviderTimeoutMs,
 } from '../src/review-router.ts';
 import { ReviewProviderCooldownStore } from '../../kanarek-companion/src/review-cooldown-store.ts';
 import { REVIEW_PROVIDER_EXCLUDE_HEADER } from '../../kanarek-companion/src/review-service-protocol.ts';
@@ -440,6 +442,20 @@ test('review router uses Gemini 3.8 Flash Flex as an optional reserve', async ()
 });
 
 
+test('paid review contract uses the review task profile while work stays separate', () => {
+  assert.equal(reviewRouterTaskProfile('kanarek-review-paid'), 'review');
+  assert.equal(reviewRouterTaskProfile('kanarek-work-paid'), 'general');
+});
+
+test('task timeout policy is patient only where latency is acceptable', () => {
+  assert.equal(taskProviderTimeoutMs(10_000, 'general'), 10_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'quip'), 10_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review'), 60_000);
+  assert.equal(taskProviderTimeoutMs(30_000, 'judge'), 60_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'shitpost'), 120_000);
+  assert.equal(taskProviderTimeoutMs(180_000, 'shitpost'), 180_000);
+});
+
 test('free router contract never spends DeepSeek or Gemini paid reserves', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(request(routerToken, {
@@ -607,6 +623,29 @@ test('quip profile lowers Groq reasoning and omits it for unsupported models', a
     'openai/gpt-oss-120b',
     'llama-3.3-70b-versatile',
   ]);
+});
+
+test('shitpost profile gives supported Groq models high reasoning effort', async () => {
+  let effort: unknown;
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-shitpost-free',
+    stream: false,
+    max_tokens: 8_192,
+    messages: [{ role: 'user', content: 'take your time and make one good joke' }],
+  }), {
+    ...auth,
+    GROQ_API_KEY: 'groq-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    effort = body.reasoning_effort;
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(effort, 'high');
 });
 
 test('AIHubMix shares one model pool but orders it by task', async () => {
@@ -1549,10 +1588,10 @@ test('Vercel falls back to Qwen after a Hy3 network failure', async () => {
   assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
 });
 
-test('Vercel gives each model attempt its own timeout controller', async () => {
+test('Vercel timeout exhausts the shared provider deadline instead of resetting for fallback models', async () => {
   const calls: string[] = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
-    model: 'kanarek-code-review-free',
+    model: 'kanarek-review-free',
     stream: false,
     max_tokens: 512,
     messages: [{ role: 'user', content: 'request' }],
@@ -1563,22 +1602,15 @@ test('Vercel gives each model attempt its own timeout controller', async () => {
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: string };
     calls.push(body.model ?? '');
-    if (body.model === 'tencent/hy3') {
-      return new Promise<Response>((_resolve, reject) => {
-        init?.signal?.addEventListener('abort', () => {
-          reject(new DOMException('timed out', 'AbortError'));
-        }, { once: true });
-      });
-    }
-    assert.equal(init?.signal?.aborted, false);
-    return Promise.resolve(Response.json({
-      model: body.model,
-      choices: [{ message: { role: 'assistant', content: 'qwen after timeout' } }],
-    }));
+    return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('timed out', 'AbortError'));
+      }, { once: true });
+    });
   }) as typeof fetch);
 
-  assert.equal(response?.status, 200);
-  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
+  assert.equal(response?.status, 502);
+  assert.deepEqual(calls, ['tencent/hy3']);
 });
 
 test('Hy3 preserves the larger of both OpenAI token ceiling fields', async () => {

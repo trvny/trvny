@@ -620,10 +620,10 @@ function workersAiDailyNeuronLimit(env: ReviewRouterEnv): number {
   return Math.min(parsed, MAX_WORKERS_AI_DAILY_NEURONS);
 }
 
-function workersAiNeuronReservation(input: ChatCompletionsInput): number {
+function workersAiNeuronReservation(input: ChatCompletionsInput, env: ReviewRouterEnv): number {
   const maxTokens = typeof input.max_tokens === 'number'
     ? input.max_tokens
-    : WORKERS_AI_MAX_OUTPUT_TOKENS;
+    : workersAiMaxOutputTokens(env);
   // UTF-8 bytes are deliberately used as a conservative upper bound for input tokens.
   // Over-reserving can only stop this free-tier guard earlier; under-reserving could spend.
   const conservativeInputTokens = new TextEncoder().encode(JSON.stringify(input)).byteLength;
@@ -654,7 +654,7 @@ async function reserveWorkersAiNeurons(
   if (!stub) return { status: 'unavailable' };
   const reservation: WorkersAiReservation = {
     day: new Date().toISOString().slice(0, 10),
-    neurons: workersAiNeuronReservation(input),
+    neurons: workersAiNeuronReservation(input, env),
     reservationId: crypto.randomUUID(),
   };
   try {
@@ -1335,7 +1335,7 @@ export async function handleReviewRouterRequest(
                   timeoutMs(env),
                 );
               }),
-            ]);
+            ]) as ChatCompletionsOutput;
             await settleWorkersAiNeurons(
               env,
               reservation,

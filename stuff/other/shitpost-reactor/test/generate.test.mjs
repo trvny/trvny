@@ -63,7 +63,10 @@ test('buildMessages treats the skill as advice instead of an output schema', () 
   assert.match(messages[0].content, /zryty/);
   assert.match(messages[0].content, /absurdalny/);
   assert.match(messages[0].content, /Język jest dowolny/);
+  assert.match(messages[0].content, /Priorytetem jest jakość i puenta/);
+  assert.match(messages[0].content, /Nie dobijaj do żadnego limitu/);
   assert.doesNotMatch(messages[0].content, /oryginalny polski shitpost/);
+  assert.doesNotMatch(messages[0].content, /700/);
   assert.match(messages[0].content, /"kind":"text"/);
   assert.doesNotMatch(messages[0].content, /Wybierz najwyżej dwa dialekty/);
   assert.match(messages[1].content, /Teams o 07:59/);
@@ -80,6 +83,18 @@ test('buildMessages pins a meme template and asks only for overlay text', () => 
 test('parseContent accepts a text shitpost', () => {
   const content = parseContent('{"kind":"text","text":"deploy przeszedł. aplikacja nie."}', { mode: 'text' });
   assert.deepEqual(content, { kind: 'text', text: 'deploy przeszedł. aplikacja nie.' });
+});
+
+test('validateContent treats text length as a soft writing target with a roomy safety ceiling', () => {
+  const longButReasonable = 'x'.repeat(1_200);
+  assert.equal(
+    validateContent({ kind: 'text', text: longButReasonable }, { mode: 'text' }).text.length,
+    1_200,
+  );
+  assert.throws(
+    () => validateContent({ kind: 'text', text: 'x'.repeat(2_401) }, { mode: 'text' }),
+    /content_invalid_text_length/,
+  );
 });
 
 test('validateContent accepts a pinned meme and rejects invented templates', () => {
@@ -112,6 +127,8 @@ test('memeImageUrl produces a stateless image URL', () => {
 test('requestCompletion keeps provider metadata without exposing the token', async () => {
   const fakeFetch = (_url, init) => {
     assert.match(init.headers.authorization, /^Bearer /);
+    const body = JSON.parse(init.body);
+    assert.equal(body.max_tokens, 2_048);
     return new Response(JSON.stringify({
       model: 'free-model',
       choices: [{ message: { content: '{"kind":"text","text":"x"}' } }],

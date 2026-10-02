@@ -147,6 +147,30 @@ test('prefers the shared free router before direct paid providers', async () => 
   assert.equal(messages[1].content, '{}');
 });
 
+test('an unusable free-router quip still lets the next provider answer', async () => {
+  const quip = 'Kanarek asks the next wire politely after the free pool mumbled something.';
+  let directCalls = 0;
+  const result = await aiQuip(
+    '{}',
+    {
+      KANAREK_REVIEW_SERVICE: {
+        fetch: async () => Response.json({
+          choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: 'Too short.' } }],
+        }),
+      },
+      OPENAI_API_KEY: 'paid-fallback',
+      KANAREK_PROVIDER_ORDER: 'free-router,openai',
+    },
+    (async () => {
+      directCalls += 1;
+      return Response.json({ status: 'completed', output_text: quip });
+    }) as typeof fetch,
+  );
+
+  assert.equal(result, quip);
+  assert.equal(directCalls, 1);
+});
+
 test('uses no reasoning for default OpenAI quip models', async () => {
   let requestBody: Record<string, unknown> | null = null;
   const fetcher = (async (_input: RequestInfo | URL, init?: RequestInit) => {

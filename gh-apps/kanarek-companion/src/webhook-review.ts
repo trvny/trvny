@@ -42,6 +42,10 @@ const MAX_CONTEXT_BLOB_BYTES = 192_000;
 const MAX_TREE_PATHS = 2_000;
 const MAX_TREE_CHARS = 24_000;
 const MAX_FINDINGS = 8;
+// Free pool is ~8 providers incl. Workers AI; stop starting new attempts after
+// six minutes so the alarm stays well inside the Durable Object wall budget.
+const REVIEW_SWEEP_MAX_ATTEMPTS = 8;
+const REVIEW_SWEEP_BUDGET_MS = 6 * 60_000;
 const MAX_CALLER_TARGETS = 2;
 const MAX_CALLER_CANDIDATES = 6;
 const MAX_CALLERS_PER_TARGET = 5;
@@ -1495,21 +1499,33 @@ async function askReviewJudge(
   return { findings: judged, model, provider };
 }
 
+type RouterReview = { model: string | null; parsed: ParsedReview; provider: string };
+
+export type ReviewRouterOutcome =
+  | { kind: 'ok'; review: RouterReview }
+  | { kind: 'invalid'; provider: string }
+  | { kind: 'unavailable' };
+
 async function askReviewRouter(
   prompt: string,
   env: WebhookReviewEnv,
   routerModel = REVIEW_ROUTER_REVIEW_MODEL,
-): Promise<{ model: string | null; parsed: ParsedReview; provider: string } | null> {
+  excludedProviders: readonly string[] = [],
+): Promise<ReviewRouterOutcome> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
-  if (!token) return null;
+  if (!token) return { kind: 'unavailable' };
 
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+  if (excludedProviders.length) {
+    headers[REVIEW_PROVIDER_EXCLUDE_HEADER] = excludedProviders.join(',');
+  }
   const response = await handleReviewRouterViaService(
     new Request(`${INTERNAL_REVIEW_ORIGIN}${REVIEW_ROUTER_PATH}`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         model: routerModel,
         stream: false,
@@ -1527,11 +1543,12 @@ async function askReviewRouter(
       JSON.stringify({
         kanarekWebhookReview: 'providers_unavailable',
         routerModel,
+        excludedProviders,
         status: response?.status ?? 500,
       }),
     );
     await response?.body?.cancel();
-    return null;
+    return { kind: 'unavailable' };
   }
 
   const provider = response.headers.get('x-kanarek-review-provider') ?? 'free-router';
@@ -1545,7 +1562,7 @@ async function askReviewRouter(
         provider,
       }),
     );
-    return null;
+    return { kind: 'invalid', provider };
   }
   const parsed = parseReviewJson(completionText(payload));
   if (!parsed || !reviewTextIsChinese(parsed)) {
@@ -1555,13 +1572,62 @@ async function askReviewRouter(
         provider,
       }),
     );
-    return null;
+    return { kind: 'invalid', provider };
   }
   const model =
     typeof payload.model === 'string' && payload.model.trim()
       ? payload.model.trim().slice(0, 200)
       : null;
-  return { model, parsed, provider };
+  return { kind: 'ok', review: { model, parsed, provider } };
+}
+
+export interface ReviewSweepResult {
+  attempts: number;
+  disposition: 'clean' | 'invalid_findings' | 'publish' | null;
+  excluded: string[];
+  findings: ReviewFinding[];
+  generated: RouterReview | null;
+}
+
+/**
+ * Walks the router's provider queue one provider at a time. A provider whose
+ * output is unusable (bad JSON, wrong language, or findings that all fail the
+ * deterministic verifier) is excluded and the next one is asked, so the paid
+ * phase only runs once the whole free pool has had its turn. The router itself
+ * already skips providers that fail at the HTTP level.
+ */
+export async function sweepReviewProviders(
+  ask: (excluded: readonly string[]) => Promise<ReviewRouterOutcome>,
+  files: ReviewFile[],
+  options: { budgetMs?: number; maxAttempts?: number; now?: () => number } = {},
+): Promise<ReviewSweepResult> {
+  const maxAttempts = options.maxAttempts ?? REVIEW_SWEEP_MAX_ATTEMPTS;
+  const budgetMs = options.budgetMs ?? REVIEW_SWEEP_BUDGET_MS;
+  const now = options.now ?? Date.now;
+  const startedAt = now();
+  const excluded: string[] = [];
+  let attempts = 0;
+  let last: ReviewSweepResult | null = null;
+
+  while (attempts < maxAttempts && (attempts === 0 || now() - startedAt < budgetMs)) {
+    attempts += 1;
+    const outcome = await ask(excluded);
+    if (outcome.kind === 'unavailable') break;
+    const provider = outcome.kind === 'ok' ? outcome.review.provider : outcome.provider;
+    if (outcome.kind === 'ok') {
+      const findings = verifyReviewFindings(outcome.review.parsed, files);
+      const disposition = reviewDisposition(outcome.review.parsed.findings, findings);
+      last = { attempts, disposition, excluded: [...excluded], findings, generated: outcome.review };
+      if (disposition !== 'invalid_findings') return last;
+    }
+    // Without a concrete provider id the router cannot skip it next time.
+    if (provider === 'free-router' || excluded.includes(provider)) break;
+    excluded.push(provider);
+  }
+
+  return last
+    ? { ...last, attempts, excluded }
+    : { attempts, disposition: null, excluded, findings: [], generated: null };
 }
 
 function providerLabel(provider: string): string {
@@ -1820,11 +1886,29 @@ export async function runWebhookReview(
     callers,
     dependencyEvidence,
   );
-  const generated = await askReviewRouter(
-    reviewInput,
-    reviewEnv,
-    paidPhase ? REVIEW_ROUTER_PAID_MODEL : REVIEW_ROUTER_CODE_REVIEW_MODEL,
+  const sweep = await sweepReviewProviders(
+    (excluded) => askReviewRouter(
+      reviewInput,
+      reviewEnv,
+      paidPhase ? REVIEW_ROUTER_PAID_MODEL : REVIEW_ROUTER_CODE_REVIEW_MODEL,
+      excluded,
+    ),
+    files,
   );
+  const generated = sweep.generated;
+  if (sweep.attempts > 1) {
+    console.info(JSON.stringify({
+      kanarekWebhookReview: 'provider_sweep',
+      repository: target.repository,
+      pullRequestNumber: target.number,
+      headSha: target.headSha,
+      phase: paidPhase ? 'paid' : 'free',
+      attempts: sweep.attempts,
+      excluded: sweep.excluded,
+      provider: generated?.provider ?? null,
+      disposition: sweep.disposition,
+    }));
+  }
   if (!generated) {
     return {
       reviewed: false,
@@ -1834,8 +1918,8 @@ export async function runWebhookReview(
     };
   }
 
-  const findings = verifyReviewFindings(generated.parsed, files);
-  const disposition = reviewDisposition(generated.parsed.findings, findings);
+  const findings = sweep.findings;
+  const disposition = sweep.disposition;
   if (paidPhase) {
     console.info(JSON.stringify({
       kanarekWebhookReview: 'paid_escalation',
@@ -1946,7 +2030,7 @@ export async function runWebhookReview(
     const payload = {
       commit_id: target.headSha,
       event: 'COMMENT',
-      body: `${reviewMarker(target)}\n🐤 **Kanarek 免费代码审查** · ${reviewSourceLabel(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceLabel(judged.provider, judged.model)}` : ''}\n\n${summary}`,
+      body: `${reviewMarker(target)}\n🐤 **Kanarek ${paidPhase ? '' : '免费'}代码审查** · ${reviewSourceLabel(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceLabel(judged.provider, judged.model)}` : ''}\n\n${summary}`,
       comments: publishFindings.map((finding) => ({
         path: finding.path,
         line: finding.line,

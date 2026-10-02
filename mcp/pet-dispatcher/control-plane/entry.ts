@@ -475,6 +475,7 @@ async function recentTaskSnapshots(env: Env, limit = 10): Promise<RecentTaskSnap
 function mcpOperations(env: Env): ControlMcpOperations {
   return {
     meta: async () => ({ status: 200, body: await controlMeta(env) }),
+    recentTasks: (limit) => recentTaskSnapshots(env, limit),
     delegate: (value, key) => delegateAssistant(value, env, key),
     direct: async (value, key) => {
       const taskId = key ? await idempotentTaskId(key) : undefined;

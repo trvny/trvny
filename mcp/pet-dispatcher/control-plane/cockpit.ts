@@ -30,6 +30,14 @@ export const PET_COCKPIT_HTML = String.raw`
   .warn .dot { background: #d08b20; }
   .error { color: #c43b3b; white-space: pre-wrap; }
   code { font-size: .92em; }
+  input { font: inherit; color: CanvasText; background: Canvas; padding: 9px; border: 1px solid GrayText; border-radius: 8px; max-width: 100%; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .task { display: block; width: 100%; text-align: left; margin: 6px 0; overflow-wrap: anywhere; }
+  .task[aria-pressed="true"] { outline: 2px solid Highlight; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; max-height: 320px; overflow: auto; }
+  .split { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; }
+  button:disabled { opacity: .5; cursor: default; }
+  @media(max-width:600px) { .split { grid-template-columns: 1fr; } body { padding: 12px; } }
 </style>
 </head>
 <body>
@@ -65,6 +73,21 @@ export const PET_COCKPIT_HTML = String.raw`
     <div class="muted" id="sandbox">-</div>
   </section>
 
+  <section class="split">
+    <div class="card"><h2>Recent tasks</h2><div id="tasks" class="muted">Loading tasks...</div></div>
+    <div class="card"><h2>Task result</h2><div id="task-status" class="muted">Select a task.</div><pre id="task-result"></pre>
+      <button id="cancel-task" type="button" disabled>Request cancellation</button>
+    </div>
+  </section>
+  <section class="card"><h2>Sessions</h2>
+    <div class="row"><button id="load-sessions" type="button" disabled>Load selected target sessions</button><span id="session-status" class="muted">Select a target.</span></div>
+    <div id="session-list"></div>
+    <form id="finish-form" hidden><p id="finish-info" class="muted"></p>
+      <label>Commit message <input id="finish-message" required maxlength="500" placeholder="Describe the finished work"></label>
+      <p class="muted">Finish stages changes, commits or exports them when applicable, and closes this session.</p>
+      <button id="finish-session" type="submit">Finish selected session</button>
+    </form>
+  </section>
   <div id="error" class="error" role="alert"></div>
 </main>
 <script>
@@ -74,6 +97,14 @@ export const PET_COCKPIT_HTML = String.raw`
   var selectedTarget = null;
   var initialized = false;
   var hasSnapshot = false;
+  var stale = true;
+  var selectedTask = null;
+  var selectedSession = null;
+  var sessionGeneration = 0;
+  var taskGeneration = 0;
+  var actionBusy = false;
+  var interactiveReady = false;
+  var sessionsLoading = false;
 
   function request(method, params, timeoutMs) {
     var id = nextId++;
@@ -130,15 +161,26 @@ export const PET_COCKPIT_HTML = String.raw`
   }
 
   function setInteractive(value) {
+    interactiveReady = value;
     document.getElementById("refresh").disabled = !value;
     document.querySelectorAll(".target").forEach(function (button) {
       button.disabled = !value;
     });
+    syncSessionControls();
+  }
+
+  function syncSessionControls() {
+    document.getElementById("load-sessions").disabled = !interactiveReady || !selectedTarget || stale || actionBusy || sessionsLoading;
+    document.getElementById("finish-session").disabled = !interactiveReady || stale || actionBusy || !selectedSession || selectedSession.finishable !== true;
   }
 
   function render(result) {
     var body = metaBody(result);
     if (!body) return;
+    stale = body.stale;
+    syncSessionControls();
+    if (stale) text("session-status", "Worker offline or stale; session inventory is unavailable.");
+    if (result.structuredContent && Array.isArray(result.structuredContent.tasks)) renderTasks(result.structuredContent.tasks);
     var status = document.getElementById("status");
     status.className = "status " + (body.stale ? "warn" : "ok");
     status.querySelector("span:last-child").textContent = body.stale ? "Worker metadata is stale" : "Worker online";
@@ -184,6 +226,12 @@ export const PET_COCKPIT_HTML = String.raw`
         structuredContent: { target: target }
       });
       selectedTarget = target;
+      sessionGeneration++;
+      selectedSession = null;
+      document.getElementById("session-list").textContent = "";
+      document.getElementById("finish-form").hidden = true;
+      syncSessionControls();
+      text("session-status", stale ? "Worker offline or stale; session inventory is unavailable." : "Load sessions for " + target + ".");
       text("selection", "Selected target: " + target);
       document.querySelectorAll(".target").forEach(function (button) {
         button.setAttribute("aria-pressed", String(button.textContent === target));
@@ -201,14 +249,153 @@ export const PET_COCKPIT_HTML = String.raw`
     var button = document.getElementById("refresh");
     button.disabled = true;
     try {
-      var result = await request("tools/call", { name: "pet_meta", arguments: {} });
+      // pet_meta remains the focused conversational status tool.
+      var result = await request("tools/call", { name: "pet_cockpit_open", arguments: {} });
       handleToolResult(result);
+      if (selectedTask) await showTask(selectedTask);
     } catch (error) {
       text("error", "Snapshot not updated. Refresh failed: " + String(error));
     } finally {
       button.disabled = false;
     }
   }
+
+  async function call(name, args) {
+    var result = await request("tools/call", { name: name, arguments: args }, 60000);
+    if (!result || (result.isError && !(result.structuredContent && result.structuredContent.body && result.structuredContent.body.taskId))) throw new Error(resultErrorText(result));
+    var structured = result.structuredContent;
+    if (!structured) throw new Error("No structured result returned.");
+    if (typeof structured.httpStatus === "number" && (structured.httpStatus < 200 || structured.httpStatus >= 300) && !(structured.body && structured.body.taskId)) throw new Error("Tool returned HTTP " + structured.httpStatus);
+    return structured.body || structured;
+  }
+
+  function renderTasks(tasks) {
+    var root = document.getElementById("tasks");
+    root.textContent = tasks.length ? "" : "No recent tasks.";
+    tasks.forEach(function (task) {
+      var button = document.createElement("button");
+      button.type = "button"; button.className = "task";
+      button.textContent = task.status + " · " + task.taskId + (task.result ? "\n" + task.result.summary : "");
+      button.setAttribute("aria-pressed", String(task.taskId === selectedTask));
+      button.onclick = function () { showTask(task.taskId).catch(report); };
+      root.appendChild(button);
+    });
+  }
+
+  function report(error) { text("error", String(error)); }
+
+  async function showTask(taskId) {
+    var generation = ++taskGeneration;
+    selectedTask = taskId;
+    document.getElementById("cancel-task").disabled = true;
+    text("task-status", "Loading " + taskId + "...");
+    text("task-result", "");
+    var task;
+    try {
+      task = await call("pet_task_get", { taskId: taskId, debug: true });
+    } catch (error) {
+      if (generation !== taskGeneration) return;
+      text("task-status", "Failed to load " + taskId + ".");
+      report(error);
+      return;
+    }
+    if (generation !== taskGeneration) return;
+    text("task-status", task.status + " · " + taskId);
+    text("task-result", task.result ? JSON.stringify(task.result, null, 2) : "No result yet. Refresh to check progress.");
+    document.getElementById("cancel-task").disabled = actionBusy || !["queued", "leased", "running"].includes(task.status);
+    document.querySelectorAll(".task").forEach(function (button) { button.setAttribute("aria-pressed", String(button.textContent.includes(taskId))); });
+  }
+
+  async function resolveQueued(task, generation) {
+    // Poll only the already accepted task. Never replay a session operation.
+    for (var attempt = 0; attempt < 15 && ["queued", "leased", "running"].includes(task.status); attempt++) {
+      await new Promise(function (resolve) { setTimeout(resolve, 2000); });
+      if (generation !== sessionGeneration) return null;
+      task = await call("pet_task_get", { taskId: task.taskId, debug: true });
+    }
+    return task;
+  }
+
+  async function loadSessions() {
+    if (!interactiveReady || !selectedTarget || stale || actionBusy || sessionsLoading) return;
+    sessionsLoading = true;
+    var generation = ++sessionGeneration;
+    selectedSession = null;
+    document.getElementById("finish-form").hidden = true;
+    document.getElementById("session-list").textContent = "";
+    syncSessionControls();
+    text("session-status", "Loading sessions...");
+    try {
+      var task = await call("pet_direct", { target: selectedTarget, tool: "session.list", args: {}, waitSeconds: 0, debug: true });
+      task = await resolveQueued(task, generation);
+      if (!task || generation !== sessionGeneration) return;
+      if (task.status !== "completed" || !task.result || !task.result.data || !Array.isArray(task.result.data.sessions)) {
+        throw new Error("Session inventory unavailable. Task " + task.taskId + ": " + task.status + ". Check Recent tasks.");
+      }
+      var sessions = task.result.data.sessions.filter(function (session) { return session.alias === selectedTarget || session.repo === selectedTarget; });
+      text("session-status", sessions.length + " session(s) for " + selectedTarget + (sessions.length > 100 ? " · showing first 100" : ""));
+      sessions.slice(0, 100).forEach(function (session) {
+        var button = document.createElement("button");
+        button.className = "task"; button.type = "button";
+        button.textContent = session.id + " · " + (session.writable ? "writable" : "read only") + " · expires " + session.expiresAt + (session.finishable === true ? "" : " · finish unavailable");
+        button.disabled = session.finishable !== true;
+        button.onclick = function () {
+          if (!interactiveReady || stale || actionBusy || session.finishable !== true) return;
+          selectedSession = session;
+          text("finish-info", "Selected session: " + session.id);
+          document.getElementById("finish-form").hidden = false;
+          document.getElementById("finish-message").value = "";
+          syncSessionControls();
+        };
+        document.getElementById("session-list").appendChild(button);
+      });
+    } catch (error) { report(error); text("session-status", "Session inventory not updated."); }
+    finally { sessionsLoading = false; syncSessionControls(); }
+  }
+
+  document.getElementById("load-sessions").onclick = loadSessions;
+  document.getElementById("cancel-task").onclick = async function () {
+    if (!selectedTask || actionBusy) return;
+    actionBusy = true; this.disabled = true;
+    var taskId = selectedTask;
+    var cancellationError = null;
+    try { await call("pet_task_cancel", { taskId: taskId }); if (selectedTask === taskId) await showTask(taskId); }
+    catch (error) { cancellationError = error; }
+    finally { actionBusy = false; await refresh(); if (cancellationError) report(cancellationError); }
+  };
+  document.getElementById("finish-form").onsubmit = async function (event) {
+    event.preventDefault();
+    var message = document.getElementById("finish-message").value.trim();
+    if (!interactiveReady || !selectedSession || selectedSession.finishable !== true || !message || stale || actionBusy) return;
+    actionBusy = true;
+    document.getElementById("finish-session").disabled = true;
+    document.getElementById("load-sessions").disabled = true;
+    setInteractive(false);
+    var generation = ++sessionGeneration;
+    var actionNotice = null;
+    try {
+      var task;
+      try {
+        task = await call("pet_session_finish", { target: selectedTarget, sessionId: selectedSession.id, message: message, idempotencyKey: crypto.randomUUID(), waitSeconds: 0, debug: true });
+      } catch (error) {
+        // An uncertain transport response must not enable an automatic retry.
+        selectedSession = null;
+        document.getElementById("finish-form").hidden = true;
+        actionNotice = "Finish response unavailable: " + error + ". Refresh tasks and sessions before deciding on another action.";
+        return;
+      }
+      text("session-status", "Finish task: " + task.taskId + " · " + task.status + ". Check Recent tasks for the result.");
+      selectedSession = null;
+      document.getElementById("finish-form").hidden = true;
+      document.getElementById("session-list").textContent = "";
+      try {
+        await showTask(task.taskId);
+        await resolveQueued(task, generation);
+      } catch (error) {
+        actionNotice = "Finish submitted as task " + task.taskId + ", but progress is unavailable: " + error + ". Refresh tasks and sessions.";
+      }
+    } finally { actionBusy = false; setInteractive(true); await refresh(); if (actionNotice) report(actionNotice); }
+  };
 
   async function initialize() {
     setInteractive(false);

@@ -68,9 +68,9 @@ function utf8Tail(value: string, maxBytes: number): { text: string; truncated: b
 function boundUtf8(value: string, maxBytes: number, mode: "head" | "tail") {
   return mode === "head" ? utf8Head(value, maxBytes) : utf8Tail(value, maxBytes);
 }
-function publicDirectSession(session: Session) {
+function publicDirectSession(session: Session, finishable = false) {
   return {
-    id: session.id, repo: session.repo, alias: session.repo, targetKind: session.targetKind ?? "repository", writable: session.writable ?? true,
+    id: session.id, repo: session.repo, alias: session.repo, targetKind: session.targetKind ?? "repository", writable: session.writable ?? true, finishable,
     initialCommit: session.targetKind !== "workspace" ? session.initialCommit : undefined,
     network: session.network, exportedCommit: session.exportedCommit, exportedRef: session.exportedRef,
     createdAt: session.createdAt, expiresAt: session.expiresAt,
@@ -185,7 +185,10 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       }
     }
     if (call.tool === "session.list") {
-      const value = this.sessions.list().map(publicDirectSession);
+      const value = this.sessions.list().map((session) => {
+        const lease = this.#directSessions.get(session.id);
+        return publicDirectSession(session, session.writable !== false && lease !== undefined && lease.repo === session.repo && lease.expiresAt > Date.now());
+      });
       return { status: "completed", summary: "Active Pet Dispatcher sessions listed.", data: { sessions: value } };
     }
     if (call.tool === "session.reclaim") {

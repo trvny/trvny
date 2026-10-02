@@ -106,6 +106,29 @@ test("direct system.status answers without opening a session or touching the rep
   } finally { await cleanup(state); }
 });
 
+test("session inventory marks only active direct writer leases as finishable", async () => {
+  const state = await fixture();
+  const executor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
+  const inventory = async () => dataOf<{ sessions: Array<{ id: string; finishable: boolean }> }>(await executor.execute(directTask({ tool: "session.list" }), "inventory")).sessions;
+  try {
+    const reader = await state.sessions.openRead("fixture");
+    const delegated = await state.sessions.open("fixture");
+    let listed = await inventory();
+    assert.equal(listed.find((session) => session.id === reader.id)?.finishable, false);
+    assert.equal(listed.find((session) => session.id === delegated.id)?.finishable, false);
+    await state.sessions.close(delegated.id, true);
+    const opened = await executor.execute(directTask({ tool: "session.open", ttlMinutes: 30 }, true), "open-direct");
+    const { sessionId } = dataOf<{ sessionId: string }>(opened);
+    listed = await inventory();
+    assert.equal(listed.find((session) => session.id === sessionId)?.finishable, true);
+    assert.equal(listed.find((session) => session.id === reader.id)?.finishable, false);
+    const restartedExecutor = new ConfinedRemoteExecutor(state.config, state.sessions, {} as never);
+    const recovered = dataOf<{ sessions: Array<{ id: string; finishable: boolean }> }>(await restartedExecutor.execute(directTask({ tool: "session.list" }), "recovered")).sessions;
+    assert.equal(recovered.find((session) => session.id === sessionId)?.finishable, false);
+    await executor.execute(directTask({ tool: "session.close", sessionId, discard: true }, true), "close-direct");
+  } finally { await cleanup(state); }
+});
+
 test("direct workspace.exec reuses a write session without depending on Git inside MXC", { skip: process.platform !== "win32" }, async () => {
   const state = await fixture();
   const runner = await CommandRunner.create(state.config, state.sessions);

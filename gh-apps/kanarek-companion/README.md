@@ -106,8 +106,11 @@ through the private `KANAREK_REVIEW_SERVICE` binding.
 `KANAREK_REPOSITORIES` controls status-companion scope.
 `KANAREK_REVIEW_REPOSITORIES` controls review scope independently.
 
-Safe same-repository PRs may be updated to the base branch when CI and review are
-settled. The GitHub App needs `Pull requests: write` and `Contents: write`.
+Safe same-repository PRs may be updated to the base branch when CI is green,
+no review requests changes, and no Kanarek review job is still in flight for the
+current head. Bot-authored PRs (Dependabot and friends) are never updated. A
+finished review job pokes the companion so the update does not wait for another
+GitHub event. The GitHub App needs `Pull requests: write` and `Contents: write`.
 Set `KANAREK_UPDATE_BRANCH=false` to disable this.
 
 ## GPTomek

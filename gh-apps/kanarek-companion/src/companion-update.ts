@@ -17,6 +17,12 @@ function disabled(value: string | undefined): boolean {
   return value ? FALSE_VALUES.has(value.trim().toLowerCase()) : false;
 }
 
+// Bots own their branches: a merge commit from Kanarek makes Dependabot stop
+// rebasing/recreating its PR, and other bots re-push anyway.
+export function botAuthored(pr: Pick<PullRequest, 'user'>): boolean {
+  return pr.user?.type === 'Bot' || Boolean(pr.user?.login?.endsWith('[bot]'));
+}
+
 export function shouldUpdateBranch(
   pr: PullRequest,
   branch: BranchState,
@@ -25,16 +31,19 @@ export function shouldUpdateBranch(
   repository: string,
   ciRequired: boolean,
   env: Pick<CompanionEnv, 'KANAREK_UPDATE_BRANCH'>,
+  kanarekReviewSettled = true,
 ): boolean {
   if (disabled(env.KANAREK_UPDATE_BRANCH)) return false;
   if (pr.state !== 'open' || pr.draft || pr.merged) return false;
+  if (botAuthored(pr)) return false;
   if (branch.behind === null || branch.behind <= 0) return false;
   if (pr.head.repo?.full_name?.toLowerCase() !== repository.toLowerCase()) return false;
   if (pr.mergeable !== true || pr.mergeable_state === 'dirty') return false;
   if (ci.pending.length || ci.failed.length) return false;
   if (ciRequired && ci.total === 0) return false;
   if (review.changes > 0) return false;
-  return true;
+  // A new head restarts CI and the Kanarek review; never cut one short.
+  return kanarekReviewSettled;
 }
 
 function hasWritePermission(

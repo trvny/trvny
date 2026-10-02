@@ -7,6 +7,7 @@ import {
   reviewDisposition,
   reviewJudgeThreshold,
   reviewSourceLabel,
+  reviewSweepMaxAttempts,
   sweepReviewProviders,
   verifyReviewFindings,
   type ReviewRouterOutcome,
@@ -490,6 +491,24 @@ test('provider sweep stops on an exhausted pool and keeps the last rejected revi
   assert.equal(result.attempts, 2);
   assert.equal(result.disposition, 'invalid_findings');
   assert.equal(result.generated?.provider, 'groq');
+});
+
+test('paid phase never pays a second provider after an invalid review', async () => {
+  let calls = 0;
+  const result = await sweepReviewProviders(
+    () => {
+      calls += 1;
+      return Promise.resolve<ReviewRouterOutcome>({
+        kind: 'ok',
+        review: { ...sweepReview('not in the diff'), provider: 'deepseek' },
+      });
+    },
+    sweepFiles,
+    { maxAttempts: reviewSweepMaxAttempts('paid') },
+  );
+  assert.equal(calls, 1);
+  assert.equal(result.disposition, 'invalid_findings');
+  assert.ok(reviewSweepMaxAttempts('free') > 1);
 });
 
 test('provider sweep accepts a clean review without asking anyone else', async () => {

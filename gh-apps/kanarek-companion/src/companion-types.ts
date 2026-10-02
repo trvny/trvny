@@ -12,7 +12,9 @@ export interface CompanionEnv extends QuipEnv {
   KANAREK_QUIP_KV?: KVNamespace;
   KANAREK_REQUIRE_CI?: string;
   KANAREK_REPOSITORIES?: string;
+  KANAREK_REVIEW_JOBS?: DurableObjectNamespace;
   KANAREK_UPDATE_BRANCH?: string;
+  KANAREK_WEBHOOK_REVIEW_ENABLED?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
   ENGRAM_API_KEY?: string;
@@ -60,7 +62,7 @@ export interface PullRequest {
   number: number;
   state: string;
   title?: string | null;
-  user?: { login?: string | null } | null;
+  user?: { login?: string | null; type?: string | null } | null;
 }
 
 export interface CheckRun {

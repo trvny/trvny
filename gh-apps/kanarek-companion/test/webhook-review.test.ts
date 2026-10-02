@@ -911,7 +911,7 @@ test('review status gates branch updates only while this head is in flight', asy
   assert.equal(await webhookReviewSettled(env, 'travnie/llmbench', 21, headA.toUpperCase()), false);
   assert.equal(await webhookReviewSettled(env, 'travnie/llmbench', 21, headB), true);
 
-  const failing = { KANAREK_REVIEW_JOBS: fakeNamespace(async () => { throw new Error('down'); }) };
+  const failing = { KANAREK_REVIEW_JOBS: fakeNamespace(() => Promise.reject(new Error('down'))) };
   assert.equal(await webhookReviewSettled(failing, 'travnie/llmbench', 21, headA), false);
   assert.equal(
     await webhookReviewSettled(

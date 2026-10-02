@@ -18,6 +18,8 @@ const DEFAULT_FREE_PROBE_TIMEOUT_MS = 10_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
 const DEFAULT_WORK_PROVIDER_TIMEOUT_MS = 5 * 60_000;
+const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 60_000;
+const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
 const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
 const MIN_COOLDOWN_MS = 1_000;
@@ -254,9 +256,13 @@ function orderedTaskModels(configured: readonly string[], preferred: readonly st
   return ordered;
 }
 
-function freeTaskProfile(model: unknown): FreeTaskProfileId {
+export function reviewRouterTaskProfile(model: unknown): FreeTaskProfileId {
   if (model === REVIEW_ROUTER_QUIP_MODEL) return 'quip';
-  if (model === REVIEW_ROUTER_CODE_REVIEW_MODEL || model === REVIEW_ROUTER_REVIEW_MODEL) return 'review';
+  if (
+    model === REVIEW_ROUTER_CODE_REVIEW_MODEL ||
+    model === REVIEW_ROUTER_REVIEW_MODEL ||
+    model === REVIEW_ROUTER_PAID_MODEL
+  ) return 'review';
   if (model === REVIEW_ROUTER_JUDGE_MODEL) return 'judge';
   if (model === REVIEW_ROUTER_SHITPOST_MODEL) return 'shitpost';
   return 'general';
@@ -305,6 +311,17 @@ function configuredFloat(
   if (!value) return fallback;
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
+}
+
+export function taskProviderTimeoutMs(
+  baseMs: number,
+  task: 'general' | 'quip' | 'review' | 'judge' | 'shitpost',
+): number {
+  if (task === 'shitpost') return Math.max(baseMs, SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS);
+  if (task === 'review' || task === 'judge') {
+    return Math.max(baseMs, REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS);
+  }
+  return baseMs;
 }
 
 function workProviderTimeoutMs(env: ReviewRouterEnv): number {
@@ -1133,9 +1150,9 @@ function providerAttempts(
           env.KANAREK_REVIEW_GROQ_REASONING_EFFORT,
           REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_GROQ_REASONING_EFFORT,
         )
-      : task === 'judge'
+      : task === 'judge' || task === 'shitpost'
         ? 'high'
-        : task === 'quip' || task === 'shitpost'
+        : task === 'quip'
           ? 'low'
           : 'medium';
     return [{
@@ -1163,7 +1180,7 @@ function providerAttempts(
     return [provider.model, ...(provider.fallbackModels ?? [])].map((model, index) => ({
       model,
       label: index === 0 ? 'default' : 'model_fallback',
-      ...(model === VERCEL_HY3_MODEL && (task === 'review' || task === 'judge')
+      ...(model === VERCEL_HY3_MODEL && (task === 'review' || task === 'judge' || task === 'shitpost')
         ? {
             minimumMaxTokens: configuredInteger(
               env.KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS,
@@ -1338,7 +1355,7 @@ export async function handleReviewRouterRequest(
   const paidOnly = input.model === REVIEW_ROUTER_PAID_MODEL;
   const workOnly = input.model === REVIEW_ROUTER_WORK_MODEL;
   const includePaidReserves = input.model === REVIEW_ROUTER_REVIEW_MODEL;
-  const task = freeTaskProfile(input.model);
+  const task = reviewRouterTaskProfile(input.model);
   const excluded = excludedProvider(request);
   let configured = 0;
   let invalidRequests = 0;
@@ -1368,7 +1385,10 @@ export async function handleReviewRouterRequest(
       }));
       continue;
     }
-    const providerTimeoutMs = provider.timeoutMs ?? timeoutMs(env);
+    const providerTimeoutMs = taskProviderTimeoutMs(
+      provider.timeoutMs ?? timeoutMs(env),
+      task,
+    );
     const providerDeadlineAt = Date.now() + providerTimeoutMs;
     const attempts = providerAttempts(provider, env, task);
     let providerFailureCategory = 'unknown';
@@ -1377,9 +1397,7 @@ export async function handleReviewRouterRequest(
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
       const attempt = attempts[attemptIndex];
       const remainingProviderMs = Math.max(0, providerDeadlineAt - Date.now());
-      const attemptTimeoutMs = provider.id === 'aihubmix'
-        ? remainingProviderMs
-        : providerTimeoutMs;
+      const attemptTimeoutMs = remainingProviderMs;
       if (attemptTimeoutMs <= 0) {
         providerFailureCategory = 'timeout';
         providerInvalidRequest = false;
@@ -1557,7 +1575,7 @@ export async function handleReviewRouterRequest(
               new Promise<never>((_, reject) => {
                 timeout = setTimeout(
                   () => reject(new DOMException('Workers AI timed out', 'AbortError')),
-                  timeoutMs(env),
+                  taskProviderTimeoutMs(timeoutMs(env), task),
                 );
               }),
             ]) as ChatCompletionsOutput;

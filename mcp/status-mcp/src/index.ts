@@ -316,7 +316,7 @@ async function checkWeather(env: Env): Promise<ProjectResult> {
 // autka — backend /health + /offers count + /sources (service binding) + CI badge
 // ===========================================================================
 
-const AUTKA_OWNER = "trvny";
+const AUTKA_OWNER = "travnie";
 const AUTKA_REPO = "autka";
 const AUTKA_WORKFLOW = "android-ci.yml";
 

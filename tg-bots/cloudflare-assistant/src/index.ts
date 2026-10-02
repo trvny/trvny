@@ -2566,8 +2566,21 @@ export default {
     } catch (error) {
       console.warn("Telegram webhook heal failed", error);
     }
-    await processTaskNotifications(env);
-    await processDueReminders(env);
-    await processConditionWatches(env, sendTelegramMessage);
+    // Independent duties: one failing must not starve the others this minute.
+    const duties: Array<[string, () => Promise<unknown>]> = [
+      ["task notifications", () => processTaskNotifications(env)],
+      ["reminders", () => processDueReminders(env)],
+      ["condition watches", () => processConditionWatches(env, sendTelegramMessage)],
+    ];
+    let failed = 0;
+    for (const [name, duty] of duties) {
+      try {
+        await duty();
+      } catch (error) {
+        failed += 1;
+        console.error(`Scheduled ${name} failed`, error);
+      }
+    }
+    if (failed) throw new Error(`${failed} scheduled duties failed`);
   },
 };

@@ -43,8 +43,7 @@ export function shouldUpdateBranch(
   if (ciRequired && ci.total === 0) return false;
   if (review.changes > 0) return false;
   // A new head restarts CI and the Kanarek review; never cut one short.
-  if (!kanarekReviewSettled) return false;
-  return true;
+  return kanarekReviewSettled;
 }
 
 function hasWritePermission(

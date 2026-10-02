@@ -3,6 +3,11 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
+import {
+  SHITPOST_COMPLETION_TOKEN_BUDGET,
+  SHITPOST_MEME_LINE_HARD_MAX_CHARS,
+  SHITPOST_TEXT_HARD_MAX_CHARS,
+} from './limits.mjs';
 import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from './templates.mjs';
 
 export const DEFAULT_ENDPOINT = 'https://kanarek-companion.travny.workers.dev/review-router/v1/chat/completions';
@@ -101,6 +106,7 @@ export function buildMessages(skill, topic = '', seed = '', mode = 'text', templ
   const rules = [
     'Tworzysz jeden oryginalny shitpost. Język jest dowolny: polski, angielski, mieszany, slang, brainrot albo cokolwiek najlepiej niesie żart. Humor ma być szeroko rozumiany i zryty: absurdalny, internetowy, deadpan, antyhumorystyczny albo celowo głupi.',
     'Ma być śmieszne jako gotowy post, nie jako opis pomysłu. Nie tłumacz żartu, nie opisuj procesu i nie dodawaj etykiet typu dialekt, archetyp albo format.',
+    'Priorytetem jest jakość i puenta, nie długość. Pisz tylko tyle, ile potrzebuje żart: może to być jedno zdanie, kilka krótkich linijek albo trochę dłuższy bit. Nie dobijaj do żadnego limitu i nie dopisuj waty tylko po to, żeby tekst był dłuższy.',
     'Załączony skill jest wyłącznie dodatkowym źródłem inspiracji i wskazówek o tonie. Nie kopiuj jego schematu, nazw sekcji, dialektów, formatów ani archetypów. Jeśli jego struktura przeszkadza żartowi, zignoruj ją.',
     'Nie kopiuj istniejących postów ani catchphrase 1:1.',
     'Nie targetuj prywatnych osób ani nie wymyślaj faktycznie brzmiących oskarżeń.',
@@ -152,14 +158,14 @@ export function validateContent(value, { mode, templateId } = {}) {
   }
   if (value.kind === 'text') {
     if (mode && mode !== 'text') throw new Error('content_unexpected_kind');
-    return { kind: 'text', text: boundedString(value.text, 'text', 700) };
+    return { kind: 'text', text: boundedString(value.text, 'text', SHITPOST_TEXT_HARD_MAX_CHARS) };
   }
   if (value.kind === 'meme') {
     if (mode && mode !== 'meme') throw new Error('content_unexpected_kind');
     const template = boundedString(value.template, 'template', 80);
     if (templateId && template !== templateId) throw new Error('content_unexpected_template');
-    const topText = boundedString(value.top_text, 'top_text', 220, { allowEmpty: true });
-    const bottomText = boundedString(value.bottom_text, 'bottom_text', 220, { allowEmpty: true });
+    const topText = boundedString(value.top_text, 'top_text', SHITPOST_MEME_LINE_HARD_MAX_CHARS, { allowEmpty: true });
+    const bottomText = boundedString(value.bottom_text, 'bottom_text', SHITPOST_MEME_LINE_HARD_MAX_CHARS, { allowEmpty: true });
     if (!topText && !bottomText) throw new Error('content_empty_meme_text');
     return { kind: 'meme', template, top_text: topText, bottom_text: bottomText };
   }
@@ -189,7 +195,7 @@ export async function requestCompletion({ endpoint, token, messages, fetchImpl =
     body: JSON.stringify({
       model: DEFAULT_MODEL,
       messages,
-      max_tokens: 900,
+      max_tokens: SHITPOST_COMPLETION_TOKEN_BUDGET,
       stream: false,
     }),
     signal: AbortSignal.timeout(45_000),

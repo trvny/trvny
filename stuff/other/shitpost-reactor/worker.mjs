@@ -1,4 +1,8 @@
 import { iconAsset } from './icons.mjs';
+import {
+  SHITPOST_MEME_LINE_HARD_MAX_CHARS,
+  SHITPOST_TEXT_HARD_MAX_CHARS,
+} from './limits.mjs';
 import { getMemeTemplate, memeImageUrl } from './templates.mjs';
 
 const SITE_URL = 'https://shitpost.trfny.com';
@@ -111,7 +115,7 @@ export function validateRecord(input) {
       ...common,
       content: {
         kind: 'text',
-        text: nonEmptyString(content.text, 'text', 700),
+        text: nonEmptyString(content.text, 'text', SHITPOST_TEXT_HARD_MAX_CHARS),
       },
     };
   }
@@ -124,7 +128,10 @@ export function validateRecord(input) {
     const topText = content.top_text.trim();
     const bottomText = content.bottom_text.trim();
     if (!topText && !bottomText) throw new Error('invalid_meme_text');
-    if (topText.length > 220 || bottomText.length > 220) throw new Error('invalid_meme_text_length');
+    if (
+      topText.length > SHITPOST_MEME_LINE_HARD_MAX_CHARS
+      || bottomText.length > SHITPOST_MEME_LINE_HARD_MAX_CHARS
+    ) throw new Error('invalid_meme_text_length');
     return {
       ...common,
       content: {

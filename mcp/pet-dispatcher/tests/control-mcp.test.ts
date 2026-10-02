@@ -7,7 +7,7 @@ const TASK_ID = "11111111-1111-4111-8111-111111111111";
 test("cockpit and conversational history read the same bounded canonical index", async () => {
   const limits: number[] = [];
   const tasks = [{ taskId: TASK_ID, deviceId: "test-device", status: "failed" as const, createdAt: "2026-10-01T00:00:00.000Z", updatedAt: "2026-10-01T00:01:00.000Z", result: { status: "failed", summary: "Failure details", error: "executor stopped" } }];
-  const operations = baseOperations({ recentTasks: async (limit) => { limits.push(limit); return tasks; } });
+  const operations = baseOperations({ recentTasks: (limit) => { limits.push(limit); return Promise.resolve(tasks); } });
   for (const name of ["pet_cockpit_open", "pet_recent_tasks"]) {
     const result = await rpc(operations, { jsonrpc: "2.0", id: 50, method: "tools/call", params: { name, arguments: name === "pet_recent_tasks" ? { limit: 3 } : {} } });
     assert.deepEqual((result.body?.result as { structuredContent: { tasks: unknown } }).structuredContent.tasks, tasks);
@@ -34,7 +34,7 @@ async function rpc(operations: ControlMcpOperations, body: unknown) {
 
 function baseOperations(overrides: Partial<ControlMcpOperations> = {}): ControlMcpOperations {
   return {
-    recentTasks: async () => [],
+    recentTasks: () => Promise.resolve([]),
     meta: async () => ({ status: 200, body: {
       deviceId: "test-device", transport: "cloudflare-queues-http-pull", protocol: 1, updatedAt: "2026-09-15T23:00:00.000Z",
       repositories: ["trvny"], workspaces: ["dc"], directTools: ["fs.read"], localTools: [],
@@ -347,6 +347,10 @@ test("cockpit exposes a versioned app-only MCP App with global and thread entryp
     tools?: Array<{ name: string; _meta?: { ui?: { visibility?: string[] } } }>;
   })?.tools ?? []).find((tool) => tool.name === "pet_meta");
   assert.deepEqual(metaTool?._meta?.ui?.visibility, ["model", "app"]);
+  for (const name of ["pet_task_get", "pet_task_cancel", "pet_direct", "pet_session_finish"]) {
+    const tool = ((listed.body?.result as { tools: Array<{ name: string; _meta?: { ui?: { visibility?: string[] } } }> }).tools).find((item) => item.name === name);
+    assert.deepEqual(tool?._meta?.ui?.visibility, ["model", "app"]);
+  }
 
   const opened = await rpc(operations, {
     jsonrpc: "2.0", id: 33, method: "tools/call",

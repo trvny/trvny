@@ -103,6 +103,8 @@ export const PET_COCKPIT_HTML = String.raw`
   var sessionGeneration = 0;
   var taskGeneration = 0;
   var actionBusy = false;
+  var interactiveReady = false;
+  var sessionsLoading = false;
 
   function request(method, params, timeoutMs) {
     var id = nextId++;
@@ -159,17 +161,24 @@ export const PET_COCKPIT_HTML = String.raw`
   }
 
   function setInteractive(value) {
+    interactiveReady = value;
     document.getElementById("refresh").disabled = !value;
     document.querySelectorAll(".target").forEach(function (button) {
       button.disabled = !value;
     });
+    syncSessionControls();
+  }
+
+  function syncSessionControls() {
+    document.getElementById("load-sessions").disabled = !interactiveReady || !selectedTarget || stale || actionBusy || sessionsLoading;
+    document.getElementById("finish-session").disabled = !interactiveReady || stale || actionBusy || !selectedSession || selectedSession.finishable !== true;
   }
 
   function render(result) {
     var body = metaBody(result);
     if (!body) return;
     stale = body.stale;
-    document.getElementById("load-sessions").disabled = !initialized || !selectedTarget || stale;
+    syncSessionControls();
     if (stale) text("session-status", "Worker offline or stale; session inventory is unavailable.");
     if (result.structuredContent && Array.isArray(result.structuredContent.tasks)) renderTasks(result.structuredContent.tasks);
     var status = document.getElementById("status");
@@ -221,7 +230,7 @@ export const PET_COCKPIT_HTML = String.raw`
       selectedSession = null;
       document.getElementById("session-list").textContent = "";
       document.getElementById("finish-form").hidden = true;
-      document.getElementById("load-sessions").disabled = stale;
+      syncSessionControls();
       text("session-status", stale ? "Worker offline or stale; session inventory is unavailable." : "Load sessions for " + target + ".");
       text("selection", "Selected target: " + target);
       document.querySelectorAll(".target").forEach(function (button) {
@@ -256,6 +265,7 @@ export const PET_COCKPIT_HTML = String.raw`
     if (!result || (result.isError && !(result.structuredContent && result.structuredContent.body && result.structuredContent.body.taskId))) throw new Error(resultErrorText(result));
     var structured = result.structuredContent;
     if (!structured) throw new Error("No structured result returned.");
+    if (typeof structured.httpStatus === "number" && (structured.httpStatus < 200 || structured.httpStatus >= 300) && !(structured.body && structured.body.taskId)) throw new Error("Tool returned HTTP " + structured.httpStatus);
     return structured.body || structured;
   }
 
@@ -280,7 +290,15 @@ export const PET_COCKPIT_HTML = String.raw`
     document.getElementById("cancel-task").disabled = true;
     text("task-status", "Loading " + taskId + "...");
     text("task-result", "");
-    var task = await call("pet_task_get", { taskId: taskId, debug: true });
+    var task;
+    try {
+      task = await call("pet_task_get", { taskId: taskId, debug: true });
+    } catch (error) {
+      if (generation !== taskGeneration) return;
+      text("task-status", "Failed to load " + taskId + ".");
+      report(error);
+      return;
+    }
     if (generation !== taskGeneration) return;
     text("task-status", task.status + " · " + taskId);
     text("task-result", task.result ? JSON.stringify(task.result, null, 2) : "No result yet. Refresh to check progress.");
@@ -299,12 +317,13 @@ export const PET_COCKPIT_HTML = String.raw`
   }
 
   async function loadSessions() {
-    if (!selectedTarget || stale || actionBusy) return;
+    if (!interactiveReady || !selectedTarget || stale || actionBusy || sessionsLoading) return;
+    sessionsLoading = true;
     var generation = ++sessionGeneration;
     selectedSession = null;
     document.getElementById("finish-form").hidden = true;
     document.getElementById("session-list").textContent = "";
-    document.getElementById("load-sessions").disabled = true;
+    syncSessionControls();
     text("session-status", "Loading sessions...");
     try {
       var task = await call("pet_direct", { target: selectedTarget, tool: "session.list", args: {}, waitSeconds: 0, debug: true });
@@ -314,22 +333,24 @@ export const PET_COCKPIT_HTML = String.raw`
         throw new Error("Session inventory unavailable. Task " + task.taskId + ": " + task.status + ". Check Recent tasks.");
       }
       var sessions = task.result.data.sessions.filter(function (session) { return session.alias === selectedTarget || session.repo === selectedTarget; });
-      text("session-status", sessions.length + " session(s) for " + selectedTarget);
-      sessions.forEach(function (session) {
+      text("session-status", sessions.length + " session(s) for " + selectedTarget + (sessions.length > 100 ? " · showing first 100" : ""));
+      sessions.slice(0, 100).forEach(function (session) {
         var button = document.createElement("button");
         button.className = "task"; button.type = "button";
-        button.textContent = session.id + " · " + (session.writable ? "writable" : "read only") + " · expires " + session.expiresAt;
+        button.textContent = session.id + " · " + (session.writable ? "writable" : "read only") + " · expires " + session.expiresAt + (session.finishable === true ? "" : " · finish unavailable");
+        button.disabled = session.finishable !== true;
         button.onclick = function () {
-          if (actionBusy) return;
+          if (!interactiveReady || stale || actionBusy || session.finishable !== true) return;
           selectedSession = session;
           text("finish-info", "Selected session: " + session.id);
           document.getElementById("finish-form").hidden = false;
           document.getElementById("finish-message").value = "";
+          syncSessionControls();
         };
         document.getElementById("session-list").appendChild(button);
       });
     } catch (error) { report(error); text("session-status", "Session inventory not updated."); }
-    finally { document.getElementById("load-sessions").disabled = stale || !selectedTarget || actionBusy; }
+    finally { sessionsLoading = false; syncSessionControls(); }
   }
 
   document.getElementById("load-sessions").onclick = loadSessions;
@@ -337,33 +358,43 @@ export const PET_COCKPIT_HTML = String.raw`
     if (!selectedTask || actionBusy) return;
     actionBusy = true; this.disabled = true;
     var taskId = selectedTask;
-    try { await call("pet_task_cancel", { taskId: taskId }); await showTask(taskId); }
-    catch (error) { report(error); }
-    finally { actionBusy = false; await refresh(); }
+    var cancellationError = null;
+    try { await call("pet_task_cancel", { taskId: taskId }); if (selectedTask === taskId) await showTask(taskId); }
+    catch (error) { cancellationError = error; }
+    finally { actionBusy = false; await refresh(); if (cancellationError) report(cancellationError); }
   };
   document.getElementById("finish-form").onsubmit = async function (event) {
     event.preventDefault();
     var message = document.getElementById("finish-message").value.trim();
-    if (!selectedSession || !message || stale || actionBusy) return;
+    if (!interactiveReady || !selectedSession || selectedSession.finishable !== true || !message || stale || actionBusy) return;
     actionBusy = true;
     document.getElementById("finish-session").disabled = true;
     document.getElementById("load-sessions").disabled = true;
     setInteractive(false);
     var generation = ++sessionGeneration;
+    var actionNotice = null;
     try {
-      var task = await call("pet_session_finish", { target: selectedTarget, sessionId: selectedSession.id, message: message, idempotencyKey: crypto.randomUUID(), waitSeconds: 0, debug: true });
+      var task;
+      try {
+        task = await call("pet_session_finish", { target: selectedTarget, sessionId: selectedSession.id, message: message, idempotencyKey: crypto.randomUUID(), waitSeconds: 0, debug: true });
+      } catch (error) {
+        // An uncertain transport response must not enable an automatic retry.
+        selectedSession = null;
+        document.getElementById("finish-form").hidden = true;
+        actionNotice = "Finish response unavailable: " + error + ". Refresh tasks and sessions before deciding on another action.";
+        return;
+      }
       text("session-status", "Finish task: " + task.taskId + " · " + task.status + ". Check Recent tasks for the result.");
       selectedSession = null;
       document.getElementById("finish-form").hidden = true;
       document.getElementById("session-list").textContent = "";
-      await showTask(task.taskId);
-      await resolveQueued(task, generation);
-    } catch (error) {
-      // An uncertain transport response must not enable an automatic retry.
-      selectedSession = null;
-      document.getElementById("finish-form").hidden = true;
-      report("Finish response unavailable: " + error + ". Refresh tasks and sessions before deciding on another action.");
-    } finally { actionBusy = false; setInteractive(true); document.getElementById("finish-session").disabled = false; await refresh(); }
+      try {
+        await showTask(task.taskId);
+        await resolveQueued(task, generation);
+      } catch (error) {
+        actionNotice = "Finish submitted as task " + task.taskId + ", but progress is unavailable: " + error + ". Refresh tasks and sessions.";
+      }
+    } finally { actionBusy = false; setInteractive(true); await refresh(); if (actionNotice) report(actionNotice); }
   };
 
   async function initialize() {

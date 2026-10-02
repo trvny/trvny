@@ -280,6 +280,7 @@ function createServer(operations: ControlMcpOperations): McpServer {
     inputSchema: directInputSchema,
     outputSchema: taskOutputSchema,
     annotations: { title: "Run direct tool", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    _meta: { ui: { visibility: ["model", "app"] } },
   }, async ({ target, tool, args, autoSession, baseRef, idempotencyKey, waitSeconds, debug }) => {
     const callArgs: Record<string, unknown> = { ...args };
     if (AUTO_SESSION_TOOLS.has(tool) && !("sessionId" in callArgs) && !("autoSession" in callArgs)) callArgs.autoSession = autoSession;
@@ -323,6 +324,7 @@ function createServer(operations: ControlMcpOperations): McpServer {
     inputSchema: finishSessionInputSchema,
     outputSchema: taskOutputSchema,
     annotations: { title: "Finish Pet session", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    _meta: { ui: { visibility: ["model", "app"] } },
   }, async ({ target, sessionId, message, idempotencyKey, waitSeconds, debug }) =>
     runDirectTool(operations, {
       repo: target, baseRef: "main",
@@ -334,6 +336,7 @@ function createServer(operations: ControlMcpOperations): McpServer {
     inputSchema: z.object({ taskId: z.string().uuid(), debug: debugSchema }).strict(),
     outputSchema: taskOutputSchema,
     annotations: { title: "Get task state", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    _meta: { ui: { visibility: ["model", "app"] } },
   }, async ({ taskId, debug }) => asToolResult(await operations.getTask(taskId), debug));
 
   server.registerTool("pet_task_cancel", {
@@ -341,6 +344,7 @@ function createServer(operations: ControlMcpOperations): McpServer {
     inputSchema: z.object({ taskId: z.string().uuid() }).strict(),
     outputSchema: taskOutputSchema,
     annotations: { title: "Cancel task", readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    _meta: { ui: { visibility: ["model", "app"] } },
   }, async ({ taskId }) => asToolResult(await operations.cancelTask(taskId)));
 
   return server;

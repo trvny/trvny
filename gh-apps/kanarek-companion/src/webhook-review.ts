@@ -1511,6 +1511,7 @@ async function askReviewRouter(
   env: WebhookReviewEnv,
   routerModel = REVIEW_ROUTER_REVIEW_MODEL,
   excludedProviders: readonly string[] = [],
+  signal?: AbortSignal,
 ): Promise<ReviewRouterOutcome> {
   const token = env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) return { kind: 'unavailable' };
@@ -1526,6 +1527,7 @@ async function askReviewRouter(
     new Request(`${INTERNAL_REVIEW_ORIGIN}${REVIEW_ROUTER_PATH}`, {
       method: 'POST',
       headers,
+      signal,
       body: JSON.stringify({
         model: routerModel,
         stream: false,
@@ -1597,7 +1599,7 @@ export interface ReviewSweepResult {
  * already skips providers that fail at the HTTP level.
  */
 export async function sweepReviewProviders(
-  ask: (excluded: readonly string[]) => Promise<ReviewRouterOutcome>,
+  ask: (excluded: readonly string[], signal?: AbortSignal) => Promise<ReviewRouterOutcome>,
   files: ReviewFile[],
   options: { budgetMs?: number; maxAttempts?: number; now?: () => number } = {},
 ): Promise<ReviewSweepResult> {
@@ -1611,8 +1613,19 @@ export async function sweepReviewProviders(
 
   while (attempts < maxAttempts && (attempts === 0 || now() - startedAt < budgetMs)) {
     attempts += 1;
-    const outcome = await ask(excluded);
-    if (outcome.kind === 'unavailable') break;
+    // The first attempt keeps the router's own timeouts; follow-up attempts
+    // are aborted at the sweep deadline so one slow provider cannot stretch it.
+    const deadline = attempts > 1 ? new AbortController() : null;
+    const timer = deadline
+      ? setTimeout(() => deadline.abort(), Math.max(0, budgetMs - (now() - startedAt)))
+      : null;
+    let outcome: ReviewRouterOutcome;
+    try {
+      outcome = await ask(excluded, deadline?.signal);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    if (outcome.kind === 'unavailable' || deadline?.signal.aborted) break;
     const provider = outcome.kind === 'ok' ? outcome.review.provider : outcome.provider;
     if (outcome.kind === 'ok') {
       const findings = verifyReviewFindings(outcome.review.parsed, files);
@@ -1887,11 +1900,12 @@ export async function runWebhookReview(
     dependencyEvidence,
   );
   const sweep = await sweepReviewProviders(
-    (excluded) => askReviewRouter(
+    (excluded, signal) => askReviewRouter(
       reviewInput,
       reviewEnv,
       paidPhase ? REVIEW_ROUTER_PAID_MODEL : REVIEW_ROUTER_CODE_REVIEW_MODEL,
       excluded,
+      signal,
     ),
     files,
   );

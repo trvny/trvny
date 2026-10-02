@@ -536,3 +536,19 @@ test('provider sweep respects attempt and time budgets', async () => {
   }, sweepFiles, { maxAttempts: 3 });
   assert.equal(calls, 3);
 });
+
+test('provider sweep aborts a follow-up attempt at the sweep deadline', async () => {
+  const signals: Array<AbortSignal | undefined> = [];
+  const result = await sweepReviewProviders((_excluded, signal) => {
+    signals.push(signal);
+    if (!signal) return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: 'aihubmix' });
+    return new Promise<ReviewRouterOutcome>((resolve) => {
+      signal.addEventListener('abort', () => resolve({ kind: 'unavailable' }));
+    });
+  }, sweepFiles, { budgetMs: 20 });
+
+  assert.equal(signals.length, 2);
+  assert.equal(signals[0], undefined);
+  assert.equal(signals[1]?.aborted, true);
+  assert.equal(result.generated, null);
+});

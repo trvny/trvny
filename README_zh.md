@@ -33,13 +33,8 @@
 <!--OPEN_PRS:START-->
 | 仓库 | PR | 标题 | 作者 | 状态 | 更新 |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#808](https://github.com/trvny/trvny/pull/808) | Preserve Kanarek paid review phase on redelivery | @trvny | 就绪 | 2026-09-29 |
-| trvny/trvny | [#813](https://github.com/trvny/trvny/pull/813) | deps: update anthropic requirement from >=1.7.0 to >=1.8.0 in /token-worldcup in the pip group | @dependabot[bot] | 就绪 | 2026-09-29 |
-| trvny/trvny | [#814](https://github.com/trvny/trvny/pull/814) | deps: bump wrangler from 4.136.2 to 4.141.0 in /tg-bots/cloudflare-assistant in the npm group | @dependabot[bot] | 就绪 | 2026-09-29 |
-| trvny/trvny | [#815](https://github.com/trvny/trvny/pull/815) | deps: bump the npm group in /gh-apps/kanarek-companion with 2 updates | @dependabot[bot] | 就绪 | 2026-09-29 |
-| trvny/trvny | [#816](https://github.com/trvny/trvny/pull/816) | deps: bump the npm group in /gh-apps/kanarek-review with 2 updates | @dependabot[bot] | 就绪 | 2026-09-29 |
-| trvny/trvny | [#817](https://github.com/trvny/trvny/pull/817) | deps: bump the npm group in /mcp/pet-dispatcher with 4 updates | @dependabot[bot] | 就绪 | 2026-09-29 |
-| trvny/WiFi-Automatic | [#49](https://github.com/trvny/WiFi-Automatic/pull/49) | [pull] master from j4velin:master | @pull[bot] | 就绪 | 2026-09-29 |
+| trvny/feedseek | [#462](https://github.com/trvny/feedseek/pull/462) | chore(deps): bump urllib3 from 2.7.0 to 2.8.0 in the uv group across 1 directory | @dependabot[bot] | 就绪 | 2026-10-01 |
+| trvny/WiFi-Automatic | [#49](https://github.com/trvny/WiFi-Automatic/pull/49) | [pull] master from j4velin:master | @pull[bot] | 就绪 | 2026-09-30 |
 <!--OPEN_PRS:END-->
 
 **私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**
@@ -96,19 +91,19 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝It does good also to take walks out of doors, that our spirits may be raised and refreshed by the open air and fresh breeze: sometimes we gain strength by driving in a carriage, by travel, by change of air, or by social meals and a more generous allowance of wine. — Seneca❞</i>
+<i>❝“The more you know, the more you realize you know nothing.”— Socrates❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
 ## 📰 最近播报
 
 <!--README_FEED:START-->
-- [I LO w Chrzanowie świętuje jubileusz z absolwentami - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMi2wFBVV95cUxPS0xvVlI2STRvZTZ1b0l2SnJjQTJ5aEM0V29ZWVNPMkRlQVRpNEh3TkVfdlJqaTJRNExsWEQxd0QtSmpwc2tlVDlSY0pWOU51Tm05WXI2YUE4Si11TERaYWE5TjZfZmY2UFZrSFZxbmJfLWY0RDVlX0l4R3NBNmdOUVpMNHZtSWVaNXhUQW5rd2lMVG5MWnB5UkQ0RzNwaHVmeEV0U1NUMmE1aUhNa3EyaVc5TF84dUJxNXlUQW1xV2NFRW56SUFYZTlzUWZ1XzRyWlk4ZGdCVHA2UVk?oc=5)
-- [Mieszkańcy nie kryją strachu. Setki ich działek trafią do polderów - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMiuwFBVV95cUxOZHlZb0FrczllSkhvOXVuLUJOX1VMQVMxTnhnMVpZVlFXQVg4bXlSbm9tNHczdGtTZzhHb0d5OHFnZG9nNk13T3RTLXZNUVRaQlNhZjRUeHZUdmI2Z2k3dmpnWEpyOEdGWVJhbklNaGNRVldYZlZDQTdCT0l3bUUxWXhibnAyLW9SWTRvMUs5OFFnYnFpNDlPTkdNcGppRGt2bDdvaXZGY21QeUMtN01WUTl5WWNTVXRnVDZF?oc=5)
-- [Fed's Williams sees no urgency for next Fed rate hike](https://www.reuters.com/business/feds-williams-sees-no-urgency-next-fed-rate-hike-2026-09-29/)
-- [OpenAI’s latest features take direct aim at the app store model](https://techcrunch.com/2026/09/29/openais-latest-features-take-direct-aim-at-the-app-store-model/)
-- [Supreme Court lets Trump resume deporting migrants to countries not their own](https://www.reuters.com/world/supreme-court-lets-trump-resume-third-country-deportations-2026-09-29/)
-- [Somali pirates kill 5 crew members before tanker rescue, state authorities say](https://www.reuters.com/world/africa/puntland-forces-rescue-another-hijacked-ship-somali-pirates-2026-09-29/)
+- [Episode 3: From 1MDB to The China Contract](https://www.rusi.org/podcasts/suspicious-transaction-report/episode-3-1mdb-china-contract)
+- [Christa Pike getting "life-saving medical care" after surviving Tennessee execution](https://www.reuters.com/world/us/tennessee-governor-calls-failed-christa-pike-execution-tragedy-2026-10-01/)
+- [Mattel attracts takeover interest from Authentic Brands Group, source says](https://www.reuters.com/legal/transactional/mattel-attracts-takeover-interest-authentic-brands-group-wall-street-journal-2026-10-01/)
+- [California AG Bonta issues subpoena to OpenAI over AI cybersecurity risks](https://www.reuters.com/legal/litigation/california-attorney-general-issues-investigative-subpoena-openai-2026-10-01/)
+- [US states challenge Corteva spinoff as bid to evade PFAS liabilities](https://www.reuters.com/world/us-states-filed-fraud-lawsuit-over-cortevas-vylor-spinoff-2026-10-01/)
+- [Global bond rout deepens, pushes US Treasury yields to 24-year peak](https://www.reuters.com/business/bonds-teeter-after-us-treasuries-worst-quarter-since-1994-2026-10-01/)
 <!--README_FEED:END-->
 
 <div align="center">

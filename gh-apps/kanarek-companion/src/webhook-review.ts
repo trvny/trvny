@@ -1621,7 +1621,8 @@ export async function sweepReviewProviders(
       : null;
     let outcome: ReviewRouterOutcome;
     try {
-      outcome = await ask(excluded, deadline?.signal);
+      // Sequential on purpose: each attempt excludes the previous provider.
+      outcome = await ask(excluded, deadline?.signal); // skipcq: JS-0032
     } finally {
       if (timer) clearTimeout(timer);
     }
@@ -1911,7 +1912,7 @@ export async function runWebhookReview(
   );
   const generated = sweep.generated;
   if (sweep.attempts > 1) {
-    console.info(JSON.stringify({
+    console.info(JSON.stringify({ // skipcq: JS-0002 Cloudflare Worker runtime observability.
       kanarekWebhookReview: 'provider_sweep',
       repository: target.repository,
       pullRequestNumber: target.number,

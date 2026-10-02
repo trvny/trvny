@@ -889,7 +889,7 @@ export async function aiQuip(
       // A parsed paid response was billed; never pay a second provider for the
       // same quip. An unusable free-router answer cost nothing, so move on.
       if (candidate.free && hasFallback) {
-        console.warn(`${providerLabel} returned ${reason}; trying next provider.`);
+        console.warn(`${providerLabel} returned ${reason}; trying next provider.`); // skipcq: JS-0002 Cloudflare Worker runtime observability.
         continue;
       }
       console.warn(`${providerLabel} returned ${reason}; using bank/preset.`);

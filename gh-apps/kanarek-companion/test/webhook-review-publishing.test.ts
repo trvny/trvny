@@ -548,7 +548,7 @@ test('provider sweep aborts a follow-up attempt at the sweep deadline', async ()
   }, sweepFiles, { budgetMs: 20 });
 
   assert.equal(signals.length, 2);
-  assert.equal(signals[0], undefined);
+  assert.equal(typeof signals[0], 'undefined');
   assert.equal(signals[1]?.aborted, true);
   assert.equal(result.generated, null);
 });

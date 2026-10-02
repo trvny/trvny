@@ -6,8 +6,8 @@ Small scheduled shitpost generator and public feed. GitHub Actions is the only c
 
 1. `.github/workflows/shitpost-reactor.yml` runs daily at **21:37 Europe/Warsaw** or manually with an optional topic. The lightweight job stays on `ubuntu-slim`.
 2. `generate.mjs` downloads `trvny/.ai/skills/edgy-dark-meme.zip` and extracts `SKILL.md` at runtime. The skill is advisory style material only; the Reactor owns the prompt and output contract.
-3. The Action calls the authenticated public proxy at `kanarek-companion.travny.workers.dev` with synthetic model `kanarek-review-free`.
-4. `kanarek-companion` forwards the call through its same-account Service Binding to private `kanarek-review`, which owns the free provider order, credentials, cooldowns and Workers AI fallback.
+3. The Action calls the authenticated public proxy at `kanarek-companion.travny.workers.dev` with synthetic model `kanarek-shitpost-free`.
+4. `kanarek-companion` forwards the call through its same-account Service Binding to private `kanarek-review`, which owns the shared provider inventory, shitpost task policy, credentials, cooldowns and Workers AI fallback.
 5. The draft is validated and saved as `latest.json` plus a readable `latest.md`.
 6. `publish.mjs` requests a short-lived GitHub Actions OIDC token and POSTs the draft to `https://shitpost.trfny.com/api/publish`. No extra publishing secret is stored in GitHub.
 7. The `shitpost-reactor` Worker verifies the GitHub OIDC signature and pins claims to `trvny/trvny`, this exact workflow and `refs/heads/main`, then stores the entry in the `shitpost-reactor` R2 bucket.

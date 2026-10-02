@@ -18,7 +18,7 @@ provider secrets.
 | PR review policy/context | `kanarek-companion` | `KANAREK_WEBHOOK_REVIEW_*` |
 | Free/paid model routing | `kanarek-review` | this `wrangler.jsonc` |
 | Shitpost generation contract | Shitpost Reactor Action | `../shitpost-reactor/limits.mjs` |
-| Shitpost provider choice | `kanarek-review-free` | this `wrangler.jsonc` |
+| Shitpost provider choice | `kanarek-shitpost-free` task policy | this Worker |
 
 Quips, reviews, and shitposts are clients of one routing layer rather than
 separate provider stacks. Quips can also use their direct provider slots; the
@@ -43,12 +43,15 @@ The internal OpenAI-compatible surface is:
 - `GET /review-router/v1/models`
 - `GET` or `HEAD /health`
 
-It exposes four synthetic model contracts: `kanarek-review-free` stays strictly
-on the free pool for quips, Telegram, lightweight Pet Dispatcher work, and other
-shared callers; `kanarek-review` preserves the combined free-first PR-review
-contract; `kanarek-review-paid` is the paid-only review escalation path; and
-`kanarek-work-paid` is the paid agent-work contract used by Pet Dispatcher for
-explicit concrete multi-step work.
+It exposes task contracts over one shared provider inventory. The legacy
+`kanarek-review-free` stays as the backward-compatible general free lane for
+Telegram, lightweight Pet Dispatcher work, and other existing callers.
+`kanarek-quip-free`, `kanarek-code-review-free`, `kanarek-judge-free`, and
+`kanarek-shitpost-free` reuse those same credentials and cooldowns but choose
+different provider/model order and reasoning settings. `kanarek-review`
+preserves the combined free-first review contract, `kanarek-review-paid` is the
+paid-only review escalation path, and `kanarek-work-paid` is the paid
+agent-work contract used by Pet Dispatcher for explicit multi-step work.
 
 `workers_dev` and preview URLs are disabled. The shared Worker adds an internal
 trust header/bearer before invoking the service binding; callers do not receive
@@ -56,15 +59,31 @@ provider credentials.
 
 ## Provider chain
 
-The free HTTP provider order is configured in `wrangler.jsonc` through
-`KANAREK_REVIEW_PROVIDER_ORDER`.
+The provider inventory and task policy are separate concerns.
+`KANAREK_REVIEW_PROVIDER_ORDER` remains the operator-controlled order for the
+legacy/general free lane. Quip, code-review, judge, and shitpost lanes use
+maintained task-specific preferences while sharing the same keys, cooldowns and
+quota state. `/health` exposes the legacy `freeOrder`, all effective
+`taskOrders`, and a coarse budget class for each provider.
+
+AIHubMix uses one configured pool rather than one pinned model:
+`xiaomi-mimo-v2.6-flash-free`, `coding-kimi-k3-free`,
+`dots-3-note-preview-free`, `nemotron-3.5-lightning-free`, `hy3-free`, and
+`minimax-m2.7-free`. Code review prefers coding/reasoning models, quips prefer
+fast general models, the judge prefers a diverse second opinion, and shitposts
+prefer the more general/creative end of the same pool. Retryable model failures
+fall through inside AIHubMix before abandoning the provider.
+
 AIHubMix and OrcaRouter use the shorter
 `KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS` (10 seconds by default), so an
 unresponsive early free provider cannot hold the whole review queue for the
 full 30-second general router timeout. Unknown names and duplicates are ignored,
 and omitted known providers are appended in the default order, matching the
-quip provider-order behavior. Guarded Workers AI remains the explicit final
-free fallback because it has its own daily neuron budget and cooldown policy.
+quip provider-order behavior. Guarded Workers AI remains the explicit final free fallback because it has its
+own daily neuron budget and cooldown policy. `@cf/zai-org/glm-4.7-flash`
+remains the default emergency model: it supports reasoning and tool use while
+consuming substantially fewer neurons than `@cf/qwen/qwen3.8-27b`, preserving
+more of the 10k-neuron daily reserve for actual failures upstream.
 The live `/health` payload exposes the effective free queue as
 `providerPool.freeOrder`.
 
@@ -91,6 +110,11 @@ a compatible free model automatically. The configured explicit `:free` models
 are therefore a quality/order policy rather than a technical requirement;
 `openrouter/free` remains the catch-all fallback. OpenRouter may retry its
 primary model without a fallback array when the provider rejects the array itself.
+
+Vercel AI Gateway is intentionally classified as `monthly-free-credit`. The
+account-level $5/month spend cap is the guardrail, so both zero-price models and
+models consuming that included monthly allowance are part of the free budget.
+The cap stays enforced at Vercel instead of being duplicated here.
 
 Vercel AI Gateway uses a model chain rather than one fixed model. Hy3 (`tencent/hy3`)
 is tried first with high reasoning, Tencent's recommended `temperature: 0.9` /
@@ -161,11 +185,12 @@ Important variables include:
 - `KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS`
 - `KANAREK_REVIEW_WORKERS_AI_MODEL`
 - `KANAREK_REVIEW_WORKERS_AI_MAX_OUTPUT_TOKENS`
-- `KANAREK_REVIEW_AIHUBMIX_MODEL`
+- `KANAREK_REVIEW_AIHUBMIX_MODELS`
 - `KANAREK_REVIEW_OPENROUTER_MODELS`
 - `KANAREK_REVIEW_ORCAROUTER_MODELS`
 - `KANAREK_REVIEW_OLLAMA_MODELS`
 - `KANAREK_REVIEW_GROQ_MODEL`
+- `KANAREK_REVIEW_GROQ_REASONING_EFFORT`
 - `KANAREK_REVIEW_VERCEL_MODELS`
 - `KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS`
 - `KANAREK_REVIEW_VERCEL_HY3_REASONING_EFFORT`

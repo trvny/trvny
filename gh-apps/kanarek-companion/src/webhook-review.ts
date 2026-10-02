@@ -7,7 +7,8 @@ import {
 import { inspectRegistryPackage } from './package-registry.ts';
 import {
   REVIEW_PROVIDER_EXCLUDE_HEADER,
-  REVIEW_ROUTER_FREE_MODEL,
+  REVIEW_ROUTER_CODE_REVIEW_MODEL,
+  REVIEW_ROUTER_JUDGE_MODEL,
   REVIEW_ROUTER_PATH,
   REVIEW_ROUTER_REVIEW_MODEL,
   REVIEW_ROUTER_PAID_MODEL,
@@ -1345,16 +1346,14 @@ export function applyReviewJudge(
 
     if (keep === null) return null;
 
-    // L2 is advisory unless it is highly confident. A weaker or context-limited
-    // judge must not silently erase a valid L1 finding merely because it is
-    // unsure. Low-confidence groups therefore fail open and preserve every
-    // original finding in that group.
+    // L2 is an advisory precision pass, not an authority over L1. Low-confidence
+    // groups fail open. A high-confidence cluster may collapse duplicates to one
+    // representative, but even keep=false can never erase the last L1 finding.
     if (confidence === null || confidence < threshold) {
       memberIds.forEach((id) => selected.add(id));
       continue;
     }
-
-    if (keep) selected.add(representative);
+    selected.add(representative);
   }
 
   for (let index = 0; index < findings.length; index += 1) {
@@ -1370,7 +1369,8 @@ const REVIEW_JUDGE_SYSTEM_PROMPT = [
   'Cluster findings that clearly share one root cause. Do not merge distinct findings merely because they touch nearby code.',
   'For each cluster, keep says whether the finding should survive. confidence is your confidence in that keep/drop recommendation, not your confidence that you personally would have discovered the bug.',
   'Recommend keep=false only when the supplied review context concretely contradicts the finding or makes it clearly non-actionable. Do not veto a finding merely because the reasoning is unfamiliar, complex, or you would not have reported it yourself.',
-  'When evidence is incomplete, ambiguous, or you are unsure, prefer keep=true with lower confidence. The caller intentionally fails open on low-confidence judgments.',
+  'keep=false is advisory: the caller never deletes a distinct L1 finding solely from your veto. Your authoritative role is high-confidence duplicate clustering; contradiction judgments remain telemetry rather than a blocking gate.',
+  'When evidence is incomplete, ambiguous, or you are unsure, prefer keep=true with lower confidence. The caller intentionally fails open.',
   'For access control, authentication, authorization, privilege or tier bypass, injection, unsafe deserialization, and secret exposure, comments or variable names claiming safety are not enforcement. When uncertain about a plausible security bypass, keep it.',
   'Choose representative_id as the best file/line only for a confidently duplicate cluster.',
   'Return JSON only: {"groups":[{"member_ids":[0],"representative_id":0,"confidence":0.95,"keep":true,"root_cause":"short","reason":"short"}]}. Every finding id should appear in exactly one group.',
@@ -1417,10 +1417,11 @@ async function askReviewJudge(
         [REVIEW_PROVIDER_EXCLUDE_HEADER]: reviewerProvider,
       },
       body: JSON.stringify({
-        model: REVIEW_ROUTER_FREE_MODEL,
+        model: REVIEW_ROUTER_JUDGE_MODEL,
         stream: false,
-        max_tokens: reviewMaxOutputTokens(
-          env.KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS,
+        max_tokens: Math.min(
+          reviewMaxOutputTokens(env.KANAREK_WEBHOOK_REVIEW_MAX_OUTPUT_TOKENS),
+          8_192,
         ),
         messages: [
           { role: 'system', content: REVIEW_JUDGE_SYSTEM_PROMPT },
@@ -1822,7 +1823,7 @@ export async function runWebhookReview(
   const generated = await askReviewRouter(
     reviewInput,
     reviewEnv,
-    paidPhase ? REVIEW_ROUTER_PAID_MODEL : REVIEW_ROUTER_FREE_MODEL,
+    paidPhase ? REVIEW_ROUTER_PAID_MODEL : REVIEW_ROUTER_CODE_REVIEW_MODEL,
   );
   if (!generated) {
     return {

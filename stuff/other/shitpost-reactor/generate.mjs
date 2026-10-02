@@ -6,6 +6,8 @@ import { inflateRawSync } from 'node:zlib';
 import {
   SHITPOST_COMPLETION_TOKEN_BUDGET,
   SHITPOST_MEME_LINE_HARD_MAX_CHARS,
+  SHITPOST_ROUTER_TIMEOUT_MS,
+  SHITPOST_SKILL_FETCH_TIMEOUT_MS,
   SHITPOST_TEXT_HARD_MAX_CHARS,
 } from './limits.mjs';
 import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from './templates.mjs';
@@ -83,7 +85,7 @@ export async function loadSkill(skillUrl = DEFAULT_SKILL_URL, fetchImpl = fetch)
   const response = await fetchImpl(skillUrl, {
     headers: { 'user-agent': 'trvny-shitpost-reactor/1' },
     redirect: 'follow',
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(SHITPOST_SKILL_FETCH_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`skill_download_failed:${response.status}`);
   const declaredLength = Number(response.headers.get('content-length') || '0');
@@ -198,7 +200,7 @@ export async function requestCompletion({ endpoint, token, messages, fetchImpl =
       max_tokens: SHITPOST_COMPLETION_TOKEN_BUDGET,
       stream: false,
     }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(SHITPOST_ROUTER_TIMEOUT_MS),
   });
 
   if (!response.ok) {

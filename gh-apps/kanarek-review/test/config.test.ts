@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { REVIEW_ROUTER_MODEL_DEFAULTS } from '../src/review-router.ts';
+import { REVIEW_ROUTER_MODEL_DEFAULTS, REVIEW_ROUTER_TUNING_DEFAULTS } from '../src/review-router.ts';
 
 const config = JSON.parse(
   readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'),
@@ -17,8 +17,9 @@ test('kanarek-review stays reachable only through the Service Binding', () => {
   }
 });
 
-test('review router model fallbacks match wrangler.jsonc', () => {
-  for (const [name, fallback] of Object.entries(REVIEW_ROUTER_MODEL_DEFAULTS)) {
+test('review router operator defaults match wrangler.jsonc', () => {
+  const defaults = { ...REVIEW_ROUTER_MODEL_DEFAULTS, ...REVIEW_ROUTER_TUNING_DEFAULTS };
+  for (const [name, fallback] of Object.entries(defaults)) {
     const configured = config.vars[name];
     assert.ok(configured, `${name} missing from wrangler.jsonc`);
     assert.equal(

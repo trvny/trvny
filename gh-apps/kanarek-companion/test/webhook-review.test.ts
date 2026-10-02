@@ -911,6 +911,15 @@ test('review status gates branch updates only while this head is in flight', asy
   assert.equal(await webhookReviewSettled(env, 'travnie/llmbench', 21, headA.toUpperCase()), false);
   assert.equal(await webhookReviewSettled(env, 'travnie/llmbench', 21, headB), true);
 
+  const upper = fakeState();
+  const upperJob = new WebhookReviewJob(upper.state, {} as WebhookReviewEnv);
+  const upperEnv = { KANAREK_REVIEW_JOBS: fakeNamespace((request) => upperJob.fetch(request)) };
+  await upperJob.fetch(new Request('https://kanarek-review.internal/enqueue', {
+    method: 'POST',
+    body: JSON.stringify(queuedJob(headA.toUpperCase(), base)),
+  }));
+  assert.equal(await webhookReviewSettled(upperEnv, 'travnie/llmbench', 21, headA), false);
+
   const failing = { KANAREK_REVIEW_JOBS: fakeNamespace(() => Promise.reject(new Error('down'))) };
   assert.equal(await webhookReviewSettled(failing, 'travnie/llmbench', 21, headA), false);
   assert.equal(

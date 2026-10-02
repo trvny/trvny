@@ -1593,14 +1593,6 @@ export interface ReviewSweepResult {
 }
 
 /**
- * Walks the router's provider queue one provider at a time. A provider whose
- * output is unusable (bad JSON, wrong language, or findings that all fail the
- * deterministic verifier) is excluded and the next one is asked, so the paid
- * phase only runs once the whole free pool has had its turn. The paid phase
- * itself never sweeps (see reviewSweepMaxAttempts). The router itself
- * already skips providers that fail at the HTTP level.
- */
-/**
  * Paid output is billed even when it fails validation, so the paid phase
  * gets exactly one router call; only the free pool is swept.
  */
@@ -1608,6 +1600,14 @@ export function reviewSweepMaxAttempts(phase: ReviewPhase): number {
   return phase === 'paid' ? 1 : REVIEW_SWEEP_MAX_ATTEMPTS;
 }
 
+/**
+ * Walks the router's provider queue one provider at a time. A provider whose
+ * output is unusable (bad JSON, wrong language, or findings that all fail the
+ * deterministic verifier) is excluded and the next one is asked, so the paid
+ * phase only runs once the whole free pool has had its turn. The paid phase
+ * itself never sweeps (see reviewSweepMaxAttempts). The router itself
+ * already skips providers that fail at the HTTP level.
+ */
 export async function sweepReviewProviders(
   ask: (excluded: readonly string[], signal?: AbortSignal) => Promise<ReviewRouterOutcome>,
   files: ReviewFile[],
@@ -2225,7 +2225,8 @@ export async function webhookReviewSettled(
       return false;
     }
     const state = objectValue(await response.json());
-    return state.headSha !== headSha.toLowerCase();
+    const queued = typeof state.headSha === 'string' ? state.headSha.toLowerCase() : null;
+    return queued !== headSha.toLowerCase();
   } catch {
     return false;
   }

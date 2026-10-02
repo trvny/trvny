@@ -84,6 +84,12 @@ own daily neuron budget and cooldown policy. `@cf/zai-org/glm-4.7-flash`
 remains the default emergency model: it supports reasoning and tool use while
 consuming substantially fewer neurons than `@cf/qwen/qwen3.8-27b`, preserving
 more of the 10k-neuron daily reserve for actual failures upstream.
+
+Latency is task policy too. Quips keep the normal short provider deadlines.
+Code review and L2 judge calls get at least 60 seconds per provider, while
+shitpost generation gets at least 120 seconds per provider. A provider's model
+fallbacks share that provider-level deadline instead of resetting a fresh full
+timeout for every candidate model.
 The live `/health` payload exposes the effective free queue as
 `providerPool.freeOrder`.
 

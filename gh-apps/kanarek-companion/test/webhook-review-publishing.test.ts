@@ -7,7 +7,9 @@ import {
   reviewDisposition,
   reviewJudgeThreshold,
   reviewSourceLabel,
+  sweepReviewProviders,
   verifyReviewFindings,
+  type ReviewRouterOutcome,
 } from '../src/webhook-review.ts';
 
 test('review source label includes provider and concrete upstream model', () => {
@@ -431,4 +433,122 @@ test('L2 judge threshold is strict and bounded', () => {
   assert.equal(reviewJudgeThreshold('1.0'), 1);
   assert.equal(reviewJudgeThreshold('1.1'), 0.9);
   assert.equal(reviewJudgeThreshold('0.7oops'), 0.9);
+});
+
+const sweepFiles = [{
+  path: 'src/auth.ts',
+  patch: '@@ -10,2 +10,3 @@\n const input = request.body;\n+  const result = unsafeCall(input);\n return result;',
+  rightLines: new Set([11]),
+  sha: null,
+}];
+
+function sweepReview(existingCode: string) {
+  return {
+    model: 'm',
+    provider: 'p',
+    parsed: {
+      summary: '发现问题。',
+      findings: [{
+        severity: 'high' as const,
+        path: 'src/auth.ts',
+        line: 11,
+        existing_code: existingCode,
+        title: '输入未经校验',
+        body: '正常路径会把未经校验的输入传给下游调用。',
+      }],
+    },
+  };
+}
+
+test('provider sweep excludes providers with unusable output until one verifies', async () => {
+  const seen: string[][] = [];
+  const outcomes: ReviewRouterOutcome[] = [
+    { kind: 'invalid', provider: 'aihubmix' },
+    { kind: 'ok', review: { ...sweepReview('not in the diff'), provider: 'orcarouter' } },
+    { kind: 'ok', review: { ...sweepReview('  const result = unsafeCall(input);'), provider: 'openrouter' } },
+  ];
+  const result = await sweepReviewProviders((excluded) => {
+    seen.push([...excluded]);
+    return Promise.resolve<ReviewRouterOutcome>(outcomes.shift() ?? { kind: 'unavailable' });
+  }, sweepFiles);
+
+  assert.deepEqual(seen, [[], ['aihubmix'], ['aihubmix', 'orcarouter']]);
+  assert.equal(result.disposition, 'publish');
+  assert.equal(result.generated?.provider, 'openrouter');
+  assert.equal(result.findings.length, 1);
+});
+
+test('provider sweep stops on an exhausted pool and keeps the last rejected review', async () => {
+  const outcomes: ReviewRouterOutcome[] = [
+    { kind: 'ok', review: { ...sweepReview('not in the diff'), provider: 'groq' } },
+    { kind: 'unavailable' },
+  ];
+  const result = await sweepReviewProviders(
+    () => Promise.resolve(outcomes.shift() ?? { kind: 'unavailable' }),
+    sweepFiles,
+  );
+  assert.equal(result.attempts, 2);
+  assert.equal(result.disposition, 'invalid_findings');
+  assert.equal(result.generated?.provider, 'groq');
+});
+
+test('provider sweep accepts a clean review without asking anyone else', async () => {
+  let calls = 0;
+  const result = await sweepReviewProviders(() => {
+    calls += 1;
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'ok', review: { model: null, provider: 'vercel', parsed: { summary: '', findings: [] } } });
+  }, sweepFiles);
+  assert.equal(calls, 1);
+  assert.equal(result.disposition, 'clean');
+});
+
+test('provider sweep cannot loop on an unidentified or repeated provider', async () => {
+  let calls = 0;
+  const unknown = await sweepReviewProviders(() => {
+    calls += 1;
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: 'free-router' });
+  }, sweepFiles);
+  assert.equal(calls, 1);
+  assert.equal(unknown.generated, null);
+
+  calls = 0;
+  await sweepReviewProviders(() => {
+    calls += 1;
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: 'groq' });
+  }, sweepFiles);
+  assert.equal(calls, 2);
+});
+
+test('provider sweep respects attempt and time budgets', async () => {
+  let calls = 0;
+  let clock = 0;
+  await sweepReviewProviders(() => {
+    calls += 1;
+    clock += 4 * 60_000;
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: `p${calls}` });
+  }, sweepFiles, { now: () => clock });
+  assert.equal(calls, 2);
+
+  calls = 0;
+  await sweepReviewProviders(() => {
+    calls += 1;
+    return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: `p${calls}` });
+  }, sweepFiles, { maxAttempts: 3 });
+  assert.equal(calls, 3);
+});
+
+test('provider sweep aborts a follow-up attempt at the sweep deadline', async () => {
+  const signals: Array<AbortSignal | undefined> = [];
+  const result = await sweepReviewProviders((_excluded, signal) => {
+    signals.push(signal);
+    if (!signal) return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: 'aihubmix' });
+    return new Promise<ReviewRouterOutcome>((resolve) => {
+      signal.addEventListener('abort', () => resolve({ kind: 'unavailable' }));
+    });
+  }, sweepFiles, { budgetMs: 20 });
+
+  assert.equal(signals.length, 2);
+  assert.equal(typeof signals[0], 'undefined');
+  assert.equal(signals[1]?.aborted, true);
+  assert.equal(result.generated, null);
 });

@@ -53,6 +53,11 @@ preserves the combined free-first review contract, `kanarek-review-paid` is the
 paid-only review escalation path, and `kanarek-work-paid` is the paid
 agent-work contract used by Pet Dispatcher for explicit multi-step work.
 
+`x-kanarek-review-exclude-provider` takes one provider id or a comma-separated
+list. The companion uses it to sweep the free pool one provider at a time when a
+provider answers with unusable review output, and escalates to
+`kanarek-review-paid` only after that sweep is exhausted.
+
 `workers_dev` and preview URLs are disabled. The shared Worker adds an internal
 trust header/bearer before invoking the service binding; callers do not receive
 provider credentials.

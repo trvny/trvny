@@ -1,3 +1,4 @@
+import { REVIEW_ROUTER_QUIP_MODEL } from './review-service-protocol.ts';
 import { reviewRouterChatViaService, type ReviewServiceBinding } from './review-service.ts';
 
 // Fallbacks for a missing var. wrangler.jsonc is the source of truth; a test
@@ -613,7 +614,7 @@ async function requestFreeRouter(
 ): Promise<ProviderResult> {
   const response = await reviewRouterChatViaService(
     {
-      model: 'kanarek-review-free',
+      model: REVIEW_ROUTER_QUIP_MODEL,
       max_tokens: configuredInteger(
         env.KANAREK_FREE_ROUTER_MAX_TOKENS,
         DEFAULT_QUIP_OUTPUT_TOKEN_LIMIT,

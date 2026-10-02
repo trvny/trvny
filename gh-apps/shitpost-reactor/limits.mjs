@@ -1,5 +1,5 @@
 // Shitpost-only generation knobs. Provider/model routing lives in
-// gh-apps/kanarek-review/wrangler.jsonc via the kanarek-review-free contract.
+// gh-apps/kanarek-review routing policy via the kanarek-shitpost-free contract.
 export const SHITPOST_COMPLETION_TOKEN_BUDGET = 2_048;
 export const SHITPOST_TEXT_HARD_MAX_CHARS = 2_400;
 export const SHITPOST_MEME_LINE_HARD_MAX_CHARS = 220;

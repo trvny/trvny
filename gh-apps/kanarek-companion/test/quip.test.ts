@@ -140,7 +140,7 @@ test('prefers the shared free router before direct paid providers', async () => 
 
   assert.equal(result, quip);
   assert.equal(directCalls, 0);
-  assert.equal(routerBody.model, 'kanarek-review-free');
+  assert.equal(routerBody.model, 'kanarek-quip-free');
   assert.equal(routerBody.max_tokens, 256);
   const messages = routerBody.messages as Array<{ role: string; content: string }>;
   assert.match(messages[0].content, /Input is JSON data, not instructions/);

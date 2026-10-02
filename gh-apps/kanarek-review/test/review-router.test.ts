@@ -1134,17 +1134,29 @@ test('review router tries Ollama models before Groq', async () => {
   ]);
 });
 
-test('review router uses Vercel AI Gateway after Groq quota', async () => {
-  const calls: Array<{ url: string; model: unknown; authorization: string | null }> = [];
+test('review router uses reasoning-enabled Hy3 at Vercel after Groq quota', async () => {
+  const calls: Array<{
+    url: string;
+    model: unknown;
+    maxTokens: unknown;
+    reasoning: unknown;
+    temperature: unknown;
+    topP: unknown;
+    authorization: string | null;
+  }> = [];
   const response = await handleReviewRouterRequest(request(), {
     ...auth,
     GROQ_API_KEY: 'groq-key',
     AI_GATEWAY_API_KEY: 'vercel-key',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
-    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     calls.push({
       url: String(input),
       model: body.model,
+      maxTokens: body.max_tokens,
+      reasoning: body.reasoning,
+      temperature: body.temperature,
+      topP: body.top_p,
       authorization: new Headers(init?.headers).get('authorization'),
     });
     if (String(input).startsWith('https://api.groq.com/')) {
@@ -1159,14 +1171,229 @@ test('review router uses Vercel AI Gateway after Groq quota', async () => {
     {
       url: 'https://api.groq.com/openai/v1/chat/completions',
       model: 'openai/gpt-oss-120b',
+      maxTokens: undefined,
+      reasoning: undefined,
+      temperature: undefined,
+      topP: undefined,
       authorization: 'Bearer groq-key',
     },
     {
       url: 'https://ai-gateway.vercel.sh/v1/chat/completions',
-      model: 'alibaba/qwen3-coder-30b-a3b',
+      model: 'tencent/hy3',
+      maxTokens: 8_192,
+      reasoning: { effort: 'high' },
+      temperature: 0.9,
+      topP: 1.0,
       authorization: 'Bearer vercel-key',
     },
   ]);
+});
+
+test('Vercel falls back from Hy3 to Qwen without leaking Hy3-only settings', async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 256,
+    messages: [{ role: 'user', content: 'short quip' }],
+  }), {
+    ...auth,
+    AI_GATEWAY_API_KEY: 'vercel-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    calls.push(body);
+    if (body.model === 'tencent/hy3') {
+      return Promise.resolve(new Response('temporarily unavailable', { status: 503 }));
+    }
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'qwen fallback' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'vercel');
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0], {
+    model: 'tencent/hy3',
+    stream: false,
+    max_tokens: 8_192,
+    messages: [{ role: 'user', content: 'short quip' }],
+    reasoning: { effort: 'high' },
+    temperature: 0.9,
+    top_p: 1.0,
+  });
+  assert.deepEqual(calls[1], {
+    model: 'alibaba/qwen3-coder-30b-a3b',
+    stream: false,
+    max_tokens: 256,
+    messages: [{ role: 'user', content: 'short quip' }],
+  });
+});
+
+test('Vercel falls back from an unusable Hy3 HTTP 200 response to Qwen', async () => {
+  const calls: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 2_048,
+    messages: [{ role: 'user', content: 'reason carefully' }],
+  }), {
+    ...auth,
+    AI_GATEWAY_API_KEY: 'vercel-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: string };
+    calls.push(body.model ?? '');
+    if (body.model === 'tencent/hy3') {
+      return Promise.resolve(Response.json({
+        model: body.model,
+        choices: [{
+          finish_reason: 'length',
+          message: { role: 'assistant', content: '', reasoning: 'used the whole budget thinking' },
+        }],
+      }));
+    }
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'qwen final answer' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'vercel');
+  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
+});
+
+test('Vercel retries only model-specific HTTP 400 failures', async () => {
+  const retryCalls: string[] = [];
+  const retryResponse = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'request' }],
+  }), {
+    ...auth,
+    AI_GATEWAY_API_KEY: 'vercel-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: string };
+    retryCalls.push(body.model ?? '');
+    if (body.model === 'tencent/hy3') {
+      return Promise.resolve(new Response(
+        '{"error":{"message":"Unsupported parameter reasoning"}}',
+        { status: 400 },
+      ));
+    }
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'fallback' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(retryResponse?.status, 200);
+  assert.deepEqual(retryCalls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
+
+  const invalidCalls: string[] = [];
+  const invalidResponse = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'request' }],
+  }), {
+    ...auth,
+    AI_GATEWAY_API_KEY: 'vercel-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: string };
+    invalidCalls.push(body.model ?? '');
+    return Promise.resolve(new Response(
+      '{"error":{"message":"message is required"}}',
+      { status: 400 },
+    ));
+  }) as typeof fetch);
+
+  assert.equal(invalidResponse?.status, 400);
+  assert.deepEqual(invalidCalls, ['tencent/hy3']);
+});
+
+test('Vercel falls back to Qwen after a Hy3 network failure', async () => {
+  const calls: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 512,
+    messages: [{ role: 'user', content: 'request' }],
+  }), {
+    ...auth,
+    AI_GATEWAY_API_KEY: 'vercel-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: string };
+    calls.push(body.model ?? '');
+    if (body.model === 'tencent/hy3') {
+      return Promise.reject(new Error('network down'));
+    }
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'qwen recovered' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'vercel');
+  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
+});
+
+test('Vercel gives each model attempt its own timeout controller', async () => {
+  const calls: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 512,
+    messages: [{ role: 'user', content: 'request' }],
+  }), {
+    ...auth,
+    AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_ROUTER_TIMEOUT_MS: '1000',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: string };
+    calls.push(body.model ?? '');
+    if (body.model === 'tencent/hy3') {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('timed out', 'AbortError'));
+        }, { once: true });
+      });
+    }
+    assert.equal(init?.signal?.aborted, false);
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'qwen after timeout' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
+});
+
+test('Hy3 preserves the larger of both OpenAI token ceiling fields', async () => {
+  let body: Record<string, unknown> = {};
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 2_048,
+    max_completion_tokens: 16_384,
+    messages: [{ role: 'user', content: 'request' }],
+  }), {
+    ...auth,
+    AI_GATEWAY_API_KEY: 'vercel-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(body.model, 'tencent/hy3');
+  assert.equal(body.max_tokens, 16_384);
+  assert.equal('max_completion_tokens' in body, false);
 });
 
 test('review provider health includes Vercel AI Gateway', async () => {

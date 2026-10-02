@@ -33,7 +33,7 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_ORCAROUTER_MODELS: ['orcarouter/auto'],
   KANAREK_REVIEW_OLLAMA_MODELS: ['gpt-oss:120b', 'gpt-oss:20b'],
   KANAREK_REVIEW_GROQ_MODEL: 'openai/gpt-oss-120b',
-  KANAREK_REVIEW_VERCEL_MODEL: 'alibaba/qwen3-coder-30b-a3b',
+  KANAREK_REVIEW_VERCEL_MODELS: ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b'],
   KANAREK_REVIEW_HUGGINGFACE_MODEL: 'speakleash/Bielik-11B-v3.0-Instruct:publicai',
   KANAREK_REVIEW_DEEPSEEK_MODEL: 'deepseek-flash',
   KANAREK_REVIEW_GEMINI_MODEL: 'gemini-3.8-flash',
@@ -49,7 +49,9 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
 const DEFAULT_REVIEW_ORCAROUTER_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS;
 const DEFAULT_REVIEW_OLLAMA_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OLLAMA_MODELS;
 const DEFAULT_REVIEW_GROQ_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_GROQ_MODEL;
-const DEFAULT_REVIEW_VERCEL_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_VERCEL_MODEL;
+const DEFAULT_REVIEW_VERCEL_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_VERCEL_MODELS;
+const VERCEL_HY3_MODEL = 'tencent/hy3';
+const VERCEL_HY3_MIN_MAX_TOKENS = 8_192;
 const DEFAULT_REVIEW_HUGGINGFACE_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_HUGGINGFACE_MODEL;
 const DEFAULT_REVIEW_DEEPSEEK_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_DEEPSEEK_MODEL;
 const DEFAULT_REVIEW_GEMINI_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_GEMINI_MODEL;
@@ -90,7 +92,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_ORCAROUTER_MODELS?: string;
   KANAREK_REVIEW_OLLAMA_MODELS?: string;
   KANAREK_REVIEW_GROQ_MODEL?: string;
-  KANAREK_REVIEW_VERCEL_MODEL?: string;
+  KANAREK_REVIEW_VERCEL_MODELS?: string;
   KANAREK_REVIEW_HUGGINGFACE_MODEL?: string;
   KANAREK_REVIEW_DEEPSEEK_MODEL?: string;
   KANAREK_REVIEW_GEMINI_MODEL?: string;
@@ -194,6 +196,10 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
     env.KANAREK_REVIEW_OLLAMA_MODELS,
     DEFAULT_REVIEW_OLLAMA_MODELS,
   );
+  const vercelModels = configuredModelList(
+    env.KANAREK_REVIEW_VERCEL_MODELS,
+    DEFAULT_REVIEW_VERCEL_MODELS,
+  );
   const unorderedFreeProviders: ReviewProvider[] = [
     {
       id: 'aihubmix',
@@ -229,7 +235,8 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
     {
       id: 'vercel',
       url: 'https://ai-gateway.vercel.sh/v1/chat/completions',
-      model: env.KANAREK_REVIEW_VERCEL_MODEL?.trim() || DEFAULT_REVIEW_VERCEL_MODEL,
+      model: vercelModels[0] ?? DEFAULT_REVIEW_VERCEL_MODELS[0],
+      fallbackModels: vercelModels.slice(1),
       apiKey: (providerEnv) => providerEnv.AI_GATEWAY_API_KEY,
     },
     {
@@ -815,6 +822,8 @@ type ProviderAttempt = {
   model: string;
   fallbackModels?: readonly string[];
   label: 'default' | 'model_fallback' | 'fallback_chain' | 'primary_only';
+  minimumMaxTokens?: number;
+  requestFields?: JsonObject;
 };
 
 function providerAttempts(provider: ReviewProvider): readonly ProviderAttempt[] {
@@ -830,12 +839,29 @@ function providerAttempts(provider: ReviewProvider): readonly ProviderAttempt[] 
       label: index === 0 ? 'default' : 'model_fallback',
     }));
   }
+  if (provider.id === 'vercel') {
+    return [provider.model, ...(provider.fallbackModels ?? [])].map((model, index) => ({
+      model,
+      label: index === 0 ? 'default' : 'model_fallback',
+      ...(model === VERCEL_HY3_MODEL
+        ? {
+            minimumMaxTokens: VERCEL_HY3_MIN_MAX_TOKENS,
+            requestFields: {
+              reasoning: { effort: 'high' },
+              temperature: 0.9,
+              top_p: 1.0,
+            },
+          }
+        : {}),
+    }));
+  }
   return [{ model: provider.model, label: 'default' }];
 }
 
 function shouldTryNextAttempt(
   provider: ReviewProvider,
   status: number,
+  category: string,
   attemptIndex: number,
   attemptCount: number,
 ): boolean {
@@ -848,6 +874,14 @@ function shouldTryNextAttempt(
   if (provider.id === 'ollama') {
     return status === 400 || status === 402 || status === 404 || status === 408 ||
       status === 409 || status === 425 || status === 429 || status >= 500;
+  }
+  if (provider.id === 'vercel') {
+    if (status === 400) {
+      return category === 'http_400_invalid_model' ||
+        category === 'http_400_unsupported_parameter';
+    }
+    return status === 402 || status === 404 || status === 408 || status === 409 ||
+      status === 425 || status === 429 || status >= 500;
   }
   return false;
 }
@@ -981,17 +1015,41 @@ export async function handleReviewRouterRequest(
       }));
       continue;
     }
-    const controller = new AbortController();
     const providerTimeoutMs = provider.timeoutMs ?? timeoutMs(env);
-    const deadlineAt = Date.now() + providerTimeoutMs;
-    const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
     const attempts = providerAttempts(provider);
     let providerFailureCategory = 'unknown';
     let providerInvalidRequest = true;
 
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
       const attempt = attempts[attemptIndex];
+      const controller = new AbortController();
+      const deadlineAt = Date.now() + providerTimeoutMs;
+      const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
       try {
+        const providerInput: JsonObject = {
+          ...input,
+          ...provider.requestFields,
+          ...attempt.requestFields,
+          model: attempt.model,
+          ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
+        };
+        if (attempt.minimumMaxTokens) {
+          const requestedMaxTokens = Math.max(
+            typeof providerInput.max_tokens === 'number' &&
+                Number.isFinite(providerInput.max_tokens)
+              ? providerInput.max_tokens
+              : 0,
+            typeof providerInput.max_completion_tokens === 'number' &&
+                Number.isFinite(providerInput.max_completion_tokens)
+              ? providerInput.max_completion_tokens
+              : 0,
+          );
+          providerInput.max_tokens = Math.max(
+            attempt.minimumMaxTokens,
+            Math.ceil(requestedMaxTokens),
+          );
+          delete providerInput.max_completion_tokens;
+        }
         const response = await fetcher(provider.url, {
           method: 'POST',
           headers: {
@@ -999,12 +1057,7 @@ export async function handleReviewRouterRequest(
             Authorization: `Bearer ${apiKey}`,
             ...provider.headers,
           },
-          body: JSON.stringify({
-            ...input,
-            ...provider.requestFields,
-            model: attempt.model,
-            ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
-          }),
+          body: JSON.stringify(providerInput),
           signal: controller.signal,
         });
         if (response.ok) {
@@ -1040,9 +1093,9 @@ export async function handleReviewRouterRequest(
               attempt: attempt.label,
               model: attempt.model,
             }));
+            if (provider.id === 'vercel' && attemptIndex + 1 < attempts.length) continue;
             break;
           }
-          clearTimeout(timeout);
           console.info(JSON.stringify({
             kanarekReviewRouter: 'selected', provider: provider.id, attempt: attempt.label, model: attempt.model,
           }));
@@ -1063,11 +1116,16 @@ export async function handleReviewRouterRequest(
           model: attempt.model,
         }));
 
-        if (shouldTryNextAttempt(provider, status, attemptIndex, attempts.length)) {
+        if (shouldTryNextAttempt(
+          provider,
+          status,
+          providerFailureCategory,
+          attemptIndex,
+          attempts.length,
+        )) {
           continue;
         }
         if (status === 400 || retryableStatus(status)) break;
-        clearTimeout(timeout);
         failures.push(diagnostic(provider, providerFailureCategory));
         return jsonError(
           diagnosticMessage('Review provider configuration failed', failures),
@@ -1082,11 +1140,12 @@ export async function handleReviewRouterRequest(
           kanarekReviewRouter: 'provider_failed', provider: provider.id, category,
           attempt: attempt.label, model: attempt.model,
         }));
+        if (provider.id === 'vercel' && attemptIndex + 1 < attempts.length) continue;
         break;
+      } finally {
+        clearTimeout(timeout);
       }
     }
-
-    clearTimeout(timeout);
     await rememberProviderCooldown(provider.id, providerFailureCategory, env);
     failures.push(diagnostic(provider, providerFailureCategory));
     if (providerInvalidRequest) invalidRequests += 1;

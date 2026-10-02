@@ -187,7 +187,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     if (call.tool === "session.list") {
       const value = this.sessions.list().map((session) => {
         const lease = this.#directSessions.get(session.id);
-        return publicDirectSession(session, session.writable !== false && !!lease && lease.repo === session.repo && lease.expiresAt > Date.now());
+        return publicDirectSession(session, session.writable !== false && lease !== undefined && lease.repo === session.repo && lease.expiresAt > Date.now());
       });
       return { status: "completed", summary: "Active Pet Dispatcher sessions listed.", data: { sessions: value } };
     }

@@ -16,7 +16,7 @@ import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from './templat
 
 export const DEFAULT_ENDPOINT = 'https://kanarek-companion.travny.workers.dev/review-router/v1/chat/completions';
 export const DEFAULT_SKILL_URL = 'https://raw.githubusercontent.com/trvny/.ai/main/skills/edgy-dark-meme.zip';
-export const DEFAULT_MODEL = 'kanarek-review-free';
+export const DEFAULT_MODEL = 'kanarek-shitpost-free';
 export const DEFAULT_MYSAAS_SEARCH_URL = 'https://mysaas.lol/api/agent/v1/posts';
 
 const MAX_SKILL_ARCHIVE_BYTES = 2 * 1024 * 1024;

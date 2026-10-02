@@ -1,8 +1,12 @@
 import { bearerAuthorized } from '../../kanarek-companion/src/auth.ts';
 import {
   REVIEW_PROVIDER_EXCLUDE_HEADER,
+  REVIEW_ROUTER_CODE_REVIEW_MODEL,
   REVIEW_ROUTER_FREE_MODEL,
+  REVIEW_ROUTER_JUDGE_MODEL,
   REVIEW_ROUTER_MODELS_PATH,
+  REVIEW_ROUTER_QUIP_MODEL,
+  REVIEW_ROUTER_SHITPOST_MODEL,
   REVIEW_ROUTER_PATH,
   REVIEW_ROUTER_REVIEW_MODEL,
   REVIEW_ROUTER_PAID_MODEL,
@@ -28,11 +32,24 @@ const WORKERS_AI_RESERVATION_SAFETY_FACTOR = 1.25;
 // Fallbacks for a missing var. wrangler.jsonc is the source of truth; a test
 // keeps these equal to it.
 export const REVIEW_ROUTER_MODEL_DEFAULTS = {
-  KANAREK_REVIEW_AIHUBMIX_MODEL: 'xiaomi-mimo-v2.6-flash-free',
+  KANAREK_REVIEW_AIHUBMIX_MODELS: [
+    'xiaomi-mimo-v2.6-flash-free',
+    'coding-kimi-k3-free',
+    'dots-3-note-preview-free',
+    'nemotron-3.5-lightning-free',
+    'hy3-free',
+    'minimax-m2.7-free',
+  ],
   KANAREK_REVIEW_ORCAROUTER_MODELS: ['orcarouter/auto'],
   KANAREK_REVIEW_OLLAMA_MODELS: ['gpt-oss:120b', 'gpt-oss:20b'],
   KANAREK_REVIEW_GROQ_MODEL: 'openai/gpt-oss-120b',
-  KANAREK_REVIEW_VERCEL_MODELS: ['tencent/hy3', 'alibaba/qwen3.8-omni-flash', 'alibaba/qwen3-coder-30b-a3b', 'inclusionai/ling-3.1-flash-free', 'poolside/laguna-s-2.1-free'],
+  KANAREK_REVIEW_VERCEL_MODELS: [
+    'tencent/hy3',
+    'alibaba/qwen3.8-omni-flash',
+    'alibaba/qwen3-coder-30b-a3b',
+    'inclusionai/ling-3.1-flash-free',
+    'poolside/laguna-s-2.1-free',
+  ],
   KANAREK_REVIEW_HUGGINGFACE_MODEL: 'speakleash/Bielik-11B-v3.0-Instruct:publicai',
   KANAREK_REVIEW_DEEPSEEK_MODEL: 'deepseek-flash',
   KANAREK_REVIEW_GEMINI_MODEL: 'gemini-3.8-flash',
@@ -53,13 +70,14 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_VERCEL_HY3_REASONING_EFFORT: 'high',
   KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE: '0.9',
   KANAREK_REVIEW_VERCEL_HY3_TOP_P: '1',
+  KANAREK_REVIEW_GROQ_REASONING_EFFORT: 'high',
   KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'deepseek,gemini-flex',
   KANAREK_REVIEW_DEEPSEEK_THINKING: 'enabled',
   KANAREK_REVIEW_DEEPSEEK_REASONING_EFFORT: 'max',
   KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS: '131072',
   KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
 } as const;
-const DEFAULT_REVIEW_AIHUBMIX_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_AIHUBMIX_MODEL;
+const DEFAULT_REVIEW_AIHUBMIX_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_AIHUBMIX_MODELS;
 const DEFAULT_WORKERS_AI_REVIEW_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_WORKERS_AI_MODEL;
 const DEFAULT_REVIEW_ORCAROUTER_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS;
 const DEFAULT_REVIEW_OLLAMA_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OLLAMA_MODELS;
@@ -80,8 +98,47 @@ const DEFAULT_FREE_PROVIDER_ORDER = [
   'huggingface-publicai',
 ] as const;
 type FreeReviewProviderId = (typeof DEFAULT_FREE_PROVIDER_ORDER)[number];
+type FreeTaskProfileId = 'general' | 'quip' | 'review' | 'judge' | 'shitpost';
+
+const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
+  quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai'],
+  review: ['aihubmix', 'orcarouter', 'openrouter', 'ollama', 'groq', 'vercel', 'huggingface-publicai'],
+  judge: ['aihubmix', 'groq', 'vercel', 'openrouter', 'ollama', 'orcarouter', 'huggingface-publicai'],
+  shitpost: ['aihubmix', 'vercel', 'groq', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai'],
+} as const satisfies Record<Exclude<FreeTaskProfileId, 'general'>, readonly FreeReviewProviderId[]>;
+
+const AIHUBMIX_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
+  general: DEFAULT_REVIEW_AIHUBMIX_MODELS,
+  quip: ['xiaomi-mimo-v2.6-flash-free', 'minimax-m2.7-free', 'dots-3-note-preview-free', 'hy3-free', 'nemotron-3.5-lightning-free', 'coding-kimi-k3-free'],
+  review: ['coding-kimi-k3-free', 'nemotron-3.5-lightning-free', 'hy3-free', 'minimax-m2.7-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free'],
+  judge: ['nemotron-3.5-lightning-free', 'dots-3-note-preview-free', 'minimax-m2.7-free', 'hy3-free', 'xiaomi-mimo-v2.6-flash-free', 'coding-kimi-k3-free'],
+  shitpost: ['minimax-m2.7-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free', 'hy3-free', 'nemotron-3.5-lightning-free', 'coding-kimi-k3-free'],
+};
+
+const VERCEL_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
+  general: DEFAULT_REVIEW_VERCEL_MODELS,
+  quip: ['inclusionai/ling-3.1-flash-free', 'poolside/laguna-s-2.1-free', 'alibaba/qwen3.8-omni-flash', 'tencent/hy3', 'alibaba/qwen3-coder-30b-a3b'],
+  review: ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b', 'alibaba/qwen3.8-omni-flash', 'inclusionai/ling-3.1-flash-free', 'poolside/laguna-s-2.1-free'],
+  judge: ['tencent/hy3', 'alibaba/qwen3.8-omni-flash', 'inclusionai/ling-3.1-flash-free', 'poolside/laguna-s-2.1-free', 'alibaba/qwen3-coder-30b-a3b'],
+  shitpost: ['alibaba/qwen3.8-omni-flash', 'inclusionai/ling-3.1-flash-free', 'tencent/hy3', 'poolside/laguna-s-2.1-free', 'alibaba/qwen3-coder-30b-a3b'],
+};
+
 const DEFAULT_PAID_PROVIDER_ORDER = ['deepseek', 'gemini-flex'] as const;
 type PaidReviewProviderId = (typeof DEFAULT_PAID_PROVIDER_ORDER)[number];
+export type ReviewProviderBudgetClass = 'free-quota' | 'monthly-free-credit' | 'daily-neurons' | 'paid-reserve';
+const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudgetClass> = {
+  aihubmix: 'free-quota',
+  openrouter: 'free-quota',
+  orcarouter: 'free-quota',
+  ollama: 'free-quota',
+  groq: 'free-quota',
+  vercel: 'monthly-free-credit',
+  'huggingface-publicai': 'free-quota',
+  deepseek: 'paid-reserve',
+  'gemini-flex': 'paid-reserve',
+  'workers-ai': 'daily-neurons',
+};
+const GROQ_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
 const AIHUBMIX_RETRYABLE_MESSAGES = [
   'to prevent abuse of free resources',
   'accounts that have not been recharged can only try',
@@ -109,10 +166,12 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
   KANAREK_REVIEW_WORKERS_AI_MODEL?: string;
   KANAREK_REVIEW_WORKERS_AI_MAX_OUTPUT_TOKENS?: string;
+  KANAREK_REVIEW_AIHUBMIX_MODELS?: string;
   KANAREK_REVIEW_AIHUBMIX_MODEL?: string;
   KANAREK_REVIEW_ORCAROUTER_MODELS?: string;
   KANAREK_REVIEW_OLLAMA_MODELS?: string;
   KANAREK_REVIEW_GROQ_MODEL?: string;
+  KANAREK_REVIEW_GROQ_REASONING_EFFORT?: string;
   KANAREK_REVIEW_VERCEL_MODELS?: string;
   KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS?: string;
   KANAREK_REVIEW_VERCEL_HY3_REASONING_EFFORT?: string;
@@ -188,8 +247,40 @@ function configuredModelList(raw: string | undefined, fallback: readonly string[
   return [...new Set(configured.length > 0 ? configured : fallback)];
 }
 
+function orderedTaskModels(configured: readonly string[], preferred: readonly string[]): string[] {
+  const allowed = new Set(configured);
+  const ordered = preferred.filter((model) => allowed.has(model));
+  for (const model of configured) if (!ordered.includes(model)) ordered.push(model);
+  return ordered;
+}
+
+function freeTaskProfile(model: unknown): FreeTaskProfileId {
+  if (model === REVIEW_ROUTER_QUIP_MODEL) return 'quip';
+  if (model === REVIEW_ROUTER_CODE_REVIEW_MODEL || model === REVIEW_ROUTER_REVIEW_MODEL) return 'review';
+  if (model === REVIEW_ROUTER_JUDGE_MODEL) return 'judge';
+  if (model === REVIEW_ROUTER_SHITPOST_MODEL) return 'shitpost';
+  return 'general';
+}
+
+function freeCompletionContract(model: unknown): boolean {
+  return model === REVIEW_ROUTER_FREE_MODEL ||
+    model === REVIEW_ROUTER_QUIP_MODEL ||
+    model === REVIEW_ROUTER_CODE_REVIEW_MODEL ||
+    model === REVIEW_ROUTER_JUDGE_MODEL ||
+    model === REVIEW_ROUTER_SHITPOST_MODEL;
+}
+
 function configuredText(raw: string | undefined, fallback: string): string {
   return raw?.trim() || fallback;
+}
+
+function configuredGroqReasoningEffort(raw: string | undefined, fallback: string): string {
+  const normalized = raw?.trim().toLowerCase();
+  return normalized && GROQ_REASONING_EFFORTS.has(normalized) ? normalized : fallback;
+}
+
+function groqSupportsReasoningEffort(model: string): boolean {
+  return /(?:^|\/)gpt-oss(?:-|$)/i.test(model) || /^qwen\/qwen3\.8-27b$/i.test(model);
 }
 
 function configuredInteger(
@@ -256,8 +347,19 @@ function configuredFreeProviderOrder(raw: string | undefined): FreeReviewProvide
   return ordered;
 }
 
-function freeProviderOrder(env: ReviewRouterEnv): ReviewProviderId[] {
-  return [...configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER), 'workers-ai'];
+function configuredTaskFreeProviderOrder(
+  env: ReviewRouterEnv,
+  task: FreeTaskProfileId,
+): FreeReviewProviderId[] {
+  if (task === 'general') return configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER);
+  return [...DEFAULT_FREE_TASK_PROVIDER_ORDER[task]];
+}
+
+function freeProviderOrder(
+  env: ReviewRouterEnv,
+  task: FreeTaskProfileId = 'general',
+): ReviewProviderId[] {
+  return [...configuredTaskFreeProviderOrder(env, task), 'workers-ai'];
 }
 
 function configuredPaidProviderOrder(raw: string | undefined): PaidReviewProviderId[] {
@@ -278,12 +380,24 @@ function configuredPaidProviderOrder(raw: string | undefined): PaidReviewProvide
   return ordered;
 }
 
-function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly ReviewProvider[] {
+function providers(
+  env: ReviewRouterEnv,
+  includePaidReserves = false,
+  task: FreeTaskProfileId = 'general',
+): readonly ReviewProvider[] {
   const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
   const sharedOpenRouterModels = env.KANAREK_OPENROUTER_MODELS?.trim();
   const openRouterModels = configuredModelList(
     reviewOpenRouterModels || sharedOpenRouterModels,
     DEFAULT_REVIEW_OPENROUTER_MODELS,
+  );
+  const aihubMixConfigured = configuredModelList(
+    env.KANAREK_REVIEW_AIHUBMIX_MODELS?.trim() || env.KANAREK_REVIEW_AIHUBMIX_MODEL?.trim(),
+    DEFAULT_REVIEW_AIHUBMIX_MODELS,
+  );
+  const aihubMixModels = orderedTaskModels(
+    aihubMixConfigured,
+    AIHUBMIX_TASK_MODEL_PREFERENCES[task],
   );
   const orcaRouterModels = configuredModelList(
     env.KANAREK_REVIEW_ORCAROUTER_MODELS,
@@ -293,15 +407,20 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
     env.KANAREK_REVIEW_OLLAMA_MODELS,
     DEFAULT_REVIEW_OLLAMA_MODELS,
   );
-  const vercelModels = configuredModelList(
+  const vercelConfigured = configuredModelList(
     env.KANAREK_REVIEW_VERCEL_MODELS,
     DEFAULT_REVIEW_VERCEL_MODELS,
+  );
+  const vercelModels = orderedTaskModels(
+    vercelConfigured,
+    VERCEL_TASK_MODEL_PREFERENCES[task],
   );
   const unorderedFreeProviders: ReviewProvider[] = [
     {
       id: 'aihubmix',
       url: 'https://aihubmix.com/v1/chat/completions',
-      model: configuredText(env.KANAREK_REVIEW_AIHUBMIX_MODEL, DEFAULT_REVIEW_AIHUBMIX_MODEL),
+      model: aihubMixModels[0] ?? DEFAULT_REVIEW_AIHUBMIX_MODELS[0],
+      fallbackModels: aihubMixModels.slice(1),
       apiKey: (providerEnv) => providerEnv.AIHUBMIX_API_KEY,
       timeoutMs: reviewFreeProbeTimeoutMs(
         env.KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS,
@@ -314,7 +433,7 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
       model: openRouterModels[0],
       fallbackModels: openRouterModels.slice(1),
       apiKey: (providerEnv) => providerEnv.OPENROUTER_API_KEY,
-      headers: { 'X-Title': 'Kanarek free review' },
+      headers: { 'X-Title': `Kanarek ${task}` },
     },
     {
       id: 'ollama',
@@ -356,7 +475,7 @@ function providers(env: ReviewRouterEnv, includePaidReserves = false): readonly 
       apiKey: (providerEnv) => providerEnv.HUGGINGFACE_API_KEY,
     },
   ];
-  const freeProviders = configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER)
+  const freeProviders = configuredTaskFreeProviderOrder(env, task)
     .map((id) => unorderedFreeProviders.find((provider) => provider.id === id))
     .filter((provider): provider is ReviewProvider => Boolean(provider));
   if (!includePaidReserves) return freeProviders;
@@ -518,7 +637,7 @@ function usableFreeCompletionPayload(value: unknown): boolean {
 }
 
 async function usableFreeCompletionResponse(response: Response, input: JsonObject): Promise<boolean> {
-  if (input.model !== REVIEW_ROUTER_FREE_MODEL || input.stream === true) return true;
+  if (!freeCompletionContract(input.model) || input.stream === true) return true;
   try {
     return usableFreeCompletionPayload(await response.clone().json());
   } catch {
@@ -779,23 +898,41 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
   configured: number;
   providers: Array<{
     available: boolean;
+    budgetClass: ReviewProviderBudgetClass;
     configured: boolean;
     cooldown?: { category: string; until: number };
     provider: ReviewProviderId;
   }>;
   ready: boolean;
   freeOrder: ReviewProviderId[];
+  taskOrders: Record<FreeTaskProfileId, ReviewProviderId[]>;
 }> {
   const states = await Promise.all(
     providers(env, true).map(async (provider) => {
       const configured = Boolean(provider.apiKey(env)?.trim());
       if (!configured) {
-        return { available: false, configured: false, provider: provider.id };
+        return {
+          available: false,
+          budgetClass: REVIEW_PROVIDER_BUDGET_CLASS[provider.id],
+          configured: false,
+          provider: provider.id,
+        };
       }
       const cooldown = await activeProviderCooldown(env, provider.id);
       return cooldown
-        ? { available: false, configured: true, cooldown, provider: provider.id }
-        : { available: true, configured: true, provider: provider.id };
+        ? {
+            available: false,
+            budgetClass: REVIEW_PROVIDER_BUDGET_CLASS[provider.id],
+            configured: true,
+            cooldown,
+            provider: provider.id,
+          }
+        : {
+            available: true,
+            budgetClass: REVIEW_PROVIDER_BUDGET_CLASS[provider.id],
+            configured: true,
+            provider: provider.id,
+          };
     }),
   );
   const workersAiConfigured = workersAiEnabled(env);
@@ -807,12 +944,33 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
     : [null, null];
   states.push(
     !workersAiConfigured
-      ? { available: false, configured: false, provider: 'workers-ai' }
+      ? {
+          available: false,
+          budgetClass: REVIEW_PROVIDER_BUDGET_CLASS['workers-ai'],
+          configured: false,
+          provider: 'workers-ai',
+        }
       : workersAiCooldown
-        ? { available: false, configured: true, cooldown: workersAiCooldown, provider: 'workers-ai' }
+        ? {
+            available: false,
+            budgetClass: REVIEW_PROVIDER_BUDGET_CLASS['workers-ai'],
+            configured: true,
+            cooldown: workersAiCooldown,
+            provider: 'workers-ai',
+          }
         : workersAiBudget && workersAiBudget.remaining > 0
-          ? { available: true, configured: true, provider: 'workers-ai' }
-          : { available: false, configured: true, provider: 'workers-ai' },
+          ? {
+              available: true,
+              budgetClass: REVIEW_PROVIDER_BUDGET_CLASS['workers-ai'],
+              configured: true,
+              provider: 'workers-ai',
+            }
+          : {
+              available: false,
+              budgetClass: REVIEW_PROVIDER_BUDGET_CLASS['workers-ai'],
+              configured: true,
+              provider: 'workers-ai',
+            },
   );
   const configured = states.filter((state) => state.configured).length;
   const available = states.filter((state) => state.available).length;
@@ -822,6 +980,13 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
     providers: states,
     ready: available > 0,
     freeOrder: freeProviderOrder(env),
+    taskOrders: {
+      general: freeProviderOrder(env, 'general'),
+      quip: freeProviderOrder(env, 'quip'),
+      review: freeProviderOrder(env, 'review'),
+      judge: freeProviderOrder(env, 'judge'),
+      shitpost: freeProviderOrder(env, 'shitpost'),
+    },
   };
 }
 
@@ -953,14 +1118,42 @@ type ProviderAttempt = {
   requestFields?: JsonObject;
 };
 
-function providerAttempts(provider: ReviewProvider, env: ReviewRouterEnv): readonly ProviderAttempt[] {
+function providerAttempts(
+  provider: ReviewProvider,
+  env: ReviewRouterEnv,
+  task: FreeTaskProfileId,
+): readonly ProviderAttempt[] {
+  if (provider.id === 'groq') {
+    // The legacy/general lane keeps provider defaults for backward compatibility.
+    // Task-specific aliases are the only place where this router adds reasoning_effort.
+    if (task === 'general') return [{ model: provider.model, label: 'default' }];
+    const supportsReasoning = groqSupportsReasoningEffort(provider.model);
+    const effort = task === 'review'
+      ? configuredGroqReasoningEffort(
+          env.KANAREK_REVIEW_GROQ_REASONING_EFFORT,
+          REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_GROQ_REASONING_EFFORT,
+        )
+      : task === 'judge'
+        ? 'high'
+        : task === 'quip' || task === 'shitpost'
+          ? 'low'
+          : 'medium';
+    return [{
+      model: provider.model,
+      label: 'default',
+      ...(supportsReasoning ? { requestFields: { reasoning_effort: effort } } : {}),
+    }];
+  }
   if (provider.id === 'openrouter' && provider.fallbackModels?.length) {
     return [
       { model: provider.model, fallbackModels: provider.fallbackModels, label: 'fallback_chain' },
       { model: provider.model, label: 'primary_only' },
     ];
   }
-  if ((provider.id === 'orcarouter' || provider.id === 'ollama') && provider.fallbackModels?.length) {
+  if (
+    (provider.id === 'aihubmix' || provider.id === 'orcarouter' || provider.id === 'ollama')
+    && provider.fallbackModels?.length
+  ) {
     return [provider.model, ...provider.fallbackModels].map((model, index) => ({
       model,
       label: index === 0 ? 'default' : 'model_fallback',
@@ -970,7 +1163,7 @@ function providerAttempts(provider: ReviewProvider, env: ReviewRouterEnv): reado
     return [provider.model, ...(provider.fallbackModels ?? [])].map((model, index) => ({
       model,
       label: index === 0 ? 'default' : 'model_fallback',
-      ...(model === VERCEL_HY3_MODEL
+      ...(model === VERCEL_HY3_MODEL && (task === 'review' || task === 'judge')
         ? {
             minimumMaxTokens: configuredInteger(
               env.KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS,
@@ -1014,6 +1207,14 @@ function shouldTryNextAttempt(
 ): boolean {
   if (attemptIndex + 1 >= attemptCount) return false;
   if (provider.id === 'openrouter') return status === 400;
+  if (provider.id === 'aihubmix') {
+    if (status === 400) {
+      return category === 'http_400_invalid_model' ||
+        category === 'http_400_unsupported_parameter';
+    }
+    return status === 402 || status === 404 || status === 408 || status === 409 ||
+      status === 425 || status === 429 || status >= 500;
+  }
   if (provider.id === 'orcarouter') {
     return status === 402 || status === 404 || status === 408 || status === 409 ||
       status === 425 || status === 429 || status >= 500;
@@ -1111,6 +1312,10 @@ export async function handleReviewRouterRequest(
       object: 'list',
       data: [
         { id: REVIEW_ROUTER_FREE_MODEL, object: 'model', owned_by: 'kanarek' },
+        { id: REVIEW_ROUTER_QUIP_MODEL, object: 'model', owned_by: 'kanarek' },
+        { id: REVIEW_ROUTER_CODE_REVIEW_MODEL, object: 'model', owned_by: 'kanarek' },
+        { id: REVIEW_ROUTER_JUDGE_MODEL, object: 'model', owned_by: 'kanarek' },
+        { id: REVIEW_ROUTER_SHITPOST_MODEL, object: 'model', owned_by: 'kanarek' },
         { id: REVIEW_ROUTER_REVIEW_MODEL, object: 'model', owned_by: 'kanarek' },
         { id: REVIEW_ROUTER_PAID_MODEL, object: 'model', owned_by: 'kanarek' },
         { id: REVIEW_ROUTER_WORK_MODEL, object: 'model', owned_by: 'kanarek' },
@@ -1133,6 +1338,7 @@ export async function handleReviewRouterRequest(
   const paidOnly = input.model === REVIEW_ROUTER_PAID_MODEL;
   const workOnly = input.model === REVIEW_ROUTER_WORK_MODEL;
   const includePaidReserves = input.model === REVIEW_ROUTER_REVIEW_MODEL;
+  const task = freeTaskProfile(input.model);
   const excluded = excludedProvider(request);
   let configured = 0;
   let invalidRequests = 0;
@@ -1142,7 +1348,7 @@ export async function handleReviewRouterRequest(
     ? workProviders(env)
     : paidOnly
       ? paidProviders(env)
-      : providers(env, includePaidReserves);
+      : providers(env, includePaidReserves, task);
   for (const provider of selectedProviders) {
     if (provider.id === excluded) {
       console.info(JSON.stringify({
@@ -1163,15 +1369,25 @@ export async function handleReviewRouterRequest(
       continue;
     }
     const providerTimeoutMs = provider.timeoutMs ?? timeoutMs(env);
-    const attempts = providerAttempts(provider, env);
+    const providerDeadlineAt = Date.now() + providerTimeoutMs;
+    const attempts = providerAttempts(provider, env, task);
     let providerFailureCategory = 'unknown';
     let providerInvalidRequest = true;
 
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
       const attempt = attempts[attemptIndex];
+      const remainingProviderMs = Math.max(0, providerDeadlineAt - Date.now());
+      const attemptTimeoutMs = provider.id === 'aihubmix'
+        ? remainingProviderMs
+        : providerTimeoutMs;
+      if (attemptTimeoutMs <= 0) {
+        providerFailureCategory = 'timeout';
+        providerInvalidRequest = false;
+        break;
+      }
       const controller = new AbortController();
-      const deadlineAt = Date.now() + providerTimeoutMs;
-      const timeout = setTimeout(() => controller.abort(), providerTimeoutMs);
+      const deadlineAt = Date.now() + attemptTimeoutMs;
+      const timeout = setTimeout(() => controller.abort(), attemptTimeoutMs);
       try {
         const providerInput: JsonObject = {
           ...input,
@@ -1240,7 +1456,10 @@ export async function handleReviewRouterRequest(
               attempt: attempt.label,
               model: attempt.model,
             }));
-            if (provider.id === 'vercel' && attemptIndex + 1 < attempts.length) continue;
+            if (
+              (provider.id === 'aihubmix' || provider.id === 'vercel')
+              && attemptIndex + 1 < attempts.length
+            ) continue;
             break;
           }
           console.info(JSON.stringify({
@@ -1287,6 +1506,12 @@ export async function handleReviewRouterRequest(
           kanarekReviewRouter: 'provider_failed', provider: provider.id, category,
           attempt: attempt.label, model: attempt.model,
         }));
+        if (
+          provider.id === 'aihubmix'
+          && category !== 'timeout'
+          && attemptIndex + 1 < attempts.length
+          && Date.now() < providerDeadlineAt
+        ) continue;
         if (provider.id === 'vercel' && attemptIndex + 1 < attempts.length) continue;
         break;
       } finally {

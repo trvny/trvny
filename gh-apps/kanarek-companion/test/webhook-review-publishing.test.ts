@@ -314,7 +314,7 @@ test('L2 judge fails open when a covered rejection is not highly confident', () 
   assert.deepEqual(judged, findings);
 });
 
-test('L2 judge can veto only a high-confidence covered rejection', () => {
+test('L2 judge never lets a high-confidence veto erase a distinct L1 finding', () => {
   const findings = [{
     severity: 'low' as const,
     path: 'src/a.ts',
@@ -334,7 +334,40 @@ test('L2 judge can veto only a high-confidence covered rejection', () => {
     }],
   }), 0.9);
 
-  assert.deepEqual(judged, []);
+  assert.deepEqual(judged, findings);
+});
+
+test('L2 judge deduplicates a high-confidence vetoed cluster without erasing its root cause', () => {
+  const findings = [
+    {
+      severity: 'medium' as const,
+      path: 'src/a.ts',
+      line: 1,
+      existingCode: 'const a = risky();',
+      title: '问题 A',
+      body: '同一个根因的第一个定位。',
+    },
+    {
+      severity: 'medium' as const,
+      path: 'src/b.ts',
+      line: 2,
+      existingCode: 'const b = risky();',
+      title: '问题 B',
+      body: '同一个根因的第二个定位。',
+    },
+  ];
+  const judged = applyReviewJudge(findings, JSON.stringify({
+    groups: [{
+      member_ids: [0, 1],
+      representative_id: 1,
+      confidence: 0.98,
+      keep: false,
+      root_cause: 'duplicate',
+      reason: 'same root cause',
+    }],
+  }), 0.9);
+
+  assert.deepEqual(judged, [findings[1]]);
 });
 
 test('L2 judge fails open for findings it did not classify', () => {

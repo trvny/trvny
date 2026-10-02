@@ -28,11 +28,11 @@ const WORKERS_AI_RESERVATION_SAFETY_FACTOR = 1.25;
 // Fallbacks for a missing var. wrangler.jsonc is the source of truth; a test
 // keeps these equal to it.
 export const REVIEW_ROUTER_MODEL_DEFAULTS = {
-  KANAREK_REVIEW_AIHUBMIX_MODEL: 'coding-glm-5.3-free',
+  KANAREK_REVIEW_AIHUBMIX_MODEL: 'xiaomi-mimo-v2.6-flash-free',
   KANAREK_REVIEW_ORCAROUTER_MODELS: ['orcarouter/auto'],
   KANAREK_REVIEW_OLLAMA_MODELS: ['gpt-oss:120b', 'gpt-oss:20b'],
   KANAREK_REVIEW_GROQ_MODEL: 'openai/gpt-oss-120b',
-  KANAREK_REVIEW_VERCEL_MODELS: ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b'],
+  KANAREK_REVIEW_VERCEL_MODELS: ['tencent/hy3', 'alibaba/qwen3.8-omni-flash', 'alibaba/qwen3-coder-30b-a3b', 'inclusionai/ling-3.1-flash-free', 'poolside/laguna-s-2.1-free'],
   KANAREK_REVIEW_HUGGINGFACE_MODEL: 'speakleash/Bielik-11B-v3.0-Instruct:publicai',
   KANAREK_REVIEW_DEEPSEEK_MODEL: 'deepseek-flash',
   KANAREK_REVIEW_GEMINI_MODEL: 'gemini-3.8-flash',

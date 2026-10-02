@@ -17,7 +17,7 @@ provider secrets.
 | PR status quips | `kanarek-companion` | `../kanarek-companion/wrangler.jsonc` |
 | PR review policy/context | `kanarek-companion` | `KANAREK_WEBHOOK_REVIEW_*` |
 | Free/paid model routing | `kanarek-review` | this `wrangler.jsonc` |
-| Shitpost generation contract | Shitpost Reactor Action | `../../stuff/other/shitpost-reactor/limits.mjs` |
+| Shitpost generation contract | Shitpost Reactor Action | `../shitpost-reactor/limits.mjs` |
 | Shitpost provider choice | `kanarek-review-free` | this `wrangler.jsonc` |
 
 Quips, reviews, and shitposts are clients of one routing layer rather than

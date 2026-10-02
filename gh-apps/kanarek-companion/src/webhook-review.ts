@@ -140,6 +140,7 @@ const REVIEW_SYSTEM_PROMPT = [
 ].join('\n');
 
 export interface WebhookReviewEnv extends ReviewServiceEnv {
+  COMPANION_LOCK?: DurableObjectNamespace;
   GITHUB_APP_ID: string;
   GITHUB_APP_SLUG?: string;
   GITHUB_PRIVATE_KEY: string;
@@ -2192,6 +2193,67 @@ function validStoredJob(value: unknown): value is StoredJob {
   );
 }
 
+/**
+ * True unless a Kanarek review job is still queued, running, retrying or
+ * escalating for exactly this head. Unknown state fails closed so the companion
+ * never pushes a new head over an in-flight review.
+ */
+export async function webhookReviewSettled(
+  env: Pick<WebhookReviewEnv, 'KANAREK_REVIEW_JOBS' | 'KANAREK_WEBHOOK_REVIEW_ENABLED'>,
+  repository: string,
+  number: number,
+  headSha: string,
+): Promise<boolean> {
+  const queue = env.KANAREK_REVIEW_JOBS;
+  if (disabled(env.KANAREK_WEBHOOK_REVIEW_ENABLED) || !queue) return true;
+  try {
+    const response = await queue
+      .get(queue.idFromName(`${repository}#${number}`))
+      .fetch(`${INTERNAL_REVIEW_ORIGIN}/status`);
+    if (!response.ok) {
+      await response.body?.cancel();
+      return false;
+    }
+    const state = objectValue(await response.json());
+    return state.headSha !== headSha.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+async function refreshCompanionAfterReview(
+  env: WebhookReviewEnv,
+  target: ReviewTarget,
+): Promise<void> {
+  const lock = env.COMPANION_LOCK;
+  if (!lock) return;
+  try {
+    const response = await lock
+      .get(lock.idFromName(`${target.repository}#${target.number}`))
+      .fetch('https://kanarek-companion.internal/refresh', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          delivery: `review-job:${target.headSha}:${Date.now()}`,
+          installationId: target.installationId,
+          pullRequestNumber: target.number,
+          repository: target.repository,
+          sourceEvent: 'review_job',
+        }),
+      });
+    await response.body?.cancel();
+  } catch (error) {
+    console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+      JSON.stringify({
+        kanarekWebhookReview: 'companion_refresh_failed',
+        repository: target.repository,
+        pullRequestNumber: target.number,
+        error: error instanceof Error ? error.message : 'unknown_error',
+      }),
+    );
+  }
+}
+
 export class WebhookReviewJob {
   private readonly state: DurableObjectState;
   private readonly env: WebhookReviewEnv;
@@ -2202,9 +2264,17 @@ export class WebhookReviewJob {
   }
 
   async fetch(request: Request): Promise<Response> {
+    const pathname = new URL(request.url).pathname;
+    if (request.method === 'GET' && pathname === '/status') {
+      const job = await this.state.storage.get<StoredJob>(JOB_KEY);
+      return Response.json({
+        headSha: validStoredJob(job) ? job.target.headSha : null,
+        status: (await this.state.storage.get<string>(STATUS_KEY)) ?? null,
+      });
+    }
     if (
       request.method !== 'POST' ||
-      new URL(request.url).pathname !== '/enqueue'
+      pathname !== '/enqueue'
     ) {
       return Response.json({ error: 'not_found' }, { status: 404 });
     }
@@ -2416,6 +2486,9 @@ export class WebhookReviewJob {
       );
     }
     await this.state.storage.delete([JOB_KEY, STATUS_KEY]);
+    // The companion gates branch updates on this job; let it re-evaluate now
+    // instead of waiting for an unrelated GitHub event.
+    await refreshCompanionAfterReview(this.env, continuation.target);
 
     console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({

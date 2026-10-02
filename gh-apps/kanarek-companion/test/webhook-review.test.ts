@@ -22,6 +22,7 @@ import {
   shouldRefreshSameTarget,
   shouldReplaceQueuedTarget,
   WebhookReviewJob,
+  webhookReviewSettled,
   type WebhookReviewEnv,
 } from '../src/webhook-review.ts';
 
@@ -884,4 +885,61 @@ test('PR review output headroom defaults to 36k and allows provider-sized ceilin
   assert.equal(reviewMaxOutputTokens('65536'), 65_536);
   assert.equal(reviewMaxOutputTokens('65537'), 36_864);
   assert.equal(reviewMaxOutputTokens('wat'), 36_864);
+});
+
+function fakeNamespace(fetcher: (request: Request) => Promise<Response>): DurableObjectNamespace {
+  return {
+    idFromName: (name: string) => name,
+    get: () => ({
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetcher(input instanceof Request ? input : new Request(input, init)),
+    }),
+  } as unknown as DurableObjectNamespace;
+}
+
+test('review status gates branch updates only while this head is in flight', async () => {
+  const { state } = fakeState();
+  const job = new WebhookReviewJob(state, {} as WebhookReviewEnv);
+  const env = { KANAREK_REVIEW_JOBS: fakeNamespace((request) => job.fetch(request)) };
+
+  assert.equal(await webhookReviewSettled(env, 'travnie/llmbench', 21, headA), true);
+  await job.fetch(new Request('https://kanarek-review.internal/enqueue', {
+    method: 'POST',
+    body: JSON.stringify(queuedJob(headA, base)),
+  }));
+  assert.equal(await webhookReviewSettled(env, 'travnie/llmbench', 21, headA), false);
+  assert.equal(await webhookReviewSettled(env, 'travnie/llmbench', 21, headA.toUpperCase()), false);
+  assert.equal(await webhookReviewSettled(env, 'travnie/llmbench', 21, headB), true);
+
+  const failing = { KANAREK_REVIEW_JOBS: fakeNamespace(async () => { throw new Error('down'); }) };
+  assert.equal(await webhookReviewSettled(failing, 'travnie/llmbench', 21, headA), false);
+  assert.equal(
+    await webhookReviewSettled(
+      { ...failing, KANAREK_WEBHOOK_REVIEW_ENABLED: 'false' },
+      'travnie/llmbench',
+      21,
+      headA,
+    ),
+    true,
+  );
+});
+
+test('finished review job asks the companion to re-evaluate the PR', async () => {
+  const { state, values } = fakeState({ job: { ...queuedJob(headA, base), attempt: 0, phase: 'free' } });
+  const refreshes: Record<string, unknown>[] = [];
+  const job = new WebhookReviewJob(state, {
+    COMPANION_LOCK: fakeNamespace(async (request) => {
+      refreshes.push(await request.json() as Record<string, unknown>);
+      return Response.json({ ok: true, queued: true });
+    }),
+  } as unknown as WebhookReviewEnv);
+
+  await job.alarm();
+
+  assert.equal(values.has('job'), false);
+  assert.equal(refreshes.length, 1);
+  assert.equal(refreshes[0]?.sourceEvent, 'review_job');
+  assert.equal(refreshes[0]?.pullRequestNumber, 21);
+  assert.equal(refreshes[0]?.repository, 'travnie/llmbench');
+  assert.equal(refreshes[0]?.installationId, 123);
 });

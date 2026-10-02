@@ -62,6 +62,21 @@ test('validateRecord accepts schema v2 text and meme shapes', () => {
   assert.equal('id' in text, false);
 });
 
+test('validateRecord shares the roomy text safety ceiling with the generator', () => {
+  const longerText = 'x'.repeat(1_200);
+  assert.equal(
+    validateRecord({ ...textPost, content: { kind: 'text', text: longerText } }).content.text.length,
+    1_200,
+  );
+  assert.throws(
+    () => validateRecord({
+      ...textPost,
+      content: { kind: 'text', text: 'x'.repeat(2_401) },
+    }),
+    /invalid_text/,
+  );
+});
+
 test('validateRecord keeps schema v1 readable for already-published posts', () => {
   const legacy = validateRecord({
     ...textPost,

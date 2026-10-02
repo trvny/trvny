@@ -59,6 +59,7 @@ import {
   sanitize,
   shouldAskAi,
 } from './quip.ts';
+import { webhookReviewSettled } from './webhook-review.ts';
 import type { BankContext } from './companion-bank.ts';
 import type {
   CompanionEnv,
@@ -219,7 +220,7 @@ export async function refreshCompanion(
   ]);
   const projectAreas = areas(changedFiles, target.repository);
   const prSize = size(pr);
-  const branchUpdateEligible = shouldUpdateBranch(
+  const branchUpdateCandidate = shouldUpdateBranch(
     pr,
     branch,
     ci,
@@ -228,6 +229,14 @@ export async function refreshCompanion(
     ciRequired,
     env,
   );
+  const branchUpdateEligible =
+    branchUpdateCandidate &&
+    (await webhookReviewSettled(
+      env,
+      target.repository,
+      target.pullRequestNumber,
+      pr.head.sha,
+    ));
   const branchUpdateWarning = branchUpdateEligible
     ? branchUpdatePermissionWarning(client)
     : null;

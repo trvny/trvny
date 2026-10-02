@@ -27,6 +27,33 @@ const branch = { behind: 1 };
 const ci = { failed: [], passed: [{}], pending: [], total: 1 };
 const review = { approvals: 0, changes: 0 };
 
+test('never updates bot-authored branches or a head still under Kanarek review', () => {
+  for (const user of [
+    { login: 'dependabot[bot]', type: 'Bot' },
+    { login: 'renovate[bot]' },
+    { login: 'gptomek', type: 'Bot' },
+  ]) {
+    assert.equal(
+      shouldUpdateBranch({ ...pr, user }, branch, ci, review, 'trvny/trvny', true, {}),
+      false,
+    );
+  }
+  assert.equal(
+    shouldUpdateBranch(
+      { ...pr, user: { login: 'trvny', type: 'User' } },
+      branch, ci, review, 'trvny/trvny', true, {}, false,
+    ),
+    false,
+  );
+  assert.equal(
+    shouldUpdateBranch(
+      { ...pr, user: { login: 'trvny', type: 'User' } },
+      branch, ci, review, 'trvny/trvny', true, {}, true,
+    ),
+    true,
+  );
+});
+
 test('updates only a safe same-repository branch', () => {
   assert.equal(
     shouldUpdateBranch(pr, branch, ci, review, 'trvny/trvny', true, {}),

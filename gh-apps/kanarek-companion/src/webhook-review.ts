@@ -140,6 +140,7 @@ const REVIEW_SYSTEM_PROMPT = [
 ].join('\n');
 
 export interface WebhookReviewEnv extends ReviewServiceEnv {
+  COMPANION_LOCK?: DurableObjectNamespace;
   GITHUB_APP_ID: string;
   GITHUB_APP_SLUG?: string;
   GITHUB_PRIVATE_KEY: string;
@@ -1592,10 +1593,19 @@ export interface ReviewSweepResult {
 }
 
 /**
+ * Paid output is billed even when it fails validation, so the paid phase
+ * gets exactly one router call; only the free pool is swept.
+ */
+export function reviewSweepMaxAttempts(phase: ReviewPhase): number {
+  return phase === 'paid' ? 1 : REVIEW_SWEEP_MAX_ATTEMPTS;
+}
+
+/**
  * Walks the router's provider queue one provider at a time. A provider whose
  * output is unusable (bad JSON, wrong language, or findings that all fail the
  * deterministic verifier) is excluded and the next one is asked, so the paid
- * phase only runs once the whole free pool has had its turn. The router itself
+ * phase only runs once the whole free pool has had its turn. The paid phase
+ * itself never sweeps (see reviewSweepMaxAttempts). The router itself
  * already skips providers that fail at the HTTP level.
  */
 export async function sweepReviewProviders(
@@ -1909,6 +1919,7 @@ export async function runWebhookReview(
       signal,
     ),
     files,
+    { maxAttempts: reviewSweepMaxAttempts(paidPhase ? 'paid' : 'free') },
   );
   const generated = sweep.generated;
   if (sweep.attempts > 1) {
@@ -2192,6 +2203,68 @@ function validStoredJob(value: unknown): value is StoredJob {
   );
 }
 
+/**
+ * True unless a Kanarek review job is still queued, running, retrying or
+ * escalating for exactly this head. Unknown state fails closed so the companion
+ * never pushes a new head over an in-flight review.
+ */
+export async function webhookReviewSettled(
+  env: Pick<WebhookReviewEnv, 'KANAREK_REVIEW_JOBS' | 'KANAREK_WEBHOOK_REVIEW_ENABLED'>,
+  repository: string,
+  number: number,
+  headSha: string,
+): Promise<boolean> {
+  const queue = env.KANAREK_REVIEW_JOBS;
+  if (disabled(env.KANAREK_WEBHOOK_REVIEW_ENABLED) || !queue) return true;
+  try {
+    const response = await queue
+      .get(queue.idFromName(`${repository}#${number}`))
+      .fetch(`${INTERNAL_REVIEW_ORIGIN}/status`);
+    if (!response.ok) {
+      await response.body?.cancel();
+      return false;
+    }
+    const state = objectValue(await response.json());
+    const queued = typeof state.headSha === 'string' ? state.headSha.toLowerCase() : null;
+    return queued !== headSha.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+async function refreshCompanionAfterReview(
+  env: WebhookReviewEnv,
+  target: ReviewTarget,
+): Promise<void> {
+  const lock = env.COMPANION_LOCK;
+  if (!lock) return;
+  try {
+    const response = await lock
+      .get(lock.idFromName(`${target.repository}#${target.number}`))
+      .fetch('https://kanarek-companion.internal/refresh', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          delivery: `review-job:${target.headSha}:${Date.now()}`,
+          installationId: target.installationId,
+          pullRequestNumber: target.number,
+          repository: target.repository,
+          sourceEvent: 'review_job',
+        }),
+      });
+    await response.body?.cancel();
+  } catch (error) {
+    console.warn( // skipcq: JS-0002 Cloudflare Worker runtime observability.
+      JSON.stringify({
+        kanarekWebhookReview: 'companion_refresh_failed',
+        repository: target.repository,
+        pullRequestNumber: target.number,
+        error: error instanceof Error ? error.message : 'unknown_error',
+      }),
+    );
+  }
+}
+
 export class WebhookReviewJob {
   private readonly state: DurableObjectState;
   private readonly env: WebhookReviewEnv;
@@ -2202,9 +2275,17 @@ export class WebhookReviewJob {
   }
 
   async fetch(request: Request): Promise<Response> {
+    const pathname = new URL(request.url).pathname;
+    if (request.method === 'GET' && pathname === '/status') {
+      const job = await this.state.storage.get<StoredJob>(JOB_KEY);
+      return Response.json({
+        headSha: validStoredJob(job) ? job.target.headSha : null,
+        status: (await this.state.storage.get<string>(STATUS_KEY)) ?? null,
+      });
+    }
     if (
       request.method !== 'POST' ||
-      new URL(request.url).pathname !== '/enqueue'
+      pathname !== '/enqueue'
     ) {
       return Response.json({ error: 'not_found' }, { status: 404 });
     }
@@ -2416,6 +2497,9 @@ export class WebhookReviewJob {
       );
     }
     await this.state.storage.delete([JOB_KEY, STATUS_KEY]);
+    // The companion gates branch updates on this job; let it re-evaluate now
+    // instead of waiting for an unrelated GitHub event.
+    await refreshCompanionAfterReview(this.env, continuation.target);
 
     console.log( // skipcq: JS-0002 Cloudflare Worker runtime observability.
       JSON.stringify({

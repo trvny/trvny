@@ -28,10 +28,10 @@ The first cockpit slice is live in the MCP server at `ui://pet-dispatcher/cockpi
 - [x] Versioned self-contained MCP App resource with no external runtime assets.
 - [x] App-only render tool with global/sidebar and conversation/thread entrypoints.
 - [x] Worker freshness, device, active session/process counts, sandbox summary and configured targets.
-- [x] In-app refresh through the existing `pet_meta` data tool.
+- [x] In-app refresh combining the existing metadata and canonical recent-task index.
 - [x] Target selection synchronized to the conversation through Model-App Context.
-- [ ] Active task/session identifiers plus bounded result/tests/diff details.
-- [ ] Explicit task cancel and session finish controls once identifiers are available in the cockpit data model.
+- [x] Recent task identifiers and bounded summaries, full task result/tests/diff details on demand, and live per-target session identifiers.
+- [x] Explicit task cancel and session finish controls through existing tools, with no automatic replay of session mutations.
 
 Target view:
 

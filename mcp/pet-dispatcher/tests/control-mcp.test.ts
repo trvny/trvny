@@ -4,6 +4,20 @@ import { handleControlMcp, type ControlMcpOperations } from "../control-plane/mc
 
 const TASK_ID = "11111111-1111-4111-8111-111111111111";
 
+test("cockpit and conversational history read the same bounded canonical index", async () => {
+  const limits: number[] = [];
+  const tasks = [{ taskId: TASK_ID, deviceId: "test-device", status: "failed" as const, createdAt: "2026-10-01T00:00:00.000Z", updatedAt: "2026-10-01T00:01:00.000Z", result: { status: "failed", summary: "Failure details", error: "executor stopped" } }];
+  const operations = baseOperations({ recentTasks: (limit) => { limits.push(limit); return Promise.resolve(tasks); } });
+  for (const name of ["pet_cockpit_open", "pet_recent_tasks"]) {
+    const result = await rpc(operations, { jsonrpc: "2.0", id: 50, method: "tools/call", params: { name, arguments: name === "pet_recent_tasks" ? { limit: 3 } : {} } });
+    assert.deepEqual((result.body?.result as { structuredContent: { tasks: unknown } }).structuredContent.tasks, tasks);
+  }
+  assert.deepEqual(limits, [20, 3]);
+  const invalid = await rpc(operations, { jsonrpc: "2.0", id: 51, method: "tools/call", params: { name: "pet_recent_tasks", arguments: { limit: 21 } } });
+  assert.ok(invalid.body?.error || (invalid.body?.result as { isError?: boolean })?.isError);
+  assert.deepEqual(limits, [20, 3]);
+});
+
 function request(body: unknown): Request {
   return new Request("https://pet.example/mcp", {
     method: "POST",
@@ -20,6 +34,7 @@ async function rpc(operations: ControlMcpOperations, body: unknown) {
 
 function baseOperations(overrides: Partial<ControlMcpOperations> = {}): ControlMcpOperations {
   return {
+    recentTasks: () => Promise.resolve([]),
     meta: async () => ({ status: 200, body: {
       deviceId: "test-device", transport: "cloudflare-queues-http-pull", protocol: 1, updatedAt: "2026-09-15T23:00:00.000Z",
       repositories: ["trvny"], workspaces: ["dc"], directTools: ["fs.read"], localTools: [],
@@ -54,7 +69,7 @@ test("remote MCP exposes the control-plane task surface", async () => {
   assert.equal(listed.response.status, 200);
   const listedTools = ((listed.body?.result as { tools?: Array<{ name: string; outputSchema?: unknown }> })?.tools ?? []);
   assert.deepEqual(listedTools.map(({ name }) => name).sort(), [
-    "pet_cockpit_open", "pet_delegate", "pet_direct", "pet_meta", "pet_read_files", "pet_session_finish", "pet_task_cancel", "pet_task_get", "pet_workspace_inspect",
+    "pet_cockpit_open", "pet_delegate", "pet_direct", "pet_meta", "pet_read_files", "pet_recent_tasks", "pet_session_finish", "pet_task_cancel", "pet_task_get", "pet_workspace_inspect",
   ]);
   assert.ok(listedTools.every((tool) => tool.outputSchema));
   const meta = await rpc(operations, {
@@ -332,6 +347,10 @@ test("cockpit exposes a versioned app-only MCP App with global and thread entryp
     tools?: Array<{ name: string; _meta?: { ui?: { visibility?: string[] } } }>;
   })?.tools ?? []).find((tool) => tool.name === "pet_meta");
   assert.deepEqual(metaTool?._meta?.ui?.visibility, ["model", "app"]);
+  for (const name of ["pet_task_get", "pet_task_cancel", "pet_direct", "pet_session_finish"]) {
+    const tool = ((listed.body?.result as { tools: Array<{ name: string; _meta?: { ui?: { visibility?: string[] } } }> }).tools).find((item) => item.name === name);
+    assert.deepEqual(tool?._meta?.ui?.visibility, ["model", "app"]);
+  }
 
   const opened = await rpc(operations, {
     jsonrpc: "2.0", id: 33, method: "tools/call",
@@ -340,6 +359,7 @@ test("cockpit exposes a versioned app-only MCP App with global and thread entryp
   assert.deepEqual(opened.body?.result, {
     content: [{ type: "text", text: "Pet Dispatcher request completed." }],
     structuredContent: {
+      tasks: [],
       httpStatus: 200,
       body: {
         deviceId: "test-device",

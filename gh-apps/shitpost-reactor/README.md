@@ -56,3 +56,26 @@ npm test
 KANAREK_REVIEW_ROUTER_TOKEN=... npm run generate
 npm run check
 ```
+
+
+## Quality inputs
+
+The generator keeps one small quality stack instead of importing another large
+agent framework:
+
+- the local quality kernel forces specificity, remote-association/collision,
+  predictability rejection, Send Test, Feed Glance, and zero-cringe checks;
+- `taste-profile.json` is the maintained, compact source of project taste;
+- `edgy-dark-meme` stays an optional style reference, not an output contract;
+- [mysaas.lol](https://mysaas.lol/for-agents) is an optional, read-only
+  inspiration/anti-copy probe. Dev/startup/SaaS topics are eligible directly;
+  other runs sample it deterministically at about 25%.
+
+MySaaS results are passed only as reference metadata. Reactor does not republish
+their image assets or copy meme wording. If the public API is unavailable,
+generation continues without it.
+
+The compact kernel is conceptually distilled from
+[imMamdouhaboammar/meme-marketing](https://github.com/imMamdouhaboammar/meme-marketing),
+especially its Collision Engine and post-tuning ideas. The full skill is
+deliberately not loaded into the runtime prompt.

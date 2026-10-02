@@ -86,7 +86,7 @@ updates:
         patterns:
           - "*"
   - package-ecosystem: "npm"
-    directory: "/stuff/other/shitpost-reactor"
+    directory: "/gh-apps/shitpost-reactor"
     schedule:
       interval: "weekly"
       time: "21:37"

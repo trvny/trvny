@@ -1224,7 +1224,7 @@ test('Vercel falls back from Hy3 to Qwen without leaking Hy3-only settings', asy
     top_p: 1.0,
   });
   assert.deepEqual(calls[1], {
-    model: 'alibaba/qwen3-coder-30b-a3b',
+    model: 'alibaba/qwen3.8-omni-flash',
     stream: false,
     max_tokens: 256,
     messages: [{ role: 'user', content: 'short quip' }],
@@ -1261,7 +1261,7 @@ test('Vercel falls back from an unusable Hy3 HTTP 200 response to Qwen', async (
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'vercel');
-  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
+  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3.8-omni-flash']);
 });
 
 test('Vercel retries only model-specific HTTP 400 failures', async () => {
@@ -1289,7 +1289,7 @@ test('Vercel retries only model-specific HTTP 400 failures', async () => {
   }) as typeof fetch);
 
   assert.equal(retryResponse?.status, 200);
-  assert.deepEqual(retryCalls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
+  assert.deepEqual(retryCalls, ['tencent/hy3', 'alibaba/qwen3.8-omni-flash']);
 
   const invalidCalls: string[] = [];
   const invalidResponse = await handleReviewRouterRequest(request(routerToken, {
@@ -1336,7 +1336,7 @@ test('Vercel falls back to Qwen after a Hy3 network failure', async () => {
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'vercel');
-  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
+  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3.8-omni-flash']);
 });
 
 test('Vercel gives each model attempt its own timeout controller', async () => {
@@ -1368,7 +1368,7 @@ test('Vercel gives each model attempt its own timeout controller', async () => {
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b']);
+  assert.deepEqual(calls, ['tencent/hy3', 'alibaba/qwen3.8-omni-flash']);
 });
 
 test('Hy3 preserves the larger of both OpenAI token ceiling fields', async () => {

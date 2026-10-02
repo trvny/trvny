@@ -400,7 +400,7 @@ Canonical site: ${SITE_URL}/
 - [Sitemap](${SITE_URL}/sitemap.xml)
 - [Robots policy](${SITE_URL}/robots.txt)
 - [Web manifest](${SITE_URL}/site.webmanifest)
-- [Source](https://github.com/trvny/trvny/tree/main/stuff/other/shitpost-reactor)
+- [Source](https://github.com/trvny/trvny/tree/main/gh-apps/shitpost-reactor)
 `;
 }
 

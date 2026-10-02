@@ -1,0 +1,26 @@
+{
+  "profile_version": 1,
+  "scope": "shitpost-reactor",
+  "confirmed": [
+    "Prefer a concrete technical or mundane receipt over a generic setup.",
+    "Prefer deadpan, absurd register collisions and compact turns over explanatory copy.",
+    "References may influence mechanisms and taste but must never become templates to fill."
+  ],
+  "contextual": [
+    "MySaaS is useful for dev/startup/SaaS-adjacent topics and occasional sampled inspiration, not as the default subject generator.",
+    "A longer bit is fine when the joke needs runway; short is not a goal by itself."
+  ],
+  "tentative": [],
+  "rejected": [
+    "Generic AI-will-replace-developers jokes without a fresh receipt or collision.",
+    "CTA, growth copy, corporate slogans, hashtags, or explaining why the joke is funny.",
+    "Copying wording, catchphrases, or visual assets from reference memes."
+  ],
+  "history": [
+    {
+      "date": "2026-10-02",
+      "source": "project-direction",
+      "note": "Initial compact profile: quality effort, anti-obvious kernel, optional references."
+    }
+  ]
+}

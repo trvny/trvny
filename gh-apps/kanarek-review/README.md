@@ -10,6 +10,22 @@ Keeping this boundary separate means the provider credential set and deploy
 cadence can evolve without turning the shared automation Worker into a bag of
 provider secrets.
 
+## Who owns what
+
+| Concern | Owner | Main knobs |
+| --- | --- | --- |
+| PR status quips | `kanarek-companion` | `../kanarek-companion/wrangler.jsonc` |
+| PR review policy/context | `kanarek-companion` | `KANAREK_WEBHOOK_REVIEW_*` |
+| Free/paid model routing | `kanarek-review` | this `wrangler.jsonc` |
+| Shitpost generation contract | Shitpost Reactor Action | `../../stuff/other/shitpost-reactor/limits.mjs` |
+| Shitpost provider choice | `kanarek-review-free` | this `wrangler.jsonc` |
+
+Quips, reviews, and shitposts are clients of one routing layer rather than
+separate provider stacks. Quips can also use their direct provider slots; the
+shared `free-router` slot, PR reviews, and Shitpost Reactor all converge on
+`kanarek-review`. Paid reserves are available only to the review/work synthetic
+contracts, never to `kanarek-review-free`.
+
 ## How it is called
 
 The public GitHub webhook lands in `kanarek-companion`. Review-eligible PRs are
@@ -143,14 +159,27 @@ Important variables include:
 - `KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS`
 - `KANAREK_REVIEW_WORKERS_AI_ENABLED`
 - `KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS`
+- `KANAREK_REVIEW_WORKERS_AI_MODEL`
+- `KANAREK_REVIEW_WORKERS_AI_MAX_OUTPUT_TOKENS`
+- `KANAREK_REVIEW_AIHUBMIX_MODEL`
 - `KANAREK_REVIEW_OPENROUTER_MODELS`
 - `KANAREK_REVIEW_ORCAROUTER_MODELS`
 - `KANAREK_REVIEW_OLLAMA_MODELS`
 - `KANAREK_REVIEW_GROQ_MODEL`
 - `KANAREK_REVIEW_VERCEL_MODELS`
+- `KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS`
+- `KANAREK_REVIEW_VERCEL_HY3_REASONING_EFFORT`
+- `KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE`
+- `KANAREK_REVIEW_VERCEL_HY3_TOP_P`
 - `KANAREK_REVIEW_HUGGINGFACE_MODEL`
+- `KANAREK_REVIEW_PAID_PROVIDER_ORDER`
 - `KANAREK_REVIEW_DEEPSEEK_MODEL`
+- `KANAREK_REVIEW_DEEPSEEK_THINKING`
+- `KANAREK_REVIEW_DEEPSEEK_REASONING_EFFORT`
+- `KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS`
 - `KANAREK_REVIEW_GEMINI_MODEL`
+- `KANAREK_REVIEW_GEMINI_SERVICE_TIER`
+- `KANAREK_REVIEW_WORK_TIMEOUT_MS`
 
 The shared runtime independently controls whether webhook review is enabled,
 which repositories are eligible, debounce/context/output limits, and whether its

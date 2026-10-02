@@ -76,6 +76,13 @@ are therefore a quality/order policy rather than a technical requirement;
 `openrouter/free` remains the catch-all fallback. OpenRouter may retry its
 primary model without a fallback array when the provider rejects the array itself.
 
+Vercel AI Gateway uses a model chain rather than one fixed model. Hy3 (`tencent/hy3`)
+is tried first with high reasoning, Tencent's recommended `temperature: 0.9` /
+`top_p: 1.0`, and an 8192-token minimum generation ceiling so reasoning does not
+starve short-capped callers. A caller that already asks for more keeps its larger
+ceiling. The previous `alibaba/qwen3-coder-30b-a3b` route remains the model fallback,
+without inheriting Hy3-specific reasoning or sampling fields.
+
 OrcaRouter is configured through the workspace-owned `orcarouter/auto` route
 rather than pinned model aliases. The OrcaRouter workspace is the maintained
 source of truth for which current free models that route should prefer, so model
@@ -140,7 +147,7 @@ Important variables include:
 - `KANAREK_REVIEW_ORCAROUTER_MODELS`
 - `KANAREK_REVIEW_OLLAMA_MODELS`
 - `KANAREK_REVIEW_GROQ_MODEL`
-- `KANAREK_REVIEW_VERCEL_MODEL`
+- `KANAREK_REVIEW_VERCEL_MODELS`
 - `KANAREK_REVIEW_HUGGINGFACE_MODEL`
 - `KANAREK_REVIEW_DEEPSEEK_MODEL`
 - `KANAREK_REVIEW_GEMINI_MODEL`

@@ -5,9 +5,13 @@ import type {
 } from './companion-types.ts';
 import { handleGptomekMailboxCommand } from './gptomek.ts';
 import { createInstallationClient, GitHubApiError } from './github-app.ts';
+import {
+  GPTOMEK_CONTROL_ISSUE,
+  GPTOMEK_CONTROL_REPOSITORY,
+} from './gptomek-control.ts';
 
-const CONTROL_REPOSITORY = 'trvny/trvny';
-export const GPTOMEK_CONTROL_ISSUE = 203;
+const CONTROL_REPOSITORY = GPTOMEK_CONTROL_REPOSITORY;
+export { GPTOMEK_CONTROL_ISSUE };
 export const GPTOMEK_WAKE_LABEL = 'gptomek-wake';
 const COMMAND_MARKER = '<!-- gptomek-command:';
 const runtimeFetch: typeof fetch = (input, init) => fetch(input, init);

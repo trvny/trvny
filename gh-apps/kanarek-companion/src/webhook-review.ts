@@ -1,5 +1,6 @@
 import { extractImports, importReferencesTarget, searchSeed } from './dependency-graph.ts';
 import { createInstallationClient } from './github-app.ts';
+import { isGptomekFallbackPullRequest } from './gptomek-control.ts';
 import {
   createPackageExternalTransport,
   githubRepositoryFromUrl,
@@ -173,7 +174,6 @@ type ReviewPhase = 'free' | 'paid';
 
 interface StoredJob {
   attempt?: number;
-  body: string;
   phase?: ReviewPhase;
   target: ReviewTarget;
   tieBreakPredecessorSha?: string;
@@ -398,7 +398,7 @@ function targetFromPayload(
     !SHA_RE.test(baseSha) ||
     pullRequest.draft === true ||
     headRepositoryName !== repositoryName ||
-    (repositoryName === 'trvny/trvny' && number === 176)
+    isGptomekFallbackPullRequest(repositoryName, number)
   ) {
     return null;
   }
@@ -2118,11 +2118,9 @@ async function enqueueWebhookReview(
     return;
   }
 
-  let body: string;
   let payload: Record<string, unknown>;
   try {
-    body = await request.text();
-    payload = objectValue(JSON.parse(body));
+    payload = objectValue(await request.json());
   } catch {
     return;
   }
@@ -2138,7 +2136,7 @@ async function enqueueWebhookReview(
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ body, target }),
+      body: JSON.stringify({ target }),
     },
   );
   if (!response.ok) {
@@ -2175,8 +2173,7 @@ function validStoredJob(value: unknown): value is StoredJob {
   const job = value as Partial<StoredJob>;
   const target = job.target as Partial<ReviewTarget> | undefined;
   return Boolean(
-    typeof job.body === 'string' &&
-      (job.attempt === undefined ||
+    (job.attempt === undefined ||
         (Number.isInteger(job.attempt) &&
           job.attempt >= 0 &&
           job.attempt <= REVIEW_RETRY_DELAYS_MS.length)) &&
@@ -2319,7 +2316,6 @@ export class WebhookReviewJob {
             );
             await transaction.put(JOB_KEY, {
               ...queued,
-              body: job.body,
               target: job.target,
               tieBreakPredecessorSha: sameTimestampReturn
                 ? job.target.beforeSha

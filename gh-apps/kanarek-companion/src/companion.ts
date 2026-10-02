@@ -70,7 +70,6 @@ import type {
 } from './companion-types.ts';
 
 const COMMENT_STATE_RE = /<!-- kanarek-state:([a-f0-9]{16}) -->/;
-const LEGACY_RECEIPT_FALLBACK_UNTIL = Date.UTC(2026, 7, 19);
 
 type QuipFacts = {
   scopeVersion: 2;
@@ -322,7 +321,6 @@ export async function refreshCompanion(
   let measuredBank: BankContext | undefined;
   let pendingPaidQuip: string | null = null;
   let paidReceiptStored: boolean | null = null;
-  let paidReceiptHash = receiptHash;
   let paidBankedBeforeGithub = false;
   let paidRecovered = false;
   const tryPool = async (): Promise<void> => {
@@ -350,37 +348,15 @@ export async function refreshCompanion(
     previousStateHash,
     stateHash,
   );
-  const checkLegacyReceipt = Date.now() < LEGACY_RECEIPT_FALLBACK_UNTIL;
-  if (checkCurrentReceipt || checkLegacyReceipt) {
-    let recovered = checkCurrentReceipt
-      ? await loadPaidState(
-          env,
-          target.repository,
-          target.pullRequestNumber,
-          receiptHash,
-          quipKey,
-          language,
-        )
-      : null;
-    if (!recovered && checkLegacyReceipt) {
-      const legacyReceiptHash = await hash({
-        ...quipFacts,
-        head: stateInput.head,
-        behind: stateInput.behind,
-        reviews: stateInput.reviews,
-        autoMerge: stateInput.autoMerge,
-        files: stateInput.files,
-      });
-      recovered = await loadPaidState(
-        env,
-        target.repository,
-        target.pullRequestNumber,
-        legacyReceiptHash,
-        quipKey,
-        language,
-      );
-      if (recovered) paidReceiptHash = legacyReceiptHash;
-    }
+  if (checkCurrentReceipt) {
+    const recovered = await loadPaidState(
+      env,
+      target.repository,
+      target.pullRequestNumber,
+      receiptHash,
+      quipKey,
+      language,
+    );
     if (recovered) {
       pendingPaidQuip = recovered;
       paidRecovered = true;
@@ -401,7 +377,7 @@ export async function refreshCompanion(
       env,
     );
     if (baseAiSelected) {
-      measuredBank = await bankContext(env, quipKey, language);
+      measuredBank = await bankContext(env, quipKey);
       aiSelected = await shouldAskAiForBank(
         target.pullRequestNumber,
         quipKey,
@@ -534,7 +510,7 @@ export async function refreshCompanion(
         env,
         target.repository,
         target.pullRequestNumber,
-        paidReceiptHash,
+        receiptHash,
       );
     }
     console.info(

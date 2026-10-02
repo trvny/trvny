@@ -2,19 +2,9 @@ const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
 const MAX_PAGES = 20;
 
-export const TEST_COMMENT_MARKER =
-  '<!-- kanarek-companion:test-comment -->';
-
 export interface InstallationAccessCheck {
   expiresAt: string;
   repositoryCount: number;
-}
-
-export interface TestCommentResult {
-  commentId: number;
-  commentUrl: string;
-  created: boolean;
-  expiresAt: string;
 }
 
 interface InstallationToken {
@@ -267,14 +257,6 @@ async function createInstallationToken(
   };
 }
 
-function repositoryParts(repository: string): [string, string] {
-  const parts = repository.split('/');
-  if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    throw new Error('invalid_repository_name');
-  }
-  return [encodeURIComponent(parts[0]), encodeURIComponent(parts[1])];
-}
-
 function apiPath(path: string): string {
   if (!path.startsWith('/') || path.startsWith('//')) {
     throw new Error('invalid_github_api_path');
@@ -374,61 +356,6 @@ export async function createInstallationClient(
   return new GitHubInstallationClient(installation, fetcher);
 }
 
-function commentBody(delivery: string): string {
-  const safeDelivery = delivery.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 100);
-  return [
-    TEST_COMMENT_MARKER,
-    `<!-- kanarek-companion:delivery:${safeDelivery || 'unknown'} -->`,
-    '🐤 Kanarek-companion działa. Zweryfikowany webhook, token instalacji i komentarz GitHub App są podłączone.',
-  ].join('\n');
-}
-
-function nextCommentsPage(
-  linkHeader: string | null,
-  commentsUrl: string,
-): string | null {
-  if (!linkHeader) return null;
-  for (const part of linkHeader.split(',')) {
-    const match = part.trim().match(/^<([^>]+)>;\s*rel="next"$/);
-    if (!match) continue;
-
-    const next = new URL(match[1]);
-    const expected = new URL(commentsUrl);
-    if (next.origin !== expected.origin || next.pathname !== expected.pathname) {
-      throw new Error('invalid_comments_pagination_url');
-    }
-    return next.toString();
-  }
-  return null;
-}
-
-function existingTestComment(
-  comments: unknown[],
-  appSlug: string,
-): TestCommentResult | null {
-  const expectedLogin = `${appSlug}[bot]`;
-  for (const value of comments) {
-    const comment = value as Record<string, unknown>;
-    const user = comment.user as Record<string, unknown> | undefined;
-    if (
-      typeof comment.body === 'string' &&
-      comment.body.includes(TEST_COMMENT_MARKER) &&
-      typeof comment.id === 'number' &&
-      typeof comment.html_url === 'string' &&
-      user?.login === expectedLogin &&
-      user.type === 'Bot'
-    ) {
-      return {
-        commentId: comment.id,
-        commentUrl: comment.html_url,
-        created: false,
-        expiresAt: '',
-      };
-    }
-  }
-  return null;
-}
-
 export async function checkInstallationAccess(
   appId: string,
   privateKey: string,
@@ -456,67 +383,4 @@ export async function checkInstallationAccess(
   }
 
   return { expiresAt: installation.expiresAt, repositoryCount };
-}
-
-export async function ensureTestComment(
-  appId: string,
-  appSlug: string,
-  privateKey: string,
-  installationId: number,
-  repository: string,
-  pullRequestNumber: number,
-  delivery: string,
-  fetcher: typeof fetch = fetch,
-): Promise<TestCommentResult> {
-  const installation = await createInstallationToken(
-    appId,
-    privateKey,
-    installationId,
-    fetcher,
-  );
-  const [owner, repo] = repositoryParts(repository);
-  const commentsUrl = `${GITHUB_API}/repos/${owner}/${repo}/issues/${pullRequestNumber}/comments`;
-  let pageUrl: string | null = `${commentsUrl}?per_page=100`;
-  const visited = new Set<string>();
-
-  while (pageUrl) {
-    if (visited.has(pageUrl)) throw new Error('comments_pagination_loop');
-    visited.add(pageUrl);
-
-    const response = await fetcher(pageUrl, {
-      headers: githubHeaders(installation.token),
-    });
-    const comments = await requireJson<unknown>(
-      response,
-      'list_issue_comments',
-      { grantedPermissions: installation.permissions },
-    );
-    if (!Array.isArray(comments)) throw new Error('invalid_comments_response');
-
-    const existing = existingTestComment(comments, appSlug);
-    if (existing) {
-      return { ...existing, expiresAt: installation.expiresAt };
-    }
-    pageUrl = nextCommentsPage(response.headers.get('link'), commentsUrl);
-  }
-
-  const created = await requireJson<Record<string, unknown>>(
-    await fetcher(commentsUrl, {
-      method: 'POST',
-      headers: githubHeaders(installation.token),
-      body: JSON.stringify({ body: commentBody(delivery) }),
-    }),
-    'create_issue_comment',
-    { grantedPermissions: installation.permissions },
-  );
-  if (typeof created.id !== 'number' || typeof created.html_url !== 'string') {
-    throw new Error('invalid_created_comment_response');
-  }
-
-  return {
-    commentId: created.id,
-    commentUrl: created.html_url,
-    created: true,
-    expiresAt: installation.expiresAt,
-  };
 }

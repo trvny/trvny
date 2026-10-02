@@ -45,6 +45,7 @@ import {
   WebhookReviewJob,
   type WebhookReviewEnv,
 } from './webhook-review.ts';
+import { repositoryListAllows } from './index.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
 
 export {
@@ -122,21 +123,6 @@ async function responseObject(response: Response): Promise<JsonObject | null> {
   }
 }
 
-function configuredRepositoryAllowed(
-  configured: string | undefined,
-  repository: string,
-): boolean {
-  return String(configured ?? 'trvny/trvny')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .some((entry) => {
-      if (entry === repository) return true;
-      if (!entry.endsWith('/*')) return false;
-      return repository.startsWith(`${entry.slice(0, -2)}/`);
-    });
-}
-
 async function acceptedReviewWebhook(
   request: Request,
   response: Response,
@@ -158,7 +144,7 @@ async function acceptedReviewWebhook(
   const fullName =
     typeof repository?.full_name === 'string' ? repository.full_name : '';
   if (!fullName) return false;
-  return configuredRepositoryAllowed(
+  return repositoryListAllows(
     env.KANAREK_REVIEW_REPOSITORIES ?? env.KANAREK_REPOSITORIES,
     fullName,
   );

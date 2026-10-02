@@ -10,13 +10,17 @@ import {
   type AutopilotCheckpointEnv,
 } from './autopilot-checkpoint.ts';
 import { githubBotRequestAllowed } from './gpt-actions.ts';
+import {
+  GPTOMEK_CONTROL_PULL_REQUEST,
+  GPTOMEK_CONTROL_REPOSITORY,
+} from './gptomek-control.ts';
 import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-types.ts';
 import { isObject, type JsonObject, repoPath } from './tools/common.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
-const CONTROL_REPOSITORY = 'trvny/trvny';
-const CONTROL_PULL_REQUEST = 176;
+const CONTROL_REPOSITORY = GPTOMEK_CONTROL_REPOSITORY;
+const CONTROL_PULL_REQUEST = GPTOMEK_CONTROL_PULL_REQUEST;
 const CONTROL_BRANCH = 'gptomek/control';
 const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9+/_-]+={0,2})\s*-->/;
 const COMMAND_PREFIX_RE = /<!--\s*gptomek-command:/;

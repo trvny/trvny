@@ -1654,18 +1654,26 @@ export async function sweepReviewProviders(
     : { attempts, disposition: null, excluded, findings: [], generated: null };
 }
 
+const REVIEW_PROVIDER_DISPLAY: Record<string, { domain: string; label: string }> = {
+  openrouter: { domain: 'openrouter.ai', label: 'OpenRouter' },
+  orcarouter: { domain: 'orcarouter.ai', label: 'OrcaRouter' },
+  aihubmix: { domain: 'aihubmix.com', label: 'AIHubMix' },
+  ollama: { domain: 'ollama.com', label: 'Ollama' },
+  groq: { domain: 'groq.com', label: 'Groq' },
+  vercel: { domain: 'vercel.com', label: 'Vercel AI Gateway' },
+  'huggingface-publicai': { domain: 'huggingface.co', label: 'Hugging Face PublicAI' },
+  deepseek: { domain: 'deepseek.com', label: 'DeepSeek' },
+  'gemini-flex': { domain: 'gemini.google.com', label: 'Gemini Flex' },
+  'workers-ai': { domain: 'cloudflare.com', label: 'Workers AI' },
+};
+
 function providerLabel(provider: string): string {
-  if (provider === 'openrouter') return 'OpenRouter';
-  if (provider === 'orcarouter') return 'OrcaRouter';
-  if (provider === 'aihubmix') return 'AIHubMix';
-  if (provider === 'ollama') return 'Ollama';
-  if (provider === 'groq') return 'Groq';
-  if (provider === 'vercel') return 'Vercel AI Gateway';
-  if (provider === 'huggingface-publicai') return 'Hugging Face PublicAI';
-  if (provider === 'deepseek') return 'DeepSeek';
-  if (provider === 'gemini-flex') return 'Gemini Flex';
-  if (provider === 'workers-ai') return 'Workers AI';
-  return 'free router';
+  return REVIEW_PROVIDER_DISPLAY[provider]?.label ?? 'free router';
+}
+
+function providerIconUrl(provider: string): string | null {
+  const domain = REVIEW_PROVIDER_DISPLAY[provider]?.domain;
+  return domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : null;
 }
 
 export function reviewSourceLabel(provider: string, model: string | null): string {
@@ -1673,6 +1681,14 @@ export function reviewSourceLabel(provider: string, model: string | null): strin
   if (!model) return label;
   const safeModel = model.replace(/[\r\n`]/g, '').trim();
   return safeModel ? `${label} · \`${safeModel}\`` : label;
+}
+
+export function reviewSourceBadge(provider: string, model: string | null): string {
+  const label = reviewSourceLabel(provider, model);
+  const iconUrl = providerIconUrl(provider);
+  return iconUrl
+    ? `<img src="${iconUrl}" width="18" height="18" alt="${providerLabel(provider)}"> ${label}`
+    : label;
 }
 
 export function reviewDisposition(
@@ -2056,7 +2072,7 @@ export async function runWebhookReview(
     const payload = {
       commit_id: target.headSha,
       event: 'COMMENT',
-      body: `${reviewMarker(target)}\n🐤 **Kanarek ${paidPhase ? '' : '免费'}代码审查** · ${reviewSourceLabel(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceLabel(judged.provider, judged.model)}` : ''}\n\n${summary}`,
+      body: `${reviewMarker(target)}\n🐤 **Kanarek ${paidPhase ? '' : '免费'}代码审查** · ${reviewSourceBadge(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceBadge(judged.provider, judged.model)}` : ''}\n\n${summary}`,
       comments: publishFindings.map((finding) => ({
         path: finding.path,
         line: finding.line,

@@ -2,6 +2,8 @@
 
 `trvny/trvny` is a mixed repository of small independent tools and services. There is no shared application runtime at the root.
 
+For a cross-repository operational view, see the published interactive [TRVNY / TRAVNIE universe map](https://trfny.com/teksty/githubowa-kraina/universe.html). It visualizes repository ownership, deployed Cloudflare runtimes, service bindings and state dependencies without becoming a second source of runtime configuration.
+
 ## Runtime components
 
 ```text

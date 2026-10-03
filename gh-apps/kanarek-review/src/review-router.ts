@@ -41,6 +41,8 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
     'nemotron-3.5-lightning-free',
     'hy3-free',
     'minimax-m2.7-free',
+    'ling-3.0-flash-free',
+    'lfm-2.5-2.6b-free',
   ],
   KANAREK_REVIEW_ORCAROUTER_MODELS: ['orcarouter/auto'],
   KANAREK_REVIEW_OLLAMA_MODELS: ['gpt-oss:120b', 'gpt-oss:20b'],
@@ -67,9 +69,9 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
 } as const;
 export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_WORK_TIMEOUT_MS: '300000',
-  KANAREK_REVIEW_WORKERS_AI_MAX_OUTPUT_TOKENS: '4096',
-  KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS: '8192',
-  KANAREK_REVIEW_VERCEL_HY3_REASONING_EFFORT: 'high',
+  KANAREK_REVIEW_WORKERS_AI_MAX_OUTPUT_TOKENS: '16384',
+  KANAREK_REVIEW_REASONING_MIN_MAX_TOKENS: '16384',
+  KANAREK_REVIEW_REASONING_EFFORT: 'high',
   KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE: '0.9',
   KANAREK_REVIEW_VERCEL_HY3_TOP_P: '1',
   KANAREK_REVIEW_GROQ_REASONING_EFFORT: 'high',
@@ -101,6 +103,23 @@ const DEFAULT_FREE_PROVIDER_ORDER = [
 ] as const;
 type FreeReviewProviderId = (typeof DEFAULT_FREE_PROVIDER_ORDER)[number];
 type FreeTaskProfileId = 'general' | 'quip' | 'review' | 'judge' | 'shitpost';
+
+const HIGH_REASONING_TASKS = new Set<FreeTaskProfileId>(['review', 'judge', 'shitpost']);
+const VERCEL_REASONING_MODELS = new Set<string>([
+  'tencent/hy3',
+  'alibaba/qwen3.8-omni-flash',
+  'inclusionai/ling-3.1-flash-free',
+  'poolside/laguna-s-2.1-free',
+]);
+const VERCEL_MODEL_MAX_OUTPUT_TOKENS = new Map<string, number>([
+  ['alibaba/qwen3.8-omni-flash', 131_072],
+  ['alibaba/qwen3-coder-30b-a3b', 8_192],
+  ['inclusionai/ling-3.1-flash-free', 32_768],
+  ['poolside/laguna-s-2.1-free', 32_768],
+]);
+const OPENROUTER_REASONING_MODELS = new Set<string>(
+  REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS,
+);
 
 const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
   quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai'],
@@ -175,8 +194,8 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_GROQ_MODEL?: string;
   KANAREK_REVIEW_GROQ_REASONING_EFFORT?: string;
   KANAREK_REVIEW_VERCEL_MODELS?: string;
-  KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS?: string;
-  KANAREK_REVIEW_VERCEL_HY3_REASONING_EFFORT?: string;
+  KANAREK_REVIEW_REASONING_MIN_MAX_TOKENS?: string;
+  KANAREK_REVIEW_REASONING_EFFORT?: string;
   KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE?: string;
   KANAREK_REVIEW_VERCEL_HY3_TOP_P?: string;
   KANAREK_REVIEW_HUGGINGFACE_MODEL?: string;
@@ -292,6 +311,30 @@ function configuredGroqReasoningEffort(raw: string | undefined, fallback: string
 
 function groqSupportsReasoningEffort(model: string): boolean {
   return /(?:^|\/)gpt-oss(?:-|$)/i.test(model) || /^qwen\/qwen3\.8-27b$/i.test(model);
+}
+
+function configuredReasoningMinimumMaxTokens(env: ReviewRouterEnv): number {
+  return configuredInteger(
+    env.KANAREK_REVIEW_REASONING_MIN_MAX_TOKENS,
+    Number(REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_REASONING_MIN_MAX_TOKENS),
+    1,
+    131_072,
+  );
+}
+
+function configuredReasoningEffort(env: ReviewRouterEnv): string {
+  return configuredText(
+    env.KANAREK_REVIEW_REASONING_EFFORT,
+    REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_REASONING_EFFORT,
+  );
+}
+
+function taskUsesHighReasoning(task: FreeTaskProfileId): boolean {
+  return HIGH_REASONING_TASKS.has(task);
+}
+
+function openRouterModelsSupportReasoning(models: readonly string[]): boolean {
+  return models.length > 0 && models.every((model) => OPENROUTER_REASONING_MODELS.has(model));
 }
 
 function configuredInteger(
@@ -1137,6 +1180,7 @@ type ProviderAttempt = {
   fallbackModels?: readonly string[];
   label: 'default' | 'model_fallback' | 'fallback_chain' | 'primary_only';
   minimumMaxTokens?: number;
+  maximumMaxTokens?: number;
   requestFields?: JsonObject;
 };
 
@@ -1163,13 +1207,45 @@ function providerAttempts(
     return [{
       model: provider.model,
       label: 'default',
-      ...(supportsReasoning ? { requestFields: { reasoning_effort: effort } } : {}),
+      ...(supportsReasoning
+        ? {
+            minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
+            requestFields: { reasoning_effort: effort },
+          }
+        : {}),
     }];
   }
-  if (provider.id === 'openrouter' && provider.fallbackModels?.length) {
+  if (provider.id === 'openrouter') {
+    const fallbackModels = provider.fallbackModels ?? [];
+    const allModels = [provider.model, ...fallbackModels];
+    const useReasoning = taskUsesHighReasoning(task);
+    const fallbackReasoning = useReasoning && openRouterModelsSupportReasoning(allModels);
+    const primaryReasoning = useReasoning && OPENROUTER_REASONING_MODELS.has(provider.model);
+    const reasoningEffort = configuredReasoningEffort(env);
+    const primaryAttempt: ProviderAttempt = {
+      model: provider.model,
+      label: fallbackModels.length ? 'primary_only' : 'default',
+      ...(primaryReasoning
+        ? {
+            minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
+            requestFields: { reasoning: { effort: reasoningEffort } },
+          }
+        : {}),
+    };
+    if (!fallbackModels.length) return [primaryAttempt];
     return [
-      { model: provider.model, fallbackModels: provider.fallbackModels, label: 'fallback_chain' },
-      { model: provider.model, label: 'primary_only' },
+      {
+        model: provider.model,
+        fallbackModels,
+        label: 'fallback_chain',
+        ...(fallbackReasoning
+          ? {
+              minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
+              requestFields: { reasoning: { effort: reasoningEffort } },
+            }
+          : {}),
+      },
+      primaryAttempt,
     ];
   }
   if (
@@ -1182,40 +1258,47 @@ function providerAttempts(
     }));
   }
   if (provider.id === 'vercel') {
-    return [provider.model, ...(provider.fallbackModels ?? [])].map((model, index) => ({
-      model,
-      label: index === 0 ? 'default' : 'model_fallback',
-      ...(model === VERCEL_HY3_MODEL && (task === 'review' || task === 'judge' || task === 'shitpost')
-        ? {
-            minimumMaxTokens: configuredInteger(
-              env.KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS,
-              Number(REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS),
-              1,
-              131_072,
-            ),
-            requestFields: {
-              reasoning: {
-                effort: configuredText(
-                  env.KANAREK_REVIEW_VERCEL_HY3_REASONING_EFFORT,
-                  REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_VERCEL_HY3_REASONING_EFFORT,
-                ),
+    return [provider.model, ...(provider.fallbackModels ?? [])].map((model, index) => {
+      const useReasoning = taskUsesHighReasoning(task) && VERCEL_REASONING_MODELS.has(model);
+      const maximumMaxTokens = VERCEL_MODEL_MAX_OUTPUT_TOKENS.get(model);
+      return {
+        model,
+        label: index === 0 ? 'default' : 'model_fallback',
+        ...(maximumMaxTokens ? { maximumMaxTokens } : {}),
+        ...(useReasoning
+          ? {
+              minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
+              requestFields: {
+                reasoning: { effort: configuredReasoningEffort(env) },
+                ...(model === VERCEL_HY3_MODEL
+                  ? {
+                      temperature: configuredFloat(
+                        env.KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE,
+                        Number(REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE),
+                        0,
+                        2,
+                      ),
+                      top_p: configuredFloat(
+                        env.KANAREK_REVIEW_VERCEL_HY3_TOP_P,
+                        Number(REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_VERCEL_HY3_TOP_P),
+                        0,
+                        1,
+                      ),
+                    }
+                  : {}),
               },
-              temperature: configuredFloat(
-                env.KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE,
-                Number(REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE),
-                0,
-                2,
-              ),
-              top_p: configuredFloat(
-                env.KANAREK_REVIEW_VERCEL_HY3_TOP_P,
-                Number(REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_VERCEL_HY3_TOP_P),
-                0,
-                1,
-              ),
-            },
-          }
-        : {}),
-    }));
+            }
+          : {}),
+      };
+    });
+  }
+  if (provider.id === 'gemini-flex') {
+    return [{
+      model: provider.model,
+      label: 'default',
+      minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
+      requestFields: { reasoning_effort: configuredReasoningEffort(env) },
+    }];
   }
   return [{ model: provider.model, label: 'default' }];
 }
@@ -1419,7 +1502,7 @@ export async function handleReviewRouterRequest(
           model: attempt.model,
           ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
         };
-        if (attempt.minimumMaxTokens) {
+        if (attempt.minimumMaxTokens || attempt.maximumMaxTokens) {
           const requestedMaxTokens = Math.max(
             typeof providerInput.max_tokens === 'number' &&
                 Number.isFinite(providerInput.max_tokens)
@@ -1430,11 +1513,17 @@ export async function handleReviewRouterRequest(
               ? providerInput.max_completion_tokens
               : 0,
           );
-          providerInput.max_tokens = Math.max(
-            attempt.minimumMaxTokens,
-            Math.ceil(requestedMaxTokens),
-          );
-          delete providerInput.max_completion_tokens;
+          if (requestedMaxTokens > 0 || attempt.minimumMaxTokens) {
+            let effectiveMaxTokens = Math.max(
+              attempt.minimumMaxTokens ?? 1,
+              Math.ceil(requestedMaxTokens || (attempt.minimumMaxTokens ?? 1)),
+            );
+            if (attempt.maximumMaxTokens) {
+              effectiveMaxTokens = Math.min(effectiveMaxTokens, attempt.maximumMaxTokens);
+            }
+            providerInput.max_tokens = effectiveMaxTokens;
+            delete providerInput.max_completion_tokens;
+          }
         }
         const response = await fetcher(provider.url, {
           method: 'POST',
@@ -1535,7 +1624,12 @@ export async function handleReviewRouterRequest(
           && attemptIndex + 1 < attempts.length
           && Date.now() < providerDeadlineAt
         ) continue;
-        if (provider.id === 'vercel' && attemptIndex + 1 < attempts.length) continue;
+        if (
+          provider.id === 'vercel'
+          && category !== 'timeout'
+          && attemptIndex + 1 < attempts.length
+          && Date.now() < providerDeadlineAt
+        ) continue;
         break;
       } finally {
         clearTimeout(timeout);

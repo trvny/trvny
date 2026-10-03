@@ -2,6 +2,7 @@ import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { branchNameAllowed, handleLifecycleAction } from './lifecycle-actions.ts';
 import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const CREATE_BRANCH_PATH = '/gpt-actions/github/branches/create';
@@ -18,10 +19,6 @@ class ChangeError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 }
 
 function repository(value: unknown): string {

@@ -1,5 +1,6 @@
 import { likelyTestPath } from './symbol-investigation.ts';
 import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export const DEPENDENCY_GRAPH_PATH = '/gpt-actions/github/code/dependencies';
 
@@ -40,16 +41,6 @@ class DependencyGraphError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
 }
 
 function repository(value: unknown): string {

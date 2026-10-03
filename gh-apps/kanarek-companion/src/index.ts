@@ -18,6 +18,7 @@ import {
 } from './gptomek-issue.ts';
 import { GPTOMEK_CONTROL_REPOSITORY, isGptomekFallbackPullRequest } from './gptomek-control.ts';
 import { hasAiProvider } from './quip.ts';
+import { json } from './json-response.ts';
 
 interface Env extends CompanionEnv {
   COMPANION_LOCK: DurableObjectNamespace;
@@ -81,16 +82,6 @@ const PULL_REQUEST_REVIEW_ACTIONS = new Set(['submitted', 'dismissed']);
 const CHECK_RUN_ACTIONS = new Set(['completed']);
 const CHECK_SUITE_ACTIONS = new Set(['completed']);
 const WORKFLOW_RUN_ACTIONS = new Set(['completed']);
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
-}
 
 function hexToBytes(value: string): ArrayBuffer | null {
   if (!/^[0-9a-f]{64}$/i.test(value)) return null;

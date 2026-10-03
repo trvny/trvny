@@ -1,5 +1,6 @@
 import { likelyTestPath } from './symbol-investigation.ts';
 import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export const TARGETED_TESTS_PATH = '/gpt-actions/github/code/tests';
 
@@ -47,16 +48,6 @@ class TestDiscoveryError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
 }
 
 function repository(value: unknown): string {

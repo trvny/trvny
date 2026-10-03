@@ -4,6 +4,7 @@ import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts
 import { repositoryAllowedByPolicy } from './policy-enforcement.ts';
 import { handleReleaseAction, releaseTagAllowed } from './release-actions.ts';
 import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const FINALIZE_PATH = '/gpt-actions/github/pull-requests/finalize';
@@ -26,10 +27,6 @@ class MergeReleasePolicyError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 }
 
 async function inputObject(request: Request, maxBytes = 160_000): Promise<JsonObject> {

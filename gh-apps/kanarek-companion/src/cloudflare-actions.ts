@@ -6,6 +6,7 @@ import {
 import type { GptActionsEnv } from './gpt-actions.ts';
 import { loadGremlinPolicy, type GremlinPolicy } from './policy-actions.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const CLOUDFLARE_API = 'https://api.cloudflare.com/client/v4';
 const OVERVIEW_PATH = '/gpt-actions/cloudflare/overview';
@@ -59,16 +60,6 @@ class CloudflareActionError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {

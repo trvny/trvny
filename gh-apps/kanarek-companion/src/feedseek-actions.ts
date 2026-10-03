@@ -6,6 +6,7 @@ import {
   type SpecialistToolEnv,
   type SpecialistToolName,
 } from './tools/registry.ts';
+import { json } from './json-response.ts';
 
 const ACTIONS = {
   '/gpt-actions/feedseek/search': 'feedseek_search',
@@ -13,16 +14,6 @@ const ACTIONS = {
   '/gpt-actions/feedseek/recent': 'feedseek_recent',
 } as const satisfies Record<string, SpecialistToolName>;
 const MAX_REQUEST_BYTES = 32_000;
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
-}
 
 async function inputObject(request: Request): Promise<JsonObject> {
   const text = await request.clone().text();

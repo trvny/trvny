@@ -2,6 +2,7 @@ import { authorizeOperator, type ActionInvoke } from './action-auth.ts';
 import { SpecialistToolError, isObject, type JsonObject } from './tools/common.ts';
 import { type EngramToolEnv } from './tools/engram.ts';
 import { SPECIALIST_TOOLS, invokeSpecialistTool } from './tools/registry.ts';
+import { json } from './json-response.ts';
 
 const STATUS_PATH = '/gpt-actions/engram/status';
 const SEARCH_PATH = '/gpt-actions/engram/search';
@@ -9,16 +10,6 @@ const STORE_PATH = '/gpt-actions/engram/store';
 const MAX_REQUEST_BYTES = 32_000;
 
 export interface EngramActionEnv extends EngramToolEnv {}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
-}
 
 async function inputObject(request: Request): Promise<JsonObject> {
   const text = await request.clone().text();

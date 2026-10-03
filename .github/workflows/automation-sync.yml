@@ -184,6 +184,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       AIHUBMIX_API_KEY: ${{ secrets.AIHUBMIX_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
       ORCAROUTER_API_KEY: ${{ secrets.ORCAROUTER_API_KEY }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
@@ -233,6 +234,8 @@ jobs:
               secrets["DEEPSEEK_API_KEY"] = os.environ["DEEPSEEK_API_KEY"]
           if os.environ.get("GEMINI_API_KEY"):
               secrets["GEMINI_API_KEY"] = os.environ["GEMINI_API_KEY"]
+          if os.environ.get("QWEN_API_KEY"):
+              secrets["QWEN_API_KEY"] = os.environ["QWEN_API_KEY"]
           pathlib.Path(sys.argv[1]).write_text(
               json.dumps(secrets),
               encoding="utf-8",
@@ -255,6 +258,9 @@ jobs:
           fi
           if [ -n "${GEMINI_API_KEY:-}" ]; then
             jq -e '([.[].name] | index("GEMINI_API_KEY")) != null' <<<"$secrets_json" >/dev/null
+          fi
+          if [ -n "${QWEN_API_KEY:-}" ]; then
+            jq -e '([.[].name] | index("QWEN_API_KEY")) != null' <<<"$secrets_json" >/dev/null
           fi
 
   telegram-assistant:

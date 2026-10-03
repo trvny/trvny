@@ -1939,8 +1939,11 @@ export async function sweepReviewProviders(
 
 const REVIEW_PROVIDER_DISPLAY: Record<string, { domain: string; label: string }> = {
   openrouter: { domain: 'openrouter.ai', label: 'OpenRouter' },
+  'openrouter-decision': { domain: 'openrouter.ai', label: 'OpenRouter Decisions' },
   orcarouter: { domain: 'orcarouter.ai', label: 'OrcaRouter' },
   aihubmix: { domain: 'aihubmix.com', label: 'AIHubMix' },
+  'aihubmix-decision': { domain: 'aihubmix.com', label: 'AIHubMix Decision' },
+  'qwencloud-decision': { domain: 'qwencloud.com', label: 'QwenCloud Decision' },
   ollama: { domain: 'ollama.com', label: 'Ollama' },
   groq: { domain: 'groq.com', label: 'Groq' },
   vercel: { domain: 'vercel.com', label: 'Vercel AI Gateway' },

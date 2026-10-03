@@ -8,6 +8,7 @@ import {
   type ReviewServiceEnv,
 } from '../src/review-service.ts';
 import {
+  REVIEW_DECISION_PATH,
   REVIEW_ROUTER_MODELS_PATH,
   REVIEW_ROUTER_PATH,
   REVIEW_SERVICE_INTERNAL_BEARER,
@@ -112,6 +113,46 @@ test('review service keeps the PR-review contract separate from the shared route
   assert.deepEqual(await response?.json(), fakeReview);
 });
 
+
+test('review service forwards the private System One decision path', async () => {
+  const requestBody = {
+    state: { review: 'evidence' },
+    questions: { keep_0: { type: 'noul' } },
+  };
+  let forwardedPath = '';
+  let forwardedBody: Record<string, unknown> = {};
+  let authorization: string | null = null;
+  const response = await handleReviewRouterViaService(
+    new Request(`https://kanarek.example${REVIEW_DECISION_PATH}`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    }),
+    {
+      ...localEnv,
+      KANAREK_REVIEW_SERVICE: {
+        async fetch(input) {
+          const request = input instanceof Request ? input : new Request(input);
+          forwardedPath = new URL(request.url).pathname;
+          forwardedBody = JSON.parse(await request.text()) as Record<string, unknown>;
+          authorization = request.headers.get('authorization');
+          return Response.json({
+            model: 'decision-model-preview',
+            answers: { keep_0: { type: 'noul', noul: 0.97 } },
+          });
+        },
+      },
+    },
+  );
+
+  assert.equal(response?.status, 200);
+  assert.equal(forwardedPath, REVIEW_DECISION_PATH);
+  assert.equal(authorization, `Bearer ${REVIEW_SERVICE_INTERNAL_BEARER}`);
+  assert.deepEqual(forwardedBody, requestBody);
+});
 
 test('review service preserves all explicit Workers AI disable aliases', async () => {
   for (const value of ['false', '0', 'no', 'off', 'OFF']) {

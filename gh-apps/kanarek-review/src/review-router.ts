@@ -76,6 +76,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE: '0.9',
   KANAREK_REVIEW_VERCEL_HY3_TOP_P: '1',
   KANAREK_REVIEW_GROQ_REASONING_EFFORT: 'high',
+  KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'aihubmix,openrouter,qwencloud',
   KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'deepseek,gemini-flex',
   KANAREK_REVIEW_DEEPSEEK_THINKING: 'enabled',
   KANAREK_REVIEW_DEEPSEEK_REASONING_EFFORT: 'max',
@@ -172,6 +173,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_ROUTER_TOKEN?: string;
   AIHUBMIX_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
+  QWEN_API_KEY?: string;
   ORCAROUTER_API_KEY?: string;
   OLLAMA_API_KEY?: string;
   GROQ_API_KEY?: string;
@@ -183,6 +185,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_WORK_TIMEOUT_MS?: string;
   KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS?: string;
   KANAREK_REVIEW_PROVIDER_ORDER?: string;
+  KANAREK_REVIEW_DECISION_PROVIDER_ORDER?: string;
   KANAREK_REVIEW_PAID_PROVIDER_ORDER?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
@@ -216,6 +219,11 @@ export interface ReviewRouterEnv {
 type JsonObject = Record<string, unknown>;
 
 type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'huggingface-publicai' | 'deepseek' | 'gemini-flex' | 'workers-ai';
+export type ProviderCooldownId =
+  | ReviewProviderId
+  | 'aihubmix-decision'
+  | 'openrouter-decision'
+  | 'qwencloud-decision';
 
 const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
   'aihubmix',
@@ -755,7 +763,13 @@ function boundedCooldownMs(raw: string | undefined, fallback: number): number {
 }
 
 function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | null {
-  if (category === 'soft_quota' || category === 'http_402' || category === 'http_429') {
+  if (
+    category === 'soft_quota' ||
+    category === 'http_401' ||
+    category === 'http_402' ||
+    category === 'http_403' ||
+    category === 'http_429'
+  ) {
     return boundedCooldownMs(env.KANAREK_REVIEW_QUOTA_COOLDOWN_MS, DEFAULT_QUOTA_COOLDOWN_MS);
   }
   if (
@@ -777,7 +791,7 @@ function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | nu
 
 function providerCooldownStub(
   env: ReviewRouterEnv,
-  provider: ReviewProviderId,
+  provider: ProviderCooldownId,
 ): DurableObjectStub | null {
   if (!env.KANAREK_REVIEW_COOLDOWNS) return null;
   const id = env.KANAREK_REVIEW_COOLDOWNS.idFromName(provider);
@@ -936,7 +950,7 @@ async function workersAiBudgetStatus(env: ReviewRouterEnv): Promise<WorkersAiBud
 
 export async function activeProviderCooldown(
   env: ReviewRouterEnv,
-  provider: ReviewProviderId,
+  provider: ProviderCooldownId,
 ): Promise<ProviderCooldown | null> {
   const stub = providerCooldownStub(env, provider);
   if (!stub) return null;
@@ -1057,7 +1071,7 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
 }
 
 export async function rememberProviderCooldown(
-  provider: ReviewProviderId,
+  provider: ProviderCooldownId,
   category: string,
   env: ReviewRouterEnv,
 ): Promise<void> {

@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+"""Drain GPTomek Issue mailbox commands through the independent PR transport."""
+
+from __future__ import annotations
+
+from collections import Counter
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+CONTROL_REPOSITORY = "trvny/trvny"
+CONTROL_ISSUE = 203
+FALLBACK_PR = 176
+MAX_EVENT_COMMANDS = 10
+POLL_ATTEMPTS = 25
+POLL_SECONDS = 1
+
+COMMAND_RE = re.compile(
+    r"<!--\s*gptomek-command:[A-Za-z0-9+/_-]+={0,2}\s*-->"
+)
+COMMAND_PREFIX_RE = re.compile(r"<!--\s*gptomek-command:")
+RESULT_RE = re.compile(
+    r"<!--\s*gptomek-result:[A-Za-z0-9+/_-]+={0,2}\s*-->"
+)
+
+
+class MailboxError(RuntimeError):
+    pass
+
+
+def gh_json(path: str, *, method: str | None = None, payload: object | None = None) -> dict:
+    command = ["gh", "api"]
+    if method:
+        command.extend(["--method", method])
+    command.append(path)
+
+    data = None
+    if payload is not None:
+        command.extend(["--input", "-"])
+        data = json.dumps(payload)
+
+    completed = subprocess.run(
+        command,
+        input=data,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or "gh api failed"
+        raise MailboxError(detail)
+    if not completed.stdout.strip():
+        return {}
+    return json.loads(completed.stdout)
+
+
+def markers(body: str) -> list[str]:
+    found = COMMAND_RE.findall(body)
+    prefixes = len(COMMAND_PREFIX_RE.findall(body))
+    if prefixes != len(found):
+        raise MailboxError("mailbox contains a malformed GPTomek command marker")
+    return found
+
+
+def issue() -> dict:
+    return gh_json(f"repos/{CONTROL_REPOSITORY}/issues/{CONTROL_ISSUE}")
+
+
+def fallback_pr() -> dict:
+    return gh_json(f"repos/{CONTROL_REPOSITORY}/pulls/{FALLBACK_PR}")
+
+
+def patch_issue(body: str) -> None:
+    gh_json(
+        f"repos/{CONTROL_REPOSITORY}/issues/{CONTROL_ISSUE}",
+        method="PATCH",
+        payload={"body": body},
+    )
+
+
+def patch_fallback(body: str) -> None:
+    gh_json(
+        f"repos/{CONTROL_REPOSITORY}/pulls/{FALLBACK_PR}",
+        method="PATCH",
+        payload={"body": body},
+    )
+
+
+def wait_for_result() -> str:
+    for _ in range(POLL_ATTEMPTS):
+        body = str(fallback_pr().get("body") or "")
+        if RESULT_RE.search(body):
+            return body
+        time.sleep(POLL_SECONDS)
+    raise MailboxError(
+        f"fallback PR #{FALLBACK_PR} did not record a GPTomek result "
+        f"within {POLL_ATTEMPTS * POLL_SECONDS} seconds"
+    )
+
+
+def normalized_with_result(body: str, result_marker: str) -> str:
+    clean = RESULT_RE.sub("", body)
+    clean = re.sub(r"\n{3,}", "\n\n", clean).strip()
+    return "\n\n".join(part for part in (clean, result_marker) if part)
+
+
+def event_markers(event_path: str) -> list[str]:
+    with open(event_path, encoding="utf-8") as handle:
+        payload = json.load(handle)
+    body = str((payload.get("issue") or {}).get("body") or "")
+    found = markers(body)
+    if not found:
+        raise MailboxError("command marker missing from event payload")
+    if len(found) > MAX_EVENT_COMMANDS:
+        raise MailboxError(
+            f"event contains {len(found)} commands; limit is {MAX_EVENT_COMMANDS}"
+        )
+    return found
+
+
+def still_present(body: str, marker: str) -> bool:
+    return marker in markers(body)
+
+
+def remaining_from_snapshot(snapshot: list[str], live: list[str]) -> list[str]:
+    counts = Counter(live)
+    remaining: list[str] = []
+    for marker in snapshot:
+        if counts[marker] > 0:
+            remaining.append(marker)
+            counts[marker] -= 1
+    return remaining
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        raise MailboxError("usage: gptomek-mailbox-fallback.py <github-event-path>")
+
+    snapshot = event_markers(sys.argv[1])
+    retained_results: dict[str, str] = {}
+    consumed = 0
+    stale = 0
+
+    for index, marker in enumerate(snapshot, start=1):
+        live = str(issue().get("body") or "")
+        if not still_present(live, marker):
+            print(f"[{index}/{len(snapshot)}] marker already cleared or superseded; skipping")
+            stale += 1
+            continue
+
+        print(f"[{index}/{len(snapshot)}] forwarding marker through PR #{FALLBACK_PR}")
+        patch_fallback(marker)
+        fallback_body = wait_for_result()
+
+        fallback_markers = markers(fallback_body)
+        if fallback_markers and fallback_markers != [marker]:
+            raise MailboxError("fallback PR contains an unexpected command marker")
+
+        result_match = RESULT_RE.search(fallback_body)
+        if not result_match:
+            raise MailboxError("fallback PR consumed a command without a result marker")
+        result_marker = result_match.group(0)
+        retained = bool(fallback_markers)
+
+        current = str(issue().get("body") or "")
+        if not still_present(current, marker):
+            print(f"[{index}/{len(snapshot)}] Issue mailbox changed; preserving newer state")
+            stale += 1
+            continue
+
+        if not retained:
+            current = current.replace(marker, "", 1)
+            consumed += 1
+        else:
+            retained_results[marker] = result_marker
+            print(f"[{index}/{len(snapshot)}] retryable command retained in Issue mailbox")
+
+        patch_issue(normalized_with_result(current, result_marker))
+
+    live_body = str(issue().get("body") or "")
+    remaining = remaining_from_snapshot(snapshot, markers(live_body))
+
+    if remaining:
+        first = remaining[0]
+        if first in retained_results:
+            patch_issue(normalized_with_result(live_body, retained_results[first]))
+        print(
+            f"GPTomek fallback drained {consumed} command(s); "
+            f"{len(remaining)} retryable/stale command(s) from this event remain.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(
+        f"GPTomek fallback drained {consumed} command(s); "
+        f"{stale} command(s) were already cleared or superseded."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (MailboxError, json.JSONDecodeError) as error:
+        print(f"GPTomek fallback failed: {error}", file=sys.stderr)
+        raise SystemExit(1)

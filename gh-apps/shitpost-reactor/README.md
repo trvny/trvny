@@ -81,7 +81,7 @@ especially its Collision Engine and post-tuning ideas. The full skill is
 deliberately not loaded into the runtime prompt.
 
 Generation deliberately favors quality over latency. The completion budget is
-8,192 tokens of generation/reasoning headroom, not a target post length; final
+16,384 tokens of generation/reasoning headroom, not a target post length; final
 text still has the same 2,400-character safety ceiling and the prompt explicitly
 forbids padding to a limit. The client can wait up to 20 minutes for the shared
 router, while the GitHub job has a 30-minute ceiling. The router itself gives the

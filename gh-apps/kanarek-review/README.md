@@ -127,12 +127,21 @@ account-level $5/month spend cap is the guardrail, so both zero-price models and
 models consuming that included monthly allowance are part of the free budget.
 The cap stays enforced at Vercel instead of being duplicated here.
 
-Vercel AI Gateway uses a model chain rather than one fixed model. Hy3 (`tencent/hy3`)
-is tried first with high reasoning, Tencent's recommended `temperature: 0.9` /
-`top_p: 1.0`, and an 8192-token minimum generation ceiling so reasoning does not
-starve short-capped callers. A caller that already asks for more keeps its larger
-ceiling. The previous `alibaba/qwen3-coder-30b-a3b` route remains the model fallback,
-without inheriting Hy3-specific reasoning or sampling fields.
+Reasoning is capability-aware rather than provider-wide. Review, judge, and
+shitpost lanes give known reasoning-capable Vercel and OpenRouter models high
+reasoning with at least 16K completion-token headroom; Groq task lanes keep their
+task-specific effort and receive the same floor whenever reasoning is enabled.
+Gemini Flex pins high reasoning with the same floor. DeepSeek keeps its separate
+max-effort 128K contract. The guarded Workers AI fallback also exposes 16K output
+headroom so its reasoning model is not starved by the previous 4K cap.
+
+Vercel AI Gateway uses a model chain rather than one fixed model. Hy3
+(`tencent/hy3`), Qwen 3.8 Omni, Ling 3.1 Flash, and Laguna S 2.1 receive the
+shared reasoning policy when used by a reasoning-heavy task. Hy3 alone keeps
+Tencent's recommended `temperature: 0.9` / `top_p: 1.0` sampling overrides.
+Qwen 3 Coder does not receive synthetic reasoning fields and its requests are
+clamped to its 8K output limit. Known lower per-model output ceilings are applied
+before dispatch, while callers asking for a larger supported ceiling keep it.
 
 OrcaRouter is configured through the workspace-owned `orcarouter/auto` route
 rather than pinned model aliases. The OrcaRouter workspace is the maintained
@@ -150,7 +159,8 @@ the user's DeepSeek balance. HTTP 402 balance exhaustion enters the normal quota
 cooldown/fallback path.
 
 Gemini uses the OpenAI-compatible Gemini endpoint with
-`service_tier: "flex"`. Flex is a paid, lower-cost, sheddable tier: 429/503
+`service_tier: "flex"`, high reasoning, and the shared 16K reasoning floor.
+Flex is a paid, lower-cost, sheddable tier: 429/503
 responses enter the same cooldown/fallback path as other transient provider
 failures. It is deliberately excluded from `kanarek-review-free`, so shared
 free-router consumers cannot spend the Gemini reserve.
@@ -203,8 +213,8 @@ Important variables include:
 - `KANAREK_REVIEW_GROQ_MODEL`
 - `KANAREK_REVIEW_GROQ_REASONING_EFFORT`
 - `KANAREK_REVIEW_VERCEL_MODELS`
-- `KANAREK_REVIEW_VERCEL_HY3_MIN_MAX_TOKENS`
-- `KANAREK_REVIEW_VERCEL_HY3_REASONING_EFFORT`
+- `KANAREK_REVIEW_REASONING_MIN_MAX_TOKENS`
+- `KANAREK_REVIEW_REASONING_EFFORT`
 - `KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE`
 - `KANAREK_REVIEW_VERCEL_HY3_TOP_P`
 - `KANAREK_REVIEW_HUGGINGFACE_MODEL`

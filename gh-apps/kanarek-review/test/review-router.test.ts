@@ -254,6 +254,31 @@ test('review router prefers OpenRouter before the paid review reserves', async (
   assert.equal(call.authorization, 'Bearer openrouter-key');
 });
 
+test('reasoning-capable OpenRouter review chains get high reasoning with a 16K floor', async () => {
+  let body: Record<string, unknown> = {};
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    max_tokens: 512,
+    messages: [{ role: 'user', content: 'review carefully' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(body.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS[0]);
+  assert.deepEqual(body.models, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.slice(1));
+  assert.deepEqual(body.reasoning, { effort: 'high' });
+  assert.equal(body.max_tokens, 16_384);
+});
+
 test('review router uses direct DeepSeek Flash before Gemini Flex as the first paid reserve', async () => {
   const calls: Array<{
     url: string;
@@ -409,25 +434,30 @@ test('DeepSeek balance exhaustion falls through to Gemini Flex', async () => {
   ]);
 });
 
-test('review router uses Gemini 3.8 Flash Flex as an optional reserve', async () => {
+test('review router uses Gemini 3.8 Flash Flex with pinned reasoning headroom', async () => {
   let call: {
     url?: string;
     model?: unknown;
     serviceTier?: unknown;
+    reasoningEffort?: unknown;
+    maxTokens?: unknown;
     authorization?: string | null;
   } = {};
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-review',
     stream: true,
+    max_tokens: 512,
     messages: [{ role: 'user', content: 'review' }],
   }), {
     ...auth, GEMINI_API_KEY: 'gemini-key',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
-    const body = JSON.parse(String(init?.body)) as { model?: unknown; service_tier?: unknown };
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     call = {
       url: String(input),
       model: body.model,
       serviceTier: body.service_tier,
+      reasoningEffort: body.reasoning_effort,
+      maxTokens: body.max_tokens,
       authorization: new Headers(init?.headers).get('authorization'),
     };
     return Promise.resolve(new Response('{"choices":[],"model":"gemini-3.8-flash"}', { status: 200 }));
@@ -438,6 +468,8 @@ test('review router uses Gemini 3.8 Flash Flex as an optional reserve', async ()
   assert.equal(call.url, 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
   assert.equal(call.model, 'gemini-3.8-flash');
   assert.equal(call.serviceTier, 'flex');
+  assert.equal(call.reasoningEffort, 'high');
+  assert.equal(call.maxTokens, 16_384);
   assert.equal(call.authorization, 'Bearer gemini-key');
 });
 
@@ -523,7 +555,7 @@ test('code-review profile gives Groq GPT-OSS its configured reasoning effort', a
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'groq');
   assert.equal(body.model, 'openai/gpt-oss-120b');
   assert.equal(body.reasoning_effort, 'high');
-  assert.equal(body.max_tokens, 2_048);
+  assert.equal(body.max_tokens, 16_384);
 });
 
 test('code-review profile allows Groq reasoning effort tuning without code changes', async () => {
@@ -625,12 +657,13 @@ test('quip profile lowers Groq reasoning and omits it for unsupported models', a
   ]);
 });
 
-test('shitpost profile gives supported Groq models high reasoning effort', async () => {
+test('shitpost profile gives supported Groq models high reasoning with enough headroom', async () => {
   let effort: unknown;
+  let maxTokens: unknown;
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-shitpost-free',
     stream: false,
-    max_tokens: 8_192,
+    max_tokens: 256,
     messages: [{ role: 'user', content: 'take your time and make one good joke' }],
   }), {
     ...auth,
@@ -638,6 +671,7 @@ test('shitpost profile gives supported Groq models high reasoning effort', async
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     effort = body.reasoning_effort;
+    maxTokens = body.max_tokens;
     return Promise.resolve(Response.json({
       model: body.model,
       choices: [{ message: { role: 'assistant', content: 'ok' } }],
@@ -646,6 +680,7 @@ test('shitpost profile gives supported Groq models high reasoning effort', async
 
   assert.equal(response?.status, 200);
   assert.equal(effort, 'high');
+  assert.equal(maxTokens, 16_384);
 });
 
 test('AIHubMix shares one model pool but orders it by task', async () => {
@@ -1316,7 +1351,7 @@ test('review router reaches OrcaRouter as the last resort after AIHubMix fails',
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(
     urls.filter((url) => url === 'https://aihubmix.com/v1/chat/completions').length,
-    6,
+    REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_AIHUBMIX_MODELS.length,
   );
   assert.equal(urls.at(-1), 'https://api.orcarouter.ai/v1/chat/completions');
 });
@@ -1420,7 +1455,7 @@ test('review router uses reasoning-enabled Hy3 at Vercel after Groq quota', asyn
     {
       url: 'https://api.groq.com/openai/v1/chat/completions',
       model: 'openai/gpt-oss-120b',
-      maxTokens: undefined,
+      maxTokens: 16_384,
       reasoning: undefined,
       temperature: undefined,
       topP: undefined,
@@ -1429,13 +1464,71 @@ test('review router uses reasoning-enabled Hy3 at Vercel after Groq quota', asyn
     {
       url: 'https://ai-gateway.vercel.sh/v1/chat/completions',
       model: 'tencent/hy3',
-      maxTokens: 8_192,
+      maxTokens: 16_384,
       reasoning: { effort: 'high' },
       temperature: 0.9,
       topP: 1.0,
       authorization: 'Bearer vercel-key',
     },
   ]);
+});
+
+test('Vercel reasoning-capable fallbacks get high reasoning and the shared floor', async () => {
+  for (const model of [
+    'alibaba/qwen3.8-omni-flash',
+    'inclusionai/ling-3.1-flash-free',
+    'poolside/laguna-s-2.1-free',
+  ]) {
+    let body: Record<string, unknown> = {};
+    const response = await handleReviewRouterRequest(request(routerToken, {
+      model: 'kanarek-code-review-free',
+      stream: false,
+      max_tokens: 512,
+      messages: [{ role: 'user', content: 'review carefully' }],
+    }), {
+      ...auth,
+      AI_GATEWAY_API_KEY: 'vercel-key',
+      KANAREK_REVIEW_VERCEL_MODELS: model,
+    }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return Promise.resolve(Response.json({
+        model: body.model,
+        choices: [{ message: { role: 'assistant', content: 'ok' } }],
+      }));
+    }) as typeof fetch);
+
+    assert.equal(response?.status, 200, model);
+    assert.equal(body.model, model);
+    assert.deepEqual(body.reasoning, { effort: 'high' });
+    assert.equal(body.max_tokens, 16_384);
+    assert.equal('temperature' in body, false);
+    assert.equal('top_p' in body, false);
+  }
+});
+
+test('Vercel caps non-reasoning Qwen Coder at its 8K output limit', async () => {
+  let body: Record<string, unknown> = {};
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    max_tokens: 16_384,
+    messages: [{ role: 'user', content: 'review carefully' }],
+  }), {
+    ...auth,
+    AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_VERCEL_MODELS: 'alibaba/qwen3-coder-30b-a3b',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(body.model, 'alibaba/qwen3-coder-30b-a3b');
+  assert.equal(body.max_tokens, 8_192);
+  assert.equal('reasoning' in body, false);
 });
 
 test('Vercel falls back from Hy3 to Qwen without leaking Hy3-only settings', async () => {
@@ -1466,7 +1559,7 @@ test('Vercel falls back from Hy3 to Qwen without leaking Hy3-only settings', asy
   assert.deepEqual(calls[0], {
     model: 'tencent/hy3',
     stream: false,
-    max_tokens: 8_192,
+    max_tokens: 16_384,
     messages: [{ role: 'user', content: 'short quip' }],
     reasoning: { effort: 'high' },
     temperature: 0.9,

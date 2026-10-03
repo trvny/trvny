@@ -6,6 +6,7 @@ import {
   parseReviewJson,
   reviewDisposition,
   reviewJudgeThreshold,
+  reviewSourceBadge,
   reviewSourceLabel,
   reviewSweepMaxAttempts,
   sweepReviewProviders,
@@ -43,6 +44,18 @@ test('review source label includes provider and concrete upstream model', () => 
 test('review source label falls back to the provider when model is unavailable', () => {
   assert.equal(reviewSourceLabel('openrouter', null), 'OpenRouter');
   assert.equal(reviewSourceLabel('workers-ai', null), 'Workers AI');
+});
+
+test('review source badge adds a deterministic provider favicon without model involvement', () => {
+  assert.equal(
+    reviewSourceBadge('deepseek', 'deepseek-flash'),
+    '<img src="https://icons.duckduckgo.com/ip3/deepseek.com.ico" width="18" height="18" alt="DeepSeek"> DeepSeek · `deepseek-flash`',
+  );
+  assert.equal(
+    reviewSourceBadge('orcarouter', 'orcarouter/auto'),
+    '<img src="https://icons.duckduckgo.com/ip3/orcarouter.ai.ico" width="18" height="18" alt="OrcaRouter"> OrcaRouter · `orcarouter/auto`',
+  );
+  assert.equal(reviewSourceBadge('free-router', null), 'free router');
 });
 
 test('only genuinely clean reviews stay silent', () => {

@@ -10,7 +10,8 @@ mode="${4:-required}"
 : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
 
 value="${!source_env:-}"
-wrangler=(npx --yes wrangler@4.131.1)
+# Run from a package directory after `npm ci`; its lockfile pins Wrangler.
+wrangler=(npx --no-install wrangler)
 
 has_secret() {
   local json="$1"

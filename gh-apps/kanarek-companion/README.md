@@ -42,7 +42,7 @@ A normal pull-request delivery is split into two independent paths:
    and repository context, then calls the private Kanarek Review Worker through
    the service binding.
 6. Provider output is accepted only after the review contract and line anchors
-   validate. On the free pass, a typed System One decision model runs as L2
+   validate. On the free pass, a rotating System One provider pool runs as L2
    precision telemetry/deduplication first; the previous generative judge remains
    the fail-open fallback. The PR is revalidated again immediately before one
    native GitHub review is published.

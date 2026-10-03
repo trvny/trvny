@@ -40,7 +40,7 @@ prompts, validation, persistence, and retry semantics remain separate.
 The internal OpenAI-compatible surface is:
 
 - `POST /review-router/v1/chat/completions`
-- `POST /review-router/v1/systemone` for the private AIHubMix `decision-model-preview` L2 adapter
+- `POST /review-router/v1/systemone` for the private rotating System One L2 pool
 - `GET /review-router/v1/models`
 - `GET` or `HEAD /health`
 
@@ -93,12 +93,21 @@ consuming substantially fewer neurons than `@cf/qwen/qwen3.8-27b`, preserving
 more of the 10k-neuron daily reserve for actual failures upstream.
 
 The private System One route is intentionally separate from the OpenAI-compatible
-chat router. It forces `decision-model-preview` and forwards at most 16 typed
-`choice` / `noul` / `score` questions to AIHubMix using the existing
-`AIHUBMIX_API_KEY`. Kanarek Companion currently uses it only for free-pass L2
-precision decisions. A provider error or invalid typed response fails open to the
-existing generative L2 judge; paid review skips L2 because its larger context can
-exceed the decision model's 65,536-token input window.
+chat router. It forwards at most 16 typed `choice` / `noul` / `score`
+questions through a rotating decision-only pool:
+
+1. AIHubMix `decision-model-preview`
+2. OpenRouter Decisions: `inception/mercury-decide:free`, then free fallback `respan/span-01-lite:free`
+3. QwenCloud `decision-model-preview`
+
+The primary provider is rotated deterministically from the review state so all
+three access paths receive real traffic while they are free; the remaining
+configured providers are fallbacks. OpenRouter uses its native
+`/api/alpha/decisions` runtime and falls through Mercury to Span-01 Lite before
+abandoning OpenRouter. Each provider keeps an independent cooldown. Kanarek Companion uses
+this route only for free-pass L2 precision decisions, and any total pool failure
+still fails open to the existing generative L2 judge. Paid review skips L2 because
+its larger context can exceed the decision runtimes' input windows.
 
 Latency is task policy too. Quips keep the normal short provider deadlines.
 Code review and L2 judge calls get at least 60 seconds per provider, while
@@ -249,6 +258,7 @@ Provider credentials belong here:
 
 - `AIHUBMIX_API_KEY`
 - `OPENROUTER_API_KEY`
+- `QWEN_API_KEY` (optional QwenCloud Decision path)
 - `OLLAMA_API_KEY`
 - `GROQ_API_KEY`
 - `AI_GATEWAY_API_KEY`

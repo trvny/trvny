@@ -3,16 +3,57 @@ import { REVIEW_DECISION_PATH } from '../../kanarek-companion/src/review-service
 import {
   activeProviderCooldown,
   rememberProviderCooldown,
+  REVIEW_ROUTER_TUNING_DEFAULTS,
   taskProviderTimeoutMs,
+  type ProviderCooldownId,
   type ReviewRouterEnv,
 } from './review-router.ts';
 
-const DECISION_MODEL = 'decision-model-preview';
-const DECISION_ENDPOINT = 'https://aihubmix.com/v1/systemone';
+type DecisionProviderId = 'aihubmix' | 'openrouter' | 'qwencloud';
+
+type DecisionProvider = {
+  id: DecisionProviderId;
+  cooldownId: ProviderCooldownId;
+  endpoint: string;
+  models: readonly string[];
+  apiKey: (env: DecisionModelEnv) => string | undefined;
+};
+
+const DECISION_PROVIDERS: Record<DecisionProviderId, DecisionProvider> = {
+  aihubmix: {
+    id: 'aihubmix',
+    cooldownId: 'aihubmix-decision',
+    endpoint: 'https://aihubmix.com/v1/systemone',
+    models: ['decision-model-preview'],
+    apiKey: (env) => env.AIHUBMIX_API_KEY,
+  },
+  openrouter: {
+    id: 'openrouter',
+    cooldownId: 'openrouter-decision',
+    endpoint: 'https://openrouter.ai/api/alpha/decisions',
+    models: [
+      'inception/mercury-decide:free',
+      'respan/span-01-lite:free',
+    ],
+    apiKey: (env) => env.OPENROUTER_API_KEY,
+  },
+  qwencloud: {
+    id: 'qwencloud',
+    cooldownId: 'qwencloud-decision',
+    endpoint: 'https://trial.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/systemone',
+    models: ['decision-model-preview'],
+    apiKey: (env) => env.QWEN_API_KEY,
+  },
+};
+const DECISION_PROVIDER_IDS = new Set<DecisionProviderId>(
+  Object.keys(DECISION_PROVIDERS) as DecisionProviderId[],
+);
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
 const MAX_QUESTIONS = 16;
+const MIN_LATER_PROVIDER_RESERVE_MS = 10_000;
+const MIN_LATER_MODEL_RESERVE_MS = 5_000;
 
 export type DecisionModelEnv = ReviewRouterEnv;
 
@@ -73,6 +114,68 @@ function timeoutMs(env: DecisionModelEnv): number {
 
 export function decisionProviderTimeoutMs(env: DecisionModelEnv): number {
   return taskProviderTimeoutMs(timeoutMs(env), 'judge');
+}
+
+function configuredDecisionProviderOrder(env: DecisionModelEnv): DecisionProviderId[] {
+  const fallback = REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_DECISION_PROVIDER_ORDER
+    .split(',') as DecisionProviderId[];
+  const configured = env.KANAREK_REVIEW_DECISION_PROVIDER_ORDER
+    ?.split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter((value): value is DecisionProviderId =>
+      DECISION_PROVIDER_IDS.has(value as DecisionProviderId)
+    ) ?? [];
+  return [...new Set(configured.length ? configured : fallback)];
+}
+
+function stableDecisionHash(value: unknown): number {
+  const text = JSON.stringify(value) ?? '';
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+export function decisionProviderOrder(
+  input: Record<string, unknown>,
+  env: DecisionModelEnv,
+): DecisionProviderId[] {
+  const order = configuredDecisionProviderOrder(env);
+  if (order.length < 2) return order;
+  const offset = stableDecisionHash(input.state) % order.length;
+  return [...order.slice(offset), ...order.slice(0, offset)];
+}
+
+export function decisionProviderBudgetMs(
+  remainingMs: number,
+  laterProviders: number,
+): number {
+  const safeRemainingMs = Math.max(0, Math.floor(remainingMs));
+  if (safeRemainingMs <= 0) return 0;
+  const reserveMs = Math.min(
+    safeRemainingMs,
+    Math.max(0, laterProviders) * MIN_LATER_PROVIDER_RESERVE_MS,
+  );
+  return Math.max(1, safeRemainingMs - reserveMs);
+}
+
+export function decisionModelAttemptTimeoutMs(
+  providerRemainingMs: number,
+  poolRemainingMs: number,
+  laterModels: number,
+): number {
+  const providerMs = Math.max(0, Math.floor(providerRemainingMs));
+  const poolMs = Math.max(0, Math.floor(poolRemainingMs));
+  const ceilingMs = Math.min(providerMs, poolMs);
+  if (ceilingMs <= 0) return 0;
+  const reserveMs = Math.min(
+    providerMs,
+    Math.max(0, laterModels) * MIN_LATER_MODEL_RESERVE_MS,
+  );
+  const rawAttemptMs = Math.max(1, providerMs - reserveMs);
+  return Math.min(ceilingMs, Math.max(1_000, rawAttemptMs));
 }
 
 function plainObject(value: unknown): value is Record<string, unknown> {
@@ -165,11 +268,22 @@ function validAnswer(value: unknown): boolean {
   return false;
 }
 
-function validResponse(value: unknown, questionIds: readonly string[]): value is Record<string, unknown> {
+function responseModelMatches(actual: unknown, expected: string): actual is string {
+  if (typeof actual !== 'string' || !actual.trim()) return false;
+  if (actual === expected) return true;
+  const expectedBase = expected.replace(/:free$/, '');
+  return actual === expectedBase || actual.startsWith(`${expectedBase}-`);
+}
+
+function validResponse(
+  value: unknown,
+  questionIds: readonly string[],
+  expectedModel: string,
+): value is Record<string, unknown> {
   if (!plainObject(value)) return false;
   const answers = value.answers;
   if (!plainObject(answers)) return false;
-  if (value.model !== DECISION_MODEL) return false;
+  if (!responseModelMatches(value.model, expectedModel)) return false;
   return questionIds.every((id) => validAnswer(answers[id]));
 }
 
@@ -185,19 +299,6 @@ export async function handleDecisionModelRequest(
     return jsonError('Unauthorized', 'unauthorized', 401);
   }
 
-  const apiKey = env.AIHUBMIX_API_KEY?.trim();
-  if (!apiKey) return jsonError('Decision provider unavailable', 'provider_unavailable', 503);
-
-  const cooldown = await activeProviderCooldown(env, 'aihubmix');
-  if (cooldown) {
-    return jsonError(
-      'Decision provider cooling down',
-      'provider_unavailable',
-      503,
-      `cooldown_${diagnosticToken(cooldown.category) ?? 'active'}`,
-    );
-  }
-
   let input: Record<string, unknown>;
   try {
     const parsed = await request.json();
@@ -211,73 +312,156 @@ export async function handleDecisionModelRequest(
     return jsonError('Invalid decision request', 'invalid_request', 400);
   }
 
-  const questionIds = Object.keys(input.questions);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), decisionProviderTimeoutMs(env));
-
-  try {
-    const response = await fetcher(DECISION_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: DECISION_MODEL,
-        state: input.state,
-        questions: input.questions,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      await rememberProviderCooldown('aihubmix', `http_${response.status}`, env);
-      const reason = await providerErrorReason(response);
-      return jsonError(
-        `Decision provider failed with HTTP ${response.status}`,
-        'provider_error',
-        502,
-        reason,
-      );
-    }
-
-    let payload: unknown;
-    try {
-      payload = await response.json();
-    } catch {
-      return jsonError(
-        'Decision provider returned invalid JSON',
-        'invalid_provider_response',
-        502,
-        'invalid_provider_json',
-      );
-    }
-    if (!validResponse(payload, questionIds)) {
-      return jsonError(
-        'Decision provider returned an invalid response',
-        'invalid_provider_response',
-        502,
-        'invalid_provider_response',
-      );
-    }
-
-    return Response.json(payload, {
-      headers: {
-        'cache-control': 'no-store',
-        'x-kanarek-review-provider': 'aihubmix-decision',
-        'x-kanarek-review-model': DECISION_MODEL,
-      },
-    });
-  } catch (error) {
-    const timedOut = error instanceof DOMException && error.name === 'AbortError';
-    await rememberProviderCooldown('aihubmix', timedOut ? 'timeout' : 'network', env);
-    return jsonError(
-      timedOut ? 'Decision provider timed out' : 'Decision provider request failed',
-      timedOut ? 'provider_timeout' : 'provider_error',
-      502,
-      timedOut ? 'provider_timeout' : 'provider_network',
-    );
-  } finally {
-    clearTimeout(timeout);
+  const configuredCandidates = decisionProviderOrder(input, env)
+    .map((id) => DECISION_PROVIDERS[id])
+    .filter((provider) => Boolean(provider.apiKey(env)?.trim()));
+  if (!configuredCandidates.length) {
+    return jsonError('Decision providers unavailable', 'provider_unavailable', 503);
   }
+
+  const questionIds = Object.keys(input.questions);
+  const deadlineAt = Date.now() + decisionProviderTimeoutMs(env);
+  const failures: string[] = [];
+  const candidates: DecisionProvider[] = [];
+
+  for (const provider of configuredCandidates) {
+    const cooldown = await activeProviderCooldown(env, provider.cooldownId);
+    if (cooldown) {
+      failures.push(
+        `${provider.id}:cooldown_${diagnosticToken(cooldown.category) ?? 'active'}`,
+      );
+      continue;
+    }
+    candidates.push(provider);
+  }
+
+  if (!candidates.length) {
+    return jsonError(
+      'Decision providers unavailable',
+      'provider_unavailable',
+      503,
+      `pool_exhausted_${failures.join('_')}`,
+    );
+  }
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const provider = candidates[index];
+    const apiKey = provider.apiKey(env)?.trim();
+    if (!apiKey) continue;
+
+    const remainingMs = Math.max(0, deadlineAt - Date.now());
+    if (remainingMs <= 0) {
+      failures.push(`${provider.id}:pool_timeout`);
+      break;
+    }
+
+    const laterProviders = candidates.length - index - 1;
+    const providerBudgetMs = decisionProviderBudgetMs(remainingMs, laterProviders);
+    const providerDeadlineAt = Date.now() + providerBudgetMs;
+
+    let providerFailureCategory = 'provider_error';
+    let providerFailureReason = 'provider_error';
+    let attempted = false;
+
+    for (let modelIndex = 0; modelIndex < provider.models.length; modelIndex += 1) {
+      const model = provider.models[modelIndex];
+      const providerRemainingMs = Math.max(0, providerDeadlineAt - Date.now());
+      const poolRemainingMs = Math.max(0, deadlineAt - Date.now());
+      if (providerRemainingMs <= 0 || poolRemainingMs <= 0) {
+        providerFailureCategory = 'timeout';
+        providerFailureReason = 'pool_timeout';
+        break;
+      }
+
+      const laterModels = provider.models.length - modelIndex - 1;
+      const attemptTimeoutMs = decisionModelAttemptTimeoutMs(
+        providerRemainingMs,
+        poolRemainingMs,
+        laterModels,
+      );
+      if (attemptTimeoutMs <= 0) {
+        providerFailureCategory = 'timeout';
+        providerFailureReason = 'pool_timeout';
+        break;
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), attemptTimeoutMs);
+      attempted = true;
+
+      try {
+        const response = await fetcher(provider.endpoint, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            state: input.state,
+            questions: input.questions,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          providerFailureCategory = `http_${response.status}`;
+          providerFailureReason = await providerErrorReason(response);
+          continue;
+        }
+
+        let payload: unknown;
+        try {
+          payload = await response.json();
+        } catch {
+          providerFailureCategory = 'invalid_response';
+          providerFailureReason = 'invalid_provider_json';
+          continue;
+        }
+
+        if (!validResponse(payload, questionIds, model)) {
+          providerFailureCategory = 'invalid_response';
+          providerFailureReason = 'invalid_provider_response';
+          continue;
+        }
+
+        const actualModel = String(payload.model);
+        console.info(JSON.stringify({
+          kanarekDecisionPool: 'selected',
+          provider: provider.id,
+          model: actualModel,
+          attempt: index + 1,
+          modelAttempt: modelIndex + 1,
+          primary: index === 0 && modelIndex === 0,
+        }));
+        return Response.json(payload, {
+          headers: {
+            'cache-control': 'no-store',
+            'x-kanarek-review-provider': `${provider.id}-decision`,
+            'x-kanarek-review-model': actualModel,
+          },
+        });
+      } catch (error) {
+        const timedOut = error instanceof DOMException && error.name === 'AbortError';
+        providerFailureCategory = timedOut ? 'timeout' : 'network';
+        providerFailureReason = timedOut ? 'provider_timeout' : 'provider_network';
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    if (attempted) {
+      await rememberProviderCooldown(provider.cooldownId, providerFailureCategory, env);
+    }
+    failures.push(`${provider.id}:${providerFailureReason}`);
+  }
+
+  const coolingDown = failures.length > 0 &&
+    failures.every((failure) => failure.includes(':cooldown_'));
+  return jsonError(
+    'Decision providers unavailable',
+    coolingDown ? 'provider_unavailable' : 'provider_error',
+    coolingDown ? 503 : 502,
+    `pool_exhausted_${failures.join('_')}`,
+  );
 }

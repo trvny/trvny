@@ -20,6 +20,7 @@ import {
   reviewMarker,
   reviewRetryDelayMs,
   reviewRouterEnvForAttempt,
+  reviewSourceLabel,
   selectReviewFiles,
   submittedReviewMatches,
   scheduleWebhookReviewWebhook,
@@ -1069,5 +1070,17 @@ test('decision L2 diagnostics are safe hidden markers', () => {
       inputTokens: 321,
     }),
     '<!-- kanarek-decision-l2:ok:keep=0.9877,0.1235:latency_ms=53:input_tokens=321 -->',
+  );
+});
+
+
+test('decision providers render distinct L2 attribution labels', () => {
+  assert.equal(
+    reviewSourceLabel('openrouter-decision', 'inception/mercury-decide:free'),
+    'OpenRouter Decisions · `inception/mercury-decide:free`',
+  );
+  assert.equal(
+    reviewSourceLabel('qwencloud-decision', 'decision-model-preview'),
+    'QwenCloud Decision · `decision-model-preview`',
   );
 });

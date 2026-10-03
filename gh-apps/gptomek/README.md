@@ -27,6 +27,31 @@ For normal GPTomek work:
 The control mailboxes are internal transport. Humans normally do not need to
 edit the encoded markers by hand.
 
+## Preferred PR merge flow
+
+When bot-authored work should land on `main` as one GPTomek-authored commit
+while the pull request itself stays authored by `trvny`, use this flow:
+
+1. Prepare the feature branch and open the pull request as `trvny` so the
+   normal external review automation triggers.
+2. Apply review findings and CI fixes on that branch until the intended tree is
+   final.
+3. After reading the current branch head, run `adopt_branch` with the PR base
+   as `baseSha` and the live branch head as `expectedHeadSha`. This rewrites
+   the branch to one commit authored by `gptomek[bot]`.
+4. Treat the rewritten commit as the final head: re-check relevant CI and review
+   state because changing the commit SHA can trigger a fresh validation cycle.
+5. Once the final GPTomek-authored head is green and actionable review threads
+   are resolved, merge the PR with **rebase merge**, not GitHub's squash merge.
+   The branch is already a single commit, so rebase merge places that commit on
+   `main` while preserving GPTomek as its author.
+6. If the branch already consists of the desired single GPTomek-authored commit,
+   skip `adopt_branch` and use the same final-head checks plus rebase merge.
+
+A `Co-authored-by: GPTomek ...` trailer does not make GPTomek the primary
+author of a GitHub-generated squash commit. Use the flow above when author
+attribution on `main` matters.
+
 ## Which mailbox to use
 
 | Situation | Transport | What happens |

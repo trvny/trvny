@@ -15,7 +15,16 @@ import {
 import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from './templates.mjs';
 
 export const DEFAULT_ENDPOINT = 'https://kanarek-companion.travny.workers.dev/review-router/v1/chat/completions';
-export const DEFAULT_SKILL_URL = 'https://raw.githubusercontent.com/trvny/.ai/main/skills/edgy-dark-meme.zip';
+const SKILL_BASE_URL = 'https://raw.githubusercontent.com/trvny/.ai/main/skills/';
+// Tried in order; the first archive that downloads and contains SKILL.md wins.
+// claude.ai downloads packaged skills as `<name_with_underscores>.skill` with a
+// top-level `<name>/` folder; older hand-made uploads are flat `<name>.zip`.
+export const DEFAULT_SKILL_URLS = Object.freeze([
+  `${SKILL_BASE_URL}edgy_dark_meme.skill`,
+  `${SKILL_BASE_URL}edgy-dark-meme.skill`,
+  `${SKILL_BASE_URL}edgy-dark-meme.zip`,
+]);
+export const DEFAULT_SKILL_URL = DEFAULT_SKILL_URLS[DEFAULT_SKILL_URLS.length - 1];
 export const DEFAULT_MODEL = 'kanarek-shitpost-free';
 export const DEFAULT_MYSAAS_SEARCH_URL = 'https://mysaas.lol/api/agent/v1/posts';
 
@@ -40,10 +49,20 @@ function findEndOfCentralDirectory(buffer) {
   throw new Error('skill_archive_missing_eocd');
 }
 
+// Matches `SKILL.md` at the archive root or one folder deep (`<skill>/SKILL.md`,
+// the .skill package layout). Root wins over nested; macOS resource forks are ignored.
+function entryDepth(name, targetName) {
+  if (name === targetName) return 0;
+  if (name.startsWith('__MACOSX/')) return -1;
+  const parts = name.split('/');
+  return parts.length === 2 && parts[0] && parts[1] === targetName ? 1 : -1;
+}
+
 export function extractZipEntry(buffer, targetName) {
   const eocd = findEndOfCentralDirectory(buffer);
   const entryCount = readUInt16(buffer, eocd + 10);
   let offset = readUInt32(buffer, eocd + 16);
+  let match = null;
 
   for (let index = 0; index < entryCount; index += 1) {
     if (readUInt32(buffer, offset) !== 0x02014b50) {
@@ -59,29 +78,32 @@ export function extractZipEntry(buffer, targetName) {
     const localHeaderOffset = readUInt32(buffer, offset + 42);
     const name = buffer.subarray(offset + 46, offset + 46 + nameLength).toString('utf8');
 
-    if (name === targetName) {
-      if (uncompressedSize > MAX_SKILL_BYTES) throw new Error('skill_entry_too_large');
-      if (readUInt32(buffer, localHeaderOffset) !== 0x04034b50) {
-        throw new Error('skill_archive_invalid_local_header');
-      }
-      const localNameLength = readUInt16(buffer, localHeaderOffset + 26);
-      const localExtraLength = readUInt16(buffer, localHeaderOffset + 28);
-      const dataOffset = localHeaderOffset + 30 + localNameLength + localExtraLength;
-      const compressed = buffer.subarray(dataOffset, dataOffset + compressedSize);
-      const result = method === 0
-        ? Buffer.from(compressed)
-        : method === 8
-          ? inflateRawSync(compressed)
-          : null;
-      if (!result) throw new Error(`skill_archive_unsupported_method_${method}`);
-      if (result.length !== uncompressedSize) throw new Error('skill_entry_size_mismatch');
-      return result;
+    const depth = entryDepth(name, targetName);
+    if (depth >= 0 && (!match || depth < match.depth)) {
+      match = { depth, method, compressedSize, uncompressedSize, localHeaderOffset };
     }
 
     offset += 46 + nameLength + extraLength + commentLength;
   }
 
-  throw new Error(`skill_entry_not_found:${targetName}`);
+  if (!match) throw new Error(`skill_entry_not_found:${targetName}`);
+  const { method, compressedSize, uncompressedSize, localHeaderOffset } = match;
+  if (uncompressedSize > MAX_SKILL_BYTES) throw new Error('skill_entry_too_large');
+  if (readUInt32(buffer, localHeaderOffset) !== 0x04034b50) {
+    throw new Error('skill_archive_invalid_local_header');
+  }
+  const localNameLength = readUInt16(buffer, localHeaderOffset + 26);
+  const localExtraLength = readUInt16(buffer, localHeaderOffset + 28);
+  const dataOffset = localHeaderOffset + 30 + localNameLength + localExtraLength;
+  const compressed = buffer.subarray(dataOffset, dataOffset + compressedSize);
+  const result = method === 0
+    ? Buffer.from(compressed)
+    : method === 8
+      ? inflateRawSync(compressed)
+      : null;
+  if (!result) throw new Error(`skill_archive_unsupported_method_${method}`);
+  if (result.length !== uncompressedSize) throw new Error('skill_entry_size_mismatch');
+  return result;
 }
 
 export async function loadSkill(skillUrl = DEFAULT_SKILL_URL, fetchImpl = fetch) {
@@ -96,6 +118,18 @@ export async function loadSkill(skillUrl = DEFAULT_SKILL_URL, fetchImpl = fetch)
   const archive = Buffer.from(await response.arrayBuffer());
   if (archive.length > MAX_SKILL_ARCHIVE_BYTES) throw new Error('skill_archive_too_large');
   return extractZipEntry(archive, 'SKILL.md').toString('utf8');
+}
+
+export async function loadSkillFromCandidates(skillUrls = DEFAULT_SKILL_URLS, fetchImpl = fetch) {
+  const failures = [];
+  for (const url of skillUrls) {
+    try {
+      return { skill: await loadSkill(url, fetchImpl), source: url };
+    } catch (error) {
+      failures.push(`${url}:${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throw new Error(`skill_unavailable[${failures.join(' | ')}]`);
 }
 
 export async function loadTasteProfile(readFileImpl = readFile) {
@@ -344,7 +378,8 @@ export async function main() {
   if (!token) throw new Error('KANAREK_REVIEW_ROUTER_TOKEN is required');
 
   const endpoint = process.env.KANAREK_REVIEW_ROUTER_URL?.trim() || DEFAULT_ENDPOINT;
-  const skillUrl = process.env.EDGY_DARK_MEME_SKILL_URL?.trim() || DEFAULT_SKILL_URL;
+  const skillOverride = process.env.EDGY_DARK_MEME_SKILL_URL?.trim();
+  const skillUrls = skillOverride ? [skillOverride] : DEFAULT_SKILL_URLS;
   const topic = process.env.SHITPOST_TOPIC || '';
   const requestedMode = process.env.SHITPOST_MODE || 'auto';
   const seed = process.env.GITHUB_RUN_ID
@@ -353,9 +388,9 @@ export async function main() {
   const outputDir = resolve(process.env.SHITPOST_OUTPUT_DIR || 'out');
 
   let skill = '';
-  let skillSource = skillUrl;
+  let skillSource = 'unavailable:edgy-dark-meme';
   try {
-    skill = await loadSkill(skillUrl);
+    ({ skill, source: skillSource } = await loadSkillFromCandidates(skillUrls));
   } catch (error) {
     skillSource = 'unavailable:edgy-dark-meme';
     process.stderr.write(`optional_style_reference_failed:${error instanceof Error ? error.message : String(error)}\n`);

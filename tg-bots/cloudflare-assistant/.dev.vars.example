@@ -9,6 +9,6 @@ TELEGRAM_OWNER_CHAT_ID=123456789
 # Set to contacts-only to enable the 12h Secretary idle auto-reply.
 SECRETARY_AUTO_REPLY_SCOPE=
 
-# Optional locally. Production can copy the existing repo secret through
-# .github/workflows/automation-sync.yml after the Worker exists.
+# Required for model-backed local flows while Workers AI is reserved for SpaceMolt.
+# Production can copy the existing repo secret through automation-sync.yml.
 KANAREK_REVIEW_ROUTER_TOKEN=

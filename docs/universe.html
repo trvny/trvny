@@ -52,7 +52,7 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
 
   <div class="layout">
     <div class="canvas">
-      <svg id="graph" viewBox="0 0 1280 930" role="img" aria-label="Interactive graph of TRVNY and TRAVNIE repositories and infrastructure">
+      <svg id="graph" viewBox="0 0 1330 930" role="img" aria-label="Interactive graph of TRVNY and TRAVNIE repositories and infrastructure">
         <g id="clusters"></g>
         <g id="edges"></g>
         <g id="nodes"></g>
@@ -148,11 +148,11 @@ const clusters = [
 {x:24,y:30,w:425,h:835,label:"Repositories"},
 {x:476,y:25,w:202,h:850,label:"trvny/trvny components"},
 {x:716,y:20,w:205,h:850,label:"Cloudflare runtime"},
-{x:945,y:20,w:310,h:875,label:"State + external systems"}
+{x:945,y:20,w:360,h:875,label:"State + external systems"}
 ];
 
 const svg=document.getElementById("graph"), gClusters=document.getElementById("clusters"), gEdges=document.getElementById("edges"), gNodes=document.getElementById("nodes"), details=document.getElementById("details"), search=document.getElementById("search");
-const byId=new Map(nodes.map(n=>[n.id,n]));
+const byId=new Map(nodes.map(n=>[n.id,n]));\nlet selectedId=null;
 const neighbors=new Map(nodes.map(n=>[n.id,new Set()]));
 edges.forEach(([a,b])=>{neighbors.get(a).add(b);neighbors.get(b).add(a)});
 
@@ -217,7 +217,7 @@ function download(name,type,data){
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},0);
 }
 document.getElementById("download-json").addEventListener("click",()=>download("trvny-universe-2026-10-03.json","application/json",JSON.stringify({snapshot:"2026-10-03",nodes,edges},null,2)));
-document.getElementById("download-svg").addEventListener("click",()=>{const copy=svg.cloneNode(true);copy.querySelectorAll(".dim,.active").forEach(el=>el.classList.remove("dim","active"));download("trvny-universe-2026-10-03.svg","image/svg+xml",new XMLSerializer().serializeToString(copy))});
+document.getElementById("download-svg").addEventListener("click",()=>{const copy=svg.cloneNode(true);copy.querySelectorAll(".dim,.active").forEach(el=>el.classList.remove("dim","active"));const style=document.createElementNS("http://www.w3.org/2000/svg","style");style.textContent=".edge{fill:none;stroke:#526071;stroke-width:1.7;opacity:.55}.edge.service{stroke:#f59e0b;stroke-dasharray:7 5}.edge.storage{stroke:#22c55e;stroke-dasharray:3 4}.edge.external{stroke:#ec4899;stroke-dasharray:10 5}.cluster{fill:none;stroke:#243041;stroke-width:1;stroke-dasharray:6 7}.cluster-label{fill:#667487;font-size:11px;font-weight:700}.node rect.body{fill:#141a23;stroke:#344052;stroke-width:1.2}.node text.title{fill:#eef2f7;font-size:12px;font-weight:700}.node text.sub{fill:#9aa6b6;font-size:9.5px}.node.repo rect.strip{fill:#7dd3fc}.node.component rect.strip{fill:#c4b5fd}.node.worker rect.strip{fill:#f6c453}.node.storage rect.strip{fill:#86efac}.node.external rect.strip{fill:#f9a8d4}";copy.insertBefore(style,copy.firstChild);download("trvny-universe-2026-10-03.svg","image/svg+xml",new XMLSerializer().serializeToString(copy))});
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]))}
 function escapeAttr(s){return escapeHtml(s)}
 reset();

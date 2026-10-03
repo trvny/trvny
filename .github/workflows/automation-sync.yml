@@ -36,7 +36,20 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-companion
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
+      # Wrangler comes from the package lockfile so Dependabot keeps it current.
+      - run: npm ci
       - name: Sync Worker credentials
         shell: bash
         run: |
@@ -61,7 +74,7 @@ jobs:
           version_message="Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
           rollback_message="Rollback failed Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
 
-          previous_deployment=$(npx --yes wrangler@4.127.1 deployments status \
+          previous_deployment=$(npx --no-install wrangler deployments status \
             --name kanarek-companion --json)
           mapfile -t previous_specs < <(
             jq -r '.versions[] | "\(.version_id)@\(.percentage)%"' \
@@ -101,23 +114,23 @@ jobs:
           PY
           chmod 600 "$secrets_file"
 
-          secret_names=$(npx --yes wrangler@4.127.1 secret list \
+          secret_names=$(npx --no-install wrangler secret list \
             --name kanarek-companion --format json | jq -r '.[].name')
           for retired_secret in \
             AIHUBMIX_API_KEY OPENROUTER_API_KEY ORCAROUTER_API_KEY GROQ_API_KEY OLLAMA_API_KEY AI_GATEWAY_API_KEY HUGGINGFACE_API_KEY DEEPSEEK_API_KEY
           do
             if grep -Fxq "$retired_secret" <<<"$secret_names"; then
-              npx --yes wrangler@4.127.1 secret delete "$retired_secret" \
+              npx --no-install wrangler secret delete "$retired_secret" \
                 --name kanarek-companion
             fi
           done
 
-          npx --yes wrangler@4.127.1 versions secret bulk "$secrets_file" \
+          npx --no-install wrangler versions secret bulk "$secrets_file" \
             --name kanarek-companion \
             --tag "$version_tag" \
             --message "$version_message"
 
-          versions_json=$(npx --yes wrangler@4.127.1 versions list \
+          versions_json=$(npx --no-install wrangler versions list \
             --name kanarek-companion --json)
           version_id=$(jq -r \
             --arg tag "$version_tag" \
@@ -129,7 +142,7 @@ jobs:
             exit 1
           fi
 
-          npx --yes wrangler@4.127.1 versions deploy \
+          npx --no-install wrangler versions deploy \
             "$version_id@100%" \
             --name kanarek-companion \
             --message "$version_message" \
@@ -149,7 +162,7 @@ jobs:
           done
 
           echo "Credential sync deployed, but the tagged Worker did not become healthy; rolling back." >&2
-          if ! npx --yes wrangler@4.127.1 versions deploy \
+          if ! npx --no-install wrangler versions deploy \
             "${previous_specs[@]}" \
             --name kanarek-companion \
             --message "$rollback_message" \
@@ -178,7 +191,20 @@ jobs:
       HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-review
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-review/package-lock.json
+      # Wrangler comes from the package lockfile so Dependabot keeps it current.
+      - run: npm ci
       - name: Sync review provider credentials
         shell: bash
         run: |
@@ -214,10 +240,10 @@ jobs:
           PY
           chmod 600 "$secrets_file"
 
-          npx --yes wrangler@4.129.0 secret bulk "$secrets_file" \
+          npx --no-install wrangler secret bulk "$secrets_file" \
             --name kanarek-review
 
-          secrets_json=$(npx --yes wrangler@4.129.0 secret list \
+          secrets_json=$(npx --no-install wrangler secret list \
             --name kanarek-review --format json)
           jq -e '
             ([.[].name] | sort) as $names |
@@ -243,10 +269,20 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       TELEGRAM_ASSISTANT_HEALTH_URL: https://tg-assistant.travny.workers.dev/health
+    defaults:
+      run:
+        working-directory: tg-bots/cloudflare-assistant
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tg-bots/cloudflare-assistant/package-lock.json
+      # Wrangler comes from the package lockfile so Dependabot keeps it current.
+      - run: npm ci
       - name: Sync shared free-router credential
         shell: bash
         run: >-
@@ -281,10 +317,20 @@ jobs:
       PET_DISPATCHER_MCP_CONNECTOR_TOKEN: ${{ secrets.PET_DISPATCHER_MCP_CONNECTOR_TOKEN }}
       KANAREK_REVIEW_ROUTER_TOKEN: ${{ secrets.KANAREK_REVIEW_ROUTER_TOKEN }}
       PET_DISPATCHER_HEALTH_URL: https://pet-dispatcher-control.travny.workers.dev/health
+    defaults:
+      run:
+        working-directory: mcp/pet-dispatcher
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mcp/pet-dispatcher/package-lock.json
+      # Wrangler comes from the package lockfile so Dependabot keeps it current.
+      - run: npm ci
       - name: Sync private MCP connector credential
         shell: bash
         run: >-

@@ -33,7 +33,6 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#462](https://github.com/trvny/feedseek/pull/462) | chore(deps): bump urllib3 from 2.7.0 to 2.8.0 in the uv group across 1 directory | @dependabot[bot] | ready | 2026-10-01 |
 | trvny/WiFi-Automatic | [#49](https://github.com/trvny/WiFi-Automatic/pull/49) | [pull] master from j4velin:master | @pull[bot] | ready | 2026-09-30 |
 <!--OPEN_PRS:END-->
 

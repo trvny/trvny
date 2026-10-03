@@ -3,6 +3,8 @@ import test from 'node:test';
 
 import {
   applyDecisionJudge,
+  decisionL2FallbackMarker,
+  decisionL2SuccessMarker,
   detectNpmMajorBumps,
   fetchReviewDependencyEvidence,
   nextReviewPhase,
@@ -1050,4 +1052,22 @@ test('decision L2 fails open for uncertain duplicates and low keep probability',
 
   assert.ok(judged);
   assert.deepEqual(judged.findings, findings);
+});
+
+
+test('decision L2 diagnostics are safe hidden markers', () => {
+  assert.equal(
+    decisionL2FallbackMarker('Provider HTTP 400 / Invalid Questions'),
+    '<!-- kanarek-decision-l2:fallback:provider_http_400_invalid_questions -->',
+  );
+  assert.equal(
+    decisionL2SuccessMarker({
+      duplicates: [],
+      keepProbabilities: [0.987654, 0.123456],
+      latencyMs: 52.6,
+      requestId: 'not-published',
+      inputTokens: 321,
+    }),
+    '<!-- kanarek-decision-l2:ok:keep=0.9877,0.1235:latency_ms=53:input_tokens=321 -->',
+  );
 });

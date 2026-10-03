@@ -147,6 +147,16 @@ returns 502. Both transports feed the same guarded GPTomek execution path and
 have the same authorization surface. The fallback PR does not unlock extra
 capabilities.
 
+Failed commands are retained for retry by default. GPTomek removes a failed
+command marker automatically only when the failure proves that replaying the
+same command would be stale or permanently invalid: an `adopt_branch` whose
+guarded head changed, whose branch disappeared, whose base/head have no changes,
+or whose immutable base/head relation is invalid; a `delete_branch` whose
+guarded head changed; a reused command ID with different input; or an operation
+rejected by the bot-write policy. In particular, `commit_files` head conflicts,
+API failures, permission problems, transient 4xx/5xx responses, and uncertain
+outcomes are not silently discarded.
+
 A same-operation smoke test on 2026-09-08 verified both paths end to end by
 adding a `gptomek[bot]` reaction and observing automatic marker cleanup. The
 Issue and PR paths both completed in about three seconds in that test. A

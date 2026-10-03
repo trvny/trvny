@@ -983,6 +983,33 @@ function errorCode(error: unknown): string {
   return 'unknown_error';
 }
 
+export function gptomekMailboxFailureIsTerminal(
+  operation: GptomekResultEnvelope['operation'],
+  errorValue: string,
+): boolean {
+  if (
+    errorValue === 'operator_action_not_allowed' ||
+    errorValue === 'command_id_reused_with_different_input'
+  ) {
+    return true;
+  }
+
+  if (operation === 'adopt_branch') {
+    return (
+      errorValue === 'branch_head_changed' ||
+      errorValue === 'branch_has_no_changes' ||
+      errorValue === 'base_is_not_branch_ancestor' ||
+      errorValue === 'gptomek_get_branch_ref:404'
+    );
+  }
+
+  if (operation === 'delete_branch') {
+    return errorValue === 'branch_head_changed';
+  }
+
+  return false;
+}
+
 export function isGptomekControlPr(target: CompanionTarget, pr: PullRequest): boolean {
   const author = (pr as PullRequest & { user?: { login?: string | null } }).user?.login;
   return (
@@ -1066,7 +1093,7 @@ export async function handleGptomekMailboxCommand(
   } catch (error) {
     const errorValue = errorCode(error);
     const uncertain = errorValue === 'command_outcome_uncertain';
-    const terminal = errorValue === 'operator_action_not_allowed';
+    const terminal = gptomekMailboxFailureIsTerminal(command.op, errorValue);
     const envelope: GptomekResultEnvelope = {
       id: command.id,
       operation: command.op,

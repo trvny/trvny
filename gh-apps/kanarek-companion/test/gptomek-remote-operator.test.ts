@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   commandMarker,
+  gptomekMailboxFailureIsTerminal,
   gptomekOperatorActionAllowed,
   gptomekReplayCommentMatches,
   handleGptomekControl,
@@ -331,6 +332,31 @@ test('accepts ordered batches and rejects nested batches', async () => {
     ),
     /nested_batch_not_allowed/,
   );
+});
+
+test('removes only mailbox failures that are provably terminal', () => {
+  assert.equal(gptomekMailboxFailureIsTerminal('adopt_branch', 'branch_head_changed'), true);
+  assert.equal(gptomekMailboxFailureIsTerminal('adopt_branch', 'branch_has_no_changes'), true);
+  assert.equal(gptomekMailboxFailureIsTerminal('adopt_branch', 'base_is_not_branch_ancestor'), true);
+  assert.equal(gptomekMailboxFailureIsTerminal('adopt_branch', 'gptomek_get_branch_ref:404'), true);
+  assert.equal(gptomekMailboxFailureIsTerminal('delete_branch', 'branch_head_changed'), true);
+  assert.equal(
+    gptomekMailboxFailureIsTerminal('operator_action', 'operator_action_not_allowed'),
+    true,
+  );
+  assert.equal(
+    gptomekMailboxFailureIsTerminal('comment', 'command_id_reused_with_different_input'),
+    true,
+  );
+
+  assert.equal(gptomekMailboxFailureIsTerminal('commit_files', 'branch_head_changed'), false);
+  assert.equal(gptomekMailboxFailureIsTerminal('adopt_branch', 'gptomek_get_branch_ref:500'), false);
+  assert.equal(gptomekMailboxFailureIsTerminal('delete_branch', 'protected_branch'), false);
+  assert.equal(
+    gptomekMailboxFailureIsTerminal('operator_action', 'gptomek_operator_action:422'),
+    false,
+  );
+  assert.equal(gptomekMailboxFailureIsTerminal('comment', 'gptomek_add_comment:404'), false);
 });
 
 test('encodes command results in a hidden result envelope', () => {

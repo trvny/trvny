@@ -1,19 +1,10 @@
 import { isObject } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export type ActionInvoke = (request: Request) => Promise<Response>;
 
 const AUTH_PATH = '/gpt-actions/github/read';
 const EXPECTED_OPERATOR = 'trvny';
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
-}
 
 function internalAuthRequest(source: Request): Request {
   const url = new URL(source.url);

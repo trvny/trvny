@@ -1,5 +1,6 @@
 import { searchLlmsDocs, type RemoteFetch } from './llms-docs.ts';
 import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const INDEX_PATH = '/gpt-actions/docs/index';
 const SEARCH_PATH = '/gpt-actions/docs/search';
@@ -24,16 +25,6 @@ class DocsActionError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
 }
 
 function internalReadRequest(source: Request, path: string): Request {

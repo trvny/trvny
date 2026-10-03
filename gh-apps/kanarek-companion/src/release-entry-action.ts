@@ -10,6 +10,7 @@ import {
 } from './release-actions.ts';
 import { extractZipEntry, ZipEntryError, zipEntryPath } from './zip-entry.ts';
 import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export const RELEASE_ENTRY_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-entry';
 
@@ -50,13 +51,6 @@ class ReleaseEntryError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: { 'cache-control': 'no-store', 'content-type': 'application/json; charset=utf-8' },
-  });
 }
 
 function requiredText(value: unknown, name: string, max: number): string {

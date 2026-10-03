@@ -2,6 +2,7 @@ import { handleOperatorAction } from './operator-actions.ts';
 import { handlePolicyEnforcementAction } from './policy-enforcement.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
 import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const AUTOPILOT_PATH = '/gpt-actions/operator/autopilot';
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
@@ -40,10 +41,6 @@ class AutopilotError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 }
 
 async function inputObject(request: Request): Promise<AutopilotInput> {

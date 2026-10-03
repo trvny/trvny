@@ -1,4 +1,5 @@
 import { type JsonObject } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const MAX_REMOTE_DOC_BYTES = 192_000;
 const MAX_LLMS_LINKS = 160;
@@ -26,16 +27,6 @@ class LlmsDocsError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
 }
 
 function stringValue(value: unknown, name: string, max: number): string {

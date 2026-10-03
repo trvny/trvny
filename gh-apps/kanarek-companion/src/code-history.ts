@@ -1,4 +1,5 @@
 import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export const CODE_HISTORY_PATH = '/gpt-actions/github/code/history';
 
@@ -50,16 +51,6 @@ class CodeHistoryError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
 }
 
 function repository(value: unknown): string {

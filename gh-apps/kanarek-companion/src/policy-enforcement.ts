@@ -14,6 +14,7 @@ import {
 import { handleWorkflowAction } from './workflow-actions.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
 import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
 const AUTOFIX_PATH = '/gpt-actions/github/maintenance/autofix';
@@ -62,10 +63,6 @@ class PolicyEnforcementError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {

@@ -9,6 +9,7 @@ import {
 } from './release-actions.ts';
 import { extractZipEntry, zipEntryPath } from './zip-entry.ts';
 import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export const RELEASE_ASSET_REPLACE_PATH = '/gpt-actions/github/releases/assets/replace-entry';
 
@@ -49,10 +50,6 @@ class ReplaceError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 }
 
 function requiredText(value: unknown, name: string, max: number): string {

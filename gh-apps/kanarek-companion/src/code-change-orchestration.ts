@@ -19,6 +19,7 @@ import {
   TARGETED_TESTS_PATH,
 } from './test-discovery.ts';
 import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export const CODE_CHANGE_AUTOPILOT_PATH = '/gpt-actions/operator/code-change';
 
@@ -143,13 +144,6 @@ class CodeChangeError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function json(body: unknown, status = 200, headers: HeadersInit = {}): Response {
-  return Response.json(body, {
-    status,
-    headers: { 'cache-control': 'no-store', ...Object.fromEntries(new Headers(headers)) },
-  });
 }
 
 function repository(value: unknown): string {

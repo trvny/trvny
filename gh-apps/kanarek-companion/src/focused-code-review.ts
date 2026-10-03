@@ -3,6 +3,7 @@ import {
   handleDependencyGraphAction,
 } from './dependency-graph.ts';
 import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export const FOCUSED_CODE_REVIEW_PATH = '/gpt-actions/operator/code-review';
 
@@ -68,16 +69,6 @@ class FocusedReviewError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
 }
 
 function repository(value: unknown): string {

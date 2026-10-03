@@ -33,6 +33,7 @@ import router, {
   OperatorCheckpointStore,
 } from './router.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export {
   actionFetch,
@@ -84,16 +85,6 @@ const REQUIRED_SMOKE_OPERATIONS = [
   'runOperatorSmokeTest',
   'orchestrateRelease',
 ] as const;
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
-}
 
 export function addCapabilityOpenApi(document: JsonObject): void {
   if (!isObject(document.paths)) document.paths = {};

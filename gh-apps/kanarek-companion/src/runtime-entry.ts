@@ -47,6 +47,7 @@ import {
 } from './webhook-review.ts';
 import { repositoryListAllows } from './index.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export {
   actionFetch,
@@ -96,16 +97,6 @@ const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
 const SMOKE_PATH = '/gpt-actions/operator/smoke';
 const HEALTH_PATH = '/health';
 const WEBHOOK_PATH = '/webhooks/github';
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
-}
 
 async function manifest(request: Request, env: Env): Promise<JsonObject> {
   return gatewayManifest(

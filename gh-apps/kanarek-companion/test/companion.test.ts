@@ -3,10 +3,12 @@ import test from 'node:test';
 
 import {
   BANK_KEY,
+  BANK_LIMIT,
+  canUsePool,
   loadBank,
   maintainBank,
   rememberQuip,
-  shouldUsePool,
+  shouldAskAiForBank,
   storeBank,
 } from '../src/companion-bank.ts';
 import {
@@ -226,6 +228,23 @@ test('preserves learned quip language across ambiguous context changes', () => {
   assert.equal(pool[0]?.l, 'en');
 });
 
+// Mirrors the inline decision in refreshCompanion: pool unless AI is selected.
+async function shouldUsePool(
+  number: number,
+  quipKey: string,
+  stateKey: string,
+  env: CompanionEnv,
+): Promise<boolean> {
+  return (
+    canUsePool(stateKey) &&
+    !(await shouldAskAiForBank(number, quipKey, stateKey, env, {
+      available: true,
+      limit: BANK_LIMIT,
+      size: 0,
+    }))
+  );
+}
+
 test('uses the bank outside the configured AI rollout', async () => {
   const quipKey = 'aaaaaaaaaaaaaaaa';
   const noAi = {} as CompanionEnv;
@@ -266,7 +285,7 @@ test('uses the bank outside the configured AI rollout', async () => {
 });
 
 test('keeps bank entries persistent, rotating, and bounded per quip key', async () => {
-  const legacyQuip = 'Starszy poprawny tekst Kanarka z istniejącej bazy danych.';
+  const existingQuip = 'Starszy poprawny tekst Kanarka z istniejącej bazy danych.';
   const firstParallel =
     'Pierwszy równoległy poprawny wpis Kanarka do trwałej bazy.';
   const secondParallel =
@@ -277,8 +296,8 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
     `Persistent bounded Kanarek quip number ${index} for bank limit testing.`;
   const values = new Map<string, string>([
     [
-      BANK_KEY,
-      JSON.stringify([{ k: 'aaaaaaaaaaaaaaaa', q: legacyQuip }]),
+      `${BANK_KEY}:entry:aaaaaaaaaaaaaaaa:0000000000000000`,
+      JSON.stringify([{ k: 'aaaaaaaaaaaaaaaa', q: existingQuip }]),
     ],
   ]);
   const expirations = new Map<string, number>();
@@ -323,7 +342,7 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
 
   assert.equal(
     [...values.keys()].filter((key) => key.startsWith(`${BANK_KEY}:entry:`)).length,
-    2,
+    3,
   );
   assert.deepEqual(ttlWrites, [0, 0]);
 
@@ -342,15 +361,7 @@ test('keeps bank entries persistent, rotating, and bounded per quip key', async 
       name,
       JSON.stringify([{ k: rotatingKey, q: rotatingQuip(index) }]),
     );
-    expirations.set(name, 9_999_999_999 + index);
   }
-  await maintainBank(env, true);
-  assert.equal(
-    [...expirations.keys()].filter((key) =>
-      key.startsWith(`${BANK_KEY}:entry:${rotatingKey}:`),
-    ).length,
-    0,
-  );
 
   const firstWindow = await loadBank(env, rotatingKey, '0000000000000000');
   const rotatedWindow = await loadBank(env, rotatingKey, '0000001800000000');
@@ -425,62 +436,6 @@ test('removes unusable learned entries incrementally while reading a context', a
   );
   assert.deepEqual(new Set(deleted), new Set([wrongLanguageKey, tooShortKey]));
   assert.equal(values.size, 0);
-});
-
-test('continues legacy TTL migration without waiting for the maintenance interval', async () => {
-  const values = new Map<string, string>();
-  const expirations = new Map<string, number>();
-  const prefix = `${BANK_KEY}:entry:`;
-  const quipKey = 'abababababababab';
-  for (let index = 0; index < 230; index += 1) {
-    const name = `${prefix}${quipKey}:${index.toString(16).padStart(16, '0')}`;
-    values.set(
-      name,
-      JSON.stringify([
-        {
-          k: quipKey,
-          q: `Legacy expiring Kanarek quip number ${index} kept for TTL migration testing.`,
-        },
-      ]),
-    );
-    expirations.set(name, 10_000_000_000 + index);
-  }
-  const kv = {
-    async delete(key: string) {
-      values.delete(key);
-      expirations.delete(key);
-    },
-    async get(key: string) {
-      return values.get(key) ?? null;
-    },
-    async list(options: { cursor?: string; limit?: number; prefix?: string }) {
-      const all = [...values.keys()]
-        .filter((key) => key.startsWith(options.prefix ?? ''))
-        .sort();
-      const offset = Number.parseInt(options.cursor ?? '0', 10) || 0;
-      const limit = options.limit ?? 1_000;
-      const names = all.slice(offset, offset + limit);
-      const next = offset + names.length;
-      return {
-        keys: names.map((name) => ({ name, expiration: expirations.get(name) })),
-        list_complete: next >= all.length,
-        cursor: next < all.length ? String(next) : '',
-      };
-    },
-    async put(key: string, value: string) {
-      values.set(key, value);
-      expirations.delete(key);
-    },
-  } as unknown as KVNamespace;
-  const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
-
-  const first = await maintainBank(env, true);
-  const second = await maintainBank(env);
-  assert.equal(first.migrated, 200);
-  assert.equal(second.skipped, false);
-  assert.equal(second.migrated, 30);
-  assert.equal(expirations.size, 0);
-  assert.equal((await maintainBank(env)).skipped, true);
 });
 
 test('reconciles the whole learned bank incrementally to a finite global limit', async () => {

@@ -1382,6 +1382,31 @@ type DecisionJudgeResult = {
   telemetry: DecisionJudgeTelemetry;
 };
 
+type DecisionJudgeAttempt = {
+  judged: JudgedFindings | null;
+  marker: string | null;
+};
+
+function decisionMarkerToken(value: unknown): string {
+  if (typeof value !== 'string') return 'unknown';
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '');
+  return normalized ? normalized.slice(0, 96) : 'unknown';
+}
+
+export function decisionL2FallbackMarker(reason: unknown): string {
+  return `<!-- kanarek-decision-l2:fallback:${decisionMarkerToken(reason)} -->`;
+}
+
+export function decisionL2SuccessMarker(telemetry: DecisionJudgeTelemetry): string {
+  const keep = telemetry.keepProbabilities
+    .slice(0, 8)
+    .map((probability) => probability.toFixed(4))
+    .join(',');
+  const latency = telemetry.latencyMs === null ? 'na' : Math.round(telemetry.latencyMs).toString();
+  const tokens = telemetry.inputTokens === null ? 'na' : Math.round(telemetry.inputTokens).toString();
+  return `<!-- kanarek-decision-l2:ok:keep=${keep}:latency_ms=${latency}:input_tokens=${tokens} -->`;
+}
+
 function strictProbability(value: unknown): number | null {
   return typeof value === 'number' &&
     Number.isFinite(value) &&
@@ -1527,12 +1552,12 @@ async function askDecisionJudge(
   reviewerModel: string | null,
   reviewContext: string,
   env: WebhookReviewEnv,
-): Promise<JudgedFindings | null> {
+): Promise<DecisionJudgeAttempt> {
   if (
     !findings.length ||
     disabled(env.KANAREK_WEBHOOK_REVIEW_DECISION_L2_ENABLED)
   ) {
-    return null;
+    return { judged: null, marker: null };
   }
 
   const judgeInput = findings.map((finding, id) => ({
@@ -1560,13 +1585,17 @@ async function askDecisionJudge(
   }, env);
 
   if (!response || !response.ok) {
+    const status = response?.status ?? 500;
+    const reason = response?.headers.get('x-kanarek-review-decision-error') ??
+      `service_http_${status}`;
     console.warn(JSON.stringify({
       kanarekWebhookReview: 'decision_judge_unavailable',
       reviewerProvider,
-      status: response?.status ?? 500,
+      status,
+      reason,
     }));
     await response?.body?.cancel();
-    return null;
+    return { judged: null, marker: decisionL2FallbackMarker(reason) };
   }
 
   const provider = response.headers.get('x-kanarek-review-provider') ?? 'aihubmix-decision';
@@ -1578,7 +1607,10 @@ async function askDecisionJudge(
       kanarekWebhookReview: 'decision_judge_invalid_json',
       provider,
     }));
-    return null;
+    return {
+      judged: null,
+      marker: decisionL2FallbackMarker('invalid_service_json'),
+    };
   }
 
   const model =
@@ -1596,7 +1628,10 @@ async function askDecisionJudge(
       provider,
       model,
     }));
-    return null;
+    return {
+      judged: null,
+      marker: decisionL2FallbackMarker('invalid_decision_output'),
+    };
   }
 
   console.info(JSON.stringify({
@@ -1609,7 +1644,10 @@ async function askDecisionJudge(
     findingCountAfterJudge: judged.findings.length,
     ...judged.telemetry,
   }));
-  return { findings: judged.findings, model, provider };
+  return {
+    judged: { findings: judged.findings, model, provider },
+    marker: decisionL2SuccessMarker(judged.telemetry),
+  };
 }
 
 const REVIEW_JUDGE_SYSTEM_PROMPT = [
@@ -2265,14 +2303,17 @@ export async function runWebhookReview(
   // there. On the free pass, System One is primary and the generative judge is
   // the fail-open fallback while the preview model is being evaluated live.
   let judged: JudgedFindings | null = null;
+  let decisionMarker: string | null = null;
   if (!paidPhase) {
-    judged = await askDecisionJudge(
+    const decisionAttempt = await askDecisionJudge(
       findings,
       generated.provider,
       generated.model,
       reviewInput,
       reviewEnv,
     );
+    judged = decisionAttempt.judged;
+    decisionMarker = decisionAttempt.marker;
     if (!judged) {
       judged = await askReviewJudge(
         findings,
@@ -2328,7 +2369,7 @@ export async function runWebhookReview(
     const payload = {
       commit_id: target.headSha,
       event: 'COMMENT',
-      body: `${reviewMarker(target)}\n🐤 **Kanarek ${paidPhase ? '' : '免费'}代码审查** · ${reviewSourceBadge(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceBadge(judged.provider, judged.model)}` : ''}\n\n${summary}`,
+      body: `${reviewMarker(target)}${decisionMarker ? `\n${decisionMarker}` : ''}\n🐤 **Kanarek ${paidPhase ? '' : '免费'}代码审查** · ${reviewSourceBadge(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceBadge(judged.provider, judged.model)}` : ''}\n\n${summary}`,
       comments: publishFindings.map((finding) => ({
         path: finding.path,
         line: finding.line,

@@ -22,11 +22,44 @@ type DecisionQuestion = {
   type?: unknown;
 };
 
-function jsonError(message: string, error: string, status: number): Response {
+const DECISION_ERROR_HEADER = 'x-kanarek-review-decision-error';
+
+function diagnosticToken(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '');
+  return normalized ? normalized.slice(0, 64) : null;
+}
+
+function jsonError(
+  message: string,
+  error: string,
+  status: number,
+  decisionError = error,
+): Response {
   return Response.json(
     { error: { message, type: error } },
-    { status, headers: { 'cache-control': 'no-store' } },
+    {
+      status,
+      headers: {
+        'cache-control': 'no-store',
+        [DECISION_ERROR_HEADER]: diagnosticToken(decisionError) ?? 'unknown',
+      },
+    },
   );
+}
+
+async function providerErrorReason(response: Response): Promise<string> {
+  let detail: string | null = null;
+  try {
+    const payload: unknown = await response.json();
+    if (plainObject(payload)) {
+      const error = plainObject(payload.error) ? payload.error : payload;
+      detail = diagnosticToken(error.code) ?? diagnosticToken(error.type);
+    }
+  } catch {
+    // HTTP status remains sufficient and avoids surfacing upstream response text.
+  }
+  return `provider_http_${response.status}${detail ? `_${detail}` : ''}`;
 }
 
 function timeoutMs(env: DecisionModelEnv): number {
@@ -157,7 +190,12 @@ export async function handleDecisionModelRequest(
 
   const cooldown = await activeProviderCooldown(env, 'aihubmix');
   if (cooldown) {
-    return jsonError('Decision provider cooling down', 'provider_unavailable', 503);
+    return jsonError(
+      'Decision provider cooling down',
+      'provider_unavailable',
+      503,
+      `cooldown_${diagnosticToken(cooldown.category) ?? 'active'}`,
+    );
   }
 
   let input: Record<string, unknown>;
@@ -194,11 +232,12 @@ export async function handleDecisionModelRequest(
 
     if (!response.ok) {
       await rememberProviderCooldown('aihubmix', `http_${response.status}`, env);
-      await response.body?.cancel();
+      const reason = await providerErrorReason(response);
       return jsonError(
         `Decision provider failed with HTTP ${response.status}`,
         'provider_error',
         502,
+        reason,
       );
     }
 
@@ -206,10 +245,20 @@ export async function handleDecisionModelRequest(
     try {
       payload = await response.json();
     } catch {
-      return jsonError('Decision provider returned invalid JSON', 'invalid_provider_response', 502);
+      return jsonError(
+        'Decision provider returned invalid JSON',
+        'invalid_provider_response',
+        502,
+        'invalid_provider_json',
+      );
     }
     if (!validResponse(payload, questionIds)) {
-      return jsonError('Decision provider returned an invalid response', 'invalid_provider_response', 502);
+      return jsonError(
+        'Decision provider returned an invalid response',
+        'invalid_provider_response',
+        502,
+        'invalid_provider_response',
+      );
     }
 
     return Response.json(payload, {
@@ -226,6 +275,7 @@ export async function handleDecisionModelRequest(
       timedOut ? 'Decision provider timed out' : 'Decision provider request failed',
       timedOut ? 'provider_timeout' : 'provider_error',
       502,
+      timedOut ? 'provider_timeout' : 'provider_network',
     );
   } finally {
     clearTimeout(timeout);

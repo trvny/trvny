@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  applyDecisionJudge,
   detectNpmMajorBumps,
   fetchReviewDependencyEvidence,
   nextReviewPhase,
@@ -13,6 +14,7 @@ import {
   reviewMaxOutputTokens,
   reviewOutputTokens,
   reviewContinuationJob,
+  reviewDecisionQuestions,
   reviewMarker,
   reviewRetryDelayMs,
   reviewRouterEnvForAttempt,
@@ -951,4 +953,101 @@ test('finished review job asks the companion to re-evaluate the PR', async () =>
   assert.equal(refreshes[0]?.pullRequestNumber, 21);
   assert.equal(refreshes[0]?.repository, 'travnie/llmbench');
   assert.equal(refreshes[0]?.installationId, 123);
+});
+
+
+test('decision L2 stays within the recommended sixteen-question fanout', () => {
+  const findings = Array.from({ length: 8 }, (_value, index) => ({
+    body: `body ${index}`,
+    existingCode: `const value${index} = true;`,
+    line: index + 1,
+    path: 'src/example.ts',
+    severity: 'medium' as const,
+    title: `finding ${index}`,
+  }));
+
+  const questions = reviewDecisionQuestions(findings);
+  assert.equal(Object.keys(questions).length, 15);
+  assert.equal((questions.keep_0 as { type?: string }).type, 'noul');
+  assert.equal((questions.duplicate_7 as { type?: string }).type, 'choice');
+});
+
+test('decision L2 collapses only high-confidence duplicates and picks the stronger representative', () => {
+  const findings = [
+    {
+      body: 'first wording',
+      existingCode: 'return stale;',
+      line: 10,
+      path: 'src/example.ts',
+      severity: 'medium' as const,
+      title: 'stale result',
+    },
+    {
+      body: 'same root cause with better evidence',
+      existingCode: 'return stale;',
+      line: 12,
+      path: 'src/example.ts',
+      severity: 'medium' as const,
+      title: 'same stale result',
+    },
+  ];
+
+  const judged = applyDecisionJudge(findings, {
+    model: 'decision-model-preview',
+    answers: {
+      keep_0: { type: 'noul', noul: 0.91 },
+      keep_1: { type: 'noul', noul: 0.99 },
+      duplicate_1: {
+        type: 'choice',
+        choice: 'finding_0',
+        confidence: 0.97,
+        probabilities: { finding_0: 0.98, none: 0.02 },
+      },
+    },
+    usage: { input_tokens: 42 },
+    latency_ms: 17,
+  }, 0.9);
+
+  assert.ok(judged);
+  assert.deepEqual(judged.findings, [findings[1]]);
+  assert.deepEqual(judged.telemetry.keepProbabilities, [0.91, 0.99]);
+  assert.equal(judged.telemetry.duplicates[0]?.target, 0);
+});
+
+test('decision L2 fails open for uncertain duplicates and low keep probability', () => {
+  const findings = [
+    {
+      body: 'first',
+      existingCode: 'const x = 1;',
+      line: 1,
+      path: 'src/example.ts',
+      severity: 'low' as const,
+      title: 'first',
+    },
+    {
+      body: 'second',
+      existingCode: 'const y = 2;',
+      line: 2,
+      path: 'src/example.ts',
+      severity: 'low' as const,
+      title: 'second',
+    },
+  ];
+
+  const judged = applyDecisionJudge(findings, {
+    model: 'decision-model-preview',
+    answers: {
+      keep_0: { type: 'noul', noul: 0.01 },
+      keep_1: { type: 'noul', noul: 0.88 },
+      duplicate_1: {
+        type: 'choice',
+        choice: 'finding_0',
+        confidence: 0.7,
+        probabilities: { finding_0: 0.72, none: 0.28 },
+      },
+    },
+  }, 0.9);
+
+  assert.ok(judged);
+  assert.deepEqual(judged.findings, findings);
 });

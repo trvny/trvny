@@ -1,5 +1,6 @@
 import { bearerAuthorized } from './auth.ts';
 import {
+  REVIEW_DECISION_PATH,
   REVIEW_ROUTER_MODELS_PATH,
   REVIEW_ROUTER_PATH,
   REVIEW_SERVICE_INTERNAL_BEARER,
@@ -25,7 +26,9 @@ export interface ReviewServiceEnv {
 
 function reviewRouterRequest(request: Request): boolean {
   const pathname = new URL(request.url).pathname;
-  return pathname === REVIEW_ROUTER_PATH || pathname === REVIEW_ROUTER_MODELS_PATH;
+  return pathname === REVIEW_ROUTER_PATH ||
+    pathname === REVIEW_ROUTER_MODELS_PATH ||
+    pathname === REVIEW_DECISION_PATH;
 }
 
 function workersAiDisabled(raw: string | undefined): boolean {
@@ -58,6 +61,28 @@ export async function handleReviewRouterViaService(
   } catch (error) {
     console.warn(JSON.stringify({ kanarekReviewService: 'binding_failed', error: error instanceof Error ? error.message : 'unknown_error' }));
     return unavailable();
+  }
+}
+
+export async function reviewDecisionViaService(
+  body: JsonObject,
+  env: ReviewServiceEnv,
+): Promise<Response | null> {
+  const service = env.KANAREK_REVIEW_SERVICE;
+  if (!service) return null;
+  const request = new Request(`${INTERNAL_REVIEW_ORIGIN}${REVIEW_DECISION_PATH}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  try {
+    return await service.fetch(serviceRequest(request, env));
+  } catch (error) {
+    console.warn(JSON.stringify({
+      kanarekReviewService: 'decision_binding_failed',
+      error: error instanceof Error ? error.message : 'unknown_error',
+    }));
+    return null;
   }
 }
 

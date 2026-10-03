@@ -5,6 +5,7 @@ import {
   REVIEW_SERVICE_TRUST_VALUE,
   REVIEW_WORKERS_AI_OVERRIDE_HEADER,
 } from '../../kanarek-companion/src/review-service-protocol.ts';
+import { handleDecisionModelRequest } from './decision-model.ts';
 import {
   handleReviewRouterRequest,
   reviewProviderPoolHealth,
@@ -58,9 +59,13 @@ const worker = {
       return health(env);
     }
 
+    const effectiveEnv = reviewEnvForRequest(request, env);
+    const decision = await handleDecisionModelRequest(request, effectiveEnv);
+    if (decision) return decision;
+
     const response = await handleReviewRouterRequest(
       request,
-      reviewEnvForRequest(request, env),
+      effectiveEnv,
     );
     if (response) return response;
     return json({ error: 'not_found' }, 404);

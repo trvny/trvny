@@ -1,6 +1,7 @@
 import { handleAutopilotAction } from './autopilot-actions.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const AUTOPILOT_PATH = '/gpt-actions/operator/autopilot';
 const CHECKPOINT_KEY = 'checkpoint';
@@ -37,13 +38,6 @@ export type CheckpointClaimDecision =
   | { action: 'in_progress'; retryAfterSeconds: number }
   | { action: 'recover' }
   | { action: 'input_mismatch' };
-
-function json(body: unknown, status = 200, extraHeaders: HeadersInit = {}): Response {
-  return Response.json(body, {
-    status,
-    headers: { 'cache-control': 'no-store', ...Object.fromEntries(new Headers(extraHeaders)) },
-  });
-}
 
 function cloneObject(value: JsonObject): JsonObject {
   return structuredClone(value);

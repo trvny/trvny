@@ -1,6 +1,7 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { handleOperatorAction } from './operator-actions.ts';
 import { isObject, type JsonObject, numberOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const DIAGNOSE_RUN_PATH = '/gpt-actions/github/workflows/diagnose';
@@ -20,10 +21,6 @@ export interface FailureFocusedExcerpt {
   selectedLineCount: number;
   matchedSignals: number;
   truncated: boolean;
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 }
 
 function internalReadRequest(source: Request, path: string): Request {

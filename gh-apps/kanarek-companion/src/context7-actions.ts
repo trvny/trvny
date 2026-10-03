@@ -5,21 +5,12 @@ import {
   invokeSpecialistTool,
   type SpecialistToolEnv,
 } from './tools/registry.ts';
+import { json } from './json-response.ts';
 
 const SEARCH_PATH = '/gpt-actions/context7/search';
 const MAX_REQUEST_BYTES = 32_000;
 
 export interface Context7ActionEnv extends SpecialistToolEnv {}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
-}
 
 async function inputObject(request: Request): Promise<JsonObject> {
   const text = await request.clone().text();

@@ -1,5 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const BOT_PATH = '/gpt-actions/github/bot';
@@ -37,13 +38,6 @@ export interface FinalizeSnapshot {
 export interface CiSummary {
   state: FinalizeSnapshot['ciState'];
   [key: string]: unknown;
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: { 'cache-control': 'no-store' },
-  });
 }
 
 function repository(value: unknown): string {

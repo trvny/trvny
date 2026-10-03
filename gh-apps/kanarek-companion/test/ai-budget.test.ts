@@ -166,17 +166,17 @@ test('reuses measured keys when falling back to the bank', async () => {
   );
   let listCalls = 0;
   const kv = {
-    async get(key: string) {
+    get(key: string) {
       assert.notEqual(key, BANK_KEY);
-      return values.get(key) ?? null;
+      return Promise.resolve(values.get(key) ?? null);
     },
-    async list() {
+    list() {
       listCalls += 1;
-      return {
+      return Promise.resolve({
         keys: names.map((name) => ({ name })),
         list_complete: true,
         cursor: '',
-      };
+      });
     },
   } as unknown as KVNamespace;
   const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;

@@ -195,7 +195,7 @@ export type TelegramUpdateRecord = {
 };
 
 export type Env = {
-  AI: AiBinding;
+  AI?: AiBinding;
   CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
   KANAREK_COMPANION: FetcherBinding;
   BOTEK_SPECIALISTS?: BotekSpecialistBinding;
@@ -217,6 +217,7 @@ export type Env = {
   TELEGRAM_OWNER_CHAT_ID?: string;
   SECRETARY_AUTO_REPLY_SCOPE?: string;
   KANAREK_REVIEW_ROUTER_TOKEN?: string;
+  WORKERS_AI_ENABLED?: string;
   WORKERS_AI_MODEL: string;
   RSS_MIN_SCORE: string;
 };

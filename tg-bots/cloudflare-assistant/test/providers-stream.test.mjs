@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { GenerationStoppedError, chatWithStreamingFallback } from "../src/providers.ts";
+import {
+  GenerationStoppedError,
+  chatWithStreamingFallback,
+  workersAiAvailable,
+} from "../src/providers.ts";
 
 function envWithRouter(fetcher, aiRun = async () => ({ response: "local fallback" })) {
   return {
     KANAREK_REVIEW_ROUTER_TOKEN: "router-token",
     KANAREK_COMPANION: { fetch: fetcher },
+    WORKERS_AI_ENABLED: "true",
     WORKERS_AI_MODEL: "@cf/test/model",
     AI: { run: aiRun },
   };
@@ -65,6 +70,34 @@ test("accepts a non-streaming JSON response from the shared router", async () =>
   assert.equal(result.text, "complete");
   assert.equal(result.provider, "Kanarek/workers-ai");
   assert.equal(result.model, "workers-json");
+});
+
+test("Workers AI availability follows the binding and kill switch", () => {
+  const env = envWithRouter(async () => Response.json({}));
+  assert.equal(workersAiAvailable(env), true);
+  env.WORKERS_AI_ENABLED = "false";
+  assert.equal(workersAiAvailable(env), false);
+  delete env.AI;
+  env.WORKERS_AI_ENABLED = "true";
+  assert.equal(workersAiAvailable(env), false);
+});
+
+test("does not use local Workers AI when it is reserved for SpaceMolt", async () => {
+  let localCalls = 0;
+  const env = envWithRouter(
+    async () => new Response("router unavailable", { status: 502 }),
+    async () => {
+      localCalls += 1;
+      return { response: "must not run" };
+    },
+  );
+  env.WORKERS_AI_ENABLED = "false";
+
+  await assert.rejects(
+    chatWithStreamingFallback(env, [{ role: "user", content: "hi" }]),
+    /Workers AI is reserved for SpaceMolt/,
+  );
+  assert.equal(localCalls, 0);
 });
 
 test("falls back to the local Workers AI binding when the router fails", async () => {

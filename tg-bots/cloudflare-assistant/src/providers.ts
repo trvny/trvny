@@ -92,6 +92,25 @@ function clipError(text: string): string {
   return text.replace(/\s+/g, " ").slice(0, 240);
 }
 
+export function workersAiAvailable(env: Env): boolean {
+  const enabled = env.WORKERS_AI_ENABLED?.trim().toLowerCase();
+  return Boolean(
+    env.AI &&
+    enabled !== "false" &&
+    enabled !== "0" &&
+    enabled !== "no" &&
+    enabled !== "off"
+  );
+}
+
+function workersAiRuntime(env: Env) {
+  const ai = env.AI;
+  if (!ai || !workersAiAvailable(env)) {
+    throw new Error("Workers AI is reserved for SpaceMolt");
+  }
+  return ai;
+}
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   const chunks: string[] = [];
@@ -103,7 +122,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 export async function transcribeAudio(env: Env, audio: ArrayBuffer): Promise<string> {
-  const result = (await env.AI.run(WHISPER_MODEL, {
+  const result = (await workersAiRuntime(env).run(WHISPER_MODEL, {
     audio: arrayBufferToBase64(audio),
     task: "transcribe",
     vad_filter: true,
@@ -138,7 +157,7 @@ export async function describeImage(
     },
   ];
   const result = (await withDeadline(
-    env.AI.run(VISION_MODEL, {
+    workersAiRuntime(env).run(VISION_MODEL, {
       messages,
       image: `data:image/jpeg;base64,${arrayBufferToBase64(image)}`,
       max_tokens: 512,
@@ -348,7 +367,7 @@ async function workersAi(
   shouldStop?: ShouldStopHandler,
 ): Promise<ProviderResult> {
   const result = (await awaitWithStop(
-    env.AI.run(env.WORKERS_AI_MODEL, { messages }),
+    workersAiRuntime(env).run(env.WORKERS_AI_MODEL, { messages }),
     shouldStop,
     () => "",
   )) as {

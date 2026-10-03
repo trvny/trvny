@@ -84,9 +84,10 @@ AIHubMix and OrcaRouter use the shorter
 unresponsive early free provider cannot hold the whole review queue for the
 full 30-second general router timeout. Unknown names and duplicates are ignored,
 and omitted known providers are appended in the default order, matching the
-quip provider-order behavior. Guarded Workers AI remains the explicit final free fallback because it has its
-own daily neuron budget and cooldown policy. `@cf/zai-org/glm-4.7-flash`
-remains the default emergency model: it supports reasoning and tool use while
+quip provider-order behavior. Workers AI is temporarily disabled in this Worker and its account-level
+daily neuron allocation is reserved for the SpaceMolt gateway. The dormant model/budget
+settings remain documented here so the fallback can be restored deliberately later. `@cf/zai-org/glm-4.7-flash`
+remains the configured emergency model: it supports reasoning and tool use while
 consuming substantially fewer neurons than `@cf/qwen/qwen3.8-27b`, preserving
 more of the 10k-neuron daily reserve for actual failures upstream.
 
@@ -113,7 +114,7 @@ families are:
    `kanarek-review` PR-review contract when `DEEPSEEK_API_KEY` is configured
 9. Gemini 3.8 Flash through the paid Flex tier, only for the `kanarek-review`
    PR-review contract when `GEMINI_API_KEY` is configured
-10. guarded Cloudflare Workers AI as the final fallback
+10. Cloudflare Workers AI fallback (temporarily disabled; budget reserved for SpaceMolt)
 
 Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter's
 official `openrouter/free` model can be used directly and lets OpenRouter choose
@@ -132,8 +133,8 @@ shitpost lanes give known reasoning-capable Vercel and OpenRouter models high
 reasoning with at least 16K completion-token headroom; Groq task lanes keep their
 task-specific effort and receive the same floor whenever reasoning is enabled.
 Gemini Flex pins high reasoning with the same floor. DeepSeek keeps its separate
-max-effort 128K contract. The guarded Workers AI fallback also exposes 16K output
-headroom so its reasoning model is not starved by the previous 4K cap.
+max-effort 128K contract. The dormant Workers AI fallback is configured for 16K output
+headroom, but production keeps it disabled while the account neuron budget belongs to SpaceMolt.
 
 Vercel AI Gateway uses a model chain rather than one fixed model. Hy3
 (`tencent/hy3`), Qwen 3.8 Omni, Ling 3.1 Flash, and Laguna S 2.1 receive the
@@ -170,8 +171,9 @@ by the shared `kanarek-companion` Worker. Cooldowns survive separate Worker
 invocations, so a temporarily exhausted free provider is not hammered again on
 every PR event.
 
-The Workers AI fallback also uses a guarded daily-neuron budget. Provider health
-is exposed in `/health` without leaking upstream response bodies or credentials.
+When enabled, the Workers AI fallback uses a guarded daily-neuron budget. It is currently
+disabled in production so SpaceMolt has exclusive use of the account allocation. Provider
+health is exposed in `/health` without leaking upstream response bodies or credentials.
 
 ## Review contract versus provider routing
 
@@ -195,7 +197,8 @@ remains responsible for deciding whether that completion can mutate GitHub.
 ## Configuration
 
 `wrangler.jsonc` defines the Worker, version metadata, provider model defaults,
-Workers AI binding, cooldown binding, and observability.
+the dormant Workers AI settings, cooldown binding, and observability. The Worker has no
+Workers AI binding while that allocation is reserved for SpaceMolt.
 
 Important variables include:
 

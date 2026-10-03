@@ -17,6 +17,11 @@ test('kanarek-review stays reachable only through the Service Binding', () => {
   }
 });
 
+test('Workers AI is disabled outside SpaceMolt', () => {
+  assert.equal(config.ai, undefined);
+  assert.equal(config.vars.KANAREK_REVIEW_WORKERS_AI_ENABLED, 'false');
+});
+
 test('review router operator defaults match wrangler.jsonc', () => {
   const defaults = { ...REVIEW_ROUTER_MODEL_DEFAULTS, ...REVIEW_ROUTER_TUNING_DEFAULTS };
   for (const [name, fallback] of Object.entries(defaults)) {

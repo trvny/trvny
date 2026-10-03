@@ -74,6 +74,7 @@ import {
   describeImage,
   kanarekProviderPoolStatus,
   transcribeAudio,
+  workersAiAvailable,
 } from "./providers";
 import {
   answerTelegramCallbackQuery,
@@ -564,7 +565,12 @@ function draftCopyKeyboard(text: string): TelegramInlineKeyboardMarkup | undefin
 async function providerStatusView(env: Env) {
   const configured = Boolean(env.KANAREK_REVIEW_ROUTER_TOKEN);
   const pool = configured ? await kanarekProviderPoolStatus(env) : null;
-  return formatProviderStatus(pool, configured, env.WORKERS_AI_MODEL);
+  return formatProviderStatus(
+    pool,
+    configured,
+    env.WORKERS_AI_MODEL,
+    workersAiAvailable(env),
+  );
 }
 
 class AssistantConfigurationError extends Error {
@@ -1565,6 +1571,14 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     for (let index = 0; index < albumVisualMedia.length; index += 1) {
       const item = albumVisualMedia[index];
       if (item.kind === "photo") {
+        if (!workersAiAvailable(env)) {
+          items.push({
+            index: index + 1,
+            kind: "photo",
+            error: "analysis_disabled",
+          });
+          continue;
+        }
         try {
           if ((item.photo.file_size ?? 0) > TELEGRAM_PHOTO_MAX_BYTES) {
             throw new RangeError("Telegram photo exceeds the per-image size limit");
@@ -1590,7 +1604,11 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
       const thumbnail = video.thumbnail;
       let thumbnailAnalysis = "";
       let thumbnailAnalyzed = false;
-      if (thumbnail && (thumbnail.file_size ?? 0) <= TELEGRAM_MEDIA_THUMBNAIL_MAX_BYTES) {
+      if (
+        workersAiAvailable(env) &&
+        thumbnail &&
+        (thumbnail.file_size ?? 0) <= TELEGRAM_MEDIA_THUMBNAIL_MAX_BYTES
+      ) {
         try {
           const image = await downloadTelegramFile(env, thumbnail.file_id, TELEGRAM_MEDIA_THUMBNAIL_MAX_BYTES);
           const vision = await describeImage(env, image, caption);
@@ -1633,7 +1651,11 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     let thumbnailAnalysis = "";
     let thumbnailAnalyzed = false;
     const thumbnail = visualMedia.thumbnail;
-    if (thumbnail && (thumbnail.file_size ?? 0) <= TELEGRAM_MEDIA_THUMBNAIL_MAX_BYTES) {
+    if (
+      workersAiAvailable(env) &&
+      thumbnail &&
+      (thumbnail.file_size ?? 0) <= TELEGRAM_MEDIA_THUMBNAIL_MAX_BYTES
+    ) {
       try {
         await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
         const image = await downloadTelegramFile(env, thumbnail.file_id, TELEGRAM_MEDIA_THUMBNAIL_MAX_BYTES);
@@ -1729,6 +1751,14 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     }
   }
   if (!mixedVisualAlbum && photo) {
+    if (!workersAiAvailable(env)) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Analiza zdjęć jest chwilowo wyłączona, bo Workers AI jest zarezerwowane dla SpaceMolta.",
+        finalReaction: "👎",
+      };
+    }
     await sendTelegramThinking(env, message.chat.id, update.update_id, messageThreadId);
     const album = (message.media_group_items?.length ?? 0) > 1;
     const analysis = await analyzeTelegramAlbumPhotos(message, async (item) => {
@@ -1766,6 +1796,14 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     ].join("\n").slice(0, TELEGRAM_PHOTO_CONTEXT_MAX_CHARS);
   }
   if (message.audio) {
+    if (!workersAiAvailable(env)) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Transkrypcja audio jest chwilowo wyłączona, bo Workers AI jest zarezerwowane dla SpaceMolta.",
+        finalReaction: "👎",
+      };
+    }
     if (
       message.audio.duration > TELEGRAM_AUDIO_MAX_DURATION_SECONDS ||
       (message.audio.file_size ?? 0) > TELEGRAM_AUDIO_MAX_BYTES
@@ -1827,6 +1865,14 @@ async function buildTelegramReply(env: Env, update: TelegramUpdate): Promise<Tel
     }
   }
   if (message.voice) {
+    if (!workersAiAvailable(env)) {
+      return {
+        chatId: message.chat.id,
+        replyToMessageId: message.message_id,
+        text: "Transkrypcja głosówek jest chwilowo wyłączona, bo Workers AI jest zarezerwowane dla SpaceMolta.",
+        finalReaction: "👎",
+      };
+    }
     if (
       message.voice.duration > TELEGRAM_VOICE_MAX_DURATION_SECONDS ||
       (message.voice.file_size ?? 0) > TELEGRAM_VOICE_MAX_BYTES

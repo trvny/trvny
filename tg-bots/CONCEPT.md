@@ -16,7 +16,6 @@ tg-assistant
    │                    ├─ OpenRouter
    │                    ├─ OrcaRouter
    │                    ├─ AIHubMix
-   │                    └─ Workers AI
    │
    └─ heavy task ─────► existing pet-dispatcher-control
                         └─ pet-dispatcher-tasks
@@ -46,7 +45,7 @@ The Telegram ingress Queue is only for Telegram delivery. Heavy jobs should reus
 
 ### Shared free-model router
 
-The assistant should not duplicate provider credentials or fallback logic. `kanarek-companion` exposes the OpenAI-compatible review endpoint while the private `kanarek-review` Worker owns provider credentials, cooldowns and provisioning for OpenRouter, OrcaRouter, AIHubMix and Workers AI. The Telegram Worker calls the companion endpoint through a same-account Service Binding and keeps only the shared router bearer.
+The assistant should not duplicate provider credentials or fallback logic. `kanarek-companion` exposes the OpenAI-compatible review endpoint while the private `kanarek-review` Worker owns provider credentials, cooldowns and provisioning for OpenRouter, OrcaRouter and AIHubMix. The Telegram Worker calls the companion endpoint through a same-account Service Binding and keeps only the shared router bearer. Workers AI is temporarily reserved for SpaceMolt.
 
 ### Hermes workers
 
@@ -86,7 +85,7 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 
 - owner-only Telegram webhook with explicit `/ask` or ephemeral `/whisper` opt-in for group/supergroup replies;
 - durable Telegram update queue, update-id deduplication and DLQ;
-- shared free-model router with local Workers AI fallback;
+- shared free-model router; local Workers AI disabled while reserved for SpaceMolt;
 - /ask, /draft, /status, /help, /poll, /quiz, /dice, /sticker, /location, /venue, /contact and /reset, plus owner-only group `/whisper` as a native ephemeral command;
 - owner-scoped Telegram commands and command menu self-synced from the Worker;
 - bounded recent conversation context with reset generations;
@@ -104,9 +103,9 @@ The target is not just an AI behind a Telegram chat. Botek should become a capab
 - owner-only stateless Telegram inline answers for `@trvny_bot <query>` plus an inline-mode shortcut, Durable Object debounce for rapid edits, and an inline-specific response deadline;
 - owner-only Telegram Guest Mode for one-shot stateless replies in chats where Botek is not a member; a bare summon defaults to a concise joke/bait/roast and targets the replied-to message when present, with no private-memory/tool access and no acting on behalf of the owner;
 - owner-only Telegram Business/Secretary draft mode for bounded incoming third-party text/captions: the Business connection is revalidated against the owner, up to six recent text/caption Business updates for that connection+chat are kept as separate untrusted context, and only a private suggestion is delivered to the owner with no automatic send-on-behalf;
-- owner voice notes and bounded audio uploads transcribed through Workers AI Whisper and routed into normal chat;
-- owner photos and screenshots analyzed transiently through Workers AI vision, including bounded `media_group_id` album coalescing; pure photo albums analyze up to six photos, while mixed photo/video albums keep one ordered context with full photo analysis plus video metadata/thumbnail analysis;
-- video, video-note and animation inputs use bounded metadata plus thumbnail-only vision without downloading the full media;
+- owner voice-note/audio transcription paused while Workers AI is reserved for SpaceMolt;
+- photo/screenshot Workers AI vision paused while the allocation is reserved for SpaceMolt; album metadata handling remains bounded;
+- video, video-note and animation inputs keep bounded metadata; thumbnail vision is paused with Workers AI; full media remains undownloaded;
 - owner-shared locations, venues, contacts, polls, stickers and Telegram dice normalized into bounded chat context;
 - native owner-created polls through `/poll question | option 1 | option 2`;
 - native multi-answer quizzes through `/quiz question | +correct | wrong | +also correct`;

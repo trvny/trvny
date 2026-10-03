@@ -16,6 +16,7 @@ import {
   handleGptomekIssueControl,
   isGptomekControlIssueEvent,
 } from './gptomek-issue.ts';
+import { GPTOMEK_CONTROL_REPOSITORY, isGptomekFallbackPullRequest } from './gptomek-control.ts';
 import { hasAiProvider } from './quip.ts';
 
 interface Env extends CompanionEnv {
@@ -177,18 +178,25 @@ function webhookMetadata(
   };
 }
 
-export function repositoryAllowed(env: Env, repository: string | null): boolean {
+// `owner/repo` or `owner/*` entries, comma-separated.
+export function repositoryListAllows(
+  configured: string | undefined,
+  repository: string | null,
+): boolean {
   if (!repository) return false;
-  const configured = String(env.KANAREK_REPOSITORIES ?? 'trvny/trvny')
+  return String(configured ?? 'trvny/trvny')
     .split(',')
     .map((value) => value.trim())
-    .filter(Boolean);
-  return configured.some((entry) => {
-    if (entry === repository) return true;
-    if (!entry.endsWith('/*')) return false;
-    const owner = entry.slice(0, -2);
-    return repository.startsWith(`${owner}/`);
-  });
+    .filter(Boolean)
+    .some((entry) => {
+      if (entry === repository) return true;
+      if (!entry.endsWith('/*')) return false;
+      return repository.startsWith(`${entry.slice(0, -2)}/`);
+    });
+}
+
+export function repositoryAllowed(env: Env, repository: string | null): boolean {
+  return repositoryListAllows(env.KANAREK_REPOSITORIES, repository);
 }
 
 function shouldCheckInstallation(metadata: WebhookMetadata): boolean {
@@ -256,8 +264,7 @@ function gptomekControlEdit(
     | undefined;
   return (
     metadata.action === 'edited' &&
-    metadata.repository === 'trvny/trvny' &&
-    validNumber(payload.number) === 176 &&
+    isGptomekFallbackPullRequest(metadata.repository, validNumber(payload.number)) &&
     pr?.user?.login === 'trvny' &&
     typeof pr.body === 'string' &&
     pr.body.includes('<!-- gptomek-command:')
@@ -389,9 +396,7 @@ function isCompanionTarget(value: unknown): value is CompanionTarget {
 
 function shouldCoalesceTarget(target: CompanionTarget): boolean {
   if (target.sourceEvent === 'issues') return false;
-  return !(
-    target.repository === 'trvny/trvny' && target.pullRequestNumber === 176
-  );
+  return !isGptomekFallbackPullRequest(target.repository, target.pullRequestNumber);
 }
 
 async function runTarget(target: CompanionTarget, env: Env): Promise<void> {
@@ -629,7 +634,7 @@ async function wakeGptomekControlIssue(env: Env): Promise<Response> {
     delivery: `gptomek-wake:${crypto.randomUUID()}`,
     installationId,
     pullRequestNumber: GPTOMEK_CONTROL_ISSUE,
-    repository: 'trvny/trvny',
+    repository: GPTOMEK_CONTROL_REPOSITORY,
     sourceEvent: 'issues',
   };
   try {

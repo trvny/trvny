@@ -6,13 +6,11 @@ import {
   BANK_KEY,
   BANK_LIMIT,
   archiveQuip,
-  bankCapacity,
   bankContext,
   effectiveAiPercent,
   loadBank,
   scopedBankKey,
   shouldAskAiForBank,
-  shouldUsePool,
 } from '../src/companion-bank.ts';
 import type { CompanionEnv } from '../src/companion-types.ts';
 
@@ -21,6 +19,11 @@ const aiEnv = {
   OPENAI_API_KEY: 'configured',
   KANAREK_AI_PERCENT: '25',
 } as CompanionEnv;
+
+async function bankCapacity(env: CompanionEnv, key: string) {
+  const { available, limit, size } = await bankContext(env, key);
+  return { available, limit, size };
+}
 
 function capacity(size: number, limit = BANK_LIMIT) {
   return { available: true, limit, size };
@@ -70,7 +73,6 @@ test('a full context always falls back to the pool even with a 100 percent ceili
   const full = capacity(BANK_LIMIT);
 
   assert.equal(await shouldAskAiForBank(12, quipKey, 'ready', env, full), false);
-  assert.equal(await shouldUsePool(12, quipKey, 'ready', env, full), true);
 });
 
 test('keeps the archive outside active-bank fullness and AI scaling', async () => {
@@ -114,28 +116,6 @@ test('keeps the archive outside active-bank fullness and AI scaling', async () =
   assert.equal(effectiveAiPercent(env, result), 25);
 });
 
-test('counts legacy quips in the current context fullness', async () => {
-  const legacy = Array.from({ length: 64 }, (_, index) => ({
-    k: quipKey,
-    q: `Legacy reusable Kanarek bank quip number ${index} remains valid for capacity testing.`,
-  }));
-  const kv = {
-    async get(key: string) {
-      return key === BANK_KEY ? JSON.stringify(legacy) : null;
-    },
-    async list() {
-      return { keys: [], list_complete: true, cursor: '' };
-    },
-  } as unknown as KVNamespace;
-
-  const result = await bankCapacity(
-    { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv,
-    quipKey,
-  );
-
-  assert.deepEqual(result, { available: true, limit: BANK_LIMIT, size: 64 });
-});
-
 test('reduces the context quota when the global retention cap is binding', async () => {
   const contexts = 100;
   const keys = Array.from({ length: contexts * 50 }, (_, index) => {
@@ -169,7 +149,7 @@ test('reduces the context quota when the global retention cap is binding', async
   assert.equal(effectiveAiPercent(aiEnv, result), 0);
 });
 
-test('reuses measured keys and legacy data when falling back to the bank', async () => {
+test('reuses measured keys when falling back to the bank', async () => {
   const names = Array.from({ length: 37 }, (_, index) =>
     `${BANK_KEY}:entry:${quipKey}:${index.toString(16).padStart(16, '0')}`,
   );
@@ -185,22 +165,18 @@ test('reuses measured keys and legacy data when falling back to the bank', async
     ]),
   );
   let listCalls = 0;
-  let legacyReads = 0;
   const kv = {
-    async get(key: string) {
-      if (key === BANK_KEY) {
-        legacyReads += 1;
-        return null;
-      }
-      return values.get(key) ?? null;
+    get(key: string) {
+      assert.notEqual(key, BANK_KEY);
+      return Promise.resolve(values.get(key) ?? null);
     },
-    async list() {
+    list() {
       listCalls += 1;
-      return {
+      return Promise.resolve({
         keys: names.map((name) => ({ name })),
         list_complete: true,
         cursor: '',
-      };
+      });
     },
   } as unknown as KVNamespace;
   const env = { KANAREK_QUIP_KV: kv } as unknown as CompanionEnv;
@@ -211,5 +187,4 @@ test('reuses measured keys and legacy data when falling back to the bank', async
   assert.equal(context.size, 37);
   assert.equal(bank.length, 24);
   assert.equal(listCalls, 1);
-  assert.equal(legacyReads, 1);
 });

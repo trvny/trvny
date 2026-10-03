@@ -3,7 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 
 import {
-  ensureTestComment,
+  createInstallationClient,
   GitHubApiError,
 } from '../src/github-app.ts';
 
@@ -62,15 +62,12 @@ test('logs only safe GitHub diagnostics for a rejected comment', async () => {
 
   try {
     await assert.rejects(
-      ensureTestComment(
-        '4472094',
-        'kanarek-companion',
-        privateKeyPem(),
-        123,
-        'trvny/trvny',
-        152,
-        'delivery-123',
-        fetcher,
+      createInstallationClient('4472094', privateKeyPem(), 123, fetcher).then((client) =>
+        client.json(
+          '/repos/trvny/trvny/issues/152/comments',
+          'create_issue_comment',
+          { method: 'POST', body: JSON.stringify({ body: 'hello' }) },
+        ),
       ),
       (error: unknown) =>
         error instanceof GitHubApiError &&

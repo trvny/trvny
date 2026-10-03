@@ -28,18 +28,29 @@ no longer wanted.
 
 ## Which transport to use
 
-Use Issue #203 for normal GPTomek operations. PR #176 remains the independent
-fallback transport. The Issue relay automatically copies the exact command
-marker to #176 only when the primary Worker wake fails; successful fallback
-handling then clears the primary marker and carries the hidden result back to
-Issue #203. The relay verifies that the live Issue still contains that exact
-marker before failover and again before result synchronization, so a stale run
-does not overwrite a newer command. A command that fails but whose error
-envelope is recorded is not a wake failure: the wake returns 200 and the relay
-does not fail over. Only an unrecorded outcome returns 502.
+| Situation | Transport | What happens |
+| --- | --- | --- |
+| Normal bot-authored write | Issue #203 | Default path. The Issue edit wakes the Worker directly and through the guarded Actions relay. |
+| Primary wake fails | PR #176 automatically | The mailbox workflow forwards the event's still-live command markers through the closed PR one at a time and synchronizes results back to #203. |
+| Several commands land in #203 together | PR #176 automatically | The Issue parser deliberately rejects multiple markers; the Actions fallback serializes that event snapshot through #176 instead of leaving later commands stranded. |
+| Actions / Issue relay itself is unavailable | PR #176 manually | Put exactly one command marker in the closed PR body. Reuse the same command ID when replaying the same operation. |
 
-Both transports feed the same GPTomek command parser and execution path, so they
-have the same operation surface and authorization. The legacy PR does not unlock
+Issue #203 remains the normal control mailbox. PR #176 is an independent
+transport, not a second queue. Do not append several markers to the PR body and
+do not use it routinely when #203 is healthy.
+
+The Issue mailbox workflow serializes its runs with one concurrency group. If the
+primary Worker wake returns an unrecorded failure, the fallback script checks
+that each marker from that event is still present in the live Issue, forwards it
+through #176, waits for the result, and updates #203 without overwriting newer
+mailbox state. A retryable command may deliberately remain in #203 with its
+result marker; that does not prevent later commands from the same event snapshot
+from being attempted.
+
+A command that fails but records a terminal result is not a wake failure: the
+wake returns 200 and the relay does not fail over. Only an unrecorded outcome
+returns 502. Both transports feed the same guarded GPTomek command execution
+path and have the same authorization surface. The legacy PR does not unlock
 extra capabilities.
 
 A same-operation smoke test on 2026-09-08 verified both paths end to end by

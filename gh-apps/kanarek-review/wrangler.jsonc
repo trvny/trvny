@@ -37,7 +37,7 @@
     "KANAREK_REVIEW_PROVIDER_ORDER": "aihubmix,orcarouter,openrouter,ollama,groq,vercel,huggingface-publicai",
     "KANAREK_REVIEW_AIHUBMIX_MODELS": "xiaomi-mimo-v2.6-flash-free,coding-kimi-k3-free,dots-3-note-preview-free,nemotron-3.5-lightning-free,hy3-free,minimax-m2.7-free,ling-3.0-flash-free,lfm-2.5-2.6b-free",
     "KANAREK_REVIEW_ORCAROUTER_MODELS": "orcarouter/auto",
-    "KANAREK_REVIEW_OPENROUTER_MODELS": "stealth/space-bunny-alpha,nvidia/nemotron-3.5-lightning:free,dots-studio/dots-3-note-preview:free,nvidia/nemotron-3-ultra-550b-a55b:free,cohere/north-mini-code:free,openrouter/free",
+    "KANAREK_REVIEW_OPENROUTER_MODELS": "stealth/space-bunny-alpha,nvidia/nemotron-3.5-lightning:free,dots-studio/dots-3-note-preview:free,qwen/qwen3.8-27b:free,nvidia/nemotron-3-ultra-550b-a55b:free,cohere/north-mini-code:free,openrouter/free",
     "KANAREK_REVIEW_OLLAMA_MODELS": "gpt-oss:120b,gpt-oss:20b",
     "KANAREK_REVIEW_GROQ_MODEL": "openai/gpt-oss-120b",
     "KANAREK_REVIEW_GROQ_REASONING_EFFORT": "high",

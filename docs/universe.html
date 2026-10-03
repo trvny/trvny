@@ -152,7 +152,8 @@ const clusters = [
 ];
 
 const svg=document.getElementById("graph"), gClusters=document.getElementById("clusters"), gEdges=document.getElementById("edges"), gNodes=document.getElementById("nodes"), details=document.getElementById("details"), search=document.getElementById("search");
-const byId=new Map(nodes.map(n=>[n.id,n]));\nlet selectedId=null;
+const byId=new Map(nodes.map(n=>[n.id,n]));
+let selectedId=null;
 const neighbors=new Map(nodes.map(n=>[n.id,new Set()]));
 edges.forEach(([a,b])=>{neighbors.get(a).add(b);neighbors.get(b).add(a)});
 

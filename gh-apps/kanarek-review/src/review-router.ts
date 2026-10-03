@@ -62,6 +62,7 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
     'stealth/space-bunny-alpha',
     'nvidia/nemotron-3.5-lightning:free',
     'dots-studio/dots-3-note-preview:free',
+    'qwen/qwen3.8-27b:free',
     'nvidia/nemotron-3-ultra-550b-a55b:free',
     'cohere/north-mini-code:free',
     'openrouter/free',
@@ -251,7 +252,7 @@ type ReviewProvider = {
   timeoutMs?: number;
 };
 
-type ProviderCooldown = {
+export type ProviderCooldown = {
   until: number;
   category: string;
 };
@@ -933,7 +934,7 @@ async function workersAiBudgetStatus(env: ReviewRouterEnv): Promise<WorkersAiBud
   }
 }
 
-async function activeProviderCooldown(
+export async function activeProviderCooldown(
   env: ReviewRouterEnv,
   provider: ReviewProviderId,
 ): Promise<ProviderCooldown | null> {
@@ -1055,7 +1056,7 @@ export async function reviewProviderPoolHealth(env: ReviewRouterEnv): Promise<{
   };
 }
 
-async function rememberProviderCooldown(
+export async function rememberProviderCooldown(
   provider: ReviewProviderId,
   category: string,
   env: ReviewRouterEnv,

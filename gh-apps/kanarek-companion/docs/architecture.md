@@ -102,7 +102,7 @@ It is responsible for:
 - Simplified-Chinese human-facing review text;
 - RIGHT-side added-line anchors only;
 - revalidating the PR immediately before publication;
-- an L2 judge on the free pass only (the paid pass skips it);
+- an L2 precision pass on the free review only: AIHubMix System One `decision-model-preview` is primary for typed validity/duplicate decisions, with the existing generative judge as fail-open fallback; the paid pass skips L2;
 - bounded retry scheduling for provider/job failures; findings that fail
   verification escalate to paid once and are never retried.
 

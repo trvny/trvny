@@ -42,8 +42,10 @@ A normal pull-request delivery is split into two independent paths:
    and repository context, then calls the private Kanarek Review Worker through
    the service binding.
 6. Provider output is accepted only after the review contract and line anchors
-   validate. The PR is revalidated again immediately before one native GitHub
-   review is published.
+   validate. On the free pass, a typed System One decision model runs as L2
+   precision telemetry/deduplication first; the previous generative judge remains
+   the fail-open fallback. The PR is revalidated again immediately before one
+   native GitHub review is published.
 7. Quip generation is separate from code review. It may reuse the same private
    free-provider router, but its bank, receipts, validation, and fallback policy
    remain independent.
@@ -200,5 +202,6 @@ deployment and operator notes live in
 [`../gremlin-operator/README.md`](../gremlin-operator/README.md).
 
 GitHub App metadata, companion/review repository scopes, quip provider controls,
-AI percentage ceiling, review debounce/context limits, Durable Object bindings,
-service bindings, and KV bindings are defined in `wrangler.jsonc`.
+AI percentage ceiling, review debounce/context limits, the decision-L2 rollout
+switch, Durable Object bindings, service bindings, and KV bindings are defined
+in `wrangler.jsonc`.

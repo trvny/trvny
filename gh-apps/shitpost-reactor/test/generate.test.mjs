@@ -198,7 +198,7 @@ test('requestCompletion keeps provider metadata without exposing the token', asy
   const fakeFetch = (_url, init) => {
     assert.match(init.headers.authorization, /^Bearer /);
     const body = JSON.parse(init.body);
-    assert.equal(body.max_tokens, 8_192);
+    assert.equal(body.max_tokens, 16_384);
     return new Response(JSON.stringify({
       model: 'free-model',
       choices: [{ message: { content: '{"kind":"text","text":"x"}' } }],

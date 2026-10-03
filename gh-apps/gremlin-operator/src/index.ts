@@ -29,7 +29,7 @@ function health(env: Env): Response {
 const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname === HEALTH_PATH && (request.method === 'GET' || request.method === 'HEAD')) {
+    if (url.pathname === HEALTH_PATH && request.method === 'GET') {
       return health(env);
     }
     const response = await gremlinRouter.fetch(request, env);

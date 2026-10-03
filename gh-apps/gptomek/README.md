@@ -1,76 +1,143 @@
 # GPTomek
 
-GitHub App used for bot-authored repository operations.
+GPTomek is the GitHub App identity used when repository automation should be
+visibly bot-authored instead of pretending to be `trvny`. Commits, comments,
+reactions and routine automation can therefore show up as `gptomek[bot]`,
+while pull requests and selected human-authorized state changes stay authored by
+`trvny` so the normal external review flow keeps working.
+
+## Start here
+
+For normal GPTomek work:
+
+1. Use Issue [`trvny/trvny#203`](https://github.com/trvny/trvny/issues/203)
+   as the control mailbox.
+2. Give every new logical command a fresh `id`. Reuse that same ID only when
+   replaying the same operation.
+3. For branch-changing operations, read the branch head immediately before the
+   command and pass it as `expectedHeadSha`.
+4. Let the primary Issue path execute the command. Successful bot writes are
+   performed by `gptomek[bot]` and the hidden command marker is consumed.
+5. Use closed PR [`#176`](https://github.com/trvny/trvny/pull/176) manually
+   only when the Issue/Actions relay itself is unavailable. Put exactly one
+   command marker in that PR body.
+6. Keep the `gptomek/control` ref and PR #176 intact. They are an active
+   fallback transport, not historical debris.
+
+The control mailboxes are internal transport. Humans normally do not need to
+edit the encoded markers by hand.
+
+## Which mailbox to use
+
+| Situation | Transport | What happens |
+| --- | --- | --- |
+| Normal bot-authored write | Issue #203 | Default path. The Issue edit wakes the Worker through the guarded Actions relay. |
+| Primary wake fails | PR #176 automatically | The mailbox workflow forwards still-live commands through the closed PR one at a time and synchronizes results back to #203. |
+| Several commands land in #203 together | PR #176 automatically | The fallback serializes that event snapshot instead of letting one retryable command block later commands. |
+| Actions / Issue relay itself is unavailable | PR #176 manually | Put exactly one marker in the closed PR body and reuse the same command ID when replaying the same operation. |
+
+Issue #203 is the maintained default. PR #176 is an independent fallback
+transport, not a second queue.
+
+## Who should appear in the edit history?
+
+Seeing different authors on Issue #203 is expected because three identities have
+different jobs:
+
+| Visible editor | Why it appears |
+| --- | --- |
+| `trvny` | The authorized human/connector side writes or wakes a command in the primary mailbox. |
+| `gptomek[bot]` | The normal Worker path performs bot-authored GitHub writes and mailbox/result cleanup. |
+| `github-actions[bot]` | The Actions fallback copies commands through PR #176 and synchronizes fallback results back to Issue #203 with the workflow token. |
+
+So the usual healthy primary-path pattern is mostly `trvny` ↔
+`gptomek[bot]`. A burst of `github-actions[bot]` edits means the fallback
+relay was active; it is not the desired author for repository commits or normal
+GPTomek comments.
+
+## Quick operator guide
+
+Use Issue #203 as the normal transport. The snippets below show the decoded
+command JSON; the transport itself carries the base64url-encoded JSON inside a
+`<!-- gptomek-command:... -->` marker.
+
+| Goal | Operation |
+| --- | --- |
+| Commit one or more files on an existing branch | `commit_files` |
+| Collapse a prepared branch into one GPTomek-authored commit | `adopt_branch` |
+| Remove a known branch safely | `delete_branch` |
+| Add a PR/issue conversation comment | `comment` |
+| Reply to an inline review comment | `reply_review` |
+| React to an issue/PR comment or review comment | `react_issue_comment` / `react_review_comment` |
+| Generic allowed GitHub metadata/status/deployment write | `operator_action` |
+| Run several same-repository operations in order | `batch` |
+
+Three rules prevent most foot-guns:
+
+1. Give every new logical command a fresh `id`. Reusing the same `id` with the
+   same input is a safe replay; reusing it with different input is rejected.
+2. For branch-changing typed operations, read the current head immediately
+   before the command and pass it as `expectedHeadSha`.
+3. A `batch` step must omit both `id` and `repository`; GPTomek derives the step
+   IDs from the outer command and injects the outer repository.
+
+## Technical reference
+
+### Runtime and components
 
 - App ID: `4524407`
 - Installation ID: `152126523`
 - Runtime module: `../kanarek-companion/src/gptomek.ts`
 - Shared Worker: `kanarek-companion`
 - Worker secret: `GPTOMEK_PRIVATE_KEY`
-- Primary control mailbox: `trvny/trvny#203` ([open Issue body](https://github.com/trvny/trvny/issues/203#issue-5154105174))
+- Primary control mailbox: `trvny/trvny#203`
 - Wake relay: GitHub Actions → `POST /gptomek/wake` → shared Worker
 - Fallback mailbox: `trvny/trvny#176` (closed PR body)
 - Fallback control ref: `gptomek/control` (persistent transport anchor)
 
-## Read this first
+### Transport internals and recovery
 
-The **primary transport is Issue `trvny/trvny#203`**. Commands are hidden in
-its body as `<!-- gptomek-command:... -->`. A normal body edit wakes the GitHub
-Actions relay, which calls `/gptomek/wake`; the shared Worker executes the
-guarded command as `gptomek[bot]` and removes the marker after success.
+The primary transport is Issue #203. Commands are hidden in its body as
+`<!-- gptomek-command:... -->`. A normal body edit wakes the GitHub Actions
+relay, which calls `/gptomek/wake`; the shared Worker executes the guarded
+command and records the result.
 
-The old closed PR `trvny/trvny#176` and its `gptomek/control` head ref remain a
-**deliberate fallback**, not abandoned debris. Do not delete, merge, rebase,
-routinely sync, or repurpose that branch, and do not "clean up" PR #176 while
-this README still documents the fallback as active. Retire it only as an
-explicit change after the Issue path has a verified replacement and rollback is
-no longer wanted.
+The closed PR #176 and its `gptomek/control` head ref remain a deliberate
+fallback. Do not delete, merge, rebase, routinely sync or repurpose that branch,
+and do not clean up PR #176 while this README still documents the fallback as
+active. Retire it only as an explicit transport change with a verified
+replacement and rollback plan.
 
-## Which transport to use
-
-| Situation | Transport | What happens |
-| --- | --- | --- |
-| Normal bot-authored write | Issue #203 | Default path. The Issue edit wakes the Worker directly and through the guarded Actions relay. |
-| Primary wake fails | PR #176 automatically | The mailbox workflow forwards the event's still-live command markers through the closed PR one at a time and synchronizes results back to #203. |
-| Several commands land in #203 together | PR #176 automatically | The Issue parser deliberately rejects multiple markers; the Actions fallback serializes that event snapshot through #176 instead of leaving later commands stranded. |
-| Actions / Issue relay itself is unavailable | PR #176 manually | Put exactly one command marker in the closed PR body. Reuse the same command ID when replaying the same operation. |
-
-Issue #203 remains the normal control mailbox. PR #176 is an independent
-transport, not a second queue. Do not append several markers to the PR body and
-do not use it routinely when #203 is healthy.
-
-The Issue mailbox workflow serializes its runs with one concurrency group. If the
-primary Worker wake returns an unrecorded failure, the fallback script checks
-that each marker from that event is still present in the live Issue, forwards it
-through #176, waits for the result, and updates #203 without overwriting newer
-mailbox state. A retryable command may deliberately remain in #203 with its
-result marker; that does not prevent later commands from the same event snapshot
-from being attempted.
+The Issue mailbox workflow serializes its runs with one concurrency group. If
+the primary Worker wake returns an unrecorded failure, the fallback script
+checks each marker from the triggering event against the live Issue, forwards it
+through #176, waits for a result carrying the same command ID, and updates #203
+without overwriting newer mailbox state. A retryable command may remain in #203
+with its result marker without blocking later commands from the same event
+snapshot.
 
 A command that fails but records a terminal result is not a wake failure: the
 wake returns 200 and the relay does not fail over. Only an unrecorded outcome
-returns 502. Both transports feed the same guarded GPTomek command execution
-path and have the same authorization surface. The legacy PR does not unlock
-extra capabilities.
+returns 502. Both transports feed the same guarded GPTomek execution path and
+have the same authorization surface. The fallback PR does not unlock extra
+capabilities.
 
 A same-operation smoke test on 2026-09-08 verified both paths end to end by
-adding a `gptomek[bot]` reaction and observing automatic command-marker cleanup.
-The Issue path completed in about 3 seconds from mailbox edit to side effect;
-the PR path also completed in about 3 seconds.
+adding a `gptomek[bot]` reaction and observing automatic marker cleanup. The
+Issue and PR paths both completed in about three seconds in that test. A
+multi-command fallback smoke on 2026-10-03 additionally verified that a
+retryable command does not block later commands from the same Issue snapshot.
 
 | Property | Issue #203 | PR #176 |
 | --- | --- | --- |
 | Supported GPTomek operations | same shared command set | same shared command set |
-| Observed smoke latency | ~3 s | ~3 s |
 | Wake path | Issue edit → Actions relay → Worker | PR edit → Worker webhook |
 | Repository baggage | branchless | requires closed PR + persistent `gptomek/control` ref |
-| Best role | maintained default | automatic independent transport fallback |
+| Best role | maintained default | independent fallback |
 
-The PR path has fewer transport hops, so it is useful specifically when GitHub
-Actions or the Issue relay is the failing component. That small architectural
-advantage is not a reason to use it routinely: the Issue mailbox is clearer,
-branchless, and easier to maintain, while measured interactive latency is
-effectively the same.
+The PR path has fewer transport hops, which is useful when Actions or the Issue
+relay is the failing component. That is not a reason to use it routinely: the
+Issue mailbox is clearer, branchless and easier to maintain.
 
 When diagnosing the Issue path, check the chain in this order:
 
@@ -85,36 +152,15 @@ unbound. Inside Worker/Durable Object paths use a Worker-safe wrapper such as
 to `fetch`; otherwise Cloudflare can throw `Illegal invocation`.
 
 Do not assume that merely using Desktop Commander disables the GitHub
-connector. End-to-end Issue mailbox smoke tests were verified both before and
-after a harmless Desktop Commander call. Treat connector write failures as
-their own transient/tooling problem unless evidence shows otherwise.
+connector. Treat connector write failures as their own transient/tooling problem
+unless evidence shows otherwise.
 
-## What this is
+The fallback branch is not a working branch and is intentionally not kept
+current with `main`. Its tree and distance behind `main` are irrelevant to
+command handling; only the ref's continued existence anchors PR #176. GPTomek
+also protects the ref from `delete_branch`.
 
-GPTomek is the bot identity behind repository automation that should not pretend to
-be `trvny`. The shared `kanarek-companion` Worker authenticates as the GitHub App
-for normal writes and exposes guarded higher-level operations used by automation
-and the custom GPT gateway. Operations that deliberately need the human identity,
-most notably opening pull requests and selected PR state changes, use the
-authorized `trvny` OAuth token instead.
-
-That split is intentional: commits, comments, reactions and routine automation can
-be visibly bot-authored, while pull requests stay opened as `trvny` so external
-automatic review continues to trigger from the expected author. The control
-mailboxes are internal transport for GPTomek-only operations; they are not queues
-humans should normally edit by hand.
-
-Issue #203 is the maintained primary mailbox. PR #176 remains the fallback
-transport. GitHub stops delivering the legacy PR body-edit transport when its
-head ref is deleted, so `gptomek/control` must remain present while fallback
-support is retained.
-
-The fallback branch is not a working branch and is intentionally not kept current
-with `main`. Its tree and distance behind `main` are irrelevant to command
-handling; only the ref's continued existence anchors PR #176. GPTomek also
-protects the ref from `delete_branch`.
-
-## Command model
+### Command model
 
 Every command has a caller-supplied `id`. GPTomek hashes that ID into the
 existing `OPERATOR_CHECKPOINTS` Durable Object namespace and hashes the full
@@ -161,31 +207,7 @@ Supported operations:
   already-completed GitHub side effects; retrying the outer command resumes via
   the per-step deduplication records.
 
-## Operator cheatsheet
-
-Use Issue #203 as the normal transport. The snippets below show the decoded
-command JSON; the transport itself carries the base64url-encoded JSON inside a
-`<!-- gptomek-command:... -->` marker.
-
-| Goal | Operation |
-| --- | --- |
-| Commit one or more files on an existing branch | `commit_files` |
-| Collapse a prepared branch into one GPTomek-authored commit | `adopt_branch` |
-| Remove a known branch safely | `delete_branch` |
-| Add a PR/issue conversation comment | `comment` |
-| Reply to an inline review comment | `reply_review` |
-| React to an issue/PR comment or review comment | `react_issue_comment` / `react_review_comment` |
-| Generic allowed GitHub metadata/status/deployment write | `operator_action` |
-| Run several same-repository operations in order | `batch` |
-
-Three rules prevent most foot-guns:
-
-1. Give every new logical command a fresh `id`. Reusing the same `id` with the
-   same input is a safe replay; reusing it with different input is rejected.
-2. For branch-changing typed operations, read the current head immediately
-   before the command and pass it as `expectedHeadSha`.
-3. A `batch` step must omit both `id` and `repository`; GPTomek derives the step
-   IDs from the outer command and injects the outer repository.
+### Operation examples
 
 ### Commit files
 
@@ -349,7 +371,7 @@ missing target branch is treated as success so mailbox retries stay idempotent.
 GitHub also rejects deletion of its current default branch. The App needs
 `Contents: write` for ref deletion.
 
-## Pet Dispatcher boundary
+### Pet Dispatcher boundary
 
 Machine-level work such as local builds, ADB, ffmpeg or arbitrary workspace
 process execution remains outside GPTomek. The intended future bridge is Pet

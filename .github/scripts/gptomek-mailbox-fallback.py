@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import base64
 import json
 import os
 import re
@@ -90,15 +91,42 @@ def patch_fallback(body: str) -> None:
     )
 
 
-def wait_for_result() -> str:
+def marker_payload(marker: str, kind: str) -> dict:
+    match = re.fullmatch(
+        rf"<!--\s*gptomek-{kind}:([A-Za-z0-9+/_-]+={{0,2}})\s*-->",
+        marker,
+    )
+    if not match:
+        raise MailboxError(f"malformed GPTomek {kind} marker")
+    encoded = match.group(1)
+    padded = encoded + "=" * (-len(encoded) % 4)
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as error:
+        raise MailboxError(f"invalid GPTomek {kind} marker payload") from error
+    if not isinstance(payload, dict) or not isinstance(payload.get("id"), str):
+        raise MailboxError(f"GPTomek {kind} marker is missing a command id")
+    return payload
+
+
+def matching_result(body: str, command_id: str) -> str | None:
+    for match in RESULT_RE.finditer(body):
+        marker = match.group(0)
+        if marker_payload(marker, "result")["id"] == command_id:
+            return marker
+    return None
+
+
+def wait_for_result(command_id: str) -> tuple[str, str]:
     for _ in range(POLL_ATTEMPTS):
         body = str(fallback_pr().get("body") or "")
-        if RESULT_RE.search(body):
-            return body
+        result_marker = matching_result(body, command_id)
+        if result_marker:
+            return body, result_marker
         time.sleep(POLL_SECONDS)
     raise MailboxError(
-        f"fallback PR #{FALLBACK_PR} did not record a GPTomek result "
-        f"within {POLL_ATTEMPTS * POLL_SECONDS} seconds"
+        f"fallback PR #{FALLBACK_PR} did not record a matching GPTomek result "
+        f"for command {command_id!r} within {POLL_ATTEMPTS * POLL_SECONDS} seconds"
     )
 
 
@@ -152,18 +180,18 @@ def main() -> int:
             stale += 1
             continue
 
-        print(f"[{index}/{len(snapshot)}] forwarding marker through PR #{FALLBACK_PR}")
+        command_id = marker_payload(marker, "command")["id"]
+        print(
+            f"[{index}/{len(snapshot)}] forwarding command {command_id!r} "
+            f"through PR #{FALLBACK_PR}"
+        )
         patch_fallback(marker)
-        fallback_body = wait_for_result()
+        fallback_body, result_marker = wait_for_result(command_id)
 
         fallback_markers = markers(fallback_body)
         if fallback_markers and fallback_markers != [marker]:
             raise MailboxError("fallback PR contains an unexpected command marker")
 
-        result_match = RESULT_RE.search(fallback_body)
-        if not result_match:
-            raise MailboxError("fallback PR consumed a command without a result marker")
-        result_marker = result_match.group(0)
         retained = bool(fallback_markers)
 
         current = str(issue().get("body") or "")

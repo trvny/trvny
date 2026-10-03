@@ -24,7 +24,7 @@ jobs:
        ((github.event.action == 'labeled' || github.event.action == 'unlabeled') &&
         github.event.label.name == 'gptomek-wake'))
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout fallback transport
         uses: actions/checkout@v7

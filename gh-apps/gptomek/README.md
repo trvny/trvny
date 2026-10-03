@@ -48,10 +48,6 @@ while the pull request itself stays authored by `trvny`, use this flow:
 6. If the branch already consists of the desired single GPTomek-authored commit,
    skip `adopt_branch` and use the same final-head checks plus rebase merge.
 
-A `Co-authored-by: GPTomek ...` trailer does not make GPTomek the primary
-author of a GitHub-generated squash commit. Use the flow above when author
-attribution on `main` matters.
-
 ## Which mailbox to use
 
 | Situation | Transport | What happens |
@@ -63,22 +59,6 @@ attribution on `main` matters.
 
 Issue #203 is the maintained default. PR #176 is an independent fallback
 transport, not a second queue.
-
-## Who should appear in the edit history?
-
-Seeing different authors on Issue #203 is expected because three identities have
-different jobs:
-
-| Visible editor | Why it appears |
-| --- | --- |
-| `trvny` | The authorized human/connector side writes or wakes a command in the primary mailbox. |
-| `gptomek[bot]` | The normal Worker path performs bot-authored GitHub writes and mailbox/result cleanup. |
-| `github-actions[bot]` | The Actions fallback copies commands through PR #176 and synchronizes fallback results back to Issue #203 with the workflow token. |
-
-So the usual healthy primary-path pattern is mostly `trvny` ↔
-`gptomek[bot]`. A burst of `github-actions[bot]` edits means the fallback
-relay was active; it is not the desired author for repository commits or normal
-GPTomek comments.
 
 ## Quick operator guide
 
@@ -105,6 +85,22 @@ Three rules prevent most foot-guns:
    before the command and pass it as `expectedHeadSha`.
 3. A `batch` step must omit both `id` and `repository`; GPTomek derives the step
    IDs from the outer command and injects the outer repository.
+
+## Who should appear in the edit history?
+
+Seeing different authors on Issue #203 is expected because three identities have
+different jobs:
+
+| Visible editor | Why it appears |
+| --- | --- |
+| `trvny` | The authorized human/connector side writes or wakes a command in the primary mailbox. |
+| `gptomek[bot]` | The normal Worker path performs bot-authored GitHub writes and mailbox/result cleanup. |
+| `github-actions[bot]` | The Actions fallback copies commands through PR #176 and synchronizes fallback results back to Issue #203 with the workflow token. |
+
+So the usual healthy primary-path pattern is mostly `trvny` ↔
+`gptomek[bot]`. A burst of `github-actions[bot]` edits means the fallback
+relay was active; it is not the desired author for repository commits or normal
+GPTomek comments.
 
 ## Technical reference
 

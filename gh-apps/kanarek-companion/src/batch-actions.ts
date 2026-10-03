@@ -4,6 +4,7 @@ import {
   type GptActionsEnv,
 } from './gpt-actions.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const BATCH_READ_PATH = '/gpt-actions/github/read-batch';
@@ -19,13 +20,6 @@ class BatchReadError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: { 'cache-control': 'no-store' },
-  });
 }
 
 function internalReadRequest(source: Request, path: string): Request {

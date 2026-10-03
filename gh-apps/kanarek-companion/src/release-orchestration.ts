@@ -22,6 +22,7 @@ import {
 import { handleEnhancedWorkflowDiagnosis } from './workflow-diagnosis-enhanced.ts';
 import { zipEntryPath, ZipEntryError } from './zip-entry.ts';
 import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export const RELEASE_ORCHESTRATION_PATH = '/gpt-actions/operator/releases/orchestrate';
 
@@ -105,13 +106,6 @@ class ReleaseOrchestrationError extends Error {
     this.status = status;
     this.details = details;
   }
-}
-
-function json(body: unknown, status = 200, extraHeaders: HeadersInit = {}): Response {
-  return Response.json(body, {
-    status,
-    headers: { 'cache-control': 'no-store', ...Object.fromEntries(new Headers(extraHeaders)) },
-  });
 }
 
 function repositoryName(value: unknown): string {

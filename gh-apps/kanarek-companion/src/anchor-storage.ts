@@ -17,6 +17,7 @@ import {
   stringValue,
   type JsonObject,
 } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 export const ANCHOR_STORAGE_PATH = '/gpt-actions/anchor/storage';
 export const ANCHOR_OPENAPI_PATH = '/gpt-actions/anchor/openapi.json';
@@ -68,16 +69,6 @@ class AnchorMutationAttemptError extends Error {
     this.name = 'AnchorMutationAttemptError';
     this.original = original;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
 }
 
 function byteLength(value: string): number {

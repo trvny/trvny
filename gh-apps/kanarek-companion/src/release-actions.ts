@@ -1,6 +1,7 @@
 import { createAppJwt } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_UPLOADS = 'https://uploads.github.com';
@@ -30,10 +31,6 @@ class ReleaseError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 }
 
 function repository(value: unknown): string {

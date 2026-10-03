@@ -1,6 +1,7 @@
 import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
 import router from './router.ts';
 import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 type Env = Parameters<typeof router.fetch>[1];
 
@@ -8,16 +9,6 @@ const CONTEXT_PATH = '/gpt-actions/github/context';
 const INVESTIGATION_PATH = '/gpt-actions/github/code/investigate';
 const READ_PATH = '/gpt-actions/github/read';
 const SHA_RE = /^[0-9a-f]{40}$/i;
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-    },
-  });
-}
 
 function contentPath(value: string): string {
   return value.split('/').map(encodeURIComponent).join('/');

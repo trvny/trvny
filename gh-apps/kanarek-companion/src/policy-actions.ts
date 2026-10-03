@@ -1,5 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const BOOTSTRAP_PATH = '/gpt-actions/operator/bootstrap';
@@ -145,10 +146,6 @@ const GATEWAY_CAPABILITIES = [
   'domain_knowledge',
   'cloudflare_operator',
 ] as const;
-
-function json(body: unknown, status = 200): Response {
-  return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
-}
 
 function policyError(path: string): never {
   const normalized = path.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();

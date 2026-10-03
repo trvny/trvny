@@ -180,3 +180,30 @@ test('decision adapter honors an active AIHubMix cooldown before fetching', asyn
   assert.equal(response?.status, 503);
   assert.equal(called, false);
 });
+
+
+test('decision adapter exposes only a sanitized upstream failure code', async () => {
+  const response = await handleDecisionModelRequest(
+    request({
+      state: 'x',
+      questions: { keep_0: { type: 'noul' } },
+    }),
+    env,
+    (() => Promise.resolve(Response.json({
+      error: {
+        code: 'Invalid Questions / bad shape',
+        message: 'provider detail that must not be copied to the diagnostic header',
+      },
+    }, { status: 400 }))) as typeof fetch,
+  );
+
+  assert.equal(response?.status, 502);
+  assert.equal(
+    response?.headers.get('x-kanarek-review-decision-error'),
+    'provider_http_400_invalid_questions_bad_shape',
+  );
+  assert.equal(
+    response?.headers.get('x-kanarek-review-decision-error')?.includes('provider detail'),
+    false,
+  );
+});

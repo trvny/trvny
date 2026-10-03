@@ -29,6 +29,7 @@ function health(env: Env): Response {
 const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    // Keep the private health route explicit before delegating to the shared router.
     if (url.pathname === HEALTH_PATH && request.method === 'GET') {
       return health(env);
     }

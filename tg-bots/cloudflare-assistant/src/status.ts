@@ -21,6 +21,7 @@ export function formatProviderStatus(
   pool: KanarekProviderPoolStatus | null,
   routerConfigured: boolean,
   localModel: string,
+  workersAiEnabled: boolean,
 ): ProviderStatusView {
   const providers = routerConfigured ? pool?.providers ?? [] : [];
   const summary = routerConfigured
@@ -40,7 +41,9 @@ export function formatProviderStatus(
     "Provider status:",
     `Kanarek pool: ${summary}`,
     ...rows.map(({ label, status }) => `${label} — ${status}`),
-    `Local emergency: Workers AI (${localModel})`,
+    workersAiEnabled
+      ? `Local emergency: Workers AI (${localModel})`
+      : "Workers AI: disabled; reserved for SpaceMolt",
   ].join("\n");
 
   const bodyRows = rows.length
@@ -54,7 +57,9 @@ export function formatProviderStatus(
     "<h2>Provider status</h2>",
     `<p>Kanarek pool: <b>${escapeHtml(summary)}</b></p>`,
     `<table><tr><th>Provider</th><th>Status</th></tr>${bodyRows}</table>`,
-    `<details><summary>Emergency fallback</summary><p>Workers AI: <code>${escapeHtml(localModel)}</code></p></details>`,
+    workersAiEnabled
+      ? `<details><summary>Emergency fallback</summary><p>Workers AI: <code>${escapeHtml(localModel)}</code></p></details>`
+      : "<p>Workers AI: <b>disabled</b>; reserved for SpaceMolt</p>",
   ].join("");
 
   return { plain, richHtml };

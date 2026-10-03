@@ -16,7 +16,7 @@ test("renders provider status as plain text and safe rich HTML", () => {
         cooldown: { category: "quota&limit" },
       },
     ],
-  }, true, "@cf/model<safe>");
+  }, true, "@cf/model<safe>", true);
 
   assert.match(view.plain, /OrcaRouter/);
   assert.match(view.richHtml, /<table>/);
@@ -28,7 +28,9 @@ test("renders provider status as plain text and safe rich HTML", () => {
 });
 
 test("renders an unavailable state when the router is not configured", () => {
-  const view = formatProviderStatus(null, false, "@cf/fallback");
+  const view = formatProviderStatus(null, false, "@cf/fallback", false);
   assert.match(view.plain, /router token not configured/);
+  assert.match(view.plain, /reserved for SpaceMolt/);
   assert.match(view.richHtml, /router token not configured/);
+  assert.match(view.richHtml, /reserved for SpaceMolt/);
 });

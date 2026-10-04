@@ -68,12 +68,12 @@ Keep the Cloudflare assistant on a separate BotFather bot so its webhook never c
 
 ## Handoff design
 
-Future slice, based on the existing Pet Dispatcher:
+Current Legion path, based on the existing Pet Dispatcher:
 
 1. Cloudflare receives a heavy request, for example `sprawdź trvny/feedseek i odpal testy`.
 2. The assistant calls `pet-dispatcher-control` with a scoped control-plane credential.
 3. Pet Dispatcher creates the durable task state and enqueues the signed task on `pet-dispatcher-tasks`.
-4. The available Hermes/device worker claims the task, heartbeats, and reports a result.
+4. The Legion worker claims the task, heartbeats, and reports a result.
 5. The assistant reads the result and forwards a concise summary to Telegram.
 6. Multi-worker routing extends the existing dispatcher with worker identity/capability selection rather than creating a second task system.
 

@@ -162,7 +162,7 @@ Deploy:
 npm run deploy
 ```
 
-Use GitHub Actions workflow **Sync Worker credentials** with target `tg-assistant` after credential rotation or Worker recreation. It mirrors the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated. Production intentionally has no Workers AI binding while that allocation is reserved for SpaceMolt.
+Run GitHub Actions workflow **Sync Worker credentials** with target `tg-assistant` after the first Worker deployment and again after credential rotation or Worker recreation. It mirrors the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated. Production intentionally has no Workers AI binding while that allocation is reserved for SpaceMolt.
 
 Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, `stopped_message_generation`, `guest_message`, `business_connection`, and `business_message` updates:
 

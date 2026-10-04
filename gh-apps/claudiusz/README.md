@@ -4,8 +4,9 @@ Remote MCP server that acts on GitHub as
 [`claudiusz69[bot]`](https://github.com/apps/claudiusz69), so Claude's comments,
 reactions and reviews carry the bot identity instead of `trvny`.
 
-Worker: `claudiusz-mcp` (workers.dev). App JWT signing reuses
-`kanarek-companion/github-app`.
+The GitHub App identity is runtime-independent: App JWT signing uses
+`CLAUDIUSZ_APP_ID` plus `GH_APP_PRIVATE_KEY`. The Cloudflare Worker and
+Manufact runtime therefore act as the same `claudiusz69[bot]` installation.
 
 ## Tools
 
@@ -30,11 +31,13 @@ Issues, Pull requests and Discussions: read and write.
 `GET /icon.png` (no token) proxies the app avatar and is advertised in
 `serverInfo.icons`.
 
-## Connector
+## Cloudflare fallback
+
+Worker: `claudiusz-mcp` (workers.dev).
+
+Connector:
 
 `https://claudiusz-mcp.travny.workers.dev/<CLAUDIUSZ_MCP_TOKEN>`
-
-## Deploy
 
 Workers Builds deploys on pushes to `main` that touch this directory
 (`npm run check`, then `npm run deploy`).
@@ -42,3 +45,19 @@ Workers Builds deploys on pushes to `main` that touch this directory
 Manual: `npm run deploy`, or upload a bundle through the Cloudflare API
 (multipart `PUT /workers/scripts/claudiusz-mcp`) with
 `keep_bindings: ["secret_text"]` in the metadata so the secrets survive.
+
+## Manufact runtime
+
+Manufact hosts the same Wrangler-built Worker bundle behind a thin Node HTTP
+adapter. No GitHub/MCP tool logic is duplicated.
+
+- Root directory: `gh-apps/claudiusz`
+- Build: `npm ci && npm run manufact:build`
+- Start: `npm run manufact:start`
+- Port: `3000`
+- Region: `EU`
+- Variables: `CLAUDIUSZ_APP_ID=4454097`, `ALLOWED_OWNERS=trvny,travnie`
+- Secrets: `CLAUDIUSZ_MCP_TOKEN`, `GH_APP_PRIVATE_KEY`
+
+Keep the Worker available as a fallback until the Manufact deployment passes
+`whoami` and a safe GitHub write/read-back smoke test.

@@ -13,6 +13,8 @@
 | `mcp/pet-dispatcher/` | local confined MCP worker plus Cloudflare remote control plane |
 | `mcp/status-mcp/` | authenticated aggregate health MCP Worker |
 | `stuff/` | feeds, playlists, quotes, configs and miscellaneous personal tools/assets |
+| `tg-bots/` | Botek Telegram assistant, control-surface docs and Cloudflare Worker source |
+| `token-worldcup/` | token/cost benchmark reports, corpora and tokenizer recount tools |
 
 ## Main entry points
 

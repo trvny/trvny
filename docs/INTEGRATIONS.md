@@ -20,7 +20,7 @@
 
 `pet-dispatcher-control` uses Queue `pet-dispatcher-tasks`, SQLite Durable Object `TaskStateStore`, `CONTROL_PLANE_TOKEN`, `TASK_SIGNING_SECRET`, and device id `legion`. Private connector URL auth mirrors repository secret `PET_DISPATCHER_MCP_CONNECTOR_TOKEN` into Worker secret `MCP_CONNECTOR_TOKEN` through the shared `.github/scripts/sync-cloudflare-worker-secret.sh` helper; both the deploy workflow and central `Sync Worker credentials` workflow use that same path. The Legion polls outbound; no inbound host listener is required.
 
-The Telegram assistant should reuse this control plane for future heavyweight Hermes handoff. Multi-worker Android/Legion routing should extend Pet Dispatcher worker identity/capability handling rather than introduce a parallel task queue/protocol.
+The Telegram assistant reuses this control plane for heavyweight Legion/Hermes handoff: manual `/task` delegation and conservative owner-only repo-work auto-routing create ordinary Pet Dispatcher tasks, then Botek watches their durable state and pushes terminal results back to Telegram. Multi-worker Android/Legion routing remains a later extension of Pet Dispatcher worker identity/capability handling rather than a parallel task queue/protocol.
 
 ## Telegram assistant
 
@@ -28,7 +28,7 @@ The Telegram assistant should reuse this control plane for future heavyweight He
 
 Model calls first use a same-account Service Binding to the private OpenAI-compatible router in `kanarek-companion`. That keeps OpenRouter, OrcaRouter, AIHubMix and provider cooldowns in one maintained place. Workers AI is temporarily disabled in both Kanarek Review and Telegram; the account neuron allocation is reserved for the SpaceMolt gateway.
 
-The assistant needs the existing `KANAREK_REVIEW_ROUTER_TOKEN`, not copies of individual provider keys. After the Worker exists, `.github/workflows/automation-sync.yml` can copy that repository-held router bearer into the assistant Worker. Telegram bot/webhook/owner secrets remain specific to the assistant Worker.
+The assistant needs the existing `KANAREK_REVIEW_ROUTER_TOKEN`, not copies of individual provider keys. `.github/workflows/automation-sync.yml` mirrors that repository-held router bearer into the deployed `tg-assistant` Worker; use the same target after credential rotation or Worker recreation. Telegram bot/webhook/owner secrets remain specific to the assistant Worker.
 
 ## status-mcp
 

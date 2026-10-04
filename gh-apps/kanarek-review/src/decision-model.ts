@@ -4,7 +4,6 @@ import {
   activeProviderCooldown,
   rememberProviderCooldown,
   REVIEW_ROUTER_TUNING_DEFAULTS,
-  taskProviderTimeoutMs,
   type ProviderCooldownId,
   type ReviewRouterEnv,
 } from './review-router.ts';
@@ -48,12 +47,12 @@ const DECISION_PROVIDERS: Record<DecisionProviderId, DecisionProvider> = {
 const DECISION_PROVIDER_IDS = new Set<DecisionProviderId>(
   Object.keys(DECISION_PROVIDERS) as DecisionProviderId[],
 );
-const DEFAULT_TIMEOUT_MS = 30_000;
-const MIN_TIMEOUT_MS = 1_000;
-const MAX_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = Number(REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_DECISION_TIMEOUT_MS);
+const MIN_TIMEOUT_MS = 5_000;
+const MAX_TIMEOUT_MS = 60_000;
 const MAX_QUESTIONS = 16;
-const MIN_LATER_PROVIDER_RESERVE_MS = 10_000;
-const MIN_LATER_MODEL_RESERVE_MS = 5_000;
+const MIN_LATER_PROVIDER_RESERVE_MS = 5_000;
+const MIN_LATER_MODEL_RESERVE_MS = 3_000;
 
 export type DecisionModelEnv = ReviewRouterEnv;
 
@@ -104,7 +103,7 @@ async function providerErrorReason(response: Response): Promise<string> {
 }
 
 function timeoutMs(env: DecisionModelEnv): number {
-  const raw = env.KANAREK_REVIEW_ROUTER_TIMEOUT_MS?.trim();
+  const raw = env.KANAREK_REVIEW_DECISION_TIMEOUT_MS?.trim();
   if (!raw || !/^\d+$/.test(raw)) return DEFAULT_TIMEOUT_MS;
   const parsed = Number.parseInt(raw, 10);
   return Number.isSafeInteger(parsed) && parsed >= MIN_TIMEOUT_MS && parsed <= MAX_TIMEOUT_MS
@@ -113,7 +112,7 @@ function timeoutMs(env: DecisionModelEnv): number {
 }
 
 export function decisionProviderTimeoutMs(env: DecisionModelEnv): number {
-  return taskProviderTimeoutMs(timeoutMs(env), 'judge');
+  return timeoutMs(env);
 }
 
 function configuredDecisionProviderOrder(env: DecisionModelEnv): DecisionProviderId[] {
@@ -176,6 +175,32 @@ export function decisionModelAttemptTimeoutMs(
   );
   const rawAttemptMs = Math.max(1, providerMs - reserveMs);
   return Math.min(ceilingMs, Math.max(1_000, rawAttemptMs));
+}
+
+type DecisionDeadlineResult<T> =
+  | { timedOut: false; value: T }
+  | { timedOut: true };
+
+export async function withinDecisionDeadline<T>(
+  deadlineAt: number,
+  operation: () => Promise<T>,
+): Promise<DecisionDeadlineResult<T>> {
+  const remainingMs = deadlineAt - Date.now();
+  if (remainingMs <= 0) return { timedOut: true };
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation()
+        .then((value) => ({ timedOut: false as const, value }))
+        .catch(() => ({ timedOut: true as const })),
+      new Promise<DecisionDeadlineResult<T>>((resolve) => {
+        timer = setTimeout(() => resolve({ timedOut: true }), remainingMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 function plainObject(value: unknown): value is Record<string, unknown> {
@@ -325,7 +350,15 @@ export async function handleDecisionModelRequest(
   const candidates: DecisionProvider[] = [];
 
   for (const provider of configuredCandidates) {
-    const cooldown = await activeProviderCooldown(env, provider.cooldownId);
+    const cooldownRead = await withinDecisionDeadline(
+      deadlineAt,
+      () => activeProviderCooldown(env, provider.cooldownId),
+    );
+    if (cooldownRead.timedOut) {
+      failures.push(`${provider.id}:pool_timeout`);
+      break;
+    }
+    const cooldown = cooldownRead.value;
     if (cooldown) {
       failures.push(
         `${provider.id}:cooldown_${diagnosticToken(cooldown.category) ?? 'active'}`,
@@ -451,7 +484,10 @@ export async function handleDecisionModelRequest(
     }
 
     if (attempted) {
-      await rememberProviderCooldown(provider.cooldownId, providerFailureCategory, env);
+      await withinDecisionDeadline(
+        deadlineAt,
+        () => rememberProviderCooldown(provider.cooldownId, providerFailureCategory, env),
+      );
     }
     failures.push(`${provider.id}:${providerFailureReason}`);
   }

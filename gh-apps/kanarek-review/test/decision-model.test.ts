@@ -7,6 +7,7 @@ import {
   decisionProviderOrder,
   decisionProviderTimeoutMs,
   handleDecisionModelRequest,
+  withinDecisionDeadline,
 } from '../src/decision-model.ts';
 import { REVIEW_DECISION_PATH } from '../../kanarek-companion/src/review-service-protocol.ts';
 
@@ -156,11 +157,15 @@ function activeCooldownNamespace(): DurableObjectNamespace {
   } as unknown as DurableObjectNamespace;
 }
 
-test('decision adapter uses the L2 sixty-second timeout floor', () => {
+test('decision adapter has its own short experimental L2 budget', () => {
   assert.equal(decisionProviderTimeoutMs({
     ...env,
     KANAREK_REVIEW_ROUTER_TIMEOUT_MS: '30000',
-  }), 60_000);
+  }), 25_000);
+  assert.equal(decisionProviderTimeoutMs({
+    ...env,
+    KANAREK_REVIEW_DECISION_TIMEOUT_MS: '18000',
+  }), 18_000);
 });
 
 test('decision adapter honors an active AIHubMix cooldown before fetching', async () => {
@@ -212,17 +217,35 @@ test('decision adapter exposes only a sanitized upstream failure code', async ()
 });
 
 
-test('decision pool gives the primary most of the shared judge budget', () => {
-  assert.equal(decisionProviderBudgetMs(60_000, 2), 40_000);
-  assert.equal(decisionProviderBudgetMs(20_000, 1), 10_000);
+test('decision pool gives the primary most of the short experimental budget', () => {
+  assert.equal(decisionProviderBudgetMs(25_000, 2), 15_000);
+  assert.equal(decisionProviderBudgetMs(20_000, 1), 15_000);
   assert.equal(decisionProviderBudgetMs(500, 0), 500);
 });
 
 test('decision model attempts never outlive the provider or pool deadline', () => {
-  assert.equal(decisionModelAttemptTimeoutMs(40_000, 60_000, 1), 35_000);
+  assert.equal(decisionModelAttemptTimeoutMs(15_000, 25_000, 1), 12_000);
   assert.equal(decisionModelAttemptTimeoutMs(8_000, 8_000, 0), 8_000);
   assert.equal(decisionModelAttemptTimeoutMs(500, 500, 0), 500);
   assert.equal(decisionModelAttemptTimeoutMs(0, 10_000, 0), 0);
+});
+
+test('decision deadline stops slow cooldown I/O before the judge budget is exceeded', async () => {
+  const startedAt = Date.now();
+  const result = await withinDecisionDeadline(
+    startedAt + 20,
+    () => new Promise<string>(() => {}),
+  );
+  assert.equal(result.timedOut, true);
+  assert.ok(Date.now() - startedAt < 500);
+});
+
+test('decision deadline returns fast cooldown results normally', async () => {
+  const result = await withinDecisionDeadline(
+    Date.now() + 1_000,
+    () => Promise.resolve('ok'),
+  );
+  assert.deepEqual(result, { timedOut: false, value: 'ok' });
 });
 
 test('decision provider rotation is stable for the same review state', () => {

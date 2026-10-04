@@ -104,13 +104,17 @@ The primary provider is rotated deterministically from the review state so all
 three access paths receive real traffic while they are free; the remaining
 configured providers are fallbacks. OpenRouter uses its native
 `/api/alpha/decisions` runtime and falls through Mercury to Span-01 Lite before
-abandoning OpenRouter. Each provider keeps an independent cooldown. Kanarek Companion uses
-this route only for free-pass L2 precision decisions, and any total pool failure
-still fails open to the existing generative L2 judge. Paid review skips L2 because
-its larger context can exceed the decision runtimes' input windows.
+abandoning OpenRouter. Each decision provider keeps an independent short-lived
+cooldown. The experimental decision pool has its own 25-second total budget so
+it cannot consume the normal generative judge's time. If the entire decision
+pool fails, Kanarek Companion still gives the existing generative L2 judge its
+normal pass; if that judge also fails, verified L1 findings are published
+unchanged. Paid review skips L2 because its larger context can exceed the
+decision runtimes' input windows.
 
 Latency is task policy too. Quips keep the normal short provider deadlines.
-Code review and L2 judge calls get at least 60 seconds per provider, while
+Code review and the generative L2 judge get at least 60 seconds per provider,
+while the experimental System One L2 has its separate bounded total budget and
 shitpost generation gets at least 120 seconds per provider. A provider's model
 fallbacks share that provider-level deadline instead of resetting a fresh full
 timeout for every candidate model.
@@ -138,8 +142,11 @@ Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter's
 official `openrouter/free` model can be used directly and lets OpenRouter choose
 a compatible free model automatically. The configured explicit `:free` models
 are therefore a quality/order policy rather than a technical requirement;
-`openrouter/free` remains the catch-all fallback. OpenRouter may retry its
-primary model without a fallback array when the provider rejects the array itself.
+`openrouter/free` remains the catch-all fallback. The server-side fallback
+chain deliberately omits optional adjustable-reasoning fields because its models
+are heterogeneous; the known Space Bunny primary can still retry independently
+with high reasoning. Expired models are removed from the maintained list instead
+of being rediscovered as repeatable 400s on every review.
 
 Vercel AI Gateway is intentionally classified as `monthly-free-credit`. The
 account-level $5/month spend cap is the guardrail, so both zero-price models and
@@ -147,9 +154,13 @@ models consuming that included monthly allowance are part of the free budget.
 The cap stays enforced at Vercel instead of being duplicated here.
 
 Reasoning is capability-aware rather than provider-wide. Review, judge, and
-shitpost lanes give known reasoning-capable Vercel and OpenRouter models high
-reasoning with at least 16K completion-token headroom; Groq task lanes keep their
-task-specific effort and receive the same floor whenever reasoning is enabled.
+shitpost lanes give known reasoning-capable Vercel models and known OpenRouter
+primary models high reasoning with at least 16K completion-token headroom.
+Heterogeneous OpenRouter fallback chains do not inherit that optional field.
+Groq task lanes keep their task-specific effort and receive the same floor
+whenever reasoning is enabled; large Groq requests are conservatively fitted to
+the model context window before dispatch and skipped if the 16K reasoning floor
+cannot fit.
 Gemini Flex pins high reasoning with the same floor. DeepSeek keeps its separate
 max-effort 128K contract. The dormant Workers AI fallback is configured for 16K output
 headroom, but production keeps it disabled while the account neuron budget belongs to SpaceMolt.
@@ -185,9 +196,11 @@ failures. It is deliberately excluded from `kanarek-review-free`, so shared
 free-router consumers cannot spend the Gemini reserve.
 
 Quota-limited providers use `KANAREK_REVIEW_COOLDOWNS`, a Durable Object hosted
-by the shared `kanarek-companion` Worker. Cooldowns survive separate Worker
-invocations, so a temporarily exhausted free provider is not hammered again on
-every PR event.
+by the shared `kanarek-companion` Worker. A cooldown is intentionally not a
+health verdict: free quota, capacity, authentication, and transient failures are
+expected operational states and only suppress repeated calls for a bounded
+period. Deterministic request-shape/context incompatibilities are handled by
+admission/fallback policy instead of long-lived provider state.
 
 When enabled, the Workers AI fallback uses a guarded daily-neuron budget. It is currently
 disabled in production so SpaceMolt has exclusive use of the account allocation. Provider
@@ -221,6 +234,7 @@ Workers AI binding while that allocation is reserved for SpaceMolt.
 Important variables include:
 
 - `KANAREK_REVIEW_ROUTER_TIMEOUT_MS`
+- `KANAREK_REVIEW_DECISION_TIMEOUT_MS`
 - `KANAREK_REVIEW_QUOTA_COOLDOWN_MS`
 - `KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS`
 - `KANAREK_REVIEW_WORKERS_AI_ENABLED`

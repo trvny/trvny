@@ -61,7 +61,6 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_OPENROUTER_MODELS: [
     'stealth/space-bunny-alpha',
     'nvidia/nemotron-3.5-lightning:free',
-    'dots-studio/dots-3-note-preview:free',
     'qwen/qwen3.8-27b:free',
     'nvidia/nemotron-3-ultra-550b-a55b:free',
     'cohere/north-mini-code:free',
@@ -77,6 +76,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_VERCEL_HY3_TOP_P: '1',
   KANAREK_REVIEW_GROQ_REASONING_EFFORT: 'high',
   KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'aihubmix,openrouter,qwencloud',
+  KANAREK_REVIEW_DECISION_TIMEOUT_MS: '25000',
   KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'deepseek,gemini-flex',
   KANAREK_REVIEW_DEEPSEEK_THINKING: 'enabled',
   KANAREK_REVIEW_DEEPSEEK_REASONING_EFFORT: 'max',
@@ -119,13 +119,17 @@ const VERCEL_MODEL_MAX_OUTPUT_TOKENS = new Map<string, number>([
   ['inclusionai/ling-3.1-flash-free', 32_768],
   ['poolside/laguna-s-2.1-free', 32_768],
 ]);
-const OPENROUTER_REASONING_MODELS = new Set<string>(
-  REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS,
-);
+const OPENROUTER_REASONING_MODELS = new Set<string>([
+  'stealth/space-bunny-alpha',
+]);
+const GROQ_GPT_OSS_CONTEXT_TOKENS = 131_072;
+const GROQ_GPT_OSS_MAX_OUTPUT_TOKENS = 65_536;
+const PROVIDER_CONTEXT_BYTES_PER_TOKEN = 1;
+const PROVIDER_CONTEXT_SAFETY_TOKENS = 4_096;
 
 const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
   quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai'],
-  review: ['aihubmix', 'orcarouter', 'openrouter', 'ollama', 'groq', 'vercel', 'huggingface-publicai'],
+  review: ['openrouter', 'aihubmix', 'groq', 'vercel', 'orcarouter', 'ollama', 'huggingface-publicai'],
   judge: ['aihubmix', 'groq', 'vercel', 'openrouter', 'ollama', 'orcarouter', 'huggingface-publicai'],
   shitpost: ['aihubmix', 'vercel', 'groq', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai'],
 } as const satisfies Record<Exclude<FreeTaskProfileId, 'general'>, readonly FreeReviewProviderId[]>;
@@ -186,6 +190,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS?: string;
   KANAREK_REVIEW_PROVIDER_ORDER?: string;
   KANAREK_REVIEW_DECISION_PROVIDER_ORDER?: string;
+  KANAREK_REVIEW_DECISION_TIMEOUT_MS?: string;
   KANAREK_REVIEW_PAID_PROVIDER_ORDER?: string;
   KANAREK_REVIEW_WORKERS_AI_ENABLED?: string;
   KANAREK_REVIEW_WORKERS_AI_DAILY_NEURONS?: string;
@@ -340,10 +345,6 @@ function configuredReasoningEffort(env: ReviewRouterEnv): string {
 
 function taskUsesHighReasoning(task: FreeTaskProfileId): boolean {
   return HIGH_REASONING_TASKS.has(task);
-}
-
-function openRouterModelsSupportReasoning(models: readonly string[]): boolean {
-  return models.length > 0 && models.every((model) => OPENROUTER_REASONING_MODELS.has(model));
 }
 
 function configuredInteger(
@@ -594,6 +595,7 @@ function geminiPaidProvider(env: ReviewRouterEnv): ReviewProvider {
     url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || DEFAULT_REVIEW_GEMINI_MODEL,
     apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
+    timeoutMs: MAX_TIMEOUT_MS,
     requestFields: {
       service_tier: configuredText(
         env.KANAREK_REVIEW_GEMINI_SERVICE_TIER,
@@ -1196,8 +1198,60 @@ type ProviderAttempt = {
   label: 'default' | 'model_fallback' | 'fallback_chain' | 'primary_only';
   minimumMaxTokens?: number;
   maximumMaxTokens?: number;
+  maximumContextTokens?: number;
   requestFields?: JsonObject;
 };
+
+function conservativeProviderInputTokens(input: JsonObject): number {
+  const bytes = new TextEncoder().encode(JSON.stringify(input)).byteLength;
+  return Math.ceil(bytes / PROVIDER_CONTEXT_BYTES_PER_TOKEN) + PROVIDER_CONTEXT_SAFETY_TOKENS;
+}
+
+export function fitProviderAttemptTokenBudget(
+  input: JsonObject,
+  attempt: Pick<ProviderAttempt, 'minimumMaxTokens' | 'maximumMaxTokens' | 'maximumContextTokens'>,
+): JsonObject | null {
+  const request = { ...input };
+  const requestedMaxTokens = Math.max(
+    typeof request.max_tokens === 'number' && Number.isFinite(request.max_tokens)
+      ? request.max_tokens
+      : 0,
+    typeof request.max_completion_tokens === 'number' &&
+        Number.isFinite(request.max_completion_tokens)
+      ? request.max_completion_tokens
+      : 0,
+  );
+  const minimum = attempt.minimumMaxTokens ?? 1;
+  let maximum = attempt.maximumMaxTokens ?? Number.MAX_SAFE_INTEGER;
+
+  if (attempt.maximumContextTokens) {
+    const available = attempt.maximumContextTokens - conservativeProviderInputTokens(request);
+    if (available < minimum) return null;
+    maximum = Math.min(maximum, available);
+  }
+
+  if (requestedMaxTokens > 0 || attempt.minimumMaxTokens) {
+    let effective = Math.max(minimum, Math.ceil(requestedMaxTokens || minimum));
+    effective = Math.min(effective, maximum);
+    if (effective < minimum) return null;
+    request.max_tokens = effective;
+    delete request.max_completion_tokens;
+  }
+  return request;
+}
+
+function groqTokenLimits(model: string): {
+  maximumContextTokens?: number;
+  maximumMaxTokens?: number;
+} {
+  if (model === 'openai/gpt-oss-120b' || model === 'openai/gpt-oss-20b') {
+    return {
+      maximumContextTokens: GROQ_GPT_OSS_CONTEXT_TOKENS,
+      maximumMaxTokens: GROQ_GPT_OSS_MAX_OUTPUT_TOKENS,
+    };
+  }
+  return {};
+}
 
 function providerAttempts(
   provider: ReviewProvider,
@@ -1222,6 +1276,7 @@ function providerAttempts(
     return [{
       model: provider.model,
       label: 'default',
+      ...groqTokenLimits(provider.model),
       ...(supportsReasoning
         ? {
             minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
@@ -1232,9 +1287,7 @@ function providerAttempts(
   }
   if (provider.id === 'openrouter') {
     const fallbackModels = provider.fallbackModels ?? [];
-    const allModels = [provider.model, ...fallbackModels];
     const useReasoning = taskUsesHighReasoning(task);
-    const fallbackReasoning = useReasoning && openRouterModelsSupportReasoning(allModels);
     const primaryReasoning = useReasoning && OPENROUTER_REASONING_MODELS.has(provider.model);
     const reasoningEffort = configuredReasoningEffort(env);
     const primaryAttempt: ProviderAttempt = {
@@ -1253,12 +1306,6 @@ function providerAttempts(
         model: provider.model,
         fallbackModels,
         label: 'fallback_chain',
-        ...(fallbackReasoning
-          ? {
-              minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
-              requestFields: { reasoning: { effort: reasoningEffort } },
-            }
-          : {}),
       },
       primaryAttempt,
     ];
@@ -1517,28 +1564,18 @@ export async function handleReviewRouterRequest(
           model: attempt.model,
           ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
         };
-        if (attempt.minimumMaxTokens || attempt.maximumMaxTokens) {
-          const requestedMaxTokens = Math.max(
-            typeof providerInput.max_tokens === 'number' &&
-                Number.isFinite(providerInput.max_tokens)
-              ? providerInput.max_tokens
-              : 0,
-            typeof providerInput.max_completion_tokens === 'number' &&
-                Number.isFinite(providerInput.max_completion_tokens)
-              ? providerInput.max_completion_tokens
-              : 0,
-          );
-          if (requestedMaxTokens > 0 || attempt.minimumMaxTokens) {
-            let effectiveMaxTokens = Math.max(
-              attempt.minimumMaxTokens ?? 1,
-              Math.ceil(requestedMaxTokens || (attempt.minimumMaxTokens ?? 1)),
-            );
-            if (attempt.maximumMaxTokens) {
-              effectiveMaxTokens = Math.min(effectiveMaxTokens, attempt.maximumMaxTokens);
-            }
-            providerInput.max_tokens = effectiveMaxTokens;
-            delete providerInput.max_completion_tokens;
-          }
+        const fittedProviderInput = fitProviderAttemptTokenBudget(providerInput, attempt);
+        if (!fittedProviderInput) {
+          providerFailureCategory = 'context_budget';
+          providerInvalidRequest = false;
+          console.info(JSON.stringify({
+            kanarekReviewRouter: 'provider_skipped',
+            provider: provider.id,
+            category: providerFailureCategory,
+            attempt: attempt.label,
+            model: attempt.model,
+          }));
+          continue;
         }
         const response = await fetcher(provider.url, {
           method: 'POST',
@@ -1547,7 +1584,7 @@ export async function handleReviewRouterRequest(
             Authorization: `Bearer ${apiKey}`,
             ...provider.headers,
           },
-          body: JSON.stringify(providerInput),
+          body: JSON.stringify(fittedProviderInput),
           signal: controller.signal,
         });
         if (response.ok) {
@@ -1584,7 +1621,7 @@ export async function handleReviewRouterRequest(
               model: attempt.model,
             }));
             if (
-              (provider.id === 'aihubmix' || provider.id === 'vercel')
+              (provider.id === 'aihubmix' || provider.id === 'vercel' || provider.id === 'openrouter')
               && attemptIndex + 1 < attempts.length
             ) continue;
             break;

@@ -1670,6 +1670,13 @@ interface JudgedFindings {
   provider: string;
 }
 
+export function findingsAfterJudge(
+  findings: ReviewFinding[],
+  judged: Pick<JudgedFindings, 'findings'> | null,
+): ReviewFinding[] {
+  return judged?.findings ?? findings;
+}
+
 async function askReviewJudge(
   findings: ReviewFinding[],
   reviewerProvider: string,
@@ -2327,7 +2334,18 @@ export async function runWebhookReview(
       );
     }
   }
-  const publishFindings = judged?.findings ?? findings;
+  const publishFindings = findingsAfterJudge(findings, judged);
+  if (!paidPhase && !judged && findings.length > 0) {
+    console.info(JSON.stringify({
+      kanarekWebhookReview: 'judge_fail_open',
+      repository: target.repository,
+      pullRequestNumber: target.number,
+      headSha: target.headSha,
+      reviewerProvider: generated.provider,
+      reviewerModel: generated.model,
+      findingCount: findings.length,
+    }));
+  }
   if (judged && publishFindings.length === 0) {
     console.log(JSON.stringify({
       kanarekWebhookReview: 'judge_clean',

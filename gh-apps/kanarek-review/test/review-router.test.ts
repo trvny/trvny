@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  fitProviderAttemptTokenBudget,
   handleReviewRouterRequest,
   REVIEW_ROUTER_MODEL_DEFAULTS,
   reviewFreeProbeTimeoutMs,
@@ -121,6 +122,7 @@ test('free router skips a successful provider response with no assistant content
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.deepEqual(calls, [
+    'https://openrouter.ai/api/v1/chat/completions',
     'https://openrouter.ai/api/v1/chat/completions',
     'https://api.orcarouter.ai/v1/chat/completions',
   ]);
@@ -254,12 +256,12 @@ test('review router prefers OpenRouter before the paid review reserves', async (
   assert.equal(call.authorization, 'Bearer openrouter-key');
 });
 
-test('reasoning-capable OpenRouter review chains get high reasoning with a 16K floor', async () => {
+test('heterogeneous OpenRouter fallback chains avoid optional reasoning without shrinking caller output', async () => {
   let body: Record<string, unknown> = {};
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-code-review-free',
     stream: false,
-    max_tokens: 512,
+    max_tokens: 36_864,
     messages: [{ role: 'user', content: 'review carefully' }],
   }), {
     ...auth,
@@ -275,8 +277,85 @@ test('reasoning-capable OpenRouter review chains get high reasoning with a 16K f
   assert.equal(response?.status, 200);
   assert.equal(body.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS[0]);
   assert.deepEqual(body.models, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.slice(1));
-  assert.deepEqual(body.reasoning, { effort: 'high' });
-  assert.equal(body.max_tokens, 16_384);
+  assert.equal(body.reasoning, undefined);
+  assert.equal(body.max_tokens, 36_864);
+});
+
+test('OpenRouter primary retry keeps high reasoning after a fallback-chain 400', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    max_tokens: 36_864,
+    messages: [{ role: 'user', content: 'review carefully' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    bodies.push(body);
+    if (bodies.length === 1) {
+      return Promise.resolve(Response.json({
+        error: { message: 'fallback request rejected' },
+      }, { status: 400 }));
+    }
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[0]?.max_tokens, 36_864);
+  assert.equal(bodies[0]?.reasoning, undefined);
+  assert.deepEqual(bodies[1]?.reasoning, { effort: 'high' });
+  assert.equal(bodies[1]?.max_tokens, 36_864);
+  assert.equal(bodies[1]?.models, undefined);
+});
+
+test('provider context fitting shrinks Groq output headroom before a 413 and skips impossible requests', () => {
+  const fits = fitProviderAttemptTokenBudget({
+    max_tokens: 36_864,
+    messages: [{ role: 'user', content: 'x'.repeat(100_000) }],
+  }, {
+    minimumMaxTokens: 16_384,
+    maximumMaxTokens: 65_536,
+    maximumContextTokens: 131_072,
+  });
+  assert.ok(fits);
+  assert.ok((fits.max_tokens as number) >= 16_384);
+  assert.ok((fits.max_tokens as number) < 36_864);
+
+  const impossible = fitProviderAttemptTokenBudget({
+    max_tokens: 36_864,
+    messages: [{ role: 'user', content: 'x'.repeat(120_000) }],
+  }, {
+    minimumMaxTokens: 16_384,
+    maximumMaxTokens: 65_536,
+    maximumContextTokens: 131_072,
+  });
+  assert.equal(impossible, null);
+});
+
+test('provider context fitting counts tool schemas as Groq prompt context', () => {
+  const impossible = fitProviderAttemptTokenBudget({
+    max_tokens: 16_384,
+    messages: [{ role: 'user', content: 'review carefully' }],
+    tools: [{
+      type: 'function',
+      function: {
+        name: 'huge_schema',
+        description: 'x'.repeat(120_000),
+        parameters: { type: 'object', properties: {} },
+      },
+    }],
+  }, {
+    minimumMaxTokens: 16_384,
+    maximumMaxTokens: 65_536,
+    maximumContextTokens: 131_072,
+  });
+  assert.equal(impossible, null);
 });
 
 test('review router uses direct DeepSeek Flash before Gemini Flex as the first paid reserve', async () => {
@@ -581,6 +660,57 @@ test('code-review profile allows Groq reasoning effort tuning without code chang
   assert.equal(effort, 'low');
 });
 
+test('Groq GPT-OSS 20B shares the context admission profile', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    max_tokens: 36_864,
+    messages: [{ role: 'user', content: 'x'.repeat(100_000) }],
+  }), {
+    ...auth,
+    GROQ_API_KEY: 'groq-key',
+    KANAREK_REVIEW_GROQ_MODEL: 'openai/gpt-oss-20b',
+    KANAREK_REVIEW_PROVIDER_ORDER: 'groq',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return Promise.resolve(Response.json({
+      model: 'openai/gpt-oss-20b',
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(bodies.length, 1);
+  assert.ok((bodies[0]?.max_tokens as number) >= 16_384);
+  assert.ok((bodies[0]?.max_tokens as number) < 36_864);
+});
+
+test('Groq context limits are applied only to the matching GPT-OSS model', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    max_tokens: 36_864,
+    messages: [{ role: 'user', content: 'x'.repeat(120_000) }],
+  }), {
+    ...auth,
+    GROQ_API_KEY: 'groq-key',
+    KANAREK_REVIEW_GROQ_MODEL: 'llama-3.3-70b-versatile',
+    KANAREK_REVIEW_PROVIDER_ORDER: 'groq',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return Promise.resolve(Response.json({
+      model: 'llama-3.3-70b-versatile',
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0]?.max_tokens, 36_864);
+});
+
 test('legacy free alias leaves Groq reasoning at the provider default', async () => {
   let body: Record<string, unknown> = {};
   const response = await handleReviewRouterRequest(request(routerToken, {
@@ -719,7 +849,7 @@ test('provider health exposes budget classes and task queues', async () => {
     health.providers.find((provider) => provider.provider === 'vercel')?.budgetClass,
     'monthly-free-credit',
   );
-  assert.equal(health.taskOrders.review[0], 'aihubmix');
+  assert.equal(health.taskOrders.review[0], 'openrouter');
   assert.equal(health.taskOrders.quip[0], 'aihubmix');
   assert.equal(health.taskOrders.shitpost[1], 'vercel');
 });

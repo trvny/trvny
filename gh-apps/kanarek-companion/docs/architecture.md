@@ -102,7 +102,7 @@ It is responsible for:
 - Simplified-Chinese human-facing review text;
 - RIGHT-side added-line anchors only;
 - revalidating the PR immediately before publication;
-- an L2 precision pass on the free review only: a rotating System One pool (AIHubMix Decision, OpenRouter Decisions with Mercury → Span-01 Lite, QwenCloud Decision) makes typed validity/duplicate decisions, with the existing generative judge as fail-open fallback; the paid pass skips L2;
+- an L2 precision pass on the free review only: a rotating System One pool (AIHubMix Decision, OpenRouter Decisions with Mercury → Span-01 Lite, QwenCloud Decision) gets a short experimental total budget for typed validity/duplicate decisions, then the existing generative judge gets its normal independent pass; if both L2 layers fail, verified L1 findings publish unchanged; the paid pass skips L2;
 - bounded retry scheduling for provider/job failures; findings that fail
   verification escalate to paid once and are never retried.
 

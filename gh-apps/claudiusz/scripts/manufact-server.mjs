@@ -45,13 +45,21 @@ function firstHeader(value) {
 
 async function requestBody(req) {
   if (req.method === 'GET' || req.method === 'HEAD') return undefined;
+
   const chunks = [];
   let size = 0;
+  let tooLarge = false;
+
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_ADAPTER_BODY_BYTES) throw new Error('request_too_large');
+    if (size > MAX_ADAPTER_BODY_BYTES) {
+      tooLarge = true;
+      continue;
+    }
     chunks.push(chunk);
   }
+
+  if (tooLarge) throw new Error('request_too_large');
   return Buffer.concat(chunks);
 }
 
@@ -83,7 +91,7 @@ const server = http.createServer(async (req, res) => {
     res.end(Buffer.from(await response.arrayBuffer()));
   } catch (error) {
     const status = error instanceof Error && error.message === 'request_too_large' ? 413 : 500;
-    console.error(JSON.stringify({ manufactAdapterError: String(error) }));
+    process.stderr.write(`${JSON.stringify({ manufactAdapterError: String(error) })}\n`);
     res.statusCode = status;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.end(status === 413 ? 'request too large\n' : 'internal server error\n');
@@ -92,5 +100,5 @@ const server = http.createServer(async (req, res) => {
 
 const port = Number.parseInt(process.env.PORT ?? '3000', 10);
 server.listen(port, '0.0.0.0', () => {
-  console.log(JSON.stringify({ event: 'listening', port }));
+  process.stdout.write(`${JSON.stringify({ event: 'listening', port })}\n`);
 });

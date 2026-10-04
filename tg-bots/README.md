@@ -13,7 +13,8 @@ Cloudflare Worker
    ├─ chat / drafts
    ├─ RSS curator
    ├─ existing Kanarek free-model router
-   └─ future: memory + schedules + Pet Dispatcher handoff
+   ├─ memory + reminders / proactive watches
+   └─ Pet Dispatcher handoff
 ```
 
 The intended split is simple:

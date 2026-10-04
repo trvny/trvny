@@ -7,6 +7,7 @@ import {
   decisionL2SuccessMarker,
   detectNpmMajorBumps,
   fetchReviewDependencyEvidence,
+  findingsAfterJudge,
   nextReviewPhase,
   parseReviewJson,
   patchAddedRightLines,
@@ -1055,6 +1056,22 @@ test('decision L2 fails open for uncertain duplicates and low keep probability',
   assert.deepEqual(judged.findings, findings);
 });
 
+
+test('judge failure preserves reviewer findings for publication', () => {
+  const findings = [{
+    body: 'real reviewer finding',
+    existingCode: 'return broken;',
+    line: 7,
+    path: 'src/example.ts',
+    severity: 'high' as const,
+    title: 'broken behavior',
+  }];
+  assert.equal(findingsAfterJudge(findings, null), findings);
+  assert.deepEqual(
+    findingsAfterJudge(findings, { findings: [] }),
+    [],
+  );
+});
 
 test('decision L2 diagnostics are safe hidden markers', () => {
   assert.equal(

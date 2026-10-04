@@ -80,7 +80,7 @@ kanarek-review
 
 The private `kanarek-review` Worker owns provider credentials and fallback/cooldown behavior behind the companion proxy. Workers AI is temporarily disabled both there and in this Worker so the account neuron allocation is reserved for SpaceMolt. The Telegram assistant needs only the existing `KANAREK_REVIEW_ROUTER_TOKEN`.
 
-Future heavyweight jobs should reuse the existing `pet-dispatcher-control` + `pet-dispatcher-tasks` transport instead of creating another task-control plane. The current dispatcher targets the Legion; multi-worker Android/Legion routing is a later extension.
+Heavyweight repo/build/test jobs reuse the existing `pet-dispatcher-control` + `pet-dispatcher-tasks` transport instead of creating another task-control plane. The current dispatcher targets the Legion; multi-worker Android/Legion routing is a later extension.
 
 Manual `/task` delegation can opt into a bounded network profile with
 `/task <repo> --net <profile> <polecenie>`. Allowed profiles are
@@ -162,7 +162,7 @@ Deploy:
 npm run deploy
 ```
 
-After the Worker exists, run GitHub Actions workflow **Sync Worker credentials** with target `tg-assistant`. It copies the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated. Production intentionally has no Workers AI binding while that allocation is reserved for SpaceMolt.
+Use GitHub Actions workflow **Sync Worker credentials** with target `tg-assistant` after credential rotation or Worker recreation. It mirrors the repository's existing `KANAREK_REVIEW_ROUTER_TOKEN` to the Worker. OpenRouter/OrcaRouter/AIHubMix keys remain centralized in the private `kanarek-review` Worker and are not duplicated. Production intentionally has no Workers AI binding while that allocation is reserved for SpaceMolt.
 
 Then create a local `.dev.vars` containing the Telegram token and webhook secret and register the production webhook. The helper subscribes to `message`, `inline_query`, `callback_query`, `stopped_message_generation`, `guest_message`, `business_connection`, and `business_message` updates:
 

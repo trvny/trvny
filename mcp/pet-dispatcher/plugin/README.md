@@ -23,3 +23,11 @@ OAuth/Mixed Authentication is tracked in [../plugin-roadmap.md](../plugin-roadma
 5. explicit session finalization.
 
 `golden-prompts.json` is the metadata-routing regression set.
+
+## Portable package and local marketplace
+
+The plugin uses the current portable Agent Plugins layout: root `plugin.json`,
+root `mcp.json`, bundled Skills and plugin-contained assets. The repository
+marketplace at `.agents/plugins/marketplace.json` exposes it for local authoring
+and testing. No compatibility manifest is added unless an older client actually
+requires one.

@@ -1,0 +1,20 @@
+{
+  "name": "trvny",
+  "interface": {
+    "displayName": "trvny"
+  },
+  "plugins": [
+    {
+      "name": "pet-dispatcher",
+      "source": {
+        "source": "local",
+        "path": "./mcp/pet-dispatcher/plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

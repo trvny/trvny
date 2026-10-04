@@ -20,7 +20,7 @@
     "com.openai": {
       "interface": {
         "displayName": "Pet Dispatcher",
-        "shortDescription": "Confined work on a paired dev machine",
+        "shortDescription": "Confined paired-machine work",
         "longDescription": "Inspect repositories, delegate bounded coding work, and manage confined Pet Dispatcher sessions through the existing Cloudflare control plane.",
         "developerName": "trvny",
         "websiteURL": "https://github.com/trvny/trvny/tree/main/mcp/pet-dispatcher",

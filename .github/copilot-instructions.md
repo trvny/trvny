@@ -1,7 +1,5 @@
 # GitHub Copilot
 
-Use the nearest applicable `AGENTS.md` for reviewed files; deeper rules override broader ones. Apply matching `.github/instructions/*.instructions.md` files.
-
 For code review:
 
 - Flag concrete PR regressions: correctness, security/privacy, data loss, races, lifecycle/resource leaks, compatibility, and repository contract violations.

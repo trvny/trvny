@@ -71,7 +71,7 @@ Keep the Cloudflare assistant on a separate BotFather bot so its webhook never c
 Current Legion path, based on the existing Pet Dispatcher:
 
 1. Cloudflare receives a heavy request, for example `sprawdź trvny/feedseek i odpal testy`.
-2. The assistant calls `pet-dispatcher-control` with a scoped control-plane credential.
+2. The assistant calls the scoped Pet Dispatcher RPC through the `PET_DISPATCHER` same-account Service Binding; it does not store or send the operator control-plane bearer.
 3. Pet Dispatcher creates the durable task state and enqueues the signed task on `pet-dispatcher-tasks`.
 4. The Legion worker claims the task, heartbeats, and reports a result.
 5. The assistant reads the result and forwards a concise summary to Telegram.

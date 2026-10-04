@@ -1,6 +1,6 @@
 # Pet Dispatcher plugin roadmap
 
-Status: **Foundation in progress.** The existing Cloudflare control plane and local worker remain canonical; the plugin is a product/UX layer over that system, not a second dispatcher.
+Status: **Foundation and Cockpit shipped; later phases remain open.** The Cloudflare control plane and local worker remain canonical; the plugin is a product/UX layer over that system, not a second dispatcher.
 
 ## Design rules
 
@@ -11,45 +11,18 @@ Status: **Foundation in progress.** The existing Cloudflare control plane and lo
 - Keep structured tool data useful without UI. Optional UI renders authoritative server state; it does not become a second source of truth.
 - Keep secrets out of plugin files. Current bearer/token compatibility remains until OAuth is deliberately added.
 
-## Phase 1 - plugin foundation
+## Shipped foundation
 
-- [x] Package Pet Dispatcher as a portable plugin beside the existing runtime.
-- [x] Add one focused `confined-repo-work` skill for the normal inspect -> reason/work -> inspect result -> finish flow.
-- [x] Add focused `pet_workspace_inspect`, `pet_read_files` and `pet_session_finish` facades over the existing direct RPC.
-- [x] Retain `pet_direct` for operations without a focused facade.
-- [x] Tune server/tool metadata with explicit "Use this when..." and negative guidance.
-- [x] Add a labelled golden prompt set covering direct, indirect and negative activation cases.
-- [ ] Replay the golden set in ChatGPT Developer Mode and record precision/recall notes after meaningful metadata changes.
+- portable plugin beside the existing runtime,
+- focused `confined-repo-work` skill plus `pet_workspace_inspect`, `pet_read_files` and `pet_session_finish`,
+- `pet_direct` retained as the canonical low-level escape hatch,
+- labelled golden prompts for routing checks,
+- self-contained Pet Dispatcher Cockpit MCP App at `ui://pet-dispatcher/cockpit/v1`,
+- global/sidebar and thread-panel entrypoints with worker/session/task state,
+- target selection through Model-App Context,
+- recent-task details, cancellation and finish-session controls using canonical server tools.
 
-## Phase 2 - Pet Dispatcher Cockpit
-
-The first cockpit slice is live in the MCP server at `ui://pet-dispatcher/cockpit/v1`.
-
-- [x] Versioned self-contained MCP App resource with no external runtime assets.
-- [x] App-only render tool with global/sidebar and conversation/thread entrypoints.
-- [x] Worker freshness, device, active session/process counts, sandbox summary and configured targets.
-- [x] In-app refresh combining the existing metadata and canonical recent-task index.
-- [x] Target selection synchronized to the conversation through Model-App Context.
-- [x] Recent task identifiers and bounded summaries, full task result/tests/diff details on demand, and live per-target session identifiers.
-- [x] Explicit task cancel and session finish controls through existing tools, with no automatic replay of session mutations.
-
-Target view:
-
-- paired device freshness and basic health;
-- configured repository/workspace target;
-- active task and session;
-- executor/profile;
-- bounded result, tests and diff summary;
-- explicit Refresh, Cancel and Finish-session actions.
-
-Keep data tools decoupled from render tools so normal chat/Codex use stays useful without the component.
-
-Use Plugin Extensions when host support fits:
-
-- global/sidebar entrypoint for a persistent cockpit;
-- thread panel for work beside the current conversation;
-- Model-App Context so selecting a target/task/session can inform the model without repeating IDs in chat;
-- deep links to a specific task/session when useful.
+The remaining foundation task is periodic manual replay of the golden prompt set after meaningful metadata or host/model changes. Keep chat/Codex useful without the UI component.
 
 ## Phase 3 - structured delegation UX
 

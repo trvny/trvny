@@ -49,11 +49,11 @@ Manual: `npm run deploy`, or upload a bundle through the Cloudflare API
 ## Manufact runtime
 
 Manufact hosts the same Wrangler-built Worker bundle behind a thin Node HTTP
-adapter. No GitHub/MCP tool logic is duplicated.
+adapter. No GitHub/MCP tool logic is duplicated. The build context includes
+`kanarek-companion` because Claudiusz reuses its canonical GitHub App JWT helper.
 
-- Root directory: `gh-apps/claudiusz`
-- Build: `npm ci && npm run manufact:build`
-- Start: `npm run manufact:start`
+- Root directory: `gh-apps`
+- Dockerfile: `claudiusz/Dockerfile.manufact`
 - Port: `3000`
 - Region: `EU`
 - Variables: `CLAUDIUSZ_APP_ID=4454097`, `ALLOWED_OWNERS=trvny,travnie`

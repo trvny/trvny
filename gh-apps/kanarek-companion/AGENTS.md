@@ -7,12 +7,7 @@ deployment/package slug, not every subsystem's name.
   queueing/context and publication. Shared free-provider routing runs in private
   `kanarek-review` Worker behind a Service Binding.
 - **GPTomek Bridge** owns `gptomek[bot]` identity, installation auth, control transport and GPTomek-attributed writes.
-- Before changing GPTomek transport, read `../gptomek/README.md`. Default: Issue
-  `trvny/trvny#203`. Keep closed PR `#176` plus `gptomek/control` as independent
-  transport fallback exposing the same GPTomek operations. Issue relay may invoke
-  it automatically after failed primary Worker wake. Keep command IDs across
-  retries/failover. Never bypass checkpoint/result-envelope contract or casually
-  clean up fallback PR/ref.
+- Before changing GPTomek transport, read `../gptomek/README.md`; it owns the current control/fallback identifiers. Preserve command IDs across retries/failover, checkpoint/result-envelope semantics and fallback anchors. Never invent a parallel transport or treat fallback state as cleanup debris.
 - **Gremlin Operator** owns guarded GPT Actions, coding, maintenance, workflow, release and policy orchestration.
 - **Specialist Intelligence** owns bounded domain lookups, e.g. packages, docs and Engram; start new artifact/feed/web inspection here.
 - **Shared runtime core** owns only reusable auth, transport, safety, OpenAPI and Durable Object plumbing.

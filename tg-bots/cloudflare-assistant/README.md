@@ -4,51 +4,16 @@ Small 24/7 Telegram assistant designed to stay cheap and boring to operate. Clou
 
 ## What exists now
 
-- owner-only Telegram webhook; private chat is conversational, while groups/supergroups require explicit owner `/ask` or native ephemeral `/whisper`;
-- durable Telegram update delivery through Cloudflare Queues;
-- persistent `update_id` state in a SQLite Durable Object;
-- dead-letter queue for exhausted or non-replayable Telegram deliveries;
-- /help, /ask <question>, /status, /draft <message>, /remember, /recall, /memory_status, /remind, /reminders, /remind_cancel, /poll, /quiz, /dice, /sticker, /location, /venue, /contact, and /reset; group-only `/whisper <question>` is advertised as an ephemeral command only to the owner;
-- /start and /help self-sync the owner-scoped Telegram command list and command menu from code;
-- bounded per-chat conversation context for ordinary messages;
-- owner `/ask <question>` works in groups and forum topics; other group traffic is ignored, replies use typing instead of private-chat drafts, and short memory stays isolated by chat/topic; the first visible `/ask` in a chat also syncs the owner-only group command scope so `/whisper <question>` can arrive as a native ephemeral command and receive a stateless private reply within Telegram's short delivery window;
-- private-chat topics keep replies, thinking indicators and short conversation memory inside the originating topic;
-- `/topic <name>` creates a native private-chat topic when Botek topic mode is enabled in Telegram;
-- native Telegram reply-to behavior plus rate-bounded live `sendRichMessageDraft` streaming for model-backed replies, with plain-draft and typing fallbacks;
-- Bot API 10.3 generation-stop controls abort active streamed replies, bypass the serialized update queue, and preserve the generated partial as a normal message when possible;
-- model-backed replies use Telegram Rich Messages up to 32,768 characters; deterministic Markdown rejection retries as escaped Rich HTML before the legacy 4,096-character plain-text fallback;
-- best-effort native reactions show state for model-backed owner messages (`👀` while working, `👍` after successful delivery, `👎` on handled failures, `🤨` when delivery is ambiguous);
-- ordinary private model replies expose owner-only `👍 Pomogło` / `👎 Słabo` callback feedback; one rating per bot reply is kept as bounded telemetry and never enters model context;
-- `/status` uses a native Rich Message table plus expandable fallback details, with the existing refresh callback editing the same structured view and a plain-text fallback for deterministic Rich Message rejection;
-- Telegram-native button styles distinguish primary actions, successful copy actions and destructive task cancellation;
-- native clipboard button on short `/draft` suggestions;
-- `/task <repo> <polecenie>` delegates bounded code tasks to the Legion through the existing Pet Dispatcher RPC surface, with inline status/cancel controls and proactive terminal-result notifications;
-- `/remind 15m | tekst` stores a bounded one-shot reminder (relative minutes/hours/days, up to 30 days); `/reminders` lists active entries and `/remind_cancel <id>` removes one; delivery reuses the existing minute cron;
-- `/watch`, `/watches` and `/watch_cancel` share one durable proactive-watch registry: Legion online/offline transitions and GitHub PR conditions are one-shot, while Feedseek topic watches stay active and deduplicate already-seen entries; the same minute cron evaluates all sources with source-specific intervals and short claims to avoid duplicate notifications;
-- `/remember <tekst>`, `/recall <pytanie>` and `/memory_status` use the existing Engram specialist core through a narrow same-account Service Binding; the Telegram Worker never receives the Engram credential; ordinary private text also performs a bounded best-effort recall only on explicit prior-context cues, and retrieved memory is injected as non-instruction context;
-- owner-only stateless inline mode can answer `@trvny_bot <query>` from other chats, with a native shortcut on `/start` and `/help`; rapid query edits are coalesced before model work;
-- optional Telegram Guest Mode lets the owner summon Botek with `@trvny_bot` in chats where the bot is not a member; an otherwise bare summon defaults to a short joke/bait/roast, using the replied-to message as context when present; guest replies stay stateless, bounded, one-shot, and explicitly barred from private memory or acting on the owner's behalf;
-- owner-only Mini App Control Center includes quick-launch Bench tiles for Codebench, Streambench and Docbench, opening their existing public tools through Telegram's Web App link API;
-- optional Telegram Business/Secretary draft mode watches only the owner's enabled Business connection, keeps an isolated six-entry text/caption context per connection+chat from updates Botek actually receives, and turns supported incoming third-party messages into a private suggestion; it never sends the suggestion back to the third party automatically;
-- owner voice-note/audio transcription is temporarily disabled while Workers AI is reserved for SpaceMolt;
-- owner photo/screenshot vision is temporarily disabled while Workers AI is reserved for SpaceMolt; native Telegram albums are still coalesced, ordered and deduplicated, and mixed albums retain bounded media metadata without image analysis;
-- videos, video notes and animations use bounded Telegram metadata; thumbnail vision is temporarily disabled with Workers AI, and full media bytes are not downloaded or claimed as inspected;
-- owner-shared locations, venues, contacts, polls, checklists, stickers and Telegram dice normalized into bounded assistant context; checklist task additions/status changes are captured when quoted or forwarded instead of causing unsolicited bot replies;
-- `/poll question | option 1 | option 2` sends a native non-anonymous Telegram poll with 2–12 options;
-- `/quiz question | +correct | wrong | +also correct` sends a native quiz; prefix each correct answer with `+` (`++text` escapes a literal leading plus);
-- `/dice [🎲|🎯|🏀|⚽|🎳|🎰]` sends Telegram's native random dice/game animation;
-- replying `/sticker` to a sticker resends that exact Telegram sticker by `file_id`;
-- `/location`, `/venue` and `/contact` send native Telegram structured messages from bounded owner-only command input;
-- owner-shared text/code documents downloaded transiently with strict size/type bounds and injected as untrusted document data;
-- replies and forwarded messages are normalized into bounded untrusted context; forwarded command-looking text cannot trigger owner commands;
-- shared free-model routing through the existing Kanarek Companion router;
-- no local Workers AI fallback while the account neuron allocation is reserved for SpaceMolt;
-- `POST /ingest/rss` for Feedseek/RSS curation;
-- explicit RSS retry/error contract;
-- `GET /health` for smoke checks;
-- no server, polling loop, or always-on phone process.
-
-Engram-backed long-term memory, broader Telegram Business send-on-behalf workflows, and Hermes handoff are deliberately left for later slices rather than faked into the MVP.
+- **Telegram delivery:** owner-scoped webhook, Queue-backed processing, Durable Object dedup/context, DLQ, private topics, explicit group `/ask` and ephemeral `/whisper`.
+- **Chat UX:** bounded context, Rich Message streaming with stop support and safe HTML/plain fallbacks, reply-to delivery, state reactions, feedback callbacks and structured `/status`.
+- **Native Telegram tools:** polls, quizzes, dice, stickers, locations, venues, contacts, inline mode and owner-only Guest Mode.
+- **Memory and proactive work:** Engram-backed `/remember` / `/recall`, one-shot reminders, Legion/GitHub/Feedseek watches and terminal task notifications.
+- **Heavy work:** `/task` delegates repo/build/test work to the existing Pet Dispatcher/Legion path; automatic repo-work routing stays conservative and never grants network access implicitly.
+- **Business/Secretary:** isolated bounded draft context; optional contacts-only 12-hour Botek auto-reply is fail-closed and cannot make consequential commitments.
+- **Inputs:** bounded text/code documents and Telegram structured context; voice/vision paths that depend on Workers AI are paused while that allocation is reserved for SpaceMolt.
+- **Mini App:** control center plus existing Codebench, Streambench and Docbench links.
+- **Model routing:** same-account Kanarek Companion router; provider credentials remain centralized in `kanarek-review`.
+- **Service endpoints:** `POST /ingest/rss` and `GET /health`; no polling daemon or always-on phone process.
 
 ## Roadmap
 

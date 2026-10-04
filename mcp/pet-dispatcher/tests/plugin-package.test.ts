@@ -14,6 +14,7 @@ test("Pet Dispatcher plugin package reuses the existing remote MCP without embed
       "com.openai"?: {
         interface?: {
           category?: string;
+          shortDescription?: string;
           capabilities?: string[];
           logo?: string;
           composerIcon?: string;
@@ -40,7 +41,7 @@ test("Pet Dispatcher plugin package reuses the existing remote MCP without embed
   assert.equal(plugin.version, "0.1.1");
   assert.match(plugin.homepage ?? "", /mcp\/pet-dispatcher\/plugin$/u);
   assert.equal(plugin.extensions?.["com.openai"]?.interface?.category, "Developer Tools");
-  assert.ok((plugin.extensions?.["com.openai"]?.interface as { shortDescription?: string } | undefined)?.shortDescription?.length <= 30);
+  assert.ok((plugin.extensions?.["com.openai"]?.interface?.shortDescription?.length ?? Infinity) <= 30);
   assert.deepEqual(plugin.extensions?.["com.openai"]?.interface?.capabilities, ["Read", "Write"]);
   assert.equal(plugin.extensions?.["com.openai"]?.interface?.logo, "./assets/icon.png");
   assert.equal(plugin.extensions?.["com.openai"]?.interface?.composerIcon, "./assets/icon.png");

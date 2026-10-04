@@ -79,108 +79,30 @@ Current Legion path, based on the existing Pet Dispatcher:
 
 ## Botek roadmap
 
-The target is not just an AI behind a Telegram chat. Botek should become a capable personal agent and a first-class Telegram application. Development therefore has two parallel tracks that converge on one maintained backend.
+Botek has two maintained tracks: agent/integration work and Telegram-native UX. The detailed operational surface belongs in [cloudflare-assistant/README.md](cloudflare-assistant/README.md); this file keeps only product direction.
 
-### Implemented baseline
+### Current state
 
-- owner-only Telegram webhook with explicit `/ask` or ephemeral `/whisper` opt-in for group/supergroup replies;
-- durable Telegram update queue, update-id deduplication and DLQ;
-- shared free-model router; local Workers AI disabled while reserved for SpaceMolt;
-- /ask, /draft, /status, /help, /poll, /quiz, /dice, /sticker, /location, /venue, /contact and /reset, plus owner-only group `/whisper` as a native ephemeral command;
-- owner-scoped Telegram commands and command menu self-synced from the Worker;
-- bounded recent conversation context with reset generations;
-- private-chat topic mode and explicit group `/ask` keep Telegram delivery and short memory isolated per chat/topic;
-- native private-chat topic creation through `/topic <name>`;
-- native reply-to delivery plus rate-bounded live Rich Message drafts with plain-draft and typing fallback for model-backed replies, including Bot API 10.3 stop-generation handling;
-- model-backed replies sent as Telegram Rich Messages with the 32,768-character rich-text budget and deterministic escaped-Rich-HTML/plain fallback when Telegram rejects Markdown formatting;
-- best-effort native message reactions for model-backed owner messages (`👀` while processing, `👍` after successful delivery, `👎` on handled failures, `🤨` on ambiguous delivery);
-- owner-only `👍 Pomogło` / `👎 Słabo` callback feedback on ordinary private model replies, stored as a bounded 64-entry ledger separate from model-facing conversation memory;
-- `/status` rendered as a native Rich Message provider table with expandable fallback details, refreshed in place through callback queries;
-- native button colors distinguish primary, success and destructive inline actions;
-- native clipboard action on short `/draft` suggestions;
-- manual `/task <repo> <polecenie>` delegation to the Legion through the scoped Pet Dispatcher RPC entrypoint, with inline status/cancel controls and proactive terminal-result notifications;
-- `/tasks` shows the last few Pet Dispatcher tasks (any surface, not just Botek) via the control plane's existing recent-task index, with a refresh button;
-- owner-only stateless Telegram inline answers for `@trvny_bot <query>` plus an inline-mode shortcut, Durable Object debounce for rapid edits, and an inline-specific response deadline;
-- owner-only Telegram Guest Mode for one-shot stateless replies in chats where Botek is not a member; a bare summon defaults to a concise joke/bait/roast and targets the replied-to message when present, with no private-memory/tool access and no acting on behalf of the owner;
-- owner-only Telegram Business/Secretary draft mode for bounded incoming third-party text/captions: the Business connection is revalidated against the owner, up to six recent text/caption Business updates for that connection+chat are kept as separate untrusted context, and only a private suggestion is delivered to the owner with no automatic send-on-behalf;
-- owner voice-note/audio transcription paused while Workers AI is reserved for SpaceMolt;
-- photo/screenshot Workers AI vision paused while the allocation is reserved for SpaceMolt; album metadata handling remains bounded;
-- video, video-note and animation inputs keep bounded metadata; thumbnail vision is paused with Workers AI; full media remains undownloaded;
-- owner-shared locations, venues, contacts, polls, stickers and Telegram dice normalized into bounded chat context;
-- native owner-created polls through `/poll question | option 1 | option 2`;
-- native multi-answer quizzes through `/quiz question | +correct | wrong | +also correct`;
-- native Telegram dice/game sends through `/dice [🎲|🎯|🏀|⚽|🎳|🎰]`;
-- native sticker resend by replying `/sticker` to an existing Telegram sticker;
-- native owner-only location, venue and contact sends through structured commands;
-- owner-shared text/code documents read transiently with bounded UTF-8 content and untrusted-data framing;
-- owner-shared Telegram checklists normalized directly, with task-added/task-status service updates captured as bounded untrusted reply/forward context rather than standalone triggers;
-- same-chat reply context and forwarded messages normalized into bounded untrusted context, with forwarded command text kept outside the owner-command path;
-- Feedseek/RSS curation endpoint;
-- health/status endpoint.
+- durable owner-scoped Telegram delivery with short per-chat/topic context, Rich Message streaming, reactions, callbacks and safe fallbacks;
+- inline mode, Guest Mode, groups/topics, native polls/quizzes/dice/stickers/structured sends and bounded document/media context;
+- Engram-backed explicit memory plus cue-triggered recall;
+- one-shot reminders and proactive watches for Legion, GitHub PR conditions and Feedseek topics;
+- Pet Dispatcher delegation with status/cancel controls, conservative repo-work auto-routing and terminal-result notifications;
+- Telegram Business/Secretary drafts with isolated bounded context; optional contacts-only 12-hour Botek auto-reply remains fail-closed and cannot make consequential commitments;
+- Mini App/control surfaces reuse existing services instead of creating new backends.
 
-### Track A: agent brain and integrations
+### Next
 
-1. **Hermes / Legion handoff** — manual bounded delegation plus inline status/cancel is implemented. Ordinary private owner text auto-routes conservatively when it contains both an explicit configured repo alias/path and a repo-work action; read-only requests use `inspect`, mutation requests use `code`. Botek-submitted tasks are watched durably and terminal results are pushed back to the originating Telegram message. Next add richer in-progress updates and broader local-tool workflows without bypassing the dispatcher security boundary.
-2. **Long-term memory** — explicit owner-only `/remember`, `/recall` and `/memory_status` use Engram through the shared Specialist Intelligence Worker; Botek never owns the Engram credential. Ordinary private text also performs bounded best-effort Engram recall only when it contains clear prior-context cues (for example "pamiętasz", "last time" or "we decided"), and retrieved memory is framed as non-instruction context. True `forget` remains pending until the canonical Engram bridge exposes deletion; do not fake deletion with tombstones.
-3. **Multimodal work** — voice notes, bounded audio uploads, owner photos/screenshots and bounded text/code documents are implemented; add PDF/office extraction and richer media backends next.
-4. **Tool routing** — let normal language invoke approved GitHub/GPTomek, Cloudflare/status, Feedseek/RSS, web/search and other integrations without requiring a dedicated command for every capability.
-5. **Scheduler and proactive assistance** — completed Botek task notifications, bounded one-shot relative reminders and a shared proactive watch registry are implemented on the minute cron. Initial watch sources cover Legion freshness transitions, GitHub PR CI/merge/close conditions and continuous deduplicated Feedseek topic matches. Next add quiet hours, recurring briefings and broader service alerts without creating parallel schedulers or noisy low-value notifications.
-6. **Reply assistant** — human-in-the-loop Telegram Business/Secretary drafts use a tiny per-connection+chat context built only from text/caption Business updates Botek actually receives. An opt-in `contacts-only` mode now adds one pending idle reply per Business chat: a new contact message resets it, an owner reply cancels it, and after 12 hours the shared minute scheduler can send a short context-aware reply explicitly as Botek. The Telegram Business recipient filter must be configured to Contacts only because Bot API does not expose per-message contact membership. Money, commitments, dates, private matters and ambiguous requests stay non-autonomous.
-7. **Task UX** — `/tasks` lists the last few delegated tasks with a refresh control; per-task status/cancel controls already exist on `/task` and `/legion` replies. Recent-task rendering now includes result metadata and prunes terminal entries older than seven days while preserving active work.
+- richer in-progress Pet Dispatcher updates and broader approved local-tool workflows;
+- PDF/Office extraction and better document/audio handling where useful;
+- quieter recurring briefings, quiet hours and broader service watches;
+- richer structured task/GitHub/research replies and inline result types;
+- selected Business actions only with separate permissions and approval boundaries;
+- multi-worker Pet Dispatcher routing when Android/other workers are real.
 
-Suggested order: Hermes/Legion handoff → long-term memory → multimodal input → tool routing → proactive workflows.
+Keep Telegram as the control surface while Cloudflare, Kanarek routing, Engram and Pet Dispatcher remain the canonical backend pieces. Do not add parallel command-specific services.
 
-### Track B: Telegram-native experience
-
-1. **Native chat UX** — reply-to delivery, live Rich Message streaming with safe fallbacks, native generation stop, Telegram Rich Message formatting and a structured Rich Message `/status` view are implemented; next expand structured blocks to task/GitHub/research reports and richer editing without chains of status messages.
-2. **Inline keyboards and callbacks** — callback plumbing, `/status` refresh and short-draft clipboard actions are implemented; extend buttons to confirmations, task controls, model choices, retries and other frequent actions.
-3. **Command/menu synchronization** — owner-scoped commands and the native command menu are synced from code on `/start` or `/help`; add localization when Botek gains additional user-facing languages.
-4. **Reactions and lightweight feedback** — model-backed owner messages use best-effort state reactions for processing, success, handled failure and ambiguous delivery. Ordinary private model replies also expose owner-only `👍 Pomogło` / `👎 Słabo` callbacks backed by a bounded overwriteable feedback ledger. Native reaction feedback from the owner is still not relied on in private chat because Bot API reaction updates require bot administrator access.
-5. **Inline mode** — owner-only stateless `@trvny_bot ...` answers are implemented for quick ask/summarize/translate flows; next add richer inline result types and optional feedback telemetry.
-6. **Media and Telegram inputs** — voice notes, audio uploads, owner photos/screenshots, bounded photo and mixed photo/video album analysis, thumbnail-based video/video-note/animation previews, stickers, dice, text/code files, locations, venues, contacts, polls, checklists, reply context and forwarded-message context are implemented; add PDF/office documents and richer document/audio album backends where they improve a workflow.
-7. **Groups, topics and Business** — explicit owner-only `/ask` replies are implemented for groups/supergroups with chat/topic-isolated memory, owner-only `/whisper` uses Telegram ephemeral commands for stateless private-in-group replies, owner-only Guest Mode provides stateless one-shot replies without joining the chat, and Business/Secretary drafts use an isolated six-entry text/caption context from received Business updates; extend only selected workflows further while preserving explicit approval boundaries for third-party replies.
-8. **Mini App** — provide a Telegram-native dashboard for Memory, Tasks, GitHub, Feeds, Models, Legion and service status. Use Mini App capabilities such as theme integration, QR scanning, device storage or biometrics only where they improve a concrete workflow.
-
-Suggested order: typing/replies/formatting/buttons → callbacks/editing/reactions → inline mode → richer media → Mini App and broader Telegram surfaces.
-
-### Framework audit
-
-The maintained audit of Go Telegram frameworks lives in
-[`FRAMEWORK-AUDIT.md`](FRAMEWORK-AUDIT.md). Botek stays on TypeScript and
-Cloudflare; the useful ideas are internal patterns, not a rewrite.
-
-The main ideas worth importing are:
-
-- typed predicate-based update routing instead of growing one giant handler;
-- a small middleware layer for owner scope, callback ACK and shared guards;
-- durable typed multi-step flows/FSMs with timeout, cancel and versioning;
-- opaque expiring callback payload IDs for richer buttons and approvals;
-- Bot API version/drift review without chasing full API coverage;
-- an injectable fake Telegram transport for contract tests;
-- small UI builders only where repeated structures justify them.
-
-### Telegram capability backlog
-
-Keep this list as the single roadmap for Telegram-platform features that are interesting but not all worth shipping at once. Prefer features that improve the owner's daily Botek workflow; keep Business/Secretary and account-management surfaces explicitly opt-in.
-
-- **Rich Message blocks (in progress)** — `/status` now uses a compact native table and expandable fallback details. Next extend selected structured replies with details/quotes, document/media blocks, maps, collage/slideshow, draft-only thinking blocks and inline actions for GitHub/Pet Dispatcher reports and research summaries, while retaining Rich Markdown/HTML/plain fallbacks.
-- **Media groups / albums (photo + video slice implemented)** — messages sharing `media_group_id` are coalesced through one maintained gate. Pure photo albums analyze up to six ordered images; mixed photo/video albums stay one ordered request where photos get bounded vision and videos contribute metadata plus thumbnail-only analysis. Document/audio album families still use existing per-message handling until a concrete workflow justifies extending the same gate.
-- **Richer inline mode** — focused ask/summarize/translate/explain/reply prefixes are implemented on the existing stateless inline path. Next add code/search result variants, richer inline result types and `chosen_inline_result` telemetry without persisting unrelated chat contents.
-- **Mini App control center** — a small Telegram-native dashboard for Models, Memory, Tasks, GitHub, Feeds, Legion and health. Start read-mostly; add device storage, QR/biometric features or prepared inline messages only for concrete workflows.
-- **Secretary / Business mode (bounded context implemented)** — enabled owner Business connections turn bounded incoming third-party text/captions into private draft-only suggestions and keep up to six recent text/caption updates per connection+chat as isolated untrusted context. `getUserPersonalChatMessages` is a separate profile personal-chat surface, not DM history, so do not use it to reconstruct conversations. Next investigate richer supported Business metadata and separately permissioned reply actions. Payments, commitments, scheduling, private matters and ambiguous third-party replies stay approval-only.
-- **Bot-to-bot delegation** — allow narrowly scoped handoffs to specialist bots such as Kanarek/research helpers when bot-to-bot communication is enabled. Add loop prevention, hop limits, provenance and cost/token guards before any autonomous chaining.
-- **Managed Bots** — optional future bot-factory flow for creating/configuring tightly scoped helper bots and managing their access settings. Never expose or persist managed-bot tokens outside the existing secret-management path.
-- **Communities and broader chat topology** — understand Telegram Communities, linked channels/groups/bots and direct-message topics only when there is a real multi-chat workflow that benefits from shared routing or context.
-- **Profile polish** — local tooling now supports `setMyProfilePhoto` / `removeMyProfilePhoto`, localized `setMyName` / `setMyDescription` / `setMyShortDescription`, and bounded read-only `getUserProfileAudios` inspection. Profile audio cannot currently be set through Bot API; custom emoji and other small bot-profile capabilities remain optional follow-ups without coupling them to assistant logic.
-- **Reactions and feedback** — state reactions plus owner-only private reply feedback callbacks are implemented. Keep future reaction-driven feedback limited to chats where Telegram permissions provide reliable updates, and do not turn ambient reaction changes into unsolicited assistant replies.
-- **Message effects and presentation** — optionally use message effects, silent/protected delivery and other small send-time affordances for deliberate owner-facing UX, never as default noise.
-- **Stories / business media** — business story posting, paid media and related monetization surfaces stay off by default; consider only with an explicit owner workflow and separate permission boundary.
-- **Local Bot API server** — keep `logOut`/`close` migration support documented as an escape hatch for large-file or local-hosted workflows. Do not move the always-on Cloudflare bot off the hosted Bot API without a concrete operational reason.
-- **Large/local files and richer documents** — if PDF/Office/media workflows outgrow hosted Bot API or Worker limits, prefer a bounded Pet Dispatcher/local extraction path rather than silently downloading huge files in the Worker.
-
-Platform constraints to preserve: Guest/ephemeral/Secretary/Business capabilities have different delivery windows and permission models; reactions may require administrator rights in chats; some profile/business surfaces require specific rights; `sendChecklist` is business-account-only; draft-only rich blocks such as thinking must not leak into normal persisted messages.
-
-The two tracks should converge: Telegram is the control surface, while Cloudflare, the shared model router, Engram and Pet Dispatcher remain the maintained backend pieces. Do not grow parallel command-specific backends when an existing service already owns the concern.
+The framework-pattern audit lives in [FRAMEWORK-AUDIT.md](FRAMEWORK-AUDIT.md).
 
 ## Bot identities
 

@@ -8,7 +8,7 @@ description: Use when MechaGremlin needs to inspect projects, consult specialist
 Use the existing Gremlin Operator runtime. Do not create a parallel GitHub,
 Cloudflare, memory, or automation backend inside this plugin.
 
-## Current boundary
+## Runtime boundary
 
 The bundled `gremlin` MCP uses the existing OAuth-protected specialist
 transport. Use only tools actually exposed by the live MCP schema. Do not claim
@@ -30,7 +30,7 @@ credentials, provider keys, or other secrets in plugin files or responses.
 
 ## Migration
 
-Before declaring migration complete, read `references/migration.md` and satisfy
-every acceptance gate. Until then, the legacy Custom GPT remains the behavioral
-reference for instructions and knowledge, while this package is only the
-plugin-side integration source.
+Migration state lives in `references/migration.md`; do not mirror completion
+status in this skill. For migration work, read that file and satisfy its
+acceptance gates. Treat legacy Custom GPT behavior as a reference only where the
+canonical migration document still requires parity.

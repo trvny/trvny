@@ -1,0 +1,11 @@
+FROM node:22-alpine
+
+WORKDIR /app
+COPY . .
+
+WORKDIR /app/claudiusz
+RUN npm ci
+RUN npm run manufact:build
+
+EXPOSE 3000
+CMD ["npm", "run", "manufact:start"]

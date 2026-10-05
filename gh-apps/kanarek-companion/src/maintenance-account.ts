@@ -158,14 +158,17 @@ async function ownedRepositories(
       request,
       env,
       fetcher,
-      `/user/repos?affiliation=owner&sort=full_name&per_page=${PAGE_SIZE}&page=${page}`,
+      `/user/repos?affiliation=owner,organization_member&sort=full_name&per_page=${PAGE_SIZE}&page=${page}`,
     );
     if (!result.ok) throw new AccountMaintenanceError(result.error, result.status);
     if (!Array.isArray(result.data)) {
       throw new AccountMaintenanceError('invalid_repositories_response', 502);
     }
     const pageRepositories = result.data.filter(isObject);
-    repositories.push(...pageRepositories);
+    // Org membership can include out-of-scope owners; drop them before the cap.
+    repositories.push(...pageRepositories.filter((repository) =>
+      typeof repository.full_name === 'string' && repositoryInScope(repository.full_name),
+    ));
     if (pageRepositories.length < PAGE_SIZE) {
       return { repositories, truncated: false };
     }

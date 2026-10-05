@@ -13,7 +13,7 @@ import {
 } from './policy-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
@@ -262,15 +262,7 @@ export function effectiveAutofixLimits(
 }
 
 async function parseAutofixInput(request: Request): Promise<AutofixInput> {
-  const text = await request.clone().text();
-  if (text.length > 16_000) throw new PolicyEnforcementError('payload_too_large', 413);
-  let value: unknown;
-  try {
-    value = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new PolicyEnforcementError('invalid_json');
-  }
-  if (!isObject(value)) throw new PolicyEnforcementError('invalid_json_object');
+  const value = await readJsonObject(request, 16_000, (code, status) => new PolicyEnforcementError(code, status));
   if (Object.keys(value).some((key) => !['repositories', 'dryRun', 'maxActions'].includes(key))) {
     throw new PolicyEnforcementError('invalid_autofix_request');
   }

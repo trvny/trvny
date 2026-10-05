@@ -1,6 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
-import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
@@ -86,16 +86,7 @@ function internalRequest(source: Request, pathname: string, body: JsonObject): R
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > 128_000) throw new LifecycleError('payload_too_large', 413);
-  let value: unknown;
-  try {
-    value = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new LifecycleError('invalid_json');
-  }
-  if (!isObject(value)) throw new LifecycleError('invalid_json_object');
-  return value;
+  return readJsonObject(request, 128_000, (code, status) => new LifecycleError(code, status));
 }
 
 async function responsePayload(response: Response): Promise<JsonObject> {

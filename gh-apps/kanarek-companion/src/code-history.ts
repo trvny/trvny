@@ -1,4 +1,4 @@
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const CODE_HISTORY_PATH = '/gpt-actions/github/code/history';
@@ -131,15 +131,7 @@ function maxCommits(value: unknown): number {
 }
 
 async function inputObject(request: Request): Promise<Input> {
-  const text = await request.clone().text();
-  if (text.length > 16_000) throw new CodeHistoryError('payload_too_large', 413);
-  let value: unknown = {};
-  try {
-    if (text.trim()) value = JSON.parse(text);
-  } catch {
-    throw new CodeHistoryError('invalid_json');
-  }
-  if (!isObject(value)) throw new CodeHistoryError('invalid_json_object');
+  const value = await readJsonObject(request, 16_000, (code, status) => new CodeHistoryError(code, status));
   const allowed = new Set([
     'repository',
     'path',

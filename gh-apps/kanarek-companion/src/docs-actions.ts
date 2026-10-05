@@ -1,11 +1,10 @@
 import { searchLlmsDocs, type RemoteFetch } from './llms-docs.ts';
-import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const INDEX_PATH = '/gpt-actions/docs/index';
 const SEARCH_PATH = '/gpt-actions/docs/search';
 const GET_PATH = '/gpt-actions/docs/get';
-const READ_PATH = '/gpt-actions/github/read';
 const EXPECTED_OPERATOR = 'trvny';
 const EXPECTED_OWNER = 'trvny';
 const MAX_REQUEST_BYTES = 24_000;
@@ -25,20 +24,6 @@ class DocsActionError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function internalReadRequest(source: Request, path: string): Request {
-  const url = new URL(source.url);
-  url.pathname = READ_PATH;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ path }),
-  });
 }
 
 async function responseObject(response: Response): Promise<JsonObject | null> {

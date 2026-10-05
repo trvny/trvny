@@ -3,7 +3,7 @@ import { handleOperatorAction } from './operator-actions.ts';
 import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts';
 import { repositoryAllowedByPolicy } from './policy-enforcement.ts';
 import { handleReleaseAction, releaseTagAllowed } from './release-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -30,16 +30,7 @@ class MergeReleasePolicyError extends Error {
 }
 
 async function inputObject(request: Request, maxBytes = 160_000): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > maxBytes) throw new MergeReleasePolicyError('payload_too_large', 413);
-  let value: unknown;
-  try {
-    value = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new MergeReleasePolicyError('invalid_json');
-  }
-  if (!isObject(value)) throw new MergeReleasePolicyError('invalid_json_object');
-  return value;
+  return readJsonObject(request, maxBytes, (code, status) => new MergeReleasePolicyError(code, status));
 }
 
 function repositoryName(value: unknown): string {

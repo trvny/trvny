@@ -1,6 +1,6 @@
 import { createAppJwt } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
@@ -113,16 +113,7 @@ function refPath(value: string): string {
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > 160_000) throw new ReleaseError('payload_too_large', 413);
-  let parsed: unknown;
-  try {
-    parsed = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new ReleaseError('invalid_json');
-  }
-  if (!isObject(parsed)) throw new ReleaseError('invalid_json_object');
-  return parsed;
+  return readJsonObject(request, 160_000, (code, status) => new ReleaseError(code, status));
 }
 
 async function payload(response: Response): Promise<JsonObject> {

@@ -1,5 +1,5 @@
 import { authorizeOperator, type ActionInvoke } from './action-auth.ts';
-import { SpecialistToolError, isObject, type JsonObject } from './tools/common.ts';
+import { SpecialistToolError, isObject, type JsonObject, readJsonObject } from './tools/common.ts';
 import { type EngramToolEnv } from './tools/engram.ts';
 import { SPECIALIST_TOOLS, invokeSpecialistTool } from './tools/registry.ts';
 import { json } from './json-response.ts';
@@ -12,16 +12,7 @@ const MAX_REQUEST_BYTES = 32_000;
 export interface EngramActionEnv extends EngramToolEnv {}
 
 async function inputObject(request: Request): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > MAX_REQUEST_BYTES) throw new SpecialistToolError('payload_too_large', 413);
-  let value: unknown;
-  try {
-    value = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new SpecialistToolError('invalid_json');
-  }
-  if (!isObject(value)) throw new SpecialistToolError('invalid_json_object');
-  return value;
+  return readJsonObject(request, MAX_REQUEST_BYTES, (code, status) => new SpecialistToolError(code, status));
 }
 
 function objectResponse(properties: JsonObject): JsonObject {

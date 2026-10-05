@@ -40,7 +40,7 @@ async function importGraph(root: string, entryPoints: string[]): Promise<Map<str
   return graph;
 }
 
-// Tarjan SCC; any component with >1 file is a cycle.
+// Tarjan SCC; a component with >1 file, or a self-import, is a cycle.
 function cycles(graph: Map<string, string[]>): string[][] {
   const index = new Map<string, number>();
   const low = new Map<string, number>();
@@ -70,7 +70,8 @@ function cycles(graph: Map<string, string[]>): string[][] {
         onStack.delete(member);
         component.push(member);
       } while (member !== node);
-      if (component.length > 1) found.push(component.sort());
+      const selfLoop = component.length === 1 && (graph.get(node) ?? []).includes(node);
+      if (component.length > 1 || selfLoop) found.push(component.sort());
     }
   };
   for (const node of graph.keys()) if (!index.has(node)) visit(node);
@@ -88,6 +89,9 @@ test('cycle guard follows side-effect/quoted imports and ignores comments', asyn
 
   writeFileSync(join(dir, 'c.ts'), "import './a.ts';\nexport const c = 1;\n");
   assert.deepEqual(cycles(await importGraph(dir, entries)), [['a.ts', 'b.ts', 'c.ts']]);
+
+  writeFileSync(join(dir, 'e.ts'), "import './e.ts';\nexport const e = 1;\n");
+  assert.deepEqual(cycles(await importGraph(dir, ['e.ts'])), [['e.ts']]);
 });
 
 test('src has no import cycles', async () => {

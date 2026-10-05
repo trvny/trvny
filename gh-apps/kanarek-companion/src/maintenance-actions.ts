@@ -2,6 +2,7 @@ import {
   createInstallationClient,
   type GitHubInstallationClient,
   gptomekInstallationIdFor,
+  gptomekPrivateKey,
 } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
@@ -78,7 +79,9 @@ async function gptomekClient(
   repositoryName: string,
 ): Promise<GitHubInstallationClient> {
   const appId = requiredString(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
-  const privateKey = requiredString(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
+  const privateKey = gptomekPrivateKey(env, (value) =>
+    requiredString(value, 'gptomek_private_key', 20_000),
+  );
   const installationId = await gptomekInstallationIdFor(
     env.GPTOMEK_INSTALLATION_ID,
     appId,

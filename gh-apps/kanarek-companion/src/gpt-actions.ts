@@ -3,6 +3,7 @@ import {
   GitHubApiError,
   gptomekInstallationIdFor,
   type GitHubInstallationClient,
+  gptomekPrivateKey,
 } from './github-app.ts';
 import type { CompanionEnv } from './companion-types.ts';
 import { resolveGitTreeEntries, type GitTreeEntry } from './git-tree.ts';
@@ -301,7 +302,9 @@ async function gptomekClient(
   repositoryName?: string,
 ): Promise<GitHubInstallationClient> {
   const appId = requiredString(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
-  const privateKey = requiredString(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
+  const privateKey = gptomekPrivateKey(env, (value) =>
+    requiredString(value, 'gptomek_private_key', 20_000),
+  );
   const installationId = await gptomekInstallationIdFor(
     env.GPTOMEK_INSTALLATION_ID,
     appId,

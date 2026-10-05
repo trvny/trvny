@@ -3,6 +3,8 @@ import {
   createInstallationClient,
   type GitHubInstallationClient,
   gptomekInstallationIdFor,
+  gptomekPrivateKey,
+  type GptomekSignerBinding,
 } from './github-app.ts';
 import { repositoryInScope, type JsonObject } from './tools/common.ts';
 import {
@@ -14,6 +16,7 @@ export type BotekWatchEnv = SpecialistToolEnv & {
   GPTOMEK_APP_ID?: string;
   GPTOMEK_INSTALLATION_ID?: string;
   GPTOMEK_PRIVATE_KEY?: string;
+  GPTOMEK_SIGNER?: GptomekSignerBinding;
 };
 
 export type BotekEngramStoreInput = {
@@ -80,7 +83,7 @@ async function botekGithubClient(
   repositoryName: string,
 ): Promise<GitHubInstallationClient> {
   const appId = env.GPTOMEK_APP_ID?.trim() ?? '';
-  const privateKey = env.GPTOMEK_PRIVATE_KEY?.trim() ?? '';
+  const privateKey = gptomekPrivateKey(env, (value) => value?.trim() ?? '');
   if (!appId || !privateKey) throw new Error('gptomek_not_configured');
   const installationId = await gptomekInstallationIdFor(
     env.GPTOMEK_INSTALLATION_ID,

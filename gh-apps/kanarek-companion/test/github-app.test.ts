@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   checkInstallationAccess,
   createAppJwt,
+  gptomekPrivateKey,
 } from '../src/github-app.ts';
 
 function testKeyPair() {
@@ -111,4 +112,15 @@ test('exchanges the JWT and verifies repository access', async () => {
     'https://api.github.com/installation/repositories?per_page=1',
   ]);
   assert.equal(JSON.stringify(result).includes('ghs_test_token'), false);
+});
+
+test('GPTomek key: local PEM wins, signer binding used only without one', async () => {
+  const local = (value: string | undefined) => value ?? '';
+  const signer = { gptomekAppJwt: async () => 'remote.jwt.sig' };
+
+  assert.equal(gptomekPrivateKey({ GPTOMEK_PRIVATE_KEY: 'pem', GPTOMEK_SIGNER: signer }, local), 'pem');
+  assert.equal(gptomekPrivateKey({}, local), '');
+
+  const remote = gptomekPrivateKey({ GPTOMEK_PRIVATE_KEY: ' ', GPTOMEK_SIGNER: signer }, local);
+  assert.equal(await createAppJwt('4524407', remote), 'remote.jwt.sig');
 });

@@ -125,11 +125,36 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
   );
 }
 
+// App signing key: local PEM, or remote signer (service binding to the
+// Worker holding the PEM) so the key lives in one Worker only.
+export interface AppJwtSigner {
+  appJwt(): Promise<string>;
+}
+export type AppPrivateKey = string | AppJwtSigner;
+
+// RPC surface of kanarek-companion's GptomekSignerEntrypoint.
+export interface GptomekSignerBinding {
+  gptomekAppJwt(): Promise<string>;
+}
+
+// Local GPTomek PEM wins; without one, sign via GPTOMEK_SIGNER (Gremlin).
+export function gptomekPrivateKey<T>(
+  env: { GPTOMEK_PRIVATE_KEY?: string; GPTOMEK_SIGNER?: GptomekSignerBinding },
+  local: (value: string | undefined) => T,
+): T | AppJwtSigner {
+  const signer = env.GPTOMEK_SIGNER;
+  if (!env.GPTOMEK_PRIVATE_KEY?.trim() && signer) {
+    return { appJwt: () => signer.gptomekAppJwt() };
+  }
+  return local(env.GPTOMEK_PRIVATE_KEY);
+}
+
 export async function createAppJwt(
   appId: string,
-  privateKey: string,
+  privateKey: AppPrivateKey,
   nowSeconds = Math.floor(Date.now() / 1000),
 ): Promise<string> {
+  if (typeof privateKey !== 'string') return privateKey.appJwt();
   const header = jsonToBase64Url({ alg: 'RS256', typ: 'JWT' });
   const payload = jsonToBase64Url({
     iat: nowSeconds - 60,
@@ -229,7 +254,7 @@ async function requireVoid(
 
 async function createInstallationToken(
   appId: string,
-  privateKey: string,
+  privateKey: AppPrivateKey,
   installationId: number,
   fetcher: typeof fetch,
 ): Promise<InstallationToken> {
@@ -343,7 +368,7 @@ export class GitHubInstallationClient {
 
 export async function createInstallationClient(
   appId: string,
-  privateKey: string,
+  privateKey: AppPrivateKey,
   installationId: number,
   fetcher: typeof fetch = fetch,
 ): Promise<GitHubInstallationClient> {
@@ -358,7 +383,7 @@ export async function createInstallationClient(
 
 export async function checkInstallationAccess(
   appId: string,
-  privateKey: string,
+  privateKey: AppPrivateKey,
   installationId: number,
   fetcher: typeof fetch = fetch,
 ): Promise<InstallationAccessCheck> {
@@ -388,7 +413,7 @@ export async function checkInstallationAccess(
 // Installation of this App on one repository (`owner/name`).
 export async function repositoryInstallationId(
   appId: string,
-  privateKey: string,
+  privateKey: AppPrivateKey,
   repositoryName: string,
   fetcher: typeof fetch,
 ): Promise<number> {
@@ -420,7 +445,7 @@ export async function repositoryInstallationId(
 export async function gptomekInstallationIdFor(
   configured: string | undefined,
   appId: string,
-  privateKey: string,
+  privateKey: AppPrivateKey,
   repositoryName: string | undefined,
   fetcher: typeof fetch,
 ): Promise<number | null> {

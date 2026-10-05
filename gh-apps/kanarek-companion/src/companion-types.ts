@@ -1,3 +1,4 @@
+import type { GptomekSignerBinding } from './github-app.ts';
 import type { QuipEnv, QuipLanguage } from './quip.ts';
 
 export interface CompanionEnv extends QuipEnv {
@@ -7,6 +8,7 @@ export interface CompanionEnv extends QuipEnv {
   GPTOMEK_APP_ID?: string;
   GPTOMEK_INSTALLATION_ID?: string;
   GPTOMEK_PRIVATE_KEY?: string;
+  GPTOMEK_SIGNER?: GptomekSignerBinding;
   GPTOMEK_WAKE_TOKEN?: string;
   KANAREK_NO_CI_REPOS?: string;
   KANAREK_QUIP_KV?: KVNamespace;

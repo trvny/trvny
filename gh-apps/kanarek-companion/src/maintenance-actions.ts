@@ -1,9 +1,10 @@
 import {
   createInstallationClient,
   type GitHubInstallationClient,
+  gptomekInstallationIdFor,
 } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -25,7 +26,7 @@ class MaintenanceError extends Error {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new MaintenanceError('repository_not_allowed', 403);
   }
   return value;
@@ -94,11 +95,18 @@ async function readData(
 async function gptomekClient(
   env: GptActionsEnv,
   fetcher: typeof fetch,
+  repositoryName: string,
 ): Promise<GitHubInstallationClient> {
   const appId = requiredString(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
   const privateKey = requiredString(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
-  const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
-  if (!Number.isInteger(installationId) || installationId <= 0) {
+  const installationId = await gptomekInstallationIdFor(
+    env.GPTOMEK_INSTALLATION_ID,
+    appId,
+    privateKey,
+    repositoryName,
+    fetcher,
+  );
+  if (installationId === null) {
     throw new MaintenanceError('invalid_gptomek_installation_id', 503);
   }
   return createInstallationClient(appId, privateKey, installationId, fetcher);
@@ -351,7 +359,7 @@ async function deleteMaintenanceArtifact(
     throw new MaintenanceError('artifact_changed', 409);
   }
 
-  const client = await gptomekClient(env, fetcher);
+  const client = await gptomekClient(env, fetcher, repositoryName);
   await client.void(
     `/repos/${repo}/actions/artifacts/${artifactId}`,
     'gpt_action_delete_artifact',
@@ -398,7 +406,7 @@ async function deleteMaintenanceCache(
     throw new MaintenanceError('cache_changed', 409);
   }
 
-  const client = await gptomekClient(env, fetcher);
+  const client = await gptomekClient(env, fetcher, repositoryName);
   await client.void(
     `/repos/${repo}/actions/caches/${cacheId}`,
     'gpt_action_delete_actions_cache',

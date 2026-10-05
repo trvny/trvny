@@ -1,6 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { isProtectedBranch } from './gptomek.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, repositoryPathInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
@@ -25,7 +25,7 @@ class LifecycleError extends Error {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new LifecycleError('repository_not_allowed', 403);
   }
   return value;
@@ -201,7 +201,7 @@ async function userGithubRequest(
   fetcher: typeof fetch,
 ): Promise<unknown> {
   const target = new URL(path, GITHUB_API);
-  if (target.origin !== GITHUB_API || !target.pathname.startsWith('/repos/trvny/') && target.pathname !== '/graphql') {
+  if (target.origin !== GITHUB_API || !repositoryPathInScope(target.pathname) && target.pathname !== '/graphql') {
     throw new LifecycleError('github_user_write_not_allowed', 403);
   }
   const response = await fetcher(target, {

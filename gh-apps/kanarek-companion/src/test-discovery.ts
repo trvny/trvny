@@ -1,5 +1,5 @@
 import { likelyTestPath } from './symbol-investigation.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const TARGETED_TESTS_PATH = '/gpt-actions/github/code/tests';
@@ -51,7 +51,7 @@ class TestDiscoveryError extends Error {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new TestDiscoveryError('repository_not_allowed', 403);
   }
   return value;

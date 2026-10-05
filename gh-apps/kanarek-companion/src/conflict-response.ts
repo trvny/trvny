@@ -1,9 +1,8 @@
-import { isObject, type JsonObject, repoPath, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope } from './tools/common.ts';
 
 type WorkerFetch = (request: Request) => Promise<Response>;
 
 const SHA_RE = /^[0-9a-f]{40}$/i;
-const REPOSITORY_RE = /^trvny\/[A-Za-z0-9_.-]+$/;
 
 async function responseObject(response: Response): Promise<JsonObject | null> {
   try {
@@ -87,7 +86,7 @@ async function enrichBranchHeadChanged(
   const expectedHeadSha = input.expectedHeadSha;
   if (
     typeof repository !== 'string' ||
-    !REPOSITORY_RE.test(repository) ||
+    !repositoryInScope(repository) ||
     !validBranch(branch) ||
     typeof expectedHeadSha !== 'string' ||
     !SHA_RE.test(expectedHeadSha)
@@ -115,7 +114,7 @@ async function enrichBaseHeadChanged(
   const expectedBaseSha = input.expectedBaseSha;
   if (
     typeof repository !== 'string' ||
-    !REPOSITORY_RE.test(repository) ||
+    !repositoryInScope(repository) ||
     typeof expectedBaseSha !== 'string' ||
     !SHA_RE.test(expectedBaseSha)
   ) {

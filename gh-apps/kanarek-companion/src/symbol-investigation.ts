@@ -1,4 +1,4 @@
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const SYMBOL_INVESTIGATION_PATH = '/gpt-actions/github/code/symbol';
@@ -42,7 +42,7 @@ class SymbolInvestigationError extends Error {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new SymbolInvestigationError('repository_not_allowed', 403);
   }
   return value;

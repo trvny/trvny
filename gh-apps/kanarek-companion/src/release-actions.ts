@@ -1,6 +1,9 @@
-import { createAppJwt } from './github-app.ts';
+import {
+  createAppJwt,
+  gptomekInstallationIdFor,
+} from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
@@ -34,7 +37,7 @@ class ReleaseError extends Error {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new ReleaseError('repository_not_allowed', 403);
   }
   return value;
@@ -255,11 +258,21 @@ function tokenHeaders(token: string, contentType = 'application/json'): Headers 
   });
 }
 
-async function gptomekToken(env: GptActionsEnv, fetcher: typeof fetch): Promise<GptomekToken> {
+async function gptomekToken(
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  repositoryName: string,
+): Promise<GptomekToken> {
   const appId = requiredText(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
   const privateKey = requiredText(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
-  const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
-  if (!Number.isInteger(installationId) || installationId <= 0) {
+  const installationId = await gptomekInstallationIdFor(
+    env.GPTOMEK_INSTALLATION_ID,
+    appId,
+    privateKey,
+    repositoryName,
+    fetcher,
+  );
+  if (installationId === null) {
     throw new ReleaseError('invalid_gptomek_installation_id', 503);
   }
 
@@ -583,7 +596,7 @@ async function uploadWorkflowArtifactAsReleaseAsset(
     return json({ ok: false, error: 'release_asset_exists', asset: compactAsset(existingAsset) }, 409);
   }
 
-  const installation = await gptomekToken(env, fetcher);
+  const installation = await gptomekToken(env, fetcher, repositoryName);
   if (!permissionAllows(installation.permissions.actions, 'read')) {
     throw new ReleaseError('gptomek_actions_read_required', 503);
   }
@@ -651,7 +664,7 @@ async function deleteReleaseAssetAsGptomek(
   const belongsToRelease = releaseAssets(assetsRaw).some((entry) => entry.id === assetId);
   if (!belongsToRelease) throw new ReleaseError('release_asset_not_in_release', 409);
 
-  const installation = await gptomekToken(env, fetcher);
+  const installation = await gptomekToken(env, fetcher, repositoryName);
   if (!permissionAllows(installation.permissions.contents, 'write')) {
     throw new ReleaseError('gptomek_contents_write_required', 503);
   }

@@ -1,12 +1,11 @@
 import { searchLlmsDocs, type RemoteFetch } from './llms-docs.ts';
-import { isObject, type JsonObject, repoPath, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const INDEX_PATH = '/gpt-actions/docs/index';
 const SEARCH_PATH = '/gpt-actions/docs/search';
 const GET_PATH = '/gpt-actions/docs/get';
 const EXPECTED_OPERATOR = 'trvny';
-const EXPECTED_OWNER = 'trvny';
 const MAX_REQUEST_BYTES = 24_000;
 const MAX_DOC_BYTES = 192_000;
 const MAX_INDEX_LIMIT = 160;
@@ -81,16 +80,10 @@ function stringValue(value: unknown, name: string, max: number): string {
 
 function repositoryValue(value: unknown): string {
   const repository = stringValue(value, 'repository', 200);
-  const [owner, repo, extra] = repository.split('/');
-  if (
-    extra ||
-    owner !== EXPECTED_OWNER ||
-    !repo ||
-    !/^[A-Za-z0-9_.-]+$/.test(repo)
-  ) {
+  if (!repositoryInScope(repository)) {
     throw new DocsActionError('repository_not_allowed', 403);
   }
-  return `${owner}/${repo}`;
+  return repository;
 }
 
 function filePathValue(value: unknown): string {
@@ -268,7 +261,7 @@ async function searchAction(
   }
 
   const repository = searchRepository(input.repository);
-  const scope = repository ? `repo:${repository}` : `user:${EXPECTED_OWNER}`;
+  const scope = repository ? `repo:${repository}` : 'user:trvny org:travnie';
   const search = `${query} ${scope}`;
   const data = await githubRead(
     request,
@@ -286,7 +279,7 @@ async function searchAction(
     const fullName = repositoryData && typeof repositoryData.full_name === 'string'
       ? repositoryData.full_name
       : null;
-    if (!fullName?.startsWith(`${EXPECTED_OWNER}/`)) continue;
+    if (!fullName || !repositoryInScope(fullName)) continue;
     if (repository && fullName !== repository) continue;
     const key = `${fullName}:${item.path}`;
     if (seen.has(key)) continue;
@@ -365,7 +358,7 @@ export function addDocsOpenApi(document: JsonObject): void {
   paths[INDEX_PATH] = {
     post: {
       operationId: 'getDocsIndex',
-      summary: 'List live documentation files for a trvny repository',
+      summary: 'List live documentation files for a trvny/travnie repository',
       description: 'Reads the repository default branch and returns bounded documentation paths from the GitHub source of truth. Use this when the relevant document is unknown.',
       security,
       requestBody: requestSchema({
@@ -379,11 +372,11 @@ export function addDocsOpenApi(document: JsonObject): void {
     post: {
       operationId: 'searchDocs',
       summary: 'Search live GitHub or llms.txt documentation',
-      description: 'Searches current trvny GitHub docs by default. With siteUrl, reads that HTTPS docs root llms.txt and searches its curated links; documentUrl may then fetch one exact listed Markdown/text document.',
+      description: 'Searches current trvny/travnie GitHub docs by default. With siteUrl, reads that HTTPS docs root llms.txt and searches its curated links; documentUrl may then fetch one exact listed Markdown/text document.',
       security,
       requestBody: requestSchema({
         query: { type: 'string', description: 'Search terms, or * to list llms.txt entries.' },
-        repository: { type: 'string', description: 'Optional trvny/name scope for GitHub mode.' },
+        repository: { type: 'string', description: 'Optional trvny/name or travnie/name scope for GitHub mode.' },
         siteUrl: { type: 'string', format: 'uri', description: 'Optional HTTPS site/docs base or direct llms.txt URL. Switches to bounded llms.txt mode.' },
         documentUrl: { type: 'string', format: 'uri', description: 'Optional exact readable URL returned by the same llms.txt index.' },
         limit: { type: 'integer', minimum: 1, maximum: MAX_SEARCH_LIMIT, default: 6 },
@@ -395,7 +388,7 @@ export function addDocsOpenApi(document: JsonObject): void {
     post: {
       operationId: 'getDoc',
       summary: 'Fetch one live documentation file from GitHub',
-      description: 'Returns one bounded UTF-8 documentation file from a trvny repository. Omit ref to read the current default branch, or pin a branch/tag/SHA when exact snapshot consistency matters.',
+      description: 'Returns one bounded UTF-8 documentation file from a trvny/travnie repository. Omit ref to read the current default branch, or pin a branch/tag/SHA when exact snapshot consistency matters.',
       security,
       requestBody: requestSchema({
         repository: { type: 'string', example: 'trvny/trvny' },

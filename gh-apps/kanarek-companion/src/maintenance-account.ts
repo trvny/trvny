@@ -1,6 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { unattachedBranches, workflowRunIsProblem } from './maintenance-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const ACCOUNT_MAINTENANCE_PATH = '/gpt-actions/github/maintenance/account';
@@ -158,14 +158,17 @@ async function ownedRepositories(
       request,
       env,
       fetcher,
-      `/user/repos?affiliation=owner&sort=full_name&per_page=${PAGE_SIZE}&page=${page}`,
+      `/user/repos?affiliation=owner,organization_member&sort=full_name&per_page=${PAGE_SIZE}&page=${page}`,
     );
     if (!result.ok) throw new AccountMaintenanceError(result.error, result.status);
     if (!Array.isArray(result.data)) {
       throw new AccountMaintenanceError('invalid_repositories_response', 502);
     }
     const pageRepositories = result.data.filter(isObject);
-    repositories.push(...pageRepositories);
+    // Org membership can include out-of-scope owners; drop them before the cap.
+    repositories.push(...pageRepositories.filter((repository) =>
+      typeof repository.full_name === 'string' && repositoryInScope(repository.full_name),
+    ));
     if (pageRepositories.length < PAGE_SIZE) {
       return { repositories, truncated: false };
     }
@@ -185,7 +188,7 @@ async function scanRepository(
 ): Promise<AccountRepositoryMaintenance | null> {
   const name = stringOrNull(repositoryRaw.full_name);
   const defaultBranch = stringOrNull(repositoryRaw.default_branch);
-  if (!name?.startsWith('trvny/') || !defaultBranch) return null;
+  if (!name || !repositoryInScope(name) || !defaultBranch) return null;
 
   const repo = repoPath(name);
   const [branchesResult, pullsResult, runsResult, cacheResult] = await Promise.all([
@@ -353,7 +356,7 @@ export function addAccountMaintenanceOpenApi(document: JsonObject): void {
   paths[ACCOUNT_MAINTENANCE_PATH] = {
     post: {
       operationId: 'getAccountMaintenance',
-      summary: 'Scan maintenance state across trvny repositories',
+      summary: 'Scan maintenance state across trvny/travnie repositories',
       description:
         'Scans active owned repositories for PR, branch, workflow and cache signals with bounded concurrency. Use getRepositoryMaintenance for detailed cleanup candidates.',
       responses: {

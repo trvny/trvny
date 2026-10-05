@@ -1,4 +1,7 @@
-import { createAppJwt } from './github-app.ts';
+import {
+  createAppJwt,
+  gptomekInstallationIdFor,
+} from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts';
 import { releaseComparisonContainsTarget } from './policy-merge-release.ts';
@@ -9,7 +12,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, ZipEntryError, zipEntryPath } from './zip-entry.ts';
-import { isObject, type JsonObject, repoPath, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ENTRY_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-entry';
@@ -74,7 +77,7 @@ function nonNegativeInteger(value: unknown, name: string): number {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new ReleaseEntryError('repository_not_allowed', 403);
   }
   return value;
@@ -176,11 +179,21 @@ function permissionAllows(value: unknown, required: 'read' | 'write'): boolean {
   return required === 'read' && value === 'read';
 }
 
-async function gptomekToken(env: GptActionsEnv, fetcher: typeof fetch): Promise<GptomekToken> {
+async function gptomekToken(
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  repositoryName: string,
+): Promise<GptomekToken> {
   const appId = requiredText(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
   const privateKey = requiredText(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
-  const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
-  if (!Number.isInteger(installationId) || installationId <= 0) {
+  const installationId = await gptomekInstallationIdFor(
+    env.GPTOMEK_INSTALLATION_ID,
+    appId,
+    privateKey,
+    repositoryName,
+    fetcher,
+  );
+  if (installationId === null) {
     throw new ReleaseEntryError('invalid_gptomek_installation_id', 503);
   }
   const jwt = await createAppJwt(appId, privateKey);
@@ -424,7 +437,7 @@ async function uploadEntry(
   }
 
   const policy = await enforcePolicy(request, env, fetcher, input, release);
-  const installation = await gptomekToken(env, fetcher);
+  const installation = await gptomekToken(env, fetcher, input.repository);
   if (!permissionAllows(installation.permissions.actions, 'read')) {
     throw new ReleaseEntryError('gptomek_actions_read_required', 503);
   }

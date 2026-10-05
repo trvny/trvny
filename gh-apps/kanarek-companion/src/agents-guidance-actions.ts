@@ -158,7 +158,7 @@ export function addAgentGuidanceOpenApi(document: JsonObject): void {
   const context = operationById(document, 'getRepositoryContext');
   if (context) {
     context.description =
-      'Returns default-branch state, root and applicable nested AGENTS.md guidance, open PRs, recent commits and workflow failures for one trvny repository.';
+      'Returns default-branch state, root and applicable nested AGENTS.md guidance, open PRs, recent commits and workflow failures for one trvny/travnie repository.';
     const properties = requestProperties(context);
     if (properties) {
       properties.targetPaths = {

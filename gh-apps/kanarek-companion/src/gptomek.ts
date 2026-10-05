@@ -1,5 +1,5 @@
 import {
-  createAppJwt,
+  repositoryInstallationId,
   createInstallationClient,
   GitHubApiError,
   type GitHubInstallationClient,
@@ -15,10 +15,9 @@ import {
   GPTOMEK_CONTROL_REPOSITORY,
 } from './gptomek-control.ts';
 import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-types.ts';
-import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, REPOSITORY_OWNERS } from './tools/common.ts';
 
 const GITHUB_API = 'https://api.github.com';
-const GITHUB_API_VERSION = '2026-03-10';
 const CONTROL_REPOSITORY = GPTOMEK_CONTROL_REPOSITORY;
 const CONTROL_PULL_REQUEST = GPTOMEK_CONTROL_PULL_REQUEST;
 const CONTROL_BRANCH = 'gptomek/control';
@@ -28,7 +27,6 @@ const RESULT_RE = /<!--\s*gptomek-result:([A-Za-z0-9+/_-]+={0,2})\s*-->/g;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_BATCH_STEPS = 10;
 const MAX_RESULT_BYTES = 8_000;
-const ALLOWED_REPOSITORY_OWNERS = new Set(['trvny', 'travnie']);
 const BOT_IDENTITY = {
   name: 'GPTomek',
   email: '314538226+gptomek[bot]@users.noreply.github.com',
@@ -194,7 +192,7 @@ export function gptomekRepositoryAllowed(value: string): boolean {
   return Boolean(
     !extra &&
       owner &&
-      ALLOWED_REPOSITORY_OWNERS.has(owner) &&
+      REPOSITORY_OWNERS.has(owner) &&
       repo &&
       /^[A-Za-z0-9_.-]+$/.test(repo),
   );
@@ -523,32 +521,6 @@ function config(env: CompanionEnv): GptomekConfig {
 
 function refPath(branchName: string): string {
   return branchName.split('/').map(encodeURIComponent).join('/');
-}
-
-async function repositoryInstallationId(
-  appId: string,
-  privateKey: string,
-  repositoryName: string,
-  fetcher: typeof fetch,
-): Promise<number> {
-  const jwt = await createAppJwt(appId, privateKey);
-  const response = await fetcher(
-    `${GITHUB_API}/repos/${repoPath(repositoryName)}/installation`,
-    {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${jwt}`,
-        'User-Agent': 'kanarek-companion',
-        'X-GitHub-Api-Version': GITHUB_API_VERSION,
-      },
-    },
-  );
-  if (!response.ok) {
-    await response.body?.cancel();
-    throw new GitHubApiError('gptomek_get_repository_installation', response.status);
-  }
-  const payload = (await response.json()) as { id?: unknown };
-  return positiveInteger(payload.id, 'repository_installation_id');
 }
 
 async function branchHead(

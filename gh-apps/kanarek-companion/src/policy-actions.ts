@@ -1,5 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, internalReadRequest, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const BOOTSTRAP_PATH = '/gpt-actions/operator/bootstrap';
@@ -212,11 +212,16 @@ function stringList(
 }
 
 function repositoryPatterns(value: unknown, path: string): string[] {
-  return stringList(value, path, /^trvny\/(?:\*|[A-Za-z0-9_.-]+)$/);
+  const patterns = stringList(value, path, /^[^/]+\/(?:\*|[A-Za-z0-9_.-]+)$/);
+  patterns.forEach((pattern, index) => {
+    const exact = pattern.endsWith('/*') ? `${pattern.slice(0, -2)}/x` : pattern;
+    if (!repositoryInScope(exact)) policyError(`${path}_${index}`);
+  });
+  return patterns;
 }
 
 function exactRepository(value: unknown, path: string): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     policyError(path);
   }
   return value;
@@ -676,7 +681,7 @@ function resolveKnowledgeTopic(
 
 function repositoryName(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null;
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new PolicyActionError('repository_not_allowed', 403);
   }
   return value;

@@ -1,7 +1,7 @@
 import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { branchNameAllowed, handleLifecycleAction } from './lifecycle-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -22,7 +22,7 @@ class ChangeError extends Error {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new ChangeError('repository_not_allowed', 403);
   }
   return value;
@@ -198,7 +198,7 @@ async function prepareChange(
       request,
       env,
       fetcher,
-      `/repos/${repo}/pulls?state=open&head=${encodeURIComponent(`trvny:${branchName}`)}&per_page=10`,
+      `/repos/${repo}/pulls?state=open&head=${encodeURIComponent(`${repositoryOwner(repositoryName)}:${branchName}`)}&per_page=10`,
     ),
     readData(
       request,

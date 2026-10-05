@@ -140,7 +140,7 @@ export function addBatchOpenApi(document: JsonObject): void {
       operationId: 'githubReadBatch',
       summary: 'Read several GitHub REST paths in one action',
       description:
-        'Runs up to 10 allowlisted trvny-scoped GETs concurrently. Duplicate paths are fetched once and reused; individual GitHub failures are returned per item.',
+        'Runs up to 10 allowlisted trvny/travnie-scoped GETs concurrently. Duplicate paths are fetched once and reused; individual GitHub failures are returned per item.',
       requestBody: {
         required: true,
         content: {

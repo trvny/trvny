@@ -1,4 +1,7 @@
-import { createAppJwt } from './github-app.ts';
+import {
+  createAppJwt,
+  gptomekInstallationIdFor,
+} from './github-app.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
 import { handleReleaseEntryAction } from './release-entry-action.ts';
 import {
@@ -8,7 +11,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, zipEntryPath } from './zip-entry.ts';
-import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ASSET_REPLACE_PATH = '/gpt-actions/github/releases/assets/replace-entry';
@@ -74,7 +77,7 @@ function nonNegativeInteger(value: unknown, name: string): number {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new ReplaceError('repository_not_allowed', 403);
   }
   return value;
@@ -186,11 +189,17 @@ function tokenHeaders(token: string): Headers {
   });
 }
 
-async function gptomekToken(env: Env, fetcher: typeof fetch): Promise<string> {
+async function gptomekToken(env: Env, fetcher: typeof fetch, repositoryName: string): Promise<string> {
   const appId = requiredText(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
   const privateKey = requiredText(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
-  const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
-  if (!Number.isInteger(installationId) || installationId <= 0) {
+  const installationId = await gptomekInstallationIdFor(
+    env.GPTOMEK_INSTALLATION_ID,
+    appId,
+    privateKey,
+    repositoryName,
+    fetcher,
+  );
+  if (installationId === null) {
     throw new ReplaceError('invalid_gptomek_installation_id', 503);
   }
   const jwt = await createAppJwt(appId, privateKey);
@@ -297,7 +306,7 @@ async function replaceAsset(
   const input = await requestInput(request);
   await verifySnapshots(request, dispatch, input);
 
-  const token = await gptomekToken(env, fetcher);
+  const token = await gptomekToken(env, fetcher, input.repository);
   const archive = await downloadArtifactZip(token, input, fetcher);
   const prepared = await extractZipEntry(archive, input.entryPath);
 

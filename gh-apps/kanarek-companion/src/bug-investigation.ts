@@ -8,7 +8,7 @@ import {
   symbolOccurrences,
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const BUG_INVESTIGATION_PATH = '/gpt-actions/operator/bug-investigate';
@@ -87,7 +87,7 @@ class BugInvestigationError extends Error {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new BugInvestigationError('repository_not_allowed', 403);
   }
   return value;

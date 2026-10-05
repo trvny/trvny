@@ -24,6 +24,32 @@ export function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+// Repository owners Gremlin/GPTomek may act on. Single source of truth.
+export const REPOSITORY_OWNERS: ReadonlySet<string> = new Set(['trvny', 'travnie']);
+const REPOSITORY_NAME_RE = /^[A-Za-z0-9_.-]+$/;
+const REPOSITORY_PATH_RE = new RegExp(
+  `^/repos/(?:${[...REPOSITORY_OWNERS].join('|')})/[A-Za-z0-9_.-]+(?:/|$)`,
+);
+
+// Exact `owner/name` with an allowed owner.
+export function repositoryInScope(value: string): boolean {
+  const parts = value.split('/');
+  return (
+    parts.length === 2 &&
+    REPOSITORY_OWNERS.has(parts[0]) &&
+    REPOSITORY_NAME_RE.test(parts[1])
+  );
+}
+
+export function repositoryOwner(repository: string): string {
+  return repository.split('/')[0];
+}
+
+// GitHub API pathname under /repos/{allowed owner}/{name}.
+export function repositoryPathInScope(pathname: string): boolean {
+  return REPOSITORY_PATH_RE.test(pathname);
+}
+
 // `owner/name` for GitHub API paths, each segment encoded.
 export function repoPath(repository: string): string {
   return repository.split('/').map(encodeURIComponent).join('/');

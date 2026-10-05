@@ -13,7 +13,7 @@ import {
 } from './policy-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
@@ -129,14 +129,16 @@ function failure(status: number, error: string, blocked = false): ActionResult {
 }
 
 function repositoryName(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new PolicyEnforcementError('repository_not_allowed', 403);
   }
   return value;
 }
 
 function patternMatches(pattern: string, repository: string): boolean {
-  return pattern === 'trvny/*' ? repository.startsWith('trvny/') : pattern === repository;
+  return pattern.endsWith('/*')
+    ? repository.startsWith(pattern.slice(0, -1))
+    : pattern === repository;
 }
 
 function objectArray(value: unknown): JsonObject[] {

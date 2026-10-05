@@ -1,6 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { handleOperatorAction } from './operator-actions.ts';
-import { isObject, type JsonObject, numberOrNull, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, internalReadRequest, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const DIAGNOSE_RUN_PATH = '/gpt-actions/github/workflows/diagnose';
@@ -139,7 +139,7 @@ export async function handleEnhancedWorkflowDiagnosis(
   const repository = isObject(repositoryInput) && typeof repositoryInput.repository === 'string'
     ? repositoryInput.repository
     : null;
-  if (!repository || !/^trvny\/[A-Za-z0-9_.-]+$/.test(repository)) return base;
+  if (!repository || !repositoryInScope(repository)) return base;
   const repo = repository.split('/').map((part) => encodeURIComponent(part)).join('/');
   const failingJobs = objectArray(payload.failingJobs).slice(0, MAX_LOG_JOBS);
   const legacy = legacyLogByJob(payload);

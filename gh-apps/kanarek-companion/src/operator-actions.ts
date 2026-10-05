@@ -1,5 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -41,7 +41,7 @@ export interface CiSummary {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new OperatorError('repository_not_allowed', 403);
   }
   return value;
@@ -694,7 +694,7 @@ export function addOperatorOpenApi(document: JsonObject): void {
       operationId: 'getRepositoryContext',
       summary: 'Load repository context for a work session',
       description:
-        'Returns default-branch state, root AGENTS.md, open PRs, recent commits and workflow failures for one trvny repository.',
+        'Returns default-branch state, root AGENTS.md, open PRs, recent commits and workflow failures for one trvny/travnie repository.',
       requestBody: requestSchema(['repository'], {
         repository: { type: 'string', example: 'trvny/feedseek' },
       }),

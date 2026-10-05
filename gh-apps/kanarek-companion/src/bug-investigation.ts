@@ -8,7 +8,7 @@ import {
   symbolOccurrences,
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const BUG_INVESTIGATION_PATH = '/gpt-actions/operator/bug-investigate';
@@ -73,17 +73,7 @@ export type BugHandoffIdentity = {
   language?: string;
 };
 
-class BugInvestigationError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'BugInvestigationError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class BugInvestigationError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

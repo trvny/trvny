@@ -11,7 +11,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, zipEntryPath } from './zip-entry.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, repositoryInScope, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, repositoryInScope, internalReadRequest, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ASSET_REPLACE_PATH = '/gpt-actions/github/releases/assets/replace-entry';
@@ -40,19 +40,7 @@ type Input = {
   label?: string;
 };
 
-class ReplaceError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details: JsonObject;
-
-  constructor(code: string, status = 400, details: JsonObject = {}) {
-    super(code);
-    this.name = 'ReplaceError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
-  }
-}
+class ReplaceError extends DetailedCodedError {}
 
 function requiredText(value: unknown, name: string, max: number): string {
   if (typeof value !== 'string' || !value || value.length > max) {

@@ -3,7 +3,7 @@ import {
   gptomekInstallationIdFor,
 } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
@@ -23,17 +23,7 @@ interface GptomekToken {
   token: string;
 }
 
-class ReleaseError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'ReleaseError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class ReleaseError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

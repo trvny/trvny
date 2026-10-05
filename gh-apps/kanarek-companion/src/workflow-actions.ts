@@ -1,5 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const BOT_PATH = '/gpt-actions/github/bot';
@@ -9,17 +9,7 @@ const SHA_RE = /^[0-9a-f]{40}$/i;
 
 type WorkflowControl = 'rerun_failed' | 'rerun_all' | 'cancel';
 
-class WorkflowActionError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'WorkflowActionError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class WorkflowActionError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

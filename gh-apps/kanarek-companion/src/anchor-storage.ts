@@ -7,16 +7,7 @@ import {
   releaseAnchorMutation,
   type AnchorMutationReplayEnv,
 } from './anchor-replay.ts';
-import {
-  SpecialistToolError,
-  boundedJson,
-  boundedText,
-  integerValue,
-  isObject,
-  optionalStringValue,
-  stringValue,
-  type JsonObject,
-} from './tools/common.ts';
+import { SpecialistToolError, boundedJson, boundedText, integerValue, isObject, optionalStringValue, stringValue, type JsonObject, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const ANCHOR_STORAGE_PATH = '/gpt-actions/anchor/storage';
@@ -49,17 +40,7 @@ interface GuardedMutationResult {
   result?: JsonObject;
 }
 
-class AnchorStorageError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'AnchorStorageError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class AnchorStorageError extends CodedError {}
 
 class AnchorMutationAttemptError extends Error {
   readonly original: unknown;

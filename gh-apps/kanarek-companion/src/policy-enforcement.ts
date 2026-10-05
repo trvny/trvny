@@ -13,7 +13,7 @@ import {
 } from './policy-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
@@ -53,17 +53,7 @@ export interface EffectiveMaintenancePolicy {
   cacheStaleDays: number;
 }
 
-class PolicyEnforcementError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'PolicyEnforcementError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class PolicyEnforcementError extends CodedError {}
 
 async function responseObject(response: Response): Promise<JsonObject> {
   let payload: unknown;

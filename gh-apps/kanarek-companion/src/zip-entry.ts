@@ -1,3 +1,5 @@
+import { CodedError } from './tools/common.ts';
+
 const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_SIGNATURE = 0x02014b50;
 const LOCAL_SIGNATURE = 0x04034b50;
@@ -6,15 +8,9 @@ const MAX_ZIP_COMMENT_BYTES = 0xffff;
 const MAX_ENTRY_BYTES = 48 * 1024 * 1024;
 const MAX_COMPRESSION_RATIO = 200;
 
-export class ZipEntryError extends Error {
-  readonly code: string;
-  readonly status: number;
-
+export class ZipEntryError extends CodedError {
   constructor(code: string, status = 422) {
-    super(code);
-    this.name = 'ZipEntryError';
-    this.code = code;
-    this.status = status;
+    super(code, status);
   }
 }
 

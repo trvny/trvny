@@ -1,7 +1,7 @@
 import { handleOperatorAction } from './operator-actions.ts';
 import { handlePolicyEnforcementAction } from './policy-enforcement.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const AUTOPILOT_PATH = '/gpt-actions/operator/autopilot';
@@ -31,17 +31,7 @@ interface AutopilotTask extends JsonObject {
   repository: string;
 }
 
-class AutopilotError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'AutopilotError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class AutopilotError extends CodedError {}
 
 async function inputObject(request: Request): Promise<AutopilotInput> {
   const value = await readJsonObject(request, 16_000, (code, status) => new AutopilotError(code, status));

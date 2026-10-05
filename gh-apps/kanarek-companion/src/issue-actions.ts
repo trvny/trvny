@@ -1,22 +1,12 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const BOT_PATH = '/gpt-actions/github/bot';
 const ISSUE_CONTEXT_PATH = '/gpt-actions/github/issues/context';
 const ISSUE_TRIAGE_PATH = '/gpt-actions/github/issues/triage';
 
-class IssueActionError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'IssueActionError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class IssueActionError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

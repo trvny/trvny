@@ -1,5 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, repositoryPathInScope, isProtectedBranch, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, repositoryPathInScope, isProtectedBranch, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
@@ -10,17 +10,7 @@ const PR_STATE_PATH = '/gpt-actions/github/pull-requests/state';
 const CLEANUP_BRANCH_PATH = '/gpt-actions/github/pull-requests/cleanup-branch';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
-class LifecycleError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'LifecycleError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class LifecycleError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

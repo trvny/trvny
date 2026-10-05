@@ -2,7 +2,7 @@ import {
   DEPENDENCY_GRAPH_PATH,
   handleDependencyGraphAction,
 } from './dependency-graph.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, internalReadRequest, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const FOCUSED_CODE_REVIEW_PATH = '/gpt-actions/operator/code-review';
@@ -56,19 +56,7 @@ type DependencyEvidence = {
   incomplete: boolean;
 };
 
-class FocusedReviewError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details: JsonObject;
-
-  constructor(code: string, status = 400, details: JsonObject = {}) {
-    super(code);
-    this.name = 'FocusedReviewError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
-  }
-}
+class FocusedReviewError extends DetailedCodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

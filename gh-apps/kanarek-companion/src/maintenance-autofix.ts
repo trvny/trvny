@@ -5,7 +5,7 @@ import {
 } from './maintenance-account.ts';
 import { handleMaintenanceAction } from './maintenance-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
@@ -43,17 +43,7 @@ interface ActionResult {
   payload: JsonObject;
 }
 
-class MaintenanceAutofixError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'MaintenanceAutofixError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class MaintenanceAutofixError extends CodedError {}
 
 function repositoryName(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

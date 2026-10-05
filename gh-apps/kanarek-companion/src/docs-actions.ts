@@ -1,5 +1,5 @@
 import { searchLlmsDocs, type RemoteFetch } from './llms-docs.ts';
-import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const INDEX_PATH = '/gpt-actions/docs/index';
@@ -13,17 +13,7 @@ const MAX_SEARCH_LIMIT = 10;
 
 type Invoke = (request: Request) => Promise<Response>;
 
-class DocsActionError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'DocsActionError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class DocsActionError extends CodedError {}
 
 async function responseObject(response: Response): Promise<JsonObject | null> {
   try {

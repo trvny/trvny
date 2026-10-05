@@ -1,6 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { unattachedBranches, workflowRunIsProblem } from './maintenance-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest, repositoryInScope } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const ACCOUNT_MAINTENANCE_PATH = '/gpt-actions/github/maintenance/account';
@@ -44,17 +44,7 @@ export interface AccountRepositoryMaintenance {
   errors: JsonObject[];
 }
 
-class AccountMaintenanceError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'AccountMaintenanceError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class AccountMaintenanceError extends CodedError {}
 
 function errorStatus(error: unknown): number {
   const message = error instanceof Error ? error.message : '';

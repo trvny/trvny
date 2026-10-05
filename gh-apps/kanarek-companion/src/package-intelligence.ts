@@ -8,7 +8,7 @@ import {
   type PackageEcosystem,
   type PackageRegistryResult,
 } from './package-registry.ts';
-import { isObject, type JsonObject, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, internalReadRequest, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const PACKAGE_INTELLIGENCE_PATH = '/gpt-actions/packages/inspect';
@@ -39,19 +39,7 @@ type Warning = {
   error: string;
 };
 
-export class PackageIntelligenceError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details: JsonObject;
-
-  constructor(code: string, status = 400, details: JsonObject = {}) {
-    super(code);
-    this.name = 'PackageIntelligenceError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
-  }
-}
+export class PackageIntelligenceError extends DetailedCodedError {}
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;

@@ -1,4 +1,4 @@
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const CODE_HISTORY_PATH = '/gpt-actions/github/code/history';
@@ -40,17 +40,7 @@ export type SymbolMatchSummary = {
   truncated: boolean;
 };
 
-class CodeHistoryError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'CodeHistoryError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class CodeHistoryError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

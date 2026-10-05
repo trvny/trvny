@@ -1,5 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const BOT_PATH = '/gpt-actions/github/bot';
@@ -11,17 +11,7 @@ const FINALIZE_PR_PATH = '/gpt-actions/github/pull-requests/finalize';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const OK_CHECK_CONCLUSIONS = new Set(['success', 'neutral', 'skipped']);
 
-class OperatorError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'OperatorError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class OperatorError extends CodedError {}
 
 export interface FinalizeSnapshot {
   state: string;

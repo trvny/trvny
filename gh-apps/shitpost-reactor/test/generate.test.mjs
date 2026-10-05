@@ -9,6 +9,7 @@ import {
   parseContent,
   renderMarkdown,
   requestCompletion,
+  resolveGenerationPlan,
   shouldProbeMySaas,
   validateContent,
 } from '../generate.mjs';
@@ -78,6 +79,16 @@ test('buildMessages treats the skill as advice instead of an output schema', () 
   assert.match(messages[0].content, /"kind":"text"/);
   assert.doesNotMatch(messages[0].content, /Wybierz najwyżej dwa dialekty/);
   assert.match(messages[1].content, /Teams o 07:59/);
+});
+
+test('buildMessages pins limerick form and language', () => {
+  const { limerickLanguage } = resolveGenerationPlan('auto', 'seed', '6');
+  const messages = buildMessages('# skill', 'deploy', 'seed', 'text', null, { limerickLanguage });
+  assert.match(messages[0].content, /Simplified Chinese/);
+  assert.match(messages[0].content, /Dokładnie pięć wersów/);
+  assert.match(messages[0].content, /AABBA/);
+  assert.doesNotMatch(messages[0].content, /Język jest dowolny/);
+  assert.match(messages[1].content, /LANGUAGE: zh-Hans/);
 });
 
 test('buildMessages accepts taste and MySaaS as optional reference context', () => {
@@ -181,11 +192,24 @@ test('validateContent accepts a pinned meme and rejects invented templates', () 
   );
 });
 
-test('mode and template choices are deterministic', () => {
+test('mode, limerick cadence and template choices are deterministic', () => {
   assert.equal(resolveShitpostMode('text', 'anything'), 'text');
   assert.equal(resolveShitpostMode('meme', 'anything'), 'meme');
   assert.equal(resolveShitpostMode('auto', 'same-seed'), resolveShitpostMode('auto', 'same-seed'));
   assert.equal(chooseMemeTemplate('same-seed').id, chooseMemeTemplate('same-seed').id);
+
+  const plans = ['1', '2', '3', '4', '5', '6', '7', '8', '10']
+    .map((runNumber) => resolveGenerationPlan('auto', 'same-seed', runNumber));
+  assert.equal(plans[0].limerickLanguage, null);
+  assert.deepEqual(
+    [plans[1], plans[3], plans[5], plans[7], plans[8]].map((plan) => plan.limerickLanguage.code),
+    ['en', 'pl', 'zh-Hans', 'ru', 'en'],
+  );
+  assert.ok([plans[0], plans[2], plans[4], plans[6]].every((plan) => plan.limerickLanguage === null));
+  assert.ok([plans[1], plans[3], plans[5], plans[7], plans[8]].every((plan) => plan.mode === 'text'));
+
+  const forcedMeme = resolveGenerationPlan('meme', 'same-seed', '2');
+  assert.deepEqual(forcedMeme, { mode: 'meme', limerickLanguage: null });
 });
 
 test('memeImageUrl produces a stateless image URL', () => {

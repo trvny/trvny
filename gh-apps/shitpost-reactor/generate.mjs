@@ -32,6 +32,28 @@ const MAX_SKILL_ARCHIVE_BYTES = 2 * 1024 * 1024;
 const MAX_SKILL_BYTES = 256 * 1024;
 const MAX_ERROR_BODY = 2_000;
 
+export const LIMERICK_LANGUAGES = Object.freeze([
+  { code: 'en', prompt: 'English' },
+  { code: 'pl', prompt: 'Polish' },
+  { code: 'zh-Hans', prompt: 'Simplified Chinese' },
+  { code: 'ru', prompt: 'Russian' },
+]);
+
+export function resolveGenerationPlan(rawMode = 'auto', seed = '', runNumber = '') {
+  const requestedMode = String(rawMode || 'auto').trim().toLowerCase();
+  const number = Number(String(runNumber || '').trim());
+  const limerickLanguage = requestedMode === 'auto'
+    && Number.isSafeInteger(number)
+    && number > 0
+    && number % 2 === 0
+    ? LIMERICK_LANGUAGES[(number / 2 - 1) % LIMERICK_LANGUAGES.length]
+    : null;
+  return {
+    mode: limerickLanguage ? 'text' : resolveShitpostMode(requestedMode, seed),
+    limerickLanguage,
+  };
+}
+
 function readUInt16(buffer, offset) {
   return buffer.readUInt16LE(offset);
 }
@@ -206,7 +228,7 @@ export async function loadMySaasInspiration({
   return normalizeMySaasCandidates(await response.json());
 }
 
-export function buildMessages(skill, topic = '', seed = '', mode = 'text', template = null, { tasteProfile = null, mySaasReferences = [] } = {}) {
+export function buildMessages(skill, topic = '', seed = '', mode = 'text', template = null, { tasteProfile = null, mySaasReferences = [], limerickLanguage = null } = {}) {
   const chosenTopic = topic.trim() || [
     'Wymyśl sam konkretny temat z internetu, technologii, pracy, codzienności, popkultury, gier, biurokracji albo dowolnego absurdu, który daje dobry shitpost.',
     'Nie opieraj żartu na bieżącej wiadomości, której nie dostałeś w promptcie.',
@@ -216,8 +238,17 @@ export function buildMessages(skill, topic = '', seed = '', mode = 'text', templ
     ? `Zrób prosty klasyczny meme macro na gotowym template "${template?.name || template?.id || 'meme'}" (id: ${template?.id || 'unknown'}). Napisz tylko tekst nakładany na obraz. Zwróć wyłącznie JSON: {"kind":"meme","template":"${template?.id || 'unknown'}","top_text":"...","bottom_text":"..."}. Jedna z dwóch linii może być pusta, ale nie obie.`
     : 'Zwróć wyłącznie JSON: {"kind":"text","text":"..."}. Pole text ma być całym gotowym shitpostem i niczym więcej.';
 
+  const openingRule = limerickLanguage
+    ? [
+        `Tworzysz jeden oryginalny shitpost w formie limeryku w języku: ${limerickLanguage.prompt}. Dokładnie pięć wersów, układ rymów AABBA, wersy 1/2/5 wyraźnie dłuższe od 3/4. Ma działać jako żart, nie ćwiczenie szkolne.`,
+        limerickLanguage.code === 'zh-Hans'
+          ? 'Dla chińskiego użyj naturalnych rymów końcowych i rytmu właściwego dla języka; nie kopiuj na siłę angielskiej metryki sylabowej.'
+          : 'Rymy i rytm mają brzmieć naturalnie w tym języku; nie poświęcaj puenty dla matematyki sylab.',
+      ].join(' ')
+    : 'Tworzysz jeden oryginalny shitpost. Język jest dowolny: polski, angielski, mieszany, slang, brainrot albo cokolwiek najlepiej niesie żart. Humor ma być szeroko rozumiany i zryty: absurdalny, internetowy, deadpan, antyhumorystyczny albo celowo głupi.';
+
   const rules = [
-    'Tworzysz jeden oryginalny shitpost. Język jest dowolny: polski, angielski, mieszany, slang, brainrot albo cokolwiek najlepiej niesie żart. Humor ma być szeroko rozumiany i zryty: absurdalny, internetowy, deadpan, antyhumorystyczny albo celowo głupi.',
+    openingRule,
     'Ma być śmieszne jako gotowy post, nie jako opis pomysłu. Nie tłumacz żartu, nie opisuj procesu i nie dodawaj etykiet typu dialekt, archetyp albo format.',
     'Priorytetem jest jakość i puenta, nie długość. Pisz tylko tyle, ile potrzebuje żart: może to być jedno zdanie, kilka krótkich linijek albo trochę dłuższy bit. Nie dobijaj do żadnego limitu i nie dopisuj waty tylko po to, żeby tekst był dłuższy.',
     'Budżet generacji jest po to, żeby myśleć, nie żeby produkować więcej tekstu. Prywatnie rozważ kilka wyraźnie różnych kierunków, odrzuć oczywiste lub wtórne, porównaj zaskoczenie i sendability, a zwróć tylko jeden najlepszy final. Nie pokazuj szkiców, rankingu ani toku rozumowania.',
@@ -257,6 +288,7 @@ export function buildMessages(skill, topic = '', seed = '', mode = 'text', templ
     `TEMAT: ${chosenTopic}`,
     seed ? `SEED RUNU: ${seed}` : '',
     mode === 'meme' ? `TEMPLATE: ${template?.id || ''} / ${template?.name || ''}` : '',
+    limerickLanguage ? `FORMA: limerick / LANGUAGE: ${limerickLanguage.code}` : '',
     'Wybierz jeden konkretny detal i jedź. Bez wstępu, bez komentarza po żarcie.',
     '',
     '## Untrusted optional MySaaS reference data',
@@ -403,11 +435,16 @@ export async function main() {
   } catch (error) {
     process.stderr.write(`optional_mysaas_reference_failed:${error instanceof Error ? error.message : String(error)}\n`);
   }
-  const mode = resolveShitpostMode(requestedMode, seed);
+  const { mode, limerickLanguage } = resolveGenerationPlan(
+    requestedMode,
+    seed,
+    process.env.GITHUB_RUN_NUMBER || '',
+  );
   const template = mode === 'meme' ? chooseMemeTemplate(seed) : null;
   const messages = buildMessages(skill, topic, seed, mode, template, {
     tasteProfile,
     mySaasReferences,
+    limerickLanguage,
   });
   const completion = await requestCompletion({ endpoint, token, messages });
   const content = parseContent(completion.content, { mode, templateId: template?.id });
@@ -434,7 +471,7 @@ export async function main() {
     await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8');
   }
 
-  process.stdout.write(`shitpost generated via ${record.provider}/${record.model}\n`);
+  process.stdout.write(`shitpost generated via ${record.provider}/${record.model}${limerickLanguage ? ` [limerick:${limerickLanguage.code}]` : ''}\n`);
   process.stdout.write(`artifact: ${resolve(outputDir, 'latest.json')}\n`);
 }
 

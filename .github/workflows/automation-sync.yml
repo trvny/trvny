@@ -321,7 +321,12 @@ jobs:
           npx --no-install wrangler secret bulk "$secrets_file" --name gremlin
 
           secrets_json=$(npx --no-install wrangler secret list --name gremlin --format json)
-          # GPTomek JWTs come from the GPTOMEK_SIGNER binding; no PEM here.
+          # GPTomek JWTs come from the GPTOMEK_SIGNER binding; a stray local PEM
+          # would silently win over it.
+          if jq -e '[.[].name] | index("GPTOMEK_PRIVATE_KEY") != null' <<<"$secrets_json" >/dev/null; then
+            echo "::error::GPTOMEK_PRIVATE_KEY is set on gremlin; delete it so GPTOMEK_SIGNER is used."
+            exit 1
+          fi
           for name in ENGRAM_API_KEY; do
             if [ -z "${!name:-}" ]; then
               echo "::warning::$name is not set as a repository secret; any existing value on gremlin was left untouched."

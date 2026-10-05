@@ -3,12 +3,13 @@ import { mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 // esbuild ships with wrangler; its metafile is the real (AST) module graph:
 // comments and strings are ignored, type-only imports are erased.
 import { build } from 'esbuild';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SRC = join(ROOT, 'src');
 
 function sourceFiles(dir: string): string[] {

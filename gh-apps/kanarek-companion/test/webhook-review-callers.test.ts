@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { GitHubInstallationClient } from '../src/github-app.ts';
-import { callerEvidenceForFile, fetchCallerEvidence, reviewPrompt } from '../src/webhook-review.ts';
+import { callerEvidenceForFile, fetchCallerEvidence } from '../src/webhook-review-context.ts';
+import { reviewPrompt } from '../src/webhook-review.ts';
 
 function base64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');

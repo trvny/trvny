@@ -3,14 +3,16 @@ import test from 'node:test';
 
 import {
   applyReviewJudge,
+  reviewJudgeThreshold,
+  verifyReviewFindings,
+} from '../src/webhook-review-judge.ts';
+import {
   parseReviewJson,
   reviewDisposition,
-  reviewJudgeThreshold,
   reviewSourceBadge,
   reviewSourceLabel,
   reviewSweepMaxAttempts,
   sweepReviewProviders,
-  verifyReviewFindings,
   type ReviewRouterOutcome,
 } from '../src/webhook-review.ts';
 

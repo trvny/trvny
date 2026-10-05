@@ -4,6 +4,7 @@
 export const GPTOMEK_CONTROL_REPOSITORY = 'trvny/trvny';
 export const GPTOMEK_CONTROL_ISSUE = 203;
 export const GPTOMEK_CONTROL_PULL_REQUEST = 176;
+export const GPTOMEK_CONTROL_BRANCH = 'gptomek/control';
 
 export function isGptomekFallbackPullRequest(
   repository: string | null,

@@ -10,7 +10,6 @@ import { addBatchOpenApi, handleBatchAction } from './batch-actions.ts';
 import { addChangeOpenApi, handleChangeAction } from './change-actions.ts';
 import { addCloudflareOpenApi, handleCloudflareAction } from './cloudflare-actions.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
-import { isProtectedBranch } from './gptomek.ts';
 import { addInvestigationOpenApi, handleInvestigationAction } from './investigation-actions.ts';
 import { addIssueOpenApi, handleIssueAction } from './issue-actions.ts';
 import { addLifecycleOpenApi, handleLifecycleAction } from './lifecycle-actions.ts';
@@ -38,7 +37,7 @@ import {
   handleEnhancedWorkflowDiagnosis,
 } from './workflow-diagnosis-enhanced.ts';
 import { addWorkflowOpenApi, handleWorkflowAction } from './workflow-actions.ts';
-import { isObject, type JsonObject, repositoryInScope } from './tools/common.ts';
+import { isObject, type JsonObject, repositoryInScope, isProtectedBranch } from './tools/common.ts';
 
 export { OperatorCheckpointStore, actionFetch };
 

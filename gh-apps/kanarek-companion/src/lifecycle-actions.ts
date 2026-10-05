@@ -1,6 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isProtectedBranch } from './gptomek.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, repositoryPathInScope } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, repositoryPathInScope, isProtectedBranch } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';

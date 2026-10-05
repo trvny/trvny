@@ -1,7 +1,7 @@
 import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { branchNameAllowed, handleLifecycleAction } from './lifecycle-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, isProtectedBranch } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -174,7 +174,7 @@ async function prepareChange(
     throw new ChangeError('invalid_repository_response', 502);
   }
   const defaultBranch = repositoryRaw.default_branch;
-  if (branchName === defaultBranch || branchName === 'main' || branchName === 'gptomek/control') {
+  if (isProtectedBranch(branchName, defaultBranch)) {
     throw new ChangeError('protected_branch', 403);
   }
 

@@ -3,6 +3,8 @@ import { readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
+import { createManufactOAuthGateway } from './manufact-oauth.mjs';
+
 const BUILD_DIR = path.resolve('.manufact');
 const MAX_ADAPTER_BODY_BYTES = 128 * 1024;
 
@@ -38,6 +40,8 @@ const env = {
   CLAUDIUSZ_MCP_TOKEN: process.env.CLAUDIUSZ_MCP_TOKEN,
   GH_APP_PRIVATE_KEY: process.env.GH_APP_PRIVATE_KEY,
 };
+
+const oauthGateway = createManufactOAuthGateway({ secret: env.CLAUDIUSZ_MCP_TOKEN });
 
 function firstHeader(value) {
   return value?.split(',')[0]?.trim();
@@ -85,7 +89,8 @@ const server = http.createServer(async (req, res) => {
       body,
     });
 
-    const response = await worker.fetch(request, env);
+    const gated = await oauthGateway(request);
+    const response = gated instanceof Response ? gated : await worker.fetch(gated, env);
     res.statusCode = response.status;
     for (const [name, value] of response.headers) res.setHeader(name, value);
     res.end(Buffer.from(await response.arrayBuffer()));

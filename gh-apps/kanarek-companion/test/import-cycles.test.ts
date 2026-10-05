@@ -4,7 +4,13 @@ import { dirname, join, normalize } from 'node:path';
 import test from 'node:test';
 
 const SRC = new URL('../src/', import.meta.url).pathname;
-const IMPORT_RE = /(?:import|export)\s[^;]*?from\s+'(\.[^']+)'/g;
+// Static relative imports/exports, with or without `from` (side-effect form), any quote.
+const IMPORT_RE = /(?:^|[\n;])\s*(?:import|export)\b(?:[^'";]*?\bfrom)?\s*(['"])(\.[^'"]+)\1/g;
+
+function resolveImport(from: string, specifier: string): string {
+  const path = normalize(join(dirname(from), specifier));
+  return path.endsWith('.ts') ? path : `${path}.ts`;
+}
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -19,7 +25,7 @@ function importCycles(): string[][] {
   const graph = new Map<string, string[]>();
   for (const file of sourceFiles(SRC)) {
     const text = readFileSync(file, 'utf8');
-    graph.set(file, [...text.matchAll(IMPORT_RE)].map((m) => normalize(join(dirname(file), m[1]))));
+    graph.set(file, [...text.matchAll(IMPORT_RE)].map((m) => resolveImport(file, m[2])));
   }
   const index = new Map<string, number>();
   const low = new Map<string, number>();
@@ -56,6 +62,19 @@ function importCycles(): string[][] {
   for (const node of graph.keys()) if (!index.has(node)) visit(node);
   return cycles;
 }
+
+test('import extractor sees side-effect, double-quoted and extensionless imports', () => {
+  const text = [
+    "import './a.ts';",
+    'import { b } from "./b.ts";',
+    "export * from './c';",
+    "import type { D } from './d.ts';",
+  ].join('\n');
+  assert.deepEqual(
+    [...text.matchAll(IMPORT_RE)].map((m) => resolveImport('/src/x.ts', m[2])),
+    ['/src/a.ts', '/src/b.ts', '/src/c.ts', '/src/d.ts'],
+  );
+});
 
 test('src has no import cycles', () => {
   assert.deepEqual(importCycles(), []);

@@ -6,7 +6,7 @@ on: # yamllint disable-line rule:truthy
     paths:
       - "gh-apps/claudiusz/**"
       - "!gh-apps/claudiusz/**/*.md"
-      - "gh-apps/gremlin-operator/**"
+      - "gh-apps/gremlin/**"
       - "gh-apps/kanarek-companion/src/**"
       - "gh-apps/kanarek-companion/package.json"
       - "gh-apps/kanarek-companion/wrangler.jsonc"
@@ -17,7 +17,7 @@ on: # yamllint disable-line rule:truthy
     paths:
       - "gh-apps/claudiusz/**"
       - "!gh-apps/claudiusz/**/*.md"
-      - "gh-apps/gremlin-operator/**"
+      - "gh-apps/gremlin/**"
       - "gh-apps/kanarek-companion/src/**"
       - "gh-apps/kanarek-companion/package.json"
       - "gh-apps/kanarek-companion/wrangler.jsonc"
@@ -48,7 +48,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             gh-apps/claudiusz/package-lock.json
-            gh-apps/gremlin-operator/package-lock.json
+            gh-apps/gremlin/package-lock.json
             gh-apps/shitpost-reactor/package-lock.json
 
       - name: Select affected apps
@@ -103,7 +103,7 @@ jobs:
               claudiusz=true
             fi
 
-            if grep -Eq '^gh-apps/gremlin-operator/|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
+            if grep -Eq '^gh-apps/gremlin/|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
               gremlin=true
             fi
             if grep -Eq '^gh-apps/shitpost-reactor/' <<<"$files"; then
@@ -120,7 +120,7 @@ jobs:
             echo "### GitHub Apps CI scope"
             echo
             echo "- Claudiusz: $claudiusz"
-            echo "- Gremlin Operator: $gremlin"
+            echo "- Gremlin: $gremlin"
             echo "- Shitpost Reactor: $shitpost"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -131,9 +131,9 @@ jobs:
           npm ci
           npm run check
 
-      - name: Check Gremlin Operator
+      - name: Check Gremlin
         if: steps.scope.outputs.gremlin == 'true'
-        working-directory: gh-apps/gremlin-operator
+        working-directory: gh-apps/gremlin
         run: |
           npm ci
           npm run check

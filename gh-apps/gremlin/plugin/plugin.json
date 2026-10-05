@@ -2,9 +2,9 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mechagremlin",
   "version": "0.0.1",
-  "description": "Migration foundation for MechaGremlin backed by the existing Gremlin Operator runtime.",
+  "description": "Migration foundation for MechaGremlin backed by the existing Gremlin runtime.",
   "author": { "name": "trvny", "url": "https://github.com/trvny" },
-  "homepage": "https://github.com/trvny/trvny/tree/main/gh-apps/gremlin-operator/plugin",
+  "homepage": "https://github.com/trvny/trvny/tree/main/gh-apps/gremlin/plugin",
   "repository": "https://github.com/trvny/trvny",
   "keywords": ["mechagremlin", "gremlin", "github", "cloudflare", "mcp"],
   "extensions": {
@@ -12,7 +12,7 @@
       "interface": {
         "displayName": "MechaGremlin",
         "shortDescription": "Guarded repo and automation operator",
-        "longDescription": "Migration-ready MechaGremlin shell backed by the existing Gremlin Operator and specialist runtime.",
+        "longDescription": "Migration-ready MechaGremlin shell backed by the existing Gremlin and specialist runtime.",
         "developerName": "trvny",
         "capabilities": ["Read"],
         "websiteURL": "https://github.com/trvny/trvny",

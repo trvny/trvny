@@ -1,10 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "gremlin-operator",
+  "name": "gremlin",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-03",
   "compatibility_flags": ["nodejs_als"],
-  "workers_dev": false,
+  "workers_dev": true,
   "preview_urls": false,
   "version_metadata": {
     "binding": "CF_VERSION_METADATA"
@@ -14,6 +14,11 @@
       {
         "name": "OPERATOR_CHECKPOINTS",
         "class_name": "OperatorCheckpointStore",
+        "script_name": "kanarek-companion"
+      },
+      {
+        "name": "ANCHOR_MUTATION_REPLAYS",
+        "class_name": "AnchorMutationReplayStore",
         "script_name": "kanarek-companion"
       }
     ]
@@ -28,6 +33,7 @@
   },
   "vars": {
     "GPTOMEK_APP_ID": "4524407",
-    "GPTOMEK_INSTALLATION_ID": "152126523"
+    "GPTOMEK_INSTALLATION_ID": "152126523",
+    "GREMLIN_ANCHOR_FOLDER_ID": "01a07f52-1e05-7eeb-b9fe-53f7d75b3164"
   }
 }

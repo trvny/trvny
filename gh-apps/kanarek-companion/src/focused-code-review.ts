@@ -2,12 +2,11 @@ import {
   DEPENDENCY_GRAPH_PATH,
   handleDependencyGraphAction,
 } from './dependency-graph.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const FOCUSED_CODE_REVIEW_PATH = '/gpt-actions/operator/code-review';
 
-const READ_PATH = '/gpt-actions/github/read';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_REVIEW_FILES = 12;
 const MAX_GRAPH_FILES = 2;
@@ -143,7 +142,7 @@ async function responseObject(response: Response): Promise<JsonObject> {
 }
 
 async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const response = await invoke(internalRequest(source, READ_PATH, { path }));
+  const response = await invoke(internalReadRequest(source, path));
   const payload = await responseObject(response);
   if (!response.ok || payload.ok !== true) {
     throw new FocusedReviewError(

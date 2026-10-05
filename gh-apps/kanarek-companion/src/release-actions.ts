@@ -3,13 +3,12 @@ import {
   gptomekInstallationIdFor,
 } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_UPLOADS = 'https://uploads.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
-const READ_PATH = '/gpt-actions/github/read';
 const BOT_PATH = '/gpt-actions/github/bot';
 const RELEASE_PATH = '/gpt-actions/github/releases/manage';
 const RELEASE_ASSET_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-artifact';
@@ -120,17 +119,10 @@ async function inputObject(request: Request): Promise<JsonObject> {
 }
 
 async function payload(response: Response): Promise<JsonObject> {
-  let value: unknown;
-  try {
-    value = await response.clone().json();
-  } catch {
-    throw new ReleaseError('invalid_action_response', 502);
-  }
-  if (!isObject(value)) throw new ReleaseError('invalid_action_response', 502);
-  if (!response.ok) {
-    throw new ReleaseError(typeof value.error === 'string' ? value.error : 'action_failed', response.status);
-  }
-  return value;
+  return actionResponseObject(
+    response,
+    (code, status) => new ReleaseError(code, status),
+  );
 }
 
 async function readResponse(
@@ -139,7 +131,7 @@ async function readResponse(
   fetcher: typeof fetch,
   path: string,
 ): Promise<Response> {
-  return handleGptActions(internalRequest(source, READ_PATH, { path }), env, fetcher);
+  return handleGptActions(internalReadRequest(source, path), env, fetcher);
 }
 
 async function readData(

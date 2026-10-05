@@ -1,5 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, internalReadRequest, repositoryInScope } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, internalReadRequest, repositoryInScope, actionResponseObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const BOOTSTRAP_PATH = '/gpt-actions/operator/bootstrap';
@@ -526,19 +526,11 @@ async function readData(
   path: string,
 ): Promise<unknown> {
   const response = await handleGptActions(internalReadRequest(request, path), env, fetcher);
-  let payload: unknown;
-  try {
-    payload = await response.clone().json();
-  } catch {
-    throw new PolicyActionError('invalid_action_response', 502);
-  }
-  if (!isObject(payload)) throw new PolicyActionError('invalid_action_response', 502);
-  if (!response.ok || payload.ok !== true) {
-    throw new PolicyActionError(
-      typeof payload.error === 'string' ? payload.error : 'action_failed',
-      response.status,
-    );
-  }
+  const payload = await actionResponseObject(
+    response,
+    (code, status) => new PolicyActionError(code, status),
+    { requireOk: true },
+  );
   return payload.data;
 }
 

@@ -3,10 +3,9 @@ import { handleOperatorAction } from './operator-actions.ts';
 import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts';
 import { repositoryAllowedByPolicy } from './policy-enforcement.ts';
 import { handleReleaseAction, releaseTagAllowed } from './release-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const READ_PATH = '/gpt-actions/github/read';
 const FINALIZE_PATH = '/gpt-actions/github/pull-requests/finalize';
 const RELEASE_PATH = '/gpt-actions/github/releases/manage';
 const RELEASE_ASSET_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-artifact';
@@ -62,20 +61,10 @@ function requiredString(value: unknown, name: string, max = 500): string {
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {
-  let value: unknown;
-  try {
-    value = await response.clone().json();
-  } catch {
-    throw new MergeReleasePolicyError('invalid_action_response', 502);
-  }
-  if (!isObject(value)) throw new MergeReleasePolicyError('invalid_action_response', 502);
-  if (!response.ok) {
-    throw new MergeReleasePolicyError(
-      typeof value.error === 'string' ? value.error : 'action_failed',
-      response.status,
-    );
-  }
-  return value;
+  return actionResponseObject(
+    response,
+    (code, status) => new MergeReleasePolicyError(code, status),
+  );
 }
 
 async function readResponse(
@@ -84,7 +73,7 @@ async function readResponse(
   fetcher: typeof fetch,
   path: string,
 ): Promise<Response> {
-  return handleGptActions(internalRequest(source, READ_PATH, { path }), env, fetcher);
+  return handleGptActions(internalReadRequest(source, path), env, fetcher);
 }
 
 async function readData(

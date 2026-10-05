@@ -137,3 +137,21 @@ test('keeps the legacy bearer token working for CLI access', async () => {
   });
   assert.equal(await gateway(request), request);
 });
+
+
+test('normalizes quoted or whitespace-padded configured access codes', async () => {
+  const storedSecret = `  "${SECRET}"\n`;
+  const gateway = createManufactOAuthGateway({ secret: storedSecret });
+  const registration = await register(gateway);
+  const verifier = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~';
+  const code = await authorize(gateway, registration.client_id, verifier);
+  assert.ok(code);
+
+  const direct = await gateway(new Request(`${ORIGIN}/mcp`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${SECRET}` },
+    body: '{}',
+  }));
+  assert.ok(direct instanceof Request);
+  assert.equal(direct.headers.get('authorization'), `Bearer ${storedSecret}`);
+});

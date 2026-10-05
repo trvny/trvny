@@ -323,8 +323,10 @@ jobs:
 
           secrets_json=$(npx --no-install wrangler secret list --name gremlin --format json)
           for name in GPTOMEK_PRIVATE_KEY ENGRAM_API_KEY; do
-            if ! jq -e --arg name "$name" '[.[].name] | index($name) != null' <<<"$secrets_json" >/dev/null; then
-              echo "::warning::$name is not set on gremlin; add it as a repository secret and re-run."
+            if [ -z "${!name:-}" ]; then
+              echo "::warning::$name is not set as a repository secret; any existing value on gremlin was left untouched."
+            elif ! jq -e --arg name "$name" '[.[].name] | index($name) != null' <<<"$secrets_json" >/dev/null; then
+              echo "::warning::$name is not set on gremlin after sync."
             fi
           done
 

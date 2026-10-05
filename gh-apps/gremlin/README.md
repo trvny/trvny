@@ -111,8 +111,9 @@ Code deploys via Workers Builds on pushes to `main` that touch
 `Sync Worker credentials` workflow (`automation-sync.yml`) with target
 `gremlin`. It copies `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and, when
 present as repository secrets, `GPTOMEK_PRIVATE_KEY`, `ENGRAM_API_KEY`,
-`CONTEXT7_API_KEY`, then checks `/health`. Missing optional secrets are
-reported as warnings.
+`CONTEXT7_API_KEY`, then checks `/health`. Only a missing
+`GPTOMEK_PRIVATE_KEY` or `ENGRAM_API_KEY` raises a warning; `CONTEXT7_API_KEY`
+is skipped silently. The sync never deletes Worker secrets.
 
 The operator implementation uses GitHub OAuth/App identity according to the
 specific operation. Do not replace the guarded route with a generic unrestricted

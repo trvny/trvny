@@ -19,7 +19,9 @@ Installations are resolved per owner and limited to `ALLOWED_OWNERS`
 
 ## Secrets
 
-- `CLAUDIUSZ_MCP_TOKEN` — connector URL path token; unset rejects every POST.
+- `CLAUDIUSZ_MCP_TOKEN` — Cloudflare connector path/Bearer token. On Manufact
+  it is also the one-time access code shown to the owner during OAuth and the
+  root key for hosted OAuth credentials.
 - `GH_APP_PRIVATE_KEY` — app private key, PEM as downloaded (PKCS#1 or PKCS#8).
 
 ## App permissions
@@ -52,10 +54,17 @@ Manufact hosts the same Wrangler-built Worker bundle behind a thin Node HTTP
 adapter. No GitHub/MCP tool logic is duplicated. The build context includes
 `kanarek-companion` because Claudiusz reuses its canonical GitHub App JWT helper.
 
+The hosted adapter adds standard MCP OAuth discovery, dynamic client
+registration, Authorization Code + PKCE, short-lived access tokens and refresh
+tokens. The authorization page asks the owner for the existing
+`CLAUDIUSZ_MCP_TOKEN`; the token is never sent to the MCP client. A direct
+`Authorization: Bearer <CLAUDIUSZ_MCP_TOKEN>` remains accepted for CLI and
+break-glass access.
+
 - Root directory: `gh-apps`
 - Dockerfile: `claudiusz/Dockerfile.manufact`
 - Port: `3000`
-- Region: `EU`
+- Region: `AUTO` on the free plan
 - Variables: `CLAUDIUSZ_APP_ID=4454097`, `ALLOWED_OWNERS=trvny,travnie`
 - Secrets: `CLAUDIUSZ_MCP_TOKEN`, `GH_APP_PRIVATE_KEY`
 

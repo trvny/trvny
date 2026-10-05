@@ -67,7 +67,7 @@
 ### 🗄️ 抽屉
 
 [`playlists`](stuff/playlists/) · [`configs`](stuff/configs/) ·
-[`feeds`](stuff/feeds/) · [`quotes`](stuff/quotes/) · [`other`](stuff/other/)
+[`feeds`](stuff/feeds/) · [`quotes`](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c) · [`other`](stuff/other/)
 
 - **Playlists**：供 Streambench 和播放器使用的工作/测试 M3U/M3U8 文件。
 - **Configs**：值得共享，但没必要单独建仓库的配置片段。

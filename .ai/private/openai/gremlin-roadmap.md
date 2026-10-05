@@ -76,7 +76,7 @@ Build outward in this order, keeping external capabilities high-level and guarde
 
 ## Architecture / ergonomics
 
-- [x] Define the shared Worker runtime boundaries: Kanarek Companion, GPTomek Bridge, Gremlin Operator, Specialist Intelligence and shared runtime core. Keep `kanarek-companion` as the deployment slug, not the umbrella architecture name.
+- [x] Define the shared Worker runtime boundaries: Kanarek Companion, GPTomek Bridge, Gremlin, Specialist Intelligence and shared runtime core. Keep `kanarek-companion` as the deployment slug, not the umbrella architecture name.
 - [x] Introduce a central specialist tool registry as the maintained source of tool names, schemas and invocation. Keep provider logic in `src/tools/` and transport adapters thin.
 - [x] Expose the specialist registry through both Custom GPT Actions and a private stateless `/mcp` adapter, with MCP 2026-07-28 plus bounded 2025-11-25 compatibility.
 - [ ] **Custom GPT -> plugin migration.** Keep Builder/profile/policy/knowledge repo-owned, migrate instructions through OpenAI's supported flow, replace Custom Actions with the existing MCP surface or required app wrapper, regression-test behavior and permissions, and switch only after parity is verified. See `gremlin-plugin-migration.md`.

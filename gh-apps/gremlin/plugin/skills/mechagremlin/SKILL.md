@@ -5,7 +5,7 @@ description: Use when MechaGremlin needs to inspect projects, consult specialist
 
 # MechaGremlin
 
-Use the existing Gremlin Operator runtime. Do not create a parallel GitHub,
+Use the existing Gremlin runtime. Do not create a parallel GitHub,
 Cloudflare, memory, or automation backend inside this plugin.
 
 ## Runtime boundary

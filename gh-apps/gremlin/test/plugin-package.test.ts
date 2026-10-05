@@ -17,7 +17,7 @@ test('MechaGremlin plugin foundation reuses the shared specialist MCP', async ()
 
   assert.equal(plugin.name, 'mechagremlin');
   assert.equal(plugin.version, '0.0.1');
-  assert.match(plugin.homepage ?? '', /gh-apps\/gremlin-operator\/plugin$/);
+  assert.match(plugin.homepage ?? '', /gh-apps\/gremlin\/plugin$/);
   assert.equal(mcp.mcpServers?.gremlin?.type, 'streamable-http');
   assert.equal(
     mcp.mcpServers?.gremlin?.url,

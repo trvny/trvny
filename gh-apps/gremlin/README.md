@@ -1,18 +1,34 @@
-# Gremlin Operator
+# Gremlin
 
-`gremlin-operator` is the guarded operator surface for GitHub, Cloudflare,
-maintenance, workflow, coding, release, and policy automation.
+`gremlin` is the guarded operator surface for GitHub, Cloudflare, maintenance,
+workflow, coding, release, and policy automation: the Custom GPT actions
+(`/gpt-actions/**`), the specialist MCP (`/mcp`), and the specialist routes.
 
-The deployed Worker is intentionally thin. `src/index.ts` imports
-`kanarek-companion/gremlin-core`, adds `/health`, and delegates the operator
-routes to the maintained core implementation in
-`../kanarek-companion/src/gremlin-router.ts` and its domain modules. This keeps
-one source of truth for operator policy instead of cloning it into two Workers.
+The Worker is intentionally thin. `src/index.ts` imports the full action runtime
+from `kanarek-companion/runtime` (`../kanarek-companion/src/runtime.ts`), adds
+its own `/health`, and returns 404 for Kanarek-only ingress (GitHub webhook,
+GPTomek wake, private review router). This keeps one source of truth for
+operator policy instead of cloning it into two Workers.
+
+### Migration status
+
+`kanarek-companion` still serves the same Gremlin surface on its own origin.
+Cutover:
+
+1. Deploy this Worker and set its secrets (below).
+2. Point the Custom GPT actions/OAuth URLs and `plugin/mcp.json` at the
+   `gremlin` origin; point tg-assistant's `BOTEK_SPECIALISTS` binding at it once
+   the Botek entrypoint moves here.
+3. Remove the Gremlin surface from `kanarek-companion` and move the
+   Gremlin-only modules into this package. Rename the served subsystem id
+   (`gremlin-operator`) and OpenAPI title (`Gremlin Operator`) then, not
+   earlier: the live GPT reads them from `kanarek-companion`. tg-assistant's
+   `KANAREK_COMPANION` binding only uses the review router and stays.
 
 ## MechaGremlin plugin
 
 `plugin/` is the maintained plugin-side migration source for MechaGremlin. It
-belongs here because Gremlin Operator owns the user-facing guarded operator
+belongs here because Gremlin owns the user-facing guarded operator
 surface. The package may still point at a shared public MCP transport while the
 runtime implementation remains imported from `kanarek-companion`; transport
 location does not change subsystem ownership.
@@ -80,14 +96,20 @@ values and Pages build variables are never returned.
 
 ## Authentication and deployment
 
-`gremlin-operator` has:
+`gremlin` has:
 
-- `workers_dev: false`
-- preview URLs disabled
+- `workers_dev: true` (public origin for the GPT and MCP; preview URLs disabled)
 - `CF_VERSION_METADATA`
-- a remote `OPERATOR_CHECKPOINTS` Durable Object binding whose class is hosted
-  by `kanarek-companion`
-- GPTomek App/installation metadata in `wrangler.jsonc`
+- remote `OPERATOR_CHECKPOINTS` and `ANCHOR_MUTATION_REPLAYS` Durable Object
+  bindings whose classes are hosted by `kanarek-companion`, so GPTomek and
+  Gremlin share one checkpoint/replay store
+- GPTomek App/installation and Anchor folder metadata in `wrangler.jsonc`
+
+Secrets are set by hand with `wrangler secret put` (Worker secrets cannot be
+read back, so copy values from their source, not from `kanarek-companion`):
+`GPTOMEK_PRIVATE_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`,
+`ENGRAM_API_KEY`, optional `CONTEXT7_API_KEY`. `automation-sync.yml` does not
+sync this Worker yet.
 
 The operator implementation uses GitHub OAuth/App identity according to the
 specific operation. Do not replace the guarded route with a generic unrestricted
@@ -100,4 +122,4 @@ npm run check
 npm run deploy
 ```
 
-Workers Builds should use `gh-apps/gremlin-operator` as the root directory.
+Workers Builds should use `gh-apps/gremlin` as the root directory.

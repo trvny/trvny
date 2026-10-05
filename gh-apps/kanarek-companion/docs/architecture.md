@@ -125,9 +125,9 @@ Primary files:
 
 The maintained transport documentation is in `../../gptomek/README.md`.
 
-## Gremlin Operator
+## Gremlin
 
-The deployable `../gremlin-operator` package imports the core from this tree.
+The deployable `../gremlin` package imports the core from this tree.
 That makes these modules the canonical implementation:
 
 - `gremlin-router.ts`: operator route composition, OAuth wiring, OpenAPI
@@ -150,7 +150,7 @@ That makes these modules the canonical implementation:
 - `cloudflare-actions.ts`: bounded Cloudflare inspection and narrow mutations.
 
 The maintained operator overview is
-`../../gremlin-operator/README.md`.
+`../../gremlin/README.md`.
 
 ## Specialist Intelligence
 

@@ -14,7 +14,7 @@ Use these names in code, docs, PRs, and logs:
 | **Kanarek Companion** | GitHub webhook handling, PR status comment, quips/reactions, review queueing/context, and review publication | This README |
 | **Kanarek Review** | Private free-provider router behind `KANAREK_REVIEW_SERVICE` | [`../kanarek-review/README.md`](../kanarek-review/README.md) |
 | **GPTomek Bridge** | `gptomek[bot]` identity, installation auth, control transport, and bot-authored GitHub writes | [`../gptomek/README.md`](../gptomek/README.md) |
-| **Gremlin Operator** | Guarded GPT Actions, coding, maintenance, workflow, release, Cloudflare operations, and policy | [`../gremlin-operator/README.md`](../gremlin-operator/README.md) |
+| **Gremlin** | Guarded GPT Actions, coding, maintenance, workflow, release, Cloudflare operations, and policy | [`../gremlin/README.md`](../gremlin/README.md) |
 | **Specialist Intelligence** | Bounded package, docs, Engram, Context7, Feedseek, and similar domain lookups | [`docs/architecture.md`](docs/architecture.md) |
 | **Shared runtime core** | Common auth, transport, OpenAPI, safety helpers, health/capability metadata, and Durable Object plumbing | [`docs/architecture.md`](docs/architecture.md) |
 
@@ -170,7 +170,7 @@ casually clean up its fallback PR/ref.
 
 Gremlin source remains physically imported from this package, but its maintained
 operator documentation is in
-[`../gremlin-operator/README.md`](../gremlin-operator/README.md). Kanarek
+[`../gremlin/README.md`](../gremlin/README.md). Kanarek
 Review's provider implementation and configuration are documented in
 [`../kanarek-review/README.md`](../kanarek-review/README.md).
 
@@ -205,7 +205,7 @@ Free-review provider credentials belong to the private `kanarek-review` Worker
 and are listed in
 [`../kanarek-review/README.md`](../kanarek-review/README.md). Gremlin-specific
 deployment and operator notes live in
-[`../gremlin-operator/README.md`](../gremlin-operator/README.md).
+[`../gremlin/README.md`](../gremlin/README.md).
 
 GitHub App metadata, companion/review repository scopes, quip provider controls,
 AI percentage ceiling, review debounce/context limits, the decision-L2 rollout

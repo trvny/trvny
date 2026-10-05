@@ -1,5 +1,5 @@
 {
-  "name": "gremlin-operator",
+  "name": "gremlin",
   "version": "0.1.0",
   "private": true,
   "description": "Internal guarded GitHub and Cloudflare operator Worker.",

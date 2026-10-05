@@ -70,7 +70,7 @@ source of truth.
   stateless MCP at `/mcp`.
 - Specialist backend logic: Engram, Feedseek, and Context7 stay in the existing
   Specialist Intelligence subsystem.
-- Gremlin Operator remains the owner package while its maintained core is
+- Gremlin remains the owner package while its maintained core is
   imported from `kanarek-companion`.
 
 ## Still required before retiring the GPT

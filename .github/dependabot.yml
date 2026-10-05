@@ -50,7 +50,7 @@ updates:
         patterns:
           - "*"
   - package-ecosystem: "npm"
-    directory: "/gh-apps/gremlin-operator"
+    directory: "/gh-apps/gremlin"
     schedule:
       interval: "weekly"
       time: "21:37"

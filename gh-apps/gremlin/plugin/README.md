@@ -1,10 +1,10 @@
 # MechaGremlin plugin foundation
 
 This directory is the migration source for the MechaGremlin Custom GPT and is
-owned by the Gremlin Operator package.
+owned by the Gremlin package.
 
 It intentionally does **not** duplicate operator logic. The deployable
-`gremlin-operator` Worker stays thin and imports the maintained Gremlin core
+`gremlin` Worker stays thin and imports the maintained Gremlin core
 from `../kanarek-companion`, keeping one policy/runtime source of truth.
 
 The initial package connects to the existing OAuth-protected Streamable HTTP MCP

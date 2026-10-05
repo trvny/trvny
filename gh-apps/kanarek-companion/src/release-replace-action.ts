@@ -8,7 +8,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, zipEntryPath } from './zip-entry.ts';
-import { internalRequest, isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ASSET_REPLACE_PATH = '/gpt-actions/github/releases/assets/replace-entry';
@@ -74,7 +74,7 @@ function nonNegativeInteger(value: unknown, name: string): number {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new ReplaceError('repository_not_allowed', 403);
   }
   return value;

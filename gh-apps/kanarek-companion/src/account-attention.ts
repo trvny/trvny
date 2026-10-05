@@ -342,7 +342,7 @@ export function addAccountAttentionOpenApi(document: JsonObject): void {
   paths[ACCOUNT_ATTENTION_PATH] = {
     post: {
       operationId: 'getAccountAttention',
-      summary: 'Sweep trvny repositories for PRs and issues needing attention',
+      summary: 'Sweep trvny/travnie repositories for PRs and issues needing attention',
       description:
         'Builds a read-only policy-scoped attention queue from maintenance state, bounded PR inspection and open issues. Performs no mutations.',
       requestBody: {

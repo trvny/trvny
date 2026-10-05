@@ -3,7 +3,7 @@ import {
   createInstallationClient,
   type GitHubInstallationClient,
 } from './github-app.ts';
-import type { JsonObject } from './tools/common.ts';
+import { repositoryInScope, type JsonObject } from './tools/common.ts';
 import {
   invokeSpecialistTool,
   type SpecialistToolEnv,
@@ -60,7 +60,7 @@ export async function botekEngramStore(
 
 function botekRepository(value: string): string {
   const repository = value.trim();
-  if (!/^(?:trvny|travnie)\/[A-Za-z0-9_.-]{1,100}$/u.test(repository)) {
+  if (!repositoryInScope(repository) || repository.split('/')[1].length > 100) {
     throw new Error('botek_repository_not_allowed');
   }
   return repository;

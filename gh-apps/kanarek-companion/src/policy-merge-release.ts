@@ -3,7 +3,7 @@ import { handleOperatorAction } from './operator-actions.ts';
 import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts';
 import { repositoryAllowedByPolicy } from './policy-enforcement.ts';
 import { handleReleaseAction, releaseTagAllowed } from './release-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -34,7 +34,7 @@ async function inputObject(request: Request, maxBytes = 160_000): Promise<JsonOb
 }
 
 function repositoryName(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new MergeReleasePolicyError('repository_not_allowed', 403);
   }
   return value;

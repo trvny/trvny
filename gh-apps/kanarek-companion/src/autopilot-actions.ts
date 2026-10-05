@@ -1,7 +1,7 @@
 import { handleOperatorAction } from './operator-actions.ts';
 import { handlePolicyEnforcementAction } from './policy-enforcement.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const AUTOPILOT_PATH = '/gpt-actions/operator/autopilot';
@@ -59,7 +59,7 @@ async function inputObject(request: Request): Promise<AutopilotInput> {
       throw new AutopilotError('invalid_repositories');
     }
     repositories = value.repositories.map((entry) => {
-      if (typeof entry !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(entry)) {
+      if (typeof entry !== 'string' || !repositoryInScope(entry)) {
         throw new AutopilotError('repository_not_allowed', 403);
       }
       return entry;

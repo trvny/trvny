@@ -1,11 +1,18 @@
 import {
   createInstallationClient,
   GitHubApiError,
+  repositoryInstallationId,
   type GitHubInstallationClient,
 } from './github-app.ts';
 import type { CompanionEnv } from './companion-types.ts';
 import { resolveGitTreeEntries, type GitTreeEntry } from './git-tree.ts';
-import { repoPath } from './tools/common.ts';
+import {
+  REPOSITORY_OWNERS,
+  repoPath,
+  repositoryInScope,
+  repositoryOwner,
+  repositoryPathInScope,
+} from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
@@ -144,9 +151,18 @@ function normalizeGithubPath(value: unknown): URL {
   return target;
 }
 
+// Every user/org/repo qualifier must be in scope; at least one required.
 function searchScopedToUser(target: URL): boolean {
-  const query = target.searchParams.get('q') ?? '';
-  return query.includes('user:trvny') || query.includes('repo:trvny/');
+  const qualifiers = (target.searchParams.get('q') ?? '')
+    .split(/\s+/)
+    .map((token) => token.match(/^-?(user|org|repo):(.+)$/i))
+    .filter((match): match is RegExpMatchArray => match !== null);
+  return (
+    qualifiers.length > 0 &&
+    qualifiers.every(([, kind, value]) =>
+      kind.toLowerCase() === 'repo' ? repositoryInScope(value) : REPOSITORY_OWNERS.has(value),
+    )
+  );
 }
 
 export function githubReadAllowed(path: string): boolean {
@@ -163,15 +179,15 @@ export function githubReadAllowed(path: string): boolean {
     pathname === '/user/installations' ||
     pathname === '/users/trvny' ||
     pathname === '/users/trvny/repos' ||
-    pathname.startsWith('/repos/trvny/') ||
+    repositoryPathInScope(pathname) ||
     (pathname.startsWith('/search/') && searchScopedToUser(target))
   );
 }
 
 function botRepoRemainder(pathname: string): string[] | null {
-  const match = pathname.match(/^\/repos\/trvny\/([^/]+)(?:\/(.*))?$/);
-  if (!match || !/^[A-Za-z0-9_.-]+$/.test(match[1])) return null;
-  return match[2] ? match[2].split('/').filter(Boolean) : [];
+  const match = pathname.match(/^\/repos\/([^/]+)\/([^/]+)(?:\/(.*))?$/);
+  if (!match || !repositoryInScope(`${match[1]}/${match[2]}`)) return null;
+  return match[3] ? match[3].split('/').filter(Boolean) : [];
 }
 
 function gitWriteAllowed(method: string, segments: string[], body: unknown): boolean {
@@ -210,7 +226,7 @@ export function githubBotRequestAllowed(
   if (method === 'GET') {
     return (
       target.pathname === '/installation/repositories' ||
-      target.pathname.startsWith('/repos/trvny/')
+      repositoryPathInScope(target.pathname)
     );
   }
 
@@ -301,17 +317,29 @@ async function requireTrvny(
   return user;
 }
 
+// trvny/* (and repo-less calls) use the configured installation; other
+// allowed owners resolve their own installation per repository.
 async function gptomekClient(
   env: GptActionsEnv,
   fetcher: typeof fetch = fetch,
+  repositoryName?: string,
 ): Promise<GitHubInstallationClient> {
   const appId = requiredString(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
   const privateKey = requiredString(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
+  if (repositoryName && repositoryOwner(repositoryName) !== 'trvny') {
+    const installationId = await repositoryInstallationId(appId, privateKey, repositoryName, fetcher);
+    return createInstallationClient(appId, privateKey, installationId, fetcher);
+  }
   const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
   if (!Number.isInteger(installationId) || installationId <= 0) {
     throw new ActionError('invalid_gptomek_installation_id', 503);
   }
   return createInstallationClient(appId, privateKey, installationId, fetcher);
+}
+
+function pathRepository(path: string): string | undefined {
+  const match = new URL(path, GITHUB_API).pathname.match(/^\/repos\/([^/]+)\/([^/]+)/);
+  return match ? `${match[1]}/${match[2]}` : undefined;
 }
 
 async function githubRead(
@@ -338,7 +366,7 @@ async function githubBotRequest(
     throw new ActionError('github_bot_request_not_allowed', 403);
   }
   const expect = input.expect === 'empty' ? 'empty' : 'json';
-  const client = await gptomekClient(env, fetcher);
+  const client = await gptomekClient(env, fetcher, pathRepository(path));
   if (expect === 'empty') {
     await client.void(path, 'gpt_action_bot_request', {
       method,
@@ -471,7 +499,7 @@ async function commitFiles(
     throw new ActionError('duplicate_file_path');
   }
 
-  const client = await gptomekClient(env, fetcher);
+  const client = await gptomekClient(env, fetcher, repositoryName);
   const currentHead = await branchHead(client, repositoryName, branchName);
   if (currentHead !== expectedHeadSha) throw new ActionError('branch_head_changed', 409);
   const baseCommit = await commitData(client, repositoryName, expectedHeadSha);
@@ -688,7 +716,7 @@ export function openApiDocument(origin: string): Record<string, unknown> {
           operationId: 'githubRead',
           summary: 'Read GitHub REST API data as trvny',
           description:
-            'Use for repository, PR, issue, file, commit, branch, check, workflow, release and search reads. Path must be a GitHub REST path scoped to trvny.',
+            'Use for repository, PR, issue, file, commit, branch, check, workflow, release and search reads. Path must be a GitHub REST path scoped to trvny or travnie repositories.',
           requestBody: {
             required: true,
             content: {

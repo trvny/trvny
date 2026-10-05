@@ -38,7 +38,7 @@ import {
   handleEnhancedWorkflowDiagnosis,
 } from './workflow-diagnosis-enhanced.ts';
 import { addWorkflowOpenApi, handleWorkflowAction } from './workflow-actions.ts';
-import { isObject, type JsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, repositoryInScope } from './tools/common.ts';
 
 export { OperatorCheckpointStore, actionFetch };
 
@@ -191,7 +191,7 @@ export function restrictedBotWrite(methodValue: string, path: string): string | 
     return null;
   }
 
-  const repoPrefix = '^/repos/trvny/[A-Za-z0-9_.-]+/';
+  const repoPrefix = '^/repos/[^/]+/[A-Za-z0-9_.-]+/'; // owner scope enforced by the bot gate
   if (
     (method === 'PUT' || method === 'DELETE') &&
     new RegExp(`${repoPrefix}contents(?:/|$)`).test(pathname)
@@ -306,7 +306,7 @@ function branchDeleteInput(value: unknown): {
   if (!isObject(value)) return null;
   if (
     typeof value.repository !== 'string' ||
-    !/^trvny\/[A-Za-z0-9_.-]+$/.test(value.repository) ||
+    !repositoryInScope(value.repository) ||
     typeof value.branch !== 'string' ||
     !value.branch ||
     value.branch.startsWith('/') ||

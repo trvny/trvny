@@ -1,6 +1,6 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { unattachedBranches, workflowRunIsProblem } from './maintenance-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const ACCOUNT_MAINTENANCE_PATH = '/gpt-actions/github/maintenance/account';
@@ -185,7 +185,7 @@ async function scanRepository(
 ): Promise<AccountRepositoryMaintenance | null> {
   const name = stringOrNull(repositoryRaw.full_name);
   const defaultBranch = stringOrNull(repositoryRaw.default_branch);
-  if (!name?.startsWith('trvny/') || !defaultBranch) return null;
+  if (!name || !repositoryInScope(name) || !defaultBranch) return null;
 
   const repo = repoPath(name);
   const [branchesResult, pullsResult, runsResult, cacheResult] = await Promise.all([
@@ -353,7 +353,7 @@ export function addAccountMaintenanceOpenApi(document: JsonObject): void {
   paths[ACCOUNT_MAINTENANCE_PATH] = {
     post: {
       operationId: 'getAccountMaintenance',
-      summary: 'Scan maintenance state across trvny repositories',
+      summary: 'Scan maintenance state across trvny/travnie repositories',
       description:
         'Scans active owned repositories for PR, branch, workflow and cache signals with bounded concurrency. Use getRepositoryMaintenance for detailed cleanup candidates.',
       responses: {

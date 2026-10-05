@@ -18,7 +18,7 @@ import {
   handleTargetedTestsAction,
   TARGETED_TESTS_PATH,
 } from './test-discovery.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const CODE_CHANGE_AUTOPILOT_PATH = '/gpt-actions/operator/code-change';
@@ -147,7 +147,7 @@ class CodeChangeError extends Error {
 }
 
 function repository(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new CodeChangeError('repository_not_allowed', 403);
   }
   return value;
@@ -933,7 +933,7 @@ async function recoverEvolvedBranch(
   const rawPullRequests = await readData(
     source,
     invoke,
-    `/repos/${repoPath(core.repository)}/pulls?state=all&head=${encodeURIComponent(`trvny:${core.branch}`)}&per_page=10`,
+    `/repos/${repoPath(core.repository)}/pulls?state=all&head=${encodeURIComponent(`${repositoryOwner(core.repository)}:${core.branch}`)}&per_page=10`,
   );
   const pullRequests = Array.isArray(rawPullRequests) ? rawPullRequests.filter(isObject) : [];
   if (pullRequests.length > 1) throw new CodeChangeError('ambiguous_pull_request', 409);
@@ -989,7 +989,7 @@ async function preparationContext(source: Request, invoke: Invoke, core: CoreInp
     const open = await readData(
       source,
       invoke,
-      `/repos/${repoPath(core.repository)}/pulls?state=open&head=${encodeURIComponent(`trvny:${core.branch}`)}&per_page=10`,
+      `/repos/${repoPath(core.repository)}/pulls?state=open&head=${encodeURIComponent(`${repositoryOwner(core.repository)}:${core.branch}`)}&per_page=10`,
     );
     if (Array.isArray(open) && open.length) {
       throw new CodeChangeError('pull_request_already_exists', 409);
@@ -1254,7 +1254,7 @@ async function findOpenPullRequest(source: Request, invoke: Invoke, core: CoreIn
   const raw = await readData(
     source,
     invoke,
-    `/repos/${repoPath(core.repository)}/pulls?state=open&head=${encodeURIComponent(`trvny:${core.branch}`)}&per_page=10`,
+    `/repos/${repoPath(core.repository)}/pulls?state=open&head=${encodeURIComponent(`${repositoryOwner(core.repository)}:${core.branch}`)}&per_page=10`,
   );
   const matches = Array.isArray(raw) ? raw.filter(isObject) : [];
   if (matches.length > 1) throw new CodeChangeError('ambiguous_pull_request', 409);

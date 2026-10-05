@@ -384,3 +384,33 @@ export async function checkInstallationAccess(
 
   return { expiresAt: installation.expiresAt, repositoryCount };
 }
+
+// Installation of this App on one repository (`owner/name`).
+export async function repositoryInstallationId(
+  appId: string,
+  privateKey: string,
+  repositoryName: string,
+  fetcher: typeof fetch,
+): Promise<number> {
+  const jwt = await createAppJwt(appId, privateKey);
+  const response = await fetcher(
+    `${GITHUB_API}/repos/${repositoryName.split('/').map(encodeURIComponent).join('/')}/installation`,
+    {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${jwt}`,
+        'User-Agent': 'kanarek-companion',
+        'X-GitHub-Api-Version': GITHUB_API_VERSION,
+      },
+    },
+  );
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new GitHubApiError('gptomek_get_repository_installation', response.status);
+  }
+  const payload = (await response.json()) as { id?: unknown };
+  if (typeof payload.id !== 'number' || !Number.isInteger(payload.id) || payload.id <= 0) {
+    throw new Error('invalid_repository_installation_id');
+  }
+  return payload.id;
+}

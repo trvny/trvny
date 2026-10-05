@@ -40,7 +40,7 @@
   },
   "runtime": {
     "repositories": {
-      "include": ["trvny/*"],
+      "include": ["trvny/*", "travnie/*"],
       "exclude": [],
       "skipArchived": true
     },

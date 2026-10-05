@@ -5,7 +5,7 @@ import {
 } from './maintenance-account.ts';
 import { handleMaintenanceAction } from './maintenance-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -57,7 +57,7 @@ class MaintenanceAutofixError extends Error {
 }
 
 function repositoryName(value: unknown): string {
-  if (typeof value !== 'string' || !/^trvny\/[A-Za-z0-9_.-]+$/.test(value)) {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
     throw new MaintenanceAutofixError('repository_not_allowed', 403);
   }
   return value;
@@ -307,7 +307,7 @@ async function resolveClosedPullRequest(
 ): Promise<number | null> {
   const query = new URLSearchParams({
     state: 'closed',
-    head: `trvny:${branch}`,
+    head: `${repositoryOwner(repository)}:${branch}`,
     sort: 'updated',
     direction: 'desc',
     per_page: '10',
@@ -592,7 +592,7 @@ export function addMaintenanceAutofixOpenApi(document: JsonObject): void {
       operationId: 'runAccountMaintenanceAutofix',
       summary: 'Plan and execute safe account maintenance fixes',
       description:
-        'Plans bounded safe repairs across trvny repositories and executes them through existing guarded actions. Use dryRun to inspect the plan without mutations.',
+        'Plans bounded safe repairs across trvny/travnie repositories and executes them through existing guarded actions. Use dryRun to inspect the plan without mutations.',
       requestBody: {
         required: false,
         content: {

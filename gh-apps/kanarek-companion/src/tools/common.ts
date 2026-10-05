@@ -1,3 +1,5 @@
+import { GPTOMEK_CONTROL_BRANCH } from '../gptomek-control.ts';
+
 export type JsonObject = Record<string, unknown>;
 
 export class SpecialistToolError extends Error {
@@ -50,9 +52,7 @@ export function repositoryPathInScope(pathname: string): boolean {
   return REPOSITORY_PATH_RE.test(pathname);
 }
 
-// GPTomek fallback control ref; never mutated as a work branch.
-export const GPTOMEK_CONTROL_BRANCH = 'gptomek/control';
-
+// main, the default branch and the GPTomek control ref are never work branches.
 export function isProtectedBranch(branchName: string, defaultBranch: string): boolean {
   return (
     branchName.toLowerCase() === 'main' ||

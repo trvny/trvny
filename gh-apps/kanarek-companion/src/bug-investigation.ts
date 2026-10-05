@@ -8,12 +8,11 @@ import {
   symbolOccurrences,
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const BUG_INVESTIGATION_PATH = '/gpt-actions/operator/bug-investigate';
 
-const READ_PATH = '/gpt-actions/github/read';
 const DIAGNOSE_RUN_PATH = '/gpt-actions/github/workflows/diagnose';
 const CODE_CHANGE_PATH = '/gpt-actions/operator/code-change';
 const SHA_RE = /^[0-9a-f]{40}$/i;
@@ -226,24 +225,15 @@ async function inputObject(request: Request): Promise<Input> {
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {
-  let value: unknown;
-  try {
-    value = await response.clone().json();
-  } catch {
-    throw new BugInvestigationError('invalid_action_response', 502);
-  }
-  if (!isObject(value)) throw new BugInvestigationError('invalid_action_response', 502);
-  if (!response.ok || value.ok !== true) {
-    throw new BugInvestigationError(
-      typeof value.error === 'string' ? value.error : `action_${response.status}`,
-      response.status,
-    );
-  }
-  return value;
+  return actionResponseObject(
+    response,
+    (code, status) => new BugInvestigationError(code, status),
+    { fallback: (status) => `action_${status}`, requireOk: true },
+  );
 }
 
 async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const payload = await responseObject(await invoke(internalRequest(source, READ_PATH, { path })));
+  const payload = await responseObject(await invoke(internalReadRequest(source, path)));
   return payload.data;
 }
 

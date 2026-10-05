@@ -4,11 +4,10 @@ import {
   gptomekInstallationIdFor,
 } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 import { GPTOMEK_CONTROL_BRANCH } from './gptomek-control.ts';
 
-const READ_PATH = '/gpt-actions/github/read';
 const MAINTENANCE_PATH = '/gpt-actions/github/maintenance/report';
 const ARTIFACT_DELETE_PATH = '/gpt-actions/github/maintenance/artifacts/delete';
 const CACHE_DELETE_PATH = '/gpt-actions/github/maintenance/caches/delete';
@@ -59,20 +58,10 @@ async function inputObject(request: Request): Promise<JsonObject> {
 }
 
 async function actionPayload(response: Response): Promise<JsonObject> {
-  let value: unknown;
-  try {
-    value = await response.clone().json();
-  } catch {
-    throw new MaintenanceError('invalid_action_response', 502);
-  }
-  if (!isObject(value)) throw new MaintenanceError('invalid_action_response', 502);
-  if (!response.ok) {
-    throw new MaintenanceError(
-      typeof value.error === 'string' ? value.error : 'action_failed',
-      response.status,
-    );
-  }
-  return value;
+  return actionResponseObject(
+    response,
+    (code, status) => new MaintenanceError(code, status),
+  );
 }
 
 async function readResponse(
@@ -81,7 +70,7 @@ async function readResponse(
   fetcher: typeof fetch,
   path: string,
 ): Promise<Response> {
-  return handleGptActions(internalRequest(source, READ_PATH, { path }), env, fetcher);
+  return handleGptActions(internalReadRequest(source, path), env, fetcher);
 }
 
 async function readData(

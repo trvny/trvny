@@ -1,9 +1,8 @@
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const CODE_HISTORY_PATH = '/gpt-actions/github/code/history';
 
-const READ_PATH = '/gpt-actions/github/read';
 const GRAPHQL_PATH = '/gpt-actions/github/graphql';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_CONTENT_BYTES = 600_000;
@@ -168,24 +167,15 @@ async function inputObject(request: Request): Promise<Input> {
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {
-  let value: unknown;
-  try {
-    value = await response.clone().json();
-  } catch {
-    throw new CodeHistoryError('invalid_action_response', 502);
-  }
-  if (!isObject(value)) throw new CodeHistoryError('invalid_action_response', 502);
-  if (!response.ok || value.ok !== true) {
-    throw new CodeHistoryError(
-      typeof value.error === 'string' ? value.error : `action_${response.status}`,
-      response.status,
-    );
-  }
-  return value;
+  return actionResponseObject(
+    response,
+    (code, status) => new CodeHistoryError(code, status),
+    { fallback: (status) => `action_${status}`, requireOk: true },
+  );
 }
 
 async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const payload = await responseObject(await invoke(internalRequest(source, READ_PATH, { path })));
+  const payload = await responseObject(await invoke(internalReadRequest(source, path)));
   return payload.data;
 }
 

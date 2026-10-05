@@ -1,11 +1,10 @@
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const ACCOUNT_ATTENTION_PATH = '/gpt-actions/operator/attention';
 
 const MAINTENANCE_PATH = '/gpt-actions/github/maintenance/account';
 const INSPECT_PR_PATH = '/gpt-actions/github/pull-requests/inspect';
-const READ_PATH = '/gpt-actions/github/read';
 const DEFAULT_MAX_REPOSITORIES = 12;
 const DEFAULT_MAX_PULL_REQUESTS = 6;
 const DEFAULT_ISSUES_PER_REPOSITORY = 5;
@@ -70,7 +69,7 @@ async function responseObject(response: Response): Promise<JsonObject | null> {
 }
 
 async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const response = await invoke(internalRequest(source, READ_PATH, { path }));
+  const response = await invoke(internalReadRequest(source, path));
   const payload = await responseObject(response);
   if (!response.ok || payload?.ok !== true) {
     throw new Error(typeof payload?.error === 'string' ? payload.error : `read_${response.status}`);

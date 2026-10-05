@@ -11,12 +11,11 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, zipEntryPath } from './zip-entry.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, repositoryInScope } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, repositoryInScope, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ASSET_REPLACE_PATH = '/gpt-actions/github/releases/assets/replace-entry';
 
-const READ_PATH = '/gpt-actions/github/read';
 const DELETE_PATH = '/gpt-actions/github/releases/assets/delete';
 const ENTRY_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-entry';
 const GITHUB_API = 'https://api.github.com';
@@ -176,7 +175,7 @@ async function readData(
   dispatch: Dispatch,
   path: string,
 ): Promise<unknown> {
-  const response = await dispatch(internalRequest(source, READ_PATH, { path }));
+  const response = await dispatch(internalReadRequest(source, path));
   return (await actionObject(response)).data;
 }
 

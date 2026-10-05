@@ -105,11 +105,14 @@ values and Pages build variables are never returned.
   Gremlin share one checkpoint/replay store
 - GPTomek App/installation and Anchor folder metadata in `wrangler.jsonc`
 
-Deploy and secrets: run the `Sync Worker credentials` workflow
-(`automation-sync.yml`) with target `gremlin`. It deploys, then copies
-`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and, when present as repository
-secrets, `GPTOMEK_PRIVATE_KEY`, `ENGRAM_API_KEY`, `CONTEXT7_API_KEY`, and
-checks `/health`. Missing optional secrets are reported as warnings.
+Code deploys via Workers Builds on pushes to `main` that touch
+`gh-apps/gremlin/**` or `gh-apps/kanarek-companion/src/**` (build
+`npm run check`, deploy `npx wrangler deploy`). Secrets: run the
+`Sync Worker credentials` workflow (`automation-sync.yml`) with target
+`gremlin`. It copies `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and, when
+present as repository secrets, `GPTOMEK_PRIVATE_KEY`, `ENGRAM_API_KEY`,
+`CONTEXT7_API_KEY`, then checks `/health`. Missing optional secrets are
+reported as warnings.
 
 The operator implementation uses GitHub OAuth/App identity according to the
 specific operation. Do not replace the guarded route with a generic unrestricted

@@ -292,15 +292,13 @@ jobs:
           cache-dependency-path: gh-apps/gremlin/package-lock.json
       # Wrangler comes from the package lockfile so Dependabot keeps it current.
       - run: npm ci
-      - name: Deploy Gremlin and sync credentials
+      # Code deploys via Workers Builds; this job only syncs credentials.
+      - name: Sync Gremlin credentials
         shell: bash
         run: |
           set -euo pipefail
           : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
           : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
-
-          # Deploy first: without secrets the operator surface fails closed.
-          npx --no-install wrangler deploy
 
           secrets_file=$(mktemp)
           trap 'rm -f "$secrets_file"' EXIT

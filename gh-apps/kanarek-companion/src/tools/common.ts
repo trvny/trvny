@@ -50,6 +50,17 @@ export function repositoryPathInScope(pathname: string): boolean {
   return REPOSITORY_PATH_RE.test(pathname);
 }
 
+// GPTomek fallback control ref; never mutated as a work branch.
+export const GPTOMEK_CONTROL_BRANCH = 'gptomek/control';
+
+export function isProtectedBranch(branchName: string, defaultBranch: string): boolean {
+  return (
+    branchName.toLowerCase() === 'main' ||
+    branchName === defaultBranch ||
+    branchName === GPTOMEK_CONTROL_BRANCH
+  );
+}
+
 // `owner/name` for GitHub API paths, each segment encoded.
 export function repoPath(repository: string): string {
   return repository.split('/').map(encodeURIComponent).join('/');

@@ -6,8 +6,8 @@ import {
   deleteBranch,
   handleGptomekControl,
   isGptomekControlPr,
-  isProtectedBranch,
 } from '../src/gptomek.ts';
+import { isProtectedBranch } from '../src/tools/common.ts';
 import {
   GitHubApiError,
   type GitHubInstallationClient,

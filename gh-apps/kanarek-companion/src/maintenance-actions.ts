@@ -4,7 +4,7 @@ import {
   gptomekInstallationIdFor,
 } from './github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 import { GPTOMEK_CONTROL_BRANCH } from './gptomek-control.ts';
 
@@ -13,17 +13,7 @@ const ARTIFACT_DELETE_PATH = '/gpt-actions/github/maintenance/artifacts/delete';
 const CACHE_DELETE_PATH = '/gpt-actions/github/maintenance/caches/delete';
 const NON_PROBLEM_CONCLUSIONS = new Set(['success', 'neutral', 'skipped']);
 
-class MaintenanceError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'MaintenanceError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class MaintenanceError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

@@ -1,5 +1,5 @@
 import { likelyTestPath } from './symbol-investigation.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const DEPENDENCY_GRAPH_PATH = '/gpt-actions/github/code/dependencies';
@@ -30,17 +30,7 @@ export type ImportEvidence = {
   text: string;
 };
 
-class DependencyGraphError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'DependencyGraphError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class DependencyGraphError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

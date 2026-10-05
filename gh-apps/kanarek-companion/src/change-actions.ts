@@ -1,24 +1,14 @@
 import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { branchNameAllowed, handleLifecycleAction } from './lifecycle-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, isProtectedBranch, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, isProtectedBranch, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const CREATE_BRANCH_PATH = '/gpt-actions/github/branches/create';
 const PREPARE_CHANGE_PATH = '/gpt-actions/github/changes/prepare';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
-class ChangeError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'ChangeError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class ChangeError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

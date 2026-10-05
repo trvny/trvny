@@ -21,7 +21,7 @@ import {
 } from './workflow-actions.ts';
 import { handleEnhancedWorkflowDiagnosis } from './workflow-diagnosis-enhanced.ts';
 import { zipEntryPath, ZipEntryError } from './zip-entry.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, internalReadRequest, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ORCHESTRATION_PATH = '/gpt-actions/operator/releases/orchestrate';
@@ -93,19 +93,7 @@ interface Progress extends JsonObject {
   assetId?: number;
 }
 
-class ReleaseOrchestrationError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details: JsonObject;
-
-  constructor(code: string, status = 400, details: JsonObject = {}) {
-    super(code);
-    this.name = 'ReleaseOrchestrationError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
-  }
-}
+class ReleaseOrchestrationError extends DetailedCodedError {}
 
 function repositoryName(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

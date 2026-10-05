@@ -1,4 +1,4 @@
-import { isObject, type JsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, CodedError } from './tools/common.ts';
 
 export type PackageEcosystem = 'npm' | 'pypi' | 'crates' | 'maven' | 'nuget';
 
@@ -31,17 +31,7 @@ export type PackageRegistryResult = {
 type JsonFetcher = (url: string, init?: RequestInit) => Promise<unknown>;
 type TextFetcher = (url: string, init?: RequestInit) => Promise<string>;
 
-export class PackageRegistryError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'PackageRegistryError';
-    this.code = code;
-    this.status = status;
-  }
-}
+export class PackageRegistryError extends CodedError {}
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;

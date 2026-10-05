@@ -12,7 +12,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, ZipEntryError, zipEntryPath } from './zip-entry.ts';
-import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope, actionResponseObject } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope, actionResponseObject, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ENTRY_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-entry';
@@ -41,19 +41,7 @@ type GptomekToken = {
   permissions: Record<string, string>;
 };
 
-class ReleaseEntryError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details: JsonObject;
-
-  constructor(code: string, status = 400, details: JsonObject = {}) {
-    super(code);
-    this.name = 'ReleaseEntryError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
-  }
-}
+class ReleaseEntryError extends DetailedCodedError {}
 
 function requiredText(value: unknown, name: string, max: number): string {
   if (typeof value !== 'string' || !value || value.length > max) {

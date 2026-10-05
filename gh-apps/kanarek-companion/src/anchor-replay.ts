@@ -1,4 +1,4 @@
-import { isObject, type JsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const CONNECTION_NAME = 'trvny';
@@ -28,15 +28,9 @@ interface MutationReceipt {
   updatedAt: number;
 }
 
-export class AnchorReplayError extends Error {
-  readonly code: string;
-  readonly status: number;
-
+export class AnchorReplayError extends CodedError {
   constructor(code: string, status = 409) {
-    super(code);
-    this.name = 'AnchorReplayError';
-    this.code = code;
-    this.status = status;
+    super(code, status);
   }
 }
 

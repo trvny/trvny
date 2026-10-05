@@ -3,7 +3,7 @@ import { handleOperatorAction } from './operator-actions.ts';
 import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts';
 import { repositoryAllowedByPolicy } from './policy-enforcement.ts';
 import { handleReleaseAction, releaseTagAllowed } from './release-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const FINALIZE_PATH = '/gpt-actions/github/pull-requests/finalize';
@@ -14,19 +14,7 @@ const SHA_RE = /^[0-9a-f]{40}$/i;
 
 type MergeMethod = 'merge' | 'squash' | 'rebase';
 
-class MergeReleasePolicyError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details: JsonObject;
-
-  constructor(code: string, status = 400, details: JsonObject = {}) {
-    super(code);
-    this.name = 'MergeReleasePolicyError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
-  }
-}
+class MergeReleasePolicyError extends DetailedCodedError {}
 
 async function inputObject(request: Request, maxBytes = 160_000): Promise<JsonObject> {
   return readJsonObject(request, maxBytes, (code, status) => new MergeReleasePolicyError(code, status));

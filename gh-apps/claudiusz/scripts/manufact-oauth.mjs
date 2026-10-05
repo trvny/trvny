@@ -17,7 +17,7 @@ function safeEqual(a, b) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function normalizeConfiguredSecret(value) {
+export function normalizeManufactSecret(value) {
   if (typeof value !== 'string') return '';
   let normalized = value.trim();
   if (normalized.length >= 2) {
@@ -174,7 +174,7 @@ function tokenResponse(secret, clientId, resourceUrl) {
 }
 
 export function createManufactOAuthGateway({ secret }) {
-  const configuredSecret = normalizeConfiguredSecret(secret);
+  const configuredSecret = normalizeManufactSecret(secret);
   const authorizationCodes = new Map();
   const pendingForms = new Map();
 

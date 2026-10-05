@@ -15,12 +15,11 @@ import {
   GPTOMEK_CONTROL_REPOSITORY,
 } from './gptomek-control.ts';
 import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-types.ts';
-import { isObject, type JsonObject, repoPath, REPOSITORY_OWNERS } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, REPOSITORY_OWNERS, isProtectedBranch } from './tools/common.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const CONTROL_REPOSITORY = GPTOMEK_CONTROL_REPOSITORY;
 const CONTROL_PULL_REQUEST = GPTOMEK_CONTROL_PULL_REQUEST;
-const CONTROL_BRANCH = 'gptomek/control';
 const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9+/_-]+={0,2})\s*-->/;
 const COMMAND_PREFIX_RE = /<!--\s*gptomek-command:/;
 const RESULT_RE = /<!--\s*gptomek-result:([A-Za-z0-9+/_-]+={0,2})\s*-->/g;
@@ -654,14 +653,6 @@ async function commitFiles(
   );
   await updateBranch(client, command.repository, command.branch, newSha, false);
   return { sha: newSha };
-}
-
-export function isProtectedBranch(branchName: string, defaultBranch: string): boolean {
-  return (
-    branchName.toLowerCase() === 'main' ||
-    branchName === defaultBranch ||
-    branchName === CONTROL_BRANCH
-  );
 }
 
 export async function deleteBranch(

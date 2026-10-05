@@ -6,6 +6,7 @@ import {
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
+import { GPTOMEK_CONTROL_BRANCH } from './gptomek-control.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
 const MAINTENANCE_PATH = '/gpt-actions/github/maintenance/report';
@@ -227,7 +228,7 @@ export function unattachedBranches(
   return branches
     .filter((raw) => {
       if (!isObject(raw) || typeof raw.name !== 'string') return false;
-      return raw.name !== defaultBranch && raw.name !== 'gptomek/control' && !activeHeads.has(raw.name);
+      return raw.name !== defaultBranch && raw.name !== GPTOMEK_CONTROL_BRANCH && !activeHeads.has(raw.name);
     })
     .map((raw) => {
       const branch = raw as JsonObject;

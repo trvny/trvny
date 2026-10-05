@@ -1,0 +1,46 @@
+name: yt-migrate
+
+on:
+  schedule:
+    - cron: "17 8 * * *" # after the YouTube quota reset (midnight Pacific)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List and report only, no writes"
+        type: boolean
+        default: false
+
+concurrency:
+  group: yt-migrate
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  migrate:
+    if: github.repository == 'trvny/trvny'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: yt-migrate
+      - uses: actions/cache/restore@v4
+        with:
+          path: yt-migrate/state.json
+          key: yt-migrate-state-${{ github.run_id }}
+          restore-keys: yt-migrate-state-
+      - name: Migrate
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_SRC_REFRESH: ${{ secrets.YT_SRC_REFRESH }}
+          YT_DST_REFRESH: ${{ secrets.YT_DST_REFRESH }}
+          YT_STATE: yt-migrate/state.json
+          YT_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+        run: python3 yt-migrate/migrate.py
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: yt-migrate/state.json
+          key: yt-migrate-state-${{ github.run_id }}

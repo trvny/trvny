@@ -44,7 +44,7 @@ New records use schema v2 and contain only finished publishable content:
 
 There is no generated `dialect`, `format`, `visual` or `alt_text` taxonomy anymore. The model sees the canonical style skill as optional inspiration, not as a response schema. The Worker still reads schema v1 so already-published posts remain valid.
 
-Scheduled runs use `auto`, deterministically choosing text or meme from the run seed. Manual runs can force `auto`, `text` or `meme`.
+Scheduled runs use `auto`. Every second workflow run becomes a text limerick, keyed by `GITHUB_RUN_NUMBER`, so retries keep the same slot. Limerick languages rotate English → Polish → Simplified Chinese → Russian. The runs between them keep the existing deterministic text/meme choice. Manual `text` or `meme` explicitly bypasses the limerick cadence; manual `auto` follows it.
 ## Manual run
 
 Use **Actions → Shitpost Reactor → Run workflow** on `main`, optionally provide a topic, and choose `auto`, `text` or `meme`. Scheduled runs deliberately use evergreen Polish tech/work/internet absurdity instead of inventing current news.

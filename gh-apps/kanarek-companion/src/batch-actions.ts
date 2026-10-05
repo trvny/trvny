@@ -3,10 +3,9 @@ import {
   handleGptActions,
   type GptActionsEnv,
 } from './gpt-actions.ts';
-import { isObject, type JsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const READ_PATH = '/gpt-actions/github/read';
 const BATCH_READ_PATH = '/gpt-actions/github/read-batch';
 const MAX_BATCH_READS = 10;
 
@@ -20,20 +19,6 @@ class BatchReadError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function internalReadRequest(source: Request, path: string): Request {
-  const url = new URL(source.url);
-  url.pathname = READ_PATH;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ path }),
-  });
 }
 
 async function readInput(request: Request): Promise<string[]> {

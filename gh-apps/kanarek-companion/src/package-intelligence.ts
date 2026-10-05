@@ -8,12 +8,11 @@ import {
   type PackageEcosystem,
   type PackageRegistryResult,
 } from './package-registry.ts';
-import { isObject, type JsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const PACKAGE_INTELLIGENCE_PATH = '/gpt-actions/packages/inspect';
 
-const READ_PATH = '/gpt-actions/github/read';
 const EXPECTED_OPERATOR = 'trvny';
 const MAX_REQUEST_BYTES = 16_000;
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
@@ -96,16 +95,6 @@ async function inputObject(request: Request): Promise<Input> {
     includeAlternatives: booleanValue(raw.includeAlternatives, 'include_alternatives', false),
     includeUpstream: booleanValue(raw.includeUpstream, 'include_upstream', true),
   };
-}
-
-function internalReadRequest(source: Request, path: string): Request {
-  const url = new URL(source.url);
-  url.pathname = READ_PATH;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify({ path }) });
 }
 
 async function responseObject(response: Response): Promise<JsonObject | null> {

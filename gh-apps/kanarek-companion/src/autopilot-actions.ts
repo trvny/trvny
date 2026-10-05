@@ -1,7 +1,7 @@
 import { handleOperatorAction } from './operator-actions.ts';
 import { handlePolicyEnforcementAction } from './policy-enforcement.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const AUTOPILOT_PATH = '/gpt-actions/operator/autopilot';
@@ -44,15 +44,7 @@ class AutopilotError extends Error {
 }
 
 async function inputObject(request: Request): Promise<AutopilotInput> {
-  const text = await request.clone().text();
-  if (text.length > 16_000) throw new AutopilotError('payload_too_large', 413);
-  let value: unknown;
-  try {
-    value = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new AutopilotError('invalid_json');
-  }
-  if (!isObject(value)) throw new AutopilotError('invalid_json_object');
+  const value = await readJsonObject(request, 16_000, (code, status) => new AutopilotError(code, status));
   if (Object.keys(value).some((key) => !['repositories', 'dryRun', 'maxTasks'].includes(key))) {
     throw new AutopilotError('invalid_autopilot_request');
   }

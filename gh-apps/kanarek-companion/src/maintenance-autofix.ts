@@ -5,7 +5,7 @@ import {
 } from './maintenance-account.ts';
 import { handleMaintenanceAction } from './maintenance-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -82,16 +82,7 @@ function internalRequest(source: Request, pathname: string, body: JsonObject = {
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > 16_000) throw new MaintenanceAutofixError('payload_too_large', 413);
-  let value: unknown;
-  try {
-    value = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new MaintenanceAutofixError('invalid_json');
-  }
-  if (!isObject(value)) throw new MaintenanceAutofixError('invalid_json_object');
-  return value;
+  return readJsonObject(request, 16_000, (code, status) => new MaintenanceAutofixError(code, status));
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {

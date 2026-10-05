@@ -21,7 +21,7 @@ import {
 } from './workflow-actions.ts';
 import { handleEnhancedWorkflowDiagnosis } from './workflow-diagnosis-enhanced.ts';
 import { zipEntryPath, ZipEntryError } from './zip-entry.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ORCHESTRATION_PATH = '/gpt-actions/operator/releases/orchestrate';
@@ -163,15 +163,7 @@ export function releaseAssetUploadPath(entryPath?: string): string {
 async function parseInput(
   request: Request,
 ): Promise<{ input: ReleaseInput; hashInput: JsonObject; inputHash: string }> {
-  const text = await request.clone().text();
-  if (text.length > 120_000) throw new ReleaseOrchestrationError('payload_too_large', 413);
-  let raw: unknown;
-  try {
-    raw = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new ReleaseOrchestrationError('invalid_json');
-  }
-  if (!isObject(raw)) throw new ReleaseOrchestrationError('invalid_json_object');
+  const raw = await readJsonObject(request, 120_000, (code, status) => new ReleaseOrchestrationError(code, status));
   const allowed = new Set([
     'operationId',
     'repository',

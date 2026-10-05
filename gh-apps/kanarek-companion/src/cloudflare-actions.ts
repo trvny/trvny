@@ -5,7 +5,7 @@ import {
 } from './autopilot-checkpoint.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
 import { loadGremlinPolicy, type GremlinPolicy } from './policy-actions.ts';
-import { isObject, type JsonObject } from './tools/common.ts';
+import { isObject, type JsonObject, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const CLOUDFLARE_API = 'https://api.cloudflare.com/client/v4';
@@ -63,17 +63,7 @@ class CloudflareActionError extends Error {
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > 64_000) throw new CloudflareActionError('payload_too_large', 413);
-  if (!text.trim()) return {};
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new CloudflareActionError('invalid_json');
-  }
-  if (!isObject(parsed)) throw new CloudflareActionError('invalid_json_object');
-  return parsed;
+  return readJsonObject(request, 64_000, (code, status) => new CloudflareActionError(code, status));
 }
 
 function exactInput(input: JsonObject, allowed: readonly string[]): void {

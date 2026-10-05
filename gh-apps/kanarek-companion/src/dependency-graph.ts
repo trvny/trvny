@@ -1,5 +1,5 @@
 import { likelyTestPath } from './symbol-investigation.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const DEPENDENCY_GRAPH_PATH = '/gpt-actions/github/code/dependencies';
@@ -106,15 +106,7 @@ function maxCandidates(value: unknown, callerLimit: number): number {
 }
 
 async function inputObject(request: Request): Promise<Input> {
-  const text = await request.clone().text();
-  if (text.length > 16_000) throw new DependencyGraphError('payload_too_large', 413);
-  let value: unknown = {};
-  try {
-    if (text.trim()) value = JSON.parse(text);
-  } catch {
-    throw new DependencyGraphError('invalid_json');
-  }
-  if (!isObject(value)) throw new DependencyGraphError('invalid_json_object');
+  const value = await readJsonObject(request, 16_000, (code, status) => new DependencyGraphError(code, status));
   const allowed = new Set(['repository', 'path', 'ref', 'maxCallers', 'maxCandidates']);
   if (Object.keys(value).some((key) => !allowed.has(key))) {
     throw new DependencyGraphError('invalid_dependency_graph_request');

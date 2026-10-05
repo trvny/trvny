@@ -18,7 +18,7 @@ import {
   handleTargetedTestsAction,
   TARGETED_TESTS_PATH,
 } from './test-discovery.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const CODE_CHANGE_AUTOPILOT_PATH = '/gpt-actions/operator/code-change';
@@ -403,15 +403,7 @@ function action(value: unknown): Action | undefined {
 }
 
 async function parseInput(request: Request): Promise<{ core: CoreInput; action?: Action; inputHash: string }> {
-  const text = await request.clone().text();
-  if (text.length > 1_500_000) throw new CodeChangeError('payload_too_large', 413);
-  let raw: unknown;
-  try {
-    raw = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new CodeChangeError('invalid_json');
-  }
-  if (!isObject(raw)) throw new CodeChangeError('invalid_json_object');
+  const raw = await readJsonObject(request, 1_500_000, (code, status) => new CodeChangeError(code, status));
   const allowed = new Set([
     'operationId', 'repository', 'goal', 'branch', 'expectedBaseSha', 'targetPaths',
     'investigationTerms', 'issueNumber', 'path', 'language', 'refactor', 'action',

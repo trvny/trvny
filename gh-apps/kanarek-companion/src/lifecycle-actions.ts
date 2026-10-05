@@ -1,10 +1,9 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, repositoryPathInScope, isProtectedBranch } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, repositoryPathInScope, isProtectedBranch, actionResponseObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
-const READ_PATH = '/gpt-actions/github/read';
 const BOT_PATH = '/gpt-actions/github/bot';
 const CREATE_BRANCH_PATH = '/gpt-actions/github/branches/create';
 const PR_STATE_PATH = '/gpt-actions/github/pull-requests/state';
@@ -89,20 +88,10 @@ async function inputObject(request: Request): Promise<JsonObject> {
 }
 
 async function responsePayload(response: Response): Promise<JsonObject> {
-  let payload: unknown;
-  try {
-    payload = await response.clone().json();
-  } catch {
-    throw new LifecycleError('invalid_action_response', 502);
-  }
-  if (!isObject(payload)) throw new LifecycleError('invalid_action_response', 502);
-  if (!response.ok) {
-    throw new LifecycleError(
-      typeof payload.error === 'string' ? payload.error : 'action_failed',
-      response.status,
-    );
-  }
-  return payload;
+  return actionResponseObject(
+    response,
+    (code, status) => new LifecycleError(code, status),
+  );
 }
 
 async function actionData(response: Response): Promise<unknown> {
@@ -115,7 +104,7 @@ async function readResponse(
   fetcher: typeof fetch,
   path: string,
 ): Promise<Response> {
-  return handleGptActions(internalRequest(source, READ_PATH, { path }), env, fetcher);
+  return handleGptActions(internalReadRequest(source, path), env, fetcher);
 }
 
 async function readData(

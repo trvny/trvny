@@ -1,10 +1,9 @@
 import { likelyTestPath } from './symbol-investigation.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const TARGETED_TESTS_PATH = '/gpt-actions/github/code/tests';
 
-const READ_PATH = '/gpt-actions/github/read';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_TARGETS = 12;
 const MAX_ANCESTORS = 32;
@@ -119,35 +118,16 @@ async function inputObject(request: Request): Promise<Input> {
   };
 }
 
-function internalRequest(source: Request, path: string): Request {
-  const url = new URL(source.url);
-  url.pathname = READ_PATH;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, { method: 'POST', headers, body: JSON.stringify({ path }) });
-}
-
 async function responseObject(response: Response): Promise<JsonObject> {
-  let value: unknown;
-  try {
-    value = await response.clone().json();
-  } catch {
-    throw new TestDiscoveryError('invalid_action_response', 502);
-  }
-  if (!isObject(value)) throw new TestDiscoveryError('invalid_action_response', 502);
-  if (!response.ok || value.ok !== true) {
-    throw new TestDiscoveryError(
-      typeof value.error === 'string' ? value.error : `read_${response.status}`,
-      response.status,
-    );
-  }
-  return value;
+  return actionResponseObject(
+    response,
+    (code, status) => new TestDiscoveryError(code, status),
+    { fallback: (status) => `read_${status}`, requireOk: true },
+  );
 }
 
 async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  return (await responseObject(await invoke(internalRequest(source, path)))).data;
+  return (await responseObject(await invoke(internalReadRequest(source, path)))).data;
 }
 
 async function readOptional(source: Request, invoke: Invoke, path: string): Promise<unknown | null> {

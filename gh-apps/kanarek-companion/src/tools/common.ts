@@ -104,6 +104,28 @@ export async function readJsonObject(
   return value;
 }
 
+// Internal GPT Actions JSON response. Non-JSON -> invalid_action_response 502.
+// Failure: HTTP !ok, or payload.ok !== true when requireOk; code = payload.error
+// or fallback(status).
+export async function actionResponseObject(
+  response: Response,
+  error: (code: string, status?: number) => Error,
+  options: { fallback?: (status: number) => string; requireOk?: boolean } = {},
+): Promise<JsonObject> {
+  let value: unknown;
+  try {
+    value = await response.clone().json();
+  } catch {
+    throw error('invalid_action_response', 502);
+  }
+  if (!isObject(value)) throw error('invalid_action_response', 502);
+  if (!response.ok || (options.requireOk && value.ok !== true)) {
+    const fallback = options.fallback ?? (() => 'action_failed');
+    throw error(typeof value.error === 'string' ? value.error : fallback(response.status), response.status);
+  }
+  return value;
+}
+
 export function assertSerializedSize(value: unknown, maxBytes: number): void {
   let serialized: string;
   try {

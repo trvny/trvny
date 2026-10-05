@@ -21,12 +21,11 @@ import {
 } from './workflow-actions.ts';
 import { handleEnhancedWorkflowDiagnosis } from './workflow-diagnosis-enhanced.ts';
 import { zipEntryPath, ZipEntryError } from './zip-entry.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ORCHESTRATION_PATH = '/gpt-actions/operator/releases/orchestrate';
 
-const READ_PATH = '/gpt-actions/github/read';
 const WORKFLOW_DISPATCH_PATH = '/gpt-actions/github/workflows/dispatch';
 const WORKFLOW_DIAGNOSE_PATH = '/gpt-actions/github/workflows/diagnose';
 const RELEASE_PATH = '/gpt-actions/github/releases/manage';
@@ -256,7 +255,7 @@ async function readResponse(
   fetcher: typeof fetch,
   path: string,
 ): Promise<Response> {
-  return handleGptActions(internalRequest(request, READ_PATH, { path }), env, fetcher);
+  return handleGptActions(internalReadRequest(request, path), env, fetcher);
 }
 
 async function readData(

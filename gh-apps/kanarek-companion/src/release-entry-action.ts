@@ -12,7 +12,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, ZipEntryError, zipEntryPath } from './zip-entry.ts';
-import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope, actionResponseObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ENTRY_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-entry';
@@ -138,20 +138,10 @@ async function requestInput(request: Request): Promise<Input> {
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {
-  let value: unknown;
-  try {
-    value = await response.clone().json();
-  } catch {
-    throw new ReleaseEntryError('invalid_action_response', 502);
-  }
-  if (!isObject(value)) throw new ReleaseEntryError('invalid_action_response', 502);
-  if (!response.ok) {
-    throw new ReleaseEntryError(
-      typeof value.error === 'string' ? value.error : 'action_failed',
-      response.status,
-    );
-  }
-  return value;
+  return actionResponseObject(
+    response,
+    (code, status) => new ReleaseEntryError(code, status),
+  );
 }
 
 async function readData(

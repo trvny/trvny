@@ -5,10 +5,9 @@ import {
 } from './maintenance-account.ts';
 import { handleMaintenanceAction } from './maintenance-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, actionResponseObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const READ_PATH = '/gpt-actions/github/read';
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
 const REPORT_PATH = '/gpt-actions/github/maintenance/report';
 const AUTOFIX_PATH = '/gpt-actions/github/maintenance/autofix';
@@ -86,20 +85,10 @@ async function inputObject(request: Request): Promise<JsonObject> {
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {
-  let payload: unknown;
-  try {
-    payload = await response.clone().json();
-  } catch {
-    throw new MaintenanceAutofixError('invalid_action_response', 502);
-  }
-  if (!isObject(payload)) throw new MaintenanceAutofixError('invalid_action_response', 502);
-  if (!response.ok) {
-    throw new MaintenanceAutofixError(
-      typeof payload.error === 'string' ? payload.error : 'action_failed',
-      response.status,
-    );
-  }
-  return payload;
+  return actionResponseObject(
+    response,
+    (code, status) => new MaintenanceAutofixError(code, status),
+  );
 }
 
 async function invoke(
@@ -156,7 +145,7 @@ async function readResponse(
   fetcher: typeof fetch,
   path: string,
 ): Promise<Response> {
-  return handleGptActions(internalRequest(source, READ_PATH, { path }), env, fetcher);
+  return handleGptActions(internalReadRequest(source, path), env, fetcher);
 }
 
 async function readData(

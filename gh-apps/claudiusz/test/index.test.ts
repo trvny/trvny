@@ -101,14 +101,21 @@ test('notifications get 202 with no body', async () => {
 });
 
 
-test('favicon alias is public', async () => {
+test('favicon alias is public and proxies a 460px avatar', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () =>
-    new Response('icon', { status: 200, headers: { 'content-type': 'image/png' } });
+  let requestedUrl = '';
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response('icon', { status: 200, headers: { 'content-type': 'image/png' } });
+  };
   try {
     const response = await worker.fetch(new Request('https://claudiusz-mcp.test/favicon.ico'), env);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('content-type'), 'image/png');
+    assert.equal(
+      requestedUrl,
+      'https://avatars.githubusercontent.com/in/4454097?s=460&u=c70961610c1cbbd12ba0a4227f1202a8ee714568&v=4',
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

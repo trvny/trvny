@@ -153,5 +153,5 @@ test('normalizes quoted or whitespace-padded configured access codes', async () 
     body: '{}',
   }));
   assert.ok(direct instanceof Request);
-  assert.equal(direct.headers.get('authorization'), `Bearer ${storedSecret}`);
+  assert.equal(direct.headers.get('authorization'), `Bearer ${SECRET}`);
 });

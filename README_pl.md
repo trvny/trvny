@@ -67,7 +67,7 @@
 ### 🗄️ Szuflady
 
 [`playlists`](stuff/playlists/) · [`configs`](stuff/configs/) ·
-[`feeds`](stuff/feeds/) · [`quotes`](stuff/quotes/) · [`other`](stuff/other/)
+[`feeds`](stuff/feeds/) · [`quotes`](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c) · [`other`](stuff/other/)
 
 - **Playlisty**: robocze i testowe M3U/M3U8 dla Streambencha oraz odtwarzaczy.
 - **Konfiguracje**: rzeczy współdzielone, których nie warto zamykać w osobnym repo.

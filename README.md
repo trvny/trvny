@@ -67,7 +67,7 @@
 ### 🗄️ Drawers
 
 [`playlists`](stuff/playlists/) · [`configs`](stuff/configs/) ·
-[`feeds`](stuff/feeds/) · [`quotes`](stuff/quotes/) · [`other`](stuff/other/)
+[`feeds`](stuff/feeds/) · [`quotes`](https://gist.github.com/trvny/167d2271e3cf7d21e118aa7d906a7d2c) · [`other`](stuff/other/)
 
 - **Playlists**: working and test M3U/M3U8 files for Streambench and players.
 - **Configs**: shared pieces that are not worth putting in a separate repository.

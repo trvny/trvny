@@ -140,8 +140,12 @@ casually clean up its fallback PR/ref.
   fill calculations.
 - `src/companion-view.ts`: semantic PR state and the single rendered status
   comment.
-- `src/webhook-review.ts`: review debounce/dedupe, bounded context, stale-head
-  validation, retry policy, and native review publication.
+- `src/webhook-review.ts`: review debounce/dedupe, stale-head validation, retry
+  policy, provider sweep, and native review publication.
+- `src/webhook-review-context.ts`: shared review types plus bounded diff, file,
+  tree, caller and dependency context.
+- `src/webhook-review-judge.ts`: finding verification, review judge and L2
+  decision judge.
 - `src/quip.ts`: presets, direct quip providers, prompt/validation contract, and
   base AI rollout.
 

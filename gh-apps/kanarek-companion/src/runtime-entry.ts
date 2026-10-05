@@ -40,11 +40,8 @@ import {
   SYMBOL_INVESTIGATION_PATH,
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
-import {
-  scheduleWebhookReviewWebhook,
-  WebhookReviewJob,
-  type WebhookReviewEnv,
-} from './webhook-review.ts';
+import { type WebhookReviewEnv } from './webhook-review-context.ts';
+import { scheduleWebhookReviewWebhook, WebhookReviewJob } from './webhook-review.ts';
 import { repositoryListAllows } from './index.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';

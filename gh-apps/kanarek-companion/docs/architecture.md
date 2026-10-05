@@ -86,7 +86,9 @@ receipt reuse.
 ## Webhook review
 
 `webhook-review.ts` is deliberately caller-side rather than part of
-`kanarek-review`, because it owns GitHub state, not provider routing.
+`kanarek-review`, because it owns GitHub state, not provider routing. Context
+gathering lives in `webhook-review-context.ts` and finding verification/judges in
+`webhook-review-judge.ts`; neither imports back from `webhook-review.ts`.
 
 It is responsible for:
 

@@ -2,34 +2,38 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  detectNpmMajorBumps,
+  fetchReviewDependencyEvidence,
+  patchAddedRightLines,
+  reviewFileCollectionComplete,
+  reviewInputState,
+  selectReviewFiles,
+  type WebhookReviewEnv,
+} from '../src/webhook-review-context.ts';
+import {
   applyDecisionJudge,
   decisionL2FallbackMarker,
   decisionL2SuccessMarker,
-  detectNpmMajorBumps,
-  fetchReviewDependencyEvidence,
   findingsAfterJudge,
+  reviewAnchorLine,
+  reviewMaxOutputTokens,
+  reviewDecisionQuestions,
+} from '../src/webhook-review-judge.ts';
+import {
   nextReviewPhase,
   parseReviewJson,
-  patchAddedRightLines,
-  reviewAnchorLine,
-  reviewFileCollectionComplete,
-  reviewInputState,
-  reviewMaxOutputTokens,
   reviewOutputTokens,
   reviewContinuationJob,
-  reviewDecisionQuestions,
   reviewMarker,
   reviewRetryDelayMs,
   reviewRouterEnvForAttempt,
   reviewSourceLabel,
-  selectReviewFiles,
   submittedReviewMatches,
   scheduleWebhookReviewWebhook,
   shouldRefreshSameTarget,
   shouldReplaceQueuedTarget,
   WebhookReviewJob,
   webhookReviewSettled,
-  type WebhookReviewEnv,
 } from '../src/webhook-review.ts';
 
 const headA = 'a'.repeat(40);

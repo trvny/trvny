@@ -373,7 +373,7 @@ export function createManufactOAuthGateway({ secret }) {
 
   function withWorkerSecret(request) {
     const headers = new Headers(request.headers);
-    headers.set('Authorization', `Bearer ${secret}`);
+    headers.set('Authorization', `Bearer ${configuredSecret}`);
     return new Request(request, { headers });
   }
 
@@ -382,12 +382,8 @@ export function createManufactOAuthGateway({ secret }) {
     const header = request.headers.get('authorization') ?? '';
     const match = header.match(/^Bearer\s+(.+)$/i);
     const presented = match?.[1] ?? '';
-    if (
-      presented &&
-      (safeEqual(presented, secret ?? '') ||
-        safeEqual(normalizeSubmittedSecret(presented), configuredSecret))
-    ) {
-      return safeEqual(presented, secret ?? '') ? request : withWorkerSecret(request);
+    if (presented && safeEqual(normalizeSubmittedSecret(presented), configuredSecret)) {
+      return safeEqual(presented, configuredSecret) ? request : withWorkerSecret(request);
     }
     if (presented) {
       const claims = validateTimedToken(presented, 'claudiusz_at', configuredSecret, {

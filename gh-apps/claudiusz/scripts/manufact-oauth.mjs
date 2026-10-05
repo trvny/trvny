@@ -17,6 +17,23 @@ function safeEqual(a, b) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+export function normalizeManufactSecret(value) {
+  if (typeof value !== 'string') return '';
+  let normalized = value.trim();
+  if (normalized.length >= 2) {
+    const first = normalized[0];
+    const last = normalized.at(-1);
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      normalized = normalized.slice(1, -1).trim();
+    }
+  }
+  return normalized;
+}
+
+function normalizeSubmittedSecret(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function signedValue(prefix, payload, secret) {
   const body = base64urlJson(payload);
   const unsigned = `${prefix}.${body}`;
@@ -157,6 +174,7 @@ function tokenResponse(secret, clientId, resourceUrl) {
 }
 
 export function createManufactOAuthGateway({ secret }) {
+  const configuredSecret = normalizeManufactSecret(secret);
   const authorizationCodes = new Map();
   const pendingForms = new Map();
 
@@ -191,7 +209,7 @@ export function createManufactOAuthGateway({ secret }) {
   }
 
   async function register(request) {
-    if (!secret) return oauthError('server_error', 'OAuth access code is not configured', 503);
+    if (!configuredSecret) return oauthError('server_error', 'OAuth access code is not configured', 503);
     if (request.method !== 'POST') return oauthError('invalid_request', 'POST required', 405);
     let body;
     try {
@@ -217,7 +235,7 @@ export function createManufactOAuthGateway({ secret }) {
       return oauthError('invalid_client_metadata', 'Unsupported response type');
     }
     const issuedAt = Math.floor(Date.now() / 1000);
-    const clientId = signedValue('claudiusz_client', { redirect_uris: uniqueRedirectUris, iat: issuedAt }, secret);
+    const clientId = signedValue('claudiusz_client', { redirect_uris: uniqueRedirectUris, iat: issuedAt }, configuredSecret);
     return oauthJson({
       client_id: clientId,
       client_id_issued_at: issuedAt,
@@ -239,7 +257,7 @@ export function createManufactOAuthGateway({ secret }) {
     if (challengeMethod !== 'S256') return { error: 'invalid_request' };
     if (!validateScope(params.get('scope'))) return { error: 'invalid_scope' };
     if (resource !== `${origin}/mcp`) return { error: 'invalid_target' };
-    const client = verifiedValue(clientId, 'claudiusz_client', secret);
+    const client = verifiedValue(clientId, 'claudiusz_client', configuredSecret);
     if (!client || !Array.isArray(client.redirect_uris) || !client.redirect_uris.includes(redirectUri)) {
       return { error: 'invalid_client' };
     }
@@ -253,7 +271,7 @@ export function createManufactOAuthGateway({ secret }) {
   }
 
   async function authorize(request, origin) {
-    if (!secret) return oauthError('server_error', 'OAuth access code is not configured', 503);
+    if (!configuredSecret) return oauthError('server_error', 'OAuth access code is not configured', 503);
     prune();
     if (request.method === 'GET') {
       const validated = validateAuthorizationParams(new URL(request.url).searchParams, origin);
@@ -275,8 +293,8 @@ export function createManufactOAuthGateway({ secret }) {
       pendingForms.delete(nonce);
       return oauthError('invalid_request', 'Authorization form expired');
     }
-    const accessCode = values.get('access_code') ?? '';
-    if (!safeEqual(accessCode, secret)) return loginPage(origin, nonce, 'Invalid access code');
+    const accessCode = normalizeSubmittedSecret(values.get('access_code'));
+    if (!safeEqual(accessCode, configuredSecret)) return loginPage(origin, nonce, 'Invalid access code');
     pendingForms.delete(nonce);
     const code = randomBytes(32).toString('base64url');
     authorizationCodes.set(code, {
@@ -296,7 +314,7 @@ export function createManufactOAuthGateway({ secret }) {
   }
 
   async function token(request, origin) {
-    if (!secret) return oauthError('server_error', 'OAuth access code is not configured', 503);
+    if (!configuredSecret) return oauthError('server_error', 'OAuth access code is not configured', 503);
     if (request.method !== 'POST') return oauthError('invalid_request', 'POST required', 405);
     prune();
     let values;
@@ -312,7 +330,7 @@ export function createManufactOAuthGateway({ secret }) {
       const code = values.get('code') ?? '';
       const verifier = values.get('code_verifier') ?? '';
       const resource = values.get('resource') ?? `${origin}/mcp`;
-      const client = verifiedValue(clientId, 'claudiusz_client', secret);
+      const client = verifiedValue(clientId, 'claudiusz_client', configuredSecret);
       if (!client) return oauthError('invalid_client', undefined, 401);
       const pending = authorizationCodes.get(code);
       if (!pending || pending.expiresAt <= Date.now()) {
@@ -330,19 +348,19 @@ export function createManufactOAuthGateway({ secret }) {
       ) {
         return oauthError('invalid_grant');
       }
-      return tokenResponse(secret, clientId, `${origin}/mcp`);
+      return tokenResponse(configuredSecret, clientId, `${origin}/mcp`);
     }
     if (grantType === 'refresh_token') {
       const clientId = values.get('client_id') ?? '';
       const refreshToken = values.get('refresh_token') ?? '';
-      const client = verifiedValue(clientId, 'claudiusz_client', secret);
+      const client = verifiedValue(clientId, 'claudiusz_client', configuredSecret);
       if (!client) return oauthError('invalid_client', undefined, 401);
-      const claims = validateTimedToken(refreshToken, 'claudiusz_rt', secret, {
+      const claims = validateTimedToken(refreshToken, 'claudiusz_rt', configuredSecret, {
         typ: 'refresh',
         aud: `${origin}/mcp`,
       });
       if (!claims || claims.client_id !== clientId) return oauthError('invalid_grant');
-      return tokenResponse(secret, clientId, `${origin}/mcp`);
+      return tokenResponse(configuredSecret, clientId, `${origin}/mcp`);
     }
     return oauthError('unsupported_grant_type');
   }
@@ -353,21 +371,26 @@ export function createManufactOAuthGateway({ secret }) {
     });
   }
 
+  function withWorkerSecret(request) {
+    const headers = new Headers(request.headers);
+    headers.set('Authorization', `Bearer ${configuredSecret}`);
+    return new Request(request, { headers });
+  }
+
   function authorizeMcp(request, origin) {
-    if (!secret) return challenge(origin);
+    if (!configuredSecret) return challenge(origin);
     const header = request.headers.get('authorization') ?? '';
     const match = header.match(/^Bearer\s+(.+)$/i);
-    if (match?.[1] && safeEqual(match[1], secret)) return request;
-    if (match?.[1]) {
-      const claims = validateTimedToken(match[1], 'claudiusz_at', secret, {
+    const presented = match?.[1] ?? '';
+    if (presented && safeEqual(normalizeSubmittedSecret(presented), configuredSecret)) {
+      return safeEqual(presented, configuredSecret) ? request : withWorkerSecret(request);
+    }
+    if (presented) {
+      const claims = validateTimedToken(presented, 'claudiusz_at', configuredSecret, {
         typ: 'access',
         aud: `${origin}/mcp`,
       });
-      if (claims) {
-        const headers = new Headers(request.headers);
-        headers.set('Authorization', `Bearer ${secret}`);
-        return new Request(request, { headers });
-      }
+      if (claims) return withWorkerSecret(request);
     }
     return challenge(origin);
   }

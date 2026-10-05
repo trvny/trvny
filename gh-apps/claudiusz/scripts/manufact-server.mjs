@@ -3,7 +3,7 @@ import { readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-import { createManufactOAuthGateway } from './manufact-oauth.mjs';
+import { createManufactOAuthGateway, normalizeManufactSecret } from './manufact-oauth.mjs';
 
 const BUILD_DIR = path.resolve('.manufact');
 const MAX_ADAPTER_BODY_BYTES = 128 * 1024;
@@ -37,7 +37,7 @@ if (!worker || typeof worker.fetch !== 'function') {
 const env = {
   CLAUDIUSZ_APP_ID: process.env.CLAUDIUSZ_APP_ID ?? '4454097',
   ALLOWED_OWNERS: process.env.ALLOWED_OWNERS ?? 'trvny,travnie',
-  CLAUDIUSZ_MCP_TOKEN: process.env.CLAUDIUSZ_MCP_TOKEN,
+  CLAUDIUSZ_MCP_TOKEN: normalizeManufactSecret(process.env.CLAUDIUSZ_MCP_TOKEN),
   GH_APP_PRIVATE_KEY: process.env.GH_APP_PRIVATE_KEY,
 };
 

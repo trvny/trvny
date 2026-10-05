@@ -414,3 +414,19 @@ export async function repositoryInstallationId(
   }
   return payload.id;
 }
+
+// GPTomek installation for a repository: configured id for trvny (or when no
+// repository is given), per-repository lookup for other owners. null = bad config.
+export async function gptomekInstallationIdFor(
+  configured: string | undefined,
+  appId: string,
+  privateKey: string,
+  repositoryName: string | undefined,
+  fetcher: typeof fetch,
+): Promise<number | null> {
+  if (repositoryName && repositoryName.split('/')[0] !== 'trvny') {
+    return repositoryInstallationId(appId, privateKey, repositoryName, fetcher);
+  }
+  const installationId = Number(configured);
+  return Number.isInteger(installationId) && installationId > 0 ? installationId : null;
+}

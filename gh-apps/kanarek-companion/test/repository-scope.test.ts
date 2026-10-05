@@ -8,6 +8,7 @@ import {
   handleGptActions,
   type GptActionsEnv,
 } from '../src/gpt-actions.ts';
+import { gptomekInstallationIdFor } from '../src/github-app.ts';
 import { repositoryAllowedByPolicy } from '../src/policy-enforcement.ts';
 import { repositoryInScope, repositoryPathInScope } from '../src/tools/common.ts';
 
@@ -120,4 +121,68 @@ test('bot writes on travnie use that repository installation', async () => {
   assert.equal(calls.some((call) => call.path === '/app/installations/1/access_tokens'), false);
   const write = calls.find((call) => call.path === '/repos/travnie/kanarek/issues/1/comments');
   assert.match(write?.auth ?? '', /travnie-token/);
+});
+
+test('GPTomek installation: configured for trvny, per-repo lookup elsewhere', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString();
+  const looked: string[] = [];
+  const fetcher = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input));
+    looked.push(url.pathname);
+    return Response.json({ id: 77 });
+  }) as typeof fetch;
+
+  assert.equal(await gptomekInstallationIdFor('1', '123', privateKey, 'trvny/feedseek', fetcher), 1);
+  assert.equal(await gptomekInstallationIdFor('1', '123', privateKey, undefined, fetcher), 1);
+  assert.equal(await gptomekInstallationIdFor('nope', '123', privateKey, 'trvny/feedseek', fetcher), null);
+  assert.deepEqual(looked, []);
+  assert.equal(await gptomekInstallationIdFor('1', '123', privateKey, 'travnie/kanarek', fetcher), 77);
+  assert.deepEqual(looked, ['/repos/travnie/kanarek/installation']);
+});
+
+test('commit-files accepts travnie and uses that repository installation', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString();
+  const paths: string[] = [];
+  const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    const method = (init?.method ?? 'GET').toUpperCase();
+    paths.push(`${method} ${url.pathname}`);
+    if (url.pathname === '/user') return Response.json({ login: 'trvny', id: 1 });
+    if (url.pathname === '/repos/travnie/kanarek/installation') return Response.json({ id: 77 });
+    if (url.pathname === '/app/installations/77/access_tokens') {
+      return Response.json({ token: 'travnie-token', expires_at: '2099-01-01T00:00:00Z' });
+    }
+    if (url.pathname === '/repos/travnie/kanarek/git/ref/heads/feat/x') {
+      return Response.json({ object: { sha: 'b'.repeat(40) } });
+    }
+    return Response.json({ message: 'unexpected' }, { status: 500 });
+  }) as typeof fetch;
+
+  // Past repository validation and auth, the stale head stops the write.
+  await assert.rejects(handleGptActions(
+    new Request('https://worker.test/gpt-actions/github/commit-files', {
+      method: 'POST',
+      headers: { authorization: 'Bearer user-token', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        repository: 'travnie/kanarek',
+        branch: 'feat/x',
+        expectedHeadSha: 'a'.repeat(40),
+        message: 'test',
+        files: [{ path: 'README.md', content: 'hi' }],
+      }),
+    }),
+    {
+      GPTOMEK_APP_ID: '123',
+      GPTOMEK_PRIVATE_KEY: privateKey,
+      GPTOMEK_INSTALLATION_ID: '1',
+    } as unknown as GptActionsEnv,
+    fetcher,
+  ), { code: 'branch_head_changed' });
+
+  assert.ok(paths.includes('POST /app/installations/77/access_tokens'));
+  assert.ok(!paths.includes('POST /app/installations/1/access_tokens'));
 });

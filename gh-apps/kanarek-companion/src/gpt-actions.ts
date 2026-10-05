@@ -1,7 +1,7 @@
 import {
   createInstallationClient,
   GitHubApiError,
-  repositoryInstallationId,
+  gptomekInstallationIdFor,
   type GitHubInstallationClient,
 } from './github-app.ts';
 import type { CompanionEnv } from './companion-types.ts';
@@ -10,7 +10,6 @@ import {
   REPOSITORY_OWNERS,
   repoPath,
   repositoryInScope,
-  repositoryOwner,
   repositoryPathInScope,
 } from './tools/common.ts';
 import { json } from './json-response.ts';
@@ -88,16 +87,10 @@ function requiredString(value: unknown, name: string, max = 65_000): string {
 
 function repository(value: unknown): string {
   const result = requiredString(value, 'repository', 200);
-  const [owner, repo, extra] = result.split('/');
-  if (
-    extra ||
-    owner !== EXPECTED_USER ||
-    !repo ||
-    !/^[A-Za-z0-9_.-]+$/.test(repo)
-  ) {
+  if (!repositoryInScope(result)) {
     throw new ActionError('repository_not_allowed', 403);
   }
-  return `${owner}/${repo}`;
+  return result;
 }
 
 function branch(value: unknown): string {
@@ -317,8 +310,6 @@ async function requireTrvny(
   return user;
 }
 
-// trvny/* (and repo-less calls) use the configured installation; other
-// allowed owners resolve their own installation per repository.
 async function gptomekClient(
   env: GptActionsEnv,
   fetcher: typeof fetch = fetch,
@@ -326,12 +317,14 @@ async function gptomekClient(
 ): Promise<GitHubInstallationClient> {
   const appId = requiredString(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
   const privateKey = requiredString(env.GPTOMEK_PRIVATE_KEY, 'gptomek_private_key', 20_000);
-  if (repositoryName && repositoryOwner(repositoryName) !== 'trvny') {
-    const installationId = await repositoryInstallationId(appId, privateKey, repositoryName, fetcher);
-    return createInstallationClient(appId, privateKey, installationId, fetcher);
-  }
-  const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
-  if (!Number.isInteger(installationId) || installationId <= 0) {
+  const installationId = await gptomekInstallationIdFor(
+    env.GPTOMEK_INSTALLATION_ID,
+    appId,
+    privateKey,
+    repositoryName,
+    fetcher,
+  );
+  if (installationId === null) {
     throw new ActionError('invalid_gptomek_installation_id', 503);
   }
   return createInstallationClient(appId, privateKey, installationId, fetcher);

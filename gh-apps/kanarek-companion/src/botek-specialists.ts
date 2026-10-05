@@ -2,6 +2,7 @@ import { checks, pull, reviews } from './companion-github.ts';
 import {
   createInstallationClient,
   type GitHubInstallationClient,
+  gptomekInstallationIdFor,
 } from './github-app.ts';
 import { repositoryInScope, type JsonObject } from './tools/common.ts';
 import {
@@ -76,13 +77,19 @@ function positiveInteger(value: number, name: string, max = 1_000_000): number {
 async function botekGithubClient(
   env: BotekWatchEnv,
   fetcher: typeof fetch,
+  repositoryName: string,
 ): Promise<GitHubInstallationClient> {
   const appId = env.GPTOMEK_APP_ID?.trim() ?? '';
   const privateKey = env.GPTOMEK_PRIVATE_KEY?.trim() ?? '';
-  const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
-  if (!appId || !privateKey || !Number.isSafeInteger(installationId) || installationId <= 0) {
-    throw new Error('gptomek_not_configured');
-  }
+  if (!appId || !privateKey) throw new Error('gptomek_not_configured');
+  const installationId = await gptomekInstallationIdFor(
+    env.GPTOMEK_INSTALLATION_ID,
+    appId,
+    privateKey,
+    repositoryName,
+    fetcher,
+  );
+  if (installationId === null) throw new Error('gptomek_not_configured');
   return createInstallationClient(appId, privateKey, installationId, fetcher);
 }
 
@@ -113,7 +120,7 @@ export async function botekGithubPullStatus(
 ): Promise<JsonObject> {
   const repository = botekRepository(repositoryValue);
   const number = positiveInteger(numberValue, 'pull_request_number');
-  const client = existingClient ?? await botekGithubClient(env, fetcher);
+  const client = existingClient ?? await botekGithubClient(env, fetcher, repository);
   const pr = await pull(client, repository, number);
   const [ci, reviewState] = await Promise.all([
     checks(client, repository, pr.head.sha),

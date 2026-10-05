@@ -23,8 +23,10 @@ const SERVER_INFO = {
   version: '1.0.0',
   description: 'Comments, reactions and reviews on GitHub as claudiusz69[bot].',
 };
-const ICON_URL =
-  'https://avatars.githubusercontent.com/in/4454097?s=120&u=c70961610c1cbbd12ba0a4227f1202a8ee714568&v=4';
+function iconUrl(size: number): string {
+  return `https://avatars.githubusercontent.com/in/4454097?s=${size}&u=c70961610c1cbbd12ba0a4227f1202a8ee714568&v=4`;
+}
+const ICON_URL = iconUrl(120);
 const ICON_PATH = '/icon.png';
 const FAVICON_PATH = '/favicon.ico';
 const ICON_TTL_SECONDS = 86_400;
@@ -105,7 +107,7 @@ export function authorized(request: Request, env: Env): boolean {
 // Same-origin icon for the connector list, proxied from the app's own avatar
 // so it follows the app instead of living as a binary in the repo.
 async function icon(): Promise<Response> {
-  const upstream = await fetch(ICON_URL, {
+  const upstream = await fetch(iconUrl(460), {
     cf: { cacheTtl: ICON_TTL_SECONDS, cacheEverything: true },
   });
   if (!upstream.ok) return new Response('icon unavailable\n', { status: 502 });

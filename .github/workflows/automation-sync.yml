@@ -11,6 +11,7 @@ on:
         options:
           - kanarek-companion
           - kanarek-review
+          - gremlin
           - tg-assistant
           - pet-dispatcher
           - all
@@ -262,6 +263,83 @@ jobs:
           if [ -n "${QWEN_API_KEY:-}" ]; then
             jq -e '([.[].name] | index("QWEN_API_KEY")) != null' <<<"$secrets_json" >/dev/null
           fi
+
+  gremlin:
+    if: ${{ inputs.target == 'gremlin' || inputs.target == 'all' }}
+    concurrency:
+      group: automation-sync-gremlin
+      cancel-in-progress: false
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GPTOMEK_PRIVATE_KEY: ${{ secrets.GPTOMEK_PRIVATE_KEY }}
+      ENGRAM_API_KEY: ${{ secrets.ENGRAM_API_KEY }}
+      CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
+      GREMLIN_HEALTH_URL: https://gremlin.travny.workers.dev/health
+    defaults:
+      run:
+        working-directory: gh-apps/gremlin
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/gremlin/package-lock.json
+      # Wrangler comes from the package lockfile so Dependabot keeps it current.
+      - run: npm ci
+      # Code deploys via Workers Builds; this job only syncs credentials.
+      - name: Sync Gremlin credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
+
+          secrets_file=$(mktemp)
+          trap 'rm -f "$secrets_file"' EXIT
+          python3 - "$secrets_file" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          secrets = {
+              "CLOUDFLARE_API_TOKEN": os.environ["CLOUDFLARE_API_TOKEN"],
+              "CLOUDFLARE_ACCOUNT_ID": os.environ["CLOUDFLARE_ACCOUNT_ID"],
+          }
+          for name in ("GPTOMEK_PRIVATE_KEY", "ENGRAM_API_KEY", "CONTEXT7_API_KEY"):
+              if os.environ.get(name):
+                  secrets[name] = os.environ[name]
+          pathlib.Path(sys.argv[1]).write_text(json.dumps(secrets), encoding="utf-8")
+          PY
+          chmod 600 "$secrets_file"
+
+          npx --no-install wrangler secret bulk "$secrets_file" --name gremlin
+
+          secrets_json=$(npx --no-install wrangler secret list --name gremlin --format json)
+          for name in GPTOMEK_PRIVATE_KEY ENGRAM_API_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::warning::$name is not set as a repository secret; any existing value on gremlin was left untouched."
+            elif ! jq -e --arg name "$name" '[.[].name] | index($name) != null' <<<"$secrets_json" >/dev/null; then
+              echo "::warning::$name is not set on gremlin after sync."
+            fi
+          done
+
+          for _attempt in {1..12}; do
+            if curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
+              "$GREMLIN_HEALTH_URL" | jq -e '.ok == true and .service == "gremlin"' >/dev/null
+            then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Gremlin deployed but /health did not report ok." >&2
+          exit 1
 
   telegram-assistant:
     if: ${{ inputs.target == 'tg-assistant' || inputs.target == 'all' }}

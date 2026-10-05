@@ -2,7 +2,7 @@ import {
   DEPENDENCY_GRAPH_PATH,
   handleDependencyGraphAction,
 } from './dependency-graph.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const FOCUSED_CODE_REVIEW_PATH = '/gpt-actions/operator/code-review';
@@ -112,16 +112,7 @@ function optionalPaths(value: unknown): string[] | undefined {
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > 64_000) throw new FocusedReviewError('payload_too_large', 413);
-  let value: unknown;
-  try {
-    value = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new FocusedReviewError('invalid_json');
-  }
-  if (!isObject(value)) throw new FocusedReviewError('invalid_json_object');
-  return value;
+  return readJsonObject(request, 64_000, (code, status) => new FocusedReviewError(code, status));
 }
 
 function parseInput(value: JsonObject): FocusedReviewInput {

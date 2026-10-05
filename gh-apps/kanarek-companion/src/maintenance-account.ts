@@ -1,9 +1,8 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { unattachedBranches, workflowRunIsProblem } from './maintenance-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const READ_PATH = '/gpt-actions/github/read';
 const ACCOUNT_MAINTENANCE_PATH = '/gpt-actions/github/maintenance/account';
 const PAGE_SIZE = 100;
 const MAX_REPOSITORIES = 200;
@@ -55,20 +54,6 @@ class AccountMaintenanceError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function internalReadRequest(source: Request, path: string): Request {
-  const url = new URL(source.url);
-  url.pathname = READ_PATH;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ path }),
-  });
 }
 
 function errorStatus(error: unknown): number {

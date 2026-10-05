@@ -1,4 +1,4 @@
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const SYMBOL_INVESTIGATION_PATH = '/gpt-actions/github/code/symbol';
@@ -124,15 +124,7 @@ function maxFiles(value: unknown): number {
 }
 
 async function inputObject(request: Request): Promise<Input> {
-  const text = await request.clone().text();
-  if (text.length > 16_000) throw new SymbolInvestigationError('payload_too_large', 413);
-  let value: unknown = {};
-  try {
-    if (text.trim()) value = JSON.parse(text);
-  } catch {
-    throw new SymbolInvestigationError('invalid_json');
-  }
-  if (!isObject(value)) throw new SymbolInvestigationError('invalid_json_object');
+  const value = await readJsonObject(request, 16_000, (code, status) => new SymbolInvestigationError(code, status));
   const allowed = new Set(['repository', 'symbol', 'maxFiles', 'path', 'language', 'ref']);
   if (Object.keys(value).some((key) => !allowed.has(key))) {
     throw new SymbolInvestigationError('invalid_symbol_request');

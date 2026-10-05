@@ -1,9 +1,8 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { handleOperatorAction } from './operator-actions.ts';
-import { isObject, type JsonObject, numberOrNull } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const READ_PATH = '/gpt-actions/github/read';
 const DIAGNOSE_RUN_PATH = '/gpt-actions/github/workflows/diagnose';
 const MAX_LOG_JOBS = 3;
 const MAX_EXCERPT_CHARS = 12_000;
@@ -21,20 +20,6 @@ export interface FailureFocusedExcerpt {
   selectedLineCount: number;
   matchedSignals: number;
   truncated: boolean;
-}
-
-function internalReadRequest(source: Request, path: string): Request {
-  const url = new URL(source.url);
-  url.pathname = READ_PATH;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ path }),
-  });
 }
 
 async function readLogText(

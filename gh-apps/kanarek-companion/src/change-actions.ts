@@ -1,7 +1,7 @@
 import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { branchNameAllowed, handleLifecycleAction } from './lifecycle-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -52,16 +52,7 @@ function refPath(value: string): string {
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > 64_000) throw new ChangeError('payload_too_large', 413);
-  let value: unknown;
-  try {
-    value = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new ChangeError('invalid_json');
-  }
-  if (!isObject(value)) throw new ChangeError('invalid_json_object');
-  return value;
+  return readJsonObject(request, 64_000, (code, status) => new ChangeError(code, status));
 }
 
 async function responsePayload(response: Response): Promise<JsonObject> {

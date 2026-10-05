@@ -1,8 +1,7 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const READ_PATH = '/gpt-actions/github/read';
 const BOOTSTRAP_PATH = '/gpt-actions/operator/bootstrap';
 const KNOWLEDGE_PATH = '/gpt-actions/operator/knowledge';
 const POLICY_REPOSITORY = 'trvny/trvny';
@@ -515,20 +514,6 @@ function contentPath(path: string): string {
   return path.split('/').map((part) => encodeURIComponent(part)).join('/');
 }
 
-function internalReadRequest(source: Request, path: string): Request {
-  const url = new URL(source.url);
-  url.pathname = READ_PATH;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ path }),
-  });
-}
-
 async function readData(
   request: Request,
   env: GptActionsEnv,
@@ -640,7 +625,6 @@ async function loadGremlinStyleProfile(
   };
 }
 
-
 async function loadGremlinKnowledgeManifest(
   request: Request,
   env: GptActionsEnv,
@@ -699,17 +683,7 @@ function repositoryName(value: unknown): string | null {
 }
 
 async function requestJsonObject(request: Request): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > 16_000) throw new PolicyActionError('payload_too_large', 413);
-  if (!text.trim()) return {};
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new PolicyActionError('invalid_json');
-  }
-  if (!isObject(parsed)) throw new PolicyActionError('invalid_json_object');
-  return parsed;
+  return readJsonObject(request, 16_000, (code, status) => new PolicyActionError(code, status));
 }
 
 async function bootstrapInputObject(request: Request): Promise<JsonObject> {
@@ -796,7 +770,6 @@ async function operatorBootstrap(
     repository,
   });
 }
-
 
 async function gremlinKnowledge(
   request: Request,

@@ -8,7 +8,7 @@ import {
   symbolOccurrences,
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const BUG_INVESTIGATION_PATH = '/gpt-actions/operator/bug-investigate';
@@ -205,15 +205,7 @@ function sourceInput(value: JsonObject): BugSource {
 }
 
 async function inputObject(request: Request): Promise<Input> {
-  const text = await request.clone().text();
-  if (text.length > 40_000) throw new BugInvestigationError('payload_too_large', 413);
-  let value: unknown = {};
-  try {
-    if (text.trim()) value = JSON.parse(text);
-  } catch {
-    throw new BugInvestigationError('invalid_json');
-  }
-  if (!isObject(value)) throw new BugInvestigationError('invalid_json_object');
+  const value = await readJsonObject(request, 40_000, (code, status) => new BugInvestigationError(code, status));
   const allowed = new Set([
     'repository', 'issueNumber', 'workflowRunId', 'errorText', 'ref', 'hints',
     'path', 'language', 'maxSymbols', 'maxFiles',

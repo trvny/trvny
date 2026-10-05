@@ -1,5 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const READ_PATH = '/gpt-actions/github/read';
@@ -167,16 +167,7 @@ async function botData(
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
-  const text = await request.clone().text();
-  if (text.length > 64_000) throw new OperatorError('payload_too_large', 413);
-  let value: unknown;
-  try {
-    value = text.trim() ? JSON.parse(text) : {};
-  } catch {
-    throw new OperatorError('invalid_json');
-  }
-  if (!isObject(value)) throw new OperatorError('invalid_json_object');
-  return value;
+  return readJsonObject(request, 64_000, (code, status) => new OperatorError(code, status));
 }
 
 function arrayValue(value: unknown): unknown[] {

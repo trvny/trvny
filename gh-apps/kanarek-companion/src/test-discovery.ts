@@ -1,5 +1,5 @@
 import { likelyTestPath } from './symbol-investigation.ts';
-import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const TARGETED_TESTS_PATH = '/gpt-actions/github/code/tests';
@@ -107,15 +107,7 @@ function optionalRef(value: unknown): string | undefined {
 }
 
 async function inputObject(request: Request): Promise<Input> {
-  const text = await request.clone().text();
-  if (text.length > 16_000) throw new TestDiscoveryError('payload_too_large', 413);
-  let value: unknown = {};
-  try {
-    if (text.trim()) value = JSON.parse(text);
-  } catch {
-    throw new TestDiscoveryError('invalid_json');
-  }
-  if (!isObject(value)) throw new TestDiscoveryError('invalid_json_object');
+  const value = await readJsonObject(request, 16_000, (code, status) => new TestDiscoveryError(code, status));
   const allowed = new Set(['repository', 'targetPaths', 'ref']);
   if (Object.keys(value).some((key) => !allowed.has(key))) {
     throw new TestDiscoveryError('invalid_test_discovery_request');

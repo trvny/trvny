@@ -9,7 +9,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, ZipEntryError, zipEntryPath } from './zip-entry.ts';
-import { isObject, type JsonObject, repoPath } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, internalReadRequest } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ENTRY_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-entry';
@@ -17,7 +17,6 @@ export const RELEASE_ENTRY_UPLOAD_PATH = '/gpt-actions/github/releases/assets/up
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_UPLOADS = 'https://uploads.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
-const READ_PATH = '/gpt-actions/github/read';
 const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
@@ -133,20 +132,6 @@ async function requestInput(request: Request): Promise<Input> {
     if (error instanceof ReleaseEntryError || error instanceof ZipEntryError) throw error;
     throw new ReleaseEntryError('invalid_json');
   }
-}
-
-function internalReadRequest(source: Request, path: string): Request {
-  const url = new URL(source.url);
-  url.pathname = READ_PATH;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ path }),
-  });
 }
 
 async function responseObject(response: Response): Promise<JsonObject> {

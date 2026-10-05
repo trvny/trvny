@@ -1,5 +1,4 @@
-import { isObject, type JsonObject, repoPath } from './tools/common.ts';
-
+import { isObject, type JsonObject, repoPath, internalReadRequest } from './tools/common.ts';
 
 type WorkerFetch = (request: Request) => Promise<Response>;
 
@@ -39,20 +38,6 @@ function validBranch(value: unknown): value is string {
     !value.includes('//') &&
     /^[A-Za-z0-9._/-]+$/.test(value)
   );
-}
-
-function internalReadRequest(source: Request, path: string): Request {
-  const url = new URL(source.url);
-  url.pathname = '/gpt-actions/github/read';
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ path }),
-  });
 }
 
 async function actionData(source: Request, path: string, invoke: WorkerFetch): Promise<unknown | null> {

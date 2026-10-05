@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""YouTube account migration: copy subscriptions + own playlists from SRC to DST.
+"""YouTube account migration: copy subscriptions, own playlists and likes from SRC to DST.
 
 Idempotent, quota-budgeted, resumable: every run diffs SRC vs DST and inserts
 only what's missing, stopping before the daily quota is spent. Run daily.
@@ -48,13 +48,15 @@ class Api:
         if self.budget.left < cost:
             raise QuotaExhausted
         url = f"{API}/{path}?{urllib.parse.urlencode(params or {})}"
-        data = json.dumps(body).encode() if body is not None else None
+        # Empty POST still needs a body (Content-Length: 0), else Google answers 411.
+        data = json.dumps(body).encode() if body is not None else (b"" if method == "POST" else None)
         req = urllib.request.Request(url, data, method=method, headers={
             "Authorization": f"Bearer {self.token}", "Content-Type": "application/json"})
         self.budget.left -= cost  # charged even on failure, like the real quota
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
-                return json.load(r), None
+                raw = r.read()  # videos.rate answers 204 with no body
+                return (json.loads(raw) if raw else {}), None
         except urllib.error.HTTPError as e:
             try:
                 reason = json.load(e)["error"]["errors"][0]["reason"]
@@ -126,6 +128,14 @@ def migrate(src, dst, state, dry, stats):
             write("items", f"vid:{p['id']}:{v}", "playlistItems", {"part": "snippet"},
                   {"snippet": {"playlistId": dst_pl[title], "resourceId": {"kind": "youtube#video", "videoId": v}}})
             have.add(v)
+
+    # Likes, oldest first so DST keeps the same order.
+    liked = {v["id"] for v in dst.pages("videos", {"part": "id", "myRating": "like"})}
+    src_likes = [v["id"] for v in src.pages("videos", {"part": "id", "myRating": "like"})]
+    todo = [v for v in reversed(src_likes) if v not in liked and f"like:{v}" not in skip]
+    stats["likes"] = f"{len(src_likes) - len(todo)}/{len(src_likes)}"
+    for v in todo:
+        write("likes", f"like:{v}", "videos/rate", {"id": v, "rating": "like"}, None)
 
 
 def main():

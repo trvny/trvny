@@ -83,6 +83,16 @@ class Budget:
         self.left = units
 
 
+def list_ids(api, playlist_id, stats, ordered=False):
+    """Video IDs of a playlist; None (and counted) if this playlist can't be listed now."""
+    try:
+        ids = [i["contentDetails"]["videoId"] for i in api.pages("playlistItems", {"part": "contentDetails", "playlistId": playlist_id})]
+    except RuntimeError as e:
+        stats.setdefault("list_errors", []).append(str(e).rsplit(": ", 1)[-1])
+        return None
+    return ids if ordered else set(ids)
+
+
 def migrate(src, dst, state, dry, stats):
     skip = state.setdefault("skip", [])
 
@@ -120,9 +130,13 @@ def migrate(src, dst, state, dry, stats):
             if not res:
                 continue
             dst_pl[title] = res["id"]
-        have = {i["contentDetails"]["videoId"] for i in dst.pages("playlistItems", {"part": "contentDetails", "playlistId": dst_pl[title]})}
-        for i in src.pages("playlistItems", {"part": "contentDetails", "playlistId": p["id"]}):
-            v = i["contentDetails"]["videoId"]
+            have = set()  # fresh playlist: empty, and listing it right away can 404 (eventual consistency)
+        else:
+            have = list_ids(dst, dst_pl[title], stats)
+            if have is None:
+                continue
+        src_items = list_ids(src, p["id"], stats, ordered=True)
+        for v in src_items or []:
             if v in have or f"vid:{p['id']}:{v}" in skip:
                 continue
             write("items", f"vid:{p['id']}:{v}", "playlistItems", {"part": "snippet"},

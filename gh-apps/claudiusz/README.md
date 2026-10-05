@@ -30,8 +30,10 @@ Issues, Pull requests and Discussions: read and write.
 
 ## Icon
 
-`GET /icon.png` (no token) proxies the app avatar and is advertised in
-`serverInfo.icons`.
+The GitHub App avatar is advertised directly and through the same-origin
+`GET /icon.png` fallback. `GET /favicon.ico` is an alias. Server metadata,
+modern MCP `_meta["io.modelcontextprotocol/serverInfo"]`, and each tool all
+reference the same icon set so clients can use whichever surface they support.
 
 ## Cloudflare fallback
 

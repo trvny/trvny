@@ -16,7 +16,10 @@ The request stack is assembled in layers:
    and curates the final action surface.
 6. `runtime-entry.ts` is the deployed runtime entrypoint. It decorates health and
    capabilities, schedules webhook reviews, exports Durable Object classes, and
-   exposes the narrow `BotekSpecialistEntrypoint` RPC class.
+   exposes the narrow `BotekSpecialistEntrypoint` and `GptomekSignerEntrypoint`
+   RPC classes. The signer mints GPTomek App JWTs for `gremlin`, so the GPTomek
+   PEM stays in this Worker; any Worker bound to it holds full GPTomek App
+   authority.
 
 `entry.ts` and `router.ts` are composition roots. New domain behavior should
 live in the owning module and only be wired there.
@@ -49,6 +52,11 @@ Botek (same account)
     |
     v
 BotekSpecialistEntrypoint RPC
+
+Gremlin (same account)
+    |
+    v
+GptomekSignerEntrypoint RPC (GPTomek App JWT)
 ```
 
 Cloudflare Service Bindings are used for Worker-to-Worker private calls, while

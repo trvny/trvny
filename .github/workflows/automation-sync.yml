@@ -274,7 +274,6 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      GPTOMEK_PRIVATE_KEY: ${{ secrets.GPTOMEK_PRIVATE_KEY }}
       ENGRAM_API_KEY: ${{ secrets.ENGRAM_API_KEY }}
       CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
       GREMLIN_HEALTH_URL: https://gremlin.travny.workers.dev/health
@@ -312,7 +311,7 @@ jobs:
               "CLOUDFLARE_API_TOKEN": os.environ["CLOUDFLARE_API_TOKEN"],
               "CLOUDFLARE_ACCOUNT_ID": os.environ["CLOUDFLARE_ACCOUNT_ID"],
           }
-          for name in ("GPTOMEK_PRIVATE_KEY", "ENGRAM_API_KEY", "CONTEXT7_API_KEY"):
+          for name in ("ENGRAM_API_KEY", "CONTEXT7_API_KEY"):
               if os.environ.get(name):
                   secrets[name] = os.environ[name]
           pathlib.Path(sys.argv[1]).write_text(json.dumps(secrets), encoding="utf-8")
@@ -322,7 +321,8 @@ jobs:
           npx --no-install wrangler secret bulk "$secrets_file" --name gremlin
 
           secrets_json=$(npx --no-install wrangler secret list --name gremlin --format json)
-          for name in GPTOMEK_PRIVATE_KEY ENGRAM_API_KEY; do
+          # GPTomek JWTs come from the GPTOMEK_SIGNER binding; no PEM here.
+          for name in ENGRAM_API_KEY; do
             if [ -z "${!name:-}" ]; then
               echo "::warning::$name is not set as a repository secret; any existing value on gremlin was left untouched."
             elif ! jq -e --arg name "$name" '[.[].name] | index($name) != null' <<<"$secrets_json" >/dev/null; then

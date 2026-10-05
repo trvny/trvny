@@ -104,16 +104,19 @@ values and Pages build variables are never returned.
   bindings whose classes are hosted by `kanarek-companion`, so GPTomek and
   Gremlin share one checkpoint/replay store
 - GPTomek App/installation and Anchor folder metadata in `wrangler.jsonc`
+- `GPTOMEK_SIGNER` service binding to `kanarek-companion`'s
+  `GptomekSignerEntrypoint`: GPTomek App JWTs are signed there, so the GPTomek
+  PEM lives only in `kanarek-companion`. A local `GPTOMEK_PRIVATE_KEY` would
+  take precedence.
 
 Code deploys via Workers Builds on pushes to `main` that touch
 `gh-apps/gremlin/**` or `gh-apps/kanarek-companion/src/**` (build
 `npm run check`, deploy `npx wrangler deploy`). Secrets: run the
 `Sync Worker credentials` workflow (`automation-sync.yml`) with target
 `gremlin`. It copies `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and, when
-present as repository secrets, `GPTOMEK_PRIVATE_KEY`, `ENGRAM_API_KEY`,
-`CONTEXT7_API_KEY`, then checks `/health`. Only a missing
-`GPTOMEK_PRIVATE_KEY` or `ENGRAM_API_KEY` raises a warning; `CONTEXT7_API_KEY`
-is skipped silently. The sync never deletes Worker secrets.
+present as repository secrets, `ENGRAM_API_KEY` and `CONTEXT7_API_KEY`, then
+checks `/health`. Only a missing `ENGRAM_API_KEY` raises a warning;
+`CONTEXT7_API_KEY` is skipped silently. The sync never deletes Worker secrets.
 
 The operator implementation uses GitHub OAuth/App identity according to the
 specific operation. Do not replace the guarded route with a generic unrestricted

@@ -6,12 +6,7 @@ import {
 } from './github-app.ts';
 import type { CompanionEnv } from './companion-types.ts';
 import { resolveGitTreeEntries, type GitTreeEntry } from './git-tree.ts';
-import {
-  REPOSITORY_OWNERS,
-  repoPath,
-  repositoryInScope,
-  repositoryPathInScope,
-} from './tools/common.ts';
+import { REPOSITORY_OWNERS, repoPath, repositoryInScope, repositoryPathInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
@@ -49,17 +44,7 @@ const BOT_DENIED_SEGMENTS = new Set([
 
 export interface GptActionsEnv extends CompanionEnv {}
 
-class ActionError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'ActionError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class ActionError extends CodedError {}
 
 function githubHeaders(token: string): Headers {
   return new Headers({

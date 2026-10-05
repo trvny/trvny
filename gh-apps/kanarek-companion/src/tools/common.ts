@@ -2,17 +2,29 @@ import { GPTOMEK_CONTROL_BRANCH } from '../gptomek-control.ts';
 
 export type JsonObject = Record<string, unknown>;
 
-export class SpecialistToolError extends Error {
+// Action failure: stable code + HTTP status. Per-module subclasses keep instanceof scoping.
+export class CodedError extends Error {
   readonly code: string;
   readonly status: number;
 
   constructor(code: string, status = 400) {
     super(code);
-    this.name = 'SpecialistToolError';
+    this.name = new.target.name;
     this.code = code;
     this.status = status;
   }
 }
+
+export class DetailedCodedError extends CodedError {
+  readonly details: JsonObject;
+
+  constructor(code: string, status = 400, details: JsonObject = {}) {
+    super(code, status);
+    this.details = details;
+  }
+}
+
+export class SpecialistToolError extends CodedError {}
 
 export function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));

@@ -1,5 +1,5 @@
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, internalReadRequest, repositoryInScope, actionResponseObject } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, internalReadRequest, repositoryInScope, actionResponseObject, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const BOOTSTRAP_PATH = '/gpt-actions/operator/bootstrap';
@@ -119,17 +119,7 @@ interface LoadedGremlinKnowledgeManifest {
   };
 }
 
-class PolicyActionError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'PolicyActionError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class PolicyActionError extends CodedError {}
 
 const GATEWAY_CAPABILITIES = [
   'repository_context',

@@ -1,5 +1,5 @@
 import { likelyTestPath } from './symbol-investigation.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const TARGETED_TESTS_PATH = '/gpt-actions/github/code/tests';
@@ -37,17 +37,7 @@ type Project = {
   targets: string[];
 };
 
-class TestDiscoveryError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'TestDiscoveryError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class TestDiscoveryError extends CodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

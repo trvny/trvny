@@ -3,23 +3,13 @@ import {
   handleGptActions,
   type GptActionsEnv,
 } from './gpt-actions.ts';
-import { isObject, type JsonObject, internalReadRequest } from './tools/common.ts';
+import { isObject, type JsonObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const BATCH_READ_PATH = '/gpt-actions/github/read-batch';
 const MAX_BATCH_READS = 10;
 
-class BatchReadError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'BatchReadError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class BatchReadError extends CodedError {}
 
 async function readInput(request: Request): Promise<string[]> {
   const text = await request.clone().text();

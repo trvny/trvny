@@ -1,4 +1,4 @@
-import { type JsonObject } from './tools/common.ts';
+import { type JsonObject, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const MAX_REMOTE_DOC_BYTES = 192_000;
@@ -17,17 +17,7 @@ interface LlmsEntry {
   order: number;
 }
 
-class LlmsDocsError extends Error {
-  readonly code: string;
-  readonly status: number;
-
-  constructor(code: string, status = 400) {
-    super(code);
-    this.name = 'LlmsDocsError';
-    this.code = code;
-    this.status = status;
-  }
-}
+class LlmsDocsError extends CodedError {}
 
 function stringValue(value: unknown, name: string, max: number): string {
   if (typeof value !== 'string' || !value.trim() || value.length > max) {

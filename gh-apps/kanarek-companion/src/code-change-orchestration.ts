@@ -18,7 +18,7 @@ import {
   handleTargetedTestsAction,
   TARGETED_TESTS_PATH,
 } from './test-discovery.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const CODE_CHANGE_AUTOPILOT_PATH = '/gpt-actions/operator/code-change';
@@ -132,19 +132,7 @@ export type ReviewGateSnapshot = {
   activeChangeRequests: number;
 };
 
-class CodeChangeError extends Error {
-  readonly code: string;
-  readonly status: number;
-  readonly details: JsonObject;
-
-  constructor(code: string, status = 400, details: JsonObject = {}) {
-    super(code);
-    this.name = 'CodeChangeError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
-  }
-}
+class CodeChangeError extends DetailedCodedError {}
 
 function repository(value: unknown): string {
   if (typeof value !== 'string' || !repositoryInScope(value)) {

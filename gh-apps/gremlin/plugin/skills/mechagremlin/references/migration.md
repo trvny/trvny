@@ -1,104 +1,120 @@
 # MechaGremlin migration parity
 
-This is a category-level migration checklist, not a copied list of API
-operations. The live Gremlin capability manifest and Custom GPT OpenAPI remain
-the source of truth for exact operation names and schemas.
+This is the migration checklist for the private plugin created from the legacy
+MechaGremlin Custom GPT. Live Gremlin schemas and runtime policy remain the
+source of truth for tool behavior.
 
 ## OpenAI migration mechanics
 
-OpenAI's current migration flow gives different treatment to each GPT surface:
+OpenAI's migration flow treats each GPT surface differently:
 
-- the GPT Builder instructions become a skill in the new plugin;
-- GPT knowledge files are copied to plugin reference files;
-- connected apps are added as plugin apps;
-- Custom Actions do **not** transfer and must be rebuilt with an app or MCP;
-- the selected GPT model does not transfer;
-- existing conversations do not transfer;
-- sharing settings do not transfer and the migrated plugin starts private;
-- migration uses the latest published GPT version rather than unpublished draft
-  edits;
-- after migration the original GPT remains usable until retirement but becomes
-  read-only.
+- GPT Builder instructions become a skill;
+- GPT knowledge files become skill reference files;
+- connected apps remain plugin apps;
+- Custom Actions do **not** transfer and must be rebuilt as an app or MCP;
+- the selected model, previous chats and sharing settings do not transfer;
+- the migrated plugin starts private;
+- the original GPT becomes read-only but remains usable until GPT retirement.
 
 Source:
-<https://help.openai.com/en/articles/20001519-custom-gpt-retirement-and-migration-faq>
+<https://learn.chatgpt.com/docs/migrate-custom-gpts>
 
-## 2026-09-28 web-configuration snapshot
+## Source snapshot
 
-The supplied Gremlin web-configuration archive contains:
+The archived web configuration used for comparison contains:
 
-- `gremlin.json5`: the main GitHub-OAuth Custom Action OpenAPI document;
+- `gremlin.json5`: the GitHub-OAuth Custom Action OpenAPI document;
+- `GREMLIN.md`: copied Builder instructions;
 - `AGENTS.md`;
-- `GREMLIN.md`;
 - `GREMLIN_EDGY_DARK_MEME_KNOWLEDGE.md`;
 - `edgy_dark_meme_formats.json`;
 - `USER_CONTEXT.md`.
 
-The archive does not encode which Markdown text came from the GPT Builder
-Instructions field versus which files were uploaded as Knowledge. Do not infer
-that distinction from filenames alone. On migration day, inspect the generated
-skill and copied reference files and compare them with the source GPT.
+The last four files were GPT Knowledge. Do not copy the archive wholesale into
+this public repository.
 
-Do not copy this archive wholesale into the public repository. In particular,
-`USER_CONTEXT.md` is user-specific context rather than a maintained product
-contract. If migration copies it as a reference file, review it separately for
-freshness and whether it should remain plugin-local, move to durable memory, or
-be removed.
+## Observed migrated plugin
 
-## Custom Action parity snapshot
+The built-in migration completed successfully and produced a private plugin with:
 
-The supplied `gremlin.json5` exposes 30 main Custom Action operations through
-the GitHub-OAuth Gremlin gateway. Those operations are migration input only:
-OpenAI does not convert this OpenAPI action surface into MCP automatically.
+- one migrated skill currently displayed as `MechaGrepmlin`;
+- no apps, as expected because Custom Actions do not migrate;
+- migrated references for `AGENTS.md`,
+  `GREMLIN_EDGY_DARK_MEME_KNOWLEDGE.md`, `edgy-dark-meme-formats.json` and
+  `USER_CONTEXT.md`;
+- a generated `lookup/knowledge-index.json` mapping the original Knowledge
+  filenames to their packaged references.
 
-The current repository deliberately curates 29 operations in
-`CUSTOM_GPT_OPERATION_IDS` plus the separately authenticated Anchor operation
-`useGremlinStorage`. The supplied web schema includes `getDocsIndex`, which
-is not in that 29-operation curated list. Resolve that difference explicitly
-before retiring the GPT instead of assuming the web schema and repository
-surface are identical.
+Target naming is `MechaGremlin` for the plugin, `Gremlin` for the skill and
+`gremlin.exe` for the persona.
 
-The live capability manifest, generated OpenAPI and MCP schema remain canonical.
-The uploaded `gremlin.json5` is a point-in-time comparison snapshot, not a new
-source of truth.
+`USER_CONTEXT.md` is a point-in-time user snapshot, not product knowledge.
+Before the replacement is considered finished, remove it from plugin references
+after retaining any still-useful durable facts in the appropriate memory store.
+Do not publish its contents in this repository.
 
-## Already reusable
+## MCP parity
 
-- Custom GPT instructions and knowledge: handled by ChatGPT's GPT-to-plugin
-  migration flow, then compared against the maintained Gremlin sources.
-- Specialist MCP transport: the shared runtime already exposes an authenticated
-  stateless MCP at `/mcp`.
-- Specialist backend logic: Engram, Feedseek, and Context7 stay in the existing
-  Specialist Intelligence subsystem.
-- Gremlin remains the owner package while its maintained core is
-  imported from `kanarek-companion`.
+The old web Action schema exposed 30 main GitHub-OAuth operations. The legacy
+Builder surface in the repository deliberately used 29 of those operations plus
+the separately authenticated Anchor `useGremlinStorage` action because the GPT
+Action limit was 30.
 
-## Still required before retiring the GPT
+The plugin MCP is not constrained by that Builder split. Its canonical
+`PLUGIN_MCP_OPERATION_IDS` restores the 30-operation web surface by combining
+the 29 curated GitHub-OAuth operations with `getDocsIndex`. The MCP tool
+descriptors are generated from the maintained OpenAPI schemas, and tool calls
+dispatch back through the existing guarded Action routes instead of copying
+operator policy into a second implementation.
 
-- Expose guarded GitHub read/context/investigation capabilities through MCP.
-- Expose the existing high-level guarded mutation workflows through MCP without
-  adding a second write allowlist.
-- Reconcile the `getDocsIndex` web-action difference.
-- Preserve GPTomek attribution for bot-authored GitHub writes.
-- Expose the required Cloudflare inspection and guarded mutation capabilities.
-- Decide how Anchor OAuth storage is represented in the plugin without copying
-  credentials or weakening its current authorization boundary.
-- Cover release, workflow, maintenance, package/docs, and other live Operator
-  capability categories that the migrated GPT still depends on.
+The portable plugin points at:
+
+`https://gremlin.travny.workers.dev/mcp`
+
+The separately authenticated Anchor `useGremlinStorage` operation is not part
+of that MCP surface and remains a distinct migration decision.
+
+## Preserved runtime boundaries
+
+- Gremlin owns the user-facing operator surface and standalone public Worker.
+- Existing high-level GitHub, Cloudflare, release, workflow, maintenance and
+  specialist handlers remain authoritative behind the MCP adapter.
+- GPTomek attribution, stale-state checks, replay guards and mutation policy are
+  preserved because MCP calls enter those same handlers.
+- Engram, Feedseek and Context7 continue through their existing specialist
+  implementations.
+- Shared Durable Objects and the GPTomek signing RPC remain deliberate
+  cross-service dependencies while Gremlin-only modules are moved out of
+  `kanarek-companion`.
+
+## Still required
+
+- Register/connect the standalone Gremlin MCP with the migrated private plugin.
+- Rename the migrated skill from `MechaGrepmlin` to `Gremlin` while keeping
+  the plugin display name `MechaGremlin`.
+- Remove `USER_CONTEXT.md` from migrated references after memory cleanup.
+- Decide how Anchor OAuth storage is represented without copying credentials or
+  weakening its current authorization boundary.
+- Run behavioral and tool parity checks against the read-only legacy GPT.
+- Finish moving Gremlin-only modules out of `kanarek-companion` when doing so
+  reduces coupling without duplicating shared state or policy.
 
 ## Acceptance gates
 
-1. Publish any final Custom GPT edits before migration and archive the exact web
-   configuration used for the migration.
-2. Run the migration and inspect the generated skill and copied reference files
-   before treating them as equivalent.
-3. Compare the migrated plugin against the live Custom GPT OpenAPI/capability
-   manifest and account for every required capability.
-4. Verify OAuth and identity checks with positive and negative tests.
-5. Smoke-test repository reads, repository context, investigation, guarded
-   writes, Cloudflare reads, specialist MCP tools, and cancellation/error paths.
-6. Confirm no plugin file contains a secret or duplicated backend policy.
-7. Confirm GPTomek-authored writes still use the existing bridge.
-8. Keep the original GPT as the behavioral fallback until the plugin passes
-   parity checks, even though the original becomes read-only after migration.
+1. The standalone Gremlin MCP advertises the expected 30 operation names,
+   including `getDocsIndex`.
+2. MCP authentication fails closed before tool execution.
+3. Representative read and write tools reach the existing guarded Action
+   handlers with OAuth identity preserved.
+4. Repository reads, context/investigation, guarded writes, Cloudflare reads and
+   mutations, specialists, release/workflow operations, and failure paths pass
+   smoke tests.
+5. GPTomek-authored writes still use the existing bridge and final-side-effect
+   verification.
+6. No plugin file contains secrets, duplicated backend policy or stale personal
+   context.
+7. The migrated skill follows the intended Gremlin behavior and uses the
+   installed meme references when appropriate.
+8. Keep the original GPT as a read-only behavioral fallback until these checks
+   pass.
 9. Only then treat the migrated plugin as the maintained successor.

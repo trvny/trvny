@@ -7,7 +7,11 @@ import {
   CUSTOM_GPT_OPERATION_IDS,
   CUSTOM_GPT_OPERATION_LIMIT,
 } from '../src/custom-gpt-surface.ts';
-import { runtimeOpenApi } from '../src/runtime-openapi.ts';
+import {
+  PLUGIN_MCP_OPERATION_IDS,
+  pluginMcpOpenApi,
+  runtimeOpenApi,
+} from '../src/runtime-openapi.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -64,6 +68,18 @@ test('combined Custom GPT actions stay at the 30-operation limit', () => {
   assert.deepEqual(main, expected);
   assert.deepEqual(anchor, ['useGremlinStorage']);
   assert.equal(main.length + anchor.length, CUSTOM_GPT_OPERATION_LIMIT);
+});
+
+test('plugin MCP restores the 30-operation web surface including docs index', () => {
+  const ids = operationIds(pluginMcpOpenApi('https://example.workers.dev'));
+  const expected = [...PLUGIN_MCP_OPERATION_IDS].sort();
+
+  assert.equal(PLUGIN_MCP_OPERATION_IDS.length, CUSTOM_GPT_OPERATION_LIMIT);
+  assert.equal(new Set(PLUGIN_MCP_OPERATION_IDS).size, PLUGIN_MCP_OPERATION_IDS.length);
+  assert.equal(ids.length, CUSTOM_GPT_OPERATION_LIMIT);
+  assert.deepEqual(ids, expected);
+  assert.ok(ids.includes('getDocsIndex'));
+  assert.ok(!ids.includes('useGremlinStorage'));
 });
 
 test('runtime OpenAPI satisfies Builder description and object-schema constraints', () => {

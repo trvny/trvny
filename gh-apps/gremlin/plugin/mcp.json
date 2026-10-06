@@ -3,7 +3,7 @@
   "mcpServers": {
     "gremlin": {
       "type": "streamable-http",
-      "url": "https://kanarek-companion.travny.workers.dev/mcp"
+      "url": "https://gremlin.travny.workers.dev/mcp"
     }
   }
 }

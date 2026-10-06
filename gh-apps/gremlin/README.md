@@ -12,18 +12,29 @@ operator policy instead of cloning it into two Workers.
 
 ### Migration status
 
-`kanarek-companion` still serves the same Gremlin surface on its own origin.
-Cutover:
+The standalone `gremlin` Worker is deployed and owns the public Gremlin
+origin. Its MCP is a compatibility superset of the curated operator surface and
+the existing direct specialist tools. Its portable plugin source now targets
+`https://gremlin.travny.workers.dev/mcp`.
 
-1. Deploy this Worker and set its secrets (below).
-2. Point the Custom GPT actions/OAuth URLs and `plugin/mcp.json` at the
-   `gremlin` origin; point tg-assistant's `BOTEK_SPECIALISTS` binding at it once
-   the Botek entrypoint moves here.
-3. Remove the Gremlin surface from `kanarek-companion` and move the
-   Gremlin-only modules into this package. Rename the served subsystem id
-   (`gremlin-operator`) and OpenAPI title (`Gremlin Operator`) then, not
-   earlier: the live GPT reads them from `kanarek-companion`. tg-assistant's
-   `KANAREK_COMPANION` binding only uses the review router and stays.
+The built-in ChatGPT migration has already created the private successor plugin.
+The legacy Custom GPT is read-only and remains a behavioral fallback until GPT
+retirement; its existing Actions may continue to use the old companion origin.
+
+Remaining cutover work:
+
+1. Register/connect the standalone Gremlin MCP with the migrated private plugin
+   and run parity tests against the legacy GPT.
+2. Decide how the separately authenticated Anchor storage action is represented
+   in the plugin.
+3. Remove the Gremlin surface from `kanarek-companion` and move Gremlin-only
+   modules into this package. Keep the shared replay/checkpoint stores and the
+   GPTomek signer RPC only where they remain deliberate cross-service
+   dependencies.
+4. Point Botek's specialist binding at Gremlin once its entrypoint moves here.
+   tg-assistant's `KANAREK_COMPANION` binding only uses the review router and
+   stays.
+
 
 ## MechaGremlin plugin
 
@@ -33,8 +44,8 @@ surface. The package may still point at a shared public MCP transport while the
 runtime implementation remains imported from `kanarek-companion`; transport
 location does not change subsystem ownership.
 
-The legacy Custom GPT remains untouched until the migrated plugin reaches
-capability parity and passes the migration acceptance gates in
+The migrated private plugin remains the user-facing successor. Keep it private
+until the MCP and migrated skill pass the acceptance gates in
 `plugin/skills/mechagremlin/references/migration.md`.
 
 ## Boundary

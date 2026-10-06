@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { gremlinMcpManifest } from 'kanarek-companion/runtime';
 import worker from '../src/index.ts';
 
 const ORIGIN = 'https://gremlin.internal';
@@ -28,6 +29,35 @@ test('Gremlin worker rejects Kanarek-only ingress', async () => {
 test('Gremlin worker owns GPT Actions routes and preserves auth', async () => {
   const response = await worker.fetch(
     new Request(`${ORIGIN}/gpt-actions/github/read`, { method: 'POST' }),
+    {} as never,
+  );
+  assert.equal(response.status, 401);
+});
+
+test('Gremlin owns the full migrated MCP surface', async () => {
+  const manifest = gremlinMcpManifest(ORIGIN) as { toolNames?: string[] };
+  assert.equal(manifest.toolNames?.length, 37);
+  assert.ok(manifest.toolNames?.includes('getDocsIndex'));
+  assert.ok(manifest.toolNames?.includes('implementCodeChange'));
+  assert.ok(manifest.toolNames?.includes('engram_search'));
+  assert.ok(manifest.toolNames?.includes('context7_search'));
+  assert.ok(manifest.toolNames?.includes('feedseek_recent'));
+  assert.equal(manifest.toolNames?.includes('useGremlinStorage'), false);
+
+  const response = await worker.fetch(
+    new Request(`${ORIGIN}/mcp`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2026-07-28',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/list',
+        params: {},
+      }),
+    }),
     {} as never,
   );
   assert.equal(response.status, 401);

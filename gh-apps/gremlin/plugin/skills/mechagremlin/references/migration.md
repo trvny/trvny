@@ -53,26 +53,77 @@ Before the replacement is considered finished, remove it from plugin references
 after retaining any still-useful durable facts in the appropriate memory store.
 Do not publish its contents in this repository.
 
-## MCP parity
+## Capability parity ledger
 
-The old web Action schema exposed 30 main GitHub-OAuth operations. The legacy
-Builder surface in the repository deliberately used 29 of those operations plus
-the separately authenticated Anchor `useGremlinStorage` action because the GPT
-Action limit was 30.
+This section is the maintained migration source of truth. A capability is not
+considered preserved merely because a similar tool exists; either the same
+behavior must remain reachable or an explicit replacement must pass parity
+tests.
 
-The plugin MCP is not constrained by that Builder split. Its canonical
-`PLUGIN_MCP_OPERATION_IDS` restores the 30-operation web surface by combining
-the 29 curated GitHub-OAuth operations with `getDocsIndex`. The MCP tool
-descriptors are generated from the maintained OpenAPI schemas, and tool calls
-dispatch back through the existing guarded Action routes instead of copying
-operator policy into a second implementation.
+### Operator surface
 
-The portable plugin points at:
+The old web configuration contains 30 GitHub-OAuth Gremlin operations. The
+Builder-facing repository surface deliberately selected 29 of them because the
+separately authenticated Anchor action occupied the remaining Custom GPT action
+slot. The missing web operation is `getDocsIndex`.
 
-`https://gremlin.travny.workers.dev/mcp`
+The plugin MCP is not constrained by the Custom GPT action-count limit.
+`PLUGIN_MCP_OPERATION_IDS` therefore restores all 30 web operation names. Their
+schemas come from the maintained OpenAPI, and calls dispatch through the
+existing guarded Action routes rather than copying mutation policy.
 
-The separately authenticated Anchor `useGremlinStorage` operation is not part
-of that MCP surface and remains a distinct migration decision.
+### Specialist intelligence
+
+The pre-migration Gremlin runtime also exposes seven direct specialist tools:
+
+- `engram_status`
+- `engram_search`
+- `engram_store`
+- `context7_search`
+- `feedseek_search`
+- `feedseek_fetch`
+- `feedseek_recent`
+
+The standalone Gremlin MCP preserves these alongside the 30 operator tools.
+They continue to use the same bounded Engram, Context7 and Feedseek
+implementations. The expected standalone MCP tool count is therefore **37**,
+with no duplicate tool names.
+
+### Anchor storage
+
+`useGremlinStorage` is separately authenticated with Anchor OAuth. It is not
+silently replaced by a similarly named Gremlin tool and is not counted in the
+37-tool MCP surface. The migrated plugin must retain equivalent Anchor access,
+either as a connected app or another explicitly verified representation, before
+parity can be declared complete.
+
+### Skill, knowledge and persona
+
+The migration produced a private plugin containing the Builder instructions as
+a skill and copied the Knowledge references. Preserve the behavioral contract,
+the edgy/dark meme knowledge and format reference, and the `gremlin.exe`
+persona. Rename the migrated skill from `MechaGrepmlin` to `Gremlin`.
+
+`USER_CONTEXT.md` is not a product capability. It is a stale point-in-time
+personal snapshot and must be replaced by appropriate durable memory before it
+is removed from the plugin; do not treat deleting it without that handoff as a
+successful migration.
+
+### Runtime guarantees
+
+These are capabilities too, not implementation trivia:
+
+- GitHub bot-authored writes retain GPTomek attribution.
+- repository and organization scope checks remain enforced;
+- stale-state, replay and duplicate-mutation guards remain enforced;
+- Cloudflare reads and guarded mutations retain their existing policy boundary;
+- bootstrap, capability discovery and smoke-test workflows remain available;
+- operator MCP batches remain serialized so consequential writes do not overlap;
+- Kanarek-only webhook/review ingress remains outside the Gremlin Worker.
+
+The portable plugin points at
+`https://gremlin.travny.workers.dev/mcp`.
+
 
 ## Preserved runtime boundaries
 
@@ -101,20 +152,23 @@ of that MCP surface and remains a distinct migration decision.
 
 ## Acceptance gates
 
-1. The standalone Gremlin MCP advertises the expected 30 operation names,
-   including `getDocsIndex`.
+1. The standalone Gremlin MCP advertises exactly the expected 37 names: all
+   30 operator operations including `getDocsIndex`, plus all seven specialist
+   tools.
 2. MCP authentication fails closed before tool execution.
 3. Representative read and write tools reach the existing guarded Action
    handlers with OAuth identity preserved.
 4. Repository reads, context/investigation, guarded writes, Cloudflare reads and
-   mutations, specialists, release/workflow operations, and failure paths pass
-   smoke tests.
+   mutations, every specialist tool, release/workflow operations, and failure
+   paths pass smoke tests.
 5. GPTomek-authored writes still use the existing bridge and final-side-effect
    verification.
 6. No plugin file contains secrets, duplicated backend policy or stale personal
    context.
 7. The migrated skill follows the intended Gremlin behavior and uses the
    installed meme references when appropriate.
-8. Keep the original GPT as a read-only behavioral fallback until these checks
+8. Anchor storage parity is explicitly verified; it must not disappear merely
+   because the main MCP passes.
+9. Keep the original GPT as a read-only behavioral fallback until these checks
    pass.
-9. Only then treat the migrated plugin as the maintained successor.
+10. Only then treat the migrated plugin as the maintained successor.

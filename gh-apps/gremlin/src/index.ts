@@ -71,7 +71,7 @@ const worker = {
     if (pathname === MCP_PATH) {
       const response = await handleGremlinMcp(
         request,
-        (internalRequest) => runtime.fetch(internalRequest, env, ctx),
+        (internalRequest) => worker.fetch(internalRequest, env, ctx),
       );
       return response ?? json({ error: 'not_found' }, 404);
     }

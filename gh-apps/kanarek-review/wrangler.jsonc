@@ -35,7 +35,7 @@
     "KANAREK_REVIEW_QUOTA_COOLDOWN_MS": "600000",
     "KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS": "30000",
     "KANAREK_REVIEW_PROVIDER_ORDER": "aihubmix,orcarouter,openrouter,ollama,groq,vercel,huggingface-publicai",
-    "KANAREK_REVIEW_DECISION_PROVIDER_ORDER": "aihubmix,openrouter,qwencloud",
+    "KANAREK_REVIEW_DECISION_PROVIDER_ORDER": "aihubmix,openrouter,qwencloud,vercel",
     "KANAREK_REVIEW_DECISION_TIMEOUT_MS": "25000",
     "KANAREK_REVIEW_AIHUBMIX_MODELS": "xiaomi-mimo-v2.6-flash-free,coding-kimi-k3-free,dots-3-note-preview-free,nemotron-3.5-lightning-free,hy3-free,minimax-m2.7-free,ling-3.0-flash-free,lfm-2.5-2.6b-free",
     "KANAREK_REVIEW_ORCAROUTER_MODELS": "orcarouter/auto",

@@ -257,14 +257,15 @@ test('decision provider rotation is stable for the same review state', () => {
     ...env,
     OPENROUTER_API_KEY: 'openrouter-key',
     QWEN_API_KEY: 'qwen-key',
-    KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'aihubmix,openrouter,qwencloud',
+    AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'aihubmix,openrouter,qwencloud,vercel',
   };
 
   assert.deepEqual(
     decisionProviderOrder(input, poolEnv),
     decisionProviderOrder(input, poolEnv),
   );
-  assert.equal(new Set(decisionProviderOrder(input, poolEnv)).size, 3);
+  assert.equal(new Set(decisionProviderOrder(input, poolEnv)).size, 4);
 });
 
 test('decision pool can call OpenRouter Mercury Decide directly', async () => {
@@ -336,6 +337,40 @@ test('decision pool can call QwenCloud directly', async () => {
   assert.equal(authorization, 'Bearer qwen-key');
   assert.equal(body.model, 'decision-model-preview');
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'qwencloud-decision');
+});
+
+test('decision pool can call Vercel Laya through the TypeSafe-compatible API', async () => {
+  let url = '';
+  let body: Record<string, unknown> = {};
+  let authorization = '';
+  const response = await handleDecisionModelRequest(
+    request({
+      state: { review: 'vercel laya decision' },
+      questions: { keep_0: { type: 'noul' } },
+    }),
+    {
+      ...env,
+      AIHUBMIX_API_KEY: undefined,
+      AI_GATEWAY_API_KEY: 'vercel-key',
+      KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'vercel',
+    },
+    ((input: RequestInfo | URL, init?: RequestInit) => {
+      url = String(input);
+      authorization = new Headers(init?.headers).get('authorization') ?? '';
+      body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return Promise.resolve(Response.json({
+        model: 'convaiinnovations/laya-free',
+        answers: { keep_0: { type: 'noul', noul: 0.97 } },
+        usage: { input_tokens: 47 },
+      }));
+    }) as typeof fetch,
+  );
+
+  assert.equal(response?.status, 200);
+  assert.equal(url, 'https://ai-gateway.vercel.sh/typesafe/v1/systemone');
+  assert.equal(authorization, 'Bearer vercel-key');
+  assert.equal(body.model, 'convaiinnovations/laya-free');
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'vercel-decision');
 });
 
 test('decision pool falls through a failed primary to the next rotated provider', async () => {

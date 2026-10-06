@@ -449,6 +449,7 @@ const REVIEW_PROVIDER_DISPLAY: Record<string, { domain: string; label: string }>
   ollama: { domain: 'ollama.com', label: 'Ollama' },
   groq: { domain: 'groq.com', label: 'Groq' },
   vercel: { domain: 'vercel.com', label: 'Vercel AI Gateway' },
+  'vercel-decision': { domain: 'vercel.com', label: 'Vercel AI Gateway Decision' },
   'huggingface-publicai': { domain: 'huggingface.co', label: 'Hugging Face PublicAI' },
   deepseek: { domain: 'deepseek.com', label: 'DeepSeek' },
   'gemini-flex': { domain: 'gemini.google.com', label: 'Gemini Flex' },

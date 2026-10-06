@@ -1104,4 +1104,8 @@ test('decision providers render distinct L2 attribution labels', () => {
     reviewSourceLabel('qwencloud-decision', 'decision-model-preview'),
     'QwenCloud Decision · `decision-model-preview`',
   );
+  assert.equal(
+    reviewSourceLabel('vercel-decision', 'convaiinnovations/laya-free'),
+    'Vercel AI Gateway Decision · `convaiinnovations/laya-free`',
+  );
 });

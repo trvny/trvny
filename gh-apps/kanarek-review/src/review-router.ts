@@ -75,7 +75,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE: '0.9',
   KANAREK_REVIEW_VERCEL_HY3_TOP_P: '1',
   KANAREK_REVIEW_GROQ_REASONING_EFFORT: 'high',
-  KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'aihubmix,openrouter,qwencloud',
+  KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'aihubmix,openrouter,qwencloud,vercel',
   KANAREK_REVIEW_DECISION_TIMEOUT_MS: '25000',
   KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'deepseek,gemini-flex',
   KANAREK_REVIEW_DEEPSEEK_THINKING: 'enabled',
@@ -228,7 +228,8 @@ export type ProviderCooldownId =
   | ReviewProviderId
   | 'aihubmix-decision'
   | 'openrouter-decision'
-  | 'qwencloud-decision';
+  | 'qwencloud-decision'
+  | 'vercel-decision';
 
 const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
   'aihubmix',

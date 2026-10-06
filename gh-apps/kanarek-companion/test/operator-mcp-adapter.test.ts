@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  handleGremlinMcp,
   handleOperatorMcp,
   MCP_PROTOCOL_VERSION,
 } from '../src/mcp-adapter.ts';
@@ -77,6 +78,43 @@ test('operator MCP lists the migrated Gremlin action names from curated OpenAPI'
   assert.ok(githubRead);
   assert.ok(githubRead.inputSchema?.required?.includes('path'));
   assert.ok(githubRead.inputSchema?.properties?.path);
+});
+
+test('Gremlin MCP is a superset of operator and specialist tools', async () => {
+  const response = await handleGremlinMcp(
+    mcpRequest(
+      { jsonrpc: '2.0', id: 10, method: 'tools/list', params: {} },
+      'tools/list',
+    ),
+    pluginMcpOpenApi(ORIGIN),
+    {},
+    async (request) => {
+      assert.equal(new URL(request.url).pathname, '/gpt-actions/github/read');
+      assert.deepEqual(await readJson(request), { path: '/user' });
+      return operatorAuthResponse();
+    },
+  );
+
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  const payload = await response.json() as {
+    result: { tools: Array<{ name: string }> };
+  };
+  const names = payload.result.tools.map((tool) => tool.name);
+  assert.equal(names.length, 37);
+  for (const name of PLUGIN_MCP_OPERATION_IDS) assert.ok(names.includes(name), name);
+  for (const name of [
+    'engram_status',
+    'engram_search',
+    'engram_store',
+    'context7_search',
+    'feedseek_search',
+    'feedseek_fetch',
+    'feedseek_recent',
+  ]) {
+    assert.ok(names.includes(name), name);
+  }
+  assert.equal(names.includes('useGremlinStorage'), false);
 });
 
 test('operator MCP dispatches githubRead through the guarded Action route', async () => {

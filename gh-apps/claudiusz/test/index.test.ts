@@ -44,7 +44,15 @@ test('owner allowlist is case-insensitive and exact', () => {
 test('initialize negotiates a supported protocol version', async () => {
   const known = await call({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } });
   assert.equal(known.body.result.protocolVersion, '2025-06-18');
-  assert.equal(known.body.result.serverInfo.icons[0].src, 'https://claudiusz-mcp.test/icon.png');
+  assert.equal(
+    known.body.result.serverInfo.icons[0].src,
+    'https://avatars.githubusercontent.com/in/4454097?s=120&v=4',
+  );
+  assert.equal(known.body.result.serverInfo.icons[1].src, 'https://claudiusz-mcp.test/icon.png');
+  assert.equal(
+    known.body.result._meta['io.modelcontextprotocol/serverInfo'].icons[0].src,
+    known.body.result.serverInfo.icons[0].src,
+  );
   const unknown = await call({ jsonrpc: '2.0', id: 2, method: 'initialize', params: { protocolVersion: '1999-01-01' } });
   assert.equal(unknown.body.result.protocolVersion, '2025-11-25');
 });
@@ -55,6 +63,14 @@ test('tools/list exposes the write tools', async () => {
   for (const name of ['whoami', 'comment', 'react', 'reply_review_comment', 'review', 'resolve_thread']) {
     assert.ok(names.includes(name), name);
   }
+  assert.equal(
+    body.result.tools[0].icons[0].src,
+    'https://avatars.githubusercontent.com/in/4454097?s=120&v=4',
+  );
+  assert.equal(
+    body.result._meta['io.modelcontextprotocol/serverInfo'].icons[1].src,
+    'https://claudiusz-mcp.test/icon.png',
+  );
 });
 
 test('tool calls fail cleanly without the private key', async () => {
@@ -82,4 +98,42 @@ test('disallowed owners are refused before any GitHub call', async () => {
 test('notifications get 202 with no body', async () => {
   const response = await worker.fetch(rpc({ jsonrpc: '2.0', method: 'notifications/initialized' }), env);
   assert.equal(response.status, 202);
+});
+
+
+test('favicon alias is public and proxies a 460px avatar', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = '';
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response('icon', { status: 200, headers: { 'content-type': 'image/png' } });
+  };
+  try {
+    const response = await worker.fetch(new Request('https://claudiusz-mcp.test/favicon.ico'), env);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'image/png');
+    assert.equal(
+      requestedUrl,
+      'https://avatars.githubusercontent.com/in/4454097?s=460&v=4',
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test('icon metadata follows CLAUDIUSZ_APP_ID', async () => {
+  const alternate = { ...env, CLAUDIUSZ_APP_ID: '9999999' };
+  const { body } = await call(
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } },
+    alternate,
+  );
+  assert.equal(
+    body.result.serverInfo.icons[0].src,
+    'https://avatars.githubusercontent.com/in/9999999?s=120&v=4',
+  );
+  assert.equal(
+    body.result._meta['io.modelcontextprotocol/serverInfo'].icons[0].src,
+    'https://avatars.githubusercontent.com/in/9999999?s=120&v=4',
+  );
 });

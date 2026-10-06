@@ -26,16 +26,16 @@
     "install:local": "tsx scripts/install-local-runtime.ts"
   },
   "dependencies": {
-    "@google/genai": "2.26.0",
+    "@google/genai": "2.27.0",
     "@microsoft/mxc-sdk": "0.9.0",
-    "@modelcontextprotocol/sdk": "1.31.0",
+    "@modelcontextprotocol/sdk": "1.32.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20261002.1",
+    "@cloudflare/workers-types": "5.20261003.1",
     "@types/node": "26.6.4",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "wrangler": "4.146.0"
+    "wrangler": "4.147.0"
   }
 }

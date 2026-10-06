@@ -40,6 +40,7 @@ interface RpcRequest {
 interface McpSurface {
   serverInfo: JsonObject;
   instructions: string;
+  serializeBatchToolCalls?: boolean;
   tools(): JsonObject[];
   hasTool(name: string): boolean;
   callTool(name: string, args: unknown): Promise<JsonObject>;
@@ -252,15 +253,17 @@ async function handleMcp(
     if (hasMixedVersions) {
       return json(rpcError(null, -32600, 'Mixed MCP protocol versions'), 400, protocolVersion);
     }
-    const responses = (
-      await Promise.all(
-        payload.map((entry) =>
-          isObject(entry)
-            ? handleRpc(request, entry, protocolVersion, surface)
-            : Promise.resolve(rpcError(null, -32600, 'Invalid Request')),
-        ),
-      )
-    ).filter((entry): entry is JsonObject => Boolean(entry));
+    const runEntry = (entry: unknown) =>
+      isObject(entry)
+        ? handleRpc(request, entry, protocolVersion, surface)
+        : Promise.resolve(rpcError(null, -32600, 'Invalid Request'));
+    const batchResults: Array<JsonObject | null> = [];
+    if (surface.serializeBatchToolCalls) {
+      for (const entry of payload) batchResults.push(await runEntry(entry));
+    } else {
+      batchResults.push(...await Promise.all(payload.map(runEntry)));
+    }
+    const responses = batchResults.filter((entry): entry is JsonObject => Boolean(entry));
     if (!responses.length) return new Response(null, { status: 202, headers: headers(protocolVersion) });
     return json(responses, 200, protocolVersion);
   }
@@ -529,6 +532,7 @@ function operatorSurface(
     serverInfo: OPERATOR_SERVER_INFO,
     instructions:
       'Guarded MechaGremlin operator tools. Prefer high-level operations, preserve existing policy checks, and verify remote side effects before claiming success.',
+    serializeBatchToolCalls: true,
     tools: () => operatorToolDescriptors(routes),
     hasTool: (name) => routes.has(name),
     callTool(name, args) {

@@ -8,7 +8,7 @@ import {
   type ReviewRouterEnv,
 } from './review-router.ts';
 
-type DecisionProviderId = 'aihubmix' | 'openrouter' | 'qwencloud';
+type DecisionProviderId = 'aihubmix' | 'openrouter' | 'qwencloud' | 'vercel';
 
 type DecisionProvider = {
   id: DecisionProviderId;
@@ -42,6 +42,13 @@ const DECISION_PROVIDERS: Record<DecisionProviderId, DecisionProvider> = {
     endpoint: 'https://trial.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/systemone',
     models: ['decision-model-preview'],
     apiKey: (env) => env.QWEN_API_KEY,
+  },
+  vercel: {
+    id: 'vercel',
+    cooldownId: 'vercel-decision',
+    endpoint: 'https://ai-gateway.vercel.sh/typesafe/v1/systemone',
+    models: ['convaiinnovations/laya-free'],
+    apiKey: (env) => env.AI_GATEWAY_API_KEY,
   },
 };
 const DECISION_PROVIDER_IDS = new Set<DecisionProviderId>(

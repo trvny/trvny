@@ -99,13 +99,15 @@ questions through a rotating decision-only pool:
 1. AIHubMix `decision-model-preview`
 2. OpenRouter Decisions: `inception/mercury-decide:free`, then free fallback `respan/span-01-lite:free`
 3. QwenCloud `decision-model-preview`
+4. Vercel AI Gateway `convaiinnovations/laya-free` through its TypeSafe-compatible System One API
 
 The primary provider is rotated deterministically from the review state so all
-three access paths receive real traffic while they are free; the remaining
+four access paths receive real traffic while they are free; the remaining
 configured providers are fallbacks. OpenRouter uses its native
 `/api/alpha/decisions` runtime and falls through Mercury to Span-01 Lite before
-abandoning OpenRouter. Each decision provider keeps an independent short-lived
-cooldown. The experimental decision pool has its own 25-second total budget so
+abandoning OpenRouter. Vercel uses the promotional `laya-free` model ID so the
+route stops serving when the free promotion ends instead of silently becoming
+billable. Each decision provider keeps an independent short-lived cooldown. The experimental decision pool has its own 25-second total budget so
 it cannot consume the normal generative judge's time. If the entire decision
 pool fails, Kanarek Companion still gives the existing generative L2 judge its
 normal pass; if that judge also fails, verified L1 findings are published

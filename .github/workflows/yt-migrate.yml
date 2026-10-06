@@ -22,10 +22,10 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: yt-migrate
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@v6
         with:
           path: yt-migrate/state.json
           key: yt-migrate-state-${{ github.run_id }}
@@ -49,7 +49,7 @@ jobs:
           YT_EXTRA: ${{ runner.temp }}/takeout.json
           YT_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
         run: python3 yt-migrate/migrate.py
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v6
         if: always()
         with:
           path: yt-migrate/state.json

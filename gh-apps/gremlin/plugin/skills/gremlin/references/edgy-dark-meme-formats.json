@@ -1,0 +1,331 @@
+[
+  {
+    "id": "deadpan-caption",
+    "name": "Deadpan Caption",
+    "aliases": [
+      "tweet",
+      "one liner",
+      "podpis",
+      "praca",
+      "korpo",
+      "życie",
+      "zycie",
+      "smutne",
+      "zus",
+      "nfz"
+    ],
+    "tags": [
+      "dark",
+      "bleak",
+      "relatable",
+      "minimal",
+      "work",
+      "life",
+      "praca",
+      "korpo",
+      "zus",
+      "nfz",
+      "polish"
+    ],
+    "use": "One or two flat sentences where a specific mundane detail turns bleak or absurd.",
+    "fields": [
+      "caption"
+    ],
+    "visual": "Optional ordinary photo or no image at all."
+  },
+  {
+    "id": "top-bottom",
+    "name": "Top / Bottom",
+    "aliases": [
+      "macro",
+      "gora dol",
+      "top text bottom text"
+    ],
+    "tags": [
+      "expectation",
+      "reality",
+      "contrast",
+      "classic"
+    ],
+    "use": "Normal expectation on top, bleak or stupid reality on bottom.",
+    "fields": [
+      "top",
+      "bottom"
+    ],
+    "visual": "Original scene or generic subject; both text blocks short."
+  },
+  {
+    "id": "fake-ui",
+    "name": "Fake UI / Error",
+    "aliases": [
+      "dialog",
+      "error",
+      "app",
+      "changelog",
+      "notification",
+      "korpo",
+      "teams",
+      "praca"
+    ],
+    "tags": [
+      "bureaucracy",
+      "tech",
+      "work",
+      "life",
+      "deadpan"
+    ],
+    "use": "Describe life, work or failure as an app dialog, update log or system notification.",
+    "fields": [
+      "title",
+      "body",
+      "button"
+    ],
+    "visual": "Generic original UI, not a pixel-perfect copy of a proprietary interface."
+  },
+  {
+    "id": "fake-notice",
+    "name": "Official Notice",
+    "aliases": [
+      "urzad",
+      "ministerstwo",
+      "komunikat",
+      "announcement",
+      "zus",
+      "nfz",
+      "urząd",
+      "urzad",
+      "pismo"
+    ],
+    "tags": [
+      "polish",
+      "bureaucracy",
+      "state",
+      "politics",
+      "institution"
+    ],
+    "use": "Institutional typography and bureaucratic confidence applied to an absurdly human problem.",
+    "fields": [
+      "issuer",
+      "headline",
+      "notice"
+    ],
+    "visual": "Generic state/municipal notice grammar, stamps, boxes, formal hierarchy."
+  },
+  {
+    "id": "dzida-photo-caption",
+    "name": "Dzida Photo + Caption",
+    "aliases": [
+      "jbzd",
+      "dzida",
+      "photo comment",
+      "polska",
+      "januszex",
+      "żabka",
+      "zabka",
+      "blokowisko"
+    ],
+    "tags": [
+      "polish",
+      "vulgar",
+      "local",
+      "low-fi",
+      "relatable"
+    ],
+    "use": "Ordinary or cursed image with a short title/caption that undersells or bluntly reframes it.",
+    "fields": [
+      "title",
+      "caption"
+    ],
+    "visual": "Mundane phone photo, screenshot or original crude scene; low ceremony."
+  },
+  {
+    "id": "dzida-comment",
+    "name": "Post + Comment Punchline",
+    "aliases": [
+      "comment better",
+      "reply",
+      "komentarz"
+    ],
+    "tags": [
+      "jbzd",
+      "polish",
+      "dialogue",
+      "second punchline"
+    ],
+    "use": "The post sets the scene; a dry comment or correction delivers the stronger joke.",
+    "fields": [
+      "post",
+      "comment"
+    ],
+    "visual": "Generic social-post layout or text-only dialogue."
+  },
+  {
+    "id": "cenzo-mutation",
+    "name": "Cenzo Mutation",
+    "aliases": [
+      "cenzopapa",
+      "cenzo",
+      "photomontage",
+      "przerobka"
+    ],
+    "tags": [
+      "polish",
+      "surreal",
+      "cutout",
+      "mutation",
+      "jpeg",
+      "absurd"
+    ],
+    "use": "Literal visual mutation plus matching name/caption mutation. The crude edit is the main punchline.",
+    "fields": [
+      "mutation",
+      "caption"
+    ],
+    "visual": "Hard cutout, wrong scale, mismatched lighting, compression artifacts, optionally amber/yellow cast when culturally relevant."
+  },
+  {
+    "id": "cenzopolityk-poster",
+    "name": "Cenzopolityk Poster",
+    "aliases": [
+      "cenzoduda",
+      "campaign",
+      "plakat",
+      "polityk",
+      "prezydent",
+      "poseł",
+      "posel",
+      "minister",
+      "wybory"
+    ],
+    "tags": [
+      "polish",
+      "politics",
+      "public figure",
+      "poster",
+      "official"
+    ],
+    "use": "Campaign or official-poster dignity sabotaged by one absurd slogan or literal mutation.",
+    "fields": [
+      "headline",
+      "slogan",
+      "visual mutation"
+    ],
+    "visual": "Original campaign/state graphic grammar with clear parody cues."
+  },
+  {
+    "id": "sok-raka-card",
+    "name": "Surreal Topical Card",
+    "aliases": [
+      "sokzraka",
+      "sok z raka",
+      "zjedz mielone",
+      "bait"
+    ],
+    "tags": [
+      "polish",
+      "topical",
+      "surreal",
+      "politics",
+      "culture",
+      "faux sincere"
+    ],
+    "use": "One cursed topical thesis stated with confidence, often joining unrelated domains.",
+    "fields": [
+      "thesis",
+      "caption"
+    ],
+    "visual": "Cheap collage or mundane stock-like scene with deliberately inappropriate editorial framing."
+  },
+  {
+    "id": "shitpost-one-panel",
+    "name": "One-panel Shitpost",
+    "aliases": [
+      "brainrot",
+      "shitpost",
+      "cursed"
+    ],
+    "tags": [
+      "non sequitur",
+      "anti joke",
+      "low-fi",
+      "absurd",
+      "internet"
+    ],
+    "use": "One strong stupid premise with an internal rule, minimal context and deliberate anti-polish.",
+    "fields": [
+      "caption",
+      "visual gag"
+    ],
+    "visual": "Default font, bad crop, arrow/circle, stretched asset or overcompressed original image."
+  },
+  {
+    "id": "fake-screenshot",
+    "name": "Fake Screenshot",
+    "aliases": [
+      "screen",
+      "chat",
+      "listing",
+      "olx",
+      "message"
+    ],
+    "tags": [
+      "social",
+      "marketplace",
+      "chat",
+      "polish",
+      "relatable"
+    ],
+    "use": "A plausible-looking but original interface screenshot whose wording creates the joke.",
+    "fields": [
+      "header",
+      "body",
+      "reply"
+    ],
+    "visual": "Generic interface language; avoid exact proprietary UI cloning when unnecessary."
+  },
+  {
+    "id": "cursed-infographic",
+    "name": "Cursed Infographic",
+    "aliases": [
+      "diagram",
+      "chart",
+      "iceberg",
+      "spectrum"
+    ],
+    "tags": [
+      "shitpost",
+      "fake lore",
+      "categories",
+      "polish",
+      "surreal"
+    ],
+    "use": "Arrange unrelated labels as if they form a serious taxonomy, spectrum or institutional diagram.",
+    "fields": [
+      "title",
+      "labels",
+      "footer"
+    ],
+    "visual": "Cheap infographic grammar, arrows, boxes, unnecessary legend, confident labeling."
+  },
+  {
+    "id": "demotivator",
+    "name": "Demotivator Inversion",
+    "aliases": [
+      "demotywator",
+      "poster",
+      "motivational"
+    ],
+    "tags": [
+      "dark",
+      "polish internet",
+      "nostalgia",
+      "bleak"
+    ],
+    "use": "Formal motivational-poster grammar with a caption that removes hope on second read.",
+    "fields": [
+      "title",
+      "subtitle"
+    ],
+    "visual": "Original centered image, thick border and formal caption hierarchy."
+  }
+]

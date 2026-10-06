@@ -25,8 +25,8 @@ Remaining cutover work:
 
 1. Register/connect the standalone Gremlin MCP with the migrated private plugin
    and run parity tests against the legacy GPT.
-2. Decide how the separately authenticated Anchor storage action is represented
-   in the plugin.
+2. Keep Anchor storage separately authenticated; attach it as a connected app
+   only after the actual OpenAI App identity is verified.
 3. Remove the Gremlin surface from `kanarek-companion` and move Gremlin-only
    modules into this package. Keep the shared replay/checkpoint stores and the
    GPTomek signer RPC only where they remain deliberate cross-service
@@ -46,7 +46,7 @@ location does not change subsystem ownership.
 
 The migrated private plugin remains the user-facing successor. Keep it private
 until the MCP and migrated skill pass the acceptance gates in
-`plugin/skills/mechagremlin/references/migration.md`.
+`plugin/skills/gremlin/references/migration.md`.
 
 ## Boundary
 

@@ -1,20 +1,32 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mechagremlin",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "MechaGremlin plugin backed by the standalone guarded Gremlin runtime.",
-  "author": { "name": "trvny", "url": "https://github.com/trvny" },
+  "author": {
+    "name": "trvny",
+    "url": "https://github.com/trvny"
+  },
   "homepage": "https://github.com/trvny/trvny/tree/main/gh-apps/gremlin/plugin",
   "repository": "https://github.com/trvny/trvny",
-  "keywords": ["mechagremlin", "gremlin", "github", "cloudflare", "mcp"],
+  "keywords": [
+    "mechagremlin",
+    "gremlin",
+    "github",
+    "cloudflare",
+    "mcp"
+  ],
   "extensions": {
     "com.openai": {
       "interface": {
         "displayName": "MechaGremlin",
-        "shortDescription": "Guarded repo and automation operator",
+        "shortDescription": "Guarded repo operator",
         "longDescription": "MechaGremlin operator backed by the standalone guarded Gremlin runtime and its specialist services.",
         "developerName": "trvny",
-        "capabilities": ["Read", "Write"],
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
         "websiteURL": "https://github.com/trvny/trvny",
         "defaultPrompt": [
           "Inspect my repositories and tell me what needs attention.",

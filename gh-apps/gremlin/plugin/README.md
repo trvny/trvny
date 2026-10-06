@@ -8,22 +8,28 @@ reuses the maintained action runtime while the Gremlin-only modules are being
 moved out of `kanarek-companion`.
 
 The portable package connects to the authenticated Streamable HTTP MCP at
-`https://gremlin.travny.workers.dev/mcp`. That MCP exposes a compatibility superset: the migrated 30-operation Gremlin
-web surface (including `getDocsIndex`) plus the seven direct specialist tools
-for Engram, Context7 and Feedseek. Operator calls dispatch back through the
-existing guarded Action handlers. Existing policy,
-stale-state checks, GPTomek attribution, replay protection and Cloudflare guards
-therefore remain authoritative instead of being copied into an MCP-specific
-implementation.
+`https://gremlin.travny.workers.dev/mcp`. The MCP exposes a compatibility
+superset: the migrated 30-operation Gremlin web surface, including
+`getDocsIndex`, plus seven direct specialist tools for Engram, Context7 and
+Feedseek. Operator calls dispatch through the existing guarded Action handlers,
+so policy, stale-state checks, GPTomek attribution, replay protection and
+Cloudflare guards stay authoritative.
 
-The separately authenticated Anchor `useGremlinStorage` operation is the only
-known legacy Gremlin capability intentionally outside this MCP surface. Its post-migration representation is tracked in the
-MechaGremlin migration reference.
+`skills/gremlin/` is the canonical packaged behavior. It preserves the Gremlin
+persona and maintained meme/style references without carrying the migrated
+`USER_CONTEXT.md` snapshot.
+
+Anchor storage remains a separately authenticated capability. Do not proxy its
+OAuth through the Gremlin Worker or invent a registered App ID. Add it to the
+private plugin only after the actual OpenAI App identity is verified.
 
 The built-in ChatGPT migration already created the private successor plugin.
 Do not create a second production plugin from this repository. Treat this
-package as the maintained source for the replacement plugin's tool layer and
-apply it to that migrated plugin.
+package as the maintained source for that replacement and apply it to the
+existing private plugin.
+
+Migration status and acceptance gates live in
+`skills/gremlin/references/migration.md`.
 
 No credentials, OAuth tokens, private keys or copied user-context files belong
 in this directory.

@@ -13,7 +13,8 @@ operator policy instead of cloning it into two Workers.
 ### Migration status
 
 The standalone `gremlin` Worker is deployed and owns the public Gremlin
-origin. Its portable plugin source now targets
+origin. Its MCP is a compatibility superset of the curated operator surface and
+the existing direct specialist tools. Its portable plugin source now targets
 `https://gremlin.travny.workers.dev/mcp`.
 
 The built-in ChatGPT migration has already created the private successor plugin.

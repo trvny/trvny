@@ -12,14 +12,14 @@ on:
 
 concurrency:
   group: yt-migrate
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions: {}
 
 jobs:
   migrate:
     if: github.repository == 'trvny/trvny'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5

@@ -12,6 +12,10 @@ import {
 } from './github-app.ts';
 import { bearerAuthorized } from './auth.ts';
 import {
+  dispatchRepositorySettingsBootstrap,
+  repositoryCreated,
+} from './repository-bootstrap.ts';
+import {
   GPTOMEK_CONTROL_ISSUE,
   handleGptomekIssueControl,
   isGptomekControlIssueEvent,
@@ -58,6 +62,7 @@ const SUPPORTED_EVENTS = new Set([
   'ping',
   'pull_request',
   'pull_request_review',
+  'repository',
   'status',
   'workflow_run',
 ]);
@@ -483,6 +488,43 @@ function scheduleCompanion(
   return true;
 }
 
+async function runRepositorySettingsBootstrap(
+  repository: string,
+  env: Env,
+): Promise<void> {
+  try {
+    await dispatchRepositorySettingsBootstrap(
+      repository,
+      env,
+      (input, init) => fetch(input, init),
+    );
+    console.log(JSON.stringify({
+      repositoryBootstrap: 'dispatched',
+      repository,
+    }));
+  } catch (error) {
+    console.error(JSON.stringify({
+      repositoryBootstrap: 'failed',
+      repository,
+      failure: operationFailure(error),
+    }));
+  }
+}
+
+function scheduleRepositorySettingsBootstrap(
+  metadata: WebhookMetadata,
+  env: Env,
+  ctx?: ExecutionContext,
+): boolean {
+  if (!repositoryCreated(metadata) || !repositoryAllowed(env, metadata.repository)) {
+    return false;
+  }
+  const task = runRepositorySettingsBootstrap(metadata.repository, env);
+  if (ctx) ctx.waitUntil(task);
+  else void task;
+  return true;
+}
+
 async function handleWebhook(
   request: Request,
   env: Env,
@@ -546,6 +588,11 @@ async function handleWebhook(
     );
   }
 
+  const repositoryBootstrapScheduled = scheduleRepositorySettingsBootstrap(
+    metadata,
+    env,
+    ctx,
+  );
   const companionScheduled = scheduleCompanion(metadata, payload, env, ctx);
   console.log(
     JSON.stringify({
@@ -559,6 +606,7 @@ async function handleWebhook(
           }
         : null,
       companion: companionScheduled ? { scheduled: true } : null,
+      repositoryBootstrap: repositoryBootstrapScheduled ? { scheduled: true } : null,
     }),
   );
 
@@ -576,6 +624,7 @@ async function handleWebhook(
           }
         : null,
       companion: companionScheduled ? { scheduled: true } : null,
+      repositoryBootstrap: repositoryBootstrapScheduled ? { scheduled: true } : null,
     },
     202,
   );

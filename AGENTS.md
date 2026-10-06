@@ -10,4 +10,4 @@
 - `.ai/private/` - repo-local AI overlays (OpenAI, Claude and personalities), tracked in this public repo despite the name. Never treat it as a secret store.
 - `token-worldcup/` - Quarto token reports and tokenizer recount scripts. Maintain `.qmd`; adjacent `.html`/`.md` renders are generated and CI-gated. Dynamic README files stay outside that conversion path.
 - `stuff/` - small configs, feeds, playlists and miscellaneous assets.
-- `yt-migrate/` - YouTube account migration (subscriptions, own playlists, likes; SRC -> DST). Daily `.github/workflows/yt-migrate.yml`, quota-budgeted and idempotent; OAuth via repo secrets `YT_*`, never log channel/video data (public logs).
+- `yt-migrate/` - YouTube account migration (subscriptions, own playlists, likes, YT Music library, Watch later; SRC -> DST). Daily `.github/workflows/yt-migrate.yml`, quota-budgeted and idempotent; OAuth via repo secrets `YT_*`, never log channel/video data (public logs). Takeout-only lists ride in `takeout.json.gz.enc` (AES, key in secret `YT_EXTRA_KEY`).

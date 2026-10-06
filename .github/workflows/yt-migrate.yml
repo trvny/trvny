@@ -30,6 +30,14 @@ jobs:
           path: yt-migrate/state.json
           key: yt-migrate-state-${{ github.run_id }}
           restore-keys: yt-migrate-state-
+      - name: Decrypt Takeout extras
+        if: hashFiles('yt-migrate/takeout.json.gz.enc') != ''
+        env:
+          KEY: ${{ secrets.YT_EXTRA_KEY }}
+        run: |
+          [ -n "$KEY" ] || { echo "::notice::YT_EXTRA_KEY not set, Takeout extras skipped"; exit 0; }
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 -pass env:KEY \
+            -in yt-migrate/takeout.json.gz.enc | gunzip > "$RUNNER_TEMP/takeout.json"
       - name: Migrate
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
@@ -37,6 +45,7 @@ jobs:
           YT_SRC_REFRESH: ${{ secrets.YT_SRC_REFRESH }}
           YT_DST_REFRESH: ${{ secrets.YT_DST_REFRESH }}
           YT_STATE: yt-migrate/state.json
+          YT_EXTRA: ${{ runner.temp }}/takeout.json
           YT_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
         run: python3 yt-migrate/migrate.py
       - uses: actions/cache/save@v4

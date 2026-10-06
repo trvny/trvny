@@ -287,6 +287,7 @@ function specialistSurface(
     hasTool: isSpecialistToolName,
     async callTool(name, args) {
       try {
+        if (!isSpecialistToolName(name)) throw new SpecialistToolError('unknown_tool');
         const structured = await invokeSpecialistTool(name, args, env, fetcher);
         return {
           content: [{ type: 'text', text: JSON.stringify(structured) }],

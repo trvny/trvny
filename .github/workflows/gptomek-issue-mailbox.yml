@@ -33,9 +33,24 @@ jobs:
           sparse-checkout: |
             .github/scripts/gptomek-mailbox-fallback.py
           sparse-checkout-cone-mode: false
+      - name: Inspect mailbox snapshot
+        id: mailbox
+        shell: bash
+        run: |
+          set -euo pipefail
+          command_count="$(python3 - "$GITHUB_EVENT_PATH" <<'PY'
+          import json, re, sys
+          payload = json.load(open(sys.argv[1], encoding='utf-8'))
+          body = str((payload.get('issue') or {}).get('body') or '')
+          pattern = r'<!--\s*gptomek-command:[A-Za-z0-9+/_-]+={0,2}\s*-->'
+          print(len(re.findall(pattern, body)))
+          PY
+          )"
+          echo "command_count=${command_count}" >>"$GITHUB_OUTPUT"
 
       - name: Wake primary Issue mailbox
         id: primary
+        if: steps.mailbox.outputs.command_count == '1'
         continue-on-error: true
         env:
           GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
@@ -50,8 +65,8 @@ jobs:
             https://kanarek-companion.travny.workers.dev/gptomek/wake \
             >/dev/null
 
-      - name: Fail over to legacy PR mailbox
-        if: steps.primary.outcome == 'failure'
+      - name: Drain through legacy PR mailbox
+        if: steps.mailbox.outputs.command_count != '1' || steps.primary.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash

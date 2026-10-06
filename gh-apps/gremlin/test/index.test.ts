@@ -36,10 +36,13 @@ test('Gremlin worker owns GPT Actions routes and preserves auth', async () => {
 
 test('Gremlin owns the full migrated MCP surface', async () => {
   const manifest = gremlinMcpManifest(ORIGIN) as { toolNames?: string[] };
-  assert.equal(manifest.toolNames?.length, 30);
+  assert.equal(manifest.toolNames?.length, 37);
   assert.ok(manifest.toolNames?.includes('getDocsIndex'));
   assert.ok(manifest.toolNames?.includes('implementCodeChange'));
-  assert.equal(manifest.toolNames?.includes('engram_search'), false);
+  assert.ok(manifest.toolNames?.includes('engram_search'));
+  assert.ok(manifest.toolNames?.includes('context7_search'));
+  assert.ok(manifest.toolNames?.includes('feedseek_recent'));
+  assert.equal(manifest.toolNames?.includes('useGremlinStorage'), false);
 
   const response = await worker.fetch(
     new Request(`${ORIGIN}/mcp`, {

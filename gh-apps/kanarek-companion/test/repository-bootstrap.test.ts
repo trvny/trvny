@@ -7,7 +7,7 @@ import {
   repositoryCreated,
 } from '../src/repository-bootstrap.ts';
 
-const privateKey = generateKeyPairSync('rsa', { modulusLength: 1024 })
+const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
   .privateKey
   .export({ format: 'pem', type: 'pkcs8' })
   .toString();

@@ -16,7 +16,7 @@ test('MechaGremlin plugin targets the standalone guarded Gremlin MCP', async () 
   };
 
   assert.equal(plugin.name, 'mechagremlin');
-  assert.equal(plugin.version, '0.0.3');
+  assert.equal(plugin.version, '0.31.2');
   assert.match(plugin.homepage ?? '', /gh-apps\/gremlin\/plugin$/);
   assert.equal(mcp.mcpServers?.gremlin?.type, 'streamable-http');
   assert.equal(

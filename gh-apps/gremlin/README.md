@@ -17,14 +17,17 @@ origin. Its MCP is a compatibility superset of the curated operator surface and
 the existing direct specialist tools. Its portable plugin source now targets
 `https://gremlin.travny.workers.dev/mcp`.
 
-The built-in ChatGPT migration has already created the private successor plugin.
-The legacy Custom GPT is read-only and remains a behavioral fallback until GPT
-retirement; its existing Actions may continue to use the old companion origin.
+The built-in ChatGPT migration created the private successor plugin. The
+existing plugin was updated in place to release `0.31.2` on 2026-10-06 with
+the canonical Gremlin skill and standalone MCP configuration. The legacy Custom
+GPT is read-only and remains a behavioral fallback until parity is verified; its
+existing Actions may continue to use the old companion origin.
 
 Remaining cutover work:
 
-1. Register/connect the standalone Gremlin MCP with the migrated private plugin
-   and run parity tests against the legacy GPT.
+1. Verify the updated private plugin in a fresh ChatGPT session: authenticate
+   the standalone Gremlin MCP, confirm the 37-tool live surface, and run parity
+   tests against the legacy GPT.
 2. Keep Anchor storage separately authenticated; attach it as a connected app
    only after the actual OpenAI App identity is verified.
 3. Remove the Gremlin surface from `kanarek-companion` and move Gremlin-only

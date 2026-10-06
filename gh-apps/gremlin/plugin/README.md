@@ -23,10 +23,15 @@ Anchor storage remains a separately authenticated capability. Do not proxy its
 OAuth through the Gremlin Worker or invent a registered App ID. Add it to the
 private plugin only after the actual OpenAI App identity is verified.
 
-The built-in ChatGPT migration already created the private successor plugin.
-Do not create a second production plugin from this repository. Treat this
-package as the maintained source for that replacement and apply it to the
-existing private plugin.
+The built-in ChatGPT migration created the private successor plugin, and that
+same plugin was updated in place to release `0.31.2` on 2026-10-06. The live
+account bundle keeps the migration-era `skills/instructions/` path only because
+the account editor cannot delete existing files; its effective skill is
+`Gremlin`, its stale user-context file is a data-free tombstone, and its
+package now includes the standalone Gremlin MCP.
+
+Do not create a second production plugin from this repository. This directory
+remains the canonical portable source for future updates.
 
 Migration status and acceptance gates live in
 `skills/gremlin/references/migration.md`.

@@ -38,22 +38,32 @@ snapshot rather than product knowledge.
 
 ## Observed migrated plugin
 
-The built-in migration completed successfully and produced a private plugin with:
+The built-in migration initially produced a private plugin with one generated
+skill, no Custom Action replacement, the copied knowledge references, and a
+migration-generated version line.
 
-- one migrated skill displayed as `MechaGrepmlin`;
-- no apps, as expected because Custom Actions do not migrate;
-- migrated references for `AGENTS.md`,
-  `GREMLIN_EDGY_DARK_MEME_KNOWLEDGE.md`, `edgy-dark-meme-formats.json` and
-  `USER_CONTEXT.md`;
-- a generated `lookup/knowledge-index.json`.
+On 2026-10-06 the existing private successor was updated **in place** rather
+than replaced:
 
-Target naming is `MechaGremlin` for the plugin, `Gremlin` for the skill and
-`gremlin.exe` for the persona.
+- backend plugin ID: `plugin_2efcd1a24fa08191b71d92f1972ac32c`;
+- release: `0.31.2`;
+- display name: `MechaGremlin`;
+- effective skill name: `Gremlin` / `gremlin` frontmatter;
+- root Agent Plugins 1.0 manifest added;
+- portable Gremlin MCP configured at
+  `https://gremlin.travny.workers.dev/mcp`;
+- the host generated the matching legacy `.mcp.json` compatibility config.
 
-The repository package now contains the intended replacement skill and reference
-set, but that does not by itself modify the already migrated private plugin.
-Apply this source to that existing plugin once its editable backend identity is
-resolved. Do not create a second production plugin as a workaround.
+The account plugin editor overlays releases but cannot delete existing files.
+For that reason the live account bundle retains the legacy
+`skills/instructions/` path, while the repository keeps
+`skills/gremlin/` as the canonical portable layout. The live
+`USER_CONTEXT.md` was overwritten with an empty legacy placeholder and is no
+longer indexed; `AGENTS.md` is now only a compatibility alias to the
+maintained style reference.
+
+The repository package version is aligned to `0.31.2` so future account
+updates can continue with monotonically increasing semantic versions.
 
 ## Capability parity ledger
 
@@ -144,12 +154,10 @@ The portable plugin points at
 
 ## Still required
 
-- Apply this maintained package to the existing migrated private plugin and
-  rename its skill from `MechaGrepmlin` to `Gremlin`.
-- Register/connect the standalone Gremlin MCP with that plugin and verify OAuth.
-- Attach Anchor as a separate connected app only after its actual App ID is
-  verified, then remove the migrated `USER_CONTEXT.md` reference from the live
-  plugin.
+- Load the updated plugin in a fresh ChatGPT session and verify the Gremlin MCP
+  connection/authentication plus the complete 37-tool live surface.
+- Attach Anchor as a separate connected app only after its actual OpenAI App ID
+  is verified.
 - Run behavioral and tool parity checks against the read-only legacy GPT.
 - Finish moving Gremlin-only modules out of `kanarek-companion` when doing so
   reduces coupling without duplicating shared state or policy.

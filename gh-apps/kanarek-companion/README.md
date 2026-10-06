@@ -110,6 +110,17 @@ through the private `KANAREK_REVIEW_SERVICE` binding.
 `KANAREK_REPOSITORIES` controls status-companion scope.
 `KANAREK_REVIEW_REPOSITORIES` controls review scope independently.
 
+### Repository bootstrap
+
+For repositories in the configured owner scope, a GitHub App `repository.created`
+delivery is bridged to the canonical settings workflow in `trvny/.github` via a
+`repository_dispatch` event. The Worker carries only the new `owner/repo` name;
+the settings baseline stays owned by that central workflow.
+
+The GitHub App registration must subscribe to the **Repository** event. Metadata
+read access is enough to receive that event; dispatching to `trvny/.github`
+uses the existing `Contents: write` permission.
+
 Safe same-repository PRs may be updated to the base branch when CI is green,
 no review requests changes, and no Kanarek review job is still in flight for the
 current head. Bot-authored PRs (Dependabot and friends) are never updated. A

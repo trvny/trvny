@@ -16,6 +16,12 @@ CONTROL_REPOSITORY = "trvny/trvny"
 CONTROL_ISSUE = 203
 FALLBACK_PR = 176
 MAX_EVENT_COMMANDS = 20
+
+ALLOWED_GH_PATHS = {
+    f"repos/{CONTROL_REPOSITORY}/issues/{CONTROL_ISSUE}",
+    f"repos/{CONTROL_REPOSITORY}/pulls/{FALLBACK_PR}",
+}
+ALLOWED_GH_METHODS = {None, "PATCH"}
 POLL_ATTEMPTS = 25
 POLL_SECONDS = 1
 
@@ -33,6 +39,11 @@ class MailboxError(RuntimeError):
 
 
 def gh_json(path: str, *, method: str | None = None, payload: object | None = None) -> dict:
+    if path not in ALLOWED_GH_PATHS:
+        raise MailboxError(f"unsupported GitHub API path: {path}")
+    if method not in ALLOWED_GH_METHODS:
+        raise MailboxError(f"unsupported GitHub API method: {method}")
+
     command = ["gh", "api"]
     if method:
         command.extend(["--method", method])
@@ -43,17 +54,20 @@ def gh_json(path: str, *, method: str | None = None, payload: object | None = No
         command.extend(["--input", "-"])
         data = json.dumps(payload)
 
-    completed = subprocess.run(
-        command,
-        input=data,
-        text=True,
-        capture_output=True,
-        check=False,
-        env=os.environ,
-    )
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or completed.stdout.strip() or "gh api failed"
-        raise MailboxError(detail)
+    try:
+        completed = subprocess.run(
+            command,
+            input=data,
+            text=True,
+            capture_output=True,
+            shell=False,
+            check=True,
+            env=os.environ,
+        )
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr.strip() or error.stdout.strip() or "gh api failed"
+        raise MailboxError(detail) from error
+
     if not completed.stdout.strip():
         return {}
     return json.loads(completed.stdout)

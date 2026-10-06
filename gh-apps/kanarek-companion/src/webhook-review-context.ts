@@ -103,7 +103,9 @@ export interface WebhookReviewEnv extends ReviewServiceEnv {
 export interface PullRequestFile {
   filename?: string;
   patch?: string;
+  previous_filename?: string;
   sha?: string;
+  status?: string;
 }
 
 export interface ReviewFile {

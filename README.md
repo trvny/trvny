@@ -33,7 +33,11 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
+| trvny/.github | [#46](https://github.com/trvny/.github/pull/46) | chore: sync repository settings | @trvny | ready | 2026-10-06 |
+| trvny/trvny | [#925](https://github.com/trvny/trvny/pull/925) | fix(claudiusz): expose icon across MCP clients | @trvny | ready | 2026-10-05 |
+| trvny/trvny | [#936](https://github.com/trvny/trvny/pull/936) | Expose full Gremlin operator MCP | @trvny | draft | 2026-10-06 |
 | trvny/WiFi-Automatic | [#49](https://github.com/trvny/WiFi-Automatic/pull/49) | [pull] master from j4velin:master | @pull[bot] | ready | 2026-09-30 |
+| trvny/WiFi-Automatic | [#50](https://github.com/trvny/WiFi-Automatic/pull/50) | ci: bump gradle/actions/setup-gradle from 6.3.0 to 6.4.0 in the actions group | @dependabot[bot] | ready | 2026-10-05 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

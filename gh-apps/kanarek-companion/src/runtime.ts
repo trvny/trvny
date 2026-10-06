@@ -1,4 +1,5 @@
 import { runWithActionRequestContext } from './action-context.ts';
+import type { ActionInvoke } from './action-auth.ts';
 import { AnchorMutationReplayStore } from './anchor-replay.ts';
 import { BUG_INVESTIGATION_PATH, handleBugInvestigationAction } from './bug-investigation.ts';
 import {
@@ -24,7 +25,8 @@ import {
   handleReleaseReplaceAction,
   RELEASE_ASSET_REPLACE_PATH,
 } from './release-replace-action.ts';
-import { runtimeOpenApi } from './runtime-openapi.ts';
+import { handleOperatorMcp, operatorMcpManifest } from './mcp-adapter.ts';
+import { pluginMcpOpenApi, runtimeOpenApi } from './runtime-openapi.ts';
 import { reviewProviderPoolStateViaService } from './review-service.ts';
 import {
   handleSymbolInvestigationAction,
@@ -52,6 +54,21 @@ export type RuntimeEnv = WorkerEnv &
     CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
     KANAREK_REVIEW_REPOSITORIES?: string;
   };
+
+export function gremlinMcpManifest(origin: string): JsonObject {
+  return operatorMcpManifest(pluginMcpOpenApi(origin));
+}
+
+export function handleGremlinMcp(
+  request: Request,
+  invoke: ActionInvoke,
+): Promise<Response | null> {
+  return handleOperatorMcp(
+    request,
+    pluginMcpOpenApi(new URL(request.url).origin),
+    invoke,
+  );
+}
 
 const OPENAPI_PATH = '/gpt-actions/openapi.json';
 const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';

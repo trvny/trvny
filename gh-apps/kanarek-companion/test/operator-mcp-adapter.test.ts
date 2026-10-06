@@ -207,3 +207,53 @@ test('operator MCP reports Action failures without replaying or hiding them', as
   assert.equal(payload.result.structuredContent.ok, false);
   assert.equal(payload.result.structuredContent.error, 'github_http_404');
 });
+
+test('operator MCP serializes batched tool calls so writes cannot overlap', async () => {
+  let active = 0;
+  let maxActive = 0;
+  const seen: string[] = [];
+
+  const response = await handleOperatorMcp(
+    mcpRequest(
+      [
+        {
+          jsonrpc: '2.0',
+          id: 5,
+          method: 'tools/call',
+          params: {
+            name: 'githubRead',
+            arguments: { path: '/repos/trvny/one' },
+          },
+        },
+        {
+          jsonrpc: '2.0',
+          id: 6,
+          method: 'tools/call',
+          params: {
+            name: 'githubRead',
+            arguments: { path: '/repos/trvny/two' },
+          },
+        },
+      ],
+      'tools/call',
+    ),
+    pluginMcpOpenApi(ORIGIN),
+    async (request) => {
+      const body = await readJson(request);
+      if (body.path === '/user') return operatorAuthResponse();
+
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      seen.push(String(body.path));
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return Response.json({ ok: true, data: { path: body.path } });
+    },
+  );
+
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  assert.equal(maxActive, 1);
+  assert.deepEqual(seen, ['/repos/trvny/one', '/repos/trvny/two']);
+});
+

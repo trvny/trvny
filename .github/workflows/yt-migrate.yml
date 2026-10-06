@@ -35,6 +35,7 @@ jobs:
         env:
           KEY: ${{ secrets.YT_EXTRA_KEY }}
         run: |
+          KEY=$(printf %s "$KEY" | tr -d "[:space:]"); export KEY  # tolerate pasted whitespace
           [ -n "$KEY" ] || { echo "::notice::YT_EXTRA_KEY not set, Takeout extras skipped"; exit 0; }
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 -pass env:KEY \
             -in yt-migrate/takeout.json.gz.enc | gunzip > "$RUNNER_TEMP/takeout.json"

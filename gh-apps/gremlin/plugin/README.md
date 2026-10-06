@@ -1,22 +1,28 @@
-# MechaGremlin plugin foundation
+# MechaGremlin plugin
 
-This directory is the migration source for the MechaGremlin Custom GPT and is
-owned by the Gremlin package.
+This directory is the maintained portable plugin source for the migrated
+MechaGremlin workflow and is owned by the Gremlin package.
 
-It intentionally does **not** duplicate operator logic. The deployable
-`gremlin` Worker stays thin and imports the maintained Gremlin core
-from `../kanarek-companion`, keeping one policy/runtime source of truth.
+It does **not** duplicate operator logic. The deployed `gremlin` Worker still
+reuses the maintained action runtime while the Gremlin-only modules are being
+moved out of `kanarek-companion`.
 
-The initial package connects to the existing OAuth-protected Streamable HTTP MCP
-at `https://kanarek-companion.travny.workers.dev/mcp`. That public transport
-currently exposes bounded specialist tools; its URL does not define source-code
-ownership. Operator parity for GitHub, Cloudflare, release, workflow, and
-maintenance actions is tracked in the skill migration reference.
+The portable package connects to the authenticated Streamable HTTP MCP at
+`https://gremlin.travny.workers.dev/mcp`. That MCP exposes the migrated
+30-operation Gremlin web surface, including `getDocsIndex`, and dispatches each
+tool back through the existing guarded Action handlers. Existing policy,
+stale-state checks, GPTomek attribution, replay protection and Cloudflare guards
+therefore remain authoritative instead of being copied into an MCP-specific
+implementation.
 
-Do not create a second production plugin from this source yet. The ChatGPT
-migration flow should create the eventual private plugin from the existing GPT,
-preserving its instructions and knowledge files. This package is then the
-maintained source for the plugin-specific tool layer.
+The separately authenticated Anchor `useGremlinStorage` operation is not part
+of this MCP surface. Its post-migration representation is tracked in the
+MechaGremlin migration reference.
 
-No credentials, OAuth tokens, private keys, or copied GPT knowledge files belong
+The built-in ChatGPT migration already created the private successor plugin.
+Do not create a second production plugin from this repository. Treat this
+package as the maintained source for the replacement plugin's tool layer and
+apply it to that migrated plugin.
+
+No credentials, OAuth tokens, private keys or copied user-context files belong
 in this directory.

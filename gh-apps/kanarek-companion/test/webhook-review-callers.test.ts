@@ -3,7 +3,11 @@ import test from 'node:test';
 
 import type { GitHubInstallationClient } from '../src/github-app.ts';
 import { callerEvidenceForFile, fetchCallerEvidence } from '../src/webhook-review-context.ts';
-import { reviewPrompt } from '../src/webhook-review.ts';
+import {
+  reviewChangeInventory,
+  reviewChangeInventoryComplete,
+  reviewPrompt,
+} from '../src/webhook-review.ts';
 
 function base64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');
@@ -114,4 +118,81 @@ test('reviewPrompt defaults callers to an empty array when omitted', () => {
     repository_context: { callers: unknown };
   };
   assert.deepEqual(prompt.repository_context.callers, []);
+});
+
+test('reviewPrompt exposes changed lockfiles without adding their diff to review input', () => {
+  const context = { files: [], tree: [], treeTruncated: false };
+  const files = [{
+    path: 'worker/package.json',
+    patch: '@@ -1 +1 @@\n-{"wrangler":"4.146.0"}\n+{"wrangler":"4.147.0"}',
+    rightLines: new Set([1]),
+    sha: null,
+  }];
+  const inventory = reviewChangeInventory([
+    { filename: 'worker/package.json', status: 'modified' },
+    { filename: 'worker/package-lock.json', status: 'modified' },
+  ], true);
+  const prompt = JSON.parse(
+    reviewPrompt(1, 'deps', '', files, context, [], [], inventory),
+  ) as { change_inventory: unknown; diff: string };
+
+  assert.deepEqual(prompt.change_inventory, {
+    complete: true,
+    files: [
+      { path: 'worker/package.json', status: 'modified' },
+      { path: 'worker/package-lock.json', status: 'modified' },
+    ],
+  });
+  assert.doesNotMatch(prompt.diff, /package-lock\.json/);
+});
+
+test('reviewChangeInventory preserves removed and renamed path semantics', () => {
+  const inventory = reviewChangeInventory([
+    { filename: 'worker/deleted.json', status: 'removed' },
+    {
+      filename: 'worker/new-name.json',
+      previous_filename: 'worker/old-name.json',
+      status: 'renamed',
+    },
+  ], true);
+
+  assert.deepEqual(inventory, {
+    complete: true,
+    files: [
+      { path: 'worker/deleted.json', status: 'removed' },
+      {
+        path: 'worker/new-name.json',
+        previous_path: 'worker/old-name.json',
+        status: 'renamed',
+      },
+    ],
+  });
+});
+
+test('reviewChangeInventory completeness follows the pull request changed_files count', () => {
+  const files = [
+    { filename: 'worker/package.json' },
+    { filename: 'worker/package-lock.json' },
+  ];
+  assert.equal(reviewChangeInventoryComplete(2, files), true);
+  assert.equal(reviewChangeInventoryComplete(3, files), false);
+  assert.equal(reviewChangeInventoryComplete(undefined, files), false);
+});
+
+test('reviewPrompt defaults change inventory to non-authoritative', () => {
+  const context = { files: [], tree: [], treeTruncated: false };
+  const files = [{
+    path: 'worker/package.json',
+    patch: '@@ -0,0 +1 @@\n+{}',
+    rightLines: new Set([1]),
+    sha: null,
+  }];
+  const prompt = JSON.parse(reviewPrompt(1, 'title', '', files, context)) as {
+    change_inventory: { complete: boolean; files: unknown[] };
+  };
+
+  assert.equal(prompt.change_inventory.complete, false);
+  assert.deepEqual(prompt.change_inventory.files, [
+    { path: 'worker/package.json', status: 'unknown' },
+  ]);
 });

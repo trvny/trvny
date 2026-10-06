@@ -522,6 +522,33 @@ async function operatorToolResult(
   };
 }
 
+function combinedSurface(
+  primary: McpSurface,
+  secondary: McpSurface,
+): McpSurface {
+  const primaryTools = primary.tools();
+  const secondaryTools = secondary.tools();
+  const names = new Set<string>();
+  for (const tool of [...primaryTools, ...secondaryTools]) {
+    if (typeof tool.name !== 'string') continue;
+    if (names.has(tool.name)) throw new Error(`duplicate_mcp_tool:${tool.name}`);
+    names.add(tool.name);
+  }
+  return {
+    serverInfo: OPERATOR_SERVER_INFO,
+    instructions:
+      'Guarded MechaGremlin operator and specialist tools. Prefer high-level operator workflows for repository and Cloudflare work; use specialist tools for direct Engram, Context7 and Feedseek access. Preserve existing policy checks and verify remote side effects before claiming success.',
+    serializeBatchToolCalls: true,
+    tools: () => [...primaryTools, ...secondaryTools].map((tool) => ({ ...tool })),
+    hasTool: (name) => primary.hasTool(name) || secondary.hasTool(name),
+    callTool(name, args) {
+      if (primary.hasTool(name)) return primary.callTool(name, args);
+      if (secondary.hasTool(name)) return secondary.callTool(name, args);
+      throw new InvalidToolArgumentsError(name);
+    },
+  };
+}
+
 function operatorSurface(
   source: Request,
   document: JsonObject,
@@ -564,6 +591,20 @@ export function operatorMcpManifest(document: JsonObject): JsonObject {
   };
 }
 
+export function gremlinMcpManifest(document: JsonObject): JsonObject {
+  const operatorToolNames = [...operatorRoutes(document).keys()].sort();
+  const specialistNames = [...specialistToolNames()].sort();
+  return {
+    path: MCP_PATH,
+    protocolVersion: MCP_PROTOCOL_VERSION,
+    legacyProtocolVersion: LEGACY_PROTOCOL_VERSION,
+    stateless: true,
+    toolNames: [...operatorToolNames, ...specialistNames].sort(),
+    operatorToolNames,
+    specialistToolNames: specialistNames,
+  };
+}
+
 export async function handleSpecialistMcp(
   request: Request,
   env: SpecialistToolEnv,
@@ -579,4 +620,21 @@ export async function handleOperatorMcp(
   invoke: ActionInvoke,
 ): Promise<Response | null> {
   return handleMcp(request, invoke, operatorSurface(request, document, invoke));
+}
+
+export async function handleGremlinMcp(
+  request: Request,
+  document: JsonObject,
+  env: SpecialistToolEnv,
+  invoke: ActionInvoke,
+  fetcher: typeof fetch = fetch,
+): Promise<Response | null> {
+  return handleMcp(
+    request,
+    invoke,
+    combinedSurface(
+      operatorSurface(request, document, invoke),
+      specialistSurface(env, fetcher),
+    ),
+  );
 }

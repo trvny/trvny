@@ -23,10 +23,9 @@ const SERVER_INFO = {
   version: '1.0.0',
   description: 'Comments, reactions and reviews on GitHub as claudiusz69[bot].',
 };
-function iconUrl(size: number): string {
-  return `https://avatars.githubusercontent.com/in/4454097?s=${size}&u=c70961610c1cbbd12ba0a4227f1202a8ee714568&v=4`;
+function iconUrl(appId: string, size: number): string {
+  return `https://avatars.githubusercontent.com/in/${encodeURIComponent(appId)}?s=${size}&v=4`;
 }
-const ICON_URL = iconUrl(120);
 const ICON_PATH = '/icon.png';
 const FAVICON_PATH = '/favicon.ico';
 const ICON_TTL_SECONDS = 86_400;
@@ -36,18 +35,18 @@ const JSON_HEADERS = {
   'Access-Control-Allow-Origin': '*',
 };
 
-function serverIcons(origin: string) {
+function serverIcons(origin: string, appId: string) {
   return [
-    { src: ICON_URL, sizes: ['120x120'] },
+    { src: iconUrl(appId, 120), sizes: ['120x120'] },
     { src: `${origin}${ICON_PATH}`, sizes: ['460x460'] },
   ];
 }
 
-function serverInfo(origin: string) {
-  return { ...SERVER_INFO, icons: serverIcons(origin) };
+function serverInfo(origin: string, appId: string) {
+  return { ...SERVER_INFO, icons: serverIcons(origin, appId) };
 }
 
-function withServerMeta(result: unknown, origin: string): unknown {
+function withServerMeta(result: unknown, origin: string, appId: string): unknown {
   if (!result || typeof result !== 'object' || Array.isArray(result)) return result;
   const record = result as Record<string, unknown>;
   const currentMeta =
@@ -58,15 +57,15 @@ function withServerMeta(result: unknown, origin: string): unknown {
     ...record,
     _meta: {
       ...currentMeta,
-      'io.modelcontextprotocol/serverInfo': serverInfo(origin),
+      'io.modelcontextprotocol/serverInfo': serverInfo(origin, appId),
     },
   };
 }
 
-const ok = (id: RpcRequest['id'], result: unknown, origin: string) => ({
+const ok = (id: RpcRequest['id'], result: unknown, origin: string, appId: string) => ({
   jsonrpc: '2.0' as const,
   id: id ?? null,
-  result: withServerMeta(result, origin),
+  result: withServerMeta(result, origin, appId),
 });
 const err = (id: RpcRequest['id'], code: number, message: string) => ({
   jsonrpc: '2.0' as const,
@@ -106,8 +105,8 @@ export function authorized(request: Request, env: Env): boolean {
 
 // Same-origin icon for the connector list, proxied from the app's own avatar
 // so it follows the app instead of living as a binary in the repo.
-async function icon(): Promise<Response> {
-  const upstream = await fetch(iconUrl(460), {
+async function icon(appId: string): Promise<Response> {
+  const upstream = await fetch(iconUrl(appId, 460), {
     cf: { cacheTtl: ICON_TTL_SECONDS, cacheEverything: true },
   });
   if (!upstream.ok) return new Response('icon unavailable\n', { status: 502 });
@@ -129,18 +128,24 @@ async function handleRpc(req: RpcRequest, env: Env, origin: string): Promise<obj
       const requested = req.params?.protocolVersion;
       const protocolVersion =
         typeof requested === 'string' && PROTOCOL_VERSIONS.includes(requested) ? requested : PROTOCOL_VERSIONS[0];
-      return ok(req.id, { protocolVersion, capabilities: { tools: {} }, serverInfo: serverInfo(origin) }, origin);
+      return ok(
+        req.id,
+        { protocolVersion, capabilities: { tools: {} }, serverInfo: serverInfo(origin, env.CLAUDIUSZ_APP_ID) },
+        origin,
+        env.CLAUDIUSZ_APP_ID,
+      );
     }
     case 'notifications/initialized':
     case 'notifications/cancelled':
       return null;
     case 'ping':
-      return ok(req.id, {}, origin);
+      return ok(req.id, {}, origin, env.CLAUDIUSZ_APP_ID);
     case 'tools/list':
       return ok(
         req.id,
-        { tools: TOOLS.map((tool) => ({ ...tool, icons: serverIcons(origin) })) },
+        { tools: TOOLS.map((tool) => ({ ...tool, icons: serverIcons(origin, env.CLAUDIUSZ_APP_ID) })) },
         origin,
+        env.CLAUDIUSZ_APP_ID,
       );
     case 'tools/call': {
       const name = typeof req.params?.name === 'string' ? req.params.name : '';
@@ -158,11 +163,17 @@ async function handleRpc(req: RpcRequest, env: Env, origin: string): Promise<obj
             isError: false,
           },
           origin,
+          env.CLAUDIUSZ_APP_ID,
         );
       } catch (error) {
         const message = error instanceof ToolError ? error.message : `internal error: ${String(error)}`;
         if (!(error instanceof ToolError)) console.error(JSON.stringify({ tool: name, error: String(error) }));
-        return ok(req.id, { content: [{ type: 'text', text: message }], isError: true }, origin);
+        return ok(
+          req.id,
+          { content: [{ type: 'text', text: message }], isError: true },
+          origin,
+          env.CLAUDIUSZ_APP_ID,
+        );
       }
     }
     default:
@@ -185,7 +196,7 @@ export default {
     if (request.method === 'GET' || request.method === 'HEAD') {
       // Unauthenticated on purpose: connector lists fetch the icon anonymously.
       const pathname = new URL(request.url).pathname;
-      if (pathname === ICON_PATH || pathname === FAVICON_PATH) return icon();
+      if (pathname === ICON_PATH || pathname === FAVICON_PATH) return icon(env.CLAUDIUSZ_APP_ID);
       return new Response('claudiusz-mcp. POST JSON-RPC to the tokenized URL.\n', {
         headers: { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' },
       });

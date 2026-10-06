@@ -25,7 +25,10 @@ import {
   handleReleaseReplaceAction,
   RELEASE_ASSET_REPLACE_PATH,
 } from './release-replace-action.ts';
-import { handleOperatorMcp, operatorMcpManifest } from './mcp-adapter.ts';
+import {
+  gremlinMcpManifest as combinedGremlinMcpManifest,
+  handleGremlinMcp as handleCombinedGremlinMcp,
+} from './mcp-adapter.ts';
 import { pluginMcpOpenApi, runtimeOpenApi } from './runtime-openapi.ts';
 import { reviewProviderPoolStateViaService } from './review-service.ts';
 import {
@@ -56,17 +59,20 @@ export type RuntimeEnv = WorkerEnv &
   };
 
 export function gremlinMcpManifest(origin: string): JsonObject {
-  return operatorMcpManifest(pluginMcpOpenApi(origin));
+  return combinedGremlinMcpManifest(pluginMcpOpenApi(origin));
 }
 
 export function handleGremlinMcp(
   request: Request,
+  env: RuntimeEnv,
   invoke: ActionInvoke,
 ): Promise<Response | null> {
-  return handleOperatorMcp(
+  return handleCombinedGremlinMcp(
     request,
     pluginMcpOpenApi(new URL(request.url).origin),
+    env,
     invoke,
+    actionFetch,
   );
 }
 

@@ -8,15 +8,16 @@ reuses the maintained action runtime while the Gremlin-only modules are being
 moved out of `kanarek-companion`.
 
 The portable package connects to the authenticated Streamable HTTP MCP at
-`https://gremlin.travny.workers.dev/mcp`. That MCP exposes the migrated
-30-operation Gremlin web surface, including `getDocsIndex`, and dispatches each
-tool back through the existing guarded Action handlers. Existing policy,
+`https://gremlin.travny.workers.dev/mcp`. That MCP exposes a compatibility superset: the migrated 30-operation Gremlin
+web surface (including `getDocsIndex`) plus the seven direct specialist tools
+for Engram, Context7 and Feedseek. Operator calls dispatch back through the
+existing guarded Action handlers. Existing policy,
 stale-state checks, GPTomek attribution, replay protection and Cloudflare guards
 therefore remain authoritative instead of being copied into an MCP-specific
 implementation.
 
-The separately authenticated Anchor `useGremlinStorage` operation is not part
-of this MCP surface. Its post-migration representation is tracked in the
+The separately authenticated Anchor `useGremlinStorage` operation is the only
+known legacy Gremlin capability intentionally outside this MCP surface. Its post-migration representation is tracked in the
 MechaGremlin migration reference.
 
 The built-in ChatGPT migration already created the private successor plugin.

@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const pluginRoot = new URL('../plugin/', import.meta.url);
 
-test('MechaGremlin plugin foundation reuses the shared specialist MCP', async () => {
+test('MechaGremlin plugin targets the standalone guarded Gremlin MCP', async () => {
   const plugin = JSON.parse(await readFile(new URL('plugin.json', pluginRoot), 'utf8')) as {
     name?: string;
     version?: string;
@@ -16,12 +16,12 @@ test('MechaGremlin plugin foundation reuses the shared specialist MCP', async ()
   };
 
   assert.equal(plugin.name, 'mechagremlin');
-  assert.equal(plugin.version, '0.0.1');
+  assert.equal(plugin.version, '0.0.2');
   assert.match(plugin.homepage ?? '', /gh-apps\/gremlin\/plugin$/);
   assert.equal(mcp.mcpServers?.gremlin?.type, 'streamable-http');
   assert.equal(
     mcp.mcpServers?.gremlin?.url,
-    'https://kanarek-companion.travny.workers.dev/mcp',
+    'https://gremlin.travny.workers.dev/mcp',
   );
   assert.equal(mcpText.includes('/gpt-actions'), false);
 });

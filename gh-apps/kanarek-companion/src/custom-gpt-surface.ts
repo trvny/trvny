@@ -1,6 +1,5 @@
 import { isObject, type JsonObject } from './tools/common.ts';
 
-
 const HTTP_METHODS = new Set([
   'get',
   'post',
@@ -49,8 +48,6 @@ export const CUSTOM_GPT_OPERATION_IDS = [
   'createPullRequestAsTrvny',
 ] as const;
 
-const CUSTOM_GPT_OPERATION_SET = new Set<string>(CUSTOM_GPT_OPERATION_IDS);
-
 function operationIds(document: JsonObject): Set<string> {
   const ids = new Set<string>();
   if (!isObject(document.paths)) return ids;
@@ -94,18 +91,20 @@ function normalizeBuilderCompatibility(value: unknown): void {
   for (const entry of Object.values(value)) normalizeBuilderCompatibility(entry);
 }
 
-export function curateCustomGptOpenApi(document: JsonObject): JsonObject {
-  if (CUSTOM_GPT_OPERATION_IDS.length > CUSTOM_GPT_OPERATION_LIMIT) {
-    throw new Error('custom_gpt_operation_limit_exceeded');
-  }
+export function curateOpenApiOperations(
+  document: JsonObject,
+  operationIdsToKeep: readonly string[],
+  missingErrorPrefix = 'openapi_operations_missing',
+): JsonObject {
   if (!isObject(document.paths)) throw new Error('invalid_openapi_paths');
 
   const available = operationIds(document);
-  const missing = CUSTOM_GPT_OPERATION_IDS.filter((id) => !available.has(id));
+  const missing = operationIdsToKeep.filter((id) => !available.has(id));
   if (missing.length) {
-    throw new Error(`custom_gpt_operations_missing:${missing.join(',')}`);
+    throw new Error(`${missingErrorPrefix}:${missing.join(',')}`);
   }
 
+  const operationSet = new Set<string>(operationIdsToKeep);
   const paths = document.paths as JsonObject;
   for (const [path, pathItem] of Object.entries(paths)) {
     if (!isObject(pathItem)) continue;
@@ -114,7 +113,7 @@ export function curateCustomGptOpenApi(document: JsonObject): JsonObject {
       if (!HTTP_METHODS.has(method) || !isObject(operation)) continue;
       if (
         typeof operation.operationId === 'string' &&
-        CUSTOM_GPT_OPERATION_SET.has(operation.operationId)
+        operationSet.has(operation.operationId)
       ) {
         exposedOperations += 1;
         continue;
@@ -126,4 +125,15 @@ export function curateCustomGptOpenApi(document: JsonObject): JsonObject {
 
   normalizeBuilderCompatibility(document);
   return document;
+}
+
+export function curateCustomGptOpenApi(document: JsonObject): JsonObject {
+  if (CUSTOM_GPT_OPERATION_IDS.length > CUSTOM_GPT_OPERATION_LIMIT) {
+    throw new Error('custom_gpt_operation_limit_exceeded');
+  }
+  return curateOpenApiOperations(
+    document,
+    CUSTOM_GPT_OPERATION_IDS,
+    'custom_gpt_operations_missing',
+  );
 }

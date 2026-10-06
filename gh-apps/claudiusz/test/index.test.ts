@@ -46,7 +46,7 @@ test('initialize negotiates a supported protocol version', async () => {
   assert.equal(known.body.result.protocolVersion, '2025-06-18');
   assert.equal(
     known.body.result.serverInfo.icons[0].src,
-    'https://avatars.githubusercontent.com/in/4454097?s=120&u=c70961610c1cbbd12ba0a4227f1202a8ee714568&v=4',
+    'https://avatars.githubusercontent.com/in/4454097?s=120&v=4',
   );
   assert.equal(known.body.result.serverInfo.icons[1].src, 'https://claudiusz-mcp.test/icon.png');
   assert.equal(
@@ -65,7 +65,7 @@ test('tools/list exposes the write tools', async () => {
   }
   assert.equal(
     body.result.tools[0].icons[0].src,
-    'https://avatars.githubusercontent.com/in/4454097?s=120&u=c70961610c1cbbd12ba0a4227f1202a8ee714568&v=4',
+    'https://avatars.githubusercontent.com/in/4454097?s=120&v=4',
   );
   assert.equal(
     body.result._meta['io.modelcontextprotocol/serverInfo'].icons[1].src,
@@ -114,9 +114,26 @@ test('favicon alias is public and proxies a 460px avatar', async () => {
     assert.equal(response.headers.get('content-type'), 'image/png');
     assert.equal(
       requestedUrl,
-      'https://avatars.githubusercontent.com/in/4454097?s=460&u=c70961610c1cbbd12ba0a4227f1202a8ee714568&v=4',
+      'https://avatars.githubusercontent.com/in/4454097?s=460&v=4',
     );
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+
+test('icon metadata follows CLAUDIUSZ_APP_ID', async () => {
+  const alternate = { ...env, CLAUDIUSZ_APP_ID: '9999999' };
+  const { body } = await call(
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } },
+    alternate,
+  );
+  assert.equal(
+    body.result.serverInfo.icons[0].src,
+    'https://avatars.githubusercontent.com/in/9999999?s=120&v=4',
+  );
+  assert.equal(
+    body.result._meta['io.modelcontextprotocol/serverInfo'].icons[0].src,
+    'https://avatars.githubusercontent.com/in/9999999?s=120&v=4',
+  );
 });

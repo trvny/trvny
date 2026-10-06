@@ -24,57 +24,58 @@ Source:
 The archived web configuration used for comparison contains:
 
 - `gremlin.json5`: the GitHub-OAuth Custom Action OpenAPI document;
-- `GREMLIN.md`: copied Builder instructions;
+- `GREMLIN.md`: Builder instructions;
 - `AGENTS.md`;
 - `GREMLIN_EDGY_DARK_MEME_KNOWLEDGE.md`;
 - `edgy_dark_meme_formats.json`;
 - `USER_CONTEXT.md`.
 
-The last four files were GPT Knowledge. Do not copy the archive wholesale into
-this public repository.
+The maintained package intentionally does **not** copy this archive wholesale.
+`GREMLIN.md` is the canonical `Gremlin` skill, the useful style-only portion of
+`AGENTS.md` is distilled into `gremlin-style.md`, and the two meme references
+are retained. `USER_CONTEXT.md` is excluded because it is a stale personal
+snapshot rather than product knowledge.
 
 ## Observed migrated plugin
 
 The built-in migration completed successfully and produced a private plugin with:
 
-- one migrated skill currently displayed as `MechaGrepmlin`;
+- one migrated skill displayed as `MechaGrepmlin`;
 - no apps, as expected because Custom Actions do not migrate;
 - migrated references for `AGENTS.md`,
   `GREMLIN_EDGY_DARK_MEME_KNOWLEDGE.md`, `edgy-dark-meme-formats.json` and
   `USER_CONTEXT.md`;
-- a generated `lookup/knowledge-index.json` mapping the original Knowledge
-  filenames to their packaged references.
+- a generated `lookup/knowledge-index.json`.
 
 Target naming is `MechaGremlin` for the plugin, `Gremlin` for the skill and
 `gremlin.exe` for the persona.
 
-`USER_CONTEXT.md` is a point-in-time user snapshot, not product knowledge.
-Before the replacement is considered finished, remove it from plugin references
-after retaining any still-useful durable facts in the appropriate memory store.
-Do not publish its contents in this repository.
+The repository package now contains the intended replacement skill and reference
+set, but that does not by itself modify the already migrated private plugin.
+Apply this source to that existing plugin once its editable backend identity is
+resolved. Do not create a second production plugin as a workaround.
 
 ## Capability parity ledger
 
-This section is the maintained migration source of truth. A capability is not
-considered preserved merely because a similar tool exists; either the same
-behavior must remain reachable or an explicit replacement must pass parity
-tests.
+A capability is not preserved merely because a similarly named tool exists.
+Either the same behavior remains reachable or an explicit replacement must pass
+parity tests.
 
 ### Operator surface
 
 The old web configuration contains 30 GitHub-OAuth Gremlin operations. The
 Builder-facing repository surface deliberately selected 29 of them because the
 separately authenticated Anchor action occupied the remaining Custom GPT action
-slot. The missing web operation is `getDocsIndex`.
+slot. The missing web operation was `getDocsIndex`.
 
 The plugin MCP is not constrained by the Custom GPT action-count limit.
-`PLUGIN_MCP_OPERATION_IDS` therefore restores all 30 web operation names. Their
-schemas come from the maintained OpenAPI, and calls dispatch through the
-existing guarded Action routes rather than copying mutation policy.
+`PLUGIN_MCP_OPERATION_IDS` restores all 30 web operation names. Their schemas
+come from the maintained OpenAPI and calls dispatch through the existing
+guarded Action routes instead of copying mutation policy.
 
 ### Specialist intelligence
 
-The pre-migration Gremlin runtime also exposes seven direct specialist tools:
+The Gremlin runtime also exposes seven direct specialist tools:
 
 - `engram_status`
 - `engram_search`
@@ -85,45 +86,47 @@ The pre-migration Gremlin runtime also exposes seven direct specialist tools:
 - `feedseek_recent`
 
 The standalone Gremlin MCP preserves these alongside the 30 operator tools.
-They continue to use the same bounded Engram, Context7 and Feedseek
-implementations. The expected standalone MCP tool count is therefore **37**,
-with no duplicate tool names.
+The expected standalone MCP tool count is therefore **37**, with no duplicate
+tool names.
 
 ### Anchor storage
 
-`useGremlinStorage` is separately authenticated with Anchor OAuth. It is not
-silently replaced by a similarly named Gremlin tool and is not counted in the
-37-tool MCP surface. The migrated plugin must retain equivalent Anchor access,
-either as a connected app or another explicitly verified representation, before
-parity can be declared complete.
+`useGremlinStorage` is separately authenticated with Anchor OAuth and is not
+counted in the 37-tool Gremlin MCP surface. The live Anchor workspace already
+contains the canonical `Gremlin Storage` area for durable Gremlin artifacts.
+
+Preserve this authorization boundary. Prefer a connected Anchor app in the
+private plugin once the underlying OpenAI App ID is verified. Do not proxy
+Anchor through the Gremlin Worker, copy OAuth credentials, or invent an
+`asdk_app_*` identifier just to make the manifest look complete.
 
 ### Skill, knowledge and persona
 
-The migration produced a private plugin containing the Builder instructions as
-a skill and copied the Knowledge references. Preserve the behavioral contract,
-the edgy/dark meme knowledge and format reference, and the `gremlin.exe`
-persona. Rename the migrated skill from `MechaGrepmlin` to `Gremlin`.
+The maintained package uses:
 
-`USER_CONTEXT.md` is not a product capability. It is a stale point-in-time
-personal snapshot and must be replaced by appropriate durable memory before it
-is removed from the plugin; do not treat deleting it without that handoff as a
-successful migration.
+- `skills/gremlin/SKILL.md` for the canonical Gremlin behavior;
+- `references/gremlin-style.md` for the unique style/intensity guidance;
+- `references/GREMLIN_EDGY_DARK_MEME_KNOWLEDGE.md`;
+- `references/edgy-dark-meme-formats.json`.
+
+`USER_CONTEXT.md` is intentionally absent. Personal context belongs in current
+conversation context or an appropriate durable memory system, not frozen plugin
+knowledge.
 
 ### Runtime guarantees
 
 These are capabilities too, not implementation trivia:
 
 - GitHub bot-authored writes retain GPTomek attribution.
-- repository and organization scope checks remain enforced;
-- stale-state, replay and duplicate-mutation guards remain enforced;
-- Cloudflare reads and guarded mutations retain their existing policy boundary;
-- bootstrap, capability discovery and smoke-test workflows remain available;
-- operator MCP batches remain serialized so consequential writes do not overlap;
+- repository and organization scope checks remain enforced.
+- stale-state, replay and duplicate-mutation guards remain enforced.
+- Cloudflare reads and guarded mutations retain their existing policy boundary.
+- bootstrap, capability discovery and smoke-test workflows remain available.
+- operator MCP batches remain serialized so consequential writes do not overlap.
 - Kanarek-only webhook/review ingress remains outside the Gremlin Worker.
 
 The portable plugin points at
 `https://gremlin.travny.workers.dev/mcp`.
-
 
 ## Preserved runtime boundaries
 
@@ -134,18 +137,19 @@ The portable plugin points at
   preserved because MCP calls enter those same handlers.
 - Engram, Feedseek and Context7 continue through their existing specialist
   implementations.
+- Anchor remains a separately authenticated storage capability.
 - Shared Durable Objects and the GPTomek signing RPC remain deliberate
   cross-service dependencies while Gremlin-only modules are moved out of
   `kanarek-companion`.
 
 ## Still required
 
-- Register/connect the standalone Gremlin MCP with the migrated private plugin.
-- Rename the migrated skill from `MechaGrepmlin` to `Gremlin` while keeping
-  the plugin display name `MechaGremlin`.
-- Remove `USER_CONTEXT.md` from migrated references after memory cleanup.
-- Decide how Anchor OAuth storage is represented without copying credentials or
-  weakening its current authorization boundary.
+- Apply this maintained package to the existing migrated private plugin and
+  rename its skill from `MechaGrepmlin` to `Gremlin`.
+- Register/connect the standalone Gremlin MCP with that plugin and verify OAuth.
+- Attach Anchor as a separate connected app only after its actual App ID is
+  verified, then remove the migrated `USER_CONTEXT.md` reference from the live
+  plugin.
 - Run behavioral and tool parity checks against the read-only legacy GPT.
 - Finish moving Gremlin-only modules out of `kanarek-companion` when doing so
   reduces coupling without duplicating shared state or policy.
@@ -166,7 +170,7 @@ The portable plugin points at
 6. No plugin file contains secrets, duplicated backend policy or stale personal
    context.
 7. The migrated skill follows the intended Gremlin behavior and uses the
-   installed meme references when appropriate.
+   packaged meme references when appropriate.
 8. Anchor storage parity is explicitly verified; it must not disappear merely
    because the main MCP passes.
 9. Keep the original GPT as a read-only behavioral fallback until these checks

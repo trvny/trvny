@@ -117,6 +117,49 @@ test('Gremlin MCP is a superset of operator and specialist tools', async () => {
   assert.equal(names.includes('useGremlinStorage'), false);
 });
 
+test('Gremlin MCP routes specialist calls through the existing specialist implementation', async () => {
+  let authCalls = 0;
+  const response = await handleGremlinMcp(
+    mcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: 11,
+        method: 'tools/call',
+        params: { name: 'engram_status', arguments: {} },
+      },
+      'tools/call',
+      'engram_status',
+    ),
+    pluginMcpOpenApi(ORIGIN),
+    {},
+    async (request) => {
+      authCalls += 1;
+      assert.equal(new URL(request.url).pathname, '/gpt-actions/github/read');
+      assert.deepEqual(await readJson(request), { path: '/user' });
+      return operatorAuthResponse();
+    },
+  );
+
+  assert.ok(response);
+  assert.equal(authCalls, 1);
+  const payload = await response.json() as {
+    result: {
+      isError: boolean;
+      structuredContent: {
+        ok: boolean;
+        configured: boolean;
+        reachable: null;
+      };
+    };
+  };
+  assert.equal(payload.result.isError, false);
+  assert.deepEqual(payload.result.structuredContent, {
+    ok: true,
+    configured: false,
+    reachable: null,
+  });
+});
+
 test('operator MCP dispatches githubRead through the guarded Action route', async () => {
   let calls = 0;
   const response = await handleOperatorMcp(

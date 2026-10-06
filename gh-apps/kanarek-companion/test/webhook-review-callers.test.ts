@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import type { GitHubInstallationClient } from '../src/github-app.ts';
 import { callerEvidenceForFile, fetchCallerEvidence } from '../src/webhook-review-context.ts';
-import { reviewPrompt } from '../src/webhook-review.ts';
+import { reviewChangeInventory, reviewPrompt } from '../src/webhook-review.ts';
 
 function base64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');
@@ -114,4 +114,27 @@ test('reviewPrompt defaults callers to an empty array when omitted', () => {
     repository_context: { callers: unknown };
   };
   assert.deepEqual(prompt.repository_context.callers, []);
+});
+
+test('reviewPrompt exposes changed lockfiles without adding their diff to review input', () => {
+  const context = { files: [], tree: [], treeTruncated: false };
+  const files = [{
+    path: 'worker/package.json',
+    patch: '@@ -1 +1 @@\n-{"wrangler":"4.146.0"}\n+{"wrangler":"4.147.0"}',
+    rightLines: new Set([1]),
+    sha: null,
+  }];
+  const inventory = reviewChangeInventory([
+    { filename: 'worker/package.json' },
+    { filename: 'worker/package-lock.json' },
+  ], true);
+  const prompt = JSON.parse(
+    reviewPrompt(1, 'deps', '', files, context, [], [], inventory),
+  ) as { change_inventory: unknown; diff: string };
+
+  assert.deepEqual(prompt.change_inventory, {
+    complete: true,
+    paths: ['worker/package.json', 'worker/package-lock.json'],
+  });
+  assert.doesNotMatch(prompt.diff, /package-lock\.json/);
 });

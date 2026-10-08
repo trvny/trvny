@@ -237,11 +237,14 @@ class GremlinMcpHandler extends WorkerEntrypoint<GremlinOAuthEnv, OperatorProps>
         this.ctx.props.userId !== OWNER_LOGIN || !this.ctx.props.githubToken) {
       return new Response('Forbidden', { status: 403 });
     }
-    const response = await handleGremlinMcp(request, this.env, async (internalRequest) => {
-      const headers = new Headers(internalRequest.headers);
-      headers.set('Authorization', `Bearer ${this.ctx.props.githubToken}`);
-      const authenticated = new Request(internalRequest, { headers });
-      return worker.fetch!(authenticated, this.env, this.ctx);
+    // The provider has already validated the MCP token. The shared adapter must
+    // see the authorized GitHub user token for its existing operator policy check.
+    // Never forward the MCP bearer to GitHub's /user endpoint.
+    const authorizedHeaders = new Headers(request.headers);
+    authorizedHeaders.set('Authorization', `Bearer ${this.ctx.props.githubToken}`);
+    const authorizedRequest = new Request(request, { headers: authorizedHeaders });
+    const response = await handleGremlinMcp(authorizedRequest, this.env, async (internalRequest) => {
+      return worker.fetch!(internalRequest, this.env, this.ctx);
     });
     return response ?? new Response('Not found', { status: 404 });
   }

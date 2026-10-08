@@ -79,13 +79,16 @@ command JSON; the transport itself carries the base64url-encoded JSON inside a
 | Generic allowed GitHub metadata/status/deployment write | `operator_action` |
 | Run several same-repository operations in order | `batch` |
 
-Three rules prevent most foot-guns:
+Four rules prevent most foot-guns:
 
 1. Give every new logical command a fresh `id`. Reusing the same `id` with the
    same input is a safe replay; reusing it with different input is rejected.
 2. For branch-changing typed operations, read the current head immediately
    before the command and pass it as `expectedHeadSha`.
-3. A `batch` step must omit both `id` and `repository`; GPTomek derives the step
+3. Before a later branch mutation, read the live head again. Do not chain a new
+   command from stale PR metadata, a cached branch SHA or a guessed previous
+   result.
+4. A `batch` step must omit both `id` and `repository`; GPTomek derives the step
    IDs from the outer command and injects the outer repository.
 
 ## Who should appear in the edit history?
@@ -163,6 +166,18 @@ Issue and PR paths both completed in about three seconds in that test. A
 multi-command fallback smoke on 2026-10-03 additionally verified that a
 retryable command does not block later commands from the same Issue snapshot.
 
+A live mutation smoke on 2026-10-08 verified `apply_patch`, `revert_commit`
+and cleanup end to end through Issue #203 on disposable branch
+`gptomek-live-test-20261008`. `apply_patch` created bot-authored commit
+`8b1c18215bb76c04ad323f6be3810739d918904a` and a real text file;
+`revert_commit` created bot-authored commit
+`28f51d5ff6e8224d7daea54b37fa53f3fc4a83f4`, restored the parent tree and
+removed that file; `delete_branch` then removed the disposable branch. File
+and branch lookups both returned 404 after their respective cleanup steps. This
+exercise covered the real mailbox wake, Worker authentication, Git data writes,
+branch guards, result-marker cleanup and bot attribution rather than only unit
+tests or CI.
+
 | Property | Issue #203 | PR #176 |
 | --- | --- | --- |
 | Supported GPTomek operations | same shared command set | same shared command set |
@@ -214,11 +229,18 @@ Comments and inline review replies also carry a hidden per-command marker, and
 only markers on comments authored by `gptomek[bot]` satisfy the replay guard.
 
 The checkpoint closes the normal duplicate-delivery and cross-transport replay
-window. As with any remote API, a connection failure exactly after GitHub accepts
-a side effect but before the Worker receives the response is not a mathematically
-atomic transaction. Ambiguous outcomes therefore fail closed rather than being
-automatically replayed. Prefer the typed idempotent commands for comments/replies
-and use `expectedHeadSha` guards for ref-changing operations.
+window. Ref-changing operations add another recovery layer around the final ref
+write. If that write reports an error, GPTomek re-reads the guarded branch:
+seeing the intended new SHA counts as success; seeing the previous SHA keeps the
+attempt safely retryable; seeing any other SHA, or being unable to re-read the
+ref, records `command_outcome_uncertain` and fails closed. A recovered guarded
+branch mutation that no longer sees its original `expectedHeadSha` is also
+treated as uncertain instead of blindly replaying the write.
+
+This still is not a mathematically atomic distributed transaction. Prefer the
+typed idempotent commands for comments/replies, use `expectedHeadSha` guards
+for ref-changing operations, and re-read live branch state before the next
+mutation.
 
 Supported operations:
 
@@ -287,9 +309,11 @@ paths; individual string contents are limited to 48,000 characters.
 ```
 
 The patch may touch up to 32 text files and is applied only to the exact
-`expectedHeadSha`. Every hunk uses strict positional/context matching. New and
-deleted text files are supported; binary patches, renames/copies, mode-only
-changes and fuzzy hunk relocation are not.
+`expectedHeadSha`. Every hunk uses strict positional/context matching. GPTomek
+preserves untouched per-line LF/CRLF endings, UTF-8 BOMs and existing executable
+bits, and honors `100644` / `100755` metadata for newly created files. Empty
+text-file creation and deletion are supported. Binary patches, renames/copies,
+mode-only changes, unsupported file modes and fuzzy hunk relocation are not.
 
 ### Revert the current HEAD commit
 

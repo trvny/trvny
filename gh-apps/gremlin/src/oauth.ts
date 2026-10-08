@@ -47,6 +47,8 @@ function unavailable(env: GremlinOAuthEnv): boolean {
 function githubAuthorizeUrl(env: GremlinOAuthEnv, state: string, challenge: string): string {
   const url = new URL('https://github.com/login/oauth/authorize');
   url.searchParams.set('client_id', env.GREMLIN_OAUTH_CLIENT_ID!);
+  // GitHub Apps only accept offline_access as a scope; this enables rotatable user tokens.
+  url.searchParams.set('scope', 'offline_access');
   url.searchParams.set('redirect_uri', CALLBACK);
   url.searchParams.set('state', state);
   url.searchParams.set('code_challenge', challenge);

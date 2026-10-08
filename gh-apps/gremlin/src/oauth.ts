@@ -148,10 +148,11 @@ async function authorize(request: Request, env: GremlinOAuthEnv): Promise<Respon
         const denied = await env.OAUTH_PROVIDER.denyConsent(request, handle);
         return new Response(null, { status: 302, headers: denied.headers });
       }
+      const approvedScopes = form.getAll('scope').map(String);
+      if (!approvedScopes.includes('mcp')) return new Response('Required scope missing', { status: 400 });
       const approved = await env.OAUTH_PROVIDER.approveConsent(request, handle, {
-        scope: form.getAll('scope').map(String),
+        scope: approvedScopes,
       });
-      if (!approved.request.scope.includes('mcp')) return new Response('Required scope missing', { status: 400 });
       return startGithub(env, approved);
     }
     return new Response('Method not allowed', { status: 405 });
@@ -206,7 +207,9 @@ async function githubCallback(request: Request, env: GremlinOAuthEnv): Promise<R
 
 class GremlinMcpHandler extends WorkerEntrypoint<GremlinOAuthEnv, OperatorProps> {
   async fetch(request: Request): Promise<Response> {
-    if (this.ctx.props.userId !== OWNER_LOGIN || !this.ctx.props.githubToken) {
+    const context = this.ctx as typeof this.ctx & { auth?: { scope?: string[] } };
+    if (!context.auth?.scope?.includes('mcp') ||
+        this.ctx.props.userId !== OWNER_LOGIN || !this.ctx.props.githubToken) {
       return new Response('Forbidden', { status: 403 });
     }
     const response = await handleGremlinMcp(request, this.env, async (internalRequest) => {

@@ -5,7 +5,7 @@ import {
   type AuthRequest,
   type OAuthHelpers,
 } from '@cloudflare/workers-oauth-provider';
-import { WorkerEntrypoint } from 'cloudflare:workers';
+import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
 import { handleGremlinMcp, type RuntimeEnv } from 'kanarek-companion/runtime';
 import worker from './index.ts';
 import { GREMLIN_GITHUB_LOGIN, isGremlinGithubOwner } from './operator-identity.ts';
@@ -25,6 +25,7 @@ interface GithubToken {
 
 export interface GremlinOAuthEnv extends RuntimeEnv {
   OAUTH_KV: KVNamespace;
+  GREMLIN_OAUTH_REFRESH: DurableObjectNamespace;
   OAUTH_PROVIDER: OAuthHelpers;
   GREMLIN_OAUTH_CLIENT_ID?: string;
   GREMLIN_OAUTH_CLIENT_SECRET?: string;
@@ -97,7 +98,7 @@ async function ownerForToken(token: string): Promise<boolean> {
   return isGremlinGithubOwner(user);
 }
 
-async function challenge(verifier: string): Promise<string> {
+async function sha256Url(verifier: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
   const binary = String.fromCharCode(...new Uint8Array(digest));
   return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
@@ -120,7 +121,7 @@ async function startGithub(env: GremlinOAuthEnv, approved: {
     data: { verifier },
     headers: approved.headers,
   });
-  upstream.headers.set('Location', githubAuthorizeUrl(env, upstream.state, await challenge(verifier)));
+  upstream.headers.set('Location', githubAuthorizeUrl(env, upstream.state, await sha256Url(verifier)));
   return new Response(null, { status: 302, headers: upstream.headers });
 }
 
@@ -230,6 +231,81 @@ async function githubCallback(request: Request, env: GremlinOAuthEnv): Promise<R
   }
 }
 
+// GitHub App refresh tokens rotate on use. Route each grant through one
+// Durable Object so concurrent MCP refreshes share the same upstream exchange.
+// Receipts are short-lived recovery data, not the canonical OAuth grant store.
+const REFRESH_RECEIPT_MS = 3 * 60 * 1000;
+interface RefreshReceipt {
+  expiresAt: number;
+  value: GithubToken;
+}
+
+export class GremlinGithubRefreshCoordinator extends DurableObject<GremlinOAuthEnv> {
+  private readonly pending = new Map<string, Promise<GithubToken>>();
+
+  async fetch(request: Request): Promise<Response> {
+    if (request.method !== 'POST' || new URL(request.url).pathname !== '/refresh') {
+      return new Response('Not found', { status: 404 });
+    }
+    let input: { refreshToken?: unknown };
+    try {
+      input = await request.json() as { refreshToken?: unknown };
+    } catch {
+      return Response.json({ error: 'invalid_request' }, { status: 400 });
+    }
+    const refreshToken = input?.refreshToken;
+    if (typeof refreshToken !== 'string' || refreshToken.length < 10 || refreshToken.length > 2048) {
+      return Response.json({ error: 'invalid_request' }, { status: 400 });
+    }
+    const hash = await sha256Url(refreshToken);
+    let pending = this.pending.get(hash);
+    if (!pending) {
+      pending = this.exchange(hash, refreshToken);
+      this.pending.set(hash, pending);
+    }
+    try {
+      const token = await pending;
+      return Response.json(token, { headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+      if (error instanceof GithubServiceUnavailable) {
+        return Response.json({ error: 'temporarily_unavailable' }, { status: 503 });
+      }
+      throw error;
+    } finally {
+      if (this.pending.get(hash) === pending) this.pending.delete(hash);
+    }
+  }
+
+  private async exchange(hash: string, refreshToken: string): Promise<GithubToken> {
+    const key = `rotation:${hash}`;
+    const receipt = await this.ctx.storage.get<RefreshReceipt>(key);
+    if (receipt && receipt.expiresAt > Date.now()) return receipt.value;
+    const value = await githubToken(this.env, {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    });
+    if (value.access_token && value.refresh_token) {
+      await this.ctx.storage.put(key, {
+        expiresAt: Date.now() + REFRESH_RECEIPT_MS,
+        value,
+      } satisfies RefreshReceipt);
+      await this.ctx.storage.setAlarm(Date.now() + REFRESH_RECEIPT_MS);
+    }
+    return value;
+  }
+
+  async alarm(): Promise<void> {
+    const entries = await this.ctx.storage.list<RefreshReceipt>({ prefix: 'rotation:' });
+    const now = Date.now();
+    let next = Infinity;
+    for (const [key, receipt] of entries) {
+      if (receipt.expiresAt <= now) await this.ctx.storage.delete(key);
+      else next = Math.min(next, receipt.expiresAt);
+    }
+    if (next !== Infinity) await this.ctx.storage.setAlarm(next);
+  }
+}
+
 class GremlinMcpHandler extends WorkerEntrypoint<GremlinOAuthEnv, OperatorProps> {
   async fetch(request: Request): Promise<Response> {
     const context = this.ctx as typeof this.ctx & { auth?: { scope?: string[] } };
@@ -274,12 +350,19 @@ export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): Ex
       authorization_servers: [ORIGIN],
       resource_name: 'MechaGremlin',
     },
-    tokenExchangeCallback: async ({ grantType, props, env }) => {
+    tokenExchangeCallback: async ({ grantType, props, env, grantId, userId }) => {
       if (grantType !== 'refresh_token' || !props.githubRefreshToken) return;
       if (unavailable(env)) throw new OAuthError('temporarily_unavailable', { statusCode: 503, description: 'GitHub OAuth is unavailable' });
       let token: GithubToken;
       try {
-        token = await githubToken(env, { grant_type: 'refresh_token', refresh_token: props.githubRefreshToken });
+        const id = env.GREMLIN_OAUTH_REFRESH.idFromName(`github-grant:${userId}:${grantId}`);
+        const response = await env.GREMLIN_OAUTH_REFRESH.get(id).fetch('https://gremlin.internal/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: props.githubRefreshToken }),
+        });
+        if (!response.ok) throw new GithubServiceUnavailable('GitHub OAuth request failed');
+        token = await response.json() as GithubToken;
       } catch {
         throw new OAuthError('temporarily_unavailable', { statusCode: 503, description: 'GitHub OAuth request failed' });
       }

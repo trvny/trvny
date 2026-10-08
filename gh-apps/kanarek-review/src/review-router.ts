@@ -701,6 +701,17 @@ function normalizeProviderInput(input: JsonObject): JsonObject {
   return changed ? { ...input, messages } : input;
 }
 
+function providerBaseInput(provider: ReviewProvider, input: JsonObject): JsonObject {
+  if (provider.id !== 'gemini-flex') return input;
+  const normalized = { ...input };
+  delete normalized.temperature;
+  delete normalized.top_p;
+  delete normalized.top_k;
+  delete normalized.thinking_budget;
+  delete normalized.candidate_count;
+  return normalized;
+}
+
 function usableFreeCompletionPayload(value: unknown): boolean {
   if (!isObject(value) || !Array.isArray(value.choices)) return false;
   return value.choices.some((choice) => {
@@ -1559,7 +1570,7 @@ export async function handleReviewRouterRequest(
       const timeout = setTimeout(() => controller.abort(), attemptTimeoutMs);
       try {
         const providerInput: JsonObject = {
-          ...input,
+          ...providerBaseInput(provider, input),
           ...provider.requestFields,
           ...attempt.requestFields,
           model: attempt.model,

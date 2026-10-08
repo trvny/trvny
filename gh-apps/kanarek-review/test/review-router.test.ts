@@ -513,19 +513,29 @@ test('DeepSeek balance exhaustion falls through to Gemini Flex', async () => {
   ]);
 });
 
-test('review router uses Gemini 3.8 Flash Flex with pinned reasoning headroom', async () => {
+test('review router uses Gemini 3.8 Flash Flex with pinned reasoning and no deprecated generation params', async () => {
   let call: {
     url?: string;
     model?: unknown;
     serviceTier?: unknown;
     reasoningEffort?: unknown;
     maxTokens?: unknown;
+    temperature?: unknown;
+    topP?: unknown;
+    topK?: unknown;
+    thinkingBudget?: unknown;
+    candidateCount?: unknown;
     authorization?: string | null;
   } = {};
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-review',
     stream: true,
     max_tokens: 512,
+    temperature: 0.3,
+    top_p: 0.8,
+    top_k: 20,
+    thinking_budget: 8192,
+    candidate_count: 2,
     messages: [{ role: 'user', content: 'review' }],
   }), {
     ...auth, GEMINI_API_KEY: 'gemini-key',
@@ -537,6 +547,11 @@ test('review router uses Gemini 3.8 Flash Flex with pinned reasoning headroom', 
       serviceTier: body.service_tier,
       reasoningEffort: body.reasoning_effort,
       maxTokens: body.max_tokens,
+      temperature: body.temperature,
+      topP: body.top_p,
+      topK: body.top_k,
+      thinkingBudget: body.thinking_budget,
+      candidateCount: body.candidate_count,
       authorization: new Headers(init?.headers).get('authorization'),
     };
     return Promise.resolve(new Response('{"choices":[],"model":"gemini-3.8-flash"}', { status: 200 }));
@@ -549,6 +564,11 @@ test('review router uses Gemini 3.8 Flash Flex with pinned reasoning headroom', 
   assert.equal(call.serviceTier, 'flex');
   assert.equal(call.reasoningEffort, 'high');
   assert.equal(call.maxTokens, 16_384);
+  assert.equal(call.temperature, undefined);
+  assert.equal(call.topP, undefined);
+  assert.equal(call.topK, undefined);
+  assert.equal(call.thinkingBudget, undefined);
+  assert.equal(call.candidateCount, undefined);
   assert.equal(call.authorization, 'Bearer gemini-key');
 });
 

@@ -163,8 +163,9 @@ Groq task lanes keep their task-specific effort and receive the same floor
 whenever reasoning is enabled; large Groq requests are conservatively fitted to
 the model context window before dispatch and skipped if the 16K reasoning floor
 cannot fit.
-Gemini Flex pins high reasoning with the same floor. DeepSeek keeps its separate
-max-effort 128K contract. The dormant Workers AI fallback is configured for 16K output
+Gemini Flex pins high reasoning with the same floor and strips deprecated
+sampling, thinking-budget, and candidate-count fields inherited from shared
+OpenAI-compatible callers. DeepSeek keeps its separate max-effort 128K contract. The dormant Workers AI fallback is configured for 16K output
 headroom, but production keeps it disabled while the account neuron budget belongs to SpaceMolt.
 
 Vercel AI Gateway uses a model chain rather than one fixed model. Hy3

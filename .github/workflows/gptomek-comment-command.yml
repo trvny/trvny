@@ -49,7 +49,7 @@ jobs:
           fi
           [[ "$state" == "gptomek-comment-ok" || "$state" == "gptomek-comment-error" ]]
 
-      - name: Mark command success
+      - name: Remove completed command comment
         if: >-
           steps.execute.outcome == 'success' &&
           steps.execute.outputs.duplicate != 'true' &&
@@ -59,10 +59,17 @@ jobs:
           COMMENT_ID: ${{ github.event.comment.id }}
         shell: bash
         run: |
+          set -euo pipefail
+          submitted="$(jq -c '.comment | {body, updated_at}' "$GITHUB_EVENT_PATH")"
+          current="$(gh api "repos/trvny/trvny/issues/comments/${COMMENT_ID}" |
+            jq -c '{body, updated_at}')"
+          if [[ "$current" != "$submitted" ]]; then
+            echo "::warning::Command comment edited after creation; preserving it."
+            exit 0
+          fi
           gh api \
-            --method POST \
-            "repos/trvny/trvny/issues/comments/${COMMENT_ID}/reactions" \
-            -f content='+1' \
+            --method DELETE \
+            "repos/trvny/trvny/issues/comments/${COMMENT_ID}" \
             >/dev/null
 
       - name: Mark command failure

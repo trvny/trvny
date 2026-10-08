@@ -12,15 +12,15 @@ For normal GPTomek work:
 
 1. Add a new comment to Issue [`trvny/trvny#203`](https://github.com/trvny/trvny/issues/203)
    containing exactly one fenced `gptomek` JSON block.
-2. Give every new logical command a fresh `id`. Reuse that same ID only when
-   replaying the same operation.
+2. Give every new top-level command a fresh `id`. Reuse that same ID only when
+   replaying the same operation. A `batch` and all of its steps use one comment.
 3. For branch-changing operations, read the branch head immediately before the
    command and pass it as `expectedHeadSha`.
 4. The comment workflow sends only the GitHub comment ID to the shared Worker.
    GPTomek fetches and validates the comment itself, then runs the same command
-   parser and checkpointed executor used by the legacy mailbox. A 👍 reaction
-   means the command completed successfully; 👎 means validation, execution or
-   transport failed.
+   parser and checkpointed executor used by the legacy mailbox. Successful
+   commands have their source comment deleted; failures keep the comment with 👎
+   for inspection and retry.
 5. Use closed PR [`#176`](https://github.com/trvny/trvny/pull/176) manually
    only when the direct comment/Worker path itself is unavailable. Put exactly
    one legacy command marker in that PR body.
@@ -129,7 +129,7 @@ different jobs:
 | --- | --- |
 | `trvny` | The authorized human/connector side posts the plain-JSON command comment. |
 | `gptomek[bot]` | The Worker fetches the command with the App token and performs the requested bot-authored GitHub writes. |
-| `github-actions[bot]` | The thin comment workflow calls the authenticated Worker endpoint and adds the final 👍/👎 transport/result reaction. It still owns legacy PR #176 fallback synchronization. |
+| `github-actions[bot]` | The thin comment workflow calls the authenticated Worker endpoint, deletes successful source command comments and marks failures with 👎. It still owns legacy PR #176 fallback synchronization. |
 
 The normal comment path no longer edits Issue #203's body. `trvny` posts JSON,
 `github-actions[bot]` forwards only the comment ID, and `gptomek[bot]`
@@ -160,9 +160,17 @@ to be one fenced `gptomek` JSON block, and executes the parsed command through
 the shared checkpointed executor.
 
 This direct path does not create or consume an Issue-body command marker.
-Successful command execution gets 👍 on the source comment; rejected or failed
-commands get 👎. Replaying the same comment is deduplicated by the Durable
-Object delivery key and the command checkpoint.
+Each top-level command gets a new Issue #203 comment, including a `batch`
+containing all of its steps. No shared command comment is overwritten.
+Confirmed successful commands have their source comment deleted by Actions.
+Rejected or failed commands remain with 👎 for inspection or retry. Cleanup is
+only attempted for confirmed, non-duplicate results. Comments edited after
+creation are preserved; a deletion error also leaves the comment and fails
+the Actions job. Delivery replay is deduplicated by the
+Durable Object key and command checkpoint.
+
+A command's 👎 applies only to its source comment on Issue #203, never to a PR
+review comment. Useful review feedback can still receive 👍 independently.
 
 The encoded `<!-- gptomek-command:... -->` format remains supported only by
 the older Issue-body mailbox and closed PR #176. That preserves a known
@@ -237,7 +245,7 @@ When diagnosing the Issue path, check the chain in this order:
 
 1. the JSON comment and the `Run GPTomek JSON comment` Actions run;
 2. the Worker's `/gptomek/wake` response and Cloudflare logs;
-3. the 👍/👎 reaction plus the repository state produced by the command;
+3. the repository state after success (the source comment is removed), or the retained comment with 👎 after failure;
 4. for legacy encoded commands only, the Issue #203 marker and PR #176 fallback.
 
 A known Cloudflare failure mode is passing the runtime `fetch` function around

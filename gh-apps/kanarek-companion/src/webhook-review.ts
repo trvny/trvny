@@ -56,10 +56,11 @@ const DEFAULT_PAID_MAX_OUTPUT_TOKENS = 36_864;
 const REVIEW_RETRY_DELAYS_MS = [2 * 60_000, 10 * 60_000, 30 * 60_000] as const;
 const MAX_DEBOUNCE_MS = 10 * 60_000;
 const PAID_MAX_PATCH_CHARS = 48_000;
-// Free pool is ~8 providers incl. Workers AI; stop starting new attempts after
-// six minutes so the alarm stays well inside the Durable Object wall budget.
+// Keep the free phase patient enough for real PR analysis while leaving a
+// safety margin inside Cloudflare's 15-minute Durable Object alarm wall limit.
 const REVIEW_SWEEP_MAX_ATTEMPTS = 8;
-const REVIEW_SWEEP_BUDGET_MS = 6 * 60_000;
+const DEFAULT_REVIEW_SWEEP_BUDGET_MS = 10 * 60_000;
+const MAX_REVIEW_SWEEP_BUDGET_MS = 12 * 60_000;
 const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
 const COMPLETED_TARGET_KEY = 'completed-target';
@@ -473,6 +474,15 @@ export function reviewSweepMaxAttempts(phase: ReviewPhase): number {
   return phase === 'paid' ? 1 : REVIEW_SWEEP_MAX_ATTEMPTS;
 }
 
+export function reviewFreeSweepBudgetMs(raw: string | undefined): number {
+  return configuredInteger(
+    raw,
+    DEFAULT_REVIEW_SWEEP_BUDGET_MS,
+    60_000,
+    MAX_REVIEW_SWEEP_BUDGET_MS,
+  );
+}
+
 /**
  * Walks the router's provider queue one provider at a time. A provider whose
  * output is unusable (bad JSON, wrong language, or findings that all fail the
@@ -487,29 +497,27 @@ export async function sweepReviewProviders(
   options: { budgetMs?: number; maxAttempts?: number; now?: () => number } = {},
 ): Promise<ReviewSweepResult> {
   const maxAttempts = options.maxAttempts ?? REVIEW_SWEEP_MAX_ATTEMPTS;
-  const budgetMs = options.budgetMs ?? REVIEW_SWEEP_BUDGET_MS;
+  const budgetMs = options.budgetMs ?? DEFAULT_REVIEW_SWEEP_BUDGET_MS;
   const now = options.now ?? Date.now;
   const startedAt = now();
   const excluded: string[] = [];
   let attempts = 0;
   let last: ReviewSweepResult | null = null;
 
-  while (attempts < maxAttempts && (attempts === 0 || now() - startedAt < budgetMs)) {
+  while (attempts < maxAttempts) {
+    const remainingMs = budgetMs - (now() - startedAt);
+    if (remainingMs <= 0) break;
     attempts += 1;
-    // The first attempt keeps the router's own timeouts; follow-up attempts
-    // are aborted at the sweep deadline so one slow provider cannot stretch it.
-    const deadline = attempts > 1 ? new AbortController() : null;
-    const timer = deadline
-      ? setTimeout(() => deadline.abort(), Math.max(0, budgetMs - (now() - startedAt)))
-      : null;
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), remainingMs);
     let outcome: ReviewRouterOutcome;
     try {
       // Sequential on purpose: each attempt excludes the previous provider.
-      outcome = await ask(excluded, deadline?.signal); // skipcq: JS-0032
+      outcome = await ask(excluded, deadline.signal); // skipcq: JS-0032
     } finally {
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
     }
-    if (outcome.kind === 'unavailable' || deadline?.signal.aborted) break;
+    if (outcome.kind === 'unavailable' || deadline.signal.aborted) break;
     const provider = outcome.kind === 'ok' ? outcome.review.provider : outcome.provider;
     if (outcome.kind === 'ok') {
       const findings = verifyReviewFindings(outcome.review.parsed, files);
@@ -817,7 +825,16 @@ export async function runWebhookReview(
       signal,
     ),
     files,
-    { maxAttempts: reviewSweepMaxAttempts(paidPhase ? 'paid' : 'free') },
+    {
+      maxAttempts: reviewSweepMaxAttempts(paidPhase ? 'paid' : 'free'),
+      ...(paidPhase
+        ? {}
+        : {
+            budgetMs: reviewFreeSweepBudgetMs(
+              env.KANAREK_WEBHOOK_REVIEW_FREE_SWEEP_BUDGET_MS,
+            ),
+          }),
+    },
   );
   const generated = sweep.generated;
   if (sweep.attempts > 1) {

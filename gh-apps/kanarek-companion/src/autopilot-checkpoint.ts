@@ -132,6 +132,7 @@ export class OperatorCheckpointStore {
     if (!body) return json({ error: 'invalid_checkpoint_request' }, 400);
 
     if (pathname === '/claim') return this.claim(body);
+    if (pathname === '/peek') return this.peek(body);
     if (pathname === '/progress') return this.progress(body);
     if (pathname === '/complete') return this.complete(body);
     if (pathname === '/uncertain') return this.uncertain(body);
@@ -141,6 +142,56 @@ export class OperatorCheckpointStore {
 
   async alarm(): Promise<void> {
     await this.state.storage.deleteAll();
+  }
+
+  private async peek(body: JsonObject): Promise<Response> {
+    const operationId = body.operationId;
+    const inputHash = body.inputHash;
+    if (!operationIdAllowed(operationId) || typeof inputHash !== 'string' || !/^[0-9a-f]{64}$/.test(inputHash)) {
+      return json({ error: 'invalid_checkpoint_peek' }, 400);
+    }
+
+    const raw = await this.state.storage.get<StoredAutopilotCheckpoint>(CHECKPOINT_KEY);
+    const checkpoint = validCheckpoint(raw) ? raw : null;
+    if (!checkpoint) return json({ ok: true, state: 'missing' });
+    if (checkpoint.operationId !== operationId) {
+      return json({ ok: false, state: 'operation_mismatch' }, 409);
+    }
+    if (checkpoint.inputHash !== inputHash) {
+      return json({ ok: false, state: 'input_mismatch' }, 409);
+    }
+    if (
+      checkpoint.status === 'uncertain' ||
+      checkpoint.progress?.gptomekOutcome === 'uncertain'
+    ) {
+      return json({
+        ok: true,
+        state: 'uncertain',
+        ...(checkpoint.progress ? { progress: cloneObject(checkpoint.progress) } : {}),
+      });
+    }
+    if (checkpoint.status === 'complete' && checkpoint.result) {
+      return json({
+        ok: true,
+        state: 'complete',
+        result: checkpoint.result,
+      });
+    }
+    if (checkpoint.status === 'running' && checkpoint.leaseUntil > Date.now()) {
+      return json({
+        ok: true,
+        state: 'in_progress',
+        retryAfterSeconds: Math.max(
+          1,
+          Math.ceil((checkpoint.leaseUntil - Date.now()) / 1_000),
+        ),
+      });
+    }
+    return json({
+      ok: true,
+      state: 'recover',
+      ...(checkpoint.progress ? { progress: cloneObject(checkpoint.progress) } : {}),
+    });
   }
 
   private async claim(body: JsonObject): Promise<Response> {

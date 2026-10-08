@@ -108,6 +108,30 @@ export interface ApplyPatchCommand {
   patch: string;
 }
 
+export interface BranchFromPatchCommand {
+  id: string;
+  op: 'branch_from_patch';
+  repository: string;
+  branch: string;
+  baseSha: string;
+  message: string;
+  patch: string;
+}
+
+export interface ReviewFixCommand {
+  id: string;
+  op: 'review_fix';
+  repository: string;
+  pullRequestNumber: number;
+  branch: string;
+  expectedHeadSha: string;
+  commentId: number;
+  reviewThreadId?: string;
+  message: string;
+  patch: string;
+  replyBody?: string;
+}
+
 export interface RevertCommitCommand {
   id: string;
   op: 'revert_commit';
@@ -208,6 +232,8 @@ type NonBatchGptomekCommand =
   | AdoptBranchCommand
   | CommitFilesCommand
   | ApplyPatchCommand
+  | BranchFromPatchCommand
+  | ReviewFixCommand
   | RevertCommitCommand
   | CherryPickCommand
   | CommitTreeCommand
@@ -286,12 +312,15 @@ function repository(value: unknown): string {
 
 function branch(value: unknown): string {
   const result = requiredString(value, 'branch', 250);
+  const parts = result.split('/');
   if (
     result.startsWith('/') ||
     result.endsWith('/') ||
-    result.split('/').includes('.') ||
+    result.endsWith('.') ||
     result.includes('..') ||
     result.includes('//') ||
+    parts.includes('.') ||
+    parts.some((part) => part.startsWith('.') || part.endsWith('.lock')) ||
     !/^[A-Za-z0-9._/-]+$/.test(result)
   ) {
     throw new Error('invalid_branch');
@@ -457,6 +486,38 @@ function parseCommand(value: unknown, nested = false): GptomekCommand {
       expectedHeadSha: sha(input.expectedHeadSha, 'expected_head_sha'),
       message: requiredString(input.message, 'message', 1_000),
       patch: requiredString(input.patch, 'patch', MAX_PATCH_CHARS),
+    };
+  }
+
+  if (op === 'branch_from_patch') {
+    return {
+      id,
+      op,
+      repository: repository(input.repository),
+      branch: branch(input.branch),
+      baseSha: sha(input.baseSha, 'base_sha'),
+      message: requiredString(input.message, 'message', 1_000),
+      patch: requiredString(input.patch, 'patch', MAX_PATCH_CHARS),
+    };
+  }
+
+  if (op === 'review_fix') {
+    return {
+      id,
+      op,
+      repository: repository(input.repository),
+      pullRequestNumber: positiveInteger(input.pullRequestNumber, 'pull_request_number'),
+      branch: branch(input.branch),
+      expectedHeadSha: sha(input.expectedHeadSha, 'expected_head_sha'),
+      commentId: positiveInteger(input.commentId, 'comment_id'),
+      ...(input.reviewThreadId === undefined
+        ? {}
+        : { reviewThreadId: requiredString(input.reviewThreadId, 'review_thread_id', 200) }),
+      message: requiredString(input.message, 'message', 1_000),
+      patch: requiredString(input.patch, 'patch', MAX_PATCH_CHARS),
+      ...(input.replyBody === undefined
+        ? {}
+        : { replyBody: requiredString(input.replyBody, 'reply_body', 20_000) }),
     };
   }
 
@@ -951,21 +1012,21 @@ async function adoptBranch(
   return { sha: newSha };
 }
 
-async function commitFiles(
+async function createFileCommit(
   client: GitHubInstallationClient,
-  command: CommitFilesCommand,
-): Promise<JsonObject> {
-  const currentHead = await branchHead(client, command.repository, command.branch);
-  if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
-  const baseCommit = await commit(client, command.repository, command.expectedHeadSha);
-
+  repositoryName: string,
+  parentSha: string,
+  message: string,
+  files: CommitFile[],
+): Promise<string> {
+  const baseCommit = await commit(client, repositoryName, parentSha);
   const tree = await Promise.all(
-    command.files.map(async (file) => {
+    files.map(async (file) => {
       if (file.content === null) {
         return { path: file.path, mode: file.mode ?? '100644', type: 'blob', sha: null };
       }
       const blob = await client.json<{ sha?: string }>(
-        `/repos/${repoPath(command.repository)}/git/blobs`,
+        `/repos/${repoPath(repositoryName)}/git/blobs`,
         'gptomek_create_blob',
         { method: 'POST', body: JSON.stringify({ content: file.content, encoding: 'utf-8' }) },
       );
@@ -975,18 +1036,28 @@ async function commitFiles(
   );
 
   const createdTree = await client.json<{ sha?: string }>(
-    `/repos/${repoPath(command.repository)}/git/trees`,
+    `/repos/${repoPath(repositoryName)}/git/trees`,
     'gptomek_create_tree',
     { method: 'POST', body: JSON.stringify({ base_tree: baseCommit.tree.sha, tree }) },
   );
   if (!createdTree.sha || !SHA_RE.test(createdTree.sha)) throw new Error('invalid_created_tree');
 
-  const newSha = await createCommit(
+  return createCommit(client, repositoryName, message, createdTree.sha, parentSha);
+}
+
+async function commitFiles(
+  client: GitHubInstallationClient,
+  command: CommitFilesCommand,
+): Promise<JsonObject> {
+  const currentHead = await branchHead(client, command.repository, command.branch);
+  if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
+
+  const newSha = await createFileCommit(
     client,
     command.repository,
-    command.message,
-    createdTree.sha,
     command.expectedHeadSha,
+    command.message,
+    command.files,
   );
   await updateBranch(
     client,
@@ -1092,27 +1163,21 @@ function patchPath(file: UnifiedFilePatch): string {
   }
 }
 
-export async function applyPatch(
+async function patchedFiles(
   client: GitHubInstallationClient,
-  command: ApplyPatchCommand,
-): Promise<JsonObject> {
-  const currentHead = await branchHead(client, command.repository, command.branch);
-  if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
-
-  const parsed = parseUnifiedPatch(command.patch);
+  repositoryName: string,
+  baseSha: string,
+  patch: string,
+): Promise<CommitFile[]> {
+  const parsed = parseUnifiedPatch(patch);
   if (parsed.length > MAX_PATCH_FILES) throw new Error('too_many_patch_files');
 
-  const baseCommit = await commit(client, command.repository, command.expectedHeadSha);
-  const modes = await patchFileModes(client, command.repository, baseCommit.tree.sha);
+  const baseCommit = await commit(client, repositoryName, baseSha);
+  const modes = await patchFileModes(client, repositoryName, baseCommit.tree.sha);
   const files: CommitFile[] = [];
   for (const file of parsed) {
     const path = patchPath(file);
-    const existing = await readPatchFile(
-      client,
-      command.repository,
-      path,
-      command.expectedHeadSha,
-    );
+    const existing = await readPatchFile(client, repositoryName, path, baseSha);
 
     if (file.oldPath === null && existing !== null) throw new Error('patch_target_exists');
     if (file.oldPath !== null && existing === null) throw new Error('patch_target_missing');
@@ -1131,7 +1196,22 @@ export async function applyPatch(
     }
     files.push({ path, content: updated, mode });
   }
+  return files;
+}
 
+export async function applyPatch(
+  client: GitHubInstallationClient,
+  command: ApplyPatchCommand,
+): Promise<JsonObject> {
+  const currentHead = await branchHead(client, command.repository, command.branch);
+  if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
+
+  const files = await patchedFiles(
+    client,
+    command.repository,
+    command.expectedHeadSha,
+    command.patch,
+  );
   const result = await commitFiles(client, {
     id: command.id,
     op: 'commit_files',
@@ -1142,6 +1222,97 @@ export async function applyPatch(
     files,
   });
   return { ...result, files: files.length };
+}
+
+async function branchHeadOrNull(
+  client: GitHubInstallationClient,
+  repositoryName: string,
+  branchName: string,
+): Promise<string | null> {
+  try {
+    return await branchHead(client, repositoryName, branchName);
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+async function createBranchRef(
+  client: GitHubInstallationClient,
+  repositoryName: string,
+  branchName: string,
+  commitSha: string,
+): Promise<void> {
+  if (await branchHeadOrNull(client, repositoryName, branchName)) {
+    throw new Error('branch_from_patch_branch_exists');
+  }
+
+  try {
+    await client.json<unknown>(
+      `/repos/${repoPath(repositoryName)}/git/refs`,
+      'gptomek_create_branch_ref',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          ref: `refs/heads/${branchName}`,
+          sha: commitSha,
+        }),
+      },
+    );
+  } catch (error) {
+    let observed: string | null;
+    try {
+      observed = await branchHeadOrNull(client, repositoryName, branchName);
+    } catch {
+      throw new Error('command_outcome_uncertain');
+    }
+    if (observed === commitSha) return;
+    if (observed === null) {
+      if (error instanceof GitHubApiError) throw error;
+      throw new Error('branch_create_not_applied');
+    }
+    throw new Error('command_outcome_uncertain');
+  }
+}
+
+export async function branchFromPatch(
+  client: GitHubInstallationClient,
+  command: BranchFromPatchCommand,
+): Promise<JsonObject> {
+  const repositoryInfo = await client.json<{ default_branch?: unknown }>(
+    `/repos/${repoPath(command.repository)}`,
+    'gptomek_get_repository',
+  );
+  const defaultBranch = branch(repositoryInfo.default_branch);
+  if (isProtectedBranch(command.branch, defaultBranch)) throw new Error('protected_branch');
+  if (await branchHeadOrNull(client, command.repository, command.branch)) {
+    throw new Error('branch_from_patch_branch_exists');
+  }
+
+  let files: CommitFile[];
+  try {
+    files = await patchedFiles(client, command.repository, command.baseSha, command.patch);
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404) {
+      throw new Error('branch_from_patch_base_not_found');
+    }
+    throw error;
+  }
+
+  const newSha = await createFileCommit(
+    client,
+    command.repository,
+    command.baseSha,
+    command.message,
+    files,
+  );
+  await createBranchRef(client, command.repository, command.branch, newSha);
+  return {
+    branch: command.branch,
+    sha: newSha,
+    baseSha: command.baseSha,
+    files: files.length,
+  };
 }
 
 export async function revertCommit(
@@ -1582,15 +1753,26 @@ export function gptomekReplayCommentMatches(item: JsonObject, id: string): boole
   );
 }
 
+export function gptomekReplayCommentSearchPath(path: string): string {
+  if (/\/pulls\/\d+\/comments$/.test(path)) {
+    return `${path}?sort=created&direction=desc`;
+  }
+  return path;
+}
+
 async function existingMarkedComment(
   client: GitHubInstallationClient,
   path: string,
   id: string,
 ): Promise<JsonObject | null> {
-  const comments = await client.paginate<JsonObject>(path, 'gptomek_find_existing_comment', {
-    maxPages: 5,
-    stopWhen: (items) => items.some((item) => gptomekReplayCommentMatches(item, id)),
-  });
+  const comments = await client.paginate<JsonObject>(
+    gptomekReplayCommentSearchPath(path),
+    'gptomek_find_existing_comment',
+    {
+      maxPages: 30,
+      stopWhen: (items) => items.some((item) => gptomekReplayCommentMatches(item, id)),
+    },
+  );
   return comments.find((item) => gptomekReplayCommentMatches(item, id)) ?? null;
 }
 
@@ -1605,6 +1787,395 @@ function compactResult(value: unknown): unknown {
   }
 }
 
+interface ReviewFixPullRequest {
+  head?: {
+    ref?: string;
+    sha?: string;
+    repo?: { full_name?: string | null } | null;
+  };
+}
+
+interface ReviewFixThread {
+  __typename: 'PullRequestReviewThread';
+  id: string;
+  isResolved: boolean;
+  viewerCanResolve: boolean;
+  pullRequest: {
+    number: number;
+    repository: { nameWithOwner: string };
+  };
+  comments: {
+    nodes: Array<{ databaseId?: number | null }>;
+    pageInfo: {
+      hasNextPage: boolean;
+      endCursor?: string | null;
+    };
+  };
+}
+
+interface ReviewFixThreadResponse {
+  data?: { node?: ReviewFixThread | null };
+  errors?: unknown[];
+}
+
+function sameRepository(left: string | null | undefined, right: string): boolean {
+  return typeof left === 'string' && left.toLowerCase() === right.toLowerCase();
+}
+
+function reviewCommentPullRequestMatches(
+  pullRequestUrl: string | undefined,
+  command: ReviewFixCommand,
+): boolean {
+  if (!pullRequestUrl) return false;
+  try {
+    const url = new URL(pullRequestUrl);
+    return (
+      url.origin === GITHUB_API &&
+      url.pathname.toLowerCase() ===
+        `/repos/${command.repository}/pulls/${command.pullRequestNumber}`.toLowerCase()
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function reviewFixTarget(
+  client: GitHubInstallationClient,
+  command: ReviewFixCommand,
+): Promise<string> {
+  const pullRequest = await client.json<ReviewFixPullRequest>(
+    `/repos/${repoPath(command.repository)}/pulls/${command.pullRequestNumber}`,
+    'gptomek_get_review_fix_pr',
+  );
+  if (
+    pullRequest.head?.ref !== command.branch ||
+    !sameRepository(pullRequest.head?.repo?.full_name, command.repository) ||
+    typeof pullRequest.head?.sha !== 'string' ||
+    !SHA_RE.test(pullRequest.head.sha)
+  ) {
+    throw new Error('review_fix_pr_head_mismatch');
+  }
+
+  const reviewComment = await client.json<{ pull_request_url?: string }>(
+    `/repos/${repoPath(command.repository)}/pulls/comments/${command.commentId}`,
+    'gptomek_get_review_fix_comment',
+  );
+  if (!reviewCommentPullRequestMatches(reviewComment.pull_request_url, command)) {
+    throw new Error('review_fix_comment_mismatch');
+  }
+  return pullRequest.head.sha.toLowerCase();
+}
+
+async function reviewFixThread(
+  client: GitHubInstallationClient,
+  command: ReviewFixCommand,
+): Promise<ReviewFixThread> {
+  if (!command.reviewThreadId) throw new Error('review_fix_thread_id_missing');
+
+  let cursor: string | null = null;
+  let metadata: Omit<ReviewFixThread, 'comments'> | null = null;
+  for (let page = 0; page < 20; page += 1) {
+    const response: ReviewFixThreadResponse = await client.json<ReviewFixThreadResponse>(
+      '/graphql',
+      'gptomek_get_review_fix_thread',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          query: `query($threadId: ID!, $after: String) {
+            node(id: $threadId) {
+              ... on PullRequestReviewThread {
+                __typename
+                id
+                isResolved
+                viewerCanResolve
+                pullRequest {
+                  number
+                  repository { nameWithOwner }
+                }
+                comments(first: 100, after: $after) {
+                  nodes { databaseId }
+                  pageInfo { hasNextPage endCursor }
+                }
+              }
+            }
+          }`,
+          variables: {
+            threadId: command.reviewThreadId,
+            after: cursor,
+          },
+        }),
+      },
+    );
+    if (response.errors?.length || !response.data?.node) {
+      throw new Error('review_fix_invalid_thread');
+    }
+
+    const thread: ReviewFixThread = response.data.node;
+    if (
+      thread.__typename !== 'PullRequestReviewThread' ||
+      thread.id !== command.reviewThreadId ||
+      thread.pullRequest?.number !== command.pullRequestNumber ||
+      !sameRepository(thread.pullRequest?.repository?.nameWithOwner, command.repository) ||
+      !Array.isArray(thread.comments?.nodes) ||
+      !thread.comments?.pageInfo
+    ) {
+      throw new Error('review_fix_thread_mismatch');
+    }
+
+    metadata ??= {
+      __typename: thread.__typename,
+      id: thread.id,
+      isResolved: thread.isResolved,
+      viewerCanResolve: thread.viewerCanResolve,
+      pullRequest: thread.pullRequest,
+    };
+    if (thread.comments.nodes.some(
+      (comment: { databaseId?: number | null }) =>
+        comment.databaseId === command.commentId,
+    )) {
+      return {
+        ...metadata,
+        comments: thread.comments,
+      };
+    }
+    if (!thread.comments.pageInfo.hasNextPage) {
+      throw new Error('review_fix_thread_mismatch');
+    }
+    const nextCursor = thread.comments.pageInfo.endCursor;
+    if (!nextCursor || nextCursor === cursor) {
+      throw new Error('review_fix_thread_pagination_limit');
+    }
+    cursor = nextCursor;
+  }
+  throw new Error('review_fix_thread_pagination_limit');
+}
+
+async function resolveReviewFixThread(
+  client: GitHubInstallationClient,
+  command: ReviewFixCommand,
+): Promise<boolean> {
+  if (!command.reviewThreadId) return false;
+
+  const before = await reviewFixThread(client, command);
+  if (before.isResolved) return true;
+  if (!before.viewerCanResolve) throw new Error('review_fix_thread_not_resolvable');
+
+  try {
+    const response = await client.json<{
+      data?: { resolveReviewThread?: { thread?: { id?: string; isResolved?: boolean } | null } | null };
+      errors?: unknown[];
+    }>(
+      '/graphql',
+      'gptomek_resolve_review_thread',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          query: `mutation($threadId: ID!) {
+            resolveReviewThread(input: { threadId: $threadId }) {
+              thread { id isResolved }
+            }
+          }`,
+          variables: { threadId: command.reviewThreadId },
+        }),
+      },
+    );
+    const resolved = response.data?.resolveReviewThread?.thread;
+    if (
+      response.errors?.length ||
+      resolved?.id !== command.reviewThreadId ||
+      resolved.isResolved !== true
+    ) {
+      throw new Error('review_fix_thread_resolve_failed');
+    }
+    return true;
+  } catch (error) {
+    let after: ReviewFixThread;
+    try {
+      after = await reviewFixThread(client, command);
+    } catch {
+      throw new Error('command_outcome_uncertain');
+    }
+    if (after.isResolved) return true;
+    if (error instanceof GitHubApiError) throw error;
+    throw new Error('review_fix_thread_resolve_not_applied');
+  }
+}
+
+function reviewFixPatchCommand(command: ReviewFixCommand): ApplyPatchCommand {
+  return {
+    id: `internal:${command.id}:review-fix:patch`,
+    op: 'apply_patch',
+    repository: command.repository,
+    branch: command.branch,
+    expectedHeadSha: command.expectedHeadSha,
+    message: command.message,
+    patch: command.patch,
+  };
+}
+
+type ReviewFixPatchCheckpoint =
+  | { state: 'missing' | 'recover' | 'in_progress' }
+  | { state: 'complete'; sha: string };
+
+async function reviewFixPatchCheckpoint(
+  env: CompanionEnv,
+  patchCommand: ApplyPatchCommand,
+): Promise<ReviewFixPatchCheckpoint> {
+  checkpointNamespace(env);
+  const operationId = await commandCheckpointId(patchCommand.id);
+  const inputHash = await autopilotInputHash(patchCommand as unknown as JsonObject);
+  const peek = await checkpointCall(
+    env as AutopilotCheckpointEnv,
+    operationId,
+    '/peek',
+    { operationId, inputHash },
+  );
+  const state = peek.payload.state;
+  if (state === 'input_mismatch') {
+    throw new Error('command_id_reused_with_different_input');
+  }
+  if (state === 'uncertain') {
+    throw new Error('command_outcome_uncertain');
+  }
+  if (state === 'complete') {
+    const stored = isObject(peek.payload.result) && isObject(peek.payload.result.body)
+      ? peek.payload.result.body
+      : null;
+    const result = stored?.ok === true && isObject(stored.result) ? stored.result : null;
+    const shaValue = typeof result?.sha === 'string' && SHA_RE.test(result.sha)
+      ? result.sha.toLowerCase()
+      : null;
+    if (!shaValue) throw new Error('invalid_gptomek_checkpoint_result');
+    return { state: 'complete', sha: shaValue };
+  }
+  if (state === 'missing' || state === 'recover' || state === 'in_progress') {
+    return { state };
+  }
+  throw new Error('invalid_gptomek_checkpoint_result');
+}
+
+type ReviewFixStepExecutor = (
+  command: NonBatchGptomekCommand,
+) => Promise<{ result: unknown; deduplicated: boolean }>;
+
+async function assertReviewFixHead(
+  client: GitHubInstallationClient,
+  command: ReviewFixCommand,
+  expectedSha: string,
+): Promise<void> {
+  const pullRequest = await client.json<ReviewFixPullRequest>(
+    `/repos/${repoPath(command.repository)}/pulls/${command.pullRequestNumber}`,
+    'gptomek_verify_review_fix_head',
+  );
+  if (
+    pullRequest.head?.ref !== command.branch ||
+    !sameRepository(pullRequest.head?.repo?.full_name, command.repository) ||
+    pullRequest.head?.sha?.toLowerCase() !== expectedSha
+  ) {
+    throw new Error('review_fix_head_changed');
+  }
+}
+
+export async function reviewFix(
+  client: GitHubInstallationClient,
+  command: ReviewFixCommand,
+  env: CompanionEnv,
+  executor?: ReviewFixStepExecutor,
+): Promise<JsonObject> {
+  const initialPrHead = await reviewFixTarget(client, command);
+  if (command.reviewThreadId) {
+    const thread = await reviewFixThread(client, command);
+    if (!thread.isResolved && !thread.viewerCanResolve) {
+      throw new Error('review_fix_thread_not_resolvable');
+    }
+  }
+
+  const patchCommand = reviewFixPatchCommand(command);
+  const patchCheckpoint = executor
+    ? ({ state: 'missing' } as const)
+    : await reviewFixPatchCheckpoint(env, patchCommand);
+  if (patchCheckpoint.state === 'in_progress') {
+    throw new Error('review_fix_patch_in_progress');
+  }
+  if (
+    patchCheckpoint.state === 'missing' &&
+    initialPrHead !== command.expectedHeadSha
+  ) {
+    throw new Error('review_fix_head_changed');
+  }
+  if (
+    patchCheckpoint.state === 'complete' &&
+    initialPrHead !== patchCheckpoint.sha
+  ) {
+    throw new Error('review_fix_head_changed');
+  }
+
+  const run = executor ?? ((step) => executeIdempotent(client, step, env));
+  const patch = await run(patchCommand);
+  const patchResult = isObject(patch.result) ? patch.result : null;
+  const patchSha = typeof patchResult?.sha === 'string' && SHA_RE.test(patchResult.sha)
+    ? patchResult.sha.toLowerCase()
+    : null;
+  if (!patchSha) throw new Error('review_fix_invalid_patch_result');
+
+  let headVerified = false;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const pullRequestAfter = await client.json<ReviewFixPullRequest>(
+      `/repos/${repoPath(command.repository)}/pulls/${command.pullRequestNumber}`,
+      'gptomek_get_review_fix_pr_after_patch',
+    );
+    const head = pullRequestAfter.head;
+    if (
+      head?.ref !== command.branch ||
+      !sameRepository(head?.repo?.full_name, command.repository)
+    ) {
+      throw new Error('review_fix_head_changed');
+    }
+
+    const observedSha = head.sha?.toLowerCase();
+    if (observedSha === patchSha) {
+      headVerified = true;
+      break;
+    }
+    if (observedSha !== command.expectedHeadSha) {
+      throw new Error('review_fix_head_changed');
+    }
+    if (attempt < 3) await sleep(200);
+  }
+  if (!headVerified) throw new Error('review_fix_head_changed');
+
+  const replyBody = command.replyBody ?? `Fixed in ${patchSha.slice(0, 12)}.`;
+  await assertReviewFixHead(client, command, patchSha);
+  const reply = await run({
+    id: `internal:${command.id}:review-fix:reply`,
+    op: 'reply_review',
+    repository: command.repository,
+    pullRequestNumber: command.pullRequestNumber,
+    commentId: command.commentId,
+    body: replyBody,
+  });
+  await assertReviewFixHead(client, command, patchSha);
+  const reaction = await run({
+    id: `internal:${command.id}:review-fix:react`,
+    op: 'react_review_comment',
+    repository: command.repository,
+    commentId: command.commentId,
+    reaction: '+1',
+  });
+  if (command.reviewThreadId) {
+    await assertReviewFixHead(client, command, patchSha);
+  }
+  const resolved = await resolveReviewFixThread(client, command);
+
+  return {
+    sha: patchSha,
+    patchDeduplicated: patch.deduplicated,
+    replyDeduplicated: reply.deduplicated,
+    reactionDeduplicated: reaction.deduplicated,
+    resolved,
+  };
+}
+
 async function executeCommand(
   client: GitHubInstallationClient,
   command: GptomekCommand,
@@ -1613,6 +2184,8 @@ async function executeCommand(
   if (command.op === 'adopt_branch') return adoptBranch(client, command);
   if (command.op === 'commit_files') return commitFiles(client, command);
   if (command.op === 'apply_patch') return applyPatch(client, command);
+  if (command.op === 'branch_from_patch') return branchFromPatch(client, command);
+  if (command.op === 'review_fix') return reviewFix(client, command, env);
   if (command.op === 'revert_commit') return revertCommit(client, command);
   if (command.op === 'cherry_pick') return cherryPick(client, command);
   if (command.op === 'commit_tree') return commitTree(client, command);
@@ -1804,7 +2377,9 @@ function executionFailureSafeToRetry(error: unknown): boolean {
     error.message.startsWith('revert_') ||
     error.message.startsWith('cherry_pick_') ||
     error.message.startsWith('commit_tree_') ||
-    error.message.startsWith('move_files_')
+    error.message.startsWith('move_files_') ||
+    error.message.startsWith('branch_from_patch_') ||
+    error.message.startsWith('review_fix_')
   );
 }
 
@@ -1845,14 +2420,16 @@ async function executeIdempotent(
     return { result, deduplicated: false };
   } catch (error) {
     if (error instanceof Error && error.message === 'command_outcome_uncertain') throw error;
-    const recoveredHeadConflict =
+    const recoveredMutationConflict =
       claim.recovering &&
-      guardedBranchMutation(command) &&
       error instanceof Error &&
-      error.message === 'branch_head_changed';
+      (
+        (guardedBranchMutation(command) && error.message === 'branch_head_changed') ||
+        (command.op === 'branch_from_patch' && error.message === 'branch_from_patch_branch_exists')
+      );
     const ambiguous =
       executionCompleted ||
-      recoveredHeadConflict ||
+      recoveredMutationConflict ||
       (command.op !== 'batch' && !executionFailureSafeToRetry(error));
     if (ambiguous) {
       await markCheckpointUncertain(checkpointEnv, claim.operationId, claim.inputHash);
@@ -1905,6 +2482,29 @@ export function gptomekMailboxFailureIsTerminal(
   if (operation === 'apply_patch') {
     return (
       errorValue === 'branch_head_changed' ||
+      deterministicPatchFailure(errorValue)
+    );
+  }
+
+  if (operation === 'branch_from_patch') {
+    return (
+      errorValue === 'protected_branch' ||
+      errorValue.startsWith('branch_from_patch_') ||
+      deterministicPatchFailure(errorValue)
+    );
+  }
+
+  if (operation === 'review_fix') {
+    return (
+      errorValue === 'branch_head_changed' ||
+      errorValue === 'review_fix_pr_head_mismatch' ||
+      errorValue === 'review_fix_comment_mismatch' ||
+      errorValue === 'review_fix_invalid_thread' ||
+      errorValue === 'review_fix_thread_mismatch' ||
+      errorValue === 'review_fix_thread_pagination_limit' ||
+      errorValue === 'review_fix_thread_not_resolvable' ||
+      errorValue === 'review_fix_invalid_patch_result' ||
+      errorValue === 'review_fix_head_changed' ||
       deterministicPatchFailure(errorValue)
     );
   }

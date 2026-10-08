@@ -26,6 +26,19 @@ shared `free-router` slot, PR reviews, and Shitpost Reactor all converge on
 `kanarek-review`. Paid reserves are available only to the review/work synthetic
 contracts, never to `kanarek-review-free`.
 
+The Gemini reserve uses Google's native stable `v1/interactions` endpoint with
+Flex service tier and explicit thinking level. The router translates its existing
+OpenAI-compatible text/tool contract to Interactions steps and converts Gemini
+model output/function-call steps back to the same OpenAI-compatible response
+shape, so callers do not need a second protocol. Gemini requests are stateless
+(`store: false`) and send the API key through `x-goog-api-key`. Tool-call
+responses carry private Kanarek replay metadata so subsequent Gemini turns can
+resend model-generated thought/signature steps exactly as required; that metadata
+is stripped before requests reach any other provider. The Gemini reserve is
+intentionally non-streaming because the paid review/work contracts are
+non-streaming; a streaming request skips this reserve rather than receiving a
+fake or incompatible stream.
+
 ## How it is called
 
 The public GitHub webhook lands in `kanarek-companion`. Review-eligible PRs are
@@ -264,6 +277,7 @@ Important variables include:
 - `KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS`
 - `KANAREK_REVIEW_GEMINI_MODEL`
 - `KANAREK_REVIEW_GEMINI_SERVICE_TIER`
+- `KANAREK_REVIEW_GEMINI_THINKING_LEVEL`
 - `KANAREK_REVIEW_WORK_TIMEOUT_MS`
 
 The shared runtime independently controls whether webhook review is enabled,

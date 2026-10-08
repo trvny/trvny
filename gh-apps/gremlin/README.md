@@ -22,8 +22,11 @@ Action authorization is re-run using that user token for every MCP request.
 GitHub App upstream token rotations are serialized per grant by
 `GremlinGithubRefreshCoordinator` (a Gremlin-owned SQLite Durable Object).
 Its short-lived rotation receipts prevent concurrent MCP refresh attempts from
-reusing a single-use GitHub refresh token. These receipts are not the primary
-grant state, and the old GPT Actions route remains untouched.
+reusing a single-use GitHub refresh token. Receipts are AES-GCM encrypted using
+an HKDF-derived key; OAuth KV grants remain the canonical credential store.
+A crash precisely between GitHub token rotation and the durable receipt write
+cannot be made atomic across providers; the operator must reauthorize if that
+rare failure occurs. The old GPT Actions route remains untouched.
 
 Deployment prerequisites:
 

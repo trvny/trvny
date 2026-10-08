@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "gremlin",
-  "main": "src/index.ts",
+  "main": "src/entry.ts",
   "compatibility_date": "2026-08-03",
   "compatibility_flags": ["nodejs_als", "global_fetch_strictly_public"],
   "workers_dev": true,

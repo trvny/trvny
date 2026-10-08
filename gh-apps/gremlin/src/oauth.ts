@@ -9,6 +9,7 @@ import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
 import { handleGremlinMcp, type RuntimeEnv } from 'kanarek-companion/runtime';
 import worker from './index.ts';
 import { GREMLIN_GITHUB_LOGIN, isGremlinGithubOwner } from './operator-identity.ts';
+import { sealRefreshReceipt, openRefreshReceipt, type EncryptedRefreshReceipt } from './refresh-crypto.ts';
 
 const ORIGIN = 'https://gremlin.travny.workers.dev';
 const RESOURCE = `${ORIGIN}/mcp`;
@@ -237,10 +238,7 @@ async function githubCallback(request: Request, env: GremlinOAuthEnv): Promise<R
 // Durable Object so concurrent MCP refreshes share the same upstream exchange.
 // Receipts are short-lived recovery data, not the canonical OAuth grant store.
 const REFRESH_RECEIPT_MS = 3 * 60 * 1000;
-interface RefreshReceipt {
-  expiresAt: number;
-  value: GithubToken;
-}
+type RefreshReceipt = EncryptedRefreshReceipt;
 
 export class GremlinGithubRefreshCoordinator extends DurableObject<GremlinOAuthEnv> {
   private readonly pending = new Map<string, Promise<GithubToken>>();
@@ -281,16 +279,16 @@ export class GremlinGithubRefreshCoordinator extends DurableObject<GremlinOAuthE
   private async exchange(hash: string, refreshToken: string): Promise<GithubToken> {
     const key = `rotation:${hash}`;
     const receipt = await this.ctx.storage.get<RefreshReceipt>(key);
-    if (receipt && receipt.expiresAt > Date.now()) return receipt.value;
+    if (receipt && receipt.expiresAt > Date.now()) {
+      return openRefreshReceipt<GithubToken>(receipt, this.env.GREMLIN_OAUTH_CLIENT_SECRET!, hash);
+    }
     const value = await githubToken(this.env, {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
     });
     if (value.access_token && value.refresh_token) {
-      await this.ctx.storage.put(key, {
-        expiresAt: Date.now() + REFRESH_RECEIPT_MS,
-        value,
-      } satisfies RefreshReceipt);
+      const sealed = await sealRefreshReceipt(value, this.env.GREMLIN_OAUTH_CLIENT_SECRET!, hash, Date.now() + REFRESH_RECEIPT_MS);
+      await this.ctx.storage.put(key, sealed);
       await this.ctx.storage.setAlarm(Date.now() + REFRESH_RECEIPT_MS);
     }
     return value;

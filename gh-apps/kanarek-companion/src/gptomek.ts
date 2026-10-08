@@ -35,6 +35,8 @@ const MAX_PATCH_CHARS = 40_000;
 const MAX_PATCH_FILES = 32;
 const MAX_PATCHED_FILE_BYTES = 1_000_000;
 const MAX_CHERRY_PICK_CHANGES = 512;
+const MAX_TREE_MUTATIONS = 512;
+const MAX_MOVE_FILES = 256;
 const BOT_IDENTITY = {
   name: 'GPTomek',
   email: '314538226+gptomek[bot]@users.noreply.github.com',
@@ -126,6 +128,39 @@ export interface CherryPickCommand {
   message?: string;
 }
 
+type GitObjectMode = '100644' | '100755' | '120000' | '160000';
+
+interface CommitTreeEntrySpec {
+  path: string;
+  sha: string | null;
+  mode?: GitObjectMode;
+}
+
+export interface CommitTreeCommand {
+  id: string;
+  op: 'commit_tree';
+  repository: string;
+  branch: string;
+  expectedHeadSha: string;
+  message: string;
+  entries: CommitTreeEntrySpec[];
+}
+
+interface MoveFileSpec {
+  from: string;
+  to: string;
+}
+
+export interface MoveFilesCommand {
+  id: string;
+  op: 'move_files';
+  repository: string;
+  branch: string;
+  expectedHeadSha: string;
+  message: string;
+  moves: MoveFileSpec[];
+}
+
 export interface DeleteBranchCommand {
   id: string;
   op: 'delete_branch';
@@ -175,6 +210,8 @@ type NonBatchGptomekCommand =
   | ApplyPatchCommand
   | RevertCommitCommand
   | CherryPickCommand
+  | CommitTreeCommand
+  | MoveFilesCommand
   | DeleteBranchCommand
   | CommentCommand
   | ReplyReviewCommand
@@ -274,6 +311,23 @@ function filePath(value: unknown): string {
     throw new Error('invalid_path');
   }
   return result;
+}
+
+function gitObjectMode(value: unknown): GitObjectMode {
+  const mode = requiredString(value, 'tree_mode', 6);
+  if (
+    mode !== '100644' &&
+    mode !== '100755' &&
+    mode !== '120000' &&
+    mode !== '160000'
+  ) {
+    throw new Error('invalid_tree_mode');
+  }
+  return mode;
+}
+
+function gitObjectType(mode: GitObjectMode): 'blob' | 'commit' {
+  return mode === '160000' ? 'commit' : 'blob';
 }
 
 function commandId(value: unknown): string {
@@ -429,6 +483,69 @@ function parseCommand(value: unknown, nested = false): GptomekCommand {
       ...(input.message === undefined
         ? {}
         : { message: requiredString(input.message, 'message', 1_000) }),
+    };
+  }
+
+  if (op === 'commit_tree') {
+    if (
+      !Array.isArray(input.entries) ||
+      input.entries.length < 1 ||
+      input.entries.length > MAX_TREE_MUTATIONS
+    ) {
+      throw new Error('invalid_tree_entries');
+    }
+    const entries = input.entries.map((value): CommitTreeEntrySpec => {
+      if (!isObject(value)) throw new Error('invalid_tree_entry');
+      const entrySha = value.sha === null ? null : sha(value.sha, 'tree_sha');
+      return {
+        path: filePath(value.path),
+        sha: entrySha,
+        ...(value.mode === undefined ? {} : { mode: gitObjectMode(value.mode) }),
+      };
+    });
+    if (new Set(entries.map((entry) => entry.path)).size !== entries.length) {
+      throw new Error('duplicate_tree_path');
+    }
+    return {
+      id,
+      op,
+      repository: repository(input.repository),
+      branch: branch(input.branch),
+      expectedHeadSha: sha(input.expectedHeadSha, 'expected_head_sha'),
+      message: requiredString(input.message, 'message', 1_000),
+      entries,
+    };
+  }
+
+  if (op === 'move_files') {
+    if (
+      !Array.isArray(input.moves) ||
+      input.moves.length < 1 ||
+      input.moves.length > MAX_MOVE_FILES
+    ) {
+      throw new Error('invalid_moves');
+    }
+    const moves = input.moves.map((value): MoveFileSpec => {
+      if (!isObject(value)) throw new Error('invalid_move');
+      const from = filePath(value.from);
+      const to = filePath(value.to);
+      if (from === to) throw new Error('move_same_path');
+      return { from, to };
+    });
+    if (new Set(moves.map((move) => move.from)).size !== moves.length) {
+      throw new Error('duplicate_move_source');
+    }
+    if (new Set(moves.map((move) => move.to)).size !== moves.length) {
+      throw new Error('duplicate_move_target');
+    }
+    return {
+      id,
+      op,
+      repository: repository(input.repository),
+      branch: branch(input.branch),
+      expectedHeadSha: sha(input.expectedHeadSha, 'expected_head_sha'),
+      message: requiredString(input.message, 'message', 1_000),
+      moves,
     };
   }
 
@@ -676,6 +793,7 @@ async function gitTreeEntries(
   repositoryName: string,
   treeSha: string,
   operation: string,
+  errorPrefix: string,
 ): Promise<Map<string, GitTreeEntry>> {
   const value = await client.json<{
     truncated?: boolean;
@@ -689,8 +807,8 @@ async function gitTreeEntries(
     `/repos/${repoPath(repositoryName)}/git/trees/${treeSha}?recursive=1`,
     operation,
   );
-  if (value.truncated) throw new Error('cherry_pick_tree_too_large');
-  if (!Array.isArray(value.tree)) throw new Error('cherry_pick_invalid_tree');
+  if (value.truncated) throw new Error(`${errorPrefix}_tree_too_large`);
+  if (!Array.isArray(value.tree)) throw new Error(`${errorPrefix}_invalid_tree`);
 
   const entries = new Map<string, GitTreeEntry>();
   for (const raw of value.tree) {
@@ -701,7 +819,7 @@ async function gitTreeEntries(
       !SHA_RE.test(raw.sha) ||
       (raw.type !== 'blob' && raw.type !== 'commit' && raw.type !== 'tree')
     ) {
-      throw new Error('cherry_pick_invalid_tree');
+      throw new Error(`${errorPrefix}_invalid_tree`);
     }
     entries.set(raw.path, {
       path: raw.path,
@@ -717,15 +835,19 @@ function fileEntries(entries: Map<string, GitTreeEntry>): Map<string, GitTreeEnt
   return new Map([...entries].filter(([, entry]) => entry.type !== 'tree'));
 }
 
-function fileParentPrefixes(entries: Map<string, GitTreeEntry>): Set<string> {
+function pathParentPrefixes(paths: Iterable<string>): Set<string> {
   const prefixes = new Set<string>();
-  for (const path of entries.keys()) {
+  for (const path of paths) {
     const parts = path.split('/');
     for (let index = 1; index < parts.length; index += 1) {
       prefixes.add(parts.slice(0, index).join('/'));
     }
   }
   return prefixes;
+}
+
+function fileParentPrefixes(entries: Map<string, GitTreeEntry>): Set<string> {
+  return pathParentPrefixes(entries.keys());
 }
 
 function hasFileAncestor(entries: Map<string, GitTreeEntry>, path: string): boolean {
@@ -1083,18 +1205,21 @@ export async function cherryPick(
       command.repository,
       parent.tree.sha,
       'gptomek_get_cherry_parent_tree',
+      'cherry_pick',
     ),
     gitTreeEntries(
       client,
       command.repository,
       source.tree.sha,
       'gptomek_get_cherry_source_tree',
+      'cherry_pick',
     ),
     gitTreeEntries(
       client,
       command.repository,
       target.tree.sha,
       'gptomek_get_cherry_target_tree',
+      'cherry_pick',
     ),
   ]);
 
@@ -1205,6 +1330,211 @@ export async function cherryPick(
   };
 }
 
+export async function commitTree(
+  client: GitHubInstallationClient,
+  command: CommitTreeCommand,
+): Promise<JsonObject> {
+  const currentHead = await branchHead(client, command.repository, command.branch);
+  if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
+
+  const baseCommit = await commit(client, command.repository, command.expectedHeadSha);
+  const tree = await gitTreeEntries(
+    client,
+    command.repository,
+    baseCommit.tree.sha,
+    'gptomek_get_commit_tree',
+    'commit_tree',
+  );
+  const files = fileEntries(tree);
+  const finalFiles = new Map(files);
+  const writes = new Map<string, GitTreeWrite>();
+  const changedPaths: string[] = [];
+
+  for (const entry of command.entries) {
+    const existing = files.get(entry.path);
+
+    if (entry.sha === null) {
+      if (entry.mode !== undefined) throw new Error('commit_tree_delete_mode_not_allowed');
+      if (!existing) throw new Error('commit_tree_target_missing');
+      if (!writableTreeEntry(existing)) throw new Error('commit_tree_entry_not_supported');
+      finalFiles.delete(entry.path);
+      writes.set(entry.path, {
+        path: entry.path,
+        mode: existing.mode,
+        type: existing.type,
+        sha: null,
+      });
+      continue;
+    }
+
+    if (existing && !writableTreeEntry(existing)) {
+      throw new Error('commit_tree_entry_not_supported');
+    }
+    const mode = entry.mode ?? (writableTreeEntry(existing) ? existing.mode as GitObjectMode : undefined);
+    if (!mode) throw new Error('commit_tree_mode_required');
+    const type = gitObjectType(mode);
+    const next: GitTreeEntry = {
+      path: entry.path,
+      mode,
+      type,
+      sha: entry.sha,
+    };
+    finalFiles.set(entry.path, next);
+    if (sameTreeEntry(existing, next)) continue;
+
+    writes.set(entry.path, {
+      path: entry.path,
+      mode,
+      type,
+      sha: entry.sha,
+    });
+    changedPaths.push(entry.path);
+  }
+
+  if (!writes.size) throw new Error('commit_tree_has_no_changes');
+
+  const finalPrefixes = pathParentPrefixes(finalFiles.keys());
+  for (const path of changedPaths) {
+    if (hasFileAncestor(finalFiles, path) || finalPrefixes.has(path)) {
+      throw new Error('commit_tree_path_conflict');
+    }
+  }
+
+  const treeWrites = [...writes.values()].sort((left, right) => left.path.localeCompare(right.path));
+  const createdTree = await client.json<{ sha?: string }>(
+    `/repos/${repoPath(command.repository)}/git/trees`,
+    'gptomek_create_tree',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        base_tree: baseCommit.tree.sha,
+        tree: treeWrites,
+      }),
+    },
+  );
+  if (!createdTree.sha || !SHA_RE.test(createdTree.sha)) throw new Error('invalid_created_tree');
+  if (createdTree.sha.toLowerCase() === baseCommit.tree.sha) {
+    throw new Error('commit_tree_has_no_effect');
+  }
+
+  const newSha = await createCommit(
+    client,
+    command.repository,
+    command.message,
+    createdTree.sha,
+    command.expectedHeadSha,
+  );
+  await updateBranch(
+    client,
+    command.repository,
+    command.branch,
+    newSha,
+    false,
+    command.expectedHeadSha,
+  );
+  return { sha: newSha, entries: treeWrites.length };
+}
+
+export async function moveFiles(
+  client: GitHubInstallationClient,
+  command: MoveFilesCommand,
+): Promise<JsonObject> {
+  const currentHead = await branchHead(client, command.repository, command.branch);
+  if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
+
+  const baseCommit = await commit(client, command.repository, command.expectedHeadSha);
+  const tree = await gitTreeEntries(
+    client,
+    command.repository,
+    baseCommit.tree.sha,
+    'gptomek_get_move_tree',
+    'move_files',
+  );
+  const files = fileEntries(tree);
+  const finalFiles = new Map(files);
+  const sources = new Map<string, GitTreeEntry>();
+
+  for (const move of command.moves) {
+    const source = files.get(move.from);
+    if (!source) throw new Error('move_files_source_missing');
+    if (!writableTreeEntry(source)) throw new Error('move_files_entry_not_supported');
+    sources.set(move.from, source);
+    finalFiles.delete(move.from);
+  }
+
+  for (const move of command.moves) {
+    if (finalFiles.has(move.to)) throw new Error('move_files_target_exists');
+    const source = sources.get(move.from);
+    if (!source) throw new Error('move_files_source_missing');
+    finalFiles.set(move.to, { ...source, path: move.to });
+  }
+
+  const finalPrefixes = pathParentPrefixes(finalFiles.keys());
+  for (const move of command.moves) {
+    if (hasFileAncestor(finalFiles, move.to) || finalPrefixes.has(move.to)) {
+      throw new Error('move_files_path_conflict');
+    }
+  }
+
+  const writes = new Map<string, GitTreeWrite>();
+  for (const [path, source] of sources) {
+    writes.set(path, {
+      path,
+      mode: source.mode,
+      type: source.type as 'blob' | 'commit',
+      sha: null,
+    });
+  }
+  for (const move of command.moves) {
+    const source = sources.get(move.from);
+    if (!source || !writableTreeEntry(source)) throw new Error('move_files_entry_not_supported');
+    writes.set(move.to, {
+      path: move.to,
+      mode: source.mode,
+      type: source.type,
+      sha: source.sha,
+    });
+  }
+
+  const treeWrites = [...writes.values()].sort((left, right) => left.path.localeCompare(right.path));
+  const createdTree = await client.json<{ sha?: string }>(
+    `/repos/${repoPath(command.repository)}/git/trees`,
+    'gptomek_create_tree',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        base_tree: baseCommit.tree.sha,
+        tree: treeWrites,
+      }),
+    },
+  );
+  if (!createdTree.sha || !SHA_RE.test(createdTree.sha)) throw new Error('invalid_created_tree');
+  if (createdTree.sha.toLowerCase() === baseCommit.tree.sha) {
+    throw new Error('move_files_has_no_effect');
+  }
+
+  const newSha = await createCommit(
+    client,
+    command.repository,
+    command.message,
+    createdTree.sha,
+    command.expectedHeadSha,
+  );
+  await updateBranch(
+    client,
+    command.repository,
+    command.branch,
+    newSha,
+    false,
+    command.expectedHeadSha,
+  );
+  return {
+    sha: newSha,
+    moved: command.moves.length,
+    entries: treeWrites.length,
+  };
+}
+
 export async function deleteBranch(
   client: GitHubInstallationClient,
   command: DeleteBranchCommand,
@@ -1285,6 +1615,8 @@ async function executeCommand(
   if (command.op === 'apply_patch') return applyPatch(client, command);
   if (command.op === 'revert_commit') return revertCommit(client, command);
   if (command.op === 'cherry_pick') return cherryPick(client, command);
+  if (command.op === 'commit_tree') return commitTree(client, command);
+  if (command.op === 'move_files') return moveFiles(client, command);
   if (command.op === 'delete_branch') return deleteBranch(client, command);
 
   if (command.op === 'comment') {
@@ -1470,7 +1802,9 @@ function executionFailureSafeToRetry(error: unknown): boolean {
     SAFE_RETRY_ERRORS.has(error.message) ||
     deterministicPatchFailure(error.message) ||
     error.message.startsWith('revert_') ||
-    error.message.startsWith('cherry_pick_')
+    error.message.startsWith('cherry_pick_') ||
+    error.message.startsWith('commit_tree_') ||
+    error.message.startsWith('move_files_')
   );
 }
 
@@ -1480,7 +1814,9 @@ function guardedBranchMutation(command: GptomekCommand): boolean {
     command.op === 'commit_files' ||
     command.op === 'apply_patch' ||
     command.op === 'revert_commit' ||
-    command.op === 'cherry_pick'
+    command.op === 'cherry_pick' ||
+    command.op === 'commit_tree' ||
+    command.op === 'move_files'
   );
 }
 
@@ -1584,6 +1920,20 @@ export function gptomekMailboxFailureIsTerminal(
     return (
       errorValue === 'branch_head_changed' ||
       errorValue.startsWith('cherry_pick_')
+    );
+  }
+
+  if (operation === 'commit_tree') {
+    return (
+      errorValue === 'branch_head_changed' ||
+      errorValue.startsWith('commit_tree_')
+    );
+  }
+
+  if (operation === 'move_files') {
+    return (
+      errorValue === 'branch_head_changed' ||
+      errorValue.startsWith('move_files_')
     );
   }
 

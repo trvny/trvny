@@ -72,6 +72,8 @@ command JSON; the transport itself carries the base64url-encoded JSON inside a
 | Apply a strict unified diff and commit the result | `apply_patch` |
 | Revert the current HEAD commit without local git | `revert_commit` |
 | Reapply one strict single-parent commit onto a guarded branch | `cherry_pick` |
+| Commit existing Git object SHAs as a guarded tree mutation | `commit_tree` |
+| Move or swap files without copying their contents | `move_files` |
 | Collapse a prepared branch into one GPTomek-authored commit | `adopt_branch` |
 | Remove a known branch safely | `delete_branch` |
 | Add a PR/issue conversation comment | `comment` |
@@ -157,9 +159,10 @@ or whose immutable base/head relation is invalid; an `apply_patch` whose
 guarded head changed or whose strict patch validation/application failed; a
 `revert_commit` whose guarded head changed or target is no longer safely
 revertible; a `cherry_pick` whose guarded head changed or whose strict
-validation found a conflict or unsupported source change; a `delete_branch`
-whose guarded head changed; a reused command ID with different input; or an
-operation rejected by the bot-write policy. In
+validation found a conflict or unsupported source change; a `commit_tree` or
+`move_files` command whose guarded head changed or whose deterministic tree
+validation failed; a `delete_branch` whose guarded head changed; a reused
+command ID with different input; or an operation rejected by the bot-write policy. In
 particular, `commit_files` head conflicts, API failures, permission problems,
 transient 4xx/5xx responses, and uncertain outcomes are not silently discarded.
 
@@ -259,6 +262,13 @@ Supported operations:
   onto the guarded branch. The target must still match the source commit's parent
   for every affected path; overlapping changes, merge commits and file/directory
   shape changes are rejected instead of being auto-merged.
+- `commit_tree`: commit up to 512 file-level Git object mutations against the
+  guarded branch without downloading or re-encoding the objects. It supports
+  regular files, executables, symlinks, submodule entries, deletions, mode-only
+  changes and explicit file/directory shape transitions.
+- `move_files`: move up to 256 file-level paths while preserving each source
+  object's SHA, mode and Git type. Multi-file swaps and rotations are atomic;
+  occupied destinations and unresolved file/directory collisions are rejected.
 - `delete_branch`: delete a branch only after checking that its head matches the
   supplied `expectedHeadSha`.
 - `comment`: add a PR/issue conversation comment with replay protection.
@@ -368,6 +378,84 @@ destination is free. A single cherry-pick is capped at 512 file-level changes;
 directory-descendant checks use a precomputed prefix index rather than rescanning
 the repository tree per path. File-to-directory and directory-to-file
 transitions are deliberately rejected in this first version.
+
+### Commit existing Git objects
+
+```json
+{
+  "id": "tree-example-20261008-1",
+  "op": "commit_tree",
+  "repository": "trvny/trvny",
+  "branch": "feat/example",
+  "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+  "message": "chore: assemble tree",
+  "entries": [
+    {
+      "path": "assets/tool.bin",
+      "sha": "89abcdef0123456789abcdef0123456789abcdef",
+      "mode": "100644"
+    },
+    {
+      "path": "scripts/run.sh",
+      "sha": "fedcba9876543210fedcba9876543210fedcba98",
+      "mode": "100755"
+    },
+    {
+      "path": "obsolete.txt",
+      "sha": null
+    }
+  ]
+}
+```
+
+`commit_tree` is the low-level guarded escape hatch for already existing Git
+objects. New paths require an explicit mode: `100644` regular file, `100755`
+executable, `120000` symlink, or `160000` submodule/gitlink. Existing paths
+may omit `mode` to preserve it. A deletion uses `sha: null` and must omit
+`mode`. The final file namespace is validated before GitHub receives the tree,
+so replacing a file with explicit child paths, or replacing a directory after
+explicitly deleting its descendants, is allowed; unresolved file/directory
+collisions are not.
+
+The command is capped at 512 unique paths and uses the exact
+`expectedHeadSha` as both the base tree source and commit parent. It reuses Git
+object SHAs directly, so binary files and large blobs do not pass through the
+mailbox payload.
+
+### Move or swap files
+
+```json
+{
+  "id": "move-example-20261008-1",
+  "op": "move_files",
+  "repository": "trvny/trvny",
+  "branch": "feat/example",
+  "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+  "message": "refactor: move assets",
+  "moves": [
+    {
+      "from": "old/logo.bin",
+      "to": "assets/logo.bin"
+    },
+    {
+      "from": "a.txt",
+      "to": "b.txt"
+    },
+    {
+      "from": "b.txt",
+      "to": "a.txt"
+    }
+  ]
+}
+```
+
+`move_files` is file-level: directories are not shorthand move sources. It
+reads each source from the guarded tree and reuses its SHA, mode and Git type,
+so binary files, executable bits, symlinks and submodules survive unchanged.
+All sources are removed before destinations are evaluated, which makes swaps
+and rotations possible in one commit. Destinations occupied by files that are
+not also being moved away are rejected, as are final file/directory collisions.
+A command can contain up to 256 moves.
 
 ### Adopt a prepared branch
 

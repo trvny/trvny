@@ -389,9 +389,11 @@ is exactly the created commit before replying.
 `replyBody` is optional; without it GPTomek replies with
 `Fixed in <short-sha>.`. `reviewThreadId` is also optional. When supplied,
 GPTomek verifies that the thread belongs to the same PR and contains
-`commentId`, then resolves it through GitHub GraphQL. Resolution is checked
-before and after the mutation so an ambiguous response does not blindly replay
-the operation.
+`commentId`, then resolves it through GitHub GraphQL when the App has
+permission to do so. If GitHub reports `viewerCanResolve: false`, the patch,
+reply and 👍 reaction still succeed and the result returns `resolved: false`.
+Resolution is checked before and after the mutation so an ambiguous response
+does not blindly replay the operation.
 
 ### Revert the current HEAD commit
 

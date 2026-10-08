@@ -1953,12 +1953,18 @@ async function reviewFixThread(
 async function resolveReviewFixThread(
   client: GitHubInstallationClient,
   command: ReviewFixCommand,
+  before?: ReviewFixThread,
 ): Promise<boolean> {
   if (!command.reviewThreadId) return false;
 
-  const before = await reviewFixThread(client, command);
-  if (before.isResolved) return true;
-  if (!before.viewerCanResolve) throw new Error('review_fix_thread_not_resolvable');
+  const initial = before ?? await reviewFixThread(client, command);
+  if (initial.isResolved || !initial.viewerCanResolve) {
+    try {
+      return (await reviewFixThread(client, command)).isResolved;
+    } catch {
+      return false;
+    }
+  }
 
   try {
     const response = await client.json<{
@@ -1981,23 +1987,20 @@ async function resolveReviewFixThread(
     );
     const resolved = response.data?.resolveReviewThread?.thread;
     if (
-      response.errors?.length ||
-      resolved?.id !== command.reviewThreadId ||
-      resolved.isResolved !== true
+      !response.errors?.length &&
+      resolved?.id === command.reviewThreadId &&
+      resolved.isResolved === true
     ) {
-      throw new Error('review_fix_thread_resolve_failed');
+      return true;
     }
-    return true;
-  } catch (error) {
-    let after: ReviewFixThread;
-    try {
-      after = await reviewFixThread(client, command);
-    } catch {
-      throw new Error('command_outcome_uncertain');
-    }
-    if (after.isResolved) return true;
-    if (error instanceof GitHubApiError) throw error;
-    throw new Error('review_fix_thread_resolve_not_applied');
+  } catch {
+    // Thread resolution is optional after patch/reply/reaction have succeeded.
+  }
+
+  try {
+    return (await reviewFixThread(client, command)).isResolved;
+  } catch {
+    return false;
   }
 }
 
@@ -2083,12 +2086,9 @@ export async function reviewFix(
   executor?: ReviewFixStepExecutor,
 ): Promise<JsonObject> {
   const initialPrHead = await reviewFixTarget(client, command);
-  if (command.reviewThreadId) {
-    const thread = await reviewFixThread(client, command);
-    if (!thread.isResolved && !thread.viewerCanResolve) {
-      throw new Error('review_fix_thread_not_resolvable');
-    }
-  }
+  const initialThread = command.reviewThreadId
+    ? await reviewFixThread(client, command)
+    : undefined;
 
   const patchCommand = reviewFixPatchCommand(command);
   const patchCheckpoint = executor
@@ -2165,7 +2165,7 @@ export async function reviewFix(
   if (command.reviewThreadId) {
     await assertReviewFixHead(client, command, patchSha);
   }
-  const resolved = await resolveReviewFixThread(client, command);
+  const resolved = await resolveReviewFixThread(client, command, initialThread);
 
   return {
     sha: patchSha,

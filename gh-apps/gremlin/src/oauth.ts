@@ -6,7 +6,8 @@ import {
   type OAuthHelpers,
 } from '@cloudflare/workers-oauth-provider';
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import runtime, { handleGremlinMcp, type RuntimeEnv } from 'kanarek-companion/runtime';
+import { handleGremlinMcp, type RuntimeEnv } from 'kanarek-companion/runtime';
+import worker from './index.ts';
 import { GREMLIN_GITHUB_LOGIN, isGremlinGithubOwner } from './operator-identity.ts';
 
 const ORIGIN = 'https://gremlin.travny.workers.dev';
@@ -216,7 +217,7 @@ class GremlinMcpHandler extends WorkerEntrypoint<GremlinOAuthEnv, OperatorProps>
       const headers = new Headers(internalRequest.headers);
       headers.set('Authorization', `Bearer ${this.ctx.props.githubToken}`);
       const authenticated = new Request(internalRequest, { headers });
-      return runtime.fetch(authenticated, this.env, this.ctx);
+      return worker.fetch!(authenticated, this.env, this.ctx);
     });
     return response ?? new Response('Not found', { status: 404 });
   }

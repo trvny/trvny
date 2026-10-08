@@ -9,6 +9,7 @@ import { DurableObject, WorkerEntrypoint } from 'cloudflare:workers';
 import { handleGremlinMcp, type RuntimeEnv } from 'kanarek-companion/runtime';
 import worker from './index.ts';
 import { GREMLIN_GITHUB_LOGIN, isGremlinGithubOwner } from './operator-identity.ts';
+import { unauthenticatedMcpFallback } from './mcp-fallback.ts';
 import { sealRefreshReceipt, openRefreshReceipt, type EncryptedRefreshReceipt } from './refresh-crypto.ts';
 
 const ORIGIN = 'https://gremlin.travny.workers.dev';
@@ -332,27 +333,8 @@ export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): Ex
       const pathname = new URL(request.url).pathname;
       if (pathname === '/authorize') return authorize(request, env);
       if (pathname === '/oauth/github/callback') return githubCallback(request, env);
-      // Never let unauthenticated or wrong-audience MCP bearer requests
-      // fall through to the legacy GitHub user-token MCP endpoint.
-      if (pathname === '/mcp') {
-        if (request.method === 'OPTIONS') {
-          return new Response(null, {
-            status: 204,
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'POST, OPTIONS',
-              'Access-Control-Allow-Headers': 'Authorization, Content-Type, MCP-Protocol-Version',
-            },
-          });
-        }
-        return Response.json({ error: 'unauthorized' }, {
-          status: 401,
-          headers: {
-            'Cache-Control': 'no-store',
-            'WWW-Authenticate': 'Bearer resource_metadata="' + ORIGIN + '/.well-known/oauth-protected-resource/mcp"',
-          },
-        });
-      }
+      const failClosed = unauthenticatedMcpFallback(request, ORIGIN);
+      if (failClosed) return failClosed;
       return fallback.fetch!(request, env, ctx);
     },
   };

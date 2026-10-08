@@ -14,6 +14,11 @@ import {
   GPTOMEK_CONTROL_PULL_REQUEST,
   GPTOMEK_CONTROL_REPOSITORY,
 } from './gptomek-control.ts';
+import {
+  applyUnifiedFilePatch,
+  parseUnifiedPatch,
+  type UnifiedFilePatch,
+} from './gptomek-patch.ts';
 import type { CompanionEnv, CompanionTarget, PullRequest } from './companion-types.ts';
 import { isObject, type JsonObject, repoPath, REPOSITORY_OWNERS, isProtectedBranch } from './tools/common.ts';
 
@@ -26,6 +31,9 @@ const RESULT_RE = /<!--\s*gptomek-result:([A-Za-z0-9+/_-]+={0,2})\s*-->/g;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_BATCH_STEPS = 10;
 const MAX_RESULT_BYTES = 8_000;
+const MAX_PATCH_CHARS = 40_000;
+const MAX_PATCH_FILES = 32;
+const MAX_PATCHED_FILE_BYTES = 1_000_000;
 const BOT_IDENTITY = {
   name: 'GPTomek',
   email: '314538226+gptomek[bot]@users.noreply.github.com',
@@ -44,6 +52,7 @@ const SAFE_RETRY_ERRORS = new Set([
   'base_is_not_branch_ancestor',
   'branch_has_no_changes',
   'branch_head_changed',
+  'branch_update_not_applied',
   'invalid_branch_ref_response',
   'invalid_commit_response',
   'invalid_created_blob',
@@ -73,6 +82,7 @@ interface AdoptBranchCommand {
 interface CommitFile {
   path: string;
   content: string | null;
+  mode?: '100644' | '100755';
 }
 
 interface CommitFilesCommand {
@@ -83,6 +93,26 @@ interface CommitFilesCommand {
   expectedHeadSha: string;
   message: string;
   files: CommitFile[];
+}
+
+export interface ApplyPatchCommand {
+  id: string;
+  op: 'apply_patch';
+  repository: string;
+  branch: string;
+  expectedHeadSha: string;
+  message: string;
+  patch: string;
+}
+
+export interface RevertCommitCommand {
+  id: string;
+  op: 'revert_commit';
+  repository: string;
+  branch: string;
+  expectedHeadSha: string;
+  commitSha: string;
+  message: string;
 }
 
 export interface DeleteBranchCommand {
@@ -131,6 +161,8 @@ interface OperatorActionCommand {
 type NonBatchGptomekCommand =
   | AdoptBranchCommand
   | CommitFilesCommand
+  | ApplyPatchCommand
+  | RevertCommitCommand
   | DeleteBranchCommand
   | CommentCommand
   | ReplyReviewCommand
@@ -350,6 +382,30 @@ function parseCommand(value: unknown, nested = false): GptomekCommand {
     };
   }
 
+  if (op === 'apply_patch') {
+    return {
+      id,
+      op,
+      repository: repository(input.repository),
+      branch: branch(input.branch),
+      expectedHeadSha: sha(input.expectedHeadSha, 'expected_head_sha'),
+      message: requiredString(input.message, 'message', 1_000),
+      patch: requiredString(input.patch, 'patch', MAX_PATCH_CHARS),
+    };
+  }
+
+  if (op === 'revert_commit') {
+    return {
+      id,
+      op,
+      repository: repository(input.repository),
+      branch: branch(input.branch),
+      expectedHeadSha: sha(input.expectedHeadSha, 'expected_head_sha'),
+      commitSha: sha(input.commitSha, 'commit_sha'),
+      message: requiredString(input.message, 'message', 1_000),
+    };
+  }
+
   if (op === 'delete_branch') {
     return {
       id,
@@ -540,13 +596,19 @@ async function commit(
   client: GitHubInstallationClient,
   repositoryName: string,
   commitSha: string,
-): Promise<{ message: string; tree: { sha: string } }> {
-  const value = await client.json<{ message?: string; tree?: { sha?: string } }>(
+): Promise<{ message: string; tree: { sha: string }; parents: string[] }> {
+  const value = await client.json<{
+    message?: string;
+    tree?: { sha?: string };
+    parents?: Array<{ sha?: string }>;
+  }>(
     `/repos/${repoPath(repositoryName)}/git/commits/${commitSha}`,
     'gptomek_get_commit',
   );
   if (!value.tree?.sha || !SHA_RE.test(value.tree.sha)) throw new Error('invalid_commit_response');
-  return { message: value.message ?? '', tree: { sha: value.tree.sha } };
+  const parents = (value.parents ?? []).map((parent) => parent.sha ?? '');
+  if (parents.some((parent) => !SHA_RE.test(parent))) throw new Error('invalid_commit_response');
+  return { message: value.message ?? '', tree: { sha: value.tree.sha }, parents };
 }
 
 async function createCommit(
@@ -580,12 +642,28 @@ async function updateBranch(
   branchName: string,
   commitSha: string,
   force: boolean,
+  previousSha: string,
 ): Promise<void> {
-  await client.json<unknown>(
-    `/repos/${repoPath(repositoryName)}/git/refs/heads/${refPath(branchName)}`,
-    'gptomek_update_branch',
-    { method: 'PATCH', body: JSON.stringify({ sha: commitSha, force }) },
-  );
+  try {
+    await client.json<unknown>(
+      `/repos/${repoPath(repositoryName)}/git/refs/heads/${refPath(branchName)}`,
+      'gptomek_update_branch',
+      { method: 'PATCH', body: JSON.stringify({ sha: commitSha, force }) },
+    );
+  } catch (error) {
+    let observed: string;
+    try {
+      observed = await branchHead(client, repositoryName, branchName);
+    } catch {
+      throw new Error('command_outcome_uncertain');
+    }
+    if (observed === commitSha) return;
+    if (observed === previousSha) {
+      if (error instanceof GitHubApiError) throw error;
+      throw new Error('branch_update_not_applied');
+    }
+    throw new Error('command_outcome_uncertain');
+  }
 }
 
 async function adoptBranch(
@@ -612,7 +690,14 @@ async function adoptBranch(
     headCommit.tree.sha,
     command.baseSha,
   );
-  await updateBranch(client, command.repository, command.branch, newSha, true);
+  await updateBranch(
+    client,
+    command.repository,
+    command.branch,
+    newSha,
+    true,
+    command.expectedHeadSha,
+  );
   return { sha: newSha };
 }
 
@@ -626,14 +711,16 @@ async function commitFiles(
 
   const tree = await Promise.all(
     command.files.map(async (file) => {
-      if (file.content === null) return { path: file.path, mode: '100644', type: 'blob', sha: null };
+      if (file.content === null) {
+        return { path: file.path, mode: file.mode ?? '100644', type: 'blob', sha: null };
+      }
       const blob = await client.json<{ sha?: string }>(
         `/repos/${repoPath(command.repository)}/git/blobs`,
         'gptomek_create_blob',
         { method: 'POST', body: JSON.stringify({ content: file.content, encoding: 'utf-8' }) },
       );
       if (!blob.sha || !SHA_RE.test(blob.sha)) throw new Error('invalid_created_blob');
-      return { path: file.path, mode: '100644', type: 'blob', sha: blob.sha };
+      return { path: file.path, mode: file.mode ?? '100644', type: 'blob', sha: blob.sha };
     }),
   );
 
@@ -651,8 +738,191 @@ async function commitFiles(
     createdTree.sha,
     command.expectedHeadSha,
   );
-  await updateBranch(client, command.repository, command.branch, newSha, false);
+  await updateBranch(
+    client,
+    command.repository,
+    command.branch,
+    newSha,
+    false,
+    command.expectedHeadSha,
+  );
   return { sha: newSha };
+}
+
+
+function encodedFilePath(value: string): string {
+  return value.split('/').map(encodeURIComponent).join('/');
+}
+
+function decodeBase64Text(value: string): string {
+  const normalized = value.replace(/\s/g, '');
+  let bytes: Uint8Array;
+  try {
+    bytes = Uint8Array.from(atob(normalized), (character) => character.charCodeAt(0));
+  } catch {
+    throw new Error('invalid_patch_file_content');
+  }
+
+  const hasBom =
+    bytes.length >= 3 &&
+    bytes[0] === 0xef &&
+    bytes[1] === 0xbb &&
+    bytes[2] === 0xbf;
+  try {
+    const decoded = new TextDecoder('utf-8', {
+      fatal: true,
+      ignoreBOM: true,
+    }).decode(hasBom ? bytes.slice(3) : bytes);
+    return hasBom ? `\uFEFF${decoded}` : decoded;
+  } catch {
+    throw new Error('patch_binary_file_not_supported');
+  }
+}
+
+async function patchFileModes(
+  client: GitHubInstallationClient,
+  repositoryName: string,
+  treeSha: string,
+): Promise<Map<string, '100644' | '100755'>> {
+  const value = await client.json<{
+    truncated?: boolean;
+    tree?: Array<{ path?: string; type?: string; mode?: string }>;
+  }>(
+    `/repos/${repoPath(repositoryName)}/git/trees/${treeSha}?recursive=1`,
+    'gptomek_get_patch_tree',
+  );
+  if (value.truncated) throw new Error('patch_tree_too_large');
+
+  const modes = new Map<string, '100644' | '100755'>();
+  for (const entry of value.tree ?? []) {
+    if (entry.type !== 'blob' || typeof entry.path !== 'string') continue;
+    if (entry.mode === '100644' || entry.mode === '100755') {
+      modes.set(entry.path, entry.mode);
+    }
+  }
+  return modes;
+}
+
+async function readPatchFile(
+  client: GitHubInstallationClient,
+  repositoryName: string,
+  path: string,
+  ref: string,
+): Promise<string | null> {
+  try {
+    const value = await client.json<{
+      type?: string;
+      encoding?: string;
+      content?: string;
+      size?: number;
+    }>(
+      `/repos/${repoPath(repositoryName)}/contents/${encodedFilePath(path)}?ref=${encodeURIComponent(ref)}`,
+      'gptomek_get_patch_file',
+    );
+    if (value.type !== 'file' || value.encoding !== 'base64' || typeof value.content !== 'string') {
+      throw new Error('patch_file_not_text');
+    }
+    if (typeof value.size === 'number' && value.size > MAX_PATCHED_FILE_BYTES) {
+      throw new Error('patch_file_too_large');
+    }
+    return decodeBase64Text(value.content);
+  } catch (error) {
+    if (error instanceof GitHubApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+function patchPath(file: UnifiedFilePatch): string {
+  const value = file.newPath ?? file.oldPath;
+  if (!value) throw new Error('invalid_patch_paths');
+  try {
+    return filePath(value);
+  } catch {
+    throw new Error('patch_invalid_path');
+  }
+}
+
+export async function applyPatch(
+  client: GitHubInstallationClient,
+  command: ApplyPatchCommand,
+): Promise<JsonObject> {
+  const currentHead = await branchHead(client, command.repository, command.branch);
+  if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
+
+  const parsed = parseUnifiedPatch(command.patch);
+  if (parsed.length > MAX_PATCH_FILES) throw new Error('too_many_patch_files');
+
+  const baseCommit = await commit(client, command.repository, command.expectedHeadSha);
+  const modes = await patchFileModes(client, command.repository, baseCommit.tree.sha);
+  const files: CommitFile[] = [];
+  for (const file of parsed) {
+    const path = patchPath(file);
+    const existing = await readPatchFile(
+      client,
+      command.repository,
+      path,
+      command.expectedHeadSha,
+    );
+
+    if (file.oldPath === null && existing !== null) throw new Error('patch_target_exists');
+    if (file.oldPath !== null && existing === null) throw new Error('patch_target_missing');
+
+    const mode = file.oldPath === null
+      ? (file.newMode ?? '100644')
+      : modes.get(path);
+    if (file.oldPath !== null && !mode) throw new Error('patch_file_mode_not_supported');
+
+    const updated = applyUnifiedFilePatch(existing ?? '', file);
+    if (updated !== null && new TextEncoder().encode(updated).byteLength > MAX_PATCHED_FILE_BYTES) {
+      throw new Error('patched_file_too_large');
+    }
+    if (file.oldPath !== null && updated === existing) {
+      throw new Error('patch_has_no_changes');
+    }
+    files.push({ path, content: updated, mode });
+  }
+
+  const result = await commitFiles(client, {
+    id: command.id,
+    op: 'commit_files',
+    repository: command.repository,
+    branch: command.branch,
+    expectedHeadSha: command.expectedHeadSha,
+    message: command.message,
+    files,
+  });
+  return { ...result, files: files.length };
+}
+
+export async function revertCommit(
+  client: GitHubInstallationClient,
+  command: RevertCommitCommand,
+): Promise<JsonObject> {
+  const currentHead = await branchHead(client, command.repository, command.branch);
+  if (currentHead !== command.expectedHeadSha) throw new Error('branch_head_changed');
+  if (command.commitSha !== command.expectedHeadSha) throw new Error('revert_target_not_head');
+
+  const target = await commit(client, command.repository, command.commitSha);
+  if (target.parents.length !== 1) throw new Error('revert_merge_commit_not_supported');
+  const parent = await commit(client, command.repository, target.parents[0]);
+  if (parent.tree.sha === target.tree.sha) throw new Error('revert_has_no_changes');
+
+  const newSha = await createCommit(
+    client,
+    command.repository,
+    command.message,
+    parent.tree.sha,
+    command.expectedHeadSha,
+  );
+  await updateBranch(
+    client,
+    command.repository,
+    command.branch,
+    newSha,
+    false,
+    command.expectedHeadSha,
+  );
+  return { sha: newSha, reverted: command.commitSha };
 }
 
 export async function deleteBranch(
@@ -732,6 +1002,8 @@ async function executeCommand(
 ): Promise<unknown> {
   if (command.op === 'adopt_branch') return adoptBranch(client, command);
   if (command.op === 'commit_files') return commitFiles(client, command);
+  if (command.op === 'apply_patch') return applyPatch(client, command);
+  if (command.op === 'revert_commit') return revertCommit(client, command);
   if (command.op === 'delete_branch') return deleteBranch(client, command);
 
   if (command.op === 'comment') {
@@ -828,7 +1100,7 @@ async function claimCheckpoint(
   env: CompanionEnv,
   command: GptomekCommand,
 ): Promise<
-  | { state: 'execute'; operationId: string; inputHash: string }
+  | { state: 'execute'; operationId: string; inputHash: string; recovering: boolean }
   | { state: 'complete'; result: unknown }
 > {
   checkpointNamespace(env);
@@ -844,7 +1116,12 @@ async function claimCheckpoint(
       throw new Error('command_outcome_uncertain');
     }
     if (state === 'claimed' || state === 'recover') {
-      return { state: 'execute', operationId, inputHash };
+      return {
+        state: 'execute',
+        operationId,
+        inputHash,
+        recovering: state === 'recover',
+      };
     }
     if (state === 'complete') {
       const stored = isObject(claim.payload.result) && isObject(claim.payload.result.body)
@@ -890,9 +1167,38 @@ async function markCheckpointUncertain(
   }
 }
 
+function deterministicPatchFailure(errorValue: string): boolean {
+  return (
+    errorValue.startsWith('patch_') ||
+    errorValue.startsWith('invalid_patch') ||
+    errorValue.startsWith('unsupported_patch_') ||
+    errorValue === 'empty_patch' ||
+    errorValue === 'missing_patch_new_path' ||
+    errorValue === 'duplicate_patch_path' ||
+    errorValue === 'too_many_patch_files' ||
+    errorValue === 'patched_file_too_large' ||
+    errorValue === 'delete_patch_did_not_empty_file' ||
+    errorValue === 'unexpected_patch_line'
+  );
+}
+
 function executionFailureSafeToRetry(error: unknown): boolean {
   if (error instanceof GitHubApiError) return true;
-  return error instanceof Error && SAFE_RETRY_ERRORS.has(error.message);
+  if (!(error instanceof Error)) return false;
+  return (
+    SAFE_RETRY_ERRORS.has(error.message) ||
+    deterministicPatchFailure(error.message) ||
+    error.message.startsWith('revert_')
+  );
+}
+
+function guardedBranchMutation(command: GptomekCommand): boolean {
+  return (
+    command.op === 'adopt_branch' ||
+    command.op === 'commit_files' ||
+    command.op === 'apply_patch' ||
+    command.op === 'revert_commit'
+  );
 }
 
 async function executeIdempotent(
@@ -920,8 +1226,15 @@ async function executeIdempotent(
     return { result, deduplicated: false };
   } catch (error) {
     if (error instanceof Error && error.message === 'command_outcome_uncertain') throw error;
+    const recoveredHeadConflict =
+      claim.recovering &&
+      guardedBranchMutation(command) &&
+      error instanceof Error &&
+      error.message === 'branch_head_changed';
     const ambiguous =
-      executionCompleted || (command.op !== 'batch' && !executionFailureSafeToRetry(error));
+      executionCompleted ||
+      recoveredHeadConflict ||
+      (command.op !== 'batch' && !executionFailureSafeToRetry(error));
     if (ambiguous) {
       await markCheckpointUncertain(checkpointEnv, claim.operationId, claim.inputHash);
       throw new Error('command_outcome_uncertain');
@@ -968,6 +1281,20 @@ export function gptomekMailboxFailureIsTerminal(
 
   if (operation === 'delete_branch') {
     return errorValue === 'branch_head_changed';
+  }
+
+  if (operation === 'apply_patch') {
+    return (
+      errorValue === 'branch_head_changed' ||
+      deterministicPatchFailure(errorValue)
+    );
+  }
+
+  if (operation === 'revert_commit') {
+    return (
+      errorValue === 'branch_head_changed' ||
+      errorValue.startsWith('revert_')
+    );
   }
 
   return false;

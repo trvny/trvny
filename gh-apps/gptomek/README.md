@@ -69,6 +69,8 @@ command JSON; the transport itself carries the base64url-encoded JSON inside a
 | Goal | Operation |
 | --- | --- |
 | Commit one or more files on an existing branch | `commit_files` |
+| Apply a strict unified diff and commit the result | `apply_patch` |
+| Revert the current HEAD commit without local git | `revert_commit` |
 | Collapse a prepared branch into one GPTomek-authored commit | `adopt_branch` |
 | Remove a known branch safely | `delete_branch` |
 | Add a PR/issue conversation comment | `comment` |
@@ -147,11 +149,13 @@ Failed commands are retained for retry by default. GPTomek removes a failed
 command marker automatically only when the failure proves that replaying the
 same command would be stale or permanently invalid: an `adopt_branch` whose
 guarded head changed, whose branch disappeared, whose base/head have no changes,
-or whose immutable base/head relation is invalid; a `delete_branch` whose
-guarded head changed; a reused command ID with different input; or an operation
-rejected by the bot-write policy. In particular, `commit_files` head conflicts,
-API failures, permission problems, transient 4xx/5xx responses, and uncertain
-outcomes are not silently discarded.
+or whose immutable base/head relation is invalid; an `apply_patch` whose
+guarded head changed or whose strict patch validation/application failed; a
+`revert_commit` whose guarded head changed or target is no longer safely
+revertible; a `delete_branch` whose guarded head changed; a reused command ID
+with different input; or an operation rejected by the bot-write policy. In
+particular, `commit_files` head conflicts, API failures, permission problems,
+transient 4xx/5xx responses, and uncertain outcomes are not silently discarded.
 
 A same-operation smoke test on 2026-09-08 verified both paths end to end by
 adding a `gptomek[bot]` reaction and observing automatic marker cleanup. The
@@ -220,6 +224,12 @@ Supported operations:
 
 - `adopt_branch`: rewrite a branch into one GPTomek-authored commit.
 - `commit_files`: create one GPTomek-authored file commit.
+- `apply_patch`: strictly apply a bounded text-only unified diff against the guarded
+  branch head, then create one GPTomek-authored commit. Hunks must match exactly;
+  fuzzy matching, binary patches, renames/copies and mode-only changes are rejected.
+- `revert_commit`: restore the first parent's tree as a new GPTomek-authored commit,
+  but only when the requested commit is still the guarded branch HEAD. Older commits
+  and merge commits are deliberately rejected instead of approximating a three-way revert.
 - `delete_branch`: delete a branch only after checking that its head matches the
   supplied `expectedHeadSha`.
 - `comment`: add a PR/issue conversation comment with replay protection.
@@ -261,6 +271,44 @@ Supported operations:
 
 Set `content` to `null` to delete a file. A command can contain up to 32 unique
 paths; individual string contents are limited to 48,000 characters.
+
+### Apply a unified patch
+
+```json
+{
+  "id": "patch-example-20261008-1",
+  "op": "apply_patch",
+  "repository": "trvny/trvny",
+  "branch": "feat/example",
+  "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+  "message": "fix: adjust example",
+  "patch": "diff --git a/example.txt b/example.txt\n--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old\n+new\n"
+}
+```
+
+The patch may touch up to 32 text files and is applied only to the exact
+`expectedHeadSha`. Every hunk uses strict positional/context matching. New and
+deleted text files are supported; binary patches, renames/copies, mode-only
+changes and fuzzy hunk relocation are not.
+
+### Revert the current HEAD commit
+
+```json
+{
+  "id": "revert-example-20261008-1",
+  "op": "revert_commit",
+  "repository": "trvny/trvny",
+  "branch": "feat/example",
+  "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+  "commitSha": "0123456789abcdef0123456789abcdef01234567",
+  "message": "revert: bad change"
+}
+```
+
+`revert_commit` is intentionally conservative: `commitSha` must equal the
+current guarded branch HEAD and the target must have exactly one parent. GPTomek
+creates a new commit whose tree matches that parent, so no later branch changes
+can be silently overwritten.
 
 ### Adopt a prepared branch
 

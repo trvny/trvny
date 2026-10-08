@@ -121,11 +121,16 @@ test('free router skips a successful provider response with no assistant content
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
-  assert.deepEqual(calls, [
-    'https://openrouter.ai/api/v1/chat/completions',
-    'https://openrouter.ai/api/v1/chat/completions',
-    'https://api.orcarouter.ai/v1/chat/completions',
-  ]);
+  assert.equal(
+    calls.length,
+    REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.length + 2,
+  );
+  assert.deepEqual(
+    calls.slice(0, -1),
+    Array(REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.length + 1)
+      .fill('https://openrouter.ai/api/v1/chat/completions'),
+  );
+  assert.equal(calls[calls.length - 1], 'https://api.orcarouter.ai/v1/chat/completions');
   const payload = (await response?.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
@@ -296,7 +301,7 @@ test('OpenRouter primary retry keeps high reasoning after a fallback-chain 400',
     bodies.push(body);
     if (bodies.length === 1) {
       return Promise.resolve(Response.json({
-        error: { message: 'fallback request rejected' },
+        error: { message: 'models list invalid' },
       }, { status: 400 }));
     }
     return Promise.resolve(Response.json({
@@ -1425,7 +1430,7 @@ test('review router retries OpenRouter primary-only after a fallback-chain 400',
     ...auth, OPENROUTER_API_KEY: 'openrouter-key',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     bodies.push(JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown });
-    if (bodies.length === 1) return Promise.resolve(new Response('fallback list rejected', { status: 400 }));
+    if (bodies.length === 1) return Promise.resolve(new Response('models list invalid', { status: 400 }));
     return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
@@ -1436,21 +1441,134 @@ test('review router retries OpenRouter primary-only after a fallback-chain 400',
   assert.equal('models' in bodies[1], false);
 });
 
-test('review router falls through after both OpenRouter 400 attempts fail', async () => {
-  let calls = 0;
+test('review router reaches an explicit OpenRouter fallback after a dead primary model', async () => {
+  const bodies: Array<{ model?: unknown; models?: unknown }> = [];
   const response = await handleReviewRouterRequest(request(), {
-    ...auth, OPENROUTER_API_KEY: 'openrouter-key', OLLAMA_API_KEY: 'ollama-key',
-  }, ((input: RequestInfo | URL) => {
-    calls += 1;
-    if (new URL(String(input)).hostname === 'openrouter.ai') {
-      return Promise.resolve(new Response('model rejected request', { status: 400 }));
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,live/free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
+    bodies.push(body);
+    if (bodies.length === 1) {
+      return Promise.resolve(new Response('fallback list rejected', { status: 400 }));
+    }
+    if (bodies.length === 2) {
+      return Promise.resolve(new Response('model not found', { status: 404 }));
+    }
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
+  assert.deepEqual(bodies.map((body) => body.model), ['dead/free', 'dead/free', 'live/free']);
+  assert.deepEqual(bodies[0]?.models, ['live/free']);
+  assert.equal(bodies[1]?.models, undefined);
+  assert.equal(bodies[2]?.models, undefined);
+});
+
+test('reasoning-capable OpenRouter fallback preserves high reasoning', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    max_tokens: 36_864,
+    messages: [{ role: 'user', content: 'review carefully' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,qwen/qwen3.8-27b:free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    bodies.push(body);
+    if (bodies.length === 1) {
+      return Promise.resolve(new Response('models list invalid', { status: 400 }));
+    }
+    if (bodies.length === 2) {
+      return Promise.resolve(new Response('model not found', { status: 404 }));
+    }
+    return Promise.resolve(Response.json({
+      model: body.model,
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(bodies.length, 3);
+  assert.equal(bodies[2]?.model, 'qwen/qwen3.8-27b:free');
+  assert.deepEqual(bodies[2]?.reasoning, { effort: 'high' });
+  assert.equal(bodies[2]?.max_tokens, 36_864);
+});
+
+test('review router does not fan out model retries for a request-wide OpenRouter 400', async () => {
+  const bodies: Array<{ model?: unknown; models?: unknown }> = [];
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    OLLAMA_API_KEY: 'ollama-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.hostname === 'openrouter.ai') {
+      const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
+      bodies.push(body);
+      return Promise.resolve(new Response('invalid message payload', { status: 400 }));
     }
     return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'ollama');
-  assert.equal(calls, 3);
+  assert.equal(bodies.length, 2);
+  assert.ok(Array.isArray(bodies[0]?.models));
+  assert.equal(bodies[1]?.models, undefined);
+});
+
+test('review router stops model fanout after a primary unsupported-parameter error', async () => {
+  const bodies: Array<{ model?: unknown; models?: unknown }> = [];
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    OLLAMA_API_KEY: 'ollama-key',
+  }, ((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.hostname === 'openrouter.ai') {
+      const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
+      bodies.push(body);
+      if (bodies.length === 1) {
+        return Promise.resolve(new Response('models list invalid', { status: 400 }));
+      }
+      return Promise.resolve(new Response('unsupported parameter response_format', { status: 400 }));
+    }
+    return Promise.resolve(Response.json({
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'ollama');
+  assert.equal(bodies.length, 2);
+  assert.ok(Array.isArray(bodies[0]?.models));
+  assert.equal(bodies[1]?.models, undefined);
+});
+
+test('review router falls through after the OpenRouter chain and individual models fail', async () => {
+  let calls = 0;
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, OPENROUTER_API_KEY: 'openrouter-key', OLLAMA_API_KEY: 'ollama-key',
+  }, ((input: RequestInfo | URL) => {
+    calls += 1;
+    if (new URL(String(input)).hostname === 'openrouter.ai') {
+      return Promise.resolve(new Response('model not found', { status: 400 }));
+    }
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'ollama');
+  assert.equal(calls, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.length + 2);
 });
 
 test('review router follows configured free provider order and appends omitted providers', async () => {

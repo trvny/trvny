@@ -230,7 +230,7 @@ export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): Ex
       const pathname = new URL(request.url).pathname;
       if (pathname === '/authorize') return authorize(request, env);
       if (pathname === '/oauth/github/callback') return githubCallback(request, env);
-      return fallback.fetch(request, env, ctx);
+      return fallback.fetch!(request, env, ctx);
     },
   };
   return new OAuthProvider<GremlinOAuthEnv>({
@@ -251,7 +251,7 @@ export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): Ex
     },
     tokenExchangeCallback: async ({ grantType, props, env }) => {
       if (grantType !== 'refresh_token' || !props.githubRefreshToken) return;
-      if (unavailable(env)) throw new OAuthError('temporarily_unavailable', { statusCode: 503 });
+      if (unavailable(env)) throw new OAuthError('temporarily_unavailable', { statusCode: 503, description: 'GitHub OAuth is unavailable' });
       let token: GithubToken;
       try {
         token = await githubToken(env, { grant_type: 'refresh_token', refresh_token: props.githubRefreshToken });
@@ -259,7 +259,7 @@ export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): Ex
         throw new OAuthError('temporarily_unavailable', { statusCode: 503 });
       }
       if (!token.access_token || !token.refresh_token) {
-        throw new OAuthError(token.error === 'bad_refresh_token' ? 'invalid_grant' : 'temporarily_unavailable');
+        throw new OAuthError(token.error === 'bad_refresh_token' ? 'invalid_grant' : 'temporarily_unavailable', { description: 'GitHub token refresh failed' });
       }
       return {
         newProps: {

@@ -250,7 +250,7 @@ test('apply_patch preserves executable mode and advances to the new commit', asy
   assert.deepEqual(result, { sha: newCommit, files: 1 });
   assert.equal(
     calls.filter(({ operation }) => operation === 'gptomek_get_branch_ref').length,
-    2,
+    3,
   );
   assert.equal(
     calls.filter(({ operation }) => operation === 'gptomek_update_branch').length,
@@ -386,7 +386,7 @@ test('apply_patch verifies an ambiguous ref-update error against the live head',
       if (operation === 'gptomek_get_branch_ref') {
         headReads += 1;
         return {
-          object: { sha: headReads < 3 ? expected : newCommit },
+          object: { sha: headReads < 4 ? expected : newCommit },
         } as T;
       }
       if (operation === 'gptomek_get_commit') {
@@ -435,7 +435,7 @@ test('apply_patch verifies an ambiguous ref-update error against the live head',
   });
 
   assert.deepEqual(result, { sha: newCommit, files: 1 });
-  assert.equal(headReads, 3);
+  assert.equal(headReads, 4);
 });
 
 test('apply_patch keeps a verified no-op ref failure retryable', async () => {

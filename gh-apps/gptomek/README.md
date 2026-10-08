@@ -71,6 +71,7 @@ command JSON; the transport itself carries the base64url-encoded JSON inside a
 | Commit one or more files on an existing branch | `commit_files` |
 | Apply a strict unified diff and commit the result | `apply_patch` |
 | Revert the current HEAD commit without local git | `revert_commit` |
+| Reapply one strict single-parent commit onto a guarded branch | `cherry_pick` |
 | Collapse a prepared branch into one GPTomek-authored commit | `adopt_branch` |
 | Remove a known branch safely | `delete_branch` |
 | Add a PR/issue conversation comment | `comment` |
@@ -155,8 +156,10 @@ guarded head changed, whose branch disappeared, whose base/head have no changes,
 or whose immutable base/head relation is invalid; an `apply_patch` whose
 guarded head changed or whose strict patch validation/application failed; a
 `revert_commit` whose guarded head changed or target is no longer safely
-revertible; a `delete_branch` whose guarded head changed; a reused command ID
-with different input; or an operation rejected by the bot-write policy. In
+revertible; a `cherry_pick` whose guarded head changed or whose strict
+validation found a conflict or unsupported source change; a `delete_branch`
+whose guarded head changed; a reused command ID with different input; or an
+operation rejected by the bot-write policy. In
 particular, `commit_files` head conflicts, API failures, permission problems,
 transient 4xx/5xx responses, and uncertain outcomes are not silently discarded.
 
@@ -252,6 +255,10 @@ Supported operations:
 - `revert_commit`: restore the first parent's tree as a new GPTomek-authored commit,
   but only when the requested commit is still the guarded branch HEAD. Older commits
   and merge commits are deliberately rejected instead of approximating a three-way revert.
+- `cherry_pick`: reapply the file-level tree delta from one single-parent commit
+  onto the guarded branch. The target must still match the source commit's parent
+  for every affected path; overlapping changes, merge commits and file/directory
+  shape changes are rejected instead of being auto-merged.
 - `delete_branch`: delete a branch only after checking that its head matches the
   supplied `expectedHeadSha`.
 - `comment`: add a PR/issue conversation comment with replay protection.
@@ -333,6 +340,34 @@ mode-only changes, unsupported file modes and fuzzy hunk relocation are not.
 current guarded branch HEAD and the target must have exactly one parent. GPTomek
 creates a new commit whose tree matches that parent, so no later branch changes
 can be silently overwritten.
+
+### Cherry-pick a commit
+
+```json
+{
+  "id": "cherry-pick-example-20261008-1",
+  "op": "cherry_pick",
+  "repository": "trvny/trvny",
+  "branch": "feat/target",
+  "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+  "commitSha": "89abcdef0123456789abcdef0123456789abcdef"
+}
+```
+
+By default the new GPTomek-authored commit reuses the source commit message.
+Supply `message` to override it. The source must have exactly one parent.
+GPTomek compares the source commit's parent tree with the source tree, then
+requires the guarded target tree to still match that parent for every affected
+path. Unrelated target changes are preserved. Conflicting paths are rejected
+rather than line-merged.
+
+Because the operation reuses Git object SHAs, it can carry regular files,
+executables, symlinks and submodule entries without downloading or re-encoding
+their contents. Rename-like changes work as a strict delete plus add when the
+destination is free. A single cherry-pick is capped at 512 file-level changes;
+directory-descendant checks use a precomputed prefix index rather than rescanning
+the repository tree per path. File-to-directory and directory-to-file
+transitions are deliberately rejected in this first version.
 
 ### Adopt a prepared branch
 

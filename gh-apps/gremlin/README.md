@@ -23,7 +23,7 @@ Action authorization is re-run using that user token for every MCP request.
 Deployment prerequisites:
 
 1. `OAUTH_KV`: dedicated `gremlin-oauth` KV namespace, defined in `wrangler.jsonc`.
-2. `GITHUB_OAUTH_CLIENT_ID` and `GITHUB_OAUTH_CLIENT_SECRET`: secret Worker bindings.
+2. `GREMLIN_OAUTH_CLIENT_ID` and `GREMLIN_OAUTH_CLIENT_SECRET`: secret Worker bindings.
    Use the existing GPTomek GitHub App's OAuth client ID and client secret only
    after checking its authorization settings and scopes. Never confuse App ID
    with OAuth client ID.

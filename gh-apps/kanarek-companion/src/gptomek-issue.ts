@@ -3,7 +3,10 @@ import type {
   CompanionResult,
   CompanionTarget,
 } from './companion-types.ts';
-import { handleGptomekMailboxCommand } from './gptomek.ts';
+import {
+  handleGptomekCommentCommand,
+  handleGptomekMailboxCommand,
+} from './gptomek.ts';
 import { createInstallationClient, GitHubApiError } from './github-app.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
@@ -69,20 +72,27 @@ export function isGptomekControlIssueEvent(
   );
 }
 
-async function currentIssue(
+async function controlClient(
   env: CompanionEnv,
   fetcher: typeof fetch,
-): Promise<{ body: string | null; user: { login: string } }> {
+) {
   const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
   if (!Number.isInteger(installationId) || installationId <= 0) {
     throw new Error('invalid_gptomek_installation_id');
   }
-  const client = await createInstallationClient(
+  return createInstallationClient(
     String(env.GPTOMEK_APP_ID ?? ''),
     String(env.GPTOMEK_PRIVATE_KEY ?? ''),
     installationId,
     fetcher,
   );
+}
+
+async function currentIssue(
+  env: CompanionEnv,
+  fetcher: typeof fetch,
+): Promise<{ body: string | null; user: { login: string } }> {
+  const client = await controlClient(env, fetcher);
   const controlIssue = await client.json<{
     body?: unknown;
     number?: unknown;
@@ -103,6 +113,72 @@ async function currentIssue(
     body: typeof controlIssue.body === 'string' ? controlIssue.body : null,
     user: { login: 'trvny' },
   };
+}
+
+async function currentIssueComment(
+  commentId: number,
+  env: CompanionEnv,
+  fetcher: typeof fetch,
+): Promise<{ body: string; id: number }> {
+  const client = await controlClient(env, fetcher);
+  const comment = await client.json<{
+    body?: unknown;
+    id?: unknown;
+    issue_url?: unknown;
+    user?: { login?: unknown };
+  }>(
+    `/repos/${CONTROL_REPOSITORY}/issues/comments/${commentId}`,
+    'gptomek_get_control_comment',
+  );
+  const issueUrl = `https://api.github.com/repos/${CONTROL_REPOSITORY}/issues/${GPTOMEK_CONTROL_ISSUE}`;
+  if (
+    comment.id !== commentId ||
+    comment.issue_url !== issueUrl ||
+    comment.user?.login !== 'trvny' ||
+    typeof comment.body !== 'string'
+  ) {
+    throw new Error('invalid_gptomek_control_comment');
+  }
+  return { body: comment.body, id: commentId };
+}
+
+export async function handleGptomekCommentControl(
+  target: CompanionTarget,
+  env: CompanionEnv,
+  fetcher: typeof fetch = runtimeFetch,
+): Promise<CompanionResult> {
+  if (
+    target.repository !== CONTROL_REPOSITORY ||
+    target.pullRequestNumber !== GPTOMEK_CONTROL_ISSUE ||
+    target.sourceEvent !== 'gptomek_comment' ||
+    typeof target.commentId !== 'number' ||
+    !Number.isInteger(target.commentId) ||
+    target.commentId <= 0
+  ) {
+    throw new Error('invalid_gptomek_comment_target');
+  }
+
+  try {
+    const comment = await currentIssueComment(target.commentId, env, fetcher);
+    const result = await handleGptomekCommentCommand(comment.body, env, fetcher);
+    return {
+      changed: result.handled,
+      commentId: target.commentId,
+      quipSource: 'preset',
+      state: result.result?.ok ? 'gptomek-comment-ok' : 'gptomek-comment-error',
+    };
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        gptomek: 'comment_control_failed',
+        commentId: target.commentId,
+        failure: issueFailure(error),
+        issueNumber: target.pullRequestNumber,
+        repository: target.repository,
+      }),
+    );
+    throw error;
+  }
 }
 
 export async function handleGptomekIssueControl(

@@ -7,10 +7,15 @@ import { commandMarker } from '../src/gptomek.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
   GPTOMEK_WAKE_LABEL,
+  handleGptomekCommentControl,
   handleGptomekIssueControl,
   isGptomekControlIssueEvent,
 } from '../src/gptomek-issue.ts';
-import { companionTargets, isCompanionEvent } from '../src/index.ts';
+import {
+  companionTargets,
+  isCompanionEvent,
+  shouldCoalesceTarget,
+} from '../src/index.ts';
 
 const metadata = {
   action: 'edited',
@@ -234,4 +239,149 @@ test('executes and clears the issue mailbox without the legacy PR shim', async (
   const patched = JSON.parse(patches[0]?.body ?? '{}') as { body?: string };
   assert.match(patched.body ?? '', /^GPTomek control mailbox\.\n\n<!-- gptomek-result:/);
   assert.equal((patched.body ?? '').includes('gptomek-command:'), false);
+});
+
+
+test('executes a fenced JSON control comment without staging a base64 mailbox marker', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString();
+  const commentId = 777;
+  const command = {
+    id: 'comment-native-1',
+    op: 'react_issue_comment',
+    repository: 'trvny/trvny',
+    commentId: 12345,
+    reaction: 'eyes',
+  };
+  const commentBody = '```gptomek\n' + JSON.stringify(command, null, 2) + '\n```';
+  const calls: Array<{ method: string; path: string; body: string | null }> = [];
+  const json = (value: unknown) =>
+    new Response(JSON.stringify(value), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  const fetcher: typeof fetch = async (input, init = {}) => {
+    const url = new URL(
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url,
+    );
+    const method = (init.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+    const body = typeof init.body === 'string' ? init.body : null;
+    calls.push({ method, path: url.pathname, body });
+
+    if (method === 'POST' && url.pathname === '/app/installations/152126523/access_tokens') {
+      return json({
+        token: 'installation-token',
+        expires_at: '2099-01-01T00:00:00Z',
+        permissions: { issues: 'write', pull_requests: 'write', contents: 'write' },
+      });
+    }
+    if (
+      method === 'GET' &&
+      url.pathname === `/repos/trvny/trvny/issues/comments/${commentId}`
+    ) {
+      return json({
+        id: commentId,
+        body: commentBody,
+        issue_url: 'https://api.github.com/repos/trvny/trvny/issues/203',
+        user: { login: 'trvny' },
+      });
+    }
+    if (method === 'GET' && url.pathname === '/repos/trvny/trvny/installation') {
+      return json({ id: 152126523 });
+    }
+    if (
+      method === 'POST' &&
+      url.pathname === '/repos/trvny/trvny/issues/comments/12345/reactions'
+    ) {
+      return json({ id: 1, content: 'eyes' });
+    }
+    return new Response('unexpected request', { status: 500 });
+  };
+  const target: CompanionTarget = {
+    delivery: `gptomek-comment:${commentId}`,
+    installationId: 152126523,
+    pullRequestNumber: 203,
+    repository: 'trvny/trvny',
+    sourceEvent: 'gptomek_comment',
+    commentId,
+  };
+  const env = {
+    GPTOMEK_APP_ID: '4524407',
+    GPTOMEK_INSTALLATION_ID: '152126523',
+    GPTOMEK_PRIVATE_KEY: privateKey,
+    OPERATOR_CHECKPOINTS: checkpointNamespace(),
+  } as CompanionEnv & { OPERATOR_CHECKPOINTS: DurableObjectNamespace };
+
+  assert.equal(shouldCoalesceTarget(target), false);
+  const result = await handleGptomekCommentControl(target, env, fetcher);
+
+  assert.equal(result.changed, true);
+  assert.equal(result.state, 'gptomek-comment-ok');
+  assert.equal(result.commentId, commentId);
+  assert.equal(calls.some((call) => call.method === 'PATCH'), false);
+  assert.equal(calls.some((call) => call.path.includes('/pulls/176')), false);
+});
+
+test('rejects a control comment authored by someone else before command execution', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' })
+    .toString();
+  const commentId = 778;
+  const calls: string[] = [];
+  const json = (value: unknown) =>
+    new Response(JSON.stringify(value), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  const fetcher: typeof fetch = async (input, init = {}) => {
+    const url = new URL(
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url,
+    );
+    const method = (init.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+    calls.push(`${method} ${url.pathname}`);
+    if (method === 'POST' && url.pathname === '/app/installations/152126523/access_tokens') {
+      return json({ token: 'installation-token', expires_at: '2099-01-01T00:00:00Z' });
+    }
+    if (
+      method === 'GET' &&
+      url.pathname === `/repos/trvny/trvny/issues/comments/${commentId}`
+    ) {
+      return json({
+        id: commentId,
+        body: '```gptomek\n{}\n```',
+        issue_url: 'https://api.github.com/repos/trvny/trvny/issues/203',
+        user: { login: 'someone-else' },
+      });
+    }
+    return new Response('unexpected request', { status: 500 });
+  };
+  const target: CompanionTarget = {
+    delivery: `gptomek-comment:${commentId}`,
+    installationId: 152126523,
+    pullRequestNumber: 203,
+    repository: 'trvny/trvny',
+    sourceEvent: 'gptomek_comment',
+    commentId,
+  };
+  const env = {
+    GPTOMEK_APP_ID: '4524407',
+    GPTOMEK_INSTALLATION_ID: '152126523',
+    GPTOMEK_PRIVATE_KEY: privateKey,
+    OPERATOR_CHECKPOINTS: checkpointNamespace(),
+  } as CompanionEnv & { OPERATOR_CHECKPOINTS: DurableObjectNamespace };
+
+  await assert.rejects(
+    handleGptomekCommentControl(target, env, fetcher),
+    /invalid_gptomek_control_comment/,
+  );
+  assert.equal(calls.some((call) => call.includes('/reactions')), false);
 });

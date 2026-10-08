@@ -10,22 +10,27 @@ while pull requests and selected human-authorized state changes stay authored by
 
 For normal GPTomek work:
 
-1. Use Issue [`trvny/trvny#203`](https://github.com/trvny/trvny/issues/203)
-   as the control mailbox.
+1. Add a new comment to Issue [`trvny/trvny#203`](https://github.com/trvny/trvny/issues/203)
+   containing exactly one fenced `gptomek` JSON block.
 2. Give every new logical command a fresh `id`. Reuse that same ID only when
    replaying the same operation.
 3. For branch-changing operations, read the branch head immediately before the
    command and pass it as `expectedHeadSha`.
-4. Let the primary Issue path execute the command. Successful bot writes are
-   performed by `gptomek[bot]` and the hidden command marker is consumed.
+4. The comment workflow sends only the GitHub comment ID to the shared Worker.
+   GPTomek fetches and validates the comment itself, then runs the same command
+   parser and checkpointed executor used by the legacy mailbox. A 👍 reaction
+   means the command completed successfully; 👎 means validation, execution or
+   transport failed.
 5. Use closed PR [`#176`](https://github.com/trvny/trvny/pull/176) manually
-   only when the Issue/Actions relay itself is unavailable. Put exactly one
-   command marker in that PR body.
+   only when the direct comment/Worker path itself is unavailable. Put exactly
+   one legacy command marker in that PR body.
 6. Keep the `gptomek/control` ref and PR #176 intact. They are an active
    fallback transport, not historical debris.
 
-The control mailboxes are internal transport. Humans normally do not need to
-edit the encoded markers by hand.
+Humans and connectors should not hand-build base64url markers anymore. Normal
+comment commands never create an encoded Issue-body marker at all. The old
+base64url marker remains only for the legacy Issue-body mailbox and PR #176
+compatibility/fallback paths.
 
 ## Preferred PR merge flow
 
@@ -52,19 +57,38 @@ while the pull request itself stays authored by `trvny`, use this flow:
 
 | Situation | Transport | What happens |
 | --- | --- | --- |
-| Normal bot-authored write | Issue #203 | Default path. The Issue edit wakes the Worker through the guarded Actions relay. |
-| Primary wake fails | PR #176 automatically | The mailbox workflow forwards still-live commands through the closed PR one at a time and synchronizes results back to #203. |
-| Several commands land in #203 together | PR #176 automatically | The fallback serializes that event snapshot instead of letting one retryable command block later commands. |
-| Actions / Issue relay itself is unavailable | PR #176 manually | Put exactly one marker in the closed PR body and reuse the same command ID when replaying the same operation. |
+| Normal bot-authored write | JSON comment on Issue #203 | Preferred path. Actions forwards the comment ID; the Worker fetches, validates and executes the JSON directly through the shared Durable Object lock. |
+| Existing encoded Issue-body marker | Issue #203 | Legacy compatibility path. Its existing Actions relay and automatic PR #176 failover remain intact. |
+| Legacy Issue wake fails | PR #176 automatically | The legacy mailbox workflow forwards its still-live encoded command through the closed PR and synchronizes the result back to #203. |
+| Direct comment/Worker path is unavailable | PR #176 manually | Emergency path. Put exactly one legacy marker in the closed PR body and reuse the same command ID when replaying the same operation. |
 
 Issue #203 is the maintained default. PR #176 is an independent fallback
 transport, not a second queue.
 
 ## Quick operator guide
 
-Use Issue #203 as the normal transport. The snippets below show the decoded
-command JSON; the transport itself carries the base64url-encoded JSON inside a
-`<!-- gptomek-command:... -->` marker.
+Use a comment on Issue #203 as the normal operator transport. The whole comment
+must be one fenced `gptomek` block, for example:
+
+````markdown
+```gptomek
+{
+  "id": "example-20261008-1",
+  "op": "comment",
+  "repository": "trvny/trvny",
+  "pullRequestNumber": 123,
+  "body": "Hello from GPTomek."
+}
+```
+````
+
+The workflow sends only the numeric comment ID to the Worker's authenticated
+`/gptomek/wake` endpoint. The Worker then fetches that comment using the
+GPTomek App installation, verifies that it belongs to Issue #203 and was
+authored by `trvny`, parses the fenced JSON, and feeds it into the same command
+parser and checkpointed executor as the legacy transport. Concurrent comment
+commands are serialized by the existing Durable Object lock, so GitHub Actions
+concurrency is not used as a lossy queue.
 
 | Goal | Operation |
 | --- | --- |
@@ -103,14 +127,13 @@ different jobs:
 
 | Visible editor | Why it appears |
 | --- | --- |
-| `trvny` | The authorized human/connector side writes or wakes a command in the primary mailbox. |
-| `gptomek[bot]` | The normal Worker path performs bot-authored GitHub writes and mailbox/result cleanup. |
-| `github-actions[bot]` | The Actions fallback copies commands through PR #176 and synchronizes fallback results back to Issue #203 with the workflow token. |
+| `trvny` | The authorized human/connector side posts the plain-JSON command comment. |
+| `gptomek[bot]` | The Worker fetches the command with the App token and performs the requested bot-authored GitHub writes. |
+| `github-actions[bot]` | The thin comment workflow calls the authenticated Worker endpoint and adds the final 👍/👎 transport/result reaction. It still owns legacy PR #176 fallback synchronization. |
 
-So the usual healthy primary-path pattern is mostly `trvny` ↔
-`gptomek[bot]`. A burst of `github-actions[bot]` edits means the fallback
-relay was active; it is not the desired author for repository commits or normal
-GPTomek comments.
+The normal comment path no longer edits Issue #203's body. `trvny` posts JSON,
+`github-actions[bot]` forwards only the comment ID, and `gptomek[bot]`
+performs the requested repository operation.
 
 ## Technical reference
 
@@ -128,10 +151,22 @@ GPTomek comments.
 
 ### Transport internals and recovery
 
-The primary transport is Issue #203. Commands are hidden in its body as
-`<!-- gptomek-command:... -->`. A normal body edit wakes the GitHub Actions
-relay, which calls `/gptomek/wake`; the shared Worker executes the guarded
-command and records the result.
+The preferred operator surface is a plain JSON command comment on Issue #203.
+`.github/workflows/gptomek-comment-command.yml` accepts comments created by
+`trvny` on that control Issue and sends only `commentId` to
+`/gptomek/wake`. The Worker independently fetches the comment with GPTomek's
+installation token, verifies the Issue and author, requires the entire comment
+to be one fenced `gptomek` JSON block, and executes the parsed command through
+the shared checkpointed executor.
+
+This direct path does not create or consume an Issue-body command marker.
+Successful command execution gets 👍 on the source comment; rejected or failed
+commands get 👎. Replaying the same comment is deduplicated by the Durable
+Object delivery key and the command checkpoint.
+
+The encoded `<!-- gptomek-command:... -->` format remains supported only by
+the older Issue-body mailbox and closed PR #176. That preserves a known
+emergency/fallback path without making base64url part of normal operation.
 
 The closed PR #176 and its `gptomek/control` head ref remain a deliberate
 fallback. Do not delete, merge, rebase, routinely sync or repurpose that branch,
@@ -186,12 +221,13 @@ exercise covered the real mailbox wake, Worker authentication, Git data writes,
 branch guards, result-marker cleanup and bot attribution rather than only unit
 tests or CI.
 
-| Property | Issue #203 | PR #176 |
+| Property | JSON comment / Issue #203 | PR #176 |
 | --- | --- | --- |
 | Supported GPTomek operations | same shared command set | same shared command set |
-| Wake path | Issue edit → Actions relay → Worker | PR edit → Worker webhook |
+| Wake path | comment → Actions sends comment ID → Worker/DO | PR edit → Worker webhook |
+| Base64 marker on normal path | no | yes, legacy transport |
 | Repository baggage | branchless | requires closed PR + persistent `gptomek/control` ref |
-| Best role | maintained default | independent fallback |
+| Best role | maintained operator default | emergency/legacy fallback |
 
 The PR path has fewer transport hops, which is useful when Actions or the Issue
 relay is the failing component. That is not a reason to use it routinely: the
@@ -199,10 +235,10 @@ Issue mailbox is clearer, branchless and easier to maintain.
 
 When diagnosing the Issue path, check the chain in this order:
 
-1. the edit of Issue #203 and the `gptomek-wake` Actions run;
+1. the JSON comment and the `Run GPTomek JSON comment` Actions run;
 2. the Worker's `/gptomek/wake` response and Cloudflare logs;
-3. the GPTomek command result and automatic marker removal;
-4. if the primary wake failed, PR #176 consumption and result sync back to #203.
+3. the 👍/👎 reaction plus the repository state produced by the command;
+4. for legacy encoded commands only, the Issue #203 marker and PR #176 fallback.
 
 A known Cloudflare failure mode is passing the runtime `fetch` function around
 unbound. Inside Worker/Durable Object paths use a Worker-safe wrapper such as

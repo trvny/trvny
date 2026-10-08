@@ -29,6 +29,7 @@ export interface CompanionTarget {
   pullRequestNumber: number;
   repository: string;
   sourceEvent: string;
+  commentId?: number;
 }
 
 export interface CompanionResult {

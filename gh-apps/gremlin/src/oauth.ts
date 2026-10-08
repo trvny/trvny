@@ -245,7 +245,6 @@ export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): Ex
     resourceMetadata: {
       resource: RESOURCE,
       authorization_servers: [ORIGIN],
-      scopes_supported: ['mcp'],
       resource_name: 'MechaGremlin',
     },
     tokenExchangeCallback: async ({ grantType, props, env }) => {

@@ -82,6 +82,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_DEEPSEEK_REASONING_EFFORT: 'max',
   KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS: '131072',
   KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
+  KANAREK_REVIEW_GEMINI_THINKING_LEVEL: 'high',
 } as const;
 const DEFAULT_REVIEW_AIHUBMIX_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_AIHUBMIX_MODELS;
 const DEFAULT_WORKERS_AI_REVIEW_MODEL = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_WORKERS_AI_MODEL;
@@ -169,6 +170,7 @@ const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudge
   'workers-ai': 'daily-neurons',
 };
 const GROQ_REASONING_EFFORTS = new Set(['low', 'medium', 'high']);
+const GEMINI_THINKING_LEVELS = new Set(['minimal', 'low', 'medium', 'high']);
 const AIHUBMIX_RETRYABLE_MESSAGES = [
   'to prevent abuse of free resources',
   'accounts that have not been recharged can only try',
@@ -217,6 +219,7 @@ export interface ReviewRouterEnv {
   KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS?: string;
   KANAREK_REVIEW_GEMINI_MODEL?: string;
   KANAREK_REVIEW_GEMINI_SERVICE_TIER?: string;
+  KANAREK_REVIEW_GEMINI_THINKING_LEVEL?: string;
   KANAREK_REVIEW_COOLDOWNS?: DurableObjectNamespace;
   KANAREK_REVIEW_QUOTA_COOLDOWN_MS?: string;
   KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS?: string;
@@ -267,6 +270,7 @@ type ReviewProvider = {
   headers?: Record<string, string>;
   requestFields?: JsonObject;
   timeoutMs?: number;
+  protocol?: 'openai-chat' | 'gemini-interactions';
 };
 
 export type ProviderCooldown = {
@@ -325,6 +329,12 @@ function configuredText(raw: string | undefined, fallback: string): string {
 function configuredGroqReasoningEffort(raw: string | undefined, fallback: string): string {
   const normalized = raw?.trim().toLowerCase();
   return normalized && GROQ_REASONING_EFFORTS.has(normalized) ? normalized : fallback;
+}
+
+function configuredGeminiThinkingLevel(raw: string | undefined): string {
+  const fallback = REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_GEMINI_THINKING_LEVEL;
+  const normalized = raw?.trim().toLowerCase();
+  return normalized && GEMINI_THINKING_LEVELS.has(normalized) ? normalized : fallback;
 }
 
 function groqSupportsReasoningEffort(model: string): boolean {
@@ -596,15 +606,17 @@ function deepSeekPaidProvider(
 function geminiPaidProvider(env: ReviewRouterEnv): ReviewProvider {
   return {
     id: 'gemini-flex',
-    url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    url: 'https://generativelanguage.googleapis.com/v1/interactions',
     model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || DEFAULT_REVIEW_GEMINI_MODEL,
     apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
     timeoutMs: MAX_TIMEOUT_MS,
+    protocol: 'gemini-interactions',
     requestFields: {
       service_tier: configuredText(
         env.KANAREK_REVIEW_GEMINI_SERVICE_TIER,
         REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_GEMINI_SERVICE_TIER,
       ),
+      thinking_level: configuredGeminiThinkingLevel(env.KANAREK_REVIEW_GEMINI_THINKING_LEVEL),
     },
   };
 }
@@ -704,8 +716,23 @@ function normalizeProviderInput(input: JsonObject): JsonObject {
   return changed ? { ...input, messages } : input;
 }
 
+const GEMINI_PROVIDER_STATE_KEY = 'kanarek_provider_state';
+
+function stripGeminiProviderState(input: JsonObject): JsonObject {
+  if (!Array.isArray(input.messages)) return input;
+  let changed = false;
+  const messages = input.messages.map((message) => {
+    if (!isObject(message) || !(GEMINI_PROVIDER_STATE_KEY in message)) return message;
+    const normalized = { ...message };
+    delete normalized[GEMINI_PROVIDER_STATE_KEY];
+    changed = true;
+    return normalized;
+  });
+  return changed ? { ...input, messages } : input;
+}
+
 function providerBaseInput(provider: ReviewProvider, input: JsonObject): JsonObject {
-  if (provider.id !== 'gemini-flex') return input;
+  if (provider.id !== 'gemini-flex') return stripGeminiProviderState(input);
   const normalized = { ...input };
   delete normalized.temperature;
   delete normalized.top_p;
@@ -713,6 +740,294 @@ function providerBaseInput(provider: ReviewProvider, input: JsonObject): JsonObj
   delete normalized.thinking_budget;
   delete normalized.candidate_count;
   return normalized;
+}
+
+type GeminiInteractionConversation = {
+  input: JsonObject[];
+  systemInstruction?: string;
+};
+
+function geminiMessageText(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+  if (!Array.isArray(value)) return null;
+  const parts: string[] = [];
+  for (const part of value) {
+    if (!isObject(part) || part.type !== 'text' || typeof part.text !== 'string') return null;
+    parts.push(part.text);
+  }
+  return parts.join('\n');
+}
+
+function geminiReplaySteps(message: JsonObject): JsonObject[] | null {
+  const state = message[GEMINI_PROVIDER_STATE_KEY];
+  if (state === undefined) return null;
+  if (!isObject(state) || !isObject(state.gemini_interactions)) return null;
+  const rawSteps = state.gemini_interactions.steps;
+  if (!Array.isArray(rawSteps) || rawSteps.length === 0 || rawSteps.some((step) => !isObject(step))) {
+    return null;
+  }
+  return rawSteps as JsonObject[];
+}
+
+function geminiInteractionConversation(messages: unknown): GeminiInteractionConversation | null {
+  if (!Array.isArray(messages)) return null;
+  const system: string[] = [];
+  const steps: JsonObject[] = [];
+
+  for (const message of messages) {
+    if (!isObject(message) || typeof message.role !== 'string') return null;
+    if (message.role === 'system' || message.role === 'developer') {
+      const text = geminiMessageText(message.content);
+      if (text === null) return null;
+      if (text) system.push(text);
+      continue;
+    }
+
+    if (message.role === 'user') {
+      const text = geminiMessageText(message.content);
+      if (text === null) return null;
+      steps.push({ type: 'user_input', content: [{ type: 'text', text }] });
+      continue;
+    }
+
+    if (message.role === 'assistant') {
+      const replaySteps = geminiReplaySteps(message);
+      if (replaySteps) {
+        steps.push(...replaySteps);
+        continue;
+      }
+
+      const text = message.content === null || message.content === undefined
+        ? null
+        : geminiMessageText(message.content);
+      if (message.content !== null && message.content !== undefined && text === null) return null;
+      if (text) {
+        steps.push({ type: 'model_output', content: [{ type: 'text', text }] });
+      }
+
+      const toolCalls = message.tool_calls;
+      if (toolCalls !== undefined) {
+        if (!Array.isArray(toolCalls)) return null;
+        for (const call of toolCalls) {
+          if (!isObject(call) || typeof call.id !== 'string' || !isObject(call.function)) return null;
+          const fn = call.function;
+          if (typeof fn.name !== 'string' || !fn.name) return null;
+          let args: JsonObject = {};
+          if (typeof fn.arguments === 'string' && fn.arguments.trim()) {
+            try {
+              const parsed: unknown = JSON.parse(fn.arguments);
+              if (!isObject(parsed)) return null;
+              args = parsed;
+            } catch {
+              return null;
+            }
+          } else if (fn.arguments !== undefined) {
+            if (!isObject(fn.arguments)) return null;
+            args = fn.arguments;
+          }
+          steps.push({ type: 'function_call', id: call.id, name: fn.name, arguments: args });
+        }
+      }
+      if (!text && (!Array.isArray(toolCalls) || toolCalls.length === 0)) return null;
+      continue;
+    }
+
+    if (message.role === 'tool') {
+      if (typeof message.tool_call_id !== 'string' || !message.tool_call_id) return null;
+      const text = geminiMessageText(message.content);
+      if (text === null) return null;
+      steps.push({
+        type: 'function_result',
+        call_id: message.tool_call_id,
+        ...(typeof message.name === 'string' && message.name ? { name: message.name } : {}),
+        result: [{ type: 'text', text }],
+      });
+      continue;
+    }
+
+    return null;
+  }
+
+  if (steps.length === 0) return null;
+  return {
+    input: steps,
+    ...(system.length ? { systemInstruction: system.join('\n\n') } : {}),
+  };
+}
+
+function geminiInteractionTools(value: unknown): JsonObject[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const tools: JsonObject[] = [];
+  for (const tool of value) {
+    if (!isObject(tool) || tool.type !== 'function' || !isObject(tool.function)) return null;
+    const fn = tool.function;
+    if (typeof fn.name !== 'string' || !fn.name) return null;
+    if (fn.parameters !== undefined && !isObject(fn.parameters)) return null;
+    tools.push({
+      type: 'function',
+      name: fn.name,
+      ...(typeof fn.description === 'string' && fn.description
+        ? { description: fn.description }
+        : {}),
+      ...(isObject(fn.parameters) ? { parameters: fn.parameters } : {}),
+    });
+  }
+  return tools;
+}
+
+function geminiInteractionRequestBody(input: JsonObject, model: string): JsonObject | null {
+  if (input.stream === true) return null;
+  const conversation = geminiInteractionConversation(input.messages);
+  if (!conversation) return null;
+  const tools = geminiInteractionTools(input.tools);
+  if (!tools) return null;
+
+  const generationConfig: JsonObject = {};
+  const maxOutputTokens = typeof input.max_tokens === 'number' && Number.isFinite(input.max_tokens)
+    ? input.max_tokens
+    : typeof input.max_completion_tokens === 'number' && Number.isFinite(input.max_completion_tokens)
+      ? input.max_completion_tokens
+      : undefined;
+  if (maxOutputTokens !== undefined) generationConfig.max_output_tokens = Math.max(1, Math.ceil(maxOutputTokens));
+  if (typeof input.thinking_level === 'string' && GEMINI_THINKING_LEVELS.has(input.thinking_level)) {
+    generationConfig.thinking_level = input.thinking_level;
+  }
+  if (input.tool_choice === 'auto' || input.tool_choice === 'none') {
+    generationConfig.tool_choice = input.tool_choice;
+  } else if (input.tool_choice === 'required') {
+    generationConfig.tool_choice = 'any';
+  } else if (isObject(input.tool_choice)) {
+    const choice = input.tool_choice;
+    const fn = choice.function;
+    if (choice.type !== 'function' || !isObject(fn) || typeof fn.name !== 'string' || !fn.name) {
+      return null;
+    }
+    generationConfig.tool_choice = {
+      allowed_tools: { mode: 'any', tools: [fn.name] },
+    };
+  } else if (input.tool_choice !== undefined) {
+    return null;
+  }
+
+  const responseFormat = isObject(input.response_format) && input.response_format.type === 'json_object'
+    ? [{ type: 'text', mime_type: 'application/json' }]
+    : undefined;
+
+  return {
+    model,
+    input: conversation.input,
+    ...(conversation.systemInstruction ? { system_instruction: conversation.systemInstruction } : {}),
+    ...(tools.length ? { tools } : {}),
+    ...(Object.keys(generationConfig).length ? { generation_config: generationConfig } : {}),
+    ...(typeof input.service_tier === 'string' && input.service_tier
+      ? { service_tier: input.service_tier }
+      : {}),
+    ...(responseFormat ? { response_format: responseFormat } : {}),
+    stream: false,
+    store: false,
+  };
+}
+
+function geminiInteractionUsage(value: unknown): JsonObject | undefined {
+  if (!isObject(value)) return undefined;
+  const promptTokens = value.total_input_tokens;
+  const completionTokens = value.total_output_tokens;
+  const totalTokens = value.total_tokens;
+  if (
+    typeof promptTokens !== 'number' ||
+    typeof completionTokens !== 'number' ||
+    typeof totalTokens !== 'number'
+  ) return undefined;
+  const reasoningTokens = value.total_thought_tokens;
+  return {
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: totalTokens,
+    ...(typeof reasoningTokens === 'number'
+      ? { completion_tokens_details: { reasoning_tokens: reasoningTokens } }
+      : {}),
+  };
+}
+
+async function geminiInteractionChatCompletion(
+  response: Response,
+  provider: ReviewProvider,
+): Promise<Response | null> {
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return null;
+  }
+  if (!isObject(payload) || !Array.isArray(payload.steps)) return null;
+
+  const text: string[] = [];
+  const toolCalls: JsonObject[] = [];
+  for (const step of payload.steps) {
+    if (!isObject(step) || typeof step.type !== 'string') continue;
+    if (step.type === 'model_output' && Array.isArray(step.content)) {
+      for (const part of step.content) {
+        if (isObject(part) && part.type === 'text' && typeof part.text === 'string') {
+          text.push(part.text);
+        }
+      }
+      continue;
+    }
+    if (
+      step.type === 'function_call' &&
+      typeof step.id === 'string' &&
+      typeof step.name === 'string' &&
+      isObject(step.arguments)
+    ) {
+      toolCalls.push({
+        id: step.id,
+        type: 'function',
+        function: { name: step.name, arguments: JSON.stringify(step.arguments) },
+      });
+    }
+  }
+
+  const content = text.join('\n').trim();
+  if (!content && toolCalls.length === 0) return null;
+  const status = typeof payload.status === 'string' ? payload.status : '';
+  if (status === 'failed' || status === 'cancelled') return null;
+
+  const model = typeof payload.model === 'string' && payload.model ? payload.model : provider.model;
+  const usage = geminiInteractionUsage(payload.usage);
+  const completion = {
+    ...(typeof payload.id === 'string' ? { id: payload.id } : {}),
+    object: 'chat.completion',
+    model,
+    choices: [{
+      index: 0,
+      message: {
+        role: 'assistant',
+        content: content || null,
+        ...(toolCalls.length
+          ? {
+              tool_calls: toolCalls,
+              [GEMINI_PROVIDER_STATE_KEY]: {
+                gemini_interactions: { steps: payload.steps },
+              },
+            }
+          : {}),
+      },
+      finish_reason: toolCalls.length ? 'tool_calls' : status === 'incomplete' ? 'length' : 'stop',
+    }],
+    ...(usage ? { usage } : {}),
+  };
+
+  const headers = new Headers({
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+    'x-kanarek-review-provider': provider.id,
+  });
+  for (const name of ['x-request-id', 'x-goog-request-id', 'request-id']) {
+    const value = response.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  return new Response(JSON.stringify(completion), { status: 200, headers });
 }
 
 function usableFreeCompletionPayload(value: unknown): boolean {
@@ -783,9 +1098,12 @@ function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | nu
   if (
     category === 'soft_quota' ||
     category === 'http_401' ||
+    category.startsWith('http_401_') ||
     category === 'http_402' ||
     category === 'http_403' ||
-    category === 'http_429'
+    category.startsWith('http_403_') ||
+    category === 'http_429' ||
+    category.startsWith('http_429_')
   ) {
     return boundedCooldownMs(env.KANAREK_REVIEW_QUOTA_COOLDOWN_MS, DEFAULT_QUOTA_COOLDOWN_MS);
   }
@@ -1114,7 +1432,11 @@ export async function rememberProviderCooldown(
 
 function isQuotaFailure(category: string): boolean {
   const normalized = category.startsWith('cooldown_') ? category.slice('cooldown_'.length) : category;
-  return normalized === 'soft_quota' || normalized === 'http_402' || normalized === 'http_429';
+  return normalized === 'soft_quota' ||
+    normalized === 'http_402' ||
+    normalized === 'http_403_billing_cap' ||
+    normalized === 'http_429' ||
+    normalized === 'http_429_quota';
 }
 
 function retryableStatus(status: number): boolean {
@@ -1384,7 +1706,6 @@ function providerAttempts(
       model: provider.model,
       label: 'default',
       minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
-      requestFields: { reasoning_effort: configuredReasoningEffort(env) },
     }];
   }
   return [{ model: provider.model, label: 'default' }];
@@ -1494,6 +1815,39 @@ function isClientBadRequestCategory(category: string): boolean {
     category === 'http_400_invalid_message' ||
     category === 'http_400_moderation' ||
     category === 'http_400_invalid_request';
+}
+
+function classifyGeminiError(status: number, preview: string | null): string {
+  if (status === 400) return classifyBadRequest(preview);
+  if (status !== 401 && status !== 403 && status !== 429) return `http_${status}`;
+  if (preview === null) return `http_${status}_unreadable`;
+  const normalized = preview ? badRequestText(preview).toLowerCase() : '';
+  if (status === 403) {
+    if (
+      normalized.includes('spend cap') ||
+      normalized.includes('spend_cap') ||
+      normalized.includes('billing') ||
+      normalized.includes('budget') ||
+      normalized.includes('suspended')
+    ) return 'http_403_billing_cap';
+    if (
+      normalized.includes('api key') ||
+      normalized.includes('api_key') ||
+      normalized.includes('key blocked') ||
+      normalized.includes('key restriction')
+    ) return 'http_403_api_key_restriction';
+    if (normalized.includes('permission denied') || normalized.includes('permission_denied')) {
+      return 'http_403_permission_denied';
+    }
+  }
+  if (
+    status === 429 &&
+    (normalized.includes('quota') ||
+      normalized.includes('rate limit') ||
+      normalized.includes('resource exhausted') ||
+      normalized.includes('resource_exhausted'))
+  ) return 'http_429_quota';
+  return `http_${status}`;
 }
 
 export async function handleReviewRouterRequest(
@@ -1607,17 +1961,56 @@ export async function handleReviewRouterRequest(
           }));
           continue;
         }
+        const outboundInput = provider.protocol === 'gemini-interactions'
+          ? geminiInteractionRequestBody(fittedProviderInput, attempt.model)
+          : fittedProviderInput;
+        if (!outboundInput) {
+          providerFailureCategory = input.stream === true ? 'unsupported_stream' : 'unsupported_input';
+          providerInvalidRequest = false;
+          console.info(JSON.stringify({
+            kanarekReviewRouter: 'provider_skipped',
+            provider: provider.id,
+            category: providerFailureCategory,
+            attempt: attempt.label,
+            model: attempt.model,
+          }));
+          break;
+        }
         const response = await fetcher(provider.url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
+            ...(provider.protocol === 'gemini-interactions'
+              ? { 'x-goog-api-key': apiKey }
+              : { Authorization: `Bearer ${apiKey}` }),
             ...provider.headers,
           },
-          body: JSON.stringify(fittedProviderInput),
+          body: JSON.stringify(outboundInput),
           signal: controller.signal,
         });
         if (response.ok) {
+          if (provider.protocol === 'gemini-interactions') {
+            const translated = await geminiInteractionChatCompletion(response, provider);
+            if (!translated) {
+              providerFailureCategory = 'invalid_response';
+              providerInvalidRequest = false;
+              console.warn(JSON.stringify({
+                kanarekReviewRouter: 'provider_failed',
+                provider: provider.id,
+                category: providerFailureCategory,
+                attempt: attempt.label,
+                model: attempt.model,
+              }));
+              break;
+            }
+            console.info(JSON.stringify({
+              kanarekReviewRouter: 'selected',
+              provider: provider.id,
+              attempt: attempt.label,
+              model: attempt.model,
+            }));
+            return translated;
+          }
           if (provider.id === 'aihubmix') {
             const preview = await responsePreview(response, deadlineAt);
             if (preview === null) {
@@ -1663,8 +2056,16 @@ export async function handleReviewRouterRequest(
         }
 
         const status = response.status;
-        const preview = status === 400 ? await responsePreview(response, deadlineAt) : null;
-        providerFailureCategory = status === 400 ? classifyBadRequest(preview) : `http_${status}`;
+        const preview = status === 400 || (
+          provider.protocol === 'gemini-interactions' && (status === 401 || status === 403 || status === 429)
+        )
+          ? await responsePreview(response, deadlineAt)
+          : null;
+        providerFailureCategory = provider.protocol === 'gemini-interactions'
+          ? classifyGeminiError(status, preview)
+          : status === 400
+            ? classifyBadRequest(preview)
+            : `http_${status}`;
         if (status !== 400 || !isClientBadRequestCategory(providerFailureCategory)) providerInvalidRequest = false;
         await discard(response);
         console.warn(JSON.stringify({
@@ -1685,7 +2086,11 @@ export async function handleReviewRouterRequest(
         )) {
           continue;
         }
-        if (status === 400 || retryableStatus(status)) break;
+        if (
+          status === 400 ||
+          retryableStatus(status) ||
+          providerFailureCategory === 'http_403_billing_cap'
+        ) break;
         failures.push(diagnostic(provider, providerFailureCategory));
         return jsonError(
           diagnosticMessage('Review provider configuration failed', failures),

@@ -463,7 +463,7 @@ test('paid review contract skips the free pool and gives DeepSeek the heavy reas
   }]);
 });
 
-test('paid review contract falls through from DeepSeek to Gemini without retrying free providers', async () => {
+test('paid review contract falls through from DeepSeek to native Gemini Interactions', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-review-paid',
@@ -480,18 +480,27 @@ test('paid review contract falls through from DeepSeek to Gemini without retryin
     if (new URL(url).hostname === 'api.deepseek.com') {
       return Promise.resolve(new Response('insufficient balance', { status: 402 }));
     }
-    return Promise.resolve(new Response('{"choices":[],"model":"gemini-3.8-flash"}', { status: 200 }));
+    return Promise.resolve(Response.json({
+      id: 'int_review',
+      model: 'gemini-3.8-flash',
+      status: 'completed',
+      steps: [{ type: 'model_output', content: [{ type: 'text', text: 'native worked' }] }],
+    }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
+  const payload = (await response?.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  assert.equal(payload.choices?.[0]?.message?.content, 'native worked');
   assert.deepEqual(urls, [
     'https://api.deepseek.com/chat/completions',
-    'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    'https://generativelanguage.googleapis.com/v1/interactions',
   ]);
 });
 
-test('DeepSeek balance exhaustion falls through to Gemini Flex', async () => {
+test('DeepSeek balance exhaustion falls through to native Gemini Flex', async () => {
   const urls: string[] = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-review',
@@ -507,74 +516,433 @@ test('DeepSeek balance exhaustion falls through to Gemini Flex', async () => {
     if (new URL(url).hostname === 'api.deepseek.com') {
       return Promise.resolve(new Response('insufficient balance', { status: 402 }));
     }
-    return Promise.resolve(new Response('{"choices":[],"model":"gemini-3.8-flash"}', { status: 200 }));
+    return Promise.resolve(Response.json({
+      id: 'int_review',
+      model: 'gemini-3.8-flash',
+      status: 'completed',
+      steps: [{ type: 'model_output', content: [{ type: 'text', text: 'ok' }] }],
+    }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
   assert.deepEqual(urls, [
     'https://api.deepseek.com/chat/completions',
-    'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    'https://generativelanguage.googleapis.com/v1/interactions',
   ]);
 });
 
-test('review router uses Gemini 3.8 Flash Flex with pinned reasoning and no deprecated generation params', async () => {
+test('Gemini Flex uses the native v1 Interactions contract with high thinking', async () => {
   let call: {
     url?: string;
-    model?: unknown;
-    serviceTier?: unknown;
-    reasoningEffort?: unknown;
-    maxTokens?: unknown;
-    temperature?: unknown;
-    topP?: unknown;
-    topK?: unknown;
-    thinkingBudget?: unknown;
-    candidateCount?: unknown;
+    body?: Record<string, unknown>;
     authorization?: string | null;
+    apiKey?: string | null;
   } = {};
   const response = await handleReviewRouterRequest(request(routerToken, {
-    model: 'kanarek-review',
-    stream: true,
+    model: 'kanarek-review-paid',
+    stream: false,
     max_tokens: 512,
     temperature: 0.3,
     top_p: 0.8,
     top_k: 20,
     thinking_budget: 8192,
     candidate_count: 2,
-    messages: [{ role: 'user', content: 'review' }],
+    messages: [
+      { role: 'system', content: 'Return a concise review.' },
+      { role: 'user', content: 'review' },
+    ],
   }), {
     ...auth, GEMINI_API_KEY: 'gemini-key',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
-    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    const headers = new Headers(init?.headers);
     call = {
       url: String(input),
-      model: body.model,
-      serviceTier: body.service_tier,
-      reasoningEffort: body.reasoning_effort,
-      maxTokens: body.max_tokens,
-      temperature: body.temperature,
-      topP: body.top_p,
-      topK: body.top_k,
-      thinkingBudget: body.thinking_budget,
-      candidateCount: body.candidate_count,
-      authorization: new Headers(init?.headers).get('authorization'),
+      body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+      authorization: headers.get('authorization'),
+      apiKey: headers.get('x-goog-api-key'),
     };
-    return Promise.resolve(new Response('{"choices":[],"model":"gemini-3.8-flash"}', { status: 200 }));
+    return Promise.resolve(Response.json({
+      id: 'int_native',
+      model: 'gemini-3.8-flash',
+      status: 'completed',
+      steps: [{
+        type: 'model_output',
+        content: [{ type: 'text', text: '{"findings":[]}' }],
+      }],
+      usage: {
+        total_input_tokens: 20,
+        total_output_tokens: 5,
+        total_thought_tokens: 8,
+        total_tokens: 33,
+      },
+    }, {
+      headers: {
+        'content-length': '999',
+        'content-encoding': 'gzip',
+        'x-goog-request-id': 'google-request-1',
+      },
+    }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
-  assert.equal(call.url, 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
-  assert.equal(call.model, 'gemini-3.8-flash');
-  assert.equal(call.serviceTier, 'flex');
-  assert.equal(call.reasoningEffort, 'high');
-  assert.equal(call.maxTokens, 16_384);
-  assert.equal(call.temperature, undefined);
-  assert.equal(call.topP, undefined);
-  assert.equal(call.topK, undefined);
-  assert.equal(call.thinkingBudget, undefined);
-  assert.equal(call.candidateCount, undefined);
-  assert.equal(call.authorization, 'Bearer gemini-key');
+  assert.equal(response?.headers.get('content-length'), null);
+  assert.equal(response?.headers.get('content-encoding'), null);
+  assert.equal(response?.headers.get('x-goog-request-id'), 'google-request-1');
+  assert.equal(call.url, 'https://generativelanguage.googleapis.com/v1/interactions');
+  assert.equal(call.authorization, null);
+  assert.equal(call.apiKey, 'gemini-key');
+
+  const body = call.body ?? {};
+  assert.equal(body.model, 'gemini-3.8-flash');
+  assert.equal(body.service_tier, 'flex');
+  assert.equal(body.system_instruction, 'Return a concise review.');
+  assert.equal(body.stream, false);
+  assert.equal(body.store, false);
+  assert.deepEqual(body.input, [
+    { type: 'user_input', content: [{ type: 'text', text: 'review' }] },
+  ]);
+  assert.deepEqual(body.generation_config, {
+    max_output_tokens: 16_384,
+    thinking_level: 'high',
+  });
+  for (const deprecated of [
+    'temperature', 'top_p', 'top_k', 'thinking_budget', 'candidate_count', 'reasoning_effort',
+  ]) {
+    assert.equal(deprecated in body, false);
+  }
+
+  const payload = (await response?.json()) as {
+    model?: string;
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+      completion_tokens_details?: { reasoning_tokens?: number };
+    };
+  };
+  assert.equal(payload.model, 'gemini-3.8-flash');
+  assert.equal(payload.choices?.[0]?.message?.content, '{"findings":[]}');
+  assert.deepEqual(payload.usage, {
+    prompt_tokens: 20,
+    completion_tokens: 5,
+    total_tokens: 33,
+    completion_tokens_details: { reasoning_tokens: 8 },
+  });
+});
+
+test('Gemini Interactions bridges OpenAI tool history and function calls for paid work', async () => {
+  let body: Record<string, unknown> = {};
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-work-paid',
+    stream: false,
+    messages: [
+      { role: 'system', content: 'Work on the repository.' },
+      { role: 'user', content: 'Read README.' },
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{
+          id: 'call_1',
+          type: 'function',
+          function: { name: 'read_file', arguments: '{"path":"README.md"}' },
+        }],
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call_1',
+        name: 'read_file',
+        content: '{"content":"hello"}',
+      },
+    ],
+    tools: [{
+      type: 'function',
+      function: {
+        name: 'read_file',
+        description: 'Read a file',
+        parameters: {
+          type: 'object',
+          properties: { path: { type: 'string' } },
+          required: ['path'],
+        },
+      },
+    }],
+    tool_choice: 'auto',
+  }), {
+    ...auth,
+    GEMINI_API_KEY: 'gemini-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json({
+      id: 'int_work',
+      model: 'gemini-3.8-flash',
+      status: 'requires_action',
+      steps: [{
+        type: 'function_call',
+        id: 'call_2',
+        name: 'read_file',
+        arguments: { path: 'package.json' },
+      }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'gemini-flex');
+  assert.deepEqual(body.tools, [{
+    type: 'function',
+    name: 'read_file',
+    description: 'Read a file',
+    parameters: {
+      type: 'object',
+      properties: { path: { type: 'string' } },
+      required: ['path'],
+    },
+  }]);
+  assert.deepEqual(body.generation_config, {
+    max_output_tokens: 16_384,
+    thinking_level: 'high',
+    tool_choice: 'auto',
+  });
+  assert.deepEqual(body.input, [
+    { type: 'user_input', content: [{ type: 'text', text: 'Read README.' }] },
+    { type: 'function_call', id: 'call_1', name: 'read_file', arguments: { path: 'README.md' } },
+    {
+      type: 'function_result',
+      call_id: 'call_1',
+      name: 'read_file',
+      result: [{ type: 'text', text: '{"content":"hello"}' }],
+    },
+  ]);
+
+  const payload = (await response?.json()) as {
+    choices?: Array<{
+      finish_reason?: string;
+      message?: {
+        content?: string | null;
+        tool_calls?: Array<{
+          id?: string;
+          type?: string;
+          function?: { name?: string; arguments?: string };
+        }>;
+      };
+    }>;
+  };
+  const choice = payload.choices?.[0];
+  assert.equal(choice?.finish_reason, 'tool_calls');
+  assert.equal(choice?.message?.content, null);
+  assert.deepEqual(choice?.message?.tool_calls, [{
+    id: 'call_2',
+    type: 'function',
+    function: { name: 'read_file', arguments: '{"path":"package.json"}' },
+  }]);
+});
+
+test('Gemini stateless tool turns preserve thought signatures exactly', async () => {
+  const thought = {
+    type: 'thought',
+    signature: 'signed-reasoning-context',
+    summary: [{ type: 'text', text: 'Need to inspect another file.' }],
+  };
+  const functionCall = {
+    type: 'function_call',
+    id: 'call_1',
+    name: 'read_file',
+    arguments: { path: 'README.md' },
+  };
+  let firstBody: Record<string, unknown> = {};
+  const first = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-work-paid',
+    stream: false,
+    messages: [
+      { role: 'developer', content: 'Work carefully.' },
+      { role: 'user', content: 'Inspect the repository.' },
+    ],
+    tools: [{
+      type: 'function',
+      function: {
+        name: 'read_file',
+        parameters: { type: 'object', properties: { path: { type: 'string' } } },
+      },
+    }],
+    tool_choice: {
+      type: 'function',
+      function: { name: 'read_file' },
+    },
+  }), {
+    ...auth,
+    GEMINI_API_KEY: 'gemini-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    firstBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json({
+      id: 'int_tool_1',
+      model: 'gemini-3.8-flash',
+      status: 'requires_action',
+      steps: [thought, functionCall],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(first?.status, 200);
+  assert.equal(firstBody.system_instruction, 'Work carefully.');
+  assert.deepEqual(
+    (firstBody.generation_config as Record<string, unknown>).tool_choice,
+    { allowed_tools: { mode: 'any', tools: ['read_file'] } },
+  );
+
+  const firstPayload = (await first?.json()) as {
+    choices?: Array<{ message?: Record<string, unknown> }>;
+  };
+  const assistant = firstPayload.choices?.[0]?.message;
+  assert.ok(assistant);
+  assert.deepEqual(
+    (assistant.kanarek_provider_state as {
+      gemini_interactions?: { steps?: unknown[] };
+    }).gemini_interactions?.steps,
+    [thought, functionCall],
+  );
+
+  let secondBody: Record<string, unknown> = {};
+  const second = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-work-paid',
+    stream: false,
+    messages: [
+      { role: 'developer', content: 'Work carefully.' },
+      { role: 'user', content: 'Inspect the repository.' },
+      assistant,
+      {
+        role: 'tool',
+        tool_call_id: 'call_1',
+        name: 'read_file',
+        content: '{"content":"hello"}',
+      },
+    ],
+    tools: [{
+      type: 'function',
+      function: {
+        name: 'read_file',
+        parameters: { type: 'object', properties: { path: { type: 'string' } } },
+      },
+    }],
+    tool_choice: 'auto',
+  }), {
+    ...auth,
+    GEMINI_API_KEY: 'gemini-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    secondBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json({
+      id: 'int_tool_2',
+      model: 'gemini-3.8-flash',
+      status: 'completed',
+      steps: [{
+        type: 'model_output',
+        content: [{ type: 'text', text: 'done' }],
+      }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(second?.status, 200);
+  assert.deepEqual(secondBody.input, [
+    { type: 'user_input', content: [{ type: 'text', text: 'Inspect the repository.' }] },
+    thought,
+    functionCall,
+    {
+      type: 'function_result',
+      call_id: 'call_1',
+      name: 'read_file',
+      result: [{ type: 'text', text: '{"content":"hello"}' }],
+    },
+  ]);
+});
+
+test('Gemini provider state is stripped before another paid provider sees the message', async () => {
+  let deepSeekMessages: unknown[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-work-paid',
+    stream: false,
+    messages: [{
+      role: 'assistant',
+      content: null,
+      tool_calls: [{
+        id: 'call_1',
+        type: 'function',
+        function: { name: 'read_file', arguments: '{"path":"README.md"}' },
+      }],
+      kanarek_provider_state: {
+        gemini_interactions: {
+          steps: [{ type: 'thought', signature: 'secret-provider-state' }],
+        },
+      },
+    }],
+  }), {
+    ...auth,
+    DEEPSEEK_API_KEY: 'deepseek-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { messages?: unknown[] };
+    deepSeekMessages = body.messages ?? [];
+    return Promise.resolve(Response.json({
+      model: 'deepseek-v3.2-speciale',
+      choices: [{ message: { role: 'assistant', content: 'ok' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'deepseek');
+  const message = deepSeekMessages[0] as Record<string, unknown>;
+  assert.equal('kanarek_provider_state' in message, false);
+});
+
+test('Gemini Flex 503 keeps transient semantics and falls through to DeepSeek', async () => {
+  const calls: string[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'gemini-flex,deepseek',
+    GEMINI_API_KEY: 'gemini-key',
+    DEEPSEEK_API_KEY: 'deepseek-key',
+  }, ((input: RequestInfo | URL) => {
+    const url = String(input);
+    calls.push(url);
+    if (new URL(url).hostname === 'generativelanguage.googleapis.com') {
+      return Promise.resolve(new Response('flex capacity unavailable', { status: 503 }));
+    }
+    return Promise.resolve(Response.json({
+      model: 'deepseek-v3.2-speciale',
+      choices: [{ message: { role: 'assistant', content: '{"findings":[]}' } }],
+    }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'deepseek');
+  assert.deepEqual(calls, [
+    'https://generativelanguage.googleapis.com/v1/interactions',
+    'https://api.deepseek.com/chat/completions',
+  ]);
+});
+
+test('Gemini spend-cap 403 is classified without exposing the provider body', async () => {
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), {
+    ...auth,
+    GEMINI_API_KEY: 'gemini-key',
+  }, (() => Promise.resolve(Response.json({
+    error: {
+      code: 403,
+      message: 'Gemini API requests are blocked because the project spend cap has been reached.',
+      status: 'PERMISSION_DENIED',
+    },
+  }, { status: 403 }))) as typeof fetch);
+
+  assert.equal(response?.status, 429);
+  const payload = (await response?.json()) as { error?: { message?: string } };
+  assert.match(payload.error?.message ?? '', /gemini-flex:http_403_billing_cap/);
+  assert.doesNotMatch(payload.error?.message ?? '', /spend cap has been reached/i);
 });
 
 

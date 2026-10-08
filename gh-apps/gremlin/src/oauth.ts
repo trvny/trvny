@@ -15,6 +15,8 @@ const RESOURCE = `${ORIGIN}/mcp`;
 const CALLBACK = `${ORIGIN}/oauth/github/callback`;
 const OWNER_LOGIN = GREMLIN_GITHUB_LOGIN;
 
+class GithubServiceUnavailable extends Error {}
+
 interface GithubToken {
   access_token?: string;
   refresh_token?: string;
@@ -52,28 +54,44 @@ function githubAuthorizeUrl(env: GremlinOAuthEnv, state: string, challenge: stri
 }
 
 async function githubToken(env: GremlinOAuthEnv, input: Record<string, string>): Promise<GithubToken> {
-  const response = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: env.GREMLIN_OAUTH_CLIENT_ID!,
-      client_secret: env.GREMLIN_OAUTH_CLIENT_SECRET!,
-      ...input,
-    }),
-  });
-  if (!response.ok) throw new Error('github_token_endpoint_unavailable');
+  let response: Response;
+  try {
+    response = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: env.GREMLIN_OAUTH_CLIENT_ID!,
+        client_secret: env.GREMLIN_OAUTH_CLIENT_SECRET!,
+        ...input,
+      }),
+    });
+  } catch {
+    throw new GithubServiceUnavailable('GitHub token exchange is unavailable');
+  }
+  if (response.status === 429 || response.status >= 500) {
+    throw new GithubServiceUnavailable('GitHub token exchange is unavailable');
+  }
+  if (!response.ok) return { error: 'invalid_grant' };
   return (await response.json()) as GithubToken;
 }
 
 async function ownerForToken(token: string): Promise<boolean> {
-  const response = await fetch('https://api.github.com/user', {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
-      'User-Agent': 'MechaGremlin-OAuth',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch('https://api.github.com/user', {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${token}`,
+        'User-Agent': 'MechaGremlin-OAuth',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+  } catch {
+    throw new GithubServiceUnavailable('GitHub identity lookup is unavailable');
+  }
+  if (response.status === 429 || response.status === 403 || response.status >= 500) {
+    throw new GithubServiceUnavailable('GitHub identity lookup is unavailable');
+  }
   if (!response.ok) return false;
   const user: unknown = await response.json();
   return isGremlinGithubOwner(user);
@@ -202,6 +220,12 @@ async function githubCallback(request: Request, env: GremlinOAuthEnv): Promise<R
     return new Response(null, { status: 302, headers: finished.headers });
   } catch (error) {
     if (error instanceof AuthorizationError) return new Response('Invalid or expired GitHub authorization', { status: 400 });
+    if (error instanceof GithubServiceUnavailable) {
+      return new Response('GitHub sign-in is temporarily unavailable; please retry', {
+        status: 503,
+        headers: { 'Cache-Control': 'no-store', 'Retry-After': '30' },
+      });
+    }
     throw error;
   }
 }

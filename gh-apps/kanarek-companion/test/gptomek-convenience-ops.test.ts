@@ -326,7 +326,380 @@ test('review_fix paginates, resumes safely and rechecks the PR head', async () =
   assert.equal(threadResolved, true);
   assert.equal(pullReads, 3);
   assert.equal(verifyReads, 3);
-  assert.equal(threadReads, 3);
+  assert.equal(threadReads, 2);
+});
+
+test('review_fix still fixes and replies when the App cannot resolve the thread', async () => {
+  const expected = '1'.repeat(40);
+  const patched = '2'.repeat(40);
+  const steps: Array<Record<string, unknown>> = [];
+  let pullReads = 0;
+
+  const client = {
+    async json<T>(_path: string, operation: string): Promise<T> {
+      if (
+        operation === 'gptomek_get_review_fix_pr' ||
+        operation === 'gptomek_get_review_fix_pr_after_patch'
+      ) {
+        pullReads += 1;
+        return {
+          head: {
+            ref: 'feat/fix',
+            sha: pullReads < 3 ? expected : patched,
+            repo: { full_name: 'trvny/trvny' },
+          },
+        } as T;
+      }
+      if (operation === 'gptomek_verify_review_fix_head') {
+        return {
+          head: {
+            ref: 'feat/fix',
+            sha: patched,
+            repo: { full_name: 'trvny/trvny' },
+          },
+        } as T;
+      }
+      if (operation === 'gptomek_get_review_fix_comment') {
+        return {
+          pull_request_url: 'https://api.github.com/repos/trvny/trvny/pulls/123',
+        } as T;
+      }
+      if (operation === 'gptomek_get_review_fix_thread') {
+        return {
+          data: {
+            node: {
+              __typename: 'PullRequestReviewThread',
+              id: 'PRRT_no_resolve',
+              isResolved: false,
+              viewerCanResolve: false,
+              pullRequest: {
+                number: 123,
+                repository: { nameWithOwner: 'trvny/trvny' },
+              },
+              comments: {
+                nodes: [{ databaseId: 456 }],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        } as T;
+      }
+      throw new Error(`unexpected:${operation}`);
+    },
+  } as unknown as GitHubInstallationClient;
+
+  const executor = async (step: Record<string, unknown>) => {
+    steps.push(step);
+    if (step.op === 'apply_patch') {
+      return { result: { sha: patched, files: 1 }, deduplicated: false };
+    }
+    return { result: { ok: true }, deduplicated: false };
+  };
+
+  const result = await reviewFix(
+    client,
+    {
+      id: 'review-fix-no-resolve',
+      op: 'review_fix',
+      repository: 'trvny/trvny',
+      pullRequestNumber: 123,
+      branch: 'feat/fix',
+      expectedHeadSha: expected,
+      commentId: 456,
+      reviewThreadId: 'PRRT_no_resolve',
+      message: 'fix: address review',
+      patch: '--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\n',
+    },
+    {} as never,
+    executor as never,
+  );
+
+  assert.deepEqual(steps.map((step) => step.op), [
+    'apply_patch',
+    'reply_review',
+    'react_review_comment',
+  ]);
+  assert.deepEqual(result, {
+    sha: patched,
+    patchDeduplicated: false,
+    replyDeduplicated: false,
+    reactionDeduplicated: false,
+    resolved: false,
+  });
+});
+
+test('review_fix keeps a completed fix successful when resolution later fails', async () => {
+  const expected = '1'.repeat(40);
+  const patched = '2'.repeat(40);
+  let pullReads = 0;
+  let threadReads = 0;
+
+  const client = {
+    async json<T>(_path: string, operation: string): Promise<T> {
+      if (
+        operation === 'gptomek_get_review_fix_pr' ||
+        operation === 'gptomek_get_review_fix_pr_after_patch'
+      ) {
+        pullReads += 1;
+        return {
+          head: {
+            ref: 'feat/fix',
+            sha: pullReads < 3 ? expected : patched,
+            repo: { full_name: 'trvny/trvny' },
+          },
+        } as T;
+      }
+      if (operation === 'gptomek_verify_review_fix_head') {
+        return {
+          head: {
+            ref: 'feat/fix',
+            sha: patched,
+            repo: { full_name: 'trvny/trvny' },
+          },
+        } as T;
+      }
+      if (operation === 'gptomek_get_review_fix_comment') {
+        return {
+          pull_request_url: 'https://api.github.com/repos/trvny/trvny/pulls/123',
+        } as T;
+      }
+      if (operation === 'gptomek_get_review_fix_thread') {
+        threadReads += 1;
+        if (threadReads > 1) throw new GitHubApiError(operation, 503);
+        return {
+          data: {
+            node: {
+              __typename: 'PullRequestReviewThread',
+              id: 'PRRT_flaky',
+              isResolved: false,
+              viewerCanResolve: true,
+              pullRequest: {
+                number: 123,
+                repository: { nameWithOwner: 'trvny/trvny' },
+              },
+              comments: {
+                nodes: [{ databaseId: 456 }],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        } as T;
+      }
+      if (operation === 'gptomek_resolve_review_thread') {
+        throw new GitHubApiError(operation, 403);
+      }
+      throw new Error(`unexpected:${operation}`);
+    },
+  } as unknown as GitHubInstallationClient;
+
+  const executor = async (step: Record<string, unknown>) => {
+    if (step.op === 'apply_patch') {
+      return { result: { sha: patched, files: 1 }, deduplicated: false };
+    }
+    return { result: { ok: true }, deduplicated: false };
+  };
+
+  const result = await reviewFix(
+    client,
+    {
+      id: 'review-fix-flaky-resolve',
+      op: 'review_fix',
+      repository: 'trvny/trvny',
+      pullRequestNumber: 123,
+      branch: 'feat/fix',
+      expectedHeadSha: expected,
+      commentId: 456,
+      reviewThreadId: 'PRRT_flaky',
+      message: 'fix: address review',
+      patch: '--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\n',
+    },
+    {} as never,
+    executor as never,
+  );
+
+  assert.equal(result.sha, patched);
+  assert.equal(result.resolved, false);
+  assert.equal(threadReads, 2);
+});
+
+test('review_fix reports a thread resolved externally when the App cannot resolve it', async () => {
+  const expected = '1'.repeat(40);
+  const patched = '2'.repeat(40);
+  let pullReads = 0;
+  let threadReads = 0;
+
+  const client = {
+    async json<T>(_path: string, operation: string): Promise<T> {
+      if (
+        operation === 'gptomek_get_review_fix_pr' ||
+        operation === 'gptomek_get_review_fix_pr_after_patch'
+      ) {
+        pullReads += 1;
+        return {
+          head: {
+            ref: 'feat/fix',
+            sha: pullReads < 3 ? expected : patched,
+            repo: { full_name: 'trvny/trvny' },
+          },
+        } as T;
+      }
+      if (operation === 'gptomek_verify_review_fix_head') {
+        return {
+          head: {
+            ref: 'feat/fix',
+            sha: patched,
+            repo: { full_name: 'trvny/trvny' },
+          },
+        } as T;
+      }
+      if (operation === 'gptomek_get_review_fix_comment') {
+        return {
+          pull_request_url: 'https://api.github.com/repos/trvny/trvny/pulls/123',
+        } as T;
+      }
+      if (operation === 'gptomek_get_review_fix_thread') {
+        threadReads += 1;
+        return {
+          data: {
+            node: {
+              __typename: 'PullRequestReviewThread',
+              id: 'PRRT_external',
+              isResolved: threadReads > 1,
+              viewerCanResolve: false,
+              pullRequest: {
+                number: 123,
+                repository: { nameWithOwner: 'trvny/trvny' },
+              },
+              comments: {
+                nodes: [{ databaseId: 456 }],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        } as T;
+      }
+      throw new Error(`unexpected:${operation}`);
+    },
+  } as unknown as GitHubInstallationClient;
+
+  const executor = async (step: Record<string, unknown>) => {
+    if (step.op === 'apply_patch') {
+      return { result: { sha: patched, files: 1 }, deduplicated: false };
+    }
+    return { result: { ok: true }, deduplicated: false };
+  };
+
+  const result = await reviewFix(
+    client,
+    {
+      id: 'review-fix-external-resolve',
+      op: 'review_fix',
+      repository: 'trvny/trvny',
+      pullRequestNumber: 123,
+      branch: 'feat/fix',
+      expectedHeadSha: expected,
+      commentId: 456,
+      reviewThreadId: 'PRRT_external',
+      message: 'fix: address review',
+      patch: '--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\n',
+    },
+    {} as never,
+    executor as never,
+  );
+
+  assert.equal(result.sha, patched);
+  assert.equal(result.resolved, true);
+  assert.equal(threadReads, 2);
+});
+
+test('review_fix reports the final thread state when a resolved thread is reopened', async () => {
+  const expected = '1'.repeat(40);
+  const patched = '2'.repeat(40);
+  let pullReads = 0;
+  let threadReads = 0;
+
+  const client = {
+    async json<T>(_path: string, operation: string): Promise<T> {
+      if (
+        operation === 'gptomek_get_review_fix_pr' ||
+        operation === 'gptomek_get_review_fix_pr_after_patch'
+      ) {
+        pullReads += 1;
+        return {
+          head: {
+            ref: 'feat/fix',
+            sha: pullReads < 3 ? expected : patched,
+            repo: { full_name: 'trvny/trvny' },
+          },
+        } as T;
+      }
+      if (operation === 'gptomek_verify_review_fix_head') {
+        return {
+          head: {
+            ref: 'feat/fix',
+            sha: patched,
+            repo: { full_name: 'trvny/trvny' },
+          },
+        } as T;
+      }
+      if (operation === 'gptomek_get_review_fix_comment') {
+        return {
+          pull_request_url: 'https://api.github.com/repos/trvny/trvny/pulls/123',
+        } as T;
+      }
+      if (operation === 'gptomek_get_review_fix_thread') {
+        threadReads += 1;
+        return {
+          data: {
+            node: {
+              __typename: 'PullRequestReviewThread',
+              id: 'PRRT_reopened',
+              isResolved: threadReads === 1,
+              viewerCanResolve: true,
+              pullRequest: {
+                number: 123,
+                repository: { nameWithOwner: 'trvny/trvny' },
+              },
+              comments: {
+                nodes: [{ databaseId: 456 }],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        } as T;
+      }
+      throw new Error(`unexpected:${operation}`);
+    },
+  } as unknown as GitHubInstallationClient;
+
+  const executor = async (step: Record<string, unknown>) => {
+    if (step.op === 'apply_patch') {
+      return { result: { sha: patched, files: 1 }, deduplicated: false };
+    }
+    return { result: { ok: true }, deduplicated: false };
+  };
+
+  const result = await reviewFix(
+    client,
+    {
+      id: 'review-fix-reopened',
+      op: 'review_fix',
+      repository: 'trvny/trvny',
+      pullRequestNumber: 123,
+      branch: 'feat/fix',
+      expectedHeadSha: expected,
+      commentId: 456,
+      reviewThreadId: 'PRRT_reopened',
+      message: 'fix: address review',
+      patch: '--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\n',
+    },
+    {} as never,
+    executor as never,
+  );
+
+  assert.equal(result.sha, patched);
+  assert.equal(result.resolved, false);
+  assert.equal(threadReads, 2);
 });
 
 test('review_fix validates the review thread before running any write step', async () => {

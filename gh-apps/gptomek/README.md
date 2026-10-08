@@ -17,10 +17,11 @@ For normal GPTomek work:
 3. For branch-changing operations, read the branch head immediately before the
    command and pass it as `expectedHeadSha`.
 4. The comment workflow sends only the GitHub comment ID to the shared Worker.
-   GPTomek fetches and validates the comment itself, then runs the same command
-   parser and checkpointed executor used by the legacy mailbox. A 👍 reaction
-   means the command completed successfully; 👎 means validation, execution or
-   transport failed.
+   GPTomek fetches and validates that source command comment itself, then runs
+   the same command parser and checkpointed executor used by the legacy mailbox.
+   The 👍/👎 status reaction is applied only to that command comment on Issue
+   #203: 👍 means the command completed successfully, while 👎 means validation,
+   execution or transport failed. It is not a review-feedback reaction.
 5. Use closed PR [`#176`](https://github.com/trvny/trvny/pull/176) manually
    only when the direct comment/Worker path itself is unavailable. Put exactly
    one legacy command marker in that PR body.
@@ -129,7 +130,7 @@ different jobs:
 | --- | --- |
 | `trvny` | The authorized human/connector side posts the plain-JSON command comment. |
 | `gptomek[bot]` | The Worker fetches the command with the App token and performs the requested bot-authored GitHub writes. |
-| `github-actions[bot]` | The thin comment workflow calls the authenticated Worker endpoint and adds the final 👍/👎 transport/result reaction. It still owns legacy PR #176 fallback synchronization. |
+| `github-actions[bot]` | The thin comment workflow calls the authenticated Worker endpoint and adds the final 👍/👎 transport/result reaction to the source command comment on Issue #203 only. It still owns legacy PR #176 fallback synchronization. |
 
 The normal comment path no longer edits Issue #203's body. `trvny` posts JSON,
 `github-actions[bot]` forwards only the comment ID, and `gptomek[bot]`
@@ -160,8 +161,13 @@ to be one fenced `gptomek` JSON block, and executes the parsed command through
 the shared checkpointed executor.
 
 This direct path does not create or consume an Issue-body command marker.
-Successful command execution gets 👍 on the source comment; rejected or failed
-commands get 👎. Replaying the same comment is deduplicated by the Durable
+Each logical command is posted as its own new comment on Issue #203; GPTomek
+does not keep editing one shared command comment. Successful execution gets 👍
+on that source command comment, while rejected or failed execution gets 👎 on
+that same source comment. Those status reactions are deliberately separate from
+PR review-feedback reactions: a useful review comment may receive 👍 according
+to the project workflow, but command failure must never place 👎 on a review
+comment. Replaying the same command comment is deduplicated by the Durable
 Object delivery key and the command checkpoint.
 
 The encoded `<!-- gptomek-command:... -->` format remains supported only by

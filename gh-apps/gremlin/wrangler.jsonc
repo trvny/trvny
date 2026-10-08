@@ -3,13 +3,19 @@
   "name": "gremlin",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-03",
-  "compatibility_flags": ["nodejs_als"],
+  "compatibility_flags": ["nodejs_als", "global_fetch_strictly_public"],
   "workers_dev": true,
   "preview_urls": false,
   "version_metadata": {
     "binding": "CF_VERSION_METADATA"
   },
   // GPTomek App JWTs signed by kanarek-companion; PEM stays there.
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "PENDING_GREMLIN_OAUTH_KV_NAMESPACE"
+    }
+  ],
   "services": [
     {
       "binding": "GPTOMEK_SIGNER",

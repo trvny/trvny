@@ -17,6 +17,7 @@ import {
 } from './repository-bootstrap.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
+  handleGptomekCommentControl,
   handleGptomekIssueControl,
   isGptomekControlIssueEvent,
 } from './gptomek-issue.ts';
@@ -386,12 +387,20 @@ function isCompanionTarget(value: unknown): value is CompanionTarget {
       typeof target.repository === 'string' &&
       /^[^/]+\/[^/]+$/.test(target.repository) &&
       typeof target.sourceEvent === 'string' &&
-      target.sourceEvent.length > 0,
+      target.sourceEvent.length > 0 &&
+      (
+        target.sourceEvent !== 'gptomek_comment' ||
+        (
+          typeof target.commentId === 'number' &&
+          Number.isInteger(target.commentId) &&
+          target.commentId > 0
+        )
+      ),
   );
 }
 
 function shouldCoalesceTarget(target: CompanionTarget): boolean {
-  if (target.sourceEvent === 'issues') return false;
+  if (target.sourceEvent === 'issues' || target.sourceEvent === 'gptomek_comment') return false;
   return !isGptomekFallbackPullRequest(target.repository, target.pullRequestNumber);
 }
 
@@ -664,18 +673,50 @@ function health(env: Env, method: string): Response {
 }
 
 
-async function wakeGptomekControlIssue(env: Env): Promise<Response> {
+async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Response> {
+  let commentId: number | null = null;
+  if ((request.headers.get('content-type') ?? '').includes('application/json')) {
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch {
+      return json({ ok: false, error: 'invalid_json' }, 400);
+    }
+    if (
+      payload !== null &&
+      (
+        typeof payload !== 'object' ||
+        Array.isArray(payload) ||
+        (
+          (payload as { commentId?: unknown }).commentId !== undefined &&
+          (
+            typeof (payload as { commentId?: unknown }).commentId !== 'number' ||
+            !Number.isInteger((payload as { commentId?: number }).commentId) ||
+            Number((payload as { commentId?: number }).commentId) <= 0
+          )
+        )
+      )
+    ) {
+      return json({ ok: false, error: 'invalid_comment_id' }, 400);
+    }
+    const value = (payload as { commentId?: number } | null)?.commentId;
+    commentId = typeof value === 'number' ? value : null;
+  }
+
   const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
   if (!Number.isInteger(installationId) || installationId <= 0) {
     return json({ ok: false, error: 'gptomek_not_configured' }, 503);
   }
 
   const target: CompanionTarget = {
-    delivery: `gptomek-wake:${crypto.randomUUID()}`,
+    delivery: commentId === null
+      ? `gptomek-wake:${crypto.randomUUID()}`
+      : `gptomek-comment:${commentId}`,
     installationId,
     pullRequestNumber: GPTOMEK_CONTROL_ISSUE,
     repository: GPTOMEK_CONTROL_REPOSITORY,
-    sourceEvent: 'issues',
+    sourceEvent: commentId === null ? 'issues' : 'gptomek_comment',
+    ...(commentId === null ? {} : { commentId }),
   };
   try {
     const id = env.COMPANION_LOCK.idFromName(
@@ -867,7 +908,9 @@ export class CommentProbeLock {
     const result =
       target.sourceEvent === 'issues'
         ? await handleGptomekIssueControl(target, this.env)
-        : await refreshCompanion(target, this.env);
+        : target.sourceEvent === 'gptomek_comment'
+          ? await handleGptomekCommentControl(target, this.env)
+          : await refreshCompanion(target, this.env);
     await this.state.storage.put(
       PROCESSED_DELIVERIES_KEY,
       [
@@ -901,7 +944,7 @@ const worker = {
       if (!bearerAuthorized(request, env.GPTOMEK_WAKE_TOKEN)) {
         return json({ error: 'unauthorized' }, 401);
       }
-      return wakeGptomekControlIssue(env);
+      return wakeGptomekControlIssue(request, env);
     }
 
     if (url.pathname === WEBHOOK_PATH) {

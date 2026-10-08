@@ -1,0 +1,88 @@
+name: Run GPTomek JSON comment
+
+on: # yamllint disable-line rule:truthy
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  command:
+    if: >-
+      github.event.issue.number == 203 &&
+      github.event.issue.user.login == 'trvny' &&
+      github.actor == 'trvny' &&
+      github.event.comment.user.login == 'trvny'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Execute JSON command
+        id: execute
+        continue-on-error: true
+        env:
+          GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${GPTOMEK_WAKE_TOKEN:?GPTOMEK_WAKE_TOKEN must be configured}"
+          response="$(
+            curl --fail --silent --show-error --retry 2 \
+              --connect-timeout 5 --max-time 30 \
+              -X POST \
+              -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -nc --argjson commentId "$COMMENT_ID" '{commentId:$commentId}')" \
+              https://kanarek-companion.travny.workers.dev/gptomek/wake
+          )"
+          printf '%s\n' "$response"
+          state="$(jq -r '.state // empty' <<<"$response")"
+          duplicate="$(jq -r '.duplicate // false' <<<"$response")"
+          {
+            echo "state=$state"
+            echo "duplicate=$duplicate"
+          } >>"$GITHUB_OUTPUT"
+          if [[ "$duplicate" == "true" ]]; then
+            exit 0
+          fi
+          [[ "$state" == "gptomek-comment-ok" || "$state" == "gptomek-comment-error" ]]
+
+      - name: Mark command success
+        if: >-
+          steps.execute.outcome == 'success' &&
+          steps.execute.outputs.duplicate != 'true' &&
+          steps.execute.outputs.state == 'gptomek-comment-ok'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        shell: bash
+        run: |
+          gh api \
+            --method POST \
+            "repos/trvny/trvny/issues/comments/${COMMENT_ID}/reactions" \
+            -f content='+1' \
+            >/dev/null
+
+      - name: Mark command failure
+        if: >-
+          steps.execute.outcome == 'failure' ||
+          steps.execute.outputs.state == 'gptomek-comment-error'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        shell: bash
+        run: |
+          gh api \
+            --method POST \
+            "repos/trvny/trvny/issues/comments/${COMMENT_ID}/reactions" \
+            -f content='-1' \
+            >/dev/null || true
+
+      - name: Fail rejected command
+        if: >-
+          steps.execute.outcome == 'failure' ||
+          steps.execute.outputs.state == 'gptomek-comment-error'
+        shell: bash
+        run: exit 1

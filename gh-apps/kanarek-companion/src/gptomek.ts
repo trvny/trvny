@@ -27,6 +27,7 @@ const CONTROL_REPOSITORY = GPTOMEK_CONTROL_REPOSITORY;
 const CONTROL_PULL_REQUEST = GPTOMEK_CONTROL_PULL_REQUEST;
 const COMMAND_RE = /<!--\s*gptomek-command:([A-Za-z0-9+/_-]+={0,2})\s*-->/;
 const COMMAND_PREFIX_RE = /<!--\s*gptomek-command:/;
+const COMMENT_COMMAND_RE = /^\s*```gptomek[ \t]*\r?\n([\s\S]*?)\r?\n```\s*$/;
 const RESULT_RE = /<!--\s*gptomek-result:([A-Za-z0-9+/_-]+={0,2})\s*-->/g;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_BATCH_STEPS = 10;
@@ -64,7 +65,7 @@ const SAFE_RETRY_ERRORS = new Set([
   'protected_branch',
 ]);
 
-type GptomekTransport = 'issue' | 'pr';
+type GptomekTransport = 'issue' | 'pr' | 'comment';
 
 interface GptomekConfig {
   appId: string;
@@ -757,6 +758,18 @@ function commandFromBody(body: string | null | undefined): GptomekCommand | null
 
 function withoutCommand(body: string | null | undefined): string {
   return (body ?? '').replace(COMMAND_RE, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function commandFromComment(body: string): GptomekCommand {
+  const match = body.match(COMMENT_COMMAND_RE);
+  if (!match) throw new Error('invalid_comment_command');
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(match[1]);
+  } catch {
+    throw new Error('invalid_comment_command_json');
+  }
+  return parseCommand(decoded);
 }
 
 function bodyWithResult(
@@ -2676,6 +2689,101 @@ export async function handleGptomekMailboxCommand(
       };
     }
     throw error;
+  }
+}
+
+export async function handleGptomekCommentCommand(
+  body: string,
+  env: CompanionEnv,
+  fetcher: typeof fetch = fetch,
+): Promise<GptomekControlResult> {
+  const command = commandFromComment(body);
+  const startedAt = Date.now();
+  const transport: GptomekTransport = 'comment';
+  const settings = config(env);
+  const controlClient = await createInstallationClient(
+    settings.appId,
+    settings.privateKey,
+    settings.installationId,
+    fetcher,
+  );
+  const commandInstallationId = await repositoryInstallationId(
+    settings.appId,
+    settings.privateKey,
+    command.repository,
+    fetcher,
+  );
+  const commandClient =
+    commandInstallationId === settings.installationId
+      ? controlClient
+      : await createInstallationClient(
+          settings.appId,
+          settings.privateKey,
+          commandInstallationId,
+          fetcher,
+        );
+
+  try {
+    validateCommandPolicy(command);
+    const execution = await executeIdempotent(commandClient, command, env);
+    const envelope: GptomekResultEnvelope = {
+      id: command.id,
+      operation: command.op,
+      repository: command.repository,
+      ok: true,
+      transport,
+      durationMs: Date.now() - startedAt,
+      deduplicated: execution.deduplicated,
+      result: execution.result,
+    };
+    console.log(
+      JSON.stringify({
+        gptomek: 'comment_command_completed',
+        commandId: command.id,
+        operation: command.op,
+        repository: command.repository,
+        installationId: commandInstallationId,
+        deduplicated: execution.deduplicated,
+        durationMs: envelope.durationMs,
+      }),
+    );
+    return {
+      control: true,
+      handled: true,
+      commandId: command.id,
+      operation: command.op,
+      result: envelope,
+    };
+  } catch (error) {
+    const errorValue = errorCode(error);
+    const envelope: GptomekResultEnvelope = {
+      id: command.id,
+      operation: command.op,
+      repository: command.repository,
+      ok: false,
+      transport,
+      durationMs: Date.now() - startedAt,
+      error: errorValue,
+    };
+    console.warn(
+      JSON.stringify({
+        gptomek: gptomekMailboxFailureIsTerminal(command.op, errorValue)
+          ? 'comment_command_rejected'
+          : 'comment_command_failed',
+        commandId: command.id,
+        operation: command.op,
+        repository: command.repository,
+        error: errorValue,
+        durationMs: envelope.durationMs,
+      }),
+    );
+    return {
+      control: true,
+      handled: true,
+      commandId: command.id,
+      operation: command.op,
+      result: envelope,
+    };
   }
 }
 

@@ -121,6 +121,9 @@ const VERCEL_MODEL_MAX_OUTPUT_TOKENS = new Map<string, number>([
 ]);
 const OPENROUTER_REASONING_MODELS = new Set<string>([
   'stealth/space-bunny-alpha',
+  'qwen/qwen3.8-27b:free',
+  'nvidia/nemotron-3-ultra-550b-a55b:free',
+  'cohere/north-mini-code:free',
 ]);
 const GROQ_GPT_OSS_CONTEXT_TOKENS = 131_072;
 const GROQ_GPT_OSS_MAX_OUTPUT_TOKENS = 65_536;
@@ -1300,18 +1303,27 @@ function providerAttempts(
   if (provider.id === 'openrouter') {
     const fallbackModels = provider.fallbackModels ?? [];
     const useReasoning = taskUsesHighReasoning(task);
-    const primaryReasoning = useReasoning && OPENROUTER_REASONING_MODELS.has(provider.model);
     const reasoningEffort = configuredReasoningEffort(env);
-    const primaryAttempt: ProviderAttempt = {
-      model: provider.model,
-      label: fallbackModels.length ? 'primary_only' : 'default',
-      ...(primaryReasoning
-        ? {
-            minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
-            requestFields: { reasoning: { effort: reasoningEffort } },
-          }
-        : {}),
+    const individualAttempt = (
+      model: string,
+      label: 'default' | 'primary_only' | 'model_fallback',
+    ): ProviderAttempt => {
+      const useModelReasoning = useReasoning && OPENROUTER_REASONING_MODELS.has(model);
+      return {
+        model,
+        label,
+        ...(useModelReasoning
+          ? {
+              minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
+              requestFields: { reasoning: { effort: reasoningEffort } },
+            }
+          : {}),
+      };
     };
+    const primaryAttempt = individualAttempt(
+      provider.model,
+      fallbackModels.length ? 'primary_only' : 'default',
+    );
     if (!fallbackModels.length) return [primaryAttempt];
     return [
       {
@@ -1320,6 +1332,7 @@ function providerAttempts(
         label: 'fallback_chain',
       },
       primaryAttempt,
+      ...fallbackModels.map((model) => individualAttempt(model, 'model_fallback')),
     ];
   }
   if (
@@ -1385,7 +1398,12 @@ function shouldTryNextAttempt(
   attemptCount: number,
 ): boolean {
   if (attemptIndex + 1 >= attemptCount) return false;
-  if (provider.id === 'openrouter') return status === 400;
+  if (provider.id === 'openrouter') {
+    if (status === 404) return true;
+    if (status !== 400) return false;
+    if (attemptIndex === 0) return true;
+    return category === 'http_400_invalid_model';
+  }
   if (provider.id === 'aihubmix') {
     if (status === 400) {
       return category === 'http_400_invalid_model' ||

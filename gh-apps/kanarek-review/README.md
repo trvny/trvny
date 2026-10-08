@@ -146,8 +146,9 @@ a compatible free model automatically. The configured explicit `:free` models
 are therefore a quality/order policy rather than a technical requirement;
 `openrouter/free` remains the catch-all fallback. The server-side fallback
 chain deliberately omits optional adjustable-reasoning fields because its models
-are heterogeneous; the known Space Bunny primary can still retry independently
-with high reasoning. Expired models are removed from the maintained list instead
+are heterogeneous. If that chain is rejected or its primary model is unavailable,
+the router tries each configured model individually and adds reasoning only where
+the model supports it. Expired models are removed from the maintained list instead
 of being rediscovered as repeatable 400s on every review.
 
 Vercel AI Gateway is intentionally classified as `monthly-free-credit`. The
@@ -156,9 +157,9 @@ models consuming that included monthly allowance are part of the free budget.
 The cap stays enforced at Vercel instead of being duplicated here.
 
 Reasoning is capability-aware rather than provider-wide. Review, judge, and
-shitpost lanes give known reasoning-capable Vercel models and known OpenRouter
-primary models high reasoning with at least 16K completion-token headroom.
-Heterogeneous OpenRouter fallback chains do not inherit that optional field.
+shitpost lanes give known reasoning-capable Vercel and OpenRouter models high
+reasoning with at least 16K completion-token headroom. Heterogeneous OpenRouter
+fallback chains do not inherit that optional field.
 Groq task lanes keep their task-specific effort and receive the same floor
 whenever reasoning is enabled; large Groq requests are conservatively fitted to
 the model context window before dispatch and skipped if the 16K reasoning floor

@@ -24,8 +24,8 @@ interface GithubToken {
 export interface GremlinOAuthEnv extends RuntimeEnv {
   OAUTH_KV: KVNamespace;
   OAUTH_PROVIDER: OAuthHelpers;
-  GITHUB_OAUTH_CLIENT_ID?: string;
-  GITHUB_OAUTH_CLIENT_SECRET?: string;
+  GREMLIN_OAUTH_CLIENT_ID?: string;
+  GREMLIN_OAUTH_CLIENT_SECRET?: string;
 }
 
 interface OperatorProps {
@@ -38,12 +38,12 @@ const escapeHtml = (input: string): string =>
   input.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
 
 function unavailable(env: GremlinOAuthEnv): boolean {
-  return !env.GITHUB_OAUTH_CLIENT_ID?.trim() || !env.GITHUB_OAUTH_CLIENT_SECRET?.trim();
+  return !env.GREMLIN_OAUTH_CLIENT_ID?.trim() || !env.GREMLIN_OAUTH_CLIENT_SECRET?.trim();
 }
 
 function githubAuthorizeUrl(env: GremlinOAuthEnv, state: string, challenge: string): string {
   const url = new URL('https://github.com/login/oauth/authorize');
-  url.searchParams.set('client_id', env.GITHUB_OAUTH_CLIENT_ID!);
+  url.searchParams.set('client_id', env.GREMLIN_OAUTH_CLIENT_ID!);
   url.searchParams.set('redirect_uri', CALLBACK);
   url.searchParams.set('state', state);
   url.searchParams.set('code_challenge', challenge);
@@ -56,8 +56,8 @@ async function githubToken(env: GremlinOAuthEnv, input: Record<string, string>):
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: env.GITHUB_OAUTH_CLIENT_ID!,
-      client_secret: env.GITHUB_OAUTH_CLIENT_SECRET!,
+      client_id: env.GREMLIN_OAUTH_CLIENT_ID!,
+      client_secret: env.GREMLIN_OAUTH_CLIENT_SECRET!,
       ...input,
     }),
   });

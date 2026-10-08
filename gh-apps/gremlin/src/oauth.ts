@@ -254,7 +254,7 @@ export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): Ex
       try {
         token = await githubToken(env, { grant_type: 'refresh_token', refresh_token: props.githubRefreshToken });
       } catch {
-        throw new OAuthError('temporarily_unavailable', { statusCode: 503 });
+        throw new OAuthError('temporarily_unavailable', { statusCode: 503, description: 'GitHub OAuth request failed' });
       }
       if (!token.access_token || !token.refresh_token) {
         throw new OAuthError(token.error === 'bad_refresh_token' ? 'invalid_grant' : 'temporarily_unavailable', { description: 'GitHub token refresh failed' });

@@ -70,6 +70,8 @@ command JSON; the transport itself carries the base64url-encoded JSON inside a
 | --- | --- |
 | Commit one or more files on an existing branch | `commit_files` |
 | Apply a strict unified diff and commit the result | `apply_patch` |
+| Create a new branch from a base commit plus a strict patch | `branch_from_patch` |
+| Apply a review fix, reply, react and optionally resolve the thread | `review_fix` |
 | Revert the current HEAD commit without local git | `revert_commit` |
 | Reapply one strict single-parent commit onto a guarded branch | `cherry_pick` |
 | Commit existing Git object SHAs as a guarded tree mutation | `commit_tree` |
@@ -255,6 +257,13 @@ Supported operations:
 - `apply_patch`: strictly apply a bounded text-only unified diff against the guarded
   branch head, then create one GPTomek-authored commit. Hunks must match exactly;
   fuzzy matching, binary patches, renames/copies and mode-only changes are rejected.
+- `branch_from_patch`: build the strict patch commit against an immutable `baseSha`
+  first, then create a previously absent work branch at that commit. Invalid patches
+  never leave a half-created branch behind.
+- `review_fix`: validate that an inline review comment belongs to the declared PR,
+  apply the strict patch through its own checkpoint, reply as GPTomek, add 👍, and
+  optionally resolve the supplied review thread. Each side effect has replay protection,
+  so a retry resumes rather than reapplying an already committed fix.
 - `revert_commit`: restore the first parent's tree as a new GPTomek-authored commit,
   but only when the requested commit is still the guarded branch HEAD. Older commits
   and merge commits are deliberately rejected instead of approximating a three-way revert.
@@ -331,6 +340,58 @@ preserves untouched per-line LF/CRLF endings, UTF-8 BOMs and existing executable
 bits, and honors `100644` / `100755` metadata for newly created files. Empty
 text-file creation and deletion are supported. Binary patches, renames/copies,
 mode-only changes, unsupported file modes and fuzzy hunk relocation are not.
+
+### Create a branch from a patch
+
+```json
+{
+  "id": "branch-patch-example-20261008-1",
+  "op": "branch_from_patch",
+  "repository": "trvny/trvny",
+  "branch": "feat/example",
+  "baseSha": "0123456789abcdef0123456789abcdef01234567",
+  "message": "feat: start patched branch",
+  "patch": "diff --git a/example.txt b/example.txt\n--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old\n+new\n"
+}
+```
+
+`branch_from_patch` uses the same strict text-patch rules as `apply_patch`,
+but the target branch must not exist yet. GPTomek validates and applies the
+patch against `baseSha`, creates the bot-authored commit, and only then creates
+`refs/heads/<branch>`. `main`, the repository default branch and the GPTomek
+control ref remain protected. If the final ref creation has an ambiguous network
+outcome, GPTomek re-reads the branch before deciding success vs retry vs
+`command_outcome_uncertain`.
+
+### Apply a review fix
+
+```json
+{
+  "id": "review-fix-example-20261008-1",
+  "op": "review_fix",
+  "repository": "trvny/trvny",
+  "pullRequestNumber": 123,
+  "branch": "feat/example",
+  "expectedHeadSha": "0123456789abcdef0123456789abcdef01234567",
+  "commentId": 456789,
+  "reviewThreadId": "PRRT_kwDOExample",
+  "message": "fix: address review feedback",
+  "patch": "diff --git a/example.txt b/example.txt\n--- a/example.txt\n+++ b/example.txt\n@@ -1 +1 @@\n-old\n+new\n"
+}
+```
+
+The PR head must be an in-repository branch matching `branch`, and the review
+comment must belong to that PR. The patch, reply and 👍 reaction use derived
+checkpoint IDs, so if a later step fails the command can resume without
+replaying completed writes. After the patch, GPTomek verifies that the PR head
+is exactly the created commit before replying.
+
+`replyBody` is optional; without it GPTomek replies with
+`Fixed in <short-sha>.`. `reviewThreadId` is also optional. When supplied,
+GPTomek verifies that the thread belongs to the same PR and contains
+`commentId`, then resolves it through GitHub GraphQL. Resolution is checked
+before and after the mutation so an ambiguous response does not blindly replay
+the operation.
 
 ### Revert the current HEAD commit
 

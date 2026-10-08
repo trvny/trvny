@@ -95,6 +95,52 @@ test('expired, paused or uncertain work recovers without replaying mutations', (
   });
 });
 
+test('checkpoint peek is read-only and reports completed work', async () => {
+  const records = new Map<string, unknown>();
+  const storage = {
+    get: async (key: string) => records.get(key),
+    put: async (key: string, value: unknown) => { records.set(key, value); },
+    delete: async (key: string) => records.delete(key),
+    deleteAll: async () => { records.clear(); },
+    setAlarm: async () => undefined,
+    deleteAlarm: async () => undefined,
+  };
+  const { OperatorCheckpointStore } = await import('../src/autopilot-checkpoint.ts');
+  const store = new OperatorCheckpointStore({ storage } as unknown as DurableObjectState);
+  const call = (pathname: string, body: Record<string, unknown>) => store.fetch(new Request(
+    `https://checkpoint.internal${pathname}`,
+    { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+  ));
+  const operationId = 'op-peek-test';
+  const inputHash = 'a'.repeat(64);
+
+  const missing = await call('/peek', { operationId, inputHash });
+  assert.equal(missing.status, 200);
+  assert.equal((await missing.json() as { state?: string }).state, 'missing');
+
+  assert.equal((await call('/claim', { operationId, inputHash })).status, 200);
+  const active = await call('/peek', { operationId, inputHash });
+  assert.equal(active.status, 200);
+  assert.equal((await active.json() as { state?: string }).state, 'in_progress');
+
+  assert.equal((await call('/complete', {
+    inputHash,
+    status: 200,
+    body: { ok: true, result: { sha: 'b'.repeat(40) } },
+  })).status, 200);
+
+  const complete = await call('/peek', { operationId, inputHash });
+  const payload = await complete.json() as {
+    state?: string;
+    result?: { body?: { result?: { sha?: string } } };
+  };
+  assert.equal(payload.state, 'complete');
+  assert.equal(payload.result?.body?.result?.sha, 'b'.repeat(40));
+
+  const replay = await call('/claim', { operationId, inputHash });
+  assert.equal((await replay.json() as { state?: string }).state, 'complete');
+});
+
 test('checkpoint release removes a completed resource lock', async () => {
   const records = new Map<string, unknown>();
   const storage = {

@@ -26,6 +26,10 @@
   "durable_objects": {
     "bindings": [
       {
+        "name": "GREMLIN_OAUTH_REFRESH",
+        "class_name": "GremlinGithubRefreshCoordinator"
+      },
+      {
         "name": "OPERATOR_CHECKPOINTS",
         "class_name": "OperatorCheckpointStore",
         "script_name": "kanarek-companion"
@@ -37,6 +41,12 @@
       }
     ]
   },
+  "migrations": [
+    {
+      "tag": "oauth-refresh-v1",
+      "new_sqlite_classes": ["GremlinGithubRefreshCoordinator"]
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {

@@ -94,11 +94,12 @@ prefer the more general/creative end of the same pool. Retryable model failures
 fall through inside AIHubMix before abandoning the provider.
 
 AIHubMix and OrcaRouter use the shorter
-`KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS` (10 seconds by default), so an
-unresponsive early free provider cannot hold the whole review queue for the
-full 30-second general router timeout. Unknown names and duplicates are ignored,
-and omitted known providers are appended in the default order, matching the
-quip provider-order behavior. Workers AI is temporarily disabled in this Worker and its account-level
+`KANAREK_REVIEW_FREE_PROBE_TIMEOUT_MS` for non-review traffic, but code review
+lifts every HTTP provider to the review task's patient timeout floor instead of
+cutting off a model while it is still analyzing the pull request. Provider model
+fallbacks share that provider-level deadline. Unknown names and duplicates are
+ignored, and omitted known providers are appended in the default order, matching
+the quip provider-order behavior. Workers AI is temporarily disabled in this Worker and its account-level
 daily neuron allocation is reserved for the SpaceMolt gateway. The dormant model/budget
 settings remain documented here so the fallback can be restored deliberately later. `@cf/zai-org/glm-4.7-flash`
 remains the configured emergency model: it supports reasoning and tool use while
@@ -132,7 +133,8 @@ Code review and the generative L2 judge get at least 60 seconds per provider,
 while the experimental System One L2 has its separate bounded total budget and
 shitpost generation gets at least 120 seconds per provider. A provider's model
 fallbacks share that provider-level deadline instead of resetting a fresh full
-timeout for every candidate model.
+timeout for every candidate model. Kanarek Companion separately bounds the
+sequential free-review sweep, so the pool can be patient without running forever.
 The live `/health` payload exposes the effective free queue as
 `providerPool.freeOrder`.
 

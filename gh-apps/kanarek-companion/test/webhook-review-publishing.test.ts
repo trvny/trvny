@@ -9,6 +9,7 @@ import {
 import {
   parseReviewJson,
   reviewDisposition,
+  reviewFreeSweepBudgetMs,
   reviewSourceBadge,
   reviewSourceLabel,
   reviewSweepMaxAttempts,
@@ -553,6 +554,13 @@ test('provider sweep cannot loop on an unidentified or repeated provider', async
   assert.equal(calls, 2);
 });
 
+test('free review sweep budget defaults to ten minutes and stays below the alarm ceiling', () => {
+  assert.equal(reviewFreeSweepBudgetMs(undefined), 10 * 60_000);
+  assert.equal(reviewFreeSweepBudgetMs('60000'), 60_000);
+  assert.equal(reviewFreeSweepBudgetMs(String(12 * 60_000)), 12 * 60_000);
+  assert.equal(reviewFreeSweepBudgetMs(String(13 * 60_000)), 10 * 60_000);
+});
+
 test('provider sweep respects attempt and time budgets', async () => {
   let calls = 0;
   let clock = 0;
@@ -561,7 +569,7 @@ test('provider sweep respects attempt and time budgets', async () => {
     clock += 4 * 60_000;
     return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: `p${calls}` });
   }, sweepFiles, { now: () => clock });
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
 
   calls = 0;
   await sweepReviewProviders(() => {
@@ -571,18 +579,23 @@ test('provider sweep respects attempt and time budgets', async () => {
   assert.equal(calls, 3);
 });
 
-test('provider sweep aborts a follow-up attempt at the sweep deadline', async () => {
-  const signals: Array<AbortSignal | undefined> = [];
+test('provider sweep bounds the first and follow-up attempts with the phase deadline', async () => {
+  const signals: AbortSignal[] = [];
+  let calls = 0;
   const result = await sweepReviewProviders((_excluded, signal) => {
+    assert.ok(signal);
     signals.push(signal);
-    if (!signal) return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: 'aihubmix' });
+    calls += 1;
+    if (calls === 1) {
+      return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: 'aihubmix' });
+    }
     return new Promise<ReviewRouterOutcome>((resolve) => {
       signal.addEventListener('abort', () => resolve({ kind: 'unavailable' }));
     });
   }, sweepFiles, { budgetMs: 20 });
 
   assert.equal(signals.length, 2);
-  assert.equal(typeof signals[0], 'undefined');
+  assert.equal(signals[0]?.aborted, false);
   assert.equal(signals[1]?.aborted, true);
   assert.equal(result.generated, null);
 });

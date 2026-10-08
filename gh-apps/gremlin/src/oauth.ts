@@ -1,0 +1,273 @@
+import {
+  AuthorizationError,
+  OAuthError,
+  OAuthProvider,
+  type AuthRequest,
+  type OAuthHelpers,
+} from '@cloudflare/workers-oauth-provider';
+import { WorkerEntrypoint } from 'cloudflare:workers';
+import runtime, { handleGremlinMcp, type RuntimeEnv } from 'kanarek-companion/runtime';
+
+const ORIGIN = 'https://gremlin.travny.workers.dev';
+const RESOURCE = `${ORIGIN}/mcp`;
+const CALLBACK = `${ORIGIN}/oauth/github/callback`;
+const OWNER_LOGIN = 'trvny';
+const OWNER_ID = 120686325;
+
+interface GithubToken {
+  access_token?: string;
+  refresh_token?: string;
+  error?: string;
+}
+
+interface GithubUser {
+  login?: string;
+  id?: number;
+}
+
+export interface GremlinOAuthEnv extends RuntimeEnv {
+  OAUTH_KV: KVNamespace;
+  OAUTH_PROVIDER: OAuthHelpers;
+  GITHUB_OAUTH_CLIENT_ID?: string;
+  GITHUB_OAUTH_CLIENT_SECRET?: string;
+}
+
+interface OperatorProps {
+  userId: string;
+  githubToken: string;
+  githubRefreshToken?: string;
+}
+
+const escapeHtml = (input: string): string =>
+  input.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
+
+function unavailable(env: GremlinOAuthEnv): boolean {
+  return !env.GITHUB_OAUTH_CLIENT_ID?.trim() || !env.GITHUB_OAUTH_CLIENT_SECRET?.trim();
+}
+
+function githubAuthorizeUrl(env: GremlinOAuthEnv, state: string, challenge: string): string {
+  const url = new URL('https://github.com/login/oauth/authorize');
+  url.searchParams.set('client_id', env.GITHUB_OAUTH_CLIENT_ID!);
+  url.searchParams.set('redirect_uri', CALLBACK);
+  url.searchParams.set('state', state);
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method', 'S256');
+  return url.toString();
+}
+
+async function githubToken(env: GremlinOAuthEnv, input: Record<string, string>): Promise<GithubToken> {
+  const response = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: env.GITHUB_OAUTH_CLIENT_ID!,
+      client_secret: env.GITHUB_OAUTH_CLIENT_SECRET!,
+      ...input,
+    }),
+  });
+  if (!response.ok) throw new Error('github_token_endpoint_unavailable');
+  return (await response.json()) as GithubToken;
+}
+
+async function ownerForToken(token: string): Promise<boolean> {
+  const response = await fetch('https://api.github.com/user', {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${token}`,
+      'User-Agent': 'MechaGremlin-OAuth',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  });
+  if (!response.ok) return false;
+  const user = (await response.json()) as GithubUser;
+  return user.id === OWNER_ID && user.login === OWNER_LOGIN;
+}
+
+async function challenge(verifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const binary = String.fromCharCode(...new Uint8Array(digest));
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+}
+
+function authErrorRedirect(request: AuthRequest, error: string): string {
+  const url = new URL(request.redirectUri);
+  url.searchParams.set('error', error);
+  if (request.state) url.searchParams.set('state', request.state);
+  if (request.issuer) url.searchParams.set('iss', request.issuer);
+  return url.toString();
+}
+
+async function startGithub(env: GremlinOAuthEnv, approved: {
+  request: AuthRequest;
+  headers: Headers;
+}): Promise<Response> {
+  const verifier = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
+  const upstream = await env.OAUTH_PROVIDER.beginUpstream(approved.request, {
+    data: { verifier },
+    headers: approved.headers,
+  });
+  upstream.headers.set('Location', githubAuthorizeUrl(env, upstream.state, await challenge(verifier)));
+  return new Response(null, { status: 302, headers: upstream.headers });
+}
+
+function consentPage(name: string, clientDomain: string | undefined, redirectHost: string, loopback: boolean, scopes: string[], handle: string): string {
+  const publisher = clientDomain
+    ? `Published by <strong>${escapeHtml(clientDomain)}</strong>.`
+    : 'Client identity is self-reported.';
+  const scopeItems = scopes.map((scope) =>
+    `<label><input type="checkbox" name="scope" value="${escapeHtml(scope)}" checked> ${escapeHtml(scope)}</label>`).join('');
+  return `<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Authorize MechaGremlin</title>
+<style>body{font-family:system-ui;max-width:36rem;margin:10vh auto;padding:1.5rem;line-height:1.6}button{font:inherit;padding:.5rem 1rem;margin-right:.5rem}label{display:block}</style>
+<h1>Allow ${escapeHtml(name)} to use MechaGremlin?</h1>
+<p>${publisher} Access will be sent to <strong>${escapeHtml(redirectHost)}</strong>.</p>
+${loopback ? '<p><strong>Local app:</strong> continue only if you started this sign-in on your device.</p>' : ''}
+<p>Access permits guarded GitHub and Cloudflare actions as the repository owner.</p>
+<form method="post" action="/authorize"><input type="hidden" name="handle" value="${escapeHtml(handle)}">
+${scopeItems}<p><button name="decision" value="approve">Allow</button><button name="decision" value="deny">Deny</button></p>
+</form></html>`;
+}
+
+async function authorize(request: Request, env: GremlinOAuthEnv): Promise<Response> {
+  if (unavailable(env)) return new Response('GitHub OAuth is not configured', { status: 503 });
+  try {
+    if (request.method === 'GET') {
+      const parsed = await env.OAUTH_PROVIDER.parseAuthRequest(request);
+      const details = await env.OAUTH_PROVIDER.describeConsent(parsed);
+      const consent = await env.OAUTH_PROVIDER.beginConsent(parsed);
+      consent.headers.set('Content-Type', 'text/html; charset=utf-8');
+      return new Response(consentPage(
+        details.clientName,
+        details.clientDomain,
+        details.redirectHost,
+        details.redirectIsLoopback,
+        details.scope,
+        consent.handle,
+      ), { headers: consent.headers });
+    }
+    if (request.method === 'POST') {
+      const form = await request.formData();
+      const handle = String(form.get('handle') ?? '');
+      if (form.get('decision') !== 'approve') {
+        const denied = await env.OAUTH_PROVIDER.denyConsent(request, handle);
+        return new Response(null, { status: 302, headers: denied.headers });
+      }
+      const approved = await env.OAUTH_PROVIDER.approveConsent(request, handle, {
+        scope: form.getAll('scope').map(String),
+      });
+      if (!approved.request.scope.includes('mcp')) return new Response('Required scope missing', { status: 400 });
+      return startGithub(env, approved);
+    }
+    return new Response('Method not allowed', { status: 405 });
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      if (error.redirectTo) return Response.redirect(error.redirectTo, 302);
+      return new Response('Invalid authorization request', { status: 400 });
+    }
+    throw error;
+  }
+}
+
+async function githubCallback(request: Request, env: GremlinOAuthEnv): Promise<Response> {
+  if (unavailable(env)) return new Response('GitHub OAuth is not configured', { status: 503 });
+  try {
+    const finished = await env.OAUTH_PROVIDER.finishUpstream<{ verifier: string }>(request);
+    const url = new URL(request.url);
+    if (url.searchParams.has('error')) {
+      finished.headers.set('Location', authErrorRedirect(finished.request, 'access_denied'));
+      return new Response(null, { status: 302, headers: finished.headers });
+    }
+    const code = url.searchParams.get('code');
+    if (!code || !finished.data?.verifier) return new Response('Invalid GitHub callback', { status: 400 });
+    const token = await githubToken(env, {
+      code,
+      redirect_uri: CALLBACK,
+      code_verifier: finished.data.verifier,
+    });
+    if (!token.access_token || !(await ownerForToken(token.access_token))) {
+      finished.headers.set('Location', authErrorRedirect(finished.request, 'access_denied'));
+      return new Response(null, { status: 302, headers: finished.headers });
+    }
+    const props: OperatorProps = {
+      userId: OWNER_LOGIN,
+      githubToken: token.access_token,
+      ...(token.refresh_token ? { githubRefreshToken: token.refresh_token } : {}),
+    };
+    const grant = await env.OAUTH_PROVIDER.completeAuthorization({
+      request: finished.request,
+      userId: OWNER_LOGIN,
+      metadata: { provider: 'github' },
+      scope: finished.request.scope,
+      props,
+    });
+    finished.headers.set('Location', grant.redirectTo);
+    return new Response(null, { status: 302, headers: finished.headers });
+  } catch (error) {
+    if (error instanceof AuthorizationError) return new Response('Invalid or expired GitHub authorization', { status: 400 });
+    throw error;
+  }
+}
+
+class GremlinMcpHandler extends WorkerEntrypoint<GremlinOAuthEnv, OperatorProps> {
+  async fetch(request: Request): Promise<Response> {
+    if (this.ctx.props.userId !== OWNER_LOGIN || !this.ctx.props.githubToken) {
+      return new Response('Forbidden', { status: 403 });
+    }
+    const response = await handleGremlinMcp(request, this.env, async (internalRequest) => {
+      const headers = new Headers(internalRequest.headers);
+      headers.set('Authorization', `Bearer ${this.ctx.props.githubToken}`);
+      const authenticated = new Request(internalRequest, { headers });
+      return runtime.fetch(authenticated, this.env, this.ctx);
+    });
+    return response ?? new Response('Not found', { status: 404 });
+  }
+}
+
+export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): ExportedHandler<GremlinOAuthEnv> {
+  const defaultHandler: ExportedHandler<GremlinOAuthEnv> = {
+    async fetch(request, env, ctx) {
+      const pathname = new URL(request.url).pathname;
+      if (pathname === '/authorize') return authorize(request, env);
+      if (pathname === '/oauth/github/callback') return githubCallback(request, env);
+      return fallback.fetch(request, env, ctx);
+    },
+  };
+  return new OAuthProvider<GremlinOAuthEnv>({
+    apiRoute: '/mcp',
+    apiHandler: GremlinMcpHandler,
+    defaultHandler,
+    authorizeEndpoint: '/authorize',
+    tokenEndpoint: '/oauth/token',
+    clientRegistrationEndpoint: '/oauth/register',
+    clientIdMetadataDocumentEnabled: true,
+    scopesSupported: ['mcp', 'offline_access'],
+    requiredScopes: ['mcp'],
+    resourceMetadata: {
+      resource: RESOURCE,
+      authorization_servers: [ORIGIN],
+      scopes_supported: ['mcp'],
+      resource_name: 'MechaGremlin',
+    },
+    tokenExchangeCallback: async ({ grantType, props, env }) => {
+      if (grantType !== 'refresh_token' || !props.githubRefreshToken) return;
+      if (unavailable(env)) throw new OAuthError('temporarily_unavailable', { statusCode: 503 });
+      let token: GithubToken;
+      try {
+        token = await githubToken(env, { grant_type: 'refresh_token', refresh_token: props.githubRefreshToken });
+      } catch {
+        throw new OAuthError('temporarily_unavailable', { statusCode: 503 });
+      }
+      if (!token.access_token || !token.refresh_token) {
+        throw new OAuthError(token.error === 'bad_refresh_token' ? 'invalid_grant' : 'temporarily_unavailable');
+      }
+      return {
+        newProps: {
+          ...props,
+          githubToken: token.access_token,
+          githubRefreshToken: token.refresh_token,
+        },
+      };
+    },
+  });
+}

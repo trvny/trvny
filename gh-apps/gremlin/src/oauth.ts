@@ -7,22 +7,17 @@ import {
 } from '@cloudflare/workers-oauth-provider';
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import runtime, { handleGremlinMcp, type RuntimeEnv } from 'kanarek-companion/runtime';
+import { GREMLIN_GITHUB_LOGIN, isGremlinGithubOwner } from './operator-identity.ts';
 
 const ORIGIN = 'https://gremlin.travny.workers.dev';
 const RESOURCE = `${ORIGIN}/mcp`;
 const CALLBACK = `${ORIGIN}/oauth/github/callback`;
-const OWNER_LOGIN = 'trvny';
-const OWNER_ID = 120686325;
+const OWNER_LOGIN = GREMLIN_GITHUB_LOGIN;
 
 interface GithubToken {
   access_token?: string;
   refresh_token?: string;
   error?: string;
-}
-
-interface GithubUser {
-  login?: string;
-  id?: number;
 }
 
 export interface GremlinOAuthEnv extends RuntimeEnv {
@@ -79,8 +74,8 @@ async function ownerForToken(token: string): Promise<boolean> {
     },
   });
   if (!response.ok) return false;
-  const user = (await response.json()) as GithubUser;
-  return user.id === OWNER_ID && user.login === OWNER_LOGIN;
+  const user: unknown = await response.json();
+  return isGremlinGithubOwner(user);
 }
 
 async function challenge(verifier: string): Promise<string> {

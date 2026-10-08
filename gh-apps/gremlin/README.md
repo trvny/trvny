@@ -10,6 +10,44 @@ its own `/health`, and returns 404 for Kanarek-only ingress (GitHub webhook,
 GPTomek wake, private review router). This keeps one source of truth for
 operator policy instead of cloning it into two Workers.
 
+### MCP OAuth 2.1 cutover
+
+The production entry (`src/entry.ts`) wraps the existing guarded runtime with
+`@cloudflare/workers-oauth-provider`. Its OAuth resource is
+`https://gremlin.travny.workers.dev/mcp`. ChatGPT connects with PKCE, resource-bound
+tokens and an explicit per-client consent page. GitHub authenticates the operator;
+only the GitHub account `trvny` (ID `120686325`) may receive a grant.
+The token and any refresh token stay encrypted in OAuth KV grant props. Existing
+Action authorization is re-run using that user token for every MCP request.
+GitHub App upstream token rotations are serialized per grant by
+`GremlinGithubRefreshCoordinator` (a Gremlin-owned SQLite Durable Object).
+Its short-lived rotation receipts prevent concurrent MCP refresh attempts from
+reusing a single-use GitHub refresh token. Receipts are AES-GCM encrypted using
+an HKDF-derived key; OAuth KV grants remain the canonical credential store.
+A crash precisely between GitHub token rotation and the durable receipt write
+cannot be made atomic across providers; the operator must reauthorize if that
+rare failure occurs. The old GPT Actions route remains untouched.
+
+Deployment prerequisites:
+
+1. `OAUTH_KV`: dedicated `gremlin-oauth` KV namespace, defined in `wrangler.jsonc`.
+   `GREMLIN_OAUTH_REFRESH` is a local Durable Object binding with a migration.
+2. `GREMLIN_OAUTH_CLIENT_ID` and `GREMLIN_OAUTH_CLIENT_SECRET`: secret Worker bindings.
+   Use the existing GPTomek GitHub App's OAuth client ID and client secret only
+   after checking its authorization settings and scopes. Never confuse App ID
+   with OAuth client ID.
+3. Register `https://gremlin.travny.workers.dev/oauth/github/callback`
+   as an allowed callback on that GitHub App.
+4. Run `npm ci && npm run check` before promoting the Worker; inspect
+   `/.well-known/oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`,
+   and the unauthenticated `/mcp` challenge. Complete the browser sign-in.
+5. Verify `tools/list` returns 37 distinct tools, test a read and a guarded
+   reversible write, and exercise token refresh/revocation and unauthorized login.
+   Do not retire the original GPT before these checks pass.
+
+The old `/gpt-actions/**` compatibility routes remain unchanged. Anchor is
+a separate application and separate OAuth boundary.
+
 ### Migration status
 
 The standalone `gremlin` Worker is deployed and owns the public Gremlin

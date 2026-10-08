@@ -1,15 +1,21 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "gremlin",
-  "main": "src/index.ts",
+  "main": "src/entry.ts",
   "compatibility_date": "2026-08-03",
-  "compatibility_flags": ["nodejs_als"],
+  "compatibility_flags": ["nodejs_als", "global_fetch_strictly_public"],
   "workers_dev": true,
   "preview_urls": false,
   "version_metadata": {
     "binding": "CF_VERSION_METADATA"
   },
   // GPTomek App JWTs signed by kanarek-companion; PEM stays there.
+  "kv_namespaces": [
+    {
+      "binding": "OAUTH_KV",
+      "id": "b1efdebfe21741e98eac9211d8d4fdaf"
+    }
+  ],
   "services": [
     {
       "binding": "GPTOMEK_SIGNER",
@@ -19,6 +25,10 @@
   ],
   "durable_objects": {
     "bindings": [
+      {
+        "name": "GREMLIN_OAUTH_REFRESH",
+        "class_name": "GremlinGithubRefreshCoordinator"
+      },
       {
         "name": "OPERATOR_CHECKPOINTS",
         "class_name": "OperatorCheckpointStore",
@@ -31,6 +41,12 @@
       }
     ]
   },
+  "migrations": [
+    {
+      "tag": "oauth-refresh-v1",
+      "new_sqlite_classes": ["GremlinGithubRefreshCoordinator"]
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {

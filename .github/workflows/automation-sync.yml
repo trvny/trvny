@@ -276,6 +276,8 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       ENGRAM_API_KEY: ${{ secrets.ENGRAM_API_KEY }}
       CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
+      GREMLIN_OAUTH_CLIENT_ID: ${{ secrets.GREMLIN_OAUTH_CLIENT_ID }}
+      GREMLIN_OAUTH_CLIENT_SECRET: ${{ secrets.GREMLIN_OAUTH_CLIENT_SECRET }}
       GREMLIN_HEALTH_URL: https://gremlin.travny.workers.dev/health
     defaults:
       run:
@@ -299,6 +301,12 @@ jobs:
           : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be configured}"
           : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be configured}"
 
+          if [[ -n "${GREMLIN_OAUTH_CLIENT_ID:-}" && -z "${GREMLIN_OAUTH_CLIENT_SECRET:-}" ]] || \
+             [[ -z "${GREMLIN_OAUTH_CLIENT_ID:-}" && -n "${GREMLIN_OAUTH_CLIENT_SECRET:-}" ]]; then
+            echo "::error::Gremlin OAuth client ID and secret must be configured together."
+            exit 1
+          fi
+
           secrets_file=$(mktemp)
           trap 'rm -f "$secrets_file"' EXIT
           python3 - "$secrets_file" <<'PY'
@@ -311,7 +319,7 @@ jobs:
               "CLOUDFLARE_API_TOKEN": os.environ["CLOUDFLARE_API_TOKEN"],
               "CLOUDFLARE_ACCOUNT_ID": os.environ["CLOUDFLARE_ACCOUNT_ID"],
           }
-          for name in ("ENGRAM_API_KEY", "CONTEXT7_API_KEY"):
+          for name in ("ENGRAM_API_KEY", "CONTEXT7_API_KEY", "GREMLIN_OAUTH_CLIENT_ID", "GREMLIN_OAUTH_CLIENT_SECRET"):
               if os.environ.get(name):
                   secrets[name] = os.environ[name]
           pathlib.Path(sys.argv[1]).write_text(json.dumps(secrets), encoding="utf-8")
@@ -327,7 +335,7 @@ jobs:
             echo "::error::GPTOMEK_PRIVATE_KEY is set on gremlin; delete it so GPTOMEK_SIGNER is used."
             exit 1
           fi
-          for name in ENGRAM_API_KEY; do
+          for name in ENGRAM_API_KEY GREMLIN_OAUTH_CLIENT_ID GREMLIN_OAUTH_CLIENT_SECRET; do
             if [ -z "${!name:-}" ]; then
               echo "::warning::$name is not set as a repository secret; any existing value on gremlin was left untouched."
             elif ! jq -e --arg name "$name" '[.[].name] | index($name) != null' <<<"$secrets_json" >/dev/null; then

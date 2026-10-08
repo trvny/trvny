@@ -1,15 +1,15 @@
 import runtime, {
   gremlinMcpManifest,
+  handleGremlinMcp,
   type RuntimeEnv,
 } from 'kanarek-companion/runtime';
 
-import { withGremlinOAuth, type GremlinOAuthEnv } from './oauth.ts';
-
-type Env = GremlinOAuthEnv & {
+type Env = RuntimeEnv & {
   CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
 };
 
 const HEALTH_PATH = '/health';
+const MCP_PATH = '/mcp';
 const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
 // Kanarek-only ingress (GitHub webhook, GPTomek wake, private review router):
 // served by kanarek-companion, never by Gremlin.
@@ -68,8 +68,16 @@ const worker = {
       return health(env);
     }
     if (kanarekOnly(pathname)) return json({ error: 'not_found' }, 404);
+    if (pathname === MCP_PATH) {
+      const response = await handleGremlinMcp(
+        request,
+        env,
+        (internalRequest) => worker.fetch(internalRequest, env, ctx),
+      );
+      return response ?? json({ error: 'not_found' }, 404);
+    }
     return decorateCapabilities(request, await runtime.fetch(request, env, ctx));
   },
 };
 
-export default withGremlinOAuth(worker);
+export default worker;

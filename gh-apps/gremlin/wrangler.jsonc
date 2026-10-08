@@ -13,7 +13,7 @@
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
-      "id": "PENDING_GREMLIN_OAUTH_KV_NAMESPACE"
+      "id": "b1efdebfe21741e98eac9211d8d4fdaf"
     }
   ],
   "services": [

@@ -19,10 +19,16 @@ tokens and an explicit per-client consent page. GitHub authenticates the operato
 only the GitHub account `trvny` (ID `120686325`) may receive a grant.
 The token and any refresh token stay encrypted in OAuth KV grant props. Existing
 Action authorization is re-run using that user token for every MCP request.
+GitHub App upstream token rotations are serialized per grant by
+`GremlinGithubRefreshCoordinator` (a Gremlin-owned SQLite Durable Object).
+Its short-lived rotation receipts prevent concurrent MCP refresh attempts from
+reusing a single-use GitHub refresh token. These receipts are not the primary
+grant state, and the old GPT Actions route remains untouched.
 
 Deployment prerequisites:
 
 1. `OAUTH_KV`: dedicated `gremlin-oauth` KV namespace, defined in `wrangler.jsonc`.
+   `GREMLIN_OAUTH_REFRESH` is a local Durable Object binding with a migration.
 2. `GREMLIN_OAUTH_CLIENT_ID` and `GREMLIN_OAUTH_CLIENT_SECRET`: secret Worker bindings.
    Use the existing GPTomek GitHub App's OAuth client ID and client secret only
    after checking its authorization settings and scopes. Never confuse App ID

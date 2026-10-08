@@ -71,7 +71,7 @@ async function githubToken(env: GremlinOAuthEnv, input: Record<string, string>):
   } catch {
     throw new GithubServiceUnavailable('GitHub token exchange is unavailable');
   }
-  if (response.status === 429 || response.status >= 500) {
+  if (response.status === 403 || response.status === 429 || response.status >= 500) {
     throw new GithubServiceUnavailable('GitHub token exchange is unavailable');
   }
   if (!response.ok) return { error: 'invalid_grant' };
@@ -203,7 +203,7 @@ async function githubCallback(request: Request, env: GremlinOAuthEnv): Promise<R
       redirect_uri: CALLBACK,
       code_verifier: finished.data.verifier,
     });
-    if (!token.access_token || !(await ownerForToken(token.access_token))) {
+    if (!token.access_token || !token.refresh_token || !(await ownerForToken(token.access_token))) {
       finished.headers.set('Location', authErrorRedirect(finished.request, 'access_denied'));
       return new Response(null, { status: 302, headers: finished.headers });
     }
@@ -353,7 +353,8 @@ export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): Ex
       resource_name: 'MechaGremlin',
     },
     tokenExchangeCallback: async ({ grantType, props, env, grantId, userId }) => {
-      if (grantType !== 'refresh_token' || !props.githubRefreshToken) return;
+      if (grantType !== 'refresh_token') return;
+      if (!props.githubRefreshToken) throw new OAuthError('invalid_grant', { description: 'Missing GitHub refresh credential; authorize again' });
       if (unavailable(env)) throw new OAuthError('temporarily_unavailable', { statusCode: 503, description: 'GitHub OAuth is unavailable' });
       let token: GithubToken;
       try {

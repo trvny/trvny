@@ -131,7 +131,7 @@ Primary files:
 - `gptomek-issue.ts`: Issue #203 control-mailbox transport and wake handling.
 - `gpt-actions.ts`: scoped GitHub API surface used by operator actions.
 
-The maintained transport documentation is in `../../gptomek/README.md`.
+The maintained transport documentation is in `../../gptomek/docs/REFERENCE.md`.
 
 ## Gremlin
 

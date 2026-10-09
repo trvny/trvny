@@ -87,9 +87,26 @@ test('validates new-side hunk positions and EOF newline metadata', () => {
   ].join('\n'));
   assert.throws(
     () => applyUnifiedFilePatch('one\n', expectsNoNewline),
-    /patch_old_eof_mismatch/,
+    /patch_old_eof_mismatch: expected missing final newline; regenerate with git diff; file=example.txt/,
   );
   assert.equal(applyUnifiedFilePatch('one', expectsNoNewline), 'ONE');
+
+  const [missingEofMarker] = parseUnifiedPatch([
+    '--- a/example.txt',
+    '+++ b/example.txt',
+    '@@ -1 +1 @@',
+    '-one',
+    '+ONE',
+    '',
+  ].join('\n'));
+  assert.throws(
+    () => applyUnifiedFilePatch('one', missingEofMarker),
+    /patch_old_eof_mismatch: source has no final newline; preserve the git diff EOF marker; file=example.txt/,
+  );
+  assert.throws(
+    () => applyUnifiedFilePatch('one', { ...missingEofMarker, oldPath: `${'deep/'.repeat(150)}file.txt` }),
+    /patch_old_eof_mismatch: source has no final newline; preserve the git diff EOF marker; file=\.\.\..*file\.txt/,
+  );
 });
 
 test('places zero-length insertion hunks after their old-side anchor', () => {

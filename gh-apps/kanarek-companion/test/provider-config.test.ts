@@ -89,6 +89,12 @@ test('honors Anthropic and Gemini generation controls', async () => {
     anthropicFetcher,
   );
   assert.equal(anthropicBody.max_tokens, 444);
+  assert.equal(anthropicBody.model, 'claude-haiku-5-5');
+  assert.deepEqual(anthropicBody.thinking, { type: 'disabled' });
+  assert.deepEqual(anthropicBody.output_config, { effort: 'low' });
+  assert.equal('temperature' in anthropicBody, false);
+  assert.equal('top_p' in anthropicBody, false);
+  assert.equal('top_k' in anthropicBody, false);
 
   let geminiBody: Record<string, unknown> = {};
   const geminiFetcher = (async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -116,4 +122,21 @@ test('honors Anthropic and Gemini generation controls', async () => {
     maxOutputTokens: 555,
     thinkingConfig: { thinkingLevel: 'high' },
   });
+});
+test('older Anthropic model overrides omit Haiku 5.5 controls', async () => {
+  let body: Record<string, unknown> = {};
+  await aiQuip(
+    '{}',
+    { ANTHROPIC_API_KEY: 'anthropic', KANAREK_ANTHROPIC_MODEL: 'claude-haiku-4-5' },
+    (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+      return Response.json({
+        content: [{ type: 'text', text: VALID_QUIP }],
+        stop_reason: 'end_turn',
+      });
+    }) as typeof fetch,
+  );
+  assert.equal(body.model, 'claude-haiku-4-5');
+  assert.equal('thinking' in body, false);
+  assert.equal('output_config' in body, false);
 });

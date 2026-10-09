@@ -85,6 +85,10 @@ With the default ceiling of 25% and no global-cap pressure, the rough curve is
 25% at 0/256 entries, 13% at 128/256, and 0% at 256/256. If the persistent bank
 cannot be measured, AI generation is skipped.
 
+Anthropic direct quips use Claude Haiku 5.5 with low effort and thinking
+explicitly disabled. This keeps short output within the existing token budget;
+model overrides keep their own API parameter behavior. No sampling overrides.
+
 The quip provider order is configured in `wrangler.jsonc`. The first slot can
 delegate to the private free router; direct Gemini/OpenAI/xAI/Anthropic routes
 remain request-level fallbacks for quips only. Free-provider details and secrets

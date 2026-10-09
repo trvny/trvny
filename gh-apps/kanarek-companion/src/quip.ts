@@ -6,7 +6,7 @@ import { reviewRouterChatViaService, type ReviewServiceBinding } from './review-
 export const QUIP_MODEL_DEFAULTS = {
   KANAREK_OPENAI_MODEL: 'gpt-6-luna',
   KANAREK_OPENAI_FALLBACK_MODEL: 'gpt-5.4-nano',
-  KANAREK_ANTHROPIC_MODEL: 'claude-haiku-4-5',
+  KANAREK_ANTHROPIC_MODEL: 'claude-haiku-5-5',
   KANAREK_GEMINI_MODEL: 'gemini-3.5-flash-lite',
   KANAREK_XAI_MODEL: 'grok-4.7',
 } as const;
@@ -716,6 +716,10 @@ async function requestAnthropic(
       ),
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: facts }],
+      // Haiku 5.5 defaults to thinking; direct quips only need short text.
+      ...(model === ANTHROPIC_MODEL
+        ? { thinking: { type: 'disabled' }, output_config: { effort: 'low' } }
+        : {}),
     },
     providerTimeoutMs(env),
     fetcher,

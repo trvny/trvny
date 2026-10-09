@@ -385,6 +385,14 @@ bits, and honors `100644` / `100755` metadata for newly created files. Empty
 text-file creation and deletion are supported. Binary patches, renames/copies,
 mode-only changes, unsupported file modes and fuzzy hunk relocation are not.
 
+**EOF trap:** Generate patches with `git diff` instead of hand-building hunks.
+Preserve `\ No newline at end of file` markers exactly where Git places
+them; a missing marker can cause `patch_old_eof_mismatch:<path>` even when
+the visible text matches. Run `git apply --check` against the exact base
+before submitting. For small files with awkward endings, prefer `commit_files`
+with the complete intended content. Do not guess hunk counts or normalize
+line endings silently.
+
 ### Create a branch from a patch
 
 ```json

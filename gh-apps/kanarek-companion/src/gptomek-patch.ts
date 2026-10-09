@@ -277,10 +277,15 @@ function addedLineEol(source: SourceLine[], hunkStart: number): '\n' | '\r\n' {
   return '\n';
 }
 
+function eofPath(path: string): string {
+  return path.length > 160 ? `...${path.slice(-157)}` : path;
+}
+
 function validateOldLineEnding(
   source: SourceLine[],
   sourceIndex: number,
   patchLine: UnifiedPatchLine,
+  path: string,
 ): void {
   const line = source[sourceIndex];
   if (!line) throw new Error('patch_context_mismatch');
@@ -289,19 +294,21 @@ function validateOldLineEnding(
 
   if (patchLine.oldNoNewline) {
     if (!isFinalSourceLine || !sourceHasNoNewline) {
-      throw new Error('patch_old_eof_mismatch');
+      throw new Error(`patch_old_eof_mismatch: expected missing final newline; regenerate with git diff; file=${eofPath(path)}`);
     }
     return;
   }
 
   if (isFinalSourceLine && sourceHasNoNewline) {
-    throw new Error('patch_old_eof_mismatch');
+    throw new Error(`patch_old_eof_mismatch: source has no final newline; preserve the git diff EOF marker; file=${eofPath(path)}`);
   }
 }
 
-function validateNewNoNewlineMarkers(output: SourceLine[]): void {
+function validateNewNoNewlineMarkers(output: SourceLine[], path: string): void {
   for (let index = 0; index < output.length - 1; index += 1) {
-    if (output[index].eol === '') throw new Error('patch_new_eof_mismatch');
+    if (output[index].eol === '') {
+      throw new Error(`patch_new_eof_mismatch: no-newline marker appears before the final output line; file=${eofPath(path)}`);
+    }
   }
 }
 
@@ -342,7 +349,7 @@ export function applyUnifiedFilePatch(
         if (!current || current.text !== line.text) {
           throw new Error('patch_context_mismatch');
         }
-        validateOldLineEnding(source, sourceIndex, line);
+        validateOldLineEnding(source, sourceIndex, line, patch.oldPath ?? patch.newPath ?? 'unknown');
         sourceIndex += 1;
 
         if (line.kind === 'context') {
@@ -361,7 +368,7 @@ export function applyUnifiedFilePatch(
   }
 
   output.push(...source.slice(sourceIndex));
-  validateNewNoNewlineMarkers(output);
+  validateNewNoNewlineMarkers(output, patch.newPath ?? patch.oldPath ?? 'unknown');
 
   if (patch.newPath === null) {
     if (output.length !== 0) throw new Error('delete_patch_did_not_empty_file');

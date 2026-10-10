@@ -1,0 +1,45 @@
+# GPTomek -> repository_dispatch -> GitHub Actions -> personal GitHub Codespaces.
+# A GPTomek installation token cannot manage a user's Codespaces directly.
+name: GPTomek Devbox control
+
+on: # yamllint disable-line rule:truthy
+  repository_dispatch:
+    types: [devbox-control]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Personal Devbox operation (no arbitrary shell)"
+        type: choice
+        required: true
+        options: [status, ensure, doctor, agents, stop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gptomek-devbox-personal
+  cancel-in-progress: false
+
+jobs:
+  control:
+    # Never allow organizational Codespaces or arbitrary dispatch senders.
+    if: >-
+      (github.event_name == 'repository_dispatch' &&
+       github.event.sender.login == 'gptomek[bot]') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.actor == 'trvny')
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.DEVBOX_CODESPACES_TOKEN }}
+      DEVBOX_ACTION: ${{ github.event.client_payload.action || inputs.action }}
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Personal Codespaces control
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .devcontainer/codespaces_control.py "$DEVBOX_ACTION"

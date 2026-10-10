@@ -1,0 +1,20 @@
+{
+  "name": "Travny AI Devbox",
+  "image": "mcr.microsoft.com/devcontainers/universal:linux",
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb"
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh all",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "ms-python.python",
+        "ms-playwright.playwright",
+        "vscjava.vscode-java-pack"
+      ]
+    }
+  }
+}

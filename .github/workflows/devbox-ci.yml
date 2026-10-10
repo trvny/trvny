@@ -1,0 +1,36 @@
+name: Devbox configuration checks
+
+on: # yamllint disable-line rule:truthy
+  push:
+    branches: [main]
+    paths:
+      - ".devcontainer/**"
+      - ".github/workflows/devbox-ci.yml"
+  pull_request:
+    paths:
+      - ".devcontainer/**"
+      - ".github/workflows/devbox-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Validate Devbox files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m json.tool .devcontainer/devcontainer.json >/dev/null
+          python -m py_compile .devcontainer/maintenance.py
+          bash -n .devcontainer/devbox .devcontainer/setup.sh .devcontainer/install-ubol.sh
+          python -m unittest discover -s .devcontainer -p 'test_*.py' -v

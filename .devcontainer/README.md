@@ -9,12 +9,20 @@ agent sessions, browser investigations and tasks needing a persistent shell.
 1. Open `trvny/trvny` on GitHub: **Code → Codespaces → Create codespace**.
 2. Select the `feat/codespaces-ai-devbox` branch until this PR merges.
 3. Select **4 cores / 8 GB**. Switch to **8 cores / 16 GB** only for heavy builds.
-4. Wait for `postCreateCommand` to finish. In the terminal: `devbox doctor`.
+4. Wait for `onCreateCommand` / `postCreateCommand` to finish. In the terminal: `devbox doctor`.
 
 The universal Linux image supplies Bash, Git, GitHub CLI, Python, Node, Java,
 Maven, Gradle and other common runtimes. Setup adds uv, Antigravity CLI (`agy`),
 Copilot CLI, Hermes CLI, Playwright Chromium, official uBlock Origin Lite, yt-dlp and ffmpeg.
 The Hermes installer skips its separate browser download to avoid duplication.
+The default core utilities include 7-Zip (`7z`), `jq`, `rg`, `fd` (from
+Debian's `fdfind`), `tree`, `file`, `bc`, ImageMagick and ShellCheck.
+Package versions for Copilot, Playwright, Playwright CLI and the filesystem MCP
+are pinned in the sole npm manifest at `.devcontainer/tools/package.json`;
+transitive packages are resolved in the user-local install. Vendor install
+scripts for uv, Antigravity and Hermes track upstream releases. These scripts
+are fully downloaded before execution, but this is not checksum pinning.
+
 
 ```bash
 devbox doctor
@@ -35,6 +43,42 @@ devbox clean --deep       # Also prune package-manager caches
 Other repositories are cloned into `~/workspaces/<owner>/<repo>`. Their own
 instructions and build requirements still apply. The Devbox does not copy
 project-specific scripts or create duplicate CI.
+
+## Optional tool profiles, MCP and skills
+
+```bash
+devbox install base          # Core utilities and Python uv
+devbox install android       # Official Google Android CLI + Apktool
+devbox install android-sdk   # Android SDK command-line tools and platform-tools
+devbox install cloud         # Official Google Cloud CLI (gcloud)
+devbox install mcp           # Pinned filesystem MCP + Playwright CLI skills
+devbox doctor                # Verify executables and optional components
+```
+
+Android CLI is installed using Google's official user-local installer.
+`android sdk` manages SDK packages; Android SDK's `sdkmanager` is a separate
+older tool, not another copy of Android CLI. Install individual Android
+platforms/build-tools only when a project requires them. `android init`
+provides Google's Android CLI skill for a project after installation, if
+needed. Hardware virtualization and USB device access may not be available
+inside Codespaces, so don't assume a local Android emulator will work.
+
+The `gcloud` installer does not log into your Google account; authenticate
+explicitly from your own interactive terminal. No service-account JSON keys or
+Cloudflare production secrets are imported.
+
+The repo's `.mcp.json` configures Context7 over HTTP and an official,
+workspace-scoped filesystem MCP server using the runtime working directory.
+Agent clients supporting this configuration can reuse it; other clients may
+need their own native configuration. The filesystem MCP never receives
+`~/` as its allowed root. See `.agents/skills/devbox-workflow/` and
+`.agents/skills/devbox-handoff/` for project-local operational guidance;
+Playwright CLI also installs its upstream skill into user-level agent skills.
+There is no separate model-provider MCP or cloned secret store.
+
+Installing tools costs Codespaces disk space but idle executables consume
+negligible CPU. Cloud and Android SDK are intentionally optional because
+platform/build-tools downloads can be large.
 
 ## Media downloads (yt-dlp)
 
@@ -169,6 +213,10 @@ This configuration requires at least **4 cores / 8 GB**. Choose **8 cores**
 on demand in Codespaces machine settings. Higher cores consume the monthly
 compute allowance faster. Running and stopped machines both retain storage;
 the browser cache and large JDK/build caches can use substantial storage.
+
+Bootstrap runs in `onCreateCommand`, making it eligible for GitHub
+Codespaces prebuilds if you later choose to configure them. No prebuild is
+enabled by this PR: prebuilds consume extra storage and may affect billing.
 
 Set a Codespaces product budget with **Stop usage when budget limit is reached**
 if enabled in GitHub Billing. Prefer a short idle timeout and push work before

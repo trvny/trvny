@@ -162,6 +162,92 @@ Codespaces secrets should hold only the minimum scoped credentials required
 by a specific tool. Never bulk-import Cloudflare/GitHub Actions secrets, print
 secret values, or expose production tokens to an untrusted agent shell.
 
+## Agent roles and first-run configuration
+
+**Use one lead agent per task.** GitHub Copilot CLI handles day-to-day repo
+changes and PRs; Antigravity CLI handles complex designs, plan/artefact review
+and multi-module exploration; Hermes handles multi-provider research, scoped
+MCP/tool workflows and model fallback. For sensitive code a *different* agent
+may do a read-only review, never concurrent edits to one checkout. Actions,
+GPTomek and Pet Dispatcher retain their existing responsibilities. The
+cross-agent `.agents/skills/devbox-agent-selection/SKILL.md` references this
+runbook, not a separate duplicated policy.
+
+### GitHub Copilot CLI
+
+- Launch `copilot`, sign in interactively and inspect `/model` and tool
+  permissions/usage. Model entitlements and premium-request costs depend on
+  the authenticated GitHub Copilot plan, not the ChatGPT subscription.
+- Keep Copilot's existing repo instructions (`AGENTS.md` and
+  `.github/copilot-instructions.md`) and shared `.agents/skills`.
+  **Do not run `copilot init`** here: it can rewrite the maintained
+  `.github/copilot-instructions.md` currently used for review.
+- Prefer interactive approvals and scoped paths. Do **not** set `--allow-all`
+  globally or default to unattended automation. Let GPTomek handle
+  bot-authored commits/comments and open pull requests as the user.
+
+### Google Antigravity CLI (`agy`)
+
+- Launch `agy` from a trusted repo and complete interactive account sign-in
+  / workspace trust. Use `/model`, `/usage`, `/planning`,
+  `/permissions`, and `/diff` before handing over broad changes.
+- Its native `~/.gemini/antigravity-cli/settings.json` supports these safe
+  starting options (merge only missing keys, **never overwrite an existing
+  laptop-derived config**):
+
+```json
+{
+  "toolPermission": "request-review",
+  "artifactReviewPolicy": "asks-for-review",
+  "allowNonWorkspaceAccess": false,
+  "useG1Credits": false
+}
+```
+
+  This avoids automatically spending extra G1 credits or granting whole-home
+  access. Consider `enableTerminalSandbox: true` only after verifying
+  Codespaces' nested namespace support; CLI approvals remain enabled.
+- Let Antigravity read shared repo skills under `.agents/skills`; no parallel
+  copies under `.agent/skills` or a new project ruleset. Keep its remote
+  browser/session controls separate from the Playwright + uBOL runner.
+
+### Hermes Agent
+
+- After installation run `hermes config check`, `hermes model`,
+  `hermes mcp list`, and `hermes skills list`. Only then test a normal
+  chat; upstream recommends a working primary provider before adding fallback.
+- `~/.hermes/config.yaml` is for non-secret settings;
+  `~/.hermes/.env` and protected OAuth stores are for credentials. Do not
+  overwrite the installer's config or copy secrets from Termux/Legion.
+- Maintain dangerous-command approvals (`approvals.mode: smart` or
+  `manual`), deny unattended/cron approval by default, enable
+  `security.redact_secrets` and cap auxiliary concurrency at ~2 to avoid
+  provider bursts. Hermes detects trusted project-local `.agents/skills`;
+  do not duplicate them under `~/.hermes/skills`. Only enable a small,
+  task-specific subset of MCP tools.
+- Previously discussed *reference* fallback: OrcaRouter Free ->
+  Ollama Cloud `glm-5.3` -> OpenCode `deepseek-v4-flash-free` ->
+  OpenRouter MiniMax free. **Not auto-installed or assumed available**.
+  Test current model IDs, quotas and credentials after the base chat works.
+  The preferred future path is one authenticated scoped broker to Kanarek
+  Review, where its existing router owns provider keys and cooldowns.
+  Keep chargeable fallback disabled until explicitly approved.
+- Do not enable Hermes gateway, unattended scheduled jobs or extra
+  long-lived services on the Codespace. They stop when Codespaces suspends.
+  For repeatable tasks reuse Actions and the current Pet Dispatcher.
+
+### Configuration boundaries and verification
+
+The repo keeps **task instructions**, not signed-in user profiles. Do not
+commit files from `~/.copilot`, `~/.gemini`, `~/.hermes`, SSH or cloud auth.
+Native agent settings stay under each tool's home; edits require opt-in and
+must preserve existing keys. `devbox agents` reports required commands and
+config presence, never configuration values or tokens. The practical first
+session is: one read-only task per CLI, then one isolated test change,
+run tests, inspect the diff and reset the scratch branch. Browser/uBOL needs
+its own smoke test. At that point choose provider routing and model options
+using real entitlements, latency and available quotas.
+
 ## Remote-first execution and storage policy
 
 Prefer existing external infrastructure over installing or running duplicate

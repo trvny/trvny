@@ -70,7 +70,23 @@ def fetch(url: str, *, audio: bool, best: bool) -> int:
     DOWNLOADS.mkdir(mode=0o700, exist_ok=True)
     print(f"Media destination: {DOWNLOADS}", flush=True)
     print("Download only media you have rights or permission to save.", flush=True)
-    return subprocess.run(cmd, check=False).returncode
+    before = {
+        item.name for item in DOWNLOADS.iterdir()
+        if item.is_file() and not item.is_symlink()
+    }
+    result = subprocess.run(cmd, check=False)
+    if result.returncode:
+        return result.returncode
+    after = {
+        item.name for item in DOWNLOADS.iterdir()
+        if item.is_file() and not item.is_symlink()
+        and not item.name.endswith((".part", ".ytdl", ".temp"))
+    }
+    if not after.difference(before):
+        print("No new completed file. Media may exceed size limit or already exist.")
+        print("Check 'devbox files' before retrying.")
+        return 1
+    return 0
 
 
 def list_files() -> None:

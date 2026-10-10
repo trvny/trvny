@@ -4,7 +4,6 @@
 import argparse
 from contextlib import ExitStack
 import fcntl
-import os
 from pathlib import Path
 import shutil
 import subprocess

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Shared Playwright launch contract for browser agents and smoke checks.
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -39,7 +40,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     throw new Error('Only HTTP(S) URLs are supported');
   }
 
-  const smokeProfile = `smoke-${process.pid}`;
+  const smokeProfile = `smoke-${randomUUID()}`;
   const context = await launchWithUbol({ profileName: smokeProfile });
   try {
     const page = await context.newPage();

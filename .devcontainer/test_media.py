@@ -43,7 +43,7 @@ class MediaTests(unittest.TestCase):
             downloads = Path(scratch) / "downloads"
             with (mock.patch.object(media, "DOWNLOADS", downloads),
                   mock.patch.object(media.shutil, "which", return_value="/usr/bin/tool"),
-                  mock.patch.object(media.shutil, "disk_usage", return_value=(10**10, 3*10**9, 3*10**9)),
+                  mock.patch.object(media.shutil, "disk_usage", return_value=mock.Mock(free=3 * 10**9)),
                   mock.patch.object(media.subprocess, "run") as run,
                   redirect_stdout(io.StringIO())):
                 run.return_value.returncode = 0

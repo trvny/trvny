@@ -59,7 +59,7 @@ def handler_for(file: Path, token: str):
             self.wfile.write(page.encode("utf-8"))
 
         def do_POST(self):
-            if self.path != "/download" or self.server.completed:
+            if self.path != "/download":
                 self.headers(404, "text/plain")
                 return
             try:
@@ -73,6 +73,12 @@ def handler_for(file: Path, token: str):
             if data.get("token") != [token]:
                 self.headers(403, "text/plain")
                 return
+            # Claim before opening the source so double taps cannot download twice.
+            with self.server.claim_lock:
+                if self.server.completed or self.server.active:
+                    self.headers(409, "text/plain")
+                    return
+                self.server.active = True
             try:
                 with file.open("rb") as source:
                     before = os.fstat(source.fileno())
@@ -92,12 +98,16 @@ def handler_for(file: Path, token: str):
                 current = file.stat()
                 if current.st_ino == before.st_ino and current.st_dev == before.st_dev and current.st_size == before.st_size:
                     file.unlink()
-                    self.server.completed = True
+                    with self.server.claim_lock:
+                        self.server.completed = True
             except (BrokenPipeError, ConnectionResetError, TimeoutError):
                 # Partial transfers remain available for another attempt.
                 return
             except OSError as exc:
                 print(f"Handoff failed, file retained: {exc}", flush=True)
+            finally:
+                with self.server.claim_lock:
+                    self.server.active = False
 
     return Handoff
 
@@ -108,6 +118,8 @@ def serve(filename: str, port: int, *, duration: int = 1800) -> None:
     with ThreadingHTTPServer(("127.0.0.1", port), handler_for(file, token)) as server:
         server.daemon_threads = True
         server.completed = False
+        server.active = False
+        server.claim_lock = threading.Lock()
         server.timeout = 0.5
         codespace = os.environ.get("CODESPACE_NAME")
         if codespace:

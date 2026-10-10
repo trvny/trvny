@@ -5,7 +5,7 @@
     "cpus": 4,
     "memory": "8gb"
   },
-  "postCreateCommand": "bash .devcontainer/setup.sh all",
+  "postCreateCommand": "bash .devcontainer/devbox doctor",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -26,5 +26,9 @@
       "label": "Private file handoff",
       "onAutoForward": "notify"
     }
+  },
+  "onCreateCommand": "bash .devcontainer/setup.sh all",
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:${containerEnv:HOME}/.local/bin"
   }
 }

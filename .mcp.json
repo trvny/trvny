@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "workspace-files": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "exec \"$HOME/.local/bin/mcp-server-filesystem\" \"$1\"",
+        "bash",
+        "${workspaceFolder}"
+      ]
+    }
+  }
+}

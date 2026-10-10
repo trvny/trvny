@@ -33,15 +33,7 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#476](https://github.com/trvny/feedseek/pull/476) | chore(deps): bump tzdata from 2026.4 to 2026.5 | @dependabot[bot] | ready | 2026-10-07 |
-| trvny/feedseek | [#477](https://github.com/trvny/feedseek/pull/477) | chore(deps-dev): bump wrangler from 4.142.0 to 4.147.0 in /feeds-proxy | @dependabot[bot] | ready | 2026-10-07 |
-| trvny/feedseek | [#478](https://github.com/trvny/feedseek/pull/478) | chore(deps-dev): bump ruff from 0.16.9 to 0.16.10 | @dependabot[bot] | ready | 2026-10-07 |
-| trvny/feedseek | [#479](https://github.com/trvny/feedseek/pull/479) | feat(reader): add MCP Apps chat handoff and state | @trvny | ready | 2026-10-07 |
-| trvny/trvny | [#956](https://github.com/trvny/trvny/pull/956) | fix(kanarek): exhaust OpenRouter model fallbacks | @trvny | ready | 2026-10-07 |
-| trvny/trvny | [#957](https://github.com/trvny/trvny/pull/957) | fix(kanarek): normalize Gemini 3.8 request parameters | @trvny | ready | 2026-10-07 |
-| trvny/tvpi | [#115](https://github.com/trvny/tvpi/pull/115) | chore(deps-dev): bump wrangler from 4.142.0 to 4.147.0 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-10-07 |
-| trvny/WiFi-Automatic | [#49](https://github.com/trvny/WiFi-Automatic/pull/49) | [pull] master from j4velin:master | @pull[bot] | ready | 2026-09-30 |
-| trvny/WiFi-Automatic | [#50](https://github.com/trvny/WiFi-Automatic/pull/50) | ci: bump gradle/actions/setup-gradle from 6.3.0 to 6.4.0 in the actions group | @dependabot[bot] | ready | 2026-10-05 |
+| trvny/tvpi | [#121](https://github.com/trvny/tvpi/pull/121) | chore(deps): bump sharp and wrangler in /worker | @dependabot[bot] | ready | 2026-10-09 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

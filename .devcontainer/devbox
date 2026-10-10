@@ -53,15 +53,15 @@ case "${1:-doctor}" in
       fi
     done
     for entry in \
-      "Copilot:$HOME/.copilot/settings.json" \
+      "Copilot:$HOME/.copilot/config.json" \
       "Antigravity:$HOME/.gemini/antigravity-cli/settings.json" \
       "Hermes:$HOME/.hermes/config.yaml"; do
       label="${entry%%:*}"
       file="${entry#*:}"
       if [[ -f "$file" ]]; then
-        printf 'FOUND %s user settings (contents not displayed)\n' "$label"
+        printf 'FOUND %s local config file (not proof of login)\n' "$label"
       else
-        printf 'NEW   %s user settings (first-run setup needed)\n' "$label"
+        printf 'NOFILE %s local config (could still use keyring/OAuth)\n' "$label"
       fi
     done
     printf 'First-run guide: %s/.devcontainer/README.md\n' "$repo_root"

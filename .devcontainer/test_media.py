@@ -56,11 +56,28 @@ class MediaTests(unittest.TestCase):
                   mock.patch.object(media.shutil, "disk_usage", return_value=mock.Mock(free=8 * 10**9)),
                   mock.patch.object(media.subprocess, "run") as run,
                   redirect_stdout(io.StringIO())):
-                run.return_value.returncode = 0
+                def completed(*_args, **_kwargs):
+                    (downloads / "clip.mp4").write_bytes(b"video")
+                    return mock.Mock(returncode=0)
+                run.side_effect = completed
                 self.assertEqual(media.fetch("https://example.com/video",
                                              audio=False, best=False), 0)
                 self.assertTrue(downloads.is_dir())
                 self.assertEqual(run.call_args.args[0][0], "yt-dlp")
+
+    def test_skipped_oversized_download_is_not_reported_as_success(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            downloads = Path(scratch) / "downloads"
+            with (mock.patch.object(media, "DOWNLOADS", downloads),
+                  mock.patch.object(media.shutil, "which", return_value="/usr/bin/tool"),
+                  mock.patch.object(media.shutil, "disk_usage",
+                                    return_value=mock.Mock(free=8 * 10**9)),
+                  mock.patch.object(media.subprocess, "run",
+                                    return_value=mock.Mock(returncode=0)),
+                  redirect_stdout(io.StringIO()) as output):
+                self.assertEqual(media.fetch("https://example.com/huge",
+                                             audio=False, best=False), 1)
+            self.assertIn("No new completed file", output.getvalue())
 
     def test_list_files_reports_only_regular_files(self):
         with tempfile.TemporaryDirectory() as scratch:

@@ -45,7 +45,6 @@ case "${1:-all}" in
   all)
     install_uv
     install_antigravity
-    install_node_tools
     install_browser
     install_hermes
     ;;

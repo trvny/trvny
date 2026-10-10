@@ -65,6 +65,9 @@ install_utils() {
   if command -v fdfind >/dev/null 2>&1 && ! command -v fd >/dev/null 2>&1; then
     ln -sfn "$(command -v fdfind)" "$HOME/.local/bin/fd"
   fi
+  if ! command -v 7z >/dev/null 2>&1 && command -v 7zz >/dev/null 2>&1; then
+    ln -sfn "$(command -v 7zz)" "$HOME/.local/bin/7z"
+  fi
 }
 
 install_android() {

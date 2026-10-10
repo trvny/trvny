@@ -40,7 +40,7 @@ install_node_tools() {
 
 install_browser() {
   install_node_tools
-  "$root/node_modules/.bin/playwright" install --with-deps chromium
+  "$root/node_modules/.bin/playwright" install --with-deps --no-shell chromium
   bash "$(dirname "$0")/install-ubol.sh"
 }
 

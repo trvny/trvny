@@ -31,7 +31,9 @@ jobs:
         run: |
           set -euo pipefail
           python -m json.tool .devcontainer/devcontainer.json >/dev/null
-          python -m py_compile .devcontainer/maintenance.py
+          python -m json.tool .devcontainer/tools/package.json >/dev/null
+          python -m json.tool .mcp.json >/dev/null
+          python -m py_compile .devcontainer/maintenance.py .devcontainer/media.py .devcontainer/handoff.py
           for script in .devcontainer/devbox .devcontainer/setup.sh .devcontainer/install-ubol.sh; do
             bash -n "$script"
           done

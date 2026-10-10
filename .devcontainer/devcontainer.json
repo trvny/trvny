@@ -17,5 +17,14 @@
       ]
     }
   },
-  "postStartCommand": "python3 .devcontainer/maintenance.py --auto || echo 'Devbox maintenance skipped; run: devbox maintenance'"
+  "postStartCommand": "python3 .devcontainer/maintenance.py --auto || echo 'Devbox maintenance skipped; run: devbox maintenance'",
+  "forwardPorts": [
+    8765
+  ],
+  "portsAttributes": {
+    "8765": {
+      "label": "Private file handoff",
+      "onAutoForward": "notify"
+    }
+  }
 }

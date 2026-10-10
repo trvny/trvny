@@ -1,69 +1,9 @@
 # GPTomek reference
 
-GPTomek is the GitHub App identity used when repository automation should be
-visibly bot-authored instead of pretending to be `trvny`. Commits, comments,
-reactions and routine automation can therefore show up as `gptomek[bot]`,
-while pull requests and selected human-authorized state changes stay authored by
-`trvny` so the normal external review flow keeps working.
-
-## Start here
-
-For normal GPTomek work:
-
-1. Add a new comment to Issue [`trvny/trvny#203`](https://github.com/trvny/trvny/issues/203)
-   containing exactly one fenced `gptomek` JSON block.
-2. Give every new top-level command a fresh `id`. Reuse that same ID only when
-   replaying the same operation. A `batch` and all of its steps use one comment.
-3. For branch-changing operations, read the branch head immediately before the
-   command and pass it as `expectedHeadSha`.
-4. The comment workflow sends only the GitHub comment ID to the shared Worker.
-   GPTomek fetches and validates the comment itself, then runs the same command
-   parser and checkpointed executor used by the legacy mailbox. Successful
-   commands have their source comment deleted; failures keep the comment with 👎
-   for inspection and retry.
-5. Use closed PR [`#176`](https://github.com/trvny/trvny/pull/176) manually
-   only when the direct comment/Worker path itself is unavailable. Put exactly
-   one legacy command marker in that PR body.
-6. Keep the `gptomek/control` ref and PR #176 intact. They are an active
-   fallback transport, not historical debris.
-
-Humans and connectors should not hand-build base64url markers anymore. Normal
-comment commands never create an encoded Issue-body marker at all. The old
-base64url marker remains only for the legacy Issue-body mailbox and PR #176
-compatibility/fallback paths.
-
-## Preferred PR merge flow
-
-When bot-authored work should land on `main` as one GPTomek-authored commit
-while the pull request itself stays authored by `trvny`, use this flow:
-
-1. Prepare the feature branch and open the pull request as `trvny` so the
-   normal external review automation triggers.
-2. Apply review findings and CI fixes on that branch until the intended tree is
-   final.
-3. After reading the current branch head, run `adopt_branch` with the PR base
-   as `baseSha` and the live branch head as `expectedHeadSha`. This rewrites
-   the branch to one commit authored by `gptomek[bot]`.
-4. Treat the rewritten commit as the final head: re-check relevant CI and review
-   state because changing the commit SHA can trigger a fresh validation cycle.
-5. Once the final GPTomek-authored head is green and actionable review threads
-   are resolved, merge the PR with **rebase merge**, not GitHub's squash merge.
-   The branch is already a single commit, so rebase merge places that commit on
-   `main` while preserving GPTomek as its author.
-6. If the branch already consists of the desired single GPTomek-authored commit,
-   skip `adopt_branch` and use the same final-head checks plus rebase merge.
-
-## Which mailbox to use
-
-| Situation | Transport | What happens |
-| --- | --- | --- |
-| Normal bot-authored write | JSON comment on Issue #203 | Preferred path. Actions forwards the comment ID; the Worker fetches, validates and executes the JSON directly through the shared Durable Object lock. |
-| Existing encoded Issue-body marker | Issue #203 | Legacy compatibility path. Its existing Actions relay and automatic PR #176 failover remain intact. |
-| Legacy Issue wake fails | PR #176 automatically | The legacy mailbox workflow forwards its still-live encoded command through the closed PR and synchronizes the result back to #203. |
-| Direct comment/Worker path is unavailable | PR #176 manually | Emergency path. Put exactly one legacy marker in the closed PR body and reuse the same command ID when replaying the same operation. |
-
-Issue #203 is the maintained default. PR #176 is an independent fallback
-transport, not a second queue.
+Technical documentation for GPTomek's shared Worker runtime, command semantics,
+checkpoints, recovery, and fallback transport. For day-to-day commands and
+merge procedure, use the [Quick operator guide](../README.md#quick-operator-guide)
+and [PR merge flow](../README.md#preferred-pr-merge-flow).
 
 ## Technical reference
 
@@ -224,51 +164,9 @@ typed idempotent commands for comments/replies, use `expectedHeadSha` guards
 for ref-changing operations, and re-read live branch state before the next
 mutation.
 
-Supported operations:
-
-- `adopt_branch`: rewrite a branch into one GPTomek-authored commit.
-- `commit_files`: create one GPTomek-authored file commit.
-- `apply_patch`: strictly apply a bounded text-only unified diff against the guarded
-  branch head, then create one GPTomek-authored commit. Hunks must match exactly;
-  fuzzy matching, binary patches, renames/copies and mode-only changes are rejected.
-- `branch_from_patch`: build the strict patch commit against an immutable `baseSha`
-  first, then create a previously absent work branch at that commit. Invalid patches
-  never leave a half-created branch behind.
-- `review_fix`: validate that an inline review comment belongs to the declared PR,
-  apply the strict patch through its own checkpoint, reply as GPTomek, add 👍, and
-  optionally resolve the supplied review thread. Each side effect has replay protection,
-  so a retry resumes rather than reapplying an already committed fix.
-- `revert_commit`: restore the first parent's tree as a new GPTomek-authored commit,
-  but only when the requested commit is still the guarded branch HEAD. Older commits
-  and merge commits are deliberately rejected instead of approximating a three-way revert.
-- `cherry_pick`: reapply the file-level tree delta from one single-parent commit
-  onto the guarded branch. The target must still match the source commit's parent
-  for every affected path; overlapping changes, merge commits and file/directory
-  shape changes are rejected instead of being auto-merged.
-- `commit_tree`: commit up to 512 file-level Git object mutations against the
-  guarded branch without downloading or re-encoding the objects. It supports
-  regular files, executables, symlinks, submodule entries, deletions, mode-only
-  changes and explicit file/directory shape transitions.
-- `move_files`: move up to 256 file-level paths while preserving each source
-  object's SHA, mode and Git type. Multi-file swaps and rotations are atomic;
-  occupied destinations and unresolved file/directory collisions are rejected.
-- `delete_branch`: delete a branch only after checking that its head matches the
-  supplied `expectedHeadSha`.
-- `comment`: add a PR/issue conversation comment with replay protection.
-- `reply_review`: reply to an inline PR review thread with replay protection.
-- `react_issue_comment` and `react_review_comment`: add GitHub reactions.
-- `operator_action`: perform a generic GitHub REST request through the existing
-  GPT Actions bot-write policy. The declared repository must exactly match the
-  REST path. Generic issue/label/PR metadata, status, deployment and repository
-  dispatch mutations are available for both `trvny/*` and `travnie/*`.
-  Raw contents/ref writes, workflow mutations and release writes stay blocked
-  here because the shared runtime routes those families through guarded
-  high-level operations instead of a generic REST escape hatch.
-- `batch`: run 1–10 commands sequentially against one repository. Each step gets
-  a deterministic derived command ID and its own checkpoint. Nested batches are
-  rejected. A batch stops on the first error and does not pretend to roll back
-  already-completed GitHub side effects; retrying the outer command resumes via
-  the per-step deduplication records.
+For the supported-operation catalog and safe invocation rules, use the
+[Quick operator guide](../README.md#quick-operator-guide). Detailed payloads
+and operation-specific limits follow in [Operation examples](#operation-examples).
 
 ### Operation examples
 
@@ -570,9 +468,11 @@ Example: add an existing label to PR/Issue #510.
 ```
 
 Use `operator_action` only for the generic surface allowed by the shared GPT
-Actions policy. Do not use it as a shortcut for raw contents/ref writes,
-workflow mutations, releases, or PR creation; those remain guarded or
-human-authored by design.
+Actions policy. It supports scoped issue/PR metadata, labels, statuses,
+deployments and repository dispatches in both `trvny/*` and `travnie/*`.
+The declared repository must match the REST path. Do not use it as a shortcut
+for raw contents/ref writes, workflow mutations, releases, or PR creation;
+those remain guarded or human-authored by design.
 
 ### Ordered batch
 

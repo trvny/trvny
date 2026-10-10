@@ -5,7 +5,7 @@ root="${HOME}/.local/share/travny-devbox"
 mkdir -p "$root" "$HOME/.local/bin"
 launcher="$(cd "$(dirname "$0")" && pwd)/devbox"
 rm -f "$HOME/.local/bin/devbox"
-printf '#!/usr/bin/env bash\\nexec bash %q "$@"\\n' "$launcher" > "$HOME/.local/bin/devbox"
+printf '#!/usr/bin/env bash\nexec bash %q "$@"\n' "$launcher" > "$HOME/.local/bin/devbox"
 chmod 700 "$HOME/.local/bin/devbox"
 
 if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.profile" 2>/dev/null; then

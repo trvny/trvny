@@ -21,20 +21,34 @@ def validate_url(value: str) -> str:
     return value
 
 
+# One maintained preset. Prefer MP4 with M4A audio; fall back to other formats.
+VIDEO_FORMAT = "bv[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b"
+OUTPUT_NAME = "%(uploader).40B_%(title).120B_%(id)s.%(ext)s"
+
+
 def command_for(url: str, *, audio: bool, best: bool) -> list[str]:
     cmd = [
-        "yt-dlp", "--ignore-config", "--no-playlist",
-        "--no-overwrites", "--max-filesize", "2G",
+        "yt-dlp", "--ignore-config", "--no-playlist", "--no-overwrites",
+        "--restrict-filenames", "--max-filesize", "4G",
         "--paths", str(DOWNLOADS),
-        "--output", "%(title).100B [%(id)s].%(ext)s",
+        "--output", OUTPUT_NAME,
         "--print", "after_move:filepath",
+        "--embed-metadata", "--embed-chapters",
     ]
     if audio:
-        cmd += ["--extract-audio", "--audio-format", "mp3", "--audio-quality", "2"]
+        cmd += [
+            "-f", "ba/b", "--extract-audio", "--audio-format", "mp3",
+            "--audio-quality", "0", "--embed-thumbnail",
+            "--convert-thumbnails", "jpg",
+        ]
     else:
-        if not best:
-            cmd += ["--format", "bv*[height<=1080]+ba/b[height<=1080]/best"]
-        cmd += ["--merge-output-format", "mp4/mkv"]
+        cmd += [
+            "-f", VIDEO_FORMAT,
+            "-S", "res,fps" if best else "res:2160,fps",
+            "--merge-output-format", "mp4/mkv",
+            "--embed-subs", "--sub-langs", "en.*,pl.*",
+            "--sub-format", "srt/best/ass",
+        ]
     cmd.append(validate_url(url))
     return cmd
 
@@ -46,7 +60,7 @@ def fetch(url: str, *, audio: bool, best: bool) -> int:
             print(f"Missing {name}. Run: devbox install media")
             return 1
     available = shutil.disk_usage(DOWNLOADS.parent).free
-    required = 512 * MIB if audio else 2 * 1024 * MIB
+    required = 512 * MIB if audio else 5 * 1024 * MIB
     if available < required:
         print(f"Not enough free disk space ({available // MIB} MiB).")
         return 1
@@ -73,8 +87,8 @@ def list_files() -> None:
             print(f"{size / MIB:8.1f} MiB  {item.name}")
     print(f"Total: {total / MIB:.1f} MiB")
     print(f"Browse: {DOWNLOADS}")
-    print("Use VS Code Explorer: right-click/long-press a file → Download.")
-    print("Delete transferred files manually; they consume Codespaces storage.")
+    print("For automatic cleanup: devbox handoff \"exact filename\"")
+    print("VS Code Explorer downloads cannot confirm completion to Devbox.")
 
 
 def main() -> int:
@@ -83,7 +97,7 @@ def main() -> int:
     fetch_parser = sub.add_parser("fetch", help="Download one video or audio URL")
     fetch_parser.add_argument("url")
     fetch_parser.add_argument("--audio", action="store_true", help="Convert to MP3")
-    fetch_parser.add_argument("--best", action="store_true", help="Best video quality, no 1080p cap")
+    fetch_parser.add_argument("--best", action="store_true", help="Ignore 2160p preference; choose highest resolution")
     sub.add_parser("files", help="List files available for browser download")
     args = parser.parse_args()
     if args.command == "fetch":

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+tools="${HOME}/.local/share/travny-devbox"
+
+case "${1:-doctor}" in
+  doctor)
+    for cmd in git gh python3 uv node npm java javac mvn gradle agy copilot hermes; do
+      if command -v "$cmd" >/dev/null 2>&1; then
+        printf 'OK   %s: %s\n' "$cmd" "$(command -v "$cmd")"
+      else
+        printf 'MISS %s\n' "$cmd"
+      fi
+    done
+    if [[ -f "$tools/ubol/manifest.json" ]]; then
+      echo 'OK   uBlock Origin Lite'
+    else
+      echo 'MISS uBlock Origin Lite (devbox install ubol)'
+    fi
+    if [[ -x "$tools/node_modules/.bin/playwright" ]]; then
+      echo 'OK   Playwright'
+    else
+      echo 'MISS Playwright (devbox install browser)'
+    fi
+    gh auth status || true
+    ;;
+  browser)
+    shift
+    node "$repo_root/.devcontainer/browser.mjs" "$@"
+    ;;
+  install)
+    shift
+    bash "$repo_root/.devcontainer/setup.sh" "${1:-all}"
+    ;;
+  clone)
+    shift
+    name="${1:-}"
+    if [[ ! "$name" =~ ^(trvny|travnie)/[A-Za-z0-9._-]+$ ]]; then
+      echo 'Use: devbox clone trvny/repo or travnie/repo' >&2
+      exit 2
+    fi
+    destination="$HOME/workspaces/$name"
+    if [[ -e "$destination" ]]; then
+      echo "Already exists: $destination" >&2
+      exit 1
+    fi
+    mkdir -p "$(dirname "$destination")"
+    gh repo clone "$name" "$destination"
+    ;;
+  *)
+    echo 'Usage: devbox {doctor|browser [url] [screenshot.png]|install [target]|clone owner/repo}' >&2
+    exit 2
+    ;;
+esac

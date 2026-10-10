@@ -107,7 +107,7 @@ install_node_tools() {
   if ! npm ls --prefix "$root" --depth=0 >/dev/null 2>&1; then
     npm install --prefix "$root" --no-audit --no-fund --save=false
   fi
-  for cli in copilot playwright-cli mcp-server-filesystem; do
+  for cli in copilot playwright-cli; do
     if [[ -x "$root/node_modules/.bin/$cli" ]]; then
       ln -sfn "$root/node_modules/.bin/$cli" "$HOME/.local/bin/$cli"
     else

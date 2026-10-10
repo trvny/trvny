@@ -12,7 +12,7 @@ tmp="$(mktemp -d "$root/.ubol-stage-XXXXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
 curl -fsSL --retry 3 \
-  https://api.github.com/repos/uBlockOrigin/uBOL-home/releases/latest \
+  "https://api.github.com/repos/uBlockOrigin/uBOL-home/releases?per_page=20" \
   -o "$tmp/release.json"
 
 readarray -t release < <(python3 - "$tmp/release.json" <<'PY'
@@ -20,16 +20,20 @@ import json
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as stream:
-    release = json.load(stream)
-assets = release.get("assets", [])
-matches = [item["browser_download_url"] for item in assets
-           if item.get("name", "").endswith(".chromium.zip")
-           and item.get("browser_download_url", "").startswith(
-               "https://github.com/uBlockOrigin/uBOL-home/releases/download/")]
-if len(matches) != 1:
-    raise SystemExit("Expected one official uBOL Chromium release asset")
-print(release["tag_name"])
-print(matches[0])
+    releases = json.load(stream)
+for release in releases:
+    if release.get("draft") or release.get("prerelease"):
+        continue
+    matches = [item["browser_download_url"] for item in release.get("assets", [])
+               if item.get("name", "").endswith(".chromium.zip")
+               and item.get("browser_download_url", "").startswith(
+                   "https://github.com/uBlockOrigin/uBOL-home/releases/download/")]
+    if len(matches) == 1:
+        print(release["tag_name"])
+        print(matches[0])
+        break
+else:
+    raise SystemExit("No official uBOL Chromium release in recent releases")
 PY
 )
 if [[ "${#release[@]}" -ne 2 || ! "${release[0]}" =~ ^[0-9.]+$ ]]; then

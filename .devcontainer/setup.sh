@@ -54,6 +54,22 @@ install_node_tools() {
   ln -sfn "$root/node_modules/.bin/copilot" "$HOME/.local/bin/copilot"
 }
 
+
+install_media() {
+  install_uv
+  if ! command -v yt-dlp >/dev/null 2>&1; then
+    uv tool install 'yt-dlp[default]'
+  fi
+  if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+    if ! command -v sudo >/dev/null 2>&1; then
+      echo 'ffmpeg/ffprobe missing; install them with your system package manager' >&2
+      return 1
+    fi
+    sudo apt-get update -qq
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg
+  fi
+}
+
 install_browser() {
   install_node_tools
   "$root/node_modules/.bin/playwright" install --with-deps --no-shell chromium
@@ -65,6 +81,7 @@ case "${1:-all}" in
     install_uv
     install_antigravity
     install_browser
+    install_media
     install_hermes
     ;;
   base) install_uv ;;
@@ -73,8 +90,9 @@ case "${1:-all}" in
   copilot) install_node_tools ;;
   browser) install_browser ;;
   ubol) bash "$(dirname "$0")/install-ubol.sh" ;;
+  media) install_media ;;
   *)
-    echo "Usage: bash .devcontainer/setup.sh {all|base|antigravity|hermes|copilot|browser|ubol}" >&2
+    echo "Usage: bash .devcontainer/setup.sh {all|base|antigravity|hermes|copilot|browser|ubol|media}" >&2
     exit 2
     ;;
 esac

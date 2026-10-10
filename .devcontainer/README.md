@@ -164,36 +164,59 @@ secret values, or expose production tokens to an untrusted agent shell.
 
 ## Agent roles and first-run configuration
 
-**Use one lead agent per task.** GitHub Copilot CLI handles day-to-day repo
-changes and PRs; Antigravity CLI handles complex designs, plan/artefact review
-and multi-module exploration; Hermes handles multi-provider research, scoped
-MCP/tool workflows and model fallback. For sensitive code a *different* agent
-may do a read-only review, never concurrent edits to one checkout. Actions,
-GPTomek and Pet Dispatcher retain their existing responsibilities. The
-cross-agent `.agents/skills/devbox-agent-selection/SKILL.md` references this
-runbook, not a separate duplicated policy.
+**Three providers, three separate entitlements.** Copilot CLI uses the personal
+GitHub Copilot allowance; Antigravity CLI uses the signed-in Google Antigravity
+allowance; Hermes uses free-first third-party model providers through the
+existing Kanarek router when a restricted external broker is available.
+Do **not** configure all three with one shared OpenAI/Gemini API key.
+Use one lead agent per task, and optionally a read-only second opinion.
+See `.agents/skills/devbox-agent-selection/SKILL.md` for task selection.
 
-### GitHub Copilot CLI
+### Copilot CLI: GitHub Copilot allowance
 
-- Launch `copilot`, sign in interactively and inspect `/model` and tool
-  permissions/usage. Model entitlements and premium-request costs depend on
-  the authenticated GitHub Copilot plan, not the ChatGPT subscription.
-- Keep Copilot's existing repo instructions (`AGENTS.md` and
-  `.github/copilot-instructions.md`) and shared `.agents/skills`.
-  **Do not run `copilot init`** here: it can rewrite the maintained
-  `.github/copilot-instructions.md` currently used for review.
-- Prefer interactive approvals and scoped paths. Do **not** set `--allow-all`
-  globally or default to unattended automation. Let GPTomek handle
-  bot-authored commits/comments and open pull requests as the user.
+```bash
+copilot login             # GitHub OAuth device-code flow in Codespaces
+copilot                   # In the CLI: /model, /usage, /limits
+```
 
-### Google Antigravity CLI (`agy`)
+- All Copilot plans, including Copilot Free, support CLI. As of October 2026
+  GitHub meters model interactions in **AI Credits**, not the legacy premium
+  request count. Free includes a limited monthly allowance with automatic
+  model selection; other entitlements vary by the user's GitHub account.
+  No OpenAI API key or additional Copilot subscription is assumed.
+- Check `/usage` in an interactive session and set a soft per-response guard
+  via `/limits set max-ai-credits 30` for exploratory work (30 is the CLI
+  minimum; the limit is not a billing-budget substitute).
+- Use account OAuth, not the Codespaces-injected `GITHUB_TOKEN`, as the
+  intended identity. The injected token is a fallback and can be overridden
+  by an explicit GitHub login. Don't set `COPILOT_PROVIDER_BASE_URL` or
+  `COPILOT_PROVIDER_API_KEY` unless deliberately switching to BYOK.
+- Preserve `AGENTS.md` and `.github/copilot-instructions.md`; don't run
+  `copilot init` in this established repo. Keep interactive approvals
+  enabled, don't enable global `--allow-all`. Bot-authored GitHub writes
+  still go through GPTomek; open PRs as the user.
+- GitHub docs: https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli
+  and https://docs.github.com/en/copilot/concepts/billing-and-usage/individuals/billing
 
-- Launch `agy` from a trusted repo and complete interactive account sign-in
-  / workspace trust. Use `/model`, `/usage`, `/planning`,
-  `/permissions`, and `/diff` before handing over broad changes.
-- Its native `~/.gemini/antigravity-cli/settings.json` supports these safe
-  starting options (merge only missing keys, **never overwrite an existing
-  laptop-derived config**):
+### Antigravity CLI: account-based Gemini allowance
+
+```bash
+agy                       # Sign in to personal Google Account via browser/code
+```
+
+- **Use Google Account OAuth for Antigravity**. The CLI can display a
+  sign-in URL and a code for a remote terminal; no `GEMINI_API_KEY` is
+  needed. Base quota differs by Google AI plan; free account access is
+  quota-limited. Review `/usage` and the Antigravity account usage page.
+- **Do not set `modelProvider: gemini`** in
+  `~/.gemini/antigravity-cli/settings.json`. That setting plus
+  `GEMINI_API_KEY` switches to direct Gemini API billing/quota instead
+  of the Antigravity account's included allowance.
+- Start with account setting **AI Credit Overages = Never**, and with
+  `useG1Credits: false` in local settings to avoid optional extra usage.
+  Never automatically purchase/enable extra credits.
+- Safe non-secret settings example (merge with existing user config;
+  do not overwrite it):
 
 ```json
 {
@@ -204,49 +227,75 @@ runbook, not a separate duplicated policy.
 }
 ```
 
-  This avoids automatically spending extra G1 credits or granting whole-home
-  access. Consider `enableTerminalSandbox: true` only after verifying
-  Codespaces' nested namespace support; CLI approvals remain enabled.
-- Let Antigravity read shared repo skills under `.agents/skills`; no parallel
-  copies under `.agent/skills` or a new project ruleset. Keep its remote
-  browser/session controls separate from the Playwright + uBOL runner.
+- For complex architecture, use planning/artifacts and inspect diffs before
+  accepting broad writes; never run competing agents against one checkout.
+- Official auth: https://www.antigravity.google/docs/cli/install/
+  Plans: https://www.antigravity.google/docs/plans
 
-### Hermes Agent
+### Hermes Agent: other providers, ultimately via Kanarek
 
-- After installation run `hermes config check`, `hermes model`,
-  `hermes mcp list`, and `hermes skills list`. Only then test a normal
-  chat; upstream recommends a working primary provider before adding fallback.
-- `~/.hermes/config.yaml` is for non-secret settings;
-  `~/.hermes/.env` and protected OAuth stores are for credentials. Do not
-  overwrite the installer's config or copy secrets from Termux/Legion.
-- Maintain dangerous-command approvals (`approvals.mode: smart` or
-  `manual`), deny unattended/cron approval by default, enable
-  `security.redact_secrets` and cap auxiliary concurrency at ~2 to avoid
-  provider bursts. Hermes detects trusted project-local `.agents/skills`;
-  do not duplicate them under `~/.hermes/skills`. Only enable a small,
-  task-specific subset of MCP tools.
-- Previously discussed *reference* fallback: OrcaRouter Free ->
-  Ollama Cloud `glm-5.3` -> OpenCode `deepseek-v4-flash-free` ->
-  OpenRouter MiniMax free. **Not auto-installed or assumed available**.
-  Test current model IDs, quotas and credentials after the base chat works.
-  The preferred future path is one authenticated scoped broker to Kanarek
-  Review, where its existing router owns provider keys and cooldowns.
-  Keep chargeable fallback disabled until explicitly approved.
-- Do not enable Hermes gateway, unattended scheduled jobs or extra
-  long-lived services on the Codespace. They stop when Codespaces suspends.
-  For repeatable tasks reuse Actions and the current Pet Dispatcher.
+```bash
+hermes config check       # Verify config (no credentials printed)
+hermes model              # Select a supported provider interactively
+hermes fallback list      # Inspect fallback chain before enabling it
+```
 
-### Configuration boundaries and verification
+- **Target architecture:** Hermes -> scoped, authenticated external broker ->
+  existing Kanarek Review OpenAI-compatible `/review-router/v1` service ->
+  its provider pool, fallback/cooldowns and free-first policy. The Kanarek
+  Worker currently runs behind an internal Cloudflare Service Binding; it
+  is **not** a working public API endpoint. Broker work is a separate
+  security/transport change; don't expose the internal token or Worker
+  publicly as a shortcut.
+- After a broker is implemented, set it up with `hermes model` ->
+  **Custom endpoint**, its verified HTTPS base URL, an individually scoped
+  Devbox token, and an advertised model ID such as
+  `kanarek-review-free`. Verify `/models`, streaming, tool-calling and
+  error/429 handling before enabling it for agent tasks. A chat-completions
+  URL alone does not prove Hermes tool calling works.
+- For a manual Hermes named-provider setup, the documented non-secret
+  shape below is illustrative only. **No endpoint or token exists yet:**
 
-The repo keeps **task instructions**, not signed-in user profiles. Do not
-commit files from `~/.copilot`, `~/.gemini`, `~/.hermes`, SSH or cloud auth.
-Native agent settings stay under each tool's home; edits require opt-in and
-must preserve existing keys. `devbox agents` reports required commands and
-config presence, never configuration values or tokens. The practical first
-session is: one read-only task per CLI, then one isolated test change,
-run tests, inspect the diff and reset the scratch branch. Browser/uBOL needs
-its own smoke test. At that point choose provider routing and model options
-using real entitlements, latency and available quotas.
+```yaml
+providers:
+  kanarek:
+    api: "https://REPLACE_WITH_VERIFIED_BROKER_HOST/review-router/v1"
+    key_env: KANAREK_DEVBOX_TOKEN
+    transport: chat_completions
+model:
+  provider: kanarek
+  default: kanarek-review-free
+fallback_providers: []
+```
+
+  Never check a real bearer token into this repo. Only after the broker
+  exists should `KANAREK_DEVBOX_TOKEN` be issued with read-inference-only
+  scope, expiration/rate limits, no paid access and Codespaces secret
+  delivery. The broker must keep provider credentials on Cloudflare.
+- **Before the broker exists:** use a separately authorized, supported
+  provider via `hermes model`, for example Qwen or MiniMax OAuth where
+  applicable, or a limited OpenRouter/Ollama Cloud account. Do not copy
+  the entire Kanarek credential pool into Codespaces to replicate it.
+- The older proposed reference chain (OrcaRouter Free -> Ollama Cloud
+  `glm-5.3` -> OpenCode Free DeepSeek -> OpenRouter MiniMax) is **not
+  provisioned** and must be revalidated. Prefer fallback *inside Kanarek*
+  rather than a second full chain in Hermes; keep Hermes
+  `fallback_providers: []` when using Kanarek and paid fallback disabled.
+- `~/.hermes/config.yaml` owns non-secret model/provider settings;
+  `~/.hermes/.env` or Codespaces secrets provide credentials. Preserve
+  the installer-created files; use dangerous-command approvals, secret
+  redaction and task-scoped MCP tools. No Codespaces Hermes daemon or
+  cron/gateway by default. Repeatable jobs belong in Actions/Pet Dispatcher.
+- Docs: https://hermes-agent.nousresearch.com/docs/integrations/providers/
+  and https://hermes-agent.nousresearch.com/docs/user-guide/features/fallback-providers/
+
+### Checkpoint
+
+`devbox agents` reports executable and local config-file presence only, not
+actual entitlement or secret values. First Codespaces run: log in separately,
+inspect credits/quotas, try one small read-only repo task per agent, then one
+isolated edit/test, verify provider identity and charges, and stop Codespace.
+Never commit `~/.copilot`, `~/.gemini`, `~/.hermes`, or any auth files.
 
 ## Remote-first execution and storage policy
 

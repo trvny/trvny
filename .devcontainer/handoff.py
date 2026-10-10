@@ -32,7 +32,7 @@ def handler_for(file: Path, token: str):
         def log_message(self, *_args):
             pass  # Token never written to request logs.
 
-        def headers(self, status: int, content_type: str):
+        def send_private_headers(self, status: int, content_type: str):
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Cache-Control", "no-store")
@@ -44,7 +44,7 @@ def handler_for(file: Path, token: str):
         def do_GET(self):
             qs = parse_qs(urlsplit(self.path).query)
             if urlsplit(self.path).path != "/" or qs.get("token") != [token]:
-                self.headers(404, "text/plain")
+                self.send_private_headers(404, "text/plain")
                 return
             page = (
                 "<!doctype html><meta name='viewport' content='width=device-width'>"
@@ -55,28 +55,28 @@ def handler_for(file: Path, token: str):
                 + "<button type='submit'>Download file</button></form>"
                 + "<p>File is removed from Codespaces after full transfer.</p>"
             )
-            self.headers(200, "text/html; charset=utf-8")
+            self.send_private_headers(200, "text/html; charset=utf-8")
             self.wfile.write(page.encode("utf-8"))
 
         def do_POST(self):
             if self.path != "/download":
-                self.headers(404, "text/plain")
+                self.send_private_headers(404, "text/plain")
                 return
             try:
                 count = int(self.headers.get("Content-Length", "0"))
             except ValueError:
                 count = 0
             if not 0 < count <= 2048:
-                self.headers(400, "text/plain")
+                self.send_private_headers(400, "text/plain")
                 return
             data = parse_qs(self.rfile.read(count).decode("utf-8", "replace"))
             if data.get("token") != [token]:
-                self.headers(403, "text/plain")
+                self.send_private_headers(403, "text/plain")
                 return
             # Claim before opening the source so double taps cannot download twice.
             with self.server.claim_lock:
                 if self.server.completed or self.server.active:
-                    self.headers(409, "text/plain")
+                    self.send_private_headers(409, "text/plain")
                     return
                 self.server.active = True
             try:

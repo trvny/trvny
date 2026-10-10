@@ -5,10 +5,12 @@ on: # yamllint disable-line rule:truthy
     branches: [main]
     paths:
       - ".devcontainer/**"
+      - ".mcp.json"
       - ".github/workflows/devbox-ci.yml"
   pull_request:
     paths:
       - ".devcontainer/**"
+      - ".mcp.json"
       - ".github/workflows/devbox-ci.yml"
   workflow_dispatch:
 

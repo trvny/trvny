@@ -162,6 +162,35 @@ Codespaces secrets should hold only the minimum scoped credentials required
 by a specific tool. Never bulk-import Cloudflare/GitHub Actions secrets, print
 secret values, or expose production tokens to an untrusted agent shell.
 
+## Remote-first execution and storage policy
+
+Prefer existing external infrastructure over installing or running duplicate
+services inside Codespaces. Use the cheapest **appropriate** execution/storage
+surface, not an assumed-free endpoint:
+
+1. **GitHub Actions** for CI, schedulers, repeatable scripts and artifacts with
+   suitable retention; don't route these jobs through a running Codespace.
+2. **Existing managed APIs and remote MCP services** for documentation,
+   search, models and specialized work. Reuse Kanarek's provider router and
+   current Pet Dispatcher/GPTomek rather than cloning their functionality.
+3. **External temporary artifact storage**, only when a provider's existing
+   free/included quotas, access controls and expiry policy justify it. Prefer
+   direct streaming / one-time links for media; remove transferred artifacts.
+4. **Codespaces** only for interactive shells, local-file-dependent tooling,
+   browser automation, agents and builds that cannot reasonably run via Actions
+   or remote APIs.
+
+Never assume another service is unlimited or free. Check quota, egress costs,
+retention, data sensitivity and authentication before transferring files.
+Avoid putting private repositories, credentials or authenticated browser
+profiles in third-party storage/MCP services.
+
+**Prebuilds:** Disabled by default. If enabled later, scope them **only to
+repositories under the personal `trvny/*` account**, after checking the
+billing owner and prebuild storage costs. Do not enable prebuilds for
+`travnie/*` organizational repositories. The repo does not provision any
+prebuild, service, storage bucket or billable infrastructure.
+
 ## Dispatch boundaries
 
 - **GitHub Actions**: continue running CI, scheduled jobs, repeatable builds,

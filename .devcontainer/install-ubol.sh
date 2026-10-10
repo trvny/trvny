@@ -11,7 +11,11 @@ flock -x 9
 tmp="$(mktemp -d "$root/.ubol-stage-XXXXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
-curl -fsSL --retry 3 \
+auth=()
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
+fi
+curl -fsSL --retry 3 "${auth[@]}" \
   "https://api.github.com/repos/uBlockOrigin/uBOL-home/releases?per_page=20" \
   -o "$tmp/release.json"
 

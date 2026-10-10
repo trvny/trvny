@@ -7,11 +7,13 @@ on: # yamllint disable-line rule:truthy
       - ".devcontainer/**"
       - ".mcp.json"
       - ".github/workflows/devbox-ci.yml"
+      - ".github/workflows/devbox-control.yml"
   pull_request:
     paths:
       - ".devcontainer/**"
       - ".mcp.json"
       - ".github/workflows/devbox-ci.yml"
+      - ".github/workflows/devbox-control.yml"
   workflow_dispatch:
 
 permissions:
@@ -35,7 +37,7 @@ jobs:
           python -m json.tool .devcontainer/devcontainer.json >/dev/null
           python -m json.tool .devcontainer/tools/package.json >/dev/null
           python -m json.tool .mcp.json >/dev/null
-          python -m py_compile .devcontainer/maintenance.py .devcontainer/media.py .devcontainer/handoff.py
+          python -m py_compile .devcontainer/maintenance.py .devcontainer/media.py .devcontainer/handoff.py .devcontainer/codespaces_control.py
           for script in .devcontainer/devbox .devcontainer/setup.sh .devcontainer/install-ubol.sh; do
             bash -n "$script"
           done

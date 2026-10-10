@@ -94,15 +94,25 @@ install_cloud() {
 }
 
 install_node_tools() {
-  npm install --prefix "$root" --no-save --no-audit --no-fund \
-    @github/copilot playwright @playwright/cli @modelcontextprotocol/server-filesystem
+  local manifest
+  manifest="$(cd "$(dirname "$0")" && pwd)/tools/package.json"
+  if [[ ! -f "$root/package.json" ]] || ! cmp -s "$manifest" "$root/package.json"; then
+    cp "$manifest" "$root/package.json"
+    rm -f "$root/package-lock.json"
+  fi
+  if ! npm ls --prefix "$root" --depth=0 >/dev/null 2>&1; then
+    npm install --prefix "$root" --no-audit --no-fund --save=false
+  fi
   for cli in copilot playwright-cli mcp-server-filesystem; do
     if [[ -x "$root/node_modules/.bin/$cli" ]]; then
       ln -sfn "$root/node_modules/.bin/$cli" "$HOME/.local/bin/$cli"
+    else
+      echo "Devbox CLI missing: $cli" >&2
+      return 1
     fi
   done
-  # Official Playwright skill; shared user-level for compatible agents.
-  "$root/node_modules/.bin/playwright-cli" install --skills -g
+  # Official Playwright CLI skill; prefer the shared agent skills directory.
+  "$root/node_modules/.bin/playwright-cli" install --skills=agents -g
 }
 
 install_media() {

@@ -38,14 +38,16 @@ downloads the Chromium ZIP from the official
 no browser-store mirrors, third-party CRX services or manifest patches.
 
 Extension path: `~/.local/share/travny-devbox/ubol`.
-Browser profile: `~/.local/share/travny-devbox/chromium-profile`.
+Browser profiles: `~/.local/share/travny-devbox/chromium-profiles/`.
 
 The launcher exports `launchWithUbol()` for scripts and agents to import from
-`.devcontainer/browser.mjs` instead of duplicating browser flags. The `devbox
-browser` command is a smoke check, not a remote browser-control service.
+`.devcontainer/browser.mjs` instead of duplicating browser flags. Provide a
+unique `profileName` for concurrent agents; the default is `default`.
+`devbox browser` uses a temporary per-process profile, checks HTTP success and
+cleans that profile afterward. It is not a remote browser-control service.
 Regular Playwright contexts and Hermes's own browser sessions do **not**
 automatically inherit uBOL. Chrome/Edge cannot side-load extensions through
-the same flags. Use one shared persistent context at a time.
+the same flags. Do not launch two Chromium contexts against the same profile.
 
 The browser profile can contain cookies and authenticated sessions. Do not
 commit it, share it, or forward remote debugging ports publicly.

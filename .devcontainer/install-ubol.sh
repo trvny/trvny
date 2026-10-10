@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Only the official uBOL project release. No CRX mirrors or patched manifest.
+# Official Chromium asset only. Lock installer, atomically switch versions.
 root="${HOME}/.local/share/travny-devbox"
 target="${root}/ubol"
-tmp="$(mktemp -d)"
+mkdir -p "$root/extensions"
+exec 9>"$root/.ubol-install.lock"
+flock -x 9
+
+tmp="$(mktemp -d "$root/.ubol-stage-XXXXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 
 curl -fsSL --retry 3 \
   https://api.github.com/repos/uBlockOrigin/uBOL-home/releases/latest \
   -o "$tmp/release.json"
 
-url="$(python3 - "$tmp/release.json" <<'PY'
+readarray -t release < <(python3 - "$tmp/release.json" <<'PY'
 import json
 import sys
 
@@ -24,9 +28,17 @@ matches = [item["browser_download_url"] for item in assets
                "https://github.com/uBlockOrigin/uBOL-home/releases/download/")]
 if len(matches) != 1:
     raise SystemExit("Expected one official uBOL Chromium release asset")
+print(release["tag_name"])
 print(matches[0])
 PY
-)"
+)
+if [[ "${#release[@]}" -ne 2 || ! "${release[0]}" =~ ^[0-9.]+$ ]]; then
+  echo "Invalid uBOL release metadata" >&2
+  exit 1
+fi
+tag="${release[0]}"
+url="${release[1]}"
+version="$root/extensions/uBOLite-$tag"
 
 curl -fsSL --retry 3 "$url" -o "$tmp/ubol.zip"
 mkdir -p "$tmp/unpacked"
@@ -47,7 +59,18 @@ if manifest.get("manifest_version") != 3:
     raise SystemExit("Expected a Manifest V3 extension")
 PY
 
-mkdir -p "$root"
-rm -rf "$target"
-mv "$(dirname "$manifest")" "$target"
-echo "uBlock Origin Lite installed from $url"
+if [[ ! -e "$version" ]]; then
+  mv "$(dirname "$manifest")" "$version"
+fi
+if [[ ! -f "$version/manifest.json" ]]; then
+  echo "Stored uBOL version has no manifest" >&2
+  exit 1
+fi
+
+# Existing pre-atomic installs are preserved, never deleted mid-upgrade.
+if [[ -d "$target" && ! -L "$target" ]]; then
+  mv "$target" "$root/extensions/legacy-$(date +%s)-$$"
+fi
+ln -s "$version" "$tmp/current"
+mv -Tf "$tmp/current" "$target"
+echo "uBlock Origin Lite $tag installed from the official release"

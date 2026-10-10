@@ -2,6 +2,7 @@
 """Conservative Codespaces housekeeping. Never touch workspaces or credentials."""
 
 import argparse
+from contextlib import ExitStack
 import fcntl
 import os
 from pathlib import Path
@@ -120,7 +121,8 @@ def main() -> int:
         raise SystemExit("Refusing symlinked Devbox directory")
     root.mkdir(parents=True, exist_ok=True)
     marker = root / ".maintenance-last-auto"
-    with (root / ".maintenance.lock").open("a+") as lock:
+    with ExitStack() as locks:
+        lock = locks.enter_context((root / ".maintenance.lock").open("a+"))
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -138,6 +140,16 @@ def main() -> int:
                 return 0
 
         manual = args.clean or args.deep
+        if manual:
+            # Share the uBOL installer lock before inspecting old releases.
+            install_lock = locks.enter_context(
+                (root / ".ubol-install.lock").open("a+")
+            )
+            try:
+                fcntl.flock(install_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                print("uBOL installation in progress; retry manual clean later")
+                return 1
         candidates = managed_candidates(home, manual=manual, now=now)
         display_sizes(home)
         print(f"Eligible disposable files/directories: {len(candidates)}")

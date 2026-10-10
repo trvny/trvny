@@ -7,7 +7,7 @@ tools="${HOME}/.local/share/travny-devbox"
 
 case "${1:-doctor}" in
   doctor)
-    for cmd in git gh python3 uv node npm java javac mvn gradle agy copilot hermes yt-dlp ffmpeg ffprobe; do
+    for cmd in git gh python3 uv node npm java javac mvn gradle agy copilot hermes yt-dlp ffmpeg ffprobe 7z jq rg fd tree file bc magick shellcheck android adb apktool sdkmanager gcloud playwright-cli mcp-server-filesystem; do
       if command -v "$cmd" >/dev/null 2>&1; then
         printf 'OK   %s: %s\n' "$cmd" "$(command -v "$cmd")"
       else
@@ -29,6 +29,10 @@ case "${1:-doctor}" in
   download|fetch)
     shift
     python3 "$repo_root/.devcontainer/media.py" fetch "$@"
+    ;;
+  handoff)
+    shift
+    python3 "$repo_root/.devcontainer/handoff.py" "$@"
     ;;
   files)
     shift
@@ -73,7 +77,7 @@ case "${1:-doctor}" in
     gh repo clone "$name" "$destination"
     ;;
   *)
-    echo 'Usage: devbox {doctor|download URL [--audio|--best]|files|maintenance|clean [--deep]|browser [url] [screenshot.png]|install [target]|clone owner/repo}' >&2
+    echo 'Usage: devbox {doctor|download URL [--audio|--best]|files|handoff FILENAME|maintenance|clean [--deep]|browser [url] [screenshot.png]|install [target]|clone owner/repo}' >&2
     exit 2
     ;;
 esac

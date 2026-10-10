@@ -16,5 +16,6 @@
         "vscjava.vscode-java-pack"
       ]
     }
-  }
+  },
+  "postStartCommand": "python3 .devcontainer/maintenance.py --auto || echo 'Devbox maintenance skipped; run: devbox maintenance'"
 }

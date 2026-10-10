@@ -7,7 +7,7 @@ tools="${HOME}/.local/share/travny-devbox"
 
 case "${1:-doctor}" in
   doctor)
-    for cmd in git gh python3 uv node npm java javac mvn gradle agy copilot hermes yt-dlp ffmpeg ffprobe 7z jq rg fd tree file bc magick shellcheck android adb apktool sdkmanager gcloud playwright-cli mcp-server-filesystem; do
+    for cmd in git gh python3 uv node npm java javac mvn gradle agy copilot hermes yt-dlp ffmpeg ffprobe 7z jq rg fd tree file bc convert shellcheck android adb apktool sdkmanager gcloud playwright-cli mcp-server-filesystem; do
       if command -v "$cmd" >/dev/null 2>&1; then
         printf 'OK   %s: %s\n' "$cmd" "$(command -v "$cmd")"
       else

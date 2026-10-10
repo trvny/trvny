@@ -44,6 +44,75 @@ Other repositories are cloned into `~/workspaces/<owner>/<repo>`. Their own
 instructions and build requirements still apply. The Devbox does not copy
 project-specific scripts or create duplicate CI.
 
+## GPTomek remote power and diagnostics
+
+The maintained control path is **GPTomek Issue #203 -> GPTomek Worker's
+checkpointed `operator_action` -> `repository_dispatch` -> GitHub Actions
+`.github/workflows/devbox-control.yml` -> personal Codespaces API**.
+No persistent remote-control daemon or second Cloudflare Worker is introduced.
+The Action runs on GitHub's infrastructure even if Legion and Codespaces are
+both switched off. Its user-level API adapter is
+`.devcontainer/codespaces_control.py`.
+
+**One-time account setup required:** The GPTomek installation token can
+dispatch repository events but **cannot create a personal Codespace**.
+After the workflow reaches `main`, create a short-lived fine-grained GitHub
+PAT owned by **trvny**, limited to **trvny/trvny** with repository
+`Codespaces: Read and write`, `Codespaces lifecycle admin: Read and write`,
+and `Codespaces metadata: Read` as required by the relevant API endpoints.
+Store it solely as the Actions repository secret
+`DEVBOX_CODESPACES_TOKEN`. Do not paste it in this chat, an Issue, an agent
+config, a PR, or Cloudflare; do not give it access to organizational repos.
+Set a spending budget/usage cap in GitHub Billing before creating machines.
+If GitHub's fine-grained permissions differ for the SSH CLI, keep lifecycle
+control working and verify SSH diagnostics separately rather than granting
+broad permissions blindly.
+
+Until **both** the workflow is merged to default branch `main` **and** this
+secret is configured, GPTomek **cannot launch Devbox**. The repo does not
+create secrets or codespaces by itself.
+
+To dispatch from Issue #203, submit a fresh comment consisting entirely of
+the following fenced JSON block, with a unique `id` per new operation:
+
+````markdown
+```gptomek
+{
+  "id": "devbox-ensure-unique-id",
+  "op": "operator_action",
+  "repository": "trvny/trvny",
+  "method": "POST",
+  "path": "/repos/trvny/trvny/dispatches",
+  "body": {
+    "event_type": "devbox-control",
+    "client_payload": { "action": "ensure" }
+  },
+  "expect": "empty"
+}
+```
+````
+
+Allowed `client_payload.action`: `status`, `ensure`, `stop`, `doctor`,
+`agents`. `ensure` creates the **one** personal Devbox on `main` if missing,
+or starts the existing stopped one. It selects the smallest available **4 CPU,
+8-16 GiB** machine, requests `EuropeWest`, stops after **15 idle minutes**, and
+uses **7-day stopped retention** (uncommitted changes may disappear when GitHub
+deletes the Codespace after retention; push your work). `status` lists only
+this Devbox, `stop` stops only this Devbox. `doctor` and `agents` execute
+two built-in read-only checks over GitHub CLI Codespaces SSH (subject to
+user-token permissions and first-run SSH availability). They do not accept
+arbitrary shell commands. Each result is in the **GPTomek Devbox control**
+Actions run logs; GPTomek's own comment confirms only dispatch acceptance,
+not that the machine has finished starting.
+
+The workflow accepts dispatches from the verified `gptomek[bot]` identity
+or manual `workflow_dispatch` by `trvny`, serializes runs to avoid duplicate
+creation, and refuses repository/owner/billing mismatches. No prebuild is
+enabled. Full agent task execution is **not** a side effect of starting a
+Codespace: future integration should reuse Pet Dispatcher's existing policy,
+sessions and job envelope through a *scoped* Linux worker rather than
+allowing arbitrary shell strings through Issue comments.
+
 ## Optional tool profiles, MCP and skills
 
 ```bash

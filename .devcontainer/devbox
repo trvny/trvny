@@ -34,6 +34,21 @@ case "${1:-doctor}" in
     shift
     bash "$repo_root/.devcontainer/setup.sh" "${1:-all}"
     ;;
+  maintenance)
+    shift
+    python3 "$repo_root/.devcontainer/maintenance.py" "$@"
+    ;;
+  clean)
+    shift
+    if [[ "${1:-}" == "--deep" && $# -eq 1 ]]; then
+      python3 "$repo_root/.devcontainer/maintenance.py" --deep
+    elif [[ $# -eq 0 ]]; then
+      python3 "$repo_root/.devcontainer/maintenance.py" --clean
+    else
+      echo 'Usage: devbox clean [--deep]' >&2
+      exit 2
+    fi
+    ;;
   clone)
     shift
     name="${1:-}"
@@ -50,7 +65,7 @@ case "${1:-doctor}" in
     gh repo clone "$name" "$destination"
     ;;
   *)
-    echo 'Usage: devbox {doctor|browser [url] [screenshot.png]|install [target]|clone owner/repo}' >&2
+    echo 'Usage: devbox {doctor|maintenance|clean [--deep]|browser [url] [screenshot.png]|install [target]|clone owner/repo}' >&2
     exit 2
     ;;
 esac

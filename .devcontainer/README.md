@@ -40,11 +40,12 @@ no browser-store mirrors, third-party CRX services or manifest patches.
 Extension path: `~/.local/share/travny-devbox/ubol`.
 Browser profile: `~/.local/share/travny-devbox/chromium-profile`.
 
-This runner is a smoke test and example, not a browser-control API for agents.
-Agent scripts can use the locally installed `playwright` package and repeat
-the persistent-context launch options from `browser.mjs`. Regular Playwright
-contexts and Hermes's own browser sessions do **not** automatically inherit
-uBOL. Chrome/Edge cannot side-load extensions through the same flags.
+The launcher exports `launchWithUbol()` for scripts and agents to import from
+`.devcontainer/browser.mjs` instead of duplicating browser flags. The `devbox
+browser` command is a smoke check, not a remote browser-control service.
+Regular Playwright contexts and Hermes's own browser sessions do **not**
+automatically inherit uBOL. Chrome/Edge cannot side-load extensions through
+the same flags. Use one shared persistent context at a time.
 
 The browser profile can contain cookies and authenticated sessions. Do not
 commit it, share it, or forward remote debugging ports publicly.

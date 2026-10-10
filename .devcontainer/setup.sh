@@ -28,7 +28,7 @@ install_antigravity() {
 install_hermes() {
   if ! command -v hermes >/dev/null 2>&1; then
     HERMES_NONINTERACTIVE=1 bash -c \
-      'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-browser --skip-computer-use'
+      'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --non-interactive --skip-browser --skip-computer-use'
   fi
 }
 

@@ -56,11 +56,11 @@ install_utils() {
   local missing=()
   local pkg
   for pkg in 7zip jq ripgrep fd-find tree file bc imagemagick shellcheck; do
-    dpkg-query -W -f='\${Status}' "$pkg" 2>/dev/null | grep -qx 'install ok installed' || missing+=("$pkg")
+    dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -qx 'install ok installed' || missing+=("$pkg")
   done
-  if (( \${#missing[@]} )); then
+  if (( ${#missing[@]} )); then
     sudo apt-get update -qq
-    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "\${missing[@]}"
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
   fi
   if command -v fdfind >/dev/null 2>&1 && ! command -v fd >/dev/null 2>&1; then
     ln -sfn "$(command -v fdfind)" "$HOME/.local/bin/fd"

@@ -23,9 +23,9 @@ devbox clone travnie/aistee
 devbox browser https://example.com /tmp/example.png
 devbox install browser
 devbox install hermes
-devbox download "https://www.youtube.com/watch?v=EXAMPLE"   # One video, max 1080p
+devbox download "https://www.youtube.com/watch?v=EXAMPLE"   # MP4 first, prefer up to 2160p
 devbox download --audio "https://www.youtube.com/watch?v=EXAMPLE" # MP3
-devbox download --best "https://www.youtube.com/watch?v=EXAMPLE"  # Best quality
+devbox download --best "https://www.youtube.com/watch?v=EXAMPLE"  # No 2160p sorting preference
 devbox files                                           # Files ready to collect
 devbox maintenance        # Read-only disk/cache report
 devbox clean              # Prune old Devbox-owned temp files
@@ -38,25 +38,48 @@ project-specific scripts or create duplicate CI.
 
 ## Media downloads (yt-dlp)
 
-Use `devbox download URL` (alias `devbox fetch URL`) for a single item,
-not an entire playlist. `--audio` extracts MP3; `--best` removes the default
-1080p video cap. The helper uses yt-dlp and ffmpeg/ffprobe. If missing,
-run `devbox install media`. It checks disk space before starting and requests
-a 2 GiB per-download-item limit from yt-dlp. It does not bypass DRM, set
-cookies, access your browser sessions, or download playlists automatically.
+`devbox download URL` (alias `devbox fetch URL`) downloads **one item**,
+never a playlist. It uses a single maintained preset in
+`.devcontainer/media.py`:
 
-**Pick up the file from your phone:** in the Codespaces browser editor,
-open the **Explorer → downloads** folder at the repository root, open the
-file's context menu (**right-click**, or long-press where supported), and
-select **Download**. On Android you may need the browser's desktop-site mode.
-Or use `devbox files` to show exact file names and sizes.
+- MP4 video + M4A audio first, then complete MP4, then other viable formats.
+  Prefer resolution up to 2160p and higher FPS (`-S res:2160,fps`).
+  `--best` removes the 2160p sorting preference. Neither flag overrides the
+  4 GiB per-item download guard.
+- Include metadata and chapter markers when available. Embed subtitles matching
+  English (`en.*`) and Polish (`pl.*`); prefer SRT, with other formats as fallback.
+  Embedded subtitle files are not preserved as separate downloads.
+- File names: restricted ASCII characters, truncated uploader/title and unique ID.
+- `--audio`: best audio source converted to MP3 with quality `0`, metadata
+  and a JPEG cover. No thumbnail crop/re-encode filter: preserve artwork.
+- `--ignore-config` avoids importing machine-local yt-dlp configuration into
+  the controlled handoff. Audio extraction and metadata require `ffmpeg`.
+- Preflight requires at least 5 GiB available for video or 512 MiB for audio.
+  yt-dlp requests a 4 GiB per-item limit, but merge/post-processing can still
+  exceed this size, and the source may not report size in advance.
 
-Media lives only in the ignored repository-root `downloads/` folder.
-Never commit it or upload it to GitHub Releases. **Delete files yourself after
-transfer** via the Explorer; automatic maintenance deliberately does not touch
-this folder. Files use persistent Codespaces storage, including while stopped.
-Downloads may fail on sites blocking datacenter IPs or requiring authentication.
-Only save media you have permission to download.
+```bash
+devbox download "https://example.com/watch?v=..."      # MP4-first, prefer 2160p
+devbox download --best "https://example.com/watch?v=..."  # Highest resolution
+devbox download --audio "https://example.com/watch?v=..." # MP3 with cover
+devbox files
+devbox handoff "exact filename.mp4"
+```
+
+**Private phone handoff:** `devbox handoff` starts a time-limited, one-use
+download page on port 8765. Ensure this Codespaces port is **Private** (never
+Public). Authenticate to GitHub in the browser, open the link printed by the
+command, then tap **Download file**. The server deletes the source after its
+entire HTTP response has been transmitted; it cannot independently prove the
+Android download manager has saved the file successfully. Interrupted streams
+retain the file for retry. If in doubt, use VS Code Explorer's Download action
+instead, then delete the file manually: Explorer cannot notify the handoff.
+
+Files live in ignored repository-root `downloads/`, never in Git or Releases.
+No playlists, browser cookies or DRM bypass. Downloads may fail on sites
+blocking datacenter IPs or requiring authentication. Only save content you have
+permission to download. Do not expose the handoff token or forward the port
+publicly. Files remain charged as Codespaces storage until deleted.
 
 ## Playwright and uBlock Origin Lite
 

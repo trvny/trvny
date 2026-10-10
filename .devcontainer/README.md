@@ -13,7 +13,7 @@ agent sessions, browser investigations and tasks needing a persistent shell.
 
 The universal Linux image supplies Bash, Git, GitHub CLI, Python, Node, Java,
 Maven, Gradle and other common runtimes. Setup adds uv, Antigravity CLI (`agy`),
-Copilot CLI, Hermes CLI, Playwright Chromium and official uBlock Origin Lite.
+Copilot CLI, Hermes CLI, Playwright Chromium, official uBlock Origin Lite, yt-dlp and ffmpeg.
 The Hermes installer skips its separate browser download to avoid duplication.
 
 ```bash
@@ -23,6 +23,10 @@ devbox clone travnie/aistee
 devbox browser https://example.com /tmp/example.png
 devbox install browser
 devbox install hermes
+devbox download "https://www.youtube.com/watch?v=EXAMPLE"   # One video, max 1080p
+devbox download --audio "https://www.youtube.com/watch?v=EXAMPLE" # MP3
+devbox download --best "https://www.youtube.com/watch?v=EXAMPLE"  # Best quality
+devbox files                                           # Files ready to collect
 devbox maintenance        # Read-only disk/cache report
 devbox clean              # Prune old Devbox-owned temp files
 devbox clean --deep       # Also prune package-manager caches
@@ -31,6 +35,28 @@ devbox clean --deep       # Also prune package-manager caches
 Other repositories are cloned into `~/workspaces/<owner>/<repo>`. Their own
 instructions and build requirements still apply. The Devbox does not copy
 project-specific scripts or create duplicate CI.
+
+## Media downloads (yt-dlp)
+
+Use `devbox download URL` (alias `devbox fetch URL`) for a single item,
+not an entire playlist. `--audio` extracts MP3; `--best` removes the default
+1080p video cap. The helper uses yt-dlp and ffmpeg/ffprobe. If missing,
+run `devbox install media`. It checks disk space before starting and requests
+a 2 GiB per-download-item limit from yt-dlp. It does not bypass DRM, set
+cookies, access your browser sessions, or download playlists automatically.
+
+**Pick up the file from your phone:** in the Codespaces browser editor,
+open the **Explorer → downloads** folder at the repository root, open the
+file's context menu (**right-click**, or long-press where supported), and
+select **Download**. On Android you may need the browser's desktop-site mode.
+Or use `devbox files` to show exact file names and sizes.
+
+Media lives only in the ignored repository-root `downloads/` folder.
+Never commit it or upload it to GitHub Releases. **Delete files yourself after
+transfer** via the Explorer; automatic maintenance deliberately does not touch
+this folder. Files use persistent Codespaces storage, including while stopped.
+Downloads may fail on sites blocking datacenter IPs or requiring authentication.
+Only save media you have permission to download.
 
 ## Playwright and uBlock Origin Lite
 

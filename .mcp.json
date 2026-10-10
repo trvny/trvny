@@ -7,10 +7,8 @@
     "workspace-files": {
       "command": "bash",
       "args": [
-        "-lc",
-        "exec \"$HOME/.local/bin/mcp-server-filesystem\" \"$1\"",
-        "bash",
-        "${workspaceFolder}"
+        "-c",
+        "exec \"$HOME/.local/bin/mcp-server-filesystem\" \"$PWD\""
       ]
     }
   }

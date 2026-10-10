@@ -23,6 +23,9 @@ devbox clone travnie/aistee
 devbox browser https://example.com /tmp/example.png
 devbox install browser
 devbox install hermes
+devbox maintenance        # Read-only disk/cache report
+devbox clean              # Prune old Devbox-owned temp files
+devbox clean --deep       # Also prune package-manager caches
 ```
 
 Other repositories are cloned into `~/workspaces/<owner>/<repo>`. Their own
@@ -78,6 +81,38 @@ secret values, or expose production tokens to an untrusted agent shell.
   as a Pet Dispatcher execution target requires a separate Linux worker adapter
   with the same task signing, isolation, network and cancellation policy.
   No new dispatcher or provider router should be created.
+
+## Housekeeping
+
+`postStartCommand` runs conservative maintenance whenever the Codespace starts,
+but actual cleanup is throttled to **once every seven days**. It never starts a
+new machine or runs on a stopped Codespace.
+
+- **Automatic (older than 2 days):** orphaned uBOL installer staging folders
+  and temporary `smoke-*` Playwright profiles.
+- **Automatic (older than 21 days):** `*.log` files in the Devbox-owned
+  `~/.local/share/travny-devbox/logs/` directory.
+- **Manual only:** unused uBOL release directories older than 30 days. Keep the
+  active version and two newest releases. Retired pre-upgrade `legacy-*`
+  folders older than 30 days can also be removed.
+- **Manual deep clean:** run `uv cache prune`, `npm cache clean --force`, and
+  `python3 -m pip cache purge`. Deep clean requires a separate command
+  because it can make the next dependency installation slower.
+
+```bash
+devbox maintenance     # Disk free space, cache sizes, eligible files; no deletes
+devbox clean           # Safe age-scoped cleanup
+devbox clean --deep    # Only when caches are large; avoid concurrent builds
+```
+
+All cleanup uses explicit paths under the Devbox-owned directory, ignores
+symlinks and leaves `~/workspaces`, repositories, `.git`, active browser
+profiles, cookies, Hermes models/state, GitHub authentication, Playwright
+browser binaries, Java/Gradle build caches and credentials intact. The manual
+report shows the size of common caches without deleting them. We do not use
+`docker system prune`, `rm -rf ~/.cache` or indiscriminate workspace cleanup.
+The weekly marker lives in `~/.local/share/travny-devbox/.maintenance-last-auto`.
+This is best-effort maintenance, not a replacement for deleting unused Codespaces.
 
 ## Cost and lifecycle
 

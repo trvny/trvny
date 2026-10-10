@@ -33,15 +33,7 @@
 <!--OPEN_PRS:START-->
 | 仓库 | PR | 标题 | 作者 | 状态 | 更新 |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#476](https://github.com/trvny/feedseek/pull/476) | chore(deps): bump tzdata from 2026.4 to 2026.5 | @dependabot[bot] | 就绪 | 2026-10-07 |
-| trvny/feedseek | [#477](https://github.com/trvny/feedseek/pull/477) | chore(deps-dev): bump wrangler from 4.142.0 to 4.147.0 in /feeds-proxy | @dependabot[bot] | 就绪 | 2026-10-07 |
-| trvny/feedseek | [#478](https://github.com/trvny/feedseek/pull/478) | chore(deps-dev): bump ruff from 0.16.9 to 0.16.10 | @dependabot[bot] | 就绪 | 2026-10-07 |
-| trvny/feedseek | [#479](https://github.com/trvny/feedseek/pull/479) | feat(reader): add MCP Apps chat handoff and state | @trvny | 就绪 | 2026-10-07 |
-| trvny/trvny | [#956](https://github.com/trvny/trvny/pull/956) | fix(kanarek): exhaust OpenRouter model fallbacks | @trvny | 就绪 | 2026-10-07 |
-| trvny/trvny | [#957](https://github.com/trvny/trvny/pull/957) | fix(kanarek): normalize Gemini 3.8 request parameters | @trvny | 就绪 | 2026-10-07 |
-| trvny/tvpi | [#115](https://github.com/trvny/tvpi/pull/115) | chore(deps-dev): bump wrangler from 4.142.0 to 4.147.0 in /worker in the worker-toolchain group | @dependabot[bot] | 就绪 | 2026-10-07 |
-| trvny/WiFi-Automatic | [#49](https://github.com/trvny/WiFi-Automatic/pull/49) | [pull] master from j4velin:master | @pull[bot] | 就绪 | 2026-09-30 |
-| trvny/WiFi-Automatic | [#50](https://github.com/trvny/WiFi-Automatic/pull/50) | ci: bump gradle/actions/setup-gradle from 6.3.0 to 6.4.0 in the actions group | @dependabot[bot] | 就绪 | 2026-10-05 |
+| trvny/tvpi | [#121](https://github.com/trvny/tvpi/pull/121) | chore(deps): bump sharp and wrangler in /worker | @dependabot[bot] | 就绪 | 2026-10-09 |
 <!--OPEN_PRS:END-->
 
 **私人控制中心：把项目、服务、工具和各种抽屉收在一个地方。**
@@ -98,19 +90,19 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝In Windows 98, minimized windows are actually moved far away outside the average monitor’s resolution.❞</i>
+<i>❝The business schools reward difficult complex behaviour more than simple behaviour, but simple behaviour is more effective. — Warren Buffett❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
 ## 📰 最近播报
 
 <!--README_FEED:START-->
-- [Can Nuclear Fuel be Delivered in Time to Power Advanced Nuclear Reactors?](https://carnegieendowment.org/research/2026/10/can-nuclear-fuel-be-delivered-in-time-to-power-advanced-nuclear-reactors)
-- [Policjantka z Chrzanowa najlepszym oskarżycielem publicznym - Przelom.pl - portal ziemi chrzanowskiej](https://news.google.com/atom/articles/CBMiqgFBVV95cUxNbGVjQnBfMzFfUmppWlZrWkpWUk9RbG1HM0wwdm9qak0wOVc0YUVCRm1tSF9mREYwNDVwZ1JKcU1NT1d6cUdwNkE0T18wLVVxWGJqbDRtSlRCSFgzeXJCeG9BNDM0R1JKSHNQRUhuV2E4T0x1VktwNHlrZkIwdFNKc0dkbnlaZUdkclZENGxWd080OW9CdTQyY2RqcS0zMF9kNUU1eDJ1NWdwQQ?oc=5)
-- [Christa Pike 'angry and confused' about Tennessee's failed execution effort, lawyers say](https://www.reuters.com/legal/government/christa-pikes-lawyers-demand-see-syringes-drug-residue-botched-execution-2026-10-07/)
-- [FBI arrests man for plotting mass shooting at Mall of America](https://www.reuters.com/legal/government/fbi-arrests-man-plotting-mass-shooting-mall-america-2026-10-07/)
-- [Venezuela's Maduro to face new US charges over alleged torture of Americans, official says](https://www.reuters.com/world/americas/maduro-wife-expected-face-new-charges-over-alleged-torture-americans-cnn-says-2026-10-07/)
-- [Spanish woman whose eviction ignited housing protests dies at 87](https://www.reuters.com/world/evicted-spanish-octogenarian-maricarmen-abascal-heart-spains-housing-protests-2026-10-07/)
+- [Nowa funkcja w Mapach Google. Pokaże same hity](https://antyweb.pl/nowa-funkcja-w-mapach-google-pokaze-same-hity)
+- [trvny merged PR #280 in travnie/twojstar](https://github.com/travnie/twojstar#feedseek-event-16860299441)
+- [Strong Panama quake damages buildings, disrupts power and air travel](https://www.reuters.com/business/environment/strong-80-magnitude-earthquake-felt-panama-usgs-2026-10-09/)
+- [sourcery-ai commented on PR #280 in travnie/twojstar · comment 6088795847](https://github.com/travnie/twojstar/pull/280?feedseek_event=16859384247#issuecomment-6088795847)
+- [trvny merged PR #278 in travnie/twojstar](https://github.com/travnie/twojstar#feedseek-event-16859176010)
+- [Vance says he does not know if Pentagon will proceed with livestream of Fort Hood gunman's execution](https://www.reuters.com/world/us/vance-says-he-does-not-know-if-pentagon-will-proceed-with-livestream-fort-hood-2026-10-09/)
 <!--README_FEED:END-->
 
 <div align="center">

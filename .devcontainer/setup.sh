@@ -8,9 +8,10 @@ rm -f "$HOME/.local/bin/devbox"
 printf '#!/usr/bin/env bash\nexec bash %q "$@"\n' "$launcher" > "$HOME/.local/bin/devbox"
 chmod 700 "$HOME/.local/bin/devbox"
 
+path_line="export PATH=\"\$HOME/.local/bin:\$PATH\""
 for rc in "$HOME/.profile" "$HOME/.bashrc"; do
-  if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$rc" 2>/dev/null; then
-    printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$rc"
+  if ! grep -Fqx "$path_line" "$rc" 2>/dev/null; then
+    printf '\n%s\n' "$path_line" >> "$rc"
   fi
 done
 export PATH="$HOME/.local/bin:$PATH"

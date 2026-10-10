@@ -38,6 +38,34 @@ case "${1:-doctor}" in
     shift
     python3 "$repo_root/.devcontainer/media.py" files "$@"
     ;;
+  agents)
+    shift
+    if [[ $# -ne 0 ]]; then
+      echo 'Usage: devbox agents' >&2
+      exit 2
+    fi
+    for name in copilot agy hermes; do
+      if command -v "$name" >/dev/null 2>&1; then
+        printf 'OK   %s installed\n' "$name"
+      else
+        printf 'MISS %s (run: devbox install %s)\n' "$name" \
+          "$([[ "$name" == agy ]] && echo antigravity || echo "$name")"
+      fi
+    done
+    for entry in \
+      "Copilot:$HOME/.copilot/settings.json" \
+      "Antigravity:$HOME/.gemini/antigravity-cli/settings.json" \
+      "Hermes:$HOME/.hermes/config.yaml"; do
+      label="${entry%%:*}"
+      file="${entry#*:}"
+      if [[ -f "$file" ]]; then
+        printf 'FOUND %s user settings (contents not displayed)\n' "$label"
+      else
+        printf 'NEW   %s user settings (first-run setup needed)\n' "$label"
+      fi
+    done
+    printf 'First-run guide: %s/.devcontainer/README.md\n' "$repo_root"
+    ;;
   browser)
     shift
     node "$repo_root/.devcontainer/browser.mjs" "$@"
@@ -77,7 +105,7 @@ case "${1:-doctor}" in
     gh repo clone "$name" "$destination"
     ;;
   *)
-    echo 'Usage: devbox {doctor|download URL [--audio|--best]|files|handoff FILENAME|maintenance|clean [--deep]|browser [url] [screenshot.png]|install [target]|clone owner/repo}' >&2
+    echo 'Usage: devbox {doctor|agents|download URL [--audio|--best]|files|handoff FILENAME|maintenance|clean [--deep]|browser [url] [screenshot.png]|install [target]|clone owner/repo}' >&2
     exit 2
     ;;
 esac

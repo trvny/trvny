@@ -8,27 +8,43 @@ rm -f "$HOME/.local/bin/devbox"
 printf '#!/usr/bin/env bash\nexec bash %q "$@"\n' "$launcher" > "$HOME/.local/bin/devbox"
 chmod 700 "$HOME/.local/bin/devbox"
 
-if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.profile" 2>/dev/null; then
-  printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$HOME/.profile"
-fi
+for rc in "$HOME/.profile" "$HOME/.bashrc"; do
+  if ! grep -Fq 'export PATH="$HOME/.local/bin:$PATH"' "$rc" 2>/dev/null; then
+    printf '\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$rc"
+  fi
+done
 export PATH="$HOME/.local/bin:$PATH"
+
+run_installer() {
+  local url="$1" interpreter="$2" tmp status=0
+  shift 2
+  tmp="$(mktemp)"
+  if ! curl -fsSL --retry 3 "$url" -o "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  "$interpreter" "$tmp" "$@" || status=$?
+  rm -f "$tmp"
+  return "$status"
+}
 
 install_uv() {
   if ! command -v uv >/dev/null 2>&1; then
-    curl -fsSL https://astral.sh/uv/install.sh | sh
+    run_installer https://astral.sh/uv/install.sh sh
   fi
 }
 
 install_antigravity() {
   if ! command -v agy >/dev/null 2>&1; then
-    curl -fsSL https://antigravity.google/cli/install.sh | bash
+    run_installer https://antigravity.google/cli/install.sh bash
   fi
 }
 
 install_hermes() {
   if ! command -v hermes >/dev/null 2>&1; then
-    HERMES_NONINTERACTIVE=1 bash -c \
-      'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --non-interactive --skip-browser --skip-computer-use'
+    HERMES_NONINTERACTIVE=1 run_installer \
+      https://hermes-agent.nousresearch.com/install.sh \
+      bash --non-interactive --skip-browser --skip-computer-use
   fi
 }
 

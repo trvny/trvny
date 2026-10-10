@@ -95,6 +95,14 @@ while the pull request itself stays authored by `trvny`, use this flow:
 Issue #203 is the maintained default. PR #176 is an independent fallback
 transport, not a second queue.
 
+## Codespaces remote control
+
+The Devbox power/status/diagnostics bridge uses the existing `operator_action`
+with a scoped `repository_dispatch` into GitHub Actions. It does **not**
+make GPTomek a remote shell. The maintained command example, required
+personal Codespaces token, security controls and first-run steps are in
+[Devbox remote control](../../.devcontainer/README.md#gptomek-remote-power-and-diagnostics).
+
 ## Status and troubleshooting
 
 - Confirmed successful commands normally have their Issue #203 comment deleted.

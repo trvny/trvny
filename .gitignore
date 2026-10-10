@@ -49,6 +49,9 @@ __pycache__/
 .svelte-kit/
 .vercel/
 
+# Downloaded media stays local to the Codespace, never in Git
+/downloads/
+
 # Build and test output
 build/
 dist/

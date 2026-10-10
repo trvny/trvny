@@ -1,0 +1,11 @@
+{
+  "name": "travny-devbox-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pinned top-level CLIs for Codespaces; generated lock stays in the user tools install until browser smoke-tested.",
+  "dependencies": {
+    "@github/copilot": "1.0.88",
+    "playwright": "1.64.0",
+    "@playwright/cli": "0.1.21"
+  }
+}

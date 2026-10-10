@@ -2,6 +2,7 @@
 
 ## Repo map
 
+- `.devcontainer/` - on-demand Codespaces AI Devbox; its README owns environment setup, browser/uBOL and security boundaries. Actions stay the default for repeatable jobs; do not copy provider keys from the private Kanarek router.
 - `mcp/pet-dispatcher/` - managed local orchestration and Cloudflare remote control plane. Workspace isolation is the safe default; trusted sessions may gain scoped host/device/LAN authority. `interactive-tool-bridge.md` is the maintained source of truth for interactive/local authority and lifecycle. Plugin/UI layers reuse this control plane rather than creating another dispatcher.
 - `mcp/status-mcp/` - service health/status MCP.
 - `gh-apps/` - GitHub Apps, Kanarek Companion, GPTomek and GPT Actions. Before touching GPTomek transport, read `gh-apps/gptomek/docs/REFERENCE.md` (the canonical manual); `gh-apps/gptomek/README.md` is the practical operator guide. Preserve command IDs, replay guards, checkpoints, result envelopes and failover semantics.

@@ -1,0 +1,34 @@
+{
+  "name": "Travny AI Devbox",
+  "image": "mcr.microsoft.com/devcontainers/universal:linux",
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb"
+  },
+  "postCreateCommand": "bash .devcontainer/devbox doctor",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "ms-python.python",
+        "ms-playwright.playwright",
+        "vscjava.vscode-java-pack"
+      ]
+    }
+  },
+  "postStartCommand": "python3 .devcontainer/maintenance.py --auto || echo 'Devbox maintenance skipped; run: devbox maintenance'",
+  "forwardPorts": [
+    8765
+  ],
+  "portsAttributes": {
+    "8765": {
+      "label": "Private file handoff",
+      "onAutoForward": "notify"
+    }
+  },
+  "onCreateCommand": "bash .devcontainer/setup.sh all",
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:${containerEnv:HOME}/.local/bin"
+  }
+}

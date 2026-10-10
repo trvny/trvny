@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_path="$(readlink -f "${BASH_SOURCE[0]}")"
+repo_root="$(cd "$(dirname "$script_path")/.." && pwd)"
+tools="${HOME}/.local/share/travny-devbox"
+
+case "${1:-doctor}" in
+  doctor)
+    for cmd in git gh python3 uv node npm java javac mvn gradle agy copilot hermes yt-dlp ffmpeg ffprobe 7z jq rg fd tree file bc convert shellcheck android adb apktool sdkmanager gcloud playwright-cli; do
+      if command -v "$cmd" >/dev/null 2>&1; then
+        printf 'OK   %s: %s\n' "$cmd" "$(command -v "$cmd")"
+      else
+        printf 'MISS %s\n' "$cmd"
+      fi
+    done
+    if [[ -f "$tools/ubol/manifest.json" ]]; then
+      echo 'OK   uBlock Origin Lite'
+    else
+      echo 'MISS uBlock Origin Lite (devbox install ubol)'
+    fi
+    if [[ -x "$tools/node_modules/.bin/playwright" ]]; then
+      echo 'OK   Playwright'
+    else
+      echo 'MISS Playwright (devbox install browser)'
+    fi
+    gh auth status || true
+    ;;
+  download|fetch)
+    shift
+    python3 "$repo_root/.devcontainer/media.py" fetch "$@"
+    ;;
+  handoff)
+    shift
+    python3 "$repo_root/.devcontainer/handoff.py" "$@"
+    ;;
+  files)
+    shift
+    python3 "$repo_root/.devcontainer/media.py" files "$@"
+    ;;
+  agents)
+    shift
+    if [[ $# -ne 0 ]]; then
+      echo 'Usage: devbox agents' >&2
+      exit 2
+    fi
+    for name in copilot agy hermes; do
+      if command -v "$name" >/dev/null 2>&1; then
+        printf 'OK   %s installed\n' "$name"
+      else
+        printf 'MISS %s (run: devbox install %s)\n' "$name" \
+          "$([[ "$name" == agy ]] && echo antigravity || echo "$name")"
+      fi
+    done
+    for entry in \
+      "Copilot:$HOME/.copilot/config.json" \
+      "Antigravity:$HOME/.gemini/antigravity-cli/settings.json" \
+      "Hermes:$HOME/.hermes/config.yaml"; do
+      label="${entry%%:*}"
+      file="${entry#*:}"
+      if [[ -f "$file" ]]; then
+        printf 'FOUND %s local config file (not proof of login)\n' "$label"
+      else
+        printf 'NOFILE %s local config (could still use keyring/OAuth)\n' "$label"
+      fi
+    done
+    printf 'First-run guide: %s/.devcontainer/README.md\n' "$repo_root"
+    ;;
+  browser)
+    shift
+    node "$repo_root/.devcontainer/browser.mjs" "$@"
+    ;;
+  install)
+    shift
+    bash "$repo_root/.devcontainer/setup.sh" "${1:-all}"
+    ;;
+  maintenance)
+    shift
+    python3 "$repo_root/.devcontainer/maintenance.py" "$@"
+    ;;
+  clean)
+    shift
+    if [[ "${1:-}" == "--deep" && $# -eq 1 ]]; then
+      python3 "$repo_root/.devcontainer/maintenance.py" --deep
+    elif [[ $# -eq 0 ]]; then
+      python3 "$repo_root/.devcontainer/maintenance.py" --clean
+    else
+      echo 'Usage: devbox clean [--deep]' >&2
+      exit 2
+    fi
+    ;;
+  clone)
+    shift
+    name="${1:-}"
+    if [[ ! "$name" =~ ^(trvny|travnie)/[A-Za-z0-9._-]+$ ]]; then
+      echo 'Use: devbox clone trvny/repo or travnie/repo' >&2
+      exit 2
+    fi
+    destination="$HOME/workspaces/$name"
+    if [[ -e "$destination" ]]; then
+      echo "Already exists: $destination" >&2
+      exit 1
+    fi
+    mkdir -p "$(dirname "$destination")"
+    gh repo clone "$name" "$destination"
+    ;;
+  *)
+    echo 'Usage: devbox {doctor|agents|download URL [--audio|--best]|files|handoff FILENAME|maintenance|clean [--deep]|browser [url] [screenshot.png]|install [target]|clone owner/repo}' >&2
+    exit 2
+    ;;
+esac

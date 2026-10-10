@@ -17,7 +17,7 @@ Copilot CLI, Hermes CLI, Playwright Chromium, official uBlock Origin Lite, yt-dl
 The Hermes installer skips its separate browser download to avoid duplication.
 The default core utilities include 7-Zip (`7z`), `jq`, `rg`, `fd` (from
 Debian's `fdfind`), `tree`, `file`, `bc`, ImageMagick and ShellCheck.
-Package versions for Copilot, Playwright, Playwright CLI and the filesystem MCP
+Package versions for Copilot, Playwright and Playwright CLI
 are pinned in the sole npm manifest at `.devcontainer/tools/package.json`;
 transitive packages are resolved in the user-local install. Vendor install
 scripts for uv, Antigravity and Hermes track upstream releases. These scripts
@@ -51,7 +51,7 @@ devbox install base          # Core utilities and Python uv
 devbox install android       # Official Google Android CLI + Apktool
 devbox install android-sdk   # Android SDK command-line tools and platform-tools
 devbox install cloud         # Official Google Cloud CLI (gcloud)
-devbox install mcp           # Pinned filesystem MCP + Playwright CLI skills
+devbox install mcp           # Pinned agent CLIs + Playwright CLI skills
 devbox doctor                # Verify executables and optional components
 ```
 
@@ -67,11 +67,11 @@ The `gcloud` installer does not log into your Google account; authenticate
 explicitly from your own interactive terminal. No service-account JSON keys or
 Cloudflare production secrets are imported.
 
-The repo's `.mcp.json` configures Context7 over HTTP and an official,
-workspace-scoped filesystem MCP server using the runtime working directory.
-Agent clients supporting this configuration can reuse it; other clients may
-need their own native configuration. The filesystem MCP never receives
-`~/` as its allowed root. See `.agents/skills/devbox-workflow/` and
+The repo's `.mcp.json` configures **remote Context7** over HTTP.
+We intentionally do not start a filesystem MCP server: clients can advertise
+dynamic Roots that broaden its file access, while local agents already have
+workspace tools. Other MCP clients may need their own native configuration.
+See `.agents/skills/devbox-workflow/` and
 `.agents/skills/devbox-handoff/` for project-local operational guidance;
 Playwright CLI also installs its upstream skill into user-level agent skills.
 There is no separate model-provider MCP or cloned secret store.

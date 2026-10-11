@@ -11,8 +11,9 @@ REPO = "trvny/trvny"
 OWNER = "trvny"
 DISPLAY_NAME = "Travny AI Devbox"
 BRANCH = "main"
-ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log"}
+ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log", "inspect"}
 SSH_TASKS = {
+    "inspect": "bash -lc 'cd /workspaces/trvny && bash .devcontainer/bootstrap_probe.sh'",
     "doctor": "bash -lc 'cd /workspaces/trvny && bash .devcontainer/devbox doctor'",
     "agents": "bash -lc 'cd /workspaces/trvny && bash .devcontainer/devbox agents'",
 }
@@ -203,7 +204,7 @@ def run(action: str) -> None:
 if __name__ == "__main__":
     try:
         if len(sys.argv) != 2:
-            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents|creation-log>")
+            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents|creation-log|inspect>")
         run(sys.argv[1])
     except (RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
         print(f"Devbox control: {exc}", file=sys.stderr)

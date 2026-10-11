@@ -142,12 +142,24 @@ install_browser() {
 
 case "${1:-all}" in
   all)
-    install_utils
-    install_uv
-    install_antigravity
-    install_browser
-    install_media
-    install_hermes
+    # A failed optional CLI must never send Codespaces into recovery mode.
+    # Run profiles separately so one failure cannot skip the remaining ones.
+    report="$HOME/.local/state/travny-devbox/bootstrap-failures"
+    mkdir -p "$(dirname "$report")"
+    : > "$report"
+    for profile in base antigravity browser media hermes; do
+      if bash "$0" "$profile"; then
+        printf 'OK   bootstrap: %s\n' "$profile"
+      else
+        printf '%s\n' "$profile" >> "$report"
+        printf 'WARN bootstrap: %s failed; retry: devbox install %s\n' "$profile" "$profile" >&2
+      fi
+    done
+    if [[ ! -s "$report" ]]; then
+      rm -f "$report"
+    else
+      echo 'Devbox created with some optional tools missing; use: devbox doctor' >&2
+    fi
     ;;
   base) install_utils; install_uv ;;
   antigravity) install_antigravity ;;

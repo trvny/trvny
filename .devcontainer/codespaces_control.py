@@ -57,8 +57,21 @@ def api(method: str, endpoint: str, body: dict | None = None) -> dict:
         capture_output=True, text=True, timeout=60, check=False,
     )
     if result.returncode:
+        # Never disclose raw GitHub CLI stderr or response bodies: they can
+        # contain private URLs or authentication details.
+        label = (
+            "repository lookup" if endpoint == f"/repos/{REPO}"
+            else "personal Codespaces list"
+            if endpoint.startswith("/user/codespaces?")
+            else "machine catalog"
+            if endpoint.endswith("/codespaces/machines")
+            else "Codespaces lifecycle"
+        )
+        match = re.search(r"\\bHTTP\\s+([45]\\d\\d)\\b", result.stderr)
+        status = match.group(1) if match else "unknown"
         raise RuntimeError(
-            f"GitHub Codespaces API failed (code {result.returncode})"
+            f"GitHub API {label} failed (HTTP {status}; "
+            f"CLI exit {result.returncode})"
         )
     return json.loads(result.stdout) if result.stdout.strip() else {}
 

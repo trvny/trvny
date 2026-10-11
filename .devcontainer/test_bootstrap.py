@@ -2,7 +2,10 @@
 """Guard the Codespaces bootstrap against optional installers breaking container creation."""
 
 import json
+import os
 from pathlib import Path
+import subprocess
+import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parent
@@ -13,9 +16,39 @@ class BootstrapSafetyTests(unittest.TestCase):
         config = json.loads((ROOT / "devcontainer.json").read_text())
         on_create = config["onCreateCommand"]
         post_create = config["postCreateCommand"]
-        self.assertNotIn("setup.sh", on_create)
-        self.assertNotIn("apt-get", on_create)
+        self.assertEqual(on_create, 'mkdir -p "$HOME/.local/bin"')
         self.assertTrue(post_create.startswith("bash .devcontainer/setup.sh all ||"))
+
+    def test_failed_profile_does_not_skip_later_installs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "home"
+            home.mkdir()
+            fake_bin = Path(tmp) / "bin"
+            fake_bin.mkdir()
+            trace = Path(tmp) / "profiles.txt"
+            fake_bash = fake_bin / "bash"
+            fake_bash.write_text(
+                '#!/bin/sh\n'
+                'printf "%s\n" "$2" >> "$PROFILE_TRACE"\n'
+                '[ "$2" != base ]\n'
+            )
+            fake_bash.chmod(0o755)
+            env = os.environ.copy()
+            env.update({
+                "HOME": str(home),
+                "PATH": f"{fake_bin}:{env['PATH']}",
+                "PROFILE_TRACE": str(trace),
+            })
+            result = subprocess.run(
+                ["/bin/bash", str(ROOT / "setup.sh"), "all"],
+                env=env, capture_output=True, text=True, timeout=10,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(trace.read_text().splitlines(), [
+                "base", "antigravity", "browser", "media", "hermes",
+            ])
+            self.assertIn("bootstrap: base failed", result.stderr)
 
     def test_optional_profiles_are_isolated_and_reported(self):
         setup = (ROOT / "setup.sh").read_text()

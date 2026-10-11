@@ -14,7 +14,7 @@ BRANCH = "main"
 ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log", "inspect"}
 SSH_TASKS = {
     "inspect": (
-        "bash -lc '"
+        "bash --noprofile --norc -c '"
         "source /etc/os-release; printf \"os=%s\\n\" \"$ID\"; "
         "if test -d /workspaces/trvny/.git; then echo workspace=present; "
         "else echo workspace=missing; fi; "

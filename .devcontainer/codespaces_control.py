@@ -67,7 +67,7 @@ def api(method: str, endpoint: str, body: dict | None = None) -> dict:
             if endpoint.endswith("/codespaces/machines")
             else "Codespaces lifecycle"
         )
-        match = re.search(r"\\bHTTP\\s+([45]\\d\\d)\\b", result.stderr)
+        match = re.search(r"\bHTTP\s+([45]\d\d)\b", result.stderr)
         status = match.group(1) if match else "unknown"
         raise RuntimeError(
             f"GitHub API {label} failed (HTTP {status}; "

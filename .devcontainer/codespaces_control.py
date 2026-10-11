@@ -162,9 +162,10 @@ def run(action: str) -> None:
         # Creation log may contain secrets. Never print the raw log to Actions.
         log = call(["gh", "codespace", "logs", "-c", name], timeout=90)
         patterns = (
-            "error", "failed", "unable", "not found", "denied",
-            "exit code", "non-zero", "7zip", "oncreatecommand",
-            "postcreatecommand", "setup.sh", "build failed",
+            "7zip", "oncreatecommand", "postcreatecommand",
+            "setup.sh", "build failed", "exit code",
+            "non-zero", "not found", "denied", "unable",
+            "failed", "error",
         )
         lines = [
             line for line in log.splitlines()

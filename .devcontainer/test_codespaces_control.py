@@ -148,6 +148,21 @@ class ControlTests(unittest.TestCase):
         self.assertNotIn("ghp_EXAMPLE_PRIVATE_TOKEN", output.getvalue())
         self.assertNotIn("Unable to locate", output.getvalue())
 
+    def test_api_failure_reports_safe_status_and_step(self):
+        import subprocess
+
+        fake = subprocess.CompletedProcess(
+            args=["gh"], returncode=1, stdout="",
+            stderr="gh: Bad credentials (HTTP 401) token=PRIVATE_SECRET",
+        )
+        with patch.object(control.subprocess, "run", return_value=fake):
+            with self.assertRaises(RuntimeError) as raised:
+                control.api("GET", "/user/codespaces?repository_id=42")
+        message = str(raised.exception)
+        self.assertIn("personal Codespaces list", message)
+        self.assertIn("HTTP 401", message)
+        self.assertNotIn("PRIVATE_SECRET", message)
+
     def test_no_secret_is_logged_when_auth_missing(self):
         with patch.dict(os.environ, {"GH_TOKEN": ""}), \
             patch.object(control, "api") as api:

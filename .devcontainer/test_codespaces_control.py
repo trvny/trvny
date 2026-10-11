@@ -128,6 +128,8 @@ class ControlTests(unittest.TestCase):
         self.assertNotIn("bootstrap_probe.sh", command)
         self.assertNotIn("cd /workspaces/trvny", command)
         self.assertNotIn("id -un", command)
+        self.assertIn("bash --noprofile --norc -c", command)
+        self.assertNotIn("bash -lc", command)
 
     def test_creation_log_never_echoes_raw_lines_or_secrets(self):
         raw = (

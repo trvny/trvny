@@ -142,23 +142,21 @@ install_browser() {
 
 case "${1:-all}" in
   all)
-    # A failed optional CLI must never send Codespaces into recovery mode.
-    # Run profiles separately so one failure cannot skip the remaining ones.
-    report="$HOME/.local/state/travny-devbox/bootstrap-failures"
-    mkdir -p "$(dirname "$report")"
-    : > "$report"
+    # Try every profile, including after a failure, and report incomplete
+    # installs to manual callers. The devcontainer lifecycle handles this
+    # nonzero status so optional CLI failure never breaks container creation.
+    failures=0
     for profile in base antigravity browser media hermes; do
       if bash "$0" "$profile"; then
         printf 'OK   bootstrap: %s\n' "$profile"
       else
-        printf '%s\n' "$profile" >> "$report"
+        failures=$((failures + 1))
         printf 'WARN bootstrap: %s failed; retry: devbox install %s\n' "$profile" "$profile" >&2
       fi
     done
-    if [[ ! -s "$report" ]]; then
-      rm -f "$report"
-    else
-      echo 'Devbox created with some optional tools missing; use: devbox doctor' >&2
+    if (( failures > 0 )); then
+      printf 'WARN %s optional bootstrap profiles failed. Run: devbox doctor\n' "$failures" >&2
+      exit 1
     fi
     ;;
   base) install_utils; install_uv ;;

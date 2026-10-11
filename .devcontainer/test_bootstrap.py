@@ -15,14 +15,16 @@ class BootstrapSafetyTests(unittest.TestCase):
         post_create = config["postCreateCommand"]
         self.assertNotIn("setup.sh", on_create)
         self.assertNotIn("apt-get", on_create)
-        self.assertIn("setup.sh all", post_create)
+        self.assertTrue(post_create.startswith("bash .devcontainer/setup.sh all ||"))
 
     def test_optional_profiles_are_isolated_and_reported(self):
         setup = (ROOT / "setup.sh").read_text()
         self.assertIn("for profile in base antigravity browser media hermes", setup)
         self.assertIn('if bash "$0" "$profile"; then', setup)
-        self.assertIn('bootstrap-failures', setup)
-        self.assertIn('devbox install %s', setup)
+        self.assertIn("failures=$((failures + 1))", setup)
+        self.assertIn("if (( failures > 0 )); then", setup)
+        self.assertIn("exit 1", setup)
+        self.assertIn("devbox install %s", setup)
 
 
 if __name__ == "__main__":

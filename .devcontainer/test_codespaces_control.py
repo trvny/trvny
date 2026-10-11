@@ -121,6 +121,23 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(command[5], control.SSH_TASKS["agents"])
         self.assertNotIn("GH_TOKEN", command[5])
 
+    def test_creation_log_never_echoes_raw_lines_or_secrets(self):
+        raw = (
+            "onCreateCommand failed, ghp_EXAMPLE_PRIVATE_TOKEN\n"
+            "E: Unable to locate package 7zip\n"
+        )
+        with patch.dict(os.environ, {"GH_TOKEN": "testing"}), \
+             patch.object(control, "list_managed", return_value=[codespace()]), \\
+             patch.object(control, "call", return_value=raw) as read, \\
+             redirect_stdout(io.StringIO()) as output:
+            control.run("creation-log")
+        self.assertEqual(
+            read.call_args.args[0][:3], ["gh", "codespace", "logs"]
+        )
+        self.assertIn("Creation log:", output.getvalue())
+        self.assertNotIn("ghp_EXAMPLE_PRIVATE_TOKEN", output.getvalue())
+        self.assertNotIn("Unable to locate", output.getvalue())
+
     def test_no_secret_is_logged_when_auth_missing(self):
         with patch.dict(os.environ, {"GH_TOKEN": ""}), \
             patch.object(control, "api") as api:

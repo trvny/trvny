@@ -7,6 +7,7 @@ import http.client
 from pathlib import Path
 import sys
 import tempfile
+import time
 import threading
 import unittest
 from urllib.parse import urlencode
@@ -66,6 +67,10 @@ class HandoffTests(unittest.TestCase):
                 self.assertEqual([r[0] for r in results].count(200), 1)
                 self.assertEqual([r[1] for r in results if r[0] == 200], [payload])
                 self.assertTrue(all(status in (200, 409) for status, _ in results))
+                # Client EOF may precede the handler's post-stream unlink.
+                deadline = time.monotonic() + 2
+                while video.exists() and time.monotonic() < deadline:
+                    time.sleep(0.01)
                 self.assertFalse(video.exists())
                 self.assertTrue(server.completed)
             finally:

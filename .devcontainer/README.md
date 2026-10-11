@@ -93,7 +93,7 @@ the following fenced JSON block, with a unique `id` per new operation:
 ````
 
 Allowed `client_payload.action`: `status`, `ensure`, `stop`, `doctor`,
-`agents`. `ensure` creates the **one** personal Devbox on `main` if missing,
+`agents`, `creation-log`. `ensure` creates the **one** personal Devbox on `main` if missing,
 or starts the existing stopped one. It selects the smallest available **4 CPU,
 8-16 GiB** machine, requests `EuropeWest`, stops after **15 idle minutes**, and
 uses **7-day stopped retention** (uncommitted changes may disappear when GitHub
@@ -101,7 +101,8 @@ deletes the Codespace after retention; push your work). `status` lists only
 this Devbox, `stop` stops only this Devbox. `doctor` and `agents` execute
 two built-in read-only checks over GitHub CLI Codespaces SSH (subject to
 user-token permissions and first-run SSH availability). They do not accept
-arbitrary shell commands. Each result is in the **GPTomek Devbox control**
+arbitrary shell commands. `creation-log` reports categorized failure signals
+from the GitHub creation log without exposing its raw lines. Each result is in the **GPTomek Devbox control**
 Actions run logs; GPTomek's own comment confirms only dispatch acceptance,
 not that the machine has finished starting.
 

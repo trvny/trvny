@@ -8,10 +8,11 @@ import subprocess
 import sys
 
 REPO = "trvny/trvny"
+REPO_ID = 926010685  # Immutable GitHub repository ID; confirmed against public API
 OWNER = "trvny"
 DISPLAY_NAME = "Travny AI Devbox"
 BRANCH = "main"
-ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log", "inspect"}
+ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log", "inspect", "repair"}
 SSH_TASKS = {
     "inspect": (
         "bash --noprofile --norc -c '"
@@ -32,6 +33,39 @@ SSH_TASKS = {
     "doctor": "bash -lc 'cd /workspaces/trvny && bash .devcontainer/devbox doctor'",
     "agents": "bash -lc 'cd /workspaces/trvny && bash .devcontainer/devbox agents'",
 }
+# Fixed and guarded repair: never reset HEAD or touch unrelated workspace files.
+# Uses the trusted public repository to avoid reading Codespace credentials.
+REPAIR_SYNC_COMMAND = (
+    "bash --noprofile --norc -c '"
+    "set -eu; cd /workspaces/trvny; "
+    "test \"$(git branch --show-current)\" = main "
+    "|| { echo wrong_branch; exit 3; }; "
+    "tmp=$(mktemp -d .devcontainer/.repair.XXXXXX); "
+    "trap \"rm -rf \\\"$tmp\\\"\" EXIT; "
+    "GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null "
+    "git -C \"$tmp\" init -q; "
+    "GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null "
+    "git -C \"$tmp\" fetch -q --no-tags "
+    "https://github.com/trvny/trvny.git main 2>/dev/null "
+    "|| { echo fetch_failed; exit 4; }; "
+    "for file in .devcontainer/devcontainer.json "
+    ".devcontainer/setup.sh .devcontainer/devbox; do "
+    "git -C \"$tmp\" show \"FETCH_HEAD:$file\" "
+    "> \"$tmp/$(basename \"$file\")\"; "
+    "if ! cmp -s \"$file\" \"$tmp/$(basename \"$file\")\"; then "
+    "git show \"HEAD:$file\" > \"$tmp/original-$(basename \"$file\")\" "
+    "|| { echo original_missing; exit 3; }; "
+    "cmp -s \"$file\" \"$tmp/original-$(basename \"$file\")\" "
+    "|| { echo local_changes; exit 3; }; "
+    "fi; done; "
+    "test \"$(git branch --show-current)\" = main "
+    "|| { echo wrong_branch; exit 3; }; "
+    "for file in .devcontainer/devcontainer.json "
+    ".devcontainer/setup.sh .devcontainer/devbox; do "
+    "mv \"$tmp/$(basename \"$file\")\" \"$file\"; "
+    "done; echo devcontainer_updated'"
+)
+
 CODESPACE_NAME = re.compile(r"^[a-zA-Z0-9-]{1,150}$")
 
 
@@ -40,8 +74,15 @@ def call(args: list[str], *, timeout: int = 60) -> str:
         args, text=True, capture_output=True, timeout=timeout, check=False,
     )
     if result.returncode:
-        # GH errors may include user data; do not expose stdout/stderr or credentials.
-        raise RuntimeError(f"GitHub command failed (code {result.returncode})")
+        # Only fixed, non-secret repair rejection reasons may be echoed.
+        safe_markers = {"wrong_branch", "local_changes", "fetch_failed", "original_missing"}
+        reason = next(
+            (line for line in result.stdout.splitlines() if line in safe_markers),
+            "remote_error",
+        )
+        raise RuntimeError(
+            f"GitHub command failed (code {result.returncode}; reason {reason})"
+        )
     return result.stdout
 
 
@@ -86,12 +127,11 @@ def matching_codespace(item: dict) -> bool:
 
 
 def list_managed() -> list[dict]:
-    repository = api("GET", f"/repos/{REPO}")
-    repo_id = repository.get("id")
-    if type(repo_id) is not int:
-        raise RuntimeError("Cannot identify repo; refusing Codespace mutation")
+    # A narrowly-scoped Codespaces token does not need generic repository
+    # metadata permission. The returned objects are still checked against
+    # exact personal owner, billing owner, display name and repository name.
     result = api(
-        "GET", f"/user/codespaces?repository_id={repo_id}&per_page=100"
+        "GET", f"/user/codespaces?repository_id={REPO_ID}&per_page=100"
     )
     codespaces = result.get("codespaces", [])
     if not isinstance(codespaces, list):
@@ -213,6 +253,21 @@ def run(action: str) -> None:
         if not lines:
             print("No obvious setup errors found. Check VS Code creation.log")
         return
+    if action == "repair":
+        if state != "Available":
+            raise RuntimeError("Devbox must be running for scoped repair")
+        print("Verifying a clean .devcontainer workspace", flush=True)
+        result = call(
+            ["gh", "codespace", "ssh", "-c", name, REPAIR_SYNC_COMMAND],
+            timeout=120,
+        )
+        if "devcontainer_updated" not in result:
+            raise RuntimeError("Configuration sync was not confirmed")
+        print("Synced three tracked Devbox files from main", flush=True)
+        print("Requesting existing Codespace container rebuild", flush=True)
+        call(["gh", "codespace", "rebuild", "-c", name], timeout=480)
+        print("Codespace rebuild command completed")
+        return
     if action == "stop":
         if state in {"Shutdown", "Stopped"}:
             print("Devbox already stopped")
@@ -232,7 +287,7 @@ def run(action: str) -> None:
 if __name__ == "__main__":
     try:
         if len(sys.argv) != 2:
-            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents|creation-log|inspect>")
+            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents|creation-log|inspect|repair>")
         run(sys.argv[1])
     except (RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
         print(f"Devbox control: {exc}", file=sys.stderr)

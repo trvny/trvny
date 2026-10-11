@@ -11,9 +11,9 @@ agent sessions, browser investigations and tasks needing a persistent shell.
 3. Select **4 cores / 8 GB**. Switch to **8 cores / 16 GB** only for heavy builds.
 4. Wait for `postCreateCommand` to finish. In the terminal: `devbox doctor`.
    Heavy optional installers now run **after** container creation, individually.
-   Failure of an optional tool is recorded under
-   `~/.local/state/travny-devbox/bootstrap-failures` and does not force the
-   whole Codespace into recovery mode. Retry with `devbox install <profile>`.
+   An optional-tool failure remains visible in the setup output and through
+   `devbox doctor`, but will not force the whole Codespace into recovery mode.
+   Retry with `devbox install <profile>`; manual failed installs return nonzero.
 
 The universal Linux image supplies Bash, Git, GitHub CLI, Python, Node, Java,
 Maven, Gradle and other common runtimes. Setup adds uv, Antigravity CLI (`agy`),
@@ -470,8 +470,8 @@ on demand in Codespaces machine settings. Higher cores consume the monthly
 compute allowance faster. Running and stopped machines both retain storage;
 the browser cache and large JDK/build caches can use substantial storage.
 
-Bootstrap runs in `onCreateCommand`, making it eligible for GitHub
-Codespaces prebuilds if you later choose to configure them. No prebuild is
+Optional bootstrap now runs in `postCreateCommand`. No GitHub Codespaces
+prebuild is configured and prebuilds remain disabled by default. No prebuild is
 enabled by this PR: prebuilds consume extra storage and may affect billing.
 
 Set a Codespaces product budget with **Stop usage when budget limit is reached**

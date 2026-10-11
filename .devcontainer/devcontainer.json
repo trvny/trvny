@@ -5,7 +5,7 @@
     "cpus": 4,
     "memory": "8gb"
   },
-  "postCreateCommand": "bash .devcontainer/setup.sh all",
+  "postCreateCommand": "bash .devcontainer/setup.sh all || echo 'Optional Devbox setup incomplete: run devbox doctor and retry missing profiles'",
   "customizations": {
     "vscode": {
       "extensions": [

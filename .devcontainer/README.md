@@ -93,7 +93,7 @@ the following fenced JSON block, with a unique `id` per new operation:
 ````
 
 Allowed `client_payload.action`: `status`, `ensure`, `stop`, `doctor`,
-`agents`. `ensure` creates the **one** personal Devbox on `main` if missing,
+`agents`, `creation-log`. `ensure` creates the **one** personal Devbox on `main` if missing,
 or starts the existing stopped one. It selects the smallest available **4 CPU,
 8-16 GiB** machine, requests `EuropeWest`, stops after **15 idle minutes**, and
 uses **7-day stopped retention** (uncommitted changes may disappear when GitHub

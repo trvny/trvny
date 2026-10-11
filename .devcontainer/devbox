@@ -24,13 +24,6 @@ case "${1:-doctor}" in
     else
       echo 'MISS Playwright (devbox install browser)'
     fi
-    report="$HOME/.local/state/travny-devbox/bootstrap-failures"
-    if [[ -s "$report" ]]; then
-      echo 'WARN Optional bootstrap profiles failed (retry individually):'
-      while IFS= read -r profile; do
-        printf '  devbox install %s\n' "$profile"
-      done < "$report"
-    fi
     gh auth status || true
     ;;
   download|fetch)

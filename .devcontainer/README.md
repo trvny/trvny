@@ -93,7 +93,7 @@ the following fenced JSON block, with a unique `id` per new operation:
 ````
 
 Allowed `client_payload.action`: `status`, `ensure`, `stop`, `doctor`,
-`agents`, `inspect`, `creation-log`. `ensure` creates the **one** personal Devbox on `main` if missing,
+`agents`, `inspect`, `creation-log`, `repair`. `ensure` creates the **one** personal Devbox on `main` if missing,
 or starts the existing stopped one. It selects the smallest available **4 CPU,
 8-16 GiB** machine, requests `EuropeWest`, stops after **15 idle minutes**, and
 uses **7-day stopped retention** (uncommitted changes may disappear when GitHub
@@ -114,6 +114,22 @@ enabled. Full agent task execution is **not** a side effect of starting a
 Codespace: future integration should reuse Pet Dispatcher's existing policy,
 sessions and job envelope through a *scoped* Linux worker rather than
 allowing arbitrary shell strings through Issue comments.
+
+**Scoped repair:** `client_payload.action: repair` runs only on the
+already-identified, running personal Devbox. It refuses unexpected local
+edits to the **three target files**, while preserving unrelated workspace
+changes. It fetches trusted public `trvny/trvny` `main` in an isolated
+temporary Git checkout and replaces **only** `devcontainer.json`,
+`setup.sh`, and `devbox` before
+requesting `gh codespace rebuild -c <existing-name>`. The operation neither
+deletes the Codespace nor uses `git reset --hard`, and does not accept caller
+shell commands or repo arguments. Rebuild recreates the container and can
+discard files under the container home; tracked workspace files remain.
+Use `inspect` after rebuild to confirm Ubuntu and tools. The three
+repaired files may appear modified relative to the Codespace's older Git HEAD;
+this is expected until its working branch is updated normally. Retrying
+`repair` accepts files already identical to the latest trusted version.
+Do not resolve this temporary diff with `git reset --hard`.
 
 ## Optional tool profiles, MCP and skills
 

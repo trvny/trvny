@@ -3,6 +3,7 @@
 
 import io
 import os
+import subprocess
 from contextlib import redirect_stdout
 from pathlib import Path
 import sys
@@ -39,17 +40,20 @@ class ControlTests(unittest.TestCase):
             codespace(billable="travnie"),
             codespace(),
         ]
-        with patch.object(control, "api", side_effect=[
-            {"id": 42}, {"total_count": 4, "codespaces": payload},
-        ]):
+        with patch.object(control, "api", return_value={
+            "total_count": 4, "codespaces": payload,
+        }) as api_mock:
             matches = control.list_managed()
+        api_mock.assert_called_once_with(
+            "GET", "/user/codespaces?repository_id=926010685&per_page=100"
+        )
         self.assertEqual(len(matches), 1)
         self.assertEqual(matches[0]["name"], "pocket-demo-codespace")
 
     def test_refuse_ambiguous_managed_codespaces(self):
-        with patch.object(control, "api", side_effect=[
-            {"id": 42}, {"codespaces": [codespace(), codespace()]},
-        ]):
+        with patch.object(control, "api", return_value={
+            "codespaces": [codespace(), codespace()],
+        }):
             with self.assertRaisesRegex(RuntimeError, "More than one"):
                 control.list_managed()
 
@@ -67,8 +71,6 @@ class ControlTests(unittest.TestCase):
         calls = []
         def mock_api(method, path, body=None):
             calls.append((method, path, body))
-            if path == "/repos/trvny/trvny":
-                return {"id": 42}
             if path.startswith("/user/codespaces?"):
                 return {"codespaces": []}
             if path.endswith("/codespaces/machines"):
@@ -120,6 +122,52 @@ class ControlTests(unittest.TestCase):
         ])
         self.assertEqual(command[5], control.SSH_TASKS["agents"])
         self.assertNotIn("GH_TOKEN", command[5])
+
+    def test_repair_refuses_uncommitted_devcontainer_changes(self):
+        command = control.REPAIR_SYNC_COMMAND
+        self.assertIn('git -C "$tmp" init -q', command)
+        self.assertIn('git -C "$tmp" fetch -q --no-tags', command)
+        self.assertIn('git -C "$tmp" show', command)
+        self.assertIn("git show \"HEAD:$file\"", command)
+        self.assertIn("original_missing", command)
+        self.assertNotIn("git diff", command)
+        self.assertIn("mktemp -d .devcontainer/.repair.XXXXXX", command)
+        nested = command.split("'")[1]
+        syntax = subprocess.run(
+            ["bash", "-n", "-c", nested],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(syntax.returncode, 0, syntax.stderr)
+        self.assertIn("local_changes", command)
+        self.assertIn("https://github.com/trvny/trvny.git main", command)
+        self.assertNotIn("git restore", command)
+        self.assertNotIn("reset --hard", command)
+        self.assertNotIn("git clean", command)
+        self.assertNotIn("git checkout -f", command)
+
+    def test_repair_syncs_only_then_rebuilds_existing_codespace(self):
+        with patch.dict(os.environ, {"GH_TOKEN": "testing"}), \
+            patch.object(control, "list_managed", return_value=[codespace()]), \
+            patch.object(control, "call", side_effect=[
+                "devcontainer_updated\n", "",
+            ]) as runner, redirect_stdout(io.StringIO()):
+            control.run("repair")
+        self.assertEqual(runner.call_count, 2)
+        self.assertEqual(runner.call_args_list[0].args[0][:5], [
+            "gh", "codespace", "ssh", "-c", "pocket-demo-codespace",
+        ])
+        self.assertEqual(runner.call_args_list[1].args[0], [
+            "gh", "codespace", "rebuild", "-c", "pocket-demo-codespace",
+        ])
+
+    def test_repair_does_not_rebuild_if_sync_fails(self):
+        with patch.dict(os.environ, {"GH_TOKEN": "testing"}), \
+            patch.object(control, "list_managed", return_value=[codespace()]), \
+            patch.object(control, "call", side_effect=RuntimeError("dirty")) as runner, \
+            redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "dirty"):
+                control.run("repair")
+        self.assertEqual(runner.call_count, 1)
 
     def test_inspect_is_fixed_and_not_from_mutable_checkout(self):
         command = control.SSH_TASKS["inspect"]

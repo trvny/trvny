@@ -11,7 +11,7 @@ REPO = "trvny/trvny"
 OWNER = "trvny"
 DISPLAY_NAME = "Travny AI Devbox"
 BRANCH = "main"
-ACTIONS = {"status", "ensure", "stop", "doctor", "agents"}
+ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log"}
 SSH_TASKS = {
     "doctor": "bash -lc 'cd /workspaces/trvny && bash .devcontainer/devbox doctor'",
     "agents": "bash -lc 'cd /workspaces/trvny && bash .devcontainer/devbox agents'",
@@ -158,6 +158,31 @@ def run(action: str) -> None:
         return
     name = checked_name(existing)
     state = existing.get("state")
+    if action == "creation-log":
+        # Creation log may contain secrets. Never print the raw log to Actions.
+        log = call(["gh", "codespace", "logs", "-c", name], timeout=90)
+        patterns = (
+            "error", "failed", "unable", "not found", "denied",
+            "exit code", "non-zero", "7zip", "oncreatecommand",
+            "postcreatecommand", "setup.sh", "build failed",
+        )
+        lines = [
+            line for line in log.splitlines()
+            if any(marker in line.lower() for marker in patterns)
+        ]
+        print(f"Creation log: {len(log.splitlines())} lines, "
+              f"{len(lines)} possible setup clues")
+        for line in lines[-24:]:
+            # Restrict output to line classification, not potentially sensitive
+            # command arguments, URLs, tokens or raw environment variables.
+            low = line.lower()
+            label = next(
+                (marker for marker in patterns if marker in low), "other"
+            )
+            print(f"  signal: {label}")
+        if not lines:
+            print("No obvious setup errors found. Check VS Code creation.log")
+        return
     if action == "stop":
         if state in {"Shutdown", "Stopped"}:
             print("Devbox already stopped")
@@ -177,7 +202,7 @@ def run(action: str) -> None:
 if __name__ == "__main__":
     try:
         if len(sys.argv) != 2:
-            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents>")
+            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents|creation-log>")
         run(sys.argv[1])
     except (RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
         print(f"Devbox control: {exc}", file=sys.stderr)

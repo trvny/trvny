@@ -121,6 +121,16 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(command[5], control.SSH_TASKS["agents"])
         self.assertNotIn("GH_TOKEN", command[5])
 
+    def test_inspect_is_fixed_and_not_from_mutable_checkout(self):
+        command = control.SSH_TASKS["inspect"]
+        self.assertIn("workspace=missing", command)
+        self.assertIn("devcontainer=missing", command)
+        self.assertNotIn("bootstrap_probe.sh", command)
+        self.assertNotIn("cd /workspaces/trvny", command)
+        self.assertNotIn("id -un", command)
+        self.assertIn("bash --noprofile --norc -c", command)
+        self.assertNotIn("bash -lc", command)
+
     def test_creation_log_never_echoes_raw_lines_or_secrets(self):
         raw = (
             "onCreateCommand failed, ghp_EXAMPLE_PRIVATE_TOKEN\n"

@@ -11,7 +11,7 @@ on: # yamllint disable-line rule:truthy
         description: "Personal Devbox operation (no arbitrary shell)"
         type: choice
         required: true
-        options: [status, ensure, doctor, agents, creation-log, stop]
+        options: [status, ensure, doctor, agents, inspect, creation-log, stop]
 
 permissions:
   contents: read

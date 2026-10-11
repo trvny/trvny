@@ -11,8 +11,24 @@ REPO = "trvny/trvny"
 OWNER = "trvny"
 DISPLAY_NAME = "Travny AI Devbox"
 BRANCH = "main"
-ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log"}
+ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log", "inspect"}
 SSH_TASKS = {
+    "inspect": (
+        "bash --noprofile --norc -c '"
+        "source /etc/os-release; printf \"os=%s\\n\" \"$ID\"; "
+        "if test -d /workspaces/trvny/.git; then echo workspace=present; "
+        "else echo workspace=missing; fi; "
+        "if test -f /workspaces/trvny/.devcontainer/devcontainer.json; "
+        "then echo devcontainer=present; else echo devcontainer=missing; fi; "
+        "if test -d \"$HOME/.local/share/travny-devbox\"; "
+        "then echo local_tools=present; else echo local_tools=missing; fi; "
+        "if test -f \"$HOME/.local/share/travny-devbox/package.json\"; "
+        "then echo node_manifest=present; else echo node_manifest=missing; fi; "
+        "for tool in sudo apt-get curl gh node npm uv agy copilot hermes yt-dlp; do "
+        "if command -v \"$tool\" >/dev/null 2>&1; then echo \"tool:$tool=present\"; "
+        "else echo \"tool:$tool=missing\"; fi; done"
+        "'"
+    ),
     "doctor": "bash -lc 'cd /workspaces/trvny && bash .devcontainer/devbox doctor'",
     "agents": "bash -lc 'cd /workspaces/trvny && bash .devcontainer/devbox agents'",
 }
@@ -203,7 +219,7 @@ def run(action: str) -> None:
 if __name__ == "__main__":
     try:
         if len(sys.argv) != 2:
-            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents|creation-log>")
+            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents|creation-log|inspect>")
         run(sys.argv[1])
     except (RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
         print(f"Devbox control: {exc}", file=sys.stderr)

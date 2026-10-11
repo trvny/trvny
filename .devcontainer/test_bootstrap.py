@@ -29,7 +29,7 @@ class BootstrapSafetyTests(unittest.TestCase):
             fake_bash = fake_bin / "bash"
             fake_bash.write_text(
                 '#!/bin/sh\n'
-                'printf "%s\n" "$2" >> "$PROFILE_TRACE"\n'
+                'printf "%s\\n" "$2" >> "$PROFILE_TRACE"\n'
                 '[ "$2" != base ]\n'
             )
             fake_bash.chmod(0o755)

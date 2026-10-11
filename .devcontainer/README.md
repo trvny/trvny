@@ -9,7 +9,11 @@ agent sessions, browser investigations and tasks needing a persistent shell.
 1. Open `trvny/trvny` on GitHub: **Code → Codespaces → Create codespace**.
 2. Select the `feat/codespaces-ai-devbox` branch until this PR merges.
 3. Select **4 cores / 8 GB**. Switch to **8 cores / 16 GB** only for heavy builds.
-4. Wait for `onCreateCommand` / `postCreateCommand` to finish. In the terminal: `devbox doctor`.
+4. Wait for `postCreateCommand` to finish. In the terminal: `devbox doctor`.
+   Heavy optional installers now run **after** container creation, individually.
+   An optional-tool failure remains visible in the setup output and through
+   `devbox doctor`, but will not force the whole Codespace into recovery mode.
+   Retry with `devbox install <profile>`; manual failed installs return nonzero.
 
 The universal Linux image supplies Bash, Git, GitHub CLI, Python, Node, Java,
 Maven, Gradle and other common runtimes. Setup adds uv, Antigravity CLI (`agy`),
@@ -43,6 +47,24 @@ devbox clean --deep       # Also prune package-manager caches
 Other repositories are cloned into `~/workspaces/<owner>/<repo>`. Their own
 instructions and build requirements still apply. The Devbox does not copy
 project-specific scripts or create duplicate CI.
+
+### Repairing a recovery-mode Codespace
+
+If the GPTomek `inspect` action shows `os=alpine`, or `devbox doctor` lacks
+Node/Java/apt despite using the
+Universal Ubuntu image, the machine is likely in GitHub's **recovery container**
+because a devcontainer lifecycle command failed. Do not install tools into
+Alpine. First update the persistent `/workspaces/trvny` checkout to the
+corrected `main` `.devcontainer/` files **without overwriting uncommitted
+changes**; then use **Codespaces: Rebuild Container**. A GitHub CLI equivalent
+is `gh codespace rebuild -c <CODESPACE_NAME>`; a full rebuild is only a later
+fallback. Codespace rebuild uses the configuration in the existing workspace,
+not an automatic checkout of newly merged `main`.
+
+The critical `onCreateCommand` now only creates a local bin directory;
+optional package installers are isolated in `postCreateCommand` and each
+failure is surfaced as a repairable warning. Recovery mode itself does not
+confirm which particular installer previously failed.
 
 ## GPTomek remote power and diagnostics
 
@@ -449,8 +471,8 @@ on demand in Codespaces machine settings. Higher cores consume the monthly
 compute allowance faster. Running and stopped machines both retain storage;
 the browser cache and large JDK/build caches can use substantial storage.
 
-Bootstrap runs in `onCreateCommand`, making it eligible for GitHub
-Codespaces prebuilds if you later choose to configure them. No prebuild is
+Optional bootstrap now runs in `postCreateCommand`. No GitHub Codespaces
+prebuild is configured and prebuilds remain disabled by default. No prebuild is
 enabled by this PR: prebuilds consume extra storage and may affect billing.
 
 Set a Codespaces product budget with **Stop usage when budget limit is reached**

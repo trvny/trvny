@@ -142,12 +142,22 @@ install_browser() {
 
 case "${1:-all}" in
   all)
-    install_utils
-    install_uv
-    install_antigravity
-    install_browser
-    install_media
-    install_hermes
+    # Try every profile, including after a failure, and report incomplete
+    # installs to manual callers. The devcontainer lifecycle handles this
+    # nonzero status so optional CLI failure never breaks container creation.
+    failures=0
+    for profile in base antigravity browser media hermes; do
+      if bash "$0" "$profile"; then
+        printf 'OK   bootstrap: %s\n' "$profile"
+      else
+        failures=$((failures + 1))
+        printf 'WARN bootstrap: %s failed; retry: devbox install %s\n' "$profile" "$profile" >&2
+      fi
+    done
+    if (( failures > 0 )); then
+      printf 'WARN %s optional bootstrap profiles failed. Run: devbox doctor\n' "$failures" >&2
+      exit 1
+    fi
     ;;
   base) install_utils; install_uv ;;
   antigravity) install_antigravity ;;

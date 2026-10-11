@@ -5,7 +5,7 @@
     "cpus": 4,
     "memory": "8gb"
   },
-  "postCreateCommand": "bash .devcontainer/devbox doctor",
+  "postCreateCommand": "bash .devcontainer/setup.sh all || echo 'Optional Devbox setup incomplete: run devbox doctor and retry missing profiles'",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -27,7 +27,7 @@
       "onAutoForward": "notify"
     }
   },
-  "onCreateCommand": "bash .devcontainer/setup.sh all",
+  "onCreateCommand": "mkdir -p \"$HOME/.local/bin\"",
   "remoteEnv": {
     "PATH": "${containerEnv:PATH}:${containerEnv:HOME}/.local/bin"
   }

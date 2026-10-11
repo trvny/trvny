@@ -126,7 +126,9 @@ def run(action: str) -> None:
 
     if action == "ensure":
         if not existing:
+            print("Checking available personal Codespaces machine types", flush=True)
             machine = select_machine()
+            print("Requesting personal Codespace creation", flush=True)
             created = api("POST", f"/repos/{REPO}/codespaces", {
                 "ref": BRANCH,
                 "machine": machine,

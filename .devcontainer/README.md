@@ -50,7 +50,8 @@ project-specific scripts or create duplicate CI.
 
 ### Repairing a recovery-mode Codespace
 
-If `devbox doctor` shows `os=alpine` or no Node/Java/apt despite using the
+If the GPTomek `inspect` action shows `os=alpine`, or `devbox doctor` lacks
+Node/Java/apt despite using the
 Universal Ubuntu image, the machine is likely in GitHub's **recovery container**
 because a devcontainer lifecycle command failed. Do not install tools into
 Alpine. First update the persistent `/workspaces/trvny` checkout to the

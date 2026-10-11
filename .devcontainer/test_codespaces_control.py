@@ -128,7 +128,7 @@ class ControlTests(unittest.TestCase):
         )
         with patch.dict(os.environ, {"GH_TOKEN": "testing"}), \
              patch.object(control, "list_managed", return_value=[codespace()]), \
-             patch.object(control, "call", return_value=raw) as read, \\
+             patch.object(control, "call", return_value=raw) as read, \
              redirect_stdout(io.StringIO()) as output:
             control.run("creation-log")
         self.assertEqual(

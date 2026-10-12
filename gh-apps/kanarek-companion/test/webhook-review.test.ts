@@ -34,6 +34,7 @@ import {
   shouldReplaceQueuedTarget,
   WebhookReviewJob,
   webhookReviewSettled,
+  webhookReviewState,
 } from '../src/webhook-review.ts';
 
 const headA = 'a'.repeat(40);
@@ -1107,5 +1108,61 @@ test('decision providers render distinct L2 attribution labels', () => {
   assert.equal(
     reviewSourceLabel('vercel-decision', 'convaiinnovations/laya-free'),
     'Vercel AI Gateway Decision · `convaiinnovations/laya-free`',
+  );
+});
+
+test('review state lives in the existing quip and never leaks across heads', async () => {
+  const status = (state: Record<string, unknown>) => ({
+    KANAREK_REVIEW_JOBS: {
+      idFromName: (name: string) => name,
+      get: () => ({
+        fetch: async () => Response.json(state),
+      }),
+    },
+  }) as unknown as WebhookReviewEnv;
+  assert.deepEqual(
+    await webhookReviewState(status({ headSha: headA, status: 'running' }), 'travnie/llmbench', 21, headA),
+    { settled: false, badge: 'AI review 🔄 running' },
+  );
+  const completed = {
+    headSha: null,
+    status: null,
+    outcome: { headSha: headA, reviewed: true, findingCount: 0, skipped: 'no_findings' },
+  };
+  assert.deepEqual(
+    await webhookReviewState(status(completed), 'travnie/llmbench', 21, headA),
+    { settled: true, badge: 'AI review ✅ clean' },
+  );
+  assert.deepEqual(
+    await webhookReviewState(status(completed), 'travnie/llmbench', 21, headB),
+    { settled: true, badge: null },
+  );
+  assert.deepEqual(
+    await webhookReviewState(status({
+      ...completed,
+      outcome: { headSha: headA, reviewed: false, findingCount: 0, skipped: 'providers_failed' },
+    }), 'travnie/llmbench', 21, headA),
+    { settled: true, badge: 'AI review ⚠️ unavailable' },
+  );
+  assert.deepEqual(
+    await webhookReviewState(status({
+      ...completed,
+      outcome: { headSha: headA, reviewed: true, findingCount: 0, skipped: 'already_submitted' },
+    }), 'travnie/llmbench', 21, headA),
+    { settled: true, badge: 'AI review ✅ posted' },
+  );
+  assert.deepEqual(
+    await webhookReviewState(status({
+      ...completed,
+      outcome: { headSha: headA, reviewed: false, findingCount: 0, skipped: 'patch_unavailable' },
+    }), 'travnie/llmbench', 21, headA),
+    { settled: true, badge: 'AI review ⚠️ unavailable' },
+  );
+  assert.deepEqual(
+    await webhookReviewState(status({
+      ...completed,
+      outcome: { headSha: headA, reviewed: false, findingCount: 0, skipped: 'stale_or_unreviewable' },
+    }), 'travnie/llmbench', 21, headA),
+    { settled: true, badge: null },
   );
 });

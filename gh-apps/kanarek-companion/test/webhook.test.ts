@@ -266,6 +266,10 @@ test('coalesces normal companion activity into ten-minute refresh windows', () =
     false,
   );
   assert.equal(
+    shouldCoalesceTarget({ ...target, sourceEvent: 'review_job' }),
+    false,
+  );
+  assert.equal(
     shouldCoalesceTarget({
       ...target,
       pullRequestNumber: 176,

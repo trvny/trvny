@@ -63,6 +63,14 @@ const DEFAULT_REVIEW_SWEEP_BUDGET_MS = 10 * 60_000;
 const MAX_REVIEW_SWEEP_BUDGET_MS = 12 * 60_000;
 const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
+const REVIEW_OUTCOME_KEY = 'review_outcome';
+
+interface ReviewOutcome {
+  headSha: string;
+  reviewed: boolean;
+  findingCount: number;
+  skipped: string | null;
+}
 const COMPLETED_TARGET_KEY = 'completed-target';
 const REVIEW_SYSTEM_PROMPT = [
   'You are Kanarek, a concise pull-request code-review bot.',
@@ -1089,6 +1097,11 @@ async function enqueueWebhookReview(
       }),
     );
     await response.body?.cancel();
+    return;
+  }
+  const queued = objectValue(await response.json());
+  if (queued.queued === true && queued.duplicate !== true) {
+    await refreshCompanionAfterReview(env, target);
   }
 }
 
@@ -1145,28 +1158,68 @@ function validStoredJob(value: unknown): value is StoredJob {
  * escalating for exactly this head. Unknown state fails closed so the companion
  * never pushes a new head over an in-flight review.
  */
-export async function webhookReviewSettled(
+export async function webhookReviewState(
   env: Pick<WebhookReviewEnv, 'KANAREK_REVIEW_JOBS' | 'KANAREK_WEBHOOK_REVIEW_ENABLED'>,
   repository: string,
   number: number,
   headSha: string,
-): Promise<boolean> {
+): Promise<{ settled: boolean; badge: string | null }> {
   const queue = env.KANAREK_REVIEW_JOBS;
-  if (disabled(env.KANAREK_WEBHOOK_REVIEW_ENABLED) || !queue) return true;
+  if (disabled(env.KANAREK_WEBHOOK_REVIEW_ENABLED) || !queue) {
+    return { settled: true, badge: null };
+  }
   try {
     const response = await queue
       .get(queue.idFromName(`${repository}#${number}`))
       .fetch(`${INTERNAL_REVIEW_ORIGIN}/status`);
     if (!response.ok) {
       await response.body?.cancel();
-      return false;
+      return { settled: false, badge: null };
     }
     const state = objectValue(await response.json());
     const queued = typeof state.headSha === 'string' ? state.headSha.toLowerCase() : null;
-    return queued !== headSha.toLowerCase();
+    if (queued === headSha.toLowerCase()) {
+      const badges: Record<string, string> = {
+        queued: 'AI review ⏳ queued',
+        running: 'AI review 🔄 running',
+        retrying: 'AI review ⏳ retrying',
+        escalating: 'AI review ⏳ escalating',
+      };
+      return { settled: false, badge: badges[String(state.status)] ?? 'AI review ⏳ pending' };
+    }
+    const outcome = objectValue(state.outcome);
+    if (typeof outcome.headSha !== 'string' || outcome.headSha.toLowerCase() !== headSha.toLowerCase()) {
+      return { settled: true, badge: null };
+    }
+    if (outcome.skipped === 'already_submitted') {
+      // The previous review may contain findings; the count is unknown on recovery.
+      return { settled: true, badge: 'AI review ✅ posted' };
+    }
+    if (outcome.reviewed === true) {
+      return { settled: true, badge: Number(outcome.findingCount) > 0 ? 'AI review 🐤 findings' : 'AI review ✅ clean' };
+    }
+    if (outcome.skipped === 'no_code_diff') {
+      return { settled: true, badge: 'AI review ⏭ no code' };
+    }
+    if (typeof outcome.skipped === 'string' &&
+        (outcome.skipped.startsWith('stale_') || outcome.skipped === 'superseded_before_submit')) {
+      return { settled: true, badge: null };
+    }
+    // Failed context collection, provider exhaustion, and rejected output all
+    // mean no reliable review was produced, not a clean bill of health.
+    return { settled: true, badge: 'AI review ⚠️ unavailable' };
   } catch {
-    return false;
+    return { settled: false, badge: null };
   }
+}
+
+export async function webhookReviewSettled(
+  env: Pick<WebhookReviewEnv, 'KANAREK_REVIEW_JOBS' | 'KANAREK_WEBHOOK_REVIEW_ENABLED'>,
+  repository: string,
+  number: number,
+  headSha: string,
+): Promise<boolean> {
+  return (await webhookReviewState(env, repository, number, headSha)).settled;
 }
 
 async function refreshCompanionAfterReview(
@@ -1218,6 +1271,7 @@ export class WebhookReviewJob {
       return Response.json({
         headSha: validStoredJob(job) ? job.target.headSha : null,
         status: (await this.state.storage.get<string>(STATUS_KEY)) ?? null,
+        outcome: (await this.state.storage.get<ReviewOutcome>(REVIEW_OUTCOME_KEY)) ?? null,
       });
     }
     if (
@@ -1426,13 +1480,25 @@ export class WebhookReviewJob {
       return;
     }
 
-    if (result.reviewed || result.skipped === 'no_code_diff') {
-      await this.state.storage.put(
-        COMPLETED_TARGET_KEY,
-        reviewTargetKey(continuation.target),
-      );
-    }
-    await this.state.storage.delete([JOB_KEY, STATUS_KEY]);
+    const finalized = await this.state.storage.transaction(async (transaction) => {
+      const active = await transaction.get<StoredJob>(JOB_KEY);
+      if (!validStoredJob(active) ||
+          reviewTargetKey(active.target) !== reviewTargetKey(continuation.target)) {
+        return false;
+      }
+      if (result.reviewed || result.skipped === 'no_code_diff') {
+        await transaction.put(COMPLETED_TARGET_KEY, reviewTargetKey(continuation.target));
+      }
+      await transaction.put<ReviewOutcome>(REVIEW_OUTCOME_KEY, {
+        headSha: continuation.target.headSha,
+        reviewed: result.reviewed,
+        findingCount: result.findingCount,
+        skipped: result.skipped ?? null,
+      });
+      await transaction.delete([JOB_KEY, STATUS_KEY]);
+      return true;
+    });
+    if (!finalized) return;
     // The companion gates branch updates on this job; let it re-evaluate now
     // instead of waiting for an unrelated GitHub event.
     await refreshCompanionAfterReview(this.env, continuation.target);

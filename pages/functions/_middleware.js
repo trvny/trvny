@@ -237,6 +237,7 @@ class AppendHtml {
 function identifyPage(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "home";
   if (pathname === "/tv" || pathname === "/tv/" || pathname === "/tv/index.html") return "tv";
+  if (pathname === "/papagenerator" || pathname === "/papagenerator/" || pathname === "/papagenerator/index.html") return "papagenerator";
   if (pathname === "/teksty" || pathname === "/teksty/" || pathname === "/teksty/index.html") return "texts";
   if (pathname === "/teksty/token-worldcup" || pathname === "/teksty/token-worldcup/" || pathname === "/teksty/token-worldcup/token-worldcup" || pathname === "/teksty/token-worldcup/token-worldcup.html") return "token-worldcup";
   if (pathname === "/teksty/githubowa-kraina" || pathname === "/teksty/githubowa-kraina/" || pathname === "/teksty/githubowa-kraina/index.html") return "githubowa-kraina";
@@ -271,7 +272,7 @@ export async function onRequest(context) {
   }
 
   const page = identifyPage(url.pathname);
-  const pageLanguage = page === "grass-mud-horse" ? "en" : "pl";
+  const pageLanguage = page === "grass-mud-horse" || page === "papagenerator" ? "en" : "pl";
   const needsChannels = page === "home" || page === "tv";
   const needsWeather = page === "home";
   const [assetResponse, channels, weatherState] = await Promise.all([
@@ -293,6 +294,10 @@ export async function onRequest(context) {
     .on("html", new SetAttribute("lang", pageLanguage))
     .on("head", new AppendHtml(NAV_HEAD))
     .on("body", new AppendHtml(NAV_BODY));
+
+  if (page === "papagenerator") {
+    rewriter = rewriter.on("head", new AppendHtml('<link rel="canonical" href="https://trfny.com/papagenerator/">'));
+  }
 
   if (page === "token-worldcup") {
     rewriter = rewriter.on(

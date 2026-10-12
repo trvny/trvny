@@ -400,7 +400,7 @@ function isCompanionTarget(value: unknown): value is CompanionTarget {
 }
 
 function shouldCoalesceTarget(target: CompanionTarget): boolean {
-  if (target.sourceEvent === 'issues' || target.sourceEvent === 'gptomek_comment') return false;
+  if (target.sourceEvent === 'issues' || target.sourceEvent === 'gptomek_comment' || target.sourceEvent === 'review_job') return false;
   return !isGptomekFallbackPullRequest(target.repository, target.pullRequestNumber);
 }
 

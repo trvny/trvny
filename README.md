@@ -33,7 +33,7 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/tvpi | [#121](https://github.com/trvny/tvpi/pull/121) | chore(deps): bump sharp and wrangler in /worker | @dependabot[bot] | ready | 2026-10-09 |
+| trvny/trvny | [#992](https://github.com/trvny/trvny/pull/992) | fix: retry Hermes installer through guarded GPTomek action | @trvny | ready | 2026-10-11 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

@@ -70,7 +70,7 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
 
   <div class="footer">
     <span>GitHub + Cloudflare state verified on 2026-10-03. Secrets and secret values are intentionally omitted.</span>
-    <span>Source lives in <code>trvny/tvpi/site/teksty/githubowa-kraina/universe.html</code>.</span>
+    <span>Source lives in <code>trvny/trvny/travny-pages/site/teksty/githubowa-kraina/universe.html</code>.</span>
   </div>
 </main>
 
@@ -78,7 +78,7 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
 (() => {
 const nodes = [
 {id:"repo-hub",label:"trvny/trvny",sub:"hub repo",kind:"repo",x:45,y:75,url:"https://github.com/trvny/trvny",info:"Mixed hub: GitHub Apps, MCP services, Telegram assistant, Loopling, token reports and shared AI config.",tags:["all","automation","kanarek"]},
-{id:"repo-tvpi",label:"trvny/tvpi",sub:"public hub + TV",kind:"repo",x:45,y:205,url:"https://github.com/trvny/tvpi",info:"Public web hub and TVPI source. Drives two Cloudflare Pages projects and the TVPI Worker.",tags:["all","web"]},
+{id:"repo-tvpi",label:"trvny/tvpi",sub:"TV Worker",kind:"repo",x:45,y:205,url:"https://github.com/trvny/tvpi",info:"TVPI source: the TVPI Worker and the stream generator.",tags:["all","web"]},
 {id:"repo-feedseek",label:"trvny/feedseek",sub:"feeds + reader",kind:"repo",x:45,y:335,url:"https://github.com/trvny/feedseek",info:"Feed generation, GitHub Pages reader, constrained feed proxy and durable R2 generation cache.",tags:["all","web"]},
 {id:"repo-gh",label:"trvny/.github",sub:"shared automation",kind:"repo",x:45,y:465,url:"https://github.com/trvny/.github",info:"Shared workflow and repository automation home for the trvny account.",tags:["all","automation"]},
 {id:"repo-ai",label:"trvny/.ai",sub:"AI config",kind:"repo",x:45,y:595,url:"https://github.com/trvny/.ai",info:"Shared AI instructions, roles and reference material.",tags:["all","automation"]},
@@ -116,7 +116,7 @@ const nodes = [
 {id:"w-space",label:"spacemolt-gateway",sub:"Worker",kind:"worker",x:975,y:70,url:"https://github.com/travnie/twojstar/tree/main/spacemolt/gateway",info:"Authenticated Gremlin / SpaceMolt bridge. Uses kanarek-review as planner and KV state.",tags:["all","automation","kanarek"]},
 {id:"w-claudiusz",label:"claudiusz-mcp",sub:"Worker",kind:"worker",x:975,y:145,url:"https://github.com/trvny/trvny/tree/main/gh-apps/claudiusz",info:"Cloudflare-hosted Claude/GitHub MCP surface.",tags:["all","automation"]},
 {id:"w-shitpost",label:"shitpost-reactor",sub:"Worker",kind:"worker",x:975,y:220,url:"https://github.com/trvny/trvny/tree/main/gh-apps/shitpost-reactor",info:"Feed renderer / OIDC validator with R2 persistence.",tags:["all","automation","web"]},
-{id:"pages",label:"Cloudflare Pages",sub:"travny + tvpi",kind:"worker",x:975,y:295,url:"https://trfny.com",info:"Two Pages projects sourced from trvny/tvpi, including Functions. Canonical public domains include trfny.com and www.trfny.com.",tags:["all","web"]},
+{id:"pages",label:"Cloudflare Pages",sub:"travny + tvpi",kind:"worker",x:975,y:295,url:"https://trfny.com",info:"travny serves the hub from trvny/trvny travny-pages/, including Functions; tvpi only redirects to trfny.com. Canonical public domains include trfny.com and www.trfny.com.",tags:["all","web"]},
 
 {id:"s-kanarek",label:"kanarek-state",sub:"D1",kind:"storage",x:975,y:400,info:"D1 state database bound to the kanarek Worker.",tags:["all","kanarek"]},
 {id:"s-feed",label:"feed-scrape",sub:"KV",kind:"storage",x:975,y:465,info:"Shared KV namespace used by the Kanarek feed backend and Kanarek quip bank binding.",tags:["all","kanarek"]},

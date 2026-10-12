@@ -40,7 +40,7 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 - [Sitemap](https://trfny.com/sitemap.xml)
 - [Robots policy](https://trfny.com/robots.txt)
 - [Web manifest](https://trfny.com/site.webmanifest)
-- [Source](https://github.com/trvny/tvpi)
+- [Source](https://github.com/trvny/trvny/tree/main/travny-pages)
 
 
 ## Agent access

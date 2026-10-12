@@ -9,7 +9,8 @@ Source: https://trfny.com/
 - Canonical hub: https://trfny.com/
 - Emergency fallback: https://travny.pages.dev/ — serves the same Pages output with `noindex, follow`.
 - Legacy Pages host: https://tvpi.pages.dev/ — permanently redirects to the canonical host while preserving path and query.
-- Repository: https://github.com/trvny/tvpi
+- Repository: https://github.com/trvny/trvny/tree/main/travny-pages
+- TVPI Worker repository: https://github.com/trvny/tvpi
 - Creator identity: TRAVNY; aliases trvny, travny, trfny, trafny.
 - GitHub identity: https://github.com/trvny ; related organization travnie: https://github.com/travnie
 - Project source maps: https://github.com/trvny/trvny ; https://github.com/travnie/twojstar ; https://github.com/trvny/feedseek
@@ -122,10 +123,10 @@ The sitemap contains public human-facing hub routes. Service-specific machine-re
 
 ## Source-of-truth rules
 
-- `trvny/tvpi` owns the TRAVNY hub and TVPI streaming Worker.
+- `trvny/trvny/travny-pages/` owns the TRAVNY hub; `trvny/tvpi` owns the TVPI streaming Worker.
 - Each linked service owns its detailed capability and agent-access documentation in its own `llms.txt` / `llms-full.txt`.
-- Tokenowy Mundial AI is maintained in `trvny/trvny/stuff/other/token-worldcup/`; TRAVNY only publishes it through the article route.
-- GitHubowa Kraina is maintained directly in `trvny/tvpi/site/teksty/githubowa-kraina/`.
+- Tokenowy Mundial AI is maintained in `trvny/trvny/token-worldcup/`; TRAVNY only publishes it through the article route.
+- GitHubowa Kraina is maintained directly in `trvny/trvny/travny-pages/site/teksty/githubowa-kraina/`.
 - Generated or proxied artifacts are not separate maintained sources.
 
 

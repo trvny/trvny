@@ -10,6 +10,7 @@ const FEED_TITLE = 'Shitpost Reactor';
 const FEED_DESCRIPTION = 'Automatycznie generowane shitposty z Shitpost Reactora.';
 const FEED_LIMIT = 50;
 const INDEX_LIMIT = 250;
+const ARCHIVE_PAGE_SIZE = 25;
 const MAX_BODY_BYTES = 64 * 1024;
 const OIDC_ISSUER = 'https://token.actions.githubusercontent.com';
 const OIDC_CONFIG_URL = `${OIDC_ISSUER}/.well-known/openid-configuration`;
@@ -200,6 +201,47 @@ async function readPosts(env, limit = FEED_LIMIT) {
   return posts.filter(Boolean);
 }
 
+async function listArchivePosts(env) {
+  const objects = [];
+  let cursor;
+  do {
+    const page = await env.FEED.list({ prefix: 'posts/', limit: 1000, ...(cursor ? { cursor } : {}) });
+    for (const object of page.objects) {
+      const match = /^posts\/(gh-\d+-\d+)\.json$/u.exec(object.key);
+      if (match) objects.push({ id: match[1], timestamp: new Date(object.uploaded || 0).getTime() });
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return objects.sort((a, b) => b.timestamp - a.timestamp || b.id.localeCompare(a.id, 'en', { numeric: true }));
+}
+
+async function renderArchive(env, url) {
+  const rawPage = url.searchParams.get('page') || '1';
+  if (!/^[1-9]\d{0,5}$/u.test(rawPage)) {
+    return response('invalid page\n', 'text/plain; charset=utf-8', { status: 400, cache: 'no-store' });
+  }
+  const page = Number(rawPage);
+  const entries = await listArchivePosts(env);
+  const pages = Math.max(1, Math.ceil(entries.length / ARCHIVE_PAGE_SIZE));
+  if (page > pages) return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
+  const start = (page - 1) * ARCHIVE_PAGE_SIZE;
+  const selected = entries.slice(start, start + ARCHIVE_PAGE_SIZE);
+  const posts = (await Promise.all(selected.map(({ id }) => readPost(env, id)))).filter(Boolean);
+  const articles = posts.map((post) => {
+    const summary = postSummary(post);
+    const image = postImageUrl(post);
+    const preview = image
+      ? `<a href="/posts/${escapeHtml(post.id)}"><img class="meme" src="${escapeHtml(image)}" alt="${escapeHtml(postAlt(post))}" loading="lazy"></a>`
+      : `<p>${escapeHtml(summary).replaceAll('\n', '<br>')}</p>`;
+    return `<article><h2><a href="/posts/${escapeHtml(post.id)}">${escapeHtml(shortTitle(summary))}</a></h2>${preview}<p class="meta">${escapeHtml(post.published_at)}</p></article>`;
+  }).join('');
+  const before = page > 1 ? `<a href="${page === 2 ? '/archive' : `/archive?page=${page - 1}`}">Newer</a>` : '';
+  const after = page < pages ? `<a href="/archive?page=${page + 1}">Older</a>` : '';
+  const navigation = `<nav aria-label="Archive pages" class="feeds">${before}<span>Page ${page} of ${pages}</span>${after}</nav>`;
+  const canonical = page === 1 ? `${SITE_URL}/archive` : `${SITE_URL}/archive?page=${page}`;
+  const body = `<h2>Full archive</h2><p class="meta">${entries.length} entries</p>${articles || '<p>Nothing published yet.</p>'}${navigation}`;
+  return response(htmlPage(`${FEED_TITLE} archive`, body, canonical), 'text/html; charset=utf-8');
+}
 function postSummary(post) {
   if (post.schema_version === 2 && post.content?.kind === 'text') return post.content.text;
   if (post.schema_version === 2 && post.content?.kind === 'meme') {
@@ -345,7 +387,7 @@ export function renderJsonFeed(posts) {
 }
 
 function renderSitemap(posts) {
-  const urls = [`  <url><loc>${escapeXml(`${SITE_URL}/`)}</loc></url>`, ...posts.map((post) => `  <url><loc>${escapeXml(post.url)}</loc><lastmod>${escapeXml(post.published_at)}</lastmod></url>`)].join('\n');
+  const urls = [`  <url><loc>${escapeXml(`${SITE_URL}/`)}</loc></url>`, `  <url><loc>${escapeXml(`${SITE_URL}/archive`)}</loc></url>`, ...posts.map((post) => `  <url><loc>${escapeXml(post.url)}</loc><lastmod>${escapeXml(post.published_at)}</lastmod></url>`)].join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
@@ -383,7 +425,8 @@ Canonical site: ${SITE_URL}/
 
 ## Main routes
 
-- [Archive](${SITE_URL}/)
+- [Latest entries](${SITE_URL}/)
+- [Full archive](${SITE_URL}/archive)
 - [RSS 2.0](${SITE_URL}/rss.xml)
 - [Atom 1.0](${SITE_URL}/atom.xml)
 - [JSON Feed 1.1](${SITE_URL}/feed.json)
@@ -480,7 +523,7 @@ function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${S
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Shitpost">
 <style>body{font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:3rem auto;padding:0 1rem;background:#111;color:#eee}a{color:#9ad}article{padding:1.2rem 0;border-bottom:1px solid #333}h1{font-size:1.35rem;white-space:pre-wrap}dt{font-weight:700;margin-top:.6rem}dd{margin-left:0;color:#bbb}.feeds{display:flex;gap:1rem;flex-wrap:wrap}.meta{color:#999;font-size:.9rem}.meme{display:block;max-width:100%;height:auto;margin:1rem 0;border-radius:.5rem}</style>
-</head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a></p></header>${body}</body></html>`;
+</head><body><header><h1>${escapeHtml(FEED_TITLE)}</h1><p class="feeds"><a href="/rss.xml">RSS 2.0</a><a href="/atom.xml">Atom 1.0</a><a href="/feed.json">JSON Feed 1.1</a><a href="/archive">Full archive</a></p></header>${body}</body></html>`;
 }
 
 function response(body, contentType, { cache = 'public, max-age=300, stale-while-revalidate=600', status = 200, lastModified } = {}) {
@@ -622,6 +665,8 @@ async function handleGet(url, env) {
   if (url.pathname === '/browserconfig.xml') {
     return response(renderBrowserConfig(), 'application/xml; charset=utf-8', { cache: 'public, max-age=86400' });
   }
+
+  if (url.pathname === '/archive') return renderArchive(env, url);
 
   const match = url.pathname.match(/^\/posts\/(gh-\d+-\d+)$/u);
   if (match) {

@@ -17,7 +17,8 @@ The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROU
 
 ## Public endpoints
 
-- `https://shitpost.trfny.com/` — small HTML archive with feed autodiscovery;
+- `https://shitpost.trfny.com/` — latest entries with feed autodiscovery;
+- `https://shitpost.trfny.com/archive` — all R2 posts, paginated without a second index;
 - `https://shitpost.trfny.com/rss.xml` — RSS 2.0;
 - `https://shitpost.trfny.com/feed.xml` — RSS compatibility alias;
 - `https://shitpost.trfny.com/atom.xml` — Atom 1.0;
@@ -27,7 +28,7 @@ The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROU
 - `/favicon.svg`, classic `/favicon.ico`, PNG favicon sizes, Apple touch icon and manifest icons — one generated icon propagated across browsers, feeds and install surfaces;
 - `/posts/gh-<run_id>-<run_attempt>` — stable canonical page for each published entry.
 
-RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categories and icon metadata. RSS and Atom also expose self-links and content with the correct feed MIME types. The Worker keeps the newest 250 entries in its index and emits up to 50 in feeds. The visible archive header intentionally omits the descriptive subtitle; the description remains available to metadata, feeds and crawlers.
+RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categories and icon metadata. RSS and Atom also expose self-links and content with the correct feed MIME types. The Worker keeps the newest 250 entries in its hot index and emits up to 50 in feeds. The `/archive` page lists every published R2 post, including older entries absent from the hot index, in pages of 25. The visible archive header intentionally omits the descriptive subtitle; the description remains available to metadata, feeds and crawlers.
 
 ## Worker
 

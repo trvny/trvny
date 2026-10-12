@@ -1,0 +1,44 @@
+name: TRAVNY Pages CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "travny-pages/functions/**"
+      - "travny-pages/tests/**"
+      - "travny-pages/eslint.config.mjs"
+      - ".github/workflows/travny-pages-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "travny-pages/functions/**"
+      - "travny-pages/tests/**"
+      - "travny-pages/eslint.config.mjs"
+      - ".github/workflows/travny-pages-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: travny-pages-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: travny-pages
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - run: npx --yes eslint@10.12.0 .
+      - run: node --test tests/teksty-feed.test.mjs

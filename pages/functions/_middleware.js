@@ -238,7 +238,7 @@ function identifyPage(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "home";
   if (pathname === "/tv" || pathname === "/tv/" || pathname === "/tv/index.html") return "tv";
   if (pathname === "/teksty" || pathname === "/teksty/" || pathname === "/teksty/index.html") return "texts";
-  if (pathname === "/teksty/token-worldcup" || pathname === "/teksty/token-worldcup/" || pathname === "/teksty/token-worldcup/token-worldcup.html") return "token-worldcup";
+  if (pathname === "/teksty/token-worldcup" || pathname === "/teksty/token-worldcup/" || pathname === "/teksty/token-worldcup/token-worldcup" || pathname === "/teksty/token-worldcup/token-worldcup.html") return "token-worldcup";
   if (pathname === "/teksty/githubowa-kraina" || pathname === "/teksty/githubowa-kraina/" || pathname === "/teksty/githubowa-kraina/index.html") return "githubowa-kraina";
   if (pathname === "/teksty/grass-mud-horse" || pathname === "/teksty/grass-mud-horse/" || pathname === "/teksty/grass-mud-horse/index.html") return "grass-mud-horse";
   return null;

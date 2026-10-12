@@ -340,6 +340,7 @@ const COND = {
   rain:["Deszcz","\uD83C\uDF27"], drizzle:["M\u017cawka","\uD83C\uDF26"], snow:["\u015anieg","\u2744"],
   thunder:["Burza","\u26a8"], fog:["Mg\u0142a","\uD83C\uDF2B"], mist:["Mgie\u0142ka","\uD83C\uDF2B"], unknown:["&mdash;","\u2022"]
 };
+function esc(v){return String(v==null?"":v).replace(/[&<>"']/g,c=>"&#"+c.charCodeAt(0)+";");}
 function aqiClass(a){ if(a==null) return ["mid","?"]; if(a<=40) return ["good",a]; if(a<=80) return ["mid",a]; return ["bad",a]; }
 (async()=>{
   try{
@@ -361,14 +362,14 @@ function aqiClass(a){ if(a==null) return ["mid","?"]; if(a<=40) return ["good",a
     const aq = s.airQuality||{};
     const [ac2,av] = aqiClass(aq.europeanAqi);
     const pollen = aq.topPollen&&aq.topPollen.grains>0
-      ? " \u00b7 py\u0142ki: <span class=\"g\">"+ aq.topPollen.species+" "+aq.topPollen.grains+"</span>" : "";
+      ? " \u00b7 py\u0142ki: <span class=\"g\">"+ esc(aq.topPollen.species)+" "+esc(aq.topPollen.grains)+"</span>" : "";
     document.getElementById("wxmeta").innerHTML =
       "odczuwalna <b>"+(feels!=null?feels+"&deg;":"&mdash;")+"</b> \u00b7 wiatr <b>"+(wind!=null?wind+" m/s":"&mdash;")+"</b> \u00b7 wilg. <b>"+(hum!=null?hum+"%":"&mdash;")+"</b>"
-      +"<br>AQI <span class=\"aqi "+ac2+"\">"+ av+"</span>"+pollen;
+      +"<br>AQI <span class=\"aqi "+ac2+"\">"+ esc(av)+"</span>"+pollen;
     const wns=(s.warnings||[]).filter(w=>w&&w.event);
     if(wns.length){
       const w=document.getElementById("wxwarn"); w.classList.add("show");
-      w.innerHTML="\u26a0 "+wns[0].event+(wns.length>1?" \u00b7 +"+(wns.length-1):"");
+      w.textContent="\u26a0 "+wns[0].event+(wns.length>1?" \u00b7 +"+(wns.length-1):"");
     }
   }catch(_){
     document.getElementById("wxmeta").innerHTML="dane chwilowo niedost\u0119pne \u2014 kliknij, aby otworzy\u0107";
@@ -397,7 +398,9 @@ async function grabFeed(f){
     return[...xml.querySelectorAll("entry,item")].slice(0,5).map(n=>{
       const title=(n.querySelector("title")||{}).textContent||"";
       const le=n.querySelector("link");
-      const href=le?(le.getAttribute("href")||le.textContent||""):"";
+      const raw=le?(le.getAttribute("href")||le.textContent||""):"";
+      // Feed XML is untrusted: keep only absolute http(s) links.
+      let href="";try{const u=new URL(raw.trim());if(u.protocol==="https:"||u.protocol==="http:")href=u.href;}catch(_){}
       const dt=(n.querySelector("updated,published,pubDate")||{}).textContent||"";
       return{src:f.src,col:f.col,title:clean(title),href,ts:dt?Date.parse(dt):0};
     }).filter(x=>x.title&&x.href);
@@ -427,11 +430,15 @@ function rank(x){return Math.min(x.ts,NOW);}
   const all=[...best.values()].sort((a,b)=>rank(b)-rank(a)).slice(0,7);
   const el=document.getElementById("feedlist");
   if(!all.length){el.innerHTML='<li class="fdload">feedy chwilowo niedost\u0119pne \u2014 otw\u00f3rz reader &rsaquo;</li>';return;}
-  el.innerHTML=all.map(x=>
-    `<li><a href="${x.href}" target="_blank" rel="noopener">`
-    +`<span class="src" style="background:${x.col}">${x.src}</span>`
-    +`<span class="ttl">${x.title.replace(/</g,"&lt;")}</span>`
-    +`<span class="ago">${rel(rank(x))}</span></a></li>`).join("");
+  // Built through the DOM so feed titles and links are never parsed as HTML.
+  const span=(cls,text)=>{const n=document.createElement("span");n.className=cls;n.textContent=text;return n;};
+  el.replaceChildren(...all.map(x=>{
+    const li=document.createElement("li"),a=document.createElement("a");
+    a.href=x.href;a.target="_blank";a.rel="noopener";
+    const src=span("src",x.src);src.style.background=x.col;
+    a.append(src,span("ttl",x.title),span("ago",rel(rank(x))));
+    li.append(a);return li;
+  }));
 });
 </script>
 </body>

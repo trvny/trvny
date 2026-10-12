@@ -9,7 +9,7 @@ Source: https://trfny.com/
 - Canonical hub: https://trfny.com/
 - Emergency fallback: https://travny.pages.dev/ — serves the same Pages output with `noindex, follow`.
 - Legacy Pages host: https://tvpi.pages.dev/ — permanently redirects to the canonical host while preserving path and query.
-- Repository: https://github.com/trvny/trvny/tree/main/travny-pages
+- Repository: https://github.com/trvny/trvny/tree/main/pages
 - TVPI Worker repository: https://github.com/trvny/tvpi
 - Creator identity: TRAVNY; aliases trvny, travny, trfny, trafny.
 - GitHub identity: https://github.com/trvny ; related organization travnie: https://github.com/travnie
@@ -123,10 +123,10 @@ The sitemap contains public human-facing hub routes. Service-specific machine-re
 
 ## Source-of-truth rules
 
-- `trvny/trvny/travny-pages/` owns the TRAVNY hub; `trvny/tvpi` owns the TVPI streaming Worker.
+- `trvny/trvny/pages/` owns the TRAVNY hub; `trvny/tvpi` owns the TVPI streaming Worker.
 - Each linked service owns its detailed capability and agent-access documentation in its own `llms.txt` / `llms-full.txt`.
 - Tokenowy Mundial AI is maintained in `trvny/trvny/token-worldcup/`; TRAVNY only publishes it through the article route.
-- GitHubowa Kraina is maintained directly in `trvny/trvny/travny-pages/site/teksty/githubowa-kraina/`.
+- GitHubowa Kraina is maintained directly in `trvny/trvny/pages/site/teksty/githubowa-kraina/`.
 - Generated or proxied artifacts are not separate maintained sources.
 
 

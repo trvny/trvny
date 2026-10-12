@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "travny-pages/site/**"
-      - "travny-pages/functions/**"
-      - "travny-pages/scripts/waf_allow_chatgpt.py"
+      - "pages/site/**"
+      - "pages/functions/**"
+      - "pages/scripts/waf_allow_chatgpt.py"
       - ".github/workflows/travny-pages-control.yml"
   workflow_dispatch:
     inputs:
@@ -67,7 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
-          payload='{"build_config":{"build_command":"","destination_dir":"site","root_dir":"travny-pages"},"source":{"type":"github","config":{"owner":"trvny","owner_id":"120686325","repo_name":"trvny","repo_id":"926010685","production_branch":"main","preview_deployment_setting":"none","pr_comments_enabled":false,"path_includes":["travny-pages/*"],"path_excludes":[]}}}'
+          payload='{"build_config":{"build_command":"","destination_dir":"site","root_dir":"pages"},"source":{"type":"github","config":{"owner":"trvny","owner_id":"120686325","repo_name":"trvny","repo_id":"926010685","production_branch":"main","preview_deployment_setting":"none","pr_comments_enabled":false,"path_includes":["pages/*"],"path_excludes":[]}}}'
           updated=$(curl --fail-with-body --silent --show-error \
             --retry 3 --retry-all-errors \
             -X PATCH \
@@ -78,7 +78,7 @@ jobs:
           jq -e '
             .success == true and
             .result.source.config.repo_name == "trvny" and
-            .result.build_config.root_dir == "travny-pages"
+            .result.build_config.root_dir == "pages"
           ' <<<"$updated" >/dev/null
 
       - name: Check dedicated WAF token
@@ -100,14 +100,14 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-          sparse-checkout: travny-pages/scripts
+          sparse-checkout: pages/scripts
 
       - name: Allow ChatGPT Work Cloud browser
         if: ${{ steps.waf_token.outputs.available == 'true' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WAF_API_TOKEN }}
           CLOUDFLARE_ZONE_ID: "22c6b82ea8b722c6976f5c2c4714c5e8"
-        run: python travny-pages/scripts/waf_allow_chatgpt.py
+        run: python pages/scripts/waf_allow_chatgpt.py
 
       - name: Update Git auto-deploy control
         if: ${{ github.event_name == 'workflow_dispatch' && (inputs.mode == 'disable-git-auto-deploy' || inputs.mode == 'enable-git-auto-deploy') }}

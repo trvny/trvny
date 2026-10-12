@@ -24,4 +24,4 @@ TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub o
 - [Sitemap](https://trfny.com/sitemap.xml)
 - [Robots policy](https://trfny.com/robots.txt)
 - [Web manifest](https://trfny.com/site.webmanifest)
-- [Source](https://github.com/trvny/trvny/tree/main/travny-pages)
+- [Source](https://github.com/trvny/trvny/tree/main/pages)

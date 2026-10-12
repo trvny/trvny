@@ -4,21 +4,21 @@ on:
   push:
     branches: [main]
     paths:
-      - "travny-pages/functions/**"
-      - "travny-pages/tests/**"
-      - "travny-pages/eslint.config.mjs"
+      - "pages/functions/**"
+      - "pages/tests/**"
+      - "pages/eslint.config.mjs"
       - ".github/workflows/travny-pages-ci.yml"
   pull_request:
     branches: [main]
     paths:
-      - "travny-pages/functions/**"
-      - "travny-pages/tests/**"
-      - "travny-pages/eslint.config.mjs"
+      - "pages/functions/**"
+      - "pages/tests/**"
+      - "pages/eslint.config.mjs"
       - ".github/workflows/travny-pages-ci.yml"
   workflow_dispatch:
 
 concurrency:
-  group: travny-pages-ci-${{ github.ref }}
+  group: pages-ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: travny-pages
+        working-directory: pages
     steps:
       - uses: actions/checkout@v7
         with:

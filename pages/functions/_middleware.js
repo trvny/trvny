@@ -238,7 +238,7 @@ function identifyPage(pathname) {
   if (pathname === "/" || pathname === "/index.html") return "home";
   if (pathname === "/tv" || pathname === "/tv/" || pathname === "/tv/index.html") return "tv";
   if (pathname === "/teksty" || pathname === "/teksty/" || pathname === "/teksty/index.html") return "texts";
-  if (pathname === "/teksty/token-worldcup" || pathname === "/teksty/token-worldcup/") return "token-worldcup";
+  if (pathname === "/teksty/token-worldcup" || pathname === "/teksty/token-worldcup/" || pathname === "/teksty/token-worldcup/token-worldcup.html") return "token-worldcup";
   if (pathname === "/teksty/githubowa-kraina" || pathname === "/teksty/githubowa-kraina/" || pathname === "/teksty/githubowa-kraina/index.html") return "githubowa-kraina";
   if (pathname === "/teksty/grass-mud-horse" || pathname === "/teksty/grass-mud-horse/" || pathname === "/teksty/grass-mud-horse/index.html") return "grass-mud-horse";
   return null;
@@ -327,7 +327,7 @@ export async function onRequest(context) {
 
   const transformed = rewriter.transform(assetResponse);
   const headers = new Headers(transformed.headers);
-  if (page !== "token-worldcup") headers.set("cache-control", "public, max-age=0, s-maxage=120, stale-while-revalidate=300");
+  headers.set("cache-control", "public, max-age=0, s-maxage=120, stale-while-revalidate=300");
   headers.set("content-language", pageLanguage);
 
   const markdownPath =

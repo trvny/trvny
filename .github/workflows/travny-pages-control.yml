@@ -6,6 +6,7 @@ on:
     paths:
       - "pages/site/**"
       - "pages/functions/**"
+      - "pages/build.sh"
       - "pages/scripts/waf_allow_chatgpt.py"
       - ".github/workflows/travny-pages-control.yml"
   workflow_dispatch:
@@ -27,7 +28,7 @@ permissions:
 jobs:
   pages:
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    timeout-minutes: 15
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -67,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
-          payload='{"build_config":{"build_command":"","destination_dir":"site","root_dir":"pages"},"source":{"type":"github","config":{"owner":"trvny","owner_id":"120686325","repo_name":"trvny","repo_id":"926010685","production_branch":"main","preview_deployment_setting":"none","pr_comments_enabled":false,"path_includes":["pages/*"],"path_excludes":[]}}}'
+          payload='{"build_config":{"build_command":"if [ -f build.sh ]; then sh build.sh; fi","destination_dir":"site","root_dir":"pages"},"source":{"type":"github","config":{"owner":"trvny","owner_id":"120686325","repo_name":"trvny","repo_id":"926010685","production_branch":"main","preview_deployment_setting":"none","pr_comments_enabled":false,"path_includes":["pages/*"],"path_excludes":[]}}}'
           updated=$(curl --fail-with-body --silent --show-error \
             --retry 3 --retry-all-errors \
             -X PATCH \
@@ -80,6 +81,51 @@ jobs:
             .result.source.config.repo_name == "trvny" and
             .result.build_config.root_dir == "pages"
           ' <<<"$updated" >/dev/null
+          # Build settings apply only to the next build. On push, wait until this
+          # commit's deployment is done or skipped; then, if live production was
+          # built with an older build command, redeploy. Retryable via mode=assert.
+          want=$(jq -r '.result.build_config.build_command' <<<"$updated")
+          auth=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            settled=false
+            for _ in $(seq 1 30); do
+              state=$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+                "${endpoint}/deployments?per_page=10" | jq -r --arg sha "$GITHUB_SHA" '
+                  [.result[] | select(.deployment_trigger.metadata.commit_hash == $sha)][0]
+                  | if . == null then "pending"
+                    elif .is_skipped then "done"
+                    elif .latest_stage.status == "success" then "done"
+                    elif (.latest_stage.status | IN("failure", "canceled")) then "failed"
+                    else "pending" end')
+              if [[ "$state" == "done" ]]; then settled=true; break; fi
+              if [[ "$state" == "failed" ]]; then
+                echo "::error::Cloudflare deployment for ${GITHUB_SHA} failed."
+                exit 1
+              fi
+              sleep 10
+            done
+            if [[ "$settled" != true ]]; then
+              echo "::error::Deployment for ${GITHUB_SHA} not finished after 5 min; rerun with mode=assert."
+              exit 1
+            fi
+          fi
+          live=$(curl --fail-with-body --silent --show-error "${auth[@]}" "$endpoint" \
+            | jq -r '.result.canonical_deployment.build_config.build_command // ""')
+          if [[ "$live" != "$want" ]]; then
+            id=$(curl --fail-with-body --silent --show-error -X POST "${auth[@]}" \
+              -F branch=main "${endpoint}/deployments" | jq -er '.result.id')
+            echo "Live deployment used an older build command; redeploy ${id} started."
+            for _ in $(seq 1 30); do
+              status=$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+                "${endpoint}/deployments/${id}" | jq -r '.result.latest_stage | "\(.name)/\(.status)"')
+              case "$status" in
+                deploy/success) echo "Redeploy ${id} live."; break ;;
+                */failure|*/canceled) echo "::error::Redeploy ${id} ended ${status}."; exit 1 ;;
+              esac
+              sleep 10
+            done
+            [[ "$status" == "deploy/success" ]] || { echo "::error::Redeploy ${id} still ${status} after 5 min."; exit 1; }
+          fi
 
       - name: Check dedicated WAF token
         id: waf_token

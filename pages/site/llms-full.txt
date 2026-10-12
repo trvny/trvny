@@ -49,10 +49,10 @@ TVP upstream stream signatures are short-lived. Consumers should save the stable
 - Alpaka, krab i Wielki Harmonizator (Polish): https://trfny.com/teksty/grass-mud-horse-pl/
 - Main Atom feed (articles and Shitpost Reactor entries): https://trfny.com/teksty/feed.xml
 - GitHubowa Kraina Markdown: https://trfny.com/teksty/githubowa-kraina/index.md
-- Maintained Quarto source: https://github.com/trvny/trvny/blob/main/token-worldcup/token-worldcup.qmd
-- Verified generated HTML source: https://github.com/trvny/trvny/blob/main/token-worldcup/token-worldcup.html
+- Maintained Quarto source: https://github.com/trvny/trvny/blob/main/pages/token-worldcup/token-worldcup.qmd
+- Verified generated HTML source: https://github.com/trvny/trvny/blob/main/pages/token-worldcup/token-worldcup.html
 
-TRAVNY proxies the generated Token Cup artifact rather than maintaining a second copy. The article compares token counts for equivalent natural text in 27 languages using `o200k_base`; English is the normalized index baseline (`EN = 100`) while the measured English sample is 95 tokens. GitHubowa Kraina is maintained directly in `trvny/trvny` (`pages/site/teksty/githubowa-kraina/`) as an interactive atlas of the 12 public repositories split evenly between `trvny` and `travnie`. The Chinese internet slang essay has English and Polish editions at `pages/site/teksty/grass-mud-horse/index.html` and `pages/site/teksty/grass-mud-horse-pl/index.html`. Both share `site/assets/grass-mud-horse.css`, use reciprocal hreflang links, and have distinct canonical URLs. The main Atom feed reads the local publication catalog and dynamically aggregates entries from Shitpost Reactor's JSON Feed; it does not store a second copy of shitposts.
+TRAVNY publishes the generated Token Cup artifact at build time from `pages/token-worldcup/` rather than maintaining a second copy; the model x effort cost matrix is at https://trfny.com/teksty/token-worldcup/effort-matrix.html. The article compares token counts for equivalent natural text in 27 languages using `o200k_base`; English is the normalized index baseline (`EN = 100`) while the measured English sample is 95 tokens. GitHubowa Kraina is maintained directly in `trvny/trvny` (`pages/site/teksty/githubowa-kraina/`) as an interactive atlas of the 12 public repositories split evenly between `trvny` and `travnie`. The Chinese internet slang essay has English and Polish editions at `pages/site/teksty/grass-mud-horse/index.html` and `pages/site/teksty/grass-mud-horse-pl/index.html`. Both share `site/assets/grass-mud-horse.css`, use reciprocal hreflang links, and have distinct canonical URLs. The main Atom feed reads the local publication catalog and dynamically aggregates entries from Shitpost Reactor's JSON Feed; it does not store a second copy of shitposts.
 
 ## Related services
 
@@ -125,7 +125,7 @@ The sitemap contains public human-facing hub routes. Service-specific machine-re
 
 - `trvny/trvny/pages/` owns the TRAVNY hub; `trvny/tvpi` owns the TVPI streaming Worker.
 - Each linked service owns its detailed capability and agent-access documentation in its own `llms.txt` / `llms-full.txt`.
-- Tokenowy Mundial AI is maintained in `trvny/trvny/token-worldcup/`; TRAVNY only publishes it through the article route.
+- Tokenowy Mundial AI is maintained in `trvny/trvny/pages/token-worldcup/`; the Pages build copies the rendered HTML to the article route.
 - GitHubowa Kraina is maintained directly in `trvny/trvny/pages/site/teksty/githubowa-kraina/`.
 - Generated or proxied artifacts are not separate maintained sources.
 

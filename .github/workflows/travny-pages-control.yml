@@ -94,9 +94,14 @@ jobs:
                   [.result[] | select(.deployment_trigger.metadata.commit_hash == $sha)][0]
                   | if . == null then "pending"
                     elif .is_skipped then "done"
-                    elif (.latest_stage.status | IN("success", "failure", "canceled")) then "done"
+                    elif .latest_stage.status == "success" then "done"
+                    elif (.latest_stage.status | IN("failure", "canceled")) then "failed"
                     else "pending" end')
               if [[ "$state" == "done" ]]; then settled=true; break; fi
+              if [[ "$state" == "failed" ]]; then
+                echo "::error::Cloudflare deployment for ${GITHUB_SHA} failed."
+                exit 1
+              fi
               sleep 10
             done
             if [[ "$settled" != true ]]; then

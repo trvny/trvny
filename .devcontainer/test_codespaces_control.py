@@ -169,6 +169,42 @@ class ControlTests(unittest.TestCase):
                 control.run("repair")
         self.assertEqual(runner.call_count, 1)
 
+    def test_hermes_retry_uses_only_verified_repo_install_script(self):
+        command = control.HERMES_RETRY_COMMAND
+        self.assertIn("raw.githubusercontent.com/trvny/trvny/main/.devcontainer/install-hermes.sh", command)
+        self.assertIn('bash "$tmp"', command)
+        self.assertNotIn("bash .devcontainer/setup.sh hermes", command)
+        self.assertNotIn("cmp -s", command)
+        self.assertNotIn("reset --hard", command)
+        self.assertNotIn("github_token", command.lower())
+        self.assertNotIn("git clean", command)
+        syntax = subprocess.run(
+            ["bash", "-n", "-c", command],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(syntax.returncode, 0, syntax.stderr)
+
+    def test_hermes_retry_is_bounded_and_fixed(self):
+        with patch.dict(os.environ, {"GH_TOKEN": "testing"}), \
+            patch.object(control, "list_managed", return_value=[codespace()]), \
+            patch.object(control, "call", return_value="hermes_installed") as runner, \
+            redirect_stdout(io.StringIO()):
+            control.run("hermes-retry")
+        runner.assert_called_once_with(
+            ["gh", "codespace", "ssh", "-c", "pocket-demo-codespace",
+             control.HERMES_RETRY_COMMAND],
+            timeout=660,
+        )
+
+    def test_hermes_retry_refuses_stopped_machine(self):
+        with patch.dict(os.environ, {"GH_TOKEN": "testing"}), \
+            patch.object(control, "list_managed",
+                         return_value=[codespace(state="Shutdown")]), \
+            patch.object(control, "call") as runner:
+            with self.assertRaisesRegex(RuntimeError, "must be running"):
+                control.run("hermes-retry")
+        runner.assert_not_called()
+
     def test_inspect_is_fixed_and_not_from_mutable_checkout(self):
         command = control.SSH_TASKS["inspect"]
         self.assertIn("workspace=missing", command)

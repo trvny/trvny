@@ -115,7 +115,7 @@ the following fenced JSON block, with a unique `id` per new operation:
 ````
 
 Allowed `client_payload.action`: `status`, `ensure`, `stop`, `doctor`,
-`agents`, `inspect`, `creation-log`, `repair`. `ensure` creates the **one** personal Devbox on `main` if missing,
+`agents`, `inspect`, `creation-log`, `repair`, `hermes-retry`. `ensure` creates the **one** personal Devbox on `main` if missing,
 or starts the existing stopped one. It selects the smallest available **4 CPU,
 8-16 GiB** machine, requests `EuropeWest`, stops after **15 idle minutes**, and
 uses **7-day stopped retention** (uncommitted changes may disappear when GitHub
@@ -152,6 +152,16 @@ repaired files may appear modified relative to the Codespace's older Git HEAD;
 this is expected until its working branch is updated normally. Retrying
 `repair` accepts files already identical to the latest trusted version.
 Do not resolve this temporary diff with `git reset --hard`.
+
+**Hermes-only retry:** `hermes-retry` installs only Hermes using the
+maintained `.devcontainer/install-hermes.sh`. The normal bootstrap and
+the controlled retry both use this same installer. The GPTomek controller
+retrieves the reviewed script from public `main` into a private temporary
+file and **executes that downloaded copy**, not potentially modified workspace
+code. It never reruns the general Devbox preamble. No shell argument or URL
+comes from the caller and installer output is not relayed through Actions.
+This does not authenticate Hermes or enable model providers. Only invoke
+on an existing running personal Devbox.
 
 ## Optional tool profiles, MCP and skills
 

@@ -42,11 +42,7 @@ install_antigravity() {
 }
 
 install_hermes() {
-  if ! command -v hermes >/dev/null 2>&1; then
-    HERMES_NONINTERACTIVE=1 run_installer \
-      https://hermes-agent.nousresearch.com/install.sh \
-      bash --non-interactive --skip-browser --skip-computer-use
-  fi
+  bash "$(dirname "$0")/install-hermes.sh"
 }
 
 install_utils() {

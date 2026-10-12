@@ -210,6 +210,7 @@ export function render(
   source: 'ai' | 'pool' | 'preset',
   pool: QuipEntry[],
   ciRequired = true,
+  aiReviewBadge: string | null = null,
 ): string {
   const terminal = pr.merged || pr.state === 'closed';
   const badges = terminal
@@ -218,6 +219,7 @@ export function render(
         branchBadge(pr, branch),
         checksBadge(ci, ciRequired),
         reviewBadge(review),
+        aiReviewBadge,
       ];
   if (pr.auto_merge && !terminal) {
     badges.push('auto-merge ✅');

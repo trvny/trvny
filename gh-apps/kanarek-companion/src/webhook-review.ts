@@ -1097,6 +1097,11 @@ async function enqueueWebhookReview(
       }),
     );
     await response.body?.cancel();
+    return;
+  }
+  const queued = objectValue(await response.json());
+  if (queued.queued === true && queued.duplicate !== true) {
+    await refreshCompanionAfterReview(env, target);
   }
 }
 
@@ -1475,19 +1480,25 @@ export class WebhookReviewJob {
       return;
     }
 
-    if (result.reviewed || result.skipped === 'no_code_diff') {
-      await this.state.storage.put(
-        COMPLETED_TARGET_KEY,
-        reviewTargetKey(continuation.target),
-      );
-    }
-    await this.state.storage.put<ReviewOutcome>(REVIEW_OUTCOME_KEY, {
-      headSha: continuation.target.headSha,
-      reviewed: result.reviewed,
-      findingCount: result.findingCount,
-      skipped: result.skipped ?? null,
+    const finalized = await this.state.storage.transaction(async (transaction) => {
+      const active = await transaction.get<StoredJob>(JOB_KEY);
+      if (!validStoredJob(active) ||
+          reviewTargetKey(active.target) !== reviewTargetKey(continuation.target)) {
+        return false;
+      }
+      if (result.reviewed || result.skipped === 'no_code_diff') {
+        await transaction.put(COMPLETED_TARGET_KEY, reviewTargetKey(continuation.target));
+      }
+      await transaction.put<ReviewOutcome>(REVIEW_OUTCOME_KEY, {
+        headSha: continuation.target.headSha,
+        reviewed: result.reviewed,
+        findingCount: result.findingCount,
+        skipped: result.skipped ?? null,
+      });
+      await transaction.delete([JOB_KEY, STATUS_KEY]);
+      return true;
     });
-    await this.state.storage.delete([JOB_KEY, STATUS_KEY]);
+    if (!finalized) return;
     // The companion gates branch updates on this job; let it re-evaluate now
     // instead of waiting for an unrelated GitHub event.
     await refreshCompanionAfterReview(this.env, continuation.target);

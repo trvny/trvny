@@ -1144,4 +1144,25 @@ test('review state lives in the existing quip and never leaks across heads', asy
     }), 'travnie/llmbench', 21, headA),
     { settled: true, badge: 'AI review ⚠️ unavailable' },
   );
+  assert.deepEqual(
+    await webhookReviewState(status({
+      ...completed,
+      outcome: { headSha: headA, reviewed: true, findingCount: 0, skipped: 'already_submitted' },
+    }), 'travnie/llmbench', 21, headA),
+    { settled: true, badge: 'AI review ✅ posted' },
+  );
+  assert.deepEqual(
+    await webhookReviewState(status({
+      ...completed,
+      outcome: { headSha: headA, reviewed: false, findingCount: 0, skipped: 'patch_unavailable' },
+    }), 'travnie/llmbench', 21, headA),
+    { settled: true, badge: 'AI review ⚠️ unavailable' },
+  );
+  assert.deepEqual(
+    await webhookReviewState(status({
+      ...completed,
+      outcome: { headSha: headA, reviewed: false, findingCount: 0, skipped: 'stale_or_unreviewable' },
+    }), 'travnie/llmbench', 21, headA),
+    { settled: true, badge: null },
+  );
 });

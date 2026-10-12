@@ -25,12 +25,10 @@ const WEATHER_STATE = "https://weather.travny.workers.dev/state.json";
 // If the custom domain ever needs to be retired, promote the fallback explicitly
 // by changing the canonical host and removing that response directive.
 //
-// tvpi.pages.dev answers only with a redirect. Both Pages projects build from
-// this same repository and the same site/ output, so the old host cannot be
-// retired with a _redirects file — that file would apply to the new site too.
-// Matching on the Host header keeps one codebase serving both. Matching is
-// exact, so per-deployment aliases (<hash>.tvpi.pages.dev) are left alone;
-// redirecting those would point at a hash that does not exist elsewhere.
+// www.trfny.com answers only with a redirect. tvpi.pages.dev is now its own
+// Pages project in trvny/tvpi with a redirect-only middleware; it stays listed
+// here as a harmless fallback. Matching is exact, so per-deployment aliases
+// (<hash>.travny.pages.dev) are left alone.
 const REDIRECT_HOSTS = new Set(["tvpi.pages.dev", "www.trfny.com"]);
 const FALLBACK_HOST = "travny.pages.dev";
 const CANONICAL_HOST = "trfny.com";

@@ -59,7 +59,7 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_GEMINI_MODEL: 'gemini-3.8-flash',
   KANAREK_REVIEW_WORKERS_AI_MODEL: '@cf/zai-org/glm-4.7-flash',
   KANAREK_REVIEW_OPENROUTER_MODELS: [
-    'stealth/space-bunny-alpha',
+    'stealth/space-bunny-alpha:free',
     'nvidia/nemotron-3.5-lightning:free',
     'qwen/qwen3.8-27b:free',
     'nvidia/nemotron-3-ultra-550b-a55b:free',
@@ -121,7 +121,7 @@ const VERCEL_MODEL_MAX_OUTPUT_TOKENS = new Map<string, number>([
   ['poolside/laguna-s-2.1-free', 32_768],
 ]);
 const OPENROUTER_REASONING_MODELS = new Set<string>([
-  'stealth/space-bunny-alpha',
+  'stealth/space-bunny-alpha:free',
   'qwen/qwen3.8-27b:free',
   'nvidia/nemotron-3-ultra-550b-a55b:free',
   'cohere/north-mini-code:free',

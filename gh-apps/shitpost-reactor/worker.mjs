@@ -201,32 +201,22 @@ async function readPosts(env, limit = FEED_LIMIT) {
   return posts.filter(Boolean);
 }
 
-async function listArchivePosts(env) {
-  const objects = [];
-  let cursor;
-  do {
-    const page = await env.FEED.list({ prefix: 'posts/', limit: 1000, ...(cursor ? { cursor } : {}) });
-    for (const object of page.objects) {
-      const match = /^posts\/(gh-\d+-\d+)\.json$/u.exec(object.key);
-      if (match) objects.push({ id: match[1], timestamp: new Date(object.uploaded || 0).getTime() });
-    }
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
-  return objects.sort((a, b) => b.timestamp - a.timestamp || b.id.localeCompare(a.id, 'en', { numeric: true }));
-}
-
 async function renderArchive(env, url) {
-  const rawPage = url.searchParams.get('page') || '1';
-  if (!/^[1-9]\d{0,5}$/u.test(rawPage)) {
-    return response('invalid page\n', 'text/plain; charset=utf-8', { status: 400, cache: 'no-store' });
+  const cursor = url.searchParams.get('cursor');
+  if (cursor !== null && (!cursor || cursor.length > 2048 || /[\x00-\x1f\x7f]/u.test(cursor))) {
+    return response('invalid cursor\n', 'text/plain; charset=utf-8', { status: 400, cache: 'no-store' });
   }
-  const page = Number(rawPage);
-  const entries = await listArchivePosts(env);
-  const pages = Math.max(1, Math.ceil(entries.length / ARCHIVE_PAGE_SIZE));
-  if (page > pages) return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
-  const start = (page - 1) * ARCHIVE_PAGE_SIZE;
-  const selected = entries.slice(start, start + ARCHIVE_PAGE_SIZE);
-  const posts = (await Promise.all(selected.map(({ id }) => readPost(env, id)))).filter(Boolean);
+
+  // R2 lists post keys in ascending order. New run IDs do not shift previous cursors.
+  const page = await env.FEED.list({
+    prefix: 'posts/',
+    limit: ARCHIVE_PAGE_SIZE,
+    ...(cursor ? { cursor } : {}),
+  });
+  const selected = page.objects
+    .map(({ key }) => /^posts\/(gh-\d+-\d+)\.json$/u.exec(key)?.[1])
+    .filter(Boolean);
+  const posts = (await Promise.all(selected.map((id) => readPost(env, id)))).filter(Boolean);
   const articles = posts.map((post) => {
     const summary = postSummary(post);
     const image = postImageUrl(post);
@@ -235,13 +225,17 @@ async function renderArchive(env, url) {
       : `<p>${escapeHtml(summary).replaceAll('\n', '<br>')}</p>`;
     return `<article><h2><a href="/posts/${escapeHtml(post.id)}">${escapeHtml(shortTitle(summary))}</a></h2>${preview}<p class="meta">${escapeHtml(post.published_at)}</p></article>`;
   }).join('');
-  const before = page > 1 ? `<a href="${page === 2 ? '/archive' : `/archive?page=${page - 1}`}">Newer</a>` : '';
-  const after = page < pages ? `<a href="/archive?page=${page + 1}">Older</a>` : '';
-  const navigation = `<nav aria-label="Archive pages" class="feeds">${before}<span>Page ${page} of ${pages}</span>${after}</nav>`;
-  const canonical = page === 1 ? `${SITE_URL}/archive` : `${SITE_URL}/archive?page=${page}`;
-  const body = `<h2>Full archive</h2><p class="meta">${entries.length} entries</p>${articles || '<p>Nothing published yet.</p>'}${navigation}`;
+  const nextCursor = page.truncated ? page.cursor : null;
+  if (page.truncated && !nextCursor) {
+    return response('archive pagination unavailable\n', 'text/plain; charset=utf-8', { status: 503, cache: 'no-store' });
+  }
+  const after = nextCursor ? `<a href="/archive?cursor=${encodeURIComponent(nextCursor)}">Next 25 →</a>` : '';
+  const navigation = `<nav aria-label="Archive navigation" class="feeds"><a href="/archive">Start</a>${after}</nav>`;
+  const canonical = cursor ? `${SITE_URL}/archive?cursor=${encodeURIComponent(cursor)}` : `${SITE_URL}/archive`;
+  const body = `<h2>Full archive</h2><p class="meta">Oldest first · up to 25 entries per page</p>${articles || '<p>Nothing published yet.</p>'}${navigation}`;
   return response(htmlPage(`${FEED_TITLE} archive`, body, canonical), 'text/html; charset=utf-8');
 }
+
 function postSummary(post) {
   if (post.schema_version === 2 && post.content?.kind === 'text') return post.content.text;
   if (post.schema_version === 2 && post.content?.kind === 'meme') {

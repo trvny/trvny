@@ -91,18 +91,23 @@ test('generated favicon formats have valid signatures', () => {
   assert.deepEqual(Array.from(renderIco(32).slice(0, 6)), [0, 0, 1, 0, 1, 0]);
 });
 
-test('full archive paginates all R2 post keys, independent of the 250-entry hot index', async () => {
-  const rows = Array.from({ length: 28 }, (_, i) => {
-    const id = `gh-${100 + i}-1`;
-    const uploaded = new Date(Date.UTC(2026, 9, i + 1));
-    return { key: `posts/${id}.json`, uploaded };
-  });
+test('full archive reads one bounded R2 page and navigates with an opaque cursor', async () => {
+  const rows = Array.from({ length: 28 }, (_, i) => ({
+    key: `posts/gh-${100 + i}-1.json`,
+    uploaded: new Date(Date.UTC(2026, 9, i + 1)),
+  }));
+  const listArgs = [];
   let reads = 0;
   const env = { FEED: {
-    async list({ cursor }) {
-      return cursor
-        ? { objects: rows.slice(12), truncated: false }
-        : { objects: rows.slice(0, 12), truncated: true, cursor: 'next' };
+    async list(options) {
+      listArgs.push(options);
+      const start = options.cursor === 'next+token/=' ? 25 : 0;
+      const objects = rows.slice(start, start + options.limit);
+      return {
+        objects,
+        truncated: start + options.limit < rows.length,
+        cursor: start === 0 ? 'next+token/=' : undefined,
+      };
     },
     async get(key) {
       reads++;
@@ -115,17 +120,28 @@ test('full archive paginates all R2 post keys, independent of the 250-entry hot 
   const first = await worker.fetch(new Request('https://shitpost.trfny.com/archive'), env);
   const firstHtml = await first.text();
   assert.equal(first.status, 200);
-  assert.match(firstHtml, /28 entries/);
-  assert.match(firstHtml, /Page 1 of 2/);
-  assert.match(firstHtml, /archive\?page=2/);
-  assert.match(firstHtml, /posts\/gh-127-1/);
+  assert.match(firstHtml, /Oldest first/);
+  assert.match(firstHtml, /archive\?cursor=next%2Btoken%2F%3D/);
+  assert.match(firstHtml, /posts\/gh-100-1/);
+  assert.doesNotMatch(firstHtml, /posts\/gh-127-1/);
+  assert.deepEqual(listArgs[0], { prefix: 'posts/', limit: 25 });
   assert.equal(reads, 25);
-  const second = await worker.fetch(new Request('https://shitpost.trfny.com/archive?page=2'), env);
+
+  // New publication does not shift the boundary of an already browsed page.
+  rows.push({ key: 'posts/gh-128-1.json', uploaded: new Date(Date.UTC(2026, 9, 29)) });
+  const second = await worker.fetch(new Request('https://shitpost.trfny.com/archive?cursor=next%2Btoken%2F%3D'), env);
   const secondHtml = await second.text();
   assert.equal(second.status, 200);
-  assert.match(secondHtml, /Page 2 of 2/);
-  assert.match(secondHtml, /posts\/gh-100-1/);
-  assert.equal(reads, 28);
-  const invalid = await worker.fetch(new Request('https://shitpost.trfny.com/archive?page=-1'), env);
-  assert.equal(invalid.status, 400);
+  assert.match(secondHtml, /posts\/gh-125-1/);
+  assert.match(secondHtml, /posts\/gh-128-1/);
+  assert.doesNotMatch(secondHtml, /posts\/gh-124-1/);
+  assert.deepEqual(listArgs[1], { prefix: 'posts/', limit: 25, cursor: 'next+token/=' });
+  assert.equal(reads, 29);
+  assert.doesNotMatch(secondHtml, /Next 25/);
+
+  for (const cursor of ['', 'x'.repeat(2049), '\n']) {
+    const invalid = await worker.fetch(new Request(`https://shitpost.trfny.com/archive?cursor=${encodeURIComponent(cursor)}`), env);
+    assert.equal(invalid.status, 400);
+  }
+  assert.equal(listArgs.length, 2);
 });

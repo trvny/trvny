@@ -244,3 +244,25 @@ test('the branch badge reports the state, not the count', () => {
   assert.equal(body(1), body(97));
   assert.notEqual(body(0), body(1));
 });
+
+test('review progress updates only the existing quip badge', async () => {
+  const stable = await stateAndBody('1'.repeat(40));
+  const body = render(
+    basePr,
+    { behind: 0 },
+    { failed: [], passed: [{}], pending: [], total: 1 },
+    { approvals: 0, changes: 0 },
+    ['Gh apps'],
+    { key: 'ready', title: '🟢 ready', blockers: [] },
+    'Ready.',
+    stable.stateHash,
+    'fedcba9876543210',
+    'preset',
+    [],
+    true,
+    'AI review ✅ clean',
+  );
+  assert.match(body, /AI review ✅ clean/);
+  assert.match(body, /> Ready\./);
+  assert.doesNotMatch(stable.body, /AI review/);
+});

@@ -131,7 +131,7 @@ def write_rule(ruleset_id, existing, desired):
             f"/zones/{ZONE_ID}/rulesets/{ruleset_id}/rules/"
             f"{existing['id']}"
         )
-        return call("PUT", path, payload)
+        return call("PATCH", path, payload)
     path = f"/zones/{ZONE_ID}/rulesets/{ruleset_id}/rules"
     return call("POST", path, payload)
 

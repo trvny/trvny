@@ -1,6 +1,13 @@
 name: TRAVNY Pages control
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "pages/site/**"
+      - "pages/functions/**"
+      - "pages/scripts/waf_allow_chatgpt.py"
+      - ".github/workflows/travny-pages-control.yml"
   workflow_dispatch:
     inputs:
       mode:
@@ -10,6 +17,7 @@ on:
         type: choice
         options:
           - status
+          - assert
           - disable-git-auto-deploy
           - enable-git-auto-deploy
 
@@ -51,8 +59,58 @@ jobs:
             }
           }' <<<"$current"
 
+      # Source of truth for where the project builds from. Leaves
+      # production_deployments_enabled alone so the toggle modes stick.
+      - name: Assert Git source and build settings
+        if: ${{ github.event_name == 'push' || inputs.mode == 'assert' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
+          payload='{"build_config":{"build_command":"","destination_dir":"site","root_dir":"pages"},"source":{"type":"github","config":{"owner":"trvny","owner_id":"120686325","repo_name":"trvny","repo_id":"926010685","production_branch":"main","preview_deployment_setting":"none","pr_comments_enabled":false,"path_includes":["pages/*"],"path_excludes":[]}}}'
+          updated=$(curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-all-errors \
+            -X PATCH \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$payload" \
+            "$endpoint")
+          jq -e '
+            .success == true and
+            .result.source.config.repo_name == "trvny" and
+            .result.build_config.root_dir == "pages"
+          ' <<<"$updated" >/dev/null
+
+      - name: Check dedicated WAF token
+        id: waf_token
+        # Main only: the script runs with a zone WAF token.
+        if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.mode == 'assert') }}
+        env:
+          CLOUDFLARE_WAF_API_TOKEN: ${{ secrets.CLOUDFLARE_WAF_API_TOKEN }}
+        run: |
+          if [[ -n "$CLOUDFLARE_WAF_API_TOKEN" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::WAF sync skipped: set CLOUDFLARE_WAF_API_TOKEN (Zone WAF Write on trfny.com)."
+          fi
+
+      - uses: actions/checkout@v7
+        if: ${{ steps.waf_token.outputs.available == 'true' }}
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: pages/scripts
+
+      - name: Allow ChatGPT Work Cloud browser
+        if: ${{ steps.waf_token.outputs.available == 'true' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WAF_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: "22c6b82ea8b722c6976f5c2c4714c5e8"
+        run: python pages/scripts/waf_allow_chatgpt.py
+
       - name: Update Git auto-deploy control
-        if: ${{ inputs.mode != 'status' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.mode == 'disable-git-auto-deploy' || inputs.mode == 'enable-git-auto-deploy') }}
         shell: bash
         run: |
           set -euo pipefail

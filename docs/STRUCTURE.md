@@ -14,7 +14,7 @@
 | `mcp/status-mcp/` | authenticated aggregate health MCP Worker |
 | `stuff/` | feeds, playlists, quotes, configs and miscellaneous personal tools/assets |
 | `tg-bots/` | Botek Telegram assistant, control-surface docs and Cloudflare Worker source |
-| `token-worldcup/` | token/cost benchmark reports, corpora and tokenizer recount tools |
+| `pages/token-worldcup/` | token/cost benchmark reports, corpora and tokenizer recount tools |
 
 ## Main entry points
 
@@ -26,11 +26,11 @@
 | Pet Dispatcher local worker | `mcp/pet-dispatcher/src/index.ts` |
 | Pet Dispatcher control plane | `mcp/pet-dispatcher/control-plane/entry.ts` |
 | Loopling | `loopling/tools/generate.py` and `loopling/pet/pet.json` |
-| Token Worldcup | `token-worldcup/token-worldcup.qmd` |
-| Model x effort cost matrix | `token-worldcup/effort-matrix.qmd` |
-| OpenAI tokenizer recount | `token-worldcup/recount-openai-tokens.mjs` |
-| DeepSeek V4.1 tokenizer recount | `token-worldcup/recount-deepseek-tokens.py` |
-| Claude tokenizer recount | `token-worldcup/recount-claude-tokens.py` |
+| Token Worldcup | `pages/token-worldcup/token-worldcup.qmd` |
+| Model x effort cost matrix | `pages/token-worldcup/effort-matrix.qmd` |
+| OpenAI tokenizer recount | `pages/token-worldcup/recount-openai-tokens.mjs` |
+| DeepSeek V4.1 tokenizer recount | `pages/token-worldcup/recount-deepseek-tokens.py` |
+| Claude tokenizer recount | `pages/token-worldcup/recount-claude-tokens.py` |
 
 ## Ownership rules
 

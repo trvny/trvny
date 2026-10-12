@@ -327,7 +327,7 @@ export async function onRequest(context) {
 
   const transformed = rewriter.transform(assetResponse);
   const headers = new Headers(transformed.headers);
-  if (page !== "token-worldcup") headers.set("cache-control", "public, max-age=0, s-maxage=120, stale-while-revalidate=300");
+  headers.set("cache-control", "public, max-age=0, s-maxage=120, stale-while-revalidate=300");
   headers.set("content-language", pageLanguage);
 
   const markdownPath =

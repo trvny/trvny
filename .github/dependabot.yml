@@ -127,7 +127,7 @@ updates:
         patterns:
           - "*"
   - package-ecosystem: "npm"
-    directory: "/token-worldcup"
+    directory: "/pages/token-worldcup"
     schedule:
       interval: "weekly"
       time: "21:37"
@@ -139,7 +139,7 @@ updates:
         patterns:
           - "*"
   - package-ecosystem: "pip"
-    directory: "/token-worldcup"
+    directory: "/pages/token-worldcup"
     schedule:
       interval: "weekly"
       time: "21:37"

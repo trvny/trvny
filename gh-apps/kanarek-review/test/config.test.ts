@@ -34,3 +34,9 @@ test('review router operator defaults match wrangler.jsonc', () => {
     );
   }
 });
+
+test('OpenRouter primary remains explicitly pinned to the free endpoint', () => {
+  const models = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS;
+  assert.equal(models[0], 'stealth/space-bunny-alpha:free');
+  assert.equal(config.vars.KANAREK_REVIEW_OPENROUTER_MODELS?.split(',')[0], models[0]);
+});

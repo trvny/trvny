@@ -12,7 +12,7 @@ REPO_ID = 926010685  # Immutable GitHub repository ID; confirmed against public 
 OWNER = "trvny"
 DISPLAY_NAME = "Travny AI Devbox"
 BRANCH = "main"
-ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log", "inspect", "repair"}
+ACTIONS = {"status", "ensure", "stop", "doctor", "agents", "creation-log", "inspect", "repair", "hermes-retry"}
 SSH_TASKS = {
     "inspect": (
         "bash --noprofile --norc -c '"
@@ -66,6 +66,18 @@ REPAIR_SYNC_COMMAND = (
     "done; echo devcontainer_updated'"
 )
 
+HERMES_RETRY_COMMAND = (
+    "bash -lc 'set -eu; tmp=$(mktemp); "
+    "if ! curl -fsSL --retry 3 "
+    "https://raw.githubusercontent.com/trvny/trvny/main/.devcontainer/install-hermes.sh "
+    "-o \"$tmp\"; then rm -f \"$tmp\"; echo download_failed; exit 3; fi; "
+    "if ! bash \"$tmp\" >/dev/null 2>&1; then "
+    "rm -f \"$tmp\"; echo installer_failed; exit 3; fi; "
+    "rm -f \"$tmp\"; "
+    "if ! command -v hermes >/dev/null 2>&1; then "
+    "echo command_missing; exit 3; fi; echo hermes_installed'"
+)
+
 CODESPACE_NAME = re.compile(r"^[a-zA-Z0-9-]{1,150}$")
 
 
@@ -75,7 +87,7 @@ def call(args: list[str], *, timeout: int = 60) -> str:
     )
     if result.returncode:
         # Only fixed, non-secret repair rejection reasons may be echoed.
-        safe_markers = {"wrong_branch", "local_changes", "fetch_failed", "original_missing"}
+        safe_markers = {"wrong_branch", "local_changes", "fetch_failed", "original_missing", "installer_failed", "download_failed", "command_missing"}
         reason = next(
             (line for line in result.stdout.splitlines() if line in safe_markers),
             "remote_error",
@@ -268,6 +280,18 @@ def run(action: str) -> None:
         call(["gh", "codespace", "rebuild", "-c", name], timeout=480)
         print("Codespace rebuild command completed")
         return
+    if action == "hermes-retry":
+        if state != "Available":
+            raise RuntimeError("Devbox must be running for Hermes retry")
+        print("Verifying trusted setup.sh and retrying Hermes CLI", flush=True)
+        output = call(
+            ["gh", "codespace", "ssh", "-c", name, HERMES_RETRY_COMMAND],
+            timeout=660,
+        )
+        if "hermes_installed" not in output:
+            raise RuntimeError("Hermes installer did not confirm installation")
+        print("Hermes executable installed; OAuth/provider setup is not configured")
+        return
     if action == "stop":
         if state in {"Shutdown", "Stopped"}:
             print("Devbox already stopped")
@@ -287,7 +311,7 @@ def run(action: str) -> None:
 if __name__ == "__main__":
     try:
         if len(sys.argv) != 2:
-            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents|creation-log|inspect|repair>")
+            raise ValueError("Usage: codespaces_control.py <status|ensure|stop|doctor|agents|creation-log|inspect|repair|hermes-retry>")
         run(sys.argv[1])
     except (RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
         print(f"Devbox control: {exc}", file=sys.stderr)

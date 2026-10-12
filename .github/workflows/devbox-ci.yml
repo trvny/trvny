@@ -38,7 +38,7 @@ jobs:
           python -m json.tool .devcontainer/tools/package.json >/dev/null
           python -m json.tool .mcp.json >/dev/null
           python -m py_compile .devcontainer/maintenance.py .devcontainer/media.py .devcontainer/handoff.py .devcontainer/codespaces_control.py
-          for script in .devcontainer/devbox .devcontainer/setup.sh .devcontainer/install-ubol.sh; do
+          for script in .devcontainer/devbox .devcontainer/setup.sh .devcontainer/install-hermes.sh .devcontainer/install-ubol.sh; do
             bash -n "$script"
           done
           python -m unittest discover -s .devcontainer -p 'test_*.py' -v

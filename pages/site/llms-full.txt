@@ -39,6 +39,13 @@ The hub is a lightweight static/edge site. It links independent services rather 
 
 TVP upstream stream signatures are short-lived. Consumers should save the stable Worker URLs. Per-channel `.m3u8` endpoints resolve or serve fresh HLS data behind a durable URL.
 
+### Papagenerator
+
+- Browser editor: https://trfny.com/papagenerator/
+- Source of truth: https://github.com/travnie/twojstar/tree/main/papagenerator
+
+Papagenerator adds meme stickers to local images and exports PNG in the browser. The Pages build publishes a pinned version of its HTML and JavaScript under this route; photos stay in the user's browser.
+
 ### Teksty
 
 - Human index: https://trfny.com/teksty/
@@ -127,6 +134,7 @@ The sitemap contains public human-facing hub routes. Service-specific machine-re
 - Each linked service owns its detailed capability and agent-access documentation in its own `llms.txt` / `llms-full.txt`.
 - Tokenowy Mundial AI is maintained in `trvny/trvny/pages/token-worldcup/`; the Pages build copies the rendered HTML to the article route.
 - GitHubowa Kraina is maintained directly in `trvny/trvny/pages/site/teksty/githubowa-kraina/`.
+- Papagenerator is maintained exclusively in `travnie/twojstar/papagenerator/`; the Pages build fetches its pinned release rather than keeping a separate copy.
 - Generated or proxied artifacts are not separate maintained sources.
 
 

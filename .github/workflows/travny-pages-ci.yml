@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - "pages/build.sh"
       - "pages/functions/**"
       - "pages/tests/**"
       - "pages/eslint.config.mjs"
@@ -11,6 +12,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "pages/build.sh"
       - "pages/functions/**"
       - "pages/tests/**"
       - "pages/eslint.config.mjs"
@@ -40,5 +42,6 @@ jobs:
         with:
           node-version: 24
 
+      - run: sh -n build.sh
       - run: npx --yes eslint@10.12.0 .
       - run: node --test tests/teksty-feed.test.mjs

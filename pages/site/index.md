@@ -14,6 +14,7 @@ TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub o
 - [Streambench](https://streambench.trfny.com/): IPTV, radio, HLS, M3U/M3U8 and XMLTV workshop.
 - [Codebench](https://codebench.trfny.com/): local-first QR and barcode studio.
 - [Docbench](https://docbench.travny.workers.dev/): local-first document and PDF studio.
+- [Papagenerator](https://trfny.com/papagenerator/): browser-only meme and PNG sticker editor, maintained in [travnie/twojstar](https://github.com/travnie/twojstar/tree/main/papagenerator).
 - [Teksty](https://trfny.com/teksty/): experiments, comparisons and short technical publications, including GitHubowa Kraina, Tokenowy Mundial AI and The Alpaca, the Crab and the Censor (English) and Alpaka, krab i Wielki Harmonizator (Polish).
 
 ## Discovery

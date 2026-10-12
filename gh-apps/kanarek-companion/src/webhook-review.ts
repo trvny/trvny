@@ -1186,16 +1186,23 @@ export async function webhookReviewState(
     if (typeof outcome.headSha !== 'string' || outcome.headSha.toLowerCase() !== headSha.toLowerCase()) {
       return { settled: true, badge: null };
     }
+    if (outcome.skipped === 'already_submitted') {
+      // The previous review may contain findings; the count is unknown on recovery.
+      return { settled: true, badge: 'AI review ✅ posted' };
+    }
     if (outcome.reviewed === true) {
       return { settled: true, badge: Number(outcome.findingCount) > 0 ? 'AI review 🐤 findings' : 'AI review ✅ clean' };
     }
     if (outcome.skipped === 'no_code_diff') {
       return { settled: true, badge: 'AI review ⏭ no code' };
     }
-    if (outcome.skipped === 'providers_failed' || outcome.skipped === 'job_failed' || outcome.skipped === 'router_unconfigured') {
-      return { settled: true, badge: 'AI review ⚠️ unavailable' };
+    if (typeof outcome.skipped === 'string' &&
+        (outcome.skipped.startsWith('stale_') || outcome.skipped === 'superseded_before_submit')) {
+      return { settled: true, badge: null };
     }
-    return { settled: true, badge: null };
+    // Failed context collection, provider exhaustion, and rejected output all
+    // mean no reliable review was produced, not a clean bill of health.
+    return { settled: true, badge: 'AI review ⚠️ unavailable' };
   } catch {
     return { settled: false, badge: null };
   }

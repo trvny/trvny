@@ -26,13 +26,13 @@
     "install:local": "tsx scripts/install-local-runtime.ts"
   },
   "dependencies": {
-    "@google/genai": "2.27.0",
-    "@microsoft/mxc-sdk": "0.9.0",
-    "@modelcontextprotocol/sdk": "1.32.0",
+    "@google/genai": "2.28.0",
+    "@microsoft/mxc-sdk": "1.0.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20261003.1",
+    "@cloudflare/workers-types": "5.20261009.1",
     "@types/node": "26.6.4",
     "tsx": "4.23.15",
     "typescript": "7.0.2",

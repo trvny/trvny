@@ -90,3 +90,42 @@ test('generated favicon formats have valid signatures', () => {
   assert.deepEqual(Array.from(renderPng(32).slice(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10]);
   assert.deepEqual(Array.from(renderIco(32).slice(0, 6)), [0, 0, 1, 0, 1, 0]);
 });
+
+test('full archive paginates all R2 post keys, independent of the 250-entry hot index', async () => {
+  const rows = Array.from({ length: 28 }, (_, i) => {
+    const id = `gh-${100 + i}-1`;
+    const uploaded = new Date(Date.UTC(2026, 9, i + 1));
+    return { key: `posts/${id}.json`, uploaded };
+  });
+  let reads = 0;
+  const env = { FEED: {
+    async list({ cursor }) {
+      return cursor
+        ? { objects: rows.slice(12), truncated: false }
+        : { objects: rows.slice(0, 12), truncated: true, cursor: 'next' };
+    },
+    async get(key) {
+      reads++;
+      const entry = rows.find((row) => row.key === key);
+      if (!entry) return null;
+      const id = key.slice('posts/'.length, -'.json'.length);
+      return { json: async () => ({ ...post, id, url: `https://shitpost.trfny.com/posts/${id}`, published_at: entry.uploaded.toISOString() }) };
+    },
+  } };
+  const first = await worker.fetch(new Request('https://shitpost.trfny.com/archive'), env);
+  const firstHtml = await first.text();
+  assert.equal(first.status, 200);
+  assert.match(firstHtml, /28 entries/);
+  assert.match(firstHtml, /Page 1 of 2/);
+  assert.match(firstHtml, /archive\?page=2/);
+  assert.match(firstHtml, /posts\/gh-127-1/);
+  assert.equal(reads, 25);
+  const second = await worker.fetch(new Request('https://shitpost.trfny.com/archive?page=2'), env);
+  const secondHtml = await second.text();
+  assert.equal(second.status, 200);
+  assert.match(secondHtml, /Page 2 of 2/);
+  assert.match(secondHtml, /posts\/gh-100-1/);
+  assert.equal(reads, 28);
+  const invalid = await worker.fetch(new Request('https://shitpost.trfny.com/archive?page=-1'), env);
+  assert.equal(invalid.status, 400);
+});

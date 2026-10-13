@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -45,6 +45,53 @@ test("non-git workspace is a confined writable target without Git semantics", as
     assert.equal(await readWorkspace({ ...session, root: state.dc }, "hello.txt"), "hello\n");
   } finally {
     for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
+    await rm(state.base, { recursive: true, force: true });
+  }
+});
+
+test("read-only sessions use a fast hard-linked clone, writable sessions keep a private copy", async () => {
+  const state = await fixture();
+  try {
+    const head = (await execFileAsync("git", ["-C", state.repo, "rev-parse", "HEAD"])).stdout.trim();
+    const looseObject = join(state.repo, ".git", "objects", head.slice(0, 2), head.slice(2));
+    const links = async () => (await stat(looseObject)).nlink;
+    assert.equal(await links(), 1);
+
+    const writer = await state.sessions.open("fixture");
+    assert.equal(await links(), 1, "a writable session must not share inodes with its source");
+    await state.sessions.close(writer.id, true);
+
+    const reader = await state.sessions.openRead("fixture");
+    assert.equal(reader.writable, false);
+    assert.equal(await readWorkspace(reader, "README.md", 1_000), "fixture\n");
+    assert.ok(await links() >= 2, "a read-only session should hard-link the source objects");
+    await state.sessions.close(reader.id, true);
+    assert.equal(await links(), 1, "closing the read session must leave the source object intact");
+  } finally {
+    for (const session of state.sessions.list()) await state.sessions.close(session.id, true).catch(() => undefined);
+    state.sessions.dispose();
+    await rm(state.base, { recursive: true, force: true });
+  }
+});
+
+test("a read-only session of a repository with object alternates gets an independent copy", async () => {
+  const state = await fixture();
+  try {
+    const shared = join(state.base, "shared");
+    await execFileAsync("git", ["clone", "--shared", state.repo, shared]);
+    const config = { ...state.config, repositories: { fixture: shared } } as DispatcherConfig;
+    const sessions = new SessionManager(config);
+    try {
+      const reader = await sessions.openRead("fixture");
+      assert.equal(await readWorkspace(reader, "README.md", 1_000), "fixture\n");
+      await assert.rejects(access(join(reader.gitDir, "objects", "info", "alternates")), "the session must not depend on the source's alternates");
+      await sessions.close(reader.id, true);
+    } finally {
+      for (const session of sessions.list()) await sessions.close(session.id, true).catch(() => undefined);
+      sessions.dispose();
+    }
+  } finally {
+    state.sessions.dispose();
     await rm(state.base, { recursive: true, force: true });
   }
 });

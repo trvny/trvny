@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
-import { REMOTE_DIRECT_TOOLS, remoteDirectCallSchema, remoteResultSchema } from "../src/remote-protocol.js";
+import { REMOTE_DIRECT_TOOLS, remoteDirectCallSchema } from "../src/remote-protocol.js";
 import { PET_COCKPIT_HTML, PET_COCKPIT_URI } from "./cockpit.js";
 import type { RecentTaskSnapshot } from "./recent-task-index.js";
 
@@ -87,17 +87,25 @@ const taskStatusSchema = z.enum([
   "queued", "leased", "running", "cancel_requested",
   "completed", "failed", "cancelled", "recovery_required",
 ]);
+// Output schemas are listed to hosts on every session, so they stay lean: exact key sets (still strict, nothing
+// unexpected can leak out) but no value constraints - the worker already validated the full remoteResultSchema
+// and the state store the dates before anything reaches this layer.
+const taskResultOutputSchema = z.object({
+  status: z.string(), summary: z.string(), tests: z.string().optional(), diff: z.string().optional(),
+  commit: z.string().optional(), exportedRef: z.string().optional(), data: z.unknown().optional(),
+  output: z.string().optional(), error: z.string().optional(),
+}).strict();
 const taskBodySchema = z.object({
-  taskId: z.string().uuid(),
+  taskId: z.string(),
   status: taskStatusSchema,
-  deviceId: z.string().min(1).max(128).optional(),
-  createdAt: z.string().datetime().optional(),
-  updatedAt: z.string().datetime().optional(),
-  heartbeatAt: z.string().datetime().optional(),
+  deviceId: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  heartbeatAt: z.string().optional(),
   cancelRequested: z.boolean().optional(),
-  expiresAt: z.string().datetime().optional(),
-  result: remoteResultSchema.optional(),
-  timings: z.object({ queuedMs: z.number().int().min(0), runMs: z.number().int().min(0), totalMs: z.number().int().min(0) }).strict().optional(),
+  expiresAt: z.string().optional(),
+  result: taskResultOutputSchema.optional(),
+  timings: z.record(z.string(), z.number()).optional().describe("queuedMs, runMs, totalMs"),
 }).strict();
 const metaOutputSchema = z.object({
   httpStatus: z.number().int().min(100).max(599),
@@ -151,14 +159,23 @@ async function awaitTask(
   if (!taskId) return initial;
   const deadline = Date.now() + waitSeconds * 1_000;
   let current = initial;
+  let attempt = 0;
   while (Date.now() < deadline) {
     current = await operations.getTask(taskId);
     if (current.status >= 400 || terminalBody(current.body)) return current;
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
-    await delay(Math.min(1_000, remaining));
+    await delay(Math.min(pollDelayMs(attempt++), remaining));
   }
   return current;
+}
+
+// A 40 s wait at a fixed 1 s would be ~40 Durable Object reads per MCP call (and Workers cap subrequests per
+// invocation). Poll fast first, then back off: ~12 reads for 40 s, at most a few seconds of added latency.
+const POLL_DELAYS_MS = [1_000, 1_000, 2_000, 2_000, 4_000];
+const POLL_DELAY_CAP_MS = 5_000;
+export function pollDelayMs(attempt: number): number {
+  return POLL_DELAYS_MS[attempt] ?? POLL_DELAY_CAP_MS;
 }
 
 function compactTaskBody(body: unknown, debug: boolean): unknown {
@@ -179,7 +196,7 @@ function shortText(result: ControlRpcResult, body: unknown): string {
       if (typeof summary === "string" && summary) return summary.slice(0, 1_000);
     }
     if (typeof task.status === "string") {
-      return terminalBody(body) ? `Pet Dispatcher task: ${task.status}.` : `Pet Dispatcher task: ${task.status}. Not finished yet: call pet_task_get once with this taskId (it waits).`;
+      return terminalBody(body) ? `Pet Dispatcher task: ${task.status}.` : `Pet Dispatcher task: ${task.status}. Not finished yet: call pet_task_get with this taskId (it waits up to 45 s).`;
     }
   }
   return result.status >= 400 ? `Pet Dispatcher request failed with HTTP ${result.status}.` : "Pet Dispatcher request completed.";

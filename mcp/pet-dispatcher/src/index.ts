@@ -63,7 +63,7 @@ async function main(): Promise<void> {
       // Host mode stays off (empty capability list) unless the local config lists roots and grantable capabilities.
       const configPath = process.env.PET_DISPATCHER_CONFIG ? resolve(process.env.PET_DISPATCHER_CONFIG) : undefined;
       const installRoot = configPath ? (basename(dirname(configPath)).toLowerCase() === "config" ? dirname(dirname(configPath)) : dirname(configPath)) : undefined;
-      const authority = await AuthorityPolicy.create(config.authority, { home: homedir(), installRoot });
+      const authority = await AuthorityPolicy.create(config.authority, { home: homedir(), installRoot, extraDeny: [config.workspaceRoot] });
       const metaProvider = () => {
         const sandbox = runner.securityStatus() as { supported?: boolean; processGuard?: string; networkDefault?: string; isolationTier?: string | null };
         return deviceMetaSchema.parse({

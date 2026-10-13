@@ -20,7 +20,9 @@ export type AuthorityConfig = z.infer<typeof authorityConfigSchema>;
 
 export type TrustTier = "operator-interactive" | "trusted-delegate" | "untrusted-delegate";
 
-/** The tier comes from how the signed task will be executed, never from a field the caller controls. */
+/** The tier comes from how the signed task will be executed, never from a field the caller controls.
+ *  Not known here: which MCP route (owner bearer vs connector URL) submitted the task. PR 2 has the Worker stamp the
+ *  route into the signed envelope so the Legion can enforce "host mode only on the owner route" itself. */
 export function tierForExecutor(executor: "direct" | "openrouter" | "deepseek" | "gemini"): TrustTier {
   return executor === "direct" ? "operator-interactive" : "untrusted-delegate";
 }
@@ -41,12 +43,17 @@ const HOME_DENY_READ = [
   ".ssh", ".gnupg", ".aws", ".azure", ".engram", ".local\\share\\.engram", ".local\\share\\claude-backup", ".local\\share\\engram-export",
   ".claude\\secrets", ".claude\\.credentials.json", ".codex\\auth.json", ".git-credentials", ".config\\rclone", ".config\\gh\\hosts.yml",
   "AppData\\Roaming\\rclone", "AppData\\Roaming\\GitHub CLI\\hosts.yml",
+  // The legacy Desktop Commander dir also holds PD's session clones, legacy DPAPI blobs and the legacy live config.
+  "dir\\.dc\\pet-dispatcher-workspace", "dir\\.dc\\.secrets", "dir\\.dc\\pet-dispatcher",
 ];
 // A write that becomes code execution (settings/hooks, profiles, autostart) or edits this policy.
 const HOME_DENY_WRITE = [
   ".claude", "Documents\\PowerShell", "Documents\\WindowsPowerShell", ".bashrc", ".bash_profile", ".profile", ".local\\share\\pet-dispatcher",
-  "AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
+  "AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup", ".gitconfig", ".config\\git",
 ];
+// Segment rules, applied under every root: a write here runs code later (git hooks/fsmonitor on the next git command,
+// project hooks when Claude Code opens the repo).
+const DENY_WRITE_SEGMENT = new Set([".git", ".claude"]);
 // Credential-shaped file names, denied for reading anywhere under a root.
 const DENY_READ_NAME = [/^\.env(\..*)?$/iu, /\.(pem|key|pfx|p12|jks|keystore)$/iu, /^\.credentials\.json$/iu, /^id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$/iu,
   /^hosts\.yml$/iu, /^auth\.json$/iu, /^\.git-credentials$/iu, /^\.npmrc$/iu, /^\.dev\.vars$/iu];
@@ -64,6 +71,8 @@ export interface AuthorityOptions {
   home: string;
   /** PD install root (config/, bin/, secrets/, app/): denied for read and write. */
   installRoot?: string;
+  /** More paths denied for read and write (e.g. the worker's session workspace root). */
+  extraDeny?: string[];
   /** Canonicalizes roots; default resolves symlinks/junctions. Injected in tests. */
   canonicalize?: (path: string) => Promise<string>;
   now?: () => number;
@@ -78,15 +87,13 @@ export class AuthorityPolicy {
   readonly #now: () => number;
   readonly #leases = new Map<string, Lease>();
 
-  private constructor(config: AuthorityConfig, roots: string[], options: AuthorityOptions) {
+  private constructor(config: AuthorityConfig, roots: string[], denyRead: string[], denyWrite: string[], options: AuthorityOptions) {
     this.#grantable = new Set(roots.length > 0 ? config.grantable : []);   // no usable root = host mode off
     this.#roots = roots;
     this.#maxLeaseMs = config.maxLeaseMinutes * 60_000;
     this.#now = options.now ?? Date.now;
-    const home = win32.resolve(options.home);
-    const install = options.installRoot ? [win32.resolve(options.installRoot)] : [];
-    this.#denyRead = [...install, ...HOME_DENY_READ.map((p) => win32.join(home, p))].map(key);
-    this.#denyWrite = [...install, ...[...HOME_DENY_READ, ...HOME_DENY_WRITE].map((p) => win32.join(home, p))].map(key);
+    this.#denyRead = denyRead;
+    this.#denyWrite = denyWrite;
   }
 
   static async create(config: AuthorityConfig | undefined, options: AuthorityOptions): Promise<AuthorityPolicy> {
@@ -96,7 +103,21 @@ export class AuthorityPolicy {
     for (const root of parsed.roots) {
       try { roots.push(key(await canonicalize(win32.resolve(root)))); } catch { /* unavailable root grants nothing */ }
     }
-    return new AuthorityPolicy(parsed, roots, options);
+    // Floor entries get the same canonicalization as roots (a junction under a root would otherwise let the canonical
+    // path of a protected directory slip past its raw spelling); both spellings are kept.
+    const home = win32.resolve(options.home);
+    const always = [...(options.installRoot ? [win32.resolve(options.installRoot)] : []), ...(options.extraDeny ?? []).map((p) => win32.resolve(p))];
+    const expand = async (paths: string[]): Promise<string[]> => {
+      const out = new Set<string>();
+      for (const path of paths) {
+        out.add(key(path));
+        try { out.add(key(await canonicalize(path))); } catch { /* not present: the raw spelling still applies */ }
+      }
+      return [...out];
+    };
+    const denyRead = await expand([...always, ...HOME_DENY_READ.map((p) => win32.join(home, p))]);
+    const denyWrite = await expand([...always, ...[...HOME_DENY_READ, ...HOME_DENY_WRITE].map((p) => win32.join(home, p))]);
+    return new AuthorityPolicy(parsed, roots, denyRead, denyWrite, options);
   }
 
   /** Capabilities the local config would let an operator hold; empty = host mode off (no roots = nothing to act on). */
@@ -142,10 +163,15 @@ export class AuthorityPolicy {
     const normalized = win32.normalize(raw);
     const segments = normalized.split("\\").filter(Boolean);
     if (segments.some((s) => s === ".." || RESERVED_NAME.test(s))) return { allowed: false, reason: "reserved or relative path segment" };
+    // Win32 silently drops trailing dots/spaces, so "x." is "x" on disk and would dodge the name and floor rules.
+    if (segments.some((s) => /[. ]$/u.test(s))) return { allowed: false, reason: "path segment ends with a dot or space" };
     const path = key(normalized);
     if (!this.#roots.some((root) => isInside(root, path))) return { allowed: false, reason: "path is outside the granted roots" };
     const floor = mode === "write" ? this.#denyWrite : this.#denyRead;
     if (floor.some((denied) => isInside(denied, path))) return { allowed: false, reason: "path is protected by the policy floor" };
+    if (mode === "write" && segments.some((s) => DENY_WRITE_SEGMENT.has(s.toLowerCase()))) {
+      return { allowed: false, reason: "writes under .git or .claude can execute code later" };
+    }
     const name = segments.at(-1) ?? "";
     if (mode === "read" && DENY_READ_NAME.some((pattern) => pattern.test(name))) return { allowed: false, reason: "credential-shaped file name" };
     return { allowed: true };

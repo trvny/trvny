@@ -6,7 +6,7 @@ import test from "node:test";
 import { AuthorityPolicy, authorityConfigSchema, tierForExecutor, type AuthorityConfig } from "../src/authority.js";
 import { loadConfig } from "../src/config.js";
 import { deviceMetaSchema } from "../src/device-meta.js";
-import { remoteCapabilitySchema } from "../src/remote-protocol.js";
+import { remoteCapabilitySchema, remoteTaskSchema } from "../src/remote-protocol.js";
 
 const HOME = "C:\\Users\\tester";
 const INSTALL = "C:\\Users\\tester\\.local\\share\\pet-dispatcher";
@@ -106,6 +106,51 @@ test("policy floor: the install root, credential stores and code-exec write path
   }
   assert.equal(decision(`${HOME}\\git\\repo\\README.md`, "read"), true);
   assert.equal(decision(`${HOME}\\git\\repo\\README.md`, "write"), true);
+});
+
+test("trailing dots and spaces cannot dodge the name rules or the floor", async () => {
+  const p = await policy({ grantable: ["host.fs.read", "host.fs.write"], roots: [HOME] });
+  for (const name of [".bashrc.", ".bashrc ", "settings.json.", ".bashrc. ."]) {
+    assert.equal(p.evaluatePath(`${HOME}\\${name}`, "write").allowed, false, `write ${name}`);
+  }
+  assert.equal(p.evaluatePath(`${HOME}\\git\\secret.pem.`, "read").allowed, false, "secret.pem. is secret.pem on disk");
+  assert.equal(p.evaluatePath(`${HOME}\\git\\notes `, "read").allowed, false);
+  assert.equal(p.evaluatePath(`${HOME}\\git\\.hidden`, "read").allowed, true, "a leading dot is fine");
+});
+
+test("floor entries follow junctions the same way roots do", async () => {
+  // ~/dir/.dc is a junction to D:\dc: the canonical spelling of a protected path must still be denied.
+  const canonicalize = async (path: string) => path.toLowerCase().startsWith("c:\\users\\tester\\dir\\.dc") ? path.replace(/^c:\\users\\tester\\dir\\.dc/iu, "D:\\dc") : path;
+  const p = await AuthorityPolicy.create(authorityConfigSchema.parse({ grantable: ["host.fs.read", "host.fs.write"], roots: ["C:\\Users\\tester\\dir\\.dc"] }), {
+    home: HOME, installRoot: INSTALL, canonicalize,
+  });
+  assert.equal(p.evaluatePath("D:\\dc\\tools\\a.txt", "write").allowed, true, "the root itself resolves to D:\\dc");
+  for (const protectedPath of ["D:\\dc\\pet-dispatcher-workspace\\sessions\\x\\a", "D:\\dc\\.secrets\\pet-dispatcher\\k.dpapi", "D:\\dc\\pet-dispatcher\\dispatcher.live.json"]) {
+    assert.equal(p.evaluatePath(protectedPath, "read").allowed, false, `read ${protectedPath}`);
+    assert.equal(p.evaluatePath(protectedPath, "write").allowed, false, `write ${protectedPath}`);
+  }
+});
+
+test("writes that become code execution are denied under every root, extra denies apply", async () => {
+  const p = await AuthorityPolicy.create(authorityConfigSchema.parse({ grantable: ["host.fs.write", "host.fs.read"], roots: ["C:\\Users\\tester\\git", "E:\\work"] }), {
+    home: HOME, installRoot: INSTALL, extraDeny: ["E:\\work\\sessions"], canonicalize: identity,
+  });
+  for (const path of ["C:\\Users\\tester\\git\\repo\\.git\\hooks\\pre-commit", "C:\\Users\\tester\\git\\repo\\.git\\config", "E:\\work\\proj\\.claude\\settings.json",
+    "C:\\Users\\tester\\git\\repo\\.GIT\\hooks\\post-checkout", `${HOME}\\.gitconfig`]) {
+    assert.equal(p.evaluatePath(path, "write").allowed, false, `write ${path}`);
+  }
+  assert.equal(p.evaluatePath("C:\\Users\\tester\\git\\repo\\.git\\HEAD", "read").allowed, true, "reading git metadata stays possible");
+  assert.equal(p.evaluatePath("C:\\Users\\tester\\git\\repo\\.gitignore", "write").allowed, true, "only the .git directory segment is special");
+  assert.equal(p.evaluatePath("E:\\work\\sessions\\s1\\a.txt", "read").allowed, false, "extraDeny (the worker's session root)");
+  assert.equal(p.evaluatePath("E:\\work\\proj\\a.txt", "write").allowed, true);
+});
+
+test("no executor can carry a host capability yet (the enum addition is inert)", () => {
+  const base = { repo: "r", baseRef: "main", timeoutMinutes: 2, network: { mode: "none" } };
+  for (const capability of ["host.fs.read", "host.exec", "process.manage"]) {
+    assert.throws(() => remoteTaskSchema.parse({ ...base, executor: "openrouter", goal: "x", capabilities: [capability] }), /not available yet/u, `agent ${capability}`);
+    assert.throws(() => remoteTaskSchema.parse({ ...base, executor: "direct", direct: { tool: "fs.read", path: "a" }, profile: "inspect", capabilities: [capability] }), /not available yet/u);
+  }
 });
 
 test("roots that cannot be canonicalized grant nothing", async () => {

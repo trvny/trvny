@@ -113,7 +113,7 @@ const metaOutputSchema = z.object({
     deviceId: z.string().min(1).max(128), transport: z.literal("cloudflare-queues-http-pull"), protocol: z.literal(1),
     updatedAt: z.string().datetime().nullable(), repositories: z.array(z.string()), workspaces: z.array(z.string()),
     directTools: z.array(z.string()), localTools: z.array(z.string()), activeSessions: z.number().int().min(0),
-    activeProcesses: z.number().int().min(0), stale: z.boolean(),
+    hostCapabilities: z.array(z.string()).optional(), activeProcesses: z.number().int().min(0), stale: z.boolean(),
     sandbox: z.object({ supported: z.boolean(), processGuard: z.string(), networkDefault: z.string(), isolationTier: z.string().nullable().optional() }).passthrough(),
   }).strict(),
 }).strict();

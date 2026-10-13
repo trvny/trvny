@@ -3,6 +3,7 @@ import { z } from "zod";
 export const remoteCapabilitySchema = z.enum([
   "workspace.read", "workspace.write", "process.exec", "git.read", "git.commit", "tests.run", "network.fetch",
   "adb.inspect", "adb.install", "github.pr.create",
+  "host.fs.read", "host.fs.write", "host.exec", "process.manage",
 ]);
 export type RemoteCapability = z.infer<typeof remoteCapabilitySchema>;
 
@@ -124,6 +125,13 @@ export const remoteTaskSchema = z.object({
   network: remoteNetworkSchema.default({ mode: "none" }),
   timeoutMinutes: z.number().int().min(1).max(20).default(20),
 }).strict().superRefine((task, ctx) => {
+  // Reserved until the tools that need them exist (host mode PR 2+): no executor may carry a host capability yet,
+  // so adding them to the enum is inert by construction (Worker and Legion share this schema).
+  for (const capability of task.capabilities) {
+    if (capability.startsWith("host.") || capability === "process.manage") {
+      ctx.addIssue({ code: "custom", path: ["capabilities"], message: `capability is not available yet: ${capability}` });
+    }
+  }
   const hostTarget = task.target === "host";
   if (hostTarget) {
     if (task.repo) ctx.addIssue({ code: "custom", path: ["repo"], message: "host tasks do not accept a repository" });

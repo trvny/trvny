@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { authorityConfigSchema } from "./authority.js";
 
 const hostRule = z.string().min(1)
   .regex(/^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/, "network host rules must be exact DNS names");
@@ -64,6 +65,7 @@ const configSchema = z.object({
   maxOutputBytes: z.number().int().min(4_096).max(16_777_216).default(1_048_576), maxBrokerResponseBytes: z.number().int().min(1_024).max(8_388_608).default(2_097_152),
   sessionReaperIntervalMs: z.number().int().min(1_000).max(60_000).default(15_000), resourceLimits: resourceLimitsSchema,
   openRouterModel: z.string().min(1).default("openrouter/free"), geminiModel: z.string().min(1).default("gemini-2.5-flash"), remote: remoteSchema.optional(),
+  authority: authorityConfigSchema.optional(),
 }).superRefine((value, ctx) => {
   for (const alias of Object.keys(value.workspaces)) if (alias in value.repositories) ctx.addIssue({ code: "custom", path: ["workspaces", alias], message: "workspace and repository aliases must be unique" });
 });
@@ -96,6 +98,7 @@ export async function loadConfig(configPath = process.env.PET_DISPATCHER_CONFIG)
     workspaces: Object.fromEntries(Object.entries(parsed.workspaces).map(([name, path]) => [name, resolveLocalPath(path, base)])),
     toolRoots: parsed.toolRoots.map((path) => resolveLocalPath(path, base)),
     environmentPolicy,
+    authority: parsed.authority ? { ...parsed.authority, roots: parsed.authority.roots.map((path) => resolveLocalPath(path, base)) } : undefined,
     remote: parsed.remote ? { ...parsed.remote, journalPath: resolveLocalPath(parsed.remote.journalPath, base) } : undefined,
     networkProfiles: Object.fromEntries(Object.entries(parsed.networkProfiles).map(([name, profile]) => [name, { hosts: [...new Set(profile.hosts.map((host) => host.toLowerCase()))] }])),
   };

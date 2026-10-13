@@ -111,8 +111,12 @@ async function migrateJournal(sourcePath: string | undefined, targetPath: string
 
 async function publishBin(sourceRoot: string, paths: LocalRuntimePaths): Promise<void> {
   await mkdir(paths.binRoot, { recursive: true });
-  for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js", "pet-dispatcher-restart.ps1", "pet-dispatcher-secrets.ps1"]) {
+  for (const name of ["pet-dispatcher-supervise.js", "pet-dispatcher-start-worker.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-secrets.ps1"]) {
     await copyFile(join(sourceRoot, "scripts", name), join(paths.binRoot, name));
+  }
+  // Replaced by the wscript supervisor; a stale copy would only confuse whoever reads bin/.
+  for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js"]) {
+    await rm(join(paths.binRoot, name), { force: true });
   }
   await writeFile(
     join(paths.binRoot, "provider-credential-env-names.json"),
@@ -173,17 +177,17 @@ export function windowsStartupCommand(wscript: string, shim: string): string {
 async function registerStartup(paths: LocalRuntimePaths): Promise<void> {
   if (process.platform !== "win32") throw new Error("Pet Dispatcher startup registration is Windows-only");
   const wscript = join(process.env.SystemRoot ?? String.raw`C:\Windows`, "System32", "wscript.exe");
-  const shim = join(paths.binRoot, "pet-dispatcher-launch-hidden.js");
+  const shim = join(paths.binRoot, "pet-dispatcher-supervise.js");
   const command = windowsStartupCommand(wscript, shim);
   await run("reg.exe", ["add", String.raw`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, "/v", "PetDispatcher", "/t", "REG_SZ", "/d", command, "/f"]);
 }
 
-async function restartStartupLauncher(paths: LocalRuntimePaths): Promise<void> {
+async function restartStartupSupervisor(paths: LocalRuntimePaths): Promise<void> {
   if (process.platform !== "win32") throw new Error("Pet Dispatcher launcher restart is Windows-only");
   const powershell = join(process.env.SystemRoot ?? String.raw`C:\Windows`, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-  const launcher = join(paths.binRoot, "pet-dispatcher-launch.ps1");
+  const supervisor = join(paths.binRoot, "pet-dispatcher-supervise.js");
   const restart = join(paths.binRoot, "pet-dispatcher-restart.ps1");
-  await run(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", restart, "-Launcher", launcher]);
+  await run(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", restart, "-Supervisor", supervisor]);
 }
 
 export async function installLocalRuntime(options: InstallLocalRuntimeOptions): Promise<InstallLocalRuntimeResult> {
@@ -201,7 +205,7 @@ export async function installLocalRuntime(options: InstallLocalRuntimeOptions): 
   await writeCurrentManifest(paths, sourceCommit, releaseRoot);
   if (options.registerStartup) await registerStartup(paths);
   await pruneReleases(paths, releaseRoot, options.keepReleases ?? 2);
-  if (options.registerStartup) await restartStartupLauncher(paths);
+  if (options.registerStartup) await restartStartupSupervisor(paths);
   return { paths, sourceCommit, releaseRoot };
 }
 

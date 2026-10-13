@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +19,7 @@ async function writeEnvironmentPolicyFixture(source: string): Promise<void> {
 }
 
 test("remote launcher strips inherited provider credentials before starting Node", async () => {
-  const launcher = await readFile(new URL("../scripts/pet-dispatcher-launch.ps1", import.meta.url), "utf8");
+  const launcher = await readFile(new URL("../scripts/pet-dispatcher-start-worker.ps1", import.meta.url), "utf8");
   assert.equal(launcher.includes("provider-credential-env-names.json"), true);
   assert.equal(launcher.includes('Remove-Item -LiteralPath "Env:$([string]$name)"'), true);
   assert.equal(launcher.includes("& $nodePath $entry provider-credential"), false);
@@ -42,8 +42,8 @@ test("local installer publishes runtime and migrates control state away from dc"
     await writeFile(join(source, "package.json"), JSON.stringify({ name: "pet-fixture", version: "1.0.0" }));
     await writeEnvironmentPolicyFixture(source);
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({ workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {} }));
-    await writeFile(join(source, "scripts", "pet-dispatcher-launch.ps1"), "# launcher fixture\n");
-    await writeFile(join(source, "scripts", "pet-dispatcher-launch-hidden.js"), "// shim fixture\n");
+    await writeFile(join(source, "scripts", "pet-dispatcher-start-worker.ps1"), "# launcher fixture\n");
+    await writeFile(join(source, "scripts", "pet-dispatcher-supervise.js"), "// supervisor fixture\n");
     await writeFile(join(source, "scripts", "pet-dispatcher-secrets.ps1"), "# secrets fixture\n");
     await writeFile(join(source, "scripts", "pet-dispatcher-restart.ps1"), "# restart fixture\n");
     await writeFile(join(source, "scripts", "windows-job-guard.ps1"), "# guard fixture\n");
@@ -77,7 +77,7 @@ test("local installer publishes runtime and migrates control state away from dc"
     assert.deepEqual(JSON.parse(await readFile(result.paths.environmentPolicyPath, "utf8")), environmentPolicyFixture);
     assert.equal(await readFile(result.paths.journalPath, "utf8"), "journal\n");
     assert.equal(await readFile(join(result.paths.secretsRoot, "PET_DISPATCHER_QUEUE_TOKEN.dpapi"), "utf8"), "queue-cipher");
-    assert.equal(await readFile(join(result.paths.binRoot, "pet-dispatcher-launch.ps1"), "utf8"), "# launcher fixture\n");
+    assert.equal(await readFile(join(result.paths.binRoot, "pet-dispatcher-start-worker.ps1"), "utf8"), "# launcher fixture\n");
     assert.equal(await readFile(join(result.paths.binRoot, "pet-dispatcher-restart.ps1"), "utf8"), "# restart fixture\n");
     assert.deepEqual(JSON.parse(await readFile(join(result.paths.binRoot, "provider-credential-env-names.json"), "utf8")), PROVIDER_CREDENTIAL_ENV_NAMES);
     assert.equal((await execFileAsync("git", ["-C", result.paths.repoMirror, "rev-parse", "--is-bare-repository"])).stdout.trim(), "true");
@@ -104,7 +104,7 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
     await writeFile(join(source, "package.json"), JSON.stringify({ name: "pet-fixture", version: "1.0.0" }));
     await writeEnvironmentPolicyFixture(source);
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({ workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {} }));
-    for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "windows-job-guard.ps1"]) await writeFile(join(source, "scripts", name), "# fixture\n");
+    for (const name of ["pet-dispatcher-start-worker.ps1", "pet-dispatcher-supervise.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "windows-job-guard.ps1"]) await writeFile(join(source, "scripts", name), "# fixture\n");
     await execFileAsync("git", ["init", source]);
     await execFileAsync("git", ["-C", source, "add", "."]);
     await execFileAsync("git", ["-C", source, "-c", "user.name=Pet Test", "-c", "user.email=pet@example.invalid", "commit", "-m", "one"]);
@@ -129,15 +129,79 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
 
 test("startup command uses native Windows quoting", async () => {
   const module = await import("../scripts/install-local-runtime.js");
-  assert.equal(module.windowsStartupCommand(String.raw`C:\Program Files\Windows\wscript.exe`, String.raw`C:\Users\travn\.local\share\pet-dispatcher\bin\pet-dispatcher-launch-hidden.js`),
-    '"C:\\Program Files\\Windows\\wscript.exe" //B //Nologo "C:\\Users\\travn\\.local\\share\\pet-dispatcher\\bin\\pet-dispatcher-launch-hidden.js"');
+  assert.equal(module.windowsStartupCommand(String.raw`C:\Program Files\Windows\wscript.exe`, String.raw`C:\Users\travn\.local\share\pet-dispatcher\bin\pet-dispatcher-supervise.js`),
+    '"C:\\Program Files\\Windows\\wscript.exe" //B //Nologo "C:\\Users\\travn\\.local\\share\\pet-dispatcher\\bin\\pet-dispatcher-supervise.js"');
 });
 
-test("hidden launch shim starts the launcher with SW_HIDE", async () => {
-  const shim = await readFile(new URL("../scripts/pet-dispatcher-launch-hidden.js", import.meta.url), "utf8");
-  assert.match(shim, /pet-dispatcher-launch\.ps1/u);
-  assert.match(shim, /-WindowStyle Hidden/u);
-  assert.match(shim, /, 0, false\)/u);
+test("supervisor starts the one-shot worker launcher with SW_HIDE and holds a singleton lock", async () => {
+  const supervisor = await readFile(new URL("../scripts/pet-dispatcher-supervise.js", import.meta.url), "utf8");
+  assert.match(supervisor, /pet-dispatcher-start-worker\.ps1/u);
+  assert.match(supervisor, /shell\.Run\(command, 0, true\)/u);
+  assert.match(supervisor, /supervisor\.lock/u);
+});
+
+async function waitFor<T>(probe: () => Promise<T | undefined>, timeoutMs: number): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = await probe();
+    if (value !== undefined) return value;
+    if (Date.now() > deadline) throw new Error("timed out waiting for supervisor state");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+function alive(pid: number): boolean {
+  try { process.kill(pid, 0); return true; }
+  catch { return false; }
+}
+
+test("supervisor restarts a dead worker and refuses a second instance", { skip: process.platform !== "win32", timeout: 60_000 }, async () => {
+  const base = await mkdtemp(join(tmpdir(), "pet-supervisor-"));
+  const bin = join(base, "bin");
+  const supervisorPath = join(bin, "pet-dispatcher-supervise.js");
+  const pidPath = join(base, "state", "worker.pid");
+  const wscript = join(process.env.SystemRoot ?? String.raw`C:\Windows`, "System32", "wscript.exe");
+  const env = { ...process.env, PET_DISPATCHER_SUPERVISOR_POLL_MS: "500", PET_DISPATCHER_SUPERVISOR_RETRY_MS: "500", FIXTURE_NODE: process.execPath };
+  const spawned: number[] = [];
+  const workers = new Set<number>();
+  const readWorker = async (): Promise<number | undefined> => {
+    try {
+      const pid = Number.parseInt(await readFile(pidPath, "utf8"), 10);
+      return pid > 0 && alive(pid) ? pid : undefined;
+    } catch { return undefined; }
+  };
+  try {
+    await mkdir(bin, { recursive: true });
+    await writeFile(supervisorPath, await readFile(new URL("../scripts/pet-dispatcher-supervise.js", import.meta.url)));
+    // Stand-in for the real launcher: a sleeping node whose command line ends in "index.js remote".
+    await writeFile(join(bin, "pet-dispatcher-start-worker.ps1"), [
+      "param([string]$Root)",
+      "New-Item -ItemType Directory -Path (Join-Path $Root 'state') -Force | Out-Null",
+      "$p = Start-Process -FilePath $env:FIXTURE_NODE -ArgumentList @('-e', '\"setTimeout(function(){},120000)\"', 'index.js', 'remote') -WindowStyle Hidden -PassThru",
+      "Set-Content -LiteralPath (Join-Path $Root 'state\\worker.pid') -Value $p.Id -Encoding ascii -NoNewline",
+      "",
+    ].join("\r\n"));
+    const first = spawn(wscript, ["//B", "//Nologo", supervisorPath], { env, windowsHide: true, stdio: "ignore" });
+    spawned.push(first.pid ?? 0);
+    const worker1 = await waitFor(readWorker, 20_000);
+    workers.add(worker1);
+
+    process.kill(worker1);
+    const worker2 = await waitFor(async () => {
+      const pid = await readWorker();
+      return pid !== undefined && pid !== worker1 ? pid : undefined;
+    }, 20_000);
+    workers.add(worker2);
+
+    const second = spawn(wscript, ["//B", "//Nologo", supervisorPath], { env, windowsHide: true, stdio: "ignore" });
+    spawned.push(second.pid ?? 0);
+    await waitFor(async () => second.exitCode === null ? undefined : second.exitCode, 10_000);
+    assert.equal(alive(worker2), true, "a refused second supervisor must not touch the worker");
+  } finally {
+    for (const pid of spawned) if (pid) await execFileAsync("taskkill.exe", ["/PID", String(pid), "/T", "/F"]).catch(() => undefined);
+    for (const pid of workers) if (alive(pid)) { try { process.kill(pid); } catch { /* already gone */ } }
+    await rm(base, { recursive: true, force: true });
+  }
 });
 
 
@@ -154,7 +218,7 @@ test("local installer can run npm build on Windows", { skip: process.platform !=
     await writeFile(join(source, "dispatcher.config.example.json"), JSON.stringify({
       workspaceRoot: join(base, "dc", "workspace"), repositories: {}, workspaces: {}, toolRoots: [], networkProfiles: {},
     }));
-    for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "windows-job-guard.ps1"]) {
+    for (const name of ["pet-dispatcher-start-worker.ps1", "pet-dispatcher-supervise.js", "pet-dispatcher-secrets.ps1", "pet-dispatcher-restart.ps1", "windows-job-guard.ps1"]) {
       await writeFile(join(source, "scripts", name), "# fixture\n");
     }
     await execFileAsync("git", ["init", source]);

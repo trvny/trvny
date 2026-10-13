@@ -78,7 +78,7 @@ npm run check
 npm run install:local
 ```
 
-The Windows installer publishes an immutable release under `%USERPROFILE%\.local\share\pet-dispatcher\app\releases`, keeps the live config/state/DPAPI secrets and a bare `trvny.git` mirror under the same stable root, and registers the installed launcher for the current user at logon. Re-run `npm run install:local` from any clean checkout to update it; use `npm run install:local -- --no-startup` when startup registration is not wanted.
+The Windows installer publishes an immutable release under `%USERPROFILE%\.local\share\pet-dispatcher\app\releases`, keeps the live config/state/DPAPI secrets and a bare `trvny.git` mirror under the same stable root, and registers a resident `wscript` supervisor (`bin\pet-dispatcher-supervise.js`, ~6 MB, no console window) for the current user at logon. The supervisor runs `pet-dispatcher-start-worker.ps1` (one-shot PowerShell: DPAPI secrets, then a detached Node worker) and restarts the worker within ~10 s when it dies; each worker start writes its own `logsemote-<timestamp>.log`/`.err.log`, supervisor events go to `logs\supervisor-<date>.log`. Re-run `npm run install:local` from any clean checkout to update it; use `npm run install:local -- --no-startup` when startup registration is not wanted.
 
 Remote agent tasks refresh that configured bare mirror from its existing `origin` before opening the disposable session when `remote.syncRepositories` is enabled (default: `true`). The task cannot supply or replace the remote URL, Git credential helpers and prompts remain disabled, and the fetch updates only heads/tags, so exported `refs/pet-dispatcher/*` survive. A failed refresh fails the task closed instead of silently running against stale code.
 
@@ -88,7 +88,7 @@ The legacy remote executor id `openrouter` uses the control plane's signed free-
 
 Use `openrouter` for cheap reconnaissance and ordinary delegated work. Use `deepseek` for concrete multi-step implementation, debugging and repository work where the larger reasoning budget is worth spending account credits. The DeepSeek work contract enables max-effort thinking with up to 128K generated tokens per model turn, allows signed model-turn request bodies up to 4 MiB, and gives each managed work request up to five minutes inside the overall task timeout. DeepSeek thinking tool calls preserve `reasoning_content` across turns as required by its API. Once any managed model executes a tool call, Pet Dispatcher pins the underlying provider identity from the router response and fails closed if a later step switches providers, avoiding duplicate or divergent side effects.
 
-For remote polling, configure the `remote` block and set only the transport/signing secrets below. Before the installed remote launcher starts Node, it removes all known direct-provider credential variables inherited from the Windows logon environment; remote model credentials stay centralized behind the managed router.
+For remote polling, configure the `remote` block and set only the transport/signing secrets below. Before the one-shot worker launcher starts Node, it removes all known direct-provider credential variables inherited from the Windows logon environment; remote model credentials stay centralized behind the managed router.
 
 ```powershell
 $env:PET_DISPATCHER_QUEUE_TOKEN = '<queues read+write token>'

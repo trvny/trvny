@@ -3,6 +3,7 @@ import { z } from "zod";
 export const remoteCapabilitySchema = z.enum([
   "workspace.read", "workspace.write", "process.exec", "git.read", "git.commit", "tests.run", "network.fetch",
   "adb.inspect", "adb.install", "github.pr.create",
+  "host.fs.read", "host.fs.write", "host.exec", "process.manage",
 ]);
 export type RemoteCapability = z.infer<typeof remoteCapabilitySchema>;
 
@@ -112,8 +113,23 @@ const REMOTE_DIRECT_READ_TOOLS = new Set<RemoteDirectCall["tool"]>([
 ]);
 export function isRemoteDirectReadTool(tool: RemoteDirectCall["tool"]): boolean { return REMOTE_DIRECT_READ_TOOLS.has(tool); }
 
+// Host filesystem access (host mode). Deliberately NOT part of remoteDirectCallSchema: pet_direct and the HTTP direct
+// endpoint parse that union, so a host call cannot be submitted through them; it travels in its own task field and is
+// only enqueued by the owner-route pet_host_fs tool.
+const hostFsPathSchema = z.string().min(1).max(1_024);
+export const hostFsOpSchema = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("read"), path: hostFsPathSchema, maxBytes: z.number().int().min(1).max(65_536).optional() }).strict(),
+  z.object({ op: z.literal("list"), path: hostFsPathSchema }).strict(),
+  z.object({ op: z.literal("stat"), path: hostFsPathSchema }).strict(),
+]);
+export const hostFsCallSchema = z.object({ ops: z.array(hostFsOpSchema).min(1).max(16) }).strict();
+export type HostFsCall = z.infer<typeof hostFsCallSchema>;
+export type HostFsOp = z.infer<typeof hostFsOpSchema>;
+export const hostRouteSchema = z.enum(["owner", "connector"]);
+
 export const remoteTaskSchema = z.object({
   target: z.literal("host").optional(),
+  hostFs: hostFsCallSchema.optional(),
   repo: z.string().min(1).max(128).optional(),
   baseRef: z.string().min(1).max(256).default("main"),
   goal: z.string().min(1).max(20_000).optional(),
@@ -124,6 +140,24 @@ export const remoteTaskSchema = z.object({
   network: remoteNetworkSchema.default({ mode: "none" }),
   timeoutMinutes: z.number().int().min(1).max(20).default(20),
 }).strict().superRefine((task, ctx) => {
+  // Host capabilities are reserved for the host.fs call below (more tools lift this one by one): no other executor or
+  // tool may carry them, so adding them to the enum stays inert.
+  if (task.hostFs) {
+    if (task.target !== "host") ctx.addIssue({ code: "custom", path: ["target"], message: "host.fs requires the host target" });
+    if (task.repo) ctx.addIssue({ code: "custom", path: ["repo"], message: "host tasks do not accept a repository" });
+    if (task.executor !== "direct") ctx.addIssue({ code: "custom", path: ["executor"], message: "host tasks require the direct executor" });
+    if (task.direct || task.goal) ctx.addIssue({ code: "custom", path: ["direct"], message: "host.fs carries no direct call or goal" });
+    if (task.profile !== "inspect") ctx.addIssue({ code: "custom", path: ["profile"], message: "host.fs requires the inspect profile" });
+    if (task.capabilities.length !== 1 || task.capabilities[0] !== "host.fs.read") ctx.addIssue({ code: "custom", path: ["capabilities"], message: "host.fs requires exactly host.fs.read" });
+    if (task.network.mode !== "none") ctx.addIssue({ code: "custom", path: ["network"], message: "host.fs requires network mode none" });
+    if (task.timeoutMinutes > 5) ctx.addIssue({ code: "custom", path: ["timeoutMinutes"], message: "host.fs is limited to 5 minutes" });
+    return;
+  }
+  for (const capability of task.capabilities) {
+    if (capability.startsWith("host.") || capability === "process.manage") {
+      ctx.addIssue({ code: "custom", path: ["capabilities"], message: `capability is not available yet: ${capability}` });
+    }
+  }
   const hostTarget = task.target === "host";
   if (hostTarget) {
     if (task.repo) ctx.addIssue({ code: "custom", path: ["repo"], message: "host tasks do not accept a repository" });
@@ -188,9 +222,17 @@ export function buildRemoteDirectTask(input: { repo: string; baseRef?: string; c
     timeoutMinutes,
   });
 }
+export function buildHostFsTask(call: HostFsCall): RemoteTask {
+  return remoteTaskSchema.parse({
+    target: "host", hostFs: call, executor: "direct", profile: "inspect",
+    capabilities: ["host.fs.read"], network: { mode: "none" }, timeoutMinutes: 2,
+  });
+}
 export const taskEnvelopeSchema = z.object({
   version: z.literal(1), taskId: z.string().uuid(), deviceId: z.string().min(1).max(128), nonce: z.string().uuid(),
   issuedAt: z.number().int().nonnegative(), expiresAt: z.number().int().positive(), task: remoteTaskSchema,
+  // Which MCP route submitted the task. Stamped by the Worker ONLY on host tasks (an unknown key would break older Legions).
+  route: hostRouteSchema.optional(),
 });
 export type TaskEnvelope = z.infer<typeof taskEnvelopeSchema>;
 export const signedTaskEnvelopeSchema = z.object({ envelope: taskEnvelopeSchema, signature: z.string().regex(/^[A-Za-z0-9_-]{43}$/u) });

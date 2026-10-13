@@ -91,6 +91,55 @@ test("MCP tool metadata stays inside its context budget", async () => {
   assert.ok(bytes <= TOOLS_LIST_BUDGET_BYTES, `tools/list is ${bytes} bytes, budget ${TOOLS_LIST_BUDGET_BYTES}`);
 });
 
+async function listedToolNames(operations: ControlMcpOperations): Promise<string[]> {
+  await initialize(operations);
+  const listed = await rpc(operations, { jsonrpc: "2.0", id: 64, method: "tools/list", params: {} });
+  return (listed.body?.result as { tools: { name: string }[] }).tools.map((tool) => tool.name);
+}
+
+test("pet_host_fs is listed only to the owner route while the device advertises host.fs.read", async () => {
+  const host = { hostCapabilities: async () => ["host.fs.read"], hostFs: async () => ({ status: 202, body: { taskId: TASK_ID, status: "queued" } }) };
+  assert.ok((await listedToolNames(baseOperations({ route: "owner", ...host }))).includes("pet_host_fs"));
+  assert.ok(!(await listedToolNames(baseOperations({ route: "connector", ...host }))).includes("pet_host_fs"), "connector route");
+  assert.ok(!(await listedToolNames(baseOperations({ ...host }))).includes("pet_host_fs"), "unknown route");
+  assert.ok(!(await listedToolNames(baseOperations({ route: "owner", ...host, hostCapabilities: async () => [] }))).includes("pet_host_fs"), "host mode off");
+  assert.ok(!(await listedToolNames(baseOperations({ route: "owner", ...host, hostCapabilities: async () => { throw new Error("DO down"); } }))).includes("pet_host_fs"), "meta unreadable");
+  const connectorCall = await rpc(baseOperations({ route: "connector", ...host }), {
+    jsonrpc: "2.0", id: 70, method: "tools/call", params: { name: "pet_host_fs", arguments: { ops: [{ op: "stat", path: "C:\\x" }] } },
+  });
+  const result = connectorCall.body?.result as { isError?: boolean } | undefined;
+  assert.ok(connectorCall.body?.error || result?.isError, "an unlisted tool cannot be called");
+});
+
+test("pet_host_fs forwards bounded ops, and pet_direct cannot carry a host call", async () => {
+  const seen: unknown[] = [];
+  const operations = baseOperations({
+    route: "owner", hostCapabilities: async () => ["host.fs.read"],
+    hostFs: async (call) => { seen.push(call); return { status: 202, body: { taskId: TASK_ID, status: "queued" } }; },
+  });
+  await initialize(operations);
+  await rpc(operations, { jsonrpc: "2.0", id: 71, method: "tools/call", params: { name: "pet_host_fs", arguments: { ops: [{ op: "list", path: "C:\\work" }, { op: "read", path: "C:\\work\\a.txt", maxBytes: 100 }], waitSeconds: 0 } } });
+  assert.deepEqual(seen, [{ ops: [{ op: "list", path: "C:\\work" }, { op: "read", path: "C:\\work\\a.txt", maxBytes: 100 }] }]);
+  const tooMany = await rpc(operations, { jsonrpc: "2.0", id: 72, method: "tools/call", params: { name: "pet_host_fs", arguments: { ops: Array.from({ length: 17 }, () => ({ op: "stat", path: "C:\\a" })) } } });
+  assert.ok(tooMany.body?.error || (tooMany.body?.result as { isError?: boolean })?.isError, "more than 16 ops is refused");
+  let directCalls = 0;
+  const viaDirect = baseOperations({ route: "owner", direct: async () => { directCalls += 1; return { status: 202, body: { taskId: TASK_ID, status: "queued" } }; } });
+  await initialize(viaDirect);
+  const refused = await rpc(viaDirect, { jsonrpc: "2.0", id: 73, method: "tools/call", params: { name: "pet_direct", arguments: { target: "trvny", tool: "host.fs", args: { ops: [] } } } });
+  assert.ok(refused.body?.error || (refused.body?.result as { isError?: boolean })?.isError);
+  assert.equal(directCalls, 0, "host.fs is not a pet_direct tool");
+});
+
+test("host mode adds a bounded amount to the tool list", async () => {
+  const off = Buffer.byteLength(JSON.stringify(await listedToolNames(baseOperations({ route: "owner" }))), "utf8");
+  const operations = baseOperations({ route: "owner", hostCapabilities: async () => ["host.fs.read"], hostFs: async () => ({ status: 202, body: {} }) });
+  await initialize(operations);
+  const listed = await rpc(operations, { jsonrpc: "2.0", id: 65, method: "tools/list", params: {} });
+  const bytes = Buffer.byteLength(JSON.stringify((listed.body?.result as { tools: unknown }).tools), "utf8");
+  assert.ok(bytes <= TOOLS_LIST_BUDGET_BYTES + 2_500, `host mode on: ${bytes} bytes (+2.5 KB over the budget at most)`);
+  assert.ok(off > 0);
+});
+
 const TOOLS_LIST_BUDGET_BYTES = 26_000; // 13.10.2026: 37.8 KB before the lean output schemas, 24.9 KB after (outputSchema 13.2 KB, inputSchema 7.0 KB, descriptions 1.7 KB)
 
 function request(body: unknown): Request {

@@ -8,7 +8,7 @@ function isInside(root: string, target: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-function validateWindowsPathComponents(input: string): void {
+export function validateWindowsPathComponents(input: string): void {
   for (const component of input.split(/[\\/]/u)) {
     if (!component || component === "." || component === "..") continue;
     if (component.includes(":")) throw new Error("Windows alternate-data-stream and device path syntax is not allowed");

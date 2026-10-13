@@ -256,9 +256,19 @@ export class SessionManager {
         // must never share inodes with the source mirror. Read-only sessions are only ever touched by this
         // trusted worker (no exec, never handed to the sandbox), so a hard-linked clone is safe there and
         // ~11x faster (measured 0.6 s vs 7.0 s on the 28 MB mirror).
-        const cloneMode = writable ? "--no-local" : "--local";
-        await execFileAsync(gitExecutable, [...gitSafetyArgs, "clone", cloneMode, "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root], gitOptions);
-        await execFileAsync(gitExecutable, [...gitSafetyArgs, "--git-dir", gitDir, "--work-tree", root, "checkout", "--detach", initialCommit], gitOptions);
+        const cloneAndCheckout = async (cloneMode: "--local" | "--no-local") => {
+          await rm(gitDir, { recursive: true, force: true });
+          await rm(root, { recursive: true, force: true });
+          await execFileAsync(gitExecutable, [...gitSafetyArgs, "clone", cloneMode, "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root], gitOptions);
+          await execFileAsync(gitExecutable, [...gitSafetyArgs, "--git-dir", gitDir, "--work-tree", root, "checkout", "--detach", initialCommit], gitOptions);
+        };
+        if (writable) await cloneAndCheckout("--no-local");
+        else {
+          // A mirror fetch or a background gc can change the source while it is being hard-linked. Any failure of
+          // the fast path falls back to the consistent upload-pack copy instead of failing the read.
+          try { await cloneAndCheckout("--local"); }
+          catch { await cloneAndCheckout("--no-local"); }
+        }
         await rm(join(root, ".git"), { force: true });
         root = await realpath(root);
         gitDir = await realpath(gitDir);

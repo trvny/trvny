@@ -10,7 +10,7 @@ import {
   deleteWorkspace, listWorkspace, mkdirWorkspace, moveWorkspace, patchWorkspace,
   readManyWorkspace, readWorkspace, searchWorkspace, statWorkspace, treeWorkspace, writeWorkspace,
 } from "./workspace-fs.js";
-import { isRemoteDirectExecTool, isRemoteDirectWriteTool, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
+import { isRemoteDirectExecTool, isRemoteDirectReadTool, isRemoteDirectWriteTool, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
 import type { RemoteTaskExecutor } from "./remote-transport.js";
 
 const MAX_SUMMARY_CHARS = 20_000;
@@ -270,6 +270,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         this.#scheduleDirectSession(session.id, repo, AUTO_SESSION_TTL_MINUTES);
         autoOpened = true;
       } else {
+        if (!isRemoteDirectReadTool(call.tool)) throw new Error(`direct tool ${call.tool} is not allowed without a session`);
         session = await this.sessions.openRead(repo, task.baseRef, "none", undefined, 5);
         temporary = true;
       }
@@ -363,13 +364,10 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
           }
         });
       if (signal?.aborted) throw signal.reason ?? new Error("remote direct call aborted");
-      if (temporary) {
-        if (session.targetKind !== "workspace") {
-          const state = await this.sessions.status(session.id);
-          if (state.dirty || state.changedHead) throw new Error("read-only direct call unexpectedly changed the session");
-        }
-        await this.sessions.close(session.id, false);
-      }
+      // A read-only session is a throwaway clone that no write or exec tool can reach: discard it. The old
+      // status check + non-discard close ran `git status` twice on the fresh worktree, measured 1-6.6 s + 0.5 s
+      // per read (13.10.2026) for a guard that cannot fire.
+      if (temporary) await this.sessions.close(session.id, true);
       const data = autoOpened && value && typeof value === "object" && !Array.isArray(value)
         ? { ...(value as Record<string, unknown>), sessionId: activeSession.id }
         : value;

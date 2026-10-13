@@ -2,7 +2,7 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { z, ZodError } from "zod";
 import { FREE_ROUTER_WORKER_PATH, WORK_ROUTER_WORKER_PATH, proxyKanarekFreeRouter, proxyKanarekWorkRouter, type FreeRouterEnv } from "./free-router.js";
 import { ICON_BYTES } from "./icon.js";
-import { mayHandleHostTask, mayIndexTask, taskVisibleTo } from "./host-access.js";
+import { hostTaskHiddenFrom, mayHandleHostTask, mayIndexTask } from "./host-access.js";
 import { isMcpPath, mcpRoute, type McpRoute } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
 import { computeTimings } from "./task-timings.js";
@@ -477,11 +477,11 @@ async function delegateAssistant(value: unknown, env: Env, idempotencyKey?: stri
 }
 
 async function hostTaskHidden(env: Env, id: string, route: McpRoute | undefined): Promise<boolean> {
-  if (route === "owner") return false;
-  const response = await stateStub(env, id).fetch("https://state/host");
-  if (!response.ok) return false;
-  const { host } = await response.json() as { host?: boolean };
-  return !taskVisibleTo(host === true, route);
+  return hostTaskHiddenFrom(route, async () => {
+    const response = await stateStub(env, id).fetch("https://state/host");
+    if (!response.ok) return undefined;
+    return ((await response.json()) as { host?: boolean }).host === true;
+  });
 }
 
 const TASK_NOT_FOUND: RpcResult = { status: 404, body: { error: "task_not_found" } };
@@ -556,7 +556,8 @@ async function boundedMcpRequest(request: Request): Promise<Request> {
 
 export class TelegramAssistantEntrypoint extends WorkerEntrypoint<Env> {
   async meta() {
-    return controlMeta(this.env);
+    const { hostCapabilities: _owner, ...meta } = await controlMeta(this.env) as Awaited<ReturnType<typeof controlMeta>> & { hostCapabilities?: unknown };
+    return meta;
   }
 
   async delegate(value: unknown, idempotencyKey?: string): Promise<RpcResult> {

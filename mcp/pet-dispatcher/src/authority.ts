@@ -235,6 +235,8 @@ export class AuthorityPolicy {
       return { allowed: false, reason: "writes under .git or .claude can execute code later" };
     }
     const name = segments.at(-1) ?? "";
+    // .git\config can carry tokens in remote URLs or extraheader values.
+    if (mode === "read" && name.toLowerCase() === "config" && segments.at(-2)?.toLowerCase() === ".git") return { allowed: false, reason: "git config may contain credentials" };
     if (mode === "read" && DENY_READ_NAME.some((pattern) => pattern.test(name))) return { allowed: false, reason: "credential-shaped file name" };
     return { allowed: true };
   }

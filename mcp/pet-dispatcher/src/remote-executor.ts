@@ -158,7 +158,10 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     if (!verdict.allowed) return refuse(verdict.reason ?? "host.fs.read is not permitted");
     if (signal?.aborted) return { status: "cancelled", summary: "Host filesystem call was cancelled." };
     const { results, truncated } = await runHostFs(this.authority, call);
-    return { status: "completed", summary: `Host filesystem call completed (${results.length} op${results.length === 1 ? "" : "s"}).`, data: { results, truncated } };
+    const done: RemoteResult = { status: "completed", summary: `Host filesystem call completed (${results.length} op${results.length === 1 ? "" : "s"}).`, data: { results, truncated } };
+    // runHostFs already budgets the serialized size; this is the backstop shared with the other direct tools.
+    if (Buffer.byteLength(JSON.stringify(done), "utf8") > MAX_DIRECT_RESULT_BYTES) return refuse("host filesystem result exceeds the callback limit");
+    return done;
   }
 
   async #executeDirect(task: RemoteTask, signal?: AbortSignal): Promise<RemoteResult> {

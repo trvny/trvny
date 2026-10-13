@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
 import { AuthorityPolicy, authorityConfigSchema } from "../src/authority.js";
@@ -115,13 +115,17 @@ test("an 8.3 short name of a floored directory resolves to the floored path", wi
     if (!short.includes("~")) { t.skip("8.3 short names are disabled on this volume"); return; }
     // The premise the canonical floor check relies on: realpath expands 8.3 names to the long, floored path.
     assert.equal((await realpath(join(short, "dispatcher.json"))).toLowerCase(), join(f.install, "dispatcher.json").toLowerCase());
-    // The short spelling itself is refused (its lexical form is not inside a granted root), floored target or not.
+    // The fully shortened spelling is refused (its lexical form is not inside a granted root)...
     const { results } = await run(f.policy, [
       { op: "read", path: join(short, "dispatcher.json") },
       { op: "read", path: join(f.work, "a.txt") },
+      // ...and the case that matters: a LONG root with only the floored component shortened passes every lexical
+      // check, so only the canonical floor can stop it.
+      { op: "read", path: join(f.work, basename(short), "dispatcher.json") },
     ]);
     assert.ok(errorOf(results[0]), `via ${short}`);
     assert.equal(errorOf(results[1]), undefined, "the long spelling of an allowed file still works");
+    assert.match(errorOf(results[2]) ?? "", /policy floor/u, `via ${join(f.work, basename(short))}`);
   } finally { await rm(f.base, { recursive: true, force: true }); }
 });
 
@@ -141,8 +145,29 @@ test("reads are bounded and cut on a code point boundary", windowsOnly, async ()
     assert.equal(truncated, true);
     const many = await run(f.policy, Array.from({ length: 16 }, () => ({ op: "read", path: join(f.work, "big.txt"), maxBytes: 65_536 })));
     const total = many.results.reduce((sum, r) => sum + ("bytes" in r ? r.bytes : 0), 0);
-    assert.ok(total <= 80 * 1_024, `total ${total}`);
-    assert.ok(many.results.some((r) => errorOf(r) === "result budget exhausted"));
+    assert.ok(total <= 72 * 1_024, `total ${total}`);
+    assert.equal(many.results.length, 16, "every op gets an answer: later reads share what is left instead of failing");
+    assert.equal(many.truncated, true);
+  } finally { await rm(f.base, { recursive: true, force: true }); }
+});
+
+test("the serialized result stays under the callback limit, however the bytes escape", windowsOnly, async () => {
+  const f = await fixture();
+  try {
+    const crowded = join(f.work, "crowded");
+    await mkdir(crowded);
+    await Promise.all(Array.from({ length: 300 }, (_, i) => writeFile(join(crowded, `entry-with-a-long-name-${String(i).padStart(4, "0")}.txt`), "x")));
+    await writeFile(join(f.work, "escapes.txt"), '\\"\\"\\"\\\\'.repeat(20_000));
+    const lists = await run(f.policy, Array.from({ length: 16 }, () => ({ op: "list", path: crowded })));
+    const heavy = await run(f.policy, [{ op: "read", path: join(f.work, "escapes.txt"), maxBytes: 65_536 }, { op: "read", path: join(f.work, "escapes.txt"), maxBytes: 65_536 }]);
+    for (const outcome of [lists, heavy]) {
+      const bytes = Buffer.byteLength(JSON.stringify(outcome), "utf8");
+      assert.ok(bytes <= 96 * 1_024 - 4_096, `${bytes} bytes serialized`);
+      assert.equal(outcome.truncated, true);
+    }
+    assert.equal(lists.results.length > 0, true);
+    assert.ok(lists.results.some((r) => "entries" in r && r.entries.length > 0 && r.truncated), "a list is trimmed, not dropped");
+    assert.ok(heavy.results.some((r) => "content" in r && r.content.length > 0 && r.truncated), "an escape-heavy read is cut to fit");
   } finally { await rm(f.base, { recursive: true, force: true }); }
 });
 

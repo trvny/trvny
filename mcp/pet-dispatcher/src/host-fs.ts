@@ -11,7 +11,7 @@ import { utf8Prefix } from "./workspace-fs.js";
 
 const MAX_LIST_ENTRIES = 300;
 const DEFAULT_READ_BYTES = 16 * 1_024;
-const MAX_RESULT_BYTES = 80 * 1_024;
+const MAX_RESULT_BYTES = 72 * 1_024;   // serialized JSON of all results; the executor callback limit is 96 KiB
 
 export type HostFsOpResult =
   | { op: "read"; path: string; content: string; truncated: boolean; bytes: number }
@@ -93,24 +93,54 @@ async function statOne(policy: AuthorityPolicy, op: Extract<HostFsOp, { op: "sta
   } catch { return refusal("stat", op.path, "path cannot be read"); }
 }
 
-/** Runs the ops in order; the total of read bytes stays under the callback budget. Never throws for a refused op. */
+const REFUSAL_RESERVE_BYTES = 220;   // a refusal with a path cut to 120 characters
+const jsonBytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value), "utf8");
+
+/** Shrinks a result until its serialized form fits `room` bytes (JSON escaping can double the decoded size). */
+function fit(result: HostFsOpResult, room: number): HostFsOpResult | undefined {
+  if (jsonBytes(result) <= room) return result;
+  if ("content" in result) {
+    let content = result.content;
+    while (content.length > 0) {
+      content = utf8Prefix(Buffer.from(content, "utf8"), Math.floor(Buffer.byteLength(content, "utf8") * 0.7));
+      const shrunk = { ...result, content, bytes: Buffer.byteLength(content, "utf8"), truncated: true };
+      if (jsonBytes(shrunk) <= room) return shrunk;
+    }
+    return undefined;
+  }
+  if ("entries" in result) {
+    const entries = result.entries.slice();
+    while (entries.length > 0) {
+      entries.length = Math.floor(entries.length * 0.7);
+      const shrunk = { ...result, entries, truncated: true };
+      if (jsonBytes(shrunk) <= room) return shrunk;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Runs the ops in order. The serialized results stay under MAX_RESULT_BYTES (below the executor's callback limit), so a
+ * call never fails the result callback: what does not fit is trimmed (`truncated`) or answered with "result budget
+ * exhausted". Never throws for a refused op.
+ */
 export async function runHostFs(policy: AuthorityPolicy, call: HostFsCall): Promise<{ results: HostFsOpResult[]; truncated: boolean }> {
   const results: HostFsOpResult[] = [];
-  let remaining = MAX_RESULT_BYTES;
+  let used = 2;   // the surrounding array
   let truncated = false;
-  for (const op of call.ops) {
-    if (op.op === "read") {
-      if (remaining <= 0) { results.push(refusal("read", op.path, "result budget exhausted")); truncated = true; continue; }
-      const result = await readOne(policy, op, remaining);
-      if ("bytes" in result) { remaining -= result.bytes; truncated ||= result.truncated; }
-      results.push(result);
-    } else if (op.op === "list") {
-      const result = await listOne(policy, op);
-      if ("truncated" in result) truncated ||= result.truncated;
-      results.push(result);
-    } else {
-      results.push(await statOne(policy, op));
-    }
+  for (const [index, op] of call.ops.entries()) {
+    // Every op gets an answer: room for a short refusal is reserved for each op still to come.
+    const room = MAX_RESULT_BYTES - used - 1 - (call.ops.length - index - 1) * REFUSAL_RESERVE_BYTES;
+    const budgetRefusal = refusal(op.op, op.path.slice(0, 120), "result budget exhausted");
+    if (room < REFUSAL_RESERVE_BYTES) { results.push(budgetRefusal); used += jsonBytes(budgetRefusal) + 1; truncated = true; continue; }
+    const raw = op.op === "read" ? await readOne(policy, op, Math.max(1, Math.floor(room / 2)))
+      : op.op === "list" ? await listOne(policy, op) : await statOne(policy, op);
+    const fitted = fit(raw, room);
+    if (!fitted) { results.push(budgetRefusal); used += jsonBytes(budgetRefusal) + 1; truncated = true; continue; }
+    if (fitted !== raw) truncated = true;
+    if ("truncated" in fitted && fitted.truncated) truncated = true;
+    results.push(fitted);
+    used += jsonBytes(fitted) + 1;
   }
   return { results, truncated };
 }

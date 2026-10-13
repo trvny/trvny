@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AuthorityPolicy, authorityConfigSchema } from "../src/authority.js";
 import type { DispatcherConfig } from "../src/config.js";
-import { mayHandleHostTask, mayIndexTask, taskVisibleTo } from "../control-plane/host-access.js";
+import { hostTaskHiddenFrom, mayHandleHostTask, mayIndexTask, taskVisibleTo } from "../control-plane/host-access.js";
 import { mcpRoute } from "../control-plane/mcp-auth.js";
 import { ConfinedRemoteExecutor } from "../src/remote-executor.js";
 import {
@@ -104,4 +104,13 @@ test("the Legion refuses a host task unless route, allowlist and authority all a
   assert.match(await refused(executor(off), "owner"), /not enabled/u, "host mode off");
   assert.match(await refused(executor(on), "connector"), /may not use/u, "connector route");
   assert.match(await refused(executor(on), undefined), /may not use/u, "route missing from the envelope");
+});
+
+test("a non-owner never sees a task whose host flag cannot be read (fail closed)", async () => {
+  assert.equal(await hostTaskHiddenFrom("owner", async () => { throw new Error("DO down"); }), false, "the owner is never hidden from");
+  assert.equal(await hostTaskHiddenFrom("connector", async () => true), true);
+  assert.equal(await hostTaskHiddenFrom("connector", async () => false), false, "ordinary tasks stay visible");
+  assert.equal(await hostTaskHiddenFrom("connector", async () => undefined), true, "non-OK response");
+  assert.equal(await hostTaskHiddenFrom("connector", async () => { throw new Error("DO down"); }), true, "thrown fetch");
+  assert.equal(await hostTaskHiddenFrom(undefined, async () => undefined), true, "service binding with an unreadable flag");
 });

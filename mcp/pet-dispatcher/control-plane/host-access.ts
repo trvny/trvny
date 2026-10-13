@@ -16,3 +16,17 @@ export function taskVisibleTo(isHost: boolean, route: McpRoute | undefined): boo
 export function mayIndexTask(isHost: boolean): boolean {
   return !isHost;
 }
+
+/**
+ * Whether a task must be hidden from `route`. `readFlag` reads the task's host flag; if it cannot be read, a non-owner
+ * gets "not found" (fail closed) rather than a task that might be a host task.
+ */
+export async function hostTaskHiddenFrom(route: McpRoute | undefined, readFlag: () => Promise<boolean | undefined>): Promise<boolean> {
+  if (route === "owner") return false;
+  try {
+    const host = await readFlag();
+    return host === undefined ? true : !taskVisibleTo(host, route);
+  } catch {
+    return true;
+  }
+}

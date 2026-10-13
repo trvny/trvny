@@ -45,7 +45,9 @@ try {
     # A worker that is alive but unrecorded (pid file lost, or the supervisor could not verify it) must not be
     # doubled: adopt it by re-recording its pid and start nothing.
     $releaseMarker = Join-Path $Root 'app\releases\'
-    $alive = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object {
+    # A failing scan must not read as "no worker": throwing here makes the supervisor back off instead of launching
+    # extra node processes while WMI is down.
+    $alive = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction Stop | Where-Object {
         $_.CommandLine -and $_.CommandLine.IndexOf($releaseMarker, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
         $_.CommandLine -match 'index\.js"?\s+remote\s*$'
     })

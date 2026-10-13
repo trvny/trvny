@@ -47,20 +47,18 @@ $targets = @(
 )
 foreach ($target in $targets) { Stop-Tree $target.ProcessId }
 
-if (Test-Path -LiteralPath $pidPath) {
-    $workerPid = 0
-    if ([int]::TryParse((Get-Content -LiteralPath $pidPath -Raw).Trim(), [ref]$workerPid) -and $workerPid -gt 0) {
-        # The pid file survives reboots and pids get reused: only kill the worker itself
-        # ("<root>\app\releases\...\index.js remote"), same identity the supervisor checks.
-        $worker = Get-CimInstance Win32_Process -Filter "ProcessId=$workerPid" -ErrorAction SilentlyContinue
-        $releases = Join-Path $root 'app\releases\'
-        if ($worker -and $worker.Name -eq 'node.exe' -and $worker.CommandLine -and
-            $worker.CommandLine.IndexOf($releases, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
-            $worker.CommandLine -match 'index\.js"?\s+remote\s*$') {
-            Stop-Tree $workerPid
-        }
+# Stop every worker of this install, found by identity ("<root>\app\releases\...\index.js remote"), not via the pid
+# file: it can be missing or stale, and a worker left running would be adopted by the replacement supervisor with the
+# OLD release's code. A failing WMI query aborts the restart rather than guessing.
+$releases = Join-Path $root 'app\releases\'
+$workers = @(
+    Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction Stop | Where-Object {
+        $_.CommandLine -and $_.CommandLine.IndexOf($releases, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+        $_.CommandLine -match 'index\.js"?\s+remote\s*$'
     }
-}
+)
+foreach ($worker in $workers) { Stop-Tree $worker.ProcessId }
+Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
 
 # The lock file is held open by a live supervisor, so deleting it only works once that is gone.
 $deadline = [DateTime]::UtcNow.AddSeconds(5)

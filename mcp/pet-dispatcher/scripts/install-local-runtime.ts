@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, copyFile, cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { access, copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -160,14 +160,21 @@ async function writeCurrentManifest(paths: LocalRuntimePaths, sourceCommit: stri
   await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   await rename(temporary, paths.currentManifest);
 }
-async function pruneReleases(paths: LocalRuntimePaths, activeRelease: string, keep: number): Promise<void> {
+export async function pruneReleases(paths: LocalRuntimePaths, activeRelease: string, keep: number): Promise<void> {
   if (!await exists(paths.releasesRoot)) return;
   const entries = await readdir(paths.releasesRoot, { withFileTypes: true });
   const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.includes(".staging-"));
   const keepNames = new Set([activeRelease.split(/[\\/]/u).at(-1) ?? ""]);
-  for (const entry of directories.sort((a, b) => b.name.localeCompare(a.name)).slice(0, Math.max(keep, 1))) keepNames.add(entry.name);
-  for (const entry of directories) {
-    if (!keepNames.has(entry.name)) await rm(join(paths.releasesRoot, entry.name), { recursive: true, force: true });
+  // Newest first by install time: release names are commit hashes, so sorting by name keeps an arbitrary set
+  // and can delete the release the running worker was started from (its native modules are locked).
+  const dated = await Promise.all(directories.map(async (entry) => ({
+    name: entry.name, time: (await stat(join(paths.releasesRoot, entry.name))).mtimeMs,
+  })));
+  for (const entry of dated.sort((a, b) => b.time - a.time).slice(0, Math.max(keep, 1))) keepNames.add(entry.name);
+  for (const entry of dated) {
+    if (keepNames.has(entry.name)) continue;
+    // Best effort: a locked old release must not fail the install; the next install retries.
+    await rm(join(paths.releasesRoot, entry.name), { recursive: true, force: true }).catch(() => undefined);
   }
 }
 

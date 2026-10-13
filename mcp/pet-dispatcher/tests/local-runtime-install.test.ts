@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { installLocalRuntime } from "../scripts/install-local-runtime.js";
+import { installLocalRuntime, pruneReleases } from "../scripts/install-local-runtime.js";
+import { localRuntimePaths } from "../src/local-runtime.js";
 import { PROVIDER_CREDENTIAL_ENV_NAMES } from "../src/provider-credentials.js";
 
 const execFileAsync = promisify(execFile);
@@ -125,6 +126,21 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
     assert.equal(kept, head);
     assert.notEqual(updated, head);
     assert.deepEqual(JSON.parse(await readFile(second.paths.environmentPolicyPath, "utf8")), customPolicy);
+  } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+test("release pruning keeps the newest installs by date and the active release, never by name", async () => {
+  const base = await mkdtemp(join(tmpdir(), "pet-prune-"));
+  try {
+    const paths = localRuntimePaths(base);
+    // Names are commit-hash-like: alphabetical order is the reverse of install order here.
+    const installs = [["zz-oldest", 1], ["bb-old", 2], ["mm-recent", 3], ["aa-newest", 4]] as const;
+    for (const [name, day] of installs) {
+      await mkdir(join(paths.releasesRoot, name), { recursive: true });
+      await utimes(join(paths.releasesRoot, name), new Date(2026, 9, day), new Date(2026, 9, day));
+    }
+    await pruneReleases(paths, join(paths.releasesRoot, "bb-old"), 2);
+    assert.deepEqual((await readdir(paths.releasesRoot)).sort(), ["aa-newest", "bb-old", "mm-recent"]);
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 

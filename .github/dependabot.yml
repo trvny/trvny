@@ -37,6 +37,10 @@ updates:
       npm:
         patterns:
           - "*"
+    ignore:
+      # 1.0.0 reworked the API (no createConfigFromPolicy/spawnSandboxFromConfig); sandbox.ts needs a deliberate migration.
+      - dependency-name: "@microsoft/mxc-sdk"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/gh-apps/kanarek-companion"
     schedule:

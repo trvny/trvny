@@ -261,8 +261,17 @@ export class SessionManager {
           await rm(root, { recursive: true, force: true });
           await execFileAsync(gitExecutable, [...gitSafetyArgs, "clone", cloneMode, "--no-checkout", "--separate-git-dir", gitDir, sourceRoot, root], gitOptions);
           await execFileAsync(gitExecutable, [...gitSafetyArgs, "--git-dir", gitDir, "--work-tree", root, "checkout", "--detach", initialCommit], gitOptions);
+          if (cloneMode === "--local") {
+            // Checkout proves the tree is complete; this also proves the recent history is, so a hard-linked clone
+            // that raced a mirror update cannot slip through half-empty.
+            await execFileAsync(gitExecutable, [...gitSafetyArgs, "--git-dir", gitDir, "rev-list", "--max-count=100", "--quiet", initialCommit], gitOptions);
+          }
         };
-        if (writable) await cloneAndCheckout("--no-local");
+        // --local would copy an alternates pointer instead of the borrowed objects, leaving the session dependent on
+        // the source's other object store; such sources always get the independent copy.
+        const alternates = await execFileAsync(gitExecutable, [...gitSafetyArgs, "-C", sourceRoot, "rev-parse", "--git-path", "objects/info/alternates"], gitOptions)
+          .then(({ stdout: path }) => stat(resolve(sourceRoot, path.trim())).then(() => true, () => false), () => true);
+        if (writable || alternates) await cloneAndCheckout("--no-local");
         else {
           // A mirror fetch or a background gc can change the source while it is being hard-linked. Any failure of
           // the fast path falls back to the consistent upload-pack copy instead of failing the read.

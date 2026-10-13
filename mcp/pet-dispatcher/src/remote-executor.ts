@@ -10,7 +10,7 @@ import {
   deleteWorkspace, listWorkspace, mkdirWorkspace, moveWorkspace, patchWorkspace,
   readManyWorkspace, readWorkspace, searchWorkspace, statWorkspace, treeWorkspace, writeWorkspace,
 } from "./workspace-fs.js";
-import { isRemoteDirectExecTool, isRemoteDirectWriteTool, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
+import { isRemoteDirectExecTool, isRemoteDirectReadTool, isRemoteDirectWriteTool, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
 import type { RemoteTaskExecutor } from "./remote-transport.js";
 
 const MAX_SUMMARY_CHARS = 20_000;
@@ -270,6 +270,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
         this.#scheduleDirectSession(session.id, repo, AUTO_SESSION_TTL_MINUTES);
         autoOpened = true;
       } else {
+        if (!isRemoteDirectReadTool(call.tool)) throw new Error(`direct tool ${call.tool} is not allowed without a session`);
         session = await this.sessions.openRead(repo, task.baseRef, "none", undefined, 5);
         temporary = true;
       }

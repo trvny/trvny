@@ -10,7 +10,9 @@ import {
   deleteWorkspace, listWorkspace, mkdirWorkspace, moveWorkspace, patchWorkspace,
   readManyWorkspace, readWorkspace, searchWorkspace, statWorkspace, treeWorkspace, writeWorkspace,
 } from "./workspace-fs.js";
-import { isRemoteDirectExecTool, isRemoteDirectReadTool, isRemoteDirectWriteTool, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
+import type { AuthorityPolicy, SubmitRoute } from "./authority.js";
+import { runHostFs } from "./host-fs.js";
+import { isRemoteDirectExecTool, isRemoteDirectReadTool, isRemoteDirectWriteTool, type HostFsCall, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
 import type { RemoteTaskExecutor } from "./remote-transport.js";
 
 const MAX_SUMMARY_CHARS = 20_000;
@@ -106,6 +108,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     readonly runner: CommandRunner,
     readonly managedFreeRouter?: ManagedFreeRouter,
     readonly managedWorkRouter?: ManagedWorkRouter,
+    readonly authority?: AuthorityPolicy,
   ) {}
   readonly #directSessions = new Map<string, { repo: string; expiresAt: number; timer: NodeJS.Timeout }>();
 
@@ -145,6 +148,17 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     const lease = this.#directSessions.get(id);
     if (lease) clearTimeout(lease.timer);
     this.#directSessions.delete(id);
+  }
+
+  /** Host filesystem reads: owner route (from the verified envelope) + local allowlist + per-path policy. */
+  async #executeHostFs(call: HostFsCall, route: SubmitRoute | undefined, signal?: AbortSignal): Promise<RemoteResult> {
+    const refuse = (error: string): RemoteResult => ({ status: "failed", summary: "Host filesystem call refused.", error });
+    if (!this.authority) return refuse("host mode is not enabled on this host");
+    const verdict = this.authority.permits("host.fs.read", "direct", route);
+    if (!verdict.allowed) return refuse(verdict.reason ?? "host.fs.read is not permitted");
+    if (signal?.aborted) return { status: "cancelled", summary: "Host filesystem call was cancelled." };
+    const { results, truncated } = await runHostFs(this.authority, call);
+    return { status: "completed", summary: `Host filesystem call completed (${results.length} op${results.length === 1 ? "" : "s"}).`, data: { results, truncated } };
   }
 
   async #executeDirect(task: RemoteTask, signal?: AbortSignal): Promise<RemoteResult> {
@@ -386,7 +400,8 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     }
   }
 
-  async execute(task: RemoteTask, taskId: string, signal?: AbortSignal): Promise<RemoteResult> {
+  async execute(task: RemoteTask, taskId: string, signal?: AbortSignal, context: { route?: SubmitRoute } = {}): Promise<RemoteResult> {
+    if (task.hostFs) return this.#executeHostFs(task.hostFs, context.route, signal);
     if (task.executor === "direct") return this.#executeDirect(task, signal);
     if (task.executor === "gemini") {
       return {

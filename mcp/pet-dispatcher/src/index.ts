@@ -52,15 +52,6 @@ async function main(): Promise<void> {
     if (!config.remote?.enabled) throw new Error("remote worker is not enabled in dispatcher config");
     const lease = await acquireRemoteWorkerLease(`${config.remote.deviceId}:${config.remote.queueId}`);
     try {
-      const transport = new CloudflareQueueTransport(config.remote);
-      const journal = new RemoteJournal(config.remote.journalPath);
-      const executor = new ConfinedRemoteExecutor(
-        config,
-        sessions,
-        runner,
-        (payload, signal) => transport.freeRouter(payload, signal),
-        (payload, signal) => transport.workRouter(payload, signal),
-      );
       // Host mode stays off (empty capability list) unless the local config lists roots and grantable capabilities.
       // The install root comes from where this code runs ("<root>\app\releases\<sha>\..."), independently of where the
       // config file lives; the config directory is floored as well.
@@ -73,6 +64,16 @@ async function main(): Promise<void> {
         home: homedir(), installRoot, extraDeny: [config.workspaceRoot, ...(configPath ? [dirname(configPath)] : [])],
       });
       for (const root of authority.skippedRoots) console.error(`pet-dispatcher: authority root ignored (cannot be resolved): ${root}`);
+      const transport = new CloudflareQueueTransport(config.remote);
+      const journal = new RemoteJournal(config.remote.journalPath);
+      const executor = new ConfinedRemoteExecutor(
+        config,
+        sessions,
+        runner,
+        (payload, signal) => transport.freeRouter(payload, signal),
+        (payload, signal) => transport.workRouter(payload, signal),
+        authority,
+      );
       const metaProvider = () => {
         const sandbox = runner.securityStatus() as { supported?: boolean; processGuard?: string; networkDefault?: string; isolationTier?: string | null };
         return deviceMetaSchema.parse({

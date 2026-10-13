@@ -26,7 +26,13 @@ export function isMcpPath(pathname: string): boolean {
   return pathname === "/mcp" || /^\/mcp\/[^/]+$/u.test(pathname);
 }
 
-export function mcpAuthorized(request: Request, env: McpAuthEnv): boolean {
+export type McpRoute = "owner" | "connector";
+
+/**
+ * Which credential authorized the request: "owner" = the operator bearer header on plain /mcp, "connector" = the secret URL
+ * token. null = not authorized. The route decides whether host tools exist for the caller at all.
+ */
+export function mcpRoute(request: Request, env: McpAuthEnv): McpRoute | null {
   const pathname = new URL(request.url).pathname;
   const operatorToken = env.CONTROL_PLANE_TOKEN;
   const authorization = request.headers.get("authorization") ?? "";
@@ -37,11 +43,15 @@ export function mcpAuthorized(request: Request, env: McpAuthEnv): boolean {
     && authorization.startsWith(bearerPrefix)
     && secretsMatch(authorization.slice(bearerPrefix.length), operatorToken)
   ) {
-    return true;
+    return "owner";
   }
 
   const expectedConnectorToken = env.MCP_CONNECTOR_TOKEN;
-  if (!expectedConnectorToken) return false;
+  if (!expectedConnectorToken) return null;
   const suppliedConnectorToken = connectorToken(pathname);
-  return suppliedConnectorToken !== undefined && secretsMatch(suppliedConnectorToken, expectedConnectorToken);
+  return suppliedConnectorToken !== undefined && secretsMatch(suppliedConnectorToken, expectedConnectorToken) ? "connector" : null;
+}
+
+export function mcpAuthorized(request: Request, env: McpAuthEnv): boolean {
+  return mcpRoute(request, env) !== null;
 }

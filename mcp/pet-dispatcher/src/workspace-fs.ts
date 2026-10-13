@@ -17,7 +17,7 @@ function ignoredTraversalDirectory(name: string): boolean {
 
 function slash(path: string): string { return path.replaceAll("\\", "/"); }
 
-function utf8Prefix(buffer: Buffer, maxBytes: number): string {
+export function utf8Prefix(buffer: Buffer, maxBytes: number): string {
   const limit = Math.min(buffer.length, Math.max(0, maxBytes));
   const decoder = new TextDecoder("utf-8", { fatal: true });
   for (let end = limit; end >= Math.max(0, limit - 4); end -= 1) {

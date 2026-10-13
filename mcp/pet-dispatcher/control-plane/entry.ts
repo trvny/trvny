@@ -2,7 +2,8 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { z, ZodError } from "zod";
 import { FREE_ROUTER_WORKER_PATH, WORK_ROUTER_WORKER_PATH, proxyKanarekFreeRouter, proxyKanarekWorkRouter, type FreeRouterEnv } from "./free-router.js";
 import { ICON_BYTES } from "./icon.js";
-import { isMcpPath, mcpAuthorized } from "./mcp-auth.js";
+import { mayHandleHostTask, mayIndexTask, taskVisibleTo } from "./host-access.js";
+import { isMcpPath, mcpRoute, type McpRoute } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
 import { computeTimings } from "./task-timings.js";
 import {
@@ -16,7 +17,9 @@ import { deviceMetaSchema } from "../src/device-meta.js";
 import {
   REMOTE_DIRECT_TOOLS,
   assertAssistantTaskAllowed,
+  buildHostFsTask,
   buildRemoteDirectTask,
+  hostFsCallSchema,
   remoteDirectCallSchema,
   remoteResultSchema,
   remoteTaskSchema,
@@ -51,6 +54,7 @@ const DEVICE_META_KEY = "device-meta";
 const RECENT_TASKS_KEY = "recent-tasks";
 const QUOTA_KEY = "daily-delegation-quota";
 const TIMINGS_KEY = "timings";
+const HOST_KEY = "host-task";
 const DAILY_DELEGATION_LIMIT = 500;
 const enqueueOutboxSchema = z.object({
   envelope: signedTaskEnvelopeSchema,
@@ -188,6 +192,9 @@ export class TaskStateStore {
     if (request.method === "GET" && url.pathname === "/state") {
       return current ? json(current) : json({ error: "task_not_found" }, 404);
     }
+    if (request.method === "GET" && url.pathname === "/host") {
+      return json({ host: (await this.state.storage.get<boolean>(HOST_KEY)) === true });
+    }
     if (request.method === "GET" && url.pathname === "/timings") {
       return json((await this.state.storage.get<{ leasedAt?: string }>(TIMINGS_KEY)) ?? {});
     }
@@ -237,12 +244,14 @@ export class TaskStateStore {
       const parsed = z.object({
         state: remoteTaskStateSchema,
         envelope: signedTaskEnvelopeSchema,
+        host: z.boolean().optional(),
       }).strict().parse(JSON.parse(body) as unknown);
       await this.state.storage.transaction(async (txn) => {
         await txn.put(STATE_KEY, parsed.state);
         await txn.put(OUTBOX_KEY, { envelope: parsed.envelope, sent: false } satisfies EnqueueOutbox);
+        if (parsed.host) await txn.put(HOST_KEY, true);
       });
-      await indexRecentTask(this.env, parsed.state);
+      if (mayIndexTask(parsed.host === true)) await indexRecentTask(this.env, parsed.state);
       return json(parsed.state, 201);
     }
     if (!current) return json({ error: "task_not_found" }, 404);
@@ -360,7 +369,10 @@ async function deliverOutbox(env: Env, taskId: string, envelope: SignedTaskEnvel
   await quotaStub(env).fetch("https://state/quota/commit", { method: "POST", body: quotaBody }).catch(() => undefined);
 }
 
-async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string): Promise<Response> {
+async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string, route?: McpRoute): Promise<Response> {
+  // The one choke point for host tasks: whatever path built the task, only the owner route may enqueue one.
+  const isHost = task.hostFs !== undefined;
+  if (isHost && !mayHandleHostTask(route)) return json({ error: "host_tools_require_owner_route" }, 403);
   const now = Date.now();
   const taskId = stableTaskId ?? crypto.randomUUID();
   const quotaBody = JSON.stringify({ taskId });
@@ -394,6 +406,8 @@ async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string): P
     issuedAt: now,
     expiresAt: now + 24 * 60 * 60_000,
     task,
+    // Stamped only on host tasks: an unknown envelope key would break Legions that predate host mode.
+    ...(isHost ? { route } : {}),
   };
   const signed = await signEnvelope(envelope, requiredSecret(env, "TASK_SIGNING_SECRET"));
   const createdAt = new Date(now).toISOString();
@@ -409,7 +423,7 @@ async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string): P
     const init = await stateStub(env, taskId).fetch("https://state/init", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ state: initial, envelope: signed }),
+      body: JSON.stringify({ state: initial, envelope: signed, ...(isHost ? { host: true } : {}) }),
     });
     if (!init.ok) throw new Error(`failed to initialize remote task state: HTTP ${init.status}`);
   } catch (error) {
@@ -428,7 +442,7 @@ function submittedTask(value: unknown): RemoteTask {
 
 async function delegate(request: Request, env: Env): Promise<Response> {
   const raw = await readBody(request);
-  return enqueueTask(submittedTask(JSON.parse(raw) as unknown), env);
+  return enqueueTask(submittedTask(JSON.parse(raw) as unknown), env, undefined, "owner");
 }
 
 function assistantTask(value: unknown): RemoteTask {
@@ -462,8 +476,19 @@ async function delegateAssistant(value: unknown, env: Env, idempotencyKey?: stri
   return rpcResult(await enqueueTask(assistantTask(value), env, taskId));
 }
 
-async function getTaskResult(taskId: string, env: Env, withTimings = false): Promise<RpcResult> {
+async function hostTaskHidden(env: Env, id: string, route: McpRoute | undefined): Promise<boolean> {
+  if (route === "owner") return false;
+  const response = await stateStub(env, id).fetch("https://state/host");
+  if (!response.ok) return false;
+  const { host } = await response.json() as { host?: boolean };
+  return !taskVisibleTo(host === true, route);
+}
+
+const TASK_NOT_FOUND: RpcResult = { status: 404, body: { error: "task_not_found" } };
+
+async function getTaskResult(taskId: string, env: Env, withTimings = false, route?: McpRoute): Promise<RpcResult> {
   const id = z.string().uuid().parse(taskId);
+  if (await hostTaskHidden(env, id, route)) return TASK_NOT_FOUND;
   const result = await rpcResult(await readState(env, id));
   if (!withTimings || result.status >= 400) return result;
   const parsed = remoteTaskStateSchema.safeParse(result.body);
@@ -479,8 +504,9 @@ async function getTaskResult(taskId: string, env: Env, withTimings = false): Pro
   }
 }
 
-async function cancelTaskResult(taskId: string, env: Env): Promise<RpcResult> {
+async function cancelTaskResult(taskId: string, env: Env, route?: McpRoute): Promise<RpcResult> {
   const id = z.string().uuid().parse(taskId);
+  if (await hostTaskHidden(env, id, route)) return TASK_NOT_FOUND;
   return rpcResult(await stateStub(env, id).fetch("https://state/cancel", { method: "POST", body: "{}" }));
 }
 
@@ -497,17 +523,28 @@ async function recentTaskSnapshots(env: Env, limit = 10): Promise<RecentTaskSnap
   return states.filter((state): state is RemoteTaskState => state !== null).map(compactRecentTask);
 }
 
-function mcpOperations(env: Env): ControlMcpOperations {
+function mcpOperations(env: Env, route: McpRoute): ControlMcpOperations {
   return {
-    meta: async () => ({ status: 200, body: await controlMeta(env) }),
+    route,
+    meta: async () => {
+      const meta = await controlMeta(env);
+      // Whether host mode is on is the owner's business: connector callers never see the field.
+      if (route !== "owner") delete (meta as { hostCapabilities?: unknown }).hostCapabilities;
+      return { status: 200, body: meta };
+    },
+    hostCapabilities: async () => ((await controlMeta(env)) as { hostCapabilities?: string[] }).hostCapabilities ?? [],
+    hostFs: async (value, key) => {
+      const taskId = key ? await idempotentTaskId(key) : undefined;
+      return rpcResult(await enqueueTask(buildHostFsTask(hostFsCallSchema.parse(value)), env, taskId, route));
+    },
     recentTasks: (limit) => recentTaskSnapshots(env, limit),
     delegate: (value, key) => delegateAssistant(value, env, key),
     direct: async (value, key) => {
       const taskId = key ? await idempotentTaskId(key) : undefined;
       return rpcResult(await enqueueDirectTool(value, env, taskId));
     },
-    getTask: (taskId) => getTaskResult(taskId, env, true),
-    cancelTask: (taskId) => cancelTaskResult(taskId, env),
+    getTask: (taskId) => getTaskResult(taskId, env, true, route),
+    cancelTask: (taskId) => cancelTaskResult(taskId, env, route),
   };
 }
 
@@ -627,8 +664,9 @@ export default {
       }
 
       if (isMcpPath(url.pathname)) {
-        if (!mcpAuthorized(request, env)) return unauthorized();
-        return handleControlMcp(await boundedMcpRequest(request), mcpOperations(env));
+        const route = mcpRoute(request, env);
+        if (!route) return unauthorized();
+        return handleControlMcp(await boundedMcpRequest(request), mcpOperations(env, route));
       }
 
       if (url.pathname === FREE_ROUTER_WORKER_PATH) {

@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { z } from "zod";
 import type { DispatcherConfig } from "./config.js";
+import type { SubmitRoute } from "./authority.js";
 import { deviceMetaSchema, type DeviceMeta } from "./device-meta.js";
 import {
   remoteResultSchema,
@@ -315,7 +316,8 @@ export class CloudflareQueueTransport {
 }
 
 export interface RemoteTaskExecutor {
-  execute(task: RemoteTask, taskId: string, signal?: AbortSignal): Promise<RemoteResult>;
+  /** `context.route` comes from the verified envelope, never from the task body. */
+  execute(task: RemoteTask, taskId: string, signal?: AbortSignal, context?: { route?: SubmitRoute }): Promise<RemoteResult>;
 }
 
 export class RemoteWorker {
@@ -416,7 +418,7 @@ export class RemoteWorker {
     let result: RemoteResult;
     try {
       result = remoteResultSchema.parse(
-        await this.executor.execute(signed.envelope.task, taskId, controller.signal),
+        await this.executor.execute(signed.envelope.task, taskId, controller.signal, { route: signed.envelope.route }),
       );
     } catch (error) {
       result = {

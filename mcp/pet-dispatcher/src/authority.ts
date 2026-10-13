@@ -181,6 +181,17 @@ export class AuthorityPolicy {
     return [...this.#leases.values()].map((lease) => ({ ...lease }));
   }
 
+  /**
+   * Static allowance without a lease: the local config lists the capability and the task's tier may hold it. Meant for
+   * read-only capabilities, where the allowlist + roots + policy floor are the consent; write/exec use leases.
+   */
+  permits(capability: HostCapability, executor: TaskExecutor, route: SubmitRoute | undefined): Decision {
+    const tier = tierFor(executor, route);
+    if (!this.#grantable.has(capability)) return { allowed: false, reason: `${capability} is not enabled on this host` };
+    if (!TIER_CEILING[tier].includes(capability)) return { allowed: false, reason: `${tier} may not use ${capability}` };
+    return { allowed: true };
+  }
+
   /** True when `owner` currently holds a live lease for `capability` at the tier its task earns. Does not look at paths. */
   evaluate(capability: HostCapability, executor: TaskExecutor, route: SubmitRoute | undefined, owner: string): Decision {
     const tier = tierFor(executor, route);

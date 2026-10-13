@@ -67,6 +67,11 @@ try {
     $env:PET_DISPATCHER_SIGNING_SECRET = Read-DpapiSecret 'TASK_SIGNING_SECRET'
 
     # Start-Process truncates its redirect targets, so every start gets its own pair of files.
+    # Nothing else prunes them: drop empty stderr logs of finished workers, keep the newest 40 files.
+    Get-ChildItem -LiteralPath $logRoot -Filter 'remote-*.err.log' -ErrorAction SilentlyContinue |
+        Where-Object { $_.Length -eq 0 } | Remove-Item -ErrorAction SilentlyContinue
+    Get-ChildItem -LiteralPath $logRoot -Filter 'remote-*.log' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -Skip 40 | Remove-Item -ErrorAction SilentlyContinue
     $stamp = Get-Date -Format 'yyyy-MM-dd_HHmmss'
     $outPath = Join-Path $logRoot "remote-$stamp.log"
     $errPath = Join-Path $logRoot "remote-$stamp.err.log"

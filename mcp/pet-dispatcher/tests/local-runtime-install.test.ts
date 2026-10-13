@@ -155,7 +155,7 @@ function alive(pid: number): boolean {
   catch { return false; }
 }
 
-test("supervisor restarts a dead worker and refuses a second instance", { skip: process.platform !== "win32", timeout: 60_000 }, async () => {
+test("supervisor ignores a stale pid, restarts a dead worker and refuses a second instance", { skip: process.platform !== "win32", timeout: 60_000 }, async () => {
   const base = await mkdtemp(join(tmpdir(), "pet-supervisor-"));
   const bin = join(base, "bin");
   const supervisorPath = join(bin, "pet-dispatcher-supervise.js");
@@ -173,18 +173,30 @@ test("supervisor restarts a dead worker and refuses a second instance", { skip: 
   try {
     await mkdir(bin, { recursive: true });
     await writeFile(supervisorPath, await readFile(new URL("../scripts/pet-dispatcher-supervise.js", import.meta.url)));
-    // Stand-in for the real launcher: a sleeping node whose command line ends in "index.js remote".
+    // Stand-in for the real launcher: a sleeping node whose command line ends in
+    // "<root>\app\releases\...\index.js remote".
     await writeFile(join(bin, "pet-dispatcher-start-worker.ps1"), [
       "param([string]$Root)",
       "New-Item -ItemType Directory -Path (Join-Path $Root 'state') -Force | Out-Null",
-      "$p = Start-Process -FilePath $env:FIXTURE_NODE -ArgumentList @('-e', '\"setTimeout(function(){},120000)\"', 'index.js', 'remote') -WindowStyle Hidden -PassThru",
+      "$entry = Join-Path $Root 'app\\releases\\fixture\\index.js'",
+      "$p = Start-Process -FilePath $env:FIXTURE_NODE -ArgumentList @('-e', '\"setTimeout(function(){},120000)\"', $entry, 'remote') -WindowStyle Hidden -PassThru",
       "Set-Content -LiteralPath (Join-Path $Root 'state\\worker.pid') -Value $p.Id -Encoding ascii -NoNewline",
       "",
     ].join("\r\n"));
+    // A stale pid file can point at an unrelated node that also runs "index.js remote" (the
+    // pid file survives reboots, PIDs get reused). The supervisor must not adopt it.
+    const foreign = spawn(process.execPath, ["-e", "setTimeout(function(){},120000)", "index.js", "remote"], { windowsHide: true, stdio: "ignore" });
+    workers.add(foreign.pid ?? 0);
+    await mkdir(join(base, "state"), { recursive: true });
+    await writeFile(pidPath, String(foreign.pid));
     const first = spawn(wscript, ["//B", "//Nologo", supervisorPath], { env, windowsHide: true, stdio: "ignore" });
     spawned.push(first.pid ?? 0);
-    const worker1 = await waitFor(readWorker, 20_000);
+    const worker1 = await waitFor(async () => {
+      const pid = await readWorker();
+      return pid !== undefined && pid !== foreign.pid ? pid : undefined;
+    }, 20_000);
     workers.add(worker1);
+    assert.equal(alive(foreign.pid ?? 0), true, "the supervisor must leave an unrelated process alone");
 
     process.kill(worker1);
     const worker2 = await waitFor(async () => {

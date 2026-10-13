@@ -48,8 +48,13 @@ foreach ($target in $targets) { Stop-Tree $target.ProcessId }
 if (Test-Path -LiteralPath $pidPath) {
     $workerPid = 0
     if ([int]::TryParse((Get-Content -LiteralPath $pidPath -Raw).Trim(), [ref]$workerPid) -and $workerPid -gt 0) {
-        $worker = Get-Process -Id $workerPid -ErrorAction SilentlyContinue
-        if ($worker -and $worker.ProcessName -eq 'node') { Stop-Tree $workerPid }
+        # The pid file survives reboots: only kill a node that runs a release under this install root.
+        $worker = Get-CimInstance Win32_Process -Filter "ProcessId=$workerPid" -ErrorAction SilentlyContinue
+        $releases = Join-Path $root 'app\releases\'
+        if ($worker -and $worker.Name -eq 'node.exe' -and $worker.CommandLine -and
+            $worker.CommandLine.IndexOf($releases, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            Stop-Tree $workerPid
+        }
     }
 }
 

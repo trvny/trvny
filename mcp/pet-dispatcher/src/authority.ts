@@ -193,9 +193,18 @@ export class AuthorityPolicy {
     return { allowed: false, reason: `no active lease for ${capability}` };
   }
 
-  /** Path rules for an already canonicalized absolute path: inside a root, outside the policy floor. */
-  evaluatePath(canonicalPath: string, mode: PathMode): Decision {
-    const raw = canonicalPath;
+  /**
+   * Path rules for an absolute path: inside a root, outside the policy floor. `canonicalPath` is the resolved target;
+   * pass the spelling the caller used as `lexicalPath` too: the floor, the .git/.claude segment rule and the credential
+   * names are checked on both, so a junction such as repo\.git -> elsewhere cannot hide the denied component.
+   */
+  evaluatePath(canonicalPath: string, mode: PathMode, lexicalPath?: string): Decision {
+    const canonical = this.#check(canonicalPath, mode, true);
+    if (!canonical.allowed || lexicalPath === undefined) return canonical;
+    return this.#check(lexicalPath, mode, false);
+  }
+
+  #check(raw: string, mode: PathMode, enforceRoots: boolean): Decision {
     if (/^[\\/]{2}[?.][\\/]/u.test(raw)) return { allowed: false, reason: "device paths are not allowed" };
     if (!win32.isAbsolute(raw) || /^[A-Za-z]:(?![\\/])/u.test(raw)) return { allowed: false, reason: "path must be absolute" };
     const withoutDrive = raw.replace(/^[A-Za-z]:/u, "");
@@ -203,12 +212,12 @@ export class AuthorityPolicy {
     const normalized = win32.normalize(raw);
     const segments = normalized.split("\\").filter(Boolean);
     if (segments.includes("..")) return { allowed: false, reason: "relative path segment" };
-    // Same component rules as the workspace path guard: reserved device names (incl. CLOCK$, CONIN$, COM¹, "NUL .txt")
+    // Same component rules as the workspace path guard: reserved device names (incl. CLOCK$, CONIN$, COM-superscripts, "NUL .txt")
     // and trailing dots/spaces, which Win32 drops so that "x." is "x" on disk and would dodge the name and floor rules.
     try { validateWindowsPathComponents(withoutDrive.replace(/^[\\/]{2}[^\\/]+[\\/][^\\/]+/u, "")); }
     catch (error) { return { allowed: false, reason: error instanceof Error ? error.message : "invalid Windows path component" }; }
     const path = key(normalized);
-    if (!this.#roots.some((root) => isInside(root, path))) return { allowed: false, reason: "path is outside the granted roots" };
+    if (enforceRoots && !this.#roots.some((root) => isInside(root, path))) return { allowed: false, reason: "path is outside the granted roots" };
     const floor = mode === "write" ? this.#denyWrite : this.#denyRead;
     if (floor.some((denied) => isInside(denied, path))) return { allowed: false, reason: "path is protected by the policy floor" };
     if (mode === "write" && segments.some((s) => DENY_WRITE_SEGMENT.has(s.toLowerCase()))) {

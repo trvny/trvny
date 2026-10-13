@@ -179,6 +179,16 @@ test("writes that become code execution are denied under every root, extra denie
   assert.equal(p.evaluatePath("E:\\work\\proj\\a.txt", "write").allowed, true);
 });
 
+test("the spelling the caller used is checked too: a junctioned .git cannot hide the denied component", async () => {
+  const p = await policy({ grantable: ["host.fs.write", "host.fs.read"], roots: ["D:\\"] });
+  // repo\.git is a junction to D:\objects\gitdir: the canonical path has no .git segment, the lexical one does.
+  assert.equal(p.evaluatePath("D:\\objects\\gitdir\\hooks\\pre-commit", "write").allowed, true, "canonical alone would pass");
+  assert.equal(p.evaluatePath("D:\\objects\\gitdir\\hooks\\pre-commit", "write", "D:\\repo\\.git\\hooks\\pre-commit").allowed, false);
+  assert.equal(p.evaluatePath("D:\\objects\\gitdir\\HEAD", "read", "D:\\repo\\.git\\HEAD").allowed, true, "reads through it stay possible");
+  assert.equal(p.evaluatePath("D:\\vault\\k.txt", "read", "D:\\repo\\link\\.env").allowed, false, "credential-shaped lexical name");
+  assert.equal(p.evaluatePath("D:\\a\\b.txt", "write", "relative\\b.txt").allowed, false, "a non-absolute lexical path is refused");
+});
+
 test("no executor can carry a host capability yet (the enum addition is inert)", () => {
   const base = { repo: "r", baseRef: "main", timeoutMinutes: 2, network: { mode: "none" } };
   for (const capability of ["host.fs.read", "host.exec", "process.manage"]) {

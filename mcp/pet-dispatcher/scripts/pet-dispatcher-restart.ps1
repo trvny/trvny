@@ -33,13 +33,15 @@ function Stop-Tree([int]$ProcessId) {
     }
 }
 
-# Supervisor first, so it cannot respawn the worker we are about to stop.
+# Supervisor first, so it cannot respawn the worker we are about to stop. The legacy launcher is matched by
+# its full path under THIS install root, so a second install of Pet Dispatcher is left alone.
+$legacyLauncher = Join-Path $root 'bin\pet-dispatcher-launch'
 $targets = @(
     Get-CimInstance Win32_Process -Filter "Name='wscript.exe' OR Name='powershell.exe' OR Name='pwsh.exe'" |
         Where-Object {
             $_.ProcessId -ne $PID -and $_.CommandLine -and (
                 $_.CommandLine.IndexOf($Supervisor, [StringComparison]::OrdinalIgnoreCase) -ge 0 -or
-                $_.CommandLine.IndexOf('pet-dispatcher-launch.ps1', [StringComparison]::OrdinalIgnoreCase) -ge 0
+                $_.CommandLine.IndexOf($legacyLauncher, [StringComparison]::OrdinalIgnoreCase) -ge 0
             )
         }
 )
@@ -48,11 +50,13 @@ foreach ($target in $targets) { Stop-Tree $target.ProcessId }
 if (Test-Path -LiteralPath $pidPath) {
     $workerPid = 0
     if ([int]::TryParse((Get-Content -LiteralPath $pidPath -Raw).Trim(), [ref]$workerPid) -and $workerPid -gt 0) {
-        # The pid file survives reboots: only kill a node that runs a release under this install root.
+        # The pid file survives reboots and pids get reused: only kill the worker itself
+        # ("<root>\app\releases\...\index.js remote"), same identity the supervisor checks.
         $worker = Get-CimInstance Win32_Process -Filter "ProcessId=$workerPid" -ErrorAction SilentlyContinue
         $releases = Join-Path $root 'app\releases\'
         if ($worker -and $worker.Name -eq 'node.exe' -and $worker.CommandLine -and
-            $worker.CommandLine.IndexOf($releases, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            $worker.CommandLine.IndexOf($releases, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+            $worker.CommandLine -match 'index\.js"?\s+remote\s*$') {
             Stop-Tree $workerPid
         }
     }

@@ -114,16 +114,20 @@ async function publishBin(sourceRoot: string, paths: LocalRuntimePaths): Promise
   for (const name of ["pet-dispatcher-supervise.js", "pet-dispatcher-start-worker.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-secrets.ps1"]) {
     await copyFile(join(sourceRoot, "scripts", name), join(paths.binRoot, name));
   }
-  // Replaced by the wscript supervisor; a stale copy would only confuse whoever reads bin/.
-  for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js"]) {
-    await rm(join(paths.binRoot, name), { force: true });
-  }
   await writeFile(
     join(paths.binRoot, "provider-credential-env-names.json"),
     `${JSON.stringify(PROVIDER_CREDENTIAL_ENV_NAMES)}\n`,
     "utf8",
   );
 }
+// Replaced by the wscript supervisor. Removed only after the Run key points at the new supervisor and the old
+// launcher is stopped (startup registration on): until then a legacy Run entry may still point at these files.
+async function removeLegacyBin(paths: LocalRuntimePaths): Promise<void> {
+  for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js"]) {
+    await rm(join(paths.binRoot, name), { force: true });
+  }
+}
+
 async function publishRelease(options: InstallLocalRuntimeOptions, paths: LocalRuntimePaths, sourceCommit: string): Promise<string> {
   if (options.build !== false) await runNpm(["run", "build"], options.sourceRoot);
   const releaseRoot = join(paths.releasesRoot, sourceCommit);
@@ -206,7 +210,10 @@ export async function installLocalRuntime(options: InstallLocalRuntimeOptions): 
   await writeCurrentManifest(paths, sourceCommit, releaseRoot);
   if (options.registerStartup) await registerStartup(paths);
   await pruneReleases(paths, releaseRoot, options.keepReleases ?? 2);
-  if (options.registerStartup) await restartStartupSupervisor(paths);
+  if (options.registerStartup) {
+    await restartStartupSupervisor(paths);
+    await removeLegacyBin(paths);
+  }
   return { paths, sourceCommit, releaseRoot };
 }
 

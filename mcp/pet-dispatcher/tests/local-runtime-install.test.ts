@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { installLocalRuntime } from "../scripts/install-local-runtime.js";
 import { PROVIDER_CREDENTIAL_ENV_NAMES } from "../src/provider-credentials.js";
@@ -212,6 +213,28 @@ test("supervisor ignores a stale pid, restarts a dead worker and refuses a secon
   } finally {
     for (const pid of spawned) if (pid) await execFileAsync("taskkill.exe", ["/PID", String(pid), "/T", "/F"]).catch(() => undefined);
     for (const pid of workers) if (alive(pid)) { try { process.kill(pid); } catch { /* already gone */ } }
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("worker launcher adopts a live unrecorded worker instead of starting a second one", { skip: process.platform !== "win32", timeout: 60_000 }, async () => {
+  const base = await mkdtemp(join(tmpdir(), "pet-adopt-"));
+  const powershell = join(process.env.SystemRoot ?? String.raw`C:\Windows`, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+  let worker: ReturnType<typeof spawn> | undefined;
+  try {
+    const entry = join(base, "app", "releases", "fixture", "index.js");
+    await mkdir(join(base, "app", "releases", "fixture"), { recursive: true });
+    await mkdir(join(base, "state"), { recursive: true });
+    // Same shape as the real worker's command line: "<root>\app\releases\...\index.js remote", no pid file.
+    worker = spawn(process.execPath, ["-e", "setTimeout(function(){},120000)", entry, "remote"], { windowsHide: true, stdio: "ignore" });
+    await new Promise((resolveStart) => setTimeout(resolveStart, 500));
+    const script = fileURLToPath(new URL("../scripts/pet-dispatcher-start-worker.ps1", import.meta.url));
+    // Adoption happens before the manifest/secrets are read, so a bare root is enough.
+    await execFileAsync(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, "-Root", base]);
+    assert.equal(Number.parseInt(await readFile(join(base, "state", "worker.pid"), "utf8"), 10), worker.pid);
+    assert.equal(alive(worker.pid ?? 0), true);
+  } finally {
+    if (worker?.pid && alive(worker.pid)) { try { process.kill(worker.pid); } catch { /* already gone */ } }
     await rm(base, { recursive: true, force: true });
   }
 });

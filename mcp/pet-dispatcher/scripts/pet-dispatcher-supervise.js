@@ -23,6 +23,7 @@ var LOGON_CALM_MAX_MS = 120000;
 var CALM_LOAD_PERCENT = 40;
 var CALM_SAMPLES = 3;
 var CALM_SAMPLE_MS = 5000;
+var WMI_FAILURE_LIMIT = 3;  // consecutive failed identity checks before the worker counts as gone
 
 var shell = new ActiveXObject("WScript.Shell");
 var fso = new ActiveXObject("Scripting.FileSystemObject");
@@ -37,6 +38,7 @@ var starter = binRoot + "\\pet-dispatcher-start-worker.ps1";
 var powershell = shell.ExpandEnvironmentStrings("%SystemRoot%") + "\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
 var lockHandle = null;
 var wmi = null;
+var wmiFailures = 0;
 
 function envNumber(name, fallback) {
   var n = parseInt(shell.Environment("Process")(name), 10);
@@ -66,19 +68,22 @@ function ensureFolder(path) {
   if (!fso.FolderExists(path)) fso.CreateFolder(path);
 }
 
+// Create-new is atomic: of two racing supervisors exactly one creates the file. A leftover lock is
+// deleted and re-created once; a lock held by a live supervisor cannot be deleted (70), so the loser quits.
 function acquireLock() {
-  try {
-    fso.DeleteFile(lockPath, true);
-  } catch (e) {
-    // 53 = file not found (fine); anything else (70 = held by a live supervisor) = not ours.
-    if ((e.number & 0xFFFF) !== 53) return false;
+  for (var attempt = 0; attempt < 2; attempt++) {
+    try {
+      lockHandle = fso.CreateTextFile(lockPath, false);
+      return true;
+    } catch (e) {}
+    try {
+      fso.DeleteFile(lockPath, true);
+    } catch (e2) {
+      // 53 = vanished meanwhile (retry); anything else = held by a live supervisor.
+      if ((e2.number & 0xFFFF) !== 53) return false;
+    }
   }
-  try {
-    lockHandle = fso.OpenTextFile(lockPath, 8, true);
-    return true;
-  } catch (e2) {
-    return false;
-  }
+  return false;
 }
 
 function workerPid() {
@@ -95,11 +100,14 @@ function workerPid() {
 }
 
 // True when pid is the installed node worker ("...\app\releases\...\index.js remote").
-// On a WMI failure answers true: not knowing is no reason to start a second worker.
+// A failed WMI query is "unknown", not "dead": the first WMI_FAILURE_LIMIT-1 failures in a row keep the worker
+// (never start a second one on a blip); after that it counts as gone, and the starter adopts a live worker
+// instead of launching a duplicate, so a broken WMI can neither hide a dead worker forever nor double it.
 function isWorker(pid) {
   try {
     if (!wmi) wmi = GetObject("winmgmts:{impersonationLevel=impersonate}!\\\\.\\root\\cimv2");
     var rows = wmi.ExecQuery("SELECT Name, CommandLine FROM Win32_Process WHERE ProcessId=" + pid);
+    wmiFailures = 0;
     for (var it = new Enumerator(rows); !it.atEnd(); it.moveNext()) {
       var row = it.item();
       var commandLine = String(row.CommandLine || "");
@@ -110,8 +118,9 @@ function isWorker(pid) {
     return false;
   } catch (e) {
     wmi = null;
-    log("WMI check failed: " + e.message);
-    return true;
+    wmiFailures++;
+    log("WMI check failed (" + wmiFailures + "/" + WMI_FAILURE_LIMIT + "): " + e.message);
+    return wmiFailures < WMI_FAILURE_LIMIT;
   }
 }
 

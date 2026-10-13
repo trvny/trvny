@@ -42,6 +42,18 @@ function Read-DpapiSecret([string]$Name) {
 }
 
 try {
+    # A worker that is alive but unrecorded (pid file lost, or the supervisor could not verify it) must not be
+    # doubled: adopt it by re-recording its pid and start nothing.
+    $releaseMarker = Join-Path $Root 'app\releases\'
+    $alive = @(Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue | Where-Object {
+        $_.CommandLine -and $_.CommandLine.IndexOf($releaseMarker, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+        $_.CommandLine -match 'index\.js"?\s+remote\s*$'
+    })
+    if ($alive.Count -gt 0) {
+        Set-Content -LiteralPath $pidPath -Value $alive[0].ProcessId -Encoding ascii -NoNewline
+        Add-Content -LiteralPath (Join-Path $logRoot ("supervisor-{0}.log" -f (Get-Date -Format 'yyyy-MM-dd'))) -Value ('{0} start-worker: adopted running worker pid {1}' -f (Get-Date -Format 'HH:mm:ss'), $alive[0].ProcessId)
+        exit 0
+    }
     if (-not (Test-Path -LiteralPath $manifestPath)) { throw "Missing Pet Dispatcher manifest: $manifestPath" }
     if (-not (Test-Path -LiteralPath $configPath)) { throw "Missing Pet Dispatcher config: $configPath" }
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -77,7 +89,13 @@ try {
     $errPath = Join-Path $logRoot "remote-$stamp.err.log"
     $worker = Start-Process -FilePath $nodePath -ArgumentList @("`"$entry`"", 'remote') `
         -WindowStyle Hidden -PassThru -RedirectStandardOutput $outPath -RedirectStandardError $errPath
-    Set-Content -LiteralPath $pidPath -Value $worker.Id -Encoding ascii -NoNewline
+    try {
+        Set-Content -LiteralPath $pidPath -Value $worker.Id -Encoding ascii -NoNewline
+    } catch {
+        # An unrecorded worker would be invisible to the supervisor, which would then start another.
+        & taskkill.exe /PID $worker.Id /T /F *> $null
+        throw "Could not record worker pid $($worker.Id), worker stopped: $($_.Exception.Message)"
+    }
 
     Start-Sleep -Milliseconds 750
     $worker.Refresh()

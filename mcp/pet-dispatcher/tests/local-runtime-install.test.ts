@@ -130,7 +130,7 @@ test("runtime mirror updates remote heads without pruning exported Pet refs", as
 test("startup command uses native Windows quoting", async () => {
   const module = await import("../scripts/install-local-runtime.js");
   assert.equal(module.windowsStartupCommand(String.raw`C:\Program Files\Windows\wscript.exe`, String.raw`C:\Users\travn\.local\share\pet-dispatcher\bin\pet-dispatcher-supervise.js`),
-    '"C:\\Program Files\\Windows\\wscript.exe" //B //Nologo "C:\\Users\\travn\\.local\\share\\pet-dispatcher\\bin\\pet-dispatcher-supervise.js"');
+    '"C:\\Program Files\\Windows\\wscript.exe" //B //Nologo "C:\\Users\\travn\\.local\\share\\pet-dispatcher\\bin\\pet-dispatcher-supervise.js" /logon');
 });
 
 test("supervisor starts the one-shot worker launcher with SW_HIDE and holds a singleton lock", async () => {
@@ -216,6 +216,47 @@ test("supervisor ignores a stale pid, restarts a dead worker and refuses a secon
   }
 });
 
+test("supervisor started with /logon waits before the first worker start", { skip: process.platform !== "win32", timeout: 60_000 }, async () => {
+  const base = await mkdtemp(join(tmpdir(), "pet-supervisor-logon-"));
+  const bin = join(base, "bin");
+  const supervisorPath = join(bin, "pet-dispatcher-supervise.js");
+  const pidPath = join(base, "state", "worker.pid");
+  const wscript = join(process.env.SystemRoot ?? String.raw`C:\Windows`, "System32", "wscript.exe");
+  const env = { ...process.env, PET_DISPATCHER_SUPERVISOR_POLL_MS: "500", PET_DISPATCHER_SUPERVISOR_LOGON_DELAY_MS: "6000",
+    PET_DISPATCHER_SUPERVISOR_LOGON_CALM_MS: "1000", PET_DISPATCHER_SUPERVISOR_CALM_SAMPLE_MS: "500", FIXTURE_NODE: process.execPath };
+  const spawned: number[] = [];
+  const workers = new Set<number>();
+  const readWorker = async (): Promise<number | undefined> => {
+    try {
+      const pid = Number.parseInt(await readFile(pidPath, "utf8"), 10);
+      return pid > 0 && alive(pid) ? pid : undefined;
+    } catch { return undefined; }
+  };
+  try {
+    await mkdir(bin, { recursive: true });
+    await writeFile(supervisorPath, await readFile(new URL("../scripts/pet-dispatcher-supervise.js", import.meta.url)));
+    await writeFile(join(bin, "pet-dispatcher-start-worker.ps1"), [
+      "param([string]$Root)",
+      "New-Item -ItemType Directory -Path (Join-Path $Root 'state') -Force | Out-Null",
+      "$entry = Join-Path $Root 'app\\releases\\fixture\\index.js'",
+      "$p = Start-Process -FilePath $env:FIXTURE_NODE -ArgumentList @('-e', '\"setTimeout(function(){},120000)\"', $entry, 'remote') -WindowStyle Hidden -PassThru",
+      "Set-Content -LiteralPath (Join-Path $Root 'state\\worker.pid') -Value $p.Id -Encoding ascii -NoNewline",
+      "",
+    ].join("\r\n"));
+    const startedAt = Date.now();
+    const supervisor = spawn(wscript, ["//B", "//Nologo", supervisorPath, "/logon"], { env, windowsHide: true, stdio: "ignore" });
+    spawned.push(supervisor.pid ?? 0);
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    assert.equal(await readWorker(), undefined, "no worker may start during the logon delay");
+    const worker = await waitFor(readWorker, 25_000);
+    workers.add(worker);
+    assert.ok(Date.now() - startedAt >= 5500, `worker came up after ${Date.now() - startedAt} ms, before the logon delay ended`);
+  } finally {
+    for (const pid of spawned) if (pid) await execFileAsync("taskkill.exe", ["/PID", String(pid), "/T", "/F"]).catch(() => undefined);
+    for (const pid of workers) if (alive(pid)) { try { process.kill(pid); } catch { /* already gone */ } }
+    await rm(base, { recursive: true, force: true });
+  }
+});
 
 test("local installer can run npm build on Windows", { skip: process.platform !== "win32" }, async () => {
   const base = await mkdtemp(join(tmpdir(), "pet-local-npm-"));

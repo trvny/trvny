@@ -171,7 +171,8 @@ export function windowsStartupCommand(wscript: string, shim: string): string {
   for (const value of [wscript, shim]) {
     if (!value || /["\r\n]/u.test(value)) throw new Error("invalid Windows startup path");
   }
-  return `"${wscript}" //B //Nologo "${shim}"`;
+  // /logon: the supervisor delays its first worker start until the logon burst has settled.
+  return `"${wscript}" //B //Nologo "${shim}" /logon`;
 }
 
 async function registerStartup(paths: LocalRuntimePaths): Promise<void> {

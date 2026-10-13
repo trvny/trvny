@@ -16,6 +16,13 @@
 var POLL_MS = 10000;      // worker liveness check
 var RETRY_MS = 60000;     // wait after start-worker.ps1 failed (missing manifest mid-install etc.)
 var MIN_LIFE_MS = 60000;  // a worker dying sooner than this is crash-looping: back off by RETRY_MS
+// Logon start only (the Run key passes /logon): let the logon burst finish before the first worker
+// start - fixed delay, then wait until the CPU has been calm for three samples, capped.
+var LOGON_DELAY_MS = 60000;
+var LOGON_CALM_MAX_MS = 120000;
+var CALM_LOAD_PERCENT = 40;
+var CALM_SAMPLES = 3;
+var CALM_SAMPLE_MS = 5000;
 
 var shell = new ActiveXObject("WScript.Shell");
 var fso = new ActiveXObject("Scripting.FileSystemObject");
@@ -38,6 +45,9 @@ function envNumber(name, fallback) {
 POLL_MS = envNumber("PET_DISPATCHER_SUPERVISOR_POLL_MS", POLL_MS);
 RETRY_MS = envNumber("PET_DISPATCHER_SUPERVISOR_RETRY_MS", RETRY_MS);
 MIN_LIFE_MS = envNumber("PET_DISPATCHER_SUPERVISOR_MIN_LIFE_MS", MIN_LIFE_MS);
+LOGON_DELAY_MS = envNumber("PET_DISPATCHER_SUPERVISOR_LOGON_DELAY_MS", LOGON_DELAY_MS);
+LOGON_CALM_MAX_MS = envNumber("PET_DISPATCHER_SUPERVISOR_LOGON_CALM_MS", LOGON_CALM_MAX_MS);
+CALM_SAMPLE_MS = envNumber("PET_DISPATCHER_SUPERVISOR_CALM_SAMPLE_MS", CALM_SAMPLE_MS);
 
 function pad(n) { return (n < 10 ? "0" : "") + n; }
 
@@ -110,9 +120,41 @@ function startWorker() {
   return shell.Run(command, 0, true);
 }
 
+function hasArgument(name) {
+  for (var i = 0; i < WScript.Arguments.length; i++) {
+    if (String(WScript.Arguments(i)).toLowerCase() === name) return true;
+  }
+  return false;
+}
+
+function cpuLoad() {
+  try {
+    if (!wmi) wmi = GetObject("winmgmts:{impersonationLevel=impersonate}!\\\\.\\root\\cimv2");
+    var rows = wmi.ExecQuery("SELECT LoadPercentage FROM Win32_Processor");
+    var sum = 0, count = 0;
+    for (var it = new Enumerator(rows); !it.atEnd(); it.moveNext()) { sum += Number(it.item().LoadPercentage) || 0; count++; }
+    return count ? sum / count : 0;
+  } catch (e) {
+    wmi = null;
+    return 0;   // can't measure -> don't hold the worker back
+  }
+}
+
+function waitForLogonToSettle() {
+  var begun = new Date().getTime();
+  WScript.Sleep(LOGON_DELAY_MS);
+  var calm = 0;
+  while (calm < CALM_SAMPLES && new Date().getTime() - begun < LOGON_DELAY_MS + LOGON_CALM_MAX_MS) {
+    calm = cpuLoad() < CALM_LOAD_PERCENT ? calm + 1 : 0;
+    if (calm < CALM_SAMPLES) WScript.Sleep(CALM_SAMPLE_MS);
+  }
+  log("logon delay done after " + Math.round((new Date().getTime() - begun) / 1000) + " s" + (calm < CALM_SAMPLES ? " (CPU never calmed, cap reached)" : ""));
+}
+
 try { ensureFolder(stateRoot); ensureFolder(logRoot); } catch (e) { WScript.Quit(1); }
 if (!acquireLock()) WScript.Quit(0);
 log("supervisor up");
+if (hasArgument("/logon")) waitForLogonToSettle();
 
 var startedAt = 0;  // 0 = worker adopted from before this supervisor started
 while (true) {

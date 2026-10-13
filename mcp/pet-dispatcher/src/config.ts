@@ -44,13 +44,14 @@ const remoteSchema = z.object({
   queueTokenEnv: z.string().min(1).default("PET_DISPATCHER_QUEUE_TOKEN"),
   signingSecretEnv: z.string().min(1).default("PET_DISPATCHER_SIGNING_SECRET"),
   pollIntervalMs: z.number().int().min(1_000).max(60_000).default(5_000),
-  pollMaxIntervalMs: z.number().int().min(1_000).max(300_000).default(30_000),
+  // No schema default: the runtime falls back to max(pollIntervalMs, 30 s), which stays valid for any allowed base interval.
+  pollMaxIntervalMs: z.number().int().min(1_000).max(300_000).optional(),
   heartbeatIntervalMs: z.number().int().min(5_000).max(60_000).default(15_000),
   visibilityTimeoutMs: z.number().int().min(1_800_000).max(43_200_000).default(1_800_000),
   syncRepositories: z.boolean().default(true),
   journalPath: z.string().min(1).default("remote-journal.json"),
 }).superRefine((value, ctx) => {
-  if (value.pollMaxIntervalMs < value.pollIntervalMs) {
+  if (value.pollMaxIntervalMs !== undefined && value.pollMaxIntervalMs < value.pollIntervalMs) {
     ctx.addIssue({ code: "custom", path: ["pollMaxIntervalMs"], message: "maximum poll interval may not be lower than the base interval" });
   }
 });

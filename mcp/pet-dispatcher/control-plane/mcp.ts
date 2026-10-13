@@ -160,14 +160,13 @@ async function awaitTask(
   const deadline = Date.now() + waitSeconds * 1_000;
   let current = initial;
   let attempt = 0;
-  while (Date.now() < deadline) {
+  for (;;) {
     current = await operations.getTask(taskId);
     if (current.status >= 400 || terminalBody(current.body)) return current;
     const remaining = deadline - Date.now();
-    if (remaining <= 0) break;
+    if (remaining <= 0) return current;
     await delay(Math.min(pollDelayMs(attempt++), remaining));
   }
-  return current;
 }
 
 // A 40 s wait at a fixed 1 s would be ~40 Durable Object reads per MCP call (and Workers cap subrequests per

@@ -48,7 +48,7 @@
     "queueTokenEnv": "PET_DISPATCHER_QUEUE_TOKEN",
     "signingSecretEnv": "PET_DISPATCHER_SIGNING_SECRET",
     "pollIntervalMs": 5000,
-    "pollMaxIntervalMs": 60000,
+    "pollMaxIntervalMs": 30000,
     "heartbeatIntervalMs": 15000,
     "visibilityTimeoutMs": 1800000,
     "syncRepositories": true,

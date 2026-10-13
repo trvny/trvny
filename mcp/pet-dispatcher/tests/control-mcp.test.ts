@@ -38,6 +38,22 @@ test("pet_task_get waits for a finished task and passes timings through the outp
   assert.ok(polls >= 3, "pet_task_get must keep waiting instead of answering on the first running state");
 });
 
+test("a task that finishes during the last sleep is still returned finished", async () => {
+  let polls = 0;
+  const operations = baseOperations({
+    getTask: async () => {
+      polls += 1;
+      return polls < 2
+        ? { status: 200, body: { taskId: TASK_ID, status: "running" } }
+        : { status: 200, body: { taskId: TASK_ID, status: "completed", result: { status: "completed", summary: "done" } } };
+    },
+  });
+  await initialize(operations);
+  const result = await rpc(operations, { jsonrpc: "2.0", id: 64, method: "tools/call", params: { name: "pet_task_get", arguments: { taskId: TASK_ID, waitSeconds: 1 } } });
+  const call = result.body?.result as { structuredContent?: { body?: { status?: string } } };
+  assert.equal(call.structuredContent?.body?.status, "completed");
+});
+
 test("an unfinished task tells the agent to make one waiting call, not to poll", async () => {
   const operations = baseOperations({ getTask: async () => ({ status: 200, body: { taskId: TASK_ID, status: "running" } }) });
   await initialize(operations);

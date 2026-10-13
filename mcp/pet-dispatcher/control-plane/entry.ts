@@ -183,7 +183,7 @@ export class TaskStateStore {
       await this.state.storage.put(NONCES_KEY, [nonce, ...nonces].slice(0, DEVICE_NONCE_HISTORY_LIMIT));
       return json({ ok: true }, 201);
     }
-    const current = await this.state.storage.get<RemoteTaskState>(STATE_KEY);
+    let current = await this.state.storage.get<RemoteTaskState>(STATE_KEY);
 
     if (request.method === "GET" && url.pathname === "/state") {
       return current ? json(current) : json({ error: "task_not_found" }, 404);
@@ -198,6 +198,10 @@ export class TaskStateStore {
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const body = await readBody(request);
+    // Reading the body is an I/O await that lets other requests run (a duplicate worker callback could make the
+    // task terminal meanwhile). Re-read so everything below works on fresh state; only storage awaits follow,
+    // which the input gate keeps atomic.
+    current = await this.state.storage.get<RemoteTaskState>(STATE_KEY);
     if (url.pathname.startsWith("/quota/")) {
       const { taskId } = z.object({ taskId: z.string().uuid() }).strict().parse(JSON.parse(body) as unknown);
       const day = new Date().toISOString().slice(0, 10);
@@ -464,11 +468,15 @@ async function getTaskResult(taskId: string, env: Env, withTimings = false): Pro
   if (!withTimings || result.status >= 400) return result;
   const parsed = remoteTaskStateSchema.safeParse(result.body);
   if (!parsed.success || !terminal(parsed.data.status)) return result;
-  const stored = await stateStub(env, id).fetch("https://state/timings");
-  if (!stored.ok) return result;
-  const { leasedAt } = await stored.json() as { leasedAt?: string };
-  const timings = computeTimings(parsed.data.createdAt, leasedAt, parsed.data.updatedAt);
-  return timings ? { status: result.status, body: { ...parsed.data, timings } } : result;
+  try {
+    const stored = await stateStub(env, id).fetch("https://state/timings");
+    if (!stored.ok) return result;
+    const { leasedAt } = await stored.json() as { leasedAt?: string };
+    const timings = computeTimings(parsed.data.createdAt, leasedAt, parsed.data.updatedAt);
+    return timings ? { status: result.status, body: { ...parsed.data, timings } } : result;
+  } catch {
+    return result;   // timings are diagnostics: never fail a finished task because of them
+  }
 }
 
 async function cancelTaskResult(taskId: string, env: Env): Promise<RpcResult> {

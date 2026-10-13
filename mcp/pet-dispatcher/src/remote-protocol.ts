@@ -3,6 +3,7 @@ import { z } from "zod";
 export const remoteCapabilitySchema = z.enum([
   "workspace.read", "workspace.write", "process.exec", "git.read", "git.commit", "tests.run", "network.fetch",
   "adb.inspect", "adb.install", "github.pr.create",
+  "host.fs.read", "host.fs.write", "host.exec", "process.manage",
 ]);
 export type RemoteCapability = z.infer<typeof remoteCapabilitySchema>;
 

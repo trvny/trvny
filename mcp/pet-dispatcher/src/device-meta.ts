@@ -9,6 +9,8 @@ export const deviceMetaSchema = z.object({
   workspaces: z.array(z.string().min(1).max(128)).max(128),
   directTools: z.array(z.string().min(1).max(128)).max(128),
   localTools: z.array(z.string().min(1).max(128)).max(256).default([]),
+  // Host capabilities the local config allows; omitted while host mode is off (older Workers parse this strictly).
+  hostCapabilities: z.array(z.string().min(1).max(64)).max(8).optional(),
   activeSessions: z.number().int().min(0),
   activeProcesses: z.number().int().min(0),
   sandbox: z.object({

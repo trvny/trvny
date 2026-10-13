@@ -1,5 +1,8 @@
 #!/usr/bin/env node
+import { homedir } from "node:os";
+import { basename, dirname, resolve } from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { AuthorityPolicy } from "./authority.js";
 import { loadConfig } from "./config.js";
 import { HostGit } from "./host-git.js";
 import { SessionManager } from "./sessions.js";
@@ -57,12 +60,17 @@ async function main(): Promise<void> {
         (payload, signal) => transport.freeRouter(payload, signal),
         (payload, signal) => transport.workRouter(payload, signal),
       );
+      // Host mode stays off (empty capability list) unless the local config lists roots and grantable capabilities.
+      const configPath = process.env.PET_DISPATCHER_CONFIG ? resolve(process.env.PET_DISPATCHER_CONFIG) : undefined;
+      const installRoot = configPath ? (basename(dirname(configPath)).toLowerCase() === "config" ? dirname(dirname(configPath)) : dirname(configPath)) : undefined;
+      const authority = await AuthorityPolicy.create(config.authority, { home: homedir(), installRoot });
       const metaProvider = () => {
         const sandbox = runner.securityStatus() as { supported?: boolean; processGuard?: string; networkDefault?: string; isolationTier?: string | null };
         return deviceMetaSchema.parse({
           deviceId: config.remote?.deviceId ?? "unknown", transport: "cloudflare-queues-http-pull", protocol: 1,
           updatedAt: new Date().toISOString(), repositories: Object.keys(config.repositories).sort(),
           workspaces: Object.keys(config.workspaces ?? {}).sort(), directTools: [...REMOTE_DIRECT_TOOLS], localTools: [],
+          ...(authority.enabledCapabilities().length ? { hostCapabilities: authority.enabledCapabilities() } : {}),
           activeSessions: sessions.activeCount(), activeProcesses: runner.activeProcessCount(),
           sandbox: { supported: sandbox.supported === true, processGuard: sandbox.processGuard ?? "unknown",
             networkDefault: sandbox.networkDefault ?? "deny", isolationTier: sandbox.isolationTier ?? null },

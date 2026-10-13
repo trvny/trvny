@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { AuthorityPolicy, authorityConfigSchema, tierForExecutor, type AuthorityConfig } from "../src/authority.js";
+import { AuthorityPolicy, authorityConfigSchema, hostMetaFields, tierFor, type AuthorityConfig } from "../src/authority.js";
 import { loadConfig } from "../src/config.js";
 import { deviceMetaSchema } from "../src/device-meta.js";
 import { remoteCapabilitySchema, remoteTaskSchema } from "../src/remote-protocol.js";
@@ -22,47 +22,66 @@ test("host mode is off by default and by an incomplete config", async () => {
   for (const config of [undefined, {}, { grantable: ["host.exec" as const] }, { roots: [HOME] }]) {
     const p = await policy(config);
     assert.deepEqual(p.enabledCapabilities(), []);
-    assert.equal(p.evaluate("host.exec", "operator-interactive").allowed, false);
-    assert.throws(() => p.grant("host.fs.read", "operator-interactive", 5), /not grantable/u);
+    assert.deepEqual(hostMetaFields(p), {}, "nothing is advertised while host mode is off");
+    assert.equal(p.evaluate("host.exec", "direct", "owner", "s1").allowed, false);
+    assert.throws(() => p.grant("host.fs.read", "direct", "owner", "s1", 5), /not grantable/u);
   }
 });
 
 test("only listed capabilities can be granted, and a signed request cannot widen that", async () => {
   const p = await policy({ grantable: ["host.fs.read"], roots: ["C:\\Users\\tester\\git"] });
   assert.deepEqual(p.enabledCapabilities(), ["host.fs.read"]);
-  assert.throws(() => p.grant("host.exec", "operator-interactive", 5), /not grantable/u);
-  assert.equal(p.evaluate("host.fs.read", "operator-interactive").allowed, false, "no lease yet");
-  p.grant("host.fs.read", "operator-interactive", 5);
-  assert.equal(p.evaluate("host.fs.read", "operator-interactive").allowed, true);
-  assert.equal(p.evaluate("host.exec", "operator-interactive").allowed, false);
+  assert.deepEqual(hostMetaFields(p), { hostCapabilities: ["host.fs.read"] });
+  assert.throws(() => p.grant("host.exec", "direct", "owner", "s1", 5), /not grantable/u);
+  assert.equal(p.evaluate("host.fs.read", "direct", "owner", "s1").allowed, false, "no lease yet");
+  p.grant("host.fs.read", "direct", "owner", "s1", 5);
+  assert.equal(p.evaluate("host.fs.read", "direct", "owner", "s1").allowed, true);
+  assert.equal(p.evaluate("host.exec", "direct", "owner", "s1").allowed, false);
 });
 
-test("leases expire, are capped by maxLeaseMinutes and can be revoked", async () => {
+test("a lease belongs to the session it was granted to", async () => {
+  const p = await policy({ grantable: ["host.exec"], roots: ["C:\\work"] });
+  p.grant("host.exec", "direct", "owner", "session-a", 5);
+  assert.equal(p.evaluate("host.exec", "direct", "owner", "session-a").allowed, true);
+  assert.equal(p.evaluate("host.exec", "direct", "owner", "session-b").allowed, false, "a concurrent session did not receive it");
+  assert.equal(p.revokeOwner("session-a"), 1);
+  assert.equal(p.evaluate("host.exec", "direct", "owner", "session-a").allowed, false);
+  assert.throws(() => p.grant("host.exec", "direct", "owner", "", 5), /needs an owner/u);
+});
+
+test("leases expire, are capped by maxLeaseMinutes and can be revoked; returned leases are copies", async () => {
   let clock = 1_000_000;
   const p = await policy({ grantable: ["host.fs.read", "host.exec"], roots: ["C:\\work"], maxLeaseMinutes: 10 }, () => clock);
-  const capped = p.grant("host.exec", "operator-interactive", 240);
+  const capped = p.grant("host.exec", "direct", "owner", "s", 240);
   assert.equal(capped.expiresAt - capped.grantedAt, 10 * 60_000);
-  const short = p.grant("host.fs.read", "operator-interactive", 1);
+  capped.expiresAt = Number.MAX_SAFE_INTEGER;
+  (capped as { capability: string }).capability = "host.fs.read";
+  p.list()[0]!.expiresAt = Number.MAX_SAFE_INTEGER;
+  clock += 11 * 60_000;
+  assert.equal(p.evaluate("host.exec", "direct", "owner", "s").allowed, false, "mutating returned objects must not extend a lease");
+  const short = p.grant("host.fs.read", "direct", "owner", "s", 1);
   clock += 61_000;
-  assert.equal(p.evaluate("host.fs.read", "operator-interactive").allowed, false, "expired");
-  assert.equal(p.list().length, 1);
-  assert.equal(p.revoke(capped.id), true);
-  assert.equal(p.evaluate("host.exec", "operator-interactive").allowed, false);
+  assert.equal(p.evaluate("host.fs.read", "direct", "owner", "s").allowed, false, "expired");
+  assert.equal(p.list().length, 0);
+  const again = p.grant("host.exec", "direct", "owner", "s", 1);
+  assert.equal(p.revoke(again.id), true);
   assert.equal(p.revoke(short.id), false);
-  p.grant("host.exec", "operator-interactive", 1);
+  p.grant("host.exec", "direct", "owner", "s", 1);
   p.revokeAll();
   assert.equal(p.list().length, 0);
 });
 
-test("trust tiers: delegates never hold exec or write, and the tier comes from the executor", async () => {
+test("trust comes from verified task facts: only a direct task on the owner route is operator-level", async () => {
+  assert.equal(tierFor("direct", "owner"), "operator-interactive");
+  assert.equal(tierFor("direct", "connector"), "untrusted-delegate");
+  assert.equal(tierFor("direct", undefined), "untrusted-delegate", "an unknown route fails closed");
+  for (const executor of ["openrouter", "deepseek", "gemini"] as const) assert.equal(tierFor(executor, "owner"), "untrusted-delegate");
   const p = await policy({ grantable: ["host.fs.read", "host.fs.write", "host.exec", "process.manage"], roots: ["C:\\work"] });
-  assert.equal(tierForExecutor("direct"), "operator-interactive");
-  for (const executor of ["openrouter", "deepseek", "gemini"] as const) assert.equal(tierForExecutor(executor), "untrusted-delegate");
-  assert.throws(() => p.grant("host.fs.read", "untrusted-delegate", 5), /may not hold/u);
-  assert.throws(() => p.grant("host.exec", "trusted-delegate", 5), /may not hold/u);
-  p.grant("host.fs.read", "trusted-delegate", 5);
-  assert.equal(p.evaluate("host.fs.read", "trusted-delegate").allowed, true);
-  assert.equal(p.evaluate("host.fs.read", "operator-interactive").allowed, false, "a lease belongs to its tier");
+  assert.throws(() => p.grant("host.fs.read", "openrouter", "owner", "s", 5), /may not hold/u);
+  assert.throws(() => p.grant("host.exec", "direct", "connector", "s", 5), /may not hold/u);
+  assert.throws(() => p.grant("host.exec", "direct", undefined, "s", 5), /may not hold/u);
+  p.grant("host.exec", "direct", "owner", "s", 5);
+  assert.equal(p.evaluate("host.exec", "direct", "connector", "s").allowed, false, "the same session on another route gets nothing");
 });
 
 test("paths: inside a root, outside the floor, canonical windows rules", async () => {
@@ -71,6 +90,7 @@ test("paths: inside a root, outside the floor, canonical windows rules", async (
   assert.equal(ok("C:\\Users\\tester\\git\\repo\\a.txt", "read"), true);
   assert.equal(ok("c:\\USERS\\Tester\\GIT\\repo\\a.txt", "write"), true, "case-insensitive");
   assert.equal(ok("D:\\data\\x.bin", "write"), true);
+  assert.equal(ok("C:\\Users\\tester\\git\\..draft\\a.txt", "read"), true, "a name that merely starts with two dots is not a traversal");
   assert.equal(ok("C:\\Windows\\System32\\cmd.exe", "read"), false, "outside every root");
   assert.equal(ok("C:\\Users\\tester2\\a.txt", "read"), false, "sibling with a shared prefix");
   assert.equal(ok("C:\\Users\\tester\\..\\other\\a.txt", "read"), false);
@@ -79,9 +99,17 @@ test("paths: inside a root, outside the floor, canonical windows rules", async (
   assert.equal(ok("\\\\.\\PhysicalDrive0", "read"), false, "device path");
   assert.equal(ok("C:\\Users\\tester\\git\\a.txt::$DATA", "read"), false, "alternate data stream");
   assert.equal(ok("C:\\Users\\tester\\git\\a.txt:hidden", "write"), false, "alternate data stream");
-  assert.equal(ok("C:\\Users\\tester\\git\\NUL", "write"), false, "reserved name");
-  assert.equal(ok("C:\\Users\\tester\\git\\con.txt", "read"), false, "reserved name with extension");
   assert.equal(ok("\\\\server\\share\\a.txt", "read"), false, "UNC outside the roots");
+  for (const name of ["NUL", "con.txt", "CLOCK$", "CONIN$", "CONOUT$", "COM\u00b9", "LPT\u00b2.log", "NUL .txt", "aux "]) {
+    assert.equal(ok(`C:\\Users\\tester\\git\\${name}`, "write"), false, `device-like name ${JSON.stringify(name)}`);
+  }
+});
+
+test("a drive-root grant covers the whole volume", async () => {
+  const p = await policy({ grantable: ["host.fs.read"], roots: ["D:\\"] });
+  assert.equal(p.evaluatePath("D:\\anything\\deep\\a.txt", "read").allowed, true);
+  assert.equal(p.evaluatePath("D:\\a.txt", "read").allowed, true);
+  assert.equal(p.evaluatePath("E:\\a.txt", "read").allowed, false);
 });
 
 test("policy floor: the install root, credential stores and code-exec write paths", async () => {
@@ -92,7 +120,8 @@ test("policy floor: the install root, credential stores and code-exec write path
     assert.equal(decision(path, "write"), false, `write ${path}`);
     assert.equal(decision(path, "read"), false, `read ${path}`);
   }
-  for (const path of [`${HOME}\\.ssh\\id_ed25519`, `${HOME}\\.engram\\vault-key`, `${HOME}\\.local\\share\\claude-backup\\staging\\a`, `${HOME}\\.claude\\.credentials.json`]) {
+  for (const path of [`${HOME}\\.ssh\\id_ed25519`, `${HOME}\\.engram\\vault-key`, `${HOME}\\.local\\share\\claude-backup\\staging\\a`, `${HOME}\\.claude\\.credentials.json`,
+    `${HOME}\\.docker\\config.json`, `${HOME}\\.kube\\config`, `${HOME}\\.config\\gcloud\\credentials.db`, `${HOME}\\.netrc`]) {
     assert.equal(decision(path, "read"), false, `read ${path}`);
     assert.equal(decision(path, "write"), false, `write ${path}`);
   }
@@ -101,7 +130,7 @@ test("policy floor: the install root, credential stores and code-exec write path
     assert.equal(decision(path, "write"), false, `write ${path}`);
   }
   assert.equal(decision(`${HOME}\\.claude\\settings.json`, "read"), true, "reading settings is fine");
-  for (const name of [".env", ".env.local", "server.pem", "api.key", "hosts.yml", "auth.json", ".npmrc", ".git-credentials"]) {
+  for (const name of [".env", ".env.local", "server.pem", "api.key", "hosts.yml", "auth.json", ".npmrc", ".git-credentials", "kubeconfig", "_netrc"]) {
     assert.equal(decision(`${HOME}\\git\\repo\\${name}`, "read"), false, `read ${name}`);
   }
   assert.equal(decision(`${HOME}\\git\\repo\\README.md`, "read"), true);
@@ -118,10 +147,12 @@ test("trailing dots and spaces cannot dodge the name rules or the floor", async 
   assert.equal(p.evaluatePath(`${HOME}\\git\\.hidden`, "read").allowed, true, "a leading dot is fine");
 });
 
-test("floor entries follow junctions the same way roots do", async () => {
-  // ~/dir/.dc is a junction to D:\dc: the canonical spelling of a protected path must still be denied.
-  const canonicalize = async (path: string) => path.toLowerCase().startsWith("c:\\users\\tester\\dir\\.dc") ? path.replace(/^c:\\users\\tester\\dir\\.dc/iu, "D:\\dc") : path;
-  const p = await AuthorityPolicy.create(authorityConfigSchema.parse({ grantable: ["host.fs.read", "host.fs.write"], roots: ["C:\\Users\\tester\\dir\\.dc"] }), {
+test("floor entries follow junctions: the roots, the home and the install root are all canonicalized", async () => {
+  // ~/dir/.dc is a junction to D:\dc, and the whole home is reached through C:\alias that resolves to D:\home.
+  const canonicalize = async (path: string) => path
+    .replace(/^c:\\users\\tester\\dir\\.dc/iu, "D:\\dc")
+    .replace(/^c:\\users\\tester/iu, "D:\\home");
+  const p = await AuthorityPolicy.create(authorityConfigSchema.parse({ grantable: ["host.fs.read", "host.fs.write"], roots: ["C:\\Users\\tester\\dir\\.dc", "C:\\Users\\tester\\git"] }), {
     home: HOME, installRoot: INSTALL, canonicalize,
   });
   assert.equal(p.evaluatePath("D:\\dc\\tools\\a.txt", "write").allowed, true, "the root itself resolves to D:\\dc");
@@ -129,6 +160,9 @@ test("floor entries follow junctions the same way roots do", async () => {
     assert.equal(p.evaluatePath(protectedPath, "read").allowed, false, `read ${protectedPath}`);
     assert.equal(p.evaluatePath(protectedPath, "write").allowed, false, `write ${protectedPath}`);
   }
+  assert.equal(p.evaluatePath("D:\\home\\git\\repo\\a.txt", "write").allowed, true);
+  assert.equal(p.evaluatePath("D:\\home\\.local\\share\\pet-dispatcher\\config\\dispatcher.json", "write").allowed, false, "install root through the canonical home");
+  assert.equal(p.evaluatePath("D:\\home\\git\\repo\\.git\\hooks\\pre-commit", "write").allowed, false);
 });
 
 test("writes that become code execution are denied under every root, extra denies apply", async () => {
@@ -153,11 +187,12 @@ test("no executor can carry a host capability yet (the enum addition is inert)",
   }
 });
 
-test("roots that cannot be canonicalized grant nothing", async () => {
+test("roots that cannot be canonicalized grant nothing and are reported", async () => {
   const p = await AuthorityPolicy.create(authorityConfigSchema.parse({ grantable: ["host.fs.read"], roots: ["C:\\missing"] }), {
     home: HOME, canonicalize: async () => { throw new Error("ENOENT"); },
   });
   assert.deepEqual(p.enabledCapabilities(), []);
+  assert.deepEqual(p.skippedRoots, ["C:\\missing"]);
 });
 
 test("config and protocol plumbing: authority block, device meta field, capability enum", async () => {
@@ -168,8 +203,10 @@ test("config and protocol plumbing: authority block, device meta field, capabili
     deviceId: "legion", transport: "cloudflare-queues-http-pull", protocol: 1, updatedAt: new Date().toISOString(), repositories: [], workspaces: [],
     directTools: [], activeSessions: 0, activeProcesses: 0, sandbox: { supported: true, processGuard: "x", networkDefault: "deny" },
   };
-  assert.equal(deviceMetaSchema.parse(meta).hostCapabilities, undefined, "omitted while host mode is off");
-  assert.deepEqual(deviceMetaSchema.parse({ ...meta, hostCapabilities: ["host.fs.read"] }).hostCapabilities, ["host.fs.read"]);
+  const off = await policy(undefined);
+  const on = await policy({ grantable: ["host.fs.read"], roots: [HOME] });
+  assert.equal(deviceMetaSchema.parse({ ...meta, ...hostMetaFields(off) }).hostCapabilities, undefined, "omitted while host mode is off");
+  assert.deepEqual(deviceMetaSchema.parse({ ...meta, ...hostMetaFields(on) }).hostCapabilities, ["host.fs.read"]);
 });
 
 test("loadConfig resolves authority roots against the config directory", async () => {
@@ -177,7 +214,7 @@ test("loadConfig resolves authority roots against the config directory", async (
   try {
     const path = join(dir, "dispatcher.json");
     await writeFile(path, JSON.stringify({
-      workspaceRoot: "ws", repositories: {}, authority: { grantable: ["host.fs.read"], roots: ["shared", "C:\abs"] },
+      workspaceRoot: "ws", repositories: {}, authority: { grantable: ["host.fs.read"], roots: ["shared", "C:\\abs"] },
     }));
     const config = await loadConfig(path);
     assert.deepEqual(config.authority?.grantable, ["host.fs.read"]);

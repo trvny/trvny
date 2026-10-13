@@ -10,6 +10,7 @@ import { utf8Prefix } from "./workspace-fs.js";
 // a floored file cannot be told apart from an ordinary file.
 
 const MAX_LIST_ENTRIES = 300;
+const MAX_EXAMINED_ENTRIES = 3_000;   // entries inspected per list, hidden ones included: a huge denied directory cannot hold the worker
 const DEFAULT_READ_BYTES = 16 * 1_024;
 const MAX_RESULT_BYTES = 72 * 1_024;   // serialized JSON of all results; the executor callback limit is 96 KiB
 
@@ -57,7 +58,7 @@ async function readOne(policy: AuthorityPolicy, op: Extract<HostFsOp, { op: "rea
   }
 }
 
-async function listOne(policy: AuthorityPolicy, op: Extract<HostFsOp, { op: "list" }>): Promise<HostFsOpResult> {
+async function listOne(policy: AuthorityPolicy, op: Extract<HostFsOp, { op: "list" }>, signal?: AbortSignal): Promise<HostFsOpResult> {
   const target = await resolveOperand(policy, op.path, "read");
   if (typeof target === "string") return refusal("list", op.path, target);
   const entries: { name: string; type: string }[] = [];
@@ -66,8 +67,10 @@ async function listOne(policy: AuthorityPolicy, op: Extract<HostFsOp, { op: "lis
   try {
     const directory = await opendir(target.canonical);
     try {
+      let examined = 0;
       for await (const entry of directory) {
-        if (entries.length >= MAX_LIST_ENTRIES) { truncated = true; break; }
+        if (entries.length >= MAX_LIST_ENTRIES || examined >= MAX_EXAMINED_ENTRIES || signal?.aborted) { truncated = true; break; }
+        examined += 1;
         // Children the floor denies are not revealed; a symlink/junction child is judged by where it leads.
         const lexicalChild = win32.join(target.lexical, entry.name);
         let verdict = policy.evaluatePath(win32.join(target.canonical, entry.name), "read", lexicalChild);
@@ -124,17 +127,18 @@ function fit(result: HostFsOpResult, room: number): HostFsOpResult | undefined {
  * call never fails the result callback: what does not fit is trimmed (`truncated`) or answered with "result budget
  * exhausted". Never throws for a refused op.
  */
-export async function runHostFs(policy: AuthorityPolicy, call: HostFsCall): Promise<{ results: HostFsOpResult[]; truncated: boolean }> {
+export async function runHostFs(policy: AuthorityPolicy, call: HostFsCall, signal?: AbortSignal): Promise<{ results: HostFsOpResult[]; truncated: boolean; aborted: boolean }> {
   const results: HostFsOpResult[] = [];
   let used = 2;   // the surrounding array
   let truncated = false;
   for (const [index, op] of call.ops.entries()) {
+    if (signal?.aborted) return { results, truncated: true, aborted: true };   // cancelled or timed out: stop, the caller reports it
     // Every op gets an answer: room for a short refusal is reserved for each op still to come.
     const room = MAX_RESULT_BYTES - used - 1 - (call.ops.length - index - 1) * REFUSAL_RESERVE_BYTES;
     const budgetRefusal = refusal(op.op, op.path.slice(0, 120), "result budget exhausted");
     if (room < REFUSAL_RESERVE_BYTES) { results.push(budgetRefusal); used += jsonBytes(budgetRefusal) + 1; truncated = true; continue; }
     const raw = op.op === "read" ? await readOne(policy, op, Math.max(1, Math.floor(room / 2)))
-      : op.op === "list" ? await listOne(policy, op) : await statOne(policy, op);
+      : op.op === "list" ? await listOne(policy, op, signal) : await statOne(policy, op);
     const fitted = fit(raw, room);
     if (!fitted) { results.push(budgetRefusal); used += jsonBytes(budgetRefusal) + 1; truncated = true; continue; }
     if (fitted !== raw) truncated = true;
@@ -142,5 +146,5 @@ export async function runHostFs(policy: AuthorityPolicy, call: HostFsCall): Prom
     results.push(fitted);
     used += jsonBytes(fitted) + 1;
   }
-  return { results, truncated };
+  return { results, truncated, aborted: signal?.aborted === true };
 }

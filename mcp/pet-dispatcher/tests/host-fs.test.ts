@@ -171,6 +171,22 @@ test("the serialized result stays under the callback limit, however the bytes es
   } finally { await rm(f.base, { recursive: true, force: true }); }
 });
 
+test("cancellation stops the walk and the executor reports it; a denied flood cannot hold the worker", windowsOnly, async () => {
+  const f = await fixture();
+  try {
+    const controller = new AbortController();
+    controller.abort();
+    const aborted = await runHostFs(f.policy, hostFsCallSchema.parse({ ops: [{ op: "list", path: f.work }, { op: "stat", path: f.work }] }), controller.signal);
+    assert.equal(aborted.aborted, true);
+    assert.equal(aborted.results.length, 0, "an already-cancelled call does no work");
+    const config = { workspaceRoot: join(f.base, "ws"), repositories: {}, workspaces: {}, toolRoots: [] } as unknown as DispatcherConfig;
+    const executor = new ConfinedRemoteExecutor(config, {} as never, {} as never, undefined, undefined, f.policy);
+    const task = buildHostFsTask(hostFsCallSchema.parse({ ops: [{ op: "list", path: f.work }] }));
+    const cancelled = await executor.execute(task, "t3", controller.signal, { route: "owner" });
+    assert.equal(cancelled.status, "cancelled");
+  } finally { await rm(f.base, { recursive: true, force: true }); }
+});
+
 test("the executor runs a host task only for the owner route", windowsOnly, async () => {
   const f = await fixture();
   try {

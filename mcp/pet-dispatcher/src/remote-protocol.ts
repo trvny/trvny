@@ -104,6 +104,13 @@ const REMOTE_DIRECT_WRITE_TOOLS = new Set<RemoteDirectCall["tool"]>([
 
 export function isRemoteDirectExecTool(tool: RemoteDirectCall["tool"]): boolean { return REMOTE_DIRECT_EXEC_TOOLS.has(tool); }
 export function isRemoteDirectWriteTool(tool: RemoteDirectCall["tool"]): boolean { return REMOTE_DIRECT_WRITE_TOOLS.has(tool); }
+// Tools allowed on a throwaway read-only session (no session id given). Explicit allowlist: a tool added
+// later is rejected there until someone decides it is read-only.
+const REMOTE_DIRECT_READ_TOOLS = new Set<RemoteDirectCall["tool"]>([
+  "session.status", "fs.list", "fs.stat", "fs.read", "fs.readMany", "fs.tree", "fs.search", "workspace.inspect",
+  "git.status", "git.diff", "git.summary",
+]);
+export function isRemoteDirectReadTool(tool: RemoteDirectCall["tool"]): boolean { return REMOTE_DIRECT_READ_TOOLS.has(tool); }
 
 export const remoteTaskSchema = z.object({
   target: z.literal("host").optional(),

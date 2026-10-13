@@ -8,7 +8,9 @@ import { promisify } from "node:util";
 import type { DispatcherConfig } from "../src/config.js";
 import { HostGit } from "../src/host-git.js";
 import { ConfinedRemoteExecutor } from "../src/remote-executor.js";
-import { remoteTaskSchema, type RemoteResult } from "../src/remote-protocol.js";
+import {
+  isRemoteDirectExecTool, isRemoteDirectReadTool, isRemoteDirectWriteTool, REMOTE_DIRECT_TOOLS, remoteTaskSchema, type RemoteResult,
+} from "../src/remote-protocol.js";
 import { CommandRunner } from "../src/sandbox.js";
 import { SessionManager } from "../src/sessions.js";
 
@@ -78,6 +80,27 @@ test("direct remote fs.read uses an isolated session and structured output", asy
     assert.equal(result.output, undefined);
     assert.equal(state.sessions.list().length, 0);
   } finally { await cleanup(state); }
+});
+
+test("the sessionless read path is an explicit allowlist that never contains a mutating tool", () => {
+  const reads = REMOTE_DIRECT_TOOLS.filter(isRemoteDirectReadTool);
+  assert.ok(reads.length > 0);
+  for (const tool of reads) {
+    assert.equal(isRemoteDirectWriteTool(tool) || isRemoteDirectExecTool(tool), false, `${tool} must not be both read-only and mutating`);
+  }
+  for (const tool of ["fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete", "git.add", "git.commit", "workspace.exec"] as const) {
+    assert.equal(isRemoteDirectReadTool(tool), false, `${tool} must not run on a throwaway read-only session`);
+  }
+});
+
+test("a mutating direct tool without a session or autoSession is rejected before any session is opened", () => {
+  for (const call of [
+    { tool: "fs.write", path: "x.txt", content: "x" },
+    { tool: "fs.mkdir", path: "d" },
+    { tool: "git.add", paths: ["x.txt"] },
+  ]) {
+    assert.throws(() => directTask(call, true), /sessionId/u, `${call.tool} must need a session`);
+  }
 });
 
 test("direct system.status answers without opening a session or touching the repo", async () => {

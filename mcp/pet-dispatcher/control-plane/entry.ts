@@ -4,6 +4,7 @@ import { FREE_ROUTER_WORKER_PATH, WORK_ROUTER_WORKER_PATH, proxyKanarekFreeRoute
 import { ICON_BYTES } from "./icon.js";
 import { isMcpPath, mcpAuthorized } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
+import { computeTimings } from "./task-timings.js";
 import {
   RECENT_TASK_LIMIT,
   compactRecentTask,
@@ -49,6 +50,7 @@ const NONCES_KEY = "worker-nonces";
 const DEVICE_META_KEY = "device-meta";
 const RECENT_TASKS_KEY = "recent-tasks";
 const QUOTA_KEY = "daily-delegation-quota";
+const TIMINGS_KEY = "timings";
 const DAILY_DELEGATION_LIMIT = 500;
 const enqueueOutboxSchema = z.object({
   envelope: signedTaskEnvelopeSchema,
@@ -181,10 +183,13 @@ export class TaskStateStore {
       await this.state.storage.put(NONCES_KEY, [nonce, ...nonces].slice(0, DEVICE_NONCE_HISTORY_LIMIT));
       return json({ ok: true }, 201);
     }
-    const current = await this.state.storage.get<RemoteTaskState>(STATE_KEY);
+    let current = await this.state.storage.get<RemoteTaskState>(STATE_KEY);
 
     if (request.method === "GET" && url.pathname === "/state") {
       return current ? json(current) : json({ error: "task_not_found" }, 404);
+    }
+    if (request.method === "GET" && url.pathname === "/timings") {
+      return json((await this.state.storage.get<{ leasedAt?: string }>(TIMINGS_KEY)) ?? {});
     }
     if (request.method === "GET" && url.pathname === "/outbox") {
       const outbox = await this.state.storage.get<EnqueueOutbox>(OUTBOX_KEY);
@@ -193,6 +198,10 @@ export class TaskStateStore {
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const body = await readBody(request);
+    // Reading the body is an I/O await that lets other requests run (a duplicate worker callback could make the
+    // task terminal meanwhile). Re-read so everything below works on fresh state; only storage awaits follow,
+    // which the input gate keeps atomic.
+    current = await this.state.storage.get<RemoteTaskState>(STATE_KEY);
     if (url.pathname.startsWith("/quota/")) {
       const { taskId } = z.object({ taskId: z.string().uuid() }).strict().parse(JSON.parse(body) as unknown);
       const day = new Date().toISOString().slice(0, 10);
@@ -284,6 +293,10 @@ export class TaskStateStore {
     const now = new Date().toISOString();
     if (url.pathname === "/worker/lease" || url.pathname === "/worker/heartbeat") {
       if (terminal(current.status)) return json(current);
+      // First lease only. Kept out of the task state on purpose (workers parse it strictly).
+      if (url.pathname === "/worker/lease" && !(await this.state.storage.get(TIMINGS_KEY))) {
+        await this.state.storage.put(TIMINGS_KEY, { leasedAt: now });
+      }
       const next: RemoteTaskState = {
         ...current,
         status: current.cancelRequested ? "cancel_requested" : "running",
@@ -449,9 +462,21 @@ async function delegateAssistant(value: unknown, env: Env, idempotencyKey?: stri
   return rpcResult(await enqueueTask(assistantTask(value), env, taskId));
 }
 
-async function getTaskResult(taskId: string, env: Env): Promise<RpcResult> {
+async function getTaskResult(taskId: string, env: Env, withTimings = false): Promise<RpcResult> {
   const id = z.string().uuid().parse(taskId);
-  return rpcResult(await readState(env, id));
+  const result = await rpcResult(await readState(env, id));
+  if (!withTimings || result.status >= 400) return result;
+  const parsed = remoteTaskStateSchema.safeParse(result.body);
+  if (!parsed.success || !terminal(parsed.data.status)) return result;
+  try {
+    const stored = await stateStub(env, id).fetch("https://state/timings");
+    if (!stored.ok) return result;
+    const { leasedAt } = await stored.json() as { leasedAt?: string };
+    const timings = computeTimings(parsed.data.createdAt, leasedAt, parsed.data.updatedAt);
+    return timings ? { status: result.status, body: { ...parsed.data, timings } } : result;
+  } catch {
+    return result;   // timings are diagnostics: never fail a finished task because of them
+  }
 }
 
 async function cancelTaskResult(taskId: string, env: Env): Promise<RpcResult> {
@@ -481,7 +506,7 @@ function mcpOperations(env: Env): ControlMcpOperations {
       const taskId = key ? await idempotentTaskId(key) : undefined;
       return rpcResult(await enqueueDirectTool(value, env, taskId));
     },
-    getTask: (taskId) => getTaskResult(taskId, env),
+    getTask: (taskId) => getTaskResult(taskId, env, true),
     cancelTask: (taskId) => cancelTaskResult(taskId, env),
   };
 }

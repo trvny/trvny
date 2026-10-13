@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
-import { REMOTE_DIRECT_TOOLS, remoteDirectCallSchema, remoteResultSchema } from "../src/remote-protocol.js";
+import { REMOTE_DIRECT_TOOLS, remoteDirectCallSchema } from "../src/remote-protocol.js";
 import { PET_COCKPIT_HTML, PET_COCKPIT_URI } from "./cockpit.js";
 import type { RecentTaskSnapshot } from "./recent-task-index.js";
 
@@ -19,6 +19,12 @@ export interface ControlMcpOperations {
   cancelTask(taskId: string): Promise<ControlRpcResult>;
 }
 
+// One call should normally be one answer: the agent re-polls (and pays tokens) whenever a call returns "queued".
+// Direct reads/writes are short, so wait long enough to cover the worker's idle poll interval plus the work.
+const READ_WAIT_SECONDS = 40;
+const DELEGATE_WAIT_SECONDS = 20;
+const TASK_GET_WAIT_SECONDS = 30;
+
 const debugSchema = z.boolean().default(false).describe("Return full task metadata instead of the compact view");
 const delegateInputSchema = z.object({
   repo: z.string().min(1).max(128).describe("Repository alias"),
@@ -28,7 +34,7 @@ const delegateInputSchema = z.object({
   profile: z.enum(["inspect", "code"]).default("code"),
   timeoutMinutes: z.number().int().min(1).max(20).default(20),
   idempotencyKey: z.string().min(1).max(200).optional(),
-  waitSeconds: z.number().int().min(0).max(45).default(20),
+  waitSeconds: z.number().int().min(0).max(45).default(DELEGATE_WAIT_SECONDS),
   debug: debugSchema,
 }).strict();
 const directToolSchema = z.enum(REMOTE_DIRECT_TOOLS);
@@ -42,7 +48,7 @@ const directInputSchema = z.object({
   autoSession: z.boolean().default(true).describe("Auto-open a reusable write/exec session when no sessionId is supplied"),
   baseRef: z.string().min(1).max(256).default("main").describe("Git base ref when target is a repository"),
   idempotencyKey: z.string().min(1).max(200).optional(),
-  waitSeconds: z.number().int().min(0).max(45).default(20),
+  waitSeconds: z.number().int().min(0).max(45).default(READ_WAIT_SECONDS),
   debug: debugSchema,
 }).strict();
 
@@ -54,7 +60,7 @@ const workspaceInspectInputSchema = z.object({
   sessionId: z.string().uuid().optional().describe("Existing session to inspect, including uncommitted changes"),
   baseRef: z.string().min(1).max(256).default("main").describe("Git base ref when opening the target"),
   idempotencyKey: z.string().min(1).max(200).optional(),
-  waitSeconds: z.number().int().min(0).max(45).default(20),
+  waitSeconds: z.number().int().min(0).max(45).default(READ_WAIT_SECONDS),
   debug: debugSchema,
 }).strict();
 const readFilesInputSchema = z.object({
@@ -65,7 +71,7 @@ const readFilesInputSchema = z.object({
   maxTotalBytes: z.number().int().min(1).max(81_920).optional(),
   baseRef: z.string().min(1).max(256).default("main").describe("Git base ref when opening the target"),
   idempotencyKey: z.string().min(1).max(200).optional(),
-  waitSeconds: z.number().int().min(0).max(45).default(20),
+  waitSeconds: z.number().int().min(0).max(45).default(READ_WAIT_SECONDS),
   debug: debugSchema,
 }).strict();
 const finishSessionInputSchema = z.object({
@@ -73,7 +79,7 @@ const finishSessionInputSchema = z.object({
   sessionId: z.string().uuid().describe("Session to stage, commit/export when applicable, and close"),
   message: z.string().min(1).max(500).describe("Commit message for finalizing the session"),
   idempotencyKey: z.string().min(1).max(200).optional(),
-  waitSeconds: z.number().int().min(0).max(45).default(20),
+  waitSeconds: z.number().int().min(0).max(45).default(READ_WAIT_SECONDS),
   debug: debugSchema,
 }).strict();
 
@@ -81,16 +87,25 @@ const taskStatusSchema = z.enum([
   "queued", "leased", "running", "cancel_requested",
   "completed", "failed", "cancelled", "recovery_required",
 ]);
+// Output schemas are listed to hosts on every session, so they stay lean: exact key sets (still strict, nothing
+// unexpected can leak out) but no value constraints - the worker already validated the full remoteResultSchema
+// and the state store the dates before anything reaches this layer.
+const taskResultOutputSchema = z.object({
+  status: z.string(), summary: z.string(), tests: z.string().optional(), diff: z.string().optional(),
+  commit: z.string().optional(), exportedRef: z.string().optional(), data: z.unknown().optional(),
+  output: z.string().optional(), error: z.string().optional(),
+}).strict();
 const taskBodySchema = z.object({
-  taskId: z.string().uuid(),
+  taskId: z.string(),
   status: taskStatusSchema,
-  deviceId: z.string().min(1).max(128).optional(),
-  createdAt: z.string().datetime().optional(),
-  updatedAt: z.string().datetime().optional(),
-  heartbeatAt: z.string().datetime().optional(),
+  deviceId: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  heartbeatAt: z.string().optional(),
   cancelRequested: z.boolean().optional(),
-  expiresAt: z.string().datetime().optional(),
-  result: remoteResultSchema.optional(),
+  expiresAt: z.string().optional(),
+  result: taskResultOutputSchema.optional(),
+  timings: z.record(z.string(), z.number()).optional().describe("queuedMs, runMs, totalMs"),
 }).strict();
 const metaOutputSchema = z.object({
   httpStatus: z.number().int().min(100).max(599),
@@ -144,14 +159,22 @@ async function awaitTask(
   if (!taskId) return initial;
   const deadline = Date.now() + waitSeconds * 1_000;
   let current = initial;
-  while (Date.now() < deadline) {
+  let attempt = 0;
+  for (;;) {
     current = await operations.getTask(taskId);
     if (current.status >= 400 || terminalBody(current.body)) return current;
     const remaining = deadline - Date.now();
-    if (remaining <= 0) break;
-    await delay(Math.min(1_000, remaining));
+    if (remaining <= 0) return current;
+    await delay(Math.min(pollDelayMs(attempt++), remaining));
   }
-  return current;
+}
+
+// A 40 s wait at a fixed 1 s would be ~40 Durable Object reads per MCP call (and Workers cap subrequests per
+// invocation). Poll fast first, then back off: ~12 reads for 40 s, at most a few seconds of added latency.
+const POLL_DELAYS_MS = [1_000, 1_000, 2_000, 2_000, 4_000];
+const POLL_DELAY_CAP_MS = 5_000;
+export function pollDelayMs(attempt: number): number {
+  return POLL_DELAYS_MS[attempt] ?? POLL_DELAY_CAP_MS;
 }
 
 function compactTaskBody(body: unknown, debug: boolean): unknown {
@@ -171,7 +194,9 @@ function shortText(result: ControlRpcResult, body: unknown): string {
       const summary = (task.result as { summary?: unknown }).summary;
       if (typeof summary === "string" && summary) return summary.slice(0, 1_000);
     }
-    if (typeof task.status === "string") return `Pet Dispatcher task: ${task.status}.`;
+    if (typeof task.status === "string") {
+      return terminalBody(body) ? `Pet Dispatcher task: ${task.status}.` : `Pet Dispatcher task: ${task.status}. Not finished yet: call pet_task_get with this taskId (it waits up to 45 s).`;
+    }
   }
   return result.status >= 400 ? `Pet Dispatcher request failed with HTTP ${result.status}.` : "Pet Dispatcher request completed.";
 }
@@ -333,11 +358,15 @@ function createServer(operations: ControlMcpOperations): McpServer {
 
   server.registerTool("pet_task_get", {
     description: "Use this when a previously submitted Pet Dispatcher task is still pending or its bounded result is needed.",
-    inputSchema: z.object({ taskId: z.string().uuid(), debug: debugSchema }).strict(),
+    inputSchema: z.object({
+      taskId: z.string().uuid(),
+      waitSeconds: z.number().int().min(0).max(45).default(TASK_GET_WAIT_SECONDS).describe("Wait for completion up to this long before answering"),
+      debug: debugSchema,
+    }).strict(),
     outputSchema: taskOutputSchema,
     annotations: { title: "Get task state", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     _meta: { ui: { visibility: ["model", "app"] } },
-  }, async ({ taskId, debug }) => asToolResult(await operations.getTask(taskId), debug));
+  }, async ({ taskId, waitSeconds, debug }) => asToolResult(await awaitTask(operations, await operations.getTask(taskId), waitSeconds), debug));
 
   server.registerTool("pet_task_cancel", {
     description: "Use this when the user wants to stop a queued or running Pet Dispatcher task. Do not use it for already terminal tasks.",

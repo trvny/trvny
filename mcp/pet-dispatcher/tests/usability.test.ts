@@ -129,6 +129,22 @@ test("adaptive remote polling backs off on idle/error and resets after work", ()
   assert.equal(nextPollInterval(8_000, true, 1_000, 8_000), 1_000);
 });
 
+test("remote config without a poll cap stays valid for a slow base interval", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pet-poll-default-"));
+  try {
+    const configPath = join(root, "dispatcher.json");
+    await writeFile(configPath, JSON.stringify({
+      workspaceRoot: "./worker", repositories: { fixture: "./repo" },
+      remote: {
+        enabled: true, deviceId: "legion", accountId: "a".repeat(32), queueId: "b".repeat(32),
+        controlPlaneUrl: "https://control.example/", pollIntervalMs: 45_000,
+      },
+    }));
+    const config = await loadConfig(configPath);
+    assert.equal(config.remote?.pollIntervalMs, 45_000);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("remote config preserves a bounded maximum poll interval", async () => {
   const root = await mkdtemp(join(tmpdir(), "pet-poll-config-"));
   try {

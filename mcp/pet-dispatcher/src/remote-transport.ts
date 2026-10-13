@@ -440,7 +440,7 @@ export class RemoteWorker {
     await this.recover();
     await this.#publishMeta();
     const baseInterval = this.transport.config.pollIntervalMs;
-    const maxInterval = this.transport.config.pollMaxIntervalMs ?? Math.max(baseInterval, 60_000);
+    const maxInterval = this.transport.config.pollMaxIntervalMs ?? Math.max(baseInterval, 30_000);
     let interval = baseInterval;
     while (!signal?.aborted) {
       try {

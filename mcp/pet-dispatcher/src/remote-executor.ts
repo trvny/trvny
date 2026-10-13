@@ -363,13 +363,10 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
           }
         });
       if (signal?.aborted) throw signal.reason ?? new Error("remote direct call aborted");
-      if (temporary) {
-        if (session.targetKind !== "workspace") {
-          const state = await this.sessions.status(session.id);
-          if (state.dirty || state.changedHead) throw new Error("read-only direct call unexpectedly changed the session");
-        }
-        await this.sessions.close(session.id, false);
-      }
+      // A read-only session is a throwaway clone that no write or exec tool can reach: discard it. The old
+      // status check + non-discard close ran `git status` twice on the fresh worktree, measured 1-6.6 s + 0.5 s
+      // per read (13.10.2026) for a guard that cannot fire.
+      if (temporary) await this.sessions.close(session.id, true);
       const data = autoOpened && value && typeof value === "object" && !Array.isArray(value)
         ? { ...(value as Record<string, unknown>), sessionId: activeSession.id }
         : value;

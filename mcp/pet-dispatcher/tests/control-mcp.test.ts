@@ -18,6 +18,57 @@ test("cockpit and conversational history read the same bounded canonical index",
   assert.deepEqual(limits, [20, 3]);
 });
 
+test("pet_task_get waits for a finished task and passes timings through the output schema", async () => {
+  let polls = 0;
+  const timings = { queuedMs: 4_000, runMs: 1_500, totalMs: 5_500 };
+  const operations = baseOperations({
+    getTask: async () => {
+      polls += 1;
+      return polls < 3
+        ? { status: 200, body: { taskId: TASK_ID, status: "running" } }
+        : { status: 200, body: { taskId: TASK_ID, status: "completed", result: { status: "completed", summary: "done" }, timings } };
+    },
+  });
+  await initialize(operations);
+  const result = await rpc(operations, { jsonrpc: "2.0", id: 60, method: "tools/call", params: { name: "pet_task_get", arguments: { taskId: TASK_ID, waitSeconds: 5, debug: true } } });
+  const call = result.body?.result as { isError?: boolean; structuredContent?: { body?: { status?: string; timings?: unknown } } };
+  assert.notEqual(call.isError, true);
+  assert.equal(call.structuredContent?.body?.status, "completed");
+  assert.deepEqual(call.structuredContent?.body?.timings, timings);
+  assert.ok(polls >= 3, "pet_task_get must keep waiting instead of answering on the first running state");
+});
+
+test("an unfinished task tells the agent to make one waiting call, not to poll", async () => {
+  const operations = baseOperations({ getTask: async () => ({ status: 200, body: { taskId: TASK_ID, status: "running" } }) });
+  await initialize(operations);
+  const result = await rpc(operations, { jsonrpc: "2.0", id: 61, method: "tools/call", params: { name: "pet_task_get", arguments: { taskId: TASK_ID, waitSeconds: 0 } } });
+  const text = ((result.body?.result as { content?: Array<{ text?: string }> }).content ?? [])[0]?.text ?? "";
+  assert.match(text, /Not finished yet: call pet_task_get once/u);
+});
+
+test("direct-call facades wait long enough for one round trip; delegation keeps the short wait", async () => {
+  const operations = baseOperations();
+  await initialize(operations);
+  const listed = await rpc(operations, { jsonrpc: "2.0", id: 62, method: "tools/list", params: {} });
+  const tools = (listed.body?.result as { tools: Array<{ name: string; inputSchema: { properties: Record<string, { default?: number }> } }> }).tools;
+  const wait = (name: string) => tools.find((tool) => tool.name === name)?.inputSchema.properties.waitSeconds?.default;
+  for (const name of ["pet_direct", "pet_workspace_inspect", "pet_read_files", "pet_session_finish"]) assert.equal(wait(name), 40, name);
+  assert.equal(wait("pet_task_get"), 30);
+  assert.equal(wait("pet_delegate"), 20);
+});
+
+test("MCP tool metadata stays inside its context budget", async () => {
+  const operations = baseOperations();
+  await initialize(operations);
+  const listed = await rpc(operations, { jsonrpc: "2.0", id: 63, method: "tools/list", params: {} });
+  const bytes = Buffer.byteLength(JSON.stringify((listed.body?.result as { tools: unknown }).tools), "utf8");
+  // Every session pays for this payload in the agent's context. Raise the ceiling only on purpose.
+  console.log(`pet-dispatcher tools/list payload: ${bytes} bytes`);
+  assert.ok(bytes <= TOOLS_LIST_BUDGET_BYTES, `tools/list is ${bytes} bytes, budget ${TOOLS_LIST_BUDGET_BYTES}`);
+});
+
+const TOOLS_LIST_BUDGET_BYTES = 42_000; // 13.10.2026 baseline 40.8 KB, of which outputSchema 29 KB, inputSchema 7 KB, descriptions 1.7 KB
+
 function request(body: unknown): Request {
   return new Request("https://pet.example/mcp", {
     method: "POST",

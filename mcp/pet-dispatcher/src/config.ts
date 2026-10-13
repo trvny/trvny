@@ -44,7 +44,7 @@ const remoteSchema = z.object({
   queueTokenEnv: z.string().min(1).default("PET_DISPATCHER_QUEUE_TOKEN"),
   signingSecretEnv: z.string().min(1).default("PET_DISPATCHER_SIGNING_SECRET"),
   pollIntervalMs: z.number().int().min(1_000).max(60_000).default(5_000),
-  pollMaxIntervalMs: z.number().int().min(1_000).max(300_000).default(60_000),
+  pollMaxIntervalMs: z.number().int().min(1_000).max(300_000).default(30_000),
   heartbeatIntervalMs: z.number().int().min(5_000).max(60_000).default(15_000),
   visibilityTimeoutMs: z.number().int().min(1_800_000).max(43_200_000).default(1_800_000),
   syncRepositories: z.boolean().default(true),

@@ -131,7 +131,12 @@ async function removeLegacyBin(paths: LocalRuntimePaths): Promise<void> {
 async function publishRelease(options: InstallLocalRuntimeOptions, paths: LocalRuntimePaths, sourceCommit: string): Promise<string> {
   if (options.build !== false) await runNpm(["run", "build"], options.sourceRoot);
   const releaseRoot = join(paths.releasesRoot, sourceCommit);
-  if (await exists(releaseRoot)) return releaseRoot;
+  if (await exists(releaseRoot)) {
+    // A release whose removal started (marker written by pruneReleases) may be missing files; never reuse it.
+    if (!await exists(join(releaseRoot, PRUNING_MARKER))) return releaseRoot;
+    await rm(releaseRoot, { recursive: true, force: true });
+    if (await exists(releaseRoot)) throw new Error(`release ${sourceCommit} is half-removed and still locked; stop the worker (pet-dispatcher-restart.ps1) and retry`);
+  }
   const staging = `${releaseRoot}.staging-${process.pid}-${Date.now()}`;
   await rm(staging, { recursive: true, force: true });
   await mkdir(staging, { recursive: true });
@@ -160,6 +165,8 @@ async function writeCurrentManifest(paths: LocalRuntimePaths, sourceCommit: stri
   await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   await rename(temporary, paths.currentManifest);
 }
+const PRUNING_MARKER = ".pruning";
+
 export async function pruneReleases(paths: LocalRuntimePaths, activeRelease: string, keep: number): Promise<void> {
   if (!await exists(paths.releasesRoot)) return;
   const entries = await readdir(paths.releasesRoot, { withFileTypes: true });
@@ -173,8 +180,11 @@ export async function pruneReleases(paths: LocalRuntimePaths, activeRelease: str
   for (const entry of dated.sort((a, b) => b.time - a.time).slice(0, Math.max(keep, 1))) keepNames.add(entry.name);
   for (const entry of dated) {
     if (keepNames.has(entry.name)) continue;
-    // Best effort: a locked old release must not fail the install; the next install retries.
-    await rm(join(paths.releasesRoot, entry.name), { recursive: true, force: true }).catch(() => undefined);
+    // Best effort: a locked old release must not fail the install. The marker goes first so a directory that
+    // only got partly deleted (locked native module) is recognised as broken and never reused by publishRelease.
+    const directory = join(paths.releasesRoot, entry.name);
+    await writeFile(join(directory, PRUNING_MARKER), "", "utf8").catch(() => undefined);
+    await rm(directory, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 

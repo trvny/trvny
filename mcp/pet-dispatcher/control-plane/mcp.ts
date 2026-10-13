@@ -1,7 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
-import { REMOTE_DIRECT_TOOLS, remoteDirectCallSchema } from "../src/remote-protocol.js";
+import { REMOTE_DIRECT_TOOLS, hostFsCallSchema, remoteDirectCallSchema } from "../src/remote-protocol.js";
+import type { McpRoute } from "./mcp-auth.js";
 import { PET_COCKPIT_HTML, PET_COCKPIT_URI } from "./cockpit.js";
 import type { RecentTaskSnapshot } from "./recent-task-index.js";
 
@@ -17,6 +18,11 @@ export interface ControlMcpOperations {
   direct(value: unknown, idempotencyKey?: string): Promise<ControlRpcResult>;
   getTask(taskId: string): Promise<ControlRpcResult>;
   cancelTask(taskId: string): Promise<ControlRpcResult>;
+  /** Route of the authenticated caller; host tools exist only for "owner". */
+  route?: McpRoute;
+  /** Host capabilities the device advertises (empty while host mode is off). Read only for owner-route requests. */
+  hostCapabilities?(): Promise<string[]>;
+  hostFs?(call: unknown, idempotencyKey?: string): Promise<ControlRpcResult>;
 }
 
 // One call should normally be one answer: the agent re-polls (and pays tokens) whenever a call returns "queued".
@@ -70,6 +76,12 @@ const readFilesInputSchema = z.object({
   maxBytesPerFile: z.number().int().min(1).max(65_536).optional(),
   maxTotalBytes: z.number().int().min(1).max(81_920).optional(),
   baseRef: z.string().min(1).max(256).default("main").describe("Git base ref when opening the target"),
+  idempotencyKey: z.string().min(1).max(200).optional(),
+  waitSeconds: z.number().int().min(0).max(45).default(READ_WAIT_SECONDS),
+  debug: debugSchema,
+}).strict();
+const hostFsInputSchema = z.object({
+  ops: hostFsCallSchema.shape.ops.describe("read / list / stat operations on absolute Windows paths inside the granted roots"),
   idempotencyKey: z.string().min(1).max(200).optional(),
   waitSeconds: z.number().int().min(0).max(45).default(READ_WAIT_SECONDS),
   debug: debugSchema,
@@ -142,7 +154,7 @@ async function delay(ms: number): Promise<void> {
   await new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
-async function scopedIdempotencyKey(kind: "delegate" | "direct", key: string, value: unknown): Promise<string> {
+async function scopedIdempotencyKey(kind: "delegate" | "direct" | "host", key: string, value: unknown): Promise<string> {
   const material = new TextEncoder().encode(`${kind}\0${key}\0${JSON.stringify(value)}`);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", material));
   const hex = [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -225,7 +237,7 @@ async function runDirectTool(
   return asToolResult(await awaitTask(operations, submitted, waitSeconds), debug);
 }
 
-function createServer(operations: ControlMcpOperations): McpServer {
+function createServer(operations: ControlMcpOperations, hostFsEnabled = false): McpServer {
   const server = new McpServer({
     name: "pet-dispatcher-control",
     title: "Pet Dispatcher",
@@ -344,6 +356,20 @@ function createServer(operations: ControlMcpOperations): McpServer {
       },
     }, idempotencyKey, waitSeconds, debug));
 
+  if (hostFsEnabled && operations.hostFs) {
+    const hostFs = operations.hostFs.bind(operations);
+    server.registerTool("pet_host_fs", {
+      description: "Read files and directories on the paired machine outside any repository (absolute paths inside the granted roots; credential stores and system files are refused). Use pet_read_files for repository files.",
+      inputSchema: hostFsInputSchema,
+      outputSchema: taskOutputSchema,
+      annotations: { title: "Read host files", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    }, async ({ ops, idempotencyKey, waitSeconds, debug }) => {
+      const value = { ops };
+      const stableKey = idempotencyKey ? await scopedIdempotencyKey("host", idempotencyKey, value) : undefined;
+      return asToolResult(await awaitTask(operations, await hostFs(value, stableKey), waitSeconds), debug);
+    });
+  }
+
   server.registerTool("pet_session_finish", {
     description: "Use this when a Pet Dispatcher direct write/exec session is ready to be finalized. Provide a concise commit message; the tool stages and commits/exports changes when applicable, then closes the session. Do not use it to discard work.",
     inputSchema: finishSessionInputSchema,
@@ -417,7 +443,12 @@ async function normalizeLegacyDirectRequest(request: Request): Promise<Request> 
 
 export async function handleControlMcp(request: Request, operations: ControlMcpOperations): Promise<Response> {
   request = await normalizeLegacyDirectRequest(request);
-  const server = createServer(operations);
+  // Host tools are listed only to the owner route, and only while the device says host mode is on.
+  let hostFsEnabled = false;
+  if (operations.route === "owner" && operations.hostCapabilities && operations.hostFs) {
+    hostFsEnabled = (await operations.hostCapabilities().catch((): string[] => [])).includes("host.fs.read");
+  }
+  const server = createServer(operations, hostFsEnabled);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

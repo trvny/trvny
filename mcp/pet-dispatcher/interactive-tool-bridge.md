@@ -95,6 +95,8 @@ Examples:
 
 Host mode is still session-scoped and audited. It is not synonymous with elevation.
 
+**Implemented so far (Phase 2, 14.10.2026):** host mode is OFF unless the local `dispatcher.json` has an `authority` block (`grantable`, `roots`, `maxLeaseMinutes`). `src/authority.ts` holds the policy: the trust tier is derived from the verified executor and the submit route (a direct task is operator-level only on the owner route; an unknown route fails closed), plus a path floor (PD install root, credential stores, code-execution write paths, `.git`/`.claude` segments). **Read-only host access (`host.fs.read`, tool `pet_host_fs`) needs no per-session lease**: the local allowlist, the granted roots and the floor are the consent, and the call is owner-route only. **Write, exec and process capabilities keep the lease model** described under "Dynamic authority" (TTL, owner session, revoke). Host tasks are owner-route only end to end: they are not listed, readable, cancellable or indexed for the connector route.
+
 ### Elevated mode
 
 Administrative authority stays separate. Use it only for operations that actually require elevation, with a narrow lifetime and an explicit policy/approval step.

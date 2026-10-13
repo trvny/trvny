@@ -174,6 +174,7 @@ test("writes that become code execution are denied under every root, extra denie
     assert.equal(p.evaluatePath(path, "write").allowed, false, `write ${path}`);
   }
   assert.equal(p.evaluatePath("C:\\Users\\tester\\git\\repo\\.git\\HEAD", "read").allowed, true, "reading git metadata stays possible");
+  assert.equal(p.evaluatePath("C:\\Users\\tester\\git\\repo\\.git\\config", "read").allowed, false, "git config can carry tokens in remote URLs");
   assert.equal(p.evaluatePath("C:\\Users\\tester\\git\\repo\\.gitignore", "write").allowed, true, "only the .git directory segment is special");
   assert.equal(p.evaluatePath("E:\\work\\sessions\\s1\\a.txt", "read").allowed, false, "extraDeny (the worker's session root)");
   assert.equal(p.evaluatePath("E:\\work\\proj\\a.txt", "write").allowed, true);

@@ -20,6 +20,7 @@ import {
   reviewDecisionQuestions,
 } from '../src/webhook-review-judge.ts';
 import {
+  isDependabotPullRequest,
   nextReviewPhase,
   parseReviewJson,
   reviewOutputTokens,
@@ -44,7 +45,7 @@ const baseB = 'd'.repeat(40);
 
 function payload(
   headSha = headA,
-  options: { action?: string; baseSha?: string; draft?: boolean; headRepository?: string } = {},
+  options: { action?: string; author?: string; baseSha?: string; draft?: boolean; headRepository?: string } = {},
 ): Record<string, unknown> {
   return {
     action: options.action ?? 'synchronize',
@@ -53,6 +54,7 @@ function payload(
     repository: { full_name: 'travnie/llmbench' },
     pull_request: {
       draft: options.draft ?? false,
+      user: { login: options.author ?? 'trvny', type: 'User' },
       base: { sha: options.baseSha ?? base },
       head: {
         sha: headSha,
@@ -479,6 +481,51 @@ test('webhook review scheduler ignores drafts and external forks', async () => {
   );
   await Promise.all(tasks);
   assert.equal(calls, 0);
+});
+
+test('review skips Dependabot without queueing or requesting model work', async () => {
+  const authors = [
+    'dependabot[bot]',
+    'dependabot-preview[bot]',
+    'Dependabot[bot]',
+  ];
+  const accepted = ['trvny', 'renovate[bot]', 'dependabot', 'dependabot-pretender[bot]'];
+
+  const queued: string[] = [];
+  const env = {
+    KANAREK_REVIEW_JOBS: {
+      idFromName: (name: string) => name as unknown as DurableObjectId,
+      get: () => ({
+        fetch: async () => {
+          queued.push('enqueue');
+          return Response.json({ ok: true, queued: false });
+        },
+      }),
+    } as unknown as DurableObjectNamespace,
+  } as WebhookReviewEnv;
+
+  const tasks: Promise<unknown>[] = [];
+  const ctx = {
+    waitUntil(task: Promise<unknown>) {
+      tasks.push(task);
+    },
+  } as unknown as ExecutionContext;
+
+  for (const author of authors) {
+    const pr = payload(headA, { author });
+    assert.equal(isDependabotPullRequest(pr.pull_request), true, author);
+    scheduleWebhookReviewWebhook(webhookRequest(pr), env, ctx);
+  }
+  await Promise.all(tasks.splice(0));
+  assert.equal(queued.length, 0);
+
+  for (const author of accepted) {
+    const pr = payload(headA, { author });
+    assert.equal(isDependabotPullRequest(pr.pull_request), false, author);
+    scheduleWebhookReviewWebhook(webhookRequest(pr), env, ctx);
+  }
+  await Promise.all(tasks);
+  assert.equal(queued.length, accepted.length);
 });
 
 test('webhook review job debounces to the newest head', async () => {

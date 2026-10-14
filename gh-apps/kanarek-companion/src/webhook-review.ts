@@ -47,6 +47,13 @@ import {
 } from './webhook-review-judge.ts';
 
 const REVIEW_ACTIONS = new Set(['opened', 'reopened', 'synchronize', 'ready_for_review']);
+const DEPENDABOT_AUTHORS = new Set(['dependabot[bot]', 'dependabot-preview[bot]']);
+
+export function isDependabotPullRequest(value: unknown): boolean {
+  const author = objectValue(objectValue(value).user);
+  return typeof author.login === 'string' &&
+    DEPENDABOT_AUTHORS.has(author.login.toLowerCase());
+}
 const DEFAULT_DEBOUNCE_MS = 60_000;
 const DEFAULT_MAX_DIFF_CHARS = 60_000;
 const DEFAULT_MAX_CONTEXT_CHARS = 120_000;
@@ -224,6 +231,7 @@ function targetFromPayload(
     !SHA_RE.test(headSha) ||
     !SHA_RE.test(baseSha) ||
     pullRequest.draft === true ||
+    isDependabotPullRequest(pullRequest) ||
     headRepositoryName !== repositoryName ||
     isGptomekFallbackPullRequest(repositoryName, number)
   ) {
@@ -721,6 +729,7 @@ function targetStillCurrent(
   return (
     pr.state === 'open' &&
     pr.draft !== true &&
+    !isDependabotPullRequest(pr) &&
     head.sha === target.headSha &&
     base.sha === target.baseSha &&
     headRepository.full_name === target.repository &&

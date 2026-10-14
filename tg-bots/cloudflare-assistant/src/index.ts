@@ -54,6 +54,7 @@ import {
   cancelBotekTask,
   delegateBotekTask,
   delegateLegionStatus,
+  delegateWakeguard,
   fetchRecentTasks,
   getBotekTask,
   isTasksRefreshCallback,
@@ -66,6 +67,7 @@ import {
   taskView,
 } from "./tasks";
 import { legionRefreshCallback, legionStatusKeyboard, legionStatusView } from "./legion-status";
+import { WAKE_USAGE, wakeKeyboard, wakeRefreshCallback, wakeView } from "./wake";
 import {
   AllProvidersFailedError,
   GenerationStoppedError,
@@ -725,6 +727,30 @@ const OWNER_CALLBACK_ROUTES: readonly PredicateRoute<
     },
   ),
   ownerCallbackRoute(
+    "wake-refresh",
+    ({ callback }) => wakeRefreshCallback(callback.data) ?? undefined,
+    async ({ env, message }, wakeTaskId) => {
+      try {
+        const view = wakeView(await getBotekTask(env, wakeTaskId));
+        return {
+          chatId: message.chat.id,
+          editMessageId: message.message_id,
+          text: view.plain,
+          richHtml: view.richHtml,
+          replyMarkup: wakeKeyboard(wakeTaskId),
+        };
+      } catch (error) {
+        console.error("Wakeguard refresh failed", error);
+        return {
+          chatId: message.chat.id,
+          editMessageId: message.message_id,
+          text: "Nie udało się odświeżyć wyniku.",
+          replyMarkup: wakeKeyboard(wakeTaskId),
+        };
+      }
+    },
+  ),
+  ownerCallbackRoute(
     "legion-refresh",
     ({ callback }) => legionRefreshCallback(callback.data) ?? undefined,
     async ({ env, update, message }, legionTaskId) => {
@@ -881,6 +907,31 @@ async function handleOwnerCommand(
         richHtml: status.richHtml,
         replyMarkup: STATUS_KEYBOARD,
       };
+    }
+
+    case "wake": {
+      if (!command.request) {
+        return { chatId: message.chat.id, replyToMessageId: message.message_id, text: WAKE_USAGE };
+      }
+      try {
+        const task = await resolveLegionStatus(env, await delegateWakeguard(env, update.update_id, command.request));
+        const view = wakeView(task);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: view.plain,
+          richHtml: view.richHtml,
+          replyMarkup: wakeKeyboard(task.taskId),
+        };
+      } catch (error) {
+        console.error("Wakeguard delegation failed", error);
+        return {
+          chatId: message.chat.id,
+          replyToMessageId: message.message_id,
+          text: "Nie udało się wysłać polecenia do Legiona.",
+          finalReaction: "👎",
+        };
+      }
     }
 
     case "legion":

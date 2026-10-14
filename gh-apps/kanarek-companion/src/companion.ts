@@ -59,7 +59,7 @@ import {
   sanitize,
   shouldAskAi,
 } from './quip.ts';
-import { webhookReviewState } from './webhook-review.ts';
+import { isDependabotPullRequest, webhookReviewState } from './webhook-review.ts';
 import type { BankContext } from './companion-bank.ts';
 import type {
   CompanionEnv,
@@ -217,12 +217,14 @@ export async function refreshCompanion(
     reviews(client, target.repository, target.pullRequestNumber),
     comments(client, target.repository, target.pullRequestNumber),
   ]);
-  const reviewJobState = await webhookReviewState(
-    env,
-    target.repository,
-    target.pullRequestNumber,
-    pr.head.sha,
-  );
+  const reviewJobState = isDependabotPullRequest(pr)
+    ? { settled: true, badge: null }
+    : await webhookReviewState(
+        env,
+        target.repository,
+        target.pullRequestNumber,
+        pr.head.sha,
+      );
   const projectAreas = areas(changedFiles, target.repository);
   const prSize = size(pr);
   const branchUpdateCandidate = shouldUpdateBranch(

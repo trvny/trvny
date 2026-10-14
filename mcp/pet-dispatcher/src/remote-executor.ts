@@ -14,6 +14,7 @@ import type { AuthorityPolicy, SubmitRoute } from "./authority.js";
 import { runHostFs } from "./host-fs.js";
 import { isRemoteDirectExecTool, isRemoteDirectReadTool, isRemoteDirectWriteTool, type HostFsCall, type RemoteResult, type RemoteTask } from "./remote-protocol.js";
 import type { RemoteTaskExecutor } from "./remote-transport.js";
+import { WAKEGUARD_DEFAULT_MINUTES, type WakeguardControl } from "./wakeguard.js";
 
 const MAX_SUMMARY_CHARS = 20_000;
 const MAX_DIRECT_RESULT_BYTES = 96 * 1_024;
@@ -109,6 +110,7 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
     readonly managedFreeRouter?: ManagedFreeRouter,
     readonly managedWorkRouter?: ManagedWorkRouter,
     readonly authority?: AuthorityPolicy,
+    readonly wakeguard?: WakeguardControl,
   ) {}
   readonly #directSessions = new Map<string, { repo: string; expiresAt: number; timer: NodeJS.Timeout }>();
 
@@ -177,6 +179,18 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
           activeSessions: this.sessions.activeCount(), activeProcesses: this.runner.activeProcessCount(),
         },
       };
+    }
+    if (call.tool === "system.wakeguard") {
+      // The helper cannot be aborted half-way (it would leave a guard in an unknown state), so cancellation is honoured
+      // before dispatch only; once started, the action runs to completion and its real state is reported.
+      if (signal?.aborted) return { status: "cancelled", summary: "Wakeguard call was cancelled before it started." };
+      if (!this.wakeguard) return { status: "failed", summary: "Wakeguard is not available on this device.", error: "wakeguard control is not configured" };
+      try {
+        const state = await this.wakeguard(call.action, call.action === "on" ? (call.minutes ?? WAKEGUARD_DEFAULT_MINUTES) : undefined);
+        return { status: "completed", summary: `Wakeguard ${call.action}: ${state.running ? "running" : "not running"}.`, data: { ...state } };
+      } catch (error) {
+        return { status: "failed", summary: "Wakeguard call failed.", error: (error instanceof Error ? error.message : String(error)).slice(0, 1_024) };
+      }
     }
     const capabilities = resolveCapabilities(task);
     const repo = taskRepo(task);

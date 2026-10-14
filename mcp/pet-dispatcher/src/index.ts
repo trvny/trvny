@@ -15,6 +15,7 @@ import { acquireRemoteWorkerLease } from "./remote-worker-lease.js";
 import { probeRouting } from "./agent-router.js";
 import { deviceMetaSchema } from "./device-meta.js";
 import { REMOTE_DIRECT_TOOLS } from "./remote-protocol.js";
+import { createWakeguardControl } from "./wakeguard.js";
 
 async function main(): Promise<void> {
   const config = await loadConfig();
@@ -73,6 +74,7 @@ async function main(): Promise<void> {
         (payload, signal) => transport.freeRouter(payload, signal),
         (payload, signal) => transport.workRouter(payload, signal),
         authority,
+        installRoot ? createWakeguardControl(installRoot) : undefined,
       );
       const metaProvider = () => {
         const sandbox = runner.securityStatus() as { supported?: boolean; processGuard?: string; networkDefault?: string; isolationTier?: string | null };

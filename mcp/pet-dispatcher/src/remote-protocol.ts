@@ -73,12 +73,22 @@ export const remoteDirectCallSchema = z.discriminatedUnion("tool", [
     outputMode: z.enum(["head", "tail"]).default("tail"), stripAnsi: z.boolean().default(true),
   }).strict(),
   z.object({ tool: z.literal("system.status") }).strict(),
+  // Host power guard (keeps the Legion from idle-hibernating). Host target only (see HOST_DIRECT_TOOLS) and deliberately
+  // NOT in REMOTE_DIRECT_TOOLS, so pet_direct and the HTTP direct endpoint cannot submit it; `minutes` caps the guard
+  // at 12 h and a guard always expires on its own.
+  z.object({
+    tool: z.literal("system.wakeguard"), action: z.enum(["on", "off", "status"]),
+    minutes: z.number().int().min(1).max(720).optional(),
+  }).strict(),
   z.object({ tool: z.literal("git.status"), sessionId: remoteSessionIdSchema.optional() }).strict(),
   z.object({ tool: z.literal("git.diff"), sessionId: remoteSessionIdSchema.optional(), staged: z.boolean().default(false), paths: z.array(z.string().min(1).max(1_024)).max(64).default([]) }).strict(),
   z.object({ tool: z.literal("git.summary"), sessionId: remoteSessionIdSchema.optional(), maxCommits: z.number().int().min(1).max(10).default(5) }).strict(),
   z.object({ tool: z.literal("git.add"), sessionId: remoteSessionIdSchema, paths: z.array(z.string().min(1).max(1_024)).min(1).max(64) }).strict(),
   z.object({ tool: z.literal("git.commit"), sessionId: remoteSessionIdSchema, message: z.string().min(1).max(500) }).strict(),
 ]).superRefine((call, ctx) => {
+  if (call.tool === "system.wakeguard" && call.minutes !== undefined && call.action !== "on") {
+    ctx.addIssue({ code: "custom", path: ["minutes"], message: "minutes is only valid for action on" });
+  }
   if (!("autoSession" in call)) return;
   if (call.autoSession && call.sessionId) {
     ctx.addIssue({ code: "custom", path: ["autoSession"], message: "choose either sessionId or autoSession, not both" });
@@ -98,6 +108,9 @@ export const REMOTE_DIRECT_READ_CAPABILITIES = ["workspace.read", "git.read"] as
 export const REMOTE_DIRECT_WRITE_CAPABILITIES = ["workspace.read", "workspace.write", "git.read", "git.commit"] as const;
 export const REMOTE_DIRECT_EXEC_CAPABILITIES = ["workspace.read", "workspace.write", "process.exec", "git.read", "git.commit"] as const;
 export const REMOTE_DIRECT_NETWORK_EXEC_CAPABILITIES = [...REMOTE_DIRECT_EXEC_CAPABILITIES, "network.fetch"] as const;
+/** Direct tools that run on the host itself instead of in a repository workspace. Only system.status also works
+ *  with a repo (it ignores it); the others are rejected there. */
+const HOST_DIRECT_TOOLS = new Set<RemoteDirectCall["tool"]>(["system.status", "system.wakeguard"]);
 const REMOTE_DIRECT_EXEC_TOOLS = new Set<RemoteDirectCall["tool"]>(["workspace.exec"]);
 const REMOTE_DIRECT_WRITE_TOOLS = new Set<RemoteDirectCall["tool"]>([
   "session.open", "session.close", "session.finish", "session.reclaim", "fs.write", "fs.patch", "fs.mkdir", "fs.move", "fs.delete", "git.add", "git.commit",
@@ -162,12 +175,15 @@ export const remoteTaskSchema = z.object({
   if (hostTarget) {
     if (task.repo) ctx.addIssue({ code: "custom", path: ["repo"], message: "host tasks do not accept a repository" });
     if (task.executor !== "direct") ctx.addIssue({ code: "custom", path: ["executor"], message: "host tasks require the direct executor" });
-    if (task.direct?.tool !== "system.status") ctx.addIssue({ code: "custom", path: ["direct"], message: "host target is not allowed for this direct tool" });
+    if (!task.direct || !HOST_DIRECT_TOOLS.has(task.direct.tool)) ctx.addIssue({ code: "custom", path: ["direct"], message: "host target is not allowed for this direct tool" });
     if (task.profile !== "inspect") ctx.addIssue({ code: "custom", path: ["profile"], message: "host probes require the inspect profile" });
-    if (task.capabilities.length) ctx.addIssue({ code: "custom", path: ["capabilities"], message: "system.status requires no workspace capabilities" });
+    if (task.capabilities.length) ctx.addIssue({ code: "custom", path: ["capabilities"], message: "host direct tools require no workspace capabilities" });
     if (task.network.mode !== "none") ctx.addIssue({ code: "custom", path: ["network"], message: "host status requires network mode none" });
     if (task.timeoutMinutes > 5) ctx.addIssue({ code: "custom", path: ["timeoutMinutes"], message: "host status is limited to 5 minutes" });
     return;
+  }
+  if (task.direct && HOST_DIRECT_TOOLS.has(task.direct.tool) && task.direct.tool !== "system.status") {
+    ctx.addIssue({ code: "custom", path: ["direct"], message: `${task.direct.tool} requires the host target` });
   }
   if (!task.repo) ctx.addIssue({ code: "custom", path: ["repo"], message: "workspace tasks require a repository" });
   if (task.executor === "direct") {
@@ -299,6 +315,9 @@ export async function verifyWorkerRequest(secret: string, signature: string, met
  *  with no extra authorization - the executor ignores the capabilities/profile the schema still
  *  forces the caller to supply for any "read" bucket direct tool. */
 const ASSISTANT_ALLOWED_DIRECT_TOOLS = new Set<RemoteDirectCall["tool"]>(["system.status"]);
+/** Bounded, self-expiring host actions the assistant may request (NOT read-only, so kept apart from the set above).
+ *  Only on the host target; system.wakeguard can at worst keep the laptop awake for <= 12 h, never run anything. */
+const ASSISTANT_ALLOWED_HOST_ACTIONS = new Set<RemoteDirectCall["tool"]>(["system.wakeguard"]);
 const ASSISTANT_ALLOWED_NETWORK_PROFILES = new Set([
   "github-read",
   "npm-read",
@@ -313,7 +332,8 @@ const ASSISTANT_ALLOWED_NETWORK_PROFILES = new Set([
  *  hosts, Cloudflare credentials or direct tools other than the safe probe above. */
 export function assertAssistantTaskAllowed(task: RemoteTask): void {
   const isAllowedDirectProbe = task.executor === "direct" && task.direct !== undefined
-    && ASSISTANT_ALLOWED_DIRECT_TOOLS.has(task.direct.tool);
+    && (ASSISTANT_ALLOWED_DIRECT_TOOLS.has(task.direct.tool)
+      || (task.target === "host" && ASSISTANT_ALLOWED_HOST_ACTIONS.has(task.direct.tool)));
   if (isAllowedDirectProbe) return;
   if (task.executor === "direct" || !["inspect", "code"].includes(task.profile)) {
     throw new Error("assistant_task_profile_forbidden");

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, copyFile, cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { access, copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -111,7 +111,7 @@ async function migrateJournal(sourcePath: string | undefined, targetPath: string
 
 async function publishBin(sourceRoot: string, paths: LocalRuntimePaths): Promise<void> {
   await mkdir(paths.binRoot, { recursive: true });
-  for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js", "pet-dispatcher-restart.ps1", "pet-dispatcher-secrets.ps1"]) {
+  for (const name of ["pet-dispatcher-supervise.js", "pet-dispatcher-start-worker.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-secrets.ps1"]) {
     await copyFile(join(sourceRoot, "scripts", name), join(paths.binRoot, name));
   }
   await writeFile(
@@ -120,10 +120,23 @@ async function publishBin(sourceRoot: string, paths: LocalRuntimePaths): Promise
     "utf8",
   );
 }
+// Replaced by the wscript supervisor. Removed only after the Run key points at the new supervisor and the old
+// launcher is stopped (startup registration on): until then a legacy Run entry may still point at these files.
+async function removeLegacyBin(paths: LocalRuntimePaths): Promise<void> {
+  for (const name of ["pet-dispatcher-launch.ps1", "pet-dispatcher-launch-hidden.js"]) {
+    await rm(join(paths.binRoot, name), { force: true });
+  }
+}
+
 async function publishRelease(options: InstallLocalRuntimeOptions, paths: LocalRuntimePaths, sourceCommit: string): Promise<string> {
   if (options.build !== false) await runNpm(["run", "build"], options.sourceRoot);
   const releaseRoot = join(paths.releasesRoot, sourceCommit);
-  if (await exists(releaseRoot)) return releaseRoot;
+  if (await exists(releaseRoot)) {
+    // A release whose removal started (marker from an older installer's prune) may be missing files; never reuse it.
+    if (!await exists(join(releaseRoot, PRUNING_MARKER))) return releaseRoot;
+    await rm(releaseRoot, { recursive: true, force: true });
+    if (await exists(releaseRoot)) throw new Error(`release ${sourceCommit} is half-removed and still locked; stop the worker (pet-dispatcher-restart.ps1) and retry`);
+  }
   const staging = `${releaseRoot}.staging-${process.pid}-${Date.now()}`;
   await rm(staging, { recursive: true, force: true });
   await mkdir(staging, { recursive: true });
@@ -152,14 +165,37 @@ async function writeCurrentManifest(paths: LocalRuntimePaths, sourceCommit: stri
   await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   await rename(temporary, paths.currentManifest);
 }
-async function pruneReleases(paths: LocalRuntimePaths, activeRelease: string, keep: number): Promise<void> {
+// Written inside a release by older installers before deleting it; still honoured for dirs they left behind.
+const PRUNING_MARKER = ".pruning";
+const QUARANTINE_INFIX = ".pruning-";
+
+export async function pruneReleases(paths: LocalRuntimePaths, activeRelease: string, keep: number): Promise<void> {
   if (!await exists(paths.releasesRoot)) return;
   const entries = await readdir(paths.releasesRoot, { withFileTypes: true });
-  const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.includes(".staging-"));
+  // Leftovers of an earlier prune that hit a lock: never a release, retry their removal.
+  for (const entry of entries) {
+    if (entry.isDirectory() && entry.name.includes(QUARANTINE_INFIX)) {
+      await rm(join(paths.releasesRoot, entry.name), { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+  const directories = entries.filter((entry) => entry.isDirectory()
+    && !entry.name.includes(".staging-") && !entry.name.includes(QUARANTINE_INFIX));
   const keepNames = new Set([activeRelease.split(/[\\/]/u).at(-1) ?? ""]);
-  for (const entry of directories.sort((a, b) => b.name.localeCompare(a.name)).slice(0, Math.max(keep, 1))) keepNames.add(entry.name);
-  for (const entry of directories) {
-    if (!keepNames.has(entry.name)) await rm(join(paths.releasesRoot, entry.name), { recursive: true, force: true });
+  // Newest first by install time: release names are commit hashes, so sorting by name keeps an arbitrary set
+  // and can delete the release the running worker was started from (its native modules are locked).
+  const dated = await Promise.all(directories.map(async (entry) => ({
+    name: entry.name, time: (await stat(join(paths.releasesRoot, entry.name))).mtimeMs,
+  })));
+  for (const entry of dated.sort((a, b) => b.time - a.time).slice(0, Math.max(keep, 1))) keepNames.add(entry.name);
+  for (const entry of dated) {
+    if (keepNames.has(entry.name)) continue;
+    // Best effort: a locked old release must not fail the install. Rename out of the release namespace first, so a
+    // partial delete (locked native module) can never leave a truncated dir under a name publishRelease reuses.
+    // Rename refused (lock) -> the release stays complete and untouched; the next install retries.
+    const quarantine = join(paths.releasesRoot, `${entry.name}${QUARANTINE_INFIX}${process.pid}-${Date.now()}`);
+    try { await rename(join(paths.releasesRoot, entry.name), quarantine); }
+    catch { continue; }
+    await rm(quarantine, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 
@@ -167,23 +203,24 @@ export function windowsStartupCommand(wscript: string, shim: string): string {
   for (const value of [wscript, shim]) {
     if (!value || /["\r\n]/u.test(value)) throw new Error("invalid Windows startup path");
   }
-  return `"${wscript}" //B //Nologo "${shim}"`;
+  // /logon: the supervisor delays its first worker start until the logon burst has settled.
+  return `"${wscript}" //B //Nologo "${shim}" /logon`;
 }
 
 async function registerStartup(paths: LocalRuntimePaths): Promise<void> {
   if (process.platform !== "win32") throw new Error("Pet Dispatcher startup registration is Windows-only");
   const wscript = join(process.env.SystemRoot ?? String.raw`C:\Windows`, "System32", "wscript.exe");
-  const shim = join(paths.binRoot, "pet-dispatcher-launch-hidden.js");
+  const shim = join(paths.binRoot, "pet-dispatcher-supervise.js");
   const command = windowsStartupCommand(wscript, shim);
   await run("reg.exe", ["add", String.raw`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, "/v", "PetDispatcher", "/t", "REG_SZ", "/d", command, "/f"]);
 }
 
-async function restartStartupLauncher(paths: LocalRuntimePaths): Promise<void> {
+async function restartStartupSupervisor(paths: LocalRuntimePaths): Promise<void> {
   if (process.platform !== "win32") throw new Error("Pet Dispatcher launcher restart is Windows-only");
   const powershell = join(process.env.SystemRoot ?? String.raw`C:\Windows`, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
-  const launcher = join(paths.binRoot, "pet-dispatcher-launch.ps1");
+  const supervisor = join(paths.binRoot, "pet-dispatcher-supervise.js");
   const restart = join(paths.binRoot, "pet-dispatcher-restart.ps1");
-  await run(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", restart, "-Launcher", launcher]);
+  await run(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", restart, "-Supervisor", supervisor]);
 }
 
 export async function installLocalRuntime(options: InstallLocalRuntimeOptions): Promise<InstallLocalRuntimeResult> {
@@ -201,7 +238,10 @@ export async function installLocalRuntime(options: InstallLocalRuntimeOptions): 
   await writeCurrentManifest(paths, sourceCommit, releaseRoot);
   if (options.registerStartup) await registerStartup(paths);
   await pruneReleases(paths, releaseRoot, options.keepReleases ?? 2);
-  if (options.registerStartup) await restartStartupLauncher(paths);
+  if (options.registerStartup) {
+    await restartStartupSupervisor(paths);
+    await removeLegacyBin(paths);
+  }
   return { paths, sourceCommit, releaseRoot };
 }
 

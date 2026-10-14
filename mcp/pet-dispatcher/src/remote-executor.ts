@@ -181,6 +181,9 @@ export class ConfinedRemoteExecutor implements RemoteTaskExecutor {
       };
     }
     if (call.tool === "system.wakeguard") {
+      // The helper cannot be aborted half-way (it would leave a guard in an unknown state), so cancellation is honoured
+      // before dispatch only; once started, the action runs to completion and its real state is reported.
+      if (signal?.aborted) return { status: "cancelled", summary: "Wakeguard call was cancelled before it started." };
       if (!this.wakeguard) return { status: "failed", summary: "Wakeguard is not available on this device.", error: "wakeguard control is not configured" };
       try {
         const state = await this.wakeguard(call.action, call.action === "on" ? (call.minutes ?? WAKEGUARD_DEFAULT_MINUTES) : undefined);

@@ -33,7 +33,6 @@ $env:PSModulePath = @(
 if (-not $Root) { $Root = Split-Path -Parent $PSScriptRoot }
 $stateRoot = Join-Path $Root 'state'
 $scriptPath = $PSCommandPath
-$scriptName = Split-Path -Leaf $scriptPath
 $heartbeatSeconds = 60
 
 function Get-StatePath([int]$ProcessId) { Join-Path $stateRoot "wakeguard-$ProcessId.json" }
@@ -44,17 +43,20 @@ function Read-GuardState([int]$ProcessId) {
     try { return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json } catch { return $null }
 }
 
-# Live guard processes: powershell.exe running this script file with -Action guard.
+# Live guard processes: powershell.exe running THIS installed script file (full path, so another installation or an
+# unrelated process mentioning the file name is never matched) with -Action guard.
+function Test-GuardCommandLine($CommandLine) {
+    $CommandLine -and $CommandLine.IndexOf($scriptPath, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and $CommandLine -match '-Action\s+guard'
+}
+
 function Get-Guards {
-    @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object {
-            $_.CommandLine -and $_.CommandLine -like "*$scriptName*" -and $_.CommandLine -match '-Action\s+guard'
-        })
+    @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { Test-GuardCommandLine $_.CommandLine })
 }
 
 function Stop-Guard([int]$ProcessId) {
     # Re-check identity right before the kill.
     $row = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId"
-    if ($row -and $row.CommandLine -like "*$scriptName*" -and $row.CommandLine -match '-Action\s+guard') {
+    if ($row -and (Test-GuardCommandLine $row.CommandLine)) {
         Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
     }
     Remove-Item -LiteralPath (Get-StatePath $ProcessId) -Force -ErrorAction SilentlyContinue
@@ -98,6 +100,14 @@ function Get-Status {
 
 function Write-Result($Value) { $Value | ConvertTo-Json -Compress -Depth 4 }
 
+# A state file proves readiness only if it names this very process and was written after the launch; a stale file
+# left by a hard-killed guard whose PID Windows reused must not count.
+function Test-GuardReady([int]$ProcessId, [DateTime]$LaunchedUtc) {
+    $state = Read-GuardState $ProcessId
+    if (-not $state -or [int]$state.pid -ne $ProcessId -or -not $state.startedAt) { return $false }
+    [DateTime]::Parse($state.startedAt, $null, 'RoundtripKind').ToUniversalTime() -ge $LaunchedUtc.AddSeconds(-1)
+}
+
 switch ($Action) {
     'guard' {
         Add-Type -Namespace PetDispatcher -Name WakeNative -MemberDefinition `
@@ -131,17 +141,23 @@ switch ($Action) {
         exit 0
     }
     'on' {
+        # Control calls (on/off) are serialized: overlapping calls would each snapshot the guards and leave duplicates
+        # or a guard behind an `off`.
+        $control = New-Object System.Threading.Mutex($false, 'Local\PetDispatcherWakeguardControl')
+        if (-not $control.WaitOne(30000)) { Write-Result ([ordered]@{ error = 'another wakeguard call is still running' }); exit 1 }
+        try {
         $old = @(Get-Guards | ForEach-Object { [int]$_.ProcessId })
+        $launched = [DateTime]::UtcNow
         $guardArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$scriptPath`"",
             '-Action', 'guard', '-Root', "`"$Root`"")
         $guardArgs += if ($Forever) { '-Forever' } else { @('-Minutes', $Minutes) }
         $new = Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList $guardArgs -WindowStyle Hidden -PassThru
         $deadline = [DateTime]::UtcNow.AddSeconds(15)
-        while ([DateTime]::UtcNow -lt $deadline -and -not (Read-GuardState $new.Id)) {
+        while ([DateTime]::UtcNow -lt $deadline -and -not (Test-GuardReady $new.Id $launched)) {
             if ($new.HasExited) { break }
             Start-Sleep -Milliseconds 250
         }
-        if (-not (Read-GuardState $new.Id)) {
+        if (-not (Test-GuardReady $new.Id $launched)) {
             Stop-Guard $new.Id
             Write-Result ([ordered]@{ error = 'new guard did not report in 15 s; previous guard left running' })
             exit 1
@@ -149,11 +165,18 @@ switch ($Action) {
         foreach ($guardPid in $old) { Stop-Guard $guardPid }
         Write-Result (Get-Status)
         exit 0
+        }
+        finally { $control.ReleaseMutex() }
     }
     'off' {
-        foreach ($guard in Get-Guards) { Stop-Guard ([int]$guard.ProcessId) }
-        Write-Result (Get-Status)
-        exit 0
+        $control = New-Object System.Threading.Mutex($false, 'Local\PetDispatcherWakeguardControl')
+        if (-not $control.WaitOne(30000)) { Write-Result ([ordered]@{ error = 'another wakeguard call is still running' }); exit 1 }
+        try {
+            foreach ($guard in Get-Guards) { Stop-Guard ([int]$guard.ProcessId) }
+            Write-Result (Get-Status)
+            exit 0
+        }
+        finally { $control.ReleaseMutex() }
     }
     default {
         Write-Result (Get-Status)

@@ -2,7 +2,7 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { z, ZodError } from "zod";
 import { FREE_ROUTER_WORKER_PATH, WORK_ROUTER_WORKER_PATH, proxyKanarekFreeRouter, proxyKanarekWorkRouter, type FreeRouterEnv } from "./free-router.js";
 import { ICON_BYTES } from "./icon.js";
-import { hostTaskHiddenFrom, mayHandleHostTask, mayIndexTask } from "./host-access.js";
+import { hostTaskHiddenFrom, isHostTask, mayHandleHostTask, mayIndexTask, requiresOwnerRoute } from "./host-access.js";
 import { isMcpPath, mcpRoute, type McpRoute } from "./mcp-auth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
 import { computeTimings } from "./task-timings.js";
@@ -371,8 +371,8 @@ async function deliverOutbox(env: Env, taskId: string, envelope: SignedTaskEnvel
 
 async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string, route?: McpRoute): Promise<Response> {
   // The one choke point for host tasks: whatever path built the task, only the owner route may enqueue one.
-  const isHost = task.hostFs !== undefined;
-  if (isHost && !mayHandleHostTask(route)) return json({ error: "host_tools_require_owner_route" }, 403);
+  const isHost = isHostTask(task);
+  if (requiresOwnerRoute(task) && !mayHandleHostTask(route)) return json({ error: "host_tools_require_owner_route" }, 403);
   const now = Date.now();
   const taskId = stableTaskId ?? crypto.randomUUID();
   const quotaBody = JSON.stringify({ taskId });
@@ -407,7 +407,7 @@ async function enqueueTask(task: RemoteTask, env: Env, stableTaskId?: string, ro
     expiresAt: now + 24 * 60 * 60_000,
     task,
     // Stamped only on host tasks: an unknown envelope key would break Legions that predate host mode.
-    ...(isHost ? { route } : {}),
+    ...(task.hostFs !== undefined ? { route } : {}),
   };
   const signed = await signEnvelope(envelope, requiredSecret(env, "TASK_SIGNING_SECRET"));
   const createdAt = new Date(now).toISOString();
@@ -564,8 +564,10 @@ export class TelegramAssistantEntrypoint extends WorkerEntrypoint<Env> {
     return delegateAssistant(value, this.env, idempotencyKey);
   }
 
+  // The assistant binding is private to the owner's bot, so it reads and cancels as the owner: host-target tasks it
+  // submits (system.status, system.wakeguard) are hidden from connector routes and would otherwise be hidden from it too.
   async getTask(taskId: string): Promise<RpcResult> {
-    return getTaskResult(taskId, this.env);
+    return getTaskResult(taskId, this.env, false, "owner");
   }
 
   async recentTasks(limit = 10): Promise<RecentTaskSnapshot[]> {
@@ -573,7 +575,7 @@ export class TelegramAssistantEntrypoint extends WorkerEntrypoint<Env> {
   }
 
   async cancelTask(taskId: string): Promise<RpcResult> {
-    return cancelTaskResult(taskId, this.env);
+    return cancelTaskResult(taskId, this.env, "owner");
   }
 }
 

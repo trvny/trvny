@@ -82,6 +82,7 @@ test("local installer publishes runtime and migrates control state away from dc"
     assert.equal(await readFile(join(result.paths.secretsRoot, "PET_DISPATCHER_QUEUE_TOKEN.dpapi"), "utf8"), "queue-cipher");
     assert.equal(await readFile(join(result.paths.binRoot, "pet-dispatcher-start-worker.ps1"), "utf8"), "# launcher fixture\n");
     assert.equal(await readFile(join(result.paths.binRoot, "pet-dispatcher-restart.ps1"), "utf8"), "# restart fixture\n");
+    assert.equal(await readFile(join(result.paths.binRoot, "pet-dispatcher-wakeguard.ps1"), "utf8"), "# wakeguard fixture\n");
     assert.deepEqual(JSON.parse(await readFile(join(result.paths.binRoot, "provider-credential-env-names.json"), "utf8")), PROVIDER_CREDENTIAL_ENV_NAMES);
     assert.equal((await execFileAsync("git", ["-C", result.paths.repoMirror, "rev-parse", "--is-bare-repository"])).stdout.trim(), "true");
     assert.ok((await stat(join(result.releaseRoot, "dist", "src", "index.js"))).isFile());

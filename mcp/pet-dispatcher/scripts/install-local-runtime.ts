@@ -111,7 +111,7 @@ async function migrateJournal(sourcePath: string | undefined, targetPath: string
 
 async function publishBin(sourceRoot: string, paths: LocalRuntimePaths): Promise<void> {
   await mkdir(paths.binRoot, { recursive: true });
-  for (const name of ["pet-dispatcher-supervise.js", "pet-dispatcher-start-worker.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-secrets.ps1"]) {
+  for (const name of ["pet-dispatcher-supervise.js", "pet-dispatcher-start-worker.ps1", "pet-dispatcher-restart.ps1", "pet-dispatcher-secrets.ps1", "pet-dispatcher-wakeguard.ps1"]) {
     await copyFile(join(sourceRoot, "scripts", name), join(paths.binRoot, name));
   }
   await writeFile(

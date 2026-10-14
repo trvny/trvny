@@ -132,7 +132,7 @@ async function publishRelease(options: InstallLocalRuntimeOptions, paths: LocalR
   if (options.build !== false) await runNpm(["run", "build"], options.sourceRoot);
   const releaseRoot = join(paths.releasesRoot, sourceCommit);
   if (await exists(releaseRoot)) {
-    // A release whose removal started (marker written by pruneReleases) may be missing files; never reuse it.
+    // A release whose removal started (marker from an older installer's prune) may be missing files; never reuse it.
     if (!await exists(join(releaseRoot, PRUNING_MARKER))) return releaseRoot;
     await rm(releaseRoot, { recursive: true, force: true });
     if (await exists(releaseRoot)) throw new Error(`release ${sourceCommit} is half-removed and still locked; stop the worker (pet-dispatcher-restart.ps1) and retry`);
@@ -165,12 +165,21 @@ async function writeCurrentManifest(paths: LocalRuntimePaths, sourceCommit: stri
   await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   await rename(temporary, paths.currentManifest);
 }
+// Written inside a release by older installers before deleting it; still honoured for dirs they left behind.
 const PRUNING_MARKER = ".pruning";
+const QUARANTINE_INFIX = ".pruning-";
 
 export async function pruneReleases(paths: LocalRuntimePaths, activeRelease: string, keep: number): Promise<void> {
   if (!await exists(paths.releasesRoot)) return;
   const entries = await readdir(paths.releasesRoot, { withFileTypes: true });
-  const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.includes(".staging-"));
+  // Leftovers of an earlier prune that hit a lock: never a release, retry their removal.
+  for (const entry of entries) {
+    if (entry.isDirectory() && entry.name.includes(QUARANTINE_INFIX)) {
+      await rm(join(paths.releasesRoot, entry.name), { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
+  const directories = entries.filter((entry) => entry.isDirectory()
+    && !entry.name.includes(".staging-") && !entry.name.includes(QUARANTINE_INFIX));
   const keepNames = new Set([activeRelease.split(/[\\/]/u).at(-1) ?? ""]);
   // Newest first by install time: release names are commit hashes, so sorting by name keeps an arbitrary set
   // and can delete the release the running worker was started from (its native modules are locked).
@@ -180,11 +189,13 @@ export async function pruneReleases(paths: LocalRuntimePaths, activeRelease: str
   for (const entry of dated.sort((a, b) => b.time - a.time).slice(0, Math.max(keep, 1))) keepNames.add(entry.name);
   for (const entry of dated) {
     if (keepNames.has(entry.name)) continue;
-    // Best effort: a locked old release must not fail the install. The marker goes first so a directory that
-    // only got partly deleted (locked native module) is recognised as broken and never reused by publishRelease.
-    const directory = join(paths.releasesRoot, entry.name);
-    await writeFile(join(directory, PRUNING_MARKER), "", "utf8").catch(() => undefined);
-    await rm(directory, { recursive: true, force: true }).catch(() => undefined);
+    // Best effort: a locked old release must not fail the install. Rename out of the release namespace first, so a
+    // partial delete (locked native module) can never leave a truncated dir under a name publishRelease reuses.
+    // Rename refused (lock) -> the release stays complete and untouched; the next install retries.
+    const quarantine = join(paths.releasesRoot, `${entry.name}${QUARANTINE_INFIX}${process.pid}-${Date.now()}`);
+    try { await rename(join(paths.releasesRoot, entry.name), quarantine); }
+    catch { continue; }
+    await rm(quarantine, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 

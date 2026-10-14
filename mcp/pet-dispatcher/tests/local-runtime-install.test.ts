@@ -144,6 +144,19 @@ test("release pruning keeps the newest installs by date and the active release, 
   } finally { await rm(base, { recursive: true, force: true }); }
 });
 
+test("release pruning sweeps quarantine leftovers and never counts them as releases", async () => {
+  const base = await mkdtemp(join(tmpdir(), "pet-prune-q-"));
+  try {
+    const paths = localRuntimePaths(base);
+    await mkdir(join(paths.releasesRoot, "aa-active"), { recursive: true });
+    // Newest by mtime: if it counted as a release it would take the only keep slot.
+    await mkdir(join(paths.releasesRoot, "zz-gone.pruning-1-2", "dist"), { recursive: true });
+    await utimes(join(paths.releasesRoot, "aa-active"), new Date(2026, 9, 1), new Date(2026, 9, 1));
+    await pruneReleases(paths, join(paths.releasesRoot, "aa-active"), 1);
+    assert.deepEqual(await readdir(paths.releasesRoot), ["aa-active"]);
+  } finally { await rm(base, { recursive: true, force: true }); }
+});
+
 test("startup command uses native Windows quoting", async () => {
   const module = await import("../scripts/install-local-runtime.js");
   assert.equal(module.windowsStartupCommand(String.raw`C:\Program Files\Windows\wscript.exe`, String.raw`C:\Users\travn\.local\share\pet-dispatcher\bin\pet-dispatcher-supervise.js`),

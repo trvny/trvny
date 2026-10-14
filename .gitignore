@@ -74,3 +74,6 @@ mega-linter.log
 *.bak
 *.orig
 *.rej
+
+# Claude Code: cloud hooks/settings live in the environment setup script; local .claude/ is per-machine
+.claude/

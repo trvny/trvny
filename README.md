@@ -33,7 +33,7 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#992](https://github.com/trvny/trvny/pull/992) | fix: retry Hermes installer through guarded GPTomek action | @trvny | ready | 2026-10-11 |
+| trvny/trvny | [#1013](https://github.com/trvny/trvny/pull/1013) | pet-dispatcher: wscript supervisor instead of resident PowerShell launcher | @trvny | ready | 2026-10-13 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

@@ -296,6 +296,14 @@ test('RSS parser requires fresh BBC headlines and avoids tragedy topics', () => 
   assert.deepEqual(parseNewsRss(fakeRss('Scientists discover three new planets', date, 'https://evil.test/news'), { now: newsNow }), []);
   assert.equal(parseNewsRss(fakeRss('Science &lt;script &gt; introduces new idea', date), { now: newsNow })[0].title, 'Science script introduces new idea');
   assert.deepEqual(parseNewsRss(fakeRss('Massacre kills hundreds', date), { now: newsNow }), []);
+  for (const headline of [
+    'Five die in plane crash',
+    'Children injured after school bus crashes',
+    'Wildfire destroys hundreds of homes',
+    'Wildfires force residents to evacuate',
+  ]) {
+    assert.deepEqual(parseNewsRss(fakeRss(headline, date), { now: newsNow }), []);
+  }
   assert.deepEqual(parseNewsRss('x'.repeat(300_000), { now: newsNow }), []);
 });
 

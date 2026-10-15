@@ -19,8 +19,9 @@ const FEEDSEEK_FEEDS = Object.freeze({
   ],
 });
 const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|kampani|ustaw|weta|weto|marszał|kancelari/iu;
-const POLISH_TRAGEDY = /zgin|zmar|śmier|ofiar|rann|katastrof|pożar|powodzi|powódź|gwałt|zabój|zabił|zabili|samobój|zamach|wybuch|wojn|bombard|trzęsieni|ewakuacj|wypad|zderzen|rozbił|rozbiły|strzelanin|terroryst/iu;
+const POLISH_TRAGEDY = /nie\s+żyj(?:e|ą)|odesz[łl]|pogrzeb|zgin|zmar|śmier|ofiar|rann|katastrof|pożar|powodzi|powódź|gwałt|zabój|zabił|zabili|samobój|zamach|wybuch|wojn|bombard|trzęsieni|ewakuacj|wypad|zderzen|rozbił|rozbiły|strzelanin|terroryst/iu;
 const MAX_FEED_BYTES = 1024 * 1024;
+const MAX_ARTICLE_URL_LENGTH = 1250;
 const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1_000;
 const FETCH_TIMEOUT_MS = 8_000;
 const SENSITIVE_NEWS = /\b(kill(?:ed|ing|s)?|dead|death|die|dies|died|fatal(?:ity|ities)?|victim(?:s)?|massacre|murder(?:ed)?|suicide|rape|abuse|hostage(?:s)?|bomb(?:ing|ed)?|airstrike(?:s)?|earthquake(?:s)?|flood(?:s|ing)?|famine|genocide|casualt(?:y|ies)|shooting(?:s)?|terror(?:ist|ism)?|war crimes|injur(?:y|ies|ed)|wound(?:ed|s)?|crash(?:es|ed)?|wildfire(?:s)?|blaze(?:s)?|evacuat(?:ion|ed)|drown(?:ed|ing)?|collapsed)\b/i;
@@ -91,7 +92,7 @@ export function parseNewsRss(xml, { now = Date.now() } = {}) {
       return [];
     }
     if (!['www.bbc.com', 'www.bbc.co.uk', 'bbc.com', 'bbc.co.uk'].includes(url.hostname)
-      || url.protocol !== 'https:' || !title || title.length < 12
+      || url.protocol !== 'https:' || url.toString().length > MAX_ARTICLE_URL_LENGTH || !title || title.length < 12
       || !Number.isFinite(date) || date > now || now - date > NEWS_MAX_AGE_MS
       || SENSITIVE_NEWS.test(title)) return [];
     return [{ title, url: url.toString(), published_at: new Date(date).toISOString() }];
@@ -113,6 +114,7 @@ export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = fa
       return [];
     }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password
+      || url.toString().length > MAX_ARTICLE_URL_LENGTH
       || title.length < 12 || !Number.isFinite(date) || date > now
       || now - date > NEWS_MAX_AGE_MS || SENSITIVE_NEWS.test(title)
       || POLISH_TRAGEDY.test(title) || (politicsOnly && !POLITICAL_TOPIC.test(title))) return [];
@@ -123,6 +125,28 @@ export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = fa
       ...(publisher ? { publisher } : {}),
     }];
   });
+}
+
+async function readBoundedText(response) {
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_FEED_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+    return Buffer.concat(chunks, size).toString('utf8');
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
@@ -136,8 +160,8 @@ async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok || Number(response.headers.get('content-length') || '0') > MAX_FEED_BYTES) return [];
-    const body = await response.text();
-    if (Buffer.byteLength(body, 'utf8') > MAX_FEED_BYTES) return [];
+    const body = await readBoundedText(response);
+    if (body === null) return [];
     const items = isJson
       ? parseFeedseekJson(JSON.parse(body), { now, politicsOnly, tag: feed.tag })
       : parseNewsRss(body, { now });

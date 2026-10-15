@@ -486,9 +486,9 @@ export async function main() {
       source: skillSource,
       sha256: skillHash,
     },
-    topic: newsReference
+    topic: (newsReference
       ? `${topicLane === 'politics' ? 'Polish politics / ' : ''}${newsReference.source}: ${newsReference.title} (${newsReference.url})`
-      : effectiveTopic || null,
+      : effectiveTopic || null)?.slice(0, 1900) || null,
     content,
   };
 

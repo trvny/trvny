@@ -326,6 +326,8 @@ export class RemoteWorker {
     readonly journal: RemoteJournal,
     readonly executor: RemoteTaskExecutor,
     readonly metaProvider?: () => DeviceMeta,
+    // The control plane marks metadata stale after 60 s, so an idle worker must keep republishing it.
+    readonly metaRefreshMs = 30_000,
   ) {}
 
   async #publishMeta(): Promise<void> {
@@ -444,6 +446,10 @@ export class RemoteWorker {
     const baseInterval = this.transport.config.pollIntervalMs;
     const maxInterval = this.transport.config.pollMaxIntervalMs ?? Math.max(baseInterval, 30_000);
     let interval = baseInterval;
+    const metaTimer = this.metaProvider
+      ? setInterval(() => { this.#publishMeta().catch(() => undefined); }, this.metaRefreshMs)
+      : undefined;
+    metaTimer?.unref();
     while (!signal?.aborted) {
       try {
         const handled = await this.pollOnce(signal);
@@ -462,5 +468,6 @@ export class RemoteWorker {
         await pause(wait, signal);
       }
     }
+    if (metaTimer) clearInterval(metaTimer);
   }
 }

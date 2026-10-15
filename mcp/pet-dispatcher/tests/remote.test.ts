@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { AgentTools } from "../src/agent-tools.js";
 import { loadConfig } from "../src/config.js";
+import { deviceMetaSchema } from "../src/device-meta.js";
 import { ConfinedRemoteExecutor } from "../src/remote-executor.js";
 import {
   remoteTaskSchema,
@@ -241,6 +242,43 @@ test("remote worker executes one signed queue task and acknowledges after publis
     await rm(root, { recursive: true, force: true });
   }
 });
+test("idle remote worker keeps republishing device metadata so the control plane does not mark it stale", async () => {
+  const root = await mkdtemp(join(tmpdir(), "pet-remote-meta-"));
+  let metaPosts = 0;
+  process.env.PET_TEST_QUEUE_TOKEN = "queue-token";
+  process.env.PET_TEST_SIGNING_SECRET = SECRET;
+  const fakeFetch = (async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/messages/pull")) return Response.json({ success: true, result: { messages: [] } });
+    if (url.pathname === "/v1/worker/meta") {
+      metaPosts += 1;
+      return Response.json({ ok: true });
+    }
+    return new Response("not found", { status: 404 });
+  }) as typeof fetch;
+  const executor: RemoteTaskExecutor = { async execute() { return { status: "completed", summary: "unused" }; } };
+  const meta = () => deviceMetaSchema.parse({
+    deviceId: "legion", transport: "cloudflare-queues-http-pull", protocol: 1, updatedAt: new Date().toISOString(),
+    repositories: [], workspaces: [], directTools: [], activeSessions: 0, activeProcesses: 0,
+    sandbox: { supported: true, processGuard: "test", networkDefault: "deny" },
+  });
+  const controller = new AbortController();
+  try {
+    const config = transportConfig(join(root, "journal.json"));
+    const transport = new CloudflareQueueTransport(config, fakeFetch);
+    const worker = new RemoteWorker(transport, new RemoteJournal(config.journalPath), executor, meta, 20);
+    const running = worker.run(controller.signal);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    controller.abort();
+    await running;
+    assert.ok(metaPosts >= 3, `expected the initial publish plus periodic refreshes, got ${metaPosts}`);
+  } finally {
+    delete process.env.PET_TEST_QUEUE_TOKEN;
+    delete process.env.PET_TEST_SIGNING_SECRET;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("remote worker honors cancellation before starting the confined executor", async () => {
   const root = await mkdtemp(join(tmpdir(), "pet-remote-cancel-"));
   const signed = await signedTask();

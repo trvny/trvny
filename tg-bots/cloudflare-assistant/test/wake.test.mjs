@@ -15,7 +15,7 @@ test("parseWakeCommand: status, off, on with m/h/bare minutes, default 120", () 
   assert.deepEqual(parseWakeCommand("/wake 3h"), { action: "on", minutes: 180 });
   assert.deepEqual(parseWakeCommand("/wake 90m"), { action: "on", minutes: 90 });
   assert.deepEqual(parseWakeCommand("/wake 45"), { action: "on", minutes: 45 });
-  assert.deepEqual(parseWakeCommand("/wake@trvny_bot 12h"), { action: "on", minutes: 720 });
+  assert.equal(parseWakeCommand("/wake@trvny_bot 12h"), null); // other commands do not take @bot suffixes either
 });
 
 test("parseWakeCommand rejects zero, over 12h, forever and garbage", () => {

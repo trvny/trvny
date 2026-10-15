@@ -19,7 +19,7 @@ export const WAKE_USAGE = [
 
 /** Returns null for anything that is not a valid `/wake` form, so the caller can show the usage. */
 export function parseWakeCommand(text: string): WakeRequest | null {
-  const match = /^\/wake(?:@\w+)?(?:\s+(.+))?$/iu.exec(text.trim());
+  const match = /^\/wake(?:\s+(.+))?$/iu.exec(text.trim());
   if (!match) return null;
   const arg = match[1]?.trim().toLowerCase();
   if (!arg || arg === "status") return { action: "status" };

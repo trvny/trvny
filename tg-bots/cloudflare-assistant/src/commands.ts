@@ -13,7 +13,7 @@ export const BOTEK_COMMANDS: readonly BotekCommand[] = [
   { command: "whisper", usage: "/whisper <pytanie>", description: "Zapytaj prywatnie w grupie", private: false, groupMode: "ephemeral" },
   { command: "status", usage: "/status", description: "Pokaż aktualny łańcuch modeli" },
   { command: "legion", usage: "/legion", description: "Pokaż status Legiona przez Pet Dispatcher" },
-  { command: "wake", usage: "/wake [3h|off]", description: "Trzymaj Legiona wybudzonego (wakeguard)" },
+  { command: "wake", usage: "/wake [on|off|3h|90m|45]", description: "Trzymaj Legiona wybudzonego (wakeguard)" },
   { command: "tasks", usage: "/tasks", description: "Pokaż ostatnie zadania Pet Dispatchera" },
   { command: "remind", usage: "/remind 15m | tekst", description: "Ustaw jednorazowe przypomnienie" },
   { command: "reminders", usage: "/reminders", description: "Pokaż aktywne przypomnienia" },

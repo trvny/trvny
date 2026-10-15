@@ -96,7 +96,7 @@ const OWNER_COMMAND_ROUTES: readonly TextRoute[] = [
   textRoute("draft-usage", (text) => text === "/draft" ? { kind: "draft-usage" } : undefined),
   textRoute("status", (text) => text === "/status" ? { kind: "status" } : undefined),
   textRoute("legion", (text) => text === "/legion" ? { kind: "legion" } : undefined),
-  textRoute("wake", (text) => /^\/wake(?:@\w+)?(?:\s|$)/iu.test(text) ? { kind: "wake", request: parseWakeCommand(text) } : undefined),
+  textRoute("wake", (text) => /^\/wake(?:\s|$)/iu.test(text) ? { kind: "wake", request: parseWakeCommand(text) } : undefined),
   textRoute("tasks", (text) => text === "/tasks" ? { kind: "tasks" } : undefined),
 
   textRoute("reminder-usage", (text) => text === "/remind" ? { kind: "reminder-usage" } : undefined),

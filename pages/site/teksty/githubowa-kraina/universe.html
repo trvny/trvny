@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TRVNY / TRAVNIE Universe</title>
 <meta name="description" content="Interactive operational map of the TRVNY / TRAVNIE GitHub and Cloudflare universe.">
-<link rel="canonical" href="https://trfny.com/teksty/githubowa-kraina/universe.html">
+<link rel="canonical" href="https://travny.pages.dev/teksty/githubowa-kraina/universe.html">
 <style>
 :root{color-scheme:dark;--bg:#090b10;--panel:#11151d;--card:#171c26;--text:#eef2f7;--muted:#9aa6b6;--border:#2b3442;--repo:#7dd3fc;--component:#c4b5fd;--worker:#f6c453;--storage:#86efac;--external:#f9a8d4;--accent:#60a5fa}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -116,7 +116,7 @@ const nodes = [
 {id:"w-space",label:"spacemolt-gateway",sub:"Worker",kind:"worker",x:975,y:70,url:"https://github.com/travnie/twojstar/tree/main/spacemolt/gateway",info:"Authenticated Gremlin / SpaceMolt bridge. Uses kanarek-review as planner and KV state.",tags:["all","automation","kanarek"]},
 {id:"w-claudiusz",label:"claudiusz-mcp",sub:"Worker",kind:"worker",x:975,y:145,url:"https://github.com/trvny/trvny/tree/main/gh-apps/claudiusz",info:"Cloudflare-hosted Claude/GitHub MCP surface.",tags:["all","automation"]},
 {id:"w-shitpost",label:"shitpost-reactor",sub:"Worker",kind:"worker",x:975,y:220,url:"https://github.com/trvny/trvny/tree/main/gh-apps/shitpost-reactor",info:"Feed renderer / OIDC validator with R2 persistence.",tags:["all","automation","web"]},
-{id:"pages",label:"Cloudflare Pages",sub:"travny",kind:"worker",x:975,y:295,url:"https://trfny.com",info:"travny serves the hub from trvny/trvny pages/, including Functions; legacy tvpi project only redirects to trfny.com. Canonical public domains include trfny.com and www.trfny.com.",tags:["all","web"]},
+{id:"pages",label:"Cloudflare Pages",sub:"travny",kind:"worker",x:975,y:295,url:"https://travny.pages.dev",info:"travny serves the hub from trvny/trvny pages/, including Functions; legacy tvpi project redirects to travny.pages.dev. The retiring trfny.com and www.trfny.com hostnames redirect to the Pages site.",tags:["all","web"]},
 
 {id:"s-kanarek",label:"kanarek-state",sub:"D1",kind:"storage",x:975,y:400,info:"D1 state database bound to the kanarek Worker.",tags:["all","kanarek"]},
 {id:"s-feed",label:"feed-scrape",sub:"KV",kind:"storage",x:975,y:465,info:"Shared KV namespace used by the Kanarek feed backend and Kanarek quip bank binding.",tags:["all","kanarek"]},

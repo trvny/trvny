@@ -2,7 +2,7 @@
 
 > Stable public entry points for current TVP IPTV streams and M3U playlists.
 
-The human-facing page is https://trfny.com/tv/. The streaming Worker is https://tvpi.trfny.com/ and keeps stable channel URLs while resolving fresh HLS data behind them.
+The human-facing page is https://travny.pages.dev/tv/. The streaming Worker is https://tvpi.trfny.com/ and keeps stable channel URLs while resolving fresh HLS data behind them.
 
 ## Playlists
 

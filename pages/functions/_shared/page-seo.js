@@ -10,9 +10,9 @@ const trails = {
   "/papagenerator/": [...home, { name: "Papagenerator", path: "/papagenerator/" }],
   "/teksty/": texts,
   "/teksty/token-worldcup/": tokenCup,
-  "/teksty/token-worldcup/effort-matrix.html": [...tokenCup, { name: "Model × effort", path: "/teksty/token-worldcup/effort-matrix.html" }],
+  "/teksty/token-worldcup/effort-matrix": [...tokenCup, { name: "Model × effort", path: "/teksty/token-worldcup/effort-matrix" }],
   "/teksty/githubowa-kraina/": githubWorld,
-  "/teksty/githubowa-kraina/universe.html": [...githubWorld, { name: "Universe", path: "/teksty/githubowa-kraina/universe.html" }],
+  "/teksty/githubowa-kraina/universe": [...githubWorld, { name: "Universe", path: "/teksty/githubowa-kraina/universe" }],
   "/teksty/grass-mud-horse/": [...texts, { name: "The Alpaca, the Crab and the Censor", path: "/teksty/grass-mud-horse/" }],
   "/teksty/grass-mud-horse-pl/": [...texts, { name: "Alpaka, krab i Wielki Harmonizator", path: "/teksty/grass-mud-horse-pl/" }],
 };
@@ -22,7 +22,9 @@ function canonicalPath(pathname) {
     return "/teksty/token-worldcup/";
   }
   if (pathname.endsWith("/index.html")) return pathname.slice(0, -"index.html".length);
-  if (!pathname.endsWith("/") && !pathname.endsWith(".html")) return pathname + "/";
+  if (pathname.endsWith(".html")) return pathname.slice(0, -".html".length);
+  if (trails[pathname]) return pathname;
+  if (!pathname.endsWith("/")) return pathname + "/";
   return pathname;
 }
 
@@ -41,7 +43,7 @@ export function pageSeoHead(pathname) {
     })),
   };
   const breadcrumb = `<script type="application/ld+json">${JSON.stringify(schema)}</script>`;
-  if (path !== "/teksty/token-worldcup/effort-matrix.html") return breadcrumb;
+  if (path !== "/teksty/token-worldcup/effort-matrix") return breadcrumb;
   // The Quarto page has no canonical metadata; its URL is distinct from the report.
   const canonical = ORIGIN + path;
   return `<link rel="canonical" href="${canonical}"><meta property="og:url" content="${canonical}">${breadcrumb}`;

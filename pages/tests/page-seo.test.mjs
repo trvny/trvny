@@ -30,12 +30,14 @@ test("canonicalized route aliases share one trail", () => {
 });
 
 test("effort matrix gets a self canonical and distinct breadcrumb", () => {
-  const url = "https://travny.pages.dev/teksty/token-worldcup/effort-matrix.html";
-  const tags = pageSeoHead("/teksty/token-worldcup/effort-matrix.html");
+  const url = "https://travny.pages.dev/teksty/token-worldcup/effort-matrix";
+  const tags = pageSeoHead("/teksty/token-worldcup/effort-matrix");
+  assert.equal(tags, pageSeoHead("/teksty/token-worldcup/effort-matrix.html"));
   assert.ok(tags.includes(`<link rel="canonical" href="${url}">`));
   assert.ok(tags.includes(`<meta property="og:url" content="${url}">`));
-  const schema = crumbs("/teksty/token-worldcup/effort-matrix.html");
+  const schema = crumbs("/teksty/token-worldcup/effort-matrix");
   assert.equal(schema.itemListElement.length, 4);
   assert.equal(schema.itemListElement.at(-1).item, url);
   assert.ok(!tags.includes("noindex"));
+  assert.deepEqual(crumbs("/teksty/githubowa-kraina/universe"), crumbs("/teksty/githubowa-kraina/universe.html"));
 });

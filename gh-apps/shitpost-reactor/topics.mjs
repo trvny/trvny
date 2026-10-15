@@ -10,7 +10,7 @@ const FEEDSEEK_ROOT = 'https://raw.githubusercontent.com/trvny/feedseek/main/fee
 const FEEDSEEK_FEEDS = Object.freeze({
   news: [
     { name: 'Feedseek / Reuters', url: FEEDSEEK_ROOT + 'feed_reuters.json' },
-    { name: 'Feedseek / Euronews', url: FEEDSEEK_ROOT + 'feed_euronews.json' },
+    { name: 'Feedseek / Euronews', url: FEEDSEEK_ROOT + 'feed_euronews.json', tags: ['News', 'My Europe', 'Next'] },
   ],
   politics: [
     { name: 'Feedseek / TVP Info', url: FEEDSEEK_ROOT + 'feed_tvp.json', tag: 'TVP Info' },
@@ -18,7 +18,8 @@ const FEEDSEEK_FEEDS = Object.freeze({
     { name: 'Feedseek / Gov.pl', url: FEEDSEEK_ROOT + 'feed_govpl_news.json' },
   ],
 });
-const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|kampani|ustaw|weta|weto|marszał|kancelari/iu;
+const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|ustaw|weta|weto|marszał|kancelari/iu;
+const POLISH_CONTEXT = /polsk|polak|warszaw|sejm|senat|posł|poseł|kprm|samorząd|sejmik|koalicj|opozycj|marszałek sejmu/iu;
 const POLISH_TRAGEDY = /nie\s+żyj(?:e|ą)|odesz[łl]|pogrzeb|zgin|zmar|śmier|ofiar|rann|katastrof|pożar|powodzi|powódź|gwałt|zabój|zabił|zabili|samobój|zamach|wybuch|wojn|bombard|trzęsieni|ewakuacj|wypad|zderzen|rozbił|rozbiły|strzelanin|terroryst/iu;
 const MAX_FEED_BYTES = 1024 * 1024;
 const MAX_ARTICLE_URL_LENGTH = 1250;
@@ -99,12 +100,13 @@ export function parseNewsRss(xml, { now = Date.now() } = {}) {
   });
 }
 
-export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = false, tag = null } = {}) {
+export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = false, tag = null, tags = null } = {}) {
   if (payload?.version !== 'https://jsonfeed.org/version/1.1' || !Array.isArray(payload.items)) return [];
   return payload.items.slice(0, 75).flatMap((item) => {
     if (typeof item?.title !== 'string' || typeof item?.url !== 'string'
       || typeof item?.date_published !== 'string') return [];
-    if (tag && (!Array.isArray(item.tags) || !item.tags.includes(tag))) return [];
+    const allowedTags = Array.isArray(tags) ? tags : tag ? [tag] : null;
+    if (allowedTags && (!Array.isArray(item.tags) || !item.tags.some((value) => allowedTags.includes(value)))) return [];
     const title = item.title.replace(/[<>]/gu, '').replace(/\s+/gu, ' ').trim().slice(0, 240);
     const date = Date.parse(item.date_published);
     let url;
@@ -117,7 +119,8 @@ export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = fa
       || url.toString().length > MAX_ARTICLE_URL_LENGTH
       || title.length < 12 || !Number.isFinite(date) || date > now
       || now - date > NEWS_MAX_AGE_MS || SENSITIVE_NEWS.test(title)
-      || POLISH_TRAGEDY.test(title) || (politicsOnly && !POLITICAL_TOPIC.test(title))) return [];
+      || POLISH_TRAGEDY.test(title)
+      || (politicsOnly && (!POLITICAL_TOPIC.test(title) || !POLISH_CONTEXT.test(title)))) return [];
     const publisher = typeof item.authors?.[0]?.name === 'string'
       ? item.authors[0].name.replace(/[<>]/gu, '').trim().slice(0, 80) : '';
     return [{
@@ -163,7 +166,7 @@ async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
     const body = await readBoundedText(response);
     if (body === null) return [];
     const items = isJson
-      ? parseFeedseekJson(JSON.parse(body), { now, politicsOnly, tag: feed.tag })
+      ? parseFeedseekJson(JSON.parse(body), { now, politicsOnly, tag: feed.tag, tags: feed.tags })
       : parseNewsRss(body, { now });
     return items.slice(0, 30).map((item) => ({ ...item, source: feed.name }));
   } catch {

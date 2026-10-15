@@ -1,3 +1,5 @@
+import { pageSeoHead } from "./_shared/page-seo.js";
+
 const CHANNELS = [
   { id: "399697", no: "101", slug: "tvp1", tag: "TVP1", name: "TVP 1 HD" },
   { id: "399698", no: "102", slug: "tvp2", tag: "TVP2", name: "TVP 2 HD" },
@@ -293,6 +295,7 @@ export async function onRequest(context) {
   let rewriter = new HTMLRewriter()
     .on("html", new SetAttribute("lang", pageLanguage))
     .on("head", new AppendHtml(NAV_HEAD))
+    .on("head", new AppendHtml(pageSeoHead(url.pathname)))
     .on("body", new AppendHtml(NAV_BODY));
 
   if (page === "papagenerator") {

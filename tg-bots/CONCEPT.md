@@ -43,6 +43,18 @@ Avoid turning it into a fake Linux machine. Repository clones, builds, package i
 
 The Telegram ingress Queue is only for Telegram delivery. Heavy jobs should reuse the existing Pet Dispatcher control plane rather than creating another general-purpose queue/control protocol.
 
+### Telegram Serverless (optional new-feature runtime)
+
+Telegram Serverless is an **additional option for future Botek features**, not a plan to migrate the existing `tg-assistant` Worker. Evaluate it feature by feature rather than moving established functionality just because a new runtime is available.
+
+- **Keep the existing home:** Cloudflare stays the canonical Telegram update/webhook entry point for `@trvny_bot`, plus its Queues, Durable Objects, reminders/watches, Business/Secretary logic and Mini App control plane. Existing Kanarek routing, Specialist Intelligence/Engram, and Pet Dispatcher remain their own sources of truth.
+- **Consider Serverless for isolated additions:** small Telegram-native games, quizzes, leaderboards, feature-local SQLite state, lightweight experiments, or self-contained Mini App modules/endpoints where the platform's current support and integration boundaries actually fit.
+- **Do not fork the backend:** no second conversation memory, model/provider router, general-purpose scheduler, task dispatcher or copy of Botek command logic. A new module needing those capabilities should call a narrow authenticated API of the existing service, or stay in Cloudflare.
+- **Protect the one-bot update path:** do not enable Serverless update handlers for `@trvny_bot` on the assumption that they can share its existing Cloudflare webhook. First verify whether the proposed Mini App-only/serverless feature can coexist without changing delivery, update subscriptions, or bot ownership. If that is not supported, leave the feature on Cloudflare or prototype it on a separate test bot.
+- **Prototype before deployment:** start with a distinct BotFather test bot and one genuinely useful feature. Review early-access limits, runtime/SDK, network and credential handling, Telegram bot identity, rollback and database ownership before choosing Serverless for production. Keep `tgcloud` credentials and bot/API tokens out of Git; do not put external provider secrets in Mini App clients.
+
+Reference: [Telegram Serverless documentation](https://core.telegram.org/bots/serverless). This is an architectural option, **not** authorization to turn on Serverless, switch the current webhook or create a parallel service today.
+
 ### Shared free-model router
 
 The assistant should not duplicate provider credentials or fallback logic. `kanarek-companion` exposes the OpenAI-compatible review endpoint while the private `kanarek-review` Worker owns provider credentials, cooldowns and provisioning for OpenRouter, OrcaRouter and AIHubMix. The Telegram Worker calls the companion endpoint through a same-account Service Binding and keeps only the shared router bearer. Workers AI is temporarily reserved for SpaceMolt.

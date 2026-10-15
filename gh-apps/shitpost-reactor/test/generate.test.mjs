@@ -294,6 +294,7 @@ test('RSS parser requires fresh BBC headlines and avoids tragedy topics', () => 
     'Scientists discover three new planets & a moon');
   assert.deepEqual(parseNewsRss(fakeRss('Scientists discover three new planets', new Date(newsNow - 3 * 86_400_000).toUTCString()), { now: newsNow }), []);
   assert.deepEqual(parseNewsRss(fakeRss('Scientists discover three new planets', date, 'https://evil.test/news'), { now: newsNow }), []);
+  assert.equal(parseNewsRss(fakeRss('Science &lt;script &gt; introduces new idea', date), { now: newsNow })[0].title, 'Science script introduces new idea');
   assert.deepEqual(parseNewsRss(fakeRss('Massacre kills hundreds', date), { now: newsNow }), []);
   assert.deepEqual(parseNewsRss('x'.repeat(300_000), { now: newsNow }), []);
 });

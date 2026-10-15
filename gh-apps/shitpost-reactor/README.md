@@ -45,12 +45,12 @@ New records use schema v2 and contain only finished publishable content:
 
 There is no generated `dialect`, `format`, `visual` or `alt_text` taxonomy anymore. The model sees the canonical style skill as optional inspiration, not as a response schema. The Worker still reads schema v1 so already-published posts remain valid.
 
-Scheduled runs use `auto`. The run-number topic rotation uses a dated BBC World/Technology/Science headline on about one in seven runs, an LLM self-roast on another one in seven, and evergreen absurdity otherwise. Manual topics always win. News references must be no older than 48 hours; a missing, stale or sensitive headline falls back to evergreen. The headline title, publisher and URL remain in the published record's topic metadata. The existing output modes and languages are unchanged.
+Scheduled runs use `auto`. The run-number topic rotation uses a dated world headline on about one in seven runs, an LLM self-roast on another one in seven, Polish political satire on another one in seven, and evergreen absurdity otherwise. Manual topics always win. News references must be no older than 48 hours; a missing, stale or sensitive headline falls back to evergreen. World headlines now use BBC RSS plus Feedseek Reuters and Euronews JSON Feeds. Polish political headlines use Feedseek TVP Info, PAP and Gov.pl JSON Feeds, filtered by political subjects, publication time (including future-dated items) and tragedy terms. If unavailable, the politics lane uses timeless parliamentary satire without invented events. The headline title, publisher and URL remain in published topic metadata. The existing output modes and languages are unchanged.
 
 Every second workflow run becomes a text limerick, keyed by `GITHUB_RUN_NUMBER`, so retries keep the same slot. Limerick languages rotate English → Polish → Simplified Chinese → Russian. The runs between them keep the existing deterministic text/meme choice. Manual `text` or `meme` explicitly bypasses the limerick cadence; manual `auto` follows it.
 ## Manual run
 
-Use **Actions → Shitpost Reactor → Run workflow** on `main`, optionally provide a topic, and choose `auto`, `text` or `meme`. Scheduled news posts use dated RSS headlines as untrusted inspiration instead of inventing current events. The generator does not publish the source feed or copy its article text.
+Use **Actions → Shitpost Reactor → Run workflow** on `main`, optionally provide a topic, and choose `auto`, `text` or `meme`. Scheduled news posts use dated RSS or Feedseek JSON Feed headlines as untrusted inspiration instead of inventing current events. Polish political posts roast public conduct and bureaucratic absurdity, not voting choices. The generator does not publish the source feed or copy its article text.
 
 For local testing:
 

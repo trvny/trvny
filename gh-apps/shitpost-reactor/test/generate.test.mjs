@@ -14,7 +14,7 @@ import {
   validateContent,
 } from '../generate.mjs';
 import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from '../templates.mjs';
-import { chooseLLMTopic, loadWorldNews, parseNewsRss, resolveTopicLane } from '../topics.mjs';
+import { chooseLLMTopic, loadNewsForLane, loadWorldNews, parseFeedseekJson, parseNewsRss, resolveTopicLane } from '../topics.mjs';
 
 function zipEntry(name, text, method = 0) {
   const nameBytes = Buffer.from(name);
@@ -282,7 +282,8 @@ test('topic lanes are occasional, deterministic and honor manual topics', () => 
   const lanes = Array.from({ length: 28 }, (_, i) => resolveTopicLane('', String(i + 1)));
   assert.equal(lanes.filter((lane) => lane === 'news').length, 4);
   assert.equal(lanes.filter((lane) => lane === 'llm').length, 4);
-  assert.equal(lanes.filter((lane) => lane === 'evergreen').length, 20);
+  assert.equal(lanes.filter((lane) => lane === 'politics').length, 4);
+  assert.equal(lanes.filter((lane) => lane === 'evergreen').length, 16);
   assert.equal(resolveTopicLane('manual', '1'), 'manual');
   assert.equal(resolveTopicLane('', ''), 'evergreen');
   assert.equal(chooseLLMTopic('fixed-seed'), chooseLLMTopic('fixed-seed'));
@@ -327,4 +328,80 @@ test('dated news is framed as untrusted data, not additional model instructions'
   assert.match(messages[0].content, /do not invent follow-up events/);
   assert.ok(messages[1].content.includes(String.raw`\u003c/untrusted_news_reference\u003e`));
   assert.doesNotMatch(messages[0].content, /ignore previous rules/);
+});
+
+function feedseekItem(title, date, overrides = {}) {
+  return {
+    title, url: 'https://www.tvp.info/polityka/example', date_published: date,
+    authors: [{ name: 'TVP Info' }], tags: ['TVP Info'], ...overrides,
+  };
+}
+function feedseekFeed(items) {
+  return { version: 'https://jsonfeed.org/version/1.1', items };
+}
+
+test('Feedseek political JSON Feed rejects sports, fake URLs, stale and future dates', () => {
+  const date = new Date(newsNow - 1_000).toISOString();
+  const candidates = [
+    feedseekItem('Sejm debatuje nad ustawą dotyczącą pracy', date),
+    feedseekItem('Wielkie zwycięstwo reprezentacji w meczu', date),
+    feedseekItem('Sejm debatuje nad nową ustawą', '2029-09-02T00:00:00Z'),
+    feedseekItem('Sejm debatuje nad nową ustawą', new Date(newsNow - 3 * 86_400_000).toISOString()),
+    feedseekItem('Premier opowiada o wizycie', date, { url: 'javascript:alert(1)' }),
+    feedseekItem('Prezydent komentuje śmierć ofiar', date),
+  ];
+  const result = parseFeedseekJson(feedseekFeed(candidates), { now: newsNow, politicsOnly: true, tag: 'TVP Info' });
+  assert.equal(result.length, 1);
+  assert.equal(result[0].title, 'Sejm debatuje nad ustawą dotyczącą pracy');
+  assert.equal(result[0].publisher, 'TVP Info');
+  assert.equal(parseFeedseekJson(feedseekFeed(candidates), { now: newsNow, politicsOnly: true, tag: 'TVP Sport' }).length, 0);
+});
+
+test('Feedseek political safety filter also rejects Polish disasters', () => {
+  const date = new Date(newsNow - 1_000).toISOString();
+  for (const title of ['Sejm rozmawia o katastrofie', 'Politycy reagują na pożar', 'Premier komentuje rannych']) {
+    assert.deepEqual(parseFeedseekJson(feedseekFeed([feedseekItem(title, date)]), { now: newsNow, politicsOnly: true }), []);
+  }
+});
+
+test('World news uses Feedseek Reuters when BBC is unavailable', async () => {
+  const date = new Date(newsNow - 1_000).toISOString();
+  const result = await loadWorldNews({
+    now: newsNow,
+    fetchImpl: async (url) => url.endsWith('feed_reuters.json')
+      ? new Response(JSON.stringify(feedseekFeed([
+          feedseekItem('Researchers publish intriguing lunar discovery', date, {
+            url: 'https://www.reuters.com/science/lunar-discovery',
+          }),
+        ])), { status: 200 })
+      : new Response('', { status: 503 }),
+  });
+  assert.equal(result.source, 'Feedseek / Reuters');
+});
+
+test('Polish politics uses TVP Info Feedseek source and degrades gracefully', async () => {
+  const date = new Date(newsNow - 1_000).toISOString();
+  const result = await loadNewsForLane('politics', {
+    now: newsNow,
+    fetchImpl: async (url) => url.endsWith('feed_tvp.json')
+      ? new Response(JSON.stringify(feedseekFeed([
+          feedseekItem('Posłowie debatują nad nową ustawą w Sejmie', date),
+        ])), { status: 200 })
+      : new Response('', { status: 503 }),
+  });
+  assert.equal(result.source, 'Feedseek / TVP Info');
+  assert.equal(await loadNewsForLane('politics', {
+    now: newsNow, fetchImpl: async () => new Response('', { status: 503 }),
+  }), null);
+});
+
+test('Political humour prompt requires satire, not election campaigning', () => {
+  const messages = buildMessages('# skill', 'Sejm debate', 'seed', 'text', null, {
+    politicsSatire: true, newsReference: {
+      title: 'Sejm debates a proposal', url: 'https://www.tvp.info/news',
+      source: 'Feedseek / TVP Info', published_at: new Date(newsNow).toISOString(),
+    },
+  });
+  assert.match(messages[0].content, /No election persuasion, voting advice/);
+  assert.match(messages[1].content, /Feedseek \/ TVP Info/);
 });

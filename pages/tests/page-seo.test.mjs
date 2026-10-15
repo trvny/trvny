@@ -5,8 +5,11 @@ import { pageSeoHead } from "../functions/_shared/page-seo.js";
 
 function crumbs(path) {
   const html = pageSeoHead(path);
-  const match = html.match(/<script type="application\\/ld\\+json">([^<]+)<\\/script>/);
-  return match ? JSON.parse(match[1]) : null;
+  const tag = '<script type="application/ld+json">';
+  const begin = html.indexOf(tag);
+  if (begin === -1) return null;
+  const from = begin + tag.length;
+  return JSON.parse(html.slice(from, html.indexOf("</script>", from)));
 }
 
 test("breadcrumb trails reflect the public page hierarchy", () => {

@@ -272,7 +272,7 @@ function createServer(operations: ControlMcpOperations, hostFsEnabled = false): 
     description: "Open the Pet Dispatcher Cockpit UI. Use the focused data tools for normal conversational status answers instead.",
     inputSchema: z.object({}).strict(),
     outputSchema: cockpitOutputSchema,
-    annotations: { title: "Open Pet Dispatcher Cockpit", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    annotations: { title: "Pet Dispatcher Cockpit", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     _meta: {
       ui: { resourceUri: PET_COCKPIT_URI, visibility: ["app"] },
       "openai/ui": { entrypoints: [{ type: "global" }, { type: "thread" }] },

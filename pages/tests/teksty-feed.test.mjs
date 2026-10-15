@@ -62,11 +62,11 @@ test("merged Atom feed escapes source content and keeps stable original links", 
     assert.match(xml, /Slang &lt;censored&gt;/);
     assert.match(xml, /<entry xml:lang="en">/);
     // Atom IDs immutable across hostname migration; links move.
-    assert.match(xml, /<id>https:\\/\\/trfny\\.com\\/teksty\\/<\\/id>/);
-    assert.match(xml, /<link rel="self" type="application\\/atom\\+xml" href="https:\\/\\/travny\\.pages\\.dev\\/teksty\\/feed\\.xml"\\/>/);
-    assert.match(xml, /<id>https:\\/\\/trfny\\.com\\/teksty\\/grass-mud-horse\\/<\\/id>/);
-    assert.match(xml, /<link rel="alternate" href="https:\\/\\/travny\\.pages\\.dev\\/teksty\\/grass-mud-horse\\/"\\/>/);
-    assert.doesNotMatch(xml, /<id>https:\\/\\/travny\\.pages\\.dev\\/teksty/);
+    assert.ok(xml.includes("<id>https://trfny.com/teksty/</id>"));
+    assert.ok(xml.includes('<link rel="self" type="application/atom+xml" href="https://travny.pages.dev/teksty/feed.xml"/>'));
+    assert.ok(xml.includes("<id>https://trfny.com/teksty/grass-mud-horse/</id>"));
+    assert.ok(xml.includes('<link rel="alternate" href="https://travny.pages.dev/teksty/grass-mud-horse/"/>'));
+    assert.ok(!xml.includes("<id>https://travny.pages.dev/teksty"));
     assert.match(xml, /<source><id>https:\/\/shitpost\.trfny\.com\/<\/id>/);
     assert.ok(xml.indexOf(second.url) < xml.indexOf("Alpaca &amp; crab"));
     assert.ok(xml.indexOf("Alpaca &amp; crab") < xml.indexOf(first.url));

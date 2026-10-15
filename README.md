@@ -33,7 +33,7 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#1013](https://github.com/trvny/trvny/pull/1013) | pet-dispatcher: wscript supervisor instead of resident PowerShell launcher | @trvny | ready | 2026-10-13 |
+| trvny/feedseek | [#499](https://github.com/trvny/feedseek/pull/499) | feat(development): add Ionic Framework RSS | @trvny | ready | 2026-10-15 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

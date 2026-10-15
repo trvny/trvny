@@ -1,4 +1,5 @@
 import type { Env, PetDispatcherRecentTask, TelegramInlineKeyboardMarkup } from "./types";
+import type { WakeRequest } from "./wake";
 
 export type BotekTaskState = {
   taskId: string;
@@ -162,6 +163,27 @@ export async function delegateLegionStatus(env: Env, updateId: number): Promise<
     network: { mode: "none" },
     timeoutMinutes: 2,
   }, `telegram-legion-status:${updateId}`);
+  const body = rpcBody<{ taskId?: unknown; status?: unknown }>(result);
+  if (typeof body.taskId !== "string" || !TASK_ID_RE.test(body.taskId)) {
+    throw new Error("Pet Dispatcher returned an invalid task id");
+  }
+  return { taskId: body.taskId, status: typeof body.status === "string" ? body.status : "queued" };
+}
+
+/** Host power guard on the Legion (system.wakeguard). Host tasks are limited to 5 minutes by the schema, so the
+ *  timeout is set explicitly like the status probe; the guard itself lives for `minutes` on the Legion. */
+export async function delegateWakeguard(env: Env, updateId: number, request: WakeRequest): Promise<BotekTaskState> {
+  const result = await dispatcher(env).delegate({
+    target: "host",
+    executor: "direct",
+    direct: request.action === "on"
+      ? { tool: "system.wakeguard", action: "on", minutes: request.minutes }
+      : { tool: "system.wakeguard", action: request.action },
+    profile: "inspect",
+    capabilities: [],
+    network: { mode: "none" },
+    timeoutMinutes: 2,
+  }, `telegram-wake:${updateId}`);
   const body = rpcBody<{ taskId?: unknown; status?: unknown }>(result);
   if (typeof body.taskId !== "string" || !TASK_ID_RE.test(body.taskId)) {
     throw new Error("Pet Dispatcher returned an invalid task id");

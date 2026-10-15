@@ -2,22 +2,22 @@
 
 > Canonical map of the public TRAVNY hub, services, machine-readable guides and small technical publications.
 
-Canonical hub: https://trfny.com/
+Canonical hub: https://travny.pages.dev/
 Identity: TRAVNY (trvny / travny / trfny / trafny), with projects under the travnie GitHub organization.
 GitHub owner: https://github.com/trvny/ · organization: https://github.com/travnie/
 
 ## Main routes
 
-- [Hub](https://trfny.com/) · [Markdown](https://trfny.com/index.md)
-- [TVPI](https://trfny.com/tv/) · [Markdown](https://trfny.com/tv/index.md)
-- [Papagenerator](https://trfny.com/papagenerator/): browser-only meme and sticker editor; images stay on the device
-- [Teksty](https://trfny.com/teksty/) · [Markdown](https://trfny.com/teksty/index.md)
-- [Tokenowy Mundial AI](https://trfny.com/teksty/token-worldcup/): token-count comparison for equivalent text in 27 languages using `o200k_base`
-- [GitHubowa Kraina](https://trfny.com/teksty/githubowa-kraina/) · [Markdown](https://trfny.com/teksty/githubowa-kraina/index.md): interactive atlas of the public `trvny` and `travnie` project landscape
-- [The Alpaca, the Crab and the Censor (English)](https://trfny.com/teksty/grass-mud-horse/): essay about Chinese internet slang and censorship
-- [Alpaka, krab i Wielki Harmonizator (Polish)](https://trfny.com/teksty/grass-mud-horse-pl/): Polish adaptation of the essay
+- [Hub](https://travny.pages.dev/) · [Markdown](https://travny.pages.dev/index.md)
+- [TVPI](https://travny.pages.dev/tv/) · [Markdown](https://travny.pages.dev/tv/index.md)
+- [Papagenerator](https://travny.pages.dev/papagenerator/): browser-only meme and sticker editor; images stay on the device
+- [Teksty](https://travny.pages.dev/teksty/) · [Markdown](https://travny.pages.dev/teksty/index.md)
+- [Tokenowy Mundial AI](https://travny.pages.dev/teksty/token-worldcup/): token-count comparison for equivalent text in 27 languages using `o200k_base`
+- [GitHubowa Kraina](https://travny.pages.dev/teksty/githubowa-kraina/) · [Markdown](https://travny.pages.dev/teksty/githubowa-kraina/index.md): interactive atlas of the public `trvny` and `travnie` project landscape
+- [The Alpaca, the Crab and the Censor (English)](https://travny.pages.dev/teksty/grass-mud-horse/): essay about Chinese internet slang and censorship
+- [Alpaka, krab i Wielki Harmonizator (Polish)](https://travny.pages.dev/teksty/grass-mud-horse-pl/): Polish adaptation of the essay
 
-- [Main Atom feed](https://trfny.com/teksty/feed.xml): articles and Shitpost Reactor entries, live-aggregated
+- [Main Atom feed](https://travny.pages.dev/teksty/feed.xml): articles and Shitpost Reactor entries, live-aggregated
 
 ## Services
 
@@ -30,17 +30,17 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 
 ## Usage notes
 
-- TVPI upstream HLS signatures are short-lived. Persist the stable `tvpi.trfny.com` endpoints, not resolved tokenized upstream URLs.
+- TVPI upstream HLS signatures are short-lived. Prefer maintained TVPI Worker endpoints over short-lived tokenized upstream URLs.
 - Weather is a multi-source local ensemble for Kościelec in Chrzanów with air quality, pollen and IMGW warnings.
 - Streambench, Code Bench and Doc Bench are local-first browser tools; their own LLM guides document privacy and agent-access boundaries.
 - Tokenowy Mundial AI is maintained as Quarto source in `trvny/trvny` and proxied by TRAVNY from its verified generated HTML.
 
 ## Discovery
 
-- [Full TRAVNY guide](https://trfny.com/llms-full.txt)
-- [Sitemap](https://trfny.com/sitemap.xml)
-- [Robots policy](https://trfny.com/robots.txt)
-- [Web manifest](https://trfny.com/site.webmanifest)
+- [Full TRAVNY guide](https://travny.pages.dev/llms-full.txt)
+- [Sitemap](https://travny.pages.dev/sitemap.xml)
+- [Robots policy](https://travny.pages.dev/robots.txt)
+- [Web manifest](https://travny.pages.dev/site.webmanifest)
 - [Source](https://github.com/trvny/trvny/tree/main/pages)
 
 

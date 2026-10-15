@@ -20,7 +20,7 @@ async function getPosts(context) {
 }
 
 function renderEntry(post) {
-  const href = `https://trfny.com/teksty/${encodeURIComponent(post.slug)}/`;
+  const href = `https://travny.pages.dev/teksty/${encodeURIComponent(post.slug)}/`;
   const categories = (post.tags || [])
     .map((tag) => `    <category term="${escapeXml(tag)}"/>`)
     .join("\n");
@@ -72,9 +72,9 @@ async function feedResponse(context, headOnly = false) {
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>TRAVNY · Teksty + Shitposts</title>
   <subtitle>Articles, experiments and Shitpost Reactor transmissions.</subtitle>
-  <id>https://trfny.com/teksty/</id>
-  <link rel="alternate" href="https://trfny.com/teksty/"/>
-  <link rel="self" type="application/atom+xml" href="https://trfny.com/teksty/feed.xml"/>
+  <id>https://travny.pages.dev/teksty/</id>
+  <link rel="alternate" href="https://travny.pages.dev/teksty/"/>
+  <link rel="self" type="application/atom+xml" href="https://travny.pages.dev/teksty/feed.xml"/>
   <updated>${escapeXml(latestUpdated(entries))}</updated>
   <author><name>TRAVNY</name></author>
 ${entries.map((entry) => entry.xml).join("\n")}

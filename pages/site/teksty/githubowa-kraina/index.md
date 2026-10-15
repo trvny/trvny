@@ -2,7 +2,7 @@
 
 > Interaktywny atlas publicznych projektów `trvny` i `travnie`.
 
-Canonical page: https://trfny.com/teksty/githubowa-kraina/
+Canonical page: https://travny.pages.dev/teksty/githubowa-kraina/
 
 ## Map
 

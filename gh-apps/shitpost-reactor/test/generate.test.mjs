@@ -349,6 +349,8 @@ test('Feedseek political JSON Feed rejects sports, fake URLs, stale and future d
     feedseekItem('Sejm debatuje nad nową ustawą', new Date(newsNow - 3 * 86_400_000).toISOString()),
     feedseekItem('Premier opowiada o wizycie', date, { url: 'javascript:alert(1)' }),
     feedseekItem('Prezydent komentuje śmierć ofiar', date),
+    feedseekItem('Prezydent USA podpisuje ustawę', date),
+    feedseekItem('Allegro uruchamia nową kampanię marketingową', date),
   ];
   const result = parseFeedseekJson(feedseekFeed(candidates), { now: newsNow, politicsOnly: true, tag: 'TVP Info' });
   assert.equal(result.length, 1);
@@ -431,4 +433,19 @@ test('Very long BBC links cannot enter the world news candidate pool', () => {
   const date = new Date(newsNow - 1_000).toUTCString();
   const url = 'https://www.bbc.com/news/articles/' + 'x'.repeat(2000);
   assert.deepEqual(parseNewsRss(fakeRss('Scientists discover three new planets', date, url), { now: newsNow }), []);
+});
+
+test('Euronews world pool excludes sports and travel but permits news and technology', () => {
+  const date = new Date(newsNow - 1_000).toISOString();
+  const candidates = feedseekFeed([
+    feedseekItem('Football club wins international match', date, { tags: ['Sport'] }),
+    feedseekItem('Exploring new destinations this summer', date, { tags: ['Travel'] }),
+    feedseekItem('International research agencies reveal discovery', date, { tags: ['News'] }),
+    feedseekItem('Research lab debuts a groundbreaking device', date, { tags: ['Next'] }),
+  ]);
+  const entries = parseFeedseekJson(candidates, {
+    now: newsNow, tags: ['News', 'My Europe', 'Next'],
+  });
+  assert.equal(entries.length, 2);
+  assert.ok(entries.every((entry) => /research/i.test(entry.title)));
 });

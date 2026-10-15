@@ -58,6 +58,7 @@ import {
   fetchRecentTasks,
   getBotekTask,
   isTasksRefreshCallback,
+  isTerminalTaskStatus,
   legionRefreshPlan,
   recentTasksKeyboard,
   recentTasksView,
@@ -729,15 +730,26 @@ const OWNER_CALLBACK_ROUTES: readonly PredicateRoute<
   ownerCallbackRoute(
     "wake-refresh",
     ({ callback }) => wakeRefreshCallback(callback.data) ?? undefined,
-    async ({ env, message }, wakeTaskId) => {
+    async ({ env, update, message }, wakeTaskId) => {
       try {
-        const view = wakeView(await getBotekTask(env, wakeTaskId));
+        const task = await getBotekTask(env, wakeTaskId);
+        const view = wakeView(task);
+        // Terminal results are frozen: same pattern as /legion - show what we have, point the button
+        // at a fresh status probe (best-effort, falls back to the current task id).
+        let nextTaskId = wakeTaskId;
+        if (isTerminalTaskStatus(task.status)) {
+          try {
+            nextTaskId = (await delegateWakeguard(env, update.update_id, { action: "status" })).taskId;
+          } catch (error) {
+            console.error("Wakeguard follow-up probe failed", error);
+          }
+        }
         return {
           chatId: message.chat.id,
           editMessageId: message.message_id,
           text: view.plain,
           richHtml: view.richHtml,
-          replyMarkup: wakeKeyboard(wakeTaskId),
+          replyMarkup: wakeKeyboard(nextTaskId),
         };
       } catch (error) {
         console.error("Wakeguard refresh failed", error);

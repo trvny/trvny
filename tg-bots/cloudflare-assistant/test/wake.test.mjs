@@ -63,6 +63,15 @@ test("wakeView: pending, running with deadline, off, failed", () => {
   assert.equal(failed.richHtml.includes("<b>"), false);
 });
 
+test("wakeView: completed without usable data is not shown as queued", () => {
+  for (const result of [undefined, {}, { data: null }, { data: "x" }]) {
+    const view = wakeView({ taskId: TASK_ID, status: "completed", result });
+    assert.doesNotMatch(view.plain, /w kolejce/u);
+    assert.match(view.plain, /bez danych/u);
+  }
+  assert.match(wakeView({ taskId: TASK_ID, status: "completed", result: { error: "boom" } }).plain, /boom/u);
+});
+
 test("wake refresh callback round-trips a task id and rejects anything else", () => {
   const kb = wakeKeyboard(TASK_ID);
   assert.equal(wakeRefreshCallback(kb.inline_keyboard[0][0].callback_data), TASK_ID);

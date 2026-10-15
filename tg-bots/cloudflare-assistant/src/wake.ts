@@ -58,10 +58,11 @@ function wakePendingText(status: BotekTaskState["status"]): string {
 }
 
 export function wakeView(task: BotekTaskState): WakeView {
-  const done = task.status === "completed" && task.result?.data !== undefined;
+  const rawData: unknown = task.status === "completed" ? task.result?.data : undefined;
+  const done = typeof rawData === "object" && rawData !== null;
   let line: string;
   if (done) {
-    const data = task.result?.data as WakeState;
+    const data = rawData as WakeState;
     if (data.running === true) {
       const until = typeof data.until === "string" ? `do ${warsawTime(data.until)}` : "bez limitu";
       const heartbeat = typeof data.heartbeatAgeSeconds === "number" ? `, puls ${data.heartbeatAgeSeconds}s temu` : "";
@@ -73,6 +74,8 @@ export function wakeView(task: BotekTaskState): WakeView {
     line = `⚠️ ${task.result?.error ?? "Zadanie zakończyło się błędem."}`;
   } else if (task.status === "cancelled") {
     line = "Anulowane.";
+  } else if (task.status === "completed") {
+    line = `⚠️ ${task.result?.error ?? "Zadanie zakończone, ale bez danych o stanie."}`;
   } else {
     line = wakePendingText(task.status);
   }

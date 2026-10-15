@@ -354,12 +354,15 @@ test('Feedseek political JSON Feed rejects sports, fake URLs, stale and future d
   assert.equal(result.length, 1);
   assert.equal(result[0].title, 'Sejm debatuje nad ustawą dotyczącą pracy');
   assert.equal(result[0].publisher, 'TVP Info');
+  assert.equal(parseFeedseekJson(feedseekFeed([
+    feedseekItem('Sejm debatuje nad ustawą', date, { url: 'https://example.com/' + 'a'.repeat(2000) }),
+  ]), { now: newsNow, politicsOnly: true }).length, 0);
   assert.equal(parseFeedseekJson(feedseekFeed(candidates), { now: newsNow, politicsOnly: true, tag: 'TVP Sport' }).length, 0);
 });
 
 test('Feedseek political safety filter also rejects Polish disasters', () => {
   const date = new Date(newsNow - 1_000).toISOString();
-  for (const title of ['Sejm rozmawia o katastrofie', 'Politycy reagują na pożar', 'Premier komentuje rannych']) {
+  for (const title of ['Sejm rozmawia o katastrofie', 'Politycy reagują na pożar', 'Premier komentuje rannych', 'Nie żyje były poseł, Sejm wspomina', 'Nie żyją politycy']) {
     assert.deepEqual(parseFeedseekJson(feedseekFeed([feedseekItem(title, date)]), { now: newsNow, politicsOnly: true }), []);
   }
 });
@@ -404,4 +407,28 @@ test('Political humour prompt requires satire, not election campaigning', () => 
   });
   assert.match(messages[0].content, /No election persuasion, voting advice/);
   assert.match(messages[1].content, /Feedseek \/ TVP Info/);
+});
+
+test('Feedseek streaming rejects oversize bodies without relying on Content-Length', async () => {
+  let cancelled = 0;
+  const result = await loadNewsForLane('politics', {
+    now: newsNow,
+    fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(750_000));
+        controller.enqueue(new Uint8Array(750_000));
+      },
+      cancel() {
+        cancelled += 1;
+      },
+    }), { status: 200 }),
+  });
+  assert.equal(result, null);
+  assert.equal(cancelled, 3);
+});
+
+test('Very long BBC links cannot enter the world news candidate pool', () => {
+  const date = new Date(newsNow - 1_000).toUTCString();
+  const url = 'https://www.bbc.com/news/articles/' + 'x'.repeat(2000);
+  assert.deepEqual(parseNewsRss(fakeRss('Scientists discover three new planets', date, url), { now: newsNow }), []);
 });

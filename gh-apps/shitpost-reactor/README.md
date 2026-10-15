@@ -45,10 +45,12 @@ New records use schema v2 and contain only finished publishable content:
 
 There is no generated `dialect`, `format`, `visual` or `alt_text` taxonomy anymore. The model sees the canonical style skill as optional inspiration, not as a response schema. The Worker still reads schema v1 so already-published posts remain valid.
 
-Scheduled runs use `auto`. Every second workflow run becomes a text limerick, keyed by `GITHUB_RUN_NUMBER`, so retries keep the same slot. Limerick languages rotate English → Polish → Simplified Chinese → Russian. The runs between them keep the existing deterministic text/meme choice. Manual `text` or `meme` explicitly bypasses the limerick cadence; manual `auto` follows it.
+Scheduled runs use `auto`. The run-number topic rotation uses a dated BBC World/Technology/Science headline on about one in seven runs, an LLM self-roast on another one in seven, and evergreen absurdity otherwise. Manual topics always win. News references must be no older than 48 hours; a missing, stale or sensitive headline falls back to evergreen. The headline title, publisher and URL remain in the published record's topic metadata. The existing output modes and languages are unchanged.
+
+Every second workflow run becomes a text limerick, keyed by `GITHUB_RUN_NUMBER`, so retries keep the same slot. Limerick languages rotate English → Polish → Simplified Chinese → Russian. The runs between them keep the existing deterministic text/meme choice. Manual `text` or `meme` explicitly bypasses the limerick cadence; manual `auto` follows it.
 ## Manual run
 
-Use **Actions → Shitpost Reactor → Run workflow** on `main`, optionally provide a topic, and choose `auto`, `text` or `meme`. Scheduled runs deliberately use evergreen Polish tech/work/internet absurdity instead of inventing current news.
+Use **Actions → Shitpost Reactor → Run workflow** on `main`, optionally provide a topic, and choose `auto`, `text` or `meme`. Scheduled news posts use dated RSS headlines as untrusted inspiration instead of inventing current events. The generator does not publish the source feed or copy its article text.
 
 For local testing:
 

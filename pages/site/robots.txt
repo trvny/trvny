@@ -18,4 +18,4 @@ User-agent: *
 Content-Signal: ai-train=yes, search=yes, ai-input=yes
 Allow: /
 
-Sitemap: https://trfny.com/sitemap.xml
+Sitemap: https://travny.pages.dev/sitemap.xml

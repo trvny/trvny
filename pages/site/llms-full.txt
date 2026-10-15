@@ -1,13 +1,13 @@
 # TRAVNY full guide
 
-Source: https://trfny.com/
+Source: https://travny.pages.dev/
 
 > Complete machine-readable map of the public TRAVNY hub, related services, stable endpoints and published texts.
 
 ## Identity and hosts
 
-- Canonical hub: https://trfny.com/
-- Emergency fallback: https://travny.pages.dev/ — serves the same Pages output with `noindex, follow`.
+- Canonical hub: https://travny.pages.dev/
+- Retiring custom domain: https://trfny.com/ — redirects to the canonical Pages host while the domain remains active.
 - Legacy Pages host: https://tvpi.pages.dev/ — permanently redirects to the canonical host while preserving path and query.
 - Repository: https://github.com/trvny/trvny/tree/main/pages
 - TVPI Worker repository: https://github.com/trvny/tvpi
@@ -21,15 +21,15 @@ The hub is a lightweight static/edge site. It links independent services rather 
 
 ### Home
 
-- Human page: https://trfny.com/
-- Markdown representation: https://trfny.com/index.md
-- Concise LLM guide: https://trfny.com/llms.txt
-- This full guide: https://trfny.com/llms-full.txt
+- Human page: https://travny.pages.dev/
+- Markdown representation: https://travny.pages.dev/index.md
+- Concise LLM guide: https://travny.pages.dev/llms.txt
+- This full guide: https://travny.pages.dev/llms-full.txt
 
 ### TVPI
 
-- Human TV page: https://trfny.com/tv/
-- Markdown page: https://trfny.com/tv/index.md
+- Human TV page: https://travny.pages.dev/tv/
+- Markdown page: https://travny.pages.dev/tv/index.md
 - Streaming Worker: https://tvpi.trfny.com/
 - Worker overview: https://tvpi.trfny.com/index.md
 - Worker LLM guide: https://tvpi.trfny.com/llms.txt
@@ -41,25 +41,25 @@ TVP upstream stream signatures are short-lived. Consumers should save the stable
 
 ### Papagenerator
 
-- Browser editor: https://trfny.com/papagenerator/
+- Browser editor: https://travny.pages.dev/papagenerator/
 - Source of truth: https://github.com/travnie/twojstar/tree/main/papagenerator
 
 Papagenerator adds meme stickers to local images and exports PNG in the browser. The Pages build publishes a pinned version of its HTML and JavaScript under this route; photos stay in the user's browser.
 
 ### Teksty
 
-- Human index: https://trfny.com/teksty/
-- Markdown index: https://trfny.com/teksty/index.md
-- Tokenowy Mundial AI: https://trfny.com/teksty/token-worldcup/
-- GitHubowa Kraina: https://trfny.com/teksty/githubowa-kraina/
-- The Alpaca, the Crab and the Censor (English): https://trfny.com/teksty/grass-mud-horse/
-- Alpaka, krab i Wielki Harmonizator (Polish): https://trfny.com/teksty/grass-mud-horse-pl/
-- Main Atom feed (articles and Shitpost Reactor entries): https://trfny.com/teksty/feed.xml
-- GitHubowa Kraina Markdown: https://trfny.com/teksty/githubowa-kraina/index.md
+- Human index: https://travny.pages.dev/teksty/
+- Markdown index: https://travny.pages.dev/teksty/index.md
+- Tokenowy Mundial AI: https://travny.pages.dev/teksty/token-worldcup/
+- GitHubowa Kraina: https://travny.pages.dev/teksty/githubowa-kraina/
+- The Alpaca, the Crab and the Censor (English): https://travny.pages.dev/teksty/grass-mud-horse/
+- Alpaka, krab i Wielki Harmonizator (Polish): https://travny.pages.dev/teksty/grass-mud-horse-pl/
+- Main Atom feed (articles and Shitpost Reactor entries): https://travny.pages.dev/teksty/feed.xml
+- GitHubowa Kraina Markdown: https://travny.pages.dev/teksty/githubowa-kraina/index.md
 - Maintained Quarto source: https://github.com/trvny/trvny/blob/main/pages/token-worldcup/token-worldcup.qmd
 - Verified generated HTML source: https://github.com/trvny/trvny/blob/main/pages/token-worldcup/token-worldcup.html
 
-TRAVNY publishes the generated Token Cup artifact at build time from `pages/token-worldcup/` rather than maintaining a second copy; the model x effort cost matrix is at https://trfny.com/teksty/token-worldcup/effort-matrix.html. The article compares token counts for equivalent natural text in 27 languages using `o200k_base`; English is the normalized index baseline (`EN = 100`) while the measured English sample is 95 tokens. GitHubowa Kraina is maintained directly in `trvny/trvny` (`pages/site/teksty/githubowa-kraina/`) as an interactive atlas of the 12 public repositories split evenly between `trvny` and `travnie`. The Chinese internet slang essay has English and Polish editions at `pages/site/teksty/grass-mud-horse/index.html` and `pages/site/teksty/grass-mud-horse-pl/index.html`. Both share `site/assets/grass-mud-horse.css`, use reciprocal hreflang links, and have distinct canonical URLs. The main Atom feed reads the local publication catalog and dynamically aggregates entries from Shitpost Reactor's JSON Feed; it does not store a second copy of shitposts.
+TRAVNY publishes the generated Token Cup artifact at build time from `pages/token-worldcup/` rather than maintaining a second copy; the model x effort cost matrix is at https://travny.pages.dev/teksty/token-worldcup/effort-matrix.html. The article compares token counts for equivalent natural text in 27 languages using `o200k_base`; English is the normalized index baseline (`EN = 100`) while the measured English sample is 95 tokens. GitHubowa Kraina is maintained directly in `trvny/trvny` (`pages/site/teksty/githubowa-kraina/`) as an interactive atlas of the 12 public repositories split evenly between `trvny` and `travnie`. The Chinese internet slang essay has English and Polish editions at `pages/site/teksty/grass-mud-horse/index.html` and `pages/site/teksty/grass-mud-horse-pl/index.html`. Both share `site/assets/grass-mud-horse.css`, use reciprocal hreflang links, and have distinct canonical URLs. The main Atom feed reads the local publication catalog and dynamically aggregates entries from Shitpost Reactor's JSON Feed; it does not store a second copy of shitposts.
 
 ## Related services
 
@@ -117,14 +117,14 @@ Doc Bench edits text and structured documents and performs PDF maintenance local
 
 ## Discovery files
 
-- Sitemap: https://trfny.com/sitemap.xml
-- Robots policy: https://trfny.com/robots.txt
-- Web manifest: https://trfny.com/site.webmanifest
-- Hub Markdown: https://trfny.com/index.md
-- TVPI Markdown: https://trfny.com/tv/index.md
-- Teksty Markdown: https://trfny.com/teksty/index.md
-- GitHubowa Kraina Markdown: https://trfny.com/teksty/githubowa-kraina/index.md
-- Teksty Atom (including shitposts): https://trfny.com/teksty/feed.xml
+- Sitemap: https://travny.pages.dev/sitemap.xml
+- Robots policy: https://travny.pages.dev/robots.txt
+- Web manifest: https://travny.pages.dev/site.webmanifest
+- Hub Markdown: https://travny.pages.dev/index.md
+- TVPI Markdown: https://travny.pages.dev/tv/index.md
+- Teksty Markdown: https://travny.pages.dev/teksty/index.md
+- GitHubowa Kraina Markdown: https://travny.pages.dev/teksty/githubowa-kraina/index.md
+- Teksty Atom (including shitposts): https://travny.pages.dev/teksty/feed.xml
 
 The sitemap contains public human-facing hub routes. Service-specific machine-readable resources live on their owning service and are linked here rather than duplicated.
 

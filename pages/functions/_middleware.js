@@ -15,23 +15,23 @@ const WEATHER_STATE = "https://weather.travny.workers.dev/state.json";
 
 // Several hosts reach this same site/ output, and they are treated differently.
 //
-// trfny.com is the canonical address since 2026-08-16, when the domain was
-// registered. Every absolute URL in the markup — canonical, og:url, sitemap,
-// robots — points there, so search engines consolidate on the domain we own
-// rather than on a pages.dev subdomain we merely rent.
+// travny.pages.dev is canonical; trfny.com is temporary.
+// Canonical, og:url, sitemap and robots URLs point to the Pages hostname.
+// The former custom domain redirects here while its registration is active.
+// Deployment preview aliases stay excluded from search.
 //
-// travny.pages.dev keeps serving as an emergency fallback, but HTML responses
-// are marked noindex so the fallback cannot compete with trfny.com in search.
-// If the custom domain ever needs to be retired, promote the fallback explicitly
-// by changing the canonical host and removing that response directive.
+// Preview deployment aliases still serve the Pages output, but responses
+// are noindex so only the stable production hostname is indexed.
+// Requests to trfny.com and www.trfny.com permanently redirect to
+// travny.pages.dev, retaining the path and query.
 //
-// www.trfny.com answers only with a redirect. tvpi.pages.dev is now its own
-// Pages project in trvny/tvpi with a redirect-only middleware; it stays listed
-// here as a harmless fallback. Matching is exact, so per-deployment aliases
-// (<hash>.travny.pages.dev) are left alone.
-const REDIRECT_HOSTS = new Set(["tvpi.pages.dev", "www.trfny.com"]);
-const FALLBACK_HOST = "travny.pages.dev";
-const CANONICAL_HOST = "trfny.com";
+// tvpi.pages.dev is a separate legacy project in trvny/tvpi.
+// Its redirect target must match this primary host.
+// Preview aliases are matched separately, so the primary Pages host
+// is indexable while <hash>.travny.pages.dev remains noindex.
+const REDIRECT_HOSTS = new Set(["tvpi.pages.dev", "trfny.com", "www.trfny.com"]);
+const PREVIEW_SUFFIX = ".travny.pages.dev";
+const CANONICAL_HOST = "travny.pages.dev";
 const NAV_HEAD = '<link rel="stylesheet" href="/assets/nav.css"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Shitposts">';
 const NAV_BODY = `
 <button id="trvny-nav-toggle" type="button" aria-controls="trvny-nav-drawer" aria-expanded="false" aria-label="Otwórz menu">☰</button>
@@ -48,8 +48,8 @@ const NAV_BODY = `
 <script src="/assets/nav.js" defer></script>
 <script src="/assets/webmcp.js" defer></script>`;
 
-function isFallbackHost(hostname) {
-  return hostname === FALLBACK_HOST || hostname.endsWith(`.${FALLBACK_HOST}`);
+function isPreviewHost(hostname) {
+  return hostname.endsWith(PREVIEW_SUFFIX);
 }
 
 const CONDITIONS = {
@@ -245,8 +245,8 @@ function identifyPage(pathname) {
   return null;
 }
 
-function withFallbackNoindex(response, hostname) {
-  if (!isFallbackHost(hostname)) return response;
+function withPreviewNoindex(response, hostname) {
+  if (!isPreviewHost(hostname)) return response;
   const headers = new Headers(response.headers);
   headers.set("x-robots-tag", "noindex, follow");
   return new Response(response.body, {
@@ -268,7 +268,7 @@ export async function onRequest(context) {
   }
 
   if (context.request.method !== "GET") {
-    return withFallbackNoindex(await context.next(), url.hostname);
+    return withPreviewNoindex(await context.next(), url.hostname);
   }
 
   const page = identifyPage(url.pathname);
@@ -283,7 +283,7 @@ export async function onRequest(context) {
 
   const contentType = assetResponse.headers.get("content-type") || "";
   if (!assetResponse.ok || !contentType.includes("text/html")) {
-    return withFallbackNoindex(assetResponse, url.hostname);
+    return withPreviewNoindex(assetResponse, url.hostname);
   }
 
   const online = channels.filter((channel) => channel.status === true).length;
@@ -296,13 +296,13 @@ export async function onRequest(context) {
     .on("body", new AppendHtml(NAV_BODY));
 
   if (page === "papagenerator") {
-    rewriter = rewriter.on("head", new AppendHtml('<link rel="canonical" href="https://trfny.com/papagenerator/">'));
+    rewriter = rewriter.on("head", new AppendHtml('<link rel="canonical" href="https://travny.pages.dev/papagenerator/">'));
   }
 
   if (page === "token-worldcup") {
     rewriter = rewriter.on(
       "head",
-      new AppendHtml('<link rel="canonical" href="https://trfny.com/teksty/token-worldcup/"><meta property="og:url" content="https://trfny.com/teksty/token-worldcup/">'),
+      new AppendHtml('<link rel="canonical" href="https://travny.pages.dev/teksty/token-worldcup/"><meta property="og:url" content="https://travny.pages.dev/teksty/token-worldcup/">'),
     );
   }
 
@@ -346,7 +346,7 @@ export async function onRequest(context) {
       ? `<${markdownPath}>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"`
       : "</llms.txt>; rel=\"describedby\"",
   );
-  if (isFallbackHost(url.hostname)) headers.set("x-robots-tag", "noindex, follow");
+  if (isPreviewHost(url.hostname)) headers.set("x-robots-tag", "noindex, follow");
   headers.delete("content-length");
   headers.delete("etag");
 

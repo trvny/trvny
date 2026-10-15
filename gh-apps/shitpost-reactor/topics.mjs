@@ -6,7 +6,21 @@ export const NEWS_FEEDS = Object.freeze([
   { name: 'BBC Science', url: 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml' },
 ]);
 
-const MAX_FEED_BYTES = 256 * 1024;
+const FEEDSEEK_ROOT = 'https://raw.githubusercontent.com/trvny/feedseek/main/feeds/';
+const FEEDSEEK_FEEDS = Object.freeze({
+  news: [
+    { name: 'Feedseek / Reuters', url: FEEDSEEK_ROOT + 'feed_reuters.json' },
+    { name: 'Feedseek / Euronews', url: FEEDSEEK_ROOT + 'feed_euronews.json' },
+  ],
+  politics: [
+    { name: 'Feedseek / TVP Info', url: FEEDSEEK_ROOT + 'feed_tvp.json', tag: 'TVP Info' },
+    { name: 'Feedseek / PAP', url: FEEDSEEK_ROOT + 'feed_pap.json' },
+    { name: 'Feedseek / Gov.pl', url: FEEDSEEK_ROOT + 'feed_govpl_news.json' },
+  ],
+});
+const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|kampani|ustaw|weta|weto|marszał|kancelari/iu;
+const POLISH_TRAGEDY = /zgin|zmar|śmier|ofiar|rann|katastrof|pożar|powodzi|powódź|gwałt|zabój|zabił|zabili|samobój|zamach|wybuch|wojn|bombard|trzęsieni|ewakuacj|wypad|zderzen|rozbił|rozbiły|strzelanin|terroryst/iu;
+const MAX_FEED_BYTES = 1024 * 1024;
 const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1_000;
 const FETCH_TIMEOUT_MS = 8_000;
 const SENSITIVE_NEWS = /\b(kill(?:ed|ing|s)?|dead|death|die|dies|died|fatal(?:ity|ities)?|victim(?:s)?|massacre|murder(?:ed)?|suicide|rape|abuse|hostage(?:s)?|bomb(?:ing|ed)?|airstrike(?:s)?|earthquake(?:s)?|flood(?:s|ing)?|famine|genocide|casualt(?:y|ies)|shooting(?:s)?|terror(?:ist|ism)?|war crimes|injur(?:y|ies|ed)|wound(?:ed|s)?|crash(?:es|ed)?|wildfire(?:s)?|blaze(?:s)?|evacuat(?:ion|ed)|drown(?:ed|ing)?|collapsed)\b/i;
@@ -31,6 +45,7 @@ export function resolveTopicLane(manualTopic = '', runNumber = '') {
   if (!Number.isSafeInteger(number) || number < 1) return 'evergreen';
   if (number % 7 === 1) return 'news';
   if (number % 7 === 4) return 'llm';
+  if (number % 7 === 6) return 'politics';
   return 'evergreen';
 }
 
@@ -83,22 +98,66 @@ export function parseNewsRss(xml, { now = Date.now() } = {}) {
   });
 }
 
-export async function loadWorldNews({ seed = '', now = Date.now(), fetchImpl = fetch } = {}) {
-  const entries = [];
-  for (const feed of NEWS_FEEDS) {
+export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = false, tag = null } = {}) {
+  if (payload?.version !== 'https://jsonfeed.org/version/1.1' || !Array.isArray(payload.items)) return [];
+  return payload.items.slice(0, 75).flatMap((item) => {
+    if (typeof item?.title !== 'string' || typeof item?.url !== 'string'
+      || typeof item?.date_published !== 'string') return [];
+    if (tag && (!Array.isArray(item.tags) || !item.tags.includes(tag))) return [];
+    const title = item.title.replace(/[<>]/gu, '').replace(/\s+/gu, ' ').trim().slice(0, 240);
+    const date = Date.parse(item.date_published);
+    let url;
     try {
-      const response = await fetchImpl(feed.url, {
-        headers: { accept: 'application/rss+xml, application/xml, text/xml', 'user-agent': 'trvny-shitpost-reactor/1' },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
-      if (!response.ok || Number(response.headers.get('content-length') || '0') > MAX_FEED_BYTES) continue;
-      const feedEntries = parseNewsRss(await response.text(), { now });
-      entries.push(...feedEntries.map((entry) => ({ ...entry, source: feed.name })));
+      url = new URL(item.url);
     } catch {
-      // Optional live source. Never invent a headline when it fails.
+      return [];
     }
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password
+      || title.length < 12 || !Number.isFinite(date) || date > now
+      || now - date > NEWS_MAX_AGE_MS || SENSITIVE_NEWS.test(title)
+      || POLISH_TRAGEDY.test(title) || (politicsOnly && !POLITICAL_TOPIC.test(title))) return [];
+    const publisher = typeof item.authors?.[0]?.name === 'string'
+      ? item.authors[0].name.replace(/[<>]/gu, '').trim().slice(0, 80) : '';
+    return [{
+      title, url: url.toString(), published_at: new Date(date).toISOString(),
+      ...(publisher ? { publisher } : {}),
+    }];
+  });
+}
+
+async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
+  try {
+    const isJson = feed.url.endsWith('.json');
+    const response = await fetchImpl(feed.url, {
+      headers: {
+        accept: isJson ? 'application/feed+json, application/json' : 'application/rss+xml, application/xml, text/xml',
+        'user-agent': 'trvny-shitpost-reactor/1',
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok || Number(response.headers.get('content-length') || '0') > MAX_FEED_BYTES) return [];
+    const body = await response.text();
+    if (Buffer.byteLength(body, 'utf8') > MAX_FEED_BYTES) return [];
+    const items = isJson
+      ? parseFeedseekJson(JSON.parse(body), { now, politicsOnly, tag: feed.tag })
+      : parseNewsRss(body, { now });
+    return items.slice(0, 30).map((item) => ({ ...item, source: feed.name }));
+  } catch {
+    // Optional news input; keep generation alive.
+    return [];
   }
-  const unique = [...new Map(entries.map((entry) => [entry.url, entry])).values()];
-  if (!unique.length) return null;
-  return unique[hashIndex('news:' + seed, unique.length)];
+}
+
+export async function loadNewsForLane(lane, { seed = '', now = Date.now(), fetchImpl = fetch } = {}) {
+  if (lane !== 'news' && lane !== 'politics') return null;
+  const feeds = lane === 'news' ? [...NEWS_FEEDS, ...FEEDSEEK_FEEDS.news] : FEEDSEEK_FEEDS.politics;
+  const batches = await Promise.all(feeds.map((feed) => loadFeed(feed, {
+    now, fetchImpl, politicsOnly: lane === 'politics',
+  })));
+  const entries = [...new Map(batches.flat().map((entry) => [entry.url, entry])).values()];
+  return entries.length ? entries[hashIndex(lane + ':' + seed, entries.length)] : null;
+}
+
+export function loadWorldNews(options = {}) {
+  return loadNewsForLane('news', options);
 }

@@ -13,7 +13,7 @@ import {
   SHITPOST_TEXT_HARD_MAX_CHARS,
 } from './limits.mjs';
 import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from './templates.mjs';
-import { chooseLLMTopic, loadWorldNews, resolveTopicLane } from './topics.mjs';
+import { chooseLLMTopic, loadNewsForLane, resolveTopicLane } from './topics.mjs';
 
 export const DEFAULT_ENDPOINT = 'https://kanarek-companion.travny.workers.dev/review-router/v1/chat/completions';
 const SKILL_BASE_URL = 'https://raw.githubusercontent.com/trvny/.ai/main/skills/';
@@ -229,7 +229,7 @@ export async function loadMySaasInspiration({
   return normalizeMySaasCandidates(await response.json());
 }
 
-export function buildMessages(skill, topic = '', seed = '', mode = 'text', template = null, { tasteProfile = null, mySaasReferences = [], limerickLanguage = null, newsReference = null } = {}) {
+export function buildMessages(skill, topic = '', seed = '', mode = 'text', template = null, { tasteProfile = null, mySaasReferences = [], limerickLanguage = null, newsReference = null, politicsSatire = false } = {}) {
   const chosenTopic = topic.trim() || [
     'Wymyśl sam konkretny temat z internetu, technologii, pracy, codzienności, popkultury, gier, biurokracji albo dowolnego absurdu, który daje dobry shitpost.',
     'Nie opieraj żartu na bieżącej wiadomości, której nie dostałeś w promptcie.',
@@ -250,6 +250,10 @@ export function buildMessages(skill, topic = '', seed = '', mode = 'text', templ
 
   const rules = [
     openingRule,
+    ...(politicsSatire ? [
+      'Polish politics: satirize parliamentary theatre, public statements, messaging and bureaucracy sharply, without advocating for or against any party or political choice. Never fabricate quotes, scandals or allegations.',
+      'Roast public conduct and absurd situations, not private traits. No election persuasion, voting advice or partisan slogans.',
+    ] : []),
     ...(newsReference ? [
       'This is satire based on one dated headline, not a live news analysis. Stick strictly to what the provided headline says; do not invent follow-up events, quotations, victims, allegations, or statistics. Never make light of human suffering or promote a political candidate or party.',
       'Prefer a sharp joke about the situation, bureaucracy, technology or public discourse. If the headline does not yield a humane, non-misleading joke, pivot to timeless absurdity.',
@@ -434,10 +438,12 @@ export async function main() {
     ? `${process.env.GITHUB_RUN_ID}.${process.env.GITHUB_RUN_ATTEMPT || '1'}`
     : new Date().toISOString().slice(0, 10);
   const topicLane = resolveTopicLane(topic, process.env.GITHUB_RUN_NUMBER || '');
-  const newsReference = topicLane === 'news' ? await loadWorldNews({ seed }) : null;
+  const newsReference = ['news', 'politics'].includes(topicLane)
+    ? await loadNewsForLane(topicLane, { seed }) : null;
   const effectiveTopic = topic.trim() || (newsReference
-    ? 'A recent world headline from the dated source below'
-    : topicLane === 'llm' ? chooseLLMTopic(seed) : '');
+    ? topicLane === 'politics' ? 'Polish political satire inspired by the dated Polish headline below' : 'A recent world headline from the dated source below'
+    : topicLane === 'politics' ? 'Evergreen Polish political satire: parliamentary procedure, parties, PR and bureaucracy. Invent no concrete events or statements.'
+      : topicLane === 'llm' ? chooseLLMTopic(seed) : '');
   const outputDir = resolve(process.env.SHITPOST_OUTPUT_DIR || 'out');
 
   let skill = '';
@@ -467,6 +473,7 @@ export async function main() {
     mySaasReferences,
     limerickLanguage,
     newsReference,
+    politicsSatire: topicLane === 'politics',
   });
   const completion = await requestCompletion({ endpoint, token, messages });
   const content = parseContent(completion.content, { mode, templateId: template?.id });
@@ -480,7 +487,7 @@ export async function main() {
       sha256: skillHash,
     },
     topic: newsReference
-      ? `${newsReference.source}: ${newsReference.title} (${newsReference.url})`
+      ? `${topicLane === 'politics' ? 'Polish politics / ' : ''}${newsReference.source}: ${newsReference.title} (${newsReference.url})`
       : effectiveTopic || null,
     content,
   };

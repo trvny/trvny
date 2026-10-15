@@ -9,7 +9,7 @@ export const NEWS_FEEDS = Object.freeze([
 const MAX_FEED_BYTES = 256 * 1024;
 const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1_000;
 const FETCH_TIMEOUT_MS = 8_000;
-const SENSITIVE_NEWS = /\b(killed|dead|death|fatal|victim|massacre|murder|suicide|rape|abuse|hostage|bomb(?:ing)?|airstrike|earthquake|flood(?:ing)?|famine|genocide|casualt(?:y|ies)|shooting|terror(?:ist|ism)?|war crimes|child abuse)\b/i;
+const SENSITIVE_NEWS = /\b(kill(?:ed|ing|s)?|dead|death|die|dies|died|fatal(?:ity|ities)?|victim(?:s)?|massacre|murder(?:ed)?|suicide|rape|abuse|hostage(?:s)?|bomb(?:ing|ed)?|airstrike(?:s)?|earthquake(?:s)?|flood(?:s|ing)?|famine|genocide|casualt(?:y|ies)|shooting(?:s)?|terror(?:ist|ism)?|war crimes|injur(?:y|ies|ed)|wound(?:ed|s)?|crash(?:es|ed)?|wildfire(?:s)?|blaze(?:s)?|evacuat(?:ion|ed)|drown(?:ed|ing)?|collapsed)\b/i;
 
 const LLM_TOPICS = Object.freeze([
   'LLM self-roast: a model tries to fit its entire personality into a shrinking context window.',

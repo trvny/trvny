@@ -57,7 +57,7 @@ function rssValue(item, tag) {
   const match = item.match(new RegExp(pattern, 'i'));
   if (!match) return '';
   return decodeXml(match[1].replace(/^<!\[CDATA\[([\s\S]*?)\]\]>$/i, '$1').trim())
-    .replace(/<[^>]*>/g, '')
+    .replace(/[<>]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }

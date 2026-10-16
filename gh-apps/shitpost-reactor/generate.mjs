@@ -370,36 +370,73 @@ export function parseContent(content, options = {}) {
   }
 }
 
-export async function requestCompletion({ endpoint, token, messages, fetchImpl = fetch }) {
-  const response = await fetchImpl(endpoint, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
-      'user-agent': 'trvny-shitpost-reactor/1',
-    },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      messages,
-      max_tokens: SHITPOST_COMPLETION_TOKEN_BUDGET,
-      stream: false,
-    }),
-    signal: AbortSignal.timeout(SHITPOST_ROUTER_TIMEOUT_MS),
+const ROUTER_MAX_ATTEMPTS = 2;
+const ROUTER_RETRY_DELAY_MS = 2_000;
+const RETRYABLE_ROUTER_STATUSES = new Set([429, 502, 503, 504]);
+
+function routerNetworkError(error) {
+  const cause = error instanceof Error ? error.cause : null;
+  const rawCode = cause && typeof cause === 'object' && 'code' in cause ? cause.code : null;
+  const code = typeof rawCode === 'string' && /^[A-Z0-9_]+$/.test(rawCode) ? rawCode : 'unknown';
+  return (error instanceof Error ? error.name : 'UnknownError') + ':' + code;
+}
+
+export async function requestCompletion({
+  endpoint, token, messages, fetchImpl = fetch,
+  sleepImpl = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+}) {
+  const body = JSON.stringify({
+    model: DEFAULT_MODEL,
+    messages,
+    max_tokens: SHITPOST_COMPLETION_TOKEN_BUDGET,
+    stream: false,
   });
-
-  if (!response.ok) {
-    const body = (await response.text()).slice(0, MAX_ERROR_BODY).replaceAll(token, '[redacted]');
-    throw new Error(`router_failed:${response.status}:${body}`);
+  for (let attempt = 1; attempt <= ROUTER_MAX_ATTEMPTS; attempt += 1) {
+    const startedAt = Date.now();
+    let response;
+    try {
+      response = await fetchImpl(endpoint, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer ' + token,
+          'content-type': 'application/json',
+          'user-agent': 'trvny-shitpost-reactor/1',
+        },
+        body,
+        signal: AbortSignal.timeout(SHITPOST_ROUTER_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const reason = routerNetworkError(error);
+      const retry = error instanceof TypeError && attempt < ROUTER_MAX_ATTEMPTS;
+      process.stderr.write('router_fetch_failed:attempt=' + attempt + '/' + ROUTER_MAX_ATTEMPTS
+        + ' elapsed_ms=' + (Date.now() - startedAt) + ' cause=' + reason + ' retry=' + retry + '\n');
+      if (retry) {
+        await sleepImpl(ROUTER_RETRY_DELAY_MS);
+        continue;
+      }
+      throw new Error('router_fetch_failed:' + reason, { cause: error });
+    }
+    if (!response.ok) {
+      const errorBody = (await response.text()).slice(0, MAX_ERROR_BODY).replaceAll(token, '[redacted]');
+      const retry = RETRYABLE_ROUTER_STATUSES.has(response.status) && attempt < ROUTER_MAX_ATTEMPTS;
+      process.stderr.write('router_http_failed:attempt=' + attempt + '/' + ROUTER_MAX_ATTEMPTS
+        + ' elapsed_ms=' + (Date.now() - startedAt) + ' status=' + response.status + ' retry=' + retry + '\n');
+      if (retry) {
+        await sleepImpl(ROUTER_RETRY_DELAY_MS);
+        continue;
+      }
+      throw new Error('router_failed:' + response.status + ':' + errorBody);
+    }
+    const payload = await response.json();
+    const content = payload?.choices?.[0]?.message?.content;
+    if (typeof content !== 'string' || !content.trim()) throw new Error('router_missing_content');
+    return {
+      content,
+      model: typeof payload.model === 'string' ? payload.model : DEFAULT_MODEL,
+      provider: response.headers.get('x-kanarek-review-provider') || 'unknown',
+    };
   }
-
-  const payload = await response.json();
-  const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || !content.trim()) throw new Error('router_missing_content');
-  return {
-    content,
-    model: typeof payload.model === 'string' ? payload.model : DEFAULT_MODEL,
-    provider: response.headers.get('x-kanarek-review-provider') || 'unknown',
-  };
+  throw new Error('router_retry_exhausted');
 }
 
 export function renderMarkdown(record) {

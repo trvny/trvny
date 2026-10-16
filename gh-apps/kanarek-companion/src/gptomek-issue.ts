@@ -142,6 +142,13 @@ async function currentIssueComment(
   return { body: comment.body, id: commentId };
 }
 
+async function commentBodySha256(body: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body));
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export async function handleGptomekCommentControl(
   target: CompanionTarget,
   env: CompanionEnv,
@@ -160,9 +167,11 @@ export async function handleGptomekCommentControl(
 
   try {
     const comment = await currentIssueComment(target.commentId, env, fetcher);
+    const commentBodyHash = await commentBodySha256(comment.body);
     const result = await handleGptomekCommentCommand(comment.body, env, fetcher);
     return {
       changed: result.handled,
+      commentBodySha256: commentBodyHash,
       commentId: target.commentId,
       quipSource: 'preset',
       state: result.result?.ok ? 'gptomek-comment-ok' : 'gptomek-comment-error',

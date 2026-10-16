@@ -737,6 +737,7 @@ async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Resp
       handled: payload.result?.changed ?? false,
       duplicate: payload.duplicate ?? false,
       state: payload.result?.state ?? null,
+      commentBodySha256: payload.result?.commentBodySha256 ?? null,
     });
   } catch (error) {
     console.error(JSON.stringify({

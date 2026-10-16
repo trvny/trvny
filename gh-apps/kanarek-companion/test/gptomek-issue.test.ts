@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { generateKeyPairSync } from 'node:crypto';
+import { createHash, generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 
 import type { CompanionEnv, CompanionTarget } from '../src/companion-types.ts';
@@ -323,6 +323,10 @@ test('executes a fenced JSON control comment without staging a base64 mailbox ma
   assert.equal(result.changed, true);
   assert.equal(result.state, 'gptomek-comment-ok');
   assert.equal(result.commentId, commentId);
+  assert.equal(
+    result.commentBodySha256,
+    createHash('sha256').update(commentBody).digest('hex'),
+  );
   assert.equal(calls.some((call) => call.method === 'PATCH'), false);
   assert.equal(calls.some((call) => call.path.includes('/pulls/176')), false);
 });

@@ -90,6 +90,7 @@ jobs:
 
       - name: Mark command failure
         if: >-
+          always() &&
           steps.execute.outcome == 'failure' ||
           steps.execute.outputs.state == 'gptomek-comment-error' ||
           steps.cleanup.outcome == 'failure'
@@ -106,6 +107,7 @@ jobs:
 
       - name: Fail rejected command
         if: >-
+          always() &&
           steps.execute.outcome == 'failure' ||
           steps.execute.outputs.state == 'gptomek-comment-error' ||
           steps.cleanup.outcome == 'failure'

@@ -70,7 +70,6 @@ extensions:
       github:
         namespace: trvny
         primaryAgentFile: AGENTS.md
-        copilotInstructions: .github/copilot-instructions.md
         customAgent: .github/agents/trvny-maintainer.agent.md
         workflow:
           inspectMainAndOpenPrsFirst: true

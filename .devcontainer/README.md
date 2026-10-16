@@ -310,8 +310,8 @@ copilot                   # In the CLI: /model, /usage, /limits
   intended identity. The injected token is a fallback and can be overridden
   by an explicit GitHub login. Don't set `COPILOT_PROVIDER_BASE_URL` or
   `COPILOT_PROVIDER_API_KEY` unless deliberately switching to BYOK.
-- Preserve `AGENTS.md` and `.github/copilot-instructions.md`; don't run
-  `copilot init` in this established repo. Keep interactive approvals
+- Preserve `AGENTS.md`; don't run `copilot init` in this established
+  repo. Keep interactive approvals
   enabled, don't enable global `--allow-all`. Bot-authored GitHub writes
   still go through GPTomek; open PRs as the user.
 - GitHub docs: https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli

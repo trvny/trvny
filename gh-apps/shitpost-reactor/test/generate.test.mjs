@@ -338,6 +338,50 @@ test('requestCompletion retries a broken retryable HTTP error body', async () =>
 });
 
 
+test('requestCompletion retries an early timeout within the shared deadline', async () => {
+  let attempts = 0;
+  const result = await requestCompletion({
+    endpoint: 'https://example.test', token: 'secret', messages: [],
+    fetchImpl: async () => {
+      attempts += 1;
+      if (attempts === 1) throw new DOMException('early timeout', 'TimeoutError');
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: '{"kind":"text","text":"ok"}' } }],
+      }), { status: 200 });
+    },
+    sleepImpl: async () => {},
+  });
+  assert.equal(attempts, 2);
+  assert.match(result.content, /"ok"/);
+});
+
+test('requestCompletion does not retry quota exhaustion before provider cooldown', async () => {
+  let attempts = 0;
+  await assert.rejects(requestCompletion({
+    endpoint: 'https://example.test', token: 'secret', messages: [],
+    fetchImpl: async () => { attempts += 1; return new Response('quota', { status: 429 }); },
+    sleepImpl: async () => { throw new Error('unexpected retry'); },
+  }), /router_failed:429:quota/);
+  assert.equal(attempts, 1);
+});
+
+test('requestCompletion shares one total 20-minute deadline across attempts', async () => {
+  let now = 1_000;
+  let attempts = 0;
+  await assert.rejects(requestCompletion({
+    endpoint: 'https://example.test', token: 'secret', messages: [],
+    nowImpl: () => now,
+    fetchImpl: async () => {
+      attempts += 1;
+      now += 20 * 60_000 - 1_000;
+      throw new TypeError('fetch failed');
+    },
+    sleepImpl: async () => { throw Error('unexpected retry'); },
+  }), /router_fetch_failed:TypeError:unknown/);
+  assert.equal(attempts, 1);
+});
+
+
 test('renderMarkdown produces a compact text artifact', () => {
   const output = renderMarkdown({
     generated_at: '2026-10-01T19:37:00.000Z',

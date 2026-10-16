@@ -372,7 +372,7 @@ export function parseContent(content, options = {}) {
 
 const ROUTER_MAX_ATTEMPTS = 2;
 const ROUTER_RETRY_DELAY_MS = 2_000;
-const RETRYABLE_ROUTER_STATUSES = new Set([429, 502, 503, 504]);
+const RETRYABLE_ROUTER_STATUSES = new Set([502, 503, 504]);
 
 function routerNetworkError(error) {
   const cause = error instanceof Error ? error.cause : null;
@@ -384,6 +384,7 @@ function routerNetworkError(error) {
 export async function requestCompletion({
   endpoint, token, messages, fetchImpl = fetch,
   sleepImpl = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  nowImpl = Date.now,
 }) {
   const body = JSON.stringify({
     model: DEFAULT_MODEL,
@@ -391,8 +392,11 @@ export async function requestCompletion({
     max_tokens: SHITPOST_COMPLETION_TOKEN_BUDGET,
     stream: false,
   });
+  const deadlineAt = nowImpl() + SHITPOST_ROUTER_TIMEOUT_MS;
   for (let attempt = 1; attempt <= ROUTER_MAX_ATTEMPTS; attempt += 1) {
-    const startedAt = Date.now();
+    const startedAt = nowImpl();
+    const remainingMs = deadlineAt - startedAt;
+    if (remainingMs <= 0) throw new Error('router_deadline_exceeded');
     let response;
     let payload;
     let errorBody;
@@ -405,7 +409,7 @@ export async function requestCompletion({
           'user-agent': 'trvny-shitpost-reactor/1',
         },
         body,
-        signal: AbortSignal.timeout(SHITPOST_ROUTER_TIMEOUT_MS),
+        signal: AbortSignal.timeout(remainingMs),
       });
       if (response.ok) {
         payload = await response.json();
@@ -414,10 +418,13 @@ export async function requestCompletion({
       }
     } catch (error) {
       const reason = routerNetworkError(error);
-      const retry = error instanceof TypeError && attempt < ROUTER_MAX_ATTEMPTS
+      const transportFailure = error instanceof TypeError
+        || error?.name === 'TimeoutError' || error?.name === 'AbortError';
+      const retry = transportFailure && attempt < ROUTER_MAX_ATTEMPTS
+        && nowImpl() + ROUTER_RETRY_DELAY_MS < deadlineAt
         && (!response || response.ok || RETRYABLE_ROUTER_STATUSES.has(response.status));
       process.stderr.write('router_fetch_failed:attempt=' + attempt + '/' + ROUTER_MAX_ATTEMPTS
-        + ' elapsed_ms=' + (Date.now() - startedAt) + ' cause=' + reason + ' retry=' + retry + '\n');
+        + ' elapsed_ms=' + (nowImpl() - startedAt) + ' cause=' + reason + ' retry=' + retry + '\n');
       if (retry) {
         await sleepImpl(ROUTER_RETRY_DELAY_MS);
         continue;
@@ -425,9 +432,10 @@ export async function requestCompletion({
       throw new Error('router_fetch_failed:' + reason, { cause: error });
     }
     if (!response.ok) {
-      const retry = RETRYABLE_ROUTER_STATUSES.has(response.status) && attempt < ROUTER_MAX_ATTEMPTS;
+      const retry = RETRYABLE_ROUTER_STATUSES.has(response.status) && attempt < ROUTER_MAX_ATTEMPTS
+        && nowImpl() + ROUTER_RETRY_DELAY_MS < deadlineAt;
       process.stderr.write('router_http_failed:attempt=' + attempt + '/' + ROUTER_MAX_ATTEMPTS
-        + ' elapsed_ms=' + (Date.now() - startedAt) + ' status=' + response.status + ' retry=' + retry + '\n');
+        + ' elapsed_ms=' + (nowImpl() - startedAt) + ' status=' + response.status + ' retry=' + retry + '\n');
       if (retry) {
         await sleepImpl(ROUTER_RETRY_DELAY_MS);
         continue;

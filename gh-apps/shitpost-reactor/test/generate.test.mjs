@@ -296,6 +296,48 @@ test('requestCompletion caps network failures at two attempts', async () => {
 });
 
 
+test('requestCompletion retries a broken success response body', async () => {
+  let attempts = 0;
+  const brokenBody = () => new ReadableStream({
+    start(controller) { controller.error(new TypeError('connection reset')); },
+  });
+  const result = await requestCompletion({
+    endpoint: 'https://example.test', token: 'secret', messages: [],
+    fetchImpl: async () => {
+      attempts += 1;
+      return attempts === 1
+        ? new Response(brokenBody(), { status: 200 })
+        : new Response(JSON.stringify({
+          choices: [{ message: { content: '{"kind":"text","text":"ok"}' } }],
+        }), { status: 200 });
+    },
+    sleepImpl: async () => {},
+  });
+  assert.equal(attempts, 2);
+  assert.match(result.content, /"ok"/);
+});
+
+test('requestCompletion retries a broken retryable HTTP error body', async () => {
+  let attempts = 0;
+  const result = await requestCompletion({
+    endpoint: 'https://example.test', token: 'secret', messages: [],
+    fetchImpl: async () => {
+      attempts += 1;
+      return attempts === 1
+        ? new Response(new ReadableStream({
+          start(controller) { controller.error(new TypeError('connection reset')); },
+        }), { status: 503 })
+        : new Response(JSON.stringify({
+          choices: [{ message: { content: '{"kind":"text","text":"ok"}' } }],
+        }), { status: 200 });
+    },
+    sleepImpl: async () => {},
+  });
+  assert.equal(attempts, 2);
+  assert.match(result.content, /"ok"/);
+});
+
+
 test('renderMarkdown produces a compact text artifact', () => {
   const output = renderMarkdown({
     generated_at: '2026-10-01T19:37:00.000Z',

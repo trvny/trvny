@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { access, copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { loadConfig } from "../src/config.js";
@@ -33,6 +33,15 @@ export interface InstallLocalRuntimeResult {
 async function exists(path: string): Promise<boolean> {
   try { await access(path); return true; }
   catch { return false; }
+}
+
+function assertSafeAbsolutePath(value: string, name: string): void {
+  if (!value || !isAbsolute(value)) {
+    throw new Error(`${name} must be an absolute path`);
+  }
+  if (value.startsWith("-")) {
+    throw new Error(`${name} must not start with '-'`);
+  }
 }
 
 async function run(file: string, args: string[], cwd?: string): Promise<string> {
@@ -248,6 +257,7 @@ export async function installLocalRuntime(options: InstallLocalRuntimeOptions): 
 async function main(): Promise<void> {
   if (process.platform !== "win32") throw new Error("local Pet Dispatcher installation is Windows-only");
   const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  assertSafeAbsolutePath(sourceRoot, "sourceRoot");
   const home = homedir();
   const dcRoot = join(home, "dir", ".dc");
   const installRoot = process.env.PET_DISPATCHER_INSTALL_ROOT ?? join(home, ".local", "share", "pet-dispatcher");

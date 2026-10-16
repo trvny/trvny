@@ -542,8 +542,24 @@ function decodeJwtPart(value) {
   return JSON.parse(new TextDecoder().decode(decodeBase64Url(value)));
 }
 
+function normalizeAudienceOrigin(value) {
+  if (typeof value !== 'string') return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 function audienceMatches(aud) {
-  return typeof aud === 'string' ? aud === OIDC_AUDIENCE : Array.isArray(aud) && aud.includes(OIDC_AUDIENCE);
+  const expectedOrigin = normalizeAudienceOrigin(OIDC_AUDIENCE);
+  if (!expectedOrigin) return false;
+  if (typeof aud === 'string') {
+    return normalizeAudienceOrigin(aud) === expectedOrigin;
+  }
+  return Array.isArray(aud) && aud.some((entry) => normalizeAudienceOrigin(entry) === expectedOrigin);
 }
 
 export function validateOidcClaims(claims, nowSeconds = Math.floor(Date.now() / 1000)) {

@@ -394,6 +394,8 @@ export async function requestCompletion({
   for (let attempt = 1; attempt <= ROUTER_MAX_ATTEMPTS; attempt += 1) {
     const startedAt = Date.now();
     let response;
+    let payload;
+    let errorBody;
     try {
       response = await fetchImpl(endpoint, {
         method: 'POST',
@@ -405,9 +407,15 @@ export async function requestCompletion({
         body,
         signal: AbortSignal.timeout(SHITPOST_ROUTER_TIMEOUT_MS),
       });
+      if (response.ok) {
+        payload = await response.json();
+      } else {
+        errorBody = (await response.text()).slice(0, MAX_ERROR_BODY).replaceAll(token, '[redacted]');
+      }
     } catch (error) {
       const reason = routerNetworkError(error);
-      const retry = error instanceof TypeError && attempt < ROUTER_MAX_ATTEMPTS;
+      const retry = error instanceof TypeError && attempt < ROUTER_MAX_ATTEMPTS
+        && (!response || response.ok || RETRYABLE_ROUTER_STATUSES.has(response.status));
       process.stderr.write('router_fetch_failed:attempt=' + attempt + '/' + ROUTER_MAX_ATTEMPTS
         + ' elapsed_ms=' + (Date.now() - startedAt) + ' cause=' + reason + ' retry=' + retry + '\n');
       if (retry) {
@@ -417,7 +425,6 @@ export async function requestCompletion({
       throw new Error('router_fetch_failed:' + reason, { cause: error });
     }
     if (!response.ok) {
-      const errorBody = (await response.text()).slice(0, MAX_ERROR_BODY).replaceAll(token, '[redacted]');
       const retry = RETRYABLE_ROUTER_STATUSES.has(response.status) && attempt < ROUTER_MAX_ATTEMPTS;
       process.stderr.write('router_http_failed:attempt=' + attempt + '/' + ROUTER_MAX_ATTEMPTS
         + ' elapsed_ms=' + (Date.now() - startedAt) + ' status=' + response.status + ' retry=' + retry + '\n');
@@ -427,7 +434,6 @@ export async function requestCompletion({
       }
       throw new Error('router_failed:' + response.status + ':' + errorBody);
     }
-    const payload = await response.json();
     const content = payload?.choices?.[0]?.message?.content;
     if (typeof content !== 'string' || !content.trim()) throw new Error('router_missing_content');
     return {

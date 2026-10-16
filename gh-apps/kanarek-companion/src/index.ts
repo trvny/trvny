@@ -711,7 +711,9 @@ async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Resp
   const target: CompanionTarget = {
     delivery: commentId === null
       ? `gptomek-wake:${crypto.randomUUID()}`
-      : `gptomek-comment:${commentId}`,
+      // Re-wake a comment with a fresh delivery. The command ID checkpoint
+      // remains the source of truth for idempotent replay and cleanup retries.
+      : `gptomek-comment:${commentId}:${crypto.randomUUID()}`,
     installationId,
     pullRequestNumber: GPTOMEK_CONTROL_ISSUE,
     repository: GPTOMEK_CONTROL_REPOSITORY,

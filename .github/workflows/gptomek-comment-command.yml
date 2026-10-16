@@ -83,6 +83,14 @@ jobs:
             echo "::error::Command body changed after GPTomek executed; preserving it."
             exit 1
           fi
+          # Minimize the non-atomic check/delete window with a second GET.
+          latest="$(gh api "repos/trvny/trvny/issues/comments/${COMMENT_ID}")"
+          latest_hash="$(jq -rj '.body' <<<"$latest" | sha256sum | cut -d' ' -f1)"
+          if [[ "$latest_hash" != "$current_hash" ]] ||
+            [[ "$(jq -r '.updated_at' <<<"$latest")" != "$(jq -r '.updated_at' <<<"$current")" ]]; then
+            echo "::error::Command comment changed during cleanup; preserving it."
+            exit 1
+          fi
           gh api \
             --method DELETE \
             "repos/trvny/trvny/issues/comments/${COMMENT_ID}" \

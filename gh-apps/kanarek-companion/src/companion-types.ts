@@ -33,6 +33,7 @@ export interface CompanionTarget {
 }
 
 export interface CompanionResult {
+  commentBodySha256?: string;
   changed: boolean;
   commentId: number | null;
   quipSource: 'ai' | 'pool' | 'preset';

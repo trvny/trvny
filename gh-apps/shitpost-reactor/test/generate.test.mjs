@@ -242,6 +242,60 @@ test('requestCompletion keeps provider metadata without exposing the token', asy
   assert.equal(result.model, 'free-model');
 });
 
+test('requestCompletion retries one transport failure without changing the prompt', async () => {
+  const bodies = [];
+  const delays = [];
+  const result = await requestCompletion({
+    endpoint: 'https://example.test', token: 'secret', messages: [],
+    fetchImpl: async (_url, init) => {
+      bodies.push(init.body);
+      if (bodies.length === 1) throw new TypeError('fetch failed');
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: '{"kind":"text","text":"ok"}' } }],
+      }), { status: 200 });
+    },
+    sleepImpl: async (ms) => { delays.push(ms); },
+  });
+  assert.equal(bodies.length, 2);
+  assert.deepEqual(bodies, [bodies[0], bodies[0]]);
+  assert.deepEqual(delays, [2_000]);
+  assert.match(result.content, /"ok"/);
+});
+
+test('requestCompletion retries 503 but does not retry authorization failures', async () => {
+  let attempts = 0;
+  const result = await requestCompletion({
+    endpoint: 'https://example.test', token: 'secret', messages: [],
+    fetchImpl: async () => (++attempts === 1
+      ? new Response('unavailable', { status: 503 })
+      : new Response(JSON.stringify({ choices: [{ message: { content: '{"kind":"text","text":"ok"}' } }] }), { status: 200 })),
+    sleepImpl: async () => {},
+  });
+  assert.equal(attempts, 2);
+  assert.match(result.content, /"ok"/);
+  attempts = 0;
+  await assert.rejects(requestCompletion({
+    endpoint: 'https://example.test', token: 'secret', messages: [],
+    fetchImpl: async () => { attempts += 1; return new Response('denied secret', { status: 401 }); },
+    sleepImpl: async () => { throw Error('unexpected retry'); },
+  }), /router_failed:401:denied \[redacted\]/);
+  assert.equal(attempts, 1);
+});
+
+test('requestCompletion caps network failures at two attempts', async () => {
+  let attempts = 0;
+  await assert.rejects(requestCompletion({
+    endpoint: 'https://example.test', token: 'secret', messages: [],
+    fetchImpl: async () => {
+      attempts += 1;
+      throw new TypeError('fetch failed', { cause: Object.assign(new Error('socket closed'), { code: 'UND_ERR_SOCKET' }) });
+    },
+    sleepImpl: async () => {},
+  }), /router_fetch_failed:TypeError:UND_ERR_SOCKET/);
+  assert.equal(attempts, 2);
+});
+
+
 test('renderMarkdown produces a compact text artifact', () => {
   const output = renderMarkdown({
     generated_at: '2026-10-01T19:37:00.000Z',

@@ -43,8 +43,8 @@ export function resolveGenerationPlan(rawMode = 'auto', seed = '', runNumber = '
 }
 
 export async function loadStyleReference(readFileImpl = readFile) {
-  const style = (await readFileImpl(new URL('./style-reference.md', import.meta.url), 'utf8')).trim();
-  if (!style) throw new Error('style_reference_empty');
+  const style = await readFileImpl(new URL('./style-reference.md', import.meta.url), 'utf8');
+  if (!style.trim()) throw new Error('style_reference_empty');
   return style;
 }
 

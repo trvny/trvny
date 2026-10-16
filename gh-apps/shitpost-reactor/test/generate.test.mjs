@@ -20,6 +20,7 @@ test('bundled style loads without a network fetch and preserves provenance', asy
   const reference = await loadStyleReference();
   assert.match(reference, /Dzida \/ JBZD/);
   assert.match(reference, /Fresh collision material/);
+  assert.ok(reference.endsWith('\n'));
   assert.ok(Buffer.byteLength(reference, 'utf8') < 6_000);
   assert.equal(STYLE_REFERENCE_SOURCE, 'repo:gh-apps/shitpost-reactor/style-reference.md');
 });
@@ -29,9 +30,10 @@ test('bundled style loader fails on empty content instead of a remote fallback',
   const reference = await loadStyleReference(async (url, encoding) => {
     assert.match(url.pathname, /style-reference\.md$/);
     assert.equal(encoding, 'utf8');
-    return '  local style  ';
+    return '  local style  \n';
   });
-  assert.equal(reference, 'local style');
+  assert.equal(reference, '  local style  \n');
+  assert.match(buildMessages(reference)[0].content, /<style_reference>\nlocal style\n<\/style_reference>/);
 });
 
 test('buildMessages treats local style as advice instead of an output schema', () => {

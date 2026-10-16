@@ -111,7 +111,8 @@
   .panel{grid-column:span 1; display:block; text-decoration:none; color:inherit; min-width:0;
     background:#0b0f16; border-top:6px solid var(--faint); padding:14px 16px 16px;
     position:relative; transition:background .12s, transform .12s}
-  a.panel:hover,a.panel:focus-visible,.panel:focus-within{background:#111826; outline:none}
+  a.panel:hover,a.panel:focus-visible,.panel:focus-within{background:#111826}
+  a.panel:focus-visible{outline:3px solid var(--c);outline-offset:3px}
   a.panel:hover{transform:translateY(-1px)}
   .panel.tv{border-color:var(--c)} .panel.wx{border-color:var(--y)} .panel.fd{border-color:var(--g); grid-column:1 / -1}
   .phead{font-size:24px; letter-spacing:.06em; display:flex; align-items:center; gap:10px;
@@ -166,7 +167,8 @@
   .benchgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
   .bench{position:relative;min-width:0;min-height:186px;padding:15px 16px 38px;border-top:6px solid;
     background:#0b0f16;color:var(--w);text-decoration:none;transition:background .12s,transform .12s}
-  .bench:hover,.bench:focus-visible{background:#111826;transform:translateY(-1px);outline:none}
+  .bench:hover,.bench:focus-visible{background:#111826;transform:translateY(-1px)}
+  .bench:focus-visible{outline:3px solid var(--c);outline-offset:3px}
   .bench.stream{border-color:var(--c)} .bench.code{border-color:var(--b)} .bench.doc{border-color:var(--o)}
   .benchtop{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .benchno{font-family:"Silkscreen";font-size:11px;text-shadow:none;padding:3px 7px;color:var(--k)}
@@ -201,7 +203,11 @@
     .labhead{align-items:flex-start;flex-direction:column;gap:3px}
     .feedlist .ago{display:none}
   }
-  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+    a.panel:hover,.bench:hover,.bench:focus-visible{transform:none!important}
+  }
 </style>
 </head>
 <body>

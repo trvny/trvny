@@ -1,11 +1,11 @@
 # Shitpost Reactor
 
-Small scheduled shitpost generator and public feed. GitHub Actions is the only clock; the existing Kanarek free-router is the model pool; the `edgy-dark-meme` skill in `trvny/.ai` is the single style source of truth.
+Small scheduled shitpost generator and public feed. GitHub Actions is the only clock; the existing Kanarek free-router is the model pool; local `style-reference.md` owns Reactor-specific craft notes.
 
 ## Flow
 
 1. `.github/workflows/shitpost-reactor.yml` runs daily at **21:37 Europe/Warsaw** or manually with an optional topic. The lightweight job stays on `ubuntu-slim`.
-2. `generate.mjs` downloads the `edgy-dark-meme` skill from `trvny/.ai/skills/` — first of `edgy_dark_meme.skill` (claude.ai download name), `edgy-dark-meme.skill`, `edgy-dark-meme.zip` that exists — and extracts `SKILL.md` (archive root or the `edgy-dark-meme/` package folder) at runtime. `EDGY_DARK_MEME_SKILL_URL` overrides the list with one URL. The used URL and SKILL.md sha256 are recorded per post. The skill is advisory style material only; the Reactor owns the prompt and output contract.
+2. `generate.mjs` reads bundled `style-reference.md`, distilled from useful parts of the `edgy-dark-meme` archive. No download, unpacking or remote override at runtime. Published records keep the existing `skill.source`/`skill.sha256` fields for compatibility, now pointing to the local asset and its content hash. Reactor rules still own the output contract.
 3. The Action calls the authenticated public proxy at `kanarek-companion.travny.workers.dev` with synthetic model `kanarek-shitpost-free`.
 4. `kanarek-companion` forwards the call through its same-account Service Binding to private `kanarek-review`, which owns the shared provider inventory, shitpost task policy, credentials and cooldowns. Workers AI is currently excluded because its account allocation is reserved for SpaceMolt.
 5. The draft is validated and saved as `latest.json` plus a readable `latest.md`.
@@ -43,7 +43,7 @@ New records use schema v2 and contain only finished publishable content:
 - `{"kind":"text","text":"..."}` for a standalone post;
 - `{"kind":"meme","template":"...","top_text":"...","bottom_text":"..."}` for a classic meme macro rendered through `api.memegen.link`.
 
-There is no generated `dialect`, `format`, `visual` or `alt_text` taxonomy anymore. The model sees the canonical style skill as optional inspiration, not as a response schema. The Worker still reads schema v1 so already-published posts remain valid.
+There is no generated `dialect`, `format`, `visual` or `alt_text` taxonomy anymore. The model sees the bundled style reference as optional inspiration, not as a response schema. The Worker still reads schema v1 so already-published posts remain valid.
 
 Scheduled runs use `auto`. The run-number topic rotation uses a dated world headline on about one in seven runs, an LLM self-roast on another one in seven, Polish political satire on another one in seven, and evergreen absurdity otherwise. Manual topics always win. News references must be no older than 48 hours; a missing, stale or sensitive headline falls back to evergreen. World headlines now use BBC RSS plus Feedseek Reuters and Euronews JSON Feeds. Polish political headlines use Feedseek TVP Info, PAP and Gov.pl JSON Feeds, filtered by political subjects, publication time (including future-dated items) and tragedy terms. If unavailable, the politics lane uses timeless parliamentary satire without invented events. The headline title, publisher and URL remain in published topic metadata. The existing output modes and languages are unchanged.
 
@@ -69,7 +69,7 @@ agent framework:
 - the local quality kernel forces specificity, remote-association/collision,
   predictability rejection, Send Test, Feed Glance, and zero-cringe checks;
 - `taste-profile.json` is the maintained, compact source of project taste;
-- `edgy-dark-meme` stays an optional style reference, not an output contract;
+- `style-reference.md` is the local source for dialect and craft cues, not an output contract;
 - [mysaas.lol](https://mysaas.lol/for-agents) is an optional, read-only
   inspiration/anti-copy probe. Dev/startup/SaaS topics are eligible directly;
   other runs sample it deterministically at about 25%.
@@ -77,6 +77,8 @@ agent framework:
 MySaaS results are passed only as reference metadata. Reactor does not republish
 their image assets or copy meme wording. If the public API is unavailable,
 generation continues without it.
+
+The local asset is a one-time curated extraction from `trvny/.ai/skills/edgy_dark_meme.skill` (SKILL.md, collision-engine, craft, Polish-net). The upstream archive remains independent. Update the asset deliberately instead of syncing or bundling the whole package, its image assets, format registry, search/judge tooling, or output contract.
 
 The compact kernel is conceptually distilled from
 [imMamdouhaboammar/meme-marketing](https://github.com/imMamdouhaboammar/meme-marketing),

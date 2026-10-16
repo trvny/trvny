@@ -11,7 +11,7 @@ import {
   handleGptomekIssueControl,
   isGptomekControlIssueEvent,
 } from '../src/gptomek-issue.ts';
-import {
+import worker, {
   companionTargets,
   isCompanionEvent,
   shouldCoalesceTarget,
@@ -37,6 +37,41 @@ const payload = {
   repository: { full_name: 'trvny/trvny' },
   sender: { login: 'trvny' },
 };
+
+test('repeated comment wakes use fresh deliveries for checkpointed retries', async () => {
+  const deliveries: string[] = [];
+  const digest = 'a'.repeat(64);
+  const env = {
+    GPTOMEK_WAKE_TOKEN: 'wake-token',
+    GPTOMEK_INSTALLATION_ID: '152126523',
+    COMPANION_LOCK: {
+      idFromName: (name: string) => name as unknown as DurableObjectId,
+      get: () => ({
+        fetch: async (_url: RequestInfo | URL, init?: RequestInit) => {
+          const target = JSON.parse(String(init?.body ?? '{}')) as CompanionTarget;
+          deliveries.push(target.delivery);
+          return Response.json({
+            ok: true,
+            result: { changed: true, state: 'gptomek-comment-ok', commentBodySha256: digest },
+          });
+        },
+      }),
+    },
+  } as unknown as Parameters<typeof worker.fetch>[1];
+  const wake = () => new Request('https://kanarek.example/gptomek/wake', {
+    method: 'POST',
+    headers: { authorization: 'Bearer wake-token', 'content-type': 'application/json' },
+    body: JSON.stringify({ commentId: 777 }),
+  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await worker.fetch(wake(), env);
+    assert.equal(response.status, 200);
+    assert.equal((await response.json() as { commentBodySha256?: string }).commentBodySha256, digest);
+  }
+  assert.equal(deliveries.length, 2);
+  assert.match(deliveries[0] ?? '', /^gptomek-comment:777:/);
+  assert.notEqual(deliveries[0], deliveries[1]);
+});
 
 test('routes marked body edits or wake-label toggles of open issue #203', () => {
   assert.equal(isGptomekControlIssueEvent(metadata, payload), true);

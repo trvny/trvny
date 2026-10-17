@@ -15,6 +15,18 @@ import { generateWithBaconFallback } from './bacon-fallback.mjs';
 import { chooseLLMTopic, loadNewsForLane, resolveTopicLane } from './topics.mjs';
 
 export const DEFAULT_ENDPOINT = 'https://kanarek-companion.travny.workers.dev/review-router/v1/chat/completions';
+
+export function validateRouterEndpoint(endpoint) {
+  try {
+    const url = new URL(endpoint);
+    if (url.protocol !== 'https:' || url.username || url.password || !url.hostname) {
+      throw new Error('invalid_router_url');
+    }
+    return url.toString();
+  } catch {
+    throw new Error('router_endpoint_invalid');
+  }
+}
 export const STYLE_REFERENCE_SOURCE = 'repo:gh-apps/shitpost-reactor/style-reference.md';
 export const DEFAULT_MODEL = 'kanarek-shitpost-free';
 export const DEFAULT_MYSAAS_SEARCH_URL = 'https://mysaas.lol/api/agent/v1/posts';
@@ -374,7 +386,7 @@ export async function main() {
   const token = process.env.KANAREK_REVIEW_ROUTER_TOKEN?.trim();
   if (!token) throw new Error('KANAREK_REVIEW_ROUTER_TOKEN is required');
 
-  const endpoint = process.env.KANAREK_REVIEW_ROUTER_URL?.trim() || DEFAULT_ENDPOINT;
+  const endpoint = validateRouterEndpoint(process.env.KANAREK_REVIEW_ROUTER_URL?.trim() || DEFAULT_ENDPOINT);
   const topic = process.env.SHITPOST_TOPIC || '';
   const requestedMode = process.env.SHITPOST_MODE || 'auto';
   const seed = process.env.GITHUB_RUN_ID
@@ -453,7 +465,7 @@ export async function main() {
     await appendFile(process.env.GITHUB_STEP_SUMMARY, markdown, 'utf8');
   }
 
-  process.stdout.write(`shitpost generated via ${record.provider}/${record.model}${limerickLanguage ? ` [limerick:${limerickLanguage.code}]` : ''}\n`);
+  process.stdout.write(`shitpost generated via ${record.provider}/${record.model}${limerickLanguage && !generated.fallback ? ` [limerick:${limerickLanguage.code}]` : ''}\n`);
   process.stdout.write(`artifact: ${resolve(outputDir, 'latest.json')}\n`);
 }
 

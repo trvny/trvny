@@ -13,6 +13,10 @@ const MEATS = Object.freeze([
   { pattern: /\b(sausage|andouille|kielbasa)\b/i, names: ['kiełbasa', 'sausage', 'Wurst', 'saucisse', 'salchicha', 'salsiccia', 'колбаса', 'ソーセージ'] },
   { pattern: /\b(ribs|ribeye)\b/i, names: ['żeberka', 'ribs', 'Rippchen', 'côtes', 'costillas', 'costine', 'рёбрышки', 'スペアリブ'] },
   { pattern: /\b(pork|ham|pig)\b/i, names: ['szynka', 'ham', 'Schinken', 'jambon', 'jamón', 'prosciutto', 'ветчина', 'ハム'] },
+  { pattern: /\b(beef|steak|t-bone|sirloin)\b/i, names: ['wołowina', 'beef', 'Rindfleisch', 'bœuf', 'ternera', 'manzo', 'говядина', '牛肉'] },
+  { pattern: /\b(chicken|poultry)\b/i, names: ['kurczak', 'chicken', 'Hähnchen', 'poulet', 'pollo', 'pollo', 'курица', '鶏肉'] },
+  { pattern: /\b(turkey|turducken)\b/i, names: ['indyk', 'turkey', 'Truthahn', 'dinde', 'pavo', 'tacchino', 'индейка', '七面鳥'] },
+  { pattern: /\b(meatball|burger|ground round)\b/i, names: ['kotlet', 'meatball', 'Frikadelle', 'boulette', 'albóndiga', 'polpetta', 'котлета', 'ミートボール'] },
 ]);
 
 const LANGUAGES = Object.freeze([
@@ -75,17 +79,20 @@ async function readBoundedBaconJson(response) {
   return JSON.parse(Buffer.concat(chunks, bytes).toString('utf8'));
 }
 
-export async function loadBaconFallback({ seed = '', fetchImpl = fetch } = {}) {
+export async function loadBaconFallback({ seed = '', fetchImpl = fetch, signalFactory = AbortSignal.timeout } = {}) {
   try {
     const response = await fetchImpl(BACON_IPSUM_URL, {
       headers: { accept: 'application/json', 'user-agent': 'trvny-shitpost-reactor/1' },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: signalFactory(FETCH_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error('bacon_http_' + response.status);
     const data = await readBoundedBaconJson(response);
     if (!Array.isArray(data) || !data.length || typeof data[0] !== 'string'
       || !data[0].trim() || data[0].length > 10_000) {
       throw new Error('bacon_invalid_payload');
+    }
+    if (!MEATS.some((meat) => meat.pattern.test(data[0]))) {
+      throw new Error('bacon_no_recognized_meat');
     }
     return createBaconPost({ seed, source: data[0] });
   } catch (error) {

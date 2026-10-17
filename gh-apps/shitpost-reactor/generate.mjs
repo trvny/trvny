@@ -11,6 +11,7 @@ import {
   SHITPOST_TEXT_HARD_MAX_CHARS,
 } from './limits.mjs';
 import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from './templates.mjs';
+import { generateWithBaconFallback } from './bacon-fallback.mjs';
 import { chooseLLMTopic, loadNewsForLane, resolveTopicLane } from './topics.mjs';
 
 export const DEFAULT_ENDPOINT = 'https://kanarek-companion.travny.workers.dev/review-router/v1/chat/completions';
@@ -410,18 +411,33 @@ export async function main() {
     newsReference,
     politicsSatire: topicLane === 'politics',
   });
-  const completion = await requestCompletion({ endpoint, token, messages });
-  const content = parseContent(completion.content, { mode, templateId: template?.id });
+  const generated = await generateWithBaconFallback({
+    seed,
+    generate: async () => {
+      const completion = await requestCompletion({ endpoint, token, messages });
+      return {
+        content: parseContent(completion.content, { mode, templateId: template?.id }),
+        provider: completion.provider,
+        model: completion.model,
+      };
+    },
+  });
+  const content = validateContent(generated.content, {
+    mode: generated.fallback ? 'text' : mode,
+    templateId: generated.fallback ? undefined : template?.id,
+  });
   const record = {
     schema_version: 2,
     generated_at: new Date().toISOString(),
-    provider: completion.provider,
-    model: completion.model,
+    provider: generated.provider,
+    model: generated.model,
     skill: {
       source: STYLE_REFERENCE_SOURCE,
       sha256: styleHash,
     },
-    topic: (newsReference
+    topic: generated.fallback
+      ? 'Bacon Ipsum emergency (' + generated.language + ')'
+      : (newsReference
       ? `${topicLane === 'politics' ? 'Polish politics / ' : ''}${newsReference.source}: ${newsReference.title} (${newsReference.url})`
       : effectiveTopic || null)?.slice(0, 1900) || null,
     content,

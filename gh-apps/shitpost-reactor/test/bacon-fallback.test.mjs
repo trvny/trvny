@@ -24,12 +24,24 @@ test('language roulette stays stable for a run and covers eight languages', () =
   const codes = new Set(Array.from({ length: 200 }, (_, n) =>
     createBaconPost({ seed: String(n), source }).language));
   assert.equal(codes.size, 8);
+  const languageStarts = {
+    pl: /^Wyczerpano/, en: /^The thought/, de: /^Das Gedankenbudget/,
+    fr: /^Le budget/, es: /^Se agotó/, it: /^Il bilancio/,
+    ru: /^Бюджет/, ja: /^本日の/,
+  };
+  for (let n = 0; n < 200; n++) {
+    const post = createBaconPost({ seed: String(n), source });
+    assert.match(post.content.text, languageStarts[post.language]);
+  }
 });
 
 test('API source determines the ingredient, without copying its English filler', () => {
   const text = createBaconPost({ seed: 'known', source: 'Bacon bacon bacon.' }).content.text;
   assert.match(text, /boczek|bacon|Speck|pancetta|бекон|ベーコン/i);
   assert.doesNotMatch(text, /lorem ipsum|dolor sit amet/i);
+  const chicken = createBaconPost({ seed: 'known', source: 'Chicken chicken chicken.' });
+  assert.match(chicken.content.text, /kurczak|chicken|Hähnchen|poulet|pollo|курица|鶏肉/i);
+  assert.doesNotMatch(chicken.content.text, /boczek|pastrami|pancetta/i);
 });
 
 test('quota exhaustion triggers only one Bacon API call and a valid text draft', async () => {
@@ -37,16 +49,22 @@ test('quota exhaustion triggers only one Bacon API call and a valid text draft',
   const result = await generateWithBaconFallback({
     seed: 'hi',
     generate: async () => { throw new Error('router_failed:429:quota exceeded'); },
+    signalFactory: (timeoutMs) => {
+      assert.equal(timeoutMs, 4_000);
+      return AbortSignal.timeout(4_000);
+    },
     fetchImpl: async (url, init) => {
       calls++;
       assert.equal(url, BACON_IPSUM_URL);
       assert.ok(init.signal);
+      assert.equal(init.signal.aborted, false);
       return new Response(JSON.stringify(['Pastrami brisket beef ribs sausage.']), { status: 200 });
     },
   });
   assert.equal(calls, 1);
   assert.equal(result.provider, 'baconipsum');
   assert.equal(result.content.kind, 'text');
+  assert.ok(result.content.text.trim().length > 45);
 });
 
 test('successful model text and meme do not contact Bacon Ipsum', async () => {
@@ -74,6 +92,27 @@ test('generation exhaustion, missing/invalid content and transport errors allow 
   ]) assert.equal(baconFallbackEligible(error), true, error.message);
 });
 
+test('each eligible failure is actually handled by the fallback wrapper', async () => {
+  const failures = [
+    new Error('router_deadline_exceeded'), new Error('router_missing_content'),
+    new Error('router_fetch_failed:TypeError:UND_ERR_SOCKET'),
+    new Error('router_failed:503:outage'), new Error('router_failed:402:payment'),
+    new Error('router_failed:429:quota'), new Error('content_invalid_text'),
+    new Error('content_unexpected_kind'), new Error('content_not_object'),
+    new SyntaxError('invalid JSON'),
+  ];
+  for (const failure of failures) {
+    const result = await generateWithBaconFallback({
+      seed: 'retry',
+      generate: async () => { throw failure; },
+      fetchImpl: async () => new Response(JSON.stringify(['Chicken.']), { status: 200 }),
+    });
+    assert.equal(result.fallback, true);
+    assert.equal(result.content.kind, 'text');
+    assert.ok(result.content.text.trim().length > 45, failure.message);
+  }
+});
+
 test('authorization, malformed requests and misconfiguration still fail closed', async () => {
   for (const message of [
     'router_failed:401:unauthorized', 'router_failed:403:forbidden',
@@ -95,6 +134,7 @@ test('Bacon API outage and invalid response fall back to local data', async () =
     async () => new Response(JSON.stringify([]), { status: 200 }),
     async () => new Response(JSON.stringify(['x'.repeat(10_001)]), { status: 200 }),
     async () => new Response(JSON.stringify(['x'.repeat(200_000)]), { status: 200 }),
+    async () => new Response(JSON.stringify(['unrecognized product word.']), { status: 200 }),
   ]) {
     const post = await loadBaconFallback({ seed: 'offline', fetchImpl });
     assert.equal(post.provider, 'bacon-offline');
@@ -126,5 +166,6 @@ test('fallback degrades a failed meme request to a readable text post', async ()
     fetchImpl: async () => new Response(JSON.stringify(['Brisket.']), { status: 200 }),
   });
   assert.equal(result.content.kind, 'text');
+  assert.ok(result.content.text.trim().length > 45);
   assert.match(result.model, /^bacon-fallback\//);
 });

@@ -54,7 +54,7 @@ async function engramRequest(
       method: body ? 'POST' : 'GET',
       headers: upstreamHeaders(env),
       body: body ? JSON.stringify(body) : undefined,
-      redirect: 'error',
+      redirect: 'manual',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {

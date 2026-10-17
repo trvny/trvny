@@ -182,7 +182,7 @@ export function createPackageExternalTransport(
         ...init,
         headers,
         signal: controller.signal,
-        redirect: 'error',
+        redirect: 'manual',
       });
       if (!result.ok) {
         await result.body?.cancel();

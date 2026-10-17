@@ -155,7 +155,7 @@ async function mcpPost(
       method: 'POST',
       headers,
       body: JSON.stringify(body),
-      redirect: 'error',
+      redirect: 'manual',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     const nextSession = response.headers.get('mcp-session-id') ?? sessionId ?? undefined;

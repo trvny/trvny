@@ -54,14 +54,12 @@ async function engramRequest(
       method: body ? 'POST' : 'GET',
       headers: upstreamHeaders(env),
       body: body ? JSON.stringify(body) : undefined,
-      redirect: 'error',
+      redirect: 'manual',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
-      const errorBody = await response.text();
-      if (errorBody.length > MAX_RESPONSE_BYTES) {
-        throw new SpecialistToolError('engram_response_too_large', 502);
-      }
+      // Error payloads are not used; do not buffer potentially unbounded bodies.
+      if (response.body) await response.body.cancel().catch(() => undefined);
       throw upstreamError(response.status);
     }
     return await boundedJson(

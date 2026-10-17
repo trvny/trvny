@@ -42,7 +42,7 @@ async function callFeedseek(
         method: 'tools/call',
         params: { name, arguments: args },
       }),
-      redirect: 'error',
+      redirect: 'manual',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {

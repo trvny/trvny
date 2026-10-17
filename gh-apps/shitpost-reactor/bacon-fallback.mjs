@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 export const BACON_IPSUM_URL = 'https://baconipsum.com/api/?type=meat-and-filler&sentences=2';
 const FETCH_TIMEOUT_MS = 4_000;
+const MAX_BACON_BYTES = 16_384;
 
 // Bacon Ipsum itself is English-only. Select an ingredient from its response
 // and produce a genuine local-language post without spending any model tokens.
@@ -52,6 +53,28 @@ export function createBaconPost({ seed = '', source = '', offline = false } = {}
   };
 }
 
+async function readBoundedBaconJson(response) {
+  const length = Number(response.headers.get('content-length'));
+  if (Number.isFinite(length) && length > MAX_BACON_BYTES) {
+    throw new Error('bacon_body_too_large');
+  }
+  if (!response.body) throw new Error('bacon_missing_body');
+  const reader = response.body.getReader();
+  const chunks = [];
+  let bytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    if (bytes > MAX_BACON_BYTES) {
+      await reader.cancel().catch(() => {});
+      throw new Error('bacon_body_too_large');
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return JSON.parse(Buffer.concat(chunks, bytes).toString('utf8'));
+}
+
 export async function loadBaconFallback({ seed = '', fetchImpl = fetch } = {}) {
   try {
     const response = await fetchImpl(BACON_IPSUM_URL, {
@@ -59,7 +82,7 @@ export async function loadBaconFallback({ seed = '', fetchImpl = fetch } = {}) {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error('bacon_http_' + response.status);
-    const data = await response.json();
+    const data = await readBoundedBaconJson(response);
     if (!Array.isArray(data) || !data.length || typeof data[0] !== 'string'
       || !data[0].trim() || data[0].length > 10_000) {
       throw new Error('bacon_invalid_payload');

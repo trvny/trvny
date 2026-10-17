@@ -94,12 +94,29 @@ test('Bacon API outage and invalid response fall back to local data', async () =
     async () => new Response('service unavailable', { status: 503 }),
     async () => new Response(JSON.stringify([]), { status: 200 }),
     async () => new Response(JSON.stringify(['x'.repeat(10_001)]), { status: 200 }),
+    async () => new Response(JSON.stringify(['x'.repeat(200_000)]), { status: 200 }),
   ]) {
     const post = await loadBaconFallback({ seed: 'offline', fetchImpl });
     assert.equal(post.provider, 'bacon-offline');
     assert.equal(post.content.kind, 'text');
     assert.ok(post.content.text.length > 20);
   }
+});
+
+test('Bacon response enforces the byte cap even when content-length is missing', async () => {
+  let cancelled = false;
+  const oversized = new ReadableStream({
+    pull(controller) {
+      controller.enqueue(new Uint8Array(20_000));
+    },
+    cancel() { cancelled = true; },
+  });
+  const post = await loadBaconFallback({
+    seed: 'oversize',
+    fetchImpl: async () => new Response(oversized, { status: 200 }),
+  });
+  assert.equal(post.provider, 'bacon-offline');
+  assert.equal(cancelled, true);
 });
 
 test('fallback degrades a failed meme request to a readable text post', async () => {

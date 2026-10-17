@@ -39,8 +39,14 @@ effects) and deletes only an unchanged, originally unedited comment.
 Failed cleanup preserves the comment for a later retry. GitHub lacks
 an atomic compare-and-delete API for issue comments, so an edit between the
 last verification and DELETE remains a narrow race. Rejected commands remain
-with 👎; cleanup failures only emit warnings. Delivery replay is deduplicated by the
-Durable Object key and command checkpoint.
+with 👎 for up to seven days; cleanup failures only emit warnings. A daily
+schedule in that same workflow then deletes aged failed command comments
+without executing them, but only when the comment is a single fenced GPTomek
+block authored by `trvny`, is at least seven days old and was never edited,
+and carries a 👎 from `github-actions[bot]`. The cleanup
+re-fetches the comment before deleting it; the GET/DELETE race cannot be made
+atomic with GitHub's API. Delivery replay is deduplicated by the Durable
+Object key and command checkpoint.
 
 A command's 👎 applies only to its source comment on Issue #203, never to a PR
 review comment. Useful review feedback can still receive 👍 independently.
@@ -69,8 +75,9 @@ returns 502. Both transports feed the same guarded GPTomek execution path and
 have the same authorization surface. The fallback PR does not unlock extra
 capabilities.
 
-Failed commands are retained for retry by default. GPTomek removes a failed
-command marker automatically only when the failure proves that replaying the
+Failed commands are retained for retry during the seven-day grace period.
+GPTomek removes a failed command marker immediately only when the failure
+proves that replaying the
 same command would be stale or permanently invalid: an `adopt_branch` whose
 guarded head changed, whose branch disappeared, whose base/head have no changes,
 or whose immutable base/head relation is invalid; an `apply_patch` whose

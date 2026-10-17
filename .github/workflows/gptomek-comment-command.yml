@@ -3,14 +3,19 @@ name: Run GPTomek JSON comment
 on: # yamllint disable-line rule:truthy
   issue_comment:
     types: [created]
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   command:
+    permissions:
+      issues: write
     if: >-
+      github.event_name == 'issue_comment' &&
       github.event.issue.number == 203 &&
       github.event.issue.user.login == 'trvny' &&
       github.actor == 'trvny' &&
@@ -107,3 +112,44 @@ jobs:
           )
         shell: bash
         run: exit 1
+
+  cleanup:
+    permissions:
+      issues: write
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Remove failed commands older than seven days
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cutoff="$(date -u -d '7 days ago' '+%Y-%m-%dT%H:%M:%SZ')"
+          # Only failure reactions from this workflow qualify, not user reactions.
+          gh api --paginate 'repos/trvny/trvny/issues/203/comments?per_page=100' \
+            --jq '.[] | select(.user.login == "trvny" and ((.reactions["-1"] // 0) > 0)) | .id' |
+            while IFS= read -r comment_id; do
+              bot_reactions="$(
+                gh api --paginate \
+                  "repos/trvny/trvny/issues/comments/${comment_id}/reactions?per_page=100" \
+                  --jq '.[] | select(.user.login == "github-actions[bot]" and .content == "-1") | .id'
+              )"
+              [[ -n "$bot_reactions" ]] || continue
+
+              # Re-read the comment immediately before removal. Never execute it.
+              comment="$(gh api "repos/trvny/trvny/issues/comments/${comment_id}")"
+              if ! jq -e --arg cutoff "$cutoff" '
+                .user.login == "trvny" and
+                .created_at <= $cutoff and
+                .updated_at <= $cutoff and
+                .created_at == .updated_at and
+                ((.reactions["-1"] // 0) > 0) and
+                (.body | test("^\\s*```gptomek[ \\t]*\\r?\\n[\\s\\S]*?\\r?\\n```\\s*$"))
+              ' <<<"$comment" >/dev/null; then
+                continue
+              fi
+              gh api --method DELETE "repos/trvny/trvny/issues/comments/${comment_id}" >/dev/null
+              echo "Removed expired GPTomek failure comment ${comment_id}"
+            done

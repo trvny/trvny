@@ -393,7 +393,8 @@ function isCompanionTarget(value: unknown): value is CompanionTarget {
         (
           typeof target.commentId === 'number' &&
           Number.isInteger(target.commentId) &&
-          target.commentId > 0
+          target.commentId > 0 &&
+          (target.cleanupComment === undefined || typeof target.cleanupComment === 'boolean')
         )
       ),
   );
@@ -675,6 +676,7 @@ function health(env: Env, method: string): Response {
 
 async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Response> {
   let commentId: number | null = null;
+  let cleanupComment = false;
   if ((request.headers.get('content-type') ?? '').includes('application/json')) {
     let payload: unknown;
     try {
@@ -699,8 +701,16 @@ async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Resp
     ) {
       return json({ ok: false, error: 'invalid_comment_id' }, 400);
     }
-    const value = (payload as { commentId?: number } | null)?.commentId;
+    const value = (payload as { commentId?: number; cleanup?: unknown } | null)?.commentId;
+    const cleanup = (payload as { cleanup?: unknown } | null)?.cleanup;
+    if (cleanup !== undefined && typeof cleanup !== 'boolean') {
+      return json({ ok: false, error: 'invalid_cleanup_flag' }, 400);
+    }
     commentId = typeof value === 'number' ? value : null;
+    cleanupComment = cleanup === true;
+    if (cleanupComment && commentId === null) {
+      return json({ ok: false, error: 'cleanup_requires_comment_id' }, 400);
+    }
   }
 
   const installationId = Number(env.GPTOMEK_INSTALLATION_ID);
@@ -718,7 +728,7 @@ async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Resp
     pullRequestNumber: GPTOMEK_CONTROL_ISSUE,
     repository: GPTOMEK_CONTROL_REPOSITORY,
     sourceEvent: commentId === null ? 'issues' : 'gptomek_comment',
-    ...(commentId === null ? {} : { commentId }),
+    ...(commentId === null ? {} : { commentId, ...(cleanupComment ? { cleanupComment } : {}) }),
   };
   try {
     const id = env.COMPANION_LOCK.idFromName(
@@ -740,6 +750,8 @@ async function wakeGptomekControlIssue(request: Request, env: Env): Promise<Resp
       duplicate: payload.duplicate ?? false,
       state: payload.result?.state ?? null,
       commentBodySha256: payload.result?.commentBodySha256 ?? null,
+      commentCleanup: payload.result?.commentCleanup ?? null,
+      commandError: payload.result?.commandError ?? null,
     });
   } catch (error) {
     console.error(JSON.stringify({

@@ -119,13 +119,15 @@ async function currentIssueComment(
   commentId: number,
   env: CompanionEnv,
   fetcher: typeof fetch,
-): Promise<{ body: string; id: number }> {
+): Promise<{ body: string; id: number; createdAt: string | null; updatedAt: string | null }> {
   const client = await controlClient(env, fetcher);
   const comment = await client.json<{
     body?: unknown;
     id?: unknown;
     issue_url?: unknown;
     user?: { login?: unknown };
+    created_at?: unknown;
+    updated_at?: unknown;
   }>(
     `/repos/${CONTROL_REPOSITORY}/issues/comments/${commentId}`,
     'gptomek_get_control_comment',
@@ -139,7 +141,47 @@ async function currentIssueComment(
   ) {
     throw new Error('invalid_gptomek_control_comment');
   }
-  return { body: comment.body, id: commentId };
+  return {
+    body: comment.body,
+    id: commentId,
+    createdAt: typeof comment.created_at === 'string' ? comment.created_at : null,
+    updatedAt: typeof comment.updated_at === 'string' ? comment.updated_at : null,
+  };
+}
+
+async function cleanupCompletedComment(
+  original: Awaited<ReturnType<typeof currentIssueComment>>,
+  env: CompanionEnv,
+  fetcher: typeof fetch,
+): Promise<'deleted' | 'preserved' | 'failed'> {
+  // Re-read using the same App client that validated the original comment.
+  try {
+    const latest = await currentIssueComment(original.id, env, fetcher);
+    if (
+      !original.createdAt ||
+      original.createdAt !== original.updatedAt ||
+      latest.body !== original.body ||
+      latest.createdAt !== original.createdAt ||
+      latest.updatedAt !== original.updatedAt
+    ) {
+      console.warn(JSON.stringify({ gptomek: 'comment_cleanup_preserved', commentId: original.id }));
+      return 'preserved';
+    }
+    const client = await controlClient(env, fetcher);
+    await client.void(
+      `/repos/${CONTROL_REPOSITORY}/issues/comments/${original.id}`,
+      'gptomek_delete_completed_comment',
+      { method: 'DELETE' },
+    );
+    return 'deleted';
+  } catch (error) {
+    console.warn(JSON.stringify({
+      gptomek: 'comment_cleanup_failed',
+      commentId: original.id,
+      failure: issueFailure(error),
+    }));
+    return 'failed';
+  }
 }
 
 async function commentBodySha256(body: string): Promise<string> {
@@ -168,10 +210,34 @@ export async function handleGptomekCommentControl(
   try {
     const comment = await currentIssueComment(target.commentId, env, fetcher);
     const commentBodyHash = await commentBodySha256(comment.body);
-    const result = await handleGptomekCommentCommand(comment.body, env, fetcher);
+    let result;
+    try {
+      result = await handleGptomekCommentCommand(comment.body, env, fetcher);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown_error';
+      // Parser errors precede the command checkpoint; surface them as failures.
+      if (/^(invalid_|unsupported_operation$|file_content_too_large$|duplicate_|nested_batch_not_allowed$|batch_command_id_too_long$|repository_not_allowed$)/.test(reason)) {
+        return {
+          changed: false,
+          commentBodySha256: commentBodyHash,
+          commentCleanup: null,
+          commandError: reason,
+          commentId: target.commentId,
+          quipSource: 'preset',
+          state: 'gptomek-comment-error',
+        };
+      }
+      throw error;
+    }
+    // Cleanup only after Actions observed the first, durably acknowledged wake.
+    const commentCleanup = target.cleanupComment && result.result?.ok && result.result.deduplicated
+      ? await cleanupCompletedComment(comment, env, fetcher)
+      : null;
     return {
       changed: result.handled,
       commentBodySha256: commentBodyHash,
+      commentCleanup,
+      commandError: result.result?.error ?? null,
       commentId: target.commentId,
       quipSource: 'preset',
       state: result.result?.ok ? 'gptomek-comment-ok' : 'gptomek-comment-error',

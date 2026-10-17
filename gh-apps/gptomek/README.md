@@ -105,10 +105,11 @@ personal Codespaces token, security controls and first-run steps are in
 
 ## Status and troubleshooting
 
-- Confirmed successful commands normally have their Issue #203 comment deleted.
-  Duplicate deliveries, edited comments or cleanup failures may leave completed
-  commands visible. Check the actual result before retrying; failed commands
-  remain with 👎. Keep the same ID and input for safe retries, but investigate
+- Successful commands normally have their Issue #203 comment deleted in a
+  second, acknowledged cleanup pass. Edited comments or cleanup errors may
+  leave a completed command visible with a warning, not a failed-command
+  reaction. Check the actual result before retrying; failed commands remain
+  with 👎. Keep the same ID and input for safe retries, but investigate
   `command_outcome_uncertain` rather than replaying it.
 - For a failed command, check the comment workflow, the Worker's
   `/gptomek/wake` response and logs, then the repository's live state.

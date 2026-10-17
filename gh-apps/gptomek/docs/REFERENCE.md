@@ -32,11 +32,14 @@ the shared checkpointed executor.
 This direct path does not create or consume an Issue-body command marker.
 Each top-level command gets a new Issue #203 comment, including a `batch`
 containing all of its steps. No shared command comment is overwritten.
-Confirmed successful commands have their source comment deleted by Actions.
-Rejected or failed commands remain with 👎 for inspection or retry. Cleanup is
-only attempted for confirmed, non-duplicate results. Comments edited after
-creation are preserved; a deletion error also leaves the comment and fails
-the Actions job. Delivery replay is deduplicated by the
+Actions requests cleanup only after the original Worker execution was
+acknowledged and the Durable Object recorded its delivery. The second explicit
+cleanup wake replays the completed checkpoint (without repeating GitHub side
+effects) and deletes only an unchanged, originally unedited comment.
+Failed cleanup preserves the comment for a later retry. GitHub lacks
+an atomic compare-and-delete API for issue comments, so an edit between the
+last verification and DELETE remains a narrow race. Rejected commands remain
+with 👎; cleanup failures only emit warnings. Delivery replay is deduplicated by the
 Durable Object key and command checkpoint.
 
 A command's 👎 applies only to its source comment on Issue #203, never to a PR
@@ -206,7 +209,10 @@ paths; individual string contents are limited to 48,000 characters.
 }
 ```
 
-The patch may touch up to 32 text files and is applied only to the exact
+The patch parser accepts up to 200,000 characters and 32 text files.
+GitHub's comment-size limit and individual transport limits may be lower;
+use smaller guarded commands or existing blobs via `commit_tree` when needed.
+It is applied only to the exact
 `expectedHeadSha`. Every hunk uses strict positional/context matching. GPTomek
 preserves untouched per-line LF/CRLF endings, UTF-8 BOMs and existing executable
 bits, and honors `100644` / `100755` metadata for newly created files. Empty

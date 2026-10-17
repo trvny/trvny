@@ -31,9 +31,7 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-| Repository | PR | Title | Author | State | Updated |
-| --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#499](https://github.com/trvny/feedseek/pull/499) | feat(development): add Ionic Framework RSS | @trvny | ready | 2026-10-15 |
+No open pull requests. 🎉
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

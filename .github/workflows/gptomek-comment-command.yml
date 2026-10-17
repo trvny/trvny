@@ -40,68 +40,54 @@ jobs:
           printf '%s\n' "$response"
           state="$(jq -r '.state // empty' <<<"$response")"
           duplicate="$(jq -r '.duplicate // false' <<<"$response")"
-          body_hash="$(jq -r '.commentBodySha256 // empty' <<<"$response")"
+          reason="$(jq -r '.commandError // empty' <<<"$response")"
           {
             echo "state=$state"
             echo "duplicate=$duplicate"
-            echo "body_hash=$body_hash"
           } >>"$GITHUB_OUTPUT"
+          if [[ "$state" == "gptomek-comment-error" ]]; then
+            echo "::error::GPTomek command failed: ${reason:-unknown_error}"
+          fi
           if [[ "$duplicate" == "true" ]]; then
             exit 0
           fi
           [[ "$state" == "gptomek-comment-ok" || "$state" == "gptomek-comment-error" ]]
 
-      - name: Remove completed command comment
-        id: cleanup
+      - name: Remove acknowledged command comment
         if: >-
           steps.execute.outcome == 'success' &&
-          steps.execute.outputs.duplicate != 'true' &&
-          steps.execute.outputs.state == 'gptomek-comment-ok'
+          steps.execute.outputs.state == 'gptomek-comment-ok' &&
+          steps.execute.outputs.duplicate != 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GPTOMEK_WAKE_TOKEN: ${{ secrets.GPTOMEK_WAKE_TOKEN }}
           COMMENT_ID: ${{ github.event.comment.id }}
-          EXPECTED_BODY_SHA256: ${{ steps.execute.outputs.body_hash }}
         shell: bash
         run: |
           set -euo pipefail
-          # Compare the REST comment actually processed by GPTomek with the
-          # live REST body, not the possibly different Actions event payload.
-          current="$(gh api "repos/trvny/trvny/issues/comments/${COMMENT_ID}")"
-          if ! jq -e --argjson id "$COMMENT_ID" \
-            --arg issue_url "https://api.github.com/repos/trvny/trvny/issues/203" '
-              .id == $id and
-              .issue_url == $issue_url and
-              .user.login == "trvny" and
-              .created_at == .updated_at
-            ' <<<"$current" >/dev/null; then
-            echo "::error::Command comment edited or unexpected source; preserving it."
-            exit 1
+          # First wake returned; DO persisted the delivery before this phase.
+          if ! response="$(
+            curl --fail --silent --show-error --retry 2 \
+              --connect-timeout 5 --max-time 30 \
+              -X POST \
+              -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -nc --argjson commentId "$COMMENT_ID" '{commentId:$commentId,cleanup:true}')" \
+              https://kanarek-companion.travny.workers.dev/gptomek/wake
+          )"; then
+            echo "::warning::Command succeeded; cleanup request failed. Safe to retry cleanup."
+            exit 0
           fi
-          current_hash="$(jq -rj '.body' <<<"$current" | sha256sum | cut -d' ' -f1)"
-          if [[ ! "$EXPECTED_BODY_SHA256" =~ ^[0-9a-f]{64}$ ]] ||
-            [[ "$current_hash" != "$EXPECTED_BODY_SHA256" ]]; then
-            echo "::error::Command body changed after GPTomek executed; preserving it."
-            exit 1
+          cleanup="$(jq -r '.commentCleanup // empty' <<<"$response")"
+          if [[ "$cleanup" != "deleted" ]]; then
+            echo "::warning::Command succeeded; cleanup=${cleanup:-unknown}. Source preserved."
           fi
-          # Minimize the non-atomic check/delete window with a second GET.
-          latest="$(gh api "repos/trvny/trvny/issues/comments/${COMMENT_ID}")"
-          latest_hash="$(jq -rj '.body' <<<"$latest" | sha256sum | cut -d' ' -f1)"
-          if [[ "$latest_hash" != "$current_hash" ]] ||
-            [[ "$(jq -r '.updated_at' <<<"$latest")" != "$(jq -r '.updated_at' <<<"$current")" ]]; then
-            echo "::error::Command comment changed during cleanup; preserving it."
-            exit 1
-          fi
-          gh api \
-            --method DELETE \
-            "repos/trvny/trvny/issues/comments/${COMMENT_ID}" \
-            >/dev/null
 
       - name: Mark command failure
         if: >-
-          always() &&
-          steps.execute.outcome == 'failure' ||
-          steps.execute.outputs.state == 'gptomek-comment-error' ||
-          steps.cleanup.outcome == 'failure'
+          always() && (
+            steps.execute.outcome == 'failure' ||
+            steps.execute.outputs.state == 'gptomek-comment-error'
+          )
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
@@ -115,9 +101,9 @@ jobs:
 
       - name: Fail rejected command
         if: >-
-          always() &&
-          steps.execute.outcome == 'failure' ||
-          steps.execute.outputs.state == 'gptomek-comment-error' ||
-          steps.cleanup.outcome == 'failure'
+          always() && (
+            steps.execute.outcome == 'failure' ||
+            steps.execute.outputs.state == 'gptomek-comment-error'
+          )
         shell: bash
         run: exit 1

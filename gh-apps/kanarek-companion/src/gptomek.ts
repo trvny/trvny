@@ -32,7 +32,7 @@ const RESULT_RE = /<!--\s*gptomek-result:([A-Za-z0-9+/_-]+={0,2})\s*-->/g;
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_BATCH_STEPS = 10;
 const MAX_RESULT_BYTES = 8_000;
-const MAX_PATCH_CHARS = 40_000;
+const MAX_PATCH_CHARS = 200_000;
 const MAX_PATCH_FILES = 32;
 const MAX_PATCHED_FILE_BYTES = 1_000_000;
 const MAX_CHERRY_PICK_CHANGES = 512;

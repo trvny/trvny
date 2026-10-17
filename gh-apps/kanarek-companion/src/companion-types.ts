@@ -30,10 +30,13 @@ export interface CompanionTarget {
   repository: string;
   sourceEvent: string;
   commentId?: number;
+  cleanupComment?: boolean;
 }
 
 export interface CompanionResult {
   commentBodySha256?: string;
+  commentCleanup?: 'deleted' | 'preserved' | 'failed' | null;
+  commandError?: string | null;
   changed: boolean;
   commentId: number | null;
   quipSource: 'ai' | 'pool' | 'preset';

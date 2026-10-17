@@ -324,7 +324,12 @@ test('executes a fenced JSON control comment without staging a base64 mailbox ma
         body: commentBody,
         issue_url: 'https://api.github.com/repos/trvny/trvny/issues/203',
         user: { login: 'trvny' },
+        created_at: '2026-10-17T10:00:00Z',
+        updated_at: '2026-10-17T10:00:00Z',
       });
+    }
+    if (method === 'DELETE' && url.pathname === `/repos/trvny/trvny/issues/comments/${commentId}`) {
+      return new Response(null, { status: 204 });
     }
     if (method === 'GET' && url.pathname === '/repos/trvny/trvny/installation') {
       return json({ id: 152126523 });
@@ -357,13 +362,53 @@ test('executes a fenced JSON control comment without staging a base64 mailbox ma
 
   assert.equal(result.changed, true);
   assert.equal(result.state, 'gptomek-comment-ok');
+  assert.equal(result.commentCleanup, null);
+  const cleaned = await handleGptomekCommentControl(
+    { ...target, cleanupComment: true }, env, fetcher,
+  );
+  assert.equal(cleaned.state, 'gptomek-comment-ok');
+  assert.equal(cleaned.commentCleanup, 'deleted');
   assert.equal(result.commentId, commentId);
   assert.equal(
     result.commentBodySha256,
     createHash('sha256').update(commentBody).digest('hex'),
   );
   assert.equal(calls.some((call) => call.method === 'PATCH'), false);
+  assert.equal(calls.filter((call) => call.method === 'DELETE').length, 1);
   assert.equal(calls.some((call) => call.path.includes('/pulls/176')), false);
+});
+
+test('reports invalid JSON from source comment as actionable failure', async () => {
+  const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
+    .privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  const commentId = 779;
+  const fetcher: typeof fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === 'string' ? input
+      : input instanceof URL ? input.toString() : input.url);
+    const method = (init.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+    if (method === 'POST' && url.pathname === '/app/installations/152126523/access_tokens') {
+      return Response.json({ token: 'token', expires_at: '2099-01-01T00:00:00Z' });
+    }
+    if (method === 'GET' && url.pathname === `/repos/trvny/trvny/issues/comments/${commentId}`) {
+      return Response.json({ id: commentId, body: '```gptomek\n{"id":"bad",}\n```',
+        issue_url: 'https://api.github.com/repos/trvny/trvny/issues/203',
+        user: { login: 'trvny' } });
+    }
+    return new Response('unexpected mutation', { status: 500 });
+  };
+  const target: CompanionTarget = {
+    delivery: `gptomek-comment:${commentId}`,
+    installationId: 152126523, pullRequestNumber: 203,
+    repository: 'trvny/trvny', sourceEvent: 'gptomek_comment', commentId,
+  };
+  const env = {
+    GPTOMEK_APP_ID: '4524407', GPTOMEK_INSTALLATION_ID: '152126523',
+    GPTOMEK_PRIVATE_KEY: privateKey,
+  } as CompanionEnv;
+  const result = await handleGptomekCommentControl(target, env, fetcher);
+  assert.equal(result.changed, false);
+  assert.equal(result.state, 'gptomek-comment-error');
+  assert.equal(result.commandError, 'invalid_comment_command_json');
 });
 
 test('rejects a control comment authored by someone else before command execution', async () => {

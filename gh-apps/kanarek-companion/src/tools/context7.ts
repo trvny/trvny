@@ -75,7 +75,7 @@ async function context7Json(
     const response = await fetcher(url.toString(), {
       method: 'GET',
       headers: upstreamHeaders(env),
-      redirect: 'error',
+      redirect: 'manual',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {

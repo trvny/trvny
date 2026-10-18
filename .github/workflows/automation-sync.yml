@@ -166,18 +166,20 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --no-install wrangler deploy
-      - name: Verify production archive
+        run: npx --no-install wrangler deploy --var DEPLOY_COMMIT:$GITHUB_SHA
+      - name: Verify exact deployed commit and archive
         shell: bash
         run: |
           set -euo pipefail
+          url=https://shitpost.trfny.com
           for _ in {1..12}; do
-            if curl --fail --silent --show-error --connect-timeout 5 --max-time 15               "https://shitpost.trfny.com/archive?deploy-check=${GITHUB_SHA}" | grep -Fq 'Newest first'; then
+            version=$(curl -fsS --connect-timeout 5 --max-time 15 "$url/version?deploy-check=$GITHUB_SHA" || true)
+            if [[ "$version" == "$GITHUB_SHA" ]] && curl -fsS --connect-timeout 5 --max-time 15 "$url/archive?deploy-check=$GITHUB_SHA" | grep -Fq "Newest first"; then
               exit 0
             fi
             sleep 5
           done
-          echo "::error::Deployment did not return the newest-first archive."
+          echo "::error::Deployment did not serve the expected commit and archive."
           exit 1
       - name: Roll back unhealthy deployment
         if: ${{ failure() && steps.previous.outcome == 'success' && steps.deploy.outcome != 'skipped' }}

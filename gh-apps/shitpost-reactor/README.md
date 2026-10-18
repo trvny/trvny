@@ -26,13 +26,16 @@ The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROU
 - `https://shitpost.trfny.com/sitemap.xml`, `/robots.txt` and `/llms.txt` — crawler and agent discovery;
 - `/site.webmanifest` and `/browserconfig.xml` — installability/platform metadata;
 - `/favicon.svg`, classic `/favicon.ico`, PNG favicon sizes, Apple touch icon and manifest icons — one generated icon propagated across browsers, feeds and install surfaces;
-- `/posts/gh-<run_id>-<run_attempt>` — stable canonical page for each published entry.
+- `/posts/gh-<run_id>-<run_attempt>` — stable canonical page for each published entry;
+- `/version` — public deployed commit SHA (or `unknown` for a manual release without the marker).
 
 RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categories and icon metadata. RSS and Atom also expose self-links and content with the correct feed MIME types. The Worker maintains one complete R2 `index.json` manifest ordered newest-first. Feeds still read up to 50 entries and the homepage shows up to 20. `/archive` reads just 25 post bodies per page and uses a stable last-post cursor, with Older, Newer and Newest links. Publishing a new post does not shift subsequent pages. The previous index format retained only 250 posts; its entries are reconciled with canonical R2 object metadata on a legacy archive read (read-only) and permanently migrated on the next authenticated publish. Authenticated publishes also reconcile the canonical post objects, recovering entries if a prior index write failed. Once migrated, archive requests never scan the full bucket. Browser Back works, and the archive header still omits the descriptive subtitle.
 
 ## Worker
 
 `worker.mjs` is intentionally read-mostly. `icons.mjs` is the single generated-icon implementation used for SVG, PNG, ICO, Apple touch, Windows tile and manifest surfaces. The only write route is `POST /api/publish`, accepted only with a valid GitHub Actions OIDC token from the scheduled/manual workflow on `main`. A repeated request from the same GitHub run/attempt is idempotent.
+
+Deploy through the existing `.github/workflows/automation-sync.yml` target `shitpost-reactor-deploy`. It checks the code, injects its GitHub commit SHA, deploys to Cloudflare, verifies that `/version` matches that SHA and `/archive` is newest-first, then rolls back on failure.
 
 `wrangler.jsonc` binds the R2 bucket and configures Workers Logs at **1%** (`head_sampling_rate: 0.01`), with invocation logs and traces disabled. `shitpost.trfny.com` is the production custom domain; `workers.dev` remains available as an emergency/debug route.
 

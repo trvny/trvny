@@ -47,6 +47,16 @@ test('homepage hides the description while retaining discovery metadata', async 
   assert.doesNotMatch(body, /Automatycznie generowane polskie shitposty/);
 });
 
+test('version endpoint exposes only a valid injected GitHub SHA', async () => {
+  const sha = 'a'.repeat(40);
+  const valid = await worker.fetch(new Request('https://shitpost.trfny.com/version'), { DEPLOY_COMMIT: sha });
+  assert.equal(await valid.text(), `${sha}\n`);
+  const unknown = await worker.fetch(new Request('https://shitpost.trfny.com/version'), {});
+  assert.equal(await unknown.text(), 'unknown\n');
+  const invalid = await worker.fetch(new Request('https://shitpost.trfny.com/version'), { DEPLOY_COMMIT: 'not-a-hash' });
+  assert.equal(await invalid.text(), 'unknown\n');
+});
+
 test('robots policy explicitly welcomes AI crawlers and everyone else', async () => {
   const response = await worker.fetch(new Request('https://shitpost.trfny.com/robots.txt'), {});
   const text = await response.text();

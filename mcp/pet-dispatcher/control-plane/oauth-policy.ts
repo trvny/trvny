@@ -60,3 +60,16 @@ export function petOAuthOwnerMatches(
   return !!configuredId && !!configuredLogin && Number.isSafeInteger(ownerId) &&
     verified.githubId === ownerId && verified.githubLogin === configuredLogin;
 }
+
+/** OAuth remains dormant until the dedicated KV and GitHub client exist. */
+export function petOAuthConfigured(env: {
+  OAUTH_KV?: unknown;
+  PET_OAUTH_GITHUB_CLIENT_ID?: string;
+  PET_OAUTH_GITHUB_CLIENT_SECRET?: string;
+  PET_OAUTH_GITHUB_ID?: string;
+  PET_OAUTH_GITHUB_LOGIN?: string;
+}): boolean {
+  return !!(env.OAUTH_KV && env.PET_OAUTH_GITHUB_CLIENT_ID?.trim() &&
+    env.PET_OAUTH_GITHUB_CLIENT_SECRET?.trim() && env.PET_OAUTH_GITHUB_ID?.trim() &&
+    env.PET_OAUTH_GITHUB_LOGIN?.trim());
+}

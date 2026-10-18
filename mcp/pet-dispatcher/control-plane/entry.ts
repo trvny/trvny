@@ -5,6 +5,7 @@ import { ICON_BYTES } from "./icon.js";
 import { hostTaskHiddenFrom, isHostTask, mayHandleHostTask, mayIndexTask, requiresOwnerRoute } from "./host-access.js";
 import { isMcpPath, mcpRoute, type McpRoute } from "./mcp-auth.js";
 import { withPetOAuth, type PetOAuthEnv } from "./oauth.js";
+import { petOAuthConfigured } from "./oauth-policy.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
 import { computeTimings } from "./task-timings.js";
 import {
@@ -726,8 +727,16 @@ const controlWorker: ExportedHandler<Env> = {
   },
 };
 
-// The OAuth handler can only call the connector facade; owner-route host tools
-// continue to require the separate CONTROL_PLANE_TOKEN on the legacy /mcp path.
-export default withPetOAuth(controlWorker, async (request, env) =>
+// OAuth is exclusively a connector route. Until the independent KV and
+// GitHub client credentials are provisioned, serve the old Worker unchanged.
+const oauthWorker = withPetOAuth(controlWorker, async (request, env) =>
   handleControlMcp(await boundedMcpRequest(request), mcpOperations(env, "connector")),
 );
+
+export default {
+  fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return petOAuthConfigured(env)
+      ? oauthWorker.fetch!(request, env, ctx)
+      : controlWorker.fetch!(request, env, ctx);
+  },
+} satisfies ExportedHandler<Env>;

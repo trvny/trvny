@@ -123,7 +123,7 @@ jobs:
         github.event.action == 'shitpost-reactor-deploy' &&
         github.actor_id == 314538226))
     concurrency:
-      group: automation-sync-cloudflare
+      group: automation-sync-cloudflare-shitpost
       cancel-in-progress: false
     runs-on: ubuntu-slim
     timeout-minutes: 25
@@ -172,9 +172,13 @@ jobs:
         run: |
           set -euo pipefail
           url=https://shitpost.trfny.com
+          archive_file=$(mktemp)
+          trap 'rm -f "$archive_file"' EXIT
           for _ in {1..12}; do
             version=$(curl -fsS --connect-timeout 5 --max-time 15 "$url/version?deploy-check=$GITHUB_SHA" || true)
-            if [[ "$version" == "$GITHUB_SHA" ]] && curl -fsS --connect-timeout 5 --max-time 15 "$url/archive?deploy-check=$GITHUB_SHA" | grep -Fq "Newest first"; then
+            if [[ "$version" == "$GITHUB_SHA" ]] && \
+              curl -fsS --connect-timeout 5 --max-time 15 -o "$archive_file" "$url/archive?deploy-check=$GITHUB_SHA" && \
+              grep -Fq "Newest first" "$archive_file"; then
               exit 0
             fi
             sleep 5

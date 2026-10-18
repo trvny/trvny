@@ -16,21 +16,26 @@ function bucket(posts, { legacy = false, legacyCount = posts.length } = {}) {
   const byId = new Map(posts.map((p) => [p.id, p]));
   const sorted = [...posts].sort((a, b) => b.published_at.localeCompare(a.published_at));
   const entries = sorted.map((p) => ({ id: p.id, published_at: p.published_at }));
-  let index = legacy ? entries.slice(0, legacyCount) : { version: 2, entries };
+  let index = legacy ? entries.slice(0, legacyCount) : entries;
+  let complete = !legacy;
   let lists = 0;
   let bodies = 0;
   let puts = 0;
   const feed = {
     async get(key) {
-      if (key === 'index.json') return { json: async () => structuredClone(index) };
+      if (key === 'index.json') return {
+        json: async () => structuredClone(index),
+        customMetadata: complete ? { archive_index_version: '2' } : {},
+      };
       const p = byId.get(/^posts\/(gh-\d+-\d+)\.json$/u.exec(key)?.[1]);
       if (p) { bodies += 1; return { json: async () => p }; }
       return null;
     },
-    async put(key, value) {
+    async put(key, value, options) {
       assert.equal(key, 'index.json');
       puts++;
       index = JSON.parse(value);
+      complete = options?.customMetadata?.archive_index_version === '2';
     },
     async list({ prefix, cursor, include }) {
       assert.equal(prefix, 'posts/');
@@ -54,7 +59,7 @@ function bucket(posts, { legacy = false, legacyCount = posts.length } = {}) {
     add(p) {
       byId.set(p.id, p);
       posts.push(p);
-      if (index?.version === 2) index.entries.unshift({ id: p.id, published_at: p.published_at });
+      if (complete) index.unshift({ id: p.id, published_at: p.published_at });
     },
     addUnindexed(p) {
       byId.set(p.id, p);
@@ -142,10 +147,12 @@ test('legacy index migrates old posts beyond the 250-entry cutoff without droppi
   assert.equal(b.counts.puts, 0, 'GET must not persist index migration');
 
   await ensureIndexed(b.env, post(271));
-  assert.equal(b.manifest.version, 2);
-  assert.equal(b.manifest.entries.length, 271);
+  assert.ok(Array.isArray(b.manifest), 'the on-disk manifest stays readable by old Workers');
+  assert.equal(b.manifest.length, 271);
   assert.equal(b.counts.puts, 1);
   const scanned = b.counts.lists;
+  const indexObject = await b.env.FEED.get('index.json');
+  assert.equal(indexObject.customMetadata.archive_index_version, '2');
   await archive(b.env, post(26).id);
   assert.equal(b.counts.lists, scanned, 'completed index needs no more bucket scans');
 });
@@ -154,7 +161,7 @@ test('next authenticated publish recovers posts orphaned by a failed index write
   const b = bucket([post(1), post(2)]);
   b.addUnindexed(post(3));
   await ensureIndexed(b.env, post(4));
-  assert.deepEqual(b.manifest.entries.map((entry) => entry.id), [
+  assert.deepEqual(b.manifest.map((entry) => entry.id), [
     post(4).id, post(3).id, post(2).id, post(1).id,
   ]);
   assert.ok(b.counts.lists > 0, 'publish must reconcile canonical post objects');
@@ -162,6 +169,13 @@ test('next authenticated publish recovers posts orphaned by a failed index write
   const result = await archive(b.env);
   assert.match(result.body, /Post number 3/);
   assert.equal(b.counts.lists, scanned, 'reads of complete index do not scan the bucket');
+});
+
+test('fully migrated manifest remains backward-compatible with old array readers', async () => {
+  const b = bucket([post(1), post(2)]);
+  await ensureIndexed(b.env, post(3));
+  assert.ok(Array.isArray(b.manifest));
+  assert.deepEqual(b.manifest.slice(0, 2).map((entry) => entry.id), [post(3).id, post(2).id]);
 });
 
 test('feeds and homepage keep their bounded read sizes with a complete archive', async () => {

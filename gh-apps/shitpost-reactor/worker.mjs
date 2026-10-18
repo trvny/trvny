@@ -185,7 +185,8 @@ async function readIndex(env) {
 // canonical R2 post metadata; normal v2 archive reads never list the bucket.
 // A legacy archive GET scans without writing; the next authenticated publish
 // persists the complete v2 index, preserving the Worker write boundary.
-async function readCompleteIndex(env, state = await readIndexState(env)) {
+async function readCompleteIndex(env, state = null) {
+  state ||= await readIndexState(env);
   if (state.complete) return state.entries;
   const entries = [...state.entries];
   const seen = new Set(entries.map((entry) => entry.id));

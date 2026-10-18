@@ -1,0 +1,4 @@
+interface:
+  default_prompt: Explain what this code is doing and why it has chosen violence.
+  display_name: Gremlin
+  short_description: Guarded gremlin operator

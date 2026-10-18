@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mechagremlin",
-  "version": "0.31.2",
-  "description": "MechaGremlin plugin backed by the standalone guarded Gremlin runtime.",
+  "version": "0.31.6",
+  "description": "Deadpan gremlin for code, GitHub, research and questionable ideas. Useful first, funny second. Persistent when the job gets ugly.",
   "author": {
     "name": "trvny",
     "url": "https://github.com/trvny"
@@ -19,20 +19,24 @@
   "extensions": {
     "com.openai": {
       "interface": {
-        "displayName": "MechaGremlin",
-        "shortDescription": "Guarded repo operator",
-        "longDescription": "MechaGremlin operator backed by the standalone guarded Gremlin runtime and its specialist services.",
-        "developerName": "trvny",
         "capabilities": [
-          "Read",
-          "Write"
+          "skills"
         ],
-        "websiteURL": "https://github.com/trvny/trvny",
+        "category": "Developer Tools",
+        "composerIcon": "./assets/gpt-icon.png",
         "defaultPrompt": [
-          "Inspect my repositories and tell me what needs attention.",
-          "Use MechaGremlin specialist tools to investigate this project."
-        ]
-      }
+          "Explain what this code is doing and why it has chosen violence.",
+          "Something broke. Go find the corpse.",
+          "Research this properly, not spiritually."
+        ],
+        "developerName": "trvny",
+        "displayName": "MechaGremlin",
+        "logo": "./assets/gpt-icon.png",
+        "longDescription": "Deadpan gremlin for code, GitHub, research and questionable ideas. Useful first, funny second. Persistent when the job gets ugly.",
+        "shortDescription": "Guarded gremlin operator",
+        "websiteURL": "https://github.com/trvny/trvny"
+      },
+      "apps": "./.app.json"
     }
   }
 }

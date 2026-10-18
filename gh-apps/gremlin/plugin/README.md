@@ -1,40 +1,39 @@
 # MechaGremlin plugin
 
-This directory is the maintained portable plugin source for the migrated
-MechaGremlin workflow and is owned by the Gremlin package.
+This directory is the maintained **portable source** of the existing private
+MechaGremlin plugin. The live private plugin is release `0.31.6`
+(`plugin_2efcd1a24fa08191b71d92f1972ac32c`).
+**Do not create another production plugin.**
 
-It does **not** duplicate operator logic. The deployed `gremlin` Worker still
-reuses the maintained action runtime while the Gremlin-only modules are being
-moved out of `kanarek-companion`.
+The source uses `skills/gremlin/` as its sole canonical skill directory.
+The migrated account plugin still presents that same skill at
+`skills/instructions/`; this is a packaging-layout difference, not a second
+Gremlin skill. The style reference exists only at
+`skills/gremlin/references/gremlin-style.md`. The removed legacy files
+`AGENTS.md`, `GREMLIN_STYLE.md` and `USER_CONTEXT.md` are not included.
+`agents/openai.yaml` is skill UI metadata, not another instruction source.
+The compact `lookup/knowledge-index.json` points only to existing references.
 
-The portable package connects to the authenticated Streamable HTTP MCP at
-`https://gremlin.travny.workers.dev/mcp`. The MCP exposes a compatibility
-superset: the migrated 30-operation Gremlin web surface, including
-`getDocsIndex`, plus seven direct specialist tools for Engram, Context7 and
-Feedseek. Operator calls dispatch through the existing guarded Action handlers,
-so policy, stale-state checks, GPTomek attribution, replay protection and
-Cloudflare guards stay authoritative.
+The live plugin's registered ChatGPT app is declared in `.app.json`. The
+canonical Streamable HTTP MCP configuration stays in `mcp.json`, targeting
+`https://gremlin.travny.workers.dev/mcp`. The host-generated
+`.codex-plugin/plugin.json` and `.mcp.json` are compatibility outputs, not
+separately maintained definitions. The same original logo is used by
+`plugin.json` for the plugin and composer icon.
 
-`skills/gremlin/` is the canonical packaged behavior. It preserves the Gremlin
-persona and maintained meme/style references without carrying the migrated
-`USER_CONTEXT.md` snapshot.
+The Gremlin MCP exposes 30 guarded operator tools (including `getDocsIndex`)
+and seven specialist tools for Context7, Feedseek and Engram. Actions route
+through the shared `kanarek-companion` runtime, which owns authentication
+checks, GPTomek attribution, scope guards, replay protections and Cloudflare
+policy. Do not duplicate that runtime inside this package.
 
-Anchor storage remains a separately authenticated capability. Do not proxy its
-OAuth through the Gremlin Worker or invent a registered App ID. Add it to the
-private plugin only after the actual OpenAI App identity is verified.
+Anchor storage (`useGremlinStorage`) uses **separate Anchor OAuth** and is
+not part of the 37-tool MCP surface. Never proxy its credentials or silently
+add it to the registered app.
 
-The built-in ChatGPT migration created the private successor plugin, and that
-same plugin was updated in place to release `0.31.2` on 2026-10-06. The live
-account bundle keeps the migration-era `skills/instructions/` path only because
-the account editor cannot delete existing files; its effective skill is
-`Gremlin`, its stale user-context file is a data-free tombstone, and its
-package now includes the standalone Gremlin MCP.
+For migration history, parity status, and pending verification, see
+`skills/gremlin/references/migration.md` and
+[issue #958](https://github.com/trvny/trvny/issues/958).
 
-Do not create a second production plugin from this repository. This directory
-remains the canonical portable source for future updates.
-
-Migration status and acceptance gates live in
-`skills/gremlin/references/migration.md`.
-
-No credentials, OAuth tokens, private keys or copied user-context files belong
-in this directory.
+No secrets, OAuth tokens, copied personal context, or runtime policy duplicates
+belong in this portable source.

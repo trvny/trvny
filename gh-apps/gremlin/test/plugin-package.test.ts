@@ -16,7 +16,7 @@ test('portable MechaGremlin manifest references the installed MCP app and origin
       interface: { logo: string; composerIcon: string; capabilities: string[] };
     } };
   };
-  const app = JSON.parse(await file('.app.json')) as { apps: { connector: { id: string } } };
+  const app = JSON.parse(await file('.app.json')) as { apps: Record<string, { id: string }> };
   const mcp = JSON.parse(await file('mcp.json')) as {
     mcpServers: { gremlin: { url: string } };
   };
@@ -24,7 +24,8 @@ test('portable MechaGremlin manifest references the installed MCP app and origin
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
   assert.equal(manifest.extensions['com.openai'].apps, './.app.json');
   assert.deepEqual(manifest.extensions['com.openai'].interface.capabilities, ['skills']);
-  assert.match(app.apps.connector.id, /^asdk_app_[a-z0-9]+$/);
+  assert.deepEqual(Object.keys(app.apps), Object.keys(mcp.mcpServers));
+  assert.match(app.apps.gremlin.id, /^asdk_app_[a-z0-9]+$/);
   assert.equal(mcp.mcpServers.gremlin.url, 'https://gremlin.travny.workers.dev/mcp');
 
   for (const path of [

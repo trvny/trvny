@@ -133,9 +133,11 @@ async function gitHubUser(env: PetOAuthEnv, code: string): Promise<PetAuthProps 
   } catch {
     throw new Error("upstream_github_unavailable");
   }
-  if (token.status >= 500 || token.status === 429) throw new Error("upstream_github_unavailable");
+  if (token.status >= 500 || token.status === 429 || token.status === 403) throw new Error("upstream_github_unavailable");
   if (!token.ok) return null;
-  const result: unknown = await token.json();
+  let result: unknown;
+  try { result = await token.json(); }
+  catch { throw new Error("upstream_github_unavailable"); }
   const accessToken = typeof result === "object" && result !== null && "access_token" in result
     ? (result as { access_token?: unknown }).access_token : undefined;
   if (typeof accessToken !== "string" || !accessToken) return null;
@@ -152,9 +154,11 @@ async function gitHubUser(env: PetOAuthEnv, code: string): Promise<PetAuthProps 
   } catch {
     throw new Error("upstream_github_unavailable");
   }
-  if (response.status >= 500 || response.status === 429) throw new Error("upstream_github_unavailable");
+  if (response.status >= 500 || response.status === 429 || response.status === 403) throw new Error("upstream_github_unavailable");
   if (!response.ok) return null;
-  const user: unknown = await response.json();
+  let user: unknown;
+  try { user = await response.json(); }
+  catch { throw new Error("upstream_github_unavailable"); }
   if (!user || typeof user !== "object" || Array.isArray(user)) return null;
   const identity = user as { id?: unknown; login?: unknown };
   const ownerId = Number(env.PET_OAUTH_GITHUB_ID);
@@ -191,7 +195,7 @@ async function callback(request: Request, env: PetOAuthEnv): Promise<Response> {
   } catch (error) {
     if (error instanceof AuthorizationError) return new Response("Invalid or expired authorization", { status: 400 });
     if (error instanceof Error && error.message === "upstream_github_unavailable") {
-      return new Response("GitHub sign-in temporarily unavailable", {
+      return new Response("GitHub sign-in temporarily unavailable. Restart sign-in from the MCP client; the previous callback state cannot be replayed.", {
         status: 503, headers: { "cache-control": "no-store", "retry-after": "30" },
       });
     }
@@ -209,7 +213,12 @@ export function withPetOAuth<Env extends PetOAuthEnv>(
       if (!petOAuthOwnerMatches(this.ctx.props, this.env.PET_OAUTH_GITHUB_ID, this.env.PET_OAUTH_GITHUB_LOGIN)) {
         return new Response("Forbidden", { status: 403 });
       }
-      const required = await requiredPetScopes(request);
+      let required: string[];
+      try { required = await requiredPetScopes(request); }
+      catch (error) {
+        if (error instanceof RangeError) return new Response("MCP request body is too large", { status: 413 });
+        throw error;
+      }
       if (!required.every((scope) => context.auth?.scope?.includes(scope))) {
         if (!context.auth?.scope) return new Response("Forbidden", { status: 403 });
         return insufficientScope(context.auth as Parameters<typeof insufficientScope>[0], required);

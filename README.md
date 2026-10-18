@@ -23,9 +23,7 @@
 
 ### Ja i moje ziomki
 
-<p align="left">
-  <img src="assets/ziomki2.png" width="420">
-</p>
+<p align="center"><a href="https://github.com/trvny/.github/blob/main/assets/profile/contributors.svg"><img src="https://raw.githubusercontent.com/trvny/.github/main/assets/profile/contributors.svg" alt="Contributors across trvny and travnie" width="320"></a></p>
 <a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=VT323&weight=600&letterSpacing=-95%25&duration=1234&pause=100&color=D718CE&center=true&random=true&width=500&height=150&lines=Co%C5%9B+si%C4%99+popsu%C5%82o+i+nie+by%C5%82o+mnie+s%C5%82ycha%C4%87;KURDE;2137;twojstarytotwojstary" alt="Typing-SVG" /></a>
 
 ## 🔀 Open pull requests

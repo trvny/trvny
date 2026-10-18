@@ -56,6 +56,10 @@ function bucket(posts, { legacy = false, legacyCount = posts.length } = {}) {
       posts.push(p);
       if (index?.version === 2) index.entries.unshift({ id: p.id, published_at: p.published_at });
     },
+    addUnindexed(p) {
+      byId.set(p.id, p);
+      posts.push(p);
+    },
     get counts() { return { lists, bodies, puts }; },
     get manifest() { return index; },
   };
@@ -72,6 +76,8 @@ test('newest first, 25 posts a page, without listing R2 on complete indexes', as
   const first = await archive(b.env);
   assert.equal(first.status, 200);
   assert.equal((first.body.match(/<article>/g) || []).length, 25);
+  assert.match(first.body, /Post number 64/);
+  assert.match(first.body, /Post number 40/);
   assert.ok(first.body.indexOf('Post number 64') < first.body.indexOf('Post number 40'));
   assert.doesNotMatch(first.body, /Post number 39/);
   assert.match(first.body, /Newest first/);
@@ -82,6 +88,8 @@ test('newest first, 25 posts a page, without listing R2 on complete indexes', as
   assert.equal(cursor, post(40).id);
   const second = await archive(b.env, cursor);
   assert.equal((second.body.match(/<article>/g) || []).length, 25);
+  assert.match(second.body, /Post number 39/);
+  assert.match(second.body, /Post number 15/);
   assert.ok(second.body.indexOf('Post number 39') < second.body.indexOf('Post number 15'));
   assert.match(second.body, /← Newer 25/);
   assert.match(second.body, /Older 25/);
@@ -99,7 +107,11 @@ test('stable post-ID cursor never skips or repeats items after a new publish', a
   const after = await archive(b.env, post(24).id);
   const postIds = (html) => [...html.matchAll(/<article><h2><a href="\/posts\/(gh-\d+-\d+)"/g)]
     .map((match) => match[1]);
+  assert.equal(postIds(before.body)[0], post(23).id);
+  assert.equal(postIds(before.body).at(-1), post(1).id);
+  assert.equal(postIds(before.body).length, 23);
   assert.deepEqual(postIds(after.body), postIds(before.body));
+  assert.doesNotMatch(after.body, /Post number 49/);
   const first = await archive(b.env);
   assert.match(first.body, /Post number 49/);
 });
@@ -138,6 +150,20 @@ test('legacy index migrates old posts beyond the 250-entry cutoff without droppi
   assert.equal(b.counts.lists, scanned, 'completed index needs no more bucket scans');
 });
 
+test('next authenticated publish recovers posts orphaned by a failed index write', async () => {
+  const b = bucket([post(1), post(2)]);
+  b.addUnindexed(post(3));
+  await ensureIndexed(b.env, post(4));
+  assert.deepEqual(b.manifest.entries.map((entry) => entry.id), [
+    post(4).id, post(3).id, post(2).id, post(1).id,
+  ]);
+  assert.ok(b.counts.lists > 0, 'publish must reconcile canonical post objects');
+  const scanned = b.counts.lists;
+  const result = await archive(b.env);
+  assert.match(result.body, /Post number 3/);
+  assert.equal(b.counts.lists, scanned, 'reads of complete index do not scan the bucket');
+});
+
 test('feeds and homepage keep their bounded read sizes with a complete archive', async () => {
   const b = bucket(Array.from({ length: 310 }, (_, i) => post(i + 1)));
   const feed = await worker.fetch(new Request('https://shitpost.trfny.com/feed.json'), b.env);
@@ -152,5 +178,7 @@ test('timestamp ordering takes precedence over nonchronological run IDs', async 
   const second = post(2, '2026-02-01T01:00:00.000Z');
   const b = bucket([second, first]);
   const result = await archive(b.env);
+  assert.match(result.body, /Post number 1/);
+  assert.match(result.body, /Post number 2/);
   assert.ok(result.body.indexOf('Post number 1') < result.body.indexOf('Post number 2'));
 });

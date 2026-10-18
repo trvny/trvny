@@ -507,7 +507,7 @@ jobs:
   pet-dispatcher:
     if: ${{ inputs.target == 'pet-dispatcher' || inputs.target == 'all' }}
     concurrency:
-      group: automation-sync-pet-dispatcher
+      group: pet-dispatcher-control-oauth-credentials
       cancel-in-progress: false
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -543,18 +543,10 @@ jobs:
         run: >-
           bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
           pet-dispatcher-control KANAREK_REVIEW_ROUTER_TOKEN KANAREK_REVIEW_ROUTER_TOKEN required
-      # One canonical GitHub secret pair, also consumed by MechaGremlin.
-      # Pet keeps its own Cloudflare secrets and independent OAuth KV grants.
-      - name: Sync GPTomek GitHub App OAuth client ID
+      # Reuse the same canonical GitHub App secrets in one atomic Worker update.
+      - name: Sync GPTomek OAuth credentials together
         shell: bash
-        run: >-
-          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
-          pet-dispatcher-control PET_OAUTH_GITHUB_CLIENT_ID GREMLIN_OAUTH_CLIENT_ID required
-      - name: Sync GPTomek GitHub App OAuth client secret
-        shell: bash
-        run: >-
-          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
-          pet-dispatcher-control PET_OAUTH_GITHUB_CLIENT_SECRET GREMLIN_OAUTH_CLIENT_SECRET required
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/sync-pet-oauth-credentials.sh"
       - name: Verify Pet Dispatcher health
         shell: bash
         run: |

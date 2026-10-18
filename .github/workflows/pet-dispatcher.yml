@@ -7,6 +7,7 @@ on: # yamllint disable-line rule:truthy
       - "mcp/pet-dispatcher/**"
       - ".github/workflows/pet-dispatcher.yml"
       - ".github/scripts/sync-cloudflare-worker-secret.sh"
+      - ".github/scripts/sync-pet-oauth-credentials.sh"
       - "assets/pet-dispatcher.svg"
       - "assets/pet-dispatcher.png"
   pull_request:
@@ -15,6 +16,7 @@ on: # yamllint disable-line rule:truthy
       - "mcp/pet-dispatcher/**"
       - ".github/workflows/pet-dispatcher.yml"
       - ".github/scripts/sync-cloudflare-worker-secret.sh"
+      - ".github/scripts/sync-pet-oauth-credentials.sh"
       - "assets/pet-dispatcher.svg"
       - "assets/pet-dispatcher.png"
   workflow_dispatch:
@@ -101,7 +103,7 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 10
     concurrency:
-      group: pet-dispatcher-control-deploy
+      group: pet-dispatcher-control-oauth-credentials
       cancel-in-progress: false
     defaults:
       run:
@@ -143,17 +145,10 @@ jobs:
           bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
           pet-dispatcher-control KANAREK_REVIEW_ROUTER_TOKEN KANAREK_REVIEW_ROUTER_TOKEN required
 
-      # Reuse GPTomek's GitHub App OAuth client; no separate GitHub App is needed.
-      - name: Sync shared GPTomek OAuth client ID
+      # The shared script writes both secrets as one Worker version.
+      - name: Sync GPTomek OAuth credentials together
         shell: bash
-        run: >-
-          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
-          pet-dispatcher-control PET_OAUTH_GITHUB_CLIENT_ID GREMLIN_OAUTH_CLIENT_ID required
-      - name: Sync shared GPTomek OAuth client secret
-        shell: bash
-        run: >-
-          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh"
-          pet-dispatcher-control PET_OAUTH_GITHUB_CLIENT_SECRET GREMLIN_OAUTH_CLIENT_SECRET required
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/sync-pet-oauth-credentials.sh"
 
       - name: Validate control plane
         run: npm run control:check

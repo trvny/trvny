@@ -23,6 +23,9 @@
       "enabled": false
     }
   },
+  "kv_namespaces": [
+    { "binding": "OAUTH_KV", "id": "eb005239a6b04209b0a4f9bc79f71bcb" }
+  ],
   "queues": {
     "producers": [
       { "binding": "TASK_QUEUE", "queue": "pet-dispatcher-tasks" }

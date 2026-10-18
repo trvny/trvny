@@ -10,7 +10,7 @@ For local/Codex plugin use, set `PET_DISPATCHER_CONTROL_TOKEN` to the existing c
 
 ChatGPT Developer Mode may instead use a separately registered authenticated MCP connection. The legacy connector-token URL remains a compatibility path in the server, not something stored in this package.
 
-The optional OAuth 2.1 resource at `https://pet-dispatcher-control.travny.workers.dev/oauth/mcp` is staged separately from `/mcp` with GitHub identity, PKCE and connector-only scopes. Its KV and GitHub OAuth credentials must be provisioned and the login tested before changing this canonical `mcp.json`. See [../plugin-roadmap.md](../plugin-roadmap.md#phase-4---authentication).
+The optional OAuth 2.1 resource at `https://pet-dispatcher-control.travny.workers.dev/oauth/mcp` is staged separately from `/mcp` with GitHub identity, PKCE and connector-only scopes. OAuth uses a dedicated `pet-dispatcher-oauth` KV and the existing GPTomek GitHub App credentials also used by MechaGremlin, synchronized through the shared workflow. Add the Pet callback to that app's callback list, then verify login and token refresh before changing this canonical `mcp.json`. No additional GitHub App is needed. See [../plugin-roadmap.md](../plugin-roadmap.md#phase-4---authentication).
 
 ## Included workflow
 

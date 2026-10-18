@@ -62,6 +62,19 @@ export function gremlinMcpManifest(origin: string): JsonObject {
   return combinedGremlinMcpManifest(pluginMcpOpenApi(origin));
 }
 
+// Reuse the shared digest/count implementation with the *curated* Gremlin
+// manifest, rather than describing the full legacy Kanarek gateway.
+export async function gremlinGatewayManifest(
+  origin: string,
+  metadata?: RuntimeEnv['CF_VERSION_METADATA'],
+): Promise<JsonObject> {
+  return {
+    ...await gatewayManifest(pluginMcpOpenApi(origin), metadata),
+    service: 'gremlin',
+    mcp: gremlinMcpManifest(origin),
+  };
+}
+
 export function handleGremlinMcp(
   request: Request,
   env: RuntimeEnv,

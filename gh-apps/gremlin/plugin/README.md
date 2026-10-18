@@ -1,7 +1,7 @@
 # MechaGremlin plugin
 
 This directory is the maintained **portable source** of the existing private
-MechaGremlin plugin. The live private plugin is release `0.31.6`
+MechaGremlin plugin. The live private plugin source targets release `0.31.7`
 (`plugin_2efcd1a24fa08191b71d92f1972ac32c`).
 **Do not create another production plugin.**
 
@@ -24,15 +24,18 @@ HTTP MCP configuration stays in `mcp.json`, targeting
 separately maintained definitions. The same original logo is used by
 `plugin.json` for the plugin and composer icon.
 
-The Gremlin MCP exposes 30 guarded operator tools (including `getDocsIndex`)
-and seven specialist tools for Context7, Feedseek and Engram. Actions route
+The Gremlin MCP exposes 28 guarded operator tools (including `getDocsIndex`)
+and four specialist tools for Context7 and Feedseek. The five unrelated Engram
+routes were retired from Gremlin, without deleting shared legacy consumers. Actions route
 through the shared `kanarek-companion` runtime, which owns authentication
 checks, GPTomek attribution, scope guards, replay protections and Cloudflare
 policy. Do not duplicate that runtime inside this package.
 
 Anchor storage (`useGremlinStorage`) uses **separate Anchor OAuth** and is
-not part of the 37-tool MCP surface. Never proxy its credentials or silently
-add it to the registered app.
+not part of the 32-tool MCP surface. In sessions where the Anchor app is
+connected, use the existing `Gremlin_storage` folder directly. To make Anchor
+a required plugin app, its real registered OpenAI App ID must first be identified.
+Never proxy its OAuth credential through Gremlin or fabricate an App ID.
 
 For migration history, parity status, and pending verification, see
 `skills/gremlin/references/migration.md` and

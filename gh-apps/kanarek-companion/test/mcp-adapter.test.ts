@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   handleSpecialistMcp,
+  handleGremlinMcp,
   MCP_PROTOCOL_VERSION,
 } from '../src/mcp-adapter.ts';
 
@@ -219,4 +220,35 @@ test('legacy initialize remains available for 2025 MCP clients', async () => {
   assert.ok(response);
   const payload = await response.json() as { result: { protocolVersion: string } };
   assert.equal(payload.result.protocolVersion, '2025-11-25');
+});
+
+test('Gremlin MCP excludes the other Engram provider without changing the shared specialist gateway', async () => {
+  const document = { paths: {} };
+  const response = await handleGremlinMcp(
+    rpcRequest({ jsonrpc: '2.0', id: 7, method: 'tools/list' }, 'tools/list'),
+    document,
+    {},
+    authorizedInvoke(),
+  );
+  assert.ok(response);
+  const payload = await response.json() as {
+    result: { tools: Array<{ name: string }> };
+  };
+  assert.deepEqual(payload.result.tools.map((tool) => tool.name).sort(), [
+    'context7_search', 'feedseek_fetch', 'feedseek_recent', 'feedseek_search',
+  ]);
+
+  const blocked = await handleGremlinMcp(
+    rpcRequest({
+      jsonrpc: '2.0', id: 8, method: 'tools/call',
+      params: { name: 'engram_search', arguments: { query: 'test' } },
+    }, 'tools/call', 'engram_search'),
+    document,
+    {},
+    authorizedInvoke(),
+  );
+  assert.ok(blocked);
+  const blockedBody = await blocked.json() as { error: { code: number; message: string } };
+  assert.equal(blockedBody.error.code, -32602);
+  assert.equal(blockedBody.error.message, 'Unknown tool');
 });

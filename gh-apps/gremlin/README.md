@@ -41,22 +41,25 @@ Deployment prerequisites:
 4. Run `npm ci && npm run check` before promoting the Worker; inspect
    `/.well-known/oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`,
    and the unauthenticated `/mcp` challenge. Complete the browser sign-in.
-5. Verify `tools/list` returns 37 distinct tools, test a read and a guarded
+5. Verify `tools/list` returns 32 distinct tools, test a read and a guarded
    reversible write, and exercise token refresh/revocation and unauthorized login.
    Do not retire the original GPT before these checks pass.
 
-The old `/gpt-actions/**` compatibility routes remain unchanged. Anchor is
-a separate application and separate OAuth boundary.
+The legacy Gremlin GPT Actions remain on kanarek-companion. The standalone Gremlin
+Worker excludes the unrelated Engram bridge; the private Anchor Action remains
+on its separately authenticated Anchor OAuth boundary.
 
 ### Migration status
 
 The standalone `gremlin` Worker is deployed and owns the public Gremlin
-origin. Its MCP is a compatibility superset of the curated operator surface and
-the existing direct specialist tools. Its portable plugin source now targets
+origin. Its MCP exposes 28 guarded operators plus four Context7/Feedseek
+specialists. The retired Engram bridge was for a different provider than the
+user's getengram.app account. Its portable plugin source now targets
 `https://gremlin.travny.workers.dev/mcp`.
 
 The built-in ChatGPT migration created the private successor plugin. The
-existing plugin was updated in place to release `0.31.2` on 2026-10-06 with
+existing plugin was updated in place in October 2026 (release `0.31.6` before
+retiring the unrelated Engram bridge) with
 the canonical Gremlin skill and standalone MCP configuration. The legacy Custom
 GPT is read-only and remains a behavioral fallback until parity is verified; its
 existing Actions may continue to use the old companion origin.
@@ -64,10 +67,11 @@ existing Actions may continue to use the old companion origin.
 Remaining cutover work:
 
 1. Verify the updated private plugin in a fresh ChatGPT session: authenticate
-   the standalone Gremlin MCP, confirm the 37-tool live surface, and run parity
+   the standalone Gremlin MCP, confirm the 32-tool live surface, and run parity
    tests against the legacy GPT.
-2. Keep Anchor storage separately authenticated; attach it as a connected app
-   only after the actual OpenAI App identity is verified.
+2. Prefer the already-connected Anchor app for the existing `Gremlin_storage`
+   folder in ChatGPT sessions. To bundle that App inside the private plugin,
+   first resolve its real OpenAI App ID; keep Anchor OAuth separate from GitHub.
 3. Remove the Gremlin surface from `kanarek-companion` and move Gremlin-only
    modules into this package. Keep the shared replay/checkpoint stores and the
    GPTomek signer RPC only where they remain deliberate cross-service

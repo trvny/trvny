@@ -23,7 +23,7 @@ test('portable MechaGremlin manifest references the installed MCP app and origin
   };
 
   // Pin the account release intentionally; bump alongside the next source sync.
-  assert.equal(manifest.version, '0.31.6');
+  assert.equal(manifest.version, '0.31.7');
   assert.equal(manifest.extensions['com.openai'].apps, './.app.json');
   assert.deepEqual(manifest.extensions['com.openai'].interface.capabilities, ['skills']);
   assert.deepEqual(Object.keys(app.apps), Object.keys(mcp.mcpServers));

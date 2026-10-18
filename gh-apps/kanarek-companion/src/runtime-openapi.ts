@@ -14,8 +14,12 @@ import { addReleaseReplaceOpenApi } from './release-replace-action.ts';
 import { addSymbolInvestigationOpenApi } from './symbol-investigation.ts';
 import { addTargetedTestsOpenApi } from './test-discovery.ts';
 
+// The legacy Custom GPT retained two routes for a different Engram provider.
+// Exclude them from the migrated plugin while preserving the old GPT fallback.
 export const PLUGIN_MCP_OPERATION_IDS = [
-  ...CUSTOM_GPT_OPERATION_IDS,
+  ...CUSTOM_GPT_OPERATION_IDS.filter(
+    (id) => id !== 'searchEngramMemory' && id !== 'storeEngramMemory',
+  ),
   'getDocsIndex',
 ] as const;
 

@@ -185,9 +185,9 @@ async function readIndex(env) {
 // canonical R2 post metadata; normal v2 archive reads never list the bucket.
 // A legacy archive GET scans without writing; the next authenticated publish
 // persists the complete v2 index, preserving the Worker write boundary.
-async function readCompleteIndex(env, state = null) {
+async function readCompleteIndex(env, state = null, reconcile = false) {
   state ||= await readIndexState(env);
-  if (state.complete) return state.entries;
+  if (state.complete && !reconcile) return state.entries;
   const entries = [...state.entries];
   const seen = new Set(entries.map((entry) => entry.id));
   let cursor;
@@ -221,7 +221,9 @@ async function writeIndex(env, entries) {
 
 export async function ensureIndexed(env, post) {
   const state = await readIndexState(env);
-  const entries = await readCompleteIndex(env, state);
+  // Reconcile canonical post objects on authenticated publishes so a post
+  // stored before an interrupted index write is recovered on a later run.
+  const entries = await readCompleteIndex(env, state, true);
   const next = [{ id: post.id, published_at: post.published_at }, ...entries.filter((entry) => entry.id !== post.id)];
   await writeIndex(env, next);
 }

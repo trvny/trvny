@@ -71,5 +71,5 @@ test('Gremlin skill keeps only the canonical references and no user snapshot', a
   }
   const agent = await file(skillPath + 'agents/openai.yaml');
   assert.ok(agent.includes('display_name: Gremlin'));
-  assert.match(agent, /default_prompt:.*\\$gremlin/);
+  assert.ok(agent.includes('Use $gremlin'));
 });

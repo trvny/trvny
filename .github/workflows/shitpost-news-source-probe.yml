@@ -1,0 +1,65 @@
+name: Probe Polish political RSS
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    branches: [main]
+    paths:
+      - "gh-apps/shitpost-reactor/topics.mjs"
+      - ".github/workflows/shitpost-news-source-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Probe live RSS and recent eligible items
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { POLISH_RSS_FEEDS, parseNewsRss } from './gh-apps/shitpost-reactor/topics.mjs';
+          let failures = 0;
+          for (const source of POLISH_RSS_FEEDS) {
+            try {
+              const res = await fetch(source.url, {
+                signal: AbortSignal.timeout(12000),
+                headers: { accept: 'application/rss+xml, application/xml, text/xml', 'user-agent': 'trvny-shitpost-reactor/1' },
+              });
+              if (!res.ok) throw new Error('HTTP ' + res.status);
+              const length = Number(res.headers.get('content-length') || 0);
+              if (length > 1024 * 1024) throw new Error('body over 1 MiB');
+              const reader = res.body.getReader();
+              const chunks = [];
+              let bytes = 0;
+              try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  bytes += value.byteLength;
+                  if (bytes > 1024 * 1024) {
+                    await reader.cancel();
+                    throw new Error('stream over 1 MiB');
+                  }
+                  chunks.push(value);
+                }
+              } finally { reader.releaseLock(); }
+              const xml = Buffer.concat(chunks, bytes).toString('utf8');
+              const items = (xml.match(/<item(?:\s[^>]*)?>/gi) || []).length;
+              const accepted = parseNewsRss(xml, { politicsOnly: true, allowedHosts: source.hosts });
+              console.log(source.name + ': HTTP ' + res.status + ', items=' + items + ', eligible_48h=' + accepted.length + ', content_type=' + res.headers.get('content-type'));
+              if (!items || !accepted.length) throw new Error('No fresh suitable political headlines');
+            } catch (error) {
+              failures += 1;
+              console.error(source.name + ': UNUSABLE: ' + error.message);
+            }
+          }
+          if (failures) process.exitCode = 1;
+          NODE

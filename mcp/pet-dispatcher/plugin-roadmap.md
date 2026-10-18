@@ -40,15 +40,14 @@ Plugin settings are a natural home for durable user preferences such as default 
 
 ## Phase 4 - authentication
 
-Move the primary plugin connection from shared bearer/token compatibility toward OAuth or Mixed Authentication on the existing Cloudflare Worker.
+The OAuth 2.1 provider is now implemented using Cloudflare Workers OAuth Provider 1.2.3, with GitHub owner sign-in and consent. The new resource is `https://pet-dispatcher-control.travny.workers.dev/oauth/mcp`; OAuth stays separate from the old operator `/mcp` bearer and `/mcp/<token>` compatibility URLs.
 
-Candidate shape:
-
-- Cloudflare Workers OAuth Provider Library;
-- OAuth for consequential/private tools;
-- unauthenticated initialize/tool discovery only if Mixed Authentication materially improves setup;
-- keep the current bearer header and connector-token route as explicit compatibility paths during migration;
-- never put credentials in `plugin.json`, `mcp.json`, skill files, tool metadata or UI state.
+- ChatGPT/Codex uses resource-bound PKCE and OAuth discovery, with client consent and refresh/revocation handled by the provider library.
+- GitHub sign-in verifies exact login **and** immutable user ID; no GitHub access token is retained in OAuth grants.
+- OAuth grants are connector-only. `pet:read` permits discovery/inspection; `pet:delegate` is required for writes, direct calls, delegation, cancellation and session finish. Unknown RPC operations require write scope.
+- Never expose `pet_host_fs` through OAuth or reuse the operator `CONTROL_PLANE_TOKEN`.
+- Required rollout steps: create a dedicated `pet-dispatcher-oauth` KV, add `OAUTH_KV` Wrangler binding, configure GitHub OAuth app callback `/oauth/github/callback`, set `PET_OAUTH_GITHUB_CLIENT_ID` and `PET_OAUTH_GITHUB_CLIENT_SECRET` as Worker secrets, and run an actual browser and MCP smoke test.
+- Do not change the canonical plugin `mcp.json` or retire either legacy access route until those tests pass. Credential values must never enter Git, tool outputs, URL paths, or UI state.
 
 ## Phase 5 - deeper extensions
 

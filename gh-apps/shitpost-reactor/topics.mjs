@@ -6,6 +6,11 @@ export const NEWS_FEEDS = Object.freeze([
   { name: 'BBC Science', url: 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml' },
 ]);
 
+export const POLISH_RSS_FEEDS = Object.freeze([
+  { name: 'DoRzeczy', url: 'https://dorzeczy.pl/feed/', hosts: ['dorzeczy.pl', 'www.dorzeczy.pl'] },
+  { name: 'wPolityce', url: 'https://wpolityce.pl/rss/polityka.xml', hosts: ['wpolityce.pl', 'www.wpolityce.pl'] },
+]);
+
 const FEEDSEEK_ROOT = 'https://raw.githubusercontent.com/trvny/feedseek/main/feeds/';
 const FEEDSEEK_FEEDS = Object.freeze({
   news: [

@@ -1,5 +1,4 @@
 import runtime, {
-  gremlinMcpManifest,
   gremlinGatewayManifest,
   handleGremlinMcp,
   type RuntimeEnv,

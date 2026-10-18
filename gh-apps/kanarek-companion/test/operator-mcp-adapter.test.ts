@@ -80,7 +80,7 @@ test('operator MCP lists the migrated Gremlin action names from curated OpenAPI'
   assert.ok(githubRead.inputSchema?.properties?.path);
 });
 
-test('Gremlin MCP is a superset of operator and specialist tools', async () => {
+test('Gremlin MCP exposes only current operator, Context7 and Feedseek tools', async () => {
   const response = await handleGremlinMcp(
     mcpRequest(
       { jsonrpc: '2.0', id: 10, method: 'tools/list', params: {} },
@@ -101,12 +101,9 @@ test('Gremlin MCP is a superset of operator and specialist tools', async () => {
     result: { tools: Array<{ name: string }> };
   };
   const names = payload.result.tools.map((tool) => tool.name);
-  assert.equal(names.length, 37);
+  assert.equal(names.length, 32);
   for (const name of PLUGIN_MCP_OPERATION_IDS) assert.ok(names.includes(name), name);
   for (const name of [
-    'engram_status',
-    'engram_search',
-    'engram_store',
     'context7_search',
     'feedseek_search',
     'feedseek_fetch',
@@ -114,10 +111,16 @@ test('Gremlin MCP is a superset of operator and specialist tools', async () => {
   ]) {
     assert.ok(names.includes(name), name);
   }
+  for (const excluded of [
+    'engram_status', 'engram_search', 'engram_store',
+    'searchEngramMemory', 'storeEngramMemory',
+  ]) {
+    assert.equal(names.includes(excluded), false, excluded);
+  }
   assert.equal(names.includes('useGremlinStorage'), false);
 });
 
-test('Gremlin MCP routes specialist calls through the existing specialist implementation', async () => {
+test('Gremlin MCP rejects a call to the removed Engram provider', async () => {
   let authCalls = 0;
   const response = await handleGremlinMcp(
     mcpRequest(
@@ -143,21 +146,10 @@ test('Gremlin MCP routes specialist calls through the existing specialist implem
   assert.ok(response);
   assert.equal(authCalls, 1);
   const payload = await response.json() as {
-    result: {
-      isError: boolean;
-      structuredContent: {
-        ok: boolean;
-        configured: boolean;
-        reachable: null;
-      };
-    };
+    error: { code: number; message: string };
   };
-  assert.equal(payload.result.isError, false);
-  assert.deepEqual(payload.result.structuredContent, {
-    ok: true,
-    configured: false,
-    reachable: null,
-  });
+  assert.equal(payload.error.code, -32602);
+  assert.equal(payload.error.message, 'Unknown tool');
 });
 
 test('operator MCP dispatches githubRead through the guarded Action route', async () => {

@@ -70,15 +70,18 @@ test('combined Custom GPT actions stay at the 30-operation limit', () => {
   assert.equal(main.length + anchor.length, CUSTOM_GPT_OPERATION_LIMIT);
 });
 
-test('plugin MCP restores the 30-operation web surface including docs index', () => {
+test('plugin MCP excludes wrong-provider Engram actions and includes docs index', () => {
   const ids = operationIds(pluginMcpOpenApi('https://example.workers.dev'));
   const expected = [...PLUGIN_MCP_OPERATION_IDS].sort();
 
-  assert.equal(PLUGIN_MCP_OPERATION_IDS.length, CUSTOM_GPT_OPERATION_LIMIT);
+  assert.equal(PLUGIN_MCP_OPERATION_IDS.length, CUSTOM_GPT_OPERATION_LIMIT - 2);
   assert.equal(new Set(PLUGIN_MCP_OPERATION_IDS).size, PLUGIN_MCP_OPERATION_IDS.length);
-  assert.equal(ids.length, CUSTOM_GPT_OPERATION_LIMIT);
+  assert.equal(ids.length, CUSTOM_GPT_OPERATION_LIMIT - 2);
   assert.deepEqual(ids, expected);
   assert.ok(ids.includes('getDocsIndex'));
+  for (const excluded of ['searchEngramMemory', 'storeEngramMemory']) {
+    assert.equal(ids.includes(excluded), false, excluded);
+  }
   assert.ok(!ids.includes('useGremlinStorage'));
 });
 

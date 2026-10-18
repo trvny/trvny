@@ -84,7 +84,10 @@ function rssValue(item, tag) {
     .trim();
 }
 
-export function parseNewsRss(xml, { now = Date.now() } = {}) {
+export function parseNewsRss(xml, {
+  now = Date.now(), allowedHosts = ['www.bbc.com', 'www.bbc.co.uk', 'bbc.com', 'bbc.co.uk'],
+  politicsOnly = false,
+} = {}) {
   if (typeof xml !== 'string' || Buffer.byteLength(xml, 'utf8') > MAX_FEED_BYTES) return [];
   const entries = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) || [];
   return entries.slice(0, 40).flatMap((entry) => {
@@ -97,10 +100,12 @@ export function parseNewsRss(xml, { now = Date.now() } = {}) {
     } catch {
       return [];
     }
-    if (!['www.bbc.com', 'www.bbc.co.uk', 'bbc.com', 'bbc.co.uk'].includes(url.hostname)
-      || url.protocol !== 'https:' || url.toString().length > MAX_ARTICLE_URL_LENGTH || !title || title.length < 12
+    if (!allowedHosts.includes(url.hostname) || url.protocol !== 'https:' || url.username || url.password
+      || url.toString().length > MAX_ARTICLE_URL_LENGTH || !title || title.length < 12
       || !Number.isFinite(date) || date > now || now - date > NEWS_MAX_AGE_MS
-      || SENSITIVE_NEWS.test(title)) return [];
+      || SENSITIVE_NEWS.test(title)
+      || (politicsOnly && (POLISH_TRAGEDY.test(title)
+        || !POLITICAL_TOPIC.test(title) || !POLISH_CONTEXT.test(title)))) return [];
     return [{ title, url: url.toString(), published_at: new Date(date).toISOString() }];
   });
 }
@@ -172,7 +177,7 @@ async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
     if (body === null) return [];
     const items = isJson
       ? parseFeedseekJson(JSON.parse(body), { now, politicsOnly, tag: feed.tag, tags: feed.tags })
-      : parseNewsRss(body, { now });
+      : parseNewsRss(body, { now, politicsOnly, allowedHosts: feed.hosts });
     return items.slice(0, 30).map((item) => ({ ...item, source: feed.name }));
   } catch {
     // Optional news input; keep generation alive.
@@ -182,7 +187,7 @@ async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
 
 export async function loadNewsForLane(lane, { seed = '', now = Date.now(), fetchImpl = fetch } = {}) {
   if (lane !== 'news' && lane !== 'politics') return null;
-  const feeds = lane === 'news' ? [...NEWS_FEEDS, ...FEEDSEEK_FEEDS.news] : FEEDSEEK_FEEDS.politics;
+  const feeds = lane === 'news' ? [...NEWS_FEEDS, ...FEEDSEEK_FEEDS.news] : [...FEEDSEEK_FEEDS.politics, ...POLISH_RSS_FEEDS];
   const batches = await Promise.all(feeds.map((feed) => loadFeed(feed, {
     now, fetchImpl, politicsOnly: lane === 'politics',
   })));

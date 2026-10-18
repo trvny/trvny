@@ -14,7 +14,7 @@ import {
   validateContent,
 } from '../generate.mjs';
 import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from '../templates.mjs';
-import { chooseLLMTopic, loadNewsForLane, loadWorldNews, parseFeedseekJson, parseNewsRss, resolveTopicLane } from '../topics.mjs';
+import { chooseLLMTopic, loadNewsForLane, loadWorldNews, parseFeedseekJson, parseNewsRss, POLISH_RSS_FEEDS, resolveTopicLane } from '../topics.mjs';
 
 test('bundled style loads without a network fetch and preserves provenance', async () => {
   const reference = await loadStyleReference();
@@ -541,7 +541,7 @@ test('Feedseek streaming rejects oversize bodies without relying on Content-Leng
     }), { status: 200 }),
   });
   assert.equal(result, null);
-  assert.equal(cancelled, 3);
+  assert.equal(cancelled, 3 + POLISH_RSS_FEEDS.length);
 });
 
 test('Very long BBC links cannot enter the world news candidate pool', () => {
@@ -563,4 +563,38 @@ test('Euronews world pool excludes sports and travel but permits news and techno
   });
   assert.equal(entries.length, 2);
   assert.ok(entries.every((entry) => /research/i.test(entry.title)));
+});
+
+test('Polish political RSS enforces freshness, domain and tragedy filters', () => {
+  const date = new Date(newsNow - 1_000).toUTCString();
+  for (const source of POLISH_RSS_FEEDS) {
+    const article = source.name === 'DoRzeczy'
+      ? 'https://dorzeczy.pl/kraj/123456-sejm.html'
+      : 'https://wpolityce.pl/polityka/123456-sejm';
+    const config = { now: newsNow, politicsOnly: true, allowedHosts: source.hosts };
+    const valid = parseNewsRss(fakeRss('Posłowie w Sejmie debatują nad nową ustawą', date, article), config);
+    assert.equal(valid.length, 1, source.name);
+    assert.equal(valid[0].url, article);
+    assert.deepEqual(parseNewsRss(fakeRss('Posłowie w Sejmie debatują nad nową ustawą', date, 'https://evil.test/post'), config), []);
+    assert.deepEqual(parseNewsRss(fakeRss('Sejm debatuje nad katastrofą i ofiarami', date, article), config), []);
+    assert.deepEqual(parseNewsRss(fakeRss('Wiadomości sportowe i wyniki klubów piłkarskich', date, article), config), []);
+    assert.deepEqual(parseNewsRss(fakeRss('Posłowie w Sejmie debatują nad nową ustawą', new Date(newsNow - 3 * 86_400_000).toUTCString(), article), config), []);
+  }
+});
+
+test('politics lane uses direct RSS when Feedseek is unavailable', async () => {
+  const date = new Date(newsNow - 1_000).toUTCString();
+  for (const feed of POLISH_RSS_FEEDS) {
+    const article = feed.name === 'DoRzeczy'
+      ? 'https://dorzeczy.pl/kraj/123456-sejm.html'
+      : 'https://wpolityce.pl/polityka/123456-sejm';
+    const result = await loadNewsForLane('politics', {
+      now: newsNow, seed: 'politics-rss-' + feed.name,
+      fetchImpl: async (url) => url === feed.url
+        ? new Response(fakeRss('Posłowie w Sejmie debatują nad nową ustawą', date, article), { status: 200 })
+        : new Response('', { status: 503 }),
+    });
+    assert.equal(result.source, feed.name);
+    assert.equal(result.url, article);
+  }
 });

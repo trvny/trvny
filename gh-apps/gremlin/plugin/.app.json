@@ -1,6 +1,6 @@
 {
   "apps": {
-    "connector": {
+    "gremlin": {
       "id": "asdk_app_6ad3cba96c048191b0006fed71f4e0ef"
     }
   }

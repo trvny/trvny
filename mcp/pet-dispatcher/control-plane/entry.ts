@@ -734,9 +734,9 @@ const oauthWorker = withPetOAuth(controlWorker, async (request, env) =>
 );
 
 export default {
-  fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request, env, ctx) {
     return petOAuthConfigured(env)
-      ? oauthWorker.fetch!(request, env, ctx)
-      : controlWorker.fetch!(request, env, ctx);
+      ? await oauthWorker.fetch!(request, env, ctx)
+      : await controlWorker.fetch!(request, env, ctx);
   },
 } satisfies ExportedHandler<Env>;

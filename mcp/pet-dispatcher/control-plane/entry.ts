@@ -4,6 +4,7 @@ import { FREE_ROUTER_WORKER_PATH, WORK_ROUTER_WORKER_PATH, proxyKanarekFreeRoute
 import { ICON_BYTES } from "./icon.js";
 import { hostTaskHiddenFrom, isHostTask, mayHandleHostTask, mayIndexTask, requiresOwnerRoute } from "./host-access.js";
 import { isMcpPath, mcpRoute, type McpRoute } from "./mcp-auth.js";
+import { withPetOAuth, type PetOAuthEnv } from "./oauth.js";
 import { handleControlMcp, type ControlMcpOperations } from "./mcp.js";
 import { computeTimings } from "./task-timings.js";
 import {
@@ -32,7 +33,7 @@ import {
   type RemoteTaskState,
 } from "../src/remote-protocol.js";
 
-interface Env extends FreeRouterEnv {
+interface Env extends FreeRouterEnv, PetOAuthEnv {
   TASK_QUEUE: Queue;
   TASK_STATE: DurableObjectNamespace;
   CF_VERSION_METADATA: WorkerVersionMetadata;
@@ -645,7 +646,7 @@ async function workerUpdate(request: Request, env: Env, taskId: string, action: 
   });
 }
 
-export default {
+const controlWorker: ExportedHandler<Env> = {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       const url = new URL(request.url);
@@ -724,3 +725,9 @@ export default {
     }
   },
 };
+
+// The OAuth handler can only call the connector facade; owner-route host tools
+// continue to require the separate CONTROL_PLANE_TOKEN on the legacy /mcp path.
+export default withPetOAuth(controlWorker, async (request, env) =>
+  handleControlMcp(await boundedMcpRequest(request), mcpOperations(env, "connector")),
+);

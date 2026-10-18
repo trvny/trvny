@@ -9,7 +9,6 @@ const SITE_URL = 'https://shitpost.trfny.com';
 const FEED_TITLE = 'Shitpost Reactor';
 const FEED_DESCRIPTION = 'Automatycznie generowane shitposty z Shitpost Reactora.';
 const FEED_LIMIT = 50;
-const INDEX_LIMIT = 250;
 const ARCHIVE_PAGE_SIZE = 25;
 const MAX_BODY_BYTES = 64 * 1024;
 const OIDC_ISSUER = 'https://token.actions.githubusercontent.com';
@@ -146,6 +145,8 @@ export function validateRecord(input) {
   throw new Error('invalid_content_kind');
 }
 
+// One full index serves the archive and the bounded feed/homepage views.
+// Older versions stored only the newest 250 IDs in a raw array.
 function normalizeIndex(value) {
   if (!Array.isArray(value)) return [];
   const seen = new Set();
@@ -158,30 +159,69 @@ function normalizeIndex(value) {
     seen.add(item.id);
     result.push({ id: item.id, published_at: new Date(item.published_at).toISOString() });
   }
-  return result
-    .sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at))
-    .slice(0, INDEX_LIMIT);
+  return result.sort((a, b) =>
+    b.published_at.localeCompare(a.published_at) || b.id.localeCompare(a.id));
 }
 
-async function readIndex(env) {
+async function readIndexState(env) {
   const object = await env.FEED.get('index.json');
-  if (!object) return [];
+  if (!object) return { entries: [], complete: false };
   try {
-    return normalizeIndex(await object.json());
+    const data = await object.json();
+    if (data?.version === 2 && Array.isArray(data.entries)) {
+      return { entries: normalizeIndex(data.entries), complete: true };
+    }
+    return { entries: normalizeIndex(data), complete: false };
   } catch {
-    return [];
+    return { entries: [], complete: false };
   }
 }
 
-async function writeIndex(env, index) {
-  await env.FEED.put('index.json', `${JSON.stringify(normalizeIndex(index), null, 2)}\n`, {
+async function readIndex(env) {
+  return (await readIndexState(env)).entries;
+}
+
+// Legacy indexes dropped entries after 250. Rehydrate those once from
+// canonical R2 post metadata; normal v2 archive reads never list the bucket.
+// A legacy archive GET scans without writing; the next authenticated publish
+// persists the complete v2 index, preserving the Worker write boundary.
+async function readCompleteIndex(env, state = await readIndexState(env)) {
+  if (state.complete) return state.entries;
+  const entries = [...state.entries];
+  const seen = new Set(entries.map((entry) => entry.id));
+  let cursor;
+  do {
+    const page = await env.FEED.list({
+      prefix: 'posts/',
+      limit: 500,
+      include: ['customMetadata'],
+      ...(cursor ? { cursor } : {}),
+    });
+    for (const object of page.objects) {
+      const id = /^posts\/(gh-\d+-\d+)\.json$/u.exec(object.key)?.[1];
+      if (!id || seen.has(id)) continue;
+      const timestamp = object.customMetadata?.published_at || object.uploaded;
+      if (!Number.isFinite(Date.parse(timestamp))) continue;
+      seen.add(id);
+      entries.push({ id, published_at: new Date(timestamp).toISOString() });
+    }
+    if (page.truncated && !page.cursor) throw new Error('archive_migration_cursor_missing');
+    cursor = page.truncated ? page.cursor : null;
+  } while (cursor);
+  return normalizeIndex(entries);
+}
+
+async function writeIndex(env, entries) {
+  const index = { version: 2, entries: normalizeIndex(entries) };
+  await env.FEED.put('index.json', `${JSON.stringify(index)}\n`, {
     httpMetadata: { contentType: 'application/json; charset=utf-8' },
   });
 }
 
-async function ensureIndexed(env, post) {
-  const index = await readIndex(env);
-  const next = [{ id: post.id, published_at: post.published_at }, ...index.filter((entry) => entry.id !== post.id)];
+export async function ensureIndexed(env, post) {
+  const state = await readIndexState(env);
+  const entries = await readCompleteIndex(env, state);
+  const next = [{ id: post.id, published_at: post.published_at }, ...entries.filter((entry) => entry.id !== post.id)];
   await writeIndex(env, next);
 }
 
@@ -203,20 +243,21 @@ async function readPosts(env, limit = FEED_LIMIT) {
 
 async function renderArchive(env, url) {
   const cursor = url.searchParams.get('cursor');
-  if (cursor !== null && (!cursor || cursor.length > 2048 || /[\x00-\x1f\x7f]/u.test(cursor))) {
+  if (cursor !== null && !/^gh-\d+-\d+$/u.test(cursor)) {
     return response('invalid cursor\n', 'text/plain; charset=utf-8', { status: 400, cache: 'no-store' });
   }
 
-  // R2 lists post keys in ascending order. New run IDs do not shift previous cursors.
-  const page = await env.FEED.list({
-    prefix: 'posts/',
-    limit: ARCHIVE_PAGE_SIZE,
-    ...(cursor ? { cursor } : {}),
-  });
-  const selected = page.objects
-    .map(({ key }) => /^posts\/(gh-\d+-\d+)\.json$/u.exec(key)?.[1])
-    .filter(Boolean);
-  const posts = (await Promise.all(selected.map((id) => readPost(env, id)))).filter(Boolean);
+  const index = await readCompleteIndex(env);
+  const anchor = cursor ? index.findIndex((entry) => entry.id === cursor) : -1;
+  if (cursor && anchor < 0) {
+    return response('unknown cursor\n', 'text/plain; charset=utf-8', { status: 400, cache: 'no-store' });
+  }
+
+  // Anchor pages to a stable post ID, not an offset: new posts at the front
+  // never shift the items seen while paging through older posts.
+  const start = anchor + 1;
+  const entries = index.slice(start, start + ARCHIVE_PAGE_SIZE);
+  const posts = (await Promise.all(entries.map((entry) => readPost(env, entry.id)))).filter(Boolean);
   const articles = posts.map((post) => {
     const summary = postSummary(post);
     const image = postImageUrl(post);
@@ -225,14 +266,19 @@ async function renderArchive(env, url) {
       : `<p>${escapeHtml(summary).replaceAll('\n', '<br>')}</p>`;
     return `<article><h2><a href="/posts/${escapeHtml(post.id)}">${escapeHtml(shortTitle(summary))}</a></h2>${preview}<p class="meta">${escapeHtml(post.published_at)}</p></article>`;
   }).join('');
-  const nextCursor = page.truncated ? page.cursor : null;
-  if (page.truncated && !nextCursor) {
-    return response('archive pagination unavailable\n', 'text/plain; charset=utf-8', { status: 503, cache: 'no-store' });
-  }
-  const after = nextCursor ? `<a href="/archive?cursor=${encodeURIComponent(nextCursor)}">Next 25 →</a>` : '';
-  const navigation = `<nav aria-label="Archive navigation" class="feeds"><a href="/archive">Start</a>${after}</nav>`;
+
+  const olderCursor = start + entries.length < index.length ? entries.at(-1)?.id : null;
+  const newerStart = Math.max(0, start - ARCHIVE_PAGE_SIZE);
+  const newerCursor = newerStart > 0 ? index[newerStart - 1].id : null;
+  const older = olderCursor
+    ? `<a rel="next" href="/archive?cursor=${encodeURIComponent(olderCursor)}">Older 25 →</a>`
+    : '';
+  const newer = start > 0
+    ? `<a rel="prev" href="/archive${newerCursor ? `?cursor=${encodeURIComponent(newerCursor)}` : ''}">← Newer 25</a>`
+    : '';
+  const navigation = `<nav aria-label="Archive navigation" class="feeds"><a href="/archive">Newest</a>${newer}${older}</nav>`;
   const canonical = cursor ? `${SITE_URL}/archive?cursor=${encodeURIComponent(cursor)}` : `${SITE_URL}/archive`;
-  const body = `<h2>Full archive</h2><p class="meta">Oldest first · up to 25 entries per page</p>${articles || '<p>Nothing published yet.</p>'}${navigation}`;
+  const body = `<h2>Full archive</h2><p class="meta">Newest first · up to 25 entries per page</p>${articles || '<p>Nothing published yet.</p>'}${navigation}`;
   return response(htmlPage(`${FEED_TITLE} archive`, body, canonical), 'text/html; charset=utf-8');
 }
 

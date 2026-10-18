@@ -18,7 +18,7 @@ The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROU
 ## Public endpoints
 
 - `https://shitpost.trfny.com/` — latest entries with feed autodiscovery;
-- `https://shitpost.trfny.com/archive` — all R2 posts, oldest first, in bounded cursor-based pages without a second index;
+- `https://shitpost.trfny.com/archive` — all R2 posts, newest first, in stable 25-entry cursor pages backed by the same complete index used by the feed;
 - `https://shitpost.trfny.com/rss.xml` — RSS 2.0;
 - `https://shitpost.trfny.com/feed.xml` — RSS compatibility alias;
 - `https://shitpost.trfny.com/atom.xml` — Atom 1.0;
@@ -28,7 +28,7 @@ The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROU
 - `/favicon.svg`, classic `/favicon.ico`, PNG favicon sizes, Apple touch icon and manifest icons — one generated icon propagated across browsers, feeds and install surfaces;
 - `/posts/gh-<run_id>-<run_attempt>` — stable canonical page for each published entry.
 
-RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categories and icon metadata. RSS and Atom also expose self-links and content with the correct feed MIME types. The Worker keeps the newest 250 entries in its hot index and emits up to 50 in feeds. The `/archive` page lists all R2 posts chronologically in pages of at most 25 with opaque R2 cursors. It does not scan the full bucket per request, and new posts do not shift previously browsed pages. Browser Back returns to the previous page. The visible archive header intentionally omits the descriptive subtitle; the description remains available to metadata, feeds and crawlers.
+RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categories and icon metadata. RSS and Atom also expose self-links and content with the correct feed MIME types. The Worker maintains one complete R2 `index.json` manifest ordered newest-first. Feeds still read up to 50 entries and the homepage shows up to 20. `/archive` reads just 25 post bodies per page and uses a stable last-post cursor, with Older, Newer and Newest links. Publishing a new post does not shift subsequent pages. The previous index format retained only 250 posts; its entries are reconciled with canonical R2 object metadata on a legacy archive read (read-only) and permanently migrated on the next authenticated publish. Once migrated, archive requests never scan the full bucket. Browser Back works, and the archive header still omits the descriptive subtitle.
 
 ## Worker
 

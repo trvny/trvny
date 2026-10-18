@@ -54,16 +54,17 @@ than replaced:
   `https://gremlin.travny.workers.dev/mcp`;
 - the host generated the matching legacy `.mcp.json` compatibility config.
 
-The account plugin editor overlays releases but cannot delete existing files.
-For that reason the live account bundle retains the legacy
-`skills/instructions/` path, while the repository keeps
-`skills/gremlin/` as the canonical portable layout. The live
-`USER_CONTEXT.md` was overwritten with an empty legacy placeholder and is no
-longer indexed; `AGENTS.md` is now only a compatibility alias to the
-maintained style reference.
+The account plugin editor now supports explicit file deletion during release
+updates. The legacy `USER_CONTEXT.md`, redundant `AGENTS.md` alias and duplicate
+`GREMLIN_STYLE.md` have all been physically removed from the live plugin.
+The account bundle keeps the migration-era `skills/instructions/` directory,
+while the repository uses `skills/gremlin/` as its single portable skill layout.
+The only retained style file is `references/gremlin-style.md`, and
+`agents/openai.yaml` contains UI metadata, not behavior duplication.
 
-The repository package version is aligned to `0.31.2` so future account
-updates can continue with monotonically increasing semantic versions.
+The repository package version is aligned to the live `0.31.6` release.
+The working MCP App binding, skill metadata, knowledge index and original PNG
+logo are synchronized in the portable source.
 
 ## Capability parity ledger
 
@@ -97,7 +98,14 @@ The Gremlin runtime also exposes seven direct specialist tools:
 
 The standalone Gremlin MCP preserves these alongside the 30 operator tools.
 The expected standalone MCP tool count is therefore **37**, with no duplicate
-tool names.
+tool names. Tool registration is distinct from third-party availability:
+Context7 and Feedseek read calls have been verified live, while Engram is
+advertised for compatibility but **not considered healthy or required for the
+OAuth/plugin migration sign-off**. The current adapter targets
+`api.engrammemory.ai`, whereas the working separately connected ChatGPT
+Engram account uses `getengram.app`; the latter reports unresolved API key
+management issues (get-engram/engram#471 and #401). Investigate this separately,
+without rotating secrets as a checklist workaround.
 
 ### Anchor storage
 
@@ -154,8 +162,12 @@ The portable plugin points at
 
 ## Still required
 
-- Load the updated plugin in a fresh ChatGPT session and verify the Gremlin MCP
-  connection/authentication plus the complete 37-tool live surface.
+- ChatGPT OAuth connection, 37 distinct tools and a reversible GPTomek-authored
+  GitHub issue-comment mutation were verified live on 2026-10-17.
+- Context7 and Feedseek returned live results through the Gremlin MCP after
+  merged PR #1054; live OAuth refresh/revocation and legacy GPT behavioral
+  parity remain open. Engram is an optional, deferred integration and **does
+  not block Gremlin migration acceptance**.
 - Attach Anchor as a separate connected app only after its actual OpenAI App ID
   is verified.
 - Run behavioral and tool parity checks against the read-only legacy GPT.
@@ -171,8 +183,9 @@ The portable plugin points at
 3. Representative read and write tools reach the existing guarded Action
    handlers with OAuth identity preserved.
 4. Repository reads, context/investigation, guarded writes, Cloudflare reads and
-   mutations, every specialist tool, release/workflow operations, and failure
-   paths pass smoke tests.
+   mutations, representative Context7 and Feedseek reads, release/workflow
+   operations and failure paths pass smoke tests. Engram provider connectivity
+   is explicitly excluded as a migration acceptance blocker.
 5. GPTomek-authored writes still use the existing bridge and final-side-effect
    verification.
 6. No plugin file contains secrets, duplicated backend policy or stale personal
@@ -184,3 +197,12 @@ The portable plugin points at
 9. Keep the original GPT as a read-only behavioral fallback until these checks
    pass.
 10. Only then treat the migrated plugin as the maintained successor.
+
+## Latest account state (2026-10-18)
+
+Release `0.31.6` retains one Gremlin skill, one original PNG logo, the
+OAuth-connected Gremlin ChatGPT App (`.app.json`) and the same MCP endpoint.
+The migrated account package uses a technical generated package ID, while the
+portable repository keeps the stable `mechagremlin` package name. The package
+identity and installed app binding are not credentials. Never create a second
+plugin or copy a live user-context snapshot to reconcile the layouts.

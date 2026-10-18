@@ -14,8 +14,11 @@ Gremlin skill. The style reference exists only at
 `agents/openai.yaml` is skill UI metadata, not another instruction source.
 The compact `lookup/knowledge-index.json` points only to existing references.
 
-The live plugin's registered ChatGPT app is declared in `.app.json`. The
-canonical Streamable HTTP MCP configuration stays in `mcp.json`, targeting
+The registered ChatGPT app is declared in `.app.json` with alias `gremlin`,
+matching the MCP key to prevent double routes in Codex. The migrated account
+release may expose the host-generated alias `connector` until re-published;
+this portable source is deliberately normalized. The canonical Streamable
+HTTP MCP configuration stays in `mcp.json`, targeting
 `https://gremlin.travny.workers.dev/mcp`. The host-generated
 `.codex-plugin/plugin.json` and `.mcp.json` are compatibility outputs, not
 separately maintained definitions. The same original logo is used by

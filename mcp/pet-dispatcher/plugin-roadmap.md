@@ -46,7 +46,9 @@ The OAuth 2.1 provider is now implemented using Cloudflare Workers OAuth Provide
 - GitHub sign-in verifies exact login **and** immutable user ID; no GitHub access token is retained in OAuth grants.
 - OAuth grants are connector-only. `pet:read` permits discovery/inspection; `pet:delegate` is required for writes, direct calls, delegation, cancellation and session finish. Unknown RPC operations require write scope.
 - Never expose `pet_host_fs` through OAuth or reuse the operator `CONTROL_PLANE_TOKEN`.
-- Required rollout steps: create a dedicated `pet-dispatcher-oauth` KV, add `OAUTH_KV` Wrangler binding, configure GitHub OAuth app callback `/oauth/github/callback`, set `PET_OAUTH_GITHUB_CLIENT_ID` and `PET_OAUTH_GITHUB_CLIENT_SECRET` as Worker secrets, and run an actual browser and MCP smoke test.
+- The **existing GPTomek GitHub App** already used by MechaGremlin is the upstream sign-in provider. `GREMLIN_OAUTH_CLIENT_ID` and `GREMLIN_OAUTH_CLIENT_SECRET` remain the only GitHub repository secrets for this shared client; the Pet credential sync copies them into separate `PET_OAUTH_GITHUB_CLIENT_ID` and `PET_OAUTH_GITHUB_CLIENT_SECRET` Worker bindings without exposing their values. No second GitHub App or duplicated GitHub repository secrets are needed.
+- The dedicated `pet-dispatcher-oauth` KV has been created and bound as `OAUTH_KV` (separate from Gremlin's OAuth grants). Pet GitHub App login uses PKCE S256 and discards the temporary upstream access token after verifying the owner.
+- **Remaining rollout gate:** append `https://pet-dispatcher-control.travny.workers.dev/oauth/github/callback` to the existing GPTomek GitHub App callback URL list, preserving Gremlin's callback and disabling wildcard matching for the new entry; then synchronize the existing GitHub secrets to the Pet Worker and test browser sign-in, refresh/revoke, negative identity tests and `tools/list` before changing the installed plugin endpoint.
 - Do not change the canonical plugin `mcp.json` or retire either legacy access route until those tests pass. Credential values must never enter Git, tool outputs, URL paths, or UI state.
 
 ## Phase 5 - deeper extensions

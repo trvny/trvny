@@ -6,6 +6,7 @@ import {
   type OAuthHelpers,
 } from "@cloudflare/workers-oauth-provider";
 import { WorkerEntrypoint } from "cloudflare:workers";
+import { githubAppAuthorizeUrl, githubAppPkce } from "./github-app-pkce.js";
 import { petOAuthOwnerMatches, requiredPetScopes } from "./oauth-policy.js";
 
 // The OAuth endpoint is separate from the existing /mcp owner bearer and
@@ -67,16 +68,6 @@ function consentPage(details: {
     '<button name="decision" value="deny">Deny</button></p></form></html>';
 }
 
-function githubUrl(env: PetOAuthEnv, state: string): string {
-  const url = new URL("https://github.com/login/oauth/authorize");
-  url.searchParams.set("client_id", env.PET_OAUTH_GITHUB_CLIENT_ID!);
-  url.searchParams.set("redirect_uri", GITHUB_CALLBACK);
-  url.searchParams.set("state", state);
-  // Identity-only OAuth: no repo scopes or long-lived GitHub credentials.
-  url.searchParams.set("scope", "read:user");
-  return url.toString();
-}
-
 function errorRedirect(request: AuthRequest): string {
   const url = new URL(request.redirectUri);
   url.searchParams.set("error", "access_denied");
@@ -105,8 +96,13 @@ async function authorize(request: Request, env: PetOAuthEnv): Promise<Response> 
     const scopes = form.getAll("scope").map(String);
     if (!scopes.includes("pet:read")) return new Response("Required scope missing", { status: 400 });
     const approved = await env.OAUTH_PROVIDER.approveConsent(request, handle, { scope: scopes });
-    const upstream = await env.OAUTH_PROVIDER.beginUpstream(approved.request, { headers: approved.headers });
-    upstream.headers.set("Location", githubUrl(env, upstream.state));
+    const { verifier, challenge } = await githubAppPkce();
+    const upstream = await env.OAUTH_PROVIDER.beginUpstream(approved.request, {
+      data: { verifier }, headers: approved.headers,
+    });
+    upstream.headers.set("Location", githubAppAuthorizeUrl(
+      env.PET_OAUTH_GITHUB_CLIENT_ID!, GITHUB_CALLBACK, upstream.state, challenge,
+    ));
     return new Response(null, { status: 302, headers: upstream.headers });
   } catch (error) {
     if (error instanceof AuthorizationError) {
@@ -117,7 +113,7 @@ async function authorize(request: Request, env: PetOAuthEnv): Promise<Response> 
   }
 }
 
-async function gitHubUser(env: PetOAuthEnv, code: string): Promise<PetAuthProps | null> {
+async function gitHubUser(env: PetOAuthEnv, code: string, verifier: string): Promise<PetAuthProps | null> {
   let token: Response;
   try {
     token = await fetch("https://github.com/login/oauth/access_token", {
@@ -128,6 +124,7 @@ async function gitHubUser(env: PetOAuthEnv, code: string): Promise<PetAuthProps 
         client_secret: env.PET_OAUTH_GITHUB_CLIENT_SECRET!,
         code,
         redirect_uri: GITHUB_CALLBACK,
+        code_verifier: verifier,
       }),
     });
   } catch {
@@ -169,14 +166,17 @@ async function gitHubUser(env: PetOAuthEnv, code: string): Promise<PetAuthProps 
 async function callback(request: Request, env: PetOAuthEnv): Promise<Response> {
   if (!configured(env)) return new Response("Pet Dispatcher GitHub OAuth is not configured", { status: 503 });
   try {
-    const completed = await env.OAUTH_PROVIDER.finishUpstream(request);
+    const completed = await env.OAUTH_PROVIDER.finishUpstream<{ verifier: string }>(request);
     const url = new URL(request.url);
     const code = url.searchParams.get("code");
     if (url.searchParams.has("error") || !code) {
       completed.headers.set("location", errorRedirect(completed.request));
       return new Response(null, { status: 302, headers: completed.headers });
     }
-    const user = await gitHubUser(env, code);
+    if (typeof completed.data?.verifier !== "string" || completed.data.verifier.length < 43) {
+      return new Response("Invalid GitHub PKCE state", { status: 400 });
+    }
+    const user = await gitHubUser(env, code, completed.data.verifier);
     if (!user) {
       completed.headers.set("location", errorRedirect(completed.request));
       return new Response(null, { status: 302, headers: completed.headers });

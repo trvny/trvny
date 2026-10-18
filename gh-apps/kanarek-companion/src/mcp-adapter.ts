@@ -13,6 +13,13 @@ export const MCP_PROTOCOL_VERSION = '2026-07-28';
 const LEGACY_PROTOCOL_VERSION = '2025-11-25';
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([MCP_PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION]);
 const MAX_REQUEST_BYTES = 64_000;
+// These routes target engrammemory.ai, not the user's getengram.app account.
+// Leave the shared specialist gateway intact for existing non-Gremlin consumers.
+const GREMLIN_EXCLUDED_SPECIALISTS = new Set<string>([
+  'engram_status',
+  'engram_search',
+  'engram_store',
+]);
 const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 
 const SPECIALIST_SERVER_INFO: JsonObject = {
@@ -522,6 +529,26 @@ async function operatorToolResult(
   };
 }
 
+function gremlinSpecialistSurface(
+  env: SpecialistToolEnv,
+  fetcher: typeof fetch,
+): McpSurface {
+  const source = specialistSurface(env, fetcher);
+  return {
+    ...source,
+    tools: () => source.tools().filter(
+      (tool) => !GREMLIN_EXCLUDED_SPECIALISTS.has(String(tool.name)),
+    ),
+    hasTool: (name) => !GREMLIN_EXCLUDED_SPECIALISTS.has(name) && source.hasTool(name),
+    callTool(name, args) {
+      if (GREMLIN_EXCLUDED_SPECIALISTS.has(name)) {
+        throw new InvalidToolArgumentsError(name);
+      }
+      return source.callTool(name, args);
+    },
+  };
+}
+
 function combinedSurface(
   primary: McpSurface,
   secondary: McpSurface,
@@ -537,7 +564,7 @@ function combinedSurface(
   return {
     serverInfo: OPERATOR_SERVER_INFO,
     instructions:
-      'Guarded MechaGremlin operator and specialist tools. Prefer high-level operator workflows for repository and Cloudflare work; use specialist tools for direct Engram, Context7 and Feedseek access. Preserve existing policy checks and verify remote side effects before claiming success.',
+      'Guarded MechaGremlin operator and specialist tools. Prefer high-level operator workflows for repository and Cloudflare work; use Context7 and Feedseek specialist tools. Anchor storage requires separate Anchor OAuth via the connected app. Preserve existing policy checks and verify remote side effects before claiming success.',
     serializeBatchToolCalls: true,
     tools: () => [...primaryTools, ...secondaryTools].map((tool) => ({ ...tool })),
     hasTool: (name) => primary.hasTool(name) || secondary.hasTool(name),
@@ -593,7 +620,9 @@ export function operatorMcpManifest(document: JsonObject): JsonObject {
 
 export function gremlinMcpManifest(document: JsonObject): JsonObject {
   const operatorToolNames = [...operatorRoutes(document).keys()].sort();
-  const specialistNames = [...specialistToolNames()].sort();
+  const specialistNames = specialistToolNames()
+    .filter((name) => !GREMLIN_EXCLUDED_SPECIALISTS.has(name))
+    .sort();
   return {
     path: MCP_PATH,
     protocolVersion: MCP_PROTOCOL_VERSION,
@@ -634,7 +663,7 @@ export async function handleGremlinMcp(
     invoke,
     combinedSurface(
       operatorSurface(request, document, invoke),
-      specialistSurface(env, fetcher),
+      gremlinSpecialistSurface(env, fetcher),
     ),
   );
 }

@@ -36,10 +36,15 @@ test('Gremlin worker owns GPT Actions routes and preserves auth', async () => {
 
 test('Gremlin owns the full migrated MCP surface', async () => {
   const manifest = gremlinMcpManifest(ORIGIN) as { toolNames?: string[] };
-  assert.equal(manifest.toolNames?.length, 37);
+  assert.equal(manifest.toolNames?.length, 32);
   assert.ok(manifest.toolNames?.includes('getDocsIndex'));
   assert.ok(manifest.toolNames?.includes('implementCodeChange'));
-  assert.ok(manifest.toolNames?.includes('engram_search'));
+  for (const stale of [
+    'engram_status', 'engram_search', 'engram_store',
+    'searchEngramMemory', 'storeEngramMemory',
+  ]) {
+    assert.equal(manifest.toolNames?.includes(stale), false, stale);
+  }
   assert.ok(manifest.toolNames?.includes('context7_search'));
   assert.ok(manifest.toolNames?.includes('feedseek_recent'));
   assert.equal(manifest.toolNames?.includes('useGremlinStorage'), false);
@@ -61,6 +66,26 @@ test('Gremlin owns the full migrated MCP surface', async () => {
     {} as never,
   );
   assert.equal(response.status, 401);
+});
+
+test('Gremlin does not expose the wrong Engram Action routes or advertise them', async () => {
+  for (const path of [
+    '/gpt-actions/engram/status',
+    '/gpt-actions/engram/search',
+    '/gpt-actions/engram/store',
+  ]) {
+    const response = await worker.fetch(new Request(`${ORIGIN}${path}`, { method: 'POST' }), {} as never);
+    assert.equal(response.status, 404, path);
+  }
+  const response = await worker.fetch(
+    new Request(`${ORIGIN}/gpt-actions/openapi.json`), {} as never,
+  );
+  assert.equal(response.status, 200);
+  const document = await response.json() as { paths?: Record<string, unknown> };
+  assert.equal(
+    Object.keys(document.paths ?? {}).some((path) => path.startsWith('/gpt-actions/engram/')),
+    false,
+  );
 });
 
 test('Gremlin worker serves the full runtime action surface', async () => {

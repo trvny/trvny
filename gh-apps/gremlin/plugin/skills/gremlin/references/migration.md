@@ -62,7 +62,8 @@ while the repository uses `skills/gremlin/` as its single portable skill layout.
 The only retained style file is `references/gremlin-style.md`, and
 `agents/openai.yaml` contains UI metadata, not behavior duplication.
 
-The repository package version is aligned to the live `0.31.6` release.
+The repository package targets `0.31.7`; synchronize the existing private plugin
+in place after the Gremlin MCP reduction is validated.
 The working MCP App binding, skill metadata, knowledge index and original PNG
 logo are synchronized in the portable source.
 
@@ -86,37 +87,35 @@ guarded Action routes instead of copying mutation policy.
 
 ### Specialist intelligence
 
-The Gremlin runtime also exposes seven direct specialist tools:
+The standalone Gremlin MCP exposes four direct specialists:
 
-- `engram_status`
-- `engram_search`
-- `engram_store`
 - `context7_search`
 - `feedseek_search`
 - `feedseek_fetch`
 - `feedseek_recent`
 
-The standalone Gremlin MCP preserves these alongside the 30 operator tools.
-The expected standalone MCP tool count is therefore **37**, with no duplicate
-tool names. Tool registration is distinct from third-party availability:
-Context7 and Feedseek read calls have been verified live, while Engram is
-advertised for compatibility but **not considered healthy or required for the
-OAuth/plugin migration sign-off**. The current adapter targets
-`api.engrammemory.ai`, whereas the working separately connected ChatGPT
-Engram account uses `getengram.app`; the latter reports unresolved API key
-management issues (get-engram/engram#471 and #401). Investigate this separately,
-without rotating secrets as a checklist workaround.
+Together with 28 guarded operators, the expected surface is **32 tools**.
+Two legacy operator actions (`searchEngramMemory`, `storeEngramMemory`) and
+three direct Engram specialist tools were removed only from Gremlin's surface.
+They targeted `api.engrammemory.ai`, not the user's `getengram.app` account.
+The shared Kanarek/legacy implementation remains unchanged to avoid breaking
+other consumers, and this removal does not alter the separate ChatGPT Engram
+OAuth connection. Context7 and Feedseek were verified live.
+
+The getengram.app dashboard/API-key problems (get-engram/engram#471 and #401)
+remain external; no token rotation or fake compatibility bridge is warranted.
 
 ### Anchor storage
 
 `useGremlinStorage` is separately authenticated with Anchor OAuth and is not
-counted in the 37-tool Gremlin MCP surface. The live Anchor workspace already
+counted in the 32-tool Gremlin MCP surface. The live Anchor workspace already
 contains the canonical `Gremlin Storage` area for durable Gremlin artifacts.
 
-Preserve this authorization boundary. Prefer a connected Anchor app in the
-private plugin once the underlying OpenAI App ID is verified. Do not proxy
-Anchor through the Gremlin Worker, copy OAuth credentials, or invent an
-`asdk_app_*` identifier just to make the manifest look complete.
+Preserve this authorization boundary. The current ChatGPT session can use
+Anchor as a separately connected app; bundling it into this private plugin
+still requires its real registered OpenAI App ID and must preserve Anchor OAuth.
+Do not proxy Anchor through the Gremlin Worker, copy OAuth credentials, or
+invent an `asdk_app_*` identifier to make the manifest look complete.
 
 ### Skill, knowledge and persona
 
@@ -153,8 +152,8 @@ The portable plugin points at
   specialist handlers remain authoritative behind the MCP adapter.
 - GPTomek attribution, stale-state checks, replay guards and mutation policy are
   preserved because MCP calls enter those same handlers.
-- Engram, Feedseek and Context7 continue through their existing specialist
-  implementations.
+- Context7 and Feedseek retain their existing specialist implementations;
+  the unrelated Engram adapter is not in the Gremlin MCP or Actions surface.
 - Anchor remains a separately authenticated storage capability.
 - Shared Durable Objects and the GPTomek signing RPC remain deliberate
   cross-service dependencies while Gremlin-only modules are moved out of
@@ -162,30 +161,31 @@ The portable plugin points at
 
 ## Still required
 
-- ChatGPT OAuth connection, 37 distinct tools and a reversible GPTomek-authored
+- ChatGPT OAuth connection, the original 37-tool inventory and a reversible GPTomek-authored
   GitHub issue-comment mutation were verified live on 2026-10-17.
 - Context7 and Feedseek returned live results through the Gremlin MCP after
-  merged PR #1054; live OAuth refresh/revocation and legacy GPT behavioral
-  parity remain open. Engram is an optional, deferred integration and **does
-  not block Gremlin migration acceptance**.
-- Attach Anchor as a separate connected app only after its actual OpenAI App ID
-  is verified.
+  merged PR #1054. The unrelated Engram adapter has since been excluded from
+  the Gremlin MCP; live OAuth refresh/revocation and legacy GPT behavior parity
+  remain open.
+- Anchor is already connected for use alongside Gremlin in ChatGPT sessions;
+  embedding the Anchor app into this private plugin still requires the real
+  registered OpenAI App ID and a live bundle-level connection test.
 - Run behavioral and tool parity checks against the read-only legacy GPT.
 - Finish moving Gremlin-only modules out of `kanarek-companion` when doing so
   reduces coupling without duplicating shared state or policy.
 
 ## Acceptance gates
 
-1. The standalone Gremlin MCP advertises exactly the expected 37 names: all
-   30 operator operations including `getDocsIndex`, plus all seven specialist
-   tools.
+1. The standalone Gremlin MCP advertises exactly **32 names**: 28 operator
+   operations including `getDocsIndex`, plus four Context7/Feedseek specialists;
+   no removed Engram tool remains callable.
 2. MCP authentication fails closed before tool execution.
 3. Representative read and write tools reach the existing guarded Action
    handlers with OAuth identity preserved.
 4. Repository reads, context/investigation, guarded writes, Cloudflare reads and
    mutations, representative Context7 and Feedseek reads, release/workflow
-   operations and failure paths pass smoke tests. Engram provider connectivity
-   is explicitly excluded as a migration acceptance blocker.
+   operations and failure paths pass smoke tests. No wrong-provider Engram
+   endpoint is exposed by the Gremlin Worker.
 5. GPTomek-authored writes still use the existing bridge and final-side-effect
    verification.
 6. No plugin file contains secrets, duplicated backend policy or stale personal
@@ -200,7 +200,7 @@ The portable plugin points at
 
 ## Latest account state (2026-10-18)
 
-Release `0.31.6` retains one Gremlin skill, one original PNG logo, the
+Release `0.31.7` targets one Gremlin skill, one original PNG logo, the
 OAuth-connected Gremlin ChatGPT App (`.app.json`) and the same MCP endpoint.
 The migrated account package uses a technical generated package ID, while the
 portable repository keeps the stable `mechagremlin` package name. The package

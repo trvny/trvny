@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mechagremlin",
-  "version": "0.31.6",
+  "version": "0.31.7",
   "description": "Deadpan gremlin for code, GitHub, research and questionable ideas. Useful first, funny second. Persistent when the job gets ugly.",
   "author": {
     "name": "trvny",

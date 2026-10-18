@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -18,14 +19,16 @@ test('portable MechaGremlin manifest references the installed MCP app and origin
   };
   const app = JSON.parse(await file('.app.json')) as { apps: Record<string, { id: string }> };
   const mcp = JSON.parse(await file('mcp.json')) as {
-    mcpServers: { gremlin: { url: string } };
+    mcpServers: { gremlin: { type: string; url: string } };
   };
 
-  assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
+  // Pin the account release intentionally; bump alongside the next source sync.
+  assert.equal(manifest.version, '0.31.6');
   assert.equal(manifest.extensions['com.openai'].apps, './.app.json');
   assert.deepEqual(manifest.extensions['com.openai'].interface.capabilities, ['skills']);
   assert.deepEqual(Object.keys(app.apps), Object.keys(mcp.mcpServers));
-  assert.match(app.apps.gremlin.id, /^asdk_app_[a-z0-9]+$/);
+  assert.equal(app.apps.gremlin.id, 'asdk_app_6ad3cba96c048191b0006fed71f4e0ef');
+  assert.equal(mcp.mcpServers.gremlin.type, 'streamable-http');
   assert.equal(mcp.mcpServers.gremlin.url, 'https://gremlin.travny.workers.dev/mcp');
 
   for (const path of [
@@ -39,6 +42,8 @@ test('portable MechaGremlin manifest references the installed MCP app and origin
   assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
   assert.equal(png.readUInt32BE(16), 256);
   assert.equal(png.readUInt32BE(20), 256);
+  assert.equal(png.length, 8228);
+  assert.equal(createHash('sha256').update(png).digest('hex'), '172a02c7b5a39bdcba2df30ac26fffce422c44a8cdd85daf9a7e3d2a4ef2d6ca');
 });
 
 test('Gremlin skill keeps only the canonical references and no user snapshot', async () => {

@@ -26,6 +26,7 @@ test("read-only tools need only the read scope", async () => {
   }
   assert.deepEqual(await requiredPetScopes(rpc("tools/list")), ["pet:read"]);
   assert.deepEqual(await requiredPetScopes(rpc("initialize")), ["pet:read"]);
+  assert.deepEqual(await requiredPetScopes(rpc("notifications/cancelled", { requestId: 1 })), ["pet:read"]);
   assert.deepEqual(await requiredPetScopes(rpc("resources/read", { uri: "ui://pet-dispatcher/cockpit/v1" })), ["pet:read"]);
 });
 
@@ -44,4 +45,14 @@ test("mutating or unknown tools demand delegation scope", async () => {
   assert.deepEqual(await requiredPetScopes(new Request("https://pet.example/oauth/mcp", {
     method: "POST", body: "[]",
   })), ["pet:read", "pet:delegate"]);
+});
+
+test("OAuth scope inspection rejects oversized bodies before JSON parsing", async () => {
+  const url = "https://pet.example/oauth/mcp";
+  const tooLarge = new Request(url, { method: "POST", body: "a".repeat(128 * 1024 + 1) });
+  await assert.rejects(requiredPetScopes(tooLarge), RangeError);
+  const declared = new Request(url, {
+    method: "POST", headers: { "content-length": "200000" }, body: '{"jsonrpc":"2.0","method":"tools/list"}',
+  });
+  await assert.rejects(requiredPetScopes(declared), RangeError);
 });

@@ -1,3 +1,5 @@
+const MCP_BODY_LIMIT = 128 * 1024;
+
 const READ_TOOLS = new Set([
   "pet_meta", "pet_recent_tasks", "pet_task_get", "pet_cockpit_open",
   "pet_workspace_inspect", "pet_read_files",
@@ -6,9 +8,32 @@ const READ_TOOLS = new Set([
 /** An unknown or malformed MCP operation must not be granted read-only rights. */
 export async function requiredPetScopes(request: Request): Promise<string[]> {
   if (request.method !== "POST") return ["pet:read"];
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > MCP_BODY_LIMIT) {
+    throw new RangeError("MCP request body is too large");
+  }
+  // Read only a bounded clone. The original stream is still available to the
+  // MCP handler, and even a missing/incorrect Content-Length cannot bypass
+  // the OAuth scope parser's memory ceiling.
+  const reader = request.clone().body?.getReader();
+  if (!reader) return ["pet:read", "pet:delegate"];
+  const decoder = new TextDecoder();
+  let text = "";
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MCP_BODY_LIMIT) {
+      void reader.cancel().catch(() => {});
+      throw new RangeError("MCP request body is too large");
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  text += decoder.decode();
   let body: unknown;
   try {
-    body = await request.clone().json();
+    body = JSON.parse(text) as unknown;
   } catch {
     return ["pet:read", "pet:delegate"];
   }
@@ -18,7 +43,8 @@ export async function requiredPetScopes(request: Request): Promise<string[]> {
     const value = call as { method?: unknown; params?: { name?: unknown } };
     if (value.method === "initialize" || value.method === "ping" ||
         value.method === "tools/list" || value.method === "resources/list" ||
-        value.method === "resources/read" || value.method === "notifications/initialized") return true;
+        value.method === "resources/read" || value.method === "notifications/initialized" ||
+        value.method === "notifications/cancelled") return true;
     return value.method === "tools/call" && READ_TOOLS.has(String(value.params?.name ?? ""));
   });
   return readOnly ? ["pet:read"] : ["pet:read", "pet:delegate"];

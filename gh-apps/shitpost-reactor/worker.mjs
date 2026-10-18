@@ -712,6 +712,12 @@ async function publish(request, env) {
 
 async function handleGet(url, env) {
   if (url.pathname === '/healthz') return response('ok\n', 'text/plain; charset=utf-8', { cache: 'no-store' });
+  // Wrangler injects this public build SHA during the authenticated deploy.
+  if (url.pathname === '/version') {
+    const sha = typeof env.DEPLOY_COMMIT === 'string' && /^[a-f0-9]{40}$/u.test(env.DEPLOY_COMMIT)
+      ? env.DEPLOY_COMMIT : 'unknown';
+    return response(`${sha}\n`, 'text/plain; charset=utf-8', { cache: 'no-store' });
+  }
 
   const icon = iconAsset(url.pathname);
   if (icon) return response(icon.body, icon.contentType, { cache: 'public, max-age=31536000, immutable' });

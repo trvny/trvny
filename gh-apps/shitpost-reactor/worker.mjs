@@ -168,10 +168,16 @@ async function readIndexState(env) {
   if (!object) return { entries: [], complete: false };
   try {
     const data = await object.json();
+    // Older Workers require the JSON body to remain an array. The metadata
+    // marker distinguishes a complete archive index from a legacy 250-item
+    // array without breaking a possible code rollback.
     if (data?.version === 2 && Array.isArray(data.entries)) {
       return { entries: normalizeIndex(data.entries), complete: true };
     }
-    return { entries: normalizeIndex(data), complete: false };
+    return {
+      entries: normalizeIndex(data),
+      complete: Array.isArray(data) && object.customMetadata?.archive_index_version === '2',
+    };
   } catch {
     return { entries: [], complete: false };
   }
@@ -213,9 +219,10 @@ async function readCompleteIndex(env, state = null, reconcile = false) {
 }
 
 async function writeIndex(env, entries) {
-  const index = { version: 2, entries: normalizeIndex(entries) };
+  const index = normalizeIndex(entries);
   await env.FEED.put('index.json', `${JSON.stringify(index)}\n`, {
     httpMetadata: { contentType: 'application/json; charset=utf-8' },
+    customMetadata: { archive_index_version: '2' },
   });
 }
 

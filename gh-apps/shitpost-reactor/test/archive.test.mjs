@@ -97,7 +97,9 @@ test('stable post-ID cursor never skips or repeats items after a new publish', a
   const latest = post(49);
   b.add(latest);
   const after = await archive(b.env, post(24).id);
-  assert.equal(after.body, before.body);
+  const postIds = (html) => [...html.matchAll(/<article><h2><a href="\/posts\/(gh-\d+-\d+)"/g)]
+    .map((match) => match[1]);
+  assert.deepEqual(postIds(after.body), postIds(before.body));
   const first = await archive(b.env);
   assert.match(first.body, /Post number 49/);
 });

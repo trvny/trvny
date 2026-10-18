@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { gremlinMcpManifest } from 'kanarek-companion/runtime';
+import { gremlinGatewayManifest, gremlinMcpManifest } from 'kanarek-companion/runtime';
 import worker from '../src/index.ts';
 
 const ORIGIN = 'https://gremlin.internal';
@@ -95,4 +95,25 @@ test('Gremlin worker serves the full runtime action surface', async () => {
   assert.equal(document.servers?.[0]?.url, ORIGIN);
   // Runtime-level operation, not part of the bare gremlin-router surface.
   assert.ok(document.paths?.['/gpt-actions/operator/code-review']);
+});
+
+// Capability and smoke metadata must reflect the curated Gremlin provider,
+// not the legacy 37-tool shared gateway that still serves old GPT Actions.
+test('Gremlin capability metadata hashes the same 28 operators it exposes', async () => {
+  const capabilities = await gremlinGatewayManifest(ORIGIN, {
+    id: 'test-worker-version',
+    tag: 'test',
+    timestamp: '2026-10-18T00:00:00Z',
+  }) as {
+    openApi: { operationIds: string[]; operationCount: number; capabilityDigest: string };
+    mcp: { toolNames: string[] };
+  };
+  assert.equal(capabilities.openApi.operationCount, 28);
+  assert.equal(capabilities.openApi.operationIds.length, 28);
+  assert.ok(capabilities.openApi.capabilityDigest.startsWith('sha256:'));
+  assert.equal(capabilities.mcp.toolNames.length, 32);
+  for (const name of ['searchEngramMemory', 'storeEngramMemory']) {
+    assert.equal(capabilities.openApi.operationIds.includes(name), false);
+    assert.equal(capabilities.mcp.toolNames.includes(name), false);
+  }
 });

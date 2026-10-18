@@ -98,7 +98,14 @@ The Gremlin runtime also exposes seven direct specialist tools:
 
 The standalone Gremlin MCP preserves these alongside the 30 operator tools.
 The expected standalone MCP tool count is therefore **37**, with no duplicate
-tool names.
+tool names. Tool registration is distinct from third-party availability:
+Context7 and Feedseek read calls have been verified live, while Engram is
+advertised for compatibility but **not considered healthy or required for the
+OAuth/plugin migration sign-off**. The current adapter targets
+`api.engrammemory.ai`, whereas the working separately connected ChatGPT
+Engram account uses `getengram.app`; the latter reports unresolved API key
+management issues (get-engram/engram#471 and #401). Investigate this separately,
+without rotating secrets as a checklist workaround.
 
 ### Anchor storage
 
@@ -157,8 +164,10 @@ The portable plugin points at
 
 - ChatGPT OAuth connection, 37 distinct tools and a reversible GPTomek-authored
   GitHub issue-comment mutation were verified live on 2026-10-17.
-- Recheck Context7, Feedseek and Engram after the upstream redirect fix deploys;
-  live OAuth refresh/revocation and legacy GPT behavioral parity are still open.
+- Context7 and Feedseek returned live results through the Gremlin MCP after
+  merged PR #1054; live OAuth refresh/revocation and legacy GPT behavioral
+  parity remain open. Engram is an optional, deferred integration and **does
+  not block Gremlin migration acceptance**.
 - Attach Anchor as a separate connected app only after its actual OpenAI App ID
   is verified.
 - Run behavioral and tool parity checks against the read-only legacy GPT.
@@ -174,8 +183,9 @@ The portable plugin points at
 3. Representative read and write tools reach the existing guarded Action
    handlers with OAuth identity preserved.
 4. Repository reads, context/investigation, guarded writes, Cloudflare reads and
-   mutations, every specialist tool, release/workflow operations, and failure
-   paths pass smoke tests.
+   mutations, representative Context7 and Feedseek reads, release/workflow
+   operations and failure paths pass smoke tests. Engram provider connectivity
+   is explicitly excluded as a migration acceptance blocker.
 5. GPTomek-authored writes still use the existing bridge and final-side-effect
    verification.
 6. No plugin file contains secrets, duplicated backend policy or stale personal

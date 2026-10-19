@@ -209,6 +209,12 @@ export function patchAddedRightLines(patch: string): Set<number> {
 
 export function reviewablePath(path: string): boolean {
   const lower = path.toLowerCase();
+  // Binary assets lack GitHub text patches; do not block code review.
+  if (
+    /\.(?:avif|bmp|gif|heic|ico|jpe?g|png|tiff?|webp)$/.test(lower) ||
+    /\.(?:eot|otf|tt[cf]|woff2?)$/.test(lower) ||
+    /\.(?:7z|aab|apk|bin|db|exe|gz|jar|mp3|mp4|pdf|rar|sqlite3?|wasm|wav|webm|zip)$/.test(lower)
+  ) return false;
   if (
     lower.endsWith('.md') ||
     lower.endsWith('.mdx') ||

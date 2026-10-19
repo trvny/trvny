@@ -412,6 +412,7 @@ async function askReviewRouter(
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
+    'x-kanarek-review-partial-ok': 'true',
   };
   if (excludedProviders.length) {
     headers[REVIEW_PROVIDER_EXCLUDE_HEADER] = excludedProviders.join(',');
@@ -946,7 +947,8 @@ export async function runWebhookReview(
   // the fail-open fallback while the preview model is being evaluated live.
   let judged: JudgedFindings | null = null;
   let decisionMarker: string | null = null;
-  if (!paidPhase) {
+  // Skip expensive L2 when the 15-minute alarm needs its publication margin.
+  if (!paidPhase && Date.now() - alarmStartedAt < 12 * 60_000) {
     const decisionAttempt = await askDecisionJudge(
       findings,
       generated.provider,

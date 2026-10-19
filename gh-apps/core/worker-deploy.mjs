@@ -114,9 +114,17 @@ export async function guardedDeploy(
   }
   wrangler(['versions', 'deploy', `${versionId}@100%`, '--name', name, '--message', message, '--yes']);
 
-  if (await verify()) {
-    // versions upload/deploy never touch routes, domains or crons.
-    wrangler(['triggers', 'deploy', '--name', name]);
+  // versions upload/deploy never touch routes, domains or crons.
+  const triggers = () => {
+    try {
+      wrangler(['triggers', 'deploy', '--name', name]);
+      return true;
+    } catch {
+      console.error(`${name}: triggers deploy failed.`);
+      return false;
+    }
+  };
+  if ((await verify()) && triggers()) {
     console.log(`${name}: deployment ${sha} verified.`);
     return 0;
   }
@@ -125,7 +133,7 @@ export async function guardedDeploy(
     console.error(`${name}: ${sha} unverified and no longer active; leaving the newer deployment in place.`);
     return 1;
   }
-  console.error(`${name}: ${sha} failed live verification; restoring ${previous.specs.join(' ')}.`);
+  console.error(`${name}: ${sha} failed verification or triggers; restoring ${previous.specs.join(' ')}.`);
   wrangler([
     'versions', 'deploy', ...previous.specs,
     '--name', name,

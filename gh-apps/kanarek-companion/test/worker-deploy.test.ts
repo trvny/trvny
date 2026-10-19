@@ -16,6 +16,7 @@ type Fake = {
   messages: Record<string, string>;
   calls: string[];
   uploadError?: string;
+  triggersFail?: boolean;
   afterUpload?: (fake: Fake) => void;
   afterActivate?: (fake: Fake) => void;
 };
@@ -60,7 +61,10 @@ function wrangler(state: Fake) {
       state.afterActivate?.(state);
       return '';
     }
-    if (command === 'triggers deploy') return '';
+    if (command === 'triggers deploy') {
+      if (state.triggersFail) throw new Error('route conflict');
+      return '';
+    }
     if (args[0] === 'deploy') {
       state.active = [{ version_id: create(), percentage: 100 }];
       return '';
@@ -158,4 +162,11 @@ test('status lookup errors abort before publishing', async () => {
   };
   await assert.rejects(run(state, true, broken), /Authentication error/);
   assert.ok(!state.calls.some((call) => call.startsWith('versions')));
+});
+
+test('triggers failure rolls back like a failed verify', async () => {
+  const state = fake(OLD);
+  state.triggersFail = true;
+  assert.equal(await run(state, true), 1);
+  assert.equal(activeBuild(state), OLD);
 });

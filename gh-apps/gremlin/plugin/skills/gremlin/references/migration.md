@@ -63,7 +63,7 @@ The only retained style file is `references/gremlin-style.md`, and
 `agents/openai.yaml` contains UI metadata, not behavior duplication.
 
 The repository package is synchronized with the existing private plugin
-release `0.31.9` (Gremlin's reduced 32-tool MCP; Anchor is an independent
+release `0.31.10` (Gremlin's reduced 32-tool MCP; Anchor is an independent
 ChatGPT app and not a bundled dependency).
 The working MCP App binding, skill metadata, knowledge index and original PNG
 logo are synchronized in the portable source.
@@ -198,15 +198,15 @@ The portable plugin points at
    context.
 7. The migrated skill follows the intended Gremlin behavior and uses the
    packaged meme references when appropriate.
-8. Anchor storage parity is explicitly verified; it must not disappear merely
-   because the main MCP passes.
+8. Gremlin workflows do not require or direct calls to the independent Anchor
+   plugin. Anchor's own OAuth and files remain unchanged.
 9. Keep the original GPT as a read-only behavioral fallback until these checks
    pass.
 10. Only then treat the migrated plugin as the maintained successor.
 
 ## Latest account state (2026-10-18)
 
-Release `0.31.9` retains one Gremlin skill, one original PNG logo, one
+Release `0.31.10` retains one Gremlin skill, one original PNG logo, one
 OAuth-connected Gremlin App (`.app.json`) and an unchanged Gremlin MCP
 endpoint. The Anchor app is intentionally not bundled.
 The migrated account package uses a technical generated package ID, while the

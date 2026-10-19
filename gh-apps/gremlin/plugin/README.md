@@ -1,7 +1,7 @@
 # MechaGremlin plugin
 
 This directory is the maintained **portable source** of the existing private
-MechaGremlin plugin. The existing private plugin is now release `0.31.9`
+MechaGremlin plugin. The existing private plugin is now release `0.31.10`
 (`plugin_2efcd1a24fa08191b71d92f1972ac32c`).
 **Do not create another production plugin.**
 
@@ -36,8 +36,9 @@ policy. Do not duplicate that runtime inside this package.
 
 Anchor remains an **independent ChatGPT app** with its own OAuth, not
 part of the 32-tool Gremlin MCP and not a bundled plugin dependency.
-When Anchor is available in the session, use the existing `Gremlin_storage`
-folder directly. Do not proxy its credentials through Gremlin or copy tools.
+Anchor's existing `Gremlin_storage` folder remains available through its
+own separately authorized ChatGPT app. The Gremlin skill does not depend on
+or instruct model calls to external apps. Never proxy OAuth credentials.
 
 For migration history, parity status, and pending verification, see
 `skills/gremlin/references/migration.md` and

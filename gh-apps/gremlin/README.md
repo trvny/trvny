@@ -69,9 +69,9 @@ Remaining cutover work:
 1. Verify the updated private plugin in a fresh ChatGPT session: authenticate
    the standalone Gremlin MCP, confirm the 32-tool live surface, and run parity
    tests against the legacy GPT.
-2. The existing private MechaGremlin `0.31.9` deliberately does **not** bundle
-   Anchor as an app dependency. Use the independently connected Anchor app for
-   `Gremlin_storage`, with OAuth separate from Gremlin's GitHub OAuth.
+2. The existing private MechaGremlin `0.31.10` deliberately does **not** bundle
+   Anchor as an app dependency. Anchor remains separately accessible in ChatGPT
+   with its own OAuth; Gremlin workflows do not require calling another plugin.
 3. Remove the Gremlin surface from `kanarek-companion` and move Gremlin-only
    modules into this package. Keep the shared replay/checkpoint stores and the
    GPTomek signer RPC only where they remain deliberate cross-service

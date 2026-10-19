@@ -204,7 +204,11 @@ Connect `trvny/trvny` with:
 - deploy command: `npm run deploy`
 - build watch paths: `gh-apps/kanarek-companion/**`, `gh-apps/core/**`
 
-GitHub Actions validates the project but does not deploy it.
+GitHub Actions validates the project but does not deploy it. `npm run deploy`
+(`scripts/deploy.ts`) uses `../core/worker-deploy.mjs`: skips a build superseded
+by a newer active commit, verifies `/health` (`ok`, `reviewWebhook.ready`, version
+tag = commit) and restores the previous deployment on failure while its own
+version is still active. Rollback does not revert Durable Object migrations.
 
 ## Secrets and configuration
 

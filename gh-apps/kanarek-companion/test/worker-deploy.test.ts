@@ -111,7 +111,6 @@ test('failed verify restores the predecessor while ours is active', async () => 
   const state = fake(OLD);
   assert.equal(await run(state, false), 1);
   assert.equal(activeBuild(state), OLD);
-  assert.ok(!state.calls.includes('triggers deploy'));
 });
 
 test('failed verify never rolls back a version that replaced ours', async () => {
@@ -178,11 +177,22 @@ test('empty watch-path match fails instead of skipping', async () => {
   assert.deepEqual(state.calls, []);
 });
 
-test('triggers are left to a newer build that landed after activation', async () => {
+test('triggers are applied while our version owns the Worker, even if main moved on', async () => {
   const state = fake(OLD);
   state.afterActivate = (s) => {
     s.afterActivate = undefined;
     s.head = NEWER;
+  };
+  assert.equal(await run(state, true), 0);
+  assert.ok(state.calls.includes('triggers deploy'));
+});
+
+test('triggers are left to a replacement version', async () => {
+  const state = fake(OLD);
+  state.afterActivate = (s) => {
+    s.afterActivate = undefined;
+    s.messages['00000000-0000-0000-0000-0000000000dd'] = `build=${NEWER}`;
+    s.active = [{ version_id: '00000000-0000-0000-0000-0000000000dd', percentage: 100 }];
   };
   assert.equal(await run(state, true), 0);
   assert.ok(!state.calls.includes('triggers deploy'));

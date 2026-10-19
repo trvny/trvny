@@ -143,10 +143,10 @@ export async function guardedDeploy(
   }
   wrangler(['versions', 'deploy', `${versionId}@100%`, '--name', name, '--message', message, '--yes']);
 
-  // versions upload/deploy never touch routes, domains or crons. A newer build
-  // owns triggers once its commit is on main, so re-fence before applying.
+  // versions upload/deploy never touch routes, domains or crons.
   const triggers = () => {
-    if (stale()) return true;
+    // Applied while our version still owns the Worker; a replacement build applies its own.
+    if (active(wrangler, name)?.versionId !== versionId) return true;
     try {
       wrangler(['triggers', 'deploy', '--name', name]);
       return true;
@@ -155,7 +155,8 @@ export async function guardedDeploy(
       return false;
     }
   };
-  if ((await verify()) && triggers()) {
+  // Triggers first so verify probes the final routes/domains.
+  if (triggers() && (await verify())) {
     console.log(`${name}: deployment ${sha} verified.`);
     return 0;
   }

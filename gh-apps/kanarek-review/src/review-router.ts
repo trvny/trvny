@@ -1,4 +1,5 @@
 import { bearerAuthorized } from '../../core/auth.ts';
+import { prepareGroqFreeReview } from './groq-review.ts';
 import {
   REVIEW_PROVIDER_EXCLUDE_HEADER,
   REVIEW_ROUTER_CODE_REVIEW_MODEL,
@@ -135,7 +136,7 @@ const PROVIDER_CONTEXT_SAFETY_TOKENS = 4_096;
 
 const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
   quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai'],
-  review: ['openrouter', 'aihubmix', 'groq', 'vercel', 'orcarouter', 'ollama', 'huggingface-publicai'],
+  review: ['openrouter', 'aihubmix', 'groq', 'ollama', 'vercel', 'orcarouter', 'huggingface-publicai'],
   judge: ['aihubmix', 'groq', 'vercel', 'openrouter', 'ollama', 'orcarouter', 'huggingface-publicai'],
   shitpost: ['aihubmix', 'vercel', 'groq', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai'],
 } as const satisfies Record<Exclude<FreeTaskProfileId, 'general'>, readonly FreeReviewProviderId[]>;
@@ -392,9 +393,8 @@ export function taskProviderTimeoutMs(
   task: 'general' | 'quip' | 'review' | 'judge' | 'shitpost',
 ): number {
   if (task === 'shitpost') return Math.max(baseMs, SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS);
-  if (task === 'review' || task === 'judge') {
-    return Math.max(baseMs, REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS);
-  }
+  if (task === 'review') return Math.max(baseMs, 120_000);
+  if (task === 'judge') return Math.max(baseMs, REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS);
   return baseMs;
 }
 
@@ -1605,7 +1605,8 @@ function providerAttempts(
       ...groqTokenLimits(provider.model),
       ...(supportsReasoning
         ? {
-            minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
+            minimumMaxTokens: task === 'review' ? 2_048 : configuredReasoningMinimumMaxTokens(env),
+            ...(task === 'review' ? { maximumMaxTokens: 4_096 } : {}),
             requestFields: { reasoning_effort: effort },
           }
         : {}),
@@ -1949,7 +1950,15 @@ export async function handleReviewRouterRequest(
           model: attempt.model,
           ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
         };
-        const fittedProviderInput = fitProviderAttemptTokenBudget(providerInput, attempt);
+        const groqInput = provider.id === 'groq' && task === 'review'
+          ? prepareGroqFreeReview(providerInput)
+          : null;
+        const scopedInput = provider.id === 'groq' && task === 'review'
+          ? groqInput?.input
+          : providerInput;
+        const fittedProviderInput = scopedInput
+          ? fitProviderAttemptTokenBudget(scopedInput, attempt)
+          : null;
         if (!fittedProviderInput) {
           providerFailureCategory = 'context_budget';
           providerInvalidRequest = false;
@@ -2053,7 +2062,7 @@ export async function handleReviewRouterRequest(
           console.info(JSON.stringify({
             kanarekReviewRouter: 'selected', provider: provider.id, attempt: attempt.label, model: attempt.model,
           }));
-          return upstreamResponse(response, provider);
+          return upstreamResponse(response, provider, groqInput?.partial === true);
         }
 
         const status = response.status;

@@ -518,6 +518,9 @@ those remain guarded or human-authored by design.
 }
 ```
 
+A batch requires a `steps` array, not `commands`; otherwise GPTomek returns
+`invalid_batch_steps` before executing anything.
+
 A batch has 1–10 sequential steps, stops at the first error, and does not roll
 back earlier GitHub side effects. Completed steps keep their derived checkpoint,
 so retrying the same outer command resumes through deduplication instead of

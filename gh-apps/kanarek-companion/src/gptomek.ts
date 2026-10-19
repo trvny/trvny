@@ -35,6 +35,7 @@ const MAX_RESULT_BYTES = 8_000;
 const MAX_PATCH_CHARS = 200_000;
 const MAX_PATCH_FILES = 32;
 const MAX_PATCHED_FILE_BYTES = 1_000_000;
+const MAX_INLINE_TREE_CONTENT_BYTES = 64_000;
 const MAX_CHERRY_PICK_CHANGES = 512;
 const MAX_TREE_MUTATIONS = 512;
 const MAX_MOVE_FILES = 256;
@@ -1037,6 +1038,9 @@ async function createFileCommit(
     files.map(async (file) => {
       if (file.content === null) {
         return { path: file.path, mode: file.mode ?? '100644', type: 'blob', sha: null };
+      }
+      if (new TextEncoder().encode(file.content).byteLength <= MAX_INLINE_TREE_CONTENT_BYTES) {
+        return { path: file.path, mode: file.mode ?? '100644', type: 'blob', content: file.content };
       }
       const blob = await client.json<{ sha?: string }>(
         `/repos/${repoPath(repositoryName)}/git/blobs`,

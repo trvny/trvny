@@ -1882,6 +1882,7 @@ export async function handleReviewRouterRequest(
   const includePaidReserves = input.model === REVIEW_ROUTER_REVIEW_MODEL;
   const task = reviewRouterTaskProfile(input.model);
   const excluded = excludedProviders(request);
+  const allowPartial = request.headers.get('x-kanarek-review-partial-ok') === 'true';
   let configured = 0;
   let invalidRequests = 0;
   const failures: string[] = [];
@@ -1954,6 +1955,13 @@ export async function handleReviewRouterRequest(
         const boundedGroq = provider.id === 'groq' && task === 'review'
           && groqSupportsReasoningEffort(attempt.model);
         const groqInput = boundedGroq ? prepareGroqFreeReview(providerInput) : null;
+        // Older companion deployments do not understand the partial-review header.
+        // Never let one of them certify a partial scan as a full clean review.
+        if (groqInput?.partial && !allowPartial) {
+          providerFailureCategory = 'partial_unsupported';
+          providerInvalidRequest = false;
+          break;
+        }
         const scopedInput = boundedGroq ? groqInput?.input : providerInput;
         const fittedProviderInput = scopedInput
           ? fitProviderAttemptTokenBudget(scopedInput, attempt)

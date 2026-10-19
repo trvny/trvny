@@ -282,10 +282,13 @@ test('review input does not mark missing GitHub patches as empty code', () => {
   );
 });
 
-test('binary assets do not block review of other code files', () => {
+test('unpatched binary assets do not block review of other code files', () => {
   const files = [
     { filename: 'gh-apps/gremlin/plugin/assets/gpt-icon.png' },
     { filename: 'assets/font.woff2' },
+    { filename: 'video/clip.mov' },
+    { filename: 'docs/report.docx' },
+    { filename: 'assets/archive.tar' },
     { filename: 'src/app.ts', patch: '@@ -0,0 +1 @@\n+export const ok = true;' },
   ];
   const selected = selectReviewFiles(files, 60_000);
@@ -293,6 +296,10 @@ test('binary assets do not block review of other code files', () => {
   assert.equal(reviewInputState(files, selected.length), 'reviewable');
   assert.equal(reviewFileCollectionComplete(files, 60_000), false);
   assert.equal(reviewInputState([{ filename: 'assets/icon.webp' }], 0), 'no_code_diff');
+
+  const patchedBinary = [{ filename: 'fixtures/settings.bin', patch: '@@ -0,0 +1 @@\n+enabled=true' }];
+  assert.equal(selectReviewFiles(patchedBinary, 60_000).length, 1);
+  assert.equal(reviewInputState(patchedBinary, 1), 'reviewable');
 });
 
 test('expanded paid diff profile can retain more of one large patch', () => {

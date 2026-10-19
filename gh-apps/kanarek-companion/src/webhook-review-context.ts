@@ -209,12 +209,6 @@ export function patchAddedRightLines(patch: string): Set<number> {
 
 export function reviewablePath(path: string): boolean {
   const lower = path.toLowerCase();
-  // Binary assets lack GitHub text patches; do not block code review.
-  if (
-    /\.(?:avif|bmp|gif|heic|ico|jpe?g|png|tiff?|webp)$/.test(lower) ||
-    /\.(?:eot|otf|tt[cf]|woff2?)$/.test(lower) ||
-    /\.(?:7z|aab|apk|bin|db|exe|gz|jar|mp3|mp4|pdf|rar|sqlite3?|wasm|wav|webm|zip)$/.test(lower)
-  ) return false;
   if (
     lower.endsWith('.md') ||
     lower.endsWith('.mdx') ||
@@ -481,6 +475,15 @@ export async function fetchReviewDependencyEvidence(
   return output;
 }
 
+function knownBinaryAsset(path: string): boolean {
+  const lower = path.toLowerCase();
+  return (
+    /\.(?:avif|avi|bmp|gif|heic|ico|jpe?g|mov|mp3|mp4|ogg|png|tiff?|wav|webm|webp)$/.test(lower) ||
+    /\.(?:docx?|eot|otf|pdf|pptx?|tt[cf]|woff2?|xlsx?)$/.test(lower) ||
+    /\.(?:7z|aab|apk|bin|db|exe|gz|jar|rar|sqlite3?|tar|wasm|zip)$/.test(lower)
+  );
+}
+
 export function reviewInputState(
   files: Array<Pick<PullRequestFile, 'filename' | 'patch'>>,
   selectedCount: number,
@@ -490,7 +493,9 @@ export function reviewInputState(
       typeof file.filename === 'string' && reviewablePath(file.filename),
   );
   const missingPatch = reviewableFiles.some(
-    (file) => typeof file.patch !== 'string' || file.patch.length === 0,
+    (file) =>
+      (typeof file.patch !== 'string' || file.patch.length === 0) &&
+      !knownBinaryAsset(file.filename),
   );
   if (missingPatch) return 'patch_unavailable';
   return selectedCount > 0 ? 'reviewable' : 'no_code_diff';

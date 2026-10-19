@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { githubReadAllowed } from '../src/gpt-actions.ts';
+import { githubReadAllowed } from '../src/github-gateway.ts';
 
 import {
   addCodeHistoryOpenApi,

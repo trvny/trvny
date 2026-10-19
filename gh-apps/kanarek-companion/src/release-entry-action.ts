@@ -3,7 +3,8 @@ import {
   gptomekInstallationIdFor,
   gptomekPrivateKey,
 } from '../../core/github-app.ts';
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
 import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts';
 import { releaseComparisonContainsTarget } from './policy-merge-release.ts';
 import { repositoryAllowedByPolicy } from './policy-enforcement.ts';
@@ -13,7 +14,7 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, ZipEntryError, zipEntryPath } from './zip-entry.ts';
-import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope, actionResponseObject, DetailedCodedError } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, repositoryInScope, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ENTRY_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-entry';
@@ -126,21 +127,16 @@ async function requestInput(request: Request): Promise<Input> {
   }
 }
 
-async function responseObject(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new ReleaseEntryError(code, status),
-  );
-}
-
 async function readData(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  const response = await handleGptActions(internalReadRequest(source, path), env, fetcher);
-  return (await responseObject(response)).data;
+  return mapGithubError(
+    githubGateway(source, env, fetcher).read(path),
+    (code, status) => new ReleaseEntryError(code, status),
+  );
 }
 
 function tokenHeaders(token: string, contentType = 'application/json'): Headers {

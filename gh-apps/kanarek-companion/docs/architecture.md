@@ -129,7 +129,8 @@ Primary files:
 - `gptomek.ts`: typed bot operations, checkpointed command execution, branch
   protection, and result envelopes.
 - `gptomek-issue.ts`: Issue #203 control-mailbox transport and wake handling.
-- `gpt-actions.ts`: scoped GitHub API surface used by operator actions.
+- `github-gateway.ts`: scoped GitHub read/bot/GraphQL access; modules call
+  `githubGateway`, `gpt-actions.ts` exposes the same policy as HTTP routes.
 
 The maintained transport documentation is in `../../gptomek/docs/REFERENCE.md`.
 

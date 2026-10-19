@@ -2,12 +2,8 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 
-import {
-  githubBotRequestAllowed,
-  githubReadAllowed,
-  handleGptActions,
-  type GptActionsEnv,
-} from '../src/gpt-actions.ts';
+import { githubBotRequestAllowed, githubReadAllowed } from '../src/github-gateway.ts';
+import { handleGptActions, type GptActionsEnv } from '../src/gpt-actions.ts';
 import { gptomekInstallationIdFor } from '../../core/github-app.ts';
 import { repositoryAllowedByPolicy } from '../src/policy-enforcement.ts';
 import { repositoryInScope, repositoryPathInScope } from '../src/tools/common.ts';

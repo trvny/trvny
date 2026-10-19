@@ -1,9 +1,8 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const BOT_PATH = '/gpt-actions/github/bot';
-const GRAPHQL_PATH = '/gpt-actions/github/graphql';
 const CONTEXT_PATH = '/gpt-actions/github/context';
 const INSPECT_PR_PATH = '/gpt-actions/github/pull-requests/inspect';
 const DIAGNOSE_RUN_PATH = '/gpt-actions/github/workflows/diagnose';
@@ -66,39 +65,17 @@ function expectedRef(value: unknown): string {
   return value;
 }
 
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
+function operatorFailure(code: string, status: number): OperatorError {
+  return new OperatorError(code, status);
 }
 
-async function responsePayload(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new OperatorError(code, status),
-  );
-}
-
-async function actionData(response: Response): Promise<unknown> {
-  const payload = await responsePayload(response);
-  return payload.data;
-}
-
-async function readResponse(
+async function readOptional(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(source, path), env, fetcher);
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), operatorFailure);
 }
 
 async function readData(
@@ -107,7 +84,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return actionData(await readResponse(source, env, fetcher, path));
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), operatorFailure);
 }
 
 async function graphqlData(
@@ -117,12 +94,9 @@ async function graphqlData(
   query: string,
   variables: JsonObject,
 ): Promise<unknown> {
-  return actionData(
-    await handleGptActions(
-      internalRequest(source, GRAPHQL_PATH, { query, variables }),
-      env,
-      fetcher,
-    ),
+  return mapGithubError(
+    githubGateway(source, env, fetcher).graphql(query, variables),
+    operatorFailure,
   );
 }
 
@@ -134,17 +108,7 @@ async function botData(
   path: string,
   body?: JsonObject,
 ): Promise<unknown> {
-  return actionData(
-    await handleGptActions(
-      internalRequest(source, BOT_PATH, {
-        method,
-        path,
-        ...(body ? { body } : {}),
-      }),
-      env,
-      fetcher,
-    ),
-  );
+  return mapGithubError(githubGateway(source, env, fetcher).bot(method, path, body), operatorFailure);
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
@@ -471,12 +435,12 @@ async function repositoryContext(
     .map((part) => encodeURIComponent(part))
     .join('/');
 
-  const [headRaw, pullsRaw, commitsRaw, runsRaw, agentsResponse] = await Promise.all([
+  const [headRaw, pullsRaw, commitsRaw, runsRaw, agentsRead] = await Promise.all([
     readData(request, env, fetcher, `/repos/${repo}/git/ref/heads/${encodedBranch}`),
     readData(request, env, fetcher, `/repos/${repo}/pulls?state=open&per_page=20`),
     readData(request, env, fetcher, `/repos/${repo}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=10`),
     readData(request, env, fetcher, `/repos/${repo}/actions/runs?branch=${encodeURIComponent(defaultBranch)}&per_page=20`),
-    readResponse(request, env, fetcher, `/repos/${repo}/contents/AGENTS.md?ref=${encodeURIComponent(defaultBranch)}`),
+    readOptional(request, env, fetcher, `/repos/${repo}/contents/AGENTS.md?ref=${encodeURIComponent(defaultBranch)}`),
   ]);
 
   const headObject = isObject(headRaw) && isObject(headRaw.object) ? headRaw.object : null;
@@ -484,12 +448,7 @@ async function repositoryContext(
   const pulls = arrayValue(pullsRaw);
   const commits = arrayValue(commitsRaw);
   const runs = isObject(runsRaw) ? arrayValue(runsRaw.workflow_runs) : [];
-  let agents: string | null = null;
-  if (agentsResponse.ok) {
-    agents = decodeGithubContent(await actionData(agentsResponse));
-  } else if (agentsResponse.status !== 404) {
-    await responsePayload(agentsResponse);
-  }
+  const agents = agentsRead === null ? null : decodeGithubContent(agentsRead.data);
 
   return json({
     ok: true,
@@ -582,11 +541,15 @@ async function diagnoseWorkflowRun(
     logJobs.map(async (job) => {
       const id = numberOrNull(job.id);
       if (!id) return { jobId: null, excerpt: null };
-      const response = await readResponse(request, env, fetcher, `/repos/${repo}/actions/jobs/${id}/logs`);
-      if (!response.ok) {
-        return { jobId: id, excerpt: null, error: `http_${response.status}` };
+      let data: unknown;
+      try {
+        data = await readData(request, env, fetcher, `/repos/${repo}/actions/jobs/${id}/logs`);
+      } catch (error) {
+        if (error instanceof OperatorError) {
+          return { jobId: id, excerpt: null, error: `http_${error.status}` };
+        }
+        throw error;
       }
-      const data = await actionData(response);
       const excerpt = isObject(data) && typeof data.text === 'string' ? data.text.slice(0, 10_000) : null;
       return { jobId: id, excerpt };
     }),

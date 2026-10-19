@@ -1,9 +1,6 @@
-import {
-  githubReadAllowed,
-  handleGptActions,
-  type GptActionsEnv,
-} from './gpt-actions.ts';
-import { isObject, type JsonObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { GithubActionError, githubGateway, githubReadAllowed } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const BATCH_READ_PATH = '/gpt-actions/github/read-batch';
@@ -38,46 +35,13 @@ async function readInput(request: Request): Promise<string[]> {
   return paths;
 }
 
-async function compactResult(path: string, response: Response): Promise<JsonObject> {
-  let payload: unknown = null;
-  try {
-    payload = await response.clone().json();
-  } catch {
-    return {
-      path,
-      ok: false,
-      status: 502,
-      error: 'invalid_action_response',
-    };
-  }
-
-  if (response.ok && isObject(payload) && payload.ok === true) {
-    return {
-      path,
-      ok: true,
-      status: response.status,
-      data: payload.data ?? null,
-    };
-  }
+function compactFailure(path: string, error: unknown): JsonObject {
+  const failure = error instanceof GithubActionError ? error : null;
   return {
     path,
     ok: false,
-    status: response.status,
-    error: isObject(payload) && typeof payload.error === 'string'
-      ? payload.error
-      : 'action_failed',
-  };
-}
-
-function compactException(path: string, error: unknown): JsonObject {
-  const message = error instanceof Error ? error.message : 'action_failed';
-  const match = message.match(/^github_(\d{3})(?:_|$)/);
-  const status = match ? Number(match[1]) : 502;
-  return {
-    path,
-    ok: false,
-    status,
-    error: message.slice(0, 500),
+    status: failure?.status ?? 502,
+    error: failure?.code ?? 'action_failed',
   };
 }
 
@@ -89,14 +53,15 @@ async function batchRead(
   const paths = await readInput(request);
   const unique = [...new Set(paths)];
   const fetched = new Map<string, JsonObject>();
+  const github = githubGateway(request, env, fetcher);
 
   await Promise.all(
     unique.map(async (path) => {
       try {
-        const response = await handleGptActions(internalReadRequest(request, path), env, fetcher);
-        fetched.set(path, await compactResult(path, response));
+        const data = await github.read(path);
+        fetched.set(path, { path, ok: true, status: 200, data: data ?? null });
       } catch (error) {
-        fetched.set(path, compactException(path, error));
+        fetched.set(path, compactFailure(path, error));
       }
     }),
   );

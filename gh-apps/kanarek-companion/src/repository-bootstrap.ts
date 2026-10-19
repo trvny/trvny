@@ -1,7 +1,7 @@
 import {
   createInstallationClient,
   repositoryInstallationId,
-} from './github-app.ts';
+} from '../../core/github-app.ts';
 
 const SETTINGS_REPOSITORY = 'trvny/.github';
 const SETTINGS_EVENT = 'repository-created';

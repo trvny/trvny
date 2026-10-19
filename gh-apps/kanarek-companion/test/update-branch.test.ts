@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { shouldUpdateBranch, updateBranch } from '../src/companion-update.ts';
-import { GitHubApiError, type GitHubInstallationClient } from '../src/github-app.ts';
+import { GitHubApiError, type GitHubInstallationClient } from '../../core/github-app.ts';
 import type { PullRequest } from '../src/companion-types.ts';
 
 const pr: PullRequest = {

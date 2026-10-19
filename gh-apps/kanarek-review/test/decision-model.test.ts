@@ -9,7 +9,7 @@ import {
   handleDecisionModelRequest,
   withinDecisionDeadline,
 } from '../src/decision-model.ts';
-import { REVIEW_DECISION_PATH } from '../../kanarek-companion/src/review-service-protocol.ts';
+import { REVIEW_DECISION_PATH } from '../../core/review-service-protocol.ts';
 
 const endpoint = `https://kanarek-review.example${REVIEW_DECISION_PATH}`;
 const routerToken = 'router-token';

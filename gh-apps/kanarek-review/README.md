@@ -322,10 +322,11 @@ credential-sync workflow. Target repositories do not need provider credentials.
 - `test/`: provider routing, fallback, cooldown, and protocol regression tests.
 - `../kanarek-companion/src/review-service.ts`: caller-side Service Binding
   adapter.
-- `../kanarek-companion/src/review-service-protocol.ts`: internal paths,
-  trust headers, and health types.
-- `../kanarek-companion/src/review-cooldown-store.ts`: shared Durable Object
-  implementation used by this Worker.
+- `../core/review-service-protocol.ts`: internal paths, trust headers, and
+  health types.
+- `../core/review-cooldown-store.ts`: shared Durable Object implementation used
+  by this Worker.
+- `../core/auth.ts`: shared bearer check.
 
 ## Build
 
@@ -336,4 +337,5 @@ npm run check
 npm run deploy
 ```
 
-Workers Builds should use `gh-apps/kanarek-review` as the root directory.
+Workers Builds should use `gh-apps/kanarek-review` as the root directory and
+watch `gh-apps/kanarek-review/**` plus `gh-apps/core/**`.

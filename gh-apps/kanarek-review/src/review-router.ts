@@ -1,4 +1,4 @@
-import { bearerAuthorized } from '../../kanarek-companion/src/auth.ts';
+import { bearerAuthorized } from '../../core/auth.ts';
 import {
   REVIEW_PROVIDER_EXCLUDE_HEADER,
   REVIEW_ROUTER_CODE_REVIEW_MODEL,
@@ -11,7 +11,7 @@ import {
   REVIEW_ROUTER_REVIEW_MODEL,
   REVIEW_ROUTER_PAID_MODEL,
   REVIEW_ROUTER_WORK_MODEL,
-} from '../../kanarek-companion/src/review-service-protocol.ts';
+} from '../../core/review-service-protocol.ts';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_FREE_PROBE_TIMEOUT_MS = 10_000;

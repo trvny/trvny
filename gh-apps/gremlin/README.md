@@ -167,7 +167,7 @@ values and Pages build variables are never returned.
   take precedence.
 
 Code deploys via Workers Builds on pushes to `main` that touch
-`gh-apps/gremlin/**` or `gh-apps/kanarek-companion/src/**` (build
+`gh-apps/gremlin/**`, `gh-apps/kanarek-companion/src/**` or `gh-apps/core/**` (build
 `npm run check`, deploy `npx wrangler deploy`). Secrets: run the
 `Sync Worker credentials` workflow (`automation-sync.yml`) with target
 `gremlin`. It copies `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and, when

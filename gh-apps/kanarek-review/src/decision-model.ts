@@ -1,5 +1,5 @@
-import { bearerAuthorized } from '../../kanarek-companion/src/auth.ts';
-import { REVIEW_DECISION_PATH } from '../../kanarek-companion/src/review-service-protocol.ts';
+import { bearerAuthorized } from '../../core/auth.ts';
+import { REVIEW_DECISION_PATH } from '../../core/review-service-protocol.ts';
 import {
   activeProviderCooldown,
   rememberProviderCooldown,

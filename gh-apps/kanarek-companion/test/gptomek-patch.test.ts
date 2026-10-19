@@ -13,7 +13,7 @@ import {
 import {
   GitHubApiError,
   type GitHubInstallationClient,
-} from '../src/github-app.ts';
+} from '../../core/github-app.ts';
 
 function base64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');

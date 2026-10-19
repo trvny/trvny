@@ -1,4 +1,4 @@
-import { createAppJwt } from 'kanarek-companion/github-app';
+import { createAppJwt } from '../../core/github-app.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2022-11-28';

@@ -6,7 +6,7 @@ import {
   checkInstallationAccess,
   createAppJwt,
   gptomekPrivateKey,
-} from '../src/github-app.ts';
+} from '../../core/github-app.ts';
 
 function testKeyPair() {
   return generateKeyPairSync('rsa', { modulusLength: 2048 });

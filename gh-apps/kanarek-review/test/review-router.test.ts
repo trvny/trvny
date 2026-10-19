@@ -10,8 +10,8 @@ import {
   reviewRouterTaskProfile,
   taskProviderTimeoutMs,
 } from '../src/review-router.ts';
-import { ReviewProviderCooldownStore } from '../../kanarek-companion/src/review-cooldown-store.ts';
-import { REVIEW_PROVIDER_EXCLUDE_HEADER } from '../../kanarek-companion/src/review-service-protocol.ts';
+import { ReviewProviderCooldownStore } from '../../core/review-cooldown-store.ts';
+import { REVIEW_PROVIDER_EXCLUDE_HEADER } from '../../core/review-service-protocol.ts';
 
 const base = 'https://kanarek-review.example/review-router/v1';
 const endpoint = `${base}/chat/completions`;

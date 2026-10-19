@@ -15,7 +15,7 @@ import {
   REVIEW_SERVICE_TRUST_HEADER,
   REVIEW_SERVICE_TRUST_VALUE,
   REVIEW_WORKERS_AI_OVERRIDE_HEADER,
-} from '../src/review-service-protocol.ts';
+} from '../../core/review-service-protocol.ts';
 
 function modelsRequest(): Request {
   return new Request(`https://kanarek.example${REVIEW_ROUTER_MODELS_PATH}`, {

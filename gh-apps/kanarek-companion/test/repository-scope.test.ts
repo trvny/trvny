@@ -8,7 +8,7 @@ import {
   handleGptActions,
   type GptActionsEnv,
 } from '../src/gpt-actions.ts';
-import { gptomekInstallationIdFor } from '../src/github-app.ts';
+import { gptomekInstallationIdFor } from '../../core/github-app.ts';
 import { repositoryAllowedByPolicy } from '../src/policy-enforcement.ts';
 import { repositoryInScope, repositoryPathInScope } from '../src/tools/common.ts';
 

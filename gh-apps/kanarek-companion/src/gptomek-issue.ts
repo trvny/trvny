@@ -7,7 +7,7 @@ import {
   handleGptomekCommentCommand,
   handleGptomekMailboxCommand,
 } from './gptomek.ts';
-import { createInstallationClient, GitHubApiError } from './github-app.ts';
+import { createInstallationClient, GitHubApiError } from '../../core/github-app.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
   GPTOMEK_CONTROL_REPOSITORY,

@@ -5,7 +5,7 @@ import {
   gptomekInstallationIdFor,
   gptomekPrivateKey,
   type GptomekSignerBinding,
-} from './github-app.ts';
+} from '../../core/github-app.ts';
 import { repositoryInScope, type JsonObject } from './tools/common.ts';
 import {
   invokeSpecialistTool,

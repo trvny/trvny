@@ -5,7 +5,7 @@ import test from 'node:test';
 import {
   createInstallationClient,
   GitHubApiError,
-} from '../src/github-app.ts';
+} from '../../core/github-app.ts';
 
 function privateKeyPem(): string {
   return generateKeyPairSync('rsa', { modulusLength: 2048 })

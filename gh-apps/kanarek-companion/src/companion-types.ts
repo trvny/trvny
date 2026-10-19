@@ -1,4 +1,4 @@
-import type { GptomekSignerBinding } from './github-app.ts';
+import type { GptomekSignerBinding } from '../../core/github-app.ts';
 import type { QuipEnv, QuipLanguage } from './quip.ts';
 
 export interface CompanionEnv extends QuipEnv {

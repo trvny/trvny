@@ -1,0 +1,21 @@
+# gh-apps/core
+
+Dependency-free modules shared by more than one Worker in `gh-apps/`.
+Imported by relative path; no package, no build. Each consumer typechecks,
+tests and bundles them as part of its own `npm run check`.
+
+| Module | Used by |
+|---|---|
+| `github-app.ts` | kanarek-companion, claudiusz (gremlin via companion runtime) |
+| `auth.ts` | kanarek-companion, kanarek-review |
+| `review-service-protocol.ts` | kanarek-companion, kanarek-review |
+| `review-cooldown-store.ts` | kanarek-companion (Durable Object), kanarek-review tests |
+
+Rules:
+
+- Only code needed by two or more Workers lands here; single-app code stays in
+  that app.
+- No imports from any app directory and no npm dependencies. Ambient
+  `cloudflare:workers` types come from the consumer's tsconfig.
+- Changes here rebuild every consumer: CI path filters and Workers Builds watch
+  paths include `gh-apps/core/**`.

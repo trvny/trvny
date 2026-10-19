@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { reactionForState, syncReaction } from '../src/companion-reactions.ts';
-import type { GitHubInstallationClient } from '../src/github-app.ts';
+import type { GitHubInstallationClient } from '../../core/github-app.ts';
 
 test('maps PR states to restrained reactions', () => {
   assert.equal(reactionForState('draft'), 'eyes');

@@ -7,7 +7,7 @@ import {
   botekGithubPullStatus,
   type BotekEngramStoreInput,
 } from './botek-specialists.ts';
-import { createAppJwt } from './github-app.ts';
+import { createAppJwt } from '../../core/github-app.ts';
 import runtime, { actionFetch, type RuntimeEnv } from './runtime.ts';
 import type { JsonObject } from './tools/common.ts';
 

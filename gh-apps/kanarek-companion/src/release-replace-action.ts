@@ -2,7 +2,7 @@ import {
   createAppJwt,
   gptomekInstallationIdFor,
   gptomekPrivateKey,
-} from './github-app.ts';
+} from '../../core/github-app.ts';
 import type { GptActionsEnv } from './gpt-actions.ts';
 import { handleReleaseEntryAction } from './release-entry-action.ts';
 import {

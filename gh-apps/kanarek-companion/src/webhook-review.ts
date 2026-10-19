@@ -1,4 +1,4 @@
-import { createInstallationClient } from './github-app.ts';
+import { createInstallationClient } from '../../core/github-app.ts';
 import { isGptomekFallbackPullRequest } from './gptomek-control.ts';
 import {
   REVIEW_PROVIDER_EXCLUDE_HEADER,
@@ -6,7 +6,7 @@ import {
   REVIEW_ROUTER_PATH,
   REVIEW_ROUTER_REVIEW_MODEL,
   REVIEW_ROUTER_PAID_MODEL,
-} from './review-service-protocol.ts';
+} from '../../core/review-service-protocol.ts';
 import { handleReviewRouterViaService } from './review-service.ts';
 import { repoPath } from './tools/common.ts';
 import {

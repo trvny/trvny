@@ -954,7 +954,7 @@ test('paid review contract uses the review task profile while work stays separat
 test('task timeout policy is patient only where latency is acceptable', () => {
   assert.equal(taskProviderTimeoutMs(10_000, 'general'), 10_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'quip'), 10_000);
-  assert.equal(taskProviderTimeoutMs(10_000, 'review'), 60_000);
+  assert.equal(taskProviderTimeoutMs(10_000, 'review'), 120_000);
   assert.equal(taskProviderTimeoutMs(30_000, 'judge'), 60_000);
   assert.equal(taskProviderTimeoutMs(10_000, 'shitpost'), 120_000);
   assert.equal(taskProviderTimeoutMs(180_000, 'shitpost'), 180_000);
@@ -1026,8 +1026,8 @@ test('code-review profile gives Groq GPT-OSS its configured reasoning effort', a
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'groq');
   assert.equal(body.model, 'openai/gpt-oss-120b');
-  assert.equal(body.reasoning_effort, 'high');
-  assert.equal(body.max_tokens, 16_384);
+  assert.equal(body.reasoning_effort, 'medium');
+  assert.equal(body.max_tokens, 2_048);
 });
 
 test('code-review profile allows Groq reasoning effort tuning without code changes', async () => {
@@ -1059,7 +1059,10 @@ test('Groq GPT-OSS 20B shares the context admission profile', async () => {
     model: 'kanarek-code-review-free',
     stream: false,
     max_tokens: 36_864,
-    messages: [{ role: 'user', content: 'x'.repeat(100_000) }],
+    messages: [{ role: 'user', content: JSON.stringify({
+      diff: '### main.ts\n@@ -0,0 +1 @@\n+const x = 1;',
+      repository_context: { files: [{ content: 'x'.repeat(100_000) }] },
+    }) }],
   }), {
     ...auth,
     GROQ_API_KEY: 'groq-key',
@@ -1075,8 +1078,8 @@ test('Groq GPT-OSS 20B shares the context admission profile', async () => {
 
   assert.equal(response?.status, 200);
   assert.equal(bodies.length, 1);
-  assert.ok((bodies[0]?.max_tokens as number) >= 16_384);
-  assert.ok((bodies[0]?.max_tokens as number) < 36_864);
+  assert.ok((bodies[0]?.max_tokens as number) >= 2_048);
+  assert.ok((bodies[0]?.max_tokens as number) <= 4_096);
 });
 
 test('Groq context limits are applied only to the matching GPT-OSS model', async () => {
@@ -1146,7 +1149,7 @@ test('code-review profile bounds invalid Groq reasoning configuration', async ()
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(effort, 'high');
+  assert.equal(effort, 'medium');
 });
 
 test('quip profile lowers Groq reasoning and omits it for unsupported models', async () => {

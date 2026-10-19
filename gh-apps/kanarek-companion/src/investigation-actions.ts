@@ -1,5 +1,6 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const CODE_INVESTIGATION_PATH = '/gpt-actions/github/code/investigate';
@@ -119,20 +120,17 @@ async function inputObject(request: Request): Promise<JsonObject> {
   return readJsonObject(request, 64_000, (code, status) => new InvestigationError(code, status));
 }
 
-async function actionPayload(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new InvestigationError(code, status),
-  );
+function investigationFailure(code: string, status: number): InvestigationError {
+  return new InvestigationError(code, status);
 }
 
-async function readResponse(
+async function readOptional(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(source, path), env, fetcher);
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), investigationFailure);
 }
 
 async function readData(
@@ -141,7 +139,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return (await actionPayload(await readResponse(source, env, fetcher, path))).data;
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), investigationFailure);
 }
 
 function decodeContent(value: unknown): string | null {
@@ -269,13 +267,13 @@ async function investigateCode(
   const files = await Promise.all(
     items.map(async (raw) => {
       if (!isObject(raw) || typeof raw.path !== 'string') return null;
-      const contentResponse = await readResponse(
+      const contentRead = await readOptional(
         request,
         env,
         fetcher,
         `/repos/${repo}/contents/${filePath(raw.path)}?ref=${encodeURIComponent(snapshot.resolvedSha)}`,
       );
-      if (contentResponse.status === 404) {
+      if (contentRead === null) {
         return {
           path: raw.path,
           searchSha: stringOrNull(raw.sha),
@@ -288,7 +286,7 @@ async function investigateCode(
           history: [],
         };
       }
-      const contentRaw = (await actionPayload(contentResponse)).data;
+      const contentRaw = contentRead.data;
       const content = decodeContent(contentRaw);
       const historyRaw = includeHistory
         ? await readData(

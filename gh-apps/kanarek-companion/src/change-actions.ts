@@ -1,7 +1,8 @@
 import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
 import { branchNameAllowed, handleLifecycleAction } from './lifecycle-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, isProtectedBranch, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, isProtectedBranch, actionResponseObject, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const CREATE_BRANCH_PATH = '/gpt-actions/github/branches/create';
@@ -51,13 +52,8 @@ async function responsePayload(response: Response): Promise<JsonObject> {
   );
 }
 
-async function readResponse(
-  source: Request,
-  env: GptActionsEnv,
-  fetcher: typeof fetch,
-  path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(source, path), env, fetcher);
+function changeError(code: string, status: number): ChangeError {
+  return new ChangeError(code, status);
 }
 
 async function readData(
@@ -66,7 +62,16 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return (await responsePayload(await readResponse(source, env, fetcher, path))).data;
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), changeError);
+}
+
+async function readOptional(
+  source: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  path: string,
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), changeError);
 }
 
 function labelNames(value: unknown): string[] {
@@ -123,14 +128,13 @@ async function readAgentFile(
   path: string,
   ref: string,
 ): Promise<unknown | null> {
-  const response = await readResponse(
+  const file = await readOptional(
     request,
     env,
     fetcher,
     `/repos/${repo}/contents/${repoPath(path)}?ref=${encodeURIComponent(ref)}`,
   );
-  if (response.status === 404) return null;
-  return (await responsePayload(response)).data;
+  return file === null ? null : file.data;
 }
 
 async function prepareChange(
@@ -194,14 +198,13 @@ async function prepareChange(
   const conflict = branchPullRequestConflict(branchPullRequests, branchName);
   if (conflict) return json({ ok: false, error: 'pull_request_already_exists', pullRequest: conflict }, 409);
 
-  const branchResponse = await readResponse(
+  const existingBranch = await readOptional(
     request,
     env,
     fetcher,
     `/repos/${repo}/git/ref/heads/${refPath(branchName)}`,
   );
-  if (branchResponse.ok) return json({ ok: false, error: 'branch_already_exists' }, 409);
-  if (branchResponse.status !== 404) await responsePayload(branchResponse);
+  if (existingBranch !== null) return json({ ok: false, error: 'branch_already_exists' }, 409);
 
   const [agentGuidance, issueRaw] = await Promise.all([
     loadAgentGuidance(

@@ -1,9 +1,10 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
 import { handleOperatorAction } from './operator-actions.ts';
 import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts';
 import { repositoryAllowedByPolicy } from './policy-enforcement.ts';
 import { handleReleaseAction, releaseTagAllowed } from './release-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, DetailedCodedError } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const FINALIZE_PATH = '/gpt-actions/github/pull-requests/finalize';
@@ -48,20 +49,17 @@ function requiredString(value: unknown, name: string, max = 500): string {
   return value;
 }
 
-async function responseObject(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new MergeReleasePolicyError(code, status),
-  );
+function mergeReleasePolicyFailure(code: string, status: number): MergeReleasePolicyError {
+  return new MergeReleasePolicyError(code, status);
 }
 
-async function readResponse(
+async function readOptional(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(source, path), env, fetcher);
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), mergeReleasePolicyFailure);
 }
 
 async function readData(
@@ -70,7 +68,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return (await responseObject(await readResponse(source, env, fetcher, path))).data;
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), mergeReleasePolicyFailure);
 }
 
 function policyMetadata(
@@ -159,9 +157,9 @@ async function allowedReleaseBranches(
   const matches = await Promise.all(
     branches.map(async (branch) => {
       const path = `/repos/${repo}/compare/${encodeURIComponent(targetSha)}...${encodeURIComponent(branch)}`;
-      const response = await readResponse(request, env, fetcher, path);
-      if (response.status === 404) return null;
-      const compare = (await responseObject(response)).data;
+      const comparison = await readOptional(request, env, fetcher, path);
+      if (comparison === null) return null;
+      const compare = comparison.data;
       return releaseComparisonContainsTarget(compare, targetSha) ? branch : null;
     }),
   );

@@ -1,5 +1,6 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, internalReadRequest, repositoryInScope, actionResponseObject, CodedError } from './tools/common.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const BOOTSTRAP_PATH = '/gpt-actions/operator/bootstrap';
@@ -515,13 +516,10 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  const response = await handleGptActions(internalReadRequest(request, path), env, fetcher);
-  const payload = await actionResponseObject(
-    response,
+  return mapGithubError(
+    githubGateway(request, env, fetcher).read(path),
     (code, status) => new PolicyActionError(code, status),
-    { requireOk: true },
   );
-  return payload.data;
 }
 
 async function optionalReadData(

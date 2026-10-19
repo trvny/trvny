@@ -1,10 +1,10 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, repositoryPathInScope, isProtectedBranch, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, repositoryPathInScope, isProtectedBranch, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
-const BOT_PATH = '/gpt-actions/github/bot';
 const CREATE_BRANCH_PATH = '/gpt-actions/github/branches/create';
 const PR_STATE_PATH = '/gpt-actions/github/pull-requests/state';
 const CLEANUP_BRANCH_PATH = '/gpt-actions/github/pull-requests/cleanup-branch';
@@ -59,42 +59,21 @@ function refPath(branchName: string): string {
     .join('/');
 }
 
-function internalRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
-}
-
 async function inputObject(request: Request): Promise<JsonObject> {
   return readJsonObject(request, 128_000, (code, status) => new LifecycleError(code, status));
 }
 
-async function responsePayload(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new LifecycleError(code, status),
-  );
+function lifecycleFailure(code: string, status: number): LifecycleError {
+  return new LifecycleError(code, status);
 }
 
-async function actionData(response: Response): Promise<unknown> {
-  return (await responsePayload(response)).data;
-}
-
-async function readResponse(
+async function readOptional(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(source, path), env, fetcher);
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), lifecycleFailure);
 }
 
 async function readData(
@@ -103,7 +82,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return actionData(await readResponse(source, env, fetcher, path));
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), lifecycleFailure);
 }
 
 async function botData(
@@ -114,17 +93,7 @@ async function botData(
   path: string,
   body?: JsonObject,
 ): Promise<unknown> {
-  return actionData(
-    await handleGptActions(
-      internalRequest(source, BOT_PATH, {
-        method,
-        path,
-        ...(body ? { body } : {}),
-      }),
-      env,
-      fetcher,
-    ),
-  );
+  return mapGithubError(githubGateway(source, env, fetcher).bot(method, path, body), lifecycleFailure);
 }
 
 async function botEmpty(
@@ -134,13 +103,7 @@ async function botEmpty(
   method: string,
   path: string,
 ): Promise<void> {
-  await responsePayload(
-    await handleGptActions(
-      internalRequest(source, BOT_PATH, { method, path, expect: 'empty' }),
-      env,
-      fetcher,
-    ),
-  );
+  await mapGithubError(githubGateway(source, env, fetcher).botEmpty(method, path), lifecycleFailure);
 }
 
 function bearerToken(request: Request): string {
@@ -245,14 +208,13 @@ async function createBranchAsGptomek(
     throw new LifecycleError('protected_branch', 403);
   }
 
-  const existing = await readResponse(
+  const existing = await readOptional(
     request,
     env,
     fetcher,
     `/repos/${repo}/git/ref/heads/${refPath(branchName)}`,
   );
-  if (existing.ok) return json({ ok: false, error: 'branch_already_exists' }, 409);
-  if (existing.status !== 404) await responsePayload(existing);
+  if (existing !== null) return json({ ok: false, error: 'branch_already_exists' }, 409);
 
   const created = await botData(
     request,
@@ -376,17 +338,17 @@ async function cleanupPullRequestBranch(
     throw new LifecycleError('pull_request_head_repo_mismatch', 409);
   }
 
-  const refResponse = await readResponse(
+  const refRead = await readOptional(
     request,
     env,
     fetcher,
     `/repos/${repo}/git/ref/heads/${refPath(branchName)}`,
   );
   const merged = typeof prRaw.merged_at === 'string';
-  if (refResponse.status === 404) {
+  if (refRead === null) {
     return json({ ok: true, deleted: false, alreadyAbsent: true, merged });
   }
-  const refRaw = await actionData(refResponse);
+  const refRaw = refRead.data;
   if (!isObject(refRaw) || !isObject(refRaw.object) || typeof refRaw.object.sha !== 'string') {
     throw new LifecycleError('invalid_branch_ref_response', 502);
   }

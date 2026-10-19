@@ -1,6 +1,7 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { GithubActionError, githubGateway } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
 import { unattachedBranches, workflowRunIsProblem } from './maintenance-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest, repositoryInScope, CodedError } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const ACCOUNT_MAINTENANCE_PATH = '/gpt-actions/github/maintenance/account';
@@ -59,25 +60,11 @@ async function safeReadData(
   path: string,
 ): Promise<ReadResult> {
   try {
-    const response = await handleGptActions(internalReadRequest(request, path), env, fetcher);
-    let payload: unknown;
-    try {
-      payload = await response.clone().json();
-    } catch {
-      return { ok: false, error: 'invalid_action_response', status: 502 };
-    }
-    if (!isObject(payload)) {
-      return { ok: false, error: 'invalid_action_response', status: 502 };
-    }
-    if (!response.ok || payload.ok !== true) {
-      return {
-        ok: false,
-        error: typeof payload.error === 'string' ? payload.error : 'action_failed',
-        status: response.status,
-      };
-    }
-    return { ok: true, data: payload.data };
+    return { ok: true, data: await githubGateway(request, env, fetcher).read(path) };
   } catch (error) {
+    if (error instanceof GithubActionError) {
+      return { ok: false, error: error.code, status: error.status };
+    }
     return {
       ok: false,
       error: error instanceof Error ? error.message.slice(0, 300) : 'action_failed',

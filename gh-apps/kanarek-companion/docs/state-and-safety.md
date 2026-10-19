@@ -133,7 +133,8 @@ operation IDs stable across retries/failover for the same logical operation.
 Low-level GitHub access exists to support the operator, not to provide a general
 admin tunnel.
 
-`gpt-actions.ts` and `gremlin-router.ts` enforce repository/path/method
+`github-gateway.ts` (shared by `gpt-actions.ts` routes and in-process callers)
+and `gremlin-router.ts` enforce repository/path/method
 allowlists and route sensitive families toward guarded high-level operations.
 
 Examples:

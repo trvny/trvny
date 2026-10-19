@@ -9,7 +9,7 @@ import {
   checkpointCall,
   type AutopilotCheckpointEnv,
 } from './autopilot-checkpoint.ts';
-import { githubBotRequestAllowed } from './gpt-actions.ts';
+import { githubBotRequestAllowed } from './github-gateway.ts';
 import {
   GPTOMEK_CONTROL_PULL_REQUEST,
   GPTOMEK_CONTROL_REPOSITORY,

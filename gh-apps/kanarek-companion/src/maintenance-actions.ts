@@ -4,8 +4,9 @@ import {
   gptomekInstallationIdFor,
   gptomekPrivateKey,
 } from '../../core/github-app.ts';
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 import { GPTOMEK_CONTROL_BRANCH } from './gptomek-control.ts';
 
@@ -48,20 +49,17 @@ async function inputObject(request: Request): Promise<JsonObject> {
   return readJsonObject(request, 32_000, (code, status) => new MaintenanceError(code, status));
 }
 
-async function actionPayload(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new MaintenanceError(code, status),
-  );
+function maintenanceFailure(code: string, status: number): MaintenanceError {
+  return new MaintenanceError(code, status);
 }
 
-async function readResponse(
+async function readOptional(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(source, path), env, fetcher);
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), maintenanceFailure);
 }
 
 async function readData(
@@ -70,7 +68,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return (await actionPayload(await readResponse(source, env, fetcher, path))).data;
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), maintenanceFailure);
 }
 
 async function gptomekClient(
@@ -328,16 +326,16 @@ async function deleteMaintenanceArtifact(
   const expectedName = requiredString(input.expectedName, 'expected_name', 500);
   const expectedSizeBytes = nonNegativeInteger(input.expectedSizeBytes, 'expected_size_bytes');
   const repo = repoPath(repositoryName);
-  const artifactResponse = await readResponse(
+  const artifactRead = await readOptional(
     request,
     env,
     fetcher,
     `/repos/${repo}/actions/artifacts/${artifactId}`,
   );
-  if (artifactResponse.status === 404) {
+  if (artifactRead === null) {
     return json({ ok: true, deleted: false, alreadyAbsent: true });
   }
-  const artifactRaw = (await actionPayload(artifactResponse)).data;
+  const artifactRaw = artifactRead.data;
   if (!artifactCleanupMatches(artifactRaw, artifactId, expectedName, expectedSizeBytes)) {
     throw new MaintenanceError('artifact_changed', 409);
   }

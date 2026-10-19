@@ -169,8 +169,10 @@ casually clean up its fallback PR/ref.
 - `../core/github-app.ts`: GitHub App signing and installation auth (shared).
 - `src/gptomek.ts` and `src/gptomek-issue.ts`: control mailbox parsing,
   checkpoints, and bot-authored operations.
-- `src/gpt-actions.ts`: scoped GitHub read/bot gateways shared with guarded
-  operator actions.
+- `src/github-gateway.ts`: GitHub read/bot/GraphQL policy and transport; in-process
+  `githubGateway` for guarded actions (no synthetic `/gpt-actions` requests).
+- `src/gpt-actions.ts`: GPT Actions HTTP routes over the gateway, plus
+  commit-files and pull-request helpers.
 
 ### Shared runtime and specialists
 

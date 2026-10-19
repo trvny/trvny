@@ -1,11 +1,12 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
 import { handleLifecycleAction } from './lifecycle-actions.ts';
 import {
   handleAccountMaintenanceAction,
 } from './maintenance-account.ts';
 import { handleMaintenanceAction } from './maintenance-actions.ts';
 import { handleWorkflowAction } from './workflow-actions.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, actionResponseObject, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const ACCOUNT_PATH = '/gpt-actions/github/maintenance/account';
@@ -129,13 +130,17 @@ async function safeInvoke(
   }
 }
 
-async function readResponse(
+function maintenanceAutofixFailure(code: string, status: number): MaintenanceAutofixError {
+  return new MaintenanceAutofixError(code, status);
+}
+
+async function readOptional(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(source, path), env, fetcher);
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), maintenanceAutofixFailure);
 }
 
 async function readData(
@@ -144,7 +149,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return (await responseObject(await readResponse(source, env, fetcher, path))).data;
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), maintenanceAutofixFailure);
 }
 
 function booleanInput(value: unknown, name: string, fallback: boolean): boolean {
@@ -261,14 +266,14 @@ async function branchHeadSha(
   repository: string,
   branch: string,
 ): Promise<string | null> {
-  const response = await readResponse(
+  const ref = await readOptional(
     request,
     env,
     fetcher,
     `/repos/${repoPath(repository)}/git/ref/heads/${refPath(branch)}`,
   );
-  if (response.status === 404) return null;
-  const raw = (await responseObject(response)).data;
+  if (ref === null) return null;
+  const raw = ref.data;
   const object = isObject(raw) && isObject(raw.object) ? raw.object : null;
   if (!object || typeof object.sha !== 'string' || !SHA_RE.test(object.sha)) {
     throw new MaintenanceAutofixError('invalid_branch_ref_response', 502);

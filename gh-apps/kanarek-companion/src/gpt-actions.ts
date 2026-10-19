@@ -1,75 +1,29 @@
-import {
-  createInstallationClient,
-  GitHubApiError,
-  gptomekInstallationIdFor,
-  type GitHubInstallationClient,
-  gptomekPrivateKey,
-} from '../../core/github-app.ts';
+import { type GitHubInstallationClient } from '../../core/github-app.ts';
 import type { CompanionEnv } from './companion-types.ts';
 import { resolveGitTreeEntries, type GitTreeEntry } from './git-tree.ts';
-import { REPOSITORY_OWNERS, repoPath, repositoryInScope, repositoryPathInScope, CodedError } from './tools/common.ts';
+import {
+  bearerToken,
+  botAuthorized,
+  githubActionError,
+  GithubActionError as ActionError,
+  gptomekClient,
+  graphqlAuthorized,
+  readAuthorized,
+  requiredString,
+  requireTrvny,
+  userRequest,
+} from './github-gateway.ts';
+import { repoPath, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const GITHUB_API = 'https://api.github.com';
-const GITHUB_API_VERSION = '2026-03-10';
 const ACTIONS_PREFIX = '/gpt-actions';
-const EXPECTED_USER = 'trvny';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const BOT_IDENTITY = {
   name: 'GPTomek',
   email: '314538226+gptomek[bot]@users.noreply.github.com',
 };
-const ALLOWED_METHODS = new Set(['GET', 'POST', 'PATCH', 'PUT', 'DELETE']);
-const BOT_WRITE_ROOTS = new Set([
-  'actions',
-  'contents',
-  'deployments',
-  'dispatches',
-  'git',
-  'issues',
-  'labels',
-  'milestones',
-  'pulls',
-  'releases',
-  'statuses',
-]);
-const BOT_DENIED_SEGMENTS = new Set([
-  'collaborators',
-  'environments',
-  'hooks',
-  'keys',
-  'rulesets',
-  'secrets',
-  'variables',
-]);
 
 export interface GptActionsEnv extends CompanionEnv {}
-
-class ActionError extends CodedError {}
-
-function githubHeaders(token: string): Headers {
-  return new Headers({
-    Accept: 'application/vnd.github+json',
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-    'User-Agent': 'gremlin-gpt-actions',
-    'X-GitHub-Api-Version': GITHUB_API_VERSION,
-  });
-}
-
-function bearerToken(request: Request): string {
-  const value = request.headers.get('authorization')?.trim() ?? '';
-  const match = value.match(/^Bearer\s+(.+)$/i);
-  if (!match?.[1]) throw new ActionError('missing_oauth_token', 401);
-  return match[1];
-}
-
-function requiredString(value: unknown, name: string, max = 65_000): string {
-  if (typeof value !== 'string' || !value.trim() || value.length > max) {
-    throw new ActionError(`invalid_${name}`);
-  }
-  return value;
-}
 
 function repository(value: unknown): string {
   const result = requiredString(value, 'repository', 200);
@@ -120,118 +74,6 @@ function refPath(branchName: string): string {
     .join('/');
 }
 
-function normalizeGithubPath(value: unknown): URL {
-  const path = requiredString(value, 'github_path', 2_000);
-  if (!path.startsWith('/') || path.startsWith('//')) {
-    throw new ActionError('invalid_github_path');
-  }
-  const target = new URL(path, GITHUB_API);
-  if (target.origin !== GITHUB_API) throw new ActionError('invalid_github_path');
-  return target;
-}
-
-// Every user/org/repo qualifier must be in scope; at least one required.
-function searchScopedToUser(target: URL): boolean {
-  const qualifiers = (target.searchParams.get('q') ?? '')
-    .split(/\s+/)
-    .map((token) => token.match(/^-?(user|org|repo):(.+)$/i))
-    .filter((match): match is RegExpMatchArray => match !== null);
-  return (
-    qualifiers.length > 0 &&
-    qualifiers.every(([, kind, value]) =>
-      kind.toLowerCase() === 'repo' ? repositoryInScope(value) : REPOSITORY_OWNERS.has(value),
-    )
-  );
-}
-
-export function githubReadAllowed(path: string): boolean {
-  let target: URL;
-  try {
-    target = normalizeGithubPath(path);
-  } catch {
-    return false;
-  }
-  const pathname = target.pathname;
-  return (
-    pathname === '/user' ||
-    pathname === '/user/repos' ||
-    pathname === '/user/installations' ||
-    pathname === '/users/trvny' ||
-    pathname === '/users/trvny/repos' ||
-    repositoryPathInScope(pathname) ||
-    (pathname.startsWith('/search/') && searchScopedToUser(target))
-  );
-}
-
-function botRepoRemainder(pathname: string): string[] | null {
-  const match = pathname.match(/^\/repos\/([^/]+)\/([^/]+)(?:\/(.*))?$/);
-  if (!match || !repositoryInScope(`${match[1]}/${match[2]}`)) return null;
-  return match[3] ? match[3].split('/').filter(Boolean) : [];
-}
-
-function gitWriteAllowed(method: string, segments: string[], body: unknown): boolean {
-  const area = segments[1];
-  if (!area || !['refs', 'blobs', 'trees', 'commits'].includes(area)) return false;
-  if (area === 'refs') {
-    if (method === 'POST' && segments.length === 2) {
-      const ref =
-        body && typeof body === 'object' && !Array.isArray(body)
-          ? (body as Record<string, unknown>).ref
-          : null;
-      return typeof ref === 'string' && ref.startsWith('refs/heads/');
-    }
-    if (method === 'PATCH') return segments[2] === 'heads' && segments.length >= 4;
-    if (method === 'DELETE') return segments[2] === 'heads' && segments.length >= 4;
-    return false;
-  }
-  return method === 'POST' && segments.length === 2;
-}
-
-export function githubBotRequestAllowed(
-  methodValue: string,
-  path: string,
-  body: unknown = null,
-): boolean {
-  const method = methodValue.toUpperCase();
-  if (!ALLOWED_METHODS.has(method)) return false;
-
-  let target: URL;
-  try {
-    target = normalizeGithubPath(path);
-  } catch {
-    return false;
-  }
-
-  if (method === 'GET') {
-    return (
-      target.pathname === '/installation/repositories' ||
-      repositoryPathInScope(target.pathname)
-    );
-  }
-
-  const segments = botRepoRemainder(target.pathname);
-  if (!segments?.length) return false;
-  if (segments.some((segment) => BOT_DENIED_SEGMENTS.has(segment))) return false;
-  const root = segments[0];
-  if (!BOT_WRITE_ROOTS.has(root)) return false;
-
-  if (root === 'pulls' && method === 'POST' && segments.length === 1) {
-    return false;
-  }
-  if (root === 'git') return gitWriteAllowed(method, segments, body);
-  if (root === 'actions') {
-    return (
-      method === 'POST' &&
-      (segments[1] === 'runs' || segments[1] === 'workflows')
-    );
-  }
-  if (root === 'contents') return method === 'PUT' || method === 'DELETE';
-  if (root === 'statuses') return method === 'POST';
-  if (root === 'dispatches') return method === 'POST';
-
-  return ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method);
-}
-
 async function readJsonBody(request: Request, maxBytes = 256_000): Promise<Record<string, unknown>> {
   const text = await request.text();
   if (text.length > maxBytes) throw new ActionError('payload_too_large', 413);
@@ -248,90 +90,13 @@ async function readJsonBody(request: Request, maxBytes = 256_000): Promise<Recor
   return value as Record<string, unknown>;
 }
 
-async function userRequest(
-  token: string,
-  path: string,
-  method = 'GET',
-  body?: unknown,
-  fetcher: typeof fetch = fetch,
-): Promise<unknown> {
-  const target = normalizeGithubPath(path);
-  const response = await fetcher(target, {
-    method,
-    headers: githubHeaders(token),
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const text = await response.text();
-  let payload: unknown = null;
-  if (text) {
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      payload = { text: text.slice(0, 10_000) };
-    }
-  }
-  if (!response.ok) {
-    const detail =
-      payload && typeof payload === 'object' && !Array.isArray(payload)
-        ? (payload as Record<string, unknown>).message
-        : null;
-    throw new ActionError(
-      typeof detail === 'string' ? `github_${response.status}_${detail}` : `github_${response.status}`,
-      response.status,
-    );
-  }
-  return payload;
-}
-
-async function requireTrvny(
-  token: string,
-  fetcher: typeof fetch = fetch,
-): Promise<Record<string, unknown>> {
-  const payload = await userRequest(token, '/user', 'GET', undefined, fetcher);
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new ActionError('invalid_github_user', 401);
-  }
-  const user = payload as Record<string, unknown>;
-  if (user.login !== EXPECTED_USER) throw new ActionError('github_user_not_allowed', 403);
-  return user;
-}
-
-async function gptomekClient(
-  env: GptActionsEnv,
-  fetcher: typeof fetch = fetch,
-  repositoryName?: string,
-): Promise<GitHubInstallationClient> {
-  const appId = requiredString(env.GPTOMEK_APP_ID, 'gptomek_app_id', 30);
-  const privateKey = gptomekPrivateKey(env, (value) =>
-    requiredString(value, 'gptomek_private_key', 20_000),
-  );
-  const installationId = await gptomekInstallationIdFor(
-    env.GPTOMEK_INSTALLATION_ID,
-    appId,
-    privateKey,
-    repositoryName,
-    fetcher,
-  );
-  if (installationId === null) {
-    throw new ActionError('invalid_gptomek_installation_id', 503);
-  }
-  return createInstallationClient(appId, privateKey, installationId, fetcher);
-}
-
-function pathRepository(path: string): string | undefined {
-  const match = new URL(path, GITHUB_API).pathname.match(/^\/repos\/([^/]+)\/([^/]+)/);
-  return match ? `${match[1]}/${match[2]}` : undefined;
-}
-
 async function githubRead(
   request: Request,
   token: string,
   fetcher: typeof fetch,
 ): Promise<Response> {
   const input = await readJsonBody(request);
-  const path = requiredString(input.path, 'github_path', 2_000);
-  if (!githubReadAllowed(path)) throw new ActionError('github_read_path_not_allowed', 403);
-  return json({ ok: true, data: await userRequest(token, path, 'GET', undefined, fetcher) });
+  return json({ ok: true, data: await readAuthorized(token, input.path, fetcher) });
 }
 
 async function githubBotRequest(
@@ -340,26 +105,8 @@ async function githubBotRequest(
   fetcher: typeof fetch,
 ): Promise<Response> {
   const input = await readJsonBody(request);
-  const method = requiredString(input.method, 'method', 10).toUpperCase();
-  const path = requiredString(input.path, 'github_path', 2_000);
-  const body = input.body;
-  if (!githubBotRequestAllowed(method, path, body)) {
-    throw new ActionError('github_bot_request_not_allowed', 403);
-  }
-  const expect = input.expect === 'empty' ? 'empty' : 'json';
-  const client = await gptomekClient(env, fetcher, pathRepository(path));
-  if (expect === 'empty') {
-    await client.void(path, 'gpt_action_bot_request', {
-      method,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    return json({ ok: true });
-  }
-  const data = await client.json<unknown>(path, 'gpt_action_bot_request', {
-    method,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  return json({ ok: true, data });
+  const data = await botAuthorized(input, env, fetcher);
+  return json(input.expect === 'empty' ? { ok: true } : { ok: true, data });
 }
 
 async function branchHead(
@@ -575,14 +322,7 @@ async function graphqlRead(
   fetcher: typeof fetch,
 ): Promise<Response> {
   const input = await readJsonBody(request);
-  const query = requiredString(input.query, 'query', 20_000);
-  if (/\bmutation\b/i.test(query)) throw new ActionError('graphql_mutation_not_allowed', 403);
-  const variables =
-    input.variables && typeof input.variables === 'object' && !Array.isArray(input.variables)
-      ? input.variables
-      : {};
-  const data = await userRequest(token, '/graphql', 'POST', { query, variables }, fetcher);
-  return json({ ok: true, data });
+  return json({ ok: true, data: await graphqlAuthorized(token, input.query, input.variables, fetcher) });
 }
 
 async function setReviewThreadResolved(
@@ -898,20 +638,8 @@ function privacyPolicy(origin: string): Response {
 }
 
 function actionFailure(error: unknown): Response {
-  if (error instanceof ActionError) return json({ ok: false, error: error.code }, error.status);
-  if (error instanceof GitHubApiError) {
-    return json(
-      { ok: false, error: 'github_api_error', operation: error.operation, status: error.status },
-      error.status >= 400 && error.status < 600 ? error.status : 502,
-    );
-  }
-  console.error(
-    JSON.stringify({
-      gptActions: 'failed',
-      error: error instanceof Error ? error.message : 'unknown_error',
-    }),
-  );
-  return json({ ok: false, error: 'internal_error' }, 500);
+  const failure = githubActionError(error);
+  return json(failure.envelope(), failure.status);
 }
 
 export async function handleGptActions(

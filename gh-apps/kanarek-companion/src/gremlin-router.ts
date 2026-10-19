@@ -9,7 +9,9 @@ import {
 import { addBatchOpenApi, handleBatchAction } from './batch-actions.ts';
 import { addChangeOpenApi, handleChangeAction } from './change-actions.ts';
 import { addCloudflareOpenApi, handleCloudflareAction } from './cloudflare-actions.ts';
+import { GithubActionError, githubGateway } from './github-gateway.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
+import { json } from './json-response.ts';
 import { addInvestigationOpenApi, handleInvestigationAction } from './investigation-actions.ts';
 import { addIssueOpenApi, handleIssueAction } from './issue-actions.ts';
 import { addLifecycleOpenApi, handleLifecycleAction } from './lifecycle-actions.ts';
@@ -273,28 +275,10 @@ export async function normalizeGptActionsRequest(request: Request): Promise<Requ
   });
 }
 
-function internalActionRequest(source: Request, pathname: string, body: JsonObject): Request {
-  const url = new URL(source.url);
-  url.pathname = pathname;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
-}
-
-async function responseData(response: Response): Promise<JsonObject | null> {
-  try {
-    const payload = await response.clone().json();
-    if (!isObject(payload) || !isObject(payload.data)) return null;
-    return payload.data;
-  } catch {
-    return null;
-  }
+// Gateway failure -> the error envelope the /gpt-actions route would return.
+function githubFailure(error: unknown): Response {
+  if (error instanceof GithubActionError) return json(error.envelope(), error.status);
+  throw error;
 }
 
 function branchDeleteInput(value: unknown): {
@@ -340,16 +324,14 @@ async function deleteBranchAction(request: Request, env: GremlinRouterEnv): Prom
     return Response.json({ ok: false, error: 'invalid_branch_delete_request' }, { status: 400 });
   }
 
-  const repositoryRead = await handleGptActions(
-    internalActionRequest(request, '/gpt-actions/github/read', {
-      path: `/repos/${input.repository}`,
-    }),
-    env,
-    actionFetch,
-  );
-  if (!repositoryRead.ok) return repositoryRead;
-  const repository = await responseData(repositoryRead);
-  const defaultBranch = repository?.default_branch;
+  const github = githubGateway(request, env, actionFetch);
+  let repository: unknown;
+  try {
+    repository = await github.read(`/repos/${input.repository}`);
+  } catch (error) {
+    return githubFailure(error);
+  }
+  const defaultBranch = isObject(repository) ? repository.default_branch : undefined;
   if (typeof defaultBranch !== 'string') {
     return Response.json({ ok: false, error: 'invalid_repository_response' }, { status: 502 });
   }
@@ -358,18 +340,16 @@ async function deleteBranchAction(request: Request, env: GremlinRouterEnv): Prom
   }
 
   const encodedBranch = encodeURIComponent(input.branch);
-  const refRead = await handleGptActions(
-    internalActionRequest(request, '/gpt-actions/github/read', {
-      path: `/repos/${input.repository}/git/ref/heads/${encodedBranch}`,
-    }),
-    env,
-    actionFetch,
-  );
-  if (refRead.status === 404) {
+  let refRead: { data: unknown } | null;
+  try {
+    refRead = await github.readOptional(`/repos/${input.repository}/git/ref/heads/${encodedBranch}`);
+  } catch (error) {
+    return githubFailure(error);
+  }
+  if (refRead === null) {
     return Response.json({ ok: true, deleted: false }, { headers: { 'cache-control': 'no-store' } });
   }
-  if (!refRead.ok) return refRead;
-  const ref = await responseData(refRead);
+  const ref = isObject(refRead.data) ? refRead.data : null;
   const currentHead = isObject(ref?.object) ? ref.object.sha : null;
   if (typeof currentHead !== 'string' || !SHA_RE.test(currentHead)) {
     return Response.json({ ok: false, error: 'invalid_branch_ref_response' }, { status: 502 });
@@ -378,16 +358,11 @@ async function deleteBranchAction(request: Request, env: GremlinRouterEnv): Prom
     return Response.json({ ok: false, error: 'branch_head_changed' }, { status: 409 });
   }
 
-  const deleted = await handleGptActions(
-    internalActionRequest(request, BOT_ACTION_PATH, {
-      method: 'DELETE',
-      path: `/repos/${input.repository}/git/refs/heads/${encodedBranch}`,
-      expect: 'empty',
-    }),
-    env,
-    actionFetch,
-  );
-  if (!deleted.ok) return deleted;
+  try {
+    await github.botEmpty('DELETE', `/repos/${input.repository}/git/refs/heads/${encodedBranch}`);
+  } catch (error) {
+    return githubFailure(error);
+  }
   return Response.json({ ok: true, deleted: true }, { headers: { 'cache-control': 'no-store' } });
 }
 
@@ -434,12 +409,11 @@ const worker = {
       url.pathname === AUTOPILOT_ACTION_PATH ||
       url.pathname === RELEASE_ORCHESTRATION_PATH
     ) {
-      const authProbe = await handleGptActions(
-        internalActionRequest(request, '/gpt-actions/github/read', { path: '/user' }),
-        env,
-        actionFetch,
-      );
-      if (!authProbe.ok) return authProbe;
+      try {
+        await githubGateway(request, env, actionFetch).read('/user');
+      } catch (error) {
+        return githubFailure(error);
+      }
     }
 
     const batchResponse = await handleBatchAction(request, env, actionFetch);

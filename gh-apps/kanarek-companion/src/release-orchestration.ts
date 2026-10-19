@@ -4,7 +4,7 @@ import {
   operationIdAllowed,
   type AutopilotCheckpointEnv,
 } from './autopilot-checkpoint.ts';
-import { handleGptActions } from './gpt-actions.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
 import {
   handleMergeReleasePolicyAction,
   releaseComparisonContainsTarget,
@@ -21,7 +21,7 @@ import {
 } from './workflow-actions.ts';
 import { handleEnhancedWorkflowDiagnosis } from './workflow-diagnosis-enhanced.ts';
 import { zipEntryPath, ZipEntryError } from './zip-entry.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, internalReadRequest, DetailedCodedError } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 export const RELEASE_ORCHESTRATION_PATH = '/gpt-actions/operator/releases/orchestrate';
@@ -237,13 +237,21 @@ async function responseObject(response: Response): Promise<JsonObject> {
   return payload;
 }
 
-async function readResponse(
+function orchestrationFailure(
+  code: string,
+  status: number,
+  envelope: JsonObject,
+): ReleaseOrchestrationError {
+  return new ReleaseOrchestrationError(code, status, envelope);
+}
+
+async function readOptional(
   request: Request,
   env: AutopilotCheckpointEnv,
   fetcher: typeof fetch,
   path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(request, path), env, fetcher);
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(request, env, fetcher).readOptional(path), orchestrationFailure);
 }
 
 async function readData(
@@ -252,7 +260,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return (await responseObject(await readResponse(request, env, fetcher, path))).data;
+  return mapGithubError(githubGateway(request, env, fetcher).read(path), orchestrationFailure);
 }
 
 async function optionalReadData(
@@ -261,9 +269,8 @@ async function optionalReadData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown | null> {
-  const response = await readResponse(request, env, fetcher, path);
-  if (response.status === 404) return null;
-  return (await responseObject(response)).data;
+  const result = await readOptional(request, env, fetcher, path);
+  return result === null ? null : result.data;
 }
 
 function positiveInteger(value: unknown): number | null {
@@ -291,14 +298,13 @@ async function resolveTarget(
     ['branch', 'heads'],
     ['tag', 'tags'],
   ] as const) {
-    const response = await readResponse(
+    const found = await readOptional(
       request,
       env,
       fetcher,
       `/repos/${repo}/git/ref/${namespace}/${refPath(ref)}`,
     );
-    if (response.status === 404) continue;
-    await responseObject(response);
+    if (found === null) continue;
     kind = candidate;
     break;
   }
@@ -337,14 +343,14 @@ async function validatePolicyTarget(
 
   const matchedBranches: string[] = [];
   for (const branch of loaded.policy.runtime.release.allowedBranches) {
-    const response = await readResponse(
+    const comparison = await readOptional(
       request,
       env,
       fetcher,
       `/repos/${repo}/compare/${encodeURIComponent(targetSha)}...${encodeURIComponent(branch)}`,
     );
-    if (response.status === 404) continue;
-    const compare = (await responseObject(response)).data;
+    if (comparison === null) continue;
+    const compare = comparison.data;
     if (releaseComparisonContainsTarget(compare, targetSha)) matchedBranches.push(branch);
   }
   if (!matchedBranches.length) {

@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { githubBotRequestAllowed, githubReadAllowed } from '../src/github-gateway.ts';
 import {
   contentTreeMode,
-  githubBotRequestAllowed,
-  githubReadAllowed,
   handleGptActions,
   openApiDocument,
   type GptActionsEnv,

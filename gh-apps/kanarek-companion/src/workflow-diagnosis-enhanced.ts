@@ -1,6 +1,7 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
+import { GithubActionError, githubGateway } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
 import { handleOperatorAction } from './operator-actions.ts';
-import { isObject, type JsonObject, numberOrNull, internalReadRequest, repositoryInScope } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repositoryInScope } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const DIAGNOSE_RUN_PATH = '/gpt-actions/github/workflows/diagnose';
@@ -28,21 +29,14 @@ async function readLogText(
   fetcher: typeof fetch,
   path: string,
 ): Promise<{ text: string | null; error: string | null }> {
-  const response = await handleGptActions(internalReadRequest(source, path), env, fetcher);
-  let payload: unknown;
+  let raw: unknown;
   try {
-    payload = await response.clone().json();
-  } catch {
-    return { text: null, error: 'invalid_action_response' };
+    raw = await githubGateway(source, env, fetcher).read(path);
+  } catch (error) {
+    if (error instanceof GithubActionError) return { text: null, error: error.code };
+    throw error;
   }
-  if (!isObject(payload)) return { text: null, error: 'invalid_action_response' };
-  if (!response.ok) {
-    return {
-      text: null,
-      error: typeof payload.error === 'string' ? payload.error : `http_${response.status}`,
-    };
-  }
-  const data = isObject(payload.data) ? payload.data : null;
+  const data = isObject(raw) ? raw : null;
   return {
     text: data && typeof data.text === 'string' ? data.text : null,
     error: null,

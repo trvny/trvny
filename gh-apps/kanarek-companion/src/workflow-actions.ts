@@ -1,8 +1,8 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const BOT_PATH = '/gpt-actions/github/bot';
 const WORKFLOW_CONTROL_PATH = '/gpt-actions/github/workflows/control';
 const WORKFLOW_DISPATCH_PATH = '/gpt-actions/github/workflows/dispatch';
 const SHA_RE = /^[0-9a-f]{40}$/i;
@@ -102,20 +102,17 @@ async function inputObject(request: Request): Promise<JsonObject> {
   return readJsonObject(request, 64_000, (code, status) => new WorkflowActionError(code, status));
 }
 
-async function actionPayload(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new WorkflowActionError(code, status),
-  );
+function workflowActionFailure(code: string, status: number): WorkflowActionError {
+  return new WorkflowActionError(code, status);
 }
 
-async function readResponse(
+async function readOptional(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(source, path), env, fetcher);
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), workflowActionFailure);
 }
 
 async function readData(
@@ -124,7 +121,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return (await actionPayload(await readResponse(source, env, fetcher, path))).data;
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), workflowActionFailure);
 }
 
 async function botEmpty(
@@ -134,17 +131,10 @@ async function botEmpty(
   path: string,
   body?: JsonObject,
 ): Promise<void> {
-  const response = await handleGptActions(
-    internalRequest(source, BOT_PATH, {
-      method: 'POST',
-      path,
-      ...(body ? { body } : {}),
-      expect: 'empty',
-    }),
-    env,
-    fetcher,
+  await mapGithubError(
+    githubGateway(source, env, fetcher).botEmpty('POST', path, body),
+    workflowActionFailure,
   );
-  await actionPayload(response);
 }
 
 function compactRun(value: unknown): JsonObject | null {
@@ -267,14 +257,14 @@ async function resolveDispatchRef(
     ['branch', 'heads'],
     ['tag', 'tags'],
   ] as const) {
-    const response = await readResponse(
+    const found = await readOptional(
       request,
       env,
       fetcher,
       `/repos/${repo}/git/ref/${namespace}/${refPath(ref)}`,
     );
-    if (response.status === 404) continue;
-    const raw = (await actionPayload(response)).data;
+    if (found === null) continue;
+    const raw = found.data;
     const object = isObject(raw) && isObject(raw.object) ? raw.object : null;
     if (!object || typeof object.sha !== 'string' || !SHA_RE.test(object.sha)) {
       throw new WorkflowActionError('invalid_workflow_ref_response', 502);

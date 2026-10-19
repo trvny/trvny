@@ -112,7 +112,7 @@ The main operator families live in the shared package:
 - `release*.ts`, `zip-entry.ts`: guarded release pipeline.
 - `cloudflare-actions.ts`: guarded Cloudflare inventory, inspection, and narrow
   mutations.
-- `gpt-actions.ts`: scoped low-level GitHub transport shared by guarded actions.
+- `github-gateway.ts`: scoped low-level GitHub transport shared by guarded actions.
 - `runtime-openapi.ts`: final curated action surface exposed to clients.
 
 See

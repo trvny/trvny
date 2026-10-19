@@ -1,8 +1,8 @@
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
-const BOT_PATH = '/gpt-actions/github/bot';
 const ISSUE_CONTEXT_PATH = '/gpt-actions/github/issues/context';
 const ISSUE_TRIAGE_PATH = '/gpt-actions/github/issues/triage';
 
@@ -26,11 +26,8 @@ async function inputObject(request: Request): Promise<JsonObject> {
   return readJsonObject(request, 96_000, (code, status) => new IssueActionError(code, status));
 }
 
-async function responsePayload(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new IssueActionError(code, status),
-  );
+function issueFailure(code: string, status: number): IssueActionError {
+  return new IssueActionError(code, status);
 }
 
 async function readData(
@@ -39,12 +36,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  const response = await handleGptActions(
-    internalReadRequest(source, path),
-    env,
-    fetcher,
-  );
-  return (await responsePayload(response)).data;
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), issueFailure);
 }
 
 async function botData(
@@ -55,12 +47,7 @@ async function botData(
   path: string,
   body: JsonObject,
 ): Promise<unknown> {
-  const response = await handleGptActions(
-    internalRequest(source, BOT_PATH, { method, path, body }),
-    env,
-    fetcher,
-  );
-  return (await responsePayload(response)).data;
+  return mapGithubError(githubGateway(source, env, fetcher).bot(method, path, body), issueFailure);
 }
 
 function compactUser(value: unknown): JsonObject | null {

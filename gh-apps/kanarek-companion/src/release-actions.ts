@@ -3,14 +3,14 @@ import {
   gptomekInstallationIdFor,
   gptomekPrivateKey,
 } from '../../core/github-app.ts';
-import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { githubGateway, mapGithubError } from './github-gateway.ts';
+import type { GptActionsEnv } from './gpt-actions.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
 
 const GITHUB_API = 'https://api.github.com';
 const GITHUB_UPLOADS = 'https://uploads.github.com';
 const GITHUB_API_VERSION = '2026-03-10';
-const BOT_PATH = '/gpt-actions/github/bot';
 const RELEASE_PATH = '/gpt-actions/github/releases/manage';
 const RELEASE_ASSET_UPLOAD_PATH = '/gpt-actions/github/releases/assets/upload-artifact';
 const RELEASE_ASSET_DELETE_PATH = '/gpt-actions/github/releases/assets/delete';
@@ -109,20 +109,17 @@ async function inputObject(request: Request): Promise<JsonObject> {
   return readJsonObject(request, 160_000, (code, status) => new ReleaseError(code, status));
 }
 
-async function payload(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new ReleaseError(code, status),
-  );
+function releaseFailure(code: string, status: number): ReleaseError {
+  return new ReleaseError(code, status);
 }
 
-async function readResponse(
+async function readOptional(
   source: Request,
   env: GptActionsEnv,
   fetcher: typeof fetch,
   path: string,
-): Promise<Response> {
-  return handleGptActions(internalReadRequest(source, path), env, fetcher);
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), releaseFailure);
 }
 
 async function readData(
@@ -131,7 +128,7 @@ async function readData(
   fetcher: typeof fetch,
   path: string,
 ): Promise<unknown> {
-  return (await payload(await readResponse(source, env, fetcher, path))).data;
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), releaseFailure);
 }
 
 async function botData(
@@ -142,12 +139,7 @@ async function botData(
   path: string,
   body: JsonObject,
 ): Promise<unknown> {
-  const response = await handleGptActions(
-    internalRequest(source, BOT_PATH, { method, path, body }),
-    env,
-    fetcher,
-  );
-  return (await payload(response)).data;
+  return mapGithubError(githubGateway(source, env, fetcher).bot(method, path, body), releaseFailure);
 }
 
 function textField(value: unknown, name: string, max: number): string | undefined {
@@ -405,9 +397,9 @@ async function resolveTagCommit(
   tagName: string,
 ): Promise<string | null> {
   const repo = repoPath(repositoryName);
-  const ref = await readResponse(source, env, fetcher, `/repos/${repo}/git/ref/tags/${refPath(tagName)}`);
-  if (ref.status === 404) return null;
-  const refValue = (await payload(ref)).data;
+  const ref = await readOptional(source, env, fetcher, `/repos/${repo}/git/ref/tags/${refPath(tagName)}`);
+  if (ref === null) return null;
+  const refValue = ref.data;
   if (!isObject(refValue) || !isObject(refValue.object)) {
     throw new ReleaseError('invalid_tag_ref_response', 502);
   }
@@ -452,19 +444,16 @@ async function releaseAsGptomek(
     throw new ReleaseError('target_commit_not_confirmed', 409);
   }
 
-  const existingResponse = await readResponse(
+  const existingRead = await readOptional(
     request,
     env,
     fetcher,
     `/repos/${repo}/releases/tags/${refPath(tagName)}`,
   );
   let existing: JsonObject | null = null;
-  if (existingResponse.ok) {
-    const value = (await payload(existingResponse)).data;
-    if (!isObject(value)) throw new ReleaseError('invalid_release_response', 502);
-    existing = value;
-  } else if (existingResponse.status !== 404) {
-    await payload(existingResponse);
+  if (existingRead !== null) {
+    if (!isObject(existingRead.data)) throw new ReleaseError('invalid_release_response', 502);
+    existing = existingRead.data;
   }
 
   const tagCommit = await resolveTagCommit(request, env, fetcher, repositoryName, tagName);

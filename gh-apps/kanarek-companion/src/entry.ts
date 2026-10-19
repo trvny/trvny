@@ -21,7 +21,7 @@ import {
   addPackageIntelligenceOpenApi,
   handlePackageIntelligenceAction,
 } from './package-intelligence.ts';
-import { ReviewProviderCooldownStore } from './review-cooldown-store.ts';
+import { ReviewProviderCooldownStore } from '../../core/review-cooldown-store.ts';
 import {
   handleReviewRouterViaService,
   type ReviewServiceEnv,

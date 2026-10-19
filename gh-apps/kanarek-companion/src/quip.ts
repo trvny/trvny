@@ -1,4 +1,4 @@
-import { REVIEW_ROUTER_QUIP_MODEL } from './review-service-protocol.ts';
+import { REVIEW_ROUTER_QUIP_MODEL } from '../../core/review-service-protocol.ts';
 import { reviewRouterChatViaService, type ReviewServiceBinding } from './review-service.ts';
 
 // Fallbacks for a missing var. wrangler.jsonc is the source of truth; a test

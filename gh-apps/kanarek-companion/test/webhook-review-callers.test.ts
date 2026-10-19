@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { GitHubInstallationClient } from '../src/github-app.ts';
+import type { GitHubInstallationClient } from '../../core/github-app.ts';
 import { callerEvidenceForFile, fetchCallerEvidence } from '../src/webhook-review-context.ts';
 import {
   reviewChangeInventory,

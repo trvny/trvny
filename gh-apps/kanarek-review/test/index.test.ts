@@ -7,7 +7,7 @@ import {
   REVIEW_SERVICE_TRUST_HEADER,
   REVIEW_SERVICE_TRUST_VALUE,
   REVIEW_WORKERS_AI_OVERRIDE_HEADER,
-} from '../../kanarek-companion/src/review-service-protocol.ts';
+} from '../../core/review-service-protocol.ts';
 
 test('review worker applies the per-request Workers AI retry override', () => {
   const env = { KANAREK_REVIEW_WORKERS_AI_ENABLED: 'true' };

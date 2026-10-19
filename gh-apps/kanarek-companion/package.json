@@ -19,7 +19,6 @@
     "wrangler": "4.149.0"
   },
   "exports": {
-    "./runtime": "./src/runtime.ts",
-    "./github-app": "./src/github-app.ts"
+    "./runtime": "./src/runtime.ts"
   }
 }

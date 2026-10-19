@@ -166,7 +166,7 @@ casually clean up its fallback PR/ref.
 
 ### GPTomek Bridge
 
-- `src/github-app.ts`: GitHub App signing and installation auth.
+- `../core/github-app.ts`: GitHub App signing and installation auth (shared).
 - `src/gptomek.ts` and `src/gptomek-issue.ts`: control mailbox parsing,
   checkpoints, and bot-authored operations.
 - `src/gpt-actions.ts`: scoped GitHub read/bot gateways shared with guarded
@@ -197,6 +197,7 @@ Connect `trvny/trvny` with:
 - root directory: `gh-apps/kanarek-companion`
 - build command: `npm run check`
 - deploy command: `npm run deploy`
+- build watch paths: `gh-apps/kanarek-companion/**`, `gh-apps/core/**`
 
 GitHub Actions validates the project but does not deploy it.
 

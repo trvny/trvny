@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { branchUpdatePermissionWarning } from '../src/companion-update.ts';
 import { render } from '../src/companion-view.ts';
-import type { GitHubInstallationClient } from '../src/github-app.ts';
+import type { GitHubInstallationClient } from '../../core/github-app.ts';
 import type { PullRequest } from '../src/companion-types.ts';
 
 const pr: PullRequest = {

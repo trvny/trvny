@@ -1,5 +1,5 @@
 import { extractImports, importReferencesTarget, searchSeed } from './dependency-graph.ts';
-import { createInstallationClient } from './github-app.ts';
+import { createInstallationClient } from '../../core/github-app.ts';
 import { createPackageExternalTransport, githubRepositoryFromUrl } from './package-intelligence.ts';
 import { inspectRegistryPackage } from './package-registry.ts';
 import { type ReviewServiceEnv } from './review-service.ts';

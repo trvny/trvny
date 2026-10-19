@@ -3,7 +3,7 @@ import {
   createInstallationClient,
   GitHubApiError,
   type GitHubInstallationClient,
-} from './github-app.ts';
+} from '../../core/github-app.ts';
 import {
   autopilotInputHash,
   checkpointCall,

@@ -2,7 +2,7 @@ import {
   REVIEW_PROVIDER_EXCLUDE_HEADER,
   REVIEW_ROUTER_JUDGE_MODEL,
   REVIEW_ROUTER_PATH,
-} from './review-service-protocol.ts';
+} from '../../core/review-service-protocol.ts';
 import { handleReviewRouterViaService, reviewDecisionViaService } from './review-service.ts';
 import {
   type WebhookReviewEnv,

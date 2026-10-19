@@ -1,5 +1,5 @@
 import { repoParts } from './companion-github.ts';
-import type { GitHubInstallationClient } from './github-app.ts';
+import type { GitHubInstallationClient } from '../../core/github-app.ts';
 
 export type CompanionReaction = 'eyes' | 'hooray' | 'rocket';
 

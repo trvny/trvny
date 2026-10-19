@@ -2,7 +2,7 @@ import {
   createAppJwt,
   gptomekInstallationIdFor,
   gptomekPrivateKey,
-} from './github-app.ts';
+} from '../../core/github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { loadGremlinPolicy, type LoadedGremlinPolicy } from './policy-actions.ts';
 import { releaseComparisonContainsTarget } from './policy-merge-release.ts';

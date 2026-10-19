@@ -3,7 +3,7 @@ import {
   type GitHubInstallationClient,
   gptomekInstallationIdFor,
   gptomekPrivateKey,
-} from './github-app.ts';
+} from '../../core/github-app.ts';
 import { handleGptActions, type GptActionsEnv } from './gpt-actions.ts';
 import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
 import { json } from './json-response.ts';

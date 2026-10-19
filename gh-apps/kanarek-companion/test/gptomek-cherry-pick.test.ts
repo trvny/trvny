@@ -5,7 +5,7 @@ import {
   cherryPick,
   gptomekMailboxFailureIsTerminal,
 } from '../src/gptomek.ts';
-import type { GitHubInstallationClient } from '../src/github-app.ts';
+import type { GitHubInstallationClient } from '../../core/github-app.ts';
 
 function body(init: RequestInit | undefined): Record<string, unknown> {
   return JSON.parse(String(init?.body)) as Record<string, unknown>;

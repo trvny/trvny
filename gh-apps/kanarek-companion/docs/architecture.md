@@ -117,8 +117,8 @@ It is responsible for:
   verification escalate to paid once and are never retried.
 
 `review-service.ts` translates internal router calls into the private
-`KANAREK_REVIEW_SERVICE` binding. `review-service-protocol.ts` is the small shared
-protocol. Provider credentials and model chains belong in
+`KANAREK_REVIEW_SERVICE` binding. `../../core/review-service-protocol.ts` is the
+small shared protocol. Provider credentials and model chains belong in
 `../../kanarek-review/`.
 
 ## GPTomek Bridge

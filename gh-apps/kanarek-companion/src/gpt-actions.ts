@@ -4,7 +4,7 @@ import {
   gptomekInstallationIdFor,
   type GitHubInstallationClient,
   gptomekPrivateKey,
-} from './github-app.ts';
+} from '../../core/github-app.ts';
 import type { CompanionEnv } from './companion-types.ts';
 import { resolveGitTreeEntries, type GitTreeEntry } from './git-tree.ts';
 import { REPOSITORY_OWNERS, repoPath, repositoryInScope, repositoryPathInScope, CodedError } from './tools/common.ts';

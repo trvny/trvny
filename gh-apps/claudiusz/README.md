@@ -43,7 +43,8 @@ Connector:
 
 `https://claudiusz-mcp.travny.workers.dev/<CLAUDIUSZ_MCP_TOKEN>`
 
-Workers Builds deploys on pushes to `main` that touch this directory
+Workers Builds deploys on pushes to `main` that touch this directory or
+`gh-apps/core/**`
 (`npm run check`, then `npm run deploy`).
 
 Manual: `npm run deploy`, or upload a bundle through the Cloudflare API

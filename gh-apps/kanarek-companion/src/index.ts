@@ -9,8 +9,8 @@ import {
   checkInstallationAccess,
   GitHubApiError,
   type InstallationAccessCheck,
-} from './github-app.ts';
-import { bearerAuthorized } from './auth.ts';
+} from '../../core/github-app.ts';
+import { bearerAuthorized } from '../../core/auth.ts';
 import {
   dispatchRepositorySettingsBootstrap,
   repositoryCreated,

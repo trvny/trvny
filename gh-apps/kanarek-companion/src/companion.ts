@@ -1,4 +1,4 @@
-import { createInstallationClient } from './github-app.ts';
+import { createInstallationClient } from '../../core/github-app.ts';
 import { handleGptomekControl } from './gptomek.ts';
 import {
   archiveQuip,

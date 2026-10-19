@@ -1,5 +1,5 @@
 import { repoParts } from './companion-github.ts';
-import { GitHubApiError, type GitHubInstallationClient } from './github-app.ts';
+import { GitHubApiError, type GitHubInstallationClient } from '../../core/github-app.ts';
 import type {
   BranchState,
   CiState,

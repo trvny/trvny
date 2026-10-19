@@ -6,6 +6,7 @@ on: # yamllint disable-line rule:truthy
     paths:
       - "gh-apps/claudiusz/**"
       - "!gh-apps/claudiusz/**/*.md"
+      - "gh-apps/core/**"
       - "gh-apps/gremlin/**"
       - "gh-apps/kanarek-companion/src/**"
       - "gh-apps/kanarek-companion/package.json"
@@ -17,6 +18,7 @@ on: # yamllint disable-line rule:truthy
     paths:
       - "gh-apps/claudiusz/**"
       - "!gh-apps/claudiusz/**/*.md"
+      - "gh-apps/core/**"
       - "gh-apps/gremlin/**"
       - "gh-apps/kanarek-companion/src/**"
       - "gh-apps/kanarek-companion/package.json"
@@ -96,14 +98,14 @@ jobs:
               shitpost=true
             fi
 
-            if grep -Eq '^gh-apps/kanarek-companion/src/github-app\.ts$|^gh-apps/kanarek-companion/package\.json$' <<<"$files"; then
+            if grep -Eq '^gh-apps/core/.*\.ts$' <<<"$files"; then
               claudiusz=true
             fi
             if grep '^gh-apps/claudiusz/' <<<"$files" | grep -Ev '\.md$' >/dev/null; then
               claudiusz=true
             fi
 
-            if grep -Eq '^gh-apps/gremlin/|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
+            if grep -Eq '^gh-apps/gremlin/|^gh-apps/core/.*\.ts$|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
               gremlin=true
             fi
             if grep -Eq '^gh-apps/shitpost-reactor/' <<<"$files"; then

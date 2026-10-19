@@ -1,10 +1,10 @@
-import { bearerAuthorized } from '../../kanarek-companion/src/auth.ts';
+import { bearerAuthorized } from '../../core/auth.ts';
 import {
   REVIEW_SERVICE_INTERNAL_BEARER,
   REVIEW_SERVICE_TRUST_HEADER,
   REVIEW_SERVICE_TRUST_VALUE,
   REVIEW_WORKERS_AI_OVERRIDE_HEADER,
-} from '../../kanarek-companion/src/review-service-protocol.ts';
+} from '../../core/review-service-protocol.ts';
 import { handleDecisionModelRequest } from './decision-model.ts';
 import {
   handleReviewRouterRequest,

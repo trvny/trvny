@@ -11,7 +11,7 @@ import { isProtectedBranch } from '../src/tools/common.ts';
 import {
   GitHubApiError,
   type GitHubInstallationClient,
-} from '../src/github-app.ts';
+} from '../../core/github-app.ts';
 import type { CompanionEnv, CompanionTarget, PullRequest } from '../src/companion-types.ts';
 
 const target: CompanionTarget = {

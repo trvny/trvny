@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { addDocsOpenApi, handleDocsAction } from '../src/docs-actions.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 const origin = 'https://example.workers.dev';
 
@@ -50,11 +51,11 @@ test('operator authorization fails closed before documentation reads', async () 
   let reads = 0;
   const response = await handleDocsAction(
     request('/gpt-actions/docs/index', { repository: 'trvny/trvny' }),
-    async (input) => {
+    loopbackGateway(request('/gpt-actions/docs/index', { repository: 'trvny/trvny' }), async (input) => {
       reads += 1;
       assert.deepEqual(await input.json(), { path: '/user' });
       return Response.json({ ok: true, data: { login: 'someone-else' } });
-    },
+    }),
   );
   assert.ok(response);
   assert.equal(reads, 1);
@@ -65,7 +66,7 @@ test('operator authorization fails closed before documentation reads', async () 
 test('authorization failures return the unified internal error response', async () => {
   const response = await handleDocsAction(
     request('/gpt-actions/docs/index', { repository: 'trvny/trvny' }),
-    () => Promise.reject(new Error('network failed')),
+    loopbackGateway(request('/gpt-actions/docs/index', { repository: 'trvny/trvny' }), () => Promise.reject(new Error('network failed'))),
   );
   assert.ok(response);
   assert.equal(response.status, 500);
@@ -75,7 +76,7 @@ test('authorization failures return the unified internal error response', async 
 test('request size limit is enforced in UTF-8 bytes', async () => {
   const response = await handleDocsAction(
     request('/gpt-actions/docs/search', { query: 'ą'.repeat(12_000) }),
-    invokeFor({}),
+    loopbackGateway(request('/gpt-actions/docs/search', { query: 'ą'.repeat(12_000) }), invokeFor({})),
   );
   assert.ok(response);
   assert.equal(response.status, 413);
@@ -85,7 +86,7 @@ test('request size limit is enforced in UTF-8 bytes', async () => {
 test('docs index lists only bounded documentation-like files', async () => {
   const response = await handleDocsAction(
     request('/gpt-actions/docs/index', { repository: 'trvny/trvny' }),
-    invokeFor({
+    loopbackGateway(request('/gpt-actions/docs/index', { repository: 'trvny/trvny' }), invokeFor({
       '/repos/trvny/trvny': { default_branch: 'main' },
       '/repos/trvny/trvny/git/trees/main?recursive=1': {
         truncated: false,
@@ -98,7 +99,7 @@ test('docs index lists only bounded documentation-like files', async () => {
           { path: 'docs/guide.txt', type: 'blob', sha: 'f', size: 60 },
         ],
       },
-    }),
+    })),
   );
   assert.ok(response);
   assert.equal(response.status, 200);
@@ -120,7 +121,7 @@ test('getDoc resolves the default branch and decodes UTF-8 content', async () =>
   const encoded = Buffer.from(content, 'utf8').toString('base64');
   const response = await handleDocsAction(
     request('/gpt-actions/docs/get', { repository: 'trvny/feedseek', path: 'README.md' }),
-    invokeFor({
+    loopbackGateway(request('/gpt-actions/docs/get', { repository: 'trvny/feedseek', path: 'README.md' }), invokeFor({
       '/repos/trvny/feedseek': { default_branch: 'main' },
       '/repos/trvny/feedseek/contents/README.md?ref=main': {
         type: 'file',
@@ -130,7 +131,7 @@ test('getDoc resolves the default branch and decodes UTF-8 content', async () =>
         sha: 'abc',
         html_url: 'https://github.com/trvny/feedseek/blob/main/README.md',
       },
-    }),
+    })),
   );
   assert.ok(response);
   assert.equal(response.status, 200);
@@ -143,7 +144,7 @@ test('searchDocs stays scoped to trvny and filters code files', async () => {
   let searchPath = '';
   const response = await handleDocsAction(
     request('/gpt-actions/docs/search', { query: 'Atom feed' }),
-    async (input) => {
+    loopbackGateway(request('/gpt-actions/docs/search', { query: 'Atom feed' }), async (input) => {
       const body = await input.json() as { path: string };
       if (body.path === '/user') return Response.json({ ok: true, data: { login: 'trvny' } });
       searchPath = body.path;
@@ -172,7 +173,7 @@ test('searchDocs stays scoped to trvny and filters code files', async () => {
           ],
         },
       });
-    },
+    }),
   );
   assert.ok(response);
   assert.equal(response.status, 200);
@@ -191,7 +192,7 @@ test('live docs blocks source code, arbitrary text and foreign repositories', as
   for (const path of ['src/index.ts', 'notes/random.txt']) {
     const blocked = await handleDocsAction(
       request('/gpt-actions/docs/get', { repository: 'trvny/trvny', path }),
-      invoke,
+      loopbackGateway(request('/gpt-actions/docs/get', { repository: 'trvny/trvny', path }), invoke),
     );
     assert.ok(blocked);
     assert.equal(blocked.status, 403);
@@ -200,7 +201,7 @@ test('live docs blocks source code, arbitrary text and foreign repositories', as
 
   const foreign = await handleDocsAction(
     request('/gpt-actions/docs/index', { repository: 'openai/openai' }),
-    invoke,
+    loopbackGateway(request('/gpt-actions/docs/index', { repository: 'openai/openai' }), invoke),
   );
   assert.ok(foreign);
   assert.equal(foreign.status, 403);

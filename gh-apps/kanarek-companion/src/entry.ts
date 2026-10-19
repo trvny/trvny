@@ -36,6 +36,7 @@ import {
 } from './gremlin-router.ts';
 import type { Route } from './route.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
+import { githubGateway } from './github-gateway.ts';
 import { json } from './json-response.ts';
 import { CAPABILITY_PATH, HEALTH_PATH, OPENAPI_PATH, SMOKE_PATH } from './paths.ts';
 
@@ -429,12 +430,13 @@ export const gatewayRoutes: readonly Route<GatewayContext>[] = [
     pathIs(request, HEALTH_PATH) && (request.method === 'GET' || request.method === 'HEAD')
       ? decoratedHealth(request, env, below)
       : null,
-  ({ request, below }) => handleDocsAction(request, below),
+  ({ request, env }) => handleDocsAction(request, githubGateway(request, env, actionFetch)),
   ({ request, env }) => handleAnchorStorageAction(request, env, actionFetch),
   ({ request, below }) => handlePackageIntelligenceAction(request, below, actionFetch),
   ({ request, env, below }) => handleFeedseekAction(request, env, below, actionFetch),
   ({ request, env, below }) => handleContext7Action(request, env, below, actionFetch),
   ({ request, env, below }) => handleEngramAction(request, env, below, actionFetch),
-  ({ request, below }) => handleAccountAttentionAction(request, below),
+  ({ request, env, below }) =>
+    handleAccountAttentionAction(request, below, githubGateway(request, env, actionFetch)),
   ({ request, env, below }) => handleAgentGuidanceAction(request, env, below),
 ];

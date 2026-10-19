@@ -8,7 +8,8 @@ import {
   symbolOccurrences,
 } from './symbol-investigation.ts';
 import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, CodedError } from './tools/common.ts';
+import { type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 export const BUG_INVESTIGATION_PATH = '/gpt-actions/operator/bug-investigate';
@@ -222,9 +223,8 @@ async function responseObject(response: Response): Promise<JsonObject> {
   );
 }
 
-async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const payload = await responseObject(await invoke(internalReadRequest(source, path)));
-  return payload.data;
+function readData(github: GithubGateway, path: string): Promise<unknown> {
+  return mapGithubError(github.read(path), (code, status) => new BugInvestigationError(code, status));
 }
 
 function contentPath(value: string): string {
@@ -356,8 +356,8 @@ export async function bugHandoffFingerprint(value: BugHandoffIdentity): Promise<
   return autopilotInputHash(value as unknown as JsonObject);
 }
 
-async function resolveIssue(source: Request, invoke: Invoke, repositoryName: string, issueNumber: number): Promise<ResolvedSource> {
-  const raw = await readData(source, invoke, `/repos/${repoPath(repositoryName)}/issues/${issueNumber}`);
+async function resolveIssue(github: GithubGateway, repositoryName: string, issueNumber: number): Promise<ResolvedSource> {
+  const raw = await readData(github, `/repos/${repoPath(repositoryName)}/issues/${issueNumber}`);
   if (!isObject(raw)) throw new BugInvestigationError('invalid_issue_response', 502);
   const title = stringOrNull(raw.title) ?? `Issue #${issueNumber}`;
   const body = stringOrNull(raw.body) ?? '';
@@ -421,9 +421,9 @@ async function resolveWorkflow(source: Request, invoke: Invoke, repositoryName: 
   };
 }
 
-async function resolveSource(source: Request, invoke: Invoke, input: Input): Promise<ResolvedSource> {
+async function resolveSource(source: Request, invoke: Invoke, github: GithubGateway, input: Input): Promise<ResolvedSource> {
   if (input.source.kind === 'issue') {
-    return resolveIssue(source, invoke, input.repository, input.source.issueNumber);
+    return resolveIssue(github, input.repository, input.source.issueNumber);
   }
   if (input.source.kind === 'workflow') {
     return resolveWorkflow(source, invoke, input.repository, input.source.runId);
@@ -441,19 +441,18 @@ async function resolveSource(source: Request, invoke: Invoke, input: Input): Pro
 }
 
 async function resolveSnapshot(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repositoryName: string,
   requestedRef?: string,
 ): Promise<Snapshot> {
   const repo = repoPath(repositoryName);
-  const metadata = await readData(source, invoke, `/repos/${repo}`);
+  const metadata = await readData(github, `/repos/${repo}`);
   if (!isObject(metadata) || typeof metadata.default_branch !== 'string') {
     throw new BugInvestigationError('invalid_repository_response', 502);
   }
   const defaultBranch = metadata.default_branch;
   const target = requestedRef ?? defaultBranch;
-  const commit = await readData(source, invoke, `/repos/${repo}/commits/${encodeURIComponent(target)}`);
+  const commit = await readData(github, `/repos/${repo}/commits/${encodeURIComponent(target)}`);
   if (!isObject(commit) || typeof commit.sha !== 'string' || !SHA_RE.test(commit.sha)) {
     throw new BugInvestigationError('invalid_ref_response', 502);
   }
@@ -461,8 +460,7 @@ async function resolveSnapshot(
   let baseSha = evidenceSha;
   if (target !== defaultBranch) {
     const baseCommit = await readData(
-      source,
-      invoke,
+      github,
       `/repos/${repo}/commits/${encodeURIComponent(defaultBranch)}`,
     );
     if (!isObject(baseCommit) || typeof baseCommit.sha !== 'string' || !SHA_RE.test(baseCommit.sha)) {
@@ -479,8 +477,7 @@ async function resolveSnapshot(
 }
 
 export async function existingTargetPaths(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repositoryName: string,
   ref: string,
   candidates: string[],
@@ -488,14 +485,14 @@ export async function existingTargetPaths(
   const paths = [...new Set(candidates)].filter((path) => validCandidatePath(path) && !dependencyPath(path));
   if (!paths.length) return [];
   const repo = repoPath(repositoryName);
-  const rawCommit = await readData(source, invoke, `/repos/${repo}/commits/${encodeURIComponent(ref)}`);
+  const rawCommit = await readData(github, `/repos/${repo}/commits/${encodeURIComponent(ref)}`);
   const commit = isObject(rawCommit) && isObject(rawCommit.commit) ? rawCommit.commit : null;
   const tree = commit && isObject(commit.tree) ? commit.tree : null;
   const treeSha = tree ? stringOrNull(tree.sha) : null;
   if (!treeSha || !SHA_RE.test(treeSha)) throw new BugInvestigationError('invalid_commit_tree_response', 502);
 
   const entries = await resolveGitTreeEntries(treeSha, paths, async (sha) => {
-    const raw = await readData(source, invoke, `/repos/${repo}/git/trees/${sha}`);
+    const raw = await readData(github, `/repos/${repo}/git/trees/${sha}`);
     if (!isObject(raw) || raw.truncated === true || !Array.isArray(raw.tree)) {
       throw new BugInvestigationError('git_tree_not_readable', 502);
     }
@@ -524,8 +521,7 @@ function pathMatchesFilter(path: string, filter?: string): boolean {
 }
 
 async function snapshotFallbackInvestigations(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   input: Input,
   snapshot: Snapshot,
   symbols: string[],
@@ -536,8 +532,7 @@ async function snapshotFallbackInvestigations(
   }
   const repo = repoPath(input.repository);
   const compare = await readData(
-    source,
-    invoke,
+    github,
     `/repos/${repo}/compare/${encodeURIComponent(snapshot.defaultBranch)}...${snapshot.sha}`,
   );
   if (!isObject(compare) || !Array.isArray(compare.files)) return investigations;
@@ -550,8 +545,7 @@ async function snapshotFallbackInvestigations(
     .slice(0, Math.min(40, input.maxFiles * 4));
   const files = await Promise.all(paths.map(async (path) => {
     const raw = await readData(
-      source,
-      invoke,
+      github,
       `/repos/${repo}/contents/${contentPath(path)}?ref=${encodeURIComponent(snapshot.sha)}`,
     ).catch((error) => {
       if (error instanceof BugInvestigationError && error.status === 404) return null;
@@ -716,12 +710,10 @@ async function handoff(
   };
 }
 
-async function investigate(request: Request, invoke: Invoke): Promise<Response> {
+async function investigate(request: Request, invoke: Invoke, github: GithubGateway): Promise<Response> {
   const input = await inputObject(request);
-  const resolved = await resolveSource(request, invoke, input);
-  const snapshot = await resolveSnapshot(
-    request,
-    invoke,
+  const resolved = await resolveSource(request, invoke, github, input);
+  const snapshot = await resolveSnapshot(github,
     input.repository,
     input.ref ?? resolved.suggestedRef ?? undefined,
   );
@@ -739,12 +731,11 @@ async function investigate(request: Request, invoke: Invoke): Promise<Response> 
         ...(input.path ? { path: input.path } : {}),
         ...(input.language ? { language: input.language } : {}),
       },
-      (child) => handleSymbolInvestigationAction(child, invoke),
+      (child) => handleSymbolInvestigationAction(child, github),
     )),
   );
   const investigations = await snapshotFallbackInvestigations(
-    request,
-    invoke,
+    github,
     input,
     snapshot,
     symbols,
@@ -753,14 +744,14 @@ async function investigate(request: Request, invoke: Invoke): Promise<Response> 
 
   const stackCandidates = extractBugPaths(resolved.text);
   const candidatePaths = [...stackCandidates, ...(input.path ? [input.path] : [])];
-  const verifiedPaths = await existingTargetPaths(request, invoke, input.repository, snapshot.sha, candidatePaths);
+  const verifiedPaths = await existingTargetPaths(github, input.repository, snapshot.sha, candidatePaths);
   const verifiedSet = new Set(verifiedPaths);
   const verifiedStackPaths = stackCandidates.filter((path) => verifiedSet.has(path));
   const hintedTarget = input.path && verifiedSet.has(input.path) ? input.path : null;
   const targets = collectTargetPaths(verifiedStackPaths, hintedTarget, investigations);
   const mutationTargetPaths = snapshot.baseSha === snapshot.sha
     ? targets.paths
-    : await existingTargetPaths(request, invoke, input.repository, snapshot.baseSha, targets.paths);
+    : await existingTargetPaths(github, input.repository, snapshot.baseSha, targets.paths);
   const history = await Promise.all(
     targets.paths.slice(0, 3).map((path) => childAction(
       request,
@@ -772,7 +763,7 @@ async function investigate(request: Request, invoke: Invoke): Promise<Response> 
         maxCommits: 5,
         ...(targets.symbolByPath.get(path) ? { symbol: targets.symbolByPath.get(path) } : {}),
       },
-      (child) => handleCodeHistoryAction(child, invoke),
+      (child) => handleCodeHistoryAction(child, github),
     )),
   );
 
@@ -781,7 +772,7 @@ async function investigate(request: Request, invoke: Invoke): Promise<Response> 
         request,
         TARGETED_TESTS_PATH,
         { repository: input.repository, targetPaths: mutationTargetPaths, ref: snapshot.baseSha },
-        (child) => handleTargetedTestsAction(child, invoke),
+        (child) => handleTargetedTestsAction(child, github),
       )
     : { ok: false, error: 'no_target_paths' };
 
@@ -882,11 +873,12 @@ export function addBugInvestigationOpenApi(document: JsonObject): void {
 export async function handleBugInvestigationAction(
   request: Request,
   invoke: Invoke,
+  github: GithubGateway,
 ): Promise<Response | null> {
   if (new URL(request.url).pathname !== BUG_INVESTIGATION_PATH) return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
   try {
-    return await investigate(request, invoke);
+    return await investigate(request, invoke, github);
   } catch (error) {
     if (error instanceof BugInvestigationError) {
       return json({ ok: false, error: error.code }, error.status);

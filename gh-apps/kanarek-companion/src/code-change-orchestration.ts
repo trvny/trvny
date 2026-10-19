@@ -19,13 +19,13 @@ import {
   TARGETED_TESTS_PATH,
 } from './test-discovery.ts';
 import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, DetailedCodedError } from './tools/common.ts';
+import { GithubActionError, type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 export const CODE_CHANGE_AUTOPILOT_PATH = '/gpt-actions/operator/code-change';
 
 const PREPARE_CHANGE_PATH = '/gpt-actions/github/changes/prepare';
 const INVESTIGATE_PATH = '/gpt-actions/github/code/investigate';
-const READ_PATH = '/gpt-actions/github/read';
 const COMMIT_FILES_PATH = '/gpt-actions/github/commit-files';
 const CREATE_PR_PATH = '/gpt-actions/github/pull-requests';
 const INSPECT_PR_PATH = '/gpt-actions/github/pull-requests/inspect';
@@ -44,6 +44,11 @@ const OPERATION_TRAILER = 'GPTomek-Operation';
 const INPUT_HASH_TRAILER = 'GPTomek-Input-Hash';
 
 type Invoke = (request: Request) => Promise<Response>;
+// action: loopback for non-GitHub internal actions; github: in-process GitHub reads.
+interface CodeChangeDeps {
+  action: Invoke;
+  github: GithubGateway;
+}
 type Stage = 'editing' | 'verifying' | 'waiting_ci_review';
 type MergeMethod = 'squash' | 'merge' | 'rebase';
 
@@ -437,12 +442,12 @@ async function responseObject(response: Response): Promise<JsonObject> {
 
 async function invokePayload(
   source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   pathname: string,
   body: JsonObject,
   allowError = false,
 ): Promise<{ response: Response; payload: JsonObject }> {
-  const response = await invoke(internalRequest(source, pathname, body));
+  const response = await deps.action(internalRequest(source, pathname, body));
   const payload = await responseObject(response);
   if (!allowError && (!response.ok || payload.ok === false)) {
     throw new CodeChangeError(
@@ -454,9 +459,11 @@ async function invokePayload(
   return { response, payload };
 }
 
-async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const { payload } = await invokePayload(source, invoke, READ_PATH, { path });
-  return payload.data;
+function readData(deps: CodeChangeDeps, path: string): Promise<unknown> {
+  return mapGithubError(
+    deps.github.read(path),
+    (code, status, envelope) => new CodeChangeError(code, status, envelope),
+  );
 }
 
 function refPath(value: string): string {
@@ -484,41 +491,31 @@ export function decodeContent(value: unknown): string | null {
 }
 
 async function targetGuidance(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   ref: string,
   paths = core.targetPaths,
 ): Promise<unknown> {
   return loadAgentGuidance(paths, ref, async (path, pinnedRef) => {
-    const { response, payload } = await invokePayload(
-      source,
-      invoke,
-      READ_PATH,
-      { path: `/repos/${repoPath(core.repository)}/contents/${contentPath(path)}?ref=${encodeURIComponent(pinnedRef)}` },
-      true,
-    );
-    if (response.status === 404) return null;
-    if (!response.ok || payload.ok !== true) {
-      throw new CodeChangeError(
-        typeof payload.error === 'string' ? payload.error : 'agent_guidance_read_failed',
-        response.status,
-      );
+    const contents = `/repos/${repoPath(core.repository)}/contents/${contentPath(path)}?ref=${encodeURIComponent(pinnedRef)}`;
+    try {
+      return await deps.github.read(contents);
+    } catch (error) {
+      if (!(error instanceof GithubActionError)) throw error;
+      if (error.status === 404) return null;
+      throw new CodeChangeError(error.code, error.status);
     }
-    return payload.data;
   });
 }
 
 async function treeEntriesAtRef(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   ref: string,
   paths: string[],
 ): Promise<Map<string, GitTreeEntry>> {
   const rawCommit = await readData(
-    source,
-    invoke,
+    deps,
     `/repos/${repoPath(core.repository)}/commits/${encodeURIComponent(ref)}`,
   );
   const commit = isObject(rawCommit) && isObject(rawCommit.commit) ? rawCommit.commit : null;
@@ -527,7 +524,7 @@ async function treeEntriesAtRef(
   if (!treeSha || !SHA_RE.test(treeSha)) throw new CodeChangeError('invalid_commit_tree_response', 502);
 
   return resolveGitTreeEntries(treeSha, paths, async (sha) => {
-    const raw = await readData(source, invoke, `/repos/${repoPath(core.repository)}/git/trees/${sha}`);
+    const raw = await readData(deps, `/repos/${repoPath(core.repository)}/git/trees/${sha}`);
     if (!isObject(raw) || raw.truncated === true || !Array.isArray(raw.tree)) {
       throw new CodeChangeError('git_tree_not_readable', 502);
     }
@@ -552,13 +549,12 @@ type TargetFileSnapshot = {
 };
 
 async function fileSnapshotsAtRef(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   ref: string,
   paths: string[],
 ): Promise<TargetFileSnapshot[]> {
-  const entries = await treeEntriesAtRef(source, invoke, core, ref, paths);
+  const entries = await treeEntriesAtRef(deps, core, ref, paths);
   return Promise.all(paths.map(async (path) => {
     const entry = entries.get(path);
     if (!entry) return { path, exists: false, content: null };
@@ -569,8 +565,7 @@ async function fileSnapshotsAtRef(
       throw new CodeChangeError('unsupported_target_file_mode', 409, { path, mode: entry.mode, type: entry.type });
     }
     const raw = await readData(
-      source,
-      invoke,
+      deps,
       `/repos/${repoPath(core.repository)}/git/blobs/${entry.sha}`,
     );
     const content = decodeContent(raw);
@@ -583,13 +578,12 @@ async function fileSnapshotsAtRef(
 }
 
 async function targetFileSnapshots(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   ref: string,
   paths = core.targetPaths,
 ): Promise<TargetFileSnapshot[]> {
-  return fileSnapshotsAtRef(source, invoke, core, ref, paths);
+  return fileSnapshotsAtRef(deps, core, ref, paths);
 }
 
 export function refactorEditBlockers(
@@ -664,17 +658,15 @@ function refactorPathMatchesFilter(path: string, filter?: string): boolean {
 }
 
 async function refactorChangedPathsAtRef(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   ref: string,
 ): Promise<string[]> {
-  const metadata = await readData(source, invoke, `/repos/${repoPath(core.repository)}`);
+  const metadata = await readData(deps, `/repos/${repoPath(core.repository)}`);
   const defaultBranch = isObject(metadata) ? stringOrNull(metadata.default_branch) : null;
   if (!defaultBranch) throw new CodeChangeError('invalid_repository_response', 502);
   const raw = await readData(
-    source,
-    invoke,
+    deps,
     `/repos/${repoPath(core.repository)}/compare/${encodeURIComponent(defaultBranch)}...${encodeURIComponent(ref)}`,
   );
   if (!isObject(raw) || !Array.isArray(raw.files)) {
@@ -688,8 +680,7 @@ async function refactorChangedPathsAtRef(
 }
 
 async function refactorSnapshotAtRef(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   ref: string,
 ): Promise<RefactorSnapshot> {
@@ -697,8 +688,7 @@ async function refactorSnapshotAtRef(
   const [searches, changedPaths] = await Promise.all([
     Promise.all(core.refactor.referenceTerms.map(async (term) => {
     const raw = await readData(
-      source,
-      invoke,
+      deps,
       `/search/code?q=${encodeURIComponent(refactorSearchQuery(core, term))}&per_page=${MAX_REFACTOR_REFERENCE_FILES}`,
     );
     if (!isObject(raw) || !Array.isArray(raw.items)) {
@@ -717,7 +707,7 @@ async function refactorSnapshotAtRef(
       paths,
     };
     })),
-    refactorChangedPathsAtRef(source, invoke, core, ref),
+    refactorChangedPathsAtRef(deps, core, ref),
   ]);
 
   const candidates = [...core.targetPaths];
@@ -744,7 +734,7 @@ async function refactorSnapshotAtRef(
     candidateSet.add(path);
     candidates.push(path);
   }
-  const files = await fileSnapshotsAtRef(source, invoke, core, ref, candidates);
+  const files = await fileSnapshotsAtRef(deps, core, ref, candidates);
   const references = searches.map((search): RefactorReferenceTermSnapshot => ({
     term: search.term,
     indexedCount: search.indexedCount,
@@ -780,11 +770,10 @@ export function expandRefactorAllowedPaths(current: string[], snapshot: Refactor
 }
 
 async function refactorBeforeSnapshot(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
 ): Promise<RefactorSnapshot> {
-  const snapshot = await refactorSnapshotAtRef(source, invoke, core, core.expectedBaseSha);
+  const snapshot = await refactorSnapshotAtRef(deps, core, core.expectedBaseSha);
   if (!core.refactor) throw new CodeChangeError('missing_refactor_plan', 500);
   const blockers = [
     ...refactorPreflightBlockers(core.refactor, snapshot.moveFiles),
@@ -801,12 +790,11 @@ async function refactorBeforeSnapshot(
 }
 
 async function refactorAfterSnapshot(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   ref: string,
 ): Promise<RefactorSnapshot & { blockers: string[] }> {
-  const snapshot = await refactorSnapshotAtRef(source, invoke, core, ref);
+  const snapshot = await refactorSnapshotAtRef(deps, core, ref);
   if (!core.refactor) throw new CodeChangeError('missing_refactor_plan', 500);
   return {
     ...snapshot,
@@ -814,10 +802,9 @@ async function refactorAfterSnapshot(
   };
 }
 
-async function branchHead(source: Request, invoke: Invoke, core: CoreInput): Promise<string> {
+async function branchHead(deps: CodeChangeDeps, core: CoreInput): Promise<string> {
   const raw = await readData(
-    source,
-    invoke,
+    deps,
     `/repos/${repoPath(core.repository)}/git/ref/heads/${refPath(core.branch)}`,
   );
   const sha = isObject(raw) && isObject(raw.object) ? stringOrNull(raw.object.sha) : null;
@@ -826,16 +813,14 @@ async function branchHead(source: Request, invoke: Invoke, core: CoreInput): Pro
 }
 
 async function defaultBranchHead(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
 ): Promise<{ defaultBranch: string; sha: string }> {
-  const metadata = await readData(source, invoke, `/repos/${repoPath(core.repository)}`);
+  const metadata = await readData(deps, `/repos/${repoPath(core.repository)}`);
   const defaultBranch = isObject(metadata) ? stringOrNull(metadata.default_branch) : null;
   if (!defaultBranch) throw new CodeChangeError('invalid_repository_response', 502);
   const raw = await readData(
-    source,
-    invoke,
+    deps,
     `/repos/${repoPath(core.repository)}/git/ref/heads/${refPath(defaultBranch)}`,
   );
   const sha = isObject(raw) && isObject(raw.object) ? stringOrNull(raw.object.sha) : null;
@@ -854,16 +839,14 @@ function commitIdentityMatches(value: unknown): boolean {
 }
 
 async function recoverEvolvedBranch(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   inputHash: string,
   currentBranch: string,
   defaultBranch: string,
 ): Promise<RecoveredBranch> {
   const compare = await readData(
-    source,
-    invoke,
+    deps,
     `/repos/${repoPath(core.repository)}/compare/${core.expectedBaseSha}...${currentBranch}`,
   );
   if (!isObject(compare) || compare.status !== 'ahead') {
@@ -908,7 +891,7 @@ async function recoverEvolvedBranch(
 
   const allowed = new Set(
     core.refactor
-      ? refactorAllowedPaths(core, await refactorBeforeSnapshot(source, invoke, core))
+      ? refactorAllowedPaths(core, await refactorBeforeSnapshot(deps, core))
       : core.targetPaths,
   );
   const files = Array.isArray(compare.files) ? compare.files : [];
@@ -919,8 +902,7 @@ async function recoverEvolvedBranch(
   }
 
   const rawPullRequests = await readData(
-    source,
-    invoke,
+    deps,
     `/repos/${repoPath(core.repository)}/pulls?state=all&head=${encodeURIComponent(`${repositoryOwner(core.repository)}:${core.branch}`)}&per_page=10`,
   );
   const pullRequests = Array.isArray(rawPullRequests) ? rawPullRequests.filter(isObject) : [];
@@ -945,7 +927,7 @@ async function recoverEvolvedBranch(
   };
 }
 
-async function preparationContext(source: Request, invoke: Invoke, core: CoreInput, inputHash: string): Promise<JsonObject> {
+async function preparationContext(source: Request, deps: CodeChangeDeps, core: CoreInput, inputHash: string): Promise<JsonObject> {
   const prepareBody: JsonObject = {
     repository: core.repository,
     branch: core.branch,
@@ -953,7 +935,7 @@ async function preparationContext(source: Request, invoke: Invoke, core: CoreInp
     targetPaths: core.targetPaths,
     ...(core.issueNumber ? { issueNumber: core.issueNumber } : {}),
   };
-  const prepared = await invokePayload(source, invoke, PREPARE_CHANGE_PATH, prepareBody, true);
+  const prepared = await invokePayload(source, deps, PREPARE_CHANGE_PATH, prepareBody, true);
   if (prepared.response.ok && prepared.payload.ok === true) return prepared.payload;
 
   if (prepared.payload.error !== 'branch_already_exists') {
@@ -965,18 +947,17 @@ async function preparationContext(source: Request, invoke: Invoke, core: CoreInp
   }
 
   const [currentBranch, currentBase] = await Promise.all([
-    branchHead(source, invoke, core),
-    defaultBranchHead(source, invoke, core),
+    branchHead(deps, core),
+    defaultBranchHead(deps, core),
   ]);
-  const guidance = await targetGuidance(source, invoke, core, currentBranch);
+  const guidance = await targetGuidance(deps, core, currentBranch);
 
   if (currentBranch === core.expectedBaseSha) {
     if (currentBase.sha !== core.expectedBaseSha) {
       throw new CodeChangeError('base_head_changed', 409, { currentBase: currentBase.sha, expected: core.expectedBaseSha });
     }
     const open = await readData(
-      source,
-      invoke,
+      deps,
       `/repos/${repoPath(core.repository)}/pulls?state=open&head=${encodeURIComponent(`${repositoryOwner(core.repository)}:${core.branch}`)}&per_page=10`,
     );
     if (Array.isArray(open) && open.length) {
@@ -991,9 +972,7 @@ async function preparationContext(source: Request, invoke: Invoke, core: CoreInp
     };
   }
 
-  const recovered = await recoverEvolvedBranch(
-    source,
-    invoke,
+  const recovered = await recoverEvolvedBranch(deps,
     core,
     inputHash,
     currentBranch,
@@ -1012,11 +991,11 @@ async function preparationContext(source: Request, invoke: Invoke, core: CoreInp
 
 async function investigationContext(
   source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   ref: string,
 ): Promise<JsonObject> {
-  const investigation = await invokePayload(source, invoke, INVESTIGATE_PATH, {
+  const investigation = await invokePayload(source, deps, INVESTIGATE_PATH, {
     repository: core.repository,
     terms: core.investigationTerms,
     maxFiles: 6,
@@ -1034,7 +1013,7 @@ async function investigationContext(
           ref,
           maxCallers: 8,
         }),
-        invoke,
+        deps.github,
       );
       if (!response) return { path, ok: false, error: 'dependency_route_missing' };
       const payload = await responseObject(response);
@@ -1048,7 +1027,7 @@ async function investigationContext(
 
 async function targetedVerification(
   source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   ref: string,
   paths = core.targetPaths,
@@ -1059,7 +1038,7 @@ async function targetedVerification(
       targetPaths: paths,
       ref,
     }),
-    invoke,
+    deps.github,
   );
   if (!response) throw new CodeChangeError('targeted_test_route_missing', 502);
   const payload = await responseObject(response);
@@ -1140,8 +1119,8 @@ function finalizeSnapshot(inspection: JsonObject): ReviewGateSnapshot {
   return { ...raw, baseRef } as unknown as ReviewGateSnapshot;
 }
 
-async function inspect(source: Request, invoke: Invoke, core: CoreInput, pullRequestNumber: number): Promise<JsonObject> {
-  return (await invokePayload(source, invoke, INSPECT_PR_PATH, {
+async function inspect(source: Request, deps: CodeChangeDeps, core: CoreInput, pullRequestNumber: number): Promise<JsonObject> {
+  return (await invokePayload(source, deps, INSPECT_PR_PATH, {
     repository: core.repository,
     pullRequestNumber,
   })).payload;
@@ -1149,11 +1128,11 @@ async function inspect(source: Request, invoke: Invoke, core: CoreInput, pullReq
 
 function focusedReview(
   source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   progress: Progress,
 ): Promise<JsonObject> {
-  return buildFocusedCodeReview(source, invoke, {
+  return buildFocusedCodeReview(source, deps.github, {
     repository: core.repository,
     baseSha: core.expectedBaseSha,
     headSha: progress.branchHead,
@@ -1162,8 +1141,7 @@ function focusedReview(
 }
 
 async function verifyRecoveredCommit(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   inputHash: string,
   previousHead: string,
@@ -1172,8 +1150,7 @@ async function verifyRecoveredCommit(
   modeOverrides?: Map<string, string>,
 ): Promise<boolean> {
   const commit = await readData(
-    source,
-    invoke,
+    deps,
     `/repos/${repoPath(core.repository)}/commits/${currentHead}`,
   );
   if (!isObject(commit) || !Array.isArray(commit.parents) || commit.parents.length !== 1) return false;
@@ -1189,9 +1166,7 @@ async function verifyRecoveredCommit(
     .filter((path): path is string => Boolean(path));
   if (!recoveredChangedPathsAllowed(changed, edit.files.map((file) => file.path))) return false;
 
-  const snapshots = await fileSnapshotsAtRef(
-    source,
-    invoke,
+  const snapshots = await fileSnapshotsAtRef(deps,
     core,
     currentHead,
     edit.files.map((file) => file.path),
@@ -1209,21 +1184,21 @@ async function verifyRecoveredCommit(
 
 async function commitEdit(
   source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   inputHash: string,
   progress: Progress,
   edit: EditAction,
   modeOverrides?: Map<string, string>,
 ): Promise<string> {
-  const current = await branchHead(source, invoke, core);
+  const current = await branchHead(deps, core);
   if (current !== progress.branchHead) {
-    if (await verifyRecoveredCommit(source, invoke, core, inputHash, progress.branchHead, current, edit, modeOverrides)) {
+    if (await verifyRecoveredCommit(deps, core, inputHash, progress.branchHead, current, edit, modeOverrides)) {
       return current;
     }
     throw new CodeChangeError('branch_head_changed', 409, { expected: progress.branchHead, current });
   }
-  const { payload } = await invokePayload(source, invoke, COMMIT_FILES_PATH, {
+  const { payload } = await invokePayload(source, deps, COMMIT_FILES_PATH, {
     repository: core.repository,
     branch: core.branch,
     expectedHeadSha: progress.branchHead,
@@ -1238,10 +1213,9 @@ async function commitEdit(
   return sha.toLowerCase();
 }
 
-async function findOpenPullRequest(source: Request, invoke: Invoke, core: CoreInput): Promise<JsonObject | null> {
+async function findOpenPullRequest(deps: CodeChangeDeps, core: CoreInput): Promise<JsonObject | null> {
   const raw = await readData(
-    source,
-    invoke,
+    deps,
     `/repos/${repoPath(core.repository)}/pulls?state=open&head=${encodeURIComponent(`${repositoryOwner(core.repository)}:${core.branch}`)}&per_page=10`,
   );
   const matches = Array.isArray(raw) ? raw.filter(isObject) : [];
@@ -1261,18 +1235,18 @@ function pullRequestProgress(raw: JsonObject, expectedHeadSha: string): PullRequ
 
 async function createOrRecoverPullRequest(
   source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   progress: Progress,
   input: NonNullable<VerificationAction['pullRequest']>,
 ): Promise<PullRequestProgress> {
-  const existing = await findOpenPullRequest(source, invoke, core);
+  const existing = await findOpenPullRequest(deps, core);
   if (existing) {
     const recovered = pullRequestProgress(existing, progress.branchHead);
     if (stringOrNull(existing.title) !== input.title) throw new CodeChangeError('pull_request_metadata_mismatch', 409);
     return recovered;
   }
-  const { payload } = await invokePayload(source, invoke, CREATE_PR_PATH, {
+  const { payload } = await invokePayload(source, deps, CREATE_PR_PATH, {
     repository: core.repository,
     title: input.title,
     head: core.branch,
@@ -1286,12 +1260,11 @@ async function createOrRecoverPullRequest(
 }
 
 async function mergedPullRequest(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   number: number,
 ): Promise<JsonObject | null> {
-  const raw = await readData(source, invoke, `/repos/${repoPath(core.repository)}/pulls/${number}`);
+  const raw = await readData(deps, `/repos/${repoPath(core.repository)}/pulls/${number}`);
   if (!isObject(raw)) throw new CodeChangeError('invalid_pull_request_response', 502);
   return typeof raw.merged_at === 'string' ? raw : null;
 }
@@ -1310,13 +1283,15 @@ function validateMergedPullRequest(raw: JsonObject, progress: Progress): void {
 }
 
 async function assertPullRequestEditable(
-  source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   progress: Progress,
 ): Promise<void> {
   if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
-  const raw = await readData(source, invoke, `/repos/${repoPath(core.repository)}/pulls/${progress.pullRequest.number}`);
+  const raw = await readData(
+    deps,
+    `/repos/${repoPath(core.repository)}/pulls/${progress.pullRequest.number}`,
+  );
   if (!isObject(raw)) throw new CodeChangeError('invalid_pull_request_response', 502);
   const head = isObject(raw.head) ? raw.head : {};
   const base = isObject(raw.base) ? raw.base : {};
@@ -1332,11 +1307,11 @@ async function assertPullRequestEditable(
 
 async function cleanup(
   source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   pullRequest: PullRequestProgress,
 ): Promise<JsonObject> {
-  const { payload } = await invokePayload(source, invoke, CLEANUP_BRANCH_PATH, {
+  const { payload } = await invokePayload(source, deps, CLEANUP_BRANCH_PATH, {
     repository: core.repository,
     pullRequestNumber: pullRequest.number,
     branch: core.branch,
@@ -1375,19 +1350,19 @@ async function pause(
 
 async function editingResponse(
   source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   progress: Progress,
 ): Promise<JsonObject> {
   const editPaths = progress.refactor?.allowedPaths ?? core.targetPaths;
   const [guidance, investigated, targetFiles, refactor] = await Promise.all([
-    targetGuidance(source, invoke, core, progress.branchHead, editPaths),
-    investigationContext(source, invoke, core, progress.branchHead),
-    targetFileSnapshots(source, invoke, core, progress.branchHead, editPaths),
+    targetGuidance(deps, core, progress.branchHead, editPaths),
+    investigationContext(source, deps, core, progress.branchHead),
+    targetFileSnapshots(deps, core, progress.branchHead, editPaths),
     core.refactor
       ? (progress.revision === 0
-          ? Promise.resolve(progress.refactor?.before ?? await refactorBeforeSnapshot(source, invoke, core))
-          : refactorAfterSnapshot(source, invoke, core, progress.branchHead))
+          ? Promise.resolve(progress.refactor?.before ?? await refactorBeforeSnapshot(deps, core))
+          : refactorAfterSnapshot(deps, core, progress.branchHead))
       : Promise.resolve(null),
   ]);
   return {
@@ -1412,11 +1387,11 @@ async function editingResponse(
 
 async function initialProgress(
   source: Request,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
   core: CoreInput,
   inputHash: string,
 ): Promise<{ progress: Progress; body: JsonObject }> {
-  const prepared = await preparationContext(source, invoke, core, inputHash);
+  const prepared = await preparationContext(source, deps, core, inputHash);
   const repositoryData = isObject(prepared.repository) ? prepared.repository : {};
   const branchData = isObject(prepared.branch) ? prepared.branch : {};
   const defaultBranch = stringOrNull(repositoryData.defaultBranch);
@@ -1441,7 +1416,7 @@ async function initialProgress(
   }
 
   const refactorBefore = core.refactor
-    ? await refactorBeforeSnapshot(source, invoke, core)
+    ? await refactorBeforeSnapshot(deps, core)
     : null;
   const progress: Progress = {
     stage: revision > 0 ? 'verifying' : 'editing',
@@ -1456,7 +1431,7 @@ async function initialProgress(
 
   if (revision > 0) {
     const refactorVerification = core.refactor
-      ? await refactorAfterSnapshot(source, invoke, core, progress.branchHead)
+      ? await refactorAfterSnapshot(deps, core, progress.branchHead)
       : null;
     if (refactorVerification?.blockers.length) {
       const expandedPaths = expandRefactorAllowedPaths(
@@ -1490,7 +1465,7 @@ async function initialProgress(
       };
     }
     const verificationPlan = await targetedVerification(
-      source, invoke, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths,
+      source, deps, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths,
     );
     return {
       progress,
@@ -1511,9 +1486,9 @@ async function initialProgress(
 
   const editPaths = progress.refactor?.allowedPaths ?? core.targetPaths;
   const [guidance, investigated, targetFiles] = await Promise.all([
-    targetGuidance(source, invoke, core, progress.branchHead, editPaths),
-    investigationContext(source, invoke, core, progress.branchHead),
-    targetFileSnapshots(source, invoke, core, progress.branchHead, editPaths),
+    targetGuidance(deps, core, progress.branchHead, editPaths),
+    investigationContext(source, deps, core, progress.branchHead),
+    targetFileSnapshots(deps, core, progress.branchHead, editPaths),
   ]);
   return {
     progress,
@@ -1553,7 +1528,7 @@ function refactorModeOverrides(plan: RefactorPlan, snapshot: RefactorSnapshot): 
 async function run(
   request: Request,
   env: AutopilotCheckpointEnv,
-  invoke: Invoke,
+  deps: CodeChangeDeps,
 ): Promise<Response> {
   const parsed = await parseInput(request);
   const { core, inputHash } = parsed;
@@ -1573,7 +1548,7 @@ async function run(
   // after that write skips the catch below (it would save the older progress).
   try {
     if (!progress) {
-      const started = await initialProgress(request, invoke, core, inputHash);
+      const started = await initialProgress(request, deps, core, inputHash);
       progress = started.progress;
       return pause(env, core, inputHash, progress, started.body);
     }
@@ -1603,7 +1578,7 @@ async function run(
       if (initialMove) {
         modeOverrides = refactorModeOverrides(
           core.refactor,
-          progress.refactor?.before ?? await refactorBeforeSnapshot(request, invoke, core),
+          progress.refactor?.before ?? await refactorBeforeSnapshot(deps, core),
         );
       }
     }
@@ -1612,9 +1587,9 @@ async function run(
     let recoveredEdit = false;
     if (progress.stage === 'waiting_ci_review') {
       if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
-      const current = await branchHead(request, invoke, core);
+      const current = await branchHead(deps, core);
       if (current !== progress.branchHead) {
-        if (!await verifyRecoveredCommit(request, invoke, core, inputHash, progress.branchHead, current, submitted, modeOverrides)) {
+        if (!await verifyRecoveredCommit(deps, core, inputHash, progress.branchHead, current, submitted, modeOverrides)) {
           throw new CodeChangeError('branch_head_changed', 409, { expected: progress.branchHead, current });
         }
         editProgress = {
@@ -1624,13 +1599,13 @@ async function run(
         };
         recoveredEdit = true;
       }
-      await assertPullRequestEditable(request, invoke, core, editProgress);
+      await assertPullRequestEditable(deps, core, editProgress);
     }
 
     const previousHead = editProgress.branchHead;
     const newHead = recoveredEdit
       ? editProgress.branchHead
-      : await commitEdit(request, invoke, core, inputHash, editProgress, submitted, modeOverrides);
+      : await commitEdit(request, deps, core, inputHash, editProgress, submitted, modeOverrides);
     if (progress.stage === 'waiting_ci_review' && newHead !== previousHead) {
       editProgress = {
         ...editProgress,
@@ -1639,11 +1614,11 @@ async function run(
           ? { ...editProgress.pullRequest, headSha: newHead }
           : undefined,
       };
-      await assertPullRequestEditable(request, invoke, core, editProgress);
+      await assertPullRequestEditable(deps, core, editProgress);
     }
 
     const refactorVerification = core.refactor
-      ? await refactorAfterSnapshot(request, invoke, core, newHead)
+      ? await refactorAfterSnapshot(deps, core, newHead)
       : null;
     const nextRevision = progress.revision + 1;
     if (refactorVerification?.blockers.length) {
@@ -1679,7 +1654,7 @@ async function run(
       }, 409);
     }
 
-    const verificationPlan = await targetedVerification(request, invoke, core, newHead, progress.refactor?.allowedPaths ?? core.targetPaths);
+    const verificationPlan = await targetedVerification(request, deps, core, newHead, progress.refactor?.allowedPaths ?? core.targetPaths);
     const next: Progress = {
       ...editProgress,
       stage: 'verifying',
@@ -1712,7 +1687,7 @@ async function run(
           expectedRevision: progress.revision,
         });
       }
-      const verificationPlan = await targetedVerification(request, invoke, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths);
+      const verificationPlan = await targetedVerification(request, deps, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths);
       if (submitted.status === 'passed') {
         const missing = verificationEvidenceMissing(verificationPlan, submitted.results ?? []);
         if (missing.length) {
@@ -1737,8 +1712,8 @@ async function run(
       if (progress.pullRequest) {
         const next: Progress = { ...progress, stage: 'waiting_ci_review', verification };
         const [inspection, review] = await Promise.all([
-          inspect(request, invoke, core, progress.pullRequest.number),
-          focusedReview(request, invoke, core, next),
+          inspect(request, deps, core, progress.pullRequest.number),
+          focusedReview(request, deps, core, next),
         ]);
         return pause(env, core, inputHash, next, {
           ok: true,
@@ -1751,11 +1726,11 @@ async function run(
         });
       }
       if (!submitted.pullRequest) throw new CodeChangeError('pull_request_required');
-      const pullRequest = await createOrRecoverPullRequest(request, invoke, core, progress, submitted.pullRequest);
+      const pullRequest = await createOrRecoverPullRequest(request, deps, core, progress, submitted.pullRequest);
       const next: Progress = { ...progress, stage: 'waiting_ci_review', verification, pullRequest };
       const [inspection, review] = await Promise.all([
-        inspect(request, invoke, core, pullRequest.number),
-        focusedReview(request, invoke, core, next),
+        inspect(request, deps, core, pullRequest.number),
+        focusedReview(request, deps, core, next),
       ]);
       return pause(env, core, inputHash, next, {
         ok: true,
@@ -1778,10 +1753,10 @@ async function run(
           expected: progress.branchHead,
         });
       }
-      const alreadyMerged = await mergedPullRequest(request, invoke, core, progress.pullRequest.number);
+      const alreadyMerged = await mergedPullRequest(deps, core, progress.pullRequest.number);
       if (alreadyMerged) {
         validateMergedPullRequest(alreadyMerged, progress);
-        const cleanupResult = await cleanup(request, invoke, core, progress.pullRequest);
+        const cleanupResult = await cleanup(request, deps, core, progress.pullRequest);
         return complete(env, core, inputHash, {
           ok: true,
           stage: 'merged',
@@ -1793,8 +1768,8 @@ async function run(
       }
 
       const [inspection, review] = await Promise.all([
-        inspect(request, invoke, core, progress.pullRequest.number),
-        focusedReview(request, invoke, core, progress),
+        inspect(request, deps, core, progress.pullRequest.number),
+        focusedReview(request, deps, core, progress),
       ]);
       const snapshot = finalizeSnapshot(inspection);
       const blockers = [
@@ -1819,7 +1794,7 @@ async function run(
         }, 409);
       }
 
-      const finalized = await invokePayload(request, invoke, FINALIZE_PR_PATH, {
+      const finalized = await invokePayload(request, deps, FINALIZE_PR_PATH, {
         repository: core.repository,
         pullRequestNumber: progress.pullRequest.number,
         expectedHeadSha: progress.branchHead,
@@ -1827,7 +1802,7 @@ async function run(
         expectedBaseRef: progress.defaultBranch,
       }, true);
       if (!finalized.response.ok || finalized.payload.merged !== true) {
-        const merged = await mergedPullRequest(request, invoke, core, progress.pullRequest.number);
+        const merged = await mergedPullRequest(deps, core, progress.pullRequest.number);
         if (!merged) {
           return pause(env, core, inputHash, progress, {
             ok: false,
@@ -1837,10 +1812,10 @@ async function run(
           }, finalized.response.status || 409);
         }
       }
-      const merged = await mergedPullRequest(request, invoke, core, progress.pullRequest.number);
+      const merged = await mergedPullRequest(deps, core, progress.pullRequest.number);
       if (!merged) throw new CodeChangeError('merge_not_confirmed', 502);
       validateMergedPullRequest(merged, progress);
-      const cleanupResult = await cleanup(request, invoke, core, progress.pullRequest);
+      const cleanupResult = await cleanup(request, deps, core, progress.pullRequest);
       return complete(env, core, inputHash, {
         ok: true,
         stage: 'merged',
@@ -1853,10 +1828,10 @@ async function run(
     }
 
     if (progress.stage === 'editing') {
-      return pause(env, core, inputHash, progress, await editingResponse(request, invoke, core, progress));
+      return pause(env, core, inputHash, progress, await editingResponse(request, deps, core, progress));
     }
     if (progress.stage === 'verifying') {
-      const verificationPlan = await targetedVerification(request, invoke, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths);
+      const verificationPlan = await targetedVerification(request, deps, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths);
       return pause(env, core, inputHash, progress, {
         ok: true,
         stage: 'verifying',
@@ -1869,8 +1844,8 @@ async function run(
     }
     if (!progress.pullRequest) throw new CodeChangeError('missing_pull_request_progress', 500);
     const [inspection, review] = await Promise.all([
-      inspect(request, invoke, core, progress.pullRequest.number),
-      focusedReview(request, invoke, core, progress),
+      inspect(request, deps, core, progress.pullRequest.number),
+      focusedReview(request, deps, core, progress),
     ]);
     return pause(env, core, inputHash, progress, {
       ok: true,
@@ -2044,11 +2019,12 @@ export async function handleCodeChangeAutopilotAction(
   request: Request,
   env: AutopilotCheckpointEnv,
   invoke: Invoke,
+  github: GithubGateway,
 ): Promise<Response | null> {
   if (new URL(request.url).pathname !== CODE_CHANGE_AUTOPILOT_PATH) return null;
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
   try {
-    return await run(request, env, invoke);
+    return await run(request, env, { action: invoke, github });
   } catch (error) {
     if (error instanceof CodeChangeError) {
       return json({ ok: false, error: error.code, ...error.details }, error.status);

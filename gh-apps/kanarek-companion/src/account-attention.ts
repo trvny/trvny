@@ -1,4 +1,5 @@
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, internalReadRequest } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull } from './tools/common.ts';
+import { type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 export const ACCOUNT_ATTENTION_PATH = '/gpt-actions/operator/attention';
@@ -68,13 +69,8 @@ async function responseObject(response: Response): Promise<JsonObject | null> {
   }
 }
 
-async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const response = await invoke(internalReadRequest(source, path));
-  const payload = await responseObject(response);
-  if (!response.ok || payload?.ok !== true) {
-    throw new Error(typeof payload?.error === 'string' ? payload.error : `read_${response.status}`);
-  }
-  return payload.data;
+function readData(github: GithubGateway, path: string): Promise<unknown> {
+  return mapGithubError(github.read(path), (code) => new Error(code));
 }
 
 async function mapLimit<T, R>(
@@ -243,15 +239,13 @@ function compactIssue(repository: string, value: JsonObject): JsonObject | null 
 }
 
 async function issuesForRepository(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repository: string,
   limit: number,
 ): Promise<{ repository: string; items: JsonObject[]; error: string | null }> {
   try {
     const data = await readData(
-      source,
-      invoke,
+      github,
       `/repos/${repoPath(repository)}/issues?state=open&sort=updated&direction=desc&per_page=100`,
     );
     const items = Array.isArray(data)
@@ -290,7 +284,7 @@ function attentionSort(left: JsonObject, right: JsonObject): number {
   return leftKey.localeCompare(rightKey);
 }
 
-async function accountAttention(request: Request, invoke: Invoke): Promise<Response> {
+async function accountAttention(request: Request, invoke: Invoke, github: GithubGateway): Promise<Response> {
   const input = await inputObject(request);
   const maintenanceResponse = await invoke(internalRequest(request, MAINTENANCE_PATH));
   const maintenance = await responseObject(maintenanceResponse);
@@ -305,7 +299,7 @@ async function accountAttention(request: Request, invoke: Invoke): Promise<Respo
   const [pullRequests, issueGroups] = await Promise.all([
     mapLimit(prRefs, 3, (ref) => inspectPullRequest(request, invoke, ref)),
     mapLimit(repositoryNames, 4, (repository) =>
-      issuesForRepository(request, invoke, repository, input.issuesPerRepository),
+      issuesForRepository(github, repository, input.issuesPerRepository),
     ),
   ]);
   const issues = issueGroups.flatMap((group) => group.items);
@@ -372,11 +366,12 @@ export function addAccountAttentionOpenApi(document: JsonObject): void {
 export async function handleAccountAttentionAction(
   request: Request,
   invoke: Invoke,
+  github: GithubGateway,
 ): Promise<Response | null> {
   if (new URL(request.url).pathname !== ACCOUNT_ATTENTION_PATH) return null;
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
   try {
-    return await accountAttention(request, invoke);
+    return await accountAttention(request, invoke, github);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'account_attention_failed';
     const status = message === 'payload_too_large' ? 413 : 400;

@@ -13,6 +13,7 @@ import {
   handleFocusedCodeReviewAction,
 } from './focused-code-review.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
+import { githubGateway, type GithubGateway } from './github-gateway.ts';
 import {
   actionFetch,
   CommentProbeLock,
@@ -238,6 +239,10 @@ async function gateway(request: Request, env: RuntimeEnv, ctx?: ExecutionContext
   return (await firstMatch(gatewayRoutes, { request, env, below })) ?? below(request);
 }
 
+function github(request: Request, env: RuntimeEnv): GithubGateway {
+  return githubGateway(request, env, actionFetch);
+}
+
 function pathIs(request: Request, path: string): boolean {
   return new URL(request.url).pathname === path;
 }
@@ -248,13 +253,17 @@ const runtimeRoutes: readonly Route<RuntimeContext>[] = [
     pathIs(request, OPENAPI_PATH) && request.method === 'GET'
       ? json(runtimeOpenApi(new URL(request.url).origin))
       : null,
-  ({ request, below }) =>
-    pathIs(request, FOCUSED_CODE_REVIEW_PATH) ? handleFocusedCodeReviewAction(request, below) : null,
-  ({ request, below }) =>
-    pathIs(request, BUG_INVESTIGATION_PATH) ? handleBugInvestigationAction(request, below) : null,
+  ({ request, env }) =>
+    pathIs(request, FOCUSED_CODE_REVIEW_PATH)
+      ? handleFocusedCodeReviewAction(request, github(request, env))
+      : null,
+  ({ request, env, below }) =>
+    pathIs(request, BUG_INVESTIGATION_PATH)
+      ? handleBugInvestigationAction(request, below, github(request, env))
+      : null,
   ({ request, env, below }) =>
     pathIs(request, CODE_CHANGE_AUTOPILOT_PATH)
-      ? handleCodeChangeAutopilotAction(request, env, below)
+      ? handleCodeChangeAutopilotAction(request, env, below, github(request, env))
       : null,
   ({ request, env }) =>
     pathIs(request, RELEASE_ENTRY_UPLOAD_PATH)
@@ -264,14 +273,22 @@ const runtimeRoutes: readonly Route<RuntimeContext>[] = [
     pathIs(request, RELEASE_ASSET_REPLACE_PATH)
       ? handleReleaseReplaceAction(request, env, actionFetch, below)
       : null,
-  ({ request, below }) =>
-    pathIs(request, SYMBOL_INVESTIGATION_PATH) ? handleSymbolInvestigationAction(request, below) : null,
-  ({ request, below }) =>
-    pathIs(request, CODE_HISTORY_PATH) ? handleCodeHistoryAction(request, below) : null,
-  ({ request, below }) =>
-    pathIs(request, DEPENDENCY_GRAPH_PATH) ? handleDependencyGraphAction(request, below) : null,
-  ({ request, below }) =>
-    pathIs(request, TARGETED_TESTS_PATH) ? handleTargetedTestsAction(request, below) : null,
+  ({ request, env }) =>
+    pathIs(request, SYMBOL_INVESTIGATION_PATH)
+      ? handleSymbolInvestigationAction(request, github(request, env))
+      : null,
+  ({ request, env }) =>
+    pathIs(request, CODE_HISTORY_PATH)
+      ? handleCodeHistoryAction(request, github(request, env))
+      : null,
+  ({ request, env }) =>
+    pathIs(request, DEPENDENCY_GRAPH_PATH)
+      ? handleDependencyGraphAction(request, github(request, env))
+      : null,
+  ({ request, env }) =>
+    pathIs(request, TARGETED_TESTS_PATH)
+      ? handleTargetedTestsAction(request, github(request, env))
+      : null,
 ];
 
 const runtime = {
@@ -303,7 +320,7 @@ const runtime = {
       return enrichConflictResponse(
         request,
         response,
-        below,
+        github(request, env),
       );
     });
   },

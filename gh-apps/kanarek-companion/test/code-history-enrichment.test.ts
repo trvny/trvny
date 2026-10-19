@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { CODE_HISTORY_PATH, handleCodeHistoryAction } from '../src/code-history.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('focused history exposes failed PR enrichment instead of an empty verified result', async () => {
   const sha = 'b'.repeat(40);
@@ -57,7 +58,7 @@ test('focused history exposes failed PR enrichment instead of an empty verified 
     return Response.json({ ok: false, error: `unexpected_read:${path}` }, { status: 500 });
   };
 
-  const response = await handleCodeHistoryAction(source, invoke);
+  const response = await handleCodeHistoryAction(source, loopbackGateway(source, invoke));
   assert.ok(response);
   assert.equal(response.status, 200);
   const payload = (await response.json()) as Record<string, any>;

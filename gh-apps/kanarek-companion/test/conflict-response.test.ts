@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { enrichConflictResponse } from '../src/conflict-response.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 const EXPECTED = '1'.repeat(40);
 const CURRENT = '2'.repeat(40);
@@ -29,10 +30,14 @@ test('enriches a stale branch-head conflict with expected and current SHA', asyn
     { status: 409 },
   );
   const calls: string[] = [];
-  const enriched = await enrichConflictResponse(request, response, async (internalRequest) => {
-    calls.push(await readPath(internalRequest));
-    return Response.json({ ok: true, data: { object: { sha: CURRENT } } });
-  });
+  const enriched = await enrichConflictResponse(
+    request,
+    response,
+    loopbackGateway(request, async (internalRequest) => {
+      calls.push(await readPath(internalRequest));
+      return Response.json({ ok: true, data: { object: { sha: CURRENT } } });
+    }),
+  );
 
   assert.equal(enriched.status, 409);
   const payload = await enriched.json() as {
@@ -74,14 +79,18 @@ test('enriches a stale default-branch conflict with the resolved branch name', a
     { status: 409 },
   );
   const calls: string[] = [];
-  const enriched = await enrichConflictResponse(request, response, async (internalRequest) => {
-    const path = await readPath(internalRequest);
-    calls.push(path);
-    if (path === '/repos/trvny/trvny') {
-      return Response.json({ ok: true, data: { default_branch: 'main' } });
-    }
-    return Response.json({ ok: true, data: { object: { sha: CURRENT } } });
-  });
+  const enriched = await enrichConflictResponse(
+    request,
+    response,
+    loopbackGateway(request, async (internalRequest) => {
+      const path = await readPath(internalRequest);
+      calls.push(path);
+      if (path === '/repos/trvny/trvny') {
+        return Response.json({ ok: true, data: { default_branch: 'main' } });
+      }
+      return Response.json({ ok: true, data: { object: { sha: CURRENT } } });
+    }),
+  );
 
   const payload = await enriched.json() as {
     conflict: {
@@ -116,7 +125,7 @@ test('keeps the original conflict when current state cannot be read safely', asy
   const enriched = await enrichConflictResponse(
     request,
     response,
-    async () => new Response(null, { status: 502 }),
+    loopbackGateway(request, async () => new Response(null, { status: 502 })),
   );
 
   assert.equal(enriched.status, 409);

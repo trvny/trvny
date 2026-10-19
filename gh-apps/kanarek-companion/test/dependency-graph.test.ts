@@ -8,6 +8,7 @@ import {
   importReferencesTarget,
   searchSeed,
 } from '../src/dependency-graph.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('extractImports finds common module, dotted and Rust imports', () => {
   const content = [
@@ -139,7 +140,7 @@ test('dependency graph pins caller verification to the resolved snapshot', async
     return Response.json({ ok: false, error: `unexpected_read:${path}` }, { status: 500 });
   };
 
-  const response = await handleDependencyGraphAction(source, invoke);
+  const response = await handleDependencyGraphAction(source, loopbackGateway(source, invoke));
   assert.ok(response);
   assert.equal(response.status, 200);
   const payload = (await response.json()) as Record<string, any>;
@@ -153,7 +154,7 @@ test('dependency graph pins caller verification to the resolved snapshot', async
 test('dependency graph is exposed as a POST action', async () => {
   const response = await handleDependencyGraphAction(
     new Request('https://example.workers.dev' + DEPENDENCY_GRAPH_PATH, { method: 'GET' }),
-    async () => Response.json({ ok: false }, { status: 500 }),
+    loopbackGateway(new Request('https://example.workers.dev' + DEPENDENCY_GRAPH_PATH, { method: 'GET' }), async () => Response.json({ ok: false }, { status: 500 })),
   );
   assert.ok(response);
   assert.equal(response.status, 405);

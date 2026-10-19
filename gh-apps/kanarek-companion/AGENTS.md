@@ -17,6 +17,7 @@ deployment/package slug, not every subsystem's name.
 - Never log or persist private keys, OAuth bearer tokens or other credentials.
 - Keep mutation paths guarded against stale state, replay and duplicate side effects.
 - Prefer existing high-level guarded actions over new raw mutation endpoints.
+- GitHub access from modules: take a `GithubGateway` param (`github-gateway.ts`), never a synthetic `/gpt-actions/github/read|graphql` request through `below`.
   GPTomek `operator_action` must reuse GPT Actions bot-write policy; no parallel allowlist.
 - Inside `try`/`catch`, `return await handler(...)`; a bare returned promise rejects past the `catch` (500 `worker_exception` instead of the error envelope). Exception: a call that itself persists state the `catch` would overwrite (code-change `pause`/`complete`).
 - Run `npm run check` before code changes are complete.

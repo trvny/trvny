@@ -6,6 +6,7 @@ import {
   addAccountAttentionOpenApi,
   handleAccountAttentionAction,
 } from '../src/account-attention.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 function request(body: unknown = {}): Request {
   return new Request(`https://worker.test${ACCOUNT_ATTENTION_PATH}`, {
@@ -90,7 +91,7 @@ test('builds a policy-scoped attention queue from maintenance, PR inspection and
     return Response.json({ ok: false, error: 'unexpected_route' }, { status: 500 });
   };
 
-  const response = await handleAccountAttentionAction(request(), invoke);
+  const response = await handleAccountAttentionAction(request(), invoke, loopbackGateway(request(), invoke));
   assert.ok(response);
   assert.equal(response.status, 200);
   const payload = await response.json() as {
@@ -115,6 +116,7 @@ test('rejects unbounded attention sweep limits', async () => {
   const response = await handleAccountAttentionAction(
     request({ maxRepositories: 999 }),
     async () => Response.json({ ok: true }),
+    loopbackGateway(request({ maxRepositories: 999 }), async () => Response.json({ ok: true })),
   );
   assert.ok(response);
   assert.equal(response.status, 400);

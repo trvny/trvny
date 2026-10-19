@@ -1,4 +1,5 @@
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
+import { type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 export const SYMBOL_INVESTIGATION_PATH = '/gpt-actions/github/code/symbol';
@@ -7,7 +8,6 @@ const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_CONTENT_BYTES = 400_000;
 const MAX_OCCURRENCES_PER_FILE = 30;
 
-type Invoke = (request: Request) => Promise<Response>;
 type SymbolKind = 'definition' | 'import' | 'implementation' | 'reference';
 type Confidence = 'high' | 'medium';
 
@@ -128,16 +128,8 @@ async function inputObject(request: Request): Promise<Input> {
   };
 }
 
-async function responseObject(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new SymbolInvestigationError(code, status),
-    { fallback: (status) => `read_${status}`, requireOk: true },
-  );
-}
-
-async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  return (await responseObject(await invoke(internalReadRequest(source, path)))).data;
+function readData(github: GithubGateway, path: string): Promise<unknown> {
+  return mapGithubError(github.read(path), (code, status) => new SymbolInvestigationError(code, status));
 }
 
 function filePath(value: string): string {
@@ -280,21 +272,16 @@ function searchQuery(input: Input): string {
 }
 
 async function resolveSnapshot(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   input: Input,
 ): Promise<{ defaultBranch: string; requestedRef: string; resolvedSha: string }> {
   const repo = repoPath(input.repository);
-  const repositoryRaw = await readData(source, invoke, `/repos/${repo}`);
+  const repositoryRaw = await readData(github, `/repos/${repo}`);
   if (!isObject(repositoryRaw) || typeof repositoryRaw.default_branch !== 'string') {
     throw new SymbolInvestigationError('invalid_repository_response', 502);
   }
   const requestedRef = input.ref ?? repositoryRaw.default_branch;
-  const commitRaw = await readData(
-    source,
-    invoke,
-    `/repos/${repo}/commits/${encodeURIComponent(requestedRef)}`,
-  );
+  const commitRaw = await readData(github, `/repos/${repo}/commits/${encodeURIComponent(requestedRef)}`);
   if (!isObject(commitRaw) || typeof commitRaw.sha !== 'string' || !SHA_RE.test(commitRaw.sha)) {
     throw new SymbolInvestigationError('invalid_ref_response', 502);
   }
@@ -305,13 +292,12 @@ async function resolveSnapshot(
   };
 }
 
-async function investigateSymbol(source: Request, invoke: Invoke): Promise<Response> {
+async function investigateSymbol(source: Request, github: GithubGateway): Promise<Response> {
   const input = await inputObject(source);
-  const snapshot = await resolveSnapshot(source, invoke, input);
+  const snapshot = await resolveSnapshot(github, input);
   const query = searchQuery(input);
   const searchRaw = await readData(
-    source,
-    invoke,
+    github,
     `/search/code?q=${encodeURIComponent(query)}&per_page=${Math.min(20, input.maxFiles * 2)}`,
   );
   if (!isObject(searchRaw) || !Array.isArray(searchRaw.items)) {
@@ -327,8 +313,7 @@ async function investigateSymbol(source: Request, invoke: Invoke): Promise<Respo
     candidates.map(async (item) => {
       const path = String(item.path);
       const contentRaw = await readData(
-        source,
-        invoke,
+        github,
         `/repos/${repo}/contents/${filePath(path)}?ref=${encodeURIComponent(snapshot.resolvedSha)}`,
       ).catch((error) => {
         if (error instanceof SymbolInvestigationError && error.status === 404) return null;
@@ -458,13 +443,13 @@ export function addSymbolInvestigationOpenApi(document: JsonObject): void {
 
 export async function handleSymbolInvestigationAction(
   request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
 ): Promise<Response | null> {
   const pathname = new URL(request.url).pathname;
   if (pathname !== SYMBOL_INVESTIGATION_PATH) return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
   try {
-    return await investigateSymbol(request, invoke);
+    return await investigateSymbol(request, github);
   } catch (error) {
     if (error instanceof SymbolInvestigationError) {
       return json({ ok: false, error: error.code }, error.status);

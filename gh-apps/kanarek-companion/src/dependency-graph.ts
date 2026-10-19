@@ -1,5 +1,6 @@
 import { likelyTestPath } from './symbol-investigation.ts';
-import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
+import { type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 export const DEPENDENCY_GRAPH_PATH = '/gpt-actions/github/code/dependencies';
@@ -10,7 +11,6 @@ const MAX_IMPORTS = 80;
 const MAX_CALLERS = 12;
 const MAX_CANDIDATES = 40;
 
-type Invoke = (request: Request) => Promise<Response>;
 type ImportSyntax = 'module' | 'python' | 'rust';
 type Confidence = 'high' | 'medium';
 
@@ -110,16 +110,8 @@ async function inputObject(request: Request): Promise<Input> {
   };
 }
 
-async function responseObject(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new DependencyGraphError(code, status),
-    { fallback: (status) => `read_${status}`, requireOk: true },
-  );
-}
-
-async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  return (await responseObject(await invoke(internalReadRequest(source, path)))).data;
+function readData(github: GithubGateway, path: string): Promise<unknown> {
+  return mapGithubError(github.read(path), (code, status) => new DependencyGraphError(code, status));
 }
 
 function filePath(value: string): string {
@@ -332,21 +324,16 @@ export function importReferencesTarget(
 }
 
 async function resolveSnapshot(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   input: Input,
 ): Promise<{ defaultBranch: string; requestedRef: string; resolvedSha: string }> {
   const repo = repoPath(input.repository);
-  const repositoryRaw = await readData(source, invoke, `/repos/${repo}`);
+  const repositoryRaw = await readData(github, `/repos/${repo}`);
   if (!isObject(repositoryRaw) || typeof repositoryRaw.default_branch !== 'string') {
     throw new DependencyGraphError('invalid_repository_response', 502);
   }
   const requestedRef = input.ref ?? repositoryRaw.default_branch;
-  const commitRaw = await readData(
-    source,
-    invoke,
-    `/repos/${repo}/commits/${encodeURIComponent(requestedRef)}`,
-  );
+  const commitRaw = await readData(github, `/repos/${repo}/commits/${encodeURIComponent(requestedRef)}`);
   if (!isObject(commitRaw) || typeof commitRaw.sha !== 'string' || !SHA_RE.test(commitRaw.sha)) {
     throw new DependencyGraphError('invalid_ref_response', 502);
   }
@@ -368,13 +355,12 @@ export function searchSeed(path: string): string {
   return seed.replace(/[^A-Za-z0-9_$.-]/g, '');
 }
 
-async function dependencyGraph(source: Request, invoke: Invoke): Promise<Response> {
+async function dependencyGraph(source: Request, github: GithubGateway): Promise<Response> {
   const input = await inputObject(source);
-  const snapshot = await resolveSnapshot(source, invoke, input);
+  const snapshot = await resolveSnapshot(github, input);
   const repo = repoPath(input.repository);
   const targetRaw = await readData(
-    source,
-    invoke,
+    github,
     `/repos/${repo}/contents/${filePath(input.path)}?ref=${encodeURIComponent(snapshot.resolvedSha)}`,
   );
   const targetContent = decodeContent(targetRaw);
@@ -386,8 +372,7 @@ async function dependencyGraph(source: Request, invoke: Invoke): Promise<Respons
   const candidateLimit = input.maxCandidates;
   const query = `${seed} repo:${input.repository}`;
   const searchRaw = await readData(
-    source,
-    invoke,
+    github,
     `/search/code?q=${encodeURIComponent(query)}&per_page=${candidateLimit}`,
   );
   if (!isObject(searchRaw) || !Array.isArray(searchRaw.items)) {
@@ -403,8 +388,7 @@ async function dependencyGraph(source: Request, invoke: Invoke): Promise<Respons
     candidates.map(async (item) => {
       const path = String(item.path);
       const raw = await readData(
-        source,
-        invoke,
+        github,
         `/repos/${repo}/contents/${filePath(path)}?ref=${encodeURIComponent(snapshot.resolvedSha)}`,
       ).catch((error) => {
         if (error instanceof DependencyGraphError && error.status === 404) return null;
@@ -525,12 +509,12 @@ export function addDependencyGraphOpenApi(document: JsonObject): void {
 
 export async function handleDependencyGraphAction(
   request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
 ): Promise<Response | null> {
   if (new URL(request.url).pathname !== DEPENDENCY_GRAPH_PATH) return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
   try {
-    return await dependencyGraph(request, invoke);
+    return await dependencyGraph(request, github);
   } catch (error) {
     if (error instanceof DependencyGraphError) {
       return json({ ok: false, error: error.code }, error.status);

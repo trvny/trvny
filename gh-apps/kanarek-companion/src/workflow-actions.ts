@@ -417,8 +417,8 @@ export async function handleWorkflowAction(
   if (pathname !== WORKFLOW_CONTROL_PATH && pathname !== WORKFLOW_DISPATCH_PATH) return null;
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
   try {
-    if (pathname === WORKFLOW_DISPATCH_PATH) return dispatchWorkflow(request, env, fetcher);
-    return controlWorkflowRun(request, env, fetcher);
+    if (pathname === WORKFLOW_DISPATCH_PATH) return await dispatchWorkflow(request, env, fetcher);
+    return await controlWorkflowRun(request, env, fetcher);
   } catch (error) {
     if (error instanceof WorkflowActionError) {
       return json({ ok: false, error: error.code }, error.status);

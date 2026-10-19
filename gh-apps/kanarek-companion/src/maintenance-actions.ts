@@ -485,12 +485,12 @@ export async function handleMaintenanceAction(
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
   try {
     if (pathname === ARTIFACT_DELETE_PATH) {
-      return deleteMaintenanceArtifact(request, env, fetcher);
+      return await deleteMaintenanceArtifact(request, env, fetcher);
     }
     if (pathname === CACHE_DELETE_PATH) {
-      return deleteMaintenanceCache(request, env, fetcher);
+      return await deleteMaintenanceCache(request, env, fetcher);
     }
-    return maintenanceReport(request, env, fetcher);
+    return await maintenanceReport(request, env, fetcher);
   } catch (error) {
     if (error instanceof MaintenanceError) return json({ ok: false, error: error.code }, error.status);
     console.error(

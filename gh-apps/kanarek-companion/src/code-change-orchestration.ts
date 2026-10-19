@@ -1569,6 +1569,8 @@ async function run(
   }
 
   let progress = isObject(claim.payload.progress) ? claim.payload.progress as Progress : null;
+  // pause()/complete() own the checkpoint write: returned unawaited so a failure
+  // after that write skips the catch below (it would save the older progress).
   try {
     if (!progress) {
       const started = await initialProgress(request, invoke, core, inputHash);

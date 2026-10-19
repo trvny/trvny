@@ -5,7 +5,9 @@ import {
   contentTreeMode,
   githubBotRequestAllowed,
   githubReadAllowed,
+  handleGptActions,
   openApiDocument,
+  type GptActionsEnv,
 } from '../src/gpt-actions.ts';
 
 test('read gateway stays scoped to trvny', () => {
@@ -88,4 +90,30 @@ test('commit tree mode preserves executable files and symlinks', () => {
   assert.throws(() => contentTreeMode(undefined, '160000'));
   assert.throws(() => contentTreeMode({ type: 'blob', mode: '100644' }, '100755'));
   assert.throws(() => contentTreeMode({ type: 'commit', mode: '160000' }));
+});
+
+test('route failures return error envelopes instead of throwing', async () => {
+  const fetcher = (async (input: RequestInfo | URL) => {
+    const url = new URL(String(input instanceof Request ? input.url : input));
+    if (url.pathname === '/user') return Response.json({ login: 'trvny', id: 1 });
+    return Response.json({ message: 'Not Found' }, { status: 404 });
+  }) as typeof fetch;
+  const read = (path: string) =>
+    handleGptActions(
+      new Request('https://worker.test/gpt-actions/github/read', {
+        method: 'POST',
+        headers: { authorization: 'Bearer user-token', 'content-type': 'application/json' },
+        body: JSON.stringify({ path }),
+      }),
+      {} as GptActionsEnv,
+      fetcher,
+    );
+
+  const missing = await read('/repos/trvny/trvny/git/ref/heads/gone');
+  assert.equal(missing.status, 404);
+  assert.deepEqual(await missing.json(), { ok: false, error: 'github_404_Not Found' });
+
+  const denied = await read('/repos/openai/openai');
+  assert.equal(denied.status, 403);
+  assert.deepEqual(await denied.json(), { ok: false, error: 'github_read_path_not_allowed' });
 });

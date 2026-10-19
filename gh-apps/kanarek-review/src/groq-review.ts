@@ -62,7 +62,7 @@ export function prepareGroqFreeReview(input: Json): GroqPreparedInput | null {
           });
           for (const part of parts) {
             const candidate = [...selected, part].join('\n\n');
-            if (!fits(wrap(body(candidate)))) break;
+            if (!fits(wrap(body(candidate)))) continue;
             selected.push(part);
           }
           if (selected.length === 0 && parts.length > 0) {

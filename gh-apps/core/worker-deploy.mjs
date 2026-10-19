@@ -7,7 +7,7 @@
 // First deploy and Durable Object lifecycle changes (rejected by
 // `versions upload`) use plain `wrangler deploy`, which cannot be rolled back.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 
 const BUILD_MARK_RE = /^build=([0-9a-f]{40})/;
 const VERSION_RE = /Worker Version ID:\s*([0-9a-f-]{36})/i;
@@ -61,6 +61,20 @@ function realIsAncestor(ancestor, descendant) {
   }
 }
 
+// Predecessor's wrangler config (from its build commit) written next to ours, for
+// restoring its routes/domains/crons on rollback. Returns the path or null.
+function realPreviousConfig(prevSha, file = 'wrangler.jsonc') {
+  try {
+    const rel = execFileSync('git', ['rev-parse', '--show-prefix'], { encoding: 'utf8' }).trim();
+    const body = gitAtTop()(['show', `${prevSha}:${rel}${file}`]);
+    const path = `.wrangler-previous.${file}`;
+    writeFileSync(path, body);
+    return path;
+  } catch {
+    return null;
+  }
+}
+
 function json(wrangler, args) {
   const out = wrangler([...args, '--json'], true);
   return JSON.parse(out.slice(out.search(/[[{]/)));
@@ -102,7 +116,12 @@ export async function poll(check, attempts = 12, delayMs = 5_000) {
 // `paths`: git pathspecs mirroring the Workers Builds watch paths.
 export async function guardedDeploy(
   { name, sha, paths, deployArgs = [], verify },
-  { wrangler = realWrangler, latestCommit = realLatestCommit, isAncestor = realIsAncestor } = {},
+  {
+    wrangler = realWrangler,
+    latestCommit = realLatestCommit,
+    isAncestor = realIsAncestor,
+    previousConfig = realPreviousConfig,
+  } = {},
 ) {
   const message = `build=${sha}`;
   const stale = () => {
@@ -144,10 +163,12 @@ export async function guardedDeploy(
   wrangler(['versions', 'deploy', `${versionId}@100%`, '--name', name, '--message', message, '--yes']);
 
   // versions upload/deploy never touch routes, domains or crons.
+  let triggersApplied = false;
   const triggers = () => {
     // Applied while our version still owns the Worker; a replacement build applies its own.
     if (active(wrangler, name)?.versionId !== versionId) return true;
     try {
+      triggersApplied = true;
       wrangler(['triggers', 'deploy', '--name', name]);
       return true;
     } catch {
@@ -172,5 +193,20 @@ export async function guardedDeploy(
     '--message', `Rollback failed deployment ${sha.slice(0, 12)}`,
     '--yes',
   ]);
+  if (triggersApplied) {
+    // Version rollback leaves triggers alone; re-apply the predecessor's.
+    const config = previous.build ? previousConfig(previous.build) : null;
+    if (!config) {
+      console.error(`${name}: could not restore predecessor triggers; check routes/crons manually.`);
+      return 1;
+    }
+    try {
+      wrangler(['triggers', 'deploy', '--name', name, '--config', config]);
+    } catch {
+      console.error(`${name}: restoring predecessor triggers failed; check routes/crons manually.`);
+    } finally {
+      rmSync(config, { force: true });
+    }
+  }
   return 1;
 }

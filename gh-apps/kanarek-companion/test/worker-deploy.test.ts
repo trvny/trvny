@@ -63,6 +63,10 @@ function wrangler(state: Fake) {
       return '';
     }
     if (command === 'triggers deploy') {
+      if (args.includes('--config')) {
+        state.calls.push(`restore ${args[args.indexOf('--config') + 1]}`);
+        return '';
+      }
       if (state.triggersFail) throw new Error('route conflict');
       return '';
     }
@@ -79,7 +83,12 @@ const activeBuild = (state: Fake) => state.messages[state.active[0].version_id]?
 function run(state: Fake, healthy: boolean, runner = wrangler(state)) {
   return guardedDeploy(
     { name: 'w', sha: OURS, paths: ['gh-apps/w'], verify: async () => healthy },
-    { wrangler: runner, latestCommit: () => state.head, isAncestor: (a: string, d: string) => state.ancestors.includes(`${a}>${d}`) },
+    {
+      wrangler: runner,
+      latestCommit: () => state.head,
+      isAncestor: (a: string, d: string) => state.ancestors.includes(`${a}>${d}`),
+      previousConfig: (prev: string) => `prev-${prev.slice(0, 1)}.jsonc`,
+    },
   );
 }
 
@@ -203,4 +212,11 @@ test('multi-commit push deploys when the watched commit is an ancestor', async (
   state.ancestors.push(`${NEWER}>${OURS}`);
   assert.equal(await run(state, true), 0);
   assert.equal(activeBuild(state), OURS);
+});
+
+test('rollback after applied triggers restores the predecessor triggers', async () => {
+  const state = fake(OLD);
+  assert.equal(await run(state, false), 1);
+  assert.equal(activeBuild(state), OLD);
+  assert.ok(state.calls.includes('restore prev-a.jsonc'));
 });

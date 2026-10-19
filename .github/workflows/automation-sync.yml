@@ -135,7 +135,9 @@ jobs:
           active_primary=$(jq -r '.versions | max_by(.percentage) | .version_id' \
             <<<"$previous_deployment")
           if [ -z "$latest_uploaded" ] || [ "$latest_uploaded" != "$active_primary" ]; then
-            echo "Newest uploaded version ($latest_uploaded) is not active ($active_primary); re-run after the build settles." >&2
+            # Either a build is in flight, or a superseded build left an unactivated upload.
+            echo "Newest uploaded version ($latest_uploaded) is not active ($active_primary)." >&2
+            echo "Wait for the in-flight Workers Build, or retry the latest kanarek-companion build in the Cloudflare dashboard so the active version is also the newest upload; then re-run this sync." >&2
             exit 1
           fi
 

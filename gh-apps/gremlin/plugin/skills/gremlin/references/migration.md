@@ -63,8 +63,8 @@ The only retained style file is `references/gremlin-style.md`, and
 `agents/openai.yaml` contains UI metadata, not behavior duplication.
 
 The repository package is synchronized with the existing private plugin
-release `0.31.8` (Gremlin's reduced 32-tool MCP and the separate, optional
-Anchor app).
+release `0.31.10` (Gremlin's reduced 32-tool MCP; Anchor is an independent
+ChatGPT app and not a bundled dependency).
 The working MCP App binding, skill metadata, knowledge index and original PNG
 logo are synchronized in the portable source.
 
@@ -112,16 +112,14 @@ remain external; no token rotation or fake compatibility bridge is warranted.
 counted in the 32-tool Gremlin MCP surface. The live Anchor workspace already
 contains the canonical `Gremlin Storage` area for durable Gremlin artifacts.
 
-Preserve this authorization boundary. The user's stable registered Anchor
-App ID (`asdk_app_6a206df34f6c8191a125958d061edd74`) has been added
-as optional `anchor` in the private plugin's `.app.json` as of `0.31.8`.
-The version identifier `asdk_app_v_6a206df3c0ac81919361a2a5c1b34fd1`
-is deliberately **not** pinned in the manifest. Live migration keeps the
-host-generated Gremlin alias `connector`; this portable source calls it
-`gremlin`, matching `mcp.json`, without changing the underlying App ID.
-Anchor retains independent OAuth. Do not proxy Anchor through the Gremlin
-Worker or copy OAuth credentials. Binding and folder access were confirmed;
-a fresh plugin session should also confirm Anchor tool visibility and OAuth.
+Preserve this authorization boundary. Release `0.31.8` briefly referenced
+the user's existing Anchor app as an optional dependency, but that reference
+was removed in `0.31.9` to avoid an unnecessary app-within-app dependency.
+Anchor remains independently connected in ChatGPT using its own OAuth and
+existing `Gremlin_storage` folder; no Anchor data or account connection was
+deleted. The host-generated Gremlin alias `connector` and the portable
+source alias `gremlin` still point to the same unchanged Gremlin MCP App ID.
+No Anchor OAuth credentials may be proxied or copied into Gremlin.
 
 ### Skill, knowledge and persona
 
@@ -173,12 +171,11 @@ The portable plugin points at
   merged PR #1054. The unrelated Engram adapter has since been excluded from
   the Gremlin MCP; live OAuth refresh/revocation and legacy GPT behavior parity
   remain open.
-- [x] Anchor registered App ID added to the existing private plugin `0.31.8`;
-  `.app.json` now declares the optional `anchor` app alongside Gremlin.
-- [ ] Verify in a **fresh MechaGremlin plugin session** that the embedded
-  Anchor app offers its tools under its own OAuth and reads `Gremlin_storage`.
-  Successful manifest publication and separate Anchor access do not replace
-  the host-level verification.
+- [x] Anchor briefly bundled as optional in `0.31.8`, then intentionally
+  unbundled in `0.31.9` after confirming that it is already an independently
+  connected ChatGPT app. No duplicated Anchor tool surface is required.
+- [x] The existing Anchor `Gremlin_storage` folder remains accessible through
+  the separate Anchor connection; no plugin-level Anchor parity gate remains.
 - Run behavioral and tool parity checks against the read-only legacy GPT.
 - Finish moving Gremlin-only modules out of `kanarek-companion` when doing so
   reduces coupling without duplicating shared state or policy.
@@ -201,17 +198,17 @@ The portable plugin points at
    context.
 7. The migrated skill follows the intended Gremlin behavior and uses the
    packaged meme references when appropriate.
-8. Anchor storage parity is explicitly verified; it must not disappear merely
-   because the main MCP passes.
+8. Gremlin workflows do not require or direct calls to the independent Anchor
+   plugin. Anchor's own OAuth and files remain unchanged.
 9. Keep the original GPT as a read-only behavioral fallback until these checks
    pass.
 10. Only then treat the migrated plugin as the maintained successor.
 
 ## Latest account state (2026-10-18)
 
-Release `0.31.8` retains one Gremlin skill, one original PNG logo, the
-OAuth-connected Gremlin App plus the optional Anchor App (`.app.json`), and
-an unchanged Gremlin MCP endpoint.
+Release `0.31.10` retains one Gremlin skill, one original PNG logo, one
+OAuth-connected Gremlin App (`.app.json`) and an unchanged Gremlin MCP
+endpoint. The Anchor app is intentionally not bundled.
 The migrated account package uses a technical generated package ID, while the
 portable repository keeps the stable `mechagremlin` package name. The package
 identity and installed app binding are not credentials. Never create a second

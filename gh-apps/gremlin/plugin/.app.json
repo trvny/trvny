@@ -2,10 +2,6 @@
   "apps": {
     "gremlin": {
       "id": "asdk_app_6ad3cba96c048191b0006fed71f4e0ef"
-    },
-    "anchor": {
-      "id": "asdk_app_6a206df34f6c8191a125958d061edd74",
-      "optional": true
     }
   }
 }

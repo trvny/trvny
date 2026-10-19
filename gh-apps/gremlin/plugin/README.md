@@ -1,7 +1,7 @@
 # MechaGremlin plugin
 
 This directory is the maintained **portable source** of the existing private
-MechaGremlin plugin. The existing private plugin is now release `0.31.8`
+MechaGremlin plugin. The existing private plugin is now release `0.31.10`
 (`plugin_2efcd1a24fa08191b71d92f1972ac32c`).
 **Do not create another production plugin.**
 
@@ -18,9 +18,9 @@ The registered Gremlin ChatGPT app is declared in `.app.json` with the
 canonical source alias `gremlin`, matching the MCP key to avoid duplicate
 routes in Codex. The migrated account release retains its original
 host-generated alias `connector` for the same Gremlin App ID.
-`.app.json` also references the user's existing Anchor app under `anchor`
-(`asdk_app_6a206df34f6c8191a125958d061edd74`) as an **optional** app.
-This is a stable App ID, not an App version ID. The canonical Streamable
+The optional Anchor app dependency from release `0.31.8` was removed in
+`0.31.9`: Anchor is already available as an independent ChatGPT app, and
+bundling it introduced no new Gremlin tools. The canonical Streamable
 HTTP MCP configuration stays in `mcp.json`, targeting
 `https://gremlin.travny.workers.dev/mcp`. The host-generated
 `.codex-plugin/plugin.json` and `.mcp.json` are compatibility outputs, not
@@ -34,12 +34,11 @@ through the shared `kanarek-companion` runtime, which owns authentication
 checks, GPTomek attribution, scope guards, replay protections and Cloudflare
 policy. Do not duplicate that runtime inside this package.
 
-Anchor storage (`useGremlinStorage`) uses **separate Anchor OAuth** and is
-not part of the 32-tool MCP surface. The optional Anchor app is now bundled
-with the existing MechaGremlin plugin (live release `0.31.8`). When Anchor
-is connected in the session, use the existing `Gremlin_storage` folder.
-Never proxy Anchor OAuth credentials through Gremlin or treat the successful
-manifest update as proof of a fresh-session, end-to-end OAuth test.
+Anchor remains an **independent ChatGPT app** with its own OAuth, not
+part of the 32-tool Gremlin MCP and not a bundled plugin dependency.
+Anchor's existing `Gremlin_storage` folder remains available through its
+own separately authorized ChatGPT app. The Gremlin skill does not depend on
+or instruct model calls to external apps. Never proxy OAuth credentials.
 
 For migration history, parity status, and pending verification, see
 `skills/gremlin/references/migration.md` and

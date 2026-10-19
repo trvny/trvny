@@ -7,7 +7,7 @@ import {
   githubOAuthAuthorizationUrl,
   normalizeGptActionsRequest,
   restrictedBotWrite,
-} from '../src/router.ts';
+} from '../src/gremlin-router.ts';
 
 test('Custom GPT OpenAPI includes validator-friendly object schemas', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

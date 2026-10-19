@@ -7,7 +7,7 @@ import {
   handleCloudflareAction,
 } from '../src/cloudflare-actions.ts';
 import type { GremlinPolicy } from '../src/policy-actions.ts';
-import { customGptOpenApi } from '../src/router.ts';
+import { customGptOpenApi } from '../src/gremlin-router.ts';
 
 type Env = Parameters<typeof handleCloudflareAction>[1];
 type FetchStub = (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>;

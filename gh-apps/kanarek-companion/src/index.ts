@@ -24,6 +24,7 @@ import {
 import { GPTOMEK_CONTROL_REPOSITORY, isGptomekFallbackPullRequest } from './gptomek-control.ts';
 import { hasAiProvider } from './quip.ts';
 import { json } from './json-response.ts';
+import { HEALTH_PATH, WEBHOOK_PATH } from './paths.ts';
 
 interface Env extends CompanionEnv {
   COMPANION_LOCK: DurableObjectNamespace;
@@ -47,8 +48,6 @@ interface CompanionLockResponse {
 }
 
 const MAX_BODY_BYTES = 1_048_576;
-const WEBHOOK_PATH = '/webhooks/github';
-const HEALTH_PATH = '/health';
 const GPTOMEK_WAKE_PATH = '/gptomek/wake';
 const COMMENT_WINDOW_MS = 10 * 60 * 1_000;
 const PENDING_TARGET_KEY = 'pending-target';

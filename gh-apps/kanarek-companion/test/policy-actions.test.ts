@@ -7,7 +7,7 @@ import {
   parseGremlinPolicy,
   type GremlinPolicy,
 } from '../src/policy-actions.ts';
-import { customGptOpenApi } from '../src/router.ts';
+import { customGptOpenApi } from '../src/gremlin-router.ts';
 
 type Env = Parameters<typeof handlePolicyAction>[1];
 

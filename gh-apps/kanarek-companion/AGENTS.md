@@ -11,7 +11,7 @@ deployment/package slug, not every subsystem's name.
 - **Gremlin** owns guarded GPT Actions, coding, maintenance, workflow, release and policy orchestration.
 - **Specialist Intelligence** owns bounded domain lookups, e.g. packages, docs and Engram; start new artifact/feed/web inspection here.
 - **Shared runtime core** owns only reusable auth, transport, safety, OpenAPI and Durable Object plumbing.
-- Keep `entry.ts` and `router.ts` as composition roots; domain logic belongs in its subsystem.
+- `runtime.ts` is the composition root (ordered route segments; see `docs/architecture.md`); domain logic belongs in its subsystem and is only wired into a route table.
 - Shared Worker does not make every feature a Kanarek feature. Use subsystem names above in code, docs, PRs and logs.
 - Split subsystem into another Worker only for materially different permissions/secrets, exposure, resource limits, deploy cadence or independent consumers.
 - Never log or persist private keys, OAuth bearer tokens or other credentials.

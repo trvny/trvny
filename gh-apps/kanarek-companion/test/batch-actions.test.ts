@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { createActionFetch } from '../src/action-context.ts';
 import { handleBatchAction } from '../src/batch-actions.ts';
-import { customGptOpenApi } from '../src/router.ts';
+import { customGptOpenApi } from '../src/gremlin-router.ts';
 
 type Env = Parameters<typeof handleBatchAction>[1];
 

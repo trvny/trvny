@@ -177,7 +177,8 @@ Never return Worker secret values or Pages build variables.
 
 ## Composition and privilege
 
-`entry.ts`, `router.ts`, and `runtime-entry.ts` should remain mostly wiring.
+`runtime.ts` (composition root), the route tables in `entry.ts` and
+`gremlin-router.ts`, and `runtime-entry.ts` should remain mostly wiring.
 Putting domain mutation logic directly into a composition root makes it too easy
 to bypass the guard that the owning subsystem already maintains.
 

@@ -176,7 +176,10 @@ casually clean up its fallback PR/ref.
 
 ### Shared runtime and specialists
 
-- `src/router.ts`, `src/entry.ts`, `src/runtime-entry.ts`: composition roots.
+- `src/runtime.ts`: composition root (ordered route segments: runtime →
+  `entry.ts` gateway → `gremlin-router.ts` operator → `index.ts`); `src/route.ts`
+  first-match dispatch; `src/paths.ts` shared ingress paths;
+  `src/runtime-entry.ts`: deployed entrypoint and RPC classes.
 - `src/runtime-openapi.ts`: curated live OpenAPI assembly.
 - `src/action-context.ts`: request-local GitHub transport/caching.
 - `src/docs-actions.ts`, `src/context7-actions.ts`, `src/engram-actions.ts`,

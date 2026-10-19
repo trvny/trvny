@@ -12,6 +12,7 @@ const LIVE = '00000000-0000-0000-0000-00000000000a';
 
 type Fake = {
   head: string;
+  ancestors: string[];
   active: { version_id: string; percentage: number }[];
   messages: Record<string, string>;
   calls: string[];
@@ -22,7 +23,7 @@ type Fake = {
 };
 
 function fake(activeBuild: string | null, head = OURS): Fake {
-  const state: Fake = { head, active: [], messages: {}, calls: [] };
+  const state: Fake = { head, ancestors: [], active: [], messages: {}, calls: [] };
   if (activeBuild) {
     state.messages[LIVE] = `build=${activeBuild}`;
     state.active = [{ version_id: LIVE, percentage: 100 }];
@@ -78,7 +79,7 @@ const activeBuild = (state: Fake) => state.messages[state.active[0].version_id]?
 function run(state: Fake, healthy: boolean, runner = wrangler(state)) {
   return guardedDeploy(
     { name: 'w', sha: OURS, paths: ['gh-apps/w'], verify: async () => healthy },
-    { wrangler: runner, latestCommit: () => state.head },
+    { wrangler: runner, latestCommit: () => state.head, isAncestor: (a: string, d: string) => state.ancestors.includes(`${a}>${d}`) },
   );
 }
 
@@ -185,4 +186,11 @@ test('triggers are left to a newer build that landed after activation', async ()
   };
   assert.equal(await run(state, true), 0);
   assert.ok(!state.calls.includes('triggers deploy'));
+});
+
+test('multi-commit push deploys when the watched commit is an ancestor', async () => {
+  const state = fake(OLD, NEWER);
+  state.ancestors.push(`${NEWER}>${OURS}`);
+  assert.equal(await run(state, true), 0);
+  assert.equal(activeBuild(state), OURS);
 });

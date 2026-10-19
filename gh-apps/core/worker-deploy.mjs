@@ -7,6 +7,7 @@
 // First deploy and Durable Object lifecycle changes (rejected by
 // `versions upload`) use plain `wrangler deploy`, which cannot be rolled back.
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 const BUILD_MARK_RE = /^build=([0-9a-f]{40})/;
 const VERSION_RE = /Worker Version ID:\s*([0-9a-f-]{36})/i;
@@ -27,14 +28,37 @@ function realWrangler(args, capture = false) {
   }
 }
 
+function gitAtTop() {
+  const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  return (args) => execFileSync('git', ['-C', top, ...args], { encoding: 'utf8' }).trim();
+}
+
 // Newest commit on origin/main touching `paths` (repo-root pathspecs, incl.
 // excludes). Builds run from the app directory, so git runs at the top level.
 function realLatestCommit(paths) {
-  const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-  const git = (args) => execFileSync('git', ['-C', top, ...args], { encoding: 'utf8' }).trim();
+  const git = gitAtTop();
   git(['fetch', '--quiet', '--depth=200', 'origin', 'main']);
   // --first-parent: a merge commit is the main commit for its changes, not its side parent.
-  return git(['log', '-1', '--first-parent', '--format=%H', 'FETCH_HEAD', '--', ...paths]);
+  const head = git(['log', '-1', '--first-parent', '--format=%H', 'FETCH_HEAD', '--', ...paths]);
+  // A shallow boundary looks parentless, so "touches paths" is unproven there.
+  const boundary = git(['rev-parse', '--git-path', 'shallow']);
+  let shallow = '';
+  try {
+    shallow = readFileSync(boundary, 'utf8');
+  } catch {
+    // not shallow
+  }
+  if (head && shallow.split('\n').includes(head)) throw new Error('watch-path history deeper than fetched main');
+  return head;
+}
+
+function realIsAncestor(ancestor, descendant) {
+  try {
+    gitAtTop()(['merge-base', '--is-ancestor', ancestor, descendant]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function json(wrangler, args) {
@@ -78,13 +102,14 @@ export async function poll(check, attempts = 12, delayMs = 5_000) {
 // `paths`: git pathspecs mirroring the Workers Builds watch paths.
 export async function guardedDeploy(
   { name, sha, paths, deployArgs = [], verify },
-  { wrangler = realWrangler, latestCommit = realLatestCommit } = {},
+  { wrangler = realWrangler, latestCommit = realLatestCommit, isAncestor = realIsAncestor } = {},
 ) {
   const message = `build=${sha}`;
   const stale = () => {
     const head = latestCommit(paths);
     if (!/^[0-9a-f]{40}$/.test(head)) throw new Error(`${name}: no main commit matches watch paths ${paths.join(' ')}`);
-    if (head === sha) return false;
+    // head reachable from sha: one push of several commits; sha's tree already has head's changes.
+    if (head === sha || isAncestor(head, sha)) return false;
     console.log(`${name}: ${sha} superseded by ${head} on main; skipping (its build deploys).`);
     return true;
   };

@@ -170,3 +170,9 @@ test('triggers failure rolls back like a failed verify', async () => {
   assert.equal(await run(state, true), 1);
   assert.equal(activeBuild(state), OLD);
 });
+
+test('empty watch-path match fails instead of skipping', async () => {
+  const state = fake(OLD, '');
+  await assert.rejects(run(state, true), /no main commit matches/);
+  assert.deepEqual(state.calls, []);
+});

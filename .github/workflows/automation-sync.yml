@@ -75,17 +75,6 @@ jobs:
           version_message="Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
           rollback_message="Rollback failed Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
 
-          previous_deployment=$(npx --no-install wrangler deployments status \
-            --name kanarek-companion --json)
-          mapfile -t previous_specs < <(
-            jq -r '.versions[] | "\(.version_id)@\(.percentage)%"' \
-              <<<"$previous_deployment"
-          )
-          if [ "${#previous_specs[@]}" -eq 0 ]; then
-            echo "Could not capture the current Worker deployment for rollback." >&2
-            exit 1
-          fi
-
           python3 - "$secrets_file" <<'PY'
           import json
           import os
@@ -125,6 +114,19 @@ jobs:
                 --name kanarek-companion
             fi
           done
+
+          # Captured after retired-secret deletes (each creates and deploys a version),
+          # so the activation fence only trips on concurrent foreign deployments.
+          previous_deployment=$(npx --no-install wrangler deployments status \
+            --name kanarek-companion --json)
+          mapfile -t previous_specs < <(
+            jq -r '.versions[] | "\(.version_id)@\(.percentage)%"' \
+              <<<"$previous_deployment"
+          )
+          if [ "${#previous_specs[@]}" -eq 0 ]; then
+            echo "Could not capture the current Worker deployment for rollback." >&2
+            exit 1
+          fi
 
           npx --no-install wrangler versions secret bulk "$secrets_file" \
             --name kanarek-companion \

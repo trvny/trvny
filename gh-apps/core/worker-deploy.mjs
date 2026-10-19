@@ -27,9 +27,11 @@ function realWrangler(args, capture = false) {
   }
 }
 
-// Newest commit on origin/main touching `paths` (git pathspecs, incl. excludes).
+// Newest commit on origin/main touching `paths` (repo-root pathspecs, incl.
+// excludes). Builds run from the app directory, so git runs at the top level.
 function realLatestCommit(paths) {
-  const git = (args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+  const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  const git = (args) => execFileSync('git', ['-C', top, ...args], { encoding: 'utf8' }).trim();
   git(['fetch', '--quiet', '--depth=200', 'origin', 'main']);
   return git(['log', '-1', '--format=%H', 'FETCH_HEAD', '--', ...paths]);
 }
@@ -80,6 +82,7 @@ export async function guardedDeploy(
   const message = `build=${sha}`;
   const stale = () => {
     const head = latestCommit(paths);
+    if (!/^[0-9a-f]{40}$/.test(head)) throw new Error(`${name}: no main commit matches watch paths ${paths.join(' ')}`);
     if (head === sha) return false;
     console.log(`${name}: ${sha} superseded by ${head} on main; skipping (its build deploys).`);
     return true;

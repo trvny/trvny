@@ -2094,7 +2094,7 @@ test('review router uses reasoning-enabled Hy3 at Vercel after Groq quota', asyn
     {
       url: 'https://api.groq.com/openai/v1/chat/completions',
       model: 'openai/gpt-oss-120b',
-      maxTokens: 16_384,
+      maxTokens: 4_096,
       reasoning: undefined,
       temperature: undefined,
       topP: undefined,

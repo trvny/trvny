@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { customGptOpenApi, restrictedBotWrite } from '../src/router.ts';
+import { customGptOpenApi, restrictedBotWrite } from '../src/gremlin-router.ts';
 import {
   workflowControlAllowed,
   workflowDispatchInputs,

@@ -1,9 +1,9 @@
 import { loadAgentGuidance, targetPaths } from './agents-guidance.ts';
-import router from './router.ts';
-import { isObject, type JsonObject, repoPath, internalReadRequest } from './tools/common.ts';
+import type { CompanionEnv } from './companion-types.ts';
+import { actionFetch } from './action-context.ts';
+import { GithubActionError, githubGateway } from './github-gateway.ts';
+import { isObject, type JsonObject, repoPath } from './tools/common.ts';
 import { json } from './json-response.ts';
-
-type Env = Parameters<typeof router.fetch>[1];
 
 const CONTEXT_PATH = '/gpt-actions/github/context';
 const INVESTIGATION_PATH = '/gpt-actions/github/code/investigate';
@@ -24,24 +24,20 @@ async function responseObject(response: Response): Promise<JsonObject | null> {
 
 async function githubFile(
   request: Request,
-  env: Env,
+  env: CompanionEnv,
   repository: string,
   path: string,
   ref: string,
 ): Promise<unknown | null> {
-  const response = await router.fetch(
-    internalReadRequest(
-      request,
+  try {
+    const file = await githubGateway(request, env, actionFetch).readOptional(
       `/repos/${repoPath(repository)}/contents/${contentPath(path)}?ref=${encodeURIComponent(ref)}`,
-    ),
-    env,
-  );
-  if (response.status === 404) return null;
-  const payload = await responseObject(response);
-  if (!response.ok || payload?.ok !== true) {
-    throw new Error(typeof payload?.error === 'string' ? payload.error : 'agent_guidance_read_failed');
+    );
+    return file === null ? null : file.data;
+  } catch (error) {
+    if (error instanceof GithubActionError) throw new Error(error.code);
+    throw error;
   }
-  return payload.data;
 }
 
 function contextDetails(payload: JsonObject, input: JsonObject): {
@@ -84,10 +80,11 @@ function investigationDetails(payload: JsonObject): {
   return { repository: name, ref: resolved, paths };
 }
 
+// Decorates the operator response from `below` with applicable AGENTS.md guidance.
 export async function handleAgentGuidanceAction(
   request: Request,
-  env: Env,
-  ctx?: ExecutionContext,
+  env: CompanionEnv,
+  below: (request: Request) => Promise<Response>,
 ): Promise<Response | null> {
   const pathname = new URL(request.url).pathname;
   if (![CONTEXT_PATH, INVESTIGATION_PATH].includes(pathname)) return null;
@@ -108,7 +105,7 @@ export async function handleAgentGuidanceAction(
     }
   }
 
-  const response = await router.fetch(request, env, ctx);
+  const response = await below(request);
   if (!response.ok) return response;
   const payload = await responseObject(response);
   if (!payload || payload.ok !== true) return response;

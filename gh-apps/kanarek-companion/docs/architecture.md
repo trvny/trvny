@@ -5,24 +5,27 @@ physical co-location does not erase subsystem boundaries.
 
 ## Composition layers
 
-The request stack is assembled in layers:
+`runtime.ts` is the single composition root. Requests pass ordered route
+segments, outermost first; each route returns a `Response` or `null`
+(`route.ts` `firstMatch`), and a segment's `below` reaches only later segments:
 
-1. `index.ts` is the Kanarek/GitHub webhook base worker.
-2. `gremlin-router.ts` adds guarded operator routes and the operator OpenAPI.
-3. `router.ts` composes Gremlin before the webhook base worker.
-4. `entry.ts` adds specialists, capability metadata, MCP adaptation, and the
-   private Kanarek Review proxy.
-5. `runtime-openapi.ts` adds the larger coding/release/investigation operations
-   and curates the final action surface.
-6. `runtime-entry.ts` is the deployed runtime entrypoint. It decorates health and
-   capabilities, schedules webhook reviews, exports Durable Object classes, and
-   exposes the narrow `BotekSpecialistEntrypoint` and `GptomekSignerEntrypoint`
-   RPC classes. The signer mints GPTomek App JWTs for `gremlin`, so the GPTomek
-   PEM stays in this Worker; any Worker bound to it holds full GPTomek App
-   authority.
+1. `runtimeRoutes` (`runtime.ts`): coding/release/investigation operations;
+   unmatched requests get health/capability/smoke decoration, webhook review
+   scheduling and conflict enrichment on the way out.
+2. `gatewayRoutes` (`entry.ts`): specialists, capability metadata, smoke, MCP
+   adaptation and the private Kanarek Review proxy.
+3. `operatorRoutes` (`gremlin-router.ts`): guarded operator actions and the
+   `/gpt-actions/**` catch-all.
+4. `index.ts`: Kanarek/GitHub webhook base worker, GPTomek wake, terminal 404.
 
-`entry.ts` and `router.ts` are composition roots. New domain behavior should
-live in the owning module and only be wired there.
+`runtime-openapi.ts` curates the final action surface. `runtime-entry.ts` is the
+deployed entrypoint: it exports Durable Object classes and the narrow
+`BotekSpecialistEntrypoint` and `GptomekSignerEntrypoint` RPC classes. The signer
+mints GPTomek App JWTs for `gremlin`, so the GPTomek PEM stays in this Worker;
+any Worker bound to it holds full GPTomek App authority.
+
+New domain behavior lives in the owning module and is only wired into a route
+table; shared ingress paths live in `paths.ts`.
 
 ## Runtime topology
 

@@ -13,13 +13,18 @@ import {
   handleFocusedCodeReviewAction,
 } from './focused-code-review.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
-import worker, {
+import {
   actionFetch,
   CommentProbeLock,
   gatewayManifest,
+  gatewayRoutes,
   OperatorCheckpointStore,
   ReviewProviderCooldownStore,
+  type GatewayEnv,
 } from './entry.ts';
+import gremlinRouter from './gremlin-router.ts';
+import companion from './index.ts';
+import { firstMatch, type Route } from './route.ts';
 import { handleReleaseEntryAction, RELEASE_ENTRY_UPLOAD_PATH } from './release-entry-action.ts';
 import {
   handleReleaseReplaceAction,
@@ -41,6 +46,7 @@ import { scheduleWebhookReviewWebhook, WebhookReviewJob } from './webhook-review
 import { repositoryListAllows } from './index.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
+import { CAPABILITY_PATH, HEALTH_PATH, OPENAPI_PATH, SMOKE_PATH, WEBHOOK_PATH } from './paths.ts';
 
 export {
   actionFetch,
@@ -51,8 +57,7 @@ export {
   WebhookReviewJob,
 };
 
-type WorkerEnv = Parameters<typeof worker.fetch>[1];
-export type RuntimeEnv = WorkerEnv &
+export type RuntimeEnv = GatewayEnv &
   WebhookReviewEnv & {
     CF_VERSION_METADATA?: { id?: string; tag?: string; timestamp?: string };
     KANAREK_REVIEW_REPOSITORIES?: string;
@@ -89,11 +94,6 @@ export function handleGremlinMcp(
   );
 }
 
-const OPENAPI_PATH = '/gpt-actions/openapi.json';
-const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
-const SMOKE_PATH = '/gpt-actions/operator/smoke';
-const HEALTH_PATH = '/health';
-const WEBHOOK_PATH = '/webhooks/github';
 
 async function manifest(request: Request, env: RuntimeEnv): Promise<JsonObject> {
   return gatewayManifest(
@@ -213,6 +213,67 @@ async function decorateGatewayResponse(
   return response;
 }
 
+// Request segments, outermost first. Each segment's `below` reaches only the
+// segments after it: runtime → gateway (entry.ts) → operator (gremlin-router.ts)
+// → companion (index.ts, terminal 404).
+type Below = (request: Request) => Promise<Response>;
+
+interface RuntimeContext {
+  request: Request;
+  env: RuntimeEnv;
+  ctx?: ExecutionContext;
+  below: Below;
+}
+
+async function operatorOrCompanion(
+  request: Request,
+  env: RuntimeEnv,
+  ctx?: ExecutionContext,
+): Promise<Response> {
+  return (await gremlinRouter.fetch(request, env)) ?? companion.fetch(request, env, ctx);
+}
+
+async function gateway(request: Request, env: RuntimeEnv, ctx?: ExecutionContext): Promise<Response> {
+  const below: Below = (next) => operatorOrCompanion(next, env, ctx);
+  return (await firstMatch(gatewayRoutes, { request, env, below })) ?? below(request);
+}
+
+function pathIs(request: Request, path: string): boolean {
+  return new URL(request.url).pathname === path;
+}
+
+// Order matters: first match wins; unmatched requests fall through to `below`.
+const runtimeRoutes: readonly Route<RuntimeContext>[] = [
+  ({ request }) =>
+    pathIs(request, OPENAPI_PATH) && request.method === 'GET'
+      ? json(runtimeOpenApi(new URL(request.url).origin))
+      : null,
+  ({ request, below }) =>
+    pathIs(request, FOCUSED_CODE_REVIEW_PATH) ? handleFocusedCodeReviewAction(request, below) : null,
+  ({ request, below }) =>
+    pathIs(request, BUG_INVESTIGATION_PATH) ? handleBugInvestigationAction(request, below) : null,
+  ({ request, env, below }) =>
+    pathIs(request, CODE_CHANGE_AUTOPILOT_PATH)
+      ? handleCodeChangeAutopilotAction(request, env, below)
+      : null,
+  ({ request, env }) =>
+    pathIs(request, RELEASE_ENTRY_UPLOAD_PATH)
+      ? handleReleaseEntryAction(request, env, actionFetch)
+      : null,
+  ({ request, env, below }) =>
+    pathIs(request, RELEASE_ASSET_REPLACE_PATH)
+      ? handleReleaseReplaceAction(request, env, actionFetch, below)
+      : null,
+  ({ request, below }) =>
+    pathIs(request, SYMBOL_INVESTIGATION_PATH) ? handleSymbolInvestigationAction(request, below) : null,
+  ({ request, below }) =>
+    pathIs(request, CODE_HISTORY_PATH) ? handleCodeHistoryAction(request, below) : null,
+  ({ request, below }) =>
+    pathIs(request, DEPENDENCY_GRAPH_PATH) ? handleDependencyGraphAction(request, below) : null,
+  ({ request, below }) =>
+    pathIs(request, TARGETED_TESTS_PATH) ? handleTargetedTestsAction(request, below) : null,
+];
+
 const runtime = {
   fetch(request: Request, env: RuntimeEnv, ctx?: ExecutionContext): Promise<Response> {
     return runWithActionRequestContext(async () => {
@@ -221,79 +282,12 @@ const runtime = {
         url.pathname === WEBHOOK_PATH && request.method === 'POST'
           ? request.clone()
           : null;
+      const below: Below = (next) => gateway(next, env, ctx);
 
-      if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
-        return json(runtimeOpenApi(new URL(request.url).origin));
-      }
-      if (url.pathname === FOCUSED_CODE_REVIEW_PATH) {
-        const response = await handleFocusedCodeReviewAction(
-          request,
-          (internalRequest) => worker.fetch(internalRequest, env, ctx),
-        );
-        if (response) return response;
-      }
-      if (url.pathname === BUG_INVESTIGATION_PATH) {
-        const response = await handleBugInvestigationAction(
-          request,
-          (internalRequest) => worker.fetch(internalRequest, env, ctx),
-        );
-        if (response) return response;
-      }
-      if (url.pathname === CODE_CHANGE_AUTOPILOT_PATH) {
-        const response = await handleCodeChangeAutopilotAction(
-          request,
-          env,
-          (internalRequest) => worker.fetch(internalRequest, env, ctx),
-        );
-        if (response) return response;
-      }
-      if (url.pathname === RELEASE_ENTRY_UPLOAD_PATH) {
-        const response = await handleReleaseEntryAction(
-          request,
-          env,
-          actionFetch,
-        );
-        if (response) return response;
-      }
-      if (url.pathname === RELEASE_ASSET_REPLACE_PATH) {
-        const response = await handleReleaseReplaceAction(
-          request,
-          env,
-          actionFetch,
-          (internalRequest) => worker.fetch(internalRequest, env, ctx),
-        );
-        if (response) return response;
-      }
-      if (url.pathname === SYMBOL_INVESTIGATION_PATH) {
-        const response = await handleSymbolInvestigationAction(
-          request,
-          (internalRequest) => worker.fetch(internalRequest, env, ctx),
-        );
-        if (response) return response;
-      }
-      if (url.pathname === CODE_HISTORY_PATH) {
-        const response = await handleCodeHistoryAction(
-          request,
-          (internalRequest) => worker.fetch(internalRequest, env, ctx),
-        );
-        if (response) return response;
-      }
-      if (url.pathname === DEPENDENCY_GRAPH_PATH) {
-        const response = await handleDependencyGraphAction(
-          request,
-          (internalRequest) => worker.fetch(internalRequest, env, ctx),
-        );
-        if (response) return response;
-      }
-      if (url.pathname === TARGETED_TESTS_PATH) {
-        const response = await handleTargetedTestsAction(
-          request,
-          (internalRequest) => worker.fetch(internalRequest, env, ctx),
-        );
-        if (response) return response;
-      }
+      const routed = await firstMatch(runtimeRoutes, { request, env, ctx, below });
+      if (routed) return routed;
 
-      const baseResponse = await worker.fetch(request, env, ctx);
+      const baseResponse = await below(request);
       if (
         webhookRequest &&
         baseResponse.status === 202 &&
@@ -309,7 +303,7 @@ const runtime = {
       return enrichConflictResponse(
         request,
         response,
-        (internalRequest) => worker.fetch(internalRequest, env, ctx),
+        below,
       );
     });
   },

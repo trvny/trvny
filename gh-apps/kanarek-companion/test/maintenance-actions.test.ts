@@ -7,7 +7,7 @@ import {
   unattachedBranches,
   workflowRunIsProblem,
 } from '../src/maintenance-actions.ts';
-import { customGptOpenApi } from '../src/router.ts';
+import { customGptOpenApi } from '../src/gremlin-router.ts';
 
 test('maintenance report and cleanup actions are exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

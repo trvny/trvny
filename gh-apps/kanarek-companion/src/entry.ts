@@ -26,14 +26,18 @@ import {
   handleReviewRouterViaService,
   type ReviewServiceEnv,
 } from './review-service.ts';
-import router, {
+import type companion from './index.ts';
+import { CommentProbeLock } from './index.ts';
+import {
   actionFetch,
-  CommentProbeLock,
   customGptOpenApi,
   OperatorCheckpointStore,
-} from './router.ts';
+  type GremlinRouterEnv,
+} from './gremlin-router.ts';
+import type { Route } from './route.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';
+import { CAPABILITY_PATH, HEALTH_PATH, OPENAPI_PATH, SMOKE_PATH } from './paths.ts';
 
 export {
   actionFetch,
@@ -42,7 +46,8 @@ export {
   ReviewProviderCooldownStore,
 };
 
-type RouterEnv = Parameters<typeof router.fetch>[1];
+// Env of the operator + companion segments below the gateway.
+export type OperatorEnv = Parameters<typeof companion.fetch>[1] & GremlinRouterEnv;
 
 interface WorkerVersionMetadataLike {
   id?: string;
@@ -50,16 +55,12 @@ interface WorkerVersionMetadataLike {
   timestamp?: string;
 }
 
-type Env = RouterEnv & ReviewServiceEnv & AnchorStorageEnv & {
+export type GatewayEnv = OperatorEnv & ReviewServiceEnv & AnchorStorageEnv & {
   CF_VERSION_METADATA?: WorkerVersionMetadataLike;
   CONTEXT7_API_KEY?: string;
   ENGRAM_API_KEY?: string;
 };
 
-const OPENAPI_PATH = '/gpt-actions/openapi.json';
-const CAPABILITY_PATH = '/gpt-actions/operator/capabilities';
-const SMOKE_PATH = '/gpt-actions/operator/smoke';
-const HEALTH_PATH = '/health';
 const RUNTIME_ROLE = 'shared-automation-worker';
 const RUNTIME_SUBSYSTEMS = [
   'kanarek-companion',
@@ -240,34 +241,39 @@ function smokeFailure(stage: string, response: Response, payload: JsonObject | n
   );
 }
 
-async function capabilityResponse(request: Request, env: Env): Promise<Response> {
+async function capabilityResponse(
+  request: Request,
+  env: GatewayEnv,
+  below: Below,
+): Promise<Response> {
   if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
-  const authorized = await router.fetch(
+  const authorized = await below(
     internalActionRequest(request, '/gpt-actions/github/read', 'POST', { path: '/user' }),
-    env,
   );
   if (!authorized.ok) return authorized;
   const document = gatewayOpenApi(new URL(request.url).origin);
   return json({ ok: true, ...(await gatewayManifest(document, env.CF_VERSION_METADATA)) });
 }
 
-async function operatorSmokeResponse(request: Request, env: Env): Promise<Response> {
+async function operatorSmokeResponse(
+  request: Request,
+  env: GatewayEnv,
+  below: Below,
+): Promise<Response> {
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
-  const identityResponse = await router.fetch(
+  const identityResponse = await below(
     internalActionRequest(request, '/gpt-actions/whoami', 'GET'),
-    env,
   );
   const identity = await responseObject(identityResponse);
   if (!identityResponse.ok || identity?.ok !== true) {
     return smokeFailure('identity', identityResponse, identity);
   }
 
-  const bootstrapResponse = await router.fetch(
+  const bootstrapResponse = await below(
     internalActionRequest(request, '/gpt-actions/operator/bootstrap', 'POST', {
       repository: SMOKE_REPOSITORY,
     }),
-    env,
   );
   const bootstrap = await responseObject(bootstrapResponse);
   if (!bootstrapResponse.ok || bootstrap?.ok !== true || !isObject(bootstrap.policy)) {
@@ -277,6 +283,7 @@ async function operatorSmokeResponse(request: Request, env: Env): Promise<Respon
   const capabilitiesResponse = await capabilityResponse(
     internalActionRequest(request, CAPABILITY_PATH, 'GET'),
     env,
+    below,
   );
   const capabilities = await responseObject(capabilitiesResponse);
   const openApi = isObject(capabilities?.openApi) ? capabilities.openApi : null;
@@ -303,11 +310,10 @@ async function operatorSmokeResponse(request: Request, env: Env): Promise<Respon
     );
   }
 
-  const repositoryResponse = await router.fetch(
+  const repositoryResponse = await below(
     internalActionRequest(request, '/gpt-actions/github/read', 'POST', {
       path: `/repos/${SMOKE_REPOSITORY}`,
     }),
-    env,
   );
   const repositoryPayload = await responseObject(repositoryResponse);
   const repository = isObject(repositoryPayload?.data) ? repositoryPayload.data : null;
@@ -356,10 +362,10 @@ async function operatorSmokeResponse(request: Request, env: Env): Promise<Respon
 
 async function decoratedHealth(
   request: Request,
-  env: Env,
-  ctx?: ExecutionContext,
+  env: GatewayEnv,
+  below: Below,
 ): Promise<Response> {
-  const response = await router.fetch(request, env, ctx);
+  const response = await below(request);
   if (request.method === 'HEAD') return response;
   let body: JsonObject;
   try {
@@ -389,78 +395,46 @@ async function decoratedHealth(
   }, response.status);
 }
 
-const worker = {
-  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname === ANCHOR_OPENAPI_PATH && request.method === 'GET') {
-      return json(anchorStorageOpenApi(url.origin));
-    }
-    if (url.pathname === MCP_PATH) {
-      const mcpResponse = await handleSpecialistMcp(
-        request,
-        env,
-        (internalRequest) => router.fetch(internalRequest, env, ctx),
-        actionFetch,
-      );
-      if (mcpResponse) return mcpResponse;
-    }
-    const reviewRouterResponse = await handleReviewRouterViaService(request, env);
-    if (reviewRouterResponse) return reviewRouterResponse;
-    if (url.pathname === OPENAPI_PATH && request.method === 'GET') {
-      return json(gatewayOpenApi(url.origin));
-    }
-    if (url.pathname === CAPABILITY_PATH) {
-      return capabilityResponse(request, env);
-    }
-    if (url.pathname === SMOKE_PATH) {
-      return operatorSmokeResponse(request, env);
-    }
-    if (url.pathname === HEALTH_PATH && (request.method === 'GET' || request.method === 'HEAD')) {
-      return decoratedHealth(request, env, ctx);
-    }
-    const docsResponse = await handleDocsAction(
-      request,
-      (internalRequest) => router.fetch(internalRequest, env, ctx),
-    );
-    if (docsResponse) return docsResponse;
-    const anchorResponse = await handleAnchorStorageAction(request, env, actionFetch);
-    if (anchorResponse) return anchorResponse;
-    const packageResponse = await handlePackageIntelligenceAction(
-      request,
-      (internalRequest) => router.fetch(internalRequest, env, ctx),
-      actionFetch,
-    );
-    if (packageResponse) return packageResponse;
-    const feedseekResponse = await handleFeedseekAction(
-      request,
-      env,
-      (internalRequest) => router.fetch(internalRequest, env, ctx),
-      actionFetch,
-    );
-    if (feedseekResponse) return feedseekResponse;
-    const context7Response = await handleContext7Action(
-      request,
-      env,
-      (internalRequest) => router.fetch(internalRequest, env, ctx),
-      actionFetch,
-    );
-    if (context7Response) return context7Response;
-    const engramResponse = await handleEngramAction(
-      request,
-      env,
-      (internalRequest) => router.fetch(internalRequest, env, ctx),
-      actionFetch,
-    );
-    if (engramResponse) return engramResponse;
-    const attentionResponse = await handleAccountAttentionAction(
-      request,
-      (internalRequest) => router.fetch(internalRequest, env, ctx),
-    );
-    if (attentionResponse) return attentionResponse;
-    const guidanceResponse = await handleAgentGuidanceAction(request, env, ctx);
-    if (guidanceResponse) return guidanceResponse;
-    return router.fetch(request, env, ctx);
-  },
-};
+type Below = (request: Request) => Promise<Response>;
 
-export default worker;
+// `below` dispatches to the operator + companion segments (see runtime.ts).
+export interface GatewayContext {
+  request: Request;
+  env: GatewayEnv;
+  below: Below;
+}
+
+function pathIs(request: Request, path: string): boolean {
+  return new URL(request.url).pathname === path;
+}
+
+// Order matters: first match wins; unmatched requests fall through to `below`.
+export const gatewayRoutes: readonly Route<GatewayContext>[] = [
+  ({ request }) =>
+    pathIs(request, ANCHOR_OPENAPI_PATH) && request.method === 'GET'
+      ? json(anchorStorageOpenApi(new URL(request.url).origin))
+      : null,
+  ({ request, env, below }) =>
+    pathIs(request, MCP_PATH) ? handleSpecialistMcp(request, env, below, actionFetch) : null,
+  ({ request, env }) => handleReviewRouterViaService(request, env),
+  ({ request }) =>
+    pathIs(request, OPENAPI_PATH) && request.method === 'GET'
+      ? json(gatewayOpenApi(new URL(request.url).origin))
+      : null,
+  ({ request, env, below }) =>
+    pathIs(request, CAPABILITY_PATH) ? capabilityResponse(request, env, below) : null,
+  ({ request, env, below }) =>
+    pathIs(request, SMOKE_PATH) ? operatorSmokeResponse(request, env, below) : null,
+  ({ request, env, below }) =>
+    pathIs(request, HEALTH_PATH) && (request.method === 'GET' || request.method === 'HEAD')
+      ? decoratedHealth(request, env, below)
+      : null,
+  ({ request, below }) => handleDocsAction(request, below),
+  ({ request, env }) => handleAnchorStorageAction(request, env, actionFetch),
+  ({ request, below }) => handlePackageIntelligenceAction(request, below, actionFetch),
+  ({ request, env, below }) => handleFeedseekAction(request, env, below, actionFetch),
+  ({ request, env, below }) => handleContext7Action(request, env, below, actionFetch),
+  ({ request, env, below }) => handleEngramAction(request, env, below, actionFetch),
+  ({ request, below }) => handleAccountAttentionAction(request, below),
+  ({ request, env, below }) => handleAgentGuidanceAction(request, env, below),
+];

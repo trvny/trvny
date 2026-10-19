@@ -5,7 +5,7 @@ import {
   classifyPullRequestSnapshot,
   maintenanceDelta,
 } from '../src/autopilot-actions.ts';
-import { customGptOpenApi } from '../src/router.ts';
+import { customGptOpenApi } from '../src/gremlin-router.ts';
 
 const CANDIDATE = {
   repository: 'trvny/feedseek',

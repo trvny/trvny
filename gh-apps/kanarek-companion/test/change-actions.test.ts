@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { branchPullRequestConflict } from '../src/change-actions.ts';
-import { customGptOpenApi } from '../src/router.ts';
+import { customGptOpenApi } from '../src/gremlin-router.ts';
 
 test('prepareChange is exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

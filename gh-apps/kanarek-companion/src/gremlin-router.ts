@@ -12,6 +12,7 @@ import { addCloudflareOpenApi, handleCloudflareAction } from './cloudflare-actio
 import { GithubActionError, githubGateway } from './github-gateway.ts';
 import { handleGptActions, openApiDocument } from './gpt-actions.ts';
 import { json } from './json-response.ts';
+import { firstMatch, type Route } from './route.ts';
 import { addInvestigationOpenApi, handleInvestigationAction } from './investigation-actions.ts';
 import { addIssueOpenApi, handleIssueAction } from './issue-actions.ts';
 import { addLifecycleOpenApi, handleLifecycleAction } from './lifecycle-actions.ts';
@@ -380,148 +381,97 @@ function actionException(error: unknown): Response {
   );
 }
 
+type OperatorContext = { request: Request; env: GremlinRouterEnv };
+type OperatorAction = (
+  request: Request,
+  env: GremlinRouterEnv,
+  fetcher: typeof fetch,
+) => Promise<Response | null>;
+
+const action =
+  (handle: OperatorAction): Route<OperatorContext> =>
+  ({ request, env }) =>
+    handle(request, env, actionFetch);
+
+function pathIs(request: Request, ...paths: string[]): boolean {
+  return paths.includes(new URL(request.url).pathname);
+}
+
+// Order matters: first match wins; the /gpt-actions catch-all goes last.
+export const operatorRoutes: readonly Route<OperatorContext>[] = [
+  ({ request }) => {
+    if (!pathIs(request, '/gpt-actions/openapi.json')) return null;
+    if (request.method !== 'GET') {
+      return Response.json({ error: 'method_not_allowed' }, { status: 405 });
+    }
+    return Response.json(customGptOpenApi(new URL(request.url).origin), {
+      headers: { 'cache-control': 'no-store' },
+    });
+  },
+  ({ request }) => {
+    if (!pathIs(request, OAUTH_AUTHORIZE_PATH)) return null;
+    if (request.method !== 'GET') {
+      return Response.json({ error: 'method_not_allowed' }, { status: 405 });
+    }
+    try {
+      return Response.redirect(githubOAuthAuthorizationUrl(request.url), 302);
+    } catch {
+      return Response.json({ error: 'invalid_oauth_authorize_request' }, { status: 400 });
+    }
+  },
+  // Autopilot and release orchestration require an authorized operator up front.
+  async ({ request, env }) => {
+    if (!pathIs(request, AUTOPILOT_ACTION_PATH, RELEASE_ORCHESTRATION_PATH)) return null;
+    try {
+      await githubGateway(request, env, actionFetch).read('/user');
+      return null;
+    } catch (error) {
+      return githubFailure(error);
+    }
+  },
+  action(handleBatchAction),
+  action(handlePolicyAction),
+  action(handleCloudflareAction),
+  action(handleResumableAutopilotAction),
+  action(handleAutopilotAction),
+  action(handleReleaseOrchestrationAction),
+  action(handleMergeReleasePolicyAction),
+  action(handlePolicyEnforcementAction),
+  action(handleEnhancedWorkflowDiagnosis),
+  action(handleOperatorAction),
+  action(handleLifecycleAction),
+  action(handleReleaseAction),
+  action(handleIssueAction),
+  action(handleChangeAction),
+  action(handleWorkflowAction),
+  action(handleInvestigationAction),
+  action(handleMaintenanceAutofixAction),
+  action(handleAccountMaintenanceAction),
+  action(handleMaintenanceAction),
+  async ({ request, env }) => {
+    if (!pathIs(request, BRANCH_DELETE_PATH)) return null;
+    try {
+      return await deleteBranchAction(request, env);
+    } catch (error) {
+      return actionException(error);
+    }
+  },
+  async ({ request, env }) => {
+    const { pathname } = new URL(request.url);
+    if (pathname !== '/gpt-actions' && !pathname.startsWith('/gpt-actions/')) return null;
+    try {
+      const restricted = await restrictedBotWriteResponse(request);
+      if (restricted) return restricted;
+      return await handleGptActions(await normalizeGptActionsRequest(request), env, actionFetch);
+    } catch (error) {
+      return actionException(error);
+    }
+  },
+];
+
 const worker = {
-  async fetch(
-    request: Request,
-    env: GremlinRouterEnv,
-  ): Promise<Response | null> {
-    const url = new URL(request.url);
-    if (url.pathname === '/gpt-actions/openapi.json') {
-      if (request.method !== 'GET') {
-        return Response.json({ error: 'method_not_allowed' }, { status: 405 });
-      }
-      return Response.json(customGptOpenApi(url.origin), {
-        headers: { 'cache-control': 'no-store' },
-      });
-    }
-    if (url.pathname === OAUTH_AUTHORIZE_PATH) {
-      if (request.method !== 'GET') {
-        return Response.json({ error: 'method_not_allowed' }, { status: 405 });
-      }
-      try {
-        return Response.redirect(githubOAuthAuthorizationUrl(request.url), 302);
-      } catch {
-        return Response.json({ error: 'invalid_oauth_authorize_request' }, { status: 400 });
-      }
-    }
-
-    if (
-      url.pathname === AUTOPILOT_ACTION_PATH ||
-      url.pathname === RELEASE_ORCHESTRATION_PATH
-    ) {
-      try {
-        await githubGateway(request, env, actionFetch).read('/user');
-      } catch (error) {
-        return githubFailure(error);
-      }
-    }
-
-    const batchResponse = await handleBatchAction(request, env, actionFetch);
-    if (batchResponse) return batchResponse;
-
-    const policyResponse = await handlePolicyAction(request, env, actionFetch);
-    if (policyResponse) return policyResponse;
-
-    const cloudflareResponse = await handleCloudflareAction(request, env, actionFetch);
-    if (cloudflareResponse) return cloudflareResponse;
-
-    const resumableAutopilotResponse = await handleResumableAutopilotAction(
-      request,
-      env,
-      actionFetch,
-    );
-    if (resumableAutopilotResponse) return resumableAutopilotResponse;
-
-    const autopilotResponse = await handleAutopilotAction(request, env, actionFetch);
-    if (autopilotResponse) return autopilotResponse;
-
-    const releaseOrchestrationResponse = await handleReleaseOrchestrationAction(
-      request,
-      env,
-      actionFetch,
-    );
-    if (releaseOrchestrationResponse) return releaseOrchestrationResponse;
-
-    const mergeReleasePolicyResponse = await handleMergeReleasePolicyAction(
-      request,
-      env,
-      actionFetch,
-    );
-    if (mergeReleasePolicyResponse) return mergeReleasePolicyResponse;
-
-    const policyEnforcementResponse = await handlePolicyEnforcementAction(
-      request,
-      env,
-      actionFetch,
-    );
-    if (policyEnforcementResponse) return policyEnforcementResponse;
-
-    const enhancedDiagnosisResponse = await handleEnhancedWorkflowDiagnosis(
-      request,
-      env,
-      actionFetch,
-    );
-    if (enhancedDiagnosisResponse) return enhancedDiagnosisResponse;
-
-    const operatorResponse = await handleOperatorAction(request, env, actionFetch);
-    if (operatorResponse) return operatorResponse;
-
-    const lifecycleResponse = await handleLifecycleAction(request, env, actionFetch);
-    if (lifecycleResponse) return lifecycleResponse;
-
-    const releaseResponse = await handleReleaseAction(request, env, actionFetch);
-    if (releaseResponse) return releaseResponse;
-
-    const issueResponse = await handleIssueAction(request, env, actionFetch);
-    if (issueResponse) return issueResponse;
-
-    const changeResponse = await handleChangeAction(request, env, actionFetch);
-    if (changeResponse) return changeResponse;
-
-    const workflowResponse = await handleWorkflowAction(request, env, actionFetch);
-    if (workflowResponse) return workflowResponse;
-
-    const investigationResponse = await handleInvestigationAction(request, env, actionFetch);
-    if (investigationResponse) return investigationResponse;
-
-    const maintenanceAutofixResponse = await handleMaintenanceAutofixAction(
-      request,
-      env,
-      actionFetch,
-    );
-    if (maintenanceAutofixResponse) return maintenanceAutofixResponse;
-
-    const accountMaintenanceResponse = await handleAccountMaintenanceAction(
-      request,
-      env,
-      actionFetch,
-    );
-    if (accountMaintenanceResponse) return accountMaintenanceResponse;
-
-    const maintenanceResponse = await handleMaintenanceAction(request, env, actionFetch);
-    if (maintenanceResponse) return maintenanceResponse;
-
-    if (url.pathname === BRANCH_DELETE_PATH) {
-      try {
-        return await deleteBranchAction(request, env);
-      } catch (error) {
-        return actionException(error);
-      }
-    }
-    if (url.pathname === '/gpt-actions' || url.pathname.startsWith('/gpt-actions/')) {
-      try {
-        const restricted = await restrictedBotWriteResponse(request);
-        if (restricted) return restricted;
-        return await handleGptActions(
-          await normalizeGptActionsRequest(request),
-          env,
-          actionFetch,
-        );
-      } catch (error) {
-        return actionException(error);
-      }
-    }
-    return null;
+  fetch(request: Request, env: GremlinRouterEnv): Promise<Response | null> {
+    return firstMatch(operatorRoutes, { request, env });
   },
 };
 

@@ -6,7 +6,7 @@ import {
   matchingClosedPullRequestNumber,
   workflowAutofixCandidate,
 } from '../src/maintenance-autofix.ts';
-import { customGptOpenApi } from '../src/router.ts';
+import { customGptOpenApi } from '../src/gremlin-router.ts';
 
 test('maintenance autofix is exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

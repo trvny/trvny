@@ -6,7 +6,7 @@ import {
   summarizeCi,
   type FinalizeSnapshot,
 } from '../src/operator-actions.ts';
-import { customGptOpenApi } from '../src/router.ts';
+import { customGptOpenApi } from '../src/gremlin-router.ts';
 
 function snapshot(overrides: Partial<FinalizeSnapshot> = {}): FinalizeSnapshot {
   return {

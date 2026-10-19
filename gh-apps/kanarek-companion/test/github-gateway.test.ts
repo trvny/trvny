@@ -154,3 +154,11 @@ test('bot policy and size failures match route before any bot call', async () =>
   assert.deepEqual(await viaGateway(() => github.bot('POST', path, body)), tooLarge);
   assert.equal(tooLarge.status, 413);
 });
+
+test('readOptional propagates a 404 from the auth check', async () => {
+  const fetcher = (async () => Response.json({ message: 'Not Found' }, { status: 404 })) as typeof fetch;
+  await assert.rejects(
+    githubGateway(source(), env, fetcher).readOptional('/repos/trvny/trvny'),
+    { code: 'github_404_Not Found', status: 404 },
+  );
+});

@@ -340,7 +340,7 @@ export async function graphqlAuthorized(
 
 export interface GithubGateway {
   read(path: string): Promise<unknown>;
-  // null when the read failed with status 404.
+  // null when the resource read returns 404.
   readOptional(path: string): Promise<{ data: unknown } | null>;
   graphql(query: string, variables?: JsonObject): Promise<unknown>;
   bot(method: string, path: string, body?: unknown): Promise<unknown>;
@@ -378,14 +378,16 @@ export function githubGateway(
   const read = (path: string) => authorized((token) => readAuthorized(token, path, fetcher));
   return {
     read,
-    readOptional: async (path) => {
-      try {
-        return { data: await read(path) };
-      } catch (error) {
-        if (error instanceof GithubActionError && error.status === 404) return null;
-        throw error;
-      }
-    },
+    // 404 from the resource only; auth failures propagate.
+    readOptional: (path) =>
+      authorized(async (token) => {
+        try {
+          return { data: await readAuthorized(token, path, fetcher) };
+        } catch (error) {
+          if (error instanceof GithubActionError && error.status === 404) return null;
+          throw error;
+        }
+      }),
     graphql: (query, variables) =>
       authorized((token) => {
         capped({ query, ...(variables === undefined ? {} : { variables }) });

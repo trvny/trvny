@@ -537,6 +537,30 @@ test('provider sweep accepts a clean review without asking anyone else', async (
   assert.equal(result.disposition, 'clean');
 });
 
+test('a clean partial Groq scan cannot certify the entire PR', async () => {
+  const seen: string[][] = [];
+  const result = await sweepReviewProviders((excluded) => {
+    seen.push([...excluded]);
+    return Promise.resolve<ReviewRouterOutcome>(excluded.length === 0
+      ? { kind: 'ok', review: { model: 'gpt-oss-120b', provider: 'groq', partial: true, parsed: { summary: '', findings: [] } } }
+      : { kind: 'ok', review: { model: 'gpt-oss:120b', provider: 'ollama', parsed: { summary: '', findings: [] } } });
+  }, sweepFiles);
+  assert.equal(result.generated?.provider, 'ollama');
+  assert.equal(result.disposition, 'clean');
+  assert.deepEqual(seen, [[], ['groq']]);
+});
+
+test('a lone clean partial Groq scan remains inconclusive', async () => {
+  const responses: ReviewRouterOutcome[] = [
+    { kind: 'ok', review: { model: 'gpt-oss-120b', provider: 'groq', partial: true, parsed: { summary: '', findings: [] } } },
+    { kind: 'unavailable' },
+  ];
+  const result = await sweepReviewProviders(() =>
+    Promise.resolve(responses.shift() ?? { kind: 'unavailable' }), sweepFiles);
+  assert.equal(result.generated, null);
+  assert.equal(result.disposition, null);
+});
+
 test('provider sweep cannot loop on an unidentified or repeated provider', async () => {
   let calls = 0;
   const unknown = await sweepReviewProviders(() => {
@@ -554,11 +578,11 @@ test('provider sweep cannot loop on an unidentified or repeated provider', async
   assert.equal(calls, 2);
 });
 
-test('free review sweep budget defaults to ten minutes and stays below the alarm ceiling', () => {
-  assert.equal(reviewFreeSweepBudgetMs(undefined), 10 * 60_000);
+test('free review sweep stays below the 15-minute alarm wall-time ceiling', () => {
+  assert.equal(reviewFreeSweepBudgetMs(undefined), 13 * 60_000 + 30_000);
   assert.equal(reviewFreeSweepBudgetMs('60000'), 60_000);
   assert.equal(reviewFreeSweepBudgetMs(String(12 * 60_000)), 12 * 60_000);
-  assert.equal(reviewFreeSweepBudgetMs(String(13 * 60_000)), 10 * 60_000);
+  assert.equal(reviewFreeSweepBudgetMs(String(15 * 60_000)), 13 * 60_000 + 30_000);
 });
 
 test('provider sweep respects attempt and time budgets', async () => {
@@ -569,7 +593,7 @@ test('provider sweep respects attempt and time budgets', async () => {
     clock += 4 * 60_000;
     return Promise.resolve<ReviewRouterOutcome>({ kind: 'invalid', provider: `p${calls}` });
   }, sweepFiles, { now: () => clock });
-  assert.equal(calls, 3);
+  assert.equal(calls, 4);
 
   calls = 0;
   await sweepReviewProviders(() => {

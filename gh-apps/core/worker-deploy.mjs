@@ -1,5 +1,6 @@
 // Workers Builds deploy guard shared by gh-apps Worker deploy scripts.
 // Upload a version, recheck freshness right before activating it, verify live,
+// apply triggers (routes/crons),
 // roll back by version id, and let the newest build reclaim the Worker if an
 // older concurrent build activated after it. Version message carries
 // `commit=<sha> ts=<committer unix time>`.
@@ -112,11 +113,18 @@ export async function guardedDeploy(
     console.log(`${name}: ${sha} superseded by active ${current.mark.sha} before activation; skipping.`);
     return 0;
   }
+  if (current && current.versionId !== previous.versionId && !current.mark) {
+    // Non-build activation meanwhile (e.g. credential sync): our upload may predate it.
+    console.error(`${name}: concurrent non-build deployment ${current.versionId}; not activating ${sha}. Re-run the build.`);
+    return 1;
+  }
   const activate = () =>
     wrangler(['versions', 'deploy', `${versionId}@100%`, '--name', name, '--message', message, '--yes']);
   activate();
 
   if (await verify()) {
+    // versions upload/deploy never touch routes, domains or crons.
+    wrangler(['triggers', 'deploy', '--name', name]);
     // An older build that passed its recheck just before we activated may land after us.
     await wait(SETTLE_MS);
     const after = active(wrangler, name);

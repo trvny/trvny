@@ -162,6 +162,13 @@ jobs:
             sleep 5
           done
 
+          active_now=$(npx --no-install wrangler deployments status \
+            --name kanarek-companion --json |
+            jq -r '.versions | max_by(.percentage) | .version_id')
+          if [ "$active_now" != "$version_id" ]; then
+            echo "Credential sync unverified, but $active_now replaced it (Workers Builds?); not rolling back." >&2
+            exit 1
+          fi
           echo "Credential sync deployed, but the tagged Worker did not become healthy; rolling back." >&2
           if ! npx --no-install wrangler versions deploy \
             "${previous_specs[@]}" \

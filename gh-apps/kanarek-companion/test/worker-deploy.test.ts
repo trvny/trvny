@@ -54,6 +54,7 @@ function wrangler(state: Fake) {
       state.onActivate?.(state);
       return '';
     }
+    if (command === 'triggers deploy') return '';
     if (args[0] === 'deploy') {
       state.active = [{ version_id: create(), percentage: 100 }];
       return '';
@@ -76,6 +77,7 @@ test('healthy deploy uploads, activates and keeps our version', async () => {
   assert.equal(await run(state, true), 0);
   assert.equal(activeSha(state), OURS);
   assert.ok(state.calls.includes('versions upload'));
+  assert.ok(state.calls.includes('triggers deploy'));
 });
 
 test('superseded build skips without touching the Worker', async () => {
@@ -139,4 +141,25 @@ test('status lookup errors abort before publishing', async () => {
     /Authentication error/,
   );
   assert.deepEqual(state.calls, []);
+});
+
+test('concurrent non-build activation (credential sync) blocks activation', async () => {
+  const state = fake(OLD);
+  const base = wrangler(state);
+  const racing = (args: string[]) => {
+    const out = base(args);
+    if (args[0] === 'versions' && args[1] === 'upload') {
+      state.messages['00000000-0000-0000-0000-0000000000ee'] = 'Kanarek credential sync 1.1';
+      state.active = [{ version_id: '00000000-0000-0000-0000-0000000000ee', percentage: 100 }];
+    }
+    return out;
+  };
+  assert.equal(
+    await guardedDeploy(
+      { name: 'w', sha: OURS, verify: async () => true },
+      { wrangler: racing, commitTime: (s: string) => TS[s], wait: async () => {} },
+    ),
+    1,
+  );
+  assert.equal(state.active[0].version_id, '00000000-0000-0000-0000-0000000000ee');
 });

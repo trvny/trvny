@@ -397,10 +397,6 @@ export async function refreshCompanion(
       area: quipFacts.area,
       size: prSize.key,
       previousQuip: previousLearnedQuip || null,
-      context: {
-        title: sanitize(pr.title ?? '') || null,
-        body: sanitize(pr.body ?? '') || null,
-      },
     });
     const generated = reusableQuip(await aiQuip(facts, env, fetcher), language);
     if (generated) {

@@ -56,6 +56,10 @@ Keep these concepts separate:
 - receipt: short-lived idempotency record for an AI result;
 - preset: built-in fallback that is never stored.
 
+The AI quip prompt carries only `quipKey` facts (status, blockers, area, size,
+language) plus the previous quip. No PR title/body: a banked quip is replayed on
+every PR with the same `quipKey`, so PR-specific wording leaks across PRs.
+
 A generated quip is archived before GitHub mutation. If receipt persistence
 fails, active-bank persistence is attempted before GitHub work so a paid result
 still has durable protection.

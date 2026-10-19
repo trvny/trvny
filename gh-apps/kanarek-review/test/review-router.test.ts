@@ -2479,6 +2479,71 @@ test('review router bounds a stalled AIHubMix preview', async () => {
   assert.equal(response?.status, 502);
 });
 
+test('router falls through inactive providers even on unexpected client HTTP statuses', async () => {
+  for (const status of [405, 410, 415, 418]) {
+    const calls: string[] = [];
+    const response = await handleReviewRouterRequest(request(routerToken, {
+      model: 'kanarek-review-free',
+      stream: false,
+      messages: [{ role: 'user', content: 'review code' }],
+    }), {
+      ...auth,
+      OPENROUTER_API_KEY: 'openrouter-key',
+      ORCAROUTER_API_KEY: 'orca-key',
+    }, ((input: RequestInfo | URL) => {
+      const url = String(input);
+      calls.push(url);
+      return Promise.resolve(url.includes('openrouter.ai')
+        ? new Response('inactive', { status })
+        : Response.json({ choices: [{ message: { role: 'assistant', content: 'fallback ok' } }] }));
+    }) as typeof fetch);
+    assert.equal(response?.status, 200, `status ${status}`);
+    assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+    assert.deepEqual(calls, [
+      'https://openrouter.ai/api/v1/chat/completions',
+      'https://api.orcarouter.ai/v1/chat/completions',
+    ]);
+  }
+});
+
+test('unavailable providers enter cooldown while healthy fallbacks still answer', async () => {
+  const cooldowns = cooldownNamespace();
+  const calls: string[] = [];
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+  };
+  const fetcher = ((input: RequestInfo | URL) => {
+    const url = String(input);
+    calls.push(url);
+    return Promise.resolve(url.includes('openrouter.ai')
+      ? new Response('disabled', { status: 405 })
+      : Response.json({ choices: [{ message: { role: 'assistant', content: 'ready' } }] }));
+  }) as typeof fetch;
+  const body = { model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'x' }] };
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  assert.deepEqual(calls, [
+    'https://openrouter.ai/api/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
+    'https://api.orcarouter.ai/v1/chat/completions',
+  ]);
+});
+
+test('exhausted inactive providers report aggregate failure, not a premature configuration error', async () => {
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'review' }],
+  }), { ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key' },
+  (() => Promise.resolve(new Response('inactive', { status: 405 }))) as typeof fetch);
+  assert.equal(response?.status, 502);
+  const payload = (await response?.json()) as { error?: { code?: string; message?: string } };
+  assert.equal(payload.error?.code, 'review_router_exhausted');
+  assert.match(payload.error?.message ?? '', /openrouter:http_405/);
+  assert.match(payload.error?.message ?? '', /orcarouter:http_405/);
+});
+
 test('review router returns an upstream 400 as an invalid client request', async () => {
   let calls = 0;
   const response = await handleReviewRouterRequest(request(), {

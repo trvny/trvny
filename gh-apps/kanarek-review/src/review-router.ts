@@ -1111,7 +1111,13 @@ function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | nu
     category === 'timeout' ||
     category === 'network' ||
     category === 'preview_timeout' ||
+    category === 'invalid_response' ||
+    category === 'http_404' ||
+    category === 'http_405' ||
     category === 'http_408' ||
+    category === 'http_410' ||
+    category === 'http_415' ||
+    category === 'http_422' ||
     category === 'http_409' ||
     category === 'http_425' ||
     /^http_5\d\d$/.test(category)
@@ -1437,22 +1443,6 @@ function isQuotaFailure(category: string): boolean {
     normalized === 'http_403_billing_cap' ||
     normalized === 'http_429' ||
     normalized === 'http_429_quota';
-}
-
-function retryableStatus(status: number): boolean {
-  return (
-    status === 401 ||
-    status === 402 ||
-    status === 403 ||
-    status === 404 ||
-    status === 408 ||
-    status === 409 ||
-    status === 413 ||
-    status === 422 ||
-    status === 425 ||
-    status === 429 ||
-    status >= 500
-  );
 }
 
 function upstreamResponse(response: Response, provider: ReviewProvider): Response {
@@ -2086,17 +2076,9 @@ export async function handleReviewRouterRequest(
         )) {
           continue;
         }
-        if (
-          status === 400 ||
-          retryableStatus(status) ||
-          providerFailureCategory === 'http_403_billing_cap'
-        ) break;
-        failures.push(diagnostic(provider, providerFailureCategory));
-        return jsonError(
-          diagnosticMessage('Review provider configuration failed', failures),
-          'provider_configuration_error',
-          502,
-        );
+        // Every upstream rejection belongs to this provider, not the caller.
+        // Fail over even on unexpected 4xx codes (e.g. disabled endpoint).
+        break;
       } catch (error) {
         const category = error instanceof DOMException && error.name === 'AbortError' ? 'timeout' : 'network';
         providerFailureCategory = category;

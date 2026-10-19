@@ -226,14 +226,11 @@ test('apply_patch preserves executable mode and advances to the new commit', asy
           size: 7,
         } as T;
       }
-      if (operation === 'gptomek_create_blob') {
-        assert.equal(requestBody(init).content, 'after\n');
-        return { sha: 'd'.repeat(40) } as T;
-      }
       if (operation === 'gptomek_create_tree') {
         const body = requestBody(init);
         const tree = body.tree as Array<Record<string, unknown>>;
         assert.equal(tree[0].mode, '100755');
+        assert.equal(tree[0].content, 'after\n');
         return { sha: 'e'.repeat(40) } as T;
       }
       if (operation === 'gptomek_create_commit') {
@@ -279,7 +276,7 @@ test('apply_patch preserves a UTF-8 BOM when an untouched prefix remains', async
   const expected = '1'.repeat(40);
   const newCommit = '2'.repeat(40);
   const source = '\uFEFFone\ntwo\n';
-  let blobContent = '';
+  let treeContent = '';
 
   const client = {
     async json<T>(_path: string, operation: string, init?: RequestInit): Promise<T> {
@@ -303,11 +300,9 @@ test('apply_patch preserves a UTF-8 BOM when an untouched prefix remains', async
           size: Buffer.byteLength(source),
         } as T;
       }
-      if (operation === 'gptomek_create_blob') {
-        blobContent = String(requestBody(init).content);
-        return { sha: '4'.repeat(40) } as T;
-      }
       if (operation === 'gptomek_create_tree') {
+        const tree = requestBody(init).tree as Array<Record<string, unknown>>;
+        treeContent = String(tree[0].content);
         return { sha: '5'.repeat(40) } as T;
       }
       if (operation === 'gptomek_create_commit') {
@@ -335,7 +330,7 @@ test('apply_patch preserves a UTF-8 BOM when an untouched prefix remains', async
     ].join('\n'),
   });
 
-  assert.equal(blobContent, '\uFEFFone\nTWO\n');
+  assert.equal(treeContent, '\uFEFFone\nTWO\n');
 });
 
 test('apply_patch honors executable mode on a new empty file', async () => {
@@ -357,14 +352,11 @@ test('apply_patch honors executable mode on a new empty file', async () => {
       if (operation === 'gptomek_get_patch_file') {
         throw new GitHubApiError(operation, 404);
       }
-      if (operation === 'gptomek_create_blob') {
-        assert.equal(requestBody(init).content, '');
-        return { sha: '9'.repeat(40) } as T;
-      }
       if (operation === 'gptomek_create_tree') {
         const body = requestBody(init);
         const tree = body.tree as Array<Record<string, unknown>>;
         treeMode = tree[0].mode;
+        assert.equal(tree[0].content, '');
         return { sha: 'a'.repeat(40) } as T;
       }
       if (operation === 'gptomek_create_commit') {

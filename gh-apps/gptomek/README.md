@@ -59,8 +59,8 @@ Four rules prevent most foot-guns:
 3. Before a later branch mutation, read the live head again. Do not chain a new
    command from stale PR metadata, a cached branch SHA or a guessed previous
    result.
-4. A `batch` step must omit both `id` and `repository`; GPTomek derives the step
-   IDs from the outer command and injects the outer repository.
+4. A `batch` uses a **`steps` array**, not `commands`. Each step must omit
+   `id` and `repository`; GPTomek derives both from the outer command.
 
 ## Preferred PR merge flow
 
@@ -112,6 +112,8 @@ personal Codespaces token, security controls and first-run steps are in
   with 👎 for seven days, then the daily Actions cleanup removes them without
   replay. Keep the same ID and input for safe retries, but investigate
   `command_outcome_uncertain` rather than replaying it.
+- `gptomek_create_blob:500` comes from GitHub's Git-object API, not the JSON
+  parser. Small text changes now use inline tree content to avoid this call.
 - For a failed command, check the comment workflow, the Worker's
   `/gptomek/wake` response and logs, then the repository's live state.
 - Strict `apply_patch` and `review_fix` hunks must match the actual base,

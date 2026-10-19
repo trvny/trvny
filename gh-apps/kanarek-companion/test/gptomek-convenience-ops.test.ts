@@ -21,7 +21,6 @@ function body(init: RequestInit | undefined): Record<string, unknown> {
 test('branch_from_patch creates a bot commit before creating the branch ref', async () => {
   const baseSha = '1'.repeat(40);
   const baseTree = '2'.repeat(40);
-  const blobSha = '3'.repeat(40);
   const treeSha = '4'.repeat(40);
   const commitSha = '5'.repeat(40);
   const calls: string[] = [];
@@ -44,10 +43,6 @@ test('branch_from_patch creates a bot commit before creating the branch ref', as
       if (operation === 'gptomek_get_patch_file') {
         throw new GitHubApiError(operation, 404);
       }
-      if (operation === 'gptomek_create_blob') {
-        assert.equal(body(init).content, 'hello\n');
-        return { sha: blobSha } as T;
-      }
       if (operation === 'gptomek_create_tree') {
         const value = body(init);
         assert.equal(value.base_tree, baseTree);
@@ -56,7 +51,7 @@ test('branch_from_patch creates a bot commit before creating the branch ref', as
             path: 'hello.txt',
             mode: '100644',
             type: 'blob',
-            sha: blobSha,
+            content: 'hello\n',
           },
         ]);
         return { sha: treeSha } as T;

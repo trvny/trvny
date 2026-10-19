@@ -25,7 +25,13 @@ export function prepareGroqFreeReview(input: Json): GroqPreparedInput | null {
 
   if (!fits(request) && Array.isArray(request.messages)) {
     const messages = request.messages;
-    const index = messages.findLastIndex((item) => isObject(item) && item.role === 'user');
+    let index = -1;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (isObject(messages[i]) && messages[i].role === 'user') {
+        index = i;
+        break;
+      }
+    }
     const message = messages[index];
     if (index >= 0 && isObject(message) && typeof message.content === 'string') {
       let payload: unknown;

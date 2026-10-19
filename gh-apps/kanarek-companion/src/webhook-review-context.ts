@@ -495,7 +495,7 @@ export function reviewInputState(
   const missingPatch = reviewableFiles.some(
     (file) =>
       (typeof file.patch !== 'string' || file.patch.length === 0) &&
-      !knownBinaryAsset(file.filename),
+      !knownBinaryAsset(file.filename ?? ''),
   );
   if (missingPatch) return 'patch_unavailable';
   return selectedCount > 0 ? 'reviewable' : 'no_code_diff';

@@ -2,7 +2,8 @@ import {
   DEPENDENCY_GRAPH_PATH,
   handleDependencyGraphAction,
 } from './dependency-graph.ts';
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, internalReadRequest, DetailedCodedError } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, DetailedCodedError } from './tools/common.ts';
+import { type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 export const FOCUSED_CODE_REVIEW_PATH = '/gpt-actions/operator/code-review';
@@ -29,7 +30,6 @@ export type FocusedReviewInput = {
   targetPaths?: string[];
 };
 
-type Invoke = (request: Request) => Promise<Response>;
 type ChangedFile = {
   path: string;
   previousPath: string | null;
@@ -129,17 +129,11 @@ async function responseObject(response: Response): Promise<JsonObject> {
   return value;
 }
 
-async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const response = await invoke(internalReadRequest(source, path));
-  const payload = await responseObject(response);
-  if (!response.ok || payload.ok !== true) {
-    throw new FocusedReviewError(
-      typeof payload.error === 'string' ? payload.error : `read_${response.status}`,
-      response.status,
-      { readPath: path, readStatus: response.status },
-    );
-  }
-  return payload.data;
+function readData(github: GithubGateway, path: string): Promise<unknown> {
+  return mapGithubError(
+    github.read(path),
+    (code, status) => new FocusedReviewError(code, status, { readPath: path, readStatus: status }),
+  );
 }
 
 function likelyTestPath(path: string): boolean {
@@ -252,7 +246,7 @@ function graphIncomplete(payload: JsonObject | null): boolean {
 
 async function dependencyGraph(
   source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   input: FocusedReviewInput,
   path: string,
   ref: string,
@@ -265,7 +259,7 @@ async function dependencyGraph(
       maxCallers: MAX_CALLERS,
       maxCandidates: MAX_DEPENDENCY_CANDIDATES,
     }),
-    invoke,
+    github,
   );
   if (!response) throw new FocusedReviewError('dependency_route_missing', 502);
   if (!response.ok) return null;
@@ -279,7 +273,7 @@ async function dependencyGraph(
 
 async function dependencyEvidence(
   source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   input: FocusedReviewInput,
   files: ChangedFile[],
 ): Promise<DependencyEvidence[]> {
@@ -302,7 +296,7 @@ async function dependencyEvidence(
     if (basePath) {
       if (remainingGraphCalls > 0) {
         remainingGraphCalls -= 1;
-        before = await dependencyGraph(source, invoke, input, basePath, input.baseSha);
+        before = await dependencyGraph(source, github, input, basePath, input.baseSha);
       } else {
         budgetLimited = true;
       }
@@ -310,7 +304,7 @@ async function dependencyEvidence(
     if (headPath) {
       if (remainingGraphCalls > 0) {
         remainingGraphCalls -= 1;
-        after = await dependencyGraph(source, invoke, input, headPath, input.headSha);
+        after = await dependencyGraph(source, github, input, headPath, input.headSha);
       } else {
         budgetLimited = true;
       }
@@ -386,14 +380,14 @@ export function reviewLensSummary(
 
 export async function buildFocusedCodeReview(
   source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   input: FocusedReviewInput,
 ): Promise<JsonObject> {
   const repo = repoPath(input.repository);
   const [baseCommit, headCommit, compare] = await Promise.all([
-    readData(source, invoke, `/repos/${repo}/commits/${input.baseSha}`),
-    readData(source, invoke, `/repos/${repo}/commits/${input.headSha}`),
-    readData(source, invoke, `/repos/${repo}/compare/${input.baseSha}...${input.headSha}`),
+    readData(github, `/repos/${repo}/commits/${input.baseSha}`),
+    readData(github, `/repos/${repo}/commits/${input.headSha}`),
+    readData(github, `/repos/${repo}/compare/${input.baseSha}...${input.headSha}`),
   ]);
   const resolvedBase = isObject(baseCommit) ? stringOrNull(baseCommit.sha) : null;
   const resolvedHead = isObject(headCommit) ? stringOrNull(headCommit.sha) : null;
@@ -409,7 +403,7 @@ export async function buildFocusedCodeReview(
 
   const files = changedFiles(compare.files);
   if (!files.length) throw new FocusedReviewError('empty_code_review', 409);
-  const dependencies = await dependencyEvidence(source, invoke, input, files);
+  const dependencies = await dependencyEvidence(source, github, input, files);
   const lenses = reviewLensSummary(files, dependencies, input.targetPaths);
   const scope = isObject(lenses.scope) ? lenses.scope : {};
   const additions = files.reduce((sum, file) => sum + file.additions, 0);
@@ -510,13 +504,13 @@ export function addFocusedCodeReviewOpenApi(document: JsonObject): void {
 
 export async function handleFocusedCodeReviewAction(
   request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
 ): Promise<Response | null> {
   if (new URL(request.url).pathname !== FOCUSED_CODE_REVIEW_PATH) return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
   try {
     const raw = await inputObject(request);
-    return json(await buildFocusedCodeReview(request, invoke, parseInput(raw)));
+    return json(await buildFocusedCodeReview(request, github, parseInput(raw)));
   } catch (error) {
     if (error instanceof FocusedReviewError) {
       return json({ ...error.details, ok: false, error: error.code }, error.status);

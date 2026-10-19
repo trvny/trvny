@@ -1,5 +1,6 @@
 import { searchLlmsDocs, type RemoteFetch } from './llms-docs.ts';
-import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope, CodedError } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, repositoryInScope, CodedError } from './tools/common.ts';
+import { GithubActionError, type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 const INDEX_PATH = '/gpt-actions/docs/index';
@@ -11,38 +12,25 @@ const MAX_DOC_BYTES = 192_000;
 const MAX_INDEX_LIMIT = 160;
 const MAX_SEARCH_LIMIT = 10;
 
-type Invoke = (request: Request) => Promise<Response>;
 
 class DocsActionError extends CodedError {}
 
-async function responseObject(response: Response): Promise<JsonObject | null> {
+async function authorizeOperator(github: GithubGateway): Promise<Response | null> {
+  let data: unknown;
   try {
-    const value: unknown = await response.clone().json();
-    return isObject(value) ? value : null;
-  } catch {
-    return null;
+    data = await github.read('/user');
+  } catch (error) {
+    if (error instanceof GithubActionError) return json(error.envelope(), error.status);
+    throw error;
   }
-}
-
-async function authorizeOperator(request: Request, invoke: Invoke): Promise<Response | null> {
-  const response = await invoke(internalReadRequest(request, '/user'));
-  if (!response.ok) return response;
-  const payload = await responseObject(response);
-  const data = payload && isObject(payload.data) ? payload.data : null;
-  if (!payload || payload.ok !== true || data?.login !== EXPECTED_OPERATOR) {
+  if (!isObject(data) || data.login !== EXPECTED_OPERATOR) {
     return json({ ok: false, error: 'operator_not_allowed' }, 403);
   }
   return null;
 }
 
-async function githubRead(request: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const response = await invoke(internalReadRequest(request, path));
-  const payload = await responseObject(response);
-  if (!response.ok || !payload || payload.ok !== true) {
-    const code = typeof payload?.error === 'string' ? payload.error : 'docs_github_read_failed';
-    throw new DocsActionError(code, response.status >= 400 ? response.status : 502);
-  }
-  return payload.data;
+function githubRead(github: GithubGateway, path: string): Promise<unknown> {
+  return mapGithubError(github.read(path), (code, status) => new DocsActionError(code, status));
 }
 
 async function inputObject(request: Request): Promise<JsonObject> {
@@ -150,24 +138,22 @@ function decodeBase64Utf8(value: string): string {
 }
 
 async function resolveRef(
-  request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repository: string,
   ref: string | null,
 ): Promise<string> {
   if (ref) return ref;
-  const metadata = await githubRead(request, invoke, `/repos/${repoPath(repository)}`);
+  const metadata = await githubRead(github, `/repos/${repoPath(repository)}`);
   return defaultBranch(metadata);
 }
 
-async function indexAction(request: Request, invoke: Invoke, input: JsonObject): Promise<Response> {
+async function indexAction(github: GithubGateway, input: JsonObject): Promise<Response> {
   const repository = repositoryValue(input.repository);
   const limit = boundedInteger(input.limit, 'limit', 80, MAX_INDEX_LIMIT);
-  const metadata = await githubRead(request, invoke, `/repos/${repoPath(repository)}`);
+  const metadata = await githubRead(github, `/repos/${repoPath(repository)}`);
   const ref = defaultBranch(metadata);
   const tree = await githubRead(
-    request,
-    invoke,
+    github,
     `/repos/${repoPath(repository)}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
   );
   if (!isObject(tree) || !Array.isArray(tree.tree)) {
@@ -199,13 +185,12 @@ async function indexAction(request: Request, invoke: Invoke, input: JsonObject):
   });
 }
 
-async function getDocAction(request: Request, invoke: Invoke, input: JsonObject): Promise<Response> {
+async function getDocAction(github: GithubGateway, input: JsonObject): Promise<Response> {
   const repository = repositoryValue(input.repository);
   const path = filePathValue(input.path);
-  const ref = await resolveRef(request, invoke, repository, refValue(input.ref));
+  const ref = await resolveRef(github, repository, refValue(input.ref));
   const data = await githubRead(
-    request,
-    invoke,
+    github,
     `/repos/${repoPath(repository)}/contents/${contentPath(path)}?ref=${encodeURIComponent(ref)}`,
   );
   if (!isObject(data) || data.type !== 'file') throw new DocsActionError('document_not_found', 404);
@@ -237,8 +222,7 @@ function searchRepository(value: unknown): string | null {
 }
 
 async function searchAction(
-  request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   input: JsonObject,
   fetchRemote: RemoteFetch,
 ): Promise<Response> {
@@ -254,8 +238,7 @@ async function searchAction(
   const scope = repository ? `repo:${repository}` : 'user:trvny org:travnie';
   const search = `${query} ${scope}`;
   const data = await githubRead(
-    request,
-    invoke,
+    github,
     `/search/code?q=${encodeURIComponent(search)}&per_page=100`,
   );
   if (!isObject(data) || !Array.isArray(data.items)) {
@@ -296,7 +279,7 @@ async function searchAction(
 
 export async function handleDocsAction(
   request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   fetchRemote: RemoteFetch = (input, init) => fetch(input, init),
 ): Promise<Response | null> {
   const pathname = new URL(request.url).pathname;
@@ -304,13 +287,13 @@ export async function handleDocsAction(
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
 
   try {
-    const unauthorized = await authorizeOperator(request, invoke);
+    const unauthorized = await authorizeOperator(github);
     if (unauthorized) return unauthorized;
 
     const input = await inputObject(request);
-    if (pathname === INDEX_PATH) return await indexAction(request, invoke, input);
-    if (pathname === SEARCH_PATH) return await searchAction(request, invoke, input, fetchRemote);
-    return await getDocAction(request, invoke, input);
+    if (pathname === INDEX_PATH) return await indexAction(github, input);
+    if (pathname === SEARCH_PATH) return await searchAction(github, input, fetchRemote);
+    return await getDocAction(github, input);
   } catch (error) {
     if (error instanceof DocsActionError) return json({ ok: false, error: error.code }, error.status);
     console.error(JSON.stringify({ docsActions: 'failed', error: error instanceof Error ? error.message : 'unknown_error' }));

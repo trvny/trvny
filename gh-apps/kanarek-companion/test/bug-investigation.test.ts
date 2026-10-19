@@ -14,6 +14,7 @@ import {
   extractBugSymbols,
   workflowEvidenceText,
 } from '../src/bug-investigation.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('bug symbols prioritize explicit hints and stack frames', () => {
   const text = `TypeError: boom\n    at WorkerRouter.handleRequest (src/router.ts:42:3)\n    at runCodeChange (src/code-change.ts:8:1)`;
@@ -99,8 +100,7 @@ test('exact path hints are accepted only when they resolve to a pinned blob', as
   };
   assert.deepEqual(
     await existingTargetPaths(
-      request,
-      invoke,
+      loopbackGateway(request, invoke),
       'trvny/trvny',
       'a'.repeat(40),
       ['src/app.ts', 'src/missing.ts', 'src'],

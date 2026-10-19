@@ -8,6 +8,7 @@ import {
   handleFocusedCodeReviewAction,
   reviewLensSummary,
 } from '../src/focused-code-review.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 type OpenApiOperation = {
   operationId: string;
@@ -119,7 +120,7 @@ test('focused review pins exact snapshots and returns bounded diff evidence', as
     }
     return Response.json({ ok: false, error: 'unexpected_read' }, { status: 500 });
   };
-  const response = await handleFocusedCodeReviewAction(request, invoke);
+  const response = await handleFocusedCodeReviewAction(request, loopbackGateway(request, invoke));
   assert.ok(response);
   assert.equal(response.status, 200);
   const payload = await response.json() as FocusedReviewResponse;
@@ -142,10 +143,10 @@ test('focused review does not relay upstream read payloads through errors', asyn
   });
   const response = await handleFocusedCodeReviewAction(
     request,
-    () => Response.json(
+    loopbackGateway(request, () => Response.json(
       { ok: true, error: 'upstream_read_failed', data: { secret: 'do-not-relay' } },
       { status: 502 },
-    ),
+    )),
   );
   assert.ok(response);
   assert.equal(response.status, 502);

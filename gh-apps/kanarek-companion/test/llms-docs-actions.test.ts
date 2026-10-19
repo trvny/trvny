@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { addDocsOpenApi, handleDocsAction } from '../src/docs-actions.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 const origin = 'https://example.workers.dev';
 
@@ -53,7 +54,7 @@ test('searchDocs discovers and fetches exact documents listed by llms.txt', asyn
 
   const discovered = await handleDocsAction(
     request({ query: 'changelog releases', siteUrl: 'https://docs.example.com/sdk', limit: 4 }),
-    authorizedInvoke,
+    loopbackGateway(request({ query: 'changelog releases', siteUrl: 'https://docs.example.com/sdk', limit: 4 }), authorizedInvoke),
     fetchRemote,
   );
   assert.ok(discovered);
@@ -75,7 +76,11 @@ test('searchDocs discovers and fetches exact documents listed by llms.txt', asyn
       siteUrl: 'https://docs.example.com/sdk/llms.txt',
       documentUrl: selectedUrl,
     }),
-    authorizedInvoke,
+    loopbackGateway(request({
+      query: 'changelog',
+      siteUrl: 'https://docs.example.com/sdk/llms.txt',
+      documentUrl: selectedUrl,
+    }), authorizedInvoke),
     fetchRemote,
   );
   assert.ok(fetchedDocument);
@@ -97,7 +102,7 @@ test('llms mode rejects unsafe origins before network access', async () => {
     let fetches = 0;
     const response = await handleDocsAction(
       request({ query: '*', siteUrl }),
-      authorizedInvoke,
+      loopbackGateway(request({ query: '*', siteUrl }), authorizedInvoke),
       async () => {
         fetches += 1;
         return new Response('unexpected');
@@ -116,7 +121,11 @@ test('llms mode cannot fetch an arbitrary document outside its current index', a
       siteUrl: 'https://docs.example.com/sdk/',
       documentUrl: 'https://docs.example.com/sdk/private.md',
     }),
-    authorizedInvoke,
+    loopbackGateway(request({
+      query: 'secret',
+      siteUrl: 'https://docs.example.com/sdk/',
+      documentUrl: 'https://docs.example.com/sdk/private.md',
+    }), authorizedInvoke),
     async (input) => {
       const url = input instanceof Request ? input.url : String(input);
       assert.equal(url, 'https://docs.example.com/sdk/llms.txt');

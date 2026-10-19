@@ -1,6 +1,6 @@
-import { isObject, type JsonObject, repoPath, internalReadRequest, repositoryInScope } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, repositoryInScope } from './tools/common.ts';
+import type { GithubGateway } from './github-gateway.ts';
 
-type WorkerFetch = (request: Request) => Promise<Response>;
 
 const SHA_RE = /^[0-9a-f]{40}$/i;
 
@@ -39,11 +39,13 @@ function validBranch(value: unknown): value is string {
   );
 }
 
-async function actionData(source: Request, path: string, invoke: WorkerFetch): Promise<unknown | null> {
-  const response = await invoke(internalReadRequest(source, path));
-  if (!response.ok) return null;
-  const payload = await responseObject(response);
-  return payload?.ok === true ? payload.data ?? null : null;
+// Best effort: any read failure means no enrichment.
+async function actionData(github: GithubGateway, path: string): Promise<unknown | null> {
+  try {
+    return (await github.read(path)) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function branchHead(value: unknown): string | null {
@@ -76,10 +78,9 @@ function conflict(
 }
 
 async function enrichBranchHeadChanged(
-  request: Request,
   payload: JsonObject,
   input: JsonObject,
-  invoke: WorkerFetch,
+  github: GithubGateway,
 ): Promise<JsonObject | null> {
   const repository = input.repository;
   const branch = input.branch;
@@ -93,11 +94,7 @@ async function enrichBranchHeadChanged(
   ) {
     return null;
   }
-  const ref = await actionData(
-    request,
-    `/repos/${repoPath(repository)}/git/ref/heads/${refPath(branch)}`,
-    invoke,
-  );
+  const ref = await actionData(github, `/repos/${repoPath(repository)}/git/ref/heads/${refPath(branch)}`);
   const currentHeadSha = branchHead(ref);
   return currentHeadSha
     ? conflict(payload, repository, branch, expectedHeadSha, currentHeadSha)
@@ -105,10 +102,9 @@ async function enrichBranchHeadChanged(
 }
 
 async function enrichBaseHeadChanged(
-  request: Request,
   payload: JsonObject,
   input: JsonObject,
-  invoke: WorkerFetch,
+  github: GithubGateway,
 ): Promise<JsonObject | null> {
   const repository = input.repository;
   const expectedBaseSha = input.expectedBaseSha;
@@ -120,14 +116,10 @@ async function enrichBaseHeadChanged(
   ) {
     return null;
   }
-  const repositoryData = await actionData(request, `/repos/${repoPath(repository)}`, invoke);
+  const repositoryData = await actionData(github, `/repos/${repoPath(repository)}`);
   if (!isObject(repositoryData) || !validBranch(repositoryData.default_branch)) return null;
   const branch = repositoryData.default_branch;
-  const ref = await actionData(
-    request,
-    `/repos/${repoPath(repository)}/git/ref/heads/${refPath(branch)}`,
-    invoke,
-  );
+  const ref = await actionData(github, `/repos/${repoPath(repository)}/git/ref/heads/${refPath(branch)}`);
   const currentHeadSha = branchHead(ref);
   return currentHeadSha
     ? conflict(payload, repository, branch, expectedBaseSha, currentHeadSha)
@@ -137,7 +129,7 @@ async function enrichBaseHeadChanged(
 export async function enrichConflictResponse(
   request: Request,
   response: Response,
-  invoke: WorkerFetch,
+  github: GithubGateway,
 ): Promise<Response> {
   if (response.status !== 409 || request.method !== 'POST') return response;
   const payload = await responseObject(response);
@@ -147,9 +139,9 @@ export async function enrichConflictResponse(
   let enriched: JsonObject | null = null;
   try {
     if (payload.error === 'branch_head_changed') {
-      enriched = await enrichBranchHeadChanged(request, payload, input, invoke);
+      enriched = await enrichBranchHeadChanged(payload, input, github);
     } else if (payload.error === 'base_head_changed') {
-      enriched = await enrichBaseHeadChanged(request, payload, input, invoke);
+      enriched = await enrichBaseHeadChanged(payload, input, github);
     }
   } catch {
     enriched = null;

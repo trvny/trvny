@@ -11,6 +11,7 @@ import {
   symbolLineMatches,
   symbolLineNumbers,
 } from '../src/code-history.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('symbolLineNumbers matches identifier boundaries', () => {
   const content = [
@@ -158,7 +159,7 @@ test('focused history resolves an exact snapshot and joins blame with PR context
     return Response.json({ ok: false, error: `unexpected_read:${path}` }, { status: 500 });
   };
 
-  const response = await handleCodeHistoryAction(source, invoke);
+  const response = await handleCodeHistoryAction(source, loopbackGateway(source, invoke));
   assert.ok(response);
   assert.equal(response.status, 200);
   const payload = (await response.json()) as Record<string, any>;
@@ -287,7 +288,7 @@ test('focused history works on travnie repositories through the real read gate',
     return Response.json({ ok: false, error: `unexpected_read:${path}` }, { status: 500 });
   };
 
-  const response = await handleCodeHistoryAction(source, invoke);
+  const response = await handleCodeHistoryAction(source, loopbackGateway(source, invoke));
   assert.ok(response);
   assert.equal(response.status, 200);
   const payload = (await response.json()) as Record<string, any>;

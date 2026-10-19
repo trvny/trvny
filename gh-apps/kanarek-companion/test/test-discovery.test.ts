@@ -7,6 +7,7 @@ import {
   handleTargetedTestsAction,
   TARGETED_TESTS_PATH,
 } from '../src/test-discovery.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('detectProjectKind prefers explicit nearest project markers', () => {
   assert.deepEqual(detectProjectKind(['src', 'package.json', 'gradlew']), {
@@ -108,7 +109,7 @@ test('targeted discovery pins project lookup and returns narrow Node commands', 
     return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
   };
 
-  const response = await handleTargetedTestsAction(source, invoke);
+  const response = await handleTargetedTestsAction(source, loopbackGateway(source, invoke));
   assert.ok(response);
   assert.equal(response.status, 200);
   const payload = (await response.json()) as Record<string, any>;
@@ -149,7 +150,7 @@ test('deep targets still reach their project root', async () => {
     return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
   };
 
-  const response = await handleTargetedTestsAction(source, invoke);
+  const response = await handleTargetedTestsAction(source, loopbackGateway(source, invoke));
   assert.ok(response);
   const payload = (await response.json()) as Record<string, any>;
   assert.equal(payload.projects[0].root, 'deep-project');
@@ -194,7 +195,7 @@ test('nonexistent test targets are not reported as discovered', async () => {
     return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
   };
 
-  const response = await handleTargetedTestsAction(source, invoke);
+  const response = await handleTargetedTestsAction(source, loopbackGateway(source, invoke));
   assert.ok(response);
   const payload = (await response.json()) as Record<string, any>;
   assert.deepEqual(payload.projects[0].discoveredTests, []);
@@ -226,7 +227,7 @@ test('Go package arguments are shell quoted', async () => {
     return Response.json({ ok: false, error: 'not_found' }, { status: 404 });
   };
 
-  const response = await handleTargetedTestsAction(source, invoke);
+  const response = await handleTargetedTestsAction(source, loopbackGateway(source, invoke));
   assert.ok(response);
   const payload = (await response.json()) as Record<string, any>;
   assert.equal(payload.recommendedCommands[0].command, "go test './pkg;echo-pwn'");
@@ -235,7 +236,7 @@ test('Go package arguments are shell quoted', async () => {
 test('targeted test discovery only accepts POST', async () => {
   const response = await handleTargetedTestsAction(
     new Request('https://example.workers.dev' + TARGETED_TESTS_PATH, { method: 'GET' }),
-    async () => Response.json({ ok: false }, { status: 500 }),
+    loopbackGateway(new Request('https://example.workers.dev' + TARGETED_TESTS_PATH, { method: 'GET' }), async () => Response.json({ ok: false }, { status: 500 })),
   );
   assert.ok(response);
   assert.equal(response.status, 405);

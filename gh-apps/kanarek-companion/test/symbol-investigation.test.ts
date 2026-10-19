@@ -9,6 +9,7 @@ import {
   symbolAllowed,
   symbolOccurrences,
 } from '../src/symbol-investigation.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -141,7 +142,7 @@ test('symbol investigation pins content and separates matching tests', async () 
     return Response.json({ ok: true, data });
   };
 
-  const response = await handleSymbolInvestigationAction(source, invoke);
+  const response = await handleSymbolInvestigationAction(source, loopbackGateway(source, invoke));
   assert.ok(response);
   assert.equal(response.status, 200);
   const payload = (await response.json()) as {

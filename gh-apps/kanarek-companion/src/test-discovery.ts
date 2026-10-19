@@ -1,5 +1,6 @@
 import { likelyTestPath } from './symbol-investigation.ts';
-import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { isObject, type JsonObject, repoPath, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
+import { type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 export const TARGETED_TESTS_PATH = '/gpt-actions/github/code/tests';
@@ -10,7 +11,6 @@ const MAX_ANCESTORS = 32;
 const MAX_TEST_CANDIDATES = 64;
 const MAX_CONTENT_BYTES = 300_000;
 
-type Invoke = (request: Request) => Promise<Response>;
 export type ProjectKind = 'node' | 'gradle' | 'python' | 'rust' | 'go';
 type CommandKind = 'test' | 'typecheck' | 'lint' | 'build' | 'check';
 type CommandScope = 'targeted' | 'project';
@@ -108,21 +108,13 @@ async function inputObject(request: Request): Promise<Input> {
   };
 }
 
-async function responseObject(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new TestDiscoveryError(code, status),
-    { fallback: (status) => `read_${status}`, requireOk: true },
-  );
+function readData(github: GithubGateway, path: string): Promise<unknown> {
+  return mapGithubError(github.read(path), (code, status) => new TestDiscoveryError(code, status));
 }
 
-async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  return (await responseObject(await invoke(internalReadRequest(source, path)))).data;
-}
-
-async function readOptional(source: Request, invoke: Invoke, path: string): Promise<unknown | null> {
+async function readOptional(github: GithubGateway, path: string): Promise<unknown | null> {
   try {
-    return await readData(source, invoke, path);
+    return await readData(github, path);
   } catch (error) {
     if (error instanceof TestDiscoveryError && error.status === 404) return null;
     throw error;
@@ -219,21 +211,16 @@ function decodeText(value: unknown): string | null {
 }
 
 async function resolveSnapshot(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   input: Input,
 ): Promise<{ defaultBranch: string; requestedRef: string; resolvedSha: string }> {
   const repo = repoPath(input.repository);
-  const repositoryRaw = await readData(source, invoke, `/repos/${repo}`);
+  const repositoryRaw = await readData(github, `/repos/${repo}`);
   if (!isObject(repositoryRaw) || typeof repositoryRaw.default_branch !== 'string') {
     throw new TestDiscoveryError('invalid_repository_response', 502);
   }
   const requestedRef = input.ref ?? repositoryRaw.default_branch;
-  const commitRaw = await readData(
-    source,
-    invoke,
-    `/repos/${repo}/commits/${encodeURIComponent(requestedRef)}`,
-  );
+  const commitRaw = await readData(github, `/repos/${repo}/commits/${encodeURIComponent(requestedRef)}`);
   if (!isObject(commitRaw) || typeof commitRaw.sha !== 'string' || !SHA_RE.test(commitRaw.sha)) {
     throw new TestDiscoveryError('invalid_ref_response', 502);
   }
@@ -245,8 +232,7 @@ async function resolveSnapshot(
 }
 
 async function findProjects(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repositoryName: string,
   sha: string,
   paths: string[],
@@ -259,7 +245,7 @@ async function findProjects(
     const apiPath = directory
       ? `/repos/${repo}/contents/${filePath(directory)}?ref=${encodeURIComponent(sha)}`
       : `/repos/${repo}/contents?ref=${encodeURIComponent(sha)}`;
-    const pending = readOptional(source, invoke, apiPath).then(directoryNames);
+    const pending = readOptional(github, apiPath).then(directoryNames);
     cache.set(directory, pending);
     return pending;
   };
@@ -351,8 +337,7 @@ export function conventionalTestCandidates(
 }
 
 async function existingTests(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repositoryName: string,
   sha: string,
   project: Project,
@@ -368,8 +353,7 @@ async function existingTests(
   const checked = await Promise.all(
     [...candidates].map(async (candidate) => {
       const raw = await readOptional(
-        source,
-        invoke,
+        github,
         `/repos/${repo}/contents/${filePath(candidate)}?ref=${encodeURIComponent(sha)}`,
       );
       return isObject(raw) ? candidate : null;
@@ -622,8 +606,7 @@ function goVerification(project: Project): {
 }
 
 async function projectFile(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repositoryName: string,
   sha: string,
   root: string,
@@ -633,8 +616,7 @@ async function projectFile(
   for (const name of names) {
     const path = joinPath(root, name);
     const raw = await readOptional(
-      source,
-      invoke,
+      github,
       `/repos/${repo}/contents/${filePath(path)}?ref=${encodeURIComponent(sha)}`,
     );
     if (!raw) continue;
@@ -644,25 +626,24 @@ async function projectFile(
 }
 
 async function analyzeProject(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repositoryName: string,
   sha: string,
   project: Project,
 ): Promise<JsonObject> {
-  const tests = await existingTests(source, invoke, repositoryName, sha, project);
+  const tests = await existingTests(github, repositoryName, sha, project);
   let verification: { recommended: VerificationCommand[]; gate: VerificationCommand[]; evidence: string[] };
   let manifestPath = joinPath(project.root, project.marker);
 
   if (project.kind === 'node') {
-    const manifest = await projectFile(source, invoke, repositoryName, sha, project.root, ['package.json']);
+    const manifest = await projectFile(github, repositoryName, sha, project.root, ['package.json']);
     manifestPath = manifest?.path ?? manifestPath;
     verification = nodeVerification(project, manifest?.content ?? null, tests);
   } else if (project.kind === 'gradle') {
-    const build = await projectFile(source, invoke, repositoryName, sha, project.root, ['build.gradle.kts', 'build.gradle']);
+    const build = await projectFile(github, repositoryName, sha, project.root, ['build.gradle.kts', 'build.gradle']);
     verification = gradleVerification(project, build?.content ?? null, tests);
   } else if (project.kind === 'python') {
-    const config = await projectFile(source, invoke, repositoryName, sha, project.root, ['pyproject.toml', 'pytest.ini', 'tox.ini', 'setup.cfg']);
+    const config = await projectFile(github, repositoryName, sha, project.root, ['pyproject.toml', 'pytest.ini', 'tox.ini', 'setup.cfg']);
     manifestPath = config?.path ?? manifestPath;
     verification = pythonVerification(project, config?.content ?? null, tests);
   } else if (project.kind === 'rust') {
@@ -684,18 +665,16 @@ async function analyzeProject(
   };
 }
 
-async function discoverTests(source: Request, invoke: Invoke): Promise<Response> {
+async function discoverTests(source: Request, github: GithubGateway): Promise<Response> {
   const input = await inputObject(source);
-  const snapshot = await resolveSnapshot(source, invoke, input);
-  const located = await findProjects(
-    source,
-    invoke,
+  const snapshot = await resolveSnapshot(github, input);
+  const located = await findProjects(github,
     input.repository,
     snapshot.resolvedSha,
     input.targetPaths,
   );
   const projects = await Promise.all(
-    located.projects.map((project) => analyzeProject(source, invoke, input.repository, snapshot.resolvedSha, project)),
+    located.projects.map((project) => analyzeProject(github, input.repository, snapshot.resolvedSha, project)),
   );
   const recommendedCommands = dedupeCommands(
     projects.flatMap((project) => Array.isArray(project.commands) ? project.commands.filter(isObject) as VerificationCommand[] : []),
@@ -780,12 +759,12 @@ export function addTargetedTestsOpenApi(document: JsonObject): void {
 
 export async function handleTargetedTestsAction(
   request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
 ): Promise<Response | null> {
   if (new URL(request.url).pathname !== TARGETED_TESTS_PATH) return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
   try {
-    return await discoverTests(request, invoke);
+    return await discoverTests(request, github);
   } catch (error) {
     if (error instanceof TestDiscoveryError) {
       return json({ ok: false, error: error.code }, error.status);

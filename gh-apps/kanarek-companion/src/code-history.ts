@@ -1,16 +1,15 @@
-import { internalRequest, isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, actionResponseObject, internalReadRequest, CodedError } from './tools/common.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, CodedError } from './tools/common.ts';
+import { type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 export const CODE_HISTORY_PATH = '/gpt-actions/github/code/history';
 
-const GRAPHQL_PATH = '/gpt-actions/github/graphql';
 const SHA_RE = /^[0-9a-f]{40}$/i;
 const MAX_CONTENT_BYTES = 600_000;
 const MAX_BLAME_RANGES = 80;
 const MAX_PR_LOOKUPS = 12;
 const MAX_SYMBOL_LINES = 50;
 
-type Invoke = (request: Request) => Promise<Response>;
 
 type Input = {
   repository: string;
@@ -156,29 +155,20 @@ async function inputObject(request: Request): Promise<Input> {
   };
 }
 
-async function responseObject(response: Response): Promise<JsonObject> {
-  return actionResponseObject(
-    response,
-    (code, status) => new CodeHistoryError(code, status),
-    { fallback: (status) => `action_${status}`, requireOk: true },
-  );
+function githubFailure(code: string, status: number): CodeHistoryError {
+  return new CodeHistoryError(code, status);
 }
 
-async function readData(source: Request, invoke: Invoke, path: string): Promise<unknown> {
-  const payload = await responseObject(await invoke(internalReadRequest(source, path)));
-  return payload.data;
+function readData(github: GithubGateway, path: string): Promise<unknown> {
+  return mapGithubError(github.read(path), githubFailure);
 }
 
 async function graphqlData(
-  source: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   query: string,
   variables: JsonObject,
 ): Promise<unknown> {
-  const payload = await responseObject(
-    await invoke(internalRequest(source, GRAPHQL_PATH, { query, variables })),
-  );
-  const raw = payload.data;
+  const raw = await mapGithubError(github.graphql(query, variables), githubFailure);
   if (isObject(raw) && Array.isArray(raw.errors) && raw.errors.length) {
     throw new CodeHistoryError('github_graphql_error', 502);
   }
@@ -264,21 +254,20 @@ export function selectBlameRanges<T extends BlameRangeLike>(
 }
 
 async function resolveSnapshot(
-  request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repositoryName: string,
   requestedRef?: string,
 ): Promise<{ requestedRef: string; sha: string }> {
   const repo = repoPath(repositoryName);
   let ref = requestedRef;
   if (!ref) {
-    const metadata = await readData(request, invoke, `/repos/${repo}`);
+    const metadata = await readData(github, `/repos/${repo}`);
     if (!isObject(metadata) || typeof metadata.default_branch !== 'string') {
       throw new CodeHistoryError('invalid_repository_response', 502);
     }
     ref = metadata.default_branch;
   }
-  const commit = await readData(request, invoke, `/repos/${repo}/commits/${encodeURIComponent(ref)}`);
+  const commit = await readData(github, `/repos/${repo}/commits/${encodeURIComponent(ref)}`);
   if (!isObject(commit) || typeof commit.sha !== 'string' || !SHA_RE.test(commit.sha)) {
     throw new CodeHistoryError('invalid_commit_response', 502);
   }
@@ -286,16 +275,14 @@ async function resolveSnapshot(
 }
 
 async function fileContentAtSnapshot(
-  request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repositoryName: string,
   path: string,
   sha: string,
 ): Promise<string | null> {
   const repo = repoPath(repositoryName);
   const raw = await readData(
-    request,
-    invoke,
+    github,
     `/repos/${repo}/contents/${filePath(path)}?ref=${encodeURIComponent(sha)}`,
   );
   return decodeContent(raw);
@@ -359,16 +346,14 @@ function compactPull(value: unknown): JsonObject | null {
 }
 
 async function pullsForCommit(
-  request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   repositoryName: string,
   sha: string,
 ): Promise<PullLookup> {
   const repo = repoPath(repositoryName);
   try {
     const raw = await readData(
-      request,
-      invoke,
+      github,
       `/repos/${repo}/commits/${sha}/pulls?per_page=5`,
     );
     if (!Array.isArray(raw)) return { pulls: [], ok: false };
@@ -431,12 +416,12 @@ function blameCommit(
   };
 }
 
-async function codeHistory(request: Request, invoke: Invoke): Promise<Response> {
+async function codeHistory(request: Request, github: GithubGateway): Promise<Response> {
   const input = await inputObject(request);
-  const snapshot = await resolveSnapshot(request, invoke, input.repository, input.ref);
+  const snapshot = await resolveSnapshot(github, input.repository, input.ref);
   const [owner, name] = input.repository.split('/');
   const content = input.symbol
-    ? await fileContentAtSnapshot(request, invoke, input.repository, input.path, snapshot.sha)
+    ? await fileContentAtSnapshot(github, input.repository, input.path, snapshot.sha)
     : null;
   const symbolMatch = input.symbol && content
     ? symbolLineMatches(content, input.symbol)
@@ -447,15 +432,14 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
     (input.startLine !== undefined && input.endLine !== undefined) || symbolRequested;
 
   const [blameGraphql, recentRaw] = await Promise.all([
-    graphqlData(request, invoke, BLAME_QUERY, {
+    graphqlData(github, BLAME_QUERY, {
       owner,
       name,
       expression: snapshot.sha,
       path: input.path,
     }),
     readData(
-      request,
-      invoke,
+      github,
       `/repos/${repoPath(input.repository)}/commits?sha=${encodeURIComponent(snapshot.sha)}&path=${encodeURIComponent(input.path)}&per_page=${input.maxCommits}`,
     ),
   ]);
@@ -493,7 +477,7 @@ async function codeHistory(request: Request, invoke: Invoke): Promise<Response> 
   }
   const lookupShas = [...recentShas, ...blameShas].slice(0, MAX_PR_LOOKUPS);
   const pullEntries = await Promise.all(
-    lookupShas.map(async (sha) => [sha, await pullsForCommit(request, invoke, input.repository, sha)] as const),
+    lookupShas.map(async (sha) => [sha, await pullsForCommit(github, input.repository, sha)] as const),
   );
   const pullMap = new Map<string, JsonObject[]>(
     pullEntries.map(([sha, result]) => [sha, result.pulls]),
@@ -627,12 +611,12 @@ export function addCodeHistoryOpenApi(document: JsonObject): void {
 
 export async function handleCodeHistoryAction(
   request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
 ): Promise<Response | null> {
   if (new URL(request.url).pathname !== CODE_HISTORY_PATH) return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
   try {
-    return await codeHistory(request, invoke);
+    return await codeHistory(request, github);
   } catch (error) {
     if (error instanceof CodeHistoryError) {
       return json({ ok: false, error: error.code }, error.status);

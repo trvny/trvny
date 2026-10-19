@@ -77,7 +77,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_REASONING_EFFORT: 'high',
   KANAREK_REVIEW_VERCEL_HY3_TEMPERATURE: '0.9',
   KANAREK_REVIEW_VERCEL_HY3_TOP_P: '1',
-  KANAREK_REVIEW_GROQ_REASONING_EFFORT: 'high',
+  KANAREK_REVIEW_GROQ_REASONING_EFFORT: 'medium',
   KANAREK_REVIEW_DECISION_PROVIDER_ORDER: 'aihubmix,openrouter,qwencloud,vercel',
   KANAREK_REVIEW_DECISION_TIMEOUT_MS: '25000',
   KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'deepseek,gemini-flex',
@@ -1951,12 +1951,10 @@ export async function handleReviewRouterRequest(
           model: attempt.model,
           ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
         };
-        const groqInput = provider.id === 'groq' && task === 'review'
-          ? prepareGroqFreeReview(providerInput)
-          : null;
-        const scopedInput = provider.id === 'groq' && task === 'review'
-          ? groqInput?.input
-          : providerInput;
+        const boundedGroq = provider.id === 'groq' && task === 'review'
+          && groqSupportsReasoningEffort(attempt.model);
+        const groqInput = boundedGroq ? prepareGroqFreeReview(providerInput) : null;
+        const scopedInput = boundedGroq ? groqInput?.input : providerInput;
         const fittedProviderInput = scopedInput
           ? fitProviderAttemptTokenBudget(scopedInput, attempt)
           : null;

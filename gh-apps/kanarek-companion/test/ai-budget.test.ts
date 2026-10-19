@@ -9,10 +9,12 @@ import {
   bankContext,
   effectiveAiPercent,
   loadBank,
+  QUIP_PROMPT_SCOPE,
   scopedBankKey,
   shouldAskAiForBank,
 } from '../src/companion-bank.ts';
 import type { CompanionEnv } from '../src/companion-types.ts';
+import { hash } from '../src/quip.ts';
 
 const quipKey = 'aaaaaaaaaaaaaaaa';
 const aiEnv = {
@@ -187,4 +189,15 @@ test('reuses measured keys when falling back to the bank', async () => {
   assert.equal(context.size, 37);
   assert.equal(bank.length, 24);
   assert.equal(listCalls, 1);
+});
+
+test('prompt scope is part of the bank key', async () => {
+  const legacyQuipKey = 'bbbbbbbbbbbbbbbb';
+  const scoped = await scopedBankKey('travnie/aistee', legacyQuipKey);
+  const unscoped = await hash({ repository: 'travnie/aistee', legacyQuipKey });
+  assert.notEqual(scoped, unscoped);
+  assert.equal(
+    scoped,
+    await hash({ repository: 'travnie/aistee', legacyQuipKey, promptScope: QUIP_PROMPT_SCOPE }),
+  );
 });

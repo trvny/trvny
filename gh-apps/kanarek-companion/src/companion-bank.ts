@@ -149,6 +149,11 @@ export function canUsePool(stateKey: string): boolean {
   return LIVE_STATUSES.has(stateKey);
 }
 
+// Bump to stop reusing entries learned under an older prompt. Old entries stay
+// in KV/archive (no delete); they just never match a new quipKey.
+// 2: prompt carries no PR title/body (earlier quips leaked PR subjects).
+export const QUIP_PROMPT_SCOPE = 2;
+
 export async function scopedBankKey(
   repository: string,
   legacyQuipKey: string,
@@ -163,6 +168,7 @@ export async function scopedBankKey(
   return hash({
     repository: normalizedRepository,
     legacyQuipKey,
+    promptScope: QUIP_PROMPT_SCOPE,
   });
 }
 

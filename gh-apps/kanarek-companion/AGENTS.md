@@ -18,4 +18,5 @@ deployment/package slug, not every subsystem's name.
 - Keep mutation paths guarded against stale state, replay and duplicate side effects.
 - Prefer existing high-level guarded actions over new raw mutation endpoints.
   GPTomek `operator_action` must reuse GPT Actions bot-write policy; no parallel allowlist.
+- Inside `try`/`catch`, `return await handler(...)`; a bare returned promise rejects past the `catch` (500 `worker_exception` instead of the error envelope).
 - Run `npm run check` before code changes are complete.

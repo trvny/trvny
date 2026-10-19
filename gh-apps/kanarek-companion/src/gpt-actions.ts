@@ -941,28 +941,28 @@ export async function handleGptActions(
     await requireTrvny(token, fetcher);
 
     if (url.pathname === `${ACTIONS_PREFIX}/whoami` && request.method === 'GET') {
-      return whoAmI(token, env, fetcher);
+      return await whoAmI(token, env, fetcher);
     }
     if (url.pathname === `${ACTIONS_PREFIX}/github/read` && request.method === 'POST') {
-      return githubRead(request, token, fetcher);
+      return await githubRead(request, token, fetcher);
     }
     if (url.pathname === `${ACTIONS_PREFIX}/github/bot` && request.method === 'POST') {
-      return githubBotRequest(request, env, fetcher);
+      return await githubBotRequest(request, env, fetcher);
     }
     if (url.pathname === `${ACTIONS_PREFIX}/github/commit-files` && request.method === 'POST') {
-      return commitFiles(request, env, fetcher);
+      return await commitFiles(request, env, fetcher);
     }
     if (url.pathname === `${ACTIONS_PREFIX}/github/pull-requests` && request.method === 'POST') {
-      return createPullRequest(request, token, fetcher);
+      return await createPullRequest(request, token, fetcher);
     }
     if (url.pathname === `${ACTIONS_PREFIX}/github/graphql` && request.method === 'POST') {
-      return graphqlRead(request, token, fetcher);
+      return await graphqlRead(request, token, fetcher);
     }
     if (
       url.pathname === `${ACTIONS_PREFIX}/github/review-threads/state` &&
       request.method === 'POST'
     ) {
-      return setReviewThreadResolved(request, token, fetcher);
+      return await setReviewThreadResolved(request, token, fetcher);
     }
     return json({ error: 'not_found' }, 404);
   } catch (error) {

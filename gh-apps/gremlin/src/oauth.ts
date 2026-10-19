@@ -177,7 +177,7 @@ async function authorize(request: Request, env: GremlinOAuthEnv): Promise<Respon
       const approved = await env.OAUTH_PROVIDER.approveConsent(request, handle, {
         scope: approvedScopes,
       });
-      return startGithub(env, approved);
+      return await startGithub(env, approved);
     }
     return new Response('Method not allowed', { status: 405 });
   } catch (error) {

@@ -741,10 +741,10 @@ export async function handleOperatorAction(
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   try {
-    if (pathname === CONTEXT_PATH) return repositoryContext(request, env, fetcher);
-    if (pathname === INSPECT_PR_PATH) return inspectPullRequest(request, env, fetcher);
-    if (pathname === DIAGNOSE_RUN_PATH) return diagnoseWorkflowRun(request, env, fetcher);
-    return finalizePullRequest(request, env, fetcher);
+    if (pathname === CONTEXT_PATH) return await repositoryContext(request, env, fetcher);
+    if (pathname === INSPECT_PR_PATH) return await inspectPullRequest(request, env, fetcher);
+    if (pathname === DIAGNOSE_RUN_PATH) return await diagnoseWorkflowRun(request, env, fetcher);
+    return await finalizePullRequest(request, env, fetcher);
   } catch (error) {
     if (error instanceof OperatorError) return json({ ok: false, error: error.code }, error.status);
     console.error(

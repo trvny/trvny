@@ -491,9 +491,9 @@ export async function handleLifecycleAction(
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   try {
-    if (pathname === CREATE_BRANCH_PATH) return createBranchAsGptomek(request, env, fetcher);
-    if (pathname === PR_STATE_PATH) return setPullRequestStateAsTrvny(request, env, fetcher);
-    return cleanupPullRequestBranch(request, env, fetcher);
+    if (pathname === CREATE_BRANCH_PATH) return await createBranchAsGptomek(request, env, fetcher);
+    if (pathname === PR_STATE_PATH) return await setPullRequestStateAsTrvny(request, env, fetcher);
+    return await cleanupPullRequestBranch(request, env, fetcher);
   } catch (error) {
     if (error instanceof LifecycleError) return json({ ok: false, error: error.code }, error.status);
     console.error(

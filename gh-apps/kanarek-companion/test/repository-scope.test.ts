@@ -163,7 +163,7 @@ test('commit-files accepts travnie and uses that repository installation', async
   }) as typeof fetch;
 
   // Past repository validation and auth, the stale head stops the write.
-  await assert.rejects(handleGptActions(
+  const response = await handleGptActions(
     new Request('https://worker.test/gpt-actions/github/commit-files', {
       method: 'POST',
       headers: { authorization: 'Bearer user-token', 'content-type': 'application/json' },
@@ -181,7 +181,9 @@ test('commit-files accepts travnie and uses that repository installation', async
       GPTOMEK_INSTALLATION_ID: '1',
     } as unknown as GptActionsEnv,
     fetcher,
-  ), { code: 'branch_head_changed' });
+  );
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { ok: false, error: 'branch_head_changed' });
 
   assert.ok(paths.includes('POST /app/installations/77/access_tokens'));
   assert.ok(!paths.includes('POST /app/installations/1/access_tokens'));

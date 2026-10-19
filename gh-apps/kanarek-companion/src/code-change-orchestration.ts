@@ -1573,7 +1573,7 @@ async function run(
     if (!progress) {
       const started = await initialProgress(request, invoke, core, inputHash);
       progress = started.progress;
-      return pause(env, core, inputHash, progress, started.body);
+      return await pause(env, core, inputHash, progress, started.body);
     }
 
     const submitted = parsed.action;
@@ -1662,7 +1662,7 @@ async function run(
           : {}),
       };
       delete next.verification;
-      return pause(env, core, inputHash, next, {
+      return await pause(env, core, inputHash, next, {
         ok: false,
         stage: 'editing',
         revision: next.revision,
@@ -1688,7 +1688,7 @@ async function run(
         : {}),
     };
     delete next.verification;
-    return pause(env, core, inputHash, next, {
+    return await pause(env, core, inputHash, next, {
       ok: true,
       stage: 'verifying',
       revision: next.revision,
@@ -1719,7 +1719,7 @@ async function run(
       }
       if (submitted.status === 'failed') {
         const next: Progress = { ...progress, stage: 'editing' };
-        return pause(env, core, inputHash, next, {
+        return await pause(env, core, inputHash, next, {
           ok: false,
           stage: 'editing',
           verification: { status: 'failed', results: submitted.results ?? [] },
@@ -1738,7 +1738,7 @@ async function run(
           inspect(request, invoke, core, progress.pullRequest.number),
           focusedReview(request, invoke, core, next),
         ]);
-        return pause(env, core, inputHash, next, {
+        return await pause(env, core, inputHash, next, {
           ok: true,
           stage: 'waiting_ci_review',
           verification,
@@ -1755,7 +1755,7 @@ async function run(
         inspect(request, invoke, core, pullRequest.number),
         focusedReview(request, invoke, core, next),
       ]);
-      return pause(env, core, inputHash, next, {
+      return await pause(env, core, inputHash, next, {
         ok: true,
         stage: 'waiting_ci_review',
         verification,
@@ -1780,7 +1780,7 @@ async function run(
       if (alreadyMerged) {
         validateMergedPullRequest(alreadyMerged, progress);
         const cleanupResult = await cleanup(request, invoke, core, progress.pullRequest);
-        return complete(env, core, inputHash, {
+        return await complete(env, core, inputHash, {
           ok: true,
           stage: 'merged',
           recovered: true,
@@ -1800,7 +1800,7 @@ async function run(
         ...focusedReviewScopeBlockers(review),
       ];
       if (blockers.length) {
-        return pause(env, core, inputHash, progress, {
+        return await pause(env, core, inputHash, progress, {
           ok: false,
           stage: 'waiting_ci_review',
           blockers,
@@ -1827,7 +1827,7 @@ async function run(
       if (!finalized.response.ok || finalized.payload.merged !== true) {
         const merged = await mergedPullRequest(request, invoke, core, progress.pullRequest.number);
         if (!merged) {
-          return pause(env, core, inputHash, progress, {
+          return await pause(env, core, inputHash, progress, {
             ok: false,
             stage: 'waiting_ci_review',
             error: finalized.payload.error ?? 'finalize_failed',
@@ -1839,7 +1839,7 @@ async function run(
       if (!merged) throw new CodeChangeError('merge_not_confirmed', 502);
       validateMergedPullRequest(merged, progress);
       const cleanupResult = await cleanup(request, invoke, core, progress.pullRequest);
-      return complete(env, core, inputHash, {
+      return await complete(env, core, inputHash, {
         ok: true,
         stage: 'merged',
         pullRequest: progress.pullRequest,
@@ -1851,11 +1851,11 @@ async function run(
     }
 
     if (progress.stage === 'editing') {
-      return pause(env, core, inputHash, progress, await editingResponse(request, invoke, core, progress));
+      return await pause(env, core, inputHash, progress, await editingResponse(request, invoke, core, progress));
     }
     if (progress.stage === 'verifying') {
       const verificationPlan = await targetedVerification(request, invoke, core, progress.branchHead, progress.refactor?.allowedPaths ?? core.targetPaths);
-      return pause(env, core, inputHash, progress, {
+      return await pause(env, core, inputHash, progress, {
         ok: true,
         stage: 'verifying',
         revision: progress.revision,
@@ -1870,7 +1870,7 @@ async function run(
       inspect(request, invoke, core, progress.pullRequest.number),
       focusedReview(request, invoke, core, progress),
     ]);
-    return pause(env, core, inputHash, progress, {
+    return await pause(env, core, inputHash, progress, {
       ok: true,
       stage: 'waiting_ci_review',
       pullRequest: progress.pullRequest,

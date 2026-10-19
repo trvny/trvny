@@ -1444,12 +1444,13 @@ function isQuotaFailure(category: string): boolean {
     normalized === 'http_429_quota';
 }
 
-function upstreamResponse(response: Response, provider: ReviewProvider): Response {
+function upstreamResponse(response: Response, provider: ReviewProvider, partial = false): Response {
   const headers = new Headers(response.headers);
   headers.delete('set-cookie');
   headers.delete('www-authenticate');
   headers.set('cache-control', 'no-store');
   headers.set('x-kanarek-review-provider', provider.id);
+  if (partial) headers.set('x-kanarek-review-scope', 'partial');
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

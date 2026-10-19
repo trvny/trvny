@@ -26,6 +26,13 @@ process.exit(
   await guardedDeploy({
     name: 'kanarek-companion',
     sha,
+    // Mirrors the Workers Builds watch paths.
+    paths: [
+      'gh-apps/kanarek-companion',
+      'gh-apps/core',
+      ':(exclude,glob)gh-apps/kanarek-companion/**/*.md',
+      ':(exclude,glob)gh-apps/core/**/*.md',
+    ],
     deployArgs: ['--tag', sha],
     verify: () =>
       poll(async () => {

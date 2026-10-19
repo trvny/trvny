@@ -205,10 +205,12 @@ Connect `trvny/trvny` with:
 - build watch paths: `gh-apps/kanarek-companion/**`, `gh-apps/core/**`
 
 GitHub Actions validates the project but does not deploy it. `npm run deploy`
-(`scripts/deploy.ts`) uses `../core/worker-deploy.mjs`: skips a build superseded
-by a newer active commit, verifies `/health` (`ok`, `reviewWebhook.ready`, version
-tag = commit) and restores the previous deployment on failure while its own
-version is still active. Rollback does not revert Durable Object migrations.
+(`scripts/deploy.ts`) uses `../core/worker-deploy.mjs`: deploys only while the
+commit is the newest `main` commit for the watch paths (keep `paths` in sync
+with the trigger), verifies `/health` (`ok`, `reviewWebhook.ready`, version tag
+= commit), applies triggers, and restores the previous deployment on failure
+while its own version is still active. Durable Object lifecycle changes use
+plain `wrangler deploy` and cannot be rolled back.
 
 ## Secrets and configuration
 

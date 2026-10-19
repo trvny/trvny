@@ -1,5 +1,5 @@
-// Workers Builds deploy command (`npm run deploy`): guarded deploy (stale check,
-// live /version + /archive probe, safe rollback) via ../core/worker-deploy.mjs.
+// Workers Builds deploy command (`npm run deploy`): guarded deploy (newest-commit
+// fence, live /version + /archive probe, safe rollback) via ../core/worker-deploy.mjs.
 import { guardedDeploy, poll } from '../core/worker-deploy.mjs';
 
 const ORIGIN = 'https://shitpost.trfny.com';
@@ -18,6 +18,8 @@ process.exit(
   await guardedDeploy({
     name: 'shitpost-reactor',
     sha,
+    // Mirrors the Workers Builds watch paths.
+    paths: ['gh-apps/shitpost-reactor', 'gh-apps/core/worker-deploy.mjs', ':(exclude,glob)gh-apps/shitpost-reactor/**/*.md'],
     deployArgs: ['--var', `DEPLOY_COMMIT:${sha}`],
     verify: () =>
       poll(async () => (await text('/version'))?.trim() === sha && Boolean((await text('/archive'))?.includes('Newest first'))),

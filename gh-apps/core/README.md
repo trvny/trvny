@@ -10,7 +10,7 @@ tests and bundles them as part of its own `npm run check`.
 | `auth.ts` | kanarek-companion, kanarek-review |
 | `review-service-protocol.ts` | kanarek-companion, kanarek-review |
 | `review-cooldown-store.ts` | kanarek-companion (Durable Object), kanarek-review tests |
-| `worker-deploy.mjs` | Workers Builds deploy scripts: kanarek-companion, shitpost-reactor (upload → freshness recheck → activate → verify; rollback by version id; newest build reclaims; tested in `kanarek-companion/test/worker-deploy.test.ts`) |
+| `worker-deploy.mjs` | Workers Builds deploy scripts: kanarek-companion, shitpost-reactor (deploys only the newest `main` commit for its watch paths; upload → fence → activate → verify → triggers; rollback by version id; tests in `kanarek-companion/test/worker-deploy.test.ts`) |
 
 Rules:
 

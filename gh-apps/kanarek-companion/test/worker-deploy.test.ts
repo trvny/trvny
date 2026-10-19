@@ -3,24 +3,28 @@ import test from 'node:test';
 
 import { guardedDeploy } from '../../core/worker-deploy.mjs';
 
+// Fake wrangler + git head for gh-apps/core/worker-deploy.mjs.
+
 const OLD = 'a'.repeat(40);
 const OURS = 'b'.repeat(40);
 const NEWER = 'c'.repeat(40);
-const TS: Record<string, number> = { [OLD]: 100, [OURS]: 200, [NEWER]: 300 };
+const LIVE = '00000000-0000-0000-0000-00000000000a';
 
 type Fake = {
+  head: string;
   active: { version_id: string; percentage: number }[];
   messages: Record<string, string>;
   calls: string[];
-  uploadFails?: boolean;
-  onActivate?: (fake: Fake) => void;
+  uploadError?: string;
+  afterUpload?: (fake: Fake) => void;
+  afterActivate?: (fake: Fake) => void;
 };
 
-function fake(activeSha: string | null): Fake {
-  const state: Fake = { active: [], messages: {}, calls: [] };
-  if (activeSha) {
-    state.messages['00000000-0000-0000-0000-00000000000a'] = `commit=${activeSha} ts=${TS[activeSha]}`;
-    state.active = [{ version_id: '00000000-0000-0000-0000-00000000000a', percentage: 100 }];
+function fake(activeBuild: string | null, head = OURS): Fake {
+  const state: Fake = { head, active: [], messages: {}, calls: [] };
+  if (activeBuild) {
+    state.messages[LIVE] = `build=${activeBuild}`;
+    state.active = [{ version_id: LIVE, percentage: 100 }];
   }
   return state;
 }
@@ -37,21 +41,23 @@ function wrangler(state: Fake) {
       return id;
     };
     if (command === 'deployments status') {
-      if (!state.active.length) throw new Error('The Worker x has no deployments.');
+      if (!state.active.length) throw new Error('The Worker w has no deployments.');
       return JSON.stringify({ versions: state.active });
     }
     if (command === 'versions view') {
       return JSON.stringify({ annotations: { 'workers/message': state.messages[args[2]] } });
     }
     if (command === 'versions upload') {
-      if (state.uploadFails) throw new Error('migrations not supported');
-      return `Worker Version ID: ${create()}`;
+      if (state.uploadError) throw new Error(state.uploadError);
+      const id = create();
+      state.afterUpload?.(state);
+      return `Worker Version ID: ${id}`;
     }
     if (command === 'versions deploy') {
       state.active = args
         .filter((arg) => /^[0-9a-f-]{36}@/.test(arg))
         .map((spec) => ({ version_id: spec.split('@')[0], percentage: Number.parseInt(spec.split('@')[1], 10) }));
-      state.onActivate?.(state);
+      state.afterActivate?.(state);
       return '';
     }
     if (command === 'triggers deploy') return '';
@@ -63,103 +69,93 @@ function wrangler(state: Fake) {
   };
 }
 
-const activeSha = (state: Fake) => state.messages[state.active[0].version_id]?.match(/commit=(\w+)/)?.[1];
+const activeBuild = (state: Fake) => state.messages[state.active[0].version_id]?.match(/build=(\w+)/)?.[1];
 
-async function run(state: Fake, healthy: boolean | (() => boolean), sha = OURS) {
+function run(state: Fake, healthy: boolean, runner = wrangler(state)) {
   return guardedDeploy(
-    { name: 'w', sha, verify: async () => (typeof healthy === 'function' ? healthy() : healthy) },
-    { wrangler: wrangler(state), commitTime: (s: string) => TS[s], wait: async () => {} },
+    { name: 'w', sha: OURS, paths: ['gh-apps/w'], verify: async () => healthy },
+    { wrangler: runner, latestCommit: () => state.head },
   );
 }
 
-test('healthy deploy uploads, activates and keeps our version', async () => {
+test('newest commit uploads, activates, applies triggers', async () => {
   const state = fake(OLD);
   assert.equal(await run(state, true), 0);
-  assert.equal(activeSha(state), OURS);
+  assert.equal(activeBuild(state), OURS);
   assert.ok(state.calls.includes('versions upload'));
   assert.ok(state.calls.includes('triggers deploy'));
 });
 
-test('superseded build skips without touching the Worker', async () => {
-  const state = fake(NEWER);
+test('superseded commit on main skips without touching the Worker', async () => {
+  const state = fake(OLD, NEWER);
   assert.equal(await run(state, true), 0);
-  assert.equal(activeSha(state), NEWER);
-  assert.ok(!state.calls.includes('versions upload'));
+  assert.equal(activeBuild(state), OLD);
+  assert.deepEqual(state.calls, []);
+});
+
+test('commit superseded during upload is not activated', async () => {
+  const state = fake(OLD);
+  state.afterUpload = (s) => {
+    s.head = NEWER;
+  };
+  assert.equal(await run(state, true), 0);
+  assert.equal(activeBuild(state), OLD);
 });
 
 test('failed verify restores the predecessor while ours is active', async () => {
   const state = fake(OLD);
   assert.equal(await run(state, false), 1);
-  assert.equal(activeSha(state), OLD);
+  assert.equal(activeBuild(state), OLD);
+  assert.ok(!state.calls.includes('triggers deploy'));
 });
 
-test('failed verify never rolls back a newer build that took over', async () => {
+test('failed verify never rolls back a version that replaced ours', async () => {
   const state = fake(OLD);
-  state.onActivate = (s) => {
-    if (activeSha(s) !== OURS) return;
-    s.onActivate = undefined;
-    s.messages['00000000-0000-0000-0000-0000000000ff'] = `commit=${NEWER} ts=${TS[NEWER]}`;
+  state.afterActivate = (s) => {
+    s.afterActivate = undefined;
+    s.messages['00000000-0000-0000-0000-0000000000ff'] = `build=${NEWER}`;
     s.active = [{ version_id: '00000000-0000-0000-0000-0000000000ff', percentage: 100 }];
   };
   assert.equal(await run(state, false), 1);
-  assert.equal(activeSha(state), NEWER);
+  assert.equal(activeBuild(state), NEWER);
 });
 
-test('newest build reclaims the Worker from an older late activation', async () => {
+test('concurrent non-build activation (credential sync) blocks activation', async () => {
   const state = fake(OLD);
-  state.onActivate = (s) => {
-    if (activeSha(s) !== OURS) return;
-    s.onActivate = undefined;
-    s.active = [{ version_id: '00000000-0000-0000-0000-00000000000a', percentage: 100 }];
+  state.afterUpload = (s) => {
+    s.messages['00000000-0000-0000-0000-0000000000ee'] = 'Kanarek credential sync 1.1';
+    s.active = [{ version_id: '00000000-0000-0000-0000-0000000000ee', percentage: 100 }];
   };
-  assert.equal(await run(state, true), 0);
-  assert.equal(activeSha(state), OURS);
+  assert.equal(await run(state, true), 1);
+  assert.equal(state.active[0].version_id, '00000000-0000-0000-0000-0000000000ee');
 });
 
-test('first deploy and rejected upload fall back to wrangler deploy', async () => {
+test('first deploy and Durable Object lifecycle rejection use wrangler deploy', async () => {
   const first = fake(null);
   assert.equal(await run(first, true), 0);
   assert.ok(first.calls.includes('deploy --message'));
 
   const lifecycle = fake(OLD);
-  lifecycle.uploadFails = true;
-  assert.equal(await run(lifecycle, false), 1);
-  assert.equal(activeSha(lifecycle), OURS);
+  lifecycle.uploadError = 'Durable Object migrations are not supported in versions upload (10211)';
+  assert.equal(await run(lifecycle, true), 0);
+  assert.equal(activeBuild(lifecycle), OURS);
+});
+
+test('other upload failures abort before publishing', async () => {
+  const state = fake(OLD);
+  state.uploadError = 'fetch failed: ECONNRESET';
+  await assert.rejects(run(state, true), /ECONNRESET/);
+  assert.equal(activeBuild(state), OLD);
+  assert.ok(!state.calls.includes('deploy --message'));
 });
 
 test('status lookup errors abort before publishing', async () => {
   const state = fake(OLD);
+  const base = wrangler(state);
   const broken = (args: string[]) => {
     if (args[0] === 'deployments') throw new Error('Authentication error');
-    return wrangler(state)(args);
+    return base(args);
   };
-  await assert.rejects(
-    guardedDeploy(
-      { name: 'w', sha: OURS, verify: async () => true },
-      { wrangler: broken, commitTime: (s: string) => TS[s], wait: async () => {} },
-    ),
-    /Authentication error/,
-  );
-  assert.deepEqual(state.calls, []);
-});
-
-test('concurrent non-build activation (credential sync) blocks activation', async () => {
-  const state = fake(OLD);
-  const base = wrangler(state);
-  const racing = (args: string[]) => {
-    const out = base(args);
-    if (args[0] === 'versions' && args[1] === 'upload') {
-      state.messages['00000000-0000-0000-0000-0000000000ee'] = 'Kanarek credential sync 1.1';
-      state.active = [{ version_id: '00000000-0000-0000-0000-0000000000ee', percentage: 100 }];
-    }
-    return out;
-  };
-  assert.equal(
-    await guardedDeploy(
-      { name: 'w', sha: OURS, verify: async () => true },
-      { wrangler: racing, commitTime: (s: string) => TS[s], wait: async () => {} },
-    ),
-    1,
-  );
-  assert.equal(state.active[0].version_id, '00000000-0000-0000-0000-0000000000ee');
+  await assert.rejects(run(state, true, broken), /Authentication error/);
+  assert.ok(!state.calls.some((call) => call.startsWith('versions')));
 });

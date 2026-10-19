@@ -23,15 +23,13 @@ test('portable MechaGremlin manifest references the installed MCP app and origin
   };
 
   // Pin the account release intentionally; bump alongside the next source sync.
-  assert.equal(manifest.version, '0.31.8');
+  assert.equal(manifest.version, '0.31.9');
   assert.equal(manifest.extensions['com.openai'].apps, './.app.json');
   assert.deepEqual(manifest.extensions['com.openai'].interface.capabilities, ['skills']);
-  assert.deepEqual(Object.keys(app.apps).sort(), ['anchor', 'gremlin']);
+  assert.deepEqual(Object.keys(app.apps), ['gremlin']);
   assert.equal(app.apps.gremlin.id, 'asdk_app_6ad3cba96c048191b0006fed71f4e0ef');
-  assert.equal(app.apps.anchor.id, 'asdk_app_6a206df34f6c8191a125958d061edd74');
-  assert.equal(app.apps.anchor.optional, true);
-  assert.equal(Object.keys(mcp.mcpServers).length, 1); // Anchor has its own OAuth app, not a Gremlin MCP route.
-  assert.ok(!JSON.stringify(app).includes('asdk_app_v_')); // Always bind the stable App ID, not a version ID.
+  assert.equal(Object.keys(mcp.mcpServers).length, 1);
+  assert.equal(Object.hasOwn(app.apps, 'anchor'), false); // Anchor stays an independent ChatGPT connection.
   assert.equal(mcp.mcpServers.gremlin.type, 'streamable-http');
   assert.equal(mcp.mcpServers.gremlin.url, 'https://gremlin.travny.workers.dev/mcp');
 

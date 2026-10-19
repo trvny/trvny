@@ -19,6 +19,8 @@ const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
 const DEFAULT_WORK_PROVIDER_TIMEOUT_MS = 5 * 60_000;
 const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 60_000;
+const OPENROUTER_REVIEW_TIMEOUT_MS = 180_000;
+const OPENROUTER_REVIEW_ATTEMPT_CAP_MS = 35_000;
 const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
 const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
@@ -1910,7 +1912,9 @@ export async function handleReviewRouterRequest(
       provider.timeoutMs ?? timeoutMs(env),
       task,
     );
-    const providerDeadlineAt = Date.now() + providerTimeoutMs;
+    const providerDeadlineAt = Date.now() + (provider.id === 'openrouter' && task === 'review'
+      ? Math.max(providerTimeoutMs, OPENROUTER_REVIEW_TIMEOUT_MS)
+      : providerTimeoutMs);
     const attempts = providerAttempts(provider, env, task);
     let providerFailureCategory = 'unknown';
     let providerInvalidRequest = true;
@@ -1918,7 +1922,17 @@ export async function handleReviewRouterRequest(
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
       const attempt = attempts[attemptIndex];
       const remainingProviderMs = Math.max(0, providerDeadlineAt - Date.now());
-      const attemptTimeoutMs = remainingProviderMs;
+      // Reserve time for every configured OpenRouter model instead of letting one
+      // stalled free model exhaust the whole provider-level deadline.
+      const attemptTimeoutMs = provider.id === 'openrouter' && task === 'review'
+        ? Math.min(remainingProviderMs, Math.max(
+            12_000,
+            Math.min(
+              OPENROUTER_REVIEW_ATTEMPT_CAP_MS,
+              Math.floor(remainingProviderMs / (attempts.length - attemptIndex)),
+            ),
+          ))
+        : remainingProviderMs;
       if (attemptTimeoutMs <= 0) {
         providerFailureCategory = 'timeout';
         providerInvalidRequest = false;
@@ -2091,8 +2105,8 @@ export async function handleReviewRouterRequest(
           && Date.now() < providerDeadlineAt
         ) continue;
         if (
-          provider.id === 'vercel'
-          && category !== 'timeout'
+          (provider.id === 'vercel' && category !== 'timeout' ||
+            provider.id === 'openrouter' && task === 'review')
           && attemptIndex + 1 < attempts.length
           && Date.now() < providerDeadlineAt
         ) continue;

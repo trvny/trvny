@@ -1111,13 +1111,10 @@ function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | nu
     category === 'timeout' ||
     category === 'network' ||
     category === 'preview_timeout' ||
-    category === 'invalid_response' ||
-    category === 'http_404' ||
     category === 'http_405' ||
     category === 'http_408' ||
     category === 'http_410' ||
     category === 'http_415' ||
-    category === 'http_422' ||
     category === 'http_409' ||
     category === 'http_425' ||
     /^http_5\d\d$/.test(category)

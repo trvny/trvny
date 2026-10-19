@@ -392,7 +392,7 @@ export function parseReviewJson(value: string): ParsedReview | null {
   return null;
 }
 
-type RouterReview = { model: string | null; parsed: ParsedReview; provider: string };
+type RouterReview = { model: string | null; parsed: ParsedReview; provider: string; partial?: boolean };
 
 export type ReviewRouterOutcome =
   | { kind: 'ok'; review: RouterReview }
@@ -447,6 +447,7 @@ async function askReviewRouter(
   }
 
   const provider = response.headers.get('x-kanarek-review-provider') ?? 'free-router';
+  const partial = response.headers.get('x-kanarek-review-scope') === 'partial';
   let payload: Record<string, unknown>;
   try {
     payload = objectValue(await response.json());
@@ -473,7 +474,7 @@ async function askReviewRouter(
     typeof payload.model === 'string' && payload.model.trim()
       ? payload.model.trim().slice(0, 200)
       : null;
-  return { kind: 'ok', review: { model, parsed, provider } };
+  return { kind: 'ok', review: { model, parsed, provider, partial } };
 }
 
 export interface ReviewSweepResult {
@@ -540,8 +541,12 @@ export async function sweepReviewProviders(
     if (outcome.kind === 'ok') {
       const findings = verifyReviewFindings(outcome.review.parsed, files);
       const disposition = reviewDisposition(outcome.review.parsed.findings, findings);
-      last = { attempts, disposition, excluded: [...excluded], findings, generated: outcome.review };
-      if (disposition !== 'invalid_findings') return last;
+      // A clean answer based on only a Groq-sized subset is not a clean PR.
+      // Keep sweeping the other free providers instead of blessing unseen files.
+      if (!(outcome.review.partial && disposition === 'clean')) {
+        last = { attempts, disposition, excluded: [...excluded], findings, generated: outcome.review };
+        if (disposition !== 'invalid_findings') return last;
+      }
     }
     // Without a concrete provider id the router cannot skip it next time.
     if (provider === 'free-router' || excluded.includes(provider)) break;
@@ -1017,7 +1022,7 @@ export async function runWebhookReview(
     const payload = {
       commit_id: target.headSha,
       event: 'COMMENT',
-      body: `${reviewMarker(target)}${decisionMarker ? `\n${decisionMarker}` : ''}\n🐤 **Kanarek ${paidPhase ? '' : '免费'}代码审查** · ${reviewSourceBadge(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceBadge(judged.provider, judged.model)}` : ''}\n\n${summary}`,
+      body: `${reviewMarker(target)}${decisionMarker ? `\n${decisionMarker}` : ''}\n🐤 **Kanarek ${paidPhase ? '' : '免费'}代码审查** · ${reviewSourceBadge(generated.provider, generated.model)}${judged ? ` · L2 ${reviewSourceBadge(judged.provider, judged.model)}` : ''}\n\n${summary}${generated.partial ? '\n\n_此免费模型只检查了部分变更，其余文件未纳入本次扫描。_' : ''}`,
       comments: publishFindings.map((finding) => ({
         path: finding.path,
         line: finding.line,

@@ -33,7 +33,8 @@ function realLatestCommit(paths) {
   const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
   const git = (args) => execFileSync('git', ['-C', top, ...args], { encoding: 'utf8' }).trim();
   git(['fetch', '--quiet', '--depth=200', 'origin', 'main']);
-  return git(['log', '-1', '--format=%H', 'FETCH_HEAD', '--', ...paths]);
+  // --first-parent: a merge commit is the main commit for its changes, not its side parent.
+  return git(['log', '-1', '--first-parent', '--format=%H', 'FETCH_HEAD', '--', ...paths]);
 }
 
 function json(wrangler, args) {

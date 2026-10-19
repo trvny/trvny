@@ -59,8 +59,14 @@ export async function poll(check, attempts = 12, delayMs = 5_000) {
 // Returns the process exit code.
 export async function guardedDeploy({ name, sha, deployArgs = [], verify }) {
   const ts = commitTime(sha);
-  const previous = active(name);
-  if (ts && previous.mark && previous.mark.sha !== sha && previous.mark.ts > ts) {
+  let previous = null;
+  try {
+    previous = active(name);
+  } catch (error) {
+    // first deploy (or unreadable status): nothing to guard against or restore
+    console.warn(`${name}: no readable active deployment (${error.message}); deploying without rollback.`);
+  }
+  if (ts && previous?.mark && previous.mark.sha !== sha && previous.mark.ts > ts) {
     console.log(`${name}: ${sha} superseded by active ${previous.mark.sha}; skipping deploy.`);
     return 0;
   }
@@ -71,6 +77,10 @@ export async function guardedDeploy({ name, sha, deployArgs = [], verify }) {
   if (await verify()) {
     console.log(`${name}: deployment ${sha} verified.`);
     return 0;
+  }
+  if (!previous) {
+    console.error(`${name}: ${sha} failed live verification; no predecessor to restore.`);
+    return 1;
   }
   if (active(name).specs.join(' ') !== ours) {
     console.error(`${name}: ${sha} unverified and no longer active; leaving newer deployment in place.`);

@@ -66,8 +66,10 @@ const PAID_MAX_PATCH_CHARS = 48_000;
 // Keep the free phase patient enough for real PR analysis while leaving a
 // safety margin inside Cloudflare's 15-minute Durable Object alarm wall limit.
 const REVIEW_SWEEP_MAX_ATTEMPTS = 8;
-const DEFAULT_REVIEW_SWEEP_BUDGET_MS = 10 * 60_000;
-const MAX_REVIEW_SWEEP_BUDGET_MS = 12 * 60_000;
+// Leave 90 seconds for GitHub publication and L2 inside Cloudflare's
+// 15-minute Durable Object alarm wall-time limit.
+const DEFAULT_REVIEW_SWEEP_BUDGET_MS = 13 * 60_000 + 30_000;
+const MAX_REVIEW_SWEEP_BUDGET_MS = 13 * 60_000 + 30_000;
 const JOB_KEY = 'job';
 const STATUS_KEY = 'status';
 const REVIEW_OUTCOME_KEY = 'review_outcome';
@@ -744,6 +746,7 @@ export async function runWebhookReview(
   submitGate?: ReviewSubmitGate,
 ): Promise<WebhookReviewResult> {
   const target = job.target;
+  const alarmStartedAt = Date.now();
   if (!env.KANAREK_REVIEW_ROUTER_TOKEN?.trim()) {
     return { reviewed: false, provider: null, findingCount: 0, skipped: 'router_unconfigured' };
   }
@@ -847,8 +850,9 @@ export async function runWebhookReview(
       ...(paidPhase
         ? {}
         : {
-            budgetMs: reviewFreeSweepBudgetMs(
-              env.KANAREK_WEBHOOK_REVIEW_FREE_SWEEP_BUDGET_MS,
+            budgetMs: Math.min(
+              reviewFreeSweepBudgetMs(env.KANAREK_WEBHOOK_REVIEW_FREE_SWEEP_BUDGET_MS),
+              Math.max(0, MAX_REVIEW_SWEEP_BUDGET_MS - (Date.now() - alarmStartedAt)),
             ),
           }),
     },

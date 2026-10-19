@@ -176,3 +176,13 @@ test('empty watch-path match fails instead of skipping', async () => {
   await assert.rejects(run(state, true), /no main commit matches/);
   assert.deepEqual(state.calls, []);
 });
+
+test('triggers are left to a newer build that landed after activation', async () => {
+  const state = fake(OLD);
+  state.afterActivate = (s) => {
+    s.afterActivate = undefined;
+    s.head = NEWER;
+  };
+  assert.equal(await run(state, true), 0);
+  assert.ok(!state.calls.includes('triggers deploy'));
+});

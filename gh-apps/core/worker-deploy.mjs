@@ -117,8 +117,10 @@ export async function guardedDeploy(
   }
   wrangler(['versions', 'deploy', `${versionId}@100%`, '--name', name, '--message', message, '--yes']);
 
-  // versions upload/deploy never touch routes, domains or crons.
+  // versions upload/deploy never touch routes, domains or crons. A newer build
+  // owns triggers once its commit is on main, so re-fence before applying.
   const triggers = () => {
+    if (stale()) return true;
     try {
       wrangler(['triggers', 'deploy', '--name', name]);
       return true;

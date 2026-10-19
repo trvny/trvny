@@ -35,7 +35,7 @@ RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categor
 
 `worker.mjs` is intentionally read-mostly. `icons.mjs` is the single generated-icon implementation used for SVG, PNG, ICO, Apple touch, Windows tile and manifest surfaces. The only write route is `POST /api/publish`, accepted only with a valid GitHub Actions OIDC token from the scheduled/manual workflow on `main`. A repeated request from the same GitHub run/attempt is idempotent.
 
-Deploys only via Cloudflare Workers Builds on push to `main` (root `gh-apps/shitpost-reactor`, build `npm run check`, deploy `npm run deploy`). `npm run deploy` stamps `DEPLOY_COMMIT` from `WORKERS_CI_COMMIT_SHA`, so `/version` shows the built commit. Rollback: Cloudflare dashboard → Deployments.
+Deploys only via Cloudflare Workers Builds on push to `main` (root `gh-apps/shitpost-reactor`, build `npm run check`, deploy `npm run deploy`). `npm run deploy` (`deploy.mjs`) requires `WORKERS_CI_COMMIT_SHA`, stamps it as `DEPLOY_COMMIT`, then verifies `/version` matches and `/archive` is newest-first; on failure it runs `wrangler rollback` to the previous deployment and fails the build.
 
 `wrangler.jsonc` binds the R2 bucket and configures Workers Logs at **1%** (`head_sampling_rate: 0.01`), with invocation logs and traces disabled. `shitpost.trfny.com` is the production custom domain; `workers.dev` remains available as an emergency/debug route.
 

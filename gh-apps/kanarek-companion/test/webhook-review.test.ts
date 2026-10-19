@@ -282,6 +282,19 @@ test('review input does not mark missing GitHub patches as empty code', () => {
   );
 });
 
+test('binary assets do not block review of other code files', () => {
+  const files = [
+    { filename: 'gh-apps/gremlin/plugin/assets/gpt-icon.png' },
+    { filename: 'assets/font.woff2' },
+    { filename: 'src/app.ts', patch: '@@ -0,0 +1 @@\n+export const ok = true;' },
+  ];
+  const selected = selectReviewFiles(files, 60_000);
+  assert.deepEqual(selected.map((file) => file.path), ['src/app.ts']);
+  assert.equal(reviewInputState(files, selected.length), 'reviewable');
+  assert.equal(reviewFileCollectionComplete(files, 60_000), false);
+  assert.equal(reviewInputState([{ filename: 'assets/icon.webp' }], 0), 'no_code_diff');
+});
+
 test('expanded paid diff profile can retain more of one large patch', () => {
   const patch = '@@ -1 +1 @@\n+' + 'x'.repeat(40_000);
   const compact = selectReviewFiles(

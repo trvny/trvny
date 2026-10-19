@@ -56,12 +56,19 @@ Keep these concepts separate:
 - receipt: short-lived idempotency record for an AI result;
 - preset: built-in fallback that is never stored.
 
+The AI quip prompt carries only `quipKey` facts (status, blockers, area, size,
+language) plus the previous quip. No PR title/body: a banked quip is replayed on
+every PR with the same `quipKey`, so PR-specific wording leaks across PRs.
+`QUIP_PROMPT_SCOPE` (in `quipKey`) was bumped once to retire quips learned from
+the old title/body prompt; those entries stay in KV/archive, unmatched.
+
 A generated quip is archived before GitHub mutation. If receipt persistence
 fails, active-bank persistence is attempted before GitHub work so a paid result
 still has durable protection.
 
 Do not reset the system by bumping/clearing the active bank namespace. Schema
-changes must preserve or explicitly migrate learned data.
+changes must preserve or explicitly migrate learned data. Bump
+`QUIP_PROMPT_SCOPE` only when learned quips themselves are unsafe to reuse.
 
 AI selection is capped by `KANAREK_AI_PERCENT` and decays as the retainable
 context fills. If bank occupancy cannot be measured, generation fails closed and

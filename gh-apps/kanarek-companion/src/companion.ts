@@ -11,6 +11,7 @@ import {
   QUIP_KEY_RE,
   QUIP_RE,
   rememberQuip,
+  QUIP_PROMPT_SCOPE,
   scopedBankKey,
   shouldAskAiForBank,
   SOURCE_RE,
@@ -70,6 +71,7 @@ import type {
 } from './companion-types.ts';
 
 const COMMENT_STATE_RE = /<!-- kanarek-state:([a-f0-9]{16}) -->/;
+const QUIP_SCOPE_RE = /<!-- kanarek-quip-scope:(\d+) -->/;
 
 type QuipFacts = {
   scopeVersion: 2;
@@ -147,6 +149,11 @@ export function shouldCheckPaidReceipt(
     canUsePool(stateKey) &&
     (!quip || (previousSource === 'ai' && previousStateHash === stateHash))
   );
+}
+
+// Older-scope quips may carry another PR's subject: never feed them to the model.
+export function promptPreviousQuip(body: string | null | undefined, learned: string): string {
+  return body?.match(QUIP_SCOPE_RE)?.[1] === String(QUIP_PROMPT_SCOPE) ? learned : '';
 }
 
 export function paidQuipForBank(
@@ -303,6 +310,7 @@ export async function refreshCompanion(
   const previousLearnedQuip = ['ai', 'pool'].includes(previousSource)
     ? reusableQuip(previousQuip, language) ?? ''
     : previousQuip;
+  const previousPromptQuip = promptPreviousQuip(previous?.body, previousLearnedQuip);
   let pool = rememberQuip(
     poolEntries(previous?.body),
     previousKey,
@@ -396,11 +404,7 @@ export async function refreshCompanion(
       blockers: kinds,
       area: quipFacts.area,
       size: prSize.key,
-      previousQuip: previousLearnedQuip || null,
-      context: {
-        title: sanitize(pr.title ?? '') || null,
-        body: sanitize(pr.body ?? '') || null,
-      },
+      previousQuip: previousPromptQuip || null,
     });
     const generated = reusableQuip(await aiQuip(facts, env, fetcher), language);
     if (generated) {

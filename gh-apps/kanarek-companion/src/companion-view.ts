@@ -1,4 +1,5 @@
 import { encoded } from './quip.ts';
+import { QUIP_PROMPT_SCOPE } from './companion-bank.ts';
 import type { BranchState, CiState, CompanionEnv, PullRequest, QuipEntry, ReviewState, StatusState } from './companion-types.ts';
 
 export const MARKER = '<!-- kanarek-pr-companion:v1 -->';
@@ -246,6 +247,7 @@ export function render(
   return `${MARKER}
 <!-- kanarek-state:${stateHash} -->
 <!-- kanarek-quip-key:${quipKey} -->
+<!-- kanarek-quip-scope:${QUIP_PROMPT_SCOPE} -->
 <!-- kanarek-quip:${encoded(quip)} -->
 <!-- kanarek-pool:${encoded(JSON.stringify(pool))} -->
 <!-- kanarek-source:${source} -->

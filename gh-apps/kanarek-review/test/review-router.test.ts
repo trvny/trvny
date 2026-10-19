@@ -2532,6 +2532,24 @@ test('unavailable providers enter cooldown while healthy fallbacks still answer'
   ]);
 });
 
+test('request-specific HTTP 422 does not disable a provider for unrelated calls', async () => {
+  const cooldowns = cooldownNamespace();
+  let openRouterCalls = 0;
+  const env = { ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns };
+  const fetcher = ((input: RequestInfo | URL) => {
+    if (String(input).includes('openrouter.ai')) {
+      openRouterCalls += 1;
+      return Promise.resolve(new Response('unsupported request shape', { status: 422 }));
+    }
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch;
+  const body = { model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'x' }] };
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  assert.equal(openRouterCalls, 2);
+});
+
 test('exhausted inactive providers report aggregate failure, not a premature configuration error', async () => {
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'review' }],

@@ -2,14 +2,23 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  handleGremlinMcp,
-  handleOperatorMcp,
+  handleGremlinMcp as handleGremlinMcpGw,
+  handleOperatorMcp as handleOperatorMcpGw,
   MCP_PROTOCOL_VERSION,
 } from '../src/mcp-adapter.ts';
 import {
   PLUGIN_MCP_OPERATION_IDS,
   pluginMcpOpenApi,
 } from '../src/runtime-openapi.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
+
+type Invoke = (request: Request) => Promise<Response>;
+// Gateway-taking handler, driven by the route-shaped fixture.
+const handleGremlinMcp = (request: Request, document: Parameters<typeof handleGremlinMcpGw>[1], env: Parameters<typeof handleGremlinMcpGw>[2], invoke: Invoke, fetcher?: typeof fetch) =>
+  handleGremlinMcpGw(request, document, env, invoke, loopbackGateway(request, invoke), fetcher);
+// Gateway-taking handler, driven by the route-shaped fixture.
+const handleOperatorMcp = (request: Request, document: Parameters<typeof handleOperatorMcpGw>[1], invoke: Invoke) =>
+  handleOperatorMcpGw(request, document, invoke, loopbackGateway(request, invoke));
 
 const ORIGIN = 'https://gremlin.example';
 

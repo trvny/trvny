@@ -3,9 +3,15 @@ import test from 'node:test';
 
 import {
   addContext7OpenApi,
-  handleContext7Action,
+  handleContext7Action as handleContext7ActionGw,
   type Context7ActionEnv,
 } from '../src/context7-actions.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
+
+type Invoke = (request: Request) => Promise<Response>;
+// Gateway-taking handler, driven by the route-shaped fixture.
+const handleContext7Action = (request: Request, env: Parameters<typeof handleContext7ActionGw>[1], invoke: Invoke, fetcher?: typeof fetch) =>
+  handleContext7ActionGw(request, env, loopbackGateway(request, invoke), fetcher);
 
 const origin = 'https://example.workers.dev';
 

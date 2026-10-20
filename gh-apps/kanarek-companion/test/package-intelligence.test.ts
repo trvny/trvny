@@ -5,9 +5,15 @@ import {
   addPackageIntelligenceOpenApi,
   createPackageExternalTransport,
   githubRepositoryFromUrl,
-  handlePackageIntelligenceAction,
+  handlePackageIntelligenceAction as handlePackageIntelligenceActionGw,
   maintenanceSignals,
 } from '../src/package-intelligence.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
+
+type Invoke = (request: Request) => Promise<Response>;
+// Gateway-taking handler, driven by the route-shaped fixture.
+const handlePackageIntelligenceAction = (request: Request, invoke: Invoke, fetcher?: typeof fetch) =>
+  handlePackageIntelligenceActionGw(request, loopbackGateway(request, invoke), fetcher);
 
 const origin = 'https://example.workers.dev';
 

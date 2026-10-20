@@ -8,12 +8,13 @@ import {
   type PackageEcosystem,
   type PackageRegistryResult,
 } from './package-registry.ts';
-import { isObject, type JsonObject, internalReadRequest, DetailedCodedError } from './tools/common.ts';
+import { isObject, type JsonObject, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
+import { authorizeOperator } from './action-auth.ts';
+import type { GithubGateway } from './github-gateway.ts';
 
 export const PACKAGE_INTELLIGENCE_PATH = '/gpt-actions/packages/inspect';
 
-const EXPECTED_OPERATOR = 'trvny';
 const MAX_REQUEST_BYTES = 16_000;
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
 const MAX_TEXT_BYTES = 1024 * 1024;
@@ -22,7 +23,6 @@ const FETCH_TIMEOUT_MS = 8_000;
 const MAX_ADVISORIES = 12;
 const CHANGELOG_CANDIDATES = ['CHANGELOG.md', 'CHANGES.md', 'HISTORY.md', 'RELEASES.md'] as const;
 
-type Invoke = (request: Request) => Promise<Response>;
 type DirectFetch = typeof fetch;
 
 type Input = {
@@ -83,26 +83,6 @@ async function inputObject(request: Request): Promise<Input> {
     includeAlternatives: booleanValue(raw.includeAlternatives, 'include_alternatives', false),
     includeUpstream: booleanValue(raw.includeUpstream, 'include_upstream', true),
   };
-}
-
-async function responseObject(response: Response): Promise<JsonObject | null> {
-  try {
-    const value: unknown = await response.clone().json();
-    return isObject(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-async function authorizeOperator(request: Request, invoke: Invoke): Promise<Response | null> {
-  const response = await invoke(internalReadRequest(request, '/user'));
-  if (!response.ok) return response;
-  const payload = await responseObject(response);
-  const data = payload && isObject(payload.data) ? payload.data : null;
-  if (!payload || payload.ok !== true || data?.login !== EXPECTED_OPERATOR) {
-    return json({ ok: false, error: 'operator_not_allowed' }, 403);
-  }
-  return null;
 }
 
 function externalHostAllowed(url: URL): boolean {
@@ -437,13 +417,13 @@ async function inspect(
 
 export async function handlePackageIntelligenceAction(
   request: Request,
-  invoke: Invoke,
+  github: GithubGateway,
   fetcher: DirectFetch = fetch,
 ): Promise<Response | null> {
   if (new URL(request.url).pathname !== PACKAGE_INTELLIGENCE_PATH) return null;
   if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
   try {
-    const unauthorized = await authorizeOperator(request, invoke);
+    const unauthorized = await authorizeOperator(github);
     if (unauthorized) return unauthorized;
     const input = await inputObject(request);
     return await inspect(fetcher, input, request.headers.get('authorization'));

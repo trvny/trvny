@@ -1,4 +1,5 @@
-import { authorizeOperator, type ActionInvoke } from './action-auth.ts';
+import { authorizeOperator } from './action-auth.ts';
+import type { GithubGateway } from './github-gateway.ts';
 import { SpecialistToolError, isObject, type JsonObject } from './tools/common.ts';
 import {
   SPECIALIST_TOOLS,
@@ -62,14 +63,14 @@ export function addFeedseekOpenApi(document: JsonObject): void {
 export async function handleFeedseekAction(
   request: Request,
   env: SpecialistToolEnv,
-  invoke: ActionInvoke,
+  github: GithubGateway,
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
   const toolName = ACTIONS[new URL(request.url).pathname as keyof typeof ACTIONS];
   if (!toolName) return null;
 
   try {
-    const authFailure = await authorizeOperator(request, invoke);
+    const authFailure = await authorizeOperator(github);
     if (authFailure) return authFailure;
     if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
     return json(await invokeSpecialistTool(toolName, await inputObject(request), env, fetcher));

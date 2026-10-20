@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { addFeedseekOpenApi, handleFeedseekAction } from '../src/feedseek-actions.ts';
+import { addFeedseekOpenApi, handleFeedseekAction as handleFeedseekActionGw } from '../src/feedseek-actions.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
+
+type Invoke = (request: Request) => Promise<Response>;
+// Gateway-taking handler, driven by the route-shaped fixture.
+const handleFeedseekAction = (request: Request, env: Parameters<typeof handleFeedseekActionGw>[1], invoke: Invoke, fetcher?: typeof fetch) =>
+  handleFeedseekActionGw(request, env, loopbackGateway(request, invoke), fetcher);
 
 const origin = 'https://example.workers.dev';
 

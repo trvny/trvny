@@ -1,12 +1,12 @@
 import { searchLlmsDocs, type RemoteFetch } from './llms-docs.ts';
 import { isObject, type JsonObject, repoPath, repositoryInScope, CodedError } from './tools/common.ts';
-import { GithubActionError, type GithubGateway, mapGithubError } from './github-gateway.ts';
+import { type GithubGateway, mapGithubError } from './github-gateway.ts';
 import { json } from './json-response.ts';
+import { authorizeOperator } from './action-auth.ts';
 
 const INDEX_PATH = '/gpt-actions/docs/index';
 const SEARCH_PATH = '/gpt-actions/docs/search';
 const GET_PATH = '/gpt-actions/docs/get';
-const EXPECTED_OPERATOR = 'trvny';
 const MAX_REQUEST_BYTES = 24_000;
 const MAX_DOC_BYTES = 192_000;
 const MAX_INDEX_LIMIT = 160;
@@ -14,20 +14,6 @@ const MAX_SEARCH_LIMIT = 10;
 
 
 class DocsActionError extends CodedError {}
-
-async function authorizeOperator(github: GithubGateway): Promise<Response | null> {
-  let data: unknown;
-  try {
-    data = await github.read('/user');
-  } catch (error) {
-    if (error instanceof GithubActionError) return json(error.envelope(), error.status);
-    throw error;
-  }
-  if (!isObject(data) || data.login !== EXPECTED_OPERATOR) {
-    return json({ ok: false, error: 'operator_not_allowed' }, 403);
-  }
-  return null;
-}
 
 function githubRead(github: GithubGateway, path: string): Promise<unknown> {
   return mapGithubError(github.read(path), (code, status) => new DocsActionError(code, status));

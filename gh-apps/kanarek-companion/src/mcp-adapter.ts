@@ -1,4 +1,5 @@
 import { authorizeOperator, type ActionInvoke } from './action-auth.ts';
+import type { GithubGateway } from './github-gateway.ts';
 import { SpecialistToolError, isObject, type JsonObject } from './tools/common.ts';
 import {
   invokeSpecialistTool,
@@ -211,7 +212,7 @@ async function handleRpc(
 
 async function handleMcp(
   request: Request,
-  invoke: ActionInvoke,
+  github: GithubGateway,
   surface: McpSurface,
 ): Promise<Response | null> {
   const url = new URL(request.url);
@@ -233,7 +234,7 @@ async function handleMcp(
     return json({ error: 'method_not_allowed' }, 405);
   }
 
-  const authFailure = await authorizeOperator(request, invoke);
+  const authFailure = await authorizeOperator(github);
   if (authFailure) return authFailure;
 
   const text = await request.clone().text();
@@ -637,18 +638,19 @@ export function gremlinMcpManifest(document: JsonObject): JsonObject {
 export async function handleSpecialistMcp(
   request: Request,
   env: SpecialistToolEnv,
-  invoke: ActionInvoke,
+  github: GithubGateway,
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
-  return handleMcp(request, invoke, specialistSurface(env, fetcher));
+  return handleMcp(request, github, specialistSurface(env, fetcher));
 }
 
 export async function handleOperatorMcp(
   request: Request,
   document: JsonObject,
   invoke: ActionInvoke,
+  github: GithubGateway,
 ): Promise<Response | null> {
-  return handleMcp(request, invoke, operatorSurface(request, document, invoke));
+  return handleMcp(request, github, operatorSurface(request, document, invoke));
 }
 
 export async function handleGremlinMcp(
@@ -656,11 +658,12 @@ export async function handleGremlinMcp(
   document: JsonObject,
   env: SpecialistToolEnv,
   invoke: ActionInvoke,
+  github: GithubGateway,
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
   return handleMcp(
     request,
-    invoke,
+    github,
     combinedSurface(
       operatorSurface(request, document, invoke),
       gremlinSpecialistSurface(env, fetcher),

@@ -2,10 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  handleSpecialistMcp,
-  handleGremlinMcp,
+  handleSpecialistMcp as handleSpecialistMcpGw,
+  handleGremlinMcp as handleGremlinMcpGw,
   MCP_PROTOCOL_VERSION,
 } from '../src/mcp-adapter.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
+
+type Invoke = (request: Request) => Promise<Response>;
+// Gateway-taking handler, driven by the route-shaped fixture.
+const handleSpecialistMcp = (request: Request, env: Parameters<typeof handleSpecialistMcpGw>[1], invoke: Invoke, fetcher?: typeof fetch) =>
+  handleSpecialistMcpGw(request, env, loopbackGateway(request, invoke), fetcher);
+// Gateway-taking handler, driven by the route-shaped fixture.
+const handleGremlinMcp = (request: Request, document: Parameters<typeof handleGremlinMcpGw>[1], env: Parameters<typeof handleGremlinMcpGw>[2], invoke: Invoke, fetcher?: typeof fetch) =>
+  handleGremlinMcpGw(request, document, env, invoke, loopbackGateway(request, invoke), fetcher);
 
 const origin = 'https://example.workers.dev';
 

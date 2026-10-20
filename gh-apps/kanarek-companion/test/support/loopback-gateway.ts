@@ -1,5 +1,5 @@
 import { GithubActionError, type GithubGateway } from '../../src/github-gateway.ts';
-import { internalReadRequest, internalRequest, isObject } from '../../src/tools/common.ts';
+import { internalRequest, isObject } from '../../src/tools/common.ts';
 
 // Test-only GithubGateway backed by a fake of the /gpt-actions/github/read|graphql
 // routes, so existing route-shaped fixtures keep working.
@@ -25,7 +25,7 @@ export function loopbackGateway(
     }
     return payload.data;
   };
-  const read = (path: string) => call(internalReadRequest(source, path));
+  const read = (path: string) => call(internalRequest(source, '/gpt-actions/github/read', { path }));
   const unsupported = () => Promise.reject(new Error('loopbackGateway: bot not supported'));
   return {
     read,

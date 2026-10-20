@@ -29,7 +29,10 @@
 ## 🔀 Open pull requests
 
 <!--OPEN_PRS:START-->
-No open pull requests. 🎉
+| Repository | PR | Title | Author | State | Updated |
+| --- | ---: | --- | --- | --- | --- |
+| trvny/trvny | [#1072](https://github.com/trvny/trvny/pull/1072) | deps: bump the npm group in /mcp/status-mcp with 2 updates | @dependabot[bot] | ready | 2026-10-19 |
+| trvny/trvny | [#1074](https://github.com/trvny/trvny/pull/1074) | ci: deploy Workers only via Workers Builds | @trvny | ready | 2026-10-19 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

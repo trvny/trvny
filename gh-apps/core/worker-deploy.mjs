@@ -71,7 +71,10 @@ function realIsAncestor(ancestor, descendant) {
 function realPreviousConfig(prevSha, file = 'wrangler.jsonc') {
   try {
     const rel = execFileSync('git', ['rev-parse', '--show-prefix'], { encoding: 'utf8' }).trim();
-    const body = gitAtTop()(['show', `${prevSha}:${rel}${file}`]);
+    const git = gitAtTop();
+    // Shallow build checkout: predecessor may predate the fetched history.
+    git(['fetch', '--quiet', '--depth=1', 'origin', prevSha]);
+    const body = git(['show', `${prevSha}:${rel}${file}`]);
     const path = `.wrangler-previous.${file}`;
     writeFileSync(path, body);
     return path;

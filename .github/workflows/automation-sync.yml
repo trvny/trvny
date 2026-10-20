@@ -26,7 +26,8 @@ jobs:
       group: automation-sync-cloudflare
       cancel-in-progress: false
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    # Up to 3 min waiting for the deploy lock (DEPLOY_LOCK_WAIT_MS) + sync.
+    timeout-minutes: 10
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

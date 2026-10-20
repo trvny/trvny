@@ -11,7 +11,7 @@ tests and bundles them as part of its own `npm run check`.
 | `review-service-protocol.ts` | kanarek-companion, kanarek-review |
 | `review-cooldown-store.ts` | kanarek-companion (Durable Object), kanarek-review tests |
 | `worker-deploy.mjs` | Workers Builds deploy scripts: kanarek-companion, shitpost-reactor (deploys only the newest `main` commit for its watch paths; upload → fence → activate → verify → triggers; rollback by version id; tests in `kanarek-companion/test/worker-deploy.test.ts`) |
-| `deploy-lock.mjs` | Lease lock in D1 `deploy-locks` (table `locks`, 15 min TTL) held by `worker-deploy.mjs` and the kanarek-companion credential sync; CLI `acquire|release <worker> <owner>`. Build and Actions Cloudflare tokens need D1 Edit. |
+| `deploy-lock.mjs` | Lease lock in D1 `deploy-locks` (table `locks`, 15 min TTL) held by `worker-deploy.mjs` and the kanarek-companion credential sync; CLI `acquire\|release <worker> <owner>`. Build and Actions Cloudflare tokens need D1 Edit. |
 
 Rules:
 

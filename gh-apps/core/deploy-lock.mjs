@@ -8,7 +8,8 @@ import { pathToFileURL } from 'node:url';
 
 export const LOCK_DB = 'deploy-locks';
 const TTL_S = 15 * 60;
-const WAIT_MS = 20 * 60_000;
+// Workers Builds kills at 20 min total; leave room for check + deploy + verify + rollback.
+const WAIT_MS = 8 * 60_000;
 const RETRY_MS = 10_000;
 const SAFE = /^[A-Za-z0-9:._-]{1,200}$/;
 
@@ -64,7 +65,8 @@ export function d1Lock({
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const [action, name, owner] = process.argv.slice(2);
-  const lock = d1Lock();
+  // Actions caller: fail cleanly before its job timeout.
+  const lock = d1Lock({ waitMs: Number(process.env.DEPLOY_LOCK_WAIT_MS ?? 3 * 60_000) });
   if (action === 'acquire') {
     if (!(await lock.acquire(name, owner))) {
       console.error(`could not acquire deploy lock ${name}`);

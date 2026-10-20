@@ -12,8 +12,9 @@ import {
   releaseTagAllowed,
 } from './release-actions.ts';
 import { extractZipEntry, zipEntryPath } from './zip-entry.ts';
-import { internalRequest, isObject, type JsonObject, repoPath, repositoryInScope, internalReadRequest, DetailedCodedError } from './tools/common.ts';
+import { internalRequest, isObject, type JsonObject, repoPath, repositoryInScope, DetailedCodedError } from './tools/common.ts';
 import { json } from './json-response.ts';
+import { type GithubGateway, mapGithubError } from './github-gateway.ts';
 
 export const RELEASE_ASSET_REPLACE_PATH = '/gpt-actions/github/releases/assets/replace-entry';
 
@@ -159,13 +160,11 @@ async function actionObject(response: Response): Promise<JsonObject> {
   return value;
 }
 
-async function readData(
-  source: Request,
-  dispatch: Dispatch,
-  path: string,
-): Promise<unknown> {
-  const response = await dispatch(internalReadRequest(source, path));
-  return (await actionObject(response)).data;
+function readData(github: GithubGateway, path: string): Promise<unknown> {
+  return mapGithubError(
+    github.read(path),
+    (code, status, envelope) => new ReplaceError(code, status, { action: envelope }),
+  );
 }
 
 function tokenHeaders(token: string): Headers {
@@ -253,12 +252,12 @@ async function downloadArtifactZip(
   return bytes;
 }
 
-async function verifySnapshots(source: Request, dispatch: Dispatch, input: Input): Promise<void> {
+async function verifySnapshots(github: GithubGateway, input: Input): Promise<void> {
   const repo = repoPath(input.repository);
   const [release, oldAsset, artifact] = await Promise.all([
-    readData(source, dispatch, `/repos/${repo}/releases/${input.releaseId}`),
-    readData(source, dispatch, `/repos/${repo}/releases/assets/${input.oldAssetId}`),
-    readData(source, dispatch, `/repos/${repo}/actions/artifacts/${input.artifactId}`),
+    readData(github, `/repos/${repo}/releases/${input.releaseId}`),
+    readData(github, `/repos/${repo}/releases/assets/${input.oldAssetId}`),
+    readData(github, `/repos/${repo}/actions/artifacts/${input.artifactId}`),
   ]);
   if (!isObject(release) || release.id !== input.releaseId || release.tag_name !== input.expectedTag) {
     throw new ReplaceError('release_snapshot_changed', 409);
@@ -292,9 +291,10 @@ async function replaceAsset(
   env: Env,
   fetcher: typeof fetch,
   dispatch: Dispatch,
+  github: GithubGateway,
 ): Promise<Response> {
   const input = await requestInput(request);
-  await verifySnapshots(request, dispatch, input);
+  await verifySnapshots(github, input);
 
   const token = await gptomekToken(env, fetcher, input.repository);
   const archive = await downloadArtifactZip(token, input, fetcher);
@@ -435,11 +435,12 @@ export async function handleReleaseReplaceAction(
   env: Env,
   fetcher: typeof fetch,
   dispatch: Dispatch,
+  github: GithubGateway,
 ): Promise<Response | null> {
   if (new URL(request.url).pathname !== RELEASE_ASSET_REPLACE_PATH) return null;
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
   try {
-    return await replaceAsset(request, env, fetcher, dispatch);
+    return await replaceAsset(request, env, fetcher, dispatch, github);
   } catch (error) {
     if (error instanceof ReplaceError) {
       return json({ ok: false, error: error.code, ...error.details }, error.status);

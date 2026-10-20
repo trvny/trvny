@@ -1,4 +1,5 @@
-import { authorizeOperator, type ActionInvoke } from './action-auth.ts';
+import { authorizeOperator } from './action-auth.ts';
+import type { GithubGateway } from './github-gateway.ts';
 import { SpecialistToolError, isObject, type JsonObject, readJsonObject } from './tools/common.ts';
 import {
   SPECIALIST_TOOLS,
@@ -57,14 +58,14 @@ export function addContext7OpenApi(document: JsonObject): void {
 export async function handleContext7Action(
   request: Request,
   env: Context7ActionEnv,
-  invoke: ActionInvoke,
+  github: GithubGateway,
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
   const pathname = new URL(request.url).pathname;
   if (pathname !== SEARCH_PATH) return null;
 
   try {
-    const authFailure = await authorizeOperator(request, invoke);
+    const authFailure = await authorizeOperator(github);
     if (authFailure) return authFailure;
     if (request.method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
     const result = await invokeSpecialistTool(

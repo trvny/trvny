@@ -91,6 +91,7 @@ export function handleGremlinMcp(
     pluginMcpOpenApi(new URL(request.url).origin),
     env,
     invoke,
+    githubGateway(request, env, actionFetch),
     actionFetch,
   );
 }
@@ -271,7 +272,7 @@ const runtimeRoutes: readonly Route<RuntimeContext>[] = [
       : null,
   ({ request, env, below }) =>
     pathIs(request, RELEASE_ASSET_REPLACE_PATH)
-      ? handleReleaseReplaceAction(request, env, actionFetch, below)
+      ? handleReleaseReplaceAction(request, env, actionFetch, below, github(request, env))
       : null,
   ({ request, env }) =>
     pathIs(request, SYMBOL_INVESTIGATION_PATH)

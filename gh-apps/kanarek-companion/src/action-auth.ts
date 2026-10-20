@@ -1,41 +1,21 @@
 import { isObject } from './tools/common.ts';
+import { GithubActionError, type GithubGateway } from './github-gateway.ts';
 import { json } from './json-response.ts';
 
 export type ActionInvoke = (request: Request) => Promise<Response>;
 
-const AUTH_PATH = '/gpt-actions/github/read';
 const EXPECTED_OPERATOR = 'trvny';
 
-function internalAuthRequest(source: Request): Request {
-  const url = new URL(source.url);
-  url.pathname = AUTH_PATH;
-  url.search = '';
-  const headers = new Headers(source.headers);
-  headers.set('content-type', 'application/json');
-  headers.delete('content-length');
-  return new Request(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ path: '/user' }),
-  });
-}
-
-export async function authorizeOperator(
-  request: Request,
-  invoke: ActionInvoke,
-): Promise<Response | null> {
-  const response = await invoke(internalAuthRequest(request));
-  if (!response.ok) return response;
-
-  let payload: unknown;
+// Caller must be the operator. Gateway failure -> the read route's envelope/status.
+export async function authorizeOperator(github: GithubGateway): Promise<Response | null> {
+  let data: unknown;
   try {
-    payload = await response.clone().json();
-  } catch {
-    return json({ ok: false, error: 'invalid_operator_identity' }, 502);
+    data = await github.read('/user');
+  } catch (error) {
+    if (error instanceof GithubActionError) return json(error.envelope(), error.status);
+    throw error;
   }
-
-  const data = isObject(payload) && isObject(payload.data) ? payload.data : null;
-  if (!isObject(payload) || payload.ok !== true || data?.login !== EXPECTED_OPERATOR) {
+  if (!isObject(data) || data.login !== EXPECTED_OPERATOR) {
     return json({ ok: false, error: 'operator_not_allowed' }, 403);
   }
   return null;

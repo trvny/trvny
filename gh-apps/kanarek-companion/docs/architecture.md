@@ -134,8 +134,9 @@ Primary files:
 - `gptomek-issue.ts`: Issue #203 control-mailbox transport and wake handling.
 - `github-gateway.ts`: scoped GitHub read/bot/GraphQL access; modules call
   `githubGateway`, `gpt-actions.ts` exposes the same policy as HTTP routes.
-  Code/docs/review/investigation handlers take a `GithubGateway` built in
-  `runtime.ts`/`entry.ts`; `below` stays only for non-GitHub internal actions.
+  Every module needing GitHub (incl. operator auth in `action-auth.ts`, MCP,
+  specialist actions, capability/smoke) takes a `GithubGateway` built in
+  `runtime.ts`/`entry.ts`; `below` stays only for composing other internal actions.
   Tests adapt route-shaped fixtures via `test/support/loopback-gateway.ts`.
 
 The maintained transport documentation is in `../../gptomek/docs/REFERENCE.md`.

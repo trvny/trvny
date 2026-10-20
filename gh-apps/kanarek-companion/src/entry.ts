@@ -36,7 +36,8 @@ import {
 } from './gremlin-router.ts';
 import type { Route } from './route.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
-import { githubGateway } from './github-gateway.ts';
+import { GithubActionError, githubGateway } from './github-gateway.ts';
+import { authorizeOperator } from './action-auth.ts';
 import { json } from './json-response.ts';
 import { CAPABILITY_PATH, HEALTH_PATH, OPENAPI_PATH, SMOKE_PATH } from './paths.ts';
 
@@ -242,16 +243,10 @@ function smokeFailure(stage: string, response: Response, payload: JsonObject | n
   );
 }
 
-async function capabilityResponse(
-  request: Request,
-  env: GatewayEnv,
-  below: Below,
-): Promise<Response> {
+async function capabilityResponse(request: Request, env: GatewayEnv): Promise<Response> {
   if (request.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
-  const authorized = await below(
-    internalActionRequest(request, '/gpt-actions/github/read', 'POST', { path: '/user' }),
-  );
-  if (!authorized.ok) return authorized;
+  const unauthorized = await authorizeOperator(githubGateway(request, env, actionFetch));
+  if (unauthorized) return unauthorized;
   const document = gatewayOpenApi(new URL(request.url).origin);
   return json({ ok: true, ...(await gatewayManifest(document, env.CF_VERSION_METADATA)) });
 }
@@ -284,7 +279,6 @@ async function operatorSmokeResponse(
   const capabilitiesResponse = await capabilityResponse(
     internalActionRequest(request, CAPABILITY_PATH, 'GET'),
     env,
-    below,
   );
   const capabilities = await responseObject(capabilitiesResponse);
   const openApi = isObject(capabilities?.openApi) ? capabilities.openApi : null;
@@ -311,20 +305,25 @@ async function operatorSmokeResponse(
     );
   }
 
-  const repositoryResponse = await below(
-    internalActionRequest(request, '/gpt-actions/github/read', 'POST', {
-      path: `/repos/${SMOKE_REPOSITORY}`,
-    }),
-  );
-  const repositoryPayload = await responseObject(repositoryResponse);
-  const repository = isObject(repositoryPayload?.data) ? repositoryPayload.data : null;
+  let repository: unknown;
+  try {
+    repository = await githubGateway(request, env, actionFetch).read(`/repos/${SMOKE_REPOSITORY}`);
+  } catch (error) {
+    if (!(error instanceof GithubActionError)) throw error;
+    return json(
+      { ok: false, stage: 'repository_read', status: error.status, error: error.code },
+      error.status,
+    );
+  }
   if (
-    !repositoryResponse.ok ||
-    repositoryPayload?.ok !== true ||
-    repository?.full_name !== SMOKE_REPOSITORY ||
+    !isObject(repository) ||
+    repository.full_name !== SMOKE_REPOSITORY ||
     typeof repository.default_branch !== 'string'
   ) {
-    return smokeFailure('repository_read', repositoryResponse, repositoryPayload);
+    return json(
+      { ok: false, stage: 'repository_read', status: 200, error: 'smoke_step_failed' },
+      502,
+    );
   }
 
   const user = isObject(identity.user) ? identity.user : {};
@@ -415,15 +414,17 @@ export const gatewayRoutes: readonly Route<GatewayContext>[] = [
     pathIs(request, ANCHOR_OPENAPI_PATH) && request.method === 'GET'
       ? json(anchorStorageOpenApi(new URL(request.url).origin))
       : null,
-  ({ request, env, below }) =>
-    pathIs(request, MCP_PATH) ? handleSpecialistMcp(request, env, below, actionFetch) : null,
+  ({ request, env }) =>
+    pathIs(request, MCP_PATH)
+      ? handleSpecialistMcp(request, env, githubGateway(request, env, actionFetch), actionFetch)
+      : null,
   ({ request, env }) => handleReviewRouterViaService(request, env),
   ({ request }) =>
     pathIs(request, OPENAPI_PATH) && request.method === 'GET'
       ? json(gatewayOpenApi(new URL(request.url).origin))
       : null,
-  ({ request, env, below }) =>
-    pathIs(request, CAPABILITY_PATH) ? capabilityResponse(request, env, below) : null,
+  ({ request, env }) =>
+    pathIs(request, CAPABILITY_PATH) ? capabilityResponse(request, env) : null,
   ({ request, env, below }) =>
     pathIs(request, SMOKE_PATH) ? operatorSmokeResponse(request, env, below) : null,
   ({ request, env, below }) =>
@@ -432,10 +433,11 @@ export const gatewayRoutes: readonly Route<GatewayContext>[] = [
       : null,
   ({ request, env }) => handleDocsAction(request, githubGateway(request, env, actionFetch)),
   ({ request, env }) => handleAnchorStorageAction(request, env, actionFetch),
-  ({ request, below }) => handlePackageIntelligenceAction(request, below, actionFetch),
-  ({ request, env, below }) => handleFeedseekAction(request, env, below, actionFetch),
-  ({ request, env, below }) => handleContext7Action(request, env, below, actionFetch),
-  ({ request, env, below }) => handleEngramAction(request, env, below, actionFetch),
+  ({ request, env }) =>
+    handlePackageIntelligenceAction(request, githubGateway(request, env, actionFetch), actionFetch),
+  ({ request, env }) => handleFeedseekAction(request, env, githubGateway(request, env, actionFetch), actionFetch),
+  ({ request, env }) => handleContext7Action(request, env, githubGateway(request, env, actionFetch), actionFetch),
+  ({ request, env }) => handleEngramAction(request, env, githubGateway(request, env, actionFetch), actionFetch),
   ({ request, env, below }) =>
     handleAccountAttentionAction(request, below, githubGateway(request, env, actionFetch)),
   ({ request, env, below }) => handleAgentGuidanceAction(request, env, below),

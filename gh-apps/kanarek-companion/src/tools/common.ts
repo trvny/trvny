@@ -90,13 +90,6 @@ export function internalRequest(source: Request, pathname: string, body: JsonObj
   return new Request(url, { method: 'POST', headers, body: JSON.stringify(body) });
 }
 
-export const GITHUB_READ_PATH = '/gpt-actions/github/read';
-
-// GitHub REST read through GPT Actions, as the caller.
-export function internalReadRequest(source: Request, path: string): Request {
-  return internalRequest(source, GITHUB_READ_PATH, { path });
-}
-
 // JSON object body; empty body -> {}. Limit counts UTF-16 code units.
 export async function readJsonObject(
   request: Request,

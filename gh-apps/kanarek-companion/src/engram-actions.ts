@@ -1,4 +1,5 @@
-import { authorizeOperator, type ActionInvoke } from './action-auth.ts';
+import { authorizeOperator } from './action-auth.ts';
+import type { GithubGateway } from './github-gateway.ts';
 import { SpecialistToolError, isObject, type JsonObject, readJsonObject } from './tools/common.ts';
 import { type EngramToolEnv } from './tools/engram.ts';
 import { SPECIALIST_TOOLS, invokeSpecialistTool } from './tools/registry.ts';
@@ -100,14 +101,14 @@ export function addEngramOpenApi(document: JsonObject): void {
 export async function handleEngramAction(
   request: Request,
   env: EngramActionEnv,
-  invoke: ActionInvoke,
+  github: GithubGateway,
   fetcher: typeof fetch = fetch,
 ): Promise<Response | null> {
   const pathname = new URL(request.url).pathname;
   if (![STATUS_PATH, SEARCH_PATH, STORE_PATH].includes(pathname)) return null;
 
   try {
-    const authFailure = await authorizeOperator(request, invoke);
+    const authFailure = await authorizeOperator(github);
     if (authFailure) return authFailure;
 
     if (pathname === STATUS_PATH) {

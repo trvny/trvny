@@ -3,9 +3,15 @@ import test from 'node:test';
 
 import {
   addEngramOpenApi,
-  handleEngramAction,
+  handleEngramAction as handleEngramActionGw,
   type EngramActionEnv,
 } from '../src/engram-actions.ts';
+import { loopbackGateway } from './support/loopback-gateway.ts';
+
+type Invoke = (request: Request) => Promise<Response>;
+// Gateway-taking handler, driven by the route-shaped fixture.
+const handleEngramAction = (request: Request, env: Parameters<typeof handleEngramActionGw>[1], invoke: Invoke, fetcher?: typeof fetch) =>
+  handleEngramActionGw(request, env, loopbackGateway(request, invoke), fetcher);
 
 const origin = 'https://example.workers.dev';
 

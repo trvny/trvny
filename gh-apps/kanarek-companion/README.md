@@ -210,7 +210,9 @@ commit is the newest `main` commit for the watch paths (keep `paths` in sync
 with the trigger), verifies `/health` (`ok`, `reviewWebhook.ready`, version tag
 = commit), applies triggers, and restores the previous deployment on failure
 while its own version is still active. Durable Object lifecycle changes use
-plain `wrangler deploy` and cannot be rolled back.
+plain `wrangler deploy` and cannot be rolled back. Deploys and the credential
+sync (`automation-sync.yml`) serialize on the D1 lease in `../core/deploy-lock.mjs`;
+both Cloudflare tokens need D1 Edit.
 
 ## Secrets and configuration
 

@@ -6,8 +6,13 @@
 // verify live -> apply triggers; on failure roll back by our version id only.
 // First deploy and Durable Object lifecycle changes (rejected by
 // `versions upload`) use plain `wrangler deploy`, which cannot be rolled back.
+// Everything runs under the shared D1 deploy lock (deploy-lock.mjs), renewed
+// before each mutation, so builds and credential sync never interleave.
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+
+import { d1Lock } from './deploy-lock.mjs';
 
 const BUILD_MARK_RE = /^build=([0-9a-f]{40})/;
 const VERSION_RE = /Worker Version ID:\s*([0-9a-f-]{36})/i;
@@ -114,14 +119,38 @@ export async function poll(check, attempts = 12, delayMs = 5_000) {
 
 // Returns the process exit code. `deps` is injectable for tests.
 // `paths`: git pathspecs mirroring the Workers Builds watch paths.
-export async function guardedDeploy(
+export async function guardedDeploy(options, deps = {}) {
+  const { name, sha } = options;
+  const lock = deps.lock ?? d1Lock();
+  const owner = `build:${sha.slice(0, 12)}:${randomUUID()}`;
+  if (!(await lock.acquire(name, owner))) {
+    console.error(`${name}: deploy lock busy for too long; not deploying ${sha}.`);
+    return 1;
+  }
+  // Renewed before every mutation; losing it (lease expired, taken over) aborts.
+  const holdLock = () => {
+    if (!lock.renew(name, owner)) throw new Error(`${name}: lost deploy lock before a mutation`);
+  };
+  try {
+    return await deployLocked(options, deps, holdLock);
+  } finally {
+    try {
+      lock.release(name, owner);
+    } catch (error) {
+      console.warn(`${name}: deploy lock release failed (lease expires): ${error.message}`);
+    }
+  }
+}
+
+async function deployLocked(
   { name, sha, paths, deployArgs = [], verify },
   {
     wrangler = realWrangler,
     latestCommit = realLatestCommit,
     isAncestor = realIsAncestor,
     previousConfig = realPreviousConfig,
-  } = {},
+  },
+  holdLock,
 ) {
   const message = `build=${sha}`;
   const stale = () => {
@@ -146,6 +175,7 @@ export async function guardedDeploy(
   }
   if (!versionId) {
     if (previous && stale()) return 0;
+    holdLock();
     wrangler(['deploy', ...deployArgs, '--message', message]);
     if (await verify()) return 0;
     console.error(`${name}: ${sha} failed live verification; no safe rollback for this deploy path.`);
@@ -160,6 +190,7 @@ export async function guardedDeploy(
     console.error(`${name}: concurrent non-build deployment ${current.versionId}; not activating ${sha}. Re-run the build.`);
     return 1;
   }
+  holdLock();
   wrangler(['versions', 'deploy', `${versionId}@100%`, '--name', name, '--message', message, '--yes']);
 
   // versions upload/deploy never touch routes, domains or crons.
@@ -168,6 +199,7 @@ export async function guardedDeploy(
     // Applied while our version still owns the Worker; a replacement build applies its own.
     if (active(wrangler, name)?.versionId !== versionId) return true;
     try {
+      holdLock();
       triggersApplied = true;
       wrangler(['triggers', 'deploy', '--name', name]);
       return true;
@@ -187,6 +219,7 @@ export async function guardedDeploy(
     return 1;
   }
   console.error(`${name}: ${sha} failed verification or triggers; restoring ${previous.specs.join(' ')}.`);
+  holdLock();
   wrangler([
     'versions', 'deploy', ...previous.specs,
     '--name', name,

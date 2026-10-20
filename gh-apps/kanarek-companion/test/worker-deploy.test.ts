@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { d1Lock } from '../../core/deploy-lock.mjs';
 import { guardedDeploy } from '../../core/worker-deploy.mjs';
 
 // Fake wrangler + git head for gh-apps/core/worker-deploy.mjs.
@@ -80,7 +81,27 @@ function wrangler(state: Fake) {
 
 const activeBuild = (state: Fake) => state.messages[state.active[0].version_id]?.match(/build=(\w+)/)?.[1];
 
-function run(state: Fake, healthy: boolean, runner = wrangler(state)) {
+type FakeLock = { held: string | null; acquire: boolean; renewals: number; loseAfter?: number; released: string[] };
+
+function fakeLock(state: FakeLock = { held: null, acquire: true, renewals: 0, released: [] }) {
+  return {
+    state,
+    async acquire(_name: string, owner: string) {
+      if (!state.acquire) return false;
+      state.held = owner;
+      return true;
+    },
+    renew(_name: string, owner: string) {
+      state.renewals += 1;
+      return state.held === owner && (state.loseAfter === undefined || state.renewals <= state.loseAfter);
+    },
+    release(_name: string, owner: string) {
+      state.released.push(owner);
+    },
+  };
+}
+
+function run(state: Fake, healthy: boolean, runner = wrangler(state), lock = fakeLock()) {
   return guardedDeploy(
     { name: 'w', sha: OURS, paths: ['gh-apps/w'], verify: async () => healthy },
     {
@@ -88,6 +109,7 @@ function run(state: Fake, healthy: boolean, runner = wrangler(state)) {
       latestCommit: () => state.head,
       isAncestor: (a: string, d: string) => state.ancestors.includes(`${a}>${d}`),
       previousConfig: (prev: string) => `prev-${prev.slice(0, 1)}.jsonc`,
+      lock,
     },
   );
 }
@@ -219,4 +241,68 @@ test('rollback after applied triggers restores the predecessor triggers', async 
   assert.equal(await run(state, false), 1);
   assert.equal(activeBuild(state), OLD);
   assert.ok(state.calls.includes('restore prev-a.jsonc'));
+});
+
+test('busy deploy lock: nothing is touched', async () => {
+  const state = fake(OLD);
+  const lock = fakeLock({ held: 'other', acquire: false, renewals: 0, released: [] });
+  assert.equal(await run(state, true, wrangler(state), lock), 1);
+  assert.deepEqual(state.calls, []);
+});
+
+test('lock is released after a deploy, also when it throws', async () => {
+  const ok = fake(OLD);
+  const okLock = fakeLock();
+  assert.equal(await run(ok, true, wrangler(ok), okLock), 0);
+  assert.equal(okLock.state.released.length, 1);
+
+  const bad = fake(OLD);
+  bad.uploadError = 'fetch failed';
+  const badLock = fakeLock();
+  await assert.rejects(run(bad, true, wrangler(bad), badLock), /fetch failed/);
+  assert.equal(badLock.state.released.length, 1);
+});
+
+test('lost lock before activation: no activation', async () => {
+  const state = fake(OLD);
+  const lock = fakeLock({ held: null, acquire: true, renewals: 0, loseAfter: 0, released: [] });
+  await assert.rejects(run(state, true, wrangler(state), lock), /lost deploy lock/);
+  assert.equal(activeBuild(state), OLD);
+  assert.ok(!state.calls.includes('versions deploy'));
+});
+
+test('d1Lock: atomic lease semantics against a fake D1', async () => {
+  const rows = new Map<string, { owner: string; expires: number }>();
+  let clock = 1000;
+  const fakeD1 = (args: string[]) => {
+    const sql = args[args.indexOf('--command') + 1];
+    const insert = sql.match(/VALUES \('([^']+)', '([^']+)', (\d+)\).*expires_at < (\d+)/);
+    if (insert) {
+      const [, name, owner, expires, now] = insert;
+      const row = rows.get(name);
+      if (!row || row.expires < Number(now) || row.owner === owner) {
+        rows.set(name, { owner, expires: Number(expires) });
+        return JSON.stringify([{ results: [{ owner }], success: true }]);
+      }
+      return JSON.stringify([{ results: [], success: true }]);
+    }
+    const del = sql.match(/name = '([^']+)' AND owner = '([^']+)'/);
+    if (del && rows.get(del[1])?.owner === del[2]) rows.delete(del[1]);
+    return JSON.stringify([{ results: [], success: true }]);
+  };
+  const waits: number[] = [];
+  const lock = d1Lock({ wrangler: fakeD1, now: () => clock, wait: async (ms: number) => { waits.push(ms); clock += ms / 1000; }, waitMs: 30_000, retryMs: 10_000 });
+
+  assert.equal(await lock.acquire('w', 'a'), true);
+  assert.equal(lock.renew('w', 'a'), true);
+  assert.equal(await lock.acquire('w', 'b'), false);
+  assert.equal(waits.length, 3);
+  lock.release('w', 'b');
+  assert.equal(rows.get('w')?.owner, 'a');
+  lock.release('w', 'a');
+  assert.equal(await lock.acquire('w', 'b'), true);
+  clock += 16 * 60;
+  assert.equal(await lock.acquire('w', 'c'), true);
+  assert.equal(lock.renew('w', 'b'), false);
+  assert.throws(() => lock.renew('w', "x'; DROP TABLE locks; --"), /invalid lock owner/);
 });

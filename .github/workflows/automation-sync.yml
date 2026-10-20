@@ -60,7 +60,11 @@ jobs:
           : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
           : "${GPTOMEK_WAKE_TOKEN:?GPTOMEK_WAKE_TOKEN must be configured}"
           secrets_file=$(mktemp)
-          trap 'rm -f "$secrets_file"' EXIT
+          # Same D1 lease as the Workers Builds deploy script: no build can
+          # upload, activate or roll back kanarek-companion while we sync.
+          lock_owner="credential-sync:${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          node ../core/deploy-lock.mjs acquire kanarek-companion "$lock_owner"
+          trap 'node ../core/deploy-lock.mjs release kanarek-companion "$lock_owner" || true; rm -f "$secrets_file"' EXIT
 
           live_tag=$(
             curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \

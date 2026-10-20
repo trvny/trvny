@@ -1,10 +1,6 @@
 name: Sync Worker credentials
 
 on:
-  repository_dispatch:
-    types:
-      - kanarek-companion-deploy
-      - shitpost-reactor-deploy
   workflow_dispatch:
     inputs:
       target:
@@ -14,8 +10,6 @@ on:
         type: choice
         options:
           - kanarek-companion
-          - kanarek-companion-deploy
-          - shitpost-reactor-deploy
           - kanarek-review
           - gremlin
           - tg-assistant
@@ -26,185 +20,14 @@ permissions:
   contents: read
 
 jobs:
-  deploy-kanarek-companion:
-    name: Deploy Kanarek Companion
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      ((github.event_name == 'workflow_dispatch' &&
-        inputs.target == 'kanarek-companion-deploy') ||
-       (github.event_name == 'repository_dispatch' &&
-        github.event.action == 'kanarek-companion-deploy' &&
-        github.actor_id == 314538226))
-    concurrency:
-      group: automation-sync-cloudflare
-      cancel-in-progress: false
-    runs-on: ubuntu-slim
-    timeout-minutes: 25
-    permissions:
-      contents: read
-    env:
-      WORKERS_CI_COMMIT_SHA: ${{ github.sha }}
-    defaults:
-      run:
-        working-directory: gh-apps/kanarek-companion
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
-      - run: npm ci
-      - name: Check source
-        run: npm run check
-      - name: Record previous deployment
-        id: previous
-        shell: bash
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          : "${CLOUDFLARE_API_TOKEN:?Missing Cloudflare token}"
-          : "${CLOUDFLARE_ACCOUNT_ID:?Missing Cloudflare account}"
-          current=$(npx --no-install wrangler deployments status --name kanarek-companion --json)
-          specs=$(jq -c '[.versions[] | "\(.version_id)@\(.percentage)%"]' <<<"$current")
-          if [ "$(jq 'length' <<<"$specs")" -eq 0 ]; then
-            echo "::error::No current deployment for safe rollback."
-            exit 1
-          fi
-          echo "specs=$specs" >> "$GITHUB_OUTPUT"
-      - name: Deploy checked source
-        id: deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npm run deploy
-      - name: Verify deployed commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          for _ in {1..12}; do
-            if response=$(curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
-              https://kanarek-companion.travny.workers.dev/health) &&
-              jq -e --arg sha "$WORKERS_CI_COMMIT_SHA" \
-                '.ok == true and .reviewWebhook.ready == true and .gateway.workerVersion.tag == $sha' \
-                <<<"$response" >/dev/null; then
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "::error::Deployed Worker did not pass commit-specific health check."
-          exit 1
-      - name: Roll back unhealthy deployment
-        # Reverts Worker code/version, not incompatible Durable Object migrations.
-        if: ${{ failure() && steps.previous.outcome == 'success' && steps.deploy.outcome != 'skipped' }}
-        shell: bash
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          ROLLBACK_SPECS: ${{ steps.previous.outputs.specs }}
-        run: |
-          set -euo pipefail
-          mapfile -t versions < <(jq -r '.[]' <<<"$ROLLBACK_SPECS")
-          if [ "${#versions[@]}" -eq 0 ]; then exit 1; fi
-          npx --no-install wrangler versions deploy "${versions[@]}" \
-            --name kanarek-companion --message "Rollback failed source deployment" --yes
-
-  deploy-shitpost-reactor:
-    name: Deploy Shitpost Reactor
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      ((github.event_name == 'workflow_dispatch' &&
-        inputs.target == 'shitpost-reactor-deploy') ||
-       (github.event_name == 'repository_dispatch' &&
-        github.event.action == 'shitpost-reactor-deploy' &&
-        github.actor_id == 314538226))
-    concurrency:
-      group: automation-sync-cloudflare-shitpost
-      cancel-in-progress: false
-    runs-on: ubuntu-slim
-    timeout-minutes: 25
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: gh-apps/shitpost-reactor
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: gh-apps/shitpost-reactor/package-lock.json
-      - name: Install pinned tooling
-        run: npm ci
-      - name: Validate Worker
-        run: npm run check
-      - name: Record previous deployment
-        id: previous
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          : "${CLOUDFLARE_API_TOKEN:?Missing Cloudflare token}"
-          : "${CLOUDFLARE_ACCOUNT_ID:?Missing Cloudflare account}"
-          current=$(npx --no-install wrangler deployments status --name shitpost-reactor --json)
-          specs=$(jq -c '[.versions[] | "\(.version_id)@\(.percentage)%"]' <<<"$current")
-          if [ "$(jq 'length' <<<"$specs")" -eq 0 ]; then
-            echo "::error::Cannot identify prior deployment for rollback."
-            exit 1
-          fi
-          echo "specs=$specs" >> "$GITHUB_OUTPUT"
-      - name: Deploy validated Worker
-        id: deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --no-install wrangler deploy --var "DEPLOY_COMMIT:$GITHUB_SHA"
-      - name: Verify exact deployed commit and archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          url=https://shitpost.trfny.com
-          archive_file=$(mktemp)
-          trap 'rm -f "$archive_file"' EXIT
-          for _ in {1..12}; do
-            version=$(curl -fsS --connect-timeout 5 --max-time 15 "$url/version?deploy-check=$GITHUB_SHA" || true)
-            if [[ "$version" == "$GITHUB_SHA" ]] && \
-              curl -fsS --connect-timeout 5 --max-time 15 -o "$archive_file" "$url/archive?deploy-check=$GITHUB_SHA" && \
-              grep -Fq "Newest first" "$archive_file"; then
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "::error::Deployment did not serve the expected commit and archive."
-          exit 1
-      - name: Roll back unhealthy deployment
-        if: ${{ failure() && steps.previous.outcome == 'success' && steps.deploy.outcome != 'skipped' }}
-        shell: bash
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          ROLLBACK_SPECS: ${{ steps.previous.outputs.specs }}
-        run: |
-          set -euo pipefail
-          mapfile -t versions < <(jq -r '.[]' <<<"$ROLLBACK_SPECS")
-          if [ "${#versions[@]}" -eq 0 ]; then exit 1; fi
-          npx --no-install wrangler versions deploy "${versions[@]}"             --name shitpost-reactor --message "Rollback failed Shitpost Reactor deployment" --yes
-
   cloudflare:
     if: ${{ inputs.target == 'kanarek-companion' || inputs.target == 'all' }}
     concurrency:
       group: automation-sync-cloudflare
       cancel-in-progress: false
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    # Up to 3 min waiting for the deploy lock (DEPLOY_LOCK_WAIT_MS) + sync.
+    timeout-minutes: 10
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -238,7 +61,11 @@ jobs:
           : "${KANAREK_REVIEW_ROUTER_TOKEN:?KANAREK_REVIEW_ROUTER_TOKEN must be configured}"
           : "${GPTOMEK_WAKE_TOKEN:?GPTOMEK_WAKE_TOKEN must be configured}"
           secrets_file=$(mktemp)
-          trap 'rm -f "$secrets_file"' EXIT
+          # Same D1 lease as the Workers Builds deploy script: no build can
+          # upload, activate or roll back kanarek-companion while we sync.
+          lock_owner="credential-sync:${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          node ../core/deploy-lock.mjs acquire kanarek-companion "$lock_owner"
+          trap 'node ../core/deploy-lock.mjs release kanarek-companion "$lock_owner" || true; rm -f "$secrets_file"' EXIT
 
           live_tag=$(
             curl --fail --silent --show-error --connect-timeout 5 --max-time 10 \
@@ -252,17 +79,6 @@ jobs:
           fi
           version_message="Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
           rollback_message="Rollback failed Kanarek credential sync ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
-
-          previous_deployment=$(npx --no-install wrangler deployments status \
-            --name kanarek-companion --json)
-          mapfile -t previous_specs < <(
-            jq -r '.versions[] | "\(.version_id)@\(.percentage)%"' \
-              <<<"$previous_deployment"
-          )
-          if [ "${#previous_specs[@]}" -eq 0 ]; then
-            echo "Could not capture the current Worker deployment for rollback." >&2
-            exit 1
-          fi
 
           python3 - "$secrets_file" <<'PY'
           import json
@@ -304,6 +120,32 @@ jobs:
             fi
           done
 
+          # Captured after retired-secret deletes (each creates and deploys a version),
+          # so the activation fence only trips on concurrent foreign deployments.
+          previous_deployment=$(npx --no-install wrangler deployments status \
+            --name kanarek-companion --json)
+          mapfile -t previous_specs < <(
+            jq -r '.versions[] | "\(.version_id)@\(.percentage)%"' \
+              <<<"$previous_deployment"
+          )
+          if [ "${#previous_specs[@]}" -eq 0 ]; then
+            echo "Could not capture the current Worker deployment for rollback." >&2
+            exit 1
+          fi
+
+          # `versions secret bulk` copies the newest *uploaded* version; refuse if that
+          # is not the active one (e.g. an unverified or in-flight Workers Build).
+          latest_uploaded=$(npx --no-install wrangler versions list \
+            --name kanarek-companion --json | jq -r '.[-1].id // empty')
+          active_primary=$(jq -r '.versions | max_by(.percentage) | .version_id' \
+            <<<"$previous_deployment")
+          if [ -z "$latest_uploaded" ] || [ "$latest_uploaded" != "$active_primary" ]; then
+            # Either a build is in flight, or a superseded build left an unactivated upload.
+            echo "Newest uploaded version ($latest_uploaded) is not active ($active_primary)." >&2
+            echo "Wait for the in-flight Workers Build, or retry the latest kanarek-companion build in the Cloudflare dashboard so the active version is also the newest upload; then re-run this sync." >&2
+            exit 1
+          fi
+
           npx --no-install wrangler versions secret bulk "$secrets_file" \
             --name kanarek-companion \
             --tag "$version_tag" \
@@ -318,6 +160,16 @@ jobs:
             <<<"$versions_json")
           if [ -z "$version_id" ]; then
             echo "Could not identify the tagged credential-sync Worker version." >&2
+            exit 1
+          fi
+
+          # Fence: a Workers Build may have activated after previous_specs was captured;
+          # our credential version would carry the older source.
+          current_specs=$(npx --no-install wrangler deployments status \
+            --name kanarek-companion --json |
+            jq -r '.versions[] | "\(.version_id)@\(.percentage)%"')
+          if [ "$current_specs" != "$(printf '%s\n' "${previous_specs[@]}")" ]; then
+            echo "Worker deployment changed during credential sync; re-run the sync." >&2
             exit 1
           fi
 
@@ -340,6 +192,13 @@ jobs:
             sleep 5
           done
 
+          active_now=$(npx --no-install wrangler deployments status \
+            --name kanarek-companion --json |
+            jq -r '.versions | max_by(.percentage) | .version_id')
+          if [ "$active_now" != "$version_id" ]; then
+            echo "Credential sync unverified, but $active_now replaced it (Workers Builds?); not rolling back." >&2
+            exit 1
+          fi
           echo "Credential sync deployed, but the tagged Worker did not become healthy; rolling back." >&2
           if ! npx --no-install wrangler versions deploy \
             "${previous_specs[@]}" \

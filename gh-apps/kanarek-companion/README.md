@@ -204,7 +204,15 @@ Connect `trvny/trvny` with:
 - deploy command: `npm run deploy`
 - build watch paths: `gh-apps/kanarek-companion/**`, `gh-apps/core/**`
 
-GitHub Actions validates the project but does not deploy it.
+GitHub Actions validates the project but does not deploy it. `npm run deploy`
+(`scripts/deploy.ts`) uses `../core/worker-deploy.mjs`: deploys only while the
+commit is the newest `main` commit for the watch paths (keep `paths` in sync
+with the trigger), verifies `/health` (`ok`, `reviewWebhook.ready`, version tag
+= commit), applies triggers, and restores the previous deployment on failure
+while its own version is still active. Durable Object lifecycle changes use
+plain `wrangler deploy` and cannot be rolled back. Deploys and the credential
+sync (`automation-sync.yml`) serialize on the D1 lease in `../core/deploy-lock.mjs`;
+both Cloudflare tokens need D1 Edit.
 
 ## Secrets and configuration
 

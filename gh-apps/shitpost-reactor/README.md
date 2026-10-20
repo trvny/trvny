@@ -35,7 +35,7 @@ RSS, Atom and JSON Feed expose stable entry IDs/URLs, publication dates, categor
 
 `worker.mjs` is intentionally read-mostly. `icons.mjs` is the single generated-icon implementation used for SVG, PNG, ICO, Apple touch, Windows tile and manifest surfaces. The only write route is `POST /api/publish`, accepted only with a valid GitHub Actions OIDC token from the scheduled/manual workflow on `main`. A repeated request from the same GitHub run/attempt is idempotent.
 
-Deploy through the existing `.github/workflows/automation-sync.yml` target `shitpost-reactor-deploy`. It checks the code, injects its GitHub commit SHA, deploys to Cloudflare, verifies that `/version` matches that SHA and `/archive` is newest-first, then rolls back on failure.
+Deploys only via Cloudflare Workers Builds on push to `main` (root `gh-apps/shitpost-reactor`, build `npm run check`, deploy `npm run deploy`). `npm run deploy` (`deploy.mjs`, on `../core/worker-deploy.mjs`) requires `WORKERS_CI_COMMIT_SHA`, deploys only while its commit is the newest `main` commit for the watch paths, stamps `DEPLOY_COMMIT`, verifies `/version` matches and `/archive` is newest-first, and on failure restores the previous deployment (only while its own version is still active) and fails the build. Runs under the shared D1 deploy lock (`../core/deploy-lock.mjs`). Builds watch paths: `gh-apps/shitpost-reactor/**`, `gh-apps/core/worker-deploy.mjs`, `gh-apps/core/deploy-lock.mjs`.
 
 `wrangler.jsonc` binds the R2 bucket and configures Workers Logs at **1%** (`head_sampling_rate: 0.01`), with invocation logs and traces disabled. `shitpost.trfny.com` is the production custom domain; `workers.dev` remains available as an emergency/debug route.
 

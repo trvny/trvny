@@ -87,7 +87,7 @@ function json(wrangler, args) {
 
 const errorText = (error) => `${error?.stdout ?? ''}${error?.stderr ?? ''}${error?.message ?? ''}`;
 
-// Active deployment: specs, primary version id, build sha from its message.
+// Active deployment: specs, primary version id, build sha from its message, source sha.
 // null only when the Worker has no deployment yet; other failures throw.
 function active(wrangler, name) {
   let deployment;
@@ -102,7 +102,10 @@ function active(wrangler, name) {
   const primary = [...versions].sort((a, b) => b.percentage - a.percentage)[0];
   const version = json(wrangler, ['versions', 'view', primary.version_id, '--name', name]);
   const build = String(version.annotations?.['workers/message'] ?? '').match(BUILD_MARK_RE)?.[1] ?? null;
-  return { specs: versions.map((v) => `${v.version_id}@${v.percentage}%`), versionId: primary.version_id, build };
+  // Source commit for config restore: build mark, else a SHA tag (credential sync keeps the live tag).
+  const tag = String(version.annotations?.['workers/tag'] ?? '').toLowerCase();
+  const source = build ?? (/^[0-9a-f]{40}$/.test(tag) ? tag : null);
+  return { specs: versions.map((v) => `${v.version_id}@${v.percentage}%`), versionId: primary.version_id, build, source };
 }
 
 export async function poll(check, attempts = 12, delayMs = 5_000) {
@@ -228,7 +231,7 @@ async function deployLocked(
   ]);
   if (triggersApplied) {
     // Version rollback leaves triggers alone; re-apply the predecessor's.
-    const config = previous.build ? previousConfig(previous.build) : null;
+    const config = previous.source ? previousConfig(previous.source) : null;
     if (!config) {
       console.error(`${name}: could not restore predecessor triggers; check routes/crons manually.`);
       return 1;

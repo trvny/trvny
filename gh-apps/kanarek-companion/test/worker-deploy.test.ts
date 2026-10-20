@@ -16,6 +16,7 @@ type Fake = {
   ancestors: string[];
   active: { version_id: string; percentage: number }[];
   messages: Record<string, string>;
+  tags: Record<string, string>;
   calls: string[];
   uploadError?: string;
   triggersFail?: boolean;
@@ -24,7 +25,7 @@ type Fake = {
 };
 
 function fake(activeBuild: string | null, head = OURS): Fake {
-  const state: Fake = { head, ancestors: [], active: [], messages: {}, calls: [] };
+  const state: Fake = { head, ancestors: [], active: [], messages: {}, tags: {}, calls: [] };
   if (activeBuild) {
     state.messages[LIVE] = `build=${activeBuild}`;
     state.active = [{ version_id: LIVE, percentage: 100 }];
@@ -48,7 +49,7 @@ function wrangler(state: Fake) {
       return JSON.stringify({ versions: state.active });
     }
     if (command === 'versions view') {
-      return JSON.stringify({ annotations: { 'workers/message': state.messages[args[2]] } });
+      return JSON.stringify({ annotations: { 'workers/message': state.messages[args[2]], 'workers/tag': state.tags[args[2]] } });
     }
     if (command === 'versions upload') {
       if (state.uploadError) throw new Error(state.uploadError);
@@ -240,6 +241,15 @@ test('rollback after applied triggers restores the predecessor triggers', async 
   const state = fake(OLD);
   assert.equal(await run(state, false), 1);
   assert.equal(activeBuild(state), OLD);
+  assert.ok(state.calls.includes('restore prev-a.jsonc'));
+});
+
+test('rollback restores triggers from a credential-sync predecessor via its SHA tag', async () => {
+  const state = fake(OLD);
+  state.messages[LIVE] = 'Kanarek credential sync 1.1';
+  state.tags[LIVE] = OLD.toUpperCase();
+  assert.equal(await run(state, false), 1);
+  assert.equal(state.active[0].version_id, LIVE);
   assert.ok(state.calls.includes('restore prev-a.jsonc'));
 });
 

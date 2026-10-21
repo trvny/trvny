@@ -131,7 +131,23 @@ export async function readSnapshot({ token, accountId, fetchImpl = fetch }) {
       const payload = await request(path + separator + 'page=' + page + '&per_page=100');
       requireState(Array.isArray(payload.result), 'Unexpected Cloudflare list response');
       values.push(...payload.result);
-      if (!payload.result_info || page >= payload.result_info.total_pages) return values;
+      const info = payload.result_info;
+      if (info?.total_count !== undefined) {
+        requireState(Number.isSafeInteger(info.total_count) && info.total_count >= 0,
+          'Unexpected Cloudflare total_count');
+        if (values.length >= info.total_count) return values;
+        requireState(payload.result.length > 0, 'Cloudflare list ended before total_count');
+      } else if (info?.total_pages !== undefined) {
+        requireState(Number.isSafeInteger(info.total_pages) && info.total_pages > 0,
+          'Unexpected Cloudflare total_pages');
+        if (page >= info.total_pages) return values;
+      } else {
+        // Some Workers endpoints provide no result_info at all. Never guess
+        // that a full page is complete or endlessly repeat the same page.
+        requireState(payload.result.length < 100,
+          'Cloudflare list has a full page without pagination metadata');
+        return values;
+      }
     }
     throw new Error('Cloudflare list exceeded 20 pages');
   }

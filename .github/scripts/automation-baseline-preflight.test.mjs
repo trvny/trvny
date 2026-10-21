@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateSnapshot } from './automation-baseline-preflight.mjs';
+import { readSnapshot, validateSnapshot } from './automation-baseline-preflight.mjs';
 
 function fixture() {
   const definitions = {
@@ -86,4 +86,61 @@ test('refuses missing legacy route or unexpected deployment split', () => {
   const split = fixture();
   split.deployments.deployments[0].versions[0].percentage = 50;
   assert.throws(() => validateSnapshot(split), /split across versions/);
+});
+
+test('reads real Cloudflare pagination shapes without phantom pages', async () => {
+  const snapshot = fixture();
+  const paths = [];
+  const fetchImpl = async (url, options) => {
+    assert.equal(options.method, 'GET');
+    const parsed = new URL(url);
+    paths.push(parsed.pathname + parsed.search);
+    let result;
+    let result_info;
+    if (parsed.pathname.endsWith('/workers/scripts')) {
+      result = snapshot.scripts;
+    } else if (parsed.pathname.endsWith('/workers/durable_objects/namespaces')) {
+      result = snapshot.namespaces;
+      result_info = { page: 1, per_page: 100, count: result.length, total_count: result.length };
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/secrets')) {
+      result = snapshot.secrets;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/settings')) {
+      result = snapshot.sourceSettings;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/subdomain')) {
+      result = snapshot.subdomain;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/schedules')) {
+      result = snapshot.schedules;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/deployments')) {
+      result = snapshot.deployments;
+    } else {
+      const match = /\/workers\/scripts\/([^/]+)\/settings$/.exec(parsed.pathname);
+      assert.ok(match, 'Unexpected read-only endpoint');
+      result = snapshot.consumerSettings[match[1]];
+    }
+    return { ok: true, json: async () => ({ success: true, result, ...(result_info ? { result_info } : {}) }) };
+  };
+  const live = await readSnapshot({ token: 'test-token', accountId: 'test-account', fetchImpl });
+  assert.equal(validateSnapshot(live).status, 'PASS');
+  assert.equal(paths.filter((path) => path.includes('/durable_objects/namespaces')).length, 1);
+  assert.equal(paths.filter((path) => path.includes('/secrets')).length, 1);
+  assert.equal(paths.filter((path) => path.endsWith('/scripts?page=1&per_page=100')).length, 1);
+  assert.equal(paths.length, 11);
+});
+
+test('fails closed for full Cloudflare pages without pagination metadata', async () => {
+  let requests = 0;
+  const fetchImpl = async (url) => {
+    requests += 1;
+    const parsed = new URL(url);
+    if (parsed.pathname.endsWith('/workers/scripts')) {
+      return { ok: true, json: async () => ({ success: true,
+        result: Array.from({ length: 100 }, (_, index) => ({ id: 'worker-' + index })) }) };
+    }
+    return { ok: true, json: async () => ({ success: true, result: [] }) };
+  };
+  await assert.rejects(
+    readSnapshot({ token: 'test-token', accountId: 'test-account', fetchImpl }),
+    /full page without pagination metadata/,
+  );
+  assert.ok(requests < 20, 'A single full page must not trigger repeated pagination');
 });

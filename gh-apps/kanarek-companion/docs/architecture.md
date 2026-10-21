@@ -24,22 +24,34 @@ infrastructure name is migrated; do not combine this with a directory move.
    display metadata without switching the deployed service. Any new
    URL/alias must first coexist with the old endpoint; do not redirect
    signed webhooks or OAuth callbacks blindly. No DO binding changes.
-3. **Plan state-preserving cutover.** Determine a Cloudflare-supported
-   Worker identity migration or explicit DO cross-Worker transfer; do not
-   assume changing Wrangler `name` renames an existing service.
-   Preserve all five live SQLite DO namespaces (`CommentProbeLock`,
-   `OperatorCheckpointStore`, `ReviewProviderCooldownStore`,
-   `WebhookReviewJob`, `AnchorMutationReplayStore`) and their alarms.
-   The current Worker uses legacy `migrations`; assess Cloudflare's
-   documented transfer path and irreversible steps before attempting it.
-   Preserve `KANAREK_QUIP_KV` namespace ID and all bank/archive/receipt keys.
-   Never create a fresh replacement for production state.
-4. **Switch clients by dependency.** Change internal Service Bindings and
-   external DO `script_name` references in Gremlin, Kanarek Review and
-   Pet Dispatcher; also audit any other RPC consumers. Update GitHub Actions
-   (GPTomek wake and fallback, credential sync, CI/live smoke), Worker Builds,
-   service-to-service URLs, direct HTTP callers and GitHub App webhook URLs.
-   Verify each step against both old and new routes where supported.
+3. **Prove state continuity before any production transfer.** Determine
+   the supported identity-rename or cross-Worker transfer mechanism; changing
+   Wrangler `name` alone creates another Worker. Preserve all five live SQLite
+   namespaces (`CommentProbeLock`, `OperatorCheckpointStore`,
+   `ReviewProviderCooldownStore`, `WebhookReviewJob`,
+   `AnchorMutationReplayStore`), their IDs, contents and alarms. Before
+   cross-Worker transfer, migrate the source's legacy `migrations` to
+   `exports` in its own validated deploy; this config transition is one-way.
+   In a separately controlled transfer window, follow Cloudflare's order:
+   deploy the target with `expecting-transfer` exports but no self-referencing
+   DO bindings; then deploy `transferred` tombstones on the source to commit
+   namespace ownership. Verify the existing namespace IDs are now owned by
+   `automation`. **Before the legacy Worker continues serving callbacks**,
+   redeploy its five DO bindings with `script_name: automation` so existing
+   routes still reach the transferred state; only after the source rollout,
+   deploy target-local DO bindings. Handle brief transfer-time unavailability
+   explicitly; do not claim atomic end-to-end routing. Keep source and target
+   class exports/rollback constraints consistent with Cloudflare's guide.
+   Preserve `KANAREK_QUIP_KV` ID and bank/archive/receipt keys throughout.
+   Never create replacement namespaces or delete tombstones as cleanup.
+4. **Switch clients only after ownership and both Workers are verified.**
+   Repoint Gremlin, Kanarek Review and Pet Dispatcher's service/DO bindings,
+   plus any other RPC consumers, **after** the committed namespace transfer,
+   source rebinding, target binding and verified state continuity. Update
+   GitHub Actions (GPTomek wake and fallback, credential sync, CI/live smoke),
+   Worker Builds, service-to-service URLs, direct HTTP callers and GitHub App
+   webhook URLs in separately validated changes. Both endpoints must remain
+   usable during this compatibility window, including DO-backed operations.
 5. **Cut over with a rollback gate.** Make the new endpoint authoritative
    only after complete state/secret/binding verification. Test GPTomek
    issue-command execution + replay guard, Gremlin signer, Kanarek PR

@@ -9,12 +9,13 @@ async function file(path: string): Promise<string> {
   return readFile(new URL(path, pluginRoot), 'utf8');
 }
 
-test('portable MechaGremlin manifest references the installed MCP app and original logo', async () => {
+test('portable Gremlin manifest references the installed MCP app and original logo', async () => {
   const manifest = JSON.parse(await file('plugin.json')) as {
+    name: string;
     version: string;
     extensions: { 'com.openai': {
       apps: string;
-      interface: { logo: string; composerIcon: string; capabilities: string[] };
+      interface: { logo: string; composerIcon: string; capabilities: string[]; displayName: string };
     } };
   };
   const app = JSON.parse(await file('.app.json')) as { apps: Record<string, { id: string }> };
@@ -23,7 +24,9 @@ test('portable MechaGremlin manifest references the installed MCP app and origin
   };
 
   // Pin the account release intentionally; bump alongside the next source sync.
-  assert.equal(manifest.version, '0.31.11');
+  assert.equal(manifest.name, 'gremlin');
+  assert.equal(manifest.version, '1.0.2');
+  assert.equal(manifest.extensions['com.openai'].interface.displayName, 'Gremlin');
   assert.equal(manifest.extensions['com.openai'].apps, './.app.json');
   assert.deepEqual(manifest.extensions['com.openai'].interface.capabilities, ['skills']);
   assert.deepEqual(Object.keys(app.apps), ['gremlin']);

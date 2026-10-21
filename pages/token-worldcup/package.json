@@ -7,6 +7,6 @@
     "check:openai": "node recount-openai-tokens.mjs --check"
   },
   "dependencies": {
-    "gpt-tokenizer": "4.0.3"
+    "gpt-tokenizer": "4.1.0"
   }
 }

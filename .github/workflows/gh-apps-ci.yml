@@ -232,7 +232,7 @@ jobs:
       - name: Wait for Cloudflare production and smoke the live gateway
         run: npm run smoke:live
         env:
-          KANAREK_LIVE_ORIGIN: https://kanarek-companion.travny.workers.dev
+          KANAREK_LIVE_ORIGIN: https://automation.travny.workers.dev
           KANAREK_SMOKE_ATTEMPTS: "36"
           KANAREK_SMOKE_INTERVAL_MS: "15000"
 

@@ -91,7 +91,7 @@ location does not change subsystem ownership.
 
 The migrated private plugin remains the user-facing successor. Keep it private
 until the MCP and migrated skill pass the acceptance gates in
-`plugin/skills/gremlin/references/migration.md`.
+`MIGRATION.md` (repository-only; not bundled with the runtime skill).
 
 ## Boundary
 

@@ -1,5 +1,7 @@
 # MechaGremlin migration parity
 
+> Repository-only migration and acceptance documentation. Not bundled into the runtime skill.
+
 This is the migration checklist for the private plugin created from the legacy
 MechaGremlin Custom GPT. Live Gremlin schemas and runtime policy remain the
 source of truth for tool behavior.

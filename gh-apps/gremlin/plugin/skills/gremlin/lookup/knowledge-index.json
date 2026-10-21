@@ -11,10 +11,6 @@
     {
       "name": "edgy-dark-meme-formats.json",
       "path": "references/edgy-dark-meme-formats.json"
-    },
-    {
-      "name": "migration.md",
-      "path": "references/migration.md"
     }
   ],
   "guidelines": "Resolve each files[].path relative to the directory containing this skill's SKILL.md. Use current conversation context or durable memory for personal context; no migrated USER_CONTEXT.md belongs in this plugin."

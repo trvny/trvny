@@ -1,7 +1,7 @@
 # MechaGremlin plugin
 
 This directory is the maintained **portable source** of the existing private
-MechaGremlin plugin. The existing private plugin is now release `0.31.10`
+MechaGremlin plugin. The existing private plugin is now release `0.31.11`
 (`plugin_2efcd1a24fa08191b71d92f1972ac32c`).
 **Do not create another production plugin.**
 
@@ -40,9 +40,8 @@ Anchor's existing `Gremlin_storage` folder remains available through its
 own separately authorized ChatGPT app. The Gremlin skill does not depend on
 or instruct model calls to external apps. Never proxy OAuth credentials.
 
-For migration history, parity status, and pending verification, see
-`skills/gremlin/references/migration.md` and
-[issue #958](https://github.com/trvny/trvny/issues/958).
+For migration history and acceptance gates, consult the repository-only
+[`../MIGRATION.md`](../MIGRATION.md) and [issue #958](https://github.com/trvny/trvny/issues/958). They are not packaged as skill knowledge.
 
 No secrets, OAuth tokens, copied personal context, or runtime policy duplicates
 belong in this portable source.

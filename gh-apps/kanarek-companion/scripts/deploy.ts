@@ -2,10 +2,7 @@ import { spawnSync } from 'node:child_process';
 
 import { guardedDeploy, poll } from '../../core/worker-deploy.mjs';
 
-const HEALTH_URLS = [
-  'https://kanarek-companion.travny.workers.dev/health',
-  'https://automation.trfny.com/health',
-] as const;
+const HEALTH_URL = 'https://kanarek-companion.travny.workers.dev/health';
 const commitSha = process.env.WORKERS_CI_COMMIT_SHA?.trim().toLowerCase();
 const workersCi = process.env.WORKERS_CI === '1';
 const validSha = Boolean(commitSha && /^[0-9a-f]{40}$/.test(commitSha));
@@ -39,18 +36,14 @@ process.exit(
     deployArgs: ['--tag', sha],
     verify: () =>
       poll(async () => {
-        const results = await Promise.all(HEALTH_URLS.map(async (url) => {
-          const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-          if (!response.ok) return false;
-          const health = (await response.json()) as {
-            ok?: boolean;
-            reviewWebhook?: { ready?: boolean };
-            gateway?: { workerVersion?: { tag?: string } };
-          };
-          return health.ok === true && health.reviewWebhook?.ready === true
-            && health.gateway?.workerVersion?.tag === sha;
-        }));
-        return results.every(Boolean);
+        const response = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(10_000) });
+        if (!response.ok) return false;
+        const health = (await response.json()) as {
+          ok?: boolean;
+          reviewWebhook?: { ready?: boolean };
+          gateway?: { workerVersion?: { tag?: string } };
+        };
+        return health.ok === true && health.reviewWebhook?.ready === true && health.gateway?.workerVersion?.tag === sha;
       }),
   }),
 );

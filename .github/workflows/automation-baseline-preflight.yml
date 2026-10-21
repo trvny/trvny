@@ -1,13 +1,32 @@
 name: Automation Worker baseline preflight
 
 on:
+  pull_request:
+    paths:
+      - .github/scripts/automation-baseline-preflight.mjs
+      - .github/scripts/automation-baseline-preflight.test.mjs
+      - .github/workflows/automation-baseline-preflight.yml
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  unit-tests:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: node --test .github/scripts/automation-baseline-preflight.test.mjs
+
   read-only-preflight:
+    if: github.event_name == 'workflow_dispatch'
+    needs: unit-tests
     runs-on: ubuntu-slim
     timeout-minutes: 5
     env:
@@ -20,7 +39,4 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - name: Test baseline assertions
-        run: node --test .github/scripts/automation-baseline-preflight.test.mjs
-      - name: Verify current Cloudflare metadata (GET only)
-        run: node .github/scripts/automation-baseline-preflight.mjs
+      - run: node .github/scripts/automation-baseline-preflight.mjs

@@ -39,6 +39,8 @@ const MAX_INLINE_TREE_CONTENT_BYTES = 64_000;
 const MAX_CHERRY_PICK_CHANGES = 512;
 const MAX_TREE_MUTATIONS = 512;
 const MAX_MOVE_FILES = 256;
+const CODEX_COAUTHOR_TRAILER =
+  'Co-authored-by: chatgpt-codex-connector[bot] <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>';
 const BOT_IDENTITY = {
   name: 'GPTomek',
   email: '314538226+gptomek[bot]@users.noreply.github.com',
@@ -933,6 +935,16 @@ function hasFileAncestor(entries: Map<string, GitTreeEntry>, path: string): bool
   return false;
 }
 
+export function withCodexCoauthor(message: string): string {
+  const body = message.trimEnd();
+  if (/^Co-authored-by:[^\r\n]*<199175422\+chatgpt-codex-connector\[bot\]@users\.noreply\.github\.com>[\t ]*$/im.test(body)) {
+    return body;
+  }
+  const lastLine = body.split(/\r?\n/).at(-1) ?? '';
+  const hasFooter = body.includes('\n\n') && /^[A-Za-z][A-Za-z0-9-]*:[\t ]+\S/.test(lastLine);
+  return `${body}${hasFooter ? '\n' : '\n\n'}${CODEX_COAUTHOR_TRAILER}`;
+}
+
 async function createCommit(
   client: GitHubInstallationClient,
   repositoryName: string,
@@ -946,7 +958,7 @@ async function createCommit(
     {
       method: 'POST',
       body: JSON.stringify({
-        message,
+        message: withCodexCoauthor(message),
         tree: treeSha,
         parents: [parentSha],
         author: BOT_IDENTITY,

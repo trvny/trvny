@@ -11,7 +11,7 @@ and [PR merge flow](../README.md#preferred-pr-merge-flow).
 
 - App ID: `4524407`
 - Installation ID: `152126523`
-- Runtime module: [`../../kanarek-companion/src/gptomek.ts`](../../kanarek-companion/src/gptomek.ts)
+- Runtime module: [`../../kanarek-companion/src/gptomek/gptomek.ts`](../../kanarek-companion/src/gptomek/gptomek.ts)
 - Shared Worker: `kanarek-companion`
 - Worker secret: `GPTOMEK_PRIVATE_KEY`
 - Primary control mailbox: `trvny/trvny#203`

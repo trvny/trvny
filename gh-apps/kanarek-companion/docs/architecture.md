@@ -61,6 +61,38 @@ It does **not** verify GitHub App webhook destinations, queued Durable Object
 alarms, live command replay behavior, or unknown external callers. Its output
 must never be treated as authorization to perform a state transfer.
 
+### Additional cutover safety findings (2026-10-22)
+
+- **Production deploys are automatic.** Cloudflare Workers Builds watches the
+  `main` branch with root `gh-apps/kanarek-companion`,
+  `npm run check` and `npm run deploy`. Its path filters include
+  `gh-apps/kanarek-companion/**` and `gh-apps/core/**`, excluding
+  Markdown. A runtime or Wrangler PR can deploy immediately upon merge.
+  Before any lifecycle change, explicitly plan the Build trigger freeze and
+  restoration, command/deployment sequencing, credentials and abort conditions.
+  **Do not merge a transfer config expecting a later manual deploy.**
+- **DO alarms are active application mechanisms.** The code schedules alarms
+  for webhook review jobs, comment locks, provider cooldowns, operator
+  checkpoints and replay cleanup. The Cloudflare namespace object-list API
+  confirms stored instances but does **not** expose the current per-object
+  `getAlarm()` timestamps. An alarm baseline and an end-to-end wake test
+  therefore still require a safe instance-level diagnostic or equivalent
+  runtime evidence; do not infer alarm continuity from a namespace listing.
+- **GitHub App callbacks remain a separate gate.** The GitHub App webhook
+  configuration requires App JWT authorization to read using
+  `GET /app/hook/config`; a repository webhook read or user PAT cannot
+  confirm the Kanarek/GPTomek App settings. Verify both App configurations
+  through authorized App access or their owner settings, before changing
+  public endpoint routing. Do not log webhook signing secrets or JWTs.
+- **Remove temporary scaffolding only after verified cutover.** In a final
+  cleanup PR, delete `.github/workflows/automation-baseline-preflight.yml`,
+  `.github/scripts/automation-baseline-preflight.mjs` and
+  `.github/scripts/automation-baseline-preflight.test.mjs`, and remove this
+  temporary preflight link. Retain only concise, durable architecture and
+  state-preservation guidance; clean up legacy endpoint references after all
+  callers and alarms are accounted for. Do not delete DO transfer tombstones
+  unless Cloudflare explicitly marks them stale.
+
 ### Migration gates (one logical PR and verification per gate)
 
 1. **Inventory and baseline only.** Record live Worker name, deployments,

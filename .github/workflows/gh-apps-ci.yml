@@ -116,7 +116,9 @@ jobs:
                 review=true
                 manufact=true
               fi
-              if grep -qx 'gh-apps/claudiusz/Dockerfile.manufact' <<<"$files"; then
+              # The Docker build copies Claudiusz and shared core code.
+              if grep -E '^gh-apps/(claudiusz|core)/' <<<"$files" |
+                  grep -Ev '\.md$' >/dev/null; then
                 manufact=true
               fi
               if grep '^gh-apps/claudiusz/' <<<"$files" | grep -Ev '\.md$' >/dev/null ||

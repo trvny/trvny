@@ -32,6 +32,9 @@ infrastructure name is migrated; do not combine this with a directory move.
    `AnchorMutationReplayStore`), their IDs, contents and alarms. Before
    cross-Worker transfer, migrate the source's legacy `migrations` to
    `exports` in its own validated deploy; this config transition is one-way.
+   Never configure `migrations` and `exports` simultaneously; validate that
+   existing deployment tooling supports the new lifecycle model before the
+   irreversible switch.
    In a separately controlled transfer window, follow Cloudflare's order:
    deploy the target with `expecting-transfer` exports but no self-referencing
    DO bindings; then deploy `transferred` tombstones on the source to commit
@@ -56,16 +59,20 @@ infrastructure name is migrated; do not combine this with a directory move.
    only after complete state/secret/binding verification. Test GPTomek
    issue-command execution + replay guard, Gremlin signer, Kanarek PR
    status and review, provider cooldowns, quips and their saved bank, Botek
-   RPC, health and CI. Record exact deployment versions. Roll back code
-   or routing only when safe; DO namespace lifecycle changes are *not*
-   undone by ordinary Worker version rollback.
+   RPC, health and CI. Verify DO alarm continuity before routing cutover:
+   compare object IDs, scheduled fire times and wake paths, then exercise
+   a controlled end-to-end alarm smoke using non-destructive test state.
+   Stop on missing or changed alarms. Record exact deployment versions.
+   Roll back code or routing only when safe; DO namespace lifecycle changes
+   are *not* undone by ordinary Worker version rollback.
 6. **Retire compatibility last.** Keep `kanarek-companion` available
    until all known consumers have moved and outstanding callbacks, jobs,
    alarms and checkpoints are accounted for. Remove old endpoints or
    configs in a separate, audited change, never as incidental cleanup.
 
 **Stop condition:** Missing credentials, unknown DO ownership/data continuity,
-failed live checks, unverified webhook migration, or no safe rollback plan.
+failed live checks or alarm verification, unverified webhook migration, or no
+safe rollback plan.
 Do not execute the production rename until these gates are explicitly met.
 
 References: [Cloudflare Durable Object class lifecycle](https://developers.cloudflare.com/durable-objects/reference/durable-objects-migrations/),

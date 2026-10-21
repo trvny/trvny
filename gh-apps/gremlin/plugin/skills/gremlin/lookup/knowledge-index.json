@@ -13,5 +13,5 @@
       "path": "references/edgy-dark-meme-formats.json"
     }
   ],
-  "guidelines": "Resolve each files[].path relative to the directory containing this skill's SKILL.md. Use current conversation context or durable memory for personal context; no migrated USER_CONTEXT.md belongs in this plugin."
+  "guidelines": "Resolve paths relative to SKILL.md; load only relevant references. Do not bundle personal context snapshots."
 }

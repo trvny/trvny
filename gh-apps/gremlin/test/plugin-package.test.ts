@@ -25,7 +25,7 @@ test('portable Gremlin manifest references the installed MCP app and original lo
 
   // Pin the account release intentionally; bump alongside the next source sync.
   assert.equal(manifest.name, 'gremlin');
-  assert.equal(manifest.version, '1.0.2');
+  assert.equal(manifest.version, '1.0.3');
   assert.equal(manifest.extensions['com.openai'].interface.displayName, 'Gremlin');
   assert.equal(manifest.extensions['com.openai'].apps, './.app.json');
   assert.deepEqual(manifest.extensions['com.openai'].interface.capabilities, ['skills']);

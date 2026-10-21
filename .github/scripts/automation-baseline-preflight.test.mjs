@@ -218,3 +218,23 @@ test('paginates Durable Object namespaces using total_count', async () => {
   assert.equal(observed.namespaces.length, 101);
   assert.equal(validateSnapshot(observed).status, 'PASS');
 });
+
+test('rejects namespace API result counts above total_count', async () => {
+  const snapshot = fixture();
+  const fetchImpl = async (url, options) => {
+    assert.equal(options.method, 'GET');
+    const pathname = new URL(url).pathname;
+    if (pathname.endsWith('/workers/durable_objects/namespaces')) {
+      return { ok: true, json: async () => ({
+        success: true,
+        result: [...snapshot.namespaces, { script: 'unrelated', class: 'Other', id: 'extra' }],
+        result_info: { page: 1, per_page: 100, total_count: snapshot.namespaces.length },
+      }) };
+    }
+    return { ok: true, json: async () => ({ success: true, result: [] }) };
+  };
+  await assert.rejects(
+    readSnapshot({ token: 'test-token', accountId: 'test-account', fetchImpl }),
+    /namespace count exceeds total_count/,
+  );
+});

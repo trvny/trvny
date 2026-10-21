@@ -139,7 +139,8 @@ export async function readSnapshot({ token, accountId, fetchImpl = fetch }) {
       const count = payload.result_info?.total_count;
       requireState(Number.isSafeInteger(count) && count >= 0, 'Unexpected Cloudflare namespace total_count');
       values.push(...payload.result);
-      if (values.length >= count) return values;
+      requireState(values.length <= count, 'Cloudflare namespace count exceeds total_count');
+      if (values.length === count) return values;
       requireState(payload.result.length > 0, 'Cloudflare namespace list ended early');
     }
     throw new Error('Cloudflare namespace list exceeded 20 pages');

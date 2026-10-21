@@ -149,9 +149,9 @@ export function canUsePool(stateKey: string): boolean {
   return LIVE_STATUSES.has(stateKey);
 }
 
-// Bump to stop reusing entries learned under an older prompt. Old entries stay
-// in KV/archive (no delete); they just never match a new quipKey.
-// 2: prompt carries no PR title/body (earlier quips leaked PR subjects).
+// Prompt generation marker on status comments (gates the previous quip fed to
+// the prompt). NOT part of the bank key: the bank key is frozen, see below.
+// 2: prompt carries no PR title/body.
 export const QUIP_PROMPT_SCOPE = 2;
 
 export async function scopedBankKey(
@@ -165,10 +165,11 @@ export async function scopedBankKey(
   ) {
     throw new Error('invalid_quip_bank_scope');
   }
+  // Frozen: any change orphans every learned quip and refills the bank with paid
+  // AI calls. Never add fields here; migrate entries instead.
   return hash({
     repository: normalizedRepository,
     legacyQuipKey,
-    promptScope: QUIP_PROMPT_SCOPE,
   });
 }
 

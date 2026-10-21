@@ -59,16 +59,17 @@ Keep these concepts separate:
 The AI quip prompt carries only `quipKey` facts (status, blockers, area, size,
 language) plus the previous quip. No PR title/body: a banked quip is replayed on
 every PR with the same `quipKey`, so PR-specific wording leaks across PRs.
-`QUIP_PROMPT_SCOPE` (in `quipKey`) was bumped once to retire quips learned from
-the old title/body prompt; those entries stay in KV/archive, unmatched.
+`QUIP_PROMPT_SCOPE` only marks status comments made under the state-only prompt
+(gates which previous quip feeds the prompt); it is not part of `quipKey`.
 
 A generated quip is archived before GitHub mutation. If receipt persistence
 fails, active-bank persistence is attempted before GitHub work so a paid result
 still has durable protection.
 
-Do not reset the system by bumping/clearing the active bank namespace. Schema
-changes must preserve or explicitly migrate learned data. Bump
-`QUIP_PROMPT_SCOPE` only when learned quips themselves are unsafe to reuse.
+Never reset the bank: no bumping/clearing the namespace, no new fields in
+`scopedBankKey` (golden-tested). Each reset refills the bank with paid AI calls.
+Schema changes must preserve or explicitly migrate learned data; unsafe entries
+are filtered or deleted individually, never orphaned wholesale.
 
 AI selection is capped by `KANAREK_AI_PERCENT` and decays as the retainable
 context fills. If bank occupancy cannot be measured, generation fails closed and

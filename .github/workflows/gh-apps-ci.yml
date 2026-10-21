@@ -39,6 +39,7 @@ jobs:
       review: ${{ steps.scope.outputs.review }}
       companion_deploy: ${{ steps.scope.outputs.companion_deploy }}
       review_sync: ${{ steps.scope.outputs.review_sync }}
+      manufact: ${{ steps.scope.outputs.manufact }}
     runs-on: ubuntu-slim
     timeout-minutes: 30
     steps:
@@ -77,6 +78,7 @@ jobs:
           review=false
           companion_deploy=false
           review_sync=false
+          manufact=false
 
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             claudiusz=true
@@ -84,6 +86,7 @@ jobs:
             shitpost=true
             companion=true
             review=true
+            manufact=true
           else
             if [[ "$EVENT_NAME" == "pull_request" ]]; then
               base="$PR_BASE_SHA"
@@ -101,6 +104,7 @@ jobs:
               review=true
               companion_deploy=true
               review_sync=true
+              manufact=true
             else
               files="$(git diff --name-only "$base" "$head")"
 
@@ -110,6 +114,10 @@ jobs:
                 shitpost=true
                 companion=true
                 review=true
+                manufact=true
+              fi
+              if grep -qx 'gh-apps/claudiusz/Dockerfile.manufact' <<<"$files"; then
+                manufact=true
               fi
               if grep '^gh-apps/claudiusz/' <<<"$files" | grep -Ev '\.md$' >/dev/null ||
                   grep -Eq '^gh-apps/core/.*\.ts$' <<<"$files"; then
@@ -151,6 +159,7 @@ jobs:
             echo "review=$review"
             echo "companion_deploy=$companion_deploy"
             echo "review_sync=$review_sync"
+            echo "manufact=$manufact"
           } >> "$GITHUB_OUTPUT"
           {
             echo "### GitHub Apps CI scope"
@@ -258,3 +267,35 @@ jobs:
             kanarek-review GEMINI_API_KEY GEMINI_API_KEY optional
           bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
             kanarek-review QWEN_API_KEY QWEN_API_KEY optional
+
+  # Docker is unavailable on ubuntu-slim. Build only when the image definition changes.
+  manufact-image-smoke:
+    needs: check
+    if: ${{ needs.check.outputs.manufact == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build Manufact image
+        run: docker build -f gh-apps/claudiusz/Dockerfile.manufact -t claudiusz-manufact:ci gh-apps
+
+      - name: Smoke OAuth metadata as non-root
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -d --name claudiusz-manufact-ci -p 127.0.0.1:3000:3000 claudiusz-manufact:ci
+          trap 'docker logs claudiusz-manufact-ci || true; docker rm -f claudiusz-manufact-ci || true' EXIT
+          [[ "$(docker exec claudiusz-manufact-ci id -u)" != "0" ]]
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 3 \
+              http://127.0.0.1:3000/.well-known/oauth-authorization-server \
+              | jq -e '.issuer == "http://127.0.0.1:3000" and (.code_challenge_methods_supported | index("S256"))' >/dev/null; then
+              echo "Manufact container healthy and non-root"
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1

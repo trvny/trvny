@@ -105,29 +105,32 @@ must never be treated as authorization to perform a state transfer.
    display metadata without switching the deployed service. Any new
    URL/alias must first coexist with the old endpoint; do not redirect
    signed webhooks or OAuth callbacks blindly. No DO binding changes.
-3. **Prove state continuity before any production transfer.** Determine
-   the supported identity-rename or cross-Worker transfer mechanism; changing
-   Wrangler `name` alone creates another Worker. Preserve all five live SQLite
-   namespaces (`CommentProbeLock`, `OperatorCheckpointStore`,
-   `ReviewProviderCooldownStore`, `WebhookReviewJob`,
-   `AnchorMutationReplayStore`), their IDs, contents and alarms. Before
-   cross-Worker transfer, migrate the source's legacy `migrations` to
-   `exports` in its own validated deploy; this config transition is one-way.
-   Never configure `migrations` and `exports` simultaneously; validate that
-   existing deployment tooling supports the new lifecycle model before the
-   irreversible switch.
-   In a separately controlled transfer window, follow Cloudflare's order:
-   deploy the target with `expecting-transfer` exports but no self-referencing
-   DO bindings; then deploy `transferred` tombstones on the source to commit
-   namespace ownership. Verify the existing namespace IDs are now owned by
-   `automation`. **Before the legacy Worker continues serving callbacks**,
-   redeploy its five DO bindings with `script_name: automation` so existing
-   routes still reach the transferred state; only after the source rollout,
-   deploy target-local DO bindings. Handle brief transfer-time unavailability
-   explicitly; do not claim atomic end-to-end routing. Keep source and target
-   class exports/rollback constraints consistent with Cloudflare's guide.
+3. **Prove state continuity before any production transfer.** Changing
+   Wrangler `name` alone creates another Worker; it does not rename the
+   existing service. Preserve all five live SQLite namespaces
+   (`CommentProbeLock`, `OperatorCheckpointStore`,
+   `ReviewProviderCooldownStore`, `WebhookReviewJob` and
+   `AnchorMutationReplayStore`), their IDs, contents and alarms. Evaluate
+   **both supported transfer paths** before choosing a deployment sequence:
+   - **Legacy:** Keep the current `migrations` mechanism and deploy an
+     appropriately tagged `transferred_classes` migration on the destination
+     Worker using `from_script: kanarek-companion`. Do not pre-create those
+     destination classes with `new_sqlite_classes`. Confirm source binding
+     behavior and the exact source/target deployment order in a rehearsal.
+   - **Declarative:** First move the source from legacy `migrations` to
+     `exports` in a separately verified, irreversible config transition.
+     Then follow Cloudflare's `expecting-transfer` target export and
+     `transferred` source tombstone sequence, rebind the legacy Worker's five
+     DO references to `script_name: automation` after ownership commits, and
+     finally attach target-local DO bindings once the source rollout completes.
+   Never use `migrations` and `exports` for DO lifecycle in the same Worker.
+   **Neither path is authorized yet.** Require evidence for namespace IDs,
+   old-route continuity, alarm wake-up, pending webhook jobs, credentials,
+   irreversible effects, explicit pause/rollback or forward-recovery
+   decisions, and cloud-triggered deploy control before a production transfer.
    Preserve `KANAREK_QUIP_KV` ID and bank/archive/receipt keys throughout.
-   Never create replacement namespaces or delete tombstones as cleanup.
+   Never create replacement namespaces or delete transfer tombstones as
+   incidental cleanup.
 4. **Switch clients only after ownership and both Workers are verified.**
    Repoint Gremlin, Kanarek Review and Pet Dispatcher's service/DO bindings,
    plus any other RPC consumers, **after** the committed namespace transfer,

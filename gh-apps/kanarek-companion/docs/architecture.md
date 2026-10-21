@@ -61,6 +61,38 @@ It does **not** verify GitHub App webhook destinations, queued Durable Object
 alarms, live command replay behavior, or unknown external callers. Its output
 must never be treated as authorization to perform a state transfer.
 
+### Additional cutover safety findings (2026-10-22)
+
+- **Production deploys are automatic.** Cloudflare Workers Builds watches the
+  `main` branch with root `gh-apps/kanarek-companion`,
+  `npm run check` and `npm run deploy`. Its path filters include
+  `gh-apps/kanarek-companion/**` and `gh-apps/core/**`, excluding
+  Markdown. A runtime or Wrangler PR can deploy immediately upon merge.
+  Before any lifecycle change, explicitly plan the Build trigger freeze and
+  restoration, command/deployment sequencing, credentials and abort conditions.
+  **Do not merge a transfer config expecting a later manual deploy.**
+- **DO alarms are active application mechanisms.** The code schedules alarms
+  for webhook review jobs, comment locks, provider cooldowns, operator
+  checkpoints and replay cleanup. The Cloudflare namespace object-list API
+  confirms stored instances but does **not** expose the current per-object
+  `getAlarm()` timestamps. An alarm baseline and an end-to-end wake test
+  therefore still require a safe instance-level diagnostic or equivalent
+  runtime evidence; do not infer alarm continuity from a namespace listing.
+- **GitHub App callbacks remain a separate gate.** The GitHub App webhook
+  configuration requires App JWT authorization to read using
+  `GET /app/hook/config`; a repository webhook read or user PAT cannot
+  confirm the Kanarek/GPTomek App settings. Verify both App configurations
+  through authorized App access or their owner settings, before changing
+  public endpoint routing. Do not log webhook signing secrets or JWTs.
+- **Remove temporary scaffolding only after verified cutover.** In a final
+  cleanup PR, delete `.github/workflows/automation-baseline-preflight.yml`,
+  `.github/scripts/automation-baseline-preflight.mjs` and
+  `.github/scripts/automation-baseline-preflight.test.mjs`, and remove this
+  temporary preflight link. Retain only concise, durable architecture and
+  state-preservation guidance; clean up legacy endpoint references after all
+  callers and alarms are accounted for. Do not delete DO transfer tombstones
+  unless Cloudflare explicitly marks them stale.
+
 ### Migration gates (one logical PR and verification per gate)
 
 1. **Inventory and baseline only.** Record live Worker name, deployments,
@@ -73,29 +105,32 @@ must never be treated as authorization to perform a state transfer.
    display metadata without switching the deployed service. Any new
    URL/alias must first coexist with the old endpoint; do not redirect
    signed webhooks or OAuth callbacks blindly. No DO binding changes.
-3. **Prove state continuity before any production transfer.** Determine
-   the supported identity-rename or cross-Worker transfer mechanism; changing
-   Wrangler `name` alone creates another Worker. Preserve all five live SQLite
-   namespaces (`CommentProbeLock`, `OperatorCheckpointStore`,
-   `ReviewProviderCooldownStore`, `WebhookReviewJob`,
-   `AnchorMutationReplayStore`), their IDs, contents and alarms. Before
-   cross-Worker transfer, migrate the source's legacy `migrations` to
-   `exports` in its own validated deploy; this config transition is one-way.
-   Never configure `migrations` and `exports` simultaneously; validate that
-   existing deployment tooling supports the new lifecycle model before the
-   irreversible switch.
-   In a separately controlled transfer window, follow Cloudflare's order:
-   deploy the target with `expecting-transfer` exports but no self-referencing
-   DO bindings; then deploy `transferred` tombstones on the source to commit
-   namespace ownership. Verify the existing namespace IDs are now owned by
-   `automation`. **Before the legacy Worker continues serving callbacks**,
-   redeploy its five DO bindings with `script_name: automation` so existing
-   routes still reach the transferred state; only after the source rollout,
-   deploy target-local DO bindings. Handle brief transfer-time unavailability
-   explicitly; do not claim atomic end-to-end routing. Keep source and target
-   class exports/rollback constraints consistent with Cloudflare's guide.
+3. **Prove state continuity before any production transfer.** Changing
+   Wrangler `name` alone creates another Worker; it does not rename the
+   existing service. Preserve all five live SQLite namespaces
+   (`CommentProbeLock`, `OperatorCheckpointStore`,
+   `ReviewProviderCooldownStore`, `WebhookReviewJob` and
+   `AnchorMutationReplayStore`), their IDs, contents and alarms. Evaluate
+   **both supported transfer paths** before choosing a deployment sequence:
+   - **Legacy:** Keep the current `migrations` mechanism and deploy an
+     appropriately tagged `transferred_classes` migration on the destination
+     Worker using `from_script: kanarek-companion`. Do not pre-create those
+     destination classes with `new_sqlite_classes`. Confirm source binding
+     behavior and the exact source/target deployment order in a rehearsal.
+   - **Declarative:** First move the source from legacy `migrations` to
+     `exports` in a separately verified, irreversible config transition.
+     Then follow Cloudflare's `expecting-transfer` target export and
+     `transferred` source tombstone sequence, rebind the legacy Worker's five
+     DO references to `script_name: automation` after ownership commits, and
+     finally attach target-local DO bindings once the source rollout completes.
+   Never use `migrations` and `exports` for DO lifecycle in the same Worker.
+   **Neither path is authorized yet.** Require evidence for namespace IDs,
+   old-route continuity, alarm wake-up, pending webhook jobs, credentials,
+   irreversible effects, explicit pause/rollback or forward-recovery
+   decisions, and cloud-triggered deploy control before a production transfer.
    Preserve `KANAREK_QUIP_KV` ID and bank/archive/receipt keys throughout.
-   Never create replacement namespaces or delete tombstones as cleanup.
+   Never create replacement namespaces or delete transfer tombstones as
+   incidental cleanup.
 4. **Switch clients only after ownership and both Workers are verified.**
    Repoint Gremlin, Kanarek Review and Pet Dispatcher's service/DO bindings,
    plus any other RPC consumers, **after** the committed namespace transfer,

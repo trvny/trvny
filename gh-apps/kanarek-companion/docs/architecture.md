@@ -52,6 +52,15 @@ any change to deployments, DNS, service bindings or Durable Objects.
   mutating running state. A successful health read does not prove alarm or
   webhook continuity.
 
+The on-demand [Automation Worker baseline preflight](../../../.github/workflows/automation-baseline-preflight.yml)
+checks read-only Cloudflare metadata for the five namespace bindings,
+shared KV binding, critical secret **names**, live production version,
+legacy endpoint and four dependent Workers. It deliberately fails if the
+target Worker already exists and must not be reused unmodified after cutover.
+It does **not** verify GitHub App webhook destinations, queued Durable Object
+alarms, live command replay behavior, or unknown external callers. Its output
+must never be treated as authorization to perform a state transfer.
+
 ### Migration gates (one logical PR and verification per gate)
 
 1. **Inventory and baseline only.** Record live Worker name, deployments,

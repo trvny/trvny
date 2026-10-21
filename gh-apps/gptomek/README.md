@@ -83,6 +83,17 @@ while the pull request itself stays authored by `trvny`, use this flow:
 6. If the branch already consists of the desired single GPTomek-authored commit,
    skip `adopt_branch` and use the same final-head checks plus rebase merge.
 
+## Commit attribution
+
+GPTomek creates commits as `gptomek[bot]` (author and committer) and automatically
+adds `chatgpt-codex-connector[bot]` as a GitHub-recognized co-author through
+its numeric-ID noreply address. Existing co-author trailers are preserved;
+the connector trailer is never duplicated.
+
+The PR itself remains authored by `trvny` to trigger external reviews.
+The attribution applies to newly created GPTomek commits, not old commits
+or PR description text. Preserve the rebase merge flow above.
+
 ## Which mailbox to use
 
 | Situation | Transport | What happens |

@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   cherryPick,
   gptomekMailboxFailureIsTerminal,
+  withCodexCoauthor,
 } from '../src/gptomek/gptomek.ts';
 import type { GitHubInstallationClient } from '../../core/github-app.ts';
 
@@ -117,7 +118,7 @@ test('cherry_pick reapplies a strict single-parent tree delta without copying bl
 
       if (operation === 'gptomek_create_commit') {
         const value = body(init);
-        assert.equal(value.message, 'fix: source change');
+        assert.equal(value.message, withCodexCoauthor('fix: source change'));
         assert.equal(value.tree, newTree);
         assert.deepEqual(value.parents, [expected]);
         return { sha: newCommit } as T;

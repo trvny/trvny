@@ -5,6 +5,7 @@ import {
   commitTree,
   gptomekMailboxFailureIsTerminal,
   moveFiles,
+  withCodexCoauthor,
 } from '../src/gptomek/gptomek.ts';
 import {
   GitHubApiError,
@@ -57,7 +58,7 @@ test('commit_tree reuses Git objects for mode and structural changes', async () 
       }
       if (operation === 'gptomek_create_commit') {
         const value = body(init);
-        assert.equal(value.message, 'feat: tree mutation');
+        assert.equal(value.message, withCodexCoauthor('feat: tree mutation'));
         assert.equal(value.tree, createdTree);
         assert.deepEqual(value.parents, [expected]);
         return { sha: createdCommit } as T;
@@ -218,7 +219,7 @@ test('move_files atomically swaps paths while preserving SHA and mode', async ()
       }
       if (operation === 'gptomek_create_commit') {
         const value = body(init);
-        assert.equal(value.message, 'refactor: swap binaries');
+        assert.equal(value.message, withCodexCoauthor('refactor: swap binaries'));
         assert.equal(value.tree, createdTree);
         assert.deepEqual(value.parents, [expected]);
         return { sha: createdCommit } as T;

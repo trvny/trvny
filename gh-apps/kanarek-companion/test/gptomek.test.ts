@@ -6,6 +6,7 @@ import {
   deleteBranch,
   handleGptomekControl,
   isGptomekControlPr,
+  withCodexCoauthor,
 } from '../src/gptomek/gptomek.ts';
 import { isProtectedBranch } from '../src/tools/common.ts';
 import {
@@ -251,4 +252,20 @@ test('rejects protected branches before reading their head', async () => {
   }
   assert.equal(headRead, false);
   assert.equal(deleted, false);
+});
+
+const connectorTrailer =
+  'Co-authored-by: chatgpt-codex-connector[bot] <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>';
+
+test('adds GitHub-recognized Codex co-author to GPTomek commit messages', () => {
+  assert.equal(withCodexCoauthor('feat: add feature'), `feat: add feature\n\n${connectorTrailer}`);
+});
+
+test('preserves existing co-authors and avoids duplicate connector trailers', () => {
+  const withClaude = 'feat: add feature\n\nCo-authored-by: Claude <noreply@anthropic.com>';
+  const withBoth = `${withClaude}\n${connectorTrailer}`;
+  assert.equal(withCodexCoauthor(withClaude), withBoth);
+  assert.equal(withCodexCoauthor(`${withBoth}\n\n`), withBoth);
+  const withChangeId = `${withClaude}\nChange-Id: I12345`;
+  assert.equal(withCodexCoauthor(withChangeId), `${withChangeId}\n${connectorTrailer}`);
 });

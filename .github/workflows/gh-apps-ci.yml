@@ -37,6 +37,8 @@ jobs:
     outputs:
       companion: ${{ steps.scope.outputs.companion }}
       review: ${{ steps.scope.outputs.review }}
+      companion_deploy: ${{ steps.scope.outputs.companion_deploy }}
+      review_sync: ${{ steps.scope.outputs.review_sync }}
     runs-on: ubuntu-slim
     timeout-minutes: 30
     steps:
@@ -73,6 +75,8 @@ jobs:
           shitpost=false
           companion=false
           review=false
+          companion_deploy=false
+          review_sync=false
 
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             claudiusz=true
@@ -95,6 +99,8 @@ jobs:
               shitpost=true
               companion=true
               review=true
+              companion_deploy=true
+              review_sync=true
             else
               files="$(git diff --name-only "$base" "$head")"
 
@@ -122,8 +128,338 @@ jobs:
                 companion=true
               fi
               if grep -E '^gh-apps/kanarek-review/|^gh-apps/core/' <<<"$files" |
-                  grep -Ev '\.md$' >/dev/null; then
+                  grep -Ev '\.md          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### GitHub Apps CI scope"
+            echo
+            echo "- Claudiusz: $claudiusz"
+            echo "- Gremlin: $gremlin"
+            echo "- Shitpost Reactor: $shitpost"
+            echo "- Kanarek Companion: $companion"
+            echo "- Kanarek Review: $review"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check Claudiusz
+        if: steps.scope.outputs.claudiusz == 'true'
+        working-directory: gh-apps/claudiusz
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Gremlin
+        if: steps.scope.outputs.gremlin == 'true'
+        working-directory: gh-apps/gremlin
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Shitpost Reactor
+        if: steps.scope.outputs.shitpost == 'true'
+        working-directory: gh-apps/shitpost-reactor
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Kanarek Companion
+        if: steps.scope.outputs.companion == 'true'
+        working-directory: gh-apps/kanarek-companion
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Kanarek Review
+        if: steps.scope.outputs.review == 'true'
+        working-directory: gh-apps/kanarek-review
+        run: |
+          npm ci
+          npm run check
+
+  # Live-only checks and provider secrets stay outside PR test steps.
+  smoke-live:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check.outputs.companion_deploy == 'true' }}
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-companion
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
+
+      - run: npm ci
+      - name: Wait for Cloudflare production and smoke the live gateway
+        run: npm run smoke:live
+        env:
+          KANAREK_LIVE_ORIGIN: https://kanarek-companion.travny.workers.dev
+          KANAREK_SMOKE_ATTEMPTS: "36"
+          KANAREK_SMOKE_INTERVAL_MS: "15000"
+
+  sync-provider-secrets:
+    if: ${{ github.event_name == 'push' && needs.check.outputs.review_sync == 'true' }}
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-review
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-review/package-lock.json
+
+      - run: npm ci
+
+      - name: Sync provider credentials
+        shell: bash
+        run: |
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
+            kanarek-review GEMINI_API_KEY GEMINI_API_KEY optional
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
+            kanarek-review QWEN_API_KEY QWEN_API_KEY optional
+ >/dev/null; then
                 review=true
+              fi
+              # Only expect a new Worker SHA when Workers Builds watched source changed.
+              if grep -E '^gh-apps/kanarek-companion/|^gh-apps/core/' <<<"$files" |
+                  grep -Ev '\.md          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### GitHub Apps CI scope"
+            echo
+            echo "- Claudiusz: $claudiusz"
+            echo "- Gremlin: $gremlin"
+            echo "- Shitpost Reactor: $shitpost"
+            echo "- Kanarek Companion: $companion"
+            echo "- Kanarek Review: $review"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check Claudiusz
+        if: steps.scope.outputs.claudiusz == 'true'
+        working-directory: gh-apps/claudiusz
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Gremlin
+        if: steps.scope.outputs.gremlin == 'true'
+        working-directory: gh-apps/gremlin
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Shitpost Reactor
+        if: steps.scope.outputs.shitpost == 'true'
+        working-directory: gh-apps/shitpost-reactor
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Kanarek Companion
+        if: steps.scope.outputs.companion == 'true'
+        working-directory: gh-apps/kanarek-companion
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Kanarek Review
+        if: steps.scope.outputs.review == 'true'
+        working-directory: gh-apps/kanarek-review
+        run: |
+          npm ci
+          npm run check
+
+  # Live-only checks and provider secrets stay outside PR test steps.
+  smoke-live:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check.outputs.companion == 'true' }}
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-companion
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
+
+      - run: npm ci
+      - name: Wait for Cloudflare production and smoke the live gateway
+        run: npm run smoke:live
+        env:
+          KANAREK_LIVE_ORIGIN: https://kanarek-companion.travny.workers.dev
+          KANAREK_SMOKE_ATTEMPTS: "36"
+          KANAREK_SMOKE_INTERVAL_MS: "15000"
+
+  sync-provider-secrets:
+    if: ${{ github.event_name == 'push' && needs.check.outputs.review == 'true' }}
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-review
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-review/package-lock.json
+
+      - run: npm ci
+
+      - name: Sync provider credentials
+        shell: bash
+        run: |
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
+            kanarek-review GEMINI_API_KEY GEMINI_API_KEY optional
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
+            kanarek-review QWEN_API_KEY QWEN_API_KEY optional
+ >/dev/null; then
+                companion_deploy=true
+              fi
+              if grep -E '^gh-apps/kanarek-review/|^gh-apps/core/' <<<"$files" |
+                  grep -Ev '\.md          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### GitHub Apps CI scope"
+            echo
+            echo "- Claudiusz: $claudiusz"
+            echo "- Gremlin: $gremlin"
+            echo "- Shitpost Reactor: $shitpost"
+            echo "- Kanarek Companion: $companion"
+            echo "- Kanarek Review: $review"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check Claudiusz
+        if: steps.scope.outputs.claudiusz == 'true'
+        working-directory: gh-apps/claudiusz
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Gremlin
+        if: steps.scope.outputs.gremlin == 'true'
+        working-directory: gh-apps/gremlin
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Shitpost Reactor
+        if: steps.scope.outputs.shitpost == 'true'
+        working-directory: gh-apps/shitpost-reactor
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Kanarek Companion
+        if: steps.scope.outputs.companion == 'true'
+        working-directory: gh-apps/kanarek-companion
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Kanarek Review
+        if: steps.scope.outputs.review == 'true'
+        working-directory: gh-apps/kanarek-review
+        run: |
+          npm ci
+          npm run check
+
+  # Live-only checks and provider secrets stay outside PR test steps.
+  smoke-live:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check.outputs.companion == 'true' }}
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-companion
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
+
+      - run: npm ci
+      - name: Wait for Cloudflare production and smoke the live gateway
+        run: npm run smoke:live
+        env:
+          KANAREK_LIVE_ORIGIN: https://kanarek-companion.travny.workers.dev
+          KANAREK_SMOKE_ATTEMPTS: "36"
+          KANAREK_SMOKE_INTERVAL_MS: "15000"
+
+  sync-provider-secrets:
+    if: ${{ github.event_name == 'push' && needs.check.outputs.review == 'true' }}
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-review
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-review/package-lock.json
+
+      - run: npm ci
+
+      - name: Sync provider credentials
+        shell: bash
+        run: |
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
+            kanarek-review GEMINI_API_KEY GEMINI_API_KEY optional
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
+            kanarek-review QWEN_API_KEY QWEN_API_KEY optional
+ >/dev/null; then
+                review_sync=true
               fi
             fi
           fi
@@ -131,6 +467,8 @@ jobs:
           {
             echo "companion=$companion"
             echo "review=$review"
+            echo "companion_deploy=$companion_deploy"
+            echo "review_sync=$review_sync"
           } >> "$GITHUB_OUTPUT"
           {
             echo "### GitHub Apps CI scope"

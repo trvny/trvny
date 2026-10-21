@@ -23,7 +23,7 @@ test('portable MechaGremlin manifest references the installed MCP app and origin
   };
 
   // Pin the account release intentionally; bump alongside the next source sync.
-  assert.equal(manifest.version, '0.31.10');
+  assert.equal(manifest.version, '0.31.11');
   assert.equal(manifest.extensions['com.openai'].apps, './.app.json');
   assert.deepEqual(manifest.extensions['com.openai'].interface.capabilities, ['skills']);
   assert.deepEqual(Object.keys(app.apps), ['gremlin']);
@@ -61,14 +61,13 @@ test('Gremlin skill keeps only the canonical references and no user snapshot', a
     'GREMLIN_EDGY_DARK_MEME_KNOWLEDGE.md',
     'edgy-dark-meme-formats.json',
     'gremlin-style.md',
-    'migration.md',
   ].sort());
   for (const entry of index.files) {
     assert.equal(entry.path, 'references/' + entry.name);
     await file(skillPath + entry.path);
   }
   const refs = await readdir(new URL(skillPath + 'references/', pluginRoot));
-  for (const removed of ['AGENTS.md', 'GREMLIN_STYLE.md', 'USER_CONTEXT.md']) {
+  for (const removed of ['AGENTS.md', 'GREMLIN_STYLE.md', 'USER_CONTEXT.md', 'migration.md']) {
     assert.equal(refs.includes(removed), false);
   }
   const agent = await file(skillPath + 'agents/openai.yaml');

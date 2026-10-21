@@ -91,7 +91,7 @@ location does not change subsystem ownership.
 
 The migrated private plugin remains the user-facing successor. Keep it private
 until the MCP and migrated skill pass the acceptance gates in
-`plugin/skills/gremlin/references/migration.md`.
+`MIGRATION.md` (repository documentation, not a bundled skill reference).
 
 ## Boundary
 
@@ -99,7 +99,8 @@ Gremlin owns semantic operator decisions and guarded high-level actions. It does
 not own Kanarek status-comment/quip behavior, Kanarek Review provider routing,
 or GPTomek's control-mailbox transport.
 
-The main operator families live in the shared package:
+The main operator families live in the shared package
+(`../kanarek-companion/src/operator/`, `investigation/`; gateway in `gptomek/`):
 
 - `operator-actions.ts`: PR inspection/finalization and composed GitHub reads.
 - `autopilot*.ts`: resumable orchestration and operation checkpoints.

@@ -1,14 +1,26 @@
-name: TRAVNY Pages control
+name: TRAVNY Pages
 
-on:
+on: # yamllint disable-line rule:truthy
   push:
     branches: [main]
     paths:
       - "pages/site/**"
       - "pages/functions/**"
       - "pages/build.sh"
+      - "pages/tests/**"
+      - "pages/eslint.config.mjs"
       - "pages/scripts/waf_allow_chatgpt.py"
-      - ".github/workflows/travny-pages-control.yml"
+      - ".github/workflows/travny-pages.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "pages/site/**"
+      - "pages/functions/**"
+      - "pages/build.sh"
+      - "pages/tests/**"
+      - "pages/eslint.config.mjs"
+      - "pages/scripts/waf_allow_chatgpt.py"
+      - ".github/workflows/travny-pages.yml"
   workflow_dispatch:
     inputs:
       mode:
@@ -22,17 +34,66 @@ on:
           - disable-git-auto-deploy
           - enable-git-auto-deploy
 
+concurrency:
+  group: pages-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
-  pages:
+  check:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    outputs:
+      pages_deploy_expected: ${{ steps.deploy_scope.outputs.pages_deploy_expected }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: pages
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - run: sh -n build.sh
+      - run: npx --yes eslint@10.12.0 .
+      - run: node --test tests/*.test.mjs
+
+      - name: Detect Pages deployment changes
+        if: ${{ github.event_name == 'push' }}
+        id: deploy_scope
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" =~ ^0+$ ]]; then
+            echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BEFORE_SHA" "$HEAD_SHA" |
+              grep -Eq '^pages/(site/|functions/|build\.sh$)'; then
+            echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pages_deploy_expected=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Production-only control. No Cloudflare credentials in PR test steps.
+  control:
+    needs: check
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && needs.check.result == 'success')) }}
     runs-on: ubuntu-slim
     timeout-minutes: 15
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       PROJECT_NAME: travny
+      DEPLOY_EXPECTED: ${{ needs.check.outputs.pages_deploy_expected }}
     steps:
       - name: Read current Pages settings
         shell: bash
@@ -86,7 +147,7 @@ jobs:
           # built with an older build command, redeploy. Retryable via mode=assert.
           want=$(jq -r '.result.build_config.build_command' <<<"$updated")
           auth=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$DEPLOY_EXPECTED" == "true" ]]; then
             settled=false
             for _ in $(seq 1 30); do
               state=$(curl --fail-with-body --silent --show-error "${auth[@]}" \

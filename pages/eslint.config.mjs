@@ -1,6 +1,6 @@
 // Flat config for the Pages Functions in functions/.
 //
-// Run by .github/workflows/travny-pages-ci.yml (repo MegaLinter has no
+// Run by .github/workflows/travny-pages.yml (repo MegaLinter has no
 // JAVASCRIPT_ES). Dependency-free: no imports, no install step.
 
 // The list is deliberately broader than what functions/ uses today. With

@@ -9,7 +9,6 @@ import {
   bankContext,
   effectiveAiPercent,
   loadBank,
-  QUIP_PROMPT_SCOPE,
   scopedBankKey,
   shouldAskAiForBank,
 } from '../src/companion-bank.ts';
@@ -191,13 +190,12 @@ test('reuses measured keys when falling back to the bank', async () => {
   assert.equal(listCalls, 1);
 });
 
-test('prompt scope is part of the bank key', async () => {
+const GOLDEN_BANK_KEY = '104dfdd348e15df6';
+
+test('bank key is frozen so learned quips stay reachable', async () => {
   const legacyQuipKey = 'bbbbbbbbbbbbbbbb';
   const scoped = await scopedBankKey('travnie/aistee', legacyQuipKey);
-  const unscoped = await hash({ repository: 'travnie/aistee', legacyQuipKey });
-  assert.notEqual(scoped, unscoped);
-  assert.equal(
-    scoped,
-    await hash({ repository: 'travnie/aistee', legacyQuipKey, promptScope: QUIP_PROMPT_SCOPE }),
-  );
+  assert.equal(scoped, await hash({ repository: 'travnie/aistee', legacyQuipKey }));
+  // Golden value: changing it orphans the whole KV bank.
+  assert.equal(scoped, GOLDEN_BANK_KEY);
 });

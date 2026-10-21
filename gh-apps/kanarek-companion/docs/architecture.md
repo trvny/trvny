@@ -3,6 +3,64 @@
 This document is the map for the large `src/` tree. The key idea is simple:
 physical co-location does not erase subsystem boundaries.
 
+## Worker identity and staged rename
+
+**Target Cloudflare Worker name:** `automation`. **Current production Worker:** `kanarek-companion`.
+The target is an infrastructure name, not a rename of the Kanarek Companion
+or GPTomek GitHub Apps. Keep their app IDs, slugs, installation permissions,
+identities, and domain-specific storage keys unchanged. The checkout/package
+path `gh-apps/kanarek-companion/` remains the maintained source while the
+infrastructure name is migrated; do not combine this with a directory move.
+
+### Migration gates (one logical PR and verification per gate)
+
+1. **Inventory and baseline only.** Record live Worker name, deployments,
+   secret *names* (never values), GitHub webhook URLs, OAuth/callback users,
+   external callers, cron triggers, Service Bindings, KV namespace IDs,
+   Durable Object namespace IDs/classes, pending alarms and wake routes.
+   Capture a healthy `/health`, capability manifest, GPTomek smoke, PR
+   status/review smoke and quip-bank baseline. Confirm `automation` is unused.
+2. **Prepare compatibility.** Update naming in documentation and optional
+   display metadata without switching the deployed service. Any new
+   URL/alias must first coexist with the old endpoint; do not redirect
+   signed webhooks or OAuth callbacks blindly. No DO binding changes.
+3. **Plan state-preserving cutover.** Determine a Cloudflare-supported
+   Worker identity migration or explicit DO cross-Worker transfer; do not
+   assume changing Wrangler `name` renames an existing service.
+   Preserve all five live SQLite DO namespaces (`CommentProbeLock`,
+   `OperatorCheckpointStore`, `ReviewProviderCooldownStore`,
+   `WebhookReviewJob`, `AnchorMutationReplayStore`) and their alarms.
+   The current Worker uses legacy `migrations`; assess Cloudflare's
+   documented transfer path and irreversible steps before attempting it.
+   Preserve `KANAREK_QUIP_KV` namespace ID and all bank/archive/receipt keys.
+   Never create a fresh replacement for production state.
+4. **Switch clients by dependency.** Change internal Service Bindings and
+   external DO `script_name` references in Gremlin, Kanarek Review and
+   Pet Dispatcher; also audit any other RPC consumers. Update GitHub Actions
+   (GPTomek wake and fallback, credential sync, CI/live smoke), Worker Builds,
+   service-to-service URLs, direct HTTP callers and GitHub App webhook URLs.
+   Verify each step against both old and new routes where supported.
+5. **Cut over with a rollback gate.** Make the new endpoint authoritative
+   only after complete state/secret/binding verification. Test GPTomek
+   issue-command execution + replay guard, Gremlin signer, Kanarek PR
+   status and review, provider cooldowns, quips and their saved bank, Botek
+   RPC, health and CI. Record exact deployment versions. Roll back code
+   or routing only when safe; DO namespace lifecycle changes are *not*
+   undone by ordinary Worker version rollback.
+6. **Retire compatibility last.** Keep `kanarek-companion` available
+   until all known consumers have moved and outstanding callbacks, jobs,
+   alarms and checkpoints are accounted for. Remove old endpoints or
+   configs in a separate, audited change, never as incidental cleanup.
+
+**Stop condition:** Missing credentials, unknown DO ownership/data continuity,
+failed live checks, unverified webhook migration, or no safe rollback plan.
+Do not execute the production rename until these gates are explicitly met.
+
+References: [Cloudflare Durable Object class lifecycle](https://developers.cloudflare.com/durable-objects/reference/durable-objects-migrations/),
+[Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/),
+[GPTomek control transport](../../gptomek/docs/REFERENCE.md).
+
+
 ## Composition layers
 
 `runtime.ts` is the single composition root. Requests pass ordered route

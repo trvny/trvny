@@ -151,6 +151,23 @@ These are capabilities too, not implementation trivia:
 The portable plugin points at
 `https://gremlin.travny.workers.dev/mcp`.
 
+## Connected-app routing and overlap audit (2026-10-22)
+
+The canonical selection rule lives in `plugin/skills/gremlin/SKILL.md`. This audit records the existing capability overlap; it **does not** retire MCP tools, alter OAuth or migrate backend state.
+
+| Surface | Prefer in current ChatGPT | Why the Gremlin surface stays for now |
+| --- | --- | --- |
+| `githubRead`, `getDoc`, `getDocsIndex`, `searchDocs` | Connected GitHub for ordinary file/repo reads | Legacy GPT and MCP consumers still use these; `searchDocs` also supports curated `llms.txt` sites. |
+| `context7_search` / `searchContext7Docs` | Connected Context7 for library docs | Two entrypoints share specialist implementation; legacy clients still use the bridge. |
+| `getCloudflareOverview` | Connected Cloudflare for routine account/resource operations | Gremlin provides safe operator inventory. The advertised 32-tool MCP contains the overview, **not** every guarded Cloudflare mutation in the runtime; check live tool availability before acting. |
+| `implementCodeChange`, `finalizePullRequest`, `orchestrateRelease`, maintenance/CI helpers | Gremlin for governed multi-step operations | GPTomek attribution, exact-state checks, resumability and final-head gates are not equivalent to raw provider calls. |
+| Feedseek and Gremlin knowledge/package intelligence | Gremlin | Specialist behavior has no verified direct replacement in this setup. |
+| Engram and Anchor | Separately connected Engram and Anchor apps | Their bridges are absent from the current Gremlin MCP; do not reintroduce proxy credentials or copy personal data. |
+
+Verified repository consumers/guards include `gh-apps/kanarek-companion/src/custom-gpt-surface.ts`, `src/runtime-openapi.ts`, `src/tools/registry.ts` (under that same app), `gh-apps/gremlin/test/index.test.ts` and `gh-apps/kanarek-companion/test/operator-mcp-adapter.test.ts`. The 32-tool compatibility tests, legacy Builder instructions and independently authenticated connections remain in place. Remove a candidate adapter only after inspecting callers, proving feature/auth parity and migrating its legacy consumers.
+
+The operator bootstrap's `preferredActions` previously named `searchEngramMemory` and `useGremlinStorage` despite their absence from the plugin MCP. Those stale preferences are removed without deleting legacy routes or independent app access.
+
 ## Preserved runtime boundaries
 
 - Gremlin owns the user-facing operator surface and standalone public Worker.

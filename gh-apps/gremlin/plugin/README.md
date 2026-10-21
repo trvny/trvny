@@ -25,6 +25,8 @@ The canonical Streamable HTTP MCP endpoint is `https://gremlin.travny.workers.de
 
 **Anchor remains separate** with its own OAuth. The `Gremlin_storage` folder is reached through the independently connected Anchor app; Gremlin does not proxy Anchor credentials or embed Anchor actions.
 
-For historical migration and acceptance gates see repository-only [MIGRATION.md](../MIGRATION.md) and [issue #958](https://github.com/trvny/trvny/issues/958). Keep migration logs out of the runtime skill.
+Tool routing lives in canonical `skills/gremlin/SKILL.md`: direct provider apps for routine work, Gremlin for guarded GPTomek and specialist workflows. Repository edits do not update the installed ChatGPT skill until the existing plugin is released in place.
+
+For historical migration, overlap audit and acceptance gates see repository-only [MIGRATION.md](../MIGRATION.md) and [issue #958](https://github.com/trvny/trvny/issues/958). Keep migration logs out of the runtime skill.
 
 Release `1.0.3` consolidates operational rules in `SKILL.md` and compresses the voice guide. The detailed meme-craft reference and structured format registry retain their full contents and are consulted only when relevant.

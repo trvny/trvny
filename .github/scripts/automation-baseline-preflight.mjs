@@ -124,38 +124,31 @@ export async function readSnapshot({ token, accountId, fetchImpl = fetch }) {
     if (!payload.success) throw new Error('Cloudflare rejected a read-only request');
     return payload;
   }
-  async function list(path) {
+  // Workers scripts and secrets endpoints are documented as single-page.
+  async function listSinglePage(path) {
+    const payload = await request(path);
+    requireState(Array.isArray(payload.result), 'Unexpected Cloudflare single-page response');
+    return payload.result;
+  }
+  // Only Durable Object namespaces support page/per_page and total_count.
+  async function listNamespaces() {
     const values = [];
     for (let page = 1; page <= 20; page += 1) {
-      const separator = path.includes('?') ? '&' : '?';
-      const payload = await request(path + separator + 'page=' + page + '&per_page=100');
-      requireState(Array.isArray(payload.result), 'Unexpected Cloudflare list response');
+      const payload = await request('/durable_objects/namespaces?page=' + page + '&per_page=100');
+      requireState(Array.isArray(payload.result), 'Unexpected Cloudflare namespace list');
+      const count = payload.result_info?.total_count;
+      requireState(Number.isSafeInteger(count) && count >= 0, 'Unexpected Cloudflare namespace total_count');
       values.push(...payload.result);
-      const info = payload.result_info;
-      if (info?.total_count !== undefined) {
-        requireState(Number.isSafeInteger(info.total_count) && info.total_count >= 0,
-          'Unexpected Cloudflare total_count');
-        if (values.length >= info.total_count) return values;
-        requireState(payload.result.length > 0, 'Cloudflare list ended before total_count');
-      } else if (info?.total_pages !== undefined) {
-        requireState(Number.isSafeInteger(info.total_pages) && info.total_pages > 0,
-          'Unexpected Cloudflare total_pages');
-        if (page >= info.total_pages) return values;
-      } else {
-        // Some Workers endpoints provide no result_info at all. Never guess
-        // that a full page is complete or endlessly repeat the same page.
-        requireState(payload.result.length < 100,
-          'Cloudflare list has a full page without pagination metadata');
-        return values;
-      }
+      if (values.length >= count) return values;
+      requireState(payload.result.length > 0, 'Cloudflare namespace list ended early');
     }
-    throw new Error('Cloudflare list exceeded 20 pages');
+    throw new Error('Cloudflare namespace list exceeded 20 pages');
   }
   const [scripts, namespaces, sourceSettings, secrets, subdomain, schedules, deployments, consumerPairs] = await Promise.all([
-    list('/scripts'),
-    list('/durable_objects/namespaces'),
+    listSinglePage('/scripts'),
+    listNamespaces(),
     request('/scripts/' + SOURCE + '/settings').then((value) => value.result),
-    list('/scripts/' + SOURCE + '/secrets'),
+    listSinglePage('/scripts/' + SOURCE + '/secrets'),
     request('/scripts/' + SOURCE + '/subdomain').then((value) => value.result),
     request('/scripts/' + SOURCE + '/schedules').then((value) => value.result),
     request('/scripts/' + SOURCE + '/deployments').then((value) => value.result),

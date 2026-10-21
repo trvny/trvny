@@ -123,24 +123,98 @@ test('reads real Cloudflare pagination shapes without phantom pages', async () =
   assert.equal(validateSnapshot(live).status, 'PASS');
   assert.equal(paths.filter((path) => path.includes('/durable_objects/namespaces')).length, 1);
   assert.equal(paths.filter((path) => path.includes('/secrets')).length, 1);
-  assert.equal(paths.filter((path) => path.endsWith('/scripts?page=1&per_page=100')).length, 1);
+  assert.equal(paths.filter((path) => path.endsWith('/scripts')).length, 1);
   assert.equal(paths.length, 11);
 });
 
-test('fails closed for full Cloudflare pages without pagination metadata', async () => {
-  let requests = 0;
-  const fetchImpl = async (url) => {
-    requests += 1;
+
+test('treats Workers scripts and secrets as single-page even with 100 entries', async () => {
+  const snapshot = fixture();
+  snapshot.scripts.push(...Array.from({ length: 98 }, (_, i) => ({ id: 'other-' + i })));
+  snapshot.secrets.push(...Array.from({ length: 95 }, (_, i) => ({ name: 'EXTRA_' + i })));
+  let scriptsReads = 0;
+  let secretReads = 0;
+  const fetchImpl = async (url, options) => {
+    assert.equal(options.method, 'GET');
     const parsed = new URL(url);
+    let result;
+    let result_info;
     if (parsed.pathname.endsWith('/workers/scripts')) {
-      return { ok: true, json: async () => ({ success: true,
-        result: Array.from({ length: 100 }, (_, index) => ({ id: 'worker-' + index })) }) };
+      scriptsReads += 1;
+      assert.equal(parsed.search, '');
+      result = snapshot.scripts;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/secrets')) {
+      secretReads += 1;
+      assert.equal(parsed.search, '');
+      result = snapshot.secrets;
+    } else if (parsed.pathname.endsWith('/workers/durable_objects/namespaces')) {
+      result = snapshot.namespaces;
+      result_info = { page: 1, per_page: 100, total_count: result.length };
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/settings')) {
+      result = snapshot.sourceSettings;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/subdomain')) {
+      result = snapshot.subdomain;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/schedules')) {
+      result = snapshot.schedules;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/deployments')) {
+      result = snapshot.deployments;
+    } else {
+      const key = Object.keys(snapshot.consumerSettings).find((name) =>
+        parsed.pathname.endsWith('/workers/scripts/' + name + '/settings'));
+      assert.ok(key);
+      result = snapshot.consumerSettings[key];
     }
-    return { ok: true, json: async () => ({ success: true, result: [] }) };
+    return { ok: true, json: async () => ({
+      success: true, result, ...(result_info ? { result_info } : {}),
+    }) };
   };
-  await assert.rejects(
-    readSnapshot({ token: 'test-token', accountId: 'test-account', fetchImpl }),
-    /full page without pagination metadata/,
-  );
-  assert.ok(requests < 20, 'A single full page must not trigger repeated pagination');
+  const observed = await readSnapshot({ token: 'test-token', accountId: 'test-account', fetchImpl });
+  assert.equal(observed.scripts.length, 100);
+  assert.equal(observed.secrets.length, 100);
+  assert.equal(validateSnapshot(observed).status, 'PASS');
+  assert.equal(scriptsReads, 1);
+  assert.equal(secretReads, 1);
+});
+
+test('paginates Durable Object namespaces using total_count', async () => {
+  const snapshot = fixture();
+  const other = Array.from({ length: 96 }, (_, i) => ({ id: 'other-' + i, script: 'other', class: 'Other' }));
+  const fullList = [...snapshot.namespaces, ...other];
+  const pages = [];
+  const fetchImpl = async (url, options) => {
+    assert.equal(options.method, 'GET');
+    const parsed = new URL(url);
+    let result;
+    let result_info;
+    if (parsed.pathname.endsWith('/workers/durable_objects/namespaces')) {
+      const page = Number(parsed.searchParams.get('page'));
+      pages.push(page);
+      result = fullList.slice((page - 1) * 100, page * 100);
+      result_info = { page, per_page: 100, total_count: fullList.length };
+    } else if (parsed.pathname.endsWith('/workers/scripts')) {
+      result = snapshot.scripts;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/secrets')) {
+      result = snapshot.secrets;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/settings')) {
+      result = snapshot.sourceSettings;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/subdomain')) {
+      result = snapshot.subdomain;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/schedules')) {
+      result = snapshot.schedules;
+    } else if (parsed.pathname.endsWith('/workers/scripts/kanarek-companion/deployments')) {
+      result = snapshot.deployments;
+    } else {
+      const key = Object.keys(snapshot.consumerSettings).find((name) =>
+        parsed.pathname.endsWith('/workers/scripts/' + name + '/settings'));
+      assert.ok(key);
+      result = snapshot.consumerSettings[key];
+    }
+    return { ok: true, json: async () => ({
+      success: true, result, ...(result_info ? { result_info } : {}),
+    }) };
+  };
+  const observed = await readSnapshot({ token: 'test-token', accountId: 'test-account', fetchImpl });
+  assert.deepEqual(pages, [1, 2]);
+  assert.equal(observed.namespaces.length, 101);
+  assert.equal(validateSnapshot(observed).status, 'PASS');
 });

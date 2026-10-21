@@ -1,7 +1,8 @@
 # Shared automation Worker
 
-`kanarek-companion` is the deployment/package slug for the shared Cloudflare
-Worker runtime. It hosts several related subsystems so they can reuse GitHub
+**Automation** is the logical name of the shared Cloudflare Worker runtime.
+`kanarek-companion` remains its deployment/package slug until the separately
+validated infrastructure cutover. It hosts several related subsystems so they can reuse GitHub
 authentication, policy, Durable Objects, bounded network plumbing, and one
 deployment without pretending every feature belongs to Kanarek.
 
@@ -19,8 +20,8 @@ Use these names in code, docs, PRs, and logs:
 | **Shared runtime core** | Common auth, transport, OpenAPI, safety helpers, health/capability metadata, and Durable Object plumbing | [`docs/architecture.md`](docs/architecture.md) |
 
 The physical Worker keeps the `kanarek-companion` slug for compatibility. When
-describing the deployment as a whole, call it the **shared automation Worker** or
-**shared Worker runtime**. Reserve Kanarek for the companion/review behavior,
+describing the deployment as a whole, call it **Automation** or the
+**shared automation Worker**. Reserve Kanarek for the companion/review behavior,
 GPTomek for bot identity/transport, and Gremlin for guarded operator behavior.
 
 ## PR flow

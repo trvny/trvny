@@ -1,7 +1,11 @@
 # AGENTS.md
 
-One **shared Cloudflare Worker runtime**. `kanarek-companion` is its
-deployment/package slug, not every subsystem's name.
+**Automation** is the logical name of this one shared Cloudflare Worker
+runtime. `kanarek-companion` remains its deployment/package slug until the
+separate controlled infrastructure cutover, not every subsystem's name.
+Keep the existing directory/package name and Wrangler script ID unchanged
+through this documentation-only naming stage; follow `docs/architecture.md`
+for any later Cloudflare transfer. Do not create parallel runtime folders.
 
 - **Kanarek Companion** owns webhook-driven PR status, quips/reactions, review
   queueing/context and publication. Shared free-provider routing runs in private

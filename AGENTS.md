@@ -13,8 +13,3 @@
 - `pages/` - TRAVNY hub (travny.pages.dev). Pages project `travny`, root `pages`, output `site/`, Functions in `functions/`; `travny-pages-control.yml` asserts its Git source. `trfny.com` and `www.trfny.com` 301 via `functions/_middleware.js`; `tvpi.pages.dev` is a redirect-only project in trvny/tvpi. Pages repo is fixed at creation: changing it means recreating the project. TV data stays in the tvpi Worker.
 - `stuff/` - small configs, feeds, playlists and miscellaneous assets.
 - `yt-migrate/` - YouTube account migration (subscriptions, own playlists, likes, YT Music library, Watch later; SRC -> DST). Daily `.github/workflows/yt-migrate.yml`, quota-budgeted and idempotent; OAuth via repo secrets `YT_*`, never log channel/video data (public logs). Takeout-only lists ride in `takeout.json.gz.enc` (AES, key in secret `YT_EXTRA_KEY`).
-
-## ChatGPT attribution
-
-- Prefer GPTomek for AI commits. If ChatGPT commits through the user connector as `trvny`, add `Co-authored-by: chatgpt-codex-connector[bot] <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>` as a commit-message trailer; preserve existing trailers. Never credit AI for human-authored commits.
-- Open ChatGPT-assisted PRs as `trvny` for external reviews and briefly credit ChatGPT in the PR description. PR text alone does not create Git co-authors.

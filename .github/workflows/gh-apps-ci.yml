@@ -5,25 +5,23 @@ on: # yamllint disable-line rule:truthy
     branches: [main]
     paths:
       - "gh-apps/claudiusz/**"
-      - "!gh-apps/claudiusz/**/*.md"
-      - "gh-apps/core/**"
       - "gh-apps/gremlin/**"
-      - "gh-apps/kanarek-companion/src/**"
-      - "gh-apps/kanarek-companion/package.json"
-      - "gh-apps/kanarek-companion/wrangler.jsonc"
       - "gh-apps/shitpost-reactor/**"
+      - "gh-apps/kanarek-companion/**"
+      - "gh-apps/kanarek-review/**"
+      - "gh-apps/core/**"
+      - "gh-apps/gptomek/**"
       - ".github/workflows/gh-apps-ci.yml"
   pull_request:
     branches: [main]
     paths:
       - "gh-apps/claudiusz/**"
-      - "!gh-apps/claudiusz/**/*.md"
-      - "gh-apps/core/**"
       - "gh-apps/gremlin/**"
-      - "gh-apps/kanarek-companion/src/**"
-      - "gh-apps/kanarek-companion/package.json"
-      - "gh-apps/kanarek-companion/wrangler.jsonc"
       - "gh-apps/shitpost-reactor/**"
+      - "gh-apps/kanarek-companion/**"
+      - "gh-apps/kanarek-review/**"
+      - "gh-apps/core/**"
+      - "gh-apps/gptomek/**"
       - ".github/workflows/gh-apps-ci.yml"
   workflow_dispatch:
 
@@ -36,6 +34,9 @@ permissions:
 
 jobs:
   check:
+    outputs:
+      companion: ${{ steps.scope.outputs.companion }}
+      review: ${{ steps.scope.outputs.review }}
     runs-on: ubuntu-slim
     timeout-minutes: 30
     steps:
@@ -52,6 +53,8 @@ jobs:
             gh-apps/claudiusz/package-lock.json
             gh-apps/gremlin/package-lock.json
             gh-apps/shitpost-reactor/package-lock.json
+            gh-apps/kanarek-companion/package-lock.json
+            gh-apps/kanarek-review/package-lock.json
 
       - name: Select affected apps
         id: scope
@@ -68,12 +71,15 @@ jobs:
           claudiusz=false
           gremlin=false
           shitpost=false
+          companion=false
+          review=false
 
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             claudiusz=true
             gremlin=true
             shitpost=true
-            files=""
+            companion=true
+            review=true
           else
             if [[ "$EVENT_NAME" == "pull_request" ]]; then
               base="$PR_BASE_SHA"
@@ -87,36 +93,44 @@ jobs:
               claudiusz=true
               gremlin=true
               shitpost=true
-              files=""
+              companion=true
+              review=true
             else
               files="$(git diff --name-only "$base" "$head")"
-            fi
 
-            if grep -qx '.github/workflows/gh-apps-ci.yml' <<<"$files"; then
-              claudiusz=true
-              gremlin=true
-              shitpost=true
-            fi
-
-            if grep -Eq '^gh-apps/core/.*\.ts$' <<<"$files"; then
-              claudiusz=true
-            fi
-            if grep '^gh-apps/claudiusz/' <<<"$files" | grep -Ev '\.md$' >/dev/null; then
-              claudiusz=true
-            fi
-
-            if grep -Eq '^gh-apps/gremlin/|^gh-apps/core/.*\.ts$|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
-              gremlin=true
-            fi
-            if grep -Eq '^gh-apps/shitpost-reactor/' <<<"$files"; then
-              shitpost=true
+              if grep -qx '.github/workflows/gh-apps-ci.yml' <<<"$files"; then
+                claudiusz=true
+                gremlin=true
+                shitpost=true
+                companion=true
+                review=true
+              fi
+              if grep '^gh-apps/claudiusz/' <<<"$files" | grep -Ev '\.md$' >/dev/null ||
+                  grep -Eq '^gh-apps/core/.*\.ts$' <<<"$files"; then
+                claudiusz=true
+              fi
+              if grep -Eq '^gh-apps/gremlin/|^gh-apps/core/.*\.ts$|^gh-apps/kanarek-companion/src/|^gh-apps/kanarek-companion/package\.json$|^gh-apps/kanarek-companion/wrangler\.jsonc$' <<<"$files"; then
+                gremlin=true
+              fi
+              if grep '^gh-apps/shitpost-reactor/' <<<"$files" |
+                  grep -Ev '\.md$' >/dev/null; then
+                shitpost=true
+              fi
+              # GPTomek lives in the companion runtime.
+              if grep -E '^gh-apps/(kanarek-companion|gptomek)/|^gh-apps/core/' <<<"$files" |
+                  grep -Ev '\.md$' >/dev/null; then
+                companion=true
+              fi
+              if grep -E '^gh-apps/kanarek-review/|^gh-apps/core/' <<<"$files" |
+                  grep -Ev '\.md$' >/dev/null; then
+                review=true
+              fi
             fi
           fi
 
           {
-            echo "claudiusz=$claudiusz"
-            echo "gremlin=$gremlin"
-            echo "shitpost=$shitpost"
+            echo "companion=$companion"
+            echo "review=$review"
           } >> "$GITHUB_OUTPUT"
           {
             echo "### GitHub Apps CI scope"
@@ -124,6 +138,8 @@ jobs:
             echo "- Claudiusz: $claudiusz"
             echo "- Gremlin: $gremlin"
             echo "- Shitpost Reactor: $shitpost"
+            echo "- Kanarek Companion: $companion"
+            echo "- Kanarek Review: $review"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check Claudiusz
@@ -146,3 +162,79 @@ jobs:
         run: |
           npm ci
           npm run check
+
+      - name: Check Kanarek Companion
+        if: steps.scope.outputs.companion == 'true'
+        working-directory: gh-apps/kanarek-companion
+        run: |
+          npm ci
+          npm run check
+
+      - name: Check Kanarek Review
+        if: steps.scope.outputs.review == 'true'
+        working-directory: gh-apps/kanarek-review
+        run: |
+          npm ci
+          npm run check
+
+  # Live-only checks and provider secrets stay outside PR test steps.
+  smoke-live:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check.outputs.companion == 'true' }}
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-companion
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-companion/package-lock.json
+
+      - run: npm ci
+      - name: Wait for Cloudflare production and smoke the live gateway
+        run: npm run smoke:live
+        env:
+          KANAREK_LIVE_ORIGIN: https://kanarek-companion.travny.workers.dev
+          KANAREK_SMOKE_ATTEMPTS: "36"
+          KANAREK_SMOKE_INTERVAL_MS: "15000"
+
+  sync-provider-secrets:
+    if: ${{ github.event_name == 'push' && needs.check.outputs.review == 'true' }}
+    needs: check
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+    defaults:
+      run:
+        working-directory: gh-apps/kanarek-review
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: gh-apps/kanarek-review/package-lock.json
+
+      - run: npm ci
+
+      - name: Sync provider credentials
+        shell: bash
+        run: |
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
+            kanarek-review GEMINI_API_KEY GEMINI_API_KEY optional
+          bash "$GITHUB_WORKSPACE/.github/scripts/sync-cloudflare-worker-secret.sh" \
+            kanarek-review QWEN_API_KEY QWEN_API_KEY optional

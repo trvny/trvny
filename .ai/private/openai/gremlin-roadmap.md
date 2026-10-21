@@ -63,7 +63,7 @@ Build outward in this order, keeping external capabilities high-level and guarde
 
 - [x] **On-demand specialist knowledge.** Manifest-backed `getGremlinKnowledge` loads private domain references only when needed; initial mastery packs cover Brainrot and Rickroll-Lang.
 - [x] **Cloudflare operator.** Guarded Workers/Pages/zone inventory and inspection, deployment history, routes, DNS and observability; preconditioned Worker/Pages rollback plus existing-route/DNS/subdomain updates. No raw destructive Cloudflare proxy.
-- [x] **Engram memory bridge.** OAuth-gated personal memory status/search/store backed by the server-side Engram credential. The Worker verifies `trvny` before touching the credential, keeps search scope personal and exposes no generic upstream proxy.
+- [x] **Legacy Engram memory bridge (not in Gremlin plugin MCP).** Old Custom GPT/shared runtime retains a gated adapter, but the migrated plugin excludes it because it targets a different Engram provider. Use the independent Engram app; do not duplicate account credentials.
 - [x] **Package intelligence.** Research npm, PyPI, crates.io, Maven Central, NuGet and other relevant ecosystems for current versions, maintenance health, releases, licenses, advisories, changelogs and alternatives. Start read-only and triangulate registry metadata with upstream repositories.
 - [ ] **Feed doctor.** Discover and validate RSS/Atom feeds, redirects, caching headers and icons, then produce Feedseek-ready source data.
 - [ ] **Web diagnostics.** Inspect HTTP/TLS, redirects, robots, sitemaps, cache behavior and broken links without turning Gremlin into a generic browser automation swamp.
@@ -79,7 +79,7 @@ Build outward in this order, keeping external capabilities high-level and guarde
 - [x] Define the shared Worker runtime boundaries: Kanarek Companion, GPTomek Bridge, Gremlin, Specialist Intelligence and shared runtime core. Keep `kanarek-companion` as the deployment slug, not the umbrella architecture name.
 - [x] Introduce a central specialist tool registry as the maintained source of tool names, schemas and invocation. Keep provider logic in `src/tools/` and transport adapters thin.
 - [x] Expose the specialist registry through both Custom GPT Actions and a private stateless `/mcp` adapter, with MCP 2026-07-28 plus bounded 2025-11-25 compatibility.
-- [ ] **Custom GPT -> plugin migration.** Keep Builder/profile/policy/knowledge repo-owned, migrate instructions through OpenAI's supported flow, replace Custom Actions with the existing MCP surface or required app wrapper, regression-test behavior and permissions, and switch only after parity is verified. See `gremlin-plugin-migration.md`.
+- [x] **Custom GPT -> plugin transport and skill migration.** The existing Gremlin App-backed plugin owns the migrated skill and MCP. Legacy GPT fallback, behavior/auth parity checks and consumer-aware adapter cleanup remain pending; see `gh-apps/gremlin/MIGRATION.md`.
 - [ ] Generate an optional compact Builder/Knowledge pack from private `.ai` sources.
 - [ ] Add further code-investigation ergonomics only when they demonstrably remove round trips.
 

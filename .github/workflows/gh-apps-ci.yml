@@ -144,6 +144,9 @@ jobs:
           fi
 
           {
+            echo "claudiusz=$claudiusz"
+            echo "gremlin=$gremlin"
+            echo "shitpost=$shitpost"
             echo "companion=$companion"
             echo "review=$review"
             echo "companion_deploy=$companion_deploy"

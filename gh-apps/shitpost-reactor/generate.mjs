@@ -14,7 +14,7 @@ import { chooseMemeTemplate, memeImageUrl, resolveShitpostMode } from './templat
 import { generateWithBaconFallback } from './bacon-fallback.mjs';
 import { chooseLLMTopic, loadNewsForLane, resolveTopicLane } from './topics.mjs';
 
-export const DEFAULT_ENDPOINT = 'https://automation.trfny.com/review-router/v1/chat/completions';
+export const DEFAULT_ENDPOINT = 'https://kanarek-companion.travny.workers.dev/review-router/v1/chat/completions';
 
 export function validateRouterEndpoint(endpoint) {
   try {

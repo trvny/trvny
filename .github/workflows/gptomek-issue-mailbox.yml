@@ -62,7 +62,7 @@ jobs:
             --connect-timeout 5 --max-time 20 \
             -X POST \
             -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
-            https://automation.trfny.com/gptomek/wake \
+            https://kanarek-companion.travny.workers.dev/gptomek/wake \
             >/dev/null
 
       - name: Drain through legacy PR mailbox

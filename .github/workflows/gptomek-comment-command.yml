@@ -40,7 +40,7 @@ jobs:
               -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
               -H "Content-Type: application/json" \
               --data "$(jq -nc --argjson commentId "$COMMENT_ID" '{commentId:$commentId}')" \
-              https://kanarek-companion.travny.workers.dev/gptomek/wake
+              https://automation.trfny.com/gptomek/wake
           )"
           printf '%s\n' "$response"
           state="$(jq -r '.state // empty' <<<"$response")"
@@ -77,7 +77,7 @@ jobs:
               -H "Authorization: Bearer ${GPTOMEK_WAKE_TOKEN}" \
               -H "Content-Type: application/json" \
               --data "$(jq -nc --argjson commentId "$COMMENT_ID" '{commentId:$commentId,cleanup:true}')" \
-              https://kanarek-companion.travny.workers.dev/gptomek/wake
+              https://automation.trfny.com/gptomek/wake
           )"; then
             echo "::warning::Command succeeded; cleanup request failed. Safe to retry cleanup."
             exit 0

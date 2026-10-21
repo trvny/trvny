@@ -76,11 +76,13 @@ jobs:
           set -euo pipefail
           if [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" =~ ^0+$ ]]; then
             echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$BEFORE_SHA" "$HEAD_SHA" |
-              grep -Eq '^pages/(site/|functions/|build\.sh$)'; then
-            echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
           else
-            echo "pages_deploy_expected=false" >> "$GITHUB_OUTPUT"
+            changed="$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA")"
+            if grep -Eq '^pages/(site/|functions/|build\.sh$)' <<<"$changed"; then
+              echo "pages_deploy_expected=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "pages_deploy_expected=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
   # Production-only control. No Cloudflare credentials in PR test steps.

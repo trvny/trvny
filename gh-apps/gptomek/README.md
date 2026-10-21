@@ -94,6 +94,28 @@ The PR itself remains authored by `trvny` to trigger external reviews.
 The attribution applies to newly created GPTomek commits, not old commits
 or PR description text. Preserve the rebase merge flow above.
 
+### PR descriptions and missed GPTomek writes
+
+- A PR opened via ChatGPT Codex Connector as `trvny` carries GitHub's
+  `performed_via_github_app` provenance. The reusable
+  [ChatGPT attribution guard](../../.github/workflows/chatgpt-attribution.yml)
+  adds a visible ChatGPT acknowledgment once to the PR description.
+- For ChatGPT-assisted PRs opened outside the connector, put
+  `<!-- chatgpt-assisted-pr -->` in the PR body and add a visible AI credit.
+  This opts the PR into the same validation without pretending every human PR
+  is AI-authored.
+- If ChatGPT ever writes a commit directly under `trvny`, include the exact
+  connector `Co-authored-by` trailer from the central GPTomek commit code in
+  the **commit message**. The guard checks uncredited `trvny` and
+  `gptomek[bot]` commits only for assisted PRs. It reports missing trailers;
+  it does not rewrite history or change commit authors.
+- For an uncredited commit, amend the commit with the trailer or use
+  GPTomek `adopt_branch` after verifying the live branch head and final tree.
+  Re-run CI/review and use rebase merge only after the corrected head is green.
+- A PR body credit is display-only: GitHub's commit co-author listing requires
+  real commit trailers. A PR that is neither connector-originated nor marked
+  receives a non-blocking advisory rather than an invented AI attribution.
+
 ## Which mailbox to use
 
 | Situation | Transport | What happens |

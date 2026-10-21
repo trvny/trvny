@@ -14,16 +14,7 @@
 - `stuff/` - small configs, feeds, playlists and miscellaneous assets.
 - `yt-migrate/` - YouTube account migration (subscriptions, own playlists, likes, YT Music library, Watch later; SRC -> DST). Daily `.github/workflows/yt-migrate.yml`, quota-budgeted and idempotent; OAuth via repo secrets `YT_*`, never log channel/video data (public logs). Takeout-only lists ride in `takeout.json.gz.enc` (AES, key in secret `YT_EXTRA_KEY`).
 
-## ChatGPT GitHub attribution
+## ChatGPT attribution
 
-- Use the GPTomek Issue #203 transport for ChatGPT-made commits. Keep pull
-  requests authored by `trvny` so external review automation runs.
-- If the GitHub user connection creates a commit as `trvny` instead, append
-  `Co-authored-by: chatgpt-codex-connector[bot] <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>`
-  to the **commit message** (not just the PR description). Preserve other trailers.
-- ChatGPT-created PRs opened outside the Codex Connector must include
-  `<!-- chatgpt-assisted-pr -->` in the description to opt into the attribution
-  guard. Explain AI participation visibly; do not mark unrelated human work.
-- The reusable `.github/workflows/chatgpt-attribution.yml` checks such PRs.
-  Missing trailers require a corrected commit or GPTomek `adopt_branch`;
-  never auto-force-push someone else's branch.
+- Prefer GPTomek for AI commits. If ChatGPT commits through the user connector as `trvny`, add `Co-authored-by: chatgpt-codex-connector[bot] <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>` as a commit-message trailer; preserve existing trailers. Never credit AI for human-authored commits.
+- Open ChatGPT-assisted PRs as `trvny` for external reviews and briefly credit ChatGPT in the PR description. PR text alone does not create Git co-authors.

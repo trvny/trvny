@@ -4,7 +4,7 @@ import {
   type CompanionEnv,
   type CompanionResult,
   type CompanionTarget,
-} from './companion.ts';
+} from './companion/companion.ts';
 import {
   checkInstallationAccess,
   GitHubApiError,
@@ -14,15 +14,15 @@ import { bearerAuthorized } from '../../core/auth.ts';
 import {
   dispatchRepositorySettingsBootstrap,
   repositoryCreated,
-} from './repository-bootstrap.ts';
+} from './companion/repository-bootstrap.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
   handleGptomekCommentControl,
   handleGptomekIssueControl,
   isGptomekControlIssueEvent,
-} from './gptomek-issue.ts';
-import { GPTOMEK_CONTROL_REPOSITORY, isGptomekFallbackPullRequest } from './gptomek-control.ts';
-import { hasAiProvider } from './quip.ts';
+} from './gptomek/gptomek-issue.ts';
+import { GPTOMEK_CONTROL_REPOSITORY, isGptomekFallbackPullRequest } from './gptomek/gptomek-control.ts';
+import { hasAiProvider } from './companion/quip.ts';
 import { json } from './json-response.ts';
 import { HEALTH_PATH, WEBHOOK_PATH } from './paths.ts';
 

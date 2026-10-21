@@ -5,8 +5,8 @@ import {
   buildCodeSearchQuery,
   buildCodeSnippets,
   investigationRefAllowed,
-} from '../src/investigation-actions.ts';
-import { customGptOpenApi } from '../src/gremlin-router.ts';
+} from '../src/investigation/investigation-actions.ts';
+import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
 
 test('code investigation is exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

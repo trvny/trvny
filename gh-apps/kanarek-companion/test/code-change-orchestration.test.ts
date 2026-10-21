@@ -13,7 +13,7 @@ import {
   refactorPreflightBlockers,
   refactorVerificationBlockers,
   reviewGateBlockers,
-} from '../src/code-change-orchestration.ts';
+} from '../src/operator/code-change-orchestration.ts';
 
 test('code-change autopilot exposes implementCodeChange with stage action contracts', () => {
   const document: Record<string, any> = { paths: {} };

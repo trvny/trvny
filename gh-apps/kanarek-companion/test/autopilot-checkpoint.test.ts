@@ -6,7 +6,7 @@ import {
   checkpointClaimDecision,
   operationIdAllowed,
   type StoredAutopilotCheckpoint,
-} from '../src/autopilot-checkpoint.ts';
+} from '../src/operator/autopilot-checkpoint.ts';
 
 function checkpoint(
   overrides: Partial<StoredAutopilotCheckpoint> = {},
@@ -105,7 +105,7 @@ test('checkpoint peek is read-only and reports completed work', async () => {
     setAlarm: async () => undefined,
     deleteAlarm: async () => undefined,
   };
-  const { OperatorCheckpointStore } = await import('../src/autopilot-checkpoint.ts');
+  const { OperatorCheckpointStore } = await import('../src/operator/autopilot-checkpoint.ts');
   const store = new OperatorCheckpointStore({ storage } as unknown as DurableObjectState);
   const call = (pathname: string, body: Record<string, unknown>) => store.fetch(new Request(
     `https://checkpoint.internal${pathname}`,
@@ -151,7 +151,7 @@ test('checkpoint release removes a completed resource lock', async () => {
     setAlarm: async () => undefined,
     deleteAlarm: async () => undefined,
   };
-  const { OperatorCheckpointStore } = await import('../src/autopilot-checkpoint.ts');
+  const { OperatorCheckpointStore } = await import('../src/operator/autopilot-checkpoint.ts');
   const store = new OperatorCheckpointStore({ storage } as unknown as DurableObjectState);
   const call = (pathname: string, body: Record<string, unknown>) => store.fetch(new Request(
     `https://checkpoint.internal${pathname}`,

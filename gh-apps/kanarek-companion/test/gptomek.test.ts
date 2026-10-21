@@ -6,13 +6,13 @@ import {
   deleteBranch,
   handleGptomekControl,
   isGptomekControlPr,
-} from '../src/gptomek.ts';
+} from '../src/gptomek/gptomek.ts';
 import { isProtectedBranch } from '../src/tools/common.ts';
 import {
   GitHubApiError,
   type GitHubInstallationClient,
 } from '../../core/github-app.ts';
-import type { CompanionEnv, CompanionTarget, PullRequest } from '../src/companion-types.ts';
+import type { CompanionEnv, CompanionTarget, PullRequest } from '../src/companion/companion-types.ts';
 
 const target: CompanionTarget = {
   delivery: 'delivery-1',

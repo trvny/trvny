@@ -5,7 +5,7 @@ import {
   commitTree,
   gptomekMailboxFailureIsTerminal,
   moveFiles,
-} from '../src/gptomek.ts';
+} from '../src/gptomek/gptomek.ts';
 import {
   GitHubApiError,
   type GitHubInstallationClient,

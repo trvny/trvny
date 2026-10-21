@@ -5,7 +5,7 @@ import {
   handleSpecialistMcp as handleSpecialistMcpGw,
   handleGremlinMcp as handleGremlinMcpGw,
   MCP_PROTOCOL_VERSION,
-} from '../src/mcp-adapter.ts';
+} from '../src/specialists/mcp-adapter.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 type Invoke = (request: Request) => Promise<Response>;

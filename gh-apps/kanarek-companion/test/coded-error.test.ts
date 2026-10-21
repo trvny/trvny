@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { CodedError, DetailedCodedError } from '../src/tools/common.ts';
-import { ZipEntryError } from '../src/zip-entry.ts';
+import { ZipEntryError } from '../src/operator/zip-entry.ts';
 
 class AlphaError extends CodedError {}
 class BetaError extends DetailedCodedError {}

@@ -11,8 +11,8 @@ import {
   reusableQuip,
   reusableStoredQuip,
   russianPresetPool,
-} from '../src/companion-language.ts';
-import { PRESETS } from '../src/quip.ts';
+} from '../src/companion/companion-language.ts';
+import { PRESETS } from '../src/companion/quip.ts';
 
 test('detects Polish and English PR context', () => {
   assert.equal(contextLanguage('Napraw Kanarka, bo znowu nie działa'), 'pl');

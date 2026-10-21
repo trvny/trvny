@@ -1,4 +1,4 @@
-import { GithubActionError, type GithubGateway } from '../../src/github-gateway.ts';
+import { GithubActionError, type GithubGateway } from '../../src/gptomek/github-gateway.ts';
 import { internalRequest, isObject } from '../../src/tools/common.ts';
 
 // Test-only GithubGateway backed by a fake of the /gpt-actions/github/read|graphql

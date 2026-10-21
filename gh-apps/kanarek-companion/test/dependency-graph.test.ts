@@ -7,7 +7,7 @@ import {
   handleDependencyGraphAction,
   importReferencesTarget,
   searchSeed,
-} from '../src/dependency-graph.ts';
+} from '../src/investigation/dependency-graph.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('extractImports finds common module, dotted and Rust imports', () => {

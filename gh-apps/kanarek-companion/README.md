@@ -32,8 +32,8 @@ A normal pull-request delivery is split into two independent paths:
 2. Companion activity is coalesced per PR by `CommentProbeLock` so bursts of
    review/CI/status events produce one refreshed status comment instead of
    duplicate work. GPTomek control traffic stays immediate.
-3. `src/companion.ts` reads the PR, branch, checks, reviews, files, and existing
-   Kanarek comment. `src/companion-view.ts` reduces that evidence to the rendered
+3. `src/companion/companion.ts` reads the PR, branch, checks, reviews, files, and existing
+   Kanarek comment. `src/companion/companion-view.ts` reduces that evidence to the rendered
    semantic state.
 4. Review-eligible `pull_request` deliveries are queued separately in
    `WebhookReviewJob`. Each new head resets the short debounce window so stale
@@ -150,28 +150,28 @@ casually clean up its fallback PR/ref.
 
 - `src/index.ts`: webhook verification, event routing, delivery dedupe, and
   companion coalescing.
-- `src/companion.ts`: companion orchestration and quip lifecycle.
-- `src/companion-bank.ts`: active bank, archive, migration, retention, and AI
+- `src/companion/companion.ts`: companion orchestration and quip lifecycle.
+- `src/companion/companion-bank.ts`: active bank, archive, migration, retention, and AI
   fill calculations.
-- `src/companion-view.ts`: semantic PR state and the single rendered status
+- `src/companion/companion-view.ts`: semantic PR state and the single rendered status
   comment.
-- `src/webhook-review.ts`: review debounce/dedupe, stale-head validation, retry
+- `src/companion/webhook-review.ts`: review debounce/dedupe, stale-head validation, retry
   policy, provider sweep, and native review publication.
-- `src/webhook-review-context.ts`: shared review types plus bounded diff, file,
+- `src/companion/webhook-review-context.ts`: shared review types plus bounded diff, file,
   tree, caller and dependency context.
-- `src/webhook-review-judge.ts`: finding verification, review judge and L2
+- `src/companion/webhook-review-judge.ts`: finding verification, review judge and L2
   decision judge.
-- `src/quip.ts`: presets, direct quip providers, prompt/validation contract, and
+- `src/companion/quip.ts`: presets, direct quip providers, prompt/validation contract, and
   base AI rollout.
 
 ### GPTomek Bridge
 
 - `../core/github-app.ts`: GitHub App signing and installation auth (shared).
-- `src/gptomek.ts` and `src/gptomek-issue.ts`: control mailbox parsing,
+- `src/gptomek/gptomek.ts` and `src/gptomek/gptomek-issue.ts`: control mailbox parsing,
   checkpoints, and bot-authored operations.
-- `src/github-gateway.ts`: GitHub read/bot/GraphQL policy and transport; in-process
+- `src/gptomek/github-gateway.ts`: GitHub read/bot/GraphQL policy and transport; in-process
   `githubGateway` for guarded actions (no synthetic `/gpt-actions` requests).
-- `src/gpt-actions.ts`: GPT Actions HTTP routes over the gateway, plus
+- `src/gptomek/gpt-actions.ts`: GPT Actions HTTP routes over the gateway, plus
   commit-files and pull-request helpers.
 
 ### Shared runtime and specialists
@@ -182,10 +182,10 @@ casually clean up its fallback PR/ref.
   `src/runtime-entry.ts`: deployed entrypoint and RPC classes.
 - `src/runtime-openapi.ts`: curated live OpenAPI assembly.
 - `src/action-context.ts`: request-local GitHub transport/caching.
-- `src/docs-actions.ts`, `src/context7-actions.ts`, `src/engram-actions.ts`,
-  `src/feedseek-actions.ts`, `src/package-intelligence.ts`: bounded specialist
+- `src/specialists/docs-actions.ts`, `src/specialists/context7-actions.ts`, `src/specialists/engram-actions.ts`,
+  `src/specialists/feedseek-actions.ts`, `src/specialists/package-intelligence.ts`: bounded specialist
   adapters.
-- `src/botek-specialists.ts`: narrow RPC surface for same-account Botek.
+- `src/specialists/botek-specialists.ts`: narrow RPC surface for same-account Botek.
 - `test/`: regression coverage across subsystem boundaries.
 
 Gremlin source remains physically imported from this package, but its maintained

@@ -7,7 +7,7 @@ import {
   botekEngramStore,
   botekFeedseekRecent,
   botekGithubPullStatus,
-} from '../src/botek-specialists.ts';
+} from '../src/specialists/botek-specialists.ts';
 import { GitHubInstallationClient } from '../../core/github-app.ts';
 
 test('Botek Engram status reuses the canonical specialist backend', async () => {

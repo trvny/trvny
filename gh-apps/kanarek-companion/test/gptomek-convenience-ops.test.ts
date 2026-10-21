@@ -8,7 +8,7 @@ import {
   gptomekReplayCommentSearchPath,
   handleGptomekMailboxCommand,
   reviewFix,
-} from '../src/gptomek.ts';
+} from '../src/gptomek/gptomek.ts';
 import {
   GitHubApiError,
   type GitHubInstallationClient,

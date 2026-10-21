@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { GitHubInstallationClient } from '../../core/github-app.ts';
-import { callerEvidenceForFile, fetchCallerEvidence } from '../src/webhook-review-context.ts';
+import { callerEvidenceForFile, fetchCallerEvidence } from '../src/companion/webhook-review-context.ts';
 import {
   reviewChangeInventory,
   reviewChangeInventoryComplete,
   reviewPrompt,
-} from '../src/webhook-review.ts';
+} from '../src/companion/webhook-review.ts';
 
 function base64(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64');

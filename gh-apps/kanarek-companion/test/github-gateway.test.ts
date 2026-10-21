@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { GithubActionError, githubGateway } from '../src/github-gateway.ts';
-import { handleGptActions, type GptActionsEnv } from '../src/gpt-actions.ts';
+import { GithubActionError, githubGateway } from '../src/gptomek/github-gateway.ts';
+import { handleGptActions, type GptActionsEnv } from '../src/gptomek/gpt-actions.ts';
 
 // Parity: in-process gateway == POST /gpt-actions/github/* route (code, status, data).
 

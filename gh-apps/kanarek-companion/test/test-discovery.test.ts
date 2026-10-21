@@ -6,7 +6,7 @@ import {
   detectProjectKind,
   handleTargetedTestsAction,
   TARGETED_TESTS_PATH,
-} from '../src/test-discovery.ts';
+} from '../src/investigation/test-discovery.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('detectProjectKind prefers explicit nearest project markers', () => {

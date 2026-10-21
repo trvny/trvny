@@ -5,7 +5,7 @@ import {
   handleGremlinMcp as handleGremlinMcpGw,
   handleOperatorMcp as handleOperatorMcpGw,
   MCP_PROTOCOL_VERSION,
-} from '../src/mcp-adapter.ts';
+} from '../src/specialists/mcp-adapter.ts';
 import {
   PLUGIN_MCP_OPERATION_IDS,
   pluginMcpOpenApi,

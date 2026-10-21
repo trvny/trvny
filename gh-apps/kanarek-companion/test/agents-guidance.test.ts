@@ -5,7 +5,7 @@ import {
   agentInstructionPaths,
   loadAgentGuidance,
   targetPaths,
-} from '../src/agents-guidance.ts';
+} from '../src/specialists/agents-guidance.ts';
 import { gatewayOpenApi } from '../src/entry.ts';
 
 type JsonObject = Record<string, unknown>;

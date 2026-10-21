@@ -9,7 +9,7 @@ import {
   reviewInputState,
   selectReviewFiles,
   type WebhookReviewEnv,
-} from '../src/webhook-review-context.ts';
+} from '../src/companion/webhook-review-context.ts';
 import {
   applyDecisionJudge,
   decisionL2FallbackMarker,
@@ -18,7 +18,7 @@ import {
   reviewAnchorLine,
   reviewMaxOutputTokens,
   reviewDecisionQuestions,
-} from '../src/webhook-review-judge.ts';
+} from '../src/companion/webhook-review-judge.ts';
 import {
   isDependabotPullRequest,
   nextReviewPhase,
@@ -36,7 +36,7 @@ import {
   WebhookReviewJob,
   webhookReviewSettled,
   webhookReviewState,
-} from '../src/webhook-review.ts';
+} from '../src/companion/webhook-review.ts';
 
 const headA = 'a'.repeat(40);
 const headB = 'b'.repeat(40);

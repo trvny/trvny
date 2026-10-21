@@ -5,11 +5,11 @@ import {
   applyPatch,
   gptomekMailboxFailureIsTerminal,
   revertCommit,
-} from '../src/gptomek.ts';
+} from '../src/gptomek/gptomek.ts';
 import {
   applyUnifiedFilePatch,
   parseUnifiedPatch,
-} from '../src/gptomek-patch.ts';
+} from '../src/gptomek/gptomek-patch.ts';
 import {
   GitHubApiError,
   type GitHubInstallationClient,

@@ -5,7 +5,7 @@ import test from 'node:test';
 import {
   dispatchRepositorySettingsBootstrap,
   repositoryCreated,
-} from '../src/repository-bootstrap.ts';
+} from '../src/companion/repository-bootstrap.ts';
 
 const privateKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
   .privateKey

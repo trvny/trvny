@@ -5,7 +5,7 @@ import {
   addContext7OpenApi,
   handleContext7Action as handleContext7ActionGw,
   type Context7ActionEnv,
-} from '../src/context7-actions.ts';
+} from '../src/specialists/context7-actions.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 type Invoke = (request: Request) => Promise<Response>;

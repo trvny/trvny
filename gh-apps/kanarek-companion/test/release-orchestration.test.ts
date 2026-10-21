@@ -7,8 +7,8 @@ import {
   releaseAssetUploadPath,
   selectArtifact,
   selectDispatchedRun,
-} from '../src/release-orchestration.ts';
-import { customGptOpenApi } from '../src/gremlin-router.ts';
+} from '../src/operator/release-orchestration.ts';
+import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
 
 type JsonObject = Record<string, unknown>;
 

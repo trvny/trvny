@@ -1,5 +1,5 @@
 import { isObject } from './tools/common.ts';
-import { GithubActionError, type GithubGateway } from './github-gateway.ts';
+import { GithubActionError, type GithubGateway } from './gptomek/github-gateway.ts';
 import { json } from './json-response.ts';
 
 export type ActionInvoke = (request: Request) => Promise<Response>;

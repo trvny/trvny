@@ -6,7 +6,7 @@ import {
   reviewProviderPoolHealthViaService,
   reviewProviderPoolStateViaService,
   type ReviewServiceEnv,
-} from '../src/review-service.ts';
+} from '../src/companion/review-service.ts';
 import {
   REVIEW_DECISION_PATH,
   REVIEW_ROUTER_MODELS_PATH,

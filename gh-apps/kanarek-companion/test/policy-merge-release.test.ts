@@ -6,8 +6,8 @@ import {
   handleMergeReleasePolicyAction,
   mergeMethodAllowedByPolicy,
   releaseComparisonContainsTarget,
-} from '../src/policy-merge-release.ts';
-import type { GremlinPolicy } from '../src/policy-actions.ts';
+} from '../src/operator/policy-merge-release.ts';
+import type { GremlinPolicy } from '../src/operator/policy-actions.ts';
 
 type Env = Parameters<typeof handleMergeReleasePolicyAction>[1];
 

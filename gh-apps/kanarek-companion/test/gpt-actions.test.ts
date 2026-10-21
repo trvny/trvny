@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { githubBotRequestAllowed, githubReadAllowed } from '../src/github-gateway.ts';
+import { githubBotRequestAllowed, githubReadAllowed } from '../src/gptomek/github-gateway.ts';
 import {
   contentTreeMode,
   handleGptActions,
   openApiDocument,
   type GptActionsEnv,
-} from '../src/gpt-actions.ts';
+} from '../src/gptomek/gpt-actions.ts';
 
 test('read gateway stays scoped to trvny', () => {
   assert.equal(githubReadAllowed('/repos/trvny/feedseek/pulls?state=open'), true);

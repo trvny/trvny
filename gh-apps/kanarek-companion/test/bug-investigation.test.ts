@@ -13,7 +13,7 @@ import {
   extractBugPaths,
   extractBugSymbols,
   workflowEvidenceText,
-} from '../src/bug-investigation.ts';
+} from '../src/investigation/bug-investigation.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('bug symbols prioritize explicit hints and stack frames', () => {

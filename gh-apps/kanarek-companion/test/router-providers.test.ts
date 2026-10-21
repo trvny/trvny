@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { aiQuip, hasAiProvider, type QuipEnv } from '../src/quip.ts';
+import { aiQuip, hasAiProvider, type QuipEnv } from '../src/companion/quip.ts';
 
 const VALID_QUIP = 'Kanarek checks the paid provider panel and finds every dial behaving.';
 

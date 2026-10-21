@@ -4,8 +4,8 @@ import test from 'node:test';
 import {
   issueStateReasonAllowed,
   nextIssueLabels,
-} from '../src/issue-actions.ts';
-import { customGptOpenApi } from '../src/gremlin-router.ts';
+} from '../src/operator/issue-actions.ts';
+import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
 
 test('issue actions are exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

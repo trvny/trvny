@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   cherryPick,
   gptomekMailboxFailureIsTerminal,
-} from '../src/gptomek.ts';
+} from '../src/gptomek/gptomek.ts';
 import type { GitHubInstallationClient } from '../../core/github-app.ts';
 
 function body(init: RequestInit | undefined): Record<string, unknown> {

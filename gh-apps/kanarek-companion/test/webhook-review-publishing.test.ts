@@ -5,7 +5,7 @@ import {
   applyReviewJudge,
   reviewJudgeThreshold,
   verifyReviewFindings,
-} from '../src/webhook-review-judge.ts';
+} from '../src/companion/webhook-review-judge.ts';
 import {
   parseReviewJson,
   reviewDisposition,
@@ -15,7 +15,7 @@ import {
   reviewSweepMaxAttempts,
   sweepReviewProviders,
   type ReviewRouterOutcome,
-} from '../src/webhook-review.ts';
+} from '../src/companion/webhook-review.ts';
 
 test('review source label includes provider and concrete upstream model', () => {
   assert.equal(

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { CODE_HISTORY_PATH, handleCodeHistoryAction } from '../src/code-history.ts';
+import { CODE_HISTORY_PATH, handleCodeHistoryAction } from '../src/investigation/code-history.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('focused history exposes failed PR enrichment instead of an empty verified result', async () => {

@@ -99,7 +99,8 @@ Gremlin owns semantic operator decisions and guarded high-level actions. It does
 not own Kanarek status-comment/quip behavior, Kanarek Review provider routing,
 or GPTomek's control-mailbox transport.
 
-The main operator families live in the shared package:
+The main operator families live in the shared package
+(`../kanarek-companion/src/operator/`, `investigation/`; gateway in `gptomek/`):
 
 - `operator-actions.ts`: PR inspection/finalization and composed GitHub reads.
 - `autopilot*.ts`: resumable orchestration and operation checkpoints.

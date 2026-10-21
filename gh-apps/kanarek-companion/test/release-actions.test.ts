@@ -7,8 +7,8 @@ import {
   releaseAssetSnapshotMatches,
   releaseTagAllowed,
   releaseUpdateFlags,
-} from '../src/release-actions.ts';
-import { customGptOpenApi, restrictedBotWrite } from '../src/gremlin-router.ts';
+} from '../src/operator/release-actions.ts';
+import { customGptOpenApi, restrictedBotWrite } from '../src/operator/gremlin-router.ts';
 
 test('release actions are exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

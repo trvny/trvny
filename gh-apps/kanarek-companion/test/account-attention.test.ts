@@ -5,7 +5,7 @@ import {
   ACCOUNT_ATTENTION_PATH,
   addAccountAttentionOpenApi,
   handleAccountAttentionAction,
-} from '../src/account-attention.ts';
+} from '../src/specialists/account-attention.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 function request(body: unknown = {}): Request {

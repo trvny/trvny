@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createActionFetch } from '../src/action-context.ts';
-import { handleBatchAction } from '../src/batch-actions.ts';
-import { customGptOpenApi } from '../src/gremlin-router.ts';
+import { handleBatchAction } from '../src/operator/batch-actions.ts';
+import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
 
 type Env = Parameters<typeof handleBatchAction>[1];
 

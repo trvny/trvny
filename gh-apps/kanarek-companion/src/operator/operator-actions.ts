@@ -1,0 +1,721 @@
+import { githubGateway, mapGithubError } from '../gptomek/github-gateway.ts';
+import type { GptActionsEnv } from '../gptomek/gpt-actions.ts';
+import { isObject, type JsonObject, numberOrNull, repoPath, stringOrNull, readJsonObject, repositoryInScope, CodedError } from '../tools/common.ts';
+import { json } from '../json-response.ts';
+
+const CONTEXT_PATH = '/gpt-actions/github/context';
+const INSPECT_PR_PATH = '/gpt-actions/github/pull-requests/inspect';
+const DIAGNOSE_RUN_PATH = '/gpt-actions/github/workflows/diagnose';
+const FINALIZE_PR_PATH = '/gpt-actions/github/pull-requests/finalize';
+const SHA_RE = /^[0-9a-f]{40}$/i;
+const OK_CHECK_CONCLUSIONS = new Set(['success', 'neutral', 'skipped']);
+
+class OperatorError extends CodedError {}
+
+export interface FinalizeSnapshot {
+  state: string;
+  draft: boolean;
+  headSha: string;
+  baseRef?: string | null;
+  mergeable: boolean | null;
+  ciState: 'none' | 'pending' | 'failure' | 'success';
+  unresolvedThreads: number;
+  activeChangeRequests: number;
+}
+
+export interface CiSummary {
+  state: FinalizeSnapshot['ciState'];
+  [key: string]: unknown;
+}
+
+function repository(value: unknown): string {
+  if (typeof value !== 'string' || !repositoryInScope(value)) {
+    throw new OperatorError('repository_not_allowed', 403);
+  }
+  return value;
+}
+
+function positiveInteger(value: unknown, name: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new OperatorError(`invalid_${name}`);
+  }
+  return value;
+}
+
+function expectedSha(value: unknown): string {
+  if (typeof value !== 'string' || !SHA_RE.test(value)) {
+    throw new OperatorError('invalid_expected_head_sha');
+  }
+  return value.toLowerCase();
+}
+
+function expectedRef(value: unknown): string {
+  if (
+    typeof value !== 'string' ||
+    !value ||
+    value.length > 250 ||
+    value.startsWith('/') ||
+    value.endsWith('/') ||
+    value.includes('..') ||
+    value.includes('//') ||
+    !/^[A-Za-z0-9._/-]+$/.test(value)
+  ) {
+    throw new OperatorError('invalid_expected_base_ref');
+  }
+  return value;
+}
+
+function operatorFailure(code: string, status: number): OperatorError {
+  return new OperatorError(code, status);
+}
+
+async function readOptional(
+  source: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  path: string,
+): Promise<{ data: unknown } | null> {
+  return mapGithubError(githubGateway(source, env, fetcher).readOptional(path), operatorFailure);
+}
+
+async function readData(
+  source: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  path: string,
+): Promise<unknown> {
+  return mapGithubError(githubGateway(source, env, fetcher).read(path), operatorFailure);
+}
+
+async function graphqlData(
+  source: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  query: string,
+  variables: JsonObject,
+): Promise<unknown> {
+  return mapGithubError(
+    githubGateway(source, env, fetcher).graphql(query, variables),
+    operatorFailure,
+  );
+}
+
+async function botData(
+  source: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  method: string,
+  path: string,
+  body?: JsonObject,
+): Promise<unknown> {
+  return mapGithubError(githubGateway(source, env, fetcher).bot(method, path, body), operatorFailure);
+}
+
+async function inputObject(request: Request): Promise<JsonObject> {
+  return readJsonObject(request, 64_000, (code, status) => new OperatorError(code, status));
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function compactUser(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  return {
+    login: stringOrNull(value.login),
+    id: numberOrNull(value.id),
+  };
+}
+
+function compactPullRequest(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  const head = isObject(value.head) ? value.head : {};
+  const base = isObject(value.base) ? value.base : {};
+  return {
+    number: numberOrNull(value.number),
+    title: stringOrNull(value.title),
+    state: stringOrNull(value.state),
+    draft: value.draft === true,
+    user: compactUser(value.user),
+    headRef: stringOrNull(head.ref),
+    headSha: stringOrNull(head.sha),
+    baseRef: stringOrNull(base.ref),
+    baseSha: stringOrNull(base.sha),
+    mergeable: typeof value.mergeable === 'boolean' ? value.mergeable : null,
+    mergeableState: stringOrNull(value.mergeable_state),
+    htmlUrl: stringOrNull(value.html_url),
+    updatedAt: stringOrNull(value.updated_at),
+  };
+}
+
+function decodeGithubContent(value: unknown): string | null {
+  if (!isObject(value) || value.encoding !== 'base64' || typeof value.content !== 'string') {
+    return null;
+  }
+  try {
+    const binary = atob(value.content.replace(/\s/g, ''));
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function compactWorkflowRun(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  return {
+    id: numberOrNull(value.id),
+    name: stringOrNull(value.name),
+    event: stringOrNull(value.event),
+    status: stringOrNull(value.status),
+    conclusion: stringOrNull(value.conclusion),
+    headBranch: stringOrNull(value.head_branch),
+    headSha: stringOrNull(value.head_sha),
+    htmlUrl: stringOrNull(value.html_url),
+    createdAt: stringOrNull(value.created_at),
+    updatedAt: stringOrNull(value.updated_at),
+  };
+}
+
+function compactCommit(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  const commit = isObject(value.commit) ? value.commit : {};
+  const author = isObject(commit.author) ? commit.author : {};
+  return {
+    sha: stringOrNull(value.sha),
+    message: stringOrNull(commit.message),
+    author: stringOrNull(author.name),
+    date: stringOrNull(author.date),
+    htmlUrl: stringOrNull(value.html_url),
+  };
+}
+
+function compactComment(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  const body = stringOrNull(value.body);
+  return {
+    id: numberOrNull(value.id),
+    user: compactUser(value.user),
+    body: body ? body.slice(0, 2_000) : null,
+    htmlUrl: stringOrNull(value.html_url),
+    createdAt: stringOrNull(value.created_at),
+    updatedAt: stringOrNull(value.updated_at),
+  };
+}
+
+function compactReview(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  const body = stringOrNull(value.body);
+  return {
+    id: numberOrNull(value.id),
+    user: compactUser(value.user),
+    state: stringOrNull(value.state),
+    body: body ? body.slice(0, 2_000) : null,
+    submittedAt: stringOrNull(value.submitted_at),
+    htmlUrl: stringOrNull(value.html_url),
+  };
+}
+
+function compactChangedFile(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  const patch = stringOrNull(value.patch);
+  return {
+    filename: stringOrNull(value.filename),
+    status: stringOrNull(value.status),
+    additions: numberOrNull(value.additions),
+    deletions: numberOrNull(value.deletions),
+    changes: numberOrNull(value.changes),
+    patch: patch ? patch.slice(0, 4_000) : null,
+  };
+}
+
+function activeChangeRequests(reviews: unknown[]): JsonObject[] {
+  const latest = new Map<string, JsonObject>();
+  for (const item of reviews) {
+    if (!isObject(item) || !isObject(item.user) || typeof item.user.login !== 'string') continue;
+    const previous = latest.get(item.user.login);
+    const submittedAt = stringOrNull(item.submitted_at) ?? '';
+    const previousAt = previous ? stringOrNull(previous.submitted_at) ?? '' : '';
+    if (!previous || submittedAt >= previousAt) latest.set(item.user.login, item);
+  }
+  return [...latest.values()]
+    .filter((review) => review.state === 'CHANGES_REQUESTED')
+    .map((review) => compactReview(review))
+    .filter((review): review is JsonObject => Boolean(review));
+}
+
+export function summarizeCi(statusValue: unknown, checksValue: unknown): CiSummary {
+  const status = isObject(statusValue) ? statusValue : {};
+  const statuses = arrayValue(status.statuses).filter(isObject);
+  const checksObject = isObject(checksValue) ? checksValue : {};
+  const checks = arrayValue(checksObject.check_runs).filter(isObject);
+
+  const failedChecks = checks.filter(
+    (check) =>
+      check.status === 'completed' &&
+      typeof check.conclusion === 'string' &&
+      !OK_CHECK_CONCLUSIONS.has(check.conclusion),
+  );
+  const pendingChecks = checks.filter((check) => check.status !== 'completed');
+  const hasStatuses = statuses.length > 0;
+  const hasChecks = checks.length > 0;
+  const statusState = stringOrNull(status.state);
+  const statusFailed = hasStatuses && (statusState === 'failure' || statusState === 'error');
+  const statusPending = hasStatuses && statusState === 'pending';
+
+  let state: FinalizeSnapshot['ciState'];
+  if (!hasStatuses && !hasChecks) state = 'none';
+  else if (statusFailed || failedChecks.length) state = 'failure';
+  else if (statusPending || pendingChecks.length) state = 'pending';
+  else state = 'success';
+
+  return {
+    state,
+    combinedStatus: statusState,
+    statuses: statuses.slice(0, 30).map((entry) => ({
+      context: stringOrNull(entry.context),
+      state: stringOrNull(entry.state),
+      description: stringOrNull(entry.description),
+      targetUrl: stringOrNull(entry.target_url),
+    })),
+    checks: checks.slice(0, 50).map((check) => ({
+      id: numberOrNull(check.id),
+      name: stringOrNull(check.name),
+      status: stringOrNull(check.status),
+      conclusion: stringOrNull(check.conclusion),
+      htmlUrl: stringOrNull(check.html_url),
+    })),
+    failedChecks: failedChecks.map((check) => stringOrNull(check.name)).filter(Boolean),
+    pendingChecks: pendingChecks.map((check) => stringOrNull(check.name)).filter(Boolean),
+  };
+}
+
+function reviewThreads(graphqlValue: unknown): JsonObject[] {
+  if (!isObject(graphqlValue) || !isObject(graphqlValue.data)) return [];
+  const node = isObject(graphqlValue.data.node) ? graphqlValue.data.node : null;
+  if (!node || !isObject(node.reviewThreads)) return [];
+  return arrayValue(node.reviewThreads.nodes)
+    .filter(isObject)
+    .map((thread) => {
+      const comments = isObject(thread.comments) ? arrayValue(thread.comments.nodes) : [];
+      const first = comments.find(isObject);
+      const body = first ? stringOrNull(first.body) : null;
+      return {
+        id: stringOrNull(thread.id),
+        isResolved: thread.isResolved === true,
+        isOutdated: thread.isOutdated === true,
+        comment: first
+          ? {
+              id: stringOrNull(first.id),
+              author: isObject(first.author) ? stringOrNull(first.author.login) : null,
+              body: body ? body.slice(0, 2_000) : null,
+              url: stringOrNull(first.url),
+            }
+          : null,
+      };
+    });
+}
+
+async function inspectPullRequestData(
+  source: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+  repositoryName: string,
+  pullRequestNumber: number,
+): Promise<JsonObject> {
+  const repo = repoPath(repositoryName);
+  const prRaw = await readData(source, env, fetcher, `/repos/${repo}/pulls/${pullRequestNumber}`);
+  if (!isObject(prRaw)) throw new OperatorError('invalid_pull_request_response', 502);
+  const head = isObject(prRaw.head) ? prRaw.head : {};
+  const base = isObject(prRaw.base) ? prRaw.base : {};
+  const headSha = stringOrNull(head.sha);
+  const nodeId = stringOrNull(prRaw.node_id);
+  if (!headSha || !SHA_RE.test(headSha) || !nodeId) {
+    throw new OperatorError('invalid_pull_request_response', 502);
+  }
+
+  const [filesRaw, issueCommentsRaw, reviewsRaw, reviewCommentsRaw, statusRaw, checksRaw, threadsRaw] =
+    await Promise.all([
+      readData(source, env, fetcher, `/repos/${repo}/pulls/${pullRequestNumber}/files?per_page=100`),
+      readData(source, env, fetcher, `/repos/${repo}/issues/${pullRequestNumber}/comments?per_page=100`),
+      readData(source, env, fetcher, `/repos/${repo}/pulls/${pullRequestNumber}/reviews?per_page=100`),
+      readData(source, env, fetcher, `/repos/${repo}/pulls/${pullRequestNumber}/comments?per_page=100`),
+      readData(source, env, fetcher, `/repos/${repo}/commits/${headSha}/status`),
+      readData(source, env, fetcher, `/repos/${repo}/commits/${headSha}/check-runs?per_page=100`),
+      graphqlData(
+        source,
+        env,
+        fetcher,
+        'query($id: ID!) { node(id: $id) { ... on PullRequest { reviewThreads(first: 100) { nodes { id isResolved isOutdated comments(first: 1) { nodes { id body url author { login } } } } } } } }',
+        { id: nodeId },
+      ),
+    ]);
+
+  const files = arrayValue(filesRaw);
+  const issueComments = arrayValue(issueCommentsRaw);
+  const reviews = arrayValue(reviewsRaw);
+  const reviewComments = arrayValue(reviewCommentsRaw);
+  const threads = reviewThreads(threadsRaw);
+  const unresolvedThreads = threads.filter(
+    (thread) => thread.isResolved !== true && thread.isOutdated !== true,
+  );
+  const changeRequests = activeChangeRequests(reviews);
+  const ci = summarizeCi(statusRaw, checksRaw);
+
+  return {
+    pullRequest: compactPullRequest(prRaw),
+    changedFiles: files
+      .slice(0, 30)
+      .map(compactChangedFile)
+      .filter((file): file is JsonObject => Boolean(file)),
+    changedFilesTruncated: files.length > 30,
+    issueComments: issueComments
+      .slice(-12)
+      .map(compactComment)
+      .filter((comment): comment is JsonObject => Boolean(comment)),
+    reviewComments: reviewComments
+      .slice(-20)
+      .map(compactComment)
+      .filter((comment): comment is JsonObject => Boolean(comment)),
+    reviews: reviews
+      .slice(-20)
+      .map(compactReview)
+      .filter((review): review is JsonObject => Boolean(review)),
+    activeChangeRequests: changeRequests,
+    reviewThreads: threads,
+    unresolvedThreads,
+    ci,
+    finalizeSnapshot: {
+      state: stringOrNull(prRaw.state) ?? 'unknown',
+      draft: prRaw.draft === true,
+      headSha: headSha.toLowerCase(),
+      baseRef: stringOrNull(base.ref),
+      mergeable: typeof prRaw.mergeable === 'boolean' ? prRaw.mergeable : null,
+      ciState: ci.state,
+      unresolvedThreads: unresolvedThreads.length,
+      activeChangeRequests: changeRequests.length,
+    } satisfies FinalizeSnapshot,
+  };
+}
+
+export function finalizeBlockers(
+  snapshot: FinalizeSnapshot,
+  expectedHeadSha: string,
+  expectedBaseRef?: string,
+): string[] {
+  const blockers: string[] = [];
+  if (snapshot.state !== 'open') blockers.push('pull_request_not_open');
+  if (snapshot.draft) blockers.push('pull_request_is_draft');
+  if (snapshot.headSha.toLowerCase() !== expectedHeadSha.toLowerCase()) blockers.push('head_sha_changed');
+  if (expectedBaseRef && snapshot.baseRef !== expectedBaseRef) blockers.push('base_ref_changed');
+  if (snapshot.mergeable === null) blockers.push('mergeability_unknown');
+  else if (!snapshot.mergeable) blockers.push('pull_request_not_mergeable');
+  if (snapshot.ciState === 'pending') blockers.push('ci_pending');
+  if (snapshot.ciState === 'failure') blockers.push('ci_failed');
+  if (snapshot.unresolvedThreads > 0) blockers.push('unresolved_review_threads');
+  if (snapshot.activeChangeRequests > 0) blockers.push('changes_requested');
+  return blockers;
+}
+
+async function repositoryContext(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const input = await inputObject(request);
+  const repositoryName = repository(input.repository);
+  const repo = repoPath(repositoryName);
+  const repositoryRaw = await readData(request, env, fetcher, `/repos/${repo}`);
+  if (!isObject(repositoryRaw) || typeof repositoryRaw.default_branch !== 'string') {
+    throw new OperatorError('invalid_repository_response', 502);
+  }
+  const defaultBranch = repositoryRaw.default_branch;
+  const encodedBranch = defaultBranch
+    .split('/')
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+
+  const [headRaw, pullsRaw, commitsRaw, runsRaw, agentsRead] = await Promise.all([
+    readData(request, env, fetcher, `/repos/${repo}/git/ref/heads/${encodedBranch}`),
+    readData(request, env, fetcher, `/repos/${repo}/pulls?state=open&per_page=20`),
+    readData(request, env, fetcher, `/repos/${repo}/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=10`),
+    readData(request, env, fetcher, `/repos/${repo}/actions/runs?branch=${encodeURIComponent(defaultBranch)}&per_page=20`),
+    readOptional(request, env, fetcher, `/repos/${repo}/contents/AGENTS.md?ref=${encodeURIComponent(defaultBranch)}`),
+  ]);
+
+  const headObject = isObject(headRaw) && isObject(headRaw.object) ? headRaw.object : null;
+  const headSha = headObject ? stringOrNull(headObject.sha) : null;
+  const pulls = arrayValue(pullsRaw);
+  const commits = arrayValue(commitsRaw);
+  const runs = isObject(runsRaw) ? arrayValue(runsRaw.workflow_runs) : [];
+  const agents = agentsRead === null ? null : decodeGithubContent(agentsRead.data);
+
+  return json({
+    ok: true,
+    repository: {
+      fullName: stringOrNull(repositoryRaw.full_name),
+      defaultBranch,
+      private: repositoryRaw.private === true,
+      archived: repositoryRaw.archived === true,
+      htmlUrl: stringOrNull(repositoryRaw.html_url),
+    },
+    headSha,
+    agents,
+    openPullRequests: pulls
+      .map(compactPullRequest)
+      .filter((pr): pr is JsonObject => Boolean(pr)),
+    recentCommits: commits
+      .map(compactCommit)
+      .filter((commit): commit is JsonObject => Boolean(commit)),
+    recentWorkflowRuns: runs
+      .slice(0, 10)
+      .map(compactWorkflowRun)
+      .filter((run): run is JsonObject => Boolean(run)),
+    recentFailedWorkflowRuns: runs
+      .filter((run) => isObject(run) && run.conclusion === 'failure')
+      .slice(0, 5)
+      .map(compactWorkflowRun)
+      .filter((run): run is JsonObject => Boolean(run)),
+  });
+}
+
+async function inspectPullRequest(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const input = await inputObject(request);
+  const repositoryName = repository(input.repository);
+  const pullRequestNumber = positiveInteger(input.pullRequestNumber, 'pull_request_number');
+  return json({
+    ok: true,
+    data: await inspectPullRequestData(request, env, fetcher, repositoryName, pullRequestNumber),
+  });
+}
+
+function compactJob(value: unknown): JsonObject | null {
+  if (!isObject(value)) return null;
+  const steps = arrayValue(value.steps).filter(isObject);
+  return {
+    id: numberOrNull(value.id),
+    name: stringOrNull(value.name),
+    status: stringOrNull(value.status),
+    conclusion: stringOrNull(value.conclusion),
+    htmlUrl: stringOrNull(value.html_url),
+    failedSteps: steps
+      .filter((step) => step.conclusion && !OK_CHECK_CONCLUSIONS.has(String(step.conclusion)))
+      .map((step) => ({
+        number: numberOrNull(step.number),
+        name: stringOrNull(step.name),
+        status: stringOrNull(step.status),
+        conclusion: stringOrNull(step.conclusion),
+      })),
+  };
+}
+
+async function diagnoseWorkflowRun(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const input = await inputObject(request);
+  const repositoryName = repository(input.repository);
+  const runId = positiveInteger(input.runId, 'run_id');
+  const repo = repoPath(repositoryName);
+  const [runRaw, jobsRaw] = await Promise.all([
+    readData(request, env, fetcher, `/repos/${repo}/actions/runs/${runId}`),
+    readData(request, env, fetcher, `/repos/${repo}/actions/runs/${runId}/jobs?per_page=100`),
+  ]);
+  if (!isObject(runRaw) || !isObject(jobsRaw)) {
+    throw new OperatorError('invalid_workflow_response', 502);
+  }
+  const jobs = arrayValue(jobsRaw.jobs).filter(isObject);
+  const failedJobs = jobs.filter(
+    (job) =>
+      job.conclusion &&
+      typeof job.conclusion === 'string' &&
+      !OK_CHECK_CONCLUSIONS.has(job.conclusion),
+  );
+  const logJobs = failedJobs.slice(0, 3);
+  const logs = await Promise.all(
+    logJobs.map(async (job) => {
+      const id = numberOrNull(job.id);
+      if (!id) return { jobId: null, excerpt: null };
+      let data: unknown;
+      try {
+        data = await readData(request, env, fetcher, `/repos/${repo}/actions/jobs/${id}/logs`);
+      } catch (error) {
+        if (error instanceof OperatorError) {
+          return { jobId: id, excerpt: null, error: `http_${error.status}` };
+        }
+        throw error;
+      }
+      const excerpt = isObject(data) && typeof data.text === 'string' ? data.text.slice(0, 10_000) : null;
+      return { jobId: id, excerpt };
+    }),
+  );
+
+  return json({
+    ok: true,
+    run: compactWorkflowRun(runRaw),
+    jobs: jobs.map(compactJob).filter((job): job is JsonObject => Boolean(job)),
+    failingJobs: failedJobs.map(compactJob).filter((job): job is JsonObject => Boolean(job)),
+    logExcerpts: logs,
+  });
+}
+
+async function finalizePullRequest(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response> {
+  const input = await inputObject(request);
+  const repositoryName = repository(input.repository);
+  const pullRequestNumber = positiveInteger(input.pullRequestNumber, 'pull_request_number');
+  const headSha = expectedSha(input.expectedHeadSha);
+  const baseRef = input.expectedBaseRef === undefined ? undefined : expectedRef(input.expectedBaseRef);
+  const mergeMethod =
+    input.mergeMethod === 'merge' || input.mergeMethod === 'rebase' ? input.mergeMethod : 'squash';
+  const inspection = await inspectPullRequestData(
+    request,
+    env,
+    fetcher,
+    repositoryName,
+    pullRequestNumber,
+  );
+  const snapshot = inspection.finalizeSnapshot;
+  if (!isObject(snapshot)) throw new OperatorError('invalid_finalize_snapshot', 502);
+  const typedSnapshot = snapshot as unknown as FinalizeSnapshot;
+  const blockers = finalizeBlockers(typedSnapshot, headSha, baseRef);
+  if (blockers.length) {
+    return json({ ok: false, merged: false, blockers, inspection }, 409);
+  }
+
+  const repo = repoPath(repositoryName);
+  const merge = await botData(
+    request,
+    env,
+    fetcher,
+    'PUT',
+    `/repos/${repo}/pulls/${pullRequestNumber}/merge`,
+    { sha: headSha, merge_method: mergeMethod },
+  );
+  if (!isObject(merge) || merge.merged !== true) {
+    throw new OperatorError('merge_not_confirmed', 409);
+  }
+  return json({ ok: true, merged: true, mergeMethod, merge });
+}
+
+function objectResponse(description: string): JsonObject {
+  return {
+    '200': {
+      description,
+      content: {
+        'application/json': {
+          schema: { type: 'object', properties: {} },
+        },
+      },
+    },
+  };
+}
+
+function requestSchema(required: string[], properties: JsonObject): JsonObject {
+  return {
+    required: true,
+    content: {
+      'application/json': {
+        schema: { type: 'object', required, properties },
+      },
+    },
+  };
+}
+
+export function addOperatorOpenApi(document: JsonObject): void {
+  if (!isObject(document.paths)) document.paths = {};
+  const paths = document.paths as JsonObject;
+  paths[CONTEXT_PATH] = {
+    post: {
+      operationId: 'getRepositoryContext',
+      summary: 'Load repository context for a work session',
+      description:
+        'Returns default-branch state, root AGENTS.md, open PRs, recent commits and workflow failures for one trvny/travnie repository.',
+      requestBody: requestSchema(['repository'], {
+        repository: { type: 'string', example: 'trvny/feedseek' },
+      }),
+      responses: objectResponse('Repository context'),
+    },
+  };
+  paths[INSPECT_PR_PATH] = {
+    post: {
+      operationId: 'inspectPullRequest',
+      summary: 'Inspect a pull request in one call',
+      description:
+        'Returns PR metadata, changed-file patches, comments, reviews, review threads and CI state. Large collections are capped.',
+      requestBody: requestSchema(['repository', 'pullRequestNumber'], {
+        repository: { type: 'string' },
+        pullRequestNumber: { type: 'integer', minimum: 1 },
+      }),
+      responses: objectResponse('Pull request inspection'),
+    },
+  };
+  paths[DIAGNOSE_RUN_PATH] = {
+    post: {
+      operationId: 'diagnoseWorkflowRun',
+      summary: 'Diagnose a GitHub Actions workflow run',
+      description:
+        'Returns run state, jobs, failed steps and short log excerpts for up to three failing jobs.',
+      requestBody: requestSchema(['repository', 'runId'], {
+        repository: { type: 'string' },
+        runId: { type: 'integer', minimum: 1 },
+      }),
+      responses: objectResponse('Workflow diagnosis'),
+    },
+  };
+  paths[FINALIZE_PR_PATH] = {
+    post: {
+      operationId: 'finalizePullRequest',
+      summary: 'Safely merge a ready pull request',
+      description:
+        'Checks expected head SHA and optional expected base ref, draft/open state, mergeability, CI, unresolved review threads and active change requests before merging as gptomek[bot].',
+      requestBody: requestSchema(
+        ['repository', 'pullRequestNumber', 'expectedHeadSha'],
+        {
+          repository: { type: 'string' },
+          pullRequestNumber: { type: 'integer', minimum: 1 },
+          expectedHeadSha: { type: 'string' },
+          expectedBaseRef: { type: 'string' },
+          mergeMethod: { type: 'string', enum: ['squash', 'merge', 'rebase'], default: 'squash' },
+        },
+      ),
+      responses: objectResponse('Merge result or blockers'),
+    },
+  };
+}
+
+export async function handleOperatorAction(
+  request: Request,
+  env: GptActionsEnv,
+  fetcher: typeof fetch,
+): Promise<Response | null> {
+  const pathname = new URL(request.url).pathname;
+  if (![CONTEXT_PATH, INSPECT_PR_PATH, DIAGNOSE_RUN_PATH, FINALIZE_PR_PATH].includes(pathname)) {
+    return null;
+  }
+  if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+
+  try {
+    if (pathname === CONTEXT_PATH) return await repositoryContext(request, env, fetcher);
+    if (pathname === INSPECT_PR_PATH) return await inspectPullRequest(request, env, fetcher);
+    if (pathname === DIAGNOSE_RUN_PATH) return await diagnoseWorkflowRun(request, env, fetcher);
+    return await finalizePullRequest(request, env, fetcher);
+  } catch (error) {
+    if (error instanceof OperatorError) return json({ ok: false, error: error.code }, error.status);
+    console.error(
+      JSON.stringify({
+        gptOperator: 'failed',
+        error: error instanceof Error ? error.message : 'unknown_error',
+      }),
+    );
+    return json({ ok: false, error: 'operator_internal_error' }, 500);
+  }
+}

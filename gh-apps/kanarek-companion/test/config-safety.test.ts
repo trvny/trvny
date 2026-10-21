@@ -6,7 +6,7 @@ import {
   aiPercent,
   openAiReasoningEffort,
   QUIP_MODEL_DEFAULTS,
-} from '../src/quip.ts';
+} from '../src/companion/quip.ts';
 
 const wranglerVars = (
   JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8')) as {

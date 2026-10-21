@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { anchorStorageOpenApi } from '../src/anchor-storage.ts';
+import { anchorStorageOpenApi } from '../src/specialists/anchor-storage.ts';
 import { gatewayManifest, gatewayOpenApi } from '../src/entry.ts';
 
 test('gateway OpenAPI exposes live capability and specialist actions', () => {

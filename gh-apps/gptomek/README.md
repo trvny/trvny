@@ -93,14 +93,6 @@ the connector trailer is never duplicated.
 The PR itself remains authored by `trvny` to trigger external reviews.
 The attribution applies to newly created GPTomek commits, not old commits
 or PR description text. Preserve the rebase merge flow above.
-
-### PR descriptions and direct user commits
-
-For ChatGPT-assisted PRs opened as `trvny`, follow the compact commit-trailer
-and PR-credit rules in [AGENTS.md](../../AGENTS.md#chatgpt-attribution).
-No automatic enforcement workflow; the existing GPTomek commit path above
-still adds its co-author trailer automatically.
-
 ## Which mailbox to use
 
 | Situation | Transport | What happens |

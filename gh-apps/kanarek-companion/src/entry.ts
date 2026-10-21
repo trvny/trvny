@@ -1,31 +1,31 @@
 import {
   addAccountAttentionOpenApi,
   handleAccountAttentionAction,
-} from './account-attention.ts';
+} from './specialists/account-attention.ts';
 import {
   addAgentGuidanceOpenApi,
   handleAgentGuidanceAction,
-} from './agents-guidance-actions.ts';
+} from './specialists/agents-guidance-actions.ts';
 import {
   ANCHOR_OPENAPI_PATH,
   anchorStorageOpenApi,
   handleAnchorStorageAction,
   type AnchorStorageEnv,
-} from './anchor-storage.ts';
-import { addContext7OpenApi, handleContext7Action } from './context7-actions.ts';
-import { addDocsOpenApi, handleDocsAction } from './docs-actions.ts';
-import { addEngramOpenApi, handleEngramAction } from './engram-actions.ts';
-import { addFeedseekOpenApi, handleFeedseekAction } from './feedseek-actions.ts';
-import { handleSpecialistMcp, mcpManifest, MCP_PATH } from './mcp-adapter.ts';
+} from './specialists/anchor-storage.ts';
+import { addContext7OpenApi, handleContext7Action } from './specialists/context7-actions.ts';
+import { addDocsOpenApi, handleDocsAction } from './specialists/docs-actions.ts';
+import { addEngramOpenApi, handleEngramAction } from './specialists/engram-actions.ts';
+import { addFeedseekOpenApi, handleFeedseekAction } from './specialists/feedseek-actions.ts';
+import { handleSpecialistMcp, mcpManifest, MCP_PATH } from './specialists/mcp-adapter.ts';
 import {
   addPackageIntelligenceOpenApi,
   handlePackageIntelligenceAction,
-} from './package-intelligence.ts';
+} from './specialists/package-intelligence.ts';
 import { ReviewProviderCooldownStore } from '../../core/review-cooldown-store.ts';
 import {
   handleReviewRouterViaService,
   type ReviewServiceEnv,
-} from './review-service.ts';
+} from './companion/review-service.ts';
 import type companion from './index.ts';
 import { CommentProbeLock } from './index.ts';
 import {
@@ -33,10 +33,10 @@ import {
   customGptOpenApi,
   OperatorCheckpointStore,
   type GremlinRouterEnv,
-} from './gremlin-router.ts';
+} from './operator/gremlin-router.ts';
 import type { Route } from './route.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
-import { GithubActionError, githubGateway } from './github-gateway.ts';
+import { GithubActionError, githubGateway } from './gptomek/github-gateway.ts';
 import { authorizeOperator } from './action-auth.ts';
 import { json } from './json-response.ts';
 import { CAPABILITY_PATH, HEALTH_PATH, OPENAPI_PATH, SMOKE_PATH } from './paths.ts';

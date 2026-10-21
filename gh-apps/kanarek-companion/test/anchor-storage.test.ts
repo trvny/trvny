@@ -8,7 +8,7 @@ import {
   anchorStorageOpenApi,
   handleAnchorStorageAction,
   type AnchorStorageEnv,
-} from '../src/anchor-storage.ts';
+} from '../src/specialists/anchor-storage.ts';
 
 type JsonObject = Record<string, unknown>;
 
@@ -296,8 +296,8 @@ test('ambiguous mutation failure becomes uncertain and is not redelivered', asyn
 });
 
 test('Anchor bridge and replay receipts contain no credential persistence path', async () => {
-  const bridge = await readFile(new URL('../src/anchor-storage.ts', import.meta.url), 'utf8');
-  const replay = await readFile(new URL('../src/anchor-replay.ts', import.meta.url), 'utf8');
+  const bridge = await readFile(new URL('../src/specialists/anchor-storage.ts', import.meta.url), 'utf8');
+  const replay = await readFile(new URL('../src/specialists/anchor-replay.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(bridge, /state\.storage/);
   assert.doesNotMatch(bridge, /DurableObject/);
   assert.doesNotMatch(`${bridge}\n${replay}`, /oauth_tokens|refresh_token|client_secret/i);

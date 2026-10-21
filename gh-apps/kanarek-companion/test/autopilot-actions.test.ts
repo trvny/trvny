@@ -4,8 +4,8 @@ import test from 'node:test';
 import {
   classifyPullRequestSnapshot,
   maintenanceDelta,
-} from '../src/autopilot-actions.ts';
-import { customGptOpenApi } from '../src/gremlin-router.ts';
+} from '../src/operator/autopilot-actions.ts';
+import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
 
 const CANDIDATE = {
   repository: 'trvny/feedseek',

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { BANK_KEY, loadBank } from '../src/companion-bank.ts';
-import type { CompanionEnv } from '../src/companion-types.ts';
+import { BANK_KEY, loadBank } from '../src/companion/companion-bank.ts';
+import type { CompanionEnv } from '../src/companion/companion-types.ts';
 
 const quipKey = 'aaaaaaaaaaaaaaaa';
 const validKey = `${BANK_KEY}:entry:${quipKey}:0000000000000001`;

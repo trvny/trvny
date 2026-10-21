@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { branchNameAllowed, githubGraphqlError } from '../src/lifecycle-actions.ts';
-import { customGptOpenApi, restrictedBotWrite } from '../src/gremlin-router.ts';
+import { branchNameAllowed, githubGraphqlError } from '../src/operator/lifecycle-actions.ts';
+import { customGptOpenApi, restrictedBotWrite } from '../src/operator/gremlin-router.ts';
 
 test('lifecycle actions are exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

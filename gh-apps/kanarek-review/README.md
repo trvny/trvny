@@ -42,7 +42,7 @@ fake or incompatible stream.
 ## How it is called
 
 The public GitHub webhook lands in `kanarek-companion`. Review-eligible PRs are
-debounced and contextualized by `../kanarek-companion/src/webhook-review.ts`,
+debounced and contextualized by `../kanarek-companion/src/companion/webhook-review.ts`,
 then sent to this Worker through the same-account `KANAREK_REVIEW_SERVICE`
 Service Binding.
 
@@ -235,7 +235,7 @@ health is exposed in `/health` without leaking upstream response bodies or crede
 This Worker does not decide whether a PR should be reviewed or whether a finding
 is publishable.
 
-`../kanarek-companion/src/webhook-review.ts` owns:
+`../kanarek-companion/src/companion/webhook-review.ts` owns:
 
 - repository and PR eligibility;
 - one-minute-by-default debounce and exact-head dedupe;
@@ -320,7 +320,7 @@ credential-sync workflow. Target repositories do not need provider credentials.
 - `src/review-router.ts`: provider definitions, model chains, error
   categorization, cooldown handling, health, and completion routing.
 - `test/`: provider routing, fallback, cooldown, and protocol regression tests.
-- `../kanarek-companion/src/review-service.ts`: caller-side Service Binding
+- `../kanarek-companion/src/companion/review-service.ts`: caller-side Service Binding
   adapter.
 - `../core/review-service-protocol.ts`: internal paths, trust headers, and
   health types.

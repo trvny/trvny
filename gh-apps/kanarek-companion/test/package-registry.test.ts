@@ -5,7 +5,7 @@ import {
   inspectRegistryPackage,
   packageName,
   registryAlternatives,
-} from '../src/package-registry.ts';
+} from '../src/specialists/package-registry.ts';
 
 type JsonMap = Record<string, unknown>;
 

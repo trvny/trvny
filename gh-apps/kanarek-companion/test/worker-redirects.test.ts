@@ -51,8 +51,8 @@ test('all guarded upstream clients refuse automatic redirects in workerd', async
     '../src/tools/context7.ts',
     '../src/tools/feedseek.ts',
     '../src/tools/engram.ts',
-    '../src/anchor-storage.ts',
-    '../src/package-intelligence.ts',
+    '../src/specialists/anchor-storage.ts',
+    '../src/specialists/package-intelligence.ts',
   ];
   for (const path of paths) {
     const source = await readFile(new URL(path, import.meta.url), 'utf8');

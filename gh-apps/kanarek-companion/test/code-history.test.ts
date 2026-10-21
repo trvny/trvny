@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { githubReadAllowed } from '../src/github-gateway.ts';
+import { githubReadAllowed } from '../src/gptomek/github-gateway.ts';
 
 import {
   addCodeHistoryOpenApi,
@@ -10,7 +10,7 @@ import {
   selectBlameRanges,
   symbolLineMatches,
   symbolLineNumbers,
-} from '../src/code-history.ts';
+} from '../src/investigation/code-history.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 test('symbolLineNumbers matches identifier boundaries', () => {

@@ -1,5 +1,5 @@
 import { isObject, type JsonObject, repoPath, repositoryInScope } from './tools/common.ts';
-import type { GithubGateway } from './github-gateway.ts';
+import type { GithubGateway } from './gptomek/github-gateway.ts';
 
 
 const SHA_RE = /^[0-9a-f]{40}$/i;

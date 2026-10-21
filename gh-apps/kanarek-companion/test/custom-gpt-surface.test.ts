@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { anchorStorageOpenApi } from '../src/anchor-storage.ts';
+import { anchorStorageOpenApi } from '../src/specialists/anchor-storage.ts';
 import {
   CUSTOM_GPT_DESCRIPTION_LIMIT,
   CUSTOM_GPT_OPERATION_IDS,

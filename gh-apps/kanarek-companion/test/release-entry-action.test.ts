@@ -5,7 +5,7 @@ import {
   addReleaseEntryOpenApi,
   handleReleaseEntryAction,
   RELEASE_ENTRY_UPLOAD_PATH,
-} from '../src/release-entry-action.ts';
+} from '../src/operator/release-entry-action.ts';
 
 test('registers exact artifact-entry upload in OpenAPI', () => {
   const document: Record<string, unknown> = { paths: {} };

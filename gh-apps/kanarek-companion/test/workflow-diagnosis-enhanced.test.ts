@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { failureFocusedLogExcerpt } from '../src/workflow-diagnosis-enhanced.ts';
+import { failureFocusedLogExcerpt } from '../src/operator/workflow-diagnosis-enhanced.ts';
 
 test('failure-focused excerpts keep error windows and the tail', () => {
   const prefix = Array.from({ length: 180 }, (_, index) => `setup line ${index}`);

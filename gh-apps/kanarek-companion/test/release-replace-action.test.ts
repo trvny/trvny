@@ -5,7 +5,7 @@ import {
   addReleaseReplaceOpenApi,
   replacementNamesMatch,
   RELEASE_ASSET_REPLACE_PATH,
-} from '../src/release-replace-action.ts';
+} from '../src/operator/release-replace-action.ts';
 
 test('safe replacement requires a stable release asset name', () => {
   assert.equal(replacementNamesMatch('kanarek.apk', 'kanarek.apk'), true);

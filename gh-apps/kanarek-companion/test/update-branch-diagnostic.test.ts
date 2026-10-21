@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { branchUpdatePermissionWarning } from '../src/companion-update.ts';
-import { render } from '../src/companion-view.ts';
+import { branchUpdatePermissionWarning } from '../src/companion/companion-update.ts';
+import { render } from '../src/companion/companion-view.ts';
 import type { GitHubInstallationClient } from '../../core/github-app.ts';
-import type { PullRequest } from '../src/companion-types.ts';
+import type { PullRequest } from '../src/companion/companion-types.ts';
 
 const pr: PullRequest = {
   additions: 1,

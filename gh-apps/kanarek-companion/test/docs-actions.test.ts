@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { addDocsOpenApi, handleDocsAction } from '../src/docs-actions.ts';
+import { addDocsOpenApi, handleDocsAction } from '../src/specialists/docs-actions.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 const origin = 'https://example.workers.dev';

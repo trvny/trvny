@@ -27,6 +27,21 @@ any Worker bound to it holds full GPTomek App authority.
 New domain behavior lives in the owning module and is only wired into a route
 table; shared ingress paths live in `paths.ts`.
 
+## Source layout
+
+`src/` root holds only composition (`runtime*.ts`, `entry.ts`, `index.ts`,
+`route.ts`, `paths.ts`, `custom-gpt-surface.ts`) and the shared core below.
+Domain code lives in one folder per owner:
+
+- `companion/`: Kanarek Companion, quips, webhook review.
+- `gptomek/`: GPTomek Bridge, GitHub gateway, GPT Actions routes.
+- `operator/`: Gremlin operator, policy, change, maintenance, release, Cloudflare.
+- `investigation/`: read-only code investigation and review lenses.
+- `specialists/`: Specialist Intelligence adapters, MCP, Anchor; `tools/` holds
+  the specialist registry plus shared `tools/common.ts`.
+
+`test/import-cycles.test.ts` fails on any runtime import cycle in `src/`.
+
 ## Runtime topology
 
 ```text
@@ -69,7 +84,7 @@ operator checkpoints.
 
 ## Kanarek Companion
 
-Primary files:
+Primary files (`src/companion/`, except root `index.ts`):
 
 - `index.ts`: verifies `X-Hub-Signature-256`, limits webhook body size, parses
   metadata, applies repository allowlists, deduplicates deliveries, and routes
@@ -95,6 +110,8 @@ the first controls reusable bank context; the second prevents stale comment or
 receipt reuse.
 
 ## Webhook review
+
+Files in `src/companion/`.
 
 `webhook-review.ts` is deliberately caller-side rather than part of
 `kanarek-review`, because it owns GitHub state, not provider routing. Context
@@ -126,7 +143,7 @@ small shared protocol. Provider credentials and model chains belong in
 
 ## GPTomek Bridge
 
-Primary files:
+Primary files (`src/gptomek/`; `github-app.ts` is `../../core/`):
 
 - `github-app.ts`: App JWT signing, installation tokens, and shared GitHub I/O.
 - `gptomek.ts`: typed bot operations, checkpointed command execution, branch
@@ -143,7 +160,8 @@ The maintained transport documentation is in `../../gptomek/docs/REFERENCE.md`.
 
 ## Gremlin
 
-The deployable `../gremlin` package imports the core from this tree.
+The deployable `../gremlin` package imports the core from this tree. Operator
+modules live in `src/operator/`, investigation helpers in `src/investigation/`.
 That makes these modules the canonical implementation:
 
 - `gremlin-router.ts`: operator route composition, OAuth wiring, OpenAPI
@@ -170,7 +188,8 @@ The maintained operator overview is
 
 ## Specialist Intelligence
 
-Specialists are intentionally narrow adapters, not arbitrary network proxies:
+Specialists (`src/specialists/`) are intentionally narrow adapters, not arbitrary
+network proxies:
 
 - `package-intelligence.ts` and `package-registry.ts`: package metadata,
   advisories, release/upstream evidence, and registry adapters.
@@ -191,7 +210,7 @@ justify it.
 
 ## Shared core
 
-Files with intentionally cross-subsystem responsibility include:
+Files with intentionally cross-subsystem responsibility (`src/` root) include:
 
 - `action-context.ts`: request-local GitHub transport and caching.
 - `conflict-response.ts`: normalized stale/conflict evidence.

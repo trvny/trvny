@@ -11,9 +11,9 @@ import {
   loadBank,
   scopedBankKey,
   shouldAskAiForBank,
-} from '../src/companion-bank.ts';
-import type { CompanionEnv } from '../src/companion-types.ts';
-import { hash } from '../src/quip.ts';
+} from '../src/companion/companion-bank.ts';
+import type { CompanionEnv } from '../src/companion/companion-types.ts';
+import { hash } from '../src/companion/quip.ts';
 
 const quipKey = 'aaaaaaaaaaaaaaaa';
 const aiEnv = {

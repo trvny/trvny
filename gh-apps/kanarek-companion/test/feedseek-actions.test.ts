@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { addFeedseekOpenApi, handleFeedseekAction as handleFeedseekActionGw } from '../src/feedseek-actions.ts';
+import { addFeedseekOpenApi, handleFeedseekAction as handleFeedseekActionGw } from '../src/specialists/feedseek-actions.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 type Invoke = (request: Request) => Promise<Response>;

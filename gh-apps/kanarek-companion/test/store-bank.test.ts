@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { storeBank } from '../src/companion-bank.ts';
-import type { CompanionEnv } from '../src/companion-types.ts';
+import { storeBank } from '../src/companion/companion-bank.ts';
+import type { CompanionEnv } from '../src/companion/companion-types.ts';
 
 test('returns false when every offered bank entry is rejected by validation', async () => {
   let listCalls = 0;

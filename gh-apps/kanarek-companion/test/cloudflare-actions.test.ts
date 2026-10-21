@@ -5,9 +5,9 @@ import { createActionFetch } from '../src/action-context.ts';
 import {
   addCloudflareOpenApi,
   handleCloudflareAction,
-} from '../src/cloudflare-actions.ts';
-import type { GremlinPolicy } from '../src/policy-actions.ts';
-import { customGptOpenApi } from '../src/gremlin-router.ts';
+} from '../src/operator/cloudflare-actions.ts';
+import type { GremlinPolicy } from '../src/operator/policy-actions.ts';
+import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
 
 type Env = Parameters<typeof handleCloudflareAction>[1];
 type FetchStub = (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>;

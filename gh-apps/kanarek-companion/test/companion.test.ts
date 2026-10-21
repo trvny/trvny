@@ -10,7 +10,7 @@ import {
   rememberQuip,
   shouldAskAiForBank,
   storeBank,
-} from '../src/companion-bank.ts';
+} from '../src/companion/companion-bank.ts';
 import {
   areas,
   blockerKinds,
@@ -20,8 +20,8 @@ import {
   render,
   size,
   status,
-} from '../src/companion.ts';
-import type { CompanionEnv } from '../src/companion.ts';
+} from '../src/companion/companion.ts';
+import type { CompanionEnv } from '../src/companion/companion.ts';
 
 const pr = {
   additions: 10,

@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 
-import { githubBotRequestAllowed, githubReadAllowed } from '../src/github-gateway.ts';
-import { handleGptActions, type GptActionsEnv } from '../src/gpt-actions.ts';
+import { githubBotRequestAllowed, githubReadAllowed } from '../src/gptomek/github-gateway.ts';
+import { handleGptActions, type GptActionsEnv } from '../src/gptomek/gpt-actions.ts';
 import { gptomekInstallationIdFor } from '../../core/github-app.ts';
-import { repositoryAllowedByPolicy } from '../src/policy-enforcement.ts';
+import { repositoryAllowedByPolicy } from '../src/operator/policy-enforcement.ts';
 import { repositoryInScope, repositoryPathInScope } from '../src/tools/common.ts';
 
 test('repository scope accepts exactly trvny/* and travnie/*', () => {

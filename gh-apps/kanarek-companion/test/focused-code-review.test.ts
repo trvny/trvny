@@ -7,7 +7,7 @@ import {
   FOCUSED_CODE_REVIEW_PATH,
   handleFocusedCodeReviewAction,
   reviewLensSummary,
-} from '../src/focused-code-review.ts';
+} from '../src/investigation/focused-code-review.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 type OpenApiOperation = {

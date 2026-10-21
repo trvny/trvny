@@ -1,0 +1,110 @@
+import { repoParts } from './companion-github.ts';
+import { GitHubApiError, type GitHubInstallationClient } from '../../../core/github-app.ts';
+import type {
+  BranchState,
+  CiState,
+  CompanionEnv,
+  PullRequest,
+  ReviewState,
+} from './companion-types.ts';
+
+const WRITE_PERMISSIONS = new Set(['admin', 'write']);
+const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
+
+export type BranchUpdateResult = 'accepted' | 'rejected' | 'indeterminate';
+
+function disabled(value: string | undefined): boolean {
+  return value ? FALSE_VALUES.has(value.trim().toLowerCase()) : false;
+}
+
+// Bots own their branches: a merge commit from Kanarek makes Dependabot stop
+// rebasing/recreating its PR, and other bots re-push anyway.
+export function botAuthored(pr: Pick<PullRequest, 'user'>): boolean {
+  return pr.user?.type === 'Bot' || Boolean(pr.user?.login?.endsWith('[bot]'));
+}
+
+export function shouldUpdateBranch(
+  pr: PullRequest,
+  branch: BranchState,
+  ci: CiState,
+  review: ReviewState,
+  repository: string,
+  ciRequired: boolean,
+  env: Pick<CompanionEnv, 'KANAREK_UPDATE_BRANCH'>,
+  kanarekReviewSettled = true,
+): boolean {
+  if (disabled(env.KANAREK_UPDATE_BRANCH)) return false;
+  if (pr.state !== 'open' || pr.draft || pr.merged) return false;
+  if (botAuthored(pr)) return false;
+  if (branch.behind === null || branch.behind <= 0) return false;
+  if (pr.head.repo?.full_name?.toLowerCase() !== repository.toLowerCase()) return false;
+  if (pr.mergeable !== true || pr.mergeable_state === 'dirty') return false;
+  if (ci.pending.length || ci.failed.length) return false;
+  if (ciRequired && ci.total === 0) return false;
+  if (review.changes > 0) return false;
+  // A new head restarts CI and the Kanarek review; never cut one short.
+  return kanarekReviewSettled;
+}
+
+function hasWritePermission(
+  client: GitHubInstallationClient,
+  permission: 'contents' | 'pull_requests',
+): boolean {
+  const value = client.permissions[permission];
+  return Boolean(value && WRITE_PERMISSIONS.has(value));
+}
+
+export function branchUpdatePermissionWarning(
+  client: GitHubInstallationClient,
+): string | null {
+  const missing: string[] = [];
+  if (!hasWritePermission(client, 'contents')) missing.push('Contents');
+  if (!hasWritePermission(client, 'pull_requests')) missing.push('Pull requests');
+  return missing.length
+    ? `auto-update unavailable · needs ${missing.join(' + ')} write`
+    : null;
+}
+
+export async function updateBranch(
+  client: GitHubInstallationClient,
+  repository: string,
+  pullRequestNumber: number,
+  expectedHeadSha: string,
+): Promise<BranchUpdateResult> {
+  if (branchUpdatePermissionWarning(client)) return 'rejected';
+
+  const [owner, repo] = repoParts(repository);
+  try {
+    await client.json<unknown>(
+      `/repos/${owner}/${repo}/pulls/${pullRequestNumber}/update-branch`,
+      'update_pull_request_branch',
+      {
+        method: 'PUT',
+        body: JSON.stringify({ expected_head_sha: expectedHeadSha }),
+      },
+    );
+    console.log(
+      JSON.stringify({
+        companionBranchUpdate: 'accepted',
+        expectedHeadSha,
+        pullRequestNumber,
+        repository,
+      }),
+    );
+    return 'accepted';
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        companionBranchUpdate: 'skipped',
+        pullRequestNumber,
+        repository,
+        reason: error instanceof Error ? error.message : 'unknown_error',
+        status: error instanceof GitHubApiError ? error.status : null,
+      }),
+    );
+    if (!(error instanceof GitHubApiError) || error.status >= 500) {
+      return 'indeterminate';
+    }
+    return 'rejected';
+  }
+}

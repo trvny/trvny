@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import gremlinRouter, { type GremlinRouterEnv } from '../src/gremlin-router.ts';
+import gremlinRouter, { type GremlinRouterEnv } from '../src/operator/gremlin-router.ts';
 
 test('standalone Gremlin router declines non-operator traffic', async () => {
   const response = await gremlinRouter.fetch(

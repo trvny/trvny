@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 
-import type { CompanionEnv, CompanionTarget } from '../src/companion-types.ts';
-import { commandMarker } from '../src/gptomek.ts';
+import type { CompanionEnv, CompanionTarget } from '../src/companion/companion-types.ts';
+import { commandMarker } from '../src/gptomek/gptomek.ts';
 import {
   GPTOMEK_CONTROL_ISSUE,
   GPTOMEK_WAKE_LABEL,
   handleGptomekCommentControl,
   handleGptomekIssueControl,
   isGptomekControlIssueEvent,
-} from '../src/gptomek-issue.ts';
+} from '../src/gptomek/gptomek-issue.ts';
 import worker, {
   companionTargets,
   isCompanionEvent,

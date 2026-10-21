@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { behindState, blockerKinds, commentStateHash, render } from '../src/companion.ts';
-import type { PullRequest } from '../src/companion-types.ts';
+import { behindState, blockerKinds, commentStateHash, render } from '../src/companion/companion.ts';
+import type { PullRequest } from '../src/companion/companion-types.ts';
 
 const basePr: PullRequest = {
   additions: 2,

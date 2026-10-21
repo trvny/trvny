@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { aiQuip } from '../src/quip.ts';
+import { aiQuip } from '../src/companion/quip.ts';
 
 test('does not copy provider error bodies into logs', async () => {
   const warnings: string[] = [];

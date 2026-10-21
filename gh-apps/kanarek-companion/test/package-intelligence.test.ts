@@ -7,7 +7,7 @@ import {
   githubRepositoryFromUrl,
   handlePackageIntelligenceAction as handlePackageIntelligenceActionGw,
   maintenanceSignals,
-} from '../src/package-intelligence.ts';
+} from '../src/specialists/package-intelligence.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 type Invoke = (request: Request) => Promise<Response>;

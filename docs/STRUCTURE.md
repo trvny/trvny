@@ -21,7 +21,7 @@
 | Component | Entry point / maintained source |
 | --- | --- |
 | Kanarek Companion | `gh-apps/kanarek-companion/src/runtime-entry.ts` |
-| GPT Actions / Gremlin | `gh-apps/kanarek-companion/src/router.ts`, `src/gpt-actions.ts`, `src/operator-actions.ts` |
+| GPT Actions / Gremlin | `gh-apps/kanarek-companion/src/operator/gremlin-router.ts`, `src/gptomek/gpt-actions.ts`, `src/operator/operator-actions.ts` |
 | status-mcp | `mcp/status-mcp/src/entry.ts` |
 | Pet Dispatcher local worker | `mcp/pet-dispatcher/src/index.ts` |
 | Pet Dispatcher control plane | `mcp/pet-dispatcher/control-plane/entry.ts` |

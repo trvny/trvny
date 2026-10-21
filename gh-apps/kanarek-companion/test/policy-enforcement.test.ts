@@ -6,11 +6,11 @@ import {
   effectiveMaintenancePolicy,
   filterAccountMaintenancePayload,
   repositoryAllowedByPolicy,
-} from '../src/policy-enforcement.ts';
+} from '../src/operator/policy-enforcement.ts';
 import type {
   GremlinPolicy,
   LoadedGremlinPolicy,
-} from '../src/policy-actions.ts';
+} from '../src/operator/policy-actions.ts';
 
 function policy(): GremlinPolicy {
   return {

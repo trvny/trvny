@@ -6,7 +6,7 @@ import {
   gptomekMailboxFailureIsTerminal,
   moveFiles,
   withCodexCoauthor,
-} from '../src/gptomek.ts';
+} from '../src/gptomek/gptomek.ts';
 import {
   GitHubApiError,
   type GitHubInstallationClient,

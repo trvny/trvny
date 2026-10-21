@@ -10,8 +10,8 @@ import {
   handleGptomekControl,
   handleGptomekMailboxCommand,
   resultMarker,
-} from '../src/gptomek.ts';
-import type { CompanionEnv, CompanionTarget, PullRequest } from '../src/companion-types.ts';
+} from '../src/gptomek/gptomek.ts';
+import type { CompanionEnv, CompanionTarget, PullRequest } from '../src/companion/companion-types.ts';
 
 const target: CompanionTarget = {
   delivery: 'delivery-remote-operator',

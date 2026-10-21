@@ -5,7 +5,7 @@ import {
   addEngramOpenApi,
   handleEngramAction as handleEngramActionGw,
   type EngramActionEnv,
-} from '../src/engram-actions.ts';
+} from '../src/specialists/engram-actions.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 type Invoke = (request: Request) => Promise<Response>;

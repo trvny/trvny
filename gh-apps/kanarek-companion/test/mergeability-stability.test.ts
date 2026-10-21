@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { blockerKinds, status } from '../src/companion.ts';
+import { blockerKinds, status } from '../src/companion/companion.ts';
 
 const calculating = {
   base: { ref: 'main', sha: 'a'.repeat(40) },

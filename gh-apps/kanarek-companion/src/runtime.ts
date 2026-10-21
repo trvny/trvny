@@ -1,19 +1,19 @@
 import { runWithActionRequestContext } from './action-context.ts';
 import type { ActionInvoke } from './action-auth.ts';
-import { AnchorMutationReplayStore } from './anchor-replay.ts';
-import { BUG_INVESTIGATION_PATH, handleBugInvestigationAction } from './bug-investigation.ts';
+import { AnchorMutationReplayStore } from './specialists/anchor-replay.ts';
+import { BUG_INVESTIGATION_PATH, handleBugInvestigationAction } from './investigation/bug-investigation.ts';
 import {
   CODE_CHANGE_AUTOPILOT_PATH,
   handleCodeChangeAutopilotAction,
-} from './code-change-orchestration.ts';
-import { CODE_HISTORY_PATH, handleCodeHistoryAction } from './code-history.ts';
-import { DEPENDENCY_GRAPH_PATH, handleDependencyGraphAction } from './dependency-graph.ts';
+} from './operator/code-change-orchestration.ts';
+import { CODE_HISTORY_PATH, handleCodeHistoryAction } from './investigation/code-history.ts';
+import { DEPENDENCY_GRAPH_PATH, handleDependencyGraphAction } from './investigation/dependency-graph.ts';
 import {
   FOCUSED_CODE_REVIEW_PATH,
   handleFocusedCodeReviewAction,
-} from './focused-code-review.ts';
+} from './investigation/focused-code-review.ts';
 import { enrichConflictResponse } from './conflict-response.ts';
-import { githubGateway, type GithubGateway } from './github-gateway.ts';
+import { githubGateway, type GithubGateway } from './gptomek/github-gateway.ts';
 import {
   actionFetch,
   CommentProbeLock,
@@ -23,27 +23,27 @@ import {
   ReviewProviderCooldownStore,
   type GatewayEnv,
 } from './entry.ts';
-import gremlinRouter from './gremlin-router.ts';
+import gremlinRouter from './operator/gremlin-router.ts';
 import companion from './index.ts';
 import { firstMatch, type Route } from './route.ts';
-import { handleReleaseEntryAction, RELEASE_ENTRY_UPLOAD_PATH } from './release-entry-action.ts';
+import { handleReleaseEntryAction, RELEASE_ENTRY_UPLOAD_PATH } from './operator/release-entry-action.ts';
 import {
   handleReleaseReplaceAction,
   RELEASE_ASSET_REPLACE_PATH,
-} from './release-replace-action.ts';
+} from './operator/release-replace-action.ts';
 import {
   gremlinMcpManifest as combinedGremlinMcpManifest,
   handleGremlinMcp as handleCombinedGremlinMcp,
-} from './mcp-adapter.ts';
+} from './specialists/mcp-adapter.ts';
 import { pluginMcpOpenApi, runtimeOpenApi } from './runtime-openapi.ts';
-import { reviewProviderPoolStateViaService } from './review-service.ts';
+import { reviewProviderPoolStateViaService } from './companion/review-service.ts';
 import {
   handleSymbolInvestigationAction,
   SYMBOL_INVESTIGATION_PATH,
-} from './symbol-investigation.ts';
-import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './test-discovery.ts';
-import { type WebhookReviewEnv } from './webhook-review-context.ts';
-import { scheduleWebhookReviewWebhook, WebhookReviewJob } from './webhook-review.ts';
+} from './investigation/symbol-investigation.ts';
+import { handleTargetedTestsAction, TARGETED_TESTS_PATH } from './investigation/test-discovery.ts';
+import { type WebhookReviewEnv } from './companion/webhook-review-context.ts';
+import { scheduleWebhookReviewWebhook, WebhookReviewJob } from './companion/webhook-review.ts';
 import { repositoryListAllows } from './index.ts';
 import { isObject, type JsonObject } from './tools/common.ts';
 import { json } from './json-response.ts';

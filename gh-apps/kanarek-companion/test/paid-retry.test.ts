@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { QUIP_PROMPT_SCOPE } from '../src/companion-bank.ts';
+import { QUIP_PROMPT_SCOPE } from '../src/companion/companion-bank.ts';
 import {
   paidQuipForBank,
   promptPreviousQuip,
   shouldCheckPaidReceipt,
-} from '../src/companion.ts';
+} from '../src/companion/companion.ts';
 
 const stateHash = '0123456789abcdef';
 const paidQuip = 'Kanarek pilnuje zielonych lampek i spokojnie zamyka skrzynke.';

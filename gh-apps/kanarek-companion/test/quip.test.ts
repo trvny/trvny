@@ -12,7 +12,7 @@ import {
   sanitize,
   shouldAskAi,
   validQuipLength,
-} from '../src/quip.ts';
+} from '../src/companion/quip.ts';
 
 test('keeps the refreshed Kanarek preset bank', () => {
   assert.equal(

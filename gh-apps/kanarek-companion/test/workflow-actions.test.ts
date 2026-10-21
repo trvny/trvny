@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { customGptOpenApi, restrictedBotWrite } from '../src/gremlin-router.ts';
+import { customGptOpenApi, restrictedBotWrite } from '../src/operator/gremlin-router.ts';
 import {
   workflowControlAllowed,
   workflowDispatchInputs,
   workflowIdentifierAllowed,
   workflowRefAllowed,
-} from '../src/workflow-actions.ts';
+} from '../src/operator/workflow-actions.ts';
 
 test('workflow control and dispatch are exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

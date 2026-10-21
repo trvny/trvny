@@ -5,8 +5,8 @@ import {
   deletePaidState,
   loadPaidState,
   storePaidState,
-} from '../src/companion-paid.ts';
-import type { CompanionEnv } from '../src/companion-types.ts';
+} from '../src/companion/companion-paid.ts';
+import type { CompanionEnv } from '../src/companion/companion-types.ts';
 
 const repository = 'trvny/trvny';
 const pullRequestNumber = 199;

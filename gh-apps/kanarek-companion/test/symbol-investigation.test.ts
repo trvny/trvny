@@ -8,7 +8,7 @@ import {
   likelyTestPath,
   symbolAllowed,
   symbolOccurrences,
-} from '../src/symbol-investigation.ts';
+} from '../src/investigation/symbol-investigation.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
 type JsonObject = Record<string, unknown>;

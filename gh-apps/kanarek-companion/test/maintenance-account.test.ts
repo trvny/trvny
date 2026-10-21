@@ -5,8 +5,8 @@ import {
   accountMaintenanceAttention,
   type AccountRepositoryMaintenance,
   summarizeAccountMaintenance,
-} from '../src/maintenance-account.ts';
-import { customGptOpenApi } from '../src/gremlin-router.ts';
+} from '../src/operator/maintenance-account.ts';
+import { customGptOpenApi } from '../src/operator/gremlin-router.ts';
 
 test('account maintenance is exposed in Custom GPT OpenAPI', () => {
   const document = customGptOpenApi('https://example.workers.dev') as {

@@ -1,4 +1,4 @@
-import { GPTOMEK_CONTROL_BRANCH } from '../gptomek-control.ts';
+import { GPTOMEK_CONTROL_BRANCH } from '../gptomek/gptomek-control.ts';
 
 export type JsonObject = Record<string, unknown>;
 

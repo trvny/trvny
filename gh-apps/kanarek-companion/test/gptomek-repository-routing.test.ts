@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { gptomekRepositoryAllowed } from '../src/gptomek.ts';
+import { gptomekRepositoryAllowed } from '../src/gptomek/gptomek.ts';
 
 test('allows GPTomek targets only in maintained owners', () => {
   assert.equal(gptomekRepositoryAllowed('trvny/feedseek'), true);

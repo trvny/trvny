@@ -9,7 +9,7 @@
   "version_metadata": {
     "binding": "CF_VERSION_METADATA"
   },
-  // GPTomek App JWTs signed by kanarek-companion; PEM stays there.
+  // GPTomek App JWTs signed by Automation; PEM stays there.
   "kv_namespaces": [
     {
       "binding": "OAUTH_KV",
@@ -19,7 +19,7 @@
   "services": [
     {
       "binding": "GPTOMEK_SIGNER",
-      "service": "kanarek-companion",
+      "service": "automation",
       "entrypoint": "GptomekSignerEntrypoint"
     }
   ],
@@ -32,12 +32,12 @@
       {
         "name": "OPERATOR_CHECKPOINTS",
         "class_name": "OperatorCheckpointStore",
-        "script_name": "kanarek-companion"
+        "script_name": "automation"
       },
       {
         "name": "ANCHOR_MUTATION_REPLAYS",
         "class_name": "AnchorMutationReplayStore",
-        "script_name": "kanarek-companion"
+        "script_name": "automation"
       }
     ]
   },

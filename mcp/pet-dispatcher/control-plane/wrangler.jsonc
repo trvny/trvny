@@ -32,7 +32,7 @@
     ]
   },
   "services": [
-    { "binding": "KANAREK_COMPANION", "service": "kanarek-companion" }
+    { "binding": "KANAREK_COMPANION", "service": "automation" }
   ],
   "durable_objects": {
     "bindings": [

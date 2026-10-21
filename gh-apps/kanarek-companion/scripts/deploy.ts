@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 
 import { guardedDeploy, poll } from '../../core/worker-deploy.mjs';
 
-const HEALTH_URL = 'https://kanarek-companion.travny.workers.dev/health';
+const HEALTH_URL = 'https://automation.travny.workers.dev/health';
 const commitSha = process.env.WORKERS_CI_COMMIT_SHA?.trim().toLowerCase();
 const workersCi = process.env.WORKERS_CI === '1';
 const validSha = Boolean(commitSha && /^[0-9a-f]{40}$/.test(commitSha));
@@ -24,7 +24,7 @@ if (!workersCi) {
 const sha = commitSha as string;
 process.exit(
   await guardedDeploy({
-    name: 'kanarek-companion',
+    name: 'automation',
     sha,
     // Mirrors the Workers Builds watch paths.
     paths: [

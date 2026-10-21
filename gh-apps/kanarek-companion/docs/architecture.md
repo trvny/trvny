@@ -12,6 +12,46 @@ identities, and domain-specific storage keys unchanged. The checkout/package
 path `gh-apps/kanarek-companion/` remains the maintained source while the
 infrastructure name is migrated; do not combine this with a directory move.
 
+### Read-only dependency snapshot (2026-10-21)
+
+The following inventory is a **baseline, not a cutover checklist marked
+complete**. Re-check all references and active Cloudflare configuration before
+any change to deployments, DNS, service bindings or Durable Objects.
+
+- **Existing Cloudflare identity:** `kanarek-companion` is deployed with
+  `workers.dev` enabled; `automation` is unused. The source Worker has no
+  cron schedule. The GitHub App slug `kanarek-companion` is a separate
+  identity and must remain unchanged.
+- **State owner:** `gh-apps/kanarek-companion/wrangler.jsonc` exports five
+  active SQLite DO classes: `CommentProbeLock`, `OperatorCheckpointStore`,
+  `ReviewProviderCooldownStore`, `WebhookReviewJob`, and
+  `AnchorMutationReplayStore`. Cloudflare confirmed five existing namespace
+  IDs. The `KANAREK_QUIP_KV` binding uses an existing KV namespace, with bank
+  and receipt data that must be preserved. Keep actual IDs out of the migration
+  patch and compare them through authorized read-only Cloudflare queries.
+- **Private Worker consumers:**
+  `gh-apps/gremlin/wrangler.jsonc` uses `GPTOMEK_SIGNER` RPC plus two external
+  DO bindings (`OPERATOR_CHECKPOINTS`, `ANCHOR_MUTATION_REPLAYS`);
+  `gh-apps/kanarek-review/wrangler.jsonc` has the external review cooldown DO;
+  `tg-bots/cloudflare-assistant/wrangler.jsonc` has `KANAREK_COMPANION` and
+  `BOTEK_SPECIALISTS` Service Bindings;
+  `mcp/pet-dispatcher/control-plane/wrangler.jsonc` has its own
+  `KANAREK_COMPANION` Service Binding. These are distinct consumers; do not
+  equate the public `gremlin` Worker with the shared runtime.
+- **Direct HTTP and automation callers:** `.github/workflows/gptomek-comment-command.yml`,
+  `.github/workflows/gptomek-issue-mailbox.yml`, `.github/workflows/gh-apps-ci.yml`,
+  `.github/workflows/automation-sync.yml`, `gh-apps/kanarek-companion/scripts/deploy.ts`,
+  `gh-apps/kanarek-companion/scripts/smoke-live.ts`, and
+  `gh-apps/shitpost-reactor/generate.mjs` embed the legacy URL or service name.
+  Include client-facing references in `pages/site/teksty/githubowa-kraina/universe.html`
+  when auditing public links.
+- **Unverified external state:** GitHub App webhook destinations, other
+  independent HTTP consumers, live DO instance/alarm schedules, Worker Builds
+  watch settings and security-sensitive secret *values* were **not** verified
+  by this source inventory. Confirm them separately, without exposing keys or
+  mutating running state. A successful health read does not prove alarm or
+  webhook continuity.
+
 ### Migration gates (one logical PR and verification per gate)
 
 1. **Inventory and baseline only.** Record live Worker name, deployments,

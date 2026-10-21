@@ -16,6 +16,7 @@ deployment/package slug, not every subsystem's name.
 - Split subsystem into another Worker only for materially different permissions/secrets, exposure, resource limits, deploy cadence or independent consumers.
 - Never log or persist private keys, OAuth bearer tokens or other credentials.
 - Keep mutation paths guarded against stale state, replay and duplicate side effects.
+- Never reset the quip bank (namespace bump, clear, or any change to `scopedBankKey`); each reset refills it with paid AI calls. Migrate or filter entries instead (`docs/state-and-safety.md`).
 - Prefer existing high-level guarded actions over new raw mutation endpoints.
 - GitHub access from modules: take a `GithubGateway` param (`github-gateway.ts`), never a synthetic `/gpt-actions/github/read|graphql` request through `below`.
   GPTomek `operator_action` must reuse GPT Actions bot-write policy; no parallel allowlist.

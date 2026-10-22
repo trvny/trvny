@@ -14,6 +14,7 @@ import {
   userRequest,
 } from './github-gateway.ts';
 import { repoPath, repositoryInScope } from '../tools/common.ts';
+import { withCodexCoauthor } from './gptomek.ts';
 import { json } from '../json-response.ts';
 
 const ACTIONS_PREFIX = '/gpt-actions';
@@ -270,7 +271,7 @@ async function commitFiles(
     {
       method: 'POST',
       body: JSON.stringify({
-        message,
+        message: withCodexCoauthor(message),
         tree: createdTree.sha,
         parents: [expectedHeadSha],
         author: BOT_IDENTITY,

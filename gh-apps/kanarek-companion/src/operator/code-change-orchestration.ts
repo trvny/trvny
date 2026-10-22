@@ -20,6 +20,7 @@ import {
 } from '../investigation/test-discovery.ts';
 import { internalRequest, isObject, type JsonObject, repoPath, stringOrNull, readJsonObject, repositoryInScope, repositoryOwner, DetailedCodedError } from '../tools/common.ts';
 import { GithubActionError, type GithubGateway, mapGithubError } from '../gptomek/github-gateway.ts';
+import { withCodexCoauthor } from '../gptomek/gptomek.ts';
 import { json } from '../json-response.ts';
 
 export const CODE_CHANGE_AUTOPILOT_PATH = '/gpt-actions/operator/code-change';
@@ -288,7 +289,9 @@ export function commitProvenanceMatches(
 ): boolean {
   if (!message) return false;
   const trailer = `\n\n${OPERATION_TRAILER}: ${operationId}\n${INPUT_HASH_TRAILER}: ${inputHash}`;
-  return message.endsWith(trailer);
+  // Accept signed commits and older unsigned checkpoints without weakening
+  // the operation-id and input-hash provenance match.
+  return message.endsWith(trailer) || message.endsWith(withCodexCoauthor(trailer));
 }
 
 export function recoveredChangedPathsAllowed(changed: string[], submitted: string[]): boolean {
@@ -1156,9 +1159,10 @@ async function verifyRecoveredCommit(
   if (!isObject(commit) || !Array.isArray(commit.parents) || commit.parents.length !== 1) return false;
   const parent = isObject(commit.parents[0]) ? stringOrNull(commit.parents[0].sha) : null;
   const message = isObject(commit.commit) ? stringOrNull(commit.commit.message) : null;
+  const expectedMessage = operationCommitMessage(edit.message, core.operationId, inputHash);
   if (
     parent?.toLowerCase() !== previousHead ||
-    message !== operationCommitMessage(edit.message, core.operationId, inputHash)
+    (message !== expectedMessage && message !== withCodexCoauthor(expectedMessage))
   ) return false;
   const files = Array.isArray(commit.files) ? commit.files : [];
   const changed = files

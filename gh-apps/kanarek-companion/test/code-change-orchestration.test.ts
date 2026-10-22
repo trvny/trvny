@@ -14,6 +14,7 @@ import {
   refactorVerificationBlockers,
   reviewGateBlockers,
 } from '../src/operator/code-change-orchestration.ts';
+import { withCodexCoauthor } from '../src/gptomek/gptomek.ts';
 
 test('code-change autopilot exposes implementCodeChange with stage action contracts', () => {
   const document: Record<string, any> = { paths: {} };
@@ -166,6 +167,9 @@ test('commit provenance binds recovery to operation id and input hash', () => {
   const hash = 'b'.repeat(64);
   const message = operationCommitMessage('fix: example', 'op-example123', hash);
   assert.equal(commitProvenanceMatches(message, 'op-example123', hash), true);
+  const signed = withCodexCoauthor(message);
+  assert.equal(commitProvenanceMatches(signed, 'op-example123', hash), true);
+  assert.equal(commitProvenanceMatches(signed, 'op-other1234', hash), false);
   assert.equal(commitProvenanceMatches(message, 'op-other1234', hash), false);
   assert.equal(commitProvenanceMatches(message, 'op-example123', 'c'.repeat(64)), false);
 });

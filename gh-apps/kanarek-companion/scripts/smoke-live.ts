@@ -5,7 +5,7 @@ type JsonObject = Record<string, unknown>;
 
 const ORIGIN =
   process.env.KANAREK_LIVE_ORIGIN ??
-  'https://kanarek-companion.travny.workers.dev';
+  'https://automation.travny.workers.dev';
 const ATTEMPTS = Number(process.env.KANAREK_SMOKE_ATTEMPTS ?? '36');
 const INTERVAL_MS = Number(process.env.KANAREK_SMOKE_INTERVAL_MS ?? '15000');
 const EXPECTED_COMMIT_SHA = (

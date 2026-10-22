@@ -16,7 +16,7 @@
       {
         "name": "KANAREK_REVIEW_COOLDOWNS",
         "class_name": "ReviewProviderCooldownStore",
-        "script_name": "kanarek-companion"
+        "script_name": "automation"
       }
     ]
   },

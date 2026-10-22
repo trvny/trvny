@@ -10,12 +10,12 @@
   "services": [
     {
       "binding": "KANAREK_COMPANION",
-      "service": "kanarek-companion",
+      "service": "automation",
       "remote": true
     },
     {
       "binding": "BOTEK_SPECIALISTS",
-      "service": "kanarek-companion",
+      "service": "automation",
       "entrypoint": "BotekSpecialistEntrypoint",
       "remote": true
     },

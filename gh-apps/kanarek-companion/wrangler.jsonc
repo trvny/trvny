@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "kanarek-companion",
+  "name": "automation",
   "main": "src/runtime-entry.ts",
   "compatibility_date": "2026-08-03",
   "compatibility_flags": ["nodejs_als"],

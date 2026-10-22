@@ -345,7 +345,8 @@ export function withGremlinOAuth(fallback: ExportedHandler<GremlinOAuthEnv>): Ex
     authorizeEndpoint: '/authorize',
     tokenEndpoint: '/oauth/token',
     clientRegistrationEndpoint: '/oauth/register',
-    clientIdMetadataDocumentEnabled: true,
+    // ChatGPT CIMD fetch: HTTP 404 from Workers. Use DCR fallback.
+    clientIdMetadataDocumentEnabled: false,
     scopesSupported: ['mcp', 'offline_access'],
     requiredScopes: ['mcp'],
     resourceMetadata: {

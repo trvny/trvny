@@ -1,6 +1,6 @@
 ---
 name: gremlin
-description: Use Gremlin for GPTomek writes, guarded code/CI/review/merge/release, account maintenance, Feedseek, package intelligence, specialist knowledge, or Gremlin-style humor.
+description: Use Gremlin only when explicitly requested, or for Feedseek, Brainrot/Rickroll-Lang specialist references, or Gremlin-themed creative work.
 ---
 
 # Gremlin

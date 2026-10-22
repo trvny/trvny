@@ -231,7 +231,7 @@ test('legacy initialize remains available for 2025 MCP clients', async () => {
   assert.equal(payload.result.protocolVersion, '2025-11-25');
 });
 
-test('Gremlin MCP excludes the other Engram provider without changing the shared specialist gateway', async () => {
+test('Gremlin MCP exposes only Feedseek without changing the shared specialist gateway', async () => {
   const document = { paths: {} };
   const response = await handleGremlinMcp(
     rpcRequest({ jsonrpc: '2.0', id: 7, method: 'tools/list' }, 'tools/list'),
@@ -244,7 +244,7 @@ test('Gremlin MCP excludes the other Engram provider without changing the shared
     result: { tools: Array<{ name: string }> };
   };
   assert.deepEqual(payload.result.tools.map((tool) => tool.name).sort(), [
-    'context7_search', 'feedseek_fetch', 'feedseek_recent', 'feedseek_search',
+    'feedseek_fetch', 'feedseek_recent', 'feedseek_search',
   ]);
 
   const blocked = await handleGremlinMcp(

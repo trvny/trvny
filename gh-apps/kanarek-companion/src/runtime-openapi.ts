@@ -14,13 +14,27 @@ import { addReleaseReplaceOpenApi } from './operator/release-replace-action.ts';
 import { addSymbolInvestigationOpenApi } from './investigation/symbol-investigation.ts';
 import { addTargetedTestsOpenApi } from './investigation/test-discovery.ts';
 
-// The legacy Custom GPT retained two routes for a different Engram provider.
-// Exclude them from the migrated plugin while preserving the old GPT fallback.
+// Gremlin plugin: high-value operator capabilities only. The legacy Custom GPT
+// keeps its broader Action list; ordinary providers use their own connectors.
 export const PLUGIN_MCP_OPERATION_IDS = [
-  ...CUSTOM_GPT_OPERATION_IDS.filter(
-    (id) => id !== 'searchEngramMemory' && id !== 'storeEngramMemory',
-  ),
-  'getDocsIndex',
+  'getOperatorBootstrap',
+  'getGremlinKnowledge',
+  'inspectPackage',
+  'getOperatorCapabilities',
+  'runOperatorSmokeTest',
+  'runOperatorAutopilot',
+  'getAccountMaintenance',
+  'runAccountMaintenanceAutofix',
+  'getRepositoryContext',
+  'prepareChange',
+  'implementCodeChange',
+  'investigateCode',
+  'reviewCodeChange',
+  'inspectPullRequest',
+  'finalizePullRequest',
+  'orchestrateRelease',
+  'diagnoseWorkflowRun',
+  'githubBotRequest',
 ] as const;
 
 function fullRuntimeOpenApi(origin: string): Record<string, unknown> {

@@ -14,12 +14,11 @@ export const MCP_PROTOCOL_VERSION = '2026-07-28';
 const LEGACY_PROTOCOL_VERSION = '2025-11-25';
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([MCP_PROTOCOL_VERSION, LEGACY_PROTOCOL_VERSION]);
 const MAX_REQUEST_BYTES = 64_000;
-// These routes target engrammemory.ai, not the user's getengram.app account.
-// Leave the shared specialist gateway intact for existing non-Gremlin consumers.
-const GREMLIN_EXCLUDED_SPECIALISTS = new Set<string>([
-  'engram_status',
-  'engram_search',
-  'engram_store',
+// Only Feedseek remains unique to Gremlin's MCP. Keep the shared gateway intact.
+const GREMLIN_SPECIALISTS = new Set<string>([
+  'feedseek_search',
+  'feedseek_fetch',
+  'feedseek_recent',
 ]);
 const HTTP_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete']);
 
@@ -538,11 +537,11 @@ function gremlinSpecialistSurface(
   return {
     ...source,
     tools: () => source.tools().filter(
-      (tool) => !GREMLIN_EXCLUDED_SPECIALISTS.has(String(tool.name)),
+      (tool) => GREMLIN_SPECIALISTS.has(String(tool.name)),
     ),
-    hasTool: (name) => !GREMLIN_EXCLUDED_SPECIALISTS.has(name) && source.hasTool(name),
+    hasTool: (name) => GREMLIN_SPECIALISTS.has(name) && source.hasTool(name),
     callTool(name, args) {
-      if (GREMLIN_EXCLUDED_SPECIALISTS.has(name)) {
+      if (!GREMLIN_SPECIALISTS.has(name)) {
         throw new InvalidToolArgumentsError(name);
       }
       return source.callTool(name, args);
@@ -565,7 +564,7 @@ function combinedSurface(
   return {
     serverInfo: OPERATOR_SERVER_INFO,
     instructions:
-      'Guarded MechaGremlin operator and specialist tools. Prefer high-level operator workflows for repository and Cloudflare work; use Context7 and Feedseek specialist tools. Anchor storage requires separate Anchor OAuth via the connected app. Preserve existing policy checks and verify remote side effects before claiming success.',
+      'Guarded GPTomek workflows and Feedseek. Use direct provider apps for ordinary calls.',
     serializeBatchToolCalls: true,
     tools: () => [...primaryTools, ...secondaryTools].map((tool) => ({ ...tool })),
     hasTool: (name) => primary.hasTool(name) || secondary.hasTool(name),
@@ -622,7 +621,7 @@ export function operatorMcpManifest(document: JsonObject): JsonObject {
 export function gremlinMcpManifest(document: JsonObject): JsonObject {
   const operatorToolNames = [...operatorRoutes(document).keys()].sort();
   const specialistNames = specialistToolNames()
-    .filter((name) => !GREMLIN_EXCLUDED_SPECIALISTS.has(name))
+    .filter((name) => GREMLIN_SPECIALISTS.has(name))
     .sort();
   return {
     path: MCP_PATH,

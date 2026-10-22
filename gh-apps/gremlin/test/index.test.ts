@@ -34,10 +34,10 @@ test('Gremlin worker owns GPT Actions routes and preserves auth', async () => {
   assert.equal(response.status, 401);
 });
 
-test('Gremlin owns the full migrated MCP surface', async () => {
+test('Gremlin advertises a lean, non-overlapping MCP surface', async () => {
   const manifest = gremlinMcpManifest(ORIGIN) as { toolNames?: string[] };
-  assert.equal(manifest.toolNames?.length, 32);
-  assert.ok(manifest.toolNames?.includes('getDocsIndex'));
+  assert.equal(manifest.toolNames?.length, 21);
+  assert.equal(manifest.toolNames?.includes('getDocsIndex'), false);
   assert.ok(manifest.toolNames?.includes('implementCodeChange'));
   for (const stale of [
     'engram_status', 'engram_search', 'engram_store',
@@ -45,7 +45,7 @@ test('Gremlin owns the full migrated MCP surface', async () => {
   ]) {
     assert.equal(manifest.toolNames?.includes(stale), false, stale);
   }
-  assert.ok(manifest.toolNames?.includes('context7_search'));
+  assert.equal(manifest.toolNames?.includes('context7_search'), false);
   assert.ok(manifest.toolNames?.includes('feedseek_recent'));
   assert.equal(manifest.toolNames?.includes('useGremlinStorage'), false);
 
@@ -99,7 +99,7 @@ test('Gremlin worker serves the full runtime action surface', async () => {
 
 // Capability and smoke metadata must reflect the curated Gremlin provider,
 // not the legacy 37-tool shared gateway that still serves old GPT Actions.
-test('Gremlin capability metadata hashes the same 28 operators it exposes', async () => {
+test('Gremlin capability metadata hashes the same 18 operators it exposes', async () => {
   const capabilities = await gremlinGatewayManifest(ORIGIN, {
     id: 'test-worker-version',
     tag: 'test',
@@ -108,10 +108,10 @@ test('Gremlin capability metadata hashes the same 28 operators it exposes', asyn
     openApi: { operationIds: string[]; operationCount: number; capabilityDigest: string };
     mcp: { toolNames: string[] };
   };
-  assert.equal(capabilities.openApi.operationCount, 28);
-  assert.equal(capabilities.openApi.operationIds.length, 28);
+  assert.equal(capabilities.openApi.operationCount, 18);
+  assert.equal(capabilities.openApi.operationIds.length, 18);
   assert.ok(capabilities.openApi.capabilityDigest.startsWith('sha256:'));
-  assert.equal(capabilities.mcp.toolNames.length, 32);
+  assert.equal(capabilities.mcp.toolNames.length, 21);
   for (const name of ['searchEngramMemory', 'storeEngramMemory']) {
     assert.equal(capabilities.openApi.operationIds.includes(name), false);
     assert.equal(capabilities.mcp.toolNames.includes(name), false);

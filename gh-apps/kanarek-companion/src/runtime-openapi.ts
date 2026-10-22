@@ -2,7 +2,6 @@ import { addBugInvestigationOpenApi } from './investigation/bug-investigation.ts
 import { addCodeChangeAutopilotOpenApi } from './operator/code-change-orchestration.ts';
 import { addCodeHistoryOpenApi } from './investigation/code-history.ts';
 import {
-  CUSTOM_GPT_OPERATION_IDS,
   curateCustomGptOpenApi,
   curateOpenApiOperations,
 } from './custom-gpt-surface.ts';

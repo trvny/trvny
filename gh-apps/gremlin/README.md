@@ -41,7 +41,7 @@ Deployment prerequisites:
 4. Run `npm ci && npm run check` before promoting the Worker; inspect
    `/.well-known/oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`,
    and the unauthenticated `/mcp` challenge. Complete the browser sign-in.
-5. Verify `tools/list` returns 32 distinct tools, test a read and a guarded
+5. Verify `tools/list` returns 21 distinct tools, test a read and a guarded
    reversible write, and exercise token refresh/revocation and unauthorized login.
    Do not retire the original GPT before these checks pass.
 
@@ -52,8 +52,7 @@ on its separately authenticated Anchor OAuth boundary.
 ### Migration status
 
 The standalone `gremlin` Worker is deployed and owns the public Gremlin
-origin. Its MCP exposes 28 guarded operators plus four Context7/Feedseek
-specialists. The retired Engram bridge was for a different provider than the
+origin. Its MCP exposes 18 guarded operators plus three Feedseek specialists. The retired Engram bridge was for a different provider than the
 user's getengram.app account. Its portable plugin source now targets
 `https://gremlin.travny.workers.dev/mcp`.
 

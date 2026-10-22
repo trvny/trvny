@@ -12,7 +12,7 @@ and [PR merge flow](../README.md#preferred-pr-merge-flow).
 - App ID: `4524407`
 - Installation ID: `152126523`
 - Runtime module: [`../../kanarek-companion/src/gptomek/gptomek.ts`](../../kanarek-companion/src/gptomek/gptomek.ts)
-- Shared Worker: `kanarek-companion`
+- Shared Cloudflare Worker: `automation` (source directory: `gh-apps/kanarek-companion`)
 - Worker secret: `GPTOMEK_PRIVATE_KEY`
 - Primary control mailbox: `trvny/trvny#203`
 - Wake relay: GitHub Actions → `POST /gptomek/wake` → shared Worker

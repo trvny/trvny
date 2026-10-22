@@ -4,8 +4,8 @@ GitHub App infrastructure for `trvny`.
 
 - [Automation (shared Worker)](kanarek-companion/) is the common runtime for
   Kanarek Companion, GPTomek Bridge, Gremlin operator actions, and specialists.
-  Its existing deployment and source directory remain `kanarek-companion` until
-  the separately gated Cloudflare migration.
+  Cloudflare deploys it as `automation`; its maintained source directory remains
+  `kanarek-companion`.
 - [kanarek-review](kanarek-review/) is the private free-review provider Worker
   reached from the companion through a Cloudflare Service Binding.
 - [GPTomek](gptomek/) is the coding bot identity and reuses the same Worker for
@@ -20,7 +20,7 @@ GitHub App infrastructure for `trvny`.
   (GitHub App auth, review-service protocol). Cross-app imports go through
   `core/`, never into another app's `src/`.
 
-**Automation** is the logical runtime name. `kanarek-companion` is still its
-Cloudflare script and package identifier, not a label for every subsystem.
-Keep private keys only in Worker secrets. Migration details and invariants live
-in [the architecture map](kanarek-companion/docs/architecture.md).
+**Automation** is both the logical runtime name and the deployed Cloudflare
+Worker name. `kanarek-companion` remains the directory/package and Kanarek
+GitHub App slug. Keep private keys only in Worker secrets. See
+[the architecture map](kanarek-companion/docs/architecture.md) for state invariants.

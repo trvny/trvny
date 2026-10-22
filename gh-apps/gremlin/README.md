@@ -66,7 +66,7 @@ existing Actions may continue to use the old companion origin.
 Remaining cutover work:
 
 1. Verify the updated private plugin in a fresh ChatGPT session: authenticate
-   the standalone Gremlin MCP, confirm the 32-tool live surface, and run parity
+   the standalone Gremlin MCP, confirm the 21-tool live surface, and run parity
    tests against the legacy GPT.
 2. The existing private MechaGremlin `0.31.10` deliberately does **not** bundle
    Anchor as an app dependency. Anchor remains separately accessible in ChatGPT

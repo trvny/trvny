@@ -464,7 +464,7 @@ export function openApiDocument(origin: string): Record<string, unknown> {
           operationId: 'githubBotRequest',
           summary: 'Call an allowlisted GitHub REST operation as gptomek[bot]',
           description:
-            'Use for comments, review replies, reactions, labels, issue/PR updates, merge, workflow reruns/dispatch, releases and uncommon repository operations. Creating pull requests as the bot is blocked; use createPullRequestAsTrvny. Set expect=empty for GitHub endpoints that return 204.',
+            'Use for allowlisted bot comments, review replies, reactions, labels and issue/PR updates. PR creation is not supported; file, workflow and release changes need guarded actions. Set expect=empty for GitHub endpoints that return 204.',
           requestBody: {
             required: true,
             content: {

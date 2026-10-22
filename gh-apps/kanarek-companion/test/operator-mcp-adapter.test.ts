@@ -9,6 +9,7 @@ import {
 import {
   PLUGIN_MCP_OPERATION_IDS,
   pluginMcpOpenApi,
+  runtimeOpenApi,
 } from '../src/runtime-openapi.ts';
 import { loopbackGateway } from './support/loopback-gateway.ts';
 
@@ -83,10 +84,11 @@ test('operator MCP lists the migrated Gremlin action names from curated OpenAPI'
     [...PLUGIN_MCP_OPERATION_IDS].sort(),
   );
 
-  const githubRead = payload.result.tools.find((tool) => tool.name === 'githubRead');
-  assert.ok(githubRead);
-  assert.ok(githubRead.inputSchema?.required?.includes('path'));
-  assert.ok(githubRead.inputSchema?.properties?.path);
+  const context = payload.result.tools.find((tool) => tool.name === 'getRepositoryContext');
+  assert.ok(context);
+  assert.ok(context.inputSchema?.required?.includes('repository'));
+  assert.ok(context.inputSchema?.properties?.repository);
+  assert.equal(payload.result.tools.some((tool) => tool.name === 'githubRead'), false);
 });
 
 test('Gremlin MCP exposes only current operator, Context7 and Feedseek tools', async () => {
@@ -110,10 +112,9 @@ test('Gremlin MCP exposes only current operator, Context7 and Feedseek tools', a
     result: { tools: Array<{ name: string }> };
   };
   const names = payload.result.tools.map((tool) => tool.name);
-  assert.equal(names.length, 32);
+  assert.equal(names.length, 21);
   for (const name of PLUGIN_MCP_OPERATION_IDS) assert.ok(names.includes(name), name);
   for (const name of [
-    'context7_search',
     'feedseek_search',
     'feedseek_fetch',
     'feedseek_recent',
@@ -121,8 +122,11 @@ test('Gremlin MCP exposes only current operator, Context7 and Feedseek tools', a
     assert.ok(names.includes(name), name);
   }
   for (const excluded of [
-    'engram_status', 'engram_search', 'engram_store',
-    'searchEngramMemory', 'storeEngramMemory',
+    'engram_status', 'engram_search', 'engram_store', 'context7_search',
+    'searchEngramMemory', 'storeEngramMemory', 'githubRead', 'getDoc',
+    'getDocsIndex', 'searchDocs', 'searchContext7Docs', 'getCloudflareOverview',
+    'createPullRequestAsTrvny', 'searchFeedseek', 'fetchFeedseekEntry',
+    'getRecentFeedseekEntries',
   ]) {
     assert.equal(names.includes(excluded), false, excluded);
   }
@@ -177,7 +181,7 @@ test('operator MCP dispatches githubRead through the guarded Action route', asyn
       'tools/call',
       'githubRead',
     ),
-    pluginMcpOpenApi(ORIGIN),
+    runtimeOpenApi(ORIGIN),
     async (request) => {
       calls += 1;
       assert.equal(request.headers.get('authorization'), 'Bearer github-oauth-token');
@@ -266,7 +270,7 @@ test('operator MCP reports Action failures without replaying or hiding them', as
       'tools/call',
       'githubRead',
     ),
-    pluginMcpOpenApi(ORIGIN),
+    runtimeOpenApi(ORIGIN),
     async () => {
       calls += 1;
       if (calls === 1) return operatorAuthResponse();
@@ -319,7 +323,7 @@ test('operator MCP serializes batched tool calls so writes cannot overlap', asyn
       ],
       'tools/call',
     ),
-    pluginMcpOpenApi(ORIGIN),
+    runtimeOpenApi(ORIGIN),
     async (request) => {
       const body = await readJson(request);
       if (body.path === '/user') return operatorAuthResponse();

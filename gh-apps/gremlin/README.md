@@ -41,7 +41,7 @@ Deployment prerequisites:
 4. Run `npm ci && npm run check` before promoting the Worker; inspect
    `/.well-known/oauth-protected-resource/mcp`, `/.well-known/oauth-authorization-server`,
    and the unauthenticated `/mcp` challenge. Complete the browser sign-in.
-5. Verify `tools/list` returns 32 distinct tools, test a read and a guarded
+5. Verify `tools/list` returns 21 distinct tools, test a read and a guarded
    reversible write, and exercise token refresh/revocation and unauthorized login.
    Do not retire the original GPT before these checks pass.
 
@@ -52,8 +52,7 @@ on its separately authenticated Anchor OAuth boundary.
 ### Migration status
 
 The standalone `gremlin` Worker is deployed and owns the public Gremlin
-origin. Its MCP exposes 28 guarded operators plus four Context7/Feedseek
-specialists. The retired Engram bridge was for a different provider than the
+origin. Its MCP exposes 18 guarded operators plus three Feedseek specialists. The retired Engram bridge was for a different provider than the
 user's getengram.app account. Its portable plugin source now targets
 `https://gremlin.travny.workers.dev/mcp`.
 
@@ -67,7 +66,7 @@ existing Actions may continue to use the old companion origin.
 Remaining cutover work:
 
 1. Verify the updated private plugin in a fresh ChatGPT session: authenticate
-   the standalone Gremlin MCP, confirm the 32-tool live surface, and run parity
+   the standalone Gremlin MCP, confirm the 21-tool live surface, and run parity
    tests against the legacy GPT.
 2. The existing private MechaGremlin `0.31.10` deliberately does **not** bundle
    Anchor as an app dependency. Anchor remains separately accessible in ChatGPT

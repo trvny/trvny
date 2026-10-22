@@ -64,9 +64,8 @@ while the repository uses `skills/gremlin/` as its single portable skill layout.
 The only retained style file is `references/gremlin-style.md`, and
 `agents/openai.yaml` contains UI metadata, not behavior duplication.
 
-The repository package is synchronized with the existing private plugin
-release `0.31.10` (Gremlin's reduced 32-tool MCP; Anchor is an independent
-ChatGPT app and not a bundled dependency).
+The historical portable package was synchronized with private release
+`0.31.10` (then a 32-tool MCP; Anchor was a separate ChatGPT app).
 The working MCP App binding, skill metadata, knowledge index and original PNG
 logo are synchronized in the portable source.
 
@@ -83,30 +82,21 @@ Builder-facing repository surface deliberately selected 29 of them because the
 separately authenticated Anchor action occupied the remaining Custom GPT action
 slot. The missing web operation was `getDocsIndex`.
 
-The plugin MCP is not constrained by the Custom GPT action-count limit.
-`PLUGIN_MCP_OPERATION_IDS` restores all 30 web operation names. Their schemas
-come from the maintained OpenAPI and calls dispatch through the existing
-guarded Action routes instead of copying mutation policy.
+The legacy Custom GPT retains its Action inventory. The current plugin MCP
+uses a separate 18-operation allowlist in `PLUGIN_MCP_OPERATION_IDS`, rather
+than exposing the whole legacy Action surface. Each operator still dispatches
+to the same guarded runtime without copying mutation policy.
 
 ### Specialist intelligence
 
-The standalone Gremlin MCP exposes four direct specialists:
+Only the three Feedseek specialists remain directly exposed by the plugin:
+`feedseek_search`, `feedseek_fetch`, `feedseek_recent`. The two historical
+Context7 aliases and four overlapping Feedseek Action aliases are no longer
+advertised. Context7 and routine GitHub/Cloudflare operations use their own
+connected apps. The legacy Action implementations remain untouched.
 
-- `context7_search`
-- `feedseek_search`
-- `feedseek_fetch`
-- `feedseek_recent`
-
-Together with 28 guarded operators, the expected surface is **32 tools**.
-Two legacy operator actions (`searchEngramMemory`, `storeEngramMemory`) and
-three direct Engram specialist tools were removed only from Gremlin's surface.
-They targeted `api.engrammemory.ai`, not the user's `getengram.app` account.
-The shared Kanarek/legacy implementation remains unchanged to avoid breaking
-other consumers, and this removal does not alter the separate ChatGPT Engram
-OAuth connection. Context7 and Feedseek were verified live.
-
-The getengram.app dashboard/API-key problems (get-engram/engram#471 and #401)
-remain external; no token rotation or fake compatibility bridge is warranted.
+Together with 18 guarded operators, the plugin advertises **21 MCP tools**.
+Engram's wrong-provider adapter remains excluded, and Anchor stays separate.
 
 ### Anchor storage
 
@@ -151,22 +141,12 @@ These are capabilities too, not implementation trivia:
 The portable plugin points at
 `https://gremlin.travny.workers.dev/mcp`.
 
-## Connected-app routing and overlap audit (2026-10-22)
+## Lean plugin MCP (2026-10-22)
 
-The canonical selection rule lives in `plugin/skills/gremlin/SKILL.md`. This audit records the existing capability overlap; it **does not** retire MCP tools, alter OAuth or migrate backend state.
-
-| Surface | Prefer in current ChatGPT | Why the Gremlin surface stays for now |
-| --- | --- | --- |
-| `githubRead`, `getDoc`, `getDocsIndex`, `searchDocs` | Connected GitHub for ordinary file/repo reads | Legacy GPT and MCP consumers still use these; `searchDocs` also supports curated `llms.txt` sites. |
-| `context7_search` / `searchContext7Docs` | Connected Context7 for library docs | Two entrypoints share specialist implementation; legacy clients still use the bridge. |
-| `getCloudflareOverview` | Connected Cloudflare for routine account/resource operations | Gremlin provides safe operator inventory. The advertised 32-tool MCP contains the overview, **not** every guarded Cloudflare mutation in the runtime; check live tool availability before acting. |
-| `implementCodeChange`, `finalizePullRequest`, `orchestrateRelease`, maintenance/CI helpers | Gremlin for governed multi-step operations | GPTomek attribution, exact-state checks, resumability and final-head gates are not equivalent to raw provider calls. |
-| Feedseek and Gremlin knowledge/package intelligence | Gremlin | Specialist behavior has no verified direct replacement in this setup. |
-| Engram and Anchor | Separately connected Engram and Anchor apps | Their bridges are absent from the current Gremlin MCP; do not reintroduce proxy credentials or copy personal data. |
-
-Verified repository consumers/guards include `gh-apps/kanarek-companion/src/custom-gpt-surface.ts`, `src/runtime-openapi.ts`, `src/tools/registry.ts` (under that same app), `gh-apps/gremlin/test/index.test.ts` and `gh-apps/kanarek-companion/test/operator-mcp-adapter.test.ts`. The 32-tool compatibility tests, legacy Builder instructions and independently authenticated connections remain in place. Remove a candidate adapter only after inspecting callers, proving feature/auth parity and migrating its legacy consumers.
-
-The operator bootstrap's `preferredActions` previously named `searchEngramMemory` and `useGremlinStorage` despite their absence from the plugin MCP. Those stale preferences are removed without deleting legacy routes or independent app access.
+The plugin publishes only distinctive operator and Feedseek tools. Ordinary
+provider reads and writes do not need Gremlin or a model-side routing guide.
+Old GPT Actions, specialist gateway internals and GPTomek attribution remain
+unchanged. Before removing backend adapters, verify remaining non-plugin clients.
 
 ## Preserved runtime boundaries
 
@@ -201,14 +181,14 @@ The operator bootstrap's `preferredActions` previously named `searchEngramMemory
 
 ## Acceptance gates
 
-1. The standalone Gremlin MCP advertises exactly **32 names**: 28 operator
-   operations including `getDocsIndex`, plus four Context7/Feedseek specialists;
-   no removed Engram tool remains callable.
+1. The standalone Gremlin MCP advertises exactly **21 names**: 18 guarded
+   operators and three Feedseek specialists. No removed GitHub, Cloudflare,
+   Context7 or wrong-provider Engram wrapper is callable through its MCP.
 2. MCP authentication fails closed before tool execution.
 3. Representative read and write tools reach the existing guarded Action
    handlers with OAuth identity preserved.
 4. Repository reads, context/investigation, guarded writes, Cloudflare reads and
-   mutations, representative Context7 and Feedseek reads, release/workflow
+   mutations, representative Feedseek reads, release/workflow
    operations and failure paths pass smoke tests. No wrong-provider Engram
    endpoint is exposed by the Gremlin Worker.
 5. GPTomek-authored writes still use the existing bridge and final-side-effect

@@ -70,16 +70,20 @@ test('combined Custom GPT actions stay at the 30-operation limit', () => {
   assert.equal(main.length + anchor.length, CUSTOM_GPT_OPERATION_LIMIT);
 });
 
-test('plugin MCP excludes wrong-provider Engram actions and includes docs index', () => {
+test('plugin MCP exposes only unique Gremlin operations', () => {
   const ids = operationIds(pluginMcpOpenApi('https://example.workers.dev'));
   const expected = [...PLUGIN_MCP_OPERATION_IDS].sort();
 
-  assert.equal(PLUGIN_MCP_OPERATION_IDS.length, CUSTOM_GPT_OPERATION_LIMIT - 2);
+  assert.equal(PLUGIN_MCP_OPERATION_IDS.length, 18);
   assert.equal(new Set(PLUGIN_MCP_OPERATION_IDS).size, PLUGIN_MCP_OPERATION_IDS.length);
-  assert.equal(ids.length, CUSTOM_GPT_OPERATION_LIMIT - 2);
+  assert.equal(ids.length, 18);
   assert.deepEqual(ids, expected);
-  assert.ok(ids.includes('getDocsIndex'));
-  for (const excluded of ['searchEngramMemory', 'storeEngramMemory']) {
+  assert.ok(ids.includes('implementCodeChange'));
+  for (const excluded of [
+    'searchEngramMemory', 'storeEngramMemory', 'githubRead', 'getDoc', 'getDocsIndex',
+    'searchDocs', 'searchContext7Docs', 'getCloudflareOverview', 'createPullRequestAsTrvny',
+    'searchFeedseek', 'getRecentFeedseekEntries', 'fetchFeedseekEntry',
+  ]) {
     assert.equal(ids.includes(excluded), false, excluded);
   }
   assert.ok(!ids.includes('useGremlinStorage'));

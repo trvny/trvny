@@ -10,35 +10,14 @@
       "unrelated_destructive_change_required",
       "external_secret_or_approval_required"
     ],
-    "preferredActions": [
-      "getOperatorBootstrap",
-      "getGremlinKnowledge",
-      "searchDocs",
-      "searchContext7Docs",
-      "searchFeedseek",
-      "getRecentFeedseekEntries",
-      "fetchFeedseekEntry",
-      "inspectPackage",
-      "getCloudflareOverview",
-      "getOperatorCapabilities",
-      "runOperatorSmokeTest",
-      "runOperatorAutopilot",
-      "getAccountMaintenance",
-      "runAccountMaintenanceAutofix",
-      "getRepositoryContext",
-      "prepareChange",
-      "implementCodeChange",
-      "investigateCode",
-      "reviewCodeChange",
-      "inspectPullRequest",
-      "finalizePullRequest",
-      "orchestrateRelease",
-      "diagnoseWorkflowRun"
-    ]
+    "preferredActions": []
   },
   "runtime": {
     "repositories": {
-      "include": ["trvny/*", "travnie/*"],
+      "include": [
+        "trvny/*",
+        "travnie/*"
+      ],
       "exclude": [],
       "skipArchived": true
     },
@@ -59,7 +38,9 @@
       "requireExpectedHeadSha": true
     },
     "release": {
-      "allowedBranches": ["main"],
+      "allowedBranches": [
+        "main"
+      ],
       "requireExpectedTargetSha": true
     },
     "cloudflare": {

@@ -31,8 +31,10 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#1072](https://github.com/trvny/trvny/pull/1072) | deps: bump the npm group in /mcp/status-mcp with 2 updates | @dependabot[bot] | ready | 2026-10-19 |
-| trvny/trvny | [#1074](https://github.com/trvny/trvny/pull/1074) | ci: deploy Workers only via Workers Builds | @trvny | ready | 2026-10-19 |
+| trvny/feedseek | [#504](https://github.com/trvny/feedseek/pull/504) | chore(deps-dev): bump ruff from 0.17.0 to 0.17.1 | @dependabot[bot] | ready | 2026-10-21 |
+| trvny/feedseek | [#505](https://github.com/trvny/feedseek/pull/505) | chore(deps-dev): bump wrangler from 4.149.0 to 4.151.1 in /feeds-proxy | @dependabot[bot] | ready | 2026-10-21 |
+| trvny/trvny | [#1129](https://github.com/trvny/trvny/pull/1129) | chore: stage in-place Automation Worker rename | @trvny | draft | 2026-10-21 |
+| trvny/tvpi | [#127](https://github.com/trvny/tvpi/pull/127) | chore(deps-dev): bump wrangler from 4.149.0 to 4.151.1 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-10-21 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

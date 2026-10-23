@@ -186,6 +186,13 @@ Groq task lanes keep their task-specific effort and receive the same floor
 whenever reasoning is enabled; large Groq requests are conservatively fitted to
 the model context window before dispatch and skipped if the 16K reasoning floor
 cannot fit.
+AIHubMix and OrcaRouter pinned models carry per-model profiles
+(`*_MODEL_PROFILES` in `src/review-router.ts`, from the providers' model
+catalogs): context window (oversized payloads skip to the next model), output
+ceiling, the 16K floor for models that think by default, and `reasoning_effort`
+snapped to the model's accepted levels (low for quips, configured effort for
+reasoning lanes). Models without an effort list never get the field; unknown
+models pass through unchanged.
 Gemini Flex pins high reasoning with the same floor and strips deprecated
 sampling, thinking-budget, and candidate-count fields inherited from shared
 OpenAI-compatible callers. DeepSeek keeps its separate max-effort 128K contract. The dormant Workers AI fallback is configured for 16K output

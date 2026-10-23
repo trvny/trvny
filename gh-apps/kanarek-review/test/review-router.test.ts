@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   fitProviderAttemptTokenBudget,
   handleReviewRouterRequest,
+  nearestReasoningEffort,
   REVIEW_ROUTER_MODEL_DEFAULTS,
   reviewFreeProbeTimeoutMs,
   reviewProviderPoolHealth,
@@ -1235,6 +1236,43 @@ test('AIHubMix shares one model pool but orders it by task', async () => {
   ]);
 });
 
+test('reasoning effort snaps to the nearest accepted level', () => {
+  assert.equal(nearestReasoningEffort('high', ['low', 'medium', 'xhigh']), 'medium');
+  assert.equal(nearestReasoningEffort('low', ['minimal', 'high']), 'minimal');
+  assert.equal(nearestReasoningEffort('medium', ['low', 'high']), 'low');
+  assert.equal(nearestReasoningEffort('max', ['low', 'high']), 'high');
+  assert.equal(nearestReasoningEffort('turbo', ['low']), undefined);
+});
+
+test('AIHubMix applies per-model context, output and reasoning profiles', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free',
+    stream: false,
+    max_tokens: 256,
+    // ~150k bytes: over lfm's 131k window, within gemma's 262k.
+    messages: [{ role: 'user', content: 'x'.repeat(150_000) }],
+  }), {
+    ...auth,
+    AIHUBMIX_API_KEY: 'aihubmix-key',
+    KANAREK_REVIEW_AIHUBMIX_MODELS: 'lfm-2.5-2.6b-free,gemma-4-31b-it-free,coding-kimi-k3-free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    bodies.push(body);
+    return Promise.resolve(new Response('busy', { status: 503 }));
+  }) as typeof fetch);
+
+  assert.notEqual(response?.status, 200);
+  // lfm never called: payload over its window.
+  assert.deepEqual(bodies.map((body) => body.model), ['coding-kimi-k3-free', 'gemma-4-31b-it-free']);
+  // K3 always thinks at max: floor raised, no effort sent.
+  assert.equal(bodies[0]?.reasoning_effort, undefined);
+  assert.equal(bodies[0]?.max_tokens, 16_384);
+  // gemma: low task -> minimal effort, no thinking floor.
+  assert.equal(bodies[1]?.reasoning_effort, 'minimal');
+  assert.equal(bodies[1]?.max_tokens, 256);
+});
+
 test('provider health exposes budget classes and task queues', async () => {
   const health = await reviewProviderPoolHealth({
     ...auth,
@@ -1305,7 +1343,8 @@ test('judge-style fake call falls through after OrcaRouter rejects an oversized 
     'https://router.huggingface.co/v1/chat/completions',
   ]);
   assert.equal(calls[0]?.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS[0]);
-  assert.equal(calls.every(({ maxTokens }) => maxTokens === 1_024), true);
+  // Thinking model gets the reasoning floor; others keep the caller budget.
+  assert.deepEqual(calls.map(({ maxTokens }) => maxTokens), [16_384, 1_024]);
 });
 
 test('OrcaRouter context-window rejection falls through without poisoning later compact calls', async () => {
@@ -1431,7 +1470,8 @@ test('OrcaRouter auto keeps generic free-router calls provider-only', async () =
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(upstreamBody.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS[0]);
   assert.deepEqual(upstreamBody.messages, messages);
-  assert.equal(upstreamBody.max_tokens, 256);
+  assert.equal(upstreamBody.max_tokens, 16_384);
+  assert.equal(upstreamBody.reasoning_effort, 'low');
   assert.deepEqual(await response?.json(), upstreamPayload);
 });
 
@@ -1477,7 +1517,8 @@ test('OrcaRouter auto passes a fake PR-review payload without owning review sema
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.equal(upstreamBody.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS[0]);
   assert.deepEqual(upstreamBody.messages, messages);
-  assert.equal(upstreamBody.max_tokens, 4_096);
+  assert.equal(upstreamBody.max_tokens, 16_384);
+  assert.equal(upstreamBody.reasoning_effort, 'high');
   assert.deepEqual(await response?.json(), upstreamPayload);
 });
 

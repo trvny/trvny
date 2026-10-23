@@ -142,6 +142,17 @@ test('parseContent accepts a text shitpost', () => {
   assert.deepEqual(content, { kind: 'text', text: 'deploy przeszedł. aplikacja nie.' });
 });
 
+test('parseContent repairs malformed model JSON but still enforces its schema', () => {
+  assert.deepEqual(parseContent("{kind: 'text', text: 'zapis działa',}", { mode: 'text' }),
+    { kind: 'text', text: 'zapis działa' });
+  assert.deepEqual(parseContent('{"kind":"text","text":"ucięty"', { mode: 'text' }),
+    { kind: 'text', text: 'ucięty' });
+  assert.throws(() => parseContent("{kind:'text',text:'wrong mode'}", { mode: 'meme' }),
+    /content_unexpected_kind/);
+  assert.throws(() => parseContent("{kind:'text',text:'x'}".repeat(1_100), { mode: 'text' }),
+    SyntaxError);
+});
+
 test('validateContent treats text length as a soft writing target with a roomy safety ceiling', () => {
   const longButReasonable = 'x'.repeat(1_200);
   assert.equal(

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { jsonrepair } from 'jsonrepair';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -279,15 +280,36 @@ export function validateContent(value, { mode, templateId } = {}) {
   throw new Error('content_invalid_kind');
 }
 
+const MAX_LLM_JSON_REPAIR_CHARS = 16_000;
+
 export function parseContent(content, options = {}) {
   const cleaned = stripCodeFence(content);
   try {
     return validateContent(JSON.parse(cleaned), options);
   } catch (firstError) {
+    // Never repair values rejected by content validation.
+    if (!(firstError instanceof SyntaxError)) throw firstError;
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
-    if (start === -1 || end <= start) throw firstError;
-    return validateContent(JSON.parse(cleaned.slice(start, end + 1)), options);
+    const candidate = start !== -1 && end > start ? cleaned.slice(start, end + 1) : cleaned;
+    let syntaxError = firstError;
+    if (candidate !== cleaned) {
+      try {
+        return validateContent(JSON.parse(candidate), options);
+      } catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+        syntaxError = error;
+      }
+    }
+    if (candidate.length > MAX_LLM_JSON_REPAIR_CHARS) throw syntaxError;
+    try {
+      return validateContent(JSON.parse(jsonrepair(candidate)), options);
+    } catch (error) {
+      if (error instanceof SyntaxError || (error instanceof Error && error.name === 'JSONRepairError')) {
+        throw syntaxError;
+      }
+      throw error;
+    }
   }
 }
 

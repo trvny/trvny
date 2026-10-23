@@ -610,7 +610,7 @@ test('Feedseek shitpost lane accepts fresh known-host titles without reading med
             url: 'https://boards.4chan.org/b/thread/1234',
             content_html: '<img src="https://i.4cdn.org/b/1234.jpg">',
           }),
-          feedseekItem('Tragedy strikes an office in the city', date, {
+          feedseekItem('Massacre kills hundreds inside an office', date, {
             url: 'https://boards.4chan.org/b/thread/1235',
           }),
           feedseekItem('Interesting office committee discusses coffee', date, {

@@ -134,6 +134,55 @@ const OPENROUTER_REASONING_MODELS = new Set<string>([
   'nvidia/nemotron-3-ultra-550b-a55b:free',
   'cohere/north-mini-code:free',
 ]);
+// Per-model limits from provider catalogs (aihubmix.com/api/v1/models, orcarouter /v1/models + docs).
+// thinks: reasons by default, output budget must cover hidden reasoning or content comes back empty.
+// efforts: accepted reasoning_effort values, low→high. Absent = never send reasoning_effort.
+type ModelProfile = {
+  contextTokens?: number;
+  maxOutputTokens?: number;
+  thinks?: boolean;
+  efforts?: readonly string[];
+};
+const AIHUBMIX_MODEL_PROFILES = new Map<string, ModelProfile>([
+  // K3 always thinks at max; other effort values rejected per AIHubMix K3 guide.
+  ['coding-kimi-k3-free', { contextTokens: 1_048_576, thinks: true }],
+  ['nemotron-3.5-lightning-free', { contextTokens: 1_048_576, thinks: true }],
+  ['qwen3.8-flash-free', {
+    contextTokens: 1_000_000,
+    maxOutputTokens: 131_072,
+    thinks: true,
+    efforts: ['low', 'medium', 'xhigh'],
+  }],
+  ['xiaomi-mimo-v2.6-flash-free', { contextTokens: 1_048_576, maxOutputTokens: 131_072, thinks: true }],
+  ['gemma-4-31b-it-free', { contextTokens: 262_144, efforts: ['minimal', 'high'] }],
+  ['laguna-s-2.1-free', { contextTokens: 1_048_576, maxOutputTokens: 262_144, thinks: true }],
+  ['agents-a1-free', { contextTokens: 262_144 }],
+  ['dots-3-note-preview-free', { contextTokens: 524_288, thinks: true }],
+  ['lfm-2.5-2.6b-free', { contextTokens: 131_072, thinks: true }],
+]);
+const ORCAROUTER_MODEL_PROFILES = new Map<string, ModelProfile>([
+  ['deepseek/deepseek-v4.1-flash-free', {
+    contextTokens: 1_000_000,
+    maxOutputTokens: 384_000,
+    thinks: true,
+    efforts: ['low', 'high', 'max'],
+  }],
+  // GLM defaults to max effort unless low/high is sent.
+  ['z-ai/glm-5.3-flash-free', {
+    contextTokens: 1_000_000,
+    maxOutputTokens: 128_000,
+    thinks: true,
+    efforts: ['low', 'high', 'max'],
+  }],
+  ['tencent/hy4-preview-free', {
+    contextTokens: 1_048_576,
+    maxOutputTokens: 64_000,
+    thinks: true,
+    efforts: ['low', 'high'],
+  }],
+  ['tencent/hy3-free', { contextTokens: 256_000, thinks: true, efforts: ['low', 'high'] }],
+]);
+const REASONING_EFFORT_RANK = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 const GROQ_GPT_OSS_CONTEXT_TOKENS = 131_072;
 const GROQ_GPT_OSS_MAX_OUTPUT_TOKENS = 65_536;
 const PROVIDER_CONTEXT_BYTES_PER_TOKEN = 1;
@@ -1574,6 +1623,8 @@ type ProviderAttempt = {
   maximumMaxTokens?: number;
   maximumContextTokens?: number;
   requestFields?: JsonObject;
+  // Caller fields this model rejects; removed after merging.
+  dropFields?: readonly string[];
 };
 
 function conservativeProviderInputTokens(input: JsonObject): number {
@@ -1625,6 +1676,47 @@ function groqTokenLimits(model: string): {
     };
   }
   return {};
+}
+
+// Nearest accepted level; ties go to the cheaper one.
+export function nearestReasoningEffort(wanted: string, accepted: readonly string[]): string | undefined {
+  const target = REASONING_EFFORT_RANK.indexOf(wanted);
+  if (target < 0) return accepted.includes(wanted) ? wanted : undefined;
+  let best: string | undefined;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const effort of accepted) {
+    const rank = REASONING_EFFORT_RANK.indexOf(effort);
+    if (rank < 0) continue;
+    const distance = Math.abs(rank - target);
+    if (distance < bestDistance) {
+      best = effort;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+function profiledAttemptLimits(
+  profile: ModelProfile | undefined,
+  task: FreeTaskProfileId,
+  env: ReviewRouterEnv,
+): Pick<ProviderAttempt, 'minimumMaxTokens' | 'maximumMaxTokens' | 'maximumContextTokens' | 'requestFields' | 'dropFields'> {
+  if (!profile) return {};
+  const effort = profile.efforts
+    ? nearestReasoningEffort(taskUsesHighReasoning(task) ? configuredReasoningEffort(env) : 'low', profile.efforts)
+    : undefined;
+  const reasons = profile.thinks ||
+    (effort !== undefined && REASONING_EFFORT_RANK.indexOf(effort) > REASONING_EFFORT_RANK.indexOf('minimal'));
+  return {
+    ...(profile.contextTokens ? { maximumContextTokens: profile.contextTokens } : {}),
+    ...(profile.maxOutputTokens ? { maximumMaxTokens: profile.maxOutputTokens } : {}),
+    ...(reasons ? { minimumMaxTokens: configuredReasoningMinimumMaxTokens(env) } : {}),
+    // Injected effort wins over a caller budget (Qwen rejects both); models without
+    // an effort list must not see a caller effort (K3 accepts max only).
+    ...(effort
+      ? { requestFields: { reasoning_effort: effort }, dropFields: ['thinking_budget'] }
+      : { dropFields: ['reasoning_effort'] }),
+  };
 }
 
 function providerAttempts(
@@ -1695,10 +1787,15 @@ function providerAttempts(
       ...fallbackModels.map((model) => individualAttempt(model, 'model_fallback')),
     ];
   }
-  if (
-    (provider.id === 'aihubmix' || provider.id === 'orcarouter' || provider.id === 'ollama')
-    && provider.fallbackModels?.length
-  ) {
+  if (provider.id === 'aihubmix' || provider.id === 'orcarouter') {
+    const profiles = provider.id === 'aihubmix' ? AIHUBMIX_MODEL_PROFILES : ORCAROUTER_MODEL_PROFILES;
+    return [provider.model, ...(provider.fallbackModels ?? [])].map((model, index) => ({
+      model,
+      label: index === 0 ? 'default' : 'model_fallback',
+      ...profiledAttemptLimits(profiles.get(model), task, env),
+    }));
+  }
+  if (provider.id === 'ollama' && provider.fallbackModels?.length) {
     return [provider.model, ...provider.fallbackModels].map((model, index) => ({
       model,
       label: index === 0 ? 'default' : 'model_fallback',
@@ -2038,6 +2135,7 @@ export async function handleReviewRouterRequest(
           model: attempt.model,
           ...(fallbackModels?.length ? { models: fallbackModels } : { models: undefined }),
         };
+        for (const field of attempt.dropFields ?? []) delete providerInput[field];
         const boundedGroq = provider.id === 'groq' && task === 'review'
           && groqSupportsReasoningEffort(attempt.model);
         const groqInput = boundedGroq ? prepareGroqFreeReview(providerInput) : null;

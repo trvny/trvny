@@ -118,7 +118,7 @@ jobs:
       issues: write
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    timeout-minutes: 25
     steps:
       - name: Remove failed commands older than seven days
         env:

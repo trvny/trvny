@@ -15,7 +15,11 @@ class Fake:
         self.writes = []
 
     def pages(self, base, path, **kw):
-        yield from self.resources.get(path, [])
+        result = self.resources.get(path, {})
+        if isinstance(result, dict):
+            yield from result.get(kw.get("key", "items"), [])
+        else:
+            yield from result
 
     def request(self, method, base, path, *, data=None, params=None):
         self.writes.append((base, path, data, params))
@@ -33,11 +37,11 @@ class MigrationTests(unittest.TestCase):
         return mod.Migrator(src, dst, state or {}, pathlib.Path(self.tmp.name) / "state.json", dry, limit)
 
     def test_contact_existing_and_new_and_resume(self):
-        src = Fake({"/people/me/connections": [
+        src = Fake({"/people/me/connections": {"connections": [
             {"resourceName": "people/1", "names": [{"displayName": "Ada", "givenName": "Ada"}],
              "emailAddresses": [{"value": "ADA@EXAMPLE.COM"}]},
-            {"resourceName": "people/2", "emailAddresses": [{"value": "new@example.com"}]}]})
-        dst = Fake({"/people/me/connections": [{"emailAddresses": [{"value": "ada@example.com"}]}]})
+            {"resourceName": "people/2", "emailAddresses": [{"value": "new@example.com"}]}]}})
+        dst = Fake({"/people/me/connections": {"connections": [{"emailAddresses": [{"value": "ada@example.com"}]}]}})
         m = self.worker(src, dst)
         m.contacts()
         self.assertEqual(m.stats["contacts_existing"], 1)
@@ -48,8 +52,8 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(len(dst.writes), 1)
 
     def test_dry_run_no_writes_or_checkpoint(self):
-        src = Fake({"/people/me/connections": [{"resourceName": "people/1", "names": [{"givenName": "Ada"}]}]})
-        dst = Fake({"/people/me/connections": []})
+        src = Fake({"/people/me/connections": {"connections": [{"resourceName": "people/1", "names": [{"givenName": "Ada"}]}]}})
+        dst = Fake({"/people/me/connections": {"connections": []}})
         m = self.worker(src, dst, dry=True)
         m.contacts()
         self.assertEqual(m.stats["pending"], 1)
@@ -69,11 +73,43 @@ class MigrationTests(unittest.TestCase):
         m.tasks()
         self.assertEqual(len(dst.writes), 3)
 
+    def test_contact_matches_secondary_email_or_phone(self):
+        src = Fake({"/people/me/connections": {"connections": [
+            {"resourceName": "people/1", "emailAddresses": [
+                {"value": "one@example.com"}, {"value": "shared@example.com"}]},
+            {"resourceName": "people/2", "emailAddresses": [{"value": "other@example.com"}],
+             "phoneNumbers": [{"value": "+48 123 456"}]}]}})
+        dst = Fake({"/people/me/connections": {"connections": [
+            {"emailAddresses": [{"value": "shared@example.com"}]},
+            {"phoneNumbers": [{"value": "48123456"}]}]}})
+        worker = self.worker(src, dst)
+        worker.contacts()
+        self.assertEqual(worker.stats["contacts_existing"], 2)
+        self.assertEqual(dst.writes, [])
+
+    def test_task_sibling_order_and_resume(self):
+        src = Fake({"/users/@me/lists": [{"id": "old", "title": "Tasks"}],
+                    "/lists/old/tasks": [
+                        {"id": "c", "title": "Third", "position": "003"},
+                        {"id": "a", "title": "First", "position": "001"},
+                        {"id": "b", "title": "Second", "position": "002"}]})
+        dst = Fake({"/users/@me/lists": []})
+        worker = self.worker(src, dst, limit=2)
+        with self.assertRaises(mod.BudgetReached):
+            worker.tasks()
+        self.assertEqual([x[2].get("title") for x in dst.writes[1:]], ["First"])
+        worker.left = 5
+        worker.tasks()
+        self.assertEqual([x[2].get("title") for x in dst.writes[1:]],
+                         ["First", "Second", "Third"])
+        self.assertEqual(dst.writes[2][3], {"previous": "dst-task-2"})
+        self.assertEqual(dst.writes[3][3], {"previous": "dst-task-3"})
+
     def test_budget_is_checkpointed(self):
-        src = Fake({"/people/me/connections": [
+        src = Fake({"/people/me/connections": {"connections": [
             {"resourceName": "people/1", "names": [{"givenName": "One"}]},
-            {"resourceName": "people/2", "names": [{"givenName": "Two"}]}]})
-        dst = Fake({"/people/me/connections": []})
+            {"resourceName": "people/2", "names": [{"givenName": "Two"}]}]}})
+        dst = Fake({"/people/me/connections": {"connections": []}})
         m = self.worker(src, dst, limit=1)
         with self.assertRaises(mod.BudgetReached):
             m.contacts()

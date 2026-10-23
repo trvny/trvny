@@ -1,11 +1,20 @@
 const MIN_COOLDOWN_MS = 1_000;
+// Cap on the base duration a caller may request.
 const MAX_COOLDOWN_MS = 30 * 60_000;
+// Repeat failures double the base duration up to this cap. A strike is a failure
+// after the previous cooldown expired; failures during an active one do not count.
+const MAX_ESCALATED_COOLDOWN_MS = 6 * 60 * 60_000;
+// Strikes are forgotten after this long without a failure, or on /clear (success).
+const STRIKE_MEMORY_MS = 12 * 60 * 60_000;
 const MAX_WORKERS_AI_DAILY_NEURONS = 10_000;
 const WORKERS_AI_BUDGET_STORAGE_KEY = 'workers-ai-neuron-budget';
 
 type ProviderCooldown = {
   until: number;
   category: string;
+  // Absent on records written before escalation existed.
+  strikes?: number;
+  lastFailureAt?: number;
 };
 
 type WorkersAiBudgetState = {
@@ -54,6 +63,17 @@ function validProviderCooldown(value: unknown): value is ProviderCooldown {
   );
 }
 
+function strikeCount(cooldown: ProviderCooldown): number {
+  return Number.isInteger(cooldown.strikes) && (cooldown.strikes as number) > 0 ? cooldown.strikes as number : 1;
+}
+
+function strikeMemoryEnd(cooldown: ProviderCooldown): number {
+  const last = typeof cooldown.lastFailureAt === 'number' && Number.isFinite(cooldown.lastFailureAt)
+    ? cooldown.lastFailureAt
+    : cooldown.until;
+  return Math.max(cooldown.until, last + STRIKE_MEMORY_MS);
+}
+
 function cooldownJson(body: unknown, status = 200): Response {
   return Response.json(body, {
     status,
@@ -76,9 +96,13 @@ export class ReviewProviderCooldownStore {
   async alarm(): Promise<void> {
     await this.enqueue(async () => {
       const current = await this.state.storage.get<ProviderCooldown>(COOLDOWN_STORAGE_KEY);
-      if (validProviderCooldown(current) && current.until > Date.now()) {
-        await this.state.storage.setAlarm(current.until);
-        return;
+      if (validProviderCooldown(current)) {
+        const forgetAt = strikeMemoryEnd(current);
+        const next = current.until > Date.now() ? current.until : forgetAt;
+        if (next > Date.now()) {
+          await this.state.storage.setAlarm(next);
+          return;
+        }
       }
       await this.state.storage.delete(COOLDOWN_STORAGE_KEY);
     });
@@ -98,13 +122,22 @@ export class ReviewProviderCooldownStore {
     if (pathname === '/active' && request.method === 'GET') {
       const current = await this.state.storage.get<ProviderCooldown>(COOLDOWN_STORAGE_KEY);
       if (!validProviderCooldown(current) || current.until <= Date.now()) {
-        if (current !== undefined) {
+        // Expired: keep the strike record until it ages out; drop junk.
+        if (current !== undefined && (!validProviderCooldown(current) || strikeMemoryEnd(current) <= Date.now())) {
           await this.state.storage.delete(COOLDOWN_STORAGE_KEY);
           await this.state.storage.deleteAlarm();
         }
         return cooldownJson({ active: false });
       }
       return cooldownJson({ active: true, ...current });
+    }
+
+    if (pathname === '/clear' && request.method === 'POST') {
+      // Success: forget strikes and any cooldown.
+      if ((await this.state.storage.get(COOLDOWN_STORAGE_KEY)) !== undefined) {
+        await this.state.storage.delete(COOLDOWN_STORAGE_KEY);
+      }
+      return cooldownJson({ ok: true });
     }
 
     if (pathname === '/extend' && request.method === 'POST') {
@@ -130,17 +163,26 @@ export class ReviewProviderCooldownStore {
         return cooldownJson({ error: 'invalid_cooldown' }, 400);
       }
 
-      const candidate: ProviderCooldown = {
-        until: Date.now() + input.durationMs,
-        category: input.category,
-      };
+      const now = Date.now();
       const raw = await this.state.storage.get<ProviderCooldown>(COOLDOWN_STORAGE_KEY);
       const current = validProviderCooldown(raw) ? raw : null;
-      const next = current && current.until >= candidate.until ? current : candidate;
-      if (next === candidate) {
-        await this.state.storage.put(COOLDOWN_STORAGE_KEY, candidate);
-        await this.state.storage.setAlarm(candidate.until);
-      }
+      const priorStrikes = current && strikeMemoryEnd(current) > now ? strikeCount(current) : 0;
+      // Concurrent failures inside an active cooldown are one strike.
+      const strikes = current && current.until > now ? Math.max(1, priorStrikes) : priorStrikes + 1;
+      const durationMs = Math.min(
+        MAX_ESCALATED_COOLDOWN_MS,
+        input.durationMs * 2 ** Math.min(strikes - 1, 16),
+      );
+      const candidateUntil = now + durationMs;
+      const keepCurrent = current !== null && current.until >= candidateUntil;
+      const next: ProviderCooldown = {
+        until: keepCurrent ? current.until : candidateUntil,
+        category: keepCurrent ? current.category : input.category,
+        strikes,
+        lastFailureAt: now,
+      };
+      await this.state.storage.put(COOLDOWN_STORAGE_KEY, next);
+      await this.state.storage.setAlarm(next.until);
       return cooldownJson({ ok: true, ...next });
     }
 

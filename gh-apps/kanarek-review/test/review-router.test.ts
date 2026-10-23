@@ -2752,3 +2752,100 @@ test('review router skips every provider in a comma-separated exclusion sweep', 
   assert.equal(calls.length, 1);
   assert.match(calls[0] ?? '', /groq/);
 });
+
+test('cooldown store doubles repeat failures, caps them and forgets on success or age', async () => {
+  const realNow = Date.now;
+  let now = 1_000_000;
+  Date.now = () => now;
+  try {
+    const store = new ReviewProviderCooldownStore(cooldownState());
+    const call = (path: string, body?: unknown) => store.fetch(new Request(`https://review-cooldown.internal${path}`, {
+      method: body === undefined && path === '/active' ? 'GET' : 'POST',
+      headers: { 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    }));
+    const extend = async (durationMs = 60_000) => {
+      const payload = (await (await call('/extend', { category: 'timeout', durationMs })).json()) as { until: number };
+      return payload.until - now;
+    };
+    assert.equal(await extend(), 60_000);
+    assert.equal(await extend(), 60_000, 'failures during an active cooldown are one strike');
+    now += 61_000;
+    assert.equal(((await (await call('/active')).json()) as { active: boolean }).active, false);
+    assert.equal(await extend(), 120_000);
+    now += 121_000;
+    assert.equal(await extend(), 240_000);
+    for (let index = 0; index < 12; index += 1) {
+      now += 7 * 60 * 60_000;
+      await extend();
+    }
+    assert.equal(await extend(), 6 * 60 * 60_000, 'escalation is capped');
+    await call('/clear', {});
+    assert.equal(await extend(), 60_000, 'success resets strikes');
+    now += 61_000;
+    assert.equal(await extend(), 120_000);
+    now += 13 * 60 * 60_000;
+    assert.equal(await extend(), 60_000, 'strikes age out');
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('a model that failed is skipped next time while its provider keeps serving', async () => {
+  const cooldowns = cooldownNamespace();
+  const models: unknown[] = [];
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'empty/free,live/free',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+  };
+  const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
+    if (body.models) return Promise.resolve(new Response('fallback list rejected', { status: 400 }));
+    models.push(body.model);
+    return Promise.resolve(body.model === 'empty/free'
+      ? Response.json({ choices: [{ message: { role: 'assistant', content: '' } }] })
+      : Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch;
+  const body = { model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'x' }] };
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  assert.deepEqual(models, ['empty/free', 'live/free', 'live/free']);
+  const provider = await cooldowns.get(cooldowns.idFromName('openrouter')).fetch('https://review-cooldown.internal/active');
+  assert.equal(((await provider.json()) as { active: boolean }).active, false, 'provider itself never cooled down');
+});
+
+test('AIHubMix moves past a model forbidden for its key', async () => {
+  const models: unknown[] = [];
+  const response = await handleReviewRouterRequest(request(), {
+    ...auth, AIHUBMIX_API_KEY: 'aihubmix-key', KANAREK_REVIEW_AIHUBMIX_MODELS: 'locked-free,open-free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    models.push(body.model);
+    return Promise.resolve(body.model === 'locked-free'
+      ? new Response('forbidden', { status: 403 })
+      : Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.deepEqual(models, ['locked-free', 'open-free']);
+});
+
+test('out-of-credit providers start at the longest base cooldown', async () => {
+  const cooldowns = cooldownNamespace();
+  const realNow = Date.now;
+  const now = 5_000_000;
+  Date.now = () => now;
+  try {
+    await handleReviewRouterRequest(request(routerToken, {
+      model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'x' }],
+    }), { ...auth, ORCAROUTER_API_KEY: 'orca-key', KANAREK_REVIEW_COOLDOWNS: cooldowns },
+    (() => Promise.resolve(new Response('payment required', { status: 402 }))) as typeof fetch);
+    const active = await cooldowns.get(cooldowns.idFromName('orcarouter')).fetch('https://review-cooldown.internal/active');
+    const payload = (await active.json()) as { active: boolean; until: number };
+    assert.equal(payload.active, true);
+    assert.equal(payload.until - now, 30 * 60_000);
+  } finally {
+    Date.now = realNow;
+  }
+});

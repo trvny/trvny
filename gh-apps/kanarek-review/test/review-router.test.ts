@@ -2172,6 +2172,7 @@ test('review lane tries fresh Vercel Hy3 before old gpt-oss on Groq', async () =
     ...auth,
     GROQ_API_KEY: 'groq-key',
     AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_VERCEL_MODELS: 'tencent/hy3',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     calls.push({
@@ -2183,14 +2184,15 @@ test('review lane tries fresh Vercel Hy3 before old gpt-oss on Groq', async () =
       topP: body.top_p,
       authorization: new Headers(init?.headers).get('authorization'),
     });
-    if (String(input).startsWith('https://api.groq.com/')) {
+    if (String(input).startsWith('https://ai-gateway.vercel.sh/')) {
       return Promise.resolve(new Response('quota', { status: 429 }));
     }
     return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'vercel');
+  // Groq stays the fallback when Hy3 is out of quota.
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'groq');
   assert.deepEqual(calls, [
     {
       url: 'https://ai-gateway.vercel.sh/v1/chat/completions',
@@ -2200,6 +2202,15 @@ test('review lane tries fresh Vercel Hy3 before old gpt-oss on Groq', async () =
       temperature: 0.9,
       topP: 1.0,
       authorization: 'Bearer vercel-key',
+    },
+    {
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      model: 'openai/gpt-oss-120b',
+      maxTokens: 4_096,
+      reasoning: undefined,
+      temperature: undefined,
+      topP: undefined,
+      authorization: 'Bearer groq-key',
     },
   ]);
 });

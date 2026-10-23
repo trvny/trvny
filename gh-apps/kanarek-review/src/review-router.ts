@@ -256,6 +256,14 @@ const OPENROUTER_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly stri
   shitpost: ['thinkingmachines/inkling:free', 'minimax/minimax-m3.1-flash:free', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free', 'nvidia/nemotron-3.5-super-vl:free'],
 };
 
+const OPENROUTER_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
+  general: DEFAULT_REVIEW_OPENROUTER_MODELS,
+  quip: ['nvidia/nemotron-3.5-lightning:free', 'thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free'],
+  review: ['thinkingmachines/inkling:free', 'minimax/minimax-m3.1-flash:free', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'cohere/north-mini-code:free', 'poolside/laguna-s-2.1:free', 'nvidia/nemotron-3.5-super-vl:free'],
+  judge: ['nvidia/nemotron-3-ultra-550b-a55b:free', 'thinkingmachines/inkling:free', 'nvidia/nemotron-3.5-super-vl:free', 'nvidia/nemotron-3.5-lightning:free'],
+  shitpost: ['thinkingmachines/inkling:free', 'minimax/minimax-m3.1-flash:free', 'thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free', 'nvidia/nemotron-3.5-super-vl:free'],
+};
+
 const VERCEL_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
   general: DEFAULT_REVIEW_VERCEL_MODELS,
   quip: ['inclusionai/ling-3.1-flash-free', 'poolside/laguna-s-2.1-free', 'alibaba/qwen3.8-omni-flash', 'tencent/hy3', 'alibaba/qwen3-coder-30b-a3b'],

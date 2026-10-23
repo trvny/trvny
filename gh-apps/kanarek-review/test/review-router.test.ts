@@ -2873,3 +2873,28 @@ test('a request-shape 400 never puts the model in cooldown', async () => {
   assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
   assert.deepEqual(models, ['big-model', 'small-model', 'big-model']);
 });
+
+test('a fallback chain never resends a cooled-down model', async () => {
+  const cooldowns = cooldownNamespace();
+  const sent: Array<{ model?: unknown; models?: unknown }> = [];
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,live/free',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+  };
+  const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
+    sent.push({ model: body.model, models: body.models });
+    if (body.models) return Promise.resolve(new Response('fallback list rejected', { status: 400 }));
+    return Promise.resolve(body.model === 'dead/free'
+      ? new Response('model not found', { status: 404 })
+      : Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch;
+  const body = { model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'x' }] };
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  sent.length = 0;
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  assert.ok(sent.every((entry) => entry.model !== 'dead/free'), JSON.stringify(sent));
+  assert.deepEqual(sent.map((entry) => entry.model), ['live/free']);
+});

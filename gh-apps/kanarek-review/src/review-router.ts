@@ -1971,7 +1971,19 @@ export async function handleReviewRouterRequest(
       const modelKey = modelCooldownId(provider.id, attempt.model);
       // A fallback-chain attempt spans several models; its failure blames none.
       const singleModel = multiModel && !attempt.fallbackModels?.length;
-      if (singleModel && await activeProviderCooldown(env, modelKey)) {
+      // Never send a cooled-down model: skip the attempt when its primary is
+      // cooling, and drop cooled models from a fallback chain.
+      let fallbackModels = attempt.fallbackModels;
+      let primaryCooled = false;
+      if (multiModel) {
+        const cooled = await Promise.all(
+          [attempt.model, ...(fallbackModels ?? [])].map((model) =>
+            activeProviderCooldown(env, modelCooldownId(provider.id, model))),
+        );
+        primaryCooled = Boolean(cooled[0]);
+        if (fallbackModels?.length) fallbackModels = fallbackModels.filter((_, index) => !cooled[index + 1]);
+      }
+      if (primaryCooled) {
         providerFailureCategory = 'model_cooldown';
         providerInvalidRequest = false;
         console.info(JSON.stringify({
@@ -2015,7 +2027,7 @@ export async function handleReviewRouterRequest(
           ...provider.requestFields,
           ...attempt.requestFields,
           model: attempt.model,
-          ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
+          ...(fallbackModels?.length ? { models: fallbackModels } : { models: undefined }),
         };
         const boundedGroq = provider.id === 'groq' && task === 'review'
           && groqSupportsReasoningEffort(attempt.model);

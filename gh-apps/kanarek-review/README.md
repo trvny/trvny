@@ -4,7 +4,8 @@
 `kanarek-companion` runtime. It owns provider credentials, routing, cooldowns,
 and model fallback. The normal pool is free-first, including Gemini Standard when
 the project is unbilled, with optional paid DeepSeek reserves. It does **not** own
-collection, review publication, status comments, or quip-bank semantics.
+GitHub webhook handling, PR context collection, review publication, status
+comments, or quip-bank semantics.
 
 Keeping this boundary separate means the provider credential set and deploy
 cadence can evolve without turning the shared automation Worker into a bag of

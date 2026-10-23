@@ -1257,6 +1257,7 @@ test('AIHubMix applies per-model context, output and reasoning profiles', async 
     stream: false,
     max_tokens: 256,
     thinking_budget: 512,
+    reasoning_effort: 'medium',
     // ~150k bytes: over lfm's 131k window, within gemma's 262k.
     messages: [{ role: 'user', content: 'x'.repeat(150_000) }],
   }), {
@@ -1272,7 +1273,7 @@ test('AIHubMix applies per-model context, output and reasoning profiles', async 
   assert.notEqual(response?.status, 200);
   // lfm never called: payload over its window.
   assert.deepEqual(bodies.map((body) => body.model), ['coding-kimi-k3-free', 'gemma-4-31b-it-free']);
-  // K3 always thinks at max: floor raised, no effort sent.
+  // K3 always thinks at max: floor raised, caller effort dropped.
   assert.equal(bodies[0]?.reasoning_effort, undefined);
   assert.equal(bodies[0]?.max_tokens, 16_384);
   // gemma: low task -> minimal effort, no thinking floor.

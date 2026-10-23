@@ -1637,6 +1637,8 @@ type ProviderAttempt = {
   maximumMaxTokens?: number;
   maximumContextTokens?: number;
   requestFields?: JsonObject;
+  // Caller fields this model rejects; removed after merging.
+  dropFields?: readonly string[];
 };
 
 function conservativeProviderInputTokens(input: JsonObject): number {
@@ -1712,7 +1714,7 @@ function profiledAttemptLimits(
   profile: ModelProfile | undefined,
   task: FreeTaskProfileId,
   env: ReviewRouterEnv,
-): Pick<ProviderAttempt, 'minimumMaxTokens' | 'maximumMaxTokens' | 'maximumContextTokens' | 'requestFields'> {
+): Pick<ProviderAttempt, 'minimumMaxTokens' | 'maximumMaxTokens' | 'maximumContextTokens' | 'requestFields' | 'dropFields'> {
   if (!profile) return {};
   const effort = profile.efforts
     ? nearestReasoningEffort(taskUsesHighReasoning(task) ? configuredReasoningEffort(env) : 'low', profile.efforts)
@@ -1723,7 +1725,11 @@ function profiledAttemptLimits(
     ...(profile.contextTokens ? { maximumContextTokens: profile.contextTokens } : {}),
     ...(profile.maxOutputTokens ? { maximumMaxTokens: profile.maxOutputTokens } : {}),
     ...(reasons ? { minimumMaxTokens: configuredReasoningMinimumMaxTokens(env) } : {}),
-    ...(effort ? { requestFields: { reasoning_effort: effort } } : {}),
+    // Injected effort wins over a caller budget (Qwen rejects both); models without
+    // an effort list must not see a caller effort (K3 accepts max only).
+    ...(effort
+      ? { requestFields: { reasoning_effort: effort }, dropFields: ['thinking_budget'] }
+      : { dropFields: ['reasoning_effort'] }),
   };
 }
 
@@ -2146,10 +2152,7 @@ export async function handleReviewRouterRequest(
           model: attempt.model,
           ...(fallbackModels?.length ? { models: fallbackModels } : { models: undefined }),
         };
-        // Injected effort wins; Qwen-style providers reject effort + caller budget together.
-        if (attempt.requestFields && 'reasoning_effort' in attempt.requestFields) {
-          delete providerInput.thinking_budget;
-        }
+        for (const field of attempt.dropFields ?? []) delete providerInput[field];
         const boundedGroq = provider.id === 'groq' && task === 'review'
           && groqSupportsReasoningEffort(attempt.model);
         const groqInput = boundedGroq ? prepareGroqFreeReview(providerInput) : null;

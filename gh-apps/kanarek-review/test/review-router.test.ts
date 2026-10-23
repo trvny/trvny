@@ -286,7 +286,7 @@ test('heterogeneous OpenRouter fallback chains avoid optional reasoning without 
   assert.equal(body.max_tokens, 36_864);
 });
 
-test('OpenRouter primary retry keeps high reasoning after a fallback-chain 400', async () => {
+test('OpenRouter primary retry omits unsupported reasoning after fallback-chain 400', async () => {
   const bodies: Array<Record<string, unknown>> = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-code-review-free',
@@ -314,7 +314,7 @@ test('OpenRouter primary retry keeps high reasoning after a fallback-chain 400',
   assert.equal(bodies.length, 2);
   assert.equal(bodies[0]?.max_tokens, 36_864);
   assert.equal(bodies[0]?.reasoning, undefined);
-  assert.deepEqual(bodies[1]?.reasoning, { effort: 'high' });
+  assert.equal(bodies[1]?.reasoning, undefined);
   assert.equal(bodies[1]?.max_tokens, 36_864);
   assert.equal(bodies[1]?.models, undefined);
 });
@@ -1851,7 +1851,7 @@ test('reasoning-capable OpenRouter fallback preserves high reasoning', async () 
   }), {
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
-    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,qwen/qwen3.8-27b:free',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,cohere/north-mini-code:free',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     bodies.push(body);
@@ -1869,7 +1869,7 @@ test('reasoning-capable OpenRouter fallback preserves high reasoning', async () 
 
   assert.equal(response?.status, 200);
   assert.equal(bodies.length, 3);
-  assert.equal(bodies[2]?.model, 'qwen/qwen3.8-27b:free');
+  assert.equal(bodies[2]?.model, 'cohere/north-mini-code:free');
   assert.deepEqual(bodies[2]?.reasoning, { effort: 'high' });
   assert.equal(bodies[2]?.max_tokens, 36_864);
 });

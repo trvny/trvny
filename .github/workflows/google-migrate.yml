@@ -1,0 +1,78 @@
+name: google-migrate
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Data to copy
+        type: choice
+        options: [all, contacts, tasks]
+        default: all
+      dry_run:
+        description: Report only; do not write
+        type: boolean
+        default: true
+  schedule:
+    - cron: '43 8 * * *'
+
+permissions: {}
+concurrency:
+  group: google-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    if: github.repository == 'trvny/trvny' && (github.event_name != 'schedule' || vars.GOOGLE_MIGRATE_ACTIVE == 'true')
+    runs-on: ubuntu-slim
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: google-migrate
+      - name: Restore encrypted checkpoint
+        uses: actions/cache/restore@v6
+        with:
+          path: google-migrate/checkpoint.enc
+          key: google-migrate-v1-${{ github.run_id }}
+          restore-keys: google-migrate-v1-
+      - name: Decrypt checkpoint
+        env:
+          KEY: ${{ secrets.GM_STATE_KEY }}
+        run: |
+          test -n "$KEY" || { echo '::error::GM_STATE_KEY missing'; exit 1; }
+          if [ -f google-migrate/checkpoint.enc ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 \
+              -pass env:KEY -in google-migrate/checkpoint.enc -out "$RUNNER_TEMP/google-migrate.json"
+          fi
+      - name: Copy account data
+        env:
+          GM_CLIENT_ID: ${{ secrets.GM_CLIENT_ID }}
+          GM_CLIENT_SECRET: ${{ secrets.GM_CLIENT_SECRET }}
+          GM_SRC_REFRESH: ${{ secrets.GM_SRC_REFRESH }}
+          GM_DST_REFRESH: ${{ secrets.GM_DST_REFRESH }}
+          GM_STATE: ${{ runner.temp }}/google-migrate.json
+          SERVICE: ${{ github.event_name == 'schedule' && 'all' || inputs.service }}
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+        run: |
+          if [ -f "$GM_STATE" ] && python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); sys.exit(0 if s.get("complete") else 1)' "$GM_STATE"; then
+            echo 'Migration already complete; no writes needed.'
+            exit 0
+          fi
+          args=(--service "$SERVICE")
+          if [ "$DRY_RUN" = 'true' ]; then args+=(--dry-run); fi
+          python3 google-migrate/migrate.py "${args[@]}"
+      - name: Encrypt checkpoint
+        if: always()
+        env:
+          KEY: ${{ secrets.GM_STATE_KEY }}
+        run: |
+          if [ -n "$KEY" ] && [ -f "$RUNNER_TEMP/google-migrate.json" ]; then
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -md sha256 \
+              -pass env:KEY -in "$RUNNER_TEMP/google-migrate.json" -out google-migrate/checkpoint.enc
+          fi
+      - name: Save encrypted checkpoint
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: google-migrate/checkpoint.enc
+          key: google-migrate-v1-${{ github.run_id }}

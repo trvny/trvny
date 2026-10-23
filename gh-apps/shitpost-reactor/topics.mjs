@@ -11,7 +11,7 @@ export const POLISH_RSS_FEEDS = Object.freeze([
   { name: 'wPolityce', url: 'https://wpolityce.pl/rss/polityka.xml', hosts: ['wpolityce.pl', 'www.wpolityce.pl'] },
 ]);
 
-const FEEDSEEK_ROOT = 'https://raw.githubusercontent.com/trvny/feedseek/main/feeds/';
+const FEEDSEEK_ROOT = 'https://raw.githubusercontent.com/trvny/feedseek/main/feeds/'; // shared Feedseek assets
 const FEEDSEEK_FEEDS = Object.freeze({
   news: [
     { name: 'Feedseek / Reuters', url: FEEDSEEK_ROOT + 'feed_reuters.json' },

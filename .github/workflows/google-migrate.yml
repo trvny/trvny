@@ -28,21 +28,34 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: google-migrate
+          sparse-checkout: yt-migrate/google
       - name: Restore encrypted checkpoint
+        uses: actions/cache/restore@v6
+        with:
+          path: yt-migrate/google/checkpoint.enc
+          key: google-migrate-v2-${{ github.run_id }}
+          restore-keys: google-migrate-v2-
+      - name: Restore pre-move checkpoint
+        if: ${{ hashFiles('yt-migrate/google/checkpoint.enc') == '' }}
         uses: actions/cache/restore@v6
         with:
           path: google-migrate/checkpoint.enc
           key: google-migrate-v1-${{ github.run_id }}
           restore-keys: google-migrate-v1-
+      - name: Relocate pre-move checkpoint
+        run: |
+          if [ -f google-migrate/checkpoint.enc ] && [ ! -f yt-migrate/google/checkpoint.enc ]; then
+            mv google-migrate/checkpoint.enc yt-migrate/google/checkpoint.enc
+            rmdir google-migrate || true
+          fi
       - name: Decrypt checkpoint
         env:
           KEY: ${{ secrets.GM_STATE_KEY }}
         run: |
           test -n "$KEY" || { echo '::error::GM_STATE_KEY missing'; exit 1; }
-          if [ -f google-migrate/checkpoint.enc ]; then
+          if [ -f yt-migrate/google/checkpoint.enc ]; then
             openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 \
-              -pass env:KEY -in google-migrate/checkpoint.enc -out "$RUNNER_TEMP/google-migrate.json"
+              -pass env:KEY -in yt-migrate/google/checkpoint.enc -out "$RUNNER_TEMP/google-migrate.json"
           fi
       - name: Copy account data
         env:
@@ -60,7 +73,7 @@ jobs:
           fi
           args=(--service "$SERVICE")
           if [ "$DRY_RUN" = 'true' ]; then args+=(--dry-run); fi
-          python3 google-migrate/migrate.py "${args[@]}"
+          python3 yt-migrate/google/migrate.py "${args[@]}"
       - name: Encrypt checkpoint
         if: always()
         env:
@@ -68,11 +81,11 @@ jobs:
         run: |
           if [ -n "$KEY" ] && [ -f "$RUNNER_TEMP/google-migrate.json" ]; then
             openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -md sha256 \
-              -pass env:KEY -in "$RUNNER_TEMP/google-migrate.json" -out google-migrate/checkpoint.enc
+              -pass env:KEY -in "$RUNNER_TEMP/google-migrate.json" -out yt-migrate/google/checkpoint.enc
           fi
       - name: Save encrypted checkpoint
-        if: ${{ always() && hashFiles('google-migrate/checkpoint.enc') != '' }}
+        if: ${{ always() && hashFiles('yt-migrate/google/checkpoint.enc') != '' }}
         uses: actions/cache/save@v6
         with:
-          path: google-migrate/checkpoint.enc
-          key: google-migrate-v1-${{ github.run_id }}
+          path: yt-migrate/google/checkpoint.enc
+          key: google-migrate-v2-${{ github.run_id }}

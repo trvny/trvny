@@ -115,10 +115,10 @@ const DEFAULT_FREE_PROVIDER_ORDER = [
   'openrouter',
   'ollama',
   'groq',
-  'gemini-standard',
   'vercel',
   'orcarouter',
   'huggingface-publicai',
+  'gemini-standard',
 ] as const;
 type FreeReviewProviderId = (typeof DEFAULT_FREE_PROVIDER_ORDER)[number];
 type FreeTaskProfileId = 'general' | 'quip' | 'review' | 'judge' | 'shitpost';
@@ -428,7 +428,7 @@ function geminiUsesFreeTier(env: ReviewRouterEnv): boolean {
   return configuredText(
     env.KANAREK_REVIEW_GEMINI_SERVICE_TIER,
     REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_GEMINI_SERVICE_TIER,
-  ).toLowerCase() === 'standard';
+  ).toLowerCase() !== 'flex';
 }
 
 function groqSupportsReasoningEffort(model: string): boolean {
@@ -832,7 +832,7 @@ function stripGeminiProviderState(input: JsonObject): JsonObject {
 }
 
 function providerBaseInput(provider: ReviewProvider, input: JsonObject): JsonObject {
-  if (provider.id !== 'gemini-flex') return stripGeminiProviderState(input);
+  if (provider.protocol !== 'gemini-interactions') return stripGeminiProviderState(input);
   const normalized = { ...input };
   delete normalized.temperature;
   delete normalized.top_p;

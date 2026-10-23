@@ -2,9 +2,10 @@
 
 `kanarek-review` is the private review-provider Worker used by the shared
 `kanarek-companion` runtime. It owns provider credentials, routing, cooldowns,
-and model fallback. The normal pool is free-first, with optional paid DeepSeek
-and Gemini Flex reserves. It does **not** own GitHub webhook handling, PR context
-collection, review publication, status comments, or quip-bank semantics.
+and model fallback. The normal pool is free-first, including Gemini Standard when
+the project is unbilled, with optional paid DeepSeek reserves. It does **not** own
+GitHub webhook handling, PR context collection, review publication, status
+comments, or quip-bank semantics.
 
 Keeping this boundary separate means the provider credential set and deploy
 cadence can evolve without turning the shared automation Worker into a bag of
@@ -26,18 +27,18 @@ shared `free-router` slot, PR reviews, and Shitpost Reactor all converge on
 `kanarek-review`. Paid reserves are available only to the review/work synthetic
 contracts, never to `kanarek-review-free`.
 
-The Gemini reserve uses Google's native stable `v1/interactions` endpoint with
-Flex service tier and explicit thinking level. The router translates its existing
+Gemini uses Google's native stable `v1/interactions` endpoint with explicit
+thinking level. The unbilled Standard route is in the free pool; Flex is an optional
+paid mode only when `KANAREK_REVIEW_GEMINI_SERVICE_TIER=flex`. The router translates its existing
 OpenAI-compatible text/tool contract to Interactions steps and converts Gemini
 model output/function-call steps back to the same OpenAI-compatible response
 shape, so callers do not need a second protocol. Gemini requests are stateless
 (`store: false`) and send the API key through `x-goog-api-key`. Tool-call
 responses carry private Kanarek replay metadata so subsequent Gemini turns can
 resend model-generated thought/signature steps exactly as required; that metadata
-is stripped before requests reach any other provider. The Gemini reserve is
-intentionally non-streaming because the paid review/work contracts are
-non-streaming; a streaming request skips this reserve rather than receiving a
-fake or incompatible stream.
+is stripped before requests reach any other provider. Gemini Interactions is
+intentionally non-streaming: a streaming request skips it rather than receiving
+a fake or incompatible stream.
 
 ## How it is called
 
@@ -156,8 +157,8 @@ families are:
 7. Hugging Face Inference Providers pinned to Public AI
 8. DeepSeek V4.1 Flash through the direct DeepSeek API, only for the
    `kanarek-review` PR-review contract when `DEEPSEEK_API_KEY` is configured
-9. Gemini 3.8 Flash through the paid Flex tier, only for the `kanarek-review`
-   PR-review contract when `GEMINI_API_KEY` is configured
+9. Gemini 3.8 Flash through free Standard after the earlier free candidates,
+   when the project billing is disabled and `GEMINI_API_KEY` is configured
 10. Cloudflare Workers AI fallback (temporarily disabled; budget reserved for SpaceMolt)
 
 Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter's
@@ -230,12 +231,13 @@ Both are kept out of `kanarek-review-free`, so lightweight callers cannot spend
 the user's DeepSeek balance. HTTP 402 balance exhaustion enters the normal quota
 cooldown/fallback path.
 
-Gemini uses the OpenAI-compatible Gemini endpoint with
-`service_tier: "flex"`, high reasoning, and the shared 16K reasoning floor.
-Flex is a paid, lower-cost, sheddable tier: 429/503
-responses enter the same cooldown/fallback path as other transient provider
-failures. It is deliberately excluded from `kanarek-review-free`, so shared
-free-router consumers cannot spend the Gemini reserve.
+Gemini uses the native Interactions endpoint. When
+`KANAREK_REVIEW_GEMINI_SERVICE_TIER=standard`, the request omits `service_tier`
+(Standard is Google's default), joins the free pool and caps output at 8K tokens.
+The `gemini-flex` paid fallback is omitted in this mode to avoid retrying the
+same unbilled key after free attempts. Switching this setting back to `flex`
+restores the old paid reserve instead; neither mode overrides the project's
+actual Google billing status. Quota 429s continue through shared cooldowns.
 
 Quota-limited providers use `KANAREK_REVIEW_COOLDOWNS`, a Durable Object hosted
 by the shared `automation` Worker. A cooldown is intentionally not a
@@ -331,7 +333,7 @@ Provider credentials belong here:
 - `ORCAROUTER_API_KEY`
 - `HUGGINGFACE_API_KEY`
 - `DEEPSEEK_API_KEY` (optional direct paid PR-review reserve)
-- `GEMINI_API_KEY` (optional paid Flex reserve)
+- `GEMINI_API_KEY` (free Standard if billing is disabled; paid Flex only when explicitly configured)
 
 The shared runtime keeps only `KANAREK_REVIEW_ROUTER_TOKEN` for its private
 proxy contract. The Gemini key is centralized in this private router as well as

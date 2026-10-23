@@ -99,7 +99,7 @@ export const REVIEW_ROUTER_TUNING_DEFAULTS = {
   KANAREK_REVIEW_DEEPSEEK_THINKING: 'enabled',
   KANAREK_REVIEW_DEEPSEEK_REASONING_EFFORT: 'max',
   KANAREK_REVIEW_DEEPSEEK_MAX_TOKENS: '131072',
-  KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
+  KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'standard',
   KANAREK_REVIEW_GEMINI_THINKING_LEVEL: 'high',
 } as const;
 const DEFAULT_REVIEW_AIHUBMIX_MODELS = REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_AIHUBMIX_MODELS;
@@ -121,6 +121,7 @@ const DEFAULT_FREE_PROVIDER_ORDER = [
   'vercel',
   'orcarouter',
   'huggingface-publicai',
+  'gemini-standard',
 ] as const;
 type FreeReviewProviderId = (typeof DEFAULT_FREE_PROVIDER_ORDER)[number];
 type FreeTaskProfileId = 'general' | 'quip' | 'review' | 'judge' | 'shitpost';
@@ -223,11 +224,11 @@ const PROVIDER_CONTEXT_BYTES_PER_TOKEN = 1;
 const PROVIDER_CONTEXT_SAFETY_TOKENS = 4_096;
 
 const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
-  quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai'],
+  quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai', 'gemini-standard'],
   // Review/judge: fresh models first; gpt-oss (Groq, Ollama) and Bielik predate recent releases.
-  review: ['openrouter', 'aihubmix', 'orcarouter', 'vercel', 'ollama', 'groq', 'huggingface-publicai'],
-  judge: ['aihubmix', 'openrouter', 'orcarouter', 'vercel', 'groq', 'ollama', 'huggingface-publicai'],
-  shitpost: ['aihubmix', 'openrouter', 'vercel', 'orcarouter', 'groq', 'ollama', 'huggingface-publicai'],
+  review: ['openrouter', 'aihubmix', 'orcarouter', 'gemini-standard', 'vercel', 'ollama', 'groq', 'huggingface-publicai'],
+  judge: ['aihubmix', 'openrouter', 'orcarouter', 'vercel', 'groq', 'ollama', 'huggingface-publicai', 'gemini-standard'],
+  shitpost: ['aihubmix', 'openrouter', 'vercel', 'orcarouter', 'groq', 'ollama', 'huggingface-publicai', 'gemini-standard'],
 } as const satisfies Record<Exclude<FreeTaskProfileId, 'general'>, readonly FreeReviewProviderId[]>;
 
 // Task orders, best first. Review/judge: strong and recent (version claims need fresh
@@ -275,6 +276,7 @@ const REVIEW_PROVIDER_BUDGET_CLASS: Record<ReviewProviderId, ReviewProviderBudge
   groq: 'free-quota',
   vercel: 'monthly-free-credit',
   'huggingface-publicai': 'free-quota',
+  'gemini-standard': 'free-quota',
   deepseek: 'paid-reserve',
   'gemini-flex': 'paid-reserve',
   'workers-ai': 'daily-neurons',
@@ -339,7 +341,7 @@ export interface ReviewRouterEnv {
 
 type JsonObject = Record<string, unknown>;
 
-type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'vercel' | 'huggingface-publicai' | 'deepseek' | 'gemini-flex' | 'workers-ai';
+type ReviewProviderId = 'aihubmix' | 'openrouter' | 'orcarouter' | 'ollama' | 'groq' | 'gemini-standard' | 'vercel' | 'huggingface-publicai' | 'deepseek' | 'gemini-flex' | 'workers-ai';
 export type ProviderCooldownId =
   | ReviewProviderId
   | 'aihubmix-decision'
@@ -357,6 +359,7 @@ const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
   'groq',
   'vercel',
   'huggingface-publicai',
+  'gemini-standard',
   'deepseek',
   'gemini-flex',
   'workers-ai',
@@ -447,6 +450,13 @@ function configuredGeminiThinkingLevel(raw: string | undefined): string {
   const fallback = REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_GEMINI_THINKING_LEVEL;
   const normalized = raw?.trim().toLowerCase();
   return normalized && GEMINI_THINKING_LEVELS.has(normalized) ? normalized : fallback;
+}
+
+function geminiUsesFreeTier(env: ReviewRouterEnv): boolean {
+  return configuredText(
+    env.KANAREK_REVIEW_GEMINI_SERVICE_TIER,
+    REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_GEMINI_SERVICE_TIER,
+  ).toLowerCase() !== 'flex';
 }
 
 function groqSupportsReasoningEffort(model: string): boolean {
@@ -551,8 +561,12 @@ function configuredTaskFreeProviderOrder(
   env: ReviewRouterEnv,
   task: FreeTaskProfileId,
 ): FreeReviewProviderId[] {
-  if (task === 'general') return configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER);
-  return [...DEFAULT_FREE_TASK_PROVIDER_ORDER[task]];
+  const ordered: FreeReviewProviderId[] = task === 'general'
+    ? configuredFreeProviderOrder(env.KANAREK_REVIEW_PROVIDER_ORDER)
+    : [...DEFAULT_FREE_TASK_PROVIDER_ORDER[task]];
+  return geminiUsesFreeTier(env)
+    ? ordered
+    : ordered.filter((provider) => provider !== 'gemini-standard');
 }
 
 function freeProviderOrder(
@@ -674,6 +688,7 @@ function providers(
       model: env.KANAREK_REVIEW_HUGGINGFACE_MODEL?.trim() || DEFAULT_REVIEW_HUGGINGFACE_MODEL,
       apiKey: (providerEnv) => providerEnv.HUGGINGFACE_API_KEY,
     },
+    geminiProvider(env, 'gemini-standard'),
   ];
   const freeProviders = configuredTaskFreeProviderOrder(env, task)
     .map((id) => unorderedFreeProviders.find((provider) => provider.id === id))
@@ -714,19 +729,20 @@ function deepSeekPaidProvider(
   };
 }
 
-function geminiPaidProvider(env: ReviewRouterEnv): ReviewProvider {
+function geminiProvider(
+  env: ReviewRouterEnv,
+  id: 'gemini-standard' | 'gemini-flex',
+): ReviewProvider {
   return {
-    id: 'gemini-flex',
+    id,
     url: 'https://generativelanguage.googleapis.com/v1/interactions',
     model: env.KANAREK_REVIEW_GEMINI_MODEL?.trim() || DEFAULT_REVIEW_GEMINI_MODEL,
     apiKey: (providerEnv) => providerEnv.GEMINI_API_KEY,
     timeoutMs: MAX_TIMEOUT_MS,
     protocol: 'gemini-interactions',
     requestFields: {
-      service_tier: configuredText(
-        env.KANAREK_REVIEW_GEMINI_SERVICE_TIER,
-        REVIEW_ROUTER_TUNING_DEFAULTS.KANAREK_REVIEW_GEMINI_SERVICE_TIER,
-      ),
+      // Standard is the API default and supports the unbilled project free tier.
+      ...(id === 'gemini-flex' ? { service_tier: 'flex' } : {}),
       thinking_level: configuredGeminiThinkingLevel(env.KANAREK_REVIEW_GEMINI_THINKING_LEVEL),
     },
   };
@@ -738,9 +754,10 @@ function paidProvidersForMode(
 ): readonly ReviewProvider[] {
   const providersById: Record<PaidReviewProviderId, ReviewProvider> = {
     deepseek: deepSeekPaidProvider(env, mode),
-    'gemini-flex': geminiPaidProvider(env),
+    'gemini-flex': geminiProvider(env, 'gemini-flex'),
   };
   return configuredPaidProviderOrder(env.KANAREK_REVIEW_PAID_PROVIDER_ORDER)
+    .filter((id) => id !== 'gemini-flex' || !geminiUsesFreeTier(env))
     .map((id) => providersById[id]);
 }
 
@@ -843,7 +860,7 @@ function stripGeminiProviderState(input: JsonObject): JsonObject {
 }
 
 function providerBaseInput(provider: ReviewProvider, input: JsonObject): JsonObject {
-  if (provider.id !== 'gemini-flex') return stripGeminiProviderState(input);
+  if (provider.protocol !== 'gemini-interactions') return stripGeminiProviderState(input);
   const normalized = { ...input };
   delete normalized.temperature;
   delete normalized.top_p;
@@ -1891,6 +1908,14 @@ function providerAttempts(
           : {}),
       };
     });
+  }
+  if (provider.id === 'gemini-standard') {
+    return [{
+      model: provider.model,
+      label: 'default',
+      minimumMaxTokens: 2_048,
+      maximumMaxTokens: 8_192,
+    }];
   }
   if (provider.id === 'gemini-flex') {
     return [{

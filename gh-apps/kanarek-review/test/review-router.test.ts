@@ -388,6 +388,7 @@ test('review router uses direct DeepSeek Flash before Gemini Flex as the first p
     ...auth,
     DEEPSEEK_API_KEY: 'deepseek-key',
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     calls.push({
@@ -481,6 +482,7 @@ test('paid review contract falls through from DeepSeek to native Gemini Interact
     OPENROUTER_API_KEY: 'openrouter-key',
     DEEPSEEK_API_KEY: 'deepseek-key',
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL) => {
     const url = String(input);
     urls.push(url);
@@ -517,6 +519,7 @@ test('DeepSeek balance exhaustion falls through to native Gemini Flex', async ()
     ...auth,
     DEEPSEEK_API_KEY: 'deepseek-key',
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL) => {
     const url = String(input);
     urls.push(url);
@@ -537,6 +540,95 @@ test('DeepSeek balance exhaustion falls through to native Gemini Flex', async ()
     'https://api.deepseek.com/chat/completions',
     'https://generativelanguage.googleapis.com/v1/interactions',
   ]);
+});
+
+test('unbilled Gemini Standard is a free review provider and never a paid fallback', async () => {
+  let requestBody: Record<string, unknown> = {};
+  let requests = 0;
+  const env = { ...auth, GEMINI_API_KEY: 'gemini-free-key' };
+  const freeResponse = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    max_tokens: 16_384,
+    messages: [{ role: 'user', content: 'review these changes' }],
+  }), env, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    requests += 1;
+    requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    assert.equal(new Headers(init?.headers).get('x-goog-api-key'), 'gemini-free-key');
+    return Promise.resolve(Response.json({
+      id: 'free_standard',
+      model: 'gemini-3.8-flash',
+      status: 'completed',
+      steps: [{ type: 'model_output', content: [{ type: 'text', text: '{"summary":"ok","findings":[]}' }] }],
+    }));
+  }) as typeof fetch);
+  assert.equal(freeResponse?.status, 200);
+  assert.equal(freeResponse?.headers.get('x-kanarek-review-provider'), 'gemini-standard');
+  assert.equal(requestBody.model, 'gemini-3.8-flash');
+  assert.equal(requestBody.service_tier, undefined);
+  assert.equal(requestBody.store, false);
+  assert.deepEqual(requestBody.generation_config, { max_output_tokens: 8_192, thinking_level: 'high' });
+  assert.equal(requests, 1);
+
+  const health = await reviewProviderPoolHealth(env);
+  assert.equal(health.taskOrders.review.includes('gemini-standard'), true);
+  assert.equal(health.providers.find(p => p.provider === 'gemini-standard')?.budgetClass, 'free-quota');
+  assert.equal(health.providers.some(p => p.provider === 'gemini-flex'), false);
+  const typoHealth = await reviewProviderPoolHealth({ ...env, KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flxe' });
+  assert.equal(typoHealth.taskOrders.review.includes('gemini-standard'), true);
+  assert.equal(typoHealth.providers.some(p => p.provider === 'gemini-flex'), false);
+
+  const paidResponse = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), env, (() => { throw new Error('Gemini free key must not be called in paid phase'); }) as typeof fetch);
+  assert.equal(paidResponse?.status, 503);
+  assert.equal(requests, 1);
+});
+
+test('Gemini Standard free tool turns preserve signed replay steps', async () => {
+  const steps = [
+    { type: 'thought', signature: 'signed-standard-context' },
+    { type: 'function_call', id: 'call_1', name: 'read_file', arguments: { path: 'README.md' } },
+  ];
+  const env = { ...auth, GEMINI_API_KEY: 'gemini-free-key' };
+  const first = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'Inspect README.md' }],
+  }), env, (() => Promise.resolve(Response.json({
+    id: 'free_call', model: 'gemini-3.8-flash', status: 'requires_action', steps,
+  }))) as typeof fetch);
+  const firstPayload = (await first?.json()) as {
+    choices?: Array<{ message?: Record<string, unknown> }>;
+  };
+  const assistant = firstPayload.choices?.[0]?.message;
+  assert.ok(assistant);
+  assert.deepEqual((assistant.kanarek_provider_state as {
+    gemini_interactions?: { steps?: unknown[] };
+  }).gemini_interactions?.steps, steps);
+
+  let secondBody: Record<string, unknown> = {};
+  const second = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    messages: [
+      { role: 'user', content: 'Inspect README.md' },
+      assistant,
+      { role: 'tool', tool_call_id: 'call_1', name: 'read_file', content: '{"text":"hello"}' },
+    ],
+  }), env, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    secondBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json({
+      id: 'free_continue', model: 'gemini-3.8-flash', status: 'completed',
+      steps: [{ type: 'model_output', content: [{ type: 'text', text: 'done' }] }],
+    }));
+  }) as typeof fetch);
+  assert.equal(second?.status, 200);
+  assert.equal(second?.headers.get('x-kanarek-review-provider'), 'gemini-standard');
+  const replayed = secondBody.input as Array<Record<string, unknown>>;
+  assert.deepEqual(replayed.slice(1, 3), steps);
 });
 
 test('Gemini Flex uses the native v1 Interactions contract with high thinking', async () => {
@@ -561,6 +653,7 @@ test('Gemini Flex uses the native v1 Interactions contract with high thinking', 
     ],
   }), {
     ...auth, GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers);
     call = {
@@ -680,6 +773,7 @@ test('Gemini Interactions bridges OpenAI tool history and function calls for pai
   }), {
     ...auth,
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     return Promise.resolve(Response.json({
@@ -780,6 +874,7 @@ test('Gemini stateless tool turns preserve thought signatures exactly', async ()
   }), {
     ...auth,
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     firstBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
     return Promise.resolve(Response.json({
@@ -835,6 +930,7 @@ test('Gemini stateless tool turns preserve thought signatures exactly', async ()
   }), {
     ...auth,
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     secondBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
     return Promise.resolve(Response.json({
@@ -909,6 +1005,7 @@ test('Gemini Flex 503 keeps transient semantics and falls through to DeepSeek', 
     ...auth,
     KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'gemini-flex,deepseek',
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
     DEEPSEEK_API_KEY: 'deepseek-key',
   }, ((input: RequestInfo | URL) => {
     const url = String(input);
@@ -938,6 +1035,7 @@ test('Gemini spend-cap 403 is classified without exposing the provider body', as
   }), {
     ...auth,
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, (() => Promise.resolve(Response.json({
     error: {
       code: 403,
@@ -975,6 +1073,7 @@ test('free router contract never spends DeepSeek or Gemini paid reserves', async
     messages: [{ role: 'user', content: 'quip' }],
   }), {
     ...auth, DEEPSEEK_API_KEY: 'deepseek-key', GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, (() => {
     calls += 1;
     return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
@@ -2070,6 +2169,7 @@ test('review router follows configured free provider order and appends omitted p
     'groq',
     'vercel',
     'huggingface-publicai',
+    'gemini-standard',
     'workers-ai',
   ]);
 });

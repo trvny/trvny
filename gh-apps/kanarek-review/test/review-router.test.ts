@@ -1284,6 +1284,26 @@ test('AIHubMix applies per-model context, output and reasoning profiles', async 
   assert.equal(bodies[1]?.max_tokens, 256);
 });
 
+test('OrcaRouter GLM gets low effort for quips and its output ceiling', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-quip-free',
+    stream: false,
+    max_tokens: 200_000,
+    messages: [{ role: 'user', content: 'quip' }],
+  }), {
+    ...auth,
+    ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ORCAROUTER_MODELS: 'z-ai/glm-5.3-flash-free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+
+  assert.equal(bodies[0]?.reasoning_effort, 'low');
+  assert.equal(bodies[0]?.max_tokens, 128_000);
+});
+
 test('provider health exposes budget classes and task queues', async () => {
   const health = await reviewProviderPoolHealth({
     ...auth,

@@ -167,8 +167,19 @@ const ORCAROUTER_MODEL_PROFILES = new Map<string, ModelProfile>([
     thinks: true,
     efforts: ['low', 'high', 'max'],
   }],
-  ['z-ai/glm-5.3-flash-free', { contextTokens: 1_000_000, thinks: true }],
-  ['tencent/hy4-preview-free', { contextTokens: 1_000_000, thinks: true, efforts: ['low', 'high'] }],
+  // GLM defaults to max effort unless low/high is sent.
+  ['z-ai/glm-5.3-flash-free', {
+    contextTokens: 1_000_000,
+    maxOutputTokens: 128_000,
+    thinks: true,
+    efforts: ['low', 'high', 'max'],
+  }],
+  ['tencent/hy4-preview-free', {
+    contextTokens: 1_048_576,
+    maxOutputTokens: 64_000,
+    thinks: true,
+    efforts: ['low', 'high'],
+  }],
   ['tencent/hy3-free', { contextTokens: 256_000, thinks: true, efforts: ['low', 'high'] }],
 ]);
 const REASONING_EFFORT_RANK = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];

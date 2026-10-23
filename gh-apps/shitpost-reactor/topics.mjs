@@ -22,6 +22,15 @@ const FEEDSEEK_FEEDS = Object.freeze({
     { name: 'Feedseek / PAP', url: FEEDSEEK_ROOT + 'feed_pap.json' },
     { name: 'Feedseek / Gov.pl', url: FEEDSEEK_ROOT + 'feed_govpl_news.json' },
   ],
+  shitpost: [
+    { name: 'Feedseek / 4chan', url: FEEDSEEK_ROOT + 'feed_4chan.json', hosts: ['boards.4chan.org', 'boards.4channel.org', 'blog.4chan.org'] },
+    { name: 'Feedseek / 9GAG', url: FEEDSEEK_ROOT + 'feed_9gag.json', hosts: ['9gag.com', 'www.9gag.com'] },
+    { name: 'Feedseek / JBZD', url: FEEDSEEK_ROOT + 'feed_jbzd.json', hosts: ['jbzd.com.pl', 'www.jbzd.com.pl'] },
+    { name: 'Feedseek / Memedroid', url: FEEDSEEK_ROOT + 'feed_memedroid.json', hosts: ['www.memedroid.com', 'memedroid.com'] },
+    { name: 'Feedseek / Cheezburger', url: FEEDSEEK_ROOT + 'feed_cheezburger.json', hosts: ['cheezburger.com', 'www.cheezburger.com', 'memebase.cheezburger.com', 'failblog.cheezburger.com'] },
+    { name: 'Feedseek / Wykop', url: FEEDSEEK_ROOT + 'feed_wykop.json', hosts: ['wykop.pl', 'www.wykop.pl'] },
+    { name: 'Feedseek / Lemmy', url: FEEDSEEK_ROOT + 'feed_lemmy.json', hosts: ['lemmy.world', 'lemmy.ml', 'lemmy.org', 'szmer.info', 'sh.itjust.works'] },
+  ],
 });
 const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|ustaw|weta|weto|marszał|kancelari/iu;
 const POLISH_CONTEXT = /polsk|polak|warszaw|sejm|senat|posł|poseł|kprm|samorząd|sejmik|koalicj|opozycj|marszałek sejmu/iu;
@@ -51,6 +60,7 @@ export function resolveTopicLane(manualTopic = '', runNumber = '') {
   const number = Number(String(runNumber).trim());
   if (!Number.isSafeInteger(number) || number < 1) return 'evergreen';
   if (number % 7 === 1) return 'news';
+  if (number % 7 === 2) return 'shitpost';
   if (number % 7 === 4) return 'llm';
   if (number % 7 === 6) return 'politics';
   return 'evergreen';
@@ -110,7 +120,7 @@ export function parseNewsRss(xml, {
   });
 }
 
-export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = false, tag = null, tags = null } = {}) {
+export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = false, tag = null, tags = null, allowedHosts = null } = {}) {
   if (payload?.version !== 'https://jsonfeed.org/version/1.1' || !Array.isArray(payload.items)) return [];
   return payload.items.slice(0, 75).flatMap((item) => {
     if (typeof item?.title !== 'string' || typeof item?.url !== 'string'
@@ -126,6 +136,7 @@ export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = fa
       return [];
     }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password
+      || (allowedHosts && !allowedHosts.includes(url.hostname))
       || url.toString().length > MAX_ARTICLE_URL_LENGTH
       || title.length < 12 || !Number.isFinite(date) || date > now
       || now - date > NEWS_MAX_AGE_MS || SENSITIVE_NEWS.test(title)
@@ -176,7 +187,7 @@ async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
     const body = await readBoundedText(response);
     if (body === null) return [];
     const items = isJson
-      ? parseFeedseekJson(JSON.parse(body), { now, politicsOnly, tag: feed.tag, tags: feed.tags })
+      ? parseFeedseekJson(JSON.parse(body), { now, politicsOnly, tag: feed.tag, tags: feed.tags, allowedHosts: feed.hosts })
       : parseNewsRss(body, { now, politicsOnly, allowedHosts: feed.hosts });
     return items.slice(0, 30).map((item) => ({ ...item, source: feed.name }));
   } catch {
@@ -186,11 +197,23 @@ async function loadFeed(feed, { now, fetchImpl, politicsOnly }) {
 }
 
 export async function loadNewsForLane(lane, { seed = '', now = Date.now(), fetchImpl = fetch } = {}) {
-  if (lane !== 'news' && lane !== 'politics') return null;
-  const feeds = lane === 'news' ? [...NEWS_FEEDS, ...FEEDSEEK_FEEDS.news] : [...FEEDSEEK_FEEDS.politics, ...POLISH_RSS_FEEDS];
+  if (!['news', 'politics', 'shitpost'].includes(lane)) return null;
+  const feeds = lane === 'news'
+    ? [...NEWS_FEEDS, ...FEEDSEEK_FEEDS.news]
+    : lane === 'politics'
+      ? [...FEEDSEEK_FEEDS.politics, ...POLISH_RSS_FEEDS]
+      : FEEDSEEK_FEEDS.shitpost;
   const batches = await Promise.all(feeds.map((feed) => loadFeed(feed, {
     now, fetchImpl, politicsOnly: lane === 'politics',
   })));
+  if (lane === 'shitpost') {
+    // Choose a source first; a large 4chan feed must not crowd out memes
+    // from smaller publishers.
+    const available = batches.filter((batch) => batch.length);
+    if (!available.length) return null;
+    const batch = available[hashIndex('shitpost-source:' + seed, available.length)];
+    return batch[hashIndex('shitpost-entry:' + seed, batch.length)];
+  }
   const entries = [...new Map(batches.flat().map((entry) => [entry.url, entry])).values()];
   return entries.length ? entries[hashIndex(lane + ':' + seed, entries.length)] : null;
 }

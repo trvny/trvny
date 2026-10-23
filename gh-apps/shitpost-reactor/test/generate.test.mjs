@@ -398,7 +398,8 @@ test('topic lanes are occasional, deterministic and honor manual topics', () => 
   assert.equal(lanes.filter((lane) => lane === 'news').length, 4);
   assert.equal(lanes.filter((lane) => lane === 'llm').length, 4);
   assert.equal(lanes.filter((lane) => lane === 'politics').length, 4);
-  assert.equal(lanes.filter((lane) => lane === 'evergreen').length, 16);
+  assert.equal(lanes.filter((lane) => lane === 'shitpost').length, 4);
+  assert.equal(lanes.filter((lane) => lane === 'evergreen').length, 12);
   assert.equal(resolveTopicLane('manual', '1'), 'manual');
   assert.equal(resolveTopicLane('', ''), 'evergreen');
   assert.equal(chooseLLMTopic('fixed-seed'), chooseLLMTopic('fixed-seed'));
@@ -597,4 +598,58 @@ test('politics lane uses direct RSS when Feedseek is unavailable', async () => {
     assert.equal(result.source, feed.name);
     assert.equal(result.url, article);
   }
+});
+
+test('Feedseek shitpost lane accepts fresh known-host titles without reading media', async () => {
+  const date = new Date(newsNow - 1_000).toISOString();
+  const result = await loadNewsForLane('shitpost', {
+    seed: 'feedseek-demo', now: newsNow,
+    fetchImpl: async (url) => url.endsWith('feed_4chan.json')
+      ? new Response(JSON.stringify(feedseekFeed([
+          feedseekItem('[NSFW] /b/ Random: Office coffee machine elects itself CEO', date, {
+            url: 'https://boards.4chan.org/b/thread/1234',
+            content_html: '<img src="https://i.4cdn.org/b/1234.jpg">',
+          }),
+          feedseekItem('Tragedy strikes an office in the city', date, {
+            url: 'https://boards.4chan.org/b/thread/1235',
+          }),
+          feedseekItem('Interesting office committee discusses coffee', date, {
+            url: 'https://attacker.invalid/escape',
+          }),
+        ])), { status: 200 })
+      : new Response('', { status: 503 }),
+  });
+  assert.equal(result.source, 'Feedseek / 4chan');
+  assert.equal(result.url, 'https://boards.4chan.org/b/thread/1234');
+  assert.ok(!('content_html' in result));
+  assert.ok(!('image' in result));
+  const messages = buildMessages('# skill', '', 'seed', 'text', null, { shitpostReference: result });
+  assert.match(messages[0].content, /user-generated meme/);
+  assert.match(messages[1].content, /untrusted_shitpost_reference/);
+  assert.doesNotMatch(messages[1].content, /i\.4cdn\.org/);
+});
+
+test('Feedseek shitpost pool balances independently among sources and degrades gracefully', async () => {
+  const date = new Date(newsNow - 1_000).toISOString();
+  const seen = new Set();
+  for (let i = 0; i < 140; i++) {
+    const result = await loadNewsForLane('shitpost', {
+      now: newsNow, seed: 'balanced-' + i,
+      fetchImpl: async (url) => {
+        const src = url.endsWith('feed_4chan.json') ? ['4chan', 'https://boards.4chan.org/g/thread/1234']
+          : url.endsWith('feed_jbzd.json') ? ['JBZD', 'https://jbzd.com.pl/obr/123/coffee']
+            : null;
+        return src
+          ? new Response(JSON.stringify(feedseekFeed([
+            feedseekItem('Office coffee machine hires another office coffee machine', date, { url: src[1] }),
+          ])), { status: 200 })
+          : new Response('', { status: 503 });
+      },
+    });
+    seen.add(result.source);
+  }
+  assert.deepEqual([...seen].sort(), ['Feedseek / 4chan', 'Feedseek / JBZD']);
+  assert.equal(await loadNewsForLane('shitpost', {
+    now: newsNow, fetchImpl: async () => new Response('', { status: 503 }),
+  }), null);
 });

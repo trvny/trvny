@@ -2,6 +2,7 @@ import { bearerAuthorized } from '../../core/auth.ts';
 import { REVIEW_DECISION_PATH } from '../../core/review-service-protocol.ts';
 import {
   activeProviderCooldown,
+  clearProviderCooldown,
   rememberProviderCooldown,
   REVIEW_ROUTER_TUNING_DEFAULTS,
   type ProviderCooldownId,
@@ -474,6 +475,8 @@ export async function handleDecisionModelRequest(
           modelAttempt: modelIndex + 1,
           primary: index === 0 && modelIndex === 0,
         }));
+        // Success forgets strikes, bounded by the pool deadline.
+        await withinDecisionDeadline(deadlineAt, () => clearProviderCooldown(provider.cooldownId, env));
         return Response.json(payload, {
           headers: {
             'cache-control': 'no-store',

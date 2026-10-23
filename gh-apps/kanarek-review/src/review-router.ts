@@ -2252,6 +2252,7 @@ export async function handleReviewRouterRequest(
             console.info(JSON.stringify({
               kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: workersModel,
             }));
+            await clearProviderCooldown(provider, env);
             return workersAiResponse(result, workersModel);
           } catch (error) {
             await settleWorkersAiNeurons(env, reservation, reservation.neurons);

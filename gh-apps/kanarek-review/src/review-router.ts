@@ -123,6 +123,7 @@ const VERCEL_MODEL_MAX_OUTPUT_TOKENS = new Map<string, number>([
   ['poolside/laguna-s-2.1-free', 32_768],
 ]);
 const OPENROUTER_REASONING_MODELS = new Set<string>([
+  'nvidia/nemotron-3.5-lightning:free',
   'nvidia/nemotron-3-ultra-550b-a55b:free',
   'cohere/north-mini-code:free',
 ]);

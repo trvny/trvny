@@ -159,10 +159,11 @@ Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter's
 official `openrouter/free` model can be used directly and lets OpenRouter choose
 a compatible free model automatically. The configured explicit `:free` models
 are therefore a quality/order policy rather than a technical requirement;
-The OpenRouter free review head is pinned to `stealth/space-bunny-alpha:free`
-instead of the unqualified preview alias, matching the explicit free endpoint
-published by OpenRouter. The other free fallbacks remain unchanged; temporary
-quota and billing errors are handled by the existing router cooldowns.
+The OpenRouter free review head is `nvidia/nemotron-3.5-lightning:free`.
+Repeated HTTP 404s on `stealth/space-bunny-alpha:free` and
+`qwen/qwen3.8-27b:free` prompted their removal from this review chain.
+Slow free candidates have up to 70 seconds per attempt within a five-minute
+OpenRouter review budget; quotas still use the existing router cooldowns.
 
 `openrouter/free` remains the catch-all fallback. The server-side fallback
 chain deliberately omits optional adjustable-reasoning fields because its models

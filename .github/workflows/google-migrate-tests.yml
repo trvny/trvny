@@ -3,12 +3,12 @@ name: google-migrate-tests
 on:
   pull_request:
     paths:
-      - 'google-migrate/**'
+      - 'yt-migrate/google/**'
       - '.github/workflows/google-migrate*.yml'
   push:
     branches: [main]
     paths:
-      - 'google-migrate/**'
+      - 'yt-migrate/google/**'
       - '.github/workflows/google-migrate*.yml'
 
 permissions: {}
@@ -20,6 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: google-migrate
+          sparse-checkout: yt-migrate/google
       - name: Tests
-        run: python3 -m unittest discover -s google-migrate -p 'test_*.py' -v
+        run: python3 -m unittest discover -s yt-migrate/google -p 'test_*.py' -v

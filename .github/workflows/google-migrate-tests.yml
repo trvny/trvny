@@ -1,0 +1,25 @@
+name: google-migrate-tests
+
+on:
+  pull_request:
+    paths:
+      - 'google-migrate/**'
+      - '.github/workflows/google-migrate*.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'google-migrate/**'
+      - '.github/workflows/google-migrate*.yml'
+
+permissions: {}
+
+jobs:
+  unit:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: google-migrate
+      - name: Tests
+        run: python3 -m unittest discover -s google-migrate -p 'test_*.py' -v

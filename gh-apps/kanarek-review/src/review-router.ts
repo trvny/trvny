@@ -1773,7 +1773,8 @@ function shouldTryNextAttempt(
       status === 425 || status === 429 || status >= 500;
   }
   if (provider.id === 'orcarouter') {
-    return status === 402 || status === 404 || status === 408 || status === 409 ||
+    // Pinned free models: one forbidden model must not stop the rest.
+    return status === 402 || status === 403 || status === 404 || status === 408 || status === 409 ||
       status === 425 || status === 429 || status >= 500;
   }
   if (provider.id === 'ollama') {
@@ -2147,7 +2148,8 @@ export async function handleReviewRouterRequest(
               model: attempt.model,
             }));
             if (
-              (provider.id === 'aihubmix' || provider.id === 'vercel' || provider.id === 'openrouter')
+              (provider.id === 'aihubmix' || provider.id === 'vercel' || provider.id === 'openrouter' ||
+                provider.id === 'orcarouter')
               && attemptIndex + 1 < attempts.length
             ) {
               modelFault = providerFailureCategory;

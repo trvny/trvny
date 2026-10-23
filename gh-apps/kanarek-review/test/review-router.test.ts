@@ -2927,3 +2927,23 @@ test('a chain whose fallbacks are all cooling is skipped, not sent as a duplicat
   assert.notEqual(response?.status, 200);
   assert.deepEqual(sent, [{ model: 'primary/free', models: undefined }], 'primary sent once');
 });
+
+test('OrcaRouter moves past a forbidden or empty pinned model', async () => {
+  const models: unknown[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'x' }],
+  }), {
+    ...auth, ORCAROUTER_API_KEY: 'orca-key', KANAREK_REVIEW_ORCAROUTER_MODELS: 'locked/free,empty/free,live/free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    models.push(body.model);
+    if (body.model === 'locked/free') return Promise.resolve(new Response('forbidden', { status: 403 }));
+    if (body.model === 'empty/free') {
+      return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: '' } }] }));
+    }
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.deepEqual(models, ['locked/free', 'empty/free', 'live/free']);
+});

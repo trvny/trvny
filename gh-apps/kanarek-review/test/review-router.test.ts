@@ -286,7 +286,7 @@ test('heterogeneous OpenRouter fallback chains avoid optional reasoning without 
   // Review-ordered, capped at OpenRouter's 3-entry fallback limit.
   assert.deepEqual(body.models, [
     'minimax/minimax-m3.1-flash:free',
-    'nvidia/nemotron-3-ultra-550b-a55b:free',
+    'nvidia/nemotron-3.5-super-vl:free',
     'cohere/north-mini-code:free',
   ]);
   assert.equal(body.reasoning, undefined);
@@ -1336,8 +1336,8 @@ test('AIHubMix shares one model pool but orders it by task', async () => {
 
   assert.equal(response?.status, 200);
   assert.deepEqual(models, [
+    'coding-glm-5.3-free',
     'coding-kimi-k3-free',
-    'nemotron-3.5-lightning-free',
   ]);
 });
 
@@ -1415,7 +1415,9 @@ test('provider health exposes budget classes and task queues', async () => {
   );
   assert.equal(health.taskOrders.review[0], 'openrouter');
   assert.equal(health.taskOrders.quip[0], 'aihubmix');
-  assert.equal(health.taskOrders.shitpost[1], 'vercel');
+  assert.equal(health.taskOrders.shitpost[1], 'openrouter');
+  // Old gpt-oss lanes sit behind fresher providers for review.
+  assert.ok(health.taskOrders.review.indexOf('groq') > health.taskOrders.review.indexOf('vercel'));
 });
 
 test('review router tries pinned OrcaRouter free models first', async () => {
@@ -2252,7 +2254,7 @@ test('review router tries Ollama models before Groq', async () => {
   ]);
 });
 
-test('review router uses reasoning-enabled Hy3 at Vercel after Groq quota', async () => {
+test('review lane tries fresh Vercel Hy3 before old gpt-oss on Groq', async () => {
   const calls: Array<{
     url: string;
     model: unknown;
@@ -2270,6 +2272,7 @@ test('review router uses reasoning-enabled Hy3 at Vercel after Groq quota', asyn
     ...auth,
     GROQ_API_KEY: 'groq-key',
     AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_VERCEL_MODELS: 'tencent/hy3',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     calls.push({
@@ -2281,24 +2284,16 @@ test('review router uses reasoning-enabled Hy3 at Vercel after Groq quota', asyn
       topP: body.top_p,
       authorization: new Headers(init?.headers).get('authorization'),
     });
-    if (String(input).startsWith('https://api.groq.com/')) {
+    if (String(input).startsWith('https://ai-gateway.vercel.sh/')) {
       return Promise.resolve(new Response('quota', { status: 429 }));
     }
     return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'vercel');
+  // Groq stays the fallback when Hy3 is out of quota.
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'groq');
   assert.deepEqual(calls, [
-    {
-      url: 'https://api.groq.com/openai/v1/chat/completions',
-      model: 'openai/gpt-oss-120b',
-      maxTokens: 4_096,
-      reasoning: undefined,
-      temperature: undefined,
-      topP: undefined,
-      authorization: 'Bearer groq-key',
-    },
     {
       url: 'https://ai-gateway.vercel.sh/v1/chat/completions',
       model: 'tencent/hy3',
@@ -2307,6 +2302,15 @@ test('review router uses reasoning-enabled Hy3 at Vercel after Groq quota', asyn
       temperature: 0.9,
       topP: 1.0,
       authorization: 'Bearer vercel-key',
+    },
+    {
+      url: 'https://api.groq.com/openai/v1/chat/completions',
+      model: 'openai/gpt-oss-120b',
+      maxTokens: 4_096,
+      reasoning: undefined,
+      temperature: undefined,
+      topP: undefined,
+      authorization: 'Bearer groq-key',
     },
   ]);
 });
@@ -2379,6 +2383,7 @@ test('Vercel falls back from Hy3 to Qwen without leaking Hy3-only settings', asy
   }), {
     ...auth,
     AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_VERCEL_MODELS: 'tencent/hy3,alibaba/qwen3-coder-30b-a3b',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     calls.push(body);
@@ -2421,6 +2426,7 @@ test('Vercel falls back from an unusable Hy3 HTTP 200 response to Qwen', async (
   }), {
     ...auth,
     AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_VERCEL_MODELS: 'tencent/hy3,alibaba/qwen3-coder-30b-a3b',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: string };
     calls.push(body.model ?? '');
@@ -2453,6 +2459,7 @@ test('Vercel retries only model-specific HTTP 400 failures', async () => {
   }), {
     ...auth,
     AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_VERCEL_MODELS: 'tencent/hy3,alibaba/qwen3-coder-30b-a3b',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: string };
     retryCalls.push(body.model ?? '');
@@ -2502,6 +2509,7 @@ test('Vercel falls back to Qwen after a Hy3 network failure', async () => {
   }), {
     ...auth,
     AI_GATEWAY_API_KEY: 'vercel-key',
+    KANAREK_REVIEW_VERCEL_MODELS: 'tencent/hy3,alibaba/qwen3-coder-30b-a3b',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: string };
     calls.push(body.model ?? '');

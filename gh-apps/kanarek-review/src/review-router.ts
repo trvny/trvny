@@ -40,6 +40,10 @@ const WORKERS_AI_RESERVATION_SAFETY_FACTOR = 1.25;
 export const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_AIHUBMIX_MODELS: [
     'coding-kimi-k3-free',
+    'coding-glm-5.3-free',
+    'qwen3.8-max-free',
+    'xiaomi-mimo-v2.6-pro-free',
+    'coding-minimax-m3-free',
     'nemotron-3.5-lightning-free',
     'qwen3.8-flash-free',
     'xiaomi-mimo-v2.6-flash-free',
@@ -54,7 +58,6 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
     'z-ai/glm-5.3-flash-free',
     'tencent/hy4-preview-free',
     'tencent/hy3-free',
-    'orcarouter/auto',
   ],
   KANAREK_REVIEW_OLLAMA_MODELS: ['gpt-oss:120b', 'gpt-oss:20b'],
   KANAREK_REVIEW_GROQ_MODEL: 'openai/gpt-oss-120b',
@@ -164,6 +167,20 @@ type ModelProfile = {
 const AIHUBMIX_MODEL_PROFILES = new Map<string, ModelProfile>([
   // K3 always thinks at max; other effort values rejected per AIHubMix K3 guide.
   ['coding-kimi-k3-free', { contextTokens: 1_048_576, thinks: true }],
+  ['coding-glm-5.3-free', {
+    contextTokens: 1_048_576,
+    maxOutputTokens: 131_072,
+    thinks: true,
+    efforts: ['low', 'high', 'max'],
+  }],
+  ['qwen3.8-max-free', {
+    contextTokens: 1_000_000,
+    maxOutputTokens: 131_072,
+    thinks: true,
+    efforts: ['low', 'medium', 'xhigh'],
+  }],
+  ['xiaomi-mimo-v2.6-pro-free', { contextTokens: 1_048_576, maxOutputTokens: 131_072, thinks: true }],
+  ['coding-minimax-m3-free', { contextTokens: 1_000_000, maxOutputTokens: 524_288, thinks: true }],
   ['nemotron-3.5-lightning-free', { contextTokens: 1_048_576, thinks: true }],
   ['qwen3.8-flash-free', {
     contextTokens: 1_000_000,
@@ -208,31 +225,42 @@ const PROVIDER_CONTEXT_SAFETY_TOKENS = 4_096;
 
 const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
   quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai', 'gemini-standard'],
-  review: ['openrouter', 'aihubmix', 'groq', 'ollama', 'gemini-standard', 'vercel', 'orcarouter', 'huggingface-publicai'],
-  judge: ['aihubmix', 'groq', 'vercel', 'openrouter', 'ollama', 'orcarouter', 'huggingface-publicai', 'gemini-standard'],
-  shitpost: ['aihubmix', 'vercel', 'groq', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai', 'gemini-standard'],
+  // Review/judge: fresh models first; gpt-oss (Groq, Ollama) and Bielik predate recent releases.
+  review: ['openrouter', 'aihubmix', 'orcarouter', 'gemini-standard', 'vercel', 'ollama', 'groq', 'huggingface-publicai'],
+  judge: ['aihubmix', 'openrouter', 'orcarouter', 'vercel', 'groq', 'ollama', 'huggingface-publicai', 'gemini-standard'],
+  shitpost: ['aihubmix', 'openrouter', 'vercel', 'orcarouter', 'groq', 'ollama', 'huggingface-publicai', 'gemini-standard'],
 } as const satisfies Record<Exclude<FreeTaskProfileId, 'general'>, readonly FreeReviewProviderId[]>;
 
+// Task orders, best first. Review/judge: strong and recent (version claims need fresh
+// knowledge). Quip: fast. Shitpost: biggest/most creative; age matters less.
 const AIHUBMIX_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
   general: DEFAULT_REVIEW_AIHUBMIX_MODELS,
-  quip: ['xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'lfm-2.5-2.6b-free', 'nemotron-3.5-lightning-free'],
-  review: ['coding-kimi-k3-free', 'nemotron-3.5-lightning-free', 'qwen3.8-flash-free', 'laguna-s-2.1-free', 'gemma-4-31b-it-free', 'agents-a1-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free'],
-  judge: ['nemotron-3.5-lightning-free', 'qwen3.8-flash-free', 'dots-3-note-preview-free', 'gemma-4-31b-it-free', 'xiaomi-mimo-v2.6-flash-free', 'coding-kimi-k3-free'],
-  shitpost: ['xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'agents-a1-free', 'nemotron-3.5-lightning-free'],
+  quip: ['xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'lfm-2.5-2.6b-free'],
+  review: ['coding-glm-5.3-free', 'coding-kimi-k3-free', 'qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'laguna-s-2.1-free', 'coding-minimax-m3-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free', 'agents-a1-free', 'gemma-4-31b-it-free'],
+  judge: ['qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'coding-glm-5.3-free', 'coding-kimi-k3-free', 'qwen3.8-flash-free', 'nemotron-3.5-lightning-free', 'dots-3-note-preview-free', 'xiaomi-mimo-v2.6-flash-free', 'gemma-4-31b-it-free'],
+  shitpost: ['qwen3.8-max-free', 'xiaomi-mimo-v2.6-pro-free', 'coding-kimi-k3-free', 'coding-minimax-m3-free', 'xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'agents-a1-free'],
+};
+
+const ORCAROUTER_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
+  general: DEFAULT_REVIEW_ORCAROUTER_MODELS,
+  quip: ['z-ai/glm-5.3-flash-free', 'deepseek/deepseek-v4.1-flash-free', 'tencent/hy3-free', 'tencent/hy4-preview-free'],
+  review: ['deepseek/deepseek-v4.1-flash-free', 'z-ai/glm-5.3-flash-free', 'tencent/hy4-preview-free', 'tencent/hy3-free'],
+  judge: ['deepseek/deepseek-v4.1-flash-free', 'tencent/hy4-preview-free', 'z-ai/glm-5.3-flash-free', 'tencent/hy3-free'],
+  shitpost: ['tencent/hy4-preview-free', 'deepseek/deepseek-v4.1-flash-free', 'z-ai/glm-5.3-flash-free', 'tencent/hy3-free'],
 };
 
 const OPENROUTER_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
   general: DEFAULT_REVIEW_OPENROUTER_MODELS,
   quip: ['nvidia/nemotron-3.5-lightning:free', 'thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free'],
-  review: ['thinkingmachines/inkling:free', 'minimax/minimax-m3.1-flash:free', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'cohere/north-mini-code:free', 'poolside/laguna-s-2.1:free', 'nvidia/nemotron-3.5-super-vl:free'],
-  judge: ['nvidia/nemotron-3-ultra-550b-a55b:free', 'thinkingmachines/inkling:free', 'nvidia/nemotron-3.5-super-vl:free', 'nvidia/nemotron-3.5-lightning:free'],
-  shitpost: ['thinkingmachines/inkling:free', 'minimax/minimax-m3.1-flash:free', 'thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free', 'nvidia/nemotron-3.5-super-vl:free'],
+  review: ['thinkingmachines/inkling:free', 'minimax/minimax-m3.1-flash:free', 'nvidia/nemotron-3.5-super-vl:free', 'cohere/north-mini-code:free', 'poolside/laguna-s-2.1:free', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'nvidia/nemotron-3.5-lightning:free'],
+  judge: ['thinkingmachines/inkling:free', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'minimax/minimax-m3.1-flash:free', 'nvidia/nemotron-3.5-super-vl:free', 'nvidia/nemotron-3.5-lightning:free'],
+  shitpost: ['thinkingmachines/inkling:free', 'minimax/minimax-m3.1-flash:free', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free', 'nvidia/nemotron-3.5-super-vl:free'],
 };
 
 const VERCEL_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
   general: DEFAULT_REVIEW_VERCEL_MODELS,
   quip: ['inclusionai/ling-3.1-flash-free', 'poolside/laguna-s-2.1-free', 'alibaba/qwen3.8-omni-flash', 'tencent/hy3', 'alibaba/qwen3-coder-30b-a3b'],
-  review: ['tencent/hy3', 'alibaba/qwen3-coder-30b-a3b', 'alibaba/qwen3.8-omni-flash', 'inclusionai/ling-3.1-flash-free', 'poolside/laguna-s-2.1-free'],
+  review: ['tencent/hy3', 'alibaba/qwen3.8-omni-flash', 'poolside/laguna-s-2.1-free', 'inclusionai/ling-3.1-flash-free', 'alibaba/qwen3-coder-30b-a3b'],
   judge: ['tencent/hy3', 'alibaba/qwen3.8-omni-flash', 'inclusionai/ling-3.1-flash-free', 'poolside/laguna-s-2.1-free', 'alibaba/qwen3-coder-30b-a3b'],
   shitpost: ['alibaba/qwen3.8-omni-flash', 'inclusionai/ling-3.1-flash-free', 'tencent/hy3', 'poolside/laguna-s-2.1-free', 'alibaba/qwen3-coder-30b-a3b'],
 };
@@ -585,9 +613,9 @@ function providers(
     aihubMixConfigured,
     AIHUBMIX_TASK_MODEL_PREFERENCES[task],
   );
-  const orcaRouterModels = configuredModelList(
-    env.KANAREK_REVIEW_ORCAROUTER_MODELS,
-    DEFAULT_REVIEW_ORCAROUTER_MODELS,
+  const orcaRouterModels = orderedTaskModels(
+    configuredModelList(env.KANAREK_REVIEW_ORCAROUTER_MODELS, DEFAULT_REVIEW_ORCAROUTER_MODELS),
+    ORCAROUTER_TASK_MODEL_PREFERENCES[task],
   );
   const ollamaModels = configuredModelList(
     env.KANAREK_REVIEW_OLLAMA_MODELS,

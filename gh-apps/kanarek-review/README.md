@@ -86,13 +86,17 @@ maintained task-specific preferences while sharing the same keys, cooldowns and
 quota state. `/health` exposes the legacy `freeOrder`, all effective
 `taskOrders`, and a coarse budget class for each provider.
 
-AIHubMix uses one configured pool rather than one pinned model:
-`coding-kimi-k3-free`, `nemotron-3.5-lightning-free`, `qwen3.8-flash-free`,
+Multi-model providers (AIHubMix, OpenRouter, OrcaRouter, Vercel) keep one
+configured pool each, ordered per task best-first (`*_TASK_MODEL_PREFERENCES`):
+review and judge lead with strong, recent models, because version and release
+claims need fresh training data; quips lead with fast models; shitposts lead
+with the largest/most creative ones, where age matters less. For the same
+reason the review/judge provider queues put Groq and Ollama (gpt-oss) and the
+Bielik fallback behind fresher providers. AIHubMix's pool: `coding-kimi-k3-free`,
+`coding-glm-5.3-free`, `qwen3.8-max-free`, `xiaomi-mimo-v2.6-pro-free`,
+`coding-minimax-m3-free`, `nemotron-3.5-lightning-free`, `qwen3.8-flash-free`,
 `xiaomi-mimo-v2.6-flash-free`, `gemma-4-31b-it-free`, `laguna-s-2.1-free`,
-`agents-a1-free`, `dots-3-note-preview-free` and `lfm-2.5-2.6b-free`. Code
-review prefers coding/reasoning models, quips prefer
-fast general models, the judge prefers a diverse second opinion, and shitposts
-prefer the more general/creative end of the same pool. Retryable model failures
+`agents-a1-free`, `dots-3-note-preview-free` and `lfm-2.5-2.6b-free`. Retryable model failures
 fall through inside AIHubMix before abandoning the provider.
 
 AIHubMix and OrcaRouter use the shorter
@@ -212,9 +216,9 @@ Qwen 3 Coder does not receive synthetic reasoning fields and its requests are
 clamped to its 8K output limit. Known lower per-model output ceilings are applied
 before dispatch, while callers asking for a larger supported ceiling keep it.
 
-OrcaRouter tries long-lived free models first (`deepseek/deepseek-v4.1-flash-free`,
-`z-ai/glm-5.3-flash-free`, `tencent/hy4-preview-free`, `tencent/hy3-free`), then the
-workspace-owned `orcarouter/auto` route. Per-model cooldowns skip a model that
+OrcaRouter calls named free models only (`deepseek/deepseek-v4.1-flash-free`,
+`z-ai/glm-5.3-flash-free`, `tencent/hy4-preview-free`, `tencent/hy3-free`); the
+`orcarouter/auto` and `orcarouter/free` routes were unreliable and are not used. Per-model cooldowns skip a model that
 rotates out until it recovers. Spend limits and routing policy
 must remain enforced in OrcaRouter itself.
 

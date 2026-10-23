@@ -48,7 +48,7 @@ jobs:
       - name: Set up Python and cache pip downloads
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
           cache-dependency-path: pages/token-worldcup/requirements.txt
       - name: Install tokenizer tools

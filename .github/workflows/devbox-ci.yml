@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.15"
       - name: Validate Devbox files
         shell: bash
         run: |

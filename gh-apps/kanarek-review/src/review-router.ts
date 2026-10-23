@@ -1972,7 +1972,8 @@ export async function handleReviewRouterRequest(
       // A fallback-chain attempt spans several models; its failure blames none.
       const singleModel = multiModel && !attempt.fallbackModels?.length;
       // Never send a cooled-down model: skip the attempt when its primary is
-      // cooling, and drop cooled models from a fallback chain.
+      // cooling, and drop cooled models from a fallback chain. A chain left
+      // with no fallbacks is skipped too: its primary-only attempt follows.
       let fallbackModels = attempt.fallbackModels;
       let primaryCooled = false;
       if (multiModel) {
@@ -1983,7 +1984,7 @@ export async function handleReviewRouterRequest(
         primaryCooled = Boolean(cooled[0]);
         if (fallbackModels?.length) fallbackModels = fallbackModels.filter((_, index) => !cooled[index + 1]);
       }
-      if (primaryCooled) {
+      if (primaryCooled || (attempt.fallbackModels?.length && !fallbackModels?.length)) {
         providerFailureCategory = 'model_cooldown';
         providerInvalidRequest = false;
         console.info(JSON.stringify({

@@ -2898,3 +2898,28 @@ test('a fallback chain never resends a cooled-down model', async () => {
   assert.ok(sent.every((entry) => entry.model !== 'dead/free'), JSON.stringify(sent));
   assert.deepEqual(sent.map((entry) => entry.model), ['live/free']);
 });
+
+test('a chain whose fallbacks are all cooling is skipped, not sent as a duplicate primary', async () => {
+  const cooldowns = cooldownNamespace();
+  const sent: Array<{ model?: unknown; models?: unknown }> = [];
+  const env = {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'primary/free,dead/free',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+  };
+  await cooldowns.get(cooldowns.idFromName('openrouter#dead/free')).fetch('https://review-cooldown.internal/extend', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ category: 'http_404', durationMs: 600_000 }),
+  });
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'x' }],
+  }), env, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
+    sent.push({ model: body.model, models: body.models });
+    return Promise.resolve(new Response('model not found', { status: 404 }));
+  }) as typeof fetch);
+  assert.notEqual(response?.status, 200);
+  assert.deepEqual(sent, [{ model: 'primary/free', models: undefined }], 'primary sent once');
+});

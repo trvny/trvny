@@ -481,6 +481,7 @@ test('paid review contract falls through from DeepSeek to native Gemini Interact
     OPENROUTER_API_KEY: 'openrouter-key',
     DEEPSEEK_API_KEY: 'deepseek-key',
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL) => {
     const url = String(input);
     urls.push(url);
@@ -517,6 +518,7 @@ test('DeepSeek balance exhaustion falls through to native Gemini Flex', async ()
     ...auth,
     DEEPSEEK_API_KEY: 'deepseek-key',
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL) => {
     const url = String(input);
     urls.push(url);
@@ -561,6 +563,7 @@ test('Gemini Flex uses the native v1 Interactions contract with high thinking', 
     ],
   }), {
     ...auth, GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers);
     call = {
@@ -680,6 +683,7 @@ test('Gemini Interactions bridges OpenAI tool history and function calls for pai
   }), {
     ...auth,
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     return Promise.resolve(Response.json({
@@ -780,6 +784,7 @@ test('Gemini stateless tool turns preserve thought signatures exactly', async ()
   }), {
     ...auth,
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     firstBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
     return Promise.resolve(Response.json({
@@ -835,6 +840,7 @@ test('Gemini stateless tool turns preserve thought signatures exactly', async ()
   }), {
     ...auth,
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     secondBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
     return Promise.resolve(Response.json({
@@ -909,6 +915,7 @@ test('Gemini Flex 503 keeps transient semantics and falls through to DeepSeek', 
     ...auth,
     KANAREK_REVIEW_PAID_PROVIDER_ORDER: 'gemini-flex,deepseek',
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
     DEEPSEEK_API_KEY: 'deepseek-key',
   }, ((input: RequestInfo | URL) => {
     const url = String(input);
@@ -938,6 +945,7 @@ test('Gemini spend-cap 403 is classified without exposing the provider body', as
   }), {
     ...auth,
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, (() => Promise.resolve(Response.json({
     error: {
       code: 403,
@@ -975,6 +983,7 @@ test('free router contract never spends DeepSeek or Gemini paid reserves', async
     messages: [{ role: 'user', content: 'quip' }],
   }), {
     ...auth, DEEPSEEK_API_KEY: 'deepseek-key', GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, (() => {
     calls += 1;
     return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
@@ -2068,6 +2077,7 @@ test('review router follows configured free provider order and appends omitted p
     'groq',
     'vercel',
     'huggingface-publicai',
+    'gemini-standard',
     'workers-ai',
   ]);
 });

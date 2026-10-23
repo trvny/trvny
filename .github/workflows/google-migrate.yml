@@ -71,7 +71,7 @@ jobs:
               -pass env:KEY -in "$RUNNER_TEMP/google-migrate.json" -out google-migrate/checkpoint.enc
           fi
       - name: Save encrypted checkpoint
-        if: always()
+        if: ${{ always() && hashFiles('google-migrate/checkpoint.enc') != '' }}
         uses: actions/cache/save@v6
         with:
           path: google-migrate/checkpoint.enc

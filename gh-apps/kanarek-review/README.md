@@ -112,7 +112,7 @@ chat router. It forwards at most 16 typed `choice` / `noul` / `score`
 questions through a rotating decision-only pool:
 
 1. AIHubMix `decision-model-preview`
-2. OpenRouter Decisions: `inception/mercury-decide:free`, then free fallback `respan/span-01-lite:free`
+2. OpenRouter Decisions: `inception/mercury-decide:free`, then free fallbacks `baseten/mammoth-1:free` (27B, 16K context), `baseten/elephant-1:free` (9B), `respan/span-01-lite:free`
 3. QwenCloud `decision-model-preview`
 4. Vercel AI Gateway `convaiinnovations/laya-free` through its TypeSafe-compatible System One API
 
@@ -160,7 +160,12 @@ Model lists and per-provider settings live in `wrangler.jsonc`. OpenRouter's
 official `openrouter/free` model can be used directly and lets OpenRouter choose
 a compatible free model automatically. The configured explicit `:free` models
 are therefore a quality/order policy rather than a technical requirement;
-The OpenRouter free review head is `nvidia/nemotron-3.5-lightning:free`.
+OpenRouter models are ordered per task (`OPENROUTER_TASK_MODEL_PREFERENCES`):
+review leads with Inkling, quips with Nemotron 3.5 Lightning. Every pinned
+`:free` model has a catalog profile (context/output caps) and thinks by
+default, so each individual attempt gets the 16K floor and `reasoning.effort`
+(low for quips). The server-side `models` chain is capped at 3 fallbacks,
+OpenRouter's limit; the rest are tried individually.
 Repeated HTTP 404s on `stealth/space-bunny-alpha:free` and
 `qwen/qwen3.8-27b:free` prompted their removal from this review chain.
 Slow free candidates have up to 70 seconds per attempt within a five-minute

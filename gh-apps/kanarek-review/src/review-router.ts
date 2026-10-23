@@ -71,8 +71,14 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_WORKERS_AI_MODEL: '@cf/zai-org/glm-4.7-flash',
   KANAREK_REVIEW_OPENROUTER_MODELS: [
     'nvidia/nemotron-3.5-lightning:free',
+    'thinkingmachines/inkling:free',
+    'minimax/minimax-m3.1-flash:free',
     'nvidia/nemotron-3-ultra-550b-a55b:free',
+    'nvidia/nemotron-3.5-super-vl:free',
     'cohere/north-mini-code:free',
+    'poolside/laguna-s-2.1:free',
+    'thinkingmachines/inkling-small:free',
+    'xingchen-agi/xing4.0-29b-a4b:free',
     'openrouter/free',
   ],
 } as const;
@@ -129,11 +135,22 @@ const VERCEL_MODEL_MAX_OUTPUT_TOKENS = new Map<string, number>([
   ['inclusionai/ling-3.1-flash-free', 32_768],
   ['poolside/laguna-s-2.1-free', 32_768],
 ]);
-const OPENROUTER_REASONING_MODELS = new Set<string>([
-  'nvidia/nemotron-3.5-lightning:free',
-  'nvidia/nemotron-3-ultra-550b-a55b:free',
-  'cohere/north-mini-code:free',
+// openrouter.ai/api/v1/models: all pinned :free models accept `reasoning`.
+const OPENROUTER_MODEL_PROFILES = new Map<string, ModelProfile>([
+  ['nvidia/nemotron-3.5-lightning:free', { contextTokens: 1_000_000, maxOutputTokens: 65_536 }],
+  ['thinkingmachines/inkling:free', { contextTokens: 1_048_576, maxOutputTokens: 262_144 }],
+  // Free variant not in the API catalog yet; limits from the paid listing.
+  ['minimax/minimax-m3.1-flash:free', { contextTokens: 1_048_576, maxOutputTokens: 524_288 }],
+  ['nvidia/nemotron-3-ultra-550b-a55b:free', { contextTokens: 1_000_000, maxOutputTokens: 65_536 }],
+  ['nvidia/nemotron-3.5-super-vl:free', { contextTokens: 1_000_000, maxOutputTokens: 131_072 }],
+  ['cohere/north-mini-code:free', { contextTokens: 256_000, maxOutputTokens: 64_000 }],
+  ['poolside/laguna-s-2.1:free', { contextTokens: 262_144, maxOutputTokens: 32_768 }],
+  ['thinkingmachines/inkling-small:free', { contextTokens: 1_048_576, maxOutputTokens: 262_144 }],
+  ['xingchen-agi/xing4.0-29b-a4b:free', { contextTokens: 262_144, maxOutputTokens: 235_929 }],
 ]);
+const OPENROUTER_REASONING_MODELS = new Set<string>(OPENROUTER_MODEL_PROFILES.keys());
+// OpenRouter rejects longer `models` fallback lists; the rest are tried individually.
+const OPENROUTER_CHAIN_FALLBACKS = 3;
 // Per-model limits from provider catalogs (aihubmix.com/api/v1/models, orcarouter /v1/models + docs).
 // thinks: reasons by default, output budget must cover hidden reasoning or content comes back empty.
 // efforts: accepted reasoning_effort values, low→high. Absent = never send reasoning_effort.
@@ -201,6 +218,14 @@ const AIHUBMIX_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string
   review: ['coding-kimi-k3-free', 'nemotron-3.5-lightning-free', 'qwen3.8-flash-free', 'laguna-s-2.1-free', 'gemma-4-31b-it-free', 'agents-a1-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free'],
   judge: ['nemotron-3.5-lightning-free', 'qwen3.8-flash-free', 'dots-3-note-preview-free', 'gemma-4-31b-it-free', 'xiaomi-mimo-v2.6-flash-free', 'coding-kimi-k3-free'],
   shitpost: ['xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'agents-a1-free', 'nemotron-3.5-lightning-free'],
+};
+
+const OPENROUTER_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
+  general: DEFAULT_REVIEW_OPENROUTER_MODELS,
+  quip: ['nvidia/nemotron-3.5-lightning:free', 'thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free'],
+  review: ['thinkingmachines/inkling:free', 'minimax/minimax-m3.1-flash:free', 'nvidia/nemotron-3-ultra-550b-a55b:free', 'cohere/north-mini-code:free', 'poolside/laguna-s-2.1:free', 'nvidia/nemotron-3.5-super-vl:free'],
+  judge: ['nvidia/nemotron-3-ultra-550b-a55b:free', 'thinkingmachines/inkling:free', 'nvidia/nemotron-3.5-super-vl:free', 'nvidia/nemotron-3.5-lightning:free'],
+  shitpost: ['thinkingmachines/inkling:free', 'minimax/minimax-m3.1-flash:free', 'thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free', 'nvidia/nemotron-3.5-super-vl:free'],
 };
 
 const VERCEL_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
@@ -534,9 +559,9 @@ function providers(
 ): readonly ReviewProvider[] {
   const reviewOpenRouterModels = env.KANAREK_REVIEW_OPENROUTER_MODELS?.trim();
   const sharedOpenRouterModels = env.KANAREK_OPENROUTER_MODELS?.trim();
-  const openRouterModels = configuredModelList(
-    reviewOpenRouterModels || sharedOpenRouterModels,
-    DEFAULT_REVIEW_OPENROUTER_MODELS,
+  const openRouterModels = orderedTaskModels(
+    configuredModelList(reviewOpenRouterModels || sharedOpenRouterModels, DEFAULT_REVIEW_OPENROUTER_MODELS),
+    OPENROUTER_TASK_MODEL_PREFERENCES[task],
   );
   const aihubMixConfigured = configuredModelList(
     env.KANAREK_REVIEW_AIHUBMIX_MODELS?.trim() || env.KANAREK_REVIEW_AIHUBMIX_MODEL?.trim(),
@@ -1760,14 +1785,17 @@ function providerAttempts(
       model: string,
       label: 'default' | 'primary_only' | 'model_fallback',
     ): ProviderAttempt => {
-      const useModelReasoning = useReasoning && OPENROUTER_REASONING_MODELS.has(model);
+      const profile = OPENROUTER_MODEL_PROFILES.get(model);
       return {
         model,
         label,
-        ...(useModelReasoning
+        ...(profile?.contextTokens ? { maximumContextTokens: profile.contextTokens } : {}),
+        ...(profile?.maxOutputTokens ? { maximumMaxTokens: profile.maxOutputTokens } : {}),
+        // Thinks either way; light tasks get low effort, still need the floor.
+        ...(OPENROUTER_REASONING_MODELS.has(model)
           ? {
               minimumMaxTokens: configuredReasoningMinimumMaxTokens(env),
-              requestFields: { reasoning: { effort: reasoningEffort } },
+              requestFields: { reasoning: { effort: useReasoning ? reasoningEffort : 'low' } },
             }
           : {}),
       };
@@ -1780,7 +1808,7 @@ function providerAttempts(
     return [
       {
         model: provider.model,
-        fallbackModels,
+        fallbackModels: fallbackModels.slice(0, OPENROUTER_CHAIN_FALLBACKS),
         label: 'fallback_chain',
       },
       primaryAttempt,

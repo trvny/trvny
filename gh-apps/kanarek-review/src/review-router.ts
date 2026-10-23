@@ -20,8 +20,9 @@ const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 120_000;
 const DEFAULT_WORK_PROVIDER_TIMEOUT_MS = 5 * 60_000;
 const REVIEW_TASK_MIN_PROVIDER_TIMEOUT_MS = 60_000;
-const OPENROUTER_REVIEW_TIMEOUT_MS = 180_000;
-const OPENROUTER_REVIEW_ATTEMPT_CAP_MS = 35_000;
+// Give slow free models time to complete without starving the other providers.
+const OPENROUTER_REVIEW_TIMEOUT_MS = 300_000;
+const OPENROUTER_REVIEW_ATTEMPT_CAP_MS = 70_000;
 const SHITPOST_TASK_MIN_PROVIDER_TIMEOUT_MS = 120_000;
 const DEFAULT_QUOTA_COOLDOWN_MS = 10 * 60_000;
 const DEFAULT_TRANSIENT_COOLDOWN_MS = 30_000;
@@ -62,9 +63,7 @@ export const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_GEMINI_MODEL: 'gemini-3.8-flash',
   KANAREK_REVIEW_WORKERS_AI_MODEL: '@cf/zai-org/glm-4.7-flash',
   KANAREK_REVIEW_OPENROUTER_MODELS: [
-    'stealth/space-bunny-alpha:free',
     'nvidia/nemotron-3.5-lightning:free',
-    'qwen/qwen3.8-27b:free',
     'nvidia/nemotron-3-ultra-550b-a55b:free',
     'cohere/north-mini-code:free',
     'openrouter/free',
@@ -124,8 +123,6 @@ const VERCEL_MODEL_MAX_OUTPUT_TOKENS = new Map<string, number>([
   ['poolside/laguna-s-2.1-free', 32_768],
 ]);
 const OPENROUTER_REASONING_MODELS = new Set<string>([
-  'stealth/space-bunny-alpha:free',
-  'qwen/qwen3.8-27b:free',
   'nvidia/nemotron-3-ultra-550b-a55b:free',
   'cohere/north-mini-code:free',
 ]);

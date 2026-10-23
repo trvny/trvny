@@ -587,6 +587,50 @@ test('unbilled Gemini Standard is a free review provider and never a paid fallba
   assert.equal(requests, 1);
 });
 
+test('Gemini Standard free tool turns preserve signed replay steps', async () => {
+  const steps = [
+    { type: 'thought', signature: 'signed-standard-context' },
+    { type: 'function_call', id: 'call_1', name: 'read_file', arguments: { path: 'README.md' } },
+  ];
+  const env = { ...auth, GEMINI_API_KEY: 'gemini-free-key' };
+  const first = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    messages: [{ role: 'user', content: 'Inspect README.md' }],
+  }), env, (() => Promise.resolve(Response.json({
+    id: 'free_call', model: 'gemini-3.8-flash', status: 'requires_action', steps,
+  }))) as typeof fetch);
+  const firstPayload = (await first?.json()) as {
+    choices?: Array<{ message?: Record<string, unknown> }>;
+  };
+  const assistant = firstPayload.choices?.[0]?.message;
+  assert.ok(assistant);
+  assert.deepEqual((assistant.kanarek_provider_state as {
+    gemini_interactions?: { steps?: unknown[] };
+  }).gemini_interactions?.steps, steps);
+
+  let secondBody: Record<string, unknown> = {};
+  const second = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    messages: [
+      { role: 'user', content: 'Inspect README.md' },
+      assistant,
+      { role: 'tool', tool_call_id: 'call_1', name: 'read_file', content: '{"text":"hello"}' },
+    ],
+  }), env, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    secondBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Promise.resolve(Response.json({
+      id: 'free_continue', model: 'gemini-3.8-flash', status: 'completed',
+      steps: [{ type: 'model_output', content: [{ type: 'text', text: 'done' }] }],
+    }));
+  }) as typeof fetch);
+  assert.equal(second?.status, 200);
+  assert.equal(second?.headers.get('x-kanarek-review-provider'), 'gemini-standard');
+  const replayed = secondBody.input as Array<Record<string, unknown>>;
+  assert.deepEqual(replayed.slice(1, 3), steps);
+});
+
 test('Gemini Flex uses the native v1 Interactions contract with high thinking', async () => {
   let call: {
     url?: string;

@@ -388,6 +388,7 @@ test('review router uses direct DeepSeek Flash before Gemini Flex as the first p
     ...auth,
     DEEPSEEK_API_KEY: 'deepseek-key',
     GEMINI_API_KEY: 'gemini-key',
+    KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flex',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     calls.push({
@@ -2117,9 +2118,9 @@ test('review router follows configured free provider order and appends omitted p
     'aihubmix',
     'ollama',
     'groq',
+    'gemini-standard',
     'vercel',
     'huggingface-publicai',
-    'gemini-standard',
     'workers-ai',
   ]);
 });

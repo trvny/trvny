@@ -31,10 +31,9 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#504](https://github.com/trvny/feedseek/pull/504) | chore(deps-dev): bump ruff from 0.17.0 to 0.17.1 | @dependabot[bot] | ready | 2026-10-21 |
-| trvny/feedseek | [#505](https://github.com/trvny/feedseek/pull/505) | chore(deps-dev): bump wrangler from 4.149.0 to 4.151.1 in /feeds-proxy | @dependabot[bot] | ready | 2026-10-21 |
-| trvny/trvny | [#1129](https://github.com/trvny/trvny/pull/1129) | chore: stage in-place Automation Worker rename | @trvny | draft | 2026-10-21 |
-| trvny/tvpi | [#127](https://github.com/trvny/tvpi/pull/127) | chore(deps-dev): bump wrangler from 4.149.0 to 4.151.1 in /worker in the worker-toolchain group | @dependabot[bot] | ready | 2026-10-21 |
+| trvny/trvny | [#1149](https://github.com/trvny/trvny/pull/1149) | deps: Bump fast-uri from 3.1.8 to 3.1.9 in /mcp/pet-dispatcher | @dependabot[bot] | ready | 2026-10-23 |
+| trvny/trvny | [#1150](https://github.com/trvny/trvny/pull/1150) | deps: Bump ip-address from 10.7.2 to 10.7.4 in /mcp/pet-dispatcher | @dependabot[bot] | ready | 2026-10-23 |
+| trvny/trvny | [#1151](https://github.com/trvny/trvny/pull/1151) | deps: Bump body-parser from 2.3.0 to 2.4.0 in /mcp/pet-dispatcher | @dependabot[bot] | ready | 2026-10-23 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

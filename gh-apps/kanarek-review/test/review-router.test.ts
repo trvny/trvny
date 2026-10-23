@@ -1250,6 +1250,7 @@ test('AIHubMix applies per-model context, output and reasoning profiles', async 
     model: 'kanarek-review-free',
     stream: false,
     max_tokens: 256,
+    thinking_budget: 512,
     // ~150k bytes: over lfm's 131k window, within gemma's 262k.
     messages: [{ role: 'user', content: 'x'.repeat(150_000) }],
   }), {
@@ -1270,6 +1271,9 @@ test('AIHubMix applies per-model context, output and reasoning profiles', async 
   assert.equal(bodies[0]?.max_tokens, 16_384);
   // gemma: low task -> minimal effort, no thinking floor.
   assert.equal(bodies[1]?.reasoning_effort, 'minimal');
+  // Caller budget dropped only where effort is injected.
+  assert.equal(bodies[0]?.thinking_budget, 512);
+  assert.equal(bodies[1]?.thinking_budget, undefined);
   assert.equal(bodies[1]?.max_tokens, 256);
 });
 

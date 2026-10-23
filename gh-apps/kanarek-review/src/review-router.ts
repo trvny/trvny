@@ -2118,6 +2118,10 @@ export async function handleReviewRouterRequest(
           model: attempt.model,
           ...(fallbackModels?.length ? { models: fallbackModels } : { models: undefined }),
         };
+        // Injected effort wins; Qwen-style providers reject effort + caller budget together.
+        if (attempt.requestFields && 'reasoning_effort' in attempt.requestFields) {
+          delete providerInput.thinking_budget;
+        }
         const boundedGroq = provider.id === 'groq' && task === 'review'
           && groqSupportsReasoningEffort(attempt.model);
         const groqInput = boundedGroq ? prepareGroqFreeReview(providerInput) : null;

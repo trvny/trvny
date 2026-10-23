@@ -225,6 +225,8 @@ test('decision pool gives the primary most of the short experimental budget', ()
 
 test('decision model attempts never outlive the provider or pool deadline', () => {
   assert.equal(decisionModelAttemptTimeoutMs(15_000, 25_000, 1), 12_000);
+  // Three fallbacks still leave the head model 7s of a 10s provider slot.
+  assert.equal(decisionModelAttemptTimeoutMs(10_000, 25_000, 3), 7_000);
   assert.equal(decisionModelAttemptTimeoutMs(8_000, 8_000, 0), 8_000);
   assert.equal(decisionModelAttemptTimeoutMs(500, 500, 0), 500);
   assert.equal(decisionModelAttemptTimeoutMs(0, 10_000, 0), 0);

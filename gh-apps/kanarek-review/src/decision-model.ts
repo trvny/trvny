@@ -179,9 +179,10 @@ export function decisionModelAttemptTimeoutMs(
   const poolMs = Math.max(0, Math.floor(poolRemainingMs));
   const ceilingMs = Math.min(providerMs, poolMs);
   if (ceilingMs <= 0) return 0;
+  // Reserve for the next model only: longer fallback lists must not starve the head.
   const reserveMs = Math.min(
     providerMs,
-    Math.max(0, laterModels) * MIN_LATER_MODEL_RESERVE_MS,
+    Math.min(Math.max(0, laterModels), 1) * MIN_LATER_MODEL_RESERVE_MS,
   );
   const rawAttemptMs = Math.max(1, providerMs - reserveMs);
   return Math.min(ceilingMs, Math.max(1_000, rawAttemptMs));

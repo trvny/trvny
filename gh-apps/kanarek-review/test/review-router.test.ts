@@ -286,7 +286,7 @@ test('heterogeneous OpenRouter fallback chains avoid optional reasoning without 
   assert.equal(body.max_tokens, 36_864);
 });
 
-test('OpenRouter primary retry omits unsupported reasoning after fallback-chain 400', async () => {
+test('OpenRouter primary retry preserves high reasoning after fallback-chain 400', async () => {
   const bodies: Array<Record<string, unknown>> = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-code-review-free',
@@ -314,7 +314,7 @@ test('OpenRouter primary retry omits unsupported reasoning after fallback-chain 
   assert.equal(bodies.length, 2);
   assert.equal(bodies[0]?.max_tokens, 36_864);
   assert.equal(bodies[0]?.reasoning, undefined);
-  assert.equal(bodies[1]?.reasoning, undefined);
+  assert.deepEqual(bodies[1]?.reasoning, { effort: 'high' });
   assert.equal(bodies[1]?.max_tokens, 36_864);
   assert.equal(bodies[1]?.models, undefined);
 });

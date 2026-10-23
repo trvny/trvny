@@ -1441,7 +1441,9 @@ export async function rememberProviderCooldown(
 // Base cooldown for one model that failed while its provider moved on to the
 // next model. Gone/forbidden models start long, flaky ones short; the store
 // escalates repeats, and a success clears them.
-function modelCooldownDurationMs(env: ReviewRouterEnv, category: string): number {
+function modelCooldownDurationMs(env: ReviewRouterEnv, category: string): number | null {
+  // Request-shape 400s (context length, parameters, messages) blame this request, not the model.
+  if (isClientBadRequestCategory(category)) return null;
   if (
     category === 'http_404' ||
     category === 'http_403' ||

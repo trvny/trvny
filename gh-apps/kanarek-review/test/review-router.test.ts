@@ -2849,3 +2849,27 @@ test('out-of-credit providers start at the longest base cooldown', async () => {
     Date.now = realNow;
   }
 });
+
+test('a request-shape 400 never puts the model in cooldown', async () => {
+  const cooldowns = cooldownNamespace();
+  const models: unknown[] = [];
+  const env = {
+    ...auth,
+    OLLAMA_API_KEY: 'ollama-key',
+    KANAREK_REVIEW_OLLAMA_MODELS: 'big-model,small-model',
+    KANAREK_REVIEW_COOLDOWNS: cooldowns,
+  };
+  let calls = 0;
+  const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    models.push(body.model);
+    calls += 1;
+    return Promise.resolve(calls === 1
+      ? new Response(JSON.stringify({ error: { message: 'context length exceeded' } }), { status: 400 })
+      : Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch;
+  const body = { model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'x' }] };
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  assert.equal((await handleReviewRouterRequest(request(routerToken, body), env, fetcher))?.status, 200);
+  assert.deepEqual(models, ['big-model', 'small-model', 'big-model']);
+});

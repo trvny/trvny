@@ -221,11 +221,20 @@ failures. It is deliberately excluded from `kanarek-review-free`, so shared
 free-router consumers cannot spend the Gemini reserve.
 
 Quota-limited providers use `KANAREK_REVIEW_COOLDOWNS`, a Durable Object hosted
-by the shared `kanarek-companion` Worker. A cooldown is intentionally not a
+by the shared `automation` Worker. A cooldown is intentionally not a
 health verdict: free quota, capacity, authentication, and transient failures are
 expected operational states and only suppress repeated calls for a bounded
 period. Deterministic request-shape/context incompatibilities are handled by
 admission/fallback policy instead of long-lived provider state.
+
+Cooldowns escalate: a failure after the previous cooldown expired doubles the
+base (quota 10 min, out-of-credit `http_402`/`http_403_billing_cap` 30 min,
+transient 30 s) up to 6 h; failures during an active cooldown count once. A
+success clears the strikes; they also age out after 12 h without failures.
+Multi-model providers (OpenRouter, AIHubMix, Vercel) keep the same per-model
+state (`<provider>#<model>`): a model that fails while its provider moves on is
+skipped next time, so one dead or flaky model never cools down the provider.
+Fallback-chain attempts blame no single model.
 
 When enabled, the Workers AI fallback uses a guarded daily-neuron budget. It is currently
 disabled in production so SpaceMolt has exclusive use of the account allocation. Provider

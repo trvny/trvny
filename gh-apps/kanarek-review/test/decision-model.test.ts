@@ -501,3 +501,30 @@ test('OpenRouter Decisions accepts canonicalized free-model response ids', async
     'inception/mercury-decide-20260930',
   );
 });
+
+test('decision success clears the provider strike record', async () => {
+  const paths: string[] = [];
+  const namespace = {
+    idFromName(name: string) {
+      return name as unknown as DurableObjectId;
+    },
+    get(id: DurableObjectId) {
+      return {
+        fetch(input: RequestInfo | URL, init?: RequestInit) {
+          paths.push(`${String(id)} ${init?.method ?? 'GET'} ${new URL(String(input)).pathname}`);
+          return Promise.resolve(Response.json({ active: false, ok: true }));
+        },
+      } as unknown as DurableObjectStub;
+    },
+  } as unknown as DurableObjectNamespace;
+  const response = await handleDecisionModelRequest(
+    request({ state: 'x', questions: { keep_0: { type: 'noul' } } }),
+    { ...env, KANAREK_REVIEW_COOLDOWNS: namespace },
+    (() => Promise.resolve(Response.json({
+      model: 'decision-model-preview',
+      answers: { keep_0: { type: 'noul', noul: 0.9 } },
+    }))) as typeof fetch,
+  );
+  assert.equal(response?.status, 200);
+  assert.ok(paths.includes('aihubmix-decision POST /clear'), paths.join(', '));
+});

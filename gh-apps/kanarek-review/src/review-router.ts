@@ -236,7 +236,9 @@ export type ProviderCooldownId =
   | 'aihubmix-decision'
   | 'openrouter-decision'
   | 'qwencloud-decision'
-  | 'vercel-decision';
+  | 'vercel-decision'
+  // One model of a multi-model provider.
+  | `${ReviewProviderId}#${string}`;
 
 const REVIEW_PROVIDER_IDS: ReadonlySet<string> = new Set<ReviewProviderId>([
   'aihubmix',
@@ -1095,6 +1097,8 @@ function boundedCooldownMs(raw: string | undefined, fallback: number): number {
 }
 
 function cooldownDurationMs(env: ReviewRouterEnv, category: string): number | null {
+  // Out of credit / spend cap: does not recover in minutes. The store doubles it per repeat.
+  if (category === 'http_402' || category === 'http_403_billing_cap') return MAX_COOLDOWN_MS;
   if (
     category === 'soft_quota' ||
     category === 'http_401' ||
@@ -1412,8 +1416,9 @@ export async function rememberProviderCooldown(
   provider: ProviderCooldownId,
   category: string,
   env: ReviewRouterEnv,
+  baseMs: number | null = cooldownDurationMs(env, category),
 ): Promise<void> {
-  const durationMs = cooldownDurationMs(env, category);
+  const durationMs = baseMs;
   if (durationMs === null) return;
   const stub = providerCooldownStub(env, provider);
   if (!stub) return;
@@ -1430,6 +1435,43 @@ export async function rememberProviderCooldown(
     }
   } catch {
     console.warn(JSON.stringify({ kanarekReviewRouter: 'cooldown_write_failed', provider }));
+  }
+}
+
+// Base cooldown for one model that failed while its provider moved on to the
+// next model. Gone/forbidden models start long, flaky ones short; the store
+// escalates repeats, and a success clears them.
+function modelCooldownDurationMs(env: ReviewRouterEnv, category: string): number | null {
+  // Request-shape 400s (context length, parameters, messages) blame this request, not the model.
+  if (isClientBadRequestCategory(category)) return null;
+  if (
+    category === 'http_404' ||
+    category === 'http_403' ||
+    category === 'http_400_invalid_model' ||
+    category === 'http_400_fallback_models'
+  ) {
+    return boundedCooldownMs(env.KANAREK_REVIEW_QUOTA_COOLDOWN_MS, DEFAULT_QUOTA_COOLDOWN_MS);
+  }
+  return cooldownDurationMs(env, category) ??
+    boundedCooldownMs(env.KANAREK_REVIEW_TRANSIENT_COOLDOWN_MS, DEFAULT_TRANSIENT_COOLDOWN_MS);
+}
+
+function modelCooldownId(provider: ReviewProviderId, model: string): ProviderCooldownId {
+  return `${provider}#${model}`;
+}
+
+// Success forgets strikes. Best effort: an older store without /clear just 404s.
+export async function clearProviderCooldown(
+  provider: ProviderCooldownId,
+  env: ReviewRouterEnv,
+): Promise<void> {
+  const stub = providerCooldownStub(env, provider);
+  if (!stub) return;
+  try {
+    const response = await stub.fetch(`${COOLDOWN_INTERNAL_ORIGIN}/clear`, { method: 'POST' });
+    await response.body?.cancel();
+  } catch {
+    // cooldown store unavailable; strikes age out on their own
   }
 }
 
@@ -1719,7 +1761,8 @@ function shouldTryNextAttempt(
       return category === 'http_400_invalid_model' ||
         category === 'http_400_unsupported_parameter';
     }
-    return status === 402 || status === 404 || status === 408 || status === 409 ||
+    // 403 on one free model = that model is not open to this key, not a dead key.
+    return status === 402 || status === 403 || status === 404 || status === 408 || status === 409 ||
       status === 425 || status === 429 || status >= 500;
   }
   if (provider.id === 'orcarouter') {
@@ -1917,11 +1960,48 @@ export async function handleReviewRouterRequest(
       ? Math.max(providerTimeoutMs, OPENROUTER_REVIEW_TIMEOUT_MS)
       : providerTimeoutMs);
     const attempts = providerAttempts(provider, env, task);
+    // Multi-model providers keep per-model cooldowns so one dead model is skipped
+    // instead of failing (or cooling down) the whole provider.
+    const multiModel = attempts.length > 1;
     let providerFailureCategory = 'unknown';
     let providerInvalidRequest = true;
 
     for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
       const attempt = attempts[attemptIndex];
+      const modelKey = modelCooldownId(provider.id, attempt.model);
+      // A fallback-chain attempt spans several models; its failure blames none.
+      const singleModel = multiModel && !attempt.fallbackModels?.length;
+      // Never send a cooled-down model: skip the attempt when its primary is
+      // cooling, and drop cooled models from a fallback chain. A chain left
+      // with no fallbacks is skipped too: its primary-only attempt follows.
+      let fallbackModels = attempt.fallbackModels;
+      let primaryCooled = false;
+      if (multiModel) {
+        const cooled = await Promise.all(
+          [attempt.model, ...(fallbackModels ?? [])].map((model) =>
+            activeProviderCooldown(env, modelCooldownId(provider.id, model))),
+        );
+        primaryCooled = Boolean(cooled[0]);
+        if (fallbackModels?.length) fallbackModels = fallbackModels.filter((_, index) => !cooled[index + 1]);
+      }
+      if (primaryCooled || (attempt.fallbackModels?.length && !fallbackModels?.length)) {
+        providerFailureCategory = 'model_cooldown';
+        providerInvalidRequest = false;
+        console.info(JSON.stringify({
+          kanarekReviewRouter: 'provider_skipped',
+          provider: provider.id,
+          category: providerFailureCategory,
+          attempt: attempt.label,
+          model: attempt.model,
+        }));
+        continue;
+      }
+      // Set when this model failed and the provider moves on to its next model.
+      let modelFault: string | null = null;
+      const succeeded = async (): Promise<void> => {
+        await clearProviderCooldown(provider.id, env);
+        if (singleModel) await clearProviderCooldown(modelKey, env);
+      };
       const remainingProviderMs = Math.max(0, providerDeadlineAt - Date.now());
       // Reserve time for every configured OpenRouter model instead of letting one
       // stalled free model exhaust the whole provider-level deadline.
@@ -1948,7 +2028,7 @@ export async function handleReviewRouterRequest(
           ...provider.requestFields,
           ...attempt.requestFields,
           model: attempt.model,
-          ...(attempt.fallbackModels?.length ? { models: attempt.fallbackModels } : { models: undefined }),
+          ...(fallbackModels?.length ? { models: fallbackModels } : { models: undefined }),
         };
         const boundedGroq = provider.id === 'groq' && task === 'review'
           && groqSupportsReasoningEffort(attempt.model);
@@ -2024,6 +2104,7 @@ export async function handleReviewRouterRequest(
               attempt: attempt.label,
               model: attempt.model,
             }));
+            await succeeded();
             return translated;
           }
           if (provider.id === 'aihubmix') {
@@ -2061,12 +2142,16 @@ export async function handleReviewRouterRequest(
             if (
               (provider.id === 'aihubmix' || provider.id === 'vercel' || provider.id === 'openrouter')
               && attemptIndex + 1 < attempts.length
-            ) continue;
+            ) {
+              modelFault = providerFailureCategory;
+              continue;
+            }
             break;
           }
           console.info(JSON.stringify({
             kanarekReviewRouter: 'selected', provider: provider.id, attempt: attempt.label, model: attempt.model,
           }));
+          await succeeded();
           return upstreamResponse(response, provider, groqInput?.partial === true);
         }
 
@@ -2099,6 +2184,7 @@ export async function handleReviewRouterRequest(
           attemptIndex,
           attempts.length,
         )) {
+          modelFault = providerFailureCategory;
           continue;
         }
         // Every upstream rejection belongs to this provider, not the caller.
@@ -2113,20 +2199,21 @@ export async function handleReviewRouterRequest(
           attempt: attempt.label, model: attempt.model,
         }));
         if (
-          provider.id === 'aihubmix'
-          && category !== 'timeout'
-          && attemptIndex + 1 < attempts.length
-          && Date.now() < providerDeadlineAt
-        ) continue;
-        if (
-          (provider.id === 'vercel' && category !== 'timeout' ||
+          (provider.id === 'aihubmix' && category !== 'timeout' ||
+            provider.id === 'vercel' && category !== 'timeout' ||
             provider.id === 'openrouter' && task === 'review')
           && attemptIndex + 1 < attempts.length
           && Date.now() < providerDeadlineAt
-        ) continue;
+        ) {
+          modelFault = category;
+          continue;
+        }
         break;
       } finally {
         clearTimeout(timeout);
+        if (modelFault && singleModel) {
+          await rememberProviderCooldown(modelKey, modelFault, env, modelCooldownDurationMs(env, modelFault));
+        }
       }
     }
     await rememberProviderCooldown(provider.id, providerFailureCategory, env);
@@ -2180,6 +2267,7 @@ export async function handleReviewRouterRequest(
             console.info(JSON.stringify({
               kanarekReviewRouter: 'selected', provider, attempt: 'binding', model: workersModel,
             }));
+            await clearProviderCooldown(provider, env);
             return workersAiResponse(result, workersModel);
           } catch (error) {
             await settleWorkersAiNeurons(env, reservation, reservation.neurons);

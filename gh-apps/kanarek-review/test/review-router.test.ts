@@ -574,6 +574,9 @@ test('unbilled Gemini Standard is a free review provider and never a paid fallba
   assert.equal(health.taskOrders.review.includes('gemini-standard'), true);
   assert.equal(health.providers.find(p => p.provider === 'gemini-standard')?.budgetClass, 'free-quota');
   assert.equal(health.providers.some(p => p.provider === 'gemini-flex'), false);
+  const typoHealth = await reviewProviderPoolHealth({ ...env, KANAREK_REVIEW_GEMINI_SERVICE_TIER: 'flxe' });
+  assert.equal(typoHealth.taskOrders.review.includes('gemini-standard'), true);
+  assert.equal(typoHealth.providers.some(p => p.provider === 'gemini-flex'), false);
 
   const paidResponse = await handleReviewRouterRequest(request(routerToken, {
     model: 'kanarek-review-paid',
@@ -2118,9 +2121,9 @@ test('review router follows configured free provider order and appends omitted p
     'aihubmix',
     'ollama',
     'groq',
-    'gemini-standard',
     'vercel',
     'huggingface-publicai',
+    'gemini-standard',
     'workers-ai',
   ]);
 });

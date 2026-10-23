@@ -39,16 +39,23 @@ const WORKERS_AI_RESERVATION_SAFETY_FACTOR = 1.25;
 // keeps these equal to it.
 export const REVIEW_ROUTER_MODEL_DEFAULTS = {
   KANAREK_REVIEW_AIHUBMIX_MODELS: [
-    'xiaomi-mimo-v2.6-flash-free',
     'coding-kimi-k3-free',
-    'dots-3-note-preview-free',
     'nemotron-3.5-lightning-free',
-    'hy3-free',
-    'minimax-m2.7-free',
-    'ling-3.0-flash-free',
+    'qwen3.8-flash-free',
+    'xiaomi-mimo-v2.6-flash-free',
+    'gemma-4-31b-it-free',
+    'laguna-s-2.1-free',
+    'agents-a1-free',
+    'dots-3-note-preview-free',
     'lfm-2.5-2.6b-free',
   ],
-  KANAREK_REVIEW_ORCAROUTER_MODELS: ['orcarouter/auto'],
+  KANAREK_REVIEW_ORCAROUTER_MODELS: [
+    'deepseek/deepseek-v4.1-flash-free',
+    'z-ai/glm-5.3-flash-free',
+    'tencent/hy4-preview-free',
+    'tencent/hy3-free',
+    'orcarouter/auto',
+  ],
   KANAREK_REVIEW_OLLAMA_MODELS: ['gpt-oss:120b', 'gpt-oss:20b'],
   KANAREK_REVIEW_GROQ_MODEL: 'openai/gpt-oss-120b',
   KANAREK_REVIEW_VERCEL_MODELS: [
@@ -141,10 +148,10 @@ const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
 
 const AIHUBMIX_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
   general: DEFAULT_REVIEW_AIHUBMIX_MODELS,
-  quip: ['xiaomi-mimo-v2.6-flash-free', 'minimax-m2.7-free', 'dots-3-note-preview-free', 'hy3-free', 'nemotron-3.5-lightning-free', 'coding-kimi-k3-free'],
-  review: ['coding-kimi-k3-free', 'nemotron-3.5-lightning-free', 'hy3-free', 'minimax-m2.7-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free'],
-  judge: ['nemotron-3.5-lightning-free', 'dots-3-note-preview-free', 'minimax-m2.7-free', 'hy3-free', 'xiaomi-mimo-v2.6-flash-free', 'coding-kimi-k3-free'],
-  shitpost: ['minimax-m2.7-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free', 'hy3-free', 'nemotron-3.5-lightning-free', 'coding-kimi-k3-free'],
+  quip: ['xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'lfm-2.5-2.6b-free', 'nemotron-3.5-lightning-free'],
+  review: ['coding-kimi-k3-free', 'nemotron-3.5-lightning-free', 'qwen3.8-flash-free', 'laguna-s-2.1-free', 'gemma-4-31b-it-free', 'agents-a1-free', 'xiaomi-mimo-v2.6-flash-free', 'dots-3-note-preview-free'],
+  judge: ['nemotron-3.5-lightning-free', 'qwen3.8-flash-free', 'dots-3-note-preview-free', 'gemma-4-31b-it-free', 'xiaomi-mimo-v2.6-flash-free', 'coding-kimi-k3-free'],
+  shitpost: ['xiaomi-mimo-v2.6-flash-free', 'qwen3.8-flash-free', 'gemma-4-31b-it-free', 'dots-3-note-preview-free', 'agents-a1-free', 'nemotron-3.5-lightning-free'],
 };
 
 const VERCEL_TASK_MODEL_PREFERENCES: Record<FreeTaskProfileId, readonly string[]> = {
@@ -547,9 +554,9 @@ function providers(
       apiKey: (providerEnv) => providerEnv.AI_GATEWAY_API_KEY,
     },
     {
-      // Tried before the credit-backed HF reserve. The workspace-owned orcarouter/auto
-      // route is the maintained resolver for the current free-model set, so this code does not
-      // pin rotating model aliases. Cost policy is configured on the OrcaRouter workspace.
+      // Tried before the credit-backed HF reserve. Pinned long-lived free models first
+      // (per-model cooldowns skip dead ones); workspace orcarouter/auto stays last.
+      // Cost policy is configured on the OrcaRouter workspace.
       id: 'orcarouter',
       url: 'https://api.orcarouter.ai/v1/chat/completions',
       model: orcaRouterModels[0] ?? DEFAULT_REVIEW_ORCAROUTER_MODELS[0],
@@ -1766,7 +1773,8 @@ function shouldTryNextAttempt(
       status === 425 || status === 429 || status >= 500;
   }
   if (provider.id === 'orcarouter') {
-    return status === 402 || status === 404 || status === 408 || status === 409 ||
+    // Pinned free models: one forbidden model must not stop the rest.
+    return status === 402 || status === 403 || status === 404 || status === 408 || status === 409 ||
       status === 425 || status === 429 || status >= 500;
   }
   if (provider.id === 'ollama') {
@@ -2140,7 +2148,8 @@ export async function handleReviewRouterRequest(
               model: attempt.model,
             }));
             if (
-              (provider.id === 'aihubmix' || provider.id === 'vercel' || provider.id === 'openrouter')
+              (provider.id === 'aihubmix' || provider.id === 'vercel' || provider.id === 'openrouter' ||
+                provider.id === 'orcarouter')
               && attemptIndex + 1 < attempts.length
             ) {
               modelFault = providerFailureCategory;

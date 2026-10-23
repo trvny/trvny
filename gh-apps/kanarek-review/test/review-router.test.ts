@@ -1250,7 +1250,7 @@ test('provider health exposes budget classes and task queues', async () => {
   assert.equal(health.taskOrders.shitpost[1], 'vercel');
 });
 
-test('review router uses the OrcaRouter auto resolver', async () => {
+test('review router tries pinned OrcaRouter free models first', async () => {
   const calls: Array<{ url: string; model: unknown; models: unknown; authorization: string | null }> = [];
   const fetcher = ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: unknown; models?: unknown };
@@ -1269,7 +1269,7 @@ test('review router uses the OrcaRouter auto resolver', async () => {
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
   assert.deepEqual(calls.map(({ url, model, models }) => ({ url, model, models })), [
-    { url: 'https://api.orcarouter.ai/v1/chat/completions', model: 'orcarouter/auto', models: undefined },
+    { url: 'https://api.orcarouter.ai/v1/chat/completions', model: REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS[0], models: undefined },
   ]);
   assert.equal(calls.every((call) => call.authorization === 'Bearer orca-key'), true);
 });
@@ -1304,7 +1304,7 @@ test('judge-style fake call falls through after OrcaRouter rejects an oversized 
     'https://api.orcarouter.ai/v1/chat/completions',
     'https://router.huggingface.co/v1/chat/completions',
   ]);
-  assert.equal(calls[0]?.model, 'orcarouter/auto');
+  assert.equal(calls[0]?.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS[0]);
   assert.equal(calls.every(({ maxTokens }) => maxTokens === 1_024), true);
 });
 
@@ -1312,6 +1312,7 @@ test('OrcaRouter context-window rejection falls through without poisoning later 
   const env = {
     ...auth,
     ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ORCAROUTER_MODELS: 'orcarouter/auto',
     HUGGINGFACE_API_KEY: 'hf-key',
     KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
   };
@@ -1359,6 +1360,7 @@ test('OrcaRouter judge quota is cooled down and the fake judge falls through', a
   const env = {
     ...auth,
     ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ORCAROUTER_MODELS: 'orcarouter/auto',
     HUGGINGFACE_API_KEY: 'hf-key',
     KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
   };
@@ -1427,7 +1429,7 @@ test('OrcaRouter auto keeps generic free-router calls provider-only', async () =
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
-  assert.equal(upstreamBody.model, 'orcarouter/auto');
+  assert.equal(upstreamBody.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS[0]);
   assert.deepEqual(upstreamBody.messages, messages);
   assert.equal(upstreamBody.max_tokens, 256);
   assert.deepEqual(await response?.json(), upstreamPayload);
@@ -1473,7 +1475,7 @@ test('OrcaRouter auto passes a fake PR-review payload without owning review sema
 
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
-  assert.equal(upstreamBody.model, 'orcarouter/auto');
+  assert.equal(upstreamBody.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_ORCAROUTER_MODELS[0]);
   assert.deepEqual(upstreamBody.messages, messages);
   assert.equal(upstreamBody.max_tokens, 4_096);
   assert.deepEqual(await response?.json(), upstreamPayload);
@@ -1561,6 +1563,7 @@ test('review router cools down a quota-limited provider across Copilot retries',
 test('review router fails fast while the whole free pool is quota-cooled', async () => {
   const env = {
     ...auth, OPENROUTER_API_KEY: 'openrouter-key', ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ORCAROUTER_MODELS: 'orcarouter/auto',
     AIHUBMIX_API_KEY: 'aihubmix-key', KANAREK_REVIEW_COOLDOWNS: cooldownNamespace(),
   };
   let calls = 0;
@@ -2388,6 +2391,7 @@ test('review router uses Hugging Face PublicAI as the final HTTP reserve', async
   const response = await handleReviewRouterRequest(request(), {
     ...auth,
     ORCAROUTER_API_KEY: 'orca-key',
+    KANAREK_REVIEW_ORCAROUTER_MODELS: 'orcarouter/auto',
     HUGGINGFACE_API_KEY: 'hf-key',
   }, ((input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { model?: unknown };
@@ -2922,4 +2926,24 @@ test('a chain whose fallbacks are all cooling is skipped, not sent as a duplicat
   }) as typeof fetch);
   assert.notEqual(response?.status, 200);
   assert.deepEqual(sent, [{ model: 'primary/free', models: undefined }], 'primary sent once');
+});
+
+test('OrcaRouter moves past a forbidden or empty pinned model', async () => {
+  const models: unknown[] = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-free', stream: false, messages: [{ role: 'user', content: 'x' }],
+  }), {
+    ...auth, ORCAROUTER_API_KEY: 'orca-key', KANAREK_REVIEW_ORCAROUTER_MODELS: 'locked/free,empty/free,live/free',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { model?: unknown };
+    models.push(body.model);
+    if (body.model === 'locked/free') return Promise.resolve(new Response('forbidden', { status: 403 }));
+    if (body.model === 'empty/free') {
+      return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: '' } }] }));
+    }
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+  assert.equal(response?.status, 200);
+  assert.equal(response?.headers.get('x-kanarek-review-provider'), 'orcarouter');
+  assert.deepEqual(models, ['locked/free', 'empty/free', 'live/free']);
 });

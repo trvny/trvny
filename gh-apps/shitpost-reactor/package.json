@@ -12,5 +12,8 @@
   },
   "devDependencies": {
     "wrangler": "4.151.1"
+  },
+  "dependencies": {
+    "jsonrepair": "3.15.0"
   }
 }

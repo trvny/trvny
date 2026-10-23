@@ -33,10 +33,9 @@
 <!--OPEN_PRS:START-->
 | Repozytorium | PR | Tytuł | Autor | Stan | Aktualizacja |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/feedseek | [#504](https://github.com/trvny/feedseek/pull/504) | chore(deps-dev): bump ruff from 0.17.0 to 0.17.1 | @dependabot[bot] | gotowy | 2026-10-21 |
-| trvny/feedseek | [#505](https://github.com/trvny/feedseek/pull/505) | chore(deps-dev): bump wrangler from 4.149.0 to 4.151.1 in /feeds-proxy | @dependabot[bot] | gotowy | 2026-10-21 |
-| trvny/trvny | [#1129](https://github.com/trvny/trvny/pull/1129) | chore: stage in-place Automation Worker rename | @trvny | wersja robocza | 2026-10-21 |
-| trvny/tvpi | [#127](https://github.com/trvny/tvpi/pull/127) | chore(deps-dev): bump wrangler from 4.149.0 to 4.151.1 in /worker in the worker-toolchain group | @dependabot[bot] | gotowy | 2026-10-21 |
+| trvny/trvny | [#1149](https://github.com/trvny/trvny/pull/1149) | deps: Bump fast-uri from 3.1.8 to 3.1.9 in /mcp/pet-dispatcher | @dependabot[bot] | gotowy | 2026-10-23 |
+| trvny/trvny | [#1150](https://github.com/trvny/trvny/pull/1150) | deps: Bump ip-address from 10.7.2 to 10.7.4 in /mcp/pet-dispatcher | @dependabot[bot] | gotowy | 2026-10-23 |
+| trvny/trvny | [#1151](https://github.com/trvny/trvny/pull/1151) | deps: Bump body-parser from 2.3.0 to 2.4.0 in /mcp/pet-dispatcher | @dependabot[bot] | gotowy | 2026-10-23 |
 <!--OPEN_PRS:END-->
 
 **Prywatny hol dowodzenia: projekty, usługi, narzędzia i szuflady w jednym miejscu.**
@@ -94,7 +93,7 @@
 
 <!-- markdownlint-disable MD033 -->
 <!--STARTS_HERE_QUOTE_README-->
-<i>❝The first word spoken on the internet was “lo”. It was supposed to be “login” but the computer crashed after the first two letters.❞</i>
+<i>❝E-Mail was invented before Internet. Shocked!!!! ” I also got shocked after hearing this.”❞</i>
 <!--ENDS_HERE_QUOTE_README-->
 <!-- markdownlint-enable MD033 -->
 
@@ -103,10 +102,10 @@
 <!--README_FEED:START-->
 - [Star History Monthly October 2026 | Execution](https://www.star-history.com/blog/execution)
 - [Time for Saudi Clarity on Normalization with Israel](https://carnegieendowment.org/research/2026/10/time-for-saudi-clarity-on-normalization-with-israel)
-- [EXCLUSIVE: US orders diplomats to depart Saudi Arabia amid Houthi strikes](https://www.reuters.com/world/middle-east/us-preparing-issue-ordered-departure-some-personnel-gulf-embassies-us-officials-2026-10-21/)
-- [Meta puts Muse agent at heart of AI strategy, plans new stock to power investments](https://www.reuters.com/business/meta-issue-new-class-shares-it-tightens-ai-spending-forecast-2026-10-21/)
-- [Nestle, Zydus, Abbott face India scrutiny over claims on children's products](https://www.reuters.com/legal/litigation/nestle-zydus-abbott-face-india-scrutiny-over-claims-childrens-products-2026-10-21/)
-- [Tesla posts surprise positive cash flow on lower-than-expected AI spending](https://www.reuters.com/business/media-telecom/tesla-revenue-beats-estimates-deliveries-rebound-energy-storage-grows-2026-10-21/)
+- [mergify unlabeled PR #343 in travnie/twojstar](https://github.com/travnie/twojstar#feedseek-event-18066715698)
+- [trvny merged PR #343 in travnie/twojstar](https://github.com/travnie/twojstar#feedseek-event-18066712177)
+- [mergify labeled PR #343 in travnie/twojstar](https://github.com/travnie/twojstar#feedseek-event-18066706567)
+- [Russia, Ukraine agree on ceasefire in embattled town, to hold peace talks next month](https://www.reuters.com/world/europe/russia-ukraine-agree-ceasefire-embattled-town-hold-peace-talks-next-month-2026-10-23/)
 <!--README_FEED:END-->
 
 <div align="center">

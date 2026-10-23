@@ -541,6 +541,48 @@ test('DeepSeek balance exhaustion falls through to native Gemini Flex', async ()
   ]);
 });
 
+test('unbilled Gemini Standard is a free review provider and never a paid fallback', async () => {
+  let requestBody: Record<string, unknown> = {};
+  let requests = 0;
+  const env = { ...auth, GEMINI_API_KEY: 'gemini-free-key' };
+  const freeResponse = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-code-review-free',
+    stream: false,
+    max_tokens: 16_384,
+    messages: [{ role: 'user', content: 'review these changes' }],
+  }), env, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    requests += 1;
+    requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    assert.equal(new Headers(init?.headers).get('x-goog-api-key'), 'gemini-free-key');
+    return Promise.resolve(Response.json({
+      id: 'free_standard',
+      model: 'gemini-3.8-flash',
+      status: 'completed',
+      steps: [{ type: 'model_output', content: [{ type: 'text', text: '{"summary":"ok","findings":[]}' }] }],
+    }));
+  }) as typeof fetch);
+  assert.equal(freeResponse?.status, 200);
+  assert.equal(freeResponse?.headers.get('x-kanarek-review-provider'), 'gemini-standard');
+  assert.equal(requestBody.model, 'gemini-3.8-flash');
+  assert.equal(requestBody.service_tier, undefined);
+  assert.equal(requestBody.store, false);
+  assert.deepEqual(requestBody.generation_config, { max_output_tokens: 8_192, thinking_level: 'high' });
+  assert.equal(requests, 1);
+
+  const health = await reviewProviderPoolHealth(env);
+  assert.equal(health.taskOrders.review.includes('gemini-standard'), true);
+  assert.equal(health.providers.find(p => p.provider === 'gemini-standard')?.budgetClass, 'free-quota');
+  assert.equal(health.providers.some(p => p.provider === 'gemini-flex'), false);
+
+  const paidResponse = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-review-paid',
+    stream: false,
+    messages: [{ role: 'user', content: 'review' }],
+  }), env, (() => { throw new Error('Gemini free key must not be called in paid phase'); }) as typeof fetch);
+  assert.equal(paidResponse?.status, 503);
+  assert.equal(requests, 1);
+});
+
 test('Gemini Flex uses the native v1 Interactions contract with high thinking', async () => {
   let call: {
     url?: string;

@@ -429,7 +429,8 @@ test('decision pool falls through a failed primary to the next rotated provider'
   assert.equal(calls.at(-1)?.url, expected[secondary].endpoint);
   assert.equal(
     calls.filter(({ url }) => url === expected[primary].endpoint).length,
-    primary === 'openrouter' ? 2 : 1,
+    // OpenRouter walks its whole free decision model list first.
+    primary === 'openrouter' ? 4 : 1,
   );
   assert.equal(
     response?.headers.get('x-kanarek-review-provider'),
@@ -460,8 +461,11 @@ test('OpenRouter Decisions falls back from Mercury to free Span-01 Lite', async 
           error: { code: 'upstream_unavailable' },
         }, { status: 503 }));
       }
+      if (model === 'baseten/mammoth-1:free') {
+        return Promise.resolve(Response.json({ error: { code: 'rate_limited' } }, { status: 429 }));
+      }
       return Promise.resolve(Response.json({
-        model: 'respan/span-01-lite:free',
+        model,
         answers: { keep_0: { type: 'noul', noul: 0.95 } },
         usage: { input_tokens: 47 },
       }));
@@ -471,10 +475,11 @@ test('OpenRouter Decisions falls back from Mercury to free Span-01 Lite', async 
   assert.equal(response?.status, 200);
   assert.deepEqual(models, [
     'inception/mercury-decide:free',
-    'respan/span-01-lite:free',
+    'baseten/mammoth-1:free',
+    'baseten/elephant-1:free',
   ]);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter-decision');
-  assert.equal(response?.headers.get('x-kanarek-review-model'), 'respan/span-01-lite:free');
+  assert.equal(response?.headers.get('x-kanarek-review-model'), 'baseten/elephant-1:free');
 });
 
 test('OpenRouter Decisions accepts canonicalized free-model response ids', async () => {

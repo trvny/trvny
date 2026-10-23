@@ -33,6 +33,8 @@ const DECISION_PROVIDERS: Record<DecisionProviderId, DecisionProvider> = {
     endpoint: 'https://openrouter.ai/api/alpha/decisions',
     models: [
       'inception/mercury-decide:free',
+      'baseten/mammoth-1:free',
+      'baseten/elephant-1:free',
       'respan/span-01-lite:free',
     ],
     apiKey: (env) => env.OPENROUTER_API_KEY,

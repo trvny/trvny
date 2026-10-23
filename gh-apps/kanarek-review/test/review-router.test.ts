@@ -258,7 +258,8 @@ test('review router prefers OpenRouter before the paid review reserves', async (
   assert.equal(response?.status, 200);
   assert.equal(response?.headers.get('x-kanarek-review-provider'), 'openrouter');
   assert.equal(call.url, 'https://openrouter.ai/api/v1/chat/completions');
-  assert.equal(call.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS[0]);
+  // Review lane leads with its preferred model.
+  assert.equal(call.model, 'thinkingmachines/inkling:free');
   assert.equal(call.authorization, 'Bearer openrouter-key');
 });
 
@@ -281,8 +282,13 @@ test('heterogeneous OpenRouter fallback chains avoid optional reasoning without 
   }) as typeof fetch);
 
   assert.equal(response?.status, 200);
-  assert.equal(body.model, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS[0]);
-  assert.deepEqual(body.models, REVIEW_ROUTER_MODEL_DEFAULTS.KANAREK_REVIEW_OPENROUTER_MODELS.slice(1));
+  assert.equal(body.model, 'thinkingmachines/inkling:free');
+  // Review-ordered, capped at OpenRouter's 3-entry fallback limit.
+  assert.deepEqual(body.models, [
+    'minimax/minimax-m3.1-flash:free',
+    'nvidia/nemotron-3-ultra-550b-a55b:free',
+    'cohere/north-mini-code:free',
+  ]);
   assert.equal(body.reasoning, undefined);
   assert.equal(body.max_tokens, 36_864);
 });
@@ -1889,6 +1895,30 @@ test('review router reaches an explicit OpenRouter fallback after a dead primary
   assert.equal(bodies[2]?.models, undefined);
 });
 
+test('OpenRouter quips use the quip lane with low reasoning and model limits', async () => {
+  const bodies: Array<Record<string, unknown>> = [];
+  const response = await handleReviewRouterRequest(request(routerToken, {
+    model: 'kanarek-quip-free',
+    stream: false,
+    max_tokens: 256,
+    messages: [{ role: 'user', content: 'quip' }],
+  }), {
+    ...auth,
+    OPENROUTER_API_KEY: 'openrouter-key',
+  }, ((_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    bodies.push(body);
+    if (bodies.length === 1) return Promise.resolve(new Response('models list invalid', { status: 400 }));
+    return Promise.resolve(Response.json({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }));
+  }) as typeof fetch);
+
+  assert.equal(response?.status, 200);
+  assert.equal(bodies[0]?.model, 'nvidia/nemotron-3.5-lightning:free');
+  assert.deepEqual(bodies[0]?.models, ['thinkingmachines/inkling-small:free', 'xingchen-agi/xing4.0-29b-a4b:free', 'thinkingmachines/inkling:free']);
+  assert.deepEqual(bodies[1]?.reasoning, { effort: 'low' });
+  assert.equal(bodies[1]?.max_tokens, 16_384);
+});
+
 test('reasoning-capable OpenRouter fallback preserves high reasoning', async () => {
   const bodies: Array<Record<string, unknown>> = [];
   const response = await handleReviewRouterRequest(request(routerToken, {
@@ -1899,7 +1929,7 @@ test('reasoning-capable OpenRouter fallback preserves high reasoning', async () 
   }), {
     ...auth,
     OPENROUTER_API_KEY: 'openrouter-key',
-    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,cohere/north-mini-code:free',
+    KANAREK_REVIEW_OPENROUTER_MODELS: 'dead/free,xingchen-agi/xing4.0-29b-a4b:free',
   }, ((_input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     bodies.push(body);
@@ -1917,7 +1947,7 @@ test('reasoning-capable OpenRouter fallback preserves high reasoning', async () 
 
   assert.equal(response?.status, 200);
   assert.equal(bodies.length, 3);
-  assert.equal(bodies[2]?.model, 'cohere/north-mini-code:free');
+  assert.equal(bodies[2]?.model, 'xingchen-agi/xing4.0-29b-a4b:free');
   assert.deepEqual(bodies[2]?.reasoning, { effort: 'high' });
   assert.equal(bodies[2]?.max_tokens, 36_864);
 });

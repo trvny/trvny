@@ -76,17 +76,22 @@ def sanitize(value):
     return value
 
 
-def contact_key(person):
-    emails = sorted(x.get("value", "").strip().casefold() for x in person.get("emailAddresses", []))
-    emails = [x for x in emails if x]
-    if emails:
-        return "email:" + emails[0]
-    phones = sorted("".join(c for c in x.get("value", "") if c.isdigit() or c == "+")
-                    for x in person.get("phoneNumbers", []))
-    phones = [x for x in phones if x]
-    if phones:
-        return "phone:" + phones[0]
-    return "data:" + json.dumps(sanitize({k: person[k] for k in CONTACT_FIELDS if k in person}), sort_keys=True, ensure_ascii=False)
+def contact_identifiers(person):
+    """Every stable email / phone identifier; full-data fallback for nameless contacts."""
+    identifiers = {
+        "email:" + field["value"].strip().casefold()
+        for field in person.get("emailAddresses", []) if field.get("value", "").strip()
+    }
+    identifiers.update(
+        "phone:" + normalized
+        for field in person.get("phoneNumbers", [])
+        if (normalized := "".join(c for c in field.get("value", "") if c.isdigit()))
+    )
+    if not identifiers:
+        identifiers.add("data:" + json.dumps(
+            sanitize({k: person[k] for k in CONTACT_FIELDS if k in person}),
+            sort_keys=True, ensure_ascii=False))
+    return identifiers
 
 
 class Migrator:
@@ -118,16 +123,16 @@ class Migrator:
     def contacts(self):
         state = self.state.setdefault("contacts", {})
         dest = list(self.dst.pages(PEOPLE, "/people/me/connections", params={
-            "personFields": ",".join(CONTACT_FIELDS), "pageSize": 1000}))
-        known = {contact_key(person) for person in dest}
+            "personFields": ",".join(CONTACT_FIELDS), "pageSize": 1000}, key="connections"))
+        known = set().union(*(contact_identifiers(person) for person in dest))
         for person in self.src.pages(PEOPLE, "/people/me/connections", params={
-            "personFields": ",".join(CONTACT_FIELDS), "pageSize": 1000}):
+            "personFields": ",".join(CONTACT_FIELDS), "pageSize": 1000}, key="connections"):
             source_id = person["resourceName"]
             fields = {k: sanitize(person[k]) for k in CONTACT_FIELDS if person.get(k)}
             if not fields or source_id in state:
                 continue
-            key = contact_key(person)
-            if key in known:
+            identifiers = contact_identifiers(person)
+            if known.intersection(identifiers):
                 self.stats["contacts_existing"] += 1
                 if not self.dry:
                     state[source_id] = "existing"
@@ -135,7 +140,7 @@ class Migrator:
                 continue
             result = self.write(PEOPLE, "/people:createContact", fields)
             self.stats["contacts_added"] += int(not self.dry)
-            known.add(key)
+            known.update(identifiers)
             if not self.dry:
                 state[source_id] = result["resourceName"]
                 self.save()
@@ -167,37 +172,50 @@ class Migrator:
             source_tasks = list(self.src.pages(TASKS, f"/lists/{urllib.parse.quote(sid, safe='')}/tasks",
                 params={"maxResults": 100, "showCompleted": "true", "showHidden": "true"}))
             mapped = state["items"].setdefault(sid, {})
-            pending = {x["id"]: x for x in source_tasks if x["id"] not in mapped}
-            # Parents before children; preserves completed tasks, avoids orphaned children.
-            while pending:
-                progressed = False
-                for task_id, task in list(pending.items()):
-                    parent = task.get("parent")
-                    if parent and parent in pending:
+            groups = {}
+            for task in source_tasks:
+                groups.setdefault(task.get("parent"), []).append(task)
+            for siblings in groups.values():
+                siblings.sort(key=lambda task: (task.get("position", ""), task["id"]))
+            unseen = {task["id"] for task in source_tasks}
+
+            def insert_children(parent=None):
+                previous = None
+                for task in groups.get(parent, []):
+                    task_id = task["id"]
+                    unseen.discard(task_id)
+                    existing = mapped.get(task_id)
+                    if task.get("assignmentInfo") or existing == "skipped":
+                        if groups.get(task_id):
+                            raise RuntimeError("assigned task has children; cannot reproduce")
+                        if not existing:
+                            self.stats["tasks_skipped_assigned"] += 1
+                            if not self.dry:
+                                mapped[task_id] = "skipped"
+                                self.save()
                         continue
-                    if task.get("assignmentInfo"):
-                        self.stats["tasks_skipped_assigned"] += 1
-                        if not self.dry:
-                            mapped[task_id] = "skipped"
+                    if not existing:
+                        body = {k: task[k] for k in ("title", "notes", "status", "due", "completed") if k in task}
+                        params = {}
+                        if parent is not None and not self.dry:
+                            params["parent"] = mapped[parent]
+                        if previous and not self.dry:
+                            params["previous"] = previous
+                        if self.dry:
+                            self.stats["pending"] += 1
+                        else:
+                            created = self.write(TASKS, f"/lists/{urllib.parse.quote(did, safe='')}/tasks",
+                                                 body, params=params or None)
+                            mapped[task_id] = created["id"]
+                            self.stats["tasks_added"] += 1
                             self.save()
-                        pending.pop(task_id)
-                        progressed = True
-                        continue
-                    if parent and (not mapped.get(parent) or mapped[parent] == "skipped") and not self.dry:
-                        raise RuntimeError("task parent missing; stop instead of flattening hierarchy")
-                    body = {k: task[k] for k in ("title", "notes", "status", "due", "completed") if k in task}
-                    params = {"parent": mapped[parent]} if parent and not self.dry else None
-                    if self.dry:
-                        self.stats["pending"] += 1
-                    else:
-                        created = self.write(TASKS, f"/lists/{urllib.parse.quote(did, safe='')}/tasks", body, params=params)
-                        mapped[task_id] = created["id"]
-                        self.stats["tasks_added"] += 1
-                        self.save()
-                    pending.pop(task_id)
-                    progressed = True
-                if not progressed:
-                    raise RuntimeError("task parent cycle or missing source parent")
+                    if not self.dry:
+                        previous = mapped[task_id]
+                    insert_children(task_id)
+
+            insert_children()
+            if unseen:
+                raise RuntimeError("orphan task or cycle in source task hierarchy")
         self.state.setdefault("finished", {})["tasks"] = not self.dry
         self.save()
 

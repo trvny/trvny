@@ -1,0 +1,19 @@
+---
+import '../styles/lab.css';
+const { title = 'Laboratory', description = 'Experiments from the TRAVNY workshop.' } = Astro.props.frontmatter ?? Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title} · TRAVNY Lab</title>
+  </head>
+  <body>
+    <main class="shell">
+      <nav class="crumb"><a href="/">TRAVNY</a> / <a href="/lab/">LAB</a></nav>
+      <slot />
+    </main>
+  </body>
+</html>

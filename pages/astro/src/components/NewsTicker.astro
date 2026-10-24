@@ -1,0 +1,47 @@
+<section class="panel" data-hn-news>
+  <h2>LIVE / Hacker News</h2>
+  <p class="meta">Top stories · refresh every 5 min · data from the official HN API</p>
+  <ul data-hn-list aria-live="polite"><li>Fetching headlines…</li></ul>
+  <p class="hint" data-hn-updated></p>
+</section>
+<script>
+  const root = document.querySelector('[data-hn-news]');
+  if (root) {
+    const list = root.querySelector('[data-hn-list]');
+    const updated = root.querySelector('[data-hn-updated]');
+    const api = 'https://hacker-news.firebaseio.com/v0/';
+    async function refresh() {
+      if (document.hidden) return;
+      try {
+        const res = await fetch(api + 'topstories.json');
+        if (!res.ok) throw new Error('topstories unavailable');
+        const ids = (await res.json()).slice(0, 6);
+        const stories = await Promise.all(ids.map(async (id) => {
+          try {
+            const response = await fetch(api + 'item/' + id + '.json');
+            return response.ok ? response.json() : null;
+          } catch {
+            return null;
+          }
+        }));
+        list.replaceChildren();
+        for (const story of stories.filter((item) => item && item.title)) {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.textContent = story.title;
+          a.href = story.url || 'https://news.ycombinator.com/item?id=' + story.id;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          li.append(a);
+          list.append(li);
+        }
+        updated.textContent = 'Updated ' + new Date().toLocaleTimeString();
+      } catch {
+        if (!list.children.length || list.textContent.includes('Fetching')) list.textContent = 'News temporarily unavailable.';
+        updated.textContent = 'Could not refresh · open Hacker News directly';
+      }
+    }
+    refresh();
+    setInterval(refresh, 300000);
+  }
+</script>

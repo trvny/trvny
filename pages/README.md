@@ -10,3 +10,5 @@ Functions in `functions/`, build step `build.sh`.
 - Moved from `trvny/tvpi` (`site/`, `functions/`) on 2026-10-12. The TV stream Worker stays in tvpi.
 
 - Papagenerator: https://travny.pages.dev/papagenerator/ is assembled by `build.sh` from a pinned commit of `travnie/twojstar/papagenerator` (the only maintained editor source). To update, bump `papagenerator_revision`. No new Cloudflare Pages project, Worker or cron is needed. Fetch failure fails the build deliberately: Cloudflare keeps the previous working deployment live rather than publishing an incomplete site.
+
+- Astro foothold: `astro/` builds the `/lab/` section to `site/lab/` without changing the existing homepage, Pages Functions, Quarto reports or Atom feed. See [Astro plan](astro/README.md).

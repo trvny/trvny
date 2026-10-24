@@ -1,0 +1,24 @@
+---
+import LabLayout from '../../layouts/LabLayout.astro';
+import NewsTicker from '../../components/NewsTicker.astro';
+import RadioMini from '../../components/RadioMini.astro';
+---
+<LabLayout title="The workshop" description="Experiments, live news and small tools from TRAVNY.">
+  <p class="meta">TRAVNY / EXPERIMENT 001</p>
+  <h1>The workshop</h1>
+  <p class="lede">Small tools, live data, weird comparisons and occasional useful discoveries. This is the new Astro corner of the existing hub, not a second website.</p>
+  <div class="grid">
+    <NewsTicker />
+    <RadioMini />
+    <section class="panel">
+      <h2>Field notes / MDX</h2>
+      <p>Interactive writing lives next to the experiments.</p>
+      <a href="/lab/field-notes/">Read the first note ↗</a>
+    </section>
+    <section class="panel">
+      <h2>Token Worldcup</h2>
+      <p>The first laboratory resident. A richer interactive version is on the roadmap.</p>
+      <a href="/teksty/token-worldcup/">Open Token Worldcup ↗</a>
+    </section>
+  </div>
+</LabLayout>

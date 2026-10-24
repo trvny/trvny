@@ -4,13 +4,11 @@ This directory is the **single maintained portable source** for the Gremlin skil
 
 ## ChatGPT account migration (October 2026)
 
-The previous private **MechaGremlin** wrapper was version `0.31.11` (`plugin_2efcd1a24fa08191b71d92f1972ac32c`) and has been uninstalled. The existing registered **Gremlin** MCP App-backed private plugin is now `1.0.3`; it was updated **in place**, rather than adding a new production plugin. That app's built-in actions and its `skills/gremlin/` skill live under the same ChatGPT entry.
+The original GPT-migrated **MechaGremlin** personal plugin (`plugin_2efcd1a24fa08191b71d92f1972ac32c`) is the preferred single ChatGPT plugin. It was updated in place to `0.31.12`, preserving its identity, registered Gremlin App binding, MCP endpoint, icon and references. Updating the package does not install or connect it; activate it in ChatGPT.
 
-During the first migration, the App contained only `SKILL.md` and `agents/openai.yaml`. This was corrected in `1.0.2`: **all three source references** are now bundled at `skills/gremlin/references/` together with `skills/gremlin/lookup/knowledge-index.json`. All three reference files and the index are retained; formatting is optimized without discarding the format catalog or detailed meme craft. The shorter skill loads creative references conditionally; they are not placeholders or external links.
+The separate App-backed **Gremlin** (`plugin_asdk_app_6ad3cba96c048191b0006fed71f4e0ef`, `1.0.6`) references the same registered MCP App. Keep that alternate package uninstalled to avoid duplicate plugin entries; it is not required by MechaGremlin.
 
-The App-backed registration uses the existing Gremlin MCP App binding. **Do not create a new Gremlin connection or a parallel MechaGremlin wrapper.** For later skill releases, stage the complete canonical `skills/gremlin/` tree into the existing App-backed plugin, keep its original generated `.app.json` and identity/presentation, and verify the Skills and MCP Actions sections after updating. Removing obsolete private-plugin records is a separate account operation: an installed-app uninstall API can report `not_installed` even when a private owned plugin appears in the user's library.
-
-The portable `plugin.json`, `mcp.json` and compatibility files remain useful for other Agent Plugins clients. They are **not** an alternative source of truth or evidence that ChatGPT automatically registers `mcpServers`. The historical portable `0.31.11` package and private App `1.0.3` intentionally have different versions.
+For future MechaGremlin releases, stage the canonical `skills/gremlin/SKILL.md` into the migrated `skills/instructions/SKILL.md` package location. Preserve existing `.app.json`, `mcp.json`, `.mcp.json`, branding and OAuth bindings. The repository remains the single maintained source; the account package is only a deployment target.
 
 ## Content and runtime boundaries
 

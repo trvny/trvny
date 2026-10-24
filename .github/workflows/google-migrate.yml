@@ -59,8 +59,8 @@ jobs:
           fi
       - name: Copy account data
         env:
-          GM_CLIENT_ID: ${{ secrets.GM_CLIENT_ID }}
-          GM_CLIENT_SECRET: ${{ secrets.GM_CLIENT_SECRET }}
+          GM_CLIENT_ID: ${{ secrets.GM_CLIENT_ID || secrets.YT_CLIENT_ID }}
+          GM_CLIENT_SECRET: ${{ secrets.GM_CLIENT_SECRET || secrets.YT_CLIENT_SECRET }}
           GM_SRC_REFRESH: ${{ secrets.GM_SRC_REFRESH }}
           GM_DST_REFRESH: ${{ secrets.GM_DST_REFRESH }}
           GM_STATE: ${{ runner.temp }}/google-migrate.json

@@ -27,6 +27,8 @@ class Fake:
             return {"resourceName": "people/new"}
         if path == "/users/@me/lists":
             return {"id": "dst-list"}
+        if path == "/calendars":
+            return {"id": "dst-calendar"}
         return {"id": f"dst-task-{len(self.writes)}"}
 
 
@@ -115,6 +117,85 @@ class MigrationTests(unittest.TestCase):
             m.contacts()
         self.assertEqual(len(m.state["contacts"]), 1)
         self.assertTrue(pathlib.Path(m.state_path).exists())
+
+
+    def test_calendar_primary_dedup_preserves_private_copy_no_invites(self):
+        a = {"id": "old", "iCalUID": "same@google", "summary": "Already there",
+             "start": {"date": "2025-01-01"}, "end": {"date": "2025-01-02"}}
+        b = {"id": "new", "iCalUID": "fresh@google", "summary": "Family",
+             "attendees": [{"email": "friend@example.com"}],
+             "start": {"date": "2025-02-01"}, "end": {"date": "2025-02-02"}}
+        src = Fake({"/users/me/calendarList": [{"id": "src@example.com", "primary": True,
+                                               "accessRole": "owner"}],
+                    "/calendars/src%40example.com/events": [a, b]})
+        dst = Fake({"/users/me/calendarList": [{"id": "dst@example.com", "primary": True}],
+                    "/calendars/primary/events": [{"iCalUID": "same@google"}]})
+        m = self.worker(src, dst)
+        m.calendar()
+        self.assertEqual(m.stats["calendar_existing"], 1)
+        self.assertEqual(m.stats["calendar_events_added"], 1)
+        self.assertEqual(len(dst.writes), 1)
+        path, body = dst.writes[0][1:3]
+        self.assertEqual(path, "/calendars/primary/events/import")
+        self.assertNotIn("attendees", body)
+        self.assertEqual(body["iCalUID"], "fresh@google")
+        m.calendar()
+        self.assertEqual(len(dst.writes), 1)
+
+    def test_calendar_secondary_resume_budget_and_dry_run(self):
+        src = Fake({"/users/me/calendarList": [
+            {"id": "private-id", "summary": "Trips", "accessRole": "owner", "timeZone": "Europe/Warsaw"}],
+            "/calendars/private-id/events": [
+                {"id": "one", "iCalUID": "uid-1", "summary": "Trip",
+                 "start": {"date": "2025-02-01"}, "end": {"date": "2025-02-02"}}]})
+        dst = Fake({"/users/me/calendarList": []})
+        dry = self.worker(src, dst, dry=True)
+        dry.calendar()
+        self.assertEqual(dry.stats["pending"], 2)
+        self.assertEqual(dst.writes, [])
+        self.assertFalse(pathlib.Path(dry.state_path).exists())
+        worker = self.worker(src, dst, limit=1)
+        with self.assertRaises(mod.BudgetReached):
+            worker.calendar()
+        self.assertEqual(worker.state["calendar"]["lists"]["private-id"], "dst-calendar")
+        worker.left = 2
+        worker.calendar()
+        self.assertEqual(len(dst.writes), 2)
+        self.assertEqual(dst.writes[0][1], "/calendars")
+        self.assertEqual(dst.writes[0][2]["summary"], "Trips (migrated)")
+        self.assertEqual(dst.writes[1][1], "/calendars/dst-calendar/events/import")
+
+    def test_calendar_skips_modified_recurring_series_and_special(self):
+        src = Fake({"/users/me/calendarList": [
+            {"id": "src", "primary": True, "accessRole": "owner"},
+            {"id": "others", "summary": "Shared", "accessRole": "reader"}],
+            "/calendars/src/events": [
+                {"id": "series", "iCalUID": "recurring@x", "recurrence": ["RRULE:FREQ=WEEKLY"],
+                 "start": {"date": "2025-01-01"}, "end": {"date": "2025-01-02"}},
+                {"id": "exception", "recurringEventId": "series", "iCalUID": "recurring@x",
+                 "originalStartTime": {"date": "2025-01-08"}},
+                {"id": "birthday", "eventType": "birthday", "iCalUID": "bday@x",
+                 "start": {"date": "2025-01-03"}, "end": {"date": "2025-01-04"}},
+                {"id": "valid", "iCalUID": "okay@x", "recurrence": ["RRULE:FREQ=WEEKLY"],
+                 "start": {"date": "2025-01-01"}, "end": {"date": "2025-01-02"}}]})
+        dst = Fake({"/users/me/calendarList": [], "/calendars/primary/events": []})
+        worker = self.worker(src, dst)
+        worker.calendar()
+        self.assertEqual(worker.stats["calendar_skipped_exceptions"], 2)
+        self.assertEqual(worker.stats["calendar_skipped_special"], 1)
+        self.assertEqual(worker.stats["calendar_skipped_shared"], 1)
+        self.assertEqual(worker.stats["calendar_events_added"], 1)
+        self.assertEqual(dst.writes[0][2]["recurrence"], ["RRULE:FREQ=WEEKLY"])
+
+    def test_calendar_existing_migrated_calendar_without_state_stops(self):
+        src = Fake({"/users/me/calendarList": [
+            {"id": "src2", "summary": "Travel", "accessRole": "owner"}]})
+        dst = Fake({"/users/me/calendarList": [
+            {"id": "existing2", "summary": "Travel (migrated)"}]})
+        worker = self.worker(src, dst)
+        with self.assertRaisesRegex(RuntimeError, "without checkpoint"):
+            worker.calendar()
+        self.assertEqual(dst.writes, [])
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy Google Contacts and Tasks between accounts. No source writes."""
+"""Copy Google Contacts, Tasks and Calendar between accounts. No source writes."""
 import argparse
 import json
 import os
@@ -12,6 +12,7 @@ import urllib.request
 
 PEOPLE = "https://people.googleapis.com/v1"
 TASKS = "https://tasks.googleapis.com/tasks/v1"
+CALENDAR = "https://www.googleapis.com/calendar/v3"
 CONTACT_FIELDS = ("names", "emailAddresses", "phoneNumbers", "addresses", "organizations",
                   "biographies", "birthdays", "nicknames", "urls", "events", "relations",
                   "userDefined", "imClients", "occupations", "interests")
@@ -100,7 +101,11 @@ class Migrator:
         self.state_path, self.dry = state_path, dry
         self.left = max_writes
         self.stats = {"contacts_added": 0, "contacts_existing": 0, "task_lists_added": 0,
-                      "tasks_added": 0, "tasks_skipped_assigned": 0, "pending": 0}
+                      "tasks_added": 0, "tasks_skipped_assigned": 0, "pending": 0,
+                      "calendars_added": 0, "calendar_events_added": 0,
+                      "calendar_existing": 0, "calendar_skipped_shared": 0,
+                      "calendar_skipped_exceptions": 0, "calendar_skipped_special": 0,
+                      "calendar_skipped_invalid": 0}
 
     def save(self):
         if self.dry:
@@ -220,9 +225,95 @@ class Migrator:
         self.save()
 
 
+
+    def calendar(self):
+        """Copy owned calendars and default events without changing invitations."""
+        state = self.state.setdefault("calendar", {"lists": {}, "events": {}})
+        source = list(self.src.pages(CALENDAR, "/users/me/calendarList", params={
+            "maxResults": 250, "showHidden": "true"}))
+        dest = list(self.dst.pages(CALENDAR, "/users/me/calendarList", params={
+            "maxResults": 250, "showHidden": "true"}))
+        dest_titles = {c.get("summary") for c in dest}
+        for cal in source:
+            if cal.get("accessRole") != "owner":
+                self.stats["calendar_skipped_shared"] += 1
+                continue
+            sid = cal["id"]
+            primary = cal.get("primary", False)
+            title = cal.get("summary", "Calendar") + " (migrated)"
+            if primary:
+                did = "primary"
+            elif sid in state["lists"]:
+                did = state["lists"][sid]
+            elif self.dry:
+                did = None
+                self.stats["pending"] += 1
+            else:
+                if title in dest_titles:
+                    raise RuntimeError("existing migrated calendar without checkpoint")
+                body = {"summary": title}
+                for field in ("description", "location", "timeZone"):
+                    if cal.get(field):
+                        body[field] = cal[field]
+                created = self.write(CALENDAR, "/calendars", body)
+                did = created["id"]
+                state["lists"][sid] = did
+                dest_titles.add(title)
+                self.stats["calendars_added"] += 1
+                self.save()
+
+            source_events = list(self.src.pages(CALENDAR,
+                f"/calendars/{urllib.parse.quote(sid, safe='')}/events",
+                params={"maxResults": 2500, "singleEvents": "false", "showDeleted": "true"}))
+            # Modified/cancelled occurrences must not silently become unmodified series.
+            exception_parents = {e["recurringEventId"] for e in source_events
+                                 if e.get("recurringEventId")}
+            dest_events = list(self.dst.pages(CALENDAR,
+                f"/calendars/{urllib.parse.quote(did, safe='')}/events",
+                params={"maxResults": 2500, "singleEvents": "false"})) if did else []
+            known_uids = {e["iCalUID"] for e in dest_events if e.get("iCalUID")}
+            mapped = state["events"].setdefault(sid, {})
+            for event in source_events:
+                if event.get("recurringEventId") or event.get("id") in exception_parents:
+                    self.stats["calendar_skipped_exceptions"] += 1
+                    continue
+                if event.get("status") == "cancelled":
+                    continue
+                if event.get("eventType", "default") != "default":
+                    self.stats["calendar_skipped_special"] += 1
+                    continue
+                uid = event.get("iCalUID")
+                eid = event.get("id")
+                if not uid or not eid or not event.get("start") or not event.get("end"):
+                    self.stats["calendar_skipped_invalid"] += 1
+                    continue
+                if eid in mapped or uid in known_uids:
+                    self.stats["calendar_existing"] += 1
+                    if uid in known_uids and eid not in mapped and not self.dry:
+                        mapped[eid] = "existing"
+                        self.save()
+                    continue
+                body = {k: event[k] for k in (
+                    "iCalUID", "summary", "description", "location", "start", "end",
+                    "recurrence", "reminders", "transparency", "visibility", "colorId"
+                ) if k in event}
+                if self.dry:
+                    self.stats["pending"] += 1
+                    continue
+                result = self.write(CALENDAR,
+                    f"/calendars/{urllib.parse.quote(did, safe='')}/events/import", body)
+                if not self.dry:
+                    mapped[eid] = result["id"]
+                    known_uids.add(uid)
+                    self.stats["calendar_events_added"] += 1
+                    self.save()
+        self.state.setdefault("finished", {})["calendar"] = not self.dry
+        self.save()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--service", choices=("all", "contacts", "tasks"), default="all")
+    parser.add_argument("--service", choices=("all", "contacts", "tasks", "calendar"), default="all")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     required = ("GM_CLIENT_ID", "GM_CLIENT_SECRET", "GM_SRC_REFRESH", "GM_DST_REFRESH", "GM_STATE")
@@ -244,13 +335,13 @@ def main():
         if not source_subject or not dest_subject or source_subject == dest_subject:
             raise RuntimeError("unverified or identical source/destination account")
         worker = Migrator(src, dst, state, state_path, args.dry_run, int(os.environ.get("GM_MAX_WRITES", "200")))
-        chosen = ("contacts", "tasks") if args.service == "all" else (args.service,)
+        chosen = ("contacts", "tasks", "calendar") if args.service == "all" else (args.service,)
         complete = True
         for service in chosen:
             if not state.get("finished", {}).get(service):
                 getattr(worker, service)()
         if not args.dry_run:
-            worker.state["complete"] = all(worker.state.get("finished", {}).get(x) for x in ("contacts", "tasks"))
+            worker.state["complete"] = all(worker.state.get("finished", {}).get(x) for x in ("contacts", "tasks", "calendar"))
             worker.save()
     except BudgetReached:
         complete = False

@@ -6,7 +6,7 @@ on:
       service:
         description: Data to copy
         type: choice
-        options: [all, contacts, tasks]
+        options: [all, contacts, tasks, calendar]
         default: all
       dry_run:
         description: Report only; do not write
@@ -67,7 +67,7 @@ jobs:
           SERVICE: ${{ github.event_name == 'schedule' && 'all' || inputs.service }}
           DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
         run: |
-          if [ -f "$GM_STATE" ] && python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); sys.exit(0 if s.get("complete") else 1)' "$GM_STATE"; then
+          if [ -f "$GM_STATE" ] && python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); sys.exit(0 if all(s.get("finished", {}).get(k) for k in ("contacts", "tasks", "calendar")) else 1)' "$GM_STATE"; then
             echo 'Migration already complete; no writes needed.'
             exit 0
           fi

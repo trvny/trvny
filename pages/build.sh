@@ -18,3 +18,9 @@ for asset in index.html brainrot.js; do
   curl --fail --location --silent --show-error --retry 3 --max-time 45 \
     "$papagenerator_base/$asset" --output "$papagenerator_dir/$asset"
 done
+
+# Additive Astro build. Never target Astro's output at site/: keep legacy files safe.
+npm --prefix astro ci --no-audit --no-fund
+npm --prefix astro run build
+cp -R astro/dist/lab site/
+if [ -d astro/dist/_astro ]; then cp -R astro/dist/_astro site/; fi

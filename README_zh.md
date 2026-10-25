@@ -46,7 +46,7 @@
 
 | 项目 | 入口 | 内容 |
 |---|---|---|
-| 📡 **Feedseek** | [仓库](https://github.com/trvny/feedseek) · [网站](https://trvny.github.io/feedseek) · [阅读器](https://trvny.github.io/feedseek/reader/) | 为缺少可用原生订阅源的网站生成并发布 RSS/Atom。 |
+| 📡 **Feedseek** | [仓库](https://github.com/trvny/feedseek) · [网站](https://trvny.github.io/feedseek) · [阅读器](https://trvny.github.io/feedseek/reader/) | 发布增强版 RSS/Atom、JSON Feed 和 Model Feed，包括对现有原生 feed 的改进。 |
 | 🐤 **Kanarek** | [仓库](https://github.com/travnie/kanarek) | Android RSS/Atom 阅读器，带桌面小组件以及广播/IPTV 播放。 |
 | 📺 **TVPI** | [仓库](https://github.com/trvny/tvpi) · [网站](https://travny.pages.dev/tv/) · [播放列表](https://tvpi.travny.workers.dev/playlist.m3u) | TVP 频道的稳定 IPTV 入口、Cloudflare Worker，以及用于刷新 HLS token 的住宅网络推送方案。 |
 | 🚗 **Autka** | [仓库](https://github.com/travnie/Autka) | Android 二手车聚合器，覆盖波兰、欧盟与美国进口，并包含进口成本计算。 |
@@ -64,7 +64,7 @@
 | 🌦️ **[weather-feed](https://github.com/travnie/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Kościelec/Chrzanów 的多源天气与 IMGW 警报，以 Atom 和 JSON 提供。 |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | 汇总检查 TVPI、Feedseek、Weather 和 Autka 健康状态的单一工具。 |
 | 🐾 **[Pet Dispatcher](mcp/pet-dispatcher/)** | 本地 MCP + Worker | 限定在工作区内的开发机工具，以及仅出站连接的 Cloudflare 控制平面。 |
-| 🌀 **[Loopling](loopling/)** | ChatGPT/Codex pet | 程序化生成的桌面宠物、安装脚本、预览与验证资源。 |
+| 🌀 **[Loopling](https://github.com/travnie/twojstar/tree/main/pets/loopling)** | ChatGPT/Codex pet | 程序化生成的桌面宠物、安装脚本、预览与验证资源。 |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | 公共 AI 配置核心，以及私有配置、归档和项目 skills。 |
 
 ### 🗄️ 抽屉

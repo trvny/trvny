@@ -28,7 +28,7 @@ test('portable Gremlin manifest references the installed MCP app and original lo
   assert.equal(manifest.version, '1.0.3');
   assert.equal(manifest.extensions['com.openai'].interface.displayName, 'Gremlin');
   assert.equal(manifest.extensions['com.openai'].apps, './.app.json');
-  assert.deepEqual(manifest.extensions['com.openai'].interface.capabilities, ['skills']);
+  assert.deepEqual(manifest.extensions['com.openai'].interface.capabilities, ['Read', 'Write']);
   assert.deepEqual(Object.keys(app.apps), ['gremlin']);
   assert.equal(app.apps.gremlin.id, 'asdk_app_6ad3cba96c048191b0006fed71f4e0ef');
   assert.equal(Object.keys(mcp.mcpServers).length, 1);

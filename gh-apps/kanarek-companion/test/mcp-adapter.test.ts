@@ -231,6 +231,32 @@ test('legacy initialize remains available for 2025 MCP clients', async () => {
   assert.equal(payload.result.protocolVersion, '2025-11-25');
 });
 
+test('Gremlin MCP discovery and initialization reuse the canonical icon without changing specialists', async () => {
+  const document = { paths: {} };
+  for (const method of ['server/discover', 'initialize'] as const) {
+    const request = rpcRequest({ jsonrpc: '2.0', id: 99, method, params: method === 'initialize'
+      ? { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: 'test', version: '1' } }
+      : {} }, method);
+    const response = await handleGremlinMcp(request, document, {}, authorizedInvoke());
+    assert.ok(response);
+    const payload = await response.json() as {
+      result: { serverInfo?: { icons?: Array<{ src: string; mimeType: string }> };
+        _meta?: { 'io.modelcontextprotocol/serverInfo'?: { icons?: Array<{ src: string; mimeType: string }> } } };
+    };
+    const info = method === 'initialize' ? payload.result.serverInfo : payload.result._meta?.['io.modelcontextprotocol/serverInfo'];
+    assert.deepEqual(info?.icons, [{ src: 'https://raw.githubusercontent.com/trvny/trvny/main/gh-apps/gremlin/plugin/assets/gpt-icon.png', mimeType: 'image/png' }]);
+  }
+  const specialist = await handleSpecialistMcp(
+    rpcRequest({ jsonrpc: '2.0', id: 100, method: 'initialize' }, 'initialize'),
+    {},
+    authorizedInvoke(),
+  );
+  assert.ok(specialist);
+  const specialistPayload = await specialist.json() as { result: { serverInfo: { name: string; icons?: unknown } } };
+  assert.equal(specialistPayload.result.serverInfo.name, 'mechagremlin-specialists');
+  assert.equal(specialistPayload.result.serverInfo.icons, undefined);
+});
+
 test('Gremlin MCP exposes only Feedseek without changing the shared specialist gateway', async () => {
   const document = { paths: {} };
   const response = await handleGremlinMcp(

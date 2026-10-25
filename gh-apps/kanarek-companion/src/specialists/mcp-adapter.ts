@@ -34,6 +34,8 @@ const OPERATOR_SERVER_INFO: JsonObject = {
   title: 'MechaGremlin',
   version: '1.0.0',
   description: 'Guarded Gremlin operator tools backed by the maintained Action runtime.',
+  // Reuse the canonical public plugin artwork; no second icon asset or Worker route.
+  icons: [{ src: 'https://raw.githubusercontent.com/trvny/trvny/main/gh-apps/gremlin/plugin/assets/gpt-icon.png', mimeType: 'image/png' }],
 };
 
 type RpcId = string | number | null;

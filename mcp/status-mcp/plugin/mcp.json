@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "status-mcp": {
+      "type": "streamable-http",
+      "url": "https://status-mcp.travny.workers.dev/",
+      "bearer_token_env_var": "STATUS_MCP_TOKEN",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "api_key",
+            "headerScheme": "bearer"
+          }
+        }
+      }
+    }
+  }
+}

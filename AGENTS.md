@@ -13,3 +13,9 @@
 - `pages/` - TRAVNY hub (travny.pages.dev). Pages project `travny`, root `pages`, output `site/`, Functions in `functions/`; `travny-pages.yml` asserts its Git source. `trfny.com` and `www.trfny.com` 301 via `functions/_middleware.js`; `tvpi.pages.dev` is a redirect-only project in trvny/tvpi. Pages repo is fixed at creation: changing it means recreating the project. TV data stays in the tvpi Worker.
 - `stuff/` - small configs, feeds, playlists and miscellaneous assets.
 - `yt-migrate/` - account migration home: YouTube at `migrate.py` and Contacts/Tasks/Calendar at `google/` (own `README.md`, `migrate.py`, tests). Separate `.github/workflows/yt-migrate.yml` and `google-migrate.yml`; distinct OAuth secrets `YT_*` / `GM_*` and quota/checkpoint state. Never log personal data (public Actions logs). YouTube Takeout extras are AES-encrypted at `yt-migrate/takeout.json.gz.enc` with `YT_EXTRA_KEY`.
+
+## Code Review Rules
+
+### 
+
+- Avoid repeating what's already covered by CI checks, linting etc.

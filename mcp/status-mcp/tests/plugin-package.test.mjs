@@ -25,7 +25,9 @@ test("Status plugin is read-only and keeps canonical Worker and branding", async
   assert.equal(server?.bearer_token_env_var, "STATUS_MCP_TOKEN");
   assert.deepEqual(server?.extensions?.["com.openai"]?.auth, { type: "api_key", headerScheme: "bearer" });
   assert.equal(Object.keys(mcp.mcpServers).length, 1);
-  assert.equal(/\\/[^/\\s]{25,}|token=|authorization: bearer [^\\s]+/iu.test(mcpText), false);
+  assert.equal(new URL(server.url).pathname, "/");
+  assert.equal(mcpText.includes("token="), false);
+  assert.equal(/Authorization: Bearer [A-Za-z0-9_-]{25,}/iu.test(mcpText), false);
   const icon = await read("assets/icon.svg");
   const master = await readFile(new URL("assets/status-mcp.svg", repoRoot), "utf8");
   assert.equal(icon, master, "Generated plugin icon must match canonical root SVG");

@@ -77,7 +77,7 @@ svg{display:block;width:100%;min-width:980px;height:auto}.edge{fill:none;stroke:
 <script>
 (() => {
 const nodes = [
-{id:"repo-hub",label:"trvny/trvny",sub:"hub repo",kind:"repo",x:45,y:75,url:"https://github.com/trvny/trvny",info:"Mixed hub: GitHub Apps, MCP services, Telegram assistant, Loopling, token reports and shared AI config.",tags:["all","automation","kanarek"]},
+{id:"repo-hub",label:"trvny/trvny",sub:"hub repo",kind:"repo",x:45,y:75,url:"https://github.com/trvny/trvny",info:"Mixed hub: GitHub Apps, MCP services, Telegram assistant, token reports and shared AI config.",tags:["all","automation","kanarek"]},
 {id:"repo-tvpi",label:"trvny/tvpi",sub:"TV Worker",kind:"repo",x:45,y:205,url:"https://github.com/trvny/tvpi",info:"TVPI source: the TVPI Worker and the stream generator.",tags:["all","web"]},
 {id:"repo-feedseek",label:"trvny/feedseek",sub:"feeds + reader",kind:"repo",x:45,y:335,url:"https://github.com/trvny/feedseek",info:"Feed generation, GitHub Pages reader, constrained feed proxy and durable R2 generation cache.",tags:["all","web"]},
 {id:"repo-gh",label:"trvny/.github",sub:"shared automation",kind:"repo",x:45,y:465,url:"https://github.com/trvny/.github",info:"Shared workflow and repository automation home for the trvny account.",tags:["all","automation"]},
@@ -85,7 +85,7 @@ const nodes = [
 {id:"repo-wifi",label:"trvny/WiFi-Automatic",sub:"Android fork",kind:"repo",x:45,y:725,url:"https://github.com/trvny/WiFi-Automatic",info:"Maintained Android fork for automatic Wi-Fi behavior. Standalone from the Cloudflare service graph.",tags:["all"]},
 {id:"repo-kanarek",label:"travnie/Kanarek",sub:"Android reader",kind:"repo",x:270,y:75,url:"https://github.com/travnie/Kanarek",info:"Kanarek Android application. Uses the dedicated kanarek Worker backend for feeds and state.",tags:["all","kanarek","web"]},
 {id:"repo-autka",label:"travnie/Autka",sub:"vehicle app",kind:"repo",x:270,y:205,url:"https://github.com/travnie/Autka",info:"Autka mobile app plus cargate-backend Cloudflare Worker.",tags:["all","web"]},
-{id:"repo-twojstar",label:"travnie/twojstar",sub:"workshop",kind:"repo",x:270,y:335,url:"https://github.com/travnie/twojstar",info:"Workshop repo containing Codebench, Streambench, Docbench, Weather Feed and SpaceMolt tooling.",tags:["all","web","automation"]},
+{id:"repo-twojstar",label:"travnie/twojstar",sub:"workshop",kind:"repo",x:270,y:335,url:"https://github.com/travnie/twojstar",info:"Workshop repo containing Codebench, Streambench, Docbench, Weather Feed, SpaceMolt and Loopling.",tags:["all","web","automation"]},
 {id:"repo-aistee",label:"travnie/aistee",sub:"AI client",kind:"repo",x:270,y:465,url:"https://github.com/travnie/aistee",info:"AI client project with direct-provider and WebView integrations.",tags:["all"]},
 {id:"repo-wam",label:"travnie/wambridge",sub:"audio bridge",kind:"repo",x:270,y:595,url:"https://github.com/travnie/wambridge",info:"Local Samsung WAM bridge, foobar2000 output and Android media renderer.",tags:["all"]},
 {id:"repo-travnie-gh",label:"travnie/.github",sub:"org automation",kind:"repo",x:270,y:725,url:"https://github.com/travnie/.github",info:"Organization-level workflows, assets and automation for travnie.",tags:["all","automation"]},
@@ -99,7 +99,7 @@ const nodes = [
 {id:"src-claudiusz",label:"claudiusz",sub:"gh-apps/",kind:"component",x:500,y:535,url:"https://github.com/trvny/trvny/tree/main/gh-apps/claudiusz",info:"Claude-oriented GitHub App / MCP integration source.",tags:["all","automation"]},
 {id:"src-shitpost",label:"shitpost-reactor",sub:"gh-apps/",kind:"component",x:500,y:615,url:"https://github.com/trvny/trvny/tree/main/gh-apps/shitpost-reactor",info:"Feed-producing GitHub reaction service backed by R2.",tags:["all","automation","web"]},
 {id:"src-token",label:"token-worldcup",sub:"Quarto report",kind:"component",x:500,y:695,url:"https://github.com/trvny/trvny/tree/main/pages/token-worldcup",info:"Token language/model reports and tokenizer recount scripts.",tags:["all","web"]},
-{id:"src-loopling",label:"loopling",sub:"pet assets",kind:"component",x:500,y:775,url:"https://github.com/trvny/trvny/tree/main/loopling",info:"Generated ChatGPT/Codex pet assets and installers.",tags:["all"]},
+{id:"src-loopling",label:"loopling",sub:"pet assets",kind:"component",x:500,y:775,url:"https://github.com/travnie/twojstar/tree/main/pets/loopling",info:"Source generator, pet assets, installers and previews now live in twojstar/pets/loopling.",tags:["all"]},
 
 {id:"w-kanarek",label:"kanarek",sub:"Worker",kind:"worker",x:745,y:45,url:"https://kanarek.travny.workers.dev",info:"Feed/state backend for the Kanarek app. Bound to feed-scrape KV and kanarek-state D1.",tags:["all","kanarek","web"]},
 {id:"w-companion",label:"automation",sub:"Shared Worker",kind:"worker",x:745,y:120,url:"https://automation.travny.workers.dev",info:"Shared Automation runtime: Kanarek webhooks and reviews, GPTomek bridge, operator actions and durable jobs.",tags:["all","kanarek","automation"]},
@@ -137,7 +137,7 @@ const nodes = [
 ];
 
 const edges = [
-["repo-hub","src-companion","source"],["repo-hub","src-review","source"],["repo-hub","src-pet","source"],["repo-hub","src-status","source"],["repo-hub","src-tg","source"],["repo-hub","src-gptomek","source"],["repo-hub","src-claudiusz","source"],["repo-hub","src-shitpost","source"],["repo-hub","src-token","source"],["repo-hub","src-loopling","source"],
+["repo-hub","src-companion","source"],["repo-hub","src-review","source"],["repo-hub","src-pet","source"],["repo-hub","src-status","source"],["repo-hub","src-tg","source"],["repo-hub","src-gptomek","source"],["repo-hub","src-claudiusz","source"],["repo-hub","src-shitpost","source"],["repo-hub","src-token","source"],["repo-twojstar","src-loopling","source"],
 ["src-companion","w-companion","source"],["src-review","w-review","source"],["src-pet","w-pet","source"],["src-status","w-status","source"],["src-tg","w-tg","source"],["src-claudiusz","w-claudiusz","source"],["src-shitpost","w-shitpost","source"],
 ["repo-kanarek","w-kanarek","source"],["repo-tvpi","w-tvpi","source"],["repo-hub","pages","source"],["repo-feedseek","w-feeds","source"],["repo-twojstar","w-weather","source"],["repo-twojstar","w-bench","source"],["repo-twojstar","w-space","source"],["repo-autka","w-cargate","source"],
 ["w-companion","w-review","service"],["w-pet","w-companion","service"],["w-tg","w-companion","service"],["w-tg","w-pet","service"],["w-status","w-tvpi","service"],["w-status","w-weather","service"],["w-status","w-cargate","service"],["w-space","w-review","service"],
@@ -148,7 +148,7 @@ const edges = [
 
 const clusters = [
 {x:24,y:30,w:425,h:835,label:"Repositories"},
-{x:476,y:25,w:202,h:850,label:"trvny/trvny components"},
+{x:476,y:25,w:202,h:850,label:"Source components (cross-repo)"},
 {x:716,y:20,w:205,h:850,label:"Cloudflare runtime"},
 {x:945,y:20,w:360,h:875,label:"State + external systems"}
 ];

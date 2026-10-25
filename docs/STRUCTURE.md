@@ -9,7 +9,6 @@
 | `assets/` | shared README/branding assets and status-mcp icon source |
 | `docs/` | repository-level technical documentation |
 | `gh-apps/` | Kanarek Companion, GPTomek bridge, GPT Actions and Gremlin |
-| `loopling/` | ChatGPT/Codex pet source, generated assets, installers and previews |
 | `mcp/pet-dispatcher/` | local confined MCP worker plus Cloudflare remote control plane |
 | `mcp/status-mcp/` | authenticated aggregate health MCP Worker |
 | `stuff/` | feeds, playlists, quotes, configs and miscellaneous personal tools/assets |
@@ -25,7 +24,6 @@
 | status-mcp | `mcp/status-mcp/src/entry.ts` |
 | Pet Dispatcher local worker | `mcp/pet-dispatcher/src/index.ts` |
 | Pet Dispatcher control plane | `mcp/pet-dispatcher/control-plane/entry.ts` |
-| Loopling | `loopling/tools/generate.py` and `loopling/pet/pet.json` |
 | Token Worldcup | `pages/token-worldcup/token-worldcup.qmd` |
 | Model x effort cost matrix | `pages/token-worldcup/effort-matrix.qmd` |
 | OpenAI tokenizer recount | `pages/token-worldcup/recount-openai-tokens.mjs` |

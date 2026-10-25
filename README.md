@@ -44,7 +44,7 @@
 
 | project | entry points | what's inside |
 |---|---|---|
-| 📡 **Feedseek** | [repo](https://github.com/trvny/feedseek) · [site](https://trvny.github.io/feedseek) · [reader](https://trvny.github.io/feedseek/reader/) | RSS/Atom feed generator and publisher for sources without useful native feeds. |
+| 📡 **Feedseek** | [repo](https://github.com/trvny/feedseek) · [site](https://trvny.github.io/feedseek) · [reader](https://trvny.github.io/feedseek/reader/) | Enhanced RSS/Atom, JSON Feed and Model Feed publishing, including enrichment of native feeds. |
 | 🐤 **Kanarek** | [repo](https://github.com/travnie/kanarek) | Android RSS/Atom reader with widgets and radio/IPTV playback. |
 | 📺 **TVPI** | [repo](https://github.com/trvny/tvpi) · [site](https://travny.pages.dev/tv/) · [playlist](https://tvpi.travny.workers.dev/playlist.m3u) | Stable IPTV entry points for TVP channels, a Worker, and residential push for refreshing HLS tokens. |
 | 🚗 **Autka** | [repo](https://github.com/travnie/Autka) | Android aggregator of car listings from Poland, the EU, and US imports, including import cost calculations. |
@@ -62,7 +62,7 @@
 | 🌦️ **[weather-feed](https://github.com/travnie/twojstar/tree/main/weather-feed)** | [weather.trfny.com](https://weather.trfny.com) | Multi-source weather and IMGW alerts for Kościelec/Chrzanów, exposed as Atom and JSON. |
 | 🩺 **[status-mcp](mcp/status-mcp/)** | MCP | One tool for aggregate health checks of TVPI, Feedseek, Weather, and Autka. |
 | 🐾 **[Pet Dispatcher](mcp/pet-dispatcher/)** | local MCP + Worker | Workspace-confined development-machine tools with an outbound-only Cloudflare control plane. |
-| 🌀 **[Loopling](loopling/)** | ChatGPT/Codex pet | Procedurally generated desktop pet, installers, previews, and validation assets. |
+| 🌀 **[Loopling](https://github.com/travnie/twojstar/tree/main/pets/loopling)** | ChatGPT/Codex pet | Procedurally generated desktop pet, installers, previews, and validation assets. |
 | 🤖 **[AI core](https://github.com/trvny/.ai)** | [.ai/](.ai/) | Public AI configuration core + private profile, archive, and project skills. |
 
 ### 🗄️ Drawers

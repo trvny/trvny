@@ -31,9 +31,7 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/trvny | [#1149](https://github.com/trvny/trvny/pull/1149) | deps: Bump fast-uri from 3.1.8 to 3.1.9 in /mcp/pet-dispatcher | @dependabot[bot] | ready | 2026-10-23 |
-| trvny/trvny | [#1150](https://github.com/trvny/trvny/pull/1150) | deps: Bump ip-address from 10.7.2 to 10.7.4 in /mcp/pet-dispatcher | @dependabot[bot] | ready | 2026-10-23 |
-| trvny/trvny | [#1151](https://github.com/trvny/trvny/pull/1151) | deps: Bump body-parser from 2.3.0 to 2.4.0 in /mcp/pet-dispatcher | @dependabot[bot] | ready | 2026-10-23 |
+| trvny/.ai | [#23](https://github.com/trvny/.ai/pull/23) | chore(deps): bump the actions group with 2 updates | @dependabot[bot] | ready | 2026-10-24 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

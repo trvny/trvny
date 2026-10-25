@@ -20,7 +20,8 @@
     "com.openai": {
       "interface": {
         "capabilities": [
-          "skills"
+          "Read",
+          "Write"
         ],
         "category": "Developer Tools",
         "composerIcon": "./assets/gpt-icon.png",

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "trvny-status",
+  "version": "0.1.0",
+  "description": "Read-only health checks for TVPI, Feedseek, weather and autka through the existing Status MCP.",
+  "author": {
+    "name": "trvny",
+    "url": "https://github.com/trvny"
+  },
+  "homepage": "https://github.com/trvny/trvny/tree/main/mcp/status-mcp/plugin",
+  "repository": "https://github.com/trvny/trvny",
+  "keywords": [
+    "status",
+    "health",
+    "observability",
+    "mcp",
+    "cloudflare",
+    "trvny"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "TRAVNY Status",
+        "shortDescription": "TRAVNY service health",
+        "longDescription": "Check TVPI, Feedseek, weather and autka health in one read-only call, with a scoped or deep TVPI check when requested. Uses the existing protected Status MCP Worker.",
+        "developerName": "trvny",
+        "category": "Developer Tools",
+        "capabilities": [
+          "Read"
+        ],
+        "websiteURL": "https://github.com/trvny/trvny/tree/main/mcp/status-mcp",
+        "brandColor": "#DF7757",
+        "composerIcon": "./assets/icon.svg",
+        "logo": "./assets/icon.svg",
+        "defaultPrompt": [
+          "Check the current health of all four TRAVNY services.",
+          "Check why Feedseek is degraded.",
+          "Run a deep TVPI health check."
+        ]
+      }
+    }
+  }
+}

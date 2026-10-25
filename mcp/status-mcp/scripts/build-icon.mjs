@@ -28,6 +28,11 @@ const outPath = resolve(here, "../src/icon.ts");
 // to `colours: 8` the quantizer dropped #FFFDF8 outright, and the circle that
 // the SVG fills cream came out hollow: the served icon stopped matching its
 // own source. Do not cap the colour count to shave a few kilobytes.
+// Keep the portable plugin icon generated from the same maintained SVG.
+// This is not an independent logo source.
+const pluginSvgPath = resolve(here, "../plugin/assets/icon.svg");
+writeFileSync(pluginSvgPath, readFileSync(svgPath));
+
 const png = await sharp(readFileSync(svgPath), { density: 384 })
   .resize(512, 512)
   .png({ palette: true, compressionLevel: 9, effort: 10 })

@@ -37,11 +37,19 @@ test('homepage hides the description while retaining discovery metadata', async 
   });
   const html = await response.text();
   const body = html.slice(html.indexOf('<body>'));
-  const head = html.match(/<head>([\s\S]*?)<\/head>/)?.[1];
+  const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i)?.[1]?.replace(/<!--[\s\S]*?-->/g, "");
   assert.ok(head, 'Verification metadata must be inside <head>');
+  const metaTags = head.match(/<meta\b[^>]*>/gi) ?? [];
+  const hasBingVerification = metaTags.some((tag) => {
+    const attributes = Object.fromEntries(
+      [...tag.matchAll(/\b(name|content)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)]
+        .map(([, name, quoted, singleQuoted, bare]) => [name.toLowerCase(), quoted ?? singleQuoted ?? bare]),
+    );
+    return attributes.name?.toLowerCase() === "msvalidate.01" && attributes.content === "23A368B2C5F4DF3471A67EA6CB057149";
+  });
 
   assert.match(html, /<title>Shitpost Reactor<\/title>/);
-  assert.match(head, /<meta name="msvalidate\.01" content="23A368B2C5F4DF3471A67EA6CB057149">/);
+  assert.ok(hasBingVerification, "Bing verification must be an active meta tag inside head");
   assert.match(html, /rel="describedby" href="\/llms\.txt"/);
   assert.match(html, /rel="manifest" href="\/site\.webmanifest"/);
   assert.match(html, /apple-touch-icon/);

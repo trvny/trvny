@@ -42,7 +42,7 @@ test('homepage hides the description while retaining discovery metadata', async 
   const metaTags = head.match(/<meta\b[^>]*>/gi) ?? [];
   const hasVerification = (name, content) => metaTags.some((tag) => {
     const attributes = Object.fromEntries(
-      [...tag.matchAll(/\b(name|content)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)]
+      [...tag.matchAll(/\s+(name|content)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)]
         .map(([, name, quoted, singleQuoted, bare]) => [name.toLowerCase(), quoted ?? singleQuoted ?? bare]),
     );
     return attributes.name?.toLowerCase() === name && attributes.content === content;

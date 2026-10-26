@@ -226,7 +226,8 @@ const PROVIDER_CONTEXT_SAFETY_TOKENS = 4_096;
 const DEFAULT_FREE_TASK_PROVIDER_ORDER = {
   quip: ['aihubmix', 'groq', 'vercel', 'openrouter', 'orcarouter', 'ollama', 'huggingface-publicai', 'gemini-standard'],
   // Review/judge: fresh models first; gpt-oss (Groq, Ollama) and Bielik predate recent releases.
-  review: ['openrouter', 'aihubmix', 'orcarouter', 'gemini-standard', 'vercel', 'ollama', 'groq', 'huggingface-publicai'],
+  // gemini-standard last everywhere: free tier can hang to the full timeout.
+  review: ['openrouter', 'aihubmix', 'orcarouter', 'vercel', 'ollama', 'groq', 'huggingface-publicai', 'gemini-standard'],
   judge: ['aihubmix', 'openrouter', 'orcarouter', 'vercel', 'groq', 'ollama', 'huggingface-publicai', 'gemini-standard'],
   shitpost: ['aihubmix', 'openrouter', 'vercel', 'orcarouter', 'groq', 'ollama', 'huggingface-publicai', 'gemini-standard'],
 } as const satisfies Record<Exclude<FreeTaskProfileId, 'general'>, readonly FreeReviewProviderId[]>;

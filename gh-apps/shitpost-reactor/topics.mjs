@@ -42,7 +42,7 @@ const FETCH_TIMEOUT_MS = 8_000;
 // mentioning war, ceasefire, disaster, refugees or politics is not inherently
 // unsuitable for satire about public figures, PR or institutional failures.
 const SEVERE_VICTIM_HARM = /\b(?:massacre|genocide|mass\s+shooting|rap(?:e|ed|ing)|sexual\s+assault|child\s+(?:sexual\s+)?abuse|suicide|tortur(?:e|ed)|murder(?:ed)?)\b|(?:masakr|ludobójstw|gwałt|zgwałc|samobójstw|tortur|zabójstw)(?:\p{L}*)/iu;
-const DIRECT_VICTIM_TOLL = /\b(?:(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|dozens?|hundreds?|thousands?|children|civilians|families|people|residents)\s+(?:people\s+)?(?:die|died|dead|killed|injured|wounded)|(?:kills?|injures?)\s+(?:\d+|dozens?|hundreds?|children|civilians))\b|nie\s+żyj(?:e|ą)\b|(?:\d+|kilku|kilka|kilkanaście|dziesiątki|setki|dzieci)\s+(?:osób\s+)?(?:zginęło|zmarło|rannych)\b/iu;
+const DIRECT_VICTIM_TOLL = /\b(?:(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|dozens?|hundreds?|thousands?|children|civilians|families|people|residents)\s+(?:people\s+)?(?:die|died|dead|killed|injured|wounded)|(?:kills?|injures?)\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|dozens?|hundreds?|thousands?|children|civilians)(?:\s+(?:people|residents|children|civilians))?|(?:dies|died)\s+(?:aged?\s+\d+|at\s+(?:age\s+)?\d+|in\s+(?:hospital|a\s+crash|an\s+accident)))\b|nie\s+żyj(?:e|ą)\b|(?:zgin|zmar)\p{L}*\b|(?:\d+|kilku|kilka|kilkanaście|dziesiątki|setki|dzieci)\s+(?:osób\s+)?(?:zginęło|zmarło|rannych)\b/iu;
 
 function unsuitableNewsHeadline(title) {
   return SEVERE_VICTIM_HARM.test(title) || DIRECT_VICTIM_TOLL.test(title);

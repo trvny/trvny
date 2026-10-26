@@ -474,6 +474,9 @@ test('only explicit victim-led horrors are screened out, consistently across sou
   for (const title of [
     'Massacre kills hundreds',
     'Five die in plane crash',
+    'Bus crash kills five people',
+    'Actor dies aged 80',
+    'Zginęły trzy osoby w wypadku',
     'Children injured after school bus crashes',
     'Government investigates sexual assault',
     'Doctors report child abuse and torture',

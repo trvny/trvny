@@ -4,7 +4,7 @@
 // ?label=  overrides the text (max 40 chars).
 // Icons come from a pinned @lobehub/icons-static-svg on jsDelivr; if that fails the
 // badge still renders without an icon, with a short cache.
-import { BRANDS, iconMarkup, iconUrl, modelStyle, renderBadge } from "../_shared/badge.js";
+import { BRANDS, cleanLabel, iconMarkup, iconUrl, modelStyle, renderBadge } from "../_shared/badge.js";
 
 const MAX_LABEL = 40;
 const MAX_ID = 120;
@@ -36,7 +36,7 @@ export function resolve(segments, searchParams) {
   const parts = (Array.isArray(segments) ? segments : [segments]).filter(Boolean).map(String);
   if (!parts.length) return null;
   parts[parts.length - 1] = parts[parts.length - 1].replace(/\.svg$/i, "");
-  const override = searchParams.get("label")?.trim().slice(0, MAX_LABEL) || null;
+  const override = cleanLabel(searchParams.get("label")).slice(0, MAX_LABEL) || null;
 
   if (parts[0] === "model" && parts.length > 1) {
     const model = parts.slice(1).join("/").slice(0, MAX_ID);

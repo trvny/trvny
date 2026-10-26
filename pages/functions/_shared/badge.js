@@ -82,8 +82,16 @@ export function labelWidth(text) {
   return width;
 }
 
+// Drop XML 1.0-invalid chars (C0 controls, lone surrogates, U+FFFE/F); collapse whitespace.
+export function cleanLabel(value) {
+  return String(value ?? "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF￾￿]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function escapeXml(value) {
-  return String(value)
+  return cleanLabel(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -113,7 +121,7 @@ export function iconMarkup(source, id, ink) {
 export function renderBadge({ label, c1, c2, tile = "#f8fafc", text = "#fff", icon = null, id = "b" }) {
   const safe = escapeXml(label);
   const tileW = icon ? TILE : 0;
-  const labelW = Math.round(labelWidth(label) + 2 * PAD);
+  const labelW = Math.round(labelWidth(cleanLabel(label)) + 2 * PAD);
   const w = tileW + labelW;
   const tileRects = icon
     ? `<rect width="${TILE}" height="${H}" fill="${tile}"/>`

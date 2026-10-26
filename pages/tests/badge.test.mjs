@@ -51,6 +51,15 @@ test("label is escaped and capped", () => {
   assert.ok(!svg.includes("<b>"));
 });
 
+test("XML-invalid label characters are stripped", () => {
+  const spec = resolve(["mcp.svg"], new URLSearchParams("label=test%00ba\u001Fdge%EF%BF%BF"));
+  assert.equal(spec.label, "testbadge");
+  const svg = renderBadge({ label: "a\u0000b\uD800c", c1: "#000", c2: "#000" });
+  assert.ok(svg.includes(">abc</text>"));
+  assert.ok(!/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/u.test(svg));
+  assert.equal(resolve(["mcp.svg"], new URLSearchParams("label=%00%01")).label, "MCP");
+});
+
 test("icon markup namespaces ids and rejects active content", () => {
   const out = iconMarkup('<svg viewBox="0 0 24 24"><path fill="url(#a)" d="M0 0"/><defs><linearGradient id="a"></linearGradient></defs></svg>', "b", "#111");
   assert.ok(out.includes('id="b-a"') && out.includes("url(#b-a)"));

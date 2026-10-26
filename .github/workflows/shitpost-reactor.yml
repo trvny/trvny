@@ -2,7 +2,8 @@ name: Shitpost Reactor
 
 on:
   schedule:
-    - cron: "37 21 * * *"
+    # Early morning: free provider daily quotas fresh, little PR traffic.
+    - cron: "20 4 * * *"
       timezone: "Europe/Warsaw"
   workflow_dispatch:
     inputs:

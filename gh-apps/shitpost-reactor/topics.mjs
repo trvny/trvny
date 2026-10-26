@@ -40,7 +40,7 @@ const MAX_ARTICLE_URL_LENGTH = 1250;
 const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1_000;
 const FETCH_TIMEOUT_MS = 8_000;
 const SENSITIVE_NEWS = /\b(kill(?:ed|ing|s)?|dead|death|die|dies|died|fatal(?:ity|ities)?|victim(?:s)?|massacre|murder(?:ed)?|suicide|rape|abuse|hostage(?:s)?|bomb(?:ing|ed)?|airstrike(?:s)?|earthquake(?:s)?|flood(?:s|ing)?|famine|genocide|casualt(?:y|ies)|shooting(?:s)?|terror(?:ist|ism)?|war crimes|injur(?:y|ies|ed)|wound(?:ed|s)?|crash(?:es|ed)?|wildfire(?:s)?|blaze(?:s)?|evacuat(?:ion|ed)|drown(?:ed|ing)?|collapsed)\b/i;
-const CONFLICT_AND_CRISIS = /\b(?:wars?|warfare|truce|ceasefire|siege|invasion|invaded|shelling|missiles?|humanitarian|disaster|refugees?|displaced|frontline|bombardments?|military\s+offensive|civilian\s+casualties)\b|(?:wojn|rozejm|ostrzał|inwazj|uchodźc|humanitarn|kryzys\s+humanitarn)(?:\p{L}*)/iu;
+// Crisis terms alone must never automatically disqualify political satire.
 
 // Apply the same suitability gate to RSS, Feedseek JSON, and every topic lane.
 // Prompt-only restrictions did not prevent real-world crisis headlines from

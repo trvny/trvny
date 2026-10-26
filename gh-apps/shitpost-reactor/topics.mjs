@@ -42,6 +42,14 @@ const FETCH_TIMEOUT_MS = 8_000;
 const SENSITIVE_NEWS = /\b(kill(?:ed|ing|s)?|dead|death|die|dies|died|fatal(?:ity|ities)?|victim(?:s)?|massacre|murder(?:ed)?|suicide|rape|abuse|hostage(?:s)?|bomb(?:ing|ed)?|airstrike(?:s)?|earthquake(?:s)?|flood(?:s|ing)?|famine|genocide|casualt(?:y|ies)|shooting(?:s)?|terror(?:ist|ism)?|war crimes|injur(?:y|ies|ed)|wound(?:ed|s)?|crash(?:es|ed)?|wildfire(?:s)?|blaze(?:s)?|evacuat(?:ion|ed)|drown(?:ed|ing)?|collapsed)\b/i;
 const CONFLICT_AND_CRISIS = /\b(?:wars?|warfare|truce|ceasefire|siege|invasion|invaded|shelling|missiles?|humanitarian|disaster|refugees?|displaced|frontline|bombardments?|military\s+offensive|civilian\s+casualties)\b|(?:wojn|rozejm|ostrzał|inwazj|uchodźc|humanitarn|kryzys\s+humanitarn)(?:\p{L}*)/iu;
 
+// Apply the same suitability gate to RSS, Feedseek JSON, and every topic lane.
+// Prompt-only restrictions did not prevent real-world crisis headlines from
+// becoming generated jokes when these terms were absent from the selectors.
+function unsuitableNewsHeadline(title) {
+  return SENSITIVE_NEWS.test(title) || POLISH_TRAGEDY.test(title)
+    || CONFLICT_AND_CRISIS.test(title);
+}
+
 const LLM_TOPICS = Object.freeze([
   'LLM self-roast: a model tries to fit its entire personality into a shrinking context window.',
   'LLM self-roast: an AI agent files an incident report about its own hallucination.',
@@ -114,9 +122,8 @@ export function parseNewsRss(xml, {
     if (!allowedHosts.includes(url.hostname) || url.protocol !== 'https:' || url.username || url.password
       || url.toString().length > MAX_ARTICLE_URL_LENGTH || !title || title.length < 12
       || !Number.isFinite(date) || date > now || now - date > NEWS_MAX_AGE_MS
-      || SENSITIVE_NEWS.test(title)
-      || (politicsOnly && (POLISH_TRAGEDY.test(title)
-        || !POLITICAL_TOPIC.test(title) || !POLISH_CONTEXT.test(title)))) return [];
+      || unsuitableNewsHeadline(title)
+      || (politicsOnly && (!POLITICAL_TOPIC.test(title) || !POLISH_CONTEXT.test(title)))) return [];
     return [{ title, url: url.toString(), published_at: new Date(date).toISOString() }];
   });
 }
@@ -140,8 +147,7 @@ export function parseFeedseekJson(payload, { now = Date.now(), politicsOnly = fa
       || (allowedHosts && !allowedHosts.includes(url.hostname))
       || url.toString().length > MAX_ARTICLE_URL_LENGTH
       || title.length < 12 || !Number.isFinite(date) || date > now
-      || now - date > NEWS_MAX_AGE_MS || SENSITIVE_NEWS.test(title)
-      || POLISH_TRAGEDY.test(title)
+      || now - date > NEWS_MAX_AGE_MS || unsuitableNewsHeadline(title)
       || (politicsOnly && (!POLITICAL_TOPIC.test(title) || !POLISH_CONTEXT.test(title)))) return [];
     const publisher = typeof item.authors?.[0]?.name === 'string'
       ? item.authors[0].name.replace(/[<>]/gu, '').trim().slice(0, 80) : '';

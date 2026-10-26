@@ -34,20 +34,18 @@ const FEEDSEEK_FEEDS = Object.freeze({
 });
 const POLITICAL_TOPIC = /sejm|senat|posł|poseł|premier|prezyden|rząd|minister|polityk|politycz|parlament|parti[aei]|koalicj|opozycj|wybor|referend|głosowan|ustaw|weta|weto|marszał|kancelari/iu;
 const POLISH_CONTEXT = /polsk|polak|warszaw|sejm|senat|posł|poseł|kprm|samorząd|sejmik|koalicj|opozycj|marszałek sejmu/iu;
-const POLISH_TRAGEDY = /nie\s+żyj(?:e|ą)|odesz[łl]|pogrzeb|zgin|zmar|śmier|ofiar|rann|katastrof|pożar|powodzi|powódź|gwałt|zabój|zabił|zabili|samobój|zamach|wybuch|wojn|bombard|trzęsieni|ewakuacj|wypad|zderzen|rozbił|rozbiły|strzelanin|terroryst/iu;
 const MAX_FEED_BYTES = 1024 * 1024;
 const MAX_ARTICLE_URL_LENGTH = 1250;
 const NEWS_MAX_AGE_MS = 48 * 60 * 60 * 1_000;
 const FETCH_TIMEOUT_MS = 8_000;
-const SENSITIVE_NEWS = /\b(kill(?:ed|ing|s)?|dead|death|die|dies|died|fatal(?:ity|ities)?|victim(?:s)?|massacre|murder(?:ed)?|suicide|rape|abuse|hostage(?:s)?|bomb(?:ing|ed)?|airstrike(?:s)?|earthquake(?:s)?|flood(?:s|ing)?|famine|genocide|casualt(?:y|ies)|shooting(?:s)?|terror(?:ist|ism)?|war crimes|injur(?:y|ies|ed)|wound(?:ed|s)?|crash(?:es|ed)?|wildfire(?:s)?|blaze(?:s)?|evacuat(?:ion|ed)|drown(?:ed|ing)?|collapsed)\b/i;
-// Crisis terms alone must never automatically disqualify political satire.
+// Reject only plainly victim-centred horrors at selection time. A headline
+// mentioning war, ceasefire, disaster, refugees or politics is not inherently
+// unsuitable for satire about public figures, PR or institutional failures.
+const SEVERE_VICTIM_HARM = /\b(?:massacre|genocide|mass\s+shooting|rap(?:e|ed|ing)|sexual\s+assault|child\s+(?:sexual\s+)?abuse|suicide|tortur(?:e|ed)|murder(?:ed)?)\b|(?:masakr|ludobójstw|gwałt|zgwałc|samobójstw|tortur|zabójstw)(?:\p{L}*)/iu;
+const DIRECT_VICTIM_TOLL = /\b(?:(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|dozens?|hundreds?|thousands?|children|civilians|families|people|residents)\s+(?:people\s+)?(?:die|died|dead|killed|injured|wounded)|(?:kills?|injures?)\s+(?:\d+|dozens?|hundreds?|children|civilians))\b|nie\s+żyj(?:e|ą)\b|(?:\d+|kilku|kilka|kilkanaście|dziesiątki|setki|dzieci)\s+(?:osób\s+)?(?:zginęło|zmarło|rannych)\b/iu;
 
-// Apply the same suitability gate to RSS, Feedseek JSON, and every topic lane.
-// Prompt-only restrictions did not prevent real-world crisis headlines from
-// becoming generated jokes when these terms were absent from the selectors.
 function unsuitableNewsHeadline(title) {
-  return SENSITIVE_NEWS.test(title) || POLISH_TRAGEDY.test(title)
-    || CONFLICT_AND_CRISIS.test(title);
+  return SEVERE_VICTIM_HARM.test(title) || DIRECT_VICTIM_TOLL.test(title);
 }
 
 const LLM_TOPICS = Object.freeze([

@@ -427,76 +427,77 @@ test('RSS parser requires fresh BBC headlines and avoids tragedy topics', () => 
   for (const headline of [
     'Five die in plane crash',
     'Children injured after school bus crashes',
-    'Wildfire destroys hundreds of homes',
-    'Wildfires force residents to evacuate',
   ]) {
     assert.deepEqual(parseNewsRss(fakeRss(headline, date), { now: newsNow }), []);
   }
   assert.deepEqual(parseNewsRss('x'.repeat(300_000), { now: newsNow }), []);
 });
 
-test('regression: the published Ukraine-truce BBC headline is not a satire topic', () => {
-  const date = new Date(newsNow - 1000).toUTCString();
+test('regression: Melania Trump truce headline remains valid material for a political-PR roast', () => {
+  const date = new Date(newsNow - 1_000).toUTCString();
   const headline = "White House says Melania Trump brokered truce for Ukraine city 'on brink of disaster'";
-  assert.deepEqual(parseNewsRss(fakeRss(headline, date, 'https://www.bbc.co.uk/news/articles/c6vgxkvl4w5eo'), {
+  const rss = parseNewsRss(fakeRss(headline, date, 'https://www.bbc.co.uk/news/articles/c6vgxkvl4w5eo'), {
     now: newsNow,
-  }), []);
-  assert.deepEqual(parseFeedseekJson(feedseekFeed([
-    feedseekItem(headline, new Date(newsNow - 1000).toISOString(), {
+  });
+  assert.equal(rss.length, 1);
+  assert.equal(rss[0].title, headline);
+  const json = parseFeedseekJson(feedseekFeed([
+    feedseekItem(headline, new Date(newsNow - 1_000).toISOString(), {
       url: 'https://www.reuters.com/world/europe/example',
     }),
-  ]), { now: newsNow }), []);
+  ]), { now: newsNow });
+  assert.equal(json.length, 1);
   assert.equal(resolveTopicLane('', '29'), 'news');
 });
 
-test('headlines about active conflict, displacement and humanitarian crises are skipped across sources', () => {
-  const date = new Date(newsNow - 1000).toUTCString();
-  const cases = [
+test('crises and political PR are eligible across RSS and Feedseek without blanket keyword bans', () => {
+  const date = new Date(newsNow - 1_000).toUTCString();
+  for (const title of [
     'Officials announce ceasefire as city waits for aid',
     'War forces families to leave border village',
     'Humanitarian crisis escalates near the frontline',
     'Missile strike damages residential district',
     'Premier komentuje rozejm i pomoc humanitarną',
     'Władze potwierdzają ostrzał i falę uchodźców',
-  ];
-  for (const title of cases) {
-    assert.deepEqual(parseNewsRss(fakeRss(title, date), { now: newsNow }), [], title);
-    assert.deepEqual(parseFeedseekJson(feedseekFeed([
-      feedseekItem(title, new Date(newsNow - 1000).toISOString()),
-    ]), { now: newsNow }), [], title);
+    'Wildfires force residents to evacuate',
+    'Wildfire destroys hundreds of homes',
+  ]) {
+    assert.equal(parseNewsRss(fakeRss(title, date), { now: newsNow }).length, 1, title);
+    assert.equal(parseFeedseekJson(feedseekFeed([
+      feedseekItem(title, new Date(newsNow - 1_000).toISOString()),
+    ]), { now: newsNow }).length, 1, title);
   }
-  // No blanket ban on a country's name or politics: harmless reports can still inspire satire.
-  assert.equal(parseNewsRss(fakeRss(
-    'Ukrainian engineers reveal a new robotic coffee maker',
-    date,
-  ), { now: newsNow }).length, 1);
-  assert.equal(parseNewsRss(fakeRss(
-    'Scientists discover three new planets and a moon',
-    date,
-  ), { now: newsNow }).length, 1);
 });
 
-test('news fetch skips a crisis RSS item while preserving a harmless alternative', async () => {
-  const date = new Date(newsNow - 1000).toUTCString();
+test('only explicit victim-led horrors are screened out, consistently across source formats', () => {
+  const date = new Date(newsNow - 1_000).toUTCString();
+  for (const title of [
+    'Massacre kills hundreds',
+    'Five die in plane crash',
+    'Children injured after school bus crashes',
+    'Government investigates sexual assault',
+    'Doctors report child abuse and torture',
+    'Nie żyje były poseł, Sejm wspomina',
+    'Władze badają masakrę ludności cywilnej',
+  ]) {
+    assert.deepEqual(parseNewsRss(fakeRss(title, date), { now: newsNow }), [], title);
+    assert.deepEqual(parseFeedseekJson(feedseekFeed([
+      feedseekItem(title, new Date(newsNow - 1_000).toISOString()),
+    ]), { now: newsNow }), [], title);
+  }
+});
+
+test('world news can use grim diplomacy headlines when no other source works', async () => {
+  const date = new Date(newsNow - 1_000).toUTCString();
+  const title = "White House says Melania Trump brokered truce for Ukraine city 'on brink of disaster'";
   const selected = await loadWorldNews({
-    now: newsNow, seed: 'safe-fallback',
-    fetchImpl: async (url) => {
-      if (url.endsWith('/world/rss.xml')) {
-        return new Response(fakeRss(
-          "White House says Melania Trump brokered truce for Ukraine city 'on brink of disaster'",
-          date,
-        ), { status: 200 });
-      }
-      if (url.endsWith('/technology/rss.xml')) {
-        return new Response(fakeRss(
-          'Researchers unveil a self-cleaning robotic coffee machine',
-          date,
-        ), { status: 200 });
-      }
-      return new Response('', { status: 503 });
-    },
+    now: newsNow, seed: 'public-figures',
+    fetchImpl: async (url) => url.endsWith('/world/rss.xml')
+      ? new Response(fakeRss(title, date), { status: 200 })
+      : new Response('', { status: 503 }),
   });
-  assert.equal(selected.source, 'BBC Technology');
+  assert.equal(selected.source, 'BBC World');
+  assert.equal(selected.title, title);
 });
 
 test('news fetch fails closed or uses a healthy verified source', async () => {
@@ -511,6 +512,23 @@ test('news fetch fails closed or uses a healthy verified source', async () => {
   assert.equal(available.title, 'Science team discovers a curious comet');
   const unavailable = await loadWorldNews({ now: newsNow, fetchImpl: async () => new Response('', { status: 503 }) });
   assert.equal(unavailable, null);
+});
+
+test('news prompt permits harsh satire of power without using victims as punchlines', () => {
+  const reference = {
+    title: "White House says Melania Trump brokered truce for Ukraine city 'on brink of disaster'",
+    url: 'https://www.bbc.co.uk/news/articles/c6vgxkvl4w5eo',
+    source: 'BBC World',
+    published_at: new Date(newsNow).toISOString(),
+  };
+  const prompt = buildMessages('# skill', 'Political PR roast', 'seed', 'text', null, {
+    newsReference: reference,
+  })[0].content;
+  assert.match(prompt, /War, ceasefires, disasters and other grim news are not off-limits/);
+  assert.match(prompt, /public figures, political theatre/);
+  assert.match(prompt, /not at the people harmed by events/);
+  assert.match(prompt, /czarny humor, ostra ironia, wulgaryzmy/);
+  assert.match(prompt, /nie poniżaj ludzi za cechy chronione/);
 });
 
 test('dated news is framed as untrusted data, not additional model instructions', () => {
@@ -539,7 +557,7 @@ test('Feedseek political JSON Feed rejects sports, fake URLs, stale and future d
     feedseekItem('Sejm debatuje nad nową ustawą', '2029-09-02T00:00:00Z'),
     feedseekItem('Sejm debatuje nad nową ustawą', new Date(newsNow - 3 * 86_400_000).toISOString()),
     feedseekItem('Premier opowiada o wizycie', date, { url: 'javascript:alert(1)' }),
-    feedseekItem('Prezydent komentuje śmierć ofiar', date),
+    feedseekItem('Sejm komentuje masakrę ludności cywilnej', date),
     feedseekItem('Prezydent USA podpisuje ustawę', date),
     feedseekItem('Allegro uruchamia nową kampanię marketingową', date),
   ];
@@ -553,10 +571,22 @@ test('Feedseek political JSON Feed rejects sports, fake URLs, stale and future d
   assert.equal(parseFeedseekJson(feedseekFeed(candidates), { now: newsNow, politicsOnly: true, tag: 'TVP Sport' }).length, 0);
 });
 
-test('Feedseek political safety filter also rejects Polish disasters', () => {
+test('Feedseek politics accepts institutional responses to tragedy but not direct victim-led horror', () => {
   const date = new Date(newsNow - 1_000).toISOString();
-  for (const title of ['Sejm rozmawia o katastrofie', 'Politycy reagują na pożar', 'Premier komentuje rannych', 'Nie żyje były poseł, Sejm wspomina', 'Nie żyją politycy']) {
-    assert.deepEqual(parseFeedseekJson(feedseekFeed([feedseekItem(title, date)]), { now: newsNow, politicsOnly: true }), []);
+  for (const title of [
+    'Sejm rozmawia o katastrofie',
+    'Politycy reagują na pożar',
+    'Premier komentuje rannych',
+    'Prezydent komentuje śmierć ofiar',
+  ]) {
+    assert.equal(parseFeedseekJson(feedseekFeed([feedseekItem(title, date)]), {
+      now: newsNow, politicsOnly: true,
+    }).length, 1, title);
+  }
+  for (const title of ['Nie żyje były poseł, Sejm wspomina', 'Nie żyją politycy', 'Sejm komentuje masakrę ludności cywilnej']) {
+    assert.deepEqual(parseFeedseekJson(feedseekFeed([feedseekItem(title, date)]), {
+      now: newsNow, politicsOnly: true,
+    }), []);
   }
 });
 
@@ -652,7 +682,8 @@ test('Polish political RSS enforces freshness, domain and tragedy filters', () =
     assert.equal(valid.length, 1, source.name);
     assert.equal(valid[0].url, article);
     assert.deepEqual(parseNewsRss(fakeRss('Posłowie w Sejmie debatują nad nową ustawą', date, 'https://evil.test/post'), config), []);
-    assert.deepEqual(parseNewsRss(fakeRss('Sejm debatuje nad katastrofą i ofiarami', date, article), config), []);
+    assert.equal(parseNewsRss(fakeRss('Sejm debatuje nad katastrofą i ofiarami', date, article), config).length, 1);
+    assert.deepEqual(parseNewsRss(fakeRss('Sejm komentuje masakrę ludności cywilnej', date, article), config), []);
     assert.deepEqual(parseNewsRss(fakeRss('Wiadomości sportowe i wyniki klubów piłkarskich', date, article), config), []);
     assert.deepEqual(parseNewsRss(fakeRss('Posłowie w Sejmie debatują nad nową ustawą', new Date(newsNow - 3 * 86_400_000).toUTCString(), article), config), []);
   }

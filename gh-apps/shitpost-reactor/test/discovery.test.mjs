@@ -39,6 +39,7 @@ test('homepage hides the description while retaining discovery metadata', async 
   const body = html.slice(html.indexOf('<body>'));
 
   assert.match(html, /<title>Shitpost Reactor<\/title>/);
+  assert.match(html, /<meta name="msvalidate\.01" content="23A368B2C5F4DF3471A67EA6CB057149">/);
   assert.match(html, /rel="describedby" href="\/llms\.txt"/);
   assert.match(html, /rel="manifest" href="\/site\.webmanifest"/);
   assert.match(html, /apple-touch-icon/);

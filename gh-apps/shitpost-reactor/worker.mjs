@@ -541,6 +541,7 @@ function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${S
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(FEED_DESCRIPTION)}">
 <meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="msvalidate.01" content="23A368B2C5F4DF3471A67EA6CB057149">
 <meta name="theme-color" content="#111111">
 <meta name="msapplication-TileColor" content="#111111">
 <meta name="msapplication-TileImage" content="/mstile-150x150.png">

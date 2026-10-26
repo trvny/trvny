@@ -4,7 +4,7 @@ Small scheduled shitpost generator and public feed. GitHub Actions is the only c
 
 ## Flow
 
-1. `.github/workflows/shitpost-reactor.yml` runs daily at **21:37 Europe/Warsaw** or manually with an optional topic. The generator job uses `ubuntu-latest`.
+1. `.github/workflows/shitpost-reactor.yml` runs daily at **04:20 Europe/Warsaw** (free provider quotas fresh) or manually with an optional topic. The generator job uses `ubuntu-latest`.
 2. `generate.mjs` reads bundled `style-reference.md`, distilled from useful parts of the `edgy-dark-meme` archive. No download, unpacking or remote override at runtime. Published records keep the existing `skill.source`/`skill.sha256` fields for compatibility, now pointing to the local asset and its exact on-disk SHA-256 (including its trailing newline). Reactor rules still own the output contract.
 3. The Action calls the authenticated public proxy at `automation.travny.workers.dev` with synthetic model `kanarek-shitpost-free`. Best-of: up to 3 candidates, each from a provider not used yet (`x-kanarek-review-exclude-provider`), then one `kanarek-judge-free` call picks the funniest against `taste-profile.json`. The judge gets the last 4 minutes of the 20-minute budget; one candidate skips it, a failed or invalid verdict publishes the first candidate.
 4. `kanarek-companion` forwards the call through its same-account Service Binding to private `kanarek-review`, which owns the shared provider inventory, shitpost task policy, credentials and cooldowns. Workers AI is currently excluded because its account allocation is reserved for SpaceMolt.

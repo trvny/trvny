@@ -11,4 +11,6 @@ Functions in `functions/`, build step `build.sh`.
 
 - Papagenerator: https://travny.pages.dev/papagenerator/ is assembled by `build.sh` from a pinned commit of `travnie/twojstar/papagenerator` (the only maintained editor source). To update, bump `papagenerator_revision`. No new Cloudflare Pages project, Worker or cron is needed. Fetch failure fails the build deliberately: Cloudflare keeps the previous working deployment live rather than publishing an incomplete site.
 
+- Badges: `functions/badge/[[path]].js` serves `/badge/<brand>.svg` and `/badge/model/<model-id>.svg` (`?label=` overrides text), same style as the static set in `travnie/.github/assets/badges`. Model id → icon follows lobe-icons ModelIcon rules in generated `functions/_shared/model-icons.js` (refresh: `scripts/sync_model_icons.py`); icons load from a pinned `@lobehub/icons-static-svg` on jsDelivr.
+
 - Astro foothold: `astro/` builds the `/lab/` section to `site/lab/` without changing the existing homepage, Pages Functions, Quarto reports or Atom feed. See [Astro plan](astro/README.md).

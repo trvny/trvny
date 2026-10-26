@@ -575,9 +575,9 @@ test('Feedseek politics accepts institutional responses to tragedy but not direc
   const date = new Date(newsNow - 1_000).toISOString();
   for (const title of [
     'Sejm rozmawia o katastrofie',
-    'Politycy reagują na pożar',
-    'Premier komentuje rannych',
-    'Prezydent komentuje śmierć ofiar',
+    'Posłowie w Sejmie reagują na pożar',
+    'Premier w Polsce komentuje rannych',
+    'Prezydent Polski komentuje śmierć ofiar',
   ]) {
     assert.equal(parseFeedseekJson(feedseekFeed([feedseekItem(title, date)]), {
       now: newsNow, politicsOnly: true,

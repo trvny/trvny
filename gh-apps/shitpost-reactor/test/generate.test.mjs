@@ -435,6 +435,70 @@ test('RSS parser requires fresh BBC headlines and avoids tragedy topics', () => 
   assert.deepEqual(parseNewsRss('x'.repeat(300_000), { now: newsNow }), []);
 });
 
+test('regression: the published Ukraine-truce BBC headline is not a satire topic', () => {
+  const date = new Date(newsNow - 1000).toUTCString();
+  const headline = "White House says Melania Trump brokered truce for Ukraine city 'on brink of disaster'";
+  assert.deepEqual(parseNewsRss(fakeRss(headline, date, 'https://www.bbc.co.uk/news/articles/c6vgxkvl4w5eo'), {
+    now: newsNow,
+  }), []);
+  assert.deepEqual(parseFeedseekJson(feedseekFeed([
+    feedseekItem(headline, new Date(newsNow - 1000).toISOString(), {
+      url: 'https://www.reuters.com/world/europe/example',
+    }),
+  ]), { now: newsNow }), []);
+  assert.equal(resolveTopicLane('', '29'), 'news');
+});
+
+test('headlines about active conflict, displacement and humanitarian crises are skipped across sources', () => {
+  const date = new Date(newsNow - 1000).toUTCString();
+  const cases = [
+    'Officials announce ceasefire as city waits for aid',
+    'War forces families to leave border village',
+    'Humanitarian crisis escalates near the frontline',
+    'Missile strike damages residential district',
+    'Premier komentuje rozejm i pomoc humanitarną',
+    'Władze potwierdzają ostrzał i falę uchodźców',
+  ];
+  for (const title of cases) {
+    assert.deepEqual(parseNewsRss(fakeRss(title, date), { now: newsNow }), [], title);
+    assert.deepEqual(parseFeedseekJson(feedseekFeed([
+      feedseekItem(title, new Date(newsNow - 1000).toISOString()),
+    ]), { now: newsNow }), [], title);
+  }
+  // No blanket ban on a country's name or politics: harmless reports can still inspire satire.
+  assert.equal(parseNewsRss(fakeRss(
+    'Ukrainian engineers reveal a new robotic coffee maker',
+    date,
+  ), { now: newsNow }).length, 1);
+  assert.equal(parseNewsRss(fakeRss(
+    'Scientists discover three new planets and a moon',
+    date,
+  ), { now: newsNow }).length, 1);
+});
+
+test('news fetch skips a crisis RSS item while preserving a harmless alternative', async () => {
+  const date = new Date(newsNow - 1000).toUTCString();
+  const selected = await loadWorldNews({
+    now: newsNow, seed: 'safe-fallback',
+    fetchImpl: async (url) => {
+      if (url.endsWith('/world/rss.xml')) {
+        return new Response(fakeRss(
+          "White House says Melania Trump brokered truce for Ukraine city 'on brink of disaster'",
+          date,
+        ), { status: 200 });
+      }
+      if (url.endsWith('/technology/rss.xml')) {
+        return new Response(fakeRss(
+          'Researchers unveil a self-cleaning robotic coffee machine',
+          date,
+        ), { status: 200 });
+      }
+      return new Response('', { status: 503 });
+    },
+  });
+  assert.equal(selected.source, 'BBC Technology');
+});
+
 test('news fetch fails closed or uses a healthy verified source', async () => {
   const date = new Date(newsNow - 2_000).toUTCString();
   const available = await loadWorldNews({

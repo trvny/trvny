@@ -30,11 +30,11 @@ The hub is a lightweight static/edge site. It links independent services rather 
 
 - Human TV page: https://travny.pages.dev/tv/
 - Markdown page: https://travny.pages.dev/tv/index.md
-- Streaming Worker: https://tvpi.trfny.com/
-- Worker overview: https://tvpi.trfny.com/index.md
-- Worker LLM guide: https://tvpi.trfny.com/llms.txt
-- Worker full guide: https://tvpi.trfny.com/llms-full.txt
-- Stable combined playlist: https://tvpi.trfny.com/playlist.m3u
+- Streaming Worker: https://tvpi.travny.workers.dev/
+- Worker overview: https://tvpi.travny.workers.dev/index.md
+- Worker LLM guide: https://tvpi.travny.workers.dev/llms.txt
+- Worker full guide: https://tvpi.travny.workers.dev/llms-full.txt
+- Stable combined playlist: https://tvpi.travny.workers.dev/playlist.m3u
 - Raw GitHub playlist fallback: https://raw.githubusercontent.com/trvny/tvpi/main/streams/playlist.m3u
 
 TVP upstream stream signatures are short-lived. Consumers should save the stable Worker URLs. Per-channel `.m3u8` endpoints resolve or serve fresh HLS data behind a durable URL.
@@ -65,12 +65,12 @@ TRAVNY publishes the generated Token Cup artifact at build time from `pages/toke
 
 ### Weather
 
-- Dashboard: https://weather.trfny.com/
-- LLM guide: https://weather.trfny.com/llms.txt
-- Full guide: https://weather.trfny.com/llms-full.txt
-- Current ensemble JSON: https://weather.trfny.com/state.json
-- Weather changes Atom feed: https://weather.trfny.com/feed.atom
-- IMGW warnings Atom feed: https://weather.trfny.com/warnings.atom
+- Dashboard: https://weather.travny.workers.dev/
+- LLM guide: https://weather.travny.workers.dev/llms.txt
+- Full guide: https://weather.travny.workers.dev/llms-full.txt
+- Current ensemble JSON: https://weather.travny.workers.dev/state.json
+- Weather changes Atom feed: https://weather.travny.workers.dev/feed.atom
+- IMGW warnings Atom feed: https://weather.travny.workers.dev/warnings.atom
 
 The service combines multiple sources for Kościelec in Chrzanów and includes temperature, wind, humidity, air quality, pollen and IMGW warnings.
 
@@ -88,21 +88,21 @@ Feedseek publishes self-updating Atom/RSS feeds, JSON Feed sidecars, OPML and a 
 
 ### Streambench
 
-- Application: https://streambench.trfny.com/
-- Markdown page: https://streambench.trfny.com/index.md
-- LLM guide: https://streambench.trfny.com/llms.txt
-- Full guide: https://streambench.trfny.com/llms-full.txt
-- Health JSON: https://streambench.trfny.com/health
-- Provider manifest: https://streambench.trfny.com/api/providers
+- Application: https://streambench.travny.workers.dev/
+- Markdown page: https://streambench.travny.workers.dev/index.md
+- LLM guide: https://streambench.travny.workers.dev/llms.txt
+- Full guide: https://streambench.travny.workers.dev/llms-full.txt
+- Health JSON: https://streambench.travny.workers.dev/health
+- Provider manifest: https://streambench.travny.workers.dev/api/providers
 
 Streambench is a local-first IPTV, internet-radio, HLS, M3U/M3U8 and XMLTV workshop. Local files, edits, favorites and history remain in the browser.
 
 ### Code Bench
 
-- Application: https://codebench.trfny.com/
-- Markdown page: https://codebench.trfny.com/index.md
-- LLM guide: https://codebench.trfny.com/llms.txt
-- Full guide: https://codebench.trfny.com/llms-full.txt
+- Application: https://codebench.travny.workers.dev/
+- Markdown page: https://codebench.travny.workers.dev/index.md
+- LLM guide: https://codebench.travny.workers.dev/llms.txt
+- Full guide: https://codebench.travny.workers.dev/llms-full.txt
 
 Code Bench creates, styles, scans and exports QR codes and barcodes. User payloads are processed in browser state.
 

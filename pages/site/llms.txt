@@ -21,11 +21,11 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 
 ## Services
 
-- [TVPI streaming Worker](https://tvpi.trfny.com/) · [LLM guide](https://tvpi.trfny.com/llms.txt) · [full guide](https://tvpi.trfny.com/llms-full.txt) · [playlist](https://tvpi.trfny.com/playlist.m3u)
-- [Weather](https://weather.trfny.com/) · [LLM guide](https://weather.trfny.com/llms.txt) · [full guide](https://weather.trfny.com/llms-full.txt) · [state JSON](https://weather.trfny.com/state.json)
+- [TVPI streaming Worker](https://tvpi.travny.workers.dev/) · [LLM guide](https://tvpi.travny.workers.dev/llms.txt) · [full guide](https://tvpi.travny.workers.dev/llms-full.txt) · [playlist](https://tvpi.travny.workers.dev/playlist.m3u)
+- [Weather](https://weather.travny.workers.dev/) · [LLM guide](https://weather.travny.workers.dev/llms.txt) · [full guide](https://weather.travny.workers.dev/llms-full.txt) · [state JSON](https://weather.travny.workers.dev/state.json)
 - [Feedseek](https://trvny.github.io/feedseek/) · [LLM guide](https://trvny.github.io/feedseek/llms.txt) · [full guide](https://trvny.github.io/feedseek/llms-full.txt) · [OPML](https://trvny.github.io/feedseek/subscriptions.opml)
-- [Streambench](https://streambench.trfny.com/) · [LLM guide](https://streambench.trfny.com/llms.txt) · [full guide](https://streambench.trfny.com/llms-full.txt)
-- [Code Bench](https://codebench.trfny.com/) · [LLM guide](https://codebench.trfny.com/llms.txt) · [full guide](https://codebench.trfny.com/llms-full.txt)
+- [Streambench](https://streambench.travny.workers.dev/) · [LLM guide](https://streambench.travny.workers.dev/llms.txt) · [full guide](https://streambench.travny.workers.dev/llms-full.txt)
+- [Code Bench](https://codebench.travny.workers.dev/) · [LLM guide](https://codebench.travny.workers.dev/llms.txt) · [full guide](https://codebench.travny.workers.dev/llms-full.txt)
 - [Doc Bench](https://docbench.travny.workers.dev/) · [LLM guide](https://docbench.travny.workers.dev/llms.txt) · [full guide](https://docbench.travny.workers.dev/llms-full.txt)
 
 ## Usage notes

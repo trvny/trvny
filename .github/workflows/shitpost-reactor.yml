@@ -1,10 +1,9 @@
 name: Shitpost Reactor
 
 on:
-  schedule:
-    # Early morning: free provider daily quotas fresh, little PR traffic.
-    - cron: "20 4 * * *"
-      timezone: "Europe/Warsaw"
+  # Daily 04:20 Warsaw start comes from the automation Worker's Cloudflare cron
+  # (gh-apps/kanarek-companion/src/operator/scheduled-dispatch.ts); GitHub
+  # schedule lagged 2-6 h and dropped days.
   workflow_dispatch:
     inputs:
       topic:

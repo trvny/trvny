@@ -4,14 +4,14 @@ Small scheduled shitpost generator and public feed. GitHub Actions is the only c
 
 ## Flow
 
-1. `.github/workflows/shitpost-reactor.yml` runs daily at **04:20 Europe/Warsaw** (free provider quotas fresh) or manually with an optional topic. The generator job uses `ubuntu-latest`.
+1. `.github/workflows/shitpost-reactor.yml` runs daily at **04:20 Europe/Warsaw** (free provider quotas fresh), dispatched by the `automation` Worker cron because GitHub schedule lagged hours and skipped days, or manually with an optional topic. The generator job uses `ubuntu-latest`.
 2. `generate.mjs` reads bundled `style-reference.md`, distilled from useful parts of the `edgy-dark-meme` archive. No download, unpacking or remote override at runtime. Published records keep the existing `skill.source`/`skill.sha256` fields for compatibility, now pointing to the local asset and its exact on-disk SHA-256 (including its trailing newline). Reactor rules still own the output contract.
 3. The Action calls the authenticated public proxy at `automation.travny.workers.dev` with synthetic model `kanarek-shitpost-free`. Best-of: up to 3 candidates, each from a provider not used yet (`x-kanarek-review-exclude-provider`), then one `kanarek-judge-free` call picks the funniest against `taste-profile.json`. The judge gets the last 4 minutes of the 20-minute budget; one candidate skips it, a failed or invalid verdict publishes the first candidate.
 4. `kanarek-companion` forwards the call through its same-account Service Binding to private `kanarek-review`, which owns the shared provider inventory, shitpost task policy, credentials and cooldowns. Workers AI is currently excluded because its account allocation is reserved for SpaceMolt.
 5. The draft is validated and saved as `latest.json` plus a readable `latest.md`. If generation fails from router rate limits, exhausted models, transport errors or unusable model output, the emergency text path chooses a random-looking language deterministically from the run seed. It samples Bacon Ipsum for a meat motif without using a model for translation; if Bacon Ipsum itself fails, local meat choices still yield a post. Authentication/configuration errors never trigger fallback.
 6. `publish.mjs` requests a short-lived GitHub Actions OIDC token and POSTs the draft to `https://shitpost.trfny.com/api/publish`. No extra publishing secret is stored in GitHub.
 7. The `shitpost-reactor` Worker verifies the GitHub OIDC signature and pins claims to `trvny/trvny`, this exact workflow and `refs/heads/main`, then stores the entry in the `shitpost-reactor` R2 bucket.
-8. The same Worker serves the public archive and feeds. Cloudflare has **no cron trigger** for this project.
+8. The same Worker serves the public archive and feeds. The only Cloudflare cron involved is the `automation` Worker one that dispatches the workflow.
 
 The workflow still needs only the existing repository secret `KANAREK_REVIEW_ROUTER_TOKEN` for generation. It does **not** get OpenRouter, OrcaRouter, AIHubMix, Groq, Hugging Face or other provider keys.
 

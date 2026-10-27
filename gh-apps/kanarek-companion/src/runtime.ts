@@ -1,4 +1,5 @@
 import { runWithActionRequestContext } from './action-context.ts';
+import { runScheduledDispatch } from './operator/scheduled-dispatch.ts';
 import type { ActionInvoke } from './action-auth.ts';
 import { AnchorMutationReplayStore } from './specialists/anchor-replay.ts';
 import { BUG_INVESTIGATION_PATH, handleBugInvestigationAction } from './investigation/bug-investigation.ts';
@@ -293,6 +294,10 @@ const runtimeRoutes: readonly Route<RuntimeContext>[] = [
 ];
 
 const runtime = {
+  scheduled(controller: ScheduledController, env: RuntimeEnv): Promise<unknown> {
+    return runWithActionRequestContext(() =>
+      runScheduledDispatch(controller.cron, controller.scheduledTime, env, actionFetch));
+  },
   fetch(request: Request, env: RuntimeEnv, ctx?: ExecutionContext): Promise<Response> {
     return runWithActionRequestContext(async () => {
       const url = new URL(request.url);

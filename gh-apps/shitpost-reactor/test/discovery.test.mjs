@@ -58,6 +58,26 @@ test('individual posts expose truthful BlogPosting schema and publication date',
   assert.match(html, /<time datetime="2026-10-01T18:01:00.000Z">/);
 });
 
+test('sitemap includes every archived post without reading post bodies', async () => {
+  const entries = Array.from({ length: 55 }, (_, index) => ({
+    id: `gh-${1000 + index}-1`,
+    published_at: new Date(Date.UTC(2026, 8, 1 + index)).toISOString(),
+  }));
+  const response = await worker.fetch(new Request('https://shitpost.trfny.com/sitemap.xml'), {
+    FEED: {
+      get: async (key) => {
+        assert.equal(key, 'index.json', 'sitemap must not read post JSON objects');
+        return { json: async () => entries, customMetadata: { archive_index_version: '2' } };
+      },
+    },
+  });
+  assert.equal(response.status, 200);
+  const xml = await response.text();
+  assert.equal((xml.match(/<loc>/g) ?? []).length, 57); // Home, archive, 55 posts.
+  assert.match(xml, /<loc>https:\/\/shitpost\.trfny\.com\/posts\/gh-1000-1<\/loc>/);
+  assert.match(xml, /<loc>https:\/\/shitpost\.trfny\.com\/posts\/gh-1054-1<\/loc>/);
+});
+
 test('homepage hides the description while retaining discovery metadata', async () => {
   const response = await worker.fetch(new Request('https://shitpost.trfny.com/'), {
     FEED: { get: () => null },

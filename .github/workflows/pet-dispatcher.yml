@@ -153,5 +153,22 @@ jobs:
       - name: Validate control plane
         run: npm run control:check
 
-      - name: Deploy and verify control plane
-        run: npm run control:deploy
+      # Code deployments belong to Cloudflare Workers Builds; GitHub Actions
+      # only rotates credentials and asks the existing Cloudflare trigger to run.
+      - name: Request control-plane Workers Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?Cloudflare token required}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?Cloudflare account required}"
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          auth=(-H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          scripts=$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/workers/scripts")
+          tag=$(jq -er '.result[] | select(.id == "pet-dispatcher-control") | .tag' <<<"$scripts")
+          triggers=$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/builds/workers/${tag}/triggers")
+          trigger=$(jq -er '[.result[] | select((.branch_includes // []) | index("main"))][0].trigger_uuid' <<<"$triggers")
+          payload=$(jq -nc --arg sha "$GITHUB_SHA" '{commit_hash: $sha}')
+          result=$(curl --fail-with-body --silent --show-error -X POST "${auth[@]}" \
+            -H "Content-Type: application/json" --data "$payload" "${api}/builds/triggers/${trigger}/builds")
+          build_id=$(jq -er '.result.build_uuid' <<<"$result")
+          echo "::notice::Cloudflare Workers Build ${build_id} queued for ${GITHUB_SHA}; follow its status in Cloudflare."

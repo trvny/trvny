@@ -327,7 +327,7 @@ function postHtml(post) {
   const content = image
     ? `<figure><img class="meme" src="${escapeHtml(image)}" alt="${escapeHtml(postAlt(post))}" loading="eager"></figure>`
     : `<h1>${escapeHtml(postSummary(post)).replaceAll('\n', '<br>')}</h1>`;
-  return `<article>${content}<p class="meta"><time datetime="${escapeHtml(post.generated_at)}">${escapeHtml(post.generated_at)}</time></p></article>`;
+  return `<article>${content}<p class="meta"><time datetime="${escapeHtml(post.published_at)}">${escapeHtml(post.published_at)}</time></p></article>`;
 }
 
 function feedContentHtml(post) {
@@ -534,7 +534,27 @@ function renderBrowserConfig() {
 `;
 }
 
-function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${SITE_URL}/icon-512.png`) {
+function postStructuredData(post) {
+  const summary = postSummary(post);
+  const site = { '@type': 'Organization', name: FEED_TITLE, url: `${SITE_URL}/` };
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    '@id': `${post.url}#post`,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': post.url },
+    headline: shortTitle(summary),
+    description: summary,
+    datePublished: post.published_at,
+    author: site,
+    publisher: site,
+  };
+  const image = postImageUrl(post);
+  if (image) schema.image = image;
+  else schema.articleBody = summary;
+  return `<script type="application/ld+json">${JSON.stringify(schema).replaceAll('<', '\\u003c')}</script>`;
+}
+
+function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${SITE_URL}/icon-512.png`, structuredData = '') {
   return `<!doctype html><html lang="pl"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -558,6 +578,7 @@ function htmlPage(title, body, canonicalUrl = `${SITE_URL}/`, socialImage = `${S
 <meta name="twitter:description" content="${escapeHtml(FEED_DESCRIPTION)}">
 <meta name="twitter:image" content="${escapeHtml(socialImage)}">
 <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+${structuredData}
 <link rel="alternate" type="text/plain" href="/llms.txt" title="${escapeHtml(FEED_TITLE)} llms.txt">
 <link rel="describedby" href="/llms.txt" title="${escapeHtml(FEED_TITLE)} llms.txt">
 <link rel="alternate" type="application/rss+xml" title="${escapeHtml(FEED_TITLE)} RSS" href="/rss.xml">
@@ -747,7 +768,7 @@ async function handleGet(url, env) {
     const post = await readPost(env, match[1]);
     if (!post) return response('not found\n', 'text/plain; charset=utf-8', { status: 404, cache: 'public, max-age=60' });
     const summary = postSummary(post);
-    return response(htmlPage(shortTitle(summary), postHtml(post), post.url, postImageUrl(post) || `${SITE_URL}/icon-512.png`), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
+    return response(htmlPage(shortTitle(summary), postHtml(post), post.url, postImageUrl(post) || `${SITE_URL}/icon-512.png`, postStructuredData(post)), 'text/html; charset=utf-8', { cache: 'public, max-age=86400, immutable', lastModified: post.published_at });
   }
 
   const aggregatePaths = new Set(['/', '/rss.xml', '/feed.xml', '/atom.xml', '/feed.json', '/sitemap.xml']);

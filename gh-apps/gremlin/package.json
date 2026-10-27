@@ -17,7 +17,7 @@
     "wrangler": "4.143.1"
   },
   "dependencies": {
-    "@cloudflare/workers-oauth-provider": "1.2.3",
+    "@cloudflare/workers-oauth-provider": "1.2.4",
     "kanarek-companion": "file:../kanarek-companion"
   }
 }

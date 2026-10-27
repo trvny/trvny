@@ -75,7 +75,6 @@
       "new_sqlite_classes": ["AnchorMutationReplayStore"]
     }
   ],
-  // Single cron slot (account-wide free limit): Shitpost Reactor dispatch, see src/operator/scheduled-dispatch.ts.
   "triggers": {
     "crons": ["20 2,3 * * *"]
   },

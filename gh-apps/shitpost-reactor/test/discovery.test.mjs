@@ -31,6 +31,33 @@ test('feed title drops the trvny prefix and feeds carry icon metadata', () => {
   assert.equal(json.icon, 'https://shitpost.trfny.com/icon-512.png');
 });
 
+test('individual posts expose truthful BlogPosting schema and publication date', async () => {
+  const response = await worker.fetch(new Request(post.url), {
+    FEED: {
+      get: async (key) => key === `posts/${post.id}.json`
+        ? { json: async () => post }
+        : null,
+    },
+  });
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  const match = html.match(/<head>[\s\S]*?<script type="application\/ld\+json">([^<]+)<\/script>[\s\S]*?<\/head>/);
+  assert.ok(match, 'BlogPosting data must be inside the document head');
+  const schema = JSON.parse(match[1]);
+  assert.equal(schema['@type'], 'BlogPosting');
+  assert.equal(schema['@id'], `${post.url}#post`);
+  assert.equal(schema.mainEntityOfPage['@id'], post.url);
+  assert.equal(schema.headline, 'deploy przeszedł. aplikacja nie.');
+  assert.equal(schema.articleBody, post.content.text);
+  assert.equal(schema.datePublished, post.published_at);
+  assert.deepEqual(schema.author, {
+    '@type': 'Organization',
+    name: 'Shitpost Reactor',
+    url: 'https://shitpost.trfny.com/',
+  });
+  assert.match(html, /<time datetime="2026-10-01T18:01:00.000Z">/);
+});
+
 test('homepage hides the description while retaining discovery metadata', async () => {
   const response = await worker.fetch(new Request('https://shitpost.trfny.com/'), {
     FEED: { get: () => null },

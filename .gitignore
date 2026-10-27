@@ -77,3 +77,7 @@ mega-linter.log
 
 # Claude Code: cloud hooks/settings live in the environment setup script; local .claude/ is per-machine
 .claude/
+
+# Local tooling / agent state
+CLAUDE.local.md
+worker-configuration.d.ts

@@ -488,6 +488,7 @@ Canonical site: ${SITE_URL}/
 - [RSS 2.0](${DURABLE_ORIGIN}/rss.xml)
 - [Atom 1.0](${DURABLE_ORIGIN}/atom.xml)
 - [JSON Feed 1.1](${DURABLE_ORIGIN}/feed.json)
+
 The Workers endpoint does not depend on the temporary custom-domain registration. Current post IDs, feed metadata, robots sitemap directives and sitemap entries still refer to the canonical trfny.com host until a separately tested migration. They are not advertised as durable discovery identifiers yet.
 
 ## Content

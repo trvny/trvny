@@ -31,7 +31,9 @@
 <!--OPEN_PRS:START-->
 | Repository | PR | Title | Author | State | Updated |
 | --- | ---: | --- | --- | --- | --- |
-| trvny/.ai | [#23](https://github.com/trvny/.ai/pull/23) | chore(deps): bump the actions group with 2 updates | @dependabot[bot] | ready | 2026-10-24 |
+| trvny/trvny | [#1195](https://github.com/trvny/trvny/pull/1195) | deps: bump undici and wrangler in /tg-bots/cloudflare-assistant | @dependabot[bot] | ready | 2026-10-27 |
+| trvny/WiFi-Automatic | [#54](https://github.com/trvny/WiFi-Automatic/pull/54) | deps: bump gradle-wrapper from 9.8.1 to 9.8.2 in the gradle group across 1 directory | @dependabot[bot] | ready | 2026-10-27 |
+| trvny/WiFi-Automatic | [#55](https://github.com/trvny/WiFi-Automatic/pull/55) | ci: bump step-security/harden-runner from 2.22.1 to 2.22.2 in the actions group | @dependabot[bot] | ready | 2026-10-26 |
 <!--OPEN_PRS:END-->
 
 **Private command center: projects, services, tools, and drawers in one place.**

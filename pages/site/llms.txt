@@ -10,6 +10,8 @@ GitHub owner: https://github.com/trvny/ · organization: https://github.com/trav
 
 - [Hub](https://travny.pages.dev/) · [Markdown](https://travny.pages.dev/index.md)
 - [TVPI](https://travny.pages.dev/tv/) · [Markdown](https://travny.pages.dev/tv/index.md)
+- [TRAVNY Lab](https://travny.pages.dev/lab/): experiments and live widgets
+- [Lab field notes](https://travny.pages.dev/lab/field-notes/): roadmap and experiments
 - [Papagenerator](https://travny.pages.dev/papagenerator/): browser-only meme and sticker editor; images stay on the device
 - [Teksty](https://travny.pages.dev/teksty/) · [Markdown](https://travny.pages.dev/teksty/index.md)
 - [Tokenowy Mundial AI](https://travny.pages.dev/teksty/token-worldcup/): token-count comparison for equivalent text in 27 languages using `o200k_base`

@@ -2,6 +2,8 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://travny.pages.dev/</loc></url>
   <url><loc>https://travny.pages.dev/tv/</loc></url>
+  <url><loc>https://travny.pages.dev/lab/</loc></url>
+  <url><loc>https://travny.pages.dev/lab/field-notes/</loc></url>
   <url><loc>https://travny.pages.dev/papagenerator/</loc></url>
   <url><loc>https://travny.pages.dev/teksty/</loc></url>
   <url><loc>https://travny.pages.dev/teksty/token-worldcup/</loc></url>

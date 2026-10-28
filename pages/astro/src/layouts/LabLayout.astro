@@ -1,6 +1,7 @@
 ---
 import '../styles/lab.css';
 const { title = 'Laboratory', description = 'Experiments from the TRAVNY workshop.' } = Astro.props.frontmatter ?? Astro.props;
+const canonicalUrl = new URL(Astro.url.pathname, 'https://travny.pages.dev').toString();
 ---
 <!doctype html>
 <html lang="en">
@@ -8,6 +9,12 @@ const { title = 'Laboratory', description = 'Experiments from the TRAVNY worksho
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={`${title} · TRAVNY Lab`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
     <title>{title} · TRAVNY Lab</title>
   </head>
   <body>

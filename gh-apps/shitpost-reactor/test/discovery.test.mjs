@@ -138,6 +138,10 @@ test('llms.txt exposes canonical feeds and discovery routes', async () => {
   assert.match(text, /RSS 2\.0/);
   assert.match(text, /Atom 1\.0/);
   assert.match(text, /JSON Feed 1\.1/);
+  assert.ok(text.includes("https://shitpost-reactor.travny.workers.dev/atom.xml"));
+  assert.ok(text.includes("https://shitpost-reactor.travny.workers.dev/feed.json"));
+  assert.ok(text.includes("https://shitpost-reactor.travny.workers.dev/archive"));
+  assert.match(text, /post IDs, feed metadata and sitemap entries still refer/);
   assert.match(text, /Robots policy/);
   assert.match(text, /site\.webmanifest/);
 });

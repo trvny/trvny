@@ -6,6 +6,7 @@ import {
 import { getMemeTemplate, memeImageUrl } from './templates.mjs';
 
 const SITE_URL = 'https://shitpost.trfny.com';
+const DURABLE_ORIGIN = 'https://shitpost-reactor.travny.workers.dev';
 const FEED_TITLE = 'Shitpost Reactor';
 const FEED_DESCRIPTION = 'Automatycznie generowane shitposty z Shitpost Reactora.';
 const FEED_LIMIT = 50;
@@ -480,6 +481,17 @@ Canonical site: ${SITE_URL}/
 - [RSS 2.0](${SITE_URL}/rss.xml)
 - [Atom 1.0](${SITE_URL}/atom.xml)
 - [JSON Feed 1.1](${SITE_URL}/feed.json)
+
+## Durable machine endpoints
+
+- [Archive](${DURABLE_ORIGIN}/archive)
+- [RSS 2.0](${DURABLE_ORIGIN}/rss.xml)
+- [Atom 1.0](${DURABLE_ORIGIN}/atom.xml)
+- [JSON Feed 1.1](${DURABLE_ORIGIN}/feed.json)
+- [Sitemap](${DURABLE_ORIGIN}/sitemap.xml)
+- [Robots policy](${DURABLE_ORIGIN}/robots.txt)
+
+The Workers endpoint does not depend on the temporary custom-domain registration. Current post IDs, feed metadata and sitemap entries still refer to the canonical `trfny.com` host until a separately tested migration.
 
 ## Content
 

@@ -9,10 +9,10 @@ TRAVNY identity: `trvny` / `travny` / `trfny` / `trafny`; the `travnie` GitHub o
 ## Services
 
 - [TVPI](https://travny.pages.dev/tv/): browser page for stable TVP IPTV entry points and playlists.
-- [Weather](https://weather.trfny.com/): multi-source local weather for Kościelec in Chrzanów.
+- [Weather](https://weather.travny.workers.dev/): multi-source local weather for Kościelec in Chrzanów.
 - [Feedseek](https://trvny.github.io/feedseek/): enhanced Atom/RSS directory, JSON Feed sidecars, OPML and Reader.
-- [Streambench](https://streambench.trfny.com/): IPTV, radio, HLS, M3U/M3U8 and XMLTV workshop.
-- [Codebench](https://codebench.trfny.com/): local-first QR and barcode studio.
+- [Streambench](https://streambench.travny.workers.dev/): IPTV, radio, HLS, M3U/M3U8 and XMLTV workshop.
+- [Codebench](https://codebench.travny.workers.dev/): local-first QR and barcode studio.
 - [Docbench](https://docbench.travny.workers.dev/): local-first document and PDF studio.
 - [Papagenerator](https://travny.pages.dev/papagenerator/): browser-only meme and PNG sticker editor, maintained in [travnie/twojstar](https://github.com/travnie/twojstar/tree/main/papagenerator).
 - [Teksty](https://travny.pages.dev/teksty/): experiments, comparisons and short technical publications, including GitHubowa Kraina, Tokenowy Mundial AI and The Alpaca, the Crab and the Censor (English) and Alpaka, krab i Wielki Harmonizator (Polish).

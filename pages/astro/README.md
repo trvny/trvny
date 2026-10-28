@@ -1,6 +1,6 @@
 # TRAVNY Astro lab
 
-Incremental Astro 7 + MDX source for **/lab/** on the existing Cloudflare Pages project. The old hub, Quarto renders and Pages Functions remain unchanged.
+Incremental Astro 7 + MDX source for **/lab/** on the existing Cloudflare Pages project. The old hub and Quarto renders remain unchanged. Existing Pages Functions still inject shared navigation and now preserve English `lang` and `Content-Language` for Lab routes.
 
 Run from `pages/astro`:
 

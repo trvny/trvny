@@ -39,6 +39,13 @@ The hub is a lightweight static/edge site. It links independent services rather 
 
 TVP upstream stream signatures are short-lived. Consumers should save the stable Worker URLs. Per-channel `.m3u8` endpoints resolve or serve fresh HLS data behind a durable URL.
 
+### Lab
+
+- Workshop: https://travny.pages.dev/lab/
+- Field notes: https://travny.pages.dev/lab/field-notes/
+
+The Astro Lab is an English-language section of the existing Hub with experiments and a notebook of planned follow-ups. It shares the Hub deployment and is not a separate service.
+
 ### Papagenerator
 
 - Browser editor: https://travny.pages.dev/papagenerator/

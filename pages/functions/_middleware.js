@@ -1,4 +1,5 @@
 import { pageSeoHead } from "./_shared/page-seo.js";
+import { brandResponse } from "./_shared/brand-page.js";
 
 const CHANNELS = [
   { id: "399697", no: "101", slug: "tvp1", tag: "TVP1", name: "TVP 1 HD" },
@@ -17,21 +18,19 @@ const WEATHER_STATE = "https://weather.travny.workers.dev/state.json";
 
 // Several hosts reach this same site/ output, and they are treated differently.
 //
-// travny.pages.dev is canonical; trfny.com is temporary.
-// Canonical, og:url, sitemap and robots URLs point to the Pages hostname.
-// The former custom domain redirects here while its registration is active.
+// Stable hub: travny.pages.dev. Distinct brand homepage: trfny.com.
+// Brand discovery and old deep-link redirects: _shared/brand-page.js.
 // Deployment preview aliases stay excluded from search.
 //
 // Preview deployment aliases still serve the Pages output, but responses
 // are noindex so only the stable production hostname is indexed.
-// Requests to trfny.com and www.trfny.com permanently redirect to
-// travny.pages.dev, retaining the path and query.
+// Old custom-domain deep links keep their path and query on the stable hub.
 //
 // tvpi.pages.dev is a separate legacy project in trvny/tvpi.
 // Its redirect target must match this primary host.
 // Preview aliases are matched separately, so the primary Pages host
 // is indexable while <hash>.travny.pages.dev remains noindex.
-const REDIRECT_HOSTS = new Set(["tvpi.pages.dev", "trfny.com", "www.trfny.com"]);
+const REDIRECT_HOSTS = new Set(["tvpi.pages.dev"]);
 const PREVIEW_SUFFIX = ".travny.pages.dev";
 const CANONICAL_HOST = "travny.pages.dev";
 const NAV_HEAD = '<link rel="stylesheet" href="/assets/nav.css"><link rel="alternate" type="application/atom+xml" href="/teksty/feed.xml" title="TRAVNY Teksty + Shitposts">';
@@ -259,6 +258,8 @@ function withPreviewNoindex(response, hostname) {
 }
 
 export async function onRequest(context) {
+  const brand = brandResponse(context.request);
+  if (brand) return brand;
   const url = new URL(context.request.url);
 
   // Permanent, path- and query-preserving move. 301 (not 302) is what lets

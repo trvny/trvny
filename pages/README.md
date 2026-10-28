@@ -1,6 +1,9 @@
 # pages
 
-TRAVNY hub at [travny.pages.dev](https://travny.pages.dev) (canonical). The retiring `trfny.com` domain redirects here.
+TRAVNY hub at [travny.pages.dev](https://travny.pages.dev) (canonical).
+`trfny.com` serves a distinct English brand homepage; `www` redirects to it.
+Its robots and sitemap cover that homepage only. Other custom-domain paths
+redirect directly to the stable hub, preserving path and query.
 Cloudflare Pages project `travny`, built from this directory: static `site/`, Pages
 Functions in `functions/`, build step `build.sh`.
 

@@ -491,7 +491,7 @@ Canonical site: ${SITE_URL}/
 - [Sitemap](${DURABLE_ORIGIN}/sitemap.xml)
 - [Robots policy](${DURABLE_ORIGIN}/robots.txt)
 
-The Workers endpoint does not depend on the temporary custom-domain registration. Current post IDs, feed metadata and sitemap entries still refer to the canonical `trfny.com` host until a separately tested migration.
+The Workers endpoint does not depend on the temporary custom-domain registration. Current post IDs, feed metadata and sitemap entries still refer to the canonical trfny.com host until a separately tested migration.
 
 ## Content
 

@@ -274,7 +274,9 @@ export async function onRequest(context) {
   }
 
   const page = identifyPage(url.pathname);
-  const pageLanguage = page === "grass-mud-horse" || page === "papagenerator" ? "en" : "pl";
+  const isEnglishPage = page === "grass-mud-horse" || page === "papagenerator"
+    || url.pathname === "/lab" || url.pathname.startsWith("/lab/");
+  const pageLanguage = isEnglishPage ? "en" : "pl";
   const needsChannels = page === "home" || page === "tv";
   const needsWeather = page === "home";
   const [assetResponse, channels, weatherState] = await Promise.all([

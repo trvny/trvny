@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import { pageSeoHead } from "../functions/_shared/page-seo.js";
 
@@ -11,6 +12,24 @@ function crumbs(path) {
   const from = begin + tag.length;
   return JSON.parse(html.slice(from, html.indexOf("</script>", from)));
 }
+
+test("Astro Lab canonical URLs and discovery routes agree", async () => {
+  const routes = [
+    ["/lab/", "index.html"],
+    ["/lab/field-notes/", "field-notes/index.html"],
+  ];
+  const sitemap = await readFile(new URL("../site/sitemap.xml", import.meta.url), "utf8");
+  const fullGuide = await readFile(new URL("../site/llms-full.txt", import.meta.url), "utf8");
+  for (const [route, file] of routes) {
+    const url = `https://travny.pages.dev${route}`;
+    const html = await readFile(new URL(`../astro/dist/lab/${file}`, import.meta.url), "utf8");
+    assert.ok(html.includes(`<link rel="canonical" href="${url}"`), `canonical missing: ${route}`);
+    assert.ok(html.includes(`<meta property="og:url" content="${url}"`), `OG URL missing: ${route}`);
+    assert.match(html, /<html lang="en">/);
+    assert.ok(sitemap.includes(`<loc>${url}</loc>`), `sitemap missing: ${route}`);
+    assert.ok(fullGuide.includes(url), `full LLM guide missing: ${route}`);
+  }
+});
 
 test("breadcrumb trails reflect the public page hierarchy", () => {
   const schema = crumbs("/teksty/grass-mud-horse-pl/");

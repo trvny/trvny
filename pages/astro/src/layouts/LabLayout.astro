@@ -1,7 +1,8 @@
 ---
 import '../styles/lab.css';
 const { title = 'Laboratory', description = 'Experiments from the TRAVNY workshop.' } = Astro.props.frontmatter ?? Astro.props;
-const canonicalUrl = new URL(Astro.url.pathname, 'https://travny.pages.dev').toString();
+const canonicalPath = Astro.url.pathname.endsWith('/') ? Astro.url.pathname : `${Astro.url.pathname}/`;
+const canonicalUrl = new URL(canonicalPath, 'https://travny.pages.dev').toString();
 ---
 <!doctype html>
 <html lang="en">

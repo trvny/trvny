@@ -27,7 +27,7 @@ test("Astro Lab canonical URLs and discovery routes agree", async () => {
     assert.ok(html.includes(`<meta property="og:url" content="${url}"`), `OG URL missing: ${route}`);
     assert.match(html, /<html lang="en">/);
     assert.ok(sitemap.includes(`<loc>${url}</loc>`), `sitemap missing: ${route}`);
-    assert.ok(fullGuide.includes(url), `full LLM guide missing: ${route}`);
+    assert.ok(fullGuide.split(/\r?\n/).some(line => line.trimEnd().endsWith(url)), `full LLM guide missing: ${route}`);
   }
 });
 

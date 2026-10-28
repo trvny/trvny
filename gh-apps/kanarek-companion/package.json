@@ -20,5 +20,8 @@
   },
   "exports": {
     "./runtime": "./src/runtime.ts"
+  },
+  "overrides": {
+    "undici": "7.30.1"
   }
 }

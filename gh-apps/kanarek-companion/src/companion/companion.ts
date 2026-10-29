@@ -55,6 +55,7 @@ import {
 import {
   aiQuip,
   decoded,
+  genericQuip,
   hash,
   quipPromptInput,
   sanitize,
@@ -332,6 +333,7 @@ export async function refreshCompanion(
   let paidReceiptStored: boolean | null = null;
   let paidBankedBeforeGithub = false;
   let paidRecovered = false;
+  let recoveredSpecific = false;
   const tryPool = async (): Promise<void> => {
     if (poolAttempted || !canUsePool(current.key)) return;
     poolAttempted = true;
@@ -367,7 +369,11 @@ export async function refreshCompanion(
       quipKey,
       language,
     );
-    if (recovered) {
+    // A change-specific receipt is neither reused nor banked; it still counts
+    // as paid for this state, so no second AI call either.
+    if (recovered && !genericQuip(recovered, quipFacts.area)) {
+      recoveredSpecific = true;
+    } else if (recovered) {
       pendingPaidQuip = recovered;
       paidRecovered = true;
       paidReceiptStored = true;
@@ -379,7 +385,7 @@ export async function refreshCompanion(
   }
 
   let aiSelected = false;
-  if (!quip) {
+  if (!quip && !recoveredSpecific) {
     const baseAiSelected = await shouldAskAi(
       target.pullRequestNumber,
       quipKey,

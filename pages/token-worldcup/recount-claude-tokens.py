@@ -13,7 +13,7 @@ Usage:
     export ANTHROPIC_API_KEY=sk-ant-...          # or: ant auth login
     python3 recount-claude-tokens.py                      # count, print table
     python3 recount-claude-tokens.py --out claude.json    # also write JSON
-    python3 recount-claude-tokens.py --model claude-sonnet-5
+    python3 recount-claude-tokens.py --model claude-opus-5-5
     python3 recount-claude-tokens.py --dry-run            # no API, check parsing
 
     export OPENROUTER_API_KEY=sk-or-...           # no Anthropic key: go through OpenRouter
@@ -36,7 +36,8 @@ import re
 import sys
 
 QMD = pathlib.Path(__file__).with_name("token-worldcup.qmd")
-DEFAULT_MODEL = "claude-opus-5"
+DEFAULT_MODEL = "claude-opus-5-5"
+OPENROUTER_DEFAULT_MODEL = "anthropic/claude-opus-5.5"
 ANCHOR = "English"  # every index is expressed against this language at 100
 
 
@@ -103,12 +104,16 @@ def count_with_api(texts: list[str], model: str, openrouter: bool = False) -> tu
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", default=DEFAULT_MODEL, help=f"model whose tokenizer to use (default: {DEFAULT_MODEL})")
+    ap.add_argument(
+        "--model",
+        help=f"model whose tokenizer to use (default: {DEFAULT_MODEL}; OpenRouter: {OPENROUTER_DEFAULT_MODEL})",
+    )
     ap.add_argument("--out", type=pathlib.Path, help="write the full comparison as JSON here")
     ap.add_argument("--dry-run", action="store_true", help="parse and lay out the table without calling the API")
     ap.add_argument("--openrouter", action="store_true",
                     help="measure via OpenRouter /v1/messages usage (needs OPENROUTER_API_KEY; model like anthropic/claude-opus-5.5)")
     args = ap.parse_args()
+    model = args.model or (OPENROUTER_DEFAULT_MODEL if args.openrouter else DEFAULT_MODEL)
 
     if args.dry_run and args.out:
         raise SystemExit(
@@ -130,7 +135,7 @@ def main() -> int:
         counts, overhead = [0] * len(samples), 0
         print("dry run: no API calls, Claude columns will read 0", file=sys.stderr)
     else:
-        counts, overhead = count_with_api([s["text"] for s in samples], args.model, args.openrouter)
+        counts, overhead = count_with_api([s["text"] for s in samples], model, args.openrouter)
         print(f"framing overhead per request: {overhead} tokens (subtracted)", file=sys.stderr)
 
     rows = []
@@ -188,7 +193,7 @@ def main() -> int:
 
     if args.out:
         payload = {
-            "model": args.model,
+            "model": model,
             "framing_overhead": overhead,
             "measurement_transport": "OpenRouter /v1/messages usage.input_tokens" if args.openrouter else "Anthropic count_tokens",
             "note": "claude_tokens = claude_raw - framing_overhead; o200k_* come from token-worldcup.qmd",

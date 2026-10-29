@@ -1,8 +1,8 @@
 {
-  "model": "anthropic/claude-opus-5.5",
+  "model": "claude-opus-5-5",
   "framing_overhead": 8,
-  "measurement_transport": "OpenRouter /v1/messages usage.input_tokens",
-  "note": "claude_tokens = claude_raw - framing_overhead; o200k_* come from token-worldcup.qmd",
+  "measurement_transport": "Anthropic count_tokens",
+  "note": "Direct Anthropic recount. claude_tokens = claude_raw - framing_overhead; o200k_* come from token-worldcup.qmd. The previous OpenRouter snapshot matched 27/27 rows and the same 8-token framing overhead.",
   "rows": [
     {
       "name": "Chinese",

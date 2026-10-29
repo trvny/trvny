@@ -18,7 +18,7 @@ ranking. The corpus stays the same while the tokenizer changes.
 | `recount-openai-tokens.mjs` | GPT/open encoding recounts through `gpt-tokenizer` |
 | `recount-deepseek-tokens.py` | DeepSeek V4.1 recount from a pinned official tokenizer |
 | `recount-claude-tokens.py` | Claude recount through the model's token-counting API |
-| `claude-*-token-counts.json` | Auditable raw Claude measurements |
+| `claude-*-token-counts.json` | Auditable raw Claude measurements from Anthropic `count_tokens` |
 
 The corpus lives only in `token-worldcup.qmd`. Recount tools read it directly
 instead of maintaining a second copy.
@@ -54,8 +54,9 @@ python recount-deepseek-tokens.py --check
 python recount-claude-tokens.py --dry-run
 ```
 
-A real Claude recount requires an Anthropic API key or the explicit OpenRouter
-fallback described in `recount-claude-tokens.py`.
+The committed Opus 5.5 snapshot is a direct Anthropic `count_tokens` recount.
+The previous OpenRouter measurement matched all 27 rows and the same 8-token
+framing overhead, so OpenRouter remains an explicit fallback only.
 
 CI repeats the deterministic OpenAI and DeepSeek recount checks, renders the
 Quarto reports, and fails if committed HTML drifts from the maintained QMD.

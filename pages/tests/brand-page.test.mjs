@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { brandResponse } from "../functions/_shared/brand-page.js";
 import { onRequest } from "../functions/_middleware.js";
 
@@ -7,6 +8,25 @@ const response = (url, method = "GET") => brandResponse(new Request(url, { metho
 const middlewareResponse = (url, method = "GET") => onRequest({
   request: new Request(url, { method }),
   next: () => { throw new Error("brand routes must not read hub assets"); },
+});
+
+const verificationValues = (html) => [...html.matchAll(/<meta\b[^>]*>/giu)].flatMap(([tag]) => {
+  const attributes = new Map([...tag.matchAll(/([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gu)]
+    .map(([, name, double, single, unquoted]) => [name.toLowerCase(), double ?? single ?? unquoted]));
+  return attributes.get("name")?.toLowerCase() === "google-site-verification" ? [attributes.get("content")] : [];
+});
+
+test("brand homepage retains the existing Google verification values", async () => {
+  for (const tag of [
+    '<meta name="google-site-verification" content="token">',
+    "<meta content='token' name='google-site-verification' />",
+    '<META CONTENT=token NAME=google-site-verification>',
+  ]) assert.deepEqual(verificationValues(tag), ["token"]);
+  const hub = await readFile(new URL("../site/index.html", import.meta.url), "utf8");
+  const values = verificationValues(hub);
+  assert.ok(values.length > 0);
+  const html = await response("https://trfny.com/").text();
+  assert.deepEqual(verificationValues(html), values);
 });
 
 test("brand homepage has its own identity and direct product links", async () => {

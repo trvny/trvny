@@ -4,7 +4,7 @@
 
 ## Shitpost of the Day
 
-- [Current Shitpost of the Day](https://shitpost.trfny.com/): the newest Shitpost Reactor entry is featured dynamically on the human `/teksty/` page from its JSON Feed, without copying it into this publication catalog.
+- [Current Shitpost of the Day](https://shitpost-reactor.travny.workers.dev/): the newest Shitpost Reactor entry is featured dynamically on the human `/teksty/` page from its JSON Feed, without copying it into this publication catalog.
 
 ## Articles
 

@@ -4,16 +4,17 @@ import assert from "node:assert/strict";
 import { getLatestShitpost, getShitposts } from "../functions/_shared/shitpost.js";
 import { onRequestGet, onRequestHead } from "../functions/teksty/feed.xml.js";
 
-const origin = "https://shitpost.trfny.com";
+const origin = "https://shitpost-reactor.travny.workers.dev";
+const legacy = "https://shitpost.trfny.com";
 const first = {
-  id: origin + "/posts/gh-12-34",
+  id: legacy + "/posts/gh-12-34",
   url: origin + "/posts/gh-12-34",
   summary: "First post & <payload>",
   date_published: "2026-10-07T08:00:00Z",
   tags: ["text"],
 };
 const second = {
-  id: origin + "/posts/gh-56-78",
+  id: legacy + "/posts/gh-56-78",
   url: origin + "/posts/gh-56-78",
   summary: "Newest post",
   date_published: "2026-10-09T08:00:00Z",
@@ -68,6 +69,8 @@ test("merged Atom feed escapes source content and keeps stable original links", 
     assert.ok(xml.includes('<link rel="alternate" href="https://travny.pages.dev/teksty/grass-mud-horse/"/>'));
     assert.ok(!xml.includes("<id>https://travny.pages.dev/teksty"));
     assert.match(xml, /<source><id>https:\/\/shitpost\.trfny\.com\/<\/id>/);
+    assert.ok(xml.includes(`<id>${first.id}</id>`));
+    assert.ok(xml.includes(`<link rel="alternate" href="${first.url}"/>`));
     assert.ok(xml.indexOf(second.url) < xml.indexOf("Alpaca &amp; crab"));
     assert.ok(xml.indexOf("Alpaca &amp; crab") < xml.indexOf(first.url));
     const head = await onRequestHead(context());
@@ -76,6 +79,32 @@ test("merged Atom feed escapes source content and keeps stable original links", 
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("Reactor rollout accepts both origins without changing old entry IDs", async () => {
+  const old = { ...first, url: first.id };
+  let requested;
+  const posts = await getShitposts(async (url) => {
+    requested = url;
+    return fakeFetch([old, { ...first, date_modified: "2026-10-10T15:00:00Z" }])();
+  });
+  assert.equal(requested, `${origin}/feed.json`);
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].id, first.id);
+  assert.equal(posts[0].url, first.url);
+  assert.equal(posts[0].updated, "2026-10-10T15:00:00.000Z");
+  const fallback = await getShitposts(fakeFetch([{ ...old, id: undefined }]));
+  assert.equal(fallback[0].id, first.id);
+  assert.equal(fallback[0].url, first.url);
+});
+
+test("Reactor origin compatibility does not admit credentials or lookalike hosts", async () => {
+  const posts = await getShitposts(fakeFetch([
+    { ...first, url: "https://user:password@shitpost.trfny.com/posts/gh-12-34" },
+    { ...first, url: "https://shitpost.trfny.com.evil.test/posts/gh-12-34" },
+    { ...first, url: "https://shitpost-reactor.travny.workers.dev.evil.test/posts/gh-12-34" },
+  ]));
+  assert.deepEqual(posts, []);
 });
 
 test("articles remain available if Shitpost Reactor is unavailable", async () => {
@@ -90,6 +119,25 @@ test("articles remain available if Shitpost Reactor is unavailable", async () =>
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("Reactor failures emit bounded signals without source data or error text", async (context) => {
+  const warnings = [];
+  context.mock.method(console, "warn", (...args) => warnings.push(args));
+  for (const fetchImpl of [
+    async () => ({ ok: false, status: 503 }),
+    async () => ({ ok: true, json: async () => ({ unexpected: "private payload" }) }),
+    async () => { throw new Error("private transport details"); },
+    async () => ({ ok: true, json: async () => { throw new Error("private JSON payload"); } }),
+  ]) {
+    assert.deepEqual(await getShitposts(fetchImpl), []);
+  }
+  assert.deepEqual(warnings, [
+    ["shitpost_feed_unavailable", { reason: "http", status: 503 }],
+    ["shitpost_feed_unavailable", { reason: "invalid_feed" }],
+    ["shitpost_feed_unavailable", { reason: "request_or_json" }],
+    ["shitpost_feed_unavailable", { reason: "request_or_json" }],
+  ]);
 });
 
 test("newer duplicate updates win and tracking URL variants collapse", async () => {

@@ -24,15 +24,15 @@ test('feed title drops the trvny prefix and feeds carry icon metadata', () => {
   assert.match(rss, /<title>Shitpost Reactor<\/title>/);
   assert.match(rss, /<image>[\s\S]*favicon-96x96\.png/);
   assert.match(atom, /<title>Shitpost Reactor<\/title>/);
-  assert.match(atom, /<icon>https:\/\/shitpost\.trfny\.com\/favicon\.svg<\/icon>/);
-  assert.match(atom, /<logo>https:\/\/shitpost\.trfny\.com\/icon-512\.png<\/logo>/);
+  assert.match(atom, /<icon>https:\/\/shitpost-reactor\.travny\.workers\.dev\/favicon\.svg<\/icon>/);
+  assert.match(atom, /<logo>https:\/\/shitpost-reactor\.travny\.workers\.dev\/icon-512\.png<\/logo>/);
   assert.equal(json.title, 'Shitpost Reactor');
-  assert.equal(json.favicon, 'https://shitpost.trfny.com/favicon-32x32.png');
-  assert.equal(json.icon, 'https://shitpost.trfny.com/icon-512.png');
+  assert.equal(json.favicon, 'https://shitpost-reactor.travny.workers.dev/favicon-32x32.png');
+  assert.equal(json.icon, 'https://shitpost-reactor.travny.workers.dev/icon-512.png');
 });
 
 test('individual posts expose truthful BlogPosting schema and publication date', async () => {
-  const response = await worker.fetch(new Request(post.url), {
+  const response = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/posts/gh-123-1'), {
     FEED: {
       get: async (key) => key === `posts/${post.id}.json`
         ? { json: async () => post }
@@ -45,15 +45,15 @@ test('individual posts expose truthful BlogPosting schema and publication date',
   assert.ok(match, 'BlogPosting data must be inside the document head');
   const schema = JSON.parse(match[1]);
   assert.equal(schema['@type'], 'BlogPosting');
-  assert.equal(schema['@id'], `${post.url}#post`);
-  assert.equal(schema.mainEntityOfPage['@id'], post.url);
+  assert.equal(schema['@id'], 'https://shitpost-reactor.travny.workers.dev/posts/gh-123-1#post');
+  assert.equal(schema.mainEntityOfPage['@id'], 'https://shitpost-reactor.travny.workers.dev/posts/gh-123-1');
   assert.equal(schema.headline, 'deploy przeszedł. aplikacja nie.');
   assert.equal(schema.articleBody, post.content.text);
   assert.equal(schema.datePublished, post.published_at);
   assert.deepEqual(schema.author, {
     '@type': 'Organization',
     name: 'Shitpost Reactor',
-    url: 'https://shitpost.trfny.com/',
+    url: 'https://shitpost-reactor.travny.workers.dev/',
   });
   assert.match(html, /<time datetime="2026-10-01T18:01:00.000Z">/);
 });
@@ -63,7 +63,7 @@ test('sitemap includes every archived post without reading post bodies', async (
     id: `gh-${1000 + index}-1`,
     published_at: new Date(Date.UTC(2026, 8, 1 + index)).toISOString(),
   }));
-  const response = await worker.fetch(new Request('https://shitpost.trfny.com/sitemap.xml'), {
+  const response = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/sitemap.xml'), {
     FEED: {
       get: async (key) => {
         assert.equal(key, 'index.json', 'sitemap must not read post JSON objects');
@@ -74,12 +74,12 @@ test('sitemap includes every archived post without reading post bodies', async (
   assert.equal(response.status, 200);
   const xml = await response.text();
   assert.equal((xml.match(/<loc>/g) ?? []).length, 57); // Home, archive, 55 posts.
-  assert.match(xml, /<loc>https:\/\/shitpost\.trfny\.com\/posts\/gh-1000-1<\/loc>/);
-  assert.match(xml, /<loc>https:\/\/shitpost\.trfny\.com\/posts\/gh-1054-1<\/loc>/);
+  assert.match(xml, /<loc>https:\/\/shitpost-reactor\.travny\.workers\.dev\/posts\/gh-1000-1<\/loc>/);
+  assert.match(xml, /<loc>https:\/\/shitpost-reactor\.travny\.workers\.dev\/posts\/gh-1054-1<\/loc>/);
 });
 
 test('homepage hides the description while retaining discovery metadata', async () => {
-  const response = await worker.fetch(new Request('https://shitpost.trfny.com/'), {
+  const response = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/'), {
     FEED: { get: () => null },
   });
   const html = await response.text();
@@ -108,16 +108,16 @@ test('homepage hides the description while retaining discovery metadata', async 
 
 test('version endpoint exposes only a valid injected GitHub SHA', async () => {
   const sha = 'a'.repeat(40);
-  const valid = await worker.fetch(new Request('https://shitpost.trfny.com/version'), { DEPLOY_COMMIT: sha });
+  const valid = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/version'), { DEPLOY_COMMIT: sha });
   assert.equal(await valid.text(), `${sha}\n`);
-  const unknown = await worker.fetch(new Request('https://shitpost.trfny.com/version'), {});
+  const unknown = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/version'), {});
   assert.equal(await unknown.text(), 'unknown\n');
-  const invalid = await worker.fetch(new Request('https://shitpost.trfny.com/version'), { DEPLOY_COMMIT: 'not-a-hash' });
+  const invalid = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/version'), { DEPLOY_COMMIT: 'not-a-hash' });
   assert.equal(await invalid.text(), 'unknown\n');
 });
 
 test('robots policy explicitly welcomes AI crawlers and everyone else', async () => {
-  const response = await worker.fetch(new Request('https://shitpost.trfny.com/robots.txt'), {});
+  const response = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/robots.txt'), {});
   const text = await response.text();
 
   assert.match(text, /User-agent: GPTBot/);
@@ -127,11 +127,11 @@ test('robots policy explicitly welcomes AI crawlers and everyone else', async ()
   assert.match(text, /User-agent: Google-Extended/);
   assert.match(text, /User-agent: Applebot-Extended/);
   assert.match(text, /User-agent: \*\nContent-Signal: ai-train=yes, search=yes, ai-input=yes\nAllow: \//);
-  assert.match(text, /Sitemap: https:\/\/shitpost\.trfny\.com\/sitemap\.xml/);
+  assert.match(text, /Sitemap: https:\/\/shitpost-reactor\.travny\.workers\.dev\/sitemap\.xml/);
 });
 
 test('llms.txt exposes canonical feeds and discovery routes', async () => {
-  const response = await worker.fetch(new Request('https://shitpost.trfny.com/llms.txt'), {});
+  const response = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/llms.txt'), {});
   const text = await response.text();
 
   assert.match(text, /^# Shitpost Reactor/m);
@@ -141,14 +141,14 @@ test('llms.txt exposes canonical feeds and discovery routes', async () => {
   assert.match(text, /^- \[RSS 2\.0\]\(https:\/\/shitpost-reactor\.travny\.workers\.dev\/rss\.xml\)$/m);
   assert.match(text, /^- \[Atom 1\.0\]\(https:\/\/shitpost-reactor\.travny\.workers\.dev\/atom\.xml\)$/m);
   assert.match(text, /^- \[JSON Feed 1\.1\]\(https:\/\/shitpost-reactor\.travny\.workers\.dev\/feed\.json\)$/m);
-  assert.match(text, /^- \[Archive\]\(https:\/\/shitpost-reactor\.travny\.workers\.dev\/archive\)$/m);
-  assert.match(text, /feed metadata, robots sitemap directives and sitemap entries still refer/);
+  assert.match(text, /^- \[Full archive\]\(https:\/\/shitpost-reactor\.travny\.workers\.dev\/archive\)$/m);
+  assert.match(text, /Existing Atom feed IDs and entry identifiers are preserved/);
   assert.match(text, /Robots policy/);
   assert.match(text, /site\.webmanifest/);
 });
 
 test('web manifest propagates raster, SVG and maskable icons', async () => {
-  const response = await worker.fetch(new Request('https://shitpost.trfny.com/site.webmanifest'), {});
+  const response = await worker.fetch(new Request('https://shitpost-reactor.travny.workers.dev/site.webmanifest'), {});
   const manifest = JSON.parse(await response.text());
 
   assert.equal(manifest.name, 'Shitpost Reactor');

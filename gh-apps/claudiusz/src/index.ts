@@ -1,8 +1,10 @@
 import { ToolError, type GitHubEnv } from './github.ts';
 import { TOOLS, callTool } from './tools.ts';
+import { MCP_PATH, challenge, handleOAuth, validAccessToken } from './oauth.ts';
 
 export interface Env extends GitHubEnv {
-  // Shared secret: the claude.ai connector URL path, or `Authorization: Bearer`.
+  // Shared secret: the OAuth access code and token-signing key, plus legacy
+  // auth as the URL path or `Authorization: Bearer`.
   // Unset means every POST is rejected — this endpoint writes to GitHub.
   CLAUDIUSZ_MCP_TOKEN?: string;
 }
@@ -86,9 +88,9 @@ export function secretsMatch(a: string, b: string): boolean {
   return diff === 0;
 }
 
-// claude.ai custom connectors take only a URL, so the token rides in the path
-// (invocation logs are off in wrangler.jsonc for that reason). Bearer is kept
-// for curl.
+// Legacy auth: the token as the URL path (old tokenized connector URL;
+// invocation logs are off in wrangler.jsonc for that reason) or as Bearer for
+// curl. OAuth clients use /mcp with an access token instead (src/oauth.ts).
 export function authorized(request: Request, env: Env): boolean {
   const expected = env.CLAUDIUSZ_MCP_TOKEN;
   if (!expected) return false;
@@ -193,24 +195,32 @@ export default {
         },
       });
     }
+    const oauth = await handleOAuth(request, env.CLAUDIUSZ_MCP_TOKEN);
+    if (oauth) return oauth;
+
     if (request.method === 'GET' || request.method === 'HEAD') {
       // Unauthenticated on purpose: connector lists fetch the icon anonymously.
       const pathname = new URL(request.url).pathname;
       if (pathname === ICON_PATH || pathname === FAVICON_PATH) return icon(env.CLAUDIUSZ_APP_ID);
-      return new Response('claudiusz-mcp. POST JSON-RPC to the tokenized URL.\n', {
+      return new Response('claudiusz-mcp. MCP endpoint: POST /mcp (OAuth).\n', {
         headers: { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' },
       });
     }
     if (request.method !== 'POST') return json(err(null, -32600, 'Method not allowed'), 405);
 
-    if (!authorized(request, env)) {
+    const url = new URL(request.url);
+    const origin = url.origin;
+    if (url.pathname === MCP_PATH) {
+      const allowed =
+        authorized(request, env) || (await validAccessToken(request, env.CLAUDIUSZ_MCP_TOKEN, origin));
+      if (!allowed) return challenge(origin);
+    } else if (!authorized(request, env)) {
       return json(err(null, -32001, 'Unauthorized'), 401, { 'WWW-Authenticate': 'Bearer realm="claudiusz-mcp"' });
     }
 
     const text = await request.text();
     if (text.length > MAX_BODY_BYTES) return json(err(null, -32600, 'Request too large'), 413);
 
-    const origin = new URL(request.url).origin;
     let payload: unknown;
     try {
       payload = JSON.parse(text);

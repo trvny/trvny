@@ -41,8 +41,8 @@ const NAV_BODY = `
   <div id="trvny-nav-head"><span id="trvny-nav-brand">TRAVNY</span><button id="trvny-nav-close" type="button" aria-label="Zamknij menu">×</button></div>
   <nav>
     <div class="trvny-nav-group"><span class="trvny-nav-label">START</span><a class="trvny-nav-link" href="/">Strona główna<small>hub TRAVNY</small></a><a class="trvny-nav-link" href="/tv/">TVP<small>kanały i odtwarzacz</small></a></div>
-    <div class="trvny-nav-group"><span class="trvny-nav-label">USŁUGI</span><a class="trvny-nav-link" href="https://weather.trfny.com/">Pogoda</a><a class="trvny-nav-link" href="https://trvny.github.io/feedseek/">Feedy</a></div>
-    <div class="trvny-nav-group"><span class="trvny-nav-label">LAB</span><a class="trvny-nav-link" href="https://streambench.trfny.com/">Streambench</a><a class="trvny-nav-link" href="https://codebench.trfny.com/">Codebench</a><a class="trvny-nav-link" href="https://docbench.travny.workers.dev/">Docbench</a><a class="trvny-nav-link" href="/papagenerator/">Papagenerator</a></div>
+    <div class="trvny-nav-group"><span class="trvny-nav-label">USŁUGI</span><a class="trvny-nav-link" href="https://weather.travny.workers.dev/">Pogoda</a><a class="trvny-nav-link" href="https://trvny.github.io/feedseek/">Feedy</a></div>
+    <div class="trvny-nav-group"><span class="trvny-nav-label">LAB</span><a class="trvny-nav-link" href="https://streambench.travny.workers.dev/">Streambench</a><a class="trvny-nav-link" href="https://codebench.travny.workers.dev/">Codebench</a><a class="trvny-nav-link" href="https://docbench.travny.workers.dev/">Docbench</a><a class="trvny-nav-link" href="/papagenerator/">Papagenerator</a></div>
     <div class="trvny-nav-group"><span class="trvny-nav-label">TEKSTY</span><a class="trvny-nav-link" href="/teksty/">Wszystkie teksty</a><a class="trvny-nav-link" href="/teksty/githubowa-kraina/">GitHubowa Kraina<small>atlas projektów</small></a><a class="trvny-nav-link" href="/teksty/token-worldcup/">Tokenowy Mundial AI</a></div>
   </nav>
 </aside>

@@ -35,6 +35,8 @@ function landing() {
 <title>${title}</title><meta name="description" content="${description}">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="theme-color" content="#04060a">
+<meta name="google-site-verification" content="GNRW9My8O_IdeadkT_TDeq9zaNW8axruvvOdk3-aZ2I">
+<meta name="google-site-verification" content="WzJcq0VGxOqsEn-H1N_XhHiXlX0bU2A85VvrHbWAPfU">
 <link rel="canonical" href="${BRAND_ORIGIN}/">
 <link rel="icon" href="${HUB_ORIGIN}/favicon.svg" type="image/svg+xml">
 <link rel="describedby" href="${HUB_ORIGIN}/llms.txt">

@@ -13,7 +13,8 @@
       "enabled": true,
       "head_sampling_rate": 0.01,
       "persist": false,
-      // Off: the token arrives in the URL path and would land in invocation logs.
+      // Off: the legacy connector URL carries the token in its path and would
+      // land in invocation logs.
       "invocation_logs": false
     }
   },

@@ -19,9 +19,10 @@ Installations are resolved per owner and limited to `ALLOWED_OWNERS`
 
 ## Secrets
 
-- `CLAUDIUSZ_MCP_TOKEN` — Cloudflare connector path/Bearer token. On Manufact
-  it is also the one-time access code shown to the owner during OAuth and the
-  root key for hosted OAuth credentials.
+- `CLAUDIUSZ_MCP_TOKEN` — the OAuth access code typed once on the authorize
+  page, and the HMAC key for client IDs, codes and tokens (both runtimes, so
+  their tokens are interchangeable). Also accepted directly as Bearer, and as
+  the legacy URL path. Rotating it revokes every issued token.
 - `GH_APP_PRIVATE_KEY` — app private key, PEM as downloaded (PKCS#1 or PKCS#8).
 
 ## App permissions
@@ -39,9 +40,18 @@ reference the same icon set so clients can use whichever surface they support.
 
 Worker: `claudiusz-mcp` (workers.dev).
 
-Connector:
+Connector: `https://claudiusz-mcp.travny.workers.dev/mcp` — MCP OAuth
+(`src/oauth.ts`): discovery, dynamic client registration, Authorization Code +
+PKCE, 1 h access / 30 d refresh tokens. The authorize page asks once for
+`CLAUDIUSZ_MCP_TOKEN`; it never reaches the client and the URL stays token-free,
+so it can ship in plugin `.mcp.json` files.
 
-`https://claudiusz-mcp.travny.workers.dev/<CLAUDIUSZ_MCP_TOKEN>`
+Stateless on purpose (isolates aren't sticky): the form nonce and the
+authorization code are signed, expiring values. A code is therefore replayable
+until it expires (5 min), but only together with its PKCE verifier.
+
+Legacy: `https://claudiusz-mcp.travny.workers.dev/<CLAUDIUSZ_MCP_TOKEN>` still
+works. Remove that path once no connector uses it.
 
 Workers Builds deploys on pushes to `main` that touch this directory or
 `gh-apps/core/**`

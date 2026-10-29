@@ -308,7 +308,7 @@ export async function refreshCompanion(
     decoded(previous?.body?.match(QUIP_RE)?.[1] ?? ''),
   );
   const previousLearnedQuip = ['ai', 'pool'].includes(previousSource)
-    ? reusableQuip(previousQuip, language) ?? ''
+    ? reusableQuip(previousQuip, language, legacyQuipFacts.area) ?? ''
     : previousQuip;
   const previousPromptQuip = promptPreviousQuip(previous?.body, previousLearnedQuip);
   let pool = rememberQuip(
@@ -335,7 +335,7 @@ export async function refreshCompanion(
   const tryPool = async (): Promise<void> => {
     if (poolAttempted || !canUsePool(current.key)) return;
     poolAttempted = true;
-    bank = await loadBank(env, quipKey, stateHash, measuredBank, language);
+    bank = await loadBank(env, quipKey, stateHash, measuredBank, language, quipFacts.area);
     const pooled = await pooledQuip(
       quipKey,
       stateHash,
@@ -343,6 +343,7 @@ export async function refreshCompanion(
       bank,
       previousLearnedQuip,
       language,
+      quipFacts.area,
     );
     if (pooled) {
       quip = pooled;
@@ -406,7 +407,7 @@ export async function refreshCompanion(
       size: prSize.key,
       previousQuip: previousPromptQuip || null,
     });
-    const generated = reusableQuip(await aiQuip(facts, env, fetcher), language);
+    const generated = reusableQuip(await aiQuip(facts, env, fetcher), language, quipFacts.area);
     if (generated) {
       quip = generated;
       source = 'ai';

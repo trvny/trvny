@@ -62,6 +62,10 @@ every PR with the same `quipKey`, so PR-specific wording leaks across PRs.
 `QUIP_PROMPT_SCOPE` only marks status comments made under the state-only prompt
 (gates which previous quip feeds the prompt); it is not part of `quipKey`.
 
+`genericQuip` (quip.ts) gates every read and generation: quips naming versions,
+paths, packages, features or product names (mostly pre-scope-2 leftovers) are
+skipped on read, never deleted. A change-specific AI answer is not banked.
+
 A generated quip is archived before GitHub mutation. If receipt persistence
 fails, active-bank persistence is attempted before GitHub work so a paid result
 still has durable protection.

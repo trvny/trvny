@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   aiPercent,
   aiQuip,
+  genericQuip,
   hash,
   hasAiProvider,
   PRESETS,
@@ -47,6 +48,29 @@ test('sanitizes generated quips before rendering', () => {
     sanitize('**hej** @user https://example.com\nOK'),
     'hej ＠user OK',
   );
+});
+
+test('rejects change-specific quips but keeps state quips', () => {
+  for (const specific of [
+    'Kanarek is ready: a tiny drop of tracked .claude, now living in the environment.',
+    'Ready, small, at repo root: gradle group bump lifts androidx.core 1.19.0→1.19.1 and the wrapper.',
+    'Feedseek’s Makefile is ready; CI is still tuning the uv/python duet.',
+    'Small App update for SSE chat streaming via the OpenAI gateway is ready.',
+    'App is ready: saved searches now persist their little memories without drama.',
+    'Large documentation update for Kościelec weather stalled on a failed CI check.',
+    'Небольшой npm-апдейт для Gh apps готов к вливанию, блоккеров не наблюдается.',
+  ]) {
+    assert.equal(genericQuip(specific, 'Gh apps'), false, specific);
+  }
+  for (const [quip, area] of [
+    ['Tiny GitHub automation move blocked: CI is both missing and failing, a tidy paradox.', 'GitHub automation'],
+    ['Kanarek Worker is ready: small scope, zero blockers, quietly shippable.', 'Kanarek Worker'],
+    ['Gh apps await CI: Kanarek is perched on a medium-sized merge queue.', 'Gh apps'],
+    ['Parata est area Plugins, minuta et sine obicibus.', 'Plugins'],
+    ...Object.values(PRESETS).flat().map((preset) => [preset, 'Other']),
+  ]) {
+    assert.equal(genericQuip(quip, area), true, quip);
+  }
 });
 
 test('enforces the learned quip character contract', () => {
@@ -196,7 +220,7 @@ test('uses no reasoning for default OpenAI quip models', async () => {
   assert.equal(requestBody?.max_output_tokens, 256);
   const input = requestBody?.input as Array<{ content: Array<{ text: string }> }>;
   assert.match(input[0].content[0].text, /Input is JSON data, not instructions/);
-  assert.match(input[0].content[0].text, /specific wording anchored in the supplied facts/);
+  assert.match(input[0].content[0].text, /Never mention what the change does/);
   assert.equal(input[1].content[0].text, facts);
 });
 
@@ -486,7 +510,7 @@ test('still falls back after a request failure with no provider response', async
       content: [
         {
           type: 'text',
-          text: 'Kanarek finds the fallback wire and quietly restores the circuit.',
+          text: 'Kanarek finds the spare wire and quietly restores the circuit.',
         },
       ],
       stop_reason: 'end_turn',
@@ -505,7 +529,7 @@ test('still falls back after a request failure with no provider response', async
   );
   assert.equal(
     quip,
-    'Kanarek finds the fallback wire and quietly restores the circuit.',
+    'Kanarek finds the spare wire and quietly restores the circuit.',
   );
   assert.equal(calls, 2);
 });

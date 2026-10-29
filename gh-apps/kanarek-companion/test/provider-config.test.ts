@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { aiQuip, QUIP_MODEL_DEFAULTS } from '../src/companion/quip.ts';
 
-const VALID_QUIP = 'Kanarek checks the provider panel and finds every dial behaving.';
+const VALID_QUIP = 'Kanarek checks the control panel and finds every dial behaving.';
 
 test('uses the configured xAI default', async () => {
   let requestBody: Record<string, unknown> = {};

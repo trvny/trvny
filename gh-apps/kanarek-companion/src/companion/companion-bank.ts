@@ -418,6 +418,7 @@ export async function loadBank(
   stateHash: string,
   context?: BankContext,
   language?: CompanionLanguage,
+  area?: string,
 ): Promise<QuipEntry[]> {
   if (!env.KANAREK_QUIP_KV) return [];
   try {
@@ -428,8 +429,9 @@ export async function loadBank(
       context?.available ? context.keys : undefined,
       language,
     );
+    // Change-specific entries are skipped here, never deleted (see genericQuip).
     return entries
-      .filter((entry) => !language || reusableStoredQuip(entry.q, entry.l, language))
+      .filter((entry) => !language || reusableStoredQuip(entry.q, entry.l, language, area))
       .slice(0, POOL_LIMIT);
   } catch (error) {
     console.warn(
@@ -527,6 +529,7 @@ export async function pooledQuip(
   bank: QuipEntry[],
   excluded: string,
   language?: CompanionLanguage,
+  area?: string,
 ): Promise<string | null> {
   const candidates = [
     ...oldComments.flatMap((item) => quipsFromComment(item.body, quipKey)),
@@ -537,7 +540,7 @@ export async function pooledQuip(
       candidates
         .map((entry) =>
           language
-            ? reusableStoredQuip(entry.q, entry.l, language)
+            ? reusableStoredQuip(entry.q, entry.l, language, area)
             : sanitize(entry.q),
         )
         .filter((candidate): candidate is string => Boolean(candidate)),

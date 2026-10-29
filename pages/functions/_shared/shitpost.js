@@ -1,5 +1,6 @@
-const SHITPOST_FEED_URL = "https://shitpost.trfny.com/feed.json";
-const SHITPOST_ORIGIN = "https://shitpost.trfny.com";
+const SHITPOST_ORIGIN = "https://shitpost-reactor.travny.workers.dev";
+const SHITPOST_FEED_URL = `${SHITPOST_ORIGIN}/feed.json`;
+const SOURCE_ORIGINS = new Set([SHITPOST_ORIGIN, "https://shitpost.trfny.com"]);
 const UNDATED_UPDATED = "1970-01-01T00:00:00.000Z";
 const MAX_SOURCE_ITEMS = 500;
 
@@ -8,19 +9,27 @@ function parseTimestamp(value) {
   return Number.isFinite(parsed) ? new Date(parsed).toISOString() : "";
 }
 
-function normalizeShitpostItem(item) {
-  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
-
+function postUrl(value) {
   let url;
   try {
-    url = new URL(String(item.url || item.id || ""));
+    url = new URL(String(value || ""));
   } catch {
     return null;
   }
 
-  if (url.origin !== SHITPOST_ORIGIN || !/^\/posts\/gh-\d+-\d+$/u.test(url.pathname)) return null;
+  if (!SOURCE_ORIGINS.has(url.origin) || url.username || url.password || !/^\/posts\/gh-\d+-\d+$/u.test(url.pathname)) return null;
   url.search = "";
   url.hash = "";
+  return url;
+}
+
+function normalizeShitpostItem(item) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+  const sourceUrl = postUrl(item.url || item.id);
+  if (!sourceUrl) return null;
+  const sourceId = postUrl(item.id);
+  const id = sourceId?.pathname === sourceUrl.pathname ? sourceId.href : sourceUrl.href;
+  const url = new URL(sourceUrl.pathname, SHITPOST_ORIGIN);
 
   const caption = String(item.summary || item.title || "").trim();
   if (!caption) return null;
@@ -38,6 +47,7 @@ function normalizeShitpostItem(item) {
     : [];
 
   return {
+    id,
     url: url.toString(),
     caption,
     published,
@@ -54,9 +64,15 @@ export async function getShitposts(fetchImpl = fetch, limit = 50) {
       cf: { cacheEverything: true, cacheTtl: 300 },
       signal: AbortSignal.timeout(3_000),
     });
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.warn("shitpost_feed_unavailable", { reason: "http", status: response.status });
+      return [];
+    }
     const feed = await response.json();
-    if (!feed || !Array.isArray(feed.items)) return [];
+    if (!feed || !Array.isArray(feed.items)) {
+      console.warn("shitpost_feed_unavailable", { reason: "invalid_feed" });
+      return [];
+    }
 
     const count = Math.max(0, Math.min(100, Math.trunc(limit) || 0));
     if (count === 0) return [];
@@ -74,6 +90,7 @@ export async function getShitposts(fetchImpl = fetch, limit = 50) {
       .sort((a, b) => b.updated.localeCompare(a.updated))
       .slice(0, count);
   } catch {
+    console.warn("shitpost_feed_unavailable", { reason: "request_or_json" });
     return [];
   }
 }

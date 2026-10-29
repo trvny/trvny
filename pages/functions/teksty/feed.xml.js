@@ -45,7 +45,7 @@ function renderShitpostEntry(post) {
     .join("\n");
   return `  <entry xml:lang="pl">
     <title>${escapeXml(title)}</title>
-    <id>${escapeXml(post.url)}</id>
+    <id>${escapeXml(post.id)}</id>
     <link rel="alternate" href="${escapeXml(post.url)}"/>
 ${publishedLine}    <updated>${escapeXml(post.updated)}</updated>
     <author><name>Shitpost Reactor</name></author>

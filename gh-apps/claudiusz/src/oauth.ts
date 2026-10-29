@@ -174,8 +174,10 @@ ${errorHtml}
       headers: {
         'Cache-Control': 'no-store',
         'Content-Type': 'text/html; charset=utf-8',
+        // No form-action: Chromium applies it to the 302 after submit, which
+        // leaves for the client's redirect_uri (another origin).
         'Content-Security-Policy':
-          "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
         'Referrer-Policy': 'no-referrer',
         'X-Content-Type-Options': 'nosniff',
       },

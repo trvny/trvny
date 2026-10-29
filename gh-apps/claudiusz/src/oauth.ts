@@ -259,7 +259,8 @@ async function register(request: Request, secret: string): Promise<Response> {
   const issuedAt = now();
   return oauthJson(
     {
-      client_id: await sign('claudiusz_client', { redirect_uris: uris, iat: issuedAt }, secret),
+      // jti keeps two registrations with the same URIs in the same second distinct.
+      client_id: await sign('claudiusz_client', { redirect_uris: uris, iat: issuedAt, jti: randomId() }, secret),
       client_id_issued_at: issuedAt,
       redirect_uris: uris,
       grant_types: ['authorization_code', 'refresh_token'],
